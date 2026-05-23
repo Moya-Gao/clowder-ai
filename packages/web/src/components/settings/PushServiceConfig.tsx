@@ -147,7 +147,8 @@ export function PushServiceConfig({ embedded = false }: { embedded?: boolean } =
   const content = (
     <>
       <SettingsText as="p" tone="secondary">
-        <span className="font-medium text-cafe-black">VAPID 推送密钥</span> — 保存后写入运行时 .env；密钥字段留空会保留现有值。
+        <span className="font-medium text-cafe-black">VAPID 推送密钥</span> — 保存后写入运行时
+        .env；密钥字段留空会保留现有值。
       </SettingsText>
 
       <div className="grid gap-2">

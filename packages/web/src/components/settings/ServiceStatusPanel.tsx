@@ -3,7 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import { HubIcon } from '../hub-icons';
-import { SettingsResourceIconButton, SettingsResourceToggleSwitch, settingsResourceCardClass } from '../SettingsResourceCard';
+import {
+  SettingsResourceIconButton,
+  SettingsResourceToggleSwitch,
+  settingsResourceCardClass,
+} from '../SettingsResourceCard';
 import { InstallPreviewModal } from './InstallPreviewModal';
 import { SettingsText } from './primitives';
 import { adaptServiceState, type HomeServiceState, type ServiceUiState } from './service-ui-adapter';
@@ -16,7 +20,6 @@ const STATUS_DOT_COLOR: Record<string, string> = {
   installing: 'var(--conn-amber-text)',
   starting: 'var(--conn-amber-text)',
 };
-
 
 const ROW_STYLE = { paddingInline: '1.25rem', paddingBlock: '0.75rem' } as const;
 const LOG_POLL_MS = 2000;

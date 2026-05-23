@@ -141,7 +141,11 @@ export function McpInstallForm({ projectPath, onInstalled, onClose, prefilledId 
 
       {/* Transport */}
       <Field label="传输协议">
-        <select value={transport} onChange={(e) => setTransport(e.target.value as Transport)} className="w-full rounded-lg bg-[var(--console-field-bg)] pl-2 pr-6 py-1.5 text-xs text-cafe-secondary outline-none transition focus:ring-1 focus:ring-[var(--console-input-stroke)]">
+        <select
+          value={transport}
+          onChange={(e) => setTransport(e.target.value as Transport)}
+          className="w-full rounded-lg bg-[var(--console-field-bg)] pl-2 pr-6 py-1.5 text-xs text-cafe-secondary outline-none transition focus:ring-1 focus:ring-[var(--console-input-stroke)]"
+        >
           <option value="stdio">stdio (本地命令)</option>
           <option value="streamableHttp">streamableHttp (远程 URL)</option>
         </select>

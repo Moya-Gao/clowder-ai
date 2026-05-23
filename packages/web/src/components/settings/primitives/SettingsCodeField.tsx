@@ -6,9 +6,7 @@ export function SettingsCodeField(props: Omit<InputHTMLAttributes<HTMLInputEleme
 }
 
 export function SettingsReadOnlyField({ children }: { children: ReactNode }) {
-  return (
-    <div className={`${formInputClass} border-dashed !border-[var(--console-border-soft)]`}>{children}</div>
-  );
+  return <div className={`${formInputClass} border-dashed !border-[var(--console-border-soft)]`}>{children}</div>;
 }
 
 export function SettingsVarRow({ children }: { children: ReactNode }) {

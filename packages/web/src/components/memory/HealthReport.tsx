@@ -146,6 +146,7 @@ function DonutRing({ byAuthority, total }: { byAuthority: Record<string, number>
             <circle cx="50" cy="50" r="40" fill="none" stroke="#E8C872" strokeWidth="16" />
           )}
         </svg>
+        {/* data-viz palette exempt: donut center label */}
         <span className="absolute text-lg font-bold text-[#7A5C1F]">{pct}%</span>
       </div>
       <div className="flex flex-col gap-1.5">
@@ -199,7 +200,7 @@ function ActionItems({ items }: { items: string[] }) {
       <ul className="space-y-1">
         {items.map((item) => (
           <li key={item} className="flex items-start gap-2 text-xs text-conn-amber-text">
-            <span className="mt-0.5 inline-block h-1.5 w-1.5 rounded-full bg-amber-400" />
+            <span className="mt-0.5 inline-block h-1.5 w-1.5 rounded-full bg-conn-amber-text" />
             {item}
           </li>
         ))}
@@ -232,7 +233,7 @@ export function HealthReport() {
     return (
       <div data-testid="health-report" className="rounded-lg border border-conn-red-ring bg-conn-red-bg p-4">
         <p className="text-sm text-conn-red-text">{error}</p>
-        <button type="button" onClick={fetchReport} className="mt-2 text-xs text-red-700 underline">
+        <button type="button" onClick={fetchReport} className="mt-2 text-xs text-conn-red-text underline">
           重试
         </button>
       </div>

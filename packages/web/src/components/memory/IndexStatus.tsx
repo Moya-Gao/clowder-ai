@@ -180,7 +180,7 @@ export function IndexStatus() {
     return (
       <div data-testid="index-status" className="rounded-lg border border-conn-red-ring bg-conn-red-bg p-4">
         <p className="text-sm text-conn-red-text">{error}</p>
-        <button type="button" onClick={fetchAll} className="mt-2 text-xs text-red-700 underline">
+        <button type="button" onClick={fetchAll} className="mt-2 text-xs text-conn-red-text underline">
           重试
         </button>
       </div>

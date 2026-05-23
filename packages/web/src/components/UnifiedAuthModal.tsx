@@ -276,9 +276,7 @@ export function UnifiedAuthModal({ open, onClose, onCreated, editProfile, initia
             <div>
               <label className="mb-1 block text-xs font-medium text-cafe-secondary">Client</label>
               {initialClientId ? (
-                <p className={formInputClass}>
-                  {builtinClientLabel(initialClientId)}
-                </p>
+                <p className={formInputClass}>{builtinClientLabel(initialClientId)}</p>
               ) : (
                 <select
                   value={clientId}

@@ -1087,8 +1087,10 @@ describe('F723 round 6 — select/toggle/button primitive convergence', () => {
     const src = readSrc('memory/IndexStatus.tsx');
     expect(src).not.toContain('bg-emerald-600');
     expect(src).not.toContain('bg-zinc-400');
-    const toggleButtons = src.match(/role="switch"[\s\S]*?<\/button>/g) ??
-      src.match(/rounded-full transition-colors[\s\S]*?<\/button>/g) ?? [];
+    const toggleButtons =
+      src.match(/role="switch"[\s\S]*?<\/button>/g) ??
+      src.match(/rounded-full transition-colors[\s\S]*?<\/button>/g) ??
+      [];
     for (const btn of toggleButtons) {
       expect(btn).not.toContain('bg-conn-green-text');
       expect(btn).not.toContain('bg-gray-300');
@@ -1097,14 +1099,12 @@ describe('F723 round 6 — select/toggle/button primitive convergence', () => {
   });
 
   it('Memory secondary buttons: shadow pattern, no border-soft', () => {
-    for (const file of [
-      'memory/HealthReport.tsx',
-      'memory/RebuildButton.tsx',
-      'memory/IndexStatus.tsx',
-    ]) {
+    for (const file of ['memory/HealthReport.tsx', 'memory/RebuildButton.tsx', 'memory/IndexStatus.tsx']) {
       const src = readSrc(file);
       const buttons = src.match(/<button[\s\S]*?<\/button>/g) ?? [];
-      const secondaryButtons = buttons.filter((b) => b.includes('console-card-bg') && b.includes('text-cafe-secondary'));
+      const secondaryButtons = buttons.filter(
+        (b) => b.includes('console-card-bg') && b.includes('text-cafe-secondary'),
+      );
       for (const btn of secondaryButtons) {
         expect(btn).not.toContain('border-[var(--console-border-soft)]');
         expect(btn).toContain('shadow-[0_1px_3px');
@@ -1201,10 +1201,7 @@ describe('F723 round 7 — CVO visual convergence: tabs, search, selects, button
   });
 
   it('All selects: no appearance-none (native arrow visible)', () => {
-    for (const file of [
-      'signals/SignalFilterBar.tsx',
-      'VoiceSettingsPanel.tsx',
-    ]) {
+    for (const file of ['signals/SignalFilterBar.tsx', 'VoiceSettingsPanel.tsx']) {
       const src = readSrc(file);
       expect(src).not.toContain('appearance-none');
     }
@@ -1394,7 +1391,11 @@ describe('F723 round 9 — install button, error suppression, breadcrumb, tab/ca
   });
 
   it('visible Settings primitives: rounded-xl (modals exempt)', () => {
-    for (const file of ['settings/primitives/SettingsSection.tsx', 'settings/primitives/SettingsToolbar.tsx', 'settings/PushDiagnosticsSection.tsx']) {
+    for (const file of [
+      'settings/primitives/SettingsSection.tsx',
+      'settings/primitives/SettingsToolbar.tsx',
+      'settings/PushDiagnosticsSection.tsx',
+    ]) {
       const src = readSrc(file);
       expect(src).not.toContain('rounded-2xl');
     }

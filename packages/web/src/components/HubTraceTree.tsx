@@ -230,7 +230,7 @@ function SpanDetail({ span }: { span: TraceSpan | undefined }) {
             <button
               type="button"
               onClick={() => setXrayOpen(!xrayOpen)}
-              className="rounded-md bg-conn-purple-bg px-2 py-0.5 text-micro font-medium text-conn-purple-text transition-colors hover:bg-conn-purple-hover hover:text-white"
+              className="rounded-md bg-conn-purple-bg px-2 py-0.5 text-micro font-medium text-conn-purple-text transition-colors hover:bg-conn-purple-hover hover:text-[var(--cafe-surface)]"
             >
               {xrayOpen ? 'Close' : 'X-Ray'}
             </button>

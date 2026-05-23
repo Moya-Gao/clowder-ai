@@ -90,7 +90,7 @@ export function SessionSearchTab({ threadId, onViewSession }: SessionSearchTabPr
             type="button"
             key={s}
             onClick={() => setScope(s)}
-            className={`px-1.5 py-0.5 rounded ${scope === s ? 'bg-conn-blue-bg text-blue-600' : 'hover:bg-cafe-surface-elevated'}`}
+            className={`px-1.5 py-0.5 rounded ${scope === s ? 'bg-conn-blue-bg text-conn-blue-text' : 'hover:bg-cafe-surface-elevated'}`}
           >
             {s === 'both' ? '全部' : s === 'transcripts' ? '对话' : '摘要'}
           </button>
@@ -122,7 +122,7 @@ export function SessionSearchTab({ threadId, onViewSession }: SessionSearchTabPr
                       type="button"
                       data-testid="search-result-session"
                       onClick={() => onViewSession?.(hit.sessionId)}
-                      className="font-mono text-conn-blue-text hover:text-blue-700 hover:underline"
+                      className="font-mono text-conn-blue-text hover:text-conn-blue-text hover:underline"
                     >
                       {hit.sessionId}
                     </button>

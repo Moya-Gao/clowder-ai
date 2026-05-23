@@ -32,10 +32,7 @@ function NavItem({
         data-active={active ? 'true' : 'false'}
         className={`flex w-full items-center gap-2 rounded-lg px-2.5 h-9 text-left transition-colors ${active ? 'bg-[var(--console-active-bg)] font-medium text-cafe-black' : 'hover:bg-[var(--console-hover-bg)]'}`}
       >
-        <span
-          className="flex-shrink-0"
-          style={{ color: active ? 'var(--cafe-accent)' : 'var(--cafe-text-secondary)' }}
-        >
+        <span className="flex-shrink-0" style={{ color: active ? 'var(--cafe-accent)' : 'var(--cafe-text-secondary)' }}>
           <HubIcon name={section.icon} className="h-4 w-4" />
         </span>
         <span className={`text-compact truncate ${active ? 'font-medium' : 'text-cafe-secondary'}`}>

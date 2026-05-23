@@ -34,7 +34,9 @@ describe('adaptServiceState', () => {
   });
 
   it('maps installed + enabled + unhealthy to error', () => {
-    const result = adaptServiceState(makeHome({ status: 'unhealthy', installed: true, enabled: true, error: 'HTTP 503' }));
+    const result = adaptServiceState(
+      makeHome({ status: 'unhealthy', installed: true, enabled: true, error: 'HTTP 503' }),
+    );
     expect(result.status).toBe('error');
     expect(result.statusLabel).toBe('异常');
     expect(result.running).toBe(false);
@@ -52,12 +54,16 @@ describe('adaptServiceState', () => {
   });
 
   it('suppresses error when installed but disabled', () => {
-    const result = adaptServiceState(makeHome({ status: 'unhealthy', installed: true, enabled: false, error: 'fetch failed' }));
+    const result = adaptServiceState(
+      makeHome({ status: 'unhealthy', installed: true, enabled: false, error: 'fetch failed' }),
+    );
     expect(result.error).toBeUndefined();
   });
 
   it('maps not installed to not_configured', () => {
-    const result = adaptServiceState(makeHome({ status: 'not_configured', configured: false, endpoint: null, installed: false, enabled: false }));
+    const result = adaptServiceState(
+      makeHome({ status: 'not_configured', configured: false, endpoint: null, installed: false, enabled: false }),
+    );
     expect(result.status).toBe('not_configured');
     expect(result.statusLabel).toBe('未配置');
     expect(result.running).toBe(false);
@@ -65,7 +71,16 @@ describe('adaptServiceState', () => {
   });
 
   it('suppresses error when not installed', () => {
-    const result = adaptServiceState(makeHome({ status: 'not_configured', configured: false, endpoint: null, installed: false, enabled: false, error: 'fetch failed' }));
+    const result = adaptServiceState(
+      makeHome({
+        status: 'not_configured',
+        configured: false,
+        endpoint: null,
+        installed: false,
+        enabled: false,
+        error: 'fetch failed',
+      }),
+    );
     expect(result.error).toBeUndefined();
   });
 
@@ -163,13 +178,17 @@ describe('end-to-end: home service → plugin status', () => {
   });
 
   it('installed disabled home service becomes configured plugin', () => {
-    const plugin = adaptServiceToPlugin(adaptServiceState(makeHome({ status: 'unhealthy', installed: true, enabled: false })));
+    const plugin = adaptServiceToPlugin(
+      adaptServiceState(makeHome({ status: 'unhealthy', installed: true, enabled: false })),
+    );
     expect(plugin.status).toBe('configured');
     expect(plugin.statusLabel).toBe('已安装');
   });
 
   it('not installed home service becomes available plugin', () => {
-    const plugin = adaptServiceToPlugin(adaptServiceState(makeHome({ status: 'not_configured', configured: false, installed: false, enabled: false })));
+    const plugin = adaptServiceToPlugin(
+      adaptServiceState(makeHome({ status: 'not_configured', configured: false, installed: false, enabled: false })),
+    );
     expect(plugin.status).toBe('available');
     expect(plugin.statusLabel).toBe('可安装');
   });

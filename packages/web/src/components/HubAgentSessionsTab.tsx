@@ -87,7 +87,7 @@ export function HubAgentSessionsTab() {
         </button>
       </div>
 
-      {error && <div className="text-xs text-conn-red-text bg-red-950/30 rounded p-2">{error}</div>}
+      {error && <div className="text-xs text-conn-red-text bg-conn-red-bg rounded p-2">{error}</div>}
 
       {!loading && sessions.length === 0 && !error && (
         <div className="text-xs text-cafe-muted text-center py-8">没有找到后台会话 (当前 ~/.claude/jobs/ 为空)</div>

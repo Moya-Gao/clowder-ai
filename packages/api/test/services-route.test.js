@@ -4,8 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import Fastify from 'fastify';
-import { servicesRoutes } from '../dist/routes/services.js';
 import { setServiceConfig } from '../dist/domains/services/service-config.js';
+import { servicesRoutes } from '../dist/routes/services.js';
 
 const testConfigDir = mkdtempSync(join(tmpdir(), 'services-test-'));
 process.env.CAT_CAFE_SERVICES_CONFIG = join(testConfigDir, 'services.json');

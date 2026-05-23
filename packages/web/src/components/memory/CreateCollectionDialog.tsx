@@ -167,7 +167,9 @@ export function CreateCollectionDialog({ onClose, onCreated }: { onClose: () => 
               {dryRun.totalFiles} 个文件（{dryRun.markdownFiles} 个 Markdown）
             </div>
             {dryRun.secretFindings > 0 && (
-              <div className="text-conn-red-text font-medium">检测到 {dryRun.secretFindings} 个敏感信息 — 创建前请核查。</div>
+              <div className="text-conn-red-text font-medium">
+                检测到 {dryRun.secretFindings} 个敏感信息 — 创建前请核查。
+              </div>
             )}
           </div>
         )}

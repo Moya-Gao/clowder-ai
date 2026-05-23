@@ -1923,7 +1923,9 @@ describe('HubCatEditor', () => {
     });
 
     await act(async () => {
-      root.render(React.createElement(HubCatEditor, { open: true, cat: existingCat, onClose: vi.fn(), onSaved: vi.fn() }));
+      root.render(
+        React.createElement(HubCatEditor, { open: true, cat: existingCat, onClose: vi.fn(), onSaved: vi.fn() }),
+      );
     });
     await flushEffects();
 
