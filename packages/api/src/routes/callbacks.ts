@@ -4,7 +4,13 @@
  */
 
 import type { CatId, CatRoutingError, RichBlock } from '@cat-cafe/shared';
-import { catRegistry, createCatId, normalizeRichBlock } from '@cat-cafe/shared';
+import {
+  catRegistry,
+  createCatId,
+  normalizeRichBlock,
+  normalizeSopDefinitionId,
+  resolveWorkflowSopSkill,
+} from '@cat-cafe/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { resolveFrontendBaseUrl } from '../config/frontend-origin.js';
@@ -1363,14 +1369,25 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       if (isOwnThread && thread?.backlogItemId) {
         const sop = await opts.workflowSopStore.get(thread.backlogItemId);
         if (sop) {
-          workflowSop = {
-            featureId: sop.featureId,
-            stage: sop.stage,
-            batonHolder: sop.batonHolder,
-            nextSkill: sop.nextSkill,
-            resumeCapsule: sop.resumeCapsule,
-            checks: sop.checks,
-          };
+          try {
+            const skill = resolveWorkflowSopSkill(sop);
+            workflowSop = {
+              featureId: sop.featureId,
+              sopDefinitionId: normalizeSopDefinitionId(sop.sopDefinitionId),
+              stage: sop.stage,
+              batonHolder: sop.batonHolder,
+              nextSkill: sop.nextSkill,
+              suggestedSkill: skill.skill,
+              suggestedSkillSource: skill.source,
+              resumeCapsule: sop.resumeCapsule,
+              checks: sop.checks,
+            };
+          } catch (err) {
+            log.warn(
+              { err, backlogItemId: thread.backlogItemId, sopDefinitionId: sop.sopDefinitionId, stage: sop.stage },
+              'Skipping invalid workflowSop in thread-context',
+            );
+          }
         }
       }
     }

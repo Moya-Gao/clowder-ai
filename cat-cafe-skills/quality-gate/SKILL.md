@@ -12,8 +12,9 @@ triggers:
   - "声称完成"
 ---
 
-> **SOP 位置**: 本 skill 是 `docs/SOP.md` Step 2 的执行细节。
-> **上一步**: 代码开发 (Step 1) | **下一步**: `request-review` (Step 3a)
+> **SOP 位置**: 本 skill 是 `sop-definitions/development.yaml` stage `quality_gate` 的执行细节。
+> **SOP definition**: `sop-definitions/development.yaml` stage `quality_gate`。
+> **上一步**: `impl` stage | **下一步**: `request-review`（review stage）
 
 # Quality Gate
 
@@ -285,7 +286,7 @@ pnpm -r --if-present run build → exit 0 ✅
 
 ## 下一步
 
-Quality Gate 通过后 → **直接加载 `request-review`** skill 请求 review（SOP Step 3a）。不要停下来问铲屎官"要不要继续"（§17）。
+Quality Gate 通过后 → **直接加载 `request-review`** skill 请求 review（SOP stage `review`）。不要停下来问铲屎官"要不要继续"（§17）。
 
 Gate 未通过时：
 - **P1 遗漏** → 补完再过 gate
