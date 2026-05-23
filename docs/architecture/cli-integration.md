@@ -261,11 +261,11 @@ function transformCodexEvent(event, catId): AgentMessage | null {
 
 | Adapter | 命令 | 场景 |
 |---------|------|------|
-| `antigravity-cli` (默认) | `agy --print "..."` | Google consumer 默认 headless carrier |
-| `gemini-cli` (fallback) | `gemini -p "..." -o stream-json -y` | enterprise / API-key fallback |
+| `antigravity-cli` (默认，非 ACP) | `agy --print "..."` | Google consumer 非 ACP headless carrier |
+| `gemini-cli` (fallback / ACP) | `gemini -p "..." -o stream-json -y` / `gemini --acp` | enterprise / API-key fallback；catalog 配置 ACP 时的主路径 |
 | `antigravity` | `open -a Antigravity` | IDE 模式，MCP 回传 |
 
-**F210 default switch（2026-05-23）**：Google consumer Gemini CLI / Gemini Code Assist individual requests 在 2026-06-18 停止服务，所以默认 headless carrier 切到 `antigravity-cli`。Enterprise/API-key 仍作为 `GEMINI_ADAPTER=gemini-cli` fallback 保留，legacy `GEMINI_ADAPTER=antigravity` 仍是 Desktop/MCP callback。
+**F210 default switch（2026-05-23）**：Google consumer Gemini CLI / Gemini Code Assist individual requests 在 2026-06-18 停止服务，所以 `GeminiAgentService` 的非 ACP 默认 headless carrier 切到 `antigravity-cli`。但 runtime catalog 若有 `acp` section，`index.ts` 仍优先实例化 `GeminiAcpAdapter` / `gemini --acp`；`agy 1.0.1` 当前没有受支持的 ACP server mode，不能直接替换 ACP path。Enterprise/API-key 仍作为 `GEMINI_ADAPTER=gemini-cli` fallback 保留，legacy `GEMINI_ADAPTER=antigravity` 仍是 Desktop/MCP callback。
 
 **antigravity-cli 调用方式：**
 ```bash

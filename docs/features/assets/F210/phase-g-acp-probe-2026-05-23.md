@@ -41,15 +41,16 @@ PATH="$HOME/.local/bin:$PATH" agy \
 |----------|---------|----------|
 | Is AGY globally installed? | Yes. The official installer installed `/Users/lysander/.local/bin/agy` and updated shell profiles. | Installer output, `command -v agy`, `agy --version` |
 | Does AGY 1.0.1 expose a supported ACP server mode? | No supported/documented mode was found. Top-level help lists `--print`, `--prompt-interactive`, `--conversation`, `--sandbox`, `plugin`, `install`, `update`, etc., but no `--acp` or ACP subcommand. | `agy --help`; `agy help acp` returned `Error: unknown subcommand: acp` |
-| Does Gemini CLI expose ACP? | Yes. Gemini CLI `0.42.0` help lists `--acp`, `--experimental-acp`, `--model`, and `-o stream-json`. | `gemini --help` |
+| Does Gemini CLI expose ACP? | Yes. Gemini CLI `0.42.0` help lists `--acp`, `--experimental-acp`, `--model`, and `-o stream-json`. Runtime alpha logs also show Gemini ACP pool initialization from catalog `acp` config. | `gemini --help`; alpha start logs |
 | Can AGY headless print work from the global install? | Yes. A global-install smoke returned exactly `CAT_CAFE_AGY_GLOBAL_OK`. | `/tmp/cat-cafe-f210-global-agy-smoke.log` plus stdout |
 | Which model did the global smoke use? | Account-side sticky selection resolved to `Gemini 3.5 Flash (Medium)`. No local per-invocation model flag was used. | Redacted AGY log line: `Propagating selected model override to backend: label="Gemini 3.5 Flash (Medium)"` |
+| Does the AGY adapter replace current catalog ACP cats? | No. `packages/api/src/index.ts` checks `getAcpConfig(id)` first and instantiates `GeminiAcpAdapter`; only configs without `acp` fall back to `GeminiAgentService` and its `GEMINI_ADAPTER` default. | `packages/api/src/index.ts`; alpha start logs |
 
 ## Decision
 
 Cat Cafe should prefer an ACP integration if AGY later exposes an ACP-compatible server mode, because the existing Gemini ACP runtime already supports session lifecycle, MCP injection, tool-result surfacing, and session model control concepts.
 
-AGY CLI `1.0.1` does not currently expose that supported mode. Therefore F210 must not wire AGY into `GeminiAcpAdapter` by swapping `command: "agy"`. The current `antigravity-cli` plain-text adapter remains the correct production default for Siamese until AGY releases a documented ACP surface or an equivalent programmatic model-selection API.
+AGY CLI `1.0.1` does not currently expose that supported mode. Therefore F210 must not wire AGY into `GeminiAcpAdapter` by swapping `command: "agy"`. The current `antigravity-cli` plain-text adapter remains the correct non-ACP Google default, while catalog ACP cats continue to use `gemini --acp` until AGY releases a documented ACP surface or an equivalent programmatic model-selection API.
 
 ## Implications For Phase G
 

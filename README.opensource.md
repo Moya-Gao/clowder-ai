@@ -63,12 +63,12 @@ Clowder is model-agnostic. Each agent CLI/adapter plugs in through a unified mes
 |-----------|-------------|---------------|-----|--------|
 | [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | Claude (Opus / Sonnet / Haiku) | stream-json | Yes | Shipped |
 | [Codex CLI](https://github.com/openai/codex) | GPT / Codex | json | Yes | Shipped |
-| [Antigravity CLI](https://antigravity.google/cli) | Gemini / Google account-selected | plain text (`agy --print`) | CLI-managed | Default for Gemini |
-| [Gemini CLI](https://github.com/google-gemini/gemini-cli) | Gemini | stream-json | Yes | Explicit fallback |
+| [Antigravity CLI](https://antigravity.google/cli) | Gemini / Google account-selected | plain text (`agy --print`) | CLI-managed | Default for non-ACP Gemini routes |
+| [Gemini CLI](https://github.com/google-gemini/gemini-cli) | Gemini | stream-json / ACP | Yes | ACP default where configured; explicit fallback elsewhere |
 | [Antigravity Desktop](https://antigravity.google/) | Multi-model | cdp-bridge | Callback bridge | Opt-in legacy |
 | [opencode](https://github.com/sst/opencode) | Multi-model | ndjson | Yes | Shipped |
 
-> Google consumer Gemini CLI / Gemini Code Assist individual requests stop on 2026-06-18, so Gemini defaults to Antigravity CLI. Use `GEMINI_ADAPTER=gemini-cli` only for enterprise/API-key fallback routes that still support the legacy CLI.
+> Google consumer Gemini CLI / Gemini Code Assist individual requests stop on 2026-06-18, so non-ACP Gemini routes default to Antigravity CLI. Catalog entries with ACP still use `gemini --acp` until `agy` exposes a supported ACP mode; use `GEMINI_ADAPTER=gemini-cli` only for explicit enterprise/API-key fallback routes.
 > Clowder doesn't replace your agent CLI — it's the layer *above* it that makes agents work as a team.
 
 ## Quick Start

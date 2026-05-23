@@ -18,7 +18,7 @@ Why: F210 replaces the headless Google agent carrier behind the existing Siamese
 
 Google announced on 2026-05-19 that Antigravity CLI is the new terminal experience for Google Antigravity, and that consumer Gemini CLI / Gemini Code Assist IDE requests stop being served on 2026-06-18 for Google AI Pro, Ultra, and Gemini Code Assist for individuals users. Enterprise/Google Cloud access is explicitly different: Gemini CLI remains accessible for Standard/Enterprise licenses and via paid Gemini / Gemini Enterprise Agent Platform API keys.
 
-Before F210, Cat Cafe invoked Siamese through `GeminiAgentService` with `GEMINI_ADAPTER=gemini-cli`, spawning the local `gemini` binary with `-p ... -o stream-json -y`. Phase F migrates the default carrier to `GEMINI_ADAPTER=antigravity-cli` / `agy --print` while preserving `gemini-cli` as an explicit fallback for enterprise/API-key cases. This is not an Antigravity Desktop reliability bug: F201 closed the Desktop/MCP callback reliability contract; F210 is the headless Google CLI carrier migration.
+Before F210, Cat Cafe's non-ACP Siamese path used `GeminiAgentService` with `GEMINI_ADAPTER=gemini-cli`, spawning the local `gemini` binary with `-p ... -o stream-json -y`. Phase F migrates that non-ACP default carrier to `GEMINI_ADAPTER=antigravity-cli` / `agy --print` while preserving `gemini-cli` as an explicit fallback for enterprise/API-key cases. Current runtime catalog entries with an `acp` section still bypass `GeminiAgentService` and instantiate `GeminiAcpAdapter` / `gemini --acp`; AGY cannot replace that path until it exposes a supported ACP server mode. This is not an Antigravity Desktop reliability bug: F201 closed the Desktop/MCP callback reliability contract; F210 is the headless Google CLI carrier migration.
 
 ## Current Fact Baseline
 
@@ -34,6 +34,7 @@ Before F210, Cat Cafe invoked Siamese through `GeminiAgentService` with `GEMINI_
 | Antigravity reasoning models include Gemini 3.1 Pro (high/low), Gemini 3 Flash, Claude Sonnet 4.6 (thinking), Claude Opus 4.6 (thinking), and GPT-OSS-120b | `https://antigravity.google/docs/models`, fetched 2026-05-23 | Multi-model targets are real product surfaces, but Cat Cafe still needs a deterministic model-selection contract before exposing per-cat AGY profiles |
 | Antigravity CLI exposes `/model` as an interactive persistent configuration command | `https://antigravity.google/docs/cli-features`, fetched 2026-05-23 | A sticky default model is not the same as a per-invocation `--model` flag; do not claim per-cat isolation until settings behavior is verified |
 | Antigravity pricing currently lists Gemini 3.5 Flash access | `https://antigravity.google/pricing`, fetched 2026-05-23 | Treat `gemini-3.5-flash` as a desired profile pending exact selector/settings id verification |
+| Runtime catalog ACP takes precedence over `GeminiAgentService` adapter selection | `packages/api/src/index.ts` calls `getAcpConfig(id)` first and instantiates `GeminiAcpAdapter` when present | The Phase F default switch affects non-ACP Google routes; it does not automatically move existing ACP cats from `gemini --acp` to `agy` |
 | Gemini CLI exposes ACP (`gemini --acp`), but AGY CLI `1.0.1` does not expose a supported/documented ACP server mode | `gemini --help`; `agy --help`; `agy help acp`; `docs/features/assets/F210/phase-g-acp-probe-2026-05-23.md` | If AGY later ships ACP, prefer that route; until then do not swap `agy` into `GeminiAcpAdapter` or claim `/model` is programmatically controllable |
 
 ## Scope
@@ -199,9 +200,9 @@ Cat Cafe installers now provision `agy` through Google's native bootstrapper (`h
 
 Phase E E2E source: `docs/features/assets/F210/phase-e-e2e-smoke-2026-05-23.md`.
 
-The live smoke routed `@gemini` through the Cat Cafe routing layer with `GEMINI_ADAPTER=antigravity-cli`, process-local `PATH=/tmp/cat-cafe-f210-agy-bin:$PATH`, `agy 1.0.1`, and real HOME keyring auth. It returned a normal final reply containing `CAT_CAFE_AGY_E2E_OK` in about 14.3s, with `session_init` metadata `modelVerified: false` and no leaked fresh-conversation warning after the parser regression fix.
+The live smoke routed the non-ACP `GeminiAgentService({ catId: "gemini" })` path with `GEMINI_ADAPTER=antigravity-cli`, process-local `PATH=/tmp/cat-cafe-f210-agy-bin:$PATH`, `agy 1.0.1`, and real HOME keyring auth. It returned a normal final reply containing `CAT_CAFE_AGY_E2E_OK` in about 14.3s, with `session_init` metadata `modelVerified: false` and no leaked fresh-conversation warning after the parser regression fix.
 
-AC-E4 is closed in Phase F: after AC-E1 live smoke passed, the default adapter changed to `antigravity-cli`. `GEMINI_ADAPTER=gemini-cli` remains an explicit fallback and is still covered by wiring/service tests.
+AC-E4 is closed in Phase F for the non-ACP `GeminiAgentService` path: after AC-E1 live smoke passed, the service default adapter changed to `antigravity-cli`. Catalog ACP routes remain `GeminiAcpAdapter` unless their `acp` section is removed or AGY gains a compatible ACP mode. `GEMINI_ADAPTER=gemini-cli` remains an explicit fallback and is still covered by wiring/service tests.
 
 ### Phase F（Docs / Truth Sync）
 
@@ -211,7 +212,7 @@ AC-E4 is closed in Phase F: after AC-E1 live smoke passed, the default adapter c
 
 Phase F source: `packages/api/src/domains/cats/services/agents/providers/GeminiAgentService.ts`, `packages/api/src/config/env-registry.ts`, README variants, `docs/env-reference.md`, `docs/architecture/cli-integration.md`, and `docs/mailbox/2026-05-23-f210-phase-f-review-request-to-antig-opus.md`.
 
-The default route is now `antigravity-cli` when neither constructor options nor `GEMINI_ADAPTER` override it. The explicit fallback remains `GEMINI_ADAPTER=gemini-cli`, preserving enterprise/API-key access and the old NDJSON parser path. The legacy `GEMINI_ADAPTER=antigravity` value still means Desktop/MCP callback and is not silently repointed to `agy`.
+The non-ACP `GeminiAgentService` default route is now `antigravity-cli` when neither constructor options nor `GEMINI_ADAPTER` override it. The runtime catalog still checks `acp` first, so existing Siamese ACP entries remain on `gemini --acp`. The explicit fallback remains `GEMINI_ADAPTER=gemini-cli`, preserving enterprise/API-key access and the old NDJSON parser path. The legacy `GEMINI_ADAPTER=antigravity` value still means Desktop/MCP callback and is not silently repointed to `agy`.
 
 ### Phase G（AGY Multi-Model Profiles）
 
@@ -219,7 +220,7 @@ The default route is now `antigravity-cli` when neither constructor options nor 
 - [ ] AC-G2: Cat Cafe can select or verify at least Claude Opus 4.6 (thinking), Gemini 3.1 Pro, and Gemini 3.5 Flash without cross-cat sticky-state bleed.
 - [ ] AC-G3: Runtime preflight reports a clear actionable warning when AGY is missing, no default model is selected, or requested profile selection cannot be verified.
 
-Phase G starts from the current constraint: `GeminiAgentService.invokeAntigravityCLI()` intentionally reports `model: account-selected (antigravity-cli)` and emits `antigravity_cli_model_override_unsupported` when a Cat Cafe model override is requested. This is correct until a stable model id/config contract is proven. The immediate runtime update after PR #1863 only switches Siamese's default carrier to AGY; it does not yet mean Opus/Gemini profile routing is deterministic.
+Phase G starts from the current constraint: `GeminiAgentService.invokeAntigravityCLI()` intentionally reports `model: account-selected (antigravity-cli)` and emits `antigravity_cli_model_override_unsupported` when a Cat Cafe model override is requested. This is correct until a stable model id/config contract is proven. The immediate runtime update after PR #1863 only switches the non-ACP Google service default to AGY; it does not move catalog ACP cats off `gemini --acp`, and it does not mean Opus/Gemini profile routing is deterministic.
 
 Phase G ACP probe source: `docs/features/assets/F210/phase-g-acp-probe-2026-05-23.md`. Current result: `agy 1.0.1` is globally installed and `agy --print` works, but AGY does not expose a supported/documented ACP server mode. Gemini CLI `0.42.0` still exposes `--acp`, `--model`, and `stream-json`; AGY exposes interactive `/model` instead. Do not route AGY through `GeminiAcpAdapter` unless a future AGY release adds a compatible ACP surface.
 
@@ -275,6 +276,7 @@ Phase G ACP probe source: `docs/features/assets/F210/phase-g-acp-probe-2026-05-2
 | KD-7 | Phase B prototype may start only with explicit model preflight/onboarding and timeout classification | `agy --print` can now succeed, but model selection is account-side rather than CLI/env controlled, and timeouts can exit 0 | 2026-05-22 |
 | KD-8 | Runtime may update after Phase F, but AGY multi-model profiles remain Phase G | PR #1863 safely switches the default carrier; Opus/Gemini 3.1 Pro/Gemini 3.5 Flash require model-selection verification before user-facing routing | 2026-05-23 |
 | KD-9 | Prefer AGY ACP only if AGY ships a compatible server mode | Gemini CLI ACP has the lifecycle Cat Cafe wants, but AGY 1.0.1 does not expose that surface; swapping `command: "agy"` into the ACP pool would be a false integration | 2026-05-23 |
+| KD-10 | ACP catalog precedence is a separate routing layer from `GEMINI_ADAPTER` | `index.ts` instantiates `GeminiAcpAdapter` before falling back to `GeminiAgentService`; adapter defaults do not affect existing ACP cats | 2026-05-23 |
 
 ## Timeline
 
@@ -289,9 +291,10 @@ Phase G ACP probe source: `docs/features/assets/F210/phase-g-acp-probe-2026-05-2
 | 2026-05-23 | Phase C parser/session merged via PR #1857：dedicated AGY plain-text parser added; F210 fixtures cover success/resume/timeout/missing-model; resume/model/image degradation behavior tested |
 | 2026-05-23 | Phase D install/packaging merged via PR #1858：source installers use official `agy` native bootstrapper; Windows resolver covers `%LOCALAPPDATA%\agy\bin\agy.exe`; desktop offline packages ship explicit AGY install instructions instead of vendoring Gemini CLI npm tarball |
 | 2026-05-23 | Phase E E2E smoke merged via PR #1861：`GEMINI_ADAPTER=antigravity-cli` routes Siamese through Cat Cafe and returns `CAT_CAFE_AGY_E2E_OK`; wiring tests keep explicit `gemini-cli` fallback; default stayed unchanged at that point until the Phase F default-switch review |
-| 2026-05-23 | Phase F docs/default switch merged via PR #1863：default Siamese adapter is now `antigravity-cli`; README/env/architecture docs synced; explicit `gemini-cli` fallback and legacy Desktop `antigravity` adapter preserved |
+| 2026-05-23 | Phase F docs/default switch merged via PR #1863：non-ACP `GeminiAgentService` default adapter is now `antigravity-cli`; README/env/architecture docs synced; explicit `gemini-cli` fallback and legacy Desktop `antigravity` adapter preserved |
 | 2026-05-23 | CVO scope add: Phase G will verify AGY multi-model profiles for Opus, Gemini 3.1 Pro, and Gemini 3.5 Flash before exposing deterministic Cat Cafe routing |
 | 2026-05-23 | Phase G ACP probe：global `agy 1.0.1` installed and `agy --print` smoke passed; Gemini CLI exposes `--acp`, but AGY does not expose supported/documented ACP, so Phase G cannot close deterministic Opus/Gemini profile routing through ACP |
+| 2026-05-23 | Runtime correction：alpha start on `8cdc573bd` confirmed Gemini ACP pool still initializes from catalog `acp` config; the AGY default does not replace existing `gemini --acp` cats |
 | 2026-05-27 | Target: Phase A recon complete（install/auth/headless/output/MCP/sandbox facts frozen） |
 | 2026-06-07 | Target: Phase B/C adapter + parser/session strategy implemented |
 | 2026-06-14 | Target: Phase D/E install packaging + E2E smoke green |

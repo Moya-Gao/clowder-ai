@@ -32,9 +32,10 @@ decision_id: ADR-029
 - **OpenAI**：CLI（Codex）+ Instructions（AGENTS.md）+ MCP（工具协议）
 - **Google**：CLI（Gemini CLI）+ Commands + MCP（built-in support）
 
-> F210 更新（2026-05-23）：Cat Cafe 的 Google headless 默认 carrier 已从 Gemini CLI
-> 切到 Antigravity CLI (`agy --print`)；Gemini CLI 仅作为 enterprise/API-key fallback 保留。
-> 本 ADR 的 CLI / Skills / MCP 分层准则不变。
+> F210 更新（2026-05-23）：Cat Cafe 的非 ACP Google headless 默认 carrier 已从
+> Gemini CLI 切到 Antigravity CLI (`agy --print`)；catalog ACP path 仍走
+> `gemini --acp`，因为 `agy 1.0.1` 尚无受支持的 ACP server mode。Gemini CLI
+> 仍作为 enterprise/API-key fallback 保留。本 ADR 的 CLI / Skills / MCP 分层准则不变。
 
 ### Cat Café 现状
 

@@ -28,8 +28,10 @@ Cat Café 需要程序化调用三只 AI 猫猫（Claude/Codex/Gemini），并�
 - **缅因猫 (Codex)**：`codex` CLI (`exec --json`)
 - **暹罗猫 (Gemini)**：`gemini` CLI / Antigravity IDE（双 adapter）
 
-> F210 更新（2026-05-23）：暹罗猫默认 headless carrier 已从 `gemini-cli`
-> 切到 `antigravity-cli` / `agy --print`。`gemini-cli` 仍是显式 enterprise/API-key
+> F210 更新（2026-05-23）：`GeminiAgentService` 的非 ACP 默认 headless carrier
+> 已从 `gemini-cli` 切到 `antigravity-cli` / `agy --print`。但 catalog 配了
+> `acp` section 的暹罗猫仍优先走 `GeminiAcpAdapter` / `gemini --acp`，直到
+> `agy` 暴露受支持的 ACP server mode。`gemini-cli` 仍是显式 enterprise/API-key
 > fallback；`antigravity` 仍指 Antigravity Desktop / MCP callback。
 
 > 修订原因：SDK 只能使用 API key 付费，无法使用 Max/Plus/Pro 订阅额度。详见 `docs/phases/phase-2.5-cli-migration.md`
