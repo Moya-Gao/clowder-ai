@@ -819,6 +819,23 @@ excluded:
       }
     });
 
+    it('F210 source installer provisions Antigravity CLI through native bootstrapper', () => {
+      const install = readFileSync(resolve(ROOT, 'scripts/install.sh'), 'utf-8');
+      const installPs = readFileSync(resolve(ROOT, 'scripts/install.ps1'), 'utf-8');
+
+      assert.match(install, /install_antigravity_cli\(\)/);
+      assert.match(install, /https:\/\/antigravity\.google\/cli\/install\.sh/);
+      assert.match(install, /MISSING_AGENTS\+=\("agy"\)/);
+      assert.match(install, /agy\)\s+install_antigravity_cli/s);
+      assert.doesNotMatch(install, /install_npm_cli "Gemini CLI" "gemini" "@google\/gemini-cli"/);
+
+      assert.match(installPs, /Name = "Antigravity"; Label = "Antigravity CLI"; Cmd = "agy"/);
+      assert.match(installPs, /InstallKind = "antigravity-native"/);
+      assert.match(installPs, /https:\/\/antigravity\.google\/cli\/install\.cmd/);
+      assert.match(installPs, /Resolve-ToolCommandWithRetry -Name "agy" -Attempts 6/);
+      assert.doesNotMatch(installPs, /Name = "Gemini"; Label = "Gemini"; Cmd = "gemini"; Pkg = "@google\/gemini-cli"/);
+    });
+
     it('sync-system-prompts agent hook mode also configures Claude settings', () => {
       const content = readFileSync(resolve(ROOT, 'scripts/sync-system-prompts.ts'), 'utf-8');
 

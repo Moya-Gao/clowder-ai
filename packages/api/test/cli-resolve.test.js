@@ -111,6 +111,36 @@ test(
   },
 );
 
+test(
+  'resolveCliCommand finds agy in LOCALAPPDATA/agy/bin on Windows',
+  { skip: process.platform !== 'win32' && 'Windows-only (AGY native binary fallback)' },
+  () => {
+    const tempRoot = mkdtempSync(join(tmpdir(), 'cli-resolve-agy-localappdata-'));
+    const agyDir = join(tempRoot, 'local', 'agy', 'bin');
+    mkdirSync(agyDir, { recursive: true });
+
+    const fakeAgy = join(agyDir, 'agy.exe');
+    writeFileSync(fakeAgy, 'MZ', 'utf8');
+
+    const originalAppData = process.env.APPDATA;
+    const originalLocalAppData = process.env.LOCALAPPDATA;
+    try {
+      process.env.APPDATA = join(tempRoot, 'roaming');
+      process.env.LOCALAPPDATA = join(tempRoot, 'local');
+      invalidateCliCommand('agy');
+      const result = resolveCliCommand('agy');
+      assert.equal(result, fakeAgy, 'should find official Windows AGY native binary path');
+    } finally {
+      invalidateCliCommand('agy');
+      if (originalAppData === undefined) delete process.env.APPDATA;
+      else process.env.APPDATA = originalAppData;
+      if (originalLocalAppData === undefined) delete process.env.LOCALAPPDATA;
+      else process.env.LOCALAPPDATA = originalLocalAppData;
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  },
+);
+
 // --- Unix HOME fallback ---
 
 test(
