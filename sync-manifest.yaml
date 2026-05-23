@@ -46,6 +46,7 @@ managed_files:
   - .claude/hooks/user-level/claude-settings.template.json
   # Public test fixture required by packages/api test:public
   - docs/harness-feedback/eval-domains/eval-a2a.yaml
+  - docs/harness-feedback/verdicts/fixtures/2026-05-21-eval-a2a-contract-demo.md
   # docs/ 单文件导出（需 transform）
   - docs/VISION.md
   - docs/SOP.md

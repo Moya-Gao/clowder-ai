@@ -721,12 +721,17 @@ excluded:
 
     it('sync-manifest exports public harness eval fixtures used by test:public', () => {
       const managedFiles = readYamlTopLevelList('sync-manifest.yaml', 'managed_files');
-      const fixturePath = 'docs/harness-feedback/eval-domains/eval-a2a.yaml';
+      const fixturePaths = [
+        'docs/harness-feedback/eval-domains/eval-a2a.yaml',
+        'docs/harness-feedback/verdicts/fixtures/2026-05-21-eval-a2a-contract-demo.md',
+      ];
 
-      assert.ok(
-        managedFiles.includes(fixturePath),
-        `sync-manifest should export ${fixturePath} because packages/api test:public loads it`,
-      );
+      for (const fixturePath of fixturePaths) {
+        assert.ok(
+          managedFiles.includes(fixturePath),
+          `sync-manifest should export ${fixturePath} because packages/api test:public loads it`,
+        );
+      }
     });
 
     it('sync-manifest marks the F203 native L0 template as a sanitized transform', () => {
