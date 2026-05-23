@@ -413,6 +413,7 @@ Based on the first micro fit digest (2026-05-11):
 | 2026-05-22 | Phase E-pilot merged (PR #1835) — `eval:a2a` contract→verdict→handoff→re-eval loop landed with cloud review pass and `pnpm gate` green |
 | 2026-05-22 | Phase E contract hardening added — Verdict Matrix Contract + Sunset Trial Contract, clarifying `fix/build/delete_sunset/keep_observe` evidence gates and reversible sunset lifecycle before E-hub |
 | 2026-05-22 | Live verdict evidence SOT decided — `snapshot:` / `attribution:` refs resolve to committed sanitized per-verdict bundles; raw runtime snapshots remain ignored (KD-13) |
+| 2026-05-23 | First live `eval:a2a` verdict generated — runtime F167 telemetry produced a `keep_observe` verdict with committed sanitized bundle under `docs/harness-feedback/bundles/2026-05-23-eval-a2a-live-verdict/` |
 
 ## Review Gate
 

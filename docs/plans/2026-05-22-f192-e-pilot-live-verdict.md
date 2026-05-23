@@ -169,8 +169,8 @@ git commit -m "feat(F192): resolve live eval:a2a evidence bundles [砚砚/GPT-5.
 **Files:**
 - Create: `packages/api/src/infrastructure/harness-eval/eval-a2a-live-verdict.ts`
 - Test: `packages/api/test/harness-eval/eval-a2a-live-verdict.test.js`
-- Create: `docs/harness-feedback/verdicts/2026-05-22-eval-a2a-live-verdict.md`
-- Create: `docs/harness-feedback/bundles/2026-05-22-eval-a2a-live-verdict/{snapshot.json,attribution.json,provenance.json}`
+- Create: `docs/harness-feedback/verdicts/2026-05-23-eval-a2a-live-verdict.md`
+- Create: `docs/harness-feedback/bundles/2026-05-23-eval-a2a-live-verdict/{snapshot.json,attribution.json,provenance.json}`
 
 **Step 1: Write failing generator tests**
 
@@ -207,11 +207,18 @@ Read raw runtime snapshot / attribution paths only as generator inputs, sanitize
 Generate the first live verdict from:
 
 ```text
-docs/harness-feedback/snapshots/2026-05-22-F167-eval.yaml
-docs/harness-feedback/attributions/2026-05-22-F167-attribution.yaml
+docs/harness-feedback/snapshots/2026-05-23-F167-eval.yaml
+docs/harness-feedback/attributions/2026-05-23-F167-attribution.yaml
 ```
 
 Do not cite those raw paths from the verdict. The generator must commit only the sanitized bundle + verdict. Do not auto-post to F167 owner. This slice creates an auditable artifact only.
+
+Actual dogfood run used runtime API `http://localhost:3002` and generated the 2026-05-23 raw pair locally (ignored), then committed:
+
+```text
+docs/harness-feedback/verdicts/2026-05-23-eval-a2a-live-verdict.md
+docs/harness-feedback/bundles/2026-05-23-eval-a2a-live-verdict/
+```
 
 **Step 4: Verify and commit**
 
@@ -302,7 +309,7 @@ git commit -m "test(F192): lock verdict matrix semantics [砚砚/GPT-5.5🐾]"
 Add timeline entry:
 
 ```text
-2026-05-22 | E-pilot live verdict slice ...
+2026-05-23 | E-pilot live verdict slice — first live `eval:a2a` `keep_observe` verdict generated from runtime F167 telemetry with committed sanitized evidence bundle
 ```
 
 Do not mark AC-E9 complete; this is not Eval Hub UI.
