@@ -108,11 +108,14 @@ export function HubEvalTab() {
 
   return (
     <div className="space-y-4" data-guide-id="observability.eval-panel">
+      <p className="text-xs text-cafe-muted">
+        Harness Eval 控制面板：猫猫定期评估自身协作机制的健康度，下方是最新评估结论。
+      </p>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCell label="Verdicts" value={summary.counts.total} />
-        <StatCell label="Actionable" value={summary.counts.actionable} />
-        <StatCell label="Keep Observe" value={summary.counts.keepObserve} />
-        <StatCell label="Stale" value={summary.counts.stale} />
+        <StatCell label="评估结论" sublabel="总数" value={summary.counts.total} />
+        <StatCell label="需处理" sublabel="build/fix/delete" value={summary.counts.actionable} />
+        <StatCell label="持续观察" sublabel="暂无异常" value={summary.counts.keepObserve} />
+        <StatCell label="过期" sublabel="需重新评估" value={summary.counts.stale} />
       </div>
 
       <div className="space-y-3">
@@ -124,10 +127,11 @@ export function HubEvalTab() {
   );
 }
 
-function StatCell({ label, value }: { label: string; value: number }) {
+function StatCell({ label, sublabel, value }: { label: string; sublabel?: string; value: number }) {
   return (
     <div className="rounded-lg bg-cafe-surface-elevated px-4 py-3">
       <div className="text-xs text-cafe-muted">{label}</div>
+      {sublabel && <div className="text-micro text-cafe-muted/60">{sublabel}</div>}
       <div className="mt-1 text-xl font-semibold text-cafe">{value}</div>
     </div>
   );
@@ -154,65 +158,69 @@ function EvalVerdictCard({ item }: { item: EvalHubItem }) {
       </div>
 
       <div className="mt-4 grid gap-3 md:grid-cols-2">
-        <InfoBlock label="Harness" value={`${item.harnessUnderEval.featureId}/${item.harnessUnderEval.componentId}`} />
-        <InfoBlock label="Component" value={item.harnessUnderEval.name} />
-        <InfoBlock label="Owner Ask" value={item.ownerAsk} />
-        <InfoBlock label="Re-eval" value={formatReeval(item)} />
+        <InfoBlock label="评估目标" value={`${item.harnessUnderEval.featureId}/${item.harnessUnderEval.componentId}`} />
+        <InfoBlock label="组件名称" value={item.harnessUnderEval.name} />
+        <InfoBlock label="需要的动作" value={item.ownerAsk} />
+        <InfoBlock label="下次评估" value={formatReeval(item)} />
+        <InfoBlock label="工作域" value={item.systemWorkspace.label} />
         <InfoBlock
-          label="System Workspace"
-          value={`${item.systemWorkspace.label} · ${item.systemWorkspace.threadId}`}
-        />
-        <InfoBlock
-          label="Trend Window"
-          value={`${item.trend.window.durationHours.toFixed(2)}h · ${item.trend.components.length} components`}
+          label="趋势窗口"
+          value={`${item.trend.window.durationHours.toFixed(2)} 小时 · ${item.trend.components.length} 个组件`}
         />
       </div>
 
       <div className="mt-4 space-y-2">
-        <div className="text-xs font-medium text-cafe-muted">Evidence</div>
+        <div className="text-xs font-medium text-cafe-muted">证据引用</div>
         <EvidenceList
           refs={[...item.evidence.snapshotRefs, ...item.evidence.attributionRefs, ...item.evidence.metricRefs]}
         />
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        <JumpButton onClick={() => openWorkspaceFile(item.source.verdictPath)}>Verdict artifact</JumpButton>
-        <JumpButton onClick={() => openWorkspaceFile(`${item.source.bundleDir}/snapshot.json`)}>
-          Snapshot bundle
-        </JumpButton>
-        <JumpButton onClick={() => openWorkspaceFile(`${item.source.bundleDir}/attribution.json`)}>
-          Attribution bundle
-        </JumpButton>
-        <a
-          href={`/thread/${encodeURIComponent(item.systemWorkspace.threadId)}`}
-          className="rounded-md border border-cafe px-3 py-1.5 text-xs font-medium text-cafe-secondary hover:text-cafe"
-        >
-          Domain thread
-        </a>
-        <a
-          href="/settings?ops=observability&obs=traces"
-          className="rounded-md border border-cafe px-3 py-1.5 text-xs font-medium text-cafe-secondary hover:text-cafe"
-        >
-          Related traces
-        </a>
-        {item.domainId === 'eval:memory' && (
+      <div className="mt-4 space-y-2">
+        <div className="text-xs font-medium text-cafe-muted">快捷导航</div>
+        <div className="flex flex-wrap gap-2">
+          <JumpButton onClick={() => openWorkspaceFile(item.source.verdictPath)}>结论文件</JumpButton>
+          <JumpButton onClick={() => openWorkspaceFile(`${item.source.bundleDir}/snapshot.json`)}>快照包</JumpButton>
+          <JumpButton onClick={() => openWorkspaceFile(`${item.source.bundleDir}/attribution.json`)}>归因包</JumpButton>
           <a
-            href="/memory/health"
+            href={`/thread/${encodeURIComponent(item.systemWorkspace.threadId)}`}
             className="rounded-md border border-cafe px-3 py-1.5 text-xs font-medium text-cafe-secondary hover:text-cafe"
           >
-            Memory Health
+            {item.systemWorkspace.label} 工作线程
           </a>
-        )}
+          <a
+            href="/settings?ops=observability&obs=traces"
+            className="rounded-md border border-cafe px-3 py-1.5 text-xs font-medium text-cafe-secondary hover:text-cafe"
+          >
+            相关 Traces
+          </a>
+          {item.domainId === 'eval:memory' && (
+            <a
+              href="/memory/health"
+              className="rounded-md border border-cafe px-3 py-1.5 text-xs font-medium text-cafe-secondary hover:text-cafe"
+            >
+              记忆健康
+            </a>
+          )}
+        </div>
       </div>
     </section>
   );
 }
 
+const VERDICT_LABELS: Record<EvalHubItem['verdict'] | 'stale', string> = {
+  keep_observe: '持续观察',
+  fix: '需修复',
+  build: '需新建',
+  delete_sunset: '可下线',
+  stale: '已过期',
+};
+
 function StatusBadge({ verdict, stale }: { verdict: EvalHubItem['verdict']; stale: boolean }) {
-  const label = stale ? 'stale' : verdict;
+  const key = stale ? 'stale' : verdict;
   return (
     <span className="inline-flex shrink-0 rounded-md bg-cafe-surface px-2.5 py-1 text-xs font-semibold text-[var(--console-button-emphasis)]">
-      {label}
+      {VERDICT_LABELS[key]}
     </span>
   );
 }

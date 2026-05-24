@@ -1428,7 +1428,10 @@ async function main(): Promise<void> {
   });
   // F192 Phase E-hub: harness eval verdict lifecycle surface.
   const { evalHubRoutes } = await import('./routes/eval-hub.js');
-  await app.register(evalHubRoutes, { harnessFeedbackRoot: resolve(repoRoot, 'docs', 'harness-feedback') });
+  await app.register(evalHubRoutes, {
+    harnessFeedbackRoot: resolve(repoRoot, 'docs', 'harness-feedback'),
+    threadStore,
+  });
 
   // F153: Prompt X-Ray debug routes
   const { promptCaptureRoutes } = await import('./routes/prompt-captures.js');

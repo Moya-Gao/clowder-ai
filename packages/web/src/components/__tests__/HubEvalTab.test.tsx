@@ -88,14 +88,14 @@ describe('HubEvalTab', () => {
 
     expect(container.textContent).toContain('2026-05-23-eval-a2a-live-verdict');
     expect(container.textContent).toContain('eval:a2a');
-    expect(container.textContent).toContain('keep_observe');
+    expect(container.textContent).toContain('持续观察');
     expect(container.textContent).toContain('No actionable A2A findings');
     expect(container.textContent).toContain('No action required');
-    expect(container.textContent).toContain('thread_eval_a2a');
+    expect(container.textContent).toContain('A2A Harness Eval 工作线程');
     expect(container.textContent).toContain('snapshot:bundle/2026-05-23-eval-a2a-live-verdict/snapshot');
 
     const sourceButton = Array.from(container.querySelectorAll('button')).find((button) =>
-      button.textContent?.includes('Verdict'),
+      button.textContent?.includes('结论文件'),
     );
     expect(sourceButton).toBeTruthy();
     await act(async () => {
@@ -177,7 +177,7 @@ describe('HubEvalTab', () => {
 
     // Memory domain card should show domain-specific jump links
     const links = Array.from(container.querySelectorAll('a'));
-    const healthLink = links.find((a) => a.textContent?.includes('Memory Health'));
+    const healthLink = links.find((a) => a.textContent?.includes('记忆健康'));
     expect(healthLink).toBeTruthy();
     expect(healthLink?.getAttribute('href')).toBe('/memory/health');
 
