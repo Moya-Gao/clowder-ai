@@ -192,7 +192,17 @@ const CAT_CAFE_MCP_SERVER_ENTRIES = [
   ['cat-cafe-limb', 'limb.js'],
 ] as const;
 
-function buildCatCafeMcpConfigArgs(_workingDirectory?: string, callbackEnv?: Record<string, string>): string[] {
+function resolveAllowedWorkspaceDirsForMcp(workingDirectory?: string): string {
+  const explicitAllowed = process.env.ALLOWED_WORKSPACE_DIRS?.trim();
+  if (explicitAllowed) return explicitAllowed;
+  const threadWorkspace = workingDirectory?.trim();
+  if (threadWorkspace) return resolve(threadWorkspace);
+  const explicitWorkspace = process.env.CAT_CAFE_WORKSPACE_ROOT?.trim();
+  if (explicitWorkspace) return explicitWorkspace;
+  return process.cwd();
+}
+
+function buildCatCafeMcpConfigArgs(workingDirectory?: string, callbackEnv?: Record<string, string>): string[] {
   const fileDir = dirname(fileURLToPath(import.meta.url));
   // The thread workingDirectory is the user's project/workspace. Cat Cafe MCP
   // binaries are runtime-owned, so resolving from workingDirectory can pick a
@@ -216,6 +226,7 @@ function buildCatCafeMcpConfigArgs(_workingDirectory?: string, callbackEnv?: Rec
   if (!mcpDistDir) return [];
 
   const args: string[] = [];
+  const allowedWorkspaceDirs = resolveAllowedWorkspaceDirsForMcp(workingDirectory);
 
   const callbackKeys = [
     'CAT_CAFE_API_URL',
@@ -238,6 +249,8 @@ function buildCatCafeMcpConfigArgs(_workingDirectory?: string, callbackEnv?: Rec
       `mcp_servers.${serverName}.enabled=true`,
       '--config',
       `mcp_servers.${serverName}.default_tools_approval_mode="approve"`,
+      '--config',
+      `mcp_servers.${serverName}.env.ALLOWED_WORKSPACE_DIRS=${toTomlString(allowedWorkspaceDirs)}`,
     );
 
     for (const key of callbackKeys) {
