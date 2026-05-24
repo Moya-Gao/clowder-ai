@@ -311,6 +311,7 @@ in_context_observability:
 | 2026-05-24 | Opus 4.7 architecture review 回流：主体 APPROVE；补 reaper、orphan discoverability、JSON read-only import、conflict sidecar state、`runtime_disconnected` 门禁。 |
 | 2026-05-24 | Bengal Cat Phase 0 surface review APPROVE；补 drain fallback：无 Antigravity drain RPC 时用 quiet-window best-effort + `drainResult`，已知 in-flight 仍 pending。 |
 | 2026-05-24 | Phase A1 implementation plan drafted：先落 runtime-session metadata sidecar / read-only legacy import prep；不 flip live cascade rotation，A2 再接 `ephemeralSession: false`、drain、reaper、transcript materialization。 |
+| 2026-05-24 | Bengal Cat Phase A1 plan surface review APPROVE；补 legacy JSON key format（`${threadId}:${catId}`）和既有 Antigravity regression subset 门禁。 |
 
 ## Review Gate
 

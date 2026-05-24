@@ -243,6 +243,8 @@ Add:
 - `readLegacyAntigravitySessionMap(path)` returning parsed entries + diagnostics;
 - `importLegacyAntigravitySessions({ path, runtimeSessionStore, sessionChainStore?, userId?, now })`.
 
+Parse the legacy JSON key format explicitly as `${threadId}:${catId}` -> `cascadeId`. Legacy entries without `:` are thread-only keys from older Bridge behavior and may only be imported when the caller supplies a fallback `catId`; otherwise the importer must emit a diagnostic and skip the entry.
+
 The importer should not create fake `SessionRecord`s without a user/thread context. For A1, it may create runtime metadata with `sessionId = legacy:${runtimeSessionId}` only for import preview tests, or require a supplied session resolver. Pick the shape that avoids claiming full Session Chain visibility before A2.
 
 **Step 3: Verify importer**
@@ -318,6 +320,18 @@ CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT=1 bash packages/api/scripts/with-test-ho
   packages/api/test/antigravity-runtime-session-import.test.js \
   packages/api/test/antigravity-bridge-session.test.js \
   packages/api/test/antigravity-cascade-health.test.js
+```
+
+Also run the existing Antigravity regression subset most likely to notice constructor/DI and Bridge/AgentService behavior drift:
+
+```bash
+CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT=1 bash packages/api/scripts/with-test-home.sh node --test \
+  packages/api/test/antigravity-agent-service.test.js \
+  packages/api/test/antigravity-agent-service-executors.test.js \
+  packages/api/test/antigravity-bridge-session.test.js \
+  packages/api/test/antigravity-cascade-health.test.js \
+  packages/api/test/antigravity-registration.test.js \
+  packages/api/test/antigravity-trace.test.js
 ```
 
 **Step 3: Commit**
