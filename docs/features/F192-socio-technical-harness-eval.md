@@ -116,6 +116,15 @@ Phase E 将 F192 从单域试点提升为横切的 Harness Eval Control Plane：
 4. **E-sop**：接 `eval:sop`（cat-cafe SOP compliance；ground truth = `SopDefinition.hard_rules/pitfalls` per F203 #748；domain-generic schema 从 day 1 支持 development / video-cocreation / tech-article / family-office 等多 domain）
 5. **E-community**：开放社区 issue packet / custom domain path
 
+**Remaining PR packaging（CVO + 46/55, 2026-05-24）**：Phase E 剩余工作不按 AC 逐条拆 PR，按可独立验收的功能块收敛为 4 个 PR，避免过细 PR 造成 review / merge overhead：
+
+1. **E-hub PR（owner: 缅因猫/砚砚）**：System Workspace 归一 + Eval Hub v1。只消费真实 `eval:a2a` verdict，不接 memory / sop / community；Hub 放 Console daily workflow path（Observability/Eval），不放 Settings；必须提供 IM Hub / domain thread / 相关 surface 的跳转按钮。
+2. **E-scale PR（owner: 布偶猫/宪宪）**：`eval:memory` adapter（F200 + F188）+ F188 repair surface 双向跳转 + F200/F188 旧定时任务清理 dry-run，确保不双触发。
+3. **E-sop PR**：`eval:sop` runtime evaluator + domain registry + invocation + predicate violation verdict + re-eval closure；依赖 F203 #748 的 `SopDefinition` / predicate ground truth，已由 F203 PR #1868 满足。
+4. **E-community PR**：社区 issue packet / custom domain schema + sanitized fixture；基于已落的 verdict / bundle / hub contract，不抢先做新控制面。
+
+分工原则：E-hub 由砚砚接（contract / handoff / Hub IA 由砚砚主导），E-scale 由宪宪接（F188 health governance / repair API 由宪宪主导）。E-sop 与 E-community 在 E-hub/E-scale 稳定后再排，避免四条线同时改控制面。
+
 ## Acceptance Criteria
 
 ### Phase A（基础骨架）
@@ -188,7 +197,7 @@ Phase E 将 F192 从单域试点提升为横切的 Harness Eval Control Plane：
 - [ ] AC-E23: Cross-domain schema validation——用 stub `video-cocreation.yaml` / `tech-article.yaml` / `family-office.yaml` 跑 schema 校验，证明 schema generic 不绑 coding；不实做这些 domain，只验 schema
 - [ ] AC-E24: Re-eval closure——与 E-pilot 同 pattern（owner 处理 handoff → 复验 verdict pass / CVO accept / suppress）
 
-依赖：#748（cat-cafe）merge 后再 register（需 SopDefinition + predicate schema 着陆）；与 E-hub / E-scale / E-community 可并行（不依赖 UI / memory adapter / community path）。
+依赖：#748（cat-cafe）已由 F203 PR #1868 落地（`SopDefinition` + predicate-backed `hard_rules/pitfalls`）；与 E-hub / E-scale / E-community 可并行（不依赖 UI / memory adapter / community path），但按 PR packaging 决策排在 E-hub / E-scale 后，降低控制面并发改动风险。
 
 #### E-community
 - [ ] AC-E14: Community path：支持社区实例把本地 eval finding 导出为脱敏 issue packet；也支持社区项目注册自有 eval domain，不 fork Cat Café core
@@ -410,6 +419,7 @@ Based on the first micro fit digest (2026-05-11):
 | KD-13 | Live verdict 的 `snapshot:` / `attribution:` evidence SOT 是 committed sanitized bundle，不是 raw runtime artifacts | raw `snapshots/` / `attributions/` 是 gitignored generated artifacts；直接引用会让 clean checkout / reviewer 无法解析 refs。Hybrid bundle 保留审计证据、脱敏边界和可重派生 provenance，同时避免把全量 runtime dump 提交进 repo | 2026-05-22 |
 | KD-14 | Eval Hub 是 daily workflow surface，不是 Settings 配置页；F188 Health Dashboard 与 Eval Hub 互链不互替 | Settings 只承载 domain registry / frequency / owner / export policy 等配置。Hub 承载 verdict lifecycle、trend、handoff、closure；F188 承载现场 health repair controls。互链按钮是验收要求，避免用户在两个 surface 间手动找入口；若实用性差，后续调整 IA / 跳转位置属于低风险 UI 改动 | 2026-05-23 |
 | KD-15 | System Thread / System Workspace 基座归一：IM Hub 与 eval domain thread 共享系统线程模型，但按 `kind` 区分 | IM Hub（`connector_hub`）和 Eval domain（`eval_domain`）都是 system-managed thread / workspace；归一的是 thread 基础模型、系统分区、删除保护、跳转和管理方式，不归一业务语义。Eval Hub 是工作面，不另造割裂前端；IM Hub 与 Eval Hub 互链，不互替 | 2026-05-23 |
+| KD-16 | Phase E 剩余交付按 4 个功能块 PR 收敛：E-hub / E-scale / E-sop / E-community，不按 AC 粒度拆 | PR 边界应对应可独立验收的用户/系统能力，而不是单条 AC。E-hub 由砚砚接，E-scale 由宪宪接；E-sop 依赖已由 F203 #1868 满足但排在 Hub/Scale 后；E-community 最后基于稳定 contract 输出社区 packet | 2026-05-24 |
 
 ## Timeline
 
@@ -437,6 +447,7 @@ Based on the first micro fit digest (2026-05-11):
 | 2026-05-23 | Phase E live verdict evidence slice merged (PR #1856) — resolver/generator/invariant tests landed for committed `snapshot:` / `attribution:` bundle refs |
 | 2026-05-23 | System Thread / System Workspace IA decision recorded — IM Hub system threads and Eval domain threads reuse one system-managed thread base with `kind` separation; Hub surfaces 互链、不互替 |
 | 2026-05-23 | **Phase E-sop scoped (AC-E16-E24)**——CVO 反思 "skill = 软约束需硬约束兜底" → `SopDefinition.hard_rules/pitfalls` 作 ground truth，`eval:sop` domain 跑 runtime trace 检测违规，hook 注入决策由 eval 数据驱动 (AC-D9)。Schema **domain-generic from day 1**（cross-domain schema 校验作 AC-E23 硬验证），消除多阶段 skill（video-forge / ppt-forge / tech-writing / expert-panel）= SOP 错位写进 skill body 的归位错位。依赖 F203 #748 merge 提供 SopDefinition + predicate schema。 |
+| 2026-05-24 | Phase E remaining PR packaging decided — CVO + 46/55 收敛为 4 个功能块 PR：E-hub（砚砚）、E-scale（宪宪）、E-sop、E-community；不按 AC 粒度继续拆碎 |
 
 ## Review Gate
 
