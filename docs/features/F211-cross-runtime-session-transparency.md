@@ -160,7 +160,7 @@ Expose runtime session state where users and cats notice it:
 - [ ] AC-A1: Same cascadeId repeated `session_init` does not create a new session.
 - [ ] AC-A2: CascadeId rotation seals the old session and creates a new session.
 - [ ] AC-A3: Seal targets the old cascade by `cliSessionId` / cascadeId lookup, never by active `(catId, threadId)` mismatch alone.
-- [ ] AC-A4: Seal happens after old cascade flush / in-flight RPC settle; read paths cannot trigger seal.
+- [ ] AC-A4: Seal happens after old cascade flush / in-flight RPC settle; read paths cannot trigger seal. If Antigravity does not expose an authoritative drain RPC, Phase A uses a documented quiet-window best-effort drain and records `drainResult`, while known in-flight work remains `runtime_seal_pending`.
 - [ ] AC-A5: Resets/rollovers carry classified `sealReason` such as `oversized_retire`, `user_initiated`, `model_capacity`, `empty_response`, `tool_conflict`, `unsafe_side_effect`, or `runtime_disconnected`.
 - [ ] AC-A6: Multi-cat single-thread cascades do not interfere with each other.
 - [ ] AC-A7: Same-thread same-cat concurrent cascades are either safely supported or explicitly fail-closed with a documented limitation and no mis-seal.
@@ -217,6 +217,7 @@ Expose runtime session state where users and cats notice it:
 | 同一 cascade 内切模型导致 catId/session attribution 错乱 | AC-0F/A9：明确 identity history 或 split-session 规则 |
 | 手动 New Cascade 被误记成异常 retire | AC-A5：`user_initiated` sealReason 单列 |
 | “flush 完成”不可观测导致 seal 丢尾 | AC-0G/A4：实现 drain/settle 机制；做不到则 fail-closed 延迟 seal，不在 read path 猜 |
+| Antigravity 没有权威 drain RPC，Phase A 实现卡住或自由发挥 | AC-A4：先 probe runtime drain capability；无 RPC 时用 quiet-window best-effort + `drainResult` 标记，已知 in-flight 仍 pending |
 | `runtime_seal_pending` 没有 reaper，永远悬空 | AC-A10：Phase A 必须交付 reaper/sweeper 或 manual recovery，并保持 pending visible |
 | 同 thread 同 cat 并发 cascade 被错误当成轮换 | AC-A7：Phase A 不支持也必须 fail-closed，不能误 seal |
 | 并发冲突状态被随手塞进 SessionRecord.status，破坏 session-chain enum | AC-A11：冲突是 runtime sidecar lifecycle state，SessionRecord 状态保持现有语义 |
@@ -233,7 +234,7 @@ Expose runtime session state where users and cats notice it:
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | Phase A seal trigger 的精确代码点在哪里，如何证明 old cascade flush / RPC settle 已完成？ | ⬜ Design Memo 决定 |
+| OQ-1 | Phase A seal trigger 的精确代码点在哪里，如何证明 old cascade flush / RPC settle 已完成？ | ✅ Design Memo defines capability probe + quiet-window best-effort fallback; implementation still must pick exact code point |
 | OQ-2 | Error reset 分类枚举是否完整，`model_capacity` / `empty_response` / `tool_conflict` / `unsafe_side_effect` 是否需要不同 digest 策略？ | ⬜ Design Memo 决定 |
 | OQ-3 | Same-thread same-cat concurrent cascades 是 Phase A 支持还是 fail-closed？ | ⬜ Design Memo 决定 |
 | OQ-4 | IDE-direct conversation 绑定到已有 Cat Cafe thread、独立 pseudo-thread，还是 runtime conversation collection？ | ⬜ Phase B design |
@@ -308,6 +309,7 @@ in_context_observability:
 | 2026-05-24 | Bengal Cat review confirmation：7 条问题全部覆盖，无新增问题。Kickoff review gate closed. |
 | 2026-05-24 | Phase 0 design memo landed：current-state audit、runtime-session ownership map delta、transcript/digest materialization proof、identity-history shape、drain/fail-closed policy、F210 boundary all documented. |
 | 2026-05-24 | Opus 4.7 architecture review 回流：主体 APPROVE；补 reaper、orphan discoverability、JSON read-only import、conflict sidecar state、`runtime_disconnected` 门禁。 |
+| 2026-05-24 | Bengal Cat Phase 0 surface review APPROVE；补 drain fallback：无 Antigravity drain RPC 时用 quiet-window best-effort + `drainResult`，已知 in-flight 仍 pending。 |
 
 ## Review Gate
 

@@ -201,6 +201,7 @@ type RuntimeSessionMetadata = {
     startedAt: number;
     lastObservedAt: number;
     sealReason?: string;
+    drainResult?: 'complete' | 'best_effort_quiet_window' | 'skipped_runtime_unreachable';
     pendingSince?: number;
     retryCount?: number;
     lastRetryAt?: number;
@@ -338,6 +339,16 @@ Minimum acceptable implementation:
 - `pollForSteps` final terminal cursor or timeout contributes `trajectory_idle`.
 - `drainCascade` resolves when trajectory is idle and in-flight count is zero.
 - If drain times out, fail closed: do not create a new sealed digest pretending completeness. Mark old session `runtime_seal_pending` or emit a visible diagnostic, then retry drain on next invocation/reaper.
+
+Drain capability fallback:
+
+Antigravity Desktop does not currently expose a guaranteed "wait until cascade idle" RPC. Phase A must therefore implement drain as capability probing, not as an assumed remote API:
+
+1. If a runtime-provided drain/idle RPC exists, use it as the authoritative signal.
+2. Otherwise use a timeout-based quiet-window drain: Bridge-observed in-flight RPC count is zero, no `pushToolResult` is pending, and trajectory polling observes no new meaningful step for the configured quiet window.
+3. If the quiet window succeeds without an authoritative runtime idle signal, sealing is allowed only with `lifecycle.drainResult = 'best_effort_quiet_window'` and a lifecycle event noting that drain was best-effort.
+4. If Bridge still knows about in-flight work, keep `lifecycle.state = 'runtime_seal_pending'` and let the reaper/manual recovery retry.
+5. If the runtime is unreachable, write `sealReason = 'runtime_disconnected'` plus `lifecycle.drainResult = 'skipped_runtime_unreachable'`; the digest should surface that the final drain could not be proven complete.
 
 This is stronger than the current `SessionSealer.finalize` timeout, because `finalize` can only flush events already appended. It cannot recover events that were still in Antigravity LS or pending `pushToolResult`.
 
