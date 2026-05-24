@@ -3,6 +3,7 @@ import http from 'node:http';
 import https from 'node:https';
 import { dirname, join } from 'node:path';
 import { createModuleLogger } from '../../../../../../infrastructure/logger.js';
+import type { IRuntimeSessionStore } from '../../../runtime-session/RuntimeSessionStore.js';
 import {
   type AntigravityCascadeHealthSnapshot,
   type AntigravityCascadeHealthThresholds,
@@ -157,6 +158,7 @@ export interface StepBatch {
 
 export interface BridgeOptions {
   sessionStorePath?: string;
+  runtimeSessionStore?: IRuntimeSessionStore;
 }
 
 export interface AntigravityRpcOptions {
@@ -259,12 +261,18 @@ export class AntigravityBridge {
   private modelMapRefreshed = false;
   private executorRegistry: ExecutorRegistry | null = null;
   private executorAudit: AuditSink | null = null;
+  private readonly runtimeSessionStore?: IRuntimeSessionStore;
 
   constructor(
     private readonly connection?: Partial<BridgeConnection>,
     options?: BridgeOptions,
   ) {
     this.sessionStorePath = options?.sessionStorePath ?? DEFAULT_SESSION_STORE;
+    this.runtimeSessionStore = options?.runtimeSessionStore;
+  }
+
+  getRuntimeSessionStoreForDiagnostics(): IRuntimeSessionStore | undefined {
+    return this.runtimeSessionStore;
   }
 
   attachExecutors(registry: ExecutorRegistry, audit: AuditSink): void {

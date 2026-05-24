@@ -12,7 +12,13 @@ code_anchors:
   - packages/api/src/routes/thread-cats-core.ts
   - packages/web/src/debug/bubbleIdentity.ts
   - packages/api/src/domains/cats/services/stores/ports/SessionChainStore.ts
+  - packages/api/src/domains/cats/services/runtime-session/RuntimeSessionMetadata.ts
+  - packages/api/src/domains/cats/services/runtime-session/RuntimeSessionStore.ts
+  - packages/api/src/domains/cats/services/runtime-session/RedisRuntimeSessionStore.ts
+  - packages/api/src/domains/cats/services/runtime-session/RuntimeSessionStoreFactory.ts
+  - packages/api/src/domains/cats/services/stores/redis-keys/runtime-session-keys.ts
   - packages/api/src/domains/cats/services/agents/providers/antigravity/AntigravityBridge.ts
+  - packages/api/src/domains/cats/services/agents/providers/antigravity/antigravity-runtime-session-import.ts
 doc_anchors:
   - docs/features/F032-agent-plugin-architecture.md
   - docs/features/F088-multi-platform-chat-gateway.md
@@ -28,6 +34,8 @@ cited_by:
 ---
 
 # Identity / Session
+
+Architecture cell: identity-session
 
 ## Canonical Owner
 

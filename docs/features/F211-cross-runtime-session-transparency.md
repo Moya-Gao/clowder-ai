@@ -334,6 +334,7 @@ in_context_observability:
 | 2026-05-24 | Phase A1 implementation plan drafted：先落 runtime-session metadata sidecar / read-only legacy import prep；不 flip live cascade rotation，A2 再接 `ephemeralSession: false`、drain、reaper、transcript materialization。 |
 | 2026-05-24 | Bengal Cat Phase A1 plan surface review APPROVE；补 legacy JSON key format（`${threadId}:${catId}`）和既有 Antigravity regression subset 门禁。 |
 | 2026-05-24 | Opus 4.7 Phase A1 plan architecture review BLOCKING；补 DI-only observation hook、禁止 legacy placeholder sessionId、SessionChainStore resolver 语义、Redis multi-key atomicity 门禁。 |
+| 2026-05-24 | Phase A1 implementation landed in worktree：新增 runtime-session metadata schema、in-memory/Redis sidecar store、read-only legacy JSON import adapter、Antigravity runtime store DI seam；未 flip live cascade rotation，A2 仍 owns `ephemeralSession: false`、drain/reaper、transcript materialization。 |
 | 2026-05-24 | Opus 4.7 + Codex A2 scope discussion：术语统一为 session = Antigravity cascade；continuity break 判定为 F211 内 bug，不开 F212；A2 拆为 A2a lifecycle/seal/drain/reaper 和 A2b cross-session continuity bootstrap。 |
 | 2026-05-24 | Phase A2 implementation plan drafted：A2a covers lifecycle/seal/drain/reaper/runtime binding; A2b covers first effective prompt continuity bootstrap, degraded marker, reason coverage, token budget, re-rotation, and control block format. |
 

@@ -69,6 +69,7 @@ import {
   initPushNotificationService,
   resetPushNotificationService,
 } from './domains/cats/services/push/PushNotificationService.js';
+import { createRuntimeSessionStore } from './domains/cats/services/runtime-session/RuntimeSessionStoreFactory.js';
 import type { HandoffConfig } from './domains/cats/services/session/SessionSealer.js';
 import { SessionSealer } from './domains/cats/services/session/SessionSealer.js';
 import { TranscriptReader } from './domains/cats/services/session/TranscriptReader.js';
@@ -513,6 +514,7 @@ async function main(): Promise<void> {
   }
 
   const sessionChainStore = createSessionChainStore(redis);
+  const runtimeSessionStore = createRuntimeSessionStore(redis);
   // F24: Transcript Writer/Reader for session chain
   // E7 fix: resolve relative to monorepo root, not CWD (same fix as docsRoot in PR #524)
   const transcriptDataDir = process.env.TRANSCRIPT_DATA_DIR ?? `${findMonorepoRoot(process.cwd())}/data/transcripts`;
@@ -1064,6 +1066,7 @@ async function main(): Promise<void> {
         case 'antigravity':
           service = new AntigravityAgentService({
             catId,
+            runtimeSessionStore,
             supervisorStore: redisClient
               ? new RedisAntigravitySupervisorStore(redisClient, {
                   auditDir: join(process.cwd(), 'data', 'antigravity-audit'),
