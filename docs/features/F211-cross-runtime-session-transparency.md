@@ -147,14 +147,14 @@ Expose runtime session state where users and cats notice it:
 ## Acceptance Criteria
 
 ### Phase 0（Design Memo + Audit）
-- [ ] AC-0A: Design memo documents current JSON shadow state, SessionChainStore paths, `ephemeralSession` behavior, and IDE-direct blind spot with code anchors.
-- [ ] AC-0B: Design memo includes architecture cell decision and map delta plan.
-- [ ] AC-0C: Design memo explicitly separates F211 from F201, F209, and F210 ownership.
+- [x] AC-0A: Design memo documents current JSON shadow state, SessionChainStore paths, `ephemeralSession` behavior, and IDE-direct blind spot with code anchors. Source: `docs/discussions/2026-05-24-f211-design-memo/README.md`.
+- [x] AC-0B: Design memo includes architecture cell decision and map delta plan. Source: `docs/discussions/2026-05-24-f211-design-memo/README.md`; map delta applied to `identity-session` and `memory` cells.
+- [x] AC-0C: Design memo explicitly separates F211 from F201, F209, and F210 ownership.
 - [x] AC-0D: Review request asks Bengal Cat to summarize F211 goals and list only problems / missed constraints. Bengal Cat confirmed the 7 kickoff review constraints are fully covered on 2026-05-24.
-- [ ] AC-0E: Design memo defines transcript/digest materialization with at least one proof that `read_session_digest` and `read_session_events` return meaningful Antigravity content, not just a session shell.
-- [ ] AC-0F: Design memo defines same-cascade model/cat identity changes and the storage shape for identity history.
-- [ ] AC-0G: Design memo defines the drain/flush mechanism or fail-closed policy for sealing after in-flight RPC / tool result settlement.
-- [ ] AC-0H: Design memo defines the F210 AGY CLI boundary: whether AGY uses F211 registration, its own session path, or an explicit adapter bridge.
+- [x] AC-0E: Design memo defines transcript/digest materialization with at least one proof that `read_session_digest` and `read_session_events` return meaningful Antigravity content, not just a session shell.
+- [x] AC-0F: Design memo defines same-cascade model/cat identity changes and the storage shape for identity history.
+- [x] AC-0G: Design memo defines the drain/flush mechanism or fail-closed policy for sealing after in-flight RPC / tool result settlement.
+- [x] AC-0H: Design memo defines the F210 AGY CLI boundary: whether AGY uses F211 registration, its own session path, or an explicit adapter bridge.
 
 ### Phase A（Cat-Cafe-dispatched cascade bridge）
 - [ ] AC-A1: Same cascadeId repeated `session_init` does not create a new session.
@@ -284,9 +284,9 @@ in_context_observability:
 | R10 | Bengal review: “context canceled 噪音不要污染 digest” | AC-E4, OQ-11 | noisy trajectory fixture | [ ] |
 
 ### 覆盖检查
-- [ ] 每个需求点都能映射到至少一个 AC
-- [ ] 每个 AC 都有验证方式
-- [ ] 可观测性入口不是 dashboard-only
+- [x] 每个需求点都能映射到至少一个 AC
+- [x] 每个 AC 都有验证方式
+- [x] 可观测性入口不是 dashboard-only
 
 ## Timeline
 
@@ -295,6 +295,7 @@ in_context_observability:
 | 2026-05-24 | CVO 拍板：F201 保持关闭，Antigravity session transparency 拆到 F211；F209 只是 downstream retrieval consumer。 |
 | 2026-05-24 | Bengal Cat kickoff review 回流：F211 目标总结正确；7 条有效问题已升级为 Phase 0 / AC / Risk / OQ 门禁。 |
 | 2026-05-24 | Bengal Cat review confirmation：7 条问题全部覆盖，无新增问题。Kickoff review gate closed. |
+| 2026-05-24 | Phase 0 design memo landed：current-state audit、runtime-session ownership map delta、transcript/digest materialization proof、identity-history shape、drain/fail-closed policy、F210 boundary all documented. |
 
 ## Review Gate
 
@@ -309,5 +310,6 @@ in_context_observability:
 | **Feature** | `docs/features/F201-antigravity-reliability-contract.md` | Reliability predecessor, remains closed |
 | **Feature** | `docs/features/F209-evidence-recall-optimization.md` | Downstream retrieval consumer, not owner |
 | **Feature** | `docs/features/F210-antigravity-cli-migration.md` | Separate headless AGY carrier migration |
+| **Discussion** | `docs/discussions/2026-05-24-f211-design-memo/README.md` | Phase 0 current-state audit and architecture design memo |
 | **Architecture** | `docs/architecture/ownership/cells/identity-session.md` | Candidate primary ownership cell |
 | **Architecture** | `docs/architecture/ownership/cells/memory.md` | Evidence/retrieval consumer cell |
