@@ -197,9 +197,13 @@ type RuntimeSessionMetadata = {
     source: 'session_init' | 'trajectory' | 'external_registration';
   }>;
   lifecycle: {
+    state: 'active' | 'runtime_seal_pending' | 'runtime_conflict_pending' | 'sealed';
     startedAt: number;
     lastObservedAt: number;
     sealReason?: string;
+    pendingSince?: number;
+    retryCount?: number;
+    lastRetryAt?: number;
   };
 };
 ```
@@ -242,6 +246,7 @@ Required initial reason vocabulary:
 | `stream_error` | Stream interruption triggers safe fresh cascade |
 | `tool_conflict` | Tool/approval conflict forces reset |
 | `unsafe_side_effect` | Side-effect journal blocks automatic resume/rotation |
+| `runtime_disconnected` | Antigravity LS/Desktop/socket disappeared without a logical reset request |
 | `runtime_error_reset` | Unclassified error reset; should be rare and visible |
 
 Digest policy can group these, but storage must preserve the exact reason.
@@ -264,8 +269,10 @@ This avoids silently overwriting attribution while not splitting one Antigravity
 Phase A does not need full concurrent same-thread same-cat support. It must fail closed:
 
 - If two active cascades claim the same `(threadId, catId)` and neither is sealed, do not auto-seal either based on active mismatch.
-- Register the second as `runtime_conflict_pending` or emit a visible diagnostic.
-- Require an explicit user/system lifecycle edge to choose which cascade to seal.
+- Register the conflict in runtime metadata as `lifecycle.state = 'runtime_conflict_pending'`; do not add `runtime_conflict_pending` to `SessionRecord.status`.
+- `SessionRecord.status` remains the session-chain lifecycle (`active` / `sealing` / `sealed` or the existing local enum).
+- Require an explicit user/system lifecycle edge to choose which cascade to seal, such as a `resolve_runtime_session_conflict` admin/tool action or a later runtime event that identifies the retired cascade id.
+- Until resolved, both cascades must remain discoverable in diagnostics and neither can be silently overwritten.
 
 Multi-cat same-thread cascades are supported because `catId` is part of the chain key.
 
@@ -334,6 +341,22 @@ Minimum acceptable implementation:
 
 This is stronger than the current `SessionSealer.finalize` timeout, because `finalize` can only flush events already appended. It cannot recover events that were still in Antigravity LS or pending `pushToolResult`.
 
+### 6.1 Pending-Seal Reaper
+
+`runtime_seal_pending` is not allowed to mean "maybe some future code will fix it." Phase A must ship one of these recovery paths:
+
+1. A `RuntimeSessionSealReaper` integrated into the API startup/supervisor sweeper path.
+2. A clearly documented manual recovery command/tool for retrying pending seals, plus a visible diagnostic until it is used.
+
+Preferred Phase A behavior:
+
+- On API startup and then on a short interval, scan runtime metadata for `lifecycle.state = 'runtime_seal_pending'`.
+- Retry `drainCascade(runtimeSessionId)` if the runtime is reachable.
+- If drain succeeds, append the final lifecycle event, call `requestSeal`, and finalize.
+- If the runtime is disconnected, seal with `sealReason = 'runtime_disconnected'` only after writing a lifecycle event explaining that the final drain was impossible.
+- Persist `retryCount`, `lastRetryAt`, and the last failure reason so crash/restart does not lose recovery state.
+- After max retries, keep the session visible as pending and expose the manual recovery action; do not silently drop it.
+
 ## 7. IDE-Direct Registration
 
 Phase B needs a new persistent-auth registration contract. Shape:
@@ -367,6 +390,18 @@ Storage options:
 
 Recommended Phase B default: orphan runtime-session record first. It avoids polluting normal thread history, and a later bind can attach it to a thread when the user wants that.
 
+### 7.1 Orphan Discoverability
+
+An orphan runtime-session record only solves the IDE-direct gap if users and cats can find it.
+
+Phase B must include at least one read/list surface:
+
+- Extend session-chain tools with a runtime-wide scope, for example `list_session_chain({ scope: 'all-runtimes' })`.
+- Or add a sibling MCP tool such as `list_external_sessions({ runtime, catId, since })`.
+- Hub should expose the same collection in a session-chain/runtime-session surface.
+
+Search/evidence indexing can follow after transcript/digest materialization, but the Phase B floor is simpler: recent orphan sessions must be listable by runtime, cat, and last-observed time, with drill-down to digest/transcript/debug metadata when available.
+
 ## 8. F201 / F209 / F210 Boundary
 
 | Feature | Owns | F211 Relationship |
@@ -379,13 +414,29 @@ Recommended Phase B default: orphan runtime-session record first. It avoids poll
 
 ### Phase A Implementation Slice
 
-1. Add runtime session metadata storage or sidecar.
-2. Make Antigravity Desktop `session_init` non-ephemeral for Cat-Cafe-dispatched cascades.
-3. Add lifecycle edge detection for old/new cascade with classified seal reason.
-4. Add `drainCascade`.
-5. Target seal by `getByCliSessionId(oldCascadeId)`.
-6. Add transcript/digest proof fixture.
-7. Keep JSON as compatibility input until Phase C.
+1. A1: Add runtime session metadata storage or sidecar.
+2. A1: Add canonical binding lookup by runtime session id / cascadeId.
+3. A2: Make Antigravity Desktop `session_init` non-ephemeral for Cat-Cafe-dispatched cascades.
+4. A2: Add lifecycle edge detection for old/new cascade with classified seal reason.
+5. A2: Add `drainCascade` and pending-seal reaper/manual recovery.
+6. A2: Target seal by `getByCliSessionId(oldCascadeId)`.
+7. A2: Add transcript/digest proof fixture.
+
+Once A1 lands, Phase B registration can begin in parallel because it needs the same metadata schema but not the cascade-rotation hook.
+
+### 9.1 JSON Compatibility Window
+
+Phase A must not dual-write JSON and SessionChainStore.
+
+Rules:
+
+- `data/antigravity-sessions.json` is read-only legacy input during Phase A.
+- At startup or first lookup, import any surviving `threadId:catId -> cascadeId` mapping into canonical runtime metadata / SessionChainStore binding.
+- All newly observed cascades, rotations, and resets write only the canonical runtime-session binding.
+- If JSON import fails, emit a diagnostic and create a fresh canonical binding; do not repair by writing JSON.
+- Phase C removes the read/import path and decides whether to archive or delete the old JSON file.
+
+This keeps Phase A from creating a new split-brain state while still preserving existing live cascades long enough to migrate.
 
 ### Phase B Implementation Slice
 
@@ -417,4 +468,3 @@ For Antigravity surface review:
 - Does the transformed-message materialization source miss any important Antigravity trajectory shape?
 - Are manual New Cascade and model/cat switches captured in the right layer?
 - Is orphan runtime-session registration enough for IDE-direct v1?
-

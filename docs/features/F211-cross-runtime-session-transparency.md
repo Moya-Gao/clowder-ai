@@ -161,11 +161,14 @@ Expose runtime session state where users and cats notice it:
 - [ ] AC-A2: CascadeId rotation seals the old session and creates a new session.
 - [ ] AC-A3: Seal targets the old cascade by `cliSessionId` / cascadeId lookup, never by active `(catId, threadId)` mismatch alone.
 - [ ] AC-A4: Seal happens after old cascade flush / in-flight RPC settle; read paths cannot trigger seal.
-- [ ] AC-A5: Resets/rollovers carry classified `sealReason` such as `oversized_retire`, `user_initiated`, `model_capacity`, `empty_response`, `tool_conflict`, or `unsafe_side_effect`.
+- [ ] AC-A5: Resets/rollovers carry classified `sealReason` such as `oversized_retire`, `user_initiated`, `model_capacity`, `empty_response`, `tool_conflict`, `unsafe_side_effect`, or `runtime_disconnected`.
 - [ ] AC-A6: Multi-cat single-thread cascades do not interfere with each other.
 - [ ] AC-A7: Same-thread same-cat concurrent cascades are either safely supported or explicitly fail-closed with a documented limitation and no mis-seal.
 - [ ] AC-A8: Cat-Cafe-dispatched Antigravity session records have non-empty session events/digest content from the agreed materialization path.
 - [ ] AC-A9: Same cascadeId with changed model/cat identity is represented according to Phase 0 design and does not silently overwrite prior identity metadata.
+- [ ] AC-A10: Pending seals have a concrete recovery path: a reaper/sweeper or documented manual recovery action retries `runtime_seal_pending` records and keeps them visible until resolved.
+- [ ] AC-A11: `runtime_conflict_pending` is represented as runtime sidecar lifecycle state with an explicit transition path, not as an ad hoc `SessionRecord.status` value.
+- [ ] AC-A12: Phase A treats `data/antigravity-sessions.json` as read-only legacy import only; no new cascade binding or reset path dual-writes JSON.
 
 ### Phase B（IDE-direct reverse registration）
 - [ ] AC-B1: Antigravity IDE-direct conversation can create or update a Cat Cafe session-chain record without a prior Cat Cafe dispatch.
@@ -173,6 +176,7 @@ Expose runtime session state where users and cats notice it:
 - [ ] AC-B3: IDE-direct sessions are searchable/drillable through existing session-chain tools or a documented extension.
 - [ ] AC-B4: Direct IDE sessions do not pollute normal thread transcript unless explicitly bound.
 - [ ] AC-B5: Registration contract does not require invocation callback credentials; it uses a persistent-agent or explicit external-session auth path with audit.
+- [ ] AC-B6: Orphan IDE-direct runtime sessions are discoverable through an MCP/UI list/read surface by runtime, cat, and recent activity even before they are bound to a normal thread.
 
 ### Phase C（JSON shadow state retirement）
 - [ ] AC-C1: `data/antigravity-sessions.json` is no longer the canonical source for cascade reuse.
@@ -213,11 +217,15 @@ Expose runtime session state where users and cats notice it:
 | 同一 cascade 内切模型导致 catId/session attribution 错乱 | AC-0F/A9：明确 identity history 或 split-session 规则 |
 | 手动 New Cascade 被误记成异常 retire | AC-A5：`user_initiated` sealReason 单列 |
 | “flush 完成”不可观测导致 seal 丢尾 | AC-0G/A4：实现 drain/settle 机制；做不到则 fail-closed 延迟 seal，不在 read path 猜 |
+| `runtime_seal_pending` 没有 reaper，永远悬空 | AC-A10：Phase A 必须交付 reaper/sweeper 或 manual recovery，并保持 pending visible |
 | 同 thread 同 cat 并发 cascade 被错误当成轮换 | AC-A7：Phase A 不支持也必须 fail-closed，不能误 seal |
+| 并发冲突状态被随手塞进 SessionRecord.status，破坏 session-chain enum | AC-A11：冲突是 runtime sidecar lifecycle state，SessionRecord 状态保持现有语义 |
 | Phase B 没有 threadId/callbackToken，注册路径空转 | AC-B5：定义 persistent external-session registration auth，不假设 invocation 凭证 |
+| Orphan runtime session 创建了但没人找得到 | AC-B6/E1~E3：必须有 list/read surface；搜索索引可后续增强，但近期 orphan 可列出 |
 | F210 AGY CLI 也产生 cascade-like session，和 F211 打架 | AC-0H/D4：Design Memo 先定 owner/bridge，不让两个 feature 各管一半 |
 | `context canceled` 等平台噪音污染 digest | AC-E4：高层 digest 聚合，debug detail 保留原始事件 |
-| JSON 退役过早导致现有 cascade 丢失 | Phase C 必须先 migration/audit，允许短期只读迁移输入 |
+| JSON 退役过早导致现有 cascade 丢失 | AC-A12 + Phase C：Phase A 只读导入，不 dual-write；Phase C 再删除 import |
+| JSON 与 SessionChainStore dual-write 形成新 split-brain | AC-A12/KD-8：运行期只写 runtime-session binding |
 | IDE-direct 反向注册把私聊污染进正常 thread | AC-B4：直接对话默认独立，显式绑定才进 thread transcript |
 | 长期模型仍被 CLI-session 词汇绑住 | Phase D 明确 long-lived session kind / cross-runtime protocol，不让 Phase A 兼容 hook 变终态 |
 
@@ -236,6 +244,7 @@ Expose runtime session state where users and cats notice it:
 | OQ-9 | 同一 cascadeId 内 model/cat 切换应 split session、记录 identity timeline，还是创建 sub-run？ | ⬜ Design Memo 决定 |
 | OQ-10 | IDE-direct 无 threadId 时，是否创建 orphan session、private runtime thread，还是等用户显式绑定？ | ⬜ Phase B design |
 | OQ-11 | `context canceled` / refused / canceled tool 事件如何进入 digest、debug detail、或被过滤？ | ⬜ Phase E design |
+| OQ-12 | Phase A 是否拆成 A1 metadata schema / A2 cascade rotation，并在 A1 后允许 Phase B parallel start？ | ⬜ Phase A planning |
 
 ## Key Decisions
 
@@ -248,6 +257,8 @@ Expose runtime session state where users and cats notice it:
 | KD-5 | IDE-direct reverse registration 升为 Phase B 高优先级 | 铲屎官日常会直接在 Antigravity IDE 和 Bengal Cat 工作；这不是低频调试路径 | 2026-05-24 |
 | KD-6 | F209 是 F211 的 downstream consumer | F211 让 session/transcript/digest 进入系统，F209/F200 后续负责召回和评估 | 2026-05-24 |
 | KD-7 | Bengal kickoff review 的 7 条问题升级为 Phase 0/AC 门禁 | 这些不是实现细节：transcript source、cat identity、manual New Cascade、drain、registration auth、F210 boundary、noise policy 都会决定 F211 是否真的解决失忆 | 2026-05-24 |
+| KD-8 | Phase A 不 dual-write JSON 和 SessionChainStore | `data/antigravity-sessions.json` 只作为 read-only legacy import；新 cascade binding 只写 runtime-session state，避免制造第二代影子状态 | 2026-05-24 |
+| KD-9 | Pending seal 必须有 reaper 或 manual recovery | fail-closed 不能等价于永久悬空；pending session 要可见、可重试、可收口 | 2026-05-24 |
 
 ## Eval / Tracking Contract
 
@@ -276,8 +287,8 @@ in_context_observability:
 | R2 | “先把 F201 关闭，然后剩下的记录到 F211” | KD-2, F201 post-close note | F201 timeline note + BACKLOG F211 row | [x] |
 | R3 | “这个和 F209 啥关系？F209 不是检索的吗？” | KD-1, KD-6, AC-0C | Spec ownership boundary review | [x] |
 | R4 | “可以找 antig-opus，让他只需要讲出来问题；顺便总结 F211 想做什么” | AC-0D | Review request message to `@antig-opus` | [x] |
-| R5 | IDE 直开和孟加拉猫聊天也要能找回 | AC-B1~B4 | IDE-direct registration fixture / manual validation | [ ] |
-| R6 | JSON shadow state 不该继续当真相源 | AC-C1~C4 | Migration test + removal/audit diff | [ ] |
+| R5 | IDE 直开和孟加拉猫聊天也要能找回 | AC-B1~B6 | IDE-direct registration fixture / list/read discoverability validation | [ ] |
+| R6 | JSON shadow state 不该继续当真相源 | AC-A12, AC-C1~C4 | Read-only import + migration test + removal/audit diff | [ ] |
 | R7 | Bengal review: “session chain 里有记录但 digest/events 为空仍然没用” | AC-0E, AC-A8 | `read_session_digest/events` proof fixture | [ ] |
 | R8 | Bengal review: “同一 cascade 可换 model/catId，manual New Cascade 也常见” | AC-0F, AC-A5, AC-A9 | identity-history + sealReason tests | [ ] |
 | R9 | Bengal review: “IDE-direct 没 threadId/callbackToken，Phase B 注册机制要具体” | AC-B5, OQ-10 | external-session registration contract | [ ] |
@@ -296,6 +307,7 @@ in_context_observability:
 | 2026-05-24 | Bengal Cat kickoff review 回流：F211 目标总结正确；7 条有效问题已升级为 Phase 0 / AC / Risk / OQ 门禁。 |
 | 2026-05-24 | Bengal Cat review confirmation：7 条问题全部覆盖，无新增问题。Kickoff review gate closed. |
 | 2026-05-24 | Phase 0 design memo landed：current-state audit、runtime-session ownership map delta、transcript/digest materialization proof、identity-history shape、drain/fail-closed policy、F210 boundary all documented. |
+| 2026-05-24 | Opus 4.7 architecture review 回流：主体 APPROVE；补 reaper、orphan discoverability、JSON read-only import、conflict sidecar state、`runtime_disconnected` 门禁。 |
 
 ## Review Gate
 
