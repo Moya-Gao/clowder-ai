@@ -245,7 +245,7 @@ Expose runtime session state where users and cats notice it:
 | OQ-9 | 同一 cascadeId 内 model/cat 切换应 split session、记录 identity timeline，还是创建 sub-run？ | ⬜ Design Memo 决定 |
 | OQ-10 | IDE-direct 无 threadId 时，是否创建 orphan session、private runtime thread，还是等用户显式绑定？ | ⬜ Phase B design |
 | OQ-11 | `context canceled` / refused / canceled tool 事件如何进入 digest、debug detail、或被过滤？ | ⬜ Phase E design |
-| OQ-12 | Phase A 是否拆成 A1 metadata schema / A2 cascade rotation，并在 A1 后允许 Phase B parallel start？ | ⬜ Phase A planning |
+| OQ-12 | Phase A 是否拆成 A1 metadata schema / A2 cascade rotation，并在 A1 后允许 Phase B parallel start？ | ✅ Phase A planning decided: A1 runtime metadata sidecar first, A2 live cascade rotation, Phase B can start after A1 metadata contract is reviewed |
 
 ## Key Decisions
 
@@ -310,11 +310,13 @@ in_context_observability:
 | 2026-05-24 | Phase 0 design memo landed：current-state audit、runtime-session ownership map delta、transcript/digest materialization proof、identity-history shape、drain/fail-closed policy、F210 boundary all documented. |
 | 2026-05-24 | Opus 4.7 architecture review 回流：主体 APPROVE；补 reaper、orphan discoverability、JSON read-only import、conflict sidecar state、`runtime_disconnected` 门禁。 |
 | 2026-05-24 | Bengal Cat Phase 0 surface review APPROVE；补 drain fallback：无 Antigravity drain RPC 时用 quiet-window best-effort + `drainResult`，已知 in-flight 仍 pending。 |
+| 2026-05-24 | Phase A1 implementation plan drafted：先落 runtime-session metadata sidecar / read-only legacy import prep；不 flip live cascade rotation，A2 再接 `ephemeralSession: false`、drain、reaper、transcript materialization。 |
 
 ## Review Gate
 
 - Kickoff docs: Bengal Cat (`@antig-opus`) review for lived Antigravity constraints; request style = summarize F211 goal + list problems only.
 - Design Memo: 布偶猫 Opus 4.7 architecture review + Bengal Cat Antigravity surface review.
+- Phase A1 plan: Opus 4.7 architecture review + Bengal Cat Antigravity surface review before worktree/TDD.
 - Implementation: cross-family review before PR; no self-review.
 
 ## Links
@@ -325,5 +327,6 @@ in_context_observability:
 | **Feature** | `docs/features/F209-evidence-recall-optimization.md` | Downstream retrieval consumer, not owner |
 | **Feature** | `docs/features/F210-antigravity-cli-migration.md` | Separate headless AGY carrier migration |
 | **Discussion** | `docs/discussions/2026-05-24-f211-design-memo/README.md` | Phase 0 current-state audit and architecture design memo |
+| **Plan** | `docs/plans/2026-05-24-f211-phase-a1-runtime-metadata.md` | Phase A1 runtime metadata sidecar and binding implementation plan |
 | **Architecture** | `docs/architecture/ownership/cells/identity-session.md` | Candidate primary ownership cell |
 | **Architecture** | `docs/architecture/ownership/cells/memory.md` | Evidence/retrieval consumer cell |
