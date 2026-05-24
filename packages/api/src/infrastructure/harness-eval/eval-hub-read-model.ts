@@ -23,7 +23,7 @@ export interface EvalHubSummary {
 
 export interface EvalHubItem {
   id: string;
-  domainId: 'eval:a2a';
+  domainId: EvalDomainRegistryEntry['domainId'];
   packetId: string;
   feedbackType: 'live-verdict';
   verdict: 'delete_sunset' | 'build' | 'fix' | 'keep_observe';
@@ -67,7 +67,7 @@ export interface EvalHubItem {
   };
   systemWorkspace: {
     kind: 'eval_domain';
-    id: 'eval:a2a';
+    id: EvalDomainRegistryEntry['domainId'];
     label: string;
     threadId: string;
     stateSot: 'registry';
@@ -87,11 +87,12 @@ interface ParsedVerdictMarkdown {
 
 export function loadEvalHubSummary(input: LoadEvalHubSummaryInput): EvalHubSummary {
   const verdictsDir = join(input.harnessFeedbackRoot, 'verdicts');
+  const domains = loadDomains(input.harnessFeedbackRoot);
   const items = readdirSync(verdictsDir, { withFileTypes: true })
     .filter((entry) => entry.isFile() && entry.name.endsWith('.md'))
     .map((entry) => parseVerdictMarkdown(join(verdictsDir, entry.name)))
     .filter((verdict) => verdict.frontmatter.feedback_type === 'live-verdict')
-    .map((verdict) => buildEvalHubItem(input.harnessFeedbackRoot, verdict))
+    .map((verdict) => buildEvalHubItem(input.harnessFeedbackRoot, verdict, domains))
     .sort((a, b) => b.trend.generatedAt.localeCompare(a.trend.generatedAt));
 
   return {
@@ -106,7 +107,11 @@ export function loadEvalHubSummary(input: LoadEvalHubSummaryInput): EvalHubSumma
   };
 }
 
-function buildEvalHubItem(harnessFeedbackRoot: string, verdict: ParsedVerdictMarkdown): EvalHubItem {
+function buildEvalHubItem(
+  harnessFeedbackRoot: string,
+  verdict: ParsedVerdictMarkdown,
+  domains: Map<EvalDomainRegistryEntry['domainId'], EvalDomainRegistryEntry>,
+): EvalHubItem {
   const verdictId = verdict.id;
   const bundleDir = join(harnessFeedbackRoot, 'bundles', verdictId);
   const repoRoot = dirname(dirname(harnessFeedbackRoot));
@@ -118,7 +123,14 @@ function buildEvalHubItem(harnessFeedbackRoot: string, verdict: ParsedVerdictMar
     throw new Error(`failed to resolve evidence bundle for ${verdictId}: ${message}`);
   }
 
-  const domain = loadDomain(harnessFeedbackRoot);
+  const domainId = requiredString(verdict.frontmatter.domain_id, 'domain_id') as EvalDomainRegistryEntry['domainId'];
+  const domain = domains.get(domainId);
+  if (!domain) {
+    throw new Error(
+      `unknown domain_id '${domainId}' in verdict ${verdictId}; registered domains: ${[...domains.keys()].join(', ')}`,
+    );
+  }
+
   const evidence = extractEvidenceRefs(verdict.markdown);
   const verdictValue = requiredVerdict(extractBullet(verdict.markdown, 'Verdict'));
   const phenomenon = requiredText(extractBullet(verdict.markdown, 'Phenomenon'), 'phenomenon');
@@ -129,7 +141,7 @@ function buildEvalHubItem(harnessFeedbackRoot: string, verdict: ParsedVerdictMar
 
   return {
     id: verdictId,
-    domainId: 'eval:a2a',
+    domainId,
     packetId: requiredString(verdict.frontmatter.packet_id, 'packet_id'),
     feedbackType: 'live-verdict',
     verdict: verdictValue,
@@ -160,7 +172,7 @@ function buildEvalHubItem(harnessFeedbackRoot: string, verdict: ParsedVerdictMar
     },
     systemWorkspace: {
       kind: 'eval_domain',
-      id: 'eval:a2a',
+      id: domainId,
       label: domain.displayName,
       threadId: domain.systemThreadId,
       stateSot: domain.threadPolicy.stateSot,
@@ -191,13 +203,17 @@ function parseFrontmatter(markdown: string): Record<string, unknown> {
   return parsed as Record<string, unknown>;
 }
 
-function loadDomain(harnessFeedbackRoot: string): EvalDomainRegistryEntry {
-  const path = join(harnessFeedbackRoot, 'eval-domains', 'eval-a2a.yaml');
-  if (!existsSync(path)) {
-    throw new Error('eval:a2a domain registry entry is required for Eval Hub');
+function loadDomains(harnessFeedbackRoot: string): Map<EvalDomainRegistryEntry['domainId'], EvalDomainRegistryEntry> {
+  const domainsDir = join(harnessFeedbackRoot, 'eval-domains');
+  if (!existsSync(domainsDir)) return new Map();
+  const domains = new Map<EvalDomainRegistryEntry['domainId'], EvalDomainRegistryEntry>();
+  for (const entry of readdirSync(domainsDir, { withFileTypes: true })) {
+    if (!entry.isFile() || !entry.name.endsWith('.yaml')) continue;
+    const parsed = parseYaml(readFileSync(join(domainsDir, entry.name), 'utf8'));
+    const domain = parseEvalDomainRegistryFile(parsed);
+    domains.set(domain.domainId, domain);
   }
-  const parsed = parseYaml(readFileSync(path, 'utf8'));
-  return parseEvalDomainRegistryFile(parsed);
+  return domains;
 }
 
 function extractBullet(markdown: string, label: string): string | undefined {

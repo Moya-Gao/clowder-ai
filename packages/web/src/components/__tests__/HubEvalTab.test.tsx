@@ -114,6 +114,79 @@ describe('HubEvalTab', () => {
     container.remove();
   });
 
+  it('renders domain-specific jump links for eval:memory verdict cards', async () => {
+    const memorySummary = {
+      counts: { total: 1, actionable: 0, keepObserve: 1, stale: 0 },
+      items: [
+        {
+          id: '2026-05-24-eval-memory-test',
+          domainId: 'eval:memory',
+          packetId: 'vhp_eval_memory_test',
+          feedbackType: 'live-verdict',
+          verdict: 'keep_observe',
+          phenomenon: 'No actionable memory findings',
+          ownerAsk: 'No action required; keep observing.',
+          harnessUnderEval: { featureId: 'F200', componentId: 'memory-recall', name: 'Memory Recall & Library Health' },
+          reeval: { nextEvalAt: '2026-05-31T00:00:00.000Z', status: 'observing', summary: 'next eval remains clean' },
+          lifecycle: { ownerResponseStatus: 'not_required', closureStatus: 'observing', stale: false },
+          evidence: {
+            snapshotRefs: ['snapshot:memory-eval/7d'],
+            attributionRefs: ['attribution:no-finding'],
+            metricRefs: ['mrr'],
+            otherRefs: [],
+          },
+          trend: {
+            generatedAt: '2026-05-24T14:00:00.000Z',
+            window: { durationHours: 168 },
+            components: [
+              {
+                componentId: 'memory-recall',
+                componentName: 'Memory Recall & Library Health',
+                confidence: 'medium',
+                activationCounts: { recall_events: 142 },
+                frictionCounts: { abandonment_rate: 0 },
+              },
+            ],
+          },
+          systemWorkspace: {
+            kind: 'eval_domain',
+            id: 'eval:memory',
+            label: 'Memory Recall & Library Health Eval',
+            threadId: 'thread_eval_memory',
+            stateSot: 'registry',
+          },
+          source: {
+            verdictPath: 'docs/harness-feedback/verdicts/2026-05-24-eval-memory-test.md',
+            bundleDir: 'docs/harness-feedback/bundles/2026-05-24-eval-memory-test',
+          },
+        },
+      ],
+    };
+
+    vi.mocked(apiFetch).mockResolvedValueOnce(jsonResponse(memorySummary));
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(<HubEvalTab />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Memory domain card should show domain-specific jump links
+    const links = Array.from(container.querySelectorAll('a'));
+    const healthLink = links.find((a) => a.textContent?.includes('Memory Health'));
+    expect(healthLink).toBeTruthy();
+    expect(healthLink?.getAttribute('href')).toBe('/memory/health');
+
+    await act(async () => {
+      root.unmount();
+    });
+    container.remove();
+  });
+
   it('renders an honest empty state without claiming completion', async () => {
     vi.mocked(apiFetch).mockResolvedValueOnce(
       jsonResponse({ counts: { total: 0, actionable: 0, keepObserve: 0, stale: 0 }, items: [] }),

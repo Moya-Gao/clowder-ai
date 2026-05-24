@@ -195,6 +195,14 @@ function EvalVerdictCard({ item }: { item: EvalHubItem }) {
         >
           Related traces
         </a>
+        {item.domainId === 'eval:memory' && (
+          <a
+            href="/memory/health"
+            className="rounded-md border border-cafe px-3 py-1.5 text-xs font-medium text-cafe-secondary hover:text-cafe"
+          >
+            Memory Health
+          </a>
+        )}
       </div>
     </section>
   );
