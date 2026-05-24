@@ -20,6 +20,12 @@ created: 2026-05-24
 
 ---
 
+## Plan-Level Invariants
+
+- A1 does **not** call `runtimeSessionStore.upsert()` from any `AntigravityBridge` / `AntigravityAgentService` production code path. The A1 "observation hook" is only the dependency-injection seam; tests assert wiring exists and is not triggered by current production paths. A2 owns the first production runtime-session write.
+- A1 legacy JSON import never creates placeholder session ids such as `legacy:${runtimeSessionId}`. The importer must resolve an existing `SessionRecord` through `SessionChainStore.getByCliSessionId(cascadeId)` or skip the entry with a diagnostic.
+- A1 runtime-session Redis upsert must keep metadata, runtime tuple index, and lifecycle state index mutually consistent. Multi-key changes use Lua/MULTI-style atomicity; no mixed old/new index state is acceptable.
+
 ## Finish Line
 
 Phase A1 is done when the codebase has a tested runtime-session metadata sidecar that can:
@@ -112,6 +118,8 @@ Redis keys:
 - `runtime-session-by-runtime:{runtime}:{runtimeSessionId}` -> sessionId
 - `runtime-session-state:{state}` -> sorted set of sessionIds scored by `lastObservedAt`
 
+Module placement note: A1 intentionally uses `services/runtime-session/` for the sidecar domain because the store is not a `SessionChainStore` implementation. The A1 implementation PR must update `docs/architecture/ownership/cells/identity-session.md` code anchors to include the final runtime-session paths.
+
 ## Task 1: Runtime Metadata Types And Validators
 
 **Files:**
@@ -196,9 +204,11 @@ CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT=1 bash packages/api/scripts/with-test-ho
 
 Cover:
 - JSON metadata persists with TTL=0 persistent behavior;
+- stored keys report `TTL = -1`, and the implementation does not call `EXPIRE` / `PEXPIRE`;
 - runtime tuple index points to the current `sessionId`;
 - upserting changed runtime id removes stale runtime tuple index;
 - state sorted sets move records when lifecycle state changes;
+- upserting a new `runtimeSessionId` or lifecycle state never leaves a mixed state where the metadata row is new but the runtime tuple or state index still points to the old value;
 - factory returns Redis implementation when Redis is present and in-memory otherwise.
 
 Run:
@@ -214,7 +224,9 @@ Expected first run: FAIL because Redis store/factory modules do not exist. The R
 Mirror `RedisSessionChainStore` patterns:
 - use bare keys because ioredis `keyPrefix` applies to normal commands;
 - use JSON blob for metadata to avoid churn in `SessionRecord` hashes;
-- keep indexes explicit and updated transactionally enough for this low-volume sidecar.
+- use Lua EVAL or an equivalent Redis transaction for upsert paths that change `runtimeSessionId` or `lifecycle.state`, mirroring the atomic create pattern in `RedisSessionChainStore`;
+- single-field metadata updates that do not affect runtime tuple or lifecycle indexes may stay sequential;
+- tests must prove a runtime tuple/state transition leaves either the old index set intact or the new index set intact, never a mixed ghost-index state.
 
 **Step 3: Verify**
 
@@ -229,8 +241,10 @@ Run Redis store tests, factory tests, and API build.
 **Step 1: Write failing importer tests**
 
 Cover:
-- reads `{ "threadId:catId": "cascadeId" }` and produces runtime metadata with `surface = 'cat-cafe-dispatch'`;
+- reads `{ "threadId:catId": "cascadeId" }`, resolves `cascadeId` through `SessionChainStore.getByCliSessionId(cascadeId)`, and produces runtime metadata with `surface = 'cat-cafe-dispatch'` using the real `SessionRecord.sessionId`;
 - legacy key without cat (`threadId`) is imported only when caller supplies a fallback cat id;
+- legacy entry with no existing host `SessionRecord` emits a diagnostic and is skipped;
+- imported metadata never uses placeholder `sessionId` values such as `legacy:${runtimeSessionId}`;
 - corrupt JSON emits a diagnostic result and does not write or delete the source file;
 - import is idempotent for the same `(runtime, runtimeSessionId)`;
 - importer never calls `writeFileSync` or Bridge `persistSessionMap`.
@@ -241,11 +255,11 @@ Expected first run: FAIL because importer module does not exist.
 
 Add:
 - `readLegacyAntigravitySessionMap(path)` returning parsed entries + diagnostics;
-- `importLegacyAntigravitySessions({ path, runtimeSessionStore, sessionChainStore?, userId?, now })`.
+- `importLegacyAntigravitySessions({ path, runtimeSessionStore, sessionChainStore, fallbackCatId?, userId?, now })`.
 
 Parse the legacy JSON key format explicitly as `${threadId}:${catId}` -> `cascadeId`. Legacy entries without `:` are thread-only keys from older Bridge behavior and may only be imported when the caller supplies a fallback `catId`; otherwise the importer must emit a diagnostic and skip the entry.
 
-The importer should not create fake `SessionRecord`s without a user/thread context. For A1, it may create runtime metadata with `sessionId = legacy:${runtimeSessionId}` only for import preview tests, or require a supplied session resolver. Pick the shape that avoids claiming full Session Chain visibility before A2.
+`sessionChainStore` is required because its role is to map legacy `cascadeId` values back to existing host `SessionRecord`s through `getByCliSessionId(cascadeId)`. The importer should not create fake `SessionRecord`s without a user/thread context and should not create placeholder runtime metadata. If a legacy JSON entry has no matching host record, A1 records a skipped-entry diagnostic and leaves the row for A2 live lifecycle handling.
 
 **Step 3: Verify importer**
 
@@ -269,7 +283,8 @@ CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT=1 bash packages/api/scripts/with-test-ho
 
 Cover:
 - `AntigravityBridge` can accept an optional runtime session binding dependency without changing current behavior when absent;
-- creating/reusing a cascade can emit a runtime metadata observation through the dependency in test mode;
+- creating/reusing a cascade does **not** call `runtimeSessionStore.upsert()` in A1 production paths;
+- tests can inspect that the optional DI seam exists without enabling a production sidecar write;
 - current JSON behavior remains unchanged until the A2 switch is explicitly enabled.
 
 Expected first run: FAIL because constructor/options do not expose runtime session binding.
@@ -277,10 +292,9 @@ Expected first run: FAIL because constructor/options do not expose runtime sessi
 **Step 2: Implement preparatory dependency injection**
 
 Add optional dependencies only:
-- `runtimeSessionStore?: IRuntimeSessionStore`;
-- `legacySessionImportMode?: 'disabled' | 'read-only-preview'`.
+- `runtimeSessionStore?: IRuntimeSessionStore`.
 
-Do not flip live behavior yet. A1 is allowed to observe and test metadata creation, but the actual "JSON is read-only and new cascade writes only runtime binding" switch belongs to A2 with a dedicated Red-Green PR. This prevents a storage PR from also changing runtime lifecycle.
+Do not flip live behavior yet. A1 does not call `runtimeSessionStore.upsert()` from any `AntigravityBridge` or `AntigravityAgentService` production path; the "observation hook" is the DI seam itself, and tests assert the current paths do not trigger it. The actual "JSON is read-only and new cascade writes only runtime binding" switch belongs to A2 with a dedicated Red-Green PR. This prevents a storage PR from also changing runtime lifecycle.
 
 **Step 3: Verify no runtime behavior regression**
 
@@ -347,8 +361,8 @@ git commit -m "feat(F211): add runtime session metadata sidecar" \
 | Type | Question | Default |
 |------|----------|---------|
 | Technical | Should A1 store metadata JSON in a new sidecar Redis key or embed a JSON field in `SessionRecord`? | Sidecar store, per Phase 0 design. |
-| Technical | Should legacy JSON import create placeholder session ids? | Prefer no; require a resolver where possible, otherwise preview-only metadata. |
-| Technical | Should A1 wire Bridge live behavior? | No. A1 may add optional observation hooks; A2 flips behavior. |
+| Technical | Should legacy JSON import create placeholder session ids? | No. Require `SessionChainStore.getByCliSessionId(cascadeId)` resolution; skip with diagnostics when no host record exists. |
+| Technical | Should A1 wire Bridge live behavior? | No. A1 adds a DI seam only; A2 owns the first production `runtimeSessionStore.upsert()` call. |
 | Value | Should we preserve the root legacy JSON file after import? | Deferred to Phase C; no CVO decision needed in A1. |
 
 ## Straight-Line Check
