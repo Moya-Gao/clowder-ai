@@ -32,7 +32,7 @@ A2 assumes these A1 files exist:
 - `packages/api/src/domains/cats/services/runtime-session/RuntimeSessionStoreFactory.ts`
 - `packages/api/src/domains/cats/services/agents/providers/antigravity/antigravity-runtime-session-import.ts`
 
-Current blocker before A1 merge-gate: Opus47 implementation review approved `a7322d72c`, but Antigravity surface implementation review has not posted a final verdict yet.
+Phase A1 is merged into `main` via PR #1880 (`a4e148aa4`), with the post-merge F211 feature sync pushed in `cb4b6e539`. A2 can start after the A2 plan review gates close.
 
 ## Glossary
 
