@@ -8,7 +8,7 @@ created: 2026-05-21
 
 # F209: Evidence Recall Optimization — 消息级语义、实体门牌号与活查询藤
 
-> **Status**: in-progress (Phase A ✅ merged PR #1842; Phase B ✅ merged PR #1846 + AC-B3 contract fix PR #1851; Phase C ✅ merged PR #1853 + file-slice dogfood hotfix PR #1854; AC-B6 transferred to F208 AC-A5 — F209 不再阻塞 AC-B6; Phase B.1 minimal seed ✅ merged PR #1867; Phase D.0 readiness sprint ✅ completed with BLOCK verdict; 2026-05-24 D.0 retry closes file-slice + entity surface blockers, but Phase D remains blocked on raw passage embedding degradation and missing F200 recall@k wrapper per `docs/decisions/2026-05-23-f209-d0-readiness.md`) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
+> **Status**: in-progress (Phase A ✅ merged PR #1842; Phase B ✅ merged PR #1846 + AC-B3 contract fix PR #1851; Phase C ✅ merged PR #1853 + file-slice dogfood hotfix PR #1854; AC-B6 transferred to F208 AC-A5 — F209 不再阻塞 AC-B6; Phase B.1 minimal seed ✅ merged PR #1867; Phase D.0 readiness sprint ✅ completed with BLOCK verdict; 2026-05-24 D.0 retry closes file-slice + entity surface blockers, but Phase D remains blocked on raw passage embedding degradation; F200 recall@k wrapper is a cross-validation follow-up / waiver candidate per `docs/decisions/2026-05-23-f209-d0-readiness.md`) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
 
 ## Why
 
@@ -337,7 +337,7 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 | 2026-05-23 | D.0 runtime sync fix merged (PR #1873) — startup regeneration now heals managed Codex/Claude MCP configs with current workspace `ALLOWED_WORKSPACE_DIRS` under the capability lock; next step is Codex/MCP restart + D.0 retry |
 | 2026-05-23 | D.0 Codex invocation MCP env fix merged (PR #1874) — headless Codex per-invocation MCP config now injects `ALLOWED_WORKSPACE_DIRS` with precedence explicit env > thread `workingDirectory` > runtime `CAT_CAFE_WORKSPACE_ROOT` > cwd; next step is a fresh Codex invocation + D.0 retry |
 | 2026-05-24 | D.0 legacy Codex MCP env fix merged (PR #1876) — legacy monolithic `cat-cafe` MCP server now receives the same workspace env overlay as split servers |
-| 2026-05-24 | D.0 retry run — file-slice and B.1 `entityMatches` surfaces now pass, but raw passage embeddings still degrade to lexical for `depth=raw`; Phase D remains blocked pending raw embedding restore/waiver and F200 recall@k wrapper decision |
+| 2026-05-24 | D.0 retry run — file-slice and B.1 `entityMatches` surfaces now pass, but raw passage embeddings still degrade to lexical for `depth=raw`; Phase D remains blocked pending raw embedding restore/waiver. F200 recall@k wrapper is a cross-validation follow-up / waiver candidate, not the hard blocker |
 
 ## Review Gate
 
