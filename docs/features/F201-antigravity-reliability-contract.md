@@ -1,6 +1,6 @@
 ---
 feature_ids: [F201]
-related_features: [F061, F172, F174, F178, F183, F193, F194, F197]
+related_features: [F061, F172, F174, F178, F183, F193, F194, F197, F211]
 topics: [antigravity, reliability, side-effect-journal, availability, recovery, smoke-test, rich-block]
 doc_kind: spec
 created: 2026-05-15
@@ -101,6 +101,7 @@ F201 关闭时，Antigravity 必须满足以下契约：
 - 不新增 F174/F178 审计写口；side-effect journal 只服务 Antigravity recovery。
 - 不把 F172 image-only regression 作为 F201 close gate；如需跑 image 回归，挂到 F172 verify/alpha smoke。
 - 不把所有上游平台不稳定都包装成“Cat Café 已保证 100% 成功”。F201 保证的是可诊断、可恢复、可验收。
+- **Post-close split-out（2026-05-24）**：Antigravity cascade / IDE-direct session transparency 不属于 F201 reliability close gate。F201 保持 `done`；两套 session 系统、JSON shadow state、IDE-direct 反向注册、long-lived session kind 等后续工作拆到 [F211 Cross-Runtime Session Transparency](F211-cross-runtime-session-transparency.md)。F209 只作为 downstream retrieval consumer，不承载该 scope。
 
 ## Acceptance Criteria
 
@@ -461,3 +462,4 @@ close_gate_report:
 | 2026-05-19 | **AC-G8 alpha smoke PASS + close-gate report drafted**：Opus-47 reran alpha under the original polluted-shell condition (`NODE_ENV=production`); `/` and `/settings` returned 200, PostCSS was back in the `globals.css` loader chain, five `/vendor/app/*.css` files returned 200, and the cascade-order P1 was withdrawn via deterministic `<head>` order evidence. Close report, reflection capsule, and harness feedback are ready for non-author vision guardian + CVO signoff. |
 | 2026-05-19 | **Close gate PASS + CVO signoff**：Opus-46 completed non-author/non-reviewer vision guardian review with PASS. Landy approved deleting/reclassifying legacy AC-B2/C2/C3 and asked the controlled YOLO timeout boundary to align to implementation. Implementation check confirmed the default 600s budget is per Antigravity `run_command` execution, not per tool group/cascade; shell chains inside one `run_command` still share that one budget and can raise `ANTIGRAVITY_RUN_COMMAND_TIMEOUT_MS` when needed. F201 closed as `done`. |
 | 2026-05-19 | **Bengal Cat (antig-opus) real Antigravity smoke PASS**：铲屎官重启更新最新 runtime 后，孟加拉猫执行三轮 end-to-end smoke。① 只读 `pwd && git status`：44ms，exit 0，native-executor 自动执行无 approval 死锁；② `node setTimeout 5s`：5083ms，exit 0，controlled YOLO 正确等待短任务；③ `/tmp` 临时文件写/读/删/确认不存在：20ms，exit 0，写路径完整可用。bonus MCP `cat_cafe_shell_exec` 只读通道 11ms 返回。全程零人工审批，native-executor 绕过 Antigravity UI gate 成功执行。「恭喜宝贝变成正常猫猫了」。 |
+| 2026-05-24 | **Post-close split-out**：铲屎官确认 F201 保持关闭，Antigravity session transparency / Session Chain 接入 / IDE-direct 反向注册拆到 F211。边界：F201 = reliability/recovery contract；F211 = runtime session registration/source visibility；F209 = downstream retrieval consumer。 |

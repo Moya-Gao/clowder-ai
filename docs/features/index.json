@@ -1293,7 +1293,7 @@
     {
       "id": "F209",
       "name": "Evidence Recall Optimization — 消息级语义、实体门牌号与活查询藤",
-      "status": "in-progress (Phase A ✅ merged PR #1842; Phase B ✅ merged PR #1846 + AC-B3 contract fix PR #1851; Phase C ✅ merged PR #1853 + file-slice dogfood hotfix PR #1854; AC-B6 transferred to F208 AC-A5 — F209 不再阻塞 AC-B6; Phase B.1 minimal seed ✅ merged PR #1867; Phase D.0 readiness sprint ✅ completed with BLOCK verdict — runtime config root-cause fixes merged PR #1873 + PR #1874, Phase D still blocked pending fresh Codex invocation + D.0 retry per `docs/decisions/2026-05-23-f209-d0-readiness.md`) | **Owner**: 缅因猫/砚砚 | **Priority**: P1",
+      "status": "in-progress (Phase A ✅ merged PR #1842; Phase B ✅ merged PR #1846 + AC-B3 contract fix PR #1851; Phase C ✅ merged PR #1853 + file-slice dogfood hotfix PR #1854; AC-B6 transferred to F208 AC-A5 — F209 不再阻塞 AC-B6; Phase B.1 minimal seed ✅ merged PR #1867; Phase D.0 readiness sprint ✅ completed with BLOCK verdict; 2026-05-24 D.0 retry closes file-slice + entity surface blockers, but Phase D remains blocked on raw passage embedding degradation and missing F200 recall@k wrapper per `docs/decisions/2026-05-23-f209-d0-readiness.md`) | **Owner**: 缅因猫/砚砚 | **Priority**: P1",
       "file": "F209-evidence-recall-optimization.md"
     },
     {
@@ -1301,6 +1301,12 @@
       "name": "Gemini CLI to Antigravity CLI Migration",
       "status": "in-progress | **Owner**: 缅因猫（砚砚） | **Priority**: P1",
       "file": "F210-antigravity-cli-migration.md"
+    },
+    {
+      "id": "F211",
+      "name": "Cross-Runtime Session Transparency — Antigravity Session Chain + IDE Direct Registration",
+      "status": "spec | **Owner**: 缅因猫（砚砚） | **Priority**: P1",
+      "file": "F211-cross-runtime-session-transparency.md"
     }
   ]
 }

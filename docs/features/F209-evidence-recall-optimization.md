@@ -1,6 +1,6 @@
 ---
 feature_ids: [F209]
-related_features: [F102, F188, F200, F192, F208]
+related_features: [F102, F188, F200, F192, F208, F211]
 topics: [memory, evidence-recall, passage-vector, entity-anchor, drill-down, perspective, eval]
 doc_kind: spec
 created: 2026-05-21
@@ -237,6 +237,7 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 - **Related**: F200 Memory Recall Eval — consumption signal 与召回评估。
 - **Related**: F192 Socio-Technical Harness Eval — eval contract / finding→action 框架。
 - **Related**: F208 Capability Profile Routing — 能力画像档案层；消费 F209 `entity_id`，不 owns id/alias 真相源。
+- **Related / upstream input**: F211 Cross-Runtime Session Transparency — 负责让 Antigravity cascade / IDE-direct session 先进入 Session Chain / transcript / digest；F209 只消费这些已存在证据做 retrieval，不 owns session lifecycle。
 
 ## Risk
 
@@ -284,6 +285,7 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 | KD-11 | Phase close = 机制 ship + 真实可感知 dogfood demo（同时满足） | Phase B 空字典 + Phase C dogfood bug post-merge 都是"AC pass ≠ 用户感受到"的同型走偏；机制绿灯不等于用户可用 | 2026-05-23 |
 | KD-12 | AC-B6 transferred to F208 AC-A5（不再让 F209 永远 99%） | 跨 feature AC 不应永久挂在另一 feature 的 timeline 上；F208 spec 持有对偶责任，ownership cleanup 由两边 owner 自决 | 2026-05-23 |
 | KD-13 | Phase D 启动前必须过 D.0 readiness sprint（1-2 天） | 没数据盲推 Phase D 会让 Perspective 建在沙上；先证 A/C 真被用，再决定 D 设计 | 2026-05-23 |
+| KD-14 | Antigravity session transparency 不进 F209，拆到 F211 | F209 是“找证据、开原文、让猫判断”；F211 是“让跨 runtime session 先成为可见证据”。F209 只作为 downstream consumer | 2026-05-24 |
 
 ## Eval / Tracking Contract
 

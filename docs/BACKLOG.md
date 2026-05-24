@@ -7,7 +7,7 @@ created: 2026-02-26
 
 # Cat Cafe Feature Roadmap
 
-> 维护者：三猫 | 最后更新：2026-05-23（F210 Phase F docs/default switch）
+> 维护者：三猫 | 最后更新：2026-05-24（F211 Antigravity session transparency kickoff）
 >
 > **规则**：只放活跃 Feature（idea/spec/in-progress/review），done 后移除。
 > 详细信息见 `docs/features/Fxxx-*.md`。
@@ -77,3 +77,4 @@ created: 2026-02-26
 | F208 | Capability Profile Routing — 能力画像档案 + 认知路由 | spec | 布偶猫 | internal | [F208](features/F208-capability-profile-routing.md) |
 | F209 | Evidence Recall Optimization — 消息级语义、实体门牌号与活查询藤 | in-progress | 缅因猫/砚砚 | internal | [F209](features/F209-evidence-recall-optimization.md) |
 | F210 | Gemini CLI to Antigravity CLI Migration | in-progress | 缅因猫/砚砚 | internal | [F210](features/F210-antigravity-cli-migration.md) |
+| F211 | Cross-Runtime Session Transparency — Antigravity Session Chain + IDE Direct Registration | spec | 缅因猫/砚砚 | internal | [F211](features/F211-cross-runtime-session-transparency.md) |

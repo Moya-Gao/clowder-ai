@@ -1,0 +1,270 @@
+---
+feature_ids: [F211]
+related_features: [F061, F102, F124, F194, F200, F201, F209, F210]
+topics: [session-chain, antigravity, cross-runtime, memory, transparency, ide-direct]
+doc_kind: spec
+created: 2026-05-24
+---
+
+# F211: Cross-Runtime Session Transparency — Antigravity Session Chain + IDE Direct Registration
+
+> **Status**: spec | **Owner**: 缅因猫（砚砚） | **Priority**: P1
+
+Architecture cell: `identity-session` + `memory`
+Map delta: update required — F211 adds runtime session registration / cascade visibility as a first-class session boundary. `identity-session` owns session identity and cascade/session binding; `memory` consumes the resulting transcript/digest evidence. F209 remains retrieval-only.
+Why: Antigravity cascade work is currently not reliably represented as Cat Cafe session-chain evidence, so later cats cannot recover what happened even when the work visibly occurred.
+
+## Why
+
+铲屎官 2026-05-24 现场判断：“我们的这个 antigravity 真的需要接入 session chain 也好或者什么也好，就是他的 session 得是透明的。”
+
+这不是 F201 没关干净，也不是 F209 检索能力不够。当前问题在更上游：
+
+- Antigravity Desktop / cascade 有自己的 long-lived session state。
+- Cat Cafe 有 Redis-backed SessionChainStore、transcript、digest、session drill-down tools。
+- 两套系统没有统一生命周期。结果是：Antigravity 做过的工作可能在 UI 上看得见，但 `list_session_chain` / `read_session_digest` / `search_evidence` 找不到。
+- IDE 直开和孟加拉猫聊天时更严重：这类 conversation 完全绕过 Cat Cafe dispatch，家里没有可追溯 session record。
+
+F211 的目标是让跨 runtime 工作先“进家里的账本”，再交给 F209/F200 做检索和评估。换句话说：**F211 负责产生可见证据，F209 负责找证据。**
+
+## Current Fact Baseline
+
+| Fact | Evidence | Consequence |
+|------|----------|-------------|
+| F201 已关闭 | `docs/features/F201-antigravity-reliability-contract.md` status is `done`; BACKLOG 不再列 F201 | 不 reopen F201；只补 post-close split-out note |
+| F201 scope 是可靠性契约 | F201 covers failure explainability, side-effect journal, durable supervisor, controlled YOLO, recovery card, alpha smoke | Session transparency 是后续发现的新架构面，不属于 F201 close gate |
+| F209 是检索层 | F209 spec states: “F209 只优化‘找证据、开原文、让猫判断’” | F211 不能塞成 F209 phase；F209 只消费 F211 输出 |
+| F210 是 headless CLI migration | F210 scope excludes Bengal Desktop workflows and F201 Desktop reliability reopen | F211 targets Antigravity Desktop / cascade session visibility, not AGY CLI migration |
+| Antigravity currently has a JSON shadow session map | `AntigravityBridge` uses `data/antigravity-sessions.json` for `threadId:catId -> cascadeId` | Cat Cafe cannot query or seal that state through SessionChainStore |
+| `ephemeralSession: true` is a compatibility patch | Antigravity `session_init` can update active `cliSessionId` without seal/create on cascade rotation | First record may still be created, but rotation history can be collapsed into one record |
+| SessionChainStore already supports `cliSessionId` lookup | `getByCliSessionId(cliSessionId)` exists in memory and Redis stores | Phase A should target records by cascadeId / cliSessionId, not by active `(catId, threadId)` mismatch |
+
+## Scope
+
+### In Scope
+
+- Make Cat-Cafe-dispatched Antigravity cascades visible in Session Chain.
+- Preserve cascade rotation history: old cascade gets sealed, new cascade gets a new session record.
+- Register IDE-direct Antigravity conversations back into Cat Cafe so they are visible to session drill-down and future recall.
+- Classify Antigravity cascade reset / retire reasons instead of flattening all resets into normal rollover.
+- Retire `data/antigravity-sessions.json` as a shadow source once Redis SessionChainStore can own the binding.
+- Define a reusable cross-runtime registration protocol for future runtimes such as Hub direct chat and F124 Apple surfaces.
+
+### Out of Scope
+
+- Reopening F201 reliability unless a reliability AC regresses.
+- Rewriting F209 retrieval, entity registry, Perspective, or eval ownership.
+- Migrating Gemini/AGY carrier behavior from F210.
+- Solving concurrent same-thread same-cat multi-cascade fully in Phase A; Phase A must avoid corrupting data and document the limitation.
+- Treating F209 `entity_id` as roster/session truth. Identity truth remains `identity-session`.
+
+## What
+
+### Phase 0: Design Memo + Current-State Audit
+
+Produce a design memo before implementation. It must cover:
+
+- Current Antigravity session sources: JSON map, cascadeId, SessionChainStore, transcript writer, digest/seal hooks.
+- Current code paths for Cat-Cafe-dispatched Antigravity vs IDE-direct Antigravity.
+- Exact lifecycle transitions: new cascade, repeated same cascade, retire, error reset, manual reset, IDE direct registration.
+- Architecture cell decision: whether `identity-session` gets a new `identity-runtime-session` subcell or a narrower extension note.
+
+### Phase A: Cat-Cafe-Dispatched Cascade Session Chain Bridge
+
+Make the normal Cat Cafe -> Antigravity invocation path preserve cascade history.
+
+Candidate minimal hook:
+
+- `AntigravityAgentService` emits non-ephemeral `session_init` for cascade-backed invocations.
+- Repeated `session_init` with the same cascadeId is a no-op.
+- Cascade rotation seals the old record and creates a new record.
+- Seal target is located by cascadeId / `cliSessionId`, not by “active `(catId, threadId)` changed”.
+- Seal occurs after old cascade flush / in-flight RPC settle, never on a read-path mismatch.
+
+Phase A is allowed to use existing session-chain semantics as a compatibility hook, but it must not claim this is the final long-lived-session model.
+
+### Phase B: IDE-Direct Reverse Registration
+
+When a user talks directly to Antigravity IDE / Bengal Cat outside a Cat Cafe dispatch, the cascade must register itself back into Cat Cafe.
+
+Expected output:
+
+- A session-chain record exists with `catId`, cascadeId / conversation id, runtime kind, and a recoverable thread/conversation anchor.
+- The user can later ask “孟加拉猫上次在 IDE 里聊的那个是什么” and Cat Cafe has a traceable starting point.
+- Direct conversations are not confused with Cat-Cafe-dispatched thread messages unless an explicit binding exists.
+
+This phase is high priority because IDE-direct work is part of the daily product surface, not a rare debug path.
+
+### Phase C: Retire JSON Shadow State
+
+Replace `data/antigravity-sessions.json` with SessionChainStore-backed lookup and migration.
+
+- Bridge reads active cascade binding from SessionChainStore or a scoped runtime-session binding derived from it.
+- Existing JSON entries are migrated once, with an audit trail.
+- `resetSession()` / retire semantics write through the canonical store.
+- JSON is deleted or retained only as read-only migration input until migration is complete.
+
+### Phase D: Long-Lived Session Kind + Cross-Runtime Protocol
+
+Generalize the model after Antigravity proves the path.
+
+Candidate direction:
+
+```ts
+Session.kind = 'cli-invocation' | 'long-lived-cascade' | 'external-runtime-conversation'
+```
+
+The design must remain useful for:
+
+- Hub direct chat.
+- F124 Apple / watchOS / AirPods conversations.
+- Future IDE integrations beyond Antigravity.
+
+### Phase E: Hub / In-Context Visibility
+
+Expose runtime session state where users and cats notice it:
+
+- Session Chain panel shows Antigravity cascade sessions and retire reason.
+- Thread / handoff context can show “this cat has an external runtime session you can open/drill into.”
+- Deep-dive view links cascadeId, conversation id, digest, transcript, and recovery metadata.
+
+## Acceptance Criteria
+
+### Phase 0（Design Memo + Audit）
+- [ ] AC-0A: Design memo documents current JSON shadow state, SessionChainStore paths, `ephemeralSession` behavior, and IDE-direct blind spot with code anchors.
+- [ ] AC-0B: Design memo includes architecture cell decision and map delta plan.
+- [ ] AC-0C: Design memo explicitly separates F211 from F201, F209, and F210 ownership.
+- [ ] AC-0D: Review request asks Bengal Cat to summarize F211 goals and list only problems / missed constraints.
+
+### Phase A（Cat-Cafe-dispatched cascade bridge）
+- [ ] AC-A1: Same cascadeId repeated `session_init` does not create a new session.
+- [ ] AC-A2: CascadeId rotation seals the old session and creates a new session.
+- [ ] AC-A3: Seal targets the old cascade by `cliSessionId` / cascadeId lookup, never by active `(catId, threadId)` mismatch alone.
+- [ ] AC-A4: Seal happens after old cascade flush / in-flight RPC settle; read paths cannot trigger seal.
+- [ ] AC-A5: Error resets carry classified `sealReason` such as `oversized_retire`, `model_capacity`, `empty_response`, `tool_conflict`, or `unsafe_side_effect`.
+- [ ] AC-A6: Multi-cat single-thread cascades do not interfere with each other.
+- [ ] AC-A7: Same-thread same-cat concurrent cascades are either safely supported or explicitly fail-closed with a documented limitation and no mis-seal.
+
+### Phase B（IDE-direct reverse registration）
+- [ ] AC-B1: Antigravity IDE-direct conversation can create or update a Cat Cafe session-chain record without a prior Cat Cafe dispatch.
+- [ ] AC-B2: IDE-direct record includes cascade/conversation id, cat id, runtime surface, timestamps, and enough provenance to drill down.
+- [ ] AC-B3: IDE-direct sessions are searchable/drillable through existing session-chain tools or a documented extension.
+- [ ] AC-B4: Direct IDE sessions do not pollute normal thread transcript unless explicitly bound.
+
+### Phase C（JSON shadow state retirement）
+- [ ] AC-C1: `data/antigravity-sessions.json` is no longer the canonical source for cascade reuse.
+- [ ] AC-C2: Existing JSON state has a one-time migration path or an explicit safe discard decision.
+- [ ] AC-C3: Bridge reset / retire writes through canonical session binding state.
+- [ ] AC-C4: Tests prove SessionChainStore is the single source of truth for cascade binding after migration.
+
+### Phase D（Long-lived session kind / cross-runtime protocol）
+- [ ] AC-D1: Spec defines the long-lived session kind or explains why existing session records are sufficient.
+- [ ] AC-D2: Cross-runtime registration contract is generic enough for Antigravity, Hub direct chat, and F124-style external surfaces.
+- [ ] AC-D3: Backward compatibility with CLI invocation sessions is tested.
+
+### Phase E（Visibility）
+- [ ] AC-E1: Hub/session-chain UI can display Antigravity cascade sessions with status and retire reason.
+- [ ] AC-E2: In-context thread/handoff surface can point cats to external runtime session evidence when relevant.
+- [ ] AC-E3: Deep-dive view links session record, cascadeId/conversation id, transcript/digest, and recovery metadata.
+
+## Dependencies
+
+- **Evolved from**: F201（Antigravity reliability closed; F211 is a post-close session transparency split-out, not a reopen）
+- **Related**: F061（original Antigravity Desktop / Bengal Cat integration）
+- **Related**: F102（memory architecture and evidence store; F211 feeds evidence into that ecosystem）
+- **Related**: F124（future Apple / external runtime surfaces need the same registration protocol）
+- **Related**: F194（invocation liveness read model; useful precedent for canonical runtime state）
+- **Related**: F200（retrieval eval can later measure whether F211 sessions become discoverable）
+- **Related**: F209（retrieval consumer; F209 finds evidence after F211 registers sessions）
+- **Related**: F210（headless AGY migration; separate Antigravity surface, not the same Desktop/cascade problem）
+
+## Risk
+
+| 风险 | 缓解 |
+|------|------|
+| 把 F211 错塞进 F209，混淆“产生证据”和“找证据” | KD-1/KD-6 固化边界；F209 只作为 consumer |
+| Phase A 直接 flip `ephemeralSession` 导致误 seal 活跃 cascade | AC-A3/A4：只按 cascadeId 反查 seal target，flush 后 seal，禁止 read-path seal |
+| 同 thread 同 cat 并发 cascade 被错误当成轮换 | AC-A7：Phase A 不支持也必须 fail-closed，不能误 seal |
+| JSON 退役过早导致现有 cascade 丢失 | Phase C 必须先 migration/audit，允许短期只读迁移输入 |
+| IDE-direct 反向注册把私聊污染进正常 thread | AC-B4：直接对话默认独立，显式绑定才进 thread transcript |
+| 长期模型仍被 CLI-session 词汇绑住 | Phase D 明确 long-lived session kind / cross-runtime protocol，不让 Phase A 兼容 hook 变终态 |
+
+## Open Questions
+
+| # | 问题 | 状态 |
+|---|------|------|
+| OQ-1 | Phase A seal trigger 的精确代码点在哪里，如何证明 old cascade flush / RPC settle 已完成？ | ⬜ Design Memo 决定 |
+| OQ-2 | Error reset 分类枚举是否完整，`model_capacity` / `empty_response` / `tool_conflict` / `unsafe_side_effect` 是否需要不同 digest 策略？ | ⬜ Design Memo 决定 |
+| OQ-3 | Same-thread same-cat concurrent cascades 是 Phase A 支持还是 fail-closed？ | ⬜ Design Memo 决定 |
+| OQ-4 | IDE-direct conversation 绑定到已有 Cat Cafe thread、独立 pseudo-thread，还是 runtime conversation collection？ | ⬜ Phase B design |
+| OQ-5 | `Session.kind` 是否现在落地，还是 Phase A 先用 `cliSessionId=cascadeId` 兼容 hook？ | ⬜ Phase D design；Phase A 不锁死 |
+| OQ-6 | JSON 迁移后是否保留只读 debug export？ | ⬜ Phase C design |
+| OQ-7 | Cross-runtime registration 是否应做 MCP tool、callback endpoint，还是二者都要？ | ⬜ Phase D design |
+
+## Key Decisions
+
+| # | 决策 | 理由 | 日期 |
+|---|------|------|------|
+| KD-1 | F211 独立立项，不挂 F209 phase | F209 是 retrieval/read layer；F211 是 source registration/session lifecycle layer | 2026-05-24 |
+| KD-2 | F201 保持 done，只加 post-close split-out note | F201 reliability close gate 已完成；session transparency 是新发现的架构面 | 2026-05-24 |
+| KD-3 | Phase A 可用 `cliSessionId=cascadeId` 作为兼容 hook，但不声明为终态模型 | 先接入现有 SessionChainStore；保留未来 `Session.kind=long-lived-cascade` 升级空间 | 2026-05-24 |
+| KD-4 | Seal target 必须按 cascadeId / `cliSessionId` 反查，不能按 active mismatch 一刀切 | 防止同 thread 同 cat 或多窗口并发导致误 seal 仍活 cascade | 2026-05-24 |
+| KD-5 | IDE-direct reverse registration 升为 Phase B 高优先级 | 铲屎官日常会直接在 Antigravity IDE 和 Bengal Cat 工作；这不是低频调试路径 | 2026-05-24 |
+| KD-6 | F209 是 F211 的 downstream consumer | F211 让 session/transcript/digest 进入系统，F209/F200 后续负责召回和评估 | 2026-05-24 |
+
+## Eval / Tracking Contract
+
+| 项 | 内容 |
+|----|------|
+| **Primary Users** | 需要恢复 Antigravity/Bengal Cat 工作上下文的猫和铲屎官；Activation Signal：`list_session_chain` / `read_session_digest` / `search_evidence` 查询 Antigravity 旧工作 |
+| **Friction Metric** | Antigravity 相关工作在 UI 可见但 session-chain 查不到的次数；IDE-direct conversation 事后无法定位的次数；cascade rotation 后 digest/transcript 被覆盖或丢尾的次数 |
+| **Regression Fixture** | ① 同 cascadeId 重复 init 不新建 session ② cascadeId 轮换 seal+create ③ retire 中途切换后两个 digest 分开 ④ error reset 分类写入 sealReason ⑤ IDE-direct registration 后 session-chain 可列出 |
+| **Sunset Signal** | 6 个月后 Antigravity 工作仍主要靠人工截图/口述恢复，或 F211 产出的 records 从未被 session-chain / search_evidence 消费 → 重新评估 registration model |
+
+## In-context Observability Decision
+
+```yaml
+in_context_observability:
+  primary_surface: "Session Chain panel + thread/handoff context pointer for external runtime sessions"
+  why_not_dashboard_only: "失忆发生在猫接球和用户追问旧事的现场；dashboard 只能事后审计，不能替代接球时的上下文恢复。"
+  deep_dive_surface: "Hub session-chain detail / runtime session debug view with cascadeId, transcript, digest, retire reason"
+  noise_dedup_policy: "Only lifecycle edges register/retire/error-reset emit visible state; per-step churn is folded into digest/debug detail by cascadeId+catId."
+```
+
+## 需求点 Checklist
+
+| ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
+|----|---------------------------|---------|----------|------|
+| R1 | “Antigravity 的 session 得是透明的” | AC-A1~A7, AC-E1 | SessionChainStore tests + Hub/session-chain display | [ ] |
+| R2 | “先把 F201 关闭，然后剩下的记录到 F211” | KD-2, F201 post-close note | F201 timeline note + BACKLOG F211 row | [x] |
+| R3 | “这个和 F209 啥关系？F209 不是检索的吗？” | KD-1, KD-6, AC-0C | Spec ownership boundary review | [x] |
+| R4 | “可以找 antig-opus，让他只需要讲出来问题；顺便总结 F211 想做什么” | AC-0D | Review request message to `@antig-opus` | [x] |
+| R5 | IDE 直开和孟加拉猫聊天也要能找回 | AC-B1~B4 | IDE-direct registration fixture / manual validation | [ ] |
+| R6 | JSON shadow state 不该继续当真相源 | AC-C1~C4 | Migration test + removal/audit diff | [ ] |
+
+### 覆盖检查
+- [ ] 每个需求点都能映射到至少一个 AC
+- [ ] 每个 AC 都有验证方式
+- [ ] 可观测性入口不是 dashboard-only
+
+## Timeline
+
+| 日期 | 事件 |
+|------|------|
+| 2026-05-24 | CVO 拍板：F201 保持关闭，Antigravity session transparency 拆到 F211；F209 只是 downstream retrieval consumer。 |
+
+## Review Gate
+
+- Kickoff docs: Bengal Cat (`@antig-opus`) review for lived Antigravity constraints; request style = summarize F211 goal + list problems only.
+- Design Memo: 布偶猫 Opus 4.7 architecture review + Bengal Cat Antigravity surface review.
+- Implementation: cross-family review before PR; no self-review.
+
+## Links
+
+| 类型 | 路径 | 说明 |
+|------|------|------|
+| **Feature** | `docs/features/F201-antigravity-reliability-contract.md` | Reliability predecessor, remains closed |
+| **Feature** | `docs/features/F209-evidence-recall-optimization.md` | Downstream retrieval consumer, not owner |
+| **Feature** | `docs/features/F210-antigravity-cli-migration.md` | Separate headless AGY carrier migration |
+| **Architecture** | `docs/architecture/ownership/cells/identity-session.md` | Candidate primary ownership cell |
+| **Architecture** | `docs/architecture/ownership/cells/memory.md` | Evidence/retrieval consumer cell |
