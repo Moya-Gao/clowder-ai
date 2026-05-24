@@ -150,7 +150,7 @@ Expose runtime session state where users and cats notice it:
 - [ ] AC-0A: Design memo documents current JSON shadow state, SessionChainStore paths, `ephemeralSession` behavior, and IDE-direct blind spot with code anchors.
 - [ ] AC-0B: Design memo includes architecture cell decision and map delta plan.
 - [ ] AC-0C: Design memo explicitly separates F211 from F201, F209, and F210 ownership.
-- [ ] AC-0D: Review request asks Bengal Cat to summarize F211 goals and list only problems / missed constraints.
+- [x] AC-0D: Review request asks Bengal Cat to summarize F211 goals and list only problems / missed constraints. Bengal Cat confirmed the 7 kickoff review constraints are fully covered on 2026-05-24.
 - [ ] AC-0E: Design memo defines transcript/digest materialization with at least one proof that `read_session_digest` and `read_session_events` return meaningful Antigravity content, not just a session shell.
 - [ ] AC-0F: Design memo defines same-cascade model/cat identity changes and the storage shape for identity history.
 - [ ] AC-0G: Design memo defines the drain/flush mechanism or fail-closed policy for sealing after in-flight RPC / tool result settlement.
@@ -294,6 +294,7 @@ in_context_observability:
 |------|------|
 | 2026-05-24 | CVO 拍板：F201 保持关闭，Antigravity session transparency 拆到 F211；F209 只是 downstream retrieval consumer。 |
 | 2026-05-24 | Bengal Cat kickoff review 回流：F211 目标总结正确；7 条有效问题已升级为 Phase 0 / AC / Risk / OQ 门禁。 |
+| 2026-05-24 | Bengal Cat review confirmation：7 条问题全部覆盖，无新增问题。Kickoff review gate closed. |
 
 ## Review Gate
 
