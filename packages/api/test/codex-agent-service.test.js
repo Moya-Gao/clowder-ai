@@ -103,6 +103,7 @@ function finishExit(proc, code) {
 }
 
 const CAT_CAFE_SPLIT_SERVER_IDS = ['cat-cafe-collab', 'cat-cafe-memory', 'cat-cafe-signals', 'cat-cafe-limb'];
+const CAT_CAFE_WORKSPACE_ENV_SERVER_IDS = ['cat-cafe', ...CAT_CAFE_SPLIT_SERVER_IDS];
 
 async function withWorkspaceEnv(env, fn) {
   const previousAllowedWorkspaceDirs = process.env.ALLOWED_WORKSPACE_DIRS;
@@ -146,8 +147,8 @@ async function collectCodexSpawnArgs(workingDirectory) {
   return spawnFn.mock.calls[0].arguments[1];
 }
 
-function assertSplitServersUseAllowedWorkspaceDirs(args, expected, reason) {
-  for (const serverId of CAT_CAFE_SPLIT_SERVER_IDS) {
+function assertWorkspaceScopedServersUseAllowedWorkspaceDirs(args, expected, reason) {
+  for (const serverId of CAT_CAFE_WORKSPACE_ENV_SERVER_IDS) {
     assert.ok(
       args.includes(`mcp_servers.${serverId}.env.ALLOWED_WORKSPACE_DIRS="${expected}"`),
       `${serverId} must use ${reason}`,
@@ -312,10 +313,18 @@ test('injects cat-cafe MCP config from runtime root, not thread workingDirectory
       );
     }
 
-    // legacy `cat-cafe` server must NOT be injected after the split
+    // legacy `cat-cafe` server must NOT be auto-provisioned after the split.
     assert.ok(
       !args.includes('mcp_servers.cat-cafe.command="node"'),
       'legacy cat-cafe MCP server entry should not be injected after F193 Phase C split',
+    );
+    assert.ok(
+      !args.some((arg) => arg.startsWith('mcp_servers.cat-cafe.args=')),
+      'legacy cat-cafe MCP args should not be injected after F193 Phase C split',
+    );
+    assert.ok(
+      args.includes(`mcp_servers.cat-cafe.env.ALLOWED_WORKSPACE_DIRS="${tmpRoot}"`),
+      'legacy cat-cafe static config must receive the same workspace env overlay',
     );
   } finally {
     if (previousAllowedWorkspaceDirs === undefined) {
@@ -340,7 +349,11 @@ test('Codex MCP config prefers explicit ALLOWED_WORKSPACE_DIRS over thread worki
       { ALLOWED_WORKSPACE_DIRS: '/explicit/workspace', CAT_CAFE_WORKSPACE_ROOT: '/stale/workspace-root' },
       async () => {
         const args = await collectCodexSpawnArgs(tmpRoot);
-        assertSplitServersUseAllowedWorkspaceDirs(args, '/explicit/workspace', 'explicit ALLOWED_WORKSPACE_DIRS');
+        assertWorkspaceScopedServersUseAllowedWorkspaceDirs(
+          args,
+          '/explicit/workspace',
+          'explicit ALLOWED_WORKSPACE_DIRS',
+        );
       },
     );
   } finally {
@@ -354,7 +367,7 @@ test('Codex MCP config prefers thread workingDirectory over CAT_CAFE_WORKSPACE_R
   try {
     await withWorkspaceEnv({ CAT_CAFE_WORKSPACE_ROOT: '/stale/startup-workspace' }, async () => {
       const args = await collectCodexSpawnArgs(tmpRoot);
-      assertSplitServersUseAllowedWorkspaceDirs(args, tmpRoot, 'thread workingDirectory');
+      assertWorkspaceScopedServersUseAllowedWorkspaceDirs(args, tmpRoot, 'thread workingDirectory');
     });
   } finally {
     rmSync(tmpRoot, { recursive: true, force: true });
@@ -364,7 +377,7 @@ test('Codex MCP config prefers thread workingDirectory over CAT_CAFE_WORKSPACE_R
 test('Codex MCP config uses CAT_CAFE_WORKSPACE_ROOT when thread workingDirectory is absent', async () => {
   await withWorkspaceEnv({ CAT_CAFE_WORKSPACE_ROOT: '/workspace/root' }, async () => {
     const args = await collectCodexSpawnArgs();
-    assertSplitServersUseAllowedWorkspaceDirs(args, '/workspace/root', 'CAT_CAFE_WORKSPACE_ROOT fallback');
+    assertWorkspaceScopedServersUseAllowedWorkspaceDirs(args, '/workspace/root', 'CAT_CAFE_WORKSPACE_ROOT fallback');
   });
 });
 
