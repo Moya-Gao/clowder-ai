@@ -12,6 +12,9 @@ code_anchors:
   - packages/api/src/infrastructure/harness-eval/legacy-task-cleanup.ts
   - packages/api/src/infrastructure/harness-eval/reeval-closure.ts
   - packages/api/src/infrastructure/harness-eval/eval-a2a-adapter.ts
+  - packages/api/src/infrastructure/harness-eval/eval-hub-read-model.ts
+  - packages/api/src/routes/eval-hub.ts
+  - packages/web/src/components/HubEvalTab.tsx
   - sop-definitions/development.yaml
   - sop-definitions/stubs/video-cocreation.yaml
   - sop-definitions/stubs/tech-article.yaml
