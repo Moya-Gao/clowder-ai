@@ -368,6 +368,7 @@ Based on the first micro fit digest (2026-05-11):
 | Phase E 退化成"漂亮 metrics dashboard" | AC-E3/E5 强制 verdict + handoff + re-eval closure；Eval Hub 不以分数为终点 |
 | F192/F200/F188 旧定时任务与新 runtime 双触发 | AC-E6/AC-E13 强制 inventory + disable/redirect + dry-run 证明 |
 | domain thread 变成新垃圾桶 | AC-E4 限定 thread 只按域承载长期分析；工作状态 / verdict SOT 在 registry + Eval Hub |
+| IM Hub 老系统 thread 与 Eval domain thread 割裂成两套前端模型 | KD-15 明确 System Thread / System Workspace 归一：统一 system kind / linked surface / actions；IM Hub kind=`connector_hub`，Eval kind=`eval_domain`，互用系统分区与删除保护 |
 | eval 猫武断给 delete/sunset verdict | AC-E3 要 counterarguments；高影响 delete/sunset 需 CVO accept 或 Design Gate 签字 |
 
 ## Open Questions
@@ -408,6 +409,7 @@ Based on the first micro fit digest (2026-05-11):
 | KD-12 | Verdict Matrix + Sunset Trial 是 E-hub 前的 contract hardening，不是 UI 后补 | E-pilot review 连续暴露 `fix/build/delete_sunset/keep_observe` 语义洞；应把四类 verdict 的证据门槛、handoff ask、closure 和 CVO 门固化成 contract，避免靠 review 逐条补锅。`delete_sunset` 只能触发可逆 trial，默认终态是 dormant，不直接删除 | 2026-05-22 |
 | KD-13 | Live verdict 的 `snapshot:` / `attribution:` evidence SOT 是 committed sanitized bundle，不是 raw runtime artifacts | raw `snapshots/` / `attributions/` 是 gitignored generated artifacts；直接引用会让 clean checkout / reviewer 无法解析 refs。Hybrid bundle 保留审计证据、脱敏边界和可重派生 provenance，同时避免把全量 runtime dump 提交进 repo | 2026-05-22 |
 | KD-14 | Eval Hub 是 daily workflow surface，不是 Settings 配置页；F188 Health Dashboard 与 Eval Hub 互链不互替 | Settings 只承载 domain registry / frequency / owner / export policy 等配置。Hub 承载 verdict lifecycle、trend、handoff、closure；F188 承载现场 health repair controls。互链按钮是验收要求，避免用户在两个 surface 间手动找入口；若实用性差，后续调整 IA / 跳转位置属于低风险 UI 改动 | 2026-05-23 |
+| KD-15 | System Thread / System Workspace 基座归一：IM Hub 与 eval domain thread 共享系统线程模型，但按 `kind` 区分 | IM Hub（`connector_hub`）和 Eval domain（`eval_domain`）都是 system-managed thread / workspace；归一的是 thread 基础模型、系统分区、删除保护、跳转和管理方式，不归一业务语义。Eval Hub 是工作面，不另造割裂前端；IM Hub 与 Eval Hub 互链，不互替 | 2026-05-23 |
 
 ## Timeline
 
@@ -433,6 +435,7 @@ Based on the first micro fit digest (2026-05-11):
 | 2026-05-22 | Live verdict evidence SOT decided — `snapshot:` / `attribution:` refs resolve to committed sanitized per-verdict bundles; raw runtime snapshots remain ignored (KD-13) |
 | 2026-05-23 | First live `eval:a2a` verdict generated — runtime F167 telemetry produced a `keep_observe` verdict with committed sanitized bundle under `docs/harness-feedback/bundles/2026-05-23-eval-a2a-live-verdict/` |
 | 2026-05-23 | Phase E live verdict evidence slice merged (PR #1856) — resolver/generator/invariant tests landed for committed `snapshot:` / `attribution:` bundle refs |
+| 2026-05-23 | System Thread / System Workspace IA decision recorded — IM Hub system threads and Eval domain threads reuse one system-managed thread base with `kind` separation; Hub surfaces 互链、不互替 |
 | 2026-05-23 | **Phase E-sop scoped (AC-E16-E24)**——CVO 反思 "skill = 软约束需硬约束兜底" → `SopDefinition.hard_rules/pitfalls` 作 ground truth，`eval:sop` domain 跑 runtime trace 检测违规，hook 注入决策由 eval 数据驱动 (AC-D9)。Schema **domain-generic from day 1**（cross-domain schema 校验作 AC-E23 硬验证），消除多阶段 skill（video-forge / ppt-forge / tech-writing / expert-panel）= SOP 错位写进 skill body 的归位错位。依赖 F203 #748 merge 提供 SopDefinition + predicate schema。 |
 
 ## Review Gate
