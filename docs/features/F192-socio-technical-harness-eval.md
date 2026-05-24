@@ -175,8 +175,8 @@ Phase E 将 F192 从单域试点提升为横切的 Harness Eval Control Plane：
 - [x] AC-E8: E-pilot contract demo：用 representative A2A 数据证明 Verdict Handoff Packet contract / adapter transform / pending closure state；不得把 fixture 当作 live F167 verdict。真实 day-over-day telemetry verdict + cross-thread handoff deferred until real snapshot / attribution artifacts exist
 
 #### E-hub（由 E-pilot contract + 真实 a2a verdict 驱动）
-- [ ] AC-E9: Eval Hub v1 只展示 E-pilot 产出的真实 `eval:a2a` verdicts、trend windows、handoff 状态、owner 响应、re-eval closure、stale findings；它是 harness lifecycle 控制面，不是单纯 metrics dashboard
-- [ ] AC-E10: Eval Hub design-in-context：Hub 主入口在 Console daily workflow path（Observability/Eval sub-area），不放 Settings；明确它与现有 Observability / Health surfaces 的关系，禁止在没有真实 verdict 数据前做空 dashboard
+- [x] AC-E9: Eval Hub v1 只展示 E-pilot 产出的真实 `eval:a2a` verdicts、trend windows、handoff 状态、owner 响应、re-eval closure、stale findings；它是 harness lifecycle 控制面，不是单纯 metrics dashboard
+- [x] AC-E10: Eval Hub design-in-context：Hub 主入口在 Console daily workflow path（Observability/Eval sub-area），不放 Settings；明确它与现有 Observability / Health surfaces 的关系，禁止在没有真实 verdict 数据前做空 dashboard
 
 #### E-scale（`eval:memory`）
 - [ ] AC-E11: Unified Eval Runtime 接入 `eval:memory` adapter：F200 memory recall eval + F188 library health governance 只产出标准 verdict / finding，不复制各自业务数据真相源
@@ -212,7 +212,7 @@ Phase E 将 F192 从单域试点提升为横切的 Harness Eval Control Plane：
 | R3 | "负责 a2a eval 的猫要分析、深度分析原因、对比每天" | AC-E2, AC-E4, AC-E5 | domain thread registry + trend window fixture | [ ] |
 | R4 | "eval 猫要跨线程通讯，发给负责的猫，让负责的猫来深度看" | AC-E3, AC-E7, AC-E8 | cross-thread handoff packet + re-eval closure test | [ ] |
 | R5 | "verdict → handoff 要不要结构化，必须带证据包" | AC-E3 | schema validation rejects incomplete packet | [ ] |
-| R6 | "诊断 / eval 结果需要一个看板，叫 Eval Hub" | AC-E9, AC-E10 | Eval Hub screenshot / API response | [ ] |
+| R6 | "诊断 / eval 结果需要一个看板，叫 Eval Hub" | AC-E9, AC-E10 | Eval Hub screenshot / API response | [x] |
 | R7 | "接入完成得清理遗留定时任务，避免双触发" | AC-E6, AC-E13 | scheduled task inventory + dry-run migration report | [ ] |
 | R8 | "社区小伙伴发现自己的场景有掉球，也能提 issue / 接自己的项目 eval" | AC-E14, AC-E15 | sanitized issue packet fixture + custom domain fixture | [ ] |
 
@@ -390,12 +390,12 @@ Based on the first micro fit digest (2026-05-11):
 | OQ-4 | 跨猫 session 403 如何处理？三个方案：(A) Service token (B) ADR-032 export 层 (C) Push-based | ⬜ Phase C 先走 aggregate 脱敏不阻塞；Phase D 解决 |
 | OQ-5 | Daily snapshot 存储格式：markdown（可被 search_evidence 索引）vs SQLite（查询效率） | ⬜ Phase D 定 |
 | OQ-6 | Eval Domain Registry 真相源放 SQLite、docs registry 还是 hybrid？ | ✅ E-pilot: docs-backed registry + generated JSON/YAML snapshots；E-hub 可加 SQLite read model |
-| OQ-7 | Eval Hub 首屏是在 Console 独立页面，还是挂到现有 Health / Observability 区域？ | ⬜ Phase E Design Gate（需 design-in-context） |
+| OQ-7 | Eval Hub 首屏是在 Console 独立页面，还是挂到现有 Health / Observability 区域？ | ✅ Console daily workflow path：Settings shell 下的 Observability/Eval sub-area deep link（`/settings?ops=observability&obs=eval`），不放 Settings-only 配置页 |
 | OQ-8 | delete/sunset verdict 的签字门槛：哪些可以 eval 猫自决，哪些必须 CVO accept？ | ✅ 高影响 delete/sunset 默认 requires CVO accept；fix/build/keep_observe 可由 eval owner + feature owner 闭环 |
 | OQ-9 | 旧 scheduled task 的 disable / redirect 如何可逆，避免迁移失败后丢报告？ | ✅ E-pilot: inventory → dry-run report → redirect/disable with rollback record；无 dry-run 不切 |
 | OQ-10 | 社区 issue packet 的脱敏边界和上游接收格式是什么？ | ⬜ Phase E Design Gate |
 | OQ-11 | eval 猫 invocation 模型：统一 scheduled task 如何唤醒指定 eval 猫进入对应 domain thread，并加载纵向上下文做 day-over-day analysis？ | ✅ E-pilot: AC-E5 mandates unified scheduled invocation packet for `eval:a2a` |
-| OQ-12 | Eval Hub 与 F188 Health Dashboard / badge 的关系：吸收、替代还是共存？ | ⬜ E-hub/E-scale Design Gate |
+| OQ-12 | Eval Hub 与 F188 Health Dashboard / badge 的关系：吸收、替代还是共存？ | ✅ 共存：互链、不互替。Eval Hub 聚合 verdict / handoff / closure；F188 保留现场 health repair controls 与 badge |
 | OQ-13 | `delete_sunset` 的 CVO gate 现在是 fail-safe text gate（要求 `cvo accept` 文本）；E-scale 前是否改成结构化 `governance.requiresCvoAccept` 字段？ | ⬜ E-scale hardening before second domain |
 | OQ-14 | Sunset Trial 的 `triggerScenarios` 自己会不会过期？旧 failure pattern 可能已不代表当前模型 / 猫猫能力 | ⬜ E-scale 前定 refresh policy；trial 可先要求引用原 Eval Contract pattern |
 | OQ-15 | live verdict 的 evidence SOT 是什么？当前 `docs/harness-feedback/snapshots/` 与 `attributions/` 是 gitignored generated artifacts，干净 worktree 无法解析 committed verdict refs | ✅ Option 3 hybrid：raw runtime artifacts 继续 gitignored；每个 live verdict 同提交 sanitized `bundles/<verdict-id>/`，`snapshot:` / `attribution:` 只解析 bundle |
@@ -448,6 +448,7 @@ Based on the first micro fit digest (2026-05-11):
 | 2026-05-23 | System Thread / System Workspace IA decision recorded — IM Hub system threads and Eval domain threads reuse one system-managed thread base with `kind` separation; Hub surfaces 互链、不互替 |
 | 2026-05-23 | **Phase E-sop scoped (AC-E16-E24)**——CVO 反思 "skill = 软约束需硬约束兜底" → `SopDefinition.hard_rules/pitfalls` 作 ground truth，`eval:sop` domain 跑 runtime trace 检测违规，hook 注入决策由 eval 数据驱动 (AC-D9)。Schema **domain-generic from day 1**（cross-domain schema 校验作 AC-E23 硬验证），消除多阶段 skill（video-forge / ppt-forge / tech-writing / expert-panel）= SOP 错位写进 skill body 的归位错位。依赖 F203 #748 merge 提供 SopDefinition + predicate schema。 |
 | 2026-05-24 | Phase E remaining PR packaging decided — CVO + 46/55 收敛为 4 个功能块 PR：E-hub（砚砚）、E-scale（宪宪）、E-sop、E-community；不按 AC 粒度继续拆碎 |
+| 2026-05-24 | Phase E-hub merged (PR #1878, squash `fe9d2449`) — Eval Hub v1 read model + API + Console Observability/Eval surface landed. It consumes committed live `eval:a2a` verdict bundles, fails closed on missing evidence bundle, and preserves the "互链、不互替" boundary with F188 repair surfaces. AC-E9/E10 complete; Phase E remains open for E-scale / E-sop / E-community. |
 
 ## Review Gate
 
