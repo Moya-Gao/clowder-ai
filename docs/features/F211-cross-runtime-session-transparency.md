@@ -8,7 +8,7 @@ created: 2026-05-24
 
 # F211: Cross-Runtime Session Transparency — Antigravity Session Chain + IDE Direct Registration
 
-> **Status**: spec | **Owner**: 缅因猫（砚砚） | **Priority**: P1
+> **Status**: doing | **Owner**: 缅因猫（砚砚） | **Priority**: P1
 
 Architecture cell: `identity-session` + `memory`
 Map delta: update required — F211 adds runtime session registration / cascade visibility as a first-class session boundary. `identity-session` owns session identity and cascade/session binding; `memory` consumes the resulting transcript/digest evidence. F209 remains retrieval-only.
@@ -335,6 +335,7 @@ in_context_observability:
 | 2026-05-24 | Bengal Cat Phase A1 plan surface review APPROVE；补 legacy JSON key format（`${threadId}:${catId}`）和既有 Antigravity regression subset 门禁。 |
 | 2026-05-24 | Opus 4.7 Phase A1 plan architecture review BLOCKING；补 DI-only observation hook、禁止 legacy placeholder sessionId、SessionChainStore resolver 语义、Redis multi-key atomicity 门禁。 |
 | 2026-05-24 | Phase A1 implementation landed in worktree：新增 runtime-session metadata schema、in-memory/Redis sidecar store、read-only legacy JSON import adapter、Antigravity runtime store DI seam；未 flip live cascade rotation，A2 仍 owns `ephemeralSession: false`、drain/reaper、transcript materialization。 |
+| 2026-05-24 | Phase A1 merged via PR #1880：runtime-session metadata sidecar、read-only legacy import、Redis/in-memory stores、DI-only Antigravity bridge seam 已进 main；Cloud Codex re-review 对 `2800dc3f` 无 major issues，merge commit `a4e148aa4`。 |
 | 2026-05-24 | Opus 4.7 + Codex A2 scope discussion：术语统一为 session = Antigravity cascade；continuity break 判定为 F211 内 bug，不开 F212；A2 拆为 A2a lifecycle/seal/drain/reaper 和 A2b cross-session continuity bootstrap。 |
 | 2026-05-24 | Phase A2 implementation plan drafted：A2a covers lifecycle/seal/drain/reaper/runtime binding; A2b covers first effective prompt continuity bootstrap, degraded marker, reason coverage, token budget, re-rotation, and control block format. |
 
