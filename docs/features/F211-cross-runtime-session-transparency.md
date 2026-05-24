@@ -335,6 +335,7 @@ in_context_observability:
 | 2026-05-24 | Bengal Cat Phase A1 plan surface review APPROVE；补 legacy JSON key format（`${threadId}:${catId}`）和既有 Antigravity regression subset 门禁。 |
 | 2026-05-24 | Opus 4.7 Phase A1 plan architecture review BLOCKING；补 DI-only observation hook、禁止 legacy placeholder sessionId、SessionChainStore resolver 语义、Redis multi-key atomicity 门禁。 |
 | 2026-05-24 | Opus 4.7 + Codex A2 scope discussion：术语统一为 session = Antigravity cascade；continuity break 判定为 F211 内 bug，不开 F212；A2 拆为 A2a lifecycle/seal/drain/reaper 和 A2b cross-session continuity bootstrap。 |
+| 2026-05-24 | Phase A2 implementation plan drafted：A2a covers lifecycle/seal/drain/reaper/runtime binding; A2b covers first effective prompt continuity bootstrap, degraded marker, reason coverage, token budget, re-rotation, and control block format. |
 
 ## Review Gate
 
@@ -353,5 +354,6 @@ in_context_observability:
 | **Feature** | `docs/features/F210-antigravity-cli-migration.md` | Separate headless AGY carrier migration |
 | **Discussion** | `docs/discussions/2026-05-24-f211-design-memo/README.md` | Phase 0 current-state audit and architecture design memo |
 | **Plan** | `docs/plans/2026-05-24-f211-phase-a1-runtime-metadata.md` | Phase A1 runtime metadata sidecar and binding implementation plan |
+| **Plan** | `docs/plans/2026-05-24-f211-phase-a2-cascade-lifecycle-continuity.md` | Phase A2 lifecycle/seal/drain/reaper and continuity bootstrap implementation plan |
 | **Architecture** | `docs/architecture/ownership/cells/identity-session.md` | Candidate primary ownership cell |
 | **Architecture** | `docs/architecture/ownership/cells/memory.md` | Evidence/retrieval consumer cell |
