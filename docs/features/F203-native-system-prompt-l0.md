@@ -58,7 +58,7 @@ created: 2026-05-15
 ## What
 
 按 ADR-030 §10.2 14 项 L0 清单切换到 native system role 通道：
-- **Claude 猫**：`claude --bg --system-prompt "<compiled L0>"`（S0 实测兼容 bg 模式 ✅）
+- **Claude 猫**：`ClaudeAgentService(-p)` 与 `ClaudeBgCarrierService(--bg)` 都走 `--system-prompt-file <compiled L0>`；carrier 选择只控制执行模式，不控制 F203 是否生效
 - **Codex 猫**：`codex exec -c 'developer_instructions="<compiled L0>"'`（S4 实测 per-call 注入 ✅）
 - **Gemini 猫**：推迟（铲屎官 directive 2026-05-15 — 用量低，先 Codex + Claude 跑通）
 
@@ -78,7 +78,7 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 
 铲屎官 2026-05-15 directive："如果不好我们都有 git log 能恢复——不搞灰度，那些太麻烦了 我们也不现实。"
 
-- `ClaudeBgCarrierService.spawn` argv 加 `--system-prompt <compiled L0>`（直接替换，不留 feature flag）
+- Claude carrier argv 加 `--system-prompt-file <compiled L0>`：`ClaudeAgentService(-p)` 与 `ClaudeBgCarrierService(--bg)` 行为一致（直接替换，不留 feature flag）
 - `CodexAgentService.spawn` argv 加 `-c 'developer_instructions=<compiled L0>'`
 - `effectivePrompt` 拼装逻辑：删除 `params.systemPrompt + promptWithMission` prepend 路径（system prompt 已在 argv 里，user message 只剩 prompt 本身）
 - F-BLOAT 测试保护：resume 时 system prompt 不重复（spawn argv 每次新传，session 内不累积——靠 daemon/Codex 自身管理）
@@ -168,11 +168,11 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 
 ### Phase C（dual-path 落地）
 
-- [x] AC-C1: `ClaudeBgCarrierService` argv 加 `--system-prompt-file <compileL0>` ✅（Task 3，commit `bfeaab76f`；l0CompilerFn seam + fail-closed CarrierError；claude-bg-carrier-l0.test.js 2 tests + 真子进程 e2e。KD-10：走文件不硬编码）
+- [x] AC-C1: Claude carriers argv 加 `--system-prompt-file <compileL0>` ✅（`ClaudeBgCarrierService` Task 3，commit `bfeaab76f`；`ClaudeAgentService(-p)` 2026-05-24 parity fix；l0CompilerFn seam + fail-closed compile error；claude-bg-carrier-l0.test.js + claude-agent-service F203 guard tests。KD-10/KD-18：走文件不硬编码，carrier 选择正交于 L0 注入）
 - [x] AC-C2: `CodexAgentService` argv 加 `-c developer_instructions=<compileL0>` ✅（Task 4，commit `ebe904529`；per-call argv 不污染 `~/.codex/config.toml`，@codex/@gpt52/@spark cat-scoped；codex-agent-service-l0.test.js 3 tests，S4 砚砚 `62b9255e2` 对齐）
-- [x] AC-C3: 剥离 `params.systemPrompt` 非 pack prepend ✅（Task 2，commit `5305d08c4`；新增 `buildStaticIdentityPackOnly`，route-serial:413/route-parallel:173 切 pack-only，非 pack 走 native system role；system-prompt-builder 113/113 守护零回归）
+- [x] AC-C3: 剥离 `params.systemPrompt` 非 pack prepend ✅（Task 2，commit `5305d08c4`；新增 `buildStaticIdentityPackOnly`，route-serial / route-parallel 通过 `injectsL0Natively()` 切 pack-only，非 pack 走 native system role；system-prompt-builder 113/113 守护零回归）
 - [x] AC-C4: F-BLOAT resume 不累积 ✅（native `--system-prompt-file` replace-mode 天然免疫；pack-only 走未改的先验 new-session gate invoke-single-cat:1079-1088，invoke-single-cat-resume-health 覆盖）
-- [x] AC-C5（merge-gate 部分）✅：PR #1709 squash-merged 2026-05-16T08:26Z（commit `d55cb688e`）；`pnpm gate` ✅（3070 tests），砚砚本地×2 round APPROVE（P1 cliConfigArgs + P1-cloud 修复），云端 round-1 抓 2 P1 全修，round-2 push back 1 P1（无现实复现，按 merge-gate 表降 P3-comment-pass）。**待**：runtime 重启验收（alpha pull 后 47/46/砚砚 各一轮 + 铲屎官 10 轮压缩对话客观性终验）
+- [x] AC-C5（merge-gate 部分）✅：PR #1709 squash-merged 2026-05-16T08:26Z（commit `d55cb688e`）；`pnpm gate` ✅（3070 tests），砚砚本地×2 round APPROVE（P1 cliConfigArgs + P1-cloud 修复），云端 round-1 抓 2 P1 全修，round-2 push back 1 P1（无现实复现，按 merge-gate 表降 P3-comment-pass）。2026-05-24 alpha probe 暴露 production default `ClaudeAgentService(-p)` 仍走 pre-F203 prompt path，本 fix 补齐两 Claude carriers 注入一致。**仍待**：runtime pull + restart 后，default `-p` 与 `bg_daemon` carrier 均需通过 behavioral probe，再跑 47/46/砚砚 各一轮 + 铲屎官 10 轮压缩对话客观性终验。
 
 > Phase C 实施前置（执行顺序，防回归窗口）：Task 0 spike（`ca3efead7`）→ Task 1 A8 gap（`fd4e634ca`）→ Task 3a 共享 l0-compiler helper（`24dd15541`）→ Task 3/4 接通 → Task 2 删重复。终态：L0（非 pack 身份/家规/MCP）在压缩免疫 native system role，user message 仅 pack blocks + invocationContext + prompt。
 
@@ -258,6 +258,7 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 | KD-15 | `shared-rules.md` 是 governance L0 唯一真相源；native + fallback 必须共用编译产物 | #747：手写 `system-prompt-l0.md` §3 + `SystemPromptBuilder` fallback digest + `shared-rules.md` 三份物理表示会漂移，且 `.local-override` 只影响 fallback。修复：`governance-l0.ts` deterministic compiler 读取 `shared-rules.md`，native L0 通过 `{{GOVERNANCE_L0}}` 注入，fallback 同读 `loadCompiledGovernanceL0*`；`.local.md` append / `.local-override.md` replace 在编译层统一处理。 | 2026-05-21 |
 | KD-16 | Rules & SOP 面板必须展示 prompt 消费链，而不只是文件列表 | #749：铲屎官需要知道“实际进 prompt / 只是参考 / skill 按需加载”。`/api/rules` 增 `consumption` 元数据，前端用四类标签显式展示 shared-rules→governance L0→native/fallback、root provider project-doc 的 harness 注入、SOP 参考文档、SKILL.md 按需加载。#748 词汇收敛 deferred，不抢跑。 | 2026-05-21 |
 | KD-17 | Governance L0 compiler anchors must be sanitizer-invariant | Outbound sync public gate exposed a cross-repo drift: `_sanitize-rules.pl` rewrites family names in `cat-cafe-skills/refs/shared-rules.md`（`缅因猫`→`Maine Coon`、`暹罗猫`→`Siamese`），but `packages/api/.../governance-l0.ts` was not sanitized and asserted exact localized headings. Result: exported public API startup failed before touching clowder-ai. Fix: assert stable protocol core anchors（`fallback 层数检测协议` / `创意-实现解耦协议`）and derive output labels from the actual heading, so internal output keeps localized labels and public output follows sanitized `Maine Coon` / `Siamese`. Do not sanitize `packages/` code to avoid rewriting runtime identifiers. | 2026-05-21 |
+| KD-18 | Claude carrier 选择正交于 F203 native L0 注入 | AC-C5 alpha probe 发现 runtime default 仍走 `ClaudeAgentService(-p)`，而 Phase C 只在 opt-in `ClaudeBgCarrierService(--bg)` 接了 compiled L0。正确 invariant：`-p` vs `--bg` 只决定执行/会话模式，不能决定身份/家规是否进压缩免疫层；两条 Claude carrier 都必须用 `--system-prompt-file <compiled L0>`，且用户 `cliConfigArgs` 不得覆盖该保留 flag。 | 2026-05-24 |
 
 ## Spike Log
 
@@ -300,6 +301,7 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 | 2026-05-22 | **#748 SOP stage 定义统一——方向对齐**：社区（terrenceeLeung / 天一）在 clowder-ai#748 提交设计提案——新建 `SopDefinition`（`sop-definitions/development.yaml`）单一机器可读源、`sop_navigation` 并入它（第三选项，非「删除」或「原样接线」）。Opus 核实提案代码事实（`sop_navigation` 零消费 / `SopStage` 硬编码 union / 一行 hint）准确 → green light。**CVO 决策：#748 归 F203、不新开 F 号**——与 #747 同属「家规 / SOP 外化」线（separate change set，same feature）。实现路径同 #747：Cat Café 上游实现 + 同步，社区作 design owner + 同步 PR reviewer。kickoff 前敲定 2 点：① hard_rules/pitfalls 迁入 `SopDefinition` 后仍零消费 → 须诚实标注「parked, no consumer」② `sopDefinitionId` seam 守 YAGNI（只加字段 + 默认值，不建 resolver）。回复见 clowder-ai#748。 |
 | 2026-05-23 | **#748 design pivot — hard_rules keep + domain-generic schema + F192 Phase E-sop scoped**：天一回 #748 反推「应该 drop hard_rules/pitfalls（park 是糖衣 follow-up）」+ impl 入口该是 `writing-plans` 不是 `tdd` + `writing-plans` skill 自身前后矛盾应统一为 `writing-plans → worktree → tdd`。CVO 反推关键反思 "skill = 软约束需硬约束兜底" + 多 domain SOP 问题（video / tech-article / family-office）——**否决 drop**，定调三点 pivot：① **hard_rules / pitfalls keep**（不 drop 不 park）+ 加 machine-checkable predicate 字段，feeds F192 新 `eval:sop` domain；② schema **domain-generic from day 1**（development 只是第一个 domain，video-cocreation / tech-article / family-office 同 schema），消除多阶段 skill = SOP 错位的归位错；③ `sopDefinitionId` seam 定位重新校准为多 domain 装载入口（非 YAGNI future-proofing）。同步 F192 加 Phase E-sop (AC-E16-E24) + cross-domain schema 校验作 AC-E23 硬验证。天一 impl 入口 + writing-plans skill 统一两点 accepted。下一步：回 clowder-ai#748 通报三点 pivot + 等天一更新 schema 草案（加 predicate 字段）。|
 | 2026-05-23 | **#748 SOP stage externalization merged (PR #1868, squash `3d5c76772`)**——`sop-definitions/development.yaml` 接管 development SOP stage 真相源，18 条 `sop_navigation` hard rules / pitfalls 迁入 predicate-backed schema，runtime generated catalog 驱动 `SopStage` / `WorkflowSop` / thread-context / Mission Control 面板；`nextSkill` 作为 explicit override 保留，bad/stale SOP stage 在 API 和 UI 双侧 fail-soft。cross-domain stubs 证明 schema 泛化但不进入 runtime union；`writing-plans` 顺序统一为 `writing-plans → worktree → tdd`；F192 `eval:sop` runtime evaluator 保持 out of scope。`pnpm gate` passed on PR HEAD `db118eca7`，cloud review clean。 |
+| 2026-05-24 | **AC-C5 alpha probe reopened Claude carrier parity gap**——铲屎官 runtime pull + restart 后，test thread 证实 production default 仍走 `ClaudeAgentService(-p)`；F203 native L0 只在 `ClaudeBgCarrierService(--bg)` 生效。修复方向改为 carrier 正交：不翻 `CAT_CAFE_CLAUDE_CARRIER` default，不提前 F198 migration，只让 `ClaudeAgentService(-p)` 同样 compile L0 到 `--system-prompt-file`，并阻止用户 `cliConfigArgs` 覆盖保留 system prompt flags。合入后 AC-C5 需重新 runtime pull/restart + behavioral probe。 |
 
 ## Review Gate
 

@@ -168,10 +168,10 @@ export async function* routeParallel(
       const teammates = targetCats.filter((id) => id !== catId);
       // F203 Phase C: non-pack identity/家规/MCP docs travel via the
       // compression-immune native system role (--system-prompt-file / -c)
-      // ONLY for providers with native L0 injection (ClaudeBgCarrier +
-      // CodexAgent, Task 3/4). Non-native providers (ClaudeAgent legacy -p,
-      // Gemini, Antigravity, CatAgent, A2A, OpenCode, Dare, Kimi…) still
-      // need full identity via user-message systemPrompt prepend, else they
+      // ONLY for providers with native L0 injection (ClaudeAgentService -p,
+      // ClaudeBgCarrierService, CodexAgent). Non-native providers (Gemini,
+      // Antigravity, CatAgent, A2A, OpenCode, Dare, Kimi…) still need full
+      // identity via user-message systemPrompt prepend, else they
       // lose identity/家规 entirely (云端 Codex P1-cloud-1, 2026-05-16).
       // mcpAvailable still gates the per-message HTTP callback fallback.
       const mcpAvailable = (catConfig?.mcpSupport ?? false) && !!mcpServerPath;
