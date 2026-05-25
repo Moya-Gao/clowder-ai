@@ -206,6 +206,8 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 
 Design Gate product spike is now captured in `docs/plans/2026-05-24-f209-phase-d-perspective-product-spike.md`: three user stories, v1 product boundary, runtime contract, CVO visibility contract, and implementation slices.
 
+Implementation plan: `docs/plans/2026-05-24-f209-phase-d-perspective-runtime.md`.
+
 ### Acceptance Criteria
 
 - [x] AC-D0: Design Gate 前完成 Perspective product spike，给出 2-3 个 user story + runtime contract。
@@ -354,6 +356,7 @@ Design Gate product spike is now captured in `docs/plans/2026-05-24-f209-phase-d
 | 2026-05-24 | D.0 federated raw degraded metadata fix merged (PR #1882) — MCP `search_evidence` handler now defaults `dimension=project`, avoiding legacy API `all` default pulling unhealthy global vectors into default degraded metadata |
 | 2026-05-24 | D.0 final dogfood after runtime restart — 砚砚 + Opus-47 verified raw hybrid no `[DEGRADED]`, file-slice reader, default dimension, and entity expansion (`CVO`/`铲屎官`/`Lysander`) all live; `docs/decisions/2026-05-23-f209-d0-readiness.md` verdict updated to **Phase D UNBLOCK** |
 | 2026-05-24 | Phase D product spike plan added — `docs/plans/2026-05-24-f209-phase-d-perspective-product-spike.md` closes AC-D0 with user stories, runtime contract, CVO visibility contract, and implementation slices |
+| 2026-05-24 | Phase D runtime implementation plan added — `docs/plans/2026-05-24-f209-phase-d-perspective-runtime.md` decomposes schema/loader, live runner, API/MCP entry, AC-D6 visibility audit, and dogfood close |
 
 ## Review Gate
 
@@ -377,6 +380,7 @@ Design Gate product spike is now captured in `docs/plans/2026-05-24-f209-phase-d
 | Plan | `docs/plans/2026-05-22-f209-phase-b-entity-anchor.md` | Phase B entity registry / alias expansion implementation plan |
 | Plan | `docs/plans/2026-05-22-f209-phase-c-drilldown-readers.md` | Phase C typed drill-down reader implementation plan |
 | Plan | `docs/plans/2026-05-24-f209-phase-d-perspective-product-spike.md` | Phase D Perspective product spike / Design Gate contract |
+| Plan | `docs/plans/2026-05-24-f209-phase-d-perspective-runtime.md` | Phase D Perspective runtime implementation plan |
 | Eval fixture | `docs/eval/f209-phase-a-raw-retrieval-fixtures.md` | Phase A raw semantic / hybrid retrieval fixtures for F200 |
 | Eval fixture | `docs/eval/f209-phase-b-entity-anchor-fixtures.md` | Phase B entity alias / privacy retrieval fixtures for F200 |
 | Eval fixture | `docs/eval/f209-phase-c-drilldown-fixtures.md` | Phase C typed drill-down retrieval fixtures for F200 |
