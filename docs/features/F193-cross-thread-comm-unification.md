@@ -151,6 +151,34 @@ The current local failure mode is:
 4. `ensureCatCafeMainServer()` sees an ID collision on `cat-cafe-limb`; by design it refuses to add managed limb and refuses to remove legacy `cat-cafe`, to avoid silently losing limb tools.
 5. `generateCliConfigs()` preserves existing user/external MCP entries, so `.mcp.json` and `.codex/config.toml` continue to contain both legacy and split servers.
 
+### Reproduction Shape
+
+`.cat-cafe/capabilities.json` excerpt that triggers the duplicate exposure (any
+of the entries below is enough to render the heal保守退出 path):
+
+```jsonc
+{
+  "capabilities": [
+    { "id": "cat-cafe",         "type": "mcp", "source": "cat-cafe", "enabled": true, "mcpServer": {/* index.js */} },
+    { "id": "cat-cafe-collab",  "type": "mcp", "source": "cat-cafe", "enabled": true, "mcpServer": {/* collab.js  */} },
+    { "id": "cat-cafe-memory",  "type": "mcp", "source": "cat-cafe", "enabled": true, "mcpServer": {/* memory.js  */} },
+    { "id": "cat-cafe-signals", "type": "mcp", "source": "cat-cafe", "enabled": true, "mcpServer": {/* signals.js */} },
+    { "id": "cat-cafe-limb",    "type": "mcp", "source": "external", "enabled": true, "mcpServer": {/* limb.js — same repo path */} }
+  ]
+}
+```
+
+`source: external` on the limb entry is the discriminator that flips
+`ensureCatCafeMainServer()` into the fail-safe branch added during F193
+Phase C round 4 P1 review (preserve cat-cafe when managed limb cannot be
+guaranteed). On a Codex restart, both the legacy `cat-cafe` and the four
+split servers spawn, and `tool_search` reports duplicate hits like:
+
+```
+mcp__cat_cafe__cat_cafe_search_evidence
+mcp__cat_cafe_memory__cat_cafe_search_evidence
+```
+
 ### Required Fix Scope
 
 - Decide how same-repo `cat-cafe-limb` with `source: external` should migrate:
@@ -159,9 +187,23 @@ The current local failure mode is:
   - add an explicit repair step that deletes legacy `cat-cafe` only after proving split memory/collab/signals + any usable limb server are present.
 - Add regression coverage for:
   - managed 3-split + legacy all-in-one + external same-repo limb -> final config has no legacy `cat-cafe`
-  - foreign external `cat-cafe-limb` ID collision -> legacy preservation remains fail-safe
+  - foreign external `cat-cafe-limb` ID collision -> legacy preservation remains fail-safe (Phase C R4 P1 contract unchanged)
   - generated `.mcp.json` / `.codex/config.toml` no longer expose duplicate `cat_cafe_search_evidence` when split topology is healthy
-- After merge, regenerate local configs and verify `tool_search` no longer shows both legacy and split copies for the same Cat Café tool family.
+
+### Acceptance
+
+Treat this as a follow-up AC set (not blocking F193 close — fixed in a new
+sibling PR / thread per F209 D.0 delegation matrix):
+
+- [ ] **AC-PCFU-1**: `ensureCatCafeMainServer()` distinguishes `source=external` limb whose `mcpServer.args[0]` resolves to the repo's own `packages/mcp-server/dist/limb.js` (or current `CAT_CAFE_RUNTIME_ROOT` equivalent) from foreign limb IDs — same-repo external limb counts as "managed limb available" for migration purposes.
+- [ ] **AC-PCFU-2**: When AC-PCFU-1's condition holds, legacy `cat-cafe` is removed from `capabilities.json`; foreign external `cat-cafe-limb` ID collision still preserves legacy (regression of Phase C R4 P1).
+- [ ] **AC-PCFU-3**: New `capability-orchestrator.test.js` cases cover the three scenarios in Required Fix Scope above; existing 8 tests on `ensureCatCafeMainServer` still pass.
+- [ ] **AC-PCFU-4**: After fix lands, run `GET /api/capabilities?probe=true` from a local install that reproduces the symptom; `tool_search` no longer shows duplicate `cat_cafe_*` across `mcp__cat_cafe__*` and `mcp__cat_cafe_{collab,memory,signals,limb}__*` namespaces.
+- [ ] **AC-PCFU-5**: `.mcp.json` + `.codex/config.toml` regeneration sequence preserves any user-added external (non-`source=cat-cafe`) MCP entries untouched.
+
+**Owner**: F193 / MCP topology thread — suggested handoff to Opus-47 or
+后端协议猫（per F209 spec line 184 delegation matrix）. F193 itself stays
+closed; this is a follow-up bug-fix track, not a Phase E reopen.
 
 ## Risk
 
