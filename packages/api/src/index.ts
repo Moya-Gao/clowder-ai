@@ -1887,6 +1887,7 @@ async function main(): Promise<void> {
   // Evidence search (SQLite) + reindex endpoint (D-11) + F-4 federated search + F188 rebuild
   await app.register(evidenceRoutes, {
     evidenceStore: memoryServices.evidenceStore,
+    embeddingService: memoryServices.embeddingService,
     indexBuilder: memoryServices.indexBuilder,
     knowledgeResolver: memoryServices.knowledgeResolver,
     rebuildJobTracker,
@@ -2196,6 +2197,7 @@ async function main(): Promise<void> {
   }
   app.log.info(`[api] Server running on ${address}`);
   app.log.info(`[ws] WebSocket server ready`);
+  memoryServices.indexBuilder?.startPassageEmbeddingWarmup();
 
   // F156: Friendly hint for private network access
   if (HOST === '0.0.0.0' && process.env.CORS_ALLOW_PRIVATE_NETWORK !== 'true') {
