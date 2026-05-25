@@ -732,7 +732,12 @@ excluded:
       const managedFiles = readYamlTopLevelList('sync-manifest.yaml', 'managed_files');
       const fixturePaths = [
         'docs/harness-feedback/eval-domains/eval-a2a.yaml',
+        'docs/harness-feedback/eval-domains/eval-memory.yaml',
         'docs/harness-feedback/verdicts/fixtures/2026-05-21-eval-a2a-contract-demo.md',
+        'docs/harness-feedback/verdicts/2026-05-23-eval-a2a-live-verdict.md',
+        'docs/harness-feedback/bundles/2026-05-23-eval-a2a-live-verdict/attribution.json',
+        'docs/harness-feedback/bundles/2026-05-23-eval-a2a-live-verdict/provenance.json',
+        'docs/harness-feedback/bundles/2026-05-23-eval-a2a-live-verdict/snapshot.json',
         'docs/features/assets/F210/agy-conversation-resume.txt',
         'docs/features/assets/F210/agy-print-timeout.txt',
         'docs/features/assets/F210/agy-real-home-no-default-model.txt',
