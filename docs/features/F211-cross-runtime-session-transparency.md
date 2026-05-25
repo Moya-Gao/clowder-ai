@@ -168,22 +168,22 @@ Expose runtime session state where users and cats notice it:
 - [x] AC-0H: Design memo defines the F210 AGY CLI boundary: whether AGY uses F211 registration, its own session path, or an explicit adapter bridge.
 
 ### Phase A（Cat-Cafe-dispatched cascade bridge）
-- [ ] AC-A1: Same cascadeId repeated `session_init` does not create a new session.
-- [ ] AC-A2: CascadeId rotation seals the old session and creates a new session.
-- [ ] AC-A3: Seal targets the old cascade by `cliSessionId` / cascadeId lookup, never by active `(catId, threadId)` mismatch alone.
-- [ ] AC-A4: Seal happens after old cascade flush / in-flight RPC settle; read paths cannot trigger seal. If Antigravity does not expose an authoritative drain RPC, Phase A uses a documented quiet-window best-effort drain and records `drainResult`, while known in-flight work remains `runtime_seal_pending`.
-- [ ] AC-A5: Resets/rollovers carry classified `sealReason` such as `oversized_retire`, `user_initiated`, `model_capacity`, `empty_response`, `tool_conflict`, `unsafe_side_effect`, or `runtime_disconnected`.
-- [ ] AC-A6: Multi-cat single-thread cascades do not interfere with each other.
-- [ ] AC-A7: Same-thread same-cat concurrent cascades are either safely supported or explicitly fail-closed with a documented limitation and no mis-seal.
-- [ ] AC-A8: Cat-Cafe-dispatched Antigravity session records have non-empty session events/digest content from the agreed materialization path.
-- [ ] AC-A9: Same cascadeId with changed model/cat identity is represented according to Phase 0 design and does not silently overwrite prior identity metadata.
-- [ ] AC-A10: Pending seals have a concrete recovery path: a reaper/sweeper or documented manual recovery action retries `runtime_seal_pending` records and keeps them visible until resolved.
-- [ ] AC-A11: `runtime_conflict_pending` is represented as runtime sidecar lifecycle state with an explicit transition path, not as an ad hoc `SessionRecord.status` value.
-- [ ] AC-A12: Phase A treats `data/antigravity-sessions.json` as read-only legacy import only; no new cascade binding or reset path dual-writes JSON.
-- [ ] AC-A13: Automatic/error-induced Antigravity session rotation creates a continuity bootstrap for the new session before the first planner response; the cat must not cold-start after `empty_response`, `stream_error`, `model_capacity`, `oversized_retire`, `tool_conflict`, `runtime_disconnected`, or similar non-user-initiated rotation.
-- [ ] AC-A14: Continuity bootstrap content is built from sealed or best-available old-session evidence: digest/recent events, runtime metadata, unfinished task snapshot, and side-effect journal summary. A route continuity capsule may wrap/control the handoff, but it is not accepted as the actual evidence payload.
-- [ ] AC-A15: The Antigravity injection contract is explicit: current implementation prepends a Cat Cafe control block to the first effective prompt sent via `sendMessage`; it must not claim privileged system-context injection unless Antigravity exposes and tests such an API.
-- [ ] AC-A16: User-initiated `New Cascade` is classified separately and does not silently auto-inject prior-session continuity unless an explicit resume/bind action requests it. If old-session sealing is pending or incomplete, the bootstrap must carry a visible degraded/pending marker instead of pretending the prior session was fully sealed.
+- [x] AC-A1: Same cascadeId repeated `session_init` does not create a new session.
+- [x] AC-A2: CascadeId rotation seals the old session and creates a new session.
+- [x] AC-A3: Seal targets the old cascade by `cliSessionId` / cascadeId lookup, never by active `(catId, threadId)` mismatch alone.
+- [x] AC-A4: Seal happens after old cascade flush / in-flight RPC settle; read paths cannot trigger seal. If Antigravity does not expose an authoritative drain RPC, Phase A uses a documented quiet-window best-effort drain and records `drainResult`, while known in-flight work remains `runtime_seal_pending`.
+- [x] AC-A5: Resets/rollovers carry classified `sealReason` such as `oversized_retire`, `user_initiated`, `model_capacity`, `empty_response`, `tool_conflict`, `unsafe_side_effect`, or `runtime_disconnected`.
+- [x] AC-A6: Multi-cat single-thread cascades do not interfere with each other.
+- [x] AC-A7: Same-thread same-cat concurrent cascades are either safely supported or explicitly fail-closed with a documented limitation and no mis-seal.
+- [x] AC-A8: Cat-Cafe-dispatched Antigravity session records have non-empty session events/digest content from the agreed materialization path.
+- [x] AC-A9: Same cascadeId with changed model/cat identity is represented according to Phase 0 design and does not silently overwrite prior identity metadata.
+- [x] AC-A10: Pending seals have a concrete recovery path: a reaper/sweeper or documented manual recovery action retries `runtime_seal_pending` records and keeps them visible until resolved.
+- [x] AC-A11: `runtime_conflict_pending` is represented as runtime sidecar lifecycle state with an explicit transition path, not as an ad hoc `SessionRecord.status` value.
+- [x] AC-A12: Phase A treats `data/antigravity-sessions.json` as read-only legacy import only; no new cascade binding or reset path dual-writes JSON.
+- [x] AC-A13: Automatic/error-induced Antigravity session rotation creates a continuity bootstrap for the new session before the first planner response; the cat must not cold-start after `empty_response`, `stream_error`, `model_capacity`, `oversized_retire`, `tool_conflict`, `runtime_disconnected`, or similar non-user-initiated rotation.
+- [x] AC-A14: Continuity bootstrap content is built from sealed or best-available old-session evidence: digest/recent events, runtime metadata, unfinished task snapshot, and side-effect journal summary. A route continuity capsule may wrap/control the handoff, but it is not accepted as the actual evidence payload.
+- [x] AC-A15: The Antigravity injection contract is explicit: current implementation prepends a Cat Cafe control block to the first effective prompt sent via `sendMessage`; it must not claim privileged system-context injection unless Antigravity exposes and tests such an API.
+- [x] AC-A16: User-initiated `New Cascade` is classified separately and does not silently auto-inject prior-session continuity unless an explicit resume/bind action requests it. If old-session sealing is pending or incomplete, the bootstrap must carry a visible degraded/pending marker instead of pretending the prior session was fully sealed.
 
 ### Phase B（IDE-direct reverse registration）
 - [ ] AC-B1: Antigravity IDE-direct conversation can create or update a Cat Cafe session-chain record without a prior Cat Cafe dispatch.
@@ -251,15 +251,15 @@ Expose runtime session state where users and cats notice it:
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | Phase A seal trigger 的精确代码点在哪里，如何证明 old cascade flush / RPC settle 已完成？ | ✅ Design Memo defines capability probe + quiet-window best-effort fallback; implementation still must pick exact code point |
-| OQ-2 | Error reset 分类枚举是否完整，`model_capacity` / `empty_response` / `tool_conflict` / `unsafe_side_effect` 是否需要不同 digest 策略？ | ⬜ Design Memo 决定 |
-| OQ-3 | Same-thread same-cat concurrent cascades 是 Phase A 支持还是 fail-closed？ | ⬜ Design Memo 决定 |
+| OQ-1 | Phase A seal trigger 的精确代码点在哪里，如何证明 old cascade flush / RPC settle 已完成？ | ✅ A2 implements AntigravityAgentService rotation/drain before lifecycle seal; no read-path seal |
+| OQ-2 | Error reset 分类枚举是否完整，`model_capacity` / `empty_response` / `tool_conflict` / `unsafe_side_effect` 是否需要不同 digest 策略？ | ✅ A2 implements typed `AntigravityRuntimeSealReason`; digest/transcript carries lifecycle seal reason instead of flattening errors |
+| OQ-3 | Same-thread same-cat concurrent cascades 是 Phase A 支持还是 fail-closed？ | ✅ A2 fails closed through `runtime_conflict_pending` runtime sidecar state; no read-path mis-seal |
 | OQ-4 | IDE-direct conversation 绑定到已有 Cat Cafe thread、独立 pseudo-thread，还是 runtime conversation collection？ | ⬜ Phase B design |
 | OQ-5 | `Session.kind` 是否现在落地，还是 Phase A 先用 `cliSessionId=cascadeId` 兼容 hook？ | ⬜ Phase D design；Phase A 不锁死 |
 | OQ-6 | JSON 迁移后是否保留只读 debug export？ | ⬜ Phase C design |
 | OQ-7 | Cross-runtime registration 是否应做 MCP tool、callback endpoint，还是二者都要？ | ⬜ Phase D design |
-| OQ-8 | Antigravity transcript 的权威材料是 trajectory steps、thread messages、planner responses、tool results，还是组合 materialized view？ | ⬜ Design Memo 决定 |
-| OQ-9 | 同一 cascadeId 内 model/cat 切换应 split session、记录 identity timeline，还是创建 sub-run？ | ⬜ Design Memo 决定 |
+| OQ-8 | Antigravity transcript 的权威材料是 trajectory steps、thread messages、planner responses、tool results，还是组合 materialized view？ | ✅ Phase A materializes a bounded session transcript view from transformed planner/tool/lifecycle events; raw trajectory noise stays debug-level |
+| OQ-9 | 同一 cascadeId 内 model/cat 切换应 split session、记录 identity timeline，还是创建 sub-run？ | ✅ Phase A records runtime identity history in `RuntimeSessionMetadata` instead of silently overwriting cascade attribution |
 | OQ-10 | IDE-direct 无 threadId 时，是否创建 orphan session、private runtime thread，还是等用户显式绑定？ | ⬜ Phase B design |
 | OQ-11 | `context canceled` / refused / canceled tool 事件如何进入 digest、debug detail、或被过滤？ | ⬜ Phase E design |
 | OQ-12 | Phase A 是否拆成 A1 metadata schema / A2 cascade rotation，并在 A1 后允许 Phase B parallel start？ | ✅ Phase A planning decided: A1 runtime metadata sidecar first, A2 live cascade rotation, Phase B can start after A1 metadata contract is reviewed |
@@ -279,7 +279,7 @@ Expose runtime session state where users and cats notice it:
 | KD-8 | Phase A 不 dual-write JSON 和 SessionChainStore | `data/antigravity-sessions.json` 只作为 read-only legacy import；新 cascade binding 只写 runtime-session state，避免制造第二代影子状态 | 2026-05-24 |
 | KD-9 | Pending seal 必须有 reaper 或 manual recovery | fail-closed 不能等价于永久悬空；pending session 要可见、可重试、可收口 | 2026-05-24 |
 | KD-10 | Continuity break 是 F211 内 bug，不另开 F212 | F211 的目标从“session 透明/可检索”收口为“session 透明 + session rotation 后连续”；只存旧 session 但让新 session 失忆仍未解决用户现场问题 | 2026-05-24 |
-| KD-11 | A2 拆为 A2a lifecycle 和 A2b continuity bootstrap | A1 storage、A2a lifecycle、A2b continuity 是同一终态的可 review 切片；A2b 不承诺 privileged system context，当前走 first effective prompt control block | 2026-05-24 |
+| KD-11 | A2 lifecycle + continuity 作为一个 PR 验收 | A2a/A2b 只保留为实现切片；PR 粒度按可独立验收的用户故事切。lifecycle without continuity 不能证明“session 轮换后不断记忆”，continuity without lifecycle 也不能独立运行 | 2026-05-24 |
 
 ## Eval / Tracking Contract
 
@@ -310,11 +310,11 @@ in_context_observability:
 | R4 | “可以找 antig-opus，让他只需要讲出来问题；顺便总结 F211 想做什么” | AC-0D | Review request message to `@antig-opus` | [x] |
 | R5 | IDE 直开和孟加拉猫聊天也要能找回 | AC-B1~B6 | IDE-direct registration fixture / list/read discoverability validation | [ ] |
 | R6 | JSON shadow state 不该继续当真相源 | AC-A12, AC-C1~C4 | Read-only import + migration test + removal/audit diff | [ ] |
-| R7 | Bengal review: “session chain 里有记录但 digest/events 为空仍然没用” | AC-0E, AC-A8 | `read_session_digest/events` proof fixture | [ ] |
-| R8 | Bengal review: “同一 cascade 可换 model/catId，manual New Cascade 也常见” | AC-0F, AC-A5, AC-A9 | identity-history + sealReason tests | [ ] |
+| R7 | Bengal review: “session chain 里有记录但 digest/events 为空仍然没用” | AC-0E, AC-A8 | `read_session_digest/events` proof fixture | [x] |
+| R8 | Bengal review: “同一 cascade 可换 model/catId，manual New Cascade 也常见” | AC-0F, AC-A5, AC-A9 | identity-history + sealReason tests | [x] |
 | R9 | Bengal review: “IDE-direct 没 threadId/callbackToken，Phase B 注册机制要具体” | AC-B5, OQ-10 | external-session registration contract | [ ] |
 | R10 | Bengal review: “context canceled 噪音不要污染 digest” | AC-E4, OQ-11 | noisy trajectory fixture | [ ] |
-| R11 | 铲屎官现场反馈：session 指 Antigravity cascade；错误/轮换后新 session 不能断记忆 | AC-A13~A16, KD-10, KD-11 | A2b continuity bootstrap fixture + manual New Cascade non-injection fixture | [ ] |
+| R11 | 铲屎官现场反馈：session 指 Antigravity cascade；错误/轮换后新 session 不能断记忆 | AC-A13~A16, KD-10, KD-11 | A2b continuity bootstrap fixture + manual New Cascade non-injection fixture | [x] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -336,8 +336,10 @@ in_context_observability:
 | 2026-05-24 | Opus 4.7 Phase A1 plan architecture review BLOCKING；补 DI-only observation hook、禁止 legacy placeholder sessionId、SessionChainStore resolver 语义、Redis multi-key atomicity 门禁。 |
 | 2026-05-24 | Phase A1 implementation landed in worktree：新增 runtime-session metadata schema、in-memory/Redis sidecar store、read-only legacy JSON import adapter、Antigravity runtime store DI seam；未 flip live cascade rotation，A2 仍 owns `ephemeralSession: false`、drain/reaper、transcript materialization。 |
 | 2026-05-24 | Phase A1 merged via PR #1880：runtime-session metadata sidecar、read-only legacy import、Redis/in-memory stores、DI-only Antigravity bridge seam 已进 main；Cloud Codex re-review 对 `2800dc3f` 无 major issues，merge commit `a4e148aa4`。 |
-| 2026-05-24 | Opus 4.7 + Codex A2 scope discussion：术语统一为 session = Antigravity cascade；continuity break 判定为 F211 内 bug，不开 F212；A2 拆为 A2a lifecycle/seal/drain/reaper 和 A2b cross-session continuity bootstrap。 |
+| 2026-05-24 | Opus 4.7 + Codex A2 scope discussion：术语统一为 session = Antigravity cascade；continuity break 判定为 F211 内 bug，不开 F212；A2 实现切片为 lifecycle/seal/drain/reaper 和 cross-session continuity bootstrap。 |
 | 2026-05-24 | Phase A2 implementation plan drafted：A2a covers lifecycle/seal/drain/reaper/runtime binding; A2b covers first effective prompt continuity bootstrap, degraded marker, reason coverage, token budget, re-rotation, and control block format. |
+| 2026-05-24 | Phase A2 implementation landed in worktree `feat/f211-phase-a2-lifecycle-continuity` through `4916556f8`: runtime active binding, Antigravity drain/lifecycle edges, JSON read-only switch, runtime seal reaper, transcript materialization, and first-effective-prompt continuity bootstrap are implemented. Validation passed: `pnpm gate`, F211 A2 final bundle (228 tests), and A1 Antigravity regression subset (55 tests). |
+| 2026-05-24 | Opus46 reviewed A2 PR granularity and pushed back: lifecycle + continuity are one independently verifiable user story, so A2 ships as one PR. Final pre-PR gate passed after rebase onto latest `origin/main`. |
 
 ## Review Gate
 

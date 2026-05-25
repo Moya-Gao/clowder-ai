@@ -2,7 +2,9 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
 import https from 'node:https';
 import { dirname, join } from 'node:path';
+import type { CatId } from '@cat-cafe/shared';
 import { createModuleLogger } from '../../../../../../infrastructure/logger.js';
+import type { RuntimeSessionDrainResult } from '../../../runtime-session/RuntimeSessionMetadata.js';
 import type { IRuntimeSessionStore } from '../../../runtime-session/RuntimeSessionStore.js';
 import {
   type AntigravityCascadeHealthSnapshot,
@@ -29,6 +31,13 @@ const RUN_COMMAND_RPC_TIMEOUT_BUFFER_MS = 5_000;
 // The IDE client defaults regular conversations to CASCADE_CLIENT.
 const CORTEX_TRAJECTORY_SOURCE_CASCADE_CLIENT = 1;
 
+class AntigravityDrainDeadlineError extends Error {
+  constructor(readonly timeoutMs: number) {
+    super(`trajectory read exceeded drain timeout after ${timeoutMs}ms`);
+    this.name = 'AntigravityDrainDeadlineError';
+  }
+}
+
 export function antigravityRpcTimeoutMs(method: string, payload: unknown): number {
   if (method !== 'RunCommand') return DEFAULT_RPC_TIMEOUT_MS;
   if (payload == null) return DEFAULT_RPC_TIMEOUT_MS;
@@ -39,6 +48,24 @@ export function antigravityRpcTimeoutMs(method: string, payload: unknown): numbe
   if (rawTimeoutMs <= 0) return DEFAULT_RPC_TIMEOUT_MS;
   if (rawTimeoutMs > MAX_RUN_COMMAND_TIMEOUT_MS) return DEFAULT_RPC_TIMEOUT_MS;
   return Math.max(DEFAULT_RPC_TIMEOUT_MS, Math.floor(rawTimeoutMs) + RUN_COMMAND_RPC_TIMEOUT_BUFFER_MS);
+}
+
+function withDrainDeadline<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  if (timeoutMs <= 0) {
+    return Promise.reject(new AntigravityDrainDeadlineError(0));
+  }
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return new Promise<T>((resolve, reject) => {
+    timer = setTimeout(() => reject(new AntigravityDrainDeadlineError(timeoutMs)), timeoutMs);
+    void promise.then(resolve, reject).finally(() => {
+      if (timer !== undefined) clearTimeout(timer);
+    });
+  });
+}
+
+function isDrainDeadlineError(err: unknown): err is AntigravityDrainDeadlineError {
+  return err instanceof AntigravityDrainDeadlineError;
 }
 
 const HARDCODED_MODEL_MAP: Record<string, string> = {
@@ -128,6 +155,25 @@ export interface CascadeTrajectory {
   trajectory?: { steps: TrajectoryStep[] };
 }
 
+export interface AntigravityDrainOptions {
+  quietWindowMs?: number;
+  timeoutMs?: number;
+  pollIntervalMs?: number;
+}
+
+export type AntigravityDrainResult =
+  | {
+      ok: true;
+      drainResult: Extract<RuntimeSessionDrainResult, 'complete' | 'best_effort_quiet_window'>;
+      lastObservedStepCount: number;
+    }
+  | {
+      ok: false;
+      drainResult: Extract<RuntimeSessionDrainResult, 'best_effort_quiet_window' | 'skipped_runtime_unreachable'>;
+      reason: string;
+      lastObservedStepCount?: number;
+    };
+
 export type BridgeLivenessEvidenceKind =
   | 'trajectory_progress'
   | 'trajectory_timestamp_progress'
@@ -159,6 +205,7 @@ export interface StepBatch {
 export interface BridgeOptions {
   sessionStorePath?: string;
   runtimeSessionStore?: IRuntimeSessionStore;
+  legacyJsonSessionStore?: boolean;
 }
 
 export interface AntigravityRpcOptions {
@@ -181,6 +228,42 @@ function trajectoryTimestampMs(trajectory: CascadeTrajectory): number | undefine
     if (Number.isFinite(parsed)) return parsed;
   }
   return undefined;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function positiveIntegerOr(value: number | undefined, fallback: number): number {
+  if (!Number.isSafeInteger(value)) return fallback;
+  if ((value ?? 0) <= 0) return fallback;
+  return Math.floor(value as number);
+}
+
+function isMeaningfulDrainStep(step: TrajectoryStep): boolean {
+  const type = step.type.toUpperCase();
+  const status = step.status.toUpperCase();
+  if (type.includes('USER_INPUT')) return false;
+  if (type.includes('CHECKPOINT') || type.includes('DEBUG')) return false;
+  if (status.includes('CANCELED') || status.includes('CANCELLED')) return false;
+  return true;
+}
+
+function meaningfulDrainStepCount(trajectory: CascadeTrajectory): number {
+  const steps = trajectory.trajectory?.steps;
+  if (!Array.isArray(steps)) return trajectory.numTotalSteps ?? 0;
+  return steps.filter(isMeaningfulDrainStep).length;
+}
+
+function isDrainTrajectoryIdle(trajectory: CascadeTrajectory): boolean {
+  return trajectory.status === 'CASCADE_RUN_STATUS_IDLE';
+}
+
+function drainQuietWindowTimeoutReason(quietWindowMs: number, lastObservedStatus: string | undefined): string {
+  if (lastObservedStatus && lastObservedStatus !== 'CASCADE_RUN_STATUS_IDLE') {
+    return `trajectory status ${lastObservedStatus} did not become idle or satisfy quiet window ${quietWindowMs}ms before drain timeout`;
+  }
+  return `trajectory did not satisfy quiet window ${quietWindowMs}ms before drain timeout`;
 }
 
 function nonEmptyString(value: unknown): string | undefined {
@@ -262,6 +345,8 @@ export class AntigravityBridge {
   private executorRegistry: ExecutorRegistry | null = null;
   private executorAudit: AuditSink | null = null;
   private readonly runtimeSessionStore?: IRuntimeSessionStore;
+  private readonly inFlightByCascade = new Map<string, { rpc: number; toolResult: number }>();
+  private readonly legacyJsonSessionStore: boolean;
 
   constructor(
     private readonly connection?: Partial<BridgeConnection>,
@@ -269,10 +354,42 @@ export class AntigravityBridge {
   ) {
     this.sessionStorePath = options?.sessionStorePath ?? DEFAULT_SESSION_STORE;
     this.runtimeSessionStore = options?.runtimeSessionStore;
+    this.legacyJsonSessionStore = options?.legacyJsonSessionStore === true;
   }
 
   getRuntimeSessionStoreForDiagnostics(): IRuntimeSessionStore | undefined {
     return this.runtimeSessionStore;
+  }
+
+  private async withInFlight<T>(cascadeId: string, kind: 'rpc' | 'toolResult', fn: () => Promise<T>): Promise<T> {
+    this.incrementInFlight(cascadeId, kind);
+    try {
+      return await fn();
+    } finally {
+      this.decrementInFlight(cascadeId, kind);
+    }
+  }
+
+  private incrementInFlight(cascadeId: string, kind: 'rpc' | 'toolResult'): void {
+    const current = this.inFlightByCascade.get(cascadeId) ?? { rpc: 0, toolResult: 0 };
+    current[kind] += 1;
+    this.inFlightByCascade.set(cascadeId, current);
+  }
+
+  private decrementInFlight(cascadeId: string, kind: 'rpc' | 'toolResult'): void {
+    const current = this.inFlightByCascade.get(cascadeId);
+    if (!current) return;
+    current[kind] = Math.max(0, current[kind] - 1);
+    if (current.rpc === 0 && current.toolResult === 0) {
+      this.inFlightByCascade.delete(cascadeId);
+      return;
+    }
+    this.inFlightByCascade.set(cascadeId, current);
+  }
+
+  private getInFlightCount(cascadeId: string): number {
+    const current = this.inFlightByCascade.get(cascadeId);
+    return current ? current.rpc + current.toolResult : 0;
   }
 
   attachExecutors(registry: ExecutorRegistry, audit: AuditSink): void {
@@ -302,6 +419,13 @@ export class AntigravityBridge {
    * Opt out via `ANTIGRAVITY_NATIVE_EXECUTOR=0` env var.
    */
   async nativeExecuteAndPush(
+    step: TrajectoryStep,
+    opts: { cascadeId: string; cwd: string; modelName?: string },
+  ): Promise<true | 'approval_pending' | 'no_executor' | false> {
+    return this.withInFlight(opts.cascadeId, 'rpc', async () => this.nativeExecuteAndPushInner(step, opts));
+  }
+
+  private async nativeExecuteAndPushInner(
     step: TrajectoryStep,
     opts: { cascadeId: string; cwd: string; modelName?: string },
   ): Promise<true | 'approval_pending' | 'no_executor' | false> {
@@ -514,6 +638,86 @@ export class AntigravityBridge {
     return this.rpcSafe<CascadeTrajectory>('GetCascadeTrajectory', { cascadeId });
   }
 
+  async drainCascade(cascadeId: string, options: AntigravityDrainOptions = {}): Promise<AntigravityDrainResult> {
+    const quietWindowMs = positiveIntegerOr(options.quietWindowMs, 500);
+    const timeoutMs = positiveIntegerOr(options.timeoutMs, 5_000);
+    const pollIntervalMs = Math.min(positiveIntegerOr(options.pollIntervalMs, Math.min(100, quietWindowMs)), timeoutMs);
+    const deadline = Date.now() + timeoutMs;
+    let lastObservedStepCount: number | undefined;
+    let lastObservedStatus: string | undefined;
+    let quietSince: number | undefined;
+
+    while (true) {
+      const inFlightCount = this.getInFlightCount(cascadeId);
+      if (inFlightCount > 0) {
+        return {
+          ok: false,
+          drainResult: 'best_effort_quiet_window',
+          reason: `cascade ${cascadeId} still has ${inFlightCount} in-flight operation(s)`,
+          ...(lastObservedStepCount === undefined ? {} : { lastObservedStepCount }),
+        };
+      }
+
+      let trajectory: CascadeTrajectory;
+      try {
+        const remainingMs = deadline - Date.now();
+        if (remainingMs <= 0) {
+          return {
+            ok: false,
+            drainResult: 'best_effort_quiet_window',
+            reason: drainQuietWindowTimeoutReason(quietWindowMs, lastObservedStatus),
+            ...(lastObservedStepCount === undefined ? {} : { lastObservedStepCount }),
+          };
+        }
+        trajectory = await withDrainDeadline(this.getTrajectory(cascadeId), remainingMs);
+      } catch (err) {
+        if (isDrainDeadlineError(err)) {
+          return {
+            ok: false,
+            drainResult: 'best_effort_quiet_window',
+            reason: err.message,
+            ...(lastObservedStepCount === undefined ? {} : { lastObservedStepCount }),
+          };
+        }
+        return {
+          ok: false,
+          drainResult: 'skipped_runtime_unreachable',
+          reason: String(err),
+          ...(lastObservedStepCount === undefined ? {} : { lastObservedStepCount }),
+        };
+      }
+
+      const stepCount = meaningfulDrainStepCount(trajectory);
+      const now = Date.now();
+      if (
+        lastObservedStepCount === undefined ||
+        stepCount !== lastObservedStepCount ||
+        trajectory.status !== lastObservedStatus
+      ) {
+        lastObservedStepCount = stepCount;
+        lastObservedStatus = trajectory.status;
+        quietSince = now;
+      } else if (isDrainTrajectoryIdle(trajectory) && quietSince !== undefined && now - quietSince >= quietWindowMs) {
+        return {
+          ok: true,
+          drainResult: 'complete',
+          lastObservedStepCount: stepCount,
+        };
+      }
+
+      if (now >= deadline) {
+        return {
+          ok: false,
+          drainResult: 'best_effort_quiet_window',
+          reason: drainQuietWindowTimeoutReason(quietWindowMs, trajectory.status),
+          lastObservedStepCount: stepCount,
+        };
+      }
+
+      await sleep(Math.max(1, Math.min(pollIntervalMs, deadline - now)));
+    }
+  }
+
   async getCascadeHealth(
     cascadeId: string,
     thresholds: AntigravityCascadeHealthThresholds = cascadeHealthThresholdsFromEnv(),
@@ -712,11 +916,32 @@ export class AntigravityBridge {
   }
 
   async getOrCreateSession(threadId: string, catId?: string): Promise<string> {
-    this.loadSessionMap();
-
     const key = catId ? `${threadId}:${catId}` : threadId;
-    const candidates = [this.sessionMap.get(key)];
-    if (catId && !candidates[0]) candidates.push(this.sessionMap.get(threadId));
+    if (this.runtimeSessionStore && catId) {
+      const active = await this.runtimeSessionStore.getActiveByThreadCat(
+        'antigravity-desktop',
+        threadId,
+        catId as CatId,
+      );
+      if (active) {
+        try {
+          const traj = await this.getTrajectory(active.runtimeSessionId);
+          if (traj.status === 'CASCADE_RUN_STATUS_IDLE') {
+            log.debug(`reusing runtime-store cascade ${active.runtimeSessionId} for ${key}`);
+            return active.runtimeSessionId;
+          }
+          log.info(`runtime-store cascade ${active.runtimeSessionId} stuck in ${traj.status} for ${key}, creating new`);
+        } catch {
+          log.info(`runtime-store cascade ${active.runtimeSessionId} dead for ${key}, creating new`);
+        }
+      }
+    }
+
+    const canReadLegacyJson = this.runtimeSessionStore !== undefined || this.legacyJsonSessionStore;
+    if (canReadLegacyJson) this.loadSessionMap();
+
+    const candidates = canReadLegacyJson ? [this.sessionMap.get(key)] : [];
+    if (canReadLegacyJson && catId && !candidates[0]) candidates.push(this.sessionMap.get(threadId));
 
     for (const cascadeId of candidates) {
       if (!cascadeId) continue;
@@ -726,14 +951,14 @@ export class AntigravityBridge {
           log.info(`cascade ${cascadeId} stuck in ${traj.status} for ${key}, creating new`);
           continue;
         }
-        if (this.sessionMap.get(key) !== cascadeId) {
+        if (!this.runtimeSessionStore && this.legacyJsonSessionStore && this.sessionMap.get(key) !== cascadeId) {
           this.sessionMap.set(key, cascadeId);
           this.sessionMap.delete(threadId);
           this.deletedKeys.add(threadId);
           this.persistSessionMap();
           log.info(`migrated legacy key ${threadId} → ${key}`);
         }
-        log.debug(`reusing cascade ${cascadeId} for ${key}`);
+        log.debug(`reusing ${this.runtimeSessionStore ? 'legacy JSON fallback' : 'cascade'} ${cascadeId} for ${key}`);
         return cascadeId;
       } catch {
         log.info(`cascade ${cascadeId} dead for ${key}, creating new`);
@@ -741,13 +966,17 @@ export class AntigravityBridge {
     }
 
     const newCascadeId = await this.startCascade();
-    this.sessionMap.set(key, newCascadeId);
-    this.deletedKeys.delete(key);
-    this.persistSessionMap();
+    if (!this.runtimeSessionStore && this.legacyJsonSessionStore) {
+      this.sessionMap.set(key, newCascadeId);
+      this.deletedKeys.delete(key);
+      this.persistSessionMap();
+    }
     return newCascadeId;
   }
 
   resetSession(threadId: string, catId?: string): void {
+    if (this.runtimeSessionStore || !this.legacyJsonSessionStore) return;
+
     this.loadSessionMap();
 
     const key = catId ? `${threadId}:${catId}` : threadId;
@@ -830,6 +1059,18 @@ export class AntigravityBridge {
    * and continues reasoning. Step shows CANCELED in trajectory (trade-off).
    */
   async pushToolResult(
+    cascadeId: string,
+    stepIndex: number,
+    result: import('./executors/AntigravityToolExecutor.js').ExecutorResult<unknown>,
+    input: { commandLine: string; cwd?: string },
+    modelName?: string,
+  ): Promise<void> {
+    return this.withInFlight(cascadeId, 'toolResult', async () =>
+      this.pushToolResultInner(cascadeId, stepIndex, result, input, modelName),
+    );
+  }
+
+  private async pushToolResultInner(
     cascadeId: string,
     stepIndex: number,
     result: import('./executors/AntigravityToolExecutor.js').ExecutorResult<unknown>,

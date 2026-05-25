@@ -522,6 +522,61 @@ Do not call this "system context". It is the current `sendMessage` user-content 
 
 Run Antigravity AgentService tests and build.
 
+## Implementation Result
+
+A2 lifecycle and continuity landed in worktree branch `feat/f211-phase-a2-lifecycle-continuity` as one PR-sized user story. Core A2 behavior landed through commit `4916556f8`; the PR body records the final pre-review branch tip.
+
+Implemented:
+
+- runtime active binding lookup and Redis/in-memory lifecycle index maintenance;
+- Antigravity lifecycle carrier with classified seal reasons;
+- Bridge in-flight accounting and quiet-window drain approximation;
+- runtime-store canonical session lookup with legacy JSON read-only fallback;
+- invocation runtime metadata upsert, rotation seal by old cascade id, `runtime_conflict_pending` fail-closed path, and transcript lifecycle materialization;
+- Antigravity rotation edge detection for oversized retire, model capacity, empty response, stream error, unsafe side effect, runtime reset, disconnected runtime, and user-initiated reset;
+- startup/interval `RuntimeSessionSealReaper` for `runtime_seal_pending`;
+- bounded Antigravity continuity control block builder and first-effective-prompt injection.
+
+Verification passed on 2026-05-24:
+
+```bash
+env -u NODE_ENV REDIS_URL=redis://localhost:6398 pnpm gate
+```
+
+Final result: passed after rebase onto latest `origin/main`; the PR body records the exact final SHA.
+
+```bash
+env -u NODE_ENV REDIS_URL=redis://localhost:6398 CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT=1 bash packages/api/scripts/with-test-home.sh node --test \
+  packages/api/test/runtime-session-store.test.js \
+  packages/api/test/redis-runtime-session-store.test.js \
+  packages/api/test/antigravity-runtime-lifecycle.test.js \
+  packages/api/test/antigravity-bridge-session.test.js \
+  packages/api/test/antigravity-bridge-push-tool-result.test.js \
+  packages/api/test/invoke-single-cat.test.js \
+  packages/api/test/antigravity-agent-service.test.js \
+  packages/api/test/antigravity-agent-service-fatal-errors.test.js \
+  packages/api/test/antigravity-recovery-policy.test.js \
+  packages/api/test/antigravity-stream-error-telemetry.test.js \
+  packages/api/test/antigravity-session-transcript-materialization.test.js \
+  packages/api/test/runtime-session-seal-reaper.test.js \
+  packages/api/test/antigravity-continuity-bootstrap.test.js \
+  packages/api/test/antigravity-agent-service-diagnostics.test.js
+```
+
+Result: 14 suites / 228 tests passed.
+
+```bash
+env -u NODE_ENV REDIS_URL=redis://localhost:6398 CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT=1 bash packages/api/scripts/with-test-home.sh node --test \
+  packages/api/test/antigravity-agent-service.test.js \
+  packages/api/test/antigravity-agent-service-executors.test.js \
+  packages/api/test/antigravity-bridge-session.test.js \
+  packages/api/test/antigravity-cascade-health.test.js \
+  packages/api/test/antigravity-registration.test.js \
+  packages/api/test/antigravity-trace.test.js
+```
+
+Result: 6 suites / 55 tests passed.
+
 ## Final Gate
 
 Before review request:
@@ -560,13 +615,14 @@ CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT=1 bash packages/api/scripts/with-test-ho
 Feature doc sync after implementation:
 
 - Tick only the ACs actually closed by A2.
-- Add a timeline row for A2a/A2b implementation.
+- Add a timeline row for A2 implementation and the one-PR granularity decision.
 - Do not tick Phase B/C/D/E.
 
 Review request:
 
 - Opus47: architecture/session-chain/runtime-store semantics, reaper, prompt boundary.
-- Antig-opus: Antigravity Desktop surface, drain approximation, JSON read-only switch, user-initiated New Cascade semantics, control block UX.
+- Opus46: complete user-story review, especially session rotation continuity.
+- Antigravity surface checks: drain approximation, JSON read-only switch, user-initiated New Cascade semantics, control block UX.
 
 ## Open Questions
 
