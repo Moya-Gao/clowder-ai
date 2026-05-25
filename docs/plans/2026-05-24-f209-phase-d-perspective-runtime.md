@@ -4,7 +4,7 @@ related_features: [F102, F188, F200]
 topics: [memory, evidence-recall, perspective, runtime, implementation-plan]
 doc_kind: plan
 created: 2026-05-24
-status: ready-for-worktree
+status: ready-for-review
 ---
 
 # F209 Phase D Perspective Runtime Implementation Plan
@@ -13,8 +13,8 @@ status: ready-for-worktree
 **Goal:** implement Perspective v1 as a git-backed live query plan runner that returns anchors and drill-down hints, not conclusions.
 **Acceptance Criteria:** AC-D1 through AC-D7 from F209 Phase D. AC-D0 is already closed by `docs/plans/2026-05-24-f209-phase-d-perspective-product-spike.md`.
 **Architecture cell:** memory
-**Map delta:** update required
-**Map delta why:** Phase D adds first-class Perspective plan files and a runner inside the memory recall surface; ownership docs should name that boundary after implementation files exist.
+**Map delta:** updated
+**Map delta why:** Phase D adds first-class Perspective plan files and a runner inside the memory recall surface; `docs/architecture/ownership/cells/memory.md` now names the Perspective loader, runner, API route, and MCP tool.
 **Architecture:** Add a Perspective domain module under `packages/api/src/domains/memory`, expose a local API route for running plans, then add a read-only MCP tool that cats can call. Visibility is handled by an explicit Slice 3 audit before deciding whether existing Recall UI is enough or a minimal trace surface is required.
 **Tech Stack:** TypeScript, Zod, YAML frontmatter parser, existing `IEvidenceStore` / `IKnowledgeResolver` search path, Fastify, MCP server tool definitions, Vitest / node:test.
 **前端验证:** Conditional. Slice 3 decides whether existing Recall visibility satisfies AC-D6; if not, add frontend tests and browser verification for the minimal trace surface.
@@ -27,13 +27,46 @@ Phase D implementation is complete when:
 
 - a Perspective plan file in `docs/perspectives/<feature-id>/<slug>.md` validates against schema version 1;
 - `runPerspective(planId)` executes plan steps live against current evidence;
-- output contains `planId`, `runId`, step trace, candidate anchors, opened anchors, degraded / effectiveMode, and warnings;
+- output contains `planId`, `runId`, step trace, candidate anchors, typed reader route hints, degraded / effectiveMode, and warnings;
 - no result set or conclusion is stored in the plan;
 - MCP exposes a cat-facing run tool in the memory toolset;
 - CVO visibility meets AC-D6 by either reusing Recall visibility or adding a minimal trace surface;
 - a real F209 orientation Perspective is dogfooded and documented.
 
 Not building: user Smart Folder UI, summary memory, F200 fixture wrapper, F193 topology cleanup, Phase C hardening.
+
+## Implementation Evidence
+
+Branch: `feat/f209-perspective-runtime`
+
+Commits:
+
+- `67a06bd25` — Perspective plan schema loader + F209 orientation fixture.
+- `ec91699f5` — live Perspective runner.
+- `d352b9a7d` — API route for running plans.
+- `1dd40eff1` — MCP memory tool `cat_cafe_run_perspective`.
+- `668b5965c` — AC-D6 visibility audit.
+
+Visibility decision:
+
+- Audit doc: `docs/decisions/2026-05-24-f209-phase-d-visibility-audit.md`
+- Result: existing RecallFeed covers less than 50% of AC-D6 because it only parses ad hoc `search_evidence` events.
+- v1 trace surface: API JSON route + MCP transcript. This covers `planId`, `runId`, step id/type, query/anchor, hit count, typed reader route hints, degraded / `effectiveMode`, and candidate anchors.
+
+Dogfood run:
+
+- Method: `cat_cafe_run_perspective` MCP handler -> local Fastify API route -> `PerspectiveRunner`.
+- Plan: `F209/f209-phase-d-orientation`
+- Run id: `dogfood-run-fixed`
+- Steps: 2 `search_evidence` steps + 1 bounded `open_anchor` step.
+- Result: `hits=3` for each search step, `opened=3`, `degraded=false`, `effectiveMode=hybrid`.
+- Route-identified anchors:
+  - `docs/features/F209-evidence-recall-optimization.md`
+  - `docs/plans/2026-05-24-f209-phase-d-perspective-product-spike.md`
+  - `docs/decisions/2026-05-23-f209-d0-readiness.md`
+- Boundary line present: "Perspective returns route hints and anchors, not fetched evidence content or a conclusion."
+
+The dogfood run injected deterministic search results to isolate the new Perspective surface before merge. Live evidence-store dogfood should be repeated after merge + runtime restart.
 
 ## Terminal Schema
 
@@ -59,7 +92,7 @@ export type PerspectiveStep =
       id: string;
       type: 'open_anchor';
       source: 'previous_step';
-      selector: 'top' | 'by_anchor' | 'by_score';
+      selector: 'top';
       maxOpen: number;
     };
 
@@ -238,7 +271,7 @@ Register near `evidenceRoutes` in `packages/api/src/index.ts` because this is me
 Tests:
 
 - `cat_cafe_run_perspective` encodes path params and actor cat id;
-- renders plan id, run id, each step, hit count, opened anchors, degraded / effectiveMode;
+- renders plan id, run id, each step, hit count, typed reader route hints, degraded / effectiveMode;
 - returns API 404 / 400 as tool error;
 - tool appears in memory server registration;
 - read-only MCP mode includes `cat_cafe_run_perspective`.
@@ -281,7 +314,7 @@ Compare required AC-D6 fields against current `useRecallEvents` / RecallFeed par
 - step id and step type
 - query or anchor per step
 - hit count
-- opened anchors
+- typed reader route hints / opened anchors
 - degraded / effectiveMode
 - final candidate anchor list
 
@@ -335,7 +368,7 @@ Evidence to capture:
 
 - no stored result set in `docs/perspectives/F209/f209-phase-d-orientation.md`;
 - run trace includes plan id and run id;
-- each step has hit count or opened anchors;
+- each step has hit count or typed reader route hints;
 - degraded / effectiveMode is visible;
 - candidate anchors include current F209 spec / product spike / D.0 report.
 

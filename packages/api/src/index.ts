@@ -173,6 +173,7 @@ import {
   messagesRoutes,
   mkdirRoute,
   packsRoutes,
+  perspectiveRoutes,
   projectSetupRoute,
   projectsBootstrapRoutes,
   projectsRoutes,
@@ -1889,6 +1890,14 @@ async function main(): Promise<void> {
     indexBuilder: memoryServices.indexBuilder,
     knowledgeResolver: memoryServices.knowledgeResolver,
     rebuildJobTracker,
+  });
+  await app.register(perspectiveRoutes, {
+    repoRoot,
+    evidenceStore: memoryServices.evidenceStore,
+    knowledgeResolver: memoryServices.knowledgeResolver,
+    ...(memoryServices.catalog && memoryServices.collectionStores
+      ? { graphCatalog: memoryServices.catalog, graphStores: memoryServices.collectionStores }
+      : {}),
   });
 
   // F163: Knowledge promotion admin API (localhost-only)

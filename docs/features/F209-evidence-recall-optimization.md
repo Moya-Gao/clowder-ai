@@ -27,7 +27,7 @@ F209 的目标是把 evidence-first recall 推到终态一层：**消息级语�
 
 ```markdown
 Architecture cell: memory
-Map delta: update required during Design Gate
+Map delta: updated
 Why: 本 feature 扩展 Memory / Evidence 的 retrieval grain（passage vector）、anchor 类型（entity）、drill-down reader 与 Perspective 视图边界。
 ```
 
@@ -208,16 +208,20 @@ Design Gate product spike is now captured in `docs/plans/2026-05-24-f209-phase-d
 
 Implementation plan: `docs/plans/2026-05-24-f209-phase-d-perspective-runtime.md`.
 
+Runtime implementation is ready for review on `feat/f209-perspective-runtime`: git-backed plan loader, live runner, API route, MCP tool, AC-D6 visibility audit, and a dogfood run of `F209/f209-phase-d-orientation`.
+
+Visibility audit: `docs/decisions/2026-05-24-f209-phase-d-visibility-audit.md`. Existing RecallFeed is not reused because it only understands ad hoc `search_evidence` events; v1 uses the API JSON run trace + MCP transcript as the minimal CVO-visible surface.
+
 ### Acceptance Criteria
 
 - [x] AC-D0: Design Gate 前完成 Perspective product spike，给出 2-3 个 user story + runtime contract。
-- [ ] AC-D1: Perspective 存 query plan / route recipe，不存结果集。
-- [ ] AC-D2: 打开 Perspective 时现场重跑，结果全带 anchor + drill-down。
-- [ ] AC-D3: Perspective 可由猫保存 / 命名 / 复用；默认用户不是操作员。
-- [ ] AC-D4: skill / 任务可激活建议 Perspective，但只给“藤”，不下结论。
-- [ ] AC-D5: Perspective 消费信号可进入 F200 navigation utility，不改变 truth / authority。
-- [ ] AC-D6: Perspective run 对 CVO 可见，至少展示 query plan id、step、hit count、opened anchors、degraded/effectiveMode。
-- [ ] AC-D7: v1 不提供用户操作的 Smart Folder UI；如果未来做，必须另走 product/design gate。
+- [x] AC-D1: Perspective 存 query plan / route recipe，不存结果集。Evidence: `docs/perspectives/F209/f209-phase-d-orientation.md` + schema tests reject `storesResults: true`.
+- [x] AC-D2: 打开 Perspective 时现场重跑，结果全带 anchor + drill-down。Evidence: `PerspectiveRunner` reruns injected search steps and returns `candidateAnchors` + typed reader hints.
+- [x] AC-D3: Perspective 可由猫保存 / 命名 / 复用；默认用户不是操作员。Evidence: top-level git-backed `docs/perspectives/<feature-id>/<slug>.md` plan id + MCP run tool; no user Smart Folder controls.
+- [x] AC-D4: skill / 任务可激活建议 Perspective，但只给“藤”，不下结论。Evidence: `cat_cafe_run_perspective` accepts a stable plan id and renders route trace + anchors only; output boundary explicitly says it is not a conclusion.
+- [x] AC-D5: Perspective 消费信号可进入 F200 navigation utility，不改变 truth / authority。Evidence: run output is navigation telemetry only (`planId`, `runId`, steps, anchors); F200 wrapper remains delegated follow-up and no truth authority changes.
+- [x] AC-D6: Perspective run 对 CVO 可见，至少展示 query plan id、step、hit count、typed reader route hints、degraded/effectiveMode。Evidence: visibility audit chose API/MCP minimal trace surface with 8/8 required fields.
+- [x] AC-D7: v1 不提供用户操作的 Smart Folder UI；如果未来做，必须另走 product/design gate。Evidence: implementation adds API/MCP cat-facing entry only, no web Smart Folder controls.
 
 ## Deferred / Future Related: Summary Memory
 
@@ -307,7 +311,7 @@ Implementation plan: `docs/plans/2026-05-24-f209-phase-d-perspective-runtime.md`
 |----|------|
 | **Primary Users** | 需要从旧 thread/docs/sessions 找证据的猫；Activation Signal：`search_evidence` 在复杂 thread recall 中被调用 |
 | **Friction Metric** | 搜到摘要但打不开原文窗口的比例；raw 搜不到但人工能在 transcript 找到的比例；>3 轮 query reformulation |
-| **Regression Fixture** | Phase A fixture: `docs/eval/f209-phase-a-raw-retrieval-fixtures.md`（raw semantic 非字面消息召回；raw hybrid 保留 lexical + semantic passage hits）。Phase B fixture: `docs/eval/f209-phase-b-entity-anchor-fixtures.md`（`landy/铲屎官/CVO` alias 归一、raw entity passage anchor、private collection redaction）。Phase C fixture: `docs/eval/f209-phase-c-drilldown-fixtures.md`（message window / invocation detail chain / file slice bounded readers）。后续 Phase 继续贡献：Perspective 现场重跑、Perspective run 可见层 step / hits / opened anchors。F209 贡献 fixture，F200 统一纳入 golden set |
+| **Regression Fixture** | Phase A fixture: `docs/eval/f209-phase-a-raw-retrieval-fixtures.md`（raw semantic 非字面消息召回；raw hybrid 保留 lexical + semantic passage hits）。Phase B fixture: `docs/eval/f209-phase-b-entity-anchor-fixtures.md`（`landy/铲屎官/CVO` alias 归一、raw entity passage anchor、private collection redaction）。Phase C fixture: `docs/eval/f209-phase-c-drilldown-fixtures.md`（message window / invocation detail chain / file slice bounded readers）。后续 Phase 继续贡献：Perspective 现场重跑、Perspective run 可见层 step / hits / typed reader route hints。F209 贡献 fixture，F200 统一纳入 golden set |
 | **Sunset Signal** | 6 个月内 golden query recall@k 无提升，或猫仍主要绕过 F209 直接人工 grep transcript → 回滚 Perspective / entity layer，仅保留 passage vector |
 
 ## 需求点 Checklist
@@ -357,6 +361,7 @@ Implementation plan: `docs/plans/2026-05-24-f209-phase-d-perspective-runtime.md`
 | 2026-05-24 | D.0 final dogfood after runtime restart — 砚砚 + Opus-47 verified raw hybrid no `[DEGRADED]`, file-slice reader, default dimension, and entity expansion (`CVO`/`铲屎官`/`Lysander`) all live; `docs/decisions/2026-05-23-f209-d0-readiness.md` verdict updated to **Phase D UNBLOCK** |
 | 2026-05-24 | Phase D product spike plan added — `docs/plans/2026-05-24-f209-phase-d-perspective-product-spike.md` closes AC-D0 with user stories, runtime contract, CVO visibility contract, and implementation slices |
 | 2026-05-24 | Phase D runtime implementation plan added — `docs/plans/2026-05-24-f209-phase-d-perspective-runtime.md` decomposes schema/loader, live runner, API/MCP entry, AC-D6 visibility audit, and dogfood close |
+| 2026-05-24 | Phase D runtime implementation ready for review — `feat/f209-perspective-runtime` adds schema loader, runner, API route, MCP tool, visibility audit, and F209 orientation dogfood trace |
 
 ## Review Gate
 
@@ -381,6 +386,8 @@ Implementation plan: `docs/plans/2026-05-24-f209-phase-d-perspective-runtime.md`
 | Plan | `docs/plans/2026-05-22-f209-phase-c-drilldown-readers.md` | Phase C typed drill-down reader implementation plan |
 | Plan | `docs/plans/2026-05-24-f209-phase-d-perspective-product-spike.md` | Phase D Perspective product spike / Design Gate contract |
 | Plan | `docs/plans/2026-05-24-f209-phase-d-perspective-runtime.md` | Phase D Perspective runtime implementation plan |
+| Decision | `docs/decisions/2026-05-24-f209-phase-d-visibility-audit.md` | AC-D6 visibility audit and minimal API/MCP trace surface decision |
+| Perspective | `docs/perspectives/F209/f209-phase-d-orientation.md` | First F209 dogfood Perspective plan |
 | Eval fixture | `docs/eval/f209-phase-a-raw-retrieval-fixtures.md` | Phase A raw semantic / hybrid retrieval fixtures for F200 |
 | Eval fixture | `docs/eval/f209-phase-b-entity-anchor-fixtures.md` | Phase B entity alias / privacy retrieval fixtures for F200 |
 | Eval fixture | `docs/eval/f209-phase-c-drilldown-fixtures.md` | Phase C typed drill-down retrieval fixtures for F200 |
