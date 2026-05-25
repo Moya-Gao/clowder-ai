@@ -191,5 +191,6 @@ pnpm typecheck                            # 类型检查
 | 愿景 | `docs/VISION.md` |
 | 设计 | `docs/phases/cat-cafe-design-v2.md` |
 | 任务 | `docs/BACKLOG.md` |
+| 队友能力画像 | `docs/team/cat-dossier.md`（F208，复杂/不确定传球时先读目标猫画像） |
 | 设计系统 | `docs/design/` |
 | 视觉资产 | `assets/` |

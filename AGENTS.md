@@ -55,6 +55,9 @@ system prompt L0**（运行时注入，压缩免疫）。队友 @ 句柄以 runt
   详见 native L0 §7 + `cat-cafe-skills/refs/memory-routing-partial.md`；session hook 每轮注入提示。
 - **协作规则/决策权/模板** → `cat-cafe-skills/refs/`（`shared-rules.md`、
   `decision-matrix.md`、PR/review 模板、签名表）。
+- **队友能力画像** → `docs/team/cat-dossier.md`（F208）。**复杂/不确定传球时先读
+  目标猫画像**（6 字段：原生峰值 / 被低估能力 / 坏直觉 / 召唤反信号 / 互补&反模式 /
+  翻车熔断信号）。简单传球不打扰。
 - **关键文档** → `docs/VISION.md` / `docs/BACKLOG.md` / `docs/decisions/` /
   `docs/lessons-learned.md`（`ls docs/` + memory search 重建）。
 - **Knowledge Feed** → L0 §3 W7（猫不写标签，主动澄清决策/教训 + 提醒铲屎官看 Feed）。
