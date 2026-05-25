@@ -4,7 +4,10 @@ import https from 'node:https';
 import { dirname, join } from 'node:path';
 import type { CatId } from '@cat-cafe/shared';
 import { createModuleLogger } from '../../../../../../infrastructure/logger.js';
-import type { RuntimeSessionDrainResult } from '../../../runtime-session/RuntimeSessionMetadata.js';
+import type {
+  RuntimeSessionDrainResult,
+  RuntimeSessionMetadata,
+} from '../../../runtime-session/RuntimeSessionMetadata.js';
 import type { IRuntimeSessionStore } from '../../../runtime-session/RuntimeSessionStore.js';
 import {
   type AntigravityCascadeHealthSnapshot,
@@ -930,6 +933,7 @@ export class AntigravityBridge {
 
   async getOrCreateSession(threadId: string, catId?: string): Promise<string> {
     const key = catId ? `${threadId}:${catId}` : threadId;
+    let runtimeStoreReplacementTarget: RuntimeSessionMetadata | null = null;
     if (this.runtimeSessionStore && catId) {
       const active = await this.runtimeSessionStore.getActiveByThreadCat(
         'antigravity-desktop',
@@ -944,8 +948,10 @@ export class AntigravityBridge {
             return active.runtimeSessionId;
           }
           log.info(`runtime-store cascade ${active.runtimeSessionId} stuck in ${traj.status} for ${key}, creating new`);
+          runtimeStoreReplacementTarget = active;
         } catch {
           log.info(`runtime-store cascade ${active.runtimeSessionId} dead for ${key}, creating new`);
+          runtimeStoreReplacementTarget = active;
         }
       }
     }
@@ -979,12 +985,40 @@ export class AntigravityBridge {
     }
 
     const newCascadeId = await this.startCascade();
-    if (!this.runtimeSessionStore && this.legacyJsonSessionStore) {
+    if (runtimeStoreReplacementTarget) {
+      await this.persistRuntimeStoreReplacement(runtimeStoreReplacementTarget, newCascadeId);
+    } else if (!this.runtimeSessionStore && this.legacyJsonSessionStore) {
       this.sessionMap.set(key, newCascadeId);
       this.deletedKeys.delete(key);
       this.persistSessionMap();
     }
     return newCascadeId;
+  }
+
+  private async persistRuntimeStoreReplacement(
+    active: RuntimeSessionMetadata,
+    runtimeSessionId: string,
+  ): Promise<void> {
+    if (!this.runtimeSessionStore) return;
+    const now = Date.now();
+    const replacement: RuntimeSessionMetadata = {
+      sessionId: active.sessionId,
+      runtime: active.runtime,
+      runtimeSessionId,
+      ...(active.threadId ? { threadId: active.threadId } : {}),
+      catId: active.catId,
+      ...(active.userId ? { userId: active.userId } : {}),
+      surface: active.surface,
+      identityHistory: active.identityHistory,
+      lifecycle: {
+        state: 'active',
+        startedAt: active.lifecycle.startedAt,
+        lastObservedAt: Math.max(active.lifecycle.lastObservedAt, now),
+      },
+    };
+
+    await this.runtimeSessionStore.upsert(replacement);
+    log.info(`runtime-store active binding ${active.runtimeSessionId} → ${runtimeSessionId}`);
   }
 
   resetSession(threadId: string, catId?: string): void {

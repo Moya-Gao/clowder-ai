@@ -375,6 +375,43 @@ describe('AntigravityBridge session persistence (G0)', () => {
     assert.deepEqual(JSON.parse(fs.readFileSync(storePath, 'utf8')), { 'thread-1:antig-opus': 'cascade-json' });
   });
 
+  test('P1 review: runtime-store dead active binding is replaced before session_init', async () => {
+    const { RuntimeSessionStore } = await import(
+      '../dist/domains/cats/services/runtime-session/RuntimeSessionStore.js'
+    );
+    const storePath = tempStorePath();
+    cleanupPaths.push(storePath);
+    const runtimeSessionStore = new RuntimeSessionStore();
+    runtimeSessionStore.upsert(
+      runtimeMetadata({
+        sessionId: 'session-runtime',
+        runtimeSessionId: 'cascade-dead',
+        threadId: 'thread-1',
+        catId: 'antig-opus',
+      }),
+    );
+    const bridge = new AntigravityBridge(
+      { port: 1234, csrfToken: 'test', useTls: false },
+      { sessionStorePath: storePath, runtimeSessionStore },
+    );
+
+    mock.method(bridge, 'startCascade', async () => 'cascade-replacement');
+    mock.method(bridge, 'getTrajectory', async (cascadeId) => {
+      if (cascadeId === 'cascade-dead') throw new Error('dead runtime');
+      return { status: 'CASCADE_RUN_STATUS_IDLE', numTotalSteps: 0 };
+    });
+
+    const id = await bridge.getOrCreateSession('thread-1', 'antig-opus');
+
+    assert.equal(id, 'cascade-replacement');
+    assert.equal(bridge.startCascade.mock.callCount(), 1);
+    assert.equal(runtimeSessionStore.getByRuntimeSession('antigravity-desktop', 'cascade-dead'), null);
+    assert.equal(
+      runtimeSessionStore.getActiveByThreadCat('antigravity-desktop', 'thread-1', 'antig-opus').runtimeSessionId,
+      'cascade-replacement',
+    );
+  });
+
   test('F211 A2 Task 4: legacy JSON fallback is read-only and does not migrate keys', async () => {
     const storePath = tempStorePath();
     cleanupPaths.push(storePath);
