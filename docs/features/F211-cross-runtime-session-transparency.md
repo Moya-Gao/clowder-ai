@@ -340,6 +340,7 @@ in_context_observability:
 | 2026-05-24 | Phase A2 implementation plan drafted：A2a covers lifecycle/seal/drain/reaper/runtime binding; A2b covers first effective prompt continuity bootstrap, degraded marker, reason coverage, token budget, re-rotation, and control block format. |
 | 2026-05-24 | Phase A2 implementation landed in worktree `feat/f211-phase-a2-lifecycle-continuity` through `4916556f8`: runtime active binding, Antigravity drain/lifecycle edges, JSON read-only switch, runtime seal reaper, transcript materialization, and first-effective-prompt continuity bootstrap are implemented. Validation passed: `pnpm gate`, F211 A2 final bundle (228 tests), and A1 Antigravity regression subset (55 tests). |
 | 2026-05-24 | Opus46 reviewed A2 PR granularity and pushed back: lifecycle + continuity are one independently verifiable user story, so A2 ships as one PR. Final pre-PR gate passed after rebase onto latest `origin/main`. |
+| 2026-05-25 | Phase A2 merged via PR #1885：runtime active binding, Antigravity drain/lifecycle seal, runtime seal reaper, transcript materialization, and cross-session continuity bootstrap are now on main; Cloud Codex found no major issues on final HEAD `b4336860`, merge commit `2850dca23`. |
 
 ## Review Gate
 
