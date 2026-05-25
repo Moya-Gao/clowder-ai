@@ -92,6 +92,7 @@ The body explains intent and maintenance notes. The frontmatter is the machine-r
 
 ```ts
 type PerspectivePlan = {
+  schemaVersion: 1;
   id: string;
   title: string;
   featureIds: string[];
@@ -105,6 +106,12 @@ type PerspectivePlan = {
     returnsConclusion: false;
     requiresAnchors: true;
   };
+};
+
+type PerspectiveInputSpec = {
+  description: string;
+  required?: boolean;
+  default?: string | number | boolean;
 };
 ```
 
@@ -134,11 +141,13 @@ type PerspectiveStep =
       type: "open_anchor";
       source: "previous_step";
       selector: "top" | "by_anchor" | "by_score";
-      maxOpen?: number;
+      maxOpen: number;
     };
 ```
 
 `open_anchor` is a typed reader dispatch, not a universal free-form file opener. It should route only to existing bounded readers such as message context, session events, invocation detail, or file slice.
+
+For `selector: "top"` and `selector: "by_score"`, `maxOpen` is required and must be in the range `1..10`; templates should default to `3`. This keeps rank-based drill-down useful without letting a plan open an unbounded pile of anchors.
 
 ### Perspective Run
 
@@ -209,6 +218,8 @@ Tests:
 
 - rejects plans with `storesResults: true`;
 - rejects steps without anchors or bounded tool types;
+- rejects duplicate step ids within one plan;
+- rejects `open_anchor` steps whose `maxOpen` is missing or outside `1..10`;
 - accepts a minimal F209 orientation Perspective fixture;
 - validates frontmatter without reading arbitrary host paths.
 
@@ -229,6 +240,7 @@ Expose run trace to the existing Memory / Recall visibility layer or a minimal e
 
 Tests:
 
+- first commits a visibility coverage audit comparing the existing Memory / Recall visible fields against the eight AC-D6 required fields;
 - run trace includes `planId`, step ids, hit counts, opened anchors, degraded / effectiveMode;
 - CVO-visible event does not expose raw host paths or secrets;
 - no user-operated Smart Folder controls are introduced in Phase D v1.
@@ -262,15 +274,15 @@ Tests / evidence:
 |----------|--------|
 | Storage form | Git-backed markdown with YAML frontmatter. |
 | First entry point | Cat-authored plan file + cat-run command/tool path. |
-| First visible surface | Existing Memory / Recall visibility layer if it can display required fields; otherwise minimal run trace. |
+| First visible surface | Slice 3 starts with a coverage audit. If existing Memory / Recall visibility covers at least 80% of AC-D6 fields, reuse it and add missing fields; at 50-80%, reuse for read plus a minimal run trace JSON surface; below 50%, build a minimal trace surface. |
 | Truth boundary | Perspective is navigation only; original anchors remain truth. |
 | Result caching | Forbidden for v1. |
 | User UI | Deferred; future Smart Folder UI requires a separate product/design gate. |
 
-## Review Questions
+## Design Gate Review Outcomes
 
-1. Is `docs/perspectives/<feature-id>/<slug>.md` the right storage location, or should plans live under `docs/features/<feature>/perspectives/`?
-2. Should `open_anchor` select only explicit anchors from prior steps, or may it open rank-based top N from a search step?
-3. Can the existing Memory / Recall visibility layer satisfy AC-D6 without frontend changes?
+1. Storage path stays top-level: `docs/perspectives/<feature-id>/<slug>.md`.
+2. `open_anchor` may use rank-based selectors, but `maxOpen` is required and bounded to `1..10`.
+3. AC-D6 visibility is decided by Slice 3 coverage audit, not assumed upfront.
 
-These questions should be closed before implementation starts, but they do not block AC-D0 product spike completion.
+These outcomes close the Design Gate review questions from Opus-47 on 2026-05-24.
