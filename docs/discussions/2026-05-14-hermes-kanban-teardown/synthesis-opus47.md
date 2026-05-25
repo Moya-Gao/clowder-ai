@@ -3,7 +3,7 @@ doc_kind: discussion
 topics: [project-management, kanban, multi-agent, signal-intent-decision, synthesis, opus-47]
 related_features: [F049, F076, F121, F150, F153, F192]
 created: 2026-05-14
-status: draft-v1.8
+status: draft-v1.9
 author: opus-47
 reviewer: opus-46 (feasibility review @ 2026-05-14 06:51 + second-pass @ 07:02 + reading-comp @ 2026-05-18 21:10)
 convergence:
@@ -21,7 +21,7 @@ inputs:
   - guoliang-external: 双入口 + 跨仓跨团队 + 多仓 SDD + 记忆萃取 + 云端分布式
 ---
 
-# Mission Loom — Multi-Cat & Human Project Board（综合稿 v1.8）
+# Mission Loom — Multi-Cat & Human Project Board（综合稿 v1.9）
 
 > UI 视觉子品牌：**Prism**（流光域）
 > 任务来源：[README.md](./README.md) 末尾 Suggested Synthesis Owner
@@ -33,6 +33,41 @@ inputs:
 > 不是最终 spec，是带大家讨论的基线稿
 
 ## Changelog
+
+### v1.9（2026-05-22 03:05，Landy 点中 Bottleneck framing 错位 → Escalation View）
+
+Landy 03:00 push back v1.8 多页面候选里的 "Bottleneck View"：依赖阻塞在 Inbox/Flow 已可见不需专页，真值得专页的是 **agent → human 升级队列**（assumption 破裂 / SLA 风险 / 跨猫僵局）。
+
+**framing 修正**：Bottleneck View → **Escalation View**
+
+| | v1.8 之前（错位） | v1.9 修正 |
+|---|---|---|
+| 定位 | "依赖阻塞可视化 + blocked 列表" | **agent → human 升级队列**（agent 自己处理不了的事项） |
+| 不显示 | — | 依赖阻塞（dispatcher 自动 unblock，Inbox/Flow 已可见，不上专页） |
+| 显示 | 所有 blocked WorkItem | 仅 `blocked_reason ∈ [assumption_breach / sla_risk / cross_cat_conflict / ambiguity / scope_question]` 的 WorkItem |
+| 跟谁配对 | — | §3.7 "猫初筛 人终审" 的 execution 阶段版本（Demand Funnel 阶段是 Decision Queue） |
+
+**Landy 原话举例（assumption_breach 类）**：
+> "比如说 antigravity 我们最开始认为他有无头模式！结果他没有！他的 --help 在诈骗！"
+
+**完整 Escalation reason 字典（7 类）**：
+| Reason | 触发场景 | 谁能解决 |
+|---|---|---|
+| `assumption_breach` | 开发中发现需求前提不成立（API 不存在/文档诈骗/第三方行为跟预期不符） | 人重定需求 or 砍 scope |
+| `sla_risk` | WorkRun 超时未完成 / 预估超剩余时间（Landy 提的"时间不够"） | 人决定：延期/加资源/砍 scope |
+| `cross_cat_conflict` | 多猫 review 冲突，2 轮 push back 无共识（家规硬条件） | 铲屎官拍板 |
+| `ambiguity` | task 描述歧义，多种实现路径 agent 选不出 | 人澄清意图 |
+| `scope_question` | 做中发现可能超 scope（"顺手把 X 也修了？"） | 人决定 scope 边界 |
+| `external_blocker` | 等第三方接口/审批/客户回复 | 人 follow up |
+| `resource_unavailable` | token 耗尽 / 工具不可用 / 缺权限 | 人补充资源 |
+
+**Schema 补丁**：`work_item` 加 `blocked_reason TEXT`（V1 free-text，V2 enum）。
+
+**§5 新增 5.5 多页面探索段**（之前承诺"收敛后 patch"，本 patch 落档；Landy 仍可 push back 具体选择）：
+- MVP 候选 3 页：Inbox + Flow + Workflow（Landy v1.8 brainstorm 第 2 项）
+- V2 候选池（按降序优先级）：Escalation View / Pipeline View / Topology View / Resource View / Intelligence View / Audit View
+
+**framing 一致性**：Escalation View 跟 §3.7 "猫初筛 人终审" 一脉相承——只是阶段不同（Demand Funnel 阶段 = Decision Queue / Execution 阶段 = Escalation View）。两个视图都是 agent-human handoff 的可视化界面。
 
 ### v1.8（2026-05-22 02:40，Landy 抛产品全景思考 → 任务驱动 framing + harness 解耦 confirm + WorkItem.stage）
 
@@ -389,6 +424,7 @@ CREATE TABLE work_item (
   repo_id       TEXT NOT NULL DEFAULT 'default',   -- v1.4 加
   status        TEXT NOT NULL,                      -- ready/claimed/running/blocked/review/done/cancelled/failed
   stage         TEXT NOT NULL DEFAULT 'unspecified', -- v1.8 加（lifecycle phase: spec/dev/test/review/dfx/...；跟 status 不同维度，task-driven 路由的关键）
+  blocked_reason TEXT,                              -- v1.9 加（仅 status=blocked 时填；enum 见 §5.5 Escalation reason 字典：assumption_breach/sla_risk/cross_cat_conflict/ambiguity/scope_question/external_blocker/resource_unavailable；V1 free-text，V2 enum 强约束）
   -- ... owner/AC/dependencies/lease
   depends_on    JSONB,                              -- 数组：依赖的其它 work_item_id（V2 跨仓 link 时升级为 cross-repo refs）
   created_at    INTEGER NOT NULL,
@@ -980,6 +1016,51 @@ MVP 只做 **`connector-github`** 一个 reference implementation，但架构 da
 
 ### 数据同源、视图分流
 三个视图都是同一份 SQLite kernel 数据的 lens，不是三套数据。
+
+---
+
+## 5.5 多页面探索（v1.9 新增，Landy brainstorm 收敛中）
+
+来源：Landy v1.8 抛 "进展页 / workflow 页 / 还有怎样的页面？" + v1.9 push back Bottleneck framing 错位。本节是候选池，**待 Landy confirm 最终 MVP 3 页选择**。
+
+### 候选池（按受众 × 视角组织）
+
+| # | 页面 | 主要受众（7 类人 + agent） | 看什么 | MVP/V2 |
+|---|---|---|---|---|
+| 1 | **Inbox View** | PM / CVO | Demand Funnel 入口（Signal/Intent/Decision Queue） | ✅ MVP（已定） |
+| 2 | **Flow View**（Landy "进展页"） | dev / PM / SL / TM / FDE | 任务卡 status 横列（Ready/Running/Review/Done）+ swimlane（V2 多 team） | ✅ MVP（已定） |
+| 3 | **Workflow View**（Landy "workflow 页"） | dev / SL / QA | 任务按 **stage** 横切（spec→dev→test→review→dfx 各 stage 活跃 WorkItem）+ 调用的 skills/workflow | 🆕 **建议 MVP 第 3 页** |
+| 4 | **Escalation View**（v1.9 重命名，原 Bottleneck） | CVO / PM / SL | **agent → human 升级队列**（blocked_reason ∈ 5 类需要人决策的：assumption_breach / sla_risk / cross_cat_conflict / ambiguity / scope_question） | V2 候选 |
+| 5 | **Pipeline View** | dev / SL | 单个 task 完整轨迹（IR→spec→dev→test 各 WorkRun 历史 + trace 尾迹） | V2 候选 |
+| 6 | **Topology View** | SL / dev | 跨仓/跨服务依赖图（= V2 gitnexus 视觉化） | V2 候选（跟 §13 V2 gitnexus 配对） |
+| 7 | **Resource View** | SL / PM / CVO / FDE | actor 工时 vs token/猫粮 + ROI（人工时 vs agent 时） | V2 候选 |
+| 8 | **Intelligence View**（Capability Radar） | CVO / PM / SL | 能力六边形 + 人/agent 对比 + outcome 趋势 | V2 候选 |
+| 9 | **Audit View** | QA / CVO | 全局 events 流（who did what when）+ Decision 改主意历史 | V2 候选 |
+
+### Escalation View 的特殊位置（v1.9 framing 修正落地）
+
+⚠️ 注意 #4 Escalation View 跟其它 V2 候选**性质不同**：
+
+它**不是** "看板更花哨"——它是 **agent-human handoff** 的可视化界面，跟 §3.7 "猫初筛 人终审" **一脉相承**：
+- §3.7 Decision Queue = Demand Funnel 阶段的人审（"这个需求要不要做"）
+- §5.5 Escalation View = Execution 阶段的人审（"做的过程中假设破裂了/SLA 危险/僵局了，要不要继续/怎么继续"）
+
+两个加起来覆盖了 agent → human 升级的**两个阶段**，是 Mission Loom 区别于纯自动化 platform 的关键。
+
+### MVP 3 页选定（待 Landy confirm）
+
+47 建议 MVP 固定 3 页：**Inbox + Flow + Workflow**。理由：
+- Inbox / Flow 是 dual-consumer 基础（缺一不可）
+- Workflow 是 Landy 明确 brainstorm 出的"看 stage × skills 调用"——刚好对应 v1.8 新加的 WorkItem.stage 字段
+- 其余 6 个候选放 V2 候选池，按真实使用反馈选优先级
+
+### V2 候选优先级（47 倾向）
+
+如果非要排，47 倾向（不催 Landy 现在拍）：
+1. **Escalation View**（高优）—— framing 一致 + 真实痛点（assumption_breach 等 agent 处理不了的事）
+2. **Intelligence View**（中高）—— Capability Radar 是 §3.6 + Landy 23:30 初心要的可观测
+3. **Topology View**（中）—— 跟 V2 gitnexus 配对，跨仓痛点真实
+4. Resource / Pipeline / Audit View 看场景再说
 
 ---
 
