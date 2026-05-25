@@ -88,8 +88,8 @@ export class RuntimeSessionSealReaper {
 
     try {
       if (drain.ok && drain.drainResult === 'complete') {
-        await this.markRuntimeSealed(record, drain.drainResult, record.lifecycle.sealReason);
         await this.requestSessionSeal(record.sessionId, record.lifecycle.sealReason ?? 'runtime_error_reset');
+        await this.markRuntimeSealed(record, drain.drainResult, record.lifecycle.sealReason);
         result.sealed = 1;
         return result;
       }

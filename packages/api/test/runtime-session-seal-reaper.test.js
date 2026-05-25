@@ -54,8 +54,14 @@ describe('RuntimeSessionSealReaper', () => {
   test('scans runtime_seal_pending records, drains, and finalizes successful complete drain', async () => {
     const { RuntimeSessionSealReaper, RuntimeSessionStore } = await loadModules();
     const runtimeSessionStore = new RuntimeSessionStore();
+    const events = [];
+    const originalUpdateLifecycle = runtimeSessionStore.updateLifecycle.bind(runtimeSessionStore);
+    runtimeSessionStore.updateLifecycle = (sessionId, patch) => {
+      events.push({ type: 'updateLifecycle', sessionId, patch });
+      return originalUpdateLifecycle(sessionId, patch);
+    };
     runtimeSessionStore.upsert(metadataFor('session-complete'));
-    const sessionSealer = makeSessionSealer();
+    const sessionSealer = makeSessionSealer(events);
     const drainRuntimeSession = mock.fn(async (record) => ({
       ok: true,
       drainResult: 'complete',
@@ -76,6 +82,16 @@ describe('RuntimeSessionSealReaper', () => {
     assert.equal(result.sealed, 1);
     assert.equal(drainRuntimeSession.mock.callCount(), 1);
     assert.equal(sessionSealer.requestSeal.mock.callCount(), 1);
+    const requestSealIndex = events.findIndex((event) => event.type === 'requestSeal');
+    const markSealedIndex = events.findIndex(
+      (event) => event.type === 'updateLifecycle' && event.patch.state === 'sealed',
+    );
+    assert.ok(requestSealIndex >= 0, 'must request host session seal');
+    assert.ok(markSealedIndex >= 0, 'must mark runtime sealed');
+    assert.ok(
+      requestSealIndex < markSealedIndex,
+      'host session seal must be requested before runtime is marked sealed',
+    );
     assert.deepEqual(sessionSealer.requestSeal.mock.calls[0].arguments[0], {
       sessionId: 'session-complete',
       reason: 'model_capacity',
