@@ -309,6 +309,33 @@ describe('F203 Phase B — compile-system-prompt-l0.mjs', () => {
     });
   });
 
+  // Self identity must also respect env override (砚砚 review P1 on eba9b9099):
+  // `Identity constant` line should reflect CAT_{ID}_MODEL override, not just
+  // static defaultModel. Roster already uses resolveModel; self identity must too.
+  describe('self identity respects CAT_{ID}_MODEL env override', () => {
+    test('Identity constant reflects env override model, not static defaultModel', async () => {
+      const envKey = 'CAT_OPUS_MODEL';
+      const orig = process.env[envKey];
+      process.env[envKey] = 'claude-opus-env-override-test';
+      try {
+        const l0 = await compileL0({ catId: 'opus' });
+        assert.match(l0, /Identity constant:.*model=claude-opus-env-override-test/,
+          'self identity should use env override model');
+        assert.doesNotMatch(l0, /model=claude-opus-4-6/,
+          'static defaultModel should NOT appear when env override is set');
+      } finally {
+        if (orig === undefined) delete process.env[envKey];
+        else process.env[envKey] = orig;
+      }
+    });
+
+    test('Identity constant falls back to defaultModel when no env override', async () => {
+      const l0 = await compileL0({ catId: 'opus' });
+      assert.match(l0, /Identity constant:.*model=claude-opus-4-6/,
+        'without env override, should use defaultModel');
+    });
+  });
+
   // Phase C Task 1: A8 gap fix — CVO ref handles 来自 co-creator config
   // 渲染（非 L0 硬编码 @landy）。Task 0 spike 发现：buildStaticIdentity
   // L568-571 用 getCoCreatorConfig().mentionPatterns（动态），L0 §4 硬编码
