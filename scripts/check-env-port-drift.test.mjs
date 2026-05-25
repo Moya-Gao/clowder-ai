@@ -661,13 +661,22 @@ excluded:
     });
 
     it('sync-manifest exports root package check script targets', () => {
+      const managedRoots = readYamlTopLevelList('sync-manifest.yaml', 'managed_roots');
       const managedScripts = readYamlTopLevelList('sync-manifest.yaml', 'managed_scripts');
       const requiredScripts = [
         'scripts/check-followup-tails.mjs',
         'scripts/derive-worktree-ports.mjs',
         'scripts/derive-worktree-ports.test.mjs',
         'scripts/check-worktree-port-offset.mjs',
+        'scripts/sop-definitions.mjs',
+        'scripts/sop-definitions.test.mjs',
+        'scripts/lib/sop-definition-codegen.mjs',
       ];
+
+      assert.ok(
+        managedRoots.includes('sop-definitions'),
+        'sync-manifest should export sop-definitions because root package.json check:sop-definitions reads it',
+      );
 
       for (const scriptPath of requiredScripts) {
         assert.ok(

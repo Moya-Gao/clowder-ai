@@ -18,6 +18,7 @@ managed_roots:
   - desktop                # F179: Electron desktop shell + Win/Mac build scripts (release-desktop.yml 依赖)
   - cat-cafe-skills        # 运行时依赖 + 核心差异化
   - guides                 # F155 guide registry + flow YAMLs (check:guides/runtime dependency)
+  - sop-definitions        # F203 SOP definition truth source (check:sop-definitions runtime closure)
   - docs/architecture      # 架构文档（直出）
   - docs/setup             # SETUP 配置截图（直出）
   # 注：猫猫头像在 packages/web/public/avatars/ 中，已被 packages/web 整包包含
@@ -101,6 +102,9 @@ managed_scripts:
   - scripts/check-frontmatter.mjs
   - scripts/build-doc-index.mjs
   - scripts/preflight-shared-state.sh
+  - scripts/sop-definitions.mjs
+  - scripts/sop-definitions.test.mjs
+  - scripts/lib/sop-definition-codegen.mjs
   # 运行时可选服务（开源用户按需启用）
   - scripts/anthropic-proxy.mjs
   - scripts/mcp-doctor.mjs
