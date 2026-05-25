@@ -162,7 +162,14 @@ describe('AntigravityBridge.drainCascade', () => {
   test('bounds stalled trajectory reads by the drain timeout', async () => {
     const bridge = createBridge();
     const blockedTrajectory = deferred();
-    mock.method(bridge, 'getTrajectory', async () => blockedTrajectory.promise);
+    let trajectorySignal;
+    mock.method(bridge, 'getTrajectory', async (_cascadeId, options = {}) => {
+      trajectorySignal = options.signal;
+      trajectorySignal?.addEventListener('abort', () => blockedTrajectory.reject(trajectorySignal.reason), {
+        once: true,
+      });
+      return blockedTrajectory.promise;
+    });
 
     const drainPromise = bridge.drainCascade('c1', { quietWindowMs: 1, timeoutMs: 20, pollIntervalMs: 1 });
 
@@ -175,6 +182,9 @@ describe('AntigravityBridge.drainCascade', () => {
       assert.equal(drained.ok, false);
       assert.equal(drained.drainResult, 'best_effort_quiet_window');
       assert.match(drained.reason, /timeout/i);
+      assert.ok(trajectorySignal instanceof AbortSignal);
+      assert.equal(trajectorySignal.aborted, true);
+      assert.match(String(trajectorySignal.reason), /trajectory read exceeded drain timeout/i);
     } finally {
       blockedTrajectory.resolve({
         status: 'CASCADE_RUN_STATUS_IDLE',

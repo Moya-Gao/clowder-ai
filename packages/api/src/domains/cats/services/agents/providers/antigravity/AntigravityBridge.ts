@@ -50,14 +50,22 @@ export function antigravityRpcTimeoutMs(method: string, payload: unknown): numbe
   return Math.max(DEFAULT_RPC_TIMEOUT_MS, Math.floor(rawTimeoutMs) + RUN_COMMAND_RPC_TIMEOUT_BUFFER_MS);
 }
 
-function withDrainDeadline<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+function withDrainDeadline<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  onTimeout?: (error: AntigravityDrainDeadlineError) => void,
+): Promise<T> {
   if (timeoutMs <= 0) {
     return Promise.reject(new AntigravityDrainDeadlineError(0));
   }
 
   let timer: ReturnType<typeof setTimeout> | undefined;
   return new Promise<T>((resolve, reject) => {
-    timer = setTimeout(() => reject(new AntigravityDrainDeadlineError(timeoutMs)), timeoutMs);
+    timer = setTimeout(() => {
+      const error = new AntigravityDrainDeadlineError(timeoutMs);
+      onTimeout?.(error);
+      reject(error);
+    }, timeoutMs);
     void promise.then(resolve, reject).finally(() => {
       if (timer !== undefined) clearTimeout(timer);
     });
@@ -634,8 +642,8 @@ export class AntigravityBridge {
     return resp.steps ?? [];
   }
 
-  async getTrajectory(cascadeId: string): Promise<CascadeTrajectory> {
-    return this.rpcSafe<CascadeTrajectory>('GetCascadeTrajectory', { cascadeId });
+  async getTrajectory(cascadeId: string, options?: AntigravityRpcOptions): Promise<CascadeTrajectory> {
+    return this.rpcSafe<CascadeTrajectory>('GetCascadeTrajectory', { cascadeId }, options);
   }
 
   async drainCascade(cascadeId: string, options: AntigravityDrainOptions = {}): Promise<AntigravityDrainResult> {
@@ -669,7 +677,12 @@ export class AntigravityBridge {
             ...(lastObservedStepCount === undefined ? {} : { lastObservedStepCount }),
           };
         }
-        trajectory = await withDrainDeadline(this.getTrajectory(cascadeId), remainingMs);
+        const trajectoryReadController = new AbortController();
+        trajectory = await withDrainDeadline(
+          this.getTrajectory(cascadeId, { signal: trajectoryReadController.signal }),
+          remainingMs,
+          (error) => trajectoryReadController.abort(error),
+        );
       } catch (err) {
         if (isDrainDeadlineError(err)) {
           return {
