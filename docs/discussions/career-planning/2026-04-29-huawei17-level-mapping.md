@@ -2,7 +2,7 @@
 topics: [career, compensation, level-mapping, huawei, interview]
 doc_kind: discussion
 created: 2026-04-29
-updated: 2026-04-29
+updated: 2026-05-25
 participants: [codex, landy]
 thread_ids: [thread_mnpgz36wuta8m679]
 ---
@@ -56,6 +56,21 @@ thread_ids: [thread_mnpgz36wuta8m679]
 判断：
 
 深信服这条有 offer 概率上升，但薪资/职级匹配风险仍高。它可以作为谈判底气和市场校准样本，但不能因为正反馈就自动等价于高质量 offer。
+
+### 2026-05-25 补充信息：机会价值上调
+
+新信息详见：[深信服 AI Coding 机会复盘](./2026-05-25-sangfor-ai-coding-opportunity-notes.md)。
+
+关键信号：
+
+- 深信服 AI Coding 方向 2026 年从二级部门升级为一级部门，编制由创始人团队批准。
+- 方向是面向内部研发 + 开源 + 商业化的企业级 AI Coding，2026 年有千万级营收目标。
+- 已有 200w+ 级别 ToB 订单信号，并与腾讯、中兴等竞品竞争。
+- 技术点覆盖大代码仓、多仓依赖、代码图谱、TDD/质量检查、安全 code review、企业知识/技能流转、组织级 memory、轨迹抽最佳实践、RL/SWT 长程任务微调、Agent board、人/Agent 画像和接口契约。
+
+修正判断：
+
+深信服不再只是“offer 概率高但薪资待验证”的市场校准样本。它的技术方向与 Cat Café / Agent 工程化高度贴合，尤其是 **enterprise coding agent infra + harness + memory + eval + self-evolution**。如果后续确认岗位落在核心技术线而非普通交付救火，且薪酬/股票结构能覆盖华为 `17` 的机会成本，应进入认真比较。
 
 下一轮若进入薪资/HR 阶段，口径应是：
 
