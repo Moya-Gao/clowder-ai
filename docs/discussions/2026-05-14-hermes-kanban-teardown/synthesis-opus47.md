@@ -3,7 +3,7 @@ doc_kind: discussion
 topics: [project-management, kanban, multi-agent, signal-intent-decision, synthesis, opus-47]
 related_features: [F049, F076, F121, F150, F153, F192]
 created: 2026-05-14
-status: draft-v1.6
+status: draft-v1.7
 author: opus-47
 reviewer: opus-46 (feasibility review @ 2026-05-14 06:51 + second-pass @ 07:02 + reading-comp @ 2026-05-18 21:10)
 convergence:
@@ -21,7 +21,7 @@ inputs:
   - guoliang-external: 双入口 + 跨仓跨团队 + 多仓 SDD + 记忆萃取 + 云端分布式
 ---
 
-# Mission Loom — Multi-Cat & Human Project Board（综合稿 v1.6）
+# Mission Loom — Multi-Cat & Human Project Board（综合稿 v1.7）
 
 > UI 视觉子品牌：**Prism**（流光域）
 > 任务来源：[README.md](./README.md) 末尾 Suggested Synthesis Owner
@@ -33,6 +33,33 @@ inputs:
 > 不是最终 spec，是带大家讨论的基线稿
 
 ## Changelog
+
+### v1.7（2026-05-22 02:10，Landy + 郭良 confirm framing → Runtime-agnostic 原则）
+
+Landy 02:05 跟郭良讨论后明确："Mission Loom 还是一个解耦的产品而不是一个完整的类似猫猫这种的东西，方便别人接入，比如我不用猫猫，比如我就用 codex/claudecode 也能接入"。
+
+**新增核心原则（写入 §4 顶层）**：
+> **Runtime-agnostic, Cat-Café-as-reference**：Mission Loom 不绑定 Cat Café。任意 agent runtime 都能接入：cat-cafe / Codex / Claude Code / Cursor / Hermes / 用户自造 agent。
+
+这是跟 §4.5 **Integration-first, GitHub-as-reference** **对称的解耦原则**：
+- §4.5: 需求来源不绑 GitHub，GitHub 是 reference connector
+- §4 新: 执行者不绑 Cat Café，Cat Café 是 reference actor lane
+
+**§4 Lane 表格重定位**：
+- ~~Cat Lane = "Cat Café 内部猫" (default)~~ → **Cat-Café Lane = reference implementation**（跟 connector-github 同地位）
+- ~~Claude Code / Codex / Cursor = "External Agent Lane V2"~~（暗示二等公民）→ **Claude Code Lane / Codex Lane = 平权 actor，day-1 接入文档就位，V2 完整实现**
+
+**MVP 仍只实现 cat-cafe lane**（守住 7-8 周 scope），但：
+- ✅ Lane Contract day-1 就位（接口、文档、示例）
+- ✅ cat-cafe lane 实现严格通过 Contract（不走 cat-cafe 内部 API 捷径）
+- ✅ 文档明示"拿 codex/claudecode 按 Contract 自接入"
+- ❌ Spec 不能假设"agent 默认来自 cat-cafe"
+
+**framing 闭环**：
+- agent-as-participant ✓（不是 agent-as-product / 不是 Agentic Work OS）
+- runtime-agnostic ✓（不绑 cat-cafe）
+- integration-first ✓（不绑 GitHub）
+- 三条原则共同构成 Mission Loom 的产品定位护城河
 
 ### v1.6（2026-05-18 00:45，Landy 质疑 WorkItem/WorkRun 分离 → 补 rationale）
 
@@ -184,6 +211,7 @@ Landy 17:20 提出关键扩展性追问："如果别人公司用 CodeHub 不是 
 - **PM Agent 路由**（v1.2 拍板）：**三层 mix** — Sonnet specifier 默认 / Opus 4.7 升级（模糊/品味/低 confidence）/ Opus 4.6 升级（feasibility/工程账）/ 缅因猫 review gate / 永不绕过人拍板
 - **Capability 冷启动**（v1.2 拍板）：**角色先验 + 猫味签名 UI** — role prior 机制 + 烁烁的 Cat Signatures 表达 + confidence 三档；≥20 WorkRun 后升 warm recommendation；永不自动 dispatch
 - **Integration-first 原则**（v1.3 新增）：**GitHub-as-reference, not boundary** — Source Connector 架构 day-1 就位，CodeHub/Jira/Linear/飞书/告警系统皆通过 connector 接入；增量 Level 0-4。详见 §4.5
+- **Runtime-agnostic 原则**（v1.7 新增）：**Cat-Café-as-reference, not boundary** — Mission Loom 不绑定 cat-cafe，任意 agent runtime（Codex / Claude Code / Cursor / Hermes / 自造 agent）都能通过 Actor Lane Contract 接入。Cat-Café Lane 是 reference 实现（跟 connector-github 同地位）。详见 §4
 - **Deployment**（v1.4 新增）：**Docker 打包**（API server + SQLite volume + Redis）+ `docker-compose up` 即云端，多人多机器通过 HTTP API 共享同一份状态。详见 §12
 - **Roadmap Vision**（v1.4 新增）：V1 单仓单 team 看板 MVP → V2 跨仓跨团队（team-level board）→ V3 记忆基础设施（依赖图/设计原则/架构债持续沉淀）→ V4 云端分布式猫猫（lighthouse）。MVP 严格守住 v1.3 的 7-8 周 scope。详见 §13
 
@@ -635,16 +663,47 @@ WorkItem (parent)            ← FE 本体，status=blocked 直到子项完成
 
 ## 4. 工作流引擎：Actor Lane Contract
 
-学 Hermes 的 worker lane 概念，**扩展为 Actor Lane**（人/猫/外部 agent 平权）。
+学 Hermes 的 worker lane 概念，**扩展为 Actor Lane**（人/任意 agent runtime 平权）。
 
-### Lane 定义
+### 核心原则（v1.7 新增）：Runtime-agnostic, Cat-Café-as-reference
+
+> **Mission Loom 不绑定 Cat Café。**任意 agent runtime 都能接入：cat-cafe 猫 / Codex / Claude Code / Cursor / Hermes / 用户自造 agent / 未来出现的任何 runtime——只要实现 Actor Lane Contract 就能跑。
+
+来源：Landy + 郭良 2026-05-22 02:05 拍板——"Mission Loom 是解耦的产品而不是完整的类似猫猫这种的东西，方便别人接入，比如我不用猫猫，比如我就用 codex/claudecode 也能接入"。
+
+这跟 §4.5 的 **Integration-first, GitHub-as-reference** 是**对称的解耦原则**：
+
+| 解耦面 | Reference 实现（MVP day-1） | 未来扩展 |
+|---|---|---|
+| **需求来源**（§4.5 connectors） | `connector-github` | CodeHub / Jira / Linear / 飞书 / Sentry / IM 等 |
+| **执行者**（本节 actor lanes） | cat-cafe lane（dogfood） | Codex / Claude Code / Cursor / Hermes / 自造 agent 等 |
+
+两边都遵守同一哲学：**MVP 只做一个 reference 实现 + Day-1 接口契约**，扩展靠社区 / 用户按契约自行实现。
+
+### Lane 定义（v1.7 重定位）
 
 | Lane | Actor | 触发方式 | Day-1 范围 |
 |---|---|---|---|
-| **Human Lane** | 人（Landy / 未来开源用户） | Cat Café 消息 + Web dashboard 拖卡 | ✅ MVP |
-| **Cat Lane** | Cat Café 内部猫（宪宪/砚砚/烁烁/...） | thread + auto-worktree + 复用 F049 dispatch | ✅ MVP |
-| **External Agent Lane** | Claude Code / Codex / Cursor / Hermes / ... | 标准 API（claim/heartbeat/complete） | ⏸ V2 |
+| **Human Lane** | 人（CVO / PM / 团队成员 / 任意 mission-loom 用户） | Web dashboard 拖卡 + 接收通知 | ✅ MVP（reference: web UI；其它 IM 通道作为 connector） |
+| **Cat-Café Lane**（reference） | cat-cafe runtime 内的猫 | thread + auto-worktree + 复用 F049 dispatch | ✅ MVP（reference implementation，用我们自己 dogfood） |
+| **Claude Code Lane** | 独立 Claude Code 用户（不通过 cat-cafe） | Lane Contract API（claim/heartbeat/complete） | ⏸ V2 实现，**但 day-1 接入文档就位** |
+| **Codex Lane** | 独立 Codex CLI 用户 | Lane Contract API | ⏸ V2 实现，**但 day-1 接入文档就位** |
+| **Cursor / Hermes / 其它** | 任意第三方 agent runtime | Lane Contract API | ⏸ V2+，社区按契约自行实现 |
 | **CI/Bot Lane** | GitHub Actions / Renovate / ... | webhook | ⏸ V2 |
+
+### v1.7 framing 调整说明
+
+**v1.6 之前的错误**：把 cat-cafe 当 default / 把 Codex 和 Claude Code 当"External Agent Lane V2"——这暗示了"主用 cat-cafe，外部 agent 是二等公民"。
+
+**v1.7 修正**：cat-cafe lane 是 **reference implementation**（跟 connector-github 同地位），不是 default；Codex / Claude Code 是**平权 actor**，跟 cat-cafe 在 Lane Contract 上**没有架构差异**——区别只是"哪个先写"。
+
+**MVP 仍然只实现 cat-cafe lane**（守住 7-8 周 scope），但：
+- ✅ Lane Contract day-1 就位（接口、文档、示例）
+- ✅ cat-cafe lane 的实现要严格通过 Contract（不能用 cat-cafe 内部 API 走捷径）
+- ✅ 文档明确写"你可以拿 codex/claudecode 按 Contract 自己接入"
+- ❌ Spec 里不能假设 "agent 默认来自 cat-cafe"
+
+这跟我们的产品定位一致：**Mission Loom 是 multi-cat & human 协作 kernel + 看板，不是 Cat Café 的看板**。
 
 ### Lane Contract（每个 Lane 必须实现，v1.1 补 block/abandon/handoff）
 
