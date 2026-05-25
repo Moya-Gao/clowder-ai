@@ -140,6 +140,49 @@ describe('RuntimeSessionSealReaper', () => {
     assert.equal(updated.lifecycle.drainResult, 'complete');
   });
 
+  test('keeps runtime pending when host seal request is rejected after complete runtime drain', async () => {
+    const { RuntimeSessionSealReaper, RuntimeSessionStore } = await loadModules();
+    const runtimeSessionStore = new RuntimeSessionStore();
+    runtimeSessionStore.upsert(metadataFor('session-rejected'));
+    const sessionSealer = {
+      ...makeSessionSealer(),
+      requestSeal: mock.fn(async () => ({
+        accepted: false,
+        status: 'active',
+        sessionId: 'session-rejected',
+      })),
+      finalize: mock.fn(async () => {
+        throw new Error('finalize must not run when requestSeal is rejected');
+      }),
+    };
+    const drainRuntimeSession = mock.fn(async () => ({
+      ok: true,
+      drainResult: 'complete',
+      lastObservedStepCount: 2,
+    }));
+
+    const reaper = new RuntimeSessionSealReaper({
+      runtimeSessionStore,
+      sessionSealer,
+      drainRuntimeSession,
+      now: () => 3750,
+    });
+
+    const result = await reaper.runOnce();
+    const updated = runtimeSessionStore.getBySessionId('session-rejected');
+
+    assert.equal(result.scanned, 1);
+    assert.equal(result.sealed, 0);
+    assert.equal(result.failed, 1);
+    assert.equal(sessionSealer.requestSeal.mock.callCount(), 1);
+    assert.equal(sessionSealer.finalize.mock.callCount(), 0);
+    assert.equal(updated.lifecycle.state, 'runtime_seal_pending');
+    assert.equal(updated.lifecycle.retryCount, 1);
+    assert.equal(updated.lifecycle.lastRetryAt, 3750);
+    assert.equal(updated.lifecycle.drainResult, 'complete');
+    assert.match(updated.lifecycle.lastFailureReason, /not accepted.*active/i);
+  });
+
   test('keeps best-effort failures pending and records retry metadata', async () => {
     const { RuntimeSessionSealReaper, RuntimeSessionStore } = await loadModules();
     const runtimeSessionStore = new RuntimeSessionStore();

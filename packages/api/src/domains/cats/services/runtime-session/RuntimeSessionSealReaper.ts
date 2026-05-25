@@ -181,7 +181,10 @@ export class RuntimeSessionSealReaper {
     const seal = await this.sessionSealer.requestSeal({ sessionId, reason });
     if (seal.accepted || seal.status === 'sealing') {
       await this.sessionSealer.finalize({ sessionId });
+      return;
     }
+    if (seal.status === 'sealed') return;
+    throw new Error(`session seal request was not accepted; status=${seal.status}`);
   }
 }
 
