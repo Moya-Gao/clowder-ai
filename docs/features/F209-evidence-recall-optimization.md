@@ -204,9 +204,11 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 - 可见性：Perspective run 复用现有 Memory / Recall 实时面板或同等可见层，展示 query plan id、执行步骤、命中数量、打开过的 anchors 与 degraded 状态。
 - v1 入口：猫手动保存 / 复用；CVO 可看运行过程但不作为用户搜索操作员；F200 自动建议与用户 Smart Folder UI 后置。
 
+Design Gate product spike is now captured in `docs/plans/2026-05-24-f209-phase-d-perspective-product-spike.md`: three user stories, v1 product boundary, runtime contract, CVO visibility contract, and implementation slices.
+
 ### Acceptance Criteria
 
-- [ ] AC-D0: Design Gate 前完成 Perspective product spike，给出 2-3 个 user story + runtime contract。
+- [x] AC-D0: Design Gate 前完成 Perspective product spike，给出 2-3 个 user story + runtime contract。
 - [ ] AC-D1: Perspective 存 query plan / route recipe，不存结果集。
 - [ ] AC-D2: 打开 Perspective 时现场重跑，结果全带 anchor + drill-down。
 - [ ] AC-D3: Perspective 可由猫保存 / 命名 / 复用；默认用户不是操作员。
@@ -351,6 +353,7 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 | 2026-05-24 | D.0 raw passage embedding reprobe fix merged (PR #1877) — query-time semantic/hybrid paths now re-probe embedding readiness before degrading, while lexical mode avoids reprobe overhead |
 | 2026-05-24 | D.0 federated raw degraded metadata fix merged (PR #1882) — MCP `search_evidence` handler now defaults `dimension=project`, avoiding legacy API `all` default pulling unhealthy global vectors into default degraded metadata |
 | 2026-05-24 | D.0 final dogfood after runtime restart — 砚砚 + Opus-47 verified raw hybrid no `[DEGRADED]`, file-slice reader, default dimension, and entity expansion (`CVO`/`铲屎官`/`Lysander`) all live; `docs/decisions/2026-05-23-f209-d0-readiness.md` verdict updated to **Phase D UNBLOCK** |
+| 2026-05-24 | Phase D product spike plan added — `docs/plans/2026-05-24-f209-phase-d-perspective-product-spike.md` closes AC-D0 with user stories, runtime contract, CVO visibility contract, and implementation slices |
 
 ## Review Gate
 
@@ -373,6 +376,7 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 | Plan | `docs/plans/2026-05-22-f209-phase-a-passage-recall.md` | Phase A passage-level semantic / hybrid raw retrieval implementation plan |
 | Plan | `docs/plans/2026-05-22-f209-phase-b-entity-anchor.md` | Phase B entity registry / alias expansion implementation plan |
 | Plan | `docs/plans/2026-05-22-f209-phase-c-drilldown-readers.md` | Phase C typed drill-down reader implementation plan |
+| Plan | `docs/plans/2026-05-24-f209-phase-d-perspective-product-spike.md` | Phase D Perspective product spike / Design Gate contract |
 | Eval fixture | `docs/eval/f209-phase-a-raw-retrieval-fixtures.md` | Phase A raw semantic / hybrid retrieval fixtures for F200 |
 | Eval fixture | `docs/eval/f209-phase-b-entity-anchor-fixtures.md` | Phase B entity alias / privacy retrieval fixtures for F200 |
 | Eval fixture | `docs/eval/f209-phase-c-drilldown-fixtures.md` | Phase C typed drill-down retrieval fixtures for F200 |
