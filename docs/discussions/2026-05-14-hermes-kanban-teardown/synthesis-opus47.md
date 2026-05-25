@@ -3,7 +3,7 @@ doc_kind: discussion
 topics: [project-management, kanban, multi-agent, signal-intent-decision, synthesis, opus-47]
 related_features: [F049, F076, F121, F150, F153, F192]
 created: 2026-05-14
-status: draft-v1.7
+status: draft-v1.8
 author: opus-47
 reviewer: opus-46 (feasibility review @ 2026-05-14 06:51 + second-pass @ 07:02 + reading-comp @ 2026-05-18 21:10)
 convergence:
@@ -21,7 +21,7 @@ inputs:
   - guoliang-external: 双入口 + 跨仓跨团队 + 多仓 SDD + 记忆萃取 + 云端分布式
 ---
 
-# Mission Loom — Multi-Cat & Human Project Board（综合稿 v1.7）
+# Mission Loom — Multi-Cat & Human Project Board（综合稿 v1.8）
 
 > UI 视觉子品牌：**Prism**（流光域）
 > 任务来源：[README.md](./README.md) 末尾 Suggested Synthesis Owner
@@ -33,6 +33,36 @@ inputs:
 > 不是最终 spec，是带大家讨论的基线稿
 
 ## Changelog
+
+### v1.8（2026-05-22 02:40，Landy 抛产品全景思考 → 任务驱动 framing + harness 解耦 confirm + WorkItem.stage）
+
+Landy 02:36 抛了一大波产品全景思考。本 patch 处理 3 项 framing/schema 修正，其余（受众细化/多页面/token limit/资源约束）先在 thread 讨论收敛后再 patch。
+
+**核心 framing 修正：任务驱动 ≠ 角色 agent 驱动**
+
+> Landy 原话："不应该用角色 agent 来驱动应该用任务本身的环节来驱动。"
+
+- 拒绝 Coze/Dify 模式（创建 "PM agent" / "dev agent"）
+- 任务有 stage（spec / dev / test / review / dfx / ...），actor 有 capability（做过哪些 stage 的成功率）
+- 路由按 `task.stage × actor.capability`（历史成功率）匹配，**不**按 `actor.role` 预设
+- 这跟 v1.7 的 "agent-as-participant" 一脉相承，也跟 §3.6 猫味签名兼容（UI 表达层不变，机制层 framing 从 "actor's role" 修正为 "task's stage + actor capability"）
+
+**Schema 补丁**：`work_item` 加 `stage` 字段（task lifecycle phase，跟 status 是不同维度）
+
+**§4 加 Lane Registration**：harness 解耦 confirm。每个 runtime（cat-cafe / Claude Code / Codex / Cursor / 自造）启动时通过 Registration 接口注册到 Mission Loom：声明 runtime_id / capabilities / 可调度的 actor list。Dispatcher 据此匹配 task.stage。
+
+**framing 三原则进一步收束**：
+| 原则 | 维度 | 拒绝绑定 |
+|---|---|---|
+| agent-as-participant（v1.4） | 产品类型 | Agentic Work OS / agent factory |
+| integration-first（v1.3 §4.5） | 需求来源 | 单一代码托管 |
+| runtime-agnostic（v1.7 §4） | 执行者 | 单一 agent runtime |
+| **task-driven**（v1.8 §3.6/§4） | 路由维度 | 角色预设 agent |
+
+**brainstorm 待讨论（不在本 patch）**：
+- 7 类人角色受众（dev/PLM/PM/TM/SL/QA/FDE）→ V2 权限模型
+- 多页面探索（Progress/Workflow/Bottleneck/Pipeline/Topology/Resource/Audit View 等）→ 收敛后 patch §5
+- Token limit / 资源约束 → V2 dispatcher 加 resource gating
 
 ### v1.7（2026-05-22 02:10，Landy + 郭良 confirm framing → Runtime-agnostic 原则）
 
@@ -212,6 +242,7 @@ Landy 17:20 提出关键扩展性追问："如果别人公司用 CodeHub 不是 
 - **Capability 冷启动**（v1.2 拍板）：**角色先验 + 猫味签名 UI** — role prior 机制 + 烁烁的 Cat Signatures 表达 + confidence 三档；≥20 WorkRun 后升 warm recommendation；永不自动 dispatch
 - **Integration-first 原则**（v1.3 新增）：**GitHub-as-reference, not boundary** — Source Connector 架构 day-1 就位，CodeHub/Jira/Linear/飞书/告警系统皆通过 connector 接入；增量 Level 0-4。详见 §4.5
 - **Runtime-agnostic 原则**（v1.7 新增）：**Cat-Café-as-reference, not boundary** — Mission Loom 不绑定 cat-cafe，任意 agent runtime（Codex / Claude Code / Cursor / Hermes / 自造 agent）都能通过 Actor Lane Contract 接入。Cat-Café Lane 是 reference 实现（跟 connector-github 同地位）。详见 §4
+- **任务驱动原则**（v1.8 新增）：**task-driven, not role-driven** — 路由按 `task.stage × actor.capability`（历史成功率）匹配，**不**按 `actor.role`（PM agent / dev agent）预设。拒绝 Coze/Dify 那种"创建角色 agent"模式。详见 §3.6 + WorkItem.stage 字段
 - **Deployment**（v1.4 新增）：**Docker 打包**（API server + SQLite volume + Redis）+ `docker-compose up` 即云端，多人多机器通过 HTTP API 共享同一份状态。详见 §12
 - **Roadmap Vision**（v1.4 新增）：V1 单仓单 team 看板 MVP → V2 跨仓跨团队（team-level board）→ V3 记忆基础设施（依赖图/设计原则/架构债持续沉淀）→ V4 云端分布式猫猫（lighthouse）。MVP 严格守住 v1.3 的 7-8 周 scope。详见 §13
 
@@ -357,6 +388,7 @@ CREATE TABLE work_item (
   team_id       TEXT NOT NULL DEFAULT 'default',   -- v1.4 加
   repo_id       TEXT NOT NULL DEFAULT 'default',   -- v1.4 加
   status        TEXT NOT NULL,                      -- ready/claimed/running/blocked/review/done/cancelled/failed
+  stage         TEXT NOT NULL DEFAULT 'unspecified', -- v1.8 加（lifecycle phase: spec/dev/test/review/dfx/...；跟 status 不同维度，task-driven 路由的关键）
   -- ... owner/AC/dependencies/lease
   depends_on    JSONB,                              -- 数组：依赖的其它 work_item_id（V2 跨仓 link 时升级为 cross-repo refs）
   created_at    INTEGER NOT NULL,
@@ -568,6 +600,32 @@ UI **不显示百分比**（45% / 65% / 85% 都是假装很懂）。改用烁烁
 - 出现"这类任务给谁最合适"的真实归纳
 - 数据足够时考虑半自动 dispatch（人一键确认）
 
+### v1.8 framing 注解：task-driven, not role-driven
+
+> Landy 02:36 原话："不应该用角色 agent 来驱动应该用任务本身的环节来驱动。"
+
+**机制层 framing 微调**（UI 表达层"猫味签名"不变）：
+
+| 维度 | v1.7 之前（含糊） | v1.8 明确 |
+|---|---|---|
+| 路由 key | actor's role tag（视觉/底层/review） | **`task.stage × actor.capability`**（task 有 stage 字段，actor 累积 stage 成功率） |
+| Capability 累积维度 | role-based（这只猫是"review 系"） | **stage-based**（这只猫做过几次 spec / dev / review / test，各自成功率） |
+| 路由建议触发 | task 关键词匹配 actor role | task.stage 匹配 actor 在该 stage 的历史 capability |
+
+举例：
+- v1.7 之前：task "实现 OAuth"→关键词"实现/后端"→匹配宪宪 role tag "后端/协议"
+- v1.8：task.stage=`dev` → 匹配"在 dev stage 历史成功率高的 actor"（可能是宪宪，也可能是任何在 dev stage 跑得好的 actor，不预设它的 role）
+
+**为什么这个修正重要**：
+- 跟 v1.7 "runtime-agnostic + agent-as-participant" 一脉相承——拒绝"创建 PM agent / dev agent"模式
+- 任何 agent runtime 接入（cat-cafe / Codex / Claude Code / 自造）都用同一套 capability 累积，不需要预先声明 role
+- 把"actor 是什么"的认知负担从用户身上拿走——actor 是什么由它**做过什么** + **做得怎么样**自然涌现
+
+**对 UI 表达层（"猫味签名"）零影响**：
+- 仍然显示"散发着宪宪的味道（based on prior）"
+- 只是 prior 的计算方式从 "role tag 匹配" 改为 "stage 历史 capability"
+- 烁烁的 Cat Signatures 语言不变，机制更准确
+
 ---
 
 ## 3.7 需求转换层正名 + FE→WorkItem 拆分治理（v1.5 新增，Landy co-design 2026-05-18 00:27）
@@ -704,6 +762,65 @@ WorkItem (parent)            ← FE 本体，status=blocked 直到子项完成
 - ❌ Spec 里不能假设 "agent 默认来自 cat-cafe"
 
 这跟我们的产品定位一致：**Mission Loom 是 multi-cat & human 协作 kernel + 看板，不是 Cat Café 的看板**。
+
+### Lane Registration（v1.8 新增，回应 Landy "harness 是否注册到看板"）
+
+> Landy 02:36 原话："我们的看板和我们的 harness 是强耦合吗？这些 harness 是需要注册到看板？"
+
+**答：完全解耦，通过 Registration 接口注册**。这是 v1.7 runtime-agnostic 原则的具体实现机制。
+
+每个 runtime（cat-cafe / Claude Code / Codex / Cursor / 自造 agent runtime）启动时通过 Registration 接口告诉 Mission Loom"我是谁、我能做什么、我有哪些 actor 可调度"：
+
+```typescript
+interface RuntimeRegistration {
+  runtime_id: string;                       // "cat-cafe" / "claudecode" / "codex" / "acme-internal-runtime"
+  runtime_version: string;
+  endpoint: string;                          // HTTP/WS callback URL for Lane Contract dispatch
+  auth: { type: 'bearer' | 'mtls' | ...; ... };
+
+  // Capability 声明（用于 task.stage × actor.capability 路由）
+  capabilities: {
+    stages: string[];                        // e.g. ["spec", "dev", "test", "review"]
+    languages?: string[];                    // 可选：specialized in TypeScript / Python / ...
+    domains?: string[];                      // 可选：specialized in frontend / backend / ...
+  };
+
+  // Available actors（这个 runtime 下可调度的 agent 列表）
+  actors: Array<{
+    actor_id: string;                        // e.g. "宪宪" / "claude-3.5-sonnet" / "gpt-4o"
+    display_name: string;
+    capability_hint?: Record<string, number>; // optional cold prior（自报；冷启动用，warm 后用真实历史）
+  }>;
+
+  // Resource constraints（v1.8 占位，详细 V2）
+  resource_limits?: {
+    concurrent_runs?: number;
+    token_budget_per_hour?: number;
+    // V2: 详细 quota/cost 管理
+  };
+}
+
+interface MissionLoomKernel {
+  register(reg: RuntimeRegistration): Promise<{ runtime_session_id: string }>;
+  heartbeat(runtime_session_id: string): Promise<void>;     // runtime 仍活着
+  deregister(runtime_session_id: string): Promise<void>;    // 优雅下线
+}
+```
+
+**Registration ↔ Dispatch 闭环**：
+1. Runtime 启动时 `register()` → Mission Loom 知道这个 runtime 有哪些 actor + 各自 stage capability
+2. WorkItem 进 `ready` 状态 + 有 `stage` 字段 → Dispatcher 按 `task.stage × actor.capability` 匹配可用 actor（across all registered runtimes）
+3. Dispatcher 给该 runtime 的 endpoint 发 dispatch 请求（Lane Contract `claim()`）
+4. Runtime 完成执行后通过 Lane Contract `complete()` 回调
+
+**为什么用 Registration 而不是硬编码 lane 列表**：
+- runtime 来去自由（开源用户自己拉起 / 关掉），不需要改 spec
+- 资源约束 / 能力声明可以随 runtime 更新（runtime 升级了能力就改 capability_hint）
+- 跨 runtime 的统一 capability 视图（dispatcher 跨 runtime 选最优 actor）
+
+**MVP 阶段**：cat-cafe lane 通过这套 Registration 接入（dogfood 验证）。Codex / Claude Code Lane V2 实现时按同样接入。
+
+**这正面回答 Landy 的问题**：看板和 harness **完全解耦**，harness 通过 Registration 接入；看板不需要知道 harness 内部结构（猫怎么造 / agent runtime 怎么启动 / token 怎么管），只需要 actor 能响应 Lane Contract。
 
 ### Lane Contract（每个 Lane 必须实现，v1.1 补 block/abandon/handoff）
 
