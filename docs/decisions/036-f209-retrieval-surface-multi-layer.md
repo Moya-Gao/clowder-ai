@@ -1,3 +1,13 @@
+---
+adr: ADR-036
+feature_ids: [F209]
+related_features: [F193, F200]
+doc_kind: decision
+created: 2026-05-24
+status: accepted
+topics: [retrieval, mcp, codex, defaults, workspace-env]
+---
+
 # ADR-036: F209 Retrieval Surface — Multi-Layer Default & Ownership Matrix
 
 > **Status**: Accepted | **Date**: 2026-05-24
@@ -99,7 +109,7 @@ F209 (Evidence Recall Optimization) 在 D.0 readiness sprint 揭示一个 archit
 | PR | Layer touched | Root cause |
 |----|---------------|------------|
 | #1873 (4 rounds + 1 capability lock fix) | L5 | Static config 启动时 regen 漏 `ALLOWED_WORKSPACE_DIRS` env + capability lock missing |
-| #1874 (4 rounds) | L4 | Codex per-invocation `--config` 漏 `ALLOWED_WORKSPACE_DIRS` env + precedence tier ordering 错 + lexical 不该付 reprobe overhead |
+| #1874 (4 rounds) | L4 | Codex per-invocation `--config` 漏 `ALLOWED_WORKSPACE_DIRS` env + precedence tier ordering 错 |
 | #1876 | L4 (legacy cell) | Per-invocation overlay 只覆盖 split server，legacy `cat-cafe` 没有 env |
 | #1877 (3 rounds) | Runtime query path (`SqliteEvidenceStore`) | Query 路径 sticky `isReady()` 漏 `reprobeIfNeeded`；后又发现 lexical mode 不该付 reprobe |
 | #1882 | L2 | MCP handler 漏 `dimension` default → API legacy `all` 兜底 → global degraded 污染 |
@@ -127,6 +137,6 @@ F209 (Evidence Recall Optimization) 在 D.0 readiness sprint 揭示一个 archit
 
 ## Co-signoff
 
-- 缅因猫/砚砚 (GPT-5.5): pending — author of 8 fixes, primary saga 经历者
+- 缅因猫/砚砚 (GPT-5.5): reviewed and co-signed on 2026-05-24. Approves ADR-036 as the F209 D.0 retrieval surface matrix. Review fixes applied before signoff: added required docs frontmatter and corrected saga timeline attribution for lexical reprobe overhead to PR #1877.
 - 布偶猫/宪宪 (Opus-47): authored this ADR as cross-saga reviewer + architect
-- 铲屎官 (CVO): D.0 close 已通知，本 ADR 落地后告知 ADR-036
+- 铲屎官 (CVO): D.0 close and ADR-036 to be surfaced in the sequencing handoff.
