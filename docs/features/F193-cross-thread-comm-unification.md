@@ -124,6 +124,45 @@ created: 2026-05-07
 | Map delta | **update required** |
 | Why | `transport` cell：`cross_post_message` 从残废工具升级为一等公民 + 接收侧 reply hint 是新的 transport 路径数据。`callback-auth` cell：principal-conditioned threadId 是 callback 认证边界的新规则。 |
 
+## Post-close Follow-up: Duplicate Legacy MCP Topology
+
+**Status**: open follow-up, do not reopen F193 close.
+**Task**: `[F193/F209] Fix duplicate legacy cat-cafe MCP topology when cat-cafe-limb is external` (`0001779676617089-000049-765d9510`).
+**Found during**: F209 D.0 dogfood, 2026-05-24.
+
+### Symptom
+
+A fresh Codex invocation can expose both:
+
+- `mcp__cat_cafe__.*` from legacy all-in-one `cat-cafe`
+- `mcp__cat_cafe_memory__.*` / `mcp__cat_cafe_collab__.*` / `mcp__cat_cafe_signals__.*` / `mcp__cat_cafe_limb__.*` from split servers
+
+This duplicates tools such as `cat_cafe_search_evidence` across namespaces. The stable confirmed bug is duplicate topology; an earlier raw/hybrid degraded observation was not stable after retest and should be treated as a symptom candidate, not the primary bug.
+
+### Root Cause Hypothesis
+
+F193 Phase C intended split-only configs: when the canonical split set exists, `ensureCatCafeMainServer()` should remove managed legacy `cat-cafe` and ensure managed `cat-cafe-limb`.
+
+The current local failure mode is:
+
+1. `.cat-cafe/capabilities.json` still contains managed legacy `cat-cafe`.
+2. The split servers exist.
+3. `cat-cafe-limb` exists but is marked `source: external`, not `source: cat-cafe`.
+4. `ensureCatCafeMainServer()` sees an ID collision on `cat-cafe-limb`; by design it refuses to add managed limb and refuses to remove legacy `cat-cafe`, to avoid silently losing limb tools.
+5. `generateCliConfigs()` preserves existing user/external MCP entries, so `.mcp.json` and `.codex/config.toml` continue to contain both legacy and split servers.
+
+### Required Fix Scope
+
+- Decide how same-repo `cat-cafe-limb` with `source: external` should migrate:
+  - normalize to managed `source: cat-cafe` when command path matches the repo-owned `packages/mcp-server/dist/limb.js`; or
+  - allow that specific external limb to satisfy the limb-available condition before removing legacy `cat-cafe`; or
+  - add an explicit repair step that deletes legacy `cat-cafe` only after proving split memory/collab/signals + any usable limb server are present.
+- Add regression coverage for:
+  - managed 3-split + legacy all-in-one + external same-repo limb -> final config has no legacy `cat-cafe`
+  - foreign external `cat-cafe-limb` ID collision -> legacy preservation remains fail-safe
+  - generated `.mcp.json` / `.codex/config.toml` no longer expose duplicate `cat_cafe_search_evidence` when split topology is healthy
+- After merge, regenerate local configs and verify `tool_search` no longer shows both legacy and split copies for the same Cat Café tool family.
+
 ## Risk
 
 | 风险 | 缓解 |

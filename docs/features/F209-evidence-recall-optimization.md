@@ -8,7 +8,7 @@ created: 2026-05-21
 
 # F209: Evidence Recall Optimization — 消息级语义、实体门牌号与活查询藤
 
-> **Status**: in-progress (Phase A ✅ merged PR #1842; Phase B ✅ merged PR #1846 + AC-B3 contract fix PR #1851; Phase C ✅ merged PR #1853 + file-slice dogfood hotfix PR #1854; AC-B6 transferred to F208 AC-A5 — F209 不再阻塞 AC-B6; Phase B.1 minimal seed ✅ merged PR #1867; Phase D.0 readiness sprint ✅ completed with BLOCK verdict; 2026-05-24 D.0 retry closes file-slice + entity surface blockers; raw passage embedding degradation root-cause fix merged PR #1877, pending runtime restart + D.0 retry-2 verification; F200 recall@k wrapper is a cross-validation follow-up / waiver candidate per `docs/decisions/2026-05-23-f209-d0-readiness.md`) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
+> **Status**: in-progress (Phase A ✅ merged PR #1842; Phase B ✅ merged PR #1846 + AC-B3 contract fix PR #1851; Phase C ✅ merged PR #1853 + file-slice dogfood hotfix PR #1854; AC-B6 transferred to F208 AC-A5 — F209 不再阻塞 AC-B6; Phase B.1 minimal seed ✅ merged PR #1867; Phase D.0 readiness sprint ✅ completed, initially BLOCK then **UNBLOCK** after PR #1877 raw embedding reprobe + PR #1882 MCP default dimension fix + runtime restart; next F209 owner focus = Phase D product spike / Design Gate. Cross-line follow-ups are delegated below: F193 MCP topology cleanup, F200 recall@k wrapper, Phase C reader hardening.) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
 
 ## Why
 
@@ -175,6 +175,16 @@ D.0 是 **1-2 天的小切片 eval**（不是 1 周大工程），用既有 F200
 - [x] AC-D0.2: 上述四项 observability 指标拉出实际数字（不能"看着差不多"）。
 - [x] AC-D0.3: 通过 / 不通过结论 + 下一步（推 Phase D / 回头修哪段）由 47/砚砚 共同决定，结论 commit 进 docs/decisions/。
 
+### Post-D.0 Delegation Matrix（不阻塞 Phase D product spike）
+
+Phase D.0 的 user-visible recall 已 unblock；以下问题继续追，但不应把 F209 Phase D product spike 拖回 MCP/config/eval 细节里。新 thread / 新 owner 可以直接按本表开干。
+
+| Work item | Suggested owner/thread | Why separate from F209 Phase D | Acceptance target |
+|-----------|------------------------|--------------------------------|-------------------|
+| **F193/F209 MCP topology cleanup** — split servers 与 legacy `cat-cafe` all-in-one 在本机同时暴露，原因是 `cat-cafe-limb` 被标成 `source=external` 时 F193 heal 保守退出，legacy `cat-cafe` 未被移除 | F193 / MCP topology thread（建议 Opus-47 或后端协议猫） | 属于 F193 Phase C split-only migration / L5 config heal，不是 Perspective 产品层 | `capabilities.json` + `.mcp.json` + `.codex/config.toml` 在 split+limb 可用时不再保留 legacy `cat-cafe`；保留外部 ID collision 安全测试；不丢 limb tools |
+| **F200/F209 recall@k wrapper** — 将 `docs/eval/f209-phase-{a,b,c}-*.md` 接入 F200 fixture runner | F200 eval thread | Cross-validation 工具，不是 Phase D 前置门禁；D.0 已用 F209-owned 四项指标完成判定 | F200 可一键跑 F209 fixtures，输出 recall@k / pass-fail 摘要；不改变 F209 runtime 行为 |
+| **Phase C reader hardening** — file-slice drillDown 绝对 host path 不泄漏；缺 `sourceRoot` fail-closed | F209 hardening mini-thread（安全/测试向） | Phase C 安全边界修复，和 Phase D Perspective user story 可以并行 | 回归测试覆盖 host path redaction + missing sourceRoot fail-closed；MCP/REST surface 不再泄漏不可读主机路径 |
+
 ## Phase D: Perspective Live Query Plans
 
 从 Smart Folder 学“存问题，不存结果”。
@@ -337,8 +347,10 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 | 2026-05-23 | D.0 runtime sync fix merged (PR #1873) — startup regeneration now heals managed Codex/Claude MCP configs with current workspace `ALLOWED_WORKSPACE_DIRS` under the capability lock; next step is Codex/MCP restart + D.0 retry |
 | 2026-05-23 | D.0 Codex invocation MCP env fix merged (PR #1874) — headless Codex per-invocation MCP config now injects `ALLOWED_WORKSPACE_DIRS` with precedence explicit env > thread `workingDirectory` > runtime `CAT_CAFE_WORKSPACE_ROOT` > cwd; next step is a fresh Codex invocation + D.0 retry |
 | 2026-05-24 | D.0 legacy Codex MCP env fix merged (PR #1876) — legacy monolithic `cat-cafe` MCP server now receives the same workspace env overlay as split servers |
-| 2026-05-24 | D.0 retry run — file-slice and B.1 `entityMatches` surfaces now pass, but raw passage embeddings still degrade to lexical for `depth=raw`; Phase D remains blocked pending raw embedding restore/waiver. F200 recall@k wrapper is a cross-validation follow-up / waiver candidate, not the hard blocker |
-| 2026-05-24 | D.0 raw passage embedding reprobe fix merged (PR #1877) — query-time semantic/hybrid paths now re-probe embedding readiness before degrading, while lexical mode avoids reprobe overhead; next step is runtime restart + D.0 retry-2 |
+| 2026-05-24 | D.0 retry run — file-slice and B.1 `entityMatches` surfaces passed; raw passage embeddings still degraded to lexical for `depth=raw`, so Phase D remained blocked pending raw embedding restore/waiver. F200 recall@k wrapper classified as cross-validation follow-up / waiver candidate, not the hard blocker |
+| 2026-05-24 | D.0 raw passage embedding reprobe fix merged (PR #1877) — query-time semantic/hybrid paths now re-probe embedding readiness before degrading, while lexical mode avoids reprobe overhead |
+| 2026-05-24 | D.0 federated raw degraded metadata fix merged (PR #1882) — MCP `search_evidence` handler now defaults `dimension=project`, avoiding legacy API `all` default pulling unhealthy global vectors into default degraded metadata |
+| 2026-05-24 | D.0 final dogfood after runtime restart — 砚砚 + Opus-47 verified raw hybrid no `[DEGRADED]`, file-slice reader, default dimension, and entity expansion (`CVO`/`铲屎官`/`Lysander`) all live; `docs/decisions/2026-05-23-f209-d0-readiness.md` verdict updated to **Phase D UNBLOCK** |
 
 ## Review Gate
 
