@@ -168,8 +168,11 @@ function buildIdentityBlock(config, runtimeModel) {
   }
   lines.push(`角色：${config.roleDescription}`);
   lines.push(`性格：${config.personality}`);
-  if (runtimeModel) {
-    lines.push(`Identity constant: \`@${config.catId ?? ''}\` model=${runtimeModel}`);
+  // Bug fix: CLI 不传 runtimeModel 导致 L0 缺模型号，猫读 CLAUDE.md 硬编码签名出错。
+  // fallback 到 config.defaultModel 确保每只猫的 L0 都含模型信息。
+  const resolvedModel = runtimeModel || config.defaultModel;
+  if (resolvedModel) {
+    lines.push(`Identity constant: \`@${config.catId ?? ''}\` model=${resolvedModel}`);
   }
   if (config.restrictions && config.restrictions.length > 0) {
     lines.push('');
