@@ -81,7 +81,7 @@ F209 (Evidence Recall Optimization) 在 D.0 readiness sprint 揭示一个 archit
 
 ### 6. 必须随 ADR 落地的 follow-up
 
-- **F193 duplicate topology repair**：本地 `capabilities.json` 可能出现 managed legacy `cat-cafe` + split servers + `cat-cafe-limb(source=external)` 的组合，导致 F193 heal 为保护 limb surface 而保留 legacy `cat-cafe`，最终同一工具在 `mcp__cat_cafe__` 与 split namespace 双挂。跟进任务：`[F193/F209] Fix duplicate legacy cat-cafe MCP topology when cat-cafe-limb is external`。归属 F193/MCP topology，不阻塞 F209 Phase D product spike
+- **F193 duplicate topology repair** ✅ **closed by PR #1883 (`a739206fb`, 2026-05-25)**：本地 `capabilities.json` 可能出现 managed legacy `cat-cafe` + split servers + `cat-cafe-limb(source=external)` 的组合，导致 F193 heal 为保护 limb surface 而保留 legacy `cat-cafe`，最终同一工具在 `mcp__cat_cafe__` 与 split namespace 双挂。修复：`ensureCatCafeMainServer()` 新增 `isSameRepoExternalLimb` 判定（`id==='cat-cafe-limb'` + `source==='external'` + `enabled===true` + `args[0]` normalize `\` → `/` 后 suffix match `packages/mcp-server/dist/limb.js`），让同仓 external limb 满足"managed limb available"条件以安全移除 legacy；foreign external limb（npx-based）仍走 R4 P1 fail-safe 保留 legacy。Spec AC-PCFU-1/2/3/5 ✅；AC-PCFU-4（alpha smoke runtime `tool_search` 去重）pending 铲屎官跑 `pnpm alpha:start` 复现 F209 D.0 配置后核查。归属 F193/MCP topology，未阻塞 F209 Phase D product spike
 - **F209 + F200**：fixture recall@k wrapper（F200 owner，cross-validation 工具，不卡 Phase D）
 - **L5 静态 config 侧 legacy env symmetric**：`ensureWorkspaceEnvForManagedCatCafe` 当前 `source !== 'cat-cafe'` 过滤，legacy entry source 不一致时 static config 路径仍可能漏注入 ALLOWED_WORKSPACE_DIRS。**短期不阻塞**（L4 per-invocation 永远覆盖），**中期符合本 ADR 对称性原则补齐**
 - **REST API dimension default migration**（L1）：长期看 `all` 默认是 legacy + bad UX，需独立 PR + REST consumer audit + deprecation cycle
