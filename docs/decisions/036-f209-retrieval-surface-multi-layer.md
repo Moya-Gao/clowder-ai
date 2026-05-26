@@ -46,9 +46,9 @@ F209 (Evidence Recall Optimization) 在 D.0 readiness sprint 揭示一个 archit
 | Topology | server names | source | 何时存在 |
 |----------|--------------|--------|----------|
 | **Split** (F193 Phase C 后默认) | `cat-cafe-collab` / `cat-cafe-memory` / `cat-cafe-signals` / `cat-cafe-limb` | `cat-cafe` (managed by orchestrator) | 所有新 install 默认 + 老用户 startup regen 注入 |
-| **Legacy monolithic** ~~(F193 后不删)~~ → **deprecated, startup-cleanup target (F213)** | `cat-cafe` | varies (历史 cat-cafe managed all-in-one / 第三方 external — 用户已有 entry 时多为前者) | F213 后：**startup 时识别 + selective remove**（仅匹配自家曾 managed 形态：`args[0]` 后缀 `packages/mcp-server/dist/index.js` / 我们给过的 echo legacy-shim workaround / 未来 owner marker）；第三方未知 entry 保留 + log.warn |
+| **Legacy monolithic** ~~(F193 后不删)~~ → **deprecated, F213-handled** | `cat-cafe` | varies (历史 cat-cafe managed all-in-one / 第三方 external — 用户已有 entry 时多为前者) | F213 后：**L5 selective cleanup**（只删 `echoLegacyShim` marker 匹配的 entry — `command="echo"` + `args=["legacy-shim"]`，第三方未知 entry 保留 + log.warn；historical orchestrator-managed entry 无可靠 ownership proof → 保守不删，由 L4 兜底）+ **L4 dummy disabled override** runtime safety net |
 
-**关键 invariant（amended）**：~~L4 / L5 任何 env 写入操作必须独立覆盖这 2 个 topology cell~~。F213 后只剩 **Split** cell 为 active managed topology；Legacy monolithic 在 startup 时被清理，**不再要求 L4 per-invocation overlay**。Reviewer 改 env 变量时只 trace Split cell（4 split servers）。
+**关键 invariant（amended 2026-05-26）**：~~L4 / L5 任何 env 写入操作必须独立覆盖这 2 个 topology cell~~。F213 后只剩 **Split** cell 为 active managed topology；Legacy monolithic cell 由 **L4 dummy disabled override**（`command="echo"` + `args=["legacy-shim"]` + `enabled=false`，per-invocation 最高优先级，覆盖任意 config source 残留）+ **L5 selective cleanup**（仅项目级 config + echoLegacyShim marker）双管处理。Reviewer 改 env 变量时只 trace Split cell（4 split servers）。
 
 ### 3. 5 × ~~2~~ = ~~10~~ 5-Cell Matrix（amended 2026-05-26 by F213）
 
