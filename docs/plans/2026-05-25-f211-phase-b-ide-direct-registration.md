@@ -56,6 +56,8 @@ IDE-direct conversations default to an **external runtime anchor thread**:
 
 If the caller explicitly sends `binding.mode = 'thread'` with a thread the agent-key user owns, the SessionRecord is created under that thread. Even then, Phase B writes runtime session evidence, not normal chat messages.
 
+Binding is **one-shot in Phase B**. A runtime session's first successful registration chooses its SessionRecord `threadId`; later registrations for the same `(runtime, runtimeSessionId)` may update metadata, timestamps, provenance, and identity history, but they must not migrate `SessionRecord.threadId` from the orphan anchor to a normal thread or between normal threads. Existing orphan-to-thread migration is a separate explicit bind/move UX for Phase E or Phase D, where access control and transcript pointers can be reviewed as a whole.
+
 ### OQ-10: Orphan Behavior
 
 When no explicit thread binding is supplied, create or update an orphan runtime session in the anchor thread. Orphan sessions are discoverable through the new runtime list/read API and MCP tools before any normal-thread binding exists.
@@ -390,7 +392,8 @@ Cover:
 - `SessionRecord.cliSessionId === runtimeSessionId`;
 - `RuntimeSessionMetadata.threadId` points to the anchor or explicitly bound thread;
 - existing `(runtime, runtimeSessionId)` updates `runtimeConversationId`, `lastObservedAt`, title/provenance, and identity history when model changes;
-- existing `(runtime, runtimeSessionId)` does not move from orphan to thread without explicit `binding.mode = 'thread'`.
+- existing `(runtime, runtimeSessionId)` registered as orphan returns a conflict when a later registration tries `binding.mode = 'thread'`;
+- existing `(runtime, runtimeSessionId)` registered to one normal thread returns a conflict when a later registration tries a different normal thread.
 
 Expected first run: FAIL where Task 1 only validates schema and Task 4 only proves route wiring.
 
@@ -403,6 +406,8 @@ Write order:
    - `binding.mode === 'thread'` -> verify thread owner.
 2. Look up `runtimeSessionStore.getByRuntimeSession(runtime, runtimeSessionId)`.
 3. If existing:
+   - compare the existing `RuntimeSessionMetadata.threadId` / SessionRecord `threadId` with the resolved binding target;
+   - if the target differs, return 409 `external_runtime_binding_immutable`;
    - update runtime metadata lifecycle timestamps/provenance;
    - append identity history only when `(catId, model)` changes;
    - return `status: 'updated'`.
