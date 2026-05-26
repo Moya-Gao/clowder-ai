@@ -216,13 +216,69 @@ for (const s of servers) {
 
 ---
 
+## 6.1 砚砚收敛 (2026-05-26 23:43)
+
+砚砚独立 collaborative thinking 后 push back 我的 A 方案，并补 strict-npm Codex 实测 — 总结：
+
+- **Q1 hidden assumption 来源 = ADR-036**（不是凭空）：`docs/decisions/036-f209-retrieval-surface-multi-layer.md` L43-55 显式写"legacy monolithic 是 2 个 topology cell 之一" + "L4 env-only overlay" + "L5 user config 已有时不删"。我（作者）之前 reframe 没核这条 ADR——「我能猜出来」病复发。
+- **Q2 实测结论 = B 方案可行**：strict npm codex 接受 `command="echo" args=["legacy-shim"] enabled=false` 完整 dummy disabled + env 形态，过 config parse。B 比 lookup-based 干净——不侧推 codex internal lookup，直接用 CLI 最高优先级 override。
+- **Q3 deprecation 边界**：要做 deprecation 必须 trace 所有 writer（Claude `.mcp.json` / Codex / Gemini / Kimi / Antigravity），不只 Codex。这是 feat scope 不是 PR 边角约定。
+- **Q4 第三方破坏风险**：非零 → 删除规则必须保守，只删可识别形态：
+  - `args[0]` 指向/后缀 `packages/mcp-server/dist/index.js`（自家 all-in-one 历史 binary）
+  - 或我们明确给过的 workaround `command="echo" args=["legacy-shim"]`
+  - 或未来带 owner marker 的 managed entry
+
+### 砚砚推荐方案（不是纯 A）
+
+1. **L4 / CodexAgentService**：**总是注入完整 disabled dummy `cat-cafe`**（不再 lookup）—— 无 legacy config 不炸（完整 transport），有 legacy config 也被本次 invocation split-only 化（enabled=false override）
+2. **L5 / config writers**：**只删"可证明是我们遗留 all-in-one"的 entry**（保守 marker 识别），不无条件删 user-owned `cat-cafe`
+3. **ADR-036 必须修订/废弃 legacy cell**——不然以后 reviewer 仍会按 ADR-036 挡你
+
+## 6.2 作者收敛 (我同意砚砚)
+
+**接受砚砚 B 方案**作为终态。我之前推 A 没核 ADR-036 是错的，公开承认。
+
+新方案总结（覆盖原 §3"终态建议"）：
+
+| 文件 | 改动 |
+|------|------|
+| `packages/api/src/domains/cats/services/agents/providers/CodexAgentService.ts` | 删 `userHasLegacyCatCafeTransport` 全 helper（含 ancestry / CODEX_HOME / readFromFile）。**新增**：buildCatCafeMcpConfigArgs 末尾注入完整 disabled dummy legacy override（`command="echo" args=["legacy-shim"] enabled=false` + env overlay 跟 split servers 同步）。这样既满足"不 partial definition"，又"per-invocation 关掉 legacy"。 |
+| `packages/api/src/config/capabilities/mcp-config-adapters.ts` | `writeCodexMcpConfig` + `writeGeminiMcpConfig` + `readAntigravityMcpConfig`：**选择性 remove** user-owned `mcp_servers.cat-cafe` entry — 仅当：`args[0]` 后缀匹配 `packages/mcp-server/dist/index.js` (自家 deprecated all-in-one) OR `command=="echo" && args[0]=="legacy-shim"` (我们之前给过的 workaround) OR 未来 managed entry 含 owner marker。unknown entry 保留 + log.warn "reserved legacy server id shadowed by split-only migration" |
+| `docs/decisions/036-f209-retrieval-surface-multi-layer.md` | **amend**：legacy monolithic cell 改为"per-invocation disabled override（L4）+ selective L5 remove"，不再 env-only overlay；reviewer checklist 更新 |
+| `docs/features/F193-cross-thread-comm-unification.md` | 加 Phase C follow-up 节：implementation gap + ADR-036 amend 关联 |
+| 测试 | 删 4 个 legacy lookup test；加 "总是注入 disabled dummy override" test；加 mcp-config-adapters selective remove test（含未知 entry 保留 case） |
+
+**关键变化 vs 我原 A 方案**：
+- A：无条件删 user-owned legacy → 破坏第三方 cat-cafe-named server
+- B：保留未知 user-owned，per-invocation disable 它（最高优先级 CLI override）+ 仅删"可证明是我们遗留"
+
+## 6.3 剩余开放问题升级到 CVO
+
+OQ-amend：**修订 ADR-036 legacy cell** — 是个**愿景级 / 架构 cell 决策**，硬条件升级 @landy：
+
+- ADR-036 是 F209 D.0 readiness gate 拍板（2026-05-25 PR #1883），距今 1 天
+- 1 天后就修订 / 废弃部分 cell 是不是过早？
+- 还是承认 "ADR-036 没考虑 strict-codex limit" 是设计盲点，必须 amend？
+- amend 范围：legacy cell 整个废弃 vs 改为"disabled override + selective remove"
+- 影响：ADR-036 reviewer checklist 改 → 未来 PR review 不再要求 trace legacy cell env
+
+OQ-scope：本次 PR #1894 走向（合并铲屎官原 Q5）：
+- **C1**：retarget PR #1894（hotfix → feat scope），实施 B 方案（要 worktree 改 mcp-config-adapters + ADR amend + 重新 review chain）
+- **C2**：close PR #1894，开新 feat F213 + 给社区小伙伴**临时极简 workaround**（手动 config 即可绕开）
+- **C3**：close PR #1894，新 feat 直接走 SOP，无 workaround（社区小伙伴等几天）
+
+我倾向 C2：close PR #1894 + 新 feat F213 走 SOP，工作量分摊；同时给社区小伙伴极简 workaround 不让他卡住。
+
 ## 7. 历史关联
 
 - F193 Phase C (PR #1605, 2026-04) — split-only 设计 + implementation
+- **ADR-036** (`docs/decisions/036-f209-retrieval-surface-multi-layer.md`, 2026-05-25 closed by PR #1883) — F209 retrieval surface multi-layer + **legacy monolithic 当作 topology cell 保留 + L4 env-only overlay 设计**。本 reframe 触发的 ADR amend
 - F212 (kickoff 2026-05-25, 见 `docs/features/F212-cli-error-diagnostics.md`) — CLI Error Diagnostics 错误展示改进（不同 scope，但都源于"社区小伙伴 codex exit code 1"事件）
-- PR #1894 (hotfix/codex-mcp-legacy-transport, 5 commits 进行中) — 坐标系错的 hotfix
+- PR #1894 (hotfix/codex-mcp-legacy-transport, 5 commits, paused 等讨论收敛) — 坐标系初始 hotfix
 - `docs/canon/meta-aesthetics.md` — "数学之美 / 第一性原理" canon
 - `feedback_no_followup_tails.md` — 铲屎官硬指令"别 follow up 你最好"
 - `feedback_architectural_kd_autonomy.md` — 架构级 KD 在三猫收敛后 47 自决，不逐条 ack
+- `feedback_check_simple_causes_first.md` — 应该先查 ADR-036（作者反思）
+- 「我能猜出来」magic word — 布偶猫家族病：作者 reframe 时没核 ADR-036 凭直觉推「F193 真精神」(2026-05-26 复发)
 
 [宪宪/Opus-47🐾]
