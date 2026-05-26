@@ -94,18 +94,44 @@ export const proposalRoutes: FastifyPluginAsync<ProposalRoutesOptions> = async (
       };
     }
     if (proposal.status === 'approving') {
-      // Stale-claim recovery: if the previous claim is older than the stale window, the
-      // claimer almost certainly crashed (claim → finalize is a sub-second window in practice).
-      // Force a rollback so the current request can re-claim. This prevents permanent stuck
-      // state from process crashes between claimForApproval and finalize/rollback.
       const ageMs = proposal.claimedAt ? Date.now() - proposal.claimedAt : Number.POSITIVE_INFINITY;
-      if (ageMs > STALE_APPROVING_MS) {
-        await proposalStore.rollbackClaim(proposal.proposalId);
-        // fall through — `claimForApproval` below will re-take the claim
-      } else {
+      if (ageMs <= STALE_APPROVING_MS) {
         reply.status(409);
         return { error: 'Proposal is being approved by another request; retry shortly', status: proposal.status };
       }
+      // Stale-claim recovery. The original claimer crashed (or its request aborted) between
+      // claimForApproval and finalize/rollback. Two recovery paths depending on how far the
+      // previous attempt got — distinguished by whether `createdThreadId` was persisted via
+      // recordCreatedThread (Stage 1.5).
+      if (proposal.createdThreadId) {
+        // Stage 1 already created a thread. Rolling back here would let the next approve
+        // create a SECOND thread for the same proposal. Instead: finish what the previous
+        // claimer started — finalize against the already-created thread, then re-fetch and
+        // return the recovered approved state.
+        const recovered = await proposalStore.finalizeApproval({
+          proposalId: proposal.proposalId,
+          createdThreadId: proposal.createdThreadId,
+        });
+        if (recovered) {
+          const recoveredThread = await threadStore.get(proposal.createdThreadId);
+          if (recoveredThread) {
+            socketManager.emitToUser(userId, 'thread_created', recoveredThread);
+          }
+          socketManager.emitToUser(userId, 'proposal_updated', recovered);
+          return {
+            proposalId: recovered.proposalId,
+            threadId: proposal.createdThreadId,
+            status: recovered.status,
+            recovered: true,
+          };
+        }
+        // finalize raced and lost — re-load and retry naturally.
+        reply.status(409);
+        return { error: 'Proposal status changed concurrently — retry approve' };
+      }
+      // No thread was created yet. Safe to roll back and re-claim.
+      await proposalStore.rollbackClaim(proposal.proposalId);
+      // fall through — `claimForApproval` below will re-take the claim.
     }
 
     const overrides = bodyParse.data;
@@ -142,6 +168,16 @@ export const proposalRoutes: FastifyPluginAsync<ProposalRoutesOptions> = async (
     } catch (err) {
       await proposalStore.rollbackClaim(proposal.proposalId);
       throw err;
+    }
+
+    // Stage 1.5: persist createdThreadId on the proposal BEFORE finalize. If the process dies
+    // between create and finalize, the next stale-claim recovery sees this field and re-finalizes
+    // against the existing thread — preventing duplicate threads on retry.
+    try {
+      await proposalStore.recordCreatedThread(proposal.proposalId, thread.id);
+    } catch {
+      // best-effort persist; failure here only weakens crash recovery, doesn't break the
+      // happy path. Finalize below still writes createdThreadId atomically.
     }
 
     // Stage 2: finalize the proposal NOW that a real threadId exists. After this point,
@@ -231,18 +267,30 @@ export const proposalRoutes: FastifyPluginAsync<ProposalRoutesOptions> = async (
       return { error: 'Proposal already approved', status: proposal.status };
     }
     if (proposal.status === 'approving') {
-      // Same stale-claim recovery as approve handler.
       const ageMs = proposal.claimedAt ? Date.now() - proposal.claimedAt : Number.POSITIVE_INFINITY;
-      if (ageMs > STALE_APPROVING_MS) {
-        await proposalStore.rollbackClaim(proposal.proposalId);
-        // fall through — `markRejected` below will see status=pending
-      } else {
+      if (ageMs <= STALE_APPROVING_MS) {
         reply.status(409);
         return {
           error: 'Proposal is being approved — wait for the in-flight approve to settle',
           status: proposal.status,
         };
       }
+      // Stale-claim recovery. If a thread was already created (Stage 1.5 ran), reject is
+      // no longer valid — finalize the orphaned approving claim instead and tell the caller.
+      if (proposal.createdThreadId) {
+        const recovered = await proposalStore.finalizeApproval({
+          proposalId: proposal.proposalId,
+          createdThreadId: proposal.createdThreadId,
+        });
+        reply.status(409);
+        return {
+          error: 'Proposal cannot be rejected — a thread was already created by a prior approve attempt',
+          status: recovered?.status ?? 'approved',
+          threadId: proposal.createdThreadId,
+        };
+      }
+      // No thread was created. Safe to rollback and proceed with rejection.
+      await proposalStore.rollbackClaim(proposal.proposalId);
     }
     if (proposal.status === 'rejected') {
       return { proposalId: proposal.proposalId, status: proposal.status, deduped: true };

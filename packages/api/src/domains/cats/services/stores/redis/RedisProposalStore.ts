@@ -144,6 +144,19 @@ export class RedisProposalStore implements IProposalStore {
     return ok ? updated : null;
   }
 
+  async recordCreatedThread(proposalId: string, threadId: string): Promise<void> {
+    // Only persist if status is still 'approving' — defensive against late writes
+    // after finalize/rollback. Lua: HGET status; if approving, HSET createdThreadId.
+    const script = `
+      local current = redis.call('HGET', KEYS[1], 'status')
+      if current == 'approving' then
+        redis.call('HSET', KEYS[1], 'createdThreadId', ARGV[1])
+      end
+      return 1
+    `;
+    await this.redis.eval(script, 1, ProposalKeys.detail(proposalId), threadId);
+  }
+
   async rollbackClaim(proposalId: string): Promise<boolean> {
     const proposal = await this.get(proposalId);
     if (!proposal || proposal.status !== 'approving') return false;

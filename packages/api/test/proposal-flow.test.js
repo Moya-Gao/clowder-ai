@@ -363,6 +363,57 @@ describe('F128 propose / approve / reject flow', () => {
     assert.ok(proposal.createdThreadId);
   });
 
+  test('stale claim with createdThreadId recovers via finalize (no duplicate thread)', async () => {
+    const { InMemoryProposalStore } = await import('../dist/domains/cats/services/stores/ports/ProposalStore.js');
+    proposalStore = new InMemoryProposalStore();
+    const app = await createApp();
+    const source = await threadStore.create('alice', 'Source');
+    const { proposalId } = JSON.parse((await propose(app, { userId: 'alice', threadId: source.id })).body);
+
+    // Simulate: Stage 1 (create thread) committed + Stage 1.5 (recordCreatedThread) persisted,
+    // but finalize never ran (e.g. process crash between create and finalize).
+    proposalStore.claimForApproval({ proposalId, approvedBy: 'alice' });
+    // Pre-create the thread the previous attempt would have created.
+    const orphanedThread = await threadStore.create('alice', 'Recovered', 'default');
+    proposalStore.recordCreatedThread(proposalId, orphanedThread.id);
+    // Backdate claimedAt past the stale window.
+    proposalStore.proposals.get(proposalId).claimedAt = Date.now() - 60_000;
+
+    const threadCountBefore = threadStore.size;
+    const res = await approve(app, 'alice', proposalId);
+    assert.equal(res.statusCode, 200, `expected stale+createdThreadId recovery to succeed, got ${res.statusCode}`);
+    const body = JSON.parse(res.body);
+    assert.equal(body.status, 'approved');
+    assert.equal(body.threadId, orphanedThread.id, 'must reuse the orphaned thread id, not create a new one');
+    assert.equal(body.recovered, true);
+    assert.equal(threadStore.size, threadCountBefore, 'must not create a second thread');
+  });
+
+  test('reject on stale-claim with createdThreadId refuses (thread already exists)', async () => {
+    const { InMemoryProposalStore } = await import('../dist/domains/cats/services/stores/ports/ProposalStore.js');
+    proposalStore = new InMemoryProposalStore();
+    const app = await createApp();
+    const source = await threadStore.create('alice', 'Source');
+    const { proposalId } = JSON.parse((await propose(app, { userId: 'alice', threadId: source.id })).body);
+
+    proposalStore.claimForApproval({ proposalId, approvedBy: 'alice' });
+    const orphanedThread = await threadStore.create('alice', 'Recovered', 'default');
+    proposalStore.recordCreatedThread(proposalId, orphanedThread.id);
+    proposalStore.proposals.get(proposalId).claimedAt = Date.now() - 60_000;
+
+    const res = await reject(app, 'alice', proposalId);
+    assert.equal(res.statusCode, 409, `reject on stale+createdThreadId must 409, got ${res.statusCode}`);
+    const body = JSON.parse(res.body);
+    assert.equal(body.status, 'approved');
+    assert.equal(body.threadId, orphanedThread.id);
+    const finalProposal = await proposalStore.get(proposalId);
+    assert.equal(
+      finalProposal.status,
+      'approved',
+      'proposal must be approved via stale-recovery finalize, not rejected',
+    );
+  });
+
   test('approve applies user overrides (title + initialMessage)', async () => {
     const app = await createApp();
     const source = await threadStore.create('alice', 'Source');

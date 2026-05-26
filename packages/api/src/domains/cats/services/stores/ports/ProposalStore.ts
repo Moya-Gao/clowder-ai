@@ -57,6 +57,16 @@ export interface IProposalStore {
   claimForApproval(input: ClaimForApprovalInput): ThreadProposal | null | Promise<ThreadProposal | null>;
   /** CAS approving → approved. Returns updated proposal or null if status drifted. */
   finalizeApproval(input: FinalizeApprovalInput): ThreadProposal | null | Promise<ThreadProposal | null>;
+  /**
+   * Persist `createdThreadId` on an approving proposal WITHOUT changing status.
+   * Caller invokes this immediately after threadStore.create succeeds, BEFORE
+   * finalizeApproval. This makes the partial-commit state idempotently recoverable:
+   * if the process dies between create and finalize, the proposal records which
+   * thread already exists — stale-claim recovery can then re-finalize instead of
+   * rolling back (which would cause a duplicate thread on the next approve).
+   * No-op if proposal status is not 'approving'.
+   */
+  recordCreatedThread(proposalId: string, threadId: string): void | Promise<void>;
   /** CAS approving → pending. Used when thread creation fails after claim. */
   rollbackClaim(proposalId: string): boolean | Promise<boolean>;
   /** CAS pending → rejected. Returns null if status is not pending (e.g. already approving/approved). */
@@ -175,6 +185,12 @@ export class InMemoryProposalStore implements IProposalStore {
     delete proposal.approvedBy;
     delete proposal.claimedAt;
     return true;
+  }
+
+  recordCreatedThread(proposalId: string, threadId: string): void {
+    const proposal = this.proposals.get(proposalId);
+    if (!proposal || proposal.status !== 'approving') return;
+    proposal.createdThreadId = threadId;
   }
 
   markRejected(input: RejectProposalInput): ThreadProposal | null {
