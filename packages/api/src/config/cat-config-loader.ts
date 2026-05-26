@@ -318,11 +318,18 @@ function mergeTemplateWithCatalog(templatePath: string): string | null {
     const catalogBreedIds = new Set(catalogBreeds.map((b) => b.id));
     merged.breeds = (merged.breeds as HasId[]).filter((b) => catalogBreedIds.has(b.id));
 
-    // Keep roster consistent with filtered breeds (cloud codex P2).
-    const runtimeCatIds = new Set((merged.breeds as Array<{ catId?: string }>).map((b) => b.catId).filter(Boolean));
-    if (merged.roster && typeof merged.roster === 'object') {
+    // Prune roster entries for template-only breeds only — preserve variant,
+    // owner, and other catalog-added entries (cloud codex P1 follow-up).
+    const baseBreeds = Array.isArray(baseJson.breeds) ? (baseJson.breeds as Array<HasId & { catId?: string }>) : [];
+    const templateOnlyCatIds = new Set(
+      baseBreeds
+        .filter((b) => !catalogBreedIds.has(b.id))
+        .map((b) => b.catId)
+        .filter(Boolean),
+    );
+    if (templateOnlyCatIds.size > 0 && merged.roster && typeof merged.roster === 'object') {
       for (const key of Object.keys(merged.roster as Record<string, unknown>)) {
-        if (!runtimeCatIds.has(key)) delete (merged.roster as Record<string, unknown>)[key];
+        if (templateOnlyCatIds.has(key)) delete (merged.roster as Record<string, unknown>)[key];
       }
     }
   }
