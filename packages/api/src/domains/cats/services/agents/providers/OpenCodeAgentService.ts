@@ -22,6 +22,9 @@ import { formatCliNotFoundError, resolveCliCommand } from '../../../../../utils/
 import { isCliError, isCliTimeout, isLivenessWarning, spawnCli } from '../../../../../utils/cli-spawn.js';
 import type { SpawnFn } from '../../../../../utils/cli-types.js';
 import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata } from '../../types.js';
+import { CliRawArchive } from '../../session/CliRawArchive.js';
+import type { RawArchiveSink } from '../providers/codex-audit-hooks.js';
+import { sanitizeRawEvent } from '../providers/codex-audit-hooks.js';
 import { transformOpenCodeEvent } from './opencode-event-transform.js';
 
 const log = createModuleLogger('opencode-agent');
@@ -36,6 +39,8 @@ interface OpenCodeAgentServiceOptions {
   baseUrl?: string;
   /** Inject a custom spawn function (for testing) */
   spawnFn?: SpawnFn;
+  /** #780: Raw NDJSON archive sink (default: CliRawArchive to disk) */
+  rawArchive?: RawArchiveSink;
 }
 
 const OPENCODE_API_KEY_ENV = 'OPENCODE_API_KEY';
@@ -94,6 +99,8 @@ export class OpenCodeAgentService implements AgentService {
   private readonly apiKey: string | undefined;
   private readonly baseUrl: string | undefined;
   private readonly spawnFn: SpawnFn | undefined;
+  /** #780: Raw NDJSON archive for post-mortem diagnostics */
+  private readonly rawArchive: RawArchiveSink;
 
   constructor(options?: OpenCodeAgentServiceOptions) {
     this.catId = options?.catId ?? createCatId('opencode');
@@ -101,6 +108,7 @@ export class OpenCodeAgentService implements AgentService {
     this.apiKey = options?.apiKey;
     this.baseUrl = options?.baseUrl;
     this.spawnFn = options?.spawnFn;
+    this.rawArchive = options?.rawArchive ?? new CliRawArchive();
   }
 
   async *invoke(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
@@ -155,6 +163,9 @@ export class OpenCodeAgentService implements AgentService {
         ...(options?.cliSessionId ? { cliSessionId: options.cliSessionId } : {}),
         ...(options?.livenessProbe ? { livenessProbe: options.livenessProbe } : {}),
         ...(options?.parentSpan ? { parentSpan: options.parentSpan } : {}),
+        ...(options?.invocationId && this.rawArchive.getPath
+          ? { rawArchivePath: this.rawArchive.getPath(options.invocationId) }
+          : {}),
       };
       const events = options?.spawnCliOverride
         ? options.spawnCliOverride(cliOpts)
@@ -165,6 +176,12 @@ export class OpenCodeAgentService implements AgentService {
 
       for await (const event of events) {
         eventCount++;
+        // #780: Archive raw event for post-mortem diagnostics (fire-and-forget)
+        if (options?.invocationId) {
+          this.rawArchive.append(options.invocationId, sanitizeRawEvent(event)).catch((err) => {
+            log.warn({ catId: this.catId, invocationId: options.invocationId, err }, 'Raw archive write failed');
+          });
+        }
         const evtType =
           typeof event === 'object' && event !== null && 'type' in event
             ? String((event as Record<string, unknown>).type)
