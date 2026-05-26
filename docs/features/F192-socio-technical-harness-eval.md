@@ -399,6 +399,9 @@ Based on the first micro fit digest (2026-05-11):
 | OQ-13 | `delete_sunset` 的 CVO gate 现在是 fail-safe text gate（要求 `cvo accept` 文本）；E-scale 前是否改成结构化 `governance.requiresCvoAccept` 字段？ | ⬜ E-scale hardening before second domain |
 | OQ-14 | Sunset Trial 的 `triggerScenarios` 自己会不会过期？旧 failure pattern 可能已不代表当前模型 / 猫猫能力 | ⬜ E-scale 前定 refresh policy；trial 可先要求引用原 Eval Contract pattern |
 | OQ-15 | live verdict 的 evidence SOT 是什么？当前 `docs/harness-feedback/snapshots/` 与 `attributions/` 是 gitignored generated artifacts，干净 worktree 无法解析 committed verdict refs | ✅ Option 3 hybrid：raw runtime artifacts 继续 gitignored；每个 live verdict 同提交 sanitized `bundles/<verdict-id>/`，`snapshot:` / `attribution:` 只解析 bundle |
+| OQ-16 | **[BUG] eval:memory 在 Hub 完全不可见**——Hub read model 只扫 `verdicts/` 目录的 `.md` 文件，没有 verdict = domain 不显示。eval:memory adapter 代码已 merge (E-scale PR #1879) 但从未产出 verdict，Hub 上 eval:memory 完全隐形。应该从 domain registry 加载所有已注册 domain，没 verdict 的显示"待首次 eval"状态 | 🔴 CVO dogfood 2026-05-26 |
+| OQ-17 | **[BUG] 定时 eval 从未注册**——YAML 配置了 `frequency: daily`，`buildEvalCatInvocation()` 构建了 invocation packet，但没有 scheduled task 调用它。eval:a2a 的唯一 verdict (2026-05-23) 是手动生成的；eval:memory 从未运行。AC-E5 要求"统一 scheduled task 唤醒 eval 猫进入 domain thread"——引擎没启动，整个 eval pipeline 是死的 | 🔴 CVO dogfood 2026-05-26 |
+| OQ-18 | **[BUG] System thread 是空壳**——`ensureEvalDomainThreads()` 在 Hub API 请求时按需创建空 thread，但 eval cat 从未在里面工作。AC-E4 要求"thread 承载 eval 长期分析上下文"，AC-E5 要求"eval 猫进入 domain thread"——点击"工作线程"导航到全新的空 thread 因为 eval 从未在此执行 | 🔴 CVO dogfood 2026-05-26 |
 
 ## Key Decisions
 
