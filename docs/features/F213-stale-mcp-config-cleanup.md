@@ -8,7 +8,7 @@ created: 2026-05-26
 
 # F213: Stale MCP Config Cleanup at Startup — 过期 MCP 配置启动清理
 
-> **Status**: spec | **Owner**: 布偶猫/宪宪 (Opus-47) | **Priority**: P1
+> **Status**: in-progress (Phase A merged 2026-05-26, PR #1901) | **Owner**: 布偶猫/宪宪 (Opus-47) | **Priority**: P1
 
 ## Why
 
@@ -155,20 +155,22 @@ trace 所有 mcp config writer：
 
 ### Phase A（Cleanup Mechanism Foundation）
 
-- [ ] AC-A1: `deprecated-managed-servers.ts` 创建 + `DEPRECATED_MANAGED_SERVERS` registry 含 `cat-cafe` entry + `knownManagedMarkers` (argsSuffix + echoLegacyShim)
-- [ ] AC-A2: `isOurOwnedDeprecatedEntry` helper 实现 + 单测覆盖 5 种 case：
-  - args[0] 后缀 `packages/mcp-server/dist/index.js` → true
-  - args[0] `["legacy-shim"]` + command `"echo"` → true
+- [x] AC-A1: `deprecated-managed-servers.ts` 创建 + `DEPRECATED_MANAGED_SERVERS` registry 含 `cat-cafe` entry + `knownManagedMarkers` (**echoLegacyShim only** — argsSuffix removed 2026-05-26 per 砚砚 P1, fork-path false positive)
+- [x] AC-A2: `isOurOwnedDeprecatedEntry` helper 实现 + 单测覆盖 10 case 含 fork-path-preserve regression guard:
+  - args[0] `["legacy-shim"]` + command `"echo"` → true (echoLegacyShim)
+  - Fork-like path `/Users/alice/forks/cat-cafe/packages/mcp-server/dist/index.js` → **false (preserve, regression guard)**
+  - Windows-path entry → false (no longer matches now that argsSuffix removed)
   - 未知第三方 binary path → false
-  - 文件不存在 → false
-  - args 字段缺失 / 类型错误 → false (defensive)
-- [ ] AC-A3: `writeCodexMcpConfig` 加 cleanup logic + 单测覆盖 4 case (4×2=8 实际 assertion)：
-  - existing config 有自家 legacy → 删除 + warn
+  - args 字段缺失 / non-array / non-string args[0] / null entry → false (defensive)
+  - Unregistered serverName → false
+  - Registry sanity: only echoLegacyShim marker remains
+- [x] AC-A3: `writeCodexMcpConfig` 加 cleanup logic + 单测覆盖 4 case:
+  - existing config 有 echoLegacyShim 形态 → 删除 + warn
+  - existing config 有 fork-like cat-cafe → **保留** (regression guard for 砚砚 P1)
   - existing config 有第三方 cat-cafe → 保留 + warn
   - existing config 没 legacy → no-op
-  - cleanup 不影响 split server entry 写入
-- [ ] AC-A4: `CodexAgentService.ts` 删 helper 全部 + L257 调用 + import 清理；`buildCatCafeMcpConfigArgs` 不为 legacy `cat-cafe` 注入 env
-- [ ] AC-A5: codex-agent-service.test.js 删 round-1/2/3/4 legacy lookup test (4 个)，主测试 assert "不注入任何 `mcp_servers.cat-cafe.*`"
+- [x] AC-A4 (revised): `CodexAgentService.ts` `buildCatCafeMcpConfigArgs` 注入 **L4 dummy disabled override** (`command="echo"` + `args=["legacy-shim"]` + `enabled=false`) — runtime safety net for sources L5 cleanup cannot reach (user-level / `$CODEX_HOME` / system config). 删除旧 `CAT_CAFE_LEGACY_STATIC_SERVER_NAME` 常量 + 旧 L257 env-only overlay 调用
+- [x] AC-A5 (revised): codex-agent-service.test.js 主测试 assert L4 dummy disabled override injection（command="echo" + args=[legacy-shim] + enabled=false）+ no env.* overlay + no command="node"
 
 ### Phase B（All-Harness Coverage）
 
@@ -246,6 +248,7 @@ trace 所有 mcp config writer：
 | 2026-05-26 06:56 | 铲屎官第二轮 reframe：startup cleanup 设计层正解 |
 | 2026-05-26 00:02 | CVO 签字赞同立项 + 改 ADR-036 + 关 PR + 写愿景 |
 | 2026-05-26 | F213 立项 (本 spec) + ADR-036 amended |
+| 2026-05-26 08:35 | **Phase A merged (PR #1901)** — registry + helper + L5 cleanup in writeCodexMcpConfig + L4 dummy disabled override; 砚砚 P1+P2 review + cloud round-3 approve + docs sync (ADR-036/spec/plan terminal design) |
 | TBD | Phase A 实施 (worktree → TDD → review → merge) |
 
 ## Review Gate
