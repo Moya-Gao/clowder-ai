@@ -324,10 +324,15 @@ function mergeTemplateWithCatalog(templatePath: string): string | null {
   // Prune roster entries for template-only breeds — preserve variant, owner,
   // and other catalog-added entries. Runs even when catalogBreeds is empty
   // (bootstrap writes breeds:[] + owner roster; template roster must not leak).
+  // A catId that exists in any catalog breed (even under a different breed id)
+  // is NOT template-only — it must be preserved in roster.
   const baseBreeds = Array.isArray(baseJson.breeds) ? (baseJson.breeds as Array<HasId & { catId?: string }>) : [];
+  const catalogCatIds = new Set(
+    (catalogBreeds as Array<HasId & { catId?: string }>).map((b) => b.catId).filter(Boolean),
+  );
   const templateOnlyCatIds = new Set(
     baseBreeds
-      .filter((b) => !catalogBreedIds.has(b.id))
+      .filter((b) => !catalogBreedIds.has(b.id) && !catalogCatIds.has(b.catId ?? ''))
       .map((b) => b.catId)
       .filter(Boolean),
   );

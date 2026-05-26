@@ -1278,6 +1278,72 @@ describe('#772: template breeds must not leak into runtime', () => {
     }
   });
 
+  it('catalog breed with same catId but different breed id preserves roster entry', () => {
+    // Scenario: template has breed {id: "moonshot", catId: "kimi"}, catalog replaces it
+    // with {id: "kimi-v2", catId: "kimi"} (migration — different breed id, same catId).
+    // The roster entry for "kimi" must survive because catalog breed uses that catId.
+    const projectDir = mkdtempSync(join(tmpdir(), 'cat-772-catid-reuse-'));
+    const templatePath = join(projectDir, 'cat-template.json');
+    writeFileSync(
+      templatePath,
+      JSON.stringify({
+        version: 2,
+        breeds: [makeBreed('ragdoll', 'opus', ['@opus']), makeBreed('moonshot', 'kimi', ['@kimi'])],
+        roster: {
+          opus: { family: 'ragdoll', roles: ['architect'], lead: true, available: true, evaluation: 'active' },
+          kimi: { family: 'moonshot', roles: ['writer'], lead: false, available: true, evaluation: 'active' },
+        },
+        reviewPolicy: {
+          requireDifferentFamily: true,
+          preferActiveInThread: true,
+          preferLead: true,
+          excludeUnavailable: true,
+        },
+      }),
+    );
+    const runtimeDir = join(projectDir, '.cat-cafe');
+    mkdirSync(runtimeDir, { recursive: true });
+    writeFileSync(
+      join(runtimeDir, 'cat-catalog.json'),
+      JSON.stringify({
+        version: 2,
+        breeds: [makeBreed('kimi-v2', 'kimi', ['@kimi'])],
+        roster: {
+          kimi: { family: 'moonshot', roles: ['writer'], lead: false, available: true, evaluation: 'active' },
+        },
+        reviewPolicy: {
+          requireDifferentFamily: true,
+          preferActiveInThread: true,
+          preferLead: true,
+          excludeUnavailable: true,
+        },
+      }),
+    );
+
+    const saved = process.env.CAT_TEMPLATE_PATH;
+    process.env.CAT_TEMPLATE_PATH = templatePath;
+    _resetCachedConfig();
+    try {
+      const config = loadCatConfig();
+      // Catalog breed kimi-v2 survives (moonshot filtered out since its id not in catalog)
+      assert.equal(config.breeds.length, 1, 'only catalog breed kimi-v2 should survive');
+      assert.equal(config.breeds[0].id, 'kimi-v2');
+      // Roster entry for "kimi" must survive — catalog breed kimi-v2 uses catId "kimi"
+      const rosterKeys = Object.keys(config.roster);
+      assert.ok(rosterKeys.includes('kimi'), 'roster.kimi must survive when catalog breed uses that catId');
+      assert.ok(!rosterKeys.includes('opus'), 'template-only opus must be pruned from roster');
+      // toAllCatConfigs should work without duplicate errors
+      const allConfigs = toAllCatConfigs(config);
+      const catIds = Object.keys(allConfigs);
+      assert.ok(catIds.includes('kimi'), 'kimi should appear in resolved configs');
+      assert.ok(!catIds.includes('opus'), 'opus should not appear (template-only)');
+    } finally {
+      if (saved === undefined) delete process.env.CAT_TEMPLATE_PATH;
+      else process.env.CAT_TEMPLATE_PATH = saved;
+      _resetCachedConfig();
+    }
+  });
+
   it('getAcpConfig does not return ACP from template-only breed', () => {
     const templateBreeds = [
       {
