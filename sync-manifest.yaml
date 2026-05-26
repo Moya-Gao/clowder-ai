@@ -100,6 +100,7 @@ managed_scripts:
   - scripts/check-skills-mount.sh
   - scripts/check-skills-manifest.mjs
   - scripts/check-followup-tails.mjs
+  - scripts/check-scripts-ascii-only.mjs
   - scripts/gen-guide-catalog.mjs
   - scripts/gen-env-reference.mjs
   - scripts/generate-feature-index.mjs
@@ -127,17 +128,52 @@ managed_scripts:
   - scripts/thread-exports-sync.sh
   - scripts/export-threads-from-redis.mjs
   - scripts/thread-exports-autosave.sh
-  - scripts/qwen3-asr-server.sh
-  - scripts/qwen3-asr-api.py
-  - scripts/whisper-server.sh
-  - scripts/whisper-api.py
-  - scripts/tts-server.sh
-  - scripts/tts-api.py
-  - scripts/llm-postprocess-server.sh
-  - scripts/llm-postprocess-api.py
-  - scripts/embed-server.sh
-  - scripts/embed-server.ps1
-  - scripts/embed-api.py
+  - scripts/services/audio-capture-install.ps1
+  - scripts/services/audio-capture-install.sh
+  - scripts/services/audio-capture-server.ps1
+  - scripts/services/audio-capture-server.sh
+  - scripts/services/audio-capture-uninstall.ps1
+  - scripts/services/audio-capture-uninstall.sh
+  - scripts/services/embed-api.py
+  - scripts/services/embed-install.ps1
+  - scripts/services/embed-install.sh
+  - scripts/services/embed-server.ps1
+  - scripts/services/embed-server.sh
+  - scripts/services/embed-uninstall.ps1
+  - scripts/services/embed-uninstall.sh
+  - scripts/services/install-python.ps1
+  - scripts/services/install-python.sh
+  - scripts/services/install-template.sh
+  - scripts/services/llm-postprocess-api.py
+  - scripts/services/llm-postprocess-install.ps1
+  - scripts/services/llm-postprocess-install.sh
+  - scripts/services/llm-postprocess-server.ps1
+  - scripts/services/llm-postprocess-server.sh
+  - scripts/services/llm-postprocess-uninstall.ps1
+  - scripts/services/llm-postprocess-uninstall.sh
+  - scripts/services/prereq-check.ps1
+  - scripts/services/prereq-check.sh
+  - scripts/services/proxy-env.ps1
+  - scripts/services/proxy-env.sh
+  - scripts/services/python-resolve.ps1
+  - scripts/services/python-resolve.sh
+  - scripts/services/qwen3-asr-api.py
+  - scripts/services/qwen3-asr-server.sh
+  - scripts/services/recommendation-matrix.yaml
+  - scripts/services/tts-api.py
+  - scripts/services/tts-install.ps1
+  - scripts/services/tts-install.sh
+  - scripts/services/tts-server.ps1
+  - scripts/services/tts-server.sh
+  - scripts/services/tts-uninstall.ps1
+  - scripts/services/tts-uninstall.sh
+  - scripts/services/whisper-api.py
+  - scripts/services/whisper-install.ps1
+  - scripts/services/whisper-install.sh
+  - scripts/services/whisper-server.ps1
+  - scripts/services/whisper-server.sh
+  - scripts/services/whisper-uninstall.ps1
+  - scripts/services/whisper-uninstall.sh
   # 安装向导
   - scripts/install.sh
   - scripts/setup.sh

@@ -101,6 +101,10 @@ Optional voice features may require:
 
 If voice is not configured, Clowder AI still runs normally in text mode.
 
+### Memory Embedding
+
+To enable local semantic rerank for the memory system, install the **Embedding** service from Console settings. The service lifecycle installer prepares the platform-specific runtime and only starts the sidecar when Console records it as installed and enabled.
+
 ### Messaging / IM
 
 Optional chat platform integrations may require additional credentials:

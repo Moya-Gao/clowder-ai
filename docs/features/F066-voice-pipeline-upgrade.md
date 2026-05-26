@@ -186,7 +186,7 @@ TTS 服务可能因瞬时不可用（OOM / 模型重载 / 请求竞争）导致�
 | 风险 | 影响 | 缓解 |
 |------|------|------|
 | Kokoro-82M 中文质量不如 edge-tts | 用户体验倒退 | Phase 1 做 A/B 对比试听；不满意可快速切 Spark-TTS |
-| mlx-audio 在特定 macOS 版本有兼容问题 | 服务无法启动 | tts-server.sh 做依赖检查 + fallback 到 edge-tts |
+| mlx-audio 在特定 macOS 版本有兼容问题 | 服务无法启动 | scripts/services/tts-server.sh 做依赖检查 + fallback 到 edge-tts |
 | 流式分句对中文分词不准 | 断句不自然 | 用 Intl.Segmenter + 中文标点硬断点双重保障 |
 | Phase 3 播放队列复杂度高 | 开发周期长 | 先只做 queue 行为，interrupt/replace 延后 |
 
