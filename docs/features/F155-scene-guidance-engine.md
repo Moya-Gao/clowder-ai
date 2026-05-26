@@ -11,7 +11,9 @@ intake_issue: "cat-cafe#1294"
 
 # F155: Scene-Based Guidance Engine — 场景式交互引导
 
-> **Status**: in-progress (Phase A merged in cat-cafe main via PR #1122; Phase B selective intake merged in cat-cafe main via PR #1147; guided-scenarios selective intake merged in cat-cafe main via PR #1296) | **Source**: Community (mindfn) | **Priority**: P1 | **Owner**: 缅因猫/gpt52
+> **Status**: phase-a-done (Phase A fully merged; Phase B selective intake merged; Phase B architecture refactoring + product expansion **not started, needs owner**) | **Source**: Community (mindfn) | **Priority**: P1 | **Owner**: ~~缅因猫/gpt52~~ **NEEDS-OWNER**
+>
+> **Audit 2026-05-26**：Phase A（10 项）+ Phase B selective intake（5 项）全部 merged 到 cat-cafe main。Phase B 架构重构（6 项）+ 产品扩展（3 项）全部未启动，无 owner、无排期。AC 从未正式定义（仍为 TBD）。社区 issue clowder-ai#409 已关闭。
 
 ## Why
 
