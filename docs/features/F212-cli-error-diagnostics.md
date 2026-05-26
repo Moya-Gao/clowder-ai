@@ -183,13 +183,22 @@ created: 2026-05-25
 
 ## Open Questions
 
+> **OQ 状态回填 2026-05-26**: 砚砚立项时（thread msg `0001779763858874-000118-afa69a71`, 2026-05-25 19:50）在 A2A 给了详细 5 条 review 意见（已固化 KD-1/KD-2/KD-3 的"收敛决策"侧），下面把那些意见对应映射到 OQ-1..5 的 accept/defer 状态。新 thread 的 F212 author 拿到这个表可直接进 writing-plans 不需重 ping 砚砚（除非有新发现）。
+
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | Sanitizer regex 是否复用 F153 `TelemetryRedactor` 还是独立维护？倾向独立 util `packages/api/src/utils/sanitize-cli-stderr.ts`（避免循环依赖），但 regex 来源 align 到 F153 | ⬜ 砚砚 review |
-| OQ-2 | `LOG_CLI_STDERR=1` 启用时，log 内容也要走 sanitizer 吗？倾向走（防止内部记录泄露） | ⬜ 砚砚 review |
-| OQ-3 | `safeExcerpt` 字符上限 1500 还是按行（5-8 行）？倾向"行优先 + 1500 上限保底" | ⬜ 砚砚 review |
-| OQ-4 | Stream error event 的 schema 和 stderr classifier 是否共享 regex？倾向共享 regex 但分别接入 | ⬜ 砚砚 review |
-| OQ-5 | 前端 `reasonCode` → icon / 色板 映射要不要先发铲屎官审 wireframe？倾向**前端展示 = UX 改动**，要 Design Gate UX 确认 | ⬜ Design Gate 时确认 |
+| OQ-1 | Sanitizer regex 是否复用 F153 `TelemetryRedactor` 还是独立维护？倾向独立 util `packages/api/src/utils/sanitize-cli-stderr.ts`（避免循环依赖），但 regex 来源 align 到 F153 | ✅ **accept (独立 util + regex 来源 align F153)** — 砚砚 review 列了 11 类 sanitizer 黑名单（ANSI/OSC 控制序列、NFKC normalize、HOME/project/tmp/Windows path redaction、JWT、PEM/private key block、URL query 全量或敏感键 redaction、cookie/session/callbackToken、GitHub/npm/Anthropic/OpenAI/Gemini common tokens、generic high-entropy secret）。F153 `TelemetryRedactor` Class A 凭证类 regex 提取到 shared `secret-patterns.ts` util，让 F212 sanitizer + F153 都 import，避免循环依赖。 |
+| OQ-2 | `LOG_CLI_STDERR=1` 启用时，log 内容也要走 sanitizer 吗？倾向走（防止内部记录泄露） | ✅ **accept (启用时也走 sanitizer)** — 砚砚 review 隐含同意（"先对完整 stderr sanitize 再截断"作为通用原则）。log channel 是 service-internal 但仍可能持久化到日志系统，走同一 sanitizer 保护一致性。F213 反思胶囊教训：可观测路径泄露风险跟用户面板等同关注。 |
+| OQ-3 | `safeExcerpt` 字符上限 1500 还是按行（5-8 行）？倾向"行优先 + 1500 上限保底" | ✅ **accept (行优先 + 1500 chars 上限保底 + unknown 不展示 excerpt)** — 砚砚原话："对 public excerpt：最多 5-8 行或 1500 chars，且只展示 classifier 抽出来的相关行。unknown 不展示。" 新 thread 实施时：safeExcerpt 字段仅在 `reasonCode !== undefined` 时填，跟"白名单准入"原则一致 |
+| OQ-4 | Stream error event 的 schema 和 stderr classifier 是否共享 regex？倾向共享 regex 但分别接入 | ✅ **accept (共享 regex pattern lib + 双 entry-point)** — 砚砚原话："classifier 要覆盖 stderr + Codex recent stream errors。很多 Codex code 1 的真实语义在 stream error 里，不一定在 stderr。" 共享 regex pattern lib (`packages/api/src/utils/cli-error-patterns.ts` 或类似)，stderr classifier 和 stream-error classifier 各自 import + 各自 entry-point（同 reasonCode 输出）。 |
+| OQ-5 | 前端 `reasonCode` → icon / 色板 映射要不要先发铲屎官审 wireframe？倾向**前端展示 = UX 改动**，要 Design Gate UX 确认 | ⬜ **defer 到新 thread Design Gate UX** — 砚砚 review 提到"前端用 `extra.cliDiagnostics` 渲染一个类似 `TimeoutDiagnosticsPanel` 的折叠面板"——意味着**复用现有组件 + reasonCode→icon/色板映射**，不需要从零审 wireframe。新 thread Phase B 启动时拍一张 `TimeoutDiagnosticsPanel` 现状截图 + 把 8 类 reasonCode 写一张映射表（auth → 🔑 / network → 🌐 / quota → ⏱ 等）给铲屎官 5 分钟过一遍即可，不算从零 Design Gate |
+
+> **新 thread onboarding checklist**：
+> 1. 读本 spec + F213 反思胶囊 `docs/reflections/2026-05-26-f213-stale-mcp-config-cleanup-capsule.md` 的 2 条核心教训（5 轮 P1 同方向 = 坐标系信号 / Reframe 前查 ADR）
+> 2. OQ-1..5 状态已回填，**不需要重新 ping 砚砚 review spec**（除非新发现）
+> 3. Phase A 开始：worktree → writing-plans → tdd
+> 4. OQ-5 wireframe 在 Phase B 启动时再单独 ping 铲屎官
+> 5. F213 反思胶囊的 trigger missed 参考但本 feat 不重复同坑：先 grep ADR-* 找架构 anchor (`grep -r 'ADR-' docs/decisions/ docs/features/`)
 
 ## Key Decisions
 
