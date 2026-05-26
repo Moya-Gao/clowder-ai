@@ -227,17 +227,6 @@ class ServiceManager {
       }
     }
 
-    // Copy cat-config.json (legacy bootstrap source). Optional — if missing
-    // the loader falls back to cat-template.json.
-    const legacyConfigSrc = path.join(this.root, 'cat-config.json');
-    const legacyConfigDst = path.join(projectDir, 'cat-config.json');
-    if (fs.existsSync(legacyConfigSrc) && !fs.existsSync(legacyConfigDst)) {
-      try {
-        fs.copyFileSync(legacyConfigSrc, legacyConfigDst);
-      } catch (err) {
-        log(`Warning: failed to copy cat-config.json: ${err.message}`);
-      }
-    }
   }
 
   _getOrCreateTelemetrySalt(userDataDir) {

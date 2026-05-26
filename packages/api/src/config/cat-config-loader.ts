@@ -323,7 +323,20 @@ export function loadCatConfig(filePath?: string): CatCafeConfig {
       const baseRaw = readTemplate(templatePath);
       const baseJson = JSON.parse(baseRaw) as Record<string, unknown>;
       const catalogJson = JSON.parse(catalogRaw) as Record<string, unknown>;
-      raw = JSON.stringify(deepMergeConfig(baseJson, catalogJson));
+      const merged = deepMergeConfig(baseJson, catalogJson);
+
+      // #772: Template-only breeds must not leak into runtime.
+      // mergeById() preserves base-only items for forward-compat, but for breeds
+      // that means template menu entries appear as real runtime cats. When a
+      // runtime catalog exists, only breeds present in the catalog are runtime
+      // members — template breeds are menu/default-form data only.
+      const catalogBreeds = Array.isArray(catalogJson.breeds) ? (catalogJson.breeds as HasId[]) : [];
+      if (catalogBreeds.length > 0 && Array.isArray(merged.breeds)) {
+        const catalogBreedIds = new Set(catalogBreeds.map((b) => b.id));
+        merged.breeds = (merged.breeds as HasId[]).filter((b) => catalogBreedIds.has(b.id));
+      }
+
+      raw = JSON.stringify(merged);
       resolvedPath = resolveCatCatalogPath(projectRoot);
     } else {
       raw = readTemplate(templatePath);
