@@ -173,7 +173,6 @@ import {
   projectsBootstrapRoutes,
   projectsRoutes,
   proposalRoutes,
-  providerProfilesRoutes,
   pushRoutes,
   queueRoutes,
   quotaRoutes,
