@@ -12,7 +12,6 @@ import { HubObservabilityTab } from '../HubObservabilityTab';
 import { HubRoutingPolicyTab } from '../HubRoutingPolicyTab';
 import { HubToolUsageTab } from '../HubToolUsageTab';
 import { DEFAULT_OPS_SUBSECTION, OPS_SUBSECTIONS } from './ops-nav-config';
-import { SettingsFilterTabs } from './primitives';
 
 const OPS_TABS = OPS_SUBSECTIONS.map((s) => ({ key: s.id, label: s.label }));
 
@@ -20,9 +19,9 @@ export function OpsContent() {
   const searchParams = useSearchParams();
   const opsParam = searchParams.get('ops');
   const obsRaw = searchParams.get('obs');
-  const OBS_VALID: ReadonlySet<string> = new Set(['overview', 'traces', 'health', 'callback-auth']);
+  const OBS_VALID: ReadonlySet<string> = new Set(['overview', 'traces', 'health', 'callback-auth', 'eval']);
   const obsParam =
-    obsRaw && OBS_VALID.has(obsRaw) ? (obsRaw as 'overview' | 'traces' | 'health' | 'callback-auth') : null;
+    obsRaw && OBS_VALID.has(obsRaw) ? (obsRaw as 'overview' | 'traces' | 'health' | 'callback-auth' | 'eval') : null;
   const validOpsParam = useMemo(
     () => (opsParam && OPS_SUBSECTIONS.some((s) => s.id === opsParam) ? opsParam : null),
     [opsParam],
@@ -39,9 +38,25 @@ export function OpsContent() {
 
   return (
     <div>
-      <div className="mb-5">
-        <SettingsFilterTabs tabs={OPS_TABS} activeKey={activeTab} onTabChange={setActiveTab} />
-      </div>
+      <nav className="flex console-divider-b mb-5">
+        {OPS_TABS.map((tab) => {
+          const isActive = tab.key === activeTab;
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setActiveTab(tab.key)}
+              className={`inline-flex items-center px-5 py-2.5 text-sm font-semibold transition-colors ${
+                isActive
+                  ? 'border-b-2 border-[var(--console-button-emphasis)] text-[var(--console-button-emphasis)]'
+                  : 'text-cafe-muted hover:text-cafe-secondary'
+              }`}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </nav>
       <OpsSubsectionContent subsection={activeTab} obsSubTab={obsParam} nonce={nonce} />
     </div>
   );
@@ -53,7 +68,7 @@ function OpsSubsectionContent({
   nonce,
 }: {
   subsection: string;
-  obsSubTab?: 'overview' | 'traces' | 'health' | 'callback-auth' | null;
+  obsSubTab?: 'overview' | 'traces' | 'health' | 'callback-auth' | 'eval' | null;
   nonce: number;
 }) {
   switch (subsection) {

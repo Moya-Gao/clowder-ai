@@ -84,6 +84,27 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
     assert.equal(capacityErrors.length, 0, 'capacity error should stay hidden when retry succeeds');
     assert.equal(bridge.resetSession.mock.callCount(), 1, 'should reset the poisoned cascade before retry');
     assert.equal(bridge.sendMessage.mock.callCount(), 2, 'should resend the prompt after capacity retry');
+    const firstPrompt = bridge.sendMessage.mock.calls[0].arguments[1];
+    const retryPrompt = bridge.sendMessage.mock.calls[1].arguments[1];
+    assert.equal(firstPrompt, 'hello', 'initial send must not inject continuity before rotation');
+    assert.ok(
+      retryPrompt.startsWith('<cat-cafe-control-block type="antigravity-continuity-bootstrap" version="1">'),
+      'capacity retry must prepend continuity to the first prompt in the fresh cascade',
+    );
+    assert.equal((retryPrompt.match(/cat-cafe-control-block/g) ?? []).length, 2, 'retry prompt gets one wrapper');
+    assert.match(retryPrompt, /Reason: model_capacity/);
+    assert.match(retryPrompt, /Previous runtime session: cascade-1/);
+    assert.match(retryPrompt, /Current runtime session: cascade-2/);
+    assert.match(retryPrompt, /\n\n---\n\nhello$/);
+    const sessionInits = messages.filter((m) => m.type === 'session_init');
+    assert.equal(sessionInits.length, 2, 'capacity retry should emit the fresh cascade lifecycle');
+    assert.deepEqual(sessionInits[1].sessionLifecycle, {
+      runtime: 'antigravity-desktop',
+      runtimeSessionId: 'cascade-2',
+      previousRuntimeSessionId: 'cascade-1',
+      sealReason: 'model_capacity',
+      drainResult: 'complete',
+    });
   });
 
   test('quota-style model_capacity wording retries on a fresh cascade and preserves callback fallback prompt', async () => {
@@ -2487,6 +2508,15 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
     const warnings = messages.filter((m) => m.type === 'provider_signal');
     assert.ok(warnings.length >= 1, 'should yield retry warning');
     assert.match(warnings.at(-1).content, /连接中断/, 'retry signal should say 连接中断 for stream_interrupted');
+    const sessionInits = messages.filter((m) => m.type === 'session_init');
+    assert.equal(sessionInits.length, 2, 'stream_error retry should emit the fresh cascade lifecycle');
+    assert.deepEqual(sessionInits[1].sessionLifecycle, {
+      runtime: 'antigravity-desktop',
+      runtimeSessionId: 'cascade-stream-2',
+      previousRuntimeSessionId: 'cascade-stream-1',
+      sealReason: 'stream_error',
+      drainResult: 'complete',
+    });
   });
 
   test('F201 Phase C: stream_error after CODE_ACTION surfaces resumable recovery context', async () => {
@@ -2522,6 +2552,11 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
     const streamError = messages.find((m) => m.type === 'error' && m.errorCode === 'stream_error');
     assert.ok(streamError, 'post-side-effect stream_error must surface instead of blind retry');
     assert.equal(bridge.resetSession.mock.callCount(), 0, 'must not retry a cascade after file writes');
+    assert.deepEqual(streamError.sessionLifecycle, {
+      runtime: 'antigravity-desktop',
+      runtimeSessionId: 'test-cascade-001',
+      sealReason: 'unsafe_side_effect',
+    });
     assert.deepEqual(streamError.metadata?.diagnostics?.recoveryDecision, {
       action: 'surface_resumable_error',
       reason: 'post_side_effect_interrupted',
@@ -2693,6 +2728,15 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
       ),
       'fresh cascade result should be delivered',
     );
+    const sessionInits = messages.filter((msg) => msg.type === 'session_init');
+    assert.equal(sessionInits.length, 2, 'empty_response retry should emit the fresh cascade lifecycle');
+    assert.deepEqual(sessionInits[1].sessionLifecycle, {
+      runtime: 'antigravity-desktop',
+      runtimeSessionId: 'cascade-acg6-empty-2',
+      previousRuntimeSessionId: 'cascade-acg6-empty-1',
+      sealReason: 'empty_response',
+      drainResult: 'complete',
+    });
 
     const resumedPrompt = bridge.sendMessage.mock.calls[1].arguments[1];
     assert.match(resumedPrompt, /Cat Cafe Antigravity safe auto-resume/);
@@ -3626,6 +3670,117 @@ describe('AntigravityAgentService (Bridge) — fatal errors', () => {
     assert.equal(record.journalSummarySnapshot.entries.length, 1);
     assert.equal(record.journalSummarySnapshot.entries[0].target, 'touch docs/f201-receipt-conflict.md');
     assert.equal(record.journalSummarySnapshot.entries[0].status, 'pending');
+  });
+
+  test('retries receipt conflict after native-dispatched read-only GitHub PR inspection', async () => {
+    const supervisorStore = new InMemoryAntigravitySupervisorStore();
+    const bridge = createMockBridge();
+    bridge.nativeExecuteAndPush = mock.fn(async (step) => step.type === 'CORTEX_STEP_TYPE_RUN_COMMAND');
+    let sessionIndex = 0;
+    bridge.getOrCreateSession = async () => ['cascade-readonly-gh-1', 'cascade-readonly-gh-2'][sessionIndex++];
+    bridge.pollForSteps = async function* (cascadeId) {
+      if (cascadeId === 'cascade-readonly-gh-1') {
+        yield {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_RUN_COMMAND',
+              status: 'CORTEX_STEP_STATUS_WAITING',
+              metadata: {
+                toolCall: {
+                  id: 'toolu_readonly_gh_pr_view',
+                  name: 'run_command',
+                  argumentsJson: JSON.stringify({
+                    CommandLine:
+                      'gh pr view 1863 --json title,body,state,headRefName,baseRefName,files,reviews,comments,additions,deletions,changedFiles',
+                    Cwd: '/tmp',
+                    SafeToAutoRun: true,
+                  }),
+                },
+                sourceTrajectoryStepInfo: {
+                  cascadeId: 'cascade-readonly-gh-1',
+                  trajectoryId: 'traj-readonly-gh-1',
+                  stepIndex: 1,
+                },
+              },
+            },
+          ],
+          cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: false, lastActivityAt: Date.now() },
+        };
+        yield {
+          steps: [
+            {
+              type: 'CORTEX_STEP_TYPE_ERROR_MESSAGE',
+              status: 'FINISHED',
+              errorMessage: {
+                error: {
+                  userErrorMessage: 'Error: 工具调用失败',
+                },
+              },
+            },
+          ],
+          cursor: { baselineStepCount: 1, lastDeliveredStepCount: 2, terminalSeen: true, lastActivityAt: Date.now() },
+        };
+        return;
+      }
+
+      yield {
+        steps: [
+          {
+            type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+            status: 'FINISHED',
+            plannerResponse: { response: 'Recovered after retry-safe GitHub PR read.' },
+          },
+        ],
+        cursor: { baselineStepCount: 0, lastDeliveredStepCount: 1, terminalSeen: true, lastActivityAt: Date.now() },
+      };
+    };
+
+    const service = new AntigravityAgentService({
+      catId: 'antigravity',
+      model: 'gemini-3.1-pro',
+      bridge,
+      supervisorStore,
+      modelCapacityRetryDelaysMs: [0],
+    });
+    const messages = await collect(
+      service.invoke('hello', {
+        auditContext: {
+          threadId: 'thread-readonly-gh-retry',
+          invocationId: 'inv-readonly-gh-retry',
+          userId: 'u1',
+          catId: 'antigravity',
+        },
+      }),
+    );
+
+    assert.equal(
+      bridge.nativeExecuteAndPush.mock.calls.filter(
+        (call) => call.arguments[0]?.metadata?.toolCall?.id === 'toolu_readonly_gh_pr_view',
+      ).length,
+      1,
+      'native executor should dispatch the original read-only gh command once',
+    );
+    assert.equal(bridge.resetSession.mock.callCount(), 1, 'read-only receipt conflict should retry a fresh cascade');
+    assert.deepEqual(
+      messages.filter((msg) => msg.type === 'text').map((msg) => msg.content),
+      ['Recovered after retry-safe GitHub PR read.'],
+    );
+    assert.equal(
+      messages.some((msg) => msg.type === 'error' && msg.errorCode === 'upstream_error'),
+      false,
+      'retry-safe read-only receipt conflict should not surface the upstream tool failure',
+    );
+    assert.equal(
+      messages.some((msg) => msg.type === 'system_info' && msg.content?.includes('"antigravity_recovery"')),
+      false,
+      'retry-safe read-only receipt conflict should not create a resumable recovery card',
+    );
+
+    const record = await supervisorStore.get('inv-readonly-gh-retry', 'cascade-readonly-gh-1');
+    assert.ok(record, 'native read dispatch may keep liveness evidence');
+    assert.notEqual(record.status, 'resumable', 'retry-safe read-only conflict should not persist manual recovery');
+    assert.notEqual(record.recoveryStrategy, 'manual_card', 'retry-safe read-only conflict should not create a card');
+    assert.equal(record.journalSummarySnapshot.entries.length, 0);
   });
 
   test('suppresses Antigravity assistant-prefill tail error after terminal text', async () => {

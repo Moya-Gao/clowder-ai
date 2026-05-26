@@ -1085,8 +1085,8 @@ export const ENV_VARS: EnvDefinition[] = [
   },
   {
     name: 'GEMINI_ADAPTER',
-    defaultValue: 'gemini-cli',
-    description: '暹罗猫适配器 (gemini-cli/antigravity-cli/antigravity)',
+    defaultValue: 'antigravity-cli',
+    description: '暹罗猫适配器 (antigravity-cli/gemini-cli/antigravity)',
     category: 'gemini',
     sensitive: false,
   },
@@ -1665,6 +1665,14 @@ export const ENV_VARS: EnvDefinition[] = [
     description: 'MCP Server 只读模式：跳过 post_message 等写操作工具注册（Antigravity 持久 MCP 用）',
     category: 'antigravity',
     sensitive: false,
+  },
+  {
+    name: 'CAT_CAFE_RUNTIME_SESSION_SEAL_REAPER_INTERVAL_MS',
+    defaultValue: '30000',
+    description: 'F211 runtime session pending seal reaper 轮询间隔（毫秒，启动时读取）',
+    category: 'antigravity',
+    sensitive: false,
+    runtimeEditable: false,
   },
   // --- audio (F195 会中实时智囊) ---
   {

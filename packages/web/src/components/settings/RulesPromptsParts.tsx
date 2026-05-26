@@ -250,7 +250,7 @@ export function L0PromptsSection({
             borderRadius: '0.75rem',
             backgroundColor: 'var(--console-panel-bg)',
             padding: '0.75rem',
-            fontSize: '0.75rem',
+            fontSize: 'var(--console-font-xs)',
             color: 'var(--cafe-text-muted)',
           }}
         >

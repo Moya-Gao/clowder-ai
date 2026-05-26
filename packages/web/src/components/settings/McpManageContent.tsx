@@ -22,6 +22,10 @@ interface ModalState {
   tools?: { name: string; description?: string }[];
 }
 
+const MCP_SKELETON_CARD_CLASS =
+  'animate-pulse h-[68px] rounded-xl bg-[var(--console-card-bg)] p-4 shadow-[0_8px_22px_rgba(43,33,26,0.04)]';
+const MCP_SKELETON_BAR_CLASS = 'rounded bg-[var(--console-border-soft)]';
+
 function buildEditData(item: CapabilityBoardItem): McpConfigModalProps['editData'] {
   const server = item.mcpServer;
   if (!server) return undefined;
@@ -89,23 +93,9 @@ export function McpManageContent() {
       {cap.loading && (
         <div className="space-y-3">
           {[1, 2, 3].map((index) => (
-            <div
-              key={index}
-              className="animate-pulse h-[68px]"
-              style={{
-                borderRadius: '0.75rem',
-                backgroundColor: 'var(--console-card-bg)',
-                padding: '1rem',
-              }}
-            >
-              <div
-                className="h-4 w-1/3"
-                style={{ borderRadius: '0.25rem', backgroundColor: 'var(--console-border-soft)' }}
-              />
-              <div
-                className="mt-2 h-3 w-2/3"
-                style={{ borderRadius: '0.25rem', backgroundColor: 'var(--console-border-soft)' }}
-              />
+            <div key={index} className={MCP_SKELETON_CARD_CLASS}>
+              <div className={`${MCP_SKELETON_BAR_CLASS} h-4 w-1/3`} />
+              <div className={`${MCP_SKELETON_BAR_CLASS} mt-2 h-3 w-2/3`} />
             </div>
           ))}
         </div>
@@ -134,9 +124,6 @@ export function McpManageContent() {
           return (
             <div key={item.id} className={settingsResourceCardClass}>
               <div className={settingsResourceRowClass}>
-                <span style={{ color: 'var(--cafe-text-muted)' }}>
-                  <HubIcon name="plug" className="h-[18px] w-[18px] shrink-0" />
-                </span>
                 <button
                   type="button"
                   onClick={() => handleCardClick(item)}
@@ -172,6 +159,7 @@ export function McpManageContent() {
                       onClick={() => setExpandedId(expanded ? null : item.id)}
                       title="按猫开关"
                       aria-label="按猫开关"
+                      className={expanded ? 'bg-[var(--console-hover-bg)] text-cafe-accent' : undefined}
                     >
                       <HubIcon name="users" className="h-4 w-4" />
                     </SettingsResourceIconButton>
@@ -181,12 +169,12 @@ export function McpManageContent() {
                       disabled={removing}
                       onClick={(event) => {
                         event.stopPropagation();
-                        if (window.confirm(`确认禁用 MCP "${item.id}"？配置会保留，可稍后重新启用。`)) {
+                        if (window.confirm(`确认卸载 MCP "${item.id}"？配置将被移除，不可撤销。`)) {
                           cap.handleRemoveMcp(item);
                         }
                       }}
-                      title="禁用此 MCP"
-                      aria-label="禁用此 MCP"
+                      title="卸载此 MCP"
+                      aria-label="卸载此 MCP"
                       tone="danger"
                     >
                       <HubIcon name="trash" className="h-4 w-4" />

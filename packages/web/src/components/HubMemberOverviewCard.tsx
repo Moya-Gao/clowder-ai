@@ -2,9 +2,10 @@ import type { DragEvent as ReactDragEvent } from 'react';
 import type { CatData } from '@/hooks/useCatData';
 import { AvatarImageWithFallback } from './AvatarImageWithFallback';
 import type { CatConfig, CoCreatorConfig } from './config-viewer-types';
+import { HubIcon } from './hub-icons';
+import { SettingsResourceIconButton, SettingsResourceToggleSwitch } from './SettingsResourceCard';
 import {
   SettingsBadge,
-  SettingsDeleteButton,
   SettingsFilterTabs,
   SettingsPrimaryButton,
   SettingsRow,
@@ -99,8 +100,8 @@ function OwnerAvatar({ coCreator }: { coCreator: CoCreatorConfig }) {
   const avatarSrc = safeAvatarSrc(coCreator.avatar);
   return (
     <div
-      className="flex h-8 w-8 items-center justify-center overflow-hidden"
-      style={{ backgroundColor: primary, color: '#fff', fontSize: '0.75rem', fontWeight: 700, borderRadius: '9999px' }}
+      className="flex h-8 w-8 items-center justify-center overflow-hidden text-xs font-bold"
+      style={{ backgroundColor: primary, color: '#fff', borderRadius: '9999px' }}
     >
       {avatarSrc ? (
         <AvatarImageWithFallback
@@ -186,16 +187,16 @@ function AvailabilityToggle({
   if (!onToggle) return null;
   const label = enabled ? '停用成员' : '启用成员';
   return (
-    <SettingsBadge
-      as="button"
-      tone={enabled ? 'red' : 'emerald'}
-      onClick={() => onToggle(cat)}
-      disabled={busy}
+    <SettingsResourceToggleSwitch
+      enabled={enabled}
+      busy={busy}
+      onClick={(e) => {
+        e.stopPropagation();
+        onToggle(cat);
+      }}
       title={`${label}：${cat.displayName}`}
-      aria-label={`${label}：${cat.displayName}`}
-    >
-      {busy ? '切换中...' : label}
-    </SettingsBadge>
+      ariaLabel={`${label}：${cat.displayName}`}
+    />
   );
 }
 
@@ -270,12 +271,7 @@ export function HubMemberOverviewCard({
       isDragging={isDragging}
       dragHandle={
         draggable ? (
-          <span
-            aria-hidden="true"
-            title="拖动排序"
-            className="select-none leading-none"
-            style={{ fontSize: '1.125rem' }}
-          >
+          <span aria-hidden="true" title="拖动排序" className="select-none leading-none text-lg">
             ⠿
           </span>
         ) : undefined
@@ -291,7 +287,19 @@ export function HubMemberOverviewCard({
             onToggle={onToggleAvailability}
             busy={togglingAvailability}
           />
-          {onDelete && <SettingsDeleteButton onClick={() => onDelete(cat)} aria-label="删除成员" />}
+          {onDelete && (
+            <SettingsResourceIconButton
+              tone="danger"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(cat);
+              }}
+              title="删除成员"
+              aria-label="删除成员"
+            >
+              <HubIcon name="trash" className="h-3.5 w-3.5" />
+            </SettingsResourceIconButton>
+          )}
         </>
       }
       tone={status.enabled ? 'active' : 'inactive'}

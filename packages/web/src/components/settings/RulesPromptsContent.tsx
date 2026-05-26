@@ -151,7 +151,7 @@ function RulePreviewModal({ label, file, onClose }: { label: string; file: RuleF
             style={{
               borderRadius: '0.75rem',
               backgroundColor: 'var(--console-active-bg)',
-              fontSize: '1.125rem',
+              fontSize: 'var(--console-font-lg)',
               color: 'var(--console-modal-title)',
             }}
           >
@@ -162,8 +162,8 @@ function RulePreviewModal({ label, file, onClose }: { label: string; file: RuleF
               as="h2"
               variant="base"
               tone="default"
-              className="font-extrabold"
-              style={{ fontSize: '1.25rem' }}
+              className="font-bold"
+              style={{ fontSize: 'var(--console-font-xl)' }}
             >
               {label}
             </SettingsText>
@@ -178,7 +178,7 @@ function RulePreviewModal({ label, file, onClose }: { label: string; file: RuleF
             className="flex h-8 w-8 shrink-0 items-center justify-center transition"
             style={{
               borderRadius: '0.75rem',
-              fontSize: '1rem',
+              fontSize: 'var(--console-font-base)',
               color: 'var(--cafe-text-muted)',
             }}
           >
@@ -192,7 +192,7 @@ function RulePreviewModal({ label, file, onClose }: { label: string; file: RuleF
         >
           <pre
             className="max-h-[50vh] overflow-auto whitespace-pre-wrap break-words font-mono leading-6"
-            style={{ fontSize: '0.75rem', color: 'var(--cafe-text-secondary)' }}
+            style={{ fontSize: 'var(--console-font-xs)', color: 'var(--cafe-text-secondary)' }}
           >
             {file.content}
           </pre>

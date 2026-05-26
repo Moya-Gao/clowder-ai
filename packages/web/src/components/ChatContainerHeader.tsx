@@ -1,12 +1,11 @@
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { useVoiceServicesAvailable } from '@/hooks/useVoiceServicesAvailable';
+import { useEffect, useRef, useState } from 'react';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
+import { ChatVoiceFeatureControls } from './ChatVoiceFeatureControls';
 import { ExportButton } from './ExportButton';
 import { CatCafeLogo } from './icons/CatCafeLogo';
 import { ThreadCatPill } from './ThreadCatPill';
-import { VoiceCompanionButton } from './VoiceCompanionButton';
 
 interface ChatContainerHeaderProps {
   sidebarOpen: boolean;
@@ -37,8 +36,6 @@ export function ChatContainerHeader({
   onToggleStatusPanel,
   defaultCatId,
 }: ChatContainerHeaderProps) {
-  const voiceAvailable = useVoiceServicesAvailable();
-
   return (
     <header className="safe-area-top">
       <div className="px-5 py-3 flex items-center gap-2">
@@ -70,12 +67,7 @@ export function ChatContainerHeader({
           </div>
         </div>
         <ExportButton threadId={threadId} />
-        {voiceAvailable && (
-          <>
-            <VoiceCompanionButton threadId={threadId} defaultCatId={defaultCatId} />
-            <LiveAudioToggle />
-          </>
-        )}
+        <ChatVoiceFeatureControls threadId={threadId} defaultCatId={defaultCatId} />
         {authPendingCount > 0 && (
           <span
             className="inline-flex items-center justify-center h-5 min-w-[20px] px-1 rounded-full bg-conn-amber-bg text-conn-amber-text text-micro font-bold animate-pulse-subtle"
@@ -119,7 +111,7 @@ function DaemonActiveIndicator({ threadId }: { threadId: string }) {
         const res = await apiFetch(`/api/threads/${threadId}/active-pane`);
         if (cancelled) return;
         if (res.ok) {
-          const body = (await res.json()) as { daemonShortId?: string };
+          const body = (await res.json()) as { active?: boolean; daemonShortId?: string };
           setDaemonShortId(body.daemonShortId ?? null);
         } else {
           setDaemonShortId(null);
@@ -165,13 +157,28 @@ export function ThreadIndicator({ threadId }: { threadId: string }) {
   const threads = useChatStore((s) => s.threads);
   const currentThread = threads.find((t) => t.id === threadId);
   const [copied, setCopied] = useState(false);
+  const copyResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const title = currentThread?.title ?? '未命名对话';
+  const rawPath = currentThread?.projectPath ?? '';
+
+  useEffect(() => {
+    if (copyResetTimerRef.current) {
+      clearTimeout(copyResetTimerRef.current);
+      copyResetTimerRef.current = null;
+    }
+    setCopied(false);
+  }, [threadId, rawPath]);
+
+  useEffect(() => {
+    return () => {
+      if (copyResetTimerRef.current) clearTimeout(copyResetTimerRef.current);
+    };
+  }, []);
 
   if (threadId === 'default') {
     return <p className="text-xs text-cafe-secondary">大厅 · Your AI team collaboration space</p>;
   }
 
-  const title = currentThread?.title ?? '未命名对话';
-  const rawPath = currentThread?.projectPath ?? '';
   // 'default' is a sentinel for threads without a real projectPath — match exact value, not basename
   const rawBasename = rawPath === 'default' ? '' : (rawPath.split(/[/\\]/).pop() ?? '');
   // Map known internal repo basenames to brand name; preserve real project paths for multi-workspace
@@ -180,6 +187,7 @@ export function ThreadIndicator({ threadId }: { threadId: string }) {
   const projectName = INTERNAL_BASENAMES.includes(rawBasename) && brandName ? brandName : rawBasename;
   const displayName = tailTruncate(projectName);
   const copyPath = rawPath === 'default' ? '' : rawPath;
+  const projectChipLabel = copied ? 'copied!' : displayName;
 
   const handleCopyPath = () => {
     if (!copyPath) return;
@@ -190,8 +198,12 @@ export function ThreadIndicator({ threadId }: { threadId: string }) {
       .then(() => cb.writeText(copyPath))
       .then(
         () => {
+          if (copyResetTimerRef.current) clearTimeout(copyResetTimerRef.current);
           setCopied(true);
-          setTimeout(() => setCopied(false), 1500);
+          copyResetTimerRef.current = setTimeout(() => {
+            setCopied(false);
+            copyResetTimerRef.current = null;
+          }, 1200);
         },
         () => {},
       );
@@ -205,7 +217,8 @@ export function ThreadIndicator({ threadId }: { threadId: string }) {
       {projectName && (
         <span
           className="flex-shrink-0 max-w-[40%] sm:max-w-[200px] overflow-hidden whitespace-nowrap text-cafe-muted cursor-pointer hover:text-cafe-secondary transition-colors"
-          title={copied ? '已复制!' : copyPath}
+          title={copied ? '已复制!' : `点击复制: ${copyPath}`}
+          aria-label={copied ? '已复制项目路径' : `点击复制项目路径: ${copyPath}`}
           onClick={handleCopyPath}
           onKeyDown={(e) => {
             if (PROJECT_PATH_COPY_KEYS.has(e.key)) {
@@ -217,7 +230,7 @@ export function ThreadIndicator({ threadId }: { threadId: string }) {
           tabIndex={0}
         >
           {' '}
-          · {displayName}
+          · {projectChipLabel}
         </span>
       )}
     </div>
@@ -247,35 +260,6 @@ export function rightPanelToggleTransition(
   }
 }
 
-/** F099: Unified right panel toggle — cycles closed → status → workspace → closed */
-function LiveAudioToggle() {
-  const rightPanelMode = useChatStore((s) => s.rightPanelMode);
-  const setRightPanelMode = useChatStore((s) => s.setRightPanelMode);
-  const isActive = rightPanelMode === 'transcript';
-
-  return (
-    <button
-      type="button"
-      onClick={() => setRightPanelMode(isActive ? 'status' : 'transcript')}
-      className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors hidden lg:flex ${
-        isActive
-          ? 'bg-conn-emerald-bg text-conn-emerald-text'
-          : 'bg-[var(--console-pill-bg)] text-cafe-secondary hover:opacity-80'
-      }`}
-      title={isActive ? 'Close transcript' : 'Live audio transcript'}
-      aria-label={isActive ? 'Close transcript' : 'Live audio transcript'}
-    >
-      <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-        <path
-          fillRule="evenodd"
-          d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z"
-          clipRule="evenodd"
-        />
-      </svg>
-    </button>
-  );
-}
-
 function RightPanelToggle({
   onToggleStatusPanel,
   statusPanelOpen,
@@ -299,12 +283,12 @@ function RightPanelToggle({
   return (
     <button
       onClick={handleClick}
-      className={`p-1 rounded-lg text-cafe-secondary hover:bg-[var(--console-hover-bg)] transition-colors ml-1 hidden lg:block ${
+      className={`p-1 rounded-lg transition-colors ml-1 hidden lg:block ${
         statusPanelOpen
           ? isWorkspace
             ? 'bg-[var(--cafe-accent)]/5 text-[var(--cafe-accent)]'
-            : 'bg-[var(--console-hover-bg)]'
-          : ''
+            : 'text-cafe-accent'
+          : 'text-cafe-secondary hover:text-cafe-accent'
       }`}
       aria-label={label}
       title={label}

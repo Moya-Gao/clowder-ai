@@ -1,8 +1,10 @@
 'use client';
 
+import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import { HubCallbackAuthPanel } from './HubCallbackAuthPanel';
+import { HubEvalTab } from './HubEvalTab';
 import { TraceBrowser } from './HubTraceTree';
 
 interface HealthData {
@@ -21,16 +23,17 @@ interface MetricsSnapshot {
   metrics: Record<string, number>;
 }
 
-type SubTab = 'overview' | 'traces' | 'health' | 'callback-auth';
+type SubTab = 'overview' | 'traces' | 'health' | 'callback-auth' | 'eval';
 
 const SUB_TAB_LABELS: Record<SubTab, string> = {
   overview: '总览',
   traces: 'Traces',
   health: '健康',
   'callback-auth': 'Callback Auth',
+  eval: 'Eval',
 };
 
-const SUB_TABS: SubTab[] = ['overview', 'traces', 'health', 'callback-auth'];
+const SUB_TABS: SubTab[] = ['overview', 'traces', 'health', 'callback-auth', 'eval'];
 
 export interface HubObservabilityTabProps {
   /** F174 D2b-3: open directly into a specific subtab (e.g. when D2b-1 详情 button navigates here). */
@@ -55,15 +58,17 @@ export function HubObservabilityTab({ initialSubTab = 'overview', subTabNonce }:
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2 border-b border-cafe-border pb-2" data-guide-id="observability.subtabs">
+      <div className="flex items-center gap-2" data-guide-id="observability.subtabs">
         {SUB_TABS.map((t) => (
           <button
             key={t}
             type="button"
             onClick={() => setSubTab(t)}
             data-guide-id={`observability.${t}`}
-            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-              subTab === t ? 'bg-conn-blue-bg text-blue-700' : 'text-cafe-secondary hover:bg-cafe-surface-elevated'
+            className={`px-3 py-1.5 text-xs transition-colors ${
+              subTab === t
+                ? 'border-b-2 border-[var(--console-button-emphasis)] font-semibold text-[var(--console-button-emphasis)]'
+                : 'font-medium text-cafe-muted hover:text-cafe-secondary'
             }`}
           >
             {SUB_TAB_LABELS[t]}
@@ -75,6 +80,7 @@ export function HubObservabilityTab({ initialSubTab = 'overview', subTabNonce }:
       {subTab === 'traces' && <TraceBrowser />}
       {subTab === 'health' && <HealthPanel />}
       {subTab === 'callback-auth' && <HubCallbackAuthPanel />}
+      {subTab === 'eval' && <HubEvalTab />}
     </div>
   );
 }
@@ -165,11 +171,13 @@ function TrendChart({
   const points = values.map((v, i) => `${i * step},${height - (v / max) * height}`).join(' ');
 
   return (
-    <div className="rounded-lg bg-cafe-surface-elevated p-3">
+    <div
+      className="rounded-lg bg-cafe-surface-elevated p-3"
+      style={{ '--dataviz-trend-line': '#5B9BD5' } as React.CSSProperties}
+    >
       <div className="mb-2 text-xs text-cafe-muted">{label}</div>
       <svg viewBox={`0 0 ${width} ${height}`} className="h-20 w-full" preserveAspectRatio="none">
-        {/* F206 exempt: data-viz chart stroke — fixed per visualization identity */}
-        <polyline points={points} fill="none" stroke="#5B9BD5" strokeWidth="2" />
+        <polyline points={points} fill="none" stroke="var(--dataviz-trend-line)" strokeWidth="2" />
       </svg>
     </div>
   );

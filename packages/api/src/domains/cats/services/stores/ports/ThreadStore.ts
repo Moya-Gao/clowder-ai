@@ -371,6 +371,12 @@ export interface IThreadStore {
   ): void | Promise<void>;
   /** F187: Update thread labels (replaces entire array). */
   updateLabels(threadId: string, labelIds: string[]): void | Promise<void>;
+  /**
+   * Ensure a thread with a specific ID exists. If it doesn't exist, create it
+   * with the given title and createdBy='system'. If it already exists, no-op.
+   * Returns the thread (existing or newly created).
+   */
+  ensureThread(threadId: string, title: string): Thread | Promise<Thread>;
   updateLastActive(threadId: string): void | Promise<void>;
   delete(threadId: string): boolean | Promise<boolean>;
   /** F128: List child threads that have this thread as parentThreadId. */
@@ -443,6 +449,26 @@ export class ThreadStore implements IThreadStore {
     };
 
     this.threads.set(thread.id, thread);
+    return thread;
+  }
+
+  ensureThread(threadId: string, title: string): Thread {
+    const existing = this.threads.get(threadId);
+    if (existing) return existing;
+
+    this.evictIfNeeded();
+
+    const now = Date.now();
+    const thread: Thread = {
+      id: threadId,
+      projectPath: 'default',
+      title,
+      createdBy: 'system',
+      participants: [],
+      lastActiveAt: now,
+      createdAt: now,
+    };
+    this.threads.set(threadId, thread);
     return thread;
   }
 

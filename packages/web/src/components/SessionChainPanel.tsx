@@ -2,12 +2,13 @@
 
 // biome-ignore lint/correctness/noUnusedImports: React needed for JSX in vitest environment
 import React, { useEffect, useState } from 'react';
-import { useCatData } from '@/hooks/useCatData';
+import { formatCatName, useCatData } from '@/hooks/useCatData';
 import type { CatInvocationInfo, ContextHealthData } from '@/stores/chat-types';
 import { apiFetch } from '@/utils/api-client';
 import { BindNewSessionSection } from './BindNewSessionSection';
 import { ContextHealthBar } from './ContextHealthBar';
 import { BindSessionInput, SessionIdTag } from './SessionChainInputs';
+import { settingsResourceCardClass } from './SettingsResourceCard';
 import { deriveSessionColors, type SessionColors } from './session-chain-colors';
 
 /** Minimal session record from API GET /api/threads/:id/sessions */
@@ -99,6 +100,11 @@ export function SessionChainPanel({ threadId, catInvocations, onViewSession }: S
     return deriveSessionColors(cat?.color?.primary, cat?.color?.secondary);
   };
 
+  const labelForCat = (catId: string): string => {
+    const cat = getCatById(catId);
+    return cat ? formatCatName(cat) : catId;
+  };
+
   // Data is stale when it belongs to a different thread than the one we're viewing
   const isStale = loadedThreadId !== threadId;
 
@@ -175,7 +181,7 @@ export function SessionChainPanel({ threadId, catInvocations, onViewSession }: S
   };
 
   return (
-    <section className="rounded-lg border border-[var(--console-border-soft)] bg-[var(--console-card-bg)] p-3">
+    <section className={`${settingsResourceCardClass} p-2.5`}>
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-xs font-semibold text-cafe-secondary">Session Chain</h3>
         <span className="text-micro text-cafe-muted">
@@ -228,8 +234,7 @@ export function SessionChainPanel({ threadId, catInvocations, onViewSession }: S
             <div
               data-testid="session-card-active"
               data-cat-id={session.catId}
-              className="rounded-md border-[1.5px] bg-[var(--console-card-bg)] p-2.5 shadow-sm"
-              style={{ borderColor: colors.border }}
+              className="console-list-card session-corner-arcs rounded-xl bg-[var(--console-card-bg)] p-2.5 shadow-[0_2px_8px_rgba(43,33,26,0.06)]"
             >
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-1.5">
@@ -242,7 +247,7 @@ export function SessionChainPanel({ threadId, catInvocations, onViewSession }: S
                   className="text-micro px-1.5 py-0.5 rounded-full font-medium"
                   style={{ backgroundColor: colors.badgeBg, color: colors.badgeText }}
                 >
-                  {session.catId}
+                  {labelForCat(session.catId)}
                 </span>
               </div>
               <div className="text-micro text-cafe-muted mb-1.5">
@@ -303,8 +308,7 @@ export function SessionChainPanel({ threadId, catInvocations, onViewSession }: S
                   key={session.id}
                   data-testid="session-card-sealed"
                   data-cat-id={session.catId}
-                  className="flex items-center gap-2 rounded border bg-[var(--console-card-bg)] px-2.5 py-1.5"
-                  style={{ borderColor: sealedColors.border }}
+                  className="console-list-card flex items-center gap-2 rounded-xl bg-[var(--console-card-bg)] px-2.5 py-1.5 shadow-[0_2px_8px_rgba(43,33,26,0.06)]"
                 >
                   <div
                     className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center ${
@@ -328,7 +332,7 @@ export function SessionChainPanel({ threadId, catInvocations, onViewSession }: S
                         className="text-micro px-1 py-0.5 rounded-full font-medium"
                         style={{ backgroundColor: sealedColors.badgeBg, color: sealedColors.badgeText }}
                       >
-                        {session.catId}
+                        {labelForCat(session.catId)}
                       </span>
                       <SessionIdTag id={session.cliSessionId ?? session.id} />
                     </div>

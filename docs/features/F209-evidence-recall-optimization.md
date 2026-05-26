@@ -1,6 +1,6 @@
 ---
 feature_ids: [F209]
-related_features: [F102, F188, F200, F192, F208]
+related_features: [F102, F188, F200, F192, F208, F211]
 topics: [memory, evidence-recall, passage-vector, entity-anchor, drill-down, perspective, eval]
 doc_kind: spec
 created: 2026-05-21
@@ -8,7 +8,7 @@ created: 2026-05-21
 
 # F209: Evidence Recall Optimization — 消息级语义、实体门牌号与活查询藤
 
-> **Status**: in-progress (Phase A ✅ merged PR #1842; Phase B ✅ merged PR #1846 + AC-B3 contract fix PR #1851; Phase C ✅ merged PR #1853 + file-slice dogfood hotfix PR #1854; AC-B6 waits F208 consumer integration) | **Owner**: Maine Coon/Maine Coon | **Priority**: P1
+> **Status**: in-progress (Phase A ✅ merged PR #1842; Phase B ✅ merged PR #1846 + AC-B3 contract fix PR #1851; Phase C ✅ merged PR #1853 + file-slice dogfood hotfix PR #1854; AC-B6 transferred to F208 AC-A5 — F209 不再阻塞 AC-B6; Phase B.1 minimal seed ✅ merged PR #1867; Phase D.0 readiness sprint ✅ completed, initially BLOCK then **UNBLOCK** after PR #1877 raw embedding reprobe + PR #1882 MCP default dimension fix + runtime restart; next F209 owner focus = Phase D product spike / Design Gate. Cross-line follow-ups are delegated below: F193 MCP topology cleanup, F200 recall@k wrapper, Phase C reader hardening.) | **Owner**: Maine Coon/Maine Coon | **Priority**: P1
 
 ## Why
 
@@ -25,7 +25,7 @@ F209 的目标是把 evidence-first recall 推到终态一层：**消息级语�
 
 ```markdown
 Architecture cell: memory
-Map delta: update required during Design Gate
+Map delta: updated
 Why: 本 feature 扩展 Memory / Evidence 的 retrieval grain（passage vector）、anchor 类型（entity）、drill-down reader 与 Perspective 视图边界。
 ```
 
@@ -52,6 +52,19 @@ F209 完整终态包含五层：
 - 不把 Perspective 的结果缓存成“事实”。
 - 不做用户操作的 Smart Folder UI（Perspective v1 是猫操作、CVO 可见，不是用户搜索入口）。
 - 不用 entity / facet 推断替代原文证据。
+
+## Phase Close Definition
+
+每个 Phase close 必须**同时满足**机制层和体感层两条标准：
+
+1. **机制 ship**：该 Phase 的 ACs 在代码 / 测试 / 跨族 review 层全部 ✅。
+2. **真实可感知闭环**：至少 1 个真实端到端 dogfood demo，证明该 Phase 的能力对真实用户 / 猫**可感知**。
+   - Phase A: 真实 raw `semantic`/`hybrid` query 找到一条**无字面命中**的旧消息。
+   - Phase B: 至少 seed 1 个真实实体（如 `person:landy`），搜别名能命中只提及别名的原消息。
+   - Phase C: 真实 `search_evidence → drillDown → typed reader` 端到端打开原文窗口闭环。
+   - Phase D: BLOCKED per Phase D.0 readiness report（见 `docs/decisions/2026-05-23-f209-d0-readiness.md`）。
+
+> **来源**：2026-05-23 F209 post-Phase-C dogfood 反思（47 / Maine Coon alignment + team lead指示）。Phase B alias registry 在生产里**机制 ship 但字典为空**、Phase C drillDown **post-merge 才被 author 真用一次抓到 file-slice bug** —— 都是"AC pass ≠ 用户感受到"的同型走偏。该定义钉死后，未来 Phase close 必须证据双足。
 
 ## Phase A: Passage-level Semantic Recall ✅
 
@@ -87,7 +100,24 @@ Phase B 隐私模型：entity registry 跟随所属 evidence store / collection 
 - [x] AC-B3: 索引层可记录 entity mentions，结果能解释“为何命中 person:landy / cat:gemini”。
 - [x] AC-B4: entity 与 project/global/library/collection 联邦检索兼容。
 - [x] AC-B5: 隐私实体默认受 scope 控制，不跨域泄漏。
-- [ ] AC-B6: F208 `cat-dossier` 等画像消费者使用 F209 `entity_id`，不创建平行猫 ID / 人 ID namespace。
+- [x] AC-B6: **transferred to F208 AC-A5** (2026-05-23 post-Phase-C reflection). F209 不再阻塞此 AC；F208 spec 持有对偶 AC `cat-dossier consumes F209 entity_id; no parallel namespace`。这是 ownership cleanup，不是新决策——47 / Maine Coon owner 对齐即可，不需 ping landy。
+
+## Phase B.1: Minimal Entity Seed Follow-up
+
+Phase B 机制完成（registry + alias expansion + mention index）后，**生产 entity_registry 仍为空**——`upsertEntities` 只有测试在调，对真实用户来说 alias 召回功能 inert。Phase D Perspective 若建在空 registry 上会继承 Phase B 的空心状态。B.1 在 D.0 readiness sprint 之前先填这个坑。
+
+边界：
+- **真相源是 git-tracked explicit seed**：`config/entity-seeds.json`（B.1 Design Gate 选定为 machine-readable runtime seed）。
+- **猫 roster aliases 单向从 F032 roster 同步**：roster 仍是 truth，registry 只做 retrieval anchor 镜像（KD-7 / ownership map 已钉）。**不允许反写 roster**。
+- **不做自动推断**：不从聊天里"猜别名"。守 KD-8（给数据不给结论）。
+
+### Acceptance Criteria
+
+- [x] AC-B1.1: explicit seed 真相源存在并 git-tracked（`config/entity-seeds.json`）。
+- [x] AC-B1.2: 至少 1 个真实 `person:` 实体 seeded，覆盖 ≥ 4 个 alias（`person:landy ← landy / team lead / CVO / l.s. / L.S. / Lysander / @co-creator / @co-creator / @you`）。
+- [x] AC-B1.3: 真实 `search_evidence("CVO")` / `search_evidence("team lead")` 能命中只提及另一 alias 的旧消息（`entity-seeds.test.js` 通过 `/api/evidence/search?q=CVO` 覆盖 dogfood 路径）。
+- [x] AC-B1.4: 猫 roster aliases 同步是 **roster → registry 单向**，registry 不反写 cat-config.json / AgentRegistry。
+- [x] AC-B1.5: seed 真相源带 provenance（来源 + 日期 + 维护者），编辑历史进 git log。
 
 ## Phase C: Typed Drill-down Readers
 
@@ -106,6 +136,52 @@ Phase C 的默认方向是**扩展现有读取工具**，不是重复造一套 r
 - [x] AC-C3: 支持 file slice reader：按 path + line range 打开文档或代码切片。
 - [x] AC-C4: `search_evidence` 结果为不同 sourceType 给明确 drill-down hint。
 - [x] AC-C5: 大文件 / 大 thread 默认窗口化，不一次塞全文。
+
+## Phase D.0: Readiness Eval Sprint（Phase D 前置硬门禁）
+
+Phase D Perspective 建在 Phase A/C readers 之上，但**没人验证过 Phase A/C 真被猫用**——drillDown 提示真被打开了吗？inline passage content 真被读了吗？猫是不是仍在绕回人工 grep transcript？数据没拉出来之前盲推 Phase D 等于把 Perspective 建在沙上。
+
+D.0 是 **1-2 天的小切片 eval**（不是 1 周大工程），用既有 F200 fixture + 3 条真实 dogfood query 拉数据。
+
+### Scope（D.0 必做）
+
+- 跑 Phase A/B/C 既有 F200 fixtures（`docs/eval/f209-phase-{a,b,c}-*.md`）。
+- 加 3 条真实 dogfood query（team lead指定 / 历史真实场景），跑 `search_evidence → drillDown → reader` 端到端。
+- 同时跑 B.1 seed 后的"CVO 找到只提team lead的消息"作为 Phase B 真实可感知验证。
+
+### Observability（D.0 要拉的数据）
+
+**F209-owned 四项**（D.0 自己 own，AC-D0.2 拉的就是这四项）：
+
+- **drillDown 点开率**：搜索返回的 `drillDown.tool` 被猫真调用的比例。
+- **anchor open rate**：候选 anchor 真被打开（reader 调用）的比例。
+- **inline content 阅读率**：`passages[].content` 是被猫读完判断（继续 drilldown 或停下），还是直接全 ignore 走 drill-down。
+- **绕回 grep 比例**：猫放弃 search_evidence 改用 `rg` / `grep` / `Read` 直查 transcript 的次数。
+
+**F200-owned 参考 metric**（D.0 借来对照，归属仍在 F200，按 KD-6）：
+
+- **recall@k**：F200 既有 metric，D.0 跑既有 fixture 时顺带拉一份参考值。
+
+### Pass Conditions
+
+- 数据**清楚**（drillDown 真用率 ≥ 经验阈值，anchor open rate 非异常低，猫不大量绕回 grep）→ 进 Phase D Design Gate (AC-D0 product spike)。
+- 数据**难看**（机制 ship 但实际无人用 / 大量绕回 grep）→ **不推 Phase D**，先回头修 Phase A/C UX 或补 B.1 seed 覆盖。
+
+### Phase D.0 Acceptance Criteria
+
+- [x] AC-D0.1: 跑完 Phase A/B/C 既有 fixture + 3 条真实 dogfood query，证据写进 D.0 report。
+- [x] AC-D0.2: 上述四项 observability 指标拉出实际数字（不能"看着差不多"）。
+- [x] AC-D0.3: 通过 / 不通过结论 + 下一步（推 Phase D / 回头修哪段）由 47/Maine Coon 共同决定，结论 commit 进 docs/decisions/。
+
+### Post-D.0 Delegation Matrix（不阻塞 Phase D product spike）
+
+Phase D.0 的 user-visible recall 已 unblock；以下问题继续追，但不应把 F209 Phase D product spike 拖回 MCP/config/eval 细节里。新 thread / 新 owner 可以直接按本表开干。
+
+| Work item | Suggested owner/thread | Why separate from F209 Phase D | Acceptance target |
+|-----------|------------------------|--------------------------------|-------------------|
+| **F193/F209 MCP topology cleanup** — split servers 与 legacy `cat-cafe` all-in-one 在本机同时暴露，原因是 `cat-cafe-limb` 被标成 `source=external` 时 F193 heal 保守退出，legacy `cat-cafe` 未被移除 | F193 / MCP topology thread（建议 Opus-47 或后端协议猫） | 属于 F193 Phase C split-only migration / L5 config heal，不是 Perspective 产品层 | `capabilities.json` + `.mcp.json` + `.codex/config.toml` 在 split+limb 可用时不再保留 legacy `cat-cafe`；保留外部 ID collision 安全测试；不丢 limb tools |
+| **F200/F209 recall@k wrapper** — 将 `docs/eval/f209-phase-{a,b,c}-*.md` 接入 F200 fixture runner | F200 eval thread | Cross-validation 工具，不是 Phase D 前置门禁；D.0 已用 F209-owned 四项指标完成判定 | F200 可一键跑 F209 fixtures，输出 recall@k / pass-fail 摘要；不改变 F209 runtime 行为 |
+| **Phase C reader hardening** — file-slice drillDown 绝对 host path 不泄漏；缺 `sourceRoot` fail-closed | F209 hardening mini-thread（安全/测试向） | Phase C 安全边界修复，和 Phase D Perspective user story 可以并行 | 回归测试覆盖 host path redaction + missing sourceRoot fail-closed；MCP/REST surface 不再泄漏不可读主机路径 |
 
 ## Phase D: Perspective Live Query Plans
 
@@ -126,16 +202,20 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 - 可见性：Perspective run 复用现有 Memory / Recall 实时面板或同等可见层，展示 query plan id、执行步骤、命中数量、打开过的 anchors 与 degraded 状态。
 - v1 入口：猫手动保存 / 复用；CVO 可看运行过程但不作为用户搜索操作员；F200 自动建议与用户 Smart Folder UI 后置。
 
+Runtime implementation is ready for review on `feat/f209-perspective-runtime`: git-backed plan loader, live runner, API route, MCP tool, AC-D6 visibility audit, and a dogfood run of `F209/f209-phase-d-orientation`.
+
+Visibility audit: `docs/decisions/2026-05-24-f209-phase-d-visibility-audit.md`. Existing RecallFeed is not reused because it only understands ad hoc `search_evidence` events; v1 uses the API JSON run trace + MCP transcript as the minimal CVO-visible surface.
+
 ### Acceptance Criteria
 
-- [ ] AC-D0: Design Gate 前完成 Perspective product spike，给出 2-3 个 user story + runtime contract。
-- [ ] AC-D1: Perspective 存 query plan / route recipe，不存结果集。
-- [ ] AC-D2: 打开 Perspective 时现场重跑，结果全带 anchor + drill-down。
-- [ ] AC-D3: Perspective 可由猫保存 / 命名 / 复用；默认用户不是操作员。
-- [ ] AC-D4: skill / 任务可激活建议 Perspective，但只给“藤”，不下结论。
-- [ ] AC-D5: Perspective 消费信号可进入 F200 navigation utility，不改变 truth / authority。
-- [ ] AC-D6: Perspective run 对 CVO 可见，至少展示 query plan id、step、hit count、opened anchors、degraded/effectiveMode。
-- [ ] AC-D7: v1 不提供用户操作的 Smart Folder UI；如果未来做，必须另走 product/design gate。
+- [x] AC-D0: Design Gate 前完成 Perspective product spike，给出 2-3 个 user story + runtime contract。
+- [x] AC-D1: Perspective 存 query plan / route recipe，不存结果集。Evidence: `docs/perspectives/F209/f209-phase-d-orientation.md` + schema tests reject `storesResults: true`.
+- [x] AC-D2: 打开 Perspective 时现场重跑，结果全带 anchor + drill-down。Evidence: `PerspectiveRunner` reruns injected search steps and returns `candidateAnchors` + typed reader hints.
+- [x] AC-D3: Perspective 可由猫保存 / 命名 / 复用；默认用户不是操作员。Evidence: top-level git-backed `docs/perspectives/<feature-id>/<slug>.md` plan id + MCP run tool; no user Smart Folder controls.
+- [x] AC-D4: skill / 任务可激活建议 Perspective，但只给“藤”，不下结论。Evidence: `cat_cafe_run_perspective` accepts a stable plan id and renders route trace + anchors only; output boundary explicitly says it is not a conclusion.
+- [x] AC-D5: Perspective 消费信号可进入 F200 navigation utility，不改变 truth / authority。Evidence: run output is navigation telemetry only (`planId`, `runId`, steps, anchors); F200 wrapper remains delegated follow-up and no truth authority changes.
+- [x] AC-D6: Perspective run 对 CVO 可见，至少展示 query plan id、step、hit count、typed reader route hints、degraded/effectiveMode。Evidence: visibility audit chose API/MCP minimal trace surface with 8/8 required fields.
+- [x] AC-D7: v1 不提供用户操作的 Smart Folder UI；如果未来做，必须另走 product/design gate。Evidence: implementation adds API/MCP cat-facing entry only, no web Smart Folder controls.
 
 ## Deferred / Future Related: Summary Memory
 
@@ -169,6 +249,7 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 - **Related**: F200 Memory Recall Eval — consumption signal 与召回评估。
 - **Related**: F192 Socio-Technical Harness Eval — eval contract / finding→action 框架。
 - **Related**: F208 Capability Profile Routing — 能力画像档案层；消费 F209 `entity_id`，不 owns id/alias 真相源。
+- **Related / upstream input**: F211 Cross-Runtime Session Transparency — 负责让 Antigravity cascade / IDE-direct session 先进入 Session Chain / transcript / digest；F209 只消费这些已存在证据做 retrieval，不 owns session lifecycle。
 
 ## Risk
 
@@ -182,6 +263,8 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 | Perspective 变成黑盒猫内工具，CVO 无法迭代 | AC-D6 要求运行过程在 Memory / Recall 可见层明厨亮灶 |
 | F200 consumption rich-get-richer | 交由 F200 统一做 exploration/freshness 对冲；F209 只贡献 fixture |
 | 大 thread / 大文件把猫上下文撑爆 | typed reader 默认窗口化，禁止大 blob 默认展开 |
+| "AC pass 但用户感受不到" 走偏（Phase B 空字典 / Phase C post-merge dogfood bug） | Phase Close Definition（KD-11）要求机制 ship + dogfood demo 双足；quality-gate skill 加 Step 4.5 Dogfood-Your-Slice |
+| Phase D Perspective 建在没人用的 A/C 上 | D.0 readiness eval sprint（KD-13）作为 Phase D 前置硬门禁 |
 
 ## Key Decisions
 
@@ -197,6 +280,10 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 | KD-8 | 摘要记忆不进 F209，另作 future related feature | 摘要涉及系统级摘要猫、用户可选范围、审核/过期与产品形态；F209 只做 evidence-first recall | 2026-05-22 |
 | KD-9 | Phase A 是 lexical + semantic + hybrid 的完整 raw retrieval 切片 | CVO 明确不要拆碎；只建 passage vector 不能解决实际检索体验 | 2026-05-22 |
 | KD-10 | Perspective v1 猫操作、CVO 可见；不做用户 Smart Folder UI | 保持“猫用活查询藤”边界，同时接入 search_evidence 明厨亮灶让 CVO 可迭代 | 2026-05-22 |
+| KD-11 | Phase close = 机制 ship + 真实可感知 dogfood demo（同时满足） | Phase B 空字典 + Phase C dogfood bug post-merge 都是"AC pass ≠ 用户感受到"的同型走偏；机制绿灯不等于用户可用 | 2026-05-23 |
+| KD-12 | AC-B6 transferred to F208 AC-A5（不再让 F209 永远 99%） | 跨 feature AC 不应永久挂在另一 feature 的 timeline 上；F208 spec 持有对偶责任，ownership cleanup 由两边 owner 自决 | 2026-05-23 |
+| KD-13 | Phase D 启动前必须过 D.0 readiness sprint（1-2 天） | 没数据盲推 Phase D 会让 Perspective 建在沙上；先证 A/C 真被用，再决定 D 设计 | 2026-05-23 |
+| KD-14 | Antigravity session transparency 不进 F209，拆到 F211 | F209 是“找证据、开原文、让猫判断”；F211 是“让跨 runtime session 先成为可见证据”。F209 只作为 downstream consumer | 2026-05-24 |
 
 ## Eval / Tracking Contract
 
@@ -204,7 +291,7 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 |----|------|
 | **Primary Users** | 需要从旧 thread/docs/sessions 找证据的猫；Activation Signal：`search_evidence` 在复杂 thread recall 中被调用 |
 | **Friction Metric** | 搜到摘要但打不开原文窗口的比例；raw 搜不到但人工能在 transcript 找到的比例；>3 轮 query reformulation |
-| **Regression Fixture** | Phase A fixture: `docs/eval/f209-phase-a-raw-retrieval-fixtures.md`（raw semantic 非字面消息召回；raw hybrid 保留 lexical + semantic passage hits）。Phase B fixture: `docs/eval/f209-phase-b-entity-anchor-fixtures.md`（`landy/team lead/CVO` alias 归一、raw entity passage anchor、private collection redaction）。Phase C fixture: `docs/eval/f209-phase-c-drilldown-fixtures.md`（message window / invocation detail chain / file slice bounded readers）。后续 Phase 继续贡献：Perspective 现场重跑、Perspective run 可见层 step / hits / opened anchors。F209 贡献 fixture，F200 统一纳入 golden set |
+| **Regression Fixture** | Phase A fixture: `docs/eval/f209-phase-a-raw-retrieval-fixtures.md`（raw semantic 非字面消息召回；raw hybrid 保留 lexical + semantic passage hits）。Phase B fixture: `docs/eval/f209-phase-b-entity-anchor-fixtures.md`（`landy/team lead/CVO` alias 归一、raw entity passage anchor、private collection redaction）。Phase C fixture: `docs/eval/f209-phase-c-drilldown-fixtures.md`（message window / invocation detail chain / file slice bounded readers）。后续 Phase 继续贡献：Perspective 现场重跑、Perspective run 可见层 step / hits / typed reader route hints。F209 贡献 fixture，F200 统一纳入 golden set |
 | **Sunset Signal** | 6 个月内 golden query recall@k 无提升，或猫仍主要绕过 F209 直接人工 grep transcript → 回滚 Perspective / entity layer，仅保留 passage vector |
 
 ## 需求点 Checklist
@@ -231,6 +318,8 @@ Perspective 是本 feature 最容易漂成“漂亮概念”的部分，因此�
 - Design Gate：猫猫讨论 → CVO 拍板（架构级；会改变 memory ownership cell 的边界说明）
 - Phase A：跨族 review（passage vector + raw hybrid 语义边界）
 - Phase B：跨族 review（entity alias / privacy / provenance）
+- Phase B.1：跨族 review（seed schema + provenance + roster 单向边界守住）
 - Phase C：跨族 review（typed reader contract）
+- Phase D.0：跨族 review（eval sprint methodology + 通过/不通过判据 + 数据真实性）
 - Phase D：跨族 review + CVO product review（Perspective 语义）
 - Phase E：F200/F192 owner review（eval contract + telemetry）
