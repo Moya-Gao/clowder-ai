@@ -1313,6 +1313,12 @@
       "name": "CLI Error Diagnostics — 结构化 CLI 错误诊断 + 受控前端展示",
       "status": "spec | **Owner**: 布偶猫/宪宪 (Opus-47) | **Priority**: P1",
       "file": "F212-cli-error-diagnostics.md"
+    },
+    {
+      "id": "F213",
+      "name": "Stale MCP Config Cleanup at Startup — 过期 MCP 配置启动清理",
+      "status": "spec | **Owner**: 布偶猫/宪宪 (Opus-47) | **Priority**: P1",
+      "file": "F213-stale-mcp-config-cleanup.md"
     }
   ]
 }

@@ -64,32 +64,64 @@ created: 2026-05-26
 
 ### Phase A: Cleanup Mechanism Foundation（core mechanism）
 
-1. **Deprecated managed server registry**：
-   - 新建 `packages/api/src/config/capabilities/deprecated-managed-servers.ts`
-   - 导出 `DEPRECATED_MANAGED_SERVERS` const array，初始内容：
+> **Terminal design (post 砚砚 + cloud round-2 review 2026-05-26)**: argsSuffix
+> marker removed for third-party preservation safety; L4 dummy disabled
+> override added as runtime safety net for config sources L5 cleanup cannot
+> reach. See `docs/discussions/2026-05-26-codex-mcp-legacy-deprecation/README.md`
+> §6.2 for the converged design rationale.
+
+1. **Deprecated managed server registry** (`deprecated-managed-servers.ts`):
+   - 导出 `DEPRECATED_MANAGED_SERVERS` const array，**post-review terminal form**：
      ```ts
      {
        serverName: 'cat-cafe',
        reason: 'F193 Phase C split-only migration: replaced by 4 split servers',
        knownManagedMarkers: [
-         { kind: 'argsSuffix', value: 'packages/mcp-server/dist/index.js' },
+         // argsSuffix REMOVED 2026-05-26 (砚砚 P1): user-fork paths like
+         // /Users/alice/forks/cat-cafe/packages/mcp-server/dist/index.js
+         // would falsely match. No reliable ownership proof for historical
+         // orchestrator-managed entries → conservative preserve. Forward-only
+         // owner-tag mechanism deferred to Phase B+.
          { kind: 'echoLegacyShim', commandValue: 'echo', argsValue: 'legacy-shim' },
        ],
      }
      ```
    - 提供 helper `isOurOwnedDeprecatedEntry(serverName, entryRecord)` → boolean
+     (defensive: null/non-object/missing-args/non-string-args[0] → false)
 
-2. **Cleanup logic in writers**：
-   - `mcp-config-adapters.ts` 的 `writeCodexMcpConfig` / `writeGeminiMcpConfig` / `writeClaudeMcpConfig` / `writeAntigravityMcpConfig` / `writeKimiMcpConfig`（如有）
-   - 写入前先扫 `existingMcp`：对每个不在 active managed registry 的 entry，检查 `isOurOwnedDeprecatedEntry`
-   - 命中 → 从 `existingMcp` 删除 + log.warn(`Removed deprecated managed entry: ${serverName} (reason: ${reason})`)
-   - 未命中（第三方未知）→ 保留 + log.warn(`Reserved server id '${serverName}' shadowed by F213 cleanup but kept as user-owned (not a known managed marker)`)
+2. **L5 cleanup logic in writers**:
+   - `mcp-config-adapters.ts` `writeCodexMcpConfig` (Phase A) +
+     `writeGeminiMcpConfig` / `writeClaudeMcpConfig` / `writeAntigravityMcpConfig` /
+     `writeKimiMcpConfig` (Phase B)
+   - 写入前先扫 `existingMcp`：对 registry 里每个 deprecated server name，
+     看 existing entry 是否匹配 known marker
+   - 命中 marker → 从 `existingMcp` 删除 + `log.warn`
+   - 未命中（第三方未知 OR 历史 orchestrator-managed 无 marker）→ 保留 +
+     `log.warn` 提示 "reserved server id shadowed by F213 cleanup but kept
+     as user-owned (no marker match)"
+   - **scope**: 仅清理 cat-cafe 调用 writeXxxMcpConfig 时**写入的 config 文件**
+     (project-level for Codex)。user-level / `$CODEX_HOME` / system-level
+     config 由 L4 runtime override 兜底，不由 L5 涉及
 
-3. **CodexAgentService 简化**：
-   - 删 `userHasLegacyCatCafeTransport` / `findLegacyCatCafeTransportInAncestry` / `readLegacyCatCafeTransportFromFile` / `userHasLegacyCatCafeTransportFromUserPaths` 全 helper
-   - 删 import `readFileSync` / `parseToml` / `homedir`（如不再用）
-   - 删 `CAT_CAFE_LEGACY_STATIC_SERVER_NAME` 常量
-   - `buildCatCafeMcpConfigArgs` 不再为 legacy `cat-cafe` 注入 env overlay（startup cleanup 已让它消失）
+3. **L4 runtime override in `CodexAgentService.buildCatCafeMcpConfigArgs`**:
+   - **2026-05-26 post 砚砚 P2 review**：恢复 L4 注入 legacy `cat-cafe` dummy
+     disabled override（不再 env-only overlay 或完全删除）
+   - 注入完整 transport + disabled:
+     ```
+     --config mcp_servers.cat-cafe.command="echo"
+     --config mcp_servers.cat-cafe.args=["legacy-shim"]
+     --config mcp_servers.cat-cafe.enabled=false
+     ```
+   - 砚砚 round-4 strict-npm-Codex 实测验证：完整 transport 过 config parse +
+     `enabled=false` 让 codex 不启动 server
+   - **Per-invocation `--config` 最高优先级**：覆盖任意 config source（user-level /
+     `$CODEX_HOME` / system / project）的 legacy `cat-cafe` entry。是 L5 cleanup
+     无法 reach 那些 source 时的 runtime safety net
+   - **Trade-off (intentional, spec-declared)**：用户自己写的 `cat-cafe`-named
+     第三方 server 在 cat-cafe-managed codex 调用 context 下被 disabled。
+     用户在 cat-cafe context 外跑 codex（直接 CLI，无 cat-cafe args）时 L4
+     不生效 → 他们自己的 server 仍 work。这是设计选择：cat-cafe 调用 codex
+     时只期望 split server 提供 cat-cafe tool surface，避免 namespace 冲突
 
 ### Phase B: All-Harness Coverage Audit
 

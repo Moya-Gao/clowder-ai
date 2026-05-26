@@ -475,6 +475,95 @@ describe('writeCodexMcpConfig', () => {
       else process.env.CAT_CAFE_WORKSPACE_ROOT = originalWs;
     }
   });
+
+  // F213 Phase A: L5 startup cleanup of deprecated managed entries.
+  // The writer removes any user-config entry that matches a known managed marker
+  // (we wrote it ourselves before deprecation); third-party entries sharing the
+  // same server id are preserved + log.warn.
+
+  it('F213: preserves fork-like cat-cafe entry (argsSuffix marker removed — 砚砚 P1 regression guard)', async () => {
+    // F213 砚砚 review 2026-05-26 P1: previous argsSuffix marker would have
+    // misidentified user-fork paths like this as our-owned and incorrectly
+    // removed them. Conservative answer: no reliable ownership proof = preserve.
+    // L4 dummy disabled override in CodexAgentService handles runtime safety.
+    const file = join(dir, 'config.toml');
+    await writeFile(
+      file,
+      `[mcp_servers.cat-cafe]
+command = "node"
+args = ["/Users/alice/forks/cat-cafe/packages/mcp-server/dist/index.js"]
+enabled = true
+`,
+    );
+
+    await writeCodexMcpConfig(file, [
+      { name: 'cat-cafe-collab', command: 'node', args: ['collab.js'], enabled: true, source: 'cat-cafe' },
+    ]);
+
+    const servers = await readCodexMcpConfig(file);
+    const fork = servers.find((s) => s.name === 'cat-cafe');
+    const split = servers.find((s) => s.name === 'cat-cafe-collab');
+    assert.ok(fork, 'fork-like cat-cafe entry must be preserved (no reliable ownership proof)');
+    assert.equal(fork.args[0], '/Users/alice/forks/cat-cafe/packages/mcp-server/dist/index.js');
+    assert.ok(split, 'split server entry must still be written');
+  });
+
+  it('F213: removes echoLegacyShim workaround entry (PR #1894 close-comment workaround)', async () => {
+    const file = join(dir, 'config.toml');
+    await writeFile(
+      file,
+      `[mcp_servers.cat-cafe]
+command = "echo"
+args = ["legacy-shim"]
+enabled = false
+`,
+    );
+
+    await writeCodexMcpConfig(file, []);
+
+    const servers = await readCodexMcpConfig(file);
+    const legacy = servers.find((s) => s.name === 'cat-cafe');
+    assert.equal(legacy, undefined, 'echoLegacyShim workaround must be cleaned up by F213');
+  });
+
+  it('F213: preserves third-party cat-cafe entry (unknown binary, no marker match)', async () => {
+    const file = join(dir, 'config.toml');
+    await writeFile(
+      file,
+      `[mcp_servers.cat-cafe]
+command = "/opt/third-party/my-cat-cafe-server"
+args = ["/opt/third-party/main.js"]
+enabled = true
+`,
+    );
+
+    await writeCodexMcpConfig(file, []);
+
+    const servers = await readCodexMcpConfig(file);
+    const thirdParty = servers.find((s) => s.name === 'cat-cafe');
+    assert.ok(thirdParty, 'third-party cat-cafe entry must be preserved (no managed marker match)');
+    assert.equal(thirdParty.command, '/opt/third-party/my-cat-cafe-server');
+  });
+
+  it('F213: is no-op when existing config has no legacy cat-cafe entry', async () => {
+    const file = join(dir, 'config.toml');
+    await writeFile(
+      file,
+      `[mcp_servers.unrelated-server]
+command = "node"
+args = ["/some/path.js"]
+enabled = true
+`,
+    );
+
+    await writeCodexMcpConfig(file, []);
+
+    const servers = await readCodexMcpConfig(file);
+    const unrelated = servers.find((s) => s.name === 'unrelated-server');
+    const legacy = servers.find((s) => s.name === 'cat-cafe');
+    assert.ok(unrelated, 'unrelated server must be preserved');
+    assert.equal(legacy, undefined, 'no cat-cafe entry created');
+  });
 });
 
 describe('writeGeminiMcpConfig', () => {

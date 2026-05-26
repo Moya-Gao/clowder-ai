@@ -14,6 +14,10 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import type { McpServerDescriptor } from '@cat-cafe/shared';
 import { parse as parseToml, stringify as stringifyToml } from 'smol-toml';
+import { createModuleLogger } from '../../infrastructure/logger.js';
+import { DEPRECATED_MANAGED_SERVERS, isOurOwnedDeprecatedEntry } from './deprecated-managed-servers.js';
+
+const log = createModuleLogger('mcp-config-adapters');
 
 const GEMINI_CAT_CAFE_ENV_PLACEHOLDERS: Readonly<Record<string, string>> = {
   CAT_CAFE_API_URL: '${CAT_CAFE_API_URL}',
@@ -298,6 +302,28 @@ export async function writeCodexMcpConfig(filePath: string, servers: McpServerDe
   typeof existing.mcp_servers === 'object'
     ? { ...(existing.mcp_servers as Record<string, Record<string, unknown>>) }
     : {};
+
+  // F213 Phase A (2026-05-26): Selectively remove our own previously-managed but
+  // now-deprecated entries from existing user config before updating managed
+  // entries. Identifies our entries via knownManagedMarkers; preserves
+  // third-party entries that happen to share the same server id.
+  // See ADR-036 amendment 2026-05-26 (legacy monolithic cell → L5 startup cleanup).
+  for (const deprecated of DEPRECATED_MANAGED_SERVERS) {
+    const entry = existingMcp[deprecated.serverName];
+    if (!entry) continue;
+    if (isOurOwnedDeprecatedEntry(deprecated.serverName, entry)) {
+      delete existingMcp[deprecated.serverName];
+      log.warn(
+        { serverName: deprecated.serverName, reason: deprecated.reason, deprecatedBy: deprecated.deprecatedBy },
+        `F213 cleanup: removed our previously-managed but deprecated mcp_servers.${deprecated.serverName} entry`,
+      );
+    } else {
+      log.warn(
+        { serverName: deprecated.serverName },
+        `F213 cleanup: reserved server id '${deprecated.serverName}' shadowed by deprecation registry but kept as user-owned (no known managed marker matched)`,
+      );
+    }
+  }
 
   // Update/add only managed entries; preserve user's own servers
   for (const s of servers) {

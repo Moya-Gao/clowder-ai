@@ -55,13 +55,13 @@ F209 (Evidence Recall Optimization) 在 D.0 readiness sprint 揭示一个 archit
 > Legacy monolithic 列退出主 matrix——它不再是 active managed cell。仅在 L5 startup
 > path 新增 cleanup logic（F213 实施）作为它的唯一 lifecycle 关心点。
 
-| L | Split (唯一 active managed cell) |
-|---|----------------------------------|
-| L1 REST API | 按 `cap.id` 路由 |
-| L2 MCP handler | dimension 参数共用 |
-| L3 MCP wrapper | structured fields 共用 |
-| L4 Codex per-invocation `--config` | 4 split server 各独立注入 (`mcp_servers.cat-cafe-{collab,memory,signals,limb}.env.*`)。**不再覆盖 legacy `cat-cafe`**（已由 startup cleanup remove） |
-| L5 Runtime startup config | 4 split server 写进 `.mcp.json` + `.codex/config.toml`，注入 `ALLOWED_WORKSPACE_DIRS` + **F213 startup-time stale managed entry cleanup**（识别自家曾 managed 但当前 deprecated 的 entry → selective remove + log.warn；第三方未知 entry 保留） |
+| L | Split (active managed cell) | Legacy `cat-cafe` (F213-handled, not active managed) |
+|---|------------------------------|------------------------------------------------------|
+| L1 REST API | 按 `cap.id` 路由 | n/a (no REST surface for legacy server) |
+| L2 MCP handler | dimension 参数共用 | n/a |
+| L3 MCP wrapper | structured fields 共用 | n/a |
+| L4 Codex per-invocation `--config` | 4 split server 各独立注入 (`mcp_servers.cat-cafe-{collab,memory,signals,limb}.env.*`) | **F213 L4 dummy disabled override**: 注入 `command="echo"` + `args=["legacy-shim"]` + `enabled=false`（覆盖任意 config source 残留的 legacy entry，runtime 安全网；strict-codex 接受完整 transport + enabled=false 不启动 server） |
+| L5 Runtime startup config | 4 split server 写进 `.mcp.json` + `.codex/config.toml`，注入 `ALLOWED_WORKSPACE_DIRS` | **F213 startup-time selective cleanup**（仅删 `echoLegacyShim` marker 匹配的 entry；其他保留 + log.warn；第三方未知 entry 不删 — L4 runtime override 兜底） |
 
 ### 4. Reviewer Checklist (改 F209 检索 surface 时必须勾)
 
@@ -167,19 +167,52 @@ internal config priority is scaffolding (meta-aesthetics violation).
 啊！！这是别的思考方式！你们过期的 mcp 竟然不清理？" — surface a new design
 axis: **过期 mcp 启动时清理**.
 
-**Amendment**:
+**Amendment** (revised 2026-05-26 post 砚砚 + cloud round-2 review):
 
 - **Legacy monolithic cell**: removed from the active managed matrix (Section 3).
-  L4 no longer requires env-only overlay for `mcp_servers.cat-cafe`.
+- **L4 Codex per-invocation `--config`**: **L4 dummy disabled override** —
+  injects complete dummy transport for `mcp_servers.cat-cafe`
+  (`command="echo"` + `args=["legacy-shim"]` + `enabled=false`). This serves as
+  the runtime safety net covering legacy entries from any config source
+  (user-level `~/.codex/config.toml`, `$CODEX_HOME/config.toml`, or system
+  `/etc/codex/config.toml`) that L5 cleanup cannot reach. Verified by 砚砚
+  strict-npm-Codex reproducer: complete transport passes config parse +
+  `enabled=false` prevents server startup. Per-invocation `--config` is highest
+  priority and overrides any same-name entry from any config source.
 - **L5 Runtime startup config**: extended to perform **selective stale managed
   entry cleanup** on startup (F213). Only entries provably written by our own
-  managed orchestrator are removed (marker-matched: `args[0]` suffix
-  `packages/mcp-server/dist/index.js`, the known echo `legacy-shim` workaround,
-  or future owner tags). Third-party / unknown `cat-cafe` entries are preserved
-  with `log.warn`.
+  managed orchestrator are removed. Current marker set (post 砚砚 P1 review):
+  - `echoLegacyShim`: `command="echo"` + `args[0]="legacy-shim"` exact match
+    (the workaround we documented in PR #1894 close comment, third parties
+    would not coincidentally use this exact combination)
+  - `argsSuffix` marker was tried and removed for safety — user forks at
+    `/users/alice/forks/cat-cafe/packages/mcp-server/dist/index.js` would
+    falsely match suffix and violate the third-party preservation contract
+  - Future Phase B+ scope: forward-only owner-tag mechanism so new managed
+    entries carry an explicit `CAT_CAFE_MANAGED=true` marker
+
+- **Third-party / unknown `cat-cafe` entries lifecycle**:
+  - **Config file**: preserved by L5 cleanup (no marker → not removed) +
+    `log.warn` informs user the name is now a reserved deprecated id
+  - **Runtime in cat-cafe-managed codex invocation context**: disabled by L4
+    override (this is **intentional** — cat-cafe invokes codex with the
+    expectation that only the split servers handle the cat-cafe tool surface;
+    a user's `cat-cafe`-named third-party server would shadow our split
+    namespace if not disabled)
+  - **Runtime outside cat-cafe context** (user runs `codex` directly): L4
+    override not injected → user's `cat-cafe` server loads normally
+
+  This trade-off is intentional: F213 preserves user config files (no data
+  destruction) while ensuring cat-cafe's own codex invocations have a
+  deterministic tool surface. Users intending to override cat-cafe's behavior
+  via their own `cat-cafe`-named server should be aware this name is a
+  reserved deprecated id; we recommend choosing a different server id for
+  custom MCP servers.
+
 - **Reviewer Checklist** (Section 4): "改 env" no longer requires tracing legacy
   cell. "改 server topology" no longer carries "老用户的 legacy 配置不会自动消失"
-  burden — F213 startup cleanup handles deprecated managed entries.
+  burden — F213 L4 dummy disabled override + L5 startup cleanup handle deprecated
+  managed entries.
 
 **Why amend instead of new ADR**: ADR-036 is the cross-layer matrix authority.
 Legacy cell was part of the original matrix as a deliberate cell (not an

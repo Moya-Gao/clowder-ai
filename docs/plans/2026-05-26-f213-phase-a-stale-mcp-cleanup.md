@@ -1,13 +1,29 @@
 # F213 Phase A Implementation Plan — Stale MCP Config Cleanup Foundation
 
+> **Plan revised 2026-05-26 post 砚砚 + cloud round-2 review**: AC-A1 marker
+> collapsed (argsSuffix removed); AC-A4 changed from "delete L257 overlay" to
+> "restore L4 dummy disabled override" (砚砚 P2). See "Post-review revision"
+> subsection below.
+
 **Feature:** F213 — `docs/features/F213-stale-mcp-config-cleanup.md`
-**Goal:** 建立通用 deprecated managed server registry + selective cleanup helper + 在 `writeCodexMcpConfig` 落地清理 + 简化 `CodexAgentService` 删除 5 个 lookup helper
-**Acceptance Criteria** (Phase A 全部，从 feat doc 抄):
-- AC-A1: `deprecated-managed-servers.ts` 创建 + `DEPRECATED_MANAGED_SERVERS` registry 含 `cat-cafe` entry + `knownManagedMarkers` (argsSuffix + echoLegacyShim)
-- AC-A2: `isOurOwnedDeprecatedEntry` helper 实现 + 单测覆盖 5 种 case (argsSuffix true / echoLegacyShim true / 未知 false / 文件不存在 false / args 字段缺失 false)
-- AC-A3: `writeCodexMcpConfig` 加 cleanup logic + 单测覆盖 4 case (自家 legacy 删 / 第三方保留 / 无 legacy no-op / 不影响 split write)
-- AC-A4: `CodexAgentService.ts` 删 5 helper + L257 调用 + import 清理
-- AC-A5: codex-agent-service.test.js 删 round-1/2/3/4 legacy lookup test (4 个)，主测试 assert "不注入任何 `mcp_servers.cat-cafe.*`"
+**Goal (revised)**: 建立通用 deprecated managed server registry + L5 selective
+cleanup helper + L4 dummy disabled override safety net + `writeCodexMcpConfig`
+落地清理 + CodexAgentService 注入 L4 override（不再删除 L257 path）
+**Acceptance Criteria** (Phase A 全部，post 砚砚/cloud review revision):
+- AC-A1 (revised): `deprecated-managed-servers.ts` 创建 + `DEPRECATED_MANAGED_SERVERS`
+  registry 含 `cat-cafe` entry + `knownManagedMarkers` (**只 echoLegacyShim**, argsSuffix
+  removed per 砚砚 P1 — fork-path false positive)
+- AC-A2 (revised): `isOurOwnedDeprecatedEntry` helper 实现 + 单测覆盖 ≥10 case
+  含 fork-path-preserve regression guard
+- AC-A3: `writeCodexMcpConfig` 加 cleanup logic + 单测覆盖 4 case (echoLegacyShim 删 /
+  第三方保留 / **fork-like 保留 (regression guard)** / 无 legacy no-op)
+- AC-A4 (revised): `CodexAgentService.ts` `buildCatCafeMcpConfigArgs` 注入 **L4
+  dummy disabled override** (`command="echo"` + `args=["legacy-shim"]` + `enabled=false`)
+  — runtime safety net for sources L5 cleanup cannot reach (user-level /
+  `$CODEX_HOME` / system config). 删除旧 `CAT_CAFE_LEGACY_STATIC_SERVER_NAME` 常量
+- AC-A5: codex-agent-service.test.js 主测试 assert **L4 dummy disabled override
+  injection**（command="echo" + args=[legacy-shim] + enabled=false）+ no env.*
+  overlay + no command="node"
 
 **Architecture cell:** `capabilities/orchestrator` + `agents/cli-supervisor` (跨 2 cell)
 **Map delta:** update required (ADR-036 已 amend 2026-05-26)
