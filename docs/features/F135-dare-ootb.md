@@ -8,12 +8,12 @@ created: 2026-03-23
 
 # F135: 狸花猫开箱即用（DARE Out-of-the-Box）
 
-> **Status**: phase-a-done (doc stale — code merged but doc never updated) | **Owner**: bouillipx (社区) | **Priority**: P2
+> **Status**: **closed** (需求已不存在 — 铲屎官 2026-05-26 拍板) | **Owner**: bouillipx (社区) | **Priority**: P2
 >
 > **来源**：社区 PR [clowder-ai#192](https://github.com/zts212653/clowder-ai/pull/192) / [clowder-ai#194](https://github.com/zts212653/clowder-ai/pull/194)
 > **Issue**: [clowder-ai#195](https://github.com/zts212653/clowder-ai/issues/195)
 >
-> **Audit 2026-05-26**：clowder-ai#211 已 merged（2026-03-24），issue #195 已关闭。Feature doc 从未更新（仍标 "spec"）。无 AC 定义。Phase A 代码已落地（服务层 + 路径解析 + auth fix）。Phase B（installer 集成 + 默认启用）状态不明——installer 中 DARE 相关逻辑存在但未在 doc 中确认。OQ-3 bootstrap binding mode 仍 open。
+> **Close 2026-05-26**：铲屎官判定需求已不存在（DARE 狸花猫不再需要单独 OOTB 流程），直接 close。Phase A 代码已合入（clowder-ai#211），issue #195 已关闭。
 
 ## Why
 

@@ -146,6 +146,7 @@
 | F188 | F188: Library Stewardship — 图书馆管护与成长（rebuild + health + graph + materialize + lifecycle） | done | [F188-library-stewardship.md](./F188-library-stewardship.md) |
 | F206 | F206: Settings UI Convergence — 组件语言归一（16 Phase A-P, 20+ primitives, 100+ semantic tokens, 全仓视觉归一） | done | [F206-settings-ui-convergence.md](./F206-settings-ui-convergence.md) |
 | F213 | F213: Stale MCP Config Cleanup at Startup — 过期 MCP 配置启动清理（PR #1894 5 轮 P1 saga evolved + 坐标系 reframe + 跨 5 harness shared cleanup helper + 跨族愿景守护 antig-opus APPROVE） | done | [F213-stale-mcp-config-cleanup.md](./F213-stale-mcp-config-cleanup.md) |
+| F113 | F113: Multi-Platform One-Click Deploy — 多平台一键部署（Linux/macOS/Windows + 跨平台目录选择器 + 项目初始化引导） | done | [F113-multi-platform-one-click-deploy.md](./F113-multi-platform-one-click-deploy.md) |
 
 ## 已搁置/已归档 Feature
 | ID | 名称 | Status | 聚合文件 |
@@ -155,3 +156,4 @@
 | F038 | F038: Skills 梳理 + 按需发现机制 | parked | [F038-skills-discovery.md](./F038-skills-discovery.md) |
 | F054 | F054: HCI 预热基础设施 — Social Media MCP + 内容管线 | parked (superseded by open-source) | [F054-hci-preheat-infra.md](./F054-hci-preheat-infra.md) |
 | F067 | F067: Cold-start Verifier — 无历史污染的交付物验证 | parked | [F067-cold-start-verifier.md](./F067-cold-start-verifier.md) |
+| F135 | F135: 狸花猫开箱即用 — DARE Out-of-the-Box | closed (需求已不存在 2026-05-26) | [F135-dare-ootb.md](./F135-dare-ootb.md) |
