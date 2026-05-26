@@ -143,6 +143,7 @@
 | F201 | F201: Antigravity Reliability Contract — 孟加拉猫可靠可用性闭环 | done | [F201-antigravity-reliability-contract.md](./F201-antigravity-reliability-contract.md) |
 | F188 | F188: Library Stewardship — 图书馆管护与成长（rebuild + health + graph + materialize + lifecycle） | done | [F188-library-stewardship.md](./F188-library-stewardship.md) |
 | F206 | F206: Settings UI Convergence — 组件语言归一（16 Phase A-P, 20+ primitives, 100+ semantic tokens, 全仓视觉归一） | done | [F206-settings-ui-convergence.md](./F206-settings-ui-convergence.md) |
+| F209 | F209: Evidence Recall Optimization — 消息级语义、实体门牌号与活查询藤（Phase A-D shipped + PR #1910 thread-scope degraded blocker fixed + Opus 4.6 vision guardian APPROVE） | done | [F209-evidence-recall-optimization.md](./F209-evidence-recall-optimization.md) |
 | F213 | F213: Stale MCP Config Cleanup at Startup — 过期 MCP 配置启动清理（PR #1894 5 轮 P1 saga evolved + 坐标系 reframe + 跨 5 harness shared cleanup helper + 跨族愿景守护 antig-opus APPROVE） | done | [F213-stale-mcp-config-cleanup.md](./F213-stale-mcp-config-cleanup.md) |
 | F113 | F113: Multi-Platform One-Click Deploy — 多平台一键部署（Linux/macOS/Windows + 跨平台目录选择器 + 项目初始化引导） | done | [F113-multi-platform-one-click-deploy.md](./F113-multi-platform-one-click-deploy.md) |
 

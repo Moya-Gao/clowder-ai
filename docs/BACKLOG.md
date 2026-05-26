@@ -70,7 +70,6 @@ created: 2026-02-26
 | F205 | MediaHub Video Provider Plugins — 视频生成/分析插件 | spec | community @mindfn + maintainers | community [#689](https://github.com/zts212653/clowder-ai/pull/689) | [F205](features/F205-video-provider-plugins.md) |
 | F207 | AI Family Office — 个人投资学习基建（画像/知识/数据/分析/决策五层） | spec | 布偶猫 | internal | [F207](features/F207-personal-finance-infra.md) |
 | F208 | Capability Profile Routing — 能力画像档案 + 认知路由 | spec | 布偶猫 | internal | [F208](features/F208-capability-profile-routing.md) |
-| F209 | Evidence Recall Optimization — 消息级语义、实体门牌号与活查询藤 | in-progress | 缅因猫/砚砚 | internal | [F209](features/F209-evidence-recall-optimization.md) |
 | F210 | Gemini CLI to Antigravity CLI Migration | in-progress | 缅因猫/砚砚 | internal | [F210](features/F210-antigravity-cli-migration.md) |
 | F211 | Cross-Runtime Session Transparency — Antigravity Session Chain + IDE Direct Registration | spec | 缅因猫/砚砚 | internal | [F211](features/F211-cross-runtime-session-transparency.md) |
 | F212 | CLI Error Diagnostics — 结构化 CLI 错误诊断 + 受控前端展示 | spec | 布偶猫/宪宪 | internal | [F212](features/F212-cli-error-diagnostics.md) |
