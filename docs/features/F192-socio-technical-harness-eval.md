@@ -402,6 +402,7 @@ Based on the first micro fit digest (2026-05-11):
 | OQ-16 | **[BUG] eval:memory 在 Hub 完全不可见**——Hub read model 只扫 `verdicts/` 目录的 `.md` 文件，没有 verdict = domain 不显示。eval:memory adapter 代码已 merge (E-scale PR #1879) 但从未产出 verdict，Hub 上 eval:memory 完全隐形。应该从 domain registry 加载所有已注册 domain，没 verdict 的显示"待首次 eval"状态 | 🔴 CVO dogfood 2026-05-26 |
 | OQ-17 | **[BUG] 定时 eval 从未注册**——YAML 配置了 `frequency: daily`，`buildEvalCatInvocation()` 构建了 invocation packet，但没有 scheduled task 调用它。eval:a2a 的唯一 verdict (2026-05-23) 是手动生成的；eval:memory 从未运行。AC-E5 要求"统一 scheduled task 唤醒 eval 猫进入 domain thread"——引擎没启动，整个 eval pipeline 是死的 | 🔴 CVO dogfood 2026-05-26 |
 | OQ-18 | **[BUG] System thread 是空壳**——`ensureEvalDomainThreads()` 在 Hub API 请求时按需创建空 thread，但 eval cat 从未在里面工作。AC-E4 要求"thread 承载 eval 长期分析上下文"，AC-E5 要求"eval 猫进入 domain thread"——点击"工作线程"导航到全新的空 thread 因为 eval 从未在此执行 | 🔴 CVO dogfood 2026-05-26 |
+| OQ-19 | **[BUG] Eval domain thread 不出现在侧边栏"系统"分区**（CVO 二次 report）——KD-15 决策 eval thread 与 IM Hub thread 共享系统线程模型按 `kind` 区分，但实现缺口：①侧边栏 `thread-utils.ts:152-154` 过滤 system thread 的判据是 `!!t.connectorHubState`（IM Hub 专用属性），没有通用的 `kind` 字段；②`ensureEvalDomainThreads()` 只调 `ensureThread(id, title)` 创建裸 thread，不设任何 system 标记；③ Thread 接口没有 `kind` 字段，KD-15 的"按 kind 区分"**决策已录但未落地**。结果：eval thread 存在于 Redis 但被侧边栏归为普通 thread，"系统"分区只展示 6 个 IM Hub thread、0 个 eval thread。修复方向：Thread 接口加 `systemKind?: 'connector_hub' \| 'eval_domain'`，侧边栏过滤从 `connectorHubState` 升级为 `systemKind` 判据 | 🔴 CVO 二次 report 2026-05-26 |
 
 ## Key Decisions
 
