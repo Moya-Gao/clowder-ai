@@ -255,13 +255,24 @@ export function ChatInput({
         setShowGameMenu(false);
         setMentionStart(trigger.start);
         setMentionFilter(trigger.filter);
-        setSelectedIdx(0);
+        // Bare @ defaults to first individual cat so Enter doesn't accidentally
+        // insert a group mention like @thread.  When filter is active the user is
+        // intentionally narrowing, so start at 0.
+        if (trigger.filter) {
+          setSelectedIdx(0);
+        } else {
+          const idx = catOptions.findIndex((opt) => !opt.isGroup);
+          // idx = -1 when no individual cats loaded yet → point past all options
+          // so the existing Enter guard (opt === undefined → closeMenus) fires
+          // instead of accidentally inserting @thread
+          setSelectedIdx(idx >= 0 ? idx : catOptions.length);
+        }
       } else {
         closeMenus();
         setMentionFilter('');
       }
     },
-    [closeMenus],
+    [closeMenus, catOptions],
   );
 
   const handleHistorySelect = useCallback(
