@@ -317,6 +317,16 @@ function mergeTemplateWithCatalog(templatePath: string): string | null {
   if (catalogBreeds.length > 0 && Array.isArray(merged.breeds)) {
     const catalogBreedIds = new Set(catalogBreeds.map((b) => b.id));
     merged.breeds = (merged.breeds as HasId[]).filter((b) => catalogBreedIds.has(b.id));
+
+    // Keep roster consistent with filtered breeds (cloud codex P2).
+    const runtimeCatIds = new Set(
+      (merged.breeds as Array<{ catId?: string }>).map((b) => b.catId).filter(Boolean),
+    );
+    if (merged.roster && typeof merged.roster === 'object') {
+      for (const key of Object.keys(merged.roster as Record<string, unknown>)) {
+        if (!runtimeCatIds.has(key)) delete (merged.roster as Record<string, unknown>)[key];
+      }
+    }
   }
 
   return JSON.stringify(merged);
