@@ -122,6 +122,17 @@ if [ "$REPO_ROOT" != "$MAIN_WORKTREE" ]; then
   esac
 fi
 echo -e "${GREEN}✓ Worktree 位置合规${NC}"
+
+GATE_GUARD_SCRIPT="$REPO_ROOT/scripts/pre-merge-gate-guard.mjs"
+GATE_LOCK_DIR="${CAT_CAFE_GATE_LOCK_DIR:-$REPO_ROOT/.cat-cafe/gate/pre-merge-check.lock}"
+node "$GATE_GUARD_SCRIPT" acquire --lock-dir "$GATE_LOCK_DIR" --holder-pid "$$"
+release_gate_guard() {
+  node "$GATE_GUARD_SCRIPT" release --lock-dir "$GATE_LOCK_DIR" --holder-pid "$$" >/dev/null 2>&1 || true
+}
+trap release_gate_guard EXIT
+trap 'release_gate_guard; exit 130' INT
+trap 'release_gate_guard; exit 143' TERM
+echo -e "${GREEN}✓ Gate singleflight + system-pressure preflight${NC}"
 echo ""
 
 # ── Step 1: Fetch + Rebase origin/main ──

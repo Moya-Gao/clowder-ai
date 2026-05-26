@@ -85,6 +85,8 @@ managed_scripts:
   - scripts/start-dev-profile-isolation.test.mjs
   - scripts/pre-merge-check.sh
   - scripts/pre-merge-check.test.mjs
+  - scripts/pre-merge-gate-guard.mjs
+  - scripts/pre-merge-gate-guard.test.mjs
   - scripts/test-bash-runtime.mjs
   - scripts/test-bash-runtime.test.mjs
   - scripts/install-git-guards.sh

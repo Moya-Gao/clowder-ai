@@ -105,6 +105,7 @@ function runGate(bash, args = [], extraEnv = {}) {
       env: {
         ...process.env,
         ...extraEnv,
+        CAT_CAFE_GATE_GUARD_SKIP_PRESSURE: '1',
         PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ''}`,
       },
     });
