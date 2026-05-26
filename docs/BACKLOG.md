@@ -78,3 +78,4 @@ created: 2026-02-26
 | F209 | Evidence Recall Optimization — 消息级语义、实体门牌号与活查询藤 | in-progress | 缅因猫/砚砚 | internal | [F209](features/F209-evidence-recall-optimization.md) |
 | F210 | Gemini CLI to Antigravity CLI Migration | in-progress | 缅因猫/砚砚 | internal | [F210](features/F210-antigravity-cli-migration.md) |
 | F211 | Cross-Runtime Session Transparency — Antigravity Session Chain + IDE Direct Registration | spec | 缅因猫/砚砚 | internal | [F211](features/F211-cross-runtime-session-transparency.md) |
+| F212 | CLI Error Diagnostics — 结构化 CLI 错误诊断 + 受控前端展示 | spec | 布偶猫/宪宪 | internal | [F212](features/F212-cli-error-diagnostics.md) |
