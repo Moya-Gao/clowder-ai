@@ -34,7 +34,7 @@ created: 2026-02-26
 | F107 | 脑门贴词 — 坏猫战术推理游戏 #1 | spec | 布偶猫 | internal | [F107](features/F107-headband-guess-game.md) |
 | F109 | Message Actions 修复与增强 — 软删除/Branch/编辑/通知 | in-progress | 布偶猫 | internal | [F109](features/F109-message-actions-overhaul.md) |
 | F110 | 训练营愿景引导增强 — CVO 需求挖掘 + SOP 显式加载 | spec | 布偶猫 | internal | [F110](features/F110-bootcamp-vision-elicitation.md) |
-| F113 | Multi-Platform One-Click Deploy — 多平台一键部署 | in-progress | community | community [#14](https://github.com/zts212653/clowder-ai/issues/14) | [F113](features/F113-multi-platform-one-click-deploy.md) |
+| F113 | Multi-Platform One-Click Deploy — 多平台一键部署 | near-done (AC-B6 macOS 验收 pending) | community | community [#14](https://github.com/zts212653/clowder-ai/issues/14) | [F113](features/F113-multi-platform-one-click-deploy.md) |
 | F119 | 谁是卧底 — 坏猫战术推理游戏 #2 | spec | 布偶猫 | internal | [F119](features/F119-who-is-spy-game.md) |
 | F124 | Apple Ecosystem × Cat Café 语音交互系统 — iOS/watchOS/AirPods | spec | 布偶猫 | internal | [F124](features/F124-apple-ecosystem-voice-interaction.md) |
 | F126 | 四肢控制面 — Cat Café Limb Control Plane | in-progress | 布偶猫 | internal | [F126](features/F126-limb-control-plane.md) |

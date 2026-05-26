@@ -9,7 +9,9 @@ community_issue: https://github.com/zts212653/clowder-ai/issues/14
 
 # F113: Multi-Platform One-Click Deploy
 
-> **Status**: in-progress | **Source**: clowder-ai #14 (mindfn) | **Priority**: P2
+> **Status**: near-done (17/18 AC — only AC-B6 macOS 铲屎官验收 pending) | **Source**: clowder-ai #14 (mindfn) | **Priority**: P2
+>
+> **Audit 2026-05-26**：Phase A/B/C/D/E 代码全部 merged。唯一未完成 AC 是 AC-B6（铲屎官 macOS 真机端到端验收）。社区 issue clowder-ai#14 已关闭。
 
 ## Why
 
