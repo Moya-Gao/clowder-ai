@@ -398,9 +398,9 @@ outputVerified = signal_or(
 ### Phase D（Full Trajectory Records）✅
 - [x] AC-D1: TaskTrajectory 按 invocation/thread 粒度聚合
 - [x] AC-D2: outputVerified 推断框架（injectable signal sources + 外部注入 endpoint）上线。v1 自动检测覆盖 invocation status；PR merge / CVO accept / reviewer approval 通过外部注入 endpoint 接入
-- [ ] AC-D2.1: CVO accept + reviewer approval 信号源自动检测（需解析 thread 消息）
-- [ ] AC-D2.2: CI check 信号源（需 F140 GitHub check_run 集成）
-- [ ] AC-D2.3: GitHub PR merge → `pr_merged` trajectory signal 自动桥接（当前 `pr_merged` 是强信号且 endpoint 支持外部注入，但 runtime 实测 58 条 trajectory 的 `outputVerifiedSignals=[]`，自动桥接尚未喂数）
+- [x] AC-D2.1: CVO accept + reviewer approval 信号源自动检测（thread 消息扫描 + clause-anchored whitelist，PR #1898）
+- [x] AC-D2.2: CI check 信号源（pr_tracking task automationState.ci.lastBucket + fingerprint alignment，PR #1898）
+- [x] AC-D2.3: GitHub PR merge → `pr_merged` trajectory signal 自动桥接（CiCdRouter 持久化 prState + ThreadAwareSignalSources.isPrMergedForThread，PR #1898）
 - [x] AC-D3: 成功轨迹可被 list_recent 或 search_evidence 召回（scope="trajectories"）
 - [x] AC-D4: Cross-Cat Effort Variance 和 ConsumedButNotUsedRate 指标上线
 
@@ -490,6 +490,7 @@ outputVerified = signal_or(
 | 2026-05-18 | HW-4 attribution fix 实现完成（Opus-47，feat/f200-hw4）— 四件 RED→GREEN：parallel per-cat FIFO（`4183dd392`）/ shell-read parser+consumption+trajectory（`76474a96f`+`acd4cebc9`）/ EvidenceResult.sourcePath 结构化链路（`fd8d3795f`）/ schema V23 ambiguity-aware resultSet+clarity+provenance（`d04ead1f6`）。`memory/*` 1074 pass 0 fail（schema 守护版本 23 同步）。砚砚 plan R1 review pass（2 P1+1 P2 已修）。Out of scope：human-confirm UI / ranking 改 / OQ-6-7 close 未碰。待 quality-gate + 跨族 PR review |
 | 2026-05-18 | HW-4 merged（PR #1750，squash `b723a0a70`）— 多轮 cross-reviewer 闭环：砚砚 plan + code review 多轮 / 云端 codex 5 轮 / 缅因猫 GPT-5.4 R1+R2（Q4 SOP 降级替代云端 codex 配额耗尽）。共 9 真 P1/P2 全 RED→GREEN（含 parseShellReadPaths 6+ 轮 corner case：shell wrapper unwrap、quote-aware split、sed -script 精判、redirect token、date-prefixed/extensionless 文件、option-arg 处理；以及 graph_resolve no-break 范围窄化到 command_execution 防 substring 过匹配回归）。consumption attribution substrate 现可信，HW-3 OQ-6/OQ-7 决策前置已就位。 |
 | 2026-05-25 | HW-5 merged（PR #1886）— F209 fixture recall@k wrapper：F209FixtureParser（多 Phase field-name 适配 + glob-preferring anchor extraction + recall/drilldown 分类）+ RecallFixtureRunner（pluggable search + hit/miss/rank + aggregate recall@k）+ 10 tests。砚砚 3 轮 local review（2 P1 + 1 P2 修复）+ 云端 codex 2 轮（1 P2 multi-backtick anchor 修复）。正确分类 3 recall / 5 drilldown。 |
+| 2026-05-26 | AC-D2 signal sources merged（PR #1898，squash `7a4f40871`）— ThreadAwareSignalSources: CVO accept + reviewer approval（clause-anchored whitelist + negation-first + isNonApprovalContext 三重 guard）、CI passed（fingerprint alignment）、PR merged（CiCdRouter prState 持久化）。砚砚 5 轮 local review（3 P1 修复：English clause-anchoring / colon separator → tagged pattern / 没问题 question guard）+ 云端 codex 15 轮（19 inline findings 全 triage：14 fixed + 5 P3 dismiss）。48 tests（27 message + 21 task/integration）。 |
 
 ## Plan Gate Checklist（writing-plans 前必须解决）
 
