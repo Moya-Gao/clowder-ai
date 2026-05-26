@@ -8,7 +8,7 @@ created: 2026-05-06
 
 # F188: Library Stewardship — 图书馆管护与成长
 
-> **Status**: reopened | **Completed (A-I)**: 2026-05-20 | **Reopened**: 2026-05-20 (Phase J) | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: done | **Completed**: 2026-05-26 | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -263,17 +263,17 @@ Why: Phase F 不创建新 store/queue/router/adapter cell — graph_resolve 复�
 - [x] AC-C7f: Query resolution 必须遵守 collection visibility / sensitivity；private/restricted 候选不得泄露真实 anchor/title/path，redaction 规则与 GraphResolver 一致
 - [x] AC-C7g: 浏览器验收覆盖 `F186`、`f186`、`harness`、无证据自然语言 query 四类输入；截图证明候选列表、空状态、graph 展示和隐私文案可读
 
-### Phase D（Chat-to-Collection Materialization）
+### Phase D（Chat-to-Collection Materialization）✅
 - [x] AC-D1: 猫猫在 Knowledge Feed approve 时可以选择目标 Collection
 - [x] AC-D2: materialize 后自动触发增量 reindex
 - [x] AC-D3: materialize 产出的文件有 frontmatter（至少 doc_kind + created）
 
-### Phase E（Replay Seed / Pin — Superseded by F200）
+### Phase E（Replay Seed / Pin — Superseded by F200）✅
 - [x] AC-E1: Closed/no-op — 铲屎官手动 Pin UI 不做；F200 用隐式 consumption / trajectory 信号替代逐条人工标注
 - [x] AC-E2: Closed/no-op — 猫猫 API/MCP 手动 Pin 不做；F200 自动记录 recall → read/use/verify 行为链，猫猫不需要额外停下来打标签
 - [x] AC-E3: Closed/no-op — Pin → Query Replay seed 不做；F200 Phase D trajectory 数据是 replay seed 的更高保真输入，人工纠偏入口如需补充应进入 F200 backlog，不回流到 F188
 
-### Phase F（Agent-facing Memory Tools）
+### Phase F（Agent-facing Memory Tools）✅
 - [x] AC-F1: MCP tool `cat_cafe_graph_resolve(query, depth?, relations?, dimension?, collections?)` 实现，复用 GraphResolver；query 支持精确 anchor + 模糊词（候选列表）；depth 默认 1 上限 3；relations 支持 wikilink / doc_link / feature_ref / related_to 子集；**`callerCollections` 不在 MCP 输入 schema 里**——必须由服务端从 agent identity / session ACL 派生（详见 KD-8），client-supplied `collections` 仅作请求范围 filter，**不能扩展可见性**；private/restricted 节点/边 redaction 规则与 GraphResolver Web 入口一致（unresolved private anchor opaque 化、跨 collection 边按 sensitivity 过滤）；unit test 验证："传 `collections=["world:private-x"]` 当 caller 不在该 collection 时，private 节点必须 redact，不能因 `collections` 参数被自授权"
 - [x] AC-F2: MCP tool `cat_cafe_list_recent(scope, since, limit, kinds?, dimension?, collections?)` 实现，跨 docs/threads/memory 按 updatedAt 倒序合并，返回 anchor + title + kind + updatedAt + source；**`callerCollections` 不在 MCP 输入 schema 里**（同 AC-F1 / KD-8）；`collections` 参数仅作请求范围 filter，private/restricted items 按服务端派生 ACL redact，client **不能自授权**
 - [x] AC-F3: 两个新 tool 的 description 明确写场景边界 + 触发关键词 + **cross-reference 全部记忆工具家族**（`search_evidence` / `graph_resolve` / `list_recent` / `list_session_chain` / `read_session_digest` / `read_session_events` / `read_invocation_detail`），让猫识别它们是同一类工具的不同 depth/scope（4.6 review #3 缓解方案：猫的认知成本主要来自"工具间互相找"而非"工具总数"，cross-reference 直接解工具数量膨胀关切）；description 写明"零先验试 list_recent / 语义找试 search_evidence / 看关系试 graph_resolve / 看历史细节试 read_session_*"等互相 cross-reference；**`search_evidence` 低命中（top-result score < 阈值 或 result count = 0）时，在 return payload 末尾加 deterministic nudge**（"精确 anchor 试 graph_resolve / 零先验试 list_recent"），用 payload 替代 PostToolUse hook（详见 KD-7）
@@ -292,7 +292,7 @@ Why: Phase F 不创建新 store/queue/router/adapter cell — graph_resolve 复�
   AC-F9 的序列 / candidate / nudge 类 metric 全依赖此 log 计算；存储位置和 retention 参考 F180 telemetry 现有约定。同时本 phase 新增 **`skill_loaded` 事件**（schema：`invocationId / sessionId / skillId / loadTrigger / timestamp`）以支持 AS-4（不依赖现有 Skill `tool_use` 计数，因其去重且无 trigger 上下文）
 - [x] AC-F11: F148 retrieval pattern + F167 A2A eval contract 同步扩展：navigation header 注入 spotlight 时把 `graph_resolve` / `list_recent` 也作为 retrieval pattern 识别（不只是 `search_evidence` + `get_thread_context`），否则 F167 A2A 链路质量 eval 仍只认 search 系，cold-start improvement 不会被计入；**范围锁定（砚砚 二次 review 约束）**：只改 retrieval pattern 识别 + eval contract，**不改 A2A routing 语义 / 球权规则 / mention 解析**——任何 routing 语义改动单独立项
 
-### Phase G（Phase F Post-launch Quick Hotfix — G.1 + G.2 only，砚砚一审收窄）
+### Phase G（Phase F Post-launch Quick Hotfix — G.1 + G.2 only，砚砚一审收窄）✅
 - [x] AC-G1: 修 `graph_resolve` MCP wrapper API↔response shape mismatch (OQ-4)：`graph-tools.ts` 的 `data.status === 'graph'` 分支需 unwrap `data.graph.{nodes, edges, center, depth}`（而不是 `data.{nodes, edges, ...}`）传给 `formatGraph`。Type interface `GraphSubgraph` 同步对齐 API contract
 - [x] AC-G2: 加 regression test：`graph_resolve("F186", depth=1)` 返回 graph status 时 MCP wrapper 正确 unwrap，不抛 error
 - [x] AC-G3: rewrite `list_recent` tool description（`recent-tools.ts:23` 的 scope 字段）reflect 实际边界：「threads/memory scope maps to indexed discussion/session/memory/reflection **docs** (not raw thread messages or memory store)」。砚砚一审 P2: 不 oversell `SCOPE_KIND_MAP` 边界（只是 evidence_docs.kind filter，非跨 surface 全量索引）
@@ -393,9 +393,9 @@ Why: Phase F 不创建新 store/queue/router/adapter cell — graph_resolve 复�
 | OQ-2 | Phase B stale anchor 检测频率：rebuild 时顺带 vs 独立定时扫描？ | ✅ 按需计算（health-report API 调用时实时扫描）；当前 docs 规模够用，若 API 变慢再改定时扫描 |
 | OQ-3 | Phase E Pin 的 UI 入口：RecallFeed 内嵌 vs 独立 Pin 管理页？ | ✅ 关闭：Phase E superseded by F200；不做 F188 手动 Pin UI |
 | OQ-4 | **上线后暴露 (Phase F follow-up, 2026-05-12 砚砚 dogfood 发现)**：`graph_resolve` MCP wrapper API↔response shape mismatch — `GraphQueryResolver.ts:257` 返回 `{ status:'graph', graph: {nodes,edges,...} }`（nested），但 `graph-tools.ts:60 GraphSubgraph` interface 期望 flat `{ status:'graph', nodes, edges, ... }`，导致 `g.edges.filter`/`for of visibleEdges` 抛 "Cannot read of undefined" / "is not iterable"。**修法**：MCP wrapper 解 `data.graph.{nodes,edges,center,depth}` 后再传给 formatGraph。 | ✅ Phase G AC-G1/G2 实做完成 (2026-05-12)：unwrap `data.graph` + GraphSubgraphResponse type 对齐 API contract + 测试 fixture 改 nested shape (RED→GREEN)。R1 占位 doc / list_recent collection-aware 拆到 Phase H 独立 Design Gate (砚砚一审 P1 收窄) |
-| OQ-5 | Phase J verification migration 是否需要新增字段（如 `verification_state` / `verification_source`），还是复用 `verified_at` + audit log？ | ⬜ Phase J Design Gate 决定；硬约束：不得把 F200 consumption 直接写成 truth verification |
-| OQ-6 | Non-doc WikiLink（如指向代码块、memory 文件名、非 evidence anchor）的 graph policy：删除边、保留 unresolved、还是转为 external reference？ | ⬜ Phase J Design Gate 决定；dry-run 必须先列出样本 |
-| OQ-7 | `validated` / `constitutional` 且 `verified_at IS NULL` 的 legacy docs 如何迁移？ | ⬜ Phase J Design Gate 决定；默认不盲降级，先按来源/路径/历史 authority 分类 |
+| OQ-5 | Phase J verification migration 是否需要新增字段（如 `verification_state` / `verification_source`），还是复用 `verified_at` + audit log？ | ✅ Phase J KD-13 三维分离（authority / verified_at / usage_signal）+ `review_status` state machine；不新增 `verification_state` 字段，复用 `verified_at` + `review_status` 维度 |
+| OQ-6 | Non-doc WikiLink（如指向代码块、memory 文件名、非 evidence anchor）的 graph policy：删除边、保留 unresolved、还是转为 external reference？ | ✅ Phase J AC-J3/J4 5-bucket classifier：`wikilink_non_doc_target` 桶分类处理（dry-run 列出样本 + apply 按策略删除或进 review bucket） |
+| OQ-7 | `validated` / `constitutional` 且 `verified_at IS NULL` 的 legacy docs 如何迁移？ | ✅ Phase J KD-13 + AC-J6：三桶分类（trusted_legacy / needs_review / escalated），不盲降级；猫猫批量确认低风险 legacy，高风险才升级 CVO |
 
 ## Key Decisions
 
@@ -445,6 +445,7 @@ Why: Phase F 不创建新 store/queue/router/adapter cell — graph_resolve 复�
 | 2026-05-20 | **Feature closed** — opus-47 愿景守护复审放行（5 点铲屎官原话全覆盖 + PR #1790 数据流追踪验证 badge 非死代码）。9 Phase（A-I，E superseded by F200），14 PR。反思胶囊：`docs/reflections/2026-05-20-f188-library-stewardship-capsule.md` |
 | 2026-05-20 | **Feature reopened / Phase J scoped** — PR #1790 dogfood 后铲屎官看到真实 health debt：`201 orphanEdges` / `724 unverified`。砚砚独立核 F188/F200 边界后新增 Health Debt Governance：orphan edge repair + verification debt semantics + cat-owned review workflow |
 | 2026-05-21 | **Phase J merged (PR #1822)** — Health Debt Governance: orphan edge repair (5-bucket classifier + dry-run + apply + from-orphan auto-delete), verification debt migration (3-dimensional separation + review_status state machine), cat-owned verification workflow, F200 boundary tests, dogfood acceptance report. 砚砚 local review 3 rounds + cloud codex 7 rounds (R1-R7: health metric fallback, backup collision, dismiss_review status, from-orphan disk check, wikilink from-orphan, feature_ref from-orphan, runExclusive; R7 pushback accepted — no revert of R3 fix) |
+| 2026-05-26 | **Feature re-closed** — opus-47 第三次愿景守护放行（4 句 F188 quotes 全覆盖 + Phase J dogfood report 实存 87% auto-fix + OQ-5/6/7 由 KD-13/AC-J6 解决）。10 Phase（A-J，E superseded by F200），15 PR。Phase J 反思胶囊：`docs/reflections/2026-05-26-f188-phase-j-governance-capsule.md` |
 
 ## Review Gate
 
