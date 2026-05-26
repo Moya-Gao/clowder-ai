@@ -8,7 +8,7 @@ created: 2026-05-26
 
 # F213: Stale MCP Config Cleanup at Startup — 过期 MCP 配置启动清理
 
-> **Status**: in-progress (Phase A merged 2026-05-26, PR #1901) | **Owner**: 布偶猫/宪宪 (Opus-47) | **Priority**: P1
+> **Status**: in-progress (Phase A + B merged 2026-05-26, PR #1901 + #1903) | **Owner**: 布偶猫/宪宪 (Opus-47) | **Priority**: P1
 
 ## Why
 
@@ -174,11 +174,11 @@ trace 所有 mcp config writer：
 
 ### Phase B（All-Harness Coverage）
 
-- [ ] AC-B1: `writeGeminiMcpConfig` 加同 cleanup logic + 单测覆盖
-- [ ] AC-B2: `writeClaudeMcpConfig` (`.mcp.json`) 加同 cleanup logic + 单测覆盖
-- [ ] AC-B3: `writeAntigravityMcpConfig` 加同 cleanup logic + 单测覆盖
-- [ ] AC-B4: 其他 harness writer audit + 文档 (Kimi / 未来 harness)
-- [ ] AC-B5: cross-harness shared cleanup helper（避免 5 个 writer 各自重复 cleanup logic）
+- [x] AC-B1: `writeGeminiMcpConfig` 加同 cleanup logic + 单测覆盖（4 case: echoLegacyShim 删 / fork-like 保留 / 第三方保留 / no-op）
+- [x] AC-B2: `writeClaudeMcpConfig` (`.mcp.json`) 加同 cleanup logic + 单测覆盖（4 case）
+- [x] AC-B3: `writeAntigravityMcpConfig` 加同 cleanup logic + 单测覆盖（4 case）
+- [x] AC-B4: `writeKimiMcpConfig` (`.kimi/mcp.json`) 加同 cleanup logic + 单测覆盖（4 case）；未来 harness 走同 shared helper 自动 cover
+- [x] AC-B5: cross-harness shared cleanup helper `applyDeprecatedManagedCleanup(existingServers, contextLabel)` 抽出 + Codex writer refactor 用它（5 个 writer 共享同一逻辑）
 
 ### Phase C（Documentation + ADR Sync）
 
@@ -249,6 +249,7 @@ trace 所有 mcp config writer：
 | 2026-05-26 00:02 | CVO 签字赞同立项 + 改 ADR-036 + 关 PR + 写愿景 |
 | 2026-05-26 | F213 立项 (本 spec) + ADR-036 amended |
 | 2026-05-26 08:35 | **Phase A merged (PR #1901)** — registry + helper + L5 cleanup in writeCodexMcpConfig + L4 dummy disabled override; 砚砚 P1+P2 review + cloud round-3 approve + docs sync (ADR-036/spec/plan terminal design) |
+| 2026-05-26 09:31 | **Phase B merged (PR #1903)** — shared `applyDeprecatedManagedCleanup` helper + extension to Claude/Gemini/Antigravity/Kimi writers (4 new harness × 4 cleanup tests = 16 tests，72/72 mcp-config-adapters pass); 砚砚 APPROVE + cloud round-1 "no major issues. Breezy!" |
 | TBD | Phase A 实施 (worktree → TDD → review → merge) |
 
 ## Review Gate
