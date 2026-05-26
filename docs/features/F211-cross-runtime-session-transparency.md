@@ -344,6 +344,7 @@ in_context_observability:
 | 2026-05-25 | Phase A2 merged via PR #1885：runtime active binding, Antigravity drain/lifecycle seal, runtime seal reaper, transcript materialization, and cross-session continuity bootstrap are now on main; Cloud Codex found no major issues on final HEAD `b4336860`, merge commit `2850dca23`. |
 | 2026-05-25 | Phase B implementation plan drafted and reviewed by Opus45：APPROVE with P1 clarification; scope clarified that IDE-direct binding is one-shot immutable in Phase B, with orphan-to-thread migration deferred to explicit Phase D/E bind UX. |
 | 2026-05-25 | Phase B implementation landed in worktree `feat/f211-phase-b-ide-direct-registration` through `db14e7967`: agent-key-only callback registration, hidden external-runtime anchor threads, recent runtime indexes, MCP register/list/read tools, and API list/read routes are implemented. Targeted API/MCP tests and package builds passed. |
+| 2026-05-26 | Phase B merged via PR #1899：IDE-direct reverse registration is now on main with agent-key-only callback auth, hidden external-runtime anchor threads, API/MCP list/read drilldown, one-shot immutable binding, and cloud follow-up fixes for stale lifecycle heartbeats; final gate passed at `78a8dc62`, merge commit `8c740d526`. |
 
 ## Review Gate
 
