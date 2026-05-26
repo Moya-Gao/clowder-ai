@@ -83,17 +83,21 @@ export function codexNativeBinaryCandidates(
   const binName = triple.includes('windows') ? 'codex.exe' : 'codex';
   const platformPkg = CODEX_PLATFORM_PKG[triple];
   const out = [];
+  const pushVendorCandidates = (vendorRoot) => {
+    out.push(join(vendorRoot, triple, 'bin', binName));
+    out.push(join(vendorRoot, triple, 'codex', binName));
+  };
   if (platformPkg) {
     // Preferred: Node module resolution (what codex.js actually does) — finds
     // hoisted/sibling installs the hardcoded paths below would miss.
     const resolvedDir = resolvePlatformPkgDir(platformPkg, launcherPath);
     if (resolvedDir) {
-      out.push(join(resolvedDir, 'vendor', triple, 'codex', binName));
+      pushVendorCandidates(join(resolvedDir, 'vendor'));
     }
     // Fallback: the verified-working hardcoded nested layout.
-    out.push(join(pkgRoot, 'node_modules', platformPkg, 'vendor', triple, 'codex', binName));
+    pushVendorCandidates(join(pkgRoot, 'node_modules', platformPkg, 'vendor'));
   }
-  out.push(join(pkgRoot, 'vendor', triple, 'codex', binName));
+  pushVendorCandidates(join(pkgRoot, 'vendor'));
   return out;
 }
 
