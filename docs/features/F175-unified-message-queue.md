@@ -11,6 +11,8 @@ intake_source: clowder-ai#575
 
 > **Status**: phase-a-done | **Owner**: 布偶猫 | **Priority**: P1
 >
+> **Audit 2026-05-26**：Phase A（10 AC）全部完成并 merged。Phase B 前端编排（4 AC）+ Phase C Spec/ADR 更新（4 AC）未启动。社区 PR clowder-ai#575 已 merged，cat-cafe PR #1443 已 absorbed。BACKLOG 状态从 "spec" 修正为 "phase-a-done"。
+>
 > **Inbound source**: [clowder-ai#575](https://github.com/zts212653/clowder-ai/pull/575)
 > **Original tag**: clowder-ai 仓内编号为 F169（unified-queue-design）
 > **Rename reason**: cat-cafe 本地 F169 已被 `agent-memory-reflex` vision 文档占用，同号不同物会污染 search_evidence（参见 `feedback_fake_feat_anchor_is_poison`）。已要求 mindfn 在 PR #575 源头完成 F169 → F175 rename。
