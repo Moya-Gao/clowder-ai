@@ -16,6 +16,8 @@ set -euo pipefail
 SOURCE=""
 TARGET_PORT="6399"
 YES="false"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/redis-rdb-first.sh"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -89,14 +91,18 @@ if [[ -z "$TARGET_DIR" || -z "$TARGET_DBFILE" ]]; then
   exit 1
 fi
 
+redis_config_get_or_empty() {
+  redis-cli -p "$TARGET_PORT" config get "$1" 2>/dev/null | sed -n '2p' || true
+}
+
 TARGET_DUMP_PATH="$TARGET_DIR/$TARGET_DBFILE"
 BACKUP_DIR="$TARGET_DIR/cat-cafe-redis-backups"
 STAMP="$(date '+%Y%m%d-%H%M%S')"
 BACKUP_PATH="$BACKUP_DIR/${TARGET_DBFILE}.${STAMP}.bak"
-TARGET_APPENDONLY="$(redis-cli -p "$TARGET_PORT" config get appendonly | sed -n '2p')"
-TARGET_APPEND_FILENAME="$(redis-cli -p "$TARGET_PORT" config get appendfilename | sed -n '2p')"
-TARGET_APPEND_DIRNAME="$(redis-cli -p "$TARGET_PORT" config get appenddirname | sed -n '2p')"
-TARGET_APPEND_FSYNC="$(redis-cli -p "$TARGET_PORT" config get appendfsync | sed -n '2p')"
+TARGET_APPENDONLY="$(redis_config_get_or_empty appendonly)"
+TARGET_APPEND_FILENAME="$(redis_config_get_or_empty appendfilename)"
+TARGET_APPEND_DIRNAME="$(redis_config_get_or_empty appenddirname)"
+TARGET_APPEND_FSYNC="$(redis_config_get_or_empty appendfsync)"
 
 # 恢复脚本默认启用 AOF，避免恢复后进入“纯 RDB 模式”导致后续 AOF 长期停更。
 if [[ -z "$TARGET_APPENDONLY" || "$TARGET_APPENDONLY" != "yes" ]]; then
@@ -113,6 +119,8 @@ if [[ -z "$TARGET_APPEND_FSYNC" ]]; then
 fi
 TARGET_APPEND_DIR_PATH="$TARGET_DIR/$TARGET_APPEND_DIRNAME"
 AOF_BACKUP_PATH="$BACKUP_DIR/${TARGET_APPEND_DIRNAME}.${STAMP}.bak"
+TARGET_APPEND_FILE_PATH="$TARGET_DIR/$TARGET_APPEND_FILENAME"
+AOF_FILE_BACKUP_PATH="$BACKUP_DIR/${TARGET_APPEND_FILENAME}.${STAMP}.bak"
 
 echo "== Redis Restore Plan =="
 echo "source dump:     $SOURCE"
@@ -156,10 +164,13 @@ echo "[restore] source copied to target dump path."
 if [[ "$TARGET_APPENDONLY" == "yes" && -d "$TARGET_APPEND_DIR_PATH" ]]; then
   mv "$TARGET_APPEND_DIR_PATH" "$AOF_BACKUP_PATH"
   echo "[restore] previous appendonly dir moved to: $AOF_BACKUP_PATH"
+elif [[ "$TARGET_APPENDONLY" == "yes" && -f "$TARGET_APPEND_FILE_PATH" ]]; then
+  mv "$TARGET_APPEND_FILE_PATH" "$AOF_FILE_BACKUP_PATH"
+  echo "[restore] previous appendonly file moved to: $AOF_FILE_BACKUP_PATH"
 fi
 
 echo "[restore] starting redis on port $TARGET_PORT..."
-redis-server \
+cat_cafe_redis_start_daemon \
   --port "$TARGET_PORT" \
   --dir "$TARGET_DIR" \
   --dbfilename "$TARGET_DBFILE" \
@@ -167,7 +178,7 @@ redis-server \
   --appendfilename "$TARGET_APPEND_FILENAME" \
   --appenddirname "$TARGET_APPEND_DIRNAME" \
   --appendfsync "$TARGET_APPEND_FSYNC" \
-  --daemonize yes >/dev/null 2>&1
+  --daemonize yes
 
 for _ in $(seq 1 50); do
   if redis-cli -p "$TARGET_PORT" ping >/dev/null 2>&1; then

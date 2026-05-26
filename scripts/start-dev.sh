@@ -52,6 +52,7 @@ source "$SCRIPT_DIR/lib/node-runtime-guard.sh"
 if [[ "${1:-}" != "--source-only" ]]; then
     ensure_supported_node_runtime "$SCRIPT_DIR/start-dev.sh" "$@"
 fi
+source "$SCRIPT_DIR/lib/redis-rdb-first.sh"
 source "$SCRIPT_DIR/download-source-overrides.sh"
 cd "$PROJECT_DIR"
 
@@ -1152,7 +1153,7 @@ setup_storage() {
     echo -e "${YELLOW}  ⚠ Redis 未运行，尝试在端口 $REDIS_PORT 启动...${NC}"
     if command -v redis-server &> /dev/null; then
         maybe_quarantine_stale_aof_dir
-        redis-server \
+        cat_cafe_redis_start_daemon \
             --port "$REDIS_PORT" \
             --bind 127.0.0.1 \
             --dir "$REDIS_DATA_DIR" \
@@ -1164,7 +1165,7 @@ setup_storage() {
             --daemonize yes \
             --pidfile "$REDIS_PIDFILE" \
             --logfile "$REDIS_LOGFILE" \
-            >/dev/null 2>&1 || true
+            || true
         sleep 1
         if redis_ping; then
             echo -e "${GREEN}  ✓ Redis 已启动 (端口 $REDIS_PORT)${NC}"

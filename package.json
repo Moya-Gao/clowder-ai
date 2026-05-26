@@ -35,6 +35,8 @@
     "redis:dumps:find": "./scripts/find-redis-dumps.sh",
     "redis:md:restore:dry-run": "node ./scripts/restore-chat-md-to-redis.mjs",
     "redis:md:restore:apply": "node ./scripts/restore-chat-md-to-redis.mjs --apply --yes",
+    "process:doctor": "node ./scripts/cleanup-stale-dev-processes.mjs",
+    "process:cleanup": "node ./scripts/cleanup-stale-dev-processes.mjs --run",
     "threads:sync": "./scripts/thread-exports-sync.sh sync",
     "threads:status": "./scripts/thread-exports-sync.sh status",
     "threads:export:redis": "node ./scripts/export-threads-from-redis.mjs",

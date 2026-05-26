@@ -42,6 +42,7 @@ import asyncio
 import logging
 import os
 import platform
+import resource
 import signal
 import sys
 import time
@@ -81,6 +82,9 @@ model_name: str = ""
 embed_dim: int = 768
 model_loaded: bool = False
 _backend: str = "mlx-embeddings"
+_started_at: float = time.time()
+_request_count: int = 0
+_last_embed_ms: float | None = None
 
 # Serialize GPU access (same pattern as whisper-api.py / tts-api.py)
 _embed_lock = asyncio.Lock()
@@ -112,6 +116,14 @@ def _allow_sentence_transformers_fallback() -> bool:
     return not _is_apple_silicon()
 
 
+def _process_max_rss_bytes() -> int:
+    """Return process max RSS in bytes (macOS reports bytes, Linux reports KiB)."""
+    rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    if sys.platform == "darwin":
+        return int(rss)
+    return int(rss * 1024)
+
+
 # ─── Request/Response models ──────────────────────────────────────
 
 class EmbedRequest(BaseModel):
@@ -131,6 +143,8 @@ class EmbedResponse(BaseModel):
 @app.post("/v1/embeddings")
 async def create_embeddings(req: EmbedRequest):
     """OpenAI-compatible embedding endpoint."""
+    global _request_count, _last_embed_ms
+
     if not model_loaded:
         raise HTTPException(503, detail="Model not loaded yet")
 
@@ -149,6 +163,8 @@ async def create_embeddings(req: EmbedRequest):
         embeddings = await asyncio.to_thread(_encode, texts)
 
     elapsed_ms = time.time() * 1000 - start_ms
+    _request_count += 1
+    _last_embed_ms = elapsed_ms
     log.info("Embedded %d text(s) in %.0fms (dim=%d)", len(texts), elapsed_ms, embed_dim)
 
     data = []
@@ -174,6 +190,11 @@ async def health():
         "backend": _backend,
         "device": "mlx" if not _use_fallback else (_fallback_device or "unknown"),
         "dim": embed_dim,
+        "request_count": _request_count,
+        "last_request_ms": round(_last_embed_ms, 2) if _last_embed_ms is not None else None,
+        "max_rss_bytes": _process_max_rss_bytes(),
+        "uptime_seconds": round(time.time() - _started_at, 1),
+        "fallback_allowed": _allow_sentence_transformers_fallback(),
     }
 
 

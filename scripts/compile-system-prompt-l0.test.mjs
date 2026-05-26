@@ -319,10 +319,16 @@ describe('F203 Phase B — compile-system-prompt-l0.mjs', () => {
       process.env[envKey] = 'claude-opus-env-override-test';
       try {
         const l0 = await compileL0({ catId: 'opus' });
-        assert.match(l0, /Identity constant:.*model=claude-opus-env-override-test/,
-          'self identity should use env override model');
-        assert.doesNotMatch(l0, /model=claude-opus-4-6/,
-          'static defaultModel should NOT appear when env override is set');
+        assert.match(
+          l0,
+          /Identity constant:.*model=claude-opus-env-override-test/,
+          'self identity should use env override model',
+        );
+        assert.doesNotMatch(
+          l0,
+          /model=claude-opus-4-6/,
+          'static defaultModel should NOT appear when env override is set',
+        );
       } finally {
         if (orig === undefined) delete process.env[envKey];
         else process.env[envKey] = orig;
@@ -331,8 +337,7 @@ describe('F203 Phase B — compile-system-prompt-l0.mjs', () => {
 
     test('Identity constant falls back to defaultModel when no env override', async () => {
       const l0 = await compileL0({ catId: 'opus' });
-      assert.match(l0, /Identity constant:.*model=claude-opus-4-6/,
-        'without env override, should use defaultModel');
+      assert.match(l0, /Identity constant:.*model=claude-opus-4-6/, 'without env override, should use defaultModel');
     });
   });
 

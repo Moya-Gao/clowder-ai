@@ -271,12 +271,13 @@ describe('spawnCliInTmux', () => {
     const timeoutEvent = events.find((e) => e.__cliTimeout);
     assert.ok(timeoutEvent, 'should yield __cliTimeout from idleTimeout');
     assert.match(timeoutEvent.message, /idle/, 'message should mention idle timeout');
+    assert.equal(timeoutEvent.timeoutMs, 300, 'timeout metadata should identify the idle timeout');
     // Should have received the init event before timeout
     const initEvent = events.find((e) => e.type === 'init');
     assert.ok(initEvent, 'should have received the init event before idle timeout fired');
     // killAgent's C-c + 3s grace + kill-pane adds overhead; we tear down the
-    // tmux server after each test to keep this bound stable across the suite.
-    assert.ok(elapsed < 15000, `should converge via idleTimeout, took ${elapsed}ms`);
+    // tmux server after each test, but full-suite load can still stretch wall-clock time.
+    assert.ok(elapsed < 30000, `should converge well before firstEventTimeout, took ${elapsed}ms`);
   });
 
   it('AbortSignal unblocks FIFO read (no deadlock)', async () => {

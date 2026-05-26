@@ -26,6 +26,7 @@ vi.mock('../SessionChainInputs', () => ({
   SessionIdTag: ({ id }: { id: string }) => React.createElement('span', null, id),
 }));
 vi.mock('@/hooks/useCatData', () => ({
+  formatCatName: (cat: { displayName: string }) => cat.displayName,
   useCatData: () => ({
     getCatById: (id: string) => {
       const cats: Record<string, { id: string; displayName: string }> = {
