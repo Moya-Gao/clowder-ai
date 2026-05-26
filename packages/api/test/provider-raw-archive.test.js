@@ -20,15 +20,9 @@ ensureFakeCliOnPath('claude');
 ensureFakeCliOnPath('opencode');
 ensureFakeCliOnPath('kimi');
 
-const { ClaudeAgentService } = await import(
-  '../dist/domains/cats/services/agents/providers/ClaudeAgentService.js'
-);
-const { OpenCodeAgentService } = await import(
-  '../dist/domains/cats/services/agents/providers/OpenCodeAgentService.js'
-);
-const { KimiAgentService } = await import(
-  '../dist/domains/cats/services/agents/providers/KimiAgentService.js'
-);
+const { ClaudeAgentService } = await import('../dist/domains/cats/services/agents/providers/ClaudeAgentService.js');
+const { OpenCodeAgentService } = await import('../dist/domains/cats/services/agents/providers/OpenCodeAgentService.js');
+const { KimiAgentService } = await import('../dist/domains/cats/services/agents/providers/KimiAgentService.js');
 
 // ── Helpers ──
 
@@ -120,9 +114,7 @@ describe('#780 ClaudeAgentService raw archive', () => {
       rawArchive,
     });
 
-    const promise = collect(
-      service.invoke('test raw archive', { invocationId: 'inv-claude-1' }),
-    );
+    const promise = collect(service.invoke('test raw archive', { invocationId: 'inv-claude-1' }));
 
     emitEvents(proc, [
       { type: 'system', subtype: 'init', session_id: 'ses-1' },
@@ -135,11 +127,7 @@ describe('#780 ClaudeAgentService raw archive', () => {
       rawArchive.append.mock.callCount() >= 2,
       `Expected ≥2 archive calls, got ${rawArchive.append.mock.callCount()}`,
     );
-    assert.equal(
-      rawArchive.append.mock.calls[0].arguments[0],
-      'inv-claude-1',
-      'invocationId passed to archive',
-    );
+    assert.equal(rawArchive.append.mock.calls[0].arguments[0], 'inv-claude-1', 'invocationId passed to archive');
   });
 
   test('does NOT archive events when invocationId is absent', async () => {
@@ -162,11 +150,7 @@ describe('#780 ClaudeAgentService raw archive', () => {
 
     await promise;
 
-    assert.equal(
-      rawArchive.append.mock.callCount(),
-      0,
-      'No archive calls without invocationId',
-    );
+    assert.equal(rawArchive.append.mock.callCount(), 0, 'No archive calls without invocationId');
   });
 
   test('redacts sensitive tokens before archiving', async () => {
@@ -180,9 +164,7 @@ describe('#780 ClaudeAgentService raw archive', () => {
       rawArchive,
     });
 
-    const promise = collect(
-      service.invoke('redact test', { invocationId: 'inv-claude-redact' }),
-    );
+    const promise = collect(service.invoke('redact test', { invocationId: 'inv-claude-redact' }));
 
     emitEvents(proc, [
       {
@@ -197,11 +179,7 @@ describe('#780 ClaudeAgentService raw archive', () => {
 
     assert.ok(rawArchive.append.mock.callCount() >= 1);
     const archived = rawArchive.append.mock.calls[0].arguments[1];
-    assert.equal(
-      archived.callbackToken,
-      '[redacted]',
-      'callbackToken is redacted in archive',
-    );
+    assert.equal(archived.callbackToken, '[redacted]', 'callbackToken is redacted in archive');
   });
 });
 
@@ -218,9 +196,7 @@ describe('#780 OpenCodeAgentService raw archive', () => {
       rawArchive,
     });
 
-    const promise = collect(
-      service.invoke('test raw archive', { invocationId: 'inv-oc-1' }),
-    );
+    const promise = collect(service.invoke('test raw archive', { invocationId: 'inv-oc-1' }));
 
     emitEvents(proc, [
       {
@@ -242,11 +218,7 @@ describe('#780 OpenCodeAgentService raw archive', () => {
       rawArchive.append.mock.callCount() >= 2,
       `Expected ≥2 archive calls, got ${rawArchive.append.mock.callCount()}`,
     );
-    assert.equal(
-      rawArchive.append.mock.calls[0].arguments[0],
-      'inv-oc-1',
-      'invocationId passed to archive',
-    );
+    assert.equal(rawArchive.append.mock.calls[0].arguments[0], 'inv-oc-1', 'invocationId passed to archive');
   });
 
   test('does NOT archive events when invocationId is absent', async () => {
@@ -271,11 +243,7 @@ describe('#780 OpenCodeAgentService raw archive', () => {
 
     await promise;
 
-    assert.equal(
-      rawArchive.append.mock.callCount(),
-      0,
-      'No archive calls without invocationId',
-    );
+    assert.equal(rawArchive.append.mock.callCount(), 0, 'No archive calls without invocationId');
   });
 
   test('redacts sensitive tokens before archiving', async () => {
@@ -288,9 +256,7 @@ describe('#780 OpenCodeAgentService raw archive', () => {
       rawArchive,
     });
 
-    const promise = collect(
-      service.invoke('redact test', { invocationId: 'inv-oc-redact' }),
-    );
+    const promise = collect(service.invoke('redact test', { invocationId: 'inv-oc-redact' }));
 
     emitEvents(proc, [
       {
@@ -324,13 +290,9 @@ describe('#780 KimiAgentService raw archive', () => {
       rawArchive,
     });
 
-    const promise = collect(
-      service.invoke('test raw archive', { invocationId: 'inv-kimi-1' }),
-    );
+    const promise = collect(service.invoke('test raw archive', { invocationId: 'inv-kimi-1' }));
 
-    emitEvents(proc, [
-      { role: 'assistant', content: 'hello from kimi' },
-    ]);
+    emitEvents(proc, [{ role: 'assistant', content: 'hello from kimi' }]);
 
     await promise;
 
@@ -338,11 +300,7 @@ describe('#780 KimiAgentService raw archive', () => {
       rawArchive.append.mock.callCount() >= 1,
       `Expected ≥1 archive calls, got ${rawArchive.append.mock.callCount()}`,
     );
-    assert.equal(
-      rawArchive.append.mock.calls[0].arguments[0],
-      'inv-kimi-1',
-      'invocationId passed to archive',
-    );
+    assert.equal(rawArchive.append.mock.calls[0].arguments[0], 'inv-kimi-1', 'invocationId passed to archive');
   });
 
   test('does NOT archive events when invocationId is absent', async () => {
@@ -357,17 +315,11 @@ describe('#780 KimiAgentService raw archive', () => {
 
     const promise = collect(service.invoke('no invocation id'));
 
-    emitEvents(proc, [
-      { role: 'assistant', content: 'hello' },
-    ]);
+    emitEvents(proc, [{ role: 'assistant', content: 'hello' }]);
 
     await promise;
 
-    assert.equal(
-      rawArchive.append.mock.callCount(),
-      0,
-      'No archive calls without invocationId',
-    );
+    assert.equal(rawArchive.append.mock.callCount(), 0, 'No archive calls without invocationId');
   });
 
   test('redacts sensitive tokens before archiving', async () => {
@@ -380,9 +332,7 @@ describe('#780 KimiAgentService raw archive', () => {
       rawArchive,
     });
 
-    const promise = collect(
-      service.invoke('redact test', { invocationId: 'inv-kimi-redact' }),
-    );
+    const promise = collect(service.invoke('redact test', { invocationId: 'inv-kimi-redact' }));
 
     emitEvents(proc, [
       {
