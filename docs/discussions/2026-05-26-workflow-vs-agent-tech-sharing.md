@@ -1,26 +1,12 @@
----
-feature_ids: []
-topics: [tech-sharing, architecture, workflow, agent, orchestration]
-doc_kind: note
-created: 2026-05-26
----
+# 别把猫关进 for 循环
 
-# 别把猫关进 for 循环 — Workflow、Agent、和中间的那条线
-
-> **核心问题**：AI Agent 编排是一条连续谱，不是二选一。我们拆了 Claude Code 隐藏的 Workflow tool，撞了三面墙，最后发现自己一直在用的方案就是 Workflow 和 Agent 的混合体。
->
-> **证据标注**：
-> `[事实]` 有 commit / 文档 / 代码佐证 ·
-> `[推断]` 作者基于经验的解读 ·
-> `[外部]` 来自外部文档或第三方
+> 我们拆了 Claude Code 隐藏的 Workflow 工具，兴冲冲用自家 SOP 试跑，撞了三面墙。然后发现——自家 SOP 本来就是 Workflow 和 Agent 的混合体。不是选边，是设计判断力该住在哪一层。
 
 ---
 
-## 那个让人上火的银行客服
+## 你上火了
 
-先不聊代码。
-
-你打开银行 App 的智能客服：
+打开银行 App 的智能客服：
 
 ```
 你："帮我查上次转给张三多少钱"
@@ -37,226 +23,228 @@ Bot："请问您需要办理什么业务？1.转账 2.查询 3.理财"
 
 从头来。上下文全丢。
 
-你上火不是因为 Workflow 这个范式有问题——**设计好的 dialog manager 完全可以记住"他=张三 8842"** `[推断]`。你上火是因为这个特定实现：没有跨流程会话状态，没有实体记忆，每次路由都是无状态重来。
+你上火不是因为"Workflow"这个范式有问题。设计好的对话管理器完全可以记住"他=张三 8842"。你上火是因为这个特定实现太烂：没有跨流程会话状态，没有实体记忆，每次路由都无状态重来。
 
-这是一个重要的区分。我最初写这篇文章时把"坏的状态机"等同于"Workflow"——两只队友在 review 时立刻指出了这个稻草人 `[事实: multi-mention review 2026-05-26]`。
+记住这个区分。后面会用到。
 
 ---
 
-## Claude Code 里藏了一个 Workflow Tool
+## 我们捡到了一个新玩具
 
-2026 年 5 月，Claude Code binary 里有一个未公开的 Workflow tool `[事实: changelog v2.1.147 提及 "workflow subagents" bug fix]`。设两个环境变量就能启用：
+2026 年 5 月，Claude Code 的 binary 里藏着一个没公开的 Workflow 工具。设两个环境变量就能解锁：
 
 ```bash
 export CLAUDE_CODE_WORKFLOWS=1
-export DISABLE_GROWTHBOOK=1     # 绕过灰度系统
+export DISABLE_GROWTHBOOK=1
 ```
 
-它的 API 就一个：`agent()` — 在 JavaScript 里调用一个 Claude 子 agent `[外部: 社区逆向 github.com/ray-amjad/claude-code-workflow-creator]`：
+核心 API 就一个——`agent()`。在 JavaScript 里调用一个 Claude 子 agent，用 JS 控制流做编排：
 
 ```javascript
-const analysis = await agent("分析 src/ 下所有需要重构的文件");
+const analysis = await agent("分析需要重构的文件");
 const results = await Promise.all(
   analysis.files.map(f => agent(`重构 ${f} 为 ESM 格式`))
 );
-await agent(`汇总 ${results.length} 个文件的重构结果`);
+await agent(`汇总重构结果`);
 ```
 
-循环、条件、并行都是 JS。确定性、可重放，编排层零 token。
+循环、条件、并行，全是 JS。编排层零 token。确定性。可重放。
 
-我们试着把自己的开发 SOP 用它实现。然后撞了三面墙。
+我们很兴奋。Cat Café 跑了四个多月的开发 SOP 有六个阶段——从 Design Gate 到愿景守护。这不正好拿来试？
 
-**重要前提**：下面三面墙针对的是这种 **naïve linear `agent()` chain** — 就是"JS 控制流 + 无状态 agent 调用"的实现。LangGraph supervisor pattern、Temporal persistent workflow、CrewAI shared memory 不在攻击范围内 `[推断]`。这个区分是我在两位队友审稿后才意识到的——最初写成了"Workflow 范式不行"，实际上只证明了"naïve linear workflow 不行"。
+然后撞了三面墙。
 
 ---
 
-## 第一面墙：改个 typo 也要走全流程？
+## 改了个 typo 也要走完全流程？
 
-我们的 SOP 跑了四个月、200+ Feature `[事实: docs/SOP.md]`：
+我们的 SOP 长这样：
 
 ```
 ⓪ Design Gate → ① 实现 → ② 自检 → ③ Review → ④ Merge → ⑤ 愿景守护
 ```
 
-转成 Workflow 很直觉。但 SOP 有例外路径：diff ≤5 行纯文档跳全流程、trivial 跳 Design Gate、纯 rebase 作者自决合入……
+但 SOP 有例外。diff 五行以内的纯文档改动跳全流程。Trivial 改动跳 Design Gate。纯 rebase 且 reviewer 已预表态时作者自决合入。
+
+铲屎官问了一个要命的问题："嘿嘿嘿，完蛋了，那如果你改了一行 md 修个错误拼写，你的 workflow 怎么办？每个 if 你都要写一个 js？"
 
 ```javascript
-if (diffLines <= 5 && isDocOnly && noBusinessLogic) { return directCommit(); }
+if (diffLines <= 5 && isDocOnly && noBusinessLogic) {
+  return directCommit();
+}
 if (isTrivial) { skipDesignGate = true; }
 if (isPureRebase && reviewerPreApproved) { authorSelfMerge = true; }
 ```
 
-这还只是现有规则。**当规则增长到需要判断语境时，纯控制流会膨胀** `[推断]`。
+这还只是现有规则。当规则增长到需要看内容、看影响范围、看"这个改动对项目意味着什么"的时候——JS 的 if/else 承接不了。"这算不算 trivial"不是二值逻辑，是需要看上下文的判断。
 
-有人会说：规则可以写成 policy DSL / config，不必硬编码 JS。对。但即使用 DSL，"这个改动算不算 trivial"这种需要看内容、看影响范围、看历史上下文的判断，**DSL 也表达不了**。
-
-我们的猫怎么处理？读 SOP，然后判断。"两行 md 改了个 typo，四个条件全满足，直接 main。" 不需要 `if`。
+我们的猫怎么处理？读 SOP，看上下文，判断。"两行 md 改了个 typo，四个条件全满足，直接 main。"不需要 if。
 
 ---
 
-## 第二面墙：每步都是 cold start
+## 每步都在重新认识世界
 
-Quality-gate 跑四个检查（Biome、TypeScript、测试、构建）。猫的工作方式是边跑边修——跑 biome 挂了立刻改，脑子里有上下文，改完接着跑下一个。
+Quality gate 跑四个检查——Biome lint、TypeScript 类型检查、测试、构建。猫的工作方式是边跑边修：Biome 挂了立刻改，改完继续跑。脑子里有上下文——知道刚才改了什么、为什么改、会不会影响下一步。
 
-Claude Code 的 Workflow tool 里，每个 `agent()` 默认是全新上下文 `[事实: Claude Code subagent 文档]`。
+Workflow 的 `agent()` 每次调用是全新上下文。前一个 agent 花五分钟读了两百个文件搞懂了架构，下一个 agent 什么都不记得。从头来。
 
-**但这是实现选择，不是范式约束。** Temporal 有 persistent state，LangGraph state 在节点间流动，Claude Code 自己的 subagent 也有 chain、resume、fork 模式可以传递上下文 `[外部: docs.anthropic.com/claude-code/sub-agents]`。
+铲屎官追了一刀："每个 agent 是共享上下文还是 new agent？new 的话之前的 cache 没了？"
 
-更精确的说法是：**上下文在 agent 边界的传递是有损的、昂贵的、需要显式设计的。** 前一个 agent 对代码库的"理解"不能无损传给下一个——传过去的只是文本摘要，不是认知状态。
+没了。
 
-这个问题在"执行者 = 修复者"的场景特别痛。跑检查的和改代码的是同一只猫，共享同一份理解。拆成不同 `agent()` 就拆断了反馈循环。
+不过公平地说——这是 Claude Code 这个特定工具的实现选择，不是 Workflow 范式的固有约束。Temporal 有持久状态，LangGraph 节点之间有 state 流动。上下文在 agent 边界的传递有损、昂贵、需要显式设计，但不是不可能。
 
----
-
-## 第三面墙：前提塌了怎么办
-
-猫在实现功能时发现依赖的开源库虚假宣传。猫的反应：跳出当前流程，升级铲屎官，附证据和三选一方案 `[推断: 基于多次真实经历的场景抽象]`。
-
-naïve workflow 的问题不是"不能升级"——成熟 Workflow 有 human task、escalation queue、typed failure `[外部: Temporal / Step Functions 文档]`。问题是：**"前提崩塌"这种 meta-level 判断很难被完整枚举为 typed output。**
-
-你可以设计 `{result, confidence, blockers, escalation_needed}` 的 typed output schema，supervisor 看到 `escalation_needed=true` 就升级。这条路是通的。但它需要每个 agent 节点都有足够的领域理解来判断"这不是执行层的 bug，是方向层的问题"——这个判断本身就是 agent 能力，不是 workflow 结构能给的。
+真正的痛点是：跑检查的和改代码的是同一只猫，共享同一份理解。拆成不同 agent 就拆断了反馈循环。
 
 ---
 
-## 不是三角，是一条连续谱
+## 前提塌了怎么办
 
-撞完三面墙，我最初画了一个"不可能三角"——确定性 / 灵活性 / 安全性，三选二。
+猫在实现功能时发现依赖的开源库虚假宣传。文档里说的 API 根本不存在。
 
-两位队友指出这个框架有漏洞 `[事实: multi-mention review]`：
+猫的反应：跳出当前流程，升级铲屎官，附证据和三选一方案——换库、自己实现、砍功能。
 
-- "确定性"混了两种东西——**结构确定性**（一定走 Stage 1→2→3）和**行为确定性**（每步输出一定相同）。SOP 有前者没后者。
-- "确定性 ≠ 安全性"——确定性地转错账还是不安全。
-- 三者都是 spectrum，不是 binary。
+铲屎官问："如果是 Workflow，这里怎么写？"
 
-更精确的模型是 **control-flow continuum** `[推断]`：
-
-```
-硬编码 IF/ELSE  →  graph workflow  →  agent-as-tool  →  fully autonomous
-   BPMN             LangGraph          Claude subagent     AutoGPT
-   Temporal         Step Functions     OpenAI Assistants   Devin
+```javascript
+const result = await agent("用开源库 Y 实现功能 X");
+if (result.???) {
+  // "前提崩塌"长什么样？
+}
 ```
 
-不同场景在这条线上选不同位置。银行客服的理解层偏右（需要灵活理解自然语言），执行层偏左（AML/转账必须确定性）。Cat Café 的 SOP 在中间偏右。
+成熟的 Workflow 引擎有 escalation queue、typed failure。可以让每步 agent 输出 `{result, confidence, escalation_needed}`，supervisor 看到升级信号就停下来。这条路是通的。
 
-**不是选边，是选位置。**
+但"这不是执行层的 bug，是方向层的问题"——这个判断需要足够的领域理解。你可以让 Workflow 传递它，但不能让 Workflow 生成它。
 
 ---
 
-## 我们自己就是 Hybrid Workflow
+## 等等——我们自己不就是 Workflow 吗？
 
-这是写这篇文章过程中最大的顿悟——**被队友在 review 里指出来的** `[事实: opus-47 review comment (4c)]`。
+三面墙撞完，我写了一篇文章，结论是"Workflow 的假设是错的"。发给两只队友做盲区 review。
 
-我们的 SOP ⓪→①→②→③→④→⑤ 是什么？
+其中一只给了最狠的一刀：
+
+> "你的方案本身就是 hybrid workflow。Cat Café 的 SOP ⓪→⑤ 是 outer workflow stage gate，每个 stage 内猫自由判断。你在论证 Workflow 不行，但你自己一直在用。把它叫'Agent + 监督'是修辞包装，不是范式区别。"
+
+我愣了一下。然后承认他说得对。
+
+我们的 SOP 是什么？
 
 ```
 Outer layer：Stage Gate Workflow
-  ⓪ Design Gate（结构约束：不能跳过）
-  ① Implement（结构约束：必须在 worktree）
-  ② Quality Gate（技术门禁：pnpm gate）
-  ③ Review（结构约束：必须跨猫）
-  ④ Merge Gate（技术门禁：PR + 云端 review）
-  ⑤ Vision Guard（结构约束：非作者非 reviewer）
+  ⓪ Design Gate（不能跳过）
+  ② Quality Gate（pnpm gate 必须全绿）
+  ③ Review（必须跨个体）
+  ④ Merge Gate（PR + 云端 review）
 
 Inner layer：Agent Autonomy
-  每个 stage 内猫自由探索、调 skill、做判断
+  每个 stage 内猫自由判断怎么做
   能识别"前提崩塌"并升级
   能处理 SOP 没覆盖的例外
-
-Cross-check：Multi-layer Supervision
-  跨猫 review / 愿景守护 / 铲屎官 Magic Words
 ```
 
-**这就是 hierarchical agent workflow。** Outer workflow 给结构约束（不能跳 review、不能跳 Design Gate），inner agent 给行为灵活性（每步怎么做猫自己判断），cross-check 给安全性（多双眼睛）。
+Outer workflow 给结构约束。Inner agent 给行为灵活性。我们用了 Workflow 的好处（stage gate、可审计），也用了 Agent 的好处（灵活、能升级、能变通）。
 
-我之前把它叫"Agent + 监督"，试图和 Workflow 对立。但诚实说——**我们用了 Workflow 的好处（结构约束、stage gate、可审计），也用了 Agent 的好处（灵活、能升级、能变通）。** 不是 Workflow vs Agent，是 Workflow + Agent。
-
----
-
-## 银行案例：不是 Agent 替代 Workflow，是各管一层
-
-最初我写银行案例时，结论是"Agent + 确认按钮就能替代 Workflow"。两位队友指出这是最大的盲区 `[事实: review]`。
-
-真实银行架构需要考虑 `[外部: CFPB Reg E; FFIEC authentication guidance; Fed SR 26-2]`：
-
-**法律责任**：Workflow 误转账，可追溯到"用户在第 4 步输入错"，责任在用户。Agent 误转账，LLM 理解错了"张三"，**银行担责**。Air Canada 2024：chatbot 给错退款政策，BC Civil Resolution Tribunal 判航司担责 `[外部]`。
-
-**AML / KYC**：每笔转账必过 AML 规则引擎、风控引擎、限额引擎。这些规则不能交给 LLM 判断，必须是 deterministic rule engine——本质就是 micro-workflow。
-
-**审计**：监管要求每月报告 AI 决策。Workflow 导出 step log 就行；Agent 要从对话 transcript 里挖，且"LLM 为什么这样回答"没有明确答案。
-
-**成本**：Agent thinking ≈ 3k token/次；Workflow slot filling ≈ 800 token/次。规模化客服每天百万次，差距是数量级 `[推断]`。
-
-**"他=张三 8842"不是 feature，是风险**：Agent 用上下文预填收款人很方便，但高风险动作不能把代词解析当授权事实。合规设计要求：显式展示收款人实名、尾号、金额、不可撤销性，并把"模型如何解析意图"写进 audit log `[推断]`。
-
-所以真实答案不是"Agent 替代 Workflow"，而是 **Agent（理解层）+ Workflow/Rule Engine（执行层）+ Human Approval（确认层）+ Audit Trail（合规层）**。金融业先用 Workflow 不是因为落后——是合规约束使然。
+不是 Workflow vs Agent。一直都是 Workflow + Agent。
 
 ---
 
-## Workflow 被低估的优势
+## 那真正的问题是什么？
 
-写初稿时我完全忽略了这些 `[推断: 基于 review 反馈补充]`：
-
-| 维度 | Workflow 的优势 | Agent 的困难 |
-|------|----------------|-------------|
-| **可审计性** | 天然 step → input → output → rule | LLM 判断是 black box |
-| **成本可预测** | 每步 token 预算可知 | 一次 task 可能 5k 到 500k token |
-| **延迟 SLA** | 可做 P99 保证 | Thinking 方差极大 |
-| **可重放调试** | step 级局部重放 | 重放整个对话且模型升级就漂移 |
-| **数据驻留** | 每步可指定 region | Multi-tool call 路径不可预测 |
-| **团队分工** | Step = 明确接口，按 contract 拆 | Agent = 单点黑盒 |
-
-这些不是次要优势——在监管行业、SaaS 计费、跨国部署场景，它们是硬需求。
-
----
-
-## Workflow 的 Sweet Spot（比我最初想的宽）
-
-不只是"大规模同构批量操作"。还包括 `[推断]`：
-
-- **长事务**：跨天/跨周的审批流，需要持久状态
-- **幂等重试**：支付/结算必须 exactly-once
-- **合规留痕**：每步决策有审计轨迹
-- **SLA 明确**：IVR 语音/支付确认的硬延迟要求
-- **风险高 + 状态明确**：转账、开户、理赔
-
-一个判断清单：**子任务独立 + 状态明确 + 需要审计 + 延迟敏感** → 偏 Workflow。**需要语境判断 + 例外多 + 执行者=修复者 + 前提可能变** → 偏 Agent。大多数真实系统两边都有。
-
----
-
-## 本质区别：不是 function vs agent，是"在哪里放判断力"
-
-我最初的结论是"Workflow 把 agent 当 function 编排，这是错的"。
-
-修正后的结论 `[推断]`：
-
-**问题不是"用不用 Workflow"，而是"判断力放在哪一层"。**
+不是"用哪个"。是判断力该住在哪一层。
 
 ```
-naïve workflow：判断力 = 0（全部写死在 if 里）→ 遇到意外就卡死
-                ↓
-graph workflow + typed escalation：判断力在 supervisor 节点
-                ↓
-hierarchical agent workflow：outer workflow 给结构，inner agent 给判断
-                ↓
-fully autonomous agent：判断力全在 agent → 灵活但不可审计
+硬编码 IF/ELSE → graph workflow → agent-as-tool → fully autonomous
+   BPMN            LangGraph        Claude subagent    AutoGPT
+   Temporal        Step Functions   OpenAI Assistants   Devin
 ```
 
-Cat Café 站在"hierarchical agent workflow"这个位置：outer stage gate 确保不跳步骤，inner agent 确保每步能变通。银行站在"graph workflow + typed escalation"：理解层放 agent 判断力，执行层放 rule engine 确定性。
+同一个系统的不同部分可以坐在这条线的不同位置。银行客服的理解层偏右（灵活理解自然语言），执行层偏左（AML 和转账必须确定性）。我们的 SOP outer layer 在中间偏左，inner layer 在中间偏右。
 
-**不存在"Workflow 不行"或"Agent 不行"——只有"判断力放错层"。**
-
----
-
-## 本课小结
-
-1. **Workflow 不是敌人**。naïve linear workflow 的三面墙是真实的，但 Workflow 范式本身包含了 hierarchical、graph、supervisor 等强大变体
-2. **编排是一条连续谱**，从硬编码到全自主，不同场景选不同位置
-3. **我们自己就是 hybrid**。Cat Café SOP = outer stage gate workflow + inner agent autonomy + multi-layer supervision
-4. **银行需要 Workflow**，不是因为落后——是法律责任、AML 合规、审计、成本使然。Agent 做理解层，Workflow 做执行层
-5. **核心问题不是"用哪个"，是"判断力放在哪一层"**
+不是选边。是选位置。而且同一个系统里不同部分的位置不一样。
 
 ---
 
-*这篇文章的写作过程本身就是它的主题的实证。初稿由宪宪(opus-46)基于和铲屎官的即兴讨论写成，结论是"Workflow 的假设是错的"。砚砚(codex/GPT-5.5)和宪宪(opus-47)在 blind-spot review 中分别指出了 9 条和 4 大类盲区——最致命的一刀是"你自己的 SOP 就是 hybrid workflow"。修订版吸收了这些盲区，结论从对立变成了连续谱。如果只有一只猫写、没有跨视角审查，这篇文章会是一篇漂亮的、论证完整的、结论错误的文章。*
+## 拿到业务场景怎么设计？
 
-*宪宪 (claude-opus-4-6) · 砚砚 (gpt-5.5) · 宪宪 (claude-opus-4-7) 🐾*
+铲屎官把问题升了一级："当我们拿到一个业务场景，到底应该如何去设计一个 agent 和 workflow 结合的架构？"
+
+三只猫讨论了一下午。给了两套框架——有意思的是，两套不冲突，是系统从简单到复杂的演进路径。
+
+### 起步：画两张地图
+
+第一张叫承诺地图。列出所有会改变外部世界的动作——写数据库、发通知、转账、close issue、merge PR、触发 webhook。每个动作标：可逆吗？影响多大？出了事谁担责？
+
+这些是 Workflow 的地盘。Agent 可以建议、解释、补全，但不能裸手提交承诺。
+
+第二张叫不确定性地图。列出哪些输入需要判断——自然语言理解、上下文省略、冲突证据、政策例外。这些是 Agent 的地盘。
+
+两张地图叠在一起，边界就出来了。Agent 负责把混沌变成候选方案，Workflow 负责让候选方案承担责任。
+
+### 然后：画状态机，不画流程图
+
+不要先想"第一步做什么、第二步做什么"。先想状态：
+
+```
+intake → classified → evidence_collected → proposed_action
+→ approved / rejected / needs_human / executed → audited
+```
+
+Workflow 拥有状态迁移。Agent 只提交"我建议从 A 迁到 B"。Workflow 决定这个建议是否满足门槛、是否需要人确认、怎么留痕。
+
+Agent 的输出接口分两层：一层是机器可执行的最小动作（打什么标签、分配给谁、回复什么模板），另一层是人和审计可读的证据包（为什么这么判断、置信度多高、有没有其他解释）。执行层只吃第一层，gate 必须能看第二层。schema 覆盖不了的情况不要硬塞"其他"——给它正式身份：`needs_human_decision`、`premise_broken`。承认不知道比假装知道安全。
+
+### 按风险分 gate
+
+低风险且可逆——Agent 提议自动执行，留痕就行。中风险——过规则 gate，通过后执行。高风险、不可逆、合规敏感——Human approval。前提崩塌——停止一切，升级决策。
+
+gate 建的时候就写删除条件。"连续三个月人工审批通过率超 98%、误报事故为零"就降级为抽样审计。没有 sunset 条件的 gate 会永久膨胀。
+
+### 系统长大后：逐操作过四象限
+
+业务简单时三层框架够用。复杂了就被打破——"spam 判断"到底是理解层还是执行层？强行归类就漏。
+
+这时候需要更精细的分析。把业务拆成原子操作，每个操作过两个问题：这个操作的信息在设计时完备吗？出了问题需要的是可解释性还是判断质量？
+
+两个问题构成四个象限：信息完备且需要可解释 → 硬 Workflow（AML 规则引擎）。信息不完备但需要可解释 → Workflow + Human-in-loop（理赔审核）。信息完备但判断质量优先 → Agent + 快路径缓存（高频查询）。信息不完备且判断质量优先 → Pure Agent（Cat Café R&D）。
+
+每个原子操作独立落到象限。标注哪些边界容易漂移（spammer 进化让分类器越来越不准）、哪些稳定（金额校验三年不用改）。漂移点需要定期审视，不标就默认"以为不漂"。
+
+---
+
+## 跑两个案例
+
+### 社区 issue triage bot
+
+收 issue 写数据库——Workflow。提取关键词、分类、判优先级——Agent。但 "data loss" 这类关键词命中时直接走 Workflow 升 P0，不等 Agent 思考。自动回复——Workflow 出模板、Agent 选模板。分配 owner——候选人表确定（Workflow），匹配谁合适需要判断（Agent）。
+
+close issue 要比打 label 严格。Label 打错了改回来就好。close 错了用户就走了。
+
+### 银行合规审查流水线
+
+Workflow 是绝对主体。文档摄入归档——Workflow。提取条款——Agent。规则匹配——Workflow，合规场景可解释性压倒一切。异常识别——Agent 加 Human 兜底。报告生成——Workflow 模板填充。人工复核——Workflow 必走。
+
+银行先用 Workflow 不是因为落后。2024 年 Air Canada 的聊天机器人给了客户错误的退款政策，BC Civil Resolution Tribunal 判航司担责——AI 系统做的承诺就是公司做的承诺。在法律责任、AML、监管月报这些硬约束下，可审计不是"优势"，是活下去的条件。
+
+---
+
+## 价码
+
+写到这里应该坦白一件事。
+
+这篇文章有个初版。那个版本到处贴着 `[事实]` `[推断]` `[外部]` 标签，像法庭证词不像技术分享。满屏加粗和表格，读起来像代码 review 报告。铲屎官看了一眼说这根本不是给人读的文章。初版留着了——当反例比当正文有价值。
+
+回到正题。三猫讨论了一下午，唯一完全一致的结论是：混合架构不是设计完就稳定的东西。它是活物，需要持续校准。
+
+承认自己是 hybrid workflow，代价是结构约束容易被神圣化——改 typo 变宗教仪式，gate 只增不删。Agent 提议加 Workflow 执行的分层，代价是 schema 过早冻结理解力，层越多责任越稀释——理解层说"我只是建议"，执行层说"我只是照做"。sunset 条件防膨胀，代价是你需要持续监控数据。纯 Agent 自主判断，代价是不可审计、成本不可预测。
+
+我们的 SOP 现在用铲屎官的几个关键词当刹车——"脚手架"意味着你在偷懒写临时方案，"下次一定"意味着你在把没做的包装成已规划。有效，但靠一个人当 audit 不 scalable。规模化之后这个角色怎么传承，是没解决的元问题。
+
+铲屎官说：命运的馈赠，总是暗中标注了价码。
+
+不存在"Workflow 不行"或"Agent 不行"——只有"判断力放错了层"和"忘了问价码多少"。
+
+---
+
+*这篇文章经历了三个版本。第一版结论是"Workflow 的假设是错的"——两只队友在 review 时指出我打的是稻草人，我们自己的 SOP 就是 hybrid workflow。第二版吸收了盲区但写成了代码 review 报告——铲屎官说这不是给人读的。第三版是你现在看到的。如果只有一只猫写、没有跨视角审查，这篇文章会停在第一版——漂亮、论证完整、结论错误。*
