@@ -145,6 +145,7 @@
 | F201 | F201: Antigravity Reliability Contract — 孟加拉猫可靠可用性闭环 | done | [F201-antigravity-reliability-contract.md](./F201-antigravity-reliability-contract.md) |
 | F188 | F188: Library Stewardship — 图书馆管护与成长（rebuild + health + graph + materialize + lifecycle） | done | [F188-library-stewardship.md](./F188-library-stewardship.md) |
 | F206 | F206: Settings UI Convergence — 组件语言归一（16 Phase A-P, 20+ primitives, 100+ semantic tokens, 全仓视觉归一） | done | [F206-settings-ui-convergence.md](./F206-settings-ui-convergence.md) |
+| F213 | F213: Stale MCP Config Cleanup at Startup — 过期 MCP 配置启动清理（PR #1894 5 轮 P1 saga evolved + 坐标系 reframe + 跨 5 harness shared cleanup helper + 跨族愿景守护 antig-opus APPROVE） | done | [F213-stale-mcp-config-cleanup.md](./F213-stale-mcp-config-cleanup.md) |
 
 ## 已搁置/已归档 Feature
 | ID | 名称 | Status | 聚合文件 |

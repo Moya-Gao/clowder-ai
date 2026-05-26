@@ -79,4 +79,3 @@ created: 2026-02-26
 | F210 | Gemini CLI to Antigravity CLI Migration | in-progress | 缅因猫/砚砚 | internal | [F210](features/F210-antigravity-cli-migration.md) |
 | F211 | Cross-Runtime Session Transparency — Antigravity Session Chain + IDE Direct Registration | spec | 缅因猫/砚砚 | internal | [F211](features/F211-cross-runtime-session-transparency.md) |
 | F212 | CLI Error Diagnostics — 结构化 CLI 错误诊断 + 受控前端展示 | spec | 布偶猫/宪宪 | internal | [F212](features/F212-cli-error-diagnostics.md) |
-| F213 | Stale MCP Config Cleanup at Startup — 过期 MCP 配置启动清理（坐标系 reframe，PR #1894 5 轮 P1 saga evolved） | spec | 布偶猫/宪宪 | internal | [F213](features/F213-stale-mcp-config-cleanup.md) |

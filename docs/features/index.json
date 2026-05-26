@@ -1317,7 +1317,7 @@
     {
       "id": "F213",
       "name": "Stale MCP Config Cleanup at Startup — 过期 MCP 配置启动清理",
-      "status": "in-progress (Phase A merged 2026-05-26, PR #1901) | **Owner**: 布偶猫/宪宪 (Opus-47) | **Priority**: P1",
+      "status": "done | **Owner**: 布偶猫/宪宪 (Opus-47) | **Priority**: P1 | **Completed**: 2026-05-26 (Phase A merged PR #1901 + Phase B merged PR #1903 + 跨族愿景守护 antig-opus APPROVE)",
       "file": "F213-stale-mcp-config-cleanup.md"
     }
   ]
