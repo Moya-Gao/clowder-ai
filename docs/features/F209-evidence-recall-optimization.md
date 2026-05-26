@@ -8,7 +8,7 @@ created: 2026-05-21
 
 # F209: Evidence Recall Optimization — 消息级语义、实体门牌号与活查询藤
 
-> **Status**: in-progress (Phase A ✅ merged PR #1842; Phase B ✅ merged PR #1846 + AC-B3 contract fix PR #1851; Phase C ✅ merged PR #1853 + file-slice dogfood hotfix PR #1854; AC-B6 transferred to F208 AC-A5 — F209 不再阻塞 AC-B6; Phase B.1 minimal seed ✅ merged PR #1867; Phase D.0 readiness sprint ✅ completed, initially BLOCK then **UNBLOCK** after PR #1877 raw embedding reprobe + PR #1882 MCP default dimension fix + runtime restart; next F209 owner focus = Phase D product spike / Design Gate. Cross-line follow-ups are delegated below: F193 MCP topology cleanup, F200 recall@k wrapper, Phase C reader hardening.) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
+> **Status**: in-progress (Phase A ✅ merged PR #1842; Phase B ✅ merged PR #1846 + AC-B3 contract fix PR #1851; Phase C ✅ merged PR #1853 + file-slice dogfood hotfix PR #1854; AC-B6 transferred to F208 AC-A5 — F209 不再阻塞 AC-B6; Phase B.1 minimal seed ✅ merged PR #1867; Phase D.0 readiness sprint ✅ completed, initially BLOCK then **UNBLOCK** after PR #1877 raw embedding reprobe + PR #1882 MCP default dimension fix + runtime restart; Phase D ✅ merged PR #1887 + live Perspective dogfood passed; ready for vision-guard close. Cross-line follow-ups are delegated below: F193 MCP topology cleanup, F200 recall@k wrapper, Phase C reader hardening.) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
 
 ## Why
 
