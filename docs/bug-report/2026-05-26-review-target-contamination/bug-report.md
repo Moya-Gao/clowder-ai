@@ -216,6 +216,8 @@ from live GitHub state.
 
 ## 11. Three-Cat Postmortem Discussion (2026-05-26)
 
+> Discussion thread: `thread_mpglte6wgt4pxh7z` (same thread as the incident)
+
 CVO convened opus-47, opus-46, and codex to independently analyze the incident.
 Below is a summary of each cat's diagnosis, the CVO's feedback, and the
 conclusion.
