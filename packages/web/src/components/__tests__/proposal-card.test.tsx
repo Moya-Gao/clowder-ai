@@ -161,12 +161,11 @@ describe('ProposalCard', () => {
       nativeSetter?.call(titleInput, 'edited title');
       titleInput.dispatchEvent(new Event('input', { bubbles: true }));
     });
-    apiFetchMock.mockImplementation((_url, opts) => {
-      const body = JSON.parse((opts as { body: string }).body);
-      return Promise.resolve(
+    apiFetchMock.mockImplementation(() =>
+      Promise.resolve(
         jsonResponse(200, { proposalId: PROPOSAL_ID, threadId: 'thread_edited', status: 'approved' }),
-      );
-    });
+      ),
+    );
     await act(async () => {
       findButton('批准（含编辑）').dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
