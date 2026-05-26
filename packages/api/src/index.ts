@@ -158,6 +158,7 @@ import {
   executionDigestRoutes,
   exportRoutes,
   externalProjectRoutes,
+  externalRuntimeSessionsRoutes,
   featureDocDetailRoutes,
   firstRunQuestRoutes,
   governanceStatusRoute,
@@ -1593,6 +1594,8 @@ async function main(): Promise<void> {
     taskStore,
     backlogStore,
     threadStore,
+    sessionChainStore,
+    runtimeSessionStore,
     agentRegistry,
     router,
     invocationRecordStore,
@@ -1913,6 +1916,7 @@ async function main(): Promise<void> {
     sessionSealer,
   });
   await app.register(sessionTranscriptRoutes, { sessionChainStore, threadStore, transcriptReader });
+  await app.register(externalRuntimeSessionsRoutes, { sessionChainStore, runtimeSessionStore, threadStore });
   const hookToken = process.env.CAT_CAFE_HOOK_TOKEN || '';
   await app.register(sessionHooksRoutes, {
     sessionChainStore,

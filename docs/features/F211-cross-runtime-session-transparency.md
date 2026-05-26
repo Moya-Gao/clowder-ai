@@ -11,7 +11,7 @@ created: 2026-05-24
 > **Status**: doing | **Owner**: 缅因猫（砚砚） | **Priority**: P1
 
 Architecture cell: `identity-session` + `memory`
-Map delta: update required — F211 adds runtime session registration / cascade visibility as a first-class session boundary. `identity-session` owns session identity and cascade/session binding; `memory` consumes the resulting transcript/digest evidence. F209 remains retrieval-only.
+Map delta: updated — F211 adds runtime session registration / cascade visibility as a first-class session boundary. `identity-session` owns session identity, external runtime anchor threads, registration, and cascade/session binding; `memory` consumes the resulting transcript/digest evidence. F209 remains retrieval-only.
 Why: Antigravity cascade work is currently not reliably represented as Cat Cafe session-chain evidence, so later cats cannot recover what happened even when the work visibly occurred.
 
 ## Why
@@ -186,12 +186,12 @@ Expose runtime session state where users and cats notice it:
 - [x] AC-A16: User-initiated `New Cascade` is classified separately and does not silently auto-inject prior-session continuity unless an explicit resume/bind action requests it. If old-session sealing is pending or incomplete, the bootstrap must carry a visible degraded/pending marker instead of pretending the prior session was fully sealed.
 
 ### Phase B（IDE-direct reverse registration）
-- [ ] AC-B1: Antigravity IDE-direct conversation can create or update a Cat Cafe session-chain record without a prior Cat Cafe dispatch.
-- [ ] AC-B2: IDE-direct record includes cascade/conversation id, cat id, runtime surface, timestamps, and enough provenance to drill down.
-- [ ] AC-B3: IDE-direct sessions are searchable/drillable through existing session-chain tools or a documented extension.
-- [ ] AC-B4: Direct IDE sessions do not pollute normal thread transcript unless explicitly bound.
-- [ ] AC-B5: Registration contract does not require invocation callback credentials; it uses a persistent-agent or explicit external-session auth path with audit.
-- [ ] AC-B6: Orphan IDE-direct runtime sessions are discoverable through an MCP/UI list/read surface by runtime, cat, and recent activity even before they are bound to a normal thread.
+- [x] AC-B1: Antigravity IDE-direct conversation can create or update a Cat Cafe session-chain record without a prior Cat Cafe dispatch. Source: `registerExternalRuntimeSession(...)` creates/updates by `(runtime, runtimeSessionId)`; tests cover create, idempotent update, and duplicate prevention.
+- [x] AC-B2: IDE-direct record includes cascade/conversation id, cat id, runtime surface, timestamps, and enough provenance to drill down. Source: `RuntimeSessionMetadata.externalRegistration` plus `identityHistory`; tests cover runtime ids, provenance, timestamps, and cat/model attribution.
+- [x] AC-B3: IDE-direct sessions are searchable/drillable through existing session-chain tools or a documented extension. Source: `GET /api/external-runtime-sessions`, `GET /api/external-runtime-sessions/:sessionId`, and MCP `cat_cafe_list_external_runtime_sessions` / `cat_cafe_read_external_runtime_session` tools.
+- [x] AC-B4: Direct IDE sessions do not pollute normal thread transcript unless explicitly bound. Source: orphan registrations use hidden `external-runtime:${runtime}:${userId}` anchor threads and do not append normal chat messages; tests cover hidden thread listing and explicit owner-checked thread binding.
+- [x] AC-B5: Registration contract does not require invocation callback credentials; it uses a persistent-agent or explicit external-session auth path with audit. Source: callback route accepts agent-key principals only, rejects invocation callback principals, validates `payload.catId === principal.catId`, and emits `external_runtime_session_registered`.
+- [x] AC-B6: Orphan IDE-direct runtime sessions are discoverable through an MCP/UI list/read surface by runtime, cat, and recent activity even before they are bound to a normal thread. Source: `RuntimeSessionStore.listRecent(...)`, Redis recent indexes, API list/read route tests, and MCP list/read tests.
 
 ### Phase C（JSON shadow state retirement）
 - [ ] AC-C1: `data/antigravity-sessions.json` is no longer the canonical source for cascade reuse.
@@ -254,13 +254,13 @@ Expose runtime session state where users and cats notice it:
 | OQ-1 | Phase A seal trigger 的精确代码点在哪里，如何证明 old cascade flush / RPC settle 已完成？ | ✅ A2 implements AntigravityAgentService rotation/drain before lifecycle seal; no read-path seal |
 | OQ-2 | Error reset 分类枚举是否完整，`model_capacity` / `empty_response` / `tool_conflict` / `unsafe_side_effect` 是否需要不同 digest 策略？ | ✅ A2 implements typed `AntigravityRuntimeSealReason`; digest/transcript carries lifecycle seal reason instead of flattening errors |
 | OQ-3 | Same-thread same-cat concurrent cascades 是 Phase A 支持还是 fail-closed？ | ✅ A2 fails closed through `runtime_conflict_pending` runtime sidecar state; no read-path mis-seal |
-| OQ-4 | IDE-direct conversation 绑定到已有 Cat Cafe thread、独立 pseudo-thread，还是 runtime conversation collection？ | ⬜ Phase B design |
+| OQ-4 | IDE-direct conversation 绑定到已有 Cat Cafe thread、独立 pseudo-thread，还是 runtime conversation collection？ | ✅ Phase B uses hidden external-runtime anchor threads by default; explicit normal-thread binding is owner-checked and one-shot |
 | OQ-5 | `Session.kind` 是否现在落地，还是 Phase A 先用 `cliSessionId=cascadeId` 兼容 hook？ | ⬜ Phase D design；Phase A 不锁死 |
 | OQ-6 | JSON 迁移后是否保留只读 debug export？ | ⬜ Phase C design |
-| OQ-7 | Cross-runtime registration 是否应做 MCP tool、callback endpoint，还是二者都要？ | ⬜ Phase D design |
+| OQ-7 | Cross-runtime registration 是否应做 MCP tool、callback endpoint，还是二者都要？ | ✅ Phase B implements both: agent-key callback registration plus MCP register/list/read tools; generic cross-runtime protocol remains Phase D |
 | OQ-8 | Antigravity transcript 的权威材料是 trajectory steps、thread messages、planner responses、tool results，还是组合 materialized view？ | ✅ Phase A materializes a bounded session transcript view from transformed planner/tool/lifecycle events; raw trajectory noise stays debug-level |
 | OQ-9 | 同一 cascadeId 内 model/cat 切换应 split session、记录 identity timeline，还是创建 sub-run？ | ✅ Phase A records runtime identity history in `RuntimeSessionMetadata` instead of silently overwriting cascade attribution |
-| OQ-10 | IDE-direct 无 threadId 时，是否创建 orphan session、private runtime thread，还是等用户显式绑定？ | ⬜ Phase B design |
+| OQ-10 | IDE-direct 无 threadId 时，是否创建 orphan session、private runtime thread，还是等用户显式绑定？ | ✅ Phase B creates orphan sessions under deterministic hidden anchor threads; later orphan-to-thread migration is out of scope and requires explicit Phase D/E bind UX |
 | OQ-11 | `context canceled` / refused / canceled tool 事件如何进入 digest、debug detail、或被过滤？ | ⬜ Phase E design |
 | OQ-12 | Phase A 是否拆成 A1 metadata schema / A2 cascade rotation，并在 A1 后允许 Phase B parallel start？ | ✅ Phase A planning decided: A1 runtime metadata sidecar first, A2 live cascade rotation, Phase B can start after A1 metadata contract is reviewed |
 | OQ-13 | Antigravity session rotation 后的 continuity break 是否另开 F212？ | ✅ No. Treat as F211 A2b bug fix; F211 closure requires continuity bootstrap, not just searchable old sessions |
@@ -280,6 +280,7 @@ Expose runtime session state where users and cats notice it:
 | KD-9 | Pending seal 必须有 reaper 或 manual recovery | fail-closed 不能等价于永久悬空；pending session 要可见、可重试、可收口 | 2026-05-24 |
 | KD-10 | Continuity break 是 F211 内 bug，不另开 F212 | F211 的目标从“session 透明/可检索”收口为“session 透明 + session rotation 后连续”；只存旧 session 但让新 session 失忆仍未解决用户现场问题 | 2026-05-24 |
 | KD-11 | A2 lifecycle + continuity 作为一个 PR 验收 | A2a/A2b 只保留为实现切片；PR 粒度按可独立验收的用户故事切。lifecycle without continuity 不能证明“session 轮换后不断记忆”，continuity without lifecycle 也不能独立运行 | 2026-05-24 |
+| KD-12 | Phase B IDE-direct binding is one-shot immutable | A runtime session's first successful registration chooses its SessionRecord thread; orphan-to-thread migration needs an explicit future bind/move UX so access control and transcript pointers move together | 2026-05-25 |
 
 ## Eval / Tracking Contract
 
@@ -308,11 +309,11 @@ in_context_observability:
 | R2 | “先把 F201 关闭，然后剩下的记录到 F211” | KD-2, F201 post-close note | F201 timeline note + BACKLOG F211 row | [x] |
 | R3 | “这个和 F209 啥关系？F209 不是检索的吗？” | KD-1, KD-6, AC-0C | Spec ownership boundary review | [x] |
 | R4 | “可以找 antig-opus，让他只需要讲出来问题；顺便总结 F211 想做什么” | AC-0D | Review request message to `@antig-opus` | [x] |
-| R5 | IDE 直开和孟加拉猫聊天也要能找回 | AC-B1~B6 | IDE-direct registration fixture / list/read discoverability validation | [ ] |
+| R5 | IDE 直开和孟加拉猫聊天也要能找回 | AC-B1~B6 | IDE-direct registration fixture / list/read discoverability validation | [x] |
 | R6 | JSON shadow state 不该继续当真相源 | AC-A12, AC-C1~C4 | Read-only import + migration test + removal/audit diff | [ ] |
 | R7 | Bengal review: “session chain 里有记录但 digest/events 为空仍然没用” | AC-0E, AC-A8 | `read_session_digest/events` proof fixture | [x] |
 | R8 | Bengal review: “同一 cascade 可换 model/catId，manual New Cascade 也常见” | AC-0F, AC-A5, AC-A9 | identity-history + sealReason tests | [x] |
-| R9 | Bengal review: “IDE-direct 没 threadId/callbackToken，Phase B 注册机制要具体” | AC-B5, OQ-10 | external-session registration contract | [ ] |
+| R9 | Bengal review: “IDE-direct 没 threadId/callbackToken，Phase B 注册机制要具体” | AC-B5, OQ-10 | external-session registration contract | [x] |
 | R10 | Bengal review: “context canceled 噪音不要污染 digest” | AC-E4, OQ-11 | noisy trajectory fixture | [ ] |
 | R11 | 铲屎官现场反馈：session 指 Antigravity cascade；错误/轮换后新 session 不能断记忆 | AC-A13~A16, KD-10, KD-11 | A2b continuity bootstrap fixture + manual New Cascade non-injection fixture | [x] |
 
@@ -341,6 +342,8 @@ in_context_observability:
 | 2026-05-24 | Phase A2 implementation landed in worktree `feat/f211-phase-a2-lifecycle-continuity` through `4916556f8`: runtime active binding, Antigravity drain/lifecycle edges, JSON read-only switch, runtime seal reaper, transcript materialization, and first-effective-prompt continuity bootstrap are implemented. Validation passed: `pnpm gate`, F211 A2 final bundle (228 tests), and A1 Antigravity regression subset (55 tests). |
 | 2026-05-24 | Opus46 reviewed A2 PR granularity and pushed back: lifecycle + continuity are one independently verifiable user story, so A2 ships as one PR. Final pre-PR gate passed after rebase onto latest `origin/main`. |
 | 2026-05-25 | Phase A2 merged via PR #1885：runtime active binding, Antigravity drain/lifecycle seal, runtime seal reaper, transcript materialization, and cross-session continuity bootstrap are now on main; Cloud Codex found no major issues on final HEAD `b4336860`, merge commit `2850dca23`. |
+| 2026-05-25 | Phase B implementation plan drafted and reviewed by Opus45：APPROVE with P1 clarification; scope clarified that IDE-direct binding is one-shot immutable in Phase B, with orphan-to-thread migration deferred to explicit Phase D/E bind UX. |
+| 2026-05-25 | Phase B implementation landed in worktree `feat/f211-phase-b-ide-direct-registration` through `db14e7967`: agent-key-only callback registration, hidden external-runtime anchor threads, recent runtime indexes, MCP register/list/read tools, and API list/read routes are implemented. Targeted API/MCP tests and package builds passed. |
 
 ## Review Gate
 
@@ -348,6 +351,7 @@ in_context_observability:
 - Design Memo: 布偶猫 Opus 4.7 architecture review + Bengal Cat Antigravity surface review.
 - Phase A1 plan: Opus 4.7 architecture review + Bengal Cat Antigravity surface review before worktree/TDD.
 - Phase A2a/A2b plan: Opus 4.7 architecture review for lifecycle/bootstrap contract + Bengal Cat Antigravity surface review for Desktop UX and injection semantics.
+- Phase B plan: Opus45 architecture review before worktree/TDD; P1 clarification on orphan-to-thread migration resolved as one-shot immutable binding for Phase B.
 - Implementation: cross-family review before PR; no self-review.
 
 ## Links
@@ -360,5 +364,6 @@ in_context_observability:
 | **Discussion** | `docs/discussions/2026-05-24-f211-design-memo/README.md` | Phase 0 current-state audit and architecture design memo |
 | **Plan** | `docs/plans/2026-05-24-f211-phase-a1-runtime-metadata.md` | Phase A1 runtime metadata sidecar and binding implementation plan |
 | **Plan** | `docs/plans/2026-05-24-f211-phase-a2-cascade-lifecycle-continuity.md` | Phase A2 lifecycle/seal/drain/reaper and continuity bootstrap implementation plan |
+| **Plan** | `docs/plans/2026-05-25-f211-phase-b-ide-direct-registration.md` | Phase B IDE-direct reverse registration implementation plan |
 | **Architecture** | `docs/architecture/ownership/cells/identity-session.md` | Candidate primary ownership cell |
 | **Architecture** | `docs/architecture/ownership/cells/memory.md` | Evidence/retrieval consumer cell |

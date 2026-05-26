@@ -16,6 +16,7 @@ import type { RedisClient } from '@cat-cafe/shared/utils';
 import type {
   BootcampStateV1,
   ConnectorHubStateV1,
+  ExternalRuntimeAnchorRuntime,
   IThreadStore,
   MentionActionabilityMode,
   Thread,
@@ -25,7 +26,7 @@ import type {
   ThreadRoutingPolicyV1,
   VotingStateV1,
 } from '../ports/ThreadStore.js';
-import { DEFAULT_THREAD_ID } from '../ports/ThreadStore.js';
+import { buildExternalRuntimeAnchorThreadId, DEFAULT_THREAD_ID } from '../ports/ThreadStore.js';
 import { MessageKeys } from '../redis-keys/message-keys.js';
 import { ThreadKeys } from '../redis-keys/thread-keys.js';
 
@@ -208,6 +209,36 @@ export class RedisThreadStore implements IThreadStore {
     return thread;
   }
 
+  async ensureExternalRuntimeAnchorThread(runtime: ExternalRuntimeAnchorRuntime, userId: string): Promise<Thread> {
+    const threadId = buildExternalRuntimeAnchorThreadId(runtime, userId);
+    const key = ThreadKeys.detail(threadId);
+    const existingId = await this.redis.hget(key, 'id');
+    if (existingId) {
+      const data = await this.redis.hgetall(key);
+      return this.hydrateThread(data);
+    }
+
+    const now = Date.now();
+    const thread: Thread = {
+      id: threadId,
+      projectPath: `external-runtime:${runtime}`,
+      title: `External runtime: ${runtime}`,
+      createdBy: 'system',
+      participants: [],
+      lastActiveAt: now,
+      createdAt: now,
+      externalRuntimeAnchorState: {
+        v: 1,
+        runtime,
+        userId,
+        createdAt: now,
+      },
+    };
+
+    await this.redis.hset(key, this.serializeThread(thread));
+    return thread;
+  }
+
   async get(threadId: string): Promise<Thread | null> {
     const data = await this.redis.hgetall(ThreadKeys.detail(threadId));
     if (!data || !data.id) {
@@ -234,6 +265,7 @@ export class RedisThreadStore implements IThreadStore {
     const threads: Thread[] = [];
     for (const id of ids) {
       const thread = await this.get(id);
+      if (thread?.externalRuntimeAnchorState) continue;
       if (thread && !thread.deletedAt) threads.push(thread);
     }
 
@@ -908,6 +940,9 @@ export class RedisThreadStore implements IThreadStore {
     if (thread.connectorHubState) {
       result.connectorHubState = JSON.stringify(thread.connectorHubState);
     }
+    if (thread.externalRuntimeAnchorState) {
+      result.externalRuntimeAnchorState = JSON.stringify(thread.externalRuntimeAnchorState);
+    }
     if (thread.preferredWorkspaceMode) {
       result.preferredWorkspaceMode = thread.preferredWorkspaceMode;
     }
@@ -1009,6 +1044,23 @@ export class RedisThreadStore implements IThreadStore {
         const parsed = JSON.parse(data.connectorHubState);
         if (parsed && typeof parsed === 'object' && parsed.v === 1) {
           result.connectorHubState = parsed as ConnectorHubStateV1;
+        }
+      } catch {
+        /* ignore malformed JSON */
+      }
+    }
+    if (data.externalRuntimeAnchorState) {
+      try {
+        const parsed = JSON.parse(data.externalRuntimeAnchorState);
+        if (
+          parsed &&
+          typeof parsed === 'object' &&
+          parsed.v === 1 &&
+          parsed.runtime === 'antigravity-desktop' &&
+          typeof parsed.userId === 'string' &&
+          typeof parsed.createdAt === 'number'
+        ) {
+          result.externalRuntimeAnchorState = parsed;
         }
       } catch {
         /* ignore malformed JSON */

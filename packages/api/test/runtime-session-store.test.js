@@ -172,4 +172,58 @@ describe('RuntimeSessionStore', () => {
       ['session-older', 'session-newer'],
     );
   });
+
+  test('listRecent filters by runtime, surface, and cat newest first', async () => {
+    const { RuntimeSessionStore } = await loadModules();
+    const store = new RuntimeSessionStore();
+
+    store.upsert(
+      metadataFor('session-old-ide', {
+        runtimeSessionId: 'cascade-old-ide',
+        surface: 'ide-direct',
+        lifecycle: { state: 'active', startedAt: 1000, lastObservedAt: 2000 },
+      }),
+    );
+    store.upsert(
+      metadataFor('session-new-ide', {
+        runtimeSessionId: 'cascade-new-ide',
+        surface: 'ide-direct',
+        lifecycle: { state: 'active', startedAt: 1000, lastObservedAt: 3000 },
+      }),
+    );
+    store.upsert(
+      metadataFor('session-dispatch', {
+        runtimeSessionId: 'cascade-dispatch',
+        surface: 'cat-cafe-dispatch',
+        lifecycle: { state: 'active', startedAt: 1000, lastObservedAt: 4000 },
+      }),
+    );
+    store.upsert(
+      metadataFor('session-other-cat', {
+        runtimeSessionId: 'cascade-other-cat',
+        catId: 'antigravity',
+        surface: 'ide-direct',
+        lifecycle: { state: 'active', startedAt: 1000, lastObservedAt: 5000 },
+      }),
+    );
+
+    assert.deepEqual(
+      store
+        .listRecent({ runtime: 'antigravity-desktop', surface: 'ide-direct', catId: 'antig-opus', limit: 10 })
+        .map((entry) => entry.sessionId),
+      ['session-new-ide', 'session-old-ide'],
+    );
+    assert.deepEqual(
+      store
+        .listRecent({ runtime: 'antigravity-desktop', surface: 'ide-direct', limit: 1 })
+        .map((entry) => entry.sessionId),
+      ['session-other-cat'],
+    );
+    assert.deepEqual(
+      store
+        .listRecent({ runtime: 'antigravity-desktop', surface: 'ide-direct', limit: 2, offset: 1 })
+        .map((entry) => entry.sessionId),
+      ['session-new-ide', 'session-old-ide'],
+    );
+  });
 });

@@ -77,6 +77,19 @@ export interface ThreadMemoryV1 {
   }>;
 }
 
+export type ExternalRuntimeAnchorRuntime = 'antigravity-desktop';
+
+export interface ExternalRuntimeAnchorStateV1 {
+  v: 1;
+  runtime: ExternalRuntimeAnchorRuntime;
+  userId: string;
+  createdAt: number;
+}
+
+export function buildExternalRuntimeAnchorThreadId(runtime: ExternalRuntimeAnchorRuntime, userId: string): string {
+  return `external-runtime:${runtime}:${userId}`;
+}
+
 export type MentionRoutingSuppressionReason = 'no_action' | 'cross_paragraph' | 'inline_action';
 export type MentionActionabilityMode = 'strict' | 'relaxed';
 
@@ -143,6 +156,8 @@ export interface Thread {
   firstRunQuestState?: FirstRunQuestStateV1;
   /** F088 Phase G: Connector Hub thread state — marks this thread as an IM Hub for command isolation. */
   connectorHubState?: ConnectorHubStateV1;
+  /** F211 Phase B: Hidden per-user runtime anchor for orphan external runtime sessions. */
+  externalRuntimeAnchorState?: ExternalRuntimeAnchorStateV1;
   /** F168: Auto-switch workspace panel when this thread is opened. */
   preferredWorkspaceMode?: 'dev' | 'recall' | 'schedule' | 'tasks' | 'community';
   /** F187: User-defined label IDs for thread categorization. */
@@ -351,6 +366,7 @@ export interface IThreadStore {
    * Returns the thread (existing or newly created).
    */
   ensureThread(threadId: string, title: string): Thread | Promise<Thread>;
+  ensureExternalRuntimeAnchorThread(runtime: ExternalRuntimeAnchorRuntime, userId: string): Thread | Promise<Thread>;
   updateLastActive(threadId: string): void | Promise<void>;
   delete(threadId: string): boolean | Promise<boolean>;
   /** F095 Phase D: Soft-delete — mark thread as deleted without removing data. */
@@ -429,6 +445,33 @@ export class ThreadStore implements IThreadStore {
     return thread;
   }
 
+  ensureExternalRuntimeAnchorThread(runtime: ExternalRuntimeAnchorRuntime, userId: string): Thread {
+    const threadId = buildExternalRuntimeAnchorThreadId(runtime, userId);
+    const existing = this.threads.get(threadId);
+    if (existing) return existing;
+
+    this.evictIfNeeded();
+
+    const now = Date.now();
+    const thread: Thread = {
+      id: threadId,
+      projectPath: `external-runtime:${runtime}`,
+      title: `External runtime: ${runtime}`,
+      createdBy: 'system',
+      participants: [],
+      lastActiveAt: now,
+      createdAt: now,
+      externalRuntimeAnchorState: {
+        v: 1,
+        runtime,
+        userId,
+        createdAt: now,
+      },
+    };
+    this.threads.set(threadId, thread);
+    return thread;
+  }
+
   get(threadId: string): Thread | null {
     // Auto-create default thread on first access
     if (threadId === DEFAULT_THREAD_ID && !this.threads.has(DEFAULT_THREAD_ID)) {
@@ -450,6 +493,7 @@ export class ThreadStore implements IThreadStore {
   list(userId: string): Thread[] {
     const result: Thread[] = [];
     for (const thread of this.threads.values()) {
+      if (thread.externalRuntimeAnchorState) continue;
       if ((thread.createdBy === userId || thread.id === DEFAULT_THREAD_ID) && !thread.deletedAt) {
         result.push(thread);
       }
