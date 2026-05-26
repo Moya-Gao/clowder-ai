@@ -142,6 +142,7 @@ export class InMemoryProposalStore implements IProposalStore {
     if (!proposal || proposal.status !== 'pending') return null;
     proposal.status = 'approving';
     proposal.approvedBy = input.approvedBy;
+    proposal.claimedAt = Date.now();
     return cloneProposal(proposal);
   }
 
@@ -151,6 +152,7 @@ export class InMemoryProposalStore implements IProposalStore {
     proposal.status = 'approved';
     proposal.approvedAt = Date.now();
     proposal.createdThreadId = input.createdThreadId;
+    delete proposal.claimedAt;
     if (input.overrides?.title !== undefined) proposal.title = input.overrides.title;
     if (input.overrides?.parentThreadId !== undefined) {
       proposal.parentThreadId = input.overrides.parentThreadId;
@@ -171,6 +173,7 @@ export class InMemoryProposalStore implements IProposalStore {
     if (!proposal || proposal.status !== 'approving') return false;
     proposal.status = 'pending';
     delete proposal.approvedBy;
+    delete proposal.claimedAt;
     return true;
   }
 

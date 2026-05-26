@@ -19,6 +19,13 @@ import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadS
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 import { resolveUserId } from '../utils/request-identity.js';
 
+/**
+ * Age threshold past which an `approving` claim is considered abandoned
+ * (process crash / aborted request between claimForApproval and finalize/rollback).
+ * Normal flow completes in well under a second; 30s leaves generous headroom.
+ */
+const STALE_APPROVING_MS = 30_000;
+
 export interface ProposalRoutesOptions {
   proposalStore: IProposalStore;
   threadStore: IThreadStore;
@@ -87,8 +94,18 @@ export const proposalRoutes: FastifyPluginAsync<ProposalRoutesOptions> = async (
       };
     }
     if (proposal.status === 'approving') {
-      reply.status(409);
-      return { error: 'Proposal is being approved by another request; retry shortly', status: proposal.status };
+      // Stale-claim recovery: if the previous claim is older than the stale window, the
+      // claimer almost certainly crashed (claim → finalize is a sub-second window in practice).
+      // Force a rollback so the current request can re-claim. This prevents permanent stuck
+      // state from process crashes between claimForApproval and finalize/rollback.
+      const ageMs = proposal.claimedAt ? Date.now() - proposal.claimedAt : Number.POSITIVE_INFINITY;
+      if (ageMs > STALE_APPROVING_MS) {
+        await proposalStore.rollbackClaim(proposal.proposalId);
+        // fall through — `claimForApproval` below will re-take the claim
+      } else {
+        reply.status(409);
+        return { error: 'Proposal is being approved by another request; retry shortly', status: proposal.status };
+      }
     }
 
     const overrides = bodyParse.data;
@@ -214,11 +231,18 @@ export const proposalRoutes: FastifyPluginAsync<ProposalRoutesOptions> = async (
       return { error: 'Proposal already approved', status: proposal.status };
     }
     if (proposal.status === 'approving') {
-      reply.status(409);
-      return {
-        error: 'Proposal is being approved — wait for the in-flight approve to settle',
-        status: proposal.status,
-      };
+      // Same stale-claim recovery as approve handler.
+      const ageMs = proposal.claimedAt ? Date.now() - proposal.claimedAt : Number.POSITIVE_INFINITY;
+      if (ageMs > STALE_APPROVING_MS) {
+        await proposalStore.rollbackClaim(proposal.proposalId);
+        // fall through — `markRejected` below will see status=pending
+      } else {
+        reply.status(409);
+        return {
+          error: 'Proposal is being approved — wait for the in-flight approve to settle',
+          status: proposal.status,
+        };
+      }
     }
     if (proposal.status === 'rejected') {
       return { proposalId: proposal.proposalId, status: proposal.status, deduped: true };

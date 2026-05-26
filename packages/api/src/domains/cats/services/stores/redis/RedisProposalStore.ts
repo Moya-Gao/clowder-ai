@@ -121,14 +121,17 @@ export class RedisProposalStore implements IProposalStore {
   async claimForApproval(input: ClaimForApprovalInput): Promise<ThreadProposal | null> {
     const proposal = await this.get(input.proposalId);
     if (!proposal || proposal.status !== 'pending') return null;
+    const claimedAt = Date.now();
     const ok = await this.casTransition(proposal.proposalId, proposal.createdBy, 'pending', 'zrem', '', [
       'status',
       'approving',
       'approvedBy',
       input.approvedBy,
+      'claimedAt',
+      String(claimedAt),
     ]);
     if (!ok) return null;
-    return { ...proposal, status: 'approving', approvedBy: input.approvedBy };
+    return { ...proposal, status: 'approving', approvedBy: input.approvedBy, claimedAt };
   }
 
   async finalizeApproval(input: FinalizeApprovalInput): Promise<ThreadProposal | null> {
@@ -150,7 +153,7 @@ export class RedisProposalStore implements IProposalStore {
       'approving',
       'zadd',
       String(proposal.createdAt),
-      ['status', 'pending', 'approvedBy', ''],
+      ['status', 'pending', 'approvedBy', '', 'claimedAt', '0'],
     );
   }
 
@@ -252,6 +255,8 @@ export class RedisProposalStore implements IProposalStore {
       'approved',
       'approvedAt',
       String(updated.approvedAt ?? 0),
+      'claimedAt',
+      '0',
       'title',
       updated.title,
       'parentThreadId',
@@ -342,6 +347,8 @@ export class RedisProposalStore implements IProposalStore {
     if (data.rejectedAt) proposal.rejectedAt = parseInt(data.rejectedAt, 10);
     if (data.rejectionReason) proposal.rejectionReason = data.rejectionReason;
     if (data.cardMessageId) proposal.cardMessageId = data.cardMessageId;
+    const claimedAt = parseInt(data.claimedAt ?? '0', 10);
+    if (claimedAt > 0) proposal.claimedAt = claimedAt;
     return proposal;
   }
 }

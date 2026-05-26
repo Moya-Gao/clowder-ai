@@ -623,6 +623,19 @@ export class RedisThreadStore implements IThreadStore {
     const existingDeletedAt = await this.redis.hget(key, 'deletedAt');
     if (!existingDeletedAt || parseInt(existingDeletedAt, 10) <= 0) return false;
     await this.redis.hset(key, 'deletedAt', '0');
+    // P2 (Codex review): softDelete strips the child from its parent's children ZSET; restore
+    // must put it back so getChildThreads() stays consistent after a soft-delete/restore cycle.
+    const [parentId, createdAt] = await Promise.all([
+      this.redis.hget(key, 'parentThreadId'),
+      this.redis.hget(key, 'createdAt'),
+    ]);
+    if (parentId) {
+      const score = createdAt && parseInt(createdAt, 10) > 0 ? createdAt : String(Date.now());
+      await this.redis.zadd(ThreadKeys.children(parentId), score, threadId);
+      if (this.ttlSeconds !== null) {
+        await this.redis.expire(ThreadKeys.children(parentId), this.ttlSeconds);
+      }
+    }
     await this.applyKeyRetention([key]);
     return true;
   }

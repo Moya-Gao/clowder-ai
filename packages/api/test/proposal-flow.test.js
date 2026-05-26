@@ -338,6 +338,31 @@ describe('F128 propose / approve / reject flow', () => {
     assert.equal(proposal.status, 'rejected');
   });
 
+  test('approving status with stale claim is auto-recovered on next approve', async () => {
+    const { InMemoryProposalStore } = await import('../dist/domains/cats/services/stores/ports/ProposalStore.js');
+    proposalStore = new InMemoryProposalStore();
+    const app = await createApp();
+    const source = await threadStore.create('alice', 'Source');
+    const { proposalId } = JSON.parse((await propose(app, { userId: 'alice', threadId: source.id })).body);
+
+    // Simulate process crash mid-approve: claim succeeds but finalize/rollback never runs.
+    proposalStore.claimForApproval({ proposalId, approvedBy: 'alice' });
+    let proposal = await proposalStore.get(proposalId);
+    assert.equal(proposal.status, 'approving');
+    assert.ok(proposal.claimedAt, 'claimedAt must be set after claim');
+    // Backdate claimedAt by 60s to fall outside the 30s stale window.
+    proposalStore.proposals.get(proposalId).claimedAt = Date.now() - 60_000;
+
+    // First approve attempt detects the stale claim, rolls it back, and re-claims.
+    const res = await approve(app, 'alice', proposalId);
+    assert.equal(res.statusCode, 200, `expected stale-claim recovery to succeed, got ${res.statusCode}`);
+    const body = JSON.parse(res.body);
+    assert.equal(body.status, 'approved');
+    proposal = await proposalStore.get(proposalId);
+    assert.equal(proposal.status, 'approved');
+    assert.ok(proposal.createdThreadId);
+  });
+
   test('approve applies user overrides (title + initialMessage)', async () => {
     const app = await createApp();
     const source = await threadStore.create('alice', 'Source');

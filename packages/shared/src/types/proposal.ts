@@ -52,6 +52,13 @@ export interface ThreadProposal {
   approvedBy?: string;
   approvedAt?: number;
   createdThreadId?: string;
+  /**
+   * Unix ms when claimForApproval transitioned status pending → approving.
+   * If the process crashes between claim and finalize, this lets approve/reject
+   * detect a stale claim (now - claimedAt > STALE_APPROVING_MS) and forcibly
+   * release it so the proposal isn't stuck forever.
+   */
+  claimedAt?: number;
 
   // Audit — rejection outcome
   rejectedBy?: string;
