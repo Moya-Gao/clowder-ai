@@ -299,6 +299,30 @@ function mergeById(base: HasId[], overlay: HasId[]): HasId[] {
 }
 
 /**
+ * Merge template + catalog with #772 template-only breed filter applied.
+ * Shared by loadCatConfig() and getAcpConfig() to avoid duplicate merge paths.
+ */
+function mergeTemplateWithCatalog(templatePath: string): string | null {
+  const projectRoot = dirname(templatePath);
+  const catalogRaw = readCatCatalogRaw(projectRoot);
+  if (catalogRaw === null) return null;
+
+  const baseRaw = readTemplate(templatePath);
+  const baseJson = JSON.parse(baseRaw) as Record<string, unknown>;
+  const catalogJson = JSON.parse(catalogRaw) as Record<string, unknown>;
+  const merged = deepMergeConfig(baseJson, catalogJson);
+
+  // #772: Template-only breeds must not leak into runtime.
+  const catalogBreeds = Array.isArray(catalogJson.breeds) ? (catalogJson.breeds as HasId[]) : [];
+  if (catalogBreeds.length > 0 && Array.isArray(merged.breeds)) {
+    const catalogBreedIds = new Set(catalogBreeds.map((b) => b.id));
+    merged.breeds = (merged.breeds as HasId[]).filter((b) => catalogBreedIds.has(b.id));
+  }
+
+  return JSON.stringify(merged);
+}
+
+/**
  * Load and validate the resolved cat config source.
  * Explicit filePath reads that file directly.
  * Default resolution: cat-template.json is the base, .cat-cafe/cat-catalog.json is a delta overlay.
@@ -316,28 +340,10 @@ export function loadCatConfig(filePath?: string): CatCafeConfig {
     }
   } else {
     const templatePath = process.env.CAT_TEMPLATE_PATH ?? DEFAULT_CAT_TEMPLATE_PATH;
-    const projectRoot = dirname(templatePath);
-    const catalogRaw = readCatCatalogRaw(projectRoot);
-    if (catalogRaw !== null) {
-      // Catalog exists — use template as base, catalog as overlay
-      const baseRaw = readTemplate(templatePath);
-      const baseJson = JSON.parse(baseRaw) as Record<string, unknown>;
-      const catalogJson = JSON.parse(catalogRaw) as Record<string, unknown>;
-      const merged = deepMergeConfig(baseJson, catalogJson);
-
-      // #772: Template-only breeds must not leak into runtime.
-      // mergeById() preserves base-only items for forward-compat, but for breeds
-      // that means template menu entries appear as real runtime cats. When a
-      // runtime catalog exists, only breeds present in the catalog are runtime
-      // members — template breeds are menu/default-form data only.
-      const catalogBreeds = Array.isArray(catalogJson.breeds) ? (catalogJson.breeds as HasId[]) : [];
-      if (catalogBreeds.length > 0 && Array.isArray(merged.breeds)) {
-        const catalogBreedIds = new Set(catalogBreeds.map((b) => b.id));
-        merged.breeds = (merged.breeds as HasId[]).filter((b) => catalogBreedIds.has(b.id));
-      }
-
-      raw = JSON.stringify(merged);
-      resolvedPath = resolveCatCatalogPath(projectRoot);
+    const merged = mergeTemplateWithCatalog(templatePath);
+    if (merged !== null) {
+      raw = merged;
+      resolvedPath = resolveCatCatalogPath(dirname(templatePath));
     } else {
       raw = readTemplate(templatePath);
       resolvedPath = templatePath;
@@ -825,17 +831,7 @@ export interface AcpVariantConfig {
 export function getAcpConfig(catId: string): AcpVariantConfig | undefined {
   try {
     const templatePath = process.env.CAT_TEMPLATE_PATH ?? DEFAULT_CAT_TEMPLATE_PATH;
-    const projectRoot = dirname(templatePath);
-    const catalogRaw = readCatCatalogRaw(projectRoot);
-    let raw: string;
-    if (catalogRaw !== null) {
-      const baseRaw = readTemplate(templatePath);
-      const baseJson = JSON.parse(baseRaw) as Record<string, unknown>;
-      const catalogJson = JSON.parse(catalogRaw) as Record<string, unknown>;
-      raw = JSON.stringify(deepMergeConfig(baseJson, catalogJson));
-    } else {
-      raw = readTemplate(templatePath);
-    }
+    const raw = mergeTemplateWithCatalog(templatePath) ?? readTemplate(templatePath);
     const json = JSON.parse(raw) as {
       breeds?: Array<{ catId?: string; variants?: Array<{ catId?: string; acp?: AcpVariantConfig }> }>;
     };

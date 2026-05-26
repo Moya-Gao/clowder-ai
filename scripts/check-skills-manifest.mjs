@@ -56,9 +56,16 @@ function loadRosterHandles() {
     throw new Error('cat-template.json missing "roster" object');
   }
 
-  const handles = Object.keys(parsed.roster)
-    .map((id) => `@${id}`)
-    .sort((a, b) => b.length - a.length);
+  const handleSet = new Set(Object.keys(parsed.roster).map((id) => `@${id}`));
+  if (Array.isArray(parsed.breeds)) {
+    for (const breed of parsed.breeds) {
+      if (breed.catId) handleSet.add(`@${breed.catId}`);
+      for (const variant of Array.isArray(breed.variants) ? breed.variants : []) {
+        if (variant.catId) handleSet.add(`@${variant.catId}`);
+      }
+    }
+  }
+  const handles = [...handleSet].sort((a, b) => b.length - a.length);
 
   const nicknames = new Set();
   if (Array.isArray(parsed.breeds)) {

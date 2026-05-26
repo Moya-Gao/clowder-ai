@@ -17,6 +17,7 @@ const {
   getDefaultCatId,
   buildCatIdToBreedIndex,
   getCatEffort,
+  getAcpConfig,
   _resetCachedConfig,
 } = await import('../dist/config/cat-config-loader.js');
 
@@ -1216,6 +1217,38 @@ describe('#772: template breeds must not leak into runtime', () => {
         'template-strength',
         'catalog breed should inherit template fields via merge',
       );
+    } finally {
+      if (saved === undefined) delete process.env.CAT_TEMPLATE_PATH;
+      else process.env.CAT_TEMPLATE_PATH = saved;
+      _resetCachedConfig();
+    }
+  });
+
+  it('getAcpConfig does not return ACP from template-only breed', () => {
+    const templateBreeds = [
+      {
+        ...makeBreed('siamese', 'gemini', ['@gemini']),
+        variants: [
+          {
+            id: 'gemini-default',
+            clientId: 'google',
+            defaultModel: 'gemini-2.5-flash',
+            mcpSupport: true,
+            personality: 'siamese personality',
+            acp: { mode: 'acp', maxLiveProcesses: 3, idleTtlMs: 60000 },
+          },
+        ],
+      },
+    ];
+    const catalogBreeds = [makeBreed('ragdoll', 'opus', ['@opus'])];
+    const { templatePath } = setupProjectDir(templateBreeds, catalogBreeds);
+
+    const saved = process.env.CAT_TEMPLATE_PATH;
+    process.env.CAT_TEMPLATE_PATH = templatePath;
+    _resetCachedConfig();
+    try {
+      const acp = getAcpConfig('gemini');
+      assert.equal(acp, undefined, 'template-only breed ACP must not leak into runtime');
     } finally {
       if (saved === undefined) delete process.env.CAT_TEMPLATE_PATH;
       else process.env.CAT_TEMPLATE_PATH = saved;
