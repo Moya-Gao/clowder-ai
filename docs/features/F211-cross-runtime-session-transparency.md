@@ -194,10 +194,10 @@ Expose runtime session state where users and cats notice it:
 - [x] AC-B6: Orphan IDE-direct runtime sessions are discoverable through an MCP/UI list/read surface by runtime, cat, and recent activity even before they are bound to a normal thread. Source: `RuntimeSessionStore.listRecent(...)`, Redis recent indexes, API list/read route tests, and MCP list/read tests.
 
 ### Phase C（JSON shadow state retirement）
-- [ ] AC-C1: `data/antigravity-sessions.json` is no longer the canonical source for cascade reuse.
-- [ ] AC-C2: Existing JSON state has a one-time migration path or an explicit safe discard decision.
-- [ ] AC-C3: Bridge reset / retire writes through canonical session binding state.
-- [ ] AC-C4: Tests prove SessionChainStore is the single source of truth for cascade binding after migration.
+- [x] AC-C1: `data/antigravity-sessions.json` is no longer the canonical source for cascade reuse.
+- [x] AC-C2: Existing JSON state has a one-time migration path or an explicit safe discard decision.
+- [x] AC-C3: Bridge reset / retire writes through canonical session binding state.
+- [x] AC-C4: Tests prove SessionChainStore is the single source of truth for cascade binding after migration.
 
 ### Phase D（Long-lived session kind / cross-runtime protocol）
 - [ ] AC-D1: Spec defines the long-lived session kind or explains why existing session records are sufficient.
@@ -256,7 +256,7 @@ Expose runtime session state where users and cats notice it:
 | OQ-3 | Same-thread same-cat concurrent cascades 是 Phase A 支持还是 fail-closed？ | ✅ A2 fails closed through `runtime_conflict_pending` runtime sidecar state; no read-path mis-seal |
 | OQ-4 | IDE-direct conversation 绑定到已有 Cat Cafe thread、独立 pseudo-thread，还是 runtime conversation collection？ | ✅ Phase B uses hidden external-runtime anchor threads by default; explicit normal-thread binding is owner-checked and one-shot |
 | OQ-5 | `Session.kind` 是否现在落地，还是 Phase A 先用 `cliSessionId=cascadeId` 兼容 hook？ | ⬜ Phase D design；Phase A 不锁死 |
-| OQ-6 | JSON 迁移后是否保留只读 debug export？ | ⬜ Phase C design |
+| OQ-6 | JSON 迁移后是否保留只读 debug export？ | ✅ Phase C keeps explicit legacy importer diagnostics as the migration/debug evidence; production Bridge/AgentService do not read JSON by default |
 | OQ-7 | Cross-runtime registration 是否应做 MCP tool、callback endpoint，还是二者都要？ | ✅ Phase B implements both: agent-key callback registration plus MCP register/list/read tools; generic cross-runtime protocol remains Phase D |
 | OQ-8 | Antigravity transcript 的权威材料是 trajectory steps、thread messages、planner responses、tool results，还是组合 materialized view？ | ✅ Phase A materializes a bounded session transcript view from transformed planner/tool/lifecycle events; raw trajectory noise stays debug-level |
 | OQ-9 | 同一 cascadeId 内 model/cat 切换应 split session、记录 identity timeline，还是创建 sub-run？ | ✅ Phase A records runtime identity history in `RuntimeSessionMetadata` instead of silently overwriting cascade attribution |
@@ -281,6 +281,7 @@ Expose runtime session state where users and cats notice it:
 | KD-10 | Continuity break 是 F211 内 bug，不另开 F212 | F211 的目标从“session 透明/可检索”收口为“session 透明 + session rotation 后连续”；只存旧 session 但让新 session 失忆仍未解决用户现场问题 | 2026-05-24 |
 | KD-11 | A2 lifecycle + continuity 作为一个 PR 验收 | A2a/A2b 只保留为实现切片；PR 粒度按可独立验收的用户故事切。lifecycle without continuity 不能证明“session 轮换后不断记忆”，continuity without lifecycle 也不能独立运行 | 2026-05-24 |
 | KD-12 | Phase B IDE-direct binding is one-shot immutable | A runtime session's first successful registration chooses its SessionRecord thread; orphan-to-thread migration needs an explicit future bind/move UX so access control and transcript pointers move together | 2026-05-25 |
+| KD-13 | Phase C keeps legacy JSON as explicit rescue/import input only | Canonical production cascade reuse/reset must go through runtime-session metadata; `legacyJsonSessionStore: true` remains opt-in for rescue/test compatibility, not a default source of truth | 2026-05-26 |
 
 ## Eval / Tracking Contract
 
@@ -310,7 +311,7 @@ in_context_observability:
 | R3 | “这个和 F209 啥关系？F209 不是检索的吗？” | KD-1, KD-6, AC-0C | Spec ownership boundary review | [x] |
 | R4 | “可以找 antig-opus，让他只需要讲出来问题；顺便总结 F211 想做什么” | AC-0D | Review request message to `@antig-opus` | [x] |
 | R5 | IDE 直开和孟加拉猫聊天也要能找回 | AC-B1~B6 | IDE-direct registration fixture / list/read discoverability validation | [x] |
-| R6 | JSON shadow state 不该继续当真相源 | AC-A12, AC-C1~C4 | Read-only import + migration test + removal/audit diff | [ ] |
+| R6 | JSON shadow state 不该继续当真相源 | AC-A12, AC-C1~C4 | Read-only import + migration test + removal/audit diff | [x] |
 | R7 | Bengal review: “session chain 里有记录但 digest/events 为空仍然没用” | AC-0E, AC-A8 | `read_session_digest/events` proof fixture | [x] |
 | R8 | Bengal review: “同一 cascade 可换 model/catId，manual New Cascade 也常见” | AC-0F, AC-A5, AC-A9 | identity-history + sealReason tests | [x] |
 | R9 | Bengal review: “IDE-direct 没 threadId/callbackToken，Phase B 注册机制要具体” | AC-B5, OQ-10 | external-session registration contract | [x] |
@@ -345,6 +346,7 @@ in_context_observability:
 | 2026-05-25 | Phase B implementation plan drafted and reviewed by Opus45：APPROVE with P1 clarification; scope clarified that IDE-direct binding is one-shot immutable in Phase B, with orphan-to-thread migration deferred to explicit Phase D/E bind UX. |
 | 2026-05-25 | Phase B implementation landed in worktree `feat/f211-phase-b-ide-direct-registration` through `db14e7967`: agent-key-only callback registration, hidden external-runtime anchor threads, recent runtime indexes, MCP register/list/read tools, and API list/read routes are implemented. Targeted API/MCP tests and package builds passed. |
 | 2026-05-26 | Phase B merged via PR #1899：IDE-direct reverse registration is now on main with agent-key-only callback auth, hidden external-runtime anchor threads, API/MCP list/read drilldown, one-shot immutable binding, and cloud follow-up fixes for stale lifecycle heartbeats; final gate passed at `78a8dc62`, merge commit `8c740d526`. |
+| 2026-05-26 | Phase C implementation completed in worktree `feat/f211-phase-c-json-retirement`: production Antigravity Bridge/AgentService no longer read legacy JSON fallback by default, `resetSession()` seals canonical runtime metadata, legacy JSON remains explicit importer/rescue input only, and runtime-store tests prove sealed bindings leave active lookup while staying discoverable via recent drilldown. |
 
 ## Review Gate
 
@@ -366,5 +368,6 @@ in_context_observability:
 | **Plan** | `docs/plans/2026-05-24-f211-phase-a1-runtime-metadata.md` | Phase A1 runtime metadata sidecar and binding implementation plan |
 | **Plan** | `docs/plans/2026-05-24-f211-phase-a2-cascade-lifecycle-continuity.md` | Phase A2 lifecycle/seal/drain/reaper and continuity bootstrap implementation plan |
 | **Plan** | `docs/plans/2026-05-25-f211-phase-b-ide-direct-registration.md` | Phase B IDE-direct reverse registration implementation plan |
+| **Plan** | `docs/plans/2026-05-26-f211-phase-c-json-shadow-retirement.md` | Phase C JSON shadow state retirement implementation plan |
 | **Architecture** | `docs/architecture/ownership/cells/identity-session.md` | Candidate primary ownership cell |
 | **Architecture** | `docs/architecture/ownership/cells/memory.md` | Evidence/retrieval consumer cell |

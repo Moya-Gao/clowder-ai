@@ -165,6 +165,17 @@ describe('RedisRuntimeSessionStore', { skip: redisIsolationSkipReason(REDIS_URL)
       await redis.get(RuntimeSessionKeys.byThreadCat('antigravity-desktop', 'thread-1', 'antig-opus')),
       null,
     );
+    assert.deepEqual(
+      (
+        await store.listRecent({
+          runtime: 'antigravity-desktop',
+          surface: 'cat-cafe-dispatch',
+          catId: 'antig-opus',
+        })
+      ).map((entry) => entry.sessionId),
+      ['session-1'],
+      'sealed/pending runtime metadata must stay discoverable for drilldown',
+    );
   });
 
   it('lifecycle state index moves records and orders by lastObservedAt', async () => {

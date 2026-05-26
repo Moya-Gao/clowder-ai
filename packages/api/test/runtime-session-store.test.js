@@ -128,6 +128,13 @@ describe('RuntimeSessionStore', () => {
     });
 
     assert.equal(store.getActiveByThreadCat('antigravity-desktop', 'thread-1', 'antig-opus'), null);
+    assert.deepEqual(
+      store
+        .listRecent({ runtime: 'antigravity-desktop', surface: 'cat-cafe-dispatch', catId: 'antig-opus' })
+        .map((entry) => entry.sessionId),
+      ['session-1'],
+      'sealed/pending runtime metadata must stay discoverable for drilldown',
+    );
   });
 
   test('updateLifecycle changes sidecar state without adding SessionRecord status', async () => {
