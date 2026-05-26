@@ -191,7 +191,7 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 - [x] AC-E2: 当前 baseline 归档 ✅（既有富文档 `docs/audits/cc-system-prompt-v2.1.143.md`——spec 写 v2.1.142 为 stale，实测 claude=2.1.143——保留 §1-7 富文本 + 新增 §5b 机读 anchor block 使其成合法 `--diff` 源；脚本 `--emit` 自动化补充）
 - [x] AC-E3: `cat-cafe-skills/refs/cc-system-prompt-audit-sop.md` SOP 写完 ✅
 - [x] AC-E4: cron 注册 ✅（项目 scheduler `dyn-1778925760476-s1gprm`，weekly Mon 10:00；CI runner 无二进制故非 GitHub Action）
-- [x] AC-E5: 同款 SOP 对 Codex CLI 适用 ✅（`--cli codex` 参数化——`which codex`=node launcher，复刻 launcher 解析 native 二进制——首份归档 `docs/audits/codex-system-prompt-v0.130.0.md`）
+- [x] AC-E5: 同款 SOP 对 Codex CLI 适用 ✅（`--cli codex` 参数化——`which codex`=node launcher，复刻 launcher 解析 native 二进制——首份归档 `docs/audits/codex-system-prompt-v0.130.0.md`；2026-05-26 Codex 0.133 drift follow-up 归档 `docs/audits/codex-system-prompt-v0.133.0.md`，并补 resolver 适配 0.133 `vendor/<triple>/bin/codex` native layout）
 
 ### Phase F（系统提示词可见化）
 
@@ -303,6 +303,7 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 | 2026-05-23 | **#748 SOP stage externalization merged (PR #1868, squash `3d5c76772`)**——`sop-definitions/development.yaml` 接管 development SOP stage 真相源，18 条 `sop_navigation` hard rules / pitfalls 迁入 predicate-backed schema，runtime generated catalog 驱动 `SopStage` / `WorkflowSop` / thread-context / Mission Control 面板；`nextSkill` 作为 explicit override 保留，bad/stale SOP stage 在 API 和 UI 双侧 fail-soft。cross-domain stubs 证明 schema 泛化但不进入 runtime union；`writing-plans` 顺序统一为 `writing-plans → worktree → tdd`；F192 `eval:sop` runtime evaluator 保持 out of scope。`pnpm gate` passed on PR HEAD `db118eca7`，cloud review clean。 |
 | 2026-05-24 | **AC-C5 alpha probe reopened Claude carrier parity gap**——铲屎官 runtime pull + restart 后，test thread 证实 production default 仍走 `ClaudeAgentService(-p)`；F203 native L0 只在 `ClaudeBgCarrierService(--bg)` 生效。修复方向改为 carrier 正交：不翻 `CAT_CAFE_CLAUDE_CARRIER` default，不提前 F198 migration，只让 `ClaudeAgentService(-p)` 同样 compile L0 到 `--system-prompt-file`，并阻止用户 `cliConfigArgs` 覆盖保留 system prompt flags。合入后 AC-C5 需重新 runtime pull/restart + behavioral probe。 |
 | 2026-05-24 | **Claude carrier L0 parity fix merged (PR #1875, squash `9bdbc7f9`)**——`ClaudeAgentService(-p)` 与 `ClaudeBgCarrierService(--bg)` 统一使用 compiled L0 `--system-prompt-file`，pack-only `systemPrompt` 双 carrier 都走 `--append-system-prompt`，并阻止 `cliConfigArgs` 覆盖 `--system-prompt*` / `--append-system-prompt*` 保留 flags；`-p` carrier 每次 invocation 清理 L0 temp dir，避免 `/tmp/cat-cafe-l0-*` 积累。`pnpm gate` passed on PR HEAD `90a92dc9`，cloud review clean。下一步：runtime pull + restart 后重跑 AC-C5 behavioral probe（default `-p` + `bg_daemon`）。 |
+| 2026-05-26 | **Codex 0.133 audit drift follow-up merged (PR #1892, squash `c6c0bf9c`)**——weekly Phase E 巡检检测到 Codex `0.130.0 → 0.133.0` drift；`--diff` 初始失败根因不是平台包缺失，而是 0.133 launcher native binary layout 从 legacy `vendor/<triple>/codex/codex` 改到 `vendor/<triple>/bin/codex`。修复 audit resolver 候选顺序（new layout first + legacy fallback），新增 0.133 layout 回归测试，`--diff docs/audits/codex-system-prompt-v0.130.0.md` 结果 `added=[] removed=[] changed=[]`，归档 `docs/audits/codex-system-prompt-v0.133.0.md`；`pnpm gate` passed on `fc5d07d0`，Opus-47 continuity approve + cloud review clean。 |
 
 ## Review Gate
 
