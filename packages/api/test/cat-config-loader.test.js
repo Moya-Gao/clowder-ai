@@ -1122,25 +1122,40 @@ describe('#772: template breeds must not leak into runtime', () => {
     const templatePath = join(projectDir, 'cat-template.json');
     writeFileSync(
       templatePath,
-      JSON.stringify({ version: 2, breeds: templateBreeds, roster: {}, reviewPolicy: { requireDifferentFamily: true, preferActiveInThread: true, preferLead: true, excludeUnavailable: true } }),
+      JSON.stringify({
+        version: 2,
+        breeds: templateBreeds,
+        roster: {},
+        reviewPolicy: {
+          requireDifferentFamily: true,
+          preferActiveInThread: true,
+          preferLead: true,
+          excludeUnavailable: true,
+        },
+      }),
     );
     const runtimeDir = join(projectDir, '.cat-cafe');
     mkdirSync(runtimeDir, { recursive: true });
     writeFileSync(
       join(runtimeDir, 'cat-catalog.json'),
-      JSON.stringify({ version: 2, breeds: catalogBreeds, roster: {}, reviewPolicy: { requireDifferentFamily: true, preferActiveInThread: true, preferLead: true, excludeUnavailable: true } }),
+      JSON.stringify({
+        version: 2,
+        breeds: catalogBreeds,
+        roster: {},
+        reviewPolicy: {
+          requireDifferentFamily: true,
+          preferActiveInThread: true,
+          preferLead: true,
+          excludeUnavailable: true,
+        },
+      }),
     );
     return { projectDir, templatePath };
   }
 
   it('no duplicate catId when runtime catalog has same catId as template breed', () => {
-    const templateBreeds = [
-      makeBreed('ragdoll', 'opus', ['@opus']),
-      makeBreed('moonshot', 'kimi', ['@moonshot-kimi']),
-    ];
-    const catalogBreeds = [
-      makeBreed('user-kimi', 'kimi', ['@kimi']),
-    ];
+    const templateBreeds = [makeBreed('ragdoll', 'opus', ['@opus']), makeBreed('moonshot', 'kimi', ['@moonshot-kimi'])];
+    const catalogBreeds = [makeBreed('user-kimi', 'kimi', ['@kimi'])];
     const { templatePath } = setupProjectDir(templateBreeds, catalogBreeds);
 
     const saved = process.env.CAT_TEMPLATE_PATH;
@@ -1161,13 +1176,8 @@ describe('#772: template breeds must not leak into runtime', () => {
   });
 
   it('template-only breeds are excluded when runtime catalog exists', () => {
-    const templateBreeds = [
-      makeBreed('ragdoll', 'opus', ['@opus']),
-      makeBreed('moonshot', 'kimi', ['@moonshot-kimi']),
-    ];
-    const catalogBreeds = [
-      makeBreed('ragdoll', 'opus', ['@opus']),
-    ];
+    const templateBreeds = [makeBreed('ragdoll', 'opus', ['@opus']), makeBreed('moonshot', 'kimi', ['@moonshot-kimi'])];
+    const catalogBreeds = [makeBreed('ragdoll', 'opus', ['@opus'])];
     const { templatePath } = setupProjectDir(templateBreeds, catalogBreeds);
 
     const saved = process.env.CAT_TEMPLATE_PATH;
@@ -1192,9 +1202,7 @@ describe('#772: template breeds must not leak into runtime', () => {
         teamStrengths: 'template-strength',
       },
     ];
-    const catalogBreeds = [
-      makeBreed('ragdoll', 'opus', ['@opus']),
-    ];
+    const catalogBreeds = [makeBreed('ragdoll', 'opus', ['@opus'])];
     const { templatePath } = setupProjectDir(templateBreeds, catalogBreeds);
 
     const saved = process.env.CAT_TEMPLATE_PATH;
@@ -1203,7 +1211,11 @@ describe('#772: template breeds must not leak into runtime', () => {
     try {
       const config = loadCatConfig();
       const all = toAllCatConfigs(config);
-      assert.equal(all.opus.teamStrengths, 'template-strength', 'catalog breed should inherit template fields via merge');
+      assert.equal(
+        all.opus.teamStrengths,
+        'template-strength',
+        'catalog breed should inherit template fields via merge',
+      );
     } finally {
       if (saved === undefined) delete process.env.CAT_TEMPLATE_PATH;
       else process.env.CAT_TEMPLATE_PATH = saved;

@@ -226,7 +226,6 @@ class ServiceManager {
         log(`Warning: failed to create ${linkType} ${dst}: ${err.message}`);
       }
     }
-
   }
 
   _getOrCreateTelemetrySalt(userDataDir) {
