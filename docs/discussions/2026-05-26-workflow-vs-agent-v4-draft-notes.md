@@ -171,8 +171,82 @@
 
 ---
 
+## opus-47 补漏（五层全景）
+
+> 47 的核心发现：**我只碰了 L1 skill 层，其他四层全空白。**
+> 最尖锐的叙事："你不是用 hybrid 写代码，你是踩在 5 层 hybrid 上才能写代码。"
+
+### A. 遗漏的 Skills（铲屎官点名的 + 高价值的）
+
+1. **opensource-ops** — 铲屎官原话点名"是"的 skill，v4 草稿漏了！双仓边界 + 6 场景路由 + 递阶权限 + Intake Intent Issue + Ledger + Brand Guard。最复杂的多阶段 gate 系统。
+2. **expert-panel** — 多猫专家编排：Dispatch → Independent（禁止互看锚定）→ Synthesis（保留分歧）→ Contributor Check → Delivery。
+3. **deep-research** — 三路调研合成：Mode A（Web + Coder + GPT 三角验证）/ Mode B（自包含 prompt → 转发 → 回填）。
+4. **schedule-tasks** — 4 步对话式注册 + 唤醒后完整 invocation + 一次性任务自动退役。
+5. **ppt-forge / video-forge** — 多模态生产线 + 视觉审查 6 件套。
+6. 其他：collaborative-thinking / cross-cat-handoff / cross-thread-sync / knowledge-engineering / writing-plans / tech-writing / guide-authoring
+
+### B. Scripts 层（我完全没碰）
+
+1. **intake-from-opensource.sh** — 社区 PR 吸收 3 类决策 + Brand Guard 单一真相源 + plan-then-record 两阶段
+2. **publish-sync-tag.sh** — sync PR merge 后发同名 tag 到双仓 + provenance.json 三角映证 + 失败自动回滚 + 幂等检查
+3. **check-hotfix-pattern.mjs** — auto-label 三层鉴权（关键词 + 文件数 ≤1 + 行数 ≤50）
+4. **check-fallback-layers.mjs** — diff 扫 fallback 增长 → 单文件 ≥3 → 触发坐标系自检（缅因猫家族治病）
+5. **compile-system-prompt-l0.test.mjs** — per-cat L0 编译全量检查 + token 不超 5500
+
+### C. Hooks 对偶设计（我漏了 2 对）
+
+1. **pretool-evidence-guard + posttool-evidence-marker** — "agent 想跳过调查直接改代码 → 系统强制 ask"的对抗设计。PostTool 在 Read/Grep 后写 marker，PreTool 在 Edit/Write 前 check marker < 15min。
+2. **f24-pre-compact + f24-post-compact-bootstrap** — Anthropic 压缩掉的 context，用 hook 对偶再 inject 回去。PreCompact seal session + 写 state；SessionStart 读 state + fetch digest + 注入 skill 续载指令。
+
+### D. MCP Server 代码层（我完全空白）
+
+1. **hold_ball rate limit** — 3 持球/小时 per (threadId, catId) + 超限 429 强制 @ 别人
+2. **multi_mention 先搜后问 enforcement** — tool schema 强制 searchEvidenceRefs OR overrideReason 二选一。家规编码进 tool contract，不靠 prompt。
+3. **search_evidence consumption-weighted ranking (F200)** — 按猫之前消费过哪些结果重排
+4. **scheduled task draft-before-confirm** — preview 不持久化，register 才落库。强制 dry-run。
+5. **rich block 双路 fallback** — Route A(callback) + Route B(fallback)，单点失败自动降级
+6. **distillation nominate → approve loop** — mark_generalizable → nominate（自动 deidentify）→ human UI review。知识升 global 必须 human gate。
+7. **final-routing-slot.ts** — 非行首 @ 纯机械拒绝，不走 LLM
+8. **CollaborationContinuityCapsule** — token >80% sealer 触发 → capsule → next invocation 前置 continuation prompt
+
+### E. 文档层（我完全空白）
+
+1. **SOP.md 例外路径** — 行 98 跳云端 review 3 条件 / 行 105 极微改动直接 main 4 条件 / 行 88 Trivial 跳⓪。条件没完全量化（"纯文档"模糊）= hybrid 的漏点也是特征
+2. **LL-048 持久化规则** — DEFAULT_TTL=0 硬铁律 + recoverThreadFromMessages 自愈 + 非零 TTL 需 P0 审批
+3. **ADR-019 Hook 分层** — 用户级 vs 项目级，"行为一致性 > 自动化" = 反 hybrid 的有意识选择
+4. **Cat-Dossier (F208)** — 6 字段结构化队友画像 + provenance anchor → 复杂传球前必读
+5. **Meta-Aesthetics §3.2 小模型路由** — 4 条件可机械校验 + 安全区边界会漂移需 agent 判断
+
+### 47 推荐的 3 个最有故事性的深挖点
+
+1. **opensource-ops** — 铲屎官点名，必须补
+2. **evidence guard 对偶** — "agent 想偷懒 → 系统强制问"，比抽象讲 hybrid 强 10 倍
+3. **MCP 先搜后问 enforcement** — 家规编码进 tool schema，不靠 prompt
+
+---
+
+## 更新后的文章骨架提案（v4.1）
+
+47 的 "5 层 hybrid" 全景叙事太好了——不是只有 skill 层是混合架构，整个技术栈从上到下 5 层全是。
+
+1. 开场：银行客服上火
+2. 新玩具 → 撞墙 → "我们自己不就是？"
+3. **五层拆解**：
+   - L0 system prompt 编译（per-cat 模板注入）
+   - L1 skills（SOP/TDD/opensource-ops/merge-gate...）
+   - L2 hooks（evidence guard 对偶 / compact 续命对偶）
+   - L3 scripts（sync 流水线 / hotfix 鉴权 / fallback 检测）
+   - L4 MCP server（先搜后问 / hold_ball rate limit / consumption-weighted ranking）
+   - L5 文档（SOP 例外路径 / LL 持久化 / ADR hook 分层）
+4. 规律："你不是用 hybrid 写代码，你是踩在 5 层 hybrid 上才能写代码"
+5. 三个故事深挖（opensource-ops / evidence guard 对偶 / 先搜后问）
+6. 价码
+
+---
+
 ## 待办
 
-- [ ] 47 和砚砚各自独立搜 codebase 补充实例（multi_mention 被内存泄漏中断，需重发）
-- [ ] 三猫实例汇总后写 v4 正文
-- [ ] v4 写完后铲屎官挑战
+- [x] opus-47 补漏 ✅ 五层全景
+- [ ] codex/砚砚 补漏（待回复或被中断需检查）
+- [ ] 汇总后写 v4 正文
+- [ ] 铲屎官挑战
