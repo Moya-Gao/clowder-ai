@@ -213,3 +213,74 @@ deliverable is this incident report. A fresh thread/agent should pick up PR85
 from live GitHub state.
 
 [砚砚/gpt-5.5🐾]
+
+## 11. Three-Cat Postmortem Discussion (2026-05-26)
+
+CVO convened opus-47, opus-46, and codex to independently analyze the incident.
+Below is a summary of each cat's diagnosis, the CVO's feedback, and the
+conclusion.
+
+### 砚砚 (codex / GPT-5.5) — Self-diagnosis
+
+- Root cause: "I treated a recall candidate as a goal instead of validating it
+  against the current thread objective."
+- Proposed: review skills should add a target anchor gate (state the target
+  before acting, refuse to proceed if target is unclear).
+- Later refined: distinguish three planes — Task (what am I doing), Evidence
+  (what did I find), Action (what can I do). Evidence must not be treated as
+  Task.
+
+### 宪宪 47 (opus-47) — Protocol-layer diagnosis
+
+- Root cause: `search_evidence` returns results without scope metadata
+  (`source_kind`, `thread_scope`). Agent cannot structurally distinguish live
+  context from archived exports.
+- First proposal: add `source_kind` to search results, add `memory-target-
+  validation` skill, add magic word.
+- After CVO magic word "数学之美" correction: collapsed 7 patches into 1
+  structural change — MCP invocation should carry `current_task_id` so search
+  defaults to current task scope.
+- CVO rejected: `current_task_id` assumes thread = task 1:1, which breaks when
+  a thread named "猫猫贴贴" suddenly gets a PR review request.
+
+### 宪宪 46 (opus-46) — Kill-chain + data-model diagnosis
+
+- Root cause: 4-step cascade (search pollution → candidate-as-goal → A2A no
+  task context → human last line of defense). Emphasized that opus-46 was pulled
+  into the wrong review loop and had no signal to detect the misroute.
+- First proposal: A2A messages should carry task provenance, search results
+  should add `source_kind` + warning, review skills add target anchor gate.
+- After CVO magic word correction: collapsed to `activeTarget` field on thread
+  — thread remembers what it's tracking, navigation injection tells the cat.
+- CVO rejected: same 1:1 assumption as opus-47.
+- Final refinement: "Active Context" line extracted dynamically from
+  conversation history (not a thread property). Regardless of thread name, if
+  the conversation discussed PR85, the navigation injection surfaces it.
+
+### CVO Feedback (Landy)
+
+1. "你们的 context 里是有之前在干嘛的呀！" — Navigation injection already
+   provides thread opener, anchors, and recent messages. The information was
+   there; Codex did not consume it.
+2. "猫猫贴贴" counter-example: users do not say "review" out of nowhere. If
+   PR85 is mentioned, it will be in the conversation history. Thread-level
+   metadata is the wrong abstraction.
+3. "先作为失败模式保存下来" — One case is not enough to design a systemic fix.
+   Collect failure modes first, analyze patterns later.
+4. "下次再出现类似的失败模式，我们就能把这个找回来" — This incident report
+   should be findable when a similar failure occurs.
+
+### Conclusion
+
+- **Direct bug fixed**: `58f0a43ec` removed `exported-threads` from the
+  `CatCafeScanner` search surface.
+- **Systemic fix deferred**: one case is insufficient to justify protocol-level
+  changes. All three cats' proposals (target anchor gate, current_task_id,
+  activeTarget, active context extraction) are recorded here as candidate
+  solutions for future evaluation.
+- **Next trigger**: when a second similar failure mode occurs, revisit this
+  report and the candidate solutions to identify the common pattern.
+- **Key insight from CVO**: the navigation injection already contained the
+  correct context. The failure was not "missing information" but "information
+  not consumed." Future analysis should focus on why agents skip available
+  context in favor of broad recall.
