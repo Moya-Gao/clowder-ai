@@ -17,7 +17,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 SYNC_SCRIPT="$SCRIPT_DIR/thread-exports-sync.sh"
 EXPORT_SCRIPT="$SCRIPT_DIR/export-threads-from-redis.mjs"
-EXPORT_OUT_DIR="${THREAD_EXPORT_REPO_DIR:-$PROJECT_DIR/docs/discussions/exported-threads}"
+EXPORT_OUT_DIR="${THREAD_EXPORT_REPO_DIR:-$PROJECT_DIR/.cat-cafe/thread-exports/repo}"
 
 INTERVAL_MINUTES="${THREAD_EXPORT_SYNC_INTERVAL_MINUTES:-120}"
 LABEL="${THREAD_EXPORT_AUTOSAVE_LABEL:-com.catcafe.thread.exports.sync}"

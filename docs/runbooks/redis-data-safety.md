@@ -113,8 +113,11 @@ Default offsite path:
 
 ## 5) Thread markdown exports retention (new)
 
-Canonical repo location:
-- `docs/discussions/exported-threads/`
+Local recovery location:
+- `.cat-cafe/thread-exports/repo/`
+
+Thread markdown exports are generated recovery artifacts. Keep them outside `docs/`
+so the evidence scanner does not treat raw thread dumps as curated discussion docs.
 
 Automatic backend export (no manual download required):
 

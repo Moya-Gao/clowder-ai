@@ -16,7 +16,7 @@ PROJECT_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 SOURCE_ROOT_PRIMARY="${THREAD_EXPORT_SOURCE_ROOT:-$HOME/Downloads}"
 LEGACY_SOURCE_ROOT="${THREAD_EXPORT_LEGACY_SOURCE_ROOT:-$PROJECT_DIR/docs/discussions}"
 INCLUDE_LEGACY="${THREAD_EXPORT_INCLUDE_LEGACY:-1}"
-REPO_DIR="${THREAD_EXPORT_REPO_DIR:-$PROJECT_DIR/docs/discussions/exported-threads}"
+REPO_DIR="${THREAD_EXPORT_REPO_DIR:-$PROJECT_DIR/.cat-cafe/thread-exports/repo}"
 
 ICLOUD_ROOT="$HOME/Library/Mobile Documents/com~apple~CloudDocs"
 DEFAULT_OFFSITE_ROOT="$HOME/.cat-cafe/thread-exports"
