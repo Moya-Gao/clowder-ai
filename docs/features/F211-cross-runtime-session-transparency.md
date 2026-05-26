@@ -347,6 +347,7 @@ in_context_observability:
 | 2026-05-25 | Phase B implementation landed in worktree `feat/f211-phase-b-ide-direct-registration` through `db14e7967`: agent-key-only callback registration, hidden external-runtime anchor threads, recent runtime indexes, MCP register/list/read tools, and API list/read routes are implemented. Targeted API/MCP tests and package builds passed. |
 | 2026-05-26 | Phase B merged via PR #1899：IDE-direct reverse registration is now on main with agent-key-only callback auth, hidden external-runtime anchor threads, API/MCP list/read drilldown, one-shot immutable binding, and cloud follow-up fixes for stale lifecycle heartbeats; final gate passed at `78a8dc62`, merge commit `8c740d526`. |
 | 2026-05-26 | Phase C implementation completed in worktree `feat/f211-phase-c-json-retirement`: production Antigravity Bridge/AgentService no longer read legacy JSON fallback by default, `resetSession()` seals canonical runtime metadata, legacy JSON remains explicit importer/rescue input only, and runtime-store tests prove sealed bindings leave active lookup while staying discoverable via recent drilldown. |
+| 2026-05-26 | Phase C merged via PR #1908：JSON shadow state is retired from production Antigravity cascade binding, legacy JSON remains explicit rescue/import input only, reset/rotation lifecycle writes through runtime-session metadata with stale-binding and store-error guards, and final gate passed at `e088c48d` before squash merge `01db9a60c`. |
 
 ## Review Gate
 
