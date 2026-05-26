@@ -204,6 +204,7 @@ created: 2026-05-25
 | 日期 | 事件 |
 |------|------|
 | 2026-05-25 | 立项（铲屎官提出 UX 痛点 + 砚砚同意做 + Design Gate 五条意见全部 buy） |
+| 2026-05-26 | 第二个 trigger 证据：社区 issue [zts212653/clowder-ai#777](https://github.com/zts212653/clowder-ai/issues/777) — opencode + DeepSeek 用户配置 `deepseek-v-4`（模型名拼错），DeepSeek API 400 + 详细 message 在 NDJSON stream error event 里，但前端只显示 `布偶猫 completed without textual output.`。AC-A8（classifier 扫 stream error events）正面命中此场景；spec 不变 |
 
 ## Review Gate
 
@@ -219,6 +220,7 @@ created: 2026-05-25
 | **Source** | `packages/api/src/utils/cli-spawn.ts` (L28-36) | 当前 `classifyKnownCliStderr` 白名单 |
 | **Historical Review** | `docs/archive/2026-02/mailbox/2026-02-08/2026-02-08-cloud-cat-review-fixes-response-from-maine.md` | 砚砚 2026-02-08 挡 `stderrTail` 直传的原始 review，含威胁向量清单 |
 | **Related Feature** | `docs/features/F153-observability-infra.md` | TelemetryRedactor 四级脱敏（sanitizer 规则来源） |
-| **Trigger** | 2026-05-25 社区小伙伴 codex code 1 截图 + GLM-5 误诊故事 | Bug 报告 |
+| **Trigger** | 2026-05-25 社区小伙伴 codex code 1 截图 + GLM-5 误诊故事 | Bug 报告（Codex stderr 屏蔽路径） |
+| **Trigger** | 2026-05-26 社区 issue [zts212653/clowder-ai#777](https://github.com/zts212653/clowder-ai/issues/777)（masterkunm + opencode + deepseek-v-4） | Bug 报告（opencode NDJSON stream error event 路径 — AC-A8 覆盖） |
 
 [宪宪/Opus-47🐾]
