@@ -106,6 +106,7 @@ function runGate(bash, args = [], extraEnv = {}) {
         ...process.env,
         ...extraEnv,
         CAT_CAFE_GATE_GUARD_SKIP_PRESSURE: '1',
+        CAT_CAFE_GATE_LOCK_DIR: path.join(tempDir, 'pre-merge-check.lock'),
         PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ''}`,
       },
     });
