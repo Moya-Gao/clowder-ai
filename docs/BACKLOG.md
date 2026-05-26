@@ -7,7 +7,7 @@ created: 2026-02-26
 
 # Cat Cafe Feature Roadmap
 
-> 维护者：三猫 | 最后更新：2026-05-26（社区 feat 审计：close F113/F135，审计 F155/F175）
+> 维护者：三猫 | 最后更新：2026-05-26（feature truth hygiene：F088/F101 active，F179 done）
 >
 > **规则**：只放活跃 Feature（idea/spec/in-progress/review），done 后移除。
 > 详细信息见 `docs/features/Fxxx-*.md`。
@@ -26,10 +26,12 @@ created: 2026-02-26
 | F067 | Cold-start Verifier — 无历史污染的交付物验证 | spec | 布偶猫 | internal | [F067](features/F067-cold-start-verifier.md) |
 | F069 | Thread Read State — 未读 Badge 后端真相源 | spec | 布偶猫 | internal | [F069](features/F069-thread-read-state.md) |
 | F077 | Multi-User Secure Collaboration — GitHub OAuth + Thread ACL + Session | spec | 布偶猫 | internal | [F077](features/F077-multi-user-secure-collab.md) |
+| F088 | Multi-Platform Chat Gateway — Telegram reliability follow-up | in-progress | 布偶猫 | community [#524](https://github.com/zts212653/clowder-ai/issues/524) [#641](https://github.com/zts212653/clowder-ai/pull/641) [#642](https://github.com/zts212653/clowder-ai/pull/642) | [F088](features/F088-multi-platform-chat-gateway.md) |
 | F089 | Hub Terminal & tmux Integration — 浏览器终端 + 猫猫可观测性 | in-progress | 布偶猫 | internal | [F089](features/F089-hub-terminal-tmux.md) |
 | F090 | Pixel Cat Brawl — 像素猫猫大作战：即时格斗 demo game | phase-1-done | 布偶猫 | internal | [F090](features/F090-pixel-cat-brawl.md) |
 | F093 | Cats & U 陪伴式共创世界引擎 — 万物有灵 | spec | 布偶猫 | internal | [F093](features/F093-cats-and-u-world-engine.md) |
 | F100 | Self-Evolution — 猫猫自我进化机制（行为层 + 知识对象化） | in-progress | 布偶猫 | internal | [F100](features/F100-self-evolution.md) |
+| F101 | Mode v2 — 游戏系统引擎 + 狼人杀 | in-progress | 布偶猫 | internal | [F101](features/F101-mode-v2-game-engine.md) |
 | F104 | 本地全感知升级 — Qwen Omni + VL MoE 替换管道 | spec | 布偶猫 | internal | [F104](features/F104-local-omni-perception.md) |
 | F107 | 脑门贴词 — 坏猫战术推理游戏 #1 | spec | 布偶猫 | internal | [F107](features/F107-headband-guess-game.md) |
 | F109 | Message Actions 修复与增强 — 软删除/Branch/编辑/通知 | in-progress | 布偶猫 | internal | [F109](features/F109-message-actions-overhaul.md) |
@@ -54,7 +56,6 @@ created: 2026-02-26
 | F167 | A2A Chain Quality — 乒乓球熔断 + 虚空传球检测 + 角色护栏 | spec | 布偶猫 | internal | [F167](features/F167-a2a-chain-quality.md) |
 | F175 | Unified Message Queue — 优先级排序 + 用户可控编排（urgent bypass 收口）| phase-a-done | 布偶猫 | community [#575](https://github.com/zts212653/clowder-ai/pull/575) | [F175](features/F175-unified-message-queue.md) |
 | F178 | Persistent MCP Agent-Key Auth — 跨 invocation 写权限（F061 Bug-H follow-up） | spec | 布偶猫 | internal | [F178](features/F178-persistent-mcp-agent-key-auth.md) |
-| F179 | Desktop Installer Release Pipeline — Win NSIS + Mac DMG 自动附 release | spec | 布偶猫 | community (v0.9.0 反馈) | [F179](features/F179-desktop-installer-release-pipeline.md) |
 | F180 | Agent CLI Hook Health and Sync — user-level hook 检测 + 一键同步 | in-progress | 缅因猫/砚砚 | community [#614](https://github.com/zts212653/clowder-ai/issues/614) | [F180](features/F180-agent-cli-hook-health.md) |
 | F181 | Reserved Feature Slot — 待补充需求锚点 | idea | 待定 | internal | [F181](features/F181-reserved-feature-slot.md) |
 | F189 | Operation Context Unification — 操作上下文单点化（HTTP/MCP/CLI/A2A 统一 builder） | spec | 布偶猫 | internal | [F189](features/F189-operation-context-unification.md) |

@@ -69,7 +69,6 @@
 | F074 | F074: Mount Directory Support — 挂载/共享目录支持 | done | [F074-mount-directory-support.md](./F074-mount-directory-support.md) |
 | F063 | F063: Hub Workspace Explorer — 铲屎官不用打开 IDE 也可以和猫猫们优雅协作 | done | [F063-hub-workspace-explorer.md](./F063-hub-workspace-explorer.md) |
 | F086 | F086: Cat Orchestration — 猫猫自主协作 + 元认知系统 | done | [F086-cat-orchestration-multi-mention.md](./F086-cat-orchestration-multi-mention.md) |
-| F088 | F088: Multi-Platform Chat Gateway — 聊天平台接入网关 | done | [F088-multi-platform-chat-gateway.md](./F088-multi-platform-chat-gateway.md) |
 | F066 | F066: Voice Pipeline Upgrade — 本地 TTS 语音基础设施 | done | [F066-voice-pipeline-upgrade.md](./F066-voice-pipeline-upgrade.md) |
 | F085 | F085: Hyperfocus Brake — 猫猫健康小刹车 (5 Phases: hook→rich block→声线→平台化→UX) | done | [F085-hyperfocus-brake.md](./F085-hyperfocus-brake.md) |
 | F081 | F081: Bubble Continuity & Rendering Observability — 气泡连续性 + 渲染链路可观测性 | done | [F081-bubble-continuity-observability.md](./F081-bubble-continuity-observability.md) |
@@ -83,7 +82,6 @@
 | F075 | F075: 猫猫排行榜 (Cat Leaderboard) — 互动统计 + 游戏战绩 + 情绪分析 | done | [F075-cat-leaderboard.md](./F075-cat-leaderboard.md) |
 | F087 | F087: CVO Bootcamp — 猫猫训练营：游戏化新手 onboarding | done | [F087-cvo-bootcamp.md](./F087-cvo-bootcamp.md) |
 | F099 | F099: Hub & 顶栏导航可扩展性重构 — 手风琴导航 + SVG + 顶栏精简 | done | [F099-hub-navigation-scalability.md](./F099-hub-navigation-scalability.md) |
-| F101 | F101: Mode v2 — 游戏系统引擎 + 狼人杀 | done | [F101-mode-v2-game-engine.md](./F101-mode-v2-game-engine.md) |
 | F102 | F102: 记忆组件 Adapter 化重构 — IEvidenceStore + 本地索引 | done | [F102-memory-adapter-refactor.md](./F102-memory-adapter-refactor.md) |
 | F103 | F103: 猫猫独立声线 — Per-Cat Voice Identity | done | [F103-per-cat-voice-identity.md](./F103-per-cat-voice-identity.md) |
 | F105 | F105: opencode 接入 — 金渐层（开源多模型编码猫 + OMOC） | done | [F105-opencode-golden-chinchilla.md](./F105-opencode-golden-chinchilla.md) |

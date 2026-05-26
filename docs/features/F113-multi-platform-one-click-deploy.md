@@ -9,7 +9,7 @@ community_issue: https://github.com/zts212653/clowder-ai/issues/14
 
 # F113: Multi-Platform One-Click Deploy
 
-> **Status**: **done** | **Source**: clowder-ai #14 (mindfn) | **Priority**: P2
+> **Status**: done | **Source**: clowder-ai #14 (mindfn) | **Priority**: P2
 >
 > **Close 2026-05-26**：18/18 AC done。AC-B6 macOS 验收由社区多位小伙伴实际使用验证通过（铲屎官 2026-05-26 确认）。社区 issue clowder-ai#14 已关闭。
 

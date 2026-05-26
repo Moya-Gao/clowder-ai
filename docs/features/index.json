@@ -693,7 +693,7 @@
     {
       "id": "F113",
       "name": "Multi-Platform One-Click Deploy",
-      "status": "in-progress | **Source**: clowder-ai #14 (mindfn) | **Priority**: P2",
+      "status": "done | **Source**: clowder-ai #14 (mindfn) | **Priority**: P2",
       "file": "F113-multi-platform-one-click-deploy.md"
     },
     {
@@ -831,7 +831,7 @@
     {
       "id": "F135",
       "name": "狸花猫开箱即用（DARE Out-of-the-Box）",
-      "status": "spec | **Owner**: bouillipx (社区) | **Priority**: P2",
+      "status": "done (closed — 需求已不存在，铲屎官 2026-05-26 拍板) | **Owner**: bouillipx (社区) | **Priority**: P2",
       "file": "F135-dare-ootb.md"
     },
     {
@@ -963,7 +963,7 @@
     {
       "id": "F155",
       "name": "Scene-Based Guidance Engine — 场景式交互引导",
-      "status": "in-progress (Phase A merged in cat-cafe main via PR #1122; Phase B selective intake merged in cat-cafe main via PR #1147; guided-scenarios selective intake merged in cat-cafe main via PR #1296) | **Source**: Community (mindfn) | **Priority**: P1 | **Owner**: 缅因猫/gpt52",
+      "status": "phase-a-done (Phase A fully merged; Phase B selective intake merged; Phase B architecture refactoring + product expansion **not started, needs owner**) | **Source**: Community (mindfn) | **Priority**: P1 | **Owner**: ~~缅因猫/gpt52~~ **NEEDS-OWNER**",
       "file": "F155-scene-guidance-engine.md"
     },
     {
@@ -1053,7 +1053,7 @@
     {
       "id": "F169",
       "name": "Agent Memory Reflex — 愿景文档（vision artifact）",
-      "status": "**done**（vision realized；B+C 已通过 F148/F163 实现；A 铲屎官拍板关闭，不做持久 Compiled Wiki）",
+      "status": "done（vision realized；B+C 已通过 F148/F163 实现；A 铲屎官拍板关闭，不做持久 Compiled Wiki）",
       "file": "F169-agent-memory-reflex.md"
     },
     {
@@ -1113,7 +1113,7 @@
     {
       "id": "F179",
       "name": "Desktop Installer Release Pipeline — 自动化产出 Win/Mac 安装包并附 release",
-      "status": "in-progress (Phase B: AC-B3 pending cross-cat verification) | **Owner**: 布偶猫（Opus-47/宪宪） | **Reviewer**: 缅因猫（GPT-5.5/砚砚） | **Priority**: P1",
+      "status": "done (closed 2026-05-26 after 25-day field validation on v0.9.1) | **Owner**: 布偶猫（Opus-47/宪宪） | **Reviewer**: 缅因猫（GPT-5.5/砚砚） | **Priority**: P1",
       "file": "F179-desktop-installer-release-pipeline.md"
     },
     {
@@ -1167,7 +1167,7 @@
     {
       "id": "F188",
       "name": "Library Stewardship — 图书馆管护与成长",
-      "status": "reopened | **Completed (A-I)**: 2026-05-20 | **Reopened**: 2026-05-20 (Phase J) | **Owner**: 布偶猫 | **Priority**: P1",
+      "status": "done | **Completed**: 2026-05-26 | **Owner**: 布偶猫 | **Priority**: P1",
       "file": "F188-library-stewardship.md"
     },
     {
@@ -1293,7 +1293,7 @@
     {
       "id": "F209",
       "name": "Evidence Recall Optimization — 消息级语义、实体门牌号与活查询藤",
-      "status": "in-progress (Phase A ✅ merged PR #1842; Phase B ✅ merged PR #1846 + AC-B3 contract fix PR #1851; Phase C ✅ merged PR #1853 + file-slice dogfood hotfix PR #1854; AC-B6 transferred to F208 AC-A5 — F209 不再阻塞 AC-B6; Phase B.1 minimal seed ✅ merged PR #1867; Phase D.0 readiness sprint ✅ completed, initially BLOCK then **UNBLOCK** after PR #1877 raw embedding reprobe + PR #1882 MCP default dimension fix + runtime restart; next F209 owner focus = Phase D product spike / Design Gate. Cross-line follow-ups are delegated below: F193 MCP topology cleanup, F200 recall@k wrapper, Phase C reader hardening.) | **Owner**: 缅因猫/砚砚 | **Priority**: P1",
+      "status": "in-progress (Phase A ✅ merged PR #1842; Phase B ✅ merged PR #1846 + AC-B3 contract fix PR #1851; Phase C ✅ merged PR #1853 + file-slice dogfood hotfix PR #1854; AC-B6 transferred to F208 AC-A5 — F209 不再阻塞 AC-B6; Phase B.1 minimal seed ✅ merged PR #1867; Phase D.0 readiness sprint ✅ completed, initially BLOCK then **UNBLOCK** after PR #1877 raw embedding reprobe + PR #1882 MCP default dimension fix + runtime restart; Phase D ✅ merged PR #1887 + live Perspective dogfood passed; ready for vision-guard close. Cross-line follow-ups are delegated below: F193 MCP topology cleanup, F200 recall@k wrapper, Phase C reader hardening.) | **Owner**: 缅因猫/砚砚 | **Priority**: P1",
       "file": "F209-evidence-recall-optimization.md"
     },
     {
