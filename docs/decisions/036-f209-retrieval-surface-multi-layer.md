@@ -37,31 +37,40 @@ F209 (Evidence Recall Optimization) 在 D.0 readiness sprint 揭示一个 archit
 
 ### 2. F209 MCP Server Topology 显式为 2-Cell
 
+> ⚠️ **AMENDED 2026-05-26 by F213**：Legacy monolithic cell 的 L4 env-only overlay
+> 设计在 strict-codex（npm-installed @openai/codex）场景下不可行 — partial server
+> definition (env without transport) 被 strict-codex 拒为 `invalid transport`。
+> 新设计 = **startup-time selective cleanup**（F213），见下方 amendment block。
+> Reviewer checklist (Section 4) 同步更新。
+
 | Topology | server names | source | 何时存在 |
 |----------|--------------|--------|----------|
 | **Split** (F193 Phase C 后默认) | `cat-cafe-collab` / `cat-cafe-memory` / `cat-cafe-signals` / `cat-cafe-limb` | `cat-cafe` (managed by orchestrator) | 所有新 install 默认 + 老用户 startup regen 注入 |
-| **Legacy monolithic** | `cat-cafe` | varies (cat-cafe / external — 用户已有 entry 时多为前者) | 老 install 保留；F193 后**不主动 provision，但 user config 已有时不删** |
+| **Legacy monolithic** ~~(F193 后不删)~~ → **deprecated, startup-cleanup target (F213)** | `cat-cafe` | varies (历史 cat-cafe managed all-in-one / 第三方 external — 用户已有 entry 时多为前者) | F213 后：**startup 时识别 + selective remove**（仅匹配自家曾 managed 形态：`args[0]` 后缀 `packages/mcp-server/dist/index.js` / 我们给过的 echo legacy-shim workaround / 未来 owner marker）；第三方未知 entry 保留 + log.warn |
 
-**关键 invariant**：L4 / L5 任何 env 写入操作必须独立覆盖这 2 个 topology cell，**不能假设 split=主路径 / legacy=已淘汰**。F193 Phase C 拆分后老用户的 legacy entry 仍在运行（PR #1876 root cause 即此）。
+**关键 invariant（amended）**：~~L4 / L5 任何 env 写入操作必须独立覆盖这 2 个 topology cell~~。F213 后只剩 **Split** cell 为 active managed topology；Legacy monolithic 在 startup 时被清理，**不再要求 L4 per-invocation overlay**。Reviewer 改 env 变量时只 trace Split cell（4 split servers）。
 
-### 3. 5 × 2 = 10-Cell Matrix（reviewer 改动必查）
+### 3. 5 × ~~2~~ = ~~10~~ 5-Cell Matrix（amended 2026-05-26 by F213）
 
-| L\Topo | Split | Legacy monolithic |
-|--------|-------|-------------------|
-| L1 REST API | 同接口 (按 `cap.id` 路由) | 同接口 (按 `cap.id` 路由) |
-| L2 MCP handler | 同 handler，dimension 参数共用 | 同 handler |
-| L3 MCP wrapper | 同 formatter，structured fields 共用 | 同 formatter |
-| L4 Codex per-invocation `--config` | 4 split server 各独立注入 (`mcp_servers.cat-cafe-{collab,memory,signals,limb}.env.*`) | 单独注入 (`mcp_servers.cat-cafe.env.*`)，**env only，不重新 provision command/args**（保留 F193 split-only 拓扑） |
-| L5 Runtime startup config | 4 split server 写进 `.mcp.json` + `.codex/config.toml`，注入 `ALLOWED_WORKSPACE_DIRS` | 用户已有的 legacy entry 保留 + 同样注入 `ALLOWED_WORKSPACE_DIRS`（PR #1876 + 待补 static config side per ADR follow-up） |
+> Legacy monolithic 列退出主 matrix——它不再是 active managed cell。仅在 L5 startup
+> path 新增 cleanup logic（F213 实施）作为它的唯一 lifecycle 关心点。
+
+| L | Split (唯一 active managed cell) |
+|---|----------------------------------|
+| L1 REST API | 按 `cap.id` 路由 |
+| L2 MCP handler | dimension 参数共用 |
+| L3 MCP wrapper | structured fields 共用 |
+| L4 Codex per-invocation `--config` | 4 split server 各独立注入 (`mcp_servers.cat-cafe-{collab,memory,signals,limb}.env.*`)。**不再覆盖 legacy `cat-cafe`**（已由 startup cleanup remove） |
+| L5 Runtime startup config | 4 split server 写进 `.mcp.json` + `.codex/config.toml`，注入 `ALLOWED_WORKSPACE_DIRS` + **F213 startup-time stale managed entry cleanup**（识别自家曾 managed 但当前 deprecated 的 entry → selective remove + log.warn；第三方未知 entry 保留） |
 
 ### 4. Reviewer Checklist (改 F209 检索 surface 时必须勾)
 
 新 PR 涉及以下任一时，逐项 trace 整条矩阵：
 
 - [ ] **加 / 改 search 参数 default** (e.g. `dimension`, `mode`, `depth`, `scope`)：trace L1→L2→L3 三层，确认每层 default 一致或显式 documented divergence
-- [ ] **改 env 变量** (e.g. `ALLOWED_WORKSPACE_DIRS`, `CAT_CAFE_API_URL`, embedding service env)：trace L4 + L5 两层，确认 split + legacy 两个 topology cell 都获得 env
+- [ ] **改 env 变量** (e.g. `ALLOWED_WORKSPACE_DIRS`, `CAT_CAFE_API_URL`, embedding service env)：trace L4 + L5 两层，确认 4 split server 都获得 env（~~legacy cell 已由 F213 startup cleanup 移除，不再需要 trace~~ — amended 2026-05-26）
 - [ ] **改 MCP tool description**：handler default 必须同步（PR #1882 root cause）
-- [ ] **改 server topology** (加 / 删 / 重命名 cat-cafe-* server)：L4 args list + L5 writer 必须同步，**老用户的 legacy 配置不会自动消失**
+- [ ] **改 server topology** (加 / 删 / 重命名 cat-cafe-* server)：L4 args list + L5 writer 必须同步，**~~老用户的 legacy 配置不会自动消失~~** → amended：F213 后 deprecated managed entry 由 startup cleanup 自动清理（selective marker matching）
 - [ ] **改 reprobe / availability check 逻辑**：trace 每条 search mode 是否真的需要这个 overhead（PR #1877 round 2 root cause —— lexical 不该付 reprobe 成本）
 - [ ] **改 capability metadata** (`capabilities.json`)：runtime startup regen 必须走 `withCapabilityLock`，跟 request-time mutator 串行（PR #1873 round 4 cloud P1）
 - [ ] **L1 REST API default 修改**：**禁止单方面改**，需 BACKLOG ADR 单独 propose deprecation cycle + REST consumer audit
@@ -141,3 +150,49 @@ F209 (Evidence Recall Optimization) 在 D.0 readiness sprint 揭示一个 archit
 - 缅因猫/砚砚 (GPT-5.5): reviewed and co-signed on 2026-05-24. Approves ADR-036 as the F209 D.0 retrieval surface matrix. Review fixes applied before signoff: added required docs frontmatter and corrected saga timeline attribution for lexical reprobe overhead to PR #1877.
 - 布偶猫/宪宪 (Opus-47): authored this ADR as cross-saga reviewer + architect
 - 铲屎官 (CVO): D.0 close and ADR-036 to be surfaced in the sequencing handoff.
+
+## Amendment History
+
+### 2026-05-26 — Amendment by F213 (Stale MCP Config Cleanup at Startup)
+
+**Trigger**: PR #1894 5-round cloud-codex P1 chain (社区 strict-npm-Codex v22.22.3
+`Error loading config.toml: invalid transport in mcp_servers.cat-cafe`). 5 rounds
+each fixing a different config-source lookup gap (user → project → ancestor →
+CODEX_HOME → /etc) revealed the original L4 env-only overlay design has a
+**blind spot**: strict-codex rejects partial server definition (env without
+transport). Coordinate system: lookup-based helper trying to mirror codex CLI
+internal config priority is scaffolding (meta-aesthetics violation).
+
+**CVO directive (2026-05-26)**: "你们能不能把删掉的 mcp 的配置帮人启动的时候清理掉
+啊！！这是别的思考方式！你们过期的 mcp 竟然不清理？" — surface a new design
+axis: **过期 mcp 启动时清理**.
+
+**Amendment**:
+
+- **Legacy monolithic cell**: removed from the active managed matrix (Section 3).
+  L4 no longer requires env-only overlay for `mcp_servers.cat-cafe`.
+- **L5 Runtime startup config**: extended to perform **selective stale managed
+  entry cleanup** on startup (F213). Only entries provably written by our own
+  managed orchestrator are removed (marker-matched: `args[0]` suffix
+  `packages/mcp-server/dist/index.js`, the known echo `legacy-shim` workaround,
+  or future owner tags). Third-party / unknown `cat-cafe` entries are preserved
+  with `log.warn`.
+- **Reviewer Checklist** (Section 4): "改 env" no longer requires tracing legacy
+  cell. "改 server topology" no longer carries "老用户的 legacy 配置不会自动消失"
+  burden — F213 startup cleanup handles deprecated managed entries.
+
+**Why amend instead of new ADR**: ADR-036 is the cross-layer matrix authority.
+Legacy cell was part of the original matrix as a deliberate cell (not an
+omission). F213 collapses the cell into startup-cleanup; updating ADR-036 keeps
+the architectural map authoritative. New ADR would create two competing truth
+sources.
+
+**Owner**: 宪宪 (Opus-47, F213 立项 author) + 砚砚 (GPT-5.5, collaborative
+thinking 收敛 + strict-npm-Codex reproducer empirically verifying the strict
+config-parse blind spot) + 铲屎官 (CVO, startup-cleanup reframe directive)
+
+**References**:
+- F213 spec: `docs/features/F213-stale-mcp-config-cleanup.md` (to be created)
+- Discussion: `docs/discussions/2026-05-26-codex-mcp-legacy-deprecation/README.md`
+- PR #1894 (paused, to be closed): 5-round saga documenting the lookup-based
+  scaffolding antipattern
