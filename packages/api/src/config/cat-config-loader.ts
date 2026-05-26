@@ -313,24 +313,27 @@ function mergeTemplateWithCatalog(templatePath: string): string | null {
   const merged = deepMergeConfig(baseJson, catalogJson);
 
   // #772: Template-only breeds must not leak into runtime.
+  // When a catalog exists, only catalog breeds are runtime members.
+  // breeds: [] (bootstrap state) means "no breeds" — all template breeds are menu data only.
   const catalogBreeds = Array.isArray(catalogJson.breeds) ? (catalogJson.breeds as HasId[]) : [];
-  if (catalogBreeds.length > 0 && Array.isArray(merged.breeds)) {
-    const catalogBreedIds = new Set(catalogBreeds.map((b) => b.id));
+  const catalogBreedIds = new Set(catalogBreeds.map((b) => b.id));
+  if (Array.isArray(merged.breeds)) {
     merged.breeds = (merged.breeds as HasId[]).filter((b) => catalogBreedIds.has(b.id));
+  }
 
-    // Prune roster entries for template-only breeds only — preserve variant,
-    // owner, and other catalog-added entries (cloud codex P1 follow-up).
-    const baseBreeds = Array.isArray(baseJson.breeds) ? (baseJson.breeds as Array<HasId & { catId?: string }>) : [];
-    const templateOnlyCatIds = new Set(
-      baseBreeds
-        .filter((b) => !catalogBreedIds.has(b.id))
-        .map((b) => b.catId)
-        .filter(Boolean),
-    );
-    if (templateOnlyCatIds.size > 0 && merged.roster && typeof merged.roster === 'object') {
-      for (const key of Object.keys(merged.roster as Record<string, unknown>)) {
-        if (templateOnlyCatIds.has(key)) delete (merged.roster as Record<string, unknown>)[key];
-      }
+  // Prune roster entries for template-only breeds — preserve variant, owner,
+  // and other catalog-added entries. Runs even when catalogBreeds is empty
+  // (bootstrap writes breeds:[] + owner roster; template roster must not leak).
+  const baseBreeds = Array.isArray(baseJson.breeds) ? (baseJson.breeds as Array<HasId & { catId?: string }>) : [];
+  const templateOnlyCatIds = new Set(
+    baseBreeds
+      .filter((b) => !catalogBreedIds.has(b.id))
+      .map((b) => b.catId)
+      .filter(Boolean),
+  );
+  if (templateOnlyCatIds.size > 0 && merged.roster && typeof merged.roster === 'object') {
+    for (const key of Object.keys(merged.roster as Record<string, unknown>)) {
+      if (templateOnlyCatIds.has(key)) delete (merged.roster as Record<string, unknown>)[key];
     }
   }
 

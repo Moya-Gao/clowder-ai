@@ -1224,6 +1224,60 @@ describe('#772: template breeds must not leak into runtime', () => {
     }
   });
 
+  it('empty catalog breeds: roster only keeps owner and catalog-added entries', () => {
+    const projectDir = mkdtempSync(join(tmpdir(), 'cat-772-empty-'));
+    const templatePath = join(projectDir, 'cat-template.json');
+    writeFileSync(
+      templatePath,
+      JSON.stringify({
+        version: 2,
+        breeds: [makeBreed('ragdoll', 'opus', ['@opus']), makeBreed('moonshot', 'kimi', ['@kimi'])],
+        roster: {
+          opus: { family: 'ragdoll', roles: ['architect'], lead: true, available: true, evaluation: 'active' },
+          kimi: { family: 'moonshot', roles: ['writer'], lead: false, available: true, evaluation: 'active' },
+        },
+        reviewPolicy: {
+          requireDifferentFamily: true,
+          preferActiveInThread: true,
+          preferLead: true,
+          excludeUnavailable: true,
+        },
+      }),
+    );
+    const runtimeDir = join(projectDir, '.cat-cafe');
+    mkdirSync(runtimeDir, { recursive: true });
+    writeFileSync(
+      join(runtimeDir, 'cat-catalog.json'),
+      JSON.stringify({
+        version: 2,
+        breeds: [],
+        roster: { owner: { family: 'human', roles: ['cvo'], lead: true, available: true, evaluation: 'active' } },
+        reviewPolicy: {
+          requireDifferentFamily: true,
+          preferActiveInThread: true,
+          preferLead: true,
+          excludeUnavailable: true,
+        },
+      }),
+    );
+
+    const saved = process.env.CAT_TEMPLATE_PATH;
+    process.env.CAT_TEMPLATE_PATH = templatePath;
+    _resetCachedConfig();
+    try {
+      const config = loadCatConfig();
+      assert.deepEqual(config.breeds, [], 'empty catalog means no runtime breeds');
+      const rosterKeys = Object.keys(config.roster);
+      assert.ok(rosterKeys.includes('owner'), 'owner roster entry must survive');
+      assert.ok(!rosterKeys.includes('opus'), 'template-only opus must be pruned from roster');
+      assert.ok(!rosterKeys.includes('kimi'), 'template-only kimi must be pruned from roster');
+    } finally {
+      if (saved === undefined) delete process.env.CAT_TEMPLATE_PATH;
+      else process.env.CAT_TEMPLATE_PATH = saved;
+      _resetCachedConfig();
+    }
+  });
+
   it('getAcpConfig does not return ACP from template-only breed', () => {
     const templateBreeds = [
       {
