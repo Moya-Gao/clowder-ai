@@ -244,9 +244,46 @@
 
 ---
 
+## codex/砚砚 补漏（26+ 新实例）
+
+> 砚砚的核心洞察：**混合架构不是一个大框架，而是到处出现的小型确定性外骨骼。**
+> 比我的"五层叠在一起"更精准——不是金字塔，是骨骼系统。
+
+### 砚砚推荐的 8 个最适合补进文章主叙事的
+
+1. **enterprise-workflow** + ADR-029 — Agent 理解"建文档/建任务/发消息"意图 → ActionService 执行外部系统动作 → 权限/审计/幂等/禁止 bare CLI gate
+2. **schedule-tasks** — Agent 理解"提醒/巡检"意图 → preview dry-run 先行 → Scheduler 确定性唤醒 → 用户确认 gate
+3. **Guide Engine** (guide-authoring) — Agent 判断该解释还是开交互引导 → YAML flow 控步骤推进 → callback auth + target 白名单 gate
+4. **Proposal-first Agent Actions** (ADR-035) — Agent 起草高影响动作 → proposal card → 用户 approve/edit/reject → 执行 + 审计
+5. **GitHub Repo Inbox / PR Signals** — webhook 事件进 Workflow → Agent 做 triage/第一响应 → accepted issue gate + Direction Card
+6. **rich-messaging** — Agent 决定用卡片/清单/diff/音频/交互块 → rich block schema + zod 校验 → 持久化和交互状态 Workflow
+7. **open-source-teardown** — claim ledger + 架构图等固定拆解镜头 → Agent 做 maintainer judgment + 判断营销水分 → 每个 claim 必须追到代码路径 gate
+8. **workspace-navigator / browser-preview** — Agent 把"打开日志/看看设计"翻译成路径 → 路径校验 + 端口安全 Workflow → curl 先验 gate
+
+### 砚砚发现的其他实例（完整列表）
+
+- **collaborative-thinking** — 单猫/多猫/收敛三种固定模式 + Agent 判断是否值得多猫 + OQ 技术/价值分流
+- **expert-panel** — Dispatch→Independent→Synthesis→Check→Delivery 防串味 + Agent 分配视角和合成分歧
+- **deep-research** — prompt 先冻结 + 多源调研 + Agent 比较冲突证据 + commit SHA 锚定
+- **image-generation** — Agent 写 prompt + 判断 raster/SVG/HTML → F172 自动发布 + provenance gate
+- **pencil-design** — Agent 视觉判断 → Pencil MCP batch_design → style consistency gate
+- **ppt-forge** — 内容规划→风格→制作→审查→导出 + 六包审查 gate
+- **video-forge** — script/spec → Agent 节奏/分镜 → 全局配音 + 敏感信息审查 gate
+- **knowledge-engineering** — Agent 访谈萃取 → 文档诊断/术语表/规则表模板 → frontmatter 真相源 gate
+- **writing-plans** — Agent 拆路径 → Straight-Line check + 每步通向终态 gate
+- **writing-skills** — Agent 判断值得沉淀 → skill 价值门 + manifest + sync/check 脚本
+- **organize-threads** — Agent 语义分类 → 不自动 apply、最多 50 条 + 只生成可审查建议
+- **bootcamp-guide** — Agent 教学 → phase chain + skip matrix + 一步跳转 gate
+- **browser-automation** — Agent 选工具 → 浏览器后端路由矩阵 → 登录态/证据/禁滥用 gate
+- **feature truth scripts** — Agent 写 feature 状态 → check-feature-truth.mjs 守单一真相源
+- **architecture ownership check / followup-tail check** — 脚本机械扫描 → Agent 语义判断是否真变更
+- **Capabilities MCP install preview** — Agent 解释配置风险 → preview dry-run → owner/local gate
+
+---
+
 ## 待办
 
 - [x] opus-47 补漏 ✅ 五层全景
-- [ ] codex/砚砚 补漏（待回复或被中断需检查）
-- [ ] 汇总后写 v4 正文
+- [x] codex/砚砚 补漏 ✅ 26+ 新实例 + "小型确定性外骨骼"洞察
+- [x] 写 v4 正文 ✅ 已插入"打开编辑器"三故事实操节
 - [ ] 铲屎官挑战
