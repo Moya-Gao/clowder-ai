@@ -454,6 +454,7 @@ Based on the first micro fit digest (2026-05-11):
 | 2026-05-24 | Phase E remaining PR packaging decided — CVO + 46/55 收敛为 4 个功能块 PR：E-hub（砚砚）、E-scale（宪宪）、E-sop、E-community；不按 AC 粒度继续拆碎 |
 | 2026-05-24 | Phase E-hub merged (PR #1878, squash `fe9d2449`) — Eval Hub v1 read model + API + Console Observability/Eval surface landed. It consumes committed live `eval:a2a` verdict bundles, fails closed on missing evidence bundle, and preserves the "互链、不互替" boundary with F188 repair surfaces. AC-E9/E10 complete; Phase E remains open for E-scale / E-sop / E-community. |
 | 2026-05-24 | Phase E-scale merged (PR #1879, squash `025ed939`) — `eval:memory` adapter (F200 RecallMetrics + F188 LibraryHealth → VerdictHandoffPacket), multi-domain read model, bidirectional jump links (Eval Hub ↔ Memory Health), and legacy task inventory/dry-run. AC-E11/E12/E13 complete; Phase E remains open for E-sop / E-community. |
+| 2026-05-27 | Eval pipeline livefix merged (PR #1913, squash `9ed3b400`) — Fixed 4 CVO dogfood bugs (OQ-16/17/18/19): Thread.systemKind sidebar visibility, Hub all-domains read model, eval-domain-daily cron registration + legacy double-trigger guard, system thread indexForUser for user sidebar. Cloud review found + fixed P1 (thread user indexing) and P2 (cron timezone UTC). |
 
 ## Review Gate
 
