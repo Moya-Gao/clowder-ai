@@ -349,6 +349,7 @@ in_context_observability:
 | 2026-05-26 | Phase C implementation completed in worktree `feat/f211-phase-c-json-retirement`: production Antigravity Bridge/AgentService no longer read legacy JSON fallback by default, `resetSession()` seals canonical runtime metadata, legacy JSON remains explicit importer/rescue input only, and runtime-store tests prove sealed bindings leave active lookup while staying discoverable via recent drilldown. |
 | 2026-05-26 | Phase C merged via PR #1908：JSON shadow state is retired from production Antigravity cascade binding, legacy JSON remains explicit rescue/import input only, reset/rotation lifecycle writes through runtime-session metadata with stale-binding and store-error guards, and final gate passed at `e088c48d` before squash merge `01db9a60c`. |
 | 2026-05-26 | Phase E implementation ready in worktree `feat/f211-phase-e-hub-visibility`: Hub Ops Runtime 会话 tab, Audit Runtime tab, runtime metadata deep-dive header, API identity-history read contract, and digest noise folding are implemented. Focused API/web tests passed, and browser verification covered desktop Hub, right-panel Audit Runtime, and mobile Hub layouts. |
+| 2026-05-26 | Phase E merged via PR #1911：Hub Ops Runtime sessions tab, Audit Runtime tab, runtime metadata deep-dive header, and storage-level digest noise folding are now on main; cloud review follow-ups for digest chronology/noise scoping and docs frontmatter were fixed, final gate passed at `34978ff0`, squash merge `18840f23e`. |
 
 ## Review Gate
 
