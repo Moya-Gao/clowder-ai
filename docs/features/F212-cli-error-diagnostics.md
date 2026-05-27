@@ -207,6 +207,8 @@ created: 2026-05-25
 | KD-1 | 走 structured `cliDiagnostics` 而非 sanitized raw tail | 黑名单永远会漏 → 白名单准入更安全（砚砚 2026-02-08 + 2026-05-25 两次坚守） | 2026-05-25 |
 | KD-2 | Sanitizer 先 sanitize 再截断 | 反过来会从 token 中间截尾绕过黑名单 | 2026-05-25 |
 | KD-3 | 一个 feat 一次切完 Phase A + B + C，不拆 "hotfix + follow-up" | "层 1 hotfix + 层 2 follow-up" 是布偶猫"下次一定"病 | 2026-05-25 |
+| KD-4 | Phase B reasonCode → icon **必须自画 SVG**，禁止 emoji（草案 / spec / 实现全场景）| 铲屎官 directive 2026-05-27 "必须自己画 svg！！！不然太丑了！！"；emoji 跨平台渲染不一致 + 视觉档次低；草案阶段也禁止（feedback_design_to_code_fidelity 升级 P0）| 2026-05-27 |
+| KD-5 | Phase B reasonCode → color palette 由 author (47) 自决（Tailwind 500 主调）| 铲屎官 directive 2026-05-27 "颜色你可以自己决定啦"；现有 OQ-5 一半自决（颜色）+ 一半 KD-4 约束（icon 必 SVG）| 2026-05-27 |
 
 ## Timeline
 
