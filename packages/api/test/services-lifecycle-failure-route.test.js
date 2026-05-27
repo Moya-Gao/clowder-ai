@@ -8,16 +8,21 @@ const SESSION_HEADERS = { 'x-test-session-user': 'lysander' };
 const ORIGINAL_OWNER_ID = 'lysander';
 process.env.DEFAULT_OWNER_USER_ID = ORIGINAL_OWNER_ID;
 
-function createTestEnv() {
-  return Object.fromEntries(
-    Object.entries(process.env)
-      .filter(([key]) => !/^CAT_CAFE_SERVICE_.*_ENABLED$/.test(key))
-      .concat([
-        ['CAT_CAFE_PROFILE', 'test'],
-        ['CAT_CAFE_SERVICE_ASR_ENABLED', '0'],
-        ['ASR_ENABLED', '0'],
-      ]),
-  );
+function buildIsolatedTestEnv(baseEnv = process.env) {
+  const env = Object.fromEntries(Object.entries(baseEnv).filter(([key]) => !/^CAT_CAFE_SERVICE_.*_ENABLED$/.test(key)));
+  for (const key of [
+    'ASR_ENABLED',
+    'TTS_ENABLED',
+    'EMBED_ENABLED',
+    'LLM_POSTPROCESS_ENABLED',
+    'AUDIO_SERVICE_ENABLED',
+  ]) {
+    delete env[key];
+  }
+  env.CAT_CAFE_PROFILE = 'test';
+  env.CAT_CAFE_SERVICE_ASR_ENABLED = '0';
+  env.ASR_ENABLED = '0';
+  return env;
 }
 
 async function buildApp(options = {}) {
@@ -28,7 +33,7 @@ async function buildApp(options = {}) {
       request.sessionUserId = sessionUser.trim();
     }
   });
-  const testEnv = options.env === undefined ? createTestEnv() : options.env;
+  const testEnv = options.env === undefined ? buildIsolatedTestEnv(process.env) : options.env;
   await app.register(servicesRoutes, {
     ...options,
     env: testEnv,

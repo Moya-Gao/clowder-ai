@@ -1407,6 +1407,24 @@ pkg.scripts["start:direct"] =
 pkg.scripts["dev:direct"] =
   "node ./scripts/start-entry.mjs dev:direct --profile=opensource";
 pkg.scripts["check:start-profile-isolation"] = "node --test scripts/start-dev-profile-isolation.test.mjs";
+pkg.scripts["check:pre-merge-gate"] =
+  "node --test scripts/pre-merge-check.test.mjs scripts/pre-merge-gate-guard.test.mjs scripts/test-bash-runtime.test.mjs";
+if (pkg.scripts.check === "node scripts/run-checks.mjs") {
+  pkg.scripts.check = [
+    "pnpm biome check . --diagnostic-level=error",
+    "pnpm check:features",
+    "pnpm check:sop-definitions",
+    "pnpm check:skills:manifest",
+    "pnpm check:env-ports",
+    "pnpm check:env-registry",
+    "pnpm check:env-example",
+    "pnpm check:start-profile-isolation",
+    "pnpm check:pre-merge-gate",
+    "pnpm check:guides",
+    "pnpm check:followup-tails",
+    "pnpm check:scripts-ascii-only",
+  ].join(" && ");
+}
 if (!pkg.scripts.check.includes("pnpm check:start-profile-isolation")) {
   pkg.scripts.check += " && pnpm check:start-profile-isolation";
 }

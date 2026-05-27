@@ -483,7 +483,7 @@ describe('cross-platform pnpm-start profile propagation (#421)', () => {
 
 describe('embedding sidecar startup guards', () => {
   it('does not silently fall back to sentence-transformers on Apple Silicon', () => {
-    const apiScript = readFileSync(resolve(ROOT, 'scripts/embed-api.py'), 'utf8');
+    const apiScript = readFileSync(resolve(ROOT, 'scripts/services/embed-api.py'), 'utf8');
 
     assert.match(apiScript, /EMBED_ALLOW_ST_FALLBACK/);
     assert.match(apiScript, /platform\.system\(\)\s*==\s*["']Darwin["']/);

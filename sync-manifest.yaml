@@ -102,6 +102,7 @@ managed_scripts:
   - scripts/check-skills-mount.sh
   - scripts/check-skills-manifest.mjs
   - scripts/check-followup-tails.mjs
+  - scripts/cleanup-stale-dev-processes.mjs
   - scripts/check-scripts-ascii-only.mjs
   - scripts/gen-guide-catalog.mjs
   - scripts/gen-env-reference.mjs
@@ -121,6 +122,7 @@ managed_scripts:
   - scripts/rescue-claude-thinking-signature.mjs
   - scripts/init-cafe.sh
   - scripts/runtime-worktree.sh
+  - scripts/lib/redis-rdb-first.sh  # sourced by start-dev.sh/user-redis.sh — keep start/runtime closure intact
   - scripts/lib/quickstart-freshness.sh  # sourced by runtime-worktree.sh — keep in closure
   - scripts/lib/node-runtime-guard.sh  # sourced by start/runtime/alpha launchers — keep in closure
   - scripts/user-redis.sh
@@ -460,7 +462,6 @@ target_owned_files:
   - MAINTAINERS.md           # 公开版 maintainer 指南（只在开源仓维护）
   - docs/community/
   - .github/workflows/windows-smoke.yml  # 开源仓独有的 Windows CI（家里不跑 Windows）
-  - scripts/services/          # 社区 #669 service lifecycle 脚本（家里 rejected 但开源仓在用）
 
 # ── Provenance（同步元数据）────────────────────────────────────
 provenance:
