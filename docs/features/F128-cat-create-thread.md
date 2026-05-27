@@ -104,6 +104,32 @@ F128 遵循 ADR-035 Proposal-First Agent Actions：
 - [ ] AC-A9: skill/system prompt 明确教猫何时 propose、何时不要 propose
 - [ ] AC-A10: 测试覆盖 happy path、重复 approve、跨用户 parentThreadId、reject、proposal card state update
 
+### Phase B: 后端实现（clowder-ai#85 intake，2026-05-27）
+
+- [ ] AC-B1: `RedisProposalStore` implements create/get/listByUser/listPending/markApproved/markRejected with proper Redis indices
+- [ ] AC-B2: `POST /api/callbacks/propose-thread` creates proposal, does NOT create thread, returns `proposalId`, supports `clientRequestId` idempotency, enforces stale guard, validates parent ownership
+- [ ] AC-B3: `cat_cafe_propose_thread` MCP tool registered with strong description; old `cat_cafe_create_thread` removed
+- [ ] AC-B4: `POST /api/proposals/:id/approve` (user auth) creates thread, is idempotent on re-approve, rejects cross-user attempts (403), conflicts on already-rejected (409), applies user edits, posts initial message if provided, writes audit fields, emits both `thread_created` + `proposal_updated`
+- [ ] AC-B5: `POST /api/proposals/:id/reject` (user auth) is idempotent, conflicts on already-approved, writes audit, emits `proposal_updated`
+- [ ] AC-B6: `Proposal` schema in shared types matches the spec model above
+- [ ] AC-B7: Tests cover: cat auth happy path, stale guard, ownership rejection, idempotency, user approve happy path, double-approve idempotency, cross-user approve 403, approve-after-reject 409, reject happy path, reject-then-approve 409, edit-on-approve applied to created thread
+
+### Phase F: 前端实现
+
+- [ ] AC-F1: Proposal card renders in source thread on `proposal_created` socket event (no manual refresh)
+- [ ] AC-F2: Card prefills with cat-supplied fields; user can edit `title`, `parentThreadId`, `preferredCats`, `initialMessage` before approve
+- [ ] AC-F3: Approve button POSTs to `/api/proposals/:id/approve`; on success, sidebar shows new thread (via `thread_created` WS event); card flips to `approved` state with link to created thread
+- [ ] AC-F4: Reject button POSTs to `/api/proposals/:id/reject`; card flips to `rejected` state; thread is not created
+- [ ] AC-F5: Double-click protection on Approve/Reject (rely on backend idempotency + button disable on click)
+- [ ] AC-F6: Frontend tests cover render, edit, approve happy path, reject path, status flip via WS event
+
+### Phase X: 质量门禁
+
+- [ ] AC-X1: All file sizes ≤ 350 lines (split routes/components if needed)
+- [ ] AC-X2: No `any` types
+- [ ] AC-X3: `MCP_TOOLS_SECTION` updated; `thread-orchestration` skill rewritten for propose-first
+- [ ] AC-X4: `pnpm check` + `pnpm lint` + all affected tests green
+
 ## Maintainer Review 结论（2026-03-19，已被 2026-05-22 产品修正补充）
 
 **Reviewer**: 宪宪 (Opus) + 砚砚 (Codex)
