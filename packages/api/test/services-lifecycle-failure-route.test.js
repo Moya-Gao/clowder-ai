@@ -8,6 +8,18 @@ const SESSION_HEADERS = { 'x-test-session-user': 'lysander' };
 const ORIGINAL_OWNER_ID = 'lysander';
 process.env.DEFAULT_OWNER_USER_ID = ORIGINAL_OWNER_ID;
 
+function createTestEnv() {
+  return Object.fromEntries(
+    Object.entries(process.env)
+      .filter(([key]) => !/^CAT_CAFE_SERVICE_.*_ENABLED$/.test(key))
+      .concat([
+        ['CAT_CAFE_PROFILE', 'test'],
+        ['CAT_CAFE_SERVICE_ASR_ENABLED', '0'],
+        ['ASR_ENABLED', '0'],
+      ]),
+  );
+}
+
 async function buildApp(options = {}) {
   const app = Fastify({ logger: false });
   app.addHook('preHandler', async (request) => {
@@ -16,14 +28,7 @@ async function buildApp(options = {}) {
       request.sessionUserId = sessionUser.trim();
     }
   });
-  const testEnv =
-    options.env === undefined
-      ? Object.fromEntries(
-          Object.entries(process.env)
-            .filter(([k]) => !/^CAT_CAFE_SERVICE_.*_ENABLED$/.test(k))
-            .concat([['CAT_CAFE_PROFILE', 'test']]),
-        )
-      : options.env;
+  const testEnv = options.env === undefined ? createTestEnv() : options.env;
   await app.register(servicesRoutes, {
     ...options,
     env: testEnv,

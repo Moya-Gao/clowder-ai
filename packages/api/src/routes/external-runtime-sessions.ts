@@ -165,6 +165,7 @@ function formatExternalRuntimeSession(record: RuntimeSessionMetadata, thread: Th
     runtimeConversationId: record.runtimeConversationId,
     catId: record.catId,
     model: identity?.model,
+    identityHistory: record.identityHistory,
     lastObservedAt: record.lifecycle.lastObservedAt,
     lifecycle: record.lifecycle,
     binding: record.externalRegistration?.binding ?? inferBinding(record.runtime, thread),

@@ -8,7 +8,7 @@ created: 2026-03-27
 
 # F155: Add-Member Internal Guide UI Spec (Phase A)
 
-> **Status**: spec | **Owner**: 缅因猫/砚砚 (codex) | **Scope**: 内部场景（添加成员）
+> **Status**: done (supporting spec; F155 closed 2026-05-26) | **Owner**: 缅因猫/砚砚 (codex) | **Scope**: 内部场景（添加成员）
 
 ## Why
 

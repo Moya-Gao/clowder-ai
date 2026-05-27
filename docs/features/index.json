@@ -951,25 +951,25 @@
     {
       "id": "F155",
       "name": "Add-Member Internal Guide UI Spec (Phase A)",
-      "status": "spec | **Owner**: 缅因猫/砚砚 (codex) | **Scope**: 内部场景（添加成员）",
+      "status": "done (supporting spec; F155 closed 2026-05-26) | **Owner**: 缅因猫/砚砚 (codex) | **Scope**: 内部场景（添加成员）",
       "file": "F155-add-member-guide-ui-spec.md"
     },
     {
       "id": "F155",
       "name": "引导场景清单",
-      "status": "note | **Scope**: F155 当前 intake 覆盖平台内场景，以及已有 Hub / IM Hub connector config surface；需要新增外部页签/外部画布的条目仍保留为延期探索草案",
+      "status": "done (supporting catalog; F155 closed 2026-05-26) | **Scope**: F155 当前 intake 覆盖平台内场景，以及已有 Hub / IM Hub connector config surface；需要新增外部页签/外部画布的条目仍保留为延期探索草案",
       "file": "F155-scene-catalog.md"
     },
     {
       "id": "F155",
       "name": "Scene-Based Guidance Engine — 场景式交互引导",
-      "status": "phase-a-done (Phase A fully merged; Phase B selective intake merged; Phase B architecture refactoring + product expansion **not started, needs owner**) | **Source**: Community (mindfn) | **Priority**: P1 | **Owner**: ~~缅因猫/gpt52~~ **NEEDS-OWNER**",
+      "status": "done (closed 2026-05-26) | **Source**: Community (mindfn) | **Priority**: P1 | **Owner**: 社区 (mindfn)",
       "file": "F155-scene-guidance-engine.md"
     },
     {
       "id": "F155",
       "name": "Scene-Based Bidirectional Guidance Engine",
-      "status": "Phase A accepted / frozen — 基础引导引擎已验收冻结，可开 PR 合入 | **Owner**: 布偶猫/宪宪 | **Priority**: P1",
+      "status": "done (Phase A accepted / frozen; F155 closed 2026-05-26) | **Owner**: 布偶猫/宪宪 | **Priority**: P1",
       "file": "F155-scene-guidance-phase-a-spec.md"
     },
     {
@@ -1089,7 +1089,7 @@
     {
       "id": "F175",
       "name": "消息队列统一设计 — 优先级排序 + 用户可控编排",
-      "status": "**done** | **Owner**: 布偶猫 | **Priority**: P1",
+      "status": "done | **Owner**: 布偶猫 | **Priority**: P1",
       "file": "F175-unified-message-queue.md"
     },
     {

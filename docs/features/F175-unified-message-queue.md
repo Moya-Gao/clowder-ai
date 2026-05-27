@@ -9,7 +9,7 @@ intake_source: clowder-ai#575
 
 # F175: 消息队列统一设计 — 优先级排序 + 用户可控编排
 
-> **Status**: **done** | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: done | **Owner**: 布偶猫 | **Priority**: P1
 >
 > **Close 2026-05-27**：Phase A/B/C 全部在 clowder-ai#575 中完成（gpt52 code review 8 轮全 approved），经 cat-cafe PR #1443 absorbed。铲屎官 2026-05-27 实测确认拖动排序/独立显示/视觉分组/折叠全部工作。之前审计误判"Phase B/C 未完成"是因为 doc AC 未打勾但代码已在 absorbed PR 中。
 >

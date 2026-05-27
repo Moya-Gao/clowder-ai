@@ -148,12 +148,15 @@ describe('spawnCliInTmux', () => {
     const gen = spawnCliInTmux(
       {
         command: '/bin/sh',
-        args: ['-c', 'for i in 1 2 3 4; do echo "progress-$i" >&2; sleep 0.5; done; echo done'],
+        args: ['-c', 'for i in 1 2 3 4 5 6 7 8 9 10 11 12; do echo "progress-$i" >&2; sleep 0.75; done; echo done'],
         outputMode: 'plainText',
         worktreeId: WORKTREE,
         invocationId: 'test-inv-plaintext-stderr-progress',
         cwd: '/tmp',
         timeoutMs: 1500,
+        // Full gate load can delay tmux pane startup. Final stdout still lands
+        // after this window, so stderr progress must cancel the startup timer.
+        firstEventTimeoutMs: 8000,
       },
       { tmuxGateway: gateway },
     );

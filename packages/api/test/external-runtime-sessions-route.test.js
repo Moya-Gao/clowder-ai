@@ -148,6 +148,13 @@ describe('external runtime sessions API routes', () => {
   });
 
   test('read returns metadata and rejects another user', async () => {
+    await runtimeSessionStore.updateLifecycle(user1OtherCatSession.sessionId, {
+      state: 'sealed',
+      sealReason: 'runtime_disconnected',
+      drainResult: 'complete',
+      lastObservedAt: 7100,
+    });
+
     const ok = await app.inject({
       method: 'GET',
       url: `/api/external-runtime-sessions/${user1OtherCatSession.sessionId}`,
@@ -158,7 +165,20 @@ describe('external runtime sessions API routes', () => {
     assert.equal(body.sessionId, user1OtherCatSession.sessionId);
     assert.equal(body.runtimeSessionId, 'cascade-user1-gemini');
     assert.equal(body.model, 'gemini-3.1-pro');
+    assert.deepEqual(body.identityHistory, [
+      {
+        catId: 'antigravity',
+        model: 'gemini-3.1-pro',
+        from: 1000,
+        source: 'external_registration',
+      },
+    ]);
+    assert.equal(body.lifecycle.state, 'sealed');
+    assert.equal(body.lifecycle.sealReason, 'runtime_disconnected');
+    assert.equal(body.lifecycle.drainResult, 'complete');
+    assert.equal(body.drilldown.sessionRecord, `/api/sessions/${user1OtherCatSession.sessionId}`);
     assert.equal(body.drilldown.events, `/api/sessions/${user1OtherCatSession.sessionId}/events`);
+    assert.equal(body.drilldown.digest, `/api/sessions/${user1OtherCatSession.sessionId}/digest`);
 
     const denied = await app.inject({
       method: 'GET',

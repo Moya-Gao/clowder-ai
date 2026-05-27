@@ -7,7 +7,7 @@ created: 2026-03-27
 
 # F155 引导场景清单
 
-> **Status**: note | **Scope**: F155 当前 intake 覆盖平台内场景，以及已有 Hub / IM Hub connector config surface；需要新增外部页签/外部画布的条目仍保留为延期探索草案
+> **Status**: done (supporting catalog; F155 closed 2026-05-26) | **Scope**: F155 当前 intake 覆盖平台内场景，以及已有 Hub / IM Hub connector config surface；需要新增外部页签/外部画布的条目仍保留为延期探索草案
 > **原则**：核心引擎先做完 → P0 验收通过 → 再逐场景迭代补全。
 > 所有场景用同一套编排文件 + 元素标签体系，实现流程一致。
 

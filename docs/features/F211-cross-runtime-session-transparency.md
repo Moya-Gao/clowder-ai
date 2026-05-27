@@ -206,10 +206,10 @@ Expose runtime session state where users and cats notice it:
 - [ ] AC-D4: F210 AGY CLI runs either reuse F211 registration or explicitly document why their session lifecycle remains separate.
 
 ### Phase E（Visibility）
-- [ ] AC-E1: Hub/session-chain UI can display Antigravity cascade sessions with status and retire reason.
-- [ ] AC-E2: In-context thread/handoff surface can point cats to external runtime session evidence when relevant.
-- [ ] AC-E3: Deep-dive view links session record, cascadeId/conversation id, transcript/digest, and recovery metadata.
-- [ ] AC-E4: Digest-level views fold repeated `context canceled` / MCP refused / canceled step noise into summarized diagnostics unless it changes the user-visible outcome.
+- [x] AC-E1: Hub/session-chain UI can display Antigravity cascade sessions with status and retire reason. Source: `HubRuntimeSessionsTab` plus reusable `ExternalRuntimeSessionsPanel`; browser verified `/settings?s=ops&ops=runtime-sessions` on desktop and mobile.
+- [x] AC-E2: In-context thread/handoff surface can point cats to external runtime session evidence when relevant. Source: `AuditExplorerPanel` Runtime tab reuses the same runtime-session panel and opens the existing session events viewer.
+- [x] AC-E3: Deep-dive view links session record, cascadeId/conversation id, transcript/digest, and recovery metadata. Source: `SessionEventsViewer` best-effort external-runtime metadata header plus API read route identity-history contract.
+- [x] AC-E4: Digest-level views fold repeated `context canceled` / MCP refused / canceled step noise into summarized diagnostics unless it changes the user-visible outcome. Source: `TranscriptWriter.generateExtractiveDigest(...)` emits `diagnostics.noise`; recovered noise is folded out of high-level errors and terminal noise keeps one representative error.
 
 ## Dependencies
 
@@ -261,7 +261,7 @@ Expose runtime session state where users and cats notice it:
 | OQ-8 | Antigravity transcript 的权威材料是 trajectory steps、thread messages、planner responses、tool results，还是组合 materialized view？ | ✅ Phase A materializes a bounded session transcript view from transformed planner/tool/lifecycle events; raw trajectory noise stays debug-level |
 | OQ-9 | 同一 cascadeId 内 model/cat 切换应 split session、记录 identity timeline，还是创建 sub-run？ | ✅ Phase A records runtime identity history in `RuntimeSessionMetadata` instead of silently overwriting cascade attribution |
 | OQ-10 | IDE-direct 无 threadId 时，是否创建 orphan session、private runtime thread，还是等用户显式绑定？ | ✅ Phase B creates orphan sessions under deterministic hidden anchor threads; later orphan-to-thread migration is out of scope and requires explicit Phase D/E bind UX |
-| OQ-11 | `context canceled` / refused / canceled tool 事件如何进入 digest、debug detail、或被过滤？ | ⬜ Phase E design |
+| OQ-11 | `context canceled` / refused / canceled tool 事件如何进入 digest、debug detail、或被过滤？ | ✅ Phase E folds repeated recovered noise into `digest.diagnostics.noise`; terminal noise keeps one representative high-level error plus diagnostics; raw transcript events remain available in Raw view |
 | OQ-12 | Phase A 是否拆成 A1 metadata schema / A2 cascade rotation，并在 A1 后允许 Phase B parallel start？ | ✅ Phase A planning decided: A1 runtime metadata sidecar first, A2 live cascade rotation, Phase B can start after A1 metadata contract is reviewed |
 | OQ-13 | Antigravity session rotation 后的 continuity break 是否另开 F212？ | ✅ No. Treat as F211 A2b bug fix; F211 closure requires continuity bootstrap, not just searchable old sessions |
 
@@ -306,7 +306,7 @@ in_context_observability:
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | “Antigravity 的 session 得是透明的” | AC-A1~A9, AC-E1~E4 | SessionChainStore tests + session reader proof + Hub/session-chain display | [ ] |
+| R1 | “Antigravity 的 session 得是透明的” | AC-A1~A9, AC-E1~E4 | SessionChainStore tests + session reader proof + Hub/session-chain display | [x] |
 | R2 | “先把 F201 关闭，然后剩下的记录到 F211” | KD-2, F201 post-close note | F201 timeline note + BACKLOG F211 row | [x] |
 | R3 | “这个和 F209 啥关系？F209 不是检索的吗？” | KD-1, KD-6, AC-0C | Spec ownership boundary review | [x] |
 | R4 | “可以找 antig-opus，让他只需要讲出来问题；顺便总结 F211 想做什么” | AC-0D | Review request message to `@antig-opus` | [x] |
@@ -315,7 +315,7 @@ in_context_observability:
 | R7 | Bengal review: “session chain 里有记录但 digest/events 为空仍然没用” | AC-0E, AC-A8 | `read_session_digest/events` proof fixture | [x] |
 | R8 | Bengal review: “同一 cascade 可换 model/catId，manual New Cascade 也常见” | AC-0F, AC-A5, AC-A9 | identity-history + sealReason tests | [x] |
 | R9 | Bengal review: “IDE-direct 没 threadId/callbackToken，Phase B 注册机制要具体” | AC-B5, OQ-10 | external-session registration contract | [x] |
-| R10 | Bengal review: “context canceled 噪音不要污染 digest” | AC-E4, OQ-11 | noisy trajectory fixture | [ ] |
+| R10 | Bengal review: “context canceled 噪音不要污染 digest” | AC-E4, OQ-11 | noisy trajectory fixture | [x] |
 | R11 | 铲屎官现场反馈：session 指 Antigravity cascade；错误/轮换后新 session 不能断记忆 | AC-A13~A16, KD-10, KD-11 | A2b continuity bootstrap fixture + manual New Cascade non-injection fixture | [x] |
 
 ### 覆盖检查
@@ -348,6 +348,7 @@ in_context_observability:
 | 2026-05-26 | Phase B merged via PR #1899：IDE-direct reverse registration is now on main with agent-key-only callback auth, hidden external-runtime anchor threads, API/MCP list/read drilldown, one-shot immutable binding, and cloud follow-up fixes for stale lifecycle heartbeats; final gate passed at `78a8dc62`, merge commit `8c740d526`. |
 | 2026-05-26 | Phase C implementation completed in worktree `feat/f211-phase-c-json-retirement`: production Antigravity Bridge/AgentService no longer read legacy JSON fallback by default, `resetSession()` seals canonical runtime metadata, legacy JSON remains explicit importer/rescue input only, and runtime-store tests prove sealed bindings leave active lookup while staying discoverable via recent drilldown. |
 | 2026-05-26 | Phase C merged via PR #1908：JSON shadow state is retired from production Antigravity cascade binding, legacy JSON remains explicit rescue/import input only, reset/rotation lifecycle writes through runtime-session metadata with stale-binding and store-error guards, and final gate passed at `e088c48d` before squash merge `01db9a60c`. |
+| 2026-05-26 | Phase E implementation ready in worktree `feat/f211-phase-e-hub-visibility`: Hub Ops Runtime 会话 tab, Audit Runtime tab, runtime metadata deep-dive header, API identity-history read contract, and digest noise folding are implemented. Focused API/web tests passed, and browser verification covered desktop Hub, right-panel Audit Runtime, and mobile Hub layouts. |
 
 ## Review Gate
 
@@ -370,5 +371,6 @@ in_context_observability:
 | **Plan** | `docs/plans/2026-05-24-f211-phase-a2-cascade-lifecycle-continuity.md` | Phase A2 lifecycle/seal/drain/reaper and continuity bootstrap implementation plan |
 | **Plan** | `docs/plans/2026-05-25-f211-phase-b-ide-direct-registration.md` | Phase B IDE-direct reverse registration implementation plan |
 | **Plan** | `docs/plans/2026-05-26-f211-phase-c-json-shadow-retirement.md` | Phase C JSON shadow state retirement implementation plan |
+| **Plan** | `docs/plans/2026-05-26-f211-phase-e-hub-runtime-visibility.md` | Phase E Hub / in-context runtime visibility implementation plan |
 | **Architecture** | `docs/architecture/ownership/cells/identity-session.md` | Candidate primary ownership cell |
 | **Architecture** | `docs/architecture/ownership/cells/memory.md` | Evidence/retrieval consumer cell |
