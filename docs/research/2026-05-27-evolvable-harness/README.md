@@ -29,6 +29,7 @@ related_features: [F192]
 | [wang-yunhe-harness-as-optimization.md](wang-yunhe-harness-as-optimization.md) | 王云鹤知乎原文 + Cat Cafe 视角分析 |
 | [paper-landscape.md](paper-landscape.md) | 论文/项目全景图（AHE、AgentGym、AutoHarness、OpenSpace、EnvScaler、Survey） |
 | [brainstorm-autoharness-levels.md](brainstorm-autoharness-levels.md) | 铲屎官 n+2 脑洞：AutoHarness L1-L5 + LLE 概念 + Cat Cafe 定位 |
+| [gemini-reframing-harness-workspace.md](gemini-reframing-harness-workspace.md) | 烁烁的创意叙事与概念重构提案（马鞍 vs 空间隐喻、Slide 叙事线） |
 
 ## 关联已有材料（不重复，交叉引用）
 
