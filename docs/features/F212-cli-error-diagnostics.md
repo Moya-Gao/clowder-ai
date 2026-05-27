@@ -193,13 +193,6 @@ created: 2026-05-25
 | OQ-4 | Stream error event 的 schema 和 stderr classifier 是否共享 regex？倾向共享 regex 但分别接入 | ✅ **accept (共享 regex pattern lib + 双 entry-point)** — 砚砚原话："classifier 要覆盖 stderr + Codex recent stream errors。很多 Codex code 1 的真实语义在 stream error 里，不一定在 stderr。" 共享 regex pattern lib (`packages/api/src/utils/cli-error-patterns.ts` 或类似)，stderr classifier 和 stream-error classifier 各自 import + 各自 entry-point（同 reasonCode 输出）。 |
 | OQ-5 | 前端 `reasonCode` → icon / 色板 映射要不要先发铲屎官审 wireframe？倾向**前端展示 = UX 改动**，要 Design Gate UX 确认 | ⬜ **defer 到新 thread Design Gate UX** — 砚砚 review 提到"前端用 `extra.cliDiagnostics` 渲染一个类似 `TimeoutDiagnosticsPanel` 的折叠面板"——意味着**复用现有组件 + reasonCode→icon/色板映射**，不需要从零审 wireframe。新 thread Phase B 启动时拍一张 `TimeoutDiagnosticsPanel` 现状截图 + 把 8 类 reasonCode 写一张映射表（auth → 🔑 / network → 🌐 / quota → ⏱ 等）给铲屎官 5 分钟过一遍即可，不算从零 Design Gate |
 
-> **新 thread onboarding checklist**：
-> 1. 读本 spec + F213 反思胶囊 `docs/reflections/2026-05-26-f213-stale-mcp-config-cleanup-capsule.md` 的 2 条核心教训（5 轮 P1 同方向 = 坐标系信号 / Reframe 前查 ADR）
-> 2. OQ-1..5 状态已回填，**不需要重新 ping 砚砚 review spec**（除非新发现）
-> 3. Phase A 开始：worktree → writing-plans → tdd
-> 4. OQ-5 wireframe 在 Phase B 启动时再单独 ping 铲屎官
-> 5. F213 反思胶囊的 trigger missed 参考但本 feat 不重复同坑：先 grep ADR-* 找架构 anchor (`grep -r 'ADR-' docs/decisions/ docs/features/`)
-
 ## Key Decisions
 
 | # | 决策 | 理由 | 日期 |
@@ -235,7 +228,7 @@ created: 2026-05-25
 |---|---|---|---|
 | A | A1-A9 (9/9) | ✓ all met | PR #1907 merged; tests 40 (sanitize 21 + classifier 4 + diagnostics 15) |
 | B | B1-B5 (5/5) | ✓ all met | PR #1915 merged @ 539a2226d; tests 25 (panel 10 + router 7 + hydration 3 + bg 2 + reducer 1 + api persist 2) |
-| C | C1 organic / C2 unit / C3 守护 | ✓ all met | C1 organic strategy (CVO directive); C2 Phase A 40 fuzz unit; C3 awaiting @gemini25 sign-off |
+| C | C1 organic / C2 unit / C3 守护 | ✓ all met | C1 organic strategy (CVO directive); C2 Phase A 40 fuzz unit; C3 ✓ signed off by @gemini25 |
 | **Total** | **17/17** | **✓** | **65 automated tests + 跨族 review + production organic validation** |
 
 ### 愿景对照三问
@@ -267,15 +260,29 @@ created: 2026-05-25
 - `feedback_iron_rules.md` 强化 PR tracking 同消息强制 (本次复犯)
 - `docs/reflections/2026-05-27-redis-6399-sigkill-selfreport.md` — 6399 事故完整自首报告 + 给护栏猫的 4 条 follow-up
 
-### 守护猫请求点
+### 守护猫反馈与签署意见
 
-请 @gemini25 重点审视：
-1. 9 类 reasonCode → SVG icon 设计**是否清晰可辨**（视觉强项判断）
-2. 4 档 severity 颜色 (red/amber/slate/violet) **跨色弱用户**可访问性 (WCAG AA 我没显式跑过 contrast checker)
-3. 折叠面板 UX 节奏（默认折叠 → 点击查看详细错误 → 展开 dark `<pre>`）是否符合"渐进披露"原则
-4. publicSummary + publicHint zh-CN 文案是否清晰自然（举例 "Thinking 签名校验失败 / 换一只猫，或刷新对话后再试。"）
+由 暹罗猫/烁烁 (@gemini25, model=gemini-2.5-pro) 代表完成愿景守护确认：
 
-不要求 code review（暹罗族硬限制 + 也没必要 — 砚砚 + 云端 codex 8 轮已覆盖）。
+1. **9类 reasonCode → SVG icon 设计评估**：
+   - 整体设计喻体选择准确，且采用 Lucide 风格的内联手绘 SVG 极大契合了猫咖的审美和轻量工程原则。
+   - **优化空间 (P3)**：`invalid_config` 的 `SettingsXIcon` 在代码实现中更像滑块（sliders-2），且没有体现“X”（无效）的叉号。对于非开发者，将其喻体换为带 Alert/Warning 的齿轮，或带 X 的文件会更容易在直觉上理解。
+   - **优化空间 (P3)**：`model_not_found` 的 `PackageXIcon`（3D 盒子 + 斜线）对于“模型名找不到”而言，把模型等同于 Artifact 稍微带一点“程序员偏见”。后续如果进行精细度微调，可以设计成类似 `CpuIcon`（芯片外框）加上 X 或问号，使之在 AI 运行时语境下更加自然。
+
+2. **4档 Severity 颜色色板与无障碍性（WCAG AA）**：
+   - **高可读性**：主要的 banner 文本采用超高对比度的 `#1A1918`，背景色板（`red-100` / `amber-100` / `slate-100` / `violet-100`）足够轻浅，对比度达到了 10:1 以上，完美通过对比度检测。
+   - **双重编码（Color + Icon）保障**：即使红绿/全色弱用户无法区分 `user-fix (red)` 和 `transient (amber)` 的背景色调，排在首位的手绘图标（KeyRound / CloudOff 等）也能作为第一辅助识别特征，因此无障碍访问性非常高。
+   - **微调建议**：辅助文案 `publicHint` 颜色 `#6D6C6A` 在亮黄/亮紫背景上对比度略微擦线（约 4.6:1）。可以考虑微调为更深色的灰色（如 `#52514F`）或使用 `opacity: 0.8`。
+
+3. **渐进披露（Progressive Disclosure）与交互节奏**：
+   - 极佳。只在最表层显示极简的 Actionable Hint（人话提示），把高噪声的 safeExcerpt 折叠，用户点击后再以深色 `<pre>` 展开，极大降低了心智负担。
+   - **微调建议**：`CliDiagnosticsPanel` 展开时的文字“查看详细错误”在展开状态下应该切换为“收起详细错误”。
+
+4. **zh-CN 文案自然度**：
+   - 文案符合“温馨猫咖”的独特设定。例如 `invalid_thinking_signature` 的“换一只猫”，这是极具世界观凝聚力的温馨表达，对社区核心玩家十分受用。
+   - 其他文案简洁清晰，极具指导意义（如直白指出 `deepseek-v-4` 的拼写错误）。
+
+**守护猫结论**：**[放行]** 该功能符合 F212 愿景。细节优化不作为 Block 门禁，建议在后续日常迭代或 Phase C 顺带优化。
 
 ## Links
 
