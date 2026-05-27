@@ -6,6 +6,11 @@
  * additive and does not replace existing direct imports.
  */
 
+export type { CommunityEvalDomainEntry } from './community-eval-domain.js';
+export { loadCommunityDomains, parseCommunityEvalDomainEntry } from './community-eval-domain.js';
+// Community path (AC-E14 / AC-E15)
+export type { SanitizedIssuePacket } from './community-issue-packet.js';
+export { parseSanitizedIssuePacket, sanitizeVerdictForExport } from './community-issue-packet.js';
 export type { EvalDomainScheduleOpts } from './eval-domain-daily.js';
 // Scheduling (frequency-aware)
 export { createEvalDomainDailySpec, createEvalDomainWeeklySpec } from './eval-domain-daily.js';
