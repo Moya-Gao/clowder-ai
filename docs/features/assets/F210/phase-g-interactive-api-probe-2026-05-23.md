@@ -123,10 +123,12 @@ If Cat Cafe needs an F198-like AGY carrier, the preference order should be:
   `~/.gemini/antigravity-cli/settings.json` has
   `"model": "Gemini 3.5 Flash (High)"`; a direct `agy --print` smoke logged
   `Propagating selected model override to backend: label="Gemini 3.5 Flash (High)"`.
-- Live dogfood config switches `gemini` to the non-ACP Google path by setting
-  `.cat-cafe/cat-catalog.json` variant `gemini-default.acp` to `null`; `gemini25`
-  intentionally remains on `gemini --acp` as a comparison fallback.
-- Verification: `/api/cats` reports `gemini.adapterMode = "cli"` and
-  `gemini25.adapterMode = "acp"`; `GeminiAgentService({ catId: "gemini" })`
-  returned `CAT_CAFE_RUNTIME_GEMINI_AGY_OK` with metadata model
+- Corrected live dogfood config keeps `gemini` on the ACP Google path
+  (`gemini --acp`) as Gemini 3.1 Pro, and repurposes the old `gemini25` variant
+  into a Gemini 3.5 Flash AGY dogfood line by setting variant `gemini-25.acp`
+  to `null`.
+- Verification: `/api/cats` reports `gemini.adapterMode = "acp"` and
+  `gemini25.adapterMode = "cli"`; `GeminiAgentService({ catId: "gemini25" })`
+  returned `CAT_CAFE_RUNTIME_GEMINI25_AGY_FLASH_OK` with configured cat model
+  `Gemini 3.5 Flash (High)` and metadata model
   `account-selected (antigravity-cli)`.
