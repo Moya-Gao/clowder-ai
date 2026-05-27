@@ -16,7 +16,14 @@ async function buildApp(options = {}) {
       request.sessionUserId = sessionUser.trim();
     }
   });
-  const testEnv = options.env === undefined ? { ...process.env, CAT_CAFE_PROFILE: 'test' } : options.env;
+  const testEnv =
+    options.env === undefined
+      ? Object.fromEntries(
+          Object.entries(process.env)
+            .filter(([k]) => !/^CAT_CAFE_SERVICE_.*_ENABLED$/.test(k))
+            .concat([['CAT_CAFE_PROFILE', 'test']]),
+        )
+      : options.env;
   await app.register(servicesRoutes, {
     ...options,
     env: testEnv,

@@ -17,11 +17,14 @@ function runGuard(tempDir, args, env = {}) {
     writeFileSync(lsofFixture, '');
   }
 
+  // Strip SKIP_PRESSURE from parent env so tests exercise actual pressure checks
+  const { CAT_CAFE_GATE_GUARD_SKIP_PRESSURE: _, ...cleanEnv } = process.env;
+
   return spawnSync(process.execPath, [SCRIPT, ...args], {
     cwd: process.cwd(),
     encoding: 'utf8',
     env: {
-      ...process.env,
+      ...cleanEnv,
       CAT_CAFE_GATE_GUARD_PS_FIXTURE: psFixture,
       CAT_CAFE_GATE_GUARD_LSOF_FIXTURE: lsofFixture,
       ...env,
@@ -60,6 +63,56 @@ describe('pre-merge gate guard', () => {
       });
       assert.notEqual(result.status, 0);
       assert.match(result.stderr, /fseventsd RSS/);
+      assert.equal(existsSync(lockDir), false);
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it('emits soft warning for sync-to-opensource but still acquires lock', () => {
+    const tempDir = mkdtempSync(path.join(os.tmpdir(), 'gate-guard-test-'));
+    const lockDir = path.join(tempDir, 'pre-merge-check.lock');
+    // Simulate sync-to-opensource.sh running (different PID than holder)
+    writeFileSync(
+      path.join(tempDir, 'ps.txt'),
+      [
+        `1 0 16016 /System/Library/PrivateFrameworks/fseventsd`,
+        `${process.pid} 1 100 node`,
+        `99999 1 200 bash scripts/sync-to-opensource.sh --dry-run`,
+      ].join('\n'),
+    );
+    try {
+      const result = runGuard(tempDir, ['acquire', '--lock-dir', lockDir, '--holder-pid', String(process.pid)]);
+      // Should succeed (soft warning, not hard block)
+      assert.equal(result.status, 0, `expected success but got: ${result.stderr}`);
+      assert.equal(existsSync(lockDir), true);
+      // Warning should appear in stderr
+      assert.match(result.stderr, /concurrent resource-intensive process/);
+
+      const release = runGuard(tempDir, ['release', '--lock-dir', lockDir, '--holder-pid', String(process.pid)]);
+      assert.equal(release.status, 0, release.stderr);
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it('hard-blocks when another gate process is running', () => {
+    const tempDir = mkdtempSync(path.join(os.tmpdir(), 'gate-guard-test-'));
+    const lockDir = path.join(tempDir, 'pre-merge-check.lock');
+    // Simulate another pnpm gate running (different PID)
+    writeFileSync(
+      path.join(tempDir, 'ps.txt'),
+      [
+        `1 0 16016 /System/Library/PrivateFrameworks/fseventsd`,
+        `${process.pid} 1 100 node`,
+        `99998 1 200 node pnpm gate`,
+      ].join('\n'),
+    );
+    try {
+      const result = runGuard(tempDir, ['acquire', '--lock-dir', lockDir, '--holder-pid', String(process.pid)]);
+      // Should fail (hard block)
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, /conflicting gate process/);
       assert.equal(existsSync(lockDir), false);
     } finally {
       rmSync(tempDir, { recursive: true, force: true });

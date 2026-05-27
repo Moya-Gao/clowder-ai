@@ -77,8 +77,8 @@ if (args[0] === 'install') {
   );
 }
 
-const command = args[0] === '-r' ? args.slice(0, 4).join(' ') : args[0];
-const knownCommands = new Set(['install', 'build', 'test', 'lint', 'check', '-r --if-present run build', '-r exec bash -lc']);
+const command = args[0] === '-r' ? args.slice(0, 4).join(' ') : args[0] === '--filter' ? args.slice(0, 3).join(' ') : args[0];
+const knownCommands = new Set(['install', 'build', 'test', 'check', '-r --if-present run build', '-r exec bash -lc', '--filter @cat-cafe/web lint']);
 if (!knownCommands.has(command)) {
   process.stderr.write(\`unexpected pnpm invocation: \${args.join(' ')}\\n\`);
   process.exit(1);

@@ -6,12 +6,12 @@ import path from 'node:path';
 const DEFAULT_FSEVENTSD_RSS_MAX_KB = 4 * 1024 * 1024;
 const PROTECTED_REDIS_PORTS = new Set([6398, 6399]);
 const ALLOWED_LOCAL_REDIS_PORTS = new Set([6379, ...PROTECTED_REDIS_PORTS]);
-const STALE_PROCESS_PATTERNS = [
-  /pnpm\s+gate\b/,
-  /pre-merge-check\.sh\b/,
-  /start-dev-profile-isolation\.test\.mjs\b/,
-  /sync-to-opensource\.sh\b/,
-];
+// Hard block — another gate / pre-merge-check is already running; data conflict.
+const HARD_BLOCK_PATTERNS = [/pnpm\s+gate\b/, /pre-merge-check\.sh\b/];
+
+// Soft warning — resource-intensive but no data conflict with gate.
+// Printed as warning but does NOT block gate from starting.
+const SOFT_WARNING_PATTERNS = [/start-dev-profile-isolation\.test\.mjs\b/, /sync-to-opensource\.sh\b/];
 
 function parseArgs(argv) {
   const [command, ...rest] = argv;
@@ -122,7 +122,7 @@ function findRedisOrphans() {
   });
 }
 
-function findStaleHeavyProcesses(rows, holderPid) {
+function findMatchingProcesses(rows, holderPid, patterns) {
   const ignored = holderIgnoreSet(rows, holderPid);
   return rows.filter((row) => {
     if (ignored.has(row.pid)) {
@@ -132,18 +132,19 @@ function findStaleHeavyProcesses(rows, holderPid) {
       return false;
     }
     const commandHead = row.command.slice(0, 500);
-    return STALE_PROCESS_PATTERNS.some((pattern) => pattern.test(commandHead));
+    return patterns.some((pattern) => pattern.test(commandHead));
   });
 }
 
 function runPressureChecks(holderPid) {
   if (process.env.CAT_CAFE_GATE_GUARD_SKIP_PRESSURE === '1') {
-    return [];
+    return { failures: [], warnings: [] };
   }
 
   const rows = readProcessRows();
   const maxFseventsdRssKb = Number(process.env.CAT_CAFE_FSEVENTSD_RSS_MAX_KB ?? DEFAULT_FSEVENTSD_RSS_MAX_KB);
   const failures = [];
+  const warnings = [];
 
   for (const row of findFseventsdPressure(rows, maxFseventsdRssKb)) {
     failures.push(
@@ -155,11 +156,15 @@ function runPressureChecks(holderPid) {
     failures.push(`unmanaged redis-server listener on port ${orphan.port}; clean stale isolated Redis before gate`);
   }
 
-  for (const row of findStaleHeavyProcesses(rows, holderPid)) {
-    failures.push(`heavy gate/check process already running: pid ${row.pid} ${row.command}`);
+  for (const row of findMatchingProcesses(rows, holderPid, HARD_BLOCK_PATTERNS)) {
+    failures.push(`conflicting gate process already running: pid ${row.pid} ${row.command}`);
   }
 
-  return failures;
+  for (const row of findMatchingProcesses(rows, holderPid, SOFT_WARNING_PATTERNS)) {
+    warnings.push(`concurrent resource-intensive process detected: pid ${row.pid} ${row.command}`);
+  }
+
+  return { failures, warnings };
 }
 
 function acquire(lockDir, holderPid) {
@@ -187,7 +192,12 @@ function acquire(lockDir, holderPid) {
   };
   writeFileSync(path.join(lockDir, 'metadata.json'), `${JSON.stringify(metadata, null, 2)}\n`, 'utf8');
 
-  const failures = runPressureChecks(holderPid);
+  const { failures, warnings } = runPressureChecks(holderPid);
+
+  for (const w of warnings) {
+    console.warn(`[gate-guard] ⚠️  ${w}`);
+  }
+
   if (failures.length > 0) {
     rmSync(lockDir, { recursive: true, force: true });
     throw new Error(`system pressure preflight failed:\n- ${failures.join('\n- ')}`);

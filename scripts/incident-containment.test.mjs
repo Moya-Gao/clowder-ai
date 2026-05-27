@@ -14,14 +14,16 @@ describe('incident containment: sync export gate split', () => {
     const pkg = JSON.parse(read('package.json'));
     const profileIsolationTest = read('scripts/start-dev-profile-isolation.test.mjs');
     const syncExportTest = read('scripts/sync-to-opensource-public-launch.test.mjs');
+    const checkRunner = read('scripts/run-checks.mjs');
 
     assert.equal(
       pkg.scripts['check:start-profile-isolation'],
       'node --test scripts/start-dev-profile-isolation.test.mjs',
     );
     assert.equal(pkg.scripts['check:sync-export'], 'node --test scripts/sync-to-opensource-public-launch.test.mjs');
-    assert.match(pkg.scripts.check, /pnpm check:start-profile-isolation/);
-    assert.doesNotMatch(pkg.scripts.check, /check:sync-export/);
+    // check runner includes profile-isolation but NOT sync-export
+    assert.match(checkRunner, /check:start-profile-isolation/);
+    assert.doesNotMatch(checkRunner, /check:sync-export/);
     assert.doesNotMatch(profileIsolationTest, /sync-to-opensource\.sh/);
     assert.match(syncExportTest, /sync-to-opensource\.sh/);
     assert.match(syncExportTest, /--dry-run/);
@@ -51,8 +53,11 @@ describe('incident containment: pre-merge gate guard', () => {
     assert.match(guardScript, /CAT_CAFE_FSEVENTSD_RSS_MAX_KB/);
     assert.match(guardScript, /fseventsd/);
     assert.match(guardScript, /redis-server/);
+    // sync-to-opensource and profile-isolation are soft warnings, not hard blocks
     assert.match(guardScript, /sync-to-opensource\\\.sh/);
     assert.match(guardScript, /start-dev-profile-isolation/);
+    assert.match(guardScript, /SOFT_WARNING_PATTERNS/);
+    assert.match(guardScript, /HARD_BLOCK_PATTERNS/);
   });
 });
 
@@ -72,8 +77,10 @@ describe('incident containment: isolated Redis harness cleanup', () => {
 
   it('includes the lightweight harness regression in root check', () => {
     const pkg = JSON.parse(read('package.json'));
+    const checkRunner = read('scripts/run-checks.mjs');
 
     assert.equal(pkg.scripts['check:incident-containment'], 'node --test scripts/incident-containment.test.mjs');
-    assert.match(pkg.scripts.check, /pnpm check:incident-containment/);
+    // check runner (not package.json inline chain) includes incident-containment
+    assert.match(checkRunner, /check:incident-containment/);
   });
 });
