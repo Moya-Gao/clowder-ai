@@ -146,6 +146,7 @@
 | F209 | F209: Evidence Recall Optimization — 消息级语义、实体门牌号与活查询藤（Phase A-D shipped + PR #1910 thread-scope degraded blocker fixed + Opus 4.6 vision guardian APPROVE） | done | [F209-evidence-recall-optimization.md](./F209-evidence-recall-optimization.md) |
 | F213 | F213: Stale MCP Config Cleanup at Startup — 过期 MCP 配置启动清理（PR #1894 5 轮 P1 saga evolved + 坐标系 reframe + 跨 5 harness shared cleanup helper + 跨族愿景守护 antig-opus APPROVE） | done | [F213-stale-mcp-config-cleanup.md](./F213-stale-mcp-config-cleanup.md) |
 | F113 | F113: Multi-Platform One-Click Deploy — 多平台一键部署（Linux/macOS/Windows + 跨平台目录选择器 + 项目初始化引导） | done | [F113-multi-platform-one-click-deploy.md](./F113-multi-platform-one-click-deploy.md) |
+| F175 | F175: Unified Message Queue — 优先级排序 + 用户可控编排（消除 urgent bypass + drag-and-drop + 视觉分组 + ADR-023） | done | [F175-unified-message-queue.md](./F175-unified-message-queue.md) |
 
 ## 已搁置/已归档 Feature
 | ID | 名称 | Status | 聚合文件 |
