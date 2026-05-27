@@ -110,3 +110,23 @@ If Cat Cafe needs an F198-like AGY carrier, the preference order should be:
 - If the local API stays undocumented and unstable, Cat Cafe should keep
   `agy --print` as the default AGY carrier and expose the interactive bridge only
   for debugging/manual takeover.
+
+## 2026-05-26 Refresh: AGY CLI 1.0.2 + Gemini 3.5 Flash Dogfood
+
+- Official updater manifest now advertises AGY CLI `1.0.2`; local
+  `/Users/lysander/.local/bin/agy` was updated from `1.0.1` to `1.0.2` with
+  `agy update`.
+- The major integration gaps remain in `1.0.2`: `agy help acp` is still
+  `unknown subcommand`, `agy --model ...` is still rejected, and `agy changelog`
+  still only lists `1.0.0`.
+- Current practical model selection remains account-side settings. Local
+  `~/.gemini/antigravity-cli/settings.json` has
+  `"model": "Gemini 3.5 Flash (High)"`; a direct `agy --print` smoke logged
+  `Propagating selected model override to backend: label="Gemini 3.5 Flash (High)"`.
+- Live dogfood config switches `gemini` to the non-ACP Google path by setting
+  `.cat-cafe/cat-catalog.json` variant `gemini-default.acp` to `null`; `gemini25`
+  intentionally remains on `gemini --acp` as a comparison fallback.
+- Verification: `/api/cats` reports `gemini.adapterMode = "cli"` and
+  `gemini25.adapterMode = "acp"`; `GeminiAgentService({ catId: "gemini" })`
+  returned `CAT_CAFE_RUNTIME_GEMINI_AGY_OK` with metadata model
+  `account-selected (antigravity-cli)`.
