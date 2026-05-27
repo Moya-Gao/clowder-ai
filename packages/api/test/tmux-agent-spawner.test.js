@@ -69,6 +69,83 @@ describe('spawnCliInTmux', () => {
     assert.equal(errEvent.exitCode, 42);
   });
 
+  // F212 round-4: tmux stderr classification verified on both modes.
+  // plainText mode: stderrFile populated via L62-64 independent redirect; abnormal exit reads it.
+  // NDJSON mode: stderr merges into fifo via 2>&1; non-JSON lines collected from parse-error branch
+  //              (bounded nonJsonOutput buffer) feed buildCliDiagnostics — see L294 in tmux-agent-spawner.ts.
+  it('F212: __cliError on non-zero exit carries cliDiagnostics built from stderr (plainText mode)', async () => {
+    const events = [];
+    const gen = spawnCliInTmux(
+      {
+        command: '/bin/sh',
+        // stderr contains "401 Unauthorized" → classifier should map to auth_failed
+        args: ['-c', 'echo plain-stdout; echo "Error: 401 Unauthorized" >&2; exit 42'],
+        outputMode: 'plainText',
+        worktreeId: WORKTREE,
+        invocationId: 'test-inv-classify',
+        cwd: '/tmp',
+      },
+      { tmuxGateway: gateway },
+    );
+
+    for await (const event of gen) {
+      events.push(event);
+    }
+
+    const errEvent = events.find((e) => e.__cliError);
+    assert.ok(errEvent, 'should yield __cliError');
+    assert.equal(errEvent.exitCode, 42);
+    assert.ok(errEvent.cliDiagnostics, 'cliDiagnostics must be present');
+    assert.equal(
+      errEvent.cliDiagnostics.reasonCode,
+      'auth_failed',
+      `tmux stderr must feed classification; got reasonCode=${errEvent.cliDiagnostics.reasonCode}, safeExcerpt=${errEvent.cliDiagnostics.safeExcerpt}`,
+    );
+    assert.ok(errEvent.cliDiagnostics.safeExcerpt, 'safeExcerpt should be filled for known reasonCode');
+    assert.ok(
+      errEvent.cliDiagnostics.safeExcerpt.includes('401 Unauthorized'),
+      `safeExcerpt should include matched line: ${errEvent.cliDiagnostics.safeExcerpt}`,
+    );
+  });
+
+  // F212 round-4 (砚砚 P2): NDJSON mode also classifies stderr via nonJsonOutput buffer.
+  // tmux NDJSON command does `2>&1 | tee fifo` so stderr noise lands as non-JSON lines in
+  // the NDJSON parse loop. parse-error branch collects them (bounded) → fed to buildCliDiagnostics.
+  it('F212: __cliError carries cliDiagnostics built from non-JSON noise (NDJSON mode)', async () => {
+    const events = [];
+    const gen = spawnCliInTmux(
+      {
+        command: '/bin/sh',
+        // Emit one valid NDJSON event + stderr "401 Unauthorized" noise + non-zero exit.
+        // 2>&1 merges stderr→stdout fifo; the "Error: 401 Unauthorized" line lands in
+        // the JSON parse-error branch and gets collected for classification.
+        args: ['-c', 'echo \'{"type":"start"}\'; echo "Error: 401 Unauthorized" >&2; exit 42'],
+        worktreeId: WORKTREE,
+        invocationId: 'test-inv-ndjson-classify',
+        cwd: '/tmp',
+      },
+      { tmuxGateway: gateway },
+    );
+
+    for await (const event of gen) {
+      events.push(event);
+    }
+
+    const errEvent = events.find((e) => e.__cliError);
+    assert.ok(errEvent, 'should yield __cliError');
+    assert.equal(errEvent.exitCode, 42);
+    assert.ok(errEvent.cliDiagnostics, 'cliDiagnostics must be present');
+    assert.equal(
+      errEvent.cliDiagnostics.reasonCode,
+      'auth_failed',
+      `NDJSON mode stderr noise must feed classification; got reasonCode=${errEvent.cliDiagnostics.reasonCode}, safeExcerpt=${errEvent.cliDiagnostics.safeExcerpt}`,
+    );
+    assert.ok(
+      errEvent.cliDiagnostics.safeExcerpt?.includes('401 Unauthorized'),
+      `safeExcerpt should include matched line: ${errEvent.cliDiagnostics.safeExcerpt}`,
+    );
+  });
+
   it('exit code 0 does not yield __cliError', async () => {
     const events = [];
     const gen = spawnCliInTmux(

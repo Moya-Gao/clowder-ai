@@ -677,7 +677,8 @@ export class CodexAgentService implements AgentService {
             type: 'error',
             catId: this.catId,
             error: `缅因猫 CLI 响应超时 (${Math.round(event.timeoutMs / 1000)}s${event.firstEventAt == null ? ', 未收到首帧' : ''})`,
-            metadata,
+            // F212 Phase A (云端 codex P2): timeout cliDiagnostics 也透传到 metadata.
+            metadata: event.cliDiagnostics ? { ...metadata, cliDiagnostics: event.cliDiagnostics } : metadata,
             timestamp: Date.now(),
           };
           continue;
@@ -714,11 +715,12 @@ export class CodexAgentService implements AgentService {
             continue;
           }
           const base = formatCliExitError('Codex CLI', event);
+          // F212 Phase A: forward cliDiagnostics on metadata for frontend folded panel (Phase B).
           yield {
             type: 'error',
             catId: this.catId,
             error: withRecentDiagnostics(base, recentStreamErrors),
-            metadata,
+            metadata: event.cliDiagnostics ? { ...metadata, cliDiagnostics: event.cliDiagnostics } : metadata,
             timestamp: Date.now(),
           };
           continue;
