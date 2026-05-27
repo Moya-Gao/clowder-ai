@@ -18,8 +18,8 @@ status: raw-capture
 
 | 来源 | 启发 |
 |------|------|
-| **STW (SWE-bench → Terminal-bench → 下一代 benchmark)** | Harness 迭代很快，代码经常重写 → agent 自己写 |
-| **OpenAI / OpenClaw** | 启发式学习 → 用 coding 的方式写自迭代的代码 |
+| **STW (SWE-bench → Terminal-bench → 下一代 benchmark)** | Harness 迭代很快，代码经常重写 → agent 自己写。**我们家的记忆系统（F102→F163→F188→F200→F192）就是活证据：5 个 Feature 迭代同一子系统，多次重构。** |
+| **OpenAI Harness Engineering 博客** | 启发式学习 → "Ralph Wiggum Loop" 快速迭代；进步不靠换模型靠换 harness。ERL (arXiv:2603.24639)：agent 从经验中提取可迁移启发式规则 |
 | **华为云** | 面向各行各业 → 让 agent 生成面向行业的 harness |
 | **王云鹤 (知乎)** | Harness 本身可以建模为优化问题；Model + Harness Params 联合优化 |
 | **黄超 (OpenSpace)** | Auto harness, worker + evolver 共用闭环 |

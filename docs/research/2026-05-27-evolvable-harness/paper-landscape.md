@@ -25,14 +25,25 @@ doc_kind: research-index
 | 吸收 | change_manifest、三层 evidence、Best-of-N eval |
 | 不吸收 | "LLM self-review = automatic governance" 叙事 |
 
-### AutoHarness
+### AutoHarness (DeepMind) — 运行时约束代码自动生成
 | 字段 | 内容 |
 |------|------|
-| 标题 | AutoHarness (推测: 自动生成/优化 Agent Harness) |
-| 机构 | UNC-Chapel Hill (aiming-lab) |
+| 标题 | AutoHarness: Synthesizing Code Harnesses to Eliminate Illegal Agent Moves |
+| 机构 | Google DeepMind |
+| arXiv | 2603.03329 |
+| 核心 | 用 Gemini-2.5-Flash 自动生成运行时约束代码，消除 agent 非法动作 |
+| 实验 | TextArena 游戏：小模型 + AutoHarness 约束 > 大模型裸跑 |
+| 关键洞察 | Harness 不只是提示词约束，而是**可执行的运行时代码**——code as guardrail |
+| 与我们的关系 | 和我们的"五铁律""Magic Words"是同一思路：把约束放到比 prompt 更硬的表面 |
+
+### AutoHarness (aiming-lab) — Agent 治理框架
+| 字段 | 内容 |
+|------|------|
+| 机构 | UNC-Chapel Hill (AIMING Lab) |
 | GitHub | `aiming-lab/AutoHarness` |
-| 状态 | 待深入调研 — 铲屎官在脑洞中提到 |
-| 待办 | 拉代码看架构，和 AHE 对比方法差异 |
+| 核心 | 6 步治理管线 + YAML constitutions + 风险模式检测 |
+| 状态 | 待深入调研 |
+| 待办 | 拉代码看架构，和 AHE + DeepMind AutoHarness 对比 |
 
 ### OpenSpace Harness — 黄超 (港大 HKUDS)
 | 字段 | 内容 |
@@ -95,7 +106,17 @@ doc_kind: research-index
 | 我们的笔记 | `docs/discussions/2026-05-10-huawei-agent-closed-door-seminar/multi-agent-scaling/` |
 | 与我们的关系 | Cat Cafe 4 猫 3 家族 = 正好在 sweet spot |
 
-## Tier 4: 思想源 — 知乎/博客
+## Tier 4: 思想源 — 博客/知乎/方法论
+
+### OpenAI — Harness Engineering 博客
+| 字段 | 内容 |
+|------|------|
+| URL | https://openai.com/index/harness-engineering/ |
+| 核心观点 | 进步不来自更好的模型，来自更好的 harness engineering |
+| 关键概念 | "Ralph Wiggum Loop"：快速迭代循环（agent 行动 → 反馈 → 重试） |
+| 实证 | 百万行级 beta 产品用 agent 生成代码，靠 harness 迭代而非模型升级 |
+| 与我们的关系 | 铲屎官引为"启发式学习 → coding 的方式写自迭代的代码" |
+| 相关论文 | Experiential Reflective Learning (ERL, arXiv:2603.24639)：agent 从任务经验提取可迁移启发式规则 |
 
 ### 王云鹤 — "我眼中的 Harness：复杂优化问题，AGI 灵魂争夺之战"
 | 字段 | 内容 |
@@ -105,9 +126,23 @@ doc_kind: research-index
 | 核心公式 | Agent = Models + Harness; 优化 task_loss/token_cost; Model Params + Harness Params 联合优化 |
 | 详细分析 | 本目录 `wang-yunhe-harness-as-optimization.md` |
 
+## Cat Cafe 自身作为 STW 佐证
+
+铲屎官指出：**看我们家的记忆系统，就知道 harness 迭代多快。**
+
+我们的记忆系统进化链：
+- **F102** — 存储基座（evidence.sqlite + 三入口路由）
+- **F163** — 治理层（过期检测、健康度）
+- **F188** — 管护工具链（library、nudge、grep fallback 监控）
+- **F200** — 召回评估（消费加权排序 + 猫真实行为反馈闭环）
+- **F192** — eval 基础设施（socio-technical harness eval）
+
+5 个 Feature 迭代同一个子系统，中间经历多次重构。这就是"harness 代码经常重写"的活证据——不是理论上说迭代快，是我们自己就在不停重写。
+
 ## 待补充
 
-- [ ] AutoHarness (aiming-lab) 深入调研
-- [ ] Google DeepMind 相关工作（铲屎官提到但未具体指定）
+- [ ] AutoHarness (aiming-lab) 深入调研：拉代码看架构
+- [ ] DeepMind AutoHarness (2603.03329) 全文阅读：code-as-guardrail 方法细节
+- [ ] OpenAI Harness Engineering 博客精读 + ERL 论文对照
 - [ ] 王云鹤知乎专栏 "Harness" 后续文章跟踪
 - [ ] 华为云自身的 agent harness 工作（闭门研讨会可能有未公开内容）
