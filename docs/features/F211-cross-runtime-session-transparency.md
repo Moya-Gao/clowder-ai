@@ -229,7 +229,7 @@ Expose runtime session state where users and cats notice it:
 - [ ] AC-D3: Backward compatibility with CLI invocation sessions is tested.
 - [ ] AC-D4: F210 AGY CLI runs either reuse F211 registration or explicitly document why their session lifecycle remains separate.
 - [ ] AC-D5: Cross-runtime contract records each runtime's prompt injection mode, cold-start recovery path, and readonly tool contract; Bengal/Antigravity is explicitly marked as non-native-L0 until F203/carrier work changes that fact.
-- [ ] AC-D6: Antigravity readonly tool contract includes `cat_cafe_read_file_slice` or a documented range-read fallback, with regression coverage proving long feature docs can be read without truncation from Bengal.
+- [x] AC-D6: Antigravity readonly tool contract includes `cat_cafe_read_file_slice` or a documented range-read fallback, with regression coverage proving long feature docs can be read without truncation from Bengal. Source: PR #1914 adds `cat_cafe_read_file_slice` to the Antigravity readonly allowlist plus bridge/executor regression coverage proving the call is delegated to the MCP readonly file-slice path instead of refused into IDE fallback reads.
 - [ ] AC-D7: Runtime-session diagnostics can explain an unexplained session/cascade switch without runtime restart by linking old/new records or persisting an explicit break reason; otherwise F211 cannot mark that path as fully transparent.
 
 ### Phase E（Visibility）
@@ -297,7 +297,7 @@ Expose runtime session state where users and cats notice it:
 | OQ-13 | Antigravity session rotation 后的 continuity break 是否另开 F212？ | ✅ No. Treat as F211 A2b bug fix; F211 closure requires continuity bootstrap, not just searchable old sessions |
 | OQ-14 | Runtime 未重启但 Bengal 切换到 fresh/empty session 的触发点是什么？ | ⬜ Phase D investigation：需要从 Antigravity runtime metadata / cascade id / external registration logs 解释，而不是假设 runtime restart |
 | OQ-15 | Bengal native L0 缺口是否阻塞 F211 close？ | ⬜ F211 close 不要求实现 native L0，但必须记录 provider capability + follow-up issue；若 fresh session 不能通过 session-chain 恢复，则阻塞 Phase D |
-| OQ-16 | `cat_cafe_read_file_slice` 应归 MCP readonly contract 还是 Antigravity IDE read contract？ | ⬜ Immediate P1：MCP readonly server and Antigravity bridge allowlist must agree; IDE read range fallback is secondary |
+| OQ-16 | `cat_cafe_read_file_slice` 应归 MCP readonly contract 还是 Antigravity IDE read contract？ | ✅ MCP readonly contract. PR #1914 aligns the Antigravity bridge allowlist with the MCP readonly server; IDE read range fallback remains secondary. |
 
 ## Key Decisions
 
@@ -323,7 +323,7 @@ Expose runtime session state where users and cats notice it:
 
 | ID | Owner | Issue | F211 handling |
 |----|-------|-------|---------------|
-| F211-P1-2026-05-26-read-file-slice | F211 / Antigravity bridge | `cat_cafe_read_file_slice` is readonly in the MCP server but missing from Antigravity's readonly allowlist, so Bengal falls back to truncated file reads for long specs/evidence. | Fix in current Antigravity tool contract path; keep AC-D6 open until regression proves long-doc drilldown works. |
+| F211-P1-2026-05-26-read-file-slice | F211 / Antigravity bridge | `cat_cafe_read_file_slice` is readonly in the MCP server but missing from Antigravity's readonly allowlist, so Bengal falls back to truncated file reads for long specs/evidence. | ✅ Fixed via PR #1914: bridge allowlist parity restored and regression coverage proves readonly file-slice drilldown no longer falls into truncated IDE fallback reads. |
 | F211-D-2026-05-26-session-switch | F211 Phase D | Bengal can appear in a fresh/empty session without runtime restart. The system must explain whether this is cascade switch, registration mismatch, hidden anchor mismatch, or session-chain lookup failure. | Keep AC-D7 open until diagnostics link old/new sessions or persist a clear break reason. |
 | F203-FU-2026-05-26-bengal-native-l0 | F203 / F061 Antigravity carrier | Bengal/Antigravity does not yet receive compression-immune native L0; it relies on prompt/callback fallback. | Do not implement inside F211; record capability via AC-D5 and track native injection in F203/carrier follow-up. |
 
@@ -362,7 +362,7 @@ in_context_observability:
 | R10 | Bengal review: “context canceled 噪音不要污染 digest” | AC-E4, OQ-11 | noisy trajectory fixture | [x] |
 | R11 | 铲屎官现场反馈：session 指 Antigravity cascade；错误/轮换后新 session 不能断记忆 | AC-A13~A16, KD-10, KD-11 | A2b continuity bootstrap fixture + manual New Cascade non-injection fixture | [x] |
 | R12 | 铲屎官现场反馈：runtime 没重启，但 Bengal 不知道为什么换了一个 session | AC-D7, KD-15, OQ-14 | session-switch diagnostic fixture: old/new linkage or persisted break reason | [ ] |
-| R13 | 铲屎官现场反馈：`read_file_slice` 不在 Antigravity 白名单，F211 spec 被截断 | AC-D6, OQ-16 | Antigravity readonly tool allowlist parity test + long-doc read regression | [ ] |
+| R13 | 铲屎官现场反馈：`read_file_slice` 不在 Antigravity 白名单，F211 spec 被截断 | AC-D6, OQ-16 | Antigravity readonly tool allowlist parity test + long-doc read regression | [x] |
 | R14 | 铲屎官现场反馈：Bengal native L0 没完成不能被 F211 假装透明 | AC-D5, KD-14, F203-FU-2026-05-26-bengal-native-l0 | provider capability record + F203/carrier follow-up issue | [ ] |
 
 ### 覆盖检查
@@ -398,6 +398,7 @@ in_context_observability:
 | 2026-05-26 | Phase E implementation ready in worktree `feat/f211-phase-e-hub-visibility`: Hub Ops Runtime 会话 tab, Audit Runtime tab, runtime metadata deep-dive header, API identity-history read contract, and digest noise folding are implemented. Focused API/web tests passed, and browser verification covered desktop Hub, right-panel Audit Runtime, and mobile Hub layouts. |
 | 2026-05-26 | Phase E merged via PR #1911：Hub Ops Runtime sessions tab, Audit Runtime tab, runtime metadata deep-dive header, and storage-level digest noise folding are now on main; cloud review follow-ups for digest chronology/noise scoping and docs frontmatter were fixed, final gate passed at `34978ff0`, squash merge `18840f23e`. |
 | 2026-05-26 | CVO live Antigravity/Bengal probe found three Phase D blockers: runtime was not restarted yet Bengal switched into a fresh/empty session; `cat_cafe_read_file_slice` is missing from Antigravity readonly allowlist and long F211 spec reads truncate; Bengal native L0 is not part of F211 implementation and must be tracked as F203/carrier follow-up while F211 records provider capability. |
+| 2026-05-26 | P1 allowlist follow-up merged via PR #1914：Antigravity bridge readonly allowlist now includes `cat_cafe_read_file_slice`; regression coverage proves file-slice drilldown delegates to the MCP readonly path instead of refusing into truncated IDE fallback reads. Merge commit `6d403db97`. |
 
 ## Review Gate
 
