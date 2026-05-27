@@ -57,7 +57,6 @@ created: 2026-02-26
 | F180 | Agent CLI Hook Health and Sync — user-level hook 检测 + 一键同步 | in-progress | 缅因猫/砚砚 | community [#614](https://github.com/zts212653/clowder-ai/issues/614) | [F180](features/F180-agent-cli-hook-health.md) |
 | F181 | Reserved Feature Slot — 待补充需求锚点 | idea | 待定 | internal | [F181](features/F181-reserved-feature-slot.md) |
 | F189 | Operation Context Unification — 操作上下文单点化（HTTP/MCP/CLI/A2A 统一 builder） | spec | 布偶猫 | internal | [F189](features/F189-operation-context-unification.md) |
-| F192 | Socio-Technical Harness Eval — Harness Eval Control Plane / Eval Hub | in-progress | 布偶猫 | internal | [F192](features/F192-socio-technical-harness-eval.md) |
 | F195 | Meeting Copilot — 实时会议私人智囊团（AUDHD augmentation） | spec | 布偶猫 | internal | [F195](features/F195-meeting-copilot-live-advisory.md) |
 | F196 | Safety Guardian — 猫猫守护者（紧急安全链路） | idea | 布偶猫 | internal | [F196](features/F196-safety-guardian.md) |
 | F198 | Claude Code Subscription Carrier — 6/15 SDK Credit 拐点前救宪宪 | spec | 布偶猫 Opus 4.7 | internal | [F198](features/F198-claude-code-subscription-carrier.md) |

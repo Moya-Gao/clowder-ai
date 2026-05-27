@@ -149,6 +149,7 @@
 | F175 | F175: Unified Message Queue — 优先级排序 + 用户可控编排（消除 urgent bypass + drag-and-drop + 视觉分组 + ADR-023） | done | [F175-unified-message-queue.md](./F175-unified-message-queue.md) |
 | F155 | F155: Scene-Based Guidance Engine — 场景式交互引导（YAML 驱动 + 状态机 + overlay + auto-advance + 9 scenarios + domains/ 架构重构） | done | [F155-scene-guidance-engine.md](./F155-scene-guidance-engine.md) |
 | F211 | F211: Cross-Runtime Session Transparency — Antigravity Session Chain + IDE Direct Registration | done | [F211-cross-runtime-session-transparency.md](./F211-cross-runtime-session-transparency.md) |
+| F192 | F192: Socio-Technical Harness Eval — harness 共创评估体系（Eval Contract → Runtime Telemetry → Attribution → Verdict Handoff → Re-eval Closure → Eval Hub → 3 Domain + Community Path） | done | [F192-socio-technical-harness-eval.md](./F192-socio-technical-harness-eval.md) |
 
 ## 已搁置/已归档 Feature
 | ID | 名称 | Status | 聚合文件 |

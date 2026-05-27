@@ -8,7 +8,7 @@ created: 2026-05-07
 
 # F192: Socio-Technical Harness Eval — harness 共创评估体系
 
-> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: done | **Owner**: 布偶猫 | **Completed**: 2026-05-27
 
 ## Architecture Ownership
 
@@ -207,19 +207,19 @@ Phase E 将 F192 从单域试点提升为横切的 Harness Eval Control Plane：
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | "eval 是为了 tracing harness 后看 harness 效果如何，是不是需要 sunset / delete / build" | AC-E1, AC-E3, AC-E8, AC-E9 | Design Gate + Verdict Packet fixture | [ ] |
-| R2 | "delete 还有一种情况是 sunset，比如猫猫变强了，不需要了" | AC-E1, AC-E3 | Verdict enum + sunset fixture | [ ] |
-| R3 | "负责 a2a eval 的猫要分析、深度分析原因、对比每天" | AC-E2, AC-E4, AC-E5 | domain thread registry + trend window fixture | [ ] |
-| R4 | "eval 猫要跨线程通讯，发给负责的猫，让负责的猫来深度看" | AC-E3, AC-E7, AC-E8 | cross-thread handoff packet + re-eval closure test | [ ] |
-| R5 | "verdict → handoff 要不要结构化，必须带证据包" | AC-E3 | schema validation rejects incomplete packet | [ ] |
+| R1 | "eval 是为了 tracing harness 后看 harness 效果如何，是不是需要 sunset / delete / build" | AC-E1, AC-E3, AC-E8, AC-E9 | Design Gate + Verdict Packet fixture | [x] |
+| R2 | "delete 还有一种情况是 sunset，比如猫猫变强了，不需要了" | AC-E1, AC-E3 | Verdict enum + sunset fixture | [x] |
+| R3 | "负责 a2a eval 的猫要分析、深度分析原因、对比每天" | AC-E2, AC-E4, AC-E5 | domain thread registry + trend window fixture | [x] |
+| R4 | "eval 猫要跨线程通讯，发给负责的猫，让负责的猫来深度看" | AC-E3, AC-E7, AC-E8 | cross-thread handoff packet + re-eval closure test | [x] |
+| R5 | "verdict → handoff 要不要结构化，必须带证据包" | AC-E3 | schema validation rejects incomplete packet | [x] |
 | R6 | "诊断 / eval 结果需要一个看板，叫 Eval Hub" | AC-E9, AC-E10 | Eval Hub screenshot / API response | [x] |
 | R7 | "接入完成得清理遗留定时任务，避免双触发" | AC-E6, AC-E13 | scheduled task inventory + dry-run migration report | [x] |
 | R8 | "社区小伙伴发现自己的场景有掉球，也能提 issue / 接自己的项目 eval" | AC-E14, AC-E15 | sanitized issue packet fixture + custom domain fixture | [x] |
 
 ### 覆盖检查
-- [ ] 每个需求点都能映射到至少一个 AC
-- [ ] 每个 AC 都有验证方式
-- [ ] 前端需求已准备需求→证据映射表（Eval Hub Phase 需要）
+- [x] 每个需求点都能映射到至少一个 AC
+- [x] 每个 AC 都有验证方式
+- [x] 前端需求已准备需求→证据映射表（Eval Hub Phase 需要）
 
 ## Phase E Eval / Tracking Contract
 
@@ -457,6 +457,7 @@ Based on the first micro fit digest (2026-05-11):
 | 2026-05-27 | Eval pipeline livefix merged (PR #1913, squash `9ed3b400`) — Fixed 4 CVO dogfood bugs (OQ-16/17/18/19): Thread.systemKind sidebar visibility, Hub all-domains read model, eval-domain-daily cron registration + legacy double-trigger guard, system thread indexForUser for user sidebar. Cloud review found + fixed P1 (thread user indexing) and P2 (cron timezone UTC). |
 | 2026-05-27 | Phase E-sop merged (PR #1917, squash `b3ddf5bc`) — `eval:sop` domain-generic SOP compliance evaluator: SOP trace adapter, 7-type predicate evaluator, verdict handoff with three-tier rule-owner resolution (explicit resolver > session author > domain fallback), re-eval closure, cross-domain schema validation (3 stub YAMLs), `development.yaml` first domain + weekly scheduled task registration. 砚砚 R5 review pass (0 P1/P2) + cloud review R2 pass (P2 downgraded P3). AC-E16 through AC-E24 complete; Phase E remains open for E-community. |
 | 2026-05-27 | Phase E-community merged (PR #1920) — SanitizedIssuePacket schema + sanitize export (AC-E14), CommunityEvalDomainEntry schema + filesystem loader, community fixtures + validation tests (AC-E15). Cloud review 5 rounds: fixed dailyTrend key scrub (P1), slash-delimited ref + attribution prefix scrub (P1), key collision disambiguation + cross-record stable mapping (P2). 砚砚 R7 放行 + 25/25 tests. AC-E14/E15 complete; **Phase E complete**. |
+| 2026-05-27 | **F192 marked done** — 愿景守护 @opus47 放行（4 项 close-hygiene 同步清理）。51 AC met / 16 merged PRs / 5 Phases over 20 days。Close gate ack：1 CVO dogfood directive (livefix OQ-16/17/18/19) addressed in PR #1913；eval:memory / eval:sop adapter + cron 已注册 ✅，第一次真 verdict 等下次 scheduled cron 实际产出（启动状态，不是 bug）。 |
 
 ## Review Gate
 
