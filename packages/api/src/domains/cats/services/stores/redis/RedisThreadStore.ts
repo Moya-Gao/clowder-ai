@@ -546,6 +546,15 @@ export class RedisThreadStore implements IThreadStore {
     }
   }
 
+  async updateSystemKind(threadId: string, kind: 'connector_hub' | 'eval_domain' | null): Promise<void> {
+    const key = ThreadKeys.detail(threadId);
+    if (kind === null) {
+      await this.deleteDetailFields(key, 'systemKind');
+    } else {
+      await this.setDetailFields(key, 'systemKind', kind);
+    }
+  }
+
   async updateConnectorHubState(threadId: string, state: ConnectorHubStateV1 | null): Promise<void> {
     const key = ThreadKeys.detail(threadId);
     if (state === null) {
@@ -627,6 +636,16 @@ export class RedisThreadStore implements IThreadStore {
     await this.redis.hset(key, 'deletedAt', '0');
     await this.applyKeyRetention([key]);
     return true;
+  }
+
+  /** F192 cloud-review P1: Index a system thread into a user's sidebar list. */
+  async indexForUser(threadId: string, userId: string): Promise<void> {
+    const key = ThreadKeys.detail(threadId);
+    const existing = await this.redis.hget(key, 'id');
+    if (!existing) return;
+    const lastActiveAt = (await this.redis.hget(key, 'lastActiveAt')) ?? String(Date.now());
+    await this.redis.zadd(ThreadKeys.userList(userId), lastActiveAt, threadId);
+    await this.applyKeyRetention([ThreadKeys.userList(userId)]);
   }
 
   /** F095 Phase D: List soft-deleted threads (trash bin). */
@@ -937,6 +956,9 @@ export class RedisThreadStore implements IThreadStore {
     if (thread.firstRunQuestState) {
       result.firstRunQuestState = JSON.stringify(thread.firstRunQuestState);
     }
+    if (thread.systemKind) {
+      result.systemKind = thread.systemKind;
+    }
     if (thread.connectorHubState) {
       result.connectorHubState = JSON.stringify(thread.connectorHubState);
     }
@@ -1038,6 +1060,9 @@ export class RedisThreadStore implements IThreadStore {
       } catch {
         /* ignore malformed JSON */
       }
+    }
+    if (data.systemKind && (data.systemKind === 'connector_hub' || data.systemKind === 'eval_domain')) {
+      result.systemKind = data.systemKind as 'connector_hub' | 'eval_domain';
     }
     if (data.connectorHubState) {
       try {

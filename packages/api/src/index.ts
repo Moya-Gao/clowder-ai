@@ -2758,6 +2758,18 @@ async function main(): Promise<void> {
   const hydrated = taskRunnerV2.hydrateDynamic(dynamicTaskStore, templateRegistry);
   if (hydrated > 0) app.log.info(`[api] F139: hydrated ${hydrated} dynamic task(s)`);
 
+  // F192 livefix OQ-17: Register daily eval domain task (reads eval-domains/*.yaml, triggers eval cats)
+  const { createEvalDomainDailySpec } = await import('./infrastructure/harness-eval/eval-domain-daily.js');
+  const { getOwnerUserId } = await import('./config/cat-config-loader.js');
+  taskRunnerV2.register(
+    createEvalDomainDailySpec({
+      harnessFeedbackRoot: resolve(repoRoot, 'docs', 'harness-feedback'),
+      threadStore,
+      defaultUserId: getOwnerUserId(),
+      listDynamicTasks: () => dynamicTaskStore.getAll(),
+    }),
+  );
+
   // F139: Start unified scheduler (all registered specs)
   taskRunnerV2.start();
   app.log.info(`[api] F139: unified scheduler started (${taskRunnerV2.getRegisteredTasks().join(', ')})`);
