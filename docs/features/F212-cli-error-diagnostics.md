@@ -123,7 +123,7 @@ created: 2026-05-25
    - 默认折叠（"查看详细错误"按钮）
    - 摘要 + hint 直接显示（小红条上方）
    - `safeExcerpt` 必须点开才显示（隐式 opt-in）
-   - 按 `reasonCode` 选样式 / icon（auth → 🔑 / network → 🌐 / quota → ⏱ 等）
+   - 按 `reasonCode` 选样式 / icon（**KD-4 自画 SVG，禁用 emoji**；KD-5 颜色按 4 档 severity 分组：user-fix→red / transient→amber / system→slate / cognitive→violet）
 
 3. **i18n humanized hint 后端生成**：前端只渲染，不在 UI 层猜 regex（避免"两边都跑 regex"漂移）。
 
@@ -148,13 +148,13 @@ created: 2026-05-25
 - [x] AC-A8: Classifier 同时扫 stderr + NDJSON stream error events（Codex code 1 真语义覆盖 + tmux nonJsonOutput buffer）
 - [x] AC-A9: **回归红线**：raw stderr 不进 user-facing message（守 2026-02-08 旧线）
 
-### Phase B（Frontend 折叠面板）
+### Phase B（Frontend 折叠面板）— implementation complete (pending review)
 
-- [ ] AC-B1: `AgentMessage.extra.cliDiagnostics` + `ChatMessage.extra.cliDiagnostics` 类型 + 透传链（bubble-event-adapter + reducer）
-- [ ] AC-B2: 折叠面板组件（参考 `TimeoutDiagnosticsPanel`），默认折叠
-- [ ] AC-B3: `publicSummary` + `publicHint` 直接显示；`safeExcerpt` 必须点开才显示
-- [ ] AC-B4: 按 `reasonCode` 选 icon / 样式
-- [ ] AC-B5: i18n hint 在后端生成（前端只渲染）
+- [x] AC-B1: `CliDiagnostics` type hoisted to `@cat-cafe/shared`. `MessageMetadata.cliDiagnostics` (api) → `BackgroundAgentMessage.metadata.cliDiagnostics` (web wire, type widened in `useAgentMessages.ts`) → `ChatMessage.extra.cliDiagnostics` (unpacked in error-path) → reducer generic extra passthrough (no domain-specific code in `bubble-reducer.ts` — confirmed via dedicated test). History merge (`useChatHistory.ts`) preserves cliDiagnostics across F5 / re-fetch.
+- [x] AC-B2: `CliDiagnosticsPanel.tsx` mirrors `TimeoutDiagnosticsPanel` visual contract (banner + collapsible detail). Default folded — `safeExcerpt` only renders after toggle click.
+- [x] AC-B3: `publicSummary` + `publicHint` always visible in banner; `safeExcerpt` requires explicit toggle (隐式 opt-in). KD-1 hardened: when `reasonCode` undefined (unclassified stderr), the disclosure toggle hides entirely — there is nothing to opt into.
+- [x] AC-B4: All 9 reasonCodes mapped to inline-SVG icons (KD-4 — Lucide source, no emoji). 4-tier severity color grouping (KD-5 author 自决): user-fix→red / transient→amber / system→slate / cognitive→violet. Fallback `UnknownReasonIcon` for undefined reasonCode.
+- [x] AC-B5: i18n hint generation stays in Phase A `REASON_TEXT` map (api side). Frontend only renders the already-humanized `publicSummary` / `publicHint` — no UI-layer regex.
 
 ### Phase C（Alpha smoke + Close）
 
@@ -217,6 +217,7 @@ created: 2026-05-25
 | 2026-05-25 | 立项（铲屎官提出 UX 痛点 + 砚砚同意做 + Design Gate 五条意见全部 buy） |
 | 2026-05-26 | 第二个 trigger 证据：社区 issue [zts212653/clowder-ai#777](https://github.com/zts212653/clowder-ai/issues/777) — opencode + DeepSeek 用户配置 `deepseek-v-4`（模型名拼错），DeepSeek API 400 + 详细 message 在 NDJSON stream error event 里，但前端只显示 `布偶猫 completed without textual output.`。AC-A8（classifier 扫 stream error events）正面命中此场景；spec 不变 |
 | 2026-05-27 | **Phase A merged** (PR #1907)。本地砚砚 (缅因猫 GPT-5.5) 跨族 review 4 轮 (BLOCKED P1-1/P1-2 → P2 timeout → P2 Antigravity collector → P2 test 覆盖)，云端 codex 5 轮 review (3 P1 + 6 P2 真问题，1 P1 + 3 P2 stale/out-of-scope)。9/9 AC met. 关键架构决策: maybeCollectStreamError pure helper 含 STREAM_ERROR_MAX_ENTRIES=50 / STREAM_ERROR_MAX_CHARS=16384 bounded cap (云端 round-5 P2). tmux NDJSON mode 通过 nonJsonOutput buffer (30 lines / 8192 chars) 解决 `2>&1 | tee fifo` 合并 stderr 后 stderrFile 为空的 race (砚砚 round-4 minimum-risk path, 避免改 POSIX sh 命令的 prod 风险)。Cloud round-5 P1 (`run-isolated-redis-tests.sh` race) 标 out-of-scope，建议另开 hotfix。 |
+| 2026-05-27 | **Phase B implementation complete** (pending review). `CliDiagnostics` 类型 hoist 到 `@cat-cafe/shared`，`MessageMetadata.cliDiagnostics` → SSE wire (无特殊 serializer，普通 spread) → web error-path 直接 unpack `msg.metadata?.cliDiagnostics` → `extra.cliDiagnostics` → reducer 自动 passthrough → `ChatMessage` 路由到 `CliDiagnosticsPanel`。9 reasonCode 各一枚 inline SVG (Lucide 风格自画，KD-4)，按 4 档 severity 上色 (KD-5)。测试: `CliDiagnosticsPanel.test.ts` (7) + `chat-message-cli-diagnostics.test.tsx` (4) + `bubble-reducer.test.ts` 新增 AC-B1 generic passthrough (1) + `useChatHistory` cliDiagnostics 持久化 fallback。架构决策: cliDiagnostics 走"随 error 事件一次性投递"路径（不走 timeoutDiagnostics 的 pending-ledger pattern——cliDiagnostics 是事后诊断，无 precursor）。|
 
 ## Review Gate
 
