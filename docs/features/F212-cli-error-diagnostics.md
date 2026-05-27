@@ -8,7 +8,7 @@ created: 2026-05-25
 
 # F212: CLI Error Diagnostics — 结构化 CLI 错误诊断 + 受控前端展示
 
-> **Status**: spec | **Owner**: 布偶猫/宪宪 (Opus-47) | **Priority**: P1
+> **Status**: in-progress (Phase A merged 2026-05-27) | **Owner**: 布偶猫/宪宪 (Opus-47) | **Priority**: P1
 
 ## Why
 
@@ -136,17 +136,17 @@ created: 2026-05-25
 
 ## Acceptance Criteria
 
-### Phase A（Backend cliDiagnostics + Sanitizer）
+### Phase A（Backend cliDiagnostics + Sanitizer）— ✅ merged PR #1907 (2026-05-27)
 
-- [ ] AC-A1: `cli-spawn.ts` `__cliError` payload 改为 `cliDiagnostics` structured 对象（含 reasonCode / publicSummary / publicHint / safeExcerpt? / debugRef）
-- [ ] AC-A2: `sanitize-cli-stderr.ts` util 实现 + fuzz 单测覆盖（ANSI / NFKC / path / JWT / PEM / URL query / cookie / 5 类 provider token / generic high-entropy）
-- [ ] AC-A3: Sanitizer 处理顺序 **先 sanitize 再截断**，单测验证"token 中间截尾"无法绕过
-- [ ] AC-A4: `classifyKnownCliStderr` 扩到 8 类（含 model_not_found / auth_failed / quota_exceeded / network_error / invalid_config / spawn_failed / context_window_exceeded + 保留旧 2 类）
-- [ ] AC-A5: `safeExcerpt` 仅当 `reasonCode !== undefined` 填充，unknown stderr 不填
-- [ ] AC-A6: Panic stack 只保留 headline，frame / cargo / node module path 全部隐藏（单测验证）
-- [ ] AC-A7: `LOG_CLI_STDERR` env gate 落地（默认关闭，砚砚 2026-02-08 P3-1）
-- [ ] AC-A8: Classifier 同时扫 stderr + NDJSON stream error events（Codex code 1 真语义覆盖）
-- [ ] AC-A9: **回归红线**：raw stderr 不进 user-facing message（守 2026-02-08 旧线）
+- [x] AC-A1: `cli-spawn.ts` `__cliError` payload 改为 `cliDiagnostics` structured 对象（含 reasonCode / publicSummary / publicHint / safeExcerpt? / debugRef）
+- [x] AC-A2: `sanitize-cli-stderr.ts` util 实现 + fuzz 单测覆盖（ANSI / NFKC / path / JWT / PEM / URL query / cookie / 5 类 provider token / generic high-entropy）
+- [x] AC-A3: Sanitizer 处理顺序 **先 sanitize 再截断**，单测验证"token 中间截尾"无法绕过
+- [x] AC-A4: `classifyCliError` 扩到 9 类（含 model_not_found / auth_failed / quota_exceeded / network_error / invalid_config / spawn_failed / context_window_exceeded + 保留旧 2 类）
+- [x] AC-A5: `safeExcerpt` 仅当 `reasonCode !== undefined` 填充，unknown stderr 不填
+- [x] AC-A6: Panic stack 只保留 headline，frame / cargo / node module path 全部隐藏（单测验证）
+- [x] AC-A7: `LOG_CLI_STDERR` env gate 落地（默认关闭，砚砚 2026-02-08 P3-1）
+- [x] AC-A8: Classifier 同时扫 stderr + NDJSON stream error events（Codex code 1 真语义覆盖 + tmux nonJsonOutput buffer）
+- [x] AC-A9: **回归红线**：raw stderr 不进 user-facing message（守 2026-02-08 旧线）
 
 ### Phase B（Frontend 折叠面板）
 
@@ -214,6 +214,7 @@ created: 2026-05-25
 |------|------|
 | 2026-05-25 | 立项（铲屎官提出 UX 痛点 + 砚砚同意做 + Design Gate 五条意见全部 buy） |
 | 2026-05-26 | 第二个 trigger 证据：社区 issue [zts212653/clowder-ai#777](https://github.com/zts212653/clowder-ai/issues/777) — opencode + DeepSeek 用户配置 `deepseek-v-4`（模型名拼错），DeepSeek API 400 + 详细 message 在 NDJSON stream error event 里，但前端只显示 `布偶猫 completed without textual output.`。AC-A8（classifier 扫 stream error events）正面命中此场景；spec 不变 |
+| 2026-05-27 | **Phase A merged** (PR #1907)。本地砚砚 (缅因猫 GPT-5.5) 跨族 review 4 轮 (BLOCKED P1-1/P1-2 → P2 timeout → P2 Antigravity collector → P2 test 覆盖)，云端 codex 5 轮 review (3 P1 + 6 P2 真问题，1 P1 + 3 P2 stale/out-of-scope)。9/9 AC met. 关键架构决策: maybeCollectStreamError pure helper 含 STREAM_ERROR_MAX_ENTRIES=50 / STREAM_ERROR_MAX_CHARS=16384 bounded cap (云端 round-5 P2). tmux NDJSON mode 通过 nonJsonOutput buffer (30 lines / 8192 chars) 解决 `2>&1 | tee fifo` 合并 stderr 后 stderrFile 为空的 race (砚砚 round-4 minimum-risk path, 避免改 POSIX sh 命令的 prod 风险)。Cloud round-5 P1 (`run-isolated-redis-tests.sh` race) 标 out-of-scope，建议另开 hotfix。 |
 
 ## Review Gate
 
