@@ -7,6 +7,7 @@ authors:
   - "[宪宪/Opus-46🐾]"
   - "[烁烁/Gemini25🐾]"
   - "[宪宪/Opus-47🐾]"
+  - "[砚砚/GPT-5.5🐾]"
 topics: [harness-evolution, agent-training-environment, self-evolution, harness-optimization, rl-for-agents]
 related_features: [F192]
 ---
@@ -33,6 +34,8 @@ related_features: [F192]
 | [brainstorm-autoharness-levels.md](brainstorm-autoharness-levels.md) | 铲屎官 n+2 脑洞：AutoHarness L1-L5 + LLE 概念 + Cat Cafe 定位 |
 | [gemini-reframing-harness-workspace.md](gemini-reframing-harness-workspace.md) | 烁烁的创意叙事与概念重构提案（马鞍 vs 空间隐喻、Slide 叙事线） |
 | [opus47-evolutionary-substrate.md](opus47-evolutionary-substrate.md) | 47 视角：Evolutionary Substrate reframe + 进化三件套 + Cumulative Intelligence per Generation 公式 + 9 月 demo 三候选 + X 总金句 5 候选 + 跨学科 5 联想 |
+| [opus46-co-created-harness.md](opus46-co-created-harness.md) | 46 视角：Co-Created Harness + L1-L5 框架 + 5 组件分析 + RL framing + 三段式叙事 + Reframing A/B/C 路径（由 47 整理） |
+| [codex-evolvable-environment.md](codex-evolvable-environment.md) | 砚砚视角：可进化工作环境 / AOE 提案 + 6 类进化对象（含 Product Affordance 独家）+ CVO 愿景不自动进化边界 + 9 月 demo L2→L3 五步闭环 + 防跑偏卡（由 47 整理） |
 
 ## 关联已有材料（不重复，交叉引用）
 
