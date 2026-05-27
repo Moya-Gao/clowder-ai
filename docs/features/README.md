@@ -150,6 +150,7 @@
 | F155 | F155: Scene-Based Guidance Engine — 场景式交互引导（YAML 驱动 + 状态机 + overlay + auto-advance + 9 scenarios + domains/ 架构重构） | done | [F155-scene-guidance-engine.md](./F155-scene-guidance-engine.md) |
 | F211 | F211: Cross-Runtime Session Transparency — Antigravity Session Chain + IDE Direct Registration | done | [F211-cross-runtime-session-transparency.md](./F211-cross-runtime-session-transparency.md) |
 | F192 | F192: Socio-Technical Harness Eval — harness 共创评估体系（Eval Contract → Runtime Telemetry → Attribution → Verdict Handoff → Re-eval Closure → Eval Hub → 3 Domain + Community Path） | done | [F192-socio-technical-harness-eval.md](./F192-socio-technical-harness-eval.md) |
+| F212 | F212: CLI Error Diagnostics — 结构化 CLI 错误诊断（9 reasonCode + sanitizer + 折叠 SVG 面板 + 4 档 severity color + 跨族 @gemini25 守护，3 Phase / 17 AC / 65 automated tests / 8 轮云端 P2 fix + CAFE-INCIDENT-20260527 sanctuary 误杀自首） | done | [F212-cli-error-diagnostics.md](./F212-cli-error-diagnostics.md) |
 
 ## 已搁置/已归档 Feature
 | ID | 名称 | Status | 聚合文件 |

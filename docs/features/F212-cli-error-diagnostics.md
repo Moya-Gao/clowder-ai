@@ -8,7 +8,7 @@ created: 2026-05-25
 
 # F212: CLI Error Diagnostics — 结构化 CLI 错误诊断 + 受控前端展示
 
-> **Status**: ready-for-close (Phase A + B merged 2026-05-27, Phase C awaiting 愿景守护) | **Owner**: 布偶猫/宪宪 (Opus-47) | **Priority**: P1
+> **Status**: done | **Completed**: 2026-05-27 | **Owner**: 布偶猫/宪宪 (Opus-47) | **Priority**: P1
 
 ## Why
 
@@ -218,9 +218,62 @@ created: 2026-05-25
 - Phase B: 砚砚 review — 前端透传 + i18n 边界 ✓ + 云端 codex 8 轮 P2 fix ✓
 - Phase C: 跨族愿景守护 — **@gemini25 (Gemini 3.5 Flash, 暹罗猫)**（CVO directive 2026-05-27：3.5 不再是 3.1 时代的吴下阿蒙；视觉/UX 判断对口；跨族符合 F073；非作者非 reviewer）
 
+## User Visibility Disclosure (Step 0.3.5)
+
+| Surface | 用户能做什么（达成态） | 用户实际能做什么（本 feat close 时） | 缺失/退化 | 处置 |
+|---------|--------------------|--------------------------|----------|------|
+| 错误消息 bubble | 看到结构化 panel + reasonCode 图标 + 人话 summary/hint + 可选点击查看 sanitized excerpt | ✅ 全功能上线 (live + cold hydration 都覆盖) | 无 | met |
+| sanitizer 防护 | 自动隐藏 token / 路径 / panic stack / JWT / PEM / cookie | ✅ Phase A 40 unit fuzz + Phase B frontend path leak 二层兜底 | 无 | met |
+| 调试可见性 | 看到 sanitize 后的 command / exit / signal / invocationId 用于工单提交 | ✅ debugRef strip 默认显示，所有字段过 sanitizer | 无 | met |
+| icon 设计精度 | invalid_config 用"齿轮带叉" / model_not_found 用"芯片带?" 更直觉 | 当前 SettingsXIcon (像 slider) / PackageXIcon (像盒子) — 烁烁守护标记为 P3 polish | 视觉精度可提升但 functional 完整 | polish suggestion (烁烁书面建议，非阻塞，自然 hotfix 时触发) |
+| publicHint 对比度 | 浅色背景上的辅助文案 WCAG AA contrast (4.5:1+) | 当前 `#6D6C6A` 在 amber-100 / violet-100 上约 4.6:1 (擦线 pass) | 微调更深可达 5.5:1+ | polish suggestion (烁烁书面建议) |
+| toggle 文案语义 | 展开后切"收起详细错误" | 当前展开/收起都显示"查看详细错误" | 微 UX 完整性提升 | polish suggestion (烁烁书面建议) |
+
+**Deliberate defer 项**: 三个 polish suggestion 都来自跨族愿景守护猫主动提议，非 author 自埋"下次一定"尾巴。属于守护放行 + 后续自然 hotfix 触发范畴，不立 follow-up feat、不进 BACKLOG TD。
+
 ## CloseGateReport
 
-> 2026-05-27 — F212 close gate evidence pack。author 自检 + @gemini25 守护 input 凭据。
+```yaml
+close_gate_report:
+  feature_id: F212
+  spec_path: docs/features/F212-cli-error-diagnostics.md
+  head_sha: e93bd8bb2  # spec close 时 main HEAD (烁烁 sign-off 3c7a055a7 已 push)
+  report_date: 2026-05-27
+
+  ac_matrix:
+    # Phase A — Backend cliDiagnostics + Sanitizer
+    - { ac_id: AC-A1, status: met, evidence: [{ kind: pr, ref: "#1907", description: "cli-spawn __cliError → cliDiagnostics structured payload" }] }
+    - { ac_id: AC-A2, status: met, evidence: [{ kind: test, ref: "packages/api/test/sanitize-cli-stderr.test.js", description: "21 fuzz tests across 11 sanitizer categories" }] }
+    - { ac_id: AC-A3, status: met, evidence: [{ kind: test, ref: "sanitize-cli-stderr.test.js: AC-A3 critical truncation bypass test" }] }
+    - { ac_id: AC-A4, status: met, evidence: [{ kind: test, ref: "packages/api/test/cli-error-patterns.test.js", description: "9 reasonCodes + 27 classifier fixtures" }] }
+    - { ac_id: AC-A5, status: met, evidence: [{ kind: test, ref: "packages/api/test/cli-diagnostics.test.js: safeExcerpt only when reasonCode" }] }
+    - { ac_id: AC-A6, status: met, evidence: [{ kind: test, ref: "cli-diagnostics.test.js: panic frame stripping" }] }
+    - { ac_id: AC-A7, status: met, evidence: [{ kind: test, ref: "cli-diagnostics.test.js: formatCliStderrForLog LOG_CLI_STDERR gate" }] }
+    - { ac_id: AC-A8, status: met, evidence: [{ kind: test, ref: "cli-spawn.test.js + tmux-agent-spawner.test.js: stream error + nonJsonOutput buffer" }] }
+    - { ac_id: AC-A9, status: met, evidence: [{ kind: test, ref: "cli-spawn.test.js AC-A9 red line test" }] }
+
+    # Phase B — Frontend folded panel
+    - { ac_id: AC-B1, status: met, evidence: [{ kind: pr, ref: "#1915" }, { kind: test, ref: "useChatHistory-cli-diagnostics-hydration.test.ts (3 tests)" }, { kind: test, ref: "bubble-reducer.test.ts AC-B1 passthrough" }, { kind: test, ref: "route-serial-error-persistence.test.js P2-8 metadata persist (2 tests)" }] }
+    - { ac_id: AC-B2, status: met, evidence: [{ kind: test, ref: "CliDiagnosticsPanel.test.ts (10 tests)" }] }
+    - { ac_id: AC-B3, status: met, evidence: [{ kind: test, ref: "CliDiagnosticsPanel.test.ts AC-B3 + P1-2 + P2 membership guards" }] }
+    - { ac_id: AC-B4, status: met, evidence: [{ kind: doc, ref: "cli-reason-icons.tsx 9 Lucide-style SVGs + UnknownReasonIcon + ChevronDownIcon" }, { kind: test, ref: "CliDiagnosticsPanel.test.ts AC-B4 per-reasonCode aria-label" }] }
+    - { ac_id: AC-B5, status: met, evidence: [{ kind: doc, ref: "Phase A REASON_TEXT map (zh-CN); frontend renders pre-humanized payload only" }] }
+
+    # Phase C — Close + organic validation
+    - { ac_id: AC-C1, status: cvo_signed_off, evidence: [{ kind: message, ref: "0001779880784446-000335" }],
+        resolution: { kind: cvo_signoff, reason: "CVO directive 2026-05-27: production organic validation replaces manual alpha smoke",
+                      cvo_signoff: { proposal_message_id: "0001779880330086-000330",
+                                     cvo_message_id: "0001779880784446-000335",
+                                     cvo_quote: "测试我们可以等我之后重启 runtime 在使用过程中帮你测，自然而然发生",
+                                     accepted_scope: [AC-C1] } } }
+    - { ac_id: AC-C2, status: met, evidence: [{ kind: test, ref: "Phase A 40 unit fuzz (sanitize 21 + classifier 4 + diagnostics 15)" }],
+        resolution: { kind: delete, reason: "alpha 环境 fuzz 不再要求 — automated unit layer 已达 AC 强度。" } }
+    - { ac_id: AC-C3, status: met, evidence: [{ kind: commit, ref: "3c7a055a7", description: "烁烁 (@gemini25, 暹罗猫) cross-family vision guard sign-off pushed to main" }] }
+
+  reflection_capsule: docs/reflections/2026-05-27-f212-cli-error-diagnostics-capsule.md
+  harness_feedback: none
+  harness_feedback_reason: "F212 是普通后端+前端 feature，没改 harness/skill/MCP/shared-rules；无 trace anomaly；CVO 主动 directive 推进 organic validation 简化 close (vs CVO 不满意)；无抽样需求 — 教训通过 capsule + 3 个新 memory feedback 充分沉淀。"
+```
 
 ### AC 状态总览
 
