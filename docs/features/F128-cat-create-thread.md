@@ -12,7 +12,7 @@ community_pr: https://github.com/zts212653/clowder-ai/pull/85
 
 # F128: Cat-Proposed Thread Creation — 猫猫提议创建 Thread
 
-> **Status**: spec | **Source**: clowder-ai #82 (bouillipx) / PR #85 | **Priority**: P2
+> **Status**: in-progress | **Source**: clowder-ai #82 (bouillipx) / PR #85 | **Priority**: P2
 > **Design correction (2026-05-22)**: supersedes direct `cat_cafe_create_thread` with Proposal-First flow per ADR-035.
 
 ## Why
@@ -106,13 +106,13 @@ F128 遵循 ADR-035 Proposal-First Agent Actions：
 
 ### Phase B: 后端实现（clowder-ai#85 intake，2026-05-27）
 
-- [ ] AC-B1: `RedisProposalStore` implements create/get/listByUser/listPending/markApproved/markRejected with proper Redis indices
-- [ ] AC-B2: `POST /api/callbacks/propose-thread` creates proposal, does NOT create thread, returns `proposalId`, supports `clientRequestId` idempotency, enforces stale guard, validates parent ownership
-- [ ] AC-B3: `cat_cafe_propose_thread` MCP tool registered with strong description; old `cat_cafe_create_thread` removed
-- [ ] AC-B4: `POST /api/proposals/:id/approve` (user auth) creates thread, is idempotent on re-approve, rejects cross-user attempts (403), conflicts on already-rejected (409), applies user edits, posts initial message if provided, writes audit fields, emits both `thread_created` + `proposal_updated`
-- [ ] AC-B5: `POST /api/proposals/:id/reject` (user auth) is idempotent, conflicts on already-approved, writes audit, emits `proposal_updated`
-- [ ] AC-B6: `Proposal` schema in shared types matches the spec model above
-- [ ] AC-B7: Tests cover: cat auth happy path, stale guard, ownership rejection, idempotency, user approve happy path, double-approve idempotency, cross-user approve 403, approve-after-reject 409, reject happy path, reject-then-approve 409, edit-on-approve applied to created thread
+- [x] AC-B1: `RedisProposalStore` implements create/get/listByUser/listPending/markApproved/markRejected with proper Redis indices
+- [x] AC-B2: `POST /api/callbacks/propose-thread` creates proposal, does NOT create thread, returns `proposalId`, supports `clientRequestId` idempotency, enforces stale guard, validates parent ownership
+- [x] AC-B3: `cat_cafe_propose_thread` MCP tool registered with strong description; old `cat_cafe_create_thread` removed
+- [x] AC-B4: `POST /api/proposals/:id/approve` (user auth) creates thread, is idempotent on re-approve, rejects cross-user attempts (403), conflicts on already-rejected (409), applies user edits, posts initial message if provided, writes audit fields, emits both `thread_created` + `proposal_updated`
+- [x] AC-B5: `POST /api/proposals/:id/reject` (user auth) is idempotent, conflicts on already-approved, writes audit, emits `proposal_updated`
+- [x] AC-B6: `Proposal` schema in shared types matches the spec model above
+- [x] AC-B7: Tests cover: cat auth happy path, stale guard, ownership rejection, idempotency, user approve happy path, double-approve idempotency, cross-user approve 403, approve-after-reject 409, reject happy path, reject-then-approve 409, edit-on-approve applied to created thread
 
 ### Phase F: 前端实现
 
@@ -127,8 +127,8 @@ F128 遵循 ADR-035 Proposal-First Agent Actions：
 
 - [ ] AC-X1: All file sizes ≤ 350 lines (split routes/components if needed)
 - [ ] AC-X2: No `any` types
-- [ ] AC-X3: `MCP_TOOLS_SECTION` updated; `thread-orchestration` skill rewritten for propose-first
-- [ ] AC-X4: `pnpm check` + `pnpm lint` + all affected tests green
+- [x] AC-X3: `MCP_TOOLS_SECTION` updated; `thread-orchestration` skill rewritten for propose-first
+- [x] AC-X4: `pnpm check` + `pnpm lint` + all affected tests green
 
 ## Maintainer Review 结论（2026-03-19，已被 2026-05-22 产品修正补充）
 
