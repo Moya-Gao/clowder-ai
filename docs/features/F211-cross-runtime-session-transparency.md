@@ -8,7 +8,7 @@ created: 2026-05-24
 
 # F211: Cross-Runtime Session Transparency — Antigravity Session Chain + IDE Direct Registration
 
-> **Status**: doing | **Owner**: 缅因猫（砚砚） | **Priority**: P1
+> **Status**: done | **Owner**: 缅因猫（砚砚） | **Priority**: P1 | **Completed**: 2026-05-26
 
 Architecture cell: `identity-session` + `memory`
 Map delta: updated — F211 adds runtime session registration / cascade visibility as a first-class session boundary. `identity-session` owns session identity, external runtime anchor threads, registration, and cascade/session binding; `memory` consumes the resulting transcript/digest evidence. F209 remains retrieval-only.
@@ -429,6 +429,7 @@ in_context_observability:
 | 2026-05-26 | CVO live Antigravity/Bengal probe found three Phase D blockers: runtime was not restarted yet Bengal switched into a fresh/empty session; `cat_cafe_read_file_slice` is missing from Antigravity readonly allowlist and long F211 spec reads truncate; Bengal native L0 is not part of F211 implementation and must be tracked as F203/carrier follow-up while F211 records provider capability. |
 | 2026-05-26 | P1 allowlist follow-up merged via PR #1914：Antigravity bridge readonly allowlist now includes `cat_cafe_read_file_slice`; regression coverage proves file-slice drilldown delegates to the MCP readonly path instead of refusing into truncated IDE fallback reads. Merge commit `6d403db97`. |
 | 2026-05-26 | Phase D synthesis accepted from Opus46 + Gemini 3.5 Flash + Codex: no top-level `Session.kind`, cross-runtime capability table, F210 boundary declaration, F203 native-L0 defer, and F211-owned unexpected session-switch diagnostics. |
+| 2026-05-26 | Phase D merged via PR #1916：runtime sidecar summaries now surface in Session Chain API/UI, unexplained Antigravity runtime-session switches persist old/new linkage and explicit break reason, CLI compatibility tests pass, and F211 closes with Bengal native L0 correctly deferred to F203 / Antigravity carrier follow-up. Merge commit `8909f5221`. |
 
 ## Review Gate
 
