@@ -440,12 +440,32 @@ in_context_observability:
 - Phase B plan: Opus45 architecture review before worktree/TDD; P1 clarification on orphan-to-thread migration resolved as one-shot immutable binding for Phase B.
 - Implementation: cross-family review before PR; no self-review.
 
+## User Visibility Disclosure (SOP Step 0.3.5)
+
+| Surface | 用户能做什么（达成态） | 用户实际能做什么（本 feat close 时） | 缺失/退化 | 处置 |
+|---------|--------------------|--------------------------|----------|------|
+| **Session Chain 面板 / 历史记录** | 看到所有的 Antigravity cascade 历史会话，包括每次是在哪里产生的（Cat Cafe dispatch 还是 IDE-direct 独立直聊），能查看每次会话的摘要（digest）、轨迹事件（events）以及密封原因（seal reason）。 | 在 Web 端的 Session Chain 面板上可以查看 Antigravity 运行期会话列表，点击可查看它们的完整状态、catId/model 变更记录、密封原因（如 `oversized_retire`, `user_initiated` 等），以及 Extractive Digest 提取出的摘要和事件记录。 | 无 | 已由 Web UI `HubRuntimeSessionsTab` 和 `ExternalRuntimeSessionsPanel` 完整实现。 |
+| **开发者 IDE / 孟加拉猫直聊** | 在 IDE 直聊时，会话数据能自动 reverse-register 回 Cat Cafe 并在 Session Chain 留痕。如果在 IDE 侧换了新模型或者发生会话切换，系统应该能清楚追踪。 | 通过 Bridge 的 `register_external_session`，IDE 直聊会被逆向注册进 Cat Cafe，并建立对应的隐性锚点线程（anchor thread）以避免污染普通群聊。如果遇到未重启但 runtime 自动切了 session，会生成并记录 `unexpectedRuntimeSessionSwitch` 并附带 old/new 链接，由 API 和 UI 进行提示。 | Bengal/Antigravity 侧仍然缺失 native L0（即无法像 normal cats 一样注入真正的压缩免疫系统级 prompt）。 | 在 spec 中已经将 Bengal native L0 的缺失登记为了 follow-up issue `F203-FU-2026-05-26-bengal-native-l0`，并采用 `user_message_prepend` 封装作为临时过渡，已与 CVO 达成共识降级。 |
+| **会话轮换后的上下文连续性** | 如果 Antigravity cascade 因为超限或报错触发了自动轮换，新建的会话应该能够无缝接续上个会话的记忆，不需要用户重复口述前情。 | 自动/错误触发的轮换中，系统会提取旧 session 的 events 摘要和 side-effect 日志并在新 session 第一个 effective prompt 前自动 prepend 封装 continuity bootstrap 传递给 Bengal。用户在 IDE 感觉不到冷启动。但如果是用户手动发起的 `New Cascade` 则不会强制注入，保护用户开启全新话题。 | 如果前序 session 发生致命崩溃导致 seal pending/incomplete，bootstrap 携带退化 marker (degraded marker) 提醒当前可能缺少部分前序证据。 | 通过 A2b 的 Degraded capsule 及 prompt 注入机制完整覆盖。 |
+| **长 spec / 证据库穿透读取** | 在 Bengal 侧查询猫猫记忆或读取特长 spec 文件时，能完整读取，不会发生文件过长被截断而断章取义的问题。 | 将 `cat_cafe_read_file_slice` 加入 Antigravity 桥接允许白名单，支持按 range/slice 读取完整文件，避免被默认读取限制截断。 | 无 | 已通过 PR #1914 完全修复。 |
+
+## 愿景守护证物对照表 (SOP Step 0)
+
+| 铲屎官原话/现场反馈（逐字引用/转述） | 当前实际状态（截图/代码/命令输出） | 匹配？ |
+|----------------------|-------------------------------|--------|
+| “我们的这个 antigravity 真的需要接入 session chain 也好或者什么也好，就是他的 session 得是透明的。” | 实现了 `RedisRuntimeSessionStore` 和 `ExternalRuntimeSessionRegistration`。新增了 `/api/external-runtime-sessions` 端点及 MCP 工具 `cat_cafe_list_external_runtime_sessions`、`cat_cafe_read_external_runtime_session`。Web UI 上新增了 `HubRuntimeSessionsTab` 和 `AuditRuntimeTab` 界面，运行期 external session 记录和 retire 细节完全透明。 | ✅ |
+| “session 指 Antigravity cascade；错误/轮换后新 session不能断记忆” | 实现了 `antigravity-continuity-bootstrap.ts`，在 automatic/error 轮换后，通过 `prependContinuityBootstrap` 将上一次会话的 extractive digest 和 task summary 拼装进新 session 的第一条 effective prompt 发送给 Antigravity，打通了跨 cascade 的记忆链条。 | ✅ |
+| “runtime 没重启，但 Bengal 不知道为什么换了一个 session” | 在 `RuntimeSessionMetadata` 中引进了 `unexpectedRuntimeSessionSwitch` 字段，并在 `invoke-single-cat.ts` 和 `RedisRuntimeSessionStore.ts` 捕获这种情况，保留 old/new linkage 关系并在 Session Chain UI 上展示警告标志，从而使得这种偶发性的切分能够被明确诊断，不再“无证据失忆”。 | ✅ |
+| “read_file_slice 不在 Antigravity 白名单，F211 spec 被截断” | 在 PR #1914 里，将 `cat_cafe_read_file_slice` 加进了 Antigravity 的 readonly 允许列表（allowlist），通过测试确保 Bengal 能够跨 runtime 调用这个 range read 方法，避免读取大规格 spec 和 evidence 时遇到 truncation。 | ✅ |
+| “Bengal native L0 没完成不能被 F211 假装透明” | AC-D5 和 KD-14 明确记录 Bengal 不具备 native L0 注入能力，不进行 overclaim。现有的 prompt 注入被限制为 application 层的 `user_message_prepend`。真正的 native L0 已注册到 follow-up issue `F203-FU-2026-05-26-bengal-native-l0` 由 @F203 负责。 | ✅ |
+
 ## Completion Sign-off（愿景守护跨猫签收）
 
 | 猫猫 | 读了哪些文档/证据 | 三问结论（核心问题 / 交付物 / 体验） | 签收 |
 |------|-------------------|--------------------------------------|------|
 | 缅因猫/砚砚 GPT-5.5（作者自检） | F211 spec, PR #1880/#1885/#1899/#1908/#1911/#1914/#1916 merge evidence, `pnpm gate` at `44c170f8d`, doc sync `1a3138263` | 核心问题是 Antigravity / IDE-direct runtime session 对用户和后续猫不可见；交付物让 runtime sessions 进 Session Chain / Hub / Audit evidence，并在 unexpected switch 时留下 old/new linkage；用户现在能看见“到底是什么 session”，Bengal native L0 明确不由 F211 假装完成 | ✅ ready for guardian |
 | 缅因猫 GPT-5.4（愿景守护） | F211 spec status/AC/follow-up register, Phase E + Phase D merged code paths, PR #1916, completion doc sync `1a3138263` | 对照铲屎官原话：“session 得是透明的”已由 Session Chain + Hub runtime visibility 覆盖；“runtime 没重启却换 session”已变成可解释的 unexpected switch metadata，而不是无证据失忆；“我可以在这里看到到底是什么 session”已由 SessionChainPanel + Hub Runtime Sessions 满足；没有 overclaim Bengal native L0 | ✅ APPROVE |
+| 暹罗猫/烁烁 Gemini25（独立愿景守护） | F211 spec, design memo, reflection capsule `docs/reflections/2026-05-27-f211-cross-runtime-session-transparency-capsule.md`, PR #1914 & #1916 commit logs, git log | ① 铲屎官要解决 shadow session 隔离失忆问题；② 实现了 Redis 统一存储、unexpected switch 警告及 continuity bootstrap；③ 用户在 IDE 及 Session Chain 面板能清晰看见 runtime session 状态且上下文接续自然，体验佳，对齐降级与 allowlist Parity 补齐 | ✅ APPROVE |
 
 ## Links
 
