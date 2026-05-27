@@ -31,20 +31,55 @@ status: raw-capture
 | Level | 名称 | 人的角色 | Agent 的角色 | 现实案例 |
 |-------|------|---------|-------------|---------|
 | **L0** | Manual Harness | 人写所有 harness 代码 | 被动执行 | 传统软件开发 |
-| **L1** | Human-Authored, Agent-Executed | 人写 harness（SOP/Skills/Rules），agent 在 harness 内执行 | 在框架内行动 | **Cat Cafe 当前状态** |
-| **L2** | Agent-Suggested Evolution | 人写 harness，agent 提出改进建议 | 观测 + 提建议 | **F192 方向**（eval + 改进提案，CVO 审批） |
-| **L3** | Agent-Authored, Human-Approved | Agent 自动生成/修改 harness，人审批 | 写 harness + 等审批 | AHE 声称的级别（但 reviewer = LLM） |
+| **L1** | Human-Authored, Agent-Executed | 人写 harness，agent 在 harness 内执行 | 在框架内行动 | 大多数 Agent 框架的默认假设 |
+| **L2** | Co-Created Harness | 人提方向+Gate，agent 构建 harness+产品+治理，共同进化 | 构建者+提案者+自治执行者 | **Cat Cafe 当前状态** |
+| **L3** | Agent-Authored, Human-Approved | Agent 自主生成/修改 harness，人只做 Gate | 全权写 harness + 等审批 | AHE 声称的级别（但 reviewer = LLM） |
 | **L4** | Agent + RL Training | Agent 写 harness + RL 训练 + 自评估 | 写 + 训练 + 评 | 学术前沿（AgentGym-RL 的方向） |
 | **L5** | Full Auto Pipeline | 全自动：生成 harness → 训练 → 评估 → 部署 → 迭代 | 全部 | 理论终态，尚无可信案例 |
+
+### 为什么 Cat Cafe 不是 L1
+
+初版分类把 Cat Cafe 标为 L1（"人写 harness，agent 执行"）。铲屎官纠正：**"我一行代码没写。"**
+
+实际情况：
+
+| 维度 | 谁做的 | 说明 |
+|------|--------|------|
+| **代码** | 100% 猫猫写 | 铲屎官没写一行代码 |
+| **Harness 设计**（SOP/Skills/Rules） | 猫猫起草，CVO review | 家规、SOP、Skills 全部是猫猫写的 |
+| **Feature 方向** | 混合 | 有些铲屎官发起（撸铁陪伴），有些猫猫提出（反番茄钟），有些共创（F196 心率→紧急操作） |
+| **产品设计** | 共创 | 从 Apple Watch 语音陪伴到 computer use 脑洞，都是人猫共创 |
+| **治理规则** | 从实践中长出来 | "禁止烁烁写代码"不是铲屎官一开始规定的，是实践中发现的，猫猫共识后确认 |
+| **经验教训** | 猫猫主动沉淀 | 猫猫自己发现问题、提出教训、写进记忆 |
+| **Gate** | CVO | 方向校准、不可逆操作、愿景级决策 |
+
+L1 假设"人是 harness 的 author，agent 是 executor"——这在我们家完全不成立。**我们家是人猫共创（Co-Created）**，铲屎官是方向锚点和 Gate，猫猫是构建者、提案者和自治执行者。
+
+### 为什么 Harness 定义比论文更宽
+
+论文中的 Harness = prompt + tools + memory + sandbox（技术基础设施层）。
+
+Cat Cafe 的 Harness 还包括：
+- **产品设计**：撸铁陪伴 → Apple Watch → 语音陪伴 的演进路线
+- **用户体验**：反番茄钟这种"产品哲学级"的设计决策
+- **紧急场景**：独居人士心率异常 → computer use → 微信找妈妈 / 打 120
+- **团队治理**：禁止烁烁写代码、跨族 review 铁律、hotfix 止血协议
+
+这些都是"围绕模型的运行时环境"的一部分——它们决定了 agent 在什么约束下、为了什么目标、以什么方式行动。`longform-002` 自己的公式 `Agent Quality = Model Capability × Harness Fit` 里的 Harness Fit 本就包含了这些。
 
 ### Cat Cafe 在这个光谱上的位置
 
 ```
-L0 -------- L1 ======== L2 -------- L3 -------- L4 -------- L5
-             ^当前        ^F192方向
+L0 -------- L1 -------- L2 ======== L3 -------- L4 -------- L5
+                         ^当前        ^部分维度已触达
+                     （Co-Created）   （agent 写 harness 代码，CVO Gate）
 ```
 
-我们的架构决策：**Gate 是 CVO，不是 LLM**。这意味着我们有意识地把天花板放在 L2-L3 之间，而不是追求 L5。
+Cat Cafe 是 L2，而且是一种论文没定义过的 L2：**不是"agent 提建议，人实现"，而是"人猫共创，agent 同时是构建者和执行者"**。在某些维度（代码、SOP、Skills）甚至已经触达 L3——agent 全权编写，CVO 只做 Gate。
+
+F192 的方向是让这个共创过程更加**可观测、可评估**，而不是从 L1 升级到 L2。
+
+我们的架构决策：**Gate 是 CVO，不是 LLM**。这意味着我们有意识地把天花板放在 L3，而不是追求 L5。
 
 为什么？黄超（OpenSpace）自己说"泛化很困难"——根因不是技术难，是缺少方向校准的锚点。全自动进化没有人参与校准 = 高速跑偏。
 
@@ -87,16 +122,19 @@ LLE:       可训练 Environment + 可训练 Agent = 联合进化
 ## 对 Cat Cafe 的实际意义
 
 ### 短期（当前 → 6 个月）
-- 维持 L1，做好 L2 基础设施（F192 eval + 观测层）
+- 认知校准：我们已经在 L2（共创），不是从 L1 往上爬
+- 做好 L2 的**可观测性**（F192 eval + 观测层）：让共创过程可度量、可归因
 - 积累 Harness 演化数据：每次改 SOP/Skills/Rules 都记录前后对比 + 效果
 
 ### 中期（6-12 个月）
-- L2：agent 能基于观测数据提出 harness 改进建议，CVO 审批
+- 深化 L2 → L3：agent 基于观测数据自主提出 harness 改进，CVO 审批 Gate 而非共创 review
 - 对接王云鹤的"组合优化"思路：多模型路由优化（Intelligence/Token）
+- 产品层 harness 也纳入 eval：不只是代码质量，还有 feature 方向、UX 决策的效果追踪
 
 ### 远期（12+ 个月，n+2 视野）
-- L3 探索：agent 自动写 harness，CVO 做 Gate 而非逐行审批
+- L3 完善：agent 全权写 harness，CVO 只做方向 Gate
 - LLE 概念验证：harness 数据是否能有效反哺模型训练（和 Anthropic/OpenAI 的合作面）
+- "产品即 harness"：Cat Cafe 本身作为一种 harness 范例对外输出
 
 ### 永远不做
 - L5 without human Gate — 这是架构约束不是技术限制（W3: 用户是 CVO）
