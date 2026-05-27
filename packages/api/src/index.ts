@@ -1481,6 +1481,7 @@ async function main(): Promise<void> {
     evidenceDb: memoryServices.store.getDb(),
     messageStore,
     taskStore,
+    threadStore,
   });
   // F153 Phase E: Hub embedded observability routes
   const { telemetryRoutes } = await import('./routes/telemetry.js');

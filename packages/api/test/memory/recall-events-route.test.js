@@ -1,0 +1,177 @@
+/**
+ * F102 bugfix regression: /api/recall/events route — thread ownership guard
+ *
+ * Verifies:
+ * - 200: owner can read their thread's recall events
+ * - 403: non-owner is blocked
+ * - 404: non-existent thread returns 404
+ * - 503: missing threadStore returns 503 (fail-closed)
+ * - 400: missing threadId query param
+ * - 401: missing auth header
+ */
+import assert from 'node:assert/strict';
+import { afterEach, beforeEach, describe, it } from 'node:test';
+
+const AUTH_HEADER = { 'X-Cat-Cafe-User': 'user-owner' };
+
+describe('GET /api/recall/events — F102 ownership guard', () => {
+  let app;
+  let db;
+
+  beforeEach(async () => {
+    const Database = (await import('better-sqlite3')).default;
+    const Fastify = (await import('fastify')).default;
+    const schema = await import('../../dist/domains/memory/schema.js');
+    const { recallMetricsRoutes } = await import(`../../dist/routes/recall-metrics.js?v=${Date.now()}`);
+
+    db = new Database(':memory:');
+    db.exec('PRAGMA journal_mode = WAL');
+    db.exec(schema.SCHEMA_V1);
+    db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)').run(1, new Date().toISOString());
+    schema.applyMigrations(db);
+
+    // Seed a recall event owned by thread-owned
+    db.prepare(
+      `INSERT INTO recall_events
+        (recall_id, cat_id, invocation_id, tool_name, query, mode, scope,
+         candidates_json, consumed_json, reformulated, fell_back_to_grep,
+         abandoned, next_graph_resolve_after_read, token_cost, timestamp, thread_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      'r-1',
+      'opus',
+      'inv-1',
+      'search_evidence',
+      'F102',
+      'hybrid',
+      'docs',
+      JSON.stringify([{ anchor: 'F102', docKind: 'feature' }]),
+      '[]',
+      0,
+      0,
+      0,
+      0,
+      0,
+      1000,
+      'thread-owned',
+    );
+
+    // Mock threadStore
+    const threadStore = {
+      async get(threadId) {
+        if (threadId === 'thread-owned') return { id: 'thread-owned', createdBy: 'user-owner' };
+        if (threadId === 'thread-system') return { id: 'thread-system', createdBy: 'system' };
+        if (threadId === 'thread-other') return { id: 'thread-other', createdBy: 'user-other' };
+        return null;
+      },
+    };
+
+    app = Fastify({ logger: false });
+    await app.register(recallMetricsRoutes, { evidenceDb: db, threadStore });
+    await app.ready();
+  });
+
+  afterEach(async () => {
+    await app?.close();
+    db?.close();
+  });
+
+  it('200: owner gets their recall events', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/recall/events?threadId=thread-owned',
+      headers: AUTH_HEADER,
+    });
+    assert.equal(res.statusCode, 200, 'owner gets 200');
+    const body = res.json();
+    assert.ok(Array.isArray(body.events), 'events is an array');
+    assert.equal(body.events.length, 1, 'one recall event');
+    assert.equal(body.events[0].query, 'F102');
+    assert.equal(body.events[0].results[0].anchor, 'F102');
+  });
+
+  it('200: system-owned threads are accessible by any user', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/recall/events?threadId=thread-system',
+      headers: AUTH_HEADER,
+    });
+    assert.equal(res.statusCode, 200, 'system thread accessible');
+  });
+
+  it('403: non-owner is blocked', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/recall/events?threadId=thread-other',
+      headers: AUTH_HEADER,
+    });
+    assert.equal(res.statusCode, 403, 'non-owner gets 403');
+    const body = res.json();
+    assert.equal(body.error, 'Forbidden');
+  });
+
+  it('404: non-existent thread', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/recall/events?threadId=thread-nonexistent',
+      headers: AUTH_HEADER,
+    });
+    assert.equal(res.statusCode, 404, 'missing thread gets 404');
+  });
+
+  it('400: missing threadId query param', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/recall/events',
+      headers: AUTH_HEADER,
+    });
+    assert.equal(res.statusCode, 400, 'missing threadId gets 400');
+  });
+
+  it('401: missing auth header', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/recall/events?threadId=thread-owned',
+    });
+    assert.equal(res.statusCode, 401, 'no auth gets 401');
+  });
+});
+
+describe('GET /api/recall/events — fail-closed without threadStore', () => {
+  let app;
+  let db;
+
+  beforeEach(async () => {
+    const Database = (await import('better-sqlite3')).default;
+    const Fastify = (await import('fastify')).default;
+    const schema = await import('../../dist/domains/memory/schema.js');
+    const { recallMetricsRoutes } = await import(`../../dist/routes/recall-metrics.js?v=${Date.now()}`);
+
+    db = new Database(':memory:');
+    db.exec('PRAGMA journal_mode = WAL');
+    db.exec(schema.SCHEMA_V1);
+    db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)').run(1, new Date().toISOString());
+    schema.applyMigrations(db);
+
+    // Register WITHOUT threadStore — should fail-closed
+    app = Fastify({ logger: false });
+    await app.register(recallMetricsRoutes, { evidenceDb: db });
+    await app.ready();
+  });
+
+  afterEach(async () => {
+    await app?.close();
+    db?.close();
+  });
+
+  it('503: no threadStore = service unavailable (fail-closed)', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/recall/events?threadId=thread-any',
+      headers: AUTH_HEADER,
+    });
+    assert.equal(res.statusCode, 503, 'missing threadStore returns 503');
+    const body = res.json();
+    assert.equal(body.error, 'Thread store unavailable');
+  });
+});
