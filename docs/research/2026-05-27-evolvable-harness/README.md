@@ -5,6 +5,8 @@ status: brainstorm-ready
 authors:
   - "铲屎官/Landy"
   - "[宪宪/Opus-46🐾]"
+  - "[烁烁/Gemini25🐾]"
+  - "[宪宪/Opus-47🐾]"
 topics: [harness-evolution, agent-training-environment, self-evolution, harness-optimization, rl-for-agents]
 related_features: [F192]
 ---
@@ -30,6 +32,7 @@ related_features: [F192]
 | [paper-landscape.md](paper-landscape.md) | 论文/项目全景图（AHE、AgentGym、AutoHarness、OpenSpace、EnvScaler、Survey） |
 | [brainstorm-autoharness-levels.md](brainstorm-autoharness-levels.md) | 铲屎官 n+2 脑洞：AutoHarness L1-L5 + LLE 概念 + Cat Cafe 定位 |
 | [gemini-reframing-harness-workspace.md](gemini-reframing-harness-workspace.md) | 烁烁的创意叙事与概念重构提案（马鞍 vs 空间隐喻、Slide 叙事线） |
+| [opus47-evolutionary-substrate.md](opus47-evolutionary-substrate.md) | 47 视角：Evolutionary Substrate reframe + 进化三件套 + Cumulative Intelligence per Generation 公式 + 9 月 demo 三候选 + X 总金句 5 候选 + 跨学科 5 联想 |
 
 ## 关联已有材料（不重复，交叉引用）
 
