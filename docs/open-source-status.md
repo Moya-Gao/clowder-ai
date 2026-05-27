@@ -330,23 +330,23 @@ created: 2026-03-12
 
 验证结果：`bash -n` / `perl -c` / dry-run 全部通过。
 
-### 仍 OPEN 的社区 PR（2 个）
+### 社区 PR 盘点（#85 于 2026-05-27 校准）
 
 | PR | 作者 | 内容 | 状态 |
 |----|------|------|------|
 | #113 | mindfn | Windows 一键部署 (F113) | HOLD — 社区开发中 |
-| #85 | bouillipx | cat_cafe_create_thread MCP 工具 (F115) | bouillipx 在做完整版本，到时候我们 review + 优化 |
+| #85 | bouillipx | `cat_cafe_propose_thread` proposal-first thread creation (F128) | ✅ merged 2026-05-27, squash `a1c44a8`, closes #82 |
 
-### Triaged Issue 盘点（8 个 OPEN — 全部"还没做"）
+### Triaged Issue 盘点（历史列表，#82 于 2026-05-27 校准）
 
-> 更新: 2026-03-17 Round 3 | 最后全量同步: PR #118 (2026-03-17, commit 0a43ca11)
-> 结论：无"同步了没关"的遗漏，8 个全是还没在家里实现的
+> 更新: 2026-05-27: #82 已按 PR #85 merge 结果校准；其余条目仍沿用 2026-03-17 Round 3 快照。
+> 最后全量同步: PR #118 (2026-03-17, commit 0a43ca11)
 
 | Issue | 标题 | 标签 | 家里状态 | 处理建议 |
 |-------|------|------|---------|---------|
 | #14 | Windows/Linux/Mac 裸机支持 | F113 | 未做 | 社区 PR #113 在做 (mindfn) |
 | #64 | Windows CLI spawn ENOENT | F113,bug | 未做 | F113 子任务 |
-| #82 | 猫创建 thread API | question | 未做 | bouillipx 在做完整版 (PR #85) |
+| #82 | 猫提议创建 thread | enhancement,accepted,feature:F128 | F128 spec 已在家里；实现待 intake 决策 | ✅ clowder-ai PR #85 已合入并自动关闭 |
 | #84 | setCatStatus 高频爆栈 | bug | **✅ 已修** | PR #527 merged (idempotent guard, 2026-03-17) |
 | #88 | UX 术语暴露 | enhancement | 未做 | 前端术语规范，不紧急 |
 | #92 | Windows 侧栏 UI 差异 | F113 | 未做 | 跟随 F113 |
@@ -469,26 +469,24 @@ created: 2026-03-12
 - JSX 格式化 → **lint/prettier 自动修复**，下次同步会自动处理
 - setup.sh → 与 PR #73 冲突，需要合并考虑
 
-#### PR #85 — cat_cafe_create_thread MCP 工具 (bouillipx, 8 files) — 🟡 需要讨论
+#### PR #85 — `cat_cafe_propose_thread` proposal-first thread creation (bouillipx) — ✅ 已合入 clowder-ai
 
-**做了什么**：完整的 F115 实现：
-1. 新增 `callback-create-thread-routes.ts`：POST /api/callbacks/create-thread
-2. 新增 MCP 工具 `cat_cafe_create_thread` in callback-tools.ts
-3. SystemPromptBuilder 增加工具描述
-4. callbacks.ts 注册路由
-5. tool-registration.test.js 更新
-6. 新增 callback-create-thread.test.js（6 个测试）
-7. 新增 docs/features/F115-cat-create-thread.md spec
-8. 新增 BACKLOG.md（开源版用）
+**状态**：merged 2026-05-27，squash commit `a1c44a8`，关闭 #82。最终 reviewed head 为 `6d6a2088`，CI 5/5 green，Opus maintainer review 已 APPROVE。
 
-**家里现状**：`cat_cafe_create_thread` **不存在**（grep 无结果）。callback-create-thread-routes.ts **不存在**。
+**做了什么**：F128 v2 proposal-first 实现，替代旧 direct-create 方向：
+1. 新增 `cat_cafe_propose_thread` MCP callback tool，只创建 proposal，返回 `proposalId`，不返回 `threadId`
+2. 新增 proposal store / callback route / approve-reject API / WebSocket proposal update
+3. 前端新增 `ProposalCard`，用户可编辑、批准创建或驳回
+4. approve 使用用户身份，创建 thread 后写入 audit 字段并更新 proposal 状态
+5. 删除旧 `cat_cafe_create_thread` 工具注册和 direct-create 路径
+6. F128 spec / ROADMAP / feature index 已按 proposal-first 更新
+
+**家里现状**：F128 spec 已存在；实现仍需走 intake 决策，不能按旧 `cat_cafe_create_thread` 记录判断。
 
 **判断**：
-- 这是一个完整的新功能（F115），代码质量高，有 spec + 测试 + 完整路由
-- **但**：这是功能性新增而非 bug fix，需要铲屎官决策是否引入
-- BACKLOG.md 文件不应该 merge（开源版用 ROADMAP.md，且我们家里有 docs/BACKLOG.md）
-- **风险**：猫可以无限制创建 thread，没有 rate limiting
-- **建议**：有价值但需要铲屎官立项决策，不宜静默 intake
+- 旧方向“猫直接创建 thread”已废弃
+- 新方向“猫提议、铲屎官在卡片里编辑/批准/驳回、批准后才创建 thread”已被接受并合入开源仓
+- 下一步如需回流家里，应按 open-source intake 流程逐 file 决策，不做整包覆盖
 
 #### PR #107 — Proxy 上游弹性 (bouillipx, 2 files) — ✅ 已关闭（家里已有等效实现）
 
