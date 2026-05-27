@@ -1431,6 +1431,7 @@ Knowledge Feed（Phase H）从 Workspace "知识模式"迁移到 `/memory` Tab 1
 | 2026-04-15 | 晚间猫粮复测（`F148` 深术语样本）—— message-level raw 表现好；docs summary 对深实现名词仍弱。后续 benchmark 调整为固定回归 + seeded 随机 feature 抽样 + query 扰动，防 query 过拟合 |
 | 2026-04-16 | **PR #1204 squash merged** — docs scope filter tightened: exclude `thread/session` digests while keeping file-backed `discussion` docs |
 | 2026-04-29 | RecallFeed dogfood bug：`search_evidence` 实际有结果但 UI 显示 `0 hits` / 无结果。根因是 `[variant=...]` 头部解析缺口 + 并发 tool_use/tool_result 相邻配对假设；登记 bug report：[`2026-04-29-f102-recall-feed-hits-zero`](../bug-report/2026-04-29-f102-recall-feed-hits-zero/bug-report.md) |
+| 2026-05-27 | **PR #1923 squash merged** — RecallFeed persistence bugfix: recall events disappeared after page refresh due to `HISTORY_PAGE_SIZE=50` truncation. Fix: V25 migration adds `thread_id` to `recall_events` + backfill from `task_trajectories`; new `/api/recall/events` endpoint with fail-closed ownership guard; `useRecallEvents` hook now merges live toolEvents + persistent API history with dedup. 砚砚 review 2 轮 APPROVE，18 regression tests |
 
 ## Known Issues（铲屎官 2026-04-01 Report）— ✅ 已全部修复 (PR #908)
 
