@@ -199,9 +199,9 @@ Phase E 将 F192 从单域试点提升为横切的 Harness Eval Control Plane：
 
 依赖：#748（cat-cafe）已由 F203 PR #1868 落地（`SopDefinition` + predicate-backed `hard_rules/pitfalls`）；与 E-hub / E-scale / E-community 可并行（不依赖 UI / memory adapter / community path），但按 PR packaging 决策排在 E-hub / E-scale 后，降低控制面并发改动风险。
 
-#### E-community
-- [ ] AC-E14: Community path：支持社区实例把本地 eval finding 导出为脱敏 issue packet；也支持社区项目注册自有 eval domain，不 fork Cat Café core
-- [ ] AC-E15: Community dogfood：至少 1 个 sanitized issue packet fixture + 1 个 custom domain fixture 通过 schema validation
+#### E-community ✅
+- [x] AC-E14: Community path：支持社区实例把本地 eval finding 导出为脱敏 issue packet；也支持社区项目注册自有 eval domain，不 fork Cat Café core
+- [x] AC-E15: Community dogfood：至少 1 个 sanitized issue packet fixture + 1 个 custom domain fixture 通过 schema validation
 
 ## 需求点 Checklist
 
@@ -214,7 +214,7 @@ Phase E 将 F192 从单域试点提升为横切的 Harness Eval Control Plane：
 | R5 | "verdict → handoff 要不要结构化，必须带证据包" | AC-E3 | schema validation rejects incomplete packet | [ ] |
 | R6 | "诊断 / eval 结果需要一个看板，叫 Eval Hub" | AC-E9, AC-E10 | Eval Hub screenshot / API response | [x] |
 | R7 | "接入完成得清理遗留定时任务，避免双触发" | AC-E6, AC-E13 | scheduled task inventory + dry-run migration report | [x] |
-| R8 | "社区小伙伴发现自己的场景有掉球，也能提 issue / 接自己的项目 eval" | AC-E14, AC-E15 | sanitized issue packet fixture + custom domain fixture | [ ] |
+| R8 | "社区小伙伴发现自己的场景有掉球，也能提 issue / 接自己的项目 eval" | AC-E14, AC-E15 | sanitized issue packet fixture + custom domain fixture | [x] |
 
 ### 覆盖检查
 - [ ] 每个需求点都能映射到至少一个 AC
@@ -456,6 +456,7 @@ Based on the first micro fit digest (2026-05-11):
 | 2026-05-24 | Phase E-scale merged (PR #1879, squash `025ed939`) — `eval:memory` adapter (F200 RecallMetrics + F188 LibraryHealth → VerdictHandoffPacket), multi-domain read model, bidirectional jump links (Eval Hub ↔ Memory Health), and legacy task inventory/dry-run. AC-E11/E12/E13 complete; Phase E remains open for E-sop / E-community. |
 | 2026-05-27 | Eval pipeline livefix merged (PR #1913, squash `9ed3b400`) — Fixed 4 CVO dogfood bugs (OQ-16/17/18/19): Thread.systemKind sidebar visibility, Hub all-domains read model, eval-domain-daily cron registration + legacy double-trigger guard, system thread indexForUser for user sidebar. Cloud review found + fixed P1 (thread user indexing) and P2 (cron timezone UTC). |
 | 2026-05-27 | Phase E-sop merged (PR #1917, squash `b3ddf5bc`) — `eval:sop` domain-generic SOP compliance evaluator: SOP trace adapter, 7-type predicate evaluator, verdict handoff with three-tier rule-owner resolution (explicit resolver > session author > domain fallback), re-eval closure, cross-domain schema validation (3 stub YAMLs), `development.yaml` first domain + weekly scheduled task registration. 砚砚 R5 review pass (0 P1/P2) + cloud review R2 pass (P2 downgraded P3). AC-E16 through AC-E24 complete; Phase E remains open for E-community. |
+| 2026-05-27 | Phase E-community merged (PR #1920) — SanitizedIssuePacket schema + sanitize export (AC-E14), CommunityEvalDomainEntry schema + filesystem loader, community fixtures + validation tests (AC-E15). Cloud review 5 rounds: fixed dailyTrend key scrub (P1), slash-delimited ref + attribution prefix scrub (P1), key collision disambiguation + cross-record stable mapping (P2). 砚砚 R7 放行 + 25/25 tests. AC-E14/E15 complete; **Phase E complete**. |
 
 ## Review Gate
 
