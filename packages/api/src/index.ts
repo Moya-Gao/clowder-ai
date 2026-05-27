@@ -1914,6 +1914,7 @@ async function main(): Promise<void> {
     messageStore,
     transcriptReader,
     sessionSealer,
+    runtimeSessionStore,
   });
   await app.register(sessionTranscriptRoutes, { sessionChainStore, threadStore, transcriptReader });
   await app.register(externalRuntimeSessionsRoutes, { sessionChainStore, runtimeSessionStore, threadStore });
