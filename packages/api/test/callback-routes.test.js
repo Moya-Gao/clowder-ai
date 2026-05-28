@@ -965,8 +965,20 @@ describe('Callback Routes', () => {
     assert.equal(body.messages[0].contentBlocks.length, 2);
     assert.equal(body.messages[0].contentBlocks[1].type, 'image');
     assert.equal(body.messages[0].contentBlocks[1].url, '/uploads/1234567890-abc.png');
+    // F211 BUG1 fix: imagePaths should contain resolved absolute filesystem paths
+    assert.ok(body.messages[0].imagePaths, 'imagePaths should be present for image messages');
+    assert.equal(body.messages[0].imagePaths.length, 1);
+    assert.ok(
+      body.messages[0].imagePaths[0].endsWith('1234567890-abc.png'),
+      `imagePath should end with filename, got ${body.messages[0].imagePaths[0]}`,
+    );
+    assert.ok(
+      body.messages[0].imagePaths[0].startsWith('/'),
+      `imagePath should be absolute, got ${body.messages[0].imagePaths[0]}`,
+    );
     // Message without contentBlocks should not have the field
     assert.equal(body.messages[1].contentBlocks, undefined);
+    assert.equal(body.messages[1].imagePaths, undefined);
   });
 
   // ---- F-Swarm-6: Cross-thread context read ----

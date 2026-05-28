@@ -317,7 +317,12 @@ describe('AntigravityBridge session persistence (G0)', () => {
     assert.equal(stored['thread-x'], 'replacement-cascade', 'file should contain updated mapping');
   });
 
-  test('F211 A1: optional runtime session store is DI-only and does not write on current session paths', async () => {
+  test('F211 BUG3 P2: bridge first-creation defers to syncAntigravityRuntimeMetadata, no provisional record', async () => {
+    // Cloud Codex review P2: provisional bridge-created records with randomUUID sessionId
+    // cause ghost entries because syncAntigravityRuntimeMetadata later upserts under the
+    // real SessionRecord.id but cannot cleanly seal the provisional (updateLifecycle→upsert
+    // overwrites the runtimeIndex). Solution: bridge does NOT persist first-creation;
+    // syncAntigravityRuntimeMetadata at session_init time creates the binding with the real id.
     const storePath = tempStorePath();
     cleanupPaths.push(storePath);
     const runtimeSessionStore = createRuntimeSessionStoreProbe();
@@ -334,9 +339,10 @@ describe('AntigravityBridge session persistence (G0)', () => {
 
     assert.equal(bridge.getRuntimeSessionStoreForDiagnostics(), runtimeSessionStore);
     assert.equal(await bridge.getOrCreateSession('thread-f211', 'antig-opus'), 'cascade-f211');
-    await bridge.resetSession('thread-f211', 'antig-opus');
 
-    assert.equal(runtimeSessionStore.upsert.mock.callCount(), 0, 'A1 must not write runtime metadata from Bridge');
+    // Bridge must NOT persist first-creation — syncAntigravityRuntimeMetadata handles it
+    assert.equal(runtimeSessionStore.upsert.mock.callCount(), 0, 'bridge must not write provisional runtime metadata');
+    await bridge.resetSession('thread-f211', 'antig-opus');
   });
 
   test('F211 A2 Task 4: runtime store active binding wins over JSON mapping', async () => {

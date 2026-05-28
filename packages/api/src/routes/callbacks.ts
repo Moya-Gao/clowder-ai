@@ -20,6 +20,7 @@ import type { InvocationTracker } from '../domains/cats/services/agents/invocati
 import { MessageDeliveryService } from '../domains/cats/services/agents/invocation/MessageDeliveryService.js';
 import { getRichBlockBuffer } from '../domains/cats/services/agents/invocation/RichBlockBuffer.js';
 import { stampVisibleTurn } from '../domains/cats/services/agents/invocation/visible-turn.js';
+import { extractImagePaths } from '../domains/cats/services/agents/providers/image-paths.js';
 import { analyzeA2AMentions } from '../domains/cats/services/agents/routing/a2a-mentions.js';
 import { resolveCatTarget } from '../domains/cats/services/agents/routing/cat-target-resolver.js';
 import { extractRichFromText } from '../domains/cats/services/agents/routing/rich-block-extract.js';
@@ -45,6 +46,7 @@ import { buildThreadDeepLink } from '../infrastructure/connectors/connector-comm
 import { createModuleLogger } from '../infrastructure/logger.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 import { scoreKeywordRelevance, tokenizeKeyword } from '../utils/keyword-relevance.js';
+import { getDefaultUploadDir } from '../utils/upload-paths.js';
 import { getFeatureTagId } from './backlog-doc-import.js';
 import { enqueueA2ATargets, triggerA2AInvocation } from './callback-a2a-trigger.js';
 import {
@@ -1672,19 +1674,27 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       }
     }
 
+    // F211 BUG1 fix: resolve /uploads/ relative image URLs to absolute paths
+    // so external runtimes (Antigravity/Bengal) can access image files.
+    const uploadDir = getDefaultUploadDir(process.env.UPLOAD_DIR);
+
     return {
       // TD091: echo threadId so cats know which thread they're in
       threadId: effectiveThreadId,
-      messages: filtered.map((item) => ({
-        id: item.id,
-        userId: item.userId,
-        catId: item.catId,
-        content: item.content,
-        ...(item.contentBlocks ? { contentBlocks: item.contentBlocks } : {}),
-        timestamp: item.timestamp,
-        // F148 Phase B (AC-B2): include relevance score when keyword search is active
-        ...(keywordTerms.length > 0 ? { relevanceScore: scoreKeywordRelevance(item.content, keywordTerms) } : {}),
-      })),
+      messages: filtered.map((item) => {
+        const imagePaths = extractImagePaths(item.contentBlocks, uploadDir);
+        return {
+          id: item.id,
+          userId: item.userId,
+          catId: item.catId,
+          content: item.content,
+          ...(item.contentBlocks ? { contentBlocks: item.contentBlocks } : {}),
+          ...(imagePaths.length > 0 ? { imagePaths } : {}),
+          timestamp: item.timestamp,
+          // F148 Phase B (AC-B2): include relevance score when keyword search is active
+          ...(keywordTerms.length > 0 ? { relevanceScore: scoreKeywordRelevance(item.content, keywordTerms) } : {}),
+        };
+      }),
       ...(workflowSop ? { workflowSop } : {}),
     };
   });
