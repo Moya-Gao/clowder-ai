@@ -174,20 +174,88 @@ python -m skillopt_webui.app --port 7860
 
 ---
 
-## 与 Cat Café 的关联思考
+## Cat Café 观察：成本模型 + 工业落地评估（2026-05-28 圆桌）
 
-Cat Café 已有 `self-evolution` skill 和 Skill 体系（`cat-cafe-skills/`），SkillOpt 的思路有几个直接关联点：
+### 两类成本拆分
 
-1. **Skill 文档就是"权重"** — 我们的 `SKILL.md` 文件本质上就是 SkillOpt 说的 "trainable state"
-2. **Trajectory-driven** — 我们有 session events / memory 系统记录执行轨迹，理论上可以作为 rollout data
-3. **Validation gate** — 我们的 quality-gate + review 体系是人工版本的 validation gate
-4. **跨模型迁移** — 我们多猫多模型的架构天然需要 skill 跨模型复用
-5. **最终产出 = .md 文件** — 和我们的 skill 产出形态完全一致
+SkillOpt 的训练成本分两块，铲屎官一语道破：
 
-**值得深入调研的问题**：
-- SkillOpt 的 optimizer model 和 target model 分离设计，对我们 self-evolution 的启发
-- Rejected-edit buffer（负反馈记忆）机制能否融入我们的 lessons-learned 体系
-- Textual learning rate 的概念——我们现在的 skill 更新是全量重写，能否引入渐进式编辑
+| 角色 | 干什么 | 调用量 | 成本驱动因素 |
+|---|---|---|---|
+| **Target model**（被训练的执行任务模型） | 跑任务、收集轨迹 | ~960 次/训练 | 选贵模型（Opus）= 💸💸💸 |
+| **Optimizer model**（打分+分析+提编辑） | 分析轨迹、提改进建议 | ~24 次/训练 | 需要强推理能力，不能太弱 |
+
+### 按 benchmark 复杂度的成本估算
+
+| Benchmark | 单次 rollout 成本 | 960 rollouts 总成本 | 用 Opus 的成本 |
+|---|---|---|---|
+| SearchQA（简单 QA）| ~$0.02 | ~$20 | ~$60 |
+| SpreadsheetBench（表格操作）| ~$0.10 | ~$100 | ~$300 |
+| **SWE-bench**（真实 GitHub issue）| ~$2-5 | ~$3000 | ~**$10,000+** |
+| **Terminal-Bench**（终端复杂操作）| ~$1-3 | ~$1500 | ~$5,000 |
+| **我们的日常**（写 PR/review/多猫协作）| 无法自动评分 | N/A | N/A |
+
+> 铲屎官原话："谁！有钱！用！你这只！大尾巴！布偶猫！Opus！来跑这个！"
+> — 确实，Opus input $15/M tokens，跑 SWE-bench 级别的训练循环 = 烧钱行为。
+
+### Benchmark 复杂度光谱 vs SkillOpt 实测范围
+
+SkillOpt 只测了学术 benchmark（⭐-⭐⭐⭐），没碰工业级复杂任务（⭐⭐⭐⭐+）：
+
+| Benchmark | 复杂度 | 有自动评分 | SkillOpt 测了 |
+|---|---|---|---|
+| SearchQA / DocVQA | ⭐-⭐⭐ | ✅ | ✅ |
+| ALFWorld / SpreadsheetBench | ⭐⭐-⭐⭐⭐ | ✅ | ✅ |
+| SWE-bench（真 GitHub issue） | ⭐⭐⭐⭐ | ✅（测试套件） | ❌ |
+| Terminal-Bench | ⭐⭐⭐⭐ | ✅ | ❌ |
+| WebArena（真实网页操作） | ⭐⭐⭐⭐⭐ | ✅ | ❌ |
+| Cat Café 日常（PR/review/多猫协作） | ⭐⭐⭐⭐⭐⭐ | ❌ | ❌ |
+
+但值得注意：**有人已在硬 benchmark 上做了类似的事**——
+- 复旦 AHE 在 Terminal-Bench 上用 GPT-5.4 跑出 69.7% → 77.0%（10 轮迭代）
+- SWE-bench 从 6.7% → 68.3%，**纯靠换 harness，模型没变**
+
+这说明"文档/配置 = 可训练权重"的思路在复杂任务上也成立，但成本是主要瓶颈。
+
+### 工业落地判断
+
+| 维度 | 学术论文 | 工业现实 |
+|---|---|---|
+| 评分 | 有标准答案，自动打分 | 开放式任务无标准答案 |
+| 环境 | 固定 benchmark，可重复 | 每次都不一样 |
+| 成本 | 论文不算钱 | 一个 skill $3000-5000 |
+| 迭代速度 | 4 epoch 搞定 | 真实 skill 要持续共进化 |
+| Skill 粒度 | 单任务单 skill | Cat Café 是 40 个 skill chain |
+
+**结论**：SkillOpt 原版是"学术漂亮，工业头秃"。但三个机制值得偷：
+1. **Trajectory-driven edit** — 用真实 session events，不用造 benchmark
+2. **Negative buffer** — 记住坏改法防重复犯错（我们的 MEMORY.md feedback 是原始形态）
+3. **Validation gate** — 改 skill 后验证（我们的 self-evolution Mode C smoke/promotion gate）
+
+### 与 Cat Café 的映射
+
+| SkillOpt 概念 | Cat Café 已有对应 | 差距 |
+|---|---|---|
+| Skill 文档 = 可训练权重 | `cat-cafe-skills/*/SKILL.md`（40+ 个） | ✅ 直接映射 |
+| Rollout 轨迹数据 | Session events / memory 系统 | ✅ 有但格式不同 |
+| Optimizer model | 无（目前 skill 编辑是猫手动写的） | 🟡 可加 |
+| Validation gate | quality-gate + self-evolution smoke/promotion gate | ✅ 有但人工驱动 |
+| Negative buffer | MEMORY.md feedback 条目 | ✅ 原始形态 |
+| Learning rate | 无（全量重写） | 🟡 可加渐进式编辑 |
+| 跨模型迁移 | 多猫多模型天然需要 | ✅ |
+| Skill chain 优化 | manifest.yaml `next` 链 | ❌ SkillOpt 没做 |
+
+### 最现实的落地路径
+
+不复现 SkillOpt 论文（烧钱 + 学术 benchmark 无意义），而是嫁接三个机制到我们已有体系：
+- 用 **真实 session events + lessons-learned** 替代昂贵的 rollout（数据免费）
+- 用 **人工 validation gate**（铲屎官/reviewer 猫）替代自动评分（可靠性高）
+- 引入 **negative buffer** 防止 skill 编辑重复犯错
+- 长期可探索 **skill chain 端到端优化**（SkillOpt 未做，我们有差异化空间）
+
+### 同赛道对比（另见 MUSE-Autoskill）
+
+字节 ByteBrain 团队同期发了 MUSE-Autoskill（arXiv:2605.27366），走的是 lifecycle 路线而非 DL 类比路线。详见 `../2026-05-28-bytedance-muse-autoskill/README.md`。
 
 ---
 
