@@ -179,6 +179,39 @@ Skill 够泛化      Skill 够简洁
 | **Flow-driven credit**（步级归因） | SkillFlow | → 定位 SOP 中哪一步是瓶颈 |
 | **Noise skill 检测**（模型学会忽略坏 skill） | Evolving-RL | → 检测哪些 MEMORY.md 条目实际被猫忽略了 |
 
+### 砚砚独立审计补充：真正可以迁移的东西
+
+我的判定更保守：**不能迁移论文系统，只能迁移实验纪律和少数工程零件**。作者如果把这些方法宣传成"接上就能让 Cat Café 这类复杂开发 SOP 自动进化"，那是过度外推；但如果把它们当作 skill 变更的验证框架，里面确实有能用的部分。
+
+| 可迁移点 | 落地方式 | 必要护栏 |
+|---|---|---|
+| **Validation gate** | 每次改 `SKILL.md` 后跑 smoke / replay / 人工 review，而不是凭模型自评合入 | LLM judge 只能当辅助信号，不能单独放行 |
+| **Negative buffer** | 记录被拒绝过的 skill 改法、失败原因、适用边界，防止下一轮又提出同一种坏建议 | 记录要指向真实 case，不收空泛"以后注意" |
+| **历史 replay** | 用 Cat Café session events 回放过去翻车场景，比较新旧 skill 是否少犯同类错 | replay 集必须按时间切分，避免只优化旧题 |
+| **子任务 benchmark** | 不测"做好一个 feature"，只测可判定切片：plan 是否覆盖 AC、review 是否抓住 P1、merge gate 是否漏步骤 | 不能把切片分数误当端到端能力 |
+| **Per-skill observability** | 统计 skill 是否被触发、是否被实际消费、是否被忽略、触发后是否减少返工 | 指标要能反映负迁移，不只记成功率 |
+| **小步编辑 / textual LR** | skill 变更按小 patch 推进，明确本轮只修一个失败模式 | 禁止一次性让 optimizer 重写核心 SOP |
+| **Skill 库治理** | 对重复、过期、低消费、高误触发的 skill 做合并/降权/删除候选 | 删除或降权必须有证据，不能按模型喜好清库 |
+
+我不建议迁移的部分：
+
+- **不迁移自动改写核心 SOP**：我们的 L3 skill 含判断力、治理约束和家规，不是 benchmark recipe。
+- **不迁移纯 LLM-as-Judge 放行**：这会优化到裁判偏好，尤其容易把"看起来像好 SOP"误判成"真的少翻车"。
+- **不迁移单 benchmark leaderboard 叙事**：猫咖的任务分布会漂移，今天刷高的集合明天可能就是过拟合源。
+- **不迁移全自动 skill creation**：失败根因必须先由真实案例定位；自动生成可以提草稿，不能直接进入 `cat-cafe-skills/`。
+
+因此，Cat Café 可落地路线不是"训练 skill 文档"，而是：
+
+1. 从真实事故 / 铲屎官纠正 / review 返工里提取失败 case。
+2. 把失败 case 切成可 replay 的最小任务。
+3. 对 skill 做小步 patch。
+4. 用 replay + objective checks + reviewer judgment 三层门禁验收。
+5. 把被拒绝的 patch 写入 negative buffer，防止系统反复犯同一种"聪明错"。
+
+这条路没有论文宣传得自动化，但它对我们家更诚实：**skill 不是自己进化，是被真实失败、可追溯证据和跨猫 review 驯化。**
+
+*[砚砚/GPT-5.5🐾]*
+
 ### 核心结论
 
 > **"自动优化 skill 文档就能提升 agent 表现"——这个叙事在工业复杂度下不成立。**
