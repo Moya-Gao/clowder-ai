@@ -8,7 +8,7 @@ created: 2026-05-07
 
 # F192: Socio-Technical Harness Eval — harness 共创评估体系
 
-> **Status**: done | **Owner**: 布偶猫 | **Completed**: 2026-05-27
+> **Status**: in-progress (reopened 2026-05-27 for Phase F `eval:capability-wakeup`) | **Owner**: 布偶猫 | **Phases A-E completed**: 2026-05-27
 
 ## Architecture Ownership
 
@@ -115,6 +115,7 @@ Phase E 将 F192 从单域试点提升为横切的 Harness Eval Control Plane：
 3. **E-scale**：接 `eval:memory`（F200 + F188 adapter）并迁移对应旧任务
 4. **E-sop**：接 `eval:sop`（cat-cafe SOP compliance；ground truth = `SopDefinition.hard_rules/pitfalls` per F203 #748；domain-generic schema 从 day 1 支持 development / video-cocreation / tech-article / family-office 等多 domain）
 5. **E-community**：开放社区 issue packet / custom domain path
+6. **Phase F** (reopened 2026-05-27)：接 `eval:capability-wakeup`（F203 L0 §8 trigger reflex 命中率监测；从 hard 规则合规 eval 扩到软提示发现率 eval）
 
 **Remaining PR packaging（CVO + 46/55, 2026-05-24）**：Phase E 剩余工作不按 AC 逐条拆 PR，按可独立验收的功能块收敛为 4 个 PR，避免过细 PR 造成 review / merge overhead：
 
@@ -202,6 +203,40 @@ Phase E 将 F192 从单域试点提升为横切的 Harness Eval Control Plane：
 #### E-community ✅
 - [x] AC-E14: Community path：支持社区实例把本地 eval finding 导出为脱敏 issue packet；也支持社区项目注册自有 eval domain，不 fork Cat Café core
 - [x] AC-E15: Community dogfood：至少 1 个 sanitized issue packet fixture + 1 个 custom domain fixture 通过 schema validation
+
+### Phase F（`eval:capability-wakeup` — L0 §8 软提示发现率 eval）
+
+来源 2026-05-27 F203 L0 §8 candidate triage（铲屎官反思 "skills/features 存在 ≠ 在猫认知路径"；Tier 1 决定缺 eval/tracking 数据驱动）。Phase F 把 F192 eval 从「**hard 规则合规检测**（E-pilot/E-hub/E-scale/E-sop/E-community）」扩展到「**软提示发现率监测**」——观测猫在 L0 §8 trigger reflex 场景下"该用没用"的掉球率，verdict 反馈给 F203 owner iterate L0 §8 v2。
+
+**关键定位区别**（与 E-sop 对比）：
+
+| | E-sop（已 merged） | F-capability（本 Phase） |
+|---|---|---|
+| ground truth | `SopDefinition.hard_rules/pitfalls` 硬规则 | L0 §8 trigger reflex 软提示 |
+| 检测语义 | "做了违反规则的事" | "该用某能力但没用" |
+| miss verdict | 违规事件 + trace anchor | scenario hit 但 capability invocation absent |
+| 反馈对象 | SOP / skill 维护者 fix 规则 | F203 owner iterate L0 §8 trigger 排序 |
+
+**Path C double-track**（Tier 1 ship + eval parallel）：L0 §8 v1（13 条 educated guess）已 ship 不阻塞；Phase F eval 收集 N 周 miss rate 数据 → L0 §8 v2 数据驱动调 Tier 1 排序 / 加新条目 / 移到 Tier 2。
+
+- [ ] AC-F1: Architecture Decision——`eval:capability-wakeup` 是 F192 内 domain 扩展（同 E-sop/E-scale，不是新 F 号；reopen 由 CVO 2026-05-27 sign-off）；复用 Verdict Handoff / re-eval closure pattern；明确"capability-wakeup eval ≠ SOP compliance eval"边界（软提示发现率 vs 硬规则合规）
+- [ ] AC-F2: Capability Trace Adapter——从 F153 telemetry / session events / Skill loading events / MCP tool call invocations / diff context 抽 capability invocation traces + scenario detection signals（如 diff 含 `packages/web/*` 文件、回复含特定 trigger phrase、文件路径 reference）
+- [ ] AC-F3: Scenario→Capability Predicate Evaluator——扩展 E-sop predicate type 集，加 capability-wakeup 专属 type：`scenario_then_capability_predicate`（场景 hit 但 capability invocation 缺失）/ `text_pattern_then_capability`（特定 trigger phrase 出现但没调相应 skill）/ `multi_msg_text_volume_threshold`（纯文字回复超 N tokens 没用 rich_block）/ `file_change_then_capability`（特定文件路径改了但 capability 没触发）
+- [ ] AC-F4: `eval:capability-wakeup` domain registry + system thread bootstrap：复用 AC-E2/E4 pattern；first scope = L0 §8 v1 的 13 条 Tier 1 trigger reflex（每条至少一个 predicate）
+- [ ] AC-F5: Eval cat invocation：周度 scheduled task 唤醒 eval 猫，per-cat / per-scenario / per-capability 出 miss rate verdict；区分 false-positive（不在该场景）vs true-miss（场景对了但没用 capability）vs negative（场景对了用了 capability）
+- [ ] AC-F6: Verdict Handoff target resolver：capability owner = F203 owner（@opus47 布偶猫）/ skill 维护者（按 capability 归属解析）；handoff packet 含 miss rate trend + 排序建议（promote / demote / drop）+ scenario fixture 证据
+- [ ] AC-F7: First batch predicates 覆盖 L0 §8 v1 的 13 条 Tier 1（`rich-messaging` / `browser-preview` / `image-generation` / `workspace-navigator` / `pencil-design` / `guide-interaction` / `expert-panel` / `propose_thread` / `external_runtime_sessions` / `cliDiagnostics` / `eval verdict` / `search_evidence drilldown` / `update_workflow`）每条至少一个 machine-checkable predicate
+- [ ] AC-F8: Cross-cat scope validation——predicate 应能跨 cat family 分别检测（布偶猫 / 缅因猫 / 暹罗猫 各自典型掉球模式不同；e.g., 开发系猫常忘 `rich-messaging` + `propose_thread`，视觉系猫常忘 `update_workflow`）；verdict bundle 含 per-family 拆分
+- [ ] AC-F9: Re-eval closure——与 E-pilot 同 pattern（F203 owner 处理 handoff → L0 §8 v2 update → 复验 verdict miss rate 下降 → verdict close）；连续 4 周某条 Tier 1 miss rate < 5% → demote 候选 → 写入 `capability-wakeup-index.md` Tier 2
+
+依赖：F203 PR（L0 §8 v1 ship）merged 后 register `eval:capability-wakeup` domain；F209 telemetry / Skill load tracking / MCP call tracking 提供 trace source；与 E-pilot/E-hub/E-scale/E-sop/E-community 共享 evaluator infra（extend predicate type 集 + 复用 verdict handoff schema）。
+
+**Build sequence**（Path C double-track）：
+1. F203 PR ship L0 §8 v1 + ref doc（本 PR）→ trigger 名单稳定
+2. Phase F design memo 写 capability predicate type 集（沿用 E-sop 7 type 集 + 加 capability-specific 4 type）
+3. Implementation：trace adapter + evaluator + domain registry + scheduled invocation
+4. First weekly verdict cycle（real data 第一刀）
+5. L0 §8 v2 数据驱动 iterate（去掉低 miss-rate 条目 / 加新发现的高 miss-rate 场景）
 
 ## 需求点 Checklist
 
@@ -458,6 +493,7 @@ Based on the first micro fit digest (2026-05-11):
 | 2026-05-27 | Phase E-sop merged (PR #1917, squash `b3ddf5bc`) — `eval:sop` domain-generic SOP compliance evaluator: SOP trace adapter, 7-type predicate evaluator, verdict handoff with three-tier rule-owner resolution (explicit resolver > session author > domain fallback), re-eval closure, cross-domain schema validation (3 stub YAMLs), `development.yaml` first domain + weekly scheduled task registration. 砚砚 R5 review pass (0 P1/P2) + cloud review R2 pass (P2 downgraded P3). AC-E16 through AC-E24 complete; Phase E remains open for E-community. |
 | 2026-05-27 | Phase E-community merged (PR #1920) — SanitizedIssuePacket schema + sanitize export (AC-E14), CommunityEvalDomainEntry schema + filesystem loader, community fixtures + validation tests (AC-E15). Cloud review 5 rounds: fixed dailyTrend key scrub (P1), slash-delimited ref + attribution prefix scrub (P1), key collision disambiguation + cross-record stable mapping (P2). 砚砚 R7 放行 + 25/25 tests. AC-E14/E15 complete; **Phase E complete**. |
 | 2026-05-27 | **F192 marked done** — 愿景守护 @opus47 放行（4 项 close-hygiene 同步清理）。51 AC met / 16 merged PRs / 5 Phases over 20 days。Close gate ack：1 CVO dogfood directive (livefix OQ-16/17/18/19) addressed in PR #1913；eval:memory / eval:sop adapter + cron 已注册 ✅，第一次真 verdict 等下次 scheduled cron 实际产出（启动状态，不是 bug）。 |
+| 2026-05-27 | **F192 reopened — Phase F `eval:capability-wakeup` scoped** — 同日 close 后 reopen，CVO sign-off 2026-05-27（"Path C.1：F192 reopen Phase F eval:capability-wakeup 可以 我同意"）。来源：F203 L0 §8 candidate triage 暴露的 meta-gap "Tier 1 决定缺 eval/tracking 数据"。Phase F 把 F192 eval 从「hard 规则合规」扩到「软提示发现率」（trigger reflex miss rate）。AC-F1-F9 scoped；Path C double-track —— L0 §8 v1 ship 不阻塞，Phase F eval N 周后数据驱动 v2 iterate。依赖 F203 PR L0 §8 v1 merge。 |
 
 ## Review Gate
 
