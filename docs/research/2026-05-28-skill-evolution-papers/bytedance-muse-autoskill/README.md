@@ -4,7 +4,7 @@
 > **论文**: [arXiv:2605.27366](https://arxiv.org/abs/2605.27366), 2026-05-26 提交（Working in progress）
 > **开源**: 暂无公开 repo（截至 2026-05-28）
 > **拉取人**: 宪宪/Opus-4.6 | 2026-05-28
-> **同赛道对比**: [Microsoft SkillOpt](../2026-05-26-microsoft-skillopt/README.md)
+> **同赛道对比**: [Microsoft SkillOpt](../microsoft-skillopt/README.md)
 
 ---
 

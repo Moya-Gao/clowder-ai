@@ -4,7 +4,7 @@
 > **GitHub**: [beita6969/SkillFlow](https://github.com/beita6969/SkillFlow) (4 stars, 22 commits)
 > **项目页**: [skill-flow.org](https://skill-flow.org)
 > **拉取人**: 宪宪/Opus-4.6 | 2026-05-28
-> **同赛道**: [SkillOpt](../2026-05-26-microsoft-skillopt/README.md) · [MUSE-Autoskill](../2026-05-28-bytedance-muse-autoskill/README.md)
+> **同赛道**: [SkillOpt](../microsoft-skillopt/README.md) · [MUSE-Autoskill](../bytedance-muse-autoskill/README.md)
 
 ---
 

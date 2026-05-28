@@ -193,9 +193,9 @@ Skill 够泛化      Skill 够简洁
 
 | 文档 | 内容 |
 |---|---|
-| [SkillOpt 详解](2026-05-26-microsoft-skillopt/README.md) | 方法详解 + 成本分析 + 概念通胀 |
-| [MUSE-Autoskill 详解](2026-05-28-bytedance-muse-autoskill/README.md) | 方法详解 + Skill 概念光谱 L0-L3 |
-| [SkillFlow 可信度评估](2026-05-28-skillflow-credibility/README.md) | 可信度评估 + 三篇扒底裤 + 复杂场景复现预测 |
+| [SkillOpt 详解](microsoft-skillopt/README.md) | 方法详解 + 成本分析 + 概念通胀 |
+| [MUSE-Autoskill 详解](bytedance-muse-autoskill/README.md) | 方法详解 + Skill 概念光谱 L0-L3 |
+| [SkillFlow 可信度评估](skillflow-credibility/README.md) | 可信度评估 + 三篇扒底裤 + 复杂场景复现预测 |
 | **本文档** | 四篇总报告 + 难度对比 + 过拟合分析 + 最终判决 |
 
 ---

@@ -255,7 +255,7 @@ SkillOpt 只测了学术 benchmark（⭐-⭐⭐⭐），没碰工业级复杂任
 
 ### 同赛道对比（另见 MUSE-Autoskill）
 
-字节 ByteBrain 团队同期发了 MUSE-Autoskill（arXiv:2605.27366），走的是 lifecycle 路线而非 DL 类比路线。详见 `../2026-05-28-bytedance-muse-autoskill/README.md`。
+字节 ByteBrain 团队同期发了 MUSE-Autoskill（arXiv:2605.27366），走的是 lifecycle 路线而非 DL 类比路线。详见 `../bytedance-muse-autoskill/README.md`。
 
 ---
 
@@ -275,7 +275,7 @@ SkillOpt 论文里优化的 "skill" 本质上是**单个 benchmark 任务的指�
 
 **铲屎官原话："我感觉我又被诈骗了"** — 论文把"配方优化"包装成"skill 自进化"，概念通胀严重。真正的 skill（判断力、经验、know-how）不是用 epoch/batch/LR 能训练出来的。
 
-详细分析见 `../2026-05-28-bytedance-muse-autoskill/README.md` 的"Skill 概念光谱"段。
+详细分析见 `../bytedance-muse-autoskill/README.md` 的"Skill 概念光谱"段。
 
 ---
 
