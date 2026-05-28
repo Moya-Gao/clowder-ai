@@ -30,14 +30,17 @@ describe('GET /api/recall/events — F102 ownership guard', () => {
     db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)').run(1, new Date().toISOString());
     schema.applyMigrations(db);
 
-    // Seed a recall event owned by thread-owned
-    db.prepare(
+    const insertRecallEvent = db.prepare(
       `INSERT INTO recall_events
         (recall_id, cat_id, invocation_id, tool_name, query, mode, scope,
          candidates_json, consumed_json, reformulated, fell_back_to_grep,
          abandoned, next_graph_resolve_after_read, token_cost, timestamp, thread_id)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).run(
+    );
+
+    // Seed recall events in owned and system threads. The non-default system event
+    // must not be readable just because the caller knows its threadId.
+    insertRecallEvent.run(
       'r-1',
       'opus',
       'inv-1',
@@ -55,14 +58,62 @@ describe('GET /api/recall/events — F102 ownership guard', () => {
       1000,
       'thread-owned',
     );
+    insertRecallEvent.run(
+      'r-2',
+      'codex',
+      'inv-2',
+      'search_evidence',
+      'private-system-query',
+      'hybrid',
+      'docs',
+      JSON.stringify([{ anchor: 'private-system-anchor', docKind: 'feature' }]),
+      '[]',
+      0,
+      0,
+      0,
+      0,
+      0,
+      1001,
+      'thread-system',
+    );
+    insertRecallEvent.run(
+      'r-3',
+      'codex',
+      'inv-3',
+      'search_evidence',
+      'indexed-system-query',
+      'hybrid',
+      'docs',
+      JSON.stringify([{ anchor: 'indexed-system-anchor', docKind: 'feature' }]),
+      '[]',
+      0,
+      0,
+      0,
+      0,
+      0,
+      1002,
+      'thread-indexed-system',
+    );
 
     // Mock threadStore
     const threadStore = {
       async get(threadId) {
+        if (threadId === 'default') return { id: 'default', createdBy: 'system' };
         if (threadId === 'thread-owned') return { id: 'thread-owned', createdBy: 'user-owner' };
         if (threadId === 'thread-system') return { id: 'thread-system', createdBy: 'system' };
+        if (threadId === 'thread-indexed-system') return { id: 'thread-indexed-system', createdBy: 'system' };
         if (threadId === 'thread-other') return { id: 'thread-other', createdBy: 'user-other' };
         return null;
+      },
+      async list(userId) {
+        if (userId === 'user-owner') {
+          return [
+            { id: 'default', createdBy: 'system' },
+            { id: 'thread-owned', createdBy: 'user-owner' },
+            { id: 'thread-indexed-system', createdBy: 'system' },
+          ];
+        }
+        return [{ id: 'default', createdBy: 'system' }];
       },
     };
 
@@ -90,13 +141,36 @@ describe('GET /api/recall/events — F102 ownership guard', () => {
     assert.equal(body.events[0].results[0].anchor, 'F102');
   });
 
-  it('200: system-owned threads are accessible by any user', async () => {
+  it('200: default system thread is accessible by any user', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/recall/events?threadId=default',
+      headers: AUTH_HEADER,
+    });
+    assert.equal(res.statusCode, 200, 'default system thread accessible');
+  });
+
+  it('403: non-default system thread is blocked when it is not indexed for the user', async () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/recall/events?threadId=thread-system',
       headers: AUTH_HEADER,
     });
-    assert.equal(res.statusCode, 200, 'system thread accessible');
+    assert.equal(res.statusCode, 403, 'non-default system thread is not globally public');
+    const body = res.json();
+    assert.equal(body.error, 'Forbidden');
+  });
+
+  it('200: non-default system thread is accessible when indexed for the user', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/recall/events?threadId=thread-indexed-system',
+      headers: AUTH_HEADER,
+    });
+    assert.equal(res.statusCode, 200, 'indexed system thread accessible');
+    const body = res.json();
+    assert.equal(body.events.length, 1, 'one indexed recall event');
+    assert.equal(body.events[0].query, 'indexed-system-query');
   });
 
   it('403: non-owner is blocked', async () => {
