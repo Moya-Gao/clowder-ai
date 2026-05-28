@@ -21,6 +21,7 @@ const log = createModuleLogger('ws');
 interface QueueProcessorLike {
   clearPause(threadId: string, catId?: string): void;
   releaseSlot(threadId: string, catId: string): void;
+  suppressAutoResume(threadId: string, catId: string): void;
 }
 
 /**
@@ -225,7 +226,10 @@ export class SocketManager {
           // F156: Pass userId to cancelAll so it only cancels this user's invocations.
           // cancelAll returns the catIds that were actually cancelled, so we can
           // scope the orchestrator abort to just those cats — not the entire thread.
-          const cancelledCatIds = this.invocationTracker.cancelAll(data.threadId, userId, 'user_cancel');
+          // Use 'cancel_all' (not 'user_cancel') so QueueProcessor.executeEntry can
+          // distinguish "stop everything" from single-cat cancel. Only 'cancel_all'
+          // triggers suppressAutoResume; single-cat 'user_cancel' still auto-resumes.
+          const cancelledCatIds = this.invocationTracker.cancelAll(data.threadId, userId, 'cancel_all');
           if (cancelledCatIds.length > 0) {
             for (const msg of buildCancelMessages({ cancelled: true, catIds: cancelledCatIds })) {
               this.broadcastAgentMessage(msg, data.threadId);
@@ -233,6 +237,12 @@ export class SocketManager {
             for (const catId of cancelledCatIds) {
               this.queueProcessor?.clearPause(data.threadId, catId);
               this.queueProcessor?.releaseSlot(data.threadId, catId);
+              // Suppress auto-resume for BOTH paths:
+              // - Queued invocations: executeEntry also sets suppress (belt-and-suspenders)
+              // - Direct invocations (messages.ts): only this external call covers them
+              //   because they don't go through executeEntry
+              // Protected by: cancel_all reason (not single-cat), status-gate, 60s TTL
+              this.queueProcessor?.suppressAutoResume(data.threadId, catId);
             }
           }
           // F156 P1-fix: Use per-cat abortBySlot instead of thread-wide abortByThread.

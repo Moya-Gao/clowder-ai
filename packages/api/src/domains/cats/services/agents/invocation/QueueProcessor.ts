@@ -146,6 +146,12 @@ export class QueueProcessor {
   /** F108: Per-slot pause tracking (set on canceled/failed, cleared on next execution) */
   private pausedSlots = new Map<string, 'canceled' | 'failed'>();
   private pauseEpoch = new Map<string, number>();
+  /** Suppress auto-resume on next canceled_by_user completion (single-shot per slot).
+   *  Set by cancelAll handler so user cancel = "stop everything", not "start next".
+   *  Map value = timestamp — auto-expires after SUPPRESS_TTL_MS to prevent stale
+   *  suppresses from multi-cat cancelAll (secondary cats may never fire onInvocationComplete). */
+  private suppressedAutoResume = new Map<string, number>();
+  private static readonly SUPPRESS_TTL_MS = 60_000;
   /** F122B B6: Per-entry completion hooks (for multi-mention response aggregation). */
   private entryCompleteHooks = new Map<string, EntryCompleteHook>();
   /** F118 D4: max age before a processingSlot is considered zombie (default 2.5× CLI timeout = 75min) */
@@ -456,6 +462,29 @@ export class QueueProcessor {
     const sk = QueueProcessor.slotKey(threadId, catId);
     if (status === 'succeeded' || status === 'canceled_by_user') {
       this.pausedSlots.delete(sk);
+      // Check suppress flag: cancelAll sets this so user cancel = "stop everything".
+      // Status-gated: ONLY consume on 'canceled_by_user', not 'succeeded'.
+      // Reason: if user does cancelAll → steer, the steer's new invocation may
+      // complete with 'succeeded' before the cancelled invocation's 'canceled_by_user'
+      // arrives. Without the status gate, 'succeeded' would consume the flag and
+      // the late 'canceled_by_user' would incorrectly auto-resume the queue.
+      const suppressTs = this.suppressedAutoResume.get(sk);
+      // Clean up stale suppress (multi-cat cancelAll: secondary cats may never complete)
+      if (suppressTs !== undefined && Date.now() - suppressTs >= QueueProcessor.SUPPRESS_TTL_MS) {
+        this.suppressedAutoResume.delete(sk);
+      }
+      if (
+        status === 'canceled_by_user' &&
+        suppressTs !== undefined &&
+        Date.now() - suppressTs < QueueProcessor.SUPPRESS_TTL_MS
+      ) {
+        this.suppressedAutoResume.delete(sk); // single-shot: consume it
+        this.deps.log.info(
+          { threadId, catId },
+          'Auto-resume suppressed (cancelAll) — queued entries preserved but not started',
+        );
+        return;
+      }
       if (this.hasDispatchableQueuedForThread(threadId)) {
         await this.tryExecuteNextAcrossUsers(threadId, catId);
         await this.tryAutoExecute(threadId);
@@ -521,6 +550,17 @@ export class QueueProcessor {
    */
   releaseSlot(threadId: string, catId: string): void {
     this.processingSlots.delete(QueueProcessor.slotKey(threadId, catId));
+  }
+
+  /**
+   * Suppress auto-resume for the next canceled_by_user completion on this slot.
+   * Called from the cancelAll handler: user intent = "stop everything", so
+   * onInvocationComplete should NOT auto-dequeue the next entry.
+   *
+   * Single-shot: consumed (cleared) after one onInvocationComplete call.
+   */
+  suppressAutoResume(threadId: string, catId: string): void {
+    this.suppressedAutoResume.set(QueueProcessor.slotKey(threadId, catId), Date.now());
   }
 
   /**
@@ -1057,7 +1097,15 @@ export class QueueProcessor {
           await router.ackCollectedCursors(userId, threadId, cursorBoundaries);
         }
         await invocationRecordStore.update(invocationId, { status: 'canceled' });
-        finalStatus = controller.signal.reason === 'user_cancel' ? 'canceled_by_user' : 'canceled';
+        // 'cancel_all' = cancelAll button (stop everything), 'user_cancel' = single-cat cancel
+        const reason = controller.signal.reason;
+        finalStatus = reason === 'user_cancel' || reason === 'cancel_all' ? 'canceled_by_user' : 'canceled';
+        // Suppress auto-resume ONLY for cancelAll (stop everything), NOT single-cat cancel.
+        // Single-cat cancel should still auto-resume the next queued entry (backward compat).
+        if (reason === 'cancel_all') {
+          const entryCat = entry.targetCats[0] ?? 'unknown';
+          this.suppressedAutoResume.set(QueueProcessor.slotKey(threadId, entryCat), Date.now());
+        }
         return finalStatus;
       }
 
