@@ -31,6 +31,23 @@ Codex `image_gen` 不只是“概念图/素材生成器”。当前实测能力�
 
 **默认判断**：当用户要的是“好看、完整、像最终稿”的视觉 mock，且不要求可编辑，先走整页 imagegen。不要先手写 SVG/HTML 去拼格子、排文字、合成素材。
 
+### Codex SVG 复发熔断闸
+
+对 Codex / 缅因猫尤其重要：命中以下任一条件时，**禁止**先写 SVG/HTML/Canvas/脚本合成：
+
+- 用户要“架构设计图 / 架构图 / PPT 页面 / 华为风 / 白底红黑 / 精美图 / 最终稿”
+- 已有低保真草图、ASCII 蓝图或设计规格，用户要生成“精美版 / 设计图 / 图片”
+- 用户没有明确要求“可编辑文字 / native PPT 元素 / SVG 源文件 / HTML 文件”
+
+执行顺序：
+
+1. 先调用原生 imagegen 生成整页 raster。
+2. 只用 prompt 迭代 1-2 次修风格、层级、文字密度。
+3. 只有 imagegen 已失败，或用户明确要求可编辑 / native text / SVG 源文件，才允许降级 SVG/HTML/PPT。
+4. 若准备写 SVG/HTML，必须先写出 `SVG override reason`：指向已失败的 imagegen 产物，或引用用户的显式可编辑要求。
+
+以下理由不合格，不能覆盖 imagegen-first：中文文字更可控 / 布局更可控 / 先画 SVG 再转 PNG / 架构图需要精确。
+
 ### Full-page raster first
 
 当用户说“不需要可编辑”“只要精美 mock”“直接生成完整 PPT 页面”时，按这个顺序：

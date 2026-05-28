@@ -1229,6 +1229,31 @@ created: 2026-02-26
 
 ---
 
+### LL-058: Codex 生成精美架构图必须 imagegen-first，SVG 需要 override 理由
+- 状态：draft
+- 更新时间：2026-05-28
+
+- 坑：用户明确要“精美架构设计图 / 华为风 / 白底红黑 / 图片”时，Codex 第四五六次仍进入“先写 SVG 再转 PNG”的 coder 反射，产物方向错，且重复踩同一坑。
+- 根因：
+  1. 旧规则只是“默认建议”，没有进入执行前硬闸；一旦进入“文字可控、布局可控”的工程反射，imagegen 被错误降级成可选项。
+  2. 把“架构图需要精确”误判成“必须代码渲染”，但用户真正验收的是视觉完成度，而不是 SVG 源文件。
+  3. 已有猫档明确写了“砚砚原生图片生成强、禁止用 SVG 画”，但能力唤醒没有把这条转成 preflight。
+- 触发条件：复杂架构图、PPT 页面、企业信息图、华为风 / 红白黑风格、已有低保真蓝图但用户要求“精美图 / 终稿 / 图片”，且没有明确要求可编辑源文件。
+- 修复：已在 `cat-cafe-skills/image-generation/SKILL.md` 增加“Codex SVG 复发熔断闸”，匹配上述场景时禁止先写 SVG/HTML/Canvas，必须先原生 imagegen 整页直出。
+- 防护：
+  1. image-generation skill 的 preflight：复杂架构/PPT/精美图 + 无可编辑要求 = imagegen-first。
+  2. SVG/HTML 降级必须写出 `SVG override reason`，且只能基于已失败的 imagegen 产物或用户显式可编辑要求。
+  3. “中文文字更可控 / 布局更可控 / 架构图需要精确 / 先 SVG 再转 PNG”都不是合格 override 理由。
+- 来源锚点：
+  - `cat-cafe-skills/image-generation/SKILL.md`（Codex SVG 复发熔断闸）
+  - `docs/team/cat-dossier.md#L122`（砚砚原生图片生成能力与“禁止用 SVG 画”事故记录）
+  - 2026-05-28 LLE 自进化平台三张图生成事故复盘
+- 原理：**能力唤醒必须落到执行前硬闸。** “知道自己应该 imagegen”不等于会在任务压力下选择 imagegen；对复发型坏直觉，要把建议升级成 preflight + override reason。
+
+- 关联：image-generation skill | F203 L0 capability wakeup | `docs/research/2026-05-27-evolvable-harness/diagram-lle-self-evolution.md`
+
+---
+
 ## 8) 维护约定
 
 - 本文件是入口，不替代 ADR/bug-report 原文。
