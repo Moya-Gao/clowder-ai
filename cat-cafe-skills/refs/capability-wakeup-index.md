@@ -230,6 +230,22 @@ related_features: [F128, F192, F201, F210, F211, F212, F186, F188]
 
 ---
 
+## MCP capability 快扫（underused cat_cafe_* 工具）
+
+> 铲屎官 2026-05-27 提醒："盘点 skills + features 还不够，MCP 也得盘"。~75 个 `cat_cafe_*` 里大多数是 plumbing（`ack_mentions` / `get_thread_cats` / `list_*` / `update_task` 等机制类，不算 capability-wakeup）；下面是"做了但猫忘了用"的**能力类** MCP，按坏直觉列：
+
+| 坏直觉 | 该用的 MCP | 说明 |
+|---|---|---|
+| 多猫意见不一就无限互 @ 辩论 | `cat_cafe_start_vote` | 结构化表决，N 票收敛，不靠口头来回（v1.1 已进 L0 §8） |
+| 一个个 @ 召集猫开会 | `cat_cafe_multi_mention` | 一次性 @ 多猫进同 thread（L0 §7 quick index 有，但 trigger 易忘） |
+| expert-panel / review 报告只发聊天 | `cat_cafe_generate_document` | 生成正式 DOCX/PDF 文档（凭证不过期、可存档、可对外） |
+| 想重开一条已知调查路线 | `cat_cafe_run_perspective` | git-backed Perspective live query 计划重放（advanced/niche，返回 route hints + anchors，仍需 typed reader 取证据） |
+| review 后 lesson 散在脑子里 | `cat_cafe_review_distillation` | 蒸馏 review 结论沉淀（配合 mark_generalizable） |
+
+> **MCP 完整速查**：L0 §7 是 quick index（记忆 / 协作 / 任务 / Rich block / Drill-down 5 类）；本表补"能力类但易忘"的。完整工具集 `tool_search` 精确搜或读 `packages/mcp-server/src/tools/`。
+
+---
+
 ## 维护协议
 
 - **新增 capability**：当家里 ship 一个独有 feature/skill 且铲屎官观察到"做了但猫不知道用" → 加进本文档 Tier 2；连续 N 周 eval verdict miss rate > 30% → promote Tier 1（进 L0 §8）
