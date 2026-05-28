@@ -1,5 +1,5 @@
 ---
-title: "Evolution Engineering — 多猫脑暴收敛稿 v1"
+title: "Evolution Engineering — 多猫脑暴收敛稿 v2"
 created: 2026-05-27
 author: "[宪宪/Opus-46🐾]"
 contributors:
@@ -8,7 +8,7 @@ contributors:
   - "[烁烁/Gemini🐾] — 加拉帕戈斯定位、双沙箱 demo、达尔文视觉、自主神经系统展开"
   - "铲屎官/Landy — LLE 概念、AlphaGo 方向、神经分层原创、'非预设的瞬间'定调、RL 必须进场"
 doc_kind: convergence
-status: v1-pending-review
+status: v2-reviewed-by-47-gemini25
 related:
   - paper-landscape.md
   - presentation-context.md
@@ -21,7 +21,7 @@ related:
   - docs/discussions/2026-05-05-agentic-harness-engineering-deep-dive/README.md
 ---
 
-# Evolution Engineering — 多猫脑暴收敛稿 v1
+# Evolution Engineering — 多猫脑暴收敛稿 v2
 
 > **定位**：将 4 猫 + 铲屎官的脑暴产出收敛为一份可共识的主线文档。
 > 面向两个受众：(1) 6.8 X 总演讲的概念骨架，(2) 9 月 demo 的内部指导。
@@ -55,7 +55,7 @@ related:
 | Level | 名称 | 一句话 | AlphaGo 类比 |
 |---|---|---|---|
 | **L1** | Human-Authored | 人写环境，agent 执行 | AlphaGo Fan（纯监督学习） |
-| **L2** | Co-Created | 人机共创环境 | AlphaGo Lee（监督 + 人引导强化） |
+| **L2** | Co-Created | 人机共创环境 | AlphaGo Lee（监督 + self-play RL 雏形） |
 | **L3** | Agent-Evolved, Human-Gated | Agent 进化环境，自动评估，人管战略 | AlphaGo Zero（自我对弈） |
 | **L4** | Autonomous Evolution | 环境自主进化，人只设方向 | AlphaZero（跨棋种迁移） |
 | **L5** | Open-Ended Evolution | 环境自己发现新进化方向 | MuZero（不告诉规则也能学） |
@@ -86,9 +86,9 @@ related:
 - **遗传通道**：自动化 skill/rule 更新 + 知识蒸馏到小模型
 - **业界谁在这里**：
   - SkillOpt（微软）= L3 的 micro 版本（单 skill 训练循环，52/52 全胜）
-  - AHE（复旦）= L3 的 coding-agent 版本（三层可观测性 + evolve loop，69.7%→77.0%）
-  - AgentGym-RL（复旦+字节）= L3 的多环境版本（27 环境统一 RL 训练）
-  - 宏观版（全环境 + 多维度 + 多 agent）尚无人做
+  - AHE（复旦）= L3 − human gate 版本（三层可观测性 + evolve loop，69.7%→77.0%；选择机制是 LLM self-review，不是人类 Gate——我们的差异化恰在于 CVO Gate 不是 LLM self-review）
+  - AgentGym-RL（复旦+字节）= 邻近研究（训的是 agent 模型权重不是环境，但证明 RL + 多环境 + 轨迹数据 paradigm 有效——这个 paradigm 搬到环境侧是我们的 gap）
+  - 宏观版（全环境 + 多维度 + 多 agent + 人类 Gate）尚无人做
 - **L2→L3 的跃迁关键**：引入 RL 自动评估环境变更的好坏（不再全靠人类 review）
 - **L3 接管悖论**（自动驾驶 L3 类比）：当 agent 大部分时间自主进化，人类怎么知道什么时候该介入？答案 = Magic Words（物理刹车）+ Eval 反馈环（系统主动报告）+ 跨厂商 Review（多视角检测同源盲区）
 
@@ -146,8 +146,7 @@ related:
 | GitHub | `china-qijizhifeng/agentic-harness-engineering` |
 | 核心方法 | 三层可观测性（Component / Experience / Decision）+ evolve loop |
 | 关键结果 | GPT-5.4 在 Terminal-Bench 上 10 轮迭代 69.7% → 77.0%；frozen harness 可迁移到其他模型 |
-| 我们的评分 | 75/100 — "值得拆方法，不值得直接 intake 代码" |
-| 详细拆解 | `docs/discussions/2026-05-05-agentic-harness-engineering-deep-dive/README.md` |
+| 我们的内部拆解 | 值得拆方法，不值得直接 intake 代码（详见 `docs/discussions/2026-05-05-agentic-harness-engineering-deep-dive/README.md`） |
 
 **AHE 的独特贡献**：
 - **三层可观测性是进化的前提**：Component Observability（知道环境由哪些部件组成）→ Experience Observability（知道哪些部件导致了成功/失败）→ Decision Observability（知道每次修改的预期和实际效果）
@@ -180,7 +179,7 @@ related:
 |---|---|---|---|
 | **SkillOpt** | 单个 Skill 文档 | 文本空间梯度（类 DL 训练循环） | L3 micro |
 | **AHE** | 整个 Harness 配置 | 三层可观测性 + evolve loop | L3 coding-agent |
-| **AgentGym-RL** | Agent 模型权重 | 多环境 RL + 轨迹数据 | L3-L4 (agent 侧) |
+| **AgentGym-RL** | Agent 模型权重（非环境） | 多环境 RL + 轨迹数据 | 邻近研究：证明 paradigm 有效，gap = 搬到环境侧 |
 | **我们的 n+2** | **整个 LLE（环境全景）** | **Evolution Engineering（RL + 三原理）** | **L3 宏观 → L4** |
 
 ---
@@ -223,7 +222,7 @@ related:
 
 这就是知识蒸馏（Hinton 2015）在 LLE 层面的应用——不蒸馏模型权重，蒸馏环境智慧。
 
-### 与 RL 的连接
+### 与 RL 的连接（47 v2 展开的分层映射，铲屎官章鱼类比）
 
 | 层级 | RL 类型 | 训练频率 | 可行性 |
 |---|---|---|---|
@@ -256,7 +255,7 @@ related:
 
 | AlphaGo 阶段 | LLE 阶段 | 核心区别 |
 |---|---|---|
-| AlphaGo Lee（学人类棋谱） | L2 人猫共创 | — |
+| AlphaGo Lee（监督 + self-play RL 雏形） | L2 人猫共创 | AlphaGo Lee 已有 self-play，但起点依赖人类棋谱；L2 环境建设依赖人类方向 |
 | AlphaGo Zero（自我对弈，3 天超越 Lee） | L3 RL 自主进化 | **围棋 fitness function 固定；LLE 的 fitness function 在演化——这是真正的硬骨头** |
 | AlphaZero（跨围棋/象棋/将棋） | L4 跨域迁移 | 一套进化引擎适配多场景 |
 | MuZero（不告诉规则也学） | L5 开放式进化 | 理论阶段 |
@@ -285,6 +284,14 @@ related:
 >
 > 如果每一代 AI 都像新来的临时工，企业永远在付入职培训费。真正的杠杆不在训模型，在训模型工作的环境。"
 
+**Alternative Hook B（烁烁提议，更戏剧化，铲屎官二选一）**：
+
+> "6500 万年前，气候骤变，统治地球的恐龙一代之内灭绝——庞大的身躯来不及进化。弱小的哺乳动物活了下来，因为它们能把对环境的适应性写进基因，代际遗传。
+>
+> 今天的 AI 行业，所有人都在造更庞大的恐龙——卷模型参数。但只要环境一变、模型换代，那些昂贵的微调和工具使用经验就全部沦为化石。
+>
+> 我们要做的不是造恐龙，而是造让哺乳动物繁衍的大自然——一个能够自我适应、代际遗传的可进化工作环境。这叫 Evolution Engineering。"
+
 **第 2 分钟：Framework + AlphaGo**
 
 > "AlphaGo 的突破不是因为模型更大——是因为它学会了自我对弈。我们在 agent 领域看到同样的跃迁正在发生：
@@ -301,13 +308,15 @@ related:
 >
 > 2. 复旦 AHE / AgentGym-RL：用强化学习训 agent 的工作环境，10 轮迭代提升 7 个百分点，跨模型可迁移。
 >
-> 3. 我们自己运行了 100 天的多厂商 agent 协作系统，观察到环境真的在进化——长出了人类不会设计的结构。[放 2-3 个'非预设的瞬间']"
+> 3. 我们自己运行了 100 天的多厂商 agent 协作系统，观察到环境真的在进化——长出了人类不会设计的结构：**反番茄钟**（没有产品经理会设计的功能哲学）、**紧急照护链路**（从一个脑洞到完整 feature spec）、**禁止某只擅长设计的 AI 写代码**（系统从 review 惨案中自行演化出的生态位分化）。这些就是我们的 Move 37。"
 
-**第 4 分钟：Architecture**
+**第 4 分钟：Architecture（注意：神经分层目前是方向愿景，9 月做脊髓原型验证）**
 
 > "未来的 AI 不是一个大脑在单打独斗——是一套分层神经系统。
 >
 > 大模型是大脑，负责创造性思考。本地小模型是脊髓，负责毫秒级反射。硬编码规则是反射弧，守住安全底线。
+>
+> 我们已经看到这个方向的雏形——比如安全规则和格式校验已经在不经过大模型的情况下运作。9 月我们会验证完整的脊髓原型。
 >
 > 关键是：这套分层本身，也是进化出来的——大模型发现的稳定模式，逐步下沉到小模型，释放大模型的注意力给真正新的问题。"
 
@@ -350,8 +359,8 @@ related:
 |---|---|---|---|---|
 | **A: 双沙箱对照** | 同模型 + Day1 荒野环境 vs Day100 进化环境跑同一任务 | "训环境有效"——不动模型，仅靠环境进化提升能力 | 中 | **保底，最直观** |
 | **B: Skill 跨代遗传** | 新 agent 只读 Skills/ADR/lessons 上岗，vs 原始 agent 做同一任务 | 文化遗传真的 work——SkillOpt 证明 micro，我们证明 macro | 中高 | **抓眼球** |
-| **C: Offline RL on trace** | 用 100 天历史 trace 做 offline policy evaluation，验证环境 patch | RL 训环境可行 | 高（需 spike 验证数据质量） | **学术深度** |
-| **D: 脊髓原型** | 本地小模型 + 大模型协同做任务，展示分层反射 | 神经分层架构可行 | 中 | **架构展示** |
+| **C: Offline RL on trace**（47 提议） | 用 100 天历史 trace 做 offline policy evaluation，验证环境 patch | RL 训环境可行 | 高（需 spike 验证数据质量） | **学术深度** |
+| **D: 脊髓原型** | 本地小模型 + 大模型协同做任务，展示分层反射（作为进化的 seed 配置，不是最终态） | 神经分层架构可行 | 中 | **架构展示** |
 
 **建议组合**：A（保底）+ B（抓眼球）。C 和 D 视 spike 结果决定。
 
@@ -374,7 +383,7 @@ related:
 | "别只训模型，训环境" | 砚砚 | 最锋利的金句 |
 | 度量指标 | 砚砚 | 落地层的度量锚 |
 | 双沙箱 demo | 烁烁 | 最直观的 demo 设计 |
-| 环境为新成员重塑 | 铲屎官 + 46 | Niche Construction |
+| 环境为新成员重塑 | 砚砚 + 铲屎官 + 47 + 46 共同收敛 | Niche Construction（砚砚"组织经验归零"→铲屎官纠正"是适配不是归零"→47"进化压力源重分布"→46 落定术语） |
 
 ### 砍掉或降级的
 
@@ -383,10 +392,10 @@ related:
 | "AI 物种""化石记录" | 47 v1 | 主语是 Cat Cafe，X 总会觉得在推销 |
 | G(n) 公式 | 47 | 概念好但度量不可操作，上桌前先验证 |
 | Landy 个人 10 年金句 | 47 | X 总不认识 Landy |
-| 红皇后效应 | 47 | 有趣但不如 AlphaGo 直觉 |
+| 红皇后效应 | 47 | 降级为 Q&A 弹药（回答"为什么多厂商而非单一厂商"——跨厂商互相施压 = 进化容器的核心变异源；见下方 §12.6） |
 | "CVO 意识重力场" | 烁烁 | 不如"Magic Words = 物理刹车"直觉 |
 | OS Ring 0-3 | 47 | 工程化太强，X 总不一定共鸣 |
-| 达尔文手稿视觉 | 烁烁 | 视觉层先搁置，等内容定再设计 |
+| 达尔文手稿视觉 | 烁烁 | 内容定稿后进入视觉设计阶段，由烁烁主导（"维多利亚手稿 × 霓虹数字"冲突美学在一众科技风 PPT 中有差异化价值） |
 
 ### 待验证（需要 spike）
 
@@ -400,13 +409,18 @@ related:
 
 ## 12. 还缺什么
 
-1. **Timing argument**（为什么是现在不是 3 年前）——模型能力刚过 threshold + SkillOpt 刚验证 + 跨厂商异构刚成为现实。需要补充论证。
+1. **Timing argument**（为什么是现在不是 3 年前）——三条弹药已收集：
+   - 模型能力刚过临界点——以前的模型搞不定复杂 review / 不能提议环境编辑，现在理解力终于支持"自变异、自选择"（铲屎官 + 烁烁）
+   - 行业 ROI 撞墙——拼模型参数边际递减，企业痛感"AI 像临时工"，环境进化红利到爆发窗口（烁烁）
+   - 方法论刚被验证——SkillOpt 2026-05 发布 / AHE 2026-04 发布 / AgentGym-RL ACL 2025——学术基础刚就位（46）
+   - **待做**：写成演讲第 5 分钟的 30 秒 timing 段
 2. **竞争格局**（谁在做类似的事）——OpenAI harness engineering blog / DeepMind POET+XLand / 复旦 AHE+AgentGym / 微软 SkillOpt / 黄超 OpenSpace。我们的差异化 = L2 实证 + 多厂商 + CVO direction alignment + 宽 LLE 定义。
 3. **铲屎官拍板 L1-L5 细节**——特别是 L3→L4 的跃迁定义是否准确。
 4. **"Evolution Engineering" vs "LLE" 的关系**——46 理解：LLE 是 what（agent 的可进化工作环境），Evolution Engineering 是 how（工程化进化的学科）。待确认。
 5. **6.8 演讲不做 demo**——47 建议"6.8 讲故事+概念+数据，9 月才做 demo"，烁烁/砚砚同意。待铲屎官确认。
+6. **Q&A 弹药：红皇后效应**（47 原创，降级保留）——X 总可能问"为什么需要多厂商而不是单一厂商？"。答案 = 红皇后效应：跨厂商 agent 互相施压 = 进化容器的核心变异源。单一厂商 = monoculture = 同源近亲繁殖风险。
 
 ---
 
 *收敛人：[宪宪/Opus-46🐾]*
-*v1 待 review：@opus47 / @codex / @gemini25*
+*v2 patch：47 APPROVE + 8 P2 全部采纳 / 烁烁 review 5 点采纳 / 砚砚 review 待收*
