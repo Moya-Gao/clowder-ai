@@ -1,6 +1,7 @@
 import type Database from 'better-sqlite3';
 import type { FastifyPluginAsync } from 'fastify';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
+import { canAccessThread } from '../domains/guides/guide-state-access.js';
 import { CrossCatMetricsComputer } from '../domains/memory/CrossCatMetricsComputer.js';
 import { freezeF200Flags } from '../domains/memory/f200-types.js';
 import { OutputVerifiedDetector } from '../domains/memory/output-verified-detector.js';
@@ -20,7 +21,7 @@ export interface RecallMetricsRoutesOptions {
   messageStore?: SignalMessageStore;
   taskStore?: SignalTaskStore;
   /** Optional: pass threadStore to enable thread ownership validation on /api/recall/events. */
-  threadStore?: Pick<IThreadStore, 'get'>;
+  threadStore?: Pick<IThreadStore, 'get' | 'list'>;
 }
 
 interface CacheEntry {
@@ -35,6 +36,15 @@ const MAX_CACHE = 20;
 
 export function clearRecallMetricsCache(): void {
   cache.clear();
+}
+
+async function isThreadIndexedForUser(
+  threadStore: Pick<IThreadStore, 'list'>,
+  threadId: string,
+  userId: string,
+): Promise<boolean> {
+  const userVisibleThreads = await threadStore.list(userId);
+  return userVisibleThreads.some((visibleThread) => visibleThread.id === threadId);
 }
 
 export const recallMetricsRoutes: FastifyPluginAsync<RecallMetricsRoutesOptions> = async (app, opts) => {
@@ -201,7 +211,10 @@ export const recallMetricsRoutes: FastifyPluginAsync<RecallMetricsRoutesOptions>
     }
     const thread = await opts.threadStore.get(threadId);
     if (!thread) return reply.status(404).send({ error: 'Thread not found' });
-    if (thread.createdBy !== 'system' && thread.createdBy !== userId) {
+    const canReadRecallEvents =
+      canAccessThread(thread, userId) ||
+      (thread.createdBy === 'system' && (await isThreadIndexedForUser(opts.threadStore, thread.id, userId)));
+    if (!canReadRecallEvents) {
       return reply.status(403).send({ error: 'Forbidden' });
     }
 

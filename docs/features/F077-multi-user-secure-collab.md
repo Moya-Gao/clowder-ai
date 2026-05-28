@@ -72,12 +72,13 @@ GitHub OAuth 认证 + Thread ACL + Redis Session，实现安全的多用户协�
 | R10 | 向后兼容（auth 可选） | AC9 | test | [ ] |
 | R11 | projectPath 沙盒（Agent 只在授权目录执行） | AC10 | test | [ ] |
 
-### Route Audit 已知越权实例（R9/AC8 起点）
+### Route Audit 已知越权实例（R9/AC8 — 已修复，留作同类模式参考）
 
-> Phase 1 实施 R9 route audit 时，以下已确认的越权路由必须收紧。**单用户部署下零实际风险**（系统仅一个 owner，无第二个用户可越权），多用户启用后为 P1。
+> 以下越权路由在 #786 sync review 中发现。**单用户部署下零实际风险**（系统仅一个 owner，无第二个用户可越权），多用户启用后为 P1。**已修复**，留作 R9 route audit 时的同类模式参考（owner / 默认大厅 public / 其余按 caller 索引校验，三态）。
 
-- **`GET /api/recall/events`**（`packages/api/src/routes/recall-metrics.ts:204`）：守卫 `thread.createdBy !== 'system' && thread.createdBy !== userId` 把**所有** `createdBy === 'system'` 的 thread 当 public，任何登录用户可读其 recall events。应收紧为：仅默认公共大厅 thread public，其余 system-created thread 按 owner/member 索引校验（对齐 Phase 1 What #8「默认公共大厅收口」）。
-  - 来源：clowder-ai #786 砚砚云端 review（2026-05-27）。CVO ROI 决策 defer 到本 feature（"合入之后家里修，下次同步带出"）—— 不单独 hotfix（单用户零风险，单修+同步 ROI 过低），随 F077 route audit 统一处理 + 下次 outbound sync 带出。
+- **`GET /api/recall/events`**（`packages/api/src/routes/recall-metrics.ts`）：原守卫 `thread.createdBy !== 'system' && thread.createdBy !== userId` 把**所有** `createdBy === 'system'` 的 thread 当 public，任何登录用户可读其 recall events。
+  - **已修复**（砚砚 GPT-5.5，2026-05-28 合入 main）：收紧为 `canAccessThread(thread, userId)`（owner + 默认大厅 `DEFAULT_THREAD_ID`）**或** `system thread 且在 caller thread 索引里`（`threadStore.list(userId)`）——非默认 system thread 不再无条件 public，对齐 Phase 1 What #8「默认公共大厅收口」。带 84 行 `recall-events-route.test.js` 覆盖。
+  - 溯源：clowder-ai #786 砚砚云端 review（2026-05-27）发现 → 砚砚修复 → 本 PR 合入 cat-cafe main（真相源）。R9 route audit 实施其余路由时可参照此 owner / 默认大厅 / index 三态模式。
 
 ## Key Decisions
 
