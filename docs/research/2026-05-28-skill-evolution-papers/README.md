@@ -229,7 +229,8 @@ Skill 够泛化      Skill 够简洁
 | [SkillOpt 详解](microsoft-skillopt/README.md) | 方法详解 + 成本分析 + 概念通胀 |
 | [MUSE-Autoskill 详解](bytedance-muse-autoskill/README.md) | 方法详解 + Skill 概念光谱 L0-L3 |
 | [SkillFlow 可信度评估](skillflow-credibility/README.md) | 可信度评估 + 三篇扒底裤 + 复杂场景复现预测 |
-| **本文档** | 四篇总报告 + 难度对比 + 过拟合分析 + 最终判决 |
+| [AHE + AgentGym + AgentGym-RL](harness-and-environment-evolution.md) | Harness 进化 + 环境训练场 + RL 训练（不同赛道！） |
+| **本文档** | 总报告 + 难度对比 + 过拟合分析 + 最终判决 |
 
 ---
 
