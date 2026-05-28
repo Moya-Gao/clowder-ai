@@ -92,14 +92,33 @@ s#localhost:18060#<local-integration-endpoint>#g;
 s#localhost:9000#<local-browser-automation-endpoint>#g;
 
 # ── /Users/ path scrubbing (all files) ──
-# cat-cafe project path → generic project path
-s#/Users/[^\s,"'}\]]+/cat-cafe\b#/path/to/project#g;
-# Fix test assertions that check the project name from a scrubbed /Users/.../cat-cafe path
-# Only in files where CWD_PATH was a full /Users/ path (directory-picker-modal)
+# directory-picker-modal.test collapses the project path to a generic
+# '/path/to/project' (basename 'project') so its toContain('project') / toBe('project')
+# assertions match. Keep that transform ONLY for that file.
+#
+# Other files MUST preserve the basename: fixtures whose logic depends on
+# basename === repository stay consistent after sanitization. Example:
+# sop-predicate-evaluator.test's git_state_predicate scope gate checks
+# `worktreeRoot.includes(repository)`. The repository field 'cat-cafe' is NOT
+# scrubbed (repo names are intentionally preserved, see brand-name note below), so
+# the worktreeRoot must keep its 'cat-cafe' basename. It falls through to the
+# cat-cafe-aware rule below: /Users/dev/cat-cafe → /home/user/cat-cafe → includes('cat-cafe') ✓.
+# (Previously line 96 unconditionally rewrote it to /path/to/project → basename
+# 'project' → includes('cat-cafe') false → violation silently degraded to pass.)
 if ($ARGV =~ m{directory-picker-modal\.test\.(ts|js)$}) {
+  s#/Users/[^\s,"'}\]]+/cat-cafe\b#/path/to/project#g;
   s#toContain\('cat-cafe'\)#toContain('project')#g;
   s#toBe\('cat-cafe'\)#toBe('project')#g;
 }
+# cat-cafe-aware scrub (cloud codex P1 2026-05-28): scrub the /Users/<dev> prefix but
+# PRESERVE the 'cat-cafe' basename AND any remaining subpath. Two consumers depend on this:
+#   1. sop-predicate-evaluator.test: worktreeRoot.includes('cat-cafe') must stay true.
+#   2. mcp-config-adapters.test / deprecated-managed-servers.test: assert that user forks
+#      like /Users/alice/forks/cat-cafe/packages/mcp-server/dist/index.js keep their
+#      cat-cafe/packages/... suffix (proves fork-path preservation). The bare multi-segment
+#      rule below would collapse those to just the leaf (/home/user/index.js) — regression.
+# Must run BEFORE the multi-segment rule so the cat-cafe path is captured first.
+s#/Users/[^\s,"'}\]/]+/(?:[^\s,"'}\]/]+/)*cat-cafe\b#/home/user/cat-cafe#g;
 # First: multi-segment paths → keep last segment
 s#/Users/(?:[^\s,"'}\]/]+/)+([^\s,"'}\]/]+)#/home/user/$1#g;
 # Fallback: bare /Users/username (only 2 segments) → /home/user

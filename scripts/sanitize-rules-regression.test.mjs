@@ -412,4 +412,58 @@ describe('sanitize-rules regression (home repo only)', { skip: !isHomeRepo }, ()
       assert.ok(result.includes('@co-creator'), `expected @co-creator, got: ${result}`);
     });
   });
+
+  // Regression: outbound sync 2026-05-28 — sop-predicate-evaluator.test.js red on temp target.
+  // Root cause: the unconditional `/Users/.../cat-cafe → /path/to/project` rule rewrote the
+  // basename to 'project', but the repository field 'cat-cafe' is intentionally preserved.
+  // git_state_predicate's scope gate checks `worktreeRoot.includes(repository)`, so the
+  // mismatch silently degraded a `violation` to `pass`. Fix: only directory-picker-modal.test
+  // collapses to /path/to/project; all other files preserve the basename via the multi-segment rule.
+  describe('cat-cafe path basename preservation (sync 2026-05-28 regression)', () => {
+    it('preserves cat-cafe basename for non-directory-picker files (/home/user/cat-cafe)', () => {
+      const input = `worktreeRoot: '/Users/dev/cat-cafe',\n`;
+      const result = applySanitizer(input, 'sop-predicate-evaluator.test.js');
+      assert.ok(result.includes('/home/user/cat-cafe'), `expected basename preserved, got: ${result}`);
+      assert.ok(!result.includes('/path/to/project'), `must NOT collapse to /path/to/project, got: ${result}`);
+    });
+
+    it('keeps repository field "cat-cafe" unscrubbed (repo names preserved)', () => {
+      const input = `repository: 'cat-cafe',\n`;
+      const result = applySanitizer(input, 'sop-predicate-evaluator.test.js');
+      assert.ok(result.includes("repository: 'cat-cafe'"), `repo name must be preserved, got: ${result}`);
+    });
+
+    it('still collapses to /path/to/project ONLY in directory-picker-modal.test', () => {
+      const input = `const CWD_PATH = '/Users/dev/cat-cafe';\n`;
+      const result = applySanitizer(input, 'directory-picker-modal.test.ts');
+      assert.ok(result.includes('/path/to/project'), `directory-picker-modal must collapse, got: ${result}`);
+    });
+
+    it('negative case stays mismatched: other-project basename preserved', () => {
+      const input = `worktreeRoot: '/Users/dev/other-project',\n`;
+      const result = applySanitizer(input, 'sop-predicate-evaluator.test.js');
+      assert.ok(result.includes('/home/user/other-project'), `expected basename preserved, got: ${result}`);
+    });
+
+    // Cloud codex P1 (sync 2026-05-28): deep cat-cafe fork subpaths must keep the
+    // cat-cafe/packages/... suffix. The bare multi-segment rule would collapse them to
+    // just the leaf (/home/user/index.js), breaking mcp-config-adapters.test /
+    // deprecated-managed-servers.test which assert fork-path preservation.
+    it('preserves cat-cafe subpath for deep fork paths (P1 — fork-path safety case)', () => {
+      const input = `const p = "/Users/alice/forks/cat-cafe/packages/mcp-server/dist/index.js";\n`;
+      const result = applySanitizer(input, 'mcp-config-adapters.test.js');
+      assert.ok(
+        result.includes('/home/user/cat-cafe/packages/mcp-server/dist/index.js'),
+        `expected cat-cafe subpath preserved, got: ${result}`,
+      );
+      assert.ok(!result.includes('/home/user/index.js'), `must NOT collapse to leaf, got: ${result}`);
+    });
+
+    it('scrubs the /Users/<dev> prefix while keeping cat-cafe basename', () => {
+      const input = `const root = '/Users/someone/code/cat-cafe';\n`;
+      const result = applySanitizer(input, 'deprecated-managed-servers.test.js');
+      assert.ok(result.includes('/home/user/cat-cafe'), `expected prefix scrubbed + basename kept, got: ${result}`);
+      assert.ok(!result.includes('someone'), `username must be scrubbed, got: ${result}`);
+    });
+  });
 });
