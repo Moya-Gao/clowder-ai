@@ -96,10 +96,16 @@ describe('pre-merge gate guard', () => {
     }
   });
 
-  it('hard-blocks when another gate process is running', () => {
+  it('emits a soft warning for a concurrent gate but still acquires the lock', () => {
     const tempDir = mkdtempSync(path.join(os.tmpdir(), 'gate-guard-test-'));
     const lockDir = path.join(tempDir, 'pre-merge-check.lock');
-    // Simulate another pnpm gate running (different PID)
+    // Simulate another pnpm gate running in a different worktree (different PID).
+    // Gates run in parallel safely: no shared writable state (git objects are
+    // content-addressable/immutable, pnpm store writes are atomic hard-links,
+    // node_modules/dist/.next are per-worktree). Resource pressure has its own
+    // independent valves (fseventsd RSS + redis orphan checks), so a concurrent
+    // gate must NOT hard-block the worktree — it only warns. (#1912 added the
+    // HARD_BLOCK as incident-era over-defense with zero independent protection.)
     writeFileSync(
       path.join(tempDir, 'ps.txt'),
       [
@@ -110,10 +116,40 @@ describe('pre-merge gate guard', () => {
     );
     try {
       const result = runGuard(tempDir, ['acquire', '--lock-dir', lockDir, '--holder-pid', String(process.pid)]);
-      // Should fail (hard block)
-      assert.notEqual(result.status, 0);
-      assert.match(result.stderr, /conflicting gate process/);
-      assert.equal(existsSync(lockDir), false);
+      // Should succeed (soft warning, not hard block)
+      assert.equal(result.status, 0, `expected success but got: ${result.stderr}`);
+      assert.equal(existsSync(lockDir), true);
+      assert.match(result.stderr, /concurrent gate/);
+
+      const release = runGuard(tempDir, ['release', '--lock-dir', lockDir, '--holder-pid', String(process.pid)]);
+      assert.equal(release.status, 0, release.stderr);
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it('never hard-blocks regardless of how many concurrent gates are running', () => {
+    const tempDir = mkdtempSync(path.join(os.tmpdir(), 'gate-guard-test-'));
+    const lockDir = path.join(tempDir, 'pre-merge-check.lock');
+    // Two other gates in flight: a `pnpm gate` and a raw `pre-merge-check.sh`.
+    // Both concurrent-gate patterns must downgrade to warnings, never failures.
+    writeFileSync(
+      path.join(tempDir, 'ps.txt'),
+      [
+        `1 0 16016 /System/Library/PrivateFrameworks/fseventsd`,
+        `${process.pid} 1 100 node`,
+        `99998 1 200 node pnpm gate`,
+        `99997 1 200 bash scripts/pre-merge-check.sh`,
+      ].join('\n'),
+    );
+    try {
+      const result = runGuard(tempDir, ['acquire', '--lock-dir', lockDir, '--holder-pid', String(process.pid)]);
+      assert.equal(result.status, 0, `expected success but got: ${result.stderr}`);
+      assert.equal(existsSync(lockDir), true);
+      assert.match(result.stderr, /concurrent gate/);
+
+      const release = runGuard(tempDir, ['release', '--lock-dir', lockDir, '--holder-pid', String(process.pid)]);
+      assert.equal(release.status, 0, release.stderr);
     } finally {
       rmSync(tempDir, { recursive: true, force: true });
     }

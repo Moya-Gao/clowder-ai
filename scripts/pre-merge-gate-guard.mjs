@@ -9,8 +9,14 @@ const DEFAULT_FSEVENTSD_RSS_MAX_KB = 4 * 1024 * 1024;
 // alongside 6399 (CAFE-INCIDENT-20260527).
 const PROTECTED_REDIS_PORTS = new Set([6398, 6399, 6401]);
 const ALLOWED_LOCAL_REDIS_PORTS = new Set([6379, ...PROTECTED_REDIS_PORTS]);
-// Hard block — another gate / pre-merge-check is already running; data conflict.
-const HARD_BLOCK_PATTERNS = [/pnpm\s+gate\b/, /pre-merge-check\.sh\b/];
+// Concurrent-gate detection — another gate / pre-merge-check is already running.
+// Downgraded from hard-block to soft-warning (#1912 added this hard-block): gates run in
+// parallel safely — no shared writable state (git objects immutable, pnpm store
+// writes are atomic hard-links, node_modules/dist/.next are per-worktree), and
+// resource pressure has its own independent valves (fseventsd RSS + redis orphan
+// checks below). The old hard-block was incident-era over-defense that mis-killed
+// legitimate multi-cat concurrency with zero independent protection value.
+const CONCURRENT_GATE_PATTERNS = [/pnpm\s+gate\b/, /pre-merge-check\.sh\b/];
 
 // Soft warning — resource-intensive but no data conflict with gate.
 // Printed as warning but does NOT block gate from starting.
@@ -163,8 +169,11 @@ function runPressureChecks(holderPid) {
     );
   }
 
-  for (const row of findMatchingProcesses(rows, holderPid, HARD_BLOCK_PATTERNS)) {
-    failures.push(`conflicting gate process already running: pid ${row.pid} ${row.command}`);
+  for (const row of findMatchingProcesses(rows, holderPid, CONCURRENT_GATE_PATTERNS)) {
+    warnings.push(
+      `concurrent gate detected: pid ${row.pid} ${row.command}. Gates run in parallel safely ` +
+        `(no shared writable state); if gate feels slow, concurrent gates are a likely cause.`,
+    );
   }
 
   for (const row of findMatchingProcesses(rows, holderPid, SOFT_WARNING_PATTERNS)) {

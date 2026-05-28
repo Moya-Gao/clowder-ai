@@ -53,11 +53,17 @@ describe('incident containment: pre-merge gate guard', () => {
     assert.match(guardScript, /CAT_CAFE_FSEVENTSD_RSS_MAX_KB/);
     assert.match(guardScript, /fseventsd/);
     assert.match(guardScript, /redis-server/);
-    // sync-to-opensource and profile-isolation are soft warnings, not hard blocks
+    // sync-to-opensource, profile-isolation, and concurrent gates are all soft
+    // warnings, not hard blocks (#1912's concurrent-gate hard-block downgraded —
+    // gates run in parallel safely; the real incident valves are the per-worktree
+    // singleflight lock + fseventsd RSS + redis orphan checks above).
     assert.match(guardScript, /sync-to-opensource\\\.sh/);
     assert.match(guardScript, /start-dev-profile-isolation/);
     assert.match(guardScript, /SOFT_WARNING_PATTERNS/);
-    assert.match(guardScript, /HARD_BLOCK_PATTERNS/);
+    assert.match(guardScript, /CONCURRENT_GATE_PATTERNS/);
+    // #1937: concurrent gates are soft-warning now, so the shared-repo
+    // `git fetch origin main` must retry to tolerate remote-ref lock contention
+    assert.match(gateScript, /ref-lock contention/);
   });
 });
 
