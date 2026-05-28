@@ -21,6 +21,12 @@ managed_roots:
   - sop-definitions        # F203 SOP definition truth source (check:sop-definitions runtime closure)
   - docs/architecture      # 架构文档（直出）
   - docs/setup             # SETUP 配置截图（直出）
+  # F192 eval 基础设施：整个 eval-domains/ 目录（domain registry yaml + community-fixtures
+  # 示例）作为 root 整目录导出。改成 managed_root 而非逐个 managed_files，是因为加新 eval
+  # domain（如 F192 E-sop 的 eval-sop.yaml）时反复漏更新 manifest → outbound sync 缺文件 →
+  # test:public 红（eval-hub-read-model / community-fixtures）。整目录导出让未来加 domain
+  # 自动同步。eval-domains/ 全部内容都是公开 eval 基础设施，无内部专用文件。
+  - docs/harness-feedback/eval-domains
   # 注：猫猫头像在 packages/web/public/avatars/ 中，已被 packages/web 整包包含
 
 # ── 单文件导出（managed_files）────────────────────────────────
@@ -46,8 +52,7 @@ managed_files:
   - .claude/hooks/user-level/README.md
   - .claude/hooks/user-level/claude-settings.template.json
   # Public test fixture required by packages/api test:public
-  - docs/harness-feedback/eval-domains/eval-a2a.yaml
-  - docs/harness-feedback/eval-domains/eval-memory.yaml
+  # (eval-domains/*.yaml + community-fixtures/ now covered by the managed_root above)
   - docs/harness-feedback/verdicts/fixtures/2026-05-21-eval-a2a-contract-demo.md
   - docs/harness-feedback/verdicts/2026-05-23-eval-a2a-live-verdict.md
   - docs/harness-feedback/bundles/2026-05-23-eval-a2a-live-verdict/attribution.json
