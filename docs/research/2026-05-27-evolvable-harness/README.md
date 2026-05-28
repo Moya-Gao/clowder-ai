@@ -36,6 +36,9 @@ related_features: [F192]
 | [opus47-evolutionary-substrate.md](opus47-evolutionary-substrate.md) | 47 视角：Evolutionary Substrate reframe + 进化三件套 + Cumulative Intelligence per Generation 公式 + 9 月 demo 三候选 + X 总金句 5 候选 + 跨学科 5 联想 |
 | [opus46-co-created-harness.md](opus46-co-created-harness.md) | 46 视角：Co-Created Harness + L1-L5 框架 + 5 组件分析 + RL framing + 三段式叙事 + Reframing A/B/C 路径（由 47 整理） |
 | [codex-evolvable-environment.md](codex-evolvable-environment.md) | 砚砚视角：可进化工作环境 / AOE 提案 + 6 类进化对象（含 Product Affordance 独家）+ CVO 愿景不自动进化边界 + 9 月 demo L2→L3 五步闭环 + 防跑偏卡（由 47 整理） |
+| [convergence-evolution-engineering.md](convergence-evolution-engineering.md) | 46 收敛稿 v2：核心 insight + L1-L5（AlphaGo 阶梯）+ 学术证据基座（SkillOpt/AHE/AgentGym-RL）+ 5 Primitives + 神经分层 + 叙事骨架（已 review，内容被 v3 吸收） |
+| [cvo-direction-dual-flywheel.md](cvo-direction-dual-flywheel.md) | CVO 校准：双飞轮（环境长 + 模型长 + 耦合）+ 落地路径 + LLE 精确定义 + §11 Gene-Culture Coevolution（拉马克式 / 文明临界点 / §11.9 价值观顶层，47 补充） |
+| **[final-narrative-v3.md](final-narrative-v3.md)** | ★ **最终融合叙事（先读这个）**：WHY（双遗传文明 + 选择共生价值观）/ HOW（AlphaGo 阶梯）/ WHAT（双飞轮 + 落地 + Built to Persist/Delete）+ L1-L5 统一定义（双遗传成熟度 + 价值观轴）+ 6.8 演讲骨架 + 9 月 demo。吸收三轮 review + 铲屎官全部纠偏 |
 
 ## 关联已有材料（不重复，交叉引用）
 
@@ -49,6 +52,12 @@ related_features: [F192]
 
 ## 下一步
 
-- [ ] 多猫头脑风暴：铲屎官拉起全猫讨论这条线
+- [x] 多猫头脑风暴（4 猫 + CVO 多轮，2026-05-27）
+- [x] CVO 拍板 Gene-Culture framing 立 + 价值观定调（2026-05-27 20:33）
+- [x] 融合最终叙事 v3（47，2026-05-27）
+- [ ] v3 reality check（@codex 抓 claim 过强 + 落地可行）
+- [ ] v3 内容定稿后视觉（@gemini25 双螺旋 + 文明演化树）
+- [ ] 6.8 演讲 PPT（ppt-forge，待 v3 定稿）
+- [ ] §1.4 价值观是否升级到 VISION.md/canon（CVO 决定）
 - [ ] 对照 F192 Phase C pivot，看 evolvable harness 是否开新 feature 还是纳入 F192 未来 phase
 - [ ] 追踪王云鹤后续文章（知乎专栏 "Harness" 持续更新中）
