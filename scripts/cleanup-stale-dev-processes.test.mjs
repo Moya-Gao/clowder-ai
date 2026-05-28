@@ -25,6 +25,36 @@ test('stale dev process detector catches only old orphaned Cat Cafe tool process
   );
 });
 
+test('stale dev process detector catches old orphaned non-sanctuary Redis listeners', () => {
+  const ps = `
+13851     1 13851      0       10:01   3984 redis-server 127.0.0.1:52506
+64933     1 64933      0       55:17   4048 redis-server 127.0.0.1:65093
+72593 72400 72593      0       55:17   4048 redis-server 127.0.0.1:57389
+`;
+
+  const findings = findStaleDevProcesses(parsePsOutput(ps), { ownPid: 99999 });
+  assert.deepEqual(
+    findings.map((item) => [item.pid, item.ruleId]),
+    [
+      [13851, 'orphan-isolated-redis'],
+      [64933, 'orphan-isolated-redis'],
+    ],
+  );
+});
+
+test('stale dev process detector never treats protected Redis ports as orphans', () => {
+  const ps = `
+10001     1 10001      0       55:17   4048 redis-server 127.0.0.1:6379
+10002     1 10002      0       55:17   4048 redis-server 127.0.0.1:6398
+10003     1 10003      0       55:17   4048 redis-server 127.0.0.1:6399
+10004     1 10004      0       55:17   4048 redis-server 127.0.0.1:6401
+10005     1 10005      0       09:59   4048 redis-server 127.0.0.1:65093
+`;
+
+  const findings = findStaleDevProcesses(parsePsOutput(ps), { ownPid: 99999 });
+  assert.deepEqual(findings, []);
+});
+
 test('cleanup escalates from SIGTERM to SIGKILL for stubborn stale processes', async () => {
   const alive = new Set([101, 102]);
   const calls = [];

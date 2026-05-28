@@ -28,7 +28,10 @@ describe('runtime-sanctuary-guard: redis sanctuary kill protection (CAFE-INCIDEN
     ['pkill redis by name', 'pkill -f redis-server'],
     ['killall redis-server', 'killall redis-server'],
     ['kill $(pgrep redis-server)', 'kill $(pgrep redis-server)'],
-    ['redis-cli shutdown sanctuary', 'redis-cli -p 6399 shutdown nosave'],
+    ['redis-cli shutdown sanctuary port', 'redis-cli -p 6399 shutdown nosave'],
+    ['redis-cli shutdown without explicit port (ambiguous default)', 'redis-cli shutdown'],
+    ['lsof bare-colon port-range + kill (no tcp: prefix bypass)', 'lsof -ti :50000-65535 | xargs kill -9'],
+    ['lsof single non-sanctuary port + kill (lsof+kill never a cleanup path)', 'lsof -ti tcp:65093 | xargs kill'],
   ];
 
   for (const [name, command] of denyCases) {
@@ -43,6 +46,8 @@ describe('runtime-sanctuary-guard: redis sanctuary kill protection (CAFE-INCIDEN
     ['safe registry-backed redis test runner', 'pnpm --filter @cat-cafe/api test:redis'],
     ['safe orphan cleanup', 'pnpm process:cleanup'],
     ['single non-redis pid kill', 'kill -9 12345'],
+    ['kill orphan redis by direct pid', 'kill 65093'],
+    ['redis-cli shutdown explicit non-sanctuary port', 'redis-cli -p 65093 shutdown nosave'],
     ['plain git status', 'git status'],
   ];
 

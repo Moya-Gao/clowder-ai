@@ -100,13 +100,15 @@ if echo "$COMMAND" | grep -qiE '(kill|pkill)\s+.*(-f\s+)?.*cat-cafe-runtime'; th
 fi
 
 # ═══════════════════════════════════════════════════════════════
-# 模式 7：lsof 端口范围 + kill 批量清理（CAFE-INCIDENT-20260527 凶器）
-# 背景：`lsof -ti tcp:50000-65535` 返回任何 socket 端点（含 ESTABLISHED 对端口）
-#       落在该范围内的进程——6399 圣域 master 因与 runtime 的 ESTABLISHED 连接被命中，
-#       `ps | grep redis-server` 无法区分圣域 vs 临时实例 → kill -9 误杀圣域。
+# 模式 7：lsof 端口查找 + kill（任意端口/范围，含裸冒号 :N 与 tcp:N 写法）
+# 背景：`lsof -ti :50000-65535` / `lsof -ti tcp:6399` 返回任何 socket 端点（含
+#       ESTABLISHED 对端口）落在端口/范围内的进程——6399 圣域 master 因与 runtime 的
+#       ESTABLISHED 连接被命中，`ps | grep redis-server` 无法区分圣域 vs 临时实例 →
+#       kill 误杀圣域（CAFE-INCIDENT-20260527）。单端口同理有非零命中风险，且已有安全
+#       替代路径，故 lsof+kill 一律不作为清理路径（裸冒号/tcp: 两种写法都拦）。
 # ═══════════════════════════════════════════════════════════════
-if echo "$COMMAND" | grep -qiE 'lsof[^|;&]*tcp:[0-9]+-[0-9]+' && echo "$COMMAND" | grep -qiE '\bkill\b'; then
-  emit_deny "⛔ P0 圣域保护：禁止 'lsof -ti tcp:<范围> | kill' 批量清理（CAFE-INCIDENT-20260527 凶器）！lsof 端口范围会命中 ESTABLISHED 对端口落在范围内的 6398/6399/6401 圣域 master，kill 误杀圣域。清理 stale isolated Redis 用 'pnpm test:api:redis'（registry 化、保护 6398/6399），通用孤儿进程用 'pnpm process:cleanup'。"
+if echo "$COMMAND" | grep -qiE 'lsof[^|;&]*:[0-9]' && echo "$COMMAND" | grep -qiE '\bkill\b'; then
+  emit_deny "⛔ P0 圣域保护：禁止 'lsof ... :<端口/范围> | kill'（CAFE-INCIDENT-20260527 凶器）！lsof 端口查找会命中 ESTABLISHED 对端口落在端口/范围内的 6398/6399/6401 圣域 master，kill 误杀圣域；单端口同理有非零风险。安全清理：通用孤儿用 'pnpm process:cleanup'，stale isolated Redis 用 'pnpm test:api:redis'（registry 保护），定向清进程先只读 lsof 拿 PID 再 'kill <PID>'，清非圣域 Redis 用 'redis-cli -p <非圣域端口> shutdown'。"
   exit 0
 fi
 
@@ -121,13 +123,15 @@ if echo "$COMMAND" | grep -qiE '(pkill|killall)\b[^|;]*redis' \
 fi
 
 # ═══════════════════════════════════════════════════════════════
-# 模式 9：对圣域端口 6398/6399/6401 执行 lsof+kill 或 redis-cli shutdown
-# 注意：只读诊断（lsof/redis-cli ping 不带 kill/shutdown）放行。
+# 模式 9：redis-cli shutdown —— 仅拦圣域端口或未显式指定端口（默认 6379 有歧义）。
+# 放行显式非圣域端口（清 unmanaged orphan 的合法路径，如 redis-cli -p 65093 shutdown）。
 # ═══════════════════════════════════════════════════════════════
-if { echo "$COMMAND" | grep -qiE 'lsof[^|;&]*:(6398|6399|6401)\b' && echo "$COMMAND" | grep -qiE '\bkill\b'; } \
-   || echo "$COMMAND" | grep -qiE 'redis-cli\b[^|;]*shutdown'; then
-  emit_deny "⛔ P0 圣域保护：禁止对圣域端口 6398/6399/6401 执行 lsof+kill 或 redis-cli shutdown！6399=runtime 圣域 / 6398=worktree dev / 6401=用户数据持久化，强杀 = 所有猫掉线 + 用户数据无 graceful BGSAVE。重启请通知铲屎官。只读诊断（lsof/ping 不带 kill）不受限。"
-  exit 0
+if echo "$COMMAND" | grep -qiE 'redis-cli\b[^|;]*shutdown'; then
+  if echo "$COMMAND" | grep -qiE 'redis-cli\b[^|;]*-p\s*(6398|6399|6401)\b' \
+     || ! echo "$COMMAND" | grep -qiE 'redis-cli\b[^|;]*-p\s*[0-9]+'; then
+    emit_deny "⛔ P0 圣域保护：redis-cli shutdown 指向圣域端口 6398/6399/6401 或未指定端口（默认 6379 有歧义）= 可能强杀圣域（无 graceful BGSAVE）。清非圣域 orphan 请显式指定端口：redis-cli -p <非圣域端口> shutdown。重启圣域请通知铲屎官。"
+    exit 0
+  fi
 fi
 
 # 不匹配任何危险模式，放行

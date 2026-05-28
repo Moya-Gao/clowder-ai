@@ -73,6 +73,7 @@ describe('incident containment: isolated Redis harness cleanup', () => {
     assert.match(source, /SIGKILL/);
     assert.match(source, /6398/);
     assert.match(source, /6399/);
+    assert.match(source, /6401/);
   });
 
   it('includes the lightweight harness regression in root check', () => {
