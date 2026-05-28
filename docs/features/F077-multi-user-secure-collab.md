@@ -72,6 +72,13 @@ GitHub OAuth 认证 + Thread ACL + Redis Session，实现安全的多用户协�
 | R10 | 向后兼容（auth 可选） | AC9 | test | [ ] |
 | R11 | projectPath 沙盒（Agent 只在授权目录执行） | AC10 | test | [ ] |
 
+### Route Audit 已知越权实例（R9/AC8 起点）
+
+> Phase 1 实施 R9 route audit 时，以下已确认的越权路由必须收紧。**单用户部署下零实际风险**（系统仅一个 owner，无第二个用户可越权），多用户启用后为 P1。
+
+- **`GET /api/recall/events`**（`packages/api/src/routes/recall-metrics.ts:204`）：守卫 `thread.createdBy !== 'system' && thread.createdBy !== userId` 把**所有** `createdBy === 'system'` 的 thread 当 public，任何登录用户可读其 recall events。应收紧为：仅默认公共大厅 thread public，其余 system-created thread 按 owner/member 索引校验（对齐 Phase 1 What #8「默认公共大厅收口」）。
+  - 来源：clowder-ai #786 砚砚云端 review（2026-05-27）。CVO ROI 决策 defer 到本 feature（"合入之后家里修，下次同步带出"）—— 不单独 hotfix（单用户零风险，单修+同步 ROI 过低），随 F077 route audit 统一处理 + 下次 outbound sync 带出。
+
 ## Key Decisions
 
 ### 已决（基于布偶猫 + gpt52 讨论）
