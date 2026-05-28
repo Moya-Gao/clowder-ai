@@ -12,7 +12,7 @@ status: v2-cvo-confirmed-structure
 note: >
   面向华为总裁级 idea 路演。零黑话。画完整技术蓝图。
   铲屎官确认了"两套独立 LLE 各自有双螺旋"的核心结构。
-  视觉风格：白底 + 红黑配色（华为风）。低保真定稿后交砚砚生成精美版。
+  视觉风格：白底 + 红黑配色（华为风）。精美版已由砚砚用原生 imagegen 直出。
 ---
 
 # LLE 自进化平台 — 架构图 v2
@@ -22,6 +22,30 @@ note: >
 > **受众**：华为总裁级 idea 路演。零黑话，画完整技术蓝图。
 >
 > **核心结构**：两套独立的 LLE，各自运转双螺旋（环境进化 + 模型进化），通过"开发/交付 + 经验回流"耦合。
+
+---
+
+## 精美图产物（原生 imagegen 直出）
+
+> 生成方式：砚砚使用原生 imagegen 生成 raster PNG；未使用 SVG/HTML 手工合成。
+
+| 图 | 文件 | 用途 |
+|---|---|---|
+| 总览图 | [`assets/lle-overview-huawei-style.png`](assets/lle-overview-huawei-style.png) | PPT 主页 / 一张图讲清两套 LLE |
+| 开发 LLE 详图 | [`assets/lle-development-detail-huawei-style.png`](assets/lle-development-detail-huawei-style.png) | 讲开发 LLE 如何越造越快 |
+| 产品 LLE 详图 | [`assets/lle-product-detail-huawei-style.png`](assets/lle-product-detail-huawei-style.png) | 讲产品 LLE 如何在业务场景中自进化 |
+
+### 总览图
+
+![LLE 自进化平台总览](assets/lle-overview-huawei-style.png)
+
+### 开发 LLE 详图
+
+![开发 LLE 详图](assets/lle-development-detail-huawei-style.png)
+
+### 产品 LLE 详图
+
+![产品 LLE 详图](assets/lle-product-detail-huawei-style.png)
 
 ---
 
