@@ -38,7 +38,8 @@ related_features: [F192]
 | [codex-evolvable-environment.md](codex-evolvable-environment.md) | 砚砚视角：可进化工作环境 / AOE 提案 + 6 类进化对象（含 Product Affordance 独家）+ CVO 愿景不自动进化边界 + 9 月 demo L2→L3 五步闭环 + 防跑偏卡（由 47 整理） |
 | [convergence-evolution-engineering.md](convergence-evolution-engineering.md) | 46 收敛稿 v2：核心 insight + L1-L5（AlphaGo 阶梯）+ 学术证据基座（SkillOpt/AHE/AgentGym-RL）+ 5 Primitives + 神经分层 + 叙事骨架（已 review，内容被 v3 吸收） |
 | [cvo-direction-dual-flywheel.md](cvo-direction-dual-flywheel.md) | CVO 校准：双飞轮（环境长 + 模型长 + 耦合）+ 落地路径 + LLE 精确定义 + §11 Gene-Culture Coevolution（拉马克式 / 文明临界点 / §11.9 价值观顶层，47 补充） |
-| **[final-narrative-v3.md](final-narrative-v3.md)** | ★ **最终融合叙事（先读这个）**：WHY（双遗传文明 + 选择共生价值观）/ HOW（AlphaGo 阶梯）/ WHAT（双飞轮 + 落地 + Built to Persist/Delete）+ L1-L5 统一定义（双遗传成熟度 + 价值观轴）+ 6.8 演讲骨架 + 9 月 demo。吸收三轮 review + 铲屎官全部纠偏 |
+| **[final-narrative-v3.md](final-narrative-v3.md)** | ★ **最终融合叙事（先读这个）**：WHY（双遗传文明 + 选择共生价值观）/ HOW（AlphaGo 阶梯）/ WHAT（双飞轮 + 落地 + Built to Persist/Delete）+ L1-L5 统一定义（双遗传成熟度 + 价值观轴）+ 6.8 演讲骨架 + 9 月 demo。吸收三轮 review + 铲屎官全部纠偏（砚砚 reality check APPROVE，v3.1） |
+| [dual-loop-lle-factory.md](dual-loop-lle-factory.md) | 双回路 LLE 工厂（v3 "千行百业"升级）：分形双层进化（Cat Cafe = LLE 工厂 + FDE 为千行百业造小模型+小 LLE）/ 双回路解开 RL 落地死结（RL 小模型非大模型）/ FDE 层级经验库（通用·领域·场景三层 = F186 联邦结构，越造越快）/ L5 补全 = 双环 RL + 选择共生 / LLE 工厂商业模式。raw-capture 待融进 v3 |
 
 ## 关联已有材料（不重复，交叉引用）
 
