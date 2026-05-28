@@ -1305,7 +1305,7 @@
     {
       "id": "F211",
       "name": "Cross-Runtime Session Transparency — Antigravity Session Chain + IDE Direct Registration",
-      "status": "done | **Owner**: 缅因猫（砚砚） | **Priority**: P1 | **Completed**: 2026-05-26",
+      "status": "done (post-close P1 fix pending) | **Owner**: 缅因猫（砚砚） | **Priority**: P1 | **Completed**: 2026-05-26",
       "file": "F211-cross-runtime-session-transparency.md"
     },
     {
