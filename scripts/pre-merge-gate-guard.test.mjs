@@ -138,4 +138,26 @@ describe('pre-merge gate guard', () => {
       rmSync(tempDir, { recursive: true, force: true });
     }
   });
+
+  it('does not flag protected sanctuary ports 6398/6399/6401 as orphans', () => {
+    const tempDir = mkdtempSync(path.join(os.tmpdir(), 'gate-guard-test-'));
+    const lockDir = path.join(tempDir, 'pre-merge-check.lock');
+    writeFileSync(
+      path.join(tempDir, 'lsof.txt'),
+      [
+        'redis-ser 100 user 6u IPv4 0x0 0t0 TCP 127.0.0.1:6398 (LISTEN)',
+        'redis-ser 101 user 6u IPv4 0x0 0t0 TCP 127.0.0.1:6399 (LISTEN)',
+        'redis-ser 102 user 6u IPv4 0x0 0t0 TCP 127.0.0.1:6401 (LISTEN)',
+      ].join('\n'),
+    );
+    try {
+      const result = runGuard(tempDir, ['acquire', '--lock-dir', lockDir, '--holder-pid', String(process.pid)]);
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(existsSync(lockDir), true);
+      const release = runGuard(tempDir, ['release', '--lock-dir', lockDir, '--holder-pid', String(process.pid)]);
+      assert.equal(release.status, 0, release.stderr);
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
 });

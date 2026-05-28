@@ -4,7 +4,10 @@ import os from 'node:os';
 import path from 'node:path';
 
 const DEFAULT_FSEVENTSD_RSS_MAX_KB = 4 * 1024 * 1024;
-const PROTECTED_REDIS_PORTS = new Set([6398, 6399]);
+// 6398=worktree dev / 6399=runtime sanctuary / 6401=user-redis persistent user data.
+// 6401 must be protected too — flagging it as a killable orphan led to it being murdered
+// alongside 6399 (CAFE-INCIDENT-20260527).
+const PROTECTED_REDIS_PORTS = new Set([6398, 6399, 6401]);
 const ALLOWED_LOCAL_REDIS_PORTS = new Set([6379, ...PROTECTED_REDIS_PORTS]);
 // Hard block — another gate / pre-merge-check is already running; data conflict.
 const HARD_BLOCK_PATTERNS = [/pnpm\s+gate\b/, /pre-merge-check\.sh\b/];
@@ -153,7 +156,11 @@ function runPressureChecks(holderPid) {
   }
 
   for (const orphan of findRedisOrphans()) {
-    failures.push(`unmanaged redis-server listener on port ${orphan.port}; clean stale isolated Redis before gate`);
+    failures.push(
+      `unmanaged redis-server listener on port ${orphan.port}; clean stale isolated Redis before gate. ` +
+        `Use 'pnpm test:api:redis' (registry cleanup, protects 6398/6399) or 'pnpm process:cleanup' for orphans. ` +
+        `NEVER 'lsof -ti tcp:<range> | kill' — it catches the 6398/6399/6401 sanctuary via ESTABLISHED peer ports (CAFE-INCIDENT-20260527).`,
+    );
   }
 
   for (const row of findMatchingProcesses(rows, holderPid, HARD_BLOCK_PATTERNS)) {

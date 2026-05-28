@@ -75,7 +75,7 @@
     "audit:feature-docs": "node scripts/audit-feature-doc-template.mjs",
     "check:skills": "bash scripts/check-skills-mount.sh",
     "check:skills:manifest": "node scripts/check-skills-manifest.mjs",
-    "check:pre-merge-gate": "node --test scripts/pre-merge-check.test.mjs scripts/pre-merge-gate-guard.test.mjs scripts/test-bash-runtime.test.mjs scripts/run-checks.test.mjs",
+    "check:pre-merge-gate": "node --test scripts/pre-merge-check.test.mjs scripts/pre-merge-gate-guard.test.mjs scripts/runtime-sanctuary-guard.test.mjs scripts/test-bash-runtime.test.mjs scripts/run-checks.test.mjs",
     "check:web-global-css-imports": "node --test scripts/check-web-global-css-imports.test.mjs",
     "mcp:doctor": "node scripts/mcp-doctor.mjs",
     "sync:skills": "bash scripts/sync-skills.sh",

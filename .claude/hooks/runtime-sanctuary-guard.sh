@@ -99,5 +99,36 @@ if echo "$COMMAND" | grep -qiE '(kill|pkill)\s+.*(-f\s+)?.*cat-cafe-runtime'; th
   exit 0
 fi
 
+# ═══════════════════════════════════════════════════════════════
+# 模式 7：lsof 端口范围 + kill 批量清理（CAFE-INCIDENT-20260527 凶器）
+# 背景：`lsof -ti tcp:50000-65535` 返回任何 socket 端点（含 ESTABLISHED 对端口）
+#       落在该范围内的进程——6399 圣域 master 因与 runtime 的 ESTABLISHED 连接被命中，
+#       `ps | grep redis-server` 无法区分圣域 vs 临时实例 → kill -9 误杀圣域。
+# ═══════════════════════════════════════════════════════════════
+if echo "$COMMAND" | grep -qiE 'lsof[^|;&]*tcp:[0-9]+-[0-9]+' && echo "$COMMAND" | grep -qiE '\bkill\b'; then
+  emit_deny "⛔ P0 圣域保护：禁止 'lsof -ti tcp:<范围> | kill' 批量清理（CAFE-INCIDENT-20260527 凶器）！lsof 端口范围会命中 ESTABLISHED 对端口落在范围内的 6398/6399/6401 圣域 master，kill 误杀圣域。清理 stale isolated Redis 用 'pnpm test:api:redis'（registry 化、保护 6398/6399），通用孤儿进程用 'pnpm process:cleanup'。"
+  exit 0
+fi
+
+# ═══════════════════════════════════════════════════════════════
+# 模式 8：按进程名批量杀 redis（pkill/killall redis、kill ... redis-server）
+# 背景：进程名层面无法区分 sanctuary master vs ephemeral test instance。
+# ═══════════════════════════════════════════════════════════════
+if echo "$COMMAND" | grep -qiE '(pkill|killall)\b[^|;]*redis' \
+   || { echo "$COMMAND" | grep -qiE 'redis-server' && echo "$COMMAND" | grep -qiE '\bkill\b'; }; then
+  emit_deny "⛔ P0 圣域保护：禁止按进程名批量杀 redis！进程名无法区分 6398/6399/6401 圣域 master vs 临时测试实例，会误杀圣域用户数据（LL-048 用户数据持久化）。清理用 'pnpm test:api:redis'（registry 保护）或 'pnpm process:cleanup'。"
+  exit 0
+fi
+
+# ═══════════════════════════════════════════════════════════════
+# 模式 9：对圣域端口 6398/6399/6401 执行 lsof+kill 或 redis-cli shutdown
+# 注意：只读诊断（lsof/redis-cli ping 不带 kill/shutdown）放行。
+# ═══════════════════════════════════════════════════════════════
+if { echo "$COMMAND" | grep -qiE 'lsof[^|;&]*:(6398|6399|6401)\b' && echo "$COMMAND" | grep -qiE '\bkill\b'; } \
+   || echo "$COMMAND" | grep -qiE 'redis-cli\b[^|;]*shutdown'; then
+  emit_deny "⛔ P0 圣域保护：禁止对圣域端口 6398/6399/6401 执行 lsof+kill 或 redis-cli shutdown！6399=runtime 圣域 / 6398=worktree dev / 6401=用户数据持久化，强杀 = 所有猫掉线 + 用户数据无 graceful BGSAVE。重启请通知铲屎官。只读诊断（lsof/ping 不带 kill）不受限。"
+  exit 0
+fi
+
 # 不匹配任何危险模式，放行
 exit 0
