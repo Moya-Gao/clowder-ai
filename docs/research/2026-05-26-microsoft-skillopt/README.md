@@ -259,6 +259,26 @@ SkillOpt 只测了学术 benchmark（⭐-⭐⭐⭐），没碰工业级复杂任
 
 ---
 
+## "Skill" 概念通胀警告（2026-05-28 圆桌后记）
+
+### 论文里的 "skill" ≠ 你以为的 skill
+
+SkillOpt 论文里优化的 "skill" 本质上是**单个 benchmark 任务的指令模板**——几十行文字，告诉模型"这道题怎么做"。这跟 Anthropic 定义的 skill（经验 + know-how + 方法论）、跟我们 Cat Café 的 skill（行为框架 + 治理逻辑 + 团队经验）是完全不同级别的东西。
+
+| | SkillOpt 的 "skill" | Anthropic 定义的 skill | Cat Café 的 skill |
+|---|---|---|---|
+| **本质** | 单页答题技巧 | 知识 + know-how + 准则 | 行为框架 + 治理 + 经验 |
+| **类比** | 一道题的解题卡 | 一个工种的操作手册 | 一个职业的方法论 |
+| **有标准答案？** | ✅ | 不一定 | 大部分没有 |
+| **能自动评分？** | ✅ | 不一定 | 大部分不能 |
+| **能自动生成/优化？** | ✅（论文主张） | 困难 | 极难 |
+
+**铲屎官原话："我感觉我又被诈骗了"** — 论文把"配方优化"包装成"skill 自进化"，概念通胀严重。真正的 skill（判断力、经验、know-how）不是用 epoch/batch/LR 能训练出来的。
+
+详细分析见 `../2026-05-28-bytedance-muse-autoskill/README.md` 的"Skill 概念光谱"段。
+
+---
+
 ## 参考文献
 
 - **论文**: [arXiv:2605.23904](https://arxiv.org/pdf/2605.23904) — Yang et al., "SkillOpt: Executive Strategy for Self-Evolving Agent Skills", May 2026

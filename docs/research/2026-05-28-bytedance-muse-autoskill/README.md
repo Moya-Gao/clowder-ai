@@ -102,6 +102,85 @@ skill-name/
 
 ---
 
+## Skill 概念光谱："Skill" 在论文和工业里指的是完全不同的东西（2026-05-28 圆桌后记）
+
+### MUSE-Autoskill 实际在进化什么
+
+论文给了四个 case study（完整 skill 未公开，只展示了结构）：
+
+| Skill 名 | 实际内容 | 本质 | 结果 |
+|---|---|---|---|
+| `adaptive-cruise-pid-controller` | PID 方程 + 增益调参规则 + JSON 格式 | **工程配方** | 40%→100% |
+| `implement-clusterdata-flink-session-query` | Flink Java + POJO schema + Maven 验证 | **技术配方** | 20%→100% |
+| `excel-financial-formula-modeling` | openpyxl + SUMPRODUCT 公式模式 | **工具配方** | 20%→100% |
+| `hvac-control`（翻车） | PI 控制器增益校准 | **参数配方** | 80%→20% ⚠️ |
+
+中位数 **326 行 / 15.8 KB**（人写的 skill 中位数 146 行 / 6.6 KB），2.2 倍长。论文说"额外内容是程序性的：输入输出 schema、失败模式、步骤详解"。
+
+**这些 "skill" 有标准答案、能跑 pytest、能自动评分。** 第四个 case（hvac-control）翻车了——过拟合到训练轨迹的具体参数，换个初始条件就挂。这恰恰说明"配方"级 skill 的脆弱性。
+
+### Anthropic Agent Skills Spec 实际长什么样
+
+[agentskills.io/specification](https://agentskills.io/specification) 定义的标准目录：
+
+```
+skill-name/
+├── SKILL.md       ← 必需：YAML frontmatter + 指令（<500 行推荐）
+├── scripts/       ← 可选：可执行代码
+├── references/    ← 可选：参考文档
+├── assets/        ← 可选：模板、资源
+```
+
+**注意：Anthropic spec 里没有 `tests/` 目录。** MUSE-Autoskill 的 `tests/` 是自己加的。
+
+Anthropic 官方仓库（[anthropics/skills](https://github.com/anthropics/skills), 142k stars）里的 17 个示范 skill：
+
+| Skill | 内容 | 知识级别 |
+|---|---|---|
+| `brand-guidelines` | 品牌色号 (#d97757) + 字体 (Poppins/Lora) + 应用规则 | **设计知识** |
+| `internal-comms` | 3P updates / newsletter / FAQ 写法 + 4 个模板文件 | **沟通 know-how** |
+| `webapp-testing` | Playwright 决策树 + "先侦察再操作"模式 + 陷阱清单 | **测试方法论** |
+| `frontend-design` | 前端设计原则 | **设计 know-how** |
+| `skill-creator` | 如何写 skill 的 skill | **元知识** |
+| `docx/pdf/pptx/xlsx` | 文档操作方法 | **工具 know-how** |
+
+Anthropic 官方定义原文：
+> "Skills teach Claude **how to complete specific tasks in a repeatable way**, whether that's creating documents with your company's **brand guidelines**, analyzing data using your organization's **specific workflows**, or automating personal tasks."
+
+**Anthropic 眼里的 skill = 经验 + know-how + 准则。不是配方。**
+
+### 三级 "Skill" 概念光谱
+
+| 级别 | 代表 | 本质 | 能自动评分？ | 能自动生成/优化？ | 类比 |
+|---|---|---|---|---|---|
+| **L1 配方** | SkillOpt 的 benchmark 指令 | 单题解法 | ✅ | ✅ | 一道题的答题卡 |
+| **L2 技术 recipe** | MUSE-Autoskill 的 PID/Flink/Excel skill | 一类题的解法 | ✅（Docker verifier） | ✅（论文主张） | 一类题的解题套路 |
+| **L3 Know-how** | Anthropic 的 brand-guidelines / webapp-testing / Cat Café 的 tdd / quality-gate | 经验 + 方法论 + 判断力 | ❌（开放式） | ❌（需要真实经验积累） | 一个职业的方法论 |
+
+**SkillOpt 和 MUSE-Autoskill 的 "skill 自进化" 只在 L1-L2 层面 work。L3 层的 skill（我们和 Anthropic 实际在做的）不是这么进化的。**
+
+### 为什么 L3 Skill 不能自动进化
+
+以"自媒体内容创作"skill 为例：
+
+| 阶段 | L2 配方 skill 能做 | L3 know-how skill 的困境 |
+|---|---|---|
+| **创建** | 任务失败 → 分析根因 → 提取配方 | "内容没人看"→ 根因是什么？标题？选题？时机？账号权重？运气？**不可归因** |
+| **测试** | `assert output == expected` | `assert 阅读量 > 1000`？取决于算法/时间/运气，**不可控变量太多** |
+| **精炼** | 跑 10 次 → 分析成败 → 改配方 | 成功的那次可能只是赶上热点，**无法区分 skill 贡献 vs 环境噪声** |
+
+L3 Skill 的进化路径是：**铲屎官纠正 → 案例积累 → 教训沉淀 → 人工 review → 渐进修改**。这正是我们 self-evolution Mode C 在做的。不够自动化？是的。但这不是工程缺陷，是问题本质决定的。
+
+### "概念通胀"警告
+
+论文把"配方优化"包装成"skill 自进化"，概念通胀严重。读者（包括我们）看到"skill"会自然联想到 know-how / 经验 / 判断力，但论文实际优化的是有标准答案的技术配方。
+
+> 铲屎官原话："我感觉我又被诈骗了"
+
+**不是诈骗，是术语歧义。** 但论文没有明确区分这些层级，容易造成误导。我们在 Cat Café 用"skill"一直指的是 L3 层（知识 + know-how + 行为框架），跟论文里的"skill"不是一个东西。
+
+---
+
 ## Cat Cafe 观察：与我们的体系对比
 
 ### 直接映射
@@ -126,8 +205,8 @@ skill-name/
 
 ### MUSE-Autoskill 有但 Cat Cafe 没有的
 
-- **自动化单元测试**（每个 skill 附带 pytest）← 值得引入
-- **自动创建 skill**（从任务失败中提取）← 我们是人工写
+- **自动化单元测试**（每个 skill 附带 pytest）← ⚠️ 仅对 L1-L2 配方类 skill 有意义；我们的 L3 know-how skill 大部分不能写 pytest（见上方"概念光谱"）
+- **自动创建 skill**（从任务失败中提取）← 仅限有标准答案的任务；我们的 skill 涉及判断力和经验，人工写是必要的
 - **结构化 skill 检索**（metadata 驱动匹配）← 我们靠 manifest.yaml triggers 关键词匹配
 - **Skill 成功率跟踪**（运行时反馈统计）← 我们的 F192 eval 在做但粒度不到 per-skill
 
