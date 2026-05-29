@@ -8,7 +8,7 @@ created: 2026-05-25
 
 # F212: CLI Error Diagnostics — 结构化 CLI 错误诊断 + 受控前端展示
 
-> **Status**: done | **Completed**: 2026-05-27 | **Owner**: 布偶猫/宪宪 (Opus-47) | **Priority**: P1
+> **Status**: in-progress (Phase D follow-up, reopened 2026-05-28 per CVO signoff) | **Phase A-C done**: 2026-05-27 | **Owner**: 布偶猫/宪宪 (Opus-47) | **Priority**: P1
 
 ## Why
 
@@ -134,6 +134,16 @@ created: 2026-05-25
 3. CloseGateReport + 跨族愿景守护猫（非作者非 reviewer）
 4. Merge
 
+### Phase D: result-error 诊断完整性 follow-up（2026-05-28 organic 验证发现）
+
+**触发**：铲屎官 organic 验证（claude-opus-4-8 实跑）发现——CC 已在 stream 最后吐明确原因 `The model's tool call could not be parsed (retry also failed)`，但 cliDiagnostics 标"未识别的 CLI 错误"，给社区"猫咖 bug"错觉（实为 CC/model 报错）。
+
+**根因**：Phase A AC-A8 声称"Classifier 同时扫 stderr + NDJSON stream error events"，但 `maybeCollectStreamError` (cli-spawn.ts:47) 只收 `type==='error'` event，**漏了 Claude CLI 的 result error event**（`type==='result' && subtype!=='success'`）。result error 被 `isResultErrorEvent` (claude-ndjson-parser.ts:250) 正确捕获并 yield 到消息气泡，但未进 cliDiagnostics 的 rawText → classifyCliError 无输入 → unknown → "未识别"。AC-A8 的 NDJSON stream error 收集不完整。
+
+1. **补 result error 收集**：`maybeCollectStreamError` + tmux-spawner rawText 加收 result error event，提取 `result`/`subtype` 字段
+2. **扩 reasonCode**：加 `tool_call_parse_failed` 等 CC model/tool 常见错误
+3. **unknown fallback 措辞**：CC structured result error 安全显示 `Claude Code 报告：<原因>`，区分 CC/模型报错 vs 猫咖未分类
+
 ## Acceptance Criteria
 
 ### Phase A（Backend cliDiagnostics + Sanitizer）— ✅ merged PR #1907 (2026-05-27)
@@ -161,6 +171,14 @@ created: 2026-05-25
 - [x] AC-C1: ~~故意触发各错误截图~~ → **organic validation strategy**（CVO directive 2026-05-27 "测试我们可以等我之后重启 runtime 在使用过程中帮你测，自然而然发生"）。Production 用户使用过程中遇到 CLI 错误时，folded panel 应自动渲染；任何回归 / 视觉问题 / reasonCode 误分类发生时单独 hotfix 处理。**理由**：手动模拟各 provider 错误成本高（需要构造各 provider 的边界条件），自然触发的覆盖率反而更高（真实 user input、真实 model name 拼错、真实 network 抖动），且能覆盖 19 + 40 automated tests 未覆盖的 long-tail edge case。
 - [x] AC-C2: Fuzz stderr smoke — **Phase A 40 个 unit fuzz tests 已覆盖**（`sanitize-cli-stderr.test.js` 21 fuzz 含 ANSI/NFKC/path/JWT/PEM/5 类 provider token/generic high-entropy；`cli-error-patterns.test.js` 4 classifier；`cli-diagnostics.test.js` 15 含 panic stack stripping + bounded helpers + LOG_CLI_STDERR gate）。alpha 环境额外 fuzz 不再要求 — automated layer 已达 AC 强度。
 - [x] AC-C3: CloseGateReport（见下方 §CloseGateReport）+ 跨族愿景守护 @gemini25（非作者 = 非 47，非 reviewer = 非砚砚，跨族 = 暹罗猫，符合 F073 守护原则）。
+
+### Phase D（result-error 诊断完整性 follow-up）— reopened 2026-05-28
+
+- [ ] AC-D1: `maybeCollectStreamError` (cli-spawn.ts) 加收 result error event（`type==='result' && subtype!=='success'`），提取 `result`/`subtype`/error 字段进 streamErrorTexts；tmux-spawner.ts rawText 同样补 result error（两条 spawner 路径都修）
+- [ ] AC-D2: 新增 reasonCode `tool_call_parse_failed`（"tool call could not be parsed"）+ REASON_TEXT summary/hint；评估其他 CC model/tool 常见错误是否一并加
+- [ ] AC-D3: unknown fallback 措辞：rawText 含 CC structured result error 时显示 `Claude Code 报告：<原因>`，区分 CC/模型报错（非猫咖 bug）vs 猫咖真未分类；KD-1 白名单放行 CC structured result error（安全，CC 标准措辞）
+- [ ] AC-D4: 红测先行（先红后绿）：result error event（type=result subtype=error）→ cliDiagnostics 提取+分类+措辞回归测试；守 AC-A9 红线（raw stderr 不进 user-facing）
+- [ ] AC-D5: 跨族 review + 云端 review + 愿景守护
 
 ## Dependencies
 
