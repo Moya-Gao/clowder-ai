@@ -362,6 +362,14 @@ Expose runtime session state where users and cats notice it:
 | F211-REG2-2026-05-28-resummon-continuity | F211 Phase A2b / AntigravityAgentService | **P1 (post-close regression)**: After a terminal tool error, manual re-summon (a new invocation) starts a new cascade via `getOrCreateSession` (`:472`) with no continuity bootstrap → Bengal cold-starts. AC-A13 only covers intra-invocation rotation (`rotateCascade`); the cross-invocation "terminal error → user re-summons" path is uncovered. Directly causes 铲屎官 2026-05-28 "再次喊他他起了新 session". | ⬜ Open. Fix direction: when `getOrCreateSession` rotates because the prior cascade ended on a non-user error, carry the same continuity bootstrap path as `rotateCascade`; red test for terminal-error-then-re-summon must show bootstrap on the new session's first effective prompt. |
 | F211-REG3-2026-05-28-image-platform-layers | F211 / Antigravity carrier (F061) | **P2**: Even with absolute `imagePaths`, Bengal cannot view thread images — (B) Antigravity workspace root blocks `cat-cafe-runtime/.../uploads/` paths; (C) `view_file` returns raw PNG binary, not a visual render. | ⬜ Open (platform, not in-repo logic). Fix direction: serve images via a workspace-reachable path or an HTTP fetch the IDE can render; coordinate with F061/Antigravity carrier. |
 
+### Bug 计数对账 (2026-05-28)
+
+孟加拉猫 2026-05-27 报了 3 个 bug；2026-05-28 CVO 实测仍复现后，opus-4.8 逐条核源码发现一个**孟加拉猫当时没识别到的独立 defect**，CVO 确认作为"第 4 个 bug"记录：
+
+- **第 4 个 bug = F211-REG1（Phase E 可见性 surface 过滤 mismatch）**。孟加拉猫 Bug 2 把"看不到 session"归因为"注册从未被自动调用"；但实测 dispatched 路径**确实注册了**（`syncAntigravityRuntimeMetadata` at `session_init`），真正的 defect 是 Phase E 的 list/detail/deep-dive surface 硬过滤 `surface==='ide-direct'`，把 `cat-cafe-dispatch` 结构性挡在视图外。这是独立于"注册 wiring"的 Phase E 层 bug，与 Bug 2 共享症状但根因不同。
+- 工程修复点收敛为 **REG1（可见性）+ REG2（错误后 re-summon 续接）+ REG3（图片平台层 B/C）**；孟加拉猫 Bug 1 Layer A（callback pipeline）已由 PR #1926 修复。
+- Owner：四个问题由布偶猫 Opus 4.8 统一接修并开 PR（CVO 2026-05-28 指派）。
+
 ## Eval / Tracking Contract
 
 | 项 | 内容 |
