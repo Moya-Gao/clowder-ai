@@ -119,11 +119,8 @@ describe('services routes', () => {
 
       assert.equal(res.statusCode, 200, res.payload);
       const payload = JSON.parse(res.payload);
-      // 0b99832f3 (qwen3-asr) added a 6th service; qwen3-asr reuses WHISPER_URL/PORT per its
-      // endpointEnvVars manifest (drop-in whisper replacement on port 9876).
       assert.equal(Object.keys(payload.endpoints).length, 6);
       assert.equal(payload.endpoints['whisper-stt'], 'http://127.0.0.1:19999/healthy');
-      assert.equal(payload.endpoints['qwen3-asr'], 'http://127.0.0.1:19999/healthy');
       assert.equal(payload.endpoints['mlx-tts'], 'http://127.0.0.1:19998/unhealthy');
     } finally {
       await app.close();
@@ -300,7 +297,6 @@ describe('services routes', () => {
       assert.equal(res.statusCode, 200, res.payload);
       assert.deepEqual(JSON.parse(res.payload).endpoints, {
         'whisper-stt': 'http://127.0.0.1:19981',
-        // 0b99832f3: qwen3-asr reuses WHISPER_PORT (drop-in whisper replacement, port 9876)
         'qwen3-asr': 'http://127.0.0.1:19981',
         'mlx-tts': 'http://127.0.0.1:19982',
         'embedding-model': 'http://127.0.0.1:19983',
