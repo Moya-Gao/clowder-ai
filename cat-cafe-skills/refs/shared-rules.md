@@ -740,3 +740,20 @@ beforeEach(() => {
 **为什么不放 worktree skill 的 `.env.local`**：`.env.local` 只影响 dev server 启动；node:test 子进程不读 `.env.local`，它继承的是父 shell 的真 env。所以护栏必须在 test setup 里。
 
 **违反代价**：用真身份发测试 payload 到铲屎官 thread / 其他猫 thread，看起来像 spam / cron job / 幻觉。已发出去的消息**不可撤回**。
+
+## 20. 根目录卫生公约（F214 — 根目录运行时残留治理）
+
+> 来源：F214（2026-05-28）。ADR-010 / F023 管子目录代码 + docs 归档，不管根目录运行时残留——本节是 ADR-010 在根目录维度的补丁。
+
+**核心划界（两类，处置相反）**：
+
+| 类型 | 例子 | 处置 |
+|------|------|------|
+| **无状态残留** | `*.log` / `forzadata-*.txt` / `cookies.json`（调试 / 自动化一次性产物） | hygiene 管：不许留根目录，写到 `tmp/`；`pnpm clean:root-debris` 清理 |
+| **有状态核心存储** | `dump.rdb*` / `evidence.sqlite*` / `world.sqlite*`（Redis / Hindsight / World Engine） | **不归 hygiene**：位置是架构决策，迁移 = 不兼容修改 = 独立立项；**不动、不清、不迁** |
+
+**铁律**：
+1. 临时 / 调试 / 可重生成产物**不许写在根目录**——重定向到 `tmp/` / `data/` 等已 ignore 的专用目录。调试完 `> foo.log` 留根目录 = 下一只猫的认知噪声。
+2. 核心数据存储的位置是**架构决策**，不是卫生问题——`dump.rdb` / `*.sqlite` 在根目录是既成事实，迁移属独立立项，不在 hygiene 范畴。
+3. 清理脚本（`scripts/clean-root-debris.sh`）三重保险：删除条件 = untracked ∧ 匹配白名单 ∧ 不在硬保护清单；对任何 `*.rdb*` / `*.sqlite*` 硬拒绝。**宁可白名单不要黑名单**（`feedback_lsof_port_range_kills_sanctuary` 教训）。
+4. `.gitignore` 防垃圾进 git（已覆盖大部分），但不防运行时产物**物理堆在根目录**污染 `ls`——主防御是铁律 1 的行为约束，`.gitignore` + pre-commit Root Hygiene Guard 是兜底（拦未 ignore 的新垃圾被 commit）。

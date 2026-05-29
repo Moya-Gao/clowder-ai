@@ -16,7 +16,57 @@
 
 BRANCH=$(git branch --show-current 2>/dev/null)
 
-# main 分支不拦截
+# ── Root Hygiene Guard (F214): 白名单制拦根目录新增文件（所有分支，含 main）──
+# 规则来源：shared-rules.md §20。白名单制（不是黑名单）：根目录新增的文件，除非匹配
+# 白名单，否则拒——这样能兜底拦下「未来未预料的垃圾类型」（spec Eval Contract Fixture 2）。
+# debris / 有状态存储优先拒（即使扩展名看起来合法，如 cookies.json）。
+# *.rdb* / *.sqlite* 与 clean-root-debris.sh / §20 同口径（覆盖 dump.rdb.backup-* 和
+# dump.rdb-backup 等同族名）。放在 main bypass 之前，对每个分支都生效。
+# ^[^/]+$ 只看根目录顶层新增文件，不碰子目录。
+ROOT_ADDED=$(git diff --cached --name-only --diff-filter=A | grep -E '^[^/]+$' || true)
+hygiene_debris=()
+hygiene_unknown=()
+while IFS= read -r f; do
+  [ -z "$f" ] && continue
+  # debris / 有状态存储优先拒（pattern 匹配，不依赖 .gitignore；continue 后不落白名单）
+  case "$f" in
+    *.log|*.tmp|forzadata-*.txt|cookies.json) hygiene_debris+=("$f (无状态残留)"); continue ;;
+    *.rdb*|*.sqlite*) hygiene_debris+=("$f (有状态存储/圣域)"); continue ;;
+  esac
+  # secret/local 拒：被 .gitignore 标记却被 force-add (-f) 进来的（.env / .mcp.json /
+  # *.local 等）。本 hook 是 force-added root 文件的唯一 backstop，绝不放行 .gitignore
+  # 标记的 secret/local（云端 codex P1 round-2）。
+  # --no-index: force-add (-f) 已把文件放进 index，普通 check-ignore 会因"已 tracked"
+  # 而不报告；--no-index 检查 .gitignore 规则本身，正确识别 force-added 的 ignored 文件。
+  if git check-ignore --no-index -q "$f" 2>/dev/null; then
+    hygiene_debris+=("$f (.gitignore-marked secret/local — force-added)"); continue
+  fi
+  # 白名单 — 合法根文件。dotfile 用 enumerate known-safe（不用 .* catch-all，否则
+  # 会放行任意 secret dotfile 如 .env）。
+  case "$f" in
+    *.md|*.mdx|*.json|*.jsonc|*.yaml|*.yml|*.cjs|*.mjs|*.ts|*.js|*.toml|*.lock|*.example|LICENSE*|CODEOWNERS|requirements.txt|Dockerfile*|Makefile|.gitignore|.gitattributes|.npmrc|.editorconfig|.nvmrc|.node-version|.prettierrc*|.eslintrc*|.dependency-cruiser.cjs|.dir-exceptions.json) ;;
+    *) hygiene_unknown+=("$f") ;;
+  esac
+done <<< "$ROOT_ADDED"
+
+if [ ${#hygiene_debris[@]} -gt 0 ] || [ ${#hygiene_unknown[@]} -gt 0 ]; then
+  echo "" >&2
+  echo "🧹 根目录卫生守护 (F214): 根目录新增文件未通过白名单！" >&2
+  if [ ${#hygiene_debris[@]} -gt 0 ]; then
+    echo "已知 debris / 有状态存储（绝不 commit 到根目录）：" >&2
+    printf '  - %s\n' "${hygiene_debris[@]}" >&2
+  fi
+  if [ ${#hygiene_unknown[@]} -gt 0 ]; then
+    echo "非白名单文件（未预料类型；如确为合法，请加进 hook 白名单）：" >&2
+    printf '  - %s\n' "${hygiene_unknown[@]}" >&2
+  fi
+  echo "" >&2
+  echo "处理：无状态产物移到 tmp/ 或删除；*.rdb/*.sqlite 是核心存储绝不 commit；合法新类型加白名单。" >&2
+  echo "规则来源：shared-rules.md §20。绕过（确认合法时）：git commit --no-verify" >&2
+  exit 1
+fi
+
+# main 分支不拦截共享状态 / brand（Root Hygiene 已在上面对所有分支生效）
 if [ "$BRANCH" = "main" ]; then
   exit 0
 fi
