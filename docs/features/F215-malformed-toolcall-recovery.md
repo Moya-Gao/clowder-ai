@@ -8,7 +8,7 @@ created: 2026-05-29
 
 # F215: Malformed Tool-Call Recovery（textEventCount 检测 + seal/fresh/46接力兜底）
 
-> **Status**: in-progress (Phase B/C/D 实现完成，待 review) | **Owner**: 宪宪 (Opus-4.8) 设计 + review / 宪宪 (Sonnet-4.6) 实现 | **Priority**: P1
+> **Status**: merged (Phase B/C/D merged 2026-05-29, PR #1953) | **Owner**: 宪宪 (Opus-4.8) 设计 + review / 宪宪 (Sonnet-4.6) 实现 | **Priority**: P1
 
 ## Why
 
@@ -168,6 +168,7 @@ Phase B 检测到 malformed（`textEventCount===0` 或 form B 信号）后触发
 |------|------|
 | 2026-05-29 | 立项（CVO signoff，thread 讨论收敛：根因纠正 + 统一检测+兜底方案） |
 | 2026-05-29 | Phase B/C/D 实现完成（@sonnet 落地）：ClaudeAgentService 检测 + invoke-single-cat seal+retry+46接力 + dossier 更新，6 TDD tests green |
+| 2026-05-29 | Phase B/C/D merged (PR #1953 → sha 986746a16)：7 轮云端 review 修复 AC-B4/B5/B6 + P2 文案/relay dedup/done/guard，15 TDD tests green |
 
 ## Review Gate
 
