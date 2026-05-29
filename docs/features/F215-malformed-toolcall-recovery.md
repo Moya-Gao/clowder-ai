@@ -8,7 +8,7 @@ created: 2026-05-29
 
 # F215: Malformed Tool-Call Recovery（textEventCount 检测 + seal/fresh/46接力兜底）
 
-> **Status**: in-progress | **Owner**: 宪宪 (Opus-4.8) 设计 + review / 宪宪 (Sonnet-4.6) 实现 | **Priority**: P1
+> **Status**: in-progress (Phase B/C/D 实现完成，待 review) | **Owner**: 宪宪 (Opus-4.8) 设计 + review / 宪宪 (Sonnet-4.6) 实现 | **Priority**: P1
 
 ## Why
 
@@ -107,18 +107,18 @@ Phase B 检测到 malformed（`textEventCount===0` 或 form B 信号）后触发
 - [x] AC-A3: 确认 rawArchive 对 Claude CLI 调用确实在存（否则修取证管道）
 
 ### Phase B（检测）
-- [ ] AC-B1: `textEventCount===0` **且 assistant.content 无合法 tool_use block** 时判定 malformed，触发 Phase C，**即使 CC report `subtype:success` 也不跳过**（纯 tool_use 任务 textEventCount=0 但有 tool_use block → 不误触发；TDD：d137d9eb red fixture）
-- [ ] AC-B2: （可选）assistant event text 含 `<invoke name="[REAL_TOOL]">` pattern 时同样触发（TDD：c12569a2 参考）
-- [ ] AC-B3: `textEventCount>0` 的正常完成**不误触发**兜底——回归保护（不误伤合法 tool_use invocation）
+- [x] AC-B1: `textEventCount===0` **且 assistant.content 无合法 tool_use block** 时判定 malformed，触发 Phase C，**即使 CC report `subtype:success` 也不跳过**（纯 tool_use 任务 textEventCount=0 但有 tool_use block → 不误触发；TDD：d137d9eb red fixture）— 实现于 `ClaudeAgentService.ts`，`hasAssistantEvent + textEventCount===0 + !hasToolUseBlock` 检测，TDD 6 tests green
+- [ ] AC-B2: （可选）assistant event text 含 `<invoke name="[REAL_TOOL]">` pattern 时同样触发（TDD：c12569a2 参考）— 延迟实现（form B 在 4.8 无真实样本，CC SDK 已有降级，KD-4）
+- [x] AC-B3: `textEventCount>0` 的正常完成**不误触发**兜底——回归保护（不误伤合法 tool_use invocation）— TDD regression test green
 
 ### Phase C（兜底）
-- [ ] AC-C1: Phase B 检测到 malformed（`textEventCount===0` 或 form B 信号）→ seal 中毒 session（KD-6：不依赖 "could not be parsed" 字符串，stream 里无独立信号）
-- [ ] AC-C2: seal 后 fresh-context retry（sessionId=undefined）
-- [ ] AC-C3: fresh retry 仍失败 → 46 接力（46 自己身份 + 前端显式标注，非静默顶替）
+- [x] AC-C1: Phase B 检测到 malformed（`textEventCount===0`）→ seal 中毒 session（KD-6）— 实现于 `invoke-single-cat.ts`：`suppressedMalformedError` + `requestSeal(reason:'malformed_toolcall')` on done
+- [x] AC-C2: seal 后 fresh-context retry（sessionId=undefined）— 复用现有 `shouldRetryWithoutSession` 路径，retry reason `malformed_toolcall`
+- [x] AC-C3: fresh retry 仍失败 → 46 接力（系统提示卡片 OQ-3 选 A 文案 + `malformed_toolcall_relay_46` signal）— 实现于 `invoke-single-cat.ts` 末尾 fallback block，含 🙀 Opus 4.8 炸毛卡片
 
 ### Phase D（体验 + dossier）
-- [ ] AC-D1: 最终失败有明确炸毛提示（不再空返回），用户可感知
-- [ ] AC-D2: `docs/team/cat-dossier.md` opus-4-8 翻车熔断信号字段更新为准确措辞
+- [x] AC-D1: 最终失败有明确炸毛提示（不再空返回），用户可感知 — `error` type msg `malformed_toolcall: Opus 炸毛了——...` + relay card
+- [x] AC-D2: `docs/team/cat-dossier.md` opus-4-8 翻车熔断信号字段更新为准确措辞 — 新增 opus-48 速写节点含 F215 ⑥ 翻车熔断信号
 
 ## Dependencies
 
@@ -152,7 +152,7 @@ Phase B 检测到 malformed（`textEventCount===0` 或 form B 信号）后触发
 | KD-3 | "向 opus-4.8 注入正确调用提示"**不采纳**为治本手段 | 根因是 decoder 长 context 漂移（手抖）非知识缺失（无知）；社区实测"禁 XML 提示"无效；且提示占 context 反讽地轻微加炸 | 2026-05-29 |
 | KD-4 | 4.8 的 malformed **主要是形式 A（thinking-only）**，archive 里无真实 4.8 form B 工具失败样本 | @sonnet 精确搜索纠正：排除 F215 讨论 thread 后，runtime archive 里 4.8 form B 为 0；之前"3A+4B"的数据是误判（F215 讨论 thread 里文字引用 XML 被误匹配）。真实 form B 只在 opus-4.7 确认（c12569a2） | 2026-05-29 |
 | KD-5 | `transformClaudeEvent` 处转换 text→tool_use AgentMessage **不能触发工具执行**，**任何"我们解析 XML→让 CC 执行工具"的路都死** | @sonnet peer review + @opus48 复核：工具执行在 CC SDK 内部，yield AgentMessage 只改展示；CC SDK 是 headless full-loop，我们零路径回流 CC agent loop | 2026-05-29 |
-| KD-6 | "could not be parsed" 字符串**在 stream 层没有独立信号**，不能用作消费层检测点 | @sonnet 实测 185 个命中全是 thinking_delta/input_json_delta 里的文字讨论，不是 synthetic error stream event；真正的 stream 检测点是 `textEventCount === 0`（form A）或 assistant text 含 `<invoke name=` 模式（form B） | 2026-05-29 |
+| KD-6 | form A 分为两种子类型，检测点不同（@opus47 F212 Phase D 取证修正 2026-05-29） | **A1（静默假成功）**：`{subtype:success, is_error:false, result:""}` — 无信号，靠 `textEventCount===0` 检测（本 feat）。**A2（CC 报错）**：`{subtype:success, is_error:true, result:"...could not be parsed..."}` — 有 is_error:true 独立信号，归 F212 Phase D 归因显示（PR #1950）。@sonnet 原实测 185 命中是因为猫讨论 F215 时引用字符串的 result 输出淹没了真信号；@opus47 从 runtime archive 找到 7 个真实 A2 样本（bb299eb0 等）。F212/F215 协同非重叠 | 2026-05-29 |
 | KD-7 | 统一检测+兜底方案（@opus48 提出）：删除 XML 转换，改为检测 `textEventCount===0`（form A）→ seal+fresh+46接力 | ClaudeAgentService L594 已有 `textEventCount===0` warn log，加 action 即可；form B 依赖 CC SDK 已有降级（4.7 自愈确认，4.8 无真实失败样本） | 2026-05-29 |
 
 ## Eval / Tracking Contract（F192 门禁 — harness 类必填）
@@ -167,6 +167,7 @@ Phase B 检测到 malformed（`textEventCount===0` 或 form B 信号）后触发
 | 日期 | 事件 |
 |------|------|
 | 2026-05-29 | 立项（CVO signoff，thread 讨论收敛：根因纠正 + 统一检测+兜底方案） |
+| 2026-05-29 | Phase B/C/D 实现完成（@sonnet 落地）：ClaudeAgentService 检测 + invoke-single-cat seal+retry+46接力 + dossier 更新，6 TDD tests green |
 
 ## Review Gate
 

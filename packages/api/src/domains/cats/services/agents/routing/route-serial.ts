@@ -749,6 +749,8 @@ export async function* routeSerial(
       const leakedPayloadStripper = createLeakedToolCallStreamStripper();
       const invocationSpanRef: { current?: Span } = {};
       const invocationStartedAt = Date.now();
+      // F215 AC-C3: flag set when invokeSingleCat emits malformed_toolcall_relay_46 signal
+      let malformedRelayPending = false;
       for await (const msg of invokeSingleCat(deps.invocationDeps, {
         catId,
         service,
@@ -855,9 +857,31 @@ export async function* routeSerial(
               if (parsed.type === 'invocation_usage' && parsed.usage) {
                 routeTotalTokens += (parsed.usage.inputTokens ?? 0) + (parsed.usage.outputTokens ?? 0);
               }
+              // F215 AC-C3: detect 46-接力 relay signal — set flag to push opus-4.6 after loop.
+              // This is an internal routing signal; must be consumed here and NOT yielded to the frontend.
+              if (parsed.type === 'malformed_toolcall_relay_46') {
+                const relay46CatId = createCatId('opus');
+                if (catId !== relay46CatId && Object.hasOwn(deps.services, relay46CatId as string)) {
+                  malformedRelayPending = true;
+                  log.info(
+                    { catId: catId as string, threadId, relay46CatId },
+                    '[F215] malformed_toolcall_relay_46 signal received — will push opus-4.6 after loop',
+                  );
+                }
+                continue; // consume routing signal — never surfaces to user as raw JSON
+              }
             } catch {
               /* ignore parse errors */
             }
+          }
+          // F215 AC-C3: suppress malformed error when relay to 46 is already queued
+          if (
+            malformedRelayPending &&
+            effectiveMsg.type === 'error' &&
+            typeof effectiveMsg.error === 'string' &&
+            effectiveMsg.error.startsWith('malformed_toolcall:')
+          ) {
+            continue; // 46 will take over — don't surface error to user
           }
           // Accumulate tool events for persistence (before draft flush so current event is available)
           const toolEvt = toStoredToolEvent(effectiveMsg);
@@ -1087,6 +1111,33 @@ export async function* routeSerial(
       if (keepaliveTimer) {
         clearInterval(keepaliveTimer);
         keepaliveTimer = undefined;
+      }
+
+      // F215 AC-C3: push opus-4.6 to worklist as relay when 48 炸毛 + fresh retry also failed
+      if (malformedRelayPending) {
+        const relay46CatId = createCatId('opus');
+        if (
+          catId !== relay46CatId &&
+          Object.hasOwn(deps.services, relay46CatId as string) &&
+          // P2 fix + P1 #1 fix: only check PENDING entries (worklist[index+1..]) not the full
+          // worklist. worklist[0..index] are already executed; including them would silently skip
+          // a legitimate relay when opus ran first in the route (e.g. [opus, opus-48]).
+          !worklist.slice(index + 1).includes(relay46CatId)
+        ) {
+          worklist.push(relay46CatId);
+          worklistEntry.a2aCount++;
+          worklistEntry.a2aFrom.set(relay46CatId, catId);
+          log.info(
+            { catId: catId as string, relay46CatId, threadId, a2aCount: worklistEntry.a2aCount },
+            '[F215] Pushed opus-4.6 to worklist for malformed tool-call relay (AC-C3)',
+          );
+        } else if (worklist.slice(index + 1).includes(relay46CatId)) {
+          log.info(
+            { catId: catId as string, relay46CatId, threadId },
+            '[F215] opus-4.6 already pending in worklist — skipping duplicate relay push (P2 dedup)',
+          );
+        }
+        malformedRelayPending = false;
       }
 
       // F111 Phase B: Flush remaining buffered text and send voice_stream_end

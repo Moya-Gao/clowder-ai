@@ -1329,7 +1329,7 @@
     {
       "id": "F215",
       "name": "Malformed Tool-Call Recovery（textEventCount 检测 + seal/fresh/46接力兜底）",
-      "status": "in-progress | **Owner**: 宪宪 (Opus-4.8) 设计 + review / 宪宪 (Sonnet-4.6) 实现 | **Priority**: P1",
+      "status": "in-progress (Phase B/C/D 实现完成，待 review) | **Owner**: 宪宪 (Opus-4.8) 设计 + review / 宪宪 (Sonnet-4.6) 实现 | **Priority**: P1",
       "file": "F215-malformed-toolcall-recovery.md"
     }
   ]

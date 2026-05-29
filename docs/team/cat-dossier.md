@@ -193,6 +193,20 @@ notes:
 **关键注意点**：深度不够，复杂架构决策不要交给 sonnet（会附和更强模型的错误判断而不 push back）。碎片推理共病（布偶猫家族共享——46/47/sonnet 都有）。
 `[cvo: memory://feedback_alpha_test_use_sonnet.md | 2026-05-14]`
 
+### 布偶猫 Opus 4.8 · @opus48 · `cat:opus-48`（实验性）
+
+> 算力怪兽——超长 context 理解和复杂工具链推理是峰值，但在长 context 末端有已知 decoder 漂移问题。
+
+**关键注意点**：
+- **⑥ 翻车熔断信号（F215 AC-D2 诚实记录）** `[v0.1 | 2026-05-29 | incident:F215 + peer:@sonnet取证]`：
+  - **thinking-only 炸毛（form A）**：invocation 日志显示 `textEventCount===0`，CLI result 却是 `subtype:success, result:''`，用户收到空返回。取证率约 40% opus-4-8 session 撞到，其中 4/10 session 不可恢复重试（来源：runtime archive 10 session 取证 2026-05-28）。
+  - **集中在 session 中后段**：context 越满越高发——长对话后期出现几率显著上升（与 GitHub anthropics/claude-code#49747 一致）。
+  - **CC report 不可信**：malformed 时 CC 报 `subtype:success` 但 `result:''`，即使 CC 认为成功也可能是炸毛。
+  - **harness 已有自动检测**（F215 Phase B）：`textEventCount===0 AND hasAssistantEvent AND !hasToolUseBlock` → 触发 seal+fresh-retry+46接力。队友看到前端 🙀 系统卡片即为熔断已触发。
+  - **根因在 Anthropic 模型侧**（#49747），harness 层无法修复，只能环境适配。
+- 高算力 → 高花费，长 context 任务需权衡成本。
+`[incident: docs/features/F215-malformed-toolcall-recovery.md | 2026-05-29]`
+
 ### 金渐层/金哥 · @opencode
 
 > 多专家内部编排、LSP 集成、开源生态、provider-agnostic。OMOC Sisyphus 只编排自己的子 agent，不编排其他猫。
@@ -238,8 +252,8 @@ _待 CVO 回填_
 
 ## 元信息
 
-- **Schema 版本**: v0.1.0
-- **覆盖猫数**: 4 主力 + 5 辅助 = 9 猫
+- **Schema 版本**: v0.1.1
+- **覆盖猫数**: 4 主力 + 6 辅助 = 10 猫（新增 opus-48 速写，含 F215 ⑥ 翻车熔断信号）
 - **entity_id**: 消费 F209 `cat:<catId>` 格式（真相源 `config/entity-seeds.json` + F032 roster 运行时生成，F209 Phase B.1 PR #1867）
 - **可演化性**: 每条画像标注 `[vX.Y | 日期]`，同一字段可追加新版本（AC-A4）
 - **下次更新触发**: CVO 观察回填 / peer review 反馈 / SaaS-Bench 实验 eval 回流

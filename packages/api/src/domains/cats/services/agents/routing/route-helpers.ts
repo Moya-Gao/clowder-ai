@@ -20,7 +20,7 @@ import type { Thread } from '../../stores/ports/ThreadStore.js';
 import { canViewMessage } from '../../stores/visibility.js';
 import type { AgentMessage, AgentService } from '../../types.js';
 import type { InvocationDeps } from '../invocation/invoke-single-cat.js';
-import { extractRecentArtifacts, mergeLedger, sortAndCapArtifacts } from './artifact-tracking.js';
+import { extractRecentArtifacts, mergeLedger } from './artifact-tracking.js';
 import type { CoverageMap } from './context-transport.js';
 import {
   buildCoverageMap,
@@ -320,6 +320,9 @@ const USER_FACING_SYSTEM_INFO_TYPES = new Set([
   'a2a_followup_available',
   'governance_blocked',
   'invocation_preempted',
+  // F215 BLOCKING 1 fix: relay signal produces a user-visible text card before this signal,
+  // so marking it user-facing prevents route-serial from appending a misleading silent_completion.
+  'malformed_toolcall_relay_46',
   'mode_switch_proposal',
   'session_seal_requested',
   'silent_completion',
