@@ -151,6 +151,7 @@
 | F211 | F211: Cross-Runtime Session Transparency — Antigravity Session Chain + IDE Direct Registration | done | [F211-cross-runtime-session-transparency.md](./F211-cross-runtime-session-transparency.md) |
 | F192 | F192: Socio-Technical Harness Eval — harness 共创评估体系（Eval Contract → Runtime Telemetry → Attribution → Verdict Handoff → Re-eval Closure → Eval Hub → 3 Domain + Community Path） | done | [F192-socio-technical-harness-eval.md](./F192-socio-technical-harness-eval.md) |
 | F212 | F212: CLI Error Diagnostics — 结构化 CLI 错误诊断（9 reasonCode + sanitizer + 折叠 SVG 面板 + 4 档 severity color + 跨族 @gemini25 守护，3 Phase / 17 AC / 65 automated tests / 8 轮云端 P2 fix + CAFE-INCIDENT-20260527 sanctuary 误杀自首） | done | [F212-cli-error-diagnostics.md](./F212-cli-error-diagnostics.md) |
+| F214 | F214: 根目录卫生守护 Root Directory Hygiene Guard — 清理脚本三重保险 + §20 公约 + pre-commit secret/debris backstop（4 P1 全修：砚砚 hook 白名单制+*.rdb* 口径 / 云端 codex fail-closed 非 git root+secret force-add；跨族 @gemini25 守护放行；merge PR #1943） | done | [F214-root-directory-hygiene-guard.md](./F214-root-directory-hygiene-guard.md) |
 
 ## 已搁置/已归档 Feature
 | ID | 名称 | Status | 聚合文件 |
