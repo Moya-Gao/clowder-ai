@@ -4,7 +4,7 @@ topics: [prompt, context, cross-thread, routing, briefing, incident]
 doc_kind: bug-report
 created: 2026-05-29
 severity: P0
-status: investigating
+status: root-caused (opus-48 forensic 2026-05-29)
 related_features: [F148, F193, F192, F200]
 ---
 
@@ -263,3 +263,48 @@ assembly 之间某处失守了**。
 在精确入口钉死前，这张事故单应视为 open，PR `#1942` 不应直接 merge 收尾。
 
 [砚砚/gpt-5.4🐾]
+
+---
+
+## 12. opus-48 forensic 复核结论（2026-05-29，布偶猫接力调查）
+
+### 12.1 一句话结论
+
+确认 P0，但**根因不是 thread/session 串台，也不是 recall/briefing/message 投递污染**。真相是：
+
+> **codex CLI 把完整 prompt（user prompt + L0 system prompt）作为命令行参数（argv）传给 `codex exec`。gpt52 在 merge thread 排查卡死的 merge-gate 进程时执行 `ps -ax -o command=`，ps 输出捕获了并发的 round-chat（`thread_mpr44`）codex 进程的明文 argv，gpt52 把这段 ps 结果当作当前线程上下文读入，产出了 "你来接 R8" 串台消息并持久化进 `thread_mp6b68`。**
+
+这是一次**经进程命令行的明文 prompt 泄露**。"串台"只是它的可见症状；本质是**机密性漏洞**（thread isolation 失守是结果，不是原因）。
+
+### 12.2 完整证据链（数据层 AOF/rollout + 代码层）
+
+1. **污染落点**：codex@mp6b68 invocation（capture `331fce47`）的 `[对话历史增量]` line 279 含 round-chat「披着专业外衣 / 你来接 R8」。
+2. **数据层持久化**：msg `0001780071280318-000481`（catId=gpt52, threadId=thread_mp6b68, origin=stream, content 6635B）混入 R8，真实写入 `thread_mp6b68` 并进 thread 索引（AOF `cat-cafe:msg:thread:thread_mp6b68w9w0wt1boc`）。→ 不是 codex 本轮临时组装错误。
+3. **原始来源**：round-chat R7「客观性瘾 / 披着专业外衣」属 `thread_mpr44`、发送者 **opus-47**（AOF offset 113264088，threadId=thread_mpr44）。
+4. **关键反转——input 是干净的**：产出 0481 的 invocation `e7754f55`（gpt52@mp6b68, 16:14:40, `isResume=true, injected=false`）captured userPrompt 仅 1480B，是干净的 PR#1942 Review Feedback，**零 round-chat**。`019e71d6` rollout 的 user 输入时间线确认：16:14:52 input 干净；round-chat 作为 input 首次进来是 **16:34:30**（晚于污染 assistant message 16:25:45，是扩散不是源头）。→ **排除 prompt 组装 / recall / 投递污染**。
+5. **session 映射隔离正确**：`cat-cafe:sessions:default-user:gpt52:thread_mp6b68`→`019e71d6`，`...:thread_mpr44`→`019e7482`，是**不同 sessionId / 不同 codex rollout 文件**。→ 排除 session 复用/映射 bug。
+6. **注入点——ps 捕获 argv**：gpt52@mp6b68 的 codex rollout（`019e71d6`）L4740 在 16:25:22 执行 `ps -ax -o pid=,ppid=,etime=,command= | rg "...pre-merge-check|next build|pnpm..."`（排查卡死的 gate 进程）；L4742 的 `function_call_output`（被工具从 58810 tokens 截断到 5000）里，ps 输出含某并发 codex 进程 argv 的完整 round-chat `[对话历史]`（R6 sonnet / R7 opus-47 / 传 @codex 接 R8）。16:25:45 gpt52 据此产出 "你来接 R8"（= 0481 污染结尾）。
+7. **代码落点**：`packages/api/src/domains/cats/services/agents/providers/CodexAgentService.ts`
+   - L520/539：`developerInstructionsArgs`（L0 system prompt）走 `--config developer_instructions="..."` → argv
+   - L526/545：`promptArgs`（user prompt，含 `[对话历史]`）走位置参数 → argv
+   - L617-634：`spawnCli({ command, args })` 直接把上述作为进程命令行 → `ps -o command=` / `/proc/<pid>/cmdline` 全部明文可见。
+
+### 12.3 为什么比"串台"更严重（机密性升级）
+
+泄露面 = **任何能读进程命令行的主体**：任何猫的任何 invocation（只要它跑 `ps` / 读 `/proc`，如本次 merge-gate 排查）、任何本地进程、多用户/多租户场景下的其他用户。能看到所有并发 codex 进程的：**完整 L0 system prompt + 完整 user prompt（含 `[对话历史]` = 跨 thread / 跨 cat / 跨 user 的对话内容）**。本次只是 gpt52 偶然 `ps` 撞上 round-chat 并"接了球"，所以表现为串台；泄露本身是无差别、被动、持续的。
+
+### 12.4 修复方案（已验证 codex CLI 支持）
+
+`codex exec --help`：`[PROMPT]` 不传位置参数（或用 `-`）时**从 stdin 读取**。
+1. **P0 立即**：`promptArgs` 改走 **stdin**（位置参数用 `-` 或省略 + 写 stdin），不放 argv。这是用户对话 / 跨 thread 内容泄露的根因，codex 原生支持，改动局部（`CodexAgentService` spawn + `cli-spawn` 写 stdin）。
+2. **P1 跟进**：`developer_instructions`（L0）改走 **config 文件 / `-p profile`**（`$CODEX_HOME/<name>.config.toml`），不走 `-c` argv。
+3. **回归测试**：spawn 时断言 `args` 数组不含 prompt 正文 / L0 正文；构造"并发进程跑 ps"场景验证对话内容不暴露。
+4. 注：cwd/HOME 已隔离，但命令行可见性是 **OS 级**——stdin/file 是唯一根治，env 不行（`/proc/<pid>/environ` 同样可读）。
+
+### 12.5 对砚砚 §1-11 的校正
+
+- ✅ 砚砚对的：污染真实、不是 mid-invocation 插入、是「上一轮产生→下一轮带入」链条、立即保留 prompt-capture + AOF 证据并冻结 PR#1942 的动作非常专业。
+- ❌ 砚砚的入口假设（`search_evidence` / `get_thread_context` / `threadMemorySummary` / `briefingContext` / cross-thread relay）**均非根因**——这些通道本次都没污染。真正入口是 **gpt52 自己 turn 内调用的 `ps` 工具 output**，外线程内容来自**并发进程的 argv**，不在 Cat Café 的任何 prompt 组装 / recall 字段里。
+- 这解释了为什么砚砚查 prompt assembly 链钉不死入口：污染根本不在 Cat Café 的组装层，而在 **codex CLI 的进程调用层（argv）** + gpt52 turn 内的 `ps` 调用。
+
+[宪宪/Opus-4.8🐾]
