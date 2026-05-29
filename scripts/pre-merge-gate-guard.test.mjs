@@ -10,16 +10,16 @@ const SCRIPT = path.resolve(process.cwd(), 'scripts/pre-merge-gate-guard.mjs');
 function runGuard(tempDir, args, env = {}) {
   const psFixture = path.join(tempDir, 'ps.txt');
   const lsofFixture = path.join(tempDir, 'lsof.txt');
-  const redisDirFixture = path.join(tempDir, 'redis-dir.txt');
+  const redisConfigFixture = path.join(tempDir, 'redis-config.txt');
   if (!existsSync(psFixture)) {
     writeFileSync(psFixture, `1 0 16016 /System/Library/PrivateFrameworks/fseventsd\n${process.pid} 1 100 node\n`);
   }
   if (!existsSync(lsofFixture)) {
     writeFileSync(lsofFixture, '');
   }
-  if (!existsSync(redisDirFixture)) {
+  if (!existsSync(redisConfigFixture)) {
     // Default: non-owned Redis (Phase 1 won't auto-clean)
-    writeFileSync(redisDirFixture, 'dir\n/usr/local/var/db/redis\n');
+    writeFileSync(redisConfigFixture, 'dir\n/usr/local/var/db/redis\npidfile\n/var/run/redis.pid\nlogfile\n/var/log/redis.log\n');
   }
 
   // Strip SKIP_PRESSURE from parent env so tests exercise actual pressure checks
@@ -32,7 +32,7 @@ function runGuard(tempDir, args, env = {}) {
       ...cleanEnv,
       CAT_CAFE_GATE_GUARD_PS_FIXTURE: psFixture,
       CAT_CAFE_GATE_GUARD_LSOF_FIXTURE: lsofFixture,
-      CAT_CAFE_GATE_GUARD_REDIS_DIR_FIXTURE: redisDirFixture,
+      CAT_CAFE_GATE_GUARD_REDIS_CONFIG_FIXTURE: redisConfigFixture,
       ...env,
     },
   });
@@ -161,7 +161,7 @@ describe('pre-merge gate guard', () => {
     }
   });
 
-  it('does not shutdown non-owned orphan Redis (CONFIG GET dir != cat-cafe-redis-test)', () => {
+  it('does not shutdown non-owned orphan Redis (CONFIG paths are not Cat Cafe test dirs)', () => {
     const tempDir = mkdtempSync(path.join(os.tmpdir(), 'gate-guard-test-'));
     const lockDir = path.join(tempDir, 'pre-merge-check.lock');
     // Fake redis-cli that logs all calls — lets us assert shutdown was NOT called.
@@ -184,7 +184,10 @@ describe('pre-merge gate guard', () => {
         'redis-ser 101 user 6u IPv4 0x0 0t0 TCP 127.0.0.1:63552 (LISTEN)',
       ].join('\n'),
     );
-    writeFileSync(path.join(tempDir, 'redis-dir.txt'), 'dir\n/usr/local/var/db/redis\n');
+    writeFileSync(
+      path.join(tempDir, 'redis-config.txt'),
+      'dir\n/usr/local/var/db/redis\npidfile\n/var/run/redis.pid\nlogfile\n/var/log/redis.log\n',
+    );
     try {
       const result = runGuard(tempDir, ['acquire', '--lock-dir', lockDir, '--holder-pid', String(process.pid)], {
         PATH: `${fakeBinDir}:${process.env.PATH}`,
@@ -200,7 +203,7 @@ describe('pre-merge gate guard', () => {
     }
   });
 
-  it('does shutdown owned orphan Redis (CONFIG GET dir matches cat-cafe-redis-test)', () => {
+  it('does shutdown owned orphan Redis (CONFIG paths match Cat Cafe test dirs)', () => {
     const tempDir = mkdtempSync(path.join(os.tmpdir(), 'gate-guard-test-'));
     const lockDir = path.join(tempDir, 'pre-merge-check.lock');
     // Fake redis-cli that logs calls — lets us assert shutdown WAS called.
@@ -223,7 +226,17 @@ describe('pre-merge gate guard', () => {
         'redis-ser 101 user 6u IPv4 0x0 0t0 TCP 127.0.0.1:63552 (LISTEN)',
       ].join('\n'),
     );
-    writeFileSync(path.join(tempDir, 'redis-dir.txt'), 'dir\n/tmp/cat-cafe-redis-test.XXXXXX\n');
+    writeFileSync(
+      path.join(tempDir, 'redis-config.txt'),
+      [
+        'dir',
+        '',
+        'pidfile',
+        '/tmp/claude-501/cat-cafe-rdb-first-start-XXXXXX/redis-data/redis-63552.pid',
+        'logfile',
+        '/tmp/claude-501/cat-cafe-rdb-first-start-XXXXXX/redis-data/redis-63552.log',
+      ].join('\n'),
+    );
     try {
       const result = runGuard(tempDir, ['acquire', '--lock-dir', lockDir, '--holder-pid', String(process.pid)], {
         PATH: `${fakeBinDir}:${process.env.PATH}`,

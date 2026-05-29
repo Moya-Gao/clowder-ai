@@ -127,16 +127,17 @@ function readRedisListeners() {
     .filter(Boolean);
 }
 
-// True ownership proof: query the Redis instance's data directory via CONFIG GET dir.
-// If it matches `cat-cafe-redis-test` (the tmpdir prefix from run-isolated-redis-tests.sh),
-// it was spawned by our test harness.  Read-only operation, zero side effects.
+// True ownership proof: query Redis-owned filesystem paths via CONFIG GET.
+// Redis 8 can report an empty `dir` while still exposing absolute pidfile/logfile
+// paths, so check the whole read-only CONFIG response for known Cat Cafe test
+// tempdir prefixes.
 function isOwnedTestRedis(port) {
   const text = readFixtureOrCommand(
-    'CAT_CAFE_GATE_GUARD_REDIS_DIR_FIXTURE',
+    'CAT_CAFE_GATE_GUARD_REDIS_CONFIG_FIXTURE',
     'redis-cli',
-    ['-h', '127.0.0.1', '-p', String(port), 'CONFIG', 'GET', 'dir'],
+    ['-h', '127.0.0.1', '-p', String(port), 'CONFIG', 'GET', 'dir', 'pidfile', 'logfile'],
   );
-  return /cat-cafe-redis-test/.test(text);
+  return /cat-cafe-(?:redis-test\.|rdb-first-start-)/.test(text);
 }
 
 function findRedisOrphans() {
@@ -177,8 +178,8 @@ function runPressureChecks(holderPid) {
 
   // Phase 1: clean orphan Redis with TRUE ownership proof.
   // Step 1: find candidates (ppid=1 + redis-server proctitle + non-sanctuary port).
-  // Step 2: for each candidate, query `CONFIG GET dir` — if the data directory matches
-  //   `cat-cafe-redis-test` (run-isolated-redis-tests.sh tmpdir prefix), it's ours.
+  // Step 2: for each candidate, query read-only CONFIG paths. If dir/pidfile/logfile
+  //   matches a known Cat Cafe test tmpdir prefix, it's ours.
   // Step 3: port-based shutdown on OWNED instances only.
   // Non-owned Redis (different datadir) is never touched — fails to manual guidance.
   const orphanRedisPattern = /(?:^|\/)redis-server\s+\S*:(\d{2,5})\b/;
