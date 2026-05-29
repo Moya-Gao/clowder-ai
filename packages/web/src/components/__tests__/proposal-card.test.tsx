@@ -289,7 +289,9 @@ describe('ProposalCard', () => {
     apiFetchMock.mockImplementation(() => {
       callCount++;
       if (callCount === 1) {
-        return Promise.resolve(jsonResponse(200, { proposalId: PROPOSAL_ID, threadId: 'thread_pin_fail', status: 'approved' }));
+        return Promise.resolve(
+          jsonResponse(200, { proposalId: PROPOSAL_ID, threadId: 'thread_pin_fail', status: 'approved' }),
+        );
       }
       return Promise.resolve(jsonResponse(500, { error: 'internal error' }));
     });
