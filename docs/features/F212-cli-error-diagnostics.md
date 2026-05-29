@@ -8,7 +8,7 @@ created: 2026-05-25
 
 # F212: CLI Error Diagnostics — 结构化 CLI 错误诊断 + 受控前端展示
 
-> **Status**: in-progress (Phase D follow-up, reopened 2026-05-28 per CVO signoff) | **Phase A-C done**: 2026-05-27 | **Owner**: 布偶猫/宪宪 (Opus-47) | **Priority**: P1
+> **Status**: done | **Phase A-C done**: 2026-05-27 | **Phase D done**: 2026-05-29 (PR #1950 merged 40af2b82e) | **Owner**: 布偶猫/宪宪 (Opus-47) | **Priority**: P1
 
 ## Why
 
@@ -190,7 +190,7 @@ created: 2026-05-25
 - [x] AC-D2: 新增 reasonCode `tool_call_parse_failed`（"tool call could not be parsed"）+ REASON_TEXT summary/hint（"模型工具调用解析失败 / Claude Code 报告：…非猫咖配置"）
 - [x] AC-D3: unknown fallback 措辞：rawText 含 CC structured result error（structuredErrorText）时显示 `Claude Code 报告：<原因>`，区分 CC/模型报错（非猫咖 bug）vs 猫咖真未分类；KD-1 白名单放行 CC structured result error（安全，CC 标准措辞）
 - [x] AC-D4: 红测先行（先红后绿）：用**真实 A2 结构**（`subtype:success+is_error:true+result文本`，非想象的 subtype:error）做 fixture → maybeCollectStreamError 收集 + buildCliDiagnostics 分类/措辞回归；验证旧 subtype-only guard 对真实数据必 false（红）、is_error guard 收集（绿）、正常 success（is_error:false）不误收；守 AC-A9 红线（raw stderr 不进 user-facing）
-- [ ] AC-D5: 跨族 review + 云端 review + 愿景守护
+- [x] AC-D5: 跨族 review + 云端 review + 愿景守护 — @gpt52（缅因猫 GPT-5.4）跨族 3 轮 delta APPROVE（6d07ef377 → da1f81763 → 61665f350）；云端 codex 3 轮 review（R1 P2 excerptSource white-list → R2 P1 isResultError gate → R3 Bravo on 61665f350）；merge commit 40af2b82e；愿景守护 cross-post @gemini25 跨族暹罗（非作者非 reviewer）
 
 ## Dependencies
 
@@ -242,6 +242,7 @@ created: 2026-05-25
 | 2026-05-26 | 第二个 trigger 证据：社区 issue [zts212653/clowder-ai#777](https://github.com/zts212653/clowder-ai/issues/777) — opencode + DeepSeek 用户配置 `deepseek-v-4`（模型名拼错），DeepSeek API 400 + 详细 message 在 NDJSON stream error event 里，但前端只显示 `布偶猫 completed without textual output.`。AC-A8（classifier 扫 stream error events）正面命中此场景；spec 不变 |
 | 2026-05-27 | **Phase A merged** (PR #1907)。本地砚砚 (缅因猫 GPT-5.5) 跨族 review 4 轮 (BLOCKED P1-1/P1-2 → P2 timeout → P2 Antigravity collector → P2 test 覆盖)，云端 codex 5 轮 review (3 P1 + 6 P2 真问题，1 P1 + 3 P2 stale/out-of-scope)。9/9 AC met. 关键架构决策: maybeCollectStreamError pure helper 含 STREAM_ERROR_MAX_ENTRIES=50 / STREAM_ERROR_MAX_CHARS=16384 bounded cap (云端 round-5 P2). tmux NDJSON mode 通过 nonJsonOutput buffer (30 lines / 8192 chars) 解决 `2>&1 | tee fifo` 合并 stderr 后 stderrFile 为空的 race (砚砚 round-4 minimum-risk path, 避免改 POSIX sh 命令的 prod 风险)。Cloud round-5 P1 (`run-isolated-redis-tests.sh` race) 标 out-of-scope，建议另开 hotfix。 |
 | 2026-05-27 | **Phase B merged** (PR #1915 @ commit `539a2226`)。本地砚砚 (缅因猫 GPT-5.5) 跨族 review 2 轮 (P1-1/P1-2 → APPROVE → delta-APPROVE 延续到 539a2226d)，云端 codex 8 轮 P2 fix (R1 cold hydration mapper → R2 panel destructure isKnownReason → R3 routing membership check → R4 bg-thread error parallel path → R5 debugRef.command path leak → R6 root home coverage → R7 ES2022 hasOwn → R8 root cause: api 端 messageStore.append 持久化补 metadata.cliDiagnostics 闭合 E2E hydration 链) + R9 "no major issues"。AC-B1..B5 全 met。19 new tests (CliDiagnosticsPanel 10 + ChatMessage router 7 + hydration 3 + bg path 2 + bubble-reducer 1 + route-serial-error-persistence 2)。`CliDiagnostics` 类型 hoist 到 `@cat-cafe/shared`；4 档 severity 颜色 (red user-fix / amber transient / slate system / violet cognitive) + 9 个手绘 Lucide-style SVG。架构决策: cliDiagnostics 走"随 error 事件一次性投递"路径（不走 timeoutDiagnostics 的 pending-ledger pattern）。事故: 期间 CAFE-INCIDENT-20260527 我 SIGKILL 误杀 6399 sanctuary (lsof port-range filter 陷阱 + redis-server 进程名通配)，自首报告 + 教训沉淀 `docs/reflections/2026-05-27-redis-6399-sigkill-selfreport.md` + `feedback_lsof_port_range_kills_sanctuary.md` (带 `-a` AND-filter addendum)。|
+| 2026-05-29 | **Phase D merged** (PR #1950 @ commit `40af2b82e`)。铲屎官 organic 验证 opus-4.8 发现 CC 吐 `The model's tool call could not be parsed` 但前端"未识别"误导社区 → reopen Phase D。@gpt52（缅因猫 GPT-5.4）跨族 3 轮 delta APPROVE（6d07ef377/da1f81763/61665f350）。云端 codex 3 轮 review (R1 P2 excerptSource white-list disconnect: 后端 fill / 前端 reasonCode-only guard 阻挡 → 方向 B excerptSource:'classifier'|'cc_structured' set membership → R2 P1 KD-1/AC-A9 leak: structuredSink 没 gate isResultError → 1 行 `isResultError &&` guard → R3 Bravo)。关键发现：**差点 ship 死代码 + 7 个真实 opus-4.8 archive 样本救回**（原 `subtype!=='success'` 判断对真实 A2 `subtype:success+is_error:true` 永不触发，测试用想象 fixture 全绿）→ 改 `is_error===true` + 真实 fixture。F215 跨 feature 协调闭环：F212/F215 边界（A2→F212 归因，A1→F215 兜底）+ 修正 F215 KD-6 "could not be parsed 无独立信号" 表述（is_error:true result event 是独立信号，sonnet 落地 F215 spec c616f616e）。Main-level regression 兜底：services-route #1952（修 0b99832f3 qwen3-asr fixture lag）+ proposal-card biome #1955（修 F128 #1954 引入）。平行猫协调：46 修 main gate biome 08c196e6e。AC-D1..D5 全 met。lessons: cloud codex 真深度 review 抓真 P；fixture 真实性 (subtype:success+is_error:true)；feat-add-service 应同 PR 更新 endpoint count test；gate-guard 类直接 commit main 前必跑 biome format。|
 
 ## Review Gate
 

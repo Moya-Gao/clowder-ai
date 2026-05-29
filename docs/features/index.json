@@ -1311,7 +1311,7 @@
     {
       "id": "F212",
       "name": "CLI Error Diagnostics — 结构化 CLI 错误诊断 + 受控前端展示",
-      "status": "in-progress (Phase D follow-up, reopened 2026-05-28 per CVO signoff) | **Phase A-C done**: 2026-05-27 | **Owner**: 布偶猫/宪宪 (Opus-47) | **Priority**: P1",
+      "status": "done | **Phase A-C done**: 2026-05-27 | **Phase D done**: 2026-05-29 (PR #1950 merged 40af2b82e) | **Owner**: 布偶猫/宪宪 (Opus-47) | **Priority**: P1",
       "file": "F212-cli-error-diagnostics.md"
     },
     {
