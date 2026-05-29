@@ -49,6 +49,7 @@ gh pr view {N} --repo {owner/repo}
 - 是否已有 maintainer / 猫猫实质回复
 - 是否有 linked issue / linked PR，或正文里显式提到 `#NNN`（如 follow-up / found while validating）
 - 作者是否表示会自提 PR
+- 作者是否是活跃 contributor / collaborator，或历史上常见“先 issue 后 PR”
 - PR diff 是否包含伪 Fxxx 锚点（进入 Scene B 时必查）
 
 #### Step 1.1: Anchor Precedence — 先匹配 GitHub 编号
@@ -65,6 +66,29 @@ gh pr view {N} --repo {owner/repo}
 **动作规则**：active PR 存在时，Direction Card / handoff 的 next action 写
 `review-existing-pr` / `merge-gate`；不要写 `fix`、`implement`、`take over`。只有 PR 方向
 错误、质量退回、或作者放弃时，才把 issue 转成我们自修。
+
+#### Step 1.2: Author Intent Gate — 高概率自提 PR 先问
+
+如果 issue 信息充分、值得接纳，但作者是活跃贡献者 / collaborator，或历史上经常“提 issue 后
+自己提 PR”：
+
+1. 不要立刻 propose / cross-post 给内部工程 thread 修。
+2. 先在 issue 里公开追问作者意图：是否计划自提 PR；如果不打算修，我们可以接手。
+3. Direction Card：`路由 = external-wait`，`路由依据 = accepted-issue`，`下一步 = ask-author-pr-intent`，Owner 保持守门 thread 或明确指定 intake owner。
+4. 等作者回复或短 SLA 到期后再分流：作者自提 PR → `review-existing-pr` / `merge-gate`；作者不修 / 超时 / 高危 bug → 内部 `fix`。
+
+**SLA 建议**：普通 bug 24-48h；高危/阻塞安装/数据丢失不等待，直接内部 fix，同时欢迎作者后续 review / PR。
+
+作者意图追问模板：
+
+```markdown
+Thanks for the clear report. This looks valid and we are triaging it as a bug.
+
+Do you plan to send a PR for this one? If yes, we can wait and review your PR.
+If not, we can pick it up from our side.
+
+{猫猫签名}
+```
 
 ### Step 2: Ground — 基础合法性
 
@@ -98,6 +122,7 @@ gh pr view {N} --repo {owner/repo}
 |------|----------|------------|
 | 明确 bug issue，无现有 PR | 标 `bug` / `triaged`，发 Direction Card（下一步=`fix`）；需要修复则 propose/cross-post 到工程 thread | 接球 thread 负责实现修复 |
 | 明确 bug issue，**已有社区 PR 在修** | 标 `bug` / `triaged`，发 Direction Card（下一步=`review-existing-pr`）；cross-post **必须写明"review PR #xxx，不是重新实现"** | 接球 thread 负责 review 该 PR，不重写 |
+| 明确 bug issue，作者高概率自提 PR | 标 `bug` / `triaged`，公开问作者是否自提 PR；Direction Card 下一步=`ask-author-pr-intent` | 当前守门 thread 等作者意图，或指定 intake owner |
 | bug 明确是 `#NNN` issue / PR follow-up | 先打开 referenced issue / PR；若 PR active，路由为 review / merge-gate；若无 PR/owner，propose 窄 thread | PR owner / reviewer thread，或新建 issue/PR thread |
 | bug 信息不足 | 标 `needs-info` / `triaged`，追问信息；当前 thread 可等待作者回复 | 当前 thread，或指定接球 thread |
 | 新 feature / enhancement | 跑主人翁五问 + 关联检测；无现成锚点则 `needs-maintainer-decision` | Landy 或指定设计 thread |
@@ -173,6 +198,7 @@ cat_cafe_register_pr_tracking(repoFullName, prNumber)
 | 把 reconciliation 当普通日志 | 漏网补偿继续漏 | reconciliation 和 webhook 通知同等处理 |
 | 看见 eval / scheduler / UI 关键词就直接投 Fxxx thread，跳过 `#NNN` 关联 PR | follow-up bug 被派错 owner，已有 PR review 链断裂 | 先打开 body/comment 里的 `#NNN`；active PR / issue owner 优先于 broad feature thread |
 | 社区 PR 已经在修 issue，handoff 却写“请修复” | 下游猫重做实现，社区作者贡献被绕过 | active linked PR 的下一步是 review / merge-gate；只有 PR 不可用才自修 |
+| 活跃 contributor 刚提 issue，就立刻内部派工 | 抢掉作者自提 PR 的空间，后续重复实现 | 先问作者是否打算 PR；Direction Card 走 `external-wait` + `ask-author-pr-intent` |
 | WELCOME 后只给 verdict，不给 owner / route | 球权掉地上 | Direction Card 必填 route、owner、next action、report-back |
 | 分发给下游 thread 后继续在守门 thread hold | 双 owner、重复轮询、死锁 | 谁接球谁 hold；守门 thread 只保留路由记录 |
 | PR 还没 accepted issue 就深度 code review | 方向错也浪费 reviewer | 先 issue-first；无 accepted issue 不进代码 review |
