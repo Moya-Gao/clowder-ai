@@ -86,7 +86,13 @@ Phase B 检测到 malformed（`textEventCount===0` 或 form B 信号）后触发
 
 1. **seal 中毒 session**（复用 F118 seal 机制）→ 防 `--resume` 重放坏 turn 持续中毒
 2. **fresh-context retry**（sessionId=undefined）：抛弃被污染的长 session，用短 context 重发。根因强相关 context 长度，缩短 context 改变触发概率分布（注：SDK 自带 retry 是**同 context 原地重试**，所以失败；我们的价值在**改变触发条件**）
-3. fresh retry 仍失败 → **46 接力**：用 46 **自己的身份** + fresh context 完成这一棒，前端**显式标注**「🙀48 炸毛了，46 接棒」。**不是静默顶替**（那会身份污染）——48 在场不被边缘化，46 也不冒充 48。
+3. fresh retry 仍失败 → **46 接力**：用 46 **自己的身份** + fresh context 完成这一棒，前端**两条消息**：
+   - **系统提示卡片**（CVO signoff 选 A，含社区可读文案）：
+     > 🙀 **Opus 4.8 炸毛了** —— 他这次手抖，工具调用格式写歪了，系统读不出来。放心，**不是猫咖的问题**，是这只猫在长对话里偶尔会犯的毛病；布偶猫 Opus 4.6 已经来接班，重新开了个清醒的对话把任务做完。
+     >
+     > `[展开技术细节 ▾]` 发生了什么：claude-opus-4-8 在长对话后段，偶尔把"工具调用"写成 AI 内部旧格式，Claude Code 识别不了 | 根因：Anthropic 模型的已知问题（#49747），与猫咖无关 | 猫咖怎么兜底：自动检测异常 → 隔离问题对话 → 换稳定的猫用更短上下文接力，**任务不丢**
+   - **46 的正常回复**：用自己身份继续任务，无需额外标注（系统提示已说清楚）
+   - **不是静默顶替**——48 在场不被边缘化，46 也不冒充 48。
 
 ### Phase D: 体验 + dossier 诚实记录
 
@@ -135,7 +141,7 @@ Phase B 检测到 malformed（`textEventCount===0` 或 form B 信号）后触发
 |---|------|------|
 | OQ-1 | malformed XML 在我们 stream 层的确切形式（A 裸行 / B text block / C 其他）？ | ✅ **已关闭**：两种形式（B text+XML + A thinking-only），取证文件见 Phase A 节 |
 | OQ-2 | 治本落点：方案 B1（JSONL 改写+resume）还是 B2（接受 CC SDK 降级）还是统一检测？ | ✅ **已关闭**：统一检测+兜底（KD-7）。删转换器/B1，检测 `textEventCount===0`（form A）→ seal+fresh+46接力；form B 接受 CC SDK 已有降级，可选 `<invoke name=` 保险层 |
-| OQ-3 | 46 接力的前端展示形态（系统提示 + 46 回复两条消息？） | ⬜ Design Gate 定，等铲屎官醒拍板 |
+| OQ-3 | 46 接力的前端展示形态（系统提示 + 46 回复两条消息？） | ✅ **已关闭（CVO signoff 2026-05-29）**：选 A——两条消息：①系统提示卡片（见 Phase C）；②46 用自己身份正常继续任务 |
 
 ## Key Decisions
 
