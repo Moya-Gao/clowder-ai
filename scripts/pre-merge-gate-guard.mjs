@@ -163,16 +163,24 @@ function runPressureChecks(holderPid) {
     );
   }
 
-  // Phase 1: clean persistent orphans via process:cleanup (ownership-proven:
-  // ppid=1 + redis-server proctitle + non-sanctuary port + age > 10min).
-  // Handles the case where cleanup trap never fired and Redis stays alive forever.
-  try {
-    execFileSync(process.execPath, [path.resolve('scripts/cleanup-stale-dev-processes.mjs'), '--run'], {
-      timeout: 10000,
+  // Phase 1: clean orphan Redis with ownership proof (no age gate).
+  // Ownership triple: ppid=1 (parent died) + redis-server proctitle + non-sanctuary port.
+  // Uses port-based shutdown (redis-cli), NOT PID-based kill — no PID-reuse risk.
+  // Age threshold is unnecessary here: ppid=1 already proves the parent is dead, so
+  // "too young to be orphan" cannot happen.  The 10min threshold in process:cleanup
+  // exists for general stale-process detection; gate preflight has stronger proof.
+  // Sanctuary ports (6379/6398/6399/6401) are permanently excluded.
+  const orphanRedisPattern = /(?:^|\/)redis-server\s+\S*:(\d{2,5})\b/;
+  for (const row of rows) {
+    if (row.ppid !== 1) continue;
+    const m = row.command.match(orphanRedisPattern);
+    if (!m) continue;
+    const port = Number(m[1]);
+    if (ALLOWED_LOCAL_REDIS_PORTS.has(port) || port < 6300 || port > 65535) continue;
+    spawnSync('redis-cli', ['-h', '127.0.0.1', '-p', String(port), 'shutdown', 'nosave'], {
+      timeout: 3000,
       stdio: 'ignore',
     });
-  } catch {
-    // Best-effort — if cleanup script fails, continue with orphan detection.
   }
 
   // Phase 2: wait briefly for transient orphans (trap fired, Redis still exiting).
