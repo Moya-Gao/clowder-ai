@@ -1,6 +1,6 @@
 ---
 feature_ids: [F192]
-related_features: [F167, F153, F086, F188, F200]
+related_features: [F167, F153, F086, F188, F200, F208]
 topics: [harness-engineering, eval, socio-technical, observability, cat-user-feedback]
 doc_kind: spec
 created: 2026-05-07
@@ -8,7 +8,7 @@ created: 2026-05-07
 
 # F192: Socio-Technical Harness Eval — harness 共创评估体系
 
-> **Status**: in-progress (reopened 2026-05-27 for Phase F `eval:capability-wakeup`) | **Owner**: Ragdoll | **Phases A-E completed**: 2026-05-27
+> **Status**: in-progress (Phase G `semantic-interface-contracts`) | **Owner**: Ragdoll | **Phases A-E completed**: 2026-05-27 | **Phase G-A completed**: 2026-05-29
 
 ## Architecture Ownership
 
@@ -234,6 +234,43 @@ Phase E 将 F192 从单域试点提升为横切的 Harness Eval Control Plane：
 4. First weekly verdict cycle（real data 第一刀）
 5. L0 §8 v2 数据驱动 iterate（去掉低 miss-rate 条目 / 加新发现的高 miss-rate 场景）
 
+### Phase G: Semantic Interface Contracts + Friction Classification（来源 F208-HCP 设计 + 社区讨论）
+
+来源 2026-05-29 CVO 与社区讨论收敛：auto harness 流程应明确分为 **tracing → eval → decision → governance** 四步。F192 Phase E 已实现 runtime eval + verdict handoff + re-eval closure，但缺少三个关键能力：
+
+1. **Friction Type Classification**：eval 能检测 friction（ratio > threshold），但不能区分 _为什么_ friction 发生——是 harness 本身设计问题（harness_gap）还是猫/用户对 harness 缺乏信任而主动绕过（trust_gap）。区分这两类的依据是 hold_ball 的 cancel_reason 信号（F208-HCP Phase B instruments.ts 已在 develop_base 定义 OTel counters）。
+2. **Degrade Decision Path**：verdict 只有 delete_sunset / build / fix / keep_observe 四个，缺少"不删除但降级为按需模式"的渐进响应。添加 `degrade` verdict + `degradePlan`（targetMode + rollbackCondition）。
+3. **Typed Semantic Interface Contracts**：eval domain registry 只描述调度元数据（evalCat / frequency / SLA），不声明四步流程各步的 contract（tracing 观测什么？eval 量化什么指标？decision 支持哪些 verdict？governance 用什么执行模式？）。
+
+**Build sequence**：
+1. **G-A**（已完成）：Contract schemas + frictionType + degrade verdict
+2. **G-B**：Thread-segment observation unit（eval-a2a tracingContract 从 time-window 扩展支持 thread-segment）
+3. **G-C**：Governance execution（auto-PR / local-overlay / change trail tracking）
+
+#### G-A: Contract Schemas + Friction Type + Degrade Verdict ✅
+
+- [x] AC-G1: `EvalDomainRegistryEntry` 含 4 个 optional typed contract（tracingContract / evalContract / decisionContract / governanceContract），现有 YAML fixtures 不含 contract 时正常 parse（backward compatible）
+- [x] AC-G2: `ComponentHealth` 含 optional `frictionType: 'harness_gap' | 'trust_gap' | 'unknown'`
+- [x] AC-G3: `buildC1()` 从 `hold_cancel_harness_gap` / `hold_cancel_trust_gap` OTel counters 分类 frictionType；counters 不存在时 graceful fallback（friction 存在但无 breakdown → `unknown`；无 friction → `undefined`）
+- [x] AC-G4: Verdict enum 含 `'degrade'`，governance 含 optional `degradePlan { targetMode, rollbackCondition }`；superRefine 校验 degrade 必带 degradePlan
+- [x] AC-G5: `eval-a2a.yaml` 含 `tracingContract { observationUnit: time-window, requiredSources: [F153 endpoints] }`
+- [x] AC-G6: `community-issue-packet.ts` verdict enum 同步更新
+- [x] AC-G7: 327 tests 全绿，零 regression
+
+#### G-B: Thread-Segment Observation（待实施）
+
+- [ ] AC-G8: Eval pipeline 支持 `observationUnit: thread-segment`——从按时间窗口聚合扩展到可按 thread 段分析单个 harness unit 的行为
+- [ ] AC-G9: `eval-a2a.yaml` 可在 tracingContract 切换 `thread-segment` 模式并产出等价 snapshot
+- [ ] AC-G10: Thread-segment mode 的 telemetry adapter 能从 F153 traces 按 threadId 过滤 spans
+
+#### G-C: Governance Execution（待实施）
+
+- [ ] AC-G11: Verdict `degrade` / `fix` / `build` 的 governance execution 支持 `auto-pr` 模式——自动生成 harness 调整 PR（code / config / SOP）
+- [ ] AC-G12: Governance execution 支持 `local-overlay` 模式——通过 `.local` 覆盖机制应用 harness 参数调整
+- [ ] AC-G13: Change trail——每次 governance execution 记录 before/after diff，可在 Console 观测 harness 版本变化历史
+
+依赖：G-B 依赖 F153 trace 按 threadId 查询能力（当前 API 支持 catId 过滤但不支持 threadId）；G-C 依赖 governance 执行工具的实现（PR creation / local overlay write）。G-A 已独立完成，不阻塞 G-B/G-C。
+
 ## 需求点 Checklist
 
 | ID | 需求点（team experience/转述） | AC 编号 | 验证方式 | 状态 |
@@ -246,6 +283,10 @@ Phase E 将 F192 从单域试点提升为横切的 Harness Eval Control Plane：
 | R6 | "诊断 / eval 结果需要一个看板，叫 Eval Hub" | AC-E9, AC-E10 | Eval Hub screenshot / API response | [x] |
 | R7 | "接入完成得清理遗留定时任务，避免双触发" | AC-E6, AC-E13 | scheduled task inventory + dry-run migration report | [x] |
 | R8 | "社区小伙伴发现自己的场景有掉球，也能提 issue / 接自己的项目 eval" | AC-E14, AC-E15 | sanitized issue packet fixture + custom domain fixture | [x] |
+| R9 | "应该是 tracing/eval/决策/治理；eval 给出可量化指标和结论" | AC-G1, AC-G5 | 4 typed contracts in registry schema + eval-a2a.yaml tracingContract | [x] |
+| R10 | "取消持球的原因可能是状态不对...需要结合完整 thread 来看" | AC-G2, AC-G3 | frictionType classification from cancel_reason counters | [x] |
+| R11 | "决策可以自动也可以人介入来控制是不是需要迭代和优化" | AC-G4, AC-G11 | degrade verdict + autoVerdictEnabled toggle + governance execution modes | [ ] |
+| R12 | "治理的版本内容变化，console 上可以观测到" | AC-G12, AC-G13 | local-overlay + change trail in Console | [ ] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -270,7 +311,8 @@ Verdict 不是自由文案。每个 verdict 都必须满足对应证据门槛、
 | `fix` | 已有 harness 目标正确，但实现 / prompt / workflow 没做到位；出现 regression、false positive、bypass 或 owner friction | phenomenon、affected harness、metric refs、day-over-day trend、root-cause hypothesis、counterarguments | 请 feature owner 修正现有 harness 或其接线 | 后续 eval 对同一 failure pattern 复验通过；owner 不能自报 resolved | 默认 eval owner + feature owner 闭环；高影响行为变更走 Design Gate |
 | `build` | 反复出现的 failure pattern 没有现有 harness 覆盖，或现有 harness 边界外出现新场景 | missing-coverage evidence、candidate harness scope、expected activation signal、success metric、counterarguments | 请 feature owner 设计 / 扩展 harness，并补 Eval Contract | 新 harness 有 Eval Contract + 首次 eval snapshot；未接入前不得标 resolved | 新增规则 / SOP / MCP 行为变化必须过 Design Gate |
 | `delete_sunset` | harness 的边际效果低或成本高，且可能已被模型 / 猫猫能力内化；**不能仅因最近没触发就判 sunset** | cost/effect trend、activation history、原始 failure pattern refs、Sunset Trial Plan、counterarguments | 请 owner 启动 sunset trial；verdict 本身不执行删除 | trial 满足 criteria 后进入 `dormant`；真正 `retired` 需额外 CVO accept | `toDormant` 可按 criteria 自动；`toRetired` 必须 CVO accept |
-| `keep_observe` | 当前证据不足以改变 harness，或 harness 仍健康；不是“什么都不做”的永久终态 | current metric refs、why-no-action、next observation window、known blind spots | 继续观察 / 补 instrumentation / 等下一窗口 | 到期必须重新 eval；若无 next window 则不合法 | 可由 eval owner 自决；不能用来掩盖缺数据 |
+| `keep_observe` | 当前证据不足以改变 harness，或 harness 仍健康；不是”什么都不做”的永久终态 | current metric refs、why-no-action、next observation window、known blind spots | 继续观察 / 补 instrumentation / 等下一窗口 | 到期必须重新 eval；若无 next window 则不合法 | 可由 eval owner 自决；不能用来掩盖缺数据 |
+| `degrade` | harness 导致的 friction 已被确认，但完全删除风险过高；适合从 always-on 降级为 on-demand | phenomenon、frictionType classification（harness_gap / trust_gap）、degradePlan（targetMode + rollbackCondition）、counterarguments | 请 owner 实施 degrade plan，把 harness 从主动路径切到按需触发 | rollbackCondition 满足后自动回复 active 或升级 delete_sunset；未满足前保持 degraded | governance 必含 degradePlan；degraded 模式需可观测（activation count 在按需触发时仍有计数） |
 
 不变式：
 
@@ -278,6 +320,7 @@ Verdict 不是自由文案。每个 verdict 都必须满足对应证据门槛、
 2. `delete_sunset` verdict 只能触发 Sunset Trial，不能直接关闭或删除 harness。
 3. `keep_observe` 必须带 next observation window；否则就是把未知包装成结论。
 4. `build` 必须补 Eval Contract；没有可观测 success metric 的新 harness 不得进入 active。
+5. `degrade` 必须带 `degradePlan`（targetMode + rollbackCondition）；没有回滚条件的降级 = 变相关闭。
 
 ### Phase E Sunset Trial Contract（`delete_sunset` 展开）
 
@@ -432,6 +475,9 @@ Based on the first micro fit digest (2026-05-11):
 | KD-14 | Eval Hub 是 daily workflow surface，不是 Settings 配置页；F188 Health Dashboard 与 Eval Hub 互链不互替 | Settings 只承载 domain registry / frequency / owner / export policy 等配置。Hub 承载 verdict lifecycle、trend、handoff、closure；F188 承载现场 health repair controls。互链按钮是验收要求，避免用户在两个 surface 间手动找入口；若实用性差，后续调整 IA / 跳转位置属于低风险 UI 改动 | 2026-05-23 |
 | KD-15 | System Thread / System Workspace 基座归一：IM Hub 与 eval domain thread 共享系统线程模型，但按 `kind` 区分 | IM Hub（`connector_hub`）和 Eval domain（`eval_domain`）都是 system-managed thread / workspace；归一的是 thread 基础模型、系统分区、删除保护、跳转和管理方式，不归一业务语义。Eval Hub 是工作面，不另造割裂前端；IM Hub 与 Eval Hub 互链，不互替 | 2026-05-23 |
 | KD-16 | Phase E 剩余交付按 4 个功能块 PR 收敛：E-hub / E-scale / E-sop / E-community，不按 AC 粒度拆 | PR 边界应对应可独立验收的用户/系统能力，而不是单条 AC。E-hub 由Maine Coon接，E-scale 由Ragdoll接；E-sop 依赖已由 F203 #1868 满足但排在 Hub/Scale 后；E-community 最后基于稳定 contract 输出社区 packet | 2026-05-24 |
+| KD-17 | Phase G 语义接口刷新归入 F192（不是 F208-HCP） | F208 ID 在上游已被 Capability Profile Routing 占用；F208-HCP 仅 fork 概念；代码在 F192 architecture cell harness-eval 内；CVO + 社区讨论（tracing→eval→决策→治理）自然延伸 Phase E contract | 2026-05-29 |
+| KD-18 | `degrade` 填补 keep_observe 和 delete_sunset 之间的决策空白 | 现有 4 个 verdict 缺渐进响应——要么继续观察要么准备删除。degrade = "降级为按需模式"，保留 harness 但减少主动干预频率，配合 rollbackCondition 自动回升 | 2026-05-29 |
+| KD-19 | frictionType 分类基于 cancel_reason 而非纯 ratio 推断 | ratio 只说明 friction 多不多，说不清 _为什么_。cancel_reason 区分 harness_gap（harness 设计问题导致取消）vs trust_gap（猫不信任 harness 主动绕过）；两类的修复路径完全不同——前者改 harness，后者改信任 | 2026-05-29 |
 
 ## Review Gate
 
@@ -440,3 +486,4 @@ Based on the first micro fit digest (2026-05-11):
 - Phase C: spec 更新需跨家族 review；实现需跨家族 review
 - Phase D: digest 结论需team lead确认
 - Phase E: 架构级 Design Gate 由 F192 owner + 跨族 reviewer 收敛；E-pilot 先行（无 UI）；Eval Hub UI 需等 E-pilot 真实 verdict 后再 design-in-context + team lead验收；legacy scheduled-task cleanup 需 dry-run report
+- Phase G: 跨族 review（schema 扩展 + verdict 新增影响多 domain consumer）
