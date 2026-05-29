@@ -116,14 +116,14 @@ F128 遵循 ADR-035 Proposal-First Agent Actions：
 
 ### Phase F: 前端实现（2026-05-29 CVO 补充置顶 + 卡片体验）
 
-- [ ] AC-F1: Proposal card renders in source thread on `proposal_created` socket event (no manual refresh)
-- [ ] AC-F2: Card prefills with cat-supplied fields; user can edit `title`, `parentThreadId`, `preferredCats`, `initialMessage` before approve
-- [ ] AC-F3: Approve button POSTs to `/api/proposals/:id/approve`; on success, sidebar shows new thread (via `thread_created` WS event); card flips to `approved` state with link to created thread
-- [ ] AC-F4: Reject button POSTs to `/api/proposals/:id/reject`; card flips to `rejected` state; thread is not created
-- [ ] AC-F5: Double-click protection on Approve/Reject (rely on backend idempotency + button disable on click)
-- [ ] AC-F6: Frontend tests cover render, edit, approve happy path, reject path, status flip via WS event
-- [ ] AC-F7: Approve card 新增 "📌 置顶" toggle — approve 时可选将新 thread 自动置顶（调用已有 `updateThreadPin`）
-- [ ] AC-F8: Approve 成功后自动跳转到新创建的 thread（或显示明显的导航入口）
+- [x] AC-F1: Proposal card renders in source thread on `proposal_created` socket event (no manual refresh)
+- [x] AC-F2: Card prefills with cat-supplied fields; user can edit `title`, `parentThreadId`, `preferredCats`, `initialMessage` before approve
+- [x] AC-F3: Approve button POSTs to `/api/proposals/:id/approve`; on success, sidebar shows new thread (via `thread_created` WS event); card flips to `approved` state with link to created thread
+- [x] AC-F4: Reject button POSTs to `/api/proposals/:id/reject`; card flips to `rejected` state; thread is not created
+- [x] AC-F5: Double-click protection on Approve/Reject (rely on backend idempotency + button disable on click)
+- [x] AC-F6: Frontend tests cover render, edit, approve happy path, reject path, status flip via WS event
+- [x] AC-F7: Approve card 新增 "📌 置顶" toggle — approve 时可选将新 thread 自动置顶（PATCH /api/threads/:id + updateThreadPin）
+- [x] AC-F8: Approve 成功后自动跳转到新创建的 thread（或显示明显的导航入口）
 
 ### Phase X: 质量门禁
 
