@@ -20,7 +20,7 @@ import type { InvocationTracker } from '../domains/cats/services/agents/invocati
 import { MessageDeliveryService } from '../domains/cats/services/agents/invocation/MessageDeliveryService.js';
 import { getRichBlockBuffer } from '../domains/cats/services/agents/invocation/RichBlockBuffer.js';
 import { stampVisibleTurn } from '../domains/cats/services/agents/invocation/visible-turn.js';
-import { extractImagePaths } from '../domains/cats/services/agents/providers/image-paths.js';
+import { extractImagePaths, extractImageUrls } from '../domains/cats/services/agents/providers/image-paths.js';
 import { analyzeA2AMentions } from '../domains/cats/services/agents/routing/a2a-mentions.js';
 import { resolveCatTarget } from '../domains/cats/services/agents/routing/cat-target-resolver.js';
 import { extractRichFromText } from '../domains/cats/services/agents/routing/rich-block-extract.js';
@@ -1683,6 +1683,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       threadId: effectiveThreadId,
       messages: filtered.map((item) => {
         const imagePaths = extractImagePaths(item.contentBlocks, uploadDir);
+        const imageUrls = extractImageUrls(item.contentBlocks);
         return {
           id: item.id,
           userId: item.userId,
@@ -1690,6 +1691,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
           content: item.content,
           ...(item.contentBlocks ? { contentBlocks: item.contentBlocks } : {}),
           ...(imagePaths.length > 0 ? { imagePaths } : {}),
+          ...(imageUrls.length > 0 ? { imageUrls } : {}),
           timestamp: item.timestamp,
           // F148 Phase B (AC-B2): include relevance score when keyword search is active
           ...(keywordTerms.length > 0 ? { relevanceScore: scoreKeywordRelevance(item.content, keywordTerms) } : {}),

@@ -674,6 +674,38 @@ describe('Callback Routes', () => {
     assert.equal(body.messages[1].content, 'Reply 1');
   });
 
+  test('GET thread-context exposes HTTP image urls so external runtimes can fetch them (F211-REG3)', async () => {
+    // REG3 Layer B: external runtimes (Antigravity/Bengal) cannot read absolute filesystem
+    // imagePaths under cat-cafe-runtime/uploads (workspace-root boundary). An HTTP url served
+    // by the API /uploads/ static route IS reachable, so the carrier can curl/fetch the bytes.
+    const app = await createApp();
+    const { invocationId, callbackToken } = await registry.create('user-1', 'opus');
+
+    messageStore.append({
+      userId: 'user-1',
+      catId: null,
+      content: 'look at this diagram',
+      contentBlocks: [
+        { type: 'text', text: 'look at this diagram' },
+        { type: 'image', url: '/uploads/diagram.png' },
+      ],
+      mentions: [],
+      timestamp: 1,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/callbacks/thread-context',
+      headers: { 'x-invocation-id': invocationId, 'x-callback-token': callbackToken },
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    const withImage = body.messages.find((msg) => Array.isArray(msg.imageUrls) && msg.imageUrls.length > 0);
+    assert.ok(withImage, 'a message with an image must expose imageUrls');
+    assert.match(withImage.imageUrls[0], /^https?:\/\/.+\/uploads\/diagram\.png$/);
+  });
+
   test('GET thread-context respects limit parameter', async () => {
     const app = await createApp();
     const { invocationId, callbackToken } = await registry.create('user-1', 'opus');

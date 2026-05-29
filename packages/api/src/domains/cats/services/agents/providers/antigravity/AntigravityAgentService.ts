@@ -469,6 +469,13 @@ export class AntigravityAgentService implements AgentService {
           : promptBody;
 
       const threadId = options?.auditContext?.threadId ?? `ephemeral-${Date.now()}`;
+      // F211-REG2: capture the active runtime binding BEFORE getOrCreateSession. If the prior
+      // cascade stalled on a terminal error, getOrCreateSession replaces it with a fresh cascade
+      // and deletes the old reverse index — so this is the only point we can recover the old
+      // session's metadata/digest to bootstrap continuity for the re-summon.
+      const priorActiveRuntime = this.runtimeSessionStore
+        ? await this.runtimeSessionStore.getActiveByThreadCat('antigravity-desktop', threadId, this.catId)
+        : null;
       let cascadeId = await this.bridge.getOrCreateSession(threadId, this.catId as string);
       lastKnownCascadeId = cascadeId;
       const createSideEffectJournal = (journalCascadeId: string) =>
@@ -651,9 +658,16 @@ export class AntigravityAgentService implements AgentService {
         lifecycle: AntigravitySessionLifecycle;
         sideEffectJournalSummary: AntigravityJournalSummary;
         allowContinuityBootstrap: boolean;
+        // F211-REG2: cross-invocation re-summon must pass the old metadata captured BEFORE
+        // getOrCreateSession swapped the binding — the oldCascadeId reverse index is already
+        // deleted by then, so a fresh getByRuntimeSession lookup would return null.
+        prefetchedOldMetadata?: RuntimeSessionMetadata | null;
       }): Promise<AntigravityContinuityBootstrap | undefined> => {
         if (!input.allowContinuityBootstrap) return undefined;
-        const runtimeMetadata = await readRuntimeMetadataForBootstrap(input.oldCascadeId);
+        const runtimeMetadata =
+          input.prefetchedOldMetadata !== undefined
+            ? input.prefetchedOldMetadata
+            : await readRuntimeMetadataForBootstrap(input.oldCascadeId);
         const digest = await readDigestForBootstrap(runtimeMetadata);
         return buildAntigravityContinuityBootstrap({
           oldRuntimeSessionId: input.oldCascadeId,
@@ -734,6 +748,52 @@ export class AntigravityAgentService implements AgentService {
         log.warn(
           { cascadeId, cascadeHealth: preflightCascadeHealth },
           'skipped preflight Antigravity cascade retirement due to side-effect safety',
+        );
+      }
+      // F211-REG2: cross-invocation re-summon continuity. getOrCreateSession may have replaced a
+      // dead/stalled prior cascade with a fresh one (same SessionRecord, new cascadeId) without an
+      // intra-invocation rotateCascade — so the preflight path above never built a bootstrap. Detect
+      // that boundary rotation from the pre-captured active binding and prepend continuity, so the
+      // cat does not cold-start. A user-initiated New Cascade goes through resetSession (which seals
+      // and clears the active binding), so priorActiveRuntime would be null here — AC-A16 holds.
+      if (
+        !pendingContinuityBootstrap &&
+        priorActiveRuntime &&
+        priorActiveRuntime.runtimeSessionId !== cascadeId &&
+        priorActiveRuntime.lifecycle.sealReason !== 'user_initiated'
+      ) {
+        // The boundary replacement was not drained by us (getOrCreateSession swapped the dead
+        // cascade), so mark it best-effort/degraded with a runtime_error_reset reason.
+        const reSummonDrain: AntigravityDrainResult = {
+          ok: false,
+          drainResult: 'skipped_runtime_unreachable',
+          reason: 'prior cascade replaced at re-summon boundary',
+        };
+        // Carry the SAME rotation lifecycle on both the bootstrap and the first session_init.
+        // Without setting pendingSessionLifecycle, session_init falls back to a plain lifecycle
+        // (no previousRuntimeSessionId/sealReason), so the invocation sync path would treat the
+        // replacement as an unexpected switch instead of runtime_error_reset and fail to seal the
+        // old stalled binding.
+        const reSummonLifecycle = buildRotationLifecycle(
+          priorActiveRuntime.runtimeSessionId,
+          cascadeId,
+          'runtime_error_reset',
+          reSummonDrain,
+        );
+        pendingContinuityBootstrap = await buildContinuityBootstrap({
+          oldCascadeId: priorActiveRuntime.runtimeSessionId,
+          newCascadeId: cascadeId,
+          reason: 'runtime_error_reset',
+          drain: reSummonDrain,
+          lifecycle: reSummonLifecycle,
+          sideEffectJournalSummary: sideEffectJournal.summary(),
+          allowContinuityBootstrap: true,
+          prefetchedOldMetadata: priorActiveRuntime,
+        });
+        pendingSessionLifecycle = reSummonLifecycle;
+        log.info(
+          { oldCascadeId: priorActiveRuntime.runtimeSessionId, newCascadeId: cascadeId, threadId },
+          'prepended re-summon continuity bootstrap + rotation lifecycle after boundary cascade replacement',
         );
       }
       let capacityRetryCount = 0;
