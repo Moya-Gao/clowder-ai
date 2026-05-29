@@ -15,7 +15,7 @@ description: >
 **架构猫写蓝图，imagegen 猫出精美图。** 不走 HTML/SVG 手工合成。
 
 - **架构猫**（当前持球猫）：内容分析 + 分页规划 + 低保真 MD 写作
-- **imagegen 猫**（砚砚/云端 Codex）：逐页生成精美 raster PNG
+- **imagegen 猫**（imagegen 猫/云端 Codex）：逐页生成精美 raster PNG
 - **铲屎官**：审稿 + 确认风格
 
 产出是 **AI 原生图片**——视觉质量远高于 HTML/CSS 手工画，且速度快。
@@ -38,7 +38,7 @@ description: >
 | 铲屎官说"做个 PPT" | **1: 内容分析 + 分页规划** | 架构猫 | [ppt-lofi-authoring.md](../refs/ppt-lofi-authoring.md) |
 | 分页确认 | **2: 低保真 MD 写作** | 架构猫 | [ppt-lofi-authoring.md](../refs/ppt-lofi-authoring.md) |
 | 低保真 MD 完成 | **3: 铲屎官审稿** | 铲屎官 | — |
-| 审稿通过 | **4: imagegen 出图** | 砚砚/云端 Codex | 逐页生成精美图 |
+| 审稿通过 | **4: imagegen 出图** | imagegen 猫/云端 Codex | 逐页生成精美图 |
 | 出图完成 | **5: 交付** | 主执行猫 | 图片打包 + 预览 |
 | 铲屎官不满意 | **R: 回到 1 或 2** | — | 改分页/改内容/改风格 |
 
@@ -94,7 +94,7 @@ status: lofi-draft
 
 ...
 
-## 精美图生成指引（给砚砚）
+## 精美图生成指引（给imagegen 猫）
 （配色方案 + 字体风格 + 密度原则 + 逐页清单）
 ```
 
