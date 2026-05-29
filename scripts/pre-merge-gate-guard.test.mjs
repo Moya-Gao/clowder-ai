@@ -19,7 +19,10 @@ function runGuard(tempDir, args, env = {}) {
   }
   if (!existsSync(redisConfigFixture)) {
     // Default: non-owned Redis (Phase 1 won't auto-clean)
-    writeFileSync(redisConfigFixture, 'dir\n/usr/local/var/db/redis\npidfile\n/var/run/redis.pid\nlogfile\n/var/log/redis.log\n');
+    writeFileSync(
+      redisConfigFixture,
+      'dir\n/usr/local/var/db/redis\npidfile\n/var/run/redis.pid\nlogfile\n/var/log/redis.log\n',
+    );
   }
 
   // Strip SKIP_PRESSURE from parent env so tests exercise actual pressure checks
@@ -168,11 +171,7 @@ describe('pre-merge gate guard', () => {
     const fakeBinDir = path.join(tempDir, 'bin');
     mkdirSync(fakeBinDir);
     const redisCliLog = path.join(tempDir, 'redis-cli.log');
-    writeFileSync(
-      path.join(fakeBinDir, 'redis-cli'),
-      `#!/bin/bash\necho "$@" >> "${redisCliLog}"\n`,
-      { mode: 0o755 },
-    );
+    writeFileSync(path.join(fakeBinDir, 'redis-cli'), `#!/bin/bash\necho "$@" >> "${redisCliLog}"\n`, { mode: 0o755 });
     writeFileSync(
       path.join(tempDir, 'ps.txt'),
       `1 0 16016 /System/Library/PrivateFrameworks/fseventsd\n${process.pid} 1 100 node\n101 1 4096 redis-server 127.0.0.1:63552\n`,
@@ -210,11 +209,7 @@ describe('pre-merge gate guard', () => {
     const fakeBinDir = path.join(tempDir, 'bin');
     mkdirSync(fakeBinDir);
     const redisCliLog = path.join(tempDir, 'redis-cli.log');
-    writeFileSync(
-      path.join(fakeBinDir, 'redis-cli'),
-      `#!/bin/bash\necho "$@" >> "${redisCliLog}"\n`,
-      { mode: 0o755 },
-    );
+    writeFileSync(path.join(fakeBinDir, 'redis-cli'), `#!/bin/bash\necho "$@" >> "${redisCliLog}"\n`, { mode: 0o755 });
     writeFileSync(
       path.join(tempDir, 'ps.txt'),
       `1 0 16016 /System/Library/PrivateFrameworks/fseventsd\n${process.pid} 1 100 node\n101 1 4096 redis-server 127.0.0.1:63552\n`,

@@ -132,11 +132,17 @@ function readRedisListeners() {
 // paths, so check the whole read-only CONFIG response for known Cat Cafe test
 // tempdir prefixes.
 function isOwnedTestRedis(port) {
-  const text = readFixtureOrCommand(
-    'CAT_CAFE_GATE_GUARD_REDIS_CONFIG_FIXTURE',
-    'redis-cli',
-    ['-h', '127.0.0.1', '-p', String(port), 'CONFIG', 'GET', 'dir', 'pidfile', 'logfile'],
-  );
+  const text = readFixtureOrCommand('CAT_CAFE_GATE_GUARD_REDIS_CONFIG_FIXTURE', 'redis-cli', [
+    '-h',
+    '127.0.0.1',
+    '-p',
+    String(port),
+    'CONFIG',
+    'GET',
+    'dir',
+    'pidfile',
+    'logfile',
+  ]);
   return /cat-cafe-(?:redis-test\.|rdb-first-start-)/.test(text);
 }
 
