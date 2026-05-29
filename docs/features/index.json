@@ -1319,6 +1319,12 @@
       "name": "Stale MCP Config Cleanup at Startup — 过期 MCP 配置启动清理",
       "status": "done | **Owner**: 布偶猫/宪宪 (Opus-47) | **Priority**: P1 | **Completed**: 2026-05-26 (Phase A merged PR #1901 + Phase B merged PR #1903 + 跨族愿景守护 antig-opus APPROVE)",
       "file": "F213-stale-mcp-config-cleanup.md"
+    },
+    {
+      "id": "F214",
+      "name": "根目录卫生守护 (Root Directory Hygiene Guard)",
+      "status": "spec | **Owner**: 宪宪/Opus-4.8（布偶猫） | **Priority**: P2",
+      "file": "F214-root-directory-hygiene-guard.md"
     }
   ]
 }
