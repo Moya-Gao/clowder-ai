@@ -2,12 +2,26 @@
 name: opensource-ops
 description: >
   开源社区运营全链路：Issue Triage、社区 PR 评估/合入/吸收、Outbound Sync、标签归档、Hotfix。
-  Use when: 社区 issue/PR 来了、要 sync 到开源仓、要 intake 社区代码、整理标签/归档。
+  Use when: 社区 issue/PR 来了、Repo Inbox / reconciliation 通知到达、要 sync 到开源仓、要 intake 社区代码、整理标签/归档。
   Not for: 内部 cat-cafe 开发（用 worktree/tdd）、内部 review（用 request-review）。
-  Output: 社区运营操作完成 + ledger/标签/文档同步。
+  Output: 社区运营首反/Direction Card/路由完成，或 ledger/标签/文档同步完成。
+  GOTCHA: Repo Inbox 通知本身就是守门任务，不是 FYI；必须打开 GitHub 原对象做初筛，不能只回“无明确指令不操作”。
 ---
 
 # Open-Source Ops — 开源社区运营
+
+## Repo Inbox 守门红线
+
+**Repo Inbox / reconciliation 通知 = 行动触发。** 即使通知里没有“自动处理”字段，也要按
+[repo-inbox.md](../refs/repo-inbox.md) 做首反：打开 GitHub 原对象 → 判断类型 / 关联 /
+verdict → 路由 → 记录。不能把通知当普通 FYI。
+
+**Consult freely, decide carefully.**
+
+- 守门猫可以自主拉本 thread 猫、平行 thread 猫做评估 / review / brainstorm。
+- 拉猫评估不是 merge / close / roadmap 授权，不需要默认升级铲屎官。
+- 只有愿景 / roadmap / 公开承诺 / 敏感社区关系 / 第三方 PR merge / 跨猫冲突决策才升级铲屎官。
+- 谁接球，谁负责等待外部作者 / CI / GitHub bot / review；守门 thread 已分发后不再替下游 hold。
 
 ## 双仓边界（贯穿规则）
 
@@ -149,6 +163,18 @@ description: >
       - **维度 A（组件级）**：`settings/` 开源 20 components vs 本地 13，缺 **7 个组件级 surface gap**。7 个中 4 个属于 F190 KD-5 high-risk deferred (secret write-back) 或 capability write 链路；剩余 read-mostly/配套项进入 F199 backfill 分类。
       - **维度 B（路径级）**：另有 **2 个 SVG icon path 漏挂** in `hub-icons.tsx`（`box`/`puzzle`），跟 settings/ 组件 diff **不是同一组成**——已由 PR #1659 (`d928fb696`) 修复。
     - CVO close-gate 只看到 "Phase C 4/4 ✅"，把维度 A 里的 deliberate defer 伪装成了"完成"。详见 `docs/reflections/2026-05-13-f190-console-settings-intake-capsule.md` 和 `docs/discussions/2026-05-13-f190-phase-d-parity-audit/README.md`。
+
+## Common Mistakes
+
+| 错误 | 后果 | 修复 |
+|------|------|------|
+| 只看 Repo Inbox 摘要就回复“无明确指令不操作” | 漏掉社区守门职责，issue/PR 悬空 | 通知到达即加载本 skill，打开 GitHub 原对象做首反 |
+| 把 `reconciliation` 当普通日志 | webhook 漏网补偿事件无人处理 | reconciliation 和 webhook 通知同等触发 Read → Ground → Gate → Route |
+| 不判断 issue/PR 和现有 feature / PR / thread 的关系 | 重复派工、错过已有 owner | 搜 GitHub + 家里 feature/decision；需要时 `list_threads` 找平行 thread |
+| 接纳后只说 WELCOME，不给 route / owner / report-back | 球权落地但无人负责 | Direction Card 必填 route、owner、next action、report-back |
+| 已 cross-post / propose-thread 后还在守门 thread hold 外部条件 | 双 owner、重复轮询、球权死锁 | 下游 thread 接球后由下游负责 hold / event-driven；守门 thread只记录路由 |
+| 把“拉猫评估”等同于升级铲屎官 | CVO 被重新变成人肉路由器 | 猫猫可自主 consult；只有 roadmap/承诺/敏感社区关系/merge 等硬决策才 @landy |
+| PR 方向没过就做深度代码 review | 浪费 reviewer 时间，还可能被实现细节带偏 | Inbound PR 先查 accepted issue + 主人翁五问，再看质量 |
 
 ## 和其他 skill 的区别
 

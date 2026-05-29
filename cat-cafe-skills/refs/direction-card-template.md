@@ -25,6 +25,10 @@ triage 完成后（主人翁五问填完），用 `cat_cafe_create_rich_block` �
     { "label": "Q4 技术栈", "value": "PASS|WARN|FAIL" },
     { "label": "Q5 债务", "value": "PASS|WARN|FAIL" },
     { "label": "建议", "value": "WELCOME|NEEDS-DISCUSSION|POLITELY-DECLINE" },
+    { "label": "路由", "value": "stay-current|cross-post|propose-thread|external-wait|close" },
+    { "label": "Owner", "value": "{当前 thread / 目标 thread / 猫猫 handle}" },
+    { "label": "下一步", "value": "{review / fix / ask-info / close / wait-author / maintainer-decision}" },
+    { "label": "回报协议", "value": "{完成后 cross-post 回 inbox / 无需回报 / 等作者回复}" },
     { "label": "需要铲屎官", "value": "{决策点描述 或 '猫自决'}" }
   ]
 }
@@ -59,6 +63,19 @@ triage 完成后（主人翁五问填完），用 `cat_cafe_create_rich_block` �
 1. 汇总两张卡片的 verdict
 2. 一致 → 直接执行（更新台账 `state`）
 3. 不一致 → 升级铲屎官（更新台账 `ownerDecision` 待定 + state 改 `pending-decision`）
+
+## 路由字段语义
+
+| 路由 | 含义 |
+|------|------|
+| `stay-current` | 守门 thread 继续拥有这张单 |
+| `cross-post` | 已有平行 thread 接球；目标 thread 负责后续等待和回报 |
+| `propose-thread` | 需要新 thread；Owner 填预期 thread 名 / 预期接球猫，proposal 的 initialMessage 必须写 report-back 协议 |
+| `external-wait` | 当前 owner 等外部作者 / CI / bot / review |
+| `close` | obvious spam / duplicate / decline，当前 thread 收口 |
+
+**谁接球，谁负责等待。** 如果 Direction Card 的路由是 `cross-post` 或 `propose-thread`，
+后续 hold / event-driven 责任属于接球 thread，不属于守门 thread。
 
 ## 来源
 
