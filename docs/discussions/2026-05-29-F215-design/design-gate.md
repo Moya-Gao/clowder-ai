@@ -88,31 +88,25 @@ message_stop   ← 无 text 无 tool_use，直接结束
 
 ### 待确认项（需铲屎官 + @opus48 拍板）
 
-**OQ-2：治本落点（形式 B）**
+**OQ-2：统一检测方案（@opus48 提出，@sonnet 修正检测点后收敛）**
+
+经过两轮 peer review，方案已基本收敛：
 
 ```
-方案 B1（ClaudeThinkingRescue 式）：
-  检测到 text+XML 的 assistant turn
-  → 修改持久化 JSONL（text block → tool_use block）
-  → --resume 重启 session
-  → CC SDK 看到合法 tool_use，正常执行工具
-  代价：需 JSONL 写回权限 + resume 延迟（~200ms）
-  增益：工具真正被执行，用户无感
+统一方案（B4，@opus48 提出 + @sonnet 修正检测点）：
+  1. 删除 XML→tool_use 转换（KD-5：转换不能让工具执行，死路）
+  2. 形式 A 检测点：textEventCount === 0（ClaudeAgentService L594 已有 warn log）
+     → 触发 seal + fresh-context retry（sessionId=undefined）+ 46接力兜底
+  3. 形式 B：依赖 CC SDK 已有降级（4.7 自愈确认；4.8 archive 无真实失败样本）
+     可选：检测 assistant text 含 <invoke name= 模式，也触发 seal+fresh 作为保险
 
-方案 B2（接受 CC SDK 已有降级）：
-  形式 B 的 CC SDK 降级已经能让模型自愈
-  我们确保不打断这条路（检测 + 允许多一轮）
-  代价：多消耗 1 轮 context（可能让形式 A 风险更高）
-  增益：实现简单，不改核心路径
-
-方案 B3（仅做兜底，不区分 A/B）：
-  两种形式统一走 seal → fresh → 46接力
-  对形式 B 也放弃治本（CC SDK 降级=自愈=形式 B 不严重）
-  代价：放弃了形式 B 的治本机会
-  增益：实现最简单，风险最低
+注意：
+  - "could not be parsed" 字符串在 stream 层无独立信号，不用检测（KD-6）
+  - 4.8 主要是形式 A，统一方案的核心就是处理 textEventCount===0（KD-4 修正）
+  - fresh retry 通过改变 context 长度改变触发概率（OQ-1 形式 A 根因确认）
 ```
 
-铲屎官拍板：B1 / B2 / B3？或者其他思路？
+⬜ 铲屎官确认方向后关闭 OQ-2？（技术细节两猫已收敛，等 CVO 拍板方向）
 
 ---
 

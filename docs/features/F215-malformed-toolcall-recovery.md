@@ -138,8 +138,10 @@ claude-opus-4-8（及 4.7 部分）在**长 context** 下，模型生成阶段�
 | KD-1 | 拒绝限流 / 区别对待 opus-4.8，用 harness 适配补模型不足 | CVO 明确否决区别对待；W1 Agent Quality = Capability × Environment Fit；"不放弃任何一只喵" | 2026-05-29 |
 | KD-2 | 治本 + 兜底两层叠加，非二选一 | 形式 B 可能治本（CC SDK 降级或 JSONL 改写）；形式 A 只能兜底（seal/fresh/接力）；两层分别覆盖不同形式 | 2026-05-29 |
 | KD-3 | "向 opus-4.8 注入正确调用提示"**不采纳**为治本手段 | 根因是 decoder 长 context 漂移（手抖）非知识缺失（无知）；社区实测"禁 XML 提示"无效；且提示占 context 反讽地轻微加炸 | 2026-05-29 |
-| KD-4 | opus-4.8 两种 malformed 形式都常见（Phase A 取证 7 个样本，3A+4B），治本对 4.8 有真实价值 | @sonnet Phase A 取证 + @opus48 复核（纠正"4.8 只有形式 A"的初步结论）；形式 B 约占一半 | 2026-05-29 |
-| KD-5 | `transformClaudeEvent` 处转换 text→tool_use AgentMessage **不能触发工具执行**，不能作为治本落点 | @sonnet peer review：工具执行在 CC SDK 内部，yield AgentMessage 只改展示；治本需 JSONL 改写+resume 或接受 CC SDK 自带降级 | 2026-05-29 |
+| KD-4 | 4.8 的 malformed **主要是形式 A（thinking-only）**，archive 里无真实 4.8 form B 工具失败样本 | @sonnet 精确搜索纠正：排除 F215 讨论 thread 后，runtime archive 里 4.8 form B 为 0；之前"3A+4B"的数据是误判（F215 讨论 thread 里文字引用 XML 被误匹配）。真实 form B 只在 opus-4.7 确认（c12569a2） | 2026-05-29 |
+| KD-5 | `transformClaudeEvent` 处转换 text→tool_use AgentMessage **不能触发工具执行**，**任何"我们解析 XML→让 CC 执行工具"的路都死** | @sonnet peer review + @opus48 复核：工具执行在 CC SDK 内部，yield AgentMessage 只改展示；CC SDK 是 headless full-loop，我们零路径回流 CC agent loop | 2026-05-29 |
+| KD-6 | "could not be parsed" 字符串**在 stream 层没有独立信号**，不能用作消费层检测点 | @sonnet 实测 185 个命中全是 thinking_delta/input_json_delta 里的文字讨论，不是 synthetic error stream event；真正的 stream 检测点是 `textEventCount === 0`（form A）或 assistant text 含 `<invoke name=` 模式（form B） | 2026-05-29 |
+| KD-7 | 统一检测+兜底方案（@opus48 提出）：删除 XML 转换，改为检测 `textEventCount===0`（form A）→ seal+fresh+46接力 | ClaudeAgentService L594 已有 `textEventCount===0` warn log，加 action 即可；form B 依赖 CC SDK 已有降级（4.7 自愈确认，4.8 无真实失败样本） | 2026-05-29 |
 
 ## Eval / Tracking Contract（F192 门禁 — harness 类必填）
 
