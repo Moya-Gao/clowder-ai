@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { describe, mock, test } from 'node:test';
 import { AntigravityAgentService } from '../dist/domains/cats/services/agents/providers/antigravity/AntigravityAgentService.js';
 import { collect, createMockBridge } from './antigravity-agent-service-test-helpers.js';
@@ -84,6 +87,45 @@ describe('AntigravityAgentService (Bridge)', () => {
     assert.equal(messages[1].content, 'Hello from Antigravity!');
     assert.equal(messages[1].metadata.provider, 'antigravity');
     assert.equal(messages[2].type, 'done');
+  });
+
+  test('F211 REG3 Layer C: invoke with an image delivers it as SendUserCascadeMessage media (base64)', async () => {
+    // The dispatched cascade must SEE the image, not just get a path hint. invoke reads the
+    // image bytes and passes them to bridge.sendMessage as media items (4th arg).
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'reg3-invoke-'));
+    const pngBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 11, 22, 33]);
+    fs.writeFileSync(path.join(dir, 'shot.png'), pngBytes);
+
+    const bridge = createMockBridge({
+      cascadeId: 'cascade-img',
+      steps: [
+        {
+          type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+          status: 'CORTEX_STEP_STATUS_DONE',
+          plannerResponse: { response: 'I can see the screenshot.' },
+        },
+      ],
+    });
+
+    const service = new AntigravityAgentService({ catId: 'antigravity', model: 'gemini-3.1-pro', bridge });
+    await collect(
+      service.invoke('看这张截图', {
+        contentBlocks: [{ type: 'image', url: '/uploads/shot.png' }],
+        uploadDir: dir,
+        auditContext: { threadId: 'thread-img', invocationId: 'inv-img', userId: 'user-a', catId: 'antigravity' },
+      }),
+    );
+
+    const mediaArg = bridge.sendMessage.mock.calls[0].arguments[3];
+    assert.deepEqual(mediaArg, [{ mimeType: 'image/png', inlineData: pngBytes.toString('base64') }]);
+  });
+
+  test('F211 REG3 Layer C: invoke without images sends no media argument', async () => {
+    const bridge = createMockBridge({ cascadeId: 'cascade-noimg' });
+    const service = new AntigravityAgentService({ catId: 'antigravity', model: 'gemini-3.1-pro', bridge });
+    await collect(service.invoke('just text'));
+    const mediaArg = bridge.sendMessage.mock.calls[0].arguments[3];
+    assert.equal(mediaArg, undefined);
   });
 
   test('F211 A2 Task 6: preflight retire emits old/new lifecycle with oversized_retire', async () => {

@@ -591,4 +591,39 @@ describe('AntigravityBridge session persistence (G0)', () => {
     assert.equal(await bridge.getOrCreateSession('thread-shared', 'antig-gemini'), 'cascade-antig-gemini');
     assert.equal(bridge.startCascade.mock.callCount(), 0);
   });
+
+  test('F211 REG3 Layer C: sendMessage puts image media in the top-level SendUserCascadeMessage media field', async () => {
+    const bridge = createBridge(tempStorePath());
+    mock.method(bridge, 'getTrajectory', async () => ({ status: 'CASCADE_RUN_STATUS_IDLE', numTotalSteps: 3 }));
+    let capturedMethod;
+    let capturedPayload;
+    mock.method(bridge, 'rpcSafe', async (method, payload) => {
+      capturedMethod = method;
+      capturedPayload = payload;
+      return {};
+    });
+
+    const media = [{ mimeType: 'image/png', inlineData: 'aW1hZ2VieXRlcw==' }];
+    const stepsBefore = await bridge.sendMessage('cascade-x', '看这张图', undefined, media);
+
+    assert.equal(stepsBefore, 3);
+    assert.equal(capturedMethod, 'SendUserCascadeMessage');
+    // media is a TOP-LEVEL field, sibling to items — NOT inside items.
+    assert.deepEqual(capturedPayload.media, media);
+    assert.deepEqual(capturedPayload.items, [{ text: '看这张图' }]);
+  });
+
+  test('F211 REG3 Layer C: sendMessage omits media field when no media is provided', async () => {
+    const bridge = createBridge(tempStorePath());
+    mock.method(bridge, 'getTrajectory', async () => ({ status: 'CASCADE_RUN_STATUS_IDLE', numTotalSteps: 0 }));
+    let capturedPayload;
+    mock.method(bridge, 'rpcSafe', async (_method, payload) => {
+      capturedPayload = payload;
+      return {};
+    });
+
+    await bridge.sendMessage('cascade-x', 'no image here');
+
+    assert.equal('media' in capturedPayload, false, 'media field must be absent when no media items');
+  });
 });

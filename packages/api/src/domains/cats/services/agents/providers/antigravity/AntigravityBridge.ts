@@ -634,13 +634,23 @@ export class AntigravityBridge {
     log.debug(`cascade created: ${resp.cascadeId}`);
     return resp.cascadeId;
   }
-  async sendMessage(cascadeId: string, text: string, modelName?: string): Promise<number> {
+  async sendMessage(
+    cascadeId: string,
+    text: string,
+    modelName?: string,
+    media?: ReadonlyArray<{ mimeType: string; inlineData: string }>,
+  ): Promise<number> {
     const traj = await this.getTrajectory(cascadeId);
     const stepsBefore = traj.numTotalSteps ?? 0;
     const modelId = modelName ? this.modelMap[modelName] : undefined;
     const payload: Record<string, unknown> = {
       cascadeId,
       items: [{ text }],
+      // F211 REG3 Layer C: `media` is a TOP-LEVEL field of SendUserCascadeMessage (sibling to
+      // `items`, reverse-engineered from the Antigravity IDE). Each item is the flat Connect-JSON
+      // wire shape `{ mimeType, inlineData: <base64> }` — NOT the protobuf-es runtime
+      // `{ payload: { case: 'inlineData', value } }`. This lets a dispatched cascade SEE images.
+      ...(media && media.length > 0 ? { media } : {}),
       cascadeConfig: {
         plannerConfig: {
           plannerTypeConfig: { conversational: {} },

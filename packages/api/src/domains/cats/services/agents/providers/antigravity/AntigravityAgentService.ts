@@ -24,7 +24,7 @@ import type { RuntimeSessionMetadata } from '../../../runtime-session/RuntimeSes
 import type { IRuntimeSessionStore } from '../../../runtime-session/RuntimeSessionStore.js';
 import type { TranscriptReader } from '../../../session/TranscriptReader.js';
 import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata } from '../../../types.js';
-import { appendLocalImagePathHints } from '../image-cli-bridge.js';
+import { appendLocalImagePathHints, buildImageMediaItems } from '../image-cli-bridge.js';
 import { extractImagePaths } from '../image-paths.js';
 import {
   AntigravityBridge,
@@ -461,6 +461,10 @@ export class AntigravityAgentService implements AgentService {
       const callbackFallback = buildCallbackFallbackInstructions(options?.callbackEnv);
       const imagePaths = extractImagePaths(options?.contentBlocks, options?.uploadDir);
       const promptBody = appendLocalImagePathHints(prompt, imagePaths);
+      // F211 REG3 Layer C: read the image bytes into Antigravity media items so the cascade can
+      // actually SEE the image (delivered via SendUserCascadeMessage.media), not just a path hint.
+      // The path hint above is kept as a textual reference; media carries the viewable bytes.
+      const imageMediaItems = await buildImageMediaItems(imagePaths);
 
       const effectivePrompt = options?.systemPrompt
         ? `${options.systemPrompt}${workspaceHint}${callbackFallback}\n\n---\n\n${promptBody}`
@@ -839,8 +843,18 @@ export class AntigravityAgentService implements AgentService {
       }
 
       let activeAutoResumePrompt: string | undefined;
+      // F211 REG3 Layer C: image media rides with the FIRST user message only; cleared after the
+      // first send so cascade retries / rotation continuations (which resend prompt text) don't
+      // re-deliver the image bytes.
+      let pendingMediaItems = imageMediaItems.length > 0 ? imageMediaItems : undefined;
       while (true) {
-        const stepsBefore = await this.bridge.sendMessage(cascadeId, promptForCurrentCascade, this.model);
+        const stepsBefore = await this.bridge.sendMessage(
+          cascadeId,
+          promptForCurrentCascade,
+          this.model,
+          pendingMediaItems,
+        );
+        pendingMediaItems = undefined;
 
         // Abort check after send
         if (options?.signal?.aborted) {
@@ -950,6 +964,10 @@ export class AntigravityAgentService implements AgentService {
           await sleepWithAbort(delayMs, options?.signal);
           const rotation = await rotateCascade(cascadeId, sealReason);
           cascadeId = rotation.newCascadeId;
+          // F211 REG3 (cloud P2): a fresh-cascade retry processes the SAME image-bearing user
+          // message — the new cascade has no media yet, so re-attach it for the resend below.
+          // (Cleared again after that send; each fresh cascade receives the image exactly once.)
+          pendingMediaItems = imageMediaItems.length > 0 ? imageMediaItems : undefined;
           if (autoResumeContext) {
             activeAutoResumePrompt = buildSafeAutoResumePrompt(effectivePrompt, autoResumeContext);
           }
