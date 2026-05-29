@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -161,12 +161,26 @@ function runPressureChecks(holderPid) {
     );
   }
 
-  for (const orphan of findRedisOrphans()) {
-    failures.push(
-      `unmanaged redis-server listener on port ${orphan.port}; clean stale isolated Redis before gate. ` +
-        `Use 'pnpm test:api:redis' (registry cleanup, protects 6398/6399) or 'pnpm process:cleanup' for orphans. ` +
-        `NEVER 'lsof -ti tcp:<range> | kill' — it catches the 6398/6399/6401 sanctuary via ESTABLISHED peer ports (CAFE-INCIDENT-20260527).`,
-    );
+  const orphans = findRedisOrphans();
+  if (orphans.length > 0) {
+    // Auto-clean: try redis-cli shutdown on each orphan before failing (self-healing gate).
+    // These are non-sanctuary test Redis that linger after gate/test exits — safe to clean.
+    for (const orphan of orphans) {
+      spawnSync('redis-cli', ['-h', '127.0.0.1', '-p', String(orphan.port), 'shutdown', 'nosave'], {
+        timeout: 3000,
+        stdio: 'ignore',
+      });
+    }
+    // Re-check after cleanup attempt — if they're gone, gate continues.
+    const remaining = findRedisOrphans();
+    for (const orphan of remaining) {
+      failures.push(
+        `unmanaged redis-server listener on port ${orphan.port} (survived auto-cleanup); ` +
+          `manually clean before gate. Use 'kill <PID>' after confirming non-sanctuary, ` +
+          `or 'pnpm process:cleanup'. ` +
+          `NEVER 'lsof -ti tcp:<range> | kill' — CAFE-INCIDENT-20260527.`,
+      );
+    }
   }
 
   for (const row of findMatchingProcesses(rows, holderPid, CONCURRENT_GATE_PATTERNS)) {

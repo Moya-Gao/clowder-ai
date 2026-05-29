@@ -155,9 +155,11 @@ describe('pre-merge gate guard', () => {
     }
   });
 
-  it('fails fast on unmanaged random-port Redis listeners', () => {
+  it('auto-cleans orphan Redis then fails only if cleanup does not help', () => {
     const tempDir = mkdtempSync(path.join(os.tmpdir(), 'gate-guard-test-'));
     const lockDir = path.join(tempDir, 'pre-merge-check.lock');
+    // Fixture simulates a persistent orphan (no real Redis to shutdown, so auto-cleanup
+    // has no effect and the re-check still finds it).
     writeFileSync(
       path.join(tempDir, 'lsof.txt'),
       [
@@ -169,6 +171,7 @@ describe('pre-merge gate guard', () => {
       const result = runGuard(tempDir, ['acquire', '--lock-dir', lockDir, '--holder-pid', String(process.pid)]);
       assert.notEqual(result.status, 0);
       assert.match(result.stderr, /port 63552/);
+      assert.match(result.stderr, /survived auto-cleanup/);
       assert.equal(existsSync(lockDir), false);
     } finally {
       rmSync(tempDir, { recursive: true, force: true });

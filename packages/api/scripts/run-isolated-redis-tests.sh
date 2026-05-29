@@ -166,7 +166,11 @@ cleanup() {
   fi
   if [[ -n "${PORT:-}" ]]; then
     stop_instance "$PORT" "$pid" "$DATADIR"
-    remove_current_registry_entry
+    # Registry entry is intentionally NOT removed here.  stop_instance may return
+    # before the Redis process fully exits (race window).  Keeping the entry lets
+    # the next run's cleanup_registry() find and stop any lingering process, which
+    # is idempotent (redis-cli shutdown + kill on a dead PID are silent no-ops).
+    # cleanup_registry() always empties the file after processing, so it won't grow.
   else
     /bin/rm -rf "$DATADIR"
   fi
