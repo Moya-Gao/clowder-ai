@@ -33,7 +33,7 @@ const verdictHandoffPacketSchema = z
       confidence: z.enum(['low', 'medium', 'high']),
       alternatives: nonEmptyStringArray,
     }),
-    verdict: z.enum(['delete_sunset', 'build', 'fix', 'keep_observe']),
+    verdict: z.enum(['delete_sunset', 'build', 'fix', 'keep_observe', 'degrade']),
     ownerAsk: z.object({
       targetFeatureId: z.string().min(1),
       targetOwnerCatId: z.string().min(1),
@@ -42,6 +42,12 @@ const verdictHandoffPacketSchema = z
     governance: z
       .object({
         cvoAcceptRequired: z.boolean(),
+        degradePlan: z
+          .object({
+            targetMode: z.string().min(1),
+            rollbackCondition: z.string().min(1),
+          })
+          .optional(),
       })
       .optional(),
     acceptanceReevalPlan: z.object({
@@ -51,13 +57,23 @@ const verdictHandoffPacketSchema = z
     counterarguments: nonEmptyStringArray,
   })
   .superRefine((packet, ctx) => {
-    if (packet.verdict !== 'delete_sunset') return;
-    if (packet.governance?.cvoAcceptRequired !== true) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'delete_sunset verdict requires structured CVO accept gate',
-        path: ['governance', 'cvoAcceptRequired'],
-      });
+    if (packet.verdict === 'delete_sunset') {
+      if (packet.governance?.cvoAcceptRequired !== true) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'delete_sunset verdict requires structured CVO accept gate',
+          path: ['governance', 'cvoAcceptRequired'],
+        });
+      }
+    }
+    if (packet.verdict === 'degrade') {
+      if (!packet.governance?.degradePlan) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'degrade verdict requires a degradePlan in governance',
+          path: ['governance', 'degradePlan'],
+        });
+      }
     }
   });
 

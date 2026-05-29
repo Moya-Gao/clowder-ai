@@ -59,8 +59,8 @@ const sanitizedIssuePacketSchema = z.object({
     alternatives: z.array(z.string().min(1)).min(1),
   }),
 
-  /** Verdict: delete_sunset / build / fix / keep_observe. */
-  verdict: z.enum(['delete_sunset', 'build', 'fix', 'keep_observe']),
+  /** Verdict: delete_sunset / build / fix / keep_observe / degrade. */
+  verdict: z.enum(['delete_sunset', 'build', 'fix', 'keep_observe', 'degrade']),
 
   /** What the exporting instance recommends the community do. */
   requestedAction: z.string().min(1),

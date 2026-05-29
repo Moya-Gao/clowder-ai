@@ -152,4 +152,50 @@ describe('Verdict Handoff Packet contract', () => {
 
     assert.equal(packet.verdict, 'delete_sunset');
   });
+
+  // --- degrade verdict (F208 semantic interface refresh) ---
+
+  it('rejects degrade verdict without a degrade plan', () => {
+    assert.throws(
+      () =>
+        parseVerdictHandoffPacket({
+          ...basePacket,
+          verdict: 'degrade',
+        }),
+      /degradePlan/,
+    );
+  });
+
+  it('accepts degrade verdict with a valid degrade plan', () => {
+    const packet = parseVerdictHandoffPacket({
+      ...basePacket,
+      verdict: 'degrade',
+      governance: {
+        cvoAcceptRequired: false,
+        degradePlan: {
+          targetMode: 'on-demand',
+          rollbackCondition: 'friction ratio drops below 5% for 48h',
+        },
+      },
+    });
+    assert.equal(packet.verdict, 'degrade');
+    assert.equal(packet.governance.degradePlan.targetMode, 'on-demand');
+  });
+
+  it('rejects degrade verdict with empty degrade plan fields', () => {
+    assert.throws(
+      () =>
+        parseVerdictHandoffPacket({
+          ...basePacket,
+          verdict: 'degrade',
+          governance: {
+            cvoAcceptRequired: false,
+            degradePlan: {
+              targetMode: '',
+              rollbackCondition: '',
+            },
+          },
+        }),
+    );
+  });
 });
