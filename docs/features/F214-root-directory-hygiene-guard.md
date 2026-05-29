@@ -8,7 +8,7 @@ created: 2026-05-28
 
 # F214: 根目录卫生守护 (Root Directory Hygiene Guard)
 
-> **Status**: spec | **Owner**: 宪宪/Opus-4.8（布偶猫） | **Priority**: P2
+> **Status**: in-progress | **Owner**: 宪宪/Opus-4.8（布偶猫） | **Priority**: P2
 
 ## Why
 
@@ -79,17 +79,17 @@ ADR-010 / F023 的防腐化机制只管**代码子目录**（文件数阈值 + d
 ## Acceptance Criteria
 
 ### Phase A（清理脚本）
-- [ ] AC-A1: `scripts/clean-root-debris.sh --dry-run` 列出根目录无状态残留（log/forzadata/cookies），不删任何文件
-- [ ] AC-A2: `--execute` 只删同时满足三条保险的文件；tracked 文件（cat-config.json 等）+ `dump.rdb*`/`*.sqlite*` 即使在根目录也**绝不触碰**
-- [ ] AC-A3: 三重保险有自动化测试（先红后绿）：含 `dump.rdb.backup-时间戳` 不被误删、tracked `cat-config.json` 不被删、`evidence.sqlite` 不被删
+- [x] AC-A1: `scripts/clean-root-debris.sh --dry-run` 列出根目录无状态残留（log/forzadata/cookies），不删任何文件
+- [x] AC-A2: `--execute` 只删同时满足三条保险的文件；tracked 文件（cat-config.json 等）+ `dump.rdb*`/`*.sqlite*` 即使在根目录也**绝不触碰**
+- [x] AC-A3: 三重保险有自动化测试（先红后绿）：含 `dump.rdb.backup-时间戳` 不被误删、tracked `cat-config.json` 不被删、`evidence.sqlite` 不被删
 
 ### Phase B（§N 公约）
-- [ ] AC-B1: shared-rules.md 新增根目录卫生公约节，含"临时产物不留根目录" + "核心存储不归 hygiene 管"双向划界
-- [ ] AC-B2: 引用 ADR-010 为上游
+- [x] AC-B1: shared-rules.md 新增根目录卫生公约节，含"临时产物不留根目录" + "核心存储不归 hygiene 管"双向划界
+- [x] AC-B2: 引用 ADR-010 为上游
 
 ### Phase C（pre-commit 兜底）
-- [ ] AC-C1: pre-commit hook 拦截根目录新增非白名单文件（测试：模拟新增垃圾文件被拒）
-- [ ] AC-C2: 白名单覆盖所有现有合法根文件，hook 不误伤正常 commit（测试：现有根文件能正常 commit）
+- [x] AC-C1: pre-commit hook 拦截根目录新增非白名单文件（测试：模拟新增垃圾文件被拒）
+- [x] AC-C2: 白名单覆盖所有现有合法根文件，hook 不误伤正常 commit（测试：现有根文件能正常 commit）
 
 ## Dependencies
 
@@ -144,6 +144,7 @@ ADR-010 / F023 的防腐化机制只管**代码子目录**（文件数阈值 + d
 | 日期 | 事件 |
 |------|------|
 | 2026-05-28 | 立项（宪宪/Opus-4.8）；scope 锁定不碰有状态存储（铲屎官 2026-05-28 拍板） |
+| 2026-05-29 | Phase A/B/C merged（PR #1943, f2908da2）；4 P1 全修（砚砚: hook 白名单制 + *.rdb* 口径；云端 codex: fail-closed 非 git root + secret force-add backstop） |
 
 ## Review Gate
 
