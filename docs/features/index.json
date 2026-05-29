@@ -1305,13 +1305,13 @@
     {
       "id": "F211",
       "name": "Cross-Runtime Session Transparency — Antigravity Session Chain + IDE Direct Registration",
-      "status": "done ✅ **post-close regression FIXED + merged (opus-4.8): REG1 visibility + REG2 re-summon continuity (PR #1940 `a0f7cf208`); REG3 Layer B image urls + Layer C image media via SendUserCascadeMessage.media (PR #1944 `fb37ecc7e`) — pending live e2e (Bengal sees image post runtime-restart)** | **Owner**: 缅因猫（砚砚）; regression fixes 布偶猫 Opus 4.8 | **Priority**: P1 | **Completed**: 2026-05-26",
+      "status": "done ✅ REG1 + REG2 + REG3 (Layer B urls + Layer C image media) FIXED + merged + e2e-verified (PR #1940 `a0f7cf208`, PR #1944 `fb37ecc7e`, opus-4.8) ⚠️ **NEW open: F211-REG4 (P1) — Antigravity SessionChainStore records empty live; F211 Phase A session transparency not actually working for Antigravity, root cause hidden by silent catch — needs diagnostic-first fix** | **Owner**: 缅因猫（砚砚）; regression fixes 布偶猫 Opus 4.8 | **Priority**: P1 | **Completed**: 2026-05-26",
       "file": "F211-cross-runtime-session-transparency.md"
     },
     {
       "id": "F212",
       "name": "CLI Error Diagnostics — 结构化 CLI 错误诊断 + 受控前端展示",
-      "status": "done | **Completed**: 2026-05-27 | **Owner**: 布偶猫/宪宪 (Opus-47) | **Priority**: P1",
+      "status": "in-progress (Phase D follow-up, reopened 2026-05-28 per CVO signoff) | **Phase A-C done**: 2026-05-27 | **Owner**: 布偶猫/宪宪 (Opus-47) | **Priority**: P1",
       "file": "F212-cli-error-diagnostics.md"
     },
     {
