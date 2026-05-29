@@ -50,13 +50,17 @@ ADR-010 / F023 的防腐化机制只管**代码子目录**（文件数阈值 + d
 
 > 三层全部**只碰治理规则 + 工具脚本 + git hook，不碰任何运行时服务配置/代码**。
 
-### Phase A: 清理脚本（白名单制）
+### Phase A: 清理脚本（三重保险）
 
-`scripts/clean-root-debris.sh`：
+`scripts/clean-root-debris.sh`，一个文件被删除必须**同时**满足三条，否则保留：
+1. **未被 git 追踪**（`git ls-files` 不含它）——自动保护所有 tracked 合法文件（`cat-config.json` / `cat-template.json` / `requirements.txt`，含 OQ-2 铲屎官要保留的）
+2. **匹配无状态残留白名单**（`*.log` / `forzadata-*.txt` / `cookies.json`）——白名单制，不靠黑名单兜底
+3. **不在硬保护清单**（额外 defense-in-depth）：`dump.rdb*`（含 `dump.rdb.backup-*` 时间戳后缀，OQ-3 铲屎官要保留）/ `*.sqlite*` / `world.sqlite*` 等有状态存储
+
 - **dry-run 优先**：默认只列出将删除的文件；`--execute` 才实际删除。
-- **显式白名单制**：只删除明确列入白名单的无状态产物（`*.log` / `forzadata-*.txt` / `cookies.json` 等），不用黑名单。
-- **硬保护红线**：对任何 `*.rdb` / `*.sqlite*` / 有状态存储文件**显式拒绝删除**，即使误配也不碰。
 - 设计来源教训：`feedback_lsof_port_range_kills_sanctuary`（清理过滤宁可白名单不要黑名单 + 圣域显式排除）。
+
+> ⚠️ **glob 陷阱**（OQ-3 暴露）：`dump.rdb.backup-20260209-180218` 不以 `.rdb` 结尾，`*.rdb` glob **匹配不到**它——硬保护必须用 `dump.rdb*` / `dump.*` 覆盖 backup 后缀，否则漏保护 = 圣域事故。
 
 ### Phase B: shared-rules 根目录卫生公约
 
@@ -76,8 +80,8 @@ ADR-010 / F023 的防腐化机制只管**代码子目录**（文件数阈值 + d
 
 ### Phase A（清理脚本）
 - [ ] AC-A1: `scripts/clean-root-debris.sh --dry-run` 列出根目录无状态残留（log/forzadata/cookies），不删任何文件
-- [ ] AC-A2: `--execute` 删除白名单内文件；对 `*.rdb`/`*.sqlite*` 即使在根目录也拒绝触碰
-- [ ] AC-A3: 脚本对有状态存储文件的硬保护有自动化测试（先红后绿）
+- [ ] AC-A2: `--execute` 只删同时满足三条保险的文件；tracked 文件（cat-config.json 等）+ `dump.rdb*`/`*.sqlite*` 即使在根目录也**绝不触碰**
+- [ ] AC-A3: 三重保险有自动化测试（先红后绿）：含 `dump.rdb.backup-时间戳` 不被误删、tracked `cat-config.json` 不被删、`evidence.sqlite` 不被删
 
 ### Phase B（§N 公约）
 - [ ] AC-B1: shared-rules.md 新增根目录卫生公约节，含"临时产物不留根目录" + "核心存储不归 hygiene 管"双向划界
@@ -111,7 +115,7 @@ ADR-010 / F023 的防腐化机制只管**代码子目录**（文件数阈值 + d
    - Fixture 1: 根目录新增 `foo.log` → 被 .gitignore 挡（不进 staging）；若强制 add 则被 pre-commit 拒
    - Fixture 2: 根目录新增 `random-debris.xyz`（未 ignore）→ pre-commit 拒
    - Fixture 3: 正常修改 `package.json` / 新增 `docs/xxx.md` → pre-commit 放行
-   - Fixture 4: 清理脚本对 `dump.rdb`/`evidence.sqlite` 硬拒绝（不删）
+   - Fixture 4: 清理脚本对 `dump.rdb.backup-20260209-180218`（backup 后缀）/ `evidence.sqlite` / tracked `cat-config.json` 全部拒绝删除
 4. **Sunset Signal**：若连续 N 个月 pre-commit 零拦截 + 根目录零新增残留，说明"不写根目录"行为约束已内化，本兜底 guard 可考虑退役。
 
 ## Open Questions
@@ -119,8 +123,15 @@ ADR-010 / F023 的防腐化机制只管**代码子目录**（文件数阈值 + d
 | # | 问题 | 状态 |
 |---|------|------|
 | OQ-1 | shared-rules.md 当前最大 section 编号？§20 是否可用 | ⬜ 实现时确认 |
-| OQ-2 | `cat-config.json` tracked-but-also-ignored（先 track 后 ignore 遗留），是否 `git rm --cached`？ | ⬜ 待定（可能是故意 track 的默认 config，谨慎，不在 MVP 动） |
-| OQ-3 | 根目录历史产物 `dump.rdb.backup-20260209-180218` 等（Redis 相关）是否纳入清理？ | ⬜ 倾向不碰（属有状态存储红线） |
+| OQ-2 | `cat-config.json` tracked-but-also-ignored，是否 `git rm --cached`？ | ✅ 铲屎官 2026-05-28：**保留，不动**（可能比较重要） |
+| OQ-3 | 根目录历史 `dump.rdb.backup-*` 是否纳入清理？ | ✅ 铲屎官 2026-05-28：**保留，不清**（可能比较重要） |
+
+## Key Decisions
+
+| # | 决策 | 理由 | 日期 |
+|---|------|------|------|
+| KD-1 | `cat-config.json`（OQ-2）+ `dump.rdb.backup-*`（OQ-3）保留，不删不 untrack | 铲屎官拍板"可能比较重要" | 2026-05-28 |
+| KD-2 | 清理脚本三重保险：untracked ∧ 白名单匹配 ∧ 不在硬保护清单 | OQ-3 暴露 `*.rdb` glob 漏 `dump.rdb.backup-*`；多层防圣域误删 | 2026-05-28 |
 
 ## Architecture Ownership (F191)
 
