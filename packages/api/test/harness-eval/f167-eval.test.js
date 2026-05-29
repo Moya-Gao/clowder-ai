@@ -346,4 +346,97 @@ describe('F167 Runtime Eval Snapshot', () => {
     assert.equal(c2.frictionCounts['c2.verdict_without_pass_count'], 9);
     assert.equal(c2.frictionCounts['c2.void_hold_hint_emitted'], 4);
   });
+
+  // --- frictionType classification (F208 semantic interface refresh) ---
+
+  it('C1 frictionType is undefined when no cancel counters exist', () => {
+    const snapshot = generateF167Snapshot(emptyInput);
+    const c1 = snapshot.components.find((c) => c.componentId === 'C1');
+    assert.equal(c1.frictionType, undefined);
+  });
+
+  it('C1 frictionType is harness_gap when harness cancels dominate', () => {
+    const now = Date.now();
+    const snapshot = generateF167Snapshot({
+      ...emptyInput,
+      traces: {
+        spans: [{
+          traceId: 'abc', spanId: 's1',
+          name: 'cat_cafe.tool_use mcp__cat-cafe__cat_cafe_hold_ball',
+          startTimeMs: now - 1000, endTimeMs: now, durationMs: 1000,
+          status: { code: 0 },
+          attributes: { 'tool.name': 'mcp__cat-cafe__cat_cafe_hold_ball' },
+          events: [],
+        }],
+        count: 1,
+      },
+      metrics: {
+        cat_cafe_a2a_c1_hold_cancel_count: 5,
+        cat_cafe_a2a_c1_zombie_hold_count: 0,
+        cat_cafe_a2a_c1_hold_cancel_harness_gap: 4,
+        cat_cafe_a2a_c1_hold_cancel_trust_gap: 1,
+      },
+      traceStats: {
+        spanCount: 1, maxSpans: 10000, maxAgeMs: 86400000,
+        oldestStoredAt: now - 3600000, newestStoredAt: now,
+      },
+    });
+    const c1 = snapshot.components.find((c) => c.componentId === 'C1');
+    assert.equal(c1.frictionType, 'harness_gap');
+  });
+
+  it('C1 frictionType is trust_gap when trust cancels dominate', () => {
+    const now = Date.now();
+    const snapshot = generateF167Snapshot({
+      ...emptyInput,
+      traces: {
+        spans: [{
+          traceId: 'abc', spanId: 's1',
+          name: 'cat_cafe.tool_use mcp__cat-cafe__cat_cafe_hold_ball',
+          startTimeMs: now - 1000, endTimeMs: now, durationMs: 1000,
+          status: { code: 0 },
+          attributes: { 'tool.name': 'mcp__cat-cafe__cat_cafe_hold_ball' },
+          events: [],
+        }],
+        count: 1,
+      },
+      metrics: {
+        cat_cafe_a2a_c1_hold_cancel_count: 5,
+        cat_cafe_a2a_c1_zombie_hold_count: 0,
+        cat_cafe_a2a_c1_hold_cancel_harness_gap: 1,
+        cat_cafe_a2a_c1_hold_cancel_trust_gap: 4,
+      },
+      traceStats: {
+        spanCount: 1, maxSpans: 10000, maxAgeMs: 86400000,
+        oldestStoredAt: now - 3600000, newestStoredAt: now,
+      },
+    });
+    const c1 = snapshot.components.find((c) => c.componentId === 'C1');
+    assert.equal(c1.frictionType, 'trust_gap');
+  });
+
+  it('C1 frictionType is unknown when cancel counters exist but no reason breakdown', () => {
+    const snapshot = generateF167Snapshot({
+      ...emptyInput,
+      metrics: {
+        cat_cafe_a2a_c1_hold_cancel_count: 5,
+        cat_cafe_a2a_c1_zombie_hold_count: 2,
+      },
+      traceStats: {
+        spanCount: 1, maxSpans: 10000, maxAgeMs: 86400000,
+        oldestStoredAt: Date.now() - 3600000, newestStoredAt: Date.now(),
+      },
+    });
+    const c1 = snapshot.components.find((c) => c.componentId === 'C1');
+    assert.equal(c1.frictionType, 'unknown');
+  });
+
+  it('non-C1 components do not have frictionType', () => {
+    const snapshot = generateF167Snapshot(emptyInput);
+    for (const comp of snapshot.components) {
+      if (comp.componentId !== 'C1') {
+        assert.equal(comp.frictionType, undefined, `${comp.componentId} should not have frictionType`);
+      }
+    }
+  });
 });

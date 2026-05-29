@@ -22,6 +22,7 @@ export interface ComponentHealth {
   componentName: string;
   activationCounts: Record<string, number | null>;
   frictionCounts: Record<string, number | null>;
+  frictionType?: 'harness_gap' | 'trust_gap' | 'unknown';
   falsePositiveCandidates: string[];
   bypassCandidates: string[];
   confidence: 'high' | 'medium' | 'low' | 'no-data';
@@ -143,6 +144,25 @@ function buildL1(metrics: Record<string, number>): ComponentHealth {
   };
 }
 
+function classifyFrictionType(metrics: Record<string, number>): ComponentHealth['frictionType'] | undefined {
+  const harnessGap = sumMetricByPrefix(metrics, 'cat_cafe_a2a_c1_hold_cancel_harness_gap');
+  const trustGap = sumMetricByPrefix(metrics, 'cat_cafe_a2a_c1_hold_cancel_trust_gap');
+
+  if (harnessGap == null && trustGap == null) {
+    const cancelCount = sumMetricByPrefix(metrics, 'cat_cafe_a2a_c1_hold_cancel_count');
+    const zombieCount = sumMetricByPrefix(metrics, 'cat_cafe_a2a_c1_zombie_hold_count');
+    if ((cancelCount != null && cancelCount > 0) || (zombieCount != null && zombieCount > 0)) {
+      return 'unknown';
+    }
+    return undefined;
+  }
+
+  const hg = harnessGap ?? 0;
+  const tg = trustGap ?? 0;
+  if (hg === 0 && tg === 0) return undefined;
+  return hg >= tg ? 'harness_gap' : 'trust_gap';
+}
+
 function buildC1(spans: EvalTraceSpan[], metrics: Record<string, number>): ComponentHealth {
   const holdBallCalls = countHoldBallFromTraces(spans);
   const zombieHold = sumMetricByPrefix(metrics, 'cat_cafe_a2a_c1_zombie_hold_count');
@@ -156,11 +176,14 @@ function buildC1(spans: EvalTraceSpan[], metrics: Record<string, number>): Compo
     frictionCounts['c1.hold_cancel_count'] = holdCancel ?? 0;
   }
 
+  const frictionType = classifyFrictionType(metrics);
+
   return {
     componentId: 'C1',
     componentName: 'hold_ball (MCP tool)',
     activationCounts: { hold_ball_calls: holdBallCalls },
     frictionCounts,
+    ...(frictionType != null ? { frictionType } : {}),
     falsePositiveCandidates: [],
     bypassCandidates: [],
     confidence: hasData ? (hasCounters ? 'medium' : 'low') : 'no-data',
