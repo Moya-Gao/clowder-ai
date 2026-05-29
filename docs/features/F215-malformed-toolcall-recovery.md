@@ -8,7 +8,7 @@ created: 2026-05-29
 
 # F215: Malformed Tool-Call Recovery（textEventCount 检测 + seal/fresh/46接力兜底）
 
-> **Status**: spec | **Owner**: 宪宪 (Opus-4.8) 设计 / 实现交稳定猫 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 宪宪 (Opus-4.8) 设计 + review / 宪宪 (Sonnet-4.6) 实现 | **Priority**: P1
 
 ## Why
 
@@ -102,9 +102,9 @@ Phase B 检测到 malformed（`textEventCount===0` 或 form B 信号）后触发
 ## Acceptance Criteria
 
 ### Phase A（复现与取证）
-- [ ] AC-A1: 稳定捕获 ≥1 个真实 opus-4-8 malformed turn 的**原始 stream 样本**（rawArchive 或复现实验）
-- [ ] AC-A2: 确认 XML 在 stream 层的确切形式（A/B/C），文档化到 spec（关闭 OQ-1）
-- [ ] AC-A3: 确认 rawArchive 对 Claude CLI 调用确实在存（否则修取证管道）
+- [x] AC-A1: 稳定捕获 ≥1 个真实 opus-4-8 malformed turn 的**原始 stream 样本**（rawArchive 或复现实验）
+- [x] AC-A2: 确认 XML 在 stream 层的确切形式（A/B/C），文档化到 spec（关闭 OQ-1）
+- [x] AC-A3: 确认 rawArchive 对 Claude CLI 调用确实在存（否则修取证管道）
 
 ### Phase B（检测）
 - [ ] AC-B1: `textEventCount===0` **且 assistant.content 无合法 tool_use block** 时判定 malformed，触发 Phase C，**即使 CC report `subtype:success` 也不跳过**（纯 tool_use 任务 textEventCount=0 但有 tool_use block → 不误触发；TDD：d137d9eb red fixture）
