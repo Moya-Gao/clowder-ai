@@ -239,4 +239,75 @@ describe('Eval Domain Registry v0', () => {
     assert.equal(entry.frequency, 'weekly');
     assert.equal(entry.handoffTargetResolver.featureId, 'F203');
   });
+
+  // --- semantic interface contracts (F208 refresh) ---
+
+  it('accepts entry with tracingContract', () => {
+    const entry = parseEvalDomainRegistryEntry({
+      ...validEntry,
+      tracingContract: {
+        observationUnit: 'time-window',
+        requiredSources: ['F153 /api/telemetry/traces', 'F153 /api/telemetry/metrics'],
+      },
+    });
+    assert.equal(entry.tracingContract.observationUnit, 'time-window');
+    assert.equal(entry.tracingContract.requiredSources.length, 2);
+  });
+
+  it('accepts entry with all four contracts', () => {
+    const entry = parseEvalDomainRegistryEntry({
+      ...validEntry,
+      tracingContract: {
+        observationUnit: 'time-window',
+        requiredSources: ['F153 /api/telemetry/traces'],
+      },
+      evalContract: {
+        metrics: ['frictionRatio', 'activationCount'],
+        thresholds: { frictionRatio: 0.05 },
+      },
+      decisionContract: {
+        verdictSet: ['delete_sunset', 'build', 'fix', 'keep_observe', 'degrade'],
+        autoVerdictEnabled: false,
+      },
+      governanceContract: {
+        executionModes: ['auto-pr', 'local-overlay'],
+        changeTrail: true,
+      },
+    });
+    assert.equal(entry.tracingContract.observationUnit, 'time-window');
+    assert.equal(entry.evalContract.metrics.length, 2);
+    assert.equal(entry.decisionContract.autoVerdictEnabled, false);
+    assert.deepEqual(entry.governanceContract.executionModes, ['auto-pr', 'local-overlay']);
+  });
+
+  it('accepts entry without any contracts (backward compatible)', () => {
+    const entry = parseEvalDomainRegistryEntry(validEntry);
+    assert.equal(entry.tracingContract, undefined);
+    assert.equal(entry.evalContract, undefined);
+    assert.equal(entry.decisionContract, undefined);
+    assert.equal(entry.governanceContract, undefined);
+  });
+
+  it('rejects tracingContract with invalid observationUnit', () => {
+    assert.throws(() =>
+      parseEvalDomainRegistryEntry({
+        ...validEntry,
+        tracingContract: {
+          observationUnit: 'invalid-unit',
+          requiredSources: ['something'],
+        },
+      }),
+    );
+  });
+
+  it('loads eval-a2a.yaml with tracingContract', async () => {
+    const raw = await readFile(
+      new URL('../../../../docs/harness-feedback/eval-domains/eval-a2a.yaml', import.meta.url),
+      'utf8',
+    );
+    const parsed = parse(raw);
+    const entry = parseEvalDomainRegistryFile(parsed);
+    assert.equal(entry.tracingContract.observationUnit, 'time-window');
+    assert.ok(entry.tracingContract.requiredSources.length > 0);
+  });
 });

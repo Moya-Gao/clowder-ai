@@ -24,3 +24,9 @@ handoffTargetResolver:
 sla:
   acknowledgeHours: 24
   reevalWithinHours: 72
+tracingContract:
+  observationUnit: time-window
+  requiredSources:
+    - "F153 /api/telemetry/traces"
+    - "F153 /api/telemetry/metrics"
+    - "F153 /api/telemetry/traces/stats"

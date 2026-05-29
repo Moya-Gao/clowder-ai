@@ -1,5 +1,25 @@
 import { z } from 'zod';
 
+const tracingContractSchema = z.object({
+  observationUnit: z.enum(['time-window', 'thread-segment']),
+  requiredSources: z.array(z.string().min(1)).min(1),
+});
+
+const evalContractSchema = z.object({
+  metrics: z.array(z.string().min(1)).min(1),
+  thresholds: z.record(z.number()),
+});
+
+const decisionContractSchema = z.object({
+  verdictSet: z.array(z.string().min(1)).min(1),
+  autoVerdictEnabled: z.boolean(),
+});
+
+const governanceContractSchema = z.object({
+  executionModes: z.array(z.enum(['auto-pr', 'local-overlay', 'manual'])).min(1),
+  changeTrail: z.boolean(),
+});
+
 const evalDomainRegistryEntrySchema = z.object({
   domainId: z.enum(['eval:a2a', 'eval:memory', 'eval:sop', 'eval:capability-wakeup']),
   displayName: z.string().min(1),
@@ -26,6 +46,10 @@ const evalDomainRegistryEntrySchema = z.object({
     acknowledgeHours: z.number().int().positive('acknowledgeHours must be positive'),
     reevalWithinHours: z.number().int().positive('reevalWithinHours must be positive'),
   }),
+  tracingContract: tracingContractSchema.optional(),
+  evalContract: evalContractSchema.optional(),
+  decisionContract: decisionContractSchema.optional(),
+  governanceContract: governanceContractSchema.optional(),
 });
 
 export type EvalDomainRegistryEntry = z.infer<typeof evalDomainRegistryEntrySchema>;
