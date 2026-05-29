@@ -29,7 +29,7 @@ triage 完成后（主人翁五问填完），用 `cat_cafe_create_rich_block` �
     { "label": "路由", "value": "stay-current|cross-post|propose-thread|external-wait|close" },
     { "label": "路由依据", "value": "active-pr|accepted-issue|existing-thread|feature-domain|spam|none" },
     { "label": "Owner", "value": "{当前 thread / 目标 thread / 猫猫 handle}" },
-    { "label": "下一步", "value": "{review / fix / ask-info / close / wait-author / maintainer-decision}" },
+    { "label": "下一步", "value": "{review-existing-pr / merge-gate / fix / ask-info / close / wait-author / maintainer-decision}" },
     { "label": "回报协议", "value": "{完成后 cross-post 回 inbox / 无需回报 / 等作者回复}" },
     { "label": "需要铲屎官", "value": "{决策点描述 或 '猫自决'}" }
   ]
@@ -79,6 +79,9 @@ triage 完成后（主人翁五问填完），用 `cat_cafe_create_rich_block` �
 **路由依据优先级**：`active-pr` / `accepted-issue` > `existing-thread` > `feature-domain`。
 Direction Card 必须写明 GitHub `#NNN` anchors；如果跳过 active PR / issue owner 而改投
 feature thread，要说明为什么。没有理由就先 route 到 PR / issue owner，或 propose 一个窄 thread。
+
+**下一步语义**：如果 `路由依据 = active-pr`，下一步默认是 `review-existing-pr` 或
+`merge-gate`，不是 `fix`。`fix` 只用于没有可用社区 PR、PR 被退回、或作者明确放弃的情况。
 
 **谁接球，谁负责等待。** 如果 Direction Card 的路由是 `cross-post` 或 `propose-thread`，
 后续 hold / event-driven 责任属于接球 thread，不属于守门 thread。

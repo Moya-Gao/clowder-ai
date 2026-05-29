@@ -22,6 +22,11 @@ state、作者、评论、是否已有 owner / thread / tracking。只有先跑�
 Fxxx / 技术域做次级归类；不要因为标题里出现 eval / scheduler / UI 关键词就直接投到 broad
 feature thread。
 
+**社区 PR 已经修这个 issue → 默认任务是 review，不是重新实现。** 如果 linked / referenced
+PR 已存在，Direction Card 的下一步必须写 `review-existing-pr` / `merge-gate`，不要写 `fix`
+或把问题丢给 feature owner 从零修。只有 PR 方向不对、质量不达标、或作者明确放弃时，才另开
+实现 thread。
+
 **Consult freely, decide carefully.**
 
 - 守门猫可以自主拉本 thread 猫、平行 thread 猫做评估 / review / brainstorm。
@@ -177,6 +182,7 @@ feature thread。
 | 只看 Repo Inbox 摘要就回复“无明确指令不操作” | 漏掉社区守门职责，issue/PR 悬空 | 通知到达即加载本 skill，打开 GitHub 原对象做首反 |
 | 把 `reconciliation` 当普通日志 | webhook 漏网补偿事件无人处理 | reconciliation 和 webhook 通知同等触发 Read → Ground → Gate → Route |
 | 看到 Fxxx / 技术关键词就先投 feature thread，没先打开 `#NNN` 关联 issue/PR | 把 follow-up bug 派错 owner，已有 PR/thread 被绕过 | `#NNN` GitHub 锚点优先；先查 referenced issue/PR 的 state 和 owner，再决定 route |
+| 社区已经有 PR 修 issue，却把单子写成“请下游修复” | 接球猫误以为要重写，绕过社区贡献和 review 链 | linked PR 存在时，下一步默认是 `review-existing-pr` / `merge-gate` |
 | 不判断 issue/PR 和现有 feature / PR / thread 的关系 | 重复派工、错过已有 owner | 搜 GitHub + 家里 feature/decision；需要时 `list_threads` 找平行 thread |
 | 接纳后只说 WELCOME，不给 route / owner / report-back | 球权落地但无人负责 | Direction Card 必填 route、owner、next action、report-back |
 | 已 cross-post / propose-thread 后还在守门 thread hold 外部条件 | 双 owner、重复轮询、球权死锁 | 下游 thread 接球后由下游负责 hold / event-driven；守门 thread只记录路由 |
