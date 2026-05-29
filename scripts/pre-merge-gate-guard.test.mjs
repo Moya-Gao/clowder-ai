@@ -10,11 +10,16 @@ const SCRIPT = path.resolve(process.cwd(), 'scripts/pre-merge-gate-guard.mjs');
 function runGuard(tempDir, args, env = {}) {
   const psFixture = path.join(tempDir, 'ps.txt');
   const lsofFixture = path.join(tempDir, 'lsof.txt');
+  const redisDirFixture = path.join(tempDir, 'redis-dir.txt');
   if (!existsSync(psFixture)) {
     writeFileSync(psFixture, `1 0 16016 /System/Library/PrivateFrameworks/fseventsd\n${process.pid} 1 100 node\n`);
   }
   if (!existsSync(lsofFixture)) {
     writeFileSync(lsofFixture, '');
+  }
+  if (!existsSync(redisDirFixture)) {
+    // Default: non-owned Redis (Phase 1 won't auto-clean)
+    writeFileSync(redisDirFixture, 'dir\n/usr/local/var/db/redis\n');
   }
 
   // Strip SKIP_PRESSURE from parent env so tests exercise actual pressure checks
@@ -27,6 +32,7 @@ function runGuard(tempDir, args, env = {}) {
       ...cleanEnv,
       CAT_CAFE_GATE_GUARD_PS_FIXTURE: psFixture,
       CAT_CAFE_GATE_GUARD_LSOF_FIXTURE: lsofFixture,
+      CAT_CAFE_GATE_GUARD_REDIS_DIR_FIXTURE: redisDirFixture,
       ...env,
     },
   });
@@ -155,11 +161,15 @@ describe('pre-merge gate guard', () => {
     }
   });
 
-  it('waits then fails on unmanaged random-port Redis listeners', () => {
+  it('does not auto-clean non-owned orphan Redis (CONFIG GET dir != cat-cafe-redis-test)', () => {
     const tempDir = mkdtempSync(path.join(os.tmpdir(), 'gate-guard-test-'));
     const lockDir = path.join(tempDir, 'pre-merge-check.lock');
-    // Gate never auto-kills: it waits briefly for dying orphans then fails
-    // if they persist, with manual cleanup guidance.
+    // PID 101 is ppid=1 + redis-server + high port, but its data dir is NOT
+    // cat-cafe-redis-test → Phase 1 must NOT auto-clean → gate fails with guidance.
+    writeFileSync(
+      path.join(tempDir, 'ps.txt'),
+      `1 0 16016 /System/Library/PrivateFrameworks/fseventsd\n${process.pid} 1 100 node\n101 1 4096 redis-server 127.0.0.1:63552\n`,
+    );
     writeFileSync(
       path.join(tempDir, 'lsof.txt'),
       [
@@ -167,7 +177,39 @@ describe('pre-merge gate guard', () => {
         'redis-ser 101 user 6u IPv4 0x0 0t0 TCP 127.0.0.1:63552 (LISTEN)',
       ].join('\n'),
     );
+    writeFileSync(path.join(tempDir, 'redis-dir.txt'), 'dir\n/usr/local/var/db/redis\n');
     try {
+      const result = runGuard(tempDir, ['acquire', '--lock-dir', lockDir, '--holder-pid', String(process.pid)]);
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, /port 63552/);
+      assert.equal(existsSync(lockDir), false);
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it('attempts cleanup on owned orphan Redis (CONFIG GET dir matches cat-cafe-redis-test)', () => {
+    const tempDir = mkdtempSync(path.join(os.tmpdir(), 'gate-guard-test-'));
+    const lockDir = path.join(tempDir, 'pre-merge-check.lock');
+    // PID 101 is ppid=1 + redis-server + high port, AND its data dir IS
+    // cat-cafe-redis-test → Phase 1 attempts cleanup. Fixture is static so
+    // orphan "survives" (no real Redis), but the attempt was made.
+    writeFileSync(
+      path.join(tempDir, 'ps.txt'),
+      `1 0 16016 /System/Library/PrivateFrameworks/fseventsd\n${process.pid} 1 100 node\n101 1 4096 redis-server 127.0.0.1:63552\n`,
+    );
+    writeFileSync(
+      path.join(tempDir, 'lsof.txt'),
+      [
+        'redis-ser 100 user 6u IPv4 0x0 0t0 TCP 127.0.0.1:6399 (LISTEN)',
+        'redis-ser 101 user 6u IPv4 0x0 0t0 TCP 127.0.0.1:63552 (LISTEN)',
+      ].join('\n'),
+    );
+    writeFileSync(path.join(tempDir, 'redis-dir.txt'), 'dir\n/tmp/cat-cafe-redis-test.XXXXXX\n');
+    try {
+      // Gate still fails because fixture is static (orphan "survives" cleanup
+      // attempt), but the critical property is: owned orphan gets cleanup attempt
+      // while non-owned does not (tested separately above).
       const result = runGuard(tempDir, ['acquire', '--lock-dir', lockDir, '--holder-pid', String(process.pid)]);
       assert.notEqual(result.status, 0);
       assert.match(result.stderr, /port 63552/);

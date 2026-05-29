@@ -127,6 +127,18 @@ function readRedisListeners() {
     .filter(Boolean);
 }
 
+// True ownership proof: query the Redis instance's data directory via CONFIG GET dir.
+// If it matches `cat-cafe-redis-test` (the tmpdir prefix from run-isolated-redis-tests.sh),
+// it was spawned by our test harness.  Read-only operation, zero side effects.
+function isOwnedTestRedis(port) {
+  const text = readFixtureOrCommand(
+    'CAT_CAFE_GATE_GUARD_REDIS_DIR_FIXTURE',
+    'redis-cli',
+    ['-h', '127.0.0.1', '-p', String(port), 'CONFIG', 'GET', 'dir'],
+  );
+  return /cat-cafe-redis-test/.test(text);
+}
+
 function findRedisOrphans() {
   return readRedisListeners().filter(({ port }) => {
     return port >= 6300 && port <= 65535 && !ALLOWED_LOCAL_REDIS_PORTS.has(port);
@@ -163,13 +175,12 @@ function runPressureChecks(holderPid) {
     );
   }
 
-  // Phase 1: clean orphan Redis with ownership proof (no age gate).
-  // Ownership triple: ppid=1 (parent died) + redis-server proctitle + non-sanctuary port.
-  // Uses port-based shutdown (redis-cli), NOT PID-based kill — no PID-reuse risk.
-  // Age threshold is unnecessary here: ppid=1 already proves the parent is dead, so
-  // "too young to be orphan" cannot happen.  The 10min threshold in process:cleanup
-  // exists for general stale-process detection; gate preflight has stronger proof.
-  // Sanctuary ports (6379/6398/6399/6401) are permanently excluded.
+  // Phase 1: clean orphan Redis with TRUE ownership proof.
+  // Step 1: find candidates (ppid=1 + redis-server proctitle + non-sanctuary port).
+  // Step 2: for each candidate, query `CONFIG GET dir` — if the data directory matches
+  //   `cat-cafe-redis-test` (run-isolated-redis-tests.sh tmpdir prefix), it's ours.
+  // Step 3: port-based shutdown on OWNED instances only.
+  // Non-owned Redis (different datadir) is never touched — fails to manual guidance.
   const orphanRedisPattern = /(?:^|\/)redis-server\s+\S*:(\d{2,5})\b/;
   for (const row of rows) {
     if (row.ppid !== 1) continue;
@@ -177,6 +188,7 @@ function runPressureChecks(holderPid) {
     if (!m) continue;
     const port = Number(m[1]);
     if (ALLOWED_LOCAL_REDIS_PORTS.has(port) || port < 6300 || port > 65535) continue;
+    if (!isOwnedTestRedis(port)) continue;
     spawnSync('redis-cli', ['-h', '127.0.0.1', '-p', String(port), 'shutdown', 'nosave'], {
       timeout: 3000,
       stdio: 'ignore',
