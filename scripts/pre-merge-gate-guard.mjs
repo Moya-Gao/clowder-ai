@@ -127,13 +127,6 @@ function readRedisListeners() {
     .filter(Boolean);
 }
 
-function isProvenOrphan(pid, rows) {
-  if (pid == null) return false;
-  const row = rows.find((r) => r.pid === pid);
-  // ppid === 1 means reparented to init — parent died, definitively orphaned.
-  return row != null && row.ppid === 1;
-}
-
 function findRedisOrphans() {
   return readRedisListeners().filter(({ port }) => {
     return port >= 6300 && port <= 65535 && !ALLOWED_LOCAL_REDIS_PORTS.has(port);
@@ -170,28 +163,22 @@ function runPressureChecks(holderPid) {
     );
   }
 
-  const orphans = findRedisOrphans();
+  let orphans = findRedisOrphans();
   if (orphans.length > 0) {
-    // Auto-clean ONLY proven orphans: ppid=1 means parent died and process was
-    // reparented to init — definitively not in active use.  Non-orphan high-port
-    // Redis (ppid != 1) might belong to another tool/test; fail with manual guidance.
-    const provenOrphans = orphans.filter((o) => isProvenOrphan(o.pid, rows));
-    for (const orphan of provenOrphans) {
-      spawnSync('redis-cli', ['-h', '127.0.0.1', '-p', String(orphan.port), 'shutdown', 'nosave'], {
-        timeout: 3000,
-        stdio: 'ignore',
-      });
-    }
-    // Re-check after cleanup attempt — if they're gone, gate continues.
-    const remaining = findRedisOrphans();
-    for (const orphan of remaining) {
-      failures.push(
-        `unmanaged redis-server listener on port ${orphan.port}; ` +
-          `clean stale isolated Redis before gate. ` +
-          `Use 'kill <PID>' after confirming non-sanctuary, or 'pnpm process:cleanup'. ` +
-          `NEVER 'lsof -ti tcp:<range> | kill' — CAFE-INCIDENT-20260527.`,
-      );
-    }
+    // Don't auto-kill — we can't prove ownership without fragile heuristics.
+    // Instead, wait briefly: test Redis orphans from a previous gate/test run
+    // typically die within seconds (cleanup trap fired but process still exiting).
+    // Re-check after the wait to avoid spurious gate failures.
+    spawnSync('sleep', ['3'], { stdio: 'ignore' });
+    orphans = findRedisOrphans();
+  }
+  for (const orphan of orphans) {
+    failures.push(
+      `unmanaged redis-server listener on port ${orphan.port}; ` +
+        `clean stale isolated Redis before gate. ` +
+        `Use 'kill <PID>' after confirming non-sanctuary, or 'pnpm process:cleanup'. ` +
+        `NEVER 'lsof -ti tcp:<range> | kill' — CAFE-INCIDENT-20260527.`,
+    );
   }
 
   for (const row of findMatchingProcesses(rows, holderPid, CONCURRENT_GATE_PATTERNS)) {

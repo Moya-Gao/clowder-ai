@@ -155,40 +155,11 @@ describe('pre-merge gate guard', () => {
     }
   });
 
-  it('auto-cleans proven orphan Redis (ppid=1) then fails only if cleanup does not help', () => {
+  it('waits then fails on unmanaged random-port Redis listeners', () => {
     const tempDir = mkdtempSync(path.join(os.tmpdir(), 'gate-guard-test-'));
     const lockDir = path.join(tempDir, 'pre-merge-check.lock');
-    // PID 101 has ppid=1 (orphan) — gate will attempt auto-cleanup.
-    // Fixture is static so the orphan "survives" (no real Redis to shutdown).
-    writeFileSync(
-      path.join(tempDir, 'ps.txt'),
-      `1 0 16016 /System/Library/PrivateFrameworks/fseventsd\n${process.pid} 1 100 node\n101 1 4096 redis-server 127.0.0.1:63552\n`,
-    );
-    writeFileSync(
-      path.join(tempDir, 'lsof.txt'),
-      [
-        'redis-ser 100 user 6u IPv4 0x0 0t0 TCP 127.0.0.1:6399 (LISTEN)',
-        'redis-ser 101 user 6u IPv4 0x0 0t0 TCP 127.0.0.1:63552 (LISTEN)',
-      ].join('\n'),
-    );
-    try {
-      const result = runGuard(tempDir, ['acquire', '--lock-dir', lockDir, '--holder-pid', String(process.pid)]);
-      assert.notEqual(result.status, 0);
-      assert.match(result.stderr, /port 63552/);
-      assert.equal(existsSync(lockDir), false);
-    } finally {
-      rmSync(tempDir, { recursive: true, force: true });
-    }
-  });
-
-  it('does not auto-clean non-orphan high-port Redis (ppid != 1)', () => {
-    const tempDir = mkdtempSync(path.join(os.tmpdir(), 'gate-guard-test-'));
-    const lockDir = path.join(tempDir, 'pre-merge-check.lock');
-    // PID 101 has ppid=500 (NOT orphan) — gate must NOT auto-clean, only fail.
-    writeFileSync(
-      path.join(tempDir, 'ps.txt'),
-      `1 0 16016 /System/Library/PrivateFrameworks/fseventsd\n${process.pid} 1 100 node\n101 500 4096 redis-server 127.0.0.1:63552\n`,
-    );
+    // Gate never auto-kills: it waits briefly for dying orphans then fails
+    // if they persist, with manual cleanup guidance.
     writeFileSync(
       path.join(tempDir, 'lsof.txt'),
       [

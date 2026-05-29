@@ -83,14 +83,15 @@ stop_instance() {
   if [[ -n "$pid" ]] && pid_alive "$pid"; then
     wait_for_pid_exit "$pid" 20 || true
   fi
-  # Guard against PID reuse: if the original redis-server exited and the OS
-  # reassigned the PID to an unrelated process, we must not SIGTERM/SIGKILL it.
-  # Verify the PID's command still looks like redis-server before escalating.
+  # Guard against PID reuse: verify the PID is still a redis-server on the
+  # expected port before escalating to SIGTERM/SIGKILL.  Checks both process
+  # name (redis-server) AND port in proctitle (:PORT), so a PID reused by
+  # a different redis-server on a different port is also skipped.
   if [[ -n "$pid" ]] && pid_alive "$pid"; then
     local cmd_check
     cmd_check="$(ps -p "$pid" -o command= 2>/dev/null || true)"
-    if [[ "$cmd_check" != *redis-server* ]]; then
-      pid=""  # PID reused by non-Redis process — skip signal escalation
+    if [[ "$cmd_check" != *redis-server* ]] || { [[ -n "$port" ]] && [[ "$cmd_check" != *":${port}"* ]]; }; then
+      pid=""  # PID reused or wrong port — skip signal escalation
     fi
   fi
   if [[ -n "$pid" ]] && pid_alive "$pid"; then
