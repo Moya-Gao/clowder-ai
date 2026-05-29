@@ -14,14 +14,23 @@ function writeJson(path, value) {
 const repoHarnessFeedbackRoot = fileURLToPath(new URL('../../../../docs/harness-feedback', import.meta.url));
 const apiPackageRoot = fileURLToPath(new URL('../../', import.meta.url));
 
+// Pin staleness reference time so the committed fixture verdict
+// (nextEvalAt = 2026-05-26T03:12:57.174Z) stays "fresh" regardless of wall clock.
+const FIXTURE_NOW_BEFORE_DEADLINE = new Date('2026-05-23T12:00:00.000Z');
+const FIXTURE_NOW_AFTER_DEADLINE = new Date('2026-05-29T00:00:00.000Z');
+
 describe('Eval Hub read model', () => {
   it('loads committed live eval:a2a verdicts with bundle-backed evidence', () => {
-    const summary = loadEvalHubSummary({ harnessFeedbackRoot: repoHarnessFeedbackRoot });
+    const summary = loadEvalHubSummary({
+      harnessFeedbackRoot: repoHarnessFeedbackRoot,
+      now: FIXTURE_NOW_BEFORE_DEADLINE,
+    });
 
     assert.equal(summary.items.length, 1);
     assert.equal(summary.counts.total, 1);
     assert.equal(summary.counts.keepObserve, 1);
     assert.equal(summary.counts.actionable, 0);
+    assert.equal(summary.counts.stale, 0);
 
     const item = summary.items[0];
     assert.equal(item.id, '2026-05-23-eval-a2a-live-verdict');
@@ -63,7 +72,10 @@ describe('Eval Hub read model', () => {
     const originalCwd = cwd();
     try {
       chdir(apiPackageRoot);
-      const summary = loadEvalHubSummary({ harnessFeedbackRoot: repoHarnessFeedbackRoot });
+      const summary = loadEvalHubSummary({
+        harnessFeedbackRoot: repoHarnessFeedbackRoot,
+        now: FIXTURE_NOW_BEFORE_DEADLINE,
+      });
 
       assert.equal(
         summary.items[0].source.verdictPath,
@@ -204,7 +216,12 @@ Evidence:
       sanitizeRulesVersion: 'v1',
     });
 
-    const summary = loadEvalHubSummary({ harnessFeedbackRoot });
+    const summary = loadEvalHubSummary({
+      harnessFeedbackRoot,
+      // Both synthesized verdicts target 2026-05-27 / 2026-05-31; pin reference
+      // before the earlier deadline so neither flips to stale.
+      now: new Date('2026-05-24T15:00:00.000Z'),
+    });
     assert.equal(summary.items.length, 2);
 
     const a2aItem = summary.items.find((i) => i.domainId === 'eval:a2a');
@@ -218,7 +235,10 @@ Evidence:
 
   // F192 livefix OQ-16: Hub must show ALL registered domains, not just those with verdicts
   it('includes all registered domains in domains[] including those without verdicts', () => {
-    const summary = loadEvalHubSummary({ harnessFeedbackRoot: repoHarnessFeedbackRoot });
+    const summary = loadEvalHubSummary({
+      harnessFeedbackRoot: repoHarnessFeedbackRoot,
+      now: FIXTURE_NOW_BEFORE_DEADLINE,
+    });
 
     assert.ok(summary.domains, 'domains field must exist');
     assert.equal(summary.domains.length, 3, 'should have 3 registered domains (eval:a2a + eval:memory + eval:sop)');
@@ -278,5 +298,117 @@ Evidence:
       () => loadEvalHubSummary({ harnessFeedbackRoot }),
       /failed to resolve evidence bundle for 2026-05-24-bad-live-verdict/,
     );
+  });
+
+  // F192 P2 — eval-hub stale lifecycle calculation regression guard
+  it('marks lifecycle.stale = true and counts.stale = 1 when now is past nextEvalAt', () => {
+    const summary = loadEvalHubSummary({
+      harnessFeedbackRoot: repoHarnessFeedbackRoot,
+      now: FIXTURE_NOW_AFTER_DEADLINE,
+    });
+
+    assert.equal(summary.items.length, 1);
+    assert.equal(summary.counts.stale, 1, 'counts.stale should reflect overdue lifecycle');
+    const item = summary.items[0];
+    assert.equal(item.lifecycle.stale, true, 'verdict past its nextEvalAt must be stale');
+    // Other lifecycle/keep_observe semantics must remain untouched by the stale signal.
+    assert.equal(item.verdict, 'keep_observe');
+    assert.equal(item.lifecycle.closureStatus, 'observing');
+    assert.equal(item.lifecycle.ownerResponseStatus, 'not_required');
+  });
+
+  // F192 P2 — boundary: at-deadline must not flip to stale (strict `>`, not `>=`)
+  it('keeps lifecycle.stale = false when now equals nextEvalAt exactly', () => {
+    const summary = loadEvalHubSummary({
+      harnessFeedbackRoot: repoHarnessFeedbackRoot,
+      // Fixture nextEvalAt = 2026-05-26T03:12:57.174Z
+      now: new Date('2026-05-26T03:12:57.174Z'),
+    });
+
+    assert.equal(summary.items[0].lifecycle.stale, false, 'at-deadline tick is not yet stale');
+    assert.equal(summary.counts.stale, 0);
+  });
+
+  // F192 P2 — defensive: missing nextEvalAt cannot imply staleness
+  it('returns lifecycle.stale = false when the Re-eval bullet lacks an ISO timestamp', () => {
+    const harnessFeedbackRoot = mkdtempSync(join(tmpdir(), 'f192-eval-hub-no-deadline-'));
+    const domainsDir = join(harnessFeedbackRoot, 'eval-domains');
+    const verdictsDir = join(harnessFeedbackRoot, 'verdicts');
+    mkdirSync(domainsDir, { recursive: true });
+    mkdirSync(verdictsDir, { recursive: true });
+
+    const a2aYaml = readFileSync(join(repoHarnessFeedbackRoot, 'eval-domains', 'eval-a2a.yaml'), 'utf8');
+    writeFileSync(join(domainsDir, 'eval-a2a.yaml'), a2aYaml);
+
+    const verdictId = '2026-05-24-eval-a2a-no-deadline';
+    const bundleDir = join(harnessFeedbackRoot, 'bundles', verdictId);
+    mkdirSync(bundleDir, { recursive: true });
+    writeFileSync(
+      join(verdictsDir, `${verdictId}.md`),
+      `---
+feedback_type: live-verdict
+domain_id: eval:a2a
+packet_id: vhp_no_deadline
+---
+
+# Live Verdict — ${verdictId}
+
+- Verdict: \`keep_observe\`
+- Phenomenon: No actionable A2A findings: clean
+- Harness: F167/C1 (hold_ball (MCP tool))
+- Owner ask: No action required; keep observing.
+- Re-eval: window pending; date to be assigned upstream
+
+Evidence:
+- snapshot:bundle/${verdictId}/snapshot
+- attribution:bundle/${verdictId}/eval-F167-2026-05-24:no-finding
+- metric:c1.zombie_hold_count
+`,
+    );
+    writeJson(join(bundleDir, 'snapshot.json'), {
+      verdictId,
+      evalSnapshotId: 'eval-F167-2026-05-24',
+      featureId: 'F167',
+      generatedAt: '2026-05-24T12:00:00.000Z',
+      window: { durationHours: 24 },
+      components: [
+        {
+          id: 'C1',
+          name: 'hold_ball (MCP tool)',
+          activationCounts: { hold_count: 1 },
+          frictionCounts: { 'c1.zombie_hold_count': 0 },
+          confidence: 'medium',
+        },
+      ],
+    });
+    writeJson(join(bundleDir, 'attribution.json'), {
+      verdictId,
+      featureId: 'F167',
+      evalSnapshotId: 'eval-F167-2026-05-24',
+      generatedAt: '2026-05-24T12:01:00.000Z',
+      findings: [],
+      noFindingRecord: { reason: 'clean', evidence: 'within threshold' },
+    });
+    writeJson(join(bundleDir, 'provenance.json'), {
+      verdictId,
+      generatedAt: '2026-05-24T12:02:00.000Z',
+      rawInputs: [{ path: 'raw.yaml', sha256: 'b'.repeat(64) }],
+      generator: { name: 'test', version: '1' },
+      sanitizeRulesVersion: 'v1',
+    });
+
+    const summary = loadEvalHubSummary({
+      harnessFeedbackRoot,
+      now: new Date('2099-01-01T00:00:00.000Z'),
+    });
+
+    assert.equal(summary.items.length, 1);
+    assert.equal(summary.items[0].reeval.nextEvalAt, undefined, 'fixture should expose missing deadline');
+    assert.equal(
+      summary.items[0].lifecycle.stale,
+      false,
+      'a verdict without a re-eval deadline cannot be classified stale',
+    );
+    assert.equal(summary.counts.stale, 0);
   });
 });

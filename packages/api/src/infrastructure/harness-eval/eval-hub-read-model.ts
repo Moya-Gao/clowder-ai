@@ -8,6 +8,12 @@ type CountRecord = Record<string, number | null>;
 
 export interface LoadEvalHubSummaryInput {
   harnessFeedbackRoot: string;
+  /**
+   * Wall-clock reference for staleness checks. Defaults to `new Date()`.
+   * Injectable so date-dependent regression tests don't drift over time.
+   * F192 P2: enables `lifecycle.stale` lifecycle calculation (previously hardcoded false).
+   */
+  now?: Date;
 }
 
 export interface EvalDomainSummary {
@@ -101,11 +107,12 @@ interface ParsedVerdictMarkdown {
 export function loadEvalHubSummary(input: LoadEvalHubSummaryInput): EvalHubSummary {
   const verdictsDir = join(input.harnessFeedbackRoot, 'verdicts');
   const domains = loadDomains(input.harnessFeedbackRoot);
+  const now = input.now ?? new Date();
   const items = readdirSync(verdictsDir, { withFileTypes: true })
     .filter((entry) => entry.isFile() && entry.name.endsWith('.md'))
     .map((entry) => parseVerdictMarkdown(join(verdictsDir, entry.name)))
     .filter((verdict) => verdict.frontmatter.feedback_type === 'live-verdict')
-    .map((verdict) => buildEvalHubItem(input.harnessFeedbackRoot, verdict, domains))
+    .map((verdict) => buildEvalHubItem(input.harnessFeedbackRoot, verdict, domains, now))
     .sort((a, b) => b.trend.generatedAt.localeCompare(a.trend.generatedAt));
 
   // F192 livefix OQ-16: Build domain summaries for ALL registered domains,
@@ -142,6 +149,7 @@ function buildEvalHubItem(
   harnessFeedbackRoot: string,
   verdict: ParsedVerdictMarkdown,
   domains: Map<EvalDomainRegistryEntry['domainId'], EvalDomainRegistryEntry>,
+  now: Date,
 ): EvalHubItem {
   const verdictId = verdict.id;
   const bundleDir = join(harnessFeedbackRoot, 'bundles', verdictId);
@@ -187,7 +195,10 @@ function buildEvalHubItem(
     lifecycle: {
       ownerResponseStatus: verdictValue === 'keep_observe' ? 'not_required' : 'not_started',
       closureStatus: verdictValue === 'keep_observe' ? 'observing' : 'open',
-      stale: false,
+      // F192 P2: stale = past the verdict's own re-eval deadline (nextEvalAt).
+      // SLA reevalWithinHours is already absorbed into nextEvalAt at verdict-creation time,
+      // so adding extra grace here would double-discount. A missing nextEvalAt cannot expire.
+      stale: computeStale(nextEvalAt, now),
     },
     evidence,
     trend: {
@@ -317,4 +328,25 @@ function requiredString(value: unknown, field: string): string {
 
 function repoRelative(repoRoot: string, path: string): string {
   return relative(repoRoot, path).replaceAll('\\', '/');
+}
+
+/**
+ * F192 P2 — Eval Hub lifecycle staleness.
+ *
+ * A verdict is `stale` when the wall clock has crossed its declared `nextEvalAt`
+ * without a newer live verdict superseding it. We deliberately do NOT add a
+ * separate SLA grace window here: `nextEvalAt` is computed from
+ * `domain.sla.reevalWithinHours` at verdict-creation time, so any additional
+ * buffer at read time would double-discount the same SLA budget and silently
+ * delay the very signal Eval Hub exists to surface.
+ *
+ * If a verdict happens to omit `nextEvalAt`, we cannot reason about staleness
+ * and return `false` (the absence itself is a data-quality concern that should
+ * be caught upstream by the verdict packet schema, not impersonated here).
+ */
+function computeStale(nextEvalAt: string | undefined, now: Date): boolean {
+  if (!nextEvalAt) return false;
+  const deadlineMs = Date.parse(nextEvalAt);
+  if (Number.isNaN(deadlineMs)) return false;
+  return now.getTime() > deadlineMs;
 }
