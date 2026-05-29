@@ -74,7 +74,7 @@ gh pr view {N} --repo {owner/repo}
 
 1. 不要立刻 propose / cross-post 给内部工程 thread 修。
 2. 先在 issue 里公开追问作者意图：是否计划自提 PR；如果不打算修，我们可以接手。
-3. Direction Card：`路由 = external-wait`，`路由依据 = accepted-issue`，`下一步 = ask-author-pr-intent`，Owner 保持守门 thread 或明确指定 intake owner。
+3. Direction Card：`路由 = external-wait`，`路由依据 = author-intent`，`下一步 = ask-author-pr-intent`，Owner 保持守门 thread 或明确指定 intake owner。
 4. 等作者回复或短 SLA 到期后再分流：作者自提 PR → `review-existing-pr` / `merge-gate`；作者不修 / 超时 / 高危 bug → 内部 `fix`。
 
 **SLA 建议**：普通 bug 24-48h；高危/阻塞安装/数据丢失不等待，直接内部 fix，同时欢迎作者后续 review / PR。
