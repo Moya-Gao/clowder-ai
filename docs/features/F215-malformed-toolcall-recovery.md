@@ -12,7 +12,10 @@ created: 2026-05-29
 
 ## Why
 
-claude-opus-4-8（及 4.7 部分）在**长 context** 下，模型生成阶段（decoding）会"漂移"——把工具调用写成旧式 **XML** 文本（`<invoke name="X"><parameter name="Y">Z</parameter></invoke>`）而非合法的结构化 JSON tool_use。Claude Code SDK 解析失败 → 重试也失败 → 吐 synthetic 错误 `The model's tool call could not be parsed (retry also failed).`。**猫咖侧当前完全不识别这条错误**（被当普通文本一路 yield），用户看到的是"没收到任何返回"——猫像凭空消失。
+claude-opus-4-8（及 4.7 部分）在**长 context** 下，模型生成阶段（decoding）会"漂移"，出现两种不同的失败形式：
+
+- **form B（text+XML）**：模型把工具调用写成旧式 XML 文本（`<invoke name="X"><parameter name="Y">Z</parameter></invoke>`）放在 text block 里，而非合法的 tool_use block。CC SDK 不执行工具，告知模型格式错，模型通常可自愈（多一轮）。4.7 确认，4.8 archive 无真实失败样本。
+- **form A（thinking-only）**：模型 thinking 结束后直接 message_stop，无任何 text 或 tool_use 输出。CC SDK retry 也失败 → 吐 synthetic 错误 `The model's tool call could not be parsed (retry also failed).` → **这才是 could not be parsed 的真正来源**。**猫咖侧当前完全不识别这条错误**（被当普通文本一路 yield），用户看到的是"没收到任何返回"——猫像凭空消失。
 
 **实测数据（2026-05-29 调查，session afd085ad 等 10 个 opus-4-8 session）**：
 - 约 **40% 的 opus-4-8 session** 撞到 malformed
@@ -98,7 +101,7 @@ Phase B 检测到 malformed（`textEventCount===0` 或 form B 信号）后触发
 - [ ] AC-A3: 确认 rawArchive 对 Claude CLI 调用确实在存（否则修取证管道）
 
 ### Phase B（检测）
-- [ ] AC-B1: `textEventCount===0` 时判定 malformed，触发 Phase C，**即使 CC report `subtype:success` 也不跳过**（TDD：d137d9eb red fixture）
+- [ ] AC-B1: `textEventCount===0` **且 assistant.content 无合法 tool_use block** 时判定 malformed，触发 Phase C，**即使 CC report `subtype:success` 也不跳过**（纯 tool_use 任务 textEventCount=0 但有 tool_use block → 不误触发；TDD：d137d9eb red fixture）
 - [ ] AC-B2: （可选）assistant event text 含 `<invoke name="[REAL_TOOL]">` pattern 时同样触发（TDD：c12569a2 参考）
 - [ ] AC-B3: `textEventCount>0` 的正常完成**不误触发**兜底——回归保护（不误伤合法 tool_use invocation）
 
@@ -148,7 +151,7 @@ Phase B 检测到 malformed（`textEventCount===0` 或 form B 信号）后触发
 
 ## Eval / Tracking Contract（F192 门禁 — harness 类必填）
 
-- **Primary Users + Activation Signal**: opus-4.8（及未来有 tool-call 缺陷的模型）+ 协作猫 + 铲屎官；activation = malformed turn 被成功转换 / 兜底接力的次数（counter）
+- **Primary Users + Activation Signal**: opus-4.8（及未来有 tool-call 缺陷的模型）+ 协作猫 + 铲屎官；activation = malformed turn 被成功**检测** / 兜底接力的次数（counter）
 - **Friction Metric**: "could not be parsed" 导致的**用户可见空返回率**（baseline opus-4-8 ~40% session 撞、4/10 直接炸 → 目标趋近 0）
 - **Regression Fixture**: Phase A 取证样本（d137d9eb form A + c12569a2 form B）作为**检测器 fixture**（AC-B1/B2 TDD red）+ **兜底触发 fixture**（AC-C1 TDD red）
 - **Sunset Signal**: Anthropic 修复模型侧、opus malformed 率长期 ~0 → 检测+兜底层可退役（46 接力机制可保留为通用安全网）
@@ -157,7 +160,7 @@ Phase B 检测到 malformed（`textEventCount===0` 或 form B 信号）后触发
 
 | 日期 | 事件 |
 |------|------|
-| 2026-05-29 | 立项（CVO signoff，thread 讨论收敛：根因纠正 + 治本/兜底两层方案） |
+| 2026-05-29 | 立项（CVO signoff，thread 讨论收敛：根因纠正 + 统一检测+兜底方案） |
 
 ## Review Gate
 
