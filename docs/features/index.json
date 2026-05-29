@@ -1323,8 +1323,14 @@
     {
       "id": "F214",
       "name": "根目录卫生守护 (Root Directory Hygiene Guard)",
-      "status": "spec | **Owner**: 宪宪/Opus-4.8（布偶猫） | **Priority**: P2",
+      "status": "done | **Owner**: 宪宪/Opus-4.8（布偶猫） | **Priority**: P2",
       "file": "F214-root-directory-hygiene-guard.md"
+    },
+    {
+      "id": "F215",
+      "name": "Malformed Tool-Call Recovery（XML→JSON 治本 + seal/fresh/接力兜底）",
+      "status": "spec | **Owner**: 宪宪 (Opus-4.8) 设计 / 实现交稳定猫 | **Priority**: P1",
+      "file": "F215-malformed-toolcall-recovery.md"
     }
   ]
 }
