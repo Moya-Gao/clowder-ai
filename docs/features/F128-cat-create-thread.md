@@ -114,7 +114,7 @@ F128 遵循 ADR-035 Proposal-First Agent Actions：
 - [x] AC-B6: `Proposal` schema in shared types matches the spec model above
 - [x] AC-B7: Tests cover: cat auth happy path, stale guard, ownership rejection, idempotency, user approve happy path, double-approve idempotency, cross-user approve 403, approve-after-reject 409, reject happy path, reject-then-approve 409, edit-on-approve applied to created thread
 
-### Phase F: 前端实现
+### Phase F: 前端实现（2026-05-29 CVO 补充置顶 + 卡片体验）
 
 - [ ] AC-F1: Proposal card renders in source thread on `proposal_created` socket event (no manual refresh)
 - [ ] AC-F2: Card prefills with cat-supplied fields; user can edit `title`, `parentThreadId`, `preferredCats`, `initialMessage` before approve
@@ -122,6 +122,8 @@ F128 遵循 ADR-035 Proposal-First Agent Actions：
 - [ ] AC-F4: Reject button POSTs to `/api/proposals/:id/reject`; card flips to `rejected` state; thread is not created
 - [ ] AC-F5: Double-click protection on Approve/Reject (rely on backend idempotency + button disable on click)
 - [ ] AC-F6: Frontend tests cover render, edit, approve happy path, reject path, status flip via WS event
+- [ ] AC-F7: Approve card 新增 "📌 置顶" toggle — approve 时可选将新 thread 自动置顶（调用已有 `updateThreadPin`）
+- [ ] AC-F8: Approve 成功后自动跳转到新创建的 thread（或显示明显的导航入口）
 
 ### Phase X: 质量门禁
 
