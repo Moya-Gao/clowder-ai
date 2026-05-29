@@ -30,28 +30,49 @@ claude-opus-4-8（及 4.7 部分）在**长 context** 下，模型生成阶段�
 
 ## What
 
-### Phase A: 复现与取证（关闭关键未知）
+### Phase A: 复现与取证（✅ 已完成 2026-05-29）
 
-整个方案卡在一个**必须用真实字节关闭、不能靠推理**的未知：那段 malformed XML，在**我们消费的 stream 层**到底以什么形式存在？
+**AC-A1/A2/A3 全部关闭。** 取证由 @sonnet 执行，@opus48 复核纠正，结论经双猫验证。
 
-已确证（2026-05-29 三轮 subagent 调查）：
-- 我们调 Claude Code = spawn CLI + `--output-format stream-json`（开了 `--include-partial-messages --verbose`），自己消费 NDJSON（`packages/api/src/domains/cats/services/agents/providers/ClaudeAgentService.ts` 消费循环 ~L468-588）
-- NDJSON 解析层（`utils/ndjson-parser.ts`）对非法 JSON 行捕获为 `ParseError`，**原文存在 `line` 字段**；该 ParseError 一路传到 ClaudeAgentService，在 `transformClaudeEvent` 处返回 null **被丢弃**（日志 "Event dropped by transform"）
-- `rawArchive`（`CliRawArchive.ts`，存 `data/cli-raw-archive/{YYYY-MM-DD}/{invocationId}.ndjson`）记录原始 stream 事件
+**rawArchive 真实路径**（AC-A3 ✅）：
+`cat-cafe-runtime/packages/api/data/cli-raw-archive/{YYYY-MM-DD}/{invocationId}.ndjson`（不是主仓 `data/`，runtime worktree 里）。ClaudeAgentService L472 确认对 Claude CLI 调用调 `rawArchive.append`，实测今天（5/29）runtime worktree 有 133 个文件，77 个含 Claude stream 格式事件。
 
-**未决（OQ-1）**：XML 是 (A) 裸文本行 → JSON.parse 失败 → ParseError.line；还是 (B) 合法 JSON 信封的 text content block（`{"type":"assistant",...,"content":[{"type":"text","text":"...XML..."}]}`）；还是 (C) 其他（thinking block / partial 分片 / 被 CC 完全吞掉只剩 error）。三个碎片（agent 推 A、本喵推 B、4.6 持久化 JSONL 查到"只剩 thinking"）互相矛盾，**必须取证**。
+**OQ-1 答案：两种 malformed 形式**（AC-A2 ✅）
 
-注意：4.6 之前查的是**持久化 JSONL**（`~/.claude/projects/`，被 CC 事后过滤），不代表实时 stream 层；实时 stream 更完整。
+| 形式 | 描述 | 真实样本 | 对应 malformed 类型 |
+|------|------|----------|-------------------|
+| **B（text+XML）** | 模型输出 text block，里面嵌 XML 工具调用格式 | `2026-05-28/c12569a2-b67e-4a86-92b3-e061a09567d0.ndjson` lines 245-279 | CC SDK 不执行工具，告知模型"格式错"，模型可自愈（多一轮）|
+| **A（thinking-only）** | 模型只有 thinking block，直接 message_stop，无 action | `2026-05-28/d137d9eb-c53f-4f18-90d6-822c784df8f5.ndjson` | CC SDK retry 失败 → synthetic error "could not be parsed" |
 
-**取证缺口**：当前 rawArchive 里没有 opus-4-8 的 Claude stream 样本（实测只有 Codex execution events）→ Phase A 第一步先确认 rawArchive 对 Claude CLI 调用是否真在存，否则先修取证管道，再复现抓样本。
+**形式 B XML 格式样本**（完整结构）：
+```
+（正文文字）\n\ncall\n<invoke name="Bash">
+<parameter name="command">...</parameter>
+</invoke>
+```
+前缀词变异：`call`、`court` 或直接 `<invoke>`——禁止靠前缀匹配，必须靠 `<invoke name>/<parameter name>` 结构本身。
 
-### Phase B: 治本——XML→tool_use 转换（plan A，stream 层）
+**opus-4.8 A/B 分布（@opus48 补充 7 个样本）**：形式 A 3 个 + 形式 B 4 个，**B 约占一半**（样本量小，定量比例不稳，定性结论：4.8 两种形式都常见，治本有真实价值）。
 
-**落点**：ClaudeAgentService 消费循环里，事件被丢弃前拦一道。写一个 XML→tool_use 解析器，把 `<invoke>/<parameter>` 结构转成合法 tool_use AgentMessage，让调用继续执行。**用 Phase A 抓的真实样本做 TDD red fixture。**
+**架构关键发现**（@sonnet peer review 2026-05-29）：
+- `transformClaudeEvent` 处理的是 CLI 已完成输出的 assistant event，在此 yield `{type:'tool_use'}` AgentMessage **只改变前端展示，工具不会被执行**（工具执行在 CC SDK 内部，不走我们 yield 路径）
+- 形式 B：CC SDK **已自带降级处理**——识别到 text+XML 不是 tool_use，通知模型格式错，模型自愈。这本身**不产生 "could not be parsed" 错误**，只多消耗一轮
+- 形式 A：才是 "could not be parsed" 的真正来源，thinking 结束后无任何输出，CC SDK retry 也失败
+- **结论**：在 transformClaudeEvent 处"转换 text→tool_use"对工具执行无效。真正的治本（形式 B）需要 ClaudeThinkingRescue 式的修改（改 JSONL history + resume）或接受 CC SDK 已有降级；形式 A 无法治本，只能靠兜底。Plan A/B 落点需重新评估（见 OQ-2）。
 
-**plan B（备选，圣域）**：若 Phase A 发现 stream 层拿不到 XML（情况 C），降级走代理层（3001/3002，CC↔Anthropic API 之间，拿的是 API 标准响应，XML 形式确定）。代理是圣域，改动交铲屎官，本喵只出设计。
+### Phase B: 治本——恢复工具执行（落点待 Design Gate 确认）
+
+**Phase A 取证后的架构认识修正**（@sonnet peer review 2026-05-29）：
+
+原方案"在 transformClaudeEvent 处转换 text+XML → tool_use AgentMessage"**不能让工具执行**，只改展示。真正的治本需要更深层的干预：
+
+**候选方案**（需 @opus48 确认，见 OQ-2）：
+- **方案 B1（ClaudeThinkingRescue 式）**：检测到 text+XML 的 assistant turn 后，修改持久化 JSONL（把 text block 改写为 tool_use block），然后 `--resume` 重启 session。CC SDK resume 时看到的是合法 tool_use，会正常执行工具。代价：需要 JSONL 写回权限 + resume 延迟
+- **方案 B2（接受 CC SDK 降级）**：形式 B CC SDK 已有降级（通知模型格式错，让模型重试），我们只需确保这条路不被我们的 retry 逻辑打断即可。代价：多消耗 1 轮 context，但用户无感
 
 **hook 死路（已排除）**：CC 的 PreToolUse/PostToolUse hook 在 tool 解析失败时**不触发**（没有合法 tool_use 可传），不能用作落点。
+
+**真实样本文件**：`cat-cafe-runtime/packages/api/data/cli-raw-archive/2026-05-28/c12569a2-b67e-4a86-92b3-e061a09567d0.ndjson`（lines 245-279，完整 XML stream + 自愈过程）。Phase B 实现时用此文件做 TDD red fixture。
 
 ### Phase C: 兜底——seal + fresh retry + 46 接力
 
@@ -106,17 +127,19 @@ claude-opus-4-8（及 4.7 部分）在**长 context** 下，模型生成阶段�
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | malformed XML 在我们 stream 层的确切形式（A 裸行 / B text block / C 其他）？ | ⬜ Phase A 关闭 |
-| OQ-2 | 落点选 plan A（stream 层，我们代码）还是 plan B（代理层，圣域）？ | ⬜ 取决于 OQ-1 |
-| OQ-3 | 46 接力的前端展示形态（系统提示 + 46 回复两条消息？） | ⬜ Design Gate 定 |
+| OQ-1 | malformed XML 在我们 stream 层的确切形式（A 裸行 / B text block / C 其他）？ | ✅ **已关闭**：两种形式（B text+XML + A thinking-only），取证文件见 Phase A 节 |
+| OQ-2 | 治本落点：方案 B1（JSONL 改写+resume）还是 B2（接受 CC SDK 降级）？ | ⬜ **设计决策**：@opus48 确认后关闭（核心：transformClaudeEvent 处转换不够，需更深层干预） |
+| OQ-3 | 46 接力的前端展示形态（系统提示 + 46 回复两条消息？） | ⬜ Design Gate 定，等铲屎官醒拍板 |
 
 ## Key Decisions
 
 | # | 决策 | 理由 | 日期 |
 |---|------|------|------|
 | KD-1 | 拒绝限流 / 区别对待 opus-4.8，用 harness 适配补模型不足 | CVO 明确否决区别对待；W1 Agent Quality = Capability × Environment Fit；"不放弃任何一只喵" | 2026-05-29 |
-| KD-2 | 治本（XML→JSON 转换）+ 兜底（seal/fresh/接力）两层叠加，非二选一 | 转换让本次调用直接成功（治本）；兜底是转换 cover 不了时的安全网 | 2026-05-29 |
-| KD-3 | "向 opus-4-8 注入正确调用提示"**不采纳**为治本手段 | 根因是 decoder 长 context 漂移（手抖）非知识缺失（无知）；社区实测"禁 XML 提示"无效；且提示占 context 反讽地轻微加炸 | 2026-05-29 |
+| KD-2 | 治本 + 兜底两层叠加，非二选一 | 形式 B 可能治本（CC SDK 降级或 JSONL 改写）；形式 A 只能兜底（seal/fresh/接力）；两层分别覆盖不同形式 | 2026-05-29 |
+| KD-3 | "向 opus-4.8 注入正确调用提示"**不采纳**为治本手段 | 根因是 decoder 长 context 漂移（手抖）非知识缺失（无知）；社区实测"禁 XML 提示"无效；且提示占 context 反讽地轻微加炸 | 2026-05-29 |
+| KD-4 | opus-4.8 两种 malformed 形式都常见（Phase A 取证 7 个样本，3A+4B），治本对 4.8 有真实价值 | @sonnet Phase A 取证 + @opus48 复核（纠正"4.8 只有形式 A"的初步结论）；形式 B 约占一半 | 2026-05-29 |
+| KD-5 | `transformClaudeEvent` 处转换 text→tool_use AgentMessage **不能触发工具执行**，不能作为治本落点 | @sonnet peer review：工具执行在 CC SDK 内部，yield AgentMessage 只改展示；治本需 JSONL 改写+resume 或接受 CC SDK 自带降级 | 2026-05-29 |
 
 ## Eval / Tracking Contract（F192 门禁 — harness 类必填）
 
