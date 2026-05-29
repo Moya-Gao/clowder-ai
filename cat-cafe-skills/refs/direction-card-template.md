@@ -18,6 +18,7 @@ triage 完成后（主人翁五问填完），用 `cat_cafe_create_rich_block` �
   "fields": [
     { "label": "来源", "value": "{repo}#{issueNumber} {issue|PR}" },
     { "label": "类型", "value": "{bug|feature|enhancement|question}" },
+    { "label": "GitHub anchors", "value": "{referenced #NNN issue/PR + state/owner，或 '无'}" },
     { "label": "关联 feat", "value": "{Fxxx 或 '无'}" },
     { "label": "Q1 愿景", "value": "PASS|WARN|FAIL" },
     { "label": "Q2 功能冲突", "value": "PASS|WARN|FAIL" },
@@ -26,6 +27,7 @@ triage 完成后（主人翁五问填完），用 `cat_cafe_create_rich_block` �
     { "label": "Q5 债务", "value": "PASS|WARN|FAIL" },
     { "label": "建议", "value": "WELCOME|NEEDS-DISCUSSION|POLITELY-DECLINE" },
     { "label": "路由", "value": "stay-current|cross-post|propose-thread|external-wait|close" },
+    { "label": "路由依据", "value": "active-pr|accepted-issue|existing-thread|feature-domain|spam|none" },
     { "label": "Owner", "value": "{当前 thread / 目标 thread / 猫猫 handle}" },
     { "label": "下一步", "value": "{review / fix / ask-info / close / wait-author / maintainer-decision}" },
     { "label": "回报协议", "value": "{完成后 cross-post 回 inbox / 无需回报 / 等作者回复}" },
@@ -73,6 +75,10 @@ triage 完成后（主人翁五问填完），用 `cat_cafe_create_rich_block` �
 | `propose-thread` | 需要新 thread；Owner 填预期 thread 名 / 预期接球猫，proposal 的 initialMessage 必须写 report-back 协议 |
 | `external-wait` | 当前 owner 等外部作者 / CI / bot / review |
 | `close` | obvious spam / duplicate / decline，当前 thread 收口 |
+
+**路由依据优先级**：`active-pr` / `accepted-issue` > `existing-thread` > `feature-domain`。
+Direction Card 必须写明 GitHub `#NNN` anchors；如果跳过 active PR / issue owner 而改投
+feature thread，要说明为什么。没有理由就先 route 到 PR / issue owner，或 propose 一个窄 thread。
 
 **谁接球，谁负责等待。** 如果 Direction Card 的路由是 `cross-post` 或 `propose-thread`，
 后续 hold / event-driven 责任属于接球 thread，不属于守门 thread。

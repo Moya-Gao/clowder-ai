@@ -13,6 +13,7 @@ GitHub 仓库事件（新 PR、新 Issue、draft→ready）通过 webhook 自动
 - 收到通知后必须打开 GitHub 原对象做首反，不能只看标题 / 摘要。
 - 没有“自动处理”字段也要做 Read → Ground → Gate → Route → Record。
 - 守门 thread 的职责是判断和路由；是否深度 review / merge / intake 由首反 verdict 和接球 owner 决定。
+- GitHub `#NNN` issue / PR 锚点优先于 Fxxx / 技术域归类；先匹配已有 issue / PR / owner，再判断是否需要新 thread。
 
 ## 通知格式
 
@@ -46,9 +47,20 @@ gh pr view {N} --repo {owner/repo}
 
 - body / labels / comments / authorAssociation
 - 是否已有 maintainer / 猫猫实质回复
-- 是否有 linked issue / linked PR
+- 是否有 linked issue / linked PR，或正文里显式提到 `#NNN`（如 follow-up / found while validating）
 - 作者是否表示会自提 PR
 - PR diff 是否包含伪 Fxxx 锚点（进入 Scene B 时必查）
+
+#### Step 1.1: Anchor Precedence — 先匹配 GitHub 编号
+
+如果当前对象的标题 / body / comments 里出现 `#NNN`：
+
+1. 先打开每个 referenced issue / PR，记录 state、作者、labels、comments、是否已有 maintainer 回复。
+2. 如果 referenced PR 仍 open 或刚进入 review / merge-gate，它通常是优先 owner；follow-up bug 应路由到该 PR owner thread 或一个窄工程 thread。
+3. 如果 referenced issue 是总单、当前 issue 是子问题，当前 issue 归到总单 / 相关 PR 链路下，避免另投 broad feature thread。
+4. 只有 GitHub 编号链路没有 owner、没有 active PR、也没有可接的 thread 时，才用 Fxxx / 技术域寻找 owner 或 propose 新 thread。
+
+**排序规则**：active PR / accepted issue owner > existing issue/PR thread > narrow new thread > broad feature thread > CVO 决策。Fxxx 是归档 / 背景锚点，不自动等于执行 owner。
 
 ### Step 2: Ground — 基础合法性
 
@@ -81,6 +93,7 @@ gh pr view {N} --repo {owner/repo}
 | 场景 | 守门动作 | 后续 owner |
 |------|----------|------------|
 | 明确 bug issue，信息足够 | 标 `bug` / `triaged`，发 Direction Card；需要修复则 propose/cross-post 到工程 thread | 接球 thread 负责修复、review、外部等待 |
+| bug 明确是 `#NNN` issue / PR follow-up | 先打开 referenced issue / PR；若 PR active，路由给 PR owner thread；若无 owner，propose 窄 thread | PR owner thread 或新建的 issue/PR thread |
 | bug 信息不足 | 标 `needs-info` / `triaged`，追问信息；当前 thread 可等待作者回复 | 当前 thread，或指定接球 thread |
 | 新 feature / enhancement | 跑主人翁五问 + 关联检测；无现成锚点则 `needs-maintainer-decision` | Landy 或指定设计 thread |
 | 已有 feature 子任务 | cross-post 到对应平行 thread，附证据和期望动作 | 目标 thread |
@@ -147,6 +160,7 @@ cat_cafe_register_pr_tracking(repoFullName, prNumber)
 |------|------|------|
 | 只看通知标题，回复“无明确指令不操作” | 首反缺失，社区 issue/PR 无人负责 | 通知本身就是首反任务；必须打开 GitHub 原对象 |
 | 把 reconciliation 当普通日志 | 漏网补偿继续漏 | reconciliation 和 webhook 通知同等处理 |
+| 看见 eval / scheduler / UI 关键词就直接投 Fxxx thread，跳过 `#NNN` 关联 PR | follow-up bug 被派错 owner，已有 PR review 链断裂 | 先打开 body/comment 里的 `#NNN`；active PR / issue owner 优先于 broad feature thread |
 | WELCOME 后只给 verdict，不给 owner / route | 球权掉地上 | Direction Card 必填 route、owner、next action、report-back |
 | 分发给下游 thread 后继续在守门 thread hold | 双 owner、重复轮询、死锁 | 谁接球谁 hold；守门 thread 只保留路由记录 |
 | PR 还没 accepted issue 就深度 code review | 方向错也浪费 reviewer | 先 issue-first；无 accepted issue 不进代码 review |
