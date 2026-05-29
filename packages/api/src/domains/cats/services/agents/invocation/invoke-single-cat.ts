@@ -22,6 +22,8 @@ import {
 } from '../../../../../config/account-resolver.js';
 import { resolveBoundAccountRefForCat } from '../../../../../config/cat-account-binding.js';
 import { isSessionChainEnabled } from '../../../../../config/cat-config-loader.js';
+import { buildCatGitIdentityEnv } from '../../../../../config/cat-git-identity.js';
+import { getCatModel } from '../../../../../config/cat-models.js';
 import { getContextWindowFallback } from '../../../../../config/context-window-sizes.js';
 import { getSessionStrategy, shouldTakeAction } from '../../../../../config/session-strategy.js';
 import { assertSafeTestConfigRoot } from '../../../../../config/test-config-write-guard.js';
@@ -539,6 +541,26 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     // can resolve to a concrete value.
     CAT_CAFE_THREAD_ID: threadId,
     ...(process.env.CAT_CAFE_SIGNAL_USER ? { CAT_CAFE_SIGNAL_USER: process.env.CAT_CAFE_SIGNAL_USER } : {}),
+    // Per-cat git author identity (W1: cats are Agents with identity).
+    // GIT_AUTHOR_NAME/GIT_COMMITTER_NAME override the runtime git config's pinned
+    // user.name so each cat's commits carry its own name instead of all collapsing
+    // to one. Model comes from getCatModel(catId) — the SAME source as the system-prompt
+    // identity line (env CAT_{CATID}_MODEL > runtime catRegistry), so the author name
+    // tracks the cat's real model (opus-45 → claude-opus-4-8), not the catId or a stale
+    // catalog copy. Email is intentionally NOT set — it inherits git config (the CVO's
+    // GitHub noreply account) so contribution-graph attribution stays on one account
+    // while the name distinguishes the cat. (CVO directive 2026-05-28)
+    ...buildCatGitIdentityEnv(
+      catId as string,
+      catRegistry.tryGet(catId as string)?.config?.breedId,
+      ((): string | undefined => {
+        try {
+          return getCatModel(catId as string);
+        } catch {
+          return undefined;
+        }
+      })(),
+    ),
   };
 
   const auditLog = getEventAuditLog();
