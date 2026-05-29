@@ -1,6 +1,6 @@
 # PPT 风格 Preset — 华为
 
-> ppt-forge 华为风格完整定义。Route A（HTML）和 Route B（imagegen）共用。
+> ppt-forge 华为风格完整定义。
 > 来源：F144 华为密度实战 + 2026-05-28/29 两次 imagegen 实战验证。
 
 ## 风格定义
@@ -30,26 +30,6 @@
 - 黑和红足够，不需要第三种强调色
 
 ## 字体风格
-
-### Route A（HTML）
-
-```css
-:root {
-  --brand-primary: #C7020E;
-  --brand-secondary: #1a1a1a;
-  --bg-slide: #ffffff;
-  --bg-card: #fafafa;
-  --text-title: 18px;       /* document 模式 */
-  --text-body: 10px;
-  --text-caption: 8px;
-  --gap-tight: 2px;
-  --gap-normal: 4px;
-  --padding-card: 4px 6px;
-  --radius-card: 0px;       /* 华为 = 直角 */
-}
-```
-
-### Route B（imagegen 描述）
 
 | 元素 | 描述 |
 |------|------|
@@ -176,15 +156,6 @@
 - 用卡片/表格/矩阵组织信息，不用大段落
 - 底部留一条红底白字总结条是华为的标志性手法
 - 不怕密——怕密但乱。有结构的密是高级的
-
-## ECharts 配色（Route A 专用）
-
-```javascript
-color: ['#C7020E', '#FF6B6B', '#FFA940', '#FADB14', '#52C41A', '#1890FF', '#722ED1']
-// 坐标轴/图例文字：#252525 或 #000（禁止浅灰）
-// 数据标签：#252525 或 #C7020E
-// 网格线：#d4d4d4
-```
 
 ## Common Mistakes
 
