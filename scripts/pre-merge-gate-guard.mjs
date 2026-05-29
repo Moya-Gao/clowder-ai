@@ -163,12 +163,21 @@ function runPressureChecks(holderPid) {
     );
   }
 
+  // Phase 1: clean persistent orphans via process:cleanup (ownership-proven:
+  // ppid=1 + redis-server proctitle + non-sanctuary port + age > 10min).
+  // Handles the case where cleanup trap never fired and Redis stays alive forever.
+  try {
+    execFileSync(process.execPath, [path.resolve('scripts/cleanup-stale-dev-processes.mjs'), '--run'], {
+      timeout: 10000,
+      stdio: 'ignore',
+    });
+  } catch {
+    // Best-effort — if cleanup script fails, continue with orphan detection.
+  }
+
+  // Phase 2: wait briefly for transient orphans (trap fired, Redis still exiting).
   let orphans = findRedisOrphans();
   if (orphans.length > 0) {
-    // Don't auto-kill — we can't prove ownership without fragile heuristics.
-    // Instead, wait briefly: test Redis orphans from a previous gate/test run
-    // typically die within seconds (cleanup trap fired but process still exiting).
-    // Re-check after the wait to avoid spurious gate failures.
     spawnSync('sleep', ['3'], { stdio: 'ignore' });
     orphans = findRedisOrphans();
   }
