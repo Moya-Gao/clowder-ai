@@ -358,6 +358,21 @@ Claude Code 系统提示词由以下函数动态拼装：
 
 **决策**：方向确认用 `--system-prompt` 替换式。生产采用前需完成扩展 spike（§10.5 S2）。
 
+#### 9.5 补充发现：Claude Code 双层注入机制（2026-05-28 铲屎官实测）
+
+铲屎官在已启用 `--system-prompt` 替换的 session 里说了 "workflow" 关键词，Claude Code 立刻注入了动态提醒（`<system-reminder>` 标签："The user included the keyword 'workflow'..."）。**替换了 system prompt 但动态提醒仍然到达。**
+
+**原因**：Claude Code 有两层注入，走不同通道：
+
+| 层 | 通道 | `--system-prompt` 替换后 |
+|---|------|----------------------|
+| **静态**（糊弄哲学、工具说明、行为指导） | API system role | 被替换 ✅ |
+| **动态**（关键词触发提醒、context 信息、工具 schema 注入） | user message `<system-reminder>` 标签 | **不受影响，继续工作** ✅ |
+
+**安全性含义**：替换式方案比预期更安全——丢掉的只是静态行为指导（糊弄哲学），动态能力提醒（Skill 触发、工具发现、Schedule 提示等）继续正常工作。
+
+**Anthropic 视角**（铲屎官观察）：Anthropic 用动态关键词触发来提醒猫使用工具，说明他们也认为猫的"忘了用"不只是认知问题，还有**注意力稀释**——上下文太长、规则太多，猫在特定时刻想不起来该用某个工具。这是 47/48 辩论中"认知 vs 行为"之外的第三种根因。
+
 ### 10. 系统提示词内容分配方案（2026-05-15 审计）
 
 > 基于 §9.4 spike 验证结果，规划哪些内容进入真 system prompt（压缩免疫），哪些留在 user message（可压缩）。
