@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
@@ -161,11 +161,18 @@ describe('pre-merge gate guard', () => {
     }
   });
 
-  it('does not auto-clean non-owned orphan Redis (CONFIG GET dir != cat-cafe-redis-test)', () => {
+  it('does not shutdown non-owned orphan Redis (CONFIG GET dir != cat-cafe-redis-test)', () => {
     const tempDir = mkdtempSync(path.join(os.tmpdir(), 'gate-guard-test-'));
     const lockDir = path.join(tempDir, 'pre-merge-check.lock');
-    // PID 101 is ppid=1 + redis-server + high port, but its data dir is NOT
-    // cat-cafe-redis-test → Phase 1 must NOT auto-clean → gate fails with guidance.
+    // Fake redis-cli that logs all calls — lets us assert shutdown was NOT called.
+    const fakeBinDir = path.join(tempDir, 'bin');
+    mkdirSync(fakeBinDir);
+    const redisCliLog = path.join(tempDir, 'redis-cli.log');
+    writeFileSync(
+      path.join(fakeBinDir, 'redis-cli'),
+      `#!/bin/bash\necho "$@" >> "${redisCliLog}"\n`,
+      { mode: 0o755 },
+    );
     writeFileSync(
       path.join(tempDir, 'ps.txt'),
       `1 0 16016 /System/Library/PrivateFrameworks/fseventsd\n${process.pid} 1 100 node\n101 1 4096 redis-server 127.0.0.1:63552\n`,
@@ -179,21 +186,32 @@ describe('pre-merge gate guard', () => {
     );
     writeFileSync(path.join(tempDir, 'redis-dir.txt'), 'dir\n/usr/local/var/db/redis\n');
     try {
-      const result = runGuard(tempDir, ['acquire', '--lock-dir', lockDir, '--holder-pid', String(process.pid)]);
+      const result = runGuard(tempDir, ['acquire', '--lock-dir', lockDir, '--holder-pid', String(process.pid)], {
+        PATH: `${fakeBinDir}:${process.env.PATH}`,
+      });
       assert.notEqual(result.status, 0);
       assert.match(result.stderr, /port 63552/);
+      // Critical safety assertion: redis-cli was NOT called with shutdown
+      const log = existsSync(redisCliLog) ? readFileSync(redisCliLog, 'utf8') : '';
+      assert.doesNotMatch(log, /shutdown/, 'non-owned Redis must NOT receive shutdown');
       assert.equal(existsSync(lockDir), false);
     } finally {
       rmSync(tempDir, { recursive: true, force: true });
     }
   });
 
-  it('attempts cleanup on owned orphan Redis (CONFIG GET dir matches cat-cafe-redis-test)', () => {
+  it('does shutdown owned orphan Redis (CONFIG GET dir matches cat-cafe-redis-test)', () => {
     const tempDir = mkdtempSync(path.join(os.tmpdir(), 'gate-guard-test-'));
     const lockDir = path.join(tempDir, 'pre-merge-check.lock');
-    // PID 101 is ppid=1 + redis-server + high port, AND its data dir IS
-    // cat-cafe-redis-test → Phase 1 attempts cleanup. Fixture is static so
-    // orphan "survives" (no real Redis), but the attempt was made.
+    // Fake redis-cli that logs calls — lets us assert shutdown WAS called.
+    const fakeBinDir = path.join(tempDir, 'bin');
+    mkdirSync(fakeBinDir);
+    const redisCliLog = path.join(tempDir, 'redis-cli.log');
+    writeFileSync(
+      path.join(fakeBinDir, 'redis-cli'),
+      `#!/bin/bash\necho "$@" >> "${redisCliLog}"\n`,
+      { mode: 0o755 },
+    );
     writeFileSync(
       path.join(tempDir, 'ps.txt'),
       `1 0 16016 /System/Library/PrivateFrameworks/fseventsd\n${process.pid} 1 100 node\n101 1 4096 redis-server 127.0.0.1:63552\n`,
@@ -207,12 +225,15 @@ describe('pre-merge gate guard', () => {
     );
     writeFileSync(path.join(tempDir, 'redis-dir.txt'), 'dir\n/tmp/cat-cafe-redis-test.XXXXXX\n');
     try {
-      // Gate still fails because fixture is static (orphan "survives" cleanup
-      // attempt), but the critical property is: owned orphan gets cleanup attempt
-      // while non-owned does not (tested separately above).
-      const result = runGuard(tempDir, ['acquire', '--lock-dir', lockDir, '--holder-pid', String(process.pid)]);
+      const result = runGuard(tempDir, ['acquire', '--lock-dir', lockDir, '--holder-pid', String(process.pid)], {
+        PATH: `${fakeBinDir}:${process.env.PATH}`,
+      });
+      // Gate still fails (fixture static, orphan "survives"), but shutdown WAS attempted
       assert.notEqual(result.status, 0);
-      assert.match(result.stderr, /port 63552/);
+      // Critical behavior assertion: redis-cli WAS called with shutdown for owned Redis
+      const log = existsSync(redisCliLog) ? readFileSync(redisCliLog, 'utf8') : '';
+      assert.match(log, /shutdown/, 'owned Redis must receive shutdown attempt');
+      assert.match(log, /63552/, 'shutdown must target the orphan port');
       assert.equal(existsSync(lockDir), false);
     } finally {
       rmSync(tempDir, { recursive: true, force: true });
