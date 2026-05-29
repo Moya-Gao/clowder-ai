@@ -83,6 +83,16 @@ stop_instance() {
   if [[ -n "$pid" ]] && pid_alive "$pid"; then
     wait_for_pid_exit "$pid" 20 || true
   fi
+  # Guard against PID reuse: if the original redis-server exited and the OS
+  # reassigned the PID to an unrelated process, we must not SIGTERM/SIGKILL it.
+  # Verify the PID's command still looks like redis-server before escalating.
+  if [[ -n "$pid" ]] && pid_alive "$pid"; then
+    local cmd_check
+    cmd_check="$(ps -p "$pid" -o command= 2>/dev/null || true)"
+    if [[ "$cmd_check" != *redis-server* ]]; then
+      pid=""  # PID reused by non-Redis process — skip signal escalation
+    fi
+  fi
   if [[ -n "$pid" ]] && pid_alive "$pid"; then
     kill -s SIGTERM "$pid" 2>/dev/null || true
     wait_for_pid_exit "$pid" 20 || true
@@ -166,11 +176,14 @@ cleanup() {
   fi
   if [[ -n "${PORT:-}" ]]; then
     stop_instance "$PORT" "$pid" "$DATADIR"
-    # Registry entry is intentionally NOT removed here.  stop_instance may return
-    # before the Redis process fully exits (race window).  Keeping the entry lets
-    # the next run's cleanup_registry() find and stop any lingering process, which
-    # is idempotent (redis-cli shutdown + kill on a dead PID are silent no-ops).
-    # cleanup_registry() always empties the file after processing, so it won't grow.
+    # Only remove registry entry if the port is confirmed dead.
+    # If Redis is still dying (race window), keep the entry so the next run's
+    # cleanup_registry() can finish the job via port-based shutdown.
+    if command -v redis-cli >/dev/null 2>&1 \
+       && ! redis-cli -h 127.0.0.1 -p "$PORT" ping >/dev/null 2>&1; then
+      remove_current_registry_entry
+    fi
+    # else: port still responding → leave entry for next cleanup_registry()
   else
     /bin/rm -rf "$DATADIR"
   fi

@@ -116,13 +116,22 @@ function readRedisListeners() {
     .map((line) => line.trim())
     .filter((line) => /^redis/.test(line))
     .map((line) => {
-      const match = line.match(/(?:127\.0\.0\.1|\*):(\d+)\s+\(LISTEN\)/);
-      if (!match) {
+      const portMatch = line.match(/(?:127\.0\.0\.1|\*):(\d+)\s+\(LISTEN\)/);
+      if (!portMatch) {
         return null;
       }
-      return { port: Number(match[1]), line };
+      // lsof format: COMMAND PID USER ...
+      const pidMatch = line.match(/^redis\S*\s+(\d+)/);
+      return { port: Number(portMatch[1]), pid: pidMatch ? Number(pidMatch[1]) : null, line };
     })
     .filter(Boolean);
+}
+
+function isProvenOrphan(pid, rows) {
+  if (pid == null) return false;
+  const row = rows.find((r) => r.pid === pid);
+  // ppid === 1 means reparented to init — parent died, definitively orphaned.
+  return row != null && row.ppid === 1;
 }
 
 function findRedisOrphans() {
@@ -163,9 +172,11 @@ function runPressureChecks(holderPid) {
 
   const orphans = findRedisOrphans();
   if (orphans.length > 0) {
-    // Auto-clean: try redis-cli shutdown on each orphan before failing (self-healing gate).
-    // These are non-sanctuary test Redis that linger after gate/test exits — safe to clean.
-    for (const orphan of orphans) {
+    // Auto-clean ONLY proven orphans: ppid=1 means parent died and process was
+    // reparented to init — definitively not in active use.  Non-orphan high-port
+    // Redis (ppid != 1) might belong to another tool/test; fail with manual guidance.
+    const provenOrphans = orphans.filter((o) => isProvenOrphan(o.pid, rows));
+    for (const orphan of provenOrphans) {
       spawnSync('redis-cli', ['-h', '127.0.0.1', '-p', String(orphan.port), 'shutdown', 'nosave'], {
         timeout: 3000,
         stdio: 'ignore',
@@ -175,9 +186,9 @@ function runPressureChecks(holderPid) {
     const remaining = findRedisOrphans();
     for (const orphan of remaining) {
       failures.push(
-        `unmanaged redis-server listener on port ${orphan.port} (survived auto-cleanup); ` +
-          `manually clean before gate. Use 'kill <PID>' after confirming non-sanctuary, ` +
-          `or 'pnpm process:cleanup'. ` +
+        `unmanaged redis-server listener on port ${orphan.port}; ` +
+          `clean stale isolated Redis before gate. ` +
+          `Use 'kill <PID>' after confirming non-sanctuary, or 'pnpm process:cleanup'. ` +
           `NEVER 'lsof -ti tcp:<range> | kill' — CAFE-INCIDENT-20260527.`,
       );
     }
