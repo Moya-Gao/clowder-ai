@@ -1305,7 +1305,7 @@
     {
       "id": "F211",
       "name": "Cross-Runtime Session Transparency — Antigravity Session Chain + IDE Direct Registration",
-      "status": "done ✅ **post-close regression FIXED + merged (PR #1940 → `a0f7cf208`, opus-4.8): REG1 visibility + REG2 re-summon continuity + REG3 Layer B image urls; REG3 Layer C platform-bound → F061 carrier** | **Owner**: 缅因猫（砚砚）; regression fixes 布偶猫 Opus 4.8 | **Priority**: P1 | **Completed**: 2026-05-26",
+      "status": "done ✅ **post-close regression FIXED + merged (opus-4.8): REG1 visibility + REG2 re-summon continuity (PR #1940 `a0f7cf208`); REG3 Layer B image urls + Layer C image media via SendUserCascadeMessage.media (PR #1944 `fb37ecc7e`) — pending live e2e (Bengal sees image post runtime-restart)** | **Owner**: 缅因猫（砚砚）; regression fixes 布偶猫 Opus 4.8 | **Priority**: P1 | **Completed**: 2026-05-26",
       "file": "F211-cross-runtime-session-transparency.md"
     },
     {
