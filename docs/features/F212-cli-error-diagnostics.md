@@ -269,8 +269,8 @@ created: 2026-05-25
 close_gate_report:
   feature_id: F212
   spec_path: docs/features/F212-cli-error-diagnostics.md
-  head_sha: e93bd8bb2  # spec close 时 main HEAD (烁烁 sign-off 3c7a055a7 已 push)
-  report_date: 2026-05-27
+  head_sha: 40af2b82e  # Phase D merge SHA
+  report_date: 2026-05-29
 
   ac_matrix:
     # Phase A — Backend cliDiagnostics + Sanitizer
@@ -301,6 +301,13 @@ close_gate_report:
     - { ac_id: AC-C2, status: met, evidence: [{ kind: test, ref: "Phase A 40 unit fuzz (sanitize 21 + classifier 4 + diagnostics 15)" }],
         resolution: { kind: delete, reason: "alpha 环境 fuzz 不再要求 — automated unit layer 已达 AC 强度。" } }
     - { ac_id: AC-C3, status: met, evidence: [{ kind: commit, ref: "3c7a055a7", description: "烁烁 (@gemini25, 暹罗猫) cross-family vision guard sign-off pushed to main" }] }
+
+    # Phase D — result-error 诊断完整性 follow-up
+    - { ac_id: AC-D1, status: met, evidence: [{ kind: pr, ref: "#1950", description: "maybeCollectStreamError + tmux-spawner add support for result error event" }] }
+    - { ac_id: AC-D2, status: met, evidence: [{ kind: pr, ref: "#1950", description: "add tool_call_parse_failed reasonCode & i18n texts" }] }
+    - { ac_id: AC-D3, status: met, evidence: [{ kind: pr, ref: "#1950", description: "CC structured result error classified with safeExcerpt" }] }
+    - { ac_id: AC-D4, status: met, evidence: [{ kind: test, ref: "cli-diagnostics.test.js + cli-error-patterns.test.js", description: "real A2 result error structures and classification validation" }] }
+    - { ac_id: AC-D5, status: met, evidence: [{ kind: commit, ref: "40af2b82e", description: "cross-family @gpt52 review + cloud codex Bravo + merge" }] }
 
   reflection_capsule: docs/reflections/2026-05-27-f212-cli-error-diagnostics-capsule.md
   harness_feedback: none
