@@ -26,8 +26,10 @@ import {
 } from '../../../../../infrastructure/telemetry/genai-semconv.js';
 import {
   a2aDispatchCount,
+  c2ExitChecked,
   c2VerdictHintEmitted,
   c2VerdictWithoutPassCount,
+  c2VoidHoldChecked,
   c2VoidHoldHintEmitted,
   inlineActionChecked,
   inlineActionDetected,
@@ -1289,6 +1291,15 @@ export async function* routeSerial(
         // reports ending with `@landy` / `@铲屎官` (legitimate escalation to co-creator)
         // don't trigger the verdict-no-pass-hint false-positive. parseA2AMentions only
         // returns cat handles, never co-creator ones.
+        //
+        // C2 denominator (F192 2026-05-29): count every turn the verdict-without-pass
+        // exit-check actually evaluates, so attribution can grade verdict_without_pass_count
+        // against a real `c2.checked` base instead of fabricating a 100% ratio. phaseHHit
+        // turns are excluded — a format error short-circuits the check (AC-H5), so they
+        // were never evaluated.
+        if (!phaseHHit) {
+          c2ExitChecked.add(1, { 'agent.id': catId as string });
+        }
         if (
           !phaseHHit &&
           shouldWarnVerdictWithoutPass({
@@ -1336,6 +1347,10 @@ export async function* routeSerial(
 
         // F167 Phase I AC-I1 (KD-25): void hold detection — text says "持球" but
         // no cat_cafe_hold_ball tool call this turn.声明-动作一致性 check.
+        // C2 void-hold denominator (PR #1941 P2): count every void-hold evaluation so
+        // attribution grades void_hold_hint against c2.void_hold_checked, NOT the
+        // verdict-check count c2.checked (different guard → wrong ratio / suppression).
+        c2VoidHoldChecked.add(1, { 'agent.id': catId as string });
         if (
           shouldWarnVoidHold({
             text: storedContent,
