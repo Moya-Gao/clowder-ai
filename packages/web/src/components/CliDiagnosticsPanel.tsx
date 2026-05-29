@@ -14,6 +14,7 @@ import {
   TerminalIcon,
   TextQuoteIcon,
   UnknownReasonIcon,
+  WrenchIcon,
 } from './cli-reason-icons';
 
 /**
@@ -86,9 +87,23 @@ const REASON_PALETTE: Record<CliErrorReasonCode, Palette> = {
   // Tier 4 — cognitive / context limit
   context_window_exceeded: { ...PALETTE_COGNITIVE, Icon: TextQuoteIcon },
   invalid_thinking_signature: { ...PALETTE_COGNITIVE, Icon: BrainIcon },
+  // F212 Phase D: model emitted an unparseable tool call (opus-4.8 decoder drift) — CC/model-side,
+  // not a Cat Café config issue. Cognitive tier (violet), same family as thinking-signature.
+  tool_call_parse_failed: { ...PALETTE_COGNITIVE, Icon: WrenchIcon },
 };
 
 const UNKNOWN_PALETTE: Palette = { ...PALETTE_SYSTEM, Icon: UnknownReasonIcon };
+
+/**
+ * F212 Phase D — Cloud codex P2 fix (2026-05-29, on a429aada3):
+ * KD-1 white-list moved from reasonCode-only to excerptSource-based. The backend tags
+ * safeExcerpt with the safe source channel ('classifier' = known reasonCode hit,
+ * 'cc_structured' = unknown reasonCode + CC structured result error per AC-D3). Frontend
+ * gates disclosure on membership — fails closed for (a) malformed/persisted payloads with
+ * no excerptSource and (b) forward-compat: any future api source value the current web
+ * doesn't recognize yet (e.g. a hypothetical 'pii_redacted') is treated as untrusted.
+ */
+const KNOWN_EXCERPT_SOURCES: ReadonlySet<string> = new Set(['classifier', 'cc_structured']);
 
 /**
  * 云端 codex P2 (2026-05-27): persisted/hydrated `cliDiagnostics.reasonCode` may carry
@@ -143,11 +158,18 @@ export function CliDiagnosticsPanel({ errorMessage, diagnostics }: CliDiagnostic
   const { Icon, bg, border, accent, text } = palette;
   // publicSummary is always present per Phase A contract; keep errorMessage as a safety net.
   const summary = diagnostics.publicSummary || errorMessage;
-  // KD-1 white-list admission (砚砚 review P1-2 + 云端 codex P2, 2026-05-27): excerpt
-  // disclosure requires (known reasonCode) AND (non-empty safeExcerpt). Defends against:
-  //   - malformed/persisted payloads with safeExcerpt but no reasonCode (砚砚)
-  //   - unknown reasonCode strings (e.g. newer api → older web) leaking unsanitized text (云端)
-  const hasExcerpt = Boolean(knownReason && diagnostics.safeExcerpt && diagnostics.safeExcerpt.trim().length > 0);
+  // KD-1 white-list admission (砚砚 review P1-2 / 2026-05-27 → cloud codex P2 / 2026-05-29):
+  // disclosure requires (a) non-empty safeExcerpt AND (b) excerptSource in KNOWN_EXCERPT_SOURCES.
+  // Migrated from reasonCode-only gate to excerptSource-based for AC-D3 path (unknown reasonCode
+  // but CC emitted a structured result error that's safe to surface). Defends against:
+  //   - malformed/persisted payloads with safeExcerpt but no excerptSource (砚砚)
+  //   - newer api → older web: future excerptSource values are rejected by membership check (云端)
+  //   - AC-D3 unknown fallback now CAN show excerpt via excerptSource='cc_structured'
+  const hasExcerpt = Boolean(
+    diagnostics.safeExcerpt?.trim() &&
+      diagnostics.excerptSource &&
+      KNOWN_EXCERPT_SOURCES.has(diagnostics.excerptSource),
+  );
 
   return (
     <div data-testid="cli-diagnostics" className="flex flex-col gap-2.5">

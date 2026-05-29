@@ -135,4 +135,11 @@ export const CLASSIFIER_PATTERNS: Array<{ code: CliErrorReasonCode; regex: RegEx
     code: 'context_window_exceeded',
     regex: /(context length|maximum context|context_length_exceeded|tokens? exceed|prompt too long)/i,
   },
+  // F212 Phase D: Claude CLI result error — model tool-call parse failure (e.g.
+  // "The model's tool call could not be parsed (retry also failed)"). CC emits this
+  // in the result error event (type==='result' && subtype!=='success'), not stderr.
+  {
+    code: 'tool_call_parse_failed',
+    regex: /tool calls? could not be parsed|could not parse[^.\n]{0,30}tool call/i,
+  },
 ];

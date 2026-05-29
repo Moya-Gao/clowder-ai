@@ -29,6 +29,10 @@ const fixtures = [
   ['context length exceeded: 200000 tokens', 'context_window_exceeded'],
   ['maximum context: 128000 reached', 'context_window_exceeded'],
   ['Error: prompt too long', 'context_window_exceeded'],
+  // F212 Phase D: CC tool-call parse failure (Claude CLI result error event)
+  ["The model's tool call could not be parsed (retry also failed).", 'tool_call_parse_failed'],
+  ['could not parse the model tool call after retry', 'tool_call_parse_failed'],
+  ['Tool calls could not be parsed', 'tool_call_parse_failed'],
   // Unknown — must return undefined
   ['some random weird thing happened', undefined],
   ['', undefined],

@@ -17,6 +17,7 @@ import { createInterface } from 'node:readline';
 import { promisify } from 'node:util';
 import { createModuleLogger } from '../../infrastructure/logger.js';
 import { buildCliDiagnostics } from '../../utils/cli-diagnostics.js';
+import { maybeCollectStreamError } from '../../utils/cli-spawn.js';
 import { resolveCliTimeoutMs } from '../../utils/cli-timeout.js';
 import type { CliSpawnOptions } from '../../utils/cli-types.js';
 // parseNDJSON not used directly — we create readline inline for killability.
@@ -297,6 +298,10 @@ export async function* spawnCliInTmux(
     // buildCliDiagnostics for reasonCode classification. Bounded by line count + total chars to
     // avoid OOM on pathological output. Sanitization happens inside buildCliDiagnostics, not here.
     const nonJsonOutput: string[] = [];
+    // F212 Phase D: result error events are valid JSON (never hit nonJsonOutput), so collect
+    // them separately for cliDiagnostics — same root-cause fix as cli-spawn maybeCollectStreamError.
+    const streamErrorTexts: string[] = [];
+    const structuredErrorTexts: string[] = [];
     let nonJsonChars = 0;
     const NON_JSON_MAX_LINES = 30;
     const NON_JSON_MAX_CHARS = 8192;
@@ -324,6 +329,9 @@ export async function* spawnCliInTmux(
             }
             continue;
           }
+          // F212 Phase D: collect result error events (type==='result' && subtype!=='success')
+          // for cliDiagnostics — they are valid JSON so they never reach nonJsonOutput above.
+          maybeCollectStreamError(event, streamErrorTexts, structuredErrorTexts);
           // Mark first event and switch from first-event timeout to idle timeout.
           if (!gotFirstEvent) {
             gotFirstEvent = true;
@@ -370,9 +378,10 @@ export async function* spawnCliInTmux(
       // non-JSON lines collected from parse-error branch (= stderr noise) carry the actual error text.
       // plainText mode has stderrCaptured populated from the independent stderr file redirect.
       const ndjsonNoise = nonJsonOutput.join('\n');
-      const rawText = [ndjsonNoise, stderrCaptured].filter(Boolean).join('\n');
+      const rawText = [ndjsonNoise, ...streamErrorTexts, stderrCaptured].filter(Boolean).join('\n');
       const cliDiagnostics = buildCliDiagnostics({
         rawText,
+        structuredErrorText: structuredErrorTexts.filter(Boolean).join('\n'),
         debugRef: {
           command: options.command,
           exitCode,
@@ -392,7 +401,8 @@ export async function* spawnCliInTmux(
       // F212 砚砚 round-4: same dual-source merge as abnormal exit branch.
       const ndjsonNoise = nonJsonOutput.join('\n');
       const cliDiagnostics = buildCliDiagnostics({
-        rawText: [ndjsonNoise, stderrCaptured].filter(Boolean).join('\n'),
+        rawText: [ndjsonNoise, ...streamErrorTexts, stderrCaptured].filter(Boolean).join('\n'),
+        structuredErrorText: structuredErrorTexts.filter(Boolean).join('\n'),
         debugRef: {
           command: options.command,
           exitCode,

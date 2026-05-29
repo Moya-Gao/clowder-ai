@@ -145,6 +145,14 @@ export function BrainIcon(props: SvgProps) {
   );
 }
 
+/** wrench — tool_call_parse_failed (Lucide wrench; model emitted an unparseable tool call) */
+export function WrenchIcon(props: SvgProps) {
+  return baseSvg(
+    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />,
+    props,
+  );
+}
+
 /** circle-help — fallback for unknown reasonCode (Lucide circle-help) */
 export function UnknownReasonIcon(props: SvgProps) {
   return baseSvg(
