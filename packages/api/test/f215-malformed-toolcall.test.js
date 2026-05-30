@@ -881,20 +881,21 @@ describe('F215 BLOCKING-3: invokeSingleCat E2E — malformed service → suppres
   });
 });
 
-// ── AC-B6 (P1 7th): malformed after content output must NOT retry ──
+// ── AC-B6 (P1 7th): malformed after content output → honest notice, no retry ──
 //
 // When Claude has already emitted text/tool_use output and then the final assistant turn is
-// malformed (thinking-only), suppressing the error and retrying would re-run the original prompt
-// from scratch — duplicating tool actions and user-visible content.
+// malformed (thinking-only), retrying would re-run the original prompt from scratch — duplicating
+// tool actions and user-visible content. Instead: suppress the raw "malformed_toolcall:" error
+// and yield an honest partial-output text notice ("手抖了...").
 // Other self-heal paths (prompt limit, context overflow) all guard on !attemptHasContentOutput.
-// F215 malformed must do the same.
+// F215 malformed must do the same, and additionally replace the misleading error with a notice.
 
-describe('F215 AC-B6 (P1 7th): malformed after content output must surface error not retry', () => {
-  test('malformed error surfaces at invokeSingleCat level when attemptHasContentOutput=true', async () => {
+describe('F215 AC-B6 (P1 7th): malformed after content output → honest notice, no retry', () => {
+  test('raw malformed error replaced with partial-output notice when attemptHasContentOutput=true', async () => {
     // Tests at invokeSingleCat level (not ClaudeAgentService) because the guard is in invokeSingleCat.
     // Mock service: emits text (content output), then malformed detected + error + done.
-    // With !attemptHasContentOutput guard: malformed error is NOT suppressed → user sees it.
-    // Without guard (current bug): malformed error IS suppressed → silent retry.
+    // Expected: raw "malformed_toolcall:" error is suppressed + replaced with honest text notice.
+    // No retry fires (would duplicate tool actions).
     const { invokeSingleCat } = await import('../dist/domains/cats/services/agents/invocation/invoke-single-cat.js');
 
     const contentThenMalformedService = {
@@ -962,6 +963,32 @@ describe('F215 AC-B6 (P1 7th): malformed after content output must surface error
       invokeCount,
       1,
       `service must be called exactly once when content output was emitted — no retry (P1: prevent duplicate tool actions). Was called: ${invokeCount}`,
+    );
+
+    // AC-B6 UX fix (砚砚 2026-05-30): raw "系统已触发恢复流程" error must NOT reach user.
+    // When content was already emitted, the system does NOT retry — so saying "已触发恢复流程"
+    // is a lie. The raw malformed error must be suppressed and replaced with an honest
+    // partial-output notice (text type).
+    const misleadingError = msgs.find(
+      (m) => m.type === 'error' && typeof m.error === 'string' && m.error.startsWith('malformed_toolcall:'),
+    );
+    assert.equal(
+      misleadingError,
+      undefined,
+      `raw malformed_toolcall: error must NOT reach user when content was already emitted. Got: ${JSON.stringify(misleadingError)}`,
+    );
+
+    // A honest partial-output notice (text type) must be emitted instead.
+    const partialOutputNotice = msgs.find(
+      (m) =>
+        m.type === 'text' &&
+        typeof m.content === 'string' &&
+        m.content.includes('手抖') &&
+        !m.content.includes('系统已触发恢复流程'),
+    );
+    assert.ok(
+      partialOutputNotice,
+      `An honest partial-output notice (text type) must be emitted when content was already emitted before malformed. Got types: ${msgs.map((m) => m.type).join(',')}`,
     );
   });
 });

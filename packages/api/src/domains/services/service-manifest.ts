@@ -363,8 +363,7 @@ export function deriveLegacyServiceConfig(
     // instead of a "MODEL required" startup failure.  The manifest's
     // isDefault model is the single source of truth for defaults (see
     // b29c04d05 — hardcoded script defaults were removed intentionally).
-    const defaultModel =
-      service.prerequisites?.models?.find((m) => m.isDefault) ?? service.prerequisites?.models?.[0];
+    const defaultModel = service.prerequisites?.models?.find((m) => m.isDefault) ?? service.prerequisites?.models?.[0];
     if (defaultModel) config.selectedModel = defaultModel.name;
   }
   const portKey = PORT_ENV_VARS[service.id];
