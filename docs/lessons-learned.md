@@ -1362,4 +1362,13 @@ created: 2026-02-26
 
 ---
 
-> **LL-059..LL-062 同根**：source space 是多元的（multi-provider classifier / 真实 archive 而非想象 fixture / 平行猫 vs 本地猫 / span 纯文本 vs markdown）——text、逻辑、契约必须匹配 source 实际 space，不能 lock 到我们方便/熟悉的单一情景。Phase D 的 fixture truthfulness lesson (subtype:success+is_error:true 救回死代码) 也是同根。所有四个 lesson 都来自 cloud codex 真深度 review，每一轮抓到我自检盲点的真 P 级 finding。
+### LL-063: dogfood / 契约改动必须覆盖所有生产 carrier，不能走简化路径
+- 状态：draft
+- 更新时间：2026-05-30
+- 现象：修 codex「prompt 走 argv 被 `ps -o command=` 跨进程泄露」P0（cross-thread-context-contamination 事故）时，把 prompt 全局改走 stdin（`promptArgs = ['--', '-']`）。本地全绿（mock spawnFn 单测 + 直接 `codex exec` dogfood）、opus-46 本地 review APPROVE，但云端 codex **连续 3 轮**抓出 3 个真 P1。
+- 根因：codex 有**多个 spawn carrier**——`spawnCli`-direct / `cli-supervisor`（macOS 包装）/ tmux pane（worktree）。mock 用 fake spawnFn、dogfood 直接调底层 `codex exec`，**都绕过了中间层**：① supervisor 以 `stdio:['ignore']` 启动 codex 且不转发 stdin → 生产收 EOF；② tmux pane 无 stdin pipe → codex `-- -` hang；③ tmux stdin 临时文件 setup 失败遗留含对话历史的明文 → 机密泄露。简化路径绕过的中间层，正是盲区。
+- 药方一：**dogfood 必须走真实生产路径**（如 spawnCli→supervisor→codex），不能直接调底层 CLI 的简化路径——简化路径绕过的中间层是验证盲区。
+- 药方二：**全局调用契约改变（argv→stdin 这类）必须先审计所有 carrier**，列清单一次改全 + 各自走真实路径的回归测试，不逐个被 review 抓。
+- 关联：F203 codex carrier | PR #1961 | LL-059..062（同根：cloud codex 真深度 review 逐轮抓自检盲点）
+
+> **LL-059..LL-063 同根**：source space / 执行路径都是多元的（multi-provider classifier / 真实 archive 而非想象 fixture / 平行猫 vs 本地猫 / span 纯文本 vs markdown / **codex 多 spawn carrier**）——text、逻辑、契约、**验证路径**必须匹配实际 space，不能 lock 到我们方便/熟悉的单一情景（简化的 dogfood 路径 / 单一 carrier）。Phase D 的 fixture truthfulness lesson (subtype:success+is_error:true 救回死代码) 也是同根。所有五个 lesson 都来自 cloud codex 真深度 review，每一轮抓到我自检盲点的真 P 级 finding。

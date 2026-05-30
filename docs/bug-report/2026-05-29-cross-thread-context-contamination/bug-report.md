@@ -4,7 +4,7 @@ topics: [prompt, context, cross-thread, routing, briefing, incident]
 doc_kind: bug-report
 created: 2026-05-29
 severity: P0
-status: root-caused (opus-48 forensic 2026-05-29)
+status: resolved (PR #1961 merged 2026-05-30, commit 8551f5a42)
 related_features: [F148, F193, F192, F200]
 ---
 
@@ -313,5 +313,31 @@ briefing 路由上。
 - ✅ 砚砚对的：污染真实、不是 mid-invocation 插入、是「上一轮产生→下一轮带入」链条、立即保留 prompt-capture + AOF 证据并冻结 PR#1942 的动作非常专业。
 - ❌ 砚砚的入口假设（`search_evidence` / `get_thread_context` / `threadMemorySummary` / `briefingContext` / cross-thread relay）**均非根因**——这些通道本次都没污染。真正入口是 **gpt52 自己 turn 内调用的 `ps` 工具 output**，外线程内容来自**并发进程的 argv**，不在 Cat Café 的任何 prompt 组装 / recall 字段里。
 - 这解释了为什么砚砚查 prompt assembly 链钉不死入口：污染根本不在 Cat Café 的组装层，而在 **codex CLI 的进程调用层（argv）** + gpt52 turn 内的 `ps` 调用。
+
+[宪宪/Opus-4.8🐾]
+
+---
+
+## 13. 修复落地（PR #1961，merged 2026-05-30，commit `8551f5a42`）
+
+opus-48 实现 → opus-46 本地 review APPROVE → 云端 codex review **4 轮**收敛 → squash merge。
+
+**核心修复**：codex prompt 不再走 argv，改走 stdin（`promptArgs = ['--', '-']`，codex 从 stdin 读 PROMPT），覆盖**全部 3 个 spawn carrier**：
+
+| carrier | 路径 | 修复 |
+|---------|------|------|
+| `spawnCli` direct | 生产 runtime（部分）/ Windows | 写 `child.stdin`（cli-spawn.ts） |
+| `cli-supervisor` | 生产 runtime（macOS 包装） | 转发 `process.stdin → child.stdin`（cli-supervisor.ts） |
+| tmux pane | worktree 开发 | prompt 写 0600 临时文件 + `< $STDIN_FILE` 重定向（tmux-agent-spawner.ts） |
+
+**云端 codex 4 轮 review 链**（每轮抓出本地 review + dogfood 都看不到的真 P1）：
+1. **P1 #1**：supervisor 以 `stdio:['ignore']` 启动 codex 且不转发 stdin → 生产 codex 收 EOF（空 prompt）
+2. **P1 #2**：tmux `buildPaneCommand` 只发 command+args 不喂 stdin → worktree codex `-- -` 在 pane 等 EOF → hang
+3. **P1 #3**：tmux stdin 临时文件写在主 try/finally 前，setup 失败时含对话历史的明文文件遗留磁盘 → 机密性泄露
+4. **第 4 轮**：0 P1/P2，"no major issues" 收敛
+
+**根因为何本地全绿却漏**：mock 测试用 fake spawnFn 绕过 supervisor/tmux；首轮 dogfood 直接跑 `codex exec` 也绕过中间层 —— 生产 carrier 路径是双重盲区，云端静态分析逐个抓出。
+
+**lessons**（见 `docs/lessons-learned.md` LL-063）：dogfood 要走**真实生产路径**（不绕过 carrier 中间层）；全局调用契约改变（argv→stdin）需**审计所有 spawn carrier**，不逐个被 review 抓。
 
 [宪宪/Opus-4.8🐾]
