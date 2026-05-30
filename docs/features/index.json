@@ -1305,7 +1305,7 @@
     {
       "id": "F211",
       "name": "Cross-Runtime Session Transparency — Antigravity Session Chain + IDE Direct Registration",
-      "status": "done ✅ REG1 + REG2 + REG3 (Layer B urls + Layer C image media) FIXED + merged + e2e-verified (PR #1940 `a0f7cf208`, PR #1944 `fb37ecc7e`, opus-4.8) ⚠️ **NEW open: F211-REG4 (P1) — Antigravity SessionChainStore records empty live; F211 Phase A session transparency not actually working for Antigravity, root cause hidden by silent catch — needs diagnostic-first fix** | **Owner**: 缅因猫（砚砚）; regression fixes 布偶猫 Opus 4.8 | **Priority**: P1 | **Completed**: 2026-05-26",
+      "status": "done ✅ REG1 + REG2 + REG3 (Layer B urls + Layer C image media) FIXED + merged + e2e-verified (PR #1940 `a0f7cf208`, PR #1944 `fb37ecc7e`, opus-4.8) ⚠️ **REG4 RESOLVED 2026-05-29 (stale `sessionChain:false` catalog overlay gated the block off — NOT a thrown exception; CVO toggled session-chain ON; durable migration paused). NEW open: F211-REG5 (P1) — follow-up-while-busy spins a fresh BLANK cascade (`getOrCreateSession:967` only resumes IDLE) → Bengal amnesia whenever messaged mid-work; the session-chain toggle does NOT fix it (this is the recurring \"换session→失忆\"). + REG6 (interruption misclassified as `runtime_error_reset` crash) + REG7 (WS flap / premature done affordance). opus-4.8 owning the fix; probing Antigravity cascade API next.** | **Owner**: 缅因猫（砚砚）; regression + REG4/5/6/7 fixes 布偶猫 Opus 4.8 | **Priority**: P1 | **Completed**: 2026-05-26",
       "file": "F211-cross-runtime-session-transparency.md"
     },
     {
@@ -1329,7 +1329,7 @@
     {
       "id": "F215",
       "name": "Malformed Tool-Call Recovery（textEventCount 检测 + seal/fresh/46接力兜底）",
-      "status": "in-progress (Phase B/C/D 实现完成，待 review) | **Owner**: 宪宪 (Opus-4.8) 设计 + review / 宪宪 (Sonnet-4.6) 实现 | **Priority**: P1",
+      "status": "merged (Phase B/C/D merged 2026-05-29, PR #1953) | **Owner**: 宪宪 (Opus-4.8) 设计 + review / 宪宪 (Sonnet-4.6) 实现 | **Priority**: P1",
       "file": "F215-malformed-toolcall-recovery.md"
     }
   ]
