@@ -172,6 +172,36 @@ describe('SanitizedIssuePacket', () => {
       assert.equal(reparsed.id, sanitized.id);
     });
 
+    // ---- degrade verdict: degradePlan export (Codex P2-1 fix) ----
+
+    it('exports degradePlan when verdict is degrade', () => {
+      const verdict = parseVerdictHandoffPacket(
+        makeVerdict({
+          verdict: 'degrade',
+          governance: {
+            cvoAcceptRequired: false,
+            degradePlan: {
+              targetMode: 'local-overlay',
+              rollbackCondition: 'F167 ball_drop_rate < 0.05 for 7 days',
+            },
+          },
+        }),
+      );
+      const sanitized = sanitizeVerdictForExport(verdict, 'my-instance');
+      assert.equal(sanitized.verdict, 'degrade');
+      assert.ok(sanitized.degradePlan, 'degradePlan should be present for degrade verdict');
+      assert.equal(sanitized.degradePlan.targetMode, 'local-overlay');
+      // rollbackCondition should be scrubbed (F167 → [feature])
+      assert.ok(!sanitized.degradePlan.rollbackCondition.includes('F167'), 'should scrub feature IDs');
+      assert.ok(sanitized.degradePlan.rollbackCondition.includes('[feature]'), 'should replace with [feature]');
+    });
+
+    it('omits degradePlan for non-degrade verdicts', () => {
+      const verdict = parseVerdictHandoffPacket(makeVerdict({ verdict: 'fix' }));
+      const sanitized = sanitizeVerdictForExport(verdict, 'my-instance');
+      assert.equal(sanitized.degradePlan, undefined);
+    });
+
     // ---- P1 fixes: free-text scrubbing + opaque ID ----
 
     it('scrubs internal feature IDs (F\\d{3}) from free-text fields', () => {

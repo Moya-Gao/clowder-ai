@@ -62,6 +62,14 @@ const sanitizedIssuePacketSchema = z.object({
   /** Verdict: delete_sunset / build / fix / keep_observe / degrade. */
   verdict: z.enum(['delete_sunset', 'build', 'fix', 'keep_observe', 'degrade']),
 
+  /** Degrade execution plan — present only when verdict is 'degrade'. */
+  degradePlan: z
+    .object({
+      targetMode: z.string().min(1),
+      rollbackCondition: z.string().min(1),
+    })
+    .optional(),
+
   /** What the exporting instance recommends the community do. */
   requestedAction: z.string().min(1),
 
@@ -224,6 +232,14 @@ export function sanitizeVerdictForExport(packet: VerdictHandoffPacket, sourceIns
       alternatives: packet.rootCauseHypothesis.alternatives.map(scrub),
     },
     verdict: packet.verdict,
+    ...(packet.verdict === 'degrade' && packet.governance?.degradePlan
+      ? {
+          degradePlan: {
+            targetMode: packet.governance.degradePlan.targetMode,
+            rollbackCondition: scrub(packet.governance.degradePlan.rollbackCondition),
+          },
+        }
+      : {}),
     requestedAction: scrub(packet.ownerAsk.requestedAction),
     counterarguments: packet.counterarguments.map(scrub),
   };
