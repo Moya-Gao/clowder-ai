@@ -355,7 +355,18 @@ export function deriveLegacyServiceConfig(
   const config: ServiceConfig = { installed: true, enabled: true };
   const modelKey = MODEL_ENV_VARS[service.id];
   const model = modelKey ? env[modelKey]?.trim() : undefined;
-  if (model) config.selectedModel = model;
+  if (model) {
+    config.selectedModel = model;
+  } else {
+    // Fall back to manifest's recommended default model so that legacy
+    // env bridge users (ENABLED=1 without MODEL) get a working service
+    // instead of a "MODEL required" startup failure.  The manifest's
+    // isDefault model is the single source of truth for defaults (see
+    // b29c04d05 — hardcoded script defaults were removed intentionally).
+    const defaultModel =
+      service.prerequisites?.models?.find((m) => m.isDefault) ?? service.prerequisites?.models?.[0];
+    if (defaultModel) config.selectedModel = defaultModel.name;
+  }
   const portKey = PORT_ENV_VARS[service.id];
   const port = parseServicePort(portKey ? env[portKey]?.trim() : undefined);
   if (port) config.port = port;
