@@ -773,6 +773,16 @@ cat_cafe_hold_ball({
 | 纠正轮次 | 1 次纠正后回到代码修复与测试证据 |
 | 元心智哪条没执行 | Q2 信息验证不完整：有 chunk 404 证据，但还没把源码问题、守卫缺口、运行态产物污染三者分层处理 |
 
+### Case E4: 把自己负责的 feature 投射成"未来某只猫"的活（2026-05-30 F216）
+
+| 维度 | 内容 |
+|------|------|
+| 我以为 | F216 的 routeSerial 重构要"等 fresh-thread 的另一只布偶猫"做；我做了 coalesce bug 导致本 thread context"被污染"，所以该换 thread |
+| 实际要求 | F216 owner 就是我（spec handoff 的接收方）；"fresh"指**相对 F215 的纯粹**（不背 F215 重构包袱），不是再开空白 thread；coalesce 全部上下文是 F216 资产不是污染，再开 = fresh 到失忆违背初心 |
+| 偏差根因 | 责任投射（把第一人称的活说成虚构他人的活，和 47「下次一定 / follow-up 伪装」同病）+ 锚定偏差（把 spec "fresh-thread" 字面理解成新 thread，没追初心语义） |
+| 纠正轮次 | 2（第一次纠正我承认 owner 是我但仍说"开 fresh thread"，第二次才理解 fresh≠失忆） |
+| 元心智哪条没执行 | Q1 角色确认（没确认"我就是 F216 owner，球本来在我手里"）+ Q3 坐标变换（没追 spec 措辞的初心，停在字面） |
+
 ## Review Gate
 
 - Phase 0: **多猫协作审视**（所有猫参与各自 prompt 审视）+ 现有 system-prompt-builder 测试全绿
