@@ -701,7 +701,35 @@ cat_cafe_hold_ball({
 - [x] AC-L3: merge-gate skill Step 6.1 EYES 检测后追加 KD-27 checkpoint：复用现有 Step 6.1 reaction API 路径检查 EYES > 0 → 释放 hold_ball 禁止续约轮询；EYES == 0 → 允许 hold 等接单。不做 harness 层 hold_ball metadata 与 PR tracking subjectKey 的机械绑定
 - [x] AC-L4: ~~所有静态 prompt 文件的传球决策树同步更新~~ → 验证结果：`CLAUDE.md`、`AGENTS.md`、`gemini.md` 均不含传球决策树（仅存在于 `shared-rules.md` canonical + `SystemPromptBuilder.ts` runtime 注入，AC-L1+L2 已覆盖）。N/A
 
-**关闭门禁**：Phase I + J 全部合入后观察 1 周无新 case → Phase K Design Gate → K 合入 → Phase L 合入 → 2 周观察 → F167 正式 close。
+### Phase M（Hold Wake 计时锚点 — fire-time idle 校验 + 不重放过期 wake — 2026-05-30 立项）
+
+**触发**：callback fetch timeout 修复（PR #1975 → `ffa6ac16f`，归属 F167 Layer 3）诊断"hold_ball 卡住 5min"时挖出更深的机制问题。那只猫（opus-45 @ `thread_mps6hc0pyorb00j7`）开 background sync 长跑 + 叠 hold_ball，卡住期间 hold wake fire 撞 active invocation → 排队 → 过期 reason 重放（猫自己察觉"这个 hold 唤醒是旧的、历史重放"）。
+
+**根因（两层）**：
+1. **计时锚点错位**：`callback-hold-ball-routes.ts:160` `fireAt = Date.now() + wakeAfterMs` 从**调用时刻**计时；但 hold 语义是"我这次活干完后 N 分钟叫我"，锚点应是**猫空闲那刻**。猫调 hold 后仍忙（典型：叠 background Bash 长跑）时，wake 撞 active invocation → `ConnectorInvokeTrigger.enqueueWhileActive` 排队过期 message。
+2. **过期 wake 重放**：hold message 调用时冻进 task params（reason/nextStep），fire 时原样投递；猫 session 早已演进（等的事失败 / 已换别的活），重放误导。
+
+**与 Phase L 关系**：Phase L（KD-27）是 **prompt 层**（教猫 2a/2b，结构化回调 supersedes 轮询，靠自觉）；本 Phase 是 **机制层补强**（让它自然不出错）。同源（hold + 另一唤醒源重复唤醒）不同层。
+
+**设计（fire-time idle 校验，刻意不绑定"invocation-end 时刻"）**：
+- **M-1 fire-time idle gate**：hold wake fire 时查目标 thread 是否 busy（复用现成 `invocationTracker.isThreadBusy` — ConnectorInvokeTrigger 已在用，**非新分类器**）。busy → 不投递过期 message、不排队，延后 re-arm（catch-up，等猫空闲那刻再 fire，有上限兜底）；idle → 正常唤醒。
+- **M-2 wake 文案去冻结**：唤醒不重放调用时旧 reason，改为引导"你之前 hold 等 {reason 摘要}，现在空了——重新评估当前是否还需等"。
+- **M-3 tool description 约束**：hold_ball MCP description 加"自己开的 background 命令别用 hold_ball（harness 完成会自动 re-invoke）；hold_ball 只给 harness 看不到的外部等待（云端 review / CI / 远程队列）"。强化 KD-27 在工具入口。
+
+**OQ**：
+- OQ-M1（边角、非 block）：CLI 子进程在 background Bash 未完成时退不退出？影响 idle 校验在 background 场景的边角正确性（若 invocation 结束但 background 仍跑，wake 可能多余 → re-arm 上限兜底）。**核心 fire-time gate 不依赖此**。alpha 实测确认。
+- OQ-M2（Design Gate 必答）：M-1 busy-check 与 KD-27"不做 hold_ball × 结构化回调机械绑定（KD-8 分类器反模式）"如何 reconcile？**倾向**：busy-check 查 cat-cafe 自己的 `invocationTracker` 实时状态（Phase L 前就有、ConnectorInvokeTrigger 现用），非绑定 PR tracking subjectKey、非语义分类 → 不违反 KD-27/KD-8。Design Gate 确认。
+
+**AC（draft，Design Gate 定稿）**：
+- [ ] AC-M1：fire 时 thread busy → 不投递过期 message + re-arm 延后（有上限兜底）
+- [ ] AC-M2：fire 时 thread idle → 正常唤醒，文案去冻结（引导重判而非重放旧 reason）
+- [ ] AC-M3：hold_ball MCP tool description 加 background 约束（强化 KD-27 入口）
+- [ ] AC-M4：OQ-M1 alpha 实测 background 退出时序 + 文档化
+- [ ] AC-M5：回归测试（fire busy → re-arm 不重放 / idle → 唤醒 / re-arm 上限）
+
+**Eval / Tracking Contract**：复用 F167 顶部 contract（C1 hold_ball activation signal）。新增 friction：hold wake 在 thread busy 时投递过期 message 的次数（应降为 0）。Regression fixture：AC-M5。Sunset：若 hold_ball 整体退役（被纯 harness re-invoke 取代）则本 Phase 随之 sunset。
+
+**关闭门禁**：Phase I + J 全部合入后观察 1 周无新 case → Phase K Design Gate → K 合入 → Phase L 合入 → **Phase M Design Gate + 合入** → 2 周观察 → F167 正式 close。
 
 ## Behavioral Evidence（Phase B 观察记录）
 
