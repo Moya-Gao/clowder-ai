@@ -7,7 +7,7 @@ created: 2026-05-30
 
 # F216: routeSerial 决策层/执行层分离重构
 
-> **Status**: spec | **Owner**: 设计 @opus48 (F215 thread) / 执行待 fresh-thread opus-48 | **Priority**: P1 | **Source**: internal (F215 引爆点)
+> **Status**: in-progress (Phase D queued-merge 已交付 PR #1971) | **Owner**: @opus48（本 F216 thread = 设计 from F215-thread handoff + 执行 owner，同一只猫继续持有） | **Priority**: P1 | **Source**: internal (F215 引爆点)
 
 Architecture cell: `routing`
 Map delta: routeSerial 从 2302 行单函数拆为决策层(纯函数) + 执行层(for-await yield)
