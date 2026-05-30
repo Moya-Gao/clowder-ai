@@ -235,6 +235,7 @@ Phase E 将 F192 从单域试点提升为横切的 Harness Eval Control Plane：
 1. F203 PR ship L0 §8 v1 + ref doc（本 PR）→ trigger 名单稳定
 2. ✅ Phase F design memo（`docs/plans/2026-05-28-F192-phase-f-capability-wakeup-eval.md`）：6 seam + 4 capability predicate type + **3-way 根因分类器**（认知/行为/注意力稀释，严格按序）+ 全量记录与归因解耦 + 治理权重；6 个 load-bearing 代码缝实测核验
 3. Implementation：trace adapter + evaluator + domain registry + scheduled invocation
+   - **Status (2026-05-29)**: 第一版 implemented-then-parked in PR #1942（branch `feat/f192-capability-wakeup`，归档保留）。6+ 轮云端 review 暴露根因：trace/trials approach（"reconstruct from heterogeneous events + scattered scope binding"）补锅-prone（31 inline comments，65% 聚集 trials.ts+trace.ts）。**Clean reboot in progress**：transplant 已稳定的 source-instrumented blocks（domain plumbing / route audits / verdict+bundle）+ 按对的坐标系（**normalize-at-boundary + centralize-scope**）重写 trials.ts/trace.ts。详见 `docs/plans/2026-05-29-F192-phase-f-clean-reboot.md`（含 transplant block list + 反模式 checklist 抽自旧 PR 31 cloud comments）。Owner: gpt52（砚砚）author + opus-47 收口策略 + cross-individual review。
 4. First weekly verdict cycle（real data 第一刀）
 5. L0 §8 v2 数据驱动 iterate（去掉低 miss-rate 条目 / 加新发现的高 miss-rate 场景）
 
