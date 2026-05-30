@@ -9,7 +9,7 @@ community_issue: "https://github.com/zts212653/clowder-ai/issues/614"
 
 # F180: Agent CLI Hook Health and Sync
 
-> **Status**: in-progress (Phase A+B merged via PR #1476; Phase C AC-C5 merged via PR #1477; Phase C AC-C1~C3 merged via PR #1478; Phase C AC-C4 + Phase D field repair station merged via PR #1479; AC-D4/open-source closure pending) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
+> **Status**: ✅ closed (2026-06-28) | **Owner**: 缅因猫/砚砚 | **Priority**: P1 | **愿景守护**: 宪宪/Opus-46
 
 ## Why
 
@@ -90,7 +90,7 @@ Phase A+B 都是后端 health contract / sync module 范围，可以在同一个
 - [x] AC-D1: 前端有 Agent CLI Hook Health UI，展示 Claude/Codex 分项状态。
 - [x] AC-D2: 点击同步按钮后，UI 从 warning/error 变为 configured green。
 - [x] AC-D3: 外部 project governance bootstrap 仍只处理 `CLAUDE.md` / `AGENTS.md` / skills，不写 user-level hooks。
-- [ ] AC-D4: 开源同步后 `clowder-ai#614` 可以用 fixed-internal → synced → close 的链路收口。
+- [x] AC-D4: 开源同步后 `clowder-ai#614` 可以用 fixed-internal → synced → close 的链路收口。
 
 ## Dependencies
 
@@ -142,6 +142,8 @@ Phase A+B 都是后端 health contract / sync module 范围，可以在同一个
 | 2026-04-29 | Phase C AC-C4 + Phase D field repair station merged (PR #1479) — ProjectSetupCard / thread setup surface shows Agent Hook Health, session-cached status avoids N+1 checks, compact repair preview is Design Gate accepted, and one-click sync returns configured state |
 | 2026-04-30 | Outbound sync review fixes merged (PR #1487) — fixed home-side Agent Hook auth, unlabeled tool-result FIFO handling, and TTS partial-failure counters before regenerating the public sync; AC-D4 remains pending until `clowder-ai#614` is synced and closed |
 | 2026-05-03 | Windows cross-platform hook fix merged (PR #1540) — explicit `bash` prefix on all managed hook commands so Windows users with Git Bash can execute hooks instead of VS Code opening them; health check detects old-format commands as `stale` for one-click repair; AC-D4 still pending open-source sync |
+| 2026-05-30 | 宪宪/Opus-46 愿景守护 verdict：家里侧 19/20 AC 达成，条件放行；AC-D4 开源侧 ops 收口待完成 |
+| 2026-06-28 | F180 feat close：确认 F180 内容已通过后续 outbound sync（#737~#786，含 v0.10.0）全量同步到 clowder-ai；close `clowder-ai#614`；AC-D4 ✅；20/20 AC 全部完成 [宪宪/Opus-46🐾] |
 
 ## Review Gate
 
