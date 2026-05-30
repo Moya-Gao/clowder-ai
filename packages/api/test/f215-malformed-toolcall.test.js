@@ -966,6 +966,94 @@ describe('F215 AC-B6 (P1 7th): malformed after content output must surface error
   });
 });
 
+// ── AC-B7 (production hotfix): system_info/rate_limit must NOT block malformed recovery ──
+//
+// Production bug (砚砚 root cause analysis 2026-05-30):
+// attemptHasContentOutput = true was set for system_info (rate_limit_event / agent_loop)
+// because the condition excluded only error/done/session_init/provider_signal/liveness_signal/status
+// but NOT system_info.
+// Result: 136-event long Claude invocation had rate_limit system_info events before the
+// thinking-only malformed turn → attemptHasContentOutput=true → malformed suppress guard failed
+// → seal/retry/46接力 all skipped → user saw bare malformed error.
+//
+// Fix: attemptHasContentOutput must only be set by replay-sensitive types:
+// text / tool_use / tool_result (types that would cause duplicate side-effects on retry).
+// system_info, status, invocation_metrics, agent_loop etc. are metadata, not model output.
+
+describe('F215 AC-B7 (hotfix): system_info/rate_limit before malformed must NOT block recovery', () => {
+  test('malformed retry triggers when system_info (rate_limit) preceded the malformed turn', async () => {
+    // Regression test for production bug: service emits system_info THEN malformed.
+    // With the bug: attemptHasContentOutput=true → suppress guard fails → no retry.
+    // After fix: system_info does NOT set attemptHasContentOutput → retry fires.
+    const { invokeSingleCat } = await import('../dist/domains/cats/services/agents/invocation/invoke-single-cat.js');
+
+    let invokeCount = 0;
+    const rateLimitThenMalformedService = {
+      async *invoke(_prompt, _opts) {
+        invokeCount++;
+        // system_info rate_limit (what ClaudeAgentService emits from transformClaudeEvent rate_limit_event)
+        yield {
+          type: 'system_info',
+          catId: 'opus48',
+          content: JSON.stringify({ type: 'rate_limit', message: 'throttled' }),
+          timestamp: Date.now(),
+        };
+        // Then malformed (thinking-only)
+        yield {
+          type: 'system_info',
+          catId: 'opus48',
+          content: JSON.stringify({ type: 'malformed_toolcall_detected', sessionId: `ses-rl-${invokeCount}` }),
+          timestamp: Date.now(),
+        };
+        yield {
+          type: 'error',
+          catId: 'opus48',
+          error: 'malformed_toolcall: thinking-only after rate_limit',
+          timestamp: Date.now(),
+        };
+        yield { type: 'done', catId: 'opus48', timestamp: Date.now() };
+      },
+    };
+    let regCounterB7 = 0;
+    const depsB7 = {
+      registry: {
+        create: async () => ({
+          invocationId: `inv-b7-${++regCounterB7}`,
+          callbackToken: `tok-b7-${regCounterB7}`,
+        }),
+        verify: async () => ({ ok: false, reason: 'unknown_invocation' }),
+      },
+      sessionManager: {
+        get: async () => undefined,
+        getOrCreate: async () => ({}),
+        store: async () => {},
+        delete: async () => {},
+        resolveWorkingDirectory: () => '/tmp/test',
+      },
+      threadStore: null,
+      apiUrl: 'http://127.0.0.1:3004',
+    };
+
+    const msgs = [];
+    for await (const msg of invokeSingleCat(depsB7, {
+      catId: 'opus48',
+      service: rateLimitThenMalformedService,
+      prompt: 'rate_limit then malformed test',
+      userId: 'user-b7',
+      threadId: 'thread-b7',
+      isLastCat: true,
+    })) {
+      msgs.push(msg);
+    }
+
+    // Service MUST be called more than once (retry fired) — system_info must NOT block recovery
+    assert.ok(
+      invokeCount > 1,
+      `Service must be called >1 time (retry fired). Was called: ${invokeCount}. system_info/rate_limit must not set attemptHasContentOutput (production bug)`,
+    );
+  });
+});
+
 // ── AC-C1/C2 integration: isMalformedToolCallError helper ──
 // These test the helper function used by invoke-single-cat for detection.
 

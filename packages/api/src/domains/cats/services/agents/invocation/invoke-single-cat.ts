@@ -2288,7 +2288,16 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           msg.type !== 'liveness_signal' &&
           msg.type !== 'status'
         ) {
-          attemptHasContentOutput = true;
+          // F215 hotfix: attemptHasContentOutput must only be set by replay-sensitive types
+          // (text / tool_use / tool_result). system_info (rate_limit_event / agent_loop /
+          // timeout_diagnostics) and other metadata MUST NOT prevent malformed recovery —
+          // they carry no model output that would be duplicated on retry.
+          // Bug: system_info from rate_limit_event precedes malformed turn → sets
+          // attemptHasContentOutput=true → malformed suppress guard !attemptHasContentOutput
+          // fails → seal/fresh-retry/46接力 all skipped → bare malformed error leaks to user.
+          if (msg.type === 'text' || msg.type === 'tool_use' || msg.type === 'tool_result') {
+            attemptHasContentOutput = true;
+          }
           // Substantive = real model output, excludes system_info (e.g. timeout_diagnostics).
           if (msg.type !== 'system_info') {
             attemptHasSubstantiveOutput = true;
