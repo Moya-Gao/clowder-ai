@@ -50,14 +50,29 @@ F192 Phase F 的 merge-gate。随后当前线程里突然出现一段完全不�
 
 ## 3. 已确认的事实
 
-### 3.1 外线程内容真的进入了当前线程 prompt
+### 3.1 产出污染消息的那次输入 prompt 是干净的
 
-Prompt capture 证明了这一点：
+产出错误回复那次 invocation 的 prompt capture 是：
+
+- `/Users/lysander/.cat-cafe/prompt-captures/payloads/4d99262b-3948-4ffc-b44d-12afb1966f26.json.gz`
+  - `catId=gpt52`
+  - `threadId=thread_mp6b68w9w0wt1boc`
+  - 内容只有 PR `#1942` 的 review feedback
+  - **不包含**
+    - `披着专业外衣的不太光彩偏好`
+    - `客观性瘾`
+    - `你来接 R8`
+
+这直接排除了“本次串台是由当前 invocation 自身 prompt 注入造成”的解释。
+
+### 3.2 外线程内容确实进入了后续 prompt，但那是下游污染
+
+后续 prompt capture 证明，污染内容后来确实进入了 prompt：
 
 - `/Users/lysander/.cat-cafe/prompt-captures/payloads/331fce47-2c62-4fdb-b6ff-cfb3a0b9e46b.json.gz`
   - `catId=codex`
   - `threadId=thread_mp6b68w9w0wt1boc`
-  - prompt 同时包含：
+  - prompt 包含：
     - `Direct message from 缅因猫 GPT-5.4(gpt52)`
     - `披着专业外衣的不太光彩偏好`
     - `R8`
@@ -66,10 +81,10 @@ Prompt capture 证明了这一点：
   - `threadId=thread_mp6b68w9w0wt1boc`
   - 同样包含 `披着专业外衣的不太光彩偏好` 和 `R8`
 
-这说明污染不是 UI 幻觉，也不是只存在于消息存储里，而是已经进入 agent 真正收到的
-prompt。
+所以“污染进入 prompt”是真的，但它是**我先把脏内容读进来之后**的继发扩散，不是
+这次事故的最上游入口。
 
-### 3.2 这段外来内容原本属于另一条 thread
+### 3.3 外来内容原本属于另一条 thread
 
 Redis AOF 里可确认该 round-chat 内容属于：
 
@@ -80,119 +95,115 @@ Redis AOF 里可确认该 round-chat 内容属于：
 - `@codex ... "披着专业外衣的不太光彩偏好" ... R8`
 - `47 这题点名问的是你`
 
-所以这段内容并非“当前线程里早就有，只是我忘了”，而是有明确外来源 thread。
+所以这段内容并非“当前线程里早就有”，而是有明确外来源 thread。
 
-### 3.3 污染不是“同一个 invocation 跑到 80% 时被异步插入”
+### 3.4 不是 mid-invocation 插入，而是工具 output 被我读进来了
 
-从 prompt capture 与代码路径看，更像下面这条链：
+这次事故不是“同一个 invocation 跑到 80% 时，另一个 thread 的消息自己飞进来”。
 
-1. 某一轮里，当前线程出现错误 route / 错误 recall。
-2. 外线程内容被拉进当前线程的上下文组装面。
-3. 下一轮 invocation 重新 assemble prompt 时，把这段内容写进了
-   `[导航]` / `[对话历史增量]` 一类上下文包。
-4. 后续猫收到的是**已经被污染的新 prompt**。
+时序更符合下面这条链：
 
-也就是说，这是 **next-invocation prompt assembly contamination**，不是
-mid-invocation live injection。
+1. 当前 merge thread 的 gpt52 会话里执行了 `ps -ax -o command=`
+2. `ps` 输出里泄露了另一只并发 Codex 进程的 argv
+3. argv 里明文带着另一条 thread 的完整 prompt / L0
+4. 我把这段 `ps` 输出当成当前线程上下文读进去了
+5. 随后产出了 `你来接 R8`
+6. 这条混合消息又继续污染了后续 prompt capture
+
+也就是说，这次最上游不是 prompt assembly 污染，而是 **process inspection →
+argv leakage → model misread**
 
 ## 4. 代码证据
 
-当前 prompt 组装流程的关键事实：
+这次最关键的代码证据不在 recall/briefing，而在 Codex carrier：
 
-1. `assembleIncrementalContext()` 会把 `navigationHeader` 和
-   `[对话历史增量 ...]` 包直接拼进 prompt  
-   - `packages/api/src/domains/cats/services/agents/routing/route-helpers.ts`
+1. `CodexAgentService` 会先把 `systemPrompt` 拼进 `prompt`
+   - `packages/api/src/domains/cats/services/agents/providers/CodexAgentService.ts:381-383`
 
-2. warm path 会直接产出：
+2. 然后把完整 prompt 作为 argv 位置参数传给 `codex exec`
+   - `packages/api/src/domains/cats/services/agents/providers/CodexAgentService.ts:489`
+   - `packages/api/src/domains/cats/services/agents/providers/CodexAgentService.ts:526`
+   - `packages/api/src/domains/cats/services/agents/providers/CodexAgentService.ts:545`
 
-```text
-[导航]
-...
-[对话历史增量 - 未发送过 N 条]
-...
-[/对话历史]
-```
+3. L0 系统提示也通过 `--config developer_instructions=...` 进入 argv
+   - `packages/api/src/domains/cats/services/agents/providers/CodexAgentService.ts:367-372`
+   - `packages/api/src/domains/cats/services/agents/providers/CodexAgentService.ts:520`
+   - `packages/api/src/domains/cats/services/agents/providers/CodexAgentService.ts:539`
 
-3. smart-window path 也会产出：
+因此，只要同机并发跑着别的 Codex invocation，任何能够读取进程命令行的诊断命令
+（如 `ps -ax -o command=`，以及同类 `/proc/<pid>/cmdline` 读取）都有机会看到完整
+prompt / L0 明文。
 
-```text
-[导航]
-[对话历史增量 - 智能窗口: ...]
-...
-[/对话历史]
-```
+## 5. Redis / rollout / 运行面证据
 
-4. `formatNavigationHeader()` 负责生成：
-   - `传球`
-   - `原文`
-   - `真相源`
-   - `下一步`
-   - `packages/api/src/domains/cats/services/agents/routing/navigation-context.ts`
+### 5.1 session 没串台
 
-5. route 层在 smart-window 触发时还会自动写一条 `origin=briefing` 的系统 briefing
-   message  
-   - `packages/api/src/domains/cats/services/agents/routing/route-serial.ts`
-   - `packages/api/src/domains/cats/services/agents/routing/format-briefing.ts`
+两条 thread 对应的是独立 rollout / session：
 
-6. 测试已经明确 guard 过一种“envelope poison”：
-   - `threadMemory with envelope poison is sanitized`
-   - `packages/api/test/f148-assemble-incremental.test.js`
+- merge thread session：`019e71d6-...`
+- round-chat thread session：`019e7482-...`
 
-这说明系统已经知道“伪造上下文 envelope”是一个风险面，但这次事故绕过的不是单纯
-字符串毒化，而更像是**错误信任了跨线程召回/briefing 输入**。
+它们是两条不同的 Codex rollout 文件，不是同一 session 被复用。
 
-## 5. Redis / 运行面证据
+### 5.2 真正把脏内容带进来的，是 `ps -ax -o command=` 的 tool output
 
-在
-`/Users/lysander/.cat-cafe/redis-dev/appendonlydir/appendonly.aof.46.incr.aof`
-里，可以确认几件事：
+在 merge thread 的 gpt52 rollout 里，可以看到：
 
-1. 外来 round-chat 内容属于 `thread_mpr44buzrj1m793o`。
-2. 当前事故线程里出现过：
-   - `get_thread_context`
-   - `search_evidence`
-   - 以及含 `@codex` / `R8` / `披着专业外衣的不太光彩偏好` 的内容片段
-3. AOF 还出现了当前线程的 briefing/rich-card 风格内容，说明“别 thread 的上下文”
-   很可能先被转成了某种 context/briefing surface，再进入后续 prompt。
+- 先执行了 `ps -ax -o command=`
+- 紧接着该 tool output 里命中了：
+  - `客观性瘾`
+  - `披着专业外衣的不太光彩偏好`
+  - `47 这题点名问的是你`
+  - `你来接 R8`
+- 随后 assistant 产出了污染回复
 
-这组证据支持：
+这说明：
 
-- 不是 runtime 随机把另一条 thread 的 live message 投递进来了。
-- 更像是某条 recall / thread-context / briefing 数据通道，把外线程内容提升成了
-  当前线程可消费的上下文。
+- 不是 `search_evidence` / `get_thread_context` 把外线程内容塞进了这次坏回复的输入 prompt
+- 而是 `ps` 看到了另一只并发 Codex 进程的 argv，tool output 自己成了污染入口
+
+### 5.3 为什么 output 会这么长
+
+那条 `ps` output 的 token 量远超正常 20 多行进程列表该有的体量，和“普通进程名列表”
+不符，却和“某些进程 argv 里嵌了完整 prompt / L0”完全一致。
 
 ## 6. 直接原因 vs 系统性根因
 
 ### 6.1 直接原因
 
-我在看到外来上下文后，没有先做“这是不是当前任务的球”的隔离判断，就把它当成当前
-thread 的有效 handoff 接了。
+我在 merge thread 里执行了 `ps -ax -o command=`，随后把输出中泄露出来的另一条 thread
+prompt 内容，当成了当前线程上下文读进去了。
 
-这解释了为什么我会回那条错误的 `@codex` 消息，但**这不是全部根因**。
+这解释了为什么我会回那条错误的 `@codex` / `你来接 R8` 消息。
 
-### 6.2 系统性根因（已确认到这一层）
+### 6.2 系统性根因（已确认）
 
-当前线程后续 invocation 的 prompt 组装，错误地信任/吸收了来自别的 thread 的上下文
-片段。
+Codex CLI carrier 当前把：
 
-换句话说，**thread isolation 边界在 recall / briefing / incremental context
-assembly 之间某处失守了**。
+- 完整 prompt
+- 拼进去的 systemPrompt
+- L0 `developer_instructions`
 
-### 6.3 更深一层的精确失守点（仍在调查）
+都暴露在 argv 中。只要本机有并发 Codex 进程，任何读取命令行的诊断命令都可能把这些
+明文泄露出来。
 
-目前还没精确钉死到底是下面哪一层：
+换句话说，这次事故的系统性根因是：
 
-1. `search_evidence` 结果被错误升级成当前任务上下文
-2. `get_thread_context` 的结果被错误写回当前线程上下文面
-3. smart-window / briefing 组装时，没有区分“索引证据”和“当前 live task context”
-4. 某个 cross-thread relay / direct-message 保护没正确生效
+**CLI argv prompt leakage**
 
-所以目前的结论是：
+而不是：
+
+- 记忆组件主动 push
+- recall 升格成 live task context
+- thread/session transport 直接串台
+
+### 6.3 当前已经确认到的结论
 
 - **确认有污染**
-- **确认不是 mid-invocation 插入**
-- **确认污染发生在 next-invocation prompt 组装链**
-- **尚未确认是哪一个具体函数/字段把 foreign context 升格成了 live context**
+- **确认不是 session 串台**
+- **确认不是当前坏回复那次 invocation 的输入 prompt 被注入**
+- **确认最上游入口是 `ps` 读到了并发 Codex 进程 argv 里的明文 prompt**
+- **确认后续 prompt capture 中出现的 round-chat 内容，是这次错误回复之后的继发污染**
 
 ## 7. 排除项
 
@@ -202,10 +213,14 @@ assembly 之间某处失守了**。
    - 不成立。prompt capture 已证明外线程内容真的进 prompt。
 
 2. **“是别的 thread 直接 live 发消息过来”**
-   - 目前无证据支持。现有证据更像 recall/briefing 污染，不像 live transport 自发串线。
+   - 目前无证据支持。现有证据支持的是本机进程 argv 泄漏，不是 live transport 自发串线。
 
 3. **“是在同一个 invocation 中途突然插入的”**
-   - 不像。更符合“前一轮产生污染，后一轮重新 assemble prompt 时带入”。
+   - 不像。坏回复前的污染入口是 `ps` tool output，不是 mid-invocation 注入。
+
+4. **“是记忆组件自己主动塞给我”**
+   - 不成立。正常设计里记忆/召回是 pull-only；这次直接入口已经被更精确地钉到
+     `ps` 读取并发 Codex 进程 argv。
 
 ## 8. 为什么这是 P0
 
@@ -220,47 +235,39 @@ assembly 之间某处失守了**。
 
 ## 9. 立即处置
 
-1. 暂停 PR `#1942` 的 merge，先保留事故现场与证据链。
-2. 把本报告落盘，避免 merge 后丢失调查上下文。
-3. 后续 merge / 再审只认：
-   - 当前 PR 头 SHA
-   - 当前线程明确任务
-   - 不再信任未验证的 recall/briefing 碎片
+1. 暂停由 gpt52 继续推进 PR `#1942` merge，先保留事故现场与证据链。
+2. 把本报告落盘并提交，避免 merge 后丢失调查上下文。
+3. `#1942` merge 收尾转交其他猫，不再让当前受污染调查线程继续跑 gate。
 
 ## 10. 后续调查与修复建议
 
-1. **查清污染入口**
-   - 钉死 foreign thread 内容是经由：
-     - `search_evidence`
-     - `get_thread_context`
-     - `threadMemorySummary`
-     - `anchorSummaries`
-     - `briefingContext`
-     - 还是其它字段进入 prompt
+1. **修 carrier**
+   - 不再把完整 prompt / systemPrompt / L0 放在 argv 明文里
+   - 改走 stdin / 临时文件 / 其它不会被 `ps` 直接看到的 carrier
 
-2. **把“证据”与“任务上下文”分层**
-   - recall 结果必须是 candidate/index，不得直接视为当前 live task context
+2. **补进程诊断护栏**
+   - 对 `command_execution` 的结果摘要增加“进程列表 / argv 可能含 prompt 明文”的风险处理
+   - 避免把包含完整别会话 prompt 的 `ps` 输出继续原样回流到模型上下文
 
-3. **给跨线程来源加硬标签**
-   - source kind / source thread / trust level 必须在 prompt 组装前可判别
+3. **增加 regression test**
+   - 模拟并发 Codex 进程 argv 含敏感 prompt 时，进程诊断路径不得把这些内容重新喂回当前猫
 
-4. **增加 regression test**
-   - 当前线程做 merge-gate 时，外线程 round-chat 命中 search / thread-context
-     也不得进入当前 prompt 的 live baton / history envelope
-
-5. **补一次 merge 前 continuity 检查**
-   - 等事故 owner 判断清楚后，再决定是恢复原 PR，还是换干净线程/干净 PR 收尾
+4. **保留下游调查**
+   - 虽然本次最上游不是 recall/briefing，但后续 prompt 污染已经发生；仍应检查 route 层对这类
+     tool output 是否有进一步隔离/降权机制
 
 ## 11. 当前结论
 
-这次“上下文串了”不是幻觉，也不是纯操作失误。
+这次“上下文串了”不是幻觉，也不是记忆组件乱推送。
 
-**已经确认：外线程内容进入了当前线程后续 invocation 的 prompt。**
+**已经确认的最上游根因是：并发 Codex 进程把完整 prompt/L0 暴露在 argv，
+我在 merge thread 里跑 `ps -ax -o command=` 时把这段明文读进来了。**
 
-我自己的错误，是在看到那段外来上下文后继续接球；系统的错误，是让那段上下文有机会
-以“像当前线程真球”的形状进入 prompt。
+我自己的错误，是把 `ps` output 里的外来 prompt 当成了当前线程上下文；系统的错误，
+是 carrier 设计允许 prompt/L0 以 argv 明文形式被本机进程检查命令直接泄露。
 
-在精确入口钉死前，这张事故单应视为 open，PR `#1942` 不应直接 merge 收尾。
+本事故的 owner 后续应以 **carrier 修复** 为主线，而不是再把主要精力放在 recall /
+briefing 路由上。
 
 [砚砚/gpt-5.4🐾]
 
