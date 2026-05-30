@@ -214,12 +214,10 @@ describe('F203 Phase B — compile-system-prompt-l0.mjs', () => {
     });
   });
 
-  // AC-B3 上限 5,600（KD-14）：4,500→5,000（KD-9，S1 实测 static 物理
-  // 下限 ~4,600t）→5,500→5,600。第二次上移因 codex user-layer strip 把
-  // Codex CLI 专属「长任务纪律」从退役的 ~/.codex/AGENTS.md 迁入
-  // maine-coon native overlay——maine-coon 实测 5,154-5,155t，5,000
-  // buffer 已耗尽。第三次上移因新增 Magic Word「补锅匠」(§16e
-  // failure-mode audit) 加 ~30t，maine-coon 实测 5,529-5,530t。
+  // AC-B3 上限 5,600（KD-14）：4,500→5,000→5,500→5,600。
+  // 改 governance content（Magic Words / shared-rules）时两个 test 都要跑：
+  //   - 本文件：token budget（L0 compiled markdown）
+  //   - packages/api/test/system-prompt-builder.test.js：char budget（runtime prompt）
   // 5,600 占 200k context 2.8%。详见 F203 AC-B3 + KD-14。
   describe('Token budget (AC-B3, ≤5,600)', () => {
     for (const catId of CATS) {
