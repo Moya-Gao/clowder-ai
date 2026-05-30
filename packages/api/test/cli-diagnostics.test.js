@@ -277,3 +277,86 @@ test('AC-D3: truly unknown (no structuredErrorText) → keeps KD-1 no-safeExcerp
   // Phase D P2 fix: no safeExcerpt → no excerptSource (frontend membership check will fail closed)
   assert.strictEqual(d.excerptSource, undefined, 'truly unknown: no excerptSource (fail-closed)');
 });
+
+// F212 Phase E — server_overloaded provider-neutral invariant (cloud codex R2 P2 on adf26db37):
+// classifier is shared by spawnCli for all CLI providers (claude / codex / gemini / antigravity).
+// REASON_TEXT.server_overloaded MUST stay provider-neutral — hard-coding a specific brand
+// misdiagnoses non-that-brand failures and sends users to the wrong status page. The regex is
+// intentionally broad (generic 529 / "Server is busy" patterns) so the text must follow suit.
+test('server_overloaded: REASON_TEXT MUST be provider-neutral (cloud codex R2 P2 on adf26db37)', () => {
+  const d = buildCliDiagnostics({
+    rawText: 'API Error: Server is temporarily limiting requests (not your usage limit) · Rate limited',
+    debugRef: baseRef,
+  });
+  assert.strictEqual(d.reasonCode, 'server_overloaded');
+  // Single-provider brand mentions in summary are misleading. Status-page list in hint is OK
+  // because it explicitly enumerates ALL major providers (Anthropic / OpenAI / Google / DeepSeek)
+  // so the user picks the right one — that pattern is provider-aware, not provider-locked.
+  const PROVIDER_BRANDS = ['Anthropic', 'OpenAI', 'Google', 'DeepSeek', 'Gemini', 'Claude'];
+  for (const brand of PROVIDER_BRANDS) {
+    assert.ok(
+      !d.publicSummary.includes(brand),
+      `server_overloaded summary must be provider-neutral, found brand "${brand}": ${d.publicSummary}`,
+    );
+  }
+  // Hint may enumerate providers (status-page list) but must not single one out as THE cause
+  // — checked by ensuring the hint doesn't say "是 <brand> 服务器" exclusively (i.e. mentions
+  // the diagnosis is NOT tied to one brand).
+  const exclusiveBrandPattern = new RegExp(`是\\s*(${PROVIDER_BRANDS.join('|')})\\s*服务`, 'i');
+  assert.ok(
+    !exclusiveBrandPattern.test(d.publicHint),
+    `server_overloaded hint must not attribute cause to a single provider brand: ${d.publicHint}`,
+  );
+});
+
+// F212 Phase E (@gpt52 BLOCKED + cloud codex R1 P2 both caught the same finding on 1386ceb62):
+// CliDiagnosticsPanel renders publicSummary/publicHint inside a <span> verbatim — no markdown
+// parser. Any `**bold**` or `[link](url)` in REASON_TEXT will leak raw syntax to users, defeating
+// the panel's体感 goal. This invariant test locks the constraint so future REASON_TEXT additions
+// can't reintroduce markdown without a corresponding rich-text renderer.
+test('REASON_TEXT invariant: publicSummary + publicHint MUST be plain text (no markdown syntax)', () => {
+  // Build a diagnostics for each known reasonCode by feeding raw text the classifier will hit,
+  // then assert no markdown bold/link patterns leak via publicSummary / publicHint.
+  const cases = [
+    { rawText: 'Invalid `signature` in `thinking` block', expectedCode: 'invalid_thinking_signature' },
+    { rawText: 'no rollout found', expectedCode: 'missing_rollout' },
+    { rawText: 'Unknown model: foo', expectedCode: 'model_not_found' },
+    { rawText: '401 Unauthorized', expectedCode: 'auth_failed' },
+    { rawText: '429 Too Many Requests', expectedCode: 'quota_exceeded' },
+    { rawText: 'fetch failed: ECONNREFUSED', expectedCode: 'network_error' },
+    { rawText: 'Error loading config.toml: invalid transport', expectedCode: 'invalid_config' },
+    { rawText: 'Error: spawn ENOENT', expectedCode: 'spawn_failed' },
+    { rawText: 'context length exceeded', expectedCode: 'context_window_exceeded' },
+    {
+      rawText: "The model's tool call could not be parsed (retry also failed)",
+      expectedCode: 'tool_call_parse_failed',
+    },
+    {
+      rawText: 'Server is temporarily limiting requests (not your usage limit)',
+      expectedCode: 'server_overloaded',
+    },
+  ];
+  // Markdown patterns that leak as raw syntax in plain-text <span> rendering
+  const MARKDOWN_BOLD = /\*\*[^*]+\*\*/;
+  const MARKDOWN_LINK = /\[[^\]]+\]\(https?:[^)]+\)/;
+  for (const { rawText, expectedCode } of cases) {
+    const d = buildCliDiagnostics({ rawText, debugRef: baseRef });
+    assert.strictEqual(d.reasonCode, expectedCode, `classify "${rawText.slice(0, 40)}"`);
+    assert.ok(
+      !MARKDOWN_BOLD.test(d.publicSummary),
+      `${expectedCode}: publicSummary leaks **bold** markdown: ${d.publicSummary}`,
+    );
+    assert.ok(
+      !MARKDOWN_LINK.test(d.publicSummary),
+      `${expectedCode}: publicSummary leaks [link](url) markdown: ${d.publicSummary}`,
+    );
+    assert.ok(
+      !MARKDOWN_BOLD.test(d.publicHint),
+      `${expectedCode}: publicHint leaks **bold** markdown: ${d.publicHint}`,
+    );
+    assert.ok(
+      !MARKDOWN_LINK.test(d.publicHint),
+      `${expectedCode}: publicHint leaks [link](url) markdown: ${d.publicHint}`,
+    );
+  }
+});

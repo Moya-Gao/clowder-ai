@@ -241,6 +241,7 @@ describe('F212 CliDiagnosticsPanel (AC-B2/B3/B4)', () => {
       'context_window_exceeded',
       'invalid_thinking_signature',
       'tool_call_parse_failed',
+      'server_overloaded',
     ];
 
     for (const reasonCode of reasonCodes) {

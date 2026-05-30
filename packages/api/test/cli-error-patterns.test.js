@@ -33,6 +33,12 @@ const fixtures = [
   ["The model's tool call could not be parsed (retry also failed).", 'tool_call_parse_failed'],
   ['could not parse the model tool call after retry', 'tool_call_parse_failed'],
   ['Tool calls could not be parsed', 'tool_call_parse_failed'],
+  // F212 Phase E (cloud codex P1 per @landy organic 2026-05-29): real CC text from screenshot.
+  // Disambiguation signal: "(not your usage limit)" — MUST classify as server_overloaded,
+  // NOT quota_exceeded. specific-first ordering protects the disambiguation.
+  ['API Error: Server is temporarily limiting requests (not your usage limit) · Rate limited', 'server_overloaded'],
+  ['529 Overloaded: anthropic temporarily limiting', 'server_overloaded'],
+  ['Server is busy, please retry after 30 seconds', 'server_overloaded'],
   // Unknown — must return undefined
   ['some random weird thing happened', undefined],
   ['', undefined],

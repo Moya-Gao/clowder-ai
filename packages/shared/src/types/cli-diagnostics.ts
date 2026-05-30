@@ -20,7 +20,8 @@ export type CliErrorReasonCode =
   | 'invalid_config'
   | 'spawn_failed'
   | 'context_window_exceeded'
-  | 'tool_call_parse_failed';
+  | 'tool_call_parse_failed'
+  | 'server_overloaded';
 
 /**
  * Structured CLI error payload (Phase A KD-1 white-list admission).

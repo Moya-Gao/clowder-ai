@@ -77,6 +77,19 @@ const REASON_TEXT: Record<CliErrorReasonCode, { summary: string; hint: string }>
     summary: '模型工具调用解析失败',
     hint: 'Claude Code 报告：模型输出的 tool call 无法解析（已重试仍失败）——这是模型 / CC 侧问题，非猫咖配置。换一只猫或刷新对话重试；频繁出现可换 model。',
   },
+  server_overloaded: {
+    // F212 Phase E — cloud codex R2 P2 fix (2026-05-30 on adf26db37): summary/hint MUST be
+    // provider-neutral. The classifier is shared by spawnCli for all CLI providers (claude /
+    // codex / gemini / antigravity — see SERVICE_MANIFESTS), and the broad regex matches
+    // generic 529 Overloaded / "Server is busy" patterns from any upstream. Hard-coding
+    // "Anthropic" misdiagnoses non-Claude provider failures + sends users to the wrong
+    // status page. Keep regex broad (correct cross-provider coverage), make text neutral.
+    summary: '上游 CLI provider 服务临时限流',
+    // Plain text only — CliDiagnosticsPanel renders publicHint inside a <span> verbatim
+    // (no markdown parser). @gpt52 R1 BLOCKED + cloud codex R1 P2 both caught the earlier
+    // Markdown version. Provider-neutral phrasing per cloud codex R2 P2.
+    hint: '不是你的额度问题——是 CLI 上游 provider 服务器侧临时限流（provider 错误里通常会明示如 "not your usage limit" / "529 Overloaded"）。等 30-60 秒重试或换一只猫（不同 provider）；反复出现去你用的 provider 状态页（Anthropic / OpenAI / Google / DeepSeek 各有 status 页）。',
+  },
 };
 
 const UNKNOWN_TEXT = {

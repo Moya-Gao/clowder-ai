@@ -8,6 +8,7 @@ import {
   CloudOffIcon,
   FileXIcon,
   GaugeIcon,
+  HourglassIcon,
   KeyRoundIcon,
   PackageXIcon,
   SettingsXIcon,
@@ -81,6 +82,10 @@ const REASON_PALETTE: Record<CliErrorReasonCode, Palette> = {
   // Tier 2 — transient, retry later
   quota_exceeded: { ...PALETTE_TRANSIENT, Icon: GaugeIcon },
   network_error: { ...PALETTE_TRANSIENT, Icon: CloudOffIcon },
+  // F212 Phase E (cloud codex P1 fix per @landy organic 2026-05-29): Anthropic server-side
+  // temporary throttling — NOT user quota. Same transient tier (retry 30-60s) but distinct
+  // hourglass icon to differentiate from gauge (quota) at-a-glance.
+  server_overloaded: { ...PALETTE_TRANSIENT, Icon: HourglassIcon },
   // Tier 3 — system / environment
   spawn_failed: { ...PALETTE_SYSTEM, Icon: TerminalIcon },
   missing_rollout: { ...PALETTE_SYSTEM, Icon: FileXIcon },
