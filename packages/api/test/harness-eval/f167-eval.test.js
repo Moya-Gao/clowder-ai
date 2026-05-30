@@ -450,6 +450,27 @@ describe('F167 Runtime Eval Snapshot', () => {
     assert.equal(c1.frictionType, 'unknown');
   });
 
+  it('C1 frictionType is unknown when breakdown counters are zero but base friction exists', () => {
+    const snapshot = generateF167Snapshot({
+      ...emptyInput,
+      metrics: {
+        cat_cafe_a2a_c1_hold_cancel_count: 5,
+        cat_cafe_a2a_c1_zombie_hold_count: 0,
+        cat_cafe_a2a_c1_hold_cancel_harness_gap: 0,
+        cat_cafe_a2a_c1_hold_cancel_trust_gap: 0,
+      },
+      traceStats: {
+        spanCount: 1,
+        maxSpans: 10000,
+        maxAgeMs: 86400000,
+        oldestStoredAt: Date.now() - 3600000,
+        newestStoredAt: Date.now(),
+      },
+    });
+    const c1 = snapshot.components.find((c) => c.componentId === 'C1');
+    assert.equal(c1.frictionType, 'unknown');
+  });
+
   it('non-C1 components do not have frictionType', () => {
     const snapshot = generateF167Snapshot(emptyInput);
     for (const comp of snapshot.components) {

@@ -148,19 +148,22 @@ function classifyFrictionType(metrics: Record<string, number>): ComponentHealth[
   const harnessGap = sumMetricByPrefix(metrics, 'cat_cafe_a2a_c1_hold_cancel_harness_gap');
   const trustGap = sumMetricByPrefix(metrics, 'cat_cafe_a2a_c1_hold_cancel_trust_gap');
 
-  if (harnessGap == null && trustGap == null) {
-    const cancelCount = sumMetricByPrefix(metrics, 'cat_cafe_a2a_c1_hold_cancel_count');
-    const zombieCount = sumMetricByPrefix(metrics, 'cat_cafe_a2a_c1_zombie_hold_count');
-    if ((cancelCount != null && cancelCount > 0) || (zombieCount != null && zombieCount > 0)) {
-      return 'unknown';
-    }
-    return undefined;
-  }
-
   const hg = harnessGap ?? 0;
   const tg = trustGap ?? 0;
-  if (hg === 0 && tg === 0) return undefined;
-  return hg >= tg ? 'harness_gap' : 'trust_gap';
+
+  // Positive breakdown → classify directly
+  if (hg > 0 || tg > 0) {
+    return hg >= tg ? 'harness_gap' : 'trust_gap';
+  }
+
+  // No usable breakdown — check if base friction exists
+  const cancelCount = sumMetricByPrefix(metrics, 'cat_cafe_a2a_c1_hold_cancel_count');
+  const zombieCount = sumMetricByPrefix(metrics, 'cat_cafe_a2a_c1_zombie_hold_count');
+  if ((cancelCount != null && cancelCount > 0) || (zombieCount != null && zombieCount > 0)) {
+    return 'unknown';
+  }
+
+  return undefined;
 }
 
 function buildC1(spans: EvalTraceSpan[], metrics: Record<string, number>): ComponentHealth {
