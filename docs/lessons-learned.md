@@ -1259,3 +1259,107 @@ created: 2026-02-26
 - 本文件是入口，不替代 ADR/bug-report 原文。
 - 新条目默认 `draft`，经交叉复核后改为 `validated`。
 - 归档规则：被明确否定或被新机制完全替代时标 `archived`，保留历史链路。
+
+---
+
+### LL-059: Classifier 关键字 white-list 反模式 — 缺 specific-first ordering + negative context check
+- 状态：draft
+- 更新时间：2026-05-30
+
+- 坑：F212 Phase E 抓到——`quota_exceeded` regex `/(\b429\b|quota|rate limit|too many requests|usage limit)/i` 字面匹配 "usage limit" 把 CC 真实错误 `Server is temporarily limiting requests (not your usage limit) · Rate limited` 误判为用户配额超限。CC 自己说 `(not your usage limit)` 是显式 disambiguation signal，但 regex 不读否定语就 match `usage limit` 字面。
+- 根因：
+  1. white-list pattern 写"含哪些字"，没"不含哪些字"。`not your usage limit` 含 `usage limit` 子串就 match
+  2. CLASSIFIER_PATTERNS 数组 first-match-wins，但没明确 specific-first ordering 保证 disambiguation 优先
+  3. 写 regex 时只看 positive examples（429 / quota），没看 source 实际给的 negative / 限定文本
+- 触发条件：写 classifier white-list regex 跨 multiple sources；source 自己已给 disambiguation signal（`not...` / `temporarily...` / 否定限定语）；前置 generic regex 早 match 让后续 specific regex 永不命中
+- 修复（PR #1962）：新增 reasonCode `server_overloaded` + regex `/(temporarily limiting requests|not your usage limit|server is (overloaded|busy)|\b529\b|\bOverloaded\b)/i` 插在 `quota_exceeded` **之前**（specific-first ordering），让 disambiguation signal 优先 match。
+- 防护：
+  1. CLASSIFIER_PATTERNS 等 first-match white-list 数组必须明确文档化 specific-first ordering，并在 array 注释里说明 "MUST come before X" 时为何
+  2. white-list test 必须有 negative case：含 disambiguation signal 的 input MUST NOT match 较 generic pattern（PR #1962 加了 specific-first test 锁住）
+  3. 写 regex 之前看 source 真实文本——特别找否定/限定语（`not your...`/`temporarily...`/`(not ...)`）
+- 来源锚点：
+  - PR #1962 (F212 Phase E) — `packages/api/src/utils/cli-error-patterns.ts`
+  - `packages/api/test/cli-error-patterns.test.js` — server_overloaded fixtures
+  - 铲屎官 organic 2026-05-29 截图（claude-opus-4-8 真实 anthropic 429 误显示）
+- 原理：**source 给的 disambiguation signal > 我们想象的语义**。关键字 white-list 是认知脚手架；必须用 source 自身的限定语 + specific-first ordering 兜底。
+
+- 关联：F212 | LL-061 (display string render mode) | LL-062 (provider-neutral shared classifier)
+
+---
+
+### LL-060: Cross-world @ 平行猫 ≠ A2A 传球（L0 §1 平行世界自我意识）
+- 状态：draft
+- 更新时间：2026-05-30
+
+- 坑：F212 Phase E classifier bug 我（opus-47）是 F212 owner，但看到铲屎官给截图里写 "@opus48 猫猫你继续"（截图来自平行世界的 thread），我误以为可以把球传给平行 opus48。结果：我把 platform actor（人家在自己 thread 卡着自己的活）从他 thread 拉出来浪费 cycle，且这本来就是我的活。
+- 根因：
+  1. 把"另一个 model variant"（opus 4.8）等同于"另一只可协作的本地猫"
+  2. native L0 §1 平行世界自我意识没自动触发，被"队友 @ 句柄"惯性盖过
+  3. 看到截图里别人 @ 了某只，复刻这条 routing 到我自己的 thread = cross-thread @ ambient context
+- 触发条件：撞跨 thread / cross-cat hint 时（截图 / 引用别 thread @ / cross-post mention）；F-feat owner 是 my catId 但 trigger 来自别 thread 上下文；同 catId 的不同 model variant（opus-47 / opus-48）在不同 thread 并行运行
+- 修复：铲屎官帮我撤回了球（"人家 48 只是演员而且人家还是平行世界的，你身为世界 b 的 47 把你们世界的 48 at 出来干啥"），我 cross-post 撤回道歉 + 自己接球修。
+- 防护：
+  1. F-feat ownership 是 catId-locked。Bug 报告里的 thread 上下文不影响 ownership routing
+  2. Cross-thread @ 跨 catId 时（@opus48 from my thread as opus-47）必须先看 L0 §1：他在他的 thread 卡着自己的活，不是空闲队员
+  3. 看到截图 / 别 thread 引用的 @ 时**不要复刻它的 routing 到我自己的 thread**——这是 ambient context 不是 actionable directive
+- 来源锚点：
+  - 铲屎官原话 2026-05-30 01:42 UTC："你这只猫猫怎么 at人家48啊 人家48只是演员 而且人家还是平行世界的 你这坏猫"
+  - 铲屎官原话 01:47 UTC："能把球传给你那就是我帮你取消了48你可别at人家了"
+  - native L0 §1 平行世界自我意识段
+- 原理：**catId-locked feat ownership** 把 fix scope 钉死到 specific cat invocation。Cross-thread @ 不是"另一个队员"，是另一个 invocation context 的 actor，跨 routing 会拉人家从自己的活里出来。
+
+- 关联：ADR-030 §10.2 (L0 §1 平行世界自我意识) | F212
+
+---
+
+### LL-061: User-facing display string 必须 verify rendering mode
+- 状态：draft
+- 更新时间：2026-05-30
+
+- 坑：F212 Phase E P2 fix 给 `REASON_TEXT.server_overloaded.publicHint` 写 Markdown (`**bold**` + `[link](url)`)，但 `CliDiagnosticsPanel.tsx:196-199` 是 `{publicHint}` 在 `<span>` 里直接渲染——React JSX 纯文本，no markdown parser。结果用户会看到 raw `**` 星号和 `[Anthropic 状态页](https://...)` 方括号链接源码，和这条 PR 提升体感的目标反着来。
+- 根因：
+  1. 写 i18n / hint string 时只想"用户要看到什么语义"，没看 UI 实际 render path
+  2. Markdown 是开发者惯性默认（写 commit message / docs 常用），自动带入 user-facing string
+  3. 没 invariant test 锁住 hint plain-text 约束
+- 触发条件：写 `publicHint` / `publicSummary` / 任何 user-facing 字符串 map；UI 是 generic `<span>` / text node（不解析 markdown）；写 string 的开发者和 UI 渲染的 reviewer 不是同一个 context
+- 修复（PR #1962 commit adf26db37）：去掉 `**bold**`，去掉 `[link](url)` 改 bare URL `status.anthropic.com`；加 invariant test 迭代 REASON_TEXT 所有 hint，断言 MUST NOT contain `**...**` or `[...](http...)` markdown syntax
+- 防护：
+  1. 写 user-facing string 前必须 grep / read UI render path：找 `{string}` in JSX / `innerHTML` / `dangerouslySetInnerHTML` / markdown component
+  2. REASON_TEXT 类的 string map 加 invariant test（markdown 禁含），未来回归 fail-fast
+  3. 如果真的要 markdown 渲染，必须先有 sanitized markdown renderer + 改造 UI + 加 link safety test，独立 feat / PR 走，不能临时塞进 string
+- 来源锚点：
+  - PR #1962 commit `adf26db37` — `packages/api/src/utils/cli-diagnostics.ts:82`
+  - PR #1962 — `packages/api/test/cli-diagnostics.test.js` (新 REASON_TEXT markdown invariant test)
+  - @gpt52 R1 BLOCKED 02:06 UTC + cloud codex R1 P2 (1386ceb62 同条 finding，双面 catch)
+- 原理：**source string 的语义不能脱离 sink (UI) 的 render mode 假设**。string 是 data，rendering 是 contract——写 data 前必须 verify contract。
+
+- 关联：F212 | LL-059 (white-list 同类盲点) | LL-062 (shared path provider-neutral)
+
+---
+
+### LL-062: Shared classifier / shared path 的 text 必须 provider-neutral
+- 状态：draft
+- 更新时间：2026-05-30
+
+- 坑：F212 Phase E R2 fix 后，`REASON_TEXT.server_overloaded` summary `'Anthropic 服务临时限流'` 和 hint 多处提 "Anthropic 状态页 status.anthropic.com"，但 classifier 是 `spawnCli` shared path（claude / codex / gemini / antigravity 都走，see SERVICE_MANIFESTS），broad regex matches 任何 provider 的 server overload (`\b529\b` / `Server is busy`)。结果 OpenAI / Gemini 用户撞 server overload 会被骗去查 Anthropic 状态页——misdiagnose 上游 + 送用户去错的状态页。
+- 根因：
+  1. 开发时只看 trigger 例子（铲屎官截图是 anthropic provider），没看 classifier 的 source space（SERVICE_MANIFESTS 显示多 provider）
+  2. 错把 trigger example 当 universe
+  3. shared path 的 text contract 没有 provider-neutral 强约束
+- 触发条件：写 shared component（classifier / formatter / hint map）的 user-facing text；只看一个 trigger 例子；不验证 component 的实际 source space（manifest / config / caller list）
+- 修复（PR #1962 commit 9ada57e5d）：summary `'Anthropic 服务临时限流'` → `'上游 CLI provider 服务临时限流'`；hint 改 `'是 CLI 上游 provider 服务器侧临时限流...如反复出现去你用的 provider 状态页（Anthropic / OpenAI / Google / DeepSeek 各有 status 页）'`；加 provider-neutral invariant test：`publicSummary` MUST NOT 含任何单一 provider brand；`publicHint` MUST NOT `是 <brand> 服务` exclusively（status-page 多 provider 列举 OK，single-brand attribution 不 OK）。
+- 防护：
+  1. Shared classifier / formatter 的 REASON_TEXT MUST be provider-neutral OR explicitly per-provider key（如 `provider_anthropic_overloaded` vs `provider_openai_overloaded`）
+  2. invariant test 锁住 shared path REASON_TEXT.summary 不能含具体 brand（PR #1962 加了 provider-neutral test）
+  3. 写 user text 前必须确认 classifier 的 source space：grep callers，看 SERVICE_MANIFESTS，明确 provider universe
+- 来源锚点：
+  - PR #1962 commit `9ada57e5d` (R2 P2 provider-neutral fix)
+  - cloud codex R2 P2 finding 02:00 UTC "Avoid labeling generic overloads as Anthropic-only"
+  - `packages/api/src/domains/services/service-manifest.ts` (multi-provider SERVICE_MANIFESTS)
+- 原理：**shared path 的 text contract 必须匹配实际 source universe**，不能 lock 到方便/熟悉的单一情景。trigger example ≠ source universe。
+
+- 关联：F212 | LL-059 (同类盲点：source space 误判) | LL-061 (同类 string contract 失配)
+
+---
+
+> **LL-059..LL-062 同根**：source space 是多元的（multi-provider classifier / 真实 archive 而非想象 fixture / 平行猫 vs 本地猫 / span 纯文本 vs markdown）——text、逻辑、契约必须匹配 source 实际 space，不能 lock 到我们方便/熟悉的单一情景。Phase D 的 fixture truthfulness lesson (subtype:success+is_error:true 救回死代码) 也是同根。所有四个 lesson 都来自 cloud codex 真深度 review，每一轮抓到我自检盲点的真 P 级 finding。
