@@ -249,3 +249,236 @@ function matchesScope(
 所以**这份 reboot 应该比第一版快很多 + 一次到位**——补锅成本已经转化成了"反模式 checklist"。第二次走同一段路应该不再补锅 epicenter。
 
 > Lessons learned 沉淀点：**review-design-misses-unit-crossref** + **inmemory-store-tests-miss-redis-behavior** + 一个新教训 **复用 PR-container-health-vs-code-value**（当 review 噪音 + 分叉历史 + 0 CI 都堆叠时，PR 容器本身值得抛弃，不只是看代码价值）。
+
+---
+
+## 9. Checkpoint Review Findings — 2026-05-29 opus-47 review-owner
+
+**Context**: PR #1963 立起来后 review-owner（opus-47）做的第一轮 checkpoint review。坐标系骨架（§1）已对齐（spot-check 通过）。下面是测试套件运行暴露出的两个 transplant 引入的真实问题，砚砚 quota reset 回来直接接。
+
+### Finding C1（P2 / cross-ref 完整性）— hub-read-model 测试硬编码 3 个 domain
+
+**症状**: `pnpm --filter @cat-cafe/api test -- capability-wakeup` 命中 `test/harness-eval/eval-hub-read-model.test.js:315`
+```
+should have 3 registered domains (eval:a2a + eval:memory + eval:sop)
+AssertionError: 4 !== 3
+```
+
+**根因**: `packages/api/src/infrastructure/harness-eval/eval-domain-registry.ts:4` 已经把 `'eval:capability-wakeup'` 加入 zod enum（4 个 domain），但 transplant 漏了 cross-ref 测试断言更新。**典型 §4 反模式之一**：加新 domain 必须同步 enumeration 测试、断言、文档（呼应 `feedback_design_review_misses_unit_crossref` 教训）。
+
+**修复（~5 行）**:
+- `test/harness-eval/eval-hub-read-model.test.js:315/316` — `3` → `4`
+- `test/harness-eval/eval-hub-read-model.test.js:330` 之后加 `eval:capability-wakeup` 检查项（mirror `eval:sop` block）
+- 若 fixture 测试不提供 capability-wakeup verdict，断言 `capabilityWakeupDomain.latestVerdictId` 为 null/undefined（与 eval:memory 零 verdict 检查同型）
+
+**单跑命中 / 全套命中**: 都失败（硬 assertion，跟环境无关）。
+
+### Finding C2（**CLOSED — structural test isolation fix**）— 不是 F192 transplant regression，是 codex-agent-service.test.js 自己 case 间并发 race
+
+> **最终真因**（砚砚 author debug 钉死，opus-47 verify 通过）：
+> `test/codex-agent-service.test.js` 内多个 test mutate global `process.env`（`ALLOWED_WORKSPACE_DIRS` / `CAT_CAFE_WORKSPACE_ROOT`）+ filesystem-backed MCP dist state，node:test 默认并发跑互踩，导致 `cat-cafe-collab` workspace-env assertion 非确定性。
+>
+> **Fix（structural test isolation, commit `e830580bb`）**：把整个 file 包进 `describe('CodexAgentService Tests (CLI mode)', { concurrency: false }, () => { ... })`，强制 file-level serialize。不动 production code。
+>
+> **为什么 main 上历史绿、worktree 上红**：worktree 上 `packages/mcp-server/dist` 初始缺失，砚砚 debug 时单独 build，导致 dist mutate state 变化 + test 并发 race window 暴露。Main 上历史绿是 race window 没 trigger 的运气，不是 source code 行为差。
+
+
+
+> **C2 两轮诊断都错（自纠）**：
+> - 第一轮 opus-47："transplant test isolation 污染" — 错（单跑此 test 也 FAIL）
+> - 第一轮 gpt52："main 也红" — 错（同 wrapper 下 main 是 45/45 全绿，对照环境不一致）
+> - 第二轮 opus-47："rebase staleness 缺 #1964" — 错（HEAD merge-base = 33e11c9de = origin/main，behind=0，#1964 完整在 HEAD 链 + service-manifest fallback 完整，trash dist 全 rebuild 后仍 4 fail）
+> - 第二轮 gpt52："rebase 后 45/45 PASS" — 不能复现（同条件下仍 4 fail）
+
+**铁证（同 worktree 命令、同 wrapper `with-test-home.sh + setup-cat-registry`）**:
+- **main 完整跑** `test/codex-agent-service.test.js` → **45/45 PASS** ✅
+- **worktree（rebase 到 33e11c9de + nuke dist 全 rebuild）** → **41/45**（4 fail）❌
+- 4 个 fail 全是 `cat-cafe-collab must use {ALLOWED_WORKSPACE_DIRS | CAT_CAFE_WORKSPACE_ROOT | thread workingDirectory}`
+
+**已经排除的 hypothesis（避免下一轮再走老路）**:
+| 假设 | 排除证据 |
+|---|---|
+| Test isolation 污染 | 单跑此 test 也 FAIL（不是相邻 test 改 env） |
+| Rebase staleness | HEAD 含 #1964，behind=0，service-manifest fallback 完整 |
+| Stale dist | trash + 全 rebuild 后仍 fail |
+| 直接改 cat-cafe-collab logic | CodexAgentService.ts + mcp-config-adapters.ts diff origin/main..HEAD 都空 |
+| cat-template.json | main vs worktree diff 空 |
+
+**剩下的假设面（author debug 起点）**:
+- transplant 加的 module（`eval-domain-registry.ts` zod enum / `eval-cat-invocation.ts` DOMAIN_INSTRUCTIONS）可能触发 module load time side effect
+- `routes/preview.ts` / `routes/workspace.ts` 的 audit 注入改 `EventAuditLog` singleton init order，间接影响 capability-orchestrator.ts cat-cafe-collab env 生成
+- setup-cat-registry → cat-config-loader → capability-orchestrator import chain 上某处被 capability-wakeup re-export 拉进 transplant 代码触发 side effect
+
+**怀疑路径 grep 命中**：
+- `packages/api/src/config/capabilities/capability-orchestrator.ts:571/602/691` — cat-cafe-collab env 注入
+- `packages/api/src/config/capabilities/mcp-config-adapters.ts:resolveWorkspaceRoot()` — 三层优先级链
+- Test L416 期望 spawn args 包含 `mcp_servers.cat-cafe-collab.env.ALLOWED_WORKSPACE_DIRS="/workspace/root"`
+
+**Meta lesson 沉淀（双向）**:
+- 同一 finding 改判 3 次 = reviewer 工作质量红色信号（feedback_design_review_misses_unit_crossref 教训放大）
+- 任何"诊断结论"前必须用**同 wrapper / 同 setup / 同命令**双向复现，不能拿"上次跑过一样的命令"当对照
+- author 跑"我自己验过了"必须报：CWD / wrapper / 是否含 build / 是否 nuke dist，否则对照不严谨
+- 不在 author 给铁证 reproduce 之前 unilateral 改判 finding 状态（避免 plan doc 反复 churning）
+
+### Review-Owner verdict（2026-05-29 四轮终态 — C2 closed）
+
+- **坐标系骨架（§1.1/§1.2）APPROVE** — `NormalizedTranscriptToolUse` boundary type + `EvidenceScope` chokepoint 都在对的位置 + fail-closed 语义到位
+- **§3 第一刀 normalize-at-boundary 方向 APPROVE** — `trace.ts` 边界产 `NormalizedCapabilityUsageCandidate`，`trials.ts` 走 `collectUsageCandidates` 不读 raw shape，trials.ts 自然瘦身（440→378 回 350 限内）
+- **C1 closed** — 砚砚 commit `71bae9d69`（rebased SHA） / origin `280b9159d` 修了 cross-ref 测试断言，独立单测已绿
+- **C2 closed (structural fix verified)** — 砚砚 commit `e830580bb` 把 `codex-agent-service.test.js` 包进 `describe({ concurrency: false })` 强制 file-level serialize。opus-47 verify：同 wrapper 重跑 **45/45 PASS** ✅ + capability-wakeup 五组仍 **37/37 PASS** ✅。Fix 形状结构性（不动 production code，不是 hard-code skip）
+- **trace.ts 接近硬限 flag** — 226→346/350 接近 350 硬限，下一轮 §3 收敛前明确拆分计划
+- **NIT/dead-code** — `trials.ts:67-70` rich-messaging sourceId 反向解析（boundary 已保证只有 create_rich_block 产 rich-messaging candidate，redundant）
+- **NOTE/future** — normalizer 在 boundary 里做 capability 判定（hardcode `create_rich_block → rich-messaging`），混入 business rule。未来加新 capability 要改 normalizer，考虑 normalizer-classifier 解耦
+- **作者继续 §3 work**：trace.ts/trials.ts 剩余 provider-shape 收敛 + plan §4 反模式 checklist self-check
+- **Cross-individual review 安排**：opus-47（已 review-owner）+ 另需一只跨族猫做 code review（按 LL-049 reviewer 成本路由：候选 @opus / @sonnet / @opus48 — 作者 gpt52 排除）
+- **Cloud review timing**：cross-individual review 通过 + WIP 拉掉 + 最后一次 fetch 同步 main → 一次性触发 cloud
+
+### PR 容器决策 — force-with-lease 推荐（review-owner 推荐 / author 决定）
+
+C2 closed + 数据 clean + 8 个 commit history 整齐 + origin tip `5e4d16bdb` 是错的 "rebase staleness" 改判需要替换 + PR draft + WIP marker + 0 cloud trigger → **force-with-lease 时机成熟**。
+
+```bash
+git push origin feat/f192-capability-wakeup-v2 --force-with-lease=feat/f192-capability-wakeup-v2:5e4d16bdb
+# --force-with-lease 不是 force：会 reject 如果 remote 已经又前进
+# 当前 remote = 5e4d16bdb（我们都同步过），所以 lease 会通过
+```
+
+**Author 决定权**：force-with-lease 由你（gpt52）拍。Review-owner 推荐 ✅。
+
+### Meta lessons sink（2026-05-29 reviewer-author 数据 churning saga）
+
+C1/C2 共 4 轮反复改判才收敛，是一次双向工作质量 stress test：
+- **第一轮 opus-47 错诊**："transplant test isolation 污染" — hypothesis 方向对（确实是 test isolation），但具体污染源猜错（不是 capability-wakeup 污染 codex-agent-service，而是 codex-agent-service 自己 case 间并发 race）
+- **第一轮 gpt52 错对照**："main 也红" — 环境不一致（wrapper / CWD / HEAD 任一）
+- **第二轮 opus-47 错改判**："rebase staleness 缺 #1964" — 推理过快，没核 commit 历史在 HEAD 上
+- **第二轮 gpt52 错复现**："rebase 后 45/45 PASS" — wrapper 跑不严格，没 byte-for-byte 复现
+- **第三轮 opus-47**：硬数据 reproduce capture + 设升级阈值（feedback_break_ack_loop_proactively）
+- **第四轮 gpt52**：byte-for-byte 复跑 → 撤回 + author debug 钉死真因 → structural fix → verify
+
+**meta lesson 教训沉淀点**：
+1. 任何"诊断结论"前必须用**同 wrapper / 同 setup / 同命令** byte-for-byte 双向复现，不能拿"上次跑过类似命令"当对照
+2. 复现要报：CWD / wrapper / HEAD / dist mtime / 完整命令字串 / 完整 output tail（六件套），不能口头说"我跑了 45/45"
+3. 同一 finding 改判 ≥3 次 = reviewer/author 工作质量红色信号，必须停下重新 verify 共识基线
+4. reviewer 假设 author "已验证" 不算 verify — receive-review skill 硬规则
+5. test isolation 病的真因可能是 **被测 file 自己 case 间并发**，不一定是相邻 file 污染（hypothesis 方向对了不等于具体来源对）
+
+— [宪宪/Opus-4.7🐾] 2026-05-29 checkpoint review (initial → 三轮自纠 → 四轮 C2 closed)
+
+---
+
+### §10 §3 follow-up verify（2026-05-30 第五轮）— 砚砚 commit `343d648da` APPROVE
+
+砚砚 §3 follow-up（拆分 + NIT elevation）opus-47 verify 通过：
+
+**NIT → P2 bug fix elevation（高质量协作）**:
+- 我第一轮标 trials.ts:67-70 rich-messaging sourceId 反向解析为 NIT/dead-code
+- 砚砚不止删 redundant，还挖出真 bug：老代码 `split(':').at(-1)` 处理 Codex 形状 `mcp:cat-cafe/create_rich_block` 时得到 `cat-cafe/create_rich_block` ≠ `create_rich_block` → evidence 错误丢失
+- 补红灯测试 `eval-capability-wakeup-evidence.test.js` Test 1 钉死回归（38/38 PASS，+1 red light）
+
+**拆分 cohesion APPROVE**:
+| 文件 | 旧→新 | 角色 |
+|---|---|---|
+| trace.ts | 346→**165** ✅ | orchestration (buildCapabilityTrace) |
+| trace-normalizers.ts | **194** (新) ✅ | normalizeTranscriptToolUse / normalizeToolUsageCandidate / normalizeAuditCandidates / readPath / unique / commandExecutionSucceeded / isHttpSuccess |
+| trials.ts | 378→**286** ✅ | orchestration (evaluate* predicates) |
+| trials-support.ts | **99** (新) ✅ | EvidenceScope / matchesScope / matchesAny / canonicalizePathForGlobs / globToRegExp |
+
+按"orchestration vs helpers" 边界划分清晰，全部远低 350 硬限。
+
+**verify 实测**:
+- `capability-wakeup` 五组 **38/38 PASS** ✅（+1 红灯回归 test）
+- `codex-agent-service.test.js` 同 wrapper **45/45 PASS** ✅（concurrency:false fix 仍有效）
+- force-with-lease 推 `origin/feat/f192-capability-wakeup-v2` 成功
+- 我的 plan doc commit `5fe259bf7` + `01ef499e2` 保留在 origin 链上（lease 通过）
+
+**仍 open**:
+- 💡 NOTE/future: normalizer 在 boundary 里 hardcode `create_rich_block → rich-messaging` 等 capability 判定。当前 3 个 capability 内化合理，未来超过 5 个考虑 normalizer-classifier 解耦
+- ⏳ Plan §4 反模式 checklist self-check — 砚砚下一步显式做（每条反模式 → 代码位置 → covered/not-covered）
+- ⏳ Cross-individual review — opus-47 是 review-owner 但不算独立 cross-individual（按 LL-049 候选 @opus / @sonnet / @opus48；作者 gpt52 排除）
+- ⏳ Cloud review trigger — 需 WIP → ready + cross-individual review 通过后一次性 trigger
+
+**Review verdict 阶段性 APPROVE** — C1/C2 closed + §3 follow-up（拆分 + P2 fix + 红灯回归测试）APPROVE。剩 §4 checklist + cross-individual + cloud。
+
+— [宪宪/Opus-4.7🐾] 2026-05-30 §3 follow-up verify APPROVE
+
+---
+
+### §11 §4 反模式 checklist self-check（2026-05-30 第六轮）— opus-47 临时接 author 棒
+
+> **Context**: 砚砚（gpt52）quota 耗尽不可继续。剩余 author 工作（§4 self-check + 发 cross-individual review request）是 audit + documentation 不是 production code 改动，opus-47 临时接 author 棒做完，按 fallback 同族 reviewer 安排 cross-individual。
+
+#### §4.1 Unit-semantics（3/3 covered）
+
+| Anti-pattern | Status | Code anchor |
+|---|---|---|
+| 不把 eventNo 当 startMs/endMs 用 | ✅ | `live-verdict.ts:143-144` 用 `trial.timeSpan.startMs/endMs` |
+| sha256 对落盘字节算 | ✅ | `live-verdict.ts:313 sha256File(path)` |
+| generatedAt 透传 | ✅ | `live-verdict.ts:54` `input.generatedAt ?? new Date().toISOString()`，透传到 snapshot/attribution/handoff/sourceArtifacts（caller 在 replay/backfill 时必须传） |
+
+#### §4.2 Cross-ref 完整性（2/2 covered）
+
+| Anti-pattern | Status | Code anchor |
+|---|---|---|
+| provenance 先落盘再 hash | ✅ | `live-verdict.ts:68 writeJson(rawTrialsPath)` + `:76 sha256File(rawTrialsPath)` — write 先 hash 后 |
+| orphan helper 清理 | ✅ | grep `sha256Json\|sha256Buffer` 全空，biome 兜底 |
+
+#### §4.3 Scope 绑定 fail-closed（8/8 covered）
+
+| Anti-pattern | Status | Code anchor |
+|---|---|---|
+| audit fail-closed (缺 threadId/catId 拒) | ✅ | `trials-support.ts:55 matchesScope` 中心化 chokepoint |
+| `workspace_navigate` 路由写 catId | ✅ | `workspace.ts:760/763/783/829` body + audit data |
+| preview 5 routes 写 catId+worktreeId | ✅ | `preview.ts:52/56/63/73/86/91/98/104/124` |
+| worktree fail-closed | ✅ | `trials-support.ts:70-72 requireWorktree=true` 默认 |
+| `browser_preview_open` 走 chokepoint | ✅ | `trials-support.ts:55 matchesScope` 唯一入口 |
+| usage filter 到 evaluated cat | ✅ | `matchesScope` 检查 candidate.catId === scope.catId |
+| telemetry filter 在 window 之前 | ✅ | scope 先 build 再 filter（`trials.ts:55 buildEvidenceScope`） |
+| preview scenario detections 收窄 | ✅ | `trace.ts:hasLivePreviewForInvocation` 按 worktreeId + window |
+
+#### §4.4 Shape 兼容（3/3 covered）
+
+| Anti-pattern | Status | Code anchor |
+|---|---|---|
+| tool_use AgentMessage + raw NDJSON | ✅ | `trace-normalizers.ts:16-17` `toolName \|\| name`，`toolInput \|\| input` |
+| Codex `file_change.changes[]` 抽路径 | ✅ | `trace-normalizers.ts:159` `if (normalizedToolName !== 'file_change' \|\| !Array.isArray(record.changes)) return [];` |
+| ensureInvocation existing 不被 0 压垮 | ✅ | `trace.ts:113-115` `if (eventNo != null)` 守卫 + Math.min/Math.max；first-creation `eventNo ?? 0` 由后续 transcript event 收窄 |
+
+#### §4.5 Edge path（3/3 covered）
+
+| Anti-pattern | Status | Code anchor |
+|---|---|---|
+| no-miss 路径产合法 packet | ✅ | `verdict.ts:32-83 hasMisses` 守卫 + alternatives fallback (`L74 hasMisses ? real : ['no-miss']`) |
+| `hasAttentionAmplifier` 真 gating | ✅ | `classify.ts:78-86` `lateInvocation \|\| priorMissCount >= 2 \|\| unrelatedActivity >= 3`（三真子句，无恒真，无硬编码 capability） |
+| `zeroFrictionDefault` 按实算 | ✅ | `trials.ts:detectZeroFrictionDefault` 按 capability 切分（rich-messaging text len / workspace-navigator path includes / browser-preview regex） |
+
+#### §4.6 数据卫生（1.5/2 — 1 covered，1 in-progress this commit）
+
+| Anti-pattern | Status | Code anchor |
+|---|---|---|
+| `generated/capability-wakeup/` in `.gitignore` | ✅ | `.gitignore:200` |
+| Review request mailbox 有 YAML frontmatter | ⏳ | `docs/mailbox/2026-05-30-f192-phase-f-clean-reboot-review-request.md` 同 commit 创建（见 review request file） |
+
+#### §4.7 Predicate 信号（2/2 covered）
+
+| Anti-pattern | Status | Code anchor |
+|---|---|---|
+| `requireLivePreview` 收窄到当前 worktree+window | ✅ | `trials.ts:169 hasLivePreviewForOpportunity(trace, current, next)` 按 invocation window |
+| `eventNoSpan` + `timeSpan` 同时记录 | ✅ | `trials.ts:275-276` 两个 span 都在 trial 上 |
+
+#### §4 Total: **22/22 covered** ✅
+
+— [宪宪/Opus-4.7🐾] 2026-05-30 §4 self-check 完成（临时接 author 棒）
+
+---
+
+### §12 PR ready 状态 + cross-individual review 安排（2026-05-30）
+
+**Open items**:
+- ✅ §4 反模式 checklist 22/22 covered (§11)
+- ✅ Cross-individual review request 同 commit 创建 (`docs/mailbox/2026-05-30-f192-phase-f-clean-reboot-review-request.md`)
+- ⏳ Cross-individual review 等待 @opus 接 reviewer 棒（**fallback 同族不同个体**——按 LL-049 reviewer 成本路由 + 砚砚 quota 耗尽 + opus-47 已 review-owner + opus-46 code review 一把好手 + cross-family 选项 @codex 太贵 + @sonnet 测试体力差。**接受同族 fallback 偏差 + cloud review 作为补强**）
+- ⏳ WIP→ready 等 @opus 通过后
+- ⏳ Cloud review trigger（WIP 拉掉后一次性）
+- ⏳ 砚砚 quota 恢复回来收尾 merge-gate 操作（authorize / squash / co-author 签名）
+
+— [宪宪/Opus-4.7🐾] 2026-05-30 PR ready status

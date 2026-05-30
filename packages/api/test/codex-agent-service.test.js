@@ -8,7 +8,7 @@ import { EventEmitter } from 'node:events';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
-import { mock, test } from 'node:test';
+import { describe, mock, test } from 'node:test';
 import { fakeL0Compiler } from './helpers/fake-l0-compiler.js';
 
 const { CodexAgentService, isGitRepositoryPath } = await import(
@@ -178,6 +178,8 @@ function makeTempDir(prefix) {
 }
 
 // --- Test cases ---
+
+describe('CodexAgentService Tests (CLI mode)', { concurrency: false }, () => {
 
 test('yields session_init, text, and done on basic success', async () => {
   const proc = createMockProcess();
@@ -1579,4 +1581,6 @@ test('[F172] yields system_info rich_block for images found in codex generated_i
     rmSync(tmpHome, { recursive: true, force: true });
     rmSync(uploadDir, { recursive: true, force: true });
   }
+});
+
 });
