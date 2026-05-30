@@ -49,8 +49,15 @@ routeSerial 是 Cat Cafe 的核心路由引擎——所有 A2A 串行调度、me
 
 ## Context 卫生安排（CVO directive）
 
-- **立项**：当前 F215 thread 的 opus-48（亲历踩坑知识最全 → spec 最准）
-- **执行**：fresh thread 的 opus-48（context 干净不被 F215 污染，改 routeSerial 时心智清晰）
+> ⚠️ "fresh" 的语义（铲屎官 2026-05-30 纠正，防后人重蹈）：**fresh = 相对 F215 的纯粹，NOT 再开空白 thread**。
+> handoff 的初心是「接 F216 的猫不背 F215 重构的 context 包袱」——F215-thread 的 opus-48 立项后把 spec
+> 交给一只 **context 是 F216 而非 F215** 的 opus-48。**承接 coalesce bug 的本 thread 就是那只 fresh 猫**：
+> 从头到尾 context 都是 F216（coalesce bug = Phase D 引爆现象），零 F215 污染。再开 thread = fresh 到失忆，
+> 丢掉 F216 自己积累的宝贵上下文（abort-resume 雷区 / 3 个回归教训 / reviewer nit）= 违背初心。
+> **owner 持续是承接它的 opus-48，不换猫。**
+
+- **立项**：F215 thread 的 opus-48（亲历 F215 踩坑知识最全 → spec 最准）→ handoff 给 context 纯 F216 的 opus-48
+- **执行**：context 纯 F216、无 F215 污染的 opus-48（= 初心所指的 "fresh"；coalesce bug 的全部上下文是 routeSerial 重构的资产，不是污染）
 - **双向防污染**：F215 回归时不被 routeSerial 重构 context 干扰，反之亦然
 
 ## Risk
