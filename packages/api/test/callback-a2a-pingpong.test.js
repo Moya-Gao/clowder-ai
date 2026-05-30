@@ -356,13 +356,18 @@ describe('F167 L1 AC-A4: callback-a2a-trigger ping-pong circuit breaker', () => 
         pushToWorklist(threadId, ['codex'], 'opus');
         entry.executedIndex = 3; // streak=3
 
-        // Preload InvocationQueue with 'opus' so dedup skips the callback.
+        // Preload InvocationQueue with a queued A2A 'opus' entry so the same-turn dedup path fires.
+        // F-coalesce (云端 codex R4 P1): dedup now coalesces via findInFlightAgentEntry, which is
+        // SCOPED to sourceCategory==='a2a' (continuation/multi-mention entries are NOT mergeable).
+        // A real A2A entry always carries sourceCategory:'a2a' (callback-a2a-trigger enqueue), so the
+        // preload must too — otherwise it models a shape production never emits.
         const invocationQueue = new InvocationQueue();
         invocationQueue.enqueue({
           threadId,
           userId: 'user1',
           content: 'existing',
           source: 'agent',
+          sourceCategory: 'a2a',
           targetCats: ['opus'],
           intent: 'execute',
           autoExecute: true,

@@ -79,11 +79,31 @@ routeSerial 是 Cat Cafe 的核心路由引擎——所有 A2A 串行调度、me
 ### Phase C（conditional）
 - [ ] AC-C1: Phase B 后评估——如果状态变量耦合已解，标 "不需要" 跳过
 
+### Phase D: A2A same-turn handoff supersede（driven by 2026-05-30 coalesce bug）
+> 来源：铲屎官报 bug「post msg at 了两次同一只猫 → 第一条先执行（可能错误行动），第二条又独立执行」。
+> 期望：去重 / 合并，后续那条才是真实意图。详见 `docs/bug-report/a2a-same-turn-handoff-coalesce/`。
+>
+> **已独立交付（不依赖 F216）**：queued-merge —— 第一条还 queued（没开跑）时，同 turn 重复 handoff
+> 合并进同一 entry（`coalesceContentIntoQueuedAgent`），并把后续 handoff coalesce 进 queued follow-up，
+> 不再丢 caller 真实意图。见 `InvocationQueue.findInFlightAgentEntry/coalesceContentIntoQueuedAgent`
+> + `callback-a2a-trigger.ts` Guard 2。
+>
+> **为何 supersede 归 F216**：主场景（第一条已 `processing`）唯一正确解是 abort 正在跑的 handoff +
+> 用 follow-up 重启。这条 abort→slot cleanup→pause→resume 时序与 routeSerial / QueueProcessor 的
+> abort-resume 坐标系同源，独立硬接会和后台 `executeEntry` cleanup 抢 `processingSlots` mutex
+> = 硬约束 #2 警告的 LL-064 式堆补丁。在干净坐标系上一次做对。
+
+- [ ] AC-D1: processing 中的 target 收到同 turn follow-up → abort 正在跑的 + 用 follow-up（last-wins）重启，不重跑被 supersede 的第一条
+- [ ] AC-D2: abort+restart 不引入 `processingSlots` mutex race（复用 force-send 的 cancelInvocation+clearPause+releaseSlot 已验证模式）
+- [ ] AC-D3: 真实 runtime 验证——猫连发两条矛盾 handoff 给同一只猫，目标猫只执行最终意图，不先跑错第一步
+- [ ] AC-D4: queued-merge（已交付）零回归——18 个 a2a-coalesce/callback-a2a-trigger 测试全绿
+
 ## Timeline
 
 | 日期 | 事件 |
 |------|------|
 | 2026-05-30 | 立项（CVO signoff + opus-48 设计，F215 引爆点） |
+| 2026-05-30 | Phase D 追加：A2A same-turn handoff bug（queued-merge 独立交付，supersede 归 F216） |
 
 ## Review Gate
 
