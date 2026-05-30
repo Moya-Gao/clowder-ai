@@ -169,6 +169,7 @@ Phase B 检测到 malformed（`textEventCount===0` 或 form B 信号）后触发
 | 2026-05-29 | 立项（CVO signoff，thread 讨论收敛：根因纠正 + 统一检测+兜底方案） |
 | 2026-05-29 | Phase B/C/D 实现完成（@sonnet 落地）：ClaudeAgentService 检测 + invoke-single-cat seal+retry+46接力 + dossier 更新，6 TDD tests green |
 | 2026-05-29 | Phase B/C/D merged (PR #1953 → sha 986746a16)：7 轮云端 review 修复 AC-B4/B5/B6 + P2 文案/relay dedup/done/guard，15 TDD tests green |
+| 2026-05-30 | AC-B6 UX hotfix merged (PR #1966)：已有内容后 malformed 不再说谎"恢复流程"，替换为诚实 partial-output notice（砚砚诊断→46 执行→48 方向 approve→砚砚 re-review APPROVE），16 TDD tests green |
 
 ## Review Gate
 
