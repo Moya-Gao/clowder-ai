@@ -633,17 +633,27 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
     }
 
     if (mode === 'force' && hasActive) {
-      // Cancel current invocation (same logic as WS cancel)
-      const cancelResult = opts.invocationTracker?.cancel(resolvedThreadId, primaryCat, userId);
-      if (cancelResult?.cancelled) {
-        for (const m of buildCancelMessages(cancelResult)) {
+      // F-parallel-cancel (cloud #6): force = preempt the TARGET invocation, NOT the whole thread.
+      // After the batchController split, cancel(primaryCat) no longer stops the whole old invocation
+      // (the old behaviour relied on primary == shared execution gate), and the new dispatch's
+      // startAll only preempts targetCats — multi-cat siblings of the OLD invocation would keep
+      // running. cancelInvocation aborts exactly the targetCats' invocation (their batch gate + every
+      // slot under it) while leaving an UNRELATED side-dispatch (e.g. an idle-cat whisper for a
+      // different cat in the same thread) untouched. cancelAll() stays the whole-thread reset.
+      // 'preempted' reason → plain canceled (force immediately starts a new invocation below, so no
+      // suppress-auto-resume).
+      const cancelledCatIds =
+        opts.invocationTracker?.cancelInvocation?.(resolvedThreadId, targetCats, userId, 'preempted') ?? [];
+      const clearedCats = cancelledCatIds.length > 0 ? cancelledCatIds : [primaryCat];
+      if (cancelledCatIds.length > 0) {
+        for (const m of buildCancelMessages({ cancelled: true, catIds: cancelledCatIds })) {
           opts.socketManager.broadcastAgentMessage(m, resolvedThreadId);
         }
       }
       // F39 bugfix: Prevent QueueProcessor state poisoning — the old invocation's
       // async cleanup will call onInvocationComplete('failed'/'canceled') which pauses
       // the thread. Clear that preemptively since we're about to start a new invocation.
-      opts.queueProcessor?.clearPause(resolvedThreadId, primaryCat);
+      for (const c of clearedCats) opts.queueProcessor?.clearPause(resolvedThreadId, c);
 
       // F39 bugfix: Notify frontend that force-cancel happened (clear stale queue UI)
       if (opts.invocationQueue) {
@@ -925,6 +935,10 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
               ...(contentBlocks ? { contentBlocks } : {}),
               uploadDir,
               ...(controller?.signal ? { signal: controller.signal } : {}),
+              // F-parallel-cancel: per-cat signal so a single-cat cancel on this direct execution
+              // path aborts only that cat — not the shared batch gate. Without this, route layer
+              // falls back to the batch controller and single-cat cancel never reaches the cat.
+              signalForCat: (catId: string) => opts.invocationTracker?.getController?.(resolvedThreadId, catId)?.signal,
               ...(opts.invocationQueue
                 ? {
                     queueHasQueuedMessages: (tid: string) =>
@@ -1049,11 +1063,24 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
           // F39 P1 fix (砚砚 R1): abort guard after loop — when signal is aborted
           // and the generator ends normally (no throw), the break exits the loop but
           // post-loop code would still run ack+succeeded. Guard explicitly.
-          if (controller?.signal.aborted) {
-            finalStatus =
-              controller.signal.reason === 'user_cancel' || controller.signal.reason === 'cancel_all'
+          // F-parallel-cancel: use AGGREGATE finalStatus — batch gate abort (whole invocation) OR
+          // every target cat singly cancelled → canceled. A single-cat cancel no longer aborts the
+          // batch gate, so raw controller.signal.aborted only covers the whole-invocation case.
+          // (completeAll runs in finally, AFTER this, so cancel tombstones are still visible here.)
+          const aggFinalStatus = opts.invocationTracker?.resolveFinalStatus
+            ? opts.invocationTracker.resolveFinalStatus(resolvedThreadId, targetCats, {
+                aborted: controller?.signal.aborted ?? false,
+                reason: controller?.signal.reason as string | undefined,
+              })
+            : controller?.signal.aborted
+              ? // Fallback (tracker without resolveFinalStatus): whole-invocation abort → reason
+                // decides canceled_by_user vs canceled (matches resolveFinalStatus semantics).
+                controller.signal.reason === 'user_cancel' || controller.signal.reason === 'cancel_all'
                 ? 'canceled_by_user'
-                : 'canceled';
+                : 'canceled'
+              : 'succeeded';
+          if (aggFinalStatus !== 'succeeded') {
+            finalStatus = aggFinalStatus;
             await opts.invocationRecordStore?.update(createResult.invocationId, {
               status: 'canceled',
             });
@@ -1061,7 +1088,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
             // a newer invocation (reason='preempted'). User-initiated cancel already
             // broadcasts its own messages via buildCancelMessages; adding another here
             // would cause a duplicate with misleading text.
-            if (controller.signal.reason === 'preempted') {
+            if (controller?.signal.reason === 'preempted') {
               opts.socketManager.broadcastAgentMessage(
                 {
                   type: 'system_info',

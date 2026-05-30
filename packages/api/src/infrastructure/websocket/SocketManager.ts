@@ -210,15 +210,17 @@ export class SocketManager {
           // F108: Slot-specific cancel
           const result = this.invocationTracker.cancel(data.threadId, data.catId, userId, 'user_cancel');
           if (result.cancelled) {
-            const catIds = result.catIds.length > 0 ? result.catIds : [data.catId];
-            log.info({ threadId: data.threadId, catId: data.catId, cats: catIds }, 'Cancelled slot');
-            for (const msg of buildCancelMessages(result)) {
+            // F-parallel-cancel: scope the cancel broadcast + slot cleanup to the REQUESTED cat
+            // only. result.catIds carries the whole startAll batch (per-slot stores all catIds),
+            // so broadcasting it cleared sibling cats in the UI — this is the most direct cause of
+            // "取消一只两只一起取消" from the real Stop button. Mirrors queue.ts:568-575 scoped fix.
+            const scopedResult = { ...result, catIds: [data.catId] };
+            log.info({ threadId: data.threadId, catId: data.catId }, 'Cancelled slot (scoped)');
+            for (const msg of buildCancelMessages(scopedResult)) {
               this.broadcastAgentMessage(msg, data.threadId);
             }
-            for (const catId of catIds) {
-              this.queueProcessor?.clearPause(data.threadId, catId);
-              this.queueProcessor?.releaseSlot(data.threadId, catId);
-            }
+            this.queueProcessor?.clearPause(data.threadId, data.catId);
+            this.queueProcessor?.releaseSlot(data.threadId, data.catId);
           }
           // F108 + F086: Also abort multi-mention dispatches for this specific cat
           this.multiMentionOrchestrator?.abortBySlot?.(data.threadId, data.catId);

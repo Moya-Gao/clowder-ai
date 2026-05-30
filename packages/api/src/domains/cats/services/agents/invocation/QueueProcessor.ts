@@ -40,6 +40,14 @@ interface TrackerLike {
     catIds?: string[],
   ): boolean;
   has(threadId: string, catId?: string): boolean;
+  /** F-parallel-cancel: expose a slot's own controller for per-cat cancel isolation. */
+  getController?(threadId: string, catId: string): AbortController | undefined;
+  /** F-parallel-cancel: aggregate final status — whole-invocation abort vs per-cat cancel. */
+  resolveFinalStatus?(
+    threadId: string,
+    targetCats: readonly string[],
+    batch: { aborted: boolean; reason?: string },
+  ): 'succeeded' | 'canceled' | 'canceled_by_user';
 }
 
 export interface InvocationRecordStoreLike {
@@ -959,6 +967,16 @@ export class QueueProcessor {
         {
           ...(contentBlocks.length > 0 ? { contentBlocks } : {}),
           ...(controller.signal ? { signal: controller.signal } : {}),
+          // F-parallel-cancel: per-cat signal so canceling one concurrent cat (e.g. @codex)
+          // does not abort its siblings (e.g. @gpt52). startAll gives each cat its own per-cat
+          // controller; route-parallel resolves them through this getter.
+          // NOTE (cloud review clarification): `controller` (line 808) is the INDEPENDENT batch
+          // gate returned by startAll — NOT a primary cat controller. A single-cat cancel aborts
+          // only that cat's per-cat controller, NOT the batch gate, so the consume-loop
+          // `if (controller.signal.aborted) break` (993 / 1090) fires ONLY on whole-invocation
+          // abort (cancelAll / force / thread-delete), never on single-cat cancel — the sibling
+          // keeps streaming. (See InvocationTracker.startAll returning a fresh batchController.)
+          signalForCat: (catId: string) => invocationTracker.getController?.(threadId, catId)?.signal,
           queueHasQueuedMessages: (tid: string) => queue.hasQueuedNonAgentForThread(tid),
           deferA2AEnqueue: (e: any) => queue.enqueue(e),
           hasQueuedOrActiveAgentForCat: (tid: string, catId: string) =>
@@ -1090,19 +1108,35 @@ export class QueueProcessor {
       }
 
       // 8. Check abort before marking succeeded (F122B B6 P1: abort→succeeded bug fix)
-      if (controller.signal.aborted) {
-        log.info({ threadId, entryId: entry.id }, '[QueueProcessor] Entry aborted during execution');
+      // F-parallel-cancel: AGGREGATE finalStatus — batch gate abort (whole invocation) OR every
+      // target cat singly cancelled → canceled. A single-cat cancel no longer aborts the batch
+      // gate, so raw controller.signal.aborted only covers the whole-invocation case. (completeAll
+      // runs later, so cancel tombstones are still visible to resolveFinalStatus here.)
+      const batchReason = controller.signal.reason;
+      const aggFinalStatus = invocationTracker.resolveFinalStatus
+        ? invocationTracker.resolveFinalStatus(threadId, targetCats, {
+            aborted: controller.signal.aborted,
+            reason: batchReason as string | undefined,
+          })
+        : controller.signal.aborted
+          ? // Fallback (tracker without resolveFinalStatus) must stay equivalent to the old logic:
+            // whole-invocation abort → reason decides canceled_by_user vs canceled.
+            batchReason === 'user_cancel' || batchReason === 'cancel_all'
+            ? 'canceled_by_user'
+            : 'canceled'
+          : 'succeeded';
+      if (aggFinalStatus !== 'succeeded') {
+        log.info({ threadId, entryId: entry.id }, '[QueueProcessor] Entry aborted/cancelled during execution');
         // F148 fix: ack cursors for cats that completed before abort (monotonic CAS, safe to call)
         if (cursorBoundaries.size > 0) {
           await router.ackCollectedCursors(userId, threadId, cursorBoundaries);
         }
         await invocationRecordStore.update(invocationId, { status: 'canceled' });
-        // 'cancel_all' = cancelAll button (stop everything), 'user_cancel' = single-cat cancel
-        const reason = controller.signal.reason;
-        finalStatus = reason === 'user_cancel' || reason === 'cancel_all' ? 'canceled_by_user' : 'canceled';
+        finalStatus = aggFinalStatus;
         // Suppress auto-resume ONLY for cancelAll (stop everything), NOT single-cat cancel.
         // Single-cat cancel should still auto-resume the next queued entry (backward compat).
-        if (reason === 'cancel_all') {
+        // 'cancel_all' = cancelAll button; 'user_cancel' = single-cat — only cancel_all suppresses.
+        if (batchReason === 'cancel_all') {
           const entryCat = entry.targetCats[0] ?? 'unknown';
           this.suppressedAutoResume.set(QueueProcessor.slotKey(threadId, entryCat), Date.now());
         }

@@ -84,6 +84,11 @@ export interface RouteOptions {
   contentBlocks?: readonly MessageContent[] | undefined;
   uploadDir?: string | undefined;
   signal?: AbortSignal | undefined;
+  /** Per-cat execution signal resolver. When present, route-parallel gives each cat
+   *  ITS OWN slot signal (signalForCat(catId)) instead of the shared `signal`, so
+   *  canceling one concurrent cat does not abort its siblings (并发取消误伤根因修复).
+   *  Absent → fall back to the shared `signal` (route-serial / legacy callers). */
+  signalForCat?: ((catId: CatId) => AbortSignal | undefined) | undefined;
   promptTags?: readonly string[] | undefined;
   /** Pre-assembled context (deprecated: use history for per-cat budget) */
   contextHistory?: string | undefined;

@@ -1033,6 +1033,9 @@ export class AgentRouter {
       contentBlocks?: readonly MessageContent[];
       uploadDir?: string;
       signal?: AbortSignal;
+      /** F-parallel-cancel: per-cat signal resolver — route-parallel gives each concurrent
+       *  cat its own slot signal so canceling one cat does not abort its siblings. */
+      signalForCat?: (catId: CatId) => AbortSignal | undefined;
       queueHasQueuedMessages?: (threadId: string) => boolean;
       hasQueuedOrActiveAgentForCat?: (threadId: string, catId: string) => boolean;
       /** F185 Phase B: deferred A2A enqueue when fairness gate blocks text-scan expansion */
@@ -1094,6 +1097,7 @@ export class AgentRouter {
       contentBlocks: options?.contentBlocks,
       uploadDir: options?.uploadDir,
       signal: options?.signal,
+      signalForCat: options?.signalForCat,
       queueHasQueuedMessages: options?.queueHasQueuedMessages,
       hasQueuedOrActiveAgentForCat: options?.hasQueuedOrActiveAgentForCat,
       deferA2AEnqueue: options?.deferA2AEnqueue,

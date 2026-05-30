@@ -248,6 +248,7 @@ export async function* routeSerial(
     contentBlocks,
     uploadDir,
     signal,
+    signalForCat,
     promptTags,
     contextHistory,
     history,
@@ -352,8 +353,16 @@ export async function* routeSerial(
 
   try {
     while (index < worklist.length) {
-      if (signal?.aborted) break;
       const catId = worklist[index]!;
+      // F-parallel-cancel: per-cat signal — canceling one cat skips ONLY that cat, not the
+      // whole worklist. force-reset/cancelAll aborts every cat's controller, so all entries
+      // skip = equivalent to stopping. Using the shared primaryController.signal made
+      // "cancel the first cat" break the entire worklist (并发取消误伤根因：serial 路径).
+      const catSignal = signalForCat?.(catId) ?? signal;
+      if (catSignal?.aborted) {
+        index++;
+        continue;
+      }
       // F148 OQ-2: briefing→invocation link + context eval
       let briefingMessageId: string | undefined;
       let briefingCoverageMap: import('./context-transport.js').CoverageMap | undefined;
@@ -759,7 +768,7 @@ export async function* routeSerial(
         threadId,
         ...(targetContentBlocks ? { contentBlocks: targetContentBlocks } : {}),
         ...(targetUploadDir ? { uploadDir: targetUploadDir } : {}),
-        ...(signal ? { signal } : {}),
+        ...(catSignal ? { signal: catSignal } : {}),
         ...(staticIdentity ? { systemPrompt: staticIdentity } : {}),
         ...(options.parentInvocationId ? { parentInvocationId: options.parentInvocationId } : {}),
         continuityCapsule,
@@ -774,7 +783,7 @@ export async function* routeSerial(
         isLastCat: false,
       })) {
         // F39 bugfix: stop yielding after cancel (pipe buffer may still drain)
-        if (signal?.aborted) break;
+        if (catSignal?.aborted) break;
 
         const effectiveMsgs: AgentMessage[] = [];
         if (msg.type === 'text' && msg.content) {
@@ -813,7 +822,7 @@ export async function* routeSerial(
                       voiceConfig: getCatVoice(catId as string),
                       broadcaster: deps.socketManager,
                       ttsRegistry,
-                      signal,
+                      signal: catSignal,
                     });
                   }
                 }
@@ -1063,7 +1072,7 @@ export async function* routeSerial(
           if (effectiveMsg.type === 'error') {
             hadError = true;
             // #267: errors before abort are real provider failures; errors after abort are cleanup
-            if (!signal?.aborted) hadProviderError = true;
+            if (!catSignal?.aborted) hadProviderError = true;
             if (effectiveMsg.error) {
               collectedErrorText += `${collectedErrorText ? '\n' : ''}${effectiveMsg.error}`;
             }
@@ -1149,7 +1158,7 @@ export async function* routeSerial(
           log.error({ err }, 'Voice chunker flush failed');
         }
         if (deps.socketManager && voiceChunker.hasStarted()) {
-          const aborted = signal?.aborted ?? false;
+          const aborted = catSignal?.aborted ?? false;
           deps.socketManager.broadcastToRoom(`thread:${threadId}`, 'voice_stream_end', {
             type: 'voice_stream_end',
             catId: catId as string,
@@ -1686,12 +1695,17 @@ export async function* routeSerial(
               { threadId, catId, a2aMentions, a2aCount: worklistEntry.a2aCount, maxDepth },
               'A2A text-scan blocked: depth limit reached',
             );
-          } else if (signal?.aborted) {
+          } else if (catSignal?.aborted) {
             log.info({ threadId, catId, a2aMentions }, 'A2A text-scan blocked: signal aborted');
           }
         }
 
-        if (a2aMentions.length > 0 && worklistEntry.a2aCount < maxDepth && !signal?.aborted && !queuedMessagesPending) {
+        if (
+          a2aMentions.length > 0 &&
+          worklistEntry.a2aCount < maxDepth &&
+          !catSignal?.aborted &&
+          !queuedMessagesPending
+        ) {
           // F153: mention_dispatch span — tracks the causal link between mentioner and dispatched targets
           let dispatchSpan: Span | undefined;
           const pendingTail = worklist.slice(index + 1);
@@ -1781,7 +1795,7 @@ export async function* routeSerial(
               dispatchSpan.end();
             }
           }
-        } else if (a2aMentions.length > 0 && queuedMessagesPending && deferA2AEnqueue && !signal?.aborted) {
+        } else if (a2aMentions.length > 0 && queuedMessagesPending && deferA2AEnqueue && !catSignal?.aborted) {
           // F185 Phase B: deferred enqueue — preserve A2A handoff behind non-agent entries
           const pendingTailDeferred = worklist.slice(index + 1);
           // F153 Phase I: lazy mention_dispatch span for deferred path (mirrors inline path at :1661-1675).
