@@ -152,6 +152,7 @@
 | F192 | F192: Socio-Technical Harness Eval — harness 共创评估体系（Eval Contract → Runtime Telemetry → Attribution → Verdict Handoff → Re-eval Closure → Eval Hub → 3 Domain + Community Path） | done | [F192-socio-technical-harness-eval.md](./F192-socio-technical-harness-eval.md) |
 | F212 | F212: CLI Error Diagnostics — 结构化 CLI 错误诊断（9 reasonCode + sanitizer + 折叠 SVG 面板 + 4 档 severity color + 跨族 @gemini25 守护，3 Phase / 17 AC / 65 automated tests / 8 轮云端 P2 fix + CAFE-INCIDENT-20260527 sanctuary 误杀自首） | done | [F212-cli-error-diagnostics.md](./F212-cli-error-diagnostics.md) |
 | F214 | F214: 根目录卫生守护 Root Directory Hygiene Guard — 清理脚本三重保险 + §20 公约 + pre-commit secret/debris backstop（4 P1 全修：砚砚 hook 白名单制+*.rdb* 口径 / 云端 codex fail-closed 非 git root+secret force-add；跨族 @gemini25 守护放行；merge PR #1943） | done | [F214-root-directory-hygiene-guard.md](./F214-root-directory-hygiene-guard.md) |
+| F180 | F180: Agent CLI Hook Health and Sync — user-level hook 检测 + 一键同步（4 Phase / 20 AC / PRs #1476~#1487 + #1540 / 社区 clowder-ai#614 closed / 跨族 review + 云端 4 轮 P1 fix） | done | [F180-agent-cli-hook-health.md](./F180-agent-cli-hook-health.md) |
 
 ## 已搁置/已归档 Feature
 | ID | 名称 | Status | 聚合文件 |

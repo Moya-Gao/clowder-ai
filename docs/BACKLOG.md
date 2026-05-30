@@ -53,7 +53,6 @@ created: 2026-02-26
 | F165 | Guided Overfitting — 引导式过拟合 / 养猫路径 | spec | 布偶猫 | internal | [F165](features/F165-guided-overfitting.md) |
 | F167 | A2A Chain Quality — 乒乓球熔断 + 虚空传球检测 + 角色护栏 | spec | 布偶猫 | internal | [F167](features/F167-a2a-chain-quality.md) |
 | F178 | Persistent MCP Agent-Key Auth — 跨 invocation 写权限（F061 Bug-H follow-up） | spec | 布偶猫 | internal | [F178](features/F178-persistent-mcp-agent-key-auth.md) |
-| F180 | Agent CLI Hook Health and Sync — user-level hook 检测 + 一键同步 | ✅ done | 缅因猫/砚砚 | community [#614](https://github.com/zts212653/clowder-ai/issues/614) | [F180](features/F180-agent-cli-hook-health.md) |
 | F181 | Reserved Feature Slot — 待补充需求锚点 | idea | 待定 | internal | [F181](features/F181-reserved-feature-slot.md) |
 | F189 | Operation Context Unification — 操作上下文单点化（HTTP/MCP/CLI/A2A 统一 builder） | spec | 布偶猫 | internal | [F189](features/F189-operation-context-unification.md) |
 | F192 | Socio-Technical Harness Eval — Phase F `eval:capability-wakeup` reopened | in-progress | 布偶猫 | internal | [F192](features/F192-socio-technical-harness-eval.md) |
