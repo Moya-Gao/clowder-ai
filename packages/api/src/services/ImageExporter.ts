@@ -1,4 +1,6 @@
-import puppeteer, { type Browser } from 'puppeteer';
+import { execSync } from 'node:child_process';
+import fs from 'node:fs';
+import puppeteer, { type Browser } from 'puppeteer-core';
 import sharp from 'sharp';
 import { createModuleLogger } from '../infrastructure/logger.js';
 
@@ -7,6 +9,55 @@ const log = createModuleLogger('image-exporter');
 /** Chunk height for scroll-and-stitch. 4000px is well under Chrome's ~16384 GPU limit. */
 const CHUNK_HEIGHT = 4000;
 const VIEWPORT_WIDTH = 1280;
+
+/**
+ * Detect a Chromium-based browser executable on the system.
+ * Priority: Chrome > Edge > Chromium. CDP (Chrome DevTools Protocol) requires
+ * a Chromium-based browser — Firefox/Safari are not supported.
+ */
+function detectChromePath(): string {
+  const platform = process.platform;
+
+  const candidates: string[] =
+    platform === 'darwin'
+      ? [
+          '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+          '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+          '/Applications/Chromium.app/Contents/MacOS/Chromium',
+        ]
+      : platform === 'win32'
+        ? [
+            `${process.env.PROGRAMFILES}\\Google\\Chrome\\Application\\chrome.exe`,
+            `${process.env['PROGRAMFILES(X86)']}\\Google\\Chrome\\Application\\chrome.exe`,
+            `${process.env.PROGRAMFILES}\\Microsoft\\Edge\\Application\\msedge.exe`,
+          ]
+        : [
+            // Linux: try `which` first, then common paths
+          ];
+
+  // On Linux, try `which` for common names
+  if (platform === 'linux') {
+    for (const name of ['google-chrome', 'google-chrome-stable', 'microsoft-edge', 'chromium', 'chromium-browser']) {
+      try {
+        const resolved = execSync(`which ${name}`, { encoding: 'utf8' }).trim();
+        if (resolved) candidates.push(resolved);
+      } catch {
+        // not found, continue
+      }
+    }
+  }
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      log.info({ path: candidate }, 'Detected Chromium-based browser');
+      return candidate;
+    }
+  }
+
+  throw new Error(
+    `No Chromium-based browser found. Install Chrome, Edge, or Chromium. Searched: ${candidates.join(', ')}`,
+  );
+}
 
 /**
  * ImageExporter service for capturing screenshots of web pages using Chrome headless.
@@ -25,6 +76,7 @@ export class ImageExporter {
     try {
       if (!this.browser) {
         this.browser = await puppeteer.launch({
+          executablePath: detectChromePath(),
           headless: true,
           args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
         });
