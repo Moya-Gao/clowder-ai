@@ -1372,3 +1372,17 @@ created: 2026-02-26
 - 关联：F203 codex carrier | PR #1961 | LL-059..062（同根：cloud codex 真深度 review 逐轮抓自检盲点）
 
 > **LL-059..LL-063 同根**：source space / 执行路径都是多元的（multi-provider classifier / 真实 archive 而非想象 fixture / 平行猫 vs 本地猫 / span 纯文本 vs markdown / **codex 多 spawn carrier**）——text、逻辑、契约、**验证路径**必须匹配实际 space，不能 lock 到我们方便/熟悉的单一情景（简化的 dogfood 路径 / 单一 carrier）。Phase D 的 fixture truthfulness lesson (subtype:success+is_error:true 救回死代码) 也是同根。所有五个 lesson 都来自 cloud codex 真深度 review，每一轮抓到我自检盲点的真 P 级 finding。
+
+---
+
+### LL-064: 改 production 核心路径的 feat，merge 前必须真实 runtime 验证、不只单测
+- 状态：confirmed
+- 更新时间：2026-05-30
+- 现象：F215（malformed tool-call recovery）改 invoke-single-cat / route-serial / ClaudeAgentService 核心调用路径。merge 前 16 单测全绿、云端 review 7 轮通过，但**真实 runtime 跑出一堆 production bug**：兜底没真跑（检测到 malformed 后零动作）、触发文案说谎（"已触发恢复流程"实际不触发）、relay signal 只是告知卡片没有真 invoke 46、partial-output 裸 error 穿透给用户。铲屎官一张真实截图就暴露了。
+- 根因：单测用 mock service / fake spawnFn，happy-path 全绿但**测不到**：① 真实 route-serial worklist 管理（relay signal 产生了没人消费）；② 真实 invocation 超时 / session 封印时序（seal 后 fresh retry 的 sessionId 真的 undefined 了吗）；③ 真实 ClaudeAgentService stream 到 invoke-single-cat 到 route-serial 的事件传递（system_info 是否正确穿透 / 被正确拦截）。这和 LL-032（愿景守护必须真实启动 dev）、feedback_alpha_smoke_happy_path_blindspot（alpha 单 happy-path PASS ≠ production ready）、feedback_inmemory_store_tests_miss_redis_behavior（in-memory 假绿）**同根**——**测试环境绿 ≠ production 行为正确**。
+- 规则：改 invoke / route / session / ClaudeAgentService 核心路径的 feat/hotfix，**merge 前必须**：
+  1. 真实 runtime（或 alpha）跑 production 行为验证，不能只信单测
+  2. 刻意触发目标场景（如故意让 opus-4.8 炸毛），验证端到端兜底链
+  3. 用**真实截图/日志**证明验过（不是"我跑了测试全绿"）
+  4. 如果当前 runtime 未重启到最新代码，先重启再验
+- 关联：F215 | PR #1953 #1960 #1966 | LL-032（愿景守护真实启动）| feedback_alpha_smoke_happy_path_blindspot | feedback_inmemory_store_tests_miss_redis_behavior
