@@ -9,6 +9,25 @@ if (process.env.CAT_CAFE_SKIP_NODE_RUNTIME_GUARD === '1') {
   process.exit(0);
 }
 
+// Guard: NODE_ENV=production causes pnpm to skip devDependencies.
+// In this monorepo devDeps (TypeScript, Next.js, Tailwind, etc.) are required
+// for ALL builds — there is no valid scenario for a production-only install.
+// This catches the recurring worktree build failure that has hit every cat for months.
+if (process.env.NODE_ENV === 'production') {
+  console.error('');
+  console.error('[cat-cafe] ❌ NODE_ENV=production detected — pnpm will skip devDependencies!');
+  console.error('[cat-cafe] This monorepo needs devDeps (TypeScript, Next.js, Tailwind, etc.) for ALL builds.');
+  console.error('[cat-cafe] Fix — prefix your install command:');
+  console.error('');
+  console.error('  env -u NODE_ENV pnpm install');
+  console.error('');
+  console.error('[cat-cafe] Or unset it first:');
+  console.error('');
+  console.error('  unset NODE_ENV && pnpm install');
+  console.error('');
+  process.exit(1);
+}
+
 if (Number.isNaN(major) || major < minMajor || major >= maxMajorExclusive) {
   console.error(
     `[node-runtime] Node ${version} is not supported by this Cat Cafe checkout; expected >=${minMajor} <${maxMajorExclusive}.`,
