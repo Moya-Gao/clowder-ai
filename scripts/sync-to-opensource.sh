@@ -1439,6 +1439,8 @@ const internalScripts = [
   "check:sync-export",
   "check:web-global-css-imports",
   "check:settings-primitives",
+  "check:root-debris",
+  "clean:root-debris",
 ];
 for (const s of internalScripts) {
   delete pkg.scripts[s];
