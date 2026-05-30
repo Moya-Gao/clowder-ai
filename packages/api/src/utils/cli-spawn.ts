@@ -212,8 +212,30 @@ export async function* spawnCli(
   const child = doSpawn(options.command, options.args, {
     cwd: options.cwd,
     env: buildChildEnv(options.env),
-    stdio: ['ignore', 'pipe', 'pipe'],
+    // Incident 2026-05-29 (cross-thread-context-contamination): when stdinInput is
+    // provided, open stdin as a pipe so the prompt can be streamed off the command
+    // line. Otherwise keep 'ignore' (unchanged for providers not using stdin).
+    stdio: [options.stdinInput != null ? 'pipe' : 'ignore', 'pipe', 'pipe'],
   });
+
+  // Incident 2026-05-29: feed prompt via stdin instead of argv to prevent
+  // cross-process prompt leakage (`ps -o command=` / /proc/<pid>/cmdline can read
+  // any concurrent process's full argv). The child reads it because the CLI is
+  // invoked with PROMPT='-'.
+  if (options.stdinInput != null) {
+    const childStdin = child.stdin;
+    if (childStdin) {
+      // EPIPE guard: child may exit before consuming all stdin. EPIPE is expected
+      // (child gone); surface anything else for future diagnosis (P2-1, opus-46 review).
+      childStdin.on('error', (err) => {
+        if ((err as NodeJS.ErrnoException).code !== 'EPIPE') {
+          log.warn({ err, pid: child.pid, command: options.command }, 'Unexpected CLI stdin write error');
+        }
+      });
+      childStdin.write(options.stdinInput);
+      childStdin.end();
+    }
+  }
 
   log.debug({ pid: child.pid, command: options.command }, 'CLI process spawned');
 
@@ -803,7 +825,7 @@ function defaultSpawn(
   options: {
     cwd?: string | undefined;
     env?: NodeJS.ProcessEnv | undefined;
-    stdio: ['ignore', 'pipe', 'pipe'];
+    stdio: ['ignore' | 'pipe', 'pipe', 'pipe'];
   },
 ): ChildProcessLike {
   if (IS_WINDOWS) {

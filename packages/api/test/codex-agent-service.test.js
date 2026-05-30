@@ -39,9 +39,19 @@ function createMockProcess() {
     }
     return emitted;
   };
+  let stdinData = '';
   const proc = {
     stdout,
     stderr,
+    // Incident 2026-05-29: prompt 走 stdin（不进 argv）。捕获写入供断言。
+    stdin: {
+      write: (chunk) => {
+        stdinData += typeof chunk === 'string' ? chunk : chunk.toString('utf8');
+        return true;
+      },
+      end: () => {},
+      on: () => proc.stdin,
+    },
     pid: 12345,
     exitCode: null,
     kill: mock.fn(() => {
@@ -58,6 +68,9 @@ function createMockProcess() {
     once: (event, listener) => {
       emitter.once(event, listener);
       return proc;
+    },
+    get stdinData() {
+      return stdinData;
     },
     _emitter: emitter,
   };
@@ -213,7 +226,9 @@ test('uses exec resume when sessionId is provided', async () => {
   assert.equal(args[0], 'exec');
   assert.equal(args[1], 'resume');
   assert.equal(args[2], 'existing-thread-456');
-  assert.equal(args.at(-1), 'Continue');
+  // Incident 2026-05-29: prompt 走 stdin，argv 末尾是 '-'（codex 从 stdin 读 PROMPT）
+  assert.equal(args.at(-1), '-', 'prompt 走 stdin，argv 末尾是 -');
+  assert.equal(proc.stdinData, 'Continue', 'prompt 经 stdin 传入');
   // resume 子命令不接受 --sandbox（sandbox 在创建时已锁定）
   assert.ok(!args.includes('--sandbox'), 'resume args must not include --sandbox');
   assert.ok(args.includes('--json'), 'resume args must include --json');
@@ -1318,10 +1333,11 @@ test('systemPrompt is preserved and codex --image is used when contentBlocks con
   const imageIdx = args.indexOf('--image');
   assert.ok(imageIdx >= 0, 'codex should receive image via --image');
   assert.ok(String(args[imageIdx + 1]).includes('cat.png'));
-  const promptArg = args.at(-1); // last arg is the prompt
+  // Incident 2026-05-29: prompt 走 stdin（不进 argv）；systemPrompt 拼进 effectivePrompt → stdin
+  assert.equal(args.at(-1), '-', 'argv 末尾是 - (codex 从 stdin 读)');
   assert.ok(
-    promptArg.includes('缅因猫'),
-    `systemPrompt should be preserved in prompt when images present, got: ${promptArg.slice(0, 120)}`,
+    proc.stdinData.includes('缅因猫'),
+    `systemPrompt should be preserved in stdin prompt when images present, got: ${proc.stdinData.slice(0, 120)}`,
   );
 });
 
@@ -1342,9 +1358,13 @@ test('fresh exec with --image inserts "--" before prompt to avoid varargs swallo
   const args = spawnFn.mock.calls[0].arguments[1];
   const imageIdx = args.indexOf('--image');
   assert.ok(imageIdx >= 0, 'codex should receive --image');
-  const promptIdx = args.indexOf('please describe this image path handling');
-  assert.ok(promptIdx >= 0, 'prompt should be present');
-  assert.equal(args[promptIdx - 1], '--', 'prompt must be preceded by "--" separator');
+  // Incident 2026-05-29: prompt 走 stdin（不进 argv）；image 后 argv 末尾应是 '-- -'
+  // （'--' 分隔避免 varargs 把 stdin 标记 '-' 当成 image 路径）
+  assert.ok(!args.includes('please describe this image path handling'), 'prompt 不应在 argv（走 stdin）');
+  assert.equal(proc.stdinData, 'please describe this image path handling', 'prompt 经 stdin 传入');
+  const dashIdx = args.indexOf('-');
+  assert.ok(dashIdx >= 0, "argv 应含 stdin 标记 '-'");
+  assert.equal(args[dashIdx - 1], '--', "'-' must be preceded by '--' separator");
 });
 
 test('resume exec with --image inserts "--" before prompt', async () => {
@@ -1368,9 +1388,12 @@ test('resume exec with --image inserts "--" before prompt', async () => {
   assert.equal(args[2], 'existing-thread-456');
   const imageIdx = args.indexOf('--image');
   assert.ok(imageIdx >= 0, 'resume path should receive --image');
-  const promptIdx = args.indexOf('resume image argument handling');
-  assert.ok(promptIdx >= 0, 'prompt should be present');
-  assert.equal(args[promptIdx - 1], '--', 'resume prompt must be preceded by "--" separator');
+  // Incident 2026-05-29: prompt 走 stdin（不进 argv）；image 后 argv 末尾应是 '-- -'
+  assert.ok(!args.includes('resume image argument handling'), 'prompt 不应在 argv（走 stdin）');
+  assert.equal(proc.stdinData, 'resume image argument handling', 'prompt 经 stdin 传入');
+  const dashIdx = args.indexOf('-');
+  assert.ok(dashIdx >= 0, "argv 应含 stdin 标记 '-'");
+  assert.equal(args[dashIdx - 1], '--', "resume '-' must be preceded by '--' separator");
 });
 
 test('F8: turn.completed usage is captured into done metadata', async () => {

@@ -57,14 +57,19 @@ function buildPaneCommand(
   fifoPath: string,
   exitFilePath: string,
   stderrFilePath: string,
+  stdinFilePath?: string,
 ): string {
   const parts = [shellEscape(opts.command), ...opts.args.map(shellEscape)];
+  // Incident 2026-05-29 P1 (cloud codex review): codex `-- -` reads the prompt from
+  // stdin, but a tmux pane has no stdin pipe. Redirect from a 0600 temp file so the
+  // prompt reaches codex (content stays off argv/ps — only the file path is visible).
+  const stdinRedirect = stdinFilePath != null ? ` < ${shellEscape(stdinFilePath)}` : '';
   // pipefail ensures $? reflects the CLI exit code, not tee's
   if (opts.outputMode === 'plainText') {
     const stderrFile = shellEscape(stderrFilePath);
-    return `set -o pipefail; ${parts.join(' ')} 2> ${stderrFile} | tee ${shellEscape(fifoPath)}; echo "EXIT:$?" > ${shellEscape(exitFilePath)}; cat ${stderrFile} >&2`;
+    return `set -o pipefail; ${parts.join(' ')}${stdinRedirect} 2> ${stderrFile} | tee ${shellEscape(fifoPath)}; echo "EXIT:$?" > ${shellEscape(exitFilePath)}; cat ${stderrFile} >&2`;
   }
-  return `set -o pipefail; ${parts.join(' ')} 2>&1 | tee ${shellEscape(fifoPath)}; echo "EXIT:$?" > ${shellEscape(exitFilePath)}`;
+  return `set -o pipefail; ${parts.join(' ')}${stdinRedirect} 2>&1 | tee ${shellEscape(fifoPath)}; echo "EXIT:$?" > ${shellEscape(exitFilePath)}`;
 }
 
 /** Read exit code sentinel file with retry (race: FIFO EOF before file write) */
@@ -100,29 +105,51 @@ export async function* spawnCliInTmux(
   const fifoPath = join(tmpDir, 'output.fifo');
   const exitFilePath = join(tmpDir, 'exit-code');
   const stderrFilePath = join(tmpDir, 'stderr.log');
-  await execAsync('mkfifo', [fifoPath]);
-
-  const paneId = await tmuxGateway.createAgentPane(options.worktreeId, {
-    ...(options.cwd ? { cwd: options.cwd } : {}),
-  });
-
-  // Inject environment variables into pane shell
-  if (options.env) {
-    for (const [key, value] of Object.entries(options.env)) {
-      if (value !== null && value !== undefined) {
-        await tmuxGateway.execInPane(options.worktreeId, paneId, `export ${key}=${shellEscape(value)}`);
-      }
+  // Incident 2026-05-29 P1 (cloud codex review): codex `-- -` reads prompt from stdin,
+  // but a tmux pane has no stdin pipe. Write stdinInput to a 0600 temp file (inside
+  // tmpDir) and redirect it in the pane command (buildPaneCommand). Prompt content
+  // stays off argv/ps — only the file path is visible.
+  //
+  // P1 #2 (same review round): the stdin temp file holds the full conversation history,
+  // and the main try/finally that removes tmpDir only starts later. Wrap the entire
+  // setup phase so any failure here (mkfifo / createAgentPane / execInPane when tmux is
+  // unavailable) still removes tmpDir — otherwise the prompt is left on disk forever.
+  let stdinFilePath: string | undefined;
+  let paneId: string;
+  try {
+    if (options.stdinInput != null) {
+      const { writeFile } = await import('node:fs/promises');
+      stdinFilePath = join(tmpDir, 'stdin');
+      await writeFile(stdinFilePath, options.stdinInput, { mode: 0o600 });
     }
-    await new Promise((r) => setTimeout(r, 100));
-  }
+    await execAsync('mkfifo', [fifoPath]);
 
-  await tmuxGateway.execInPane(
-    options.worktreeId,
-    paneId,
-    buildPaneCommand(options, fifoPath, exitFilePath, stderrFilePath),
-  );
-  // Set read-only AFTER command starts (select-pane -d blocks send-keys if set before)
-  await tmuxGateway.setPaneReadOnly(options.worktreeId, paneId, true);
+    paneId = await tmuxGateway.createAgentPane(options.worktreeId, {
+      ...(options.cwd ? { cwd: options.cwd } : {}),
+    });
+
+    // Inject environment variables into pane shell
+    if (options.env) {
+      for (const [key, value] of Object.entries(options.env)) {
+        if (value !== null && value !== undefined) {
+          await tmuxGateway.execInPane(options.worktreeId, paneId, `export ${key}=${shellEscape(value)}`);
+        }
+      }
+      await new Promise((r) => setTimeout(r, 100));
+    }
+
+    await tmuxGateway.execInPane(
+      options.worktreeId,
+      paneId,
+      buildPaneCommand(options, fifoPath, exitFilePath, stderrFilePath, stdinFilePath),
+    );
+    // Set read-only AFTER command starts (select-pane -d blocks send-keys if set before)
+    await tmuxGateway.setPaneReadOnly(options.worktreeId, paneId, true);
+  } catch (setupErr) {
+    // Remove tmpDir (incl. the prompt stdin file) before propagating the setup failure.
+    await rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+    throw setupErr;
+  }
   yield { __tmuxPaneCreated: true, paneId, worktreeId: options.worktreeId } as unknown;
 
   let timedOut = false;

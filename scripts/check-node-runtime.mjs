@@ -17,14 +17,10 @@ if (process.env.CAT_CAFE_SKIP_NODE_RUNTIME_GUARD === '1') {
 // This catches the recurring worktree build failure that has hit every cat
 // for months (Claude Code shell inherits NODE_ENV=production).
 const prodEnv = process.env.NODE_ENV === 'production';
-const prodFlag =
-  process.env.npm_config_production === 'true' ||
-  process.env.NPM_CONFIG_PRODUCTION === 'true';
+const prodFlag = process.env.npm_config_production === 'true' || process.env.NPM_CONFIG_PRODUCTION === 'true';
 
 if (prodEnv || prodFlag) {
-  const reason = prodEnv
-    ? 'NODE_ENV=production'
-    : 'npm_config_production=true';
+  const reason = prodEnv ? 'NODE_ENV=production' : 'npm_config_production=true';
   console.error('');
   console.error(`[cat-cafe] ❌ ${reason} detected — pnpm will skip devDependencies!`);
   console.error('[cat-cafe] This monorepo needs devDeps (TypeScript, Next.js, Tailwind, etc.) for ALL builds.');
