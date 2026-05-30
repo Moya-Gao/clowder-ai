@@ -634,11 +634,11 @@ spike（拆机制、找方案、验证未知行为）时**禁止 web fetch 当�
 
 完整方法论见 `vision-rescue` skill。来源：F198 "拯救宪宪"，投降包装成理性收口，铲屎官怒怼才打破。
 
-### 16d. Review 补锅匠检测——Round 3 黄灯 / Round 4 停车（2026-05-14 F198 Phase B 教训）
+### 16d. Review 糊锅检测——Round 3 黄灯 / Round 4 停车（2026-05-14 F198 Phase B 教训）
 
-> 铲屎官原话："你们在补锅ing！选错坐标系了！"
+> 铲屎官原话："你们在补锅ing！选错坐标系了！"（注：此处"补锅"本质是"糊锅"——在错误坐标系上打补丁。后 §16e 独占「补锅匠」magic word 指代坐标系对但只做点修复的场景，故本段改用"糊锅"区分。）
 
-**信号**：Review iteration ≥3 轮且 P1 没有收敛（数量不减 / 同类问题反复出现）= **补锅匠模式**。
+**信号**：Review iteration ≥3 轮且 P1 没有收敛（数量不减 / 同类问题反复出现）= **糊锅模式**。
 不是 reviewer 太严也不是 coder 太差——是在错误的坐标系上反复打补丁。
 
 **Round 3 = 黄灯（自检）**：
@@ -662,7 +662,7 @@ Reviewer 问自己：
 
 **Hook 机制**：PR tracking 的 review feedback callback 在 Round 3+ 注入 Patch Spiral Guard 提醒给 author 和 reviewer 双方。
 
-来源：F198 Phase B `ClaudeBgCarrierService` 6 轮 cloud review、12 个 P1，铲屎官一句"你们在补锅"打断后 refactor `buildClaudeEnvOverrides` 复用，P1 大幅收敛。
+来源：F198 Phase B `ClaudeBgCarrierService` 6 轮 cloud review、12 个 P1，铲屎官一句"你们在糊锅"打断后 refactor `buildClaudeEnvOverrides` 复用，P1 大幅收敛。
 
 ### 16e. Failure-Mode Audit——同型第二次出现即触发（2026-05-29 全家族讨论教训）
 
