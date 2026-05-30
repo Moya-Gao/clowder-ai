@@ -32,6 +32,11 @@ spec 原文「5 套并行路由路径共享同一个可变 worklist」把"**读*
 | 2 | `route-serial.ts:1136` `worklist.push(relay46CatId)` | 循环内 | **同步**，F215 malformed relay（46 接力） |
 | 3 | `WorklistRegistry.pushToWorklist`（registry 持 `list: worklist` 引用） | 异步外部 | **跨边界异步**，callback A2A 从 `callback-a2a-trigger` 往同一数组 push |
 
+### 已排查、确认 NOT 写 worklist 的路径（防核验猫重复查）
+
+- **deferred A2A**（`route-serial.ts:1798` `deferA2AEnqueue`）：走 InvocationQueue 投递，**不 push worklist**。这条已经是"投递 intent"模式——正是 callback 路径该看齐的目标形态（见设计方向）。
+- **callback A2A 的 InvocationQueue 分支**（`callback-a2a-trigger.ts` `enqueueA2ATargets` 的 `deps.invocationQueue` 路径，即我刚修 coalesce 的那条）：往 InvocationQueue，**不直接 push worklist**。只有它的 **legacy worklist fallback 分支**（`hasWorklist` → `pushToWorklist`）才走第 3 个入口。
+
 ### 真正的复杂度根源（不是"5 套路径"）
 
 **第 3 个入口是脆弱性的真因**：`registerWorklist` 把 routeSerial 的 `worklist` 数组**引用**存进 registry（`WorklistEntry.list = worklist`，同一对象）。callback-a2a-trigger 在**异步外部**通过 `pushToWorklist` 往这个**正在被同步 `while (index < worklist.length)` 循环消费**的数组里 push —— **无锁共享可变状态，跨同步/异步边界**。
