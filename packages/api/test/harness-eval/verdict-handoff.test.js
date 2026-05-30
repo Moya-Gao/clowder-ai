@@ -182,6 +182,22 @@ describe('Verdict Handoff Packet contract', () => {
     assert.equal(packet.governance.degradePlan.targetMode, 'on-demand');
   });
 
+  it('accepts degrade verdict without cvoAcceptRequired (CVO gate is optional for degrade)', () => {
+    const packet = parseVerdictHandoffPacket({
+      ...basePacket,
+      verdict: 'degrade',
+      governance: {
+        degradePlan: {
+          targetMode: 'shadow-only',
+          rollbackCondition: 'friction ratio stable below 3% for 72h',
+        },
+      },
+    });
+    assert.equal(packet.verdict, 'degrade');
+    assert.equal(packet.governance.cvoAcceptRequired, undefined);
+    assert.equal(packet.governance.degradePlan.targetMode, 'shadow-only');
+  });
+
   it('rejects degrade verdict with empty degrade plan fields', () => {
     assert.throws(() =>
       parseVerdictHandoffPacket({

@@ -41,7 +41,7 @@ const verdictHandoffPacketSchema = z
     }),
     governance: z
       .object({
-        cvoAcceptRequired: z.boolean(),
+        cvoAcceptRequired: z.boolean().optional(),
         degradePlan: z
           .object({
             targetMode: z.string().min(1),
