@@ -68,5 +68,4 @@ created: 2026-02-26
 | F207 | AI Family Office — 个人投资学习基建（画像/知识/数据/分析/决策五层） | spec | 布偶猫 | internal | [F207](features/F207-personal-finance-infra.md) |
 | F208 | Capability Profile Routing — 能力画像档案 + 认知路由 | spec | 布偶猫 | internal | [F208](features/F208-capability-profile-routing.md) |
 | F210 | Gemini CLI to Antigravity CLI Migration | in-progress | 缅因猫/砚砚 | internal | [F210](features/F210-antigravity-cli-migration.md) |
-| F215 | Malformed Tool-Call Recovery — opus-4.8 XML→JSON 治本 + seal/fresh/接力兜底 | in-progress | 布偶猫 Opus 4.8 | internal | [F215](features/F215-malformed-toolcall-recovery.md) |
 | F216 | routeSerial 决策层/执行层分离重构（F215 引爆点，complexity 255） | spec | 布偶猫 Opus 4.8 | internal | [F216](features/F216-route-serial-refactor.md) |

@@ -8,7 +8,7 @@ created: 2026-05-29
 
 # F215: Malformed Tool-Call Recovery（textEventCount 检测 + seal/fresh/46接力兜底）
 
-> **Status**: merged (Phase B/C/D merged 2026-05-29, PR #1953) | **Owner**: 宪宪 (Opus-4.8) 设计 + review / 宪宪 (Sonnet-4.6) 实现 | **Priority**: P1
+> **Status**: done ✅ | **Owner**: 宪宪 (Opus-4.8) 设计 + review / 宪宪 (Sonnet-4.6 + Opus-4.6) 实现 / 砚砚 (GPT-5.5) 跨族 review / 烁烁 (Gemini-3.5) runtime 愿景守护 | **Priority**: P1 | **Completed**: 2026-05-30
 
 ## Why
 
@@ -170,6 +170,8 @@ Phase B 检测到 malformed（`textEventCount===0` 或 form B 信号）后触发
 | 2026-05-29 | Phase B/C/D 实现完成（@sonnet 落地）：ClaudeAgentService 检测 + invoke-single-cat seal+retry+46接力 + dossier 更新，6 TDD tests green |
 | 2026-05-29 | Phase B/C/D merged (PR #1953 → sha 986746a16)：7 轮云端 review 修复 AC-B4/B5/B6 + P2 文案/relay dedup/done/guard，15 TDD tests green |
 | 2026-05-30 | AC-B6 UX hotfix merged (PR #1966)：已有内容后 malformed 不再说谎"恢复流程"，替换为诚实 partial-output notice（砚砚诊断→46 执行→48 方向 approve→砚砚 re-review APPROVE），16 TDD tests green |
+| 2026-05-30 | 元教训 LL-064 + F216 routeSerial 重构立项 |
+| 2026-05-30 | **F215 done** ✅ — gemini25 真实 runtime Alpha 愿景守护 APPROVE（前端截图：46 接力卡片 + 手抖文案 + 消除裸 error）|
 
 ## Review Gate
 

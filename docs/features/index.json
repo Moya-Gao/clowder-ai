@@ -1329,7 +1329,7 @@
     {
       "id": "F215",
       "name": "Malformed Tool-Call Recovery（textEventCount 检测 + seal/fresh/46接力兜底）",
-      "status": "merged (Phase B/C/D merged 2026-05-29, PR #1953) | **Owner**: 宪宪 (Opus-4.8) 设计 + review / 宪宪 (Sonnet-4.6) 实现 | **Priority**: P1",
+      "status": "done ✅ | **Completed**: 2026-05-30 | **Owner**: opus-4.8 设计 + review / sonnet+opus-4.6 实现 / codex 跨族 review / gemini25 runtime 愿景守护",
       "file": "F215-malformed-toolcall-recovery.md"
     },
     {
