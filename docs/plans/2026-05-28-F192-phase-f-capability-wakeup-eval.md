@@ -77,11 +77,8 @@
 ### 3b. 分析层（3-way 分类器，跑在已记录的 miss 上）
 严格按序（顺序 load-bearing：认知 miss 误标行为 → 触发 hook → 猫回"我没这工具"）：
 
-- **STEP 0 — 可达性门（筛子0）**：不可达 → 路由到 `reachability_doubt` 证据类（opus-47 "terminal 调不了 workspace" 原型），**不是 3 根因之一**，药方也不同（修 reachability **doc 行**，不是 L0 排序、不是 hook）。
-- **STEP 1 — 认知（两类：不知道存在 / 知道存在但不知怎么调）**：
-  - (1a) **第一人称怀疑信号**：扫 miss 窗口 + 该能力全 session 的不可达/不确定/不知如何调断言 + 能力名词共现（如 `/Hub (专属|only)/`、`/(terminal|CLI).{0,6}(调不了|can.?t (call|use))/`、`/(我|I).{0,8}(没有|don.?t have).{0,8}(工具|tool)/`、`/(怎么|how to).{0,8}(调用|call|用这个)/`）。强确认 = 猫**问**可达性/调用法而非行动。引用/他人转述 span 不归因。
-  - (1b) **knows-of 但 how-to 不在 context**（gpt52 review 补正）：**L0 §8 只静态注入「场景→skill 名」触发反射（= 知道该能力存在），不含 how-to**（curl / API 路径——那在 `capability-wakeup-index.md` ref + 各 SKILL.md，非每 invocation 注入）。所以"知道该用但不知怎么调"是认知 miss：若该能力的 ref/skill **本 session 未 demonstrably 加载**（无 Read/skill-load tool_use）+ 无 demonstrated use → 倾向 COGNITIVE。
-  - → COGNITIVE，药方 = **补 how-to 到 ref/skill**（正是 saga 为 workspace 做的：把 curl 写进 `capability-wakeup-index.md` ref；L0 §8 只留触发反射、**不塞 curl**，见 §4）。
+- **STEP 0 — 可达性门（筛子0，独立 label `reachability_doubt`）**：扫 miss 窗口 + 该能力全 session 的**第一人称怀疑信号**——不可达/不确定/不知如何调断言 + 能力名词共现（如 `/Hub (专属|only)/`、`/(terminal|CLI).{0,6}(调不了|can.?t (call|use))/`、`/(我|I).{0,8}(没有|don.?t have).{0,8}(工具|tool)/`、`/(怎么|how to).{0,8}(调用|call|用这个)/`）。强确认 = 猫**问**可达性/调用法而非行动。引用/他人转述 span 不归因。命中 → `reachability_doubt`（opus-47 "terminal 调不了 workspace" 原型 + 砚砚实现把 "第一人称怀疑" 并入此筛子，**与 cognitive 独立分类**）。**不是 3 根因之一**，药方也不同（修 reachability **doc 行**，不是 L0 排序、不是 hook）。
+- **STEP 1 — 认知（knows-of 但 how-to 不在 context）**：跨过 STEP 0 后判定。**L0 §8 只静态注入「场景→skill 名」触发反射（= 知道该能力存在），不含 how-to**（curl / API 路径——那在 `capability-wakeup-index.md` ref + 各 SKILL.md，非每 invocation 注入）。所以"知道该用但不知怎么调"是认知 miss：若该能力的 ref/skill **本 session 未 demonstrably 加载**（无 Read/skill-load tool_use）+ 无 demonstrated use → COGNITIVE，药方 = **补 how-to 到 ref/skill**（正是 saga 为 workspace 做的：把 curl 写进 `capability-wakeup-index.md` ref；L0 §8 只留触发反射、**不塞 curl**，见 §4）。
 - **STEP 2 — 行为**：全部满足才 fire：(a) 无可达性怀疑；(b) **本 session 内**该 cat 早先成功调过此能力（ToolEventLog 显示 turnIndex < 机会 turnIndex 的成功调用——**knew-how 由 demonstrated use 证明，不从 doc presence 推断**）；(c) 机会处发了零摩擦默认（长纯文字 / 裸路径）；(d) 能力"一步之遥"（文件已写 / server 已起）。→ BEHAVIORAL。
 - **STEP 3 — 注意力稀释（残余，gated on 放大器 + knew-how 须 established）**：(a) 无可达/调用法怀疑；(b) **knew-how established**（gpt52 review 补正——**不能用 L0 §8 存在提醒当 knew-how 证据**，那只证"知道存在"不证"知道怎么调"）：本 session 没早先用过（in-session proof 缺，否则归 STEP 2），但 how-to ref/skill **demonstrably 在 context 本 session**（Read/skill-load tool_use）OR analysis 层 cross-session provenance 显示该 cat 真用过此能力（per CVO #1，cross-session 在分析层判、不烤进 in-session 记录）；(c) **纯遗漏**——机会处既不怀疑可达/调用法也不口头走捷径，只是 move on（区别于行为的有意识选择）；**AND** (d) 至少一个**稀释放大器**：opportunity 的 turnIndex 偏晚（同 cat turn 数超 session 百分位 / 离 turn-0 L0 注入远）OR 同能力 miss ≥2 次才 use OR L0 注入与 opportunity 间夹一长串无关 tool_use/text。→ ATTENTION_DILUTION。**knew-how 未 established（无 ref/skill 加载、无任何 demonstrated use）且无显式 doubt 的残余 → 标 `unclassified`**（analysis 层用 cross-session provenance 解：用过 → attention，从没用过 → 倾向 cognitive；不在 in-session 强分、不硬塞桶）。
 
@@ -95,7 +92,7 @@
 
 ## 4. Verdict → 干预 1:1 映射（AC-F6 / AC-F9）— CVO 决策 #2
 
-verdict 按 `(capability × cat/family × scenario)` 出，**带 miss_rate + 根因直方图**（cognitive% / behavioral% / attention_dilution% / unclassified%）。**主导根因（不是 raw miss rate）选干预**，1:1 映射进 `VerdictHandoffPacket.ownerAsk`（→ @opus47）：
+verdict 按 `(capability × cat/family × scenario)` 出，**带 miss_rate + 根因直方图**（reachability_doubt% / cognitive% / behavioral% / attention_dilution% / unclassified%）。`reachability_doubt` 路由出去修 reachability doc 行（见 §3b STEP 0），不进下方 3 根因 1:1 干预表。**主导根因（不是 raw miss rate）选干预**，1:1 映射进 `VerdictHandoffPacket.ownerAsk`（→ @opus47）：
 
 | 主导根因 | verdict | ownerAsk 干预 | 禁忌 |
 |---------|---------|--------------|------|
