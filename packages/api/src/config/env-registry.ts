@@ -699,6 +699,13 @@ export const ENV_VARS: EnvDefinition[] = [
     sensitive: false,
   },
   {
+    name: 'CAT_CAFE_CALLBACK_FETCH_TIMEOUT_MS',
+    defaultValue: '10000',
+    description: 'Callback fetch 每次尝试超时（毫秒，防 hung socket 永久挂起，照 #1368）',
+    category: 'cli',
+    sensitive: false,
+  },
+  {
     name: 'CDP_DEBUG',
     defaultValue: '(未设置)',
     description: 'CDP Bridge 调试模式',
