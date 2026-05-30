@@ -118,10 +118,14 @@ const KNOWN_EXCERPT_SOURCES: ReadonlySet<string> = new Set(['classifier', 'cc_st
  * non-member string as unknown so we fall through to UNKNOWN_PALETTE safely.
  */
 export function isKnownReason(code: unknown): code is CliErrorReasonCode {
-  // 云端 codex P2-7 (2026-05-27): `Object.hasOwn` is ES2022 (Safari 15.4+, Chrome 93+).
-  // Use Object.prototype.hasOwnProperty.call for broader client compat (Next.js's
-  // browserslist default supports older Safari that predates ES2022).
-  return typeof code === 'string' && Object.hasOwn(REASON_PALETTE, code);
+  // 云端 codex P2-7 (2026-05-27) + R3 regression (2026-05-30, b304a27d2 → revert):
+  // `Object.hasOwn` is ES2022 (Safari 15.4+, Chrome 93+). tsconfig target = ES2017,
+  // so use Object.prototype.hasOwnProperty.call for broader client compat (Next.js's
+  // browserslist default supports older Safari that predates ES2022). biome-ignore
+  // below is mechanical defense: `biome check --write --unsafe` rewrites this back
+  // to Object.hasOwn via lint/suspicious/noPrototypeBuiltins; the ignore freezes it.
+  // biome-ignore lint/suspicious/noPrototypeBuiltins: ES2017 target requires hasOwnProperty.call
+  return typeof code === 'string' && Object.prototype.hasOwnProperty.call(REASON_PALETTE, code);
 }
 
 function truncateMiddle(s: string, max = 32): string {
@@ -151,9 +155,16 @@ interface CliDiagnosticsPanelProps {
   /** The bubble's display content (`Error: ...`). Falls back if publicSummary missing. */
   errorMessage: string;
   diagnostics: CliDiagnostics;
+  /** F212 follow-up — when this is the head of a deduped group of identical adjacent
+   *  diagnostics (same reasonCode + publicSummary within window), show a "×N" badge so the
+   *  user sees that the same error fired N times. Group dedup is computed at the message
+   *  list level (see `utils/cli-diagnostics-dedup`); subsequent group members hide their
+   *  panel entirely via ChatMessage's hideDiagnosticsPanel prop, so this Panel only needs
+   *  to render the count badge for the head. */
+  dedupCount?: number;
 }
 
-export function CliDiagnosticsPanel({ errorMessage, diagnostics }: CliDiagnosticsPanelProps) {
+export function CliDiagnosticsPanel({ errorMessage, diagnostics, dedupCount }: CliDiagnosticsPanelProps) {
   const [expanded, setExpanded] = useState(false);
 
   // 云端 codex P2 (2026-05-27): membership check before indexing — stale/newer/malformed
@@ -190,8 +201,19 @@ export function CliDiagnosticsPanel({ errorMessage, diagnostics }: CliDiagnostic
           ariaLabel={knownReason ?? 'cli-error-unknown'}
         />
         <div className="flex flex-col gap-1 min-w-0">
-          <span className="text-sm font-semibold" style={{ color: text }}>
-            {summary}
+          <span className="text-sm font-semibold flex items-center gap-2 flex-wrap" style={{ color: text }}>
+            <span>{summary}</span>
+            {dedupCount !== undefined && dedupCount > 1 && (
+              <span
+                data-testid="cli-diagnostics-dedup-badge"
+                role="img"
+                aria-label={`Same error occurred ${dedupCount} times`}
+                className="text-xs font-normal px-1.5 py-0.5 rounded"
+                style={{ backgroundColor: accent, color: bg }}
+              >
+                ×{dedupCount}
+              </span>
+            )}
           </span>
           {diagnostics.publicHint && (
             <span className="text-xs" style={{ color: '#6D6C6A', lineHeight: 1.5 }}>

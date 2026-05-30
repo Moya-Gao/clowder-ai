@@ -395,4 +395,26 @@ describe('F212 CliDiagnosticsPanel (AC-B2/B3/B4)', () => {
       'Error: unexpected',
     );
   });
+
+  // F212 follow-up — codex R3 catch (PR #1967, b304a27d2): biome --write --unsafe via
+  // lint/suspicious/noPrototypeBuiltins rewrites Object.prototype.hasOwnProperty.call
+  // to Object.hasOwn, which is ES2022 (Safari/iOS <15.4 not supported). The Panel
+  // tsconfig target is ES2017, so this would crash any CLI error render on older
+  // Safari. Source-level invariance check defends against future biome rule rename
+  // making the inline biome-ignore comment a no-op.
+  it('isKnownReason source stays on Object.prototype.hasOwnProperty.call (ES2017 compat invariance)', async () => {
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+    const url = await import('node:url');
+    const here = path.dirname(url.fileURLToPath(import.meta.url));
+    const panelPath = path.resolve(here, '..', 'CliDiagnosticsPanel.tsx');
+    const src = await fs.readFile(panelPath, 'utf8');
+    // Positive: the safe form must be present
+    expect(src).toContain('Object.prototype.hasOwnProperty.call(REASON_PALETTE');
+    // Negative: the ES2022 form (which biome --unsafe rewrites to) must NOT appear in
+    // the runtime path. Comments mentioning it are fine; we only guard the actual call.
+    const codeLines = src.split('\n').filter((line) => !line.trim().startsWith('//') && !line.trim().startsWith('*'));
+    const runtimeCode = codeLines.join('\n');
+    expect(runtimeCode).not.toMatch(/Object\.hasOwn\s*\(/);
+  });
 });
