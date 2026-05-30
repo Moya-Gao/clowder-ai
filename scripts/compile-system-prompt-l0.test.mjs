@@ -214,18 +214,19 @@ describe('F203 Phase B — compile-system-prompt-l0.mjs', () => {
     });
   });
 
-  // AC-B3 上限 5,500（KD-14）：4,500→5,000（KD-9，S1 实测 static 物理
-  // 下限 ~4,600t）→5,500。第二次上移因 codex user-layer strip 把 Codex
-  // CLI 专属「长任务纪律」从退役的 ~/.codex/AGENTS.md 迁入 maine-coon
-  // native overlay——maine-coon 实测 5,154-5,155t，5,000 buffer 已耗尽。
-  // 5,500 仍在 Claude 4.x prompt cache 单 breakpoint（最小 1,024t）内，
-  // 占 200k context 2.75%。详见 F203 AC-B3 + KD-14。
-  describe('Token budget (AC-B3, ≤5,500)', () => {
+  // AC-B3 上限 5,600（KD-14）：4,500→5,000（KD-9，S1 实测 static 物理
+  // 下限 ~4,600t）→5,500→5,600。第二次上移因 codex user-layer strip 把
+  // Codex CLI 专属「长任务纪律」从退役的 ~/.codex/AGENTS.md 迁入
+  // maine-coon native overlay——maine-coon 实测 5,154-5,155t，5,000
+  // buffer 已耗尽。第三次上移因新增 Magic Word「补锅匠」(§16e
+  // failure-mode audit) 加 ~30t，maine-coon 实测 5,529-5,530t。
+  // 5,600 占 200k context 2.8%。详见 F203 AC-B3 + KD-14。
+  describe('Token budget (AC-B3, ≤5,600)', () => {
     for (const catId of CATS) {
-      test(`${catId}: total tokens ≤ 5,500`, async () => {
+      test(`${catId}: total tokens ≤ 5,600`, async () => {
         const l0 = await compileL0({ catId });
         const tokens = tok(l0);
-        assert.ok(tokens <= 5500, `${catId} L0 = ${tokens} tokens (limit 5,500)`);
+        assert.ok(tokens <= 5600, `${catId} L0 = ${tokens} tokens (limit 5,600)`);
       });
     }
   });

@@ -147,6 +147,7 @@ AI agent 100x 执行速度下，**方向正确性**的价值远大于**启动便
 | 「下次一定」 | 你在把"未做"包装成"已规划" | 停，审视当前产物每一条"后续/future/next phase"——能做的现在做，做不了的走 cvo_signoff，不准留尾巴 |
 | 「我能猜出来」 | 你在用推理跳过查询（布偶猫家族病） | 停，Read 源文件。搜到的摘要是索引不是答案——碎片推理 ≠ 查证 |
 | 「碎片够了」 | 你满足于第一个高置信度命中就开始推理 | 停，至少再搜一轮不同角度，命中的 doc anchor 全部 Read 原文 |
+| 「补锅匠」 | 你在逐点修补 reviewer 发现，不审视全局同类问题（战术勤劳掩饰战略懒惰） | 停，把 reviewer 已抓的问题抽象为 failure mode 名，grep 本 PR diff 扫同类，一次修完再回复 reviewer（§16e） |
 
 ### 47 自检协议（F177 Phase B — 反向治理）
 
@@ -662,6 +663,39 @@ Reviewer 问自己：
 **Hook 机制**：PR tracking 的 review feedback callback 在 Round 3+ 注入 Patch Spiral Guard 提醒给 author 和 reviewer 双方。
 
 来源：F198 Phase B `ClaudeBgCarrierService` 6 轮 cloud review、12 个 P1，铲屎官一句"你们在补锅"打断后 refactor `buildClaudeEnvOverrides` 复用，P1 大幅收敛。
+
+### 16e. Failure-Mode Audit——同型第二次出现即触发（2026-05-29 全家族讨论教训）
+
+> 铲屎官原话："如果坐标系没错是不是不能只修他找到的那个问题？而是得审视思考一下是不是其他自己的这个 PR 的代码还有类似的问题？"
+> "补锅本质也是用战术的勤劳掩饰战略的懒惰。"
+
+**与 16d 的区分**：
+- 16d 检测**坐标系是否选错了**（糊锅）→ 重构方向
+- 16e 检测**坐标系对了但 author 只做点修复不泛化**（补锅匠）→ failure-mode audit
+
+**触发信号**：reviewer 同型 failure-mode 的不同实例被抓到**第 2 次**（不论 round 数——R1 内砚砚一次抓两个同型也触发）。
+
+**三步 audit**：
+
+1. **抽象**：这些 finding 违反了什么不变量？（一句话，不停在症状层）
+2. **扫描**：本 PR diff 里同不变量还有几处可能违反？（grep + sibling call sites + 同性质边界群）
+3. **防护**：能否加类型/封装/测试让它**不可能再被违反**？（make illegal states unrepresentable）
+
+**Scope = 本 PR diff**，不扩散到 codebase。codebase 大面积同型但不在本 PR = 新 TD 条目，走 CVO signoff，不在本轮无限扩散。
+
+**跳过声明**：Author 可跳过 audit 但必须在 PR comment 显式声明根因："本 PR 的同型出现源自 X（scope 大/density 高/完全不同类），非漏扫"。默认不跳过。
+
+**全家族适用**：不限布偶猫——缅因猫 review 四五十轮且每轮声称"在收敛"是同一病的更严重版本。
+
+**自报告**：audit 完在 PR comment 写 Failure-Mode Sweep Report：
+- Pattern name: `{一句话不变量}`
+- Scanned: `{N}` call sites in PR diff
+- Fixed: `{列表}`
+- Reviewed & N/A: `{列表 + 理由}`
+
+reviewer 下轮不用再 grep 同型——author 已扫过。
+
+来源：2026-05-29 三只布偶猫 + 铲屎官讨论。历史证据：`feedback_inmemory_store_tests_miss_redis_behavior`（2 轮同类）、`feedback_sanitizer_coupling`（3 轮 saga）、`feedback_severity_calibration_infra_risk`（5 次 P→P1 升级）。
 
 ## 17. 决策漏斗：该问的问，不该问的别问
 
