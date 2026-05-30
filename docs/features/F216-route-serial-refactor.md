@@ -98,6 +98,12 @@ routeSerial 是 Cat Cafe 的核心路由引擎——所有 A2A 串行调度、me
 - [ ] AC-D3: 真实 runtime 验证——猫连发两条矛盾 handoff 给同一只猫，目标猫只执行最终意图，不先跑错第一步
 - [ ] AC-D4: queued-merge（已交付）零回归——18 个 a2a-coalesce/callback-a2a-trigger 测试全绿
 
+#### Review nits 收口（PR #1971 已交付后的 reviewer 建议，归 Phase D 一并清理）
+> 来源：antig-opus（孟加拉猫 Opus，云端 codex 额度耗尽替补）completed review of `3654ea9d9`，3 个 non-blocking。
+- [ ] AC-D5: vote 路径（`callbacks.ts` `/start-vote` 的 `enqueueA2ATargets` 调用 ~L2314）`missed` check 同时考虑 `coalesced`——目前 coalesced 的 voter 被算作 missed → 走 `triggerA2AInvocation` direct dispatch fallback（vs pre-PR 一致，但 post-PR 多了一次 content append 到 pre-existing entry）。supersede 重构时一并修。
+- [ ] AC-D6: `MessageDeliveryService` 在 coalesce（enqueued=[]）时走 `recoverQueuedMessage` 的 `zeroEnqueuedWarnMessage` warn 日志语义误导（功能正确，content 已 coalesced = 已处理，只是日志措辞）。
+- [ ] AC-D7: `callback-a2a-trigger.ts` emit `queue_updated` 的 `action: 'enqueued'` 在纯 coalesce 时语义不准（pre-existing；前端大概率只用 `queue` 字段重渲染不依赖 `action`，确认后清理）。
+
 ## Timeline
 
 | 日期 | 事件 |
