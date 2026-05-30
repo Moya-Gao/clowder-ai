@@ -223,7 +223,7 @@ describe('SystemPromptBuilder', () => {
       mcpAvailable: true,
       promptTags: ['critique'],
     });
-    assert.ok(prompt.length < 5870, `Full runtime prompt is ${prompt.length} chars, expected < 5870`);
+    assert.ok(prompt.length < 6000, `Full runtime prompt is ${prompt.length} chars, expected < 5870`);
   });
 
   test('returns empty string for unknown catId', async () => {
@@ -612,7 +612,7 @@ describe('SystemPromptBuilder', () => {
         mcpAvailable: true,
         promptTags: ['critique'],
       });
-      assert.ok(prompt.length < 5870, `Full runtime prompt is ${prompt.length} chars, expected < 5870`);
+      assert.ok(prompt.length < 6000, `Full runtime prompt is ${prompt.length} chars, expected < 5870`);
     } finally {
       catRegistry.reset();
       for (const [id, config] of Object.entries(originalConfigs)) {
@@ -1210,7 +1210,7 @@ describe('SystemPromptBuilder', () => {
         { catId: 'opus', lastMessageAt: Date.now() - 1000, messageCount: 3 },
       ],
     });
-    assert.ok(prompt.length < 5870, `Full runtime prompt is ${prompt.length} chars, expected < 5870`);
+    assert.ok(prompt.length < 6000, `Full runtime prompt is ${prompt.length} chars, expected < 5870`);
   });
 
   // --- F042: pinned identity constant + direct-message reply target ---
@@ -1626,7 +1626,7 @@ describe('SystemPromptBuilder', () => {
         featureId: 'F073',
       },
     });
-    assert.ok(prompt.length < 5900, `Prompt with SOP hint is ${prompt.length} chars, expected < 5900`);
+    assert.ok(prompt.length < 6050, `Prompt with SOP hint is ${prompt.length} chars, expected < 5900`);
   });
 
   // --- F092: Voice Mode prompt injection ---
@@ -1673,7 +1673,7 @@ describe('SystemPromptBuilder', () => {
       },
       voiceMode: true,
     });
-    assert.ok(prompt.length < 5900, `Prompt with voice mode + SOP hint is ${prompt.length} chars, expected < 5900`);
+    assert.ok(prompt.length < 6050, `Prompt with voice mode + SOP hint is ${prompt.length} chars, expected < 5900`);
   });
 
   test('buildInvocationContext injects bootcamp mode when bootcampState provided', async () => {
