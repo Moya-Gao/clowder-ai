@@ -660,3 +660,4 @@ Phase E 主提交（`62c93fc5`）落地后，9 个 follow-up commit 处理 bubbl
 | 2026-03-28 | Phase D-1 merged (PR #803)：ThemeProvider + useCafeTheme + ThemeToggle（next-themes SSR-safe）|
 | 2026-03-27 | Phase D-2 merged (PR #805)：warm stone palette + cocreator dark overrides + base token inversion + 18-pair contrast validation |
 | 2026-04-08 | Intake clowder-ai#372 merged (PR #1016)：connector dark mode via conn-* tokens + darkMode selector alignment + 42-pair contrast validation |
+| 2026-05-30 | Phase E intake merged (PR #1977)：OKLCH seven-category token architecture + surface-hue independence + dynamic cat persona derivation + multi-theme + ESLint enforcement + WCAG tests. Source: clowder-ai#784 (author: @mindfn, 100 commits, 5 review rounds) |
