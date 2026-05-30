@@ -245,7 +245,7 @@ export function sanitizeVerdictForExport(packet: VerdictHandoffPacket, sourceIns
     ...(packet.verdict === 'degrade' && packet.governance?.degradePlan
       ? {
           degradePlan: {
-            targetMode: packet.governance.degradePlan.targetMode,
+            targetMode: scrub(packet.governance.degradePlan.targetMode),
             rollbackCondition: scrub(packet.governance.degradePlan.rollbackCondition),
           },
         }

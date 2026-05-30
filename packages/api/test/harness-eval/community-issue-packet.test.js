@@ -201,14 +201,14 @@ describe('SanitizedIssuePacket', () => {
 
     // ---- degrade verdict: degradePlan export (Codex P2-1 fix) ----
 
-    it('exports degradePlan when verdict is degrade', () => {
+    it('exports degradePlan when verdict is degrade, scrubbing both fields', () => {
       const verdict = parseVerdictHandoffPacket(
         makeVerdict({
           verdict: 'degrade',
           governance: {
             cvoAcceptRequired: false,
             degradePlan: {
-              targetMode: 'local-overlay',
+              targetMode: 'F167 codex-only overlay',
               rollbackCondition: 'F167 ball_drop_rate < 0.05 for 7 days',
             },
           },
@@ -217,7 +217,9 @@ describe('SanitizedIssuePacket', () => {
       const sanitized = sanitizeVerdictForExport(verdict, 'my-instance');
       assert.equal(sanitized.verdict, 'degrade');
       assert.ok(sanitized.degradePlan, 'degradePlan should be present for degrade verdict');
-      assert.equal(sanitized.degradePlan.targetMode, 'local-overlay');
+      // targetMode should be scrubbed (F167 → [feature], codex → [agent])
+      assert.ok(!sanitized.degradePlan.targetMode.includes('F167'), 'targetMode should scrub feature IDs');
+      assert.ok(!sanitized.degradePlan.targetMode.includes('codex'), 'targetMode should scrub cat identities');
       // rollbackCondition should be scrubbed (F167 → [feature])
       assert.ok(!sanitized.degradePlan.rollbackCondition.includes('F167'), 'should scrub feature IDs');
       assert.ok(sanitized.degradePlan.rollbackCondition.includes('[feature]'), 'should replace with [feature]');
