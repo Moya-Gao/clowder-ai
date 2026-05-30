@@ -14,7 +14,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { type CatId, catRegistry, type MessageContent } from '@cat-cafe/shared';
+import { type CatId, type CatRoutingError, catRegistry, type MessageContent } from '@cat-cafe/shared';
 import type { SessionStore } from '@cat-cafe/shared/utils';
 import multipart from '@fastify/multipart';
 import type { FastifyPluginAsync } from 'fastify';
@@ -147,6 +147,26 @@ export interface MessagesRoutesOptions {
 }
 
 const log = createModuleLogger('routes/messages');
+
+/**
+ * F-invocation-stale-recovery P1-2: Format routing_warnings for user-visible system_info broadcast.
+ * Mirrors the pattern in callbacks.ts buildPostMessageRoutingMessage.
+ */
+function formatRoutingWarnings(warnings: CatRoutingError[]): string {
+  const parts: string[] = [];
+  for (const w of warnings) {
+    if (w.kind === 'cat_disabled') {
+      const alts = w.alternatives
+        .slice(0, 2)
+        .map((a) => a.mention)
+        .join('、');
+      parts.push(`@${w.catId} 已停用，已跳过${alts ? `（可用替代：${alts}）` : ''}。`);
+    } else {
+      parts.push(`${w.mention} 不存在，已跳过。`);
+    }
+  }
+  return parts.join(' ');
+}
 
 function tryAutoCancelPendingHolds(threadId: string, deps: HoldBallCancelDeps | undefined): void {
   if (!deps) return;
@@ -457,6 +477,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
       targetCats: resolvedTargetCats,
       intent,
       hasMentions,
+      routing_warnings,
     } = await router.resolveTargetsAndIntent(content, resolvedThreadId, {
       persist: true,
     });
@@ -471,6 +492,26 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
       return { error: '没有可用的猫猫成员，请先在设置中添加一只猫猫', code: 'NO_TARGETS' };
     }
     const primaryCat = targetCats[0] ?? 'unknown';
+
+    // F-invocation-stale-recovery P1-2: Surface routing_warnings when user's explicit @mention
+    // silently fell back (e.g., @kimi → cat_not_found → default cat, user sees no feedback).
+    // Non-whisper only (whisper targets are overridden above; warning is not meaningful there).
+    if (routing_warnings && routing_warnings.length > 0 && whisperVisibility !== 'whisper') {
+      const warningMsg = formatRoutingWarnings(routing_warnings);
+      opts.socketManager.broadcastAgentMessage(
+        {
+          type: 'system_info',
+          catId: primaryCat,
+          // Use 'warning' type — recognized by system-info-visible.ts (reads parsed.message)
+          content: JSON.stringify({
+            type: 'warning',
+            message: warningMsg,
+          }),
+          timestamp: Date.now(),
+        },
+        resolvedThreadId,
+      );
+    }
 
     // Server-generated idempotency key if client didn't provide one
     const resolvedIdempotencyKey = idempotencyKey ?? randomUUID();
