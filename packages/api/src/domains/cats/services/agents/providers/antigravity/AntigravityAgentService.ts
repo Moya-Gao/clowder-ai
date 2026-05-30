@@ -864,7 +864,10 @@ export class AntigravityAgentService implements AgentService {
           yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
           return;
         }
-        const stepsBefore = await this.bridge.sendMessage(
+        // F211-REG8: sendMessage reports whether the cascade was RUNNING at send (busy-reuse). When
+        // it was, the follow-up queues behind the current turn, so the FIRST pollForSteps must wait
+        // for the follow-up's own turn instead of terminating at the old turn's IDLE (expectFollowUpTurn).
+        const { stepsBefore, wasBusy } = await this.bridge.sendMessage(
           cascadeId,
           promptForCurrentCascade,
           this.model,
@@ -1120,7 +1123,16 @@ export class AntigravityAgentService implements AgentService {
         const seenUnknownKeys = new Set<string>();
         const pollOnce = async function* (self: AntigravityAgentService, fromStep: number) {
           const iterator = self.bridge
-            .pollForSteps(cascadeId, fromStep, self.pollTimeoutMs, 2_000, options?.signal)
+            // F211-REG8: only the FIRST poll (fromStep === the original stepsBefore) is the busy-reuse
+            // follow-up; re-polls advance fromStep and must use normal termination (no extra USER_INPUT wait).
+            .pollForSteps(
+              cascadeId,
+              fromStep,
+              self.pollTimeoutMs,
+              2_000,
+              options?.signal,
+              wasBusy && fromStep === stepsBefore,
+            )
             [Symbol.asyncIterator]();
 
           while (true) {

@@ -648,9 +648,14 @@ export class AntigravityBridge {
     text: string,
     modelName?: string,
     media?: ReadonlyArray<{ mimeType: string; inlineData: string }>,
-  ): Promise<number> {
+  ): Promise<{ stepsBefore: number; wasBusy: boolean }> {
     const traj = await this.getTrajectory(cascadeId);
     const stepsBefore = traj.numTotalSteps ?? 0;
+    // F211-REG8: if the cascade is RUNNING when we send, the follow-up QUEUES behind the current
+    // turn (Antigravity picks it up only after that turn's terminal IDLE — strictly serial). The
+    // caller's pollForSteps must then NOT terminate at the OLD turn's IDLE; it must wait for the
+    // follow-up's OWN turn. We surface that as wasBusy so the caller passes expectFollowUpTurn.
+    const wasBusy = traj.status === 'CASCADE_RUN_STATUS_RUNNING';
     const modelId = modelName ? this.modelMap[modelName] : undefined;
     const payload: Record<string, unknown> = {
       cascadeId,
@@ -668,7 +673,7 @@ export class AntigravityBridge {
       },
     };
     await this.rpcSafe('SendUserCascadeMessage', payload);
-    return stepsBefore;
+    return { stepsBefore, wasBusy };
   }
   async getTrajectorySteps(cascadeId: string): Promise<TrajectoryStep[]> {
     const resp = await this.rpcSafe<{ steps?: TrajectoryStep[] }>('GetCascadeTrajectorySteps', { cascadeId });
@@ -800,7 +805,15 @@ export class AntigravityBridge {
     idleTimeoutMs = 60_000,
     pollIntervalMs = 2_000,
     signal?: AbortSignal,
+    expectFollowUpTurn = false,
   ): AsyncGenerator<StepBatch> {
+    // F211-REG8: busy-reuse — when sendMessage saw the cascade RUNNING, the follow-up queues behind
+    // the current turn (picked up only after that turn's terminal IDLE). pollForSteps must then NOT
+    // terminate at the OLD turn's terminal IDLE; it waits until the follow-up's own USER_INPUT step
+    // appears (Antigravity picked up the queued message), then terminates on the IDLE after it. The
+    // normal (IDLE-at-send) path is unchanged (expectFollowUpTurn=false). If the follow-up never
+    // picks up, the existing idle-timeout stall (below) surfaces it rather than losing it silently.
+    let followUpUserInputSeen = false;
     let delivered = stepsBefore;
     let lastActivityAt = Date.now();
     let waitingApprovalSignaled = false;
@@ -871,6 +884,16 @@ export class AntigravityBridge {
         waitingApprovalSignaled = false;
         lastActivityAt = Date.now();
         const newSteps = allSteps.slice(delivered, currentSteps);
+        // F211-REG8: the follow-up's USER_INPUT step (Antigravity picking up the queued message)
+        // marks the start of the follow-up's OWN turn — only after seeing it may a terminal IDLE end
+        // the poll (otherwise we would stop at the OLD turn's IDLE and lose the follow-up's answer).
+        if (
+          expectFollowUpTurn &&
+          !followUpUserInputSeen &&
+          newSteps.some((s) => s.type === 'CORTEX_STEP_TYPE_USER_INPUT')
+        ) {
+          followUpUserInputSeen = true;
+        }
         const emittedSteps = replaySteps.concat(newSteps);
         const livenessEvidence: BridgeLivenessEvidence =
           currentSteps > delivered
@@ -902,7 +925,8 @@ export class AntigravityBridge {
             livenessEvidence,
           },
         };
-        if (terminalReady) return;
+        // F211-REG8: in busy-reuse, defer terminating until the follow-up's own turn has started.
+        if (terminalReady && (!expectFollowUpTurn || followUpUserInputSeen)) return;
       } else {
         const idleMs = Date.now() - lastActivityAt;
         if (awaitingUserInput) {
@@ -931,7 +955,13 @@ export class AntigravityBridge {
           continue;
         }
         waitingApprovalSignaled = false;
-        if (terminalReady && (delivered > stepsBefore || idleMs > idleTimeoutMs)) {
+        // F211-REG8: same busy-reuse guard for the no-new-steps terminal path — don't end the poll
+        // at the OLD turn's IDLE; wait for the follow-up's USER_INPUT (or fall to the idle stall below).
+        if (
+          terminalReady &&
+          (!expectFollowUpTurn || followUpUserInputSeen) &&
+          (delivered > stepsBefore || idleMs > idleTimeoutMs)
+        ) {
           yield {
             steps: [],
             cursor: {
