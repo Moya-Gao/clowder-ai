@@ -1337,6 +1337,12 @@
       "name": "routeSerial 决策层/执行层分离重构",
       "status": "spec | **Owner**: 设计 @opus48 (F215 thread) / 执行待 fresh-thread opus-48 | **Priority**: P1 | **Source**: internal (F215 引爆点)",
       "file": "F216-route-serial-refactor.md"
+    },
+    {
+      "id": "F217",
+      "name": "Merge Gate Integrity — 检查覆盖 + 强制力 + 元守护",
+      "status": "spec | **Owner**: 布偶猫/宪宪 (Opus-4.8) | **Priority**: P1",
+      "file": "F217-merge-gate-integrity.md"
     }
   ]
 }
