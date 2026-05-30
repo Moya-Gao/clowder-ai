@@ -480,7 +480,7 @@ export class AntigravityAgentService implements AgentService {
       const priorActiveRuntime = this.runtimeSessionStore
         ? await this.runtimeSessionStore.getActiveByThreadCat('antigravity-desktop', threadId, this.catId)
         : null;
-      let cascadeId = await this.bridge.getOrCreateSession(threadId, this.catId as string);
+      let cascadeId = await this.bridge.getOrCreateSession(threadId, this.catId as string, options?.signal);
       lastKnownCascadeId = cascadeId;
       const createSideEffectJournal = (journalCascadeId: string) =>
         new AntigravitySideEffectJournal({
@@ -705,7 +705,7 @@ export class AntigravityAgentService implements AgentService {
         });
         const newCascadeId = this.bridge.getRuntimeSessionStoreForDiagnostics?.()
           ? await this.bridge.startCascade()
-          : await this.bridge.getOrCreateSession(threadId, this.catId as string);
+          : await this.bridge.getOrCreateSession(threadId, this.catId as string, options?.signal);
         lastKnownCascadeId = newCascadeId;
         const lifecycle = buildRotationLifecycle(oldCascadeId, newCascadeId, reason, drain);
         const bootstrap = await buildContinuityBootstrap({
@@ -733,8 +733,16 @@ export class AntigravityAgentService implements AgentService {
           ...(sealReason ? { sealReason } : {}),
         });
       const preflightCascadeHealth = await getCascadeHealth(cascadeId, 'preflight');
+      // Only retire an oversized cascade at a turn boundary (IDLE). Rotating a RUNNING cascade mid-turn
+      // would discard the in-progress work getOrCreateSession just reused, re-introducing the REG5
+      // amnesia through the health path (cloud line 1080) — e.g. a long model-only research turn passes
+      // the 200-step retire threshold yet is exactly the busy cascade we must preserve. An oversized
+      // RUNNING cascade is left alone here; the empty_response recovery path is the backstop if it
+      // actually overflows mid-turn.
       const shouldRetirePreflightCascade =
-        preflightCascadeHealth?.level === 'retire' && preflightCascadeHealth.retryableForEmptyResponse;
+        preflightCascadeHealth?.level === 'retire' &&
+        preflightCascadeHealth.retryableForEmptyResponse &&
+        preflightCascadeHealth.cascadeStatus === 'CASCADE_RUN_STATUS_IDLE';
       let pendingSessionLifecycle: AntigravitySessionLifecycle | undefined;
       let pendingContinuityBootstrap: AntigravityContinuityBootstrap | undefined;
       if (shouldRetirePreflightCascade) {
@@ -751,7 +759,7 @@ export class AntigravityAgentService implements AgentService {
       } else if (preflightCascadeHealth?.level === 'retire') {
         log.warn(
           { cascadeId, cascadeHealth: preflightCascadeHealth },
-          'skipped preflight Antigravity cascade retirement due to side-effect safety',
+          'skipped preflight Antigravity cascade retirement (side-effect safety, or a non-IDLE busy cascade we must not rotate mid-turn)',
         );
       }
       // F211-REG2: cross-invocation re-summon continuity. getOrCreateSession may have replaced a
@@ -848,6 +856,14 @@ export class AntigravityAgentService implements AgentService {
       // re-deliver the image bytes.
       let pendingMediaItems = imageMediaItems.length > 0 ? imageMediaItems : undefined;
       while (true) {
+        // Abort check BEFORE send: getOrCreateSession's reuse wait (settleRunningCascadeForReuse) can
+        // block while a busy cascade settles, so a follow-up may have been cancelled in the meantime —
+        // do not enqueue a prompt the user already aborted (cloud P1, line 1029).
+        if (options?.signal?.aborted) {
+          yield { type: 'error', catId: this.catId, error: 'Aborted before send', metadata, timestamp: Date.now() };
+          yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
+          return;
+        }
         const stepsBefore = await this.bridge.sendMessage(
           cascadeId,
           promptForCurrentCascade,

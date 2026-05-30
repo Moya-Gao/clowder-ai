@@ -146,6 +146,7 @@ describe('AntigravityAgentService (Bridge)', () => {
       cascadeId,
       checkedAt: Date.now(),
       level: cascadeId === 'cascade-old' ? 'retire' : 'ok',
+      cascadeStatus: 'CASCADE_RUN_STATUS_IDLE', // at a turn boundary → safe to retire
       stepCount: cascadeId === 'cascade-old' ? 240 : 1,
       approximateTrajectoryBytes: cascadeId === 'cascade-old' ? 2_200_000 : 512,
       thresholds: { warnBytes: 1_572_864, retireBytes: 2_097_152, warnSteps: 150, retireSteps: 200 },
@@ -371,6 +372,7 @@ describe('AntigravityAgentService (Bridge)', () => {
       cascadeId: 'cascade-old',
       checkedAt: Date.now(),
       level: 'retire',
+      cascadeStatus: 'CASCADE_RUN_STATUS_IDLE', // at a turn boundary → safe to retire
       stepCount: 240,
       approximateTrajectoryBytes: 2_200_000,
       thresholds: { warnBytes: 1_572_864, retireBytes: 2_097_152, warnSteps: 150, retireSteps: 200 },
@@ -403,6 +405,55 @@ describe('AntigravityAgentService (Bridge)', () => {
     assert.match(sentPrompt, /Degraded: yes/);
     assert.match(sentPrompt, /Drain result: skipped_runtime_unreachable/);
     assert.match(sentPrompt, /Antigravity RPC unavailable during drain/);
+  });
+
+  test('F211-REG5: does NOT retire an oversized cascade that is still RUNNING (busy mid-turn) — cloud line 1080', async () => {
+    // The preflight health check must NOT rotate a RUNNING cascade just because it crossed the step
+    // threshold — rotating mid-turn discards the in-progress work getOrCreateSession just reused (REG5
+    // amnesia through the health path). Oversized retirement only applies at an IDLE turn boundary.
+    const bridge = createMockBridge({
+      cascadeId: 'cascade-busy',
+      steps: [
+        {
+          type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+          status: 'CORTEX_STEP_STATUS_DONE',
+          plannerResponse: { response: 'Continued in the same cascade.' },
+        },
+      ],
+    });
+    bridge.getRuntimeSessionStoreForDiagnostics = mock.fn(() => ({}));
+    bridge.getOrCreateSession = mock.fn(async () => 'cascade-busy');
+    bridge.startCascade = mock.fn(async () => 'cascade-new-should-not-be-used');
+    bridge.getCascadeHealth = mock.fn(async () => ({
+      cascadeId: 'cascade-busy',
+      checkedAt: Date.now(),
+      level: 'retire',
+      cascadeStatus: 'CASCADE_RUN_STATUS_RUNNING', // mid-turn → must NOT retire despite being oversized
+      stepCount: 680,
+      approximateTrajectoryBytes: 2_200_000,
+      thresholds: { warnBytes: 1_572_864, retireBytes: 2_097_152, warnSteps: 150, retireSteps: 200 },
+      reasons: ['steps_retire'],
+      retryableForEmptyResponse: true,
+    }));
+
+    const service = new AntigravityAgentService({ catId: 'antigravity', model: 'gemini-3.1-pro', bridge });
+    const messages = await collect(
+      service.invoke('follow-up while busy', {
+        auditContext: { threadId: 'thread-busy', invocationId: 'inv-busy', userId: 'user-a', catId: 'antigravity' },
+      }),
+    );
+
+    const sessionInit = messages.find((msg) => msg.type === 'session_init');
+    assert.equal(sessionInit.sessionId, 'cascade-busy', 'must reuse the busy cascade, not retire it mid-turn');
+    assert.equal(
+      bridge.startCascade.mock.callCount(),
+      0,
+      'must NOT spin a fresh cascade for an oversized-but-RUNNING one',
+    );
+    const oversizedRetire = bridge.resetSession.mock.calls.find(
+      (c) => c.arguments[2]?.sealReason === 'oversized_retire',
+    );
+    assert.equal(oversizedRetire, undefined, 'must NOT seal/rotate the busy cascade for oversized_retire mid-turn');
   });
 
   test('F211 A2 Task 10: user-initiated fresh cascade does not auto-inject continuity by default', async () => {
