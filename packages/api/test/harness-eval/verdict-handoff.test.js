@@ -183,19 +183,18 @@ describe('Verdict Handoff Packet contract', () => {
   });
 
   it('rejects degrade verdict with empty degrade plan fields', () => {
-    assert.throws(
-      () =>
-        parseVerdictHandoffPacket({
-          ...basePacket,
-          verdict: 'degrade',
-          governance: {
-            cvoAcceptRequired: false,
-            degradePlan: {
-              targetMode: '',
-              rollbackCondition: '',
-            },
+    assert.throws(() =>
+      parseVerdictHandoffPacket({
+        ...basePacket,
+        verdict: 'degrade',
+        governance: {
+          cvoAcceptRequired: false,
+          degradePlan: {
+            targetMode: '',
+            rollbackCondition: '',
           },
-        }),
+        },
+      }),
     );
   });
 });

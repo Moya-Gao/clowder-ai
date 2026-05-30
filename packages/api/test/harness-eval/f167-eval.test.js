@@ -127,7 +127,7 @@ describe('F167 Runtime Eval Snapshot', () => {
       },
     });
     const c1 = snapshot.components.find((c) => c.componentId === 'C1');
-    assert.equal(c1.activationCounts['hold_ball_calls'], 1);
+    assert.equal(c1.activationCounts.hold_ball_calls, 1);
   });
 
   it('counts multiple hold_ball events across spans', () => {
@@ -163,7 +163,7 @@ describe('F167 Runtime Eval Snapshot', () => {
       },
     });
     const c1 = snapshot.components.find((c) => c.componentId === 'C1');
-    assert.equal(c1.activationCounts['hold_ball_calls'], 2);
+    assert.equal(c1.activationCounts.hold_ball_calls, 2);
   });
 
   it('does not count tools with similar suffix as hold_ball', () => {
@@ -190,7 +190,7 @@ describe('F167 Runtime Eval Snapshot', () => {
       traceStats: { spanCount: 1, maxSpans: 10000, maxAgeMs: 86400000, oldestStoredAt: now, newestStoredAt: now },
     });
     const c1 = snapshot.components.find((c) => c.componentId === 'C1');
-    assert.equal(c1.activationCounts['hold_ball_calls'], 0);
+    assert.equal(c1.activationCounts.hold_ball_calls, 0);
   });
 
   it('L1/C1/C2 report no gaps when counters exist at zero (warmup)', () => {
@@ -360,14 +360,19 @@ describe('F167 Runtime Eval Snapshot', () => {
     const snapshot = generateF167Snapshot({
       ...emptyInput,
       traces: {
-        spans: [{
-          traceId: 'abc', spanId: 's1',
-          name: 'cat_cafe.tool_use mcp__cat-cafe__cat_cafe_hold_ball',
-          startTimeMs: now - 1000, endTimeMs: now, durationMs: 1000,
-          status: { code: 0 },
-          attributes: { 'tool.name': 'mcp__cat-cafe__cat_cafe_hold_ball' },
-          events: [],
-        }],
+        spans: [
+          {
+            traceId: 'abc',
+            spanId: 's1',
+            name: 'cat_cafe.tool_use mcp__cat-cafe__cat_cafe_hold_ball',
+            startTimeMs: now - 1000,
+            endTimeMs: now,
+            durationMs: 1000,
+            status: { code: 0 },
+            attributes: { 'tool.name': 'mcp__cat-cafe__cat_cafe_hold_ball' },
+            events: [],
+          },
+        ],
         count: 1,
       },
       metrics: {
@@ -377,8 +382,11 @@ describe('F167 Runtime Eval Snapshot', () => {
         cat_cafe_a2a_c1_hold_cancel_trust_gap: 1,
       },
       traceStats: {
-        spanCount: 1, maxSpans: 10000, maxAgeMs: 86400000,
-        oldestStoredAt: now - 3600000, newestStoredAt: now,
+        spanCount: 1,
+        maxSpans: 10000,
+        maxAgeMs: 86400000,
+        oldestStoredAt: now - 3600000,
+        newestStoredAt: now,
       },
     });
     const c1 = snapshot.components.find((c) => c.componentId === 'C1');
@@ -390,14 +398,19 @@ describe('F167 Runtime Eval Snapshot', () => {
     const snapshot = generateF167Snapshot({
       ...emptyInput,
       traces: {
-        spans: [{
-          traceId: 'abc', spanId: 's1',
-          name: 'cat_cafe.tool_use mcp__cat-cafe__cat_cafe_hold_ball',
-          startTimeMs: now - 1000, endTimeMs: now, durationMs: 1000,
-          status: { code: 0 },
-          attributes: { 'tool.name': 'mcp__cat-cafe__cat_cafe_hold_ball' },
-          events: [],
-        }],
+        spans: [
+          {
+            traceId: 'abc',
+            spanId: 's1',
+            name: 'cat_cafe.tool_use mcp__cat-cafe__cat_cafe_hold_ball',
+            startTimeMs: now - 1000,
+            endTimeMs: now,
+            durationMs: 1000,
+            status: { code: 0 },
+            attributes: { 'tool.name': 'mcp__cat-cafe__cat_cafe_hold_ball' },
+            events: [],
+          },
+        ],
         count: 1,
       },
       metrics: {
@@ -407,8 +420,11 @@ describe('F167 Runtime Eval Snapshot', () => {
         cat_cafe_a2a_c1_hold_cancel_trust_gap: 4,
       },
       traceStats: {
-        spanCount: 1, maxSpans: 10000, maxAgeMs: 86400000,
-        oldestStoredAt: now - 3600000, newestStoredAt: now,
+        spanCount: 1,
+        maxSpans: 10000,
+        maxAgeMs: 86400000,
+        oldestStoredAt: now - 3600000,
+        newestStoredAt: now,
       },
     });
     const c1 = snapshot.components.find((c) => c.componentId === 'C1');
@@ -423,8 +439,11 @@ describe('F167 Runtime Eval Snapshot', () => {
         cat_cafe_a2a_c1_zombie_hold_count: 2,
       },
       traceStats: {
-        spanCount: 1, maxSpans: 10000, maxAgeMs: 86400000,
-        oldestStoredAt: Date.now() - 3600000, newestStoredAt: Date.now(),
+        spanCount: 1,
+        maxSpans: 10000,
+        maxAgeMs: 86400000,
+        oldestStoredAt: Date.now() - 3600000,
+        newestStoredAt: Date.now(),
       },
     });
     const c1 = snapshot.components.find((c) => c.componentId === 'C1');
