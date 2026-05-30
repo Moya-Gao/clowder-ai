@@ -339,7 +339,7 @@
     {
       "id": "F056",
       "name": "Cat Café 设计语言 — 猫猫化不是猫化",
-      "status": "doing | **Owner**: 砚砚/GPT-5.2 + 布偶猫 主导设计执行 + 布偶猫工程架构 + 烁烁概念方向",
+      "status": "doing（Phase E 11/12 done + Phase E Sweep 2026-05-25~28 完成：bubble routing 统一 / variant slug 补齐 / 350-line split / clowder-ai#784 review-response — AC-E12 Playwright baseline deferred 到集成验证） | **Owner**: 砚砚/GPT-5.2 + 布偶猫 主导设计执行 + 布偶猫工程架构 + 烁烁概念方向",
       "file": "F056-cat-cafe-design-language.md"
     },
     {
@@ -1305,7 +1305,7 @@
     {
       "id": "F211",
       "name": "Cross-Runtime Session Transparency — Antigravity Session Chain + IDE Direct Registration",
-      "status": "done ✅ REG1 + REG2 + REG3 (Layer B urls + Layer C image media) FIXED + merged + e2e-verified (PR #1940 `a0f7cf208`, PR #1944 `fb37ecc7e`, opus-4.8) ⚠️ **REG4 RESOLVED 2026-05-29 (stale `sessionChain:false` catalog overlay gated the block off — NOT a thrown exception; CVO toggled session-chain ON; durable migration paused). **REG5 (P1) FIXED + merged + LIVE e2e-VERIFIED (PR #1959 squash `bca4c6b82`, 2026-05-30)** — follow-up-while-busy now REUSES the running cascade (full native memory) instead of spinning a fresh blank one; post-deploy controlled mid-work test proved it on the live runtime (task + mid-work follow-up both reused the SAME busy cascade `633808bb`, log-confirmed RUNNING at reuse, Bengal kept full memory); core amnesia + the whole same-class boundary/abort/terminal edge set fixed (getOrCreateSession reuse + preflight health-rotation). Busy-reuse BOUNDARY residual (memory-preserved stale-output + count==0-WAITING) deferred → **REG8** (CVO-approved 2026-05-30). Still open: REG6 (interruption misclassified as `runtime_error_reset` crash) + REG7 (WS flap / premature done affordance). **Runtime sync (deploy to Bengal) = CVO.** | **Owner**: 缅因猫（砚砚）; regression + REG4/5/6/7 fixes 布偶猫 Opus 4.8 | **Priority**: P1 | **Completed**: 2026-05-26",
+      "status": "done ✅ REG1 + REG2 + REG3 (Layer B urls + Layer C image media) FIXED + merged + e2e-verified (PR #1940 `a0f7cf208`, PR #1944 `fb37ecc7e`, opus-4.8) ⚠️ **REG4 RESOLVED 2026-05-29 (stale `sessionChain:false` catalog overlay gated the block off — NOT a thrown exception; CVO toggled session-chain ON; durable migration paused). **REG5 (P1) FIXED + merged + LIVE e2e-VERIFIED (PR #1959 squash `bca4c6b82`, 2026-05-30)** — follow-up-while-busy now REUSES the running cascade (full native memory) instead of spinning a fresh blank one; post-deploy controlled mid-work test proved it on the live runtime (task + mid-work follow-up both reused the SAME busy cascade `633808bb`, log-confirmed RUNNING at reuse, Bengal kept full memory); core amnesia + the whole same-class boundary/abort/terminal edge set fixed (getOrCreateSession reuse + preflight health-rotation). Busy-reuse BOUNDARY residual → **REG8 (P1) FIXED + merged** (PR #1976 squash `b65e94fd`, 2026-05-30: boundary-aware polling facet a — #3 poll-aware preserving REG5 no-drain; opus-4.8 + 孟加拉; facet b count==0-WAITING → REG6/REG9). Still open: REG6 (interruption misclassified as `runtime_error_reset` crash) + REG7 (WS flap / premature done affordance) + **REG9 (Antigravity invocation SILENT failure — hang/die mid-work, no error/seal; stranded REG8's own impl)**. **Runtime sync (deploy to Bengal) = CVO.** | **Owner**: 缅因猫（砚砚）; regression + REG4/5/6/7 fixes 布偶猫 Opus 4.8 | **Priority**: P1 | **Completed**: 2026-05-26",
       "file": "F211-cross-runtime-session-transparency.md"
     },
     {

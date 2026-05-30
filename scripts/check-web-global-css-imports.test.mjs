@@ -9,9 +9,13 @@ const XTERM_STYLESHEET_LINK_RE =
   /<link\s+[^>]*rel=(['"])stylesheet\1[^>]*href=(['"])\/vendor\/xterm\/xterm\.css\2[^>]*\/?>/;
 const APP_STATIC_CSS_FILES = [
   'theme-tokens.css',
+  'cat-persona-tokens.css',
+  'cat-persona-derived.css',
+  'connector-tokens.css',
+  'theme-extras.css',
+  'console-tokens.css',
   'console-shell.css',
   'console-controls.css',
-  'connector-tokens.css',
   'werewolf-theme.css',
 ];
 const WEB_SRC = join(ROOT, 'packages/web/src');
@@ -77,6 +81,8 @@ test('app static global CSS is linked from the Next root layout and never import
 
   const offenders = [];
   for (const file of walk(WEB_SRC)) {
+    // Skip test files — they reference CSS filenames in assertions, not as real imports
+    if (file.includes('__tests__')) continue;
     const source = readFileSync(file, 'utf8');
     for (const fileName of APP_STATIC_CSS_FILES) {
       if (hasAppStaticCssImport(source, fileName)) {
