@@ -95,6 +95,33 @@ describe('SanitizedIssuePacket', () => {
       assert.throws(() => parseSanitizedIssuePacket({ id: 'bad' }), /domainId|exportedAt|phenomenon/i);
     });
 
+    it('rejects degrade verdict without degradePlan', () => {
+      assert.throws(
+        () =>
+          parseSanitizedIssuePacket({
+            id: 'sip-d1',
+            domainId: 'eval:test',
+            exportedAt: '2026-05-30T10:00:00+08:00',
+            sourceInstanceId: 'test',
+            phenomenon: 'test',
+            harnessComponent: { componentId: 'c1', name: 'Test' },
+            evidenceSummary: { snapshotCount: 1, attributionCount: 1, metricCount: 1, traceCount: 1 },
+            dailyTrend: {
+              window: '7d',
+              current: { x: 1 },
+              baseline: { x: 0 },
+              threshold: { x: 0.5 },
+              direction: 'regressed',
+            },
+            rootCauseHypothesis: { summary: 'test', confidence: 'low', alternatives: ['alt'] },
+            verdict: 'degrade',
+            requestedAction: 'Degrade',
+            counterarguments: ['Insufficient data'],
+          }),
+        /degradePlan/,
+      );
+    });
+
     it('accepts any eval: domain prefix (not restricted to internal enum)', () => {
       const packet = {
         id: 'sip-002',

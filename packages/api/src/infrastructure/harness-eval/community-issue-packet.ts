@@ -13,69 +13,79 @@ import type { VerdictHandoffPacket } from './verdict-handoff.js';
 
 // ---- Schema ----
 
-const sanitizedIssuePacketSchema = z.object({
-  /** Opaque packet ID (may be derived from internal verdict ID). */
-  id: z.string().min(1),
+const sanitizedIssuePacketSchema = z
+  .object({
+    /** Opaque packet ID (may be derived from internal verdict ID). */
+    id: z.string().min(1),
 
-  /** Domain identifier — must match eval:<lowercase-slug> (not restricted to internal enum). */
-  domainId: z.string().regex(/^eval:[a-z][a-z0-9_-]*$/, 'domainId must match eval:<lowercase-slug>'),
+    /** Domain identifier — must match eval:<lowercase-slug> (not restricted to internal enum). */
+    domainId: z.string().regex(/^eval:[a-z][a-z0-9_-]*$/, 'domainId must match eval:<lowercase-slug>'),
 
-  /** ISO 8601 timestamp when the packet was exported. */
-  exportedAt: z.string().datetime({ offset: true }),
+    /** ISO 8601 timestamp when the packet was exported. */
+    exportedAt: z.string().datetime({ offset: true }),
 
-  /** Identifies the Cat Cafe instance that produced this packet. */
-  sourceInstanceId: z.string().min(1),
+    /** Identifies the Cat Cafe instance that produced this packet. */
+    sourceInstanceId: z.string().min(1),
 
-  /** What happened — the core eval observation. */
-  phenomenon: z.string().min(1),
+    /** What happened — the core eval observation. */
+    phenomenon: z.string().min(1),
 
-  /** Harness component being evaluated (generic names, no internal feature IDs). */
-  harnessComponent: z.object({
-    componentId: z.string().min(1),
-    name: z.string().min(1),
-  }),
+    /** Harness component being evaluated (generic names, no internal feature IDs). */
+    harnessComponent: z.object({
+      componentId: z.string().min(1),
+      name: z.string().min(1),
+    }),
 
-  /** Evidence counts (original refs redacted). */
-  evidenceSummary: z.object({
-    snapshotCount: z.number().int().nonnegative(),
-    attributionCount: z.number().int().nonnegative(),
-    metricCount: z.number().int().nonnegative(),
-    traceCount: z.number().int().nonnegative(),
-  }),
+    /** Evidence counts (original refs redacted). */
+    evidenceSummary: z.object({
+      snapshotCount: z.number().int().nonnegative(),
+      attributionCount: z.number().int().nonnegative(),
+      metricCount: z.number().int().nonnegative(),
+      traceCount: z.number().int().nonnegative(),
+    }),
 
-  /** Day-over-day trend (numeric, no PII). */
-  dailyTrend: z.object({
-    window: z.string().min(1),
-    current: z.record(z.number()),
-    baseline: z.record(z.number()),
-    threshold: z.record(z.number()),
-    direction: z.enum(['improved', 'regressed', 'flat', 'unknown']),
-  }),
+    /** Day-over-day trend (numeric, no PII). */
+    dailyTrend: z.object({
+      window: z.string().min(1),
+      current: z.record(z.number()),
+      baseline: z.record(z.number()),
+      threshold: z.record(z.number()),
+      direction: z.enum(['improved', 'regressed', 'flat', 'unknown']),
+    }),
 
-  /** Root cause hypothesis (analytical text). */
-  rootCauseHypothesis: z.object({
-    summary: z.string().min(1),
-    confidence: z.enum(['low', 'medium', 'high']),
-    alternatives: z.array(z.string().min(1)).min(1),
-  }),
+    /** Root cause hypothesis (analytical text). */
+    rootCauseHypothesis: z.object({
+      summary: z.string().min(1),
+      confidence: z.enum(['low', 'medium', 'high']),
+      alternatives: z.array(z.string().min(1)).min(1),
+    }),
 
-  /** Verdict: delete_sunset / build / fix / keep_observe / degrade. */
-  verdict: z.enum(['delete_sunset', 'build', 'fix', 'keep_observe', 'degrade']),
+    /** Verdict: delete_sunset / build / fix / keep_observe / degrade. */
+    verdict: z.enum(['delete_sunset', 'build', 'fix', 'keep_observe', 'degrade']),
 
-  /** Degrade execution plan — present only when verdict is 'degrade'. */
-  degradePlan: z
-    .object({
-      targetMode: z.string().min(1),
-      rollbackCondition: z.string().min(1),
-    })
-    .optional(),
+    /** Degrade execution plan — present only when verdict is 'degrade'. */
+    degradePlan: z
+      .object({
+        targetMode: z.string().min(1),
+        rollbackCondition: z.string().min(1),
+      })
+      .optional(),
 
-  /** What the exporting instance recommends the community do. */
-  requestedAction: z.string().min(1),
+    /** What the exporting instance recommends the community do. */
+    requestedAction: z.string().min(1),
 
-  /** Devil's advocate — why the verdict might be wrong. */
-  counterarguments: z.array(z.string().min(1)).min(1),
-});
+    /** Devil's advocate — why the verdict might be wrong. */
+    counterarguments: z.array(z.string().min(1)).min(1),
+  })
+  .superRefine((packet, ctx) => {
+    if (packet.verdict === 'degrade' && !packet.degradePlan) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'degrade verdict requires a degradePlan',
+        path: ['degradePlan'],
+      });
+    }
+  });
 
 export type SanitizedIssuePacket = z.infer<typeof sanitizedIssuePacketSchema>;
 

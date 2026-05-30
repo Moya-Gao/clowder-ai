@@ -10,8 +10,10 @@ const evalContractSchema = z.object({
   thresholds: z.record(z.number()),
 });
 
+const verdictEnum = z.enum(['delete_sunset', 'build', 'fix', 'keep_observe', 'degrade']);
+
 const decisionContractSchema = z.object({
-  verdictSet: z.array(z.string().min(1)).min(1),
+  verdictSet: z.array(verdictEnum).min(1),
   autoVerdictEnabled: z.boolean(),
 });
 

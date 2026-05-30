@@ -300,6 +300,18 @@ describe('Eval Domain Registry v0', () => {
     );
   });
 
+  it('rejects unsupported verdict in decisionContract verdictSet', () => {
+    assert.throws(() =>
+      parseEvalDomainRegistryEntry({
+        ...validEntry,
+        decisionContract: {
+          verdictSet: ['remove'],
+          autoVerdictEnabled: false,
+        },
+      }),
+    );
+  });
+
   it('loads eval-a2a.yaml with tracingContract', async () => {
     const raw = await readFile(
       new URL('../../../../docs/harness-feedback/eval-domains/eval-a2a.yaml', import.meta.url),
