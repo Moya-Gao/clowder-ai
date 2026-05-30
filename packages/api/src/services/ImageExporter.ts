@@ -12,10 +12,22 @@ const VIEWPORT_WIDTH = 1280;
 
 /**
  * Detect a Chromium-based browser executable on the system.
- * Priority: Chrome > Edge > Chromium. CDP (Chrome DevTools Protocol) requires
- * a Chromium-based browser — Firefox/Safari are not supported.
+ * Priority: CHROME_EXECUTABLE_PATH env > system Chrome > Edge > Chromium.
+ * CDP (Chrome DevTools Protocol) requires a Chromium-based browser —
+ * Firefox/Safari are not supported.
  */
 function detectChromePath(): string {
+  // 1. Explicit override via env var (highest priority)
+  const envPath = process.env.CHROME_EXECUTABLE_PATH;
+  if (envPath) {
+    if (fs.existsSync(envPath)) {
+      log.info({ path: envPath }, 'Using CHROME_EXECUTABLE_PATH from env');
+      return envPath;
+    }
+    log.warn({ path: envPath }, 'CHROME_EXECUTABLE_PATH set but file not found, falling back to auto-detect');
+  }
+
+  // 2. Auto-detect system browser
   const platform = process.platform;
 
   const candidates: string[] =
@@ -55,7 +67,7 @@ function detectChromePath(): string {
   }
 
   throw new Error(
-    `No Chromium-based browser found. Install Chrome, Edge, or Chromium. Searched: ${candidates.join(', ')}`,
+    `No Chromium-based browser found. Set CHROME_EXECUTABLE_PATH or install Chrome/Edge/Chromium. Searched: ${candidates.join(', ')}`,
   );
 }
 
