@@ -4,7 +4,7 @@ import {
   buildCapabilityTrace,
   evaluateCapabilityWakeupTrace,
 } from '../../dist/infrastructure/harness-eval/eval-capability-wakeup-adapter.js';
-import { transcriptEvent, toolEvent } from './capability-wakeup-test-helpers.js';
+import { toolEvent, transcriptEvent } from './capability-wakeup-test-helpers.js';
 
 describe('Capability Wakeup Trace', () => {
   it('builds invocation windows and carries next-invocation usage for workspace-navigator', () => {
@@ -110,10 +110,7 @@ describe('Capability Wakeup Trace', () => {
     });
 
     assert.equal(trace.invocations.length, 2);
-    assert.deepEqual(
-      [...trace.invocations.map((invocation) => invocation.invocationId)].sort(),
-      ['inv-1', 'inv-2'],
-    );
+    assert.deepEqual([...trace.invocations.map((invocation) => invocation.invocationId)].sort(), ['inv-1', 'inv-2']);
     assert.deepEqual(
       [...new Set(trace.invocations.flatMap((invocation) => invocation.changedFiles))],
       ['docs/plans/demo.md'],
@@ -176,10 +173,7 @@ describe('Capability Wakeup Trace', () => {
       toolEvents: [],
     });
 
-    assert.deepEqual(trace.invocations[0].changedFiles, [
-      'packages/web/src/App.tsx',
-      'packages/web/src/lib.ts',
-    ]);
+    assert.deepEqual(trace.invocations[0].changedFiles, ['packages/web/src/App.tsx', 'packages/web/src/lib.ts']);
   });
 
   it('preserves transcript eventNo span when later tool events are merged into the same invocation', () => {
@@ -204,8 +198,7 @@ describe('Capability Wakeup Trace', () => {
           toolName: 'command_execution',
           turnIndex: 1,
           summary: {
-            command:
-              'curl -X POST http://localhost:3002/api/workspace/navigate -H "Content-Type: application/json"',
+            command: 'curl -X POST http://localhost:3002/api/workspace/navigate -H "Content-Type: application/json"',
             exitCode: 0,
             ok: true,
             path: 'docs/plans/demo.md',

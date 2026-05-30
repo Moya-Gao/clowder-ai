@@ -2,11 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { FastifyPluginAsync } from 'fastify';
-import {
-  type EventAuditLog,
-  AuditEventTypes,
-  getEventAuditLog,
-} from '../domains/cats/services/index.js';
+import { AuditEventTypes, type EventAuditLog, getEventAuditLog } from '../domains/cats/services/index.js';
 import type { PortDiscoveryService } from '../domains/preview/port-discovery.js';
 import { validatePort } from '../domains/preview/port-validator.js';
 import { getDefaultUploadDir } from '../utils/upload-paths.js';
@@ -49,26 +45,29 @@ export const previewRoutes: FastifyPluginAsync<PreviewRouteOpts> = async (app, o
   });
 
   // P1-3: Consolidated audit endpoints for preview lifecycle
-  app.post<{ Body: { port: number; host?: string; threadId?: string; catId?: string } }>('/api/preview/open', async (req) => {
-    if (!gatewayAvailable) {
-      return { allowed: false, reason: 'Preview gateway unavailable' };
-    }
-    const { port, host, threadId, catId } = req.body;
-    const result = validatePort(port, { host, gatewaySelfPort: gatewayPort, runtimePorts });
-    if (result.allowed) {
-      auditLog
-        .append({
-          type: AuditEventTypes.BROWSER_PREVIEW_OPEN,
-          threadId,
-          data: { port, host: host ?? 'localhost', gatewayPort, catId },
-        })
-        .catch(() => {});
-    }
-    return {
-      ...result,
-      gatewayUrl: result.allowed ? `http://localhost:${gatewayPort}/?__preview_port=${port}` : undefined,
-    };
-  });
+  app.post<{ Body: { port: number; host?: string; threadId?: string; catId?: string } }>(
+    '/api/preview/open',
+    async (req) => {
+      if (!gatewayAvailable) {
+        return { allowed: false, reason: 'Preview gateway unavailable' };
+      }
+      const { port, host, threadId, catId } = req.body;
+      const result = validatePort(port, { host, gatewaySelfPort: gatewayPort, runtimePorts });
+      if (result.allowed) {
+        auditLog
+          .append({
+            type: AuditEventTypes.BROWSER_PREVIEW_OPEN,
+            threadId,
+            data: { port, host: host ?? 'localhost', gatewayPort, catId },
+          })
+          .catch(() => {});
+      }
+      return {
+        ...result,
+        gatewayUrl: result.allowed ? `http://localhost:${gatewayPort}/?__preview_port=${port}` : undefined,
+      };
+    },
+  );
 
   app.post<{ Body: { port: number; threadId?: string; catId?: string } }>('/api/preview/close', async (req) => {
     const { port, threadId, catId } = req.body;
@@ -82,17 +81,20 @@ export const previewRoutes: FastifyPluginAsync<PreviewRouteOpts> = async (app, o
     return { ok: true };
   });
 
-  app.post<{ Body: { port: number; url: string; threadId?: string; catId?: string } }>('/api/preview/navigate', async (req) => {
-    const { port, url, threadId, catId } = req.body;
-    auditLog
-      .append({
-        type: AuditEventTypes.BROWSER_PREVIEW_NAVIGATE,
-        threadId,
-        data: { port, url, catId },
-      })
-      .catch(() => {});
-    return { ok: true };
-  });
+  app.post<{ Body: { port: number; url: string; threadId?: string; catId?: string } }>(
+    '/api/preview/navigate',
+    async (req) => {
+      const { port, url, threadId, catId } = req.body;
+      auditLog
+        .append({
+          type: AuditEventTypes.BROWSER_PREVIEW_NAVIGATE,
+          threadId,
+          data: { port, url, catId },
+        })
+        .catch(() => {});
+      return { ok: true };
+    },
+  );
 
   // F120 Phase C: Cat-initiated auto-open — skips toast, directly opens browser panel
   app.post<{ Body: { port: number; path?: string; threadId?: string; worktreeId?: string; catId?: string } }>(

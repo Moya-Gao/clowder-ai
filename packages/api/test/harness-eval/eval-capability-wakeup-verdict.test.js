@@ -6,7 +6,7 @@ import {
   classifyCapabilityWakeupTrials,
   evaluateCapabilityWakeupTrace,
 } from '../../dist/infrastructure/harness-eval/eval-capability-wakeup-adapter.js';
-import { domain, transcriptEvent, toolEvent } from './capability-wakeup-test-helpers.js';
+import { domain, toolEvent, transcriptEvent } from './capability-wakeup-test-helpers.js';
 
 describe('Capability Wakeup Predicates And Verdicts', () => {
   it('supports text_pattern_then_capability and scenario_then_capability predicates', () => {
@@ -210,8 +210,7 @@ describe('Capability Wakeup Predicates And Verdicts', () => {
           toolName: 'command_execution',
           turnIndex: 1,
           summary: {
-            command:
-              'curl -X POST http://localhost:3002/api/workspace/navigate -H "Content-Type: application/json"',
+            command: 'curl -X POST http://localhost:3002/api/workspace/navigate -H "Content-Type: application/json"',
             exitCode: 0,
             ok: true,
             path: 'docs/plans/demo.md',

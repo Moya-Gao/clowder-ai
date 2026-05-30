@@ -4,7 +4,7 @@ import {
   buildCapabilityTrace,
   evaluateCapabilityWakeupTrace,
 } from '../../dist/infrastructure/harness-eval/eval-capability-wakeup-adapter.js';
-import { transcriptEvent, toolEvent } from './capability-wakeup-test-helpers.js';
+import { toolEvent, transcriptEvent } from './capability-wakeup-test-helpers.js';
 
 describe('Capability Wakeup Evidence', () => {
   it('counts Codex-format create_rich_block tool names as rich-messaging evidence', () => {
@@ -115,8 +115,7 @@ describe('Capability Wakeup Evidence', () => {
             toolName: 'command_execution',
             turnIndex: 1,
             summary: {
-              command:
-                'curl -X POST http://localhost:3002/api/workspace/navigate -H "Content-Type: application/json"',
+              command: 'curl -X POST http://localhost:3002/api/workspace/navigate -H "Content-Type: application/json"',
               exitCode: 0,
               ok: true,
               path: 'docs/plans/demo.md',
@@ -170,8 +169,7 @@ describe('Capability Wakeup Evidence', () => {
             turnIndex: 1,
             timestamp: Date.now() - 500,
             summary: {
-              command:
-                'curl -X POST http://localhost:3002/api/workspace/navigate -H "Content-Type: application/json"',
+              command: 'curl -X POST http://localhost:3002/api/workspace/navigate -H "Content-Type: application/json"',
               exitCode: 0,
               ok: true,
               path: 'docs/plans/demo.md',
@@ -185,8 +183,7 @@ describe('Capability Wakeup Evidence', () => {
           toolName: 'command_execution',
           turnIndex: 2,
           summary: {
-            command:
-              'curl -X POST http://localhost:3002/api/workspace/navigate -H "Content-Type: application/json"',
+            command: 'curl -X POST http://localhost:3002/api/workspace/navigate -H "Content-Type: application/json"',
             exitCode: 0,
             ok: true,
             path: 'docs/plans/demo.md',
@@ -196,7 +193,10 @@ describe('Capability Wakeup Evidence', () => {
       ],
     });
 
-    assert.deepEqual(trace.invocations.map((invocation) => invocation.invocationId), ['inv-1', 'inv-3']);
+    assert.deepEqual(
+      trace.invocations.map((invocation) => invocation.invocationId),
+      ['inv-1', 'inv-3'],
+    );
 
     const trials = evaluateCapabilityWakeupTrace(trace, [
       {
@@ -238,9 +238,8 @@ describe('Capability Wakeup Evidence', () => {
             invocationId: 'inv-2',
             toolName: 'command_execution',
             turnIndex: 1,
-          summary: {
-              command:
-                'curl -X POST http://localhost:3002/api/workspace/navigate -H "Content-Type: application/json"',
+            summary: {
+              command: 'curl -X POST http://localhost:3002/api/workspace/navigate -H "Content-Type: application/json"',
               exitCode: 0,
               ok: true,
               path: 'docs/plans/demo.md',
@@ -291,14 +290,13 @@ describe('Capability Wakeup Evidence', () => {
           invocationId: 'inv-2',
           toolName: 'command_execution',
           turnIndex: 1,
-            summary: {
-              command:
-                'curl -X POST http://localhost:3002/api/workspace/navigate -H "Content-Type: application/json"',
-              exitCode: 0,
-              ok: false,
-              path: 'docs/plans/demo.md',
-              action: 'reveal',
-            },
+          summary: {
+            command: 'curl -X POST http://localhost:3002/api/workspace/navigate -H "Content-Type: application/json"',
+            exitCode: 0,
+            ok: false,
+            path: 'docs/plans/demo.md',
+            action: 'reveal',
+          },
         }),
       ],
     });
@@ -344,8 +342,7 @@ describe('Capability Wakeup Evidence', () => {
           toolName: 'command_execution',
           turnIndex: 1,
           summary: {
-            command:
-              'curl -X POST http://localhost:3002/api/preview/auto-open -H "Content-Type: application/json"',
+            command: 'curl -X POST http://localhost:3002/api/preview/auto-open -H "Content-Type: application/json"',
             exitCode: 0,
             statusCode: 200,
             allowed: false,
@@ -447,8 +444,7 @@ describe('Capability Wakeup Evidence', () => {
           toolName: 'command_execution',
           turnIndex: 1,
           summary: {
-            command:
-              'curl -X POST http://localhost:3002/api/workspace/navigate -H "Content-Type: application/json"',
+            command: 'curl -X POST http://localhost:3002/api/workspace/navigate -H "Content-Type: application/json"',
             exitCode: 0,
             ok: true,
             path: 'docs/other.md',
@@ -498,8 +494,7 @@ describe('Capability Wakeup Evidence', () => {
           toolName: 'command_execution',
           turnIndex: 1,
           summary: {
-            command:
-              'curl -X POST http://localhost:3002/api/workspace/navigate -H "Content-Type: application/json"',
+            command: 'curl -X POST http://localhost:3002/api/workspace/navigate -H "Content-Type: application/json"',
             exitCode: 0,
             ok: true,
             path: 'docs/plans/demo.md',
@@ -549,8 +544,7 @@ describe('Capability Wakeup Evidence', () => {
           toolName: 'command_execution',
           turnIndex: 1,
           summary: {
-            command:
-              'curl -X POST http://localhost:3002/api/workspace/navigate -H "Content-Type: application/json"',
+            command: 'curl -X POST http://localhost:3002/api/workspace/navigate -H "Content-Type: application/json"',
             exitCode: 0,
             ok: true,
             path: 'docs/plans/demo.md',
@@ -601,8 +595,7 @@ describe('Capability Wakeup Evidence', () => {
           toolName: 'command_execution',
           turnIndex: 1,
           summary: {
-            command:
-              'curl -X POST http://localhost:3002/api/workspace/navigate -H "Content-Type: application/json"',
+            command: 'curl -X POST http://localhost:3002/api/workspace/navigate -H "Content-Type: application/json"',
             exitCode: 0,
             ok: true,
             path: 'docs/plans/demo.md',
@@ -654,8 +647,7 @@ describe('Capability Wakeup Evidence', () => {
           toolName: 'command_execution',
           turnIndex: 1,
           summary: {
-            command:
-              'curl -X POST http://localhost:3002/api/preview/auto-open -H "Content-Type: application/json"',
+            command: 'curl -X POST http://localhost:3002/api/preview/auto-open -H "Content-Type: application/json"',
             exitCode: 0,
             allowed: true,
             worktreeId: 'test-wt',

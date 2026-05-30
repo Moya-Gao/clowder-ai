@@ -673,7 +673,7 @@ Reviewer 问自己：
 - 16d 检测**坐标系是否选错了**（糊锅）→ 重构方向
 - 16e 检测**坐标系对了但 author 只做点修复不泛化**（补锅匠）→ failure-mode audit
 
-**触发信号**：reviewer 同型 failure-mode 的不同实例被抓到**第 2 次**（不论 round 数——R1 内砚砚一次抓两个同型也触发）。
+**触发信号**：reviewer 同型 failure-mode 的不同实例被抓到**第 2 次**（不论 round 数——R1 内 QA审查猫一次抓两个同型也触发）。
 
 **三步 audit**：
 

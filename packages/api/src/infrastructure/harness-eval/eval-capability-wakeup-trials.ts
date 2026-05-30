@@ -1,3 +1,11 @@
+import {
+  buildEvidenceScope,
+  canonicalizePathForGlobs,
+  collectUsageCandidates,
+  hasLivePreviewForOpportunity,
+  matchesAny,
+  matchesScope,
+} from './eval-capability-wakeup-trials-support.js';
 import type {
   CapabilityInvocationTrace,
   CapabilityName,
@@ -10,14 +18,6 @@ import type {
   ScenarioThenCapabilityPredicate,
   TextPatternThenCapabilityPredicate,
 } from './eval-capability-wakeup-types.js';
-import {
-  buildEvidenceScope,
-  canonicalizePathForGlobs,
-  collectUsageCandidates,
-  hasLivePreviewForOpportunity,
-  matchesAny,
-  matchesScope,
-} from './eval-capability-wakeup-trials-support.js';
 
 export function evaluateCapabilityWakeupTrace(
   trace: CapabilityTrace,

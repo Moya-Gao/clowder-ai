@@ -121,7 +121,7 @@ export function isKnownReason(code: unknown): code is CliErrorReasonCode {
   // 云端 codex P2-7 (2026-05-27): `Object.hasOwn` is ES2022 (Safari 15.4+, Chrome 93+).
   // Use Object.prototype.hasOwnProperty.call for broader client compat (Next.js's
   // browserslist default supports older Safari that predates ES2022).
-  return typeof code === 'string' && Object.prototype.hasOwnProperty.call(REASON_PALETTE, code);
+  return typeof code === 'string' && Object.hasOwn(REASON_PALETTE, code);
 }
 
 function truncateMiddle(s: string, max = 32): string {

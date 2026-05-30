@@ -5,7 +5,7 @@ import {
   classifyCapabilityWakeupTrials,
   evaluateCapabilityWakeupTrace,
 } from '../../dist/infrastructure/harness-eval/eval-capability-wakeup-adapter.js';
-import { transcriptEvent, toolEvent } from './capability-wakeup-test-helpers.js';
+import { toolEvent, transcriptEvent } from './capability-wakeup-test-helpers.js';
 
 describe('Capability Wakeup Classification', () => {
   it('detects rich-messaging miss from multi-message text volume threshold and classifies as cognitive without how-to proof', () => {

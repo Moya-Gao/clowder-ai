@@ -131,21 +131,12 @@ describe('eval:capability-wakeup live verdict generator', () => {
     );
     assert.deepEqual(
       provenance.rawInputs.map((input) => input.path),
-      [
-        `generated/capability-wakeup/${verdictId}/trials.json`,
-        `generated/capability-wakeup/${verdictId}/summary.json`,
-      ],
+      [`generated/capability-wakeup/${verdictId}/trials.json`, `generated/capability-wakeup/${verdictId}/summary.json`],
     );
     const trialsBytes = readFileSync(join(root, 'generated', 'capability-wakeup', verdictId, 'trials.json'));
     const summaryBytes = readFileSync(join(root, 'generated', 'capability-wakeup', verdictId, 'summary.json'));
-    assert.equal(
-      provenance.rawInputs[0].sha256,
-      createHash('sha256').update(trialsBytes).digest('hex'),
-    );
-    assert.equal(
-      provenance.rawInputs[1].sha256,
-      createHash('sha256').update(summaryBytes).digest('hex'),
-    );
+    assert.equal(provenance.rawInputs[0].sha256, createHash('sha256').update(trialsBytes).digest('hex'));
+    assert.equal(provenance.rawInputs[1].sha256, createHash('sha256').update(summaryBytes).digest('hex'));
 
     const markdown = readFileSync(result.path, 'utf8');
     assert.match(markdown, /domain_id: eval:capability-wakeup/);
@@ -239,8 +230,7 @@ sla:
           turnIndex: 1,
           status: 'success',
           summary: {
-            command:
-              'curl -X POST http://localhost:3002/api/workspace/navigate -H "Content-Type: application/json"',
+            command: 'curl -X POST http://localhost:3002/api/workspace/navigate -H "Content-Type: application/json"',
             exitCode: 0,
             ok: true,
             path: 'docs/plans/demo.md',

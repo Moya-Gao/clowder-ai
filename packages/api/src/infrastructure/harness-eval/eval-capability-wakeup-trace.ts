@@ -1,15 +1,15 @@
 import {
-  type CapabilityInvocationTrace,
-  type CapabilityTrace,
-  type CapabilityTraceInput,
-} from './eval-capability-wakeup-types.js';
-import {
   hasLivePreviewForInvocation,
   normalizeAuditCandidates,
   normalizeToolUsageCandidate,
   normalizeTranscriptToolUse,
   readPath,
 } from './eval-capability-wakeup-trace-normalizers.js';
+import {
+  type CapabilityInvocationTrace,
+  type CapabilityTrace,
+  type CapabilityTraceInput,
+} from './eval-capability-wakeup-types.js';
 
 export function buildCapabilityTrace(input: CapabilityTraceInput): CapabilityTrace {
   const byInvocation = new Map<string, CapabilityInvocationTrace>();

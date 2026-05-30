@@ -1,11 +1,11 @@
 import { normalizeMcpToolName } from '../../domains/cats/services/tool-usage/normalize-mcp-tool-name.js';
-import { CHANGE_TOOL_NAMES } from './eval-capability-wakeup-types.js';
 import type {
   CapabilityPreviewAvailability,
   CapabilityTraceInput,
   NormalizedCapabilityUsageCandidate,
   NormalizedTranscriptToolUse,
 } from './eval-capability-wakeup-types.js';
+import { CHANGE_TOOL_NAMES } from './eval-capability-wakeup-types.js';
 
 export function normalizeTranscriptToolUse(
   eventNo: number,

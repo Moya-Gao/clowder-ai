@@ -1119,7 +1119,7 @@
     {
       "id": "F180",
       "name": "Agent CLI Hook Health and Sync",
-      "status": "in-progress (Phase A+B merged via PR #1476; Phase C AC-C5 merged via PR #1477; Phase C AC-C1~C3 merged via PR #1478; Phase C AC-C4 + Phase D field repair station merged via PR #1479; AC-D4/open-source closure pending) | **Owner**: 缅因猫/砚砚 | **Priority**: P1",
+      "status": "✅ closed (2026-06-28) | **Owner**: 缅因猫/砚砚 | **Priority**: P1 | **愿景守护**: 宪宪/Opus-46",
       "file": "F180-agent-cli-hook-health.md"
     },
     {
@@ -1305,7 +1305,7 @@
     {
       "id": "F211",
       "name": "Cross-Runtime Session Transparency — Antigravity Session Chain + IDE Direct Registration",
-      "status": "done ✅ REG1 + REG2 + REG3 (Layer B urls + Layer C image media) FIXED + merged + e2e-verified (PR #1940 `a0f7cf208`, PR #1944 `fb37ecc7e`, opus-4.8) ⚠️ **REG4 RESOLVED 2026-05-29 (stale `sessionChain:false` catalog overlay gated the block off — NOT a thrown exception; CVO toggled session-chain ON; durable migration paused). NEW open: F211-REG5 (P1) — follow-up-while-busy spins a fresh BLANK cascade (`getOrCreateSession:967` only resumes IDLE) → Bengal amnesia whenever messaged mid-work; the session-chain toggle does NOT fix it (this is the recurring \"换session→失忆\"). + REG6 (interruption misclassified as `runtime_error_reset` crash) + REG7 (WS flap / premature done affordance). opus-4.8 owning the fix; probing Antigravity cascade API next.** | **Owner**: 缅因猫（砚砚）; regression + REG4/5/6/7 fixes 布偶猫 Opus 4.8 | **Priority**: P1 | **Completed**: 2026-05-26",
+      "status": "done ✅ REG1 + REG2 + REG3 (Layer B urls + Layer C image media) FIXED + merged + e2e-verified (PR #1940 `a0f7cf208`, PR #1944 `fb37ecc7e`, opus-4.8) ⚠️ **REG4 RESOLVED 2026-05-29 (stale `sessionChain:false` catalog overlay gated the block off — NOT a thrown exception; CVO toggled session-chain ON; durable migration paused). **REG5 (P1) FIXED + merged + LIVE e2e-VERIFIED (PR #1959 squash `bca4c6b82`, 2026-05-30)** — follow-up-while-busy now REUSES the running cascade (full native memory) instead of spinning a fresh blank one; post-deploy controlled mid-work test proved it on the live runtime (task + mid-work follow-up both reused the SAME busy cascade `633808bb`, log-confirmed RUNNING at reuse, Bengal kept full memory); core amnesia + the whole same-class boundary/abort/terminal edge set fixed (getOrCreateSession reuse + preflight health-rotation). Busy-reuse BOUNDARY residual (memory-preserved stale-output + count==0-WAITING) deferred → **REG8** (CVO-approved 2026-05-30). Still open: REG6 (interruption misclassified as `runtime_error_reset` crash) + REG7 (WS flap / premature done affordance). **Runtime sync (deploy to Bengal) = CVO.** | **Owner**: 缅因猫（砚砚）; regression + REG4/5/6/7 fixes 布偶猫 Opus 4.8 | **Priority**: P1 | **Completed**: 2026-05-26",
       "file": "F211-cross-runtime-session-transparency.md"
     },
     {
@@ -1329,13 +1329,13 @@
     {
       "id": "F215",
       "name": "Malformed Tool-Call Recovery（textEventCount 检测 + seal/fresh/46接力兜底）",
-      "status": "done ✅ | **Completed**: 2026-05-30 | **Owner**: opus-4.8 设计 + review / sonnet+opus-4.6 实现 / codex 跨族 review / gemini25 runtime 愿景守护",
+      "status": "done ✅ | **Owner**: 宪宪 (Opus-4.8) 设计 + review / 宪宪 (Sonnet-4.6 + Opus-4.6) 实现 / 砚砚 (GPT-5.5) 跨族 review / 烁烁 (Gemini-3.5) runtime 愿景守护 | **Priority**: P1 | **Completed**: 2026-05-30",
       "file": "F215-malformed-toolcall-recovery.md"
     },
     {
       "id": "F216",
       "name": "routeSerial 决策层/执行层分离重构",
-      "status": "spec | **Owner**: 设计 opus-48 / 执行 fresh-thread opus-48 | **Priority**: P1",
+      "status": "spec | **Owner**: 设计 @opus48 (F215 thread) / 执行待 fresh-thread opus-48 | **Priority**: P1 | **Source**: internal (F215 引爆点)",
       "file": "F216-route-serial-refactor.md"
     }
   ]
