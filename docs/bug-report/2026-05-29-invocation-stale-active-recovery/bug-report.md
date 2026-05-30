@@ -105,3 +105,25 @@ Thread 1 根因明确（§3.2，main 最新代码确认）、与 Thread 2 真因
 ### 8.4 未做 / 故意留后续
 - Thread 2 的"active session 永不自愈"：reaper 扩展覆盖 active→sealing 过渡（opus-48 诊断说明需验证 invoke-single-cat done 是否正常 emit，这一层暂未动，restart 能解除）
 - messages.ts 消费 `routing_warnings` 向用户推送 socket warning：前端集成留后续 feature PR
+
+## 9. 最终修复 + merge 闭环（宪宪 Opus-4.8，2026-05-30）
+
+> ⚠️ §8 是 Sonnet 首轮实现记录，**与最终 merge 代码不一致**。opus-4.8 接手后经 codex 云端 6 轮 review + opus-4.6 cross-cat 收敛，最终合入：**PR #1958 / squash `b786377c7`**（2026-05-30，`--admin` merge，同账号 formal approve 受限，cross-cat 走 thread + PR comment 留痕）。以本节为准。
+
+### 9.1 相对 §8 的关键修正（review 收敛）
+- **cancel 孤儿（§8.1）**：补 **sibling guard**——同 thread 真有别的猫 active 时不误清（保留 404）；孤儿 record cleanup 覆盖 `orphanRecord.targetCats` **全部猫**（不只请求的 catId），并对每只广播 canceled + clearPause + releaseSlot。
+- **force-reset（§8.2）**：cancelAll 改用 `cancel_all` reason（抑制 auto-resume，避免重置后又自动复活）；`slotsToRelease` = cancelledCatIds ∪ running records 的 `targetCats`（覆盖 stale record）；最终 broadcast + clearPause + releaseSlot 对齐到**完整 slotsToRelease**（修早期只广播 cancelledCatIds、漏 stale 的 bug）。
+- **routing_warnings（§8.3）**：最终落点是 `AgentRouter.parseMentionsRaw`（**用户路由路径**），不是 a2a-mentions（cat-A2A 路径，首改错文件已 revert）。行首 unknown handle（@kimi/@ghostcat）现产 `cat_not_found` warning，不再静默 fallback 到布偶猫——这是「at kimi 变布偶猫」的根因之一。测试从 @kimi（**双重假绿**：kimi 实际在 cat-template.json available + 只断言 Array.isArray 永真）改 @ghostcat（真 unknown）+ 真断言 `length>0` + `kind===cat_not_found`。
+
+### 9.2 §8.4 后续项最终状态
+- **Thread 2「active 永不自愈」**：确认 invoke 一定 emit done（ClaudeAgentService:682 无条件 yield）+ slot 有 TTL 自愈，**非永久卡死**；force-reset 作为手动逃生口已兜底用户场景。未单独深挖根因（TTL + 逃生口已覆盖）。
+- **routing_warnings 前端消费**：parseMentionsRaw 已产 warning，socket 推送前端集成仍留后续 feature PR。
+
+### 9.3 P3 降级 + 后续 ticket（已进 hotfix 14 天升级 cron）
+- codex round-6 P1（force-reset 应只清 `processing-only` slot 而非全 `releaseThread`）与 round-2 P1（user-scoped 清理）**直接冲突**。根因：`QueueProcessor.processingSlots` key=`threadId:catId` **无 userId**，无法同时做到 user-scoped + 只清 processing-only。
+- opus-4.6 confirmed 降 P3；当前靠 processingSlotTtlMs + sweepZombieSlots 自愈兜底；根本修（processingSlots 加 userId）已记入 hotfix 14 天升级 review cron。
+
+### 9.4 关键教训（已沉淀 memory，tags: false-green / hold-ball / architecture-debt）
+1. **测试假绿**：验证 unknown-handle/边界逻辑，输入必须真不满足前提（@ghostcat 非 @kimi），断言钉真实行为（非永真的 Array.isArray）。配 feedback_inmemory_store_tests_miss。
+2. **hold 冗余**：云端 review 已 register PR tracking = 结构化回调（决策树 2b 事件驱动），触发后直接释放靠回调，不 hold_ball 等 EYES（我犯 2 次过时 hold）。
+3. **reviewer 多轮同类边界 = 架构债投影**：6 轮 force-reset 边界全是 processingSlots 无 userId 一个债的不同投影；反复同类边界 ≥3 轮 = 停下识别根因 + 根本修留后续 ticket，不逐个补丁无限循环。
