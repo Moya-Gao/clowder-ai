@@ -1386,3 +1386,29 @@ created: 2026-02-26
   3. 用**真实截图/日志**证明验过（不是"我跑了测试全绿"）
   4. 如果当前 runtime 未重启到最新代码，先重启再验
 - 关联：F215 | PR #1953 #1960 #1966 | LL-032（愿景守护真实启动）| feedback_alpha_smoke_happy_path_blindspot | feedback_inmemory_store_tests_miss_redis_behavior
+
+---
+
+### LL-065: UI-layer adjacency dedup 是 emit-side fan-out 的 forward-compatible 防线
+- 状态：confirmed
+- 更新时间：2026-05-30
+- 现象：F212 follow-up（PR #1967）— Repo Inbox reconciliation 同一通知触发 2+ invocation 各发一份 `quota_exceeded` panel，铲屎官截图显两份"API 配额超限"叠在一起。emit 上游 fan-out 根因复杂（retry / fallback / 并行 invocation），telemetry 不足无法当下定位。
+- 决策：UI-layer **adjacency dedup**（30s window + `reasonCode + publicSummary` fingerprint + group head 显 `×N` badge + 后续 hidden 但保留 `data-message-id` anchor），**不**等 emit 修。
+- 为什么 forward-compatible：emit 修了，相同 fingerprint 不会出现，dedup 自动 no-op；emit 没修，dedup 兜住症状。**邻接限定**（adjacency-only）防"远 diag 也是同源"误隐藏：non-diag message 中间断开 group，远期复现独立显示。
+- 验证回路：cloud codex R1 抓 hidden `return null` drops `data-message-id` anchor（MessageNavigator/ReplyPill 跳转 no-op）→ 改 empty anchored wrapper `<div data-message-id className="h-0" aria-hidden />` + audit 同型修 line 205+233 两路；@antig-opus 跨族 APPROVE。
+- 同时巧合：PR #1969 同周期 merge"close byte-identical duplicate-message race (atomic content claim)"修了 emit-side root cause——UI dedup 从 primary fix 自动变 defense-in-depth 层（rebase 时 b304a27d2 chore 被 drop 因 PR #1968 已修同 biome errors，是同一思路：上游 fix 后下游层不退化）。
+- 规则：emit-side 多源 fan-out 一时定位不到时，**UI-layer adjacency dedup** 是合法 surgical 路径（forward-compat），但 fingerprint 必须 conservative（少误合）+ adjacency 必须打破上下文（远期复现保留独立性）+ hidden 必须保留 DOM anchor（audit trail / navigation 不退化）。
+- 关联：F212 | PR #1967 | PR #1969（emit-side root cause fix）| LL-061（display anchor invariance 同源）
+
+---
+
+### LL-066: 禁止全 repo `biome check --write --unsafe`
+- 状态：confirmed
+- 更新时间：2026-05-30
+- 现象：PR #1967 R3 cloud codex catch P2：`CliDiagnosticsPanel.tsx:124` 从 `Object.prototype.hasOwnProperty.call` 被改成 `Object.hasOwn`，与上方 3 行注释"ES2022 不兼容 Safari/iOS<15.4，必须用 hasOwnProperty.call"直接矛盾。tsconfig target = ES2017，老 Safari 上 CLI diagnostics 全崩。
+- 根因：我修 pre-existing biome errors 时跑了 `pnpm biome check . --write --unsafe`（全 repo + unsafe rule），改了 300+ 文件。意识到 scope 失控后 `git checkout HEAD -- .` 回滚，再 Edit 重新应用只我的 a11y fix。**问题**：Edit scope 没覆盖 line 124，`--unsafe` 通过 `lint/suspicious/noPrototypeBuiltins` 在 line 124 把 `hasOwnProperty.call` 改成 `Object.hasOwn` 的写法**残留**——git blame 显示我的 commit 但**内容是 biome 的悄悄写入**。
+- 药方一：**禁止全 repo `biome --write --unsafe`**。Drive-by 修 lint 用 `biome --write`（safe-only）或显式列文件 `biome --write --unsafe <path1> <path2>`。
+- 药方二：**Edit 完整文件后必须 verify 整文件 diff（不只我 Edit 的行）**，特别是已经跑过 biome --unsafe 的文件——`git diff <file>` 看清楚有没有 unsafe 残留。
+- 药方三：**机械防护 + invariance test 双层**。注释写"必须用 hasOwnProperty.call"是软提示（biome 不读注释）；硬保护 = (a) `biome-ignore lint/suspicious/noPrototypeBuiltins` 配在该行上方 + (b) source-level invariance test（assert 文件含 `hasOwnProperty.call` 且**不含** `Object.hasOwn(`）—— biome 改 rule name 让 ignore 失效时 test 抓住。
+- 同根教训：comment 表达正确意图但代码偏离——LL-061 是同 pattern（display string render mode 注释正确实现错），这次自己上演了一次。**注释是 author 的意图，代码是 reviewer 的真相**——必须 align，align 不靠人，靠 lint-ignore + test 机械防护。
+- 关联：F212 | PR #1967 | LL-061（comment/code align 同 pattern）| LL-064（assumed-green vs runtime-green 同根）
