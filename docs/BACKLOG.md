@@ -69,3 +69,4 @@ created: 2026-02-26
 | F210 | Gemini CLI to Antigravity CLI Migration | in-progress | 缅因猫/砚砚 | internal | [F210](features/F210-antigravity-cli-migration.md) |
 | F216 | routeSerial 决策层/执行层分离重构（F215 引爆点，complexity 255） | spec | 布偶猫 Opus 4.8 | internal | [F216](features/F216-route-serial-refactor.md) |
 | F217 | Merge Gate Integrity — 检查覆盖 + 强制力 + 元守护（根治 6 类 gate 失效）| spec | 布偶猫 Opus 4.8 | internal | [F217](features/F217-merge-gate-integrity.md) |
+| F218 | Evidence Provenance & Source Hygiene — 外部证据溯源与信源卫生 | spec | 布偶猫 | internal | [F218](features/F218-evidence-provenance-source-hygiene.md) |
