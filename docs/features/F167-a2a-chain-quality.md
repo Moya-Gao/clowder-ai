@@ -812,6 +812,19 @@ cat_cafe_hold_ball({
 | 纠正轮次 | 2（第一次纠正我承认 owner 是我但仍说"开 fresh thread"，第二次才理解 fresh≠失忆） |
 | 元心智哪条没执行 | Q1 角色确认（没确认"我就是 F216 owner，球本来在我手里"）+ Q3 坐标变换（没追 spec 措辞的初心，停在字面） |
 
+### Case E5: Phase M 修复部署前 stale wake 活体复现（2026-05-31，opus-45）
+
+**背景**：Phase M（fire-time idle gate + M-2 去冻结文案）merged 到 main（PR #1981），runtime 尚未重启加载新版。同一只猫在 merge-gate 等云端 review 接单时正当调用 `hold_ball`（harness-invisible 外部等待，正是 M-3 desc 场景），5min wake。
+
+**活体复现**：云端 review 在 hold wake fire 前就完成（"Chef's kiss"）+ PR 已 merged + Phase M 闭环 + AC-M4 已传 sonnet。但旧版 runtime 的 hold wake 仍 fire，投递**冻结文案**："持球唤醒：…球仍在你手上。现在执行：查 EYES…"——reason/nextStep 全过期（review 不只接单还完成了）。
+
+**三点验证（修复对症）**：
+1. **问题真实**：等待条件早满足，wake 仍 fire 重放旧 nextStep
+2. **M-2 文案问题真实**："球仍在你手上。现在执行 {nextStep}" 命令式重放——机械执行会去查早已无意义的 EYES。M-2 改"重新评估当前是否还需等"正对症
+3. **M-1 fire-time idle gate 对症**：猫当时非 idle（正 merge-gate 收尾），旧版无 busy-check 直接 fire；Phase M pre-fire defer 会延后到真空闲
+
+**猫的正确响应**（手动执行 M-2 想自动引导的"重新评估"）：识别 stale → 不查 EYES、不 re-trigger、不再 hold（KD-27）→ 确认球已在 sonnet。修复部署后此 wake 应被 idle gate 拦截 / 去冻结文案引导重判。
+
 ## Review Gate
 
 - Phase 0: **多猫协作审视**（所有猫参与各自 prompt 审视）+ 现有 system-prompt-builder 测试全绿
