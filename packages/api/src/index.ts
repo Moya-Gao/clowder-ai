@@ -1093,7 +1093,7 @@ async function main(): Promise<void> {
               mcpServers,
             });
           } else {
-            service = new GeminiAgentService({ catId });
+            service = new GeminiAgentService({ catId, agyProfile: config.agyProfile });
           }
           break;
         }

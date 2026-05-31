@@ -52,6 +52,17 @@ const contextBudgetSchema = z.object({
   maxContentLengthPerMsg: z.number().positive(),
 });
 
+const agyProfileSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    profileId: z.string().min(1).optional(),
+    homeRoot: z.string().min(1).optional(),
+    model: z.string().min(1).optional(),
+    autoApprove: z.boolean().optional(),
+    trustedWorkspaces: z.array(z.string().min(1)).optional(),
+  })
+  .optional();
+
 /** F32-b: mentionPatterns must start with @ */
 const mentionPatternSchema = z.string().min(2).regex(/^@/, 'mentionPattern must start with @');
 
@@ -70,6 +81,7 @@ const catVariantSchema = z.object({
   defaultModel: z.string(), // OAuth/subscription CLIs have built-in defaults; api_key validated at route level
   mcpSupport: z.boolean(),
   cli: cliConfigSchema.optional(),
+  agyProfile: agyProfileSchema,
   commandArgs: z.array(z.string().min(1)).optional(), // F127: explicit bridge args (e.g. Antigravity)
   cliConfigArgs: z.array(z.string().min(1)).optional(), // F127: extra CLI args per member
   /** clowder-ai#340 P5: Model provider name (renamed from ocProviderName). */
@@ -241,7 +253,7 @@ function readTemplate(templatePath: string): string {
  * across provider switches (e.g. template cli.defaultArgs surviving into a
  * catalog variant that switched to a different client).
  */
-const ATOMIC_OBJECT_KEYS = new Set(['cli', 'color', 'contextBudget', 'voiceConfig']);
+const ATOMIC_OBJECT_KEYS = new Set(['cli', 'agyProfile', 'color', 'contextBudget', 'voiceConfig']);
 
 /**
  * Deep merge two plain objects. `overlay` fields override `base` fields.
@@ -489,6 +501,7 @@ export function toAllCatConfigs(config: CatCafeConfig): Record<string, CatConfig
         clientId: variant.clientId as ClientId, // #252: Zod now accepts any string; downstream switch/case has default branches
         defaultModel: variant.defaultModel,
         mcpSupport: variant.mcpSupport,
+        ...(variant.agyProfile != null ? { agyProfile: variant.agyProfile } : {}),
         ...(projectedCommandArgs != null ? { commandArgs: projectedCommandArgs } : {}),
         ...(variant.cliConfigArgs != null && variant.cliConfigArgs.length > 0
           ? { cliConfigArgs: [...variant.cliConfigArgs] }

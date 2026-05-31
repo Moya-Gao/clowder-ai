@@ -7,7 +7,7 @@
  * Phase 4-F: 支持多 Variant（多版本猫召唤）
  */
 
-import type { CatColor, ClientId } from './cat.js';
+import type { AgyProfileConfig, CatColor, ClientId } from './cat.js';
 import type { CatId } from './ids.js';
 import type { VoiceConfig } from './tts.js';
 
@@ -71,6 +71,8 @@ export interface CatVariant {
   readonly defaultModel: string;
   readonly mcpSupport: boolean;
   readonly cli: CliConfig;
+  /** F210 Phase G: optional isolated Antigravity CLI profile binding. */
+  readonly agyProfile?: AgyProfileConfig;
   /** F127: explicit CLI args for bridge-style members such as Antigravity. */
   readonly commandArgs?: readonly string[];
   /** Optional per-variant override for roleDescription; falls back to breed.roleDescription. */

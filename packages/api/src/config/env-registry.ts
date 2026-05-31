@@ -1130,6 +1130,14 @@ export const ENV_VARS: EnvDefinition[] = [
     category: 'gemini',
     sensitive: false,
   },
+  {
+    name: 'CAT_CAFE_AGY_PROFILE_ROOT',
+    defaultValue: '~/.cat-cafe/agy-profiles',
+    description: 'F210 Phase G：隔离 AGY profile HOME 根目录；每只 AGY profile 猫会在此目录下创建独立 HOME。',
+    category: 'gemini',
+    sensitive: false,
+    runtimeEditable: false,
+  },
 
   // --- kimi ---
   {

@@ -79,6 +79,15 @@ export function extractAntigravityCliConversationId(logText: string): string | n
   return conversationId;
 }
 
+export function extractAntigravityCliSelectedModelLabel(logText: string): string | null {
+  const re = /\bPropagating selected model override to backend:\s*label="([^"\r\n]+)"/gi;
+  let selectedModel: string | null = null;
+  for (const match of logText.matchAll(re)) {
+    selectedModel = match[1] ?? selectedModel;
+  }
+  return selectedModel;
+}
+
 function isAgyPrintTimeoutOutput(stdout: string): boolean {
   return /^Error:\s*timed out waiting for response\.?$/i.test(stdout.trim());
 }
