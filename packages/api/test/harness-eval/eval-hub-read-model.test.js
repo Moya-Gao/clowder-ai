@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import { chdir, cwd } from 'node:process';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { loadEvalHubSummary } from '../../dist/infrastructure/harness-eval/eval-hub-read-model.js';
+import { loadEvalHubSummary } from '../../dist/infrastructure/harness-eval/hub/eval-hub-read-model.js';
 
 function writeJson(path, value) {
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);

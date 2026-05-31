@@ -13,13 +13,13 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse as parseYaml } from 'yaml';
-import type { IThreadStore } from '../../domains/cats/services/stores/ports/ThreadStore.js';
-import type { TaskSpec_P1 } from '../scheduler/types.js';
-import { buildEvalCatInvocation } from './eval-cat-invocation.js';
+import type { IThreadStore } from '../../../domains/cats/services/stores/ports/ThreadStore.js';
+import type { TaskSpec_P1 } from '../../scheduler/types.js';
+import { buildEvalCatInvocation } from '../eval-cat-invocation.js';
+import { ensureEvalDomainThreads } from '../hub/eval-hub-thread-ensure.js';
+import { inventoryLegacyTasks, type LegacyScheduledTaskLike } from '../legacy-task-cleanup.js';
 import { getEvalCatOverride } from './eval-domain-override.js';
 import { type EvalDomainRegistryEntry, parseEvalDomainRegistryFile } from './eval-domain-registry.js';
-import { ensureEvalDomainThreads } from './eval-hub-thread-ensure.js';
-import { inventoryLegacyTasks, type LegacyScheduledTaskLike } from './legacy-task-cleanup.js';
 
 export interface EvalDomainScheduleOpts {
   harnessFeedbackRoot: string;

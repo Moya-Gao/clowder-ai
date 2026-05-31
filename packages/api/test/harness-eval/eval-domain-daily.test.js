@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import {
   createEvalDomainDailySpec,
   createEvalDomainWeeklySpec,
-} from '../../dist/infrastructure/harness-eval/eval-domain-daily.js';
+} from '../../dist/infrastructure/harness-eval/domain/eval-domain-daily.js';
 
 const repoHarnessFeedbackRoot = fileURLToPath(new URL('../../../../docs/harness-feedback', import.meta.url));
 

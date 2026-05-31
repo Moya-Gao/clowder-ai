@@ -2,9 +2,9 @@ import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import type { Redis } from 'ioredis';
 import { getRoster } from '../config/cat-config-loader.js';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
-import { getEvalCatOverride, setEvalCatOverride } from '../infrastructure/harness-eval/eval-domain-override.js';
-import { loadDomains, loadEvalHubSummary } from '../infrastructure/harness-eval/eval-hub-read-model.js';
-import { ensureEvalDomainThreads } from '../infrastructure/harness-eval/eval-hub-thread-ensure.js';
+import { getEvalCatOverride, setEvalCatOverride } from '../infrastructure/harness-eval/domain/eval-domain-override.js';
+import { loadDomains, loadEvalHubSummary } from '../infrastructure/harness-eval/hub/eval-hub-read-model.js';
+import { ensureEvalDomainThreads } from '../infrastructure/harness-eval/hub/eval-hub-thread-ensure.js';
 
 export interface EvalHubRoutesOptions {
   harnessFeedbackRoot: string;

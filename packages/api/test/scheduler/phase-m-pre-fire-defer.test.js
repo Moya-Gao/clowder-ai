@@ -55,7 +55,7 @@ describe('TaskRunnerV2 — Phase M pre-fire defer policy', () => {
   }
 
   it('defers (no execute) while thread is busy', async () => {
-    let busy = true;
+    const busy = true;
     const runner = new TaskRunnerV2({ logger: silentLogger, ledger, isThreadBusy: () => busy });
     const executed = { n: 0, at: 0 };
     runner.register(makeDeferTask(executed));

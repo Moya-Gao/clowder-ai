@@ -5,7 +5,7 @@ import { parse } from 'yaml';
 import {
   parseEvalDomainRegistryEntry,
   parseEvalDomainRegistryFile,
-} from '../../dist/infrastructure/harness-eval/eval-domain-registry.js';
+} from '../../dist/infrastructure/harness-eval/domain/eval-domain-registry.js';
 
 const validEntry = {
   domainId: 'eval:a2a',

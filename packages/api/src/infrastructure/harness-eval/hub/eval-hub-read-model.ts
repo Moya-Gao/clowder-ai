@@ -1,8 +1,8 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { basename, dirname, join, relative } from 'node:path';
 import { parse as parseYaml } from 'yaml';
-import { resolveA2aEvidenceBundle } from './eval-a2a-artifact-resolver.js';
-import { type EvalDomainRegistryEntry, parseEvalDomainRegistryFile } from './eval-domain-registry.js';
+import { resolveA2aEvidenceBundle } from '../a2a/eval-a2a-artifact-resolver.js';
+import { type EvalDomainRegistryEntry, parseEvalDomainRegistryFile } from '../domain/eval-domain-registry.js';
 
 type CountRecord = Record<string, number | null>;
 

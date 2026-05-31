@@ -28,14 +28,16 @@ describe('eval-domain-override', { skip: redisIsolationSkipReason(REDIS_URL) }, 
   });
 
   it('get returns null when no override exists', async () => {
-    const { getEvalCatOverride } = await import('../../dist/infrastructure/harness-eval/eval-domain-override.js');
+    const { getEvalCatOverride } = await import(
+      '../../dist/infrastructure/harness-eval/domain/eval-domain-override.js'
+    );
     const result = await getEvalCatOverride(redis, 'eval:test-no-exist');
     assert.equal(result, null);
   });
 
   it('set + get round-trips the override', async () => {
     const { getEvalCatOverride, setEvalCatOverride, clearEvalCatOverride } = await import(
-      '../../dist/infrastructure/harness-eval/eval-domain-override.js'
+      '../../dist/infrastructure/harness-eval/domain/eval-domain-override.js'
     );
 
     const override = await setEvalCatOverride(redis, 'eval:test-roundtrip', {

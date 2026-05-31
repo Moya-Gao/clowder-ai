@@ -2775,7 +2775,7 @@ async function main(): Promise<void> {
 
   // F192 livefix OQ-17: Register daily + weekly eval domain tasks (reads eval-domains/*.yaml, triggers eval cats)
   const { createEvalDomainDailySpec, createEvalDomainWeeklySpec } = await import(
-    './infrastructure/harness-eval/eval-domain-daily.js'
+    './infrastructure/harness-eval/domain/eval-domain-daily.js'
   );
   const { getOwnerUserId } = await import('./config/cat-config-loader.js');
   const evalScheduleOpts = {
