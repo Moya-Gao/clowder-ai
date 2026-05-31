@@ -1412,3 +1412,16 @@ created: 2026-02-26
 - 药方三：**机械防护 + invariance test 双层**。注释写"必须用 hasOwnProperty.call"是软提示（biome 不读注释）；硬保护 = (a) `biome-ignore lint/suspicious/noPrototypeBuiltins` 配在该行上方 + (b) source-level invariance test（assert 文件含 `hasOwnProperty.call` 且**不含** `Object.hasOwn(`）—— biome 改 rule name 让 ignore 失效时 test 抓住。
 - 同根教训：comment 表达正确意图但代码偏离——LL-061 是同 pattern（display string render mode 注释正确实现错），这次自己上演了一次。**注释是 author 的意图，代码是 reviewer 的真相**——必须 align，align 不靠人，靠 lint-ignore + test 机械防护。
 - 关联：F212 | PR #1967 | LL-061（comment/code align 同 pattern）| LL-064（assumed-green vs runtime-green 同根）
+
+---
+
+### LL-067: Intake SOP 后半段（登记闭环）不能被前半段的工程量吃掉
+- 状态：confirmed
+- 更新时间：2026-05-31
+- 现象：clowder-ai#784 → cat-cafe#1977（238 文件 OKLCH 设计系统 intake）走完了 intake plan → cherry-pick → 6 冲突解决 → brand guard → 49 测试修复 → @opus47 review → merge-gate 全流程，但漏了 3 个 SOP 步骤：(1) Step 0 Intake Intent Issue 没建，(2) Step 2.5 reviewer 没在 GitHub PR 留 formal review（只在 thread A2A 放行），(3) Step 4+5 record + advance-ledger 没做。砚砚在处理 clowder-ai#805 intake 的 advance-ledger 时撞出了这个缺口。
+- 根因：238 文件的大 intake 精力全集中在冲突解决和测试修复上（前半段工程量大），铲屎官催进度，SOP 后半段（登记闭环三步）被"做完了=完了"的心理跳过。intake skill 加载了但没逐步 checklist 对照。
+- 药方一：**intake 前先建 Intent Issue**（Step 0 是 gate 不是 optional）——Issue 就是 checklist，后续步骤围绕它闭环，漏不了。
+- 药方二：**reviewer 必须在 GitHub PR 留 formal review**（`feedback_intake_review_on_github` 教训再犯）——thread A2A 放行不是 GitHub 可追溯的 review 凭据。
+- 药方三：**merge-gate 完成后立刻 `--record` + `--advance-ledger`**——不是"下次补"，是同一个 merge-gate session 的最后动作。
+- 止血：砚砚已做 historical backfill 补了 ledger record（`--skip-absorbed-guard`），代码和记录完整。
+- 关联：F056 Phase E | clowder-ai#784 | cat-cafe#1977 | feedback_intake_review_on_github（同型再犯）
