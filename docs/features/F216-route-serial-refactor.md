@@ -79,9 +79,13 @@ routeSerial 是 Cat Cafe 的核心路由引擎——所有 A2A 串行调度、me
 - [ ] AC-A3: F215 16 测试 + 全量 route 测试零回归
 
 ### Phase B
-- [ ] AC-B1: 路由决策是纯函数，可独立单测（无 side effect）
-- [ ] AC-B2: cognitive complexity 降到 biome 默认阈值以下（或显著下降）
-- [ ] AC-B3: 真实 runtime 验证——mention / relay / callback 三路由场景各验一次
+- [x] AC-B1: 路由决策是纯函数，可独立单测（无 side effect）— c1.2 `resolveRoutingDecisions`（`routing-decision.ts`）+ `routing-decision.test.js` / `routing-decision-streak.test.js`（PR #1987）
+- [ ] AC-B2: cognitive complexity 降到 biome 默认阈值以下（或显著下降）— c2/c3 接完所有路径后测量
+- [~] AC-B3: 真实 runtime 验证——mention / relay / callback 三路由场景各验一次（inline-mention 已接线 c1.3 + 326 测试覆盖；deferred=c2、relay 留独立块，全路径接完后做 runtime 验证）
+
+> **PR #1987（c0–c1.3）已合入 main（squash `32f88814e`，2026-05-31）**。砚砚 GPT-5.5 跨族 review 两轮（R1 三个 P1 全修 red→green：caller-scope 生产 lookup 漏接 / multi-target streak 陈旧快照 / pnpm check import-sort；R2 Findings: none 放行）+ 云端 codex review（1 个 P2 docs frontmatter，已修）。
+> **本 PR 落地**：c0 caller-scope（`findInFlightAgentEntry` 第 3 参）+ c1.1 `peekStreakOnPush` 纯读预判 + c1.2 `resolveRoutingDecisions` 纯决策函数 + c1.3 inline-mention 接线（副作用留执行层）。
+> **剩余**：c2（deferred 接线，分支 `feat/f216-c2-deferred` 已就绪）、c3（supersede 执行层 = Phase D processing 主场景）。
 
 ### Phase C（conditional）
 - [ ] AC-C1: Phase B 后评估——如果状态变量耦合已解，标 "不需要" 跳过
@@ -117,6 +121,7 @@ routeSerial 是 Cat Cafe 的核心路由引擎——所有 A2A 串行调度、me
 |------|------|
 | 2026-05-30 | 立项（CVO signoff + opus-48 设计，F215 引爆点） |
 | 2026-05-30 | Phase D 追加：A2A same-turn handoff bug（queued-merge 独立交付，supersede 归 F216） |
+| 2026-05-31 | Phase B c0–c1.3 merged（PR #1987 squash `32f88814e`）：c0 caller-scope + c1.1 peekStreakOnPush + c1.2 resolveRoutingDecisions 纯函数 + c1.3 inline-mention 接线。砚砚跨族 review 2 轮（3 P1 修复）+ 云端 review（1 P2 修复） |
 
 ## Review Gate
 

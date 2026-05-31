@@ -1,3 +1,10 @@
+---
+feature_ids: [F216]
+topics: [architecture, refactor, routing]
+doc_kind: plan
+created: 2026-05-31
+---
+
 # F216 routeSerial 重构 Implementation Plan
 
 **Feature:** F216 — `docs/features/F216-route-serial-refactor.md`
