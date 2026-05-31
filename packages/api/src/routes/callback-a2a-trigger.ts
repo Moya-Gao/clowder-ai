@@ -302,10 +302,13 @@ export async function enqueueA2ATargets(
     // delta" reasoning was wrong: content IS a rendered field. 46 R3 and I both missed the frontend
     // render dependency; cloud codex caught it.) Gate on `handled` (enqueued ∪ coalesced).
     if (handled.length > 0) {
+      // F216 AC-D7: use semantically accurate action — 'coalesced' when content was merged
+      // into an existing entry (no new entry created), 'enqueued' when a new entry was added.
+      const action = enqueued.length > 0 ? 'enqueued' : 'coalesced';
       deps.socketManager.emitToUser(opts.userId, 'queue_updated', {
         threadId,
         queue: deps.invocationQueue.list(threadId, opts.userId),
-        action: 'enqueued',
+        action,
       });
     }
     log.info(

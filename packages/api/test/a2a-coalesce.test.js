@@ -310,6 +310,9 @@ describe('enqueueA2ATargets coalesce/supersede (F-coalesce integration)', () => 
     const queueUpdated = emitCalls.filter((c) => c.event === 'queue_updated');
     assert.equal(queueUpdated.length, 1, 'pure coalesce must still emit queue_updated for frontend re-render');
     assert.equal(queueUpdated[0].userId, 'system');
+    // F216 AC-D7: action must be 'coalesced' (not 'enqueued') when content was merged into
+    // an existing entry without creating a new queue entry — semantically accurate for observability.
+    assert.equal(queueUpdated[0].data.action, 'coalesced', 'pure coalesce action must be "coalesced" not "enqueued"');
     // The emitted queue list must carry the merged content (not the stale pre-merge text).
     const mergedEntry = queueUpdated[0].data.queue.find((e) => e.targetCats.includes('antig-opus'));
     assert.ok(mergedEntry, 'merged entry present in emitted queue');
