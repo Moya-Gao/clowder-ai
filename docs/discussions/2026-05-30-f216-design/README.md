@@ -65,34 +65,64 @@ routeSerial.ts = **2315 行单函数**，cognitive complexity 255（biome warnin
 
 **不是** intent 队列（antig-opus 纠正：callback 已走 InvocationQueue，再加 intent 层是多余的堆项）。
 
-**真正的最小项数坐标变换**：
-- 抽 `resolveNextCats(signal, context, config) → CatId[]` **纯函数**——统一 3 条 inline-mention 路径（direct / deferred / relay）目前各自重复的 depth/dedup/ping-pong guard
-- `:1777` 从 `worklist.push(nextCat)` 改成 `return CatId[]`，循环主体单点 `worklist.push(...resolveNextCats(...))`
-- `signal` 用 discriminated union 区分来源：
+**真正的最小项数坐标变换**（砚砚 GPT-5.5 核验后修正：决策返回 enum，副作用留执行层）：
+- 抽 `resolveNextCats(signal, context, config) → RoutingDecision[]` **纯函数**——统一 3 条 inline-mention 路径（direct / deferred / relay）目前各自重复的 depth/dedup/ping-pong guard。**只返回结构化决策，不做副作用**。
+- `signal` + `decision` 都用 discriminated union：
   ```typescript
   type RoutingSignal =
-    | { type: 'inline_mention'; cats: CatId[]; content: string }
+    | { type: 'inline_mention'; cats: CatId[]; content: string; callerCatId: CatId }
     | { type: 'relay_malformed'; cat: CatId }
-    | { type: 'deferred'; cats: CatId[]; content: string }
+    | { type: 'deferred'; cats: CatId[]; content: string; callerCatId: CatId }
+
+  // 砚砚修正 OQ3：纯函数返回决策，执行层 apply 副作用
+  type RoutingDecision =
+    | { action: 'enqueue_worklist'; cat: CatId }
+    | { action: 'defer_queue'; cat: CatId }
+    | { action: 'coalesce_queued'; entryId: string; cat: CatId }
+    | { action: 'supersede_processing'; entryId: string; cat: CatId }  // ← 执行层 abort+restart
+    | { action: 'skip'; reason: string }
   ```
-- legacy worklist path（路径 3）：Phase B 评估删除（死代码）
+- `:1777` 从 `worklist.push(nextCat)` 改成消费 `resolveNextCats` 返回的 decision，循环主体单点 apply。
+- legacy worklist path（路径 3）：Phase B 评估删除（死代码）。
 
-价值不在"切异步 mutation"（已切），在**统一散布在 3 处的路由 guard 逻辑**——这才是「加路由决策笛卡尔积炸」的真因。
+价值不在"切异步 mutation"（已切），在**统一散布在 3 处的路由 guard 逻辑** + **决策/副作用分层**——这才是「加路由决策笛卡尔积炸」的真因。
 
-## Phase 拆分（含 antig-opus 核验意见）
+### ⚠️⚠️ 砚砚核验新增的 P1 隐患（比"PR 拆不拆"更危险，且是 already-merged 缺陷）
 
-- **Phase A**（结构，不改行为）：路径 1+2 改"返回扩展清单"，`worklist.push` 收口到循环主体一处；2 个 handoff-emit 循环合一。**硬约束（antig-opus）：preserve all existing `await` positions**——重排 await 会改异步 interleaving，即使 legacy path 生产不走，测试可能依赖特定 interleaving。
-- **Phase B**（决策/执行分离）：抽 `resolveNextCats` 纯函数；删 legacy worklist path（死代码）；统一 guard。
-- **Phase C**（conditional）：状态机化，Phase B 后评估，够了不做。
-- **Phase D**（A2A supersede，coalesce bug 主场景）：**并进 Phase B**（antig-opus 建议）——supersede 的 abort 安放点正是 `resolveNextCats` 统一决策层，单独做会泄漏或再建入口。作为 `RoutingSignal` 的一个 type 自然落位。
+**`findInFlightAgentEntry` 的 `matches()`（InvocationQueue.ts:533-534）没按 `callerCatId` scope** —— 当前只 `source==='agent' && sourceCategory==='a2a' && targetCats.includes(catId)`。
 
-## OQ 拍板（作者 + antig-opus 已收敛，待铲屎官确认）
+**后果**：A 猫给孟加拉派的 queued 任务，会被 **B 猫**同 turn 后来的一条 handoff coalesce 进去（甚至 F216 supersede 落地后会被 B 取消）。跨 caller 串味。
+
+**这是我已合入 main 的 coalesce 代码的现存缺陷**（不只 F216 设计问题）—— `QueueEntry.callerCatId` 字段存在（:36）、callback 调用处 `callerCatId` 可用（:87）但**没传进 `findInFlightAgentEntry`**。
+
+**处置**：F216 PR 第一步就修——`findInFlightAgentEntry(threadId, catId, callerCatId)` 加 caller scope，`coalesceContentIntoQueuedAgent` 同步。这条独立于重构、优先级最高（数据正确性 > 结构整洁）。
+
+证据（砚砚指）：`InvocationQueue.ts:525` matches 无 caller；`QueueProcessor.ts:465` 取消后自动出队逻辑（supersede 要复用）。
+
+## 交付形态：一个 PR + 内部 commit 分层（铲屎官 directive + 砚砚 refine）
+
+铲屎官 directive：**别拆碎 PR**——分 Phase A/B 多个 PR 会让 main 上躺一串"阶段性 F216"半成品。
+砚砚 refine：一个 PR，但**内部 commit 分层**，main 不留半成品 + review 还能分层看：
+
+| commit | 内容 | 风险 |
+|--------|------|------|
+| c0 | **修 caller-scope P1**（findInFlightAgentEntry 加 callerCatId）+ 红→绿测试 | 独立、最高优先（already-merged 缺陷） |
+| c1 | 抽决策结构 `resolveNextCats` + `RoutingDecision` enum，保持 await 点 | 纯结构 |
+| c2 | 统一 direct/deferred/relay 三处 guard 进 resolveNextCats；删 legacy 死代码 | 中（F215 relay guard 极脆） |
+| c3 | supersede 执行层 helper（abort processing + 释放 slot + 清 pause + 启替代 entry）+ 测试 | 高（执行层副作用） |
+
+**硬约束**：
+- c1 **preserve all existing `await` positions**（antig-opus）——重排 await 改异步 interleaving。
+- c3 supersede 副作用走 `InvocationQueue` / `QueueProcessor` / `InvocationTracker`（复用 force-send 的 cancelInvocation+clearPause+releaseSlot 已验证模式），**不塞进 resolveNextCats 纯函数**（砚砚：否则纯函数变上帝函数）。
+
+## OQ 拍板（作者 + antig-opus + 砚砚 三方收敛，待铲屎官确认）
 
 | OQ | 问题 | 收敛结论 |
 |----|------|---------|
-| **OQ1** | Phase A/B 分还是合 | **分**（A=同步 push 收口安全；B=抽纯函数+清死代码） |
+| **OQ1** | Phase 怎么交付 | **一个 PR + 内部 commit 分层 c0-c3**（铲屎官别拆碎 + 砚砚分层 review）。不分多 PR。 |
 | **OQ2** | intent 队列 vs 直接重构 | **不要 intent 队列**（callback 已走 InvocationQueue，再加是多余）；`resolveNextCats` 纯函数 + 单点消费 |
-| **OQ3** | supersede 并 B 还是单独 Phase | **并进 Phase B**（abort 安放点在统一决策层） |
+| **OQ3** | supersede 怎么落 | **决策进纯函数（返回 `supersede_processing` enum），副作用留执行层 helper**（砚砚纠正：supersede 不是纯路由判断，是 queue/tracker 执行层副作用，不塞纯函数） |
+| **OQ4**（新） | caller-scope 缺陷何时修 | **c0 第一步修**（独立于重构，数据正确性最高优先；是 already-merged 缺陷） |
 
 ## ⚠️ 高风险警告（antig-opus + 作者共识）
 
