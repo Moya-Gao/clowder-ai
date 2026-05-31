@@ -5,7 +5,7 @@
  * external project CLAUDE.md/AGENTS.md/GEMINI.md/KIMI.md files.
  *
  * Port values are read from environment variables at runtime,
- * falling back to .env.example defaults (3003/3004/6399/6398).
+ * falling back to home defaults (3001/3002/6399/6398).
  * Fixes #601 (Redis port hardcoding) and #602 (frontend/API port hardcoding).
  */
 import { createHash } from 'node:crypto';
