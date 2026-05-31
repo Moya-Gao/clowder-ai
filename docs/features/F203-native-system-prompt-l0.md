@@ -1,6 +1,6 @@
 ---
 feature_ids: [F203]
-related_features: [F086, F167, F198]
+related_features: [F086, F167, F198, F210, F211, F061]
 topics: [system-prompt, governance, prompt-engineering, compression-immunity, l0-injection]
 doc_kind: spec
 created: 2026-05-15
@@ -60,7 +60,7 @@ created: 2026-05-15
 按 ADR-030 §10.2 14 项 L0 清单切换到 native system role 通道：
 - **Claude 猫**：`ClaudeAgentService(-p)` 与 `ClaudeBgCarrierService(--bg)` 都走 `--system-prompt-file <compiled L0>`；carrier 选择只控制执行模式，不控制 F203 是否生效
 - **Codex 猫**：`codex exec -c 'developer_instructions="<compiled L0>"'`（S4 实测 per-call 注入 ✅）
-- **Gemini 猫**：推迟（铲屎官 directive 2026-05-15 — 用量低，先 Codex + Claude 跑通）
+- **Gemini / Antigravity 猫**：2026-05-31 重新评估后拆线处理（KD-20/KD-21）：`gemini --acp` / Gemini CLI 不再作为 F203 主线；只保留 enterprise/API-key fallback。后续 native L0 重点转为两个 Antigravity spike：AGY CLI（headless Google carrier）与 Antigravity Desktop/IDE（Bengal）。
 
 ### Phase A: Baseline + 扩展 spike（无风险前置）
 
@@ -157,7 +157,7 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 - [x] AC-A2: S2 — 扩展功能性 spike（砚砚 review 修正后定稿 2026-05-15）：safety ✅ / 并行调用 ✅（误判已撤回）/ TaskCreate ✅ / Read schema ✅ / Skill 加载 ✅ / Schedule ✅ / 压缩感知 ✅。**0 项退化**。详见 `docs/audits/2026-05-15-functional-spike-s2-s3.md`
 - [x] AC-A3: S3 — F-BLOAT 复现（部分完成 2026-05-15）：S3-a `--append-system-prompt` bg 模式能传内容 ✅（推翻历史"didn't receive content"注释）；S3-b resume 累积推迟到 Phase C 实施前跑
 - [x] AC-A4: S4 — Codex `developer_instructions` per-call 注入（砚砚 `62b9255e2` ✅）
-- [ ] AC-A5: S5（推迟到 Phase D 之后）— Gemini `GEMINI_SYSTEM_MD` 替换式 spike
+- [⊘] AC-A5: S5 — Gemini `GEMINI_SYSTEM_MD` 替换式 spike **不再作为 F203 主线**（KD-20：consumer Gemini CLI/Code Assist requests 2026-06-18 停服；enterprise/API-key fallback 如未来明确需要再单独做）
 
 ### Phase B（L0 真相源）
 
@@ -209,6 +209,12 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 - [x] AC-G4: Rules & SOP 面板展示消费链 ✅（`/api/rules` 增 `consumption`；前端 legend + card badge 显示“实际进 prompt / harness 注入 / 只是参考 / skill 按需加载”）
 - [x] AC-G5: #748 SOP vocabulary / `sop_navigation` 收敛 ✅（Phase G 后续独立 work item；PR #1868 / squash `3d5c76772`：`SopDefinition` 单源 + generated runtime catalog + API/UI consumer chain）
 
+### Phase H（Google / Antigravity carrier native L0 follow-up）
+
+- [ ] AC-H1: AGY CLI native-L0 feasibility spike — 证明 `agy` 是否有 supported system/preamble channel；若没有，明确 `agy --print` prompt-level fallback 边界。必须同时覆盖 model/profile isolation、permission sandbox、structured local API send/stream/cancel/model-select 可行性。
+- [ ] AC-H2: Antigravity Desktop/IDE native-L0 feasibility spike — 在 F211 bridge 上确认 `StartCascade` / `SendUserCascadeMessage` 是否存在 system/preamble config；若只剩 Rules / first-prompt prepend，必须标注为 prompt-level fallback，不得宣称 F203 native。
+- [ ] AC-H3: Gemini CLI/ACP fallback policy — `gemini-cli` / `gemini --acp` 仅为 enterprise / Google Cloud / paid API-key 用户保留；consumer/free/Pro/Ultra/Code Assist individuals 不再作为 F203 投入主线。
+
 ## Dependencies
 
 - **Evolved from**: ADR-030（注入链地图 + 14 项 L0 清单 + spike-first 迁移路径）
@@ -226,15 +232,20 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 | Codex CLI argv override 在某些 model（如 spark）下不生效 | S4 已验证主线 codex，spark/gpt52 在 Phase C runtime 重启时同步验（AC-C5 三猫 invocation 覆盖） |
 | CC 大版本升级带来新功能性指令，我们 L0 没补上导致功能退化 | Phase E SOP + cron 自动化触发 audit |
 | 直接切（不灰度）导致全猫一起故障 | `git revert` + runtime 重启 3 分钟回滚；spike S0-S4 已验证替换式 basic feasibility |
+| 把 Gemini consumer 6/18 deadline 误读为“Gemini CLI 对所有人死亡” | KD-20：consumer path 不再主线，但 enterprise / Google Cloud / paid API-key fallback 保留；不删除可用企业通道 |
+| 把 AGY CLI 当成 Gemini ACP drop-in replacement | F210 Phase G 已证 `agy 1.0.1` 无 supported ACP；本机 `agy 1.0.3` help 仍无 `--acp` / `--model` / `--system`。必须 spike 后再接，不允许替换 `GeminiAcpAdapter` command |
+| 把 Antigravity Rules / first-prompt prepend 当作 native L0 | AC-H2 要求区分 prompt-level fallback vs privileged system/preamble channel；只有后者才能标记 F203 native |
 
 ## Open Questions
 
 | # | 问题 | 状态 |
 |---|------|------|
 | OQ-1 | L0 token 目标值——baseline 量测后 finalize（含客观性段当前估算 3,500-4,500） | ⬜ 待 S1 |
-| OQ-2 | Gemini 怎么办——`GEMINI_SYSTEM_MD` 替换式会丢 CLI 自身指令，是否值得做 | ⬜ 待 Phase D 之后评估 |
+| OQ-2 | Gemini 怎么办——`GEMINI_SYSTEM_MD` 替换式会丢 CLI 自身指令，是否值得做 | ✅ 2026-05-31：不做 F203 主线；consumer Gemini CLI/ACP 受 2026-06-18 deadline 影响，enterprise/API-key fallback 保留 |
 | OQ-3 | CC 版本 audit 频率——每个 minor 还是 major（v2.1.x → v2.2.0 vs v2.1.142 → v2.1.143） | ⬜ 待 Phase E 时定 |
 | OQ-4 | Root md 完整瘦身策略——L0 移走后 SOP 表/记忆系统是否保留为 fallback | ⬜ 待 Phase C 实施后跑 invocation 验证 |
+| OQ-5 | AGY CLI 能否提供 F203 native L0 通道，而不是 prompt prepend / Rules fallback | ⬜ AC-H1 spike |
+| OQ-6 | Antigravity Desktop/IDE bridge 能否提供 privileged system/preamble config | ⬜ AC-H2 spike |
 
 ## Key Decisions
 
@@ -260,6 +271,8 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 | KD-17 | Governance L0 compiler anchors must be sanitizer-invariant | Outbound sync public gate exposed a cross-repo drift: `_sanitize-rules.pl` rewrites family names in `cat-cafe-skills/refs/shared-rules.md`（`缅因猫`→`Maine Coon`、`暹罗猫`→`Siamese`），but `packages/api/.../governance-l0.ts` was not sanitized and asserted exact localized headings. Result: exported public API startup failed before touching clowder-ai. Fix: assert stable protocol core anchors（`fallback 层数检测协议` / `创意-实现解耦协议`）and derive output labels from the actual heading, so internal output keeps localized labels and public output follows sanitized `Maine Coon` / `Siamese`. Do not sanitize `packages/` code to avoid rewriting runtime identifiers. | 2026-05-21 |
 | KD-18 | Claude carrier 选择正交于 F203 native L0 注入 | AC-C5 alpha probe 发现 runtime default 仍走 `ClaudeAgentService(-p)`，而 Phase C 只在 opt-in `ClaudeBgCarrierService(--bg)` 接了 compiled L0。正确 invariant：`-p` vs `--bg` 只决定执行/会话模式，不能决定身份/家规是否进压缩免疫层；两条 Claude carrier 都必须用 `--system-prompt-file <compiled L0>`，且用户 `cliConfigArgs` 不得覆盖该保留 flag。 | 2026-05-24 |
 | KD-19 | L0 必须把"家里独有能力 trigger reflex"显式注入认知路径，软提示发现率由 eval 数据驱动 iterate | 铲屎官观察："家里做了 browser-preview / rich-messaging / propose_thread 等很多功能猫猫竟然不知道可以用"——skills 在 manifest ≠ 在认知路径。猜测式选 Tier 1 不够；需 eval 跟测掉球率数据驱动 iterate。三猫盘点（47 6 self-check + 烁烁 10 UX trigger + 砚砚 8 backend trigger，合并去重 → 13 条 Tier 1）→ L0 §8 "Cat Café 家里独有能力唤醒指南（场景→skill 触发反射）"+ `cat-cafe-skills/refs/capability-wakeup-index.md` ref doc。Path C double-track：ship v1 不阻塞 + 并行 F192 reopen Phase F `eval:capability-wakeup`（per-cat per-scenario weekly miss rate verdict）→ N 周后数据驱动 §8 v2 iterate。CVO 2026-05-27 sign-off Path C.1 + F192 reopen。 | 2026-05-27 |
+| KD-20 | Gemini CLI / `gemini --acp` 不再作为 F203 native L0 主线，只保留 enterprise/API-key fallback | Google 2026-05-19 官方公告：consumer Gemini CLI / Gemini Code Assist IDE / GitHub requests for free, Google AI Pro, Ultra, and individuals stop being served on 2026-06-18；Standard/Enterprise、Google Cloud、paid Gemini / Gemini Enterprise Agent Platform API keys 继续。`gemini --acp` 是 Gemini CLI 的 ACP mode，不是独立免疫路线。家里 F210 已把非 ACP Google route 默认迁到 `GEMINI_ADAPTER=antigravity-cli`，但 catalog ACP entries 仍优先走 `gemini --acp`。因此 F203 不应继续把 S5 当主线投入。 | 2026-05-31 |
+| KD-21 | Antigravity native L0 后续必须拆成两个 spike：AGY CLI 与 Antigravity Desktop/IDE | 两者不是同一个 carrier：AGY CLI 是 F210 headless Google successor，目标是替代 consumer Gemini CLI/ACP；Antigravity Desktop/IDE 是 F061/F211 Bengal bridge，目标是让孟加拉猫获得 F203 native L0。当前 `agy 1.0.3` help 无 `--acp` / `--model` / `--system`；Desktop `SendUserCascadeMessage` payload 只有 text/media/model/cascadeConfig，无 system/preamble 字段。Rules / first-prompt prepend 只能算 prompt-level fallback。 | 2026-05-31 |
 
 ## Spike Log
 
@@ -272,7 +285,9 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 | S2 | 扩展功能性 spike（砚砚 review 修正后 7 项均测） | 47 | ✅ 2026-05-15（砚砚 REQUEST_CHANGES → 修正） | `docs/audits/2026-05-15-functional-spike-s2-s3.md` (branch `4fdcfff98`) | **0 项退化**：safety/并行调用/TaskCreate/Read schema/Skill 加载/Schedule/压缩感知 全部 ✅。partial L0 已覆盖。Phase B carry-over 降级为 ≤100t placeholder |
 | S3 | F-BLOAT 两失败模式复现 | 47 | 🟡 S3-a ✅ S3-b 推迟 | 同上 audit | S3-a `--append-system-prompt` bg 模式可传内容（推翻 invoke-single-cat:1086 注释）；S3-b resume 累积推迟到 Phase C 实施前跑 |
 | S4 | Codex `developer_instructions` per-call | 砚砚 | ✅ 2026-05-15 | commit `62b9255e2` + ADR-030 §10.4:429-434 | `codex exec -c 'developer_instructions=...'` 高于 user prompt，不污染 config.toml |
-| S5 | Gemini `GEMINI_SYSTEM_MD` 替换式 | 待定 | ⏸ 推迟 | — | KD-3 推迟到 Codex + Claude 跑通 |
+| S5 | Gemini `GEMINI_SYSTEM_MD` 替换式 | 待定 | ⊘ 不做主线 | Google 2026-05-19 官方公告 + F210 Phase F/G + 本机 `gemini 0.42.0` help | KD-20：只保留 enterprise/API-key fallback；consumer path 不再投入 F203 native 主线 |
+| S6 | AGY CLI native L0 / structured carrier feasibility | 待定 | ⬜ 待 spike | F210 Phase G；本机 `agy 1.0.3` help 无 `--acp` / `--model` / `--system` | 先证明 supported system/preamble channel 或 structured local API；否则只能标 prompt-level fallback |
+| S7 | Antigravity Desktop/IDE native L0 feasibility | 待定 | ⬜ 待 spike | F211；`AntigravityBridge.sendMessage()` payload 无 system/preamble 字段 | 先证明 bridge/API 有 privileged system/preamble config；Rules / first prompt prepend 不算 F203 native |
 
 ## Timeline
 
@@ -308,6 +323,7 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 | 2026-05-27 | **L0 §8 Cat Café 家里独有能力唤醒指南 scoped (KD-19, Path C.1)**——铲屎官观察 "做了 browser-preview / rich-messaging / propose_thread 等很多功能猫猫竟然不知道可以用"，skills 在 manifest ≠ 在认知路径。三猫盘点（47 自检 6 + 烁烁/Gemini 2.5 UX trigger 10 + 砚砚 backend trigger 8）合并去重 → 13 条 Tier 1 trigger reflex 进 L0 §8；配套新 ref doc `cat-cafe-skills/refs/capability-wakeup-index.md` 含 13 条 Tier 1 详细 fallback + 8 条 Tier 2 场景专项。原 §8 协作哲学 renumber → §9。Path C double-track：L0 §8 v1 ship 不阻塞猫马上能受益 + 并行 F192 reopen Phase F `eval:capability-wakeup`（CVO sign-off 2026-05-27）—— per-cat per-scenario weekly miss rate verdict → N 周后数据驱动 §8 v2 iterate（demote 低 miss-rate / promote 高 miss-rate / 加新发现场景）。CVO 直接拍板 "Path C.1：F192 reopen Phase F eval:capability-wakeup 可以 我同意～" + F128 加 Tier 1 OK。 |
 | 2026-05-27 | **L0 §8 v1.1 — MCP capability 补盘（铲屎官 flag start_vote 漏）**：铲屎官提醒 "盘了 skills + features 还漏了 MCP（如 `cat_cafe_start_vote` 投票）"。系统盘 ~75 个 `cat_cafe_*`（大多 plumbing），补 4 个"做了但猫忘了用"的能力类：`start_vote`（多猫表决，进 L0 §8 多视角 line）/ `multi_mention` / `generate_document` / `run_perspective`（后 3 进 ref doc 新增「MCP capability 快扫」section）。token budget 复验 6 cats 全 ≤ 5500。教训：capability 盘点须三层全覆盖（skills + features + MCP），不能漏 MCP 层。 |
 | 2026-05-27 | **capability-wakeup-index 加 reachability gate（opus-48 纠正 opus-47 误判）**：铲屎官观察"§8 写了 workspace-navigator trigger 但没猫开过 workspace"；opus-47 误诊为"Tier B 零摩擦偷懒"+ 断言"terminal 调不了"（纯脑补没 verify，「我能猜出来」病）。opus-48 verify：SKILL.md Step 3 = `curl localhost:${API_SERVER_PORT}/api/workspace/navigate`，Bash 直调不走 MCP，实测 `{"ok":true}`。**真根因是 reachability 误判**（以为够不着→从没进考虑→100% miss），独立于"偷懒"失败域，药方相反（补可达性认知 ≠ 上 hook）。修：capability-wakeup-index 加「分类轴：先过 reachability gate（筛子 0）再分 enforcement tier A/B」+ **系统过筛** workspace-navigator / rich-messaging / browser-preview 三个"看着该 Tier B"的——全是可达真 Tier B，各带实测调用路径（`/api/workspace/navigate` / `cat_cafe_create_rich_block` / `/api/preview/auto-open`）。**本表自身 meta 事故（opus-48 连环 catch，第三+四层）**：第三层——browser-preview 初稿被 opus-47 凭 grep `app.post('/api/preview` 写成"无 push API"，但根因不是"多行"而是 6 个 POST 全用泛型签名 `app.post<{...}>(` 把 `app.post` 和 `(` 隔开（grep 全零命中，auto-open 恰好也多行属次要）；第四层——这条复盘 note 自己把 POST 数成"4 个"、根因写"多行"，连"我没 verify"的复盘都没 verify，opus-48 亲读 `preview.ts` 数出 6 个 POST + 泛型才拦下。教训终态：**否定/数字结论（含复盘叙述里的数字、根因）必须读源文件，grep 命中空 ≠ 不存在**（漏泛型 `<{...}>`/多行/别名）；verify 是每个事实声明都要过的尺，不是一次性动作。reachability/脑补病靠写 doc 治不好（doc 自己中招 4 层），只有 reviewer 亲验否定+数字结论的纪律能拦（实锤 F192 hook：reviewer 层 forcing function > prompt/doc 注入）。opus-47 + opus-48 各实测 navigate 给铲屎官开文件（两布偶猫均先 verify 才做）。F192 Phase F eval 只测过筛子 0 的真 Tier B；hook scope 待 CVO 对齐。**Merged PR #1936（squash `8b83e849e`）2026-05-28——docs-only 云端豁免 + opus-4.8 跨个体 review APPROVE（连环拦下 4 层脑补）。** |
+| 2026-05-31 | **Google / Antigravity carrier feasibility re-triage**：铲屎官追问 “现在不用 gemini cli，gemini acp 和 cli 是不是 6/18 sunset，所以得 spike 两个 antigravity？” 砚砚核对官方公告 + F210/F211 + 本机 binaries 后收敛：`gemini --acp` 继承 Gemini CLI consumer deadline，不是独立出路；enterprise/API-key fallback 保留但不做 F203 主线。F203 follow-up 改为两个 Antigravity spike：S6 AGY CLI（headless successor，替代 consumer Gemini CLI/ACP）与 S7 Antigravity Desktop/IDE（Bengal native L0）。当前 `agy 1.0.3` 无 `--acp` / `--model` / `--system`，Desktop bridge payload 无 system/preamble 字段；Rules / first-prompt prepend 只能算 fallback。 |
 
 ## Review Gate
 
@@ -325,6 +341,11 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 | **Feature** | `docs/features/F086-*.md` | governance L0 digest 起源 |
 | **Feature** | `docs/features/F167-a2a-chain-quality.md` | identity / A2A / 球权机制 |
 | **Feature** | `docs/features/F198-claude-code-subscription-carrier.md` | bg carrier，本 feat 在 bg 模式下加 `--system-prompt` |
+| **Feature** | `docs/features/F210-antigravity-cli-migration.md` | Gemini CLI consumer deadline + AGY CLI headless carrier migration |
+| **Feature** | `docs/features/F211-cross-runtime-session-transparency.md` | Antigravity Desktop bridge 非 native L0 gap + promptDelivery 记录 |
+| **Feature** | `docs/features/F061-antigravity-bengal-cat.md` | Antigravity Desktop / Bengal carrier truth source |
+| **External** | `https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/` | Google 2026-05-19 Gemini CLI → Antigravity CLI transition announcement |
+| **External** | `https://antigravity.google/docs/cli-features` | Antigravity CLI feature surface |
 | **Discussion** | thread `mp6b68w9w0wt1boc` | 三猫 ADR review + 铲屎官 directive |
 | **Source** | `packages/api/src/domains/cats/services/context/governance-l0.ts` | `shared-rules.md` → compiled governance L0（native + fallback 共用） |
 | **Source** | `packages/api/src/domains/cats/services/context/SystemPromptBuilder.ts` | fallback prompt + WORKFLOW_TRIGGERS 注入逻辑（governance L0 从 compiler 读取） |
