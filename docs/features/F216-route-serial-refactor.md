@@ -85,7 +85,7 @@ routeSerial 是 Cat Cafe 的核心路由引擎——所有 A2A 串行调度、me
 
 > **PR #1987（c0–c1.3）已合入 main（squash `32f88814e`，2026-05-31）**。砚砚 GPT-5.5 跨族 review 两轮（R1 三个 P1 全修 red→green：caller-scope 生产 lookup 漏接 / multi-target streak 陈旧快照 / pnpm check import-sort；R2 Findings: none 放行）+ 云端 codex review（1 个 P2 docs frontmatter，已修）。
 > **本 PR 落地**：c0 caller-scope（`findInFlightAgentEntry` 第 3 参）+ c1.1 `peekStreakOnPush` 纯读预判 + c1.2 `resolveRoutingDecisions` 纯决策函数 + c1.3 inline-mention 接线（副作用留执行层）。
-> **PR #1991（c2）已合入 main（squash `cb121af8c`，2026-05-31）**：queue-pending（deferred）A2A 路径接入 `resolveRoutingDecisions`（逐 cat resolve+apply，非 batch，避免 P1-2 stale-streak），三条路径（inline/relay/queue-pending）统一决策层。砚砚跨族 review 三轮（R1 3 P1：followup-tails subject / defer_queue 未计 depth / P2 fix 漏提交；R2-3 Findings: none 放行）+ 云端 codex review（0 findings）。
+> **PR #1991（c2）已合入 main（squash `d3966c85d`，2026-05-31）**：queue-pending（deferred）A2A 路径接入 `resolveRoutingDecisions`（逐 cat resolve+apply，非 batch，避免 P1-2 stale-streak），三条路径（inline/relay/queue-pending）统一决策层。砚砚跨族 review 三轮（R1 3 P1：followup-tails subject / defer_queue 未计 depth / P2 fix 漏提交；R2-3 Findings: none 放行）+ 云端 codex review（0 findings）。
 > **剩余**：c3（supersede 执行层 = Phase D processing 主场景 — 铲屎官报的"at 两次同猫，第一条已 processing 时 abort 重启"那个 bug 的主场景）。
 
 ### Phase C（conditional）
@@ -123,7 +123,7 @@ routeSerial 是 Cat Cafe 的核心路由引擎——所有 A2A 串行调度、me
 | 2026-05-30 | 立项（CVO signoff + opus-48 设计，F215 引爆点） |
 | 2026-05-30 | Phase D 追加：A2A same-turn handoff bug（queued-merge 独立交付，supersede 归 F216） |
 | 2026-05-31 | Phase B c0–c1.3 merged（PR #1987 squash `32f88814e`）：c0 caller-scope + c1.1 peekStreakOnPush + c1.2 resolveRoutingDecisions 纯函数 + c1.3 inline-mention 接线。砚砚跨族 review 2 轮（3 P1 修复）+ 云端 review（1 P2 修复） |
-| 2026-05-31 | Phase B c2 merged（PR #1991 squash `cb121af8c`）：queue-pending（deferred）路径接入 resolveRoutingDecisions（逐 cat，非 batch）+ defer_queue 计入 depth budget。砚砚跨族 review 3 轮（3 P1 修复）+ 云端 review（0 findings） |
+| 2026-05-31 | Phase B c2 merged（PR #1991 squash `d3966c85d`）：queue-pending（deferred）路径接入 resolveRoutingDecisions（逐 cat，非 batch）+ defer_queue 计入 depth budget。砚砚跨族 review 3 轮（3 P1 修复）+ 云端 review（0 findings） |
 
 ## Review Gate
 
