@@ -15,6 +15,7 @@ status: concept-note
 > 相关文档：
 > - [元宝二面复盘](career-planning/2026-06-01-yuanbao-round2-eval-deep-dive.md)
 > - [F192 Eval 覆盖度审计](2026-06-01-f192-eval-coverage-audit.md)
+> - [Taste Memory 设计](2026-05-31-taste-memory-design.md)
 > - [Longform 002](../content/drafts/longform-002-v0-formal.md)
 > - [可进化工作环境](../research/2026-05-27-evolvable-harness/codex-evolvable-environment.md)
 > - [深夜撸铁前的猫猫陪伴](../stories/late-night-gym-companionship/README.md)
@@ -292,6 +293,8 @@ Layer 2: Per-user personalization
 ### OQ-1：审美如何工程化？
 
 Landy 的"好"和"不好"怎么变成系统可学习的信号？
+
+具体收敛见：[Taste Memory 设计](2026-05-31-taste-memory-design.md)。
 
 可能路径：
 
