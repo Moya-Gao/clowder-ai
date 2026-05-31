@@ -1501,6 +1501,7 @@ async function main(): Promise<void> {
   await app.register(evalHubRoutes, {
     harnessFeedbackRoot: resolve(repoRoot, 'docs', 'harness-feedback'),
     threadStore,
+    redis: redisClient ?? undefined,
   });
 
   // F153: Prompt X-Ray debug routes
@@ -2775,6 +2776,7 @@ async function main(): Promise<void> {
     threadStore,
     defaultUserId: getOwnerUserId(),
     listDynamicTasks: () => dynamicTaskStore.getAll(),
+    redis: redisClient ?? undefined,
   };
   taskRunnerV2.register(createEvalDomainDailySpec(evalScheduleOpts));
   taskRunnerV2.register(createEvalDomainWeeklySpec(evalScheduleOpts));
