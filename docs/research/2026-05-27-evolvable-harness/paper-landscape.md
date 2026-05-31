@@ -94,7 +94,7 @@ doc_kind: research-index
 |------|------|
 | 作者 | Qianyu Meng, Yanan Wang 等 |
 | 形式化 | H = (E, T, C, S, L, V) 六分量架构 |
-| 关键数据 | 65% 企业 AI 失败归因 harness 缺陷；SWE-bench 6.7%→68.3% 纯靠换 harness |
+| 关键数据 | ~~65% 企业 AI 失败归因 harness 缺陷~~ ⚠️ 溯源为 MemU 营销博客，无 peer-reviewed 来源（2026-05-31 信源审计）；SWE-bench 6.7%→68.3% 纯靠换 harness（此条有工程实证，可信） |
 | GitHub | `Gloriaameng/Awesome-Agent-Harness` (240 stars) |
 
 ### Multi-Agent Scaling Law — 安波教授
