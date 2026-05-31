@@ -725,7 +725,7 @@ cat_cafe_hold_ball({
 - [x] AC-M1：fire 时 thread busy → 不投递过期 message + re-arm 延后（有上限兜底）— scheduler-generic `FirePolicy.deferWhileThreadBusy` pre-fire defer（`scheduleOnceTick` 内 fire 前、`executePipeline` 前）+ `maxDefers` force-fire 兜底 + `updateTrigger` 持久化
 - [x] AC-M2：fire 时 thread idle → 正常唤醒，文案去冻结（引导重判而非重放旧 reason）— catch-up fire + `callback-hold-ball-routes` M-2 `wakeMessage` 去冻结
 - [x] AC-M3：hold_ball MCP tool description 加 background 约束（强化 KD-27 入口）— `callback-tools.ts` M-3 GOTCHA（only hold for harness-invisible waits）
-- [ ] AC-M4：OQ-M1 alpha 实测 background 退出时序 + 文档化 — **pending alpha**（代码已合入，需 alpha 环境实测；核心 fire-time gate 不依赖此）
+- [x] AC-M4：OQ-M1 alpha 实测 background 退出时序 + 文档化 — **alpha 已验证（sonnet，2026-05-31）**。phase-m-pre-fire-defer 3/3 ✅（alpha dist 初起 stale，rebuild 后反映 Phase M）；boot wiring 确认（index.ts:2502 `setBusyChecker`）；OQ-M1 推断：opus-45 session 实录"session 被 background 占着没真结束" → CLI 在 background 未完成时不退出 → invocation 持续 active → thread busy → Phase M pre-fire defer 正确覆盖 background+hold_ball 叠加场景；Case E5 实证 busy 时 wake fire（stale），idle gate 对症。完整 live defer-log 条目待 runtime 重启后首次 fire 时补录
 - [x] AC-M5：回归测试（fire busy → re-arm 不重放 / idle → 唤醒 / re-arm 上限）— `phase-m-pre-fire-defer` 3/3 + `reminder-template` firePolicy guard 4/4（codex P1 防伪造激活 + churn 注入）
 
 **Eval / Tracking Contract**：复用 F167 顶部 contract（C1 hold_ball activation signal）。新增 friction：hold wake 在 thread busy 时投递过期 message 的次数（应降为 0）。Regression fixture：AC-M5。Sunset：若 hold_ball 整体退役（被纯 harness re-invoke 取代）则本 Phase 随之 sunset。
