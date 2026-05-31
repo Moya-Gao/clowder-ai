@@ -112,9 +112,9 @@ routeSerial 是 Cat Cafe 的核心路由引擎——所有 A2A 串行调度、me
 
 #### Review nits 收口（PR #1971 已交付后的 reviewer 建议，归 Phase D 一并清理）
 > 来源：antig-opus（孟加拉猫 Opus，云端 codex 额度耗尽替补）completed review of `3654ea9d9`，3 个 non-blocking。
-- [ ] AC-D5: vote 路径（`callbacks.ts` `/start-vote` 的 `enqueueA2ATargets` 调用 ~L2314）`missed` check 同时考虑 `coalesced`——目前 coalesced 的 voter 被算作 missed → 走 `triggerA2AInvocation` direct dispatch fallback（vs pre-PR 一致，但 post-PR 多了一次 content append 到 pre-existing entry）。supersede 重构时一并修。
-- [ ] AC-D6: `MessageDeliveryService` 在 coalesce（enqueued=[]）时走 `recoverQueuedMessage` 的 `zeroEnqueuedWarnMessage` warn 日志语义误导（功能正确，content 已 coalesced = 已处理，只是日志措辞）。
-- [ ] AC-D7: `callback-a2a-trigger.ts` emit `queue_updated` 的 `action: 'enqueued'` 在纯 coalesce 时语义不准（pre-existing；前端大概率只用 `queue` 字段重渲染不依赖 `action`，确认后清理）。
+- [x] AC-D5: vote 路径 `missed` check 排除 `coalesced` voters（PR #2002）
+- [x] AC-D6: `MessageDeliveryService` 在 coalesce（enqueued=[] + coalesced>0）时不误报 warn（PR #2002）
+- [x] AC-D7: `callback-a2a-trigger.ts` emit `queue_updated` action='coalesced' 语义准确（PR #2002）
 
 ## Timeline
 
@@ -125,6 +125,7 @@ routeSerial 是 Cat Cafe 的核心路由引擎——所有 A2A 串行调度、me
 | 2026-05-31 | Phase B c0–c1.3 merged（PR #1987 squash `32f88814e`）：c0 caller-scope + c1.1 peekStreakOnPush + c1.2 resolveRoutingDecisions 纯函数 + c1.3 inline-mention 接线。砚砚跨族 review 2 轮（3 P1 修复）+ 云端 review（1 P2 修复） |
 | 2026-05-31 | Phase B c2 merged（PR #1991 squash `d3966c85d`）：queue-pending（deferred）路径接入 resolveRoutingDecisions（逐 cat，非 batch）+ defer_queue 计入 depth budget。砚砚跨族 review 3 轮（3 P1 修复）+ 云端 review（0 findings） |
 | 2026-05-31 | Phase D c3 merged（PR #1997）：supersede — processing 中同 caller→target 重复 handoff abort+restart（last-wins）。两层防御（trigger tombstone + QueueProcessor guard）。砚砚跨族 review 5 轮 + 云端 review（6 findings 全 already-fixed） |
+| 2026-05-31 | Phase D D5-D7 nits merged（PR #2002）：vote coalesced→missed 修复 + delivery 误报修复 + queue_updated action 语义准确。砚砚 2 轮 + 云端（3 findings 全 already-fixed） |
 
 ## Review Gate
 
