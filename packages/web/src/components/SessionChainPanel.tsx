@@ -171,6 +171,19 @@ export function SessionChainPanel({ threadId, catInvocations, onViewSession }: S
     .filter((s) => s.status === 'sealed' || s.status === 'sealing')
     .sort((a, b) => (b.sealedAt ?? b.createdAt) - (a.sealedAt ?? a.createdAt));
 
+  // F201-churn: a FINALIZED-sealed empty (0-msg) cascade with sealReason `tool_conflict` is an
+  // F201 retry corpse — the model emitted an invalid tool call, F201 sealed + spun a fresh cascade
+  // to retry, leaving one 0-msg sealed record per retry. When ≥2 pile up they litter the sealed
+  // list; collapse them into one summary (count stays visible → transparency preserved).
+  // 砚砚 review P2: require status==='sealed'. requestSeal() writes sealReason while the record is
+  // still 'sealing' (async-finalizes to 'sealed' later), so an in-flight sealing 0-msg tool_conflict
+  // record must NOT be folded — it still needs its live status + 查看/解封 actions visible.
+  const isRetryCorpse = (s: SessionSummary) =>
+    s.status === 'sealed' && s.messageCount === 0 && s.sealReason === 'tool_conflict';
+  const retryCorpses = sealedSessions.filter(isRetryCorpse);
+  const collapseRetryCorpses = retryCorpses.length >= 2;
+  const visibleSealedSessions = collapseRetryCorpses ? sealedSessions.filter((s) => !isRetryCorpse(s)) : sealedSessions;
+
   // Check if any cat recently had a compact (from hooks)
   const hasRecentCompact = Object.values(catInvocations).some((inv) => inv.sessionSealed);
 
@@ -345,7 +358,7 @@ export function SessionChainPanel({ threadId, catInvocations, onViewSession }: S
             <span className="text-micro font-bold text-cafe-muted uppercase tracking-wider">Sealed</span>
           </div>
           <div className="space-y-1">
-            {sealedSessions.map((session) => {
+            {visibleSealedSessions.map((session) => {
               const sealedColors = colorsForCat(session.catId);
               return (
                 <div
@@ -425,6 +438,17 @@ export function SessionChainPanel({ threadId, catInvocations, onViewSession }: S
                 </div>
               );
             })}
+            {collapseRetryCorpses && (
+              <div
+                data-testid="session-card-retry-collapsed"
+                className="console-list-card flex items-center gap-2 rounded-xl px-2.5 py-1.5 opacity-70"
+              >
+                <span className="flex-shrink-0 text-micro text-cafe-muted">&#8635;</span>
+                <span className="flex-1 min-w-0 truncate text-micro text-cafe-muted">
+                  {retryCorpses.length} 次 tool_conflict 重试残骸（已折叠 · 各 0 msgs）
+                </span>
+              </div>
+            )}
           </div>
         </div>
       )}
