@@ -613,6 +613,7 @@ cat_cafe_hold_ball({
 | 2026-05-08 | Phase L merged (PR #1591) — AC-L1~L3 ✅ + AC-L4 N/A。shared-rules 选项 2→2a/2b 拆分 + SystemPromptBuilder trailing anchor 同步 + merge-gate EYES > 0 KD-27 checkpoint。砚砚本地 review 三轮（R1: 1P1+1P2 选项2顶层仍写 hold_ball / R2: 1P1 closing line 仍等号 / R3: 放行）；云端 Codex 一轮 clean。1028/1028 API tests green（含 104 system-prompt-builder + 1 新 F167-L 回归测试） |
 | 2026-04-23 | Phase E reopened from monitoring：F172 愿景守护 @gemini 被 L3 误拦（action="合入"因 storedContent 上文含 merge 历程）；铲屎官定性"硬编码 + 过度设计"——要求退役 L3 + cat-config restrictions 数据驱动双端注入（发送方队友名册 + 目标猫 self-awareness）；KD-20 落定，AC-E1~E8 定稿待实现 |
 | 2026-04-24 | Phase E merged (PR #1360, `f8efcf46d`) — AC-E1~E8 全绿。8 commit（4 feat + 1 test + 3 chore）-735 净行数（删 role-gate.ts + 3 测试文件 + 2 调用点）+ cat-config schema 扩展 + 双端 prompt 注入；gpt52 review 首轮放行 `c967b59d0`（两个非阻塞：scrub 死注释 + 删 unused import 已顺手修），云端 Codex 零 P1/P2 "Hooray"；rebase 遇 F061 pre-existing 修复冲突 → skip 冗余 commit 后 clean merge；204/204 ping-pong + system-prompt-builder + cat-config-loader 绿。Status: monitoring |
+| 2026-05-31 | Phase M merged (PR #1981, `89fc0e723`) — fire-time idle gate（scheduler-generic `FirePolicy` pre-fire defer + `maxDefers` 兜底 + `updateTrigger` 持久化）+ M-2 去冻结 wakeMessage + M-3 hold_ball desc（harness-invisible only）+ boot-wire `setBusyChecker`。砚砚本地 review（R1 放行 → 复审挖 P1：`dyn-*` reminder 伪造激活 firePolicy + public params churn 注入 → R2 放行）+ 云端 Codex clean "Chef's kiss"。AC-M1/M2/M3/M5 ✅；AC-M4（OQ-M1 background 退出时序）pending alpha。进入 2 周观察 → F167 close |
 
 ### Phase I（A2A 声明-动作一致性 — 2026-04-25 reopened）
 
@@ -718,14 +719,14 @@ cat_cafe_hold_ball({
 
 **OQ**：
 - OQ-M1（边角、非 block）：CLI 子进程在 background Bash 未完成时退不退出？影响 idle 校验在 background 场景的边角正确性（若 invocation 结束但 background 仍跑，wake 可能多余 → re-arm 上限兜底）。**核心 fire-time gate 不依赖此**。alpha 实测确认。
-- OQ-M2（Design Gate 必答）：M-1 busy-check 与 KD-27"不做 hold_ball × 结构化回调机械绑定（KD-8 分类器反模式）"如何 reconcile？**倾向**：busy-check 查 cat-cafe 自己的 `invocationTracker` 实时状态（Phase L 前就有、ConnectorInvokeTrigger 现用），非绑定 PR tracking subjectKey、非语义分类 → 不违反 KD-27/KD-8。Design Gate 确认。
+- OQ-M2（✅ resolved 2026-05-31，砚砚 review 确认）：M-1 busy-check 与 KD-27"不做 hold_ball × 结构化回调机械绑定（KD-8 分类器反模式）"如何 reconcile？实现用 `invocationTracker.has(threadId) || queueProcessor.isThreadBusy(threadId)`（boot-wire `setBusyChecker`，与 `ConnectorInvokeTrigger.ts:692` / `messages.ts:1822` delivery-batch-done 同款机械占用检查），非绑定 PR tracking subjectKey、非语义分类 → 不违反 KD-27/KD-8。砚砚复核确认 KD-27 safe。
 
-**AC（draft，Design Gate 定稿）**：
-- [ ] AC-M1：fire 时 thread busy → 不投递过期 message + re-arm 延后（有上限兜底）
-- [ ] AC-M2：fire 时 thread idle → 正常唤醒，文案去冻结（引导重判而非重放旧 reason）
-- [ ] AC-M3：hold_ball MCP tool description 加 background 约束（强化 KD-27 入口）
-- [ ] AC-M4：OQ-M1 alpha 实测 background 退出时序 + 文档化
-- [ ] AC-M5：回归测试（fire busy → re-arm 不重放 / idle → 唤醒 / re-arm 上限）
+**AC（Phase M code merged — PR #1981 `89fc0e723` 2026-05-31）**：
+- [x] AC-M1：fire 时 thread busy → 不投递过期 message + re-arm 延后（有上限兜底）— scheduler-generic `FirePolicy.deferWhileThreadBusy` pre-fire defer（`scheduleOnceTick` 内 fire 前、`executePipeline` 前）+ `maxDefers` force-fire 兜底 + `updateTrigger` 持久化
+- [x] AC-M2：fire 时 thread idle → 正常唤醒，文案去冻结（引导重判而非重放旧 reason）— catch-up fire + `callback-hold-ball-routes` M-2 `wakeMessage` 去冻结
+- [x] AC-M3：hold_ball MCP tool description 加 background 约束（强化 KD-27 入口）— `callback-tools.ts` M-3 GOTCHA（only hold for harness-invisible waits）
+- [ ] AC-M4：OQ-M1 alpha 实测 background 退出时序 + 文档化 — **pending alpha**（代码已合入，需 alpha 环境实测；核心 fire-time gate 不依赖此）
+- [x] AC-M5：回归测试（fire busy → re-arm 不重放 / idle → 唤醒 / re-arm 上限）— `phase-m-pre-fire-defer` 3/3 + `reminder-template` firePolicy guard 4/4（codex P1 防伪造激活 + churn 注入）
 
 **Eval / Tracking Contract**：复用 F167 顶部 contract（C1 hold_ball activation signal）。新增 friction：hold wake 在 thread busy 时投递过期 message 的次数（应降为 0）。Regression fixture：AC-M5。Sunset：若 hold_ball 整体退役（被纯 harness re-invoke 取代）则本 Phase 随之 sunset。
 
