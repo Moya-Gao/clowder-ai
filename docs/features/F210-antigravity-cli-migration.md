@@ -241,6 +241,14 @@ Phase G AGY 1.0.3 refresh source: `docs/features/assets/F210/phase-g-agy-1.0.3-c
 
 Phase G must treat approval policy and model isolation as the same design surface: `--dangerously-skip-permissions` is required for unattended Cat Cafe operation, but it is only acceptable after the invocation is confined to a per-cat AGY profile sandbox with explicit worktree/MCP access. A shared global HOME with a shared `settings.json` would couple model choice, workspace trust, and permission posture across cats, so it is not a valid multi-profile architecture.
 
+Phase G implementation direction under the current AGY 1.0.3 limits:
+
+- Do not build a fake per-call model selector. AGY now has `--conversation`, `--continue`, `--dangerously-skip-permissions`, and `plugin`, but it still has no documented `--model` flag or ACP surface. Cat Cafe resume should continue using stored AGY-created UUIDs via `--conversation`; `--continue` is not deterministic enough for Cat Cafe thread/session routing.
+- Make per-cat AGY profile sandboxing the terminal architecture. Each logical AGY cat needs its own HOME / `~/.gemini/antigravity-cli/settings.json`, trusted-workspace state, MCP config materialization, log directory, worktree allowlist, and approval posture. The runtime may verify the selected model for a profile, but it must not silently mutate shared global AGY state to satisfy routing.
+- Prefer one cohesive implementation PR for the next Phase G runtime slice if the change surface stays inside AGY profile config, preflight, invocation env/args, and tests. Split only if the work expands into a separate UI/onboarding surface or a structured local-API carrier spike. The next slice should produce a profile sandbox + preflight + smoke path: it can run isolated AGY when the profile is ready, or fail closed with actionable diagnostics when auth/model/trust/MCP requirements are missing.
+- Gate `--dangerously-skip-permissions` behind sandbox proof. It should be injected only for verified isolated profiles, never for the user's shared HOME. The smoke must prove assigned worktree access and MCP config visibility before unattended yolo operation is considered valid.
+- Treat model routing as verification-first. Until AGY exposes a supported setter, Cat Cafe should expose Opus/Gemini profile cats only when it can verify the profile's selected model/status matches the intended cat identity; otherwise it should report a preflight/onboarding warning instead of inheriting another profile's sticky selection.
+
 ## Dependencies
 
 - **Evolved from**: F053（Gemini session resume behavior must be revalidated under `agy`）
@@ -326,6 +334,7 @@ Phase G must treat approval policy and model isolation as the same design surfac
 | 2026-05-23 | Phase G interactive/API probe：PTY `--prompt-interactive` smoke returned `AGY_PTY_PROBE_OK`; AGY local HTTP/Connect API exposed conversation metadata, model catalog/config, and MCP server states; send/stream/model-select remains open |
 | 2026-05-31 | AGY 1.0.3 resume refresh merged via PR #1992：`--conversation` resumes real AGY UUIDs, but unknown IDs are ignored and replaced by AGY-created UUIDs. Cat Cafe adapter now records the real UUID from `--log-file` output on fresh turns and reserves `--conversation` for stored real IDs. |
 | 2026-05-31 | Phase G 1.0.3 capability refresh merged via PR #1996：top-level help now exposes `--continue`, `--conversation`, `--dangerously-skip-permissions`, and `plugin`, but still no `--model`/ACP; temporary-HOME profile smoke exposed auth-required stdout exit-0 behavior, now locked by parser/service tests |
+| 2026-05-31 | Phase G planning refresh：under current AGY limits, the next runtime slice should be profile-sandbox + preflight + smoke, with model routing implemented as selected-model verification rather than a fake per-call setter. Prefer one cohesive PR if the change surface stays within profile config, invocation env/args, and tests. |
 | 2026-05-27 | Target: Phase A recon complete（install/auth/headless/output/MCP/sandbox facts frozen） |
 | 2026-06-07 | Target: Phase B/C adapter + parser/session strategy implemented |
 | 2026-06-14 | Target: Phase D/E install packaging + E2E smoke green |
