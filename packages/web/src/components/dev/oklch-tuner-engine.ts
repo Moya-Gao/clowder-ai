@@ -134,10 +134,10 @@ export const INIT_LIGHT: TunerState = {
     primary: { L: 0.62, Cmul: 1.0 },
     surface: { L: 0.94, Cmul: 0.25 },
     text: { L: 0.24, Cmul: 0.8 },
-    inset: { L: 0.90, Cmul: 0.15 },
+    inset: { L: 0.9, Cmul: 0.15 },
     ring: { L: 0.55, Cmul: 1.1 },
     insetText: { L: 0.25, C: 0.02 },
-    msgText: { L: 0.20, C: 0.005 },
+    msgText: { L: 0.2, C: 0.005 },
     elev: { sunken: 0.92, base: 0.95, elevated: 0.99, canvas: 0.995 },
   },
   dark: {

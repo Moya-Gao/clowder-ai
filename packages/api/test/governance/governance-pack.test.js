@@ -26,9 +26,9 @@ describe('governance-pack', () => {
     assert.ok(block.includes('6399'), 'Source should use internal port 6399');
   });
 
-  it('port reservation concept is present', () => {
+  it('public local defaults guidance is present', () => {
     const block = getGovernanceManagedBlock('claude');
-    assert.ok(block.includes('reserved'), 'Port reservation concept should be present');
+    assert.ok(block.includes('Public local defaults'), 'Port defaults guidance should be present');
     assert.ok(block.includes('production Redis'), 'Redis port guidance should be present');
   });
 
@@ -78,7 +78,7 @@ describe('governance-pack', () => {
     assert.ok(block.includes('cat-cafe-skills'));
   });
 
-  it('pack version is 1.3.0', () => {
-    assert.equal(GOVERNANCE_PACK_VERSION, '1.3.0');
+  it('pack version is 1.4.0', () => {
+    assert.equal(GOVERNANCE_PACK_VERSION, '1.4.0');
   });
 });
