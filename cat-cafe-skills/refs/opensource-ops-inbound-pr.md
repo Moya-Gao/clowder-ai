@@ -372,7 +372,7 @@ pnpm --filter @cat-cafe/web exec vitest run \
 - [ ] cat-cafe main 已有行为没有被 upstream 旧版本覆盖回退；必要时有 zero-diff 对照、源码守卫测试或 targeted regression test
 - [ ] Brand Guard 文件（如有）已走 Step 1.5 手工 diff-merge
 - [ ] **Validation 段落命令裸跑可复现**：reviewer 必须在 PR worktree 复跑**最高风险 validation 链的一条终端命令及其声明的前置依赖**（典型：先跑前置 `pnpm --filter @cat-cafe/api run build` 或 env wrapper，再跑 high-risk 文件相关的 targeted test）；只跑 `pnpm check` / 只跑 build 而不跑下游 targeted test = 不算复现，不放行。docs/skill-only PR 例外：可仅复跑 `pnpm check`（教训：cat-cafe#1489）
-- [ ] Review 覆盖 absorb PR **当前 HEAD SHA**；如果 review 后又 rebase / fixup / regenerate feature index，reviewer 已显式确认“放行延续到新 SHA”或已重新 review
+- [ ] Review 覆盖 absorb PR **当前 HEAD SHA**；如果 review 后又 rebase / fixup，reviewer 已显式确认“放行延续到新 SHA”或已重新 review
 
 **不过这个 gate = 不能 Record + Advance。** Reviewer 放行后才能执行 Step 3 (Record)。
 
@@ -388,7 +388,7 @@ pnpm --filter @cat-cafe/web exec vitest run \
   - `review 覆盖: yes/no`
   - 如果 `no`：说明是“请求延续到新 SHA”还是“请求重审”
 - 只要 HEAD 变化，就不能默认沿用旧 review
-  - 非行为性 delta（例如 `docs/features/index.json` regenerate、纯 rebase 无代码差异）→ 允许 reviewer **显式延续** 到新 SHA
+  - 非行为性 delta（例如纯 rebase 无代码差异、biome 格式化刷新）→ 允许 reviewer **显式延续** 到新 SHA
   - 行为性 delta（代码 / 测试 / 配置 / 接口变化）→ 必须重新 review
 
 > 教训：cat-cafe#1239 在 reviewer formal 放行后，merge-gate 又因为 rebase + feature index refresh 生成了新 HEAD `2c7351b6`。如果没有 reviewer 对新 SHA 的显式延续，这个 absorb PR 就会带着“旧 review 覆盖新 commit”的口径漏洞进入 merge。
