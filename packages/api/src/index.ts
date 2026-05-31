@@ -2494,6 +2494,13 @@ async function main(): Promise<void> {
   // F139 Phase 4b: late-bind invokeTrigger so templates can wake cats
   taskRunnerV2.setInvokeTrigger(invokeTrigger);
 
+  // F167 Phase M: late-bind busy checker for pre-fire defer (hold_ball activation).
+  // Same thread-busy signal as delivery-batch-done (messages.ts:1822 /
+  // ConnectorInvokeTrigger.ts:692): active invocation OR queued/processing slot.
+  // When a hold wake fires while the cat is mid-work, the scheduler re-arms the
+  // once-task instead of delivering a stale wake ("history replay").
+  taskRunnerV2.setBusyChecker((threadId) => invocationTracker.has(threadId) || queueProcessor.isThreadBusy(threadId));
+
   // F139: Register PR-related TaskSpecs into unified scheduler
   {
     const { createCiCdCheckTaskSpec } = await import('./infrastructure/email/CiCdCheckTaskSpec.js');
