@@ -19,8 +19,8 @@
 
 import { spawn as nodeSpawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { closeSync, existsSync, openSync, readdirSync, readFileSync, readSync, statSync } from 'node:fs';
-import { homedir } from 'node:os';
+import { closeSync, existsSync, openSync, readdirSync, readFileSync, readSync, rmSync, statSync } from 'node:fs';
+import { homedir, tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { type CatId, createCatId } from '@cat-cafe/shared';
 import { getCatModel } from '../../../../../config/cat-models.js';
@@ -41,7 +41,10 @@ import { readJsonlTail } from '../../../../../utils/jsonl-tail-reader.js';
 import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata, TokenUsage } from '../../types.js';
 import { appendLocalImagePathHints, collectImageAccessDirectories } from '../providers/image-cli-bridge.js';
 import { extractImagePaths } from '../providers/image-paths.js';
-import { classifyAntigravityCliPlainText } from './antigravity-cli-event-parser.js';
+import {
+  classifyAntigravityCliPlainText,
+  extractAntigravityCliConversationId,
+} from './antigravity-cli-event-parser.js';
 import { isKnownPostResponseCandidatesCrash, isResultErrorEvent, transformGeminiEvent } from './gemini-event-parser.js';
 
 const log = createModuleLogger('gemini-agent');
@@ -305,6 +308,50 @@ function readLatestGeminiContextTokens(
 function formatAgyPrintTimeout(timeoutMs: number): string | null {
   if (timeoutMs <= 0) return null;
   return `${Math.max(1, Math.ceil(timeoutMs / 1000))}s`;
+}
+
+function removeValuedCliFlags(args: readonly string[], flags: ReadonlySet<string>): string[] {
+  const result: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg == null) continue;
+    const equalsIndex = arg.indexOf('=');
+    if (equalsIndex > 0 && flags.has(arg.slice(0, equalsIndex))) {
+      continue;
+    }
+    if (flags.has(arg)) {
+      const nextArg = args[i + 1];
+      if (nextArg != null && !nextArg.startsWith('-')) i++;
+      continue;
+    }
+    result.push(arg);
+  }
+  return result;
+}
+
+function insertArgsBeforeFlag(args: string[], flag: string, insertion: readonly string[]): void {
+  const index = args.indexOf(flag);
+  if (index >= 0) {
+    args.splice(index, 0, ...insertion);
+    return;
+  }
+  args.push(...insertion);
+}
+
+function readAntigravityLogText(logPath: string): string {
+  try {
+    return readFileSync(logPath, 'utf8');
+  } catch {
+    return '';
+  }
+}
+
+function removeAntigravityLogFile(logPath: string): void {
+  try {
+    rmSync(logPath, { force: true });
+  } catch {
+    // Best-effort cleanup only; provider result delivery should not fail on temp-file deletion.
+  }
 }
 
 /**
@@ -606,6 +653,7 @@ export class GeminiAgentService implements AgentService {
     const workingDirectory = options?.workingDirectory ?? process.cwd();
     const timeoutMs = resolveCliTimeoutMs(undefined);
     const printTimeout = formatAgyPrintTimeout(timeoutMs);
+    const agyLogPath = join(tmpdir(), `cat-cafe-agy-${randomUUID()}.log`);
     const args: string[] = ['--add-dir', workingDirectory, '--dangerously-skip-permissions'];
     for (const dir of imageAccessDirs) {
       args.push('--add-dir', dir);
@@ -613,15 +661,19 @@ export class GeminiAgentService implements AgentService {
     if (printTimeout) {
       args.push('--print-timeout', printTimeout);
     }
-    const sessionId = options?.sessionId ?? `agy-${randomUUID()}`;
-    metadata.sessionId = sessionId;
-    yield {
-      type: 'session_init',
-      catId: this.catId,
-      sessionId,
-      metadata,
-      timestamp: Date.now(),
-    };
+    const requestedSessionId = options?.sessionId;
+    let emittedSessionInit = false;
+    if (requestedSessionId) {
+      metadata.sessionId = requestedSessionId;
+      emittedSessionInit = true;
+      yield {
+        type: 'session_init',
+        catId: this.catId,
+        sessionId: requestedSessionId,
+        metadata,
+        timestamp: Date.now(),
+      };
+    }
     if (requestedModelOverride) {
       yield {
         type: 'system_info',
@@ -636,7 +688,6 @@ export class GeminiAgentService implements AgentService {
         timestamp: Date.now(),
       };
     }
-    args.push('--conversation', sessionId);
     args.push('--print', effectivePrompt);
 
     const userParts: string[] = [];
@@ -657,6 +708,14 @@ export class GeminiAgentService implements AgentService {
       args.length = 0;
       args.push(...deduped, ...userParts);
     }
+    const sanitizedArgs = removeValuedCliFlags(args, new Set(['--conversation', '--log-file']));
+    args.length = 0;
+    args.push(...sanitizedArgs);
+    const internalAgyArgs = ['--log-file', agyLogPath];
+    if (requestedSessionId) {
+      internalAgyArgs.push('--conversation', requestedSessionId);
+    }
+    insertArgsBeforeFlag(args, '--print', internalAgyArgs);
 
     try {
       const agyCommand = resolveCliCommand('agy');
@@ -772,11 +831,35 @@ export class GeminiAgentService implements AgentService {
         }
       }
 
+      const agyLogText = readAntigravityLogText(agyLogPath);
       const parsedPlainText = classifyAntigravityCliPlainText({
         stdout,
         stderr,
         resumed: Boolean(options?.sessionId),
+        agyLogText,
       });
+      const canRecordFreshConversation =
+        !emittedSessionInit &&
+        parsedPlainText.kind === 'text' &&
+        !timeoutEvent &&
+        !cancelled &&
+        !cliErrorEvent &&
+        exitCode === 0 &&
+        exitSignal === null;
+      if (canRecordFreshConversation) {
+        const observedSessionId = extractAntigravityCliConversationId(agyLogText);
+        if (observedSessionId) {
+          metadata.sessionId = observedSessionId;
+          emittedSessionInit = true;
+          yield {
+            type: 'session_init',
+            catId: this.catId,
+            sessionId: observedSessionId,
+            metadata,
+            timestamp: Date.now(),
+          };
+        }
+      }
 
       if (timeoutEvent) {
         yield {
@@ -860,6 +943,8 @@ export class GeminiAgentService implements AgentService {
         timestamp: Date.now(),
       };
       yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
+    } finally {
+      removeAntigravityLogFile(agyLogPath);
     }
   }
 

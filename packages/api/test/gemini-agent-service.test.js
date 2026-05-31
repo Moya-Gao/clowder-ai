@@ -5,7 +5,7 @@
 
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
@@ -101,6 +101,14 @@ function emitExitThenLatePlainTextBeforeClose(proc, text, code = 0) {
     });
     proc.stdout.end();
   });
+}
+
+function assertFileRemoved(path, message) {
+  try {
+    assert.equal(existsSync(path), false, message);
+  } finally {
+    rmSync(path, { force: true });
+  }
 }
 
 function writeGeminiJsonlSession(home, projectDir, sessionId, messages) {
@@ -489,9 +497,22 @@ describe('GeminiAgentService (antigravity-cli adapter)', () => {
     assert.equal(args.includes('--model'), false, 'agy 1.0.1 has no verified --model flag');
   });
 
-  test('creates a resumable agy conversation id on first turn', async () => {
+  test('records the AGY-created conversation id on first turn', async () => {
     const proc = createMockProcess();
-    const spawnFn = createMockSpawnFn(proc);
+    const actualConversationId = 'e40c0f44-8e00-4b21-8ea4-7b17f182a134';
+    let capturedLogPath;
+    const spawnFn = mock.fn((_command, args) => {
+      const logIndex = args.indexOf('--log-file');
+      assert.ok(logIndex >= 0, 'antigravity-cli adapter must pass --log-file to capture the real conversation id');
+      const logPath = args[logIndex + 1];
+      capturedLogPath = logPath;
+      writeFileSync(
+        logPath,
+        `I0531 01:14:59.518377 server.go:755] Created conversation ${actualConversationId}\n` +
+          `I0531 01:14:59.518698 printmode.go:130] Print mode: conversation=${actualConversationId}, sending message\n`,
+      );
+      return proc;
+    });
     const service = new GeminiAgentService({ spawnFn, adapter: 'antigravity-cli' });
 
     const promise = collect(service.invoke('new agy thread'));
@@ -499,13 +520,37 @@ describe('GeminiAgentService (antigravity-cli adapter)', () => {
 
     const msgs = await promise;
     assert.equal(msgs[0].type, 'session_init');
-    assert.match(msgs[0].sessionId, /^agy-/);
+    assert.equal(msgs[0].sessionId, actualConversationId);
     assert.equal(msgs[1].type, 'text');
     assert.equal(msgs[1].content, 'AGY_SESSION_OK');
 
     const args = spawnFn.mock.calls[0].arguments[1];
-    assert.ok(args.includes('--conversation'));
-    assert.equal(args[args.indexOf('--conversation') + 1], msgs[0].sessionId);
+    assert.ok(args.includes('--log-file'));
+    assert.equal(args.includes('--conversation'), false, 'fresh AGY turns must not pass a made-up conversation id');
+    assertFileRemoved(capturedLogPath, 'runtime-owned AGY log file must be removed after capturing conversation id');
+  });
+
+  test('removes the AGY log file on provider error paths', async () => {
+    const proc = createMockProcess();
+    let capturedLogPath;
+    const spawnFn = mock.fn((_command, args) => {
+      const logIndex = args.indexOf('--log-file');
+      assert.ok(logIndex >= 0, 'antigravity-cli adapter must pass --log-file');
+      capturedLogPath = args[logIndex + 1];
+      writeFileSync(capturedLogPath, 'I0531 01:14:59.518377 server.go:755] provider error path\n');
+      return proc;
+    });
+    const service = new GeminiAgentService({ spawnFn, adapter: 'antigravity-cli' });
+
+    const promise = collect(service.invoke('slow prompt'));
+    emitPlainText(proc, 'Error: timed out waiting for response\n', 0);
+
+    const msgs = await promise;
+    assert.ok(
+      msgs.some((m) => m.type === 'error'),
+      'provider error path should still report the error',
+    );
+    assertFileRemoved(capturedLogPath, 'runtime-owned AGY log file must be removed on provider error');
   });
 
   test('marks resumed agy stdout as replace because print mode can replay prior text', async () => {
@@ -523,6 +568,42 @@ describe('GeminiAgentService (antigravity-cli adapter)', () => {
 
     const args = spawnFn.mock.calls[0].arguments[1];
     assert.equal(args[args.indexOf('--conversation') + 1], 'agy-existing-session');
+  });
+
+  test('treats log-only stale agy conversation warnings as missing session on resume', async () => {
+    const proc = createMockProcess();
+    let capturedLogPath;
+    const spawnFn = mock.fn((_command, args) => {
+      const logIndex = args.indexOf('--log-file');
+      assert.ok(logIndex >= 0, 'antigravity-cli adapter must pass --log-file');
+      capturedLogPath = args[logIndex + 1];
+      writeFileSync(
+        capturedLogPath,
+        [
+          'W0531 01:14:56.217832 common.go:246] Conversation stale-agy-session not found, ignoring --conversation flag',
+          'I0531 01:14:59.518377 server.go:755] Created conversation e40c0f44-8e00-4b21-8ea4-7b17f182a134',
+        ].join('\n'),
+      );
+      return proc;
+    });
+    const service = new GeminiAgentService({ spawnFn, adapter: 'antigravity-cli' });
+
+    const promise = collect(service.invoke('resume agy thread', { sessionId: 'stale-agy-session' }));
+    emitPlainText(proc, 'NEW_TEXT_WITHOUT_CONTEXT\n');
+
+    const msgs = await promise;
+    assert.equal(
+      msgs.some((m) => m.type === 'text'),
+      false,
+      'stale resume must not surface fresh-context stdout as a successful continuation',
+    );
+    const err = msgs.find((m) => m.type === 'error');
+    assert.ok(err, 'log-only stale resume warning must produce an error');
+    assert.match(err.error, /No conversation found with session ID: stale-agy-session/);
+
+    const args = spawnFn.mock.calls[0].arguments[1];
+    assert.equal(args[args.indexOf('--conversation') + 1], 'stale-agy-session');
+    assertFileRemoved(capturedLogPath, 'runtime-owned AGY log file must be removed after stale resume handling');
   });
 
   test('reports per-call model override as unsupported without passing --model to agy', async () => {
@@ -616,6 +697,37 @@ describe('GeminiAgentService (antigravity-cli adapter)', () => {
     assert.equal(capturedOpts?.cwd, '/tmp/agy-override');
     assert.equal(capturedOpts?.invocationId, 'inv-agy-override');
     assert.equal(capturedOpts?.cliSessionId, 'cli-agy-override');
+  });
+
+  test('filters equals-form user overrides for runtime-owned AGY conversation and log flags', async () => {
+    const proc = createMockProcess();
+    const spawnFn = createMockSpawnFn(proc);
+    const service = new GeminiAgentService({ spawnFn, adapter: 'antigravity-cli' });
+
+    const promise = collect(
+      service.invoke('resume agy thread', {
+        sessionId: 'agy-real-session',
+        cliConfigArgs: ['--conversation=stale-session --log-file=/tmp/user-owned-agy.log --add-dir /tmp/extra-agy-dir'],
+      }),
+    );
+    emitPlainText(proc, 'AGY_EQUALS_OVERRIDE_OK\n');
+
+    await promise;
+
+    const args = spawnFn.mock.calls[0].arguments[1];
+    assert.equal(
+      args.some((arg) => arg.startsWith('--conversation=')),
+      false,
+      'equals-form user --conversation must be removed',
+    );
+    assert.equal(
+      args.some((arg) => arg.startsWith('--log-file=')),
+      false,
+      'equals-form user --log-file must be removed',
+    );
+    assert.equal(args[args.indexOf('--conversation') + 1], 'agy-real-session');
+    assert.ok(args.includes('--log-file'), 'internal runtime-owned --log-file should remain');
+    assert.ok(args.includes('/tmp/extra-agy-dir'), 'unrelated user --add-dir should remain');
   });
 
   test('waits for process close before classifying final agy stdout', async () => {

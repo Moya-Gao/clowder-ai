@@ -177,7 +177,7 @@ AC-A5 remains open because successful `agy --print` now shows runtime MCP schema
 
 Phase B adapter prototype source: `packages/api/src/domains/cats/services/agents/providers/GeminiAgentService.ts`.
 
-The prototype intentionally maps `antigravity-cli` to the standalone `agy` binary while keeping legacy `antigravity` on the Desktop/MCP callback path. `agy --print` stdout is treated as plain final text via the shared CLI spawn layer's `plainText` mode so tmux `spawnCliOverride` / observability remains available. New AGY turns generate an `agy-*` conversation id, emit `session_init`, and pass the same id to `--conversation`; stdout timeout and missing-model strings are classified as first-class errors because AGY 1.0.1 can emit those on stdout and still exit 0.
+The prototype intentionally maps `antigravity-cli` to the standalone `agy` binary while keeping legacy `antigravity` on the Desktop/MCP callback path. `agy --print` stdout is treated as plain final text via the shared CLI spawn layer's `plainText` mode so tmux `spawnCliOverride` / observability remains available. As of the 2026-05-31 AGY 1.0.3 refresh, fresh AGY turns must not pass a made-up `--conversation` id: AGY ignores unknown IDs and creates its own UUID. Cat Cafe now passes an internal `--log-file`, extracts the AGY-created conversation UUID from print-mode logs, emits that real id in `session_init`, and uses `--conversation <real-id>` only on subsequent resumes. Stdout timeout and missing-model strings are classified as first-class errors because AGY can emit those on stdout and still exit 0.
 
 ### Phase C（Parser / Session Migration）
 
@@ -187,7 +187,7 @@ The prototype intentionally maps `antigravity-cli` to the standalone `agy` binar
 
 Phase C parser/session source: `packages/api/src/domains/cats/services/agents/providers/antigravity-cli-event-parser.ts`, with fixture-backed tests in `packages/api/test/antigravity-cli-event-parser.test.js` and service boundary tests in `packages/api/test/gemini-agent-service.test.js`.
 
-`agy --conversation <id>` is the supported stable session path. Because F210 resume fixtures showed print-mode stdout can replay previous assistant text plus the new answer, resumed AGY text is emitted with `textMode: replace` rather than treated as a streaming delta. AGY per-call model override remains unsupported in 1.0.1: adapter metadata marks the model unverified/account-selected, and a requested Cat Cafe model override produces `system_info` diagnostics instead of silently pretending `--model` was applied. Image inputs degrade to local path hints plus `--add-dir` access; no native image flag is invented.
+`agy --conversation <id>` is the supported stable session path for an already-created AGY conversation UUID. Because F210 resume fixtures showed print-mode stdout can replay previous assistant text plus the new answer, resumed AGY text is emitted with `textMode: replace` rather than treated as a streaming delta. AGY 1.0.3 also proved that an unknown `--conversation` id is not a create-or-resume handle: AGY prints `conversation "<id>" not found`, ignores the flag, and creates a different UUID. The adapter therefore records the log-observed UUID on fresh turns, and classifies resumed conversation-not-found warnings as `missing_session` so Cat Cafe's session self-heal can drop the stale id. AGY per-call model override remains unsupported: adapter metadata marks the model unverified/account-selected, and a requested Cat Cafe model override produces `system_info` diagnostics instead of silently pretending `--model` was applied. Image inputs degrade to local path hints plus `--add-dir` access; no native image flag is invented.
 
 ### Phase D（Install / Packaging）
 
@@ -275,7 +275,7 @@ Phase G must treat approval policy and model isolation as the same design surfac
 | # | 问题 | 状态 |
 |---|------|------|
 | OQ-1 | What exact headless command and subprocess-friendly output mode, if any, does `agy` support? | Answered for prototype — `--print` / `--prompt`; stdout is plain final text for new successful runs; no JSON/NDJSON flag; timeout prints stdout error and exits 0 |
-| OQ-2 | Does `agy` support session resume with stable IDs? | Answered for implementation — use `--conversation <id>`; resumed stdout may replay previous assistant text, so Cat Cafe emits it as `textMode: replace` rather than assuming delta-only output |
+| OQ-2 | Does `agy` support session resume with stable IDs? | Answered for implementation — use `--conversation <AGY-created UUID>`; fresh turns must first capture the real UUID from AGY logs because arbitrary IDs are ignored, and resumed stdout may replay previous assistant text so Cat Cafe emits it as `textMode: replace` rather than assuming delta-only output |
 | OQ-3 | Does `agy` support model override, and how does that map to Cat Cafe cat identity? | Partial — no top-level `--model`; official CLI docs expose interactive `/model` persistent selection; deterministic per-cat model selection/settings isolation still unverified |
 | OQ-4 | What is the correct Windows install / binary path? | Answered — source and desktop installers resolve `%LOCALAPPDATA%\agy\bin\agy.exe`, matching Phase D packaging verification |
 | OQ-5 | Should the old `antigravity` adapter be renamed in env values or kept as legacy alias only? | Answered — legacy `antigravity` remains the Desktop/MCP callback adapter; `antigravity-cli` is the new headless `agy` adapter name (KD-3) |
@@ -322,6 +322,7 @@ Phase G must treat approval policy and model isolation as the same design surfac
 | 2026-05-23 | Runtime correction：alpha start on `8cdc573bd` confirmed Gemini ACP pool still initializes from catalog `acp` config; the AGY default does not replace existing `gemini --acp` cats |
 | 2026-05-23 | CVO scope add: AGY Cat Cafe runtime must use yolo/auto-approval and must validate HOME/AGY config profile sandboxing with worktree/MCP permissions before multi-cat exposure |
 | 2026-05-23 | Phase G interactive/API probe：PTY `--prompt-interactive` smoke returned `AGY_PTY_PROBE_OK`; AGY local HTTP/Connect API exposed conversation metadata, model catalog/config, and MCP server states; send/stream/model-select remains open |
+| 2026-05-31 | AGY 1.0.3 resume refresh：`--conversation` resumes real AGY UUIDs, but unknown IDs are ignored and replaced by AGY-created UUIDs. Cat Cafe adapter now records the real UUID from `--log-file` output on fresh turns and reserves `--conversation` for stored real IDs. |
 | 2026-05-27 | Target: Phase A recon complete（install/auth/headless/output/MCP/sandbox facts frozen） |
 | 2026-06-07 | Target: Phase B/C adapter + parser/session strategy implemented |
 | 2026-06-14 | Target: Phase D/E install packaging + E2E smoke green |

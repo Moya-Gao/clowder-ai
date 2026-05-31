@@ -7,16 +7,29 @@
 
 export type AntigravityCliPlainTextResult =
   | { kind: 'text'; content: string; textMode?: 'replace' }
-  | { kind: 'error'; errorKind: 'timeout' | 'missing_model'; error: string }
+  | { kind: 'error'; errorKind: 'timeout' | 'missing_model' | 'missing_session'; error: string }
   | { kind: 'empty' };
 
 export interface AntigravityCliPlainTextInput {
   stdout: string;
   stderr?: string;
   resumed?: boolean;
+  agyLogText?: string;
 }
 
 export function classifyAntigravityCliPlainText(input: AntigravityCliPlainTextInput): AntigravityCliPlainTextResult {
+  const missingConversationId = input.resumed
+    ? (extractAgyConversationNotFoundWarning(input.stdout) ??
+      extractAgyConversationNotFoundWarning(input.agyLogText ?? ''))
+    : null;
+  if (input.resumed && missingConversationId) {
+    return {
+      kind: 'error',
+      errorKind: 'missing_session',
+      error: `No conversation found with session ID: ${missingConversationId}`,
+    };
+  }
+
   const trimmedStdout = stripFreshConversationWarning(input.stdout).trim();
   const diagnosticText = `${trimmedStdout}\n${(input.stderr ?? '').trim()}`;
 
@@ -45,12 +58,33 @@ export function classifyAntigravityCliPlainText(input: AntigravityCliPlainTextIn
     : { kind: 'text', content: trimmedStdout };
 }
 
+export function extractAntigravityCliConversationId(logText: string): string | null {
+  const uuid = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
+  const re = new RegExp(
+    `(?:Created conversation|Print mode: conversation=|Streaming conversation|Sending user message to conversation|Forwarding user message to conversation)\\s*(${uuid})`,
+    'gi',
+  );
+  let conversationId: string | null = null;
+  for (const match of logText.matchAll(re)) {
+    conversationId = match[1] ?? conversationId;
+  }
+  return conversationId;
+}
+
 function isAgyPrintTimeoutOutput(stdout: string): boolean {
   return /^Error:\s*timed out waiting for response\.?$/i.test(stdout.trim());
 }
 
 function stripFreshConversationWarning(stdout: string): string {
   return stdout.replace(/^Warning:\s*conversation\s+"agy-[^"\r\n]+"\s+not found\.\r?\n/i, '');
+}
+
+function extractAgyConversationNotFoundWarning(stdout: string): string | null {
+  const stdoutMatch = stdout.match(/^Warning:\s*conversation\s+"([^"\r\n]+)"\s+not found\./im);
+  if (stdoutMatch?.[1]) return stdoutMatch[1];
+
+  const logMatch = stdout.match(/\bConversation\s+([^\s,]+)\s+not found,\s+ignoring\s+--conversation\s+flag\b/i);
+  return logMatch?.[1] ?? null;
 }
 
 function isAgyMissingModelDiagnostic(text: string): boolean {
