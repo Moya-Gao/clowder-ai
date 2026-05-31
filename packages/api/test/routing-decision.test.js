@@ -126,6 +126,24 @@ describe('resolveRoutingDecisions — inline_mention', () => {
       { action: 'skip', cat: 'gemini', reason: 'depth' },
     ]);
   });
+
+  // 砚砚 review PR#1991 P2: a defer_queue is ALSO an A2A route slot (it enqueues a handoff, just
+  // behind non-agent messages), so it must consume the depth budget too — otherwise a batch resolve
+  // could emit unlimited defer_queue past maxDepth. The execution layer happens to call one cat at a
+  // time, but the PURE function's contract must be self-consistent for any input.
+  test('depth budget consumed by defer_queue too: 2nd deferred cat hits depth after 1st defers', async () => {
+    const { resolveRoutingDecisions } = await import(PATH);
+    // queuedMessagesPending=true → every cat resolves to defer_queue. a2aCount=maxDepth-1 means the
+    // first defer consumes the last slot; the second must hit depth, NOT emit a 2nd defer_queue.
+    const out = resolveRoutingDecisions(
+      { type: 'deferred', cats: ['codex', 'gemini'], content: 'hi', callerCatId: 'opus' },
+      ctx({ a2aCount: 9, maxDepth: 10, queuedMessagesPending: true }),
+    );
+    assert.deepEqual(out, [
+      { action: 'defer_queue', cat: 'codex' },
+      { action: 'skip', cat: 'gemini', reason: 'depth' },
+    ]);
+  });
 });
 
 describe('resolveRoutingDecisions — relay_malformed', () => {

@@ -62,13 +62,17 @@ export function resolveRoutingDecisions(signal: RoutingSignal, ctx: RoutingConte
   }
 
   const decisions: RoutingDecision[] = [];
-  // Local depth budget: each enqueue consumes a slot, so later cats can hit the limit mid-list.
+  // Local depth budget: each route slot consumes one, so later cats can hit the limit mid-list.
+  // Both enqueue_worklist (inline) AND defer_queue (queue-pending path, c2) are real A2A route slots —
+  // a defer_queue enqueues a handoff behind non-agent messages, it just runs later. Counting only
+  // enqueue_worklist would let a batch resolve emit unlimited defer_queue past maxDepth
+  // (砚砚 review PR#1991 P2). skip/mark_replyto/block_pingpong do NOT consume a slot (no new route).
   let depth = ctx.a2aCount;
   for (const cat of signal.cats) {
     const decision = resolveInlineCat(cat, ctx, depth);
     if (decision === null) continue; // pending original target → no decision (replies to user)
     decisions.push(decision);
-    if (decision.action === 'enqueue_worklist') depth++;
+    if (decision.action === 'enqueue_worklist' || decision.action === 'defer_queue') depth++;
   }
   return decisions;
 }
@@ -86,9 +90,8 @@ function resolveRelay(cat: CatId, ctx: RoutingContext): RoutingDecision {
  * 返回 null = pending 原始 target，不发决策（保持回复用户）。
  */
 function resolveInlineCat(cat: CatId, ctx: RoutingContext, depth: number): RoutingDecision | null {
-  // Outer gate (routeSerial :1703): aborted takes priority over everything; then queue fairness.
+  // Outer gate (routeSerial :1703): aborted takes priority over everything.
   if (ctx.aborted) return { action: 'skip', cat, reason: 'aborted' };
-  if (ctx.queuedMessagesPending) return { action: 'defer_queue', cat };
   // Depth (consumed cumulatively across the cat list).
   if (depth >= ctx.maxDepth) return { action: 'skip', cat, reason: 'depth' };
   // Cross-path dedup: cat already processing via InvocationQueue (callback path).
@@ -103,5 +106,11 @@ function resolveInlineCat(cat: CatId, ctx: RoutingContext, depth: number): Routi
   // Ping-pong breaker (read-only预判; execution layer does the real updateStreakOnPush mutate).
   const streak = ctx.peekStreak(cat);
   if (streak.wouldBlock) return { action: 'block_pingpong', cat, pairCount: streak.count };
+  // F216 c2: queue fairness gate is the LAST check, AFTER depth/dedup/pendingTail/streak. This way the
+  // deferred path (queuedMessagesPending=true) still runs the full guard chain before deferring — it
+  // gets skip:depth / skip:dedup_active / mark_replyto / block_pingpong exactly like inline, then
+  // defers a clean enqueue. For the inline path queuedMessagesPending is always false (outer condition
+  // `!queuedMessagesPending`), so this check is a no-op there → inline behavior unchanged.
+  if (ctx.queuedMessagesPending) return { action: 'defer_queue', cat };
   return { action: 'enqueue_worklist', cat };
 }
