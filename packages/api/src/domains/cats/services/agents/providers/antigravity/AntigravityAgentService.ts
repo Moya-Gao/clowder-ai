@@ -2239,12 +2239,21 @@ export class AntigravityAgentService implements AgentService {
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       log.error(`invoke failed: ${errorMsg}`);
+      // F211-REG6: distinguish a graceful interruption-abort (the signal aborted — a new message
+      // preempting the slot, or a WS reconcile) from a real runtime crash, so the abort is NOT
+      // mis-sealed as a crash below. Signal-aborted is authoritative (all abort sources fire it);
+      // the message prefix is a secondary guard.
+      const isInterruptionAbort =
+        options?.signal?.aborted === true || (err instanceof Error && /^Aborted\b/i.test(err.message));
       await flushSideEffectJournalAudit();
       yield {
         type: 'error',
         catId: this.catId,
         error: errorMsg,
-        ...(lastKnownCascadeId
+        // F211-REG6: only a genuine error crash-seals; an interruption-abort preserves the cascade
+        // (no seal, like a normal turn-end) so the next message reuses it (REG5) instead of the old
+        // crash-seal that fired cascade-replacement and lost continuity.
+        ...(lastKnownCascadeId && !isInterruptionAbort
           ? {
               sessionLifecycle: buildAntigravitySessionLifecycle({
                 runtimeSessionId: lastKnownCascadeId,
