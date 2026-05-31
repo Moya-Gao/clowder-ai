@@ -143,7 +143,7 @@ Add deterministic Cat Cafe profiles for Antigravity CLI only after the model-sel
 | R4 | 现有 `antigravity` adapter 名称会和新 CLI 混淆 | AC-B1, AC-B2 | adapter unit tests | [x] |
 | R5 | 不要把企业例外/旧 fallback 写没 | AC-E2, AC-E4 | fallback tests + docs | [x] |
 | R6 | “antigravity-cli 至少要接入 Opus / Gemini 3.1 Pro / 3.5 Flash” | AC-G1, AC-G2, AC-G3 | official model docs + local AGY settings/probe + E2E smoke per profile | [ ] |
-| R7 | “AGY 也得开 yolo；隔离不同猫要验证 HOME/AGY config sandbox，并给 worktree 权限” | AC-G4, AC-G5 | profile-sandbox smoke with `--dangerously-skip-permissions`, isolated settings/MCP/trusted workspace, and worktree access probe | [ ] |
+| R7 | “AGY 也得开 yolo；隔离不同猫要验证 HOME/AGY config sandbox，并给 worktree 权限” | AC-G4, AC-G5 | profile-sandbox smoke with `--dangerously-skip-permissions`, isolated settings/MCP/trusted workspace, and worktree access probe | [x] |
 | R8 | “像 F198 拯救布偶猫那样接入 AGY 互动式 CLI？” | AC-G6 | local language-server API probe + PTY fallback smoke + carrier decision packet | [ ] |
 
 ### 覆盖检查
@@ -226,9 +226,9 @@ The non-ACP `GeminiAgentService` default route is now `antigravity-cli` when nei
 
 - [ ] AC-G1: Spec/recon records official Antigravity reasoning model availability and the exact AGY model-selection storage surface.
 - [ ] AC-G2: Cat Cafe can select or verify at least Claude Opus 4.6 (thinking), Gemini 3.1 Pro, and Gemini 3.5 Flash without cross-cat sticky-state bleed.
-- [ ] AC-G3: Runtime preflight reports a clear actionable warning when AGY is missing, no default model is selected, or requested profile selection cannot be verified.
-- [ ] AC-G4: Cat Cafe AGY invocations run with an explicit auto-approval policy (`--dangerously-skip-permissions`) only inside an isolated AGY profile sandbox; no unattended runtime path may depend on interactive permission prompts.
-- [ ] AC-G5: Profile-sandbox smoke proves each AGY profile can access its assigned worktree and MCP config while keeping `~/.gemini/antigravity-cli/settings.json` / `trustedWorkspaces` / permissions isolated from other profiles.
+- [x] AC-G3: Runtime preflight reports a clear actionable warning when AGY is missing, no default model is selected, or requested profile selection cannot be verified.
+- [x] AC-G4: Cat Cafe AGY invocations run with an explicit auto-approval policy (`--dangerously-skip-permissions`) only inside an isolated AGY profile sandbox; no unattended runtime path may depend on interactive permission prompts.
+- [x] AC-G5: Profile-sandbox smoke proves each AGY profile can access its assigned worktree and MCP config while keeping `~/.gemini/antigravity-cli/settings.json` / `trustedWorkspaces` / permissions isolated from other profiles.
 - [ ] AC-G6: Interactive-carrier spike proves the preferred structured control plane, or explicitly rejects it and documents the PTY/tmux fallback boundaries before any user-facing AGY interactive bridge ships.
 
 Phase G starts from the current constraint: `GeminiAgentService.invokeAntigravityCLI()` intentionally reports `model: account-selected (antigravity-cli)` and emits `antigravity_cli_model_override_unsupported` when a Cat Cafe model override is requested. This is correct until a stable model id/config contract is proven. The immediate runtime update after PR #1863 only switches the non-ACP Google service default to AGY; it does not move catalog ACP cats off `gemini --acp`, and it does not mean Opus/Gemini profile routing is deterministic.
@@ -248,6 +248,8 @@ Phase G implementation direction under the current AGY 1.0.3 limits:
 - Prefer one cohesive implementation PR for the next Phase G runtime slice if the change surface stays inside AGY profile config, preflight, invocation env/args, and tests. Split only if the work expands into a separate UI/onboarding surface or a structured local-API carrier spike. The next slice should produce a profile sandbox + preflight + smoke path: it can run isolated AGY when the profile is ready, or fail closed with actionable diagnostics when auth/model/trust/MCP requirements are missing.
 - Gate `--dangerously-skip-permissions` behind sandbox proof. It should be injected only for verified isolated profiles, never for the user's shared HOME. The smoke must prove assigned worktree access and MCP config visibility before unattended yolo operation is considered valid.
 - Treat model routing as verification-first. Until AGY exposes a supported setter, Cat Cafe should expose Opus/Gemini profile cats only when it can verify the profile's selected model/status matches the intended cat identity; otherwise it should report a preflight/onboarding warning instead of inheriting another profile's sticky selection.
+
+Phase G profile-sandbox runtime slice merged via PR #2004. Cat Cafe now has an `agyProfile` catalog surface, `resolveAgyProfile()` / `preflightAgyProfile()` profile manager, and service wiring that runs profiled AGY invocations with isolated `HOME`, profile-local `~/.gemini/antigravity-cli/settings.json`, explicit `trustedWorkspaces`, and runtime-owned `--dangerously-skip-permissions` only after sandbox proof. The implementation refuses the real user HOME, rejects profile path escapes and symlinked profile components before writing settings, strips user-provided yolo flags from `cliConfigArgs`, fails closed on missing binary/settings/model/trust verification, and blocks fresh conversation recording when the observed AGY statusline model is missing or mismatched. This closes AC-G3/G4/G5 for the runtime profile-sandbox layer, but it does not close AC-G1/G2 because exact production selector labels for Opus / Gemini 3.1 Pro / Gemini 3.5 Flash and user-facing profile exposure still need separate verification.
 
 ## Dependencies
 
@@ -273,10 +275,10 @@ Phase G implementation direction under the current AGY 1.0.3 limits:
 | `agy --conversation` stdout may include prior assistant output | Treat resume parsing as separate from new-conversation parsing; do not assume stdout is response delta-only |
 | `agy --print-timeout` can emit timeout on stdout and exit 0 | Classify timeout/error text or logs explicitly; exit code alone is not a success signal |
 | `agy --print` may load user/global MCP servers that compete with Cat Cafe-injected MCP servers | Phase B must choose an MCP isolation policy before enabling tool use: disable/override if AGY exposes a supported control, or run with a documented compatibility matrix for shared servers |
-| AGY model selection is sticky/global rather than per invocation | Phase G must verify settings isolation or fail closed with preflight diagnostics; never expose Opus/Gemini AGY cats that silently inherit another profile's selected model |
+| AGY model selection is sticky/global rather than per invocation | PR #2004 confines profiled AGY invocations to per-cat HOME/settings and fails closed when selected-model verification is missing or mismatched; exact Opus/Gemini selector labels remain before user-facing exposure |
 | Treating AGY `/model` as equivalent to Gemini ACP `unstable_setSessionModel` would create false per-cat isolation | Phase G ACP probe confirms AGY 1.0.1 has no supported ACP server mode; only use ACP semantics after AGY exposes a compatible server surface |
-| AGY interactive permission prompts block unattended Cat Cafe turns and train users to approve unread scripts | Phase G requires `--dangerously-skip-permissions` for AGY runtime paths, paired with profile sandboxing and explicit worktree/MCP scoping |
-| Isolating HOME/AGY config may accidentally remove trusted workspace or MCP access | Profile-sandbox smoke must prove `trustedWorkspaces`, MCP config, and assigned worktree access are present for each cat profile before enabling it |
+| AGY interactive permission prompts block unattended Cat Cafe turns and train users to approve unread scripts | PR #2004 injects `--dangerously-skip-permissions` only for runtime-owned sandbox profiles and strips user-provided yolo flags from unprofiled `cliConfigArgs` |
+| Isolating HOME/AGY config may accidentally remove trusted workspace or MCP access | PR #2004 writes profile-local settings with the assigned worktree in `trustedWorkspaces` and fails preflight when that trust proof is absent; real AGY auth/onboarding can still fail closed via auth-required diagnostics |
 | AGY local language-server API is undocumented and may change | Treat it as a spike candidate, not a production contract, until message send/stream/cancel/model-select semantics are fixture-backed and version-guarded |
 | PTY/tmux interactive wrapping loses structured events | Use PTY for observation/manual takeover only unless no structured carrier exists; ANSI screen parsing must not silently replace AgentMessage/tool event semantics |
 
@@ -291,8 +293,8 @@ Phase G implementation direction under the current AGY 1.0.3 limits:
 | OQ-5 | Should the old `antigravity` adapter be renamed in env values or kept as legacy alias only? | Answered — legacy `antigravity` remains the Desktop/MCP callback adapter; `antigravity-cli` is the new headless `agy` adapter name (KD-3) |
 | OQ-6 | What exact AGY selector ids map to Opus, Gemini 3.1 Pro, and Gemini 3.5 Flash? | Open — official docs name the product models, but Cat Cafe needs exact config/statusline ids before wiring profiles |
 | OQ-7 | Can AGY reuse Cat Cafe's existing Gemini ACP adapter? | Answered no for AGY `1.0.1` — no supported/documented `agy --acp` or ACP subcommand exists; keep plain-text adapter until AGY exposes ACP or an equivalent programmatic lifecycle |
-| OQ-8 | Can Cat Cafe isolate AGY profiles by HOME / `~/.gemini/antigravity-cli` config while preserving auth, model selection, trusted worktree, and MCP access? | Open — required for Opus/Gemini multi-profile routing; must be proven before user-facing cats |
-| OQ-9 | What is the minimum safe AGY permission posture for unattended runtime calls? | Open policy detail — CVO direction is yolo/auto-approve for usability, implemented as `--dangerously-skip-permissions` only inside a scoped profile sandbox |
+| OQ-8 | Can Cat Cafe isolate AGY profiles by HOME / `~/.gemini/antigravity-cli` config while preserving auth, model selection, trusted worktree, and MCP access? | Partial — PR #2004 implements HOME/settings/trustedWorkspaces isolation and fail-closed selected-model verification; real auth material remains per-profile onboarding, and user-facing Opus/Gemini cats still wait for exact selector IDs |
+| OQ-9 | What is the minimum safe AGY permission posture for unattended runtime calls? | Answered for runtime — use `--dangerously-skip-permissions` only when Cat Cafe has created and preflighted an isolated AGY profile sandbox; strip user-supplied yolo flags elsewhere |
 | OQ-10 | Can AGY's local language-server API send user messages, stream updates, cancel turns, and set/verify selected models? | Open — read-only endpoints work, but write/stream request schemas and lifecycle semantics are not proven |
 | OQ-11 | If the structured local API is insufficient, what is the smallest acceptable PTY/tmux bridge? | Open — initial PTY smoke works; acceptable fallback must define ANSI parsing limits, attach/read-only takeover, and resume handling |
 
@@ -312,6 +314,7 @@ Phase G implementation direction under the current AGY 1.0.3 limits:
 | KD-10 | ACP catalog precedence is a separate routing layer from `GEMINI_ADAPTER` | `index.ts` instantiates `GeminiAcpAdapter` before falling back to `GeminiAgentService`; adapter defaults do not affect existing ACP cats | 2026-05-23 |
 | KD-11 | AGY yolo is required but must be sandbox-scoped | Interactive approval prompts are unusable for Cat Cafe agent turns; auto-approval is acceptable only when HOME/config, worktree, MCP, and model profile isolation are proven | 2026-05-23 |
 | KD-12 | For an F198-like AGY carrier, structured local API beats PTY | AGY exposes a localhost HTTP/Connect language-server API with conversation/model/MCP read paths; PTY works but is an ANSI UI fallback, not a durable event protocol | 2026-05-23 |
+| KD-13 | Profiled AGY runs must be verification-first and fail closed | AGY still lacks a documented per-call model selector; Cat Cafe can only run unattended profile cats when isolated settings/trust/model status are verified and wrong/missing model runs cannot record resumable sessions | 2026-05-31 |
 
 ## Timeline
 
@@ -335,6 +338,7 @@ Phase G implementation direction under the current AGY 1.0.3 limits:
 | 2026-05-31 | AGY 1.0.3 resume refresh merged via PR #1992：`--conversation` resumes real AGY UUIDs, but unknown IDs are ignored and replaced by AGY-created UUIDs. Cat Cafe adapter now records the real UUID from `--log-file` output on fresh turns and reserves `--conversation` for stored real IDs. |
 | 2026-05-31 | Phase G 1.0.3 capability refresh merged via PR #1996：top-level help now exposes `--continue`, `--conversation`, `--dangerously-skip-permissions`, and `plugin`, but still no `--model`/ACP; temporary-HOME profile smoke exposed auth-required stdout exit-0 behavior, now locked by parser/service tests |
 | 2026-05-31 | Phase G planning refresh：under current AGY limits, the next runtime slice should be profile-sandbox + preflight + smoke, with model routing implemented as selected-model verification rather than a fake per-call setter. Prefer one cohesive PR if the change surface stays within profile config, invocation env/args, and tests. |
+| 2026-05-31 | Phase G profile-sandbox/preflight slice merged via PR #2004：`agyProfile` catalog config, isolated HOME/settings/trustedWorkspaces, sandbox-scoped yolo injection, unsafe HOME/symlink/path guards, and fail-closed model/trust diagnostics close AC-G3/G4/G5 for the runtime layer; exact Opus/Gemini selector IDs and user-facing multi-profile cats remain open under AC-G1/G2 |
 | 2026-05-27 | Target: Phase A recon complete（install/auth/headless/output/MCP/sandbox facts frozen） |
 | 2026-06-07 | Target: Phase B/C adapter + parser/session strategy implemented |
 | 2026-06-14 | Target: Phase D/E install packaging + E2E smoke green |
@@ -359,7 +363,9 @@ Phase G implementation direction under the current AGY 1.0.3 limits:
 | Recon | `docs/features/assets/F210/phase-g-interactive-api-probe-2026-05-23.md` | Phase G F198-like interactive carrier probe, local language-server API evidence, and PTY fallback boundary |
 | Recon | `docs/features/assets/F210/phase-g-agy-1.0.3-capability-refresh-2026-05-31.md` / `agy-1.0.3-help.txt` | Phase G AGY 1.0.3 help/docs refresh, profile-auth smoke, and auth-required guardrail |
 | Fixture | `docs/features/assets/F210/agy-help.txt` / `agy-unsupported-flags.txt` / `agy-print-auth-required.txt` / `agy-real-home-no-default-model.txt` | Raw CLI evidence, sanitized |
+| Review | `docs/mailbox/2026-05-31-f210-agy-profile-sandbox-review-request.md` | PR #2004 profile-sandbox/preflight review packet |
 | Code | `packages/api/src/domains/cats/services/agents/providers/GeminiAgentService.ts` | Current Gemini CLI and Desktop adapter split |
+| Code | `packages/api/src/domains/cats/services/agents/providers/agy-profile-manager.ts` | AGY profile sandbox resolution and preflight diagnostics |
 | Code | `packages/api/src/utils/cli-resolve.ts` | CLI install hints |
 | Code | `packages/api/src/utils/cli-spawn-win.ts` | Windows CLI shim assumptions |
 | Code | `scripts/install.sh` / `scripts/install.ps1` | User install scripts |
