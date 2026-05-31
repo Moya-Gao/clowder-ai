@@ -165,14 +165,21 @@ describe('F203 Phase B — compile-system-prompt-l0.mjs', () => {
     });
   });
 
-  describe('Objective carry-over placeholder', () => {
-    test('placeholder section labeled, ≤100t', async () => {
+  describe('Objective carry-over + F218 source hygiene triggers', () => {
+    test('source hygiene and harness methodology triggers are present and compact', async () => {
       const l0 = await compileL0({ catId: 'opus-47' });
       const carryOverMatch = l0.match(/## 2\. 客观性 carry-over 段[\s\S]*?(?=\n## 3\.)/);
       assert.ok(carryOverMatch, 'carry-over section not found');
       const carryOver = carryOverMatch[0];
-      assert.ok(carryOver.includes('placeholder'));
       assert.ok(carryOver.includes('0 项功能性能力退化'));
+      assert.ok(carryOver.includes('source-audit'));
+      assert.ok(carryOver.includes('搜索结果只是候选线索'));
+      assert.ok(carryOver.includes('软+硬+eval'));
+      assert.ok(carryOver.includes('ADR-031'));
+
+      const f218Line = carryOver.match(/F218 常驻反射[^：]*：(.+)/)?.[1] ?? '';
+      assert.ok(f218Line, 'missing F218 compact reflex line');
+      assert.ok(tok(f218Line) <= 150, `F218 L0 reflex is ${tok(f218Line)} tokens (limit 150)`);
     });
   });
 

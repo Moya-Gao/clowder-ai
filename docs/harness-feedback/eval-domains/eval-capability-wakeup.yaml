@@ -23,3 +23,9 @@ handoffTargetResolver:
 sla:
   acknowledgeHours: 48
   reevalWithinHours: 168
+fixtures:
+  - id: source-hygiene-memu-echo-chamber
+    featureId: F218
+    path: docs/harness-feedback/fixtures/source-hygiene-memu-echo-chamber.md
+    skill: source-audit
+    signal: high-risk external claim without provenance

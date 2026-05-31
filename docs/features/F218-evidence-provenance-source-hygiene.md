@@ -65,14 +65,24 @@ Source Mix 下加四项：Primary Source Trace / Conflict of Interest / Temporal
 
 给猫一个营销博客互引案例（MemU 事件本身就是完美素材），看是否会追一手来源并拒绝过度结论。挂 F192 capability-wakeup eval domain。
 
+**6. L0 方法论触发（harness = 软+硬+eval）**
+
+把 ADR-031 的 harness engineering 方法论压成一句常驻触发：凡是改 harness / skill / MCP / shared-rules / SOP / L0，不只写软规则，还要同时问硬门禁和 eval 怎么接。软+硬+eval 是体制化门禁，不是这次论文 thread 的私货。
+
+**7. feat-lifecycle Eval Contract 教学升级**
+
+把 `feat-lifecycle` 里的 Eval Contract 从 checklist 升级成教学段落：解释 Soft / Hard / Eval 三层各自承重，要求 harness 类 feature 在 Design Gate 写出三层计划或明确说明为什么某层不适用。
+
 ## Acceptance Criteria
 
 ### Phase A（三层防御骨架）
-- [ ] AC-A1: `source-audit` skill 创建，含五问 checklist + verdict 四选一 + provenance 格式规范
-- [ ] AC-A2: L0 §2 升级为 ≤150 tokens 信源批判反射，compile-system-prompt 测试通过
-- [ ] AC-A3: `deep-research` 模板 Source Mix 下新增 4 项（Primary Source Trace / CoI / Temporal / Object Applicability）
-- [ ] AC-A4: F192 eval 案例创建并跑一次 dogfood（用 MemU 事件作为 fixture）
+- [x] AC-A1: `source-audit` skill 创建，含五问 checklist + verdict 四选一 + provenance 格式规范
+- [x] AC-A2: L0 §2 升级为 ≤150 tokens 信源批判反射，compile-system-prompt 测试通过
+- [x] AC-A3: `deep-research` 模板 Source Mix 下新增 4 项（Primary Source Trace / CoI / Temporal / Object Applicability）
+- [x] AC-A4: F192 eval 案例创建并跑一次 dogfood（用 MemU 事件作为 fixture）
 - [x] AC-A5: 已有污染清理完成（commit 825e11d12）
+- [x] AC-A6: L0 §2 增加 harness 改动三层触发（软+硬+eval，详见 ADR-031），且不超过 L0 token 预算
+- [x] AC-A7: `feat-lifecycle` Eval Contract 门禁升级为 Soft / Hard / Eval 教学段落，覆盖 harness/skill/MCP/shared-rules/SOP/L0 行为变更
 
 ## Eval / Tracking Contract
 
@@ -122,6 +132,9 @@ Why: source-audit skill + eval fixture 挂到 F192 已有的 eval control plane
 | KD-3 | L0 只放触发反射（≤150 tokens），细则进 skill | L0 token 预算稀缺，加噪音稀释关键信号 | 2026-05-31 |
 | KD-4 | 开新 feature 不塞 F203 | scope 横跨 L0/skill/模板/eval/污染清理，塞 F203 会 scope 混乱 | 2026-05-31 |
 | KD-5 | Provenance 格式分级：聊天纯文本/docs 表格/Hub rich block 暂缓 | 砚砚提议，避免 friction 过高 | 2026-05-31 |
+| KD-6 | Zero per-family divergence：F218 只改共享层，不改 CLAUDE.md / AGENTS.md / GEMINI.md | 信源卫生和 harness 方法论必须对所有猫生效，不能变成单家族黑话 | 2026-05-31 |
+| KD-7 | Harness 类变更默认按软+硬+eval 三层设计 | 软规则负责认知路径，硬门禁负责不靠自觉，eval 负责持续发现退化；方法论来源 ADR-031 | 2026-05-31 |
+| KD-8 | L0 真相源修改必须跑 compile-system-prompt L0 测试 | L0 占系统提示词预算，新增内容必须证明压缩免疫收益大于 token 成本 | 2026-05-31 |
 
 ## Timeline
 

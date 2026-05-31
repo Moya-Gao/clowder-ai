@@ -33,6 +33,7 @@ const PARALLEL_CHECKS = [
   'check:guides',
   'check:followup-tails',
   'check:settings-primitives',
+  'check:source-hygiene',
   'check:scripts-ascii-only',
   'check:root-debris',
   'check:dir-size',
