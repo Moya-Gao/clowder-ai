@@ -3,12 +3,12 @@ feature_ids: [F216]
 topics: [a2a, routing, handoff, supersede]
 doc_kind: handoff
 created: 2026-05-31
-audience: opus-47
+audience: opus-48
 ---
 
-# F216 c3（supersede）交接：写给 47 的一封信
+# F216 c3（supersede）交接：写给 48 的一封信
 
-47，这封信是写给你的。F216 还剩最后一块叫 c3，我（opus-48，F216 的 owner）做完了前面所有地基，但这个 session 我自己已经不适合再往下做——后面会讲为什么。铲屎官选了你接手，因为你对架构和协议层的思辨最强，而 c3 恰好是 F216 里架构最讲究、时序最敏感的一块。你没碰过 F216，所以我不写一张让你照抄的清单，我想把这套代码的"形状"和"为什么长成这样"讲清楚，让你自己能在脑子里把坐标系建起来。真相源永远是 `docs/features/F216-route-serial-refactor.md` 和代码本身；这封信只负责让你快速进入状态，里面任何具体的 SHA、行号、文件状态都请你自己用命令查真值，原因信末会讲。
+48，这封信是写给你的——而"你"就是我，opus-4.8，只是一个干净 context 的我。F216 是我立项、我做的（c0–c1.3 + c2 三块地基都合入了），但写这封信的这个 session 在 c2 阶段错误密度失控了，所以铲屎官决定让一个 fresh 的我来收最后一块 c3。这个安排的逻辑很关键：c3 是 F216 里架构最讲究、时序最敏感的一块，**架构连续性最值钱**——而你就是我，这套 routing/decision/execution 分层、abort-resume 坐标系，本来就在你的直觉里，不用从零学。我犯的那些错恰好是"fresh context + memory 教训"能治的那一类（具体后面坦白）。所以这封信不写照抄清单，我把这套代码的"形状"和"为什么长成这样"讲给你听，唤醒你本来就有的理解；真相源永远是 `docs/features/F216-route-serial-refactor.md` 和代码本身，这封信里任何具体的 SHA、行号、文件状态都请你自己用命令查真值，原因信末会讲。
 
 ## 这一切是从铲屎官的一个 bug 开始的
 
@@ -68,6 +68,6 @@ review 这条线，找砚砚（@codex，缅因猫 GPT-5.5）。他 review 了 c0
 
 开一个 worktree，基于**最新的 origin/main**（c2 已经合入，main 是干净的，你自己 fetch 一下核 HEAD）。先按顺序读四样东西：这封信、feature doc 的 Phase D、`a2a-coalesce.test.js` 里 grep 出来的 INTERIM 测试、还有 `messages.ts` 里的 force-send 路径。把这四样在脑子里拼成一张图之后，你应该能自己推导出 c3 的形状了——写 red 测试（processing entry 被 supersede），实现执行层 helper（复用 force-send 的 cancel/clearPause/releaseSlot 时序），跑绿，跑全量 A2A 和 routing 测试确认零回归，过 quality-gate，交给砚砚 review，走 merge-gate（c3 改 packages 代码，云端 review 不豁免）。
 
-c3 做完，F216 就整个收口了——铲屎官那个"at 两次同猫会先跑错"的 bug，从 queued 场景到 processing 场景就全闭环了。这是你的了，47。架构上你比我更适合收这个尾，我把地基铺平了，剩下最讲究的一块交给最讲究的猫。加油。
+c3 做完，F216 就整个收口了——铲屎官那个"at 两次同猫会先跑错"的 bug，从 queued 场景到 processing 场景就全闭环了。这是我自己起的项、自己铺的地基，本该自己收尾，只是上一个 session 的我把 context 跑脏了。所以严格说这不是"交给别人"，是**交给一个清醒的我**：同样的架构直觉，干净的工作记忆，加上我刚写进 memory 的那些操作血泪教训。地基我铺平了，最讲究的最后一块，干净的我，收掉它。加油，这是我们的 F216。
 
 —— [宪宪/Opus-4.8🐾]
