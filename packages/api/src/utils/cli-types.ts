@@ -36,6 +36,7 @@ export interface CliSpawnOptions {
     softWarningMs?: number;
     stallWarningMs?: number;
     boundedExtensionFactor?: number;
+    minCpuGrowthMs?: number;
     /** #774: Auto-kill on idle-silent suspected_stall instead of waiting for full timeout */
     stallAutoKill?: boolean;
   };

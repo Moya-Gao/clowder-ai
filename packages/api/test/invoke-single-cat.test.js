@@ -5485,6 +5485,38 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     }
   });
 
+  it('configures cat invocation stall auto-kill to leave room for slow upstream responses', async () => {
+    const optionsSeen = [];
+    const service = {
+      async *invoke(_prompt, options) {
+        optionsSeen.push(options ?? {});
+        yield { type: 'done', catId: 'codex', timestamp: Date.now() };
+      },
+    };
+
+    const msgs = await collect(
+      invokeSingleCat(makeDeps(), {
+        catId: 'codex',
+        service,
+        prompt: 'test liveness probe config',
+        userId: 'user-liveness-probe-config',
+        threadId: 'thread-liveness-probe-config',
+        isLastCat: true,
+      }),
+    );
+
+    assert.ok(
+      msgs.some((m) => m.type === 'done'),
+      'service should be invoked',
+    );
+    assert.equal(optionsSeen[0]?.livenessProbe?.stallAutoKill, true, 'cat invocations still opt into stall cleanup');
+    assert.equal(
+      optionsSeen[0]?.livenessProbe?.stallWarningMs,
+      7 * 60_000,
+      'stall auto-kill must leave async sampling and deferred-kill margin before the 10m stale-processing window',
+    );
+  });
+
   it('F101: game thread projectPath (games/*) does not trigger governance gate', async () => {
     const optionsSeen = [];
     const service = {

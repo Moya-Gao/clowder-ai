@@ -84,6 +84,7 @@ const log = createModuleLogger('invoke');
 const tracer = trace.getTracer('cat-cafe-api', '0.1.0');
 const TRANSCRIPT_DIR =
   process.env.TRANSCRIPT_DIR ?? resolve(findMonorepoRoot(), 'scripts', 'meeting-copilot', 'transcripts');
+const CAT_INVOCATION_STALL_AUTO_KILL_MS = 7 * 60_000;
 let _openCodeKnownModels: Set<string> | null = null;
 
 export function getOpenCodeKnownModels(): Set<string> {
@@ -1382,9 +1383,10 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       ...(spawnCliOverride ? { spawnCliOverride } : {}),
       invocationId,
       ...(sessionId ? { cliSessionId: sessionId } : {}),
-      // F118 Phase B: Enable liveness probe with defaults for all CLI providers
-      // #774: stallAutoKill — auto-kill on idle-silent stall (~5min) instead of waiting 30min
-      livenessProbe: { stallAutoKill: true },
+      // F118 Phase B: Enable liveness probe for all CLI providers.
+      // #774: stallAutoKill clears truly stuck idle-silent CLIs before F216's 10m stale-processing guard.
+      // Leave room for async ps sampling + deferred kill probes, while avoiding the 5m slow-API false kills.
+      livenessProbe: { stallAutoKill: true, stallWarningMs: CAT_INVOCATION_STALL_AUTO_KILL_MS },
       ...(catConfig?.cliConfigArgs?.length ? { cliConfigArgs: catConfig.cliConfigArgs } : {}),
       parentSpan: invocationSpan,
     };
