@@ -80,6 +80,7 @@ import { resolveDefaultClaudeMcpServerPath } from '../providers/ClaudeAgentServi
 import { detectInlineActionMentionsWithShadow, getMaxA2ADepth, parseA2AMentions } from '../routing/a2a-mentions.js';
 import {
   isSubstantiveTool,
+  peekStreakOnPush,
   registerWorklist,
   unregisterWorklist,
   updateStreakOnPush,
@@ -104,6 +105,7 @@ import {
   toStoredToolEvent,
   upsertMaxBoundary,
 } from './route-helpers.js';
+import { resolveRoutingDecisions } from './routing-decision.js';
 import { appendThinkingChunk, renderThinkingChunks } from './thinking-chunks.js';
 import { shouldWarnVerdictWithoutPass } from './verdict-detect.js';
 import { shouldWarnVoidHold } from './void-hold-detect.js';
@@ -1710,35 +1712,61 @@ export async function* routeSerial(
           let dispatchSpan: Span | undefined;
           const pendingTail = worklist.slice(index + 1);
           const pendingOriginalTargets = targetCats.slice(index + 1);
+          // F216 c1.3 + P1-2 (砚砚 review): route each mentioned cat through the pure
+          // resolveRoutingDecisions function (unifies the depth/dedup/pendingTail/streak/fairness guards
+          // that used to be inline here + duplicated in the relay path). Resolve+apply ONE cat at a time
+          // so each target's decision observes the prior targets' mutations (a2aCount++ and streak
+          // update) — matching the original sequential semantics. A single batch resolve would freeze
+          // every target's streak peek against the pre-loop streakPair: e.g. "@gemini @codex" with a hot
+          // opus<->codex streak would wrongly block @codex even though processing @gemini first resets
+          // the pair. The decision layer PEEKS streak read-only; this execution layer does the real
+          // updateStreakOnPush mutation + worklist.push + span + yield (砚砚 OQ3: side effects stay here).
+          // callerActivity is loop-invariant (same for every target this turn) → hoist once.
+          const hadSubstantiveToolCall = collectedToolNames.some((n) => isSubstantiveTool(n));
           for (const nextCat of a2aMentions) {
-            if (worklistEntry.a2aCount >= maxDepth) break;
-            // A2A cross-path dedup: skip if this cat is actively processing via callback (InvocationQueue)
-            if (hasQueuedOrActiveAgentForCat && hasQueuedOrActiveAgentForCat(threadId, nextCat)) {
-              log.info(
-                { threadId, catId: nextCat, fromCat: catId },
-                'A2A text-scan dedup: cat actively processing in InvocationQueue, skipping',
-              );
-              continue;
-            }
-            if (pendingTail.includes(nextCat)) {
-              // Keep original user-selected targets replying to user, not to another cat.
-              if (!pendingOriginalTargets.includes(nextCat)) {
-                worklistEntry.a2aFrom.set(nextCat, catId);
-                // F121: response-text path — set trigger message for auto-replyTo
-                if (storedMsgId) worklistEntry.a2aTriggerMessageId.set(nextCat, storedMsgId);
+            const [decision] = resolveRoutingDecisions(
+              { type: 'inline_mention', cats: [nextCat], content: storedContent, callerCatId: catId },
+              {
+                a2aCount: worklistEntry.a2aCount,
+                maxDepth,
+                aborted: Boolean(catSignal?.aborted),
+                queuedMessagesPending,
+                pendingTail,
+                pendingOriginalTargets,
+                hasActiveAgent: (c) => Boolean(hasQueuedOrActiveAgentForCat?.(threadId, c)),
+                peekStreak: (target) =>
+                  peekStreakOnPush(worklistEntry, catId, target, {
+                    hadSubstantiveToolCall,
+                    outputLength: storedContent.length,
+                  }),
+              },
+            );
+            if (!decision) continue; // pending original target → replies to user, no decision emitted
+            if (decision.action === 'skip') {
+              if (decision.reason === 'dedup_active') {
+                log.info(
+                  { threadId, catId: nextCat, fromCat: catId },
+                  'A2A text-scan dedup: cat actively processing in InvocationQueue, skipping',
+                );
               }
               continue;
             }
-            // F167 L1 + Phase D: ping-pong streak check (canonical enqueue point).
-            // callerActivity (substantive tool + output length) gates streak accumulation —
-            // real work / long discussion no longer trips the breaker falsely.
-            // streak=4+ (pure language inertia) → block enqueue + emit a2a_pingpong_terminated.
-            const hadSubstantiveToolCall = collectedToolNames.some((n) => isSubstantiveTool(n));
+            if (decision.action === 'mark_replyto') {
+              // pendingTail hit (non-original target): bind reply metadata, don't push again.
+              worklistEntry.a2aFrom.set(nextCat, catId);
+              // F121: response-text path — set trigger message for auto-replyTo
+              if (storedMsgId) worklistEntry.a2aTriggerMessageId.set(nextCat, storedMsgId);
+              continue;
+            }
+            // enqueue_worklist | block_pingpong both reached the streak gate in the legacy code, so the
+            // real (mutating) updateStreakOnPush must run exactly once here for either — peek above was
+            // read-only prediction; this is the canonical mutation point (parity guaranteed by c1.1).
+            // F167 L1 + Phase D: callerActivity gates streak accumulation; streak>=4 inertia → block.
             const streak = updateStreakOnPush(worklistEntry, catId, nextCat, {
               hadSubstantiveToolCall,
               outputLength: storedContent.length,
             });
-            if (streak.blockPingPong) {
+            if (decision.action === 'block_pingpong') {
               log.info(
                 { threadId, catId: nextCat, fromCat: catId, count: streak.count },
                 'F167 L1: A2A ping-pong terminated (streak >= 4)',
@@ -1757,6 +1785,7 @@ export async function* routeSerial(
               continue;
             }
 
+            // decision.action === 'enqueue_worklist'
             // F153: lazily create mention_dispatch span on first actual push
             if (!dispatchSpan) {
               const mentionerSpan = catInvocationSpans.get(index);

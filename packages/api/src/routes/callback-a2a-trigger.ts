@@ -150,7 +150,7 @@ export async function enqueueA2ATargets(
       // 'processing' slipped through and ran as a SECOND independent invocation — the bug: the
       // target cat executed the first, possibly-superseded handoff before ever seeing the caller's
       // real follow-up intent).
-      const inFlight = deps.invocationQueue.findInFlightAgentEntry?.(threadId, catId) ?? null;
+      const inFlight = deps.invocationQueue.findInFlightAgentEntry?.(threadId, catId, callerCatId) ?? null;
       if (inFlight) {
         if (inFlight.status === 'queued') {
           // Not yet dispatched → merge content in place. The target sees both handoffs as one
@@ -162,6 +162,7 @@ export async function enqueueA2ATargets(
               inFlight.id,
               opts.content,
               triggerMessageId,
+              callerCatId,
             ) ?? false;
           if (merged) {
             // Merged into an existing queued entry — handled but NOT a new route (see `coalesced` decl).

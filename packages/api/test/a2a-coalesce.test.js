@@ -133,6 +133,50 @@ describe('InvocationQueue.coalesceContentIntoQueuedAgent (F-coalesce sourceCateg
   });
 });
 
+// F216 c0 (砚砚 GPT-5.5 review P1): findInFlightAgentEntry must scope by callerCatId.
+// Without it, cat A's queued handoff to antig-opus gets coalesced/superseded by cat B's later
+// same-turn handoff to the same target — cross-caller串味. Only the SAME caller's repeated
+// same-turn handoffs are semantically mergeable.
+describe('InvocationQueue.findInFlightAgentEntry — caller scope (F216 c0)', () => {
+  test('does NOT match an entry from a DIFFERENT caller', async () => {
+    const { InvocationQueue } = await import(QUEUE_PATH);
+    const q = new InvocationQueue();
+    // cat A (opus) enqueued a handoff to antig-opus
+    q.enqueue(agentEntryInput({ callerCatId: 'opus', content: 'A says do X', targetCats: ['antig-opus'] }));
+    // cat B (gemini) now looks for an in-flight entry to coalesce its OWN handoff into
+    const found = q.findInFlightAgentEntry('t1', 'antig-opus', 'gemini');
+    assert.equal(found, null, "B's handoff must NOT find A's entry — cross-caller coalesce is串味");
+  });
+
+  test('DOES match an entry from the SAME caller (legit same-turn repeat)', async () => {
+    const { InvocationQueue } = await import(QUEUE_PATH);
+    const q = new InvocationQueue();
+    const r = q.enqueue(agentEntryInput({ callerCatId: 'opus', content: 'first', targetCats: ['antig-opus'] }));
+    const found = q.findInFlightAgentEntry('t1', 'antig-opus', 'opus');
+    assert.ok(found, 'same caller repeated handoff should coalesce');
+    assert.equal(found.id, r.entry.id);
+  });
+
+  test('does NOT match when entry.callerCatId is undefined (no任意-caller adoption)', async () => {
+    const { InvocationQueue } = await import(QUEUE_PATH);
+    const q = new InvocationQueue();
+    q.enqueue(agentEntryInput({ callerCatId: undefined, content: 'orphan', targetCats: ['antig-opus'] }));
+    const found = q.findInFlightAgentEntry('t1', 'antig-opus', 'opus');
+    assert.equal(found, null, 'undefined-caller entry must not be adopted by an arbitrary caller');
+  });
+
+  test('coalesceContentIntoQueuedAgent refuses cross-caller merge', async () => {
+    const { InvocationQueue } = await import(QUEUE_PATH);
+    const q = new InvocationQueue();
+    const r = q.enqueue(agentEntryInput({ callerCatId: 'opus', content: 'A work', targetCats: ['antig-opus'] }));
+    // B tries to merge into A's entry by id — must refuse
+    const ok = q.coalesceContentIntoQueuedAgent('t1', 'system', r.entry.id, 'B content', 'm2', 'gemini');
+    assert.equal(ok, false, 'cross-caller coalesce must be refused');
+    const entry = q.list('t1', 'system').find((e) => e.id === r.entry.id);
+    assert.equal(entry.content, 'A work', "A's content must stay untouched by B");
+  });
+});
+
 describe('InvocationQueue.coalesceContentIntoQueuedAgent (F-coalesce)', () => {
   test('merges new content + messageId into a queued agent entry', async () => {
     const { InvocationQueue } = await import(QUEUE_PATH);
@@ -359,5 +403,43 @@ describe('enqueueA2ATargets coalesce/supersede (F-coalesce integration)', () => 
     assert.equal(antigEntries.length, 1, 'antig-opus entry untouched');
     assert.ok(!/review please/.test(antigEntries[0].content), 'codex content must NOT leak into antig entry');
     assert.equal(codexEntries.length, 1, 'codex handoff enqueued independently');
+  });
+
+  // F216 P1-1 (砚砚 review): the PRODUCTION lookup must be caller-scoped, not just the merge guard.
+  // When A and B BOTH have a queued handoff to the same target, B's repeat must coalesce into B's
+  // OWN entry. Without callerCatId at the lookup, findInFlightAgentEntry returns A's entry first;
+  // the merge guard refuses (cross-caller) and the repeat falls through to a 3rd duplicate entry.
+  test('F216 P1-1: B repeat coalesces into B own entry when A and B both queued to same target', async () => {
+    const { enqueueA2ATargets } = await import(TRIGGER_PATH);
+    const { InvocationQueue } = await import(QUEUE_PATH);
+    const queue = new InvocationQueue();
+
+    // A (opus) and B (gemini) BOTH have a queued handoff to antig-opus.
+    queue.enqueue(agentEntryInput({ content: 'A: do X', callerCatId: 'opus', messageId: 'mA' }));
+    queue.enqueue(agentEntryInput({ content: 'B: do Y', callerCatId: 'gemini', messageId: 'mB' }));
+
+    const deps = await buildDeps(queue);
+    const result = await enqueueA2ATargets(deps, {
+      targetCats: ['antig-opus'],
+      content: 'B: actually do Z',
+      userId: 'system',
+      threadId: 't1',
+      triggerMessage: { id: 'mB2', mentions: ['antig-opus'], content: 'test' },
+      callerCatId: 'gemini',
+    });
+
+    const entries = queue
+      .list('t1', 'system')
+      .filter((e) => e.source === 'agent' && e.targetCats.includes('antig-opus'));
+    assert.equal(entries.length, 2, "B's repeat must merge into B's own entry, not create a 3rd duplicate");
+    const bEntry = entries.find((e) => e.callerCatId === 'gemini');
+    assert.ok(bEntry, "B's entry present");
+    assert.match(bEntry.content, /do Y/, "B's original content retained");
+    assert.match(bEntry.content, /do Z/, "B's repeat merged into B's own entry");
+    const aEntry = entries.find((e) => e.callerCatId === 'opus');
+    assert.ok(aEntry, "A's entry present");
+    assert.match(aEntry.content, /do X/, "A's entry retained");
+    assert.ok(!/do Z/.test(aEntry.content), "B's content must NOT leak into A's entry");
+    assert.deepEqual(result.coalesced, ['antig-opus'], 'B repeat reported as coalesced, not a new route');
   });
 });

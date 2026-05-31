@@ -288,7 +288,7 @@ describe('F167 L1 AC-A4: callback-a2a-trigger ping-pong circuit breaker', () => 
         const invocationQueue = new InvocationQueue();
         const longContent = `${'详细架构分析'.repeat(40)}\n@opus 这段需要你确认`;
         const socketManager = createMockSocketManager();
-        const result = await enqueueA2ATargets(
+        const _result = await enqueueA2ATargets(
           {
             router: null,
             invocationRecordStore: null,
@@ -371,7 +371,11 @@ describe('F167 L1 AC-A4: callback-a2a-trigger ping-pong circuit breaker', () => 
           targetCats: ['opus'],
           intent: 'execute',
           autoExecute: true,
-          callerCatId: 'somecat',
+          // F216 c0 (砚砚 P1): findInFlightAgentEntry now caller-scopes. The trigger below uses
+          // callerCatId 'codex', so the preload must too — otherwise the in-flight dedup/coalesce
+          // path never fires and this test's "skip → streak unchanged" premise breaks. Same caller
+          // = the legit same-turn repeat this test exercises.
+          callerCatId: 'codex',
         });
         assert.ok(invocationQueue.hasQueuedAgentForCat(threadId, 'opus'), 'precondition: opus already queued');
 

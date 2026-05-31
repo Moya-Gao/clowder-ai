@@ -522,7 +522,7 @@ export class InvocationQueue {
    * Stale processing entries (zombie invocations past STALE_PROCESSING_THRESHOLD_MS) are ignored so
    * a hung invocation never permanently swallows new handoffs. Returns a copy (never a live ref).
    */
-  findInFlightAgentEntry(threadId: string, catId: string): QueueEntry | null {
+  findInFlightAgentEntry(threadId: string, catId: string, callerCatId?: string): QueueEntry | null {
     // 云端 codex R4 P1: scope to sourceCategory 'a2a'. `source: 'agent'` alone also matches
     // self-continuation entries (QueueProcessor.enqueueContinuation → source:'agent',
     // sourceCategory:'continuation'). Without this filter an A2A handoff to a cat that has a queued
@@ -530,8 +530,19 @@ export class InvocationQueue {
     // with another cat's handoff AND suppressing the real A2A route. Only same-category 'a2a' entries
     // are the caller's repeated same-turn handoffs and thus semantically mergeable. (Mirrors the
     // existing sourceCategory discrimination in isSystemPinnedQueueEntry / normalizedPriority.)
-    const matches = (e: QueueEntry): boolean =>
-      e.source === 'agent' && e.sourceCategory === 'a2a' && e.targetCats.includes(catId);
+    //
+    // F216 c0 (砚砚 GPT-5.5 review P1): ALSO scope by callerCatId. Only the SAME caller's repeated
+    // same-turn handoffs are mergeable — without this, cat A's queued handoff to a target gets
+    // coalesced/superseded by cat B's later handoff to the same target (cross-caller串味). Strict
+    // match: both sides must be defined AND equal — an entry with undefined callerCatId is never
+    // adopted by an arbitrary caller, and an undefined-caller lookup never adopts anyone (safe
+    // direction: prefer a fresh entry over a wrong merge). callerCatId omitted → caller scope off
+    // (legacy/test callers that don't care; production callback-a2a-trigger always passes it).
+    const matches = (e: QueueEntry): boolean => {
+      if (!(e.source === 'agent' && e.sourceCategory === 'a2a' && e.targetCats.includes(catId))) return false;
+      if (callerCatId === undefined) return true; // caller scope not requested
+      return e.callerCatId !== undefined && e.callerCatId === callerCatId;
+    };
     // Pass 1: prefer a mergeable queued entry (in-place coalesce, no abort needed).
     for (const q of this.queues.values()) {
       if (!this.queueMatchesThread(q, threadId)) continue;
@@ -567,6 +578,7 @@ export class InvocationQueue {
     entryId: string,
     content: string,
     messageId?: string,
+    callerCatId?: string,
   ): boolean {
     const e = this.findEntry(threadId, userId, entryId);
     if (!e || e.status !== 'queued') return false;
@@ -574,6 +586,11 @@ export class InvocationQueue {
     // already scopes to sourceCategory 'a2a', but guard here too so a future caller passing a
     // continuation/other entryId can never splice a handoff into unrelated control-flow content.
     if (!(e.source === 'agent' && e.sourceCategory === 'a2a')) return false;
+    // F216 c0 (砚砚 GPT-5.5 review P1): defense-in-depth caller scope — refuse cross-caller merge.
+    // findInFlightAgentEntry already caller-scopes, but guard here too so a stale/wrong entryId from
+    // a different caller can never splice content. Strict: when callerCatId is provided it must match
+    // a defined entry.callerCatId. Omitted → scope off (legacy/test callers).
+    if (callerCatId !== undefined && !(e.callerCatId !== undefined && e.callerCatId === callerCatId)) return false;
     e.content = `${e.content}\n\n${content}`;
     if (messageId && e.messageId !== messageId && !e.mergedMessageIds.includes(messageId)) {
       e.mergedMessageIds.push(messageId);

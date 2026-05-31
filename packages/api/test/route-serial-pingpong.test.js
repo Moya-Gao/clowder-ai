@@ -348,4 +348,58 @@ describe('F167 L1: route-serial ping-pong circuit breaker', { concurrency: false
       }
     }
   });
+
+  // F216 P1-2 (砚砚 review): a multi-mention in ONE response must apply streak per-target IN ORDER.
+  // Repro: build opus<->codex streak hot, then codex emits "@gemini @opus" (multi-mention).
+  //   Correct (resolve+apply one cat at a time): processing @gemini first RESETS the pair → @opus is
+  //     then evaluated against a fresh pair → enqueued, opus runs again, no termination.
+  //   Stale-batch bug (resolve ALL decisions before any mutation): both peeks read the hot
+  //     opus<->codex streak, so @opus is predicted to hit the block threshold and gets WRONGLY blocked.
+  test('F216 P1-2: multi-mention applies streak per-target — gemini resets pair, @opus not stale-blocked', async () => {
+    const original = catRegistry.getAllConfigs();
+    await loadRealRoster();
+    try {
+      const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+      // Round-aware service: empty text after the scripted rounds → chain terminates deterministically.
+      const roundAware = (catId, textsByCall) => {
+        const calls = [];
+        return {
+          calls,
+          async *invoke(prompt) {
+            const i = calls.length;
+            calls.push(prompt);
+            const content = i < textsByCall.length ? textsByCall[i] : '';
+            yield { type: 'text', catId, content, timestamp: Date.now() };
+            yield { type: 'done', catId, timestamp: Date.now() };
+          },
+        };
+      };
+      // opus<->codex pings: R0 opus@codex(streak1), R1 codex@opus(2), R2 opus@codex(3),
+      // R3 codex emits "@gemini @opus": gemini resets pair, @opus must enqueue (fresh pair=1).
+      const opusService = roundAware('opus', ['看了\n@codex review 一下', '看了\n@codex review 一下']);
+      const codexService = roundAware('codex', ['看了\n@opus 确认一下', '看了\n@gemini @opus 你们看看']);
+      const geminiService = roundAware('gemini', ['看过了，没问题']);
+      const deps = createMockDeps({ opus: opusService, codex: codexService, gemini: geminiService });
+
+      const events = [];
+      for await (const msg of routeSerial(deps, ['opus'], 'multi-mention streak test', 'user1', 'thread-pp-multi', {
+        thinkingMode: 'play',
+      })) {
+        events.push(msg);
+      }
+
+      const terminated = events.find(
+        (e) =>
+          e.type === 'system_info' && typeof e.content === 'string' && e.content.includes('a2a_pingpong_terminated'),
+      );
+      assert.ok(!terminated, 'round-3 @opus must NOT be stale-blocked — gemini should reset the pair first');
+      assert.ok(geminiService.calls.length >= 1, 'gemini must be invoked (enqueued from the multi-mention)');
+      assert.strictEqual(opusService.calls.length, 3, 'opus must invoke 3x (rounds 0,2, + round-3 re-enqueue)');
+    } finally {
+      catRegistry.reset();
+      for (const [id, config] of Object.entries(original)) {
+        catRegistry.register(id, config);
+      }
+    }
+  });
 });
