@@ -8,7 +8,7 @@ created: 2026-05-31
 
 # F218: Evidence Provenance & Source Hygiene — 外部证据溯源与信源卫生
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -145,6 +145,7 @@ Why: source-audit skill + eval fixture 挂到 F192 已有的 eval control plane
 | 2026-05-31 | 已有污染清理完成（commit 825e11d12）|
 | 2026-05-31 | CVO signoff 立项 |
 | 2026-05-31 | 立项 F218 |
+| 2026-05-31 | Phase A merged (PR #2005, squash `c3f6812a`) |
 
 ## Review Gate
 
