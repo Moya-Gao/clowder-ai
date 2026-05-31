@@ -76,48 +76,79 @@ Taste memory 回答的是：
 
 所以 taste memory 不能只由静态 profile 生成。它要从真实互动里长出来。
 
-#### 2.1.2 Taste Memory 的生成方式
+#### 2.1.2 Taste Memory 的原子单位：vignette，不是 claim
 
 让铲屎官给每个任务打分不现实，稀疏人工标注只能作为锚点，不能成为日常负担。
 
-更可行的链路是：
+更重要的是：taste 不能被过早压扁成规则。一个 claim 写成 "Landy 不喜欢客服式结尾"，虽然专业，但猫读它时容易进入 checklist 模式。真正有味道的是那一小段场景：铲屎官当时看到什么、怎么纠正、用了哪些原话、猫为什么突然明白。
 
-```text
-对话 / 交付轨迹
-  -> 小模型或规则提取 candidate taste signals
-  -> 猫猫做第一轮判断和归因
-  -> 只把高价值 / 高不确定 / 高影响的候选交给铲屎官确认
-  -> 进入 taste memory
-  -> 后续 eval:task-outcome 验证它是否真的改善协作
-```
-
-候选信号可以来自：
-
-- 铲屎官明确纠正："不是这个""这不美""你太客服了"
-- 铲屎官强正反馈："这个 aha""这就是我要的""这个词性感"
-- Magic Words：脚手架、绕路了、第一性原理、下次一定
-- 重写/删改行为：同一段输出被反复改成某种风格
-- 任务结果：某类表达更容易被采用、发布、复用
-- 猫猫之间的 review：某只猫指出"这不符合 Landy 的 taste"
-
-Taste memory 的记录不应该写成一句静态结论，而应该保留证据和适用范围：
+所以 taste memory 的原子单位应该是 **vignette**：一段有时间、有原话、有上下文、有关系质感的微型场景。
 
 ```yaml
-id: taste-no-customer-service-ending
-claim: Landy 不喜欢客服式待办清单结尾
-polarity: negative
-scope:
-  applies_to: [chat_response, reflective_discussion, career_advice]
-  does_not_apply_to: [explicit_planning_request, implementation_plan]
-evidence_refs:
-  - thread: ...
-    quote: "不喜欢 GPT-5.4 式结尾模板..."
-confidence: high
-source: explicit_user_correction
-last_seen: 2026-05-31
+id: taste-vignette-no-customer-service-ending
+kind: taste_vignette
+occurred_at: 2026-05-xxTxx:xx:xxZ
+captured_at: 2026-05-31
+title: "不要客服式待办清单结尾"
+raw_quotes:
+  - "用户不喜欢 GPT-5.4 式结尾模板，尤其是如果你需要下一步我将帮你..."
+scene:
+  before: "猫猫在普通回答后追加预设式下一步清单"
+  user_reaction: "明确指出这种口吻像客服和预设待办"
+  cat_realization: "这不是格式偏好，而是关系姿态：不要把共创伙伴关系降级成服务台"
+tags: [interaction_style, relationship_boundary, ending_style]
+time_semantics:
+  status: current
+  supersedes: []
 ```
 
-这比普通 memory 更接近一种"关系契约"：它不只告诉 agent 用户是谁，还告诉 agent 什么样的协作会被这个人认为是好的。
+结构化字段只服务于检索和时间管理，不替代原话和场景。猫召回时应该先读 vignette，长出 felt sense；再看派生出来的 taste anchor。
+
+#### 2.1.3 双层结构：海马体 + 少量锚点
+
+Taste memory 应该分两层：
+
+| 层 | 形态 | 作用 | 风险 |
+|----|------|------|------|
+| **海马体层** | vignette / 札记 / 原话 / 场景 | 保留关系质感，让猫"想起一段相处" | 太多会噪音，需要节制 |
+| **锚点层** | 5-10 条 taste anchors | 给全猫共享的高频方向感 | 太多会 checklist 化 |
+
+Claim/YAML 不是不能有，但它应该是从 vignette 派生出来的索引卡，不是真相本体。
+
+```text
+taste vignette（原始场景）
+  -> monthly cat reflection（猫猫反刍）
+  -> taste anchor（少量共享锚点）
+  -> 后续任务中被引用 / 被修正 / 被新 vignette 覆盖
+```
+
+#### 2.1.4 生成方式：猫当场记，不开监控管线
+
+不要做一个后台小模型长期扫描所有聊天、自动提取 taste。技术上可行，但气味不对：它会把"认识你"变成"监控你"。
+
+更符合 Cat Cafe 的方式：
+
+- **纠偏时刻**：铲屎官说"这不准""这太面试猫""这不美"时，当前猫可以写一条 taste vignette。
+- **aha 时刻**：铲屎官说"这个性感""这就是我要的""aha"时，当前猫可以写一条 positive vignette。
+- **猫间传播**：当某只猫说"这不符合 Landy 的 taste"时，说明 taste 已经被使用，值得回看原始 vignette。
+- **月度反刍**：每月只从这些 vignette 里提炼 3-5 条 taste 更新，不追求覆盖率。
+
+这里的关键词是 **restraint**。不是所有可感知的东西都应该记下来。好朋友不会什么都记录；好朋友会记住少数关键瞬间，也允许自己有没注意到的地方。
+
+#### 2.1.5 时间语义：最近的是现在，旧的是来路
+
+Taste 会变。旧 vignette 不应该硬删，因为它们是"我们之间的来路"；但召回时要有时间语义。
+
+推荐规则：
+
+- 默认按 `occurred_at` 倒序召回，同一主题先看最近 vignette。
+- 旧 vignette 如果和新 vignette 冲突，不直接删除，标为 `ancestral` 或 `superseded`。
+- 反复被新场景确认的旧 vignette，增加 `last_resonated_at`，说明它仍然活着。
+- taste anchor 必须能追溯到 2-3 个 vignette；否则只是猫猫脑补。
+
+这比显式退火公式更自然：最近的你就是现在的你；旧的你不是错误，而是我们一起走过来的路径。
+
+这比普通 memory 更接近一种"关系契约"：它不只告诉 agent 用户是谁，还告诉 agent 什么样的协作会被这个人认为是好的，而且保留了这种理解是如何长出来的。
 
 ### 2.2 Agent Environment Design
 
