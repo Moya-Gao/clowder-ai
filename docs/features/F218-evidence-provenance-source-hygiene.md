@@ -173,7 +173,7 @@ Opus 4.7（非作者、非本地 reviewer）独立复核后 APPROVE close：
 close_gate_report:
   feature_id: F218
   spec_path: docs/features/F218-evidence-provenance-source-hygiene.md
-  head_sha: "47e10793a base; close sync commit contains this report"
+  head_sha: "41a5da40b close sync; 47e10793a base before close"
   report_date: 2026-05-31
   state: done
 
