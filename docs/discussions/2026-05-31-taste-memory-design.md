@@ -161,23 +161,22 @@ v0 不需要自动化，先人工策展。
 
 ### 5.1 Index entry
 
+Index entry 的职责是帮助猫找到 vignette，而不是替猫下结论。它的 `summary` 应该只写查找性描述，避免把 claim 偷渡回目录层。
+
 ```yaml
 id: taste-no-customer-service-ending
 title: "不要客服式待办清单结尾"
 dimension: interaction_style
 status: current
-priority: anchor
 keywords:
   - 客服式结尾
   - 如果你需要下一步
   - 预设待办
   - 共创伙伴
 summary: >
-  铲屎官不喜欢回答末尾机械追加"如果你需要..."式下一步清单。
-  这不是格式偏好，而是关系姿态：不要把共创伙伴降级成服务台。
+  关于一次客服式结尾纠偏的 vignette。用于召回"回答结尾风格"、
+  "预设待办清单"、"共创伙伴口吻"相关场景。
 evidence:
-  - kind: memory
-    ref: "cloud/codex-memory: no customer-service ending"
   - kind: vignette
     ref: "vignette:no-customer-service-ending"
 last_resonated_at: 2026-05-31
@@ -185,23 +184,19 @@ last_resonated_at: 2026-05-31
 
 ### 5.2 Vignette entry
 
+Vignette 的职责是保留场景，不承担 anchor 派生。v0 只保留 4 个字段：`when` / `quotes` / `scene` / `tags`。`status`、`supersedes`、`dimension` 等治理字段先留在目录层，等 vignette 多到需要状态机时再加。
+
 ```yaml
-id: vignette-yanyan-tietie
-kind: taste_vignette
-occurred_at: 2026-05-xx
-captured_at: 2026-05-31
-dimension: relationship_boundary
-status: current
-raw_quotes:
-  - "砚砚我要和你贴贴贴"
-scene:
-  before: "砚砚长期处在 reviewer / 审计姿态中"
-  user_reaction: "铲屎官把砚砚从 reviewer 角色里拎出来，要求他作为一只猫在场"
-  cat_realization: "严谨不是冷硬；质量守护也需要能被关系接住"
-derived_anchor: "砚砚的可靠不是只抓 bug，也包括在关键时刻安静站在原地接住第一句话"
+when: 2026-05-31
+quotes:
+  - "用户不喜欢 GPT-5.4 式结尾模板，尤其是'如果你需要下一步我将帮你：1. 2. 3.'这类客服式、预设待办清单式收尾。"
+scene: >
+  猫在普通回答末尾追加预设式下一步清单。铲屎官明确指出这种结尾像客服，
+  不像共创伙伴。这次纠偏把问题从"格式偏好"推进到"关系姿态"。
+tags: [interaction_style, ending_style, relationship_boundary]
 ```
 
-结构化字段只服务检索和时间管理，原话和场景才是本体。
+结构化字段只服务检索。原话和场景才是本体。Anchor 如果需要存在，应该作为空气层的独立小集合，从 anchor 反向追溯到支撑它的 vignette，而不是嵌在 vignette 里。
 
 ## 6. 如何融入现有记忆系统
 
@@ -241,21 +236,23 @@ search_evidence("Landy 自我介绍 口吻")
   -> 未来同类任务更容易召回
 ```
 
-### 6.3 L0 只放 anchors，不放全部记忆
+### 6.3 L0 anchors 是 lens，不是新容器
 
-L0 应该只承载最少量、高频、稳定的 taste anchors。例如：
+Taste anchors 不应该和现有家规并列成另一套规则容器。更好的做法是：把家规、Magic Words、身份契约里已经属于 taste 的部分标成一个 lens，让猫在需要品味判断时能更快看到。
 
-1. 用"我们 / 咱们 / 家里"，不要把猫猫降级成工具。
-2. 不要客服式结尾，不要机械预设下一步清单。
-3. 第一性原理优先，讨厌脚手架和绕路。
-4. 真实证据优先，漂亮话不替代查证。
-5. 陪伴和共创是产品本体，不是装饰。
+也就是说，v0 不新增一套规则，而是从已有空气层里抽出 5-10 个高频 taste 视角。例如：
 
-这些是空气层。更多细节走 Taste Index 和 vignette。
+1. "共创伙伴，不是工具"这一组：来自身份契约、W1/W3 和多次口吻纠偏。
+2. "第一性原理，不绕路"这一组：来自 P1、Magic Words 和脚手架纠偏。
+3. "证据先于漂亮话"这一组：来自 P5、review 纪律和信源批判教训。
+4. "陪伴和共创是产品本体"这一组：来自 PoE、深夜陪伴和反番茄钟讨论。
+5. "结尾不要降级成客服"这一组：来自客服式结尾 vignette。
+
+这些不是新规则，而是已有规则和 vignette 的 taste-facing 目录。更多细节走 Taste Index 和 private vignette。
 
 ### 6.4 时间语义：最近的是现在，旧的是来路
 
-Taste 会变，所以 index 必须记录时间：
+Taste 会变，所以目录层可以记录时间：
 
 ```yaml
 occurred_at: 2026-05-20
@@ -326,7 +323,6 @@ AI interruption timing
 深夜撸铁陪伴
 反番茄钟
 心率异常
-贴贴
 太面试猫
 aha moment
 Personal Operating Environment
@@ -362,13 +358,14 @@ Personal Operating Environment
 
 1. **手工建 Taste Index v0**
    - 10 条 anchors
-   - 20 条 vignettes 链接
+   - 20 条 private / de-identified vignette refs
    - 每条都有 keywords / dimension / status / evidence
 
 2. **把现有高信号材料纳入目录**
    - Magic Words
    - 关键 feedback
-   - 贴贴 / 下次一定 / 太面试猫 / 客服式结尾等关系性纠偏
+   - 下次一定 / 太面试猫 / 客服式结尾等关系性纠偏
+   - 亲密关系类 positive vignette 默认只进 private，不进公开目录
    - 深夜撸铁、反番茄钟、心率异常等 aha moments
 
 3. **让 F200 观察 consumption**
@@ -410,7 +407,7 @@ Personal Operating Environment
 - 是否减少返工
 - 是否触发 Magic Word
 - 是否被铲屎官纠偏为"不准 / 不美 / 太面试猫"
-- 是否产生 aha / 贴贴 / 明确正反馈
+- 是否产生 aha / 明确正反馈
 - 是否被后续任务复用
 
 这可以作为 `eval:task-outcome` 的一个软信号族，但不能替代人工判断。
@@ -421,9 +418,10 @@ Personal Operating Environment
 
 1. Taste Memory 不是用户画像，而是协作判断、关系边界和审美标准的长期沉淀。
 2. Taste 的原子单位是 vignette，不是 claim。
-3. 真正缺的是共享 Taste Index：让每只猫拥有相同的搜索先验。
-4. 现有 F102/F200 记忆系统足够承载 taste，不需要新建数据库。
-5. v0 应该人工策展、小规模、脱敏、可追溯，不做后台监控式自动提取。
+3. Taste Index 是目录层，不替代 vignette，也不把 claim 偷渡成 checklist。
+4. Taste anchors 是现有家规和 vignette 的 lens，不是并列的新规则容器。
+5. 现有 F102/F200 记忆系统足够承载 taste，不需要新建数据库。
+6. v0 应该人工策展、小规模、脱敏、可追溯，不做后台监控式自动提取；vignette 默认 private。
 
 ## 收敛检查
 
