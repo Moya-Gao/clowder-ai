@@ -9,90 +9,108 @@ created: 2026-05-30
 
 > **类型**：架构级（分流：猫猫讨论 → 铲屎官拍板）
 > **作者**：宪宪 / Opus-4.8（F216 owner）
-> **核验请求**：@antig-opus（孟加拉猫底层 Opus；缅因猫族无猫粮，降级孟加拉做并发时序核验）
-> **状态**：现状摸底完成，待独立核验 + 铲屎官拍板坐标系
+> **独立核验**：@antig-opus（孟加拉猫底层 Opus；缅因猫族无猫粮降级）——核验完成，**纠正了作者一处实质错误**（见下）
+> **状态**：现状摸底 + 核验完成，待铲屎官拍板坐标系（OQ1-3）
 
 ## Architecture Ownership（F191）
 
 - **Architecture cell**: `routing`
 - **Map delta**: `update required` —— routeSerial 内部结构重画（决策层抽纯函数 + worklist mutation 单点化），owner/boundary 不变但 extension point 变化
-- **Why**: 当前"加任何路由决策都笛卡尔积炸 edge case"的根因是结构问题，不是某个 bug
+- **Why**: 「加任何路由决策都笛卡尔积炸 edge case」的根因是结构问题，不是某个 bug
 
-## 现状摸底（事实级，clean grep 验证）
+## 现状摸底（事实级，作者 grep + antig-opus 独立核验双重确认）
 
 routeSerial.ts = **2315 行单函数**，cognitive complexity 255（biome warning 豁免）。
 
-### 纠正 spec 的关键发现：worklist 写入口是 3 个，不是 spec 说的"5 套路径"
+### worklist 写入口 = 3 个（纠正 spec 的"5 套路径"）
 
-spec 原文「5 套并行路由路径共享同一个可变 worklist」把"**读** worklist 做决策"的点也算进去了。实际 **写** 入口只有 3 个：
+| # | 位置 | 时机 | 性质 | 生产是否活 |
+|---|------|------|------|-----------|
+| 1 | `route-serial.ts:1777` `worklist.push(nextCat)` | 循环内 | 同步，**direct inline-mention** text-scan | ✅ **生产热路径** |
+| 2 | `route-serial.ts:1136` `worklist.push(relay46CatId)` | 循环内 | 同步，F215 malformed relay | ✅ 活（edge case） |
+| 3 | `WorklistRegistry.ts:302` `entry.list.push(cat)`（via `pushToWorklist`） | 异步外部 | callback A2A **legacy path** | ❌ **生产死代码**（见下） |
 
-| # | 位置 | 时机 | 性质 |
-|---|------|------|------|
-| 1 | `route-serial.ts:1777` `worklist.push(nextCat)` | 循环内 | **同步**，inline-mention text-scan A2A 扩展 |
-| 2 | `route-serial.ts:1136` `worklist.push(relay46CatId)` | 循环内 | **同步**，F215 malformed relay（46 接力） |
-| 3 | `WorklistRegistry.pushToWorklist`（registry 持 `list: worklist` 引用） | 异步外部 | **跨边界异步**，callback A2A 从 `callback-a2a-trigger` 往同一数组 push |
+**无其他 mutation**：无 splice/unshift/pop/shift；`getWorklist` 只在 trigger 做 streak check（只读）。
 
-### 已排查、确认 NOT 写 worklist 的路径（防核验猫重复查）
+### ⚠️ 作者原判断的实质错误（antig-opus 核验抓出，作者已亲自证实）
 
-- **deferred A2A**（`route-serial.ts:1798` `deferA2AEnqueue`）：走 InvocationQueue 投递，**不 push worklist**。这条已经是"投递 intent"模式——正是 callback 路径该看齐的目标形态（见设计方向）。
-- **callback A2A 的 InvocationQueue 分支**（`callback-a2a-trigger.ts` `enqueueA2ATargets` 的 `deps.invocationQueue` 路径，即我刚修 coalesce 的那条）：往 InvocationQueue，**不直接 push worklist**。只有它的 **legacy worklist fallback 分支**（`hasWorklist` → `pushToWorklist`）才走第 3 个入口。
+作者初版 Design 文档断言「异步跨边界 mutation（路径 3）是复杂度根源」。**错。**
 
-### 真正的复杂度根源（不是"5 套路径"）
+**核实证据链**（作者独立 grep，非凭 antig-opus 口述）：
+- `index.ts:1346` `const invocationQueue = new InvocationQueue()` —— **无条件**实例化，无 flag 门控
+- callbacks 5 个 `enqueueA2ATargets` 调用点都传 `opts.invocationQueue`（生产恒有值）
+- `callback-a2a-trigger.ts:113` `if (deps.invocationQueue)` 生产**恒真** → callback A2A 走 InvocationQueue path（启动独立 invocation，不碰 worklist）
+- 路径 3（legacy worklist push, `:295` 之后）**只在 invocationQueue 未注入时走 = 生产死代码**（仅测试可能不传）
 
-**第 3 个入口是脆弱性的真因**：`registerWorklist` 把 routeSerial 的 `worklist` 数组**引用**存进 registry（`WorklistEntry.list = worklist`，同一对象）。callback-a2a-trigger 在**异步外部**通过 `pushToWorklist` 往这个**正在被同步 `while (index < worklist.length)` 循环消费**的数组里 push —— **无锁共享可变状态，跨同步/异步边界**。
+**所以**：callback 对 worklist 的异步 mutation 在生产**早已切断**（F122B 迁移到 InvocationQueue 时）。真正还在 production 热路径直接改 worklist 的只有 **路径 1（`:1777` direct inline-mention）**。
 
-这就是「加路由决策笛卡尔积炸 edge case」的物理来源，也是我修 coalesce bug 时撞的同一个 abort-resume 时序雷区的同源（coalesce 的 supersede 难，正因为 worklist 这种跨边界共享让 abort 时序无处安放）。
+### 系统已部分迁移到 intent/queue 模式（antig-opus 洞察）
 
-### 附带结构债（Phase A 一并消除）
+| 路径 | 当前行为 | 直接改 worklist |
+|------|----------|----------------|
+| Callback A2A（生产） | `InvocationQueue.enqueue()` | ❌ 已切 |
+| Deferred inline-mention（`:1798` `deferA2AEnqueue`） | → InvocationQueue | ❌ 已切 |
+| **Direct inline-mention（`:1777`）** | `worklist.push` | ✅ **唯一生产热路径** |
+| F215 relay（`:1136`） | `worklist.push` | ✅ 活（edge case） |
+| Callback A2A legacy（`:295`） | `pushToWorklist` | ✅ 但生产死代码 |
 
-- **2 处 handoff-emit 循环**（`:1892` 和 `:2134`，`for (let wi = handoffEmitted; ...)`）—— 重复尾逻辑，应合一。
-- **15+ 可变状态变量**在同一作用域（`yieldedFinalDone` / `handoffEmitted` / `malformedRelayPending` 等）互相影响。
+已迁移 2/5，未迁移 3/5（其中 1 个死代码）。
 
-## 设计方向（坐标变换，非堆补丁）
+### 附带结构债（一并消除）
 
-**不是** spec 原描述的"把 5 处 push 收敛到一处"（那是把同步的 2 处合并，没碰真问题）。
+- **2 处 handoff-emit 循环**（`:1892` / `:2134`，`for (let wi = handoffEmitted; ...)`）—— 重复尾逻辑，应合一。
+- **15+ 可变状态变量**同作用域互相影响。
 
-**真正的坐标变换 = 切断异步跨边界 mutation**：
+## 修正后的设计方向（坐标变换）
 
-```
-现状（无锁共享可变数组）：
-  callback-a2a-trigger ──async push──> worklist[] <──sync push── routeSerial loop
-                                         ↑ 同一引用，无锁
+**不是** intent 队列（antig-opus 纠正：callback 已走 InvocationQueue，再加 intent 层是多余的堆项）。
 
-目标（单点消费 + 意图队列）：
-  callback-a2a-trigger ──投递意图──> pendingRoutingIntents (queue)
-  routeSerial loop ──单点消费──> resolveNextCats(signal, ctx) → worklist.push
-                                   ↑ 所有扩展决策收口到这个纯函数
-```
+**真正的最小项数坐标变换**：
+- 抽 `resolveNextCats(signal, context, config) → CatId[]` **纯函数**——统一 3 条 inline-mention 路径（direct / deferred / relay）目前各自重复的 depth/dedup/ping-pong guard
+- `:1777` 从 `worklist.push(nextCat)` 改成 `return CatId[]`，循环主体单点 `worklist.push(...resolveNextCats(...))`
+- `signal` 用 discriminated union 区分来源：
+  ```typescript
+  type RoutingSignal =
+    | { type: 'inline_mention'; cats: CatId[]; content: string }
+    | { type: 'relay_malformed'; cat: CatId }
+    | { type: 'deferred'; cats: CatId[]; content: string }
+  ```
+- legacy worklist path（路径 3）：Phase B 评估删除（死代码）
 
-- **决策层**：`resolveNextCats(signal, context, config) → CatId[]` 纯函数——inline-mention / relay / callback-intent 三种来源都先变成"意图"，由这个纯函数统一裁决（含 depth / dedup / ping-pong / coalesce-vs-supersede）。可独立单测。
-- **执行层**：`while` 循环只做 `worklist.push(...resolveNextCats(...))` + invokeSingleCat + yield。worklist 不再被外部异步直接改。
-- **callback 不再持 worklist 引用**：改投递 intent，循环在安全点消费 —— 这同时解掉 coalesce bug 的 supersede（Phase D），因为 abort 时序有了单一安放点。
+价值不在"切异步 mutation"（已切），在**统一散布在 3 处的路由 guard 逻辑**——这才是「加路由决策笛卡尔积炸」的真因。
 
-## 渐进式 Phase（硬约束：一次改对坐标系，不堆补丁）
+## Phase 拆分（含 antig-opus 核验意见）
 
-- **Phase A**：执行单元化——3 个 mutation 入口都返回"扩展清单"，`worklist.push` 收口到循环主体一处；2 个 handoff-emit 循环合一。**不改行为**，纯结构。F215 16 测试 + 全量 route 测试零回归。
-- **Phase B**：决策/执行分离——抽 `resolveNextCats` 纯函数；切断 callback 的 worklist 引用，改 intent 投递。
-- **Phase C**（conditional）：状态机化（Phase B 后评估，够了就不做）。
-- **Phase D**：A2A supersede（coalesce bug 主场景）——在 Phase B 的单点消费坐标系上做，abort-resume 有了安放点。
+- **Phase A**（结构，不改行为）：路径 1+2 改"返回扩展清单"，`worklist.push` 收口到循环主体一处；2 个 handoff-emit 循环合一。**硬约束（antig-opus）：preserve all existing `await` positions**——重排 await 会改异步 interleaving，即使 legacy path 生产不走，测试可能依赖特定 interleaving。
+- **Phase B**（决策/执行分离）：抽 `resolveNextCats` 纯函数；删 legacy worklist path（死代码）；统一 guard。
+- **Phase C**（conditional）：状态机化，Phase B 后评估，够了不做。
+- **Phase D**（A2A supersede，coalesce bug 主场景）：**并进 Phase B**（antig-opus 建议）——supersede 的 abort 安放点正是 `resolveNextCats` 统一决策层，单独做会泄漏或再建入口。作为 `RoutingSignal` 的一个 type 自然落位。
 
-## 给核验猫的攻击点（@antig-opus）
+## OQ 拍板（作者 + antig-opus 已收敛，待铲屎官确认）
 
-1. **"3 个 mutation 入口"判断对吗**？我是否漏了别的间接 worklist mutation（我这个 thread 反复栽"只看一处"，请独立 grep 核验：`worklist.push` / `pushToWorklist` / 任何 `.list.push` / 数组引用泄漏）。
-2. **"切断异步 mutation"是真坐标变换还是我又在堆抽象**？intent 队列会不会只是把共享状态换了个地方？
-3. **Phase A "不改行为纯结构" 可行吗**？还是 worklist 的同步/异步共享本身就让"纯结构重构"不可能、必须连行为一起改（那 Phase A/B 就不该分）。
-4. **F215 relay（line 1136）那条路径**最脆，重构时最容易破——你觉得它该并进 resolveNextCats 还是单独保留？
+| OQ | 问题 | 收敛结论 |
+|----|------|---------|
+| **OQ1** | Phase A/B 分还是合 | **分**（A=同步 push 收口安全；B=抽纯函数+清死代码） |
+| **OQ2** | intent 队列 vs 直接重构 | **不要 intent 队列**（callback 已走 InvocationQueue，再加是多余）；`resolveNextCats` 纯函数 + 单点消费 |
+| **OQ3** | supersede 并 B 还是单独 Phase | **并进 Phase B**（abort 安放点在统一决策层） |
 
-## Open Questions（待铲屎官拍板坐标系）
+## ⚠️ 高风险警告（antig-opus + 作者共识）
 
-- OQ1: Phase A/B 分还是合？（取决于核验猫对攻击点 3 的判断）
-- OQ2: intent 队列 vs 直接重构 worklist 消费——哪个更"数学美"少堆项？
-- OQ3: Phase D supersede 是并进 Phase B 一起做，还是 B 完成后单独 Phase？
+**F215 relay（`:1136`）是 7 轮 review 的产物，guard 条件极脆**（`:1131-1132` 的 `worklist[index+1..]` pending-only check）。并入 `resolveNextCats` 时**必须逐字保留这个 pending-only 语义**——这正是作者本 thread 反复犯的「改契约漏消费方」高发区。Phase B 改这里必须先 grep 全部 relay guard 消费方 + 全跑 F215 16 测试。
 
-## Eval / Tracking Contract（F192，harness 类必填）
+## Eval / Tracking Contract（F192）
 
-- **Primary Users**: 所有走 A2A 串行路由的猫（即全部跨猫协作）
-- **Activation Signal**: routeSerial 路由决策正确率（mention/relay/callback 三路由场景各触发一次无 edge-case 错误）
-- **Friction Metric**: 路由相关 feature 的 review 轮次（F215 是 7 轮、coalesce 是本次多轮——重构后应显著下降）
+- **Primary Users**: 所有走 A2A 串行路由的猫（全部跨猫协作）
+- **Activation Signal**: routeSerial 路由决策正确率（mention/relay/callback 三场景各触发一次无 edge-case）
+- **Friction Metric**: 路由相关 feature 的 review 轮次（F215=7 轮、coalesce=本次多轮——重构后应显著下降）
 - **Regression Fixture**: F215 16 测试 + a2a-coalesce/callback-a2a-trigger/pingpong/postmsg 全量 route 测试
-- **Sunset Signal**: 若重构后路由 feature review 轮次没下降 / edge-case 反增 → 坐标系选错，回退重新设计
+- **Sunset Signal**: 重构后路由 feature review 轮次没降 / edge-case 反增 → 坐标系选错，回退重设计
+
+## 核验签收
+
+| 维度 | 作者（宪宪/Opus-4.8） | 核验（孟加拉/Opus-4.6） |
+|------|---------------------|----------------------|
+| 3 个 mutation 入口 | 提出 | ✅ 确认 + 抓出路径 3 是生产死代码 |
+| 复杂度根源 | 误判为"异步 mutation" | ✅ 纠正为"3 条 inline guard 散布" + 作者已亲自证实 |
+| 设计方向 | intent 队列 | ✅ 纠正为纯函数统一 guard（去掉多余的 intent 层） |
+| OQ1/2/3 | — | ✅ 收敛：分 / 无 intent / D 并 B |
