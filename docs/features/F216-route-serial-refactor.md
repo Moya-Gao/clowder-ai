@@ -7,7 +7,7 @@ created: 2026-05-30
 
 # F216: routeSerial 决策层/执行层分离重构
 
-> **Status**: in-progress (Phase D queued-merge 已交付 PR #1971；Phase B c0–c1.3 已交付 PR #1987；剩 c2 deferred 接线 + c3 supersede) | **Owner**: @opus48（本 F216 thread = 设计 from F215-thread handoff + 执行 owner，同一只猫继续持有） | **Priority**: P1 | **Source**: internal (F215 引爆点)
+> **Status**: in-progress (Phase B 全交付 PR #1987/#1991；Phase D 核心交付 PR #1971/#1997；剩 D5-D7 review nits + AC-D3 alpha 验收) | **Owner**: @opus48（本 F216 thread = 设计 from F215-thread handoff + 执行 owner，同一只猫继续持有） | **Priority**: P1 | **Source**: internal (F215 引爆点)
 
 Architecture cell: `routing`
 Map delta: routeSerial 从 2302 行单函数拆为决策层(纯函数) + 执行层(for-await yield)
@@ -105,10 +105,10 @@ routeSerial 是 Cat Cafe 的核心路由引擎——所有 A2A 串行调度、me
 > abort-resume 坐标系同源，独立硬接会和后台 `executeEntry` cleanup 抢 `processingSlots` mutex
 > = 硬约束 #2 警告的 LL-064 式堆补丁。在干净坐标系上一次做对。
 
-- [ ] AC-D1: processing 中的 target 收到同 turn follow-up → abort 正在跑的 + 用 follow-up（last-wins）重启，不重跑被 supersede 的第一条
-- [ ] AC-D2: abort+restart 不引入 `processingSlots` mutex race（复用 force-send 的 cancelInvocation+clearPause+releaseSlot 已验证模式）
-- [ ] AC-D3: 真实 runtime 验证——猫连发两条矛盾 handoff 给同一只猫，目标猫只执行最终意图，不先跑错第一步
-- [ ] AC-D4: queued-merge（已交付）零回归——18 个 a2a-coalesce/callback-a2a-trigger 测试全绿
+- [x] AC-D1: processing 中的 target 收到同 turn follow-up → abort 正在跑的 + 用 follow-up（last-wins）重启，不重跑被 supersede 的第一条（PR #1997）
+- [x] AC-D2: abort+restart 不引入 `processingSlots` mutex race（复用 force-send 的 cancelInvocation+clearPause+releaseSlot 已验证模式 + tombstone guard）（PR #1997）
+- [ ] AC-D3: 真实 runtime 验证——猫连发两条矛盾 handoff 给同一只猫，目标猫只执行最终意图，不先跑错第一步（deferred to alpha 验收）
+- [x] AC-D4: queued-merge（已交付）零回归——22 个 a2a-coalesce + 85 queue-processor 测试全绿（PR #1997）
 
 #### Review nits 收口（PR #1971 已交付后的 reviewer 建议，归 Phase D 一并清理）
 > 来源：antig-opus（孟加拉猫 Opus，云端 codex 额度耗尽替补）completed review of `3654ea9d9`，3 个 non-blocking。
@@ -124,6 +124,7 @@ routeSerial 是 Cat Cafe 的核心路由引擎——所有 A2A 串行调度、me
 | 2026-05-30 | Phase D 追加：A2A same-turn handoff bug（queued-merge 独立交付，supersede 归 F216） |
 | 2026-05-31 | Phase B c0–c1.3 merged（PR #1987 squash `32f88814e`）：c0 caller-scope + c1.1 peekStreakOnPush + c1.2 resolveRoutingDecisions 纯函数 + c1.3 inline-mention 接线。砚砚跨族 review 2 轮（3 P1 修复）+ 云端 review（1 P2 修复） |
 | 2026-05-31 | Phase B c2 merged（PR #1991 squash `d3966c85d`）：queue-pending（deferred）路径接入 resolveRoutingDecisions（逐 cat，非 batch）+ defer_queue 计入 depth budget。砚砚跨族 review 3 轮（3 P1 修复）+ 云端 review（0 findings） |
+| 2026-05-31 | Phase D c3 merged（PR #1997）：supersede — processing 中同 caller→target 重复 handoff abort+restart（last-wins）。两层防御（trigger tombstone + QueueProcessor guard）。砚砚跨族 review 5 轮 + 云端 review（6 findings 全 already-fixed） |
 
 ## Review Gate
 
