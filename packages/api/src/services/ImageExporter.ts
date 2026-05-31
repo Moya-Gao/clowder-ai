@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import puppeteer, { type Browser } from 'puppeteer-core';
 import sharp from 'sharp';
@@ -51,7 +51,7 @@ function detectChromePath(): string {
   if (platform === 'linux') {
     for (const name of ['google-chrome', 'google-chrome-stable', 'microsoft-edge', 'chromium', 'chromium-browser']) {
       try {
-        const resolved = execSync(`which ${name}`, { encoding: 'utf8' }).trim();
+        const resolved = execFileSync('which', [name], { encoding: 'utf8' }).trim();
         if (resolved) candidates.push(resolved);
       } catch {
         // not found, continue
