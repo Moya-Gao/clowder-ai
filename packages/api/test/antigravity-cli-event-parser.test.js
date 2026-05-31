@@ -135,6 +135,33 @@ describe('Antigravity CLI plain text parser', () => {
     assert.match(result.error, /\/model/);
   });
 
+  test('classifies F210 auth-required OAuth stdout as onboarding error', () => {
+    const stdout = extractBlock(readFixture('agy-print-auth-required.txt'), 'stdout');
+
+    const result = classifyAntigravityCliPlainText({ stdout, stderr: '', resumed: false });
+
+    assert.equal(result.kind, 'error');
+    assert.equal(result.errorKind, 'auth_required');
+    assert.match(result.error, /agy/i);
+    assert.match(result.error, /login|auth/i);
+    assert.doesNotMatch(result.error, /accounts\.google\.com/);
+  });
+
+  test('preserves model-authored auth prompt text without AGY OAuth markers', () => {
+    const stdout = [
+      'Authentication required. Please visit the URL to log in:',
+      'This is an example onboarding message for documentation.',
+    ].join('\n');
+
+    const result = classifyAntigravityCliPlainText({ stdout, stderr: '', resumed: false });
+
+    assert.deepEqual(result, {
+      kind: 'text',
+      content:
+        'Authentication required. Please visit the URL to log in:\nThis is an example onboarding message for documentation.',
+    });
+  });
+
   test('keeps normal model-authored Error-prefixed text as text', () => {
     const result = classifyAntigravityCliPlainText({
       stdout: 'Error: this is quoted model output, not a CLI failure.\n',

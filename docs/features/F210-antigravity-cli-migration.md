@@ -237,6 +237,8 @@ Phase G ACP probe source: `docs/features/assets/F210/phase-g-acp-probe-2026-05-2
 
 Phase G interactive/API probe source: `docs/features/assets/F210/phase-g-interactive-api-probe-2026-05-23.md`. Current result: AGY interactive mode can be driven from a PTY, but the stronger F198-like lead is AGY's local language-server HTTP/Connect API. Read-only endpoints expose conversation metadata, model catalog/config, and MCP server state. Message send/update-stream/model-selection semantics remain unproven, so this is a spike lead rather than a runtime carrier yet.
 
+Phase G AGY 1.0.3 refresh source: `docs/features/assets/F210/phase-g-agy-1.0.3-capability-refresh-2026-05-31.md`. Current result: `--conversation` / `--continue` / `--dangerously-skip-permissions` / `plugin` are now visible in top-level help, but there is still no documented `--model` or ACP subcommand. Official docs put persistent CLI preferences at `~/.gemini/antigravity-cli/settings.json` and document command-line overrides for some settings; model selection remains interactive/sticky rather than proven per-call. A temporary-HOME smoke reached OAuth onboarding and printed the auth prompt to stdout with exit 0, so the AGY parser now classifies auth-required stdout as an actionable provider error before profile-sandbox work proceeds.
+
 Phase G must treat approval policy and model isolation as the same design surface: `--dangerously-skip-permissions` is required for unattended Cat Cafe operation, but it is only acceptable after the invocation is confined to a per-cat AGY profile sandbox with explicit worktree/MCP access. A shared global HOME with a shared `settings.json` would couple model choice, workspace trust, and permission posture across cats, so it is not a valid multi-profile architecture.
 
 ## Dependencies
@@ -323,6 +325,7 @@ Phase G must treat approval policy and model isolation as the same design surfac
 | 2026-05-23 | CVO scope add: AGY Cat Cafe runtime must use yolo/auto-approval and must validate HOME/AGY config profile sandboxing with worktree/MCP permissions before multi-cat exposure |
 | 2026-05-23 | Phase G interactive/API probe：PTY `--prompt-interactive` smoke returned `AGY_PTY_PROBE_OK`; AGY local HTTP/Connect API exposed conversation metadata, model catalog/config, and MCP server states; send/stream/model-select remains open |
 | 2026-05-31 | AGY 1.0.3 resume refresh merged via PR #1992：`--conversation` resumes real AGY UUIDs, but unknown IDs are ignored and replaced by AGY-created UUIDs. Cat Cafe adapter now records the real UUID from `--log-file` output on fresh turns and reserves `--conversation` for stored real IDs. |
+| 2026-05-31 | Phase G 1.0.3 capability refresh：top-level help now exposes `--continue`, `--conversation`, `--dangerously-skip-permissions`, and `plugin`, but still no `--model`/ACP; temporary-HOME profile smoke exposed auth-required stdout exit-0 behavior, now locked by parser/service tests |
 | 2026-05-27 | Target: Phase A recon complete（install/auth/headless/output/MCP/sandbox facts frozen） |
 | 2026-06-07 | Target: Phase B/C adapter + parser/session strategy implemented |
 | 2026-06-14 | Target: Phase D/E install packaging + E2E smoke green |

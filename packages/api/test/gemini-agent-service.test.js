@@ -819,6 +819,39 @@ describe('GeminiAgentService (antigravity-cli adapter)', () => {
     assert.equal(msgs[msgs.length - 1].type, 'done');
   });
 
+  test('classifies auth-required agy stdout as provider error instead of model text', async () => {
+    const proc = createMockProcess();
+    const spawnFn = createMockSpawnFn(proc);
+    const service = new GeminiAgentService({ spawnFn, adapter: 'antigravity-cli' });
+
+    const promise = collect(service.invoke('hello from isolated profile'));
+    emitPlainText(
+      proc,
+      [
+        'Authentication required. Please visit the URL to log in:',
+        '  https://accounts.google.com/o/oauth2/auth?[REDACTED]',
+        '',
+        'Waiting for authentication (timeout 30s)...',
+        'Or, paste the authorization code here and press Enter:',
+        '',
+        'Error: authentication interrupted.',
+      ].join('\n'),
+      0,
+    );
+
+    const msgs = await promise;
+    assert.equal(
+      msgs.some((m) => m.type === 'text'),
+      false,
+    );
+    const err = msgs.find((m) => m.type === 'error');
+    assert.ok(err, 'auth-required stdout must produce an error');
+    assert.match(err.error, /Antigravity CLI|AGY/);
+    assert.match(err.error, /login|auth/i);
+    assert.doesNotMatch(err.error, /accounts\.google\.com/);
+    assert.equal(msgs[msgs.length - 1].type, 'done');
+  });
+
   test('does not classify normal agy text mentioning model onboarding as missing model', async () => {
     const proc = createMockProcess();
     const spawnFn = createMockSpawnFn(proc);

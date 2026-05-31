@@ -1,13 +1,13 @@
 /**
  * Antigravity CLI plain-text parser.
  *
- * AGY 1.0.1 print mode does not expose Gemini-compatible NDJSON. It returns
+ * AGY print mode does not expose Gemini-compatible NDJSON. It returns
  * final stdout text, while some provider failures are also plain text/log lines.
  */
 
 export type AntigravityCliPlainTextResult =
   | { kind: 'text'; content: string; textMode?: 'replace' }
-  | { kind: 'error'; errorKind: 'timeout' | 'missing_model' | 'missing_session'; error: string }
+  | { kind: 'error'; errorKind: 'timeout' | 'missing_model' | 'missing_session' | 'auth_required'; error: string }
   | { kind: 'empty' };
 
 export interface AntigravityCliPlainTextInput {
@@ -38,6 +38,14 @@ export function classifyAntigravityCliPlainText(input: AntigravityCliPlainTextIn
       kind: 'error',
       errorKind: 'timeout',
       error: 'Antigravity CLI 响应超时：agy --print-timeout 返回了 timeout 文本但进程可能仍是 exit 0。',
+    };
+  }
+
+  if (isAgyAuthRequiredDiagnostic(diagnosticText)) {
+    return {
+      kind: 'error',
+      errorKind: 'auth_required',
+      error: formatAgyAuthRequiredError(),
     };
   }
 
@@ -96,9 +104,27 @@ function isAgyMissingModelDiagnostic(text: string): boolean {
   );
 }
 
+function isAgyAuthRequiredDiagnostic(text: string): boolean {
+  const trimmed = text.trim();
+  const hasAuthPrompt = /^Authentication required\.\s+Please visit the URL to log in:/im.test(trimmed);
+  const hasGoogleOAuthUrl = /^\s*https:\/\/accounts\.google\.com\/o\/oauth2\/auth\b/im.test(trimmed);
+  const hasAuthWait = /^Waiting for authentication \(timeout \d+s\)\.\.\./im.test(trimmed);
+  const hasAuthInterrupted = /^Error:\s*authentication interrupted\.?$/im.test(trimmed);
+
+  return hasAuthPrompt && (hasGoogleOAuthUrl || (hasAuthWait && hasAuthInterrupted));
+}
+
+function formatAgyAuthRequiredError(): string {
+  return [
+    'Antigravity CLI profile is not authenticated.',
+    'Run `agy` with the same HOME/profile and complete login before unattended Cat Cafe use.',
+    'For isolated AGY profiles, each profile HOME must be onboarded separately.',
+  ].join(' ');
+}
+
 function formatAgyMissingModelError(): string {
   return [
     'Antigravity CLI 没有可用的账号侧默认模型。',
-    'AGY CLI 1.0.1 没有已验证的 --model/env per-call 模型覆盖；请先运行 `agy` 进入交互模式，用 `/model` 选择默认模型后再重试。',
+    'AGY CLI 没有已验证的 --model/env per-call 模型覆盖；请先运行 `agy` 进入交互模式，用 `/model` 选择默认模型后再重试。',
   ].join(' ');
 }
