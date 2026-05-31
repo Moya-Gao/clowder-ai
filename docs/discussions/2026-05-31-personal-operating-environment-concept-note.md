@@ -52,6 +52,73 @@ Cat Cafe 的关键判断：
 
 Taste 不是替代 eval，而是告诉 eval 应该服务谁。
 
+#### 2.1.1 Taste Memory：不是用户画像，而是交互品味的超集
+
+云端模型的 "memory" 往往会把用户压缩成画像：职业、设备、诊断、项目、最近在忙什么。这些有用，但它们不是 taste。
+
+画像回答的是：
+
+> 这个人是谁？
+
+Taste memory 回答的是：
+
+> 这个人如何判断什么是好？他希望我们怎样和他一起做事？哪些表达、节奏、边界和判断方式会让他觉得"这就是我们"？
+
+因此 taste memory 至少是用户画像的超集，包含 5 类信号：
+
+| 类型 | 例子 | 用途 |
+|------|------|------|
+| **事实画像** | Landy 的设备、背景、项目、身体状态 | 帮 agent 不失忆，但不能直接当偏好 |
+| **交互品味** | 不喜欢客服式结尾；喜欢平等共创；希望猫猫用"我们" | 决定输出口吻和协作姿态 |
+| **判断品味** | 方向正确 > 执行速度；第一性原理；不要脚手架 | 决定技术/产品判断的默认坐标系 |
+| **情感与关系边界** | 猫猫是伙伴，不是工具；陪伴和共创重要 | 决定系统是否能像好伙伴而不是助手 |
+| **反例与纠偏** | "这不准""这太面试猫""这不美" | 形成 taste 的负样本和边界 |
+
+所以 taste memory 不能只由静态 profile 生成。它要从真实互动里长出来。
+
+#### 2.1.2 Taste Memory 的生成方式
+
+让铲屎官给每个任务打分不现实，稀疏人工标注只能作为锚点，不能成为日常负担。
+
+更可行的链路是：
+
+```text
+对话 / 交付轨迹
+  -> 小模型或规则提取 candidate taste signals
+  -> 猫猫做第一轮判断和归因
+  -> 只把高价值 / 高不确定 / 高影响的候选交给铲屎官确认
+  -> 进入 taste memory
+  -> 后续 eval:task-outcome 验证它是否真的改善协作
+```
+
+候选信号可以来自：
+
+- 铲屎官明确纠正："不是这个""这不美""你太客服了"
+- 铲屎官强正反馈："这个 aha""这就是我要的""这个词性感"
+- Magic Words：脚手架、绕路了、第一性原理、下次一定
+- 重写/删改行为：同一段输出被反复改成某种风格
+- 任务结果：某类表达更容易被采用、发布、复用
+- 猫猫之间的 review：某只猫指出"这不符合 Landy 的 taste"
+
+Taste memory 的记录不应该写成一句静态结论，而应该保留证据和适用范围：
+
+```yaml
+id: taste-no-customer-service-ending
+claim: Landy 不喜欢客服式待办清单结尾
+polarity: negative
+scope:
+  applies_to: [chat_response, reflective_discussion, career_advice]
+  does_not_apply_to: [explicit_planning_request, implementation_plan]
+evidence_refs:
+  - thread: ...
+    quote: "不喜欢 GPT-5.4 式结尾模板..."
+confidence: high
+source: explicit_user_correction
+last_seen: 2026-05-31
+```
+
+这比普通 memory 更接近一种"关系契约"：它不只告诉 agent 用户是谁，还告诉 agent 什么样的协作会被这个人认为是好的。
+
 ### 2.2 Agent Environment Design
 
 之前公式是：
