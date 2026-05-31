@@ -8,7 +8,7 @@ created: 2026-05-31
 
 # F218: Evidence Provenance & Source Hygiene — 外部证据溯源与信源卫生
 
-> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: done | **Completed**: 2026-05-31 | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -146,6 +146,122 @@ Why: source-audit skill + eval fixture 挂到 F192 已有的 eval control plane
 | 2026-05-31 | CVO signoff 立项 |
 | 2026-05-31 | 立项 F218 |
 | 2026-05-31 | Phase A merged (PR #2005, squash `c3f6812a`) |
+| 2026-05-31 | F218 close：Opus 4.7 愿景守护 APPROVE；Status → done |
+
+## User Visibility Disclosure
+
+| Surface | 用户能做什么（达成态） | 用户实际能做什么（close 时） | 缺失/退化 | 处置 |
+|---------|--------------------|--------------------------|----------|------|
+| 猫日常 research / docs / ADR / PPT | 高风险外部 claim 触发信源审计并带 provenance | Shared skill + L0 trigger + deep-research refs + `check:source-hygiene` 已接入 | 无直接 UI | met |
+| Harness / skill / SOP / L0 设计 | 不只写软规则，同时说明硬门禁和 eval 怎么接 | L0 §2 + `feat-lifecycle` Eval Contract 教学 + hard check + F192 fixture | 无 | met |
+| Eval Hub weekly packet | MemU fixture 进入 capability-wakeup eval context | Registry schema 保留 `fixtures`，`buildEvalCatInvocation().context.fixtures` 带入 eval-cat packet | 无 | met |
+| Hub provenance rich block visualization | 可视化 provenance rich block | 未交付 | Phase A 不含该 UI surface | KD-5 明确聊天纯文本 / docs 表格先行；不作为 close AC |
+
+## Vision Guardian Verdict
+
+Opus 4.7（非作者、非本地 reviewer）独立复核后 APPROVE close：
+
+- Zero per-family divergence：`CLAUDE.md` / `AGENTS.md` / `GEMINI.md` 零触碰。
+- AC-A1..A7 均有代码 / 文档 / 测试锚点。
+- `check:source-hygiene` 已进入 `package.json` 和 `scripts/run-checks.mjs`，非空挂。
+- 云端 R1 的 eval fixture 断链已修：`evalDomainFixtureSchema` + `fixtures` parser default + invocation context carry-through。
+- P1 blocker 数：0。
+
+## CloseGateReport
+
+```yaml
+close_gate_report:
+  feature_id: F218
+  spec_path: docs/features/F218-evidence-provenance-source-hygiene.md
+  head_sha: "47e10793a base; close sync commit contains this report"
+  report_date: 2026-05-31
+  state: done
+
+  guardian:
+    cat: "Opus 4.7"
+    verdict: approve
+    message_id: "0001780244113547-000301-8caf1faa"
+    blocker_count: 0
+
+  user_visibility_disclosure:
+    status: written
+    section: User Visibility Disclosure
+
+  harness_feedback:
+    status: written
+    path: docs/harness-feedback/2026-05-31-F218-source-hygiene.md
+    primary_failure_class: none
+
+  reflection_capsule:
+    status: written
+    path: docs/reflections/2026-05-31-f218-source-hygiene-capsule.md
+
+  ac_matrix:
+    - ac_id: AC-A1
+      status: met
+      evidence:
+        - kind: commit
+          ref: "c3f6812a"
+          description: "source-audit shared skill with five-question checklist, four verdicts, claim ledger, and provenance format"
+        - kind: test
+          ref: "scripts/f218-source-hygiene.test.mjs"
+          description: "source-audit skill structure and manifest wiring verified by check:source-hygiene"
+      resolution: null
+    - ac_id: AC-A2
+      status: met
+      evidence:
+        - kind: commit
+          ref: "c3f6812a"
+          description: "L0 section 2 source hygiene reflex added"
+        - kind: test
+          ref: "node --test scripts/compile-system-prompt-l0.test.mjs"
+          description: "50/50 compiled prompt cases pass under budget"
+      resolution: null
+    - ac_id: AC-A3
+      status: met
+      evidence:
+        - kind: commit
+          ref: "c3f6812a"
+          description: "deep-research template Source Mix adds Primary Source Trace / CoI / Temporal / Object Applicability"
+      resolution: null
+    - ac_id: AC-A4
+      status: met
+      evidence:
+        - kind: commit
+          ref: "c3f6812a"
+          description: "MemU echo-chamber fixture added and wired into eval:capability-wakeup"
+        - kind: commit
+          ref: "f2187b38"
+          description: "cloud R1 fix carries eval domain fixtures into eval-cat invocation context"
+        - kind: test
+          ref: "packages/api/test/harness-eval/eval-domain-registry.test.js + eval-cat-invocation.test.js"
+          description: "registry preserves fixture refs and invocation context includes them"
+      resolution: null
+    - ac_id: AC-A5
+      status: met
+      evidence:
+        - kind: commit
+          ref: "825e11d12"
+          description: "existing 65% pollution cleanup completed before Phase A implementation"
+      resolution: null
+    - ac_id: AC-A6
+      status: met
+      evidence:
+        - kind: commit
+          ref: "c3f6812a"
+          description: "L0 section 2 includes harness soft+hard+eval trigger referencing ADR-031"
+        - kind: test
+          ref: "compile-system-prompt-l0.test.mjs"
+          description: "L0 token budget checked for all cat archetypes"
+      resolution: null
+    - ac_id: AC-A7
+      status: met
+      evidence:
+        - kind: commit
+          ref: "c3f6812a"
+          description: "feat-lifecycle Eval Contract upgraded with Soft / Hard / Eval teaching"
+      resolution: null
+```
 
 ## Review Gate
 
@@ -158,3 +274,5 @@ Why: source-audit skill + eval fixture 挂到 F192 已有的 eval control plane
 - ADR-031：Harness Engineering 方法论（三 functions + 1 discipline）
 - harness-asset-vs-debt brainstorm：`docs/discussions/2026-04-29-harness-asset-vs-debt-brainstorm.md`（"规则 = 骨架 + 解释 + 探针"）
 - ICLR 2026 杰出论文：arXiv:2505.06120（真正有 peer-review 的多轮衰减数据）
+- Harness feedback: `docs/harness-feedback/2026-05-31-F218-source-hygiene.md`
+- Reflection capsule: `docs/reflections/2026-05-31-f218-source-hygiene-capsule.md`
