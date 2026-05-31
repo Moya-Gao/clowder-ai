@@ -173,6 +173,25 @@ export interface CascadeTrajectory {
   trajectory?: { steps: TrajectoryStep[] };
 }
 
+/**
+ * F211-REG9: lightweight per-cascade status, extracted from `GetAllCascadeTrajectories`'
+ * `trajectorySummaries` map (~60KB for the whole set vs ~4MB for one full trajectory). Used as the
+ * poll change-signal: pollForSteps only pulls the full trajectory when one of these advances.
+ * `lastModifiedTime` is the mutation signal — it advances on in-place planner-text completion, not
+ * just on new steps, so it catches mutations a bare stepCount comparison would miss.
+ */
+export interface CascadeStatusSummary {
+  stepCount: number;
+  status?: string;
+  lastModifiedTime?: string;
+}
+
+interface RawCascadeSummary {
+  stepCount?: unknown;
+  status?: unknown;
+  lastModifiedTime?: unknown;
+}
+
 export interface AntigravityDrainOptions {
   quietWindowMs?: number;
   timeoutMs?: number;
@@ -684,6 +703,29 @@ export class AntigravityBridge {
     return this.rpcSafe<CascadeTrajectory>('GetCascadeTrajectory', { cascadeId }, options);
   }
 
+  /**
+   * F211-REG9: cheap per-poll status check. `GetAllCascadeTrajectories` returns lightweight
+   * per-cascade summaries (~60KB for the whole set) — orders of magnitude smaller than the full
+   * `GetCascadeTrajectory` (~4MB). pollForSteps uses { stepCount, status, lastModifiedTime } as the
+   * change-signal and only pulls the full trajectory when one of them advances, so a stalled or
+   * slow cascade no longer re-downloads its entire history every poll tick. Returns null when the
+   * summary is absent (caller falls back to a full getTrajectory rather than assuming "no change").
+   */
+  async getCascadeStatus(cascadeId: string, options?: AntigravityRpcOptions): Promise<CascadeStatusSummary | null> {
+    const resp = await this.rpcSafe<{ trajectorySummaries?: Record<string, RawCascadeSummary> }>(
+      'GetAllCascadeTrajectories',
+      {},
+      options,
+    );
+    const summary = resp.trajectorySummaries?.[cascadeId];
+    if (!summary) return null;
+    return {
+      stepCount: typeof summary.stepCount === 'number' ? summary.stepCount : 0,
+      status: typeof summary.status === 'string' ? summary.status : undefined,
+      lastModifiedTime: typeof summary.lastModifiedTime === 'string' ? summary.lastModifiedTime : undefined,
+    };
+  }
+
   async drainCascade(cascadeId: string, options: AntigravityDrainOptions = {}): Promise<AntigravityDrainResult> {
     const quietWindowMs = positiveIntegerOr(options.quietWindowMs, 500);
     const timeoutMs = positiveIntegerOr(options.timeoutMs, 5_000);
@@ -822,9 +864,60 @@ export class AntigravityBridge {
     let deliveredFingerprints: string[] = [];
     let deliveredPlannerTexts: string[] = [];
     let lastTrajectoryAt: number | undefined;
+    // F211-REG9: status-gate state. The cheap summary ({stepCount,status,lastModifiedTime}) drives
+    // whether we pull the full ~4MB trajectory this tick. While RUNNING and unchanged, we still force
+    // a full fetch every N skips so in-place mutations + awaiting-approval transitions (which the
+    // summary cannot express) are not missed before the idle-timeout. N must stay well under
+    // idleTimeoutMs/pollIntervalMs so an awaiting cascade is detected before a false stall fires.
+    const REG9_RUNNING_FULL_FETCH_THROTTLE = 5;
+    let lastStatusKey: string | undefined;
+    let lastAwaitingUserInput = false;
+    let fullFetchSkips = 0;
 
     while (true) {
       if (signal?.aborted) throw new Error('Aborted');
+
+      // F211-REG9 (砚砚 P1): the change-signal is committed to lastStatusKey ONLY after a successful
+      // full fetch (below). A transient getTrajectory failure must NOT advance lastStatusKey, else the
+      // retry would see the just-changed status as already-consumed and skip the full fetch → false stall
+      // (and it would break the existing maxRpcRetries semantics for a real change).
+      let pendingStatusKey: string | undefined;
+      // F211-REG9: cheap status pre-check — pull the lightweight per-cascade summary instead of the
+      // full trajectory every tick, and skip the full fetch when nothing changed. A stalled/slow
+      // cascade no longer re-downloads its entire history every poll (the O(full-history)/tick waste
+      // that burned ~4MB×N on a frozen cascade). A null summary (cascade absent) or a status-probe
+      // error falls through to a full fetch — we never silently skip on missing/failed status.
+      let statusForGate: CascadeStatusSummary | null = null;
+      try {
+        statusForGate = await this.getCascadeStatus(cascadeId, { signal });
+      } catch {
+        statusForGate = null;
+      }
+      if (statusForGate) {
+        const statusKey = `${statusForGate.stepCount}|${statusForGate.status ?? ''}|${statusForGate.lastModifiedTime ?? ''}`;
+        const isRunning =
+          statusForGate.status === 'CASCADE_RUN_STATUS_RUNNING' || statusForGate.status === 'CASCADE_RUN_STATUS_BUSY';
+        const changed = lastStatusKey === undefined || statusKey !== lastStatusKey;
+        const throttledMutationProbe = isRunning && !changed && fullFetchSkips >= REG9_RUNNING_FULL_FETCH_THROTTLE;
+        if (!changed && !throttledMutationProbe) {
+          lastStatusKey = statusKey;
+          fullFetchSkips += 1;
+          const idleMs = Date.now() - lastActivityAt;
+          // A cascade awaiting user approval is NOT a stall (carry the last full-fetch observation).
+          // Otherwise the idle-timeout still fires here — so a genuinely hung cascade surfaces instead
+          // of polling forever silently (REG9 core: no done/error must never become an invisible hang).
+          if (!lastAwaitingUserInput && idleMs > idleTimeoutMs) {
+            throw new Error(
+              `Antigravity stall: no activity for ${idleMs}ms (steps=${statusForGate.stepCount}, status=${statusForGate.status})`,
+            );
+          }
+          await new Promise((r) => setTimeout(r, pollIntervalMs));
+          continue;
+        }
+        // Defer the commit until the full fetch below actually succeeds (砚砚 P1) — a transient
+        // getTrajectory failure must keep this change un-consumed so the retry re-fetches it.
+        pendingStatusKey = statusKey;
+      }
 
       let traj: CascadeTrajectory;
       let recoveredAfterRpcError = false;
@@ -840,9 +933,19 @@ export class AntigravityBridge {
         await new Promise((r) => setTimeout(r, pollIntervalMs * rpcRetries));
         continue;
       }
+      // F211-REG9 (砚砚 P1): the full fetch succeeded — NOW it is safe to mark this status consumed and
+      // reset the throttle. On a transient failure above we hit `continue` without reaching here, so the
+      // change stays un-consumed and the next tick re-fetches it (preserving maxRpcRetries semantics).
+      if (pendingStatusKey !== undefined) {
+        lastStatusKey = pendingStatusKey;
+        fullFetchSkips = 0;
+      }
       const currentSteps = traj.numTotalSteps ?? 0;
       const isTerminal = traj.status === 'CASCADE_RUN_STATUS_IDLE';
       const awaitingUserInput = traj.awaitingUserInput === true;
+      // F211-REG9: carry the authoritative awaiting state for the status-gate's stall-suppression
+      // (the cheap summary cannot express awaitingUserInput; only a full fetch refreshes it).
+      lastAwaitingUserInput = awaitingUserInput;
       const trajectoryAt = trajectoryTimestampMs(traj);
       const previousTrajectoryAt = lastTrajectoryAt;
       if (trajectoryAt !== undefined) lastTrajectoryAt = trajectoryAt;

@@ -442,12 +442,22 @@ export class AntigravityAgentService implements AgentService {
     };
     let flushSideEffectJournalAudit = async () => {};
     let lastKnownCascadeId: string | undefined;
+    // F211-REG9: track whether a terminal `done` was emitted. If this generator is abandoned
+    // (consumer stops iterating / WS drops / process tears down), it resumes at the suspended await
+    // and runs the `finally` below WITHOUT having emitted a terminal — the silent-vanish that leaves
+    // the UI stuck "Thinking" forever. emitDone() flips the flag at every done so the finally can
+    // distinguish a clean exit from an abandonment and seal the runtime session visibly.
+    let terminalEmitted = false;
+    const emitDone = (): AgentMessage => {
+      terminalEmitted = true;
+      return { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
+    };
 
     try {
       // Abort check
       if (options?.signal?.aborted) {
         yield { type: 'error', catId: this.catId, error: 'Aborted before start', metadata, timestamp: Date.now() };
-        yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
+        yield emitDone();
         return;
       }
 
@@ -861,7 +871,7 @@ export class AntigravityAgentService implements AgentService {
         // do not enqueue a prompt the user already aborted (cloud P1, line 1029).
         if (options?.signal?.aborted) {
           yield { type: 'error', catId: this.catId, error: 'Aborted before send', metadata, timestamp: Date.now() };
-          yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
+          yield emitDone();
           return;
         }
         // F211-REG8: sendMessage reports whether the cascade was RUNNING at send (busy-reuse). When
@@ -878,7 +888,7 @@ export class AntigravityAgentService implements AgentService {
         // Abort check after send
         if (options?.signal?.aborted) {
           yield { type: 'error', catId: this.catId, error: 'Aborted after send', metadata, timestamp: Date.now() };
-          yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
+          yield emitDone();
           return;
         }
 
@@ -2223,7 +2233,7 @@ export class AntigravityAgentService implements AgentService {
           });
         }
         await flushSideEffectJournalAudit();
-        yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
+        yield emitDone();
         return;
       }
     } catch (err) {
@@ -2245,7 +2255,34 @@ export class AntigravityAgentService implements AgentService {
         metadata,
         timestamp: Date.now(),
       };
-      yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
+      yield emitDone();
+    } finally {
+      // F211-REG9: the generator resumes here on ANY exit. On a clean done/error the flag is set and
+      // this is a no-op. On abandonment (consumer stopped iterating / WS dropped / process killed) no
+      // terminal was emitted — make it visible instead of vanishing silently: seal the still-active
+      // runtime session so the UI / next session sees it ended (interrupted), not a forever-"Thinking"
+      // hang. finally cannot yield (the consumer is gone) — best-effort side-effect seal, never throws.
+      if (!terminalEmitted) {
+        log.warn(
+          `F211-REG9: Antigravity invoke for ${this.catId} ended without done/error (abandoned/interrupted; cascade=${lastKnownCascadeId ?? 'unknown'}); sealing runtime session to avoid a silent hang`,
+        );
+        if (lastKnownCascadeId && this.runtimeSessionStore) {
+          try {
+            const rec = await this.runtimeSessionStore.getByRuntimeSession('antigravity-desktop', lastKnownCascadeId);
+            if (rec && rec.lifecycle?.state === 'active') {
+              await this.runtimeSessionStore.updateLifecycle(rec.sessionId, {
+                state: 'sealed',
+                sealReason: 'runtime_disconnected',
+                lastObservedAt: Date.now(),
+              });
+            }
+          } catch (sealErr) {
+            log.error(
+              `F211-REG9 finalizer seal failed (cascade=${lastKnownCascadeId}): ${sealErr instanceof Error ? sealErr.message : String(sealErr)}`,
+            );
+          }
+        }
+      }
     }
   }
 }
