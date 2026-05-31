@@ -36,6 +36,11 @@ import type { SocketManager } from '../infrastructure/websocket/index.js';
 export interface QueueProcessorLike {
   onInvocationComplete(threadId: string, catId: string, status: 'succeeded' | 'failed' | 'canceled'): Promise<void>;
   tryAutoExecute?(threadId: string): Promise<void>;
+  /** F216 c3 supersede: reuse the force-send abort-resume coordinate system.
+   *  clearPause prevents the aborted invocation's async cleanup from poisoning QueueProcessor state (F39).
+   *  releaseSlot force-frees the per-slot processingSlots mutex so tryAutoExecute sees a free slot. */
+  clearPause?(threadId: string, catId?: string): void;
+  releaseSlot?(threadId: string, catId: string): void;
 }
 
 export interface A2ATriggerDeps {
@@ -57,6 +62,8 @@ export interface A2ATriggerDeps {
     | 'coalesceContentIntoQueuedAgent'
     | 'backfillMessageId'
     | 'list'
+    // F216 c3: removeProcessed clears the superseded processing entry so it cannot re-run.
+    | 'removeProcessed'
   >;
   log: FastifyBaseLogger;
 }
@@ -175,15 +182,47 @@ export async function enqueueA2ATargets(
           }
           // Raced to processing between find and merge → fall through to enqueue a follow-up.
         } else {
-          // Already processing. In-flight content cannot be merged; the only correct supersede
-          // (abort the running handoff + restart with the follow-up) shares F216's abort-resume
-          // coordinate system, so it is deferred there. Interim: enqueue the follow-up as a NEW
-          // queued entry so the caller's real intent is NOT lost — it runs after the current one
-          // completes, and any further same-turn handoffs coalesce into this queued follow-up.
-          log.info(
-            { threadId, triggerMessageId, catId, processingEntry: inFlight.id },
-            '[F-coalesce] target already processing — enqueue follow-up (supersede deferred to F216)',
-          );
+          // F216 c3 SUPERSEDE: the first handoff is already processing but the caller sent a
+          // second same-turn handoff — last-wins semantics.
+          //
+          // GUARD: QueueProcessor marks an entry 'processing' (markProcessingById) before
+          // executeEntry reaches startAll (which registers the tracker slot). In the pre-start
+          // window (markProcessing → startAll, spans invocationRecordStore.create await),
+          // tracker.has() returns false and cancelInvocation would return []. If we naively
+          // releaseSlot + removeProcessed in that window, the old executeEntry (which captured
+          // the entry reference) keeps running AND the follow-up starts = double-execute.
+          //
+          // Solution: only do the full abort-resume sequence when tracker confirms registration.
+          // Pre-start window → graceful degradation to sequential (follow-up runs after the
+          // current execution completes via onInvocationComplete → tryAutoExecute).
+          const trackerRegistered = deps.invocationTracker?.has(threadId, catId) ?? false;
+          if (trackerRegistered) {
+            // Safe to abort: tracker has the slot, controller exists.
+            deps.invocationTracker!.cancelInvocation(threadId, [catId], inFlight.userId, 'preempted');
+            // Drop stale pause the aborted invocation's async cleanup will set (F39).
+            deps.queueProcessor?.clearPause?.(threadId, catId);
+            // Force-free the per-slot mutex — the async .catch hasn't deleted it yet.
+            deps.queueProcessor?.releaseSlot?.(threadId, catId);
+            // Remove the superseded processing entry so it cannot re-run.
+            deps.invocationQueue?.removeProcessed?.(threadId, inFlight.userId, inFlight.id);
+            log.info(
+              { threadId, triggerMessageId, catId, supersededEntry: inFlight.id },
+              '[F216-c3] supersede: aborted running handoff, follow-up will restart via tryAutoExecute',
+            );
+          } else {
+            // Pre-start window: tracker not yet registered (markProcessing → startAll gap).
+            // Cannot cancel via tracker, but CAN remove the entry as a tombstone signal:
+            // QueueProcessor.executeEntry checks entry presence after startAll and self-aborts
+            // if the entry was removed. Do NOT releaseSlot (slot freed by executeEntry's
+            // finally→.then chain after the self-abort return 'canceled').
+            deps.invocationQueue?.removeProcessed?.(threadId, inFlight.userId, inFlight.id);
+            log.warn(
+              { threadId, triggerMessageId, catId, supersededEntry: inFlight.id },
+              '[F216-c3] supersede tombstone: entry removed for executeEntry guard (pre-start window)',
+            );
+          }
+          // Fall through to enqueue the follow-up as a queued entry; tryAutoExecute (called after
+          // enqueue at line ~284) sees the freed slot and auto-starts it.
         }
       }
       // Guard 3 (F167 Phase D cloud Codex P1): streak check fires here — after

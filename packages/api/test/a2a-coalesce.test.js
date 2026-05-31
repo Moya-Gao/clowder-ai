@@ -217,7 +217,7 @@ describe('InvocationQueue.coalesceContentIntoQueuedAgent (F-coalesce)', () => {
 describe('enqueueA2ATargets coalesce/supersede (F-coalesce integration)', () => {
   // Helper: build deps with a real InvocationQueue + spy tracker.
   // emitCalls captures socketManager.emitToUser so tests can assert queue_updated emission.
-  async function buildDeps(queue, trackerOverrides = {}, emitCalls = []) {
+  async function buildDeps(queue, trackerOverrides = {}, emitCalls = [], queueProcessorOverrides = {}) {
     return {
       router: { async *routeExecution() {} },
       invocationRecordStore: { create() {}, update() {} },
@@ -250,6 +250,9 @@ describe('enqueueA2ATargets coalesce/supersede (F-coalesce integration)', () => 
         tryAutoExecute() {
           return Promise.resolve();
         },
+        clearPause() {},
+        releaseSlot() {},
+        ...queueProcessorOverrides,
       },
       invocationQueue: queue,
       log: { info() {}, warn() {}, error() {} },
@@ -313,13 +316,13 @@ describe('enqueueA2ATargets coalesce/supersede (F-coalesce integration)', () => 
     assert.match(mergedEntry.content, /answer 3 questions/, 'emitted queue carries merged content');
   });
 
-  // SCOPE NOTE: when the first handoff is already PROCESSING, the only correct fix is to abort the
-  // running handoff and restart with the follow-up (supersede). That shares F216's abort-resume
-  // coordinate system (cancelInvocation → slot cleanup → pause → resume) and is DEFERRED there to
-  // avoid an LL-064-style patch-on-patch race in the queue dispatch path. The interim contract
-  // tested here: the follow-up is NOT lost — it is enqueued to run after the current one, and it is
-  // NOT silently dedup-skipped (which would drop the caller's real intent).
-  test('INTERIM: second handoff to a PROCESSING cat is enqueued as a follow-up (not lost, not aborted)', async () => {
+  // F216 c3: when the first handoff is already PROCESSING, the second same-turn handoff from the
+  // same caller→target SUPERSEDES it (last-wins): abort the running invocation and restart with the
+  // follow-up. The superseded first handoff must NOT continue and must NOT re-run. This reuses the
+  // force-send abort-resume coordinate system (cancelInvocation + clearPause + releaseSlot) so we do
+  // NOT fork a second abort path that races the QueueProcessor processingSlots mutex (LL-064). The
+  // follow-up is enqueued (fall-through) and restarted by tryAutoExecute once the slot frees.
+  test('SUPERSEDE: second handoff to a PROCESSING cat aborts the running one and restarts with the follow-up', async () => {
     const { enqueueA2ATargets } = await import(TRIGGER_PATH);
     const { InvocationQueue } = await import(QUEUE_PATH);
     const queue = new InvocationQueue();
@@ -327,13 +330,30 @@ describe('enqueueA2ATargets coalesce/supersede (F-coalesce integration)', () => 
     // First handoff is already processing (autoExecute kicked it off)
     const r1 = queue.enqueue(agentEntryInput({ content: 'do task X' }));
     queue.markProcessingById('t1', r1.entry.id);
+    const firstEntryId = r1.entry.id;
 
-    // Spy controller — must NOT be aborted in the interim (supersede deferred to F216)
+    // Spy the abort-resume coordinate system — supersede MUST drive all three.
     const controller = new AbortController();
-    const deps = await buildDeps(queue, {
-      has: () => true,
-      getController: () => controller,
-    });
+    const cancelCalls = [];
+    const clearPauseCalls = [];
+    const releaseSlotCalls = [];
+    const deps = await buildDeps(
+      queue,
+      {
+        has: () => true,
+        getController: () => controller,
+        cancelInvocation: (threadId, cats, userId, reason) => {
+          cancelCalls.push({ threadId, cats, userId, reason });
+          controller.abort(reason);
+          return cats; // cancelledCatIds
+        },
+      },
+      [],
+      {
+        clearPause: (threadId, catId) => clearPauseCalls.push({ threadId, catId }),
+        releaseSlot: (threadId, catId) => releaseSlotCalls.push({ threadId, catId }),
+      },
+    );
 
     const result = await enqueueA2ATargets(deps, {
       targetCats: ['antig-opus'],
@@ -344,11 +364,84 @@ describe('enqueueA2ATargets coalesce/supersede (F-coalesce integration)', () => 
       callerCatId: 'opus',
     });
 
-    // Interim: do NOT abort (supersede is F216) — but the follow-up must survive.
-    assert.equal(controller.signal.aborted, false, 'interim must NOT abort the running handoff (supersede → F216)');
-    const followUp = queue.list('t1', 'system').filter((e) => e.source === 'agent' && e.status === 'queued');
-    assert.equal(followUp.length, 1, 'follow-up enqueued — caller real intent not lost');
-    assert.match(followUp[0].content, /answer 3 questions/, 'follow-up carries the second handoff');
+    // 1. The running handoff is aborted (last-wins).
+    assert.equal(controller.signal.aborted, true, 'supersede MUST abort the running handoff');
+    // 2. cancelInvocation called once for the target cat with the 'preempted' reason (force-send model).
+    assert.equal(cancelCalls.length, 1, 'cancelInvocation called exactly once');
+    assert.deepEqual(cancelCalls[0].cats, ['antig-opus']);
+    assert.equal(cancelCalls[0].reason, 'preempted');
+    // 3. clearPause + releaseSlot called — drop the stale pause and free the mutex so the follow-up restarts.
+    assert.equal(clearPauseCalls.length, 1, 'clearPause called to drop the stale pause');
+    assert.equal(releaseSlotCalls.length, 1, 'releaseSlot called to free the mutex for restart');
+    // 4. The superseded first handoff is removed — it must NOT re-run.
+    const firstStillPresent = queue.list('t1', 'system').some((e) => e.id === firstEntryId);
+    assert.equal(firstStillPresent, false, 'superseded first handoff removed — must not re-run');
+    // 5. The follow-up is enqueued as the only executable next entry.
+    const queued = queue.list('t1', 'system').filter((e) => e.source === 'agent' && e.status === 'queued');
+    assert.equal(queued.length, 1, 'follow-up enqueued as the next entry');
+    assert.match(queued[0].content, /answer 3 questions/, 'follow-up carries the second handoff intent');
+    assert.deepEqual(result.enqueued, ['antig-opus']);
+  });
+
+  // F216 c3 pre-start window: when markProcessing happened but tracker.startAll hasn't
+  // registered yet (the await invocationRecordStore.create() gap), cancelInvocation would return
+  // empty. The trigger uses removeProcessed as a TOMBSTONE signal — QueueProcessor.executeEntry
+  // checks entry presence after startAll and self-aborts if removed. Trigger must NOT
+  // releaseSlot/clearPause (slot freed by executeEntry's .then chain after self-abort).
+  test('SUPERSEDE pre-start window: tracker not registered → tombstone removal, no releaseSlot, follow-up queued', async () => {
+    const { enqueueA2ATargets } = await import(TRIGGER_PATH);
+    const { InvocationQueue } = await import(QUEUE_PATH);
+    const queue = new InvocationQueue();
+
+    // First handoff marked processing (by QueueProcessor) but startAll not yet called
+    const r1 = queue.enqueue(agentEntryInput({ content: 'do task X' }));
+    queue.markProcessingById('t1', r1.entry.id);
+    const firstEntryId = r1.entry.id;
+
+    // Tracker has() returns false = pre-start window (startAll not yet reached)
+    const controller = new AbortController();
+    const cancelCalls = [];
+    const releaseSlotCalls = [];
+    const deps = await buildDeps(
+      queue,
+      {
+        has: () => false, // <-- pre-start window: tracker not registered
+        getController: () => controller,
+        cancelInvocation: (threadId, cats, userId, reason) => {
+          cancelCalls.push({ threadId, cats, userId, reason });
+          return []; // would return empty since not registered
+        },
+      },
+      [],
+      {
+        clearPause: () => {},
+        releaseSlot: (threadId, catId) => releaseSlotCalls.push({ threadId, catId }),
+      },
+    );
+
+    const result = await enqueueA2ATargets(deps, {
+      targetCats: ['antig-opus'],
+      content: 'STOP — answer 3 questions first',
+      userId: 'system',
+      threadId: 't1',
+      triggerMessage: { id: 'm2', mentions: ['antig-opus'], content: 'test' },
+      callerCatId: 'opus',
+    });
+
+    // 1. Controller NOT aborted (cannot abort via tracker — not registered yet)
+    assert.equal(controller.signal.aborted, false, 'pre-start window: must NOT abort via tracker');
+    // 2. cancelInvocation NOT called (tracker unregistered, would return empty)
+    assert.equal(cancelCalls.length, 0, 'cancelInvocation not called in pre-start window');
+    // 3. releaseSlot NOT called (slot freed by executeEntry's self-abort → finally → .then chain)
+    assert.equal(releaseSlotCalls.length, 0, 'releaseSlot NOT called — executeEntry handles slot release');
+    // 4. First entry REMOVED from queue (tombstone signal for QueueProcessor.executeEntry guard —
+    //    executeEntry checks entry presence after startAll and self-aborts if removed)
+    const firstStillPresent = queue.list('t1', 'system').some((e) => e.id === firstEntryId);
+    assert.equal(firstStillPresent, false, 'first entry removed as tombstone — executeEntry will self-abort');
+    // 5. Follow-up still enqueued (not lost — will run after onInvocationComplete)
+    const queued = queue.list('t1', 'system').filter((e) => e.source === 'agent' && e.status === 'queued');
+    assert.equal(queued.length, 1, 'follow-up enqueued for deferred execution');
+    assert.match(queued[0].content, /answer 3 questions/, 'follow-up carries second handoff intent');
     assert.deepEqual(result.enqueued, ['antig-opus']);
   });
 
