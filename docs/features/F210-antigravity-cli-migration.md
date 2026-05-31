@@ -322,7 +322,7 @@ Phase G must treat approval policy and model isolation as the same design surfac
 | 2026-05-23 | Runtime correction：alpha start on `8cdc573bd` confirmed Gemini ACP pool still initializes from catalog `acp` config; the AGY default does not replace existing `gemini --acp` cats |
 | 2026-05-23 | CVO scope add: AGY Cat Cafe runtime must use yolo/auto-approval and must validate HOME/AGY config profile sandboxing with worktree/MCP permissions before multi-cat exposure |
 | 2026-05-23 | Phase G interactive/API probe：PTY `--prompt-interactive` smoke returned `AGY_PTY_PROBE_OK`; AGY local HTTP/Connect API exposed conversation metadata, model catalog/config, and MCP server states; send/stream/model-select remains open |
-| 2026-05-31 | AGY 1.0.3 resume refresh：`--conversation` resumes real AGY UUIDs, but unknown IDs are ignored and replaced by AGY-created UUIDs. Cat Cafe adapter now records the real UUID from `--log-file` output on fresh turns and reserves `--conversation` for stored real IDs. |
+| 2026-05-31 | AGY 1.0.3 resume refresh merged via PR #1992：`--conversation` resumes real AGY UUIDs, but unknown IDs are ignored and replaced by AGY-created UUIDs. Cat Cafe adapter now records the real UUID from `--log-file` output on fresh turns and reserves `--conversation` for stored real IDs. |
 | 2026-05-27 | Target: Phase A recon complete（install/auth/headless/output/MCP/sandbox facts frozen） |
 | 2026-06-07 | Target: Phase B/C adapter + parser/session strategy implemented |
 | 2026-06-14 | Target: Phase D/E install packaging + E2E smoke green |
