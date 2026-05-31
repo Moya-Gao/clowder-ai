@@ -1325,6 +1325,8 @@ describe('HubCatEditor', () => {
     });
     await flushEffects();
 
+    expect(queryField<HTMLInputElement>(container, 'input[aria-label="Model"]').value).toBe('gpt-5.3-codex-spark');
+
     const saveButton = Array.from(document.body.querySelectorAll('button')).find(
       (button) => button.textContent === '保存',
     );
@@ -1338,7 +1340,88 @@ describe('HubCatEditor', () => {
     );
     expect(patchCall).toBeTruthy();
     const payload = JSON.parse(String(patchCall?.[1]?.body));
-    expect(payload.defaultModel).toBe('gpt-5.3-codex-spark');
+    expect(payload.defaultModel).toBeUndefined();
+    expect(payload.clientId).toBeUndefined();
+    expect(payload.accountRef).toBeUndefined();
+  });
+
+  it('does not rewrite unchanged Gemini model when saving alias-only edits', async () => {
+    const existingCat = {
+      id: 'gemini25',
+      name: '遇罗猫',
+      displayName: '遇罗猫',
+      variantLabel: 'Gemini 3.5 Flash',
+      clientId: 'google',
+      accountRef: 'gemini',
+      defaultModel: 'Gemini 3.5 Flash (High)',
+      color: { primary: '#5B8C5A', secondary: '#D4E6D3' },
+      mentionPatterns: ['@gemini25'],
+      avatar: '/avatars/gemini.png',
+      roleDescription: '审美与创意探索',
+    } as CatData;
+
+    mockApiFetch.mockImplementation((path: string, init?: RequestInit) => {
+      if (path === '/api/accounts') {
+        return Promise.resolve(
+          jsonResponse({
+            projectPath: '/tmp/project',
+            activeProfileId: 'gemini',
+            providers: [
+              {
+                id: 'gemini',
+                provider: 'gemini',
+                displayName: 'Gemini (OAuth)',
+                name: 'Gemini (OAuth)',
+                authType: 'oauth',
+                protocol: 'google',
+                mode: 'subscription',
+                models: ['gemini-2.5-pro', 'gemini-3.1-pro-preview'],
+                hasApiKey: false,
+                createdAt: '2026-03-18T00:00:00.000Z',
+                updatedAt: '2026-03-18T00:00:00.000Z',
+              },
+            ],
+          }),
+        );
+      }
+      if (path === '/api/config/session-strategy') {
+        return Promise.resolve(jsonResponse({ cats: [] }));
+      }
+      if (path === '/api/cats/gemini25' && init?.method === 'PATCH') {
+        return Promise.resolve(jsonResponse({ cat: { id: 'gemini25' } }));
+      }
+      if (path === '/api/cat-templates') {
+        return Promise.resolve(jsonResponse({ templates: [] }));
+      }
+      throw new Error(`Unexpected apiFetch path: ${path}`);
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(HubCatEditor, { open: true, cat: existingCat, onClose: vi.fn(), onSaved: vi.fn() }),
+      );
+    });
+    await flushEffects();
+
+    await changeField(queryField(container, 'textarea[aria-label="Aliases"]'), '@gemini35, @gemini-35');
+
+    const saveButton = Array.from(document.body.querySelectorAll('button')).find(
+      (button) => button.textContent === '保存',
+    );
+    await act(async () => {
+      saveButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flushEffects();
+
+    const patchCall = mockApiFetch.mock.calls.find(
+      ([path, init]) => path === '/api/cats/gemini25' && init?.method === 'PATCH',
+    );
+    expect(patchCall).toBeTruthy();
+    const payload = JSON.parse(String(patchCall?.[1]?.body));
+    expect(payload.mentionPatterns).toEqual(['@gemini35', '@gemini-35']);
+    expect(payload.defaultModel).toBeUndefined();
+    expect(payload.clientId).toBeUndefined();
+    expect(payload.accountRef).toBeUndefined();
   });
 
   it('keeps unbound cats unbound when opening the editor', async () => {
