@@ -344,7 +344,7 @@ Phase G AGY profile E2E smoke runner source: `docs/features/assets/F210/phase-g-
 | 2026-05-31 | Phase G planning refresh：under current AGY limits, the next runtime slice should be profile-sandbox + preflight + smoke, with model routing implemented as selected-model verification rather than a fake per-call setter. Prefer one cohesive PR if the change surface stays within profile config, invocation env/args, and tests. |
 | 2026-05-31 | Phase G profile-sandbox/preflight slice merged via PR #2004：`agyProfile` catalog config, isolated HOME/settings/trustedWorkspaces, sandbox-scoped yolo injection, unsafe HOME/symlink/path guards, and fail-closed model/trust diagnostics close AC-G3/G4/G5 for the runtime layer; exact Opus/Gemini selector IDs and user-facing multi-profile cats remain open under AC-G1/G2 |
 | 2026-05-31 | Phase G model-selector recon merged via PR #2007：official docs and local AGY `1.0.3` language-server probes confirm selector labels and `settings.json` key `model` as the exact profile storage surface, closing AC-G1 while leaving AC-G2 open for live per-profile E2E onboarding/user-facing exposure |
-| 2026-05-31 | Phase G AC-G2 smoke-runner slice：`pnpm f210:agy-profile-smoke` adds a repeatable production-path runner for Opus 4.6 Thinking / Gemini 3.1 Pro High / Gemini 3.5 Flash High isolated profiles; AC-G2 remains open until live onboarded profile runs pass without sticky-state bleed |
+| 2026-06-01 | Phase G AC-G2 smoke-runner slice merged via PR #2009：`pnpm f210:agy-profile-smoke` adds a repeatable production-path runner for Opus 4.6 Thinking / Gemini 3.1 Pro High / Gemini 3.5 Flash High isolated profiles; AC-G2 remains open until live onboarded profile runs pass without sticky-state bleed |
 | 2026-05-27 | Target: Phase A recon complete（install/auth/headless/output/MCP/sandbox facts frozen） |
 | 2026-06-07 | Target: Phase B/C adapter + parser/session strategy implemented |
 | 2026-06-14 | Target: Phase D/E install packaging + E2E smoke green |
@@ -373,6 +373,7 @@ Phase G AGY profile E2E smoke runner source: `docs/features/assets/F210/phase-g-
 | Smoke | `docs/features/assets/F210/phase-g-agy-profile-e2e-smoke-runner-2026-05-31.md` / `packages/api/src/scripts/f210-agy-profile-smoke.ts` | Repeatable AC-G2 production-path profile E2E smoke runner and onboarding boundary |
 | Fixture | `docs/features/assets/F210/agy-help.txt` / `agy-unsupported-flags.txt` / `agy-print-auth-required.txt` / `agy-real-home-no-default-model.txt` | Raw CLI evidence, sanitized |
 | Review | `docs/mailbox/2026-05-31-f210-agy-profile-sandbox-review-request.md` | PR #2004 profile-sandbox/preflight review packet |
+| Review | `docs/mailbox/2026-05-31-f210-agy-profile-e2e-smoke-runner-review-request.md` | PR #2009 profile E2E smoke runner review packet |
 | Code | `packages/api/src/domains/cats/services/agents/providers/GeminiAgentService.ts` | Current Gemini CLI and Desktop adapter split |
 | Code | `packages/api/src/domains/cats/services/agents/providers/agy-profile-manager.ts` | AGY profile sandbox resolution and preflight diagnostics |
 | Code | `packages/api/src/utils/cli-resolve.ts` | CLI install hints |
