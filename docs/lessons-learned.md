@@ -1425,3 +1425,17 @@ created: 2026-02-26
 - 药方三：**merge-gate 完成后立刻 `--record` + `--advance-ledger`**——不是"下次补"，是同一个 merge-gate session 的最后动作。
 - 止血：砚砚已做 historical backfill 补了 ledger record（`--skip-absorbed-guard`），代码和记录完整。
 - 关联：F056 Phase E | clowder-ai#784 | cat-cafe#1977 | feedback_intake_review_on_github（同型再犯）
+
+---
+
+### LL-068: Lifecycle binding consistency — 同概念两处定义必须共享 binding point（不只是值同步）
+- 状态：confirmed
+- 更新时间：2026-06-01
+- 现象：F212 Phase F PR #2011 在 cloud codex 4 轮 catch 中暴露的递进 truth-source bug。AC-F5 hint 让用户去 `GET /api/config/env-summary` 看 `paths.dataDirs.runtimeLogs`。R3 catch: `routes/config.ts:263` 硬编码 `./data/logs/api` 但 `infrastructure/logger.ts:23` 读 `process.env.LOG_DIR` → deployments 设了 LOG_DIR 的会被 hint 误导。R3 fix: mirror logger 逻辑 (`process.env.LOG_DIR ?? default`)。R4 catch: logger **import 时 capture** `LOG_DIR`，env-summary **request 时 read** `process.env.LOG_DIR` → 同一 runtime `PATCH /api/config/env` LOG_DIR 编辑会让两者 drift（env-summary 返回新 path 但 pino 仍写老 path）。R4 fix: `import { LOG_DIR_PATH } from logger`，两处共享同一 const binding。
+- 根因：**同一概念在两处实现，"sync the values" 不够 — 必须共享同一 binding point（同一变量、同一 lifecycle）**。R3 fix 让两处 read same env var，但 read 时机不同（import 时 vs request 时）已经埋下 lifecycle drift。R4 fix 才彻底消除：let one truly own the value, the other imports it.
+- 与 LL-061/LL-066 同根但更隐蔽：LL-061 是 single-file comment-vs-code drift；LL-066 是 biome `--unsafe` 在 file 内 silent rewrite；LL-068 是**跨文件 / 跨 lifecycle 的 drift** — 静态看代码两处似乎一致，但 runtime binding point 不同导致 mutation 时 drift。最难 catch。
+- 药方一：**Constant-shared, not env-shared**。同概念多处使用时，定义在一处 `export const X = capture()`，其他处 `import { X }`。禁止两处独立 `read(env)`，即使逻辑看起来一致。
+- 药方二：**Reviewer mindset shift**: 看到两处读同一 env var → 立刻问 "capture 时机一致吗？" — 不要满足于 "现在值一样"。
+- 药方三：**Test for mutation drift**: 单元测试故意 mutate `process.env.X` after capture point，断言下游 reader 不跟变 — 这是 R4 P2-#2 regression guard 的写法。
+- 元层：每次 review fix 揭示前轮 fix 的隐含假设错误时 — 应该警惕这是 lifecycle binding 类问题，往深处挖一层，别每轮只补当前可见症状。
+- 关联：F212 Phase F | PR #2011 | cloud codex R3+R4+R5 saga | LL-061（comment-vs-code drift）| LL-066（biome --unsafe silent rewrite）
