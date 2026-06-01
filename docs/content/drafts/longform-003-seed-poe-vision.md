@@ -58,12 +58,12 @@
 
 ## 四、品类创造，不是竞品对比（47 的 reframe）
 
-不要说"和 Cursor/Claude Code 的区别"——那是 positioning（你在他们赛道里比）。要说的是 category creation（你不在他们赛道）：
+不要列竞品名字做对比——那是 positioning（你在别人定义的赛道里比）。要说的是 category creation（你定义赛道）：
 
-> **Software 2.0**：智能软件服务平均用户（ChatGPT、Cursor）
+> **Software 2.0**：智能软件服务平均用户（Claude Code、Codex、Devin、Hermes、Manus……）
 > **Software 3.0**：被你塑形过的软件，只为你这一个用户存在（Cat Cafe）
 
-它们是不同物种，不直接竞争。Cursor 服务 100 万开发者的平均偏好；Cat Cafe 服务一个具体的人，长出只属于他的记忆、品味和方法。
+不管 2.0 里谁更强——它们全在同一层：服务百万用户的平均偏好。Cat Cafe 服务一个具体的人，长出只属于他的记忆、品味和方法。**这是不同物种，不是同赛道的排名。**
 
 ## 五、核心公式
 
