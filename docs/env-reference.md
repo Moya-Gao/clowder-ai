@@ -27,7 +27,7 @@ created: 2026-05-23
 | `PROJECT_DENIED_ROOTS` | (平台默认系统目录) | Denylist 模式下额外拦截的目录（按系统路径分隔符分隔，会合并到平台默认拦截列表）。仅在未设置 PROJECT_ALLOWED_ROOTS 时生效。 |  |
 | `FRONTEND_URL` | (自动检测) | 前端固定地址（有反向代理或固定域名时设置，如 https://cafe.example.com）。本机和局域网直连通常不需要改 |  |
 | `FRONTEND_PORT` | 3000 | 前端端口 |  |
-| `DEFAULT_OWNER_USER_ID` | (未设置) | 默认所有者用户 ID（信任锚点，不可从 Hub 修改） |  |
+| `DEFAULT_OWNER_USER_ID` | (未设置) | 默认所有者用户 ID（信任锚点，不可从 Hub 修改）。本机单用户模式可不配置；LAN/Tailscale/remote 模式下，敏感 env、connector credentials、skill sync、default cat 等特权写操作要求显式配置，否则返回 403 |  |
 | `CAT_CAFE_USER_ID` | default-user | 当前用户 ID |  |
 | `CAT_CAFE_INVOCATION_REGISTRY` | (自动：有 Redis 用 redis，否则 memory) | F174-B InvocationRegistry 后端选择：redis（重启不丢 callback 鉴权）/ memory（fallback / 测试） |  |
 | `CAT_CAFE_AGENT_KEY_SECRET` | (空) | F178 Persistent MCP Agent-Key Auth — 共享密钥（直接环境变量提供） | 🔒 |
