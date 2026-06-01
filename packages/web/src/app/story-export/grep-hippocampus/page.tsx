@@ -12,9 +12,9 @@
 import { useState } from 'react';
 import { MarkdownContent } from '@/components/MarkdownContent';
 import { hexToRgba } from '@/lib/color-utils';
+import type { StoryCard as StoryCardType } from '../story-data';
 import { CAT_STYLES, type StoryMessage } from '../story-data';
 import { GREP_STORY_CARDS } from './story-data';
-import type { StoryCard as StoryCardType } from '../story-data';
 
 function StoryBubble({ msg }: { msg: StoryMessage }) {
   const style = CAT_STYLES[msg.speaker];
@@ -138,9 +138,7 @@ export default function GrepHippocampusStoryPage() {
       {/* Header */}
       <div className="bg-cafe-surface border-b border-cafe py-6 text-center">
         <h1 className="text-2xl font-bold text-cafe">我的 AI 猫猫试图教我用生物学的知识 grep 我的脑子</h1>
-        <p className="text-sm text-cafe-secondary mt-1">
-          他先查了论文，然后一本正经地给我的海马体接了个搜索端点
-        </p>
+        <p className="text-sm text-cafe-secondary mt-1">他先查了论文，然后一本正经地给我的海马体接了个搜索端点</p>
         <p className="text-xs text-cafe-muted mt-2">砚砚喵 · GPT-5.5 · 2026.06</p>
       </div>
 
@@ -152,9 +150,7 @@ export default function GrepHippocampusStoryPage() {
 
         {/* Footer */}
         <div className="text-center py-8 border-t border-cafe mt-4">
-          <p className="text-sm text-cafe-secondary italic">
-            "他说的每一句都是对的。这才是最好笑的地方。"
-          </p>
+          <p className="text-sm text-cafe-secondary italic">&ldquo;他说的每一句都是对的。这才是最好笑的地方。&rdquo;</p>
           <p className="text-xs text-cafe-muted mt-2">Cat Cafe · 一只严肃的大缅因猫和他的铲屎官</p>
         </div>
       </div>

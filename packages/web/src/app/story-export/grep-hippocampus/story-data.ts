@@ -15,8 +15,7 @@ export const GREP_STORY_CARDS: StoryCard[] = [
     messages: [
       {
         speaker: 'user',
-        content:
-          '控制情绪的那个叫啥来着？属于边缘系统，但不是下丘脑……管情绪的！叫什么！我明明经常用那个来比喻的！',
+        content: '控制情绪的那个叫啥来着？属于边缘系统，但不是下丘脑……管情绪的！叫什么！我明明经常用那个来比喻的！',
       },
       {
         speaker: 'user',
@@ -67,7 +66,8 @@ export const GREP_STORY_CARDS: StoryCard[] = [
     messages: [
       {
         speaker: 'user',
-        content: '笑死你当我是你吗！教我如何检索？！好像我这些都是本能的反应！！能不能检索到！好像🤣不能我可以去 grep 脑子海马体的记忆啊',
+        content:
+          '笑死你当我是你吗！教我如何检索？！好像我这些都是本能的反应！！能不能检索到！好像🤣不能我可以去 grep 脑子海马体的记忆啊',
       },
     ],
   },

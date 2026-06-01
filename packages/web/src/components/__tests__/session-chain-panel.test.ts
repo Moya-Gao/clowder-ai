@@ -164,6 +164,73 @@ describe('F24: SessionChainPanel', () => {
     expect(summary?.textContent).toContain('重试残骸');
   });
 
+  it('collapses repeated runtime-tagged retry fragments without relying on sealReason heuristics', async () => {
+    const fragment = (seq: number) => ({
+      id: `fragment-${seq}`,
+      catId: 'antig-opus',
+      seq,
+      status: 'sealed',
+      messageCount: 0,
+      createdAt: Date.now() - (10 - seq) * 1000,
+      sealedAt: Date.now() - (10 - seq) * 1000,
+      sealReason: 'model_capacity',
+      runtimeSession: {
+        runtime: 'antigravity-desktop',
+        runtimeSessionId: `cascade-fragment-${seq}`,
+        lifecycleState: 'sealed',
+        lastObservedAt: Date.now() - (10 - seq) * 1000,
+        retryFragment: {
+          kind: 'retry',
+          retryReason: 'model_capacity',
+          nextRuntimeSessionId: `cascade-next-${seq}`,
+          detectedAt: Date.now() - (10 - seq) * 1000,
+        },
+      },
+    });
+    mockSessionsResponse([fragment(1), fragment(2), fragment(3)]);
+    renderPanel('thread-1');
+    await flushFetch();
+    expect(container.querySelectorAll('[data-testid="session-card-sealed"]').length).toBe(0);
+    const summary = container.querySelector('[data-testid="session-card-retry-collapsed"]');
+    expect(summary).not.toBeNull();
+    expect(summary?.textContent).toContain('3');
+    expect(summary?.textContent).toContain('重试片段');
+  });
+
+  it('collapses a single runtime-tagged retry fragment', async () => {
+    mockSessionsResponse([
+      {
+        id: 'fragment-single',
+        catId: 'antig-opus',
+        seq: 1,
+        status: 'sealed',
+        messageCount: 0,
+        createdAt: Date.now() - 5000,
+        sealedAt: Date.now() - 4000,
+        sealReason: 'model_capacity',
+        runtimeSession: {
+          runtime: 'antigravity-desktop',
+          runtimeSessionId: 'cascade-fragment-single',
+          lifecycleState: 'sealed',
+          lastObservedAt: Date.now() - 4000,
+          retryFragment: {
+            kind: 'retry',
+            retryReason: 'model_capacity',
+            nextRuntimeSessionId: 'cascade-next-single',
+            detectedAt: Date.now() - 4000,
+          },
+        },
+      },
+    ]);
+    renderPanel('thread-1');
+    await flushFetch();
+    expect(container.querySelectorAll('[data-testid="session-card-sealed"]').length).toBe(0);
+    const summary = container.querySelector('[data-testid="session-card-retry-collapsed"]');
+    expect(summary).not.toBeNull();
+    expect(summary?.textContent).toContain('1');
+    expect(summary?.textContent).toContain('重试片段');
+  });
+
   it('does NOT collapse in-flight sealing 0-msg tool_conflict records (砚砚 review P2)', async () => {
     // requestSeal() writes sealReason while status is still 'sealing' (async-finalizes to 'sealed'
     // later) — a sealing record must keep its own card (live status + 查看/解封), NOT be folded.
