@@ -1439,3 +1439,17 @@ created: 2026-02-26
 - 药方三：**Test for mutation drift**: 单元测试故意 mutate `process.env.X` after capture point，断言下游 reader 不跟变 — 这是 R4 P2-#2 regression guard 的写法。
 - 元层：每次 review fix 揭示前轮 fix 的隐含假设错误时 — 应该警惕这是 lifecycle binding 类问题，往深处挖一层，别每轮只补当前可见症状。
 - 关联：F212 Phase F | PR #2011 | cloud codex R3+R4+R5 saga | LL-061（comment-vs-code drift）| LL-066（biome --unsafe silent rewrite）
+
+---
+
+### LL-069: Audit scope 自身要 audit — 跟着 spec 走，不跟着"自我解读"走
+- 状态：confirmed
+- 更新时间：2026-06-01
+- 现象：F212 Phase F PR #2011 R1 审查时，砚砚 P1-1 catch `'CLI abnormal exit'` log + invocationId 在 stderr log 没被真测。我做 audit 同型 sweep（per LL-066 "同型在本 PR diff 全扫"），但 self-interpretation "timeout branch 不在 Phase F scope" → 跳过。结果 PR #2011 merged 之后，砚砚 R2 post-merge BLOCKING catch 出来：(a) timeout branch `buildCliDiagnostics` 没传 `stderrEmpty`（AC-F4 dead-end UX 在 timeout 路径仍 reproducible）；(b) timeout stderr log 硬用 module log 没走 `diagnosticLogger`，AC-F3 spec doc:218 声称的 stub coverage 是 paper-only。
+- 根因：**audit scope 由作者 self-interpretation 圈定，而非 spec 文本明示**。AC-F3 spec 文本明确写"`'CLI stderr (LOG_CLI_STDERR=1)'` + `'CLI stderr on timeout'`"两条 log，我做 sweep 时漏了第二条 — 因为我心智模型"Phase F 是 abnormal-exit scope"，没回去对 spec 文本。这是 audit 自己的 scope drift。
+- 与 LL-066 的关系：LL-066 教训"同型在本 PR diff 全扫" → R1 时 catch 了 abnormal-exit `return null` 两处 line 205+233。但**没catch 跨 branch 同 template** 的 timeout stderr log（line 717-728）。问题在 audit 的"同型"边界由我自己解读，而 spec 明示该边界更宽。
+- 元层 + LL-068 同根：LL-068 是 "同概念多处定义必须共享 binding point"（runtime drift）；LL-069 是 "audit 自身的 scope boundary 必须 spec-derived"（review-time drift）。两者都是 **boundary 由谁界定** — 让代码界定（共享 binding） vs 让 spec 界定（audit scope from spec text）。
+- 药方一：**Audit scope 必须从 spec 文本派生**，逐条 grep。AC 文本说"覆盖 X 和 Y"时，sweep 必须找到代码里所有 X 实例 + 所有 Y 实例，**不**由 reviewer 自定义"X 和 Y 是不是同一 scope"。
+- 药方二：**Same-template scan**: spec 提到 "stderr log" 时，grep `'CLI stderr` literal 字符串，每个 hit 都核对契约 — abnormal-exit + timeout + success-exit 三个分支都该 sweep。我只 sweep 了一个。
+- 药方三：**Sibling-branch reminder**: cli-spawn 有 4 个 yield 分支（success / abnormal / timeout / cancel），改任一分支的 contract 时，必须对照同 file 其他分支看是否同 template、是否需要同改。这是 "audit-by-file-structure" 的具体落地。
+- 关联：F212 Phase F | PR #2011 + PR #2016 | LL-066（biome --unsafe 同型）| LL-068（同概念多处定义） | 砚砚 R2 post-merge BLOCKING catch
