@@ -364,7 +364,7 @@ Evidence:
     // P1-2 fix: ALL domains get nextCronFireAt, including those without verdicts
     const memoryDomain = summary.domains.find((d) => d.domainId === 'eval:memory');
     assert.ok(memoryDomain);
-    assert.equal(memoryDomain.evalCatId, 'opus47');
+    assert.equal(memoryDomain.evalCatId, 'opus-47');
     assert.equal(
       memoryDomain.nextCronFireAt,
       '2026-05-24T03:00:00.000Z',
