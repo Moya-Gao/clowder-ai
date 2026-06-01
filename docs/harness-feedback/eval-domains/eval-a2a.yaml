@@ -15,8 +15,12 @@ threadPolicy:
     - longitudinal-analysis
     - verdict-discussion
     - handoff-drafts
-legacyScheduledTaskIds:
-  - harness-fit-digest
+legacyScheduledTaskIds: []
+  # Cleaned 2026-06-01: 4 legacy reminder tasks removed (dyn-177847600*/dyn-177847218*).
+  # They were template_id=reminder (not harness-fit-digest), so inventoryLegacyTasks()
+  # never matched them — legacyCleanup.status falsely reported 'disabled' while tasks
+  # were still enabled. Known gap: inventoryLegacyTasks only matches by id/templateId,
+  # not by display.label. No remaining legacy tasks to track.
 handoffTargetResolver:
   featureId: F167
   ownerCatId: opus47
