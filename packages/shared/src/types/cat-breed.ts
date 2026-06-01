@@ -256,6 +256,8 @@ export interface CoCreatorConfig {
   readonly aliases: readonly string[];
   /** Line-start mention patterns for routing detection (e.g. ["@landy", "@l.s."]) */
   readonly mentionPatterns: readonly string[];
+  /** IANA timezone used when injecting co-creator-local timestamps into cat prompts. */
+  readonly timeZone?: string;
   /** Optional co-creator avatar shown in Hub and chat surfaces. */
   readonly avatar?: string;
   /** Optional co-creator palette for Hub/chat surfaces. */

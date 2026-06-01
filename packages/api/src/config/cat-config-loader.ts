@@ -24,6 +24,7 @@ import { type ClientId, catRegistry, createCatId, normalizeCliEffortForProvider 
 import { z } from 'zod';
 import { createModuleLogger } from '../infrastructure/logger.js';
 import { bootstrapCatCatalog, readCatCatalogRaw, resolveCatCatalogPath } from './cat-catalog-store.js';
+import { isValidTimeZone } from './time-zone.js';
 
 const log = createModuleLogger('cat-config');
 
@@ -67,6 +68,12 @@ const agyProfileSchema = z
 const mentionPatternSchema = z.string().min(2).regex(/^@/, 'mentionPattern must start with @');
 
 const colorSchema = z.object({ primary: z.string(), secondary: z.string() });
+
+const timeZoneSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .refine(isValidTimeZone, { message: 'timeZone must be a valid IANA timezone' });
 
 const catVariantSchema = z.object({
   id: z.string().min(1),
@@ -204,6 +211,7 @@ const coCreatorConfigSchema = z.object({
   name: z.string().min(1),
   aliases: z.array(z.string().min(1)),
   mentionPatterns: z.array(mentionPatternSchema).min(1),
+  timeZone: timeZoneSchema.optional(),
   avatar: z.string().min(1).optional(),
   color: colorSchema.optional(),
 });

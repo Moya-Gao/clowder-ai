@@ -31,6 +31,7 @@ import {
   isEditableEnvVarName,
 } from '../config/env-registry.js';
 import { updateRuntimeCoCreator } from '../config/runtime-cat-catalog.js';
+import { isValidTimeZone } from '../config/time-zone.js';
 import { AuditEventTypes, getEventAuditLog } from '../domains/cats/services/orchestration/EventAuditLog.js';
 // F212 Phase F (cloud codex R4 P2-#2 on fc69597675): import logger's captured LOG_DIR
 // so env-summary returns the path the active pino destination is actually writing to.
@@ -51,10 +52,17 @@ const envPatchSchema = z.object({
   updates: z.array(z.object({ name: z.string().min(1), value: z.string().nullable() })).min(1),
 });
 
+const timeZonePatchSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .refine(isValidTimeZone, { message: 'timeZone must be a valid IANA timezone' });
+
 const coCreatorPatchSchema = z.object({
   name: z.string().trim().min(1),
   aliases: z.array(z.string().trim().min(1)),
   mentionPatterns: z.array(z.string().trim().min(1)).min(1),
+  timeZone: timeZonePatchSchema.optional(),
   avatar: z.string().trim().nullable().optional(),
   color: z
     .object({
@@ -220,6 +228,7 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
         name: parsed.data.name,
         aliases: parsed.data.aliases,
         mentionPatterns: parsed.data.mentionPatterns,
+        ...(parsed.data.timeZone !== undefined ? { timeZone: parsed.data.timeZone } : {}),
         ...(parsed.data.avatar !== undefined ? { avatar: parsed.data.avatar } : {}),
         ...(parsed.data.color !== undefined ? { color: parsed.data.color } : {}),
       });
@@ -237,6 +246,7 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
           operator,
           name: next.coCreator.name,
           mentionPatterns: next.coCreator.mentionPatterns,
+          timeZone: next.coCreator.timeZone,
         },
       });
     } catch (err) {
