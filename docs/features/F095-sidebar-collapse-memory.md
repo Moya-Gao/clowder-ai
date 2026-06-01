@@ -11,7 +11,7 @@ status: done
 
 > **Status**: done | **Owner**: 布偶猫 | **Priority**: P1
 **Phase A~D completed: 2026-03-13** | **Phase E/F/G completed: 2026-03-27**
-**Implementation**: PR #366 / #370 / #373 / #376 / #378 / #380 / #779
+**Implementation**: PR #366 / #370 / #373 / #376 / #378 / #380 / #779 / #2022
 
 ## Why
 
@@ -269,6 +269,7 @@ IM Hub 连接器等系统级 thread 需要专属管理，不应丢到"未分类"
 | 2026-03-27 | Phase E hotfix merged (PR #789) — 修复 sessionStorage 被 detached DOM 覆盖导致滚动位置丢失 |
 | 2026-03-27 | Phase E root-cause fix merged (PR #794) — Route Group layout 让 ChatContainer 跨线程切换持久化，消除 unmount/remount 闪烁 |
 | 2026-03-27 | PR #794 regression fix merged (PR #800) — 持久化 ChatContainer 下 prevCountRef/prevFirstIdRef 跨线程残留导致聊天区滚动位置丢失 |
+| 2026-06-01 | Search collapse regression fix merged (PR #2022) — 搜索展开不再覆盖手动折叠状态，并补齐 archived 分组在搜索/活跃 thread 下的展开 |
 
 ## Review Gate
 
