@@ -293,7 +293,12 @@ export function buildCliDiagnostics(args: {
  *  - stderrEmpty: boolean so an alert can fire on "abnormal exit AND no stderr" (the
  *    case where users have nothing to grep)
  *  - streamErrorCount: F212 AC-A8 carrier — NDJSON stream errors are another channel
- *  - cwd: optional, sanitized via sanitizeCliStderr (HOME → ~) so no raw path leaks
+ *
+ * NOTE: cwd is intentionally NOT in this payload (砚砚 R1 P1-2 + cloud codex R1 P2 双源
+ * catch): sanitizeCliStderr only covers HOME-based paths, so non-HOME server installs
+ * (/srv, /workspace, /var/lib, D:\work) would leak raw absolute paths. cwd is also
+ * redundant with `command` (binary path conveys install context) + `invocationId`
+ * (lookup via thread/session metadata). Do NOT add cwd back without a full safety review.
  */
 export interface CliExitDiagnosticPayload {
   invocationId: string | null;

@@ -1954,6 +1954,80 @@ test('F212 Phase F (AC-F3, 砚砚 P1-1): stderr log payload includes invocationI
   );
 });
 
+// F212 Phase F (砚砚 R2 post-merge follow-up): timeout branch was missing the same fixes
+// as abnormal-exit branch — buildCliDiagnostics call had no stderrEmpty (AC-F4 dead-end
+// reappears) + timeout stderr log used module log directly (AC-F3 contract untestable).
+// Without these tests, removing stderrEmpty pass-through OR removing diagnosticLogger
+// injection in timeout branch would not be caught by the existing AC-F3/F4 suite.
+
+test('F212 Phase F (AC-F4, 砚砚 R2 P1): timeout + empty stderr + unknown → honest hint, NO LOG_CLI_STDERR dangle', async () => {
+  delete process.env.LOG_CLI_STDERR;
+  const proc = createMockProcess(); // default exitOnKill — kills on timeout
+  const spawnFn = createMockSpawnFn(proc);
+
+  const promise = collect(
+    spawnCli({ command: 'codex.cmd', args: [], timeoutMs: 50, invocationId: 'inv-timeout-empty' }, { spawnFn }),
+  );
+  // Let timeout fire, then close stdout so the generator returns
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  proc.stdout.end();
+
+  const results = await promise;
+  const timeout = results.find((r) => r?.__cliTimeout);
+  assert.ok(timeout, 'should yield __cliTimeout when no stderr + timeout fires');
+  assert.equal(timeout.cliDiagnostics.reasonCode, undefined, 'unknown classifier (empty rawText)');
+  // Same AC-F4 assertions as abnormal-exit branch
+  assert.ok(
+    timeout.cliDiagnostics.publicHint.includes('没有输出 stderr'),
+    `timeout empty-stderr hint must mention "没有输出 stderr": ${timeout.cliDiagnostics.publicHint}`,
+  );
+  assert.ok(
+    timeout.cliDiagnostics.publicHint.includes('invocationId'),
+    `timeout empty-stderr hint must mention invocationId: ${timeout.cliDiagnostics.publicHint}`,
+  );
+  // Critical regression guard: do NOT dangle LOG_CLI_STDERR=1 false hope
+  assert.ok(
+    !timeout.cliDiagnostics.publicHint.includes('LOG_CLI_STDERR'),
+    `timeout empty-stderr hint must NOT mention LOG_CLI_STDERR (would resurface dead-end UX): ${timeout.cliDiagnostics.publicHint}`,
+  );
+});
+
+test('F212 Phase F (AC-F3, 砚砚 R2 P1): timeout stderr log routes through diagnosticLogger + carries invocationId', async () => {
+  process.env.LOG_CLI_STDERR = '1';
+  const proc = createMockProcess(); // default exitOnKill — kills on timeout
+  const spawnFn = createMockSpawnFn(proc);
+  const { stub, callsByMsg } = createLogStub();
+
+  const promise = collect(
+    spawnCli(
+      {
+        command: 'codex',
+        args: [],
+        timeoutMs: 50,
+        invocationId: 'inv-timeout-stderr-id',
+        diagnosticLogger: stub,
+      },
+      { spawnFn },
+    ),
+  );
+  // Write stderr BEFORE timeout fires so the branch sees non-empty stderr and emits the log
+  proc.stderr.write('401 Unauthorized\n');
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  proc.stdout.end();
+  await promise;
+  delete process.env.LOG_CLI_STDERR;
+
+  // AC-F3 spec: 'CLI stderr on timeout (LOG_CLI_STDERR=1)' MUST also flow through the
+  // stub (R2 P1 catch was: was hard-using module log → stub silent → contract untestable)
+  const timeoutStderrLogs = callsByMsg('CLI stderr on timeout (LOG_CLI_STDERR=1)');
+  assert.equal(timeoutStderrLogs.length, 1, 'timeout stderr log MUST route through diagnosticLogger (R2 P1 fix)');
+  assert.equal(
+    timeoutStderrLogs[0].payload.invocationId,
+    'inv-timeout-stderr-id',
+    'invocationId in timeout stderr log payload (AC-F3 contract)',
+  );
+});
+
 test('F212 Phase F (AC-F4): exit 1 + empty stderr → cliDiagnostics carries empty-stderr honest hint (no LOG_CLI_STDERR mention)', async () => {
   delete process.env.LOG_CLI_STDERR;
   const proc = createMockProcess({ exitOnKill: false });

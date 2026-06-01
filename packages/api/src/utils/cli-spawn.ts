@@ -703,10 +703,17 @@ export async function* spawnCli(
     // Yield timeout error (distinct from user cancel which stays silent)
     if (timedOut) {
       // F212 AC-A1: include cliDiagnostics on timeout too (network timeout etc. often classifiable)
+      // F212 Phase F (砚砚 R2 P1, post-merge follow-up): timeout branch was missing the
+      // `stderrEmpty` signal to buildCliDiagnostics — without it, a timeout + empty stderr +
+      // unknown classifier falls back to the legacy UNKNOWN_TEXT hint that points at
+      // LOG_CLI_STDERR=1, exactly the dead-end UX Phase F was meant to kill. Same fix as the
+      // abnormal-exit branch (same template, same gap).
       const rawText = [...streamErrorTexts, stderrBuffer].filter(Boolean).join('\n');
+      const timeoutStderrTrimLen = stderrBuffer.trim().length;
       const cliDiagnostics: CliDiagnostics = buildCliDiagnostics({
         rawText,
         structuredErrorText: structuredErrorTexts.filter(Boolean).join('\n'),
+        stderrEmpty: timeoutStderrTrimLen === 0,
         debugRef: {
           command: options.command,
           exitCode,
@@ -714,11 +721,15 @@ export async function* spawnCli(
           ...(options.invocationId ? { invocationId: options.invocationId } : {}),
         },
       });
-      // F212 AC-A7 + Phase F AC-F3: gated + sanitized stderr log via shared helper.
-      // AC-F3 adds invocationId for cross-log correlation.
+      // F212 AC-A7 + Phase F AC-F3 (砚砚 R2 P1 follow-up): gated + sanitized stderr log via
+      // shared helper. AC-F3 spec covers BOTH 'CLI stderr (LOG_CLI_STDERR=1)' and 'CLI stderr
+      // on timeout' — the post-merge R2 review caught that the timeout branch was still hard-
+      // using module `log`, so the diagnosticLogger stub couldn't verify the contract. Reuse
+      // `diagLog = options.diagnosticLogger ?? log` so AC-F3 spec line is actually testable.
       const stderrForLog = formatCliStderrForLog(stderrBuffer);
       if (stderrForLog) {
-        log.error(
+        const timeoutDiagLog = options.diagnosticLogger ?? log;
+        timeoutDiagLog.error(
           {
             ...(options.invocationId ? { invocationId: options.invocationId } : {}),
             command: options.command,
