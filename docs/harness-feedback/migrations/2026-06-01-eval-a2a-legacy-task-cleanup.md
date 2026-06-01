@@ -53,12 +53,12 @@ Cleanup rationale: **dedup/noise reduction**, not unblocking (eval:a2a was not b
 - enabled: `true`
 - trigger: cron `0 12 1 * *` (UTC)
 - label: "F192 Monthly Harness-Fit Digest"
-- description: same as Task 2
+- description: "F192 Monthly Digest (harness-fit-digest): Run `node scripts/run-f167-eval.mjs --digest` to aggregate this month's daily snapshots into a monthly digest at docs/harness-feedback/digests/. Review the digest and update F192 spec with conclusions (upgrade/streamline/sunset)."
 - delivery_thread_id: thread_motijq80q62n5wku
 
 ## Deletion Details
 
-- Deleted by: [宪宪/Opus-47🐾]
+- Deleted by: 布偶猫 Opus 4.6 (@opus)
 - Deleted at: 2026-06-01T14:19Z (approx)
 - Method: `cat_cafe_remove_scheduled_task` MCP tool, 4 parallel calls
 - Commit: `465e46ec8` (docs/harness-feedback/eval-domains/eval-a2a.yaml update)
@@ -73,21 +73,63 @@ Cleanup rationale: **dedup/noise reduction**, not unblocking (eval:a2a was not b
 
 ## Rollback Instructions
 
-If any of these tasks need to be restored, recreate via `cat_cafe_register_scheduled_task`:
+Rollback is NOT recommended — eval-domain-daily fully covers this functionality with
+verdict handoff, trend analysis, and re-eval closure that the legacy tasks lacked.
+Original task IDs are not preserved; recreated tasks will get new `dyn-*` IDs.
+
+If rollback is needed, recreate via `cat_cafe_register_scheduled_task` with these payloads:
+
+### Task 1 rollback (Daily Eval Snapshot — 04:00 PDT / 11:00 UTC)
 
 ```json
 {
   "templateId": "reminder",
   "trigger": { "type": "cron", "expression": "0 11 * * *", "timezone": "UTC" },
   "params": {
-    "message": "F192 Daily Eval: Run `node scripts/run-f167-eval.mjs --store --cookie $EVAL_SESSION_COOKIE`..."
+    "message": "F192 Daily Eval: Run `node scripts/run-f167-eval.mjs --store --cookie $EVAL_SESSION_COOKIE` to capture today's F167 harness eval snapshot to docs/harness-feedback/snapshots/. Dedup is built-in (skips if today's file already exists)."
   },
   "deliveryThreadId": "thread_motijq80q62n5wku"
 }
 ```
 
-Note: rollback is NOT recommended — eval-domain-daily fully covers this functionality
-with verdict handoff, trend analysis, and re-eval closure that the legacy tasks lacked.
+### Task 2 rollback (Monthly Harness-Fit Digest — 05:00 PDT / 12:00 UTC on 1st)
+
+```json
+{
+  "templateId": "reminder",
+  "trigger": { "type": "cron", "expression": "0 12 1 * *", "timezone": "UTC" },
+  "params": {
+    "message": "F192 Monthly Digest (harness-fit-digest): Run `node scripts/run-f167-eval.mjs --digest` to aggregate this month's daily snapshots into a monthly digest at docs/harness-feedback/digests/. Review the digest and update F192 spec with conclusions (upgrade/streamline/sunset)."
+  },
+  "deliveryThreadId": "thread_motijq80q62n5wku"
+}
+```
+
+### Task 3 rollback (Daily Eval Snapshot — 10:00 PDT / 17:00 UTC)
+
+```json
+{
+  "templateId": "reminder",
+  "trigger": { "type": "cron", "expression": "0 17 * * *", "timezone": "UTC" },
+  "params": {
+    "message": "F192 Daily Eval: run `node scripts/run-f167-eval.mjs --store` to capture today's F167 eval snapshot. Requires session cookie from runtime."
+  },
+  "deliveryThreadId": "thread_motijq80q62n5wku"
+}
+```
+
+### Task 4 rollback (Monthly Harness-Fit Digest — duplicate of Task 2)
+
+```json
+{
+  "templateId": "reminder",
+  "trigger": { "type": "cron", "expression": "0 12 1 * *", "timezone": "UTC" },
+  "params": {
+    "message": "F192 Monthly Digest (harness-fit-digest): Run `node scripts/run-f167-eval.mjs --digest` to aggregate this month's daily snapshots into a monthly digest at docs/harness-feedback/digests/. Review the digest and update F192 spec with conclusions (upgrade/streamline/sunset)."
+  },
+  "deliveryThreadId": "thread_motijq80q62n5wku"
+}
+```
 
 ## Known Gap (P3)
 
