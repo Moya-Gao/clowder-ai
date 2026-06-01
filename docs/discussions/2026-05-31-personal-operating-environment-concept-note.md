@@ -16,6 +16,7 @@ status: concept-note
 > - [元宝二面复盘](career-planning/2026-06-01-yuanbao-round2-eval-deep-dive.md)
 > - [F192 Eval 覆盖度审计](2026-06-01-f192-eval-coverage-audit.md)
 > - [Taste Memory 设计](2026-05-31-taste-memory-design.md)
+> - [Meta-method Distillation](2026-06-01-meta-method-distillation.md)
 > - [Longform 002](../content/drafts/longform-002-v0-formal.md)
 > - [可进化工作环境](../research/2026-05-27-evolvable-harness/codex-evolvable-environment.md)
 > - [深夜撸铁前的猫猫陪伴](../stories/late-night-gym-companionship/README.md)
@@ -323,6 +324,8 @@ Landy 的"好"和"不好"怎么变成系统可学习的信号？
 ### OQ-3：Skill 如何从真实轨迹里长出来？
 
 不是手写教程，而是经验蒸馏流水线。
+
+具体收敛见：[Meta-method Distillation](2026-06-01-meta-method-distillation.md)。
 
 需要回答：
 
