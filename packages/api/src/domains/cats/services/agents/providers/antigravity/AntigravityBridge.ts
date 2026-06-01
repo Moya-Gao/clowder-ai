@@ -848,7 +848,10 @@ export class AntigravityBridge {
     pollIntervalMs = 2_000,
     signal?: AbortSignal,
     expectFollowUpTurn = false,
+    replayBaselineStepCount = stepsBefore,
   ): AsyncGenerator<StepBatch> {
+    // stepsBefore is the resume cursor. replayBaselineStepCount is the original send baseline used
+    // to filter previous-turn mutations from replay; retries may pass a later stepsBefore cursor.
     // F211-REG8: busy-reuse — when sendMessage saw the cascade RUNNING, the follow-up queues behind
     // the current turn (picked up only after that turn's terminal IDLE). pollForSteps must then NOT
     // terminate at the OLD turn's terminal IDLE; it waits until the follow-up's own USER_INPUT step
@@ -975,7 +978,13 @@ export class AntigravityBridge {
       }
 
       if (shouldFetchForNewSteps || shouldFetchForMutation) {
-        const diff = diffDeliveredSteps(allSteps, delivered, deliveredFingerprints, deliveredPlannerTexts);
+        const diff = diffDeliveredSteps(
+          allSteps,
+          delivered,
+          deliveredFingerprints,
+          deliveredPlannerTexts,
+          replayBaselineStepCount,
+        );
         replaySteps = diff.replaySteps;
         nextFingerprints = diff.nextFingerprints;
         nextPlannerTexts = diff.nextPlannerTexts;
@@ -1019,7 +1028,7 @@ export class AntigravityBridge {
         yield {
           steps: emittedSteps,
           cursor: {
-            baselineStepCount: stepsBefore,
+            baselineStepCount: replayBaselineStepCount,
             lastDeliveredStepCount: delivered,
             terminalSeen: terminalReady,
             lastActivityAt,
@@ -1044,7 +1053,7 @@ export class AntigravityBridge {
             yield {
               steps: [],
               cursor: {
-                baselineStepCount: stepsBefore,
+                baselineStepCount: replayBaselineStepCount,
                 lastDeliveredStepCount: delivered,
                 terminalSeen: false,
                 lastActivityAt,
@@ -1068,7 +1077,7 @@ export class AntigravityBridge {
           yield {
             steps: [],
             cursor: {
-              baselineStepCount: stepsBefore,
+              baselineStepCount: replayBaselineStepCount,
               lastDeliveredStepCount: delivered,
               terminalSeen: true,
               lastActivityAt,
@@ -1093,7 +1102,7 @@ export class AntigravityBridge {
           yield {
             steps: [],
             cursor: {
-              baselineStepCount: stepsBefore,
+              baselineStepCount: replayBaselineStepCount,
               lastDeliveredStepCount: delivered,
               terminalSeen: false,
               lastActivityAt,

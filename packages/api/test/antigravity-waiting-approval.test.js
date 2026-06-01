@@ -637,6 +637,11 @@ describe('Antigravity waiting approval', () => {
     assert.equal(bridge.pollForSteps.mock.calls.length, 2);
     // Second call should start from step 1 (last delivered), not 0 (original stepsBefore)
     assert.equal(bridge.pollForSteps.mock.calls[1].arguments[1], 1, 'retry must resume from lastDeliveredStepCount=1');
+    assert.equal(
+      bridge.pollForSteps.mock.calls[1].arguments[6],
+      0,
+      'retry must preserve original replay baseline separately from the resume cursor',
+    );
   });
 
   test('AC-G1: keeps waiting across repeated stalls when trajectory still shows liveness', async () => {

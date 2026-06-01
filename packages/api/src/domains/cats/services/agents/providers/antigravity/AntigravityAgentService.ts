@@ -1135,6 +1135,8 @@ export class AntigravityAgentService implements AgentService {
           const iterator = self.bridge
             // F211-REG8: only the FIRST poll (fromStep === the original stepsBefore) is the busy-reuse
             // follow-up; re-polls advance fromStep and must use normal termination (no extra USER_INPUT wait).
+            // Keep the replay baseline pinned to the original send boundary so same-turn planner
+            // mutations still replay after a stall/probe resumes from lastDelivered.
             .pollForSteps(
               cascadeId,
               fromStep,
@@ -1142,6 +1144,7 @@ export class AntigravityAgentService implements AgentService {
               2_000,
               options?.signal,
               wasBusy && fromStep === stepsBefore,
+              stepsBefore,
             )
             [Symbol.asyncIterator]();
 
