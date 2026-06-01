@@ -7,7 +7,7 @@ created: 2026-05-30
 
 # F216: routeSerial 决策层/执行层分离重构
 
-> **Status**: in-progress (Phase B 全交付 PR #1987/#1991；Phase D 核心交付 PR #1971/#1997；剩 D5-D7 review nits + AC-D3 alpha 验收) | **Owner**: @opus48（本 F216 thread = 设计 from F215-thread handoff + 执行 owner，同一只猫继续持有） | **Priority**: P1 | **Source**: internal (F215 引爆点)
+> **Status**: ready-for-close (代码交付 + alpha 验收 + 愿景守护 UX 加固全完成；等待 CVO signoff close) | **Owner**: @opus48（本 F216 thread = 设计 from F215-thread handoff + 执行 owner，同一只猫继续持有） | **Priority**: P1 | **Source**: internal (F215 引爆点)
 
 Architecture cell: `routing`
 Map delta: routeSerial 从 2302 行单函数拆为决策层(纯函数) + 执行层(for-await yield)
@@ -107,7 +107,7 @@ routeSerial 是 Cat Cafe 的核心路由引擎——所有 A2A 串行调度、me
 
 - [x] AC-D1: processing 中的 target 收到同 turn follow-up → abort 正在跑的 + 用 follow-up（last-wins）重启，不重跑被 supersede 的第一条（PR #1997）
 - [x] AC-D2: abort+restart 不引入 `processingSlots` mutex race（复用 force-send 的 cancelInvocation+clearPause+releaseSlot 已验证模式 + tombstone guard）（PR #1997）
-- [ ] AC-D3: 真实 runtime 验证——猫连发两条矛盾 handoff 给同一只猫，目标猫只执行最终意图，不先跑错第一步（deferred to alpha 验收）
+- [x] AC-D3: 真实 runtime 验证——猫连发两条矛盾 handoff 给同一只猫，目标猫只执行最终意图，不先跑错第一步（正式 alpha 验收 PASS：`pnpm alpha:start` 隔离环境，a2a-coalesce 22/22 + process-liveness 15/15）
 - [x] AC-D4: queued-merge（已交付）零回归——22 个 a2a-coalesce + 85 queue-processor 测试全绿（PR #1997）
 
 #### Review nits 收口（PR #1971 已交付后的 reviewer 建议，归 Phase D 一并清理）
@@ -126,6 +126,9 @@ routeSerial 是 Cat Cafe 的核心路由引擎——所有 A2A 串行调度、me
 | 2026-05-31 | Phase B c2 merged（PR #1991 squash `d3966c85d`）：queue-pending（deferred）路径接入 resolveRoutingDecisions（逐 cat，非 batch）+ defer_queue 计入 depth budget。砚砚跨族 review 3 轮（3 P1 修复）+ 云端 review（0 findings） |
 | 2026-05-31 | Phase D c3 merged（PR #1997）：supersede — processing 中同 caller→target 重复 handoff abort+restart（last-wins）。两层防御（trigger tombstone + QueueProcessor guard）。砚砚跨族 review 5 轮 + 云端 review（6 findings 全 already-fixed） |
 | 2026-05-31 | Phase D D5-D7 nits merged（PR #2002）：vote coalesced→missed 修复 + delivery 误报修复 + queue_updated action 语义准确。砚砚 2 轮 + 云端（3 findings 全 already-fixed） |
+| 2026-05-31 | Liveness unblock merged（PR #2003 squash `166ba4566`）：修复 Codex CLI busy-silent 卡死/误杀边界，保证 F216 AC-D3 alpha 验收可稳定跑完。砚砚 author，opus-48 跨族 review，多轮云端 review 0 major 后合入 |
+| 2026-05-31 | AC-D3 正式 alpha 验收 PASS：`pnpm alpha:start` 隔离环境，a2a-coalesce 22/22 + process-liveness 15/15；supersede / tombstone / queued coalesce 三路径全绿 |
+| 2026-06-01 | 愿景守护 UX 加固 merged（PR #2008 squash `a122e890a` + PR #2010 squash `55945f208`）：steer 默认 non-interrupting promote，安全选项置顶，immediate 警告色；砚砚跨族 review + 云端 review 0 major。F216 ready for CVO signoff close |
 
 ## Review Gate
 
