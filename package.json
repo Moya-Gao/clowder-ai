@@ -19,6 +19,7 @@
     "alpha:start": "./scripts/alpha-worktree.sh start",
     "alpha:status": "./scripts/alpha-worktree.sh status",
     "antigravity:smoke": "node scripts/antigravity-availability-smoke.mjs",
+    "f210:agy-profile-smoke": "pnpm --filter @cat-cafe/api run smoke:f210-agy-profiles",
     "alpha:test": "bash ./scripts/alpha-worktree.test.sh",
     "runtime:init": "./scripts/runtime-worktree.sh init",
     "runtime:sync": "./scripts/runtime-worktree.sh sync",
