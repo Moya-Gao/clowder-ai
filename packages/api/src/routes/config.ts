@@ -32,6 +32,11 @@ import {
 } from '../config/env-registry.js';
 import { updateRuntimeCoCreator } from '../config/runtime-cat-catalog.js';
 import { AuditEventTypes, getEventAuditLog } from '../domains/cats/services/orchestration/EventAuditLog.js';
+// F212 Phase F (cloud codex R4 P2-#2 on fc69597675): import logger's captured LOG_DIR
+// so env-summary returns the path the active pino destination is actually writing to.
+// Reading process.env.LOG_DIR here would diverge from logger after a runtime
+// `PATCH /api/config/env` LOG_DIR edit — env-summary would lie about effective path.
+import { LOG_DIR_PATH } from '../infrastructure/logger.js';
 import { resolveActiveProjectRoot } from '../utils/active-project-root.js';
 import { resolveHeaderUserId } from '../utils/request-identity.js';
 import { getDefaultUploadDir } from '../utils/upload-paths.js';
@@ -260,7 +265,13 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
         homeDir: home,
         dataDirs: {
           auditLogs: resolve(apiCwd, process.env.AUDIT_LOG_DIR ?? './data/audit-logs'),
-          runtimeLogs: resolve(apiCwd, './data/logs/api'),
+          // F212 Phase F (cloud codex R3 P2 on 3083d7c5f + R4 P2-#2 on fc69597675): use
+          // the path the pino destination CAPTURED at logger import. Reading process.env.
+          // LOG_DIR directly would let runtime `PATCH /api/config/env` edits change what
+          // env-summary returns while pino keeps writing to the import-time value — the
+          // AC-F5 hint would then point users to a directory that has no current logs.
+          // Single source of truth = LOG_DIR_PATH.
+          runtimeLogs: LOG_DIR_PATH,
           cliArchive: resolve(apiCwd, process.env.CLI_RAW_ARCHIVE_DIR ?? './data/cli-raw-archive'),
           redisDevSandbox: resolve(home, '.cat-cafe/redis-dev-sandbox'),
           uploads: getDefaultUploadDir(process.env.UPLOAD_DIR),

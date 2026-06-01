@@ -14,6 +14,7 @@ import { registerLivenessProbe, unregisterLivenessProbe } from '../infrastructur
 import { emitOtelLog } from '../infrastructure/telemetry/otel-logger.js';
 import {
   buildCliDiagnostics,
+  buildCliExitDiagnostic,
   type CliDiagnostics,
   type CliErrorReasonCode,
   formatCliStderrForLog,
@@ -633,9 +634,13 @@ export async function* spawnCli(
       // F212 AC-A1 + AC-A8: build structured diagnostics from BOTH stderr and stream error events.
       // Stream errors (NDJSON `{type:"error"}`) often carry the real semantic (Codex code 1 case).
       const rawText = [...streamErrorTexts, stderrBuffer].filter(Boolean).join('\n');
+      // F212 Phase F (AC-F4/F5): pass stderrEmpty so buildCliDiagnostics can pick the
+      // honest unknown-fallback hint (empty → "no stderr produced" vs non-empty → env-summary).
+      const stderrTrimLen = stderrBuffer.trim().length;
       const cliDiagnostics: CliDiagnostics = buildCliDiagnostics({
         rawText,
         structuredErrorText: structuredErrorTexts.filter(Boolean).join('\n'),
+        stderrEmpty: stderrTrimLen === 0,
         debugRef: {
           command: options.command,
           exitCode,
@@ -643,11 +648,43 @@ export async function* spawnCli(
           ...(options.invocationId ? { invocationId: options.invocationId } : {}),
         },
       });
-      // F212 AC-A7 + OQ-2: stderr log gated + sanitized via shared helper.
+      // F212 Phase F (AC-F1 + AC-F2): UNCONDITIONAL structured exit diagnostic log,
+      // independent of LOG_CLI_STDERR env gate and independent of stderr emptiness. This
+      // guarantees that Windows codex.cmd + empty stderr abnormal exits still leave a
+      // searchable trail keyed by invocationId. AC-F2 scope contract: env gate STILL only
+      // controls the raw/sanitized stderr field below.
+      // P1-1 (砚砚 R1): use options.diagnosticLogger when provided so AC-F6 tests can
+      // assert the actual log payload — production omits and falls back to module log.
+      const diagLog = options.diagnosticLogger ?? log;
+      diagLog.error(
+        buildCliExitDiagnostic({
+          ...(options.invocationId ? { invocationId: options.invocationId } : {}),
+          command: options.command,
+          exitCode,
+          signal: exitSignal,
+          ...(cliDiagnostics.reasonCode ? { reasonCode: cliDiagnostics.reasonCode } : {}),
+          stderrLength: stderrTrimLen,
+          streamErrorCount: streamErrorTexts.length,
+          // P1-2 (砚砚 R1): cwd dropped entirely. sanitizeCliStderr only covers HOME /
+          // userprofile / C:\Users / /tmp — non-HOME server installs (/srv, /workspace,
+          // /var/lib, D:\work) would leak raw absolute paths. Per 砚砚 directive "无法证明
+          // 安全就 omit" — the diagnostic value of cwd is redundant with `command` (binary
+          // path already conveys install context) and invocationId (lookup via thread metadata).
+        }),
+        'CLI abnormal exit',
+      );
+      // F212 AC-A7 + OQ-2 + Phase F AC-F3: stderr log gated + sanitized via shared helper.
+      // AC-F3 adds invocationId to the payload so frontend debugRef.invocationId can be used
+      // to grep the corresponding stderr log line (previously the field was missing).
       const stderrForLog = formatCliStderrForLog(stderrBuffer);
       if (stderrForLog) {
-        log.error(
-          { command: options.command, stderr: stderrForLog, reasonCode: cliDiagnostics.reasonCode },
+        diagLog.error(
+          {
+            ...(options.invocationId ? { invocationId: options.invocationId } : {}),
+            command: options.command,
+            stderr: stderrForLog,
+            reasonCode: cliDiagnostics.reasonCode,
+          },
           'CLI stderr (LOG_CLI_STDERR=1)',
         );
       }
@@ -677,11 +714,17 @@ export async function* spawnCli(
           ...(options.invocationId ? { invocationId: options.invocationId } : {}),
         },
       });
-      // F212 AC-A7: gated + sanitized stderr log via shared helper.
+      // F212 AC-A7 + Phase F AC-F3: gated + sanitized stderr log via shared helper.
+      // AC-F3 adds invocationId for cross-log correlation.
       const stderrForLog = formatCliStderrForLog(stderrBuffer);
       if (stderrForLog) {
         log.error(
-          { command: options.command, stderr: stderrForLog, reasonCode: cliDiagnostics.reasonCode },
+          {
+            ...(options.invocationId ? { invocationId: options.invocationId } : {}),
+            command: options.command,
+            stderr: stderrForLog,
+            reasonCode: cliDiagnostics.reasonCode,
+          },
           'CLI stderr on timeout (LOG_CLI_STDERR=1)',
         );
       }
