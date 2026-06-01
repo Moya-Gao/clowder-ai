@@ -69,9 +69,7 @@ describe('eval-domain-daily task spec', () => {
     // Since a2a has NO legacy tasks, even with memory blocked, gate still runs for a2a.
     // To truly block all daily domains, a2a would need legacy tasks — but it no longer has any.
     // Updated: test now verifies that with only memory blocked, gate still runs (a2a remains).
-    const activeLegacyTasks = [
-      { id: 'memory-recall-digest', templateId: 'memory-recall-digest', enabled: true },
-    ];
+    const activeLegacyTasks = [{ id: 'memory-recall-digest', templateId: 'memory-recall-digest', enabled: true }];
     const spec = createEvalDomainDailySpec({
       harnessFeedbackRoot: repoHarnessFeedbackRoot,
       listDynamicTasks: () => activeLegacyTasks,
