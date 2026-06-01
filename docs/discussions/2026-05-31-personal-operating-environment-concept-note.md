@@ -325,7 +325,12 @@ Landy 的"好"和"不好"怎么变成系统可学习的信号？
 
 不是手写教程，而是经验蒸馏流水线。
 
-具体收敛见：[Meta-method Distillation](2026-06-01-meta-method-distillation.md)。
+具体收敛见：[Meta-method Distillation](2026-06-01-meta-method-distillation.md)。后续讨论把边界扩展为两条链路：
+
+- 从真实 episode 往上蒸馏：`Episode -> Pivot -> Topology -> Method Card -> Skill -> Eval`
+- 从 L0 / 家规 / Magic Words 往下还原：把已经在空气里运行的方法重新命名，例如 `CVO Attention Funnel`、`Coordinate Reframing`、`Evidence-backed Pushback`
+
+这里的关键不是让每个普通用户都能抽象出 meta-method，而是让专家基线提供 golden path；普通用户提供真实轨迹和 outcome 信号，系统再提名、验证、沉淀可迁移方法。
 
 需要回答：
 
