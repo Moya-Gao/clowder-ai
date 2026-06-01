@@ -23,6 +23,10 @@ pnpm f210:agy-profile-smoke -- --run-live --home-root ~/.cat-cafe/agy-profiles -
 ```
 
 The first command is a dry-run contract check. The second command invokes AGY.
+When a profile HOME is not authenticated, AGY may open a Google OAuth browser
+window before returning the auth-required diagnostic. Notify the CVO before
+running `--run-live`, and close any OAuth window if the goal is only to collect
+the fail-closed auth boundary rather than onboard the profile.
 
 ## Target Matrix
 
@@ -47,7 +51,9 @@ error fails the runner. The runner sanitizes OAuth URLs from reportable errors.
 The runner creates or reuses profile HOME directories through the production
 `GeminiAgentService` + `resolveAgyProfile()` path. It does not solve OAuth
 onboarding. If a profile HOME is not authenticated, AGY should return the
-existing auth-required diagnostic and the smoke must remain failed.
+existing auth-required diagnostic and the smoke must remain failed. A browser
+OAuth prompt is an expected side effect of that boundary, not proof that the
+profile is ready.
 
 AC-G2 remains open until the live `--run-live` report passes for all target
 profiles and the resulting evidence is attached to this feature.

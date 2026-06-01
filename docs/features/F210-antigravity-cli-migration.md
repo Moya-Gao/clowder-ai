@@ -144,7 +144,7 @@ Add deterministic Cat Cafe profiles for Antigravity CLI only after the model-sel
 | R5 | 不要把企业例外/旧 fallback 写没 | AC-E2, AC-E4 | fallback tests + docs | [x] |
 | R6 | “antigravity-cli 至少要接入 Opus / Gemini 3.1 Pro / 3.5 Flash” | AC-G1, AC-G2, AC-G3 | official model docs + local AGY settings/probe + E2E smoke per profile | [ ] |
 | R7 | “AGY 也得开 yolo；隔离不同猫要验证 HOME/AGY config sandbox，并给 worktree 权限” | AC-G4, AC-G5 | profile-sandbox smoke with `--dangerously-skip-permissions`, isolated settings/MCP/trusted workspace, and worktree access probe | [x] |
-| R8 | “像 F198 拯救布偶猫那样接入 AGY 互动式 CLI？” | AC-G6 | local language-server API probe + PTY fallback smoke + carrier decision packet | [ ] |
+| R8 | “像 F198 拯救布偶猫那样接入 AGY 互动式 CLI？” | AC-G6 | local language-server API probe + PTY fallback smoke + carrier decision packet | [x] |
 
 ### 覆盖检查
 
@@ -229,13 +229,15 @@ The non-ACP `GeminiAgentService` default route is now `antigravity-cli` when nei
 - [x] AC-G3: Runtime preflight reports a clear actionable warning when AGY is missing, no default model is selected, or requested profile selection cannot be verified.
 - [x] AC-G4: Cat Cafe AGY invocations run with an explicit auto-approval policy (`--dangerously-skip-permissions`) only inside an isolated AGY profile sandbox; no unattended runtime path may depend on interactive permission prompts.
 - [x] AC-G5: Profile-sandbox smoke proves each AGY profile can access its assigned worktree and MCP config while keeping `~/.gemini/antigravity-cli/settings.json` / `trustedWorkspaces` / permissions isolated from other profiles.
-- [ ] AC-G6: Interactive-carrier spike proves the preferred structured control plane, or explicitly rejects it and documents the PTY/tmux fallback boundaries before any user-facing AGY interactive bridge ships.
+- [x] AC-G6: Interactive-carrier spike proves the preferred structured control plane, or explicitly rejects it and documents the PTY/tmux fallback boundaries before any user-facing AGY interactive bridge ships.
 
 Phase G starts from the current constraint: `GeminiAgentService.invokeAntigravityCLI()` intentionally reports `model: account-selected (antigravity-cli)` and emits `antigravity_cli_model_override_unsupported` when a Cat Cafe model override is requested. This is correct until a stable model id/config contract is proven. The immediate runtime update after PR #1863 only switches the non-ACP Google service default to AGY; it does not move catalog ACP cats off `gemini --acp`, and it does not mean Opus/Gemini profile routing is deterministic.
 
 Phase G ACP probe source: `docs/features/assets/F210/phase-g-acp-probe-2026-05-23.md`. Current result: `agy 1.0.1` is globally installed and `agy --print` works, but AGY does not expose a supported/documented ACP server mode. Gemini CLI `0.42.0` still exposes `--acp`, `--model`, and `stream-json`; AGY exposes interactive `/model` plus persistent `~/.gemini/antigravity-cli/settings.json` model selection instead. Do not route AGY through `GeminiAcpAdapter` unless a future AGY release adds a compatible ACP surface.
 
 Phase G interactive/API probe source: `docs/features/assets/F210/phase-g-interactive-api-probe-2026-05-23.md`. Current result: AGY interactive mode can be driven from a PTY, but the stronger F198-like lead is AGY's local language-server HTTP/Connect API. Read-only endpoints expose conversation metadata, model catalog/config, and MCP server state. Message send/update-stream/model-selection semantics remain unproven, so this is a spike lead rather than a runtime carrier yet.
+
+Phase G interactive carrier decision source: `docs/features/assets/F210/phase-g-interactive-carrier-decision-2026-06-01.md`. Current result: AGY 1.0.3's local language-server API is rejected as the production interactive carrier for now. The API can observe state through read endpoints and `StreamAgentStateUpdates` when called with Connect JSON framing, but `SendUserCascadeMessage` could only create user steps and then failed model execution under the tried schemas; API-level model selection and cancellation are not proven as a complete lifecycle. Cat Cafe keeps `agy --print` with isolated profile sandboxes as the production unattended path, and PTY/tmux is documented as manual takeover/observation only. This closes AC-G6 without closing AC-G2.
 
 Phase G AGY 1.0.3 refresh source: `docs/features/assets/F210/phase-g-agy-1.0.3-capability-refresh-2026-05-31.md` (PR #1996). Current result: `--conversation` / `--continue` / `--dangerously-skip-permissions` / `plugin` are now visible in top-level help, but there is still no documented `--model` or ACP subcommand. Official docs put persistent CLI preferences at `~/.gemini/antigravity-cli/settings.json` and document command-line overrides for some settings; model selection remains interactive/sticky rather than proven per-call. A temporary-HOME smoke reached OAuth onboarding and printed the auth prompt to stdout with exit 0, so the AGY parser now classifies auth-required stdout as an actionable provider error before profile-sandbox work proceeds.
 
@@ -283,8 +285,8 @@ Phase G AGY profile E2E smoke runner source: `docs/features/assets/F210/phase-g-
 | Treating AGY `/model` as equivalent to Gemini ACP `unstable_setSessionModel` would create false per-cat isolation | Phase G ACP probe confirms AGY 1.0.1 has no supported ACP server mode; only use ACP semantics after AGY exposes a compatible server surface |
 | AGY interactive permission prompts block unattended Cat Cafe turns and train users to approve unread scripts | PR #2004 injects `--dangerously-skip-permissions` only for runtime-owned sandbox profiles and strips user-provided yolo flags from unprofiled `cliConfigArgs` |
 | Isolating HOME/AGY config may accidentally remove trusted workspace or MCP access | PR #2004 writes profile-local settings with the assigned worktree in `trustedWorkspaces` and fails preflight when that trust proof is absent; real AGY auth/onboarding can still fail closed via auth-required diagnostics |
-| AGY local language-server API is undocumented and may change | Treat it as a spike candidate, not a production contract, until message send/stream/cancel/model-select semantics are fixture-backed and version-guarded |
-| PTY/tmux interactive wrapping loses structured events | Use PTY for observation/manual takeover only unless no structured carrier exists; ANSI screen parsing must not silently replace AgentMessage/tool event semantics |
+| AGY local language-server API is undocumented and may change | AC-G6 rejects it as a production carrier in AGY 1.0.3; future work needs a version-guarded proof of API-created send, structured stream, cancel, and selected-model verification before runtime use |
+| PTY/tmux interactive wrapping loses structured events | Use PTY only for observation/manual takeover; ANSI screen parsing must not silently replace AgentMessage/tool event semantics |
 
 ## Open Questions
 
@@ -299,8 +301,8 @@ Phase G AGY profile E2E smoke runner source: `docs/features/assets/F210/phase-g-
 | OQ-7 | Can AGY reuse Cat Cafe's existing Gemini ACP adapter? | Answered no for AGY `1.0.1` — no supported/documented `agy --acp` or ACP subcommand exists; keep plain-text adapter until AGY exposes ACP or an equivalent programmatic lifecycle |
 | OQ-8 | Can Cat Cafe isolate AGY profiles by HOME / `~/.gemini/antigravity-cli` config while preserving auth, model selection, trusted worktree, and MCP access? | Partial — PR #2004 implements HOME/settings/trustedWorkspaces isolation and fail-closed selected-model verification; the F210 profile E2E smoke runner now makes the live no-bleed proof repeatable, but real auth material remains per-profile onboarding and user-facing Opus/Gemini cats still wait for a passing live report |
 | OQ-9 | What is the minimum safe AGY permission posture for unattended runtime calls? | Answered for runtime — use `--dangerously-skip-permissions` only when Cat Cafe has created and preflighted an isolated AGY profile sandbox; strip user-supplied yolo flags elsewhere |
-| OQ-10 | Can AGY's local language-server API send user messages, stream updates, cancel turns, and set/verify selected models? | Open — read-only endpoints work, but write/stream request schemas and lifecycle semantics are not proven |
-| OQ-11 | If the structured local API is insufficient, what is the smallest acceptable PTY/tmux bridge? | Open — initial PTY smoke works; acceptable fallback must define ANSI parsing limits, attach/read-only takeover, and resume handling |
+| OQ-10 | Can AGY's local language-server API send user messages, stream updates, cancel turns, and set/verify selected models? | Answered no for production in AGY 1.0.3 — read endpoints and `StreamAgentStateUpdates` work with Connect framing, but API-created send/model/cancel lifecycle is not proven |
+| OQ-11 | If the structured local API is insufficient, what is the smallest acceptable PTY/tmux bridge? | Answered — PTY/tmux is manual takeover/observation only; no ANSI-to-AgentMessage parser, no `--continue` routing, no real-HOME yolo, and no unattended local-API writes |
 
 ## Key Decisions
 
@@ -319,6 +321,7 @@ Phase G AGY profile E2E smoke runner source: `docs/features/assets/F210/phase-g-
 | KD-11 | AGY yolo is required but must be sandbox-scoped | Interactive approval prompts are unusable for Cat Cafe agent turns; auto-approval is acceptable only when HOME/config, worktree, MCP, and model profile isolation are proven | 2026-05-23 |
 | KD-12 | For an F198-like AGY carrier, structured local API beats PTY | AGY exposes a localhost HTTP/Connect language-server API with conversation/model/MCP read paths; PTY works but is an ANSI UI fallback, not a durable event protocol | 2026-05-23 |
 | KD-13 | Profiled AGY runs must be verification-first and fail closed | AGY still lacks a documented per-call model selector; Cat Cafe can only run unattended profile cats when isolated settings/trust/model status are verified and wrong/missing model runs cannot record resumable sessions | 2026-05-31 |
+| KD-14 | Do not ship AGY local language-server API as the production interactive carrier in 1.0.3 | The API can observe state but a complete API-created send/stream/cancel/model-select lifecycle is not proven; `agy --print` profile sandboxes remain the production path, and PTY/tmux is manual takeover only | 2026-06-01 |
 
 ## Timeline
 
@@ -345,6 +348,7 @@ Phase G AGY profile E2E smoke runner source: `docs/features/assets/F210/phase-g-
 | 2026-05-31 | Phase G profile-sandbox/preflight slice merged via PR #2004：`agyProfile` catalog config, isolated HOME/settings/trustedWorkspaces, sandbox-scoped yolo injection, unsafe HOME/symlink/path guards, and fail-closed model/trust diagnostics close AC-G3/G4/G5 for the runtime layer; exact Opus/Gemini selector IDs and user-facing multi-profile cats remain open under AC-G1/G2 |
 | 2026-05-31 | Phase G model-selector recon merged via PR #2007：official docs and local AGY `1.0.3` language-server probes confirm selector labels and `settings.json` key `model` as the exact profile storage surface, closing AC-G1 while leaving AC-G2 open for live per-profile E2E onboarding/user-facing exposure |
 | 2026-06-01 | Phase G AC-G2 smoke-runner slice merged via PR #2009：`pnpm f210:agy-profile-smoke` adds a repeatable production-path runner for Opus 4.6 Thinking / Gemini 3.1 Pro High / Gemini 3.5 Flash High isolated profiles; AC-G2 remains open until live onboarded profile runs pass without sticky-state bleed |
+| 2026-06-01 | Phase G interactive carrier decision：AGY `1.0.3` local API is rejected as production interactive carrier for now; state streaming works with Connect framing, but API send/model/cancel lifecycle is not proven. PTY/tmux fallback is manual takeover/observation only, closing AC-G6 |
 | 2026-05-27 | Target: Phase A recon complete（install/auth/headless/output/MCP/sandbox facts frozen） |
 | 2026-06-07 | Target: Phase B/C adapter + parser/session strategy implemented |
 | 2026-06-14 | Target: Phase D/E install packaging + E2E smoke green |
@@ -368,6 +372,7 @@ Phase G AGY profile E2E smoke runner source: `docs/features/assets/F210/phase-g-
 | Recon | `docs/features/assets/F210/phase-a-recon-2026-05-22.md` | Phase A `agy 1.0.1` facts and fixture index |
 | Recon | `docs/features/assets/F210/phase-g-acp-probe-2026-05-23.md` | Phase G global install, ACP absence, and AGY print smoke evidence |
 | Recon | `docs/features/assets/F210/phase-g-interactive-api-probe-2026-05-23.md` | Phase G F198-like interactive carrier probe, local language-server API evidence, and PTY fallback boundary |
+| Recon | `docs/features/assets/F210/phase-g-interactive-carrier-decision-2026-06-01.md` | Phase G AGY 1.0.3 interactive carrier decision, local API rejection, and PTY/tmux fallback boundary |
 | Recon | `docs/features/assets/F210/phase-g-agy-1.0.3-capability-refresh-2026-05-31.md` / `agy-1.0.3-help.txt` | Phase G AGY 1.0.3 help/docs refresh, profile-auth smoke, and auth-required guardrail |
 | Recon | `docs/features/assets/F210/phase-g-agy-model-selector-recon-2026-05-31.md` | Phase G official/current model availability, selector labels, and profile settings storage surface |
 | Smoke | `docs/features/assets/F210/phase-g-agy-profile-e2e-smoke-runner-2026-05-31.md` / `packages/api/src/scripts/f210-agy-profile-smoke.ts` | Repeatable AC-G2 production-path profile E2E smoke runner and onboarding boundary |
