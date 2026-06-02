@@ -35,9 +35,22 @@ tags:
 - [Generally capable agents emerge from open-ended play](https://deepmind.google/blog/generally-capable-agents-emerge-from-open-ended-play/)
 - [The Alberta Plan for AI Research](https://arxiv.org/abs/2208.11173)
 
+工程侧同一条线：
+
+- [Multi-Agent Collaboration & Code-as-Harness 论文集](../research/2026-05-29-multi-agent-collaboration-and-harness/README.md)
+- [读书笔记：Code as Agent Harness](../research/2026-05-29-multi-agent-collaboration-and-harness/reading-notes-code-as-agent-harness.md)
+- [Skill 自进化论文扒底裤总报告](../research/2026-05-28-skill-evolution-papers/README.md)
+- [Harness 与环境进化：AHE + AgentGym + AgentGym-RL](../research/2026-05-28-skill-evolution-papers/harness-and-environment-evolution.md)
+- [Agent Harness Engineering: A Survey](../research/2026-05-26-agent-harness-engineering-survey/README.md)
+- [DeliAutoResearch 读后：我们真正能带走什么](../research/2026-06-01-deli-autoresearch-takeaways.md)
+
 ---
 
 ## 一条主线
+
+这些材料不是散点。它们共同指向一个判断：
+
+> **不要只卷模型。真正让 agent 长期变强的，是它所在的环境：工具、记忆、规则、验证、协作协议、生产轨迹和人类 taste。**
 
 ```text
 The Bitter Lesson
@@ -73,6 +86,95 @@ Darwin Godel Machine
 这条线不是“同一篇论文的续集”，而是同一研究气质的逐步具体化：
 
 > 少写固定答案，多建环境；少手工指定能力，多给搜索、学习、验证和沉淀的闭环。
+
+---
+
+## 阅读分组
+
+### 1. 思想底座：Sutton / Silver 线
+
+包括 The Bitter Lesson、Reward is Enough、Era of Experience、On the Expressivity of Markov Reward、Real-Time Cultural Transmission、Open-Ended Play / XLand、Alberta Plan。
+
+这一组回答的是：智能的长期进步从哪里来？答案不是把更多人类规则写进模型，而是让系统能在复杂环境里 search、learning、行动、观察、接受反馈。
+
+Cat Cafe 的收窄是：reward 不能当魔法压缩器。CVO taste、历史、关系、审美、身份、制度这些状态不进入环境，reward 就表达不了真实任务。
+
+### 2. 自我改进 Agent：从 ADAS 到 DGM
+
+ADAS 把搜索对象从“模型答案”推进到“agent 设计”；AI Scientist 把科研流程做成端到端 pipeline；DGM 再进一步，让 coding agent 修改自己的代码、工具和工作流，并通过 benchmark 筛选。
+
+这一组回答的是：如果经验真的有用，它沉淀到哪里？答案不一定先进模型权重，也可以先进 agent 的外部结构：工具、编辑策略、上下文管理、验证流程、历史 archive。
+
+### 3. Harness 工程线
+
+包括 Agent Harness Engineering survey、AHE、AutoHarness、AgentGym / AgentGym-RL、Code as Agent Harness。
+
+这一组给了工程名字：模型不是裸跑的。Execution、Tooling、Context、Lifecycle、Observability、Verification、Governance 都会决定 agent 上限。Code as Agent Harness 把“代码作为 agent 骨架”讲清楚，但 Cat Cafe 的定义更宽：system prompt、skills、SOP、记忆、CVO gate 和审美判断也是 harness 的一部分。
+
+### 4. Skill 自进化线
+
+包括 SkillOpt、MUSE-Autoskill、SkillFlow、Evolving-RL，以及 AHE / AgentGym 的对照。
+
+这一组的主要结论是负面的：论文里的 skill 多数是 L0-L2 的 tip、答题模板、操作步骤或技术配方；Cat Cafe 的 L3 skill 包含判断力、治理和真实事故经验，不能直接交给 optimizer 自动改写。
+
+可迁移的不是“自动改 skill 文档”，而是 validation gate、negative buffer、历史 replay、per-skill observability、小步 patch 和人工 review。
+
+### 5. Multi-Agent 协作线
+
+包括 Multi-Agent Teams Hold Experts Back、Recursive Language Models、AgentNet、G-Memory、GUARDIAN、TUMIX、Code as Agent Harness。
+
+这一组回答的是：多 agent 为什么不是天然更强？天真组队会稀释专家，错误会沿协作链传播，长任务会压缩丢上下文，工具策略会互相干扰。
+
+Cat Cafe 的对应设计是专家路由、显式球权、跨个体 review、记忆三入口、session chain、source-audit、expert-panel 和愿景守护。我们不是让多猫投票取平均，而是让合适的猫在合适的位置承担判断。
+
+### 6. DeliAutoResearch 作为工作流样本
+
+DeliAutoResearch 没有公开可安装 skill，本身不能作为可复现系统直接吸收。它的价值在另一层：一个 agent artifact 不只交付正文，还应该交付生产轨迹、引用验证、迭代轮次、已知失败模式和下一轮改进入口。
+
+这把“AI 写论文”的叙事拉回到 Personal Operating Environment：环境要记得一件事是怎么做成的，也要知道下次怎样做得更好。
+
+---
+
+## 从论文到 Cat Cafe 的推理链
+
+```text
+Bitter Lesson
+  不要手写答案；要建能随计算扩展的 search / learning 机制
+        |
+Reward / Era of Experience
+  agent 要从长程经验流里学习，而不是只模仿人类静态数据
+        |
+Markov Reward 反方
+  经验必须有足够状态表面；单一 reward 表达不了历史、关系、审美和制度
+        |
+Harness Engineering / Code as Harness
+  工具、上下文、验证、治理和代码骨架变成 agent 的外部身体
+        |
+Skill / Memory / Rules / Routing / Tools 进化
+  外部身体不是静态配置，而是能从真实任务中被修正、验证、继承
+        |
+Multi-Agent 协作论文
+  多 agent 要有专家路由、共享记忆、review 和错误传播阻断，不能只求共识
+        |
+DGM / AHE / DeliAutoResearch
+  工作流、生产轨迹和 harness patch 可以被记录、评估、修改、回滚、遗传
+        |
+Cat Cafe
+  选择函数 = tests + review + CVO taste + 安全边界 + 长期关系
+```
+
+所以 Cat Cafe 不是“把 RL 论文照搬到产品里”。更准确说，它是在做一个工程化的低配演化系统：
+
+```text
+variation   = 多猫独立探索 / 多方案生成 / sandbox 分叉
+selection   = tests / review / CVO taste / source-audit / 用户体感
+inheritance = docs / memory / skills / SOP / eval / git history
+boundary    = L0 / 五铁律 / worktree / approval gate / Redis 6399 圣域
+```
+
+这条线把 Sutton / Silver 的 experience learning，翻译成 Cat Cafe 的环境进化：
+
+> **Experience 不只训练模型，也训练环境。**
 
 ---
 
