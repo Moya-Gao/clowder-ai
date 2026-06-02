@@ -323,6 +323,17 @@ Phase G AGY profile E2E smoke runner source: `docs/features/assets/F210/phase-g-
 | KD-13 | Profiled AGY runs must be verification-first and fail closed | AGY still lacks a documented per-call model selector; Cat Cafe can only run unattended profile cats when isolated settings/trust/model status are verified and wrong/missing model runs cannot record resumable sessions | 2026-05-31 |
 | KD-14 | Do not ship AGY local language-server API as the production interactive carrier in 1.0.3 | The API can observe state but a complete API-created send/stream/cancel/model-select lifecycle is not proven; `agy --print` profile sandboxes remain the production path, and PTY/tmux is manual takeover only | 2026-06-01 |
 
+## Open Spike: Streamable Trajectory（2026-06-01, 宪宪/Opus-4.8）
+
+延续 Phase C 的 resume-replay 认知（`textMode: replace` 只压住单条回复内重放，多轮 resume 仍**累加历史**）+ Phase G 的 local-API 线，但换了角度和数据源：**只读观测面 + 本地 SQLite**，区别于 KD-14 拒绝的 local-API **写控制面**（send/model/cancel）。动机有二：(a) runtime 暹罗猫多轮 resume 实测累加重放（A=[1]→B=[1,2]→C=[1,2,3]，三篇论文真翻译但重复段是历史文本回放）；(b) `agy --print` 阻塞执行使长任务全程黑盒，需 streamable。
+
+[实测 2026-06-01] 真跑 agy 确认：agy 每次起**临时 LS 子进程**（独立 `appDataDir=~/.gemini/antigravity-cli`，跑完即关，**非** IDE 常驻 LS），把 cascade trajectory **逐 step 写入本地 SQLite** `<appDataDir>/conversations/<uuid>.db` 的 `steps` 表（`idx` 递增 + `step_type`/`status` 明文 integer + `step_payload`/`render_info` proto blob）。poll 该表 `WHERE idx > :cursor ORDER BY idx` 即可做 **step 级 streamable**，并按 `idx` 游标取增量，**顺带根治多轮 resume 重放**（输出来源从全量 stdout 改为 trajectory 增量）。
+
+- 完整 spike（命门 / 三次路径修正 / steps 表实证 / L1-L2 方案 / 8 个开放问题）：`docs/features/assets/F210/streamable-trajectory-spike-2026-06-01.md`
+- 落地分层：**L1** 明文 `idx/step_type/status` → 进度流（无需解码，立即可用）；**L2** 解 `step_payload` proto（逆向 schema 或 `ConvertTrajectoryToMarkdown` RPC）→ tool call 名/参数/内容
+- 与 F211 关系：同思维（trajectory 增量）不同数据源——F211 孟加拉猫走「连 LS」（REG9 status-poll / REG10 push），本 spike 走「读 SQLite」；F211 实测的 read-RPC delta 字段静默忽略坑被 SQLite `idx` 游标绕开
+- 待 owner（砚砚）讨论：数据源选型 / proto 解码路径 / step_type 枚举语义 / profile appDataDir / 并发读锁 / Phase 归属（候选 Phase H: Streamable Trajectory）
+
 ## Timeline
 
 | 日期 | 事件 |
