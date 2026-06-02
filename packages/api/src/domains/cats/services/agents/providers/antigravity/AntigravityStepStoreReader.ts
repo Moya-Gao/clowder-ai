@@ -1,8 +1,11 @@
 /**
  * F211 REG10 PR1 — read-only incremental reader over the Antigravity SQLite step store.
  *
- * Antigravity (IDE Desktop + AGY CLI, shared store) persists each conversation's trajectory
- * steps to `<appDataDir>/conversations/<conversationId>.db`, table `steps` (idx PK + payload blob).
+ * AGY CLI persists each conversation's trajectory steps to a local SQLite db
+ * (`<appDataDir>/conversations/<conversationId>.db`, table `steps`, idx PK + payload blob).
+ * NOTE (PR2A mapping proof, docs/features/assets/F211/2026-06-02-reg10-carrier-mapping-proof.md): the
+ * IDE Desktop carrier keeps its ACTIVE cascade in LS memory and does NOT persist it here, so this reader
+ * serves the AGY CLI carrier / already-persisted conversations, NOT the IDE Desktop active cascade.
  * This reader returns an O(delta) incremental view (`idx >= lastSeen - tailWindow`) so callers
  * can track long-task progress without re-fetching the whole trajectory (REG9's O(N) per change).
  *
@@ -11,7 +14,7 @@
  * fail CLOSED so the caller can fall back to REG9 status-poll instead of trusting a partial store.
  *
  * Opened read-only with query_only + busy_timeout and WITHOUT sqlite `immutable=1`, so a live
- * IDE WAL writer's committed updates remain visible (immutable=1 would freeze the snapshot).
+ * SQLite WAL writer's committed updates remain visible (immutable=1 would freeze the snapshot).
  *
  * Boundary inputs are validated before use (codex review P1/P2): conversationId is restricted to a
  * pure basename (no path separators / `..`) so it cannot traverse out of `conversations/`; tailWindow
@@ -35,7 +38,7 @@ export type StepStoreReadResult =
   | { ok: false; reason: 'no_db' | 'schema_drift' | 'read_error' | 'invalid_id' };
 
 export interface StepStoreReaderOptions {
-  /** Antigravity app data dir, e.g. `~/.gemini/antigravity-cli` (IDE + CLI shared store). */
+  /** AGY CLI app data dir, e.g. `~/.gemini/antigravity-cli` — the persisted/CLI conversation store, NOT the IDE Desktop active cascade (see PR2A mapping proof). */
   appDataDir: string;
   /** Re-read the last N steps each poll to catch in-place status/payload mutation. Default 3. */
   tailWindow?: number;
