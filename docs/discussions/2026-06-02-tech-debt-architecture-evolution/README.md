@@ -2,14 +2,15 @@
 topics: [tech-debt, architecture, refactor, vision]
 doc_kind: discussion
 created: 2026-06-02
-status: proposal-awaiting-cvo-signoff
+feature_ids: [F219]
+status: kicked-off
 ---
 
 # 立项提案：技术债盘点 + 架构演进 feat（待 CVO signoff 分配 F 号）
 
-> **状态**：这是**立项提案草案**，不是已立项的 feat。开新 F 号必须 CVO 明确 signoff
-> （`feedback_feat_anchor_needs_cvo_explicit_signoff`）。本文不自分配 F 号——等铲屎官用
-> F 号语言确认（"开 F219" 之类）后才正式立项。
+> **状态**：✅ 已立项为 **[F219](../../features/F219-tech-debt-architecture-evolution.md)**
+> （CVO 2026-06-02 用 F 号语言 signoff "f219 这个立项哦"）。本文保留作**决策溯源**——
+> 立项前的提案草案与元教训分析；正式 spec / AC / Scope / Links 以 F219 feat doc 为准。
 > **触发**：铲屎官 2026-06-02 03:16 — "我们之后得解决这个债务……不只是 routeSerial 执行流，
 > 而是一个 feat 去盘点都有什么恐怖的技术债务，然后分 phase 评估如何去架构演进。"
 

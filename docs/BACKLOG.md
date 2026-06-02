@@ -68,3 +68,4 @@ created: 2026-02-26
 | F208 | Capability Profile Routing — 能力画像档案 + 认知路由 | spec | 布偶猫 | internal | [F208](features/F208-capability-profile-routing.md) |
 | F210 | Gemini CLI to Antigravity CLI Migration | in-progress | 缅因猫/砚砚 | internal | [F210](features/F210-antigravity-cli-migration.md) |
 | F217 | Merge Gate Integrity — 检查覆盖 + 强制力 + 元守护（根治 6 类 gate 失效）| spec | 布偶猫 Opus 4.8 | internal | [F217](features/F217-merge-gate-integrity.md) |
+| F219 | 核心引擎技术债盘点 + 架构演进（routeSerial 等核心调用链）| spec | 布偶猫 Opus 4.8 | internal | [F219](features/F219-tech-debt-architecture-evolution.md) |
