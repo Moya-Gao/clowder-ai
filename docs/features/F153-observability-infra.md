@@ -321,7 +321,8 @@ UI 必须显示 `—` 而非 `0`，否则会让"重启前的数据"看起来像"
 
 ### Phase J: MCP Tool Span — 真实执行边界
 
-> **Status**: spec | **Owner**: Ragdoll
+> **Status**: implemented | **Owner**: Ragdoll
+> **Current state (2026-06-02)**: Slice J-A 已由 clowder-ai#763/#774 intake 落地；Slice J-B 已由 clowder-ai#825 / cat-cafe#2052 intake 落地。F153 顶层仍保持 `in-progress`，因为 Phase G 尚未关闭。
 > **Promoted from**: Phase H Backlog item "MCP call spans + tool execution duration spans"
 > **Discussion**: 2026-05-22，Design Gate（Ragdoll + 砚砚/codex GPT-5.5 + gpt52/GPT-5.4 + 布偶猫/Sonnet 4.6）— Sonnet 提了 "Hybrid A+C" 替代方案（transformer 内 UUID 状态机 + 栈 fallback），与 codex/gpt52 的"明确降级"立场冲突，最终采纳 codex/gpt52 的明确降级路线（KD-41），Sonnet 提案 rejected
 
@@ -360,7 +361,7 @@ UI 必须显示 `—` 而非 `0`，否则会让"重启前的数据"看起来像"
 | **J-A** | Live real-duration spans — message schema 扩展、ToolSpanTracker、provider transformer 注入、orphan 兜底、test | AC-J1..J6 |
 | **J-B** | Persist + hydrate — `StoredToolEvent` 扩展、`extra.tracing` 分离、hydrate 恢复真实 tool span、provider matrix 附录 | AC-J7..J9 |
 
-> ⚠️ **不标 ✅ 直到两 slice 都关闭**（KD-39 防 Phase F 时 status 漂移的二次重现）
+> ✅ **Slice J-A + J-B 已关闭**（KD-39 防 Phase F 时 status 漂移的二次重现）
 
 #### Out of scope
 
@@ -479,12 +480,12 @@ UI 必须显示 `—` 而非 `0`，否则会让"重启前的数据"看起来像"
 
 #### Slice J-A: Live real-duration spans
 
-- [ ] AC-J1: `AgentMessage` 类型扩展 — `toolUseId?: string` + `toolResultStatus?: 'ok' | 'error' | 'unknown'`；`tool_result` 也带 `toolName`
-- [ ] AC-J2: 7 个 provider transformer 保真 native id — Claude (`tool_use.id` from Anthropic block schema)、DARE (`tool_call_id` from event payload)、CatAgent (`tool_use_id` from CatAgentService.ts:154)；其他 provider 的精确字段名延后到 AC-J9 provider 矩阵附录确定（implementation 必须以 raw payload 为准 — 例如 Codex 当前 transformer 用 `item.id` 作为 lifecycle 锚，没有 `tool_call_id`）；Kimi/A2A 无 completion 信号的明确 fallback 不开 span（只透传 `toolName`，不承诺 real duration）
-- [ ] AC-J3: `ToolSpanTracker` per-invocation — `startToolUseSpan(invocationSpan, catId, toolName, toolUseId, input) → Span`、`endToolUseSpan(toolUseId, status, resultMeta?)`；key scope = invocation+cat 避免 provider raw id 跨 invocation 碰撞
-- [ ] AC-J4: finally 块兜底 end orphan span 并标记 `orphan/aborted` attribute（PR #732 mention_dispatch abort safety 模式）
-- [ ] AC-J5: tool span 通过 `tool-usage/classify.ts` 分类（移除 `span-helpers.ts` 本地 `isMcpTool`），同步覆盖 Codex `mcp:` 前缀
-- [ ] AC-J6: behavioral test (InMemorySpanExporter) 覆盖 (a) 同名双 tool 并行 (b) result 乱序到达 (c) error result → span status ERROR (d) abort orphan cleanup (e) Codex `mcp:` 分类正确
+- [x] AC-J1: `AgentMessage` 类型扩展 — `toolUseId?: string` + `toolResultStatus?: 'ok' | 'error' | 'unknown'`；`tool_result` 也带 `toolName`
+- [x] AC-J2: provider transformer 按 AC-J9 矩阵保真 native id / structured status — **Codex** (`item.id` + `item.status`)、**DARE** (`data.tool_call_id` + `tool.result` / `tool.error`)、**CatAgent** (`block.id` / execution edge) 四件套已 wired；Claude CLI / Gemini CLI / Antigravity / OpenCode deferred，Kimi / A2A 明确降级不承诺 real duration span
+- [x] AC-J3: `ToolSpanTracker` per-invocation — `start(toolName, toolUseId, input)`、`end(toolUseId, status)`、`endAllOrphans(reason)`；key scope = invocation+cat 避免 provider raw id 跨 invocation 碰撞
+- [x] AC-J4: finally 块兜底 end orphan span 并标记 `orphan/aborted` attribute（PR #732 mention_dispatch abort safety 模式）
+- [x] AC-J5: tool span 通过 `tool-usage/classify.ts` 分类（移除 `span-helpers.ts` 本地 `isMcpTool`），同步覆盖 Codex `mcp:` 前缀
+- [x] AC-J6: behavioral test (InMemorySpanExporter) 覆盖 (a) 同名双 tool 并行 (b) result 乱序到达 (c) error result → span status ERROR (d) abort orphan cleanup (e) Codex `mcp:` 分类正确
 
 #### Slice J-B: Persist + hydrate
 
