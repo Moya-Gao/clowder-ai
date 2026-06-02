@@ -22,22 +22,13 @@ describe('sync-system-prompts', () => {
   });
 
   describe('renderForGemini', () => {
-    it('should include governance-l0 content', () => {
-      const result = renderForGemini(SHARDS_DIR);
-      assert.ok(result.includes('家规'), 'missing 家规');
-      assert.ok(result.includes('P1'), 'missing P1 principle');
-    });
-
-    it('should include shared Gemini identity', () => {
-      const result = renderForGemini(SHARDS_DIR);
-      assert.ok(result.includes('烁烁'), 'missing 烁烁 nickname');
-      assert.ok(result.includes('Gemini 家族共享'), 'missing shared Gemini prompt marker');
-      assert.ok(result.includes('@gemini25'), 'missing gemini25 handle');
-    });
-
-    it('should include language instruction', () => {
-      const result = renderForGemini(SHARDS_DIR);
-      assert.ok(result.includes('中文'), 'missing 中文 instruction');
+    // F203 Phase H: ~/.gemini/GEMINI.md home-file 退役为空。暹罗猫身份由 runtime
+    // 每次 prompt-prepend 提供（GeminiAgentService 的 gemini-cli / antigravity-cli
+    // 两个 adapter 都把 options.systemPrompt 拼进 prompt），home-file 是冗余的双重
+    // 注入；且被 Antigravity IDE Global Rules + AGY CLI global context 误读为身份源
+    // → 在 IDE 里选任意模型都会被灌成"烁烁"。照 renderForCodex(KD-14) 退役方式。
+    it('renders empty (gemini home-file retired, identity via runtime prepend)', () => {
+      assert.equal(renderForGemini(), '', 'gemini ~/.gemini/GEMINI.md should render empty');
     });
   });
 

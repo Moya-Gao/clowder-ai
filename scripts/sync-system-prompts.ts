@@ -12,7 +12,6 @@
  *   npx tsx scripts/sync-system-prompts.ts --apply --agent-hooks-only  # Write Agent CLI hook targets + Claude settings only
  */
 
-import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { syncClaudeSettings } from '../packages/api/src/agent-hooks/claude-settings.js';
@@ -25,156 +24,6 @@ import {
 } from '../packages/api/src/agent-hooks/sync-targets.js';
 
 export { checkDrift, type DriftResult, type SyncTarget } from '../packages/api/src/agent-hooks/sync-targets.js';
-
-interface PromptRosterEntry {
-  family?: string;
-}
-
-interface PromptVariant {
-  id: string;
-  catId?: string;
-  variantLabel?: string;
-  displayName?: string;
-  mentionPatterns?: string[];
-  teamStrengths?: string | null;
-  caution?: string | null;
-}
-
-interface PromptBreed {
-  id: string;
-  catId: string;
-  name: string;
-  displayName: string;
-  nickname?: string | null;
-  roleDescription: string;
-  teamStrengths?: string | null;
-  caution?: string | null;
-  mentionPatterns: string[];
-  defaultVariantId: string;
-  variants: PromptVariant[];
-}
-
-interface PromptConfig {
-  roster: Record<string, PromptRosterEntry>;
-  breeds: PromptBreed[];
-}
-
-interface FlatPromptCat {
-  catId: string;
-  breedId: string;
-  familyName: string;
-  nickname?: string | null;
-  displayName: string;
-  provider: string;
-  roleDescription: string;
-  teamStrengths?: string | null;
-  mentionPatterns: string[];
-}
-
-const PROVIDER_FAMILY_LABELS: Record<string, string> = {
-  anthropic: 'Claude',
-  openai: 'OpenAI',
-  google: 'Gemini',
-  dare: 'DARE',
-  antigravity: 'Antigravity',
-  opencode: 'OpenCode',
-};
-
-// --- Shard Reader ---
-
-function readShard(shardsDir: string, name: string): string {
-  const path = join(shardsDir, name);
-  return readFileSync(path, 'utf-8').trim();
-}
-
-function readPromptConfig(shardsDir: string): PromptConfig {
-  const configPath = join(shardsDir, '..', '..', 'cat-config.json');
-  return JSON.parse(readFileSync(configPath, 'utf-8')) as PromptConfig;
-}
-
-function flattenPromptCats(config: PromptConfig): FlatPromptCat[] {
-  const result: FlatPromptCat[] = [];
-
-  for (const breed of config.breeds) {
-    for (const variant of breed.variants) {
-      const isDefault = variant.id === breed.defaultVariantId;
-      const catId = variant.catId ?? breed.catId;
-      const mentionPatterns =
-        variant.mentionPatterns && variant.mentionPatterns.length > 0
-          ? variant.mentionPatterns
-          : isDefault
-            ? breed.mentionPatterns
-            : [`@${catId}`];
-
-      result.push({
-        catId,
-        breedId: breed.id,
-        familyName: breed.name,
-        nickname: breed.nickname,
-        displayName: variant.displayName ?? breed.displayName,
-        provider: variant.provider,
-        roleDescription: breed.roleDescription,
-        teamStrengths: variant.teamStrengths ?? breed.teamStrengths,
-        mentionPatterns,
-      });
-    }
-  }
-
-  return result;
-}
-
-function pickMention(cat: FlatPromptCat): string {
-  const exact = cat.mentionPatterns.find((pattern) => pattern.toLowerCase() === `@${cat.catId}`.toLowerCase());
-  if (exact) return exact;
-  return [...cat.mentionPatterns].sort((a, b) => a.length - b.length)[0] ?? `@${cat.catId}`;
-}
-
-function formatFamilyLabel(cat: FlatPromptCat): string {
-  return `${cat.familyName} (${PROVIDER_FAMILY_LABELS[cat.provider] ?? cat.provider})`;
-}
-
-function buildDynamicRosterSection(config: PromptConfig): string {
-  const byId = new Map(flattenPromptCats(config).map((cat) => [cat.catId, cat]));
-  const rows: string[] = [];
-
-  for (const catId of Object.keys(config.roster)) {
-    const cat = byId.get(catId);
-    if (!cat) continue;
-
-    rows.push(
-      `| ${formatFamilyLabel(cat)} | ${cat.nickname ?? cat.displayName} | ${cat.teamStrengths ?? cat.roleDescription} | \`${pickMention(cat)}\` |`,
-    );
-  }
-
-  return [
-    '## 队友',
-    '',
-    `当前名册来自 \`cat-config.json\`，共 ${rows.length} 只猫。`,
-    '',
-    '| 家族 | 昵称 | 角色 | @ 句柄 |',
-    '|------|------|------|--------|',
-    ...rows,
-    '',
-    '注：同族不同个体按唯一句柄区分；完整真相源是 `cat-config.json`。',
-  ].join('\n');
-}
-
-function renderCollabRules(shardsDir: string): string {
-  const raw = readShard(shardsDir, 'collab-rules.md');
-  const config = readPromptConfig(shardsDir);
-  const teamHeading = '## 队友';
-  const projectHeading = '## 项目信息';
-  const teamIndex = raw.indexOf(teamHeading);
-  const projectIndex = raw.indexOf(projectHeading);
-
-  if (teamIndex < 0 || projectIndex < 0 || projectIndex <= teamIndex) {
-    return raw;
-  }
-
-  const before = raw.slice(0, teamIndex).trim();
-  const after = raw.slice(projectIndex).trim();
-  return [before, '', buildDynamicRosterSection(config), '', after].join('\n');
-}
 
 // --- Renderers ---
 
@@ -189,23 +38,24 @@ function renderCollabRules(shardsDir: string): string {
  * Codex CLI 专属的「长任务纪律」已迁入 `compile-system-prompt-l0.mjs` 的
  * maine-coon WORKFLOW overlay。
  *
- * Gemini 路径（`renderForGemini`）暂留——暹罗猫尚未切到 native L0 注入。
+ * Gemini home-file（`renderForGemini`）同样退役为空——见下。
  */
 export function renderForCodex(): string {
   return '';
 }
 
 /**
- * Render the full system prompt for Gemini (暹罗猫).
- * Target: ~/.gemini/GEMINI.md
- * Format: same structure as Codex but with gemini identity.
+ * Gemini (暹罗猫 / Gemini 家族) native config target — F203 Phase H: retired to empty.
+ *
+ * 暹罗猫身份由 runtime 每次 prompt-prepend 提供（GeminiAgentService 的 gemini-cli /
+ * antigravity-cli 两个 adapter 都把 options.systemPrompt 拼进 prompt）。
+ * `~/.gemini/GEMINI.md` 这条 F050 home-file 是冗余的第二份注入，且被 Antigravity IDE
+ * Global Rules + AGY CLI global context 误读为身份源 → 在 IDE / AGY 里选任意模型都被
+ * 灌成"烁烁"。照 renderForCodex(KD-14) 退役：渲染空字符串让 `--apply` 清空文件，
+ * checkDrift 守护它不被旧烁烁身份复活。native L0 通道跟进见 F203 Phase H（AC-H1/H2）。
  */
-export function renderForGemini(shardsDir: string): string {
-  const governance = readShard(shardsDir, 'governance-l0.md');
-  const collab = renderCollabRules(shardsDir);
-  const identity = readShard(shardsDir, 'cats/gemini.md');
-
-  return [identity, '', '---', '', collab, '', '---', '', governance].join('\n');
+export function renderForGemini(): string {
+  return '';
 }
 
 // --- CLI ---
@@ -225,7 +75,7 @@ export function buildTargets(shardsDir: string, targetRoot?: string): SyncTarget
     },
     {
       name: 'gemini',
-      render: () => renderForGemini(shardsDir),
+      render: () => renderForGemini(),
       targetPath: join(root, '.gemini', 'GEMINI.md'),
     },
     ...buildAgentHookTargets({ projectRoot, targetRoot: root }),
