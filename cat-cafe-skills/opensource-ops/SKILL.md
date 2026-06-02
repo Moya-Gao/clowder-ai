@@ -16,6 +16,11 @@ description: >
 [repo-inbox.md](../refs/repo-inbox.md) 做首反：打开 GitHub 原对象 → 判断类型 / 关联 /
 verdict → 路由 → 记录。不能把通知当普通 FYI。
 
+**守门 thread 默认不修 bug。** Repo Inbox 首反可以公开回复 reporter、打标签、发 Direction
+Card、propose/cross-post 到工程 thread；不要因为 bug 看起来好修，就在守门 thread 直接开
+worktree / 写修复 / 跑 merge-gate。只有铲屎官当轮明确授权“就在这个 thread 修/合”，或 P0
+安全/数据事故需要立即止血，才允许本 thread 进入实现。
+
 **GitHub 编号优先于技术域判断。** Issue / PR body 里出现 `#NNN`（如 “Follow-up from
 #792” / “Found while validating #793”）时，先打开这些 GitHub issue / PR，确认它们的
 state、作者、评论、是否已有 owner / thread / tracking。只有先跑完编号锚点匹配，才能用
@@ -31,6 +36,10 @@ PR 已存在，Direction Card 的下一步必须写 `review-existing-pr` / `merg
 `authorAssociation` 为 `CONTRIBUTOR` / `COLLABORATOR`，或历史上常见“先 issue 后 PR”，
 Direction Card 先走 `external-wait`，下一步写 `ask-author-pr-intent`。守门 thread 公开追问
 “你打算提 PR 还是希望我们接手？”并设短 SLA；作者确认不修 / 超时 / 问题高危才转内部 fix。
+
+**陌生 / 普通 reporter 的 bug report → 可以先公开首反。** 信息充分就确认已 triage / accepted，
+信息不足就 `needs-info` 追问日志和复现；但实现仍走独立 bugfix thread / feature owner。无明显
+owner 时，给铲屎官 2-3 个路由建议，不要本 thread 偷偷开修。
 
 **Consult freely, decide carefully.**
 
@@ -189,6 +198,7 @@ Direction Card 先走 `external-wait`，下一步写 `ask-author-pr-intent`。�
 | 看到 Fxxx / 技术关键词就先投 feature thread，没先打开 `#NNN` 关联 issue/PR | 把 follow-up bug 派错 owner，已有 PR/thread 被绕过 | `#NNN` GitHub 锚点优先；先查 referenced issue/PR 的 state 和 owner，再决定 route |
 | 社区已经有 PR 修 issue，却把单子写成“请下游修复” | 接球猫误以为要重写，绕过社区贡献和 review 链 | linked PR 存在时，下一步默认是 `review-existing-pr` / `merge-gate` |
 | 活跃 contributor 刚提 issue，就立刻派内部猫修 | 抢掉社区贡献机会，也制造重复 PR | 先问作者是否计划自提 PR；短 SLA 后再转内部 fix |
+| 守门 thread 一看到有效 bug 就开 worktree 修 | Inbox 变成工程 thread，铲屎官失去路由控制，容易和 feature owner 撞车 | 先首反 + Direction Card；实现分发到独立 bugfix thread / owner；无 owner 时给铲屎官路由建议 |
 | 不判断 issue/PR 和现有 feature / PR / thread 的关系 | 重复派工、错过已有 owner | 搜 GitHub + 家里 feature/decision；需要时 `list_threads` 找平行 thread |
 | 接纳后只说 WELCOME，不给 route / owner / report-back | 球权落地但无人负责 | Direction Card 必填 route、owner、next action、report-back |
 | 已 cross-post / propose-thread 后还在守门 thread hold 外部条件 | 双 owner、重复轮询、球权死锁 | 下游 thread 接球后由下游负责 hold / event-driven；守门 thread只记录路由 |
