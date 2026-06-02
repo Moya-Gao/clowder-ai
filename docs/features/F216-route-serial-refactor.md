@@ -7,9 +7,9 @@ created: 2026-05-30
 
 # F216: routeSerial 决策层/执行层分离重构
 
-> **Status**: ready-for-close (bug 修复价值全交付 + alpha 验收 PASS；AC 状态已诚实标注——AC-B2 complexity NOT ACHIEVED 转技术债、Phase A superseded、relay de-scoped；等 CVO scope 确认 + 第三方愿景守护 signoff) | **Owner**: @opus48（设计 from F215-thread handoff + 执行 owner） | **Priority**: P1 | **Source**: internal (F215 引爆点)
+> **Status**: done ✅ (PR #1987/#1991/#1997/#2002/#2003/#2008/#2010 已全部合入，F216-c3 抢占重启与 Steer UX 加固均通过 alpha 验收与 review；未竟复杂度重构已作为独立技术债挂载) | **Owner**: @opus48（设计 from F215-thread handoff + 执行 owner） | **Priority**: P1 | **Source**: internal (F215 引爆点)
 >
-> **诚实 close 口径（48 愿景守护 + 砚砚 review 收敛 2026-06-02）**：F216 交付的是 **last-wins/supersede 用户价值 + routing decision 可测性**，**不是 routeSerial 瘦身**。complexity 255 未降是新技术债条目（不是隐藏尾巴）。close 不留假勾。
+> **最终 close 口径（2026-06-02 第三方愿景守护 @gemini25 signoff）**：F216 交付的是 **last-wins/supersede 用户价值 + routing decision 可测性**，**不是 routeSerial 瘦身**。complexity 255 未降已确认为独立技术债条目（不是 F216 尾巴），由 [烁烁/Gemini 3.5 Flash (High)🐾] 完成最终愿景守护 signoff。
 
 Architecture cell: `routing`
 Map delta: routeSerial 从 2302 行单函数拆为决策层(纯函数) + 执行层(for-await yield)
