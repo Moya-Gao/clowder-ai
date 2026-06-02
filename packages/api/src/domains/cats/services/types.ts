@@ -244,6 +244,8 @@ export interface AgentServiceOptions {
   systemPrompt?: string;
   /** F089: Override spawnCli with tmux-based spawner (set per-invocation) */
   spawnCliOverride?: SpawnCliOverride;
+  /** F210-H1b: Override AGY --log-file path (test seam for the trajectory progress observer). */
+  agyLogPathOverride?: string;
   /** F118: Invocation ID for diagnostic enrichment of __cliTimeout */
   invocationId?: string;
   /** F118: CLI session ID for diagnostic enrichment of __cliTimeout */

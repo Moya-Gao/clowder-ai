@@ -10,6 +10,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
 import { describe, mock, test } from 'node:test';
+import Database from 'better-sqlite3';
 import { ensureFakeCliOnPath } from './helpers/fake-cli-path.js';
 
 const { GeminiAgentService } = await import('../dist/domains/cats/services/agents/providers/GeminiAgentService.js');
@@ -499,6 +500,121 @@ describe('GeminiAgentService (antigravity-cli adapter)', () => {
     assert.equal(args[args.indexOf('--add-dir') + 1], workDir);
     assert.equal(args[args.indexOf('--print') + 1], 'System identity\n\nSay hi');
     assert.equal(args.includes('--model'), false, 'agy 1.0.1 has no verified --model flag');
+  });
+
+  test('F210-H1b: yields trajectory progress side-channel while preserving final stdout text', async () => {
+    const proc = createMockProcess();
+    const spawnFn = createMockSpawnFn(proc);
+    const service = new GeminiAgentService({ spawnFn, adapter: 'antigravity-cli', model: 'gemini-3.5-flash' });
+
+    // Seed an AGY appDataDir with a cascade trajectory SQLite store (3 steps already written).
+    const appDataDir = mkdtempSync(join(tmpdir(), 'agy-traj-int-'));
+    const uuid = 'abcdef12-3456-7890-abcd-ef1234567890';
+    mkdirSync(join(appDataDir, 'conversations'));
+    const tdb = new Database(join(appDataDir, 'conversations', `${uuid}.db`));
+    tdb.exec(
+      'CREATE TABLE steps (idx integer, step_type integer NOT NULL DEFAULT 0, status integer NOT NULL DEFAULT 0, has_subtrajectory numeric, metadata blob, error_details blob, permissions blob, task_details blob, render_info blob, step_payload blob, step_format integer, PRIMARY KEY(idx));',
+    );
+    const ins = tdb.prepare('INSERT INTO steps (idx, step_type, status) VALUES (?, ?, ?)');
+    ins.run(0, 14, 3);
+    ins.run(1, 9, 3);
+    ins.run(2, 15, 3);
+    tdb.close();
+
+    // Seed the AGY --log-file the observer reads (carries appDataDir + cascade uuid).
+    const logPath = join(appDataDir, 'agy.log');
+    writeFileSync(logPath, `appDataDir=${appDataDir}\nCreated conversation ${uuid}\n`);
+
+    const workDir = mkdtempSync(join(tmpdir(), 'agy-workdir-'));
+    const promise = collect(service.invoke('Say hi', { workingDirectory: workDir, agyLogPathOverride: logPath }));
+    emitPlainText(proc, 'AGY_FINAL_REPLY\n');
+    const msgs = await promise;
+
+    const progress = msgs.filter(
+      (m) => m.type === 'system_info' && typeof m.content === 'string' && m.content.includes('agy_trajectory_progress'),
+    );
+    assert.ok(progress.length >= 1, 'should yield trajectory progress side-channel events');
+    const text = msgs.find((m) => m.type === 'text');
+    assert.equal(text?.content, 'AGY_FINAL_REPLY', 'final text must equal agy stdout — semantics unchanged');
+
+    rmSync(appDataDir, { recursive: true, force: true });
+    rmSync(workDir, { recursive: true, force: true });
+  });
+
+  test('F210-H1b P1-2: liveness warning flushes in real time even when progress is fail-open', async () => {
+    const service = new GeminiAgentService({ adapter: 'antigravity-cli', model: 'gemini-3.5-flash' });
+    const start = Date.now();
+    let plainTextEmittedAt = 0;
+    // Emit a liveness warning immediately, keep "running" 400ms, then finish.
+    const spawnCliOverride = () =>
+      (async function* () {
+        yield { __livenessWarning: true, level: 'suspected_stall', state: 'idle-silent', silenceDurationMs: 1000 };
+        await new Promise((r) => setTimeout(r, 400));
+        plainTextEmittedAt = Date.now() - start;
+        yield { __cliPlainText: true, stdout: 'FINAL_AFTER_STALL', stderr: '', exitCode: 0, signal: null };
+      })();
+
+    const workDir = mkdtempSync(join(tmpdir(), 'agy-live-'));
+    let livenessYieldedAt = -1;
+    const msgs = [];
+    // no resolvable DB → observeAgyProgress is fail-open (zero progress). Liveness must NOT be
+    // buffered until agy completion (that would be worse than the pre-H1b real-time behavior).
+    for await (const m of service.invoke('hi', {
+      workingDirectory: workDir,
+      spawnCliOverride,
+      agyLogPathOverride: join(workDir, 'nonexistent-agy.log'),
+    })) {
+      msgs.push(m);
+      if (livenessYieldedAt < 0 && m.type === 'system_info' && String(m.content).includes('liveness_warning')) {
+        livenessYieldedAt = Date.now() - start;
+      }
+    }
+    assert.ok(livenessYieldedAt >= 0, 'liveness warning must be yielded');
+    assert.ok(
+      livenessYieldedAt < plainTextEmittedAt,
+      `liveness must flush mid-run (@${livenessYieldedAt}ms), not buffered to agy completion (@${plainTextEmittedAt}ms)`,
+    );
+    const text = msgs.find((m) => m.type === 'text');
+    assert.equal(text?.content, 'FINAL_AFTER_STALL', 'final text unchanged');
+    rmSync(workDir, { recursive: true, force: true });
+  });
+
+  test('F210-H1b cloud-P1: consumer spawn rejection handled without unhandled rejection', async () => {
+    const rejections = [];
+    const onRej = (reason) => rejections.push(reason);
+    process.on('unhandledRejection', onRej);
+    try {
+      const service = new GeminiAgentService({ adapter: 'antigravity-cli', model: 'gemini-3.5-flash' });
+      const workDir = mkdtempSync(join(tmpdir(), 'agy-boom-'));
+      // Consumer throws mid-stream (after a non-terminal event) while progress is still polling
+      // a non-existent DB (fail-open sleep window) — the unhandled-rejection window from the old code.
+      const spawnCliOverride = () =>
+        (async function* () {
+          yield { __livenessWarning: true, level: 'suspected_stall', state: 'idle-silent' };
+          await new Promise((r) => setTimeout(r, 30));
+          throw new Error('AGY_SPAWN_BOOM');
+        })();
+      const msgs = await collect(
+        service.invoke('hi', {
+          workingDirectory: workDir,
+          spawnCliOverride,
+          agyLogPathOverride: join(workDir, 'none.log'),
+        }),
+      );
+      assert.ok(
+        msgs.find((m) => m.type === 'done'),
+        'invoke must yield done even when the spawn consumer throws',
+      );
+      assert.ok(
+        msgs.find((m) => m.type === 'error' && String(m.error).includes('AGY_SPAWN_BOOM')),
+        'consumer error must surface as a normal error message',
+      );
+      await new Promise((r) => setTimeout(r, 60)); // let any stray unhandled rejection surface
+      assert.equal(rejections.length, 0, 'consumer rejection must be handled — no unhandledRejection');
+      rmSync(workDir, { recursive: true, force: true });
+    } finally {
+      process.off('unhandledRejection', onRej);
+    }
   });
 
   test('filters user-provided AGY yolo flags without sandbox proof', async () => {

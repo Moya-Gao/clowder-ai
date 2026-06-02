@@ -42,6 +42,7 @@ import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata, 
 import { appendLocalImagePathHints, collectImageAccessDirectories } from '../providers/image-cli-bridge.js';
 import { extractImagePaths } from '../providers/image-paths.js';
 import { type AgyProfile, preflightAgyProfile, resolveAgyProfile } from './agy-profile-manager.js';
+import { type AgyProgressEvent, observeAgyProgress } from './agy-trajectory-observer.js';
 import {
   classifyAntigravityCliPlainText,
   extractAntigravityCliConversationId,
@@ -701,7 +702,7 @@ export class GeminiAgentService implements AgentService {
 
     const timeoutMs = resolveCliTimeoutMs(undefined);
     const printTimeout = formatAgyPrintTimeout(timeoutMs);
-    const agyLogPath = join(tmpdir(), `cat-cafe-agy-${randomUUID()}.log`);
+    const agyLogPath = options?.agyLogPathOverride ?? join(tmpdir(), `cat-cafe-agy-${randomUUID()}.log`);
     const args: string[] = ['--add-dir', workingDirectory];
     if (agyProfile?.autoApprove) {
       args.push('--dangerously-skip-permissions');
@@ -882,36 +883,109 @@ export class GeminiAgentService implements AgentService {
         ? options.spawnCliOverride(cliOpts)
         : spawnCli(cliOpts, this.spawnFn ? { spawnFn: this.spawnFn } : undefined);
 
-      try {
-        for await (const event of events) {
-          if (isCliPlainTextResult(event)) {
-            stdout = event.stdout;
-            stderr = event.stderr;
-            exitCode = event.exitCode;
-            exitSignal = event.signal;
-            continue;
+      // F210-H1b: agy `--print` (plainText) blocks until the process ends, so consume the spawn
+      // stream in a background task while a side-channel progress observer polls the trajectory
+      // SQLite. The final reply is still decided by the stdout handling below — progress is a pure
+      // side-channel (system_info), and observeAgyProgress is fail-open (SQLite unavailable → zero
+      // output), so this never changes final-answer semantics.
+      let agyFinished = false;
+      // F210-H1b (cloud P1): capture a consumer rejection immediately so the background task never
+      // rejects without a handler during the merge-loop wait. Re-thrown after the buffer drains so
+      // the existing top-level catch yields a normal error+done.
+      let consumerError: unknown = null;
+      const sideChannelBuffer: AgentMessage[] = [];
+      const agyConsumeTask = (async () => {
+        try {
+          for await (const event of events) {
+            if (isCliPlainTextResult(event)) {
+              stdout = event.stdout;
+              stderr = event.stderr;
+              exitCode = event.exitCode;
+              exitSignal = event.signal;
+              continue;
+            }
+            if (isCliTimeout(event)) {
+              timeoutEvent = event;
+              continue;
+            }
+            if (isCliError(event)) {
+              cliErrorEvent = event;
+              continue;
+            }
+            if (isLivenessWarning(event)) {
+              sideChannelBuffer.push({
+                type: 'system_info' as const,
+                catId: this.catId,
+                content: JSON.stringify({ type: 'liveness_warning', ...event }),
+                timestamp: Date.now(),
+              });
+            }
           }
-          if (isCliTimeout(event)) {
-            timeoutEvent = event;
-            continue;
+        } catch (err) {
+          consumerError = err;
+        } finally {
+          if (options?.signal) {
+            options.signal.removeEventListener('abort', abortHandler);
           }
-          if (isCliError(event)) {
-            cliErrorEvent = event;
-            continue;
-          }
-          if (isLivenessWarning(event)) {
+          agyFinished = true;
+        }
+      })();
+
+      const progressGen = observeAgyProgress({
+        readLog: () => readAntigravityLogText(agyLogPath),
+        isAgyDone: () => agyFinished,
+        sleep: (ms) =>
+          new Promise<void>((resolve) => {
+            setTimeout(resolve, ms);
+          }),
+        ...(options?.signal ? { signal: options.signal } : {}),
+      });
+      // Merge loop: drain the side-channel buffer (liveness) on a timer so it stays real-time even
+      // when progress yields nothing (fail-open / no new step). Buffering liveness until AGY
+      // completion would be worse than the pre-H1b real-time behavior (砚砚 P1-2). race(progress,
+      // timer) keeps both side channels live without one starving the other.
+      const SIDE_CHANNEL_DRAIN_MS = 200;
+      const progressIter = progressGen[Symbol.asyncIterator]();
+      let progressNext: Promise<IteratorResult<AgyProgressEvent>> | null = progressIter.next();
+      while (progressNext !== null || sideChannelBuffer.length > 0) {
+        while (sideChannelBuffer.length > 0) {
+          yield sideChannelBuffer.shift()!;
+        }
+        if (progressNext === null) break;
+        const settled = await Promise.race([
+          progressNext.then((res) => ({ kind: 'progress' as const, res })),
+          new Promise<{ kind: 'timer' }>((resolve) => {
+            setTimeout(() => resolve({ kind: 'timer' }), SIDE_CHANNEL_DRAIN_MS);
+          }),
+        ]);
+        if (settled.kind === 'progress') {
+          if (settled.res.done) {
+            progressNext = null;
+          } else {
+            const progress = settled.res.value;
             yield {
               type: 'system_info' as const,
               catId: this.catId,
-              content: JSON.stringify({ type: 'liveness_warning', ...event }),
+              content: JSON.stringify({
+                type: 'agy_trajectory_progress',
+                idx: progress.idx,
+                stepType: progress.stepType,
+                status: progress.status,
+                label: progress.label,
+              }),
               timestamp: Date.now(),
             };
+            progressNext = progressIter.next();
           }
         }
-      } finally {
-        if (options?.signal) {
-          options.signal.removeEventListener('abort', abortHandler);
-        }
+        // timer winner → loop back to drain the buffer; progressNext promise stays pending (reused).
+      }
+      await agyConsumeTask;
+      while (sideChannelBuffer.length > 0) {
+        yield sideChannelBuffer.shift()!;
+      }
+      if (consumerError) {
+        throw consumerError instanceof Error ? consumerError : new Error(String(consumerError));
       }
 
       const agyLogText = readAntigravityLogText(agyLogPath);
