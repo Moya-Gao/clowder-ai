@@ -1,6 +1,6 @@
 ---
 feature_ids: [F219]
-related_features: [F215, F216]
+related_features: [F215, F216, F023]
 topics: [tech-debt, architecture, refactor, routing, dispatch, vision]
 doc_kind: spec
 created: 2026-06-02
@@ -130,6 +130,7 @@ CVO 拍定：routeSerial 证据已齐（F215/F216 两 feat 验证），不等盘
 | KD-1 | scope 聚焦核心引擎债，不贪"全部技术债"全量盘点 | 全量 meta-feat 愿景过大→自我分叉，重蹈 F216；聚焦能更快出价值 | 2026-06-02（CVO signoff） |
 | KD-2 | routeSerial 走快线 pilot，不等全量盘点 Phase A | F215+F216 已验证其脆弱，证据齐；每天还在核心路径产 bug，不能等 | 2026-06-02（CVO signoff） |
 | KD-3 | "立项愿景纪律"SOP 改进从 F219 解耦，owner 单独走 | 软流程目标塞进工程 feat 必被稀释→又一次愿景分叉（正是本 feat 要治的病） | 2026-06-02（CVO signoff "对齐了"） |
+| KD-4 | **F23 dir-size Phase 2 拆分协调裁决**：F23 本周可全拆 5 目录（含 `invocation/`），不必等 F219 Phase A 1-2 周 | 唯一真**文件级**冲突点是 `invocation/`（F23 移文件 vs F219 改 QueueProcessor 内容，同一批文件）；`routes/`(147) 是 HTTP handler 层、与 F219 service 层（`routing/`+`invocation/`）正交——callback handler 运行时调 dispatch service 属**调用耦合非文件冲突**，F219 不碰 `routes/` 目录。F23 拆分（移文件+改 import，位置重组）与 F219 重构（改 service 内容/降 complexity，纵向）正交；invocation/ sub-dir 边界（queue/registry/progress…）是好 cell 划分，F219 纵向重构不推翻。F219 本周写操作以 `route-serial.ts` 为主 + Phase A 只读盘点，若快线需触碰 invocation/ 文件提前同步 4.7 错峰。撤回 F23 doc"等 Phase A 06-22"协议（同 4.7 撤回"每周一个"的过度保守，徒增 06-30 deadline 撞墙风险）。低概率 Phase A 若发现 invocation/ 需模块级重组，F219 owner 担责届时协调 | 2026-06-02 |
 
 ## Timeline
 
