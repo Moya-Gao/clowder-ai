@@ -182,17 +182,35 @@ Permission cancel 信号天然覆盖多个 eval 层：
 
 这些都是 harness 层的**隐式用户反馈**，全部免费、全部已在发生、全部可以变成 eval 信号。
 
-### 7.5 建议
+### 7.5 Frustration Auto-Issue：主动采集负体验
 
-在 eval:task-outcome（Phase G 候选）中，**permission cancel rate 应该作为核心信号之一**，与返工率、Magic Word、CVO 升级率并列。实现成本极低——只需要在权限系统里加一个 cancel 事件的计数器和上下文快照。
+> 铲屎官 2026-06-02 提议：当检测到用户愤怒/CLI 出 bug/@ 无回复等摩擦信号时，系统主动介入——自动采集日志+上下文，生成本地 issue 预览，用户一键提交。
+
+这补上了**主动采集通道**——permission cancel 是被动检测（用户拒绝了猫的动作），frustration auto-issue 是系统主动出击（检测到痛苦后帮用户打包问题）。
+
+产出是最完整的负体验数据包：日志 + 对话 + 工具历史 + 用户描述 + 触发信号。对 L3 eval 来说，这比任何单一 proxy metric 都丰富。
+
+详见 [OQ-4 §4.5c](2026-06-01-oq4-harness-self-evolution-synthesis.md)。
+
+### 7.6 建议
+
+在 eval:task-outcome（Phase G 候选）中，信号采集应包括四个支柱：
+
+| 信号 | 采集方式 | 成本 |
+|------|---------|------|
+| Magic Word | 文本匹配（已有） | 零 |
+| Cross-thread Repetition | 本地小模型聚类 | 低 |
+| Permission Cancel | 权限系统计数器 | 零 |
+| Frustration Auto-Issue | 摩擦检测 → 自动采集 → 用户确认 | 低 |
 
 ---
 
 ## 八、优先级建议
 
-1. **先完成 Phase F**（eval:capability-wakeup）——这是 L2 唯一在建的域，完成后 L2 覆盖从 ⚠️ 升到 ✅
-2. **Phase G 立项 eval:task-outcome**——补最大 gap（L3），同时为 per-user alignment 打基础
+1. **先完成 Phase F**（eval:capability-wakeup）——L2 唯一在建的域
+2. **Phase G 立项 eval:task-outcome**——补最大 gap（L3），四个信号支柱并行接入
 3. **eval:a2a 扩展路由决策统计**——可以并入 Phase G 或独立小 PR
+4. **Frustration Auto-Issue 产品特性**——既是 eval 信号源，也是独立的用户体验提升
 
 ---
 

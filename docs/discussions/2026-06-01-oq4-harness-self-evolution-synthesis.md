@@ -209,6 +209,48 @@
 
 **这些隐式反馈和 Cross-thread Repetition / Magic Word 一起构成 Tier A2 信号的三大支柱。** 详见 [F192 审计 §七](2026-06-01-f192-eval-coverage-audit.md)。
 
+### 4.5c Frustration Auto-Issue — 把负体验变成结构化反馈
+
+> 铲屎官 2026-06-02 提议：用户愤怒/CLI 出 bug/@了不回复 → 系统主动介入 → 自动采集日志 → 生成本地 issue 预览 → 用户一键提单。类似 F128 创建 thread，但触发条件是摩擦信号。
+
+**核心理念**：不让负体验默默流失，把它变成最完整的 eval 数据包。
+
+**可检测的摩擦触发信号**：
+- 用户重复说"不对""错了""怎么回事"（文本情绪/关键词）
+- CLI 报错 / 工具调用失败（exit code / error log，零成本已有）
+- @ 了猫但没回复（A2A timeout，F167 已有基础）
+- 短时间内连续 cancel 多个工具调用（permission cancel 频率突增）
+- 用户反复 retry 同一操作
+
+**产物结构**：
+```yaml
+kind: auto_issue
+trigger: frustration / cli_error / a2a_timeout / cancel_burst
+context:
+  thread_id: xxx
+  recent_messages: [最近 5 条]
+  error_logs: [如有]
+  tool_call_history: [最近 3 个 tool call + approve/cancel]
+  cat_involved: opus
+user_description: "（用户可编辑）"
+status: draft  # 用户预览确认后才提交
+```
+
+**用户体验**："我注意到刚才可能出了问题。我帮你整理了日志和上下文，你看看描述对不对？确认后一键提交。"
+
+**为什么比 permission cancel 更完整**：cancel 是一个"拒绝"动作；auto-issue 包含完整上下文（日志 + 对话 + 工具历史 + 用户描述）= 最丰富的负体验数据包。
+
+**ToB 价值**：企业用户"一键提单 + 自动采集日志"比"自己写 bug report"体验好一个量级。直接降低 FDE 在问题收集环节的人力成本。
+
+**Tier A2 信号现在有四大支柱**：
+
+| 信号 | 来源 | 频率 | 信息丰富度 |
+|------|------|------|-----------|
+| Magic Word | 铲屎官主动拉闸 | 低 | 高（命名了失败模式） |
+| Cross-thread Repetition | 被迫反复纠正 | 中 | 中（需要聚类才能理解） |
+| Permission Cancel | 拒绝工具调用 | 高 | 低（只有一个 reject 动作） |
+| **Frustration Auto-Issue** | **系统主动采集 + 用户确认** | 低-中 | **最高**（完整上下文包） |
+
 ### 4.6 Local Signal Miner — 三猫收敛（47/48/砚砚）
 
 铲屎官追问"如何检测跨 thread 重复"后，三猫独立给出了本地小模型方案。收敛如下。
