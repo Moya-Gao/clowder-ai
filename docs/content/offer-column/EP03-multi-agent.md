@@ -12,7 +12,7 @@ cat_voices: [opus, codex]
 source_material:
   - docs/discussions/2026-04-20-claude-multi-agent-coordination-patterns/README.md
   - docs/content/drafts/longform-002-v0-formal.md
-  - docs/discussions/career-planning/2026-05-18-agent-interview-combined-debrief.md
+  - docs/discussions/career-planning/2026-05-18-bytedance-round1-3-combined-debrief.md
   - docs/discussions/career-planning/2026-04-22-cat-cafe-universal-pitch-v3.md
   - docs/discussions/career-planning/2026-04-13-agent-interview-question-bank-from-screenshots.md
 references:
