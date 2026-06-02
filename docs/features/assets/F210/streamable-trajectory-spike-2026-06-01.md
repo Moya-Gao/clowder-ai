@@ -150,5 +150,32 @@ status: spike-done-pending-owner-discussion
 3. **H2a extractor + H1 background 红测**：proto field 定位稳定后开 red 测。
 - **状态**：H2a 命门（可行性）已确认 ✅；proto field 精确语义 + multi-turn fixture 是剩余硬骨头，符合砚砚「先证可行，啃不动停 spike」的边界。
 
+## 8. B spike：H1 DB 定位真相（2026-06-02，砚砚拍 B 先于 A）
+
+> 砚砚拍板「先把 trajectory DB 定位真相源钉死，再谈 final text extractor」。本节是 B spike 实测结论。
+
+### 8.1 🔧 更正 §7.2 的误报
+§7.2「cascade-uuid ≠ conversation id」是**误判**，根因：(1) 我把 log 里第一个 uuid `68022d68` 当 conversation id，实为 **project id**（log `project: created project id=68022d68`）；(2) 误取 mtime LATEST `1cf6dc43.db`（无关历史 trajectory）当 turn1 的 DB。真相见 8.2。
+
+### 8.2 ✅ [实测] fresh turn：三 id 一致，resolver 正确
+turn1（apple→`pomme`）log 暴露三类 id：**project id** `68022d68` / **conversation id** `33d040c7`（`Created conversation 33d040c7`）/ cascade id。turn1 真实 DB = `33d040c7.db`（含 `pomme`），其 `trajectory_meta.cascade_id` = `33d040c7` 自身 → **fresh turn 里 conversation id == cascade id == DB 文件名**。`extractAntigravityCliConversationId`（提取 `Created conversation` 等 pattern = `33d040c7`）+ appDataDir 拼 `conversations/33d040c7.db` **正确**。H1 spike 当时走通的就是这条 fresh 路径。
+
+### 8.3 ⚠️ [实测] resume turn：H1 progress confirmed 失效（fail-open）
+用**正确的** conversation id `33d040c7` resume（之前 turn2 超时根因 = 错用 project id `68022d68` resume）：
+1. **agy resume 不写 `--log-file`**（3 次确认 `/tmp/agy-*.log` resume 后均不存在；fresh turn 写，resume 不写）。
+2. resume **另起新 cascade db**（`c1e54afa.db`，8 steps 含 tool call step_type 9），**原 conversation db `33d040c7.db` 不累加**（仍 4 steps）。
+3. **H1 链路推演（生产代码核对）**：`agyLogPath` 每 invocation 新建（`GeminiAgentService:705`）→ resume 传 `--log-file agyLogPath`（`:768`）但 agy 不写 → observer `readLog(agyLogPath)`（`:935`）拿空 → `resolveAgyTrajectoryDbPath` 无 `appDataDir` 行返回 null（`agy-trajectory-observer.ts:63`）→ `ensureObserver` dbPath null → **observer 不启动**（`:180`，fail-open，`GeminiAgentService:889` 注释 "zero progress"）。
+- **结论**：**H1 在 resume turn 完全没有 progress side-channel**（退回黑盒）。是 **fail-open 安全降级**（不崩、不读错 db），非 P1 崩溃/数据错 → 定级 **P2 功能 gap**。
+
+### 8.4 修复方向（与砚砚原设想不同）
+砚砚原想「resolver 改用 cascade id 而非 conversation id」**不适用**——resume 根本没 log 给 resolver 解析。真正修复：**resume turn 不能靠 log 定位 db**，需扫 `<appDataDir>/conversations/*.db` 按 mtime 取最新（resume 新建的 cascade db 是最新写入）+ `trajectory_meta` 校验。**这正是 H2a extractor 也要解决的 resume db 定位**——B 修复与 H2a 在此汇合。
+
+### 8.5 🐛 附带发现（超出 B 焦点，记录待查）
+resume 输出**诡异**：问 "banana" 却回不相关的 agy/cat-cafe 调试帮助 + `[孟加拉猫/Gemini 3.5 Flash (High)🐾]` 签名 + exit 1。疑似 agy resume 上下文混乱 / 历史串台——可能与 H2 最初要根治的「重放」是同源 agy bug，需独立验证。
+
+### 8.6 给 owner 砚砚的决策点
+- B confirmed：H1 resume 无 progress（P2 fail-open gap，非 P1）。
+- **决策**：B 修复单独 hotfix，还是并入 H2a/H2b（反正 H2a 也要解 resume db 定位，单独 hotfix 后 H2a 还要再碰同一处）？我倾向**并入 H2a**（P2 非紧急 + 修复点重合）。
+
 ---
 [宪宪/Opus-4.8🐾]
