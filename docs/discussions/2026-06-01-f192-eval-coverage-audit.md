@@ -130,7 +130,65 @@ Layer 1: Expert-Curated Baseline（专家基线）
 
 ---
 
-## 七、优先级建议
+## 七、被忽视的免费信号源：Permission-System Implicit Eval
+
+> 铲屎官 2026-06-02 追问："如果猫点了 hold_ball 我点了取消，这是不是 eval 信号？"
+
+**是，而且我们一直在丢弃它。**
+
+### 7.1 每个 tool call 的 approve/cancel 都是 eval 数据
+
+猫调 MCP 工具时，用户会 approve 或 cancel。这个交互**已经在发生**，但从未被作为 eval 信号收集。
+
+| 用户动作 | 含义 | 信号等级 |
+|---------|------|---------|
+| Cancel hold_ball | "你不该等，你该做/该传" | A2 强信号 |
+| Cancel post_message | "别发这条" | A2 强信号 |
+| Cancel Edit | "别改这个文件" | A2 强信号 |
+| Cancel search_evidence | "不需要搜" | A2 中信号 |
+| Approve（任何工具） | "至少不反对"（弱正信号） | B 行为信号 |
+
+**Cancel 比 approve 信息量大得多**——cancel 是用户主动介入说"你的判断错了"。
+
+### 7.2 特点：免费、高粒度、高频
+
+- **免费**：权限系统已经在运行，不需要额外标注
+- **高粒度**：精确到具体工具调用 + 参数，不是泛泛的"不满意"
+- **高频**：比 Magic Word 频繁（用户 cancel 工具比说"脚手架"更常见）
+- **可追因**：cancel 时可以看到猫想做什么（tool name + params）+ 上下文
+
+### 7.3 对 F192 四层覆盖的影响
+
+Permission cancel 信号天然覆盖多个 eval 层：
+
+| Cancel 类型 | 覆盖哪层 |
+|------------|---------|
+| Cancel hold_ball | **L2**（猫的等待决策质量）+ **L3**（是否在拖延任务） |
+| Cancel post_message | **L2**（路由决策——该不该发给这个人） |
+| Cancel Edit | **L3**（代码改动质量判断） |
+| Cancel search | **L2**（能力使用决策——该不该搜） |
+| 统计 cancel rate per cat per tool | **L2+L3** 的 proxy metric |
+
+这意味着 **Permission-system eval 是少数能同时覆盖 L2 和 L3 的信号源**——比纯 telemetry 更接近 outcome。
+
+### 7.4 Harness 层天然需要记录用户反馈
+
+更广泛地说：Cat Cafe 的 harness 层（MCP tool call / A2A routing / skill trigger / 权限系统）天然产生大量用户反馈信号，但目前大部分都没有被系统性收集。除了 permission cancel，还包括：
+
+- 用户手动修改猫的输出（edit after generation）
+- 用户重新发送同一条指令（retry = 上一次不满意）
+- 用户跳过猫的建议直接自己做（bypass = 不信任猫的判断）
+- 用户在猫回复后立刻 @ 另一只猫（re-route = 第一只猫选错了）
+
+这些都是 harness 层的**隐式用户反馈**，全部免费、全部已在发生、全部可以变成 eval 信号。
+
+### 7.5 建议
+
+在 eval:task-outcome（Phase G 候选）中，**permission cancel rate 应该作为核心信号之一**，与返工率、Magic Word、CVO 升级率并列。实现成本极低——只需要在权限系统里加一个 cancel 事件的计数器和上下文快照。
+
+---
+
+## 八、优先级建议
 
 1. **先完成 Phase F**（eval:capability-wakeup）——这是 L2 唯一在建的域，完成后 L2 覆盖从 ⚠️ 升到 ✅
 2. **Phase G 立项 eval:task-outcome**——补最大 gap（L3），同时为 per-user alignment 打基础

@@ -184,6 +184,31 @@
 - 未来可以轻度 RL 让小模型更精准地识别该用户/该项目的高价值信号
 - 这是另一种形式的 per-user alignment：不是大模型个人化，而是**信号层个人化**
 
+### 4.5b 铲屎官发现的 Tier A2 信号：Permission-System Implicit Eval
+
+> 铲屎官 2026-06-02 追问："如果猫点了 hold_ball 我点了取消，这是不是 eval 信号？"
+
+**是。每个 tool call 的 approve/cancel 都是免费的 Tier A2 信号。**
+
+| 用户动作 | 含义 | 信号等级 |
+|---------|------|---------|
+| Cancel hold_ball | "你不该等，你该做/该传" | A2 强信号 |
+| Cancel post_message | "别发这条" | A2 强信号 |
+| Cancel Edit | "别改这个文件" | A2 强信号 |
+| Cancel search_evidence | "不需要搜" | A2 中信号 |
+| Approve（任何工具） | "至少不反对" | B 弱正信号 |
+
+**特点**：免费（权限系统已在运行）、高粒度（精确到工具调用 + 参数）、高频（比 Magic Word 常见）、可追因（cancel 时能看到猫想做什么 + 上下文）。
+
+**更广泛的洞察**：Harness 层天然产生大量隐式用户反馈，目前大部分未被收集：
+- Permission cancel（最直接）
+- 用户手动修改猫的输出
+- 用户 retry 同一条指令（上一次不满意）
+- 用户跳过猫的建议直接自己做
+- 用户在猫回复后立刻 re-route 到另一只猫
+
+**这些隐式反馈和 Cross-thread Repetition / Magic Word 一起构成 Tier A2 信号的三大支柱。** 详见 [F192 审计 §七](2026-06-01-f192-eval-coverage-audit.md)。
+
 ### 4.6 Local Signal Miner — 三猫收敛（47/48/砚砚）
 
 铲屎官追问"如何检测跨 thread 重复"后，三猫独立给出了本地小模型方案。收敛如下。
