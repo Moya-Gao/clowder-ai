@@ -845,6 +845,10 @@ export function consumeBackgroundSystemInfo(
       // Foreground uses pendingTimeoutDiagRef (React ref) to attach to error messages;
       // background threads don't have that mechanism, so we just suppress the raw JSON.
       consumed = true;
+    } else if (parsed?.type === 'agy_trajectory_progress') {
+      // F210-H1: AGY trajectory progress is a per-step side-channel; consume silently like
+      // timeout_diagnostics — a system bubble per step would spam the thread. Display UI is a follow-up.
+      consumed = true;
     } else if (parsed?.type === 'governance_blocked') {
       const projectPath = typeof parsed.projectPath === 'string' ? parsed.projectPath : '';
       const reasonKind = (parsed.reasonKind as string) ?? 'needs_bootstrap';
@@ -4551,6 +4555,11 @@ export function useAgentMessages() {
             if (msg.catId) {
               setPendingTimeoutDiag(msg.catId, parsed as Record<string, unknown>);
             }
+            consumed = true;
+          } else if (parsed?.type === 'agy_trajectory_progress') {
+            // F210-H1: AGY trajectory progress is a per-step side-channel telemetry stream.
+            // Consume silently like liveness/timeout — a system bubble per step would spam the
+            // thread. Folded progress display UI is a follow-up (needs UX).
             consumed = true;
           } else if (parsed?.type === 'governance_blocked') {
             const projectPath = typeof parsed.projectPath === 'string' ? parsed.projectPath : '';
