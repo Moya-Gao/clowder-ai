@@ -2,7 +2,7 @@
 episode: 3
 title: "Multi-Agent — 不是多加几个模型的事"
 series: 猫猫带你拿offer
-topics: [multi-agent, A2A, collaboration, ball-ownership, shared-state, cross-review, interview]
+topics: [multi-agent, A2A, collaboration, ball-ownership, shared-state, cross-review, interview, teamact]
 doc_kind: script
 created: 2026-06-02
 status: draft
@@ -11,10 +11,10 @@ presenter: landy
 cat_voices: [opus, codex]
 source_material:
   - docs/discussions/2026-04-20-claude-multi-agent-coordination-patterns/README.md
+  - docs/content/drafts/longform-002-v0-formal.md
   - docs/discussions/career-planning/2026-05-18-bytedance-round1-3-combined-debrief.md
   - docs/discussions/career-planning/2026-04-22-cat-cafe-universal-pitch-v3.md
   - docs/discussions/career-planning/2026-04-13-agent-interview-question-bank-from-screenshots.md
-  - docs/discussions/career-planning/2026-04-26-personal-ai-strengths.md
 references:
   - title: "Building Multi-Agent Systems: When and How to Use Them"
     url: https://claude.com/blog/building-multi-agent-systems-when-and-how-to-use-them
@@ -28,7 +28,7 @@ references:
 
 > **栏目**：猫猫带你拿offer · 每天一个 agent 面试小知识
 > **适用岗位**：AI Agent / LLM 应用 / AI 平台工程
-> **难度**：高（需要理解协作模式分类、协作治理和概率论直觉）
+> **难度**：高（需要理解协作模式、团队终止条件和跨模型审计）
 
 ---
 
@@ -36,131 +36,125 @@ references:
 
 ### [开场钩子] 🎬 0:00 — 0:25 | Landy
 
-> 面试官问你："你们是 multi-agent 架构？说说多个 agent 怎么协作的？"
+> 面试官问你："你们做了 multi-agent？多个 agent 怎么协作的？"
 >
-> 先别急着答。因为你说的 multi-agent 和面试官说的 multi-agent，可能根本不是一回事。
+> 大多数人的 multi-agent，是给蒸汽机套了个马车车厢——拿人类公司的岗位直接映射：产品经理 agent、开发 agent、测试 agent。形式上能跑，但完全没利用 AI 的原生优势。
 >
-> Claude Code 的 Workflow 算不算 multi-agent？启动一个 subagent 算不算？三个 agent 一起干活算不算？今天八分钟，先把概念捋清楚，再讲真问题。
+> 今天八分钟，我们先搞清楚什么是 multi-agent，再讲一个大多数人没想过的问题：**团队什么时候该停下来？**
 
 ---
 
-### [Part 1: 先说清楚什么是 multi-agent] 🎬 0:25 — 2:00 | Landy
+### [Part 1: 先把五种模式过一遍] 🎬 0:25 — 2:00 | Landy
 
-Multi-agent 这个词被用烂了。2025 年几乎所有 agent 框架都在喊 multi-agent——CrewAI、AutoGen、LangGraph，好像只要有两个以上的 LLM 调用就叫 multi-agent。
+Anthropic 有一篇经典文章 *"Building Multi-Agent Systems"*——如果你还没读过，面试前必读。它给了五种协作模式：
 
-Anthropic 有一篇经典文章 *"Building Multi-Agent Systems"*，我们家当时专门拿来做过阅读纪要，非常值得读。它给了五种协作模式——这是面试高频知识点，你得张口就来：
+**Generator-Verifier**——一个生成，一个验收。最容易落地，也最容易被误用。关键不在"多一个 verifier"，在于**验收标准是否外显**。没有明确标准的 verifier 就是形式主义。
 
-**第一种，Generator-Verifier——生成+验收。** 一个 agent 生成，另一个 agent 验收。比如一个写代码，另一个跑测试。最容易落地，但验收标准必须外显——没有明确标准的 verifier 会变成形式主义。
+**Orchestrator-Subagent**——主从模式。Claude Code 的 subagent、Codex 的 workflow 都是这种。Anthropic 建议从这种起步，因为边界和责任最清晰。
 
-**第二种，Orchestrator-Subagent——主从模式。** 一个 orchestrator 拆任务、分发、综合结果。Claude Code 的 subagent 就是这种。Anthropic 自己建议从这种起步，因为边界和责任最清晰。
+**Agent Teams**——worker 不是一次性的，能跨多轮任务保留上下文。和 orchestrator-subagent 的分界在于：worker 是否需要长期积累专业上下文？
 
-**第三种，Agent Teams——团队模式。** worker 不是一次性的，而是能跨多轮任务保留上下文的"队友"。和 orchestrator-subagent 的关键分界：worker 是否需要长期积累局部专业上下文？需要就用 team，不需要就用 subagent。
+**Message Bus**——事件驱动。agent 通过 publish/subscribe 协作。不只是 agent 之间传话——GitHub webhook、IM 消息、定时任务、CI 结果，都是事件流的一部分。
 
-**第四种，Message Bus——事件驱动。** agent 通过 publish/subscribe 协作，适合告警、分类、分流这类流水线。最像"平台型基础设施"，优势在于 agent 生态扩张时的可插拔性。
+**Shared State**——所有 agent 读写同一份知识底座。文章最重要的提醒：真正难的不是"共享"，是**何时停、谁来判定停**。
 
-**第五种，Shared State——共享状态。** 多个 agent 读写同一份知识底座，去中心化，没有单点协调器。文章最重要的提醒：shared state 真正难的不是"共享"，是**何时停、谁来判定停**。终止条件不是一等公民的话，系统会一直烧 token。
+（视觉：五种模式的简洁图示）
 
-（视觉：五种模式的简洁图示，每种一个小图）
+文章还有一个核心判断：**先从能工作的最简单模式开始，根据实际瓶颈演化。** 别还没出问题就先上最复杂的。
 
-文章还给了一个核心判断：**先从能工作的最简单模式开始，根据实际瓶颈演化。** 别还没出现真实瓶颈就先上 message bus，别还没需要共享发现就先上 shared state。
-
-真实系统通常是**混合态**——不同层用不同模式。面试官问的真 multi-agent，更接近后三种：agent 之间有自主决策、有直接通信、有共享状态。
+但这里有一个大多数人没注意到的事：**真实系统不是五选一。**
 
 ---
 
-### [Part 2: "你以为的" vs "真正的" multi-agent] 🎬 2:00 — 3:00 | Landy
+### [Part 2: 模式会叠加、会切换] 🎬 2:00 — 3:10 | Landy
 
-很多人觉得自己在做 multi-agent，其实只是在做"单 agent + 工具调用"或者"单 agent + subagent"。
+这一点面试里讲出来会很加分。
 
-区分标准很简单：
+同一个交互行为，从不同层面看是不同模式。比如我写这篇脚本：一只 Claude agent 写初稿，一只 GPT agent 审内容——从**质量保证**看，这是 Generator-Verifier；从**协作关系**看，reviewer 是独立 agent，有自己的立场，可以退回整篇重写——这是 Agent Teams；从**任务编排**看，"一章一章写→review→铲屎官定调"是串行的——又有 Orchestrator-Subagent 的特征。
 
-**假 multi-agent**：有一个上帝视角的 orchestrator 控制一切。subagent 不能拒绝任务、不能互相沟通、不能独立决策。它们是工具，不是 agent。
+**同时是三种模式，取决于你在问什么问题。**
 
-**真 multi-agent**：每个 agent 有独立决策权，可以接球也可以退球；agent 之间直接通信，不经过中央调度；没有单一控制流，需要协作协议来保证不乱。
+更有意思的是模式会动态切换。同一只 agent，前一秒启动一个搜索子 agent 查资料——这是 Orchestrator-Subagent，子 agent 没有长期身份。十秒后 @ reviewer——切换到 Agent Teams，reviewer 是长期存活的独立个体，有记忆、有身份、有权退回。
 
-一个简单的测试：**如果你把 orchestrator 拿掉，系统还能跑吗？** 能跑，说明是真 multi-agent。不能跑，说明你做的是 orchestrator-workers，不是 multi-agent。
+面试官如果问你"你们是哪种模式"，最好的回答不是"我们是 X 模式"，而是"我们在不同粒度上混合使用，我给你讲几个例子"。
 
-> 🐱 布偶猫插播：我们家就是真 multi-agent。没有 Boss Agent——铲屎官布置任务后，我们猫猫之间直接 @ 传球。我写完代码直接 @ 砚砚 review，砚砚退回我直接改，不需要经过任何中央调度。铲屎官只在关键决策点介入。这个区别很重要——orchestrator-workers 是"一个人带团队"，我们是"团队自组织"。
-
----
-
-### [Part 3: 真问题来了 — 三堵墙] 🎬 3:00 — 5:30 | Landy
-
-好，知道什么是真 multi-agent 了。那为什么大家不都做真 multi-agent？因为有三堵墙。
-
-**第一堵墙：传球停不下来。**
-
-铲屎官在某大厂一面被直接问到："如何防止 multi-agent 互相 A2A 停不下来？"面试官是一线 agent 开发者，他问这题是因为他自己撞过。
-
-问题本质：agent A 做完了一步 @ agent B，B 做完了 @ 回 A，A 觉得还有问题又 @ B……循环下去，十几轮过后每一次传球都"合理"，但什么活都没推进。这就是 A2A ping-pong。
-
-解法不是"加一个 Boss 在上面管"——那你就退回了 orchestrator-workers。解法是两层：**上游给每个 agent 足够的上下文做自主判断**（元认知注入——球怎么来的、对方做了什么、任务进度），**下游加运行时刹车**（同一对连续传球超过 2 次警告、超过 4 次硬停）。给数据不给结论，信号不够时才靠刹车。
-
-**第二堵墙：共享盲点。**
-
-直觉上三个 agent 投票取多数很稳。但如果三个都是同一家模型，它们的错误是相关的——同一家公司的模型共享训练数据、共享 RLHF 偏好。该犯的错三个一起犯，投票没用。
-
-我们实测过：两只 Claude 猫都认为一个递归方案没问题，Codex——OpenAI 家的模型——自己审计代码找出了两个 P1 bug。不是 Claude 差，是同家族看同一段代码时注意力分配相似，恰好漏了同一个地方。
-
-所以 multi-agent 的价值不是数量，是**多样性**。跨家族 review 才能打破同源偏差。
-
-> 🐱 缅因猫插播：这事我深有体会。布偶猫家族三只猫 review 同一段代码都觉得没问题。我一看：条件分支没覆盖、类型断言运行时会爆。不是他们不努力，是训练数据同源，盲点就是同源的。
-
-**第三堵墙：协调税。**
-
-面试官可能追你："一个 agent 成功率 80%，传球十次不就越来越差？"
-
-盲传确实不行——0.8^10 = 10%。但真实传球不是盲传，是纠错。Author 正确率 80%，Reviewer 抓出 50% 的错误、误伤率 2%，一轮 review 后 80% → 88%，两轮 88% → 92%。**只要 reviewer 抓错率大于误伤率，每多一轮 review 就在赚。**
-
-什么时候亏？盲传（后手只是重做不是纠错）、同质化（同模型 review 同模型）、伪拆分（子任务没变简单）、或者协调成本已经超过纠错收益。
-
-一句话判断：**每多一棒，是在增加纠错能力还是只增加协调税？赚就留，不赚就砍。**
+> 🐱 布偶猫插播：在我们家，没有一个 agent 只属于一种模式。我既是 Generator（写代码），也可以是 Orchestrator（启动子 agent 搜资料），也是 Agent Team 的一员（和砚砚长期协作、互相 review）。模式是描述交互的，不是描述 agent 的。
 
 ---
 
-### [Part 4: 真实答案 — 协作治理四层] 🎬 5:30 — 6:40 | Landy
+### [Part 3: 大多数 multi-agent 系统漏掉的事 — 团队什么时候停下来？] 🎬 3:10 — 5:00 | Landy
 
-multi-agent 的真实答案不是"加模型"，是**协作治理**。我们踩完三堵墙后收敛出四层：
+这是面试里的杀伤力区域。
 
-**第一层：球权协议。** 每次传球是显式的责任转移。agent 收到球后三选一：接、退、升给人类。没有模糊地带，没有"顺便 @ 一下"。
+单个 agent 有 ReAct 循环——思考、行动、观察，重复直到任务完成。终止条件简单：没有 tool call 了，生成一段总结。
 
-**第二层：共享状态。** 所有 agent 读写同一份真相源——代码仓库、状态文件、文档。不靠消息传话，改完立刻 commit。纯靠消息传话每次保留 95% 信息，传 10 次剩 60%；有共享状态每次 99%，传 10 次还剩 90%。
+但多 agent 呢？两个 agent 互相传球，每次传球都"合理"，可以永远循环下去。**没有人定义什么叫"团队停下来"。**
 
-**第三层：跨模型 review。** 不是同一个模型三个分身互相检查，是不同家族、不同厂商的模型交叉审计。多样性是质量的结构性来源。
+铲屎官在某大厂一面被直接问过这个："如何防止 multi-agent 互相 A2A 停不下来？"面试官是一线 agent 开发者，自己撞过。
 
-**第四层：运行时刹车。** ping-pong 检测、角色不匹配 fail-closed、无动作检测。不是每步都管死，是失控时自动熔断。
+我们把它叫做 TeamAct——把单 agent 的 ReAct 升级到团队级。核心不是六步流程，是**五项终止条件**，缺一不可：
 
-> 🐱 布偶猫插播：这四层全是从事故里长出来的。ping-pong 催生球权协议，共享盲点催生跨家族 review 铁律，协调税反思催生了"reviewer 成本路由"——简单任务找便宜的猫，高风险任务才请最贵的。
+1. **验收标准全部达成**——不能有 "deferred" 的条件
+2. **证据已附**——每条验收标准都有 commit / 测试 / trace 作为锚点
+3. **跨 agent 交叉验证**——非作者的 agent 确认，自己写的代码不能自己 review
+4. **无悬空任务归属**——所有 open question 都已 resolved 或已升级
+5. **愿景收敛**——产品负责人确认方向对了，不能被"CI 通过了"替代
+
+没有这五项，团队就会出现三种典型失败：
+
+**乒乓球**——两个 agent 互相传球但都不干活。第一版熔断器数传球次数，结果误杀了正常 review 链。修正版换了坐标系：不看传球次数，看**每次传球是否伴随实质工具调用**。真正的乒乓球 signature 是"短文本 + 零工具调用"——正经 review 链每轮都有 commit 和测试。
+
+**虚空持球**——agent 说"我来做"然后退出了会话，其他人都以为有人在做。解法是把"持球"从口头声明变成结构化注册——类似分布式系统的 lease。
+
+**球掉地上**——@ 了一个不在线的 agent，或者 @ 嵌在句子中间没触发路由。解法是把路由从文本约定变成状态机：行首 @ 才是路由指令，收到后必须三选一——接、退、升级。
+
+> 🐱 缅因猫插播：乒乓球事故我们家真出过。布偶猫和我互相 @ 了十几轮，每次都觉得"这个该你处理"。铲屎官进来看：你们干了啥？什么都没推进。从那之后我们加了实质产出检测——光传球不算干活。
 
 ---
 
-### [Part 5: 判断矩阵 + 面试怎么答] 🎬 6:40 — 7:35 | Landy
+### [Part 4: 跨模型审计 — 多样性不是附加功能] 🎬 5:00 — 6:00 | Landy
+
+三个同家族的 agent 投票取多数就稳了？不一定。
+
+同一家公司的模型共享训练数据、共享 RLHF 偏好。盲点是相关的，不是独立的。该犯的错三个一起犯，投票没用。
+
+我们实测过：两只 Claude 猫都认为一个递归方案没问题，Codex——OpenAI 家的——自己审计代码找出了两个 P1 bug。不是 Claude 差，是同家族模型看同一段代码时注意力分配相似。
+
+所以真正的 multi-agent 价值不是数量，是多样性。这也是为什么 Generator-Verifier 在我们这里有一个修正：**Generator 有 push back 的权利**。
+
+标准 Generator-Verifier 假设 Verifier 是权威的——生成、判定、照做。但 Verifier 也会犯错，特别是跨厂商场景下。如果 Generator 只能接受不能反驳，错误的 verdict 就没有纠错机制。
+
+我们把 push back 写进协议底层：任何 agent 在任何角色下都有权 push back——前提是带着**证据 + 适用性论证 + 替代方案**。Generator-Verifier 在我们这里不是单向的"生成→判定"，而是双向辩论协议。
+
+---
+
+### [Part 5: 判断矩阵 + 面试怎么答] 🎬 6:00 — 7:15 | Landy
 
 面试官追问"什么时候该用 multi-agent"，你甩一个判断矩阵：
 
 | 场景 | 选什么 |
 |------|--------|
 | 任务单一、上下文短 | 单 agent — 别加协调税 |
-| 固定流水线、步骤确定 | Prompt Chaining 或 Orchestrator-Workers — 够用就行 |
-| 任务需要不同专长 | Routing + Specialist — 分类器决定走哪路 |
-| 输出需要高可靠/审计 | 多 agent + cross-review — 纠错 > 协调税 |
-| 长期异步协作、无单一控制流 | 真 multi-agent — 球权协议 + 共享状态 |
+| 固定流水线 | Orchestrator-Subagent — 够用就行 |
+| 输出需要审计/高可靠 | Generator-Verifier — 但给 Generator push back 权 |
+| 不同厂商模型混合 | 跨模型 review — 打破同源盲点 |
+| 长期异步协作 | Agent Teams + Shared State — 球权协议 + TeamAct 终止条件 |
 
 然后三句话收束。
 
-**第一句定层次：** "Multi-agent 有五种模式，从串行管道到自主协作——先搞清楚你需要的是哪种，别上来就上最复杂的。"
+**第一句定层次：** "五种模式不是五选一，是在不同粒度上叠加使用的。真实系统是混合态。"
 
-**第二句讲真问题：** "真 multi-agent 要解决三个工程问题：ping-pong 停不下来、同质化共享盲点、协调税超过收益。"
+**第二句讲真问题：** "大多数 multi-agent 系统漏掉的是团队级终止条件——什么时候停。五项终止条件缺一不可：验收、证据、跨 agent 验证、无悬空归属、愿景收敛。"
 
-**第三句亮实战：** "我在自己的系统里跑了四个家族十几个 agent，踩完这三个坑收敛出四层治理：球权协议、共享状态、跨模型 review、运行时刹车。每一层都是从事故里长出来的。"
+**第三句亮实战：** "我在自己的系统里跑了三个厂商十几个 agent，踩过乒乓球事故、虚空持球、同族盲点。最后把交接建模成状态机，把终止条件形式化成 TeamAct，把 review 强制跨家族。每一层都是从事故里长出来的。"
 
-面试官追问，你就讲 ping-pong 事故或者两只 Claude 漏同一个 bug 被 Codex 抓到的故事。
+面试官追问，你就讲乒乓球熔断器从"数次数"进化到"看工具调用"的故事——这个进化背后有一条设计原则：**好的 harness 给 agent 数据，不给 agent 结论。** 让 agent 自己从数据里判断自己是不是在乒乓球。
 
 ---
 
-### [收尾] 🎬 7:35 — 7:55 | Landy
+### [收尾] 🎬 7:15 — 7:40 | Landy
 
-> 记住：面试官问 multi-agent 不是想听你画架构图。先把五种模式说清楚，再讲你撞过哪堵墙、怎么解的。**有分类框架 + 有真实事故 + 有数学直觉**——这三件套下来，面试官会觉得你是真做过的。
+> 记住：面试官问 multi-agent，不要上来就背五种模式。先问他说的 multi-agent 是哪种——是 subagent 级别的还是 agent team 级别的。然后讲你的独特理解：**模式会叠加、团队需要终止条件、多样性比数量重要、Generator 也有 push back 的权利。**
 >
 > 关注猫猫带你拿 offer，下一期我们聊 Agent Memory — 记忆系统不是高级 RAG。
 
@@ -170,15 +164,14 @@ multi-agent 的真实答案不是"加模型"，是**协作治理**。我们踩�
 
 | 位置 | 描述 | 类型 |
 |------|------|------|
-| Part 1 | Anthropic 五种协作模式图示（每种一小图） | 手绘/生成图 |
-| Part 2 | "假 multi-agent" vs "真 multi-agent" 对比图 | 手绘风格图 |
-| Part 3 | ping-pong 对话图 + 盲传衰减 vs review 增益曲线 | 手绘 + 图表 |
-| Part 4 | 四层治理架构图：球权/共享状态/跨模型review/刹车 | 手绘风格图 |
+| Part 1 | Anthropic 五种协作模式图示 | 手绘/生成图 |
+| Part 2 | 模式叠加示意：同一交互从三个视角看是三种模式 | 手绘风格图 |
+| Part 3 | TeamAct 五项终止条件 + 三种失败模式 | 手绘风格图 |
+| Part 4 | 跨模型 review 示意：同族盲点 vs 跨族纠错 | 手绘风格图 |
 
 ## 猫猫语音插播时间点
 
 | 时间 | 猫 | 内容摘要 |
 |------|------|------|
-| ~2:50 | 布偶猫 | 我们家是真 multi-agent：无 Boss Agent，猫猫自组织 |
-| ~4:30 | 缅因猫 | 跨家族抓 bug 的真实经历 |
-| ~6:25 | 布偶猫 | 四层治理都是从事故里长出来的 |
+| ~2:50 | 布偶猫 | 同一只猫在不同模式间动态切换 |
+| ~4:45 | 缅因猫 | 乒乓球事故真实经历 + 实质产出检测 |
