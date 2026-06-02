@@ -116,5 +116,39 @@ status: spike-done-pending-owner-discussion
 - **F211 先例（同思维不同数据源）**：孟加拉猫 IDE/Desktop 路径的 trajectory 增量——REG9 status-poll（57KB vs 4MB，70× 降）已 merged；REG10 push `StreamCascadeReactiveUpdates` 为 deferred 终态。F211 走「连 LS」，本 spike 走「读 SQLite」，机制同源
 - **F211 实测的死路（避免重走）**：read RPC 的 delta 字段（`startStepIndex` 等 16 名 + cursor）被静默忽略——LS 侧真增量只能 push。本方案绕开此坑（SQLite 的 `idx` 游标天然支持 `WHERE idx > cursor`）
 
+## 7. H2a 探索增量（2026-06-02，砚砚拍板 H2a/H2b 拆分后）
+
+> 砚砚 H2 方向：H2a 做 SQLite content extractor（路径 A 直读，`ConvertTrajectoryToMarkdown` 只做 oracle），H2b 才替换 resumed turn final text。退出条件：proto 字段一天内啃不出稳定 text extractor → 停 spike，不硬上替换。本节为 H2a 第一轮真跑探索证据。
+
+### 7.1 [实测] agy two-turn 真跑
+- `agy --print "Translate to French: apple..."` → 输出 `pomme`（正确），conversation id `68022d68-...`（从 `--log-file` grep uuid）。
+- `agy` 默认 profile 可直接跑（无需 isolated profile / 额外 auth）。
+- macOS 无 `timeout` 命令（要 `gtimeout`）；用 agy 内置 `--print-timeout`。
+
+### 7.2 ⚠️ [实测] 关键映射：DB 文件名 = **cascade-uuid ≠ conversation id**
+- conversation id `68022d68-...` 对应的 `conversations/68022d68-....db` **不存在**（`no such table: steps`）。
+- 实际 DB 文件名是 **cascade uuid**（如 `1cf6dc43-....db`），`trajectory_meta` 里 `(trajectory_id, cascade_id, ...)` = `(0a3d5bd5, 1cf6dc43, ...)`。
+- **🔴 H1 隐患待核**：`resolveAgyTrajectoryDbPath` 用 `extractAntigravityCliConversationId`（conversation id）拼 `conversations/<id>.db`。single-turn 时可能 conversation id == cascade uuid（H1 spike「steps 1→10」当时能读到说明走通了），但**multi-turn resume 时 conversation id 与 cascade uuid 分叉**，H1 observer 可能定位不到 DB（fail-open 静默降级，不报错但拿不到 progress）。H2a 必须改用 cascade uuid 定位：从 log 拿 cascade id（log 有 `Creating trajectory store`）或扫 `conversations/` 最新 mtime DB + 用 `trajectory_meta.cascade_id` 反查。
+
+### 7.3 [实测] steps schema + step_type 语义线索
+- 短任务 trajectory（cascade `1cf6dc43`）4 steps：
+
+  | idx | step_type | status | payload bytes | 语义（strings 推断）|
+  |-----|-----------|--------|---------------|------|
+  | 0 | 14 | 3 | 493 | （头部/任务）|
+  | 1 | 98 | 3 | 231 | （元数据）|
+  | 2 | 15 | 3 | 3661 | **assistant thinking（明文可提取）** |
+  | 3 | 23 | 3 | 587 | footer（含 sessionID + cascade/conversation uuid）|
+
+### 7.4 ✅ [实测] H2a 命门回答：assistant text 是**明文** proto string field
+- `step_type 15` payload（3661B）`strings` 直接出明文：`/Gemini 3.5 Flash`（model）+ `**Considering the Prompt** Okay, I'm now focusing on the single-sentence...`（assistant reasoning/thinking 文本）+ 尾部二进制（疑似 embedding）。
+- **结论**：assistant text 不加密、proto string field 明文存储 → **路径 A（SQLite 直读 + proto string 提取）可行，不必逆向完整 proto schema**。最坏情况可 `strings`-style 抽明文段，正解是按 proto wire format 取对应 field（field tag + length-delimited）。
+
+### 7.5 下阶段（H2a 未完，下次继续）
+1. **proto field 精确解码**：区分 thinking vs **final answer** vs tool call/result（本机无 `protoc`，需装 `protoc --decode_raw` 或 python `protobuf`/手写 wire-format parser）。砚砚 OQ「哪个字段最稳定承载 final assistant text」未答 → 必须 multi-turn fixture 比对。
+2. **multi-turn resume fixture 待重采**：turn2（`--conversation 68022d68` resume "banana"）**`--print-timeout 4m` 超时**未出结果（resume bootstrap 卡住，与 spike 提的 ~257ms resume 体感不符，需复查是否首次 resume 冷启动慢 / 任务本身卡）。`[1]→[1,2]→[1,2,3]` 累加 fixture 还没采到。
+3. **H2a extractor + H1 background 红测**：proto field 定位稳定后开 red 测。
+- **状态**：H2a 命门（可行性）已确认 ✅；proto field 精确语义 + multi-turn fixture 是剩余硬骨头，符合砚砚「先证可行，啃不动停 spike」的边界。
+
 ---
 [宪宪/Opus-4.8🐾]
