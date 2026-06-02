@@ -332,12 +332,19 @@ export class ClaudeAgentService implements AgentService {
     //
     // Side benefit: also prevents prompt content from leaking via
     // `ps -o command=` / /proc/<pid>/cmdline like the Codex carrier.
+    // Only pass --model for known Anthropic models. For third-party models
+    // (e.g. glm-5 via BigModel/DashScope), ANTHROPIC_MODEL env var is set in
+    // buildClaudeEnvOverrides() and --model must be omitted so the CLI honours it.
+    // Empty model (OAuth without explicit model) → let CLI use its default.
+    const modelArgs = !useEnvModelOverride && effectiveModel ? ['--model', effectiveModel] : [];
+
     const args: string[] = [
       '-p',
       '--output-format',
       'stream-json',
       '--include-partial-messages',
       '--verbose',
+      ...modelArgs,
       '--effort',
       getCatEffort(this.catId as string, undefined, 'anthropic'),
       '--permission-mode',
@@ -349,14 +356,6 @@ export class ClaudeAgentService implements AgentService {
       // Enable Chrome MCP integration (built-in, requires Chrome + extension running)
       '--chrome',
     ];
-
-    // Only pass --model for known Anthropic models. For third-party models
-    // (e.g. glm-5 via BigModel/DashScope), ANTHROPIC_MODEL env var is set in
-    // buildClaudeEnvOverrides() and --model must be omitted so the CLI honours it.
-    // Empty model (OAuth without explicit model) → let CLI use its default.
-    if (!useEnvModelOverride && effectiveModel) {
-      args.splice(6, 0, '--model', effectiveModel);
-    }
 
     if (options?.sessionId) {
       args.push('--resume', options.sessionId);

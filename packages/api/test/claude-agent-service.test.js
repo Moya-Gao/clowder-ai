@@ -15,6 +15,7 @@ import { ensureFakeCliOnPath } from './helpers/fake-cli-path.js';
 const { ClaudeAgentService, pickGitBashPathFromWhere, resolveDefaultClaudeMcpServerPath } = await import(
   '../dist/domains/cats/services/agents/providers/ClaudeAgentService.js'
 );
+const { getCatEffort } = await import('../dist/config/cat-config-loader.js');
 
 ensureFakeCliOnPath('claude');
 
@@ -1361,7 +1362,7 @@ test('F24-fix: lastTurnInputTokens resets when final message_start has no usage 
 test('third-party model (glm-5): omits --model flag and injects ANTHROPIC_MODEL env var', async () => {
   const proc = createMockProcess();
   const spawnFn = createMockSpawnFn(proc);
-  const service = createClaudeAgentService({ spawnFn });
+  const service = createClaudeAgentService({ spawnFn, model: 'claude-test-model' });
 
   const promise = collect(
     service.invoke('hello', {
@@ -1391,7 +1392,7 @@ test('third-party model (glm-5): omits --model flag and injects ANTHROPIC_MODEL 
 test('native Anthropic model (claude-sonnet-4-6): keeps --model flag, no ANTHROPIC_MODEL env var', async () => {
   const proc = createMockProcess();
   const spawnFn = createMockSpawnFn(proc);
-  const service = createClaudeAgentService({ spawnFn });
+  const service = createClaudeAgentService({ spawnFn, model: 'claude-test-model' });
 
   const promise = collect(
     service.invoke('hello', {
@@ -1417,4 +1418,29 @@ test('native Anthropic model (claude-sonnet-4-6): keeps --model flag, no ANTHROP
   assert.equal(args[modelIdx + 1], 'claude-sonnet-4-6');
   // ANTHROPIC_MODEL must NOT be set (native model goes through --model)
   assert.ok(!spawnOpts.env.ANTHROPIC_MODEL, 'ANTHROPIC_MODEL env var must not be set for native Anthropic model');
+});
+
+test('native Anthropic model keeps --effort value adjacent when --model is inserted', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = createClaudeAgentService({ catId: 'opus', spawnFn, model: 'claude-opus-4-6' });
+
+  const promise = collect(service.invoke('hello'));
+  emitClaudeEvents(proc, [{ type: 'result', subtype: 'success' }]);
+  await promise;
+
+  const args = spawnFn.mock.calls[0].arguments[1];
+  const effortIdx = args.indexOf('--effort');
+  const modelIdx = args.indexOf('--model');
+  const expectedEffort = getCatEffort('opus', undefined, 'anthropic');
+
+  assert.ok(effortIdx >= 0, '--effort flag must be present');
+  assert.equal(
+    args[effortIdx + 1],
+    expectedEffort,
+    `--effort must be followed by configured effort, argv: ${args.join(' ')}`,
+  );
+  assert.ok(modelIdx >= 0, '--model flag must be present for native Anthropic model');
+  assert.notEqual(modelIdx, effortIdx + 1, '--model must not split the --effort flag/value pair');
+  assert.equal(args[modelIdx + 1], 'claude-opus-4-6');
 });
