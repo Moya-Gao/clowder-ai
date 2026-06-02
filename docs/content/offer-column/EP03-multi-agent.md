@@ -46,23 +46,29 @@ references:
 
 ### [Part 1: 先把五种模式过一遍] 🎬 0:25 — 2:00 | Landy
 
-Anthropic 有一篇经典文章 *"Building Multi-Agent Systems"*——如果你还没读过，面试前必读。它给了五种协作模式：
+Anthropic 有一篇经典文章 *"Building Multi-Agent Systems"*——如果你还没读过，面试前必读。它给了五种协作模式。我一边讲，一边 show 我们系统里对应的东西，你就有感觉了：
 
-**Generator-Verifier**——一个生成，一个验收。最容易落地，也最容易被误用。关键不在"多一个 verifier"，在于**验收标准是否外显**。没有明确标准的 verifier 就是形式主义。
+**Generator-Verifier**——一个生成，一个验收。关键不在"多一个 verifier"，在于**验收标准是否外显**。
 
-**Orchestrator-Subagent**——主从模式。Claude Code 的 subagent、Codex 的 workflow 都是这种。Anthropic 建议从这种起步，因为边界和责任最清晰。
+（show：Cat Café Hub 里砚砚 review 布偶猫代码的 PR 页面——reviewer 输出 approve 或 blocking，没有第三种）
 
-**Agent Teams**——worker 不是一次性的，能跨多轮任务保留上下文。和 orchestrator-subagent 的分界在于：worker 是否需要长期积累专业上下文？
+**Orchestrator-Subagent**——主从模式。Claude Code 的 subagent、Codex 的 workflow 都是这种。Anthropic 建议从这种起步。
 
-**Message Bus**——事件驱动。agent 通过 publish/subscribe 协作。不只是 agent 之间传话——GitHub webhook、IM 消息、定时任务、CI 结果，都是事件流的一部分。
+（show：Claude Code 里 agent 启动 subagent 搜资料的终端界面——子 agent 干完活汇报，主 agent 复核吸收）
 
-**Shared State**——所有 agent 读写同一份知识底座。文章最重要的提醒：真正难的不是"共享"，是**何时停、谁来判定停**。
+**Agent Teams**——worker 不是一次性的，能跨多轮任务保留上下文。和 orchestrator-subagent 的分界：worker 是否需要长期积累专业上下文？
 
-（视觉：五种模式的简洁图示）
+（show：Cat Café Hub 多只猫在同一个 thread 长期协作的聊天界面——每只猫有自己的身份、记忆和立场，不是临时工）
 
-文章还有一个核心判断：**先从能工作的最简单模式开始，根据实际瓶颈演化。** 别还没出问题就先上最复杂的。
+**Message Bus**——事件驱动。不只是 agent 之间传话——GitHub webhook、IM 消息、定时任务、CI 结果，都是事件流的一部分。
 
-但这里有一个大多数人没注意到的事：**真实系统不是五选一。**
+（show：GitHub PR webhook 触发猫猫自动 review / 定时巡检任务的调度日志）
+
+**Shared State**——所有 agent 读写同一份知识底座。真正难的不是"共享"，是**何时停、谁来判定停**。
+
+（show：git log 里多只猫交替 commit 同一个文件 / 记忆系统里多猫共享的决策记录）
+
+文章的核心判断：**先从最简单的模式开始，根据实际瓶颈演化。** 但这里有一个大多数人没注意到的事：**真实系统不是五选一。**
 
 ---
 
