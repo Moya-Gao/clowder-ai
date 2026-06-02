@@ -342,7 +342,7 @@ Phase G AGY profile E2E smoke runner source: `docs/features/assets/F210/phase-g-
 - **UI 文案**：H1 不硬标 step_type（8/9/14/15/23/98），未知显示中性"AGY trajectory step #N running/completed"，枚举坐实后（H3）再加语义标签。
 
 **Phase H 拆分**：
-- **H1**：`AgyTrajectoryObserver` —— SQLite 增量 poll，实时 progress event；测试用 fake log + temp SQLite append。
+- **H1** ✅ **merged（PR #2044, squash `0fa2f27f0`, 2026-06-02）**：`AgyTrajectoryObserver`（SQLite 增量 poll，retry/incompatible 三态 fail-open）+ `resolveAgyTrajectoryDbPath` + `observeAgyProgress`（依赖注入可测 generator）+ 接入 `invokeAntigravityCLI`（agyConsumeTask 后台消费 + 并发 merge loop，liveness/progress 实时 side-channel）。实时写假设已 spike 坐实（steps 1→10 横跨 25s）。砚砚跨族 review（2 本地 P1：startup race + liveness real-time；2 云端 P1/P2：consumer rejection + nonblocking poll，全修）+ 云端 codex 0 major。68 测试全绿。
 - **H2**：trajectory 内容提取，替换 resumed stdout final text；红测复现 `[1]→[1,2]→[1,2,3]` 只输出本轮（根治重放）。proto 解码首选逆向 schema，备选趁临时 LS 活着调 `ConvertTrajectoryToMarkdown`（fallback，生命周期不可靠）。
 - **H3**：step_type / proto 解码 + 更细 UI 标签。
 
@@ -376,6 +376,7 @@ Phase G AGY profile E2E smoke runner source: `docs/features/assets/F210/phase-g-
 | 2026-05-31 | Phase G model-selector recon merged via PR #2007：official docs and local AGY `1.0.3` language-server probes confirm selector labels and `settings.json` key `model` as the exact profile storage surface, closing AC-G1 while leaving AC-G2 open for live per-profile E2E onboarding/user-facing exposure |
 | 2026-06-01 | Phase G AC-G2 smoke-runner slice merged via PR #2009：`pnpm f210:agy-profile-smoke` adds a repeatable production-path runner for Opus 4.6 Thinking / Gemini 3.1 Pro High / Gemini 3.5 Flash High isolated profiles; AC-G2 remains open until live onboarded profile runs pass without sticky-state bleed |
 | 2026-06-01 | Phase G interactive carrier decision merged via PR #2012：AGY `1.0.3` local API is rejected as production interactive carrier for now; state streaming works with Connect framing, but API send/model/cancel lifecycle is not proven. PTY/tmux fallback is manual takeover/observation only, closing AC-G6 |
+| 2026-06-02 | Phase H1 (streamable trajectory progress side-channel) merged via PR #2044 (squash `0fa2f27f0`)：`AgyTrajectoryObserver` + `observeAgyProgress` + `invokeAntigravityCLI` 并发接入；实时写假设 spike 坐实；砚砚跨族 review（2 local P1: startup race + liveness real-time；2 cloud P1/P2: consumer rejection + nonblocking poll，全修）+ 云端 codex 0 major；68 tests green。H2（根治重放）/H3（proto 解码）待做 |
 | 2026-05-27 | Target: Phase A recon complete（install/auth/headless/output/MCP/sandbox facts frozen） |
 | 2026-06-07 | Target: Phase B/C adapter + parser/session strategy implemented |
 | 2026-06-14 | Target: Phase D/E install packaging + E2E smoke green |
