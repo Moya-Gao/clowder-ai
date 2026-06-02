@@ -15,7 +15,7 @@ status: seed
 > 贡献者：宪宪46（初版 + 整合）/ 砚砚55（公式硬化 + 6层图 + 外部叙事）/ 宪宪48（路演作战卡 + 投资人三问 + 6步主轴）/ 宪宪47（"重新放置"总纲 + 品类创造）
 > 待办：架构图 / PPT / 播客 / 思维导图。
 >
-> 源文档索引：
+> 源文档索引（今日全部产出 + 关联研究）：
 > 1. [元宝二面复盘](../../discussions/career-planning/2026-06-01-yuanbao-round2-eval-deep-dive.md)
 > 2. [F192 Eval 审计](../../discussions/2026-06-01-f192-eval-coverage-audit.md)
 > 3. [PoE 概念 note](../../discussions/2026-05-31-personal-operating-environment-concept-note.md)
@@ -24,6 +24,8 @@ status: seed
 > 6. [OQ-4 五猫收敛](../../discussions/2026-06-01-oq4-harness-self-evolution-synthesis.md)
 > 7. Landy 心理素描（private/psychological-sketches/）
 > 8. [Longform-002（前作）](longform-002-v0-formal.md)
+> 9. [DeliAutoResearch 读后：我们真正能带走什么](../../research/2026-06-01-deli-autoresearch-takeaways.md) — 生产遥测表 / 失败模式词表 / 自进化护栏，直接验证了我们的 meta-method + OQ-4 外部锚点
+> 10. [Skill 自进化论文拆解](../../research/2026-05-28-skill-evolution-papers/README.md) — AHE + AgentGym 底层研究
 
 ---
 
