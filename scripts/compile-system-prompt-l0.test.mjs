@@ -112,6 +112,15 @@ describe('F203 Phase B — compile-system-prompt-l0.mjs', () => {
       assert.match(l0, /git commit \+ git push/);
     });
 
+    // Decision funnel §4 template content guards (sonnet review W1)
+    test('§4 接球默认自决 + Decision Packet 闸门 present', async () => {
+      const l0 = await compileL0({ catId: 'opus' });
+      assert.ok(l0.includes('接球先问：能自决吗'), 'missing 接球先问 preamble');
+      // Use §4-unique string to avoid false positive from §3 governance digest (codex review P2)
+      assert.ok(l0.includes('缺 Packet = 打回'), 'missing Decision Packet gate in §4');
+      assert.ok(l0.includes('绕路反射'), 'missing bypass-reflex diagnostic');
+    });
+
     test('铲屎官三硬条件 present', async () => {
       const l0 = await compileL0({ catId: 'opus-47' });
       assert.ok(l0.includes('不可逆操作'));
@@ -225,13 +234,14 @@ describe('F203 Phase B — compile-system-prompt-l0.mjs', () => {
   // 改 governance content（Magic Words / shared-rules）时两个 test 都要跑：
   //   - 本文件：token budget（L0 compiled markdown）
   //   - packages/api/test/system-prompt-builder.test.js：char budget（runtime prompt）
-  // 5,600 占 200k context 2.8%。详见 F203 AC-B3 + KD-14。
-  describe('Token budget (AC-B3, ≤5,600)', () => {
+  // 5,600→6,000：决策漏斗注入（四猫讨论 2026-06-01，§17 投影 + §4 默认自决）。
+  // 6,000 占 200k context 3%。详见 F203 AC-B3 + KD-14。
+  describe('Token budget (AC-B3, ≤6,000)', () => {
     for (const catId of CATS) {
-      test(`${catId}: total tokens ≤ 5,600`, async () => {
+      test(`${catId}: total tokens ≤ 6,000`, async () => {
         const l0 = await compileL0({ catId });
         const tokens = tok(l0);
-        assert.ok(tokens <= 5600, `${catId} L0 = ${tokens} tokens (limit 5,600)`);
+        assert.ok(tokens <= 6000, `${catId} L0 = ${tokens} tokens (limit 6,000)`);
       });
     }
   });

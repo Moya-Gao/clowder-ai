@@ -163,7 +163,7 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 
 - [x] AC-B1: `assets/system-prompts/system-prompt-l0.md` 包含 14 项全部内容 ✅（branch `9105d184f`，测试 `14 L0 governance items coverage` 全覆盖）
 - [x] AC-B2: `scripts/compile-system-prompt-l0.mjs` 输出 per-cat 编译结果 ✅（6 catId 测试覆盖 + per-cat overlay 替换 + 36 测试全绿）
-- [x] AC-B3: 编译 token 总量 ≤ **5,500** ✅（**两次上移**：4,500→5,000 见 KD-9；5,000→5,500 见 KD-14——codex user-layer strip 把 Codex CLI 专属「长任务纪律」迁入 maine-coon native overlay，maine-coon 实测 5,154-5,155t。5,500 仍在 Claude 4.x prompt cache 单 breakpoint 内 + 占 200k context 2.75%）
+- [x] AC-B3: 编译 token 总量 ≤ **6,000** ✅（**三次上移**：4,500→5,000 见 KD-9；5,000→5,500 见 KD-14；5,600→6,000 见决策漏斗注入 PR #2040——§17 决策漏斗投影 + §4 默认自决反射，四猫讨论收敛 2026-06-01。6,000 占 200k context 3%）
 - [x] AC-B4: per-breed cache key 稳定 ✅（same catId byte-identical 测试通过）
 
 ### Phase C（dual-path 落地）

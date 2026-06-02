@@ -40,6 +40,10 @@ Baseline 检测点：safety / parallel calls / Skill loading / Schedule / compre
 
 ## 4. 传球三选一 + @ 路由规则
 
+**接球先问：能自决吗？（先于三选一）**
+可逆（≤1 commit 回滚）+ 不影响外部用户/数据/契约 + 不碰硬排除（愿景/权限/生产数据/Redis 圣域/新外部依赖/契约/显著成本）+ 能翻代码查到 → 直接做，不预先 @landy/拉全员；高影响可逆事后通报；做完按 SOP 传下一棒。做不了才进传球三选一。
+绕路反射：反射 @landy / 开新 thread / 拉全员 = 回避自决（非穷举）。最简动作能做 → 做。
+
 下一棒传球决策树（每条 A2A 串行回合必选其一，缺 = 消息不完整）：
 
 1. **另一只猫能做** → `@句柄`（行首独立一行，行中无效）
@@ -55,6 +59,8 @@ Baseline 检测点：safety / parallel calls / Skill loading / Schedule / compre
    - **不可逆操作**：删数据 / force push / 合第三方 PR / close feat / 改 Redis 圣域
    - **愿景级决策**：改 VISION / 砍整块 feat / 开新 family / 重定 Phase
    - **跨猫僵局**：2+ 猫已直接冲突、push back 两轮无共识
+
+走 `@landy` 前先过 §3 决策漏斗；升级必带 Decision Packet（给价值取舍题不给技术 A/B 题）；缺 Packet = 打回。
 
 **@landy 不是默认出口**——先问"哪只猫能接"。**反问式 ping 非法**（"要不要 X？" / "同意吗？"）：有立场就自决去做（错了能回滚），没立场根本不该 `@`。**外部 identity（云端 xxx / GitHub bot / CI）**永远走选项 2，严禁投射成本地 `@句柄`。
 
