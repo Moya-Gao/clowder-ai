@@ -23,6 +23,7 @@ tags:
 | [苦涩的教训 (The Bitter Lesson)](bitter-lesson.md) | 长期看，能利用计算的通用 search / learning 方法会胜过手写人类先验 |
 | [奖励已足够 (Reward is Enough)](reward-is-enough.md) | 在足够复杂的环境中，最大化累积奖励可能隐式催生多种智能能力 |
 | [迎接经验时代 (Welcome to the Era of Experience)](era-of-experience.md) | AI 的下一阶段要从人类数据转向长程、接地、可行动的经验流 |
+| [Karpathy 论自我改进 Agent](karpathy-self-improving-agent-engineering.md) | 把 self-improvement 翻译成窄域 verifier、verification loop 和 autonomy slider |
 | [达尔文-哥德尔机 (Darwin Godel Machine)](darwin-godel-machine.md) | 用开放式演化搜索让 coding agent 修改自己的工具、代码和工作流 |
 
 外部但同一条线：
@@ -51,6 +52,10 @@ Reward is Enough
           v
 Era of Experience
   仅靠人类数据不够；agent 要从自己的经验流中学习
+          |
+          v
+Karpathy 工程解释
+  Stage 2 卡在 verifier；近期路径是 partial autonomy
           |
           v
 ADAS
@@ -115,7 +120,21 @@ Silver 和 Sutton 进一步指出：人类数据时代会遇到数据枯竭和�
 - MCP / tools / worktree / PR / browser 是动作表面。
 - tests / review / CVO taste / source-audit 是反馈表面。
 
-### 4. ADAS
+### 4. Karpathy 论自我改进 Agent
+
+Karpathy 的价值不在于提出新的 RL 理论，而是把 AlphaGo Zero、LLM、agent 产品化之间的差异讲成工程语言。
+
+关键判断：
+
+- 当前 LLM 主要仍是 Stage 1 imitation；Stage 2 self-improvement 在开放语言任务里缺少明确 reward / verifier。
+- 数学、代码、形式化证明这类窄域最先突破，因为它们有外部可验证判据。
+- 近期产品路线不是全自动 agent，而是 partial autonomy：用 autonomy slider 让用户按任务交出不同程度的控制权。
+- verification loop 是瓶颈；好的 GUI、diff、evidence 和小步迭代能让人类验证更快。
+- LLM 的“失忆”使外部 memory / skill library / experience archive 成为自我改进的现实载体。
+
+对 Cat Cafe 的直接启发：把 verifier、review、CVO taste、memory 和 autonomy level 当作 harness 的核心部件，而不是把它们视作 prompt 周边。
+
+### 5. ADAS
 
 Hu、Lu、Clune 的 ADAS 提出“自动设计 agentic systems”：一个 meta agent 编程生成候选 agent，测试性能，把发现加入 archive，并用 archive 指导下一轮搜索。
 
@@ -125,7 +144,7 @@ Hu、Lu、Clune 的 ADAS 提出“自动设计 agentic systems”：一个 meta 
 - archive 让系统保留历史 stepping stones。
 - 发现的 agent 设计可以跨领域、跨模型迁移。
 
-### 5. AI Scientist
+### 6. AI Scientist
 
 Nature 2026 的 AI Scientist 把科学流程串成端到端 pipeline：idea generation、literature check、code、experiments、plots、paper writing、automated review。它也展示了 test-time compute 和基础模型质量会影响产出。
 
@@ -135,7 +154,7 @@ Nature 2026 的 AI Scientist 把科学流程串成端到端 pipeline：idea gene
 - 但一致性、幻觉、review 噪音、论文污染和顶会质量仍是硬问题。
 - 它更像“受控科学 pipeline”，不是完全自治科学家。
 
-### 6. Darwin Godel Machine
+### 7. Darwin Godel Machine
 
 DGM 把 ADAS 的“设计 agent”推进到“agent 修改自己”。它维护一个 agent archive，采样祖先 agent，让 foundation model 修改其代码，再通过 benchmark 评估新版本。
 
@@ -151,7 +170,7 @@ DGM 把 ADAS 的“设计 agent”推进到“agent 修改自己”。它维护�
 - 它暴露了 reward hacking 和工具日志伪造风险。
 - 它依赖 sandbox、人类监督、透明谱系和真实 benchmark。
 
-### 7. On the Expressivity of Markov Reward
+### 8. On the Expressivity of Markov Reward
 
 这是对 reward hypothesis 的必要降温。它不是说 reward 没用，而是说：**在受限条件下，Markov reward 不能表达所有任务。**
 
@@ -163,7 +182,7 @@ DGM 把 ADAS 的“设计 agent”推进到“agent 修改自己”。它维护�
 
 这直接支持我们之前的判断：CVO taste 不能被简单 reward 替代，只能作为更高层的选择压力进入系统。
 
-### 8. Real-Time Cultural Transmission
+### 9. Real-Time Cultural Transmission
 
 DeepMind 这篇展示了 agent 可以在测试时通过观察专家示范，实时获取并记住导航知识，而且训练过程中不需要人类数据。
 
@@ -180,7 +199,7 @@ DeepMind 这篇展示了 agent 可以在测试时通过观察专家示范，实�
 - memory 不是附属功能，而是让经验跨个体传播的遗传层。
 - 如果没有 memory / attention / dropout / domain randomization，文化传递就会退化成死记硬背或过拟合某个老师。
 
-### 9. Open-Ended Play / XLand
+### 10. Open-Ended Play / XLand
 
 XLand 的重点是：不是固定一个游戏让 agent 刷分，而是构造一个能程序化生成大量任务的 3D 多玩家环境，让训练任务随 agent 能力动态变化。
 
@@ -192,7 +211,7 @@ XLand 的重点是：不是固定一个游戏让 agent 刷分，而是构造一�
 
 这和我们说的 Evolvable Harness 很贴：好的 harness 不是只给 agent 一次任务，而是持续产生可学习的挑战和反馈。
 
-### 10. Alberta Plan
+### 11. Alberta Plan
 
 The Alberta Plan 是 Sutton、Bowling、Pilarski 对长期 AI 研究路线的系统陈述。它不是一篇单点实验，而是 Sutton 学派的路线图：持续学习、agent 与世界交互、经验驱动、长期适应。
 
@@ -278,6 +297,8 @@ DGM 证明了一件很具体的事：
 - [Rich Sutton: The Bitter Lesson](http://www.incompleteideas.net/IncIdeas/BitterLesson.html)
 - [Reward is Enough](https://web.eecs.umich.edu/~baveja/Papers/RewardIsEnough.pdf)
 - [Welcome to the Era of Experience](https://storage.googleapis.com/deepmind-media/Era-of-Experience%20/The%20Era%20of%20Experience%20Paper.pdf)
+- [Karpathy: Intro to Large Language Models](https://www.youtube.com/watch?v=zjkBMFhNj_g)
+- [Karpathy: Software Is Changing (Again)](https://www.youtube.com/watch?v=LCEmiRjPEtQ)
 - [On the Expressivity of Markov Reward](https://deepmind.google/blog/on-the-expressivity-of-markov-reward/)
 - [Learning Robust Real-Time Cultural Transmission without Human Data](https://deepmind.google/blog/learning-robust-real-time-cultural-transmission-without-human-data/)
 - [Generally capable agents emerge from open-ended play](https://deepmind.google/blog/generally-capable-agents-emerge-from-open-ended-play/)
