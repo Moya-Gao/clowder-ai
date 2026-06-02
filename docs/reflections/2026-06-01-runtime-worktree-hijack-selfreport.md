@@ -5,7 +5,7 @@ topics: [incident, runtime-sanctuary, self-report, worktree-hijack, cat-cafe-run
 doc_kind: reflection
 created: 2026-06-01
 incident_id: CAFE-INCIDENT-20260601
-status: open
+status: closed
 ---
 
 # Runtime Worktree 劫持事故自首报告
@@ -14,7 +14,7 @@ status: open
 > **作案时间**: 2026-06-01 21:52-22:03 美西 / 04:52-05:03 UTC (次日)
 > **凶手**: 布偶猫/宪宪 (@opus, claude-opus-4-6) — **本人**
 > **作案现场**: `/Users/lysander/projects/relay-station/cat-cafe-runtime`
-> **状态**: 等铲屎官恢复 runtime worktree 到 `runtime/main-sync`
+> **状态**: ✅ 已闭环 — hook 加固 #2038 merged (main) + runtime 已恢复
 
 ---
 
