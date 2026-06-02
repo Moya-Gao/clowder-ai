@@ -1,6 +1,6 @@
 #!/bin/bash
 # runtime-sanctuary-guard.sh — P0 Runtime 圣域保护
-# Hook: PreToolUse (matcher: "Bash")
+# Hook: PreToolUse (matcher: "Bash|Edit|Write")
 # 
 # 硬拦截任何可能删除/破坏 runtime worktree 或 runtime/main-sync 分支的命令。
 # 决策：deny（不是 ask），因为这是 P0 不可逆操作。
@@ -22,16 +22,6 @@ set -euo pipefail
 INPUT=$(cat)
 
 TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // ""' 2>/dev/null || echo "")
-if [ "$TOOL_NAME" != "Bash" ]; then
-  exit 0
-fi
-
-COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // ""' 2>/dev/null || echo "")
-
-# 空命令放行
-if [ -z "$COMMAND" ]; then
-  exit 0
-fi
 
 emit_deny() {
   local reason="$1"
@@ -43,6 +33,60 @@ emit_deny() {
     }
   }'
 }
+
+RUNTIME_WORKTREE_PATH="/Users/lysander/projects/relay-station/cat-cafe-runtime"
+
+# ═══════════════════════════════════════════════════════════════
+# 模式 0：Edit/Write 直接修改 runtime worktree 内的文件
+# 背景：CAFE-INCIDENT-20260601 — 宪宪用 Edit 工具直接改了 runtime worktree 里的
+#       SessionChainPanel.tsx，然后 checkout -b + commit + push，把生产环境从
+#       runtime/main-sync 切到了 feature 分支。防御第一刀应该在 Edit 层拦截。
+# ═══════════════════════════════════════════════════════════════
+if [ "$TOOL_NAME" = "Edit" ] || [ "$TOOL_NAME" = "Write" ]; then
+  FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // ""' 2>/dev/null || echo "")
+  if [[ "$FILE_PATH" == "$RUNTIME_WORKTREE_PATH"* ]]; then
+    emit_deny "⛔ P0 RUNTIME 圣域保护：禁止直接修改 runtime worktree 内的文件（${FILE_PATH}）！cat-cafe-runtime 是生产运行态目录，代码修改请在主仓 cat-cafe 开 worktree 做。铲屎官铁律：runtime 同步由铲屎官自己做（CAFE-INCIDENT-20260601）。"
+    exit 0
+  fi
+  # Edit/Write 到非 runtime 路径，放行
+  exit 0
+fi
+
+if [ "$TOOL_NAME" != "Bash" ]; then
+  exit 0
+fi
+
+COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // ""' 2>/dev/null || echo "")
+
+# 空命令放行
+if [ -z "$COMMAND" ]; then
+  exit 0
+fi
+
+# ═══════════════════════════════════════════════════════════════
+# 模式 0b：真实 CWD 在 runtime worktree 内时的 git 写操作
+# 背景：CAFE-INCIDENT-20260601 — Bash 工具的 CWD 已在 cat-cafe-runtime
+#       内时，git checkout -b / commit / push 的命令文本不含 cd 前缀，模式 4
+#       (git -C) 无法匹配。读取 hook payload 的顶层 .cwd 字段（harness 注入
+#       的 Bash 工具当前工作目录）进行判断。
+# 注意：只读命令（status/log/diff/branch/remote）放行。
+# ═══════════════════════════════════════════════════════════════
+TOOL_CWD=$(echo "$INPUT" | jq -r '.cwd // ""' 2>/dev/null || echo "")
+if [[ "$TOOL_CWD" == "$RUNTIME_WORKTREE_PATH"* ]] \
+   && echo "$COMMAND" | grep -qiE 'git\s+(checkout|switch|commit|push|pull|add|reset|merge|rebase|cherry-pick|stash)\b'; then
+  emit_deny "⛔ P0 RUNTIME 圣域保护：Bash 工具的 CWD 在 runtime worktree 内（${TOOL_CWD}），禁止执行 git 写操作！runtime worktree 是生产运行态，代码修改请在主仓 cat-cafe 开 worktree 做。铲屎官铁律：runtime 同步由铲屎官自己做（CAFE-INCIDENT-20260601）。"
+  exit 0
+fi
+
+# ═══════════════════════════════════════════════════════════════
+# 模式 0c：命令文本中 cd 到 runtime + git 写操作（补充 0b，defense-in-depth）
+# 即使 harness 未注入 .cwd 或 CWD 不在 runtime 内，命令本身 cd 过去也拦。
+# ═══════════════════════════════════════════════════════════════
+if echo "$COMMAND" | grep -qiE '(^cd\s+|&&\s*cd\s+)\S*cat-cafe-runtime' \
+   && echo "$COMMAND" | grep -qiE 'git\s+(checkout|switch|commit|push|pull|add|reset|merge|rebase|cherry-pick|stash)\b'; then
+  emit_deny "⛔ P0 RUNTIME 圣域保护：禁止 cd 到 cat-cafe-runtime 后执行 git 写操作！runtime worktree 是生产运行态，代码修改请在主仓 cat-cafe 开 worktree 做。铲屎官铁律：runtime 同步由铲屎官自己做（CAFE-INCIDENT-20260601）。"
+  exit 0
+fi
 
 # ═══════════════════════════════════════════════════════════════
 # 模式 1：删除 runtime/main-sync 分支
@@ -76,7 +120,7 @@ fi
 # 匹配：git -C ...runtime... (checkout|reset|merge|rebase|push)
 # 注意：git -C runtime status/log/diff 等只读命令放行
 # ═══════════════════════════════════════════════════════════════
-if echo "$COMMAND" | grep -qiE 'git\s+(-C\s+\S*runtime\S*\s+)(checkout|reset|merge|rebase|push|pull)\b'; then
+if echo "$COMMAND" | grep -qiE 'git\s+(-C\s+\S*runtime\S*\s+)(checkout|switch|reset|merge|rebase|push|pull)\b'; then
   emit_deny "⛔ P0 RUNTIME 圣域保护：禁止在 runtime worktree 里执行写操作（checkout/reset/merge/rebase/push/pull）！runtime 同步由铲屎官自己做。只读命令（status/log/diff）不受限。"
   exit 0
 fi
@@ -85,8 +129,8 @@ fi
 # 模式 5：直接 checkout 到 runtime 分支（在主仓库里）
 # 匹配：git checkout runtime/main-sync
 # ═══════════════════════════════════════════════════════════════
-if echo "$COMMAND" | grep -qiE 'git\s+checkout\s+runtime'; then
-  emit_deny "⛔ P0 RUNTIME 圣域保护：禁止在主仓库 checkout 到 runtime 分支！这会破坏 worktree 关系。如需查看 runtime 状态，请用 git -C ../cat-cafe-runtime status。"
+if echo "$COMMAND" | grep -qiE 'git\s+(checkout|switch)\s+runtime'; then
+  emit_deny "⛔ P0 RUNTIME 圣域保护：禁止在主仓库 checkout/switch 到 runtime 分支！这会破坏 worktree 关系。如需查看 runtime 状态，请用 git -C ../cat-cafe-runtime status。"
   exit 0
 fi
 
