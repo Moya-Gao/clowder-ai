@@ -567,6 +567,7 @@ UI 必须显示 `—` 而非 `0`，否则会让"重启前的数据"看起来像"
 | 2026-04-28 | Phase F pointer persistence: `clowder-ai#579` merge；`cat-cafe#1448` 建立 Intake Intent Issue，按 `safe-cherry-pick + high-risk manual-merge` 回家吸收 |
 | 2026-05-08 | Phase G Prompt X-Ray + A2A trace: `clowder-ai#619` merge；cat-cafe Intake Intent Issue 建立，按 `safe-cherry-pick + high-risk manual-port` 回家吸收 |
 | 2026-05-22 | Phase I Step Summary: `clowder-ai#732` merge；`cat-cafe#1836` 建立 Intake Intent Issue，按 `safe-cherry-pick + high-risk manual-port` 回家吸收 |
+| 2026-06-02 | Phase J MCP Tool Span 状态同步：J-A (`clowder-ai#763/#774`) + J-B (`clowder-ai#825` / `cat-cafe#2052`) 已落地；`cat-cafe#2054` 将 Phase J 标记为 implemented 并补齐 AC-J1..J9 |
 
 ## Links
 
