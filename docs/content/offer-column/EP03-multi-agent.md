@@ -10,10 +10,18 @@ duration_target: 8min
 presenter: landy
 cat_voices: [opus, codex]
 source_material:
+  - docs/discussions/2026-04-20-claude-multi-agent-coordination-patterns/README.md
   - docs/discussions/career-planning/2026-05-18-bytedance-round1-3-combined-debrief.md
   - docs/discussions/career-planning/2026-04-22-cat-cafe-universal-pitch-v3.md
   - docs/discussions/career-planning/2026-04-13-agent-interview-question-bank-from-screenshots.md
   - docs/discussions/career-planning/2026-04-26-personal-ai-strengths.md
+references:
+  - title: "Building Multi-Agent Systems: When and How to Use Them"
+    url: https://claude.com/blog/building-multi-agent-systems-when-and-how-to-use-them
+    author: Anthropic
+  - title: "Multi-agent coordination patterns"
+    url: https://claude.com/blog/multi-agent-coordination-patterns
+    author: Anthropic
 ---
 
 # EP03: Multi-Agent — 不是多加几个模型的事
@@ -40,23 +48,23 @@ source_material:
 
 Multi-agent 这个词被用烂了。2025 年几乎所有 agent 框架都在喊 multi-agent——CrewAI、AutoGen、LangGraph，好像只要有两个以上的 LLM 调用就叫 multi-agent。
 
-先把 Anthropic 官方给的五种协作模式过一遍——这是面试高频知识点，你得张口就来：
+Anthropic 有一篇经典文章 *"Building Multi-Agent Systems"*，我们家当时专门拿来做过阅读纪要，非常值得读。它给了五种协作模式——这是面试高频知识点，你得张口就来：
 
-**第一种，Prompt Chaining——串行管道。** 前一步输出是后一步输入。比如先让一个 agent 写代码，再让另一个 agent review。严格来说这不是"多 agent 协作"，更像流水线。
+**第一种，Generator-Verifier——生成+验收。** 一个 agent 生成，另一个 agent 验收。比如一个写代码，另一个跑测试。最容易落地，但验收标准必须外显——没有明确标准的 verifier 会变成形式主义。
 
-**第二种，Routing——路由分发。** 一个分类器决定任务走哪条路。比如用户问财务问题走财务 agent，问技术问题走技术 agent。这是任务分发，不是协作。
+**第二种，Orchestrator-Subagent——主从模式。** 一个 orchestrator 拆任务、分发、综合结果。Claude Code 的 subagent 就是这种。Anthropic 自己建议从这种起步，因为边界和责任最清晰。
 
-**第三种，Parallelization——并行执行。** 同一个任务拆成几块，多个 agent 同时干，最后合并结果。快，但没有互相纠错。
+**第三种，Agent Teams——团队模式。** worker 不是一次性的，而是能跨多轮任务保留上下文的"队友"。和 orchestrator-subagent 的关键分界：worker 是否需要长期积累局部专业上下文？需要就用 team，不需要就用 subagent。
 
-**第四种，Orchestrator-Workers——主从模式。** 一个 orchestrator 拆任务，分给多个 worker，收集结果。Claude Code 的 subagent 就是这种——主 agent 启动子 agent 干活，子 agent 干完汇报。
+**第四种，Message Bus——事件驱动。** agent 通过 publish/subscribe 协作，适合告警、分类、分流这类流水线。最像"平台型基础设施"，优势在于 agent 生态扩张时的可插拔性。
 
-**第五种，Evaluator-Optimizer——生成+评估循环。** 一个 agent 生成，另一个 agent 评估，不合格打回重来。
+**第五种，Shared State——共享状态。** 多个 agent 读写同一份知识底座，去中心化，没有单点协调器。文章最重要的提醒：shared state 真正难的不是"共享"，是**何时停、谁来判定停**。终止条件不是一等公民的话，系统会一直烧 token。
 
 （视觉：五种模式的简洁图示，每种一个小图）
 
-这五种模式从简单到复杂，前四种本质上都是**单一控制流**——有一个明确的"谁在指挥"。面试官心里真正想问的 multi-agent，是第五种的进阶版：**多个自主 agent，没有单一指挥者，需要协作完成任务**。
+文章还给了一个核心判断：**先从能工作的最简单模式开始，根据实际瓶颈演化。** 别还没出现真实瓶颈就先上 message bus，别还没需要共享发现就先上 shared state。
 
-这才是真正难的地方。
+真实系统通常是**混合态**——不同层用不同模式。面试官问的真 multi-agent，更接近后三种：agent 之间有自主决策、有直接通信、有共享状态。
 
 ---
 
