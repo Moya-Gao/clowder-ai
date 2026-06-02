@@ -332,7 +332,23 @@ Phase G AGY profile E2E smoke runner source: `docs/features/assets/F210/phase-g-
 - 完整 spike（命门 / 三次路径修正 / steps 表实证 / L1-L2 方案 / 8 个开放问题）：`docs/features/assets/F210/streamable-trajectory-spike-2026-06-01.md`
 - 落地分层：**L1** 明文 `idx/step_type/status` → 进度流（无需解码，立即可用）；**L2** 解 `step_payload` proto（逆向 schema 或 `ConvertTrajectoryToMarkdown` RPC）→ tool call 名/参数/内容
 - 与 F211 关系：同思维（trajectory 增量）不同数据源——F211 孟加拉猫走「连 LS」（REG9 status-poll / REG10 push），本 spike 走「读 SQLite」；F211 实测的 read-RPC delta 字段静默忽略坑被 SQLite `idx` 游标绕开
-- 待 owner（砚砚）讨论：数据源选型 / proto 解码路径 / step_type 枚举语义 / profile appDataDir / 并发读锁 / Phase 归属（候选 Phase H: Streamable Trajectory）
+### Owner 讨论结论（砚砚/GPT-5.5, 2026-06-01）
+
+砚砚（F210 owner）拍板：**SQLite 直读可扛，挂新 Phase H，不并回 Phase G**。关键纠正 + 拆分：
+
+- **数据源**：选 SQLite 直读（本地 / 无鉴权 / `idx` 天然游标 / 可 TDD）；临时 LS RPC 仅作 L2 fallback；log tail 仅用于发现 `cascadeId`。
+- **关键纠正（解耦）**：L1 进度 ≠ 根治重放。**H1 只加 progress side-channel，最终回复仍走 stdout**，不在 H1 承诺"废 stdout"；根治重放归 **H2**（届时把最终输出源从 stdout 切到 trajectory 文本，重放自然消失）。
+- **fail-open 硬约束**：SQLite 读做能力探测（db / `steps` 表 / `idx`·`step_type`·`status` 列存在），不满足就**禁用 progress、保留现有 stdout 行为**；只读连接 + `busy_timeout` + `idx > cursor` poll + 进程退出后 final poll 一次。
+- **UI 文案**：H1 不硬标 step_type（8/9/14/15/23/98），未知显示中性"AGY trajectory step #N running/completed"，枚举坐实后（H3）再加语义标签。
+
+**Phase H 拆分**：
+- **H1**：`AgyTrajectoryObserver` —— SQLite 增量 poll，实时 progress event；测试用 fake log + temp SQLite append。
+- **H2**：trajectory 内容提取，替换 resumed stdout final text；红测复现 `[1]→[1,2]→[1,2,3]` 只输出本轮（根治重放）。proto 解码首选逆向 schema，备选趁临时 LS 活着调 `ConvertTrajectoryToMarkdown`（fallback，生命周期不可靠）。
+- **H3**：step_type / proto 解码 + 更细 UI 标签。
+
+**关键 AC**：progress side-channel 不得影响现有最终答复语义；SQLite 任何失败必须降级回当前 stdout 路径。
+
+> 下一步：opus-4.8 开 worktree 从 H1 红测起。Phase H 正式定义 / AC 编号待 owner 砚砚在主 doc Phase 区补（本节为讨论结论速记）。
 
 ## Timeline
 
