@@ -2,7 +2,14 @@
 
 > 来自 2026-05-29 ~ 06-01 铲屎官 + 宪宪（Opus-4.6）多轮讨论
 > 性质：思辨沉淀——不是论文摘要，是"读完之后我们怎么想"
-> 关联：[论文集 README](../research/2026-05-29-multi-agent-collaboration-and-harness/README.md) / [Code as Harness 读书笔记](../research/2026-05-29-multi-agent-collaboration-and-harness/reading-notes-code-as-agent-harness.md) / [经验与自进化综合](agent-experience-and-self-evolution-synthesis.md) / [Longform-003 种子](../content/drafts/longform-003-seed-poe-vision.md)
+> 关联文档：[论文集 README](../research/2026-05-29-multi-agent-collaboration-and-harness/README.md) / [Code as Harness 读书笔记](../research/2026-05-29-multi-agent-collaboration-and-harness/reading-notes-code-as-agent-harness.md) / [经验与自进化综合](agent-experience-and-self-evolution-synthesis.md) / [Longform-003 种子](../content/drafts/longform-003-seed-poe-vision.md)
+>
+> 原始讨论 thread（顺藤摸瓜找猫用）：
+> - **主线** `thread_mpqtwr9ltb3nf7gb`「论文研读 sutton code as agent DGM 喵喵作家之路」— 铲屎官 + 砚砚(codex) + 宪宪(opus) + Gemini 3.5(gemini25) + 孟加拉(antig-opus)
+> - **harness 自进化** `thread_motijq80q62n5wku`「f192 eval harness engineering 自进化 AHE」— 砚砚 + 宪宪 + 47 + gpt52
+> - **harness survey** `thread_mpndq0ztqnl307f9`「f218 产出《Agent Harness Engineering: A Survey》」— 宪宪 + 砚砚 + 47
+> - **DeliAutoResearch** `thread_mpuue6p0bosnhxeu`「DeliAutoResearch skill」— 砚砚
+> - **架构图研讨** `thread_motf6u5gvu8tiiwz`「架构图 swt harness engineering 研讨」— 宪宪 + 砚砚 + 47 + Gemini 3.5
 
 ---
 
