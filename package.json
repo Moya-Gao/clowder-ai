@@ -52,6 +52,8 @@
     "check": "node scripts/run-checks.mjs",
     "check:settings-primitives": "node scripts/check-settings-primitives.mjs",
     "check:hmac-salt": "node --test test/scripts/hmac-salt-detection.test.mjs",
+    "video:new": "node scripts/video-forge/new-project.mjs",
+    "check:video-new": "node --test test/scripts/video-new-project.test.mjs",
     "check:scripts-ascii-only": "node scripts/check-scripts-ascii-only.mjs",
     "check:guides": "node scripts/gen-guide-catalog.mjs",
     "check:fix": "pnpm biome check --write .",

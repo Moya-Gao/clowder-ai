@@ -43,7 +43,15 @@
             }
           }
         },
-        "bgm_ref": { "type": "string" }
+        "bgm_ref": { "type": "string" },
+        "type": {
+          "type": "string",
+          "description": "Video type: general, knowledge-explainer, showcase, tutorial, intro (KD-15)"
+        },
+        "style": {
+          "type": "string",
+          "description": "Named visual style from style-recipes (AC-1i, KD-15)"
+        }
       }
     },
     "global_audio": {
