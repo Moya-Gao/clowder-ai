@@ -12,7 +12,7 @@ cat_voices: [opus, codex]
 source_material:
   - docs/discussions/2026-04-20-claude-multi-agent-coordination-patterns/README.md
   - docs/content/drafts/longform-002-v0-formal.md
-  - docs/discussions/career-planning/2026-05-18-bytedance-round1-3-combined-debrief.md
+  - docs/discussions/career-planning/2026-05-18-agent-interview-combined-debrief.md
   - docs/discussions/career-planning/2026-04-22-cat-cafe-universal-pitch-v3.md
   - docs/discussions/career-planning/2026-04-13-agent-interview-question-bank-from-screenshots.md
 references:
@@ -46,13 +46,13 @@ references:
 
 ### [Part 1: 先把五种模式过一遍] 🎬 0:25 — 2:00 | Landy
 
-Anthropic 有一篇经典文章 *"Building Multi-Agent Systems"*——如果你还没读过，面试前必读。它给了五种协作模式。我一边讲，一边 show 我们系统里对应的东西，你就有感觉了：
+Anthropic 有两篇经典文章——第一篇 *"Building Multi-Agent Systems"* 讲什么时候值得用 multi-agent，第二篇 *"Multi-agent coordination patterns"* 给了五种协作模式。面试前两篇都必读。我一边讲五种模式，一边 show 我们系统里对应的东西，你就有感觉了：
 
 **Generator-Verifier**——一个生成，一个验收。关键不在"多一个 verifier"，在于**验收标准是否外显**。
 
 （show：Cat Café Hub 里砚砚 review 布偶猫代码的 PR 页面——reviewer 输出 approve 或 blocking，没有第三种）
 
-**Orchestrator-Subagent**——主从模式。Claude Code 的 subagent、Codex 的 workflow 都是这种。Anthropic 建议从这种起步。
+**Orchestrator-Subagent**——主从模式。Claude Code 启动 subagent 干活就是这种。Anthropic 建议从这种起步，因为边界和责任最清晰。
 
 （show：Claude Code 里 agent 启动 subagent 搜资料的终端界面——子 agent 干完活汇报，主 agent 复核吸收）
 
@@ -92,19 +92,21 @@ Anthropic 有一篇经典文章 *"Building Multi-Agent Systems"*——如果你�
 
 这是面试里的杀伤力区域。
 
-单个 agent 有 ReAct 循环——思考、行动、观察，重复直到任务完成。终止条件简单：没有 tool call 了，生成一段总结。
+单个 agent 有 ReAct 循环——思考、行动、观察，重复直到任务完成。在朴素实现和很多 demo 里，终止条件很简单：没有 tool call 了，生成一段总结。
 
 但多 agent 呢？两个 agent 互相传球，每次传球都"合理"，可以永远循环下去。**没有人定义什么叫"团队停下来"。**
 
 铲屎官在某大厂一面被直接问过这个："如何防止 multi-agent 互相 A2A 停不下来？"面试官是一线 agent 开发者，自己撞过。
 
-我们把它叫做 TeamAct——把单 agent 的 ReAct 升级到团队级。核心不是六步流程，是**五项终止条件**，缺一不可：
+我们把它叫做 TeamAct——把单 agent 的 ReAct 升级到团队级。核心不是六步流程，是**显式的终止条件**。在我们这种工程交付型系统里，五项缺一不可：
 
 1. **验收标准全部达成**——不能有 "deferred" 的条件
 2. **证据已附**——每条验收标准都有 commit / 测试 / trace 作为锚点
 3. **跨 agent 交叉验证**——非作者的 agent 确认，自己写的代码不能自己 review
 4. **无悬空任务归属**——所有 open question 都已 resolved 或已升级
 5. **愿景收敛**——产品负责人确认方向对了，不能被"CI 通过了"替代
+
+换到客服或研究型系统，第五项可以替换成收敛阈值、指定 owner 判定或人工兜底——但**必须有显式终止条件**这一点不变。
 
 没有这五项，团队就会出现三种典型失败：
 
@@ -152,7 +154,7 @@ Anthropic 有一篇经典文章 *"Building Multi-Agent Systems"*——如果你�
 
 **第二句讲真问题：** "大多数 multi-agent 系统漏掉的是团队级终止条件——什么时候停。五项终止条件缺一不可：验收、证据、跨 agent 验证、无悬空归属、愿景收敛。"
 
-**第三句亮实战：** "我在自己的系统里跑了三个厂商十几个 agent，踩过乒乓球事故、虚空持球、同族盲点。最后把交接建模成状态机，把终止条件形式化成 TeamAct，把 review 强制跨家族。每一层都是从事故里长出来的。"
+**第三句亮实战：** "我在自己的系统里跑了三个厂商十几个 agent，踩过乒乓球事故、虚空持球、同族盲点。最后把交接建模成状态机，把终止条件形式化成 TeamAct，关键路径优先跨模型家族 review、最低要求不能 self-review。每一层都是从事故里长出来的。"
 
 面试官追问，你就讲乒乓球熔断器从"数次数"进化到"看工具调用"的故事——这个进化背后有一条设计原则：**好的 harness 给 agent 数据，不给 agent 结论。** 让 agent 自己从数据里判断自己是不是在乒乓球。
 
