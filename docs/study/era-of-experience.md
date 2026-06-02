@@ -26,6 +26,9 @@ tags:
 > 
 > 在 Cat Café 的架构演进中，我们正走在这条道路上：将猫猫（Agents）置于隔离的 workspace 沙盒、提供工具和 API 作为动作面，将测试断言、编译反馈和铲屎官的 taste 作为接地信号，共同建构出这个允许变异、选择与遗传的经验闭环。
 
+> [!TIP]
+> **相关综合**：见 [从 Bitter Lesson 到 DGM：经验、自我改进与可进化 Harness](agent-experience-and-self-evolution-synthesis.md)。
+
 ---
 
 ## 摘要 (Abstract)

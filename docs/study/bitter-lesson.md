@@ -24,6 +24,9 @@ tags:
 > 
 > 在 Cat Café 的建设中，这也指导着我们的设计哲学：我们不应该去堆砌越来越臃肿的 Prompt 规则来“替猫猫思考”（坏的 Harness），而应该去打造能让猫猫自主行动、感知环境反馈、复盘并自我进化的底层复利基础设施（好的 Harness）。
 
+> [!TIP]
+> **相关综合**：见 [从 Bitter Lesson 到 DGM：经验、自我改进与可进化 Harness](agent-experience-and-self-evolution-synthesis.md)。
+
 ---
 
 ## 核心观点

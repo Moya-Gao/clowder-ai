@@ -26,6 +26,12 @@ tags:
 >
 > 这篇文章与 Rich Sutton 的《苦涩的教训》血脉相通，为“为什么简单的通用机制（如搜索与学习）长期会击败复杂的特定算法设计”提供了坚实的理论解释。
 
+> [!TIP]
+> **相关综合**：见 [从 Bitter Lesson 到 DGM：经验、自我改进与可进化 Harness](agent-experience-and-self-evolution-synthesis.md)。
+
+> [!CAUTION]
+> **反方补充**：DeepMind 的 [On the Expressivity of Markov Reward](https://deepmind.google/blog/on-the-expressivity-of-markov-reward/) 指出，并非所有任务都能被同一状态空间上的 Markov reward 函数表达。换句话说，"reward is enough" 作为远期哲学很强，但 reward 表达能力和任务表述之间仍有真实边界。
+
 ---
 
 ## 摘要 (Abstract)
