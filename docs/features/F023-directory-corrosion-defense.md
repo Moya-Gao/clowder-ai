@@ -57,16 +57,27 @@ created: 2026-02-26
 - `docs/decisions/010-directory-hygiene-anti-rot.md` 更新拆分后的子目录映射
 - 第三轮 unblock 硬门禁（上述）落到 `docs/SOP.md`
 
-### F219 协调协议（new — 答铲屎官 2026-06-01 push back）
+### F219 协调协议（updated 2026-06-02 — 引用 F219 KD-4 裁决）
 
-**F219**（核心引擎技术债 + 架构演进，owner 布偶猫 Opus 4.8，2026-06-02 立项）**和 F23 Phase 2 有真重合**：
-- `invocation/` 跟 InvocationQueue / QueueProcessor 是 F219 dispatch cell 一坨
-- `routes/sessions/*` + `routes/invocations/*` + `routes/callbacks/*` 跟 routeSerial 是同调用链
+**F219 owner Opus 4.8 裁决（F219 doc KD-4，commit `09600e546` push main）**：F23 本周 5 目录全可拆，**不需等 F219 Phase A**。
 
-**协议**：
-1. **快线 utils/config/providers** — 跟 F219 关联弱，宪宪 4.7 自决推进，不等 F219
-2. **慢线 invocation/routes** — 在 F219 Phase A 盘点出"哪些子模块要彻底重构 vs 哪些只需 sub-dir 整理"之后再细化拆分边界，避免 F23 Phase 2 拆完 F219 又重拆一遍的浪费
-3. **同步窗口**：Phase A 预估 1-2 周，所以慢线起点 ≈ 2026-06-15 ~ 06-22。如果 F219 Phase A 晚于 06-22 出结果，慢线在 2026-06-25 前必须无条件启动（拿当前 split map 直接做，事后跟 F219 协调），避免 06-30 deadline 撞墙
+**4.8 first-principles 拆解**（推翻我上一版"慢线等 06-22"）：
+- F23 拆分 = 移文件 + 改 import（位置重组，改 `packages/api/src/routes/` 里的文件）
+- F219 重构 = 改 service 内容 / 降 complexity（纵向，改 `domains/cats/services/agents/routing/` + `invocation/` 里的文件）
+- 两者改的是**不同文件树** → git 层面**不冲突**
+- `routes/`(147) 是 HTTP handler 层，与 F219 service 层（`routing/`+`invocation/`）**正交** — callback handler 运行时 import dispatch service（如 `callback-a2a-trigger.ts` import `InvocationQueue`/`WorklistRegistry`/`QueueProcessor`）属**调用耦合非文件冲突**，F219 不碰 `routes/` 目录
+- 唯一真**文件级**重合：`invocation/`(25) 一个目录 — F23 移文件 vs F219 改 QueueProcessor 内容，同一批文件
+
+**F219 owner (Opus 4.8) 三条承诺**：
+1. **认可 `invocation/` split map** (queue/registry/progress/reconciliation/delivery/auth/顶层) — F219 纵向降复杂度，不重切 cell 边界。4.7 建的 `queue/` 反而给 F219 重构产生的新文件一个现成的家
+2. **本周 F219 写操作以 `route-serial.ts` 为主 + Phase A 只读盘点**，不并发写 `invocation/`。4.7 先拆无冲突；万一快线必须碰 `invocation/` 某文件 4.8 提前同步错峰
+3. **低概率兜底**：Phase A 若发现 `invocation/` 需**模块级重组**（当前证据不支持），F219 owner 担责届时协调，不让 4.7 劳动浪费
+
+**修正后 Phase 2 节奏**（撤回上一版"快线 1 周 + 慢线 06-15~06-22"分段）：
+
+**5 目录本周内全可拆**（utils / config / providers / invocation / routes 都可推进）。撤回理由：上一版"慢线等 F219 Phase A"和上上一版"每周一个目录"是同型过度保守 — F219 重构和 F23 拆分的"重合"是**运行时调用耦合**不是**文件级冲突**，证据不支持等。
+
+`invocation/` 拆分按 F219 owner 三条承诺协调：4.7 拆文件 / 4.8 改内容 / 错峰同步 — 同步开销 ≤ 等 1-2 周的代价。
 
 ## Acceptance Criteria
 - [x] AC-A1: 本文档已补齐模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
