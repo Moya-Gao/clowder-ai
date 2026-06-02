@@ -7,7 +7,9 @@ created: 2026-05-30
 
 # F216: routeSerial 决策层/执行层分离重构
 
-> **Status**: ready-for-close (代码交付 + alpha 验收 + 愿景守护 UX 加固全完成；等待 CVO signoff close) | **Owner**: @opus48（本 F216 thread = 设计 from F215-thread handoff + 执行 owner，同一只猫继续持有） | **Priority**: P1 | **Source**: internal (F215 引爆点)
+> **Status**: ready-for-close (bug 修复价值全交付 + alpha 验收 PASS；AC 状态已诚实标注——AC-B2 complexity NOT ACHIEVED 转技术债、Phase A superseded、relay de-scoped；等 CVO scope 确认 + 第三方愿景守护 signoff) | **Owner**: @opus48（设计 from F215-thread handoff + 执行 owner） | **Priority**: P1 | **Source**: internal (F215 引爆点)
+>
+> **诚实 close 口径（48 愿景守护 + 砚砚 review 收敛 2026-06-02）**：F216 交付的是 **last-wins/supersede 用户价值 + routing decision 可测性**，**不是 routeSerial 瘦身**。complexity 255 未降是新技术债条目（不是隐藏尾巴）。close 不留假勾。
 
 Architecture cell: `routing`
 Map delta: routeSerial 从 2302 行单函数拆为决策层(纯函数) + 执行层(for-await yield)
@@ -73,15 +75,19 @@ routeSerial 是 Cat Cafe 的核心路由引擎——所有 A2A 串行调度、me
 
 ## AC（验收标准）
 
-### Phase A
-- [ ] AC-A1: 每个路由决策点提取为独立函数
-- [ ] AC-A2: worklist.push 只出现在一处（for-await 循环主体）
-- [ ] AC-A3: F215 16 测试 + 全量 route 测试零回归
+### Phase A — superseded by design change (不是 F216 close 的验收目标)
+> Phase A 的"执行单元化 / worklist.push 收敛一处"路线，在 Phase B/D 落地时被"决策层(纯函数返回
+> RoutingDecision[]) + 执行层局部 apply + supersede"路线**取代/de-scoped**。Phase A 是早期设计草案，
+> **不是已完成**——下面三条不作为 F216 close 验收目标，剩余风险（routeSerial 本体仍多处 push/可变状态）
+> 转入 routeSerial complexity 技术债（见 AC-B2 备注）。
+- [~] AC-A1: ~~每个路由决策点提取为独立函数~~ → superseded（决策抽成单个 `resolveRoutingDecisions` 纯函数，非"每点独立函数"）
+- [~] AC-A2: ~~worklist.push 只出现在一处~~ → superseded（执行层逐 cat apply，push 未收敛到单点；转技术债）
+- [~] AC-A3: ~~F215 16 测试 + 全量 route 测试零回归~~ → 由 Phase B/D 的零回归验证覆盖（330 + alpha 22/22 全绿）
 
 ### Phase B
 - [x] AC-B1: 路由决策是纯函数，可独立单测（无 side effect）— c1.2 `resolveRoutingDecisions`（`routing-decision.ts`）+ `routing-decision.test.js` / `routing-decision-streak.test.js`（PR #1987）
-- [ ] AC-B2: cognitive complexity 降到 biome 默认阈值以下（或显著下降）— c2/c3 接完所有路径后测量
-- [~] AC-B3: 真实 runtime 验证——mention / relay / callback 三路由场景各验一次（inline-mention 已接线 c1.3 + deferred/queue-pending 已接线 c2，共 330 测试覆盖；relay 留独立 battle-tested 块，全路径接完后做 runtime 验证）
+- [ ] AC-B2: **NOT ACHIEVED** — cognitive complexity 未下降。实测（2026-06-02，`pnpm exec biome lint`）routeSerial 仍是 **complexity 255**，与立项时完全相同。B1 达成的是**可测性**（决策逻辑抽成纯函数可单测），不是 complexity reduction。routeSerial 本体 255→瘦身**转独立技术债**（见 Links），不作为 F216 close 阻塞项（CVO scope 判定：F216 = bug 修复价值，瘦身另记）。
+- [~] AC-B3: F216 touched paths（inline-mention c1.3 + queue-pending/deferred c2）已 runtime/alpha 验证（330 单测 + alpha a2a-coalesce 22/22）。**relay 路径有意保留独立 battle-tested block，不接入统一决策层（de-scoped）**——relay no-change 由 F215 relay regression 覆盖。不是"三路都接统一层"。
 
 > **PR #1987（c0–c1.3）已合入 main（squash `32f88814e`，2026-05-31）**。砚砚 GPT-5.5 跨族 review 两轮（R1 三个 P1 全修 red→green：caller-scope 生产 lookup 漏接 / multi-target streak 陈旧快照 / pnpm check import-sort；R2 Findings: none 放行）+ 云端 codex review（1 个 P2 docs frontmatter，已修）。
 > **本 PR 落地**：c0 caller-scope（`findInFlightAgentEntry` 第 3 参）+ c1.1 `peekStreakOnPush` 纯读预判 + c1.2 `resolveRoutingDecisions` 纯决策函数 + c1.3 inline-mention 接线（副作用留执行层）。
@@ -89,7 +95,7 @@ routeSerial 是 Cat Cafe 的核心路由引擎——所有 A2A 串行调度、me
 > **剩余**：c3（supersede 执行层 = Phase D processing 主场景 — 铲屎官报的"at 两次同猫，第一条已 processing 时 abort 重启"那个 bug 的主场景）。
 
 ### Phase C（conditional）
-- [ ] AC-C1: Phase B 后评估——如果状态变量耦合已解，标 "不需要" 跳过
+- [~] AC-C1: **不做** — Phase B 后评估：routeSerial 本体的可变状态耦合**未解**（complexity 仍 255，见 AC-B2），但显式状态机化（state enum + transition table）属于"routeSerial 瘦身技术债"范畴，不在 F216 bug-fix scope 内。Phase C 转入技术债，不单独做。
 
 ### Phase D: A2A same-turn handoff supersede（driven by 2026-05-30 coalesce bug）
 > 来源：铲屎官报 bug「post msg at 了两次同一只猫 → 第一条先执行（可能错误行动），第二条又独立执行」。
