@@ -6,9 +6,7 @@ import { describe, it } from 'node:test';
 const HOOK = resolve(process.cwd(), '.claude/hooks/runtime-sanctuary-guard.sh');
 
 function decide(command, toolName = 'Bash', cwd = undefined) {
-  const tool_input = toolName === 'Bash'
-    ? { command }
-    : { file_path: command, old_string: 'x', new_string: 'y' };
+  const tool_input = toolName === 'Bash' ? { command } : { file_path: command, old_string: 'x', new_string: 'y' };
   const payload = { tool_name: toolName, tool_input };
   if (cwd !== undefined) {
     payload.cwd = cwd;
@@ -84,28 +82,16 @@ describe('runtime-sanctuary-guard: Edit/Write file path protection (CAFE-INCIDEN
   const RUNTIME = '/Users/lysander/projects/relay-station/cat-cafe-runtime';
 
   it('denies Edit to file inside runtime worktree', () => {
-    assert.equal(
-      decide(`${RUNTIME}/packages/web/src/components/SessionChainPanel.tsx`, 'Edit'),
-      'deny',
-    );
+    assert.equal(decide(`${RUNTIME}/packages/web/src/components/SessionChainPanel.tsx`, 'Edit'), 'deny');
   });
   it('denies Write to file inside runtime worktree', () => {
-    assert.equal(
-      decide(`${RUNTIME}/packages/api/src/index.ts`, 'Write'),
-      'deny',
-    );
+    assert.equal(decide(`${RUNTIME}/packages/api/src/index.ts`, 'Write'), 'deny');
   });
   it('allows Edit to file in main repo', () => {
-    assert.equal(
-      decide('/Users/lysander/projects/relay-station/cat-cafe/packages/web/src/App.tsx', 'Edit'),
-      'allow',
-    );
+    assert.equal(decide('/Users/lysander/projects/relay-station/cat-cafe/packages/web/src/App.tsx', 'Edit'), 'allow');
   });
   it('allows Edit to file in a regular worktree', () => {
-    assert.equal(
-      decide('/tmp/worktree-feat-xyz/packages/web/src/App.tsx', 'Edit'),
-      'allow',
-    );
+    assert.equal(decide('/tmp/worktree-feat-xyz/packages/web/src/App.tsx', 'Edit'), 'allow');
   });
 });
 
