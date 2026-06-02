@@ -1440,6 +1440,7 @@ const internalScripts = [
   "check:web-global-css-imports",
   "check:settings-primitives",
   "check:root-debris",
+  "check:source-hygiene",
   "clean:root-debris",
 ];
 for (const s of internalScripts) {

@@ -60,6 +60,7 @@ managed_files:
   - docs/harness-feedback/bundles/2026-05-23-eval-a2a-live-verdict/snapshot.json
   # F210 public parser fixtures required by packages/api test:public
   - docs/features/assets/F210/agy-conversation-resume.txt
+  - docs/features/assets/F210/agy-print-auth-required.txt
   - docs/features/assets/F210/agy-print-timeout.txt
   - docs/features/assets/F210/agy-real-home-no-default-model.txt
   - docs/features/assets/F210/agy-real-home-print-success.txt
