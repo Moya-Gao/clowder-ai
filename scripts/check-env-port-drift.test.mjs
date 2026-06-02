@@ -698,6 +698,28 @@ excluded:
       }
     });
 
+    it('sync-manifest exports release-desktop reusable workflow closure', () => {
+      const managedFiles = readYamlTopLevelList('sync-manifest.yaml', 'managed_files');
+      const releaseDesktop = readFileSync(resolve(ROOT, '.github/workflows/release-desktop.yml'), 'utf-8');
+      const workflowRefs = Array.from(
+        releaseDesktop.matchAll(/uses:\s+\.\/(\.github\/workflows\/[A-Za-z0-9_.-]+\.yml)/g),
+        (match) => match[1],
+      );
+
+      assert.notEqual(
+        workflowRefs.length,
+        0,
+        'release-desktop.yml should reference reusable workflows so this guard verifies a real closure',
+      );
+
+      for (const workflowPath of workflowRefs) {
+        assert.ok(
+          managedFiles.includes(workflowPath),
+          `sync-manifest should export ${workflowPath} because release-desktop.yml uses it`,
+        );
+      }
+    });
+
     it('sync-manifest exports start-dev sourced shell closure', () => {
       const managedScripts = readYamlTopLevelList('sync-manifest.yaml', 'managed_scripts');
       const requiredScripts = [

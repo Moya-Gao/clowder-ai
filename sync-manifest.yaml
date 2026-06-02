@@ -46,6 +46,8 @@ managed_files:
   - TRADEMARKS.md
   - .github/workflows/ci.yml
   - .github/workflows/release-desktop.yml
+  - .github/workflows/build-mac-dmg.yml
+  - .github/workflows/build-windows-desktop.yml
   # F203 native system prompt L0 runtime closure
   - assets/system-prompts/system-prompt-l0.md
   # F180 user-level hook templates for open-source users
