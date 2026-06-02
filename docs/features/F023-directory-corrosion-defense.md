@@ -1,6 +1,6 @@
 ---
 feature_ids: [F023]
-related_features: [F214]
+related_features: [F214, F219]
 topics: [directory, corrosion, defense]
 doc_kind: note
 created: 2026-02-26
@@ -23,7 +23,16 @@ created: 2026-02-26
 
 5 个目录在 F23 Phase 1 之后超出 25 文件阈值，已经经历两轮"sync 前临时 unblock"续期（首轮 a4e81b8791 + 4136847b10 → 2026-06-01；本次 → 2026-06-30）。再续期 = 「下次一定」病。Phase 2 必须在 2026-06-30 前完成实拆，否则 dir-size guard 在下一次 outbound sync 上将硬阻塞，且 reviewer 应拒绝再续期。
 
-**Timeline**：从今天 (2026-06-01) 到 2026-06-30 = **29 天**，tight 但 deliberate — 强制每周一个目录的节奏，避免再次拖延。如果 29 天不够，必须在 2026-06-15 中间 check-in 升级 @landy 评估是否需要顺延（默认拒绝）。
+**Timeline**：从今天 (2026-06-01) 到 2026-06-30 = **29 天**，分两段：
+
+| 段 | 目录 | 周期 | 依赖 |
+|----|------|------|------|
+| **快线（无 F219 依赖）** | `utils` (31) / `config` (38) / `providers` (32) | **1 周内 3 个目录全做完** — 每个 0.5-1 天（grep+sed 改 import + 拆 sub-dir，scope 单一） | 无 |
+| **慢线（与 F219 协调）** | `invocation` (25) / `routes` (147) | **等 F219 Phase A 核心引擎技术债盘点结果出来再细化拆分边界** | F219 Phase A — `invocation` 跟 InvocationQueue/QueueProcessor 是 dispatch cell 一坨；`routes/sessions/*`/`routes/invocations/*`/`routes/callbacks/*` 跟 routeSerial 同调用链。F219 owner = 布偶猫 Opus 4.8。两个目录的子拆分方案可能在 F219 Phase A 后调整 |
+
+**节奏修正（撤回上一版"每周一个目录"）**：上一版"每周一个" 是过于保守的稻草人 estimate / followup tail。grep + sed import path 改写实际是半天到 1 天工作（已经有明确 sub-dir map）。撤回 4 周节奏，采用"快线 1 周完成 3 个，慢线等 F219 Phase A 出结果"。
+
+2026-06-15 中间 check-in：快线 3 个应该已完成；慢线 invocation/routes 跟 F219 owner 4.8 对齐后给具体起止 timeline。
 
 ### 第三轮 unblock 硬门禁（new gate, this PR commits）
 如果 2026-06-30 后仍需要任何 `F23-followup` ticket 的续期，**禁止 cross-cat review-only 通过**，必须满足以下其一：
@@ -47,6 +56,17 @@ created: 2026-02-26
 - `pnpm check:dir-size` 不依赖任何 F23 ticket
 - `docs/decisions/010-directory-hygiene-anti-rot.md` 更新拆分后的子目录映射
 - 第三轮 unblock 硬门禁（上述）落到 `docs/SOP.md`
+
+### F219 协调协议（new — 答铲屎官 2026-06-01 push back）
+
+**F219**（核心引擎技术债 + 架构演进，owner 布偶猫 Opus 4.8，2026-06-02 立项）**和 F23 Phase 2 有真重合**：
+- `invocation/` 跟 InvocationQueue / QueueProcessor 是 F219 dispatch cell 一坨
+- `routes/sessions/*` + `routes/invocations/*` + `routes/callbacks/*` 跟 routeSerial 是同调用链
+
+**协议**：
+1. **快线 utils/config/providers** — 跟 F219 关联弱，宪宪 4.7 自决推进，不等 F219
+2. **慢线 invocation/routes** — 在 F219 Phase A 盘点出"哪些子模块要彻底重构 vs 哪些只需 sub-dir 整理"之后再细化拆分边界，避免 F23 Phase 2 拆完 F219 又重拆一遍的浪费
+3. **同步窗口**：Phase A 预估 1-2 周，所以慢线起点 ≈ 2026-06-15 ~ 06-22。如果 F219 Phase A 晚于 06-22 出结果，慢线在 2026-06-25 前必须无条件启动（拿当前 split map 直接做，事后跟 F219 协调），避免 06-30 deadline 撞墙
 
 ## Acceptance Criteria
 - [x] AC-A1: 本文档已补齐模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
