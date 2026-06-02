@@ -118,6 +118,8 @@ export function SessionChainPanel({ threadId, catInvocations, onViewSession }: S
   const [refreshKey, setRefreshKey] = useState(0);
   const [unsealingSessionId, setUnsealingSessionId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [chainCollapsed, setChainCollapsed] = useState(false);
+  const [sealedCollapsed, setSealedCollapsed] = useState(true);
 
   const colorsForCat = (catId: string): SessionColors => {
     const cat = getCatById(catId);
@@ -239,12 +241,24 @@ export function SessionChainPanel({ threadId, catInvocations, onViewSession }: S
 
   return (
     <section className={`${settingsResourceCardClass} p-2.5`}>
-      <div className="mb-2 flex items-center justify-between">
-        <h3 className="text-xs font-bold text-cafe">Session Chain</h3>
+      <button
+        type="button"
+        onClick={() => setChainCollapsed((c) => !c)}
+        className="mb-2 flex w-full items-center justify-between"
+      >
+        <div className="flex items-center gap-1.5">
+          <span
+            className="text-micro text-cafe-muted transition-transform duration-150"
+            style={{ transform: chainCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}
+          >
+            ▾
+          </span>
+          <h3 className="text-xs font-bold text-cafe">Session Chain</h3>
+        </div>
         <span className="text-micro font-bold text-cafe-muted">
-          {sessions.length} session{sessions.length !== 1 ? 's' : ''}
+          {activeSessions.length} active · {sessions.length} total
         </span>
-      </div>
+      </button>
       {actionError && (
         <div className="mb-2 rounded border border-conn-red-ring bg-conn-red-bg px-2 py-1 text-micro text-conn-red-text">
           {actionError}
@@ -265,7 +279,7 @@ export function SessionChainPanel({ threadId, catInvocations, onViewSession }: S
       )}
 
       {/* Active sessions */}
-      {activeSessions.map((session) => {
+      {!chainCollapsed && activeSessions.map((session) => {
         const inv = catInvocations[session.catId];
         const health: ContextHealthData | undefined =
           inv?.contextHealth ??
@@ -379,10 +393,22 @@ export function SessionChainPanel({ threadId, catInvocations, onViewSession }: S
       {/* Sealed sessions */}
       {sealedSessions.length > 0 && (
         <div className="mt-1">
-          <div className="flex items-center gap-1 mb-1">
+          <button
+            type="button"
+            data-testid="sealed-toggle"
+            onClick={() => setSealedCollapsed((c) => !c)}
+            className="flex w-full items-center gap-1.5 mb-1"
+          >
+            <span
+              className="text-micro text-cafe-muted transition-transform duration-150"
+              style={{ transform: sealedCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}
+            >
+              ▾
+            </span>
             <span className="text-micro font-bold text-cafe-muted uppercase tracking-wider">Sealed</span>
-          </div>
-          <div className="space-y-1">
+            <span className="text-micro text-cafe-muted">{sealedSessions.length}</span>
+          </button>
+          {!sealedCollapsed && <div className="space-y-1">
             {visibleSealedSessions.map((session) => {
               const sealedColors = colorsForCat(session.catId);
               return (
@@ -472,7 +498,7 @@ export function SessionChainPanel({ threadId, catInvocations, onViewSession }: S
                 <span className="flex-1 min-w-0 truncate text-micro text-cafe-muted">{retryCollapseLabel}</span>
               </div>
             )}
-          </div>
+          </div>}
         </div>
       )}
 
