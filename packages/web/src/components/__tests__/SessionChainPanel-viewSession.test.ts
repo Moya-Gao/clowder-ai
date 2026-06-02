@@ -94,9 +94,7 @@ describe('SessionChainPanel onViewSession', () => {
 
   /** Sealed section is default-collapsed — expand it first */
   async function expandSealedSection() {
-    const sealedBtn = Array.from(container.querySelectorAll('button')).find((b) =>
-      b.textContent?.includes('Sealed'),
-    );
+    const sealedBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('Sealed'));
     expect(sealedBtn).toBeTruthy();
     await act(async () => {
       sealedBtn?.click();

@@ -42,7 +42,12 @@ import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata, 
 import { appendLocalImagePathHints, collectImageAccessDirectories } from '../providers/image-cli-bridge.js';
 import { extractImagePaths } from '../providers/image-paths.js';
 import { type AgyProfile, preflightAgyProfile, resolveAgyProfile } from './agy-profile-manager.js';
-import { type AgyProgressEvent, observeAgyProgress } from './agy-trajectory-observer.js';
+import {
+  type AgyProgressEvent,
+  listAgyConversationDbs,
+  observeAgyProgress,
+  resolveAgyAppDataDir,
+} from './agy-trajectory-observer.js';
 import {
   classifyAntigravityCliPlainText,
   extractAntigravityCliConversationId,
@@ -866,6 +871,14 @@ export class GeminiAgentService implements AgentService {
         }
       }
 
+      // F210 H2a (B spike §8.3): capture invocation start BEFORE spawn so a resume-turn cascade db
+      // (created after spawn) is newer than this watermark; appDataDir derived from the SAME effective
+      // child HOME passed to AGY (childEnv.HOME — merges agyProfile/accountEnv/callbackEnv), because
+      // resume-turn log is empty (agy doesn't write --log-file on resume) and the scan fallback in
+      // locateAgyTrajectoryDb needs appDataDir independently of the log. 云端 codex P2: 不能用进程
+      // homedir()，否则 accountEnv 提供 HOME 时会扫错目录、resume 永久零 progress。
+      const agyInvocationStartMs = Date.now();
+      const agyAppDataDir = resolveAgyAppDataDir(childEnv);
       const cliOpts = {
         command: agyCommand,
         args,
@@ -938,6 +951,11 @@ export class GeminiAgentService implements AgentService {
           new Promise<void>((resolve) => {
             setTimeout(resolve, ms);
           }),
+        // F210 H2a (B spike §8.3): resume turn 的 log 为空，靠扫 conversations/*.db 定位本轮
+        // 新建 cascade db（只认 invocationStart 后的单一候选；0/多 → fail-open）。
+        appDataDir: agyAppDataDir,
+        invocationStartMs: agyInvocationStartMs,
+        listConversationDbs: listAgyConversationDbs,
         ...(options?.signal ? { signal: options.signal } : {}),
       });
       // Merge loop: drain the side-channel buffer (liveness) on a timer so it stays real-time even

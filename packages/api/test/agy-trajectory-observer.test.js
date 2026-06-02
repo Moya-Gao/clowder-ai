@@ -4,14 +4,19 @@
 
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import Database from 'better-sqlite3';
 
-const { AgyTrajectoryObserver, observeAgyProgress, resolveAgyTrajectoryDbPath } = await import(
-  '../dist/domains/cats/services/agents/providers/agy-trajectory-observer.js'
-);
+const {
+  AgyTrajectoryObserver,
+  observeAgyProgress,
+  resolveAgyTrajectoryDbPath,
+  locateAgyTrajectoryDb,
+  listAgyConversationDbs,
+  resolveAgyAppDataDir,
+} = await import('../dist/domains/cats/services/agents/providers/agy-trajectory-observer.js');
 
 const STEPS_SCHEMA = `CREATE TABLE steps (
   idx integer, step_type integer NOT NULL DEFAULT 0, status integer NOT NULL DEFAULT 0,
@@ -193,4 +198,140 @@ test('observeAgyProgress recovers when DB appears after the first poll (startup 
     'must recover after DB appears late — startup race must not permanently disable',
   );
   rmSync(appDataDir, { recursive: true, force: true });
+});
+
+// F210 Phase H2a (B spike confirmed): resume turn 的真相 —
+// (1) agy resume 不写 --log-file → log 空，resolveAgyTrajectoryDbPath 拿不到 id/appDataDir → null;
+// (2) resume 另起新 cascade db（≠ 原 conversation db）。
+// AgyTrajectoryLocator：fresh log 有 id 走原 path；否则扫 conversations/*.db，只接受 invocationStart
+// 后新建/更新的单一候选；0 或多候选 → fail-open（不猜，避免历史/并发污染，砚砚 spec）。
+test('locateAgyTrajectoryDb: fresh log with conversation id → resolver path (不扫描)', () => {
+  const log = [
+    'appDataDir=/home/u/.gemini/antigravity-cli',
+    'Created conversation aaaaaaaa-1111-2222-3333-444444444444',
+  ].join('\n');
+  const got = locateAgyTrajectoryDb({
+    logText: log,
+    appDataDir: '/home/u/.gemini/antigravity-cli',
+    invocationStartMs: 1000,
+    listConversationDbs: () => {
+      throw new Error('must not scan when fresh log resolves');
+    },
+  });
+  assert.equal(got, '/home/u/.gemini/antigravity-cli/conversations/aaaaaaaa-1111-2222-3333-444444444444.db');
+});
+
+test('locateAgyTrajectoryDb: resume (empty log) + single db after invocationStart → that db', () => {
+  const got = locateAgyTrajectoryDb({
+    logText: '',
+    appDataDir: '/p',
+    invocationStartMs: 1000,
+    listConversationDbs: () => [
+      { path: '/p/conversations/old.db', birthtimeMs: 500, mtimeMs: 600 }, // before start → 排除
+      { path: '/p/conversations/new.db', birthtimeMs: 1500, mtimeMs: 1600 }, // after start → 候选
+    ],
+  });
+  assert.equal(got, '/p/conversations/new.db');
+});
+
+test('locateAgyTrajectoryDb: resume + multiple post-start candidates → fail-open null (不猜)', () => {
+  const got = locateAgyTrajectoryDb({
+    logText: '',
+    appDataDir: '/p',
+    invocationStartMs: 1000,
+    listConversationDbs: () => [
+      { path: '/p/conversations/a.db', birthtimeMs: 1500, mtimeMs: 1600 },
+      { path: '/p/conversations/b.db', birthtimeMs: 1700, mtimeMs: 1800 },
+    ],
+  });
+  assert.equal(got, null, 'ambiguous multi-candidate must fail-open, not guess');
+});
+
+test('locateAgyTrajectoryDb: resume + zero post-start candidates → fail-open null', () => {
+  const got = locateAgyTrajectoryDb({
+    logText: '',
+    appDataDir: '/p',
+    invocationStartMs: 1000,
+    listConversationDbs: () => [{ path: '/p/conversations/old.db', birthtimeMs: 500, mtimeMs: 600 }],
+  });
+  assert.equal(got, null, 'no post-start candidate must fail-open');
+});
+
+test('locateAgyTrajectoryDb: no appDataDir → fail-open null (不扫描)', () => {
+  const got = locateAgyTrajectoryDb({
+    logText: '',
+    appDataDir: null,
+    invocationStartMs: 1000,
+    listConversationDbs: () => {
+      throw new Error('must not scan without appDataDir');
+    },
+  });
+  assert.equal(got, null);
+});
+
+// F210 H2a 接入：resume turn（空 log）下 observeAgyProgress 必须靠 locator 扫描定位新 cascade db，
+// 而非现有 resolveAgyTrajectoryDbPath（log 空 → null → 零 progress，正是 B spike 确认的 H1 gap）。
+test('observeAgyProgress (resume, empty log) locates post-start cascade db via scan deps', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'agy-resume-scan-'));
+  const newDb = join(dir, 'cascade-new.db');
+  const db = new Database(newDb);
+  db.exec(STEPS_SCHEMA);
+  const insert = (idx, ty, st) =>
+    db.prepare('INSERT INTO steps (idx, step_type, status) VALUES (?, ?, ?)').run(idx, ty, st);
+  insert(0, 14, 3);
+  insert(1, 15, 1);
+  db.close();
+  let polls = 0;
+  const gen = observeAgyProgress({
+    readLog: () => '', // resume: agy 不写 log
+    appDataDir: dir,
+    invocationStartMs: 1000,
+    listConversationDbs: () => [{ path: newDb, birthtimeMs: 1500, mtimeMs: 1600 }],
+    isAgyDone: () => (polls += 1) >= 2,
+    sleep: async () => {},
+    pollIntervalMs: 1,
+  });
+  const events = [];
+  for await (const e of gen) events.push(e);
+  assert.deepEqual(
+    events.map((e) => e.idx),
+    [0, 1],
+    'resume turn must locate the post-start cascade db by scanning, not fail-open',
+  );
+  rmSync(dir, { recursive: true, force: true });
+});
+
+// fs 生产实现：扫 <appDataDir>/conversations/*.db → 候选（path + birthtime/mtime）。
+test('listAgyConversationDbs returns .db candidates with timestamps', () => {
+  const appDataDir = mkdtempSync(join(tmpdir(), 'agy-list-'));
+  const convDir = join(appDataDir, 'conversations');
+  mkdirSync(convDir);
+  new Database(join(convDir, 'a.db')).close();
+  new Database(join(convDir, 'b.db')).close();
+  const got = listAgyConversationDbs(appDataDir);
+  assert.equal(got.length, 2);
+  assert.ok(
+    got.every((c) => c.path.endsWith('.db') && typeof c.birthtimeMs === 'number' && typeof c.mtimeMs === 'number'),
+    'each candidate has path + birthtimeMs + mtimeMs',
+  );
+  rmSync(appDataDir, { recursive: true, force: true });
+});
+
+test('listAgyConversationDbs returns [] when conversations dir missing (fail-open)', () => {
+  const appDataDir = mkdtempSync(join(tmpdir(), 'agy-list-empty-'));
+  assert.deepEqual(listAgyConversationDbs(appDataDir), []);
+  rmSync(appDataDir, { recursive: true, force: true });
+});
+
+// 云端 codex P2: appDataDir 必须用 spawn agy 的 effective child HOME（childEnv.HOME），
+// 不能用进程 homedir()。无 agyProfile 但 accountEnv 提供 HOME 时，child 用 accountEnv.HOME，
+// 若 scan root 用 homedir() 会扫错目录 → resume turn 永久无 progress。
+test('resolveAgyAppDataDir uses childEnv HOME (account HOME, not process homedir)', () => {
+  const got = resolveAgyAppDataDir({ HOME: '/account/home' });
+  assert.equal(got, join('/account/home', '.gemini', 'antigravity-cli'));
+});
+
+test('resolveAgyAppDataDir falls back to process homedir when childEnv absent/no HOME', () => {
+  assert.equal(resolveAgyAppDataDir(undefined), join(homedir(), '.gemini', 'antigravity-cli'));
+  assert.equal(resolveAgyAppDataDir({ FOO: 'bar' }), join(homedir(), '.gemini', 'antigravity-cli'));
 });

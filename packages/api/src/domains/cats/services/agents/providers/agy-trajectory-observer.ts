@@ -11,6 +11,8 @@
  * - 中性文案：H1 不把 `step_type` 硬标成 tool call/思考；枚举坐实后（H3）再加语义标签。
  */
 
+import { readdirSync, statSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import { extractAntigravityCliConversationId } from './antigravity-cli-event-parser.js';
@@ -62,6 +64,85 @@ export function resolveAgyTrajectoryDbPath(logText: string): string | null {
   const uuid = extractAntigravityCliConversationId(logText);
   if (!appDataDir || !uuid) return null;
   return join(appDataDir, 'conversations', `${uuid}.db`);
+}
+
+export interface AgyDbCandidate {
+  readonly path: string;
+  /** 文件创建时间（ms epoch）。 */
+  readonly birthtimeMs: number;
+  /** 文件最后修改时间（ms epoch）。 */
+  readonly mtimeMs: number;
+}
+
+export interface LocateAgyTrajectoryDbDeps {
+  /** agy `--log-file` 当前内容（fresh turn 带 conversation id + appDataDir；resume turn 为空）。 */
+  readonly logText: string;
+  /**
+   * AGY profile 的 appDataDir。fresh turn 可从 log 解析，但 resume turn log 为空，
+   * 调用方（GeminiAgentService）必须独立从 spawn agy 的 profile/HOME 传入，否则无法扫描。
+   */
+  readonly appDataDir: string | null;
+  /** 本次 invocation 启动时刻（ms epoch）；用于筛掉历史 cascade db，只认本轮新建/更新的。 */
+  readonly invocationStartMs: number;
+  /** DI：列出 `<appDataDir>/conversations/*.db` 候选（path + 时间戳）。生产用 fs；测试注入。 */
+  readonly listConversationDbs: (appDataDir: string) => AgyDbCandidate[];
+}
+
+/**
+ * 定位本轮 AGY trajectory 的 SQLite DB（F210 H2a，B spike §8 confirmed）。
+ *
+ * - **fresh turn**：log 带 conversation id（== cascade id == DB 文件名），走现有
+ *   `resolveAgyTrajectoryDbPath`。
+ * - **resume turn**：agy resume **不写 `--log-file`** 且**另起新 cascade db**（≠ 原 conversation
+ *   db），log 解析失败。改扫 `conversations/*.db`，只接受 `invocationStart` 后新建/更新的候选。
+ * - **fail-open**：appDataDir 缺失 / 0 候选 / 多候选无法消歧 → null（调用方降级，绝不猜——
+ *   避免历史或并发 invocation 的 db 污染，砚砚 spec）。
+ */
+export function locateAgyTrajectoryDb(deps: LocateAgyTrajectoryDbDeps): string | null {
+  const fresh = resolveAgyTrajectoryDbPath(deps.logText);
+  if (fresh) return fresh;
+  if (!deps.appDataDir) return null;
+  const candidates = deps
+    .listConversationDbs(deps.appDataDir)
+    .filter((c) => c.birthtimeMs >= deps.invocationStartMs || c.mtimeMs >= deps.invocationStartMs);
+  if (candidates.length !== 1) return null;
+  return candidates[0]!.path;
+}
+
+/**
+ * 派生 AGY appDataDir（云端 codex P2）：必须用 **spawn agy 的 effective child HOME**
+ * （`childEnv.HOME`，合并了 agyProfile / accountEnv / callbackEnv），不能用进程 `homedir()`。
+ * 否则无 agyProfile 但 accountEnv 提供 HOME 时，child 用 accountEnv.HOME 写 trajectory，
+ * 而 scan root 错用 homedir() → resume turn 永久扫错目录、零 progress。
+ */
+export function resolveAgyAppDataDir(childEnv: Record<string, string> | undefined): string {
+  return join(childEnv?.HOME ?? homedir(), '.gemini', 'antigravity-cli');
+}
+
+/**
+ * fs 生产实现：扫 `<appDataDir>/conversations/*.db` 返回候选（path + birthtime/mtime）。
+ * 目录不存在 / 不可读 → `[]`（fail-open，调用方降级）。单个文件 stat 失败跳过该文件。
+ */
+export function listAgyConversationDbs(appDataDir: string): AgyDbCandidate[] {
+  const convDir = join(appDataDir, 'conversations');
+  let entries: string[];
+  try {
+    entries = readdirSync(convDir);
+  } catch {
+    return [];
+  }
+  const out: AgyDbCandidate[] = [];
+  for (const name of entries) {
+    if (!name.endsWith('.db')) continue;
+    const path = join(convDir, name);
+    try {
+      const st = statSync(path);
+      out.push({ path, birthtimeMs: st.birthtimeMs, mtimeMs: st.mtimeMs });
+    } catch {
+      // 单文件 stat 失败（并发删除等）→ 跳过，不影响其他候选。
+    }
+  }
+  return out;
 }
 
 export class AgyTrajectoryObserver {
@@ -150,7 +231,7 @@ export class AgyTrajectoryObserver {
 }
 
 export interface ObserveAgyProgressDeps {
-  /** 读 agy `--log-file` 的当前内容（解析 cascade UUID + appDataDir）。 */
+  /** 读 agy `--log-file` 的当前内容（fresh turn 解析 conversation id + appDataDir）。 */
   readLog: () => string;
   /** agy 进程是否已结束（结束后做一次 final poll 捞尾部 step）。 */
   isAgyDone: () => boolean;
@@ -160,6 +241,15 @@ export interface ObserveAgyProgressDeps {
   pollIntervalMs?: number;
   /** 取消信号（用户中断时停止观测）。 */
   signal?: AbortSignal;
+  /**
+   * AGY profile appDataDir：resume turn log 为空时靠扫描定位 cascade db（B spike §8.3）。
+   * fresh turn 可不传（locator 从 log 解析）。
+   */
+  appDataDir?: string | null;
+  /** 本次 invocation 启动时刻（ms epoch）：筛掉历史 cascade db，只认本轮新建/更新的。 */
+  invocationStartMs?: number;
+  /** DI：列 `<appDataDir>/conversations/*.db` 候选（resume 扫描）；默认空 → resume fail-open。 */
+  listConversationDbs?: (appDataDir: string) => AgyDbCandidate[];
 }
 
 /**
@@ -177,7 +267,12 @@ export async function* observeAgyProgress(deps: ObserveAgyProgressDeps): AsyncGe
 
   const ensureObserver = (): AgyTrajectoryObserver | null => {
     if (!observer) {
-      const dbPath = resolveAgyTrajectoryDbPath(deps.readLog());
+      const dbPath = locateAgyTrajectoryDb({
+        logText: deps.readLog(),
+        appDataDir: deps.appDataDir ?? null,
+        invocationStartMs: deps.invocationStartMs ?? 0,
+        listConversationDbs: deps.listConversationDbs ?? (() => []),
+      });
       if (dbPath) observer = new AgyTrajectoryObserver(dbPath);
     }
     return observer;
