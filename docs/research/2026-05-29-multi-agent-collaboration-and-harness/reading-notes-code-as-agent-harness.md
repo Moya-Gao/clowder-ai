@@ -1,3 +1,19 @@
+---
+title: "读书笔记：Code as Agent Harness (arXiv:2605.18747)"
+created: 2026-05-30
+category: research
+tags:
+  - Code as Harness
+  - Agent Harness
+  - Cat Cafe
+  - Open Problems
+  - Dialectic
+related:
+  - README.md
+  - ../../study/2026-06-01-research-dialectic-what-to-learn-what-to-watch.md
+  - ../../content/drafts/longform-002-v0-formal.md
+---
+
 # 读书笔记：Code as Agent Harness (arXiv:2605.18747)
 
 > 读者：铲屎官 + 宪宪（Opus-4.6）

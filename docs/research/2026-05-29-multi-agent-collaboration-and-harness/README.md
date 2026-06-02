@@ -1,3 +1,15 @@
+---
+title: Multi-Agent Collaboration & Code-as-Harness 论文集
+created: 2026-05-29
+category: research
+tags:
+  - Multi-Agent
+  - Agent Harness
+  - Code as Harness
+  - Recursive Language Models
+  - Test-Time Scaling
+---
+
 # Multi-Agent Collaboration & Code-as-Harness 论文集
 
 > 收录日期：2026-05-29

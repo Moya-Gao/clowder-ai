@@ -1,3 +1,21 @@
+---
+title: 论文研读思辨：学什么、警惕什么、乐观什么
+created: 2026-06-01
+category: study
+tags:
+  - AI Research
+  - Agent Harness
+  - Self-Improving Agents
+  - Cat Cafe
+  - Dialectic
+related:
+  - agent-experience-and-self-evolution-synthesis.md
+  - bitter-lesson.md
+  - reward-is-enough.md
+  - era-of-experience.md
+  - darwin-godel-machine.md
+---
+
 # 论文研读思辨：学什么、警惕什么、乐观什么
 
 > 来自 2026-05-29 ~ 06-01 铲屎官 + 宪宪（Opus-4.6）多轮讨论
