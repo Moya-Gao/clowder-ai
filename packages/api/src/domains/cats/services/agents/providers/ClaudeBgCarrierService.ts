@@ -30,6 +30,7 @@ import { tmpdir } from 'node:os';
 import { isAbsolute, join, resolve } from 'node:path';
 import { type CatId, createCatId } from '@cat-cafe/shared';
 import { getCatModel } from '../../../../../config/cat-models.js';
+import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { resolveCliCommandOrBare } from '../../../../../utils/cli-resolve.js';
 import { buildChildEnv } from '../../../../../utils/cli-spawn.js';
 import type { AgentMessage, AgentService, AgentServiceOptions } from '../../types.js';
@@ -50,6 +51,8 @@ import { compileL0ViaSubprocess } from './l0-compiler.js';
 import { TranscriptTailer } from './TranscriptTailer.js';
 
 const SHORT_ID_PATTERN = /backgrounded\s*·\s*([a-f0-9]{8})/;
+
+const log = createModuleLogger('claude-bg-carrier');
 
 export class CarrierError extends Error {
   override readonly cause?: unknown;
@@ -228,11 +231,26 @@ export class ClaudeBgCarrierService implements AgentService {
       // - callbackEnv MODEL_OVERRIDE_KEY (per-invocation override)
       // - api_key + non-Anthropic model → omit --model (let env drive)
       const { effectiveModel, useEnvModelOverride } = resolveClaudeModelSelection(options?.callbackEnv, this.model);
-      const args = useEnvModelOverride ? ['--bg', prompt] : ['--bg', prompt, '--model', effectiveModel];
+      // #840 R2 (砚砚 review 2026-06-02): bg carrier prompt also rides argv
+      // historically — same ENAMETOOLONG risk as the `-p` carrier. Spike
+      // verified `claude --bg` accepts stdin prompt (supervisor reads stdin
+      // before detaching worker daemon). Remove prompt positional from argv;
+      // stream content via stdin (set up below).
+      const args = useEnvModelOverride ? ['--bg'] : ['--bg', '--model', effectiveModel];
       // F203 Phase C: native system role from compiled L0 file (above).
       args.push('--system-prompt-file', l0Path);
+      // #840: write the append-system-prompt payload (pack blocks + briefing) to
+      // a temp file so it rides `--append-system-prompt-file <path>` instead of
+      // inline argv. Otherwise A2A briefings with long Windows paths can push
+      // the spawn command line past CreateProcess' 32,767-char cap and produce
+      // `spawn ENAMETOOLONG`. Per L0 pattern (see compileL0ToTempFile docblock):
+      // per-invocation file, no cleanup — daemon may read it lazily on resume,
+      // OS reclaims via tmp.
       if (options?.systemPrompt) {
-        args.push('--append-system-prompt', options.systemPrompt);
+        const appendDir = mkdtempSync(join(tmpdir(), 'cat-cafe-bg-append-prompt-'));
+        const appendPath = join(appendDir, 'append-system-prompt.md');
+        writeFileSync(appendPath, options.systemPrompt, 'utf-8');
+        args.push('--append-system-prompt-file', appendPath);
       }
 
       // F198 Phase D carrier parity (2026-05-19 hotfix): ClaudeAgentService
@@ -301,12 +319,29 @@ export class ClaudeBgCarrierService implements AgentService {
       // during the 5-15s startup window kills the child via SIGTERM. Without
       // this, abort during startJob() never reaches waitForTerminal()'s
       // bestEffortStop cleanup path and leaks the daemon job.
+      // #840 R2: pipe stdin so we can stream the prompt off the command line.
+      // Supervisor (`claude --bg`) reads stdin synchronously before forking
+      // the detached worker, so it's safe to write+close before the daemon
+      // backgrounds itself (spike-verified).
       const child = this.spawnFn(claudeCommand, args, {
         cwd: options?.workingDirectory ?? process.cwd(),
         env,
-        stdio: ['ignore', 'pipe', 'pipe'],
+        stdio: ['pipe', 'pipe', 'pipe'],
         signal: options?.signal,
       });
+
+      // Write the prompt to the supervisor's stdin, then close. Mirror the
+      // EPIPE guard used in cli-spawn.ts (child may exit before consuming).
+      const childStdin = child.stdin;
+      if (childStdin) {
+        childStdin.on('error', (err: NodeJS.ErrnoException) => {
+          if (err && err.code !== 'EPIPE') {
+            log.warn({ err, pid: child.pid }, 'Unexpected claude --bg stdin write error');
+          }
+        });
+        childStdin.write(prompt);
+        childStdin.end();
+      }
 
       let stdout = '';
       let stderr = '';
