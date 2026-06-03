@@ -48,13 +48,13 @@
 
 ### L3 任务交付质量（最大 gap）
 
-- [ ] **立项 eval:task-outcome（Phase G 候选）** — 四个信号支柱：Magic Word / Cross-thread Repetition / Permission Cancel / Frustration Auto-Issue。来源：F192 审计 §五 + OQ-4 §4.5b/c。**需要 CVO signoff 立 F 号**
-- [ ] **Permission Cancel 计数器** — 在权限系统里加 cancel 事件的计数器 + 上下文快照。零成本。来源：F192 审计 §七
-- [ ] **Frustration Auto-Issue 产品特性** — 检测摩擦 → 采集日志 → 生成 issue 预览 → 用户一键提单。来源：OQ-4 §4.5c。**需要 CVO signoff 立 F 号**
+- [x] ~~F192 Phase G eval:task-outcome v0~~ — 🔄 **PR #2074 开了，9/11 AC ✅**。Episode schema + Permission Cancel hook + Magic Word recorder + A1 接入 + 域注册 + 87 tests。待：cancel 理由浮层(AC-G10) + 端到端验证(AC-G11)
+- [x] ~~Permission Cancel 计数器~~ — ✅ 已含在 F192 Phase G（onPermissionCancel hook + signal builder）
+- [x] ~~F222 Frustration Auto-Issue Phase A~~ — ✅ **已合入 main**（PR #2075）。CLI 报错 + cancel burst 检测 → rich card → 一键提交/跳过。61 tests，GPT-5.4 4 轮 review。
 
 ### 现有 eval 完善
 
-- [ ] **完成 Phase F eval:capability-wakeup** — AC-F2~F9 待做。来源：F192 spec
+- [x] ~~完成 Phase F eval:capability-wakeup~~ — ✅ 铲屎官确认已完成
 - [ ] **A2A 路由决策统计** — per-cat × per-task-type 返工率/退回率。来源：F192 审计 §5.2
 
 ---
