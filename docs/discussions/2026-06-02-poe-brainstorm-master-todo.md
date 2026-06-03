@@ -69,6 +69,9 @@
 - [ ] **把 meta-method 蒸馏链路写成 skill** — episode → pivot → topology → method card → skill → eval → sunset。来源：Meta-method 蒸馏 §3
 - [ ] **模型升级触发减法 review 机制** — 每次模型升级时主动盘点"哪些规则现在模型自己能做对"。来源：48 OQ-4
 - [ ] **Harness Patch Card schema 定义** — 48 提议的 typed patch 结构。来源：OQ-4 §4.2
+- [ ] **Skill 版本谱系 + 回退机制** — 来自 DGM 的 archive + 谱系树。skill 退化时可回退到祖先版本分叉。来源：[论文研读思辨](2026-06-01-research-dialectic-what-to-learn-what-to-watch.md) §四
+- [ ] **A2A 幻觉传播检测** — 来自 GUARDIAN。一只猫的幻觉沿协作链放大是真实风险。来源：论文研读 §一 + 我们 demo 剧本的"翻车自诊断"
+- [ ] **Expert-panel 提前收敛** — 来自 TUMIX。多猫高度一致时自动收敛省算力。来源：论文研读 §四
 
 ---
 

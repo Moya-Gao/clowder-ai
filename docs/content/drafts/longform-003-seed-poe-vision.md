@@ -26,6 +26,8 @@ status: seed
 > 8. [Longform-002（前作）](longform-002-v0-formal.md)
 > 9. [DeliAutoResearch 读后：我们真正能带走什么](../../research/2026-06-01-deli-autoresearch-takeaways.md) — 生产遥测表 / 失败模式词表 / 自进化护栏，直接验证了我们的 meta-method + OQ-4 外部锚点
 > 10. [Skill 自进化论文拆解](../../research/2026-05-28-skill-evolution-papers/README.md) — AHE + AgentGym 底层研究
+> 11. [论文研读思辨：学什么、警惕什么、乐观什么](../../study/2026-06-01-research-dialectic-what-to-learn-what-to-watch.md) — Bitter Lesson / DGM / Code as Harness / GUARDIAN 等 7+ 篇论文的辩证评估，验证我们方向 + 指出学术局限
+> 12. [PoE Master TODO](../../discussions/2026-06-02-poe-brainstorm-master-todo.md) — 所有待办项收敛
 
 ---
 
