@@ -335,3 +335,28 @@ test('resolveAgyAppDataDir falls back to process homedir when childEnv absent/no
   assert.equal(resolveAgyAppDataDir(undefined), join(homedir(), '.gemini', 'antigravity-cli'));
   assert.equal(resolveAgyAppDataDir({ FOO: 'bar' }), join(homedir(), '.gemini', 'antigravity-cli'));
 });
+
+// carryover（砚砚 locator review non-blocking note，收进 H2b）：observeAgyProgress 缺
+// invocationStart watermark 时不扫历史 db（避免未来 caller 传 appDataDir 漏 watermark 误读历史库）。
+test('observeAgyProgress: appDataDir without invocationStartMs → no scan (carryover guard)', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'agy-nowm-'));
+  const histDb = join(dir, 'hist.db');
+  const db = new Database(histDb);
+  db.exec(STEPS_SCHEMA);
+  db.prepare('INSERT INTO steps (idx, step_type, status) VALUES (?, ?, ?)').run(0, 14, 3);
+  db.close();
+  let polls = 0;
+  const gen = observeAgyProgress({
+    readLog: () => '', // resume 空 log
+    appDataDir: dir,
+    // 故意不传 invocationStartMs → guard 应阻止扫描历史 db
+    listConversationDbs: () => [{ path: histDb, birthtimeMs: 1, mtimeMs: 2 }],
+    isAgyDone: () => (polls += 1) >= 2,
+    sleep: async () => {},
+    pollIntervalMs: 1,
+  });
+  const events = [];
+  for await (const e of gen) events.push(e);
+  assert.equal(events.length, 0, 'missing watermark must not scan historical dbs');
+  rmSync(dir, { recursive: true, force: true });
+});

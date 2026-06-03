@@ -267,9 +267,13 @@ export async function* observeAgyProgress(deps: ObserveAgyProgressDeps): AsyncGe
 
   const ensureObserver = (): AgyTrajectoryObserver | null => {
     if (!observer) {
+      // carryover（砚砚 locator review non-blocking note）：扫描历史 db 必须有 invocationStart
+      // watermark；缺 watermark 时不扫（appDataDir 置 null → locator 仅走 fresh log path），
+      // 避免未来 caller 传 appDataDir 但漏 watermark 时误读历史库。
+      const hasWatermark = deps.invocationStartMs !== undefined;
       const dbPath = locateAgyTrajectoryDb({
         logText: deps.readLog(),
-        appDataDir: deps.appDataDir ?? null,
+        appDataDir: hasWatermark ? (deps.appDataDir ?? null) : null,
         invocationStartMs: deps.invocationStartMs ?? 0,
         listConversationDbs: deps.listConversationDbs ?? (() => []),
       });

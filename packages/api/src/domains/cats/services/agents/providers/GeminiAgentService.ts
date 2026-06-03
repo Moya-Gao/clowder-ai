@@ -42,9 +42,11 @@ import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata, 
 import { appendLocalImagePathHints, collectImageAccessDirectories } from '../providers/image-cli-bridge.js';
 import { extractImagePaths } from '../providers/image-paths.js';
 import { type AgyProfile, preflightAgyProfile, resolveAgyProfile } from './agy-profile-manager.js';
+import { extractAgyFinalTextFromSteps, readAgyTrajectorySteps } from './agy-trajectory-extractor.js';
 import {
   type AgyProgressEvent,
   listAgyConversationDbs,
+  locateAgyTrajectoryDb,
   observeAgyProgress,
   resolveAgyAppDataDir,
 } from './agy-trajectory-observer.js';
@@ -1026,11 +1028,28 @@ export class GeminiAgentService implements AgentService {
           },
         };
       }
+      // F210 H2b: resumed turn 从 trajectory 提取本轮 final answer 替换 stdout 重放（根治
+      // `agy --print --conversation` 累加重放）。agy resume log 为空 → locator 走扫描定位 resume
+      // 新 cascade db；任何环节失败（无 db / 无 final）→ resumedFinalText=null，classify fail-open
+      // 保留现有 stdout。
+      let resumedFinalText: string | null = null;
+      if (options?.sessionId) {
+        const dbPath = locateAgyTrajectoryDb({
+          logText: agyLogText,
+          appDataDir: agyAppDataDir,
+          invocationStartMs: agyInvocationStartMs,
+          listConversationDbs: listAgyConversationDbs,
+        });
+        if (dbPath) {
+          resumedFinalText = extractAgyFinalTextFromSteps(readAgyTrajectorySteps(dbPath));
+        }
+      }
       const parsedPlainText = classifyAntigravityCliPlainText({
         stdout,
         stderr,
         resumed: Boolean(options?.sessionId),
         agyLogText,
+        resumedFinalText,
       });
       const canRecordFreshConversation =
         !emittedSessionInit &&
