@@ -1,0 +1,136 @@
+---
+feature_ids: [F220]
+related_features: [F216, F175, F153, F118, F215]
+topics: [a2a, observability, liveness, invocation, queue, interrupt, recovery, ux]
+doc_kind: spec
+created: 2026-06-02
+---
+
+# F220: A2A 协作的可观测 · 可靠 · 可恢复
+
+> **Status**: spec | **Owner**: 宪宪 (Opus-4.8，已接 own + 驱动) | **Priority**: P1 | **Source**: internal
+>
+> **Thread legend**：`thread_mpxf7fdx5gonafzh` = 驱动/owner thread（Layer 1 现场调查 + 落地，宪宪 Opus-4.8）｜`thread_mpwjkntm5kv90c5z` = 立项 thread（平行 opus-48：立项 + 设计沉淀 + 交接，已收工）。
+
+Architecture cell: `invocation`（invocation lifecycle / queue / liveness）+ 前端 chat liveness chrome
+Map delta: none（扩展现有 invocation/liveness 边界，不改 ownership map）
+Why（一句话）: A2A 触发与卡死恢复都落在既有 invocation/queue/tracker 生命周期里，本 feat 补它的"可见性+可恢复性"，不新造 store/queue。
+
+## Why
+
+铲屎官要"**信得过的猫间协作**"。但今天 A2A（猫@猫）协作在三个维度同时漏，叠在一起让人**分不清猫到底在跑还是卡死**：
+
+1. **看不见**：human→猫发消息，"启动中/排队中"占位**秒显示**；但猫→猫传球，前端**长时间一片空白**，没有任何"X 收到了/启动中/排队中"。用户传球出去后是一片静默。
+2. **会真卡**：那条 invocation 可能真 hang（队列/session），补一刀还停"排队中"不进 running。
+3. **卡了没法自救**：真卡死时正常的停止/中断点不动，用户没有逃生口。
+
+**最要命的是 1+2 叠加**：因为缺可见性（1），前端把"猫在正常思考还没出字"和"猫卡死了"画成**同一个静默画面**——用户根本无法区分。这是铲屎官 2026-06-02 在 `thread_mpxf7fdx5gonafzh` 截图反映的体感来源。
+
+> 价值锚：让用户**看得见**猫间协作在进行（不是黑盒静默）、**信得过**它不会无声卡死、**卡了能自救**。
+
+## Current State / 现状基线（带证据，不美化）
+
+组件层面**很多已经修好且在 main 上**——真问题更深，是"数据没产生"和"卡了没出口"：
+
+- ✅ `ThinkingIndicator.tsx` 已 `useThreadLiveness` thread-scoped（main），有完整 `spawning → "{name} 启动中"` 渲染（~L84-120）。
+- ✅ `#2050`（已 merge）：排队中显示等待原因（A2A queue-visibility）。
+- ✅ `#2053`（已 merge 2026-06-02）：steer 立即中断 race-safe tombstone 修复（"卡住怎么点都中断不了"的 sound 部分）。
+- ✅ `POST /api/threads/:id/force-reset` 端点**已存在**（2026-05-29 bug-report 加的）：cancelAll + 清 slot/record + 广播 done，user-scoped。
+- ⚠️ **Layer 1 缺口（平行 opus-48 已挖到根因层，`thread_mpxf7fdx5gonafzh`，待 live 日志取证）**：组件能渲染 spawning，但前提是先有"目标猫=X + 状态=spawning"这份数据。**human 路径走前端乐观写（秒显示）；A2A 路径无用户动作，全靠后端推 `invocation_created`/spawning 事件——信号没产生/没及时到 → 组件 `return null` → 空白**。候选断点：砚砚忙→新活走排队不立即 spawn、没 `invocation_created`；或 spawn 了事件丢；或 `targetCats` 没更新成单独 `[砚砚]`。历史两次尝试（`a2a-spawning-indicator` 5-18 / `a2a-liveness-status` 5-22）核心改动已进 main，但**这层数据产生时机的差异仍未根治**。
+- ⚠️ **Layer 2**：has()=false 占用 slot 的真 hang（dead-Redis create 等病态）；#2053 已证 steer 无法 sound force-recover，只能靠 75min sweep / force-reset。
+- ⚠️ **Layer 3**：force-reset 端点有，**前端无 UI 入口**——用户卡死时没有可点的逃生口。
+
+## What
+
+三个 Phase，对应三个维度：
+
+### Phase 1 — 可观测：A2A 启动中/排队占位可见（Layer 1）
+补上"A2A 触发后用户看得见猫在路上"。先 live 日志坐实断点（数据没产生 vs 事件丢 vs targetCats），再修。候选方向：给 A2A 路径补一层像 human 那样的 pending 占位（后端 spawn 时即推 spawning，或前端在传球发生时乐观写）。
+> 起点：驱动 thread `thread_mpxf7fdx5gonafzh` 的 Layer 1 调查（已到根因层）。
+> **现场校准（实测截图时间线）**：传球那刻砚砚大概率**空闲**（46/我 18:34 结束、砚砚 18:32 早结束），故候选 (a)"目标猫忙→排队不 spawn"**可能不成立**；live 取证**优先验 (b) `invocation_created` 事件丢/延迟、(c) `targetCats` 未更新成单目标 `[砚砚]`**。
+
+### Phase 2 — 可靠：invocation 卡死根因（Layer 2）
+定位"补一刀仍停排队不进 running"的真 hang（队列没消费 / session hang / 锁）。可能与 #2053 收敛的"slot/tracker/entry 生命周期解耦"相关。砚砚 roadmap：是否统一 cancel/preempt 状态机、slot 升级带 invocation-identity ownership。
+> **Scope 闸门（KD-3）🔴**：Phase 2 **先出根因报告（5 件套）+ 复现，不直接动手大改**。若根因需架构级重构（统一 cancel/preempt 状态机 + slot ownership 模型）→ 出报告 + Decision Packet 交 **CVO 拍板是否拆独立 feat**，不在 F220 内硬扛。防 Phase 2 无底洞拖垮 Phase 1+3 的已交付价值。
+
+### Phase 3 — 可恢复：force-reset 逃生口 UI（Layer 3）
+把已有的 `force-reset` 端点接到一个**情境化、带确认弹窗**的 UI 入口。**设计稿见下方 §设计稿（铲屎官 2026-06-02 已审过概念 + 确认要弹窗确认）**。
+
+## Acceptance Criteria
+
+> 每条 AC 指得回 Why；非作者可复核（命令/截图/复现）。
+
+**Phase 1（可观测）**
+- [ ] AC-1.1: A2A 传球后，目标猫的"启动中/排队中"占位在**发起方前端**及时出现（不再长时间空白）。复核：A2A 触发 → 录屏显示占位秒级出现。
+- [ ] AC-1.2: 根因有 live 证据（不是猜）——日志/trace 坐实断点在哪一环。
+- [ ] AC-1.3: human 路径占位行为不回归。
+
+**Phase 2（可靠）**
+- [ ] AC-2.1: "补一刀仍停排队不进 running"的 hang 有根因报告（5 件套）+ 复现。
+- [ ] AC-2.2: 修复 or（若属 #2053 同源的 unsound 边界）明确归类 + 兜底说明。
+
+**Phase 3（可恢复）**
+- [ ] AC-3.1: 卡死/有活跃调用时，thread 出现情境化 force-reset 入口（非常驻吓人按钮）。
+- [ ] AC-3.2: 点击弹**确认弹窗**，讲清"做什么/保留什么/何时用"，确认后才执行。
+- [ ] AC-3.3: 确认 → 调 force-reset → thread 解放（"正在回复中"清掉，可发新消息）；消息/历史**不丢**。**硬约束（LL-048 / 铁律#5）**：force-reset 只清"运行态"，**绝不 EXPIRE/删除消息·历史·记忆等用户可见持久化数据**。复核：构造卡死 → 点按钮 → 截图前后 + 断言消息条数不变。
+- [ ] AC-3.4: force-reset 对**真 hang slot**的有效性实测（Phase 3↔2 交叉）。已知 force-reset = `cancelAll`(tracker slots) ∪ `listRunningByThread`.targetCats→`releaseSlot`：有 running record 的 hung（`has()=false` 但 record 在）能清；但 record 已 canceled / `processingSlot` 单独泄漏的 **truly-orphaned** 边界 `listRunningByThread` 找不到 → **清不掉**。复核：构造两类 hang（有 record / orphaned slot）各点一次 force-reset；orphaned 若清不掉 → 标为 Phase 2 依赖 + UI 给**诚实反馈**（不假装已解放）。
+
+## Dependencies
+- force-reset 端点（`queue.ts`，已存在）。
+- #2053 steer 修复（已 merge）——本 feat 是其完整产品故事的延续。
+- Phase 间无硬依赖，可独立推进；建议序：可观测(1) → 可恢复(3) → 可靠(2)（1/3 直接缓解体感，2 是根因攻坚）。
+
+## Risk
+- Phase 1 改前端 liveness 写入时机，可能影响 human 路径占位——回归测守住。
+- Phase 2 是 invocation lifecycle 雷区（F216 同域），改动需 race-safe + 跨族 review。
+- Phase 3 force-reset 是强动作——确认弹窗 + user-scoped + **只清运行态（LL-048：绝不碰消息/历史/记忆等持久化数据）** 是安全前提。
+
+## Open Questions
+- Phase 1 断点到底哪环（待 live 取证才能定方向）。
+- Phase 2 是否触发更大的"统一 cancel/preempt 状态机 + slot ownership 模型"重构（砚砚 roadmap）——还是局部修。这是潜在的架构级 OQ，需 CVO 拍板。
+- force-reset 触发时机：A) 有调用就低调常显 + 卡死升级显眼；B) 只在久/停止失效时显示。（铲屎官倾向 A，见设计稿）
+
+## Key Decisions
+- KD-1（2026-06-02 铲屎官）：F220 reframe 成"A2A 协作可观测·可靠·可恢复"theme-feat，三层一起解决，不只 force-reset 逃生口。
+- KD-2（2026-06-02 铲屎官）：feat 由**干净 thread 的平行 opus-48 完整 own + 驱动**（带该 thread 的砚砚落地）；本 thread 负责立项 + 沉淀设计 + 跨线程交接。
+- KD-3（2026-06-02 宪宪，接 own 时定）：**Phase 2 设 scope 闸门**——先出根因报告，需架构级重构则 CVO 拍板拆独立 feat，不在 F220 内硬扛（见 Phase 2 段）。接手 5 点调整（Phase 2 闸门 / force-reset 守 LL-048 / force-reset vs orphaned slot 实测 / Phase 1 取证优先级校准 / thread legend）经立项方平行 opus-48 确认（thread `thread_mpwjkntm5kv90c5z`）。
+
+## Links
+- 平行调查（Layer 1）：thread `thread_mpxf7fdx5gonafzh`
+- steer 修复：PR #2053 + `docs/bug-report/2026-06-02-steer-cant-preempt-leaked-slot/`
+- 排队可见性：PR #2050 + `docs/bug-report/2026-06-02-a2a-queue-visibility/`
+- force-reset 端点来源：`docs/bug-report/2026-05-29-invocation-stale-active-recovery/`
+- 历史 liveness 尝试：分支 `codex/a2a-spawning-indicator`（5-18）、游离 commit `74407ee9e`（5-22 thread-scope liveness chrome）
+
+---
+
+## 设计稿（Phase 3 — force-reset 逃生口 UI，铲屎官 2026-06-02 已审概念）
+
+**它 reset 什么**：reset 这个 thread 的**执行状态**——取消你在这个 thread 里所有在跑的猫调用 + 清掉卡住的"正在回复中"/"队列繁忙"状态 → thread 重新能用。**不删消息/历史/thread，不碰别人的调用，不碰记忆数据**。只擦"谁在跑"的临时态。
+
+**触发 & 位置**：挂「当前调用/执行中」面板，只在有猫在跑时存在。
+- 默认：面板里除正常「停止」外，一行**低调次级入口** `⚠ 卡住了？强制重置`（灰、不抢眼）。
+- 升级（疑似卡死：调用异常久 / 点过停止没生效）→ 这行**变亮上浮**。
+
+**确认弹窗（核心，铲屎官点名要）** — 点击不立即执行，先弹窗：
+- 标题：`强制重置这个对话？`
+- 正文三段：🛑 会做什么（取消本对话所有在运行的猫 + 清"正在回复中"）/ ✅ 会保留什么（消息历史全保留，只清运行态）/ 💡 何时用（猫卡死、点停止也没反应时的最后手段）
+- 按钮：`取消`（默认 focus）/ `强制重置`（危险色 red）
+
+**弹窗 ASCII 草图**：
+```
+┌─────────────────────────────────────────┐
+│  强制重置这个对话？                    ✕ │
+├─────────────────────────────────────────┤
+│  🛑 会取消这个对话里所有正在运行的猫，    │
+│     清掉卡住的"正在回复中"状态。          │
+│  ✅ 消息和历史全部保留——只清运行状态。    │
+│  💡 仅在猫卡死、点「停止」也没反应时用。   │
+├─────────────────────────────────────────┤
+│              [ 取消 ]   [ 强制重置 ]🔴   │
+└─────────────────────────────────────────┘
+```
+
+**流程**：有猫在跑 → 显示低调入口 →（卡死时升级显眼）→ 点击 → 确认弹窗 → 取消(什么都不动) / 确认(调 `POST /force-reset` → 清运行态 → toast「已重置，对话已解放」→ 面板恢复空闲)。
+
+> 实现前走 Design Gate「在地设计检查」+「现场可感知性自检」（本 feat 属 observability/recovery 类，必填 in_context_observability 字段）。前端像素稿可用 Pencil 渲染再过铲屎官。
