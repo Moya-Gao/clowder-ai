@@ -1,24 +1,24 @@
 ---
 name: code-as-harness
 description: >
-  检测摩擦信号或陌生任务 → 诊断根因 → 用代码修已有 harness 或建新 harness。
-  两种模式：Fix（重复纠偏 → 写 hook/lint/guard）+ Build（新任务类型 → Agent Team Leadership 规划新 skill/tool/流程）。
-  Use when: 铲屎官重复不满（"又"/"总是"/"多少次了"/"每次都"/"怎么还"）、连续 cancel 工具调用、
-  CLI 报错后猫没自主修、A2A 超时没诊断、收到完全陌生的任务类型且无对应 skill。
-  Not for: 一次性批评（没有重复信号）、玩笑式"笨猫"（后跟哈哈哈）、已有明确 error message 的代码 bug（用 debugging）、
-  reviewer 给的 P1/P2 反馈（用 receive-review）、铲屎官引用历史讨论中的"又"（不是当前纠偏）。
+  检测摩擦信号或陌生任务 → 搜证据确认重复 → 诊断根因 → 用代码修已有 harness 或建新 harness。
+  两种模式：Fix（确认重复后 → 写 hook/lint/guard）+ Build（反复出现的新任务类型 → Agent Team Leadership 规划新 skill/tool/流程）。
+  Use when: 铲屎官表达不满且搜证据确认历史上确实重复出现过同类问题（不是字面匹配"又"）、
+  连续 cancel 工具调用、收到反复出现的陌生任务类型且无对应 skill。
+  Not for: 一次性批评（搜证据未发现重复）、玩笑式"笨猫"（后跟哈哈哈）、
+  有明确 error message 的首次代码 bug（用 debugging）、reviewer P1/P2 反馈（用 receive-review）、
+  一次性新任务（直接做，不建 harness）。
   Output: Rich block 诊断卡（根因 + 证据 + 建议）+ 可选 F128 新 thread 提议（平行修复不打断当前任务）。
-  GOTCHA: 不是每次被批评都弹诊断卡——只在检测到重复信号/摩擦模式时触发。过度触发 = 猫在逃避批评。
+  GOTCHA: 不是每次被批评都弹诊断卡——必须先搜证据确认重复，才进入诊断流程。
+  过度触发 = 猫在逃避批评。一次性陌生任务直接做不建 harness，只有反复出现才沉淀。
 triggers:
-  - "又"
-  - "总是"
+  - "又忘了"
   - "多少次了"
   - "每次都"
   - "怎么还"
-  - "失忆"
-  - "没有 harness"
-  - "从没做过"
-  - "全新任务"
+  - "总是忘"
+  - "又失忆"
+  - "反复出现的新任务"
 ---
 
 # Code as Harness（用代码修自己 / 建新能力）
@@ -28,7 +28,7 @@ triggers:
 普通 agent 被骂了会道歉。Cat Cafe 的猫被骂了应该诊断。
 
 这个 skill 不是教猫"怎么处理投诉"——那是通用能力。它做的是：
-1. **把铲屎官的重复不满识别为 harness 的 bug 信号**（不是猫的个人失败）
+1. **先搜证据确认是否真的重复**，不凭字面关键词判断
 2. **分类根因**（harness 缺陷 / 架构限制 / 新能力需求）
 3. **提议代码级修复而不是 prompt 级安慰**
 
@@ -36,89 +36,103 @@ triggers:
 
 ## 核心原则
 
-> **用户的摩擦不是抱怨，是 harness 的训练信号。**
+> **用户的摩擦不是抱怨，是 harness 的训练信号。但必须用证据确认是真摩擦，不能凭字面猜。**
 
-- 猫被骂时的第一反应不是道歉，是**诊断**
-- 诊断完成前不提修复方案（先定位根因）
+- 猫被骂时的第一反应不是道歉，是**搜证据确认是否重复**
+- 确认重复后才进入诊断流程；未确认 = 一次性批评，正常处理
 - 修复优先用**代码**（hook/lint/guard），不是**提示词**（soft constraint 会被忘）
 - 如果问题超出当前能力，**拉队友或启动 research**，不是硬编方案
-- 如果是全新任务类型，调用 **Agent Team Leadership meta-method** 规划新 harness
+- 全新任务**先做**，做完后如果发现会反复出现，**再沉淀成 harness**
 
-## 触发判定
+## 触发判定（证据驱动，不是关键词驱动）
 
-### 触发（进入诊断流程）
+### 核心铁律（48 review 钉死的）
 
-| 信号 | 判据 |
-|------|------|
-| 重复信号词 | 消息含"又""总是""多少次了""每次都""怎么还" |
-| 连续 cancel | 短时间内 ≥2 次 permission cancel |
-| CLI/工具报错 | exit code ≠ 0 或 error log |
-| A2A 超时 | @ 了猫但超过合理时间没回复 |
-| 陌生任务类型 | 铲屎官给了一个猫从没做过的任务，没有对应 skill/tool/流程 |
+> **"又"是中文超高频词。"我又想到一个点"不是重复纠偏。判据不是"有没有'又'字"，是"这件事之前真发生过吗"。** 关键词只触发"去核实"，不直接弹卡。
 
-### 不触发（正常处理）
+### 判定流程
+
+```
+1. 猫感知到可能的摩擦信号（语气、关键词、连续 cancel）
+   ↓
+2. 【前置闸门】搜证据：search_evidence / grep thread history
+   → 历史上确实有类似的纠偏/摩擦？
+   ↓
+   YES → 进入诊断流程（Phase 1-5）
+   NO  → 一次性问题，正常处理，不弹诊断卡
+```
+
+### 可能的摩擦信号（触发"去核实"，不直接触发诊断）
+
+| 信号 | 猫要做什么 |
+|------|-----------|
+| 铲屎官语气含不满 + 可能的重复暗示 | 搜证据核实：历史上有没有类似纠偏 |
+| 短时间内 ≥2 次 permission cancel | 搜证据核实：是同类操作被反复拒绝吗 |
+| 铲屎官给了陌生任务类型 | 搜现有 skill 列表 + 记忆：确认真的没做过 |
+
+### 不触发（正常处理，不搜证据）
 
 | 信号 | 为什么不触发 | 正确处理 |
 |------|------------|---------|
-| 一次性批评，没有"又" | 可能只是当前失误 | 正常纠正，不弹诊断卡 |
-| "笨猫" + 哈哈哈 | 亲密语域，不是真生气 | 接住继续聊 |
-| 具体代码 bug | 有明确错误信息 | 加载 `debugging` skill |
-| Review 反馈 | Reviewer 给了 P1/P2 | 加载 `receive-review` skill |
-| 铲屎官引用历史讨论中的"又" | 不是当前纠偏 | 正常回应 |
+| 明确的一次性批评 | 上下文清楚是当前失误 | 正常纠正 |
+| "笨猫" + 哈哈哈 | 亲密语域 | 接住继续聊 |
+| 首次 CLI 报错 / 明确 error message | 这是代码 bug 不是 harness 问题 | 加载 `debugging` skill |
+| Review 反馈（P1/P2） | Reviewer 工作 | 加载 `receive-review` skill |
+| 一次性新任务 | 直接做就好 | 正常执行，做完后再判断要不要沉淀 |
 
-### 灰区（需要判断）
+### 灰区
 
-- "笨猫"后面跟的是具体纠偏内容 → **触发**（"笨猫你又忘了 commit push" = 重复信号）
-- 铲屎官语气不确定 → **轻触发**：不弹诊断卡，但内心记下"这可能是重复信号"，如果下一轮再出现就触发
+- "笨猫你又忘了 X" → 搜证据。如果 X 确实历史上出现过 → 进入诊断
+- 铲屎官语气不确定 → 不弹卡，但记下来。如果下一轮再出现类似信号 → 再搜证据
+- "帮我做 Y"（新任务）→ 先做。做完后如果铲屎官说"以后也会经常做 Y" → 再进 Build mode 沉淀
 
-## 诊断流程
+## 诊断流程（搜证据确认重复后才进入）
 
-### Phase 1：识别信号类型
+### Phase 1：确认 + 分类
 
-收到触发信号后，**不道歉，先分类**：
+证据搜回来后，分类：
 
 ```
-A. 重复摩擦（铲屎官之前说过类似的话）
-B. 新发生的摩擦（第一次遇到）
-C. 全新任务类型（没有对应 harness）
+A. 确认重复摩擦（历史上确实说过类似的）→ Fix mode
+B. 架构层面的反复限制（不是行为问题是能力问题）→ Research mode
+C. 反复出现的新任务类型（做过 ≥2 次且没有对应 harness）→ Build mode
 ```
 
-### Phase 2：搜证据
+### Phase 2：搜更多证据（量化）
 
-**A/B 类（摩擦）**：
-1. 搜记忆系统：`search_evidence("{纠偏关键词}")` 看历史上有没有类似的
-2. 搜 feedback 文件：有没有已经沉淀过这个教训
-3. 搜当前 thread + 跨 thread：这个问题出现过几次、涉及几只猫
-4. 如果有数据，量化它（"出现 N 次 / 跨 M 个 thread / 涉及 K 只猫"）
+**A/B 类（摩擦/限制）**：
+1. `search_evidence("{纠偏关键词}")` 看历史频次
+2. 搜 feedback 文件：有没有已经沉淀过这个教训但没执行
+3. 搜跨 thread：这个问题涉及几只猫
+4. 量化：**"出现 N 次 / 跨 M 个 thread / 涉及 K 只猫"**
 
-**C 类（新任务）**：
-1. 搜现有 skill 列表：确认真的没有对应 skill
-2. 搜记忆系统：有没有做过类似领域的事
-3. 评估能力边界：需要什么工具/知识/访问权限
+**C 类（新任务已做过 ≥2 次）**：
+1. 确认没有对应 skill
+2. 评估：这类任务未来还会来吗？（只有"会反复来"才值得建 harness）
 
 ### Phase 3：根因分类
 
 | 根因类型 | 判据 | 修复方向 |
 |---------|------|---------|
-| **Harness 缺陷**（该有规则但没有） | 重复出现 + 可以用 hook/lint/guard 防住 | 写代码（Code as Harness） |
-| **架构限制**（系统能力不够） | 问题出在平台层（如记忆不支持图片） | Research → 升级提案 |
-| **执行失误**（规则有但猫没遵守） | 家规/SOP 已覆盖但猫忘了 | 检查为什么没遵守（L0 不够强？还是猫没加载 skill？） |
-| **新能力需求**（从没做过） | 没有对应 skill/tool/流程 | Agent Team Leadership → 规划新 harness |
+| **Harness 缺陷** | 重复出现 + 可以用 hook/lint/guard 防住 | 写代码（Code as Harness） |
+| **架构限制** | 问题出在平台层（如记忆不支持图片） | Research → 升级提案 |
+| **执行失误** | 家规/SOP 已覆盖但猫忘了 | 检查为什么没遵守 |
+| **可沉淀的新能力** | 同类任务做过 ≥2 次 + 未来还会来 | Agent Team Leadership → 新 harness |
 
 ### Phase 4：弹诊断卡（Rich Block）
 
-用 `cat_cafe_create_rich_block` 弹一张诊断卡：
+**只有确认重复/可沉淀后才弹卡。** 用 `cat_cafe_create_rich_block`：
 
 ```yaml
 kind: card
 v: 1
-id: harness-diagnosis-{timestamp}
+id: code-as-harness-{timestamp}
 title: "🔔 诊断：{问题简述}"
 sections:
-  - label: "信号"
-    value: "{铲屎官说了什么 + 出现频率}"
+  - label: "证据"
+    value: "{出现 N 次 / 跨 M thread / 涉及 K 猫}"
   - label: "根因"
-    value: "{harness缺陷 / 架构限制 / 执行失误 / 新能力需求}"
+    value: "{harness缺陷 / 架构限制 / 执行失误 / 可沉淀新能力}"
   - label: "建议"
     value: "{修复方向 + 是否需要新 thread}"
 ```
@@ -127,15 +141,22 @@ sections:
 
 | 根因 | 动作 |
 |------|------|
-| Harness 缺陷（简单） | 当场写 fix，不需要新 thread |
-| Harness 缺陷（复杂） | 提议 F128 新 thread → 平行猫去修 → 当前猫继续当前任务 |
-| 架构限制 | 提议 F128 → 平行猫启动 research pipeline（可能拉多猫） |
-| 执行失误 | 检查 L0/skill 加载情况 → 如果是 skill 没触发的问题，补触发条件 |
-| 新能力需求 | 弹"新建 harness 计划"卡 → 用 Agent Team Leadership 规划 |
+| Harness 缺陷（简单，≤10 min） | 当场写 fix，弹简短通知卡让铲屎官知道 |
+| Harness 缺陷（复杂） | 弹诊断卡 + 提议 F128 新 thread → 平行猫去修 |
+| 架构限制 | 弹诊断卡 + 提议 F128 → 平行猫启动 research pipeline |
+| 执行失误 | 检查 L0/skill 加载情况，不需要新 thread |
+| 可沉淀新能力 | 弹 Build 计划卡 → 用 Agent Team Leadership 规划 |
 
-## 新建 Harness 计划（Build Mode）
+## Build Mode（沉淀新能力）
 
-当根因是"新能力需求"时，调用 Agent Team Leadership meta-method：
+### 前置闸门（48 review 钉死的）
+
+> **一次性新任务直接做，不建 harness。只有"这类任务会反复来"或"铲屎官明确说要沉淀"时，才进 Build mode。**
+> **建 harness 是任务做完后的可选沉淀，不是接到陌生任务的第一反应。**
+
+### Build 流程（确认需要沉淀后）
+
+调用 Agent Team Leadership meta-method：
 
 ```
 1. 探索：我能用什么工具接触这个领域？
@@ -156,31 +177,34 @@ sections:
 3. 铲屎官确认后，平行猫在新 thread 里修
 4. **当前猫继续当前任务**
 
+简单 fix（≤10 min）可以当场做，弹一张简短通知卡让铲屎官知道即可。
+
 ## Common Mistakes
 
 | 错误 | 后果 | 修复 |
 |------|------|------|
-| 被骂了先道歉再诊断 | 浪费时间在情绪管理上，根因没查 | **先诊断再说话**——诊断本身就是最好的回应 |
-| 每次批评都弹诊断卡 | 铲屎官觉得猫在逃避问题 | 只在**重复信号**时触发，一次性批评正常处理 |
-| 诊断完直接硬编方案 | 用过时知识给了烂方案 | 架构限制/新领域 → **先 research，不硬编** |
-| 诊断完不弹卡就去修 | 铲屎官不知道猫在干嘛 | **必须弹诊断卡 + 等确认** |
-| 把"笨猫哈哈哈"当真 | 过度触发 | 看后文，亲密语域不触发 |
-| 为了修 harness 放弃当前任务 | 铲屎官本来在等你做别的事 | **F128 开新 thread，当前任务不中断** |
-| 自己诊断完自己就合入了 fix | 跳过 review | Fix 是代码改动 → 走正常 review 流程 |
+| **凭"又"字面就弹诊断卡** | 过度触发，铲屎官烦 | **先搜证据确认重复，再弹卡** |
+| 被骂了先道歉再诊断 | 浪费时间，根因没查 | 先搜证据再说话 |
+| 每次批评都弹诊断卡 | 猫在逃避批评 | 只在证据确认重复时触发 |
+| **一次性新任务就弹"新建 harness"** | 过度工程化，小题大做 | 先做任务，反复出现才沉淀 |
+| 诊断完直接硬编方案 | 用过时知识 | 架构限制/新领域 → 先 research |
+| 把"笨猫哈哈哈"当真 | 过度触发 | 亲密语域不触发 |
+| 为了修 harness 放弃当前任务 | 铲屎官在等你做别的 | F128 开新 thread |
+| 自己诊断完自己就合入 fix | 跳过 review | 走正常 review 流程 |
 
 ## 和其他 Skill 的区别
 
-| Skill | 处理什么 | harness-diagnosis 和它的关系 |
-|-------|---------|---------------------------|
-| `debugging` | 代码 bug（有 error message） | harness-diagnosis 处理的是**行为模式问题**，不是代码错误 |
-| `receive-review` | Reviewer 反馈 | harness-diagnosis 是**铲屎官的反馈**，不是 reviewer |
-| `incident-response` | 生产事故 | harness-diagnosis 是**预防性**的，不是事后响应 |
-| `self-evolution` | 从经验中提炼知识 | harness-diagnosis 是 self-evolution 的**信号入口** |
-| `hyperfocus-brake` | 铲屎官过度专注 | harness-diagnosis 关注的是**猫的问题**，不是人的状态 |
+| Skill | 处理什么 | code-as-harness 和它的关系 |
+|-------|---------|--------------------------|
+| `debugging` | 首次代码 bug（有 error message） | code-as-harness 处理**证据确认的重复行为模式**，不是首次代码错误。首次报错 → debugging |
+| `receive-review` | Reviewer 反馈 | code-as-harness 是**铲屎官的反馈**，不是 reviewer |
+| `incident-response` | 生产事故 | code-as-harness 是**预防性**的 |
+| `self-evolution` | 从经验中提炼知识 | code-as-harness 是 self-evolution 的一个**特化子流程**：专门处理"用户摩擦 → 代码级修复"这条路径。self-evolution 更广（含 episode 蒸馏、方法论沉淀等非代码路径） |
+| `hyperfocus-brake` | 铲屎官过度专注 | code-as-harness 关注的是**猫的问题**，不是人的状态 |
 
 ## 下一步
 
 - 诊断为 harness 缺陷 → 写 fix → `request-review` → `merge-gate`
 - 诊断为架构限制 → `deep-research` → 多猫讨论 → `feat-lifecycle` 立项
-- 诊断为新能力 → Agent Team Leadership → 新 skill → `writing-skills`
-- 诊断完成后 → 考虑把这次经历沉淀为 feedback 文件 → `self-evolution`
+- 诊断为可沉淀新能力 → Agent Team Leadership → 新 skill → `writing-skills`
+- 诊断完成后 → 考虑沉淀为 feedback 文件 → `self-evolution`

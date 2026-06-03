@@ -3,7 +3,7 @@
 <EXTREMELY_IMPORTANT>
 你已加载 Cat Café Skills。路由规则定义在 `cat-cafe-skills/manifest.yaml`。
 
-## Skills 列表（41 个）
+## Skills 列表（42 个）
 
 ### 开发流程链
 ```
@@ -22,6 +22,7 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 | `writing-plans` | 写实施计划 | ① impl |
 | `worktree` | 创建隔离开发环境 | ① impl |
 | `tdd` | 写测试+实现（红绿重构） | ① impl |
+| `code-as-harness` | 重复摩擦/陌生任务→搜证据→诊断→代码修/建 harness | — |
 | `debugging` | 遇到 bug（系统化定位） | — |
 | `quality-gate` | 开发完了自检（愿景+spec+验证） | ② |
 | `request-review` | 发 review 请求给 reviewer | ③ |

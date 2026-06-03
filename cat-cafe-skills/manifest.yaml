@@ -210,28 +210,27 @@ skills:
   # ── Code as Harness（用代码修自己 / 建新能力） ──
   code-as-harness:
     description: >
-      检测摩擦信号或陌生任务 → 诊断根因 → 用代码修已有 harness 或建新 harness。
-      Fix（重复纠偏→hook/lint/guard）+ Build（新任务→Agent Team Leadership 规划新 skill）。
-      Use when: 铲屎官重复不满（"又"/"总是"/"多少次了"）、连续 cancel、CLI 报错后猫没自主修、
-      A2A 超时没诊断、完全陌生的任务类型且无对应 skill。
-      Not for: 一次性批评、玩笑式"笨猫"、有 error message 的代码 bug（用 debugging）、
-      review 反馈（用 receive-review）。
+      检测摩擦信号 → 搜证据确认重复 → 诊断根因 → 用代码修已有 harness 或沉淀新 harness。
+      Fix（确认重复→hook/lint/guard）+ Build（反复出现的新任务→规划新 skill）。
+      Use when: 铲屎官不满且搜证据确认历史上重复出现、连续 cancel、反复出现的陌生任务类型。
+      Not for: 一次性批评（搜证据未发现重复）、玩笑式笨猫、首次代码 bug（用 debugging）、
+      review 反馈（用 receive-review）、一次性新任务（直接做不建 harness）。
       Output: Rich block 诊断卡 + 可选 F128 新 thread 提议 + 根因分类。
-      GOTCHA: 不是每次被批评都触发——只在重复信号/摩擦模式时触发。过度触发 = 逃避批评。
+      GOTCHA: 必须先搜证据确认重复才弹卡。"又"是高频词不能字面匹配。一次性新任务先做再沉淀。
     triggers:
-      - "又"
-      - "总是"
+      - "又忘了"
       - "多少次了"
       - "每次都"
       - "怎么还"
-      - "失忆"
-      - "从没做过"
-      - "全新任务"
+      - "总是忘"
+      - "又失忆"
+      - "反复出现的新任务"
     not_for:
       - "一次性批评"
       - "笨猫哈哈"
-      - "具体代码 bug"
+      - "首次代码 bug"
       - "review 反馈"
+      - "一次性新任务"
     output: "Rich block 诊断卡 / F128 thread 提议 / 根因分类"
     next: ["debugging", "deep-research", "writing-skills", "self-evolution"]
     sop_step: null
