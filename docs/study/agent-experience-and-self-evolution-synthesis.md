@@ -43,6 +43,7 @@ tags:
 - [Harness 与环境进化：AHE + AgentGym + AgentGym-RL](../research/2026-05-28-skill-evolution-papers/harness-and-environment-evolution.md)
 - [Agent Harness Engineering: A Survey](../research/2026-05-26-agent-harness-engineering-survey/README.md)
 - [DeliAutoResearch 读后：我们真正能带走什么](../research/2026-06-01-deli-autoresearch-takeaways.md)
+- [OpenAI Tax AI：Building Self-Improving Tax Agents with Codex](openai-self-improving-tax-agents.md)
 
 ---
 
