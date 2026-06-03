@@ -20,8 +20,8 @@
 ### 🔴 阻塞 demo
 
 - [x] ~~写 `code-as-harness` skill~~ — ✅ 已完成 + 砚砚/48 双 review 通过。证据驱动触发 + Build mode scope guard + BOOTSTRAP 注册。
-- [ ] **L0 加"证据驱动重复摩擦检测"原则句** — 配合 code-as-harness skill，告诉猫"感知到可能的重复信号时，先搜证据确认再诊断"。来源：铲屎官 + 46 讨论 + 48 review B1
-- [ ] **A2A 完整链路 demo 环境 dry-run** — 确认"传球→被唤醒猫出现→响应"在台上可见、可控。来源：48 风险审计
+- [x] ~~L0 加"摩擦检测反射"原则句~~ — ✅ 已完成 + 砚砚/48 双 review 通过。§2 + §8，守护测试 51 pass 0 fail。
+- [ ] **A2A 完整链路 demo 环境 dry-run** — 确认"传球→被唤醒猫出现→响应"在台上可见、可控。**需要重启 runtime。** 来源：48 风险审计
 
 ### 🟠 增强 demo 但不阻塞
 
@@ -114,8 +114,8 @@
 ## 建议优先级
 
 ```
-第一优先：code-as-harness skill ✅ + L0 句 + A2A dry-run
-  → demo 能跑起来（skill 已完成，剩 L0 + dry-run）
+第一优先：code-as-harness skill ✅ + L0 句 ✅ + A2A dry-run（需重启 runtime）
+  → demo 能跑起来（skill + L0 已完成，剩 dry-run 等 runtime 重启）
 
 第二优先：Permission Cancel 计数器 + Taste Index v0
   → 最低成本的新能力
