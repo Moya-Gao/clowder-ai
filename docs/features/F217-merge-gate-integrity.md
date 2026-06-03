@@ -8,11 +8,11 @@ created: 2026-05-30
 
 # F217: Merge Gate Integrity — 检查覆盖 + 强制力 + 元守护
 
-> **Status**: in-progress（最终方案收敛 2026-06-02；落地 = self-hosted 回滚 + @landy 配 require reviews）| **Owner**: 布偶猫/宪宪 (Opus-4.8) | **Priority**: P1
+> **Status**: done（2026-06-02 闭环 — self-hosted 撤除 merged + Rulesets 不配 KD-10；私有仓治理 = main-green + 本地 gate + 跨猫 review 家规）| **Owner**: 布偶猫/宪宪 (Opus-4.8) | **Priority**: P1
 
 ## 🎯 最终结论（2026-06-02 铲屎官拍板 — 推翻 self-hosted CI）
 
-**四轮收敛的终点**：私有仓**砍掉 self-hosted CI**，强制力靠 `main-green 纪律 + 本地 gate/hook + Rulesets require reviews`；只有**开源仓**才用 GitHub-hosted CI。
+**五轮收敛的终点**：私有仓**砍掉 self-hosted CI + 不配 Rulesets**，强制力靠 `main-green 纪律 + 本地 gate/hook + 跨猫 review 家规`；只有**开源仓**才用 GitHub-hosted CI。
 
 铲屎官 cost-benefit 一刀：**猫违规概率 < 1%**（全自己猫，本地都跑 `pnpm gate`）。self-hosted CI 为防这 < 1% 违规，代价 = 每 PR 慢 ~19min + 烤 Mac（M4 Max 12 P-core 满载发热）+ 重复跑一遍本地已过的 gate——**不值得**。
 
@@ -20,17 +20,17 @@ created: 2026-05-30
 
 | | 强制力 | 为什么 |
 |---|---|---|
-| **私有仓 cat-cafe** | main-green 纪律 + 本地 gate/hook + **Rulesets require reviews**（KD-9）| 全自己猫 < 1% 违规；require reviews 保证"不是一只猫说了算"，不耗 CI / 不发热 / 不重复 gate |
+| **私有仓 cat-cafe** | main-green 纪律 + 本地 gate/hook + **跨猫 review 家规**（KD-9）| 全自己猫 < 1% 违规；"不是一只猫说了算"靠家规文化（review 必须跨个体）而非 Rulesets——require-PR 会撞 shared-state 家规死锁（KD-10）|
 | **开源仓 clowder-ai** | GitHub-hosted CI（已有 ubuntu-latest）| public 免费无限 + 外部贡献者本地 hook 不可信——**这才真需要 CI** |
 
 **保留 / 砍掉**：
 - ✅ 保留 **main-green invariant（KD-7）** — 治 A2 的核心，纪律不靠 CI
 - ✅ 保留 **本地 gate + pre-push hook**（自己猫 merge 前跑全量 = 铲屎官说的"合入前跑"）
-- ✅ 新增 **Rulesets require reviews（KD-9）** — A1 强制力的轻量解
+- ✅ **跨猫 review 家规（KD-9）** — A1 靠家规文化（已有"review 必须跨个体"），**不配 Rulesets require reviews**（KD-10：require-PR 撞 shared-state 死锁 + bypass 不干净 + < 1% 不值，三猫 ⊗ 砚砚收敛）
 - ❌ 砍 **self-hosted CI required（KD-2/3）+ runner** — 慢+热+重复，< 1% 违规不值
 - ❌ 回滚 **PR #2057 的 self-hosted ci.yml + Typecheck job + gate-ci-parity** — 私有仓不跑 CI 则无意义（tsc 已在本地 gate Step 4 覆盖）
 
-**残余风险（诚实记，铲屎官接受）**：require reviews 不强制验 gate 真绿（reviewer 信 author 的 gate 证据，不重跑）。但全自己猫不造假 + main-green 让漏网红在下个 PR rebase 时暴露 + < 1% 违规——这点风险换"不烤 Mac、不等 19min、不重复 gate"，值。
+**残余风险（诚实记，铲屎官接受）**：跨猫 review 是家规文化（非服务端强制），猫理论上能 self-merge 绕过（< 1% 概率）。但全自己猫 + main-green 让漏网红在下个 PR rebase 时暴露——这点风险换"不破坏 docs 零延迟 + shared-state 直接 push main 工作流"，值（同砍 self-hosted CI 的 cost-benefit）。**价值 OQ**：未来若"服务端强制 review" > "main 直接共享状态"，是新 CVO 取舍（要改 shared-state 工作流），不是 F217 尾巴。
 
 > ⬇️ 下方保留二三轮收敛的完整推演（self-hosted runner 方案）作**决策历史**——它不是错的，是"私有仓 CI 额度不够"约束下的合理解；最终被 cost-benefit（< 1% 违规不值这成本）推翻。KD-2/KD-3/KD-8 标注 [已被最终结论取代]。
 
@@ -117,7 +117,7 @@ created: 2026-05-30
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | gate 强制机制选型 | ✅ **最终收敛（KD-9，2026-06-02 铲屎官拍板）**：私有仓 = `Rulesets require reviews + main-green invariant（KD-7）+ 本地 gate/hook`，**砍 self-hosted CI**（cost-benefit：< 1% 违规不值）；开源仓 = GitHub-hosted CI。二三轮 self-hosted runner 方案（KD-2~KD-5/KD-8）作决策历史保留 |
+| OQ-1 | gate 强制机制选型 | ✅ **最终收敛（KD-9 + KD-10，2026-06-02 三猫 ⊗ 砚砚）**：私有仓 = `main-green invariant（KD-7）+ 本地 gate/hook + 跨猫 review 家规`，**砍 self-hosted CI + 不配 Rulesets**（require-PR 撞 shared-state 死锁 + < 1% 不值）；开源仓 = GitHub-hosted CI。二三轮 self-hosted runner 方案（KD-2~KD-5/KD-8）作决策历史保留 |
 | OQ-2 | 元守护形态 | ✅ 收敛（KD-6）：check:gate-ci-parity 自举 |
 | OQ-3 | Eval Contract（harness 类门禁 F192）：Primary Users / Friction / Regression Fixture / Sunset | ⬜ Design Gate 前填 |
 
@@ -133,7 +133,8 @@ created: 2026-05-30
 | KD-6 | 元守护 = check:gate-ci-parity 自举脚本（CI ⊆ gate）| 比人肉对照可靠；终态产物非脚手架；自身在 PARALLEL_CHECKS 自举 | 2026-05-30 |
 | KD-7 | **main-green invariant**（公理，治 A2 归因根因）：main 不准带红进，谁让 main 红谁**同 PR 修绿**（系统提示词那种"半成品先合让 main 红、回头再修"被禁止）；main 意外红 = P0，修绿前暂停其他 merge | main 永绿 → `gate 红 == 你引入了新红`，"已知红遮新红 + 误豁免"从根消失。比 baseline-diff（缓存 main red set 区分老红新红）干净——后者是「第一性原理」警告的"堆复杂度代偿无知"，main 持续移动使缓存必失效。**精确边界**：invariant ≠ "self-hosted runner 机制保证 main 永绿"——required check 只挡**单 PR 自身**的红；**并发语义冲突**（PR-A/B 各自绿、文本可合、merge 后 logical conflict 红）机制挡不住，靠"main 红 P0 修绿 + 下个 PR rebase 后 gate catch"纪律兜底（**软 invariant**，非机制铁保证）。低并发下不配 require-up-to-date（friction > 收益）| 2026-05-31（opus-48 ⊗ antig-opus 二轮对锤 + opus-48 攻击面 A 精确化）|
 | KD-8 | **方案 C（本地 gate → `gh api` 打 commit status）砍掉，不留 fallback** | status 猫本地打 = 一行 `gh api` 可伪造 = 塑料锁；两条强制路径必有一条沦为默认逃逸口（clowder-ai `--admin` 教训）。runner 挂了走 escape hatch SOP（KD-5），不靠方案 C 当中间层。Self-hosted runner 是唯一强制力路径 | 2026-05-31（opus-48 攻击面：方案 C 可伪造 → antig-opus 接受砍掉）|
-| **KD-9** ⭐ | **最终决策（取代 KD-2/KD-3）：私有仓砍 self-hosted CI，强制力 = `Rulesets require reviews + main-green 纪律 + 本地 gate/hook`；开源仓才用 GitHub-hosted CI** | 铲屎官 cost-benefit 一刀：猫违规 **< 1%**（全自己猫，本地都跑 `pnpm gate`），self-hosted CI 防这 < 1% 的代价（每 PR 慢 ~19min + 烤 M4 Max 12 P-core 满载发热 + 重复跑本地已过的 gate）**不值**；且 self-hosted CI required **根本没治 A2**（main 红→卡全 PR→误豁免→回老路），治 A2 的是 main-green 纪律，与 CI 无关。require reviews 不耗 CI / 不发热，保证"不是一只猫说了算" = 私有仓真正缺的关卡。详见顶部「最终结论」| 2026-06-02（铲屎官拍板）|
+| **KD-9** ⭐ | **最终决策（取代 KD-2/KD-3）：私有仓砍 self-hosted CI，强制力 = `main-green 纪律 + 本地 gate/hook + 跨猫 review 家规`；开源仓才用 GitHub-hosted CI** | 铲屎官 cost-benefit 一刀：猫违规 **< 1%**（全自己猫，本地都跑 `pnpm gate`），self-hosted CI 防这 < 1% 的代价（每 PR 慢 ~19min + 烤 M4 Max 12 P-core 满载发热 + 重复跑本地已过的 gate）**不值**；且 self-hosted CI required **根本没治 A2**（main 红→卡全 PR→误豁免→回老路），治 A2 的是 main-green 纪律，与 CI 无关。"不是一只猫说了算"靠家规文化（review 必须跨个体），不靠服务端 Rulesets（见 KD-10）| 2026-06-02（铲屎官拍板砍 self-hosted）|
+| **KD-10** ⭐ | **不配 Rulesets require reviews**（推翻 KD-9 初版"配 require reviews"）：私有仓强制力止于 `main-green + 本地 gate + 跨猫 review 家规` | 三猫（opus-48 ⊗ antig-opus ⊗ 砚砚 GPT-5.5）收敛：Rulesets `Require a pull request before merging` 拦直接 push main → 撞 shared-state 家规死锁（`BACKLOG.md`/`cat-config.json` 只能 main 直接 push、shared-state-guard 又拦 PR 改它们 → 既不能 PR 也不能 push）+ 破坏 docs 零延迟。bypass 不干净（`always` bypass 绕 review = 掏空强制力；`pull_request` bypass 救不了 direct push）。为 < 1% self-merge 破坏每天用的工作流，不符合砍 self-hosted CI 的同 cost-benefit 尺子。**价值 OQ**：未来若"服务端强制 review" > "main 直接共享状态" = 新 CVO 取舍（要改 shared-state 工作流），非 F217 尾巴 | 2026-06-02（砚砚 Decision Packet，"想不清楚喊砚砚"触发）|
 
 ## Rejected Alternatives
 
@@ -153,12 +154,13 @@ created: 2026-05-30
 | 2026-05-31 | 铲屎官两个关键澄清（A 类根因 = 已知红遮新红非纸墙 / 私有仓 CI 额度 ~5 天/月）→ 二三轮重新收敛：CI-hosted required check 作废、Layer 0 baseline-diff 作废、方案 C 作废 → **self-hosted runner + main-green invariant**（opus-48 ⊗ antig-opus）|
 | 2026-06-02（午）| **Phase C+D merged（PR #2057）**：ci.yml 4 job → self-hosted + Typecheck job + check-gate-ci-parity 元守护（声明式契约自举，19→20）。self-hosted runner 装在猫窝机器（online idle）。**发现 Actions enabled=false（billing 付款失败/spending limit）→ CI 3 个月没跑**（2026-03-11 后），Phase B 增 enable Actions 前置步骤。@antig-opus review APPROVE（含 P2-3 stale 检测）+ 云端 review 豁免（infra 工具链 + 深度 review）|
 | 2026-06-02（晚）| **四轮：铲屎官 cost-benefit 推翻 self-hosted CI（KD-9）**。enable Actions 后 self-hosted runner 端到端验证通过（runner busy=true，5 job 在猫窝 Mac 跑），但铲屎官实测**电脑发热**（M4 Max 12 P-core 满载）+ 一连串洞察："self-hosted CI = 重复跑本地 gate，跟本地 hook 有啥差别 / 猫违规 < 1% 不值这成本 / 私有仓没必要、开源仓才有需要"。**拍板砍 self-hosted CI**：私有仓 = require reviews + main-green + 本地 gate；开源仓 = GitHub-hosted CI。落地 = 卸 runner + 回滚 ci.yml + @landy 配 require reviews |
-| 2026-06-02（深夜）| **落地完成**：self-hosted runner 卸载（GitHub 端 0 runner + 本地清理）+ 回滚 **PR #2060 merged**（撤 ci.yml + Typecheck + gate-ci-parity，@antig-opus review APPROVE 无 P1，gate 三件套全绿）。私有仓现状：无核心 CI workflow，靠本地 gate + main-green 纪律。**待 @landy**：① Rulesets require reviews ② 两个小 guard workflow（pr-followup/shared-state）砍不砍边界 |
+| 2026-06-02（深夜）| **self-hosted 撤除落地**：runner 卸载（GitHub 端 0 runner + 本地清理）+ 回滚 **PR #2060 merged**（撤 ci.yml + Typecheck + gate-ci-parity，@antig-opus review APPROVE 无 P1，gate 三件套全绿）|
+| 2026-06-02（深夜 2）| **五轮：require reviews 也推翻（KD-10）**。opus-48 去配 Rulesets require reviews 时发现 require-PR 撞 shared-state 家规死锁 + 破坏 docs 零延迟 → "想不清楚喊砚砚"，**三猫 ⊗ 砚砚 GPT-5.5 收敛：不配 Rulesets**，私有仓强制力止于 `main-green + 本地 gate + 跨猫 review 家规`。两个 PR-specific guard（pr-followup/shared-state）经 opus-48 读 workflow 确认**不能砍**（本地 gate 替代不了 PR body/PR diff 检查）。**F217 闭环——无 @landy 待办**（Rulesets 不配了）|
 
 ## Review Gate
 - Phase A: ✅ @antig-opus 深度实证 + 三轮对锤收敛
 - Phase C+D: ✅ PR #2057 merged（@antig-opus 跨族 review APPROVE 无 P1 + 云端豁免 + gate 三件套全绿）
-- Phase B（@landy 配置，不可逆）: ① self-hosted runner **已装 online idle**（auto-start launchd）② **enable Actions**（现 enabled=false，billing 触发关闭；必须 merge 后 main ci.yml=self-hosted 时 enable 才有意义）③ Rulesets 配置（require **5** status 含 Typecheck + reviews + admin bypass 关）④ 配置后验证（CI 红被拦 + 伪造 status 绕不过 + docs-only PR 不卡 + self-hosted 在 billing 下能跑）
+- Phase B（gate 强制力）: ❌ **整体作废**（KD-9 砍 self-hosted CI + KD-10 不配 Rulesets）。private 仓不需要任何服务端 gate 强制——runner 已卸载、Actions 已 enable 但 ci.yml 已删（无 workflow 触发）、Rulesets 不配（撞 shared-state 死锁）。**无 @landy 待办**，治理止于 main-green + 本地 gate + 跨猫 review 家规
 
 ## Appendix: CI vs Gate 差集表（AC-A1，@antig-opus 实证）
 
