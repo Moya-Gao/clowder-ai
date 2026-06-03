@@ -174,7 +174,7 @@ created: 2026-05-30
 ## Review Gate
 - Phase A: ✅ @antig-opus 深度实证 + 三轮对锤收敛
 - Phase C+D: ✅ PR #2057 merged（@antig-opus 跨族 review APPROVE 无 P1 + 云端豁免 + gate 三件套全绿）
-- Phase B（gate 强制力）: ❌ **整体作废**（KD-9 砍 self-hosted CI + KD-10 不配 Rulesets）。private 仓不需要任何服务端 gate 强制——runner 已卸载、Actions 已 enable 但 ci.yml 已删（无 workflow 触发）、Rulesets 不配（撞 shared-state 死锁）。**无 @landy 待办**，治理止于 main-green + 本地 gate + 跨猫 review 家规
+- Phase B（gate 强制力）: ❌ **整体作废**（KD-9 砍 self-hosted CI + KD-10 不配 Rulesets）。private 仓不需要任何服务端 gate 强制——runner 已卸载、core `ci.yml` 已删、Rulesets 不配（撞 shared-state 死锁）。**注意**：Actions 仍为 enabled，两个 PR-specific guard workflow（`pr-followup-guard` / `shared-state-guard`）仍会产生 check-run 信号；它们不是 F217 core CI，也不作为服务端 gate 强制。**无 @landy 待办**，治理止于 main-green + 本地 gate + 跨猫 review 家规
 
 ## Appendix: CI vs Gate 差集表（AC-A1，@antig-opus 实证）
 
