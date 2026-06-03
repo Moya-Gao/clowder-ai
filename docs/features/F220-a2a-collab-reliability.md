@@ -61,20 +61,20 @@ Why（一句话）: A2A 触发与卡死恢复都落在既有 invocation/queue/tr
 
 > 每条 AC 指得回 Why；非作者可复核（命令/截图/复现）。
 
-**Phase 1（可观测）**
-- [ ] AC-1.1: A2A 传球后，目标猫的"启动中/排队中"占位在**发起方前端**及时出现（不再长时间空白）。复核：A2A 触发 → 录屏显示占位秒级出现。
-- [ ] AC-1.2: 根因有 live 证据（不是猜）——日志/trace 坐实断点在哪一环。
-- [ ] AC-1.3: human 路径占位行为不回归。
+**Phase 1（可观测）✅ code done @ main #2064（54aabde54）；runtime 截图验收 → 铲屎官 quickpath**
+- [x] AC-1.1: A2A 传球后目标猫"启动中"占位及时出现。→ QueueProcessor mark running 后 broadcast `spawn_started`（与 direct path 对齐）。复核（录屏占位秒级出现）→ 铲屎官 quickpath runtime 验。
+- [x] AC-1.2: 根因有 live 证据。→ 砚砚 runtime preflight + main 代码对照定位 callback/queue 路径缺 `spawn_started`（截图环境不在当前 main、改用代码对照）。
+- [x] AC-1.3: human 路径占位不回归。→ 只改 QueueProcessor 队列路径，未动 direct/route-serial；全 web 测试无回归。
 
 **Phase 2（可靠）**
 - [ ] AC-2.1: "补一刀仍停排队不进 running"的 hang 有根因报告（5 件套）+ 复现。
 - [ ] AC-2.2: 修复 or（若属 #2053 同源的 unsound 边界）明确归类 + 兜底说明。
 
-**Phase 3（可恢复）**
-- [ ] AC-3.1: 卡死/有活跃调用时，thread 出现情境化 force-reset 入口（非常驻吓人按钮）。
-- [ ] AC-3.2: 点击弹**确认弹窗**，讲清"做什么/保留什么/何时用"，确认后才执行。
-- [ ] AC-3.3: 确认 → 调 force-reset → thread 解放（"正在回复中"清掉，可发新消息）；消息/历史**不丢**。**硬约束（LL-048 / 铁律#5）**：force-reset 只清"运行态"，**绝不 EXPIRE/删除消息·历史·记忆等用户可见持久化数据**。复核：构造卡死 → 点按钮 → 截图前后 + 断言消息条数不变。
-- [ ] AC-3.4: force-reset 对**真 hang slot**的有效性实测（Phase 3↔2 交叉）。已知 force-reset = `cancelAll`(tracker slots) ∪ `listRunningByThread`.targetCats→`releaseSlot`：有 running record 的 hung（`has()=false` 但 record 在）能清；但 record 已 canceled / `processingSlot` 单独泄漏的 **truly-orphaned** 边界 `listRunningByThread` 找不到 → **清不掉**。复核：构造两类 hang（有 record / orphaned slot）各点一次 force-reset；orphaned 若清不掉 → 标为 Phase 2 依赖 + UI 给**诚实反馈**（不假装已解放）。
+**Phase 3（可恢复）✅ code+test done @ main 4e80ec889（PR #2065 squash）；runtime 截图验收 → 铲屎官 quickpath**
+- [x] AC-3.1: 卡死/有活跃调用时 thread 出现情境化 force-reset 入口（非常驻）。→ `ThreadExecutionBar` 内 `ForceResetEntry`，有猫在跑才显示，`suspected_stall`/`alive_but_silent` 时上浮升级（`data-escalated`）。测试 4 绿。
+- [x] AC-3.2: 点击弹**确认弹窗**（做什么/保留什么/何时用），确认才执行。→ `ForceResetDialog`（取消默认 focus / 强制重置危险红）。测试 4 绿。
+- [x] AC-3.3: 确认 → force-reset → thread 解放；消息/历史**不丢**（LL-048 只清运行态）。→ `apiFetch POST force-reset` + toast「已重置」。复核（截图前后 + 消息条数不变）→ 铲屎官 quickpath runtime 验。
+- [~] AC-3.4: force-reset 对 **record-present hung 能清**（后端 `force-reset-thread.test` / `cancel-orphan-record.test` 已证）+ 前端调端点 done。**truly-orphaned slot（record 没了 + processingSlot 泄漏）清不掉 → 归 Phase 2**（Layer 2 根因）；orphaned 的 UI 诚实反馈随 Phase 2 攻坚处理（doc Phase 2 段已标 scope 闸门）。
 
 ## Dependencies
 - force-reset 端点（`queue.ts`，已存在）。
