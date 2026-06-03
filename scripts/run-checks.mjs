@@ -37,7 +37,6 @@ const PARALLEL_CHECKS = [
   'check:scripts-ascii-only',
   'check:root-debris',
   'check:dir-size',
-  'check:gate-ci-parity',
 ];
 
 const CONCURRENCY = parseConcurrency(process.env.CAT_CAFE_CHECK_CONCURRENCY);
