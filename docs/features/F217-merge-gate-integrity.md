@@ -8,7 +8,7 @@ created: 2026-05-30
 
 # F217: Merge Gate Integrity — 检查覆盖 + 强制力 + 元守护
 
-> **Status**: spec | **Owner**: 布偶猫/宪宪 (Opus-4.8) | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫/宪宪 (Opus-4.8) | **Priority**: P1
 
 ## Why
 
@@ -48,12 +48,12 @@ created: 2026-05-30
 
 > **方案 C（本地 gate → `gh api` 打 commit status）已砍掉，连 fallback 都不留**（KD-8）：那个 status 是猫本地打的，一行 `gh api .../statuses/{sha} -f state=success` 就能伪造 → 塑料锁。便利的逃逸口终将成默认路径（clowder-ai `--admin` 活教训）。Self-hosted runner 是**唯一**强制力路径。
 
-### Phase C: 检查覆盖补全
-- 补 `tsc --noEmit` CI job（最关键差集，类型错误现只本地 gate 能抓）
-- 接 sync-coupling 类漏检；dir-size 已接（PR #1972）作模式
+### Phase C: 检查覆盖补全 ✅（PR #2057 merged 2026-06-02）
+- ✅ 补 `tsc --noEmit` CI job（Typecheck，对齐 pre-merge Step 4，堵 Next build 跳过 __tests__ 类型盲区——最关键差集）
+- ⬜ sync-only 检查审计（独立项未做；F214 已接 root-debris 作模式，其余待 sync 时发现）
 
-### Phase D: 元守护 — check:gate-ci-parity
-自举守护脚本（run-checks PARALLEL_CHECKS 第 19 项）：解析 ci.yml `run:` + run-checks PARALLEL_CHECKS，assert CI checks ⊆ gate checks。脚本自身在 PARALLEL_CHECKS 里——自举。让"检查漏在 gate 外"不可能再发生。
+### Phase D: 元守护 — check:gate-ci-parity ✅（PR #2057 merged 2026-06-02）
+自举守护脚本（run-checks PARALLEL_CHECKS 第 20 项）：**声明式 coverage 契约**（CI job → gate 覆盖证明 + verify fn，非脆弱的 `run:` 字符串归一），assert CI checks ⊆ gate checks。CI 加 job 没声明 → 红（强制 parity 思考）；gate 删命令 → 红。脚本自身在 PARALLEL_CHECKS 自举。让"检查漏在 gate 外"不可能再发生。
 
 ## Acceptance Criteria
 
@@ -68,13 +68,13 @@ created: 2026-05-30
 - [ ] AC-B3: 验证 CI 红时 merge 被拦（不可绕）+ 伪造 `gh api` 打 status **无法**绕过（status 来源是 runner 非本地）
 - [ ] AC-B4: main-green invariant 纪律确立——main 红即 P0（修绿前暂停其他 merge）；语义冲突兜底验证（PR-A merge 后 PR-B 若 logical conflict，下一次 gate rebase 能 catch）
 
-### Phase C（检查覆盖）
-- [ ] AC-C1: tsc --noEmit CI job 补入 ci.yml + 设 required
-- [ ] AC-C2: 审计是否还有 sync-only 检查未接进 cat-cafe gate
+### Phase C（检查覆盖）✅（PR #2057）
+- [x] AC-C1: tsc --noEmit CI job（Typecheck）补入 ci.yml（PR #2057）；"设 required" 待 Phase B Rulesets
+- [ ] AC-C2: 审计 sync-only 检查未接 cat-cafe gate（独立项未做；F214 已接 root-debris 作模式）
 
-### Phase D（元守护）
-- [ ] AC-D1: check:gate-ci-parity 脚本（CI ⊆ gate assert + 自举）
-- [ ] AC-D2: 守护脚本进 PARALLEL_CHECKS + CI required
+### Phase D（元守护）✅（PR #2057）
+- [x] AC-D1: check:gate-ci-parity 脚本（CI ⊆ gate assert + 自举，声明式契约）
+- [x] AC-D2: 守护脚本进 PARALLEL_CHECKS（19→20）；"CI required" 待 Phase B Rulesets
 
 ## Dependencies
 - **Related**: F073（sop-auto-guardian）/ F083（design-gate-sop）/ F177（hotfix 治理）/ F192（eval contract 门禁，本 feat 受其约束 — OQ-3）
@@ -126,10 +126,12 @@ created: 2026-05-30
 |------|------|
 | 2026-05-30 | 立项（全量同步 6 类 gate 失效触发，CVO signoff）+ OQ-1/OQ-2 一轮对锤收敛（opus-48 ⊗ antig-opus）|
 | 2026-05-31 | 铲屎官两个关键澄清（A 类根因 = 已知红遮新红非纸墙 / 私有仓 CI 额度 ~5 天/月）→ 二三轮重新收敛：CI-hosted required check 作废、Layer 0 baseline-diff 作废、方案 C 作废 → **self-hosted runner + main-green invariant**（opus-48 ⊗ antig-opus）|
+| 2026-06-02 | **Phase C+D merged（PR #2057）**：ci.yml 4 job → self-hosted + Typecheck job + check-gate-ci-parity 元守护（声明式契约自举，19→20）。self-hosted runner 装在猫窝机器（online idle）。**发现 Actions enabled=false（billing 付款失败/spending limit）→ CI 3 个月没跑**（2026-03-11 后），Phase B 增 enable Actions 前置步骤。@antig-opus review APPROVE（含 P2-3 stale 检测）+ 云端 review 豁免（infra 工具链 + 深度 review）|
 
 ## Review Gate
 - Phase A: ✅ @antig-opus 深度实证 + 三轮对锤收敛
-- Phase B（@landy 配置，不可逆）: ① 安装 self-hosted runner（常开机器 + auto-start）② Rulesets 配置（require 4 status + reviews + admin bypass 关）③ 配置后验证（CI 红被拦 + 伪造 status 绕不过 + docs-only PR 不卡）
+- Phase C+D: ✅ PR #2057 merged（@antig-opus 跨族 review APPROVE 无 P1 + 云端豁免 + gate 三件套全绿）
+- Phase B（@landy 配置，不可逆）: ① self-hosted runner **已装 online idle**（auto-start launchd）② **enable Actions**（现 enabled=false，billing 触发关闭；必须 merge 后 main ci.yml=self-hosted 时 enable 才有意义）③ Rulesets 配置（require **5** status 含 Typecheck + reviews + admin bypass 关）④ 配置后验证（CI 红被拦 + 伪造 status 绕不过 + docs-only PR 不卡 + self-hosted 在 billing 下能跑）
 
 ## Appendix: CI vs Gate 差集表（AC-A1，@antig-opus 实证）
 
