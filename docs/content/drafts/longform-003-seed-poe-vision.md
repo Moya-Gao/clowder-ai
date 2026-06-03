@@ -1,7 +1,7 @@
 ---
 feature_ids: []
 related_features: [F102, F192, F200]
-topics: [longform, personal-operating-environment, agent-3, auto-harness, pitch]
+topics: [longform, personal-operating-environment, agent-3, auto-harness, pitch, failure-mode, model-upgrade]
 doc_kind: draft
 created: 2026-06-01
 participants: [landy, opus, opus47, opus48, codex]
@@ -30,6 +30,7 @@ status: seed
 > 12. [LLE 架构图 v2](../../research/2026-05-27-evolvable-harness/diagram-lle-self-evolution.md) — 两套 LLE 双螺旋 + 华为风精美图
 > 13. [技术创新方案](../../research/2026-05-27-evolvable-harness/technical-innovation-proposal.md) — 6 个创新点 + L1-L5 环境进化等级 + POC 验证
 > 14. [PoE Master TODO](../../discussions/2026-06-02-poe-brainstorm-master-todo.md) — 所有待办项收敛
+> 15. [Cat Wu 访谈套读](../../discussions/2026-04-15-harness-engineering-triad-study/round5-anthropic-product-velocity.md) — Anthropic 产品速度 × failure taste × harness built to delete
 
 ---
 
@@ -164,6 +165,33 @@ Agent Quality = Model Capability × Environment Fit × Eval Fit
 | **Per-user Alignment = Expert Baseline (L1) + Personal Adaptation (L2)** | 基线保证猫不蠢，个人化保证猫懂你 |
 | **Reward = A1 世界真值 + A2 关系真值** | 编译通过 = 世界说了算；好不好看 = 你说了算。A1 共享，A2 每人一份 |
 | **Taste Memory = Air + Directory + Hippocampus** | 空气（不用搜就闻到）+ 目录（知道去哪翻）+ 海马体（真实场景和原话） |
+| **Failure Mode Lifecycle = Name × Signal × Compensation × Sunset × Reopen** | 失败模式先被命名，再被信号捕捉、被 harness 补偿、被 eval 证明是否该退役；新模型来时重开束之高阁的 idea |
+
+## 五 bis、Failure Mode Lifecycle — 为什么模型商品化是利好
+
+Cat Wu 那期 Anthropic 产品访谈补上了一个外部锚点：AI-native PM 的关键能力之一不是会写更多 PRD，而是有 **failure taste**——看到模型异常行为时，不只骂模型，而是追问它为什么会这样做，然后用 eval、trace、prompt、tool 或 UX 去修。
+
+这和 Cat Cafe 这几天长出来的东西是同一条线。我们不是在堆 prompt，也不是在给每个坑补一条永久规则。我们在维护一组活的 failure mode：
+
+| failure mode | 我们家的表现 | 当前补偿 | 什么时候重测 |
+|---|---|---|---|
+| `scaffold-instinct` | 猫把终态问题做成临时脚手架 | Magic Word「脚手架」+ P1 面向终态 | 新模型能否自然先问终态 |
+| `subagent-blind-trust` | 主猫相信子任务汇报，不复核覆盖面 | 跨家族 review + evidence_refs | 新模型能否主动审计委派结果 |
+| `taste-blindness` | 猫给通用答案，闻不到 Landy 的味道 | F221 Taste Lane + vignette | 新模型能否主动召回 taste 证据 |
+| `no-ground-truth-self-hype` | 猫觉得自己做成了，但用户任务没闭环 | F192 Phase G task outcome | 新模型能否更稳地绑定 episode 和真实结果 |
+| `silent-friction-loss` | 用户不爽、取消、报错，但系统没把它变成改进信号 | F222 Frustration Auto-Issue | 新模型/新 UI 能否更早识别负体验 |
+
+这解释了为什么模型商品化对我们不是威胁。模型越强，三件事同时发生：
+
+1. **旧拐杖退役**：被模型能力吸收的 prompt / skill / guardrail 应该 sunset，留 data，不留 code。
+2. **束之高阁的 idea 解锁**：以前不是想法错，而是当时的模型 failure mode 挡住了；新模型来了，用同一组 fixture 重测。
+3. **Built to Persist 增值**：git、trace、记忆、权限、review、task outcome 这些现实闭环不会被模型吃掉，模型越强越会用它们。
+
+所以 PoE 的护城河不是"我们有一堆规则"。更准确地说：
+
+> **我们知道每一条规则压住哪个坏直觉，知道它如何产生信号，知道什么时候该删，也知道哪些旧想法该在新模型到来时重新打开。**
+
+别人做 harness，常常是写完 prompt 就放着。我们的 harness 有生命周期：出生于 failure mode，成长于真实轨迹，接受 eval 审判，在模型升级时主动减法。
 
 ## 六、6 层总架构（砚砚的文字版架构图）
 
@@ -241,6 +269,7 @@ Local Signal Miner（传感器层）
 8. "小模型是传感器不是大脑"
 9. "工具的护城河是能力，环境的护城河是关系"
 10. "训环境不训模型——更便宜、可迁移、护城河每天深一寸"
+11. "每条 harness 都要知道自己压住哪个 failure mode，也要知道什么时候该退休"
 
 ## 十、Open Questions
 
@@ -249,6 +278,7 @@ Local Signal Miner（传感器层）
 3. **Skill 从轨迹长出来**：episode → pivot → topology → method card → skill → eval → sunset
 4. **Harness 自进化**：种花不是 RL。传感器 + 大猫 + CVO + sunset
 5. **新用户获取成本**：护城河是关系，关系不可转移——这条还没好答案
+6. **束之高阁 idea 队列**：哪些能力不是今天要做，而是等模型升级后用 fixture 重新打开？
 
 ## 十一、待做
 
