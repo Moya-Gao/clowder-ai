@@ -10,6 +10,7 @@ import { catRegistry, createCatId } from '@cat-cafe/shared';
 
 const { AgentRouter } = await import('../dist/domains/cats/services/agents/routing/AgentRouter.js');
 const { AgentRegistry } = await import('../dist/domains/cats/services/agents/registry/AgentRegistry.js');
+const { ROUTE_CONTROL_TAGS } = await import('../dist/domains/cats/services/context/IntentParser.js');
 
 /** Minimal mock service that yields text + done */
 function createMockService(catId) {
@@ -143,40 +144,43 @@ describe('F32-b: parseMentions (longest-match-first)', () => {
     });
   }
 
-  it('@opus-45 routes to opus-45 only, not both opus and opus-45', async () => {
+  it('line-start @opus-45 routes to opus-45 only, not both opus and opus-45', async () => {
     const router = await createVariantRouter();
-    const { targetCats } = await router.resolveTargetsAndIntent('请 @opus-45 帮我写个函数', 'test-thread');
+    const { targetCats, hasMentions } = await router.resolveTargetsAndIntent('@opus-45 帮我写个函数', 'test-thread');
+    assert.equal(hasMentions, true);
     assert.deepEqual(targetCats.map(String), ['opus-45']);
   });
 
-  it('@opus routes to opus only, not opus-45', async () => {
+  it('line-start @opus routes to opus only, not opus-45', async () => {
     const router = await createVariantRouter();
-    const { targetCats } = await router.resolveTargetsAndIntent('请 @opus 帮我看看', 'test-thread');
+    const { targetCats, hasMentions } = await router.resolveTargetsAndIntent('@opus 帮我看看', 'test-thread');
+    assert.equal(hasMentions, true);
     assert.deepEqual(targetCats.map(String), ['opus']);
   });
 
-  it('@opus and @opus-45 both mentioned → two distinct targets', async () => {
+  it('multiple line-start mentions → two distinct targets', async () => {
     const router = await createVariantRouter();
-    const { targetCats } = await router.resolveTargetsAndIntent('@opus 和 @opus-45 一起来讨论', 'test-thread');
+    const { targetCats } = await router.resolveTargetsAndIntent('@opus\n@opus-45 一起来讨论', 'test-thread');
     assert.equal(targetCats.length, 2);
     assert.ok(targetCats.map(String).includes('opus'));
     assert.ok(targetCats.map(String).includes('opus-45'));
   });
 
-  it('@布偶猫4.5 routes to opus-45 (Chinese variant mention)', async () => {
+  it('line-start @布偶猫4.5 routes to opus-45 (Chinese variant mention)', async () => {
     const router = await createVariantRouter();
-    const { targetCats } = await router.resolveTargetsAndIntent('请 @布偶猫4.5 来帮忙', 'test-thread');
+    const { targetCats } = await router.resolveTargetsAndIntent('@布偶猫4.5 来帮忙', 'test-thread');
     assert.deepEqual(targetCats.map(String), ['opus-45']);
   });
 
-  it('token boundary: @opus-45x does not match (no boundary after)', async () => {
+  it('token boundary: line-start @opus-45x does not match (no boundary after)', async () => {
     const router = await createVariantRouter();
-    const { targetCats } = await router.resolveTargetsAndIntent('邮件 @opus-45x 不是猫猫', 'test-thread');
+    const { targetCats, hasMentions } = await router.resolveTargetsAndIntent('@opus-45x 不是猫猫', 'test-thread');
+    assert.equal(hasMentions, false);
     // Should fall through to default (opus) since no valid mention found
     assert.deepEqual(targetCats.map(String), ['opus']);
   });
 
-  it('token boundary: @opus-45, (with comma) matches', async () => {
+  it('token boundary: line-start @opus-45, (with comma) matches', async () => {
     const router = await createVariantRouter();
     const { targetCats } = await router.resolveTargetsAndIntent('@opus-45，帮我看看代码', 'test-thread');
     assert.deepEqual(targetCats.map(String), ['opus-45']);
@@ -184,7 +188,7 @@ describe('F32-b: parseMentions (longest-match-first)', () => {
 
   it('preserves first-occurrence ordering', async () => {
     const router = await createVariantRouter();
-    const { targetCats } = await router.resolveTargetsAndIntent('@codex 和 @opus 来看看', 'test-thread');
+    const { targetCats } = await router.resolveTargetsAndIntent('@codex\n@opus 来看看', 'test-thread');
     assert.deepEqual(targetCats.map(String), ['codex', 'opus']);
   });
 
@@ -193,45 +197,83 @@ describe('F32-b: parseMentions (longest-match-first)', () => {
     // @布偶 (short alias, early) → opus, @codex (mid), @布偶猫 (long alias, late) → opus
     // Longest-first processing sees @布偶猫 first (later position), but opus should
     // resolve to the earliest occurrence (@布偶 at position 0), not the longest match.
-    const { targetCats } = await router.resolveTargetsAndIntent(
-      '@布偶 和 @codex 讨论一下 @布偶猫 的方案',
-      'test-thread',
-    );
+    const { targetCats } = await router.resolveTargetsAndIntent('@布偶\n@codex\n@布偶猫 的方案', 'test-thread');
     // opus should come first (earliest mention), codex second
     assert.deepEqual(targetCats.map(String), ['opus', 'codex']);
   });
 
-  it('bracket delimiters count as token boundary (cloud P2 regression)', async () => {
+  it('bracket delimiters after a line-start mention count as token boundary (cloud P2 regression)', async () => {
     const router = await createVariantRouter();
-    // (@codex) — parenthesis after mention should be a valid boundary
-    const r1 = await router.resolveTargetsAndIntent('(@codex)', 'test-thread');
+    // @codex) — parenthesis after mention should be a valid boundary
+    const r1 = await router.resolveTargetsAndIntent('@codex)', 'test-thread');
     assert.deepEqual(r1.targetCats.map(String), ['codex']);
 
-    // [@布偶猫] — square bracket
-    const r2 = await router.resolveTargetsAndIntent('[@布偶猫]', 'test-thread');
+    // @布偶猫] — square bracket
+    const r2 = await router.resolveTargetsAndIntent('@布偶猫]', 'test-thread');
     assert.deepEqual(r2.targetCats.map(String), ['opus']);
 
-    // <@opus> — angle bracket
-    const r3 = await router.resolveTargetsAndIntent('<@opus>', 'test-thread');
+    // @opus> — angle bracket
+    const r3 = await router.resolveTargetsAndIntent('@opus>', 'test-thread');
     assert.deepEqual(r3.targetCats.map(String), ['opus']);
   });
 
-  it('CJK fullwidth brackets count as token boundary (R3 P1 regression)', async () => {
+  it('CJK fullwidth brackets after a line-start mention count as token boundary (R3 P1 regression)', async () => {
     const router = await createVariantRouter();
-    // （@codex） — fullwidth parenthesis
-    const r1 = await router.resolveTargetsAndIntent('（@codex）', 'test-thread');
+    // @codex） — fullwidth parenthesis
+    const r1 = await router.resolveTargetsAndIntent('@codex）', 'test-thread');
     assert.deepEqual(r1.targetCats.map(String), ['codex']);
 
-    // 【@缅因猫】 — fullwidth square bracket
-    const r2 = await router.resolveTargetsAndIntent('【@缅因猫】', 'test-thread');
+    // @缅因猫】 — fullwidth square bracket
+    const r2 = await router.resolveTargetsAndIntent('@缅因猫】', 'test-thread');
     assert.deepEqual(r2.targetCats.map(String), ['codex']);
 
-    // 《@opus》 — fullwidth angle bracket
-    const r3 = await router.resolveTargetsAndIntent('《@opus》', 'test-thread');
+    // @opus》 — fullwidth angle bracket
+    const r3 = await router.resolveTargetsAndIntent('@opus》', 'test-thread');
     assert.deepEqual(r3.targetCats.map(String), ['opus']);
 
-    // 「@布偶猫」 — corner bracket (common in Japanese/traditional Chinese)
-    const r4 = await router.resolveTargetsAndIntent('「@布偶猫」', 'test-thread');
+    // @布偶猫」 — corner bracket (common in Japanese/traditional Chinese)
+    const r4 = await router.resolveTargetsAndIntent('@布偶猫」', 'test-thread');
     assert.deepEqual(r4.targetCats.map(String), ['opus']);
+  });
+
+  it('inline and quoted @mentions are inert user text, not routing targets', async () => {
+    const router = await createVariantRouter();
+    const content =
+      '我花了一下午手动复制粘贴："@布偶猫，你的设计稿好了，传给缅因猫 review 一下。""@缅因猫，上面那个设计你看一下。""@暹罗猫，交互部分你也出个方案？"';
+
+    const { targetCats, hasMentions } = await router.resolveTargetsAndIntent(content, 'test-thread');
+
+    assert.equal(hasMentions, false);
+    assert.deepEqual(targetCats.map(String), ['opus']);
+  });
+
+  it('inline @codex does not route away from the default cat', async () => {
+    const router = await createVariantRouter();
+    const { targetCats, hasMentions } = await router.resolveTargetsAndIntent('请 @codex 看看这个', 'test-thread');
+
+    assert.equal(hasMentions, false);
+    assert.deepEqual(targetCats.map(String), ['opus']);
+  });
+
+  it('markdown-prefixed line-start mention still routes', async () => {
+    const router = await createVariantRouter();
+    const { targetCats, hasMentions } = await router.resolveTargetsAndIntent('- @codex 看一下', 'test-thread');
+
+    assert.equal(hasMentions, true);
+    assert.deepEqual(targetCats.map(String), ['codex']);
+  });
+
+  it('all IntentParser route-control tags allow line-start mention routing', async () => {
+    const router = await createVariantRouter();
+
+    for (const tag of ROUTE_CONTROL_TAGS) {
+      const { targetCats, hasMentions } = await router.resolveTargetsAndIntent(
+        `#${tag} @codex 看一下`,
+        `test-thread-${tag}`,
+      );
+
+      assert.equal(hasMentions, true, `#${tag} should preserve route-line @mention routing`);
+      assert.deepEqual(targetCats.map(String), ['codex']);
+    }
   });
 });

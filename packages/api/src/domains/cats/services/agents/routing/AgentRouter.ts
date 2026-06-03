@@ -31,7 +31,7 @@ import {
   ROUTING_TARGET_CATS,
 } from '../../../../../infrastructure/telemetry/genai-semconv.js';
 import type { IntentResult } from '../../context/IntentParser.js';
-import { parseIntent, stripIntentTags } from '../../context/IntentParser.js';
+import { parseIntent, ROUTE_CONTROL_TAGS, stripIntentTags } from '../../context/IntentParser.js';
 import type { IRuntimeSessionStore } from '../../runtime-session/RuntimeSessionStore.js';
 import { SessionManager } from '../../session/SessionManager.js';
 import type { ISessionSealer } from '../../session/SessionSealer.js';
@@ -80,11 +80,51 @@ const routeTracer = trace.getTracer('cat-cafe-api', '0.1.0');
 const Z5_PAGE_SIZE = 50;
 const Z5_USER_MESSAGE_COUNT_LIMIT = 5;
 const Z5_TIME_WINDOW_MS = 60 * 60 * 1000; // 1h
+const MENTION_TOKEN_BOUNDARY_RE = /[\s,.:;!?()[\]{}<>，。！？、：；（）【】《》「」『』〈〉]/;
+const LINE_START_MENTION_PREFIX_RE = /^[ \t]*(?:(?:>\s*)|(?:[-*+][ \t]+)|(?:\d+[.)][ \t]+))*/;
+const ROUTE_CONTROL_TAG_RE = new RegExp(
+  `^#(?:${ROUTE_CONTROL_TAGS.map((tag) => escapeRegExp(tag)).join('|')})\\b`,
+  'i',
+);
 
 /** Parsed mention with position for ordering */
 interface ParsedMention {
   catId: CatId;
   position: number;
+}
+
+function getRouteLineStart(line: string): number | null {
+  let cursor = line.match(LINE_START_MENTION_PREFIX_RE)?.[0].length ?? 0;
+
+  while (true) {
+    while (line[cursor] === ' ' || line[cursor] === '\t') cursor++;
+    const tag = line.slice(cursor).match(ROUTE_CONTROL_TAG_RE)?.[0];
+    if (!tag) break;
+    cursor += tag.length;
+  }
+
+  while (line[cursor] === ' ' || line[cursor] === '\t') cursor++;
+  return line[cursor] === '@' ? cursor : null;
+}
+
+function forEachRouteLineMentionCandidate(
+  message: string,
+  visit: (line: string, offset: number, candidate: number) => void,
+) {
+  let offset = 0;
+  for (const line of message.split(/\r?\n/)) {
+    const routeStart = getRouteLineStart(line);
+    if (routeStart !== null) {
+      let candidate = routeStart;
+      while (candidate >= 0) {
+        if (candidate === routeStart || MENTION_TOKEN_BOUNDARY_RE.test(line[candidate - 1] ?? '')) {
+          visit(line, offset, candidate);
+        }
+        candidate = line.indexOf('@', candidate + 1);
+      }
+    }
+    offset += line.length + 1;
+  }
 }
 
 /**
@@ -531,61 +571,50 @@ export class AgentRouter {
     }
     allPatterns.sort((a, b) => b.pattern.length - a.pattern.length); // longest first
 
-    // 2-4. Match with consumed intervals
-    const consumed: Array<[number, number]> = []; // [start, end)
+    // 2-4. Match only route lines: first token after optional markdown prefix / intent tags must be @.
+    // Once a line is a route line, multiple @mentions on that line keep their existing order.
     const mentions: ParsedMention[] = [];
     const seenCats = new Set<string>();
     const routing_warnings: CatRoutingError[] = [];
 
-    for (const { pattern, catId } of allPatterns) {
-      let searchFrom = 0;
-      while (searchFrom < lowerMessage.length) {
-        const pos = lowerMessage.indexOf(pattern, searchFrom);
-        if (pos === -1) break;
+    forEachRouteLineMentionCandidate(lowerMessage, (line, lineOffset, candidate) => {
+      const pos = lineOffset + candidate;
+      let matchedKnown = false;
+      for (const { pattern, catId } of allPatterns) {
+        if (!line.startsWith(pattern, candidate)) continue;
 
-        const end = pos + pattern.length;
-        const charAfter = lowerMessage[end];
-        const isEndBoundary = !charAfter || /[\s,.:;!?()[\]{}<>，。！？、：；（）【】《》「」『』〈〉]/.test(charAfter);
-        const isConsumed = consumed.some(([s, e]) => pos >= s && pos < e);
+        const end = candidate + pattern.length;
+        const charAfter = line[end];
+        if (charAfter && !MENTION_TOKEN_BOUNDARY_RE.test(charAfter)) continue;
 
-        if (isEndBoundary && !isConsumed) {
-          consumed.push([pos, end]);
-          // F182 KD-10: resolver check at match-time (not isCatAvailable)
-          const resolved = resolveCatTarget(catId as string);
-          if ('error' in resolved) {
-            if (!seenCats.has(catId as string)) {
-              seenCats.add(catId as string);
-              routing_warnings.push(resolved.error);
-            }
-          } else if (!seenCats.has(catId as string)) {
+        matchedKnown = true;
+        // F182 KD-10: resolver check at match-time (not isCatAvailable)
+        const resolved = resolveCatTarget(catId as string);
+        if ('error' in resolved) {
+          if (!seenCats.has(catId as string)) {
             seenCats.add(catId as string);
-            mentions.push({ catId, position: pos });
-          } else {
-            const existing = mentions.find((m) => m.catId === catId);
-            if (existing && pos < existing.position) existing.position = pos;
+            routing_warnings.push(resolved.error);
           }
+        } else if (!seenCats.has(catId as string)) {
+          seenCats.add(catId as string);
+          mentions.push({ catId, position: pos });
         }
-        searchFrom = pos + 1;
+        break;
       }
-    }
 
-    // P2 (codex review 6949db49): a line-start @handle that matched NO registered cat is an
-    // unknown handle (e.g. @kimi). Without this, parseAllMentions returns empty mentions + empty
-    // warnings, so the caller silently falls back to the default cat with zero user feedback.
-    // Scoped to line-start handles (F046: a leading @ is a routing intent) and excludes spans
-    // already consumed by a registered-cat match — avoids flagging mid-line @ (emails, code refs).
-    const lineStartHandleRe = /(?:^|\n)[ \t]*(?:[>*+-]+[ \t]*)?@([a-z0-9_.-]+)/gi;
-    for (const m of lowerMessage.matchAll(lineStartHandleRe)) {
-      const handle = m[1];
-      if (!handle) continue;
-      const atPos = (m.index ?? 0) + m[0].lastIndexOf('@');
-      if (consumed.some(([s, e]) => atPos >= s && atPos < e)) continue;
+      // P2 (codex review 6949db49): a line-start @handle that matched NO registered cat is an
+      // unknown handle (e.g. @kimi). Without this, parseAllMentions returns empty mentions + empty
+      // warnings, so the caller silently falls back to the default cat with zero user feedback.
+      if (matchedKnown) return;
+
+      const handle = line.slice(candidate + 1).match(/^([a-z0-9_.-]+)/)?.[1];
+      if (!handle) return;
       const resolved = resolveCatTarget(handle);
       if ('error' in resolved && !seenCats.has(`@unknown:${handle}`)) {
         seenCats.add(`@unknown:${handle}`);
         routing_warnings.push(resolved.error);
       }
-    }
+    });
 
     mentions.sort((a, b) => a.position - b.position);
     return { mentions, routing_warnings };
@@ -610,22 +639,20 @@ export class AgentRouter {
   ): Promise<{ cats: CatId[]; matchPosition: number } | null> {
     const lowerMessage = this.normalizeSpeechMentions(message).toLowerCase();
 
-    // Reuse parseMentions' token boundary regex
-    const boundaryRe = /[\s,.:;!?()[\]{}<>，。！？、：；（）【】《》「」『』〈〉]/;
-
     /** Find first boundary-valid match position, or -1 if not found */
     const findMatchPosition = (pattern: string): number => {
       const lowerPattern = pattern.toLowerCase();
-      let searchFrom = 0;
-      while (searchFrom < lowerMessage.length) {
-        const pos = lowerMessage.indexOf(lowerPattern, searchFrom);
-        if (pos === -1) return -1;
-        const end = pos + lowerPattern.length;
-        const charAfter = lowerMessage[end];
-        if (!charAfter || boundaryRe.test(charAfter)) return pos;
-        searchFrom = pos + 1;
-      }
-      return -1;
+      let found = -1;
+      forEachRouteLineMentionCandidate(lowerMessage, (line, lineOffset, candidate) => {
+        if (found >= 0) return;
+        if (!line.startsWith(lowerPattern, candidate)) return;
+        const end = candidate + lowerPattern.length;
+        const charAfter = line[end];
+        if (!charAfter || MENTION_TOKEN_BOUNDARY_RE.test(charAfter)) {
+          found = lineOffset + candidate;
+        }
+      });
+      return found;
     };
 
     // Build all group patterns sorted longest-first for correct priority
