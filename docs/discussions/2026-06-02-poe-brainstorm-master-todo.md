@@ -31,6 +31,12 @@
 - [ ] **"翻车转化话术"准备** — 如果 demo 出 bug，当场用 harness-diagnosis 诊断自己。来源：48 反脆弱建议
 - [ ] **完整 run-through ×3** — 至少排练 3 次，记录卡点。来源：48
 
+### 🟠 Demo 场景补充：Build mode（从零建 harness）
+
+- [ ] **Demo 剧本加"场景四：全新任务类型"** — 铲屎官给一个猫从没做过的任务（如 LinkedIn 招聘搜索），猫识别"没有 harness" → 调用 Agent Team Leadership meta-method → 弹新建 harness 计划 → 探索 → 迭代 → 沉淀成新 skill。来源：铲屎官 2026-06-02
+- [ ] **展示 meta-method 跨域迁移** — 同一套"探索→约束→分工→验证→沉淀"在陌生领域照样能用。来源：longform-001 + meta-method 蒸馏
+- [ ] **学术定位框架** — L2-L3 在跑，方向与 Sutton/Silver 一致。Build mode = L2→L3 过渡的活体证据。来源：[论文研读思辨](2026-06-01-research-dialectic-what-to-learn-what-to-watch.md) + [LLE 自进化](../research/2026-05-27-evolvable-harness/diagram-lle-self-evolution.md)
+
 ### 🟢 Demo 附属
 
 - [ ] Demo 剧本补 YAML frontmatter。来源：砚砚
