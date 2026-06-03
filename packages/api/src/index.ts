@@ -84,6 +84,7 @@ import { createAuthorizationAuditStore } from './domains/cats/services/stores/fa
 import { createAuthorizationRuleStore } from './domains/cats/services/stores/factories/AuthorizationRuleStoreFactory.js';
 import { createBacklogStore } from './domains/cats/services/stores/factories/BacklogStoreFactory.js';
 import { createCommunityIssueStore } from './domains/cats/services/stores/factories/CommunityIssueStoreFactory.js';
+import { createFrustrationIssueStore } from './domains/cats/services/stores/factories/FrustrationIssueStoreFactory.js';
 import { createLabelStore } from './domains/cats/services/stores/factories/LabelStoreFactory.js';
 import { createMemoryStore } from './domains/cats/services/stores/factories/MemoryStoreFactory.js';
 import { createMessageStore } from './domains/cats/services/stores/factories/MessageStoreFactory.js';
@@ -163,6 +164,7 @@ import {
   externalRuntimeSessionsRoutes,
   featureDocDetailRoutes,
   firstRunQuestRoutes,
+  frustrationIssueRoutes,
   governanceStatusRoute,
   guideActionRoutes,
   intentCardRoutes,
@@ -474,6 +476,9 @@ async function main(): Promise<void> {
   const deliveryCursorStore = new DeliveryCursorStore(sessionStore);
   const threadStore = createThreadStore(redis);
   const proposalStore = createProposalStore(redis);
+  const frustrationIssueStore = createFrustrationIssueStore(redis);
+  // F222: Create early so it's available for both AgentRouter (cancel burst detection) and AuthorizationManager
+  const authPendingStore = createPendingRequestStore(redis);
   // F155 B-4/B-6: Guide state is runtime-only (in-memory, resets on restart)
   const { InMemoryGuideSessionStore } = await import('./domains/guides/GuideSessionRepository.js');
   const guideSessionStore = new InMemoryGuideSessionStore();
@@ -1349,6 +1354,8 @@ async function main(): Promise<void> {
     dismissTracker,
     worldContextProvider,
     worldStore,
+    frustrationIssueStore,
+    pendingRequestStore: authPendingStore,
   });
 
   // F39: Message queue delivery
@@ -1710,7 +1717,7 @@ async function main(): Promise<void> {
 
   // Authorization system — 猫猫动态权限 (Redis-backed when available)
   const authRuleStore = createAuthorizationRuleStore(redis);
-  const authPendingStore = createPendingRequestStore(redis);
+  // authPendingStore created earlier (line ~480) for F222 cancel burst detection
   const authAuditStore = createAuthorizationAuditStore(redis);
   const authManager = new AuthorizationManager({
     ruleStore: authRuleStore,
@@ -1758,6 +1765,9 @@ async function main(): Promise<void> {
     invocationQueue,
     queueProcessor,
   });
+  // F222: Frustration auto-issue routes
+  await app.register(frustrationIssueRoutes, { frustrationIssueStore });
+
   // F142: shared connector binding store — reused by threadCatsRoutes AND connector gateway
   const { RedisConnectorThreadBindingStore } = await import(
     './infrastructure/connectors/RedisConnectorThreadBindingStore.js'

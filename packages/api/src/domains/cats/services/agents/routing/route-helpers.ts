@@ -62,6 +62,10 @@ export interface RouteStrategyDeps {
   skillLoadEventLog?: import('../../tool-usage/SkillLoadEventLog.js').SkillLoadEventLog;
   /** F148 Phase F: Task store for navigation context (optional, fail-open) */
   taskStore?: import('../../stores/ports/TaskStore.js').ITaskStore;
+  /** F222: Frustration auto-issue store (optional, fail-open) */
+  frustrationIssueStore?: import('../../stores/ports/FrustrationIssueStore.js').IFrustrationIssueStore;
+  /** F222: Pending request store — used for cancel burst detection (listRecentDenied) */
+  pendingRequestStore?: import('../../stores/ports/PendingRequestStore.js').IPendingRequestStore;
   /** F093: World context provider for world-building mode (optional, fail-open) */
   worldContextProvider?: import('../../../../world/WorldContextProvider.js').WorldContextProvider;
   /** F093: World store for thread→world lookup (optional, fail-open) */

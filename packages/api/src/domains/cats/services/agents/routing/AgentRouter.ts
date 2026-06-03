@@ -256,6 +256,10 @@ export interface AgentRouterOptions {
   worldContextProvider?: import('../../../../world/WorldContextProvider.js').WorldContextProvider;
   /** F093: World store for thread→world lookup */
   worldStore?: import('../../../../world/interfaces.js').IWorldStore;
+  /** F222: Frustration auto-issue store */
+  frustrationIssueStore?: import('../../stores/ports/FrustrationIssueStore.js').IFrustrationIssueStore;
+  /** F222: Pending request store — cancel burst detection */
+  pendingRequestStore?: import('../../stores/ports/PendingRequestStore.js').IPendingRequestStore;
 }
 
 /**
@@ -310,6 +314,9 @@ export class AgentRouter {
   /** F093 */
   private worldContextProvider?: import('../../../../world/WorldContextProvider.js').WorldContextProvider;
   private worldStore?: import('../../../../world/interfaces.js').IWorldStore;
+  /** F222 */
+  private frustrationIssueStore?: import('../../stores/ports/FrustrationIssueStore.js').IFrustrationIssueStore;
+  private pendingRequestStore?: import('../../stores/ports/PendingRequestStore.js').IPendingRequestStore;
   private speechMentionRe: RegExp;
 
   private rebuildRuntimeCaches(agentRegistry: AgentRegistry): void {
@@ -355,6 +362,8 @@ export class AgentRouter {
     this.dismissTracker = options.dismissTracker;
     this.worldContextProvider = options.worldContextProvider;
     this.worldStore = options.worldStore;
+    this.frustrationIssueStore = options.frustrationIssueStore;
+    this.pendingRequestStore = options.pendingRequestStore;
   }
 
   refreshFromRegistry(agentRegistry: AgentRegistry): void {
@@ -940,6 +949,8 @@ export class AgentRouter {
       ...(this.skillLoadEventLog ? { skillLoadEventLog: this.skillLoadEventLog } : {}),
       ...(this.worldContextProvider ? { worldContextProvider: this.worldContextProvider } : {}),
       ...(this.worldStore ? { worldStore: this.worldStore } : {}),
+      ...(this.frustrationIssueStore ? { frustrationIssueStore: this.frustrationIssueStore } : {}),
+      ...(this.pendingRequestStore ? { pendingRequestStore: this.pendingRequestStore } : {}),
     };
   }
 

@@ -2272,6 +2272,67 @@ export async function* routeSerial(
         }
       }
 
+      // F222: Frustration auto-issue — detect CLI error + cancel burst signals.
+      // Non-blocking: errors in frustration detection must not interrupt the route pipeline.
+      if (deps.frustrationIssueStore) {
+        const frustrationDeps = {
+          frustrationIssueStore: deps.frustrationIssueStore,
+          messageStore: deps.messageStore,
+          socketManager: deps.socketManager as
+            | import('../../../../../infrastructure/websocket/index.js').SocketManager
+            | undefined,
+        };
+        try {
+          const { evaluate } = await import('../../frustration/FrustrationDetector.js');
+
+          // Signal 1: CLI error (P1-1 original implementation)
+          if (collectedCliDiagnostics?.reasonCode) {
+            await evaluate(
+              {
+                signal: { type: 'cli_error', diagnostics: collectedCliDiagnostics },
+                threadId,
+                userId,
+                catId: catId as string,
+                invocationId: ownInvocationId,
+              },
+              frustrationDeps,
+            );
+          }
+
+          // Signal 2: Cancel burst — query PendingRequestStore for recent denied
+          // permission requests. This is the precise "user actively cancelled" signal,
+          // distinct from generic tool execution errors. (R2 P1 fix: tool_result.status
+          // === 'error' was too broad — included MCP failures, stream interrupts, etc.)
+          if (deps.pendingRequestStore) {
+            const { CANCEL_WINDOW_MS } = await import('../../frustration/FrustrationDetector.js');
+            const recentDenied = await deps.pendingRequestStore.listRecentDenied(
+              threadId,
+              Date.now() - CANCEL_WINDOW_MS,
+            );
+            if (recentDenied.length >= 3) {
+              await evaluate(
+                {
+                  signal: {
+                    type: 'cancel_burst',
+                    recentDenials: recentDenied.map((r) => ({
+                      action: r.action,
+                      timestamp: r.respondedAt ?? r.createdAt,
+                    })),
+                  },
+                  threadId,
+                  userId,
+                  catId: catId as string,
+                  invocationId: ownInvocationId,
+                },
+                frustrationDeps,
+              );
+            }
+          }
+        } catch {
+          // Non-blocking: frustration detection failure must not break routing
+        }
+      }
+
       // Ack cursor regardless of hadError: messages were assembled into the prompt
       // and delivered to the cat. Not acking causes infinite re-delivery on subsequent
       // rounds (bug: "砚砚每次都疯狂回之前的消息").

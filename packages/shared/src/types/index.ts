@@ -259,6 +259,18 @@ export type {
   CreateExternalProjectInput,
   ExternalProject,
 } from './external-project.js';
+// F222: Frustration Auto-Issue types
+export type {
+  CreateFrustrationIssueInput,
+  FrustrationContextMessage,
+  FrustrationContextToolCall,
+  FrustrationIssue,
+  FrustrationIssueContext,
+  FrustrationIssueId,
+  FrustrationIssueStatus,
+  FrustrationSignalType,
+} from './frustration-issue.js';
+export { createFrustrationIssue, generateFrustrationIssueId } from './frustration-issue.js';
 // Game engine types (F101)
 export type {
   ActionDefinition,
