@@ -316,6 +316,7 @@ in_context_observability:
 - [ ] AC-D2: 预算治理面板 + 告警阈值生效
 - [ ] AC-D3: 灰度切流量 10% → 50% → 100%，每档观察期内无 P0/P1 regression
 - [ ] AC-D4: 6/15 前所有 thread 默认 `bg_daemon`
+- [ ] **AC-D5 (新 2026-06-03)**: bg session chain pointer 化（不阻塞 Bug #3 / D3 灰度）— bg carrier 每个 `--bg` invocation 必然新 daemon shortId（spike 实证 `d061424f → 61a48e5b → a56e3aa4`），触发 `session_init` handler 的 "CLI session changed → seal+create" 路径，**每轮 bg invoke 产生 1 sealed + 1 new active record**。conversation 内容通过 `--resume UUID` 接力正确，session chain hygiene 退化：recall/digest pipeline 看到的是多条 sealed record 而非一条连续 conversation。**理想终态**：bg 走 chain-pointer (next-record) 而非 seal-and-create，一条 conversation = 一条 record。**为何 defer**：实施碰 session_init handler + provider-aware 分支 + recall/digest pipeline，远超 Bug #3 PR scope；conversation 正确性不受影响（仅 hygiene 退化）。**verdict gate**：愿景守护三审 alpha 真实剧本要 inspect 跑完 3 轮后 sessionChainStore 实际 record 数，记入 Bug #3 PR 回写作为本 AC 优先级实证。发现来源：Bug #3 实施（opus-48）+ 架构评议（opus-47 2026-06-03）
 
 ### Phase E（观察）
 - [ ] AC-E1: 6/15 后 1 周宪宪 daily invocation 数 ≥ 6/15 前 7 日平均的 80%
