@@ -207,6 +207,31 @@ skills:
     sop_step: null
     merged_from: ["systematic-debugging"]
 
+  # ── Harness 诊断 ──
+  harness-diagnosis:
+    description: >
+      主动检测铲屎官重复纠偏/摩擦信号，诊断 harness 缺陷 vs 架构限制 vs 新能力需求，
+      提议修复（code fix / research / 新建 harness）而不是道歉。
+      Use when: 铲屎官表达重复不满（"又"/"总是"/"多少次了"）、连续 cancel、CLI 报错、
+      A2A 超时、或收到完全陌生的任务类型。
+      Not for: 一次性批评、玩笑式"笨猫"、具体代码 bug（用 debugging）、review 反馈（用 receive-review）。
+      Output: Rich block 诊断卡 + 可选 F128 新 thread 提议 + 根因分类。
+    triggers:
+      - "又"
+      - "总是"
+      - "多少次了"
+      - "每次都"
+      - "怎么还"
+      - "失忆"
+    not_for:
+      - "一次性批评"
+      - "笨猫哈哈"
+      - "具体代码 bug"
+      - "review 反馈"
+    output: "Rich block 诊断卡 / F128 thread 提议 / 根因分类"
+    next: ["debugging", "deep-research", "writing-skills", "self-evolution"]
+    sop_step: null
+
   # ── 质量门禁 ──
   quality-gate:
     description: >
