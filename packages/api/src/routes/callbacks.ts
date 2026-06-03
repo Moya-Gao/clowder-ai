@@ -1945,6 +1945,9 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       .regex(/^[^/]+\/[^/]+$/, 'Must be owner/repo format'),
     prNumber: z.number().int().positive(),
     catId: z.string().min(1).optional(), // ignored — server uses record.catId
+    // F140: wake intent. 'review' (default) = waiting on review feedback → CI-pass stays silent.
+    // 'merge' = waiting on CI-green to merge → CI-pass wakes. Re-register (upsert) to flip it.
+    intent: z.enum(['review', 'merge']).optional(),
   });
 
   app.post('/api/callbacks/register-pr-tracking', async (request, reply) => {
@@ -1985,18 +1988,26 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
 
     const subjectKey = `pr:${repoFullName}#${prNumber}`;
     try {
+      // F140: resolve wake intent. Explicit wins; otherwise preserve an already-set intent (so an
+      // incidental re-register doesn't silently downgrade a deliberate 'merge'); default 'review'.
+      const existing = await taskStore.getBySubject(subjectKey);
+      const intent = parsed.data.intent ?? existing?.automationState?.intent ?? 'review';
+
       const task = await taskStore.upsertBySubject({
         kind: 'pr_tracking',
         subjectKey,
         threadId: record.threadId,
         title: `PR tracking: ${repoFullName}#${prNumber}`,
         ownerCatId: catId,
-        why: `Tracking PR ${repoFullName}#${prNumber} for review feedback, CI/CD, and conflict detection`,
+        why: `Tracking PR ${repoFullName}#${prNumber} (intent=${intent}): review feedback + conflicts always wake; CI-pass wakes only when intent=merge`,
         createdBy: catId,
         userId: record.userId,
       });
 
-      return { status: 'ok', threadId: record.threadId, task };
+      // Persist intent structurally (deep-merged — preserves ci/review/conflict cursors on re-register).
+      const withIntent = await taskStore.patchAutomationState(task.id, { intent });
+
+      return { status: 'ok', threadId: record.threadId, task: withIntent ?? task };
     } catch (error) {
       if (isSubjectOwnershipConflictError(error)) {
         reply.status(409);

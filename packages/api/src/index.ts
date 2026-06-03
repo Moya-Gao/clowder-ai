@@ -2686,8 +2686,6 @@ async function main(): Promise<void> {
       log: app.log,
     });
 
-    taskRunnerV2.register(createCiCdCheckTaskSpec({ taskStore, cicdRouter, invokeTrigger, log: app.log }));
-
     // F140: conflict-check with ConflictRouter + urgent trigger
     const checkMergeable = async (repo: string, pr: number) => {
       const { execFile } = await import('node:child_process');
@@ -2724,6 +2722,8 @@ async function main(): Promise<void> {
     // #798: fetchPaginated extracted to infrastructure/github/fetch-paginated.ts for testability
     const { fetchPaginated: fetchPaginatedFn } = await import('./infrastructure/github/fetch-paginated.js');
     const fetchPaginated = (endpoint: string, sinceId?: number) => fetchPaginatedFn(endpoint, { sinceId });
+
+    taskRunnerV2.register(createCiCdCheckTaskSpec({ taskStore, cicdRouter, invokeTrigger, log: app.log }));
 
     taskRunnerV2.register(
       createReviewFeedbackTaskSpec({

@@ -44,12 +44,25 @@ export interface ReviewAutomationState {
   readonly lastNotifiedAt?: number;
 }
 
+/**
+ * F140: what the cat is currently waiting on for this tracked PR — the wake intent, NOT the repo
+ * type (a private PR can be 'merge'; an open-source PR can be 'review'). Decides whether a CI-pass
+ * is noise (review-wait) or an action signal (merge-wait). Cats re-register to flip it.
+ *   - review (default): waiting on review feedback → CI-pass stays silent (thread message only).
+ *   - merge: waiting on CI-green to merge (own approved PR / outbound PR / owner-merge of another's
+ *     PR) → CI-pass wakes (→ merge-gate).
+ * CI fail / review feedback / conflict always wake under both intents.
+ */
+export type PrTrackingIntent = 'review' | 'merge';
+
 /** Composite automation state embedded in pr_tracking tasks (#320 KD-14) */
 export interface AutomationState {
   readonly ci?: CiAutomationState;
   readonly conflict?: ConflictAutomationState;
   readonly review?: ReviewAutomationState;
   readonly closedAt?: number;
+  /** F140: wake intent for this tracked PR (defaults to 'review' when absent). */
+  readonly intent?: PrTrackingIntent;
 }
 
 export interface TaskItem {

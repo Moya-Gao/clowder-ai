@@ -181,6 +181,8 @@ cat_cafe_register_pr_tracking(repoFullName, prNumber)
 
 > **catId / threadId 由服务端自动解析**：API 从调用猫的 invocation record 取 `catId` 和 `threadId`，不接受 payload 覆盖。即：谁调用 `register_pr_tracking`，PR 就归谁追踪。
 
+> **wake intent（F140）**：WELCOME 阶段 owner 是在**审 / triage** 这个 incoming PR，用默认 `intent='review'`（CI-pass 静默，不被打扰）。等你决定"**CI 绿就用 owner 权限 merge 这个 PR**"时，再 `register_pr_tracking(..., intent='merge')` 翻一下，CI 全绿才会唤醒你去 merge（时机契约见 merge-gate skill）。
+
 注册后 F139 调度框架自动激活 `conflict-check` + `review-feedback` poller，PR 进入 F140 追踪层。
 
 如果守门 thread 把 PR 或 issue 交给下游 thread，Direction Card / handoff 必须写清：

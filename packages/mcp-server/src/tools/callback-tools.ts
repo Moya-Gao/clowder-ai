@@ -875,12 +875,22 @@ export const registerPrTrackingInputSchema = {
     .string()
     .optional()
     .describe('Deprecated — server auto-resolves from invocation identity. Ignored if provided.'),
+  intent: z
+    .enum(['review', 'merge'])
+    .optional()
+    .describe(
+      "Wake intent for this PR. 'review' (default) = you're waiting on review feedback → CI-pass " +
+        "stays silent (you'll see it when you look). 'merge' = you're waiting on CI-green to merge " +
+        '(your approved PR / an outbound PR / owner-merging someone else’s PR) → CI-pass wakes you. ' +
+        'Re-call this tool to flip the intent (e.g. switch to "merge" once review is approved).',
+    ),
 };
 
 export async function handleRegisterPrTracking(input: {
   repoFullName: string;
   prNumber: number;
   catId?: string;
+  intent?: 'review' | 'merge';
 }): Promise<ToolResult> {
   // F174 Phase E (AC-E2/E5): explicit kind:'none'. PR tracking is one-shot
   // registration, no useful local fallback. Surface `[degrade]` hint.
@@ -891,6 +901,7 @@ export async function handleRegisterPrTracking(input: {
         repoFullName: input.repoFullName,
         prNumber: input.prNumber,
         ...(input.catId ? { catId: input.catId } : {}),
+        ...(input.intent ? { intent: input.intent } : {}),
       }),
     policy: { kind: 'none' },
   });
@@ -1437,9 +1448,11 @@ export const callbackTools = [
   {
     name: 'cat_cafe_register_pr_tracking',
     description:
-      'Register a PR for email review notification routing. Call right after `gh pr create` ' +
-      'so that cloud Codex review emails are automatically routed to your current thread. ' +
+      'Register a PR for review/CI/conflict notification routing. Call right after `gh pr create` ' +
+      'so that cloud review feedback, CI status, and merge conflicts route to your current thread. ' +
       'The server resolves threadId and catId from your invocation identity — you only need repoFullName and prNumber. ' +
+      "Pass intent='review' (default) when you're waiting on review — CI-pass stays silent; pass intent='merge' " +
+      '(or re-call to switch) when you’re waiting on CI-green to merge — then CI-pass wakes you. ' +
       'GOTCHA: Must be called in the same session that created the PR, while callback credentials are still valid.',
     inputSchema: registerPrTrackingInputSchema,
     handler: handleRegisterPrTracking,

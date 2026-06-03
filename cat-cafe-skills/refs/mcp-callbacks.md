@@ -104,12 +104,14 @@ curl "$CAT_CAFE_API_URL/api/callbacks/list-tasks?invocationId=$CAT_CAFE_INVOCATI
 
 ### Register PR Tracking
 
-Call after `gh pr create` so PR review notifications route to the current thread.
+Call after `gh pr create` so PR review/CI/conflict notifications route to the current thread.
+Optional `intent` (F140): `'review'` (default — CI-pass silent, waiting on review) or `'merge'`
+(CI-pass wakes — waiting on CI-green to merge). Re-POST to flip it.
 
 ```bash
 curl -sS -X POST $CAT_CAFE_API_URL/api/callbacks/register-pr-tracking \
   -H 'Content-Type: application/json' \
-  -d "$(jq -nc --arg i "$CAT_CAFE_INVOCATION_ID" --arg t "$CAT_CAFE_CALLBACK_TOKEN" --arg repo "zts212653/cat-cafe" --argjson pr 100 --arg catId "opus" '{invocationId:$i,callbackToken:$t,repoFullName:$repo,prNumber:$pr,catId:$catId}')"
+  -d "$(jq -nc --arg i "$CAT_CAFE_INVOCATION_ID" --arg t "$CAT_CAFE_CALLBACK_TOKEN" --arg repo "zts212653/cat-cafe" --argjson pr 100 --arg intent "review" '{invocationId:$i,callbackToken:$t,repoFullName:$repo,prNumber:$pr,intent:$intent}')"
 ```
 
 ### Search Evidence (Hindsight)

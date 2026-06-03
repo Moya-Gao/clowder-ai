@@ -198,13 +198,21 @@ EOF
 
 ## Step 6.5: 注册 PR Tracking + CI 状态追踪
 
-PR 创建后通过 `cat_cafe_register_pr_tracking` 注册（需要 `repoFullName + prNumber`），CI/CD tracking 自动启动。
+PR 创建后通过 `cat_cafe_register_pr_tracking` 注册。**Outbound PR 是"等 CI 绿就 merge"场景
+（你是 maintainer，CI 过了用 `--admin` 合），所以必须传 `intent='merge'`** —— 这样 CI 全绿才会
+唤醒你去 merge。默认 `intent='review'` 是"等 review"用的、CI-pass **静默**（F140），开源 merge-wait
+路径用默认会漏掉"CI 绿了"的唤醒。
 
-| 条件 | 行为 |
+```text
+# CI 过了就 merge → 注册 merge intent（不是默认 review）
+cat_cafe_register_pr_tracking(repoFullName="<owner>/clowder-ai", prNumber=<N>, intent="merge")
+```
+
+| 条件 | 行为（intent=merge） |
 |------|------|
 | 仓库有 GitHub Actions | 系统自动轮询 CI 状态，失败/成功通知到 thread |
-| CI 失败 | 收到通知 → 查看失败检查 → 修复 → push → 等下一轮通知 |
-| CI 全绿 | 收到成功通知，可继续 merge 流程 |
+| CI 失败 | 收到通知（urgent）→ 查看失败检查 → 修复 → push → 等下一轮通知 |
+| CI 全绿 | **被唤醒（normal → merge-gate）** → 继续 merge 流程 |
 | 无 Actions / 无额度 | 跳过 CI 等待，依赖本地 `test:public` 结果 |
 
 > 详细通知格式、去重机制、处理策略 → [refs/cicd-tracking.md](cicd-tracking.md)

@@ -2614,6 +2614,61 @@ describe('Callback Routes', () => {
     assert.equal(found.threadId, 'thread-pr');
   });
 
+  // F140: wake intent — default 'review' (quiet), explicit 'merge', and re-register preserves it.
+
+  test('POST register-pr-tracking defaults intent to review and persists it structurally', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = await registry.create('user-1', 'opus', 'thread-pr');
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/register-pr-tracking',
+      headers: { 'x-invocation-id': invocationId, 'x-callback-token': callbackToken },
+      payload: { repoFullName: 'zts212653/cat-cafe', prNumber: 101 },
+    });
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(body.task.automationState.intent, 'review', 'absent intent persists as review');
+  });
+
+  test('POST register-pr-tracking accepts intent=merge', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = await registry.create('user-1', 'opus', 'thread-pr');
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/register-pr-tracking',
+      headers: { 'x-invocation-id': invocationId, 'x-callback-token': callbackToken },
+      payload: { repoFullName: 'zts212653/cat-cafe', prNumber: 102, intent: 'merge' },
+    });
+    assert.equal(response.statusCode, 200);
+    assert.equal(JSON.parse(response.body).task.automationState.intent, 'merge');
+  });
+
+  test('POST register-pr-tracking re-register without intent preserves a prior merge intent', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = await registry.create('user-1', 'opus', 'thread-pr');
+    const headers = { 'x-invocation-id': invocationId, 'x-callback-token': callbackToken };
+    // 1) register with merge intent
+    await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/register-pr-tracking',
+      headers,
+      payload: { repoFullName: 'zts212653/cat-cafe', prNumber: 103, intent: 'merge' },
+    });
+    // 2) re-register WITHOUT intent — must not silently downgrade to review
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/register-pr-tracking',
+      headers,
+      payload: { repoFullName: 'zts212653/cat-cafe', prNumber: 103 },
+    });
+    assert.equal(response.statusCode, 200);
+    assert.equal(
+      JSON.parse(response.body).task.automationState.intent,
+      'merge',
+      'intent-less re-register preserves merge',
+    );
+  });
+
   test('POST register-pr-tracking rejects invalid credentials', async () => {
     const app = await createApp();
 
@@ -2715,6 +2770,10 @@ describe('Callback Routes', () => {
         const error = new Error('subject ownership conflict');
         error.code = 'TASK_SUBJECT_OWNERSHIP_CONFLICT';
         throw error;
+      },
+      // F140: handler persists intent via patchAutomationState after a successful upsert.
+      async patchAutomationState(_taskId, patch) {
+        return { id: 'task-user-a', automationState: patch };
       },
     };
 

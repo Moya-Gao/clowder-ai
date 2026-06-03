@@ -1,6 +1,6 @@
 /**
- * #320: Standalone CI status fetcher extracted from CiCdCheckPoller.
- * Pure gh CLI calls — no store dependency.
+ * #320: Standalone CI status fetcher (pure gh CLI calls — no store dependency).
+ * Single source of truth for CI bucket/state interpretation, consumed by CiCdCheckTaskSpec.
  */
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -111,20 +111,22 @@ async function fetchCheckDetails(repoFullName: string, prNumber: number, log: Mi
   return [];
 }
 
-function normalizePrState(state: string, mergedAt: string | null): 'open' | 'merged' | 'closed' {
+export function normalizePrState(state: string, mergedAt: string | null): 'open' | 'merged' | 'closed' {
   if (mergedAt || state === 'MERGED') return 'merged';
   if (state === 'CLOSED') return 'closed';
   return 'open';
 }
 
-function normalizeBucket(bucket: string): CiBucket {
+export function normalizeBucket(bucket: string): CiBucket {
   const lower = bucket.toLowerCase();
   if (lower === 'pass' || lower === 'success') return 'pass';
   if (lower === 'fail' || lower === 'failure' || lower === 'error') return 'fail';
   return 'pending';
 }
 
-function computeAggregateBucket(rollup: Array<{ status: string; conclusion: string; __typename: string }>): CiBucket {
+export function computeAggregateBucket(
+  rollup: Array<{ status: string; conclusion: string; __typename: string }>,
+): CiBucket {
   if (rollup.length === 0) return 'pending';
   let hasFailure = false;
   let hasPending = false;

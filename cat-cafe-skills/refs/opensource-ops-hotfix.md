@@ -86,8 +86,10 @@ git push -u origin fix/{issue}
 gh pr create --title "fix: {简述}" --body "Fixes #{issue}"  # 同仓 PR body 裸 #N = GitHub auto-close，OK
 ```
 
-PR 创建后注册 tracking（`cat_cafe_register_pr_tracking`），CI/CD 自动追踪启动。
-如果仓库有 GitHub Actions，等 CI 通知（失败则修复后 push）；无 Actions 则依赖本地测试。
+PR 创建后注册 tracking。**Hotfix 是"等 CI 绿就 merge"场景，必须传 `intent='merge'`**：
+`cat_cafe_register_pr_tracking(repoFullName="<owner>/clowder-ai", prNumber=<N>, intent="merge")`。
+有 GitHub Actions 时，CI 全绿会唤醒你去 merge（失败也唤醒，修复后 push）；无 Actions 则依赖本地测试。
+（默认 `intent='review'` 只在"等 review"时用、CI-pass 静默，hotfix merge-wait **别用默认**。）
 详见 → [refs/cicd-tracking.md](cicd-tracking.md)
 
 ## Step 4: Cherry-pick 回 Main `[cat-cafe]`
