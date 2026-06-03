@@ -237,7 +237,7 @@ v1（稳，v0 验证后再做）：
 ## 技术准备清单
 
 - [ ] L0 加"重复纠偏检测"原则句
-- [ ] 写 `harness-diagnosis` skill（触发条件 + 诊断流程 + rich block 模板）
+- [x] ~~写 `code-as-harness` skill~~（已完成 + review 通过）
 - [ ] 准备 commit push 的历史 grep 数据（或 live grep）
 - [ ] 准备一张"之前给过的架构图"作为记忆失败的触发素材
 - [ ] 确认 F128 propose_thread + rich block 在 demo 环境可用

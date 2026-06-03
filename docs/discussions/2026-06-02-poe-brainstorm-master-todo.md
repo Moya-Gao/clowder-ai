@@ -19,8 +19,8 @@
 
 ### 🔴 阻塞 demo
 
-- [ ] **写 `harness-diagnosis` skill** — demo 三个场景的灵魂。触发：重复信号词（又/总是/多少次了）+ 情绪信号。动作：grep 证据 → 根因分类 → 弹 rich block 诊断卡 → 提议 F128。48 提议由他写，skill 不需要立 feat。来源：48 缺口分析
-- [ ] **L0 加"情绪+重复纠偏检测"原则句** — 配合 harness-diagnosis skill，告诉猫"当检测到重复不满时，先诊断再道歉"。来源：铲屎官 + 46 讨论
+- [x] ~~写 `code-as-harness` skill~~ — ✅ 已完成 + 砚砚/48 双 review 通过。证据驱动触发 + Build mode scope guard + BOOTSTRAP 注册。
+- [ ] **L0 加"证据驱动重复摩擦检测"原则句** — 配合 code-as-harness skill，告诉猫"感知到可能的重复信号时，先搜证据确认再诊断"。来源：铲屎官 + 46 讨论 + 48 review B1
 - [ ] **A2A 完整链路 demo 环境 dry-run** — 确认"传球→被唤醒猫出现→响应"在台上可见、可控。来源：48 风险审计
 
 ### 🟠 增强 demo 但不阻塞
@@ -28,7 +28,7 @@
 - [ ] **Cross-thread 重复统计（Signal Miner 最小版）** — grep 跨 thread 的"被骂次数"给诊断卡用。先 skill 级实现，完整版可立 feat。来源：OQ-4 §4.5
 - [ ] **F128 带任务上下文创建** — 平行猫一被创建就知道任务和该加载的 skill，不需要人再 @ 解释。来源：48 缺口分析
 - [ ] **Research pipeline 预跑** — 场景二的记忆升级 research 提前跑一遍验证结果，live 展示辩论环节。来源：砚砚/48 建议
-- [ ] **"翻车转化话术"准备** — 如果 demo 出 bug，当场用 harness-diagnosis 诊断自己。来源：48 反脆弱建议
+- [ ] **"翻车转化话术"准备** — 如果 demo 出 bug，当场用 code-as-harness 诊断自己。来源：48 反脆弱建议
 - [ ] **完整 run-through ×3** — 至少排练 3 次，记录卡点。来源：48
 
 ### 🟠 Demo 场景补充：Build mode（从零建 harness）
@@ -114,8 +114,8 @@
 ## 建议优先级
 
 ```
-第一优先：写 harness-diagnosis skill + L0 句 + A2A dry-run
-  → demo 能跑起来
+第一优先：code-as-harness skill ✅ + L0 句 + A2A dry-run
+  → demo 能跑起来（skill 已完成，剩 L0 + dry-run）
 
 第二优先：Permission Cancel 计数器 + Taste Index v0
   → 最低成本的新能力
