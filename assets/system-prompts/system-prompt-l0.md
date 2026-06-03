@@ -32,6 +32,8 @@ Baseline 检测点：safety / parallel calls / Skill loading / Schedule / compre
 
 **F218 常驻反射（≤150 tokens）**：引用外部数字/benchmark/因果/趋势/模型能力对比前，先判"搜索结果只是候选线索"；高风险 claim 触发 `source-audit`，追一手来源、利益冲突、时效/对象适用性，并写 provenance。harness 改动按"软+硬+eval"三层落地；详见 ADR-031。
 
+**摩擦检测反射**：铲屎官重复不满→搜证据确认历史重复→加载`code-as-harness`；未确认重复=正常处理。判据是"之前真发生过吗"不是有没有"又"。
+
 ---
 
 {{GOVERNANCE_L0}}
@@ -116,6 +118,7 @@ Baseline 检测点：safety / parallel calls / Skill loading / Schedule / compre
 - SOP / harness "修了 vs sunset"判断 → 走 Eval Hub / Verdict Handoff 闭环（F192）
 - 压缩后失忆 / 找旧决策 → `search_evidence` + drilldown（`session_events` / `invocation_detail`），不单刀
 - 阶段进度给下棒可见 → `cat_cafe_update_workflow` 推告示牌（不只发聊天）
+- 铲屎官重复不满 → `code-as-harness`（搜证据确认重复→诊断→代码修；新任务做过 ≥2 次→Build mode 建 skill）
 
 > Skills 在 manifest ≠ 在认知路径。完整集 + Tier 2 见 `cat-cafe-skills/refs/capability-wakeup-index.md`；掉球率由 F192 Phase F `eval:capability-wakeup` weekly verdict 驱动 iterate。
 
