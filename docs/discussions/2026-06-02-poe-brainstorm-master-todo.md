@@ -61,11 +61,9 @@
 
 ## 三、Memory / Taste（Taste Memory 设计的落地）
 
-- [ ] **Taste Index v0 — 手工策展** — 10 条 anchors + 20 条 vignette refs。从现有 feedback 里提炼。来源：Taste Memory 设计 §8
-- [ ] **给现有 feedback 文件加 `taste: true` 标签** — 不改结构，只加一个 bit。来源：46 建议
-- [ ] **5-10 条 taste anchors 写入 L0 或 shared-rules** — 从 feedback 提纯。来源：Taste Memory 设计 §6.3
-- [ ] **月度 taste digest 机制** — 每月从 vignette 提炼 3-5 条更新。来源：Taste Memory 设计 §8.4
-- [ ] **云端砚砚 pro HF 调研** — 2026-06 embedding 模型 + 本地小模型选型。来源：OQ-4 §4.6
+- [x] ~~F221 Taste Lane Phase A~~ — ✅ **已合入 main**（PR #2073, commit f1d23f72d）。docs/taste/ evidence lane（7 维度 index + 8 种子 vignettes）+ code-as-harness taste 路径。gpt52 跨族 review 3 轮通过。
+- [ ] **月度 taste digest 机制** — 每月从 vignette 提炼 3-5 条更新。来源：Taste Memory 设计 §8.4（v1）
+- [x] ~~云端砚砚 pro HF 调研~~ — ✅ 已完成（铲屎官确认）
 
 ---
 
