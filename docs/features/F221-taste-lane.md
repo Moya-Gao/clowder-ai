@@ -8,7 +8,7 @@ created: 2026-06-03
 
 # F221: Taste Lane — per-user 品味导航
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: done | **Owner**: 布偶猫 | **Priority**: P1 | **Completed**: 2026-06-03
 
 ## Architecture Ownership
 
@@ -84,12 +84,12 @@ taste 信号（"这不美"/"太客服了"/"aha"/"这就是我要的"）
 ## Acceptance Criteria
 
 ### Phase A（Taste Lane + code-as-harness taste 路径）
-- [ ] AC-A1: `docs/taste/index.md` 存在，含 ≥5 条 taste entries（关键词 + 维度 + vignette 链接）
-- [ ] AC-A2: `docs/taste/vignettes/` 含 ≥5 个种子 vignettes（从最高信号 feedback 写成场景，保留原话）
-- [ ] AC-A3: `search_evidence("taste 客服式结尾")` 命中 index 或 vignette
-- [ ] AC-A4: code-as-harness SKILL.md 含 taste 路径（信号→写 vignette），区分 taste 信号 vs harness 缺陷
-- [ ] AC-A5: Outbound sync dry-run 不含 `docs/taste/` 内容
-- [ ] AC-A6: 敏感 vignette 在 `private/taste/`，非敏感在 `docs/taste/vignettes/`
+- [x] AC-A1: `docs/taste/index.md` 存在，含 ≥5 条 taste entries（关键词 + 维度 + vignette 链接）
+- [x] AC-A2: `docs/taste/vignettes/` 含 ≥5 个种子 vignettes（从最高信号 feedback 写成场景，保留原话）
+- [x] AC-A3: `search_evidence("taste 客服式结尾")` 命中 index 或 vignette
+- [x] AC-A4: code-as-harness SKILL.md 含 taste 路径（信号→写 vignette），区分 taste 信号 vs harness 缺陷
+- [x] AC-A5: Outbound sync dry-run 不含 `docs/taste/` 内容
+- [x] AC-A6: 敏感 vignette 在 `private/taste/`，非敏感在 `docs/taste/vignettes/`
 
 ## Dependencies
 
@@ -106,6 +106,7 @@ taste 信号（"这不美"/"太客服了"/"aha"/"这就是我要的"）
 | 2026-06-01 | Taste Memory 设计文档（砚砚初稿 + 47 review + 46 补充） |
 | 2026-06-03 | 铲屎官拉闸「脚手架」→ 三猫收敛终态 |
 | 2026-06-03 | F221 立项 |
+| 2026-06-03 | Phase A merged (PR #2073) — taste evidence lane + code-as-harness taste pathway |
 
 ## Links
 
