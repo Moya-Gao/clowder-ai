@@ -61,6 +61,7 @@
     "test:api:redis": "pnpm --filter @cat-cafe/api run test:redis",
     "test:api:redis:repeat": "pnpm --filter @cat-cafe/api run test:redis:repeat",
     "check:dir-size": "bash scripts/check-dir-size.sh",
+    "check:gate-ci-parity": "node --test scripts/check-gate-ci-parity.test.mjs",
     "check:root-debris": "node --test scripts/clean-root-debris.test.mjs scripts/pre-commit-root-hygiene.test.mjs",
     "check:source-hygiene": "node --test scripts/f218-source-hygiene.test.mjs",
     "clean:root-debris": "bash scripts/clean-root-debris.sh",
