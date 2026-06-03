@@ -12,7 +12,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { type CatId, type ContextHealth, catRegistry, type MessageContent, type SessionRecord } from '@cat-cafe/shared';
 import { context, SpanStatusCode, trace } from '@opentelemetry/api';
 import {
@@ -69,6 +69,8 @@ import { resolveBootcampWorkspaceRoot } from '../../bootcamp/workspace-root.js';
 import { createPromptDigest } from '../../context/prompt-digest.js';
 import { AuditEventTypes, getEventAuditLog } from '../../orchestration/EventAuditLog.js';
 import { resolveDefaultClaudeMcpServerPath } from '../providers/ClaudeAgentService.js';
+import { compileL0ViaSubprocess } from '../providers/l0-compiler.js';
+import { OC_INSTRUCTIONS_ONLY_ENV } from '../providers/OpenCodeAgentService.js';
 import {
   deriveOpenCodeApiType,
   OC_API_KEY_ENV,
@@ -76,6 +78,7 @@ import {
   parseOpenCodeModel,
   safeProviderName,
   summarizeOpenCodeRuntimeConfigForDebug,
+  writeOpenCodeInstructionsOnlyConfig,
   writeOpenCodeRuntimeConfig,
 } from '../providers/opencode-config-template.js';
 import { appendTranscriptPathHints } from '../providers/transcript-path-hints.js';
@@ -136,6 +139,7 @@ import type { TranscriptSessionInfo, TranscriptWriter } from '../../session/Tran
 import type { ISessionChainStore } from '../../stores/ports/SessionChainStore.js';
 import type { IThreadStore } from '../../stores/ports/ThreadStore.js';
 import type { AgentMessage, AgentService, AgentServiceOptions } from '../../types.js';
+import { hasL0CompilerSeam } from '../../types.js';
 import type { InvocationRegistry } from '../invocation/InvocationRegistry.js';
 import { completeCapsuleForSeal, type RouteStateContinuityCapsule } from './CollaborationContinuityCapsule.js';
 import type { ResumeFailureKind } from './invoke-helpers.js';
@@ -1322,6 +1326,54 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     const mcpServerPath = configuredMcpServerPath
       ? resolve(process.cwd(), configuredMcpServerPath)
       : resolveDefaultClaudeMcpServerPath();
+
+    // F203 Phase I: compile L0 for OpenCode BEFORE the runtime config condition.
+    // OpenCodeAgentService.injectsL0Natively() = true, so the route layer does
+    // pack-only. We MUST ensure every OpenCode invocation path gets compiled L0
+    // in the runtime config's instructions array — otherwise the cat loses its
+    // identity/governance/roster post-compaction (砚砚 P1 guard).
+    //
+    // The L0 file is written into the per-invocation config dir (P2: no separate
+    // dir leak — cleaned up together with the runtime config in finally).
+    let openCodeL0InstructionPaths: string[] | undefined;
+    if (provider === 'opencode') {
+      try {
+        // Use service's injectable l0CompilerFn if available (test seam, like Claude/Codex),
+        // otherwise fall back to the subprocess compiler (production path).
+        // l0CompilerFn via typed guard (no `any` — L0InjectableAgentService in types.ts).
+        // hasL0CompilerSeam guarantees l0CompilerFn is a function (type guard checks typeof),
+        // but TS narrows to `L0CompilerFn | undefined`. Use `?? compileL0ViaSubprocess` as
+        // the undefined branch is unreachable post-guard — avoids biome noNonNullAssertion.
+        const compilerFn = (hasL0CompilerSeam(service) && service.l0CompilerFn) || compileL0ViaSubprocess;
+
+        const l0Content = await compilerFn({ catId: catId as string });
+        // Write compiled L0 into the runtime config dir (created below or reused).
+        const safeCatId = (catId as string).replace(/[^a-zA-Z0-9._-]+/g, '-');
+        const safeInvocationId = invocationId.replace(/[^a-zA-Z0-9._-]+/g, '-');
+        const configDir = join(projectRoot, '.cat-cafe', `oc-config-${safeCatId}-${safeInvocationId}`);
+        mkdirSync(configDir, { recursive: true });
+        const l0Path = join(configDir, 'system-prompt-l0.md');
+        writeFileSync(l0Path, l0Content, 'utf8');
+        // Resolve OPENCODE.md from project root (OpenCode-specific addendum: question deny, interaction channel).
+        const opencodeInstructionsPath = resolve(projectRoot, 'OPENCODE.md');
+        openCodeL0InstructionPaths = [l0Path, opencodeInstructionsPath];
+        log.debug(
+          { catId, invocationId, l0Path, opencodeInstructionsPath, l0Bytes: l0Content.length },
+          'Compiled L0 for OpenCode (F203 Phase I)',
+        );
+      } catch (err) {
+        // Fail-closed: L0 compilation failure = cat invocation without identity is dangerous.
+        // Log and throw — do not proceed with a naked invocation.
+        log.error(
+          { catId, invocationId, err: err instanceof Error ? err.message : String(err) },
+          'F203 Phase I: L0 compilation failed for OpenCode — fail-closed, aborting invocation',
+        );
+        throw new Error(
+          `F203 fail-closed: cannot compile L0 for OpenCode cat ${catId as string}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
     if (
       provider === 'opencode' &&
       resolvedAccount != null &&
@@ -1348,6 +1400,8 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         apiType,
         hasBaseUrl: Boolean(resolvedAccount.baseUrl),
         mcpServerPath,
+        // F203 Phase I: inject compiled L0 + OPENCODE.md into instructions.
+        instructions: openCodeL0InstructionPaths,
       } as const;
       openCodeRuntimeConfigPath = writeOpenCodeRuntimeConfig(
         projectRoot,
@@ -1373,6 +1427,26 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           runtimeConfigSummary: summarizeOpenCodeRuntimeConfigForDebug(runtimeConfigOptions),
         },
         'Prepared OpenCode runtime config',
+      );
+    } else if (provider === 'opencode' && openCodeL0InstructionPaths) {
+      // F203 Phase I safety net (砚砚 P1 three-path guard): when the full runtime
+      // config condition is NOT met (e.g. subscription mode, no resolvedAccount,
+      // known legacy model without MCP), we STILL need instructions in a config
+      // so the cat doesn't lose its L0 identity.
+      //
+      // P1-1 fix: use instructions-only config (no provider block) + signal
+      // OC_INSTRUCTIONS_ONLY_ENV so buildEnv does NOT clear native auth.
+      openCodeRuntimeConfigPath = writeOpenCodeInstructionsOnlyConfig(
+        projectRoot,
+        catId as string,
+        invocationId,
+        openCodeL0InstructionPaths,
+      );
+      callbackEnv.OPENCODE_CONFIG = openCodeRuntimeConfigPath;
+      callbackEnv[OC_INSTRUCTIONS_ONLY_ENV] = '1';
+      log.info(
+        { catId, invocationId, openCodeConfigPath: openCodeRuntimeConfigPath },
+        'F203 Phase I: wrote instructions-only OpenCode config (fallback path, auth preserved)',
       );
     }
 

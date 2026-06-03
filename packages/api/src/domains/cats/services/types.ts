@@ -298,3 +298,23 @@ export interface AgentService {
    */
   injectsL0Natively?(): boolean;
 }
+
+/**
+ * F203 Phase I — L0 compiler function signature.
+ * Same as `compileL0ViaSubprocess` but injectable for testing.
+ */
+export type L0CompilerFn = (options: { catId: string; outPath?: string }) => Promise<string>;
+
+/**
+ * F203 Phase I — AgentService that carries an injectable L0 compiler seam.
+ * OpenCodeAgentService implements this; Claude/Codex services keep their own
+ * private l0CompilerFn (different lifecycle — they compile L0 internally).
+ */
+export interface L0InjectableAgentService extends AgentService {
+  readonly l0CompilerFn?: L0CompilerFn;
+}
+
+/** Type guard: does this service expose an injectable L0 compiler? */
+export function hasL0CompilerSeam(service: AgentService): service is L0InjectableAgentService {
+  return 'l0CompilerFn' in service && typeof (service as L0InjectableAgentService).l0CompilerFn === 'function';
+}
