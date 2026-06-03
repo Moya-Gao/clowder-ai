@@ -193,6 +193,14 @@ Cat Wu 那期 Anthropic 产品访谈补上了一个外部锚点：AI-native PM �
 
 别人做 harness，常常是写完 prompt 就放着。我们的 harness 有生命周期：出生于 failure mode，成长于真实轨迹，接受 eval 审判，在模型升级时主动减法。
 
+### 回应"国内企业不能用 Claude/GPT"
+
+常见挑战："国内不能用外模型，你们的 harness 没价值。"
+
+**回答**：Failure mode 不按品牌分，按能力等级分。未来的 GLM / Qwen / Kimi 到达当前水平时，它们的失败模式画像是**各已知 failure mode 的混合**——每一种我们大概率都踩过、命名过、补偿过。新模型来了不是重写 harness，是**从 failure mode index 里选组合，快速适配**。
+
+更深一层：**从 demo 到商用的距离才是真壁垒**。模型能力到位 ≠ 产品能用。Cat Cafe 120+ 天、6400+ commit、240+ features 打磨出来的 harness 智慧——每一条 Magic Word 是一次真实的痛，每一条 feedback 是一次真实的纠偏——**这些不能被跳过，也不能被压缩**。别人等国产模型够强后从零开始打磨，他们的 day 1 是我们的 day 120。我们卖的不是 harness 代码，是这 120 天踩出来的、可按 failure mode 组合复用的 harness 智慧。
+
 ## 六、6 层总架构（砚砚的文字版架构图）
 
 ```
