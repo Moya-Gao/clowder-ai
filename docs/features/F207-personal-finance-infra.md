@@ -114,8 +114,8 @@ created: 2026-05-18
 |-------|---------|---------|------|
 | S1: Tushare | ~~2000 分能拉沪深 300 日线 + PE~~ | ~~已被 ttfund 替代~~ | **降级** — ttfund 覆盖指数估值，Tushare 变可选 |
 | S2: FRED | 拉美国 CPI 月度序列（CPIAUCSL） | 返回时间序列，最新月有数据 | **PASS** — CPI/美债/联邦利率全通（2026-05-20） |
-| S3: yfinance | 连续拉 20+ 标的日线 + 费率，间隔重复 3 天 | 不触发封禁/rate limit，数据齐全 | **Day 1 PASS** — 21/21 标的通，费率字段 N/A（已知限制） |
-| S4: AKShare | 拉 QDII 净值 + 中国 PMI + 国债收益率，间隔重复 3 天 | 接口稳定可用（非单次快照） | **Day 1 部分通过** — 基金/PMI/国债 OK，LPR/Shibor SSL 失败 |
+| S3: yfinance | 连续拉 20+ 标的日线 + 费率，间隔重复 3 天 | 不触发封禁/rate limit，数据齐全 | **PASS**（Day 1 + Day 2 间隔 13 天）— BND/QQQ/VOO/GLD/沪深300 稳定；VTI/VXUS 需用日期范围查询（`period=` 偶发报 delisted）；费率字段 N/A（已知限制） |
+| S4: AKShare | 拉 QDII 净值 + 中国 PMI + 国债收益率，间隔重复 3 天 | 接口稳定可用（非单次快照） | **PASS（有条件）**（Day 1 + Day 2 间隔 13 天）— 国债收益率/GDP 连续稳定；LPR Day 1 SSL 挂→Day 2 恢复（暂时性）；Shibor Day 1 失败是参数错误（`上海银行同业拆借市场` 非 `中国银行间`）；CPI Day 2 jin10.com SSL 新暴露。**结论**：东方财富系后端基本可靠，jin10.com 后端不稳定——connector 实现需按后端分 SLA |
 | S5: MCP 集成 | FinanceMCP / fred-mcp-server 在 Claude Code 中可调 | 验证 raw provider 连通性（spike 证据） | 待测 |
 | **S6: ttfund-skills** | **天天基金官方 API 16 个 skill 端点** | **基金信息/NAV/指数估值/持仓/黄金/债券可用** | **PASS** — 砚砚验证 3 个端点 + 布偶猫验证指数估值（PE 百分位全覆盖） |
 
@@ -317,7 +317,8 @@ AUDHD 护栏设计：
 | 2026-05-19 | B-spike 启动：S2 FRED ✅ PASS、S3 yfinance Day 1 ✅ PASS（fees N/A）、S4 AKShare Day 1 ⚠️ partial（LPR/Shibor SSL 失败，债券收益率 OK） |
 | 2026-05-20 | 砚砚安装 ttfund-skills（commit db4d013ed）→ S6 ttfund ✅ PASS（3 端点验证） |
 | 2026-05-20 | **KD-9 pivot**：ttfund-skills 覆盖 PE 百分位 → Tushare 降为可选 → 年预算 0 元 |
-| TBD | S3/S4 Day 2-3 持续测试、S5 MCP 集成 spike |
+| 2026-06-03 | B-spike Day 2（间隔 13 天）：S3 yfinance ✅ PASS（VTI/VXUS 用日期范围查询正常）、S4 AKShare ✅ 条件 PASS（LPR 恢复、Shibor 参数修正 OK、CPI jin10 SSL 新暴露→按后端分 SLA） |
+| TBD | S5 MCP 集成 spike |
 | TBD | B0 定契约 → B1 接稳定源 → B2 接脆弱源 |
 
 ## Review Gate
