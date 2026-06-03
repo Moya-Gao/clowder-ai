@@ -1520,6 +1520,13 @@ async function main(): Promise<void> {
     redis: redisClient ?? undefined,
   });
 
+  // F192 Phase G: Task Outcome Episode — L3 eval signals.
+  const { TaskOutcomeEpisodeStore } = await import('./infrastructure/harness-eval/task-outcome/task-outcome-store.js');
+  const taskOutcomeDbPath = process.env.TASK_OUTCOME_DB ?? resolve(repoRoot, 'task-outcome-episodes.sqlite');
+  const taskOutcomeStore = new TaskOutcomeEpisodeStore(taskOutcomeDbPath);
+  const { taskOutcomeRoutes } = await import('./routes/task-outcome.js');
+  await app.register(taskOutcomeRoutes, { store: taskOutcomeStore });
+
   // F153: Prompt X-Ray debug routes
   const { promptCaptureRoutes } = await import('./routes/prompt-captures.js');
   await app.register(promptCaptureRoutes);
@@ -1731,6 +1738,37 @@ async function main(): Promise<void> {
     ruleStore: authRuleStore,
     auditStore: authAuditStore,
     socketManager,
+    onPermissionCancel: (input) => {
+      try {
+        // taskOutcomeStore is created earlier in this file (F192 Phase G).
+        // Auth reason is free-text, not cancel category — default to 'skip'.
+        // Structured cancel reason comes from frontend popup (AC-G10).
+        taskOutcomeStore.appendSignal(
+          (
+            taskOutcomeStore.getActiveEpisode(input.threadId) ??
+            taskOutcomeStore.createEpisode({
+              trigger: 'cat_initiated',
+              threadId: input.threadId,
+              participants: input.catId ? [input.catId] : [],
+            })
+          ).episodeId,
+          {
+            category: 'a2',
+            record: {
+              type: 'permission_cancel',
+              toolName: input.toolName,
+              paramsSummary: input.paramsSummary,
+              reason: 'skip',
+              timestamp: new Date().toISOString(),
+              catId: input.catId,
+              threadId: input.threadId,
+            },
+          },
+        );
+      } catch {
+        // Best-effort: don't break authorization flow
+      }
+    },
   });
   await app.register(threadsRoutes, {
     threadStore,
@@ -2605,6 +2643,33 @@ async function main(): Promise<void> {
           },
           threadId,
         );
+      },
+      // F192 Phase G: wire PR merge/close events to task-outcome episodes
+      onPrLifecycle: (event) => {
+        try {
+          const ep =
+            taskOutcomeStore.getActiveEpisode(event.threadId) ??
+            taskOutcomeStore.createEpisode({
+              trigger: 'cat_initiated',
+              threadId: event.threadId,
+              participants: [],
+            });
+          taskOutcomeStore.appendSignal(ep.episodeId, {
+            category: 'a1',
+            record: {
+              type: event.type,
+              ref: event.ref,
+              outcome: event.outcome,
+              timestamp: new Date().toISOString(),
+            },
+          });
+          // Auto-complete on merge+success (same logic as handleA1WorldTruth)
+          if (ep.terminalState === 'in_progress' && event.type === 'merge' && event.outcome === 'success') {
+            taskOutcomeStore.updateTerminalState(ep.episodeId, 'completed');
+          }
+        } catch {
+          // Best-effort: don't break CI/CD routing
+        }
       },
     });
 

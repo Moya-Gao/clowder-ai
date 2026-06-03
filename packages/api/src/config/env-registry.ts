@@ -1517,6 +1517,13 @@ export const ENV_VARS: EnvDefinition[] = [
     sensitive: false,
   },
   {
+    name: 'TASK_OUTCOME_DB',
+    defaultValue: '{repoRoot}/task-outcome-episodes.sqlite',
+    description: 'F192 Phase G Task Outcome Episode SQLite 数据库路径',
+    category: 'evidence',
+    sensitive: false,
+  },
+  {
     name: 'F102_API_BASE',
     defaultValue: '(未设置 → 摘要调度器不启用)',
     description: 'Phase G 摘要调度用的反代 API 地址（不是猫猫自己的 provider profile）',

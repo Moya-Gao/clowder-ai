@@ -8,7 +8,7 @@ created: 2026-05-07
 
 # F192: Socio-Technical Harness Eval — harness 共创评估体系
 
-> **Status**: in-progress (reopened 2026-05-27 for Phase F `eval:capability-wakeup`) | **Owner**: 布偶猫 | **Phases A-E completed**: 2026-05-27
+> **Status**: in-progress (Phase G `eval:task-outcome` v0) | **Owner**: 布偶猫 | **Phases A-E completed**: 2026-05-27
 
 ## Architecture Ownership
 
@@ -238,6 +238,29 @@ Phase E 将 F192 从单域试点提升为横切的 Harness Eval Control Plane：
    - **Status (2026-05-29)**: 第一版 implemented-then-parked in PR #1942（branch `feat/f192-capability-wakeup`，归档保留）。6+ 轮云端 review 暴露根因：trace/trials approach（"reconstruct from heterogeneous events + scattered scope binding"）补锅-prone（31 inline comments，65% 聚集 trials.ts+trace.ts）。**Clean reboot in progress**：transplant 已稳定的 source-instrumented blocks（domain plumbing / route audits / verdict+bundle）+ 按对的坐标系（**normalize-at-boundary + centralize-scope**）重写 trials.ts/trace.ts。详见 `docs/plans/2026-05-29-F192-phase-f-clean-reboot.md`（含 transplant block list + 反模式 checklist 抽自旧 PR 31 cloud comments）。Owner: gpt52（砚砚）author + opus-47 收口策略 + cross-individual review。
 4. First weekly verdict cycle（real data 第一刀）
 5. L0 §8 v2 数据驱动 iterate（去掉低 miss-rate 条目 / 加新发现的高 miss-rate 场景）
+
+### Phase G（`eval:task-outcome` — L3 任务交付质量 v0）
+
+来源 2026-06-01 审计（`docs/discussions/2026-06-01-f192-eval-coverage-audit.md`）暴露 L3 任务交付质量是最大结构性盲区。三猫 + 铲屎官收敛终态计划（`docs/discussions/2026-06-03-eval-task-outcome-plan.md`）：**Ground truth 从用户已在做的决策中自然掉出来（决策即标注），不让用户做标注员。Proxy 只导航不判定。**
+
+**核心设计**：
+- **Episode** 是评价对象（一整个任务生命周期），不是单条消息
+- **Verdict** 是分类不是分数：success / corrected_success / needs_investigation / harness_fix_needed / routing_failure / taste_mismatch / abandoned
+- **信号三支柱**：A1 世界真值（merge/revert，自动零成本）+ A2 嵌入交互决策（permission cancel + magic word，几乎零额外成本）+ Proxy（导航不判定）
+
+- [x] AC-G1: TaskOutcomeEpisode Zod schema 定义——含 episodeId、trigger、threadId、participants、artifacts、signals（a1WorldTruth / a2InteractionDecisions / proxy）、terminalState、verdict（nullable categorical）、createdAt
+- [x] AC-G2: Permission Cancel 记录——signal builder + store，字段含 toolName / paramsSummary / reason（should_not_do / wrong_direction / i_will_do_it / skip） / timestamp / catId / threadId / sessionId
+- [x] AC-G3: Magic Word 上下文记录——signal builder + store，字段含 word / timestamp / threadId / catId / 前后消息摘要（可选）
+- [x] AC-G4: A1 世界真值信号——signal builder，字段含 type（merge / revert / test_pass / test_fail / build_pass / build_fail） / ref / outcome / timestamp
+- [x] AC-G5: SQLite-backed Episode Store——创建 / 查询 / 追加信号 / 更新终态 / 更新 verdict / 按 thread 列表 / 待 verdict 列表 / 获取活跃 episode
+- [x] AC-G6: API route handlers——handlePermissionCancel / handleMagicWord / handleA1WorldTruth / handleGetEpisode / handleListEpisodes（自动创建 episode if none active）
+- [x] AC-G7: eval:task-outcome 域注册——扩展 domainId enum + sourceAdapter enum + DOMAIN_INSTRUCTIONS + YAML registry file + verdict handoff domainId
+- [x] AC-G8: 授权系统集成——authorization respond 路由在 deny 时触发 onPermissionCancel hook（best-effort）
+- [x] AC-G9: Shared types——CANCEL_REASON_OPTIONS + CancelReasonValue + PermissionCancelEvent 导出到 @cat-cafe/shared 供前端使用
+- [ ] AC-G10: Cancel 理由浮层前端——cancel 后弹轻量浮层（可选：不该做/方向不对/我自己来/跳过）
+- [ ] AC-G11: 端到端验证——cancel → 记录 + 理由 → 绑 episode → eval hub 可见
+
+依赖：复用 F192 已有 Eval Domain Registry / Verdict Handoff / Re-eval Closure / Eval Hub 控制面。
 
 ## 需求点 Checklist
 
@@ -503,6 +526,9 @@ Based on the first micro fit digest (2026-05-11):
 | 2026-05-31 | **OQ-20 merged (PR #1982)** — Eval Hub domain card: roster-backed `<select>` for evalCat override (Redis-persisted, cron reads override) + `nextCronFireAt` for ALL domains. gpt52 3-round review (5 findings all fixed: roster validation, available=false rejection, domainId registry check, nextCronFireAt semantics, summary read-path decoupling). Cloud P1 downgraded P3 (theoretical `owner` entry not in real roster). |
 | 2026-05-29 | **Scheduler stream visibility fix merged (PR #1946, squash `852f6f8c`)** — clowder-ai#796 / Tianyi eval dogfood exposed that scheduled eval replies were persisted under `scheduler` user scope, so `default-user` could not see stream-origin assistant replies after refresh. Fix split trigger identity from invocation owner identity: scheduler trigger messages remain `scheduler`, eval cat invocations use configured owner, and scheduler reply user-id backfill v2 now repairs both `callback` and `stream` replies. Cloud review P1 caught eval-domain system threads created with `createdBy=system`; fix injects configured owner into backfill for `systemKind='eval_domain'` threads before writing v2 marker. Gate + cloud R2 + opus continuity review passed. |
 | 2026-06-03 | **C2 observability dimensions added (eval:a2a build verdict 2026-06-03)** — 06-01 / 06-03 两次 C2 verdict-no-pass 比率越过 5% floor（20.8% / 16.7%），中间一天 clean = **intermittent recurrent**。砚砚 `build` verdict（不是 `fix`）：先补可归因维度，让下一次 eval 能区分 review/eval 语境噪音 vs 真实产品线程摩擦。所有 5 个 C2 counter（`c2.exit_checked` / `c2.void_hold_checked` / `c2.verdict_hint_emitted` / `c2.verdict_without_pass_count` / `c2.void_hold_hint_emitted`）加 `thread.system_kind` label（`eval_domain` / `connector_hub` / `product`）；verdict fire 两个 counter 额外用现有 `trigger` semconv 装 keyword（`lgtm` / `approve` / `reject` / `p1p2` / `modify_suggestion` / `approve_cn` / `reject_cn` / `unknown`）。`verdict-detect.ts` 加 `detectMatchedVerdictKeyword`，重构 `VERDICT_PATTERNS` 为 named structure 保持 `hasReviewVerdict` 行为不变。砚砚 R1 抓出 P1：新 labels 必须进 F152 `metric-allowlist.ts`，否则 OTel SDK 静默丢弃 → observability 目标空转。已加 `THREAD_SYSTEM_KIND` 到 genai-semconv + 进 allowlist；keyword label 改用现有 `TRIGGER`（避免新增 key），加 metric-allowlist 回归测试。**纯 observability，无行为改动**——下一次 eval 可按 thread.system_kind / trigger 切分，判定真正的 fix 方向（bypass `eval_domain` 还是 tune VERDICT_PATTERNS 减少 p1p2 overload）。基于上轮（2026-05-29 → 06-02）"wait-one-cycle"教训：单日 anomaly 让 re-eval 自闭，连续复现才算 owner-action territory。 |
+
+| 2026-06-03 | **Phase G scoped: eval:task-outcome v0** — 三猫 + 铲屎官收敛（`docs/discussions/2026-06-03-eval-task-outcome-plan.md`）。补 L3 最大 gap：任务交付质量。核心认知：决策即标注，不做标注员；Episode 是评价对象；Verdict 不叫 score。v0 scope 含 TaskOutcomeEpisode schema / Permission Cancel 记录 / Magic Word 上下文记录 / A1 世界真值绑定 / eval:task-outcome 域注册。 |
+| 2026-06-03 | **Phase G v0 implementation (AC-G1 through AC-G9)** — 9/11 AC 完成：TaskOutcomeEpisode Zod schema + PermissionCancelRecord/MagicWordRecord/A1WorldTruthRecord + signal builders + SQLite-backed episode store + route handlers + eval domain registration (domainId/sourceAdapter/DOMAIN_INSTRUCTIONS/YAML) + authorization deny hook + shared types for frontend cancel reason popup. 87 tests all green, 0 regression on existing harness-eval tests. Remaining: AC-G10 前端 cancel 理由浮层 + AC-G11 端到端验证。 |
 
 ## Review Gate
 
