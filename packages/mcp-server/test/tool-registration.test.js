@@ -118,6 +118,8 @@ const EXPECTED_TOOLS = [
   // F195 Phase C3: Advisory mode tools
   'cat_cafe_audio_set_advisory_mode',
   'cat_cafe_audio_set_talking_points',
+  // F207 Phase B0: finance fact layer
+  'cat_cafe_finance_query',
 ];
 
 const EXPECTED_COLLAB_TOOLS = [
@@ -207,6 +209,9 @@ const EXPECTED_SIGNAL_TOOLS = [
 // F193 Phase C: limb tools (布偶猫专属能力 namespace) get their own server.
 const EXPECTED_LIMB_TOOLS = ['limb_list_available', 'limb_invoke', 'limb_pair_list', 'limb_pair_approve'];
 
+// F207 Phase B0: finance fact tools get their own read-only data-plane server.
+const EXPECTED_FINANCE_TOOLS = ['cat_cafe_finance_query'];
+
 function assertUnique(values, label) {
   assert.equal(new Set(values).size, values.length, `${label} must not contain duplicate tool names`);
 }
@@ -218,6 +223,7 @@ describe('MCP Server Tool Registration', () => {
     assertUnique(EXPECTED_MEMORY_TOOLS, 'EXPECTED_MEMORY_TOOLS');
     assertUnique(EXPECTED_SIGNAL_TOOLS, 'EXPECTED_SIGNAL_TOOLS');
     assertUnique(EXPECTED_LIMB_TOOLS, 'EXPECTED_LIMB_TOOLS');
+    assertUnique(EXPECTED_FINANCE_TOOLS, 'EXPECTED_FINANCE_TOOLS');
   });
 
   test('all expected tools are registered via createServer()', async () => {
@@ -362,6 +368,14 @@ describe('MCP Server Tool Registration', () => {
 
     assert.deepEqual([...registered].sort(), [...EXPECTED_LIMB_TOOLS].sort());
   });
+
+  test('F207 AC-B5: createFinanceServer registers only finance fact tool surface', async () => {
+    const { createFinanceServer } = await import('../dist/finance.js');
+    const server = createFinanceServer();
+    const registered = Object.keys(server._registeredTools);
+
+    assert.deepEqual([...registered].sort(), [...EXPECTED_FINANCE_TOOLS].sort());
+  });
 });
 
 // --- F061 Phase 2: READONLY_ALLOWED_TOOLS whitelist ---
@@ -427,6 +441,8 @@ const EXPECTED_READONLY_TOOLS = [
   'signal_list_studies',
   // F061 Bug-F workaround: read-only shell exec whitelist enforced at handler level
   'cat_cafe_shell_exec',
+  // F207 Phase B0: read-only finance fact layer wrapper
+  'cat_cafe_finance_query',
 ];
 
 describe('F061 READONLY_ALLOWED_TOOLS whitelist', () => {

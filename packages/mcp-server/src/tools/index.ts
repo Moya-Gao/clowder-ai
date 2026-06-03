@@ -86,6 +86,12 @@ export {
   readFileSliceInputSchema,
 } from './file-tools.js';
 export {
+  createFinanceQueryHandler,
+  financeQueryInputSchema,
+  financeTools,
+  handleFinanceQuery,
+} from './finance-tools.js';
+export {
   gameActionTools,
   handleSubmitGameAction,
   submitGameActionInputSchema,

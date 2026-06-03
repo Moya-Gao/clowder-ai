@@ -8,6 +8,7 @@ import {
   externalRuntimeSessionCallbackTools,
   externalRuntimeSessionReadTools,
   fileSliceTools,
+  financeTools,
   gameActionTools,
   graphTools,
   libraryLifecycleTools,
@@ -60,6 +61,8 @@ export const READONLY_ALLOWED_TOOLS = new Set([
   'signal_list_studies',
   // Shell exec (F061 Bug-F workaround — read-only whitelist enforced at tool level)
   'cat_cafe_shell_exec',
+  // F207 Phase B0: finance fact queries are read-only and credential-safe at wrapper boundary.
+  'cat_cafe_finance_query',
 ]);
 
 /**
@@ -111,6 +114,7 @@ const memoryTools: readonly ToolDef[] = applyReadonlyFilter([
 ]);
 
 const signalTools: readonly ToolDef[] = applyReadonlyFilter([...signalsTools, ...signalStudyTools]);
+const financeNodeTools: readonly ToolDef[] = applyReadonlyFilter([...financeTools]);
 
 function registerTools(server: McpServer, tools: readonly ToolDef[]): void {
   for (const tool of tools) {
@@ -147,10 +151,15 @@ export function registerAudioToolset(server: McpServer): void {
   registerTools(server, audioNodeTools);
 }
 
+export function registerFinanceToolset(server: McpServer): void {
+  registerTools(server, financeNodeTools);
+}
+
 export function registerFullToolset(server: McpServer): void {
   registerCollabToolset(server);
   registerMemoryToolset(server);
   registerSignalToolset(server);
   registerLimbToolset(server);
   registerAudioToolset(server);
+  registerFinanceToolset(server);
 }
