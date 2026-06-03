@@ -79,11 +79,16 @@ timeout → invoke-single-cat 收不到 `done` → UI "正在回复"卡死。
 - 加 `timeoutMs` constructor 选项（test seam，默认 `30*60_000`，镜像已有的 `pollMs`）
 
 ### Bug #3 — 实现 session resume ⬜ deferred (separate PR)
-- carrier 从 `state.linkScanPath` 文件名提取 conversation UUID
-- `done` message 带回 resumable UUID（`metadata.resumeSessionId`）
-- invoke-single-cat 持久化该 UUID（覆盖 session_init 存的 shortId）
-- carrier `startJob`：`options.sessionId` 是合法 UUID 时 → `--resume <uuid>`
-- cancel 语义：invalidate-and-keep（cancel 清当前 invocation，但 conversation UUID 保留给下次 resume）
+
+> **2026-06-03 修正（opus-48 spike + opus-47 binary trace 联合 verified）**：原方案 (a)(b) 两条**错**，empirical 真相在 spike 数据里。
+
+- ~~carrier 从 `state.linkScanPath` 文件名提取 conversation UUID~~ → **改**：直接读 `state.resumeSessionId` 字段（claude 2.1.161 daemon 已在 state.json 顶层提供，不需正则解析路径）
+- `done` message 带回 resumable UUID（`metadata.resumeSessionId`） ✅ 保留
+- invoke-single-cat 持久化该 UUID ✅ 保留
+- carrier `startJob`：`options.sessionId` 是合法 UUID 时 → `--resume <uuid>` ✅ 保留
+- ~~假设 conversation UUID 跨 resume 不变（extract once, reuse forever）~~ → **改**：`--bg --resume <uuid>` **每轮产生新 sessionId**（实证：spike turn1=d061424f-…、turn2=61a48e5b-…、turn3=a56e3aa4-… 三个不同 UUID 但 conversation 连续）。carrier 必须**每轮从最新 state.resumeSessionId 读**当下轮 `--resume` 目标，**不能固定第一轮 UUID**
+- cancel 语义：invalidate-and-keep（cancel 清当前 invocation，最新 resumeSessionId 保留给下次 resume）✅ 保留
+- **`--bg --resume` vs `claude attach` 区分**：attach 是 interactive 接管活 daemon（铲屎官 CLI 经验，sessionId 不变）；`--bg --resume` 是 fresh background invocation + conversation 接力（每轮新 sessionId）。这是两个不同操作，spec author（opus-47）原 §4.2 没区分
 
 ## 5. 验证方式
 
