@@ -137,3 +137,12 @@ Why（一句话）: A2A 触发与卡死恢复都落在既有 invocation/queue/tr
 **流程**：有猫在跑 → 显示低调入口 →（卡死时升级显眼）→ 点击 → 确认弹窗 → 取消(什么都不动) / 确认(调 `POST /force-reset` → 清运行态 → toast「已重置，对话已解放」→ 面板恢复空闲)。
 
 > 实现前走 Design Gate「在地设计检查」+「现场可感知性自检」（本 feat 属 observability/recovery 类，必填 in_context_observability 字段）。前端像素稿可用 Pencil 渲染再过铲屎官。
+
+### 高保真像素稿（2026-06-02 铲屎官 Design Gate 通过 → 实现真相源，勿走样）
+
+- **渲染稿**：[`assets/F220/force-reset-mock.html`](assets/F220/force-reset-mock.html)（浏览器打开看三态实样）。
+- **实现锚点**（Phase 3 实现对照这条，避免"写歪"）：
+  - **tokens**：用真实 cat-cafe tokens——`--semantic-critical`（危险红）/ `--semantic-warning`（升级警告）/ `--cafe-surface` / `--border`，**不要 hardcode 颜色**。
+  - **两态对比**：① 默认入口 = `dashed-top` 分隔线 + 灰 + 小字（藏面板底、不抢眼）；② 升级态（疑似卡死：异常久 / 停止失效）= `--semantic-critical-surface` 底 + 上浮居中 + 警告色填充。
+  - **弹窗**：标题「强制重置这个对话？」+ 三行（ban / check / info 三个 lucide icon → 会做什么 / 会保留什么 / 何时用）+ 按钮 `取消`(默认 focus) / `强制重置`(危险红填充)。
+  - **icon**：全 lucide 线性 SVG，**不用 emoji**（`🐾` paw 例外——品牌元素，同 `ThinkingIndicator`）。
