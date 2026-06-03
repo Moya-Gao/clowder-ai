@@ -1046,7 +1046,10 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
           return { error: `Capability "${skillId}" (type=${body.capabilityType}) not found` };
         }
         const cap = config.capabilities[capIndex]!;
-        if (cap.pluginId) {
+        // Plugin-owned skill/limb capabilities must be toggled through
+        // /api/plugins/:id/enable|disable to keep lifecycle state consistent.
+        // MCP capabilities are safe to toggle directly (F205).
+        if (cap.pluginId && cap.type !== 'mcp') {
           reply.status(409);
           return {
             error: `Capability "${skillId}" is managed by plugin "${cap.pluginId}". Use /api/plugins/${cap.pluginId}/enable or /disable instead.`,
