@@ -32,6 +32,20 @@ created: 2026-05-30
 
 **残余风险（诚实记，铲屎官接受）**：跨猫 review 是家规文化（非服务端强制），猫理论上能 self-merge 绕过（< 1% 概率）。但全自己猫 + main-green 让漏网红在下个 PR rebase 时暴露——这点风险换"不破坏 docs 零延迟 + shared-state 直接 push main 工作流"，值（同砍 self-hosted CI 的 cost-benefit）。**价值 OQ**：未来若"服务端强制 review" > "main 直接共享状态"，是新 CVO 取舍（要改 shared-state 工作流），不是 F217 尾巴。
 
+### 价值 OQ 人话版：服务端强制 review vs 共享状态实时同步（留给未来重新权衡）
+
+> 2026-06-02 铲屎官要求"诚实保留"——它不是 F217 尾巴（F217 已闭环），是留个钩子：家大了 / 猫多了 / 信任度变了想重新权衡时，有这笔账在，不用从头想。
+
+**shared-state（共享状态）指啥**：几个**全家公用的"公告板"文件**——`docs/BACKLOG.md`（功能路线图：现在有哪些 feature 在做）+ `cat-config.json`（猫花名册：谁是谁、什么句柄）。每只猫靠它们知道"现在在忙啥、家里有哪些猫"，不是某只猫的私货。
+
+**shared-state 工作流 = 改公告板的规矩**：家规规定这些公告板**只能 main 直接改 + 立刻 push**（不走 PR）——因为是**实时公告板**，改了要全家秒看到最新版。走 PR（等 review + 合并）→ 别的猫看到的是过期公告板，信息对不上。`shared-state-guard`（L3 CI，见 `shared-rules.md §14`）守这条，拦 PR 改它们。
+
+**冲突**：Rulesets require reviews 要求"**所有改动走 PR**"，但公告板"**只能直接 push main 不走 PR**"。撞一起 → 公告板**既不能 PR（guard 拦）也不能直接 push（Rulesets 拦）= 死锁**。
+
+**取舍（这就是价值 OQ）**：
+- **现选后者**（保公告板实时同步，不配 Rulesets）—— require reviews 防的是 < 1% self-merge，不值得破坏每天都在用的公告板实时同步（同砍 self-hosted CI 的 cost-benefit 尺子）。
+- **未来若改选前者**（"服务端硬卡 review" > "公告板实时同步"）= 新 CVO 取舍，要**重构 shared-state 工作流**（让公告板也能走 PR / 或搬到别处同步）才能腾空间上 Rulesets。
+
 > ⬇️ 下方保留二三轮收敛的完整推演（self-hosted runner 方案）作**决策历史**——它不是错的，是"私有仓 CI 额度不够"约束下的合理解；最终被 cost-benefit（< 1% 违规不值这成本）推翻。KD-2/KD-3/KD-8 标注 [已被最终结论取代]。
 
 ## Why
