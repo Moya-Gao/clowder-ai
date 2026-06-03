@@ -8,7 +8,31 @@ created: 2026-05-30
 
 # F217: Merge Gate Integrity — 检查覆盖 + 强制力 + 元守护
 
-> **Status**: in-progress | **Owner**: 布偶猫/宪宪 (Opus-4.8) | **Priority**: P1
+> **Status**: in-progress（最终方案收敛 2026-06-02；落地 = self-hosted 回滚 + @landy 配 require reviews）| **Owner**: 布偶猫/宪宪 (Opus-4.8) | **Priority**: P1
+
+## 🎯 最终结论（2026-06-02 铲屎官拍板 — 推翻 self-hosted CI）
+
+**四轮收敛的终点**：私有仓**砍掉 self-hosted CI**，强制力靠 `main-green 纪律 + 本地 gate/hook + Rulesets require reviews`；只有**开源仓**才用 GitHub-hosted CI。
+
+铲屎官 cost-benefit 一刀：**猫违规概率 < 1%**（全自己猫，本地都跑 `pnpm gate`）。self-hosted CI 为防这 < 1% 违规，代价 = 每 PR 慢 ~19min + 烤 Mac（M4 Max 12 P-core 满载发热）+ 重复跑一遍本地已过的 gate——**不值得**。
+
+更关键：self-hosted CI required **根本没治这次事故的真根（A2 已知红遮新红）**——main 一红 required CI 卡所有 PR，铲屎官又被迫豁免，回老路。治 A2 的是 **main-green invariant（纪律，KD-7）**，与 CI 无关。
+
+| | 强制力 | 为什么 |
+|---|---|---|
+| **私有仓 cat-cafe** | main-green 纪律 + 本地 gate/hook + **Rulesets require reviews**（KD-9）| 全自己猫 < 1% 违规；require reviews 保证"不是一只猫说了算"，不耗 CI / 不发热 / 不重复 gate |
+| **开源仓 clowder-ai** | GitHub-hosted CI（已有 ubuntu-latest）| public 免费无限 + 外部贡献者本地 hook 不可信——**这才真需要 CI** |
+
+**保留 / 砍掉**：
+- ✅ 保留 **main-green invariant（KD-7）** — 治 A2 的核心，纪律不靠 CI
+- ✅ 保留 **本地 gate + pre-push hook**（自己猫 merge 前跑全量 = 铲屎官说的"合入前跑"）
+- ✅ 新增 **Rulesets require reviews（KD-9）** — A1 强制力的轻量解
+- ❌ 砍 **self-hosted CI required（KD-2/3）+ runner** — 慢+热+重复，< 1% 违规不值
+- ❌ 回滚 **PR #2057 的 self-hosted ci.yml + Typecheck job + gate-ci-parity** — 私有仓不跑 CI 则无意义（tsc 已在本地 gate Step 4 覆盖）
+
+**残余风险（诚实记，铲屎官接受）**：require reviews 不强制验 gate 真绿（reviewer 信 author 的 gate 证据，不重跑）。但全自己猫不造假 + main-green 让漏网红在下个 PR rebase 时暴露 + < 1% 违规——这点风险换"不烤 Mac、不等 19min、不重复 gate"，值。
+
+> ⬇️ 下方保留二三轮收敛的完整推演（self-hosted runner 方案）作**决策历史**——它不是错的，是"私有仓 CI 额度不够"约束下的合理解；最终被 cost-benefit（< 1% 违规不值这成本）推翻。KD-2/KD-3/KD-8 标注 [已被最终结论取代]。
 
 ## Why
 
@@ -93,7 +117,7 @@ created: 2026-05-30
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | gate 强制机制选型 | ✅ 收敛（KD-2~KD-5、KD-7、KD-8）：**Self-hosted runner**（不耗额度 + 不可伪造）+ Rulesets + admin 关闭 + **main-green invariant** + escape hatch SOP；方案 C 砍掉 |
+| OQ-1 | gate 强制机制选型 | ✅ **最终收敛（KD-9，2026-06-02 铲屎官拍板）**：私有仓 = `Rulesets require reviews + main-green invariant（KD-7）+ 本地 gate/hook`，**砍 self-hosted CI**（cost-benefit：< 1% 违规不值）；开源仓 = GitHub-hosted CI。二三轮 self-hosted runner 方案（KD-2~KD-5/KD-8）作决策历史保留 |
 | OQ-2 | 元守护形态 | ✅ 收敛（KD-6）：check:gate-ci-parity 自举 |
 | OQ-3 | Eval Contract（harness 类门禁 F192）：Primary Users / Friction / Regression Fixture / Sunset | ⬜ Design Gate 前填 |
 
@@ -102,13 +126,14 @@ created: 2026-05-30
 | # | 决策 | 理由 | 日期 |
 |---|------|------|------|
 | KD-1 | 立 feat（非 issue）| A 类设计选型需 Design Gate；系统性 + 多 Phase + 元守护新机制（CVO signoff）| 2026-05-30 |
-| KD-2 | Gate 强制 = **Self-hosted runner + GitHub Rulesets**（非 Branch Protection），**admin bypass 关闭** | ① 私有仓 CI 额度 ~5 天/月，GitHub-hosted required check 不可行 → self-hosted runner 跑 CI（不耗额度 + status GitHub 服务端记录、不可伪造）；② Branch Protection 的 admin 可 bypass（`--admin` 穿墙），Rulesets 可配 admin 也不可绕；③ cat-cafe 12 猫不缺 review，无 clowder-ai 单 maintainer 约束 | 2026-05-30 立、2026-05-31 改（CI 额度 → self-hosted runner，opus-48 ⊗ antig-opus 三轮对锤）|
-| KD-3 | Required jobs = ci.yml 现有 4（Lint/Build/Test/Dir-size），Phase C 补 tsc；**self-hosted runner 跑同一份 ci.yml** | 现有 4 job 已覆盖 6 类问题大部分；不让完美成为好的敌人，先立基本墙；runner 上的 build/test/lint == 猫本地 `pnpm gate` 同一份活，无额外维护 | 2026-05-30 |
+| KD-2 *(被 KD-9 取代)* | Gate 强制 = **Self-hosted runner + GitHub Rulesets**（非 Branch Protection），**admin bypass 关闭** | ① 私有仓 CI 额度 ~5 天/月，GitHub-hosted required check 不可行 → self-hosted runner 跑 CI（不耗额度 + status GitHub 服务端记录、不可伪造）；② Branch Protection 的 admin 可 bypass（`--admin` 穿墙），Rulesets 可配 admin 也不可绕；③ cat-cafe 12 猫不缺 review，无 clowder-ai 单 maintainer 约束 | 2026-05-30 立、2026-05-31 改（CI 额度 → self-hosted runner，opus-48 ⊗ antig-opus 三轮对锤）|
+| KD-3 *(被 KD-9 取代)* | Required jobs = ci.yml 现有 4（Lint/Build/Test/Dir-size），Phase C 补 tsc；**self-hosted runner 跑同一份 ci.yml** | 现有 4 job 已覆盖 6 类问题大部分；不让完美成为好的敌人，先立基本墙；runner 上的 build/test/lint == 猫本地 `pnpm gate` 同一份活，无额外维护 | 2026-05-30 |
 | KD-4 | paths-ignore → skip-if-no-change | docs-only PR 不触发 CI 时 required check 永不绿会卡死 | 2026-05-30 |
 | KD-5 | Escape hatch = SOP（铲屎官临时改 Ruleset + 本地 gate 证据 + 30min 恢复），**不留代码后门** | 代码后门会演化成默认（clowder-ai `--admin` 教训）；GitHub audit log 原生记录改 Ruleset | 2026-05-30 |
 | KD-6 | 元守护 = check:gate-ci-parity 自举脚本（CI ⊆ gate）| 比人肉对照可靠；终态产物非脚手架；自身在 PARALLEL_CHECKS 自举 | 2026-05-30 |
 | KD-7 | **main-green invariant**（公理，治 A2 归因根因）：main 不准带红进，谁让 main 红谁**同 PR 修绿**（系统提示词那种"半成品先合让 main 红、回头再修"被禁止）；main 意外红 = P0，修绿前暂停其他 merge | main 永绿 → `gate 红 == 你引入了新红`，"已知红遮新红 + 误豁免"从根消失。比 baseline-diff（缓存 main red set 区分老红新红）干净——后者是「第一性原理」警告的"堆复杂度代偿无知"，main 持续移动使缓存必失效。**精确边界**：invariant ≠ "self-hosted runner 机制保证 main 永绿"——required check 只挡**单 PR 自身**的红；**并发语义冲突**（PR-A/B 各自绿、文本可合、merge 后 logical conflict 红）机制挡不住，靠"main 红 P0 修绿 + 下个 PR rebase 后 gate catch"纪律兜底（**软 invariant**，非机制铁保证）。低并发下不配 require-up-to-date（friction > 收益）| 2026-05-31（opus-48 ⊗ antig-opus 二轮对锤 + opus-48 攻击面 A 精确化）|
 | KD-8 | **方案 C（本地 gate → `gh api` 打 commit status）砍掉，不留 fallback** | status 猫本地打 = 一行 `gh api` 可伪造 = 塑料锁；两条强制路径必有一条沦为默认逃逸口（clowder-ai `--admin` 教训）。runner 挂了走 escape hatch SOP（KD-5），不靠方案 C 当中间层。Self-hosted runner 是唯一强制力路径 | 2026-05-31（opus-48 攻击面：方案 C 可伪造 → antig-opus 接受砍掉）|
+| **KD-9** ⭐ | **最终决策（取代 KD-2/KD-3）：私有仓砍 self-hosted CI，强制力 = `Rulesets require reviews + main-green 纪律 + 本地 gate/hook`；开源仓才用 GitHub-hosted CI** | 铲屎官 cost-benefit 一刀：猫违规 **< 1%**（全自己猫，本地都跑 `pnpm gate`），self-hosted CI 防这 < 1% 的代价（每 PR 慢 ~19min + 烤 M4 Max 12 P-core 满载发热 + 重复跑本地已过的 gate）**不值**；且 self-hosted CI required **根本没治 A2**（main 红→卡全 PR→误豁免→回老路），治 A2 的是 main-green 纪律，与 CI 无关。require reviews 不耗 CI / 不发热，保证"不是一只猫说了算" = 私有仓真正缺的关卡。详见顶部「最终结论」| 2026-06-02（铲屎官拍板）|
 
 ## Rejected Alternatives
 
@@ -126,7 +151,8 @@ created: 2026-05-30
 |------|------|
 | 2026-05-30 | 立项（全量同步 6 类 gate 失效触发，CVO signoff）+ OQ-1/OQ-2 一轮对锤收敛（opus-48 ⊗ antig-opus）|
 | 2026-05-31 | 铲屎官两个关键澄清（A 类根因 = 已知红遮新红非纸墙 / 私有仓 CI 额度 ~5 天/月）→ 二三轮重新收敛：CI-hosted required check 作废、Layer 0 baseline-diff 作废、方案 C 作废 → **self-hosted runner + main-green invariant**（opus-48 ⊗ antig-opus）|
-| 2026-06-02 | **Phase C+D merged（PR #2057）**：ci.yml 4 job → self-hosted + Typecheck job + check-gate-ci-parity 元守护（声明式契约自举，19→20）。self-hosted runner 装在猫窝机器（online idle）。**发现 Actions enabled=false（billing 付款失败/spending limit）→ CI 3 个月没跑**（2026-03-11 后），Phase B 增 enable Actions 前置步骤。@antig-opus review APPROVE（含 P2-3 stale 检测）+ 云端 review 豁免（infra 工具链 + 深度 review）|
+| 2026-06-02（午）| **Phase C+D merged（PR #2057）**：ci.yml 4 job → self-hosted + Typecheck job + check-gate-ci-parity 元守护（声明式契约自举，19→20）。self-hosted runner 装在猫窝机器（online idle）。**发现 Actions enabled=false（billing 付款失败/spending limit）→ CI 3 个月没跑**（2026-03-11 后），Phase B 增 enable Actions 前置步骤。@antig-opus review APPROVE（含 P2-3 stale 检测）+ 云端 review 豁免（infra 工具链 + 深度 review）|
+| 2026-06-02（晚）| **四轮：铲屎官 cost-benefit 推翻 self-hosted CI（KD-9）**。enable Actions 后 self-hosted runner 端到端验证通过（runner busy=true，5 job 在猫窝 Mac 跑），但铲屎官实测**电脑发热**（M4 Max 12 P-core 满载）+ 一连串洞察："self-hosted CI = 重复跑本地 gate，跟本地 hook 有啥差别 / 猫违规 < 1% 不值这成本 / 私有仓没必要、开源仓才有需要"。**拍板砍 self-hosted CI**：私有仓 = require reviews + main-green + 本地 gate；开源仓 = GitHub-hosted CI。落地 = 卸 runner + 回滚 ci.yml + @landy 配 require reviews |
 
 ## Review Gate
 - Phase A: ✅ @antig-opus 深度实证 + 三轮对锤收敛
