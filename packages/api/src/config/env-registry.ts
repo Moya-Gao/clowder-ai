@@ -1138,6 +1138,15 @@ export const ENV_VARS: EnvDefinition[] = [
     sensitive: false,
     runtimeEditable: false,
   },
+  {
+    name: 'CAT_CAFE_AGY_CWD_ROOT',
+    defaultValue: '~/.cat-cafe/agy-cwd',
+    description:
+      'F210 cache-leak fix：无 agyProfile 时 AGY spawn cwd sandbox 根目录（每只 AGY 猫在此创建 <catId> 子目录），让 agy cwd-relative cache（cache/projects.json）落 sandbox 而非 repo root。',
+    category: 'gemini',
+    sensitive: false,
+    runtimeEditable: false,
+  },
 
   // --- kimi ---
   {

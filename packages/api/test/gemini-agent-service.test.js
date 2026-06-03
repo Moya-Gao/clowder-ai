@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { PassThrough } from 'node:stream';
 import { describe, mock, test } from 'node:test';
 import Database from 'better-sqlite3';
@@ -649,12 +649,18 @@ describe('GeminiAgentService (antigravity-cli adapter)', () => {
     const proc = createMockProcess();
     const profileRoot = mkdtempSync(join(tmpdir(), 'agy-service-profile-root-'));
     const workDir = mkdtempSync(join(tmpdir(), 'agy-service-workdir-'));
-    const spawnFn = mock.fn((_command, args) => {
+    const spawnFn = mock.fn((_command, args, opts) => {
       const logPath = args[args.indexOf('--log-file') + 1];
       writeFileSync(
         logPath,
         'I0531 01:14:59.518377 model.go:42] Propagating selected model override to backend: label="Gemini 3.5 Flash (High)"\n',
       );
+      // F210 cache-leak regression: 模拟 AGY 写 cwd-relative cache/projects.json 到 spawn cwd
+      // （实证 2026-06-03 真跑行为）。spawn cwd 必须是 profile sandbox，不能是 workDir/repo root。
+      if (opts?.cwd) {
+        mkdirSync(join(opts.cwd, 'cache'), { recursive: true });
+        writeFileSync(join(opts.cwd, 'cache', 'projects.json'), '{}');
+      }
       return proc;
     });
     const service = new GeminiAgentService({
@@ -678,6 +684,27 @@ describe('GeminiAgentService (antigravity-cli adapter)', () => {
       assert.ok(args.includes('--dangerously-skip-permissions'), 'sandboxed profile should enable yolo');
       assert.equal(call.arguments[2].env.HOME, join(profileRoot, 'gemini'));
 
+      // F210 cache-leak fix: spawn cwd = profile cwd sandbox 下 per-worktree 子目录（cloud P1：AGY 按 cwd
+      // scope conversation 命名空间，每 worktree 唯一）。cwd-relative cache 落 profile 不 repo；
+      // workspace 仍由 --add-dir workDir 授权。
+      const cwdBase = join(profileRoot, 'gemini', 'cwd');
+      const spawnCwd = call.arguments[2].cwd;
+      assert.ok(
+        spawnCwd.startsWith(`${cwdBase}/`) && spawnCwd !== cwdBase,
+        `spawn cwd 应是 profile cwd base 下 per-worktree 子目录，实际 ${spawnCwd}`,
+      );
+      assert.equal(
+        done?.metadata?.diagnostics?.antigravityCli?.spawnCwd,
+        spawnCwd,
+        'diagnostics.antigravityCli.spawnCwd 应暴露隔离后的 spawn cwd',
+      );
+      assert.ok(
+        args.includes('--add-dir') && args.includes(workDir),
+        'workspace 仍由 --add-dir workingDirectory 显式授权',
+      );
+      assert.ok(existsSync(join(spawnCwd, 'cache', 'projects.json')), 'cwd-relative cache 落 profile sandbox');
+      assert.ok(!existsSync(join(workDir, 'cache', 'projects.json')), 'workDir(repo) 不得生成 cache/projects.json');
+
       const settingsPath = join(profileRoot, 'gemini', '.gemini', 'antigravity-cli', 'settings.json');
       const settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
       assert.equal(settings.model, 'Gemini 3.5 Flash (High)');
@@ -686,6 +713,86 @@ describe('GeminiAgentService (antigravity-cli adapter)', () => {
       rmSync(profileRoot, { recursive: true, force: true });
       rmSync(workDir, { recursive: true, force: true });
     }
+  });
+
+  test('no AGY profile: spawn cwd is deterministic sandbox, cwd-relative cache never leaks into repo (F210 cache-leak)', async () => {
+    // production gemini/gemini25 当前就是 no-agyProfile 路径——cwd-relative cache 必须落默认 sandbox 而非 repo root。
+    const proc = createMockProcess();
+    const cwdRoot = mkdtempSync(join(tmpdir(), 'agy-cwd-root-'));
+    const workDir = mkdtempSync(join(tmpdir(), 'agy-noprofile-workdir-'));
+    const prevEnv = process.env.CAT_CAFE_AGY_CWD_ROOT;
+    process.env.CAT_CAFE_AGY_CWD_ROOT = cwdRoot;
+    const spawnFn = mock.fn((_command, _args, opts) => {
+      // 模拟 AGY 写 cwd-relative cache/projects.json 到 spawn cwd（实证 2026-06-03 真跑行为）
+      if (opts?.cwd) {
+        mkdirSync(join(opts.cwd, 'cache'), { recursive: true });
+        writeFileSync(join(opts.cwd, 'cache', 'projects.json'), '{}');
+      }
+      return proc;
+    });
+    const service = new GeminiAgentService({
+      spawnFn,
+      adapter: 'antigravity-cli',
+      model: 'Gemini 3.5 Flash (High)',
+      // 无 agyProfile：复现 production gemini 默认路径
+    });
+
+    try {
+      const promise = collect(service.invoke('noprofile prompt', { workingDirectory: workDir }));
+      emitPlainText(proc, 'AGY_NOPROFILE_OK\n');
+      const collected = await promise;
+
+      const call = spawnFn.mock.calls[0];
+      const args = call.arguments[1];
+      // service catId 默认 'gemini' → base = <root>/gemini，spawn cwd = base 下 per-worktree 子目录（cloud P1）
+      const base = join(cwdRoot, 'gemini');
+      const spawnCwd = call.arguments[2].cwd;
+      assert.ok(
+        spawnCwd.startsWith(`${base}/`) && spawnCwd !== base,
+        `no-profile spawn cwd 应是 base 下 per-worktree 子目录，实际 ${spawnCwd}`,
+      );
+      const done = collected.find((m) => m.type === 'done');
+      assert.equal(
+        done?.metadata?.diagnostics?.antigravityCli?.spawnCwd,
+        spawnCwd,
+        'diagnostics.antigravityCli.spawnCwd 应暴露隔离后的 spawn cwd',
+      );
+      assert.ok(
+        args.includes('--add-dir') && args.includes(workDir),
+        'workspace 仍由 --add-dir workingDirectory 显式授权',
+      );
+      assert.ok(existsSync(join(spawnCwd, 'cache', 'projects.json')), 'cwd-relative cache 落默认 sandbox');
+      assert.ok(!existsSync(join(workDir, 'cache', 'projects.json')), 'workDir(repo) 不得生成 cache/projects.json');
+    } finally {
+      if (prevEnv === undefined) delete process.env.CAT_CAFE_AGY_CWD_ROOT;
+      else process.env.CAT_CAFE_AGY_CWD_ROOT = prevEnv;
+      rmSync(cwdRoot, { recursive: true, force: true });
+      rmSync(workDir, { recursive: true, force: true });
+    }
+  });
+
+  test('normalizes relative workingDirectory to absolute for --add-dir (cloud P2: relative path vs sandbox cwd)', async () => {
+    // cloud P2：spawn cwd 现在是独立 sandbox，若 workingDirectory 是相对路径（如 "."），
+    // 透传给 --add-dir 会相对 sandbox cwd 解析 → AGY 授权错目录。必须 normalize 成绝对路径。
+    const proc = createMockProcess();
+    const spawnFn = mock.fn(() => proc);
+    const service = new GeminiAgentService({
+      spawnFn,
+      adapter: 'antigravity-cli',
+      model: 'Gemini 3.5 Flash (High)',
+    });
+
+    const promise = collect(service.invoke('relative cwd', { workingDirectory: '.' }));
+    emitPlainText(proc, 'AGY_REL_OK\n');
+    await promise;
+
+    const args = spawnFn.mock.calls[0].arguments[1];
+    const addDirIdx = args.indexOf('--add-dir');
+    assert.ok(addDirIdx >= 0, 'must pass --add-dir');
+    const addDirVal = args[addDirIdx + 1];
+    assert.notEqual(addDirVal, '.', '不能透传相对路径（会相对 sandbox cwd 解析 → 授权错目录）');
+    assert.equal(addDirVal, resolve('.'), '--add-dir 必须是绝对路径（resolve(".") = process.cwd()）');
+    assert.ok(addDirVal.startsWith('/'), 'normalize 后必须是绝对路径');
   });
 
   test('fails closed when AGY observed model differs from the configured profile model', async () => {
@@ -973,7 +1080,13 @@ describe('GeminiAgentService (antigravity-cli adapter)', () => {
     assert.equal(spawnFn.mock.callCount(), 0);
     assert.equal(capturedOpts?.outputMode, 'plainText');
     assert.ok(capturedOpts?.command === 'agy' || capturedOpts?.command.endsWith('/agy'));
-    assert.equal(capturedOpts?.cwd, '/tmp/agy-override');
+    // F210 cache-leak fix: spawn cwd 不再是 workingDirectory（AGY 写 cwd-relative cache/projects.json
+    // 会泄漏到 repo），而是默认 sandbox 下 per-worktree 子目录（无 agyProfile，catId='gemini'，cloud P1）。
+    assert.notEqual(capturedOpts?.cwd, '/tmp/agy-override', 'spawn cwd 不应是 workingDirectory（cache leak）');
+    assert.ok(
+      capturedOpts?.cwd?.includes('/.cat-cafe/agy-cwd/gemini/'),
+      `spawn cwd 应是默认 cwd sandbox 下 per-worktree 子目录，实际 ${capturedOpts?.cwd}`,
+    );
     assert.equal(capturedOpts?.invocationId, 'inv-agy-override');
     assert.equal(capturedOpts?.cliSessionId, 'cli-agy-override');
   });

@@ -21,7 +21,7 @@ import { spawn as nodeSpawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { closeSync, existsSync, openSync, readdirSync, readFileSync, readSync, rmSync, statSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
-import { basename, join } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 import { type AgyProfileConfig, type CatId, createCatId } from '@cat-cafe/shared';
 import { getCatModel } from '../../../../../config/cat-models.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
@@ -41,7 +41,7 @@ import { readJsonlTail } from '../../../../../utils/jsonl-tail-reader.js';
 import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata, TokenUsage } from '../../types.js';
 import { appendLocalImagePathHints, collectImageAccessDirectories } from '../providers/image-cli-bridge.js';
 import { extractImagePaths } from '../providers/image-paths.js';
-import { type AgyProfile, preflightAgyProfile, resolveAgyProfile } from './agy-profile-manager.js';
+import { type AgyProfile, preflightAgyProfile, resolveAgyProfile, resolveAgySpawnCwd } from './agy-profile-manager.js';
 import { extractAgyFinalTextFromSteps, readAgyTrajectorySteps } from './agy-trajectory-extractor.js';
 import {
   type AgyProgressEvent,
@@ -648,7 +648,12 @@ export class GeminiAgentService implements AgentService {
 
   private async *invokeAntigravityCLI(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
     const requestedModelOverride = options?.callbackEnv?.CAT_CAFE_GEMINI_MODEL_OVERRIDE;
-    const workingDirectory = options?.workingDirectory ?? process.cwd();
+    // F210 cache-leak fix (cloud P2)：normalize 成绝对路径。spawn cwd 现在是独立 sandbox（与
+    // workingDirectory 解耦），若 workingDirectory 是相对路径（AgentServiceOptions 不强制绝对，
+    // 直连 caller/测试可传 `.`），`--add-dir workingDirectory` 会相对 sandbox cwd 解析 → AGY 授权
+    // 错目录、tool use 落到 workspace 外。resolve() 让 --add-dir + profile trust 都拿绝对路径
+    // （`.` → process.cwd()，与改动前 cwd=workingDirectory 的语义一致）。
+    const workingDirectory = resolve(options?.workingDirectory ?? process.cwd());
     let metadata: MessageMetadata = {
       provider: 'google',
       model: 'account-selected (antigravity-cli)',
@@ -881,11 +886,28 @@ export class GeminiAgentService implements AgentService {
       // homedir()，否则 accountEnv 提供 HOME 时会扫错目录、resume 永久零 progress。
       const agyInvocationStartMs = Date.now();
       const agyAppDataDir = resolveAgyAppDataDir(childEnv);
+      // F210 cache-leak fix (砚砚 cwd sandbox 方向)：spawn cwd 与 workingDirectory 解耦。AGY 写
+      // cwd-relative cache（`cache/projects.json`）到 spawn cwd——cwd=repo root 时泄漏到 worktree
+      // （实证 2026-06-03）。agyProfile 时 spawn cwd 指向 profile cwd sandbox（cwd-relative cache 落
+      // profile 不 repo）；workspace 仍由上方 `args = ['--add-dir', workingDirectory]` 显式授权。
+      const agySpawnCwd = resolveAgySpawnCwd(agyProfile, this.catId, workingDirectory);
+      // F210 cache-leak diagnostics (砚砚 可选项)：把隔离后的 spawn cwd 写进 metadata，
+      // runtime 日志 / 重启验证可直接确认 cwd 已 sandbox、不落 repo root。
+      metadata = {
+        ...metadata,
+        diagnostics: {
+          ...(metadata.diagnostics ?? {}),
+          antigravityCli: {
+            ...((metadata.diagnostics?.antigravityCli as Record<string, unknown> | undefined) ?? {}),
+            spawnCwd: agySpawnCwd,
+          },
+        },
+      };
       const cliOpts = {
         command: agyCommand,
         args,
         outputMode: 'plainText' as const,
-        cwd: workingDirectory,
+        cwd: agySpawnCwd,
         timeoutMs,
         ...(childEnv ? { env: childEnv } : {}),
         ...(options?.signal ? { signal: options.signal } : {}),
