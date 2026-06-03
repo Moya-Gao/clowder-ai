@@ -8,7 +8,7 @@ created: 2026-05-18
 
 # F207: AI Family Office — 个人投资学习基建
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P2
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P2
 
 ## Why
 
@@ -116,7 +116,7 @@ created: 2026-05-18
 | S2: FRED | 拉美国 CPI 月度序列（CPIAUCSL） | 返回时间序列，最新月有数据 | **PASS** — CPI/美债/联邦利率全通（2026-05-20） |
 | S3: yfinance | 连续拉 20+ 标的日线 + 费率，间隔重复 3 天 | 不触发封禁/rate limit，数据齐全 | **PASS**（Day 1 + Day 2 间隔 13 天）— BND/QQQ/VOO/GLD/沪深300 稳定；VTI/VXUS 需用日期范围查询（`period=` 偶发报 delisted）；费率字段 N/A（已知限制） |
 | S4: AKShare | 拉 QDII 净值 + 中国 PMI + 国债收益率，间隔重复 3 天 | 接口稳定可用（非单次快照） | **PASS（有条件）**（Day 1 + Day 2 间隔 13 天）— 国债收益率/GDP 连续稳定；LPR Day 1 SSL 挂→Day 2 恢复（暂时性）；Shibor Day 1 失败是参数错误（`上海银行同业拆借市场` 非 `中国银行间`）；CPI Day 2 jin10.com SSL 新暴露。**结论**：东方财富系后端基本可靠，jin10.com 后端不稳定——connector 实现需按后端分 SLA |
-| S5: MCP 集成 | FinanceMCP / fred-mcp-server 在 Claude Code 中可调 | 验证 raw provider 连通性（spike 证据） | 待测 |
+| S5: MCP 集成 | `cat-cafe-finance` 本地事实层通过 MCP split server 暴露 | `cat_cafe_finance_query` 在 managed split server 可发现；猫猫不直接调裸 provider | **PASS** — B0 已合入 PR #2071（2026-06-03） |
 | **S6: ttfund-skills** | **天天基金官方 API 16 个 skill 端点** | **基金信息/NAV/指数估值/持仓/黄金/债券可用** | **PASS** — 砚砚验证 3 个端点 + 布偶猫验证指数估值（PE 百分位全覆盖） |
 
 **B0 — 定契约 + `cat-cafe-finance` 本地事实层骨架**（spike 通过后）：
@@ -200,9 +200,9 @@ AUDHD 护栏设计：
 - [ ] AC-B2: 猫猫能查询中美国债收益率 / CPI / PMI / 大额存单利率（宏观时间序列）
 - [ ] AC-B3: 猫猫能查询指定基金的净值和费率（QDII + 指数基金）
 - [ ] AC-B4: 数据查询结果包含 source + asOf + 置信度；freshness 以各数据源 SLA 为准（日线 ≥ 最近交易日收盘；基金 NAV 允许 T+1/T+2 延迟；月度宏观按发布日历）——不以墙钟 24h 一刀切
-- [ ] AC-B5: 所有数据通过 `cat-cafe-finance` 本地事实层返回（统一 schema + 缓存 + 错误处理），猫猫不直接调裸 provider MCP
-- [ ] AC-B6: B0 schema 包含 snapshot_id（查询哈希），任意历史查询可通过 snapshot_id 重现当时数据快照
-- [ ] AC-B7: B0 schema 预留 presentationHint 字段（AUDHD 适配层占位）+ queriesInLast7Days 按 ticker 埋点（频率监测护栏数据源）
+- [x] AC-B5: 所有数据通过 `cat-cafe-finance` 本地事实层返回（统一 schema + 缓存 + 错误处理），猫猫不直接调裸 provider MCP（B0 / PR #2071）
+- [x] AC-B6: B0 schema 包含 snapshot_id（查询哈希），任意历史查询可通过 snapshot_id 重现当时数据快照（B0 / PR #2071）
+- [x] AC-B7: B0 schema 预留 presentationHint 字段（AUDHD 适配层占位）+ queriesInLast7Days 按 ticker 埋点（频率监测护栏数据源）（B0 / PR #2071）
 
 **Phase B 完整目标（v0.1 之后扩展）**：
 - [ ] AC-B8: 猫猫能查询港股个股行情（当前 v0.1 仅通过 A 股跨境 ETF 覆盖港股暴露）
@@ -224,7 +224,7 @@ AUDHD 护栏设计：
 - [ ] AC-D7: AUDHD 护栏生效（24h 冷却期、Panic 防护、频率监测）
 
 ### Negative AC（KD-2 安全边界）
-- [ ] AC-N1: Finance MCP/工具不暴露任何交易类 API（buy/sell/transfer）
+- [x] AC-N1: Finance MCP/工具不暴露任何交易类 API（buy/sell/transfer）（B0 / PR #2071 白名单只读 skill）
 - [ ] AC-N2: 分析报告不包含可一键执行的交易指令
 - [ ] AC-N3: 报告中提到具体操作时必须使用"由你在 XX App 中执行"而非"我帮你"
 
@@ -286,7 +286,7 @@ AUDHD 护栏设计：
 | OQ-5 | 什么场景必须建议铲屎官找真人理财师？（猫猫能力边界） | ⬜ 未定 |
 | OQ-6 | 季度盲测的具体流程？（铲屎官先独立判断的交互设计） | ⬜ 未定（Phase D） |
 | OQ-7 | Tushare 2000 分够不够？哪些接口需要更高积分？ | ⏳ B-spike S1 验证 |
-| OQ-8 | Python provider 和 Node 包装层怎么桥接？（MCP stdio / HTTP） | ⬜ 未定（B0 定） |
+| OQ-8 | Python provider 和 Node 包装层怎么桥接？（MCP stdio / HTTP） | ✅ B0 先走 Node 本地事实层 + MCP split server；Python bridge 仅在后续 provider 需要时再定 |
 | OQ-9 | API key 存哪？（.env / keychain / config）| ⏳ spike 阶段用 .env；正式版需前端配置界面（类 Memory Hub，见 Phase D 数据源配置管理） |
 | OQ-10 | Tushare 年费续费提醒机制？（永续年费不是一次性） | ⬜ 未定 |
 
@@ -318,8 +318,8 @@ AUDHD 护栏设计：
 | 2026-05-20 | 砚砚安装 ttfund-skills（commit db4d013ed）→ S6 ttfund ✅ PASS（3 端点验证） |
 | 2026-05-20 | **KD-9 pivot**：ttfund-skills 覆盖 PE 百分位 → Tushare 降为可选 → 年预算 0 元 |
 | 2026-06-03 | B-spike Day 2（间隔 13 天）：S3 yfinance ✅ PASS（VTI/VXUS 用日期范围查询正常）、S4 AKShare ✅ 条件 PASS（LPR 恢复、Shibor 参数修正 OK、CPI jin10 SSL 新暴露→按后端分 SLA） |
-| TBD | S5 MCP 集成 spike |
-| TBD | B0 定契约 → B1 接稳定源 → B2 接脆弱源 |
+| 2026-06-03 | B0 定契约 + `@cat-cafe/finance` 本地事实层 + `cat-cafe-finance` MCP split server 合入（PR #2071，AC-B5/B6/B7 + AC-N1） |
+| TBD | B1 接稳定源 → B2 接脆弱源 |
 
 ## Review Gate
 
