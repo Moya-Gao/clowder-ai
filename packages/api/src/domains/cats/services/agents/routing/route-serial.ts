@@ -23,6 +23,8 @@ import {
   ROUTE_HAS_A2A_HANDOFF,
   ROUTE_TOTAL_CATS_INVOKED,
   ROUTE_TOTAL_TOKENS,
+  THREAD_SYSTEM_KIND,
+  TRIGGER,
 } from '../../../../../infrastructure/telemetry/genai-semconv.js';
 import {
   a2aDispatchCount,
@@ -107,7 +109,7 @@ import {
 } from './route-helpers.js';
 import { resolveRoutingDecisions } from './routing-decision.js';
 import { appendThinkingChunk, renderThinkingChunks } from './thinking-chunks.js';
-import { shouldWarnVerdictWithoutPass } from './verdict-detect.js';
+import { detectMatchedVerdictKeyword, shouldWarnVerdictWithoutPass } from './verdict-detect.js';
 import { shouldWarnVoidHold } from './void-hold-detect.js';
 import { buildVoteTally, checkVoteCompletion, extractVoteFromText, VOTE_RESULT_SOURCE } from './vote-intercept.js';
 
@@ -1359,8 +1361,20 @@ export async function* routeSerial(
         // against a real `c2.checked` base instead of fabricating a 100% ratio. phaseHHit
         // turns are excluded — a format error short-circuits the check (AC-H5), so they
         // were never evaluated.
+        // C2 telemetry labels (F192 2026-06-03 build verdict): every C2 counter carries
+        // `thread.system_kind` (the OTel label value behind `THREAD_SYSTEM_KIND`) so
+        // attribution can distinguish eval-domain noise from real product-thread friction.
+        // The verdict fire counters additionally carry `trigger` (`TRIGGER` semconv,
+        // reusing the existing key — values are instrument-scoped) to spot keyword
+        // overload — e.g. a `p1p2`-driven spike (review-discussion vocab) vs a `放行`-driven
+        // one (real verdict-without-pass). All emitted attribute keys are in F152
+        // metric-allowlist or the OTel SDK silently drops them (砚砚 PR #2058 R1 catch).
+        const c2BaseAttr: Record<string, string> = {
+          [AGENT_ID]: catId as string,
+          [THREAD_SYSTEM_KIND]: routeThread?.systemKind ?? 'product',
+        };
         if (!phaseHHit) {
-          c2ExitChecked.add(1, { 'agent.id': catId as string });
+          c2ExitChecked.add(1, c2BaseAttr);
         }
         if (
           !phaseHHit &&
@@ -1388,8 +1402,12 @@ export async function* routeSerial(
               timestamp: Date.now(),
               source: hintSource,
             });
-            c2VerdictHintEmitted.add(1, { 'agent.id': catId as string });
-            c2VerdictWithoutPassCount.add(1, { 'agent.id': catId as string });
+            const verdictFireAttr: Record<string, string> = {
+              ...c2BaseAttr,
+              [TRIGGER]: detectMatchedVerdictKeyword(storedContent) ?? 'unknown',
+            };
+            c2VerdictHintEmitted.add(1, verdictFireAttr);
+            c2VerdictWithoutPassCount.add(1, verdictFireAttr);
             if (deps.socketManager) {
               deps.socketManager.broadcastToRoom(`thread:${threadId}`, 'connector_message', {
                 threadId,
@@ -1412,7 +1430,7 @@ export async function* routeSerial(
         // C2 void-hold denominator (PR #1941 P2): count every void-hold evaluation so
         // attribution grades void_hold_hint against c2.void_hold_checked, NOT the
         // verdict-check count c2.checked (different guard → wrong ratio / suppression).
-        c2VoidHoldChecked.add(1, { 'agent.id': catId as string });
+        c2VoidHoldChecked.add(1, c2BaseAttr);
         if (
           shouldWarnVoidHold({
             text: storedContent,
@@ -1440,7 +1458,7 @@ export async function* routeSerial(
               timestamp: Date.now(),
               source: hintSource,
             });
-            c2VoidHoldHintEmitted.add(1, { 'agent.id': catId as string });
+            c2VoidHoldHintEmitted.add(1, c2BaseAttr);
             if (deps.socketManager) {
               deps.socketManager.broadcastToRoom(`thread:${threadId}`, 'connector_message', {
                 threadId,
