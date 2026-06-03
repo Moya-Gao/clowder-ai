@@ -81,9 +81,21 @@
 
 ---
 
+## 4b、已有研究资产整合（和 brainstorm 互补的先前成果）
+
+以下文档和这两天讨论高度相关，应作为 longform-003 正式稿和 demo 的底层支撑：
+
+- [x] [LLE 架构图 v2](../research/2026-05-27-evolvable-harness/diagram-lle-self-evolution.md) — 两套 LLE 双螺旋 + 华为风精美图（已有）
+- [x] [技术创新方案](../research/2026-05-27-evolvable-harness/technical-innovation-proposal.md) — 6 个创新点 + L1-L5 框架 + POC 验证（已有）
+- [ ] **术语统一**：PoE（这两天用的） = LLE（proposal 用的），路演前需要统一命名
+- [ ] **双螺旋的慢环定位**：我们当前只做快环（环境进化），慢环（模型 RL）是远期。路演要说清"先快后慢"的策略选择
+- [ ] **"两套 LLE"叙事升级 ToC/ToB bridge**：从"同一架构不同尺度"升级为"开发 LLE 积累造环境的能力 → 为不同场景交付产品 LLE"
+- [ ] **L1-L5 两套框架区分**：环境进化等级（proposal）vs agent 自主度等级（论文研读），路演时不要混用
+- [x] [论文研读思辨](../study/2026-06-01-research-dialectic-what-to-learn-what-to-watch.md) — 学术验证 + 局限性（已有）
+
 ## 五、产品/路演
 
-- [ ] **Longform-003 从 seed 变成正式稿** — 基于种子 + 三猫补充 + 铲屎官修正。来源：longform-003
+- [ ] **Longform-003 从 seed 变成正式稿** — 基于种子 + 三猫补充 + 铲屎官修正 + proposal 整合。来源：longform-003
 - [ ] **架构图** — 6 层总图的视觉版。砚砚画 / 烁烁审美。来源：longform-003 §六
 - [ ] **PPT / 路演版本** — 含投资人三问 + 双层叙事 + 被打预案 + ToB bridge。来源：48 路演作战卡
 - [ ] **播客版本** — 猫猫读给铲屎官听。来源：longform-003 待做
