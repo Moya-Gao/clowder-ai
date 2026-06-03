@@ -26,7 +26,7 @@
 ### 🟠 增强 demo 但不阻塞
 
 - [ ] **Cross-thread 重复统计（Signal Miner 最小版）** — grep 跨 thread 的"被骂次数"给诊断卡用。先 skill 级实现，完整版可立 feat。来源：OQ-4 §4.5
-- [ ] **F128 带任务上下文创建** — 平行猫一被创建就知道任务和该加载的 skill，不需要人再 @ 解释。来源：48 缺口分析
+- [x] ~~F128 带任务上下文~~ — ✅ `propose_thread` 已支持 `initialMessage`（最多 4000 字符），不需要代码增强。关键是 code-as-harness skill 指导猫把任务描述写进 initialMessage。来源：48 缺口分析 → 46 schema 核查
 - [ ] **Research pipeline 预跑** — 场景二的记忆升级 research 提前跑一遍验证结果，live 展示辩论环节。来源：砚砚/48 建议
 - [ ] **"翻车转化话术"准备** — 如果 demo 出 bug，当场用 code-as-harness 诊断自己。来源：48 反脆弱建议
 - [ ] **完整 run-through ×3** — 至少排练 3 次，记录卡点。来源：48

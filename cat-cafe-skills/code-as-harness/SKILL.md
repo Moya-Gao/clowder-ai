@@ -142,10 +142,34 @@ sections:
 | 根因 | 动作 |
 |------|------|
 | Harness 缺陷（简单，≤10 min） | 当场写 fix，弹简短通知卡让铲屎官知道 |
-| Harness 缺陷（复杂） | 弹诊断卡 + 提议 F128 新 thread → 平行猫去修 |
-| 架构限制 | 弹诊断卡 + 提议 F128 → 平行猫启动 research pipeline |
+| Harness 缺陷（复杂） | 弹诊断卡 + 提议 F128（带 initialMessage，见下方模板）→ 平行猫去修 |
+| 架构限制 | 弹诊断卡 + 提议 F128（带 initialMessage）→ 平行猫启动 research pipeline |
 | 执行失误 | 检查 L0/skill 加载情况，不需要新 thread |
 | 可沉淀新能力 | 弹 Build 计划卡 → 用 Agent Team Leadership 规划 |
+
+## F128 initialMessage 模板（平行猫的任务上下文）
+
+用 `cat_cafe_propose_thread` 开新 thread 时，**必须用 `initialMessage` 把任务上下文写清楚**。平行猫看不到当前 thread 的对话历史，initialMessage 是它唯一的起点。
+
+```
+title: "Code as Harness {Fix/Build}: {问题简述}"
+reason: "{铲屎官为什么不满 + 证据摘要}"
+initialMessage: |
+  ## 任务
+  {问题描述 + 根因分类}
+  请加载 code-as-harness skill，执行 {Fix/Build} mode：
+  1. {具体步骤 1}
+  2. {具体步骤 2}
+  3. 完成后 cross_post_message 回报主 thread
+  
+  ## 证据
+  {出现 N 次 / 跨 M thread / 根因}
+  
+  @{猫句柄}
+preferredCats: ["{catId}"]
+```
+
+**initialMessage 必须自包含**——不能写"看上面的讨论"，因为新 thread 里没有"上面"。
 
 ## Build Mode（沉淀新能力）
 
