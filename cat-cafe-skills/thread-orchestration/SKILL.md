@@ -3,7 +3,7 @@ name: thread-orchestration
 description: >
   大任务的主动拆解与多 thread 并行编排。
   Use when: 任务涉及 2+ 个独立可交付子任务，需要不同猫参与、不同 thread 并行推进。
-  Not for: 单一任务（直接做）、已有 thread 之间的被动协调（用 cross-thread-sync）、单 session 内 subagent 并行（CLI 内置能力）。
+  Not for: 单一任务（直接做）、已有 thread 之间的被动协调（用 cross-thread-sync）、单 session 内 subagent 并行（CLI 内置能力）、发现跨 scope 问题但已有归属 thread（用 cross_post_message，不要新建 thread）。
   Output: 子 thread 创建 + 选猫 + 各 thread 交付 + 主 thread 汇聚报告。
 triggers:
   - "拆任务"
@@ -21,11 +21,20 @@ triggers:
 ## 何时触发
 
 ```
+发现跨 scope 的问题/信息？
+  → 先 list_threads keyword=<关键词> 查有没有已有 thread
+  → 有已有 thread → 不要新建！用 cross_post_message 投递（cross-thread-sync skill）
+  → 没有已有 thread + 需要独立追踪 → 本 skill：propose_thread
+
 任务可以拆成多个独立子任务？
   → 子任务之间有代码依赖？ → 串行（先完成依赖项）
   → 子任务独立？ → 本 skill：开 thread 并行推进
 只有一个任务？ → 不需要本 skill，直接做
 ```
+
+> **F128/F193 环**（KD-E4）：`propose_thread`（新建）和 `cross_post_message`（投递）是一个环。
+> 默认走投递（`cross_post_message`），只有确认没有已有 thread 时才走新建（`propose_thread`）。
+> 新建 thread 的阈值高于投递——新建会增加铲屎官的认知负担。
 
 ## 五步流程
 
@@ -181,10 +190,12 @@ Worktree = 隔离（不冲突）
 
 | Skill | 层级 | 方向 | 核心区别 |
 |-------|------|------|---------|
-| **thread-orchestration** | 跨 thread | 主动拆解 → 分发 → 汇聚 | 全生命周期编排 |
+| **thread-orchestration** | 跨 thread | 主动拆解 → 分发 → 汇聚 | 全生命周期编排；**先确认没有已有 thread 再新建** |
 | CLI subagent 并行 | session 内 | subagent 并行（CLI 内置） | 不涉及 thread、不涉及其他猫 |
-| `cross-thread-sync` | 跨 thread | 被动发现 → 通知 → 协调 | 响应式，不主动建 thread |
+| `cross-thread-sync` | 跨 thread | 被动发现 → 通知 → 协调 | 响应式，不主动建 thread；**发现跨 scope 问题的默认路径** |
 | `cross-cat-handoff` | 猫对猫 | 一次性交接 | 点对点，不涉及多 thread 编排 |
+
+> **F128/F193 环决策**（KD-E4）：发现跨 scope 问题 → `list_threads` 查已有 thread → **有 → cross-thread-sync（投递）** / 没有 → thread-orchestration（新建）。默认投递，新建阈值更高。
 
 ## 下一步
 
