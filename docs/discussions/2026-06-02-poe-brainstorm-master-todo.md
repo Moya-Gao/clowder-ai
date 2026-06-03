@@ -48,7 +48,7 @@
 
 ### L3 任务交付质量（最大 gap）
 
-- [x] ~~F192 Phase G eval:task-outcome v0~~ — 🔄 **PR #2074 开了，9/11 AC ✅**。Episode schema + Permission Cancel hook + Magic Word recorder + A1 接入 + 域注册 + 87 tests。待：cancel 理由浮层(AC-G10) + 端到端验证(AC-G11)
+- [x] ~~F192 Phase G eval:task-outcome v0~~ — ✅ **已合入 main**（PR #2074, commit cf3c814d）。Episode schema + 3 signal builders + 域注册 + 94 tests。gpt52 5 轮 + 云端 codex 2 轮 review。**待 Phase G.2**：cancel 理由浮层(AC-G10) + 端到端验证(AC-G11)
 - [x] ~~Permission Cancel 计数器~~ — ✅ 已含在 F192 Phase G（onPermissionCancel hook + signal builder）
 - [x] ~~F222 Frustration Auto-Issue Phase A~~ — ✅ **已合入 main**（PR #2075）。CLI 报错 + cancel burst 检测 → rich card → 一键提交/跳过。61 tests，GPT-5.4 4 轮 review。
 
