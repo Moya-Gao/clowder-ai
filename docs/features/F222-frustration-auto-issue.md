@@ -8,7 +8,7 @@ created: 2026-06-03
 
 # F222: Frustration Auto-Issue — 把负体验变成结构化反馈
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Architecture Ownership
 
@@ -77,11 +77,11 @@ status: draft  # 用户预览后才提交
 
 ## Acceptance Criteria
 
-### Phase A
-- [ ] AC-A1: 摩擦信号检测（至少支持 CLI 报错 + 连续 cancel 两种触发）
-- [ ] AC-A2: Auto-issue 卡片生成（rich block，含上下文采集 + 用户可编辑描述）
-- [ ] AC-A3: 用户确认后 issue 持久化（可被 eval:task-outcome 消费）
-- [ ] AC-A4: 用户跳过 → 不产生 issue，但 cancel/error 事件仍被 Permission Cancel 记录
+### Phase A ✅
+- [x] AC-A1: 摩擦信号检测（至少支持 CLI 报错 + 连续 cancel 两种触发）
+- [x] AC-A2: Auto-issue 卡片生成（rich block，含上下文采集 + 用户可编辑描述）
+- [x] AC-A3: 用户确认后 issue 持久化（可被 eval:task-outcome 消费）
+- [x] AC-A4: 用户跳过 → 不产生 issue，但 cancel/error 事件仍被 Permission Cancel 记录
 
 ## Dependencies
 
