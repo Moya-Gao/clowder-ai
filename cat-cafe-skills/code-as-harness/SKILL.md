@@ -118,6 +118,26 @@ C. 反复出现的新任务类型（做过 ≥2 次且没有对应 harness）→
 | **架构限制** | 问题出在平台层（如记忆不支持图片） | Research → 升级提案 |
 | **执行失误** | 家规/SOP 已覆盖但猫忘了 | 检查为什么没遵守 |
 | **可沉淀的新能力** | 同类任务做过 ≥2 次 + 未来还会来 | Agent Team Leadership → 新 harness |
+| **Taste 信号** | "这不美"/"太客服了"/"aha"/"这就是我要的" — 品味而非缺陷 | 当场写 vignette（见下方） |
+
+#### Taste 信号路径（F221）
+
+Taste 信号**不是 harness 缺陷**，不用写代码修。它是品味瞬间——需要被记住，不需要被修复。
+
+**识别 taste 信号**：
+- 纠偏类："不要客服式结尾" / "太面试猫了" / "这不像我们" / "丑的要死"
+- 正向类："这就是我要的" / "aha" / "对！就是这个感觉"
+- 关系类：铲屎官表达的不是功能诉求，而是"和猫相处的方式"偏好
+
+**动作**：当场写 vignette，不开诊断流程。
+
+1. 在 `docs/taste/vignettes/` 新建 `{slug}.md`，填 `when` / `quotes`（原话）/ `scene`（场景）/ `tags`
+2. 在 `docs/taste/index.md` 对应维度下加目录条目
+3. 敏感内容（健康/亲密关系/职业隐私）→ `private/taste/` 而非 `docs/taste/`
+
+**和其他根因的区别**：
+- Harness 缺陷 → 猫做错了，写代码防住
+- Taste 信号 → 猫没做"错"，但铲屎官的品味判断告诉我们"什么更好"——记住这个判断
 
 ### Phase 4：弹诊断卡（Rich Block）
 
@@ -132,7 +152,7 @@ sections:
   - label: "证据"
     value: "{出现 N 次 / 跨 M thread / 涉及 K 猫}"
   - label: "根因"
-    value: "{harness缺陷 / 架构限制 / 执行失误 / 可沉淀新能力}"
+    value: "{harness缺陷 / 架构限制 / 执行失误 / 可沉淀新能力 / taste信号}"
   - label: "建议"
     value: "{修复方向 + 是否需要新 thread}"
 ```
@@ -146,6 +166,7 @@ sections:
 | 架构限制 | 弹诊断卡 + 提议 F128（带 initialMessage）→ 平行猫启动 research pipeline |
 | 执行失误 | 检查 L0/skill 加载情况，不需要新 thread |
 | 可沉淀新能力 | 弹 Build 计划卡 → 用 Agent Team Leadership 规划 |
+| Taste 信号 | **不走 Phase 4 诊断卡**——当场写 vignette 到 `docs/taste/vignettes/`，更新 index（见 Phase 3 taste 路径说明） |
 
 ## F128 initialMessage 模板（平行猫的任务上下文）
 
