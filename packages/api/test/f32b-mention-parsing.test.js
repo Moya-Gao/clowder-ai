@@ -236,23 +236,181 @@ describe('F32-b: parseMentions (longest-match-first)', () => {
     assert.deepEqual(r4.targetCats.map(String), ['opus']);
   });
 
-  it('inline and quoted @mentions are inert user text, not routing targets', async () => {
+  it('quoted @mentions are inert user text, not routing targets', async () => {
     const router = await createVariantRouter();
     const content =
       '我花了一下午手动复制粘贴："@布偶猫，你的设计稿好了，传给缅因猫 review 一下。""@缅因猫，上面那个设计你看一下。""@暹罗猫，交互部分你也出个方案？"';
 
+    const { targetCats, hasMentions, routing_warnings } = await router.resolveTargetsAndIntent(content, 'test-thread');
+
+    assert.equal(hasMentions, false);
+    assert.deepEqual(targetCats.map(String), ['opus']);
+    assert.deepEqual(routing_warnings, []);
+  });
+
+  it('quoted prose @mentions are inert user text, not routing targets', async () => {
+    const router = await createVariantRouter();
+    for (const content of [
+      '他说：“请 @codex 看看这个实现。” 正文里没有召唤',
+      "他说 'please @codex review this' 正文里没有召唤",
+    ]) {
+      const { targetCats, hasMentions, routing_warnings } = await router.resolveTargetsAndIntent(
+        content,
+        'test-thread',
+      );
+
+      assert.equal(hasMentions, false, content);
+      assert.deepEqual(targetCats.map(String), ['opus'], content);
+      assert.deepEqual(routing_warnings, [], content);
+    }
+  });
+
+  it('user inline @codex routes to codex instead of default or last-replier fallback', async () => {
+    const router = await createVariantRouter();
+    const { targetCats, hasMentions } = await router.resolveTargetsAndIntent('请 @codex 看看这个', 'test-thread');
+
+    assert.equal(hasMentions, true);
+    assert.deepEqual(targetCats.map(String), ['codex']);
+  });
+
+  it('word apostrophes do not make real inline @mentions inert', async () => {
+    const router = await createVariantRouter();
+    const { targetCats, hasMentions } = await router.resolveTargetsAndIntent(
+      "it's @codex's turn to review",
+      'test-thread',
+    );
+
+    assert.equal(hasMentions, true);
+    assert.deepEqual(targetCats.map(String), ['codex']);
+  });
+
+  it('user inline mentions preserve first-occurrence ordering', async () => {
+    const router = await createVariantRouter();
+    const { targetCats, hasMentions } = await router.resolveTargetsAndIntent(
+      '请 @codex 和 @opus-45 一起看这个',
+      'test-thread',
+    );
+
+    assert.equal(hasMentions, true);
+    assert.deepEqual(targetCats.map(String), ['codex', 'opus-45']);
+  });
+
+  it('email-like inline @handles are inert user text, not routing targets', async () => {
+    const router = await createVariantRouter();
+    const { targetCats, hasMentions } = await router.resolveTargetsAndIntent(
+      '请发到 foo@codex.com 归档',
+      'test-thread',
+    );
+
+    assert.equal(hasMentions, false);
+    assert.deepEqual(targetCats.map(String), ['opus']);
+  });
+
+  it('domain-suffixed inline @handles are inert user text, not routing targets', async () => {
+    const router = await createVariantRouter();
+    for (const content of [
+      '请发到 张三@codex.com 归档',
+      '请发到 dev+@codex.com 归档',
+      '域名是 @codex.com',
+      '请发到 张三@ghostcat.com 归档',
+      '请发到 dev+@ghostcat.com 归档',
+    ]) {
+      const { targetCats, hasMentions, routing_warnings } = await router.resolveTargetsAndIntent(
+        content,
+        'test-thread',
+      );
+
+      assert.equal(hasMentions, false, content);
+      assert.deepEqual(targetCats.map(String), ['opus'], content);
+      assert.deepEqual(routing_warnings, [], content);
+    }
+  });
+
+  it('bare URL path @tokens are inert user text, not routing targets', async () => {
+    const router = await createVariantRouter();
+    for (const content of [
+      '链接是 github.com/@codex/repo',
+      '链接是 x.com/@codex',
+      '链接是（github.com/@codex/repo）',
+      '链接是【x.com/@codex】',
+      '链接是（www.example.com/@codex）',
+    ]) {
+      const { targetCats, hasMentions, routing_warnings } = await router.resolveTargetsAndIntent(
+        content,
+        'test-thread',
+      );
+
+      assert.equal(hasMentions, false, content);
+      assert.deepEqual(targetCats.map(String), ['opus'], content);
+      assert.deepEqual(routing_warnings, [], content);
+    }
+  });
+
+  it('inline-code @mentions are inert user text, not routing targets', async () => {
+    const router = await createVariantRouter();
+    const { targetCats, hasMentions } = await router.resolveTargetsAndIntent(
+      '请检查 `@codex` 这个示例 token',
+      'test-thread',
+    );
+
+    assert.equal(hasMentions, false);
+    assert.deepEqual(targetCats.map(String), ['opus']);
+  });
+
+  it('CRLF blockquote @mentions are inert user text, not routing targets', async () => {
+    const router = await createVariantRouter();
+    const content = [
+      'line 1',
+      'line 2',
+      'line 3',
+      'line 4',
+      'line 5',
+      'line 6',
+      'line 7',
+      'line 8',
+      'line 9',
+      '> 引用靠近行尾 @codex',
+      '正文继续',
+    ].join('\r\n');
     const { targetCats, hasMentions } = await router.resolveTargetsAndIntent(content, 'test-thread');
 
     assert.equal(hasMentions, false);
     assert.deepEqual(targetCats.map(String), ['opus']);
   });
 
-  it('inline @codex does not route away from the default cat', async () => {
+  it('quoted group @mentions are inert user text, not routing targets', async () => {
     const router = await createVariantRouter();
-    const { targetCats, hasMentions } = await router.resolveTargetsAndIntent('请 @codex 看看这个', 'test-thread');
+    const crlfBlockquote = [
+      'line 1',
+      'line 2',
+      'line 3',
+      'line 4',
+      'line 5',
+      'line 6',
+      'line 7',
+      'line 8',
+      'line 9',
+      '> @all',
+      '正文继续',
+    ].join('\r\n');
+    for (const content of ['> @all', '```\n@thread\n```', crlfBlockquote]) {
+      const { targetCats, hasMentions, routing_warnings } = await router.resolveTargetsAndIntent(
+        content,
+        'test-thread',
+      );
 
-    assert.equal(hasMentions, false);
-    assert.deepEqual(targetCats.map(String), ['opus']);
+      assert.equal(hasMentions, false, content);
+      assert.deepEqual(targetCats.map(String), ['opus'], content);
+      assert.deepEqual(routing_warnings, [], content);
+    }
+  });
+
+  it('markdown-prefixed group @mentions still route', async () => {
+    const router = await createVariantRouter();
+    const { targetCats, hasMentions } = await router.resolveTargetsAndIntent('- @all 大家看一下', 'test-thread');
+
+    assert.equal(hasMentions, true);
+    assert.deepEqual(targetCats.map(String).sort(), ['codex', 'gemini', 'opus', 'opus-45']);
   });
 
   it('markdown-prefixed line-start mention still routes', async () => {

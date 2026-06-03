@@ -81,6 +81,19 @@ const Z5_PAGE_SIZE = 50;
 const Z5_USER_MESSAGE_COUNT_LIMIT = 5;
 const Z5_TIME_WINDOW_MS = 60 * 60 * 1000; // 1h
 const MENTION_TOKEN_BOUNDARY_RE = /[\s,.:;!?()[\]{}<>，。！？、：；（）【】《》「」『』〈〉]/;
+const HANDLE_CONTINUATION_RE = /[a-z0-9_.-]/;
+const QUOTE_BEFORE_MENTION_RE = /["'“”‘’]/;
+const DOMAIN_SUFFIX_START_RE = /[\p{L}\p{N}]/u;
+const BARE_URL_PREFIX_BEFORE_MENTION_RE = /(?:^|[^a-z0-9_-])(?:[a-z0-9-]+\.)+[a-z0-9-]+(?:\/[^\s@]*)*\/$/i;
+const DOMAIN_LIKE_UNKNOWN_HANDLE_RE = /^[a-z0-9_-]+(?:\.[a-z0-9-]+)+$/i;
+const ASCII_WORD_RE = /[a-z0-9]/i;
+const QUOTE_SPAN_PAIRS: readonly [string, string][] = [
+  ['"', '"'],
+  ['“', '”'],
+  ['‘', '’'],
+  ['「', '」'],
+  ['『', '』'],
+];
 const LINE_START_MENTION_PREFIX_RE = /^[ \t]*(?:(?:>\s*)|(?:[-*+][ \t]+)|(?:\d+[.)][ \t]+))*/;
 const ROUTE_CONTROL_TAG_RE = new RegExp(
   `^#(?:${ROUTE_CONTROL_TAGS.map((tag) => escapeRegExp(tag)).join('|')})\\b`,
@@ -91,6 +104,11 @@ const ROUTE_CONTROL_TAG_RE = new RegExp(
 interface ParsedMention {
   catId: CatId;
   position: number;
+}
+
+interface MentionPattern {
+  pattern: string;
+  catId: CatId;
 }
 
 function getRouteLineStart(line: string): number | null {
@@ -107,23 +125,243 @@ function getRouteLineStart(line: string): number | null {
   return line[cursor] === '@' ? cursor : null;
 }
 
+function findLineEnd(message: string, offset: number): number {
+  let lineEnd = offset;
+  while (lineEnd < message.length && message[lineEnd] !== '\r' && message[lineEnd] !== '\n') lineEnd++;
+  return lineEnd;
+}
+
+function getNextLineOffset(message: string, lineEnd: number): number | null {
+  if (lineEnd >= message.length) return null;
+  return message[lineEnd] === '\r' && message[lineEnd + 1] === '\n' ? lineEnd + 2 : lineEnd + 1;
+}
+
+function forEachRouteCandidateInLine(
+  line: string,
+  offset: number,
+  visit: (line: string, offset: number, candidate: number) => void,
+): void {
+  const routeStart = getRouteLineStart(line);
+  if (routeStart === null) return;
+
+  let candidate = routeStart;
+  while (candidate >= 0) {
+    if (candidate === routeStart || MENTION_TOKEN_BOUNDARY_RE.test(line[candidate - 1] ?? '')) {
+      visit(line, offset, candidate);
+    }
+    candidate = line.indexOf('@', candidate + 1);
+  }
+}
+
 function forEachRouteLineMentionCandidate(
   message: string,
   visit: (line: string, offset: number, candidate: number) => void,
 ) {
   let offset = 0;
-  for (const line of message.split(/\r?\n/)) {
-    const routeStart = getRouteLineStart(line);
-    if (routeStart !== null) {
-      let candidate = routeStart;
-      while (candidate >= 0) {
-        if (candidate === routeStart || MENTION_TOKEN_BOUNDARY_RE.test(line[candidate - 1] ?? '')) {
-          visit(line, offset, candidate);
-        }
-        candidate = line.indexOf('@', candidate + 1);
-      }
+  while (offset <= message.length) {
+    const lineEnd = findLineEnd(message, offset);
+    const line = message.slice(offset, lineEnd);
+    forEachRouteCandidateInLine(line, offset, visit);
+    const nextOffset = getNextLineOffset(message, lineEnd);
+    if (nextOffset === null) break;
+    offset = nextOffset;
+  }
+}
+
+function pushRegexSpans(message: string, regex: RegExp, spans: Array<[number, number]>): void {
+  for (const match of message.matchAll(regex)) {
+    if (typeof match.index === 'number') spans.push([match.index, match.index + match[0].length]);
+  }
+}
+
+function pushQuoteSpans(message: string, spans: Array<[number, number]>): void {
+  for (const [open, close] of QUOTE_SPAN_PAIRS) {
+    let offset = 0;
+    while (offset < message.length) {
+      const start = message.indexOf(open, offset);
+      if (start < 0) break;
+      const end = message.indexOf(close, start + open.length);
+      if (end < 0) break;
+      spans.push([start, end + close.length]);
+      offset = end + close.length;
     }
-    offset += line.length + 1;
+  }
+}
+
+function isStraightSingleQuoteOpener(message: string, pos: number): boolean {
+  const previous = message[pos - 1];
+  if (previous === undefined) return true;
+  return !ASCII_WORD_RE.test(previous);
+}
+
+function isStraightSingleQuoteCloser(message: string, pos: number): boolean {
+  const next = message[pos + 1];
+  if (next === undefined) return true;
+  return !ASCII_WORD_RE.test(next);
+}
+
+function pushStraightSingleQuoteSpans(message: string, spans: Array<[number, number]>): void {
+  let offset = 0;
+  while (offset < message.length) {
+    const start = message.indexOf("'", offset);
+    if (start < 0) break;
+    if (!isStraightSingleQuoteOpener(message, start)) {
+      offset = start + 1;
+      continue;
+    }
+
+    let closed = false;
+    let search = start + 1;
+    while (search < message.length) {
+      const end = message.indexOf("'", search);
+      if (end < 0) break;
+      if (isStraightSingleQuoteCloser(message, end)) {
+        spans.push([start, end + 1]);
+        offset = end + 1;
+        closed = true;
+        break;
+      }
+      search = end + 1;
+    }
+
+    if (!closed) offset = start + 1;
+  }
+}
+
+function buildMentionExclusionSpans(message: string): Array<[number, number]> {
+  const spans: Array<[number, number]> = [];
+  pushRegexSpans(message, /```[\s\S]*?```/g, spans);
+  pushRegexSpans(message, /`[^`\n]+`/g, spans);
+  pushRegexSpans(message, /^[ \t]*>[^\n]*/gm, spans);
+  pushQuoteSpans(message, spans);
+  pushStraightSingleQuoteSpans(message, spans);
+  return spans;
+}
+
+function isInsideSpan(pos: number, spans: readonly [number, number][]): boolean {
+  return spans.some(([start, end]) => pos >= start && pos < end);
+}
+
+function isUserMentionLeftBoundary(message: string, pos: number): boolean {
+  if (pos === 0) return true;
+  const prev = message[pos - 1];
+  if (!prev) return true;
+  return !HANDLE_CONTINUATION_RE.test(prev) && !QUOTE_BEFORE_MENTION_RE.test(prev);
+}
+
+function isMentionEndBoundary(message: string, end: number): boolean {
+  const next = message[end];
+  if (!next) return true;
+  if (next === '.') {
+    const suffixStart = message[end + 1];
+    if (suffixStart !== undefined && DOMAIN_SUFFIX_START_RE.test(suffixStart)) return false;
+  }
+  if (MENTION_TOKEN_BOUNDARY_RE.test(next)) return true;
+  return !HANDLE_CONTINUATION_RE.test(next);
+}
+
+function isUrlishMentionToken(message: string, pos: number): boolean {
+  const tokenStart =
+    Math.max(message.lastIndexOf(' ', pos), message.lastIndexOf('\n', pos), message.lastIndexOf('\t', pos)) + 1;
+  const nextSpace = message.slice(pos).search(/\s/);
+  const tokenEnd = nextSpace < 0 ? message.length : pos + nextSpace;
+  const token = message.slice(tokenStart, tokenEnd);
+  if (token.includes('://')) return true;
+  if (token.toLowerCase().startsWith('www.')) return true;
+  const beforeMention = message.slice(0, pos);
+  return BARE_URL_PREFIX_BEFORE_MENTION_RE.test(beforeMention);
+}
+
+function forEachUserMentionCandidate(message: string, visit: (candidate: number) => void) {
+  const excluded = buildMentionExclusionSpans(message);
+  let candidate = message.indexOf('@');
+  while (candidate >= 0) {
+    if (
+      !isInsideSpan(candidate, excluded) &&
+      isUserMentionLeftBoundary(message, candidate) &&
+      !isUrlishMentionToken(message, candidate)
+    ) {
+      visit(candidate);
+    }
+    candidate = message.indexOf('@', candidate + 1);
+  }
+}
+
+function findMentionPatternAt(
+  message: string,
+  pos: number,
+  patterns: readonly MentionPattern[],
+): MentionPattern | null {
+  for (const entry of patterns) {
+    if (!message.startsWith(entry.pattern, pos)) continue;
+    if (!isMentionEndBoundary(message, pos + entry.pattern.length)) continue;
+    return entry;
+  }
+  return null;
+}
+
+function hasDomainSuffixedMentionPatternAt(message: string, pos: number, patterns: readonly MentionPattern[]): boolean {
+  return patterns.some((entry) => {
+    if (!message.startsWith(entry.pattern, pos)) return false;
+    const suffixStart = pos + entry.pattern.length;
+    const suffixNext = message[suffixStart + 1];
+    return message[suffixStart] === '.' && suffixNext !== undefined && DOMAIN_SUFFIX_START_RE.test(suffixNext);
+  });
+}
+
+function recordRouteLineMentions(
+  message: string,
+  patterns: readonly MentionPattern[],
+  seenCats: Set<string>,
+  mentions: ParsedMention[],
+  routingWarnings: CatRoutingError[],
+): void {
+  const excluded = buildMentionExclusionSpans(message);
+  forEachRouteLineMentionCandidate(message, (_line, lineOffset, candidate) => {
+    const position = lineOffset + candidate;
+    if (isInsideSpan(position, excluded)) return;
+    const matched = findMentionPatternAt(message, position, patterns);
+    if (matched) recordResolvedMention(matched.catId, position, seenCats, mentions, routingWarnings);
+  });
+}
+
+function recordResolvedMention(
+  catId: CatId,
+  position: number,
+  seenCats: Set<string>,
+  mentions: ParsedMention[],
+  routingWarnings: CatRoutingError[],
+): void {
+  const key = catId as string;
+  const resolved = resolveCatTarget(key);
+  if ('error' in resolved) {
+    if (!seenCats.has(key)) {
+      seenCats.add(key);
+      routingWarnings.push(resolved.error);
+    }
+    return;
+  }
+
+  if (!seenCats.has(key)) {
+    seenCats.add(key);
+    mentions.push({ catId, position });
+  }
+}
+
+function recordUnknownMentionWarning(
+  message: string,
+  position: number,
+  seenCats: Set<string>,
+  routingWarnings: CatRoutingError[],
+): void {
+  const handle = message.slice(position + 1).match(/^([a-z0-9_.-]+)/)?.[1];
+  if (!handle) return;
+  if (DOMAIN_LIKE_UNKNOWN_HANDLE_RE.test(handle)) return;
+  const key = `@unknown:${handle}`;
+  const resolved = resolveCatTarget(handle);
+  if ('error' in resolved && !seenCats.has(key)) {
+    seenCats.add(key);
+    routingWarnings.push(resolved.error);
   }
 }
 
@@ -568,10 +806,11 @@ export class AgentRouter {
    * Raw variant returns ParsedMention[] with position info for order-aware merging.
    */
   private parseMentionsRaw(message: string): { mentions: ParsedMention[]; routing_warnings: CatRoutingError[] } {
-    const lowerMessage = this.normalizeSpeechMentions(message).toLowerCase();
+    const lowerMessage = message.toLowerCase();
+    const speechRouteMessage = this.normalizeSpeechMentions(message).toLowerCase();
 
     // 1. Collect all mentionPatterns → catId, sorted by length descending
-    const allPatterns: Array<{ pattern: string; catId: CatId }> = [];
+    const allPatterns: MentionPattern[] = [];
     const allConfigs = catRegistry.getAllConfigs();
     for (const config of Object.values(allConfigs)) {
       for (const pattern of config.mentionPatterns) {
@@ -580,50 +819,31 @@ export class AgentRouter {
     }
     allPatterns.sort((a, b) => b.pattern.length - a.pattern.length); // longest first
 
-    // 2-4. Match only route lines: first token after optional markdown prefix / intent tags must be @.
-    // Once a line is a route line, multiple @mentions on that line keep their existing order.
+    // 2-4. User-authored messages accept explicit @mentions anywhere in prose.
+    // A2A/callback handoffs still use the stricter line-start parser in a2a-mentions.ts.
     const mentions: ParsedMention[] = [];
     const seenCats = new Set<string>();
     const routing_warnings: CatRoutingError[] = [];
 
-    forEachRouteLineMentionCandidate(lowerMessage, (line, lineOffset, candidate) => {
-      const pos = lineOffset + candidate;
-      let matchedKnown = false;
-      for (const { pattern, catId } of allPatterns) {
-        if (!line.startsWith(pattern, candidate)) continue;
-
-        const end = candidate + pattern.length;
-        const charAfter = line[end];
-        if (charAfter && !MENTION_TOKEN_BOUNDARY_RE.test(charAfter)) continue;
-
-        matchedKnown = true;
-        // F182 KD-10: resolver check at match-time (not isCatAvailable)
-        const resolved = resolveCatTarget(catId as string);
-        if ('error' in resolved) {
-          if (!seenCats.has(catId as string)) {
-            seenCats.add(catId as string);
-            routing_warnings.push(resolved.error);
-          }
-        } else if (!seenCats.has(catId as string)) {
-          seenCats.add(catId as string);
-          mentions.push({ catId, position: pos });
-        }
-        break;
+    // Explicit @mentions are user-authored route tokens and may appear anywhere in prose.
+    forEachUserMentionCandidate(lowerMessage, (pos) => {
+      const matched = findMentionPatternAt(lowerMessage, pos, allPatterns);
+      if (matched) {
+        recordResolvedMention(matched.catId, pos, seenCats, mentions, routing_warnings);
+        return;
       }
-
-      // P2 (codex review 6949db49): a line-start @handle that matched NO registered cat is an
+      // P2 (codex review 6949db49): an explicit @handle that matched NO registered cat is an
       // unknown handle (e.g. @kimi). Without this, parseAllMentions returns empty mentions + empty
       // warnings, so the caller silently falls back to the default cat with zero user feedback.
-      if (matchedKnown) return;
-
-      const handle = line.slice(candidate + 1).match(/^([a-z0-9_.-]+)/)?.[1];
-      if (!handle) return;
-      const resolved = resolveCatTarget(handle);
-      if ('error' in resolved && !seenCats.has(`@unknown:${handle}`)) {
-        seenCats.add(`@unknown:${handle}`);
-        routing_warnings.push(resolved.error);
-      }
+      if (hasDomainSuffixedMentionPatternAt(lowerMessage, pos, allPatterns)) return;
+      recordUnknownMentionWarning(lowerMessage, pos, seenCats, routing_warnings);
     });
+
+    // Speech aliases like "at 砚砚" stay limited to route-line syntax; otherwise ordinary
+    // prose such as "look at codex docs" would become an implicit route.
+    if (speechRouteMessage !== lowerMessage) {
+      recordRouteLineMentions(speechRouteMessage, allPatterns, seenCats, mentions, routing_warnings);
+    }
 
     mentions.sort((a, b) => a.position - b.position);
     return { mentions, routing_warnings };
@@ -647,6 +867,7 @@ export class AgentRouter {
     threadId: string,
   ): Promise<{ cats: CatId[]; matchPosition: number } | null> {
     const lowerMessage = this.normalizeSpeechMentions(message).toLowerCase();
+    const excluded = buildMentionExclusionSpans(lowerMessage);
 
     /** Find first boundary-valid match position, or -1 if not found */
     const findMatchPosition = (pattern: string): number => {
@@ -654,11 +875,13 @@ export class AgentRouter {
       let found = -1;
       forEachRouteLineMentionCandidate(lowerMessage, (line, lineOffset, candidate) => {
         if (found >= 0) return;
+        const candidatePosition = lineOffset + candidate;
+        if (isInsideSpan(candidatePosition, excluded)) return;
         if (!line.startsWith(lowerPattern, candidate)) return;
         const end = candidate + lowerPattern.length;
         const charAfter = line[end];
         if (!charAfter || MENTION_TOKEN_BOUNDARY_RE.test(charAfter)) {
-          found = lineOffset + candidate;
+          found = candidatePosition;
         }
       });
       return found;
