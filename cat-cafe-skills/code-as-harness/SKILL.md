@@ -1,13 +1,14 @@
 ---
-name: harness-diagnosis
+name: code-as-harness
 description: >
-  主动检测铲屎官重复纠偏/摩擦信号，诊断 harness 缺陷 vs 架构限制 vs 新能力需求，
-  提议修复（code fix / research / 新建 harness）而不是道歉。
-  Use when: 铲屎官表达重复不满（"又"/"总是"/"多少次了"/"每次都"）、
-  连续 cancel 工具调用、CLI 报错、A2A 超时、或收到完全陌生的任务类型。
-  Not for: 一次性批评（没有"又"）、玩笑式"笨猫"（后面跟哈哈哈）、
-  具体代码 bug（用 debugging skill）、普通 review 反馈（用 receive-review）。
-  Output: Rich block 诊断卡 + 可选 F128 新 thread 提议 + 根因分类。
+  检测摩擦信号或陌生任务 → 诊断根因 → 用代码修已有 harness 或建新 harness。
+  两种模式：Fix（重复纠偏 → 写 hook/lint/guard）+ Build（新任务类型 → Agent Team Leadership 规划新 skill/tool/流程）。
+  Use when: 铲屎官重复不满（"又"/"总是"/"多少次了"/"每次都"/"怎么还"）、连续 cancel 工具调用、
+  CLI 报错后猫没自主修、A2A 超时没诊断、收到完全陌生的任务类型且无对应 skill。
+  Not for: 一次性批评（没有重复信号）、玩笑式"笨猫"（后跟哈哈哈）、已有明确 error message 的代码 bug（用 debugging）、
+  reviewer 给的 P1/P2 反馈（用 receive-review）、铲屎官引用历史讨论中的"又"（不是当前纠偏）。
+  Output: Rich block 诊断卡（根因 + 证据 + 建议）+ 可选 F128 新 thread 提议（平行修复不打断当前任务）。
+  GOTCHA: 不是每次被批评都弹诊断卡——只在检测到重复信号/摩擦模式时触发。过度触发 = 猫在逃避批评。
 triggers:
   - "又"
   - "总是"
@@ -15,11 +16,12 @@ triggers:
   - "每次都"
   - "怎么还"
   - "失忆"
-  - "anger"
-  - "frustration"
+  - "没有 harness"
+  - "从没做过"
+  - "全新任务"
 ---
 
-# Harness Diagnosis（主动诊断，不是被动道歉）
+# Code as Harness（用代码修自己 / 建新能力）
 
 ## 价值门禁 / Why This Is a Skill
 
