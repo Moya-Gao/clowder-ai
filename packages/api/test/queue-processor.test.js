@@ -328,6 +328,41 @@ describe('QueueProcessor', () => {
     });
   });
 
+  it('queued execution broadcasts spawn_started before waiting for first CLI event', async () => {
+    let releaseFirstEvent;
+    deps.router.routeExecution = mock.fn(async function* () {
+      await new Promise((resolve) => {
+        releaseFirstEvent = resolve;
+      });
+      yield { type: 'done', catId: 'codex', isFinal: true, timestamp: Date.now() };
+    });
+
+    const entry = enqueueEntry(deps.queue, { targetCats: ['codex'], intent: 'execute' });
+    deps.queue.backfillMessageId('t1', 'u1', entry.id, 'msg-1');
+
+    const result = await processor.processNext('t1', 'u1');
+    assert.equal(result.started, true);
+
+    await new Promise((r) => setTimeout(r, 50));
+
+    const spawnCall = deps.socketManager.broadcastToRoom.mock.calls.find((c) => c.arguments[1] === 'spawn_started');
+    assert.ok(spawnCall, 'should broadcast spawn_started for queued execution before intent_mode');
+    assert.deepEqual(spawnCall.arguments[2], {
+      threadId: 't1',
+      targetCats: ['codex'],
+      invocationId: 'inv-stub',
+    });
+
+    const earlyIntentCall = deps.socketManager.broadcastToRoom.mock.calls.find((c) => c.arguments[1] === 'intent_mode');
+    assert.equal(earlyIntentCall, undefined, 'intent_mode must stay deferred until the first CLI event');
+
+    releaseFirstEvent();
+    await new Promise((r) => setTimeout(r, 50));
+
+    const intentCall = deps.socketManager.broadcastToRoom.mock.calls.find((c) => c.arguments[1] === 'intent_mode');
+    assert.ok(intentCall, 'intent_mode should broadcast after the first CLI event');
+  });
+
   it('emits queue_updated(action=completed) after entry is removed from queue', async () => {
     const entry = enqueueEntry(deps.queue, { targetCats: ['codex'] });
     deps.queue.backfillMessageId('t1', 'u1', entry.id, 'msg-1');

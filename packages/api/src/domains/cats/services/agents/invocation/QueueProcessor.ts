@@ -851,6 +851,17 @@ export class QueueProcessor {
         status: 'running',
       });
 
+      // F220 Phase 1: queued execution needs the same earliest liveness signal
+      // as direct /api/messages execution. intent_mode stays deferred until the
+      // first CLI event (#768); spawn_started is only "process is being spawned".
+      if (!controller.signal.aborted) {
+        socketManager.broadcastToRoom(`thread:${threadId}`, 'spawn_started', {
+          threadId,
+          targetCats,
+          invocationId,
+        });
+      }
+
       // 5. intent_mode deferred to first CLI event (#768: avoid "replying" when CLI never starts)
       let intentModeBroadcast = false;
 

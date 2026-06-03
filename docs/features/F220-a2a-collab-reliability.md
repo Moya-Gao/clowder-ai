@@ -12,8 +12,8 @@ created: 2026-06-02
 >
 > **Thread legend**：`thread_mpxf7fdx5gonafzh` = 驱动/owner thread（Layer 1 现场调查 + 落地，宪宪 Opus-4.8）｜`thread_mpwjkntm5kv90c5z` = 立项 thread（平行 opus-48：立项 + 设计沉淀 + 交接，已收工）。
 
-Architecture cell: `invocation`（invocation lifecycle / queue / liveness）+ 前端 chat liveness chrome
-Map delta: none（扩展现有 invocation/liveness 边界，不改 ownership map）
+Architecture cell: `dispatch` + `bubble-pipeline` + `action-plane`
+Map delta: none（复用现有 dispatch queue、frontend message/liveness chrome、force-reset action 边界，不改 ownership map）
 Why（一句话）: A2A 触发与卡死恢复都落在既有 invocation/queue/tracker 生命周期里，本 feat 补它的"可见性+可恢复性"，不新造 store/queue。
 
 ## Why
@@ -36,7 +36,7 @@ Why（一句话）: A2A 触发与卡死恢复都落在既有 invocation/queue/tr
 - ✅ `#2050`（已 merge）：排队中显示等待原因（A2A queue-visibility）。
 - ✅ `#2053`（已 merge 2026-06-02）：steer 立即中断 race-safe tombstone 修复（"卡住怎么点都中断不了"的 sound 部分）。
 - ✅ `POST /api/threads/:id/force-reset` 端点**已存在**（2026-05-29 bug-report 加的）：cancelAll + 清 slot/record + 广播 done，user-scoped。
-- ⚠️ **Layer 1 缺口（平行 opus-48 已挖到根因层，`thread_mpxf7fdx5gonafzh`，待 live 日志取证）**：组件能渲染 spawning，但前提是先有"目标猫=X + 状态=spawning"这份数据。**human 路径走前端乐观写（秒显示）；A2A 路径无用户动作，全靠后端推 `invocation_created`/spawning 事件——信号没产生/没及时到 → 组件 `return null` → 空白**。候选断点：砚砚忙→新活走排队不立即 spawn、没 `invocation_created`；或 spawn 了事件丢；或 `targetCats` 没更新成单独 `[砚砚]`。历史两次尝试（`a2a-spawning-indicator` 5-18 / `a2a-liveness-status` 5-22）核心改动已进 main，但**这层数据产生时机的差异仍未根治**。
+- 🔧 **Layer 1 缺口（Phase 1 implementation in `feat/f220-a2a-liveness-signal`）**：组件能渲染 spawning，但现代 InvocationQueue 路径缺少与 direct `/api/messages` 对等的 `spawn_started`。QueueProcessor 开始 processing 后只发 `queue_updated`，`intent_mode` 又按 #768 延迟到 CLI 第一条事件；CLI 冷启动/首事件延迟期间，主聊天 chrome 拿不到"目标猫正在启动"信号。修复：`QueueProcessor.executeEntry` 在 `startAll` + running record 后、`intent_mode` 前广播既有 `spawn_started`。
 - ⚠️ **Layer 2**：has()=false 占用 slot 的真 hang（dead-Redis create 等病态）；#2053 已证 steer 无法 sound force-recover，只能靠 75min sweep / force-reset。
 - ⚠️ **Layer 3**：force-reset 端点有，**前端无 UI 入口**——用户卡死时没有可点的逃生口。
 
@@ -45,9 +45,10 @@ Why（一句话）: A2A 触发与卡死恢复都落在既有 invocation/queue/tr
 三个 Phase，对应三个维度：
 
 ### Phase 1 — 可观测：A2A 启动中/排队占位可见（Layer 1）
-补上"A2A 触发后用户看得见猫在路上"。先 live 日志坐实断点（数据没产生 vs 事件丢 vs targetCats），再修。候选方向：给 A2A 路径补一层像 human 那样的 pending 占位（后端 spawn 时即推 spawning，或前端在传球发生时乐观写）。
+补上"A2A 触发后用户看得见猫在路上"。Phase 1 第一刀定位为 InvocationQueue 执行路径缺 `spawn_started`；复用 F118 D2 既有事件，不新造前端协议。
 > 起点：驱动 thread `thread_mpxf7fdx5gonafzh` 的 Layer 1 调查（已到根因层）。
 > **现场校准（实测截图时间线）**：传球那刻砚砚大概率**空闲**（46/我 18:34 结束、砚砚 18:32 早结束），故候选 (a)"目标猫忙→排队不 spawn"**可能不成立**；live 取证**优先验 (b) `invocation_created` 事件丢/延迟、(c) `targetCats` 未更新成单目标 `[砚砚]`**。
+> **实现校准（2026-06-02 砚砚 review）**：runtime preflight 显示截图环境不在当前 main（runtime HEAD `65530c6a6`；target `2f433838b` 不在 history），截图不能单独证明 main 状态。main 代码对照显示 direct path 有 `spawn_started`，QueueProcessor path 没有；测试钉死后修 QueueProcessor。
 
 ### Phase 2 — 可靠：invocation 卡死根因（Layer 2）
 定位"补一刀仍停排队不进 running"的真 hang（队列没消费 / session hang / 锁）。可能与 #2053 收敛的"slot/tracker/entry 生命周期解耦"相关。砚砚 roadmap：是否统一 cancel/preempt 状态机、slot 升级带 invocation-identity ownership。
@@ -94,11 +95,13 @@ Why（一句话）: A2A 触发与卡死恢复都落在既有 invocation/queue/tr
 - KD-1（2026-06-02 铲屎官）：F220 reframe 成"A2A 协作可观测·可靠·可恢复"theme-feat，三层一起解决，不只 force-reset 逃生口。
 - KD-2（2026-06-02 铲屎官）：feat 由**干净 thread 的平行 opus-48 完整 own + 驱动**（带该 thread 的砚砚落地）；本 thread 负责立项 + 沉淀设计 + 跨线程交接。
 - KD-3（2026-06-02 宪宪，接 own 时定）：**Phase 2 设 scope 闸门**——先出根因报告，需架构级重构则 CVO 拍板拆独立 feat，不在 F220 内硬扛（见 Phase 2 段）。接手 5 点调整（Phase 2 闸门 / force-reset 守 LL-048 / force-reset vs orphaned slot 实测 / Phase 1 取证优先级校准 / thread legend）经立项方平行 opus-48 确认（thread `thread_mpwjkntm5kv90c5z`）。
+- KD-4（2026-06-02 砚砚）：Phase 1 不用新前端协议、不滥用 `a2a_handoff`。`a2a_handoff` 会迁移 active slot，适合 serial handoff；callback/queue path 应补 F118 D2 既有 `spawn_started`，表达"启动中"且保留 #768 的 `intent_mode` 延迟语义。
 
 ## Links
 - 平行调查（Layer 1）：thread `thread_mpxf7fdx5gonafzh`
 - steer 修复：PR #2053 + `docs/bug-report/2026-06-02-steer-cant-preempt-leaked-slot/`
 - 排队可见性：PR #2050 + `docs/bug-report/2026-06-02-a2a-queue-visibility/`
+- A2A queued spawn signal：`docs/bug-report/2026-06-02-a2a-queue-spawn-started/`
 - force-reset 端点来源：`docs/bug-report/2026-05-29-invocation-stale-active-recovery/`
 - 历史 liveness 尝试：分支 `codex/a2a-spawning-indicator`（5-18）、游离 commit `74407ee9e`（5-22 thread-scope liveness chrome）
 
