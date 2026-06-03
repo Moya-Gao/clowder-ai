@@ -153,6 +153,7 @@ created: 2026-05-30
 | 2026-05-31 | 铲屎官两个关键澄清（A 类根因 = 已知红遮新红非纸墙 / 私有仓 CI 额度 ~5 天/月）→ 二三轮重新收敛：CI-hosted required check 作废、Layer 0 baseline-diff 作废、方案 C 作废 → **self-hosted runner + main-green invariant**（opus-48 ⊗ antig-opus）|
 | 2026-06-02（午）| **Phase C+D merged（PR #2057）**：ci.yml 4 job → self-hosted + Typecheck job + check-gate-ci-parity 元守护（声明式契约自举，19→20）。self-hosted runner 装在猫窝机器（online idle）。**发现 Actions enabled=false（billing 付款失败/spending limit）→ CI 3 个月没跑**（2026-03-11 后），Phase B 增 enable Actions 前置步骤。@antig-opus review APPROVE（含 P2-3 stale 检测）+ 云端 review 豁免（infra 工具链 + 深度 review）|
 | 2026-06-02（晚）| **四轮：铲屎官 cost-benefit 推翻 self-hosted CI（KD-9）**。enable Actions 后 self-hosted runner 端到端验证通过（runner busy=true，5 job 在猫窝 Mac 跑），但铲屎官实测**电脑发热**（M4 Max 12 P-core 满载）+ 一连串洞察："self-hosted CI = 重复跑本地 gate，跟本地 hook 有啥差别 / 猫违规 < 1% 不值这成本 / 私有仓没必要、开源仓才有需要"。**拍板砍 self-hosted CI**：私有仓 = require reviews + main-green + 本地 gate；开源仓 = GitHub-hosted CI。落地 = 卸 runner + 回滚 ci.yml + @landy 配 require reviews |
+| 2026-06-02（深夜）| **落地完成**：self-hosted runner 卸载（GitHub 端 0 runner + 本地清理）+ 回滚 **PR #2060 merged**（撤 ci.yml + Typecheck + gate-ci-parity，@antig-opus review APPROVE 无 P1，gate 三件套全绿）。私有仓现状：无核心 CI workflow，靠本地 gate + main-green 纪律。**待 @landy**：① Rulesets require reviews ② 两个小 guard workflow（pr-followup/shared-state）砍不砍边界 |
 
 ## Review Gate
 - Phase A: ✅ @antig-opus 深度实证 + 三轮对锤收敛
