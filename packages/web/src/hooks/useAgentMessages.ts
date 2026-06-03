@@ -30,7 +30,7 @@ import {
   markReplacedInvocation,
   removeReplacedInvocation,
 } from './shared-replaced-invocations';
-import { formatVisibleSystemInfo } from './system-info-visible';
+import { formatAgyProgressDetail, formatVisibleSystemInfo } from './system-info-visible';
 import {
   clearActiveBubble as clearActiveBubbleLedger,
   clearAllActiveBubblesForThread as clearAllActiveBubblesForThreadLedger,
@@ -846,8 +846,11 @@ export function consumeBackgroundSystemInfo(
       // background threads don't have that mechanism, so we just suppress the raw JSON.
       consumed = true;
     } else if (parsed?.type === 'agy_trajectory_progress') {
-      // F210-H1: AGY trajectory progress is a per-step side-channel; consume silently like
-      // timeout_diagnostics — a system bubble per step would spam the thread. Display UI is a follow-up.
+      // F210-H3: 累积进度到 thread 级 catStatusDetails（折叠单行 "AGY working · N steps · latest"），
+      // 由 ThreadCatStatus 显示；不渲染 system bubble（承接 H1-hotfix 避免 per-step 刷屏）。
+      if (msg.catId && msg.threadId) {
+        options.store.updateThreadCatStatus(msg.threadId, msg.catId, 'streaming', formatAgyProgressDetail(parsed));
+      }
       consumed = true;
     } else if (parsed?.type === 'governance_blocked') {
       const projectPath = typeof parsed.projectPath === 'string' ? parsed.projectPath : '';
@@ -4557,9 +4560,16 @@ export function useAgentMessages() {
             }
             consumed = true;
           } else if (parsed?.type === 'agy_trajectory_progress') {
-            // F210-H1: AGY trajectory progress is a per-step side-channel telemetry stream.
-            // Consume silently like liveness/timeout — a system bubble per step would spam the
-            // thread. Folded progress display UI is a follow-up (needs UX).
+            // F210-H3: 累积进度到 thread 级 catStatusDetails（折叠单行 "AGY working · N steps · latest"），
+            // 由 ThreadCatStatus 显示；不渲染 system bubble（承接 H1-hotfix 避免 per-step 刷屏）。
+            if (msg.catId) {
+              const tid = msg.threadId ?? useChatStore.getState().currentThreadId;
+              if (tid) {
+                useChatStore
+                  .getState()
+                  .updateThreadCatStatus(tid, msg.catId, 'streaming', formatAgyProgressDetail(parsed));
+              }
+            }
             consumed = true;
           } else if (parsed?.type === 'governance_blocked') {
             const projectPath = typeof parsed.projectPath === 'string' ? parsed.projectPath : '';

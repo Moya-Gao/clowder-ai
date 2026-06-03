@@ -52,6 +52,34 @@ test('poll returns steps after cursor as progress events with neutral labels', (
   rmSync(dir, { recursive: true, force: true });
 });
 
+// F210 H3 (砚砚 scope): step_type 粗标签 — 证据支撑的保守语义，未知一律 neutral。
+test('poll labels step_type with conservative semantics (H3)', () => {
+  const { dbPath, dir } = makeTrajectoryDb([
+    { idx: 0, step_type: 15, status: 1 }, // assistant activity
+    { idx: 1, step_type: 9, status: 3 }, // operation activity（不硬标 tool call）
+    { idx: 2, step_type: 14, status: 3 }, // lifecycle
+    { idx: 3, step_type: 23, status: 3 }, // metadata
+    { idx: 4, step_type: 99, status: 3 }, // unknown → neutral
+  ]);
+  const obs = new AgyTrajectoryObserver(dbPath);
+  const r = obs.poll(-1);
+  assert.match(r.events[0].label, /assistant activity/i);
+  assert.match(r.events[1].label, /operation activity/i);
+  assert.ok(!/tool call/i.test(r.events[1].label), 'step_type 9 不硬标 tool call');
+  assert.match(r.events[2].label, /lifecycle/i);
+  assert.match(r.events[3].label, /metadata/i);
+  // unknown：只有 neutral "step #N"，无语义标签
+  assert.match(r.events[4].label, /step #4/i);
+  assert.ok(
+    !/(assistant|operation|lifecycle|metadata) activity|lifecycle|metadata/i.test(
+      r.events[4].label.replace(/step #4/i, ''),
+    ),
+    'unknown step_type 不猜语义',
+  );
+  obs.close();
+  rmSync(dir, { recursive: true, force: true });
+});
+
 test('poll is incremental: cursor advances, only new steps returned', () => {
   const { dbPath, dir } = makeTrajectoryDb([
     { idx: 0, step_type: 14, status: 3 },

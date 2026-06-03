@@ -48,8 +48,34 @@ function statusWord(status: number): string {
   return status === 3 ? 'completed' : 'running';
 }
 
-function neutralLabel(idx: number, status: number): string {
-  return `AGY trajectory step #${idx} ${statusWord(status)}`;
+/**
+ * F210 H3 (砚砚 scope，证据支撑的粗标签，不全枚举逆向)：
+ * - 15 → assistant activity（H2b 证同 step 含 final+thinking，不标纯 thinking）
+ * - 14 / 98 → lifecycle（保守，证据不足只给生命周期级）
+ * - 23 → metadata（footer/session 元数据，B spike §7.3 实测）
+ * - 9 → operation activity（不硬标 tool call，缺 proto 证据）
+ * - 其他 → null（未知一律 neutral，不猜）
+ */
+function stepTypeLabel(stepType: number): string | null {
+  switch (stepType) {
+    case 15:
+      return 'assistant activity';
+    case 14:
+    case 98:
+      return 'lifecycle';
+    case 23:
+      return 'metadata';
+    case 9:
+      return 'operation activity';
+    default:
+      return null;
+  }
+}
+
+function neutralLabel(idx: number, stepType: number, status: number): string {
+  const semantic = stepTypeLabel(stepType);
+  const suffix = semantic ? ` (${semantic})` : '';
+  return `AGY trajectory step #${idx}${suffix} ${statusWord(status)}`;
 }
 
 const APP_DATA_DIR_RE = /appDataDir=(\S+)/;
@@ -207,7 +233,7 @@ export class AgyTrajectoryObserver {
         idx: r.idx,
         stepType: r.step_type,
         status: r.status,
-        label: neutralLabel(r.idx, r.status),
+        label: neutralLabel(r.idx, r.step_type, r.status),
       }));
       const nextCursor = events.length > 0 ? events[events.length - 1]!.idx : cursor;
       return { enabled: true, events, cursor: nextCursor };

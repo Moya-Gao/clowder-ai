@@ -28,6 +28,7 @@ const mockClearThreadActiveInvocation = vi.fn();
 const mockResetThreadInvocationState = vi.fn();
 const mockSetThreadMessageStreaming = vi.fn();
 const mockGetThreadState = vi.fn(() => ({ messages: [] }));
+const mockUpdateThreadCatStatus = vi.fn();
 
 const storeState = {
   messages: [] as Array<{ id: string; type: string; catId?: string; content: string; timestamp: number }>,
@@ -51,6 +52,7 @@ const storeState = {
   resetThreadInvocationState: mockResetThreadInvocationState,
   setThreadMessageStreaming: mockSetThreadMessageStreaming,
   getThreadState: mockGetThreadState,
+  updateThreadCatStatus: mockUpdateThreadCatStatus,
   currentThreadId: 'thread-1',
 };
 
@@ -106,11 +108,32 @@ describe('F210-H1 agy_trajectory_progress frontend', () => {
           idx: 3,
           stepType: 15,
           status: 1,
-          label: 'AGY trajectory step #3 running',
+          label: 'AGY trajectory step #3 (assistant activity) running',
         }),
       });
     });
-    // Must be consumed silently — no raw-JSON system bubble spam (one per step).
+    // H1: consumed silently — no raw-JSON system bubble spam (one per step).
     expect(mockAddMessage).not.toHaveBeenCalled();
+    // H3: 进度累积到 thread 级 catStatusDetails（折叠单行 "AGY working · N steps · latest"），不刷 bubble。
+    expect(mockUpdateThreadCatStatus).toHaveBeenCalledWith(
+      'thread-1',
+      'gemini',
+      'streaming',
+      expect.stringContaining('AGY working · 4 steps · assistant activity'),
+    );
+  });
+
+  it('formatAgyProgressDetail: N steps + latest semantic from backend label', async () => {
+    const { formatAgyProgressDetail } = await import('@/hooks/system-info-visible');
+    expect(formatAgyProgressDetail({ idx: 0, label: 'AGY trajectory step #0 (assistant activity) running' })).toBe(
+      'AGY working · 1 step · assistant activity',
+    );
+    expect(formatAgyProgressDetail({ idx: 6, label: 'AGY trajectory step #6 (operation activity) completed' })).toBe(
+      'AGY working · 7 steps · operation activity',
+    );
+    // unknown step (label 无语义) → fallback 'activity'
+    expect(formatAgyProgressDetail({ idx: 2, label: 'AGY trajectory step #2 completed' })).toBe(
+      'AGY working · 3 steps · activity',
+    );
   });
 });
