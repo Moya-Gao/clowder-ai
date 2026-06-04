@@ -104,8 +104,28 @@ describe('computeAggregateBucket', () => {
     assert.strictEqual(computeAggregateBucket(rollup), 'fail');
   });
 
-  it('cancelled conclusion counts as failure', () => {
+  it('cancelled conclusion alone is NOT a failure but also NOT a green light → pending', () => {
+    // A cancelled run is a superseded non-result: not a failure (no false CI-fail), but also not a
+    // success (GitHub success states = success/skipped/neutral, not cancelled). With no real positive
+    // result, the PR is not green → pending (never falsely wakes a merge-gate). [砚砚 review P1]
     const rollup = [{ status: 'COMPLETED', conclusion: 'cancelled', __typename: 'CheckRun' }];
+    assert.strictEqual(computeAggregateBucket(rollup), 'pending');
+  });
+
+  it('cancelled alongside a passing re-run aggregates to pass (not fail)', () => {
+    // Common case: a run was superseded (cancelled) and the re-run passed.
+    const rollup = [
+      { status: 'COMPLETED', conclusion: 'cancelled', __typename: 'CheckRun' },
+      { status: 'COMPLETED', conclusion: 'success', __typename: 'CheckRun' },
+    ];
+    assert.strictEqual(computeAggregateBucket(rollup), 'pass');
+  });
+
+  it('a real failure still wins over a cancelled run', () => {
+    const rollup = [
+      { status: 'COMPLETED', conclusion: 'cancelled', __typename: 'CheckRun' },
+      { status: 'COMPLETED', conclusion: 'failure', __typename: 'CheckRun' },
+    ];
     assert.strictEqual(computeAggregateBucket(rollup), 'fail');
   });
 
