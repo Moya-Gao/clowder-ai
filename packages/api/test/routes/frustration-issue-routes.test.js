@@ -38,6 +38,37 @@ describe('F222: frustration-issue-routes', () => {
     await app.ready();
   });
 
+  // ── GET /status ────────────────────────────────────────────
+
+  it('GET status: returns current persisted issue status after confirm', async () => {
+    const issue = await seedDraft();
+    await store.confirm({ issueId: issue.issueId, userDescription: 'Already sent' });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/frustration-issues/${issue.issueId}/status`,
+      headers: { [USER_HEADER]: DEFAULT_USER },
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.equal(body.issue.issueId, issue.issueId);
+    assert.equal(body.issue.status, 'confirmed');
+    assert.equal(body.issue.userDescription, 'Already sent');
+  });
+
+  it('GET status: 403 for wrong user', async () => {
+    const issue = await seedDraft('user_alice');
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/frustration-issues/${issue.issueId}/status`,
+      headers: { [USER_HEADER]: 'user_bob' },
+    });
+
+    assert.equal(res.statusCode, 403);
+  });
+
   // ── POST /confirm ──────────────────────────────────────────
 
   it('POST confirm: 200 + status=confirmed', async () => {

@@ -31,6 +31,35 @@ const confirmBodySchema = z
 export const frustrationIssueRoutes: FastifyPluginAsync<FrustrationIssueRoutesOptions> = async (app, opts) => {
   const { frustrationIssueStore } = opts;
 
+  // ── GET /api/frustration-issues/:issueId/status ────────────
+
+  app.get('/api/frustration-issues/:issueId/status', async (request, reply) => {
+    const userId = resolveUserId(request);
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Not authenticated' };
+    }
+
+    const paramsParse = issueParamsSchema.safeParse(request.params);
+    if (!paramsParse.success) {
+      reply.status(400);
+      return { error: 'Invalid params', details: paramsParse.error.issues };
+    }
+
+    const { issueId } = paramsParse.data;
+    const issue = await frustrationIssueStore.getById(issueId);
+    if (!issue) {
+      reply.status(404);
+      return { error: 'Issue not found' };
+    }
+    if (issue.userId !== userId) {
+      reply.status(403);
+      return { error: 'Not your issue' };
+    }
+
+    return { issue };
+  });
+
   // ── POST /api/frustration-issues/:issueId/confirm ──────────
 
   app.post('/api/frustration-issues/:issueId/confirm', async (request, reply) => {

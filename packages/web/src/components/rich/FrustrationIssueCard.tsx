@@ -7,7 +7,7 @@
  * Follows the F128 ProposalCard pattern: useState for status, apiFetch for API calls.
  */
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { RichCardBlock } from '@/stores/chat-types';
 import { apiFetch } from '@/utils/api-client';
 
@@ -17,6 +17,17 @@ interface FrustrationIssueCardProps {
 }
 
 type IssueStatus = 'draft' | 'confirming' | 'confirmed' | 'skipping' | 'skipped' | 'error';
+
+interface FrustrationIssueStatusResponse {
+  issue?: {
+    status?: 'draft' | 'confirmed' | 'skipped';
+    userDescription?: string;
+  };
+}
+
+function isResolvedIssueStatus(status: IssueStatus): status is 'confirmed' | 'skipped' {
+  return status === 'confirmed' || status === 'skipped';
+}
 
 /**
  * Detect if a card block is a frustration auto-issue card.
@@ -36,9 +47,44 @@ export function FrustrationIssueCard({ block }: FrustrationIssueCardProps) {
   const [status, setStatus] = useState<IssueStatus>('draft');
   const [error, setError] = useState<string | null>(null);
   const [userDescription, setUserDescription] = useState('');
+  const actionEpochRef = useRef(0);
+
+  useEffect(() => {
+    if (!issueId) return;
+    let cancelled = false;
+    const hydrationEpoch = actionEpochRef.current;
+
+    const hydrateStatus = async () => {
+      try {
+        const res = await apiFetch(`/api/frustration-issues/${issueId}/status`);
+        if (!res.ok) return;
+        const data = (await res.json()) as FrustrationIssueStatusResponse;
+        const nextStatus = data.issue?.status;
+        if (cancelled) return;
+        if (!nextStatus) return;
+        if (actionEpochRef.current !== hydrationEpoch && nextStatus === 'draft') return;
+        setStatus(nextStatus);
+        if (nextStatus === 'confirmed' || nextStatus === 'skipped') {
+          setError(null);
+        }
+        if (typeof data.issue?.userDescription === 'string') {
+          setUserDescription(data.issue.userDescription);
+        }
+      } catch {
+        // Status hydration is best-effort; keep the original draft UI if unavailable.
+      }
+    };
+
+    void hydrateStatus();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [issueId]);
 
   const handleConfirm = async () => {
     if (!issueId) return;
+    actionEpochRef.current += 1;
     setStatus('confirming');
     setError(null);
     try {
@@ -54,12 +100,13 @@ export function FrustrationIssueCard({ block }: FrustrationIssueCardProps) {
       setStatus('confirmed');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed');
-      setStatus('draft');
+      setStatus((currentStatus) => (isResolvedIssueStatus(currentStatus) ? currentStatus : 'draft'));
     }
   };
 
   const handleSkip = async () => {
     if (!issueId) return;
+    actionEpochRef.current += 1;
     setStatus('skipping');
     setError(null);
     try {
@@ -73,11 +120,11 @@ export function FrustrationIssueCard({ block }: FrustrationIssueCardProps) {
       setStatus('skipped');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed');
-      setStatus('draft');
+      setStatus((currentStatus) => (isResolvedIssueStatus(currentStatus) ? currentStatus : 'draft'));
     }
   };
 
-  const isResolved = status === 'confirmed' || status === 'skipped';
+  const isResolved = isResolvedIssueStatus(status);
 
   return (
     <div
