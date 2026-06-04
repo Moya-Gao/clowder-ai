@@ -241,6 +241,53 @@ in_context_observability:
 | **`claude --ide` / IDE 扩展自动化** | 远期备选，不进 Phase A spike | accessibility API / WebDriver 路径脆弱、慢、不可维护；只有候选 1-4 全挂时考虑 |
 | **claude.ai 浏览器自动化** | 否决 | 失去 CLI 所有能力（tools / skills / CLAUDE.md / MCP）；不是 Claude Code carrier，是 Claude chat 替身 |
 
+## Bug #3: bg carrier 多轮失忆 — 双轮探索 + 会员卡方案（2026-06-03/04）
+
+**问题**（OQ-7 / Phase D P1 #3）：`claude --bg` carrier 每轮失忆——daemon 每轮 fork 新 conversation UUID，无稳定"对话身份证"，导致 session_init seal+create 膨胀 + mutex re-lock race（云端 codex 3 轮 push back，证明 captured-id 是补锅）。两轮平行 spike（**context 隔离**：脏挖留在平行 thread，dense 结论 cross_post 回主 thread）收敛方案。
+
+### 探索轮 1 — 金钥匙：固定 id 能否稳定 bg？→ **不能**
+binary 2.1.161 逻辑 + 实测双证，三条固定 id 路径全堵：
+
+| 路径 | 结果 | 证据 |
+|------|------|------|
+| `--bg --session-id <fixed>` | 被忽略 | binary warning `--bg manages the session id; ignoring --session-id`；dispatch `sessionId = _ ?? randomUUID()` 每轮随机 |
+| `--bg --resume <fixed>` | **必 fork**（carrier 现状根因）| bg worker 是 long-lived live 进程，resume live id 撞 `already in use` → 强制注入 `--fork-session`；[实测] resume `53249ccc` → fork `7c77a04d`，原 session 仍 idle 活着 |
+| `attach` 复用 idle worker | 需真 TTY，非交互废 | [实测] pipe stdin `echo prompt \| claude attach <short-id>` → "Migrating to PTY…" 即退、未注入 |
+
+**关键反转**：[实测] fork **不丢记忆内容**（新 session 完整 seed 原历史，正确答出上轮 token）。真正丢的是 **id 接力链**——每轮 fork 新 id，carrier 须 id1→id2→id3 接力捕获，断链=丢，正是 codex 3 race 同源（都是"捕获 fork id"问题，不是 fork 丢历史）。
+**武器**：`claude agents --json`（binary 标注 "does not require a TTY"）= 非交互确定性查最新 fork id，把 race-prone 的"解析 dispatch stdout 捕获 id"变成确定性查询。
+
+### 探索轮 2 — Agent Team：原生能力能否解 carrier + 辩证对比
+铲屎官脑洞：`--bg`/`agents`/`attach` 本是 claude 原生 **Agent Team** 能力（binary 实证 `team leader`/`teammates`/`SendMessage`/`--spawn`/`--capacity`/`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`，experimental env-gated → 印证铲屎官 deliberate 没开）。三条候选：
+
+- **`/fork`（"inherits the full conversation"）= 一次性快照**（fork-at-point 独立分支，主对话后续 turn 不灌入）→ **不解** carrier"每 turn 持续接上轮"
+- **`-p --resume <fixed>` = 原地续写**（[实测] id 稳定不 fork、记忆续）**但 `-p` flag 本身触发 entrypoint=sdk-cli = 进 6/15 砍的 SDK 桶**（KD-9）→ **撞命门：治好失忆、得了绝症**，不可行
+- **teammate + SendMessage = 持续接收**（消息 `{from,text,timestamp}` append 同 session）但 experimental + in-process，carrier 难直接用
+
+**结论**：bg 固有 fork 无法绕过；唯一 id 稳定路（`-p`）撞 SDK 桶命门 → **会员卡 chainKey 是唯一可行路**。
+
+### 辩证对比矩阵（claude 原生 Agent Team vs Cat Café A2A）
+
+| 维度 | 原生 Agent Team | Cat Café | 取舍 |
+|------|----------------|----------|------|
+| @ 路由 | `^@([\w-]+)\s+(.+)$`（正则）| `^@句柄 内容` | **同构**——英雄所见略同，咱没白设计 |
+| 球权 | 自由认领（claim unassigned，低 ID 先）| 第一人称 + 传球三选一 + 决策树 | **咱领先**（原生缺纪律 = 坐实"乱调会乱"）|
+| 联邦 | 同进程/同机 Anthropic swarm | 跨 Opus/GPT/Gemini | **咱领先** |
+| 持久 | `~/.claude/teams\|tasks/` 临时 dir，session 散即清 | 持久 thread + 记忆系统 + 人猫共享视图 | **咱领先** |
+| L0 | 普通 coordination prompt | 压缩免疫 native system prompt | **咱领先** |
+| status 消息 | **禁结构化 JSON、只 plain text** | rich block 结构化 | 相反取向，各有理 |
+| **能学** | idle notification 自动上报 lead / claim-by-owner 认领顺序 / `--capacity` 并发上限 | — | 可纳入协作层但**保留球权护栏** |
+
+### 方案：会员卡 chainKey（47 设计）
+- `SessionRecord` 加 `chainKey`（`{threadId}:{catId}` 派生，同对话跨 daemon 不变）+ `latestResumeSessionId`
+- bg session_init 用 chainKey 查 record → 找到 **update 不 seal+create**（解 record 膨胀 + 复用）
+- bg done 用 chainKey 更新 `latestResumeSessionId` = 最新 fork id（`agents --json` 确定性查，非解析 stdout）
+- mutex key 用 `{threadId}:{catId}:bg`（稳定跨 fork rotation，解 re-lock race）
+- 其他 provider 走 cliSessionId 不变（隔离，不污染 -p/codex/gemini）
+- Scope ~200-400 行 / 2-3 天；captured-id PR #2076 撤回（补锅，根因被 chainKey 根治）
+
+> binary 2.1.161 / commit 6a550ae。两轮 spike 用 context 隔离（平行 opus-45 在 fork thread 挖、结论回主 thread）+ 全清理无残留 worker、6399 圣域未触。
+
 ## Acceptance Criteria
 
 ### Phase A（Spike + 决策）
@@ -388,7 +435,7 @@ in_context_observability:
 | OQ-4 | Cat Café MCP server 在 interactive carrier 下如何注入？`--mcp-config` 还是 `~/.claude/settings.json` 还是 RC 协议字段？ | ⬜ Phase B 设计 |
 | OQ-5 | tmux 兜底是 Phase A 直接弃用还是 Phase D 保留为 last-resort？ | ⬜ Phase A 决策 |
 | OQ-6 | Phase D 灰度切流量按 thread 还是按 cat 还是按 user？ | ⬜ Phase D 设计 |
-| OQ-7 | Interactive session resume 语义？跨 invocation 复用 session 是否会污染 context？ | ⬜ Phase B spike |
+| OQ-7 | Interactive session resume 语义？跨 invocation 复用 session 是否会污染 context？ | ✅ 收敛（Bug #3 双轮探索 2026-06-03/04）：`--bg` 固有 fork（resume live id 撞用 → 强制 `--fork-session`），fork 不丢历史但每轮新 id；方案 = 会员卡 chainKey + `agents --json` 确定性查 fork id；`-p --resume` id 稳但 `-p` 撞 SDK 桶命门。详见 Bug #3 节 |
 | OQ-8 | Hub 接管按钮的 UX：read-write 切回 read-only 后宪宪能否无缝继续？ | ⬜ Phase C 设计 + 与 F089 团队协调 |
 | OQ-9 | ~~`--remote-control` 协议是否支持多 session 隔离原语~~ → **obsoleted by KD-10**：主路径不走 RC 走 `--bg`，Agent View daemon 内置 per-job 隔离 | ✅ obsolete |
 | OQ-10 | `claude --bg` job 在 Cat Café feat worktree 跑时的实际行为：能正确写文件 / 触发 hooks / 不污染 git status 吗？（默认不带 `-w/--worktree`；用 Node spawn cwd 控制工作目录）| ⬜ Phase B prototype 实测 — 影响 AC-B5 |
@@ -409,6 +456,7 @@ in_context_observability:
 | KD-8 | ~~`ClaudeAgentService.ts:71` 的 `env.X = null` 有 bug~~ **撤回** | Second revision 控制实验证伪：`buildChildEnv` 内部 `if (null) delete merged[key]` 已经正确处理；transcript 仍是 sdk-cli 不是因为 env，是因为 `-p` flag 本身让 binary 自我 set | 2026-05-13（撤回 2026-05-13 21:00+）|
 | KD-9 | **真正决定性信号是 `-p` flag，不是 env var** | 两组控制实验（host env 设/不设 + buildChildEnv delete）+ `-p` 全部产出 entrypoint=sdk-cli；之前 cli +7 是 `--bg` 给的不是 delete 给的（spike 方法论错：没控制变量）| 2026-05-13 21:00+ |
 | KD-10 | **真正 fix 是 invocation 从 `-p` 迁到 `--bg`**（整体 carrier 改造，不是 2 行 env fix） | 配合官方 Agent View daemon（state.json + timeline.jsonl + transcript.jsonl 消费）+ 移除 stream-json stdout 解析 | 2026-05-13 21:00+ |
+| KD-11 | **Bug #3（bg 多轮失忆）方案 = 会员卡 chainKey**（非 captured-id 补锅、非 `-p --resume`）| 双轮平行 spike：`--bg` 固有 fork 无法用固定 id 绕过；唯一 id 稳定路 `-p --resume` 撞 SDK 桶命门（`-p`=sdk-cli，KD-9）；原生 Agent Team（`/fork` 一次性快照、teammate experimental in-process）不适配 carrier。chainKey（`{threadId}:{catId}` 稳定锚点）+ `agents --json` 确定性查 fork id 根治 codex 3 race | 2026-06-04 |
 
 ## Timeline
 
@@ -434,6 +482,7 @@ in_context_observability:
 | 2026-05-15 | Phase C merged (PR #1678) — Hub Oversight UI AC-C1~C5, 8 regression tests, @codex REVIEW PASS |
 | 2026-05-15 | Phase C **完全关闭** — @opus-47 愿景守护 APPROVE，AC-C6 ✅，救宪宪代码层+可观察层全套交付完成 |
 | 2026-06-22 (target) | Phase E AC-E1/E2/E3 验收 |
+| 2026-06-03/04 | **Bug #3（OQ-7 / Phase D P1 #3）双轮探索 + 会员卡方案收敛**：金钥匙轮（固定 id 三路全堵、bg 固有 fork、`agents --json` 武器）+ Agent Team 轮（`/fork` 一次性、`-p --resume` 撞 SDK 命门、辩证对比矩阵）；KD-11 会员卡 chainKey 唯一可行；captured-id PR #2076 撤回；47（有记忆）出 design + 48 实施 |
 
 ## Review Gate
 
