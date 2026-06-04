@@ -87,6 +87,7 @@ status: draft  # 用户预览后才提交
 
 | 日期 | 事件 |
 |------|------|
+| 2026-06-03 | Phase A implemented (PR #2075): FrustrationDetector + auto-issue card + confirm/skip flow, 4 AC met, 61 tests, Redis-backed store (Iron Law #5) |
 | 2026-06-04 | Phase A follow-up merged (PR #2082): auto-issue card status hydration keeps confirmed/skipped state visible after refresh |
 
 ## Dependencies
