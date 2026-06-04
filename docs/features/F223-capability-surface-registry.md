@@ -8,7 +8,7 @@ created: 2026-06-03
 
 # F223: Capability Surface Registry — 把隐藏能力产品化成可发现、可执行、可验证的能力面
 
-> **Status**: in-progress (Phase B1 review-ready) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
+> **Status**: in-progress (Phase B1 merged) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
 
 ## Architecture Ownership
 
@@ -198,6 +198,7 @@ Phase A 必须先关闭 OQ-3：第一方 Hub UX 动作是否扩展既有 `action
 | 2026-06-03 | F223 立项 |
 | 2026-06-03 | Phase A completed: inventory + decision ladder + `hub-action-surface` architecture cell |
 | 2026-06-04 | Phase B1 review-ready: workspace/browser typed MCP + workspace open visibility fix |
+| 2026-06-04 | Phase B1 merged via PR #2083: workspace/browser typed MCP + workspace open visibility fixes |
 
 ## Review Gate
 
