@@ -83,6 +83,16 @@ status: draft  # 用户预览后才提交
 - [x] AC-A3: 用户确认后 issue 持久化（可被 eval:task-outcome 消费）
 - [x] AC-A4: 用户跳过 → 不产生 issue，但 cancel/error 事件仍被 Permission Cancel 记录
 
+### Phase B
+- [ ] AC-B1: 文本情绪触发 — 用户消息含摩擦关键词（"不对""错了""怎么回事""又来了"等）时触发 auto-issue
+- [ ] AC-B2: routeParallel 摩擦检测接入（Phase A 云端 review P2→P3 遗留）
+- [ ] AC-B3: 误触发防护 — 关键词匹配须结合上下文窗口（避免正常讨论中的"不对"触发）
+
+### Phase C（待立项）
+- A2A 超时触发
+- 用户反复 retry 同一操作触发
+- Issue 列表/看板页面
+
 ## Timeline
 
 | 日期 | 事件 |
