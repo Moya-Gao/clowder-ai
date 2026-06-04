@@ -1,20 +1,20 @@
 ---
 feature_ids: [F223]
 related_features: [F038, F041, F131, F150, F192, F203, F211, F212]
-topics: [capability-surface, skills, mcp, action-plane, eval, workspace-navigator]
+topics: [capability-surface, skills, mcp, hub-action-surface, harness-eval, workspace-navigator]
 doc_kind: spec
 created: 2026-06-03
 ---
 
 # F223: Capability Surface Registry — 把隐藏能力产品化成可发现、可执行、可验证的能力面
 
-> **Status**: spec | **Owner**: 缅因猫/砚砚 | **Priority**: P1
+> **Status**: in-progress (Phase A complete) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
 
 ## Architecture Ownership
 
-Architecture cell: harness-eval + TBD first-party Hub action surface (Phase A resolves OQ-3)
-Map delta: update required
-Why: F192 eval side belongs to harness-eval; first-party Hub execution surfaces (workspace/preview/rich display) need a Phase A map delta before deciding whether to extend action-plane or create a new ownership cell.
+Architecture cell: hub-action-surface + harness-eval
+Map delta: new cell required (Phase A completed 2026-06-03)
+Why: F192 eval side belongs to harness-eval; first-party Hub execution surfaces (workspace/preview/rich display) belong to the new hub-action-surface cell instead of action-plane.
 
 ## Why
 
@@ -61,6 +61,8 @@ Decision Ladder：
 6. **Hook/JIT/eval**：只在 F192 证明行为 miss 或注意力稀释后加，不预设“提醒越多越好”。
 
 Phase A 必须先关闭 OQ-3：第一方 Hub UX 动作是否扩展既有 `action-plane` cell，还是新建 `hub-action-surface` / `first-party-action-surface` cell。OQ-3 未决前，Phase B 不落新的第一方 Hub MCP wrapper。
+
+**Phase A result (2026-06-03)**：选新建 `hub-action-surface` cell，不扩 `action-plane`。Inventory 真相源为 `docs/features/assets/F223/capability-surface-inventory.md`，Phase D 如需 hard check 可再从该文档生成 JSON/YAML。
 
 ### Phase B: First-Class Display Surfaces
 
@@ -124,13 +126,13 @@ Phase A 必须先关闭 OQ-3：第一方 Hub UX 动作是否扩展既有 `action
 
 <!-- 立项愿景硬度自检（F216→F219）：每条 AC 必须 ① trace 回 Why 的某诉求 ② 非作者可复核（命令/数字/截图）。重构/降复杂度类须实测可量（数字下降），不是"提了可测性就算"。详见 feat-lifecycle SKILL.md。 -->
 
-### Phase A（Inventory + Decision Ladder）
+### Phase A（Inventory + Decision Ladder）✅
 
-- [ ] AC-A1: 产出 capability surface inventory，覆盖来源至少包括 `capability-wakeup-index.md`、`cat-cafe-skills/*/SKILL.md`、`packages/mcp-server/src/tools/*`、cat-callable API routes、LL-041、F131、F192、F203。
-- [ ] AC-A2: 每个 inventory 条目都有 `trigger_surface`、`execution_surface`、`verification_probe`、`eval_signal`、`owner`、`recommended_action`。
-- [ ] AC-A3: 给出“skill only / helper / callback route / MCP / ActionService / hook”的分类理由，且与 ADR-029 不冲突。
-- [ ] AC-A4: 明确哪些需求挂 F192/F203/F131，哪些由 F223 自己承接；不把 eval、L0、单能力 bug 混成一个 owner。
-- [ ] AC-A5: 关闭 OQ-3 并完成 architecture map delta：要么扩展 `action-plane` cell 明确覆盖第一方 Hub UX 动作并 carve out ADR-029 外部 vendor 边界，要么新增第一方 Hub action surface cell；未完成前不得落 Phase B 新 MCP wrapper。
+- [x] AC-A1: 产出 capability surface inventory，覆盖来源至少包括 `capability-wakeup-index.md`、`cat-cafe-skills/*/SKILL.md`、`packages/mcp-server/src/tools/*`、cat-callable API routes、LL-041、F131、F192、F203。✅ `docs/features/assets/F223/capability-surface-inventory.md`
+- [x] AC-A2: 每个 inventory 条目都有 `trigger_surface`、`execution_surface`、`verification_probe`、`eval_signal`、`owner`、`recommended_action`。✅ inventory 主表
+- [x] AC-A3: 给出“skill only / helper / callback route / MCP / ActionService / hook”的分类理由，且与 ADR-029 不冲突。✅ inventory Decision Ladder + ADR-029 Compatibility
+- [x] AC-A4: 明确哪些需求挂 F192/F203/F131，哪些由 F223 自己承接；不把 eval、L0、单能力 bug 混成一个 owner。✅ inventory Ownership Split
+- [x] AC-A5: 关闭 OQ-3 并完成 architecture map delta：要么扩展 `action-plane` cell 明确覆盖第一方 Hub UX 动作并 carve out ADR-029 外部 vendor 边界，要么新增第一方 Hub action surface cell；未完成前不得落 Phase B 新 MCP wrapper。✅ 新增 `docs/architecture/ownership/cells/hub-action-surface.md`
 
 ### Phase B（First-Class Display Surfaces）
 
@@ -173,8 +175,8 @@ Phase A 必须先关闭 OQ-3：第一方 Hub UX 动作是否扩展既有 `action
 | # | 问题 | 状态 |
 |---|------|------|
 | OQ-1 | `cat_cafe_workspace_navigate` 的 schema 是否只覆盖 `reveal` / `open`，还是同步预留现有 skill 提到的其他 action？ | Phase B 定具体 union；命名方向已收敛为通用 navigate |
-| OQ-2 | registry 真相源放 docs YAML/Markdown，还是生成到代码可消费 JSON？ | Phase A 定；初期可 Markdown+frontmatter，后续需要 check 时生成 JSON |
-| OQ-3 | action-plane 是否需要扩展定义覆盖第一方 Hub 动作，还是新增 first-party Hub action surface cell？ | Phase A blocker；AC-A5 关闭 |
+| OQ-2 | registry 真相源放 docs YAML/Markdown，还是生成到代码可消费 JSON？ | ✅ 已定：Phase A 用 Markdown inventory；Phase D 若做 hard check 再生成 JSON/YAML |
+| OQ-3 | action-plane 是否需要扩展定义覆盖第一方 Hub 动作，还是新增 first-party Hub action surface cell？ | ✅ 已定：新增 `hub-action-surface` cell，不扩 `action-plane` |
 
 ## Key Decisions
 
@@ -184,6 +186,8 @@ Phase A 必须先关闭 OQ-3：第一方 Hub UX 动作是否扩展既有 `action
 | KD-2 | Skill 不是执行面，MCP/helper/callback/ActionService 才是执行面 | 防止 skill 继续教猫手写第一方 `curl`，也避免把认知问题误修成 hook | 2026-06-03 |
 | KD-3 | 不做“一能力一 PR” | 铲屎官明确要求效率；按能力族合并能减少 review/merge overhead | 2026-06-03 |
 | KD-4 | workspace typed surface 命名方向收敛为 `cat_cafe_workspace_navigate` | `workspace-navigator` 已覆盖 reveal/open 等 action；`open_file` 会把已有语义重新切碎 | 2026-06-03 |
+| KD-5 | 第一方 Hub 展示动作归 `hub-action-surface`，不扩 `action-plane` | action-plane 是外部资源 mutation；workspace/preview/rich block 是 Hub UI/socket/probe 侧效应 | 2026-06-03 |
+| KD-6 | Phase A registry 先用 Markdown inventory，Phase D 再决定是否生成机器格式 | 先让架构边界可 review；hard check 接受后再加机器消费层 | 2026-06-03 |
 
 ## Timeline
 
@@ -192,6 +196,7 @@ Phase A 必须先关闭 OQ-3：第一方 Hub UX 动作是否扩展既有 `action
 | 2026-06-03 | 宪宪打开文档现场暴露 workspace-navigator “调了但用户看不到”问题 |
 | 2026-06-03 | 砚砚排查社区 issue 与既有 feature，收敛为 capability surface registry |
 | 2026-06-03 | F223 立项 |
+| 2026-06-03 | Phase A completed: inventory + decision ladder + `hub-action-surface` architecture cell |
 
 ## Review Gate
 
@@ -209,3 +214,5 @@ Phase A 必须先关闭 OQ-3：第一方 Hub UX 动作是否扩展既有 `action
 | **Ref** | `cat-cafe-skills/refs/capability-wakeup-index.md` | Tier 1 / Tier 2 能力清单起点 |
 | **ADR** | `docs/decisions/029-external-tool-integration-strategy.md` | ActionService / callback / MCP 暴露面分层准则 |
 | **Lesson** | `docs/lessons-learned.md#ll-041-写完产物不主动打开--做了菜不端上桌` | 端上桌能力的历史教训 |
+| **Architecture** | `docs/architecture/ownership/cells/hub-action-surface.md` | 第一方 Hub 用户可见动作 ownership cell |
+| **Inventory** | `docs/features/assets/F223/capability-surface-inventory.md` | Phase A capability surface registry |
