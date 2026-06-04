@@ -246,21 +246,31 @@ Phase E 将 F192 从单域试点提升为横切的 Harness Eval Control Plane：
 **核心设计**：
 - **Episode** 是评价对象（一整个任务生命周期），不是单条消息
 - **Verdict** 是分类不是分数：success / corrected_success / needs_investigation / harness_fix_needed / routing_failure / taste_mismatch / abandoned
-- **信号三支柱**：A1 世界真值（merge/revert，自动零成本）+ A2 嵌入交互决策（permission cancel + magic word，几乎零额外成本）+ Proxy（导航不判定）
+- **信号两大类**（铲屎官 2026-06-04 框架）：**机械中断**（按钮/动作，不需要理解语义：cancel 按钮、merge、revert）+ **intention 中断**（需要理解语义/意图：magic word、cancel 理由、re-route、user edit）。本质都是"中断/改变猫的行为"→ 需要打点和观测
+- **三信号层**：A1 世界真值（merge/revert，自动零成本）+ A2 嵌入交互决策（permission cancel + magic word，几乎零额外成本）+ Proxy（导航不判定）
+- **执行频率**：daily（信号产生频率高于 capability-wakeup，需要更及时的观测窗口）
 
-- [x] AC-G1: TaskOutcomeEpisode Zod schema 定义——含 episodeId、trigger、threadId、participants、artifacts、signals（a1WorldTruth / a2InteractionDecisions / proxy）、terminalState、verdict（nullable categorical）、createdAt
+#### v0 骨架（PR #2074, merged 2026-06-03）
+
+- [x] AC-G1: TaskOutcomeEpisode Zod schema 定义——含 episodeId、trigger、threadId、participants、artifacts、signals（a1WorldTruth / a2InteractionDecisions / proxy）、terminalState（含 in_progress）、verdict（nullable categorical）、createdAt
 - [x] AC-G2: Permission Cancel 记录——signal builder + store，字段含 toolName / paramsSummary / reason（should_not_do / wrong_direction / i_will_do_it / skip） / timestamp / catId / threadId / sessionId
 - [x] AC-G3: Magic Word 上下文记录——signal builder + store，字段含 word / timestamp / threadId / catId / 前后消息摘要（可选）
-- [x] AC-G4: A1 世界真值信号——signal builder，字段含 type（merge / revert / test_pass / test_fail / build_pass / build_fail） / ref / outcome / timestamp
+- [x] AC-G4: A1 世界真值信号——signal builder + CiCdRouter.onPrLifecycle 生产接线（merge+success 自动 complete episode），字段含 type（merge / revert / test_pass / test_fail / build_pass / build_fail） / ref / outcome / timestamp
 - [x] AC-G5: SQLite-backed Episode Store——创建 / 查询 / 追加信号 / 更新终态 / 更新 verdict / 按 thread 列表 / 待 verdict 列表 / 获取活跃 episode
-- [x] AC-G6: API route handlers——handlePermissionCancel / handleMagicWord / handleA1WorldTruth / handleGetEpisode / handleListEpisodes（自动创建 episode if none active）
-- [x] AC-G7: eval:task-outcome 域注册——扩展 domainId enum + sourceAdapter enum + DOMAIN_INSTRUCTIONS + YAML registry file + verdict handoff domainId
-- [x] AC-G8: 授权系统集成——authorization respond 路由在 deny 时触发 onPermissionCancel hook（best-effort）
+- [x] AC-G6: API route handlers + session auth guard——handlePermissionCancel / handleMagicWord / handleA1WorldTruth / handleUpdateTerminalState / handleGetEpisode / handleListEpisodes（自动创建 episode if none active）+ 路由注册到 index.ts
+- [x] AC-G7: eval:task-outcome 域注册——扩展 domainId enum + sourceAdapter enum + DOMAIN_INSTRUCTIONS + YAML registry file（daily frequency）+ verdict handoff domainId
+- [x] AC-G8: 授权系统集成——authorization respond 路由在 deny 时触发 onPermissionCancel hook（best-effort，reason 默认 skip，结构化 reason 来自 AC-G10）
 - [x] AC-G9: Shared types——CANCEL_REASON_OPTIONS + CancelReasonValue + PermissionCancelEvent 导出到 @cat-cafe/shared 供前端使用
-- [ ] AC-G10: Cancel 理由浮层前端——cancel 后弹轻量浮层（可选：不该做/方向不对/我自己来/跳过）
-- [ ] AC-G11: 端到端验证——cancel → 记录 + 理由 → 绑 episode → eval hub 可见
+- [x] AC-G9b: env-registry + .gitignore——TASK_OUTCOME_DB 注册 + task-outcome-episodes.sqlite* gitignore
 
-依赖：复用 F192 已有 Eval Domain Registry / Verdict Handoff / Re-eval Closure / Eval Hub 控制面。
+#### v0.5 信号接线（下一个 PR，一个 PR 搞定）
+
+- [ ] AC-G10: Cancel 理由浮层前端——cancel 后弹轻量浮层（可选：不该做/方向不对/我自己来/跳过），选择后调 POST /api/task-outcome/cancel 带结构化 reason
+- [ ] AC-G12: Magic Word 运行时检测 hook——在消息处理流程中检测 magic word 触发 → 调 POST /api/task-outcome/magic-word 记录（intention 中断采集）
+- [ ] AC-G13: Cancel burst proxy signal——短时间内连续 cancel ≥3 次 → 自动追加 proxy signal（机械中断聚合）
+- [ ] AC-G11: 端到端验证——铲屎官 + 宪宪一起：cancel → 选理由 → 绑 episode → magic word 检测 → eval hub 可见
+
+依赖：复用 F192 已有 Eval Domain Registry / Verdict Handoff / Re-eval Closure / Eval Hub 控制面。与 F222 Frustration Auto-Issue 的打通（confirmed issue → episode signal）标记为 v1。
 
 ## 需求点 Checklist
 

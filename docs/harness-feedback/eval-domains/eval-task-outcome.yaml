@@ -6,7 +6,7 @@ evalCat:
   catId: opus-47
   handle: "@opus47"
   model: claude-opus-4-7
-frequency: weekly
+frequency: daily
 sourceAdapter: task-outcome-eval
 threadPolicy:
   role: working-home
