@@ -12,9 +12,9 @@ created: 2026-06-03
 
 ## Architecture Ownership
 
-Architecture cell: action-plane + harness-eval
+Architecture cell: harness-eval + TBD first-party Hub action surface (Phase A resolves OQ-3)
 Map delta: update required
-Why: 本 feature 新增一条横切 registry，把 skill/L0 触发、callback/API/MCP/helper 执行面、audit/probe 验证面、F192 eval 面连成同一个能力治理边界。
+Why: F192 eval side belongs to harness-eval; first-party Hub execution surfaces (workspace/preview/rich display) need a Phase A map delta before deciding whether to extend action-plane or create a new ownership cell.
 
 ## Why
 
@@ -60,13 +60,22 @@ Decision Ladder：
 5. **ActionService**：外部系统资源创建/变更、需要权限、dry-run、幂等、resource handle；按 ADR-029 先建 typed service，再决定暴露面。
 6. **Hook/JIT/eval**：只在 F192 证明行为 miss 或注意力稀释后加，不预设“提醒越多越好”。
 
+Phase A 必须先关闭 OQ-3：第一方 Hub UX 动作是否扩展既有 `action-plane` cell，还是新建 `hub-action-surface` / `first-party-action-surface` cell。OQ-3 未决前，Phase B 不落新的第一方 Hub MCP wrapper。
+
 ### Phase B: First-Class Display Surfaces
 
-先处理已经实测高摩擦的展示类能力，合成一个 PR，不拆成三个小 PR：
+先处理已经实测高摩擦的展示类能力，按能力族合并成少量 PR，不拆成三个小 PR：
 
-- `workspace-navigator`：新增 typed execution surface（默认候选：`cat_cafe_workspace_open_file` MCP，内部走 canonical navigate service），修 worktreeId canonicalization 与 `open` 强制切 Files view，删除 skill 里的裸 `curl` 主路径。
+- **B1 / Hub UX 端上桌 PR**：`workspace-navigator` + `browser-preview`。二者都是第一方 Hub 面板动作，reviewer 需要一次性看清 socket / audit / probe / MCP wrapper 边界。
+- **B2 / Rich messaging PR**：`rich-messaging`。已有 `cat_cafe_create_rich_block` MCP，本批重点是 trigger、tool description、F192 predicate 口径一致；它跨 F192 eval 语义，单独成批更清楚。
+
+能力内容：
+
+- `workspace-navigator`：新增 typed execution surface（默认候选：`cat_cafe_workspace_navigate` MCP，schema 用 action union 覆盖 `reveal` / `open` 等已有语义，内部走 canonical navigate service），修 worktreeId canonicalization 与 `open` 强制切 Files view，删除 skill 里的裸 `curl` 主路径。
 - `browser-preview`：把 `/api/preview/auto-open` 的猫猫调用路径包装成 typed surface（MCP 或 helper），skill 不再教猫手写 HTTP。
 - `rich-messaging`：已有 `cat_cafe_create_rich_block` MCP，不重复造工具；补 trigger、tool description、F192 predicate，使长结构化回复默认走 rich block。
+
+`workspace-navigator` 的 worktreeId canonicalization + Files view 修复是 2026-06-03 现场暴露的 user-visible bug；如实现排期被 Phase B batching 拖住，可按 hotfix 路径先修 AC-B2，再回到 F223 registry 批处理。
 
 ### Phase C: Tier 1 Capability Normalization
 
@@ -121,6 +130,7 @@ Decision Ladder：
 - [ ] AC-A2: 每个 inventory 条目都有 `trigger_surface`、`execution_surface`、`verification_probe`、`eval_signal`、`owner`、`recommended_action`。
 - [ ] AC-A3: 给出“skill only / helper / callback route / MCP / ActionService / hook”的分类理由，且与 ADR-029 不冲突。
 - [ ] AC-A4: 明确哪些需求挂 F192/F203/F131，哪些由 F223 自己承接；不把 eval、L0、单能力 bug 混成一个 owner。
+- [ ] AC-A5: 关闭 OQ-3 并完成 architecture map delta：要么扩展 `action-plane` cell 明确覆盖第一方 Hub UX 动作并 carve out ADR-029 外部 vendor 边界，要么新增第一方 Hub action surface cell；未完成前不得落 Phase B 新 MCP wrapper。
 
 ### Phase B（First-Class Display Surfaces）
 
@@ -137,7 +147,7 @@ Decision Ladder：
 
 ### Phase D（Guardrail + Eval Loop）
 
-- [ ] AC-D1: 新增或扩展 `pnpm check:skills` 类检查，阻止未豁免的第一方 raw `curl localhost` 主路径进入 skill。
+- [ ] AC-D1: 新增或扩展 `pnpm check:skills` 类检查，阻止未豁免的第一方 raw `curl localhost` 主路径进入 skill。按 F192 Phase F AC-F9 决策 #2，hard check / forcing-function 行为改动必须走 Design Gate / CVO accept；豁免名单（exception allowlist）与检查范围同审。
 - [ ] AC-D2: 每个 registry 条目能被 F192 verdict 或手动 probe 追踪到后续行动：fix / build / keep_observe / delete_sunset。
 - [ ] AC-D3: PR packaging 遵守批处理策略：优先按能力族合并，不按单个能力拆 PR；只有跨架构边界、风险或 review owner 明显不同才拆。
 
@@ -156,15 +166,15 @@ Decision Ladder：
 | “全都 MCP 化”导致维护层过重 | Phase A 用 Decision Ladder + ADR-029 分类；MCP 只用于确实跨 runtime、schema 化、用户可见副作用的能力 |
 | 只做文档盘点，实际猫还是手写 | Phase D 加 hard check；Phase B 先改最常踩的展示类能力 |
 | hook/JIT 太早造成噪音 | 先走 F192 miss-rate 证据，持续高 miss 再升级 forcing function |
-| PR 太碎导致 review overhead | 明确按能力族合并，Phase B 三个展示能力同 PR，Phase C Tier 1 normalization 同批推进 |
+| PR 太碎导致 review overhead | 明确按能力族合并：Phase B 分 Hub UX 端上桌 PR + rich messaging PR 两批；Phase C Tier 1 normalization 同批推进 |
 
 ## Open Questions
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | `workspace-navigator` typed surface 最终叫 `cat_cafe_workspace_open_file` 还是归入通用 `cat_cafe_workspace_navigate`？ | 倾向前者，Phase B 定 |
+| OQ-1 | `cat_cafe_workspace_navigate` 的 schema 是否只覆盖 `reveal` / `open`，还是同步预留现有 skill 提到的其他 action？ | Phase B 定具体 union；命名方向已收敛为通用 navigate |
 | OQ-2 | registry 真相源放 docs YAML/Markdown，还是生成到代码可消费 JSON？ | Phase A 定；初期可 Markdown+frontmatter，后续需要 check 时生成 JSON |
-| OQ-3 | action-plane 是否需要扩展定义覆盖第一方 Hub 动作，还是新增 capability-surface cell？ | Phase A map delta 决定 |
+| OQ-3 | action-plane 是否需要扩展定义覆盖第一方 Hub 动作，还是新增 first-party Hub action surface cell？ | Phase A blocker；AC-A5 关闭 |
 
 ## Key Decisions
 
@@ -173,6 +183,7 @@ Decision Ladder：
 | KD-1 | 新建 F223，而不是强挂 F192/F203/F131 | F192 管 eval，F203 管 L0 触发，F131 管单个 workspace 能力；本需求横跨 trigger/execution/verification/eval 四层 | 2026-06-03 |
 | KD-2 | Skill 不是执行面，MCP/helper/callback/ActionService 才是执行面 | 防止 skill 继续教猫手写第一方 `curl`，也避免把认知问题误修成 hook | 2026-06-03 |
 | KD-3 | 不做“一能力一 PR” | 铲屎官明确要求效率；按能力族合并能减少 review/merge overhead | 2026-06-03 |
+| KD-4 | workspace typed surface 命名方向收敛为 `cat_cafe_workspace_navigate` | `workspace-navigator` 已覆盖 reveal/open 等 action；`open_file` 会把已有语义重新切碎 | 2026-06-03 |
 
 ## Timeline
 
@@ -185,7 +196,7 @@ Decision Ladder：
 ## Review Gate
 
 - Phase A: 砚砚产出 inventory + decision ladder 后，由 F192/F203 owner 做架构 review。
-- Phase B: workspace/browser/rich display surfaces 同 PR；需要跨个体 review，重点查“typed surface 是否真的替代 raw curl”与“probe 是否能证明用户看到了”。
+- Phase B: B1 workspace/browser 同 PR，B2 rich-messaging 单独一批；需要跨个体 review，重点查“typed surface 是否真的替代 raw curl”与“probe 是否能证明用户看到了”。
 - Phase C/D: 根据 Phase A 分类决定 reviewer；涉及 F192 eval 的部分由 harness-eval owner review。
 
 ## Links
