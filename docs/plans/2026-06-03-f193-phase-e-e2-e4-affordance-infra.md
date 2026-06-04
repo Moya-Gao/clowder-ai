@@ -3,7 +3,7 @@ feature_ids: [F193]
 doc_kind: plan
 created: 2026-06-03
 author: codex
-status: plan
+status: implemented
 ---
 
 # F193 Phase E — E2/E4 Affordance + Friction Infra Plan
@@ -258,6 +258,43 @@ cd packages/mcp-server && pnpm test
 If exact test file names differ, use the nearest existing route/tool tests and record the actual command in the review request.
 
 ## Review Notes for Opus-46
+
+## Implementation Results
+
+| Task | Status | Evidence |
+|---|---|---|
+| Task 1 — shared type | ✅ | `packages/shared/src/types/cross-thread-affordance.ts` exports `SuggestedCrossPostAction` |
+| Task 2 — `feat_index` owner + suggestion | ✅ | callback route returns `ownerCatId` + `suggestedAction`; MCP text renders `suggested_action` |
+| Task 3 — `search_evidence` suggestions | ✅ | API attaches action for non-current thread results; MCP passes `currentThreadId` from env |
+| Task 4 — `list_recent` suggestions | ✅ | API only attaches action for `kind === 'thread'` cross-thread items |
+| Task 5 — commit/stash provenance | ✅ | `Thread-Context` footer documented; no hook mutation/rejection |
+| Task 6 — integration + quality gate | ✅ | Targeted E2/E4 suite green; full gate split-run reached check after build/tsc/full tests, then `pnpm check` passed after gate-drift fixes |
+
+Actual validation so far:
+
+```bash
+env -u CAT_CAFE_RUNTIME_ROOT pnpm --filter @cat-cafe/shared build
+env -u CAT_CAFE_RUNTIME_ROOT pnpm --filter @cat-cafe/api build
+env -u CAT_CAFE_RUNTIME_ROOT pnpm --filter @cat-cafe/mcp-server build
+env -u CAT_CAFE_RUNTIME_ROOT node --test \
+  packages/api/test/feat-index-doc-import.test.js \
+  packages/api/test/callback-routes.test.js \
+  packages/mcp-server/test/callback-tools.test.js
+env -u CAT_CAFE_RUNTIME_ROOT node --test \
+  packages/api/test/evidence-route.test.js \
+  packages/api/test/memory/library-recent-route.test.js \
+  packages/mcp-server/test/evidence-tools.test.js \
+  packages/mcp-server/test/recent-tools.test.js
+pnpm check
+```
+
+Final validation:
+
+- `env -u CAT_CAFE_RUNTIME_ROOT pnpm --filter @cat-cafe/api build` ✅
+- `env -u CAT_CAFE_RUNTIME_ROOT pnpm --filter @cat-cafe/mcp-server build` ✅
+- E2/E4 targeted tests: 220/220 ✅
+- `pnpm check`: 20/20 checks ✅
+- `pnpm gate`: second full run passed build + full tsc + full test suite + web lint, then failed at `pnpm check` on three gate-drift items (Biome import order, missing `CAT_CAFE_THREAD_ID` registry, F193 reopened but missing BACKLOG row). Those were fixed in `chore(F193): close E2 E4 gate drift`; `pnpm check` then passed. First full run hit a transient `tmux-agent-spawner` timeout, and the same file passed isolated 16/16.
 
 - E2/E4 will use the exact `SuggestedCrossPostAction` source union from E1 v2.
 - If E1 lands the shared type first, E2/E4 imports it. If E2/E4 lands it first, E1 should remove its local copy and import from `@cat-cafe/shared`.

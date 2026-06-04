@@ -5,7 +5,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import type { CallbackAuthFailureReason, DispatchGateState } from '@cat-cafe/shared';
+import type { CallbackAuthFailureReason, DispatchGateState, SuggestedCrossPostAction } from '@cat-cafe/shared';
 import {
   CALLBACK_AUTH_FAILURE_REASONS,
   DEVELOPMENT_SOP_STAGE_IDS,
@@ -17,6 +17,7 @@ import {
 import { z } from 'zod';
 import { sendCallbackRequest } from './callback-outbox.js';
 import { extractReasonTag } from './callback-retry.js';
+import { formatSuggestedCrossPostActionLines } from './cross-post-suggestion-format.js';
 import { withDegradation } from './degradation.js';
 import type { ToolResult } from './file-tools.js';
 import { errorResult, successResult } from './file-tools.js';
@@ -715,11 +716,60 @@ export async function handleFeatIndex(input: {
   featId?: string | undefined;
   query?: string | undefined;
 }): Promise<ToolResult> {
-  return callbackGet('/api/callbacks/feat-index', {
+  const result = await callbackGet('/api/callbacks/feat-index', {
     ...(input.limit ? { limit: String(input.limit) } : {}),
     ...(input.featId ? { featId: input.featId } : {}),
     ...(input.query ? { query: input.query } : {}),
   });
+  if (result.isError) return result;
+  return successResult(formatFeatIndexResponse(result.content[0]?.text ?? '{}'));
+}
+
+interface FeatIndexItem {
+  featId?: string;
+  name?: string;
+  status?: string;
+  owner?: string;
+  ownerCatId?: string;
+  keyDecisions?: string[];
+  threadIds?: string[];
+  suggestedAction?: SuggestedCrossPostAction;
+}
+
+function formatFeatIndexResponse(raw: string): string {
+  let parsed: { items?: FeatIndexItem[] };
+  try {
+    parsed = JSON.parse(raw) as { items?: FeatIndexItem[] };
+  } catch {
+    return raw;
+  }
+
+  const items = Array.isArray(parsed.items) ? parsed.items : [];
+  if (items.length === 0) return 'feat_index results (0)';
+
+  const lines = [`feat_index results (${items.length})`];
+  items.forEach((item, index) => {
+    const title = `${item.featId ?? 'unknown'} — ${item.name ?? '(unnamed)'}`;
+    lines.push(`${index + 1}. ${title}${item.status ? ` [${item.status}]` : ''}`);
+    if (item.owner) {
+      lines.push(`   owner: ${item.owner}${item.ownerCatId ? ` (${item.ownerCatId})` : ''}`);
+    }
+    if (item.keyDecisions?.length) {
+      lines.push('   key decisions:');
+      item.keyDecisions.forEach((decision) => {
+        lines.push(`   - ${decision}`);
+      });
+    }
+    if (item.threadIds?.length) {
+      lines.push(`   threads: ${item.threadIds.join(', ')}`);
+    }
+    const action = item.suggestedAction;
+    if (action?.type === 'cross_post') {
+      lines.push(...formatSuggestedCrossPostActionLines(action, { indent: '   ', detailIndent: '   ' }));
+    }
+  });
+
+  return lines.join('\n');
 }
 
 export async function handleUpdateTask(input: {

@@ -10,6 +10,8 @@
  * so cats see a consistent prompt regardless of which tool surfaces it.
  */
 
+export type SuggestedCrossPostActionSource = 'dispatch_gate' | 'search_evidence' | 'list_recent' | 'feat_index';
+
 /**
  * Suggested action when a cross-scope discovery needs dispatching.
  * Shared across E1 (dispatch gate), E2 (affordance hint), E4 (feat_index).
@@ -22,7 +24,7 @@ export interface SuggestedCrossPostAction {
   readonly targetCats?: readonly string[];
   readonly reason?: string;
   /** Which tool/subsystem produced this suggestion */
-  readonly source: 'dispatch_gate' | 'search_evidence' | 'list_recent' | 'feat_index';
+  readonly source: SuggestedCrossPostActionSource;
 }
 
 /**

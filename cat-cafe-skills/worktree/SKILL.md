@@ -170,6 +170,28 @@ git worktree list             # 列出所有 worktree
 git branch --merged main      # 哪些分支已合入
 ```
 
+## Commit / Stash 溯源 Footer（F193 Phase E）
+
+当当前 worktree 的改动来自跨 thread 投递、跨 feature 调查、或你预期后续猫需要反查来源 thread 时，在 commit body 或 stash message 末尾加：
+
+```text
+Thread-Context: threadId=<threadId> invocationId=<invocationId> catId=<catId>
+```
+
+示例：
+
+```text
+Why: Add read-side affordance so search/list_recent results show where to cross-post.
+
+[砚砚/GPT-5.5🐾]
+Thread-Context: threadId=thread_mpl0np23o7syhxl5 invocationId=0001780508313338 catId=codex
+```
+
+规则：
+- 只在有明确 thread context 时写；拿不到 `invocationId` 就省略该键，不要猜。
+- 不通过 hook 自动改写或拒绝提交；这是降摩擦溯源字段，不是新门禁。
+- stash 只写 tracked 临时现场；多 session 工作目录里仍禁止 `git stash -u`，避免清掉别人未跟踪产物。
+
 ## Codex `apply_patch` 陷阱（开发猫必读）
 
 `apply_patch` 落点由**会话默认工作目录**决定，不跟着 `cd` 走。

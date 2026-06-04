@@ -593,6 +593,7 @@ export type {
   DispatchGateState,
   ReviewAutomationState,
   SuggestedCrossPostAction,
+  SuggestedCrossPostActionSource,
   TaskItem,
   TaskKind,
   TaskStatus,

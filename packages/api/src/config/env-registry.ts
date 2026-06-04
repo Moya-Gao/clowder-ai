@@ -767,6 +767,14 @@ export const ENV_VARS: EnvDefinition[] = [
     hubVisible: false,
   },
   {
+    name: 'CAT_CAFE_THREAD_ID',
+    defaultValue: '(运行时注入)',
+    description: '当前 thread ID（由 API 进程注入 MCP Server 子进程 env，用于跨线程 affordance 抑制本 thread 提示）',
+    category: 'cli',
+    sensitive: false,
+    hubVisible: false,
+  },
+  {
     name: 'CAT_CAFE_CAT_ID',
     defaultValue: '(运行时注入)',
     description: '当前猫 ID（由 API 进程注入 MCP Server 子进程 env）',

@@ -140,8 +140,13 @@ TODO/毛线球/task 含 `F\d+` 且不等于当前 feature 时，强制猫选择�
 
 **E2. affordance hint（搜索端自动提示）**
 `search_evidence` / `list_recent` / `feat_index` 返回非当前 thread 的结果时，
-payload 附带 `suggested_action: { type: 'cross_post', threadId, featId }` hint。
+payload 附带 `suggestedAction: { type: 'cross_post', threadId, featureId }` hint。
 让工具主动把投递动作放到猫面前。
+
+**Phase E E2 implementation status（2026-06-03）**:
+- [x] `search_evidence` / `/api/evidence/search` 读取当前 thread context，跨 thread 结果附 `suggestedAction`
+- [x] `list_recent` / `/api/library/recent` 仅对 `kind === 'thread'` 的跨 thread item 附 `suggestedAction`
+- [x] MCP text output 渲染稳定 `suggested_action: cat_cafe_cross_post_message(...)` 行，避免猫从自然语言里猜动作
 
 **E3. 共享环境异常外部化触发**
 SessionStart / shell hook 检测到 main 上有 unexpected 状态（untracked docs /
@@ -151,6 +156,11 @@ SessionStart / shell hook 检测到 main 上有 unexpected 状态（untracked do
 - commit / stash message 标准化带 `threadId`（溯源从"猜"变"读"）
 - `feat_index` 返回增加 owner catId（投递时不用另查）
 - cross-post 必须 `targetCats` + 行首 `@` 双保险（已有 F193 Phase A 约束）
+
+**Phase E E4 implementation status（2026-06-03）**:
+- [x] `feat_index` 返回 `owner` / `ownerCatId` / `suggestedAction`；无已知 thread 但 owner 可解析时保留 owner-derived action metadata
+- [x] `SuggestedCrossPostAction` 进入 shared type，E1/E2/E4 共用同一 shape
+- [x] commit / stash provenance 标准化为 `Thread-Context: threadId=<threadId> invocationId=<invocationId> catId=<catId>`，文档化但不 hook-enforce
 
 **E5. F128 边界澄清（propose_thread vs cross_post_message）** ✅ `23501c27a` merged 2026-06-03
 - F128 `propose_thread` NOT FOR：已有归属 thread 的问题投递 → 用 `cross_post_message`

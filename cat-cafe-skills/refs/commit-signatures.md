@@ -15,6 +15,21 @@
 
 示例：`feat(api): add mcp callback registry [宪宪/Opus-46🐾]`
 
+## Thread Context Footer（F193 Phase E）
+
+跨 thread 调查、跨 feature 投递、或需要后续猫从 commit/stash 反查来源 thread 时，commit body / stash message
+末尾追加标准 footer：
+
+```text
+Thread-Context: threadId=<threadId> invocationId=<invocationId> catId=<catId>
+```
+
+- `threadId`：当前工作的来源 thread，例如 `thread_mpl0np23o7syhxl5`
+- `invocationId`：当前 invocation id；拿不到时省略整个 `invocationId=...` 片段，不要猜
+- `catId`：当前 runtime identity 的 catId，例如 `codex` / `opus`
+
+这不是 hook-enforced 字段；不要为了补 footer 自动改写 commit message 或拒绝提交。目标是让跨 thread 溯源从"猜聊天记录"变成"读结构化 footer"。
+
 @ 句柄（A2A 消息用）：
 
 | 句柄 | 猫猫 |

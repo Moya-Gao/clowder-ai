@@ -11,7 +11,11 @@ import type { DispatchGateState } from './cross-thread-affordance.js';
 import type { CatId } from './ids.js';
 
 // Re-export affordance types so existing consumers don't break
-export type { DispatchGateState, SuggestedCrossPostAction } from './cross-thread-affordance.js';
+export type {
+  DispatchGateState,
+  SuggestedCrossPostAction,
+  SuggestedCrossPostActionSource,
+} from './cross-thread-affordance.js';
 export { extractFeatureIds } from './cross-thread-affordance.js';
 
 export type TaskStatus = 'todo' | 'doing' | 'blocked' | 'done';

@@ -271,6 +271,7 @@ describe('CodexAgentService Tests (CLI mode)', { concurrency: false }, () => {
             CAT_CAFE_API_URL: 'http://127.0.0.1:3004',
             CAT_CAFE_INVOCATION_ID: 'inv-test-1',
             CAT_CAFE_CALLBACK_TOKEN: 'tok-test-1',
+            CAT_CAFE_THREAD_ID: 'thread-test-1',
             CAT_CAFE_USER_ID: 'user-test-1\nline2',
             CAT_CAFE_CAT_ID: 'codex',
             CAT_CAFE_SIGNAL_USER: 'codex',
@@ -325,6 +326,10 @@ describe('CodexAgentService Tests (CLI mode)', { concurrency: false }, () => {
         assert.ok(
           args.includes(`mcp_servers.${serverId}.env.CAT_CAFE_CALLBACK_TOKEN="tok-test-1"`),
           `must inject CAT_CAFE_CALLBACK_TOKEN on ${serverId}`,
+        );
+        assert.ok(
+          args.includes(`mcp_servers.${serverId}.env.CAT_CAFE_THREAD_ID="thread-test-1"`),
+          `must inject CAT_CAFE_THREAD_ID on ${serverId}`,
         );
         assert.ok(
           args.includes(`mcp_servers.${serverId}.env.CAT_CAFE_USER_ID="user-test-1\\nline2"`),
