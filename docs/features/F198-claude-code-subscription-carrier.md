@@ -288,6 +288,15 @@ binary 2.1.161 逻辑 + 实测双证，三条固定 id 路径全堵：
 
 > binary 2.1.161 / commit 6a550ae。两轮 spike 用 context 隔离（平行 opus-45 在 fork thread 挖、结论回主 thread）+ 全清理无残留 worker、6399 圣域未触。
 
+### ✅ 实施完成（opus-48, 2026-06-04, PR #2085 → `46625cf61`）
+三层 RED→GREEN：**Store**（`SessionRecord` +`chainKey`(`bg:{threadId}:{catId}`)/+`latestResumeSessionId`；`getByChainKey` + chainKey index，in-memory + Redis；`AgentService.usesChainKeyResume?()` capability probe）/ **Consumer**（invoke-single-cat 6 处走 chainKey：sessionId 取 / mutex / session_init reuse / done / recordActive，`if/else` 隔离非 bg）/ **Carrier**（`--resume <uuid>` UUID guard + done emit `state.resumeSessionId`）。
+
+**实施偏离 design doc（review 把关通过）**：① provider 判断改 `usesChainKeyResume?()` capability probe（`provider==='claude-bg'` 不可行——invoke 侧 `provider=clientId='anthropic'`，且 mutex/sessionId 区在 provider 定义前）② mutex key = chainKey 本身（`bg:{threadId}:{catId}`，语义等价 design 的 `{threadId}:{catId}:bg` 后缀式）③ **`agents --json` 降级 follow-up**（`state.resumeSessionId` daemon 直接写 state.json 是 spike 2026-06-03 实证的可靠确定性主路径，agents --json 冗余防御）。
+
+**review**：砚砚（GPT-5.5）本地放行 + 云端 codex re-review（修 1 P1：sealed bg session 不复活——getByChainKey 不 filter status 是 write tolerance，但 resume/reuse 路径需 status check，boundary 对称化镜像非 bg）→ "no major issues"。测试：store in-memory 6 + Redis 5 + consumer 5 + carrier 5；回归 invoke 158/158 + redis 27/27 + pnpm gate ✅。
+
+> ⏭️ **alpha 真实剧本（§9）+ AC-D5 record 数实证**待铲屎官 alpha 跑（需 `CAT_CAFE_CLAUDE_CARRIER=bg_daemon`）：6 轮 = 一条 record（messageCount=6）验证 chainKey 复用 + cancel invalidate-and-keep + sealed boundary。
+
 ## Acceptance Criteria
 
 ### Phase A（Spike + 决策）
@@ -363,7 +372,7 @@ binary 2.1.161 逻辑 + 实测双证，三条固定 id 路径全堵：
 - [ ] AC-D2: 预算治理面板 + 告警阈值生效
 - [ ] AC-D3: 灰度切流量 10% → 50% → 100%，每档观察期内无 P0/P1 regression
 - [ ] AC-D4: 6/15 前所有 thread 默认 `bg_daemon`
-- [ ] **AC-D5 (新 2026-06-03)**: bg session chain pointer 化（不阻塞 Bug #3 / D3 灰度）— bg carrier 每个 `--bg` invocation 必然新 daemon shortId（spike 实证 `d061424f → 61a48e5b → a56e3aa4`），触发 `session_init` handler 的 "CLI session changed → seal+create" 路径，**每轮 bg invoke 产生 1 sealed + 1 new active record**。conversation 内容通过 `--resume UUID` 接力正确，session chain hygiene 退化：recall/digest pipeline 看到的是多条 sealed record 而非一条连续 conversation。**理想终态**：bg 走 chain-pointer (next-record) 而非 seal-and-create，一条 conversation = 一条 record。**为何 defer**：实施碰 session_init handler + provider-aware 分支 + recall/digest pipeline，远超 Bug #3 PR scope；conversation 正确性不受影响（仅 hygiene 退化）。**verdict gate**：愿景守护三审 alpha 真实剧本要 inspect 跑完 3 轮后 sessionChainStore 实际 record 数，记入 Bug #3 PR 回写作为本 AC 优先级实证。发现来源：Bug #3 实施（opus-48）+ 架构评议（opus-47 2026-06-03）
+- [ ] **AC-D5 (新 2026-06-03)**: bg session chain pointer 化（不阻塞 Bug #3 / D3 灰度）— bg carrier 每个 `--bg` invocation 必然新 daemon shortId（spike 实证 `d061424f → 61a48e5b → a56e3aa4`），触发 `session_init` handler 的 "CLI session changed → seal+create" 路径，**每轮 bg invoke 产生 1 sealed + 1 new active record**。conversation 内容通过 `--resume UUID` 接力正确，session chain hygiene 退化：recall/digest pipeline 看到的是多条 sealed record 而非一条连续 conversation。**理想终态**：bg 走 chain-pointer (next-record) 而非 seal-and-create，一条 conversation = 一条 record。**为何 defer**：实施碰 session_init handler + provider-aware 分支 + recall/digest pipeline，远超 Bug #3 PR scope；conversation 正确性不受影响（仅 hygiene 退化）。**verdict gate**：愿景守护三审 alpha 真实剧本要 inspect 跑完 3 轮后 sessionChainStore 实际 record 数，记入 Bug #3 PR 回写作为本 AC 优先级实证。发现来源：Bug #3 实施（opus-48）+ 架构评议（opus-47 2026-06-03）。**→ 2026-06-04 update（PR #2085）**：Bug #3 chainKey 实施**已实现 chain-pointer 终态**——bg session_init 用 chainKey 复用一条 record（不 seal+create），一条 conversation = 一条 record，hygiene 不再退化。record 数实证（6 轮 = 1 record，messageCount=6）+ recall/digest pipeline 验证待铲屎官 alpha 跑（§9 剧本）后再勾此 AC
 
 ### Phase E（观察）
 - [ ] AC-E1: 6/15 后 1 周宪宪 daily invocation 数 ≥ 6/15 前 7 日平均的 80%
@@ -483,6 +492,7 @@ binary 2.1.161 逻辑 + 实测双证，三条固定 id 路径全堵：
 | 2026-05-15 | Phase C **完全关闭** — @opus-47 愿景守护 APPROVE，AC-C6 ✅，救宪宪代码层+可观察层全套交付完成 |
 | 2026-06-22 (target) | Phase E AC-E1/E2/E3 验收 |
 | 2026-06-03/04 | **Bug #3（OQ-7 / Phase D P1 #3）双轮探索 + 会员卡方案收敛**：金钥匙轮（固定 id 三路全堵、bg 固有 fork、`agents --json` 武器）+ Agent Team 轮（`/fork` 一次性、`-p --resume` 撞 SDK 命门、辩证对比矩阵）；KD-11 会员卡 chainKey 唯一可行；captured-id PR #2076 撤回；47（有记忆）出 design + 48 实施 |
+| 2026-06-04 | **Bug #3 实施 merged（PR #2085 → `46625cf61`）**：会员卡 chainKey 三层（store schema + consumer invoke-single-cat + carrier resume）；砚砚本地 + 云端 codex re-review（修 1 P1：sealed bg session resume boundary）；偏离 design doc 3 点（provider→`usesChainKeyResume?()` probe / mutex key=chainKey / `agents --json` 降级 follow-up）；AC-D5 chain-pointer 终态由 chainKey 实现，record 数实证待 alpha |
 
 ## Review Gate
 
