@@ -8,7 +8,7 @@ created: 2026-06-03
 
 # F222: Frustration Auto-Issue — 把负体验变成结构化反馈
 
-> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: done | **Owner**: 布偶猫 | **Priority**: P1 | **Completed**: 2026-06-04
 
 ## Architecture Ownership
 
