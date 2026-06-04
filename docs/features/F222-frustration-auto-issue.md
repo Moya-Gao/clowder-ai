@@ -88,10 +88,10 @@ status: draft  # 用户预览后才提交
 - [x] AC-B2: routeParallel 摩擦检测接入（Phase A 云端 review P2→P3 遗留）
 - [x] AC-B3: 误触发防护 — 关键词匹配须结合上下文窗口（避免正常讨论中的"不对"触发）
 
-### Phase C
-- [ ] AC-C1: A2A 超时触发 — @了猫超过阈值（如 60s）未响应时触发 auto-issue
-- [ ] AC-C2: 用户反复 retry 同一操作触发 — 相同消息/意图连续发送 ≥3 次时触发
-- [ ] AC-C3: Issue 列表 API — GET /api/frustration-issues（用户可查看自己的所有 issue）
+### Phase C ✅
+- [x] AC-C1: A2A 超时触发 — @了猫超过阈值（60s）未响应时触发 auto-issue
+- [x] AC-C2: 用户反复 retry 同一操作触发 — 相同消息连续发送 ≥3 次时触发
+- [x] AC-C3: Issue 列表 API — GET /api/frustration-issues（用户可查看自己的所有 issue）
 
 ## Timeline
 
@@ -100,6 +100,7 @@ status: draft  # 用户预览后才提交
 | 2026-06-03 | Phase A implemented (PR #2075): FrustrationDetector + auto-issue card + confirm/skip flow, 4 AC met, 61 tests, Redis-backed store (Iron Law #5) |
 | 2026-06-04 | Phase A follow-up merged (PR #2082): auto-issue card status hydration keeps confirmed/skipped state visible after refresh |
 | 2026-06-04 | Phase B merged (PR #2086): text frustration keyword trigger + routeParallel detection + Z5-style user msg paging, 6-round review, 74 tests |
+| 2026-06-04 | Phase C merged (PR #2088): A2A timeout (60s threshold) + retry burst (≥3 same-prefix) + issue list API, 3-round review, 90 tests |
 
 ## Dependencies
 
