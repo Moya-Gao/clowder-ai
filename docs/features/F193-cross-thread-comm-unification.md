@@ -131,12 +131,12 @@ created: 2026-05-07
 > **核心诊断**：猫发现跨 scope 问题时默认"记 TODO"不投递——根因是投递摩擦高
 > （5 步 vs 1 步）+ L0 文字和 Magic Word 同构会失效。需要 affordance 改造。
 
-**E1. dispatch gate（TODO 端强制二选一）**
+**E1. dispatch gate（TODO 端强制二选一）** ✅ PR #2079 merged 2026-06-04
 TODO/毛线球/task 含 `F\d+` 且不等于当前 feature 时，强制猫选择：
 - `dispatched: thread_xxx`（已投递）
 - `not_dispatched_reason: ...`（说明为什么不投递）
 
-把隐性跳过变成显性决策。实现位置待定（`create_task` schema / rich block / L0 纪律）。
+把隐性跳过变成显性决策。实现：`create_task` MCP schema + handler auto-extract F号 + `status: missing` 落库 + warning + `update_task` patch path。砚砚 3 轮 review。
 
 **E2. affordance hint（搜索端自动提示）**
 `search_evidence` / `list_recent` / `feat_index` 返回非当前 thread 的结果时，
@@ -152,7 +152,7 @@ SessionStart / shell hook 检测到 main 上有 unexpected 状态（untracked do
 - `feat_index` 返回增加 owner catId（投递时不用另查）
 - cross-post 必须 `targetCats` + 行首 `@` 双保险（已有 F193 Phase A 约束）
 
-**E5. F128 边界澄清（propose_thread vs cross_post_message）**
+**E5. F128 边界澄清（propose_thread vs cross_post_message）** ✅ `23501c27a` merged 2026-06-03
 - F128 `propose_thread` NOT FOR：已有归属 thread 的问题投递 → 用 `cross_post_message`
 - 判断顺序：先 `list_threads keyword=<关键词>` 查有没有 → 有就 cross_post → 没有才 propose
 - thread-orchestration / cross-thread-sync skill 互相指向
