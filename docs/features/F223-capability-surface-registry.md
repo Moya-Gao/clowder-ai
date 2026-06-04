@@ -8,7 +8,7 @@ created: 2026-06-03
 
 # F223: Capability Surface Registry — 把隐藏能力产品化成可发现、可执行、可验证的能力面
 
-> **Status**: in-progress (CG-1 alpha-verified; Phase C/D open) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
+> **Status**: in-progress (Phase C review-ready; Phase D open) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
 
 ## Architecture Ownership
 
@@ -143,9 +143,9 @@ Phase A 必须先关闭 OQ-3：第一方 Hub UX 动作是否扩展既有 `action
 
 ### Phase C（Tier 1 Normalization）
 
-- [ ] AC-C1: L0 §8 Tier 1 的 13 条能力全部进入 registry，并完成执行面建议。
-- [ ] AC-C2: 已有能力类 MCP（`generate_document`、`update_workflow`、`multi_mention`、`start_vote`、external runtime session、CLI diagnostics）都有可发现 trigger 与简洁调用说明。
-- [ ] AC-C3: F192 capability-wakeup normalizer/classifier 不再因新增 >5 个 capability 继续堆 hardcode；必要时完成 classifier 解耦。
+- [x] AC-C1: L0 §8 Tier 1 的 13 条能力全部进入 registry，并完成执行面建议。✅ `packages/api/test/harness-eval/f223-phase-c-capability-normalization.test.js`
+- [x] AC-C2: 已有能力类 MCP（`generate_document`、`update_workflow`、`multi_mention`、`start_vote`、external runtime session、CLI diagnostics）都有可发现 trigger 与简洁调用说明。✅ `packages/api/test/harness-eval/f223-phase-c-capability-normalization.test.js`
+- [x] AC-C3: F192 capability-wakeup normalizer/classifier 不再因新增 >5 个 capability 继续堆 hardcode；必要时完成 classifier 解耦。✅ Phase C contract guards hardcoded mappings at 3 (`workspace-navigator` / `browser-preview` / `rich-messaging`) and fails if they grow past 5.
 
 ### Phase D（Guardrail + Eval Loop）
 
@@ -203,6 +203,7 @@ Phase A 必须先关闭 OQ-3：第一方 Hub UX 动作是否扩展既有 `action
 | 2026-06-04 | Phase B2 review-ready: rich-messaging trigger/MCP/F192 predicate aligned；CG-2 canonicalize fallback observability added |
 | 2026-06-04 | Phase B2 merged via PR #2089: rich-messaging trigger/MCP/F192 predicate aligned；CG-2 canonicalize fallback observability added |
 | 2026-06-04 | CG-1 alpha-verified (@sonnet)：action=open → Files view + 文件内容可见；Phase B1 close-gates 全部关闭；Phase C/D 仍 open |
+| 2026-06-04 | Phase C review-ready: Tier 1 inventory contract + underused MCP trigger/description normalization + F192 hardcode guard |
 
 ## Phase B1 Vision Guard（2026-06-04, opus-48）
 

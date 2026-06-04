@@ -1685,7 +1685,10 @@ export const callbackTools = [
     name: 'cat_cafe_start_vote',
     description:
       'Start a voting session in the current thread for collective decision-making ' +
-      '(e.g. "REST vs GraphQL?"). Voters receive notification and reply with [VOTE:option]. ' +
+      '(e.g. "REST vs GraphQL?"). ' +
+      'Use when a multi-cat discussion needs a bounded decision, tradeoff vote, or option ranking instead of another round of @ replies. ' +
+      'Output: vote prompt message is posted, voters are notified, and the vote result is summarized when all voters respond or timeout expires. ' +
+      'Voters receive notification and reply with [VOTE:option]. ' +
       'Auto-closes when all voters have voted or timeout expires (default 120s). ' +
       'GOTCHA: voters must be valid registered catIds (use get_thread_cats to discover them). Options need at least 2 choices.',
     inputSchema: startVoteInputSchema,
