@@ -83,10 +83,10 @@ status: draft  # 用户预览后才提交
 - [x] AC-A3: 用户确认后 issue 持久化（可被 eval:task-outcome 消费）
 - [x] AC-A4: 用户跳过 → 不产生 issue，但 cancel/error 事件仍被 Permission Cancel 记录
 
-### Phase B
-- [ ] AC-B1: 文本情绪触发 — 用户消息含摩擦关键词（"不对""错了""怎么回事""又来了"等）时触发 auto-issue
-- [ ] AC-B2: routeParallel 摩擦检测接入（Phase A 云端 review P2→P3 遗留）
-- [ ] AC-B3: 误触发防护 — 关键词匹配须结合上下文窗口（避免正常讨论中的"不对"触发）
+### Phase B ✅
+- [x] AC-B1: 文本情绪触发 — 用户消息含摩擦关键词（"不对""错了""怎么回事""又来了"等）时触发 auto-issue
+- [x] AC-B2: routeParallel 摩擦检测接入（Phase A 云端 review P2→P3 遗留）
+- [x] AC-B3: 误触发防护 — 关键词匹配须结合上下文窗口（避免正常讨论中的"不对"触发）
 
 ### Phase C（待立项）
 - A2A 超时触发
@@ -99,6 +99,7 @@ status: draft  # 用户预览后才提交
 |------|------|
 | 2026-06-03 | Phase A implemented (PR #2075): FrustrationDetector + auto-issue card + confirm/skip flow, 4 AC met, 61 tests, Redis-backed store (Iron Law #5) |
 | 2026-06-04 | Phase A follow-up merged (PR #2082): auto-issue card status hydration keeps confirmed/skipped state visible after refresh |
+| 2026-06-04 | Phase B merged (PR #2086): text frustration keyword trigger + routeParallel detection + Z5-style user msg paging, 6-round review, 74 tests |
 
 ## Dependencies
 
