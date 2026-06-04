@@ -28,6 +28,8 @@ const EXPECTED_TOOLS = [
   'cat_cafe_create_task',
   'cat_cafe_create_rich_block',
   'cat_cafe_generate_document',
+  'cat_cafe_workspace_navigate',
+  'cat_cafe_preview_open',
   'cat_cafe_get_rich_block_rules',
   'cat_cafe_register_pr_tracking',
   // F211 Phase B: IDE-direct external runtime session registration
@@ -136,6 +138,8 @@ const EXPECTED_COLLAB_TOOLS = [
   'cat_cafe_create_task',
   'cat_cafe_create_rich_block',
   'cat_cafe_generate_document',
+  'cat_cafe_workspace_navigate',
+  'cat_cafe_preview_open',
   'cat_cafe_get_rich_block_rules',
   'cat_cafe_request_permission',
   'cat_cafe_check_permission_status',
@@ -320,6 +324,20 @@ describe('MCP Server Tool Registration', () => {
     assert.ok(listTool.inputSchema._def.shape().agentKeyCatId.isOptional());
   });
 
+  test('Hub action tools expose agentKeyCatId for shared persistent MCP identity', async () => {
+    const { createServer } = await import('../dist/index.js');
+    const server = createServer();
+
+    const workspaceTool = server._registeredTools.cat_cafe_workspace_navigate;
+    const previewTool = server._registeredTools.cat_cafe_preview_open;
+    assert.ok(workspaceTool, 'workspace_navigate tool should exist');
+    assert.ok(previewTool, 'preview_open tool should exist');
+    assert.ok(Object.keys(workspaceTool.inputSchema.shape).includes('agentKeyCatId'));
+    assert.ok(workspaceTool.inputSchema._def.shape().agentKeyCatId.isOptional());
+    assert.ok(Object.keys(previewTool.inputSchema.shape).includes('agentKeyCatId'));
+    assert.ok(previewTool.inputSchema._def.shape().agentKeyCatId.isOptional());
+  });
+
   test('deprecated file tools are not registered', async () => {
     const { createServer } = await import('../dist/index.js');
     const server = createServer();
@@ -389,6 +407,8 @@ const KNOWN_WRITE_TOOLS = [
   'cat_cafe_create_task',
   'cat_cafe_create_rich_block',
   'cat_cafe_generate_document',
+  'cat_cafe_workspace_navigate',
+  'cat_cafe_preview_open',
   'cat_cafe_request_permission',
   'cat_cafe_register_pr_tracking',
   'cat_cafe_register_external_runtime_session',
@@ -483,7 +503,12 @@ describe('F061 READONLY_ALLOWED_TOOLS whitelist', () => {
       const { createServer } = await import(${JSON.stringify(distIndexUrl)});
       const server = createServer();
       const names = Object.keys(server._registeredTools);
-      if (!names.includes('cat_cafe_post_message') || !names.includes('cat_cafe_get_thread_context')) {
+      if (
+        !names.includes('cat_cafe_post_message') ||
+        !names.includes('cat_cafe_get_thread_context') ||
+        !names.includes('cat_cafe_workspace_navigate') ||
+        !names.includes('cat_cafe_preview_open')
+      ) {
         console.error(JSON.stringify(names.sort()));
         process.exit(1);
       }

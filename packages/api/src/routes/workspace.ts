@@ -37,6 +37,7 @@ import {
   registerWorktrees,
   removeLinkedRoot,
   resolveWorkspacePath,
+  resolveWorktreeIdByPath,
   WorkspaceSecurityError,
 } from '../domains/workspace/workspace-security.js';
 
@@ -792,8 +793,10 @@ export const workspaceRoutes: FastifyPluginAsync<WorkspaceRouteOpts> = async (ap
       return { error: 'worktreeId and path required' };
     }
 
+    let canonicalWorktreeId = worktreeId;
     try {
       const root = await getWorktreeRoot(worktreeId);
+      canonicalWorktreeId = await resolveWorktreeIdByPath(root).catch(() => worktreeId);
       const resolved = await resolveWorkspacePath(root, filePath);
       await stat(resolved);
     } catch (e) {
@@ -809,9 +812,16 @@ export const workspaceRoutes: FastifyPluginAsync<WorkspaceRouteOpts> = async (ap
       return { error: 'Internal error' };
     }
 
-    const eventData = { path: filePath, worktreeId, action, line, threadId, eventId: randomUUID() };
-    if (worktreeId) {
-      opts.socketEmit?.('workspace:navigate', eventData, `worktree:${worktreeId}`);
+    const eventData = {
+      path: filePath,
+      worktreeId: canonicalWorktreeId,
+      action,
+      line,
+      threadId,
+      eventId: randomUUID(),
+    };
+    if (canonicalWorktreeId) {
+      opts.socketEmit?.('workspace:navigate', eventData, `worktree:${canonicalWorktreeId}`);
       opts.socketEmit?.('workspace:navigate', eventData, 'workspace:global');
     } else {
       opts.socketEmit?.('workspace:navigate', eventData, 'workspace:global');
@@ -822,7 +832,7 @@ export const workspaceRoutes: FastifyPluginAsync<WorkspaceRouteOpts> = async (ap
         type: AuditEventTypes.WORKSPACE_NAVIGATE,
         threadId,
         data: {
-          worktreeId,
+          worktreeId: canonicalWorktreeId,
           path: filePath,
           action,
           line,
@@ -831,6 +841,6 @@ export const workspaceRoutes: FastifyPluginAsync<WorkspaceRouteOpts> = async (ap
       })
       .catch(() => {});
 
-    return { ok: true, path: filePath, action };
+    return { ok: true, path: filePath, action, worktreeId: canonicalWorktreeId };
   });
 };

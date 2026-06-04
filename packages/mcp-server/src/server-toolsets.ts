@@ -11,6 +11,7 @@ import {
   financeTools,
   gameActionTools,
   graphTools,
+  hubActionTools,
   libraryLifecycleTools,
   limbTools,
   perspectiveTools,
@@ -76,6 +77,10 @@ export const AGENT_KEY_TOOLS = new Set([
   'cat_cafe_get_thread_context',
   'cat_cafe_list_threads',
   'cat_cafe_register_external_runtime_session',
+  // F223: first-party Hub UX actions are callback-authenticated writes that
+  // persistent agent-key MCP clients need when invocation credentials are absent.
+  'cat_cafe_workspace_navigate',
+  'cat_cafe_preview_open',
 ]);
 
 const isReadonly = process.env['CAT_CAFE_READONLY'] === 'true';
@@ -93,6 +98,7 @@ function applyReadonlyFilter(tools: readonly ToolDef[]): readonly ToolDef[] {
 const collabTools: readonly ToolDef[] = applyReadonlyFilter([
   ...callbackTools,
   ...externalRuntimeSessionCallbackTools,
+  ...hubActionTools,
   ...richBlockRulesTools,
   ...gameActionTools,
   ...scheduleTools,

@@ -2,17 +2,19 @@
 cell_id: hub-action-surface
 title: Hub Action Surface
 summary: First-party Hub user-visible actions that let cats surface files, previews, rich blocks, workflow state, and other in-context artifacts to the user.
-canonical_features: [F022, F120, F131, F223]
+canonical_features: [F022, F096, F120, F131, F223]
 code_anchors:
   - packages/api/src/routes/workspace.ts
   - packages/web/src/hooks/useWorkspaceNavigate.ts
   - packages/api/src/routes/preview.ts
   - packages/web/src/components/__tests__/preview-auto-open-store.test.ts
   - packages/web/src/components/__tests__/workspace-navigate-store.test.ts
+  - packages/mcp-server/src/tools/hub-action-tools.ts
   - packages/mcp-server/src/tools/callback-tools.ts
   - packages/mcp-server/src/tools/rich-block-rules-tool.ts
 doc_anchors:
   - docs/features/F022-rich-blocks.md
+  - docs/features/F096-interactive-rich-blocks.md
   - docs/features/F120-hub-embedded-browser.md
   - docs/features/F131-workspace-navigator.md
   - docs/features/F223-capability-surface-registry.md

@@ -102,6 +102,13 @@ export {
   handleGraphResolve,
 } from './graph-tools.js';
 export {
+  handlePreviewOpen,
+  handleWorkspaceNavigate,
+  hubActionTools,
+  previewOpenInputSchema,
+  workspaceNavigateInputSchema,
+} from './hub-action-tools.js';
+export {
   handleLibraryArchive,
   handleLibraryCreate,
   handleLibraryDryRun,

@@ -40,7 +40,7 @@ describe('eval:task-outcome domain registration (F192 Phase G)', () => {
     );
     const entry = parseEvalDomainRegistryEntry(parse(raw));
     assert.equal(entry.domainId, 'eval:task-outcome');
-    assert.equal(entry.frequency, 'weekly');
+    assert.equal(entry.frequency, 'daily');
   });
 
   it('accepts eval:task-outcome as valid domainId in verdict handoff', () => {

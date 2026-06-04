@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
+import { basename, dirname, resolve } from 'node:path';
 import { after, before, describe, it } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import Fastify from 'fastify';
 import { EventAuditLog } from '../dist/domains/cats/services/orchestration/EventAuditLog.js';
 import { registerWorktrees } from '../dist/domains/workspace/workspace-security.js';
@@ -9,9 +11,11 @@ describe('POST /api/workspace/navigate (F131)', () => {
   const app = Fastify();
   const emittedEvents = [];
   const appendedAuditEvents = [];
+  const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
+  const canonicalWorktreeId = basename(repoRoot).replace(/[^a-zA-Z0-9_-]/g, '_');
 
   before(async () => {
-    registerWorktrees([{ id: 'test-wt', root: process.cwd(), branch: 'main', head: 'abc123' }]);
+    registerWorktrees([{ id: 'test-wt', root: repoRoot, branch: 'main', head: 'abc123' }]);
     const auditLog = new EventAuditLog({ auditDir: '/tmp/cat-cafe-workspace-navigate-audit-test' });
     auditLog.append = async (input) => {
       appendedAuditEvents.push(input);
@@ -82,13 +86,15 @@ describe('POST /api/workspace/navigate (F131)', () => {
 
     assert.equal(emittedEvents.length, 2);
     assert.equal(emittedEvents[0].event, 'workspace:navigate');
-    assert.equal(emittedEvents[0].room, 'worktree:test-wt');
+    assert.equal(body.worktreeId, canonicalWorktreeId);
+    assert.equal(emittedEvents[0].data.worktreeId, canonicalWorktreeId);
+    assert.equal(emittedEvents[0].room, `worktree:${canonicalWorktreeId}`);
     assert.equal(emittedEvents[1].room, 'workspace:global');
     assert.equal(appendedAuditEvents.length, 1);
     assert.equal(appendedAuditEvents[0].type, 'workspace_navigate');
     assert.equal(appendedAuditEvents[0].threadId, undefined);
     assert.deepEqual(appendedAuditEvents[0].data, {
-      worktreeId: 'test-wt',
+      worktreeId: canonicalWorktreeId,
       path: 'package.json',
       action: 'reveal',
       line: undefined,
@@ -107,6 +113,23 @@ describe('POST /api/workspace/navigate (F131)', () => {
     const body = JSON.parse(res.body);
     assert.equal(body.action, 'open');
     assert.equal(emittedEvents[0].data.action, 'open');
+  });
+
+  it('canonicalizes registry alias worktreeId before emitting navigation events', async () => {
+    emittedEvents.length = 0;
+    registerWorktrees([{ id: 'alias-wt', root: repoRoot, branch: 'main', head: 'abc123' }]);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/workspace/navigate',
+      payload: { worktreeId: 'alias-wt', path: 'package.json', action: 'open' },
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.equal(body.worktreeId, canonicalWorktreeId);
+    assert.equal(emittedEvents[0].data.worktreeId, canonicalWorktreeId);
+    assert.equal(emittedEvents[0].room, `worktree:${canonicalWorktreeId}`);
   });
 
   it('accepts optional line parameter', async () => {

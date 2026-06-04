@@ -18,7 +18,7 @@ L0 §8 trigger 写了 ≠ 猫真用。判断"为什么 miss + 怎么修"必须�
 
 **筛子 0 — Reachability（这能力当前 context 调得到吗？怎么调？）**
 - ❌ 调不到 / trigger 没写"怎么调" → 猫误判"这是别人的工具"，100% miss。**修法 = 补"怎么调"一行，不是 hook**。
-- 教训（2026-05-27）：opus-47 断言"terminal 调不了 workspace-navigator"——纯脑补没 verify（「我能猜出来」病）。实际 SKILL.md Step 3 = `curl localhost:${API_SERVER_PORT}/api/workspace/navigate`，Bash 直接调；opus-48 + opus-47 各实测 `{"ok":true}`。**一个你以为够不着的能力，miss 不是因为懒，是从没进考虑**——独立于"偷懒"的失败域，药方相反（补可达性 ≠ 上 forcing function）。
+- 教训（2026-05-27）：opus-47 断言"terminal 调不了 workspace-navigator"——纯脑补没 verify（「我能猜出来」病）。当时底层 API 可由 Bash 直调；F223 Phase B 后主路径升级为 `cat_cafe_workspace_navigate` typed MCP。**一个你以为够不着的能力，miss 不是因为懒，是从没进考虑**——独立于"偷懒"的失败域，药方相反（补可达性 ≠ 上 forcing function）。
 
 **筛子 1 — Enforcement Tier（过了筛子 0 才分）**
 - **Tier A · episodic**：需要时自然想起，无零摩擦偷懒竞品。L0 advisory 够。例：`start_vote` / `expert-panel` / `deep-research`
@@ -33,11 +33,11 @@ opus-47 原把 `workspace-navigator` / `rich-messaging` / `browser-preview` 一�
 
 | 能力 | reachability（实测凭证） | 过筛归类 | 修法 |
 |---|---|---|---|
-| `workspace-navigator` | ✅ 直接可调 `/api/workspace/navigate`（action `reveal\|open`）；curl `{"ok":true}` 实测（opus-47 + opus-48 各开过文件） | 真 Tier B | 已补 curl 调用方式（上文）；reachability 修完后才轮到 hook |
+| `workspace-navigator` | ✅ `cat_cafe_workspace_navigate` typed MCP（底层 `/api/workspace/navigate`，action `reveal\|open`） | 真 Tier B | 主路径改 typed MCP；reachability 修完后才轮到 hook |
 | `rich-messaging` | ✅ `cat_cafe_create_rich_block` MCP，同 `cat_cafe_post_message` callback 路径（本 session post_message 多次 routed ok）；未单独直调（避免 thread 噪声） | 真 Tier B（纯文字零摩擦抢活） | 候选 forcing-function（hook：长纯文字回复 + 无 rich block → 提醒） |
-| `browser-preview` | ✅ 可达——cat POST `/api/preview/auto-open`（`preview.ts:92`，源码注释 "Cat-initiated auto-open — skips toast, directly opens browser panel" + `socketEmit('preview:auto-open')`）；同文件共 6 个 cat-callable POST（`/validate-port` `/open` `/close` `/navigate` `/auto-open` `/screenshot`，全是 `app.post<{...}>(...)` 泛型签名）。与 workspace-navigator `/api/workspace/navigate` **完全平行**，唯一区别多一个前提（dev server 先跑，cat 起） | 真 Tier B | 跟另两个一致：补可达性认知（cat 主动 POST auto-open，不是"等 Hub 检测/等铲屎官点"）+ 候选 hook |
+| `browser-preview` | ✅ `cat_cafe_preview_open` typed MCP（底层 `/api/preview/auto-open`）；同文件共 6 个 cat-callable POST（`/validate-port` `/open` `/close` `/navigate` `/auto-open` `/screenshot`，全是 `app.post<{...}>(...)` 泛型签名） | 真 Tier B | 跟另两个一致：补可达性认知（cat 主动打开，不是"等 Hub 检测/等铲屎官点"）+ 候选 hook |
 
-**这张表本身就是 reachability 前置筛的价值**：三个"看着该 Tier B"的，过筛后**全是可达的真 Tier B**——workspace / rich-messaging / browser-preview 各有 cat 可调路径（`/api/workspace/navigate` / `cat_cafe_create_rich_block` / `/api/preview/auto-open`）。筛子的价值是**逼出每个的实测调用方式**，把"以为够不着"的误判挡在 hook 决策之外，不是脑补"哪个无 API"。
+**这张表本身就是 reachability 前置筛的价值**：三个"看着该 Tier B"的，过筛后**全是可达的真 Tier B**——workspace / rich-messaging / browser-preview 各有 typed cat path（`cat_cafe_workspace_navigate` / `cat_cafe_create_rich_block` / `cat_cafe_preview_open`）。筛子的价值是**逼出每个的实测调用方式**，把"以为够不着"的误判挡在 hook 决策之外，不是脑补"哪个无 API"。
 
 > **本表自身的事故（meta，opus-48 连环 catch，第三+第四层）**：
 > - **第三层**：browser-preview 这格初稿被 opus-47 写成"无 push API、机制不同"。根因**不是"多行"**——是 grep 模式 `app.post('/api/preview` 假设 `app.post` 直接跟 `(`，但 `preview.ts` 全部 6 个 POST 都是泛型签名 `app.post<{ Body... }>('/...'`，`<{...}>` 把 `app.post` 和 `(` 隔开 → 对 6 个**全部**零命中（auto-open 恰好也多行，但那是次要），只匹配到 2 个 GET，下了否定结论。
@@ -67,7 +67,7 @@ opus-47 原把 `workspace-navigator` / `rich-messaging` / `browser-preview` 一�
 - 前端 component / 页面 / 布局 review
 - dev server 已起来想 demo
 
-**用法**：worktree 内 OFFSET-aware ports；prevent runtime 3001/3002 误打
+**用法**：`cat_cafe_preview_open`；worktree 内 OFFSET-aware ports；prevent runtime 3001/3002 误打
 **边界**：localhost 预览用 `browser-preview`；外部网站用 `browser-automation`
 
 ### 3. `image-generation` — AI 生图
@@ -89,15 +89,9 @@ opus-47 原把 `workspace-navigator` / `rich-messaging` / `browser-preview` 一�
 - 想让铲屎官直接看到目标文件
 - 文档 / 代码 / 设计图
 
-**用法（reachability — 别误判成 Hub 专属！terminal/Bash 直接调 localhost HTTP，不走 MCP）**：
-```bash
-API_PORT="${API_SERVER_PORT:-3002}"   # 运行态 env 优先；验证：curl localhost:$API_PORT/api/workspace/worktrees 返回 JSON
-curl -X POST http://localhost:$API_PORT/api/workspace/navigate \
-  -H "Content-Type: application/json" \
-  -d '{"path": "相对路径", "action": "open", "worktreeId": "cat-cafe"}'
-```
+**用法（reachability — 别误判成 Hub 专属！）**：`cat_cafe_workspace_navigate({ path, action: "open" | "reveal", worktreeId, threadId })`
 完整：`workspace-navigator/SKILL.md` Step 3。F148 navigation 系统底层。
-**分类**：reachability ✅（curl 实测 `{"ok":true}`）；enforcement = Tier B（零摩擦"报路径"抢活）——但**先补可达性认知（本条），再考虑 hook**，不是上来就 hook。
+**分类**：reachability ✅（typed MCP + 底层 API 实测）；enforcement = Tier B（零摩擦"报路径"抢活）——但**先补可达性认知（本条），再考虑 hook**，不是上来就 hook。
 
 ### 5. `pencil-design` — .pen 设计文件 + React 代码导出
 

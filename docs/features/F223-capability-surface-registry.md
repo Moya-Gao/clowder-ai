@@ -8,7 +8,7 @@ created: 2026-06-03
 
 # F223: Capability Surface Registry — 把隐藏能力产品化成可发现、可执行、可验证的能力面
 
-> **Status**: in-progress (Phase A complete) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
+> **Status**: in-progress (Phase B1 review-ready) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
 
 ## Architecture Ownership
 
@@ -136,9 +136,9 @@ Phase A 必须先关闭 OQ-3：第一方 Hub UX 动作是否扩展既有 `action
 
 ### Phase B（First-Class Display Surfaces）
 
-- [ ] AC-B1: `workspace-navigator` 主路径不再要求猫手写第一方 `curl`；新 typed surface 有单元测试或 MCP handler 测试。
-- [ ] AC-B2: workspace open file 修复 worktreeId canonicalization，并在 `action=open` 时确保 Workspace panel 切到 Files view。
-- [ ] AC-B3: `browser-preview` 主路径不再要求猫手写 `/api/preview/auto-open`；调用结果有可验证 probe。
+- [x] AC-B1: `workspace-navigator` 主路径不再要求猫手写第一方 `curl`；新 typed surface 有单元测试或 MCP handler 测试。✅ `cat_cafe_workspace_navigate` + `packages/mcp-server/test/hub-action-tools.test.js`
+- [x] AC-B2: workspace open file 修复 worktreeId canonicalization，并在 `action=open` 时确保 Workspace panel 切到 Files view。✅ `packages/api/test/workspace-navigate.test.js` + `packages/web/src/components/__tests__/workspace-panel-reveal-in-tree.test.ts`
+- [x] AC-B3: `browser-preview` 主路径不再要求猫手写 `/api/preview/auto-open`；调用结果有可验证 probe。✅ `cat_cafe_preview_open` + `packages/mcp-server/test/hub-action-tools.test.js`
 - [ ] AC-B4: `rich-messaging` 的 MCP、skill trigger、capability-wakeup predicate 三者口径一致。
 
 ### Phase C（Tier 1 Normalization）
@@ -197,6 +197,7 @@ Phase A 必须先关闭 OQ-3：第一方 Hub UX 动作是否扩展既有 `action
 | 2026-06-03 | 砚砚排查社区 issue 与既有 feature，收敛为 capability surface registry |
 | 2026-06-03 | F223 立项 |
 | 2026-06-03 | Phase A completed: inventory + decision ladder + `hub-action-surface` architecture cell |
+| 2026-06-04 | Phase B1 review-ready: workspace/browser typed MCP + workspace open visibility fix |
 
 ## Review Gate
 
@@ -216,3 +217,4 @@ Phase A 必须先关闭 OQ-3：第一方 Hub UX 动作是否扩展既有 `action
 | **Lesson** | `docs/lessons-learned.md#ll-041-写完产物不主动打开--做了菜不端上桌` | 端上桌能力的历史教训 |
 | **Architecture** | `docs/architecture/ownership/cells/hub-action-surface.md` | 第一方 Hub 用户可见动作 ownership cell |
 | **Inventory** | `docs/features/assets/F223/capability-surface-inventory.md` | Phase A capability surface registry |
+| **Code** | `packages/mcp-server/src/tools/hub-action-tools.ts` | Phase B1 workspace/browser typed MCP wrappers |

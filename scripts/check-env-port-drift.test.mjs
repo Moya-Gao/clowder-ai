@@ -1564,17 +1564,27 @@ describe(
   'Public-facing skill docs avoid home-only API defaults',
   { skip: !isHomeRepo && 'sync infrastructure not present (open-source repo)' },
   () => {
-    it('workspace-navigator uses API_SERVER_PORT env instead of hardcoded 3002 fallbacks', () => {
+    it('workspace-navigator uses typed MCP instead of raw API port guidance', () => {
       const content = readFileSync(resolve(ROOT, 'cat-cafe-skills/workspace-navigator/SKILL.md'), 'utf-8');
       assert.doesNotMatch(
         content,
         /API_SERVER_PORT=3002|API_SERVER_PORT:-3002/,
         'workspace-navigator should not hardcode the home-only API default in public-facing usage guidance',
       );
+      assert.doesNotMatch(
+        content,
+        /API_PORT=/,
+        'workspace-navigator should not require cats to hand-manage first-party API ports',
+      );
+      assert.doesNotMatch(
+        content,
+        /curl\s+-X\s+POST[\s\S]{0,200}\/api\/workspace\/navigate/,
+        'workspace-navigator should not use raw curl as the first-party Hub action main path',
+      );
       assert.match(
         content,
-        /API_PORT="\$\{API_SERVER_PORT:\?set API_SERVER_PORT before calling Navigate API\}"/,
-        'workspace-navigator should teach readers to source the API port from the runtime environment',
+        /cat_cafe_workspace_navigate\(\{/,
+        'workspace-navigator should teach the typed MCP main path',
       );
     });
   },
