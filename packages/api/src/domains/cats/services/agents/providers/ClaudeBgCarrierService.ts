@@ -52,6 +52,11 @@ import { TranscriptTailer } from './TranscriptTailer.js';
 
 const SHORT_ID_PATTERN = /backgrounded\s*·\s*([a-f0-9]{8})/;
 
+// F198 Bug #3: `claude --bg --resume <id>` requires a full conversation UUID —
+// the 8-hex daemon shortId (or any non-UUID) makes the resumed daemon error
+// out. Guard sessionId before forwarding it as --resume.
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const log = createModuleLogger('claude-bg-carrier');
 
 export class CarrierError extends Error {
@@ -168,6 +173,17 @@ export class ClaudeBgCarrierService implements AgentService {
   }
 
   /**
+   * F198 Bug #3 — the bg daemon forks a fresh sessionId UUID every
+   * `--bg --resume` round, so there is no stable per-conversation id. Signal
+   * invoke-single-cat to anchor this conversation on a derived chainKey
+   * (`bg:${threadId}:${catId}`) instead of the rotating cliSessionId — which
+   * avoids the session_init seal+create cascade behind multi-turn amnesia.
+   */
+  usesChainKeyResume(): boolean {
+    return true;
+  }
+
+  /**
    * F203 Phase C: compile per-cat L0 → temp file for `--system-prompt-file`
    * (compression-immune native system role; replaces the user-message prepend
    * stripped in Task 2). fail-closed: a missing L0 = a cat with no identity/
@@ -239,6 +255,16 @@ export class ClaudeBgCarrierService implements AgentService {
       const args = useEnvModelOverride ? ['--bg'] : ['--bg', '--model', effectiveModel];
       // F203 Phase C: native system role from compiled L0 file (above).
       args.push('--system-prompt-file', l0Path);
+
+      // F198 Bug #3: resume an existing conversation when the caller hands us a
+      // valid-UUID sessionId — the daemon's previous fork id, surfaced via
+      // state.resumeSessionId and persisted by invoke-single-cat as the chainKey
+      // record's latestResumeSessionId. Spike 2026-06-03 (3-turn real run):
+      // `claude --bg --resume <uuid>` restores history with NO replay/cross-talk.
+      // Guard non-UUID ids (e.g. the 8-hex daemon shortId) — the daemon rejects them.
+      if (options?.sessionId && UUID_PATTERN.test(options.sessionId)) {
+        args.push('--resume', options.sessionId);
+      }
       // #840: write the append-system-prompt payload (pack blocks + briefing) to
       // a temp file so it rides `--append-system-prompt-file <path>` instead of
       // inline argv. Otherwise A2A briefings with long Windows paths can push
@@ -641,6 +667,12 @@ export class ClaudeBgCarrierService implements AgentService {
           metadata: {
             provider: 'claude-bg',
             model: effectiveModel,
+            // F198 Bug #3: surface the daemon's freshly-forked conversation UUID
+            // for the NEXT turn so invoke-single-cat persists it as the chainKey
+            // record's latestResumeSessionId (next round's --resume target).
+            // Daemon writes resumeSessionId directly to state.json (spike 2026-06-03)
+            // — no need to parse linkScanPath as the original bug-report §4.2 assumed.
+            ...(state?.resumeSessionId ? { resumeSessionId: state.resumeSessionId } : {}),
             ...(usage ? { usage } : {}),
             diagnostics: {
               ...(state?.state && state.state !== 'done' ? { terminalState: state.state } : {}),

@@ -570,6 +570,15 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
   const { registry, sessionManager, threadStore, apiUrl } = deps;
   const { catId, service, prompt, userId, threadId, isLastCat, signal: callerSignal } = params;
 
+  // F198 Bug #3: a bg carrier has no stable per-conversation sessionId — the
+  // daemon forks a fresh UUID every `--bg --resume` round. Derive a stable
+  // chainKey anchor so sessionId resolution / resume mutex / session_init
+  // record reuse / done bookkeeping all route through it instead of the
+  // rotating cliSessionId. Non-bg services are untouched (usesChainKeyResume
+  // defaults false → bgChainKey stays undefined and every existing path runs).
+  const isBgCarrier = service.usesChainKeyResume?.() ?? false;
+  const bgChainKey = isBgCarrier ? `bg:${threadId}:${catId}` : undefined;
+
   const { invocationId, callbackToken } = await registry.create(
     userId,
     catId,
@@ -830,7 +839,25 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     // The PATCH bind endpoint writes to sessionChainStore but not sessionManager,
     // so a freshly-bound session would be missed if we gate on sessionId being truthy.
     const sessionChainActive = isSessionChainEnabled(catId);
-    if (deps.sessionChainStore && sessionChainActive) {
+    if (isBgCarrier && bgChainKey && deps.sessionChainStore && sessionChainActive) {
+      // F198 Bug #3: bg resolves its resume target via the chainKey record's
+      // latestResumeSessionId (the daemon's previous fork UUID). bg reuses one
+      // record across daemon rotation instead of seal+create — but still
+      // respects an EXTERNAL seal (manual / threshold / reaper): a sealed record
+      // must NOT be resumed (mirrors the non-bg "no active → no resume" path).
+      try {
+        const bgRec = await preflightRace(
+          Promise.resolve(deps.sessionChainStore.getByChainKey(bgChainKey)),
+          'getByChainKey',
+          signal,
+        );
+        // Cloud review P1: only resume an ACTIVE bg record — start fresh if sealed.
+        sessionId = bgRec?.status === 'active' ? bgRec.latestResumeSessionId : undefined;
+      } catch {
+        // Fail-closed: start fresh if the chainKey read fails.
+        sessionId = undefined;
+      }
+    } else if (deps.sessionChainStore && sessionChainActive) {
       // Reaper: reconcile any sessions stuck in 'sealing' > 5 minutes (best-effort).
       if (deps.sessionSealer) {
         try {
@@ -895,10 +922,14 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       }
     }
 
-    // F118: Acquire per-cliSessionId mutex to prevent concurrent resume
-    if (sessionId) {
+    // F118: Acquire per-conversation mutex to prevent concurrent resume.
+    // F198 Bug #3: bg keys on the stable chainKey — sessionId rotates per daemon
+    // fork, so keying on it would let two `--resume` turns race. Non-bg keeps
+    // the cliSessionId key unchanged.
+    const mutexKey = isBgCarrier && bgChainKey ? bgChainKey : sessionId;
+    if (mutexKey) {
       try {
-        sessionMutexRelease = await sessionMutex.acquire(sessionId, signal);
+        sessionMutexRelease = await sessionMutex.acquire(mutexKey, signal);
       } catch (err) {
         // Abort while queued is not a runtime error — clean exit
         if (signal?.aborted) {
@@ -1555,7 +1586,12 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     const recordActiveSessionUserVisibleOutput = async (): Promise<void> => {
       if (!deps.sessionChainStore || !sessionChainActive) return;
       try {
-        const activeRec = await deps.sessionChainStore.getActive(catId, threadId);
+        // F198 Bug #3: bg looks up its record by the stable chainKey, not
+        // getActive (a sealed/rotated bg record must still be found).
+        const activeRec =
+          isBgCarrier && bgChainKey
+            ? await deps.sessionChainStore.getByChainKey(bgChainKey)
+            : await deps.sessionChainStore.getActive(catId, threadId);
         if (!activeRec) return;
         userVisibleOutputSessionIds.add(activeRec.id);
         if ((activeRec.messageCount ?? 0) !== 0) return;
@@ -1600,8 +1636,47 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           });
         }
 
-        // F24: Ensure SessionRecord exists for this session
-        if (deps.sessionChainStore && sessionChainActive) {
+        // F24 + F198 Bug #3: ensure a SessionRecord exists for this session.
+        if (isBgCarrier && bgChainKey && deps.sessionChainStore && sessionChainActive) {
+          // bg: look up the conversation by its stable chainKey. ACTIVE record →
+          // just update cliSessionId to the current daemon shortId (NO seal+create
+          // — that cascade is the multi-turn amnesia root cause). Missing (first
+          // round) OR externally sealed (cloud review P1: manual/threshold/reaper)
+          // → create a fresh record carrying the chainKey; the index re-points to
+          // it and the sealed record is NOT revived. (done bookkeeping still uses
+          // getByChainKey without a status filter for write tolerance.)
+          try {
+            const bgRec = await deps.sessionChainStore.getByChainKey(bgChainKey);
+            if (bgRec && bgRec.status === 'active') {
+              if (bgRec.cliSessionId !== msg.sessionId) {
+                await deps.sessionChainStore.update(bgRec.id, {
+                  cliSessionId: msg.sessionId,
+                  ...(params.continuityCapsule ? { continuityCapsule: params.continuityCapsule } : {}),
+                  updatedAt: Date.now(),
+                });
+              } else if (params.continuityCapsule) {
+                await deps.sessionChainStore.update(bgRec.id, {
+                  continuityCapsule: params.continuityCapsule,
+                });
+              }
+            } else {
+              const newRec = await deps.sessionChainStore.create({
+                cliSessionId: msg.sessionId,
+                threadId,
+                catId,
+                userId,
+                chainKey: bgChainKey,
+              });
+              if (params.continuityCapsule) {
+                await deps.sessionChainStore.update(newRec.id, {
+                  continuityCapsule: params.continuityCapsule,
+                });
+              }
+            }
+          } catch {
+            // Best-effort — don't break the invocation chain
+          }
+        } else if (deps.sessionChainStore && sessionChainActive) {
           try {
             const existing = await deps.sessionChainStore.getActive(catId, threadId);
             if (existing) {
@@ -1797,7 +1872,32 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         // This counter is critical for unseal safety: empty sessions (0 messages)
         // can be displaced, but sessions with user-visible output must not be
         // silently sealed or folded away before a final done event arrives.
-        if (deps.sessionChainStore && sessionChainActive) {
+        if (isBgCarrier && bgChainKey && deps.sessionChainStore && sessionChainActive) {
+          // F198 Bug #3: bg updates its chainKey record — messageCount (unless
+          // already counted this turn via recordActiveSessionUserVisibleOutput)
+          // + latestResumeSessionId (the daemon's new fork UUID from done
+          // metadata = the NEXT round's `--resume` target).
+          try {
+            const bgRec = await deps.sessionChainStore.getByChainKey(bgChainKey);
+            if (bgRec) {
+              const countThisTurn = !userVisibleOutputCountedSessionIds.has(bgRec.id);
+              const newCount = (bgRec.messageCount ?? 0) + 1;
+              const resumeSessionId = msg.metadata?.resumeSessionId;
+              const updateResume =
+                typeof resumeSessionId === 'string' && resumeSessionId !== bgRec.latestResumeSessionId;
+              await deps.sessionChainStore.update(bgRec.id, {
+                updatedAt: Date.now(),
+                ...(countThisTurn ? { messageCount: newCount } : {}),
+                ...(updateResume ? { latestResumeSessionId: resumeSessionId } : {}),
+              });
+              if (countThisTurn) {
+                sessionRounds.record(newCount, { [AGENT_ID]: catId });
+              }
+            }
+          } catch {
+            /* best-effort: messageCount miss won't break invocation */
+          }
+        } else if (deps.sessionChainStore && sessionChainActive) {
           try {
             const activeRec = await deps.sessionChainStore.getActive(catId, threadId);
             if (activeRec) {

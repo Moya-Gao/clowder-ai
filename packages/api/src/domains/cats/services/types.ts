@@ -79,6 +79,13 @@ export interface MessageMetadata {
   provider: string;
   model: string;
   sessionId?: string;
+  /**
+   * F198 Bug #3: bg carrier surfaces the daemon's freshly-forked conversation
+   * UUID after a `--bg --resume` turn (read from state.resumeSessionId). The
+   * consumer persists it as the SessionRecord's latestResumeSessionId — the
+   * next round's `--resume` target. bg-only; absent for other providers.
+   */
+  resumeSessionId?: string;
   usage?: TokenUsage;
   /** F061: false when provider cannot verify which model actually ran (e.g. CDP bridge) */
   modelVerified?: boolean;
@@ -297,6 +304,21 @@ export interface AgentService {
    * Optional — defaults to false for back-compat with non-native services.
    */
   injectsL0Natively?(): boolean;
+
+  /**
+   * F198 Bug #3 — whether this carrier resumes a conversation that has NO
+   * stable per-conversation sessionId (the bg daemon forks a fresh UUID every
+   * `--bg --resume` round). When true, invoke-single-cat derives a stable
+   * chainKey = `bg:${threadId}:${catId}` and routes sessionId resolution,
+   * the resume mutex key, session_init record reuse, and done bookkeeping
+   * through it — bypassing the cliSessionId-based seal+create path that would
+   * otherwise inflate one conversation into N sealed records.
+   *
+   * Optional — defaults to false. Only ClaudeBgCarrierService returns true;
+   * every other provider (incl. `-p` ClaudeAgentService) keeps the stable
+   * cliSessionId path unchanged.
+   */
+  usesChainKeyResume?(): boolean;
 }
 
 /**
