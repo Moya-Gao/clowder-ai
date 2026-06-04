@@ -8,7 +8,7 @@ created: 2026-05-07
 
 # F193: Cross-Thread Communication Unification
 
-> **Status**: in-progress (Phase E) | **Owner**: 布偶猫(Opus 4.6) | **Priority**: P1 | **Phase A-D Completed**: 2026-05-09 | **Reopened**: 2026-06-03 (CVO approved)
+> **Status**: in-progress (Phase E; E1/E2/E4/E5 merged, E3 pending) | **Owner**: 布偶猫(Opus 4.6) | **Priority**: P1 | **Phase A-D Completed**: 2026-05-09 | **Reopened**: 2026-06-03 (CVO approved)
 
 ## Why
 
@@ -138,7 +138,7 @@ TODO/毛线球/task 含 `F\d+` 且不等于当前 feature 时，强制猫选择�
 
 把隐性跳过变成显性决策。实现：`create_task` MCP schema + handler auto-extract F号 + `status: missing` 落库 + warning + `update_task` patch path。砚砚 3 轮 review。
 
-**E2. affordance hint（搜索端自动提示）**
+**E2. affordance hint（搜索端自动提示）** ✅ PR #2080 merged 2026-06-04
 `search_evidence` / `list_recent` / `feat_index` 返回非当前 thread 的结果时，
 payload 附带 `suggestedAction: { type: 'cross_post', threadId, featureId }` hint。
 让工具主动把投递动作放到猫面前。
@@ -152,7 +152,7 @@ payload 附带 `suggestedAction: { type: 'cross_post', threadId, featureId }` hi
 SessionStart / shell hook 检测到 main 上有 unexpected 状态（untracked docs /
 意外 stash / 陌生 commit）→ 系统主动注入 prompt 提示溯源。不依赖猫记得检查。
 
-**E4. 降摩擦基建**
+**E4. 降摩擦基建** ✅ PR #2080 merged 2026-06-04
 - commit / stash message 标准化带 `threadId`（溯源从"猜"变"读"）
 - `feat_index` 返回增加 owner catId（投递时不用另查）
 - cross-post 必须 `targetCats` + 行首 `@` 双保险（已有 F193 Phase A 约束）
@@ -289,6 +289,7 @@ closed; this is a follow-up bug-fix track, not a Phase E reopen.
 | 2026-05-08 | Phase C merged (PR #1605, squash `bd852029a`) — `healCatCafeMcpTopology` shared chain across 5 call sites (GET/PATCH/install/delete/orchestrate) + 9 rounds cloud + 4 rounds local 砚砚 review (R7 透明窗口 P1: write-path heal seam) |
 | 2026-05-08 | Phase D implementation — `cat_cafe_reflect` + `cat_cafe_guide_resolve` MCP 工具下线 + SystemPromptBuilder/test guard sync + probe-* user-local migration doc note (PR pending) |
 | 2026-05-09 | Phase D merged (PR #1613, squash `0697335fe`) — 砚砚 round 1 PASS + cloud R1 PASS first-try; gate web prerender flake bug-reported (origin/main 也复现，CVO 不阻塞先例) |
+| 2026-06-04 | Phase E E2/E4 merged (PR #2080, squash `f1af417df`) — `search_evidence` / `list_recent` / `feat_index` cross-thread suggested actions + owner metadata + provenance docs |
 
 ## Review Gate
 
