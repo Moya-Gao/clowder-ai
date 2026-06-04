@@ -12,8 +12,8 @@ import { generateId } from './ids.js';
 
 // ── Signal Types ───────────────────────────────────────────────
 
-/** Phase A triggers: cli_error + cancel_burst. Phase B will add text_frustration, a2a_timeout, retry_burst. */
-export type FrustrationSignalType = 'cli_error' | 'cancel_burst';
+/** Phase A: cli_error + cancel_burst. Phase B: text_frustration. Phase C: a2a_timeout, retry_burst. */
+export type FrustrationSignalType = 'cli_error' | 'cancel_burst' | 'text_frustration';
 
 // ── Issue Status ───────────────────────────────────────────────
 

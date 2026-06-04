@@ -16,6 +16,7 @@ import type { IFrustrationIssueStore } from '../stores/ports/FrustrationIssueSto
 import type { IMessageStore } from '../stores/ports/MessageStore.js';
 
 import { buildFrustrationIssueCard } from './frustration-card-builder.js';
+import { TEXT_FRUSTRATION_THRESHOLD } from './text-frustration-keywords.js';
 
 // ── Constants ──────────────────────────────────────────────────
 
@@ -62,7 +63,14 @@ export interface CancelBurstSignal {
   recentDenials: Array<{ action: string; timestamp: number }>;
 }
 
-export type FrustrationSignal = CliErrorSignal | CancelBurstSignal;
+export interface TextFrustrationSignal {
+  type: 'text_frustration';
+  matchedKeywords: string[];
+  matchCount: number;
+  recentUserMessages: string[];
+}
+
+export type FrustrationSignal = CliErrorSignal | CancelBurstSignal | TextFrustrationSignal;
 
 /**
  * Evaluate whether a signal should trigger an auto-issue.
@@ -80,6 +88,10 @@ export function shouldTrigger(signal: FrustrationSignal): boolean {
     const now = Date.now();
     const recentCount = signal.recentDenials.filter((d) => now - d.timestamp <= CANCEL_WINDOW_MS).length;
     return recentCount >= CANCEL_BURST_THRESHOLD;
+  }
+
+  if (signal.type === 'text_frustration') {
+    return signal.matchCount >= TEXT_FRUSTRATION_THRESHOLD;
   }
 
   return false;
@@ -149,17 +161,25 @@ export async function evaluate(
   if (isDuplicate(threadId, signalType)) return null;
 
   // 3. Build signal detail
-  const signalDetail: Record<string, unknown> =
-    signal.type === 'cli_error'
-      ? {
-          reasonCode: signal.diagnostics.reasonCode,
-          publicSummary: signal.diagnostics.publicSummary,
-          publicHint: signal.diagnostics.publicHint,
-        }
-      : {
-          cancelCount: signal.recentDenials.length,
-          windowMs: CANCEL_WINDOW_MS,
-        };
+  let signalDetail: Record<string, unknown>;
+  if (signal.type === 'cli_error') {
+    signalDetail = {
+      reasonCode: signal.diagnostics.reasonCode,
+      publicSummary: signal.diagnostics.publicSummary,
+      publicHint: signal.diagnostics.publicHint,
+    };
+  } else if (signal.type === 'cancel_burst') {
+    signalDetail = {
+      cancelCount: signal.recentDenials.length,
+      windowMs: CANCEL_WINDOW_MS,
+    };
+  } else {
+    // text_frustration
+    signalDetail = {
+      matchedKeywords: signal.matchedKeywords,
+      matchCount: signal.matchCount,
+    };
+  }
 
   // 4. Collect context — recent messages from thread
   let recentMessages: Array<{ role: 'user' | 'cat' | 'system'; content: string; timestamp: number }> = [];

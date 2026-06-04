@@ -9,8 +9,14 @@ import type { FrustrationIssue, RichCardBlock, RichInteractiveBlock } from '@cat
 
 // ── Field builders (extracted to reduce main function complexity) ──
 
+const SIGNAL_LABELS: Record<string, string> = {
+  cli_error: 'CLI 错误',
+  cancel_burst: '操作频繁中断',
+  text_frustration: '用户反馈异常',
+};
+
 function buildSignalFields(issue: FrustrationIssue): Array<{ label: string; value: string }> {
-  const signalLabel = issue.signalType === 'cli_error' ? 'CLI 错误' : '操作频繁中断';
+  const signalLabel = SIGNAL_LABELS[issue.signalType] ?? issue.signalType;
   const fields: Array<{ label: string; value: string }> = [{ label: '触发类型', value: signalLabel }];
 
   if (issue.signalType === 'cli_error') {
@@ -24,6 +30,14 @@ function buildSignalFields(issue: FrustrationIssue): Array<{ label: string; valu
     const count = issue.signalDetail.cancelCount ?? '?';
     const windowSec = Math.round(Number(issue.signalDetail.windowMs ?? 60000) / 1000);
     fields.push({ label: '中断次数', value: `${count} 次（${windowSec}s 内）` });
+  } else if (issue.signalType === 'text_frustration') {
+    const keywords = issue.signalDetail.matchedKeywords;
+    if (Array.isArray(keywords) && keywords.length > 0) {
+      fields.push({ label: '检测关键词', value: keywords.map(String).join('、') });
+    }
+    if (issue.signalDetail.matchCount) {
+      fields.push({ label: '匹配消息数', value: `${issue.signalDetail.matchCount} 条` });
+    }
   }
 
   return fields;
@@ -36,6 +50,8 @@ function buildBodyMarkdown(issue: FrustrationIssue): string {
 
   if (issue.signalType === 'cli_error' && issue.signalDetail.publicSummary) {
     parts.push(`**问题**: ${issue.signalDetail.publicSummary}`);
+  } else if (issue.signalType === 'text_frustration') {
+    parts.push('**检测到重复的负面反馈**，你可能遇到了问题。');
   }
   if (issue.context.errorLogs) {
     parts.push(`**日志摘要**:\n\`\`\`\n${issue.context.errorLogs.slice(0, 300)}\n\`\`\``);

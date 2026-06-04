@@ -557,6 +557,61 @@ export class AgentRouter {
   private pendingRequestStore?: import('../../stores/ports/PendingRequestStore.js').IPendingRequestStore;
   private speechMentionRe: RegExp;
 
+  /**
+   * F222 Phase B: Collect the most recent TEXT_FRUSTRATION_WINDOW user messages
+   * from a thread using Z5-style reverse-iterate paging, then run keyword detection.
+   * Shared by both route() and routeExecution() (cloud P1 fix).
+   *
+   * Uses SYSTEM_USER_IDS (not just 'system') to exclude scheduler/connector noise (cloud P2 fix).
+   */
+  private async collectAndDetectTextFrustration(
+    threadId: string,
+    detectTextFrustration: (msgs: string[]) => { matched: boolean; matchedKeywords: string[]; matchCount: number },
+  ): Promise<{ matched: boolean; matchedKeywords: string[]; matchCount: number; recentUserMessages: string[] }> {
+    const { TEXT_FRUSTRATION_WINDOW } = await import('../../frustration/text-frustration-keywords.js');
+    const PAGE_SIZE = 50;
+    const MAX_PAGES = 10;
+    const userMsgs: string[] = [];
+    type MsgLike = {
+      catId?: string | null;
+      userId?: string;
+      content?: string;
+      id?: string;
+      timestamp?: number;
+      deliveredAt?: number;
+    };
+    let cursorScore = Infinity;
+    let cursorId: string | undefined;
+    let isFirstPage = true;
+    for (let page = 0; page < MAX_PAGES && userMsgs.length < TEXT_FRUSTRATION_WINDOW; page++) {
+      const batch: MsgLike[] = isFirstPage
+        ? ((await this.messageStore.getByThread(threadId, PAGE_SIZE)) as MsgLike[])
+        : ((await this.messageStore.getByThreadBefore(threadId, cursorScore, PAGE_SIZE, cursorId)) as MsgLike[]);
+      isFirstPage = false;
+      if (batch.length === 0) break;
+      const first = batch[0]!;
+      const dAt = typeof first.deliveredAt === 'number' ? first.deliveredAt : 0;
+      const ts = typeof first.timestamp === 'number' ? first.timestamp : 0;
+      const firstScore = dAt > 0 ? dAt : ts;
+      if (firstScore > 0 && firstScore < cursorScore) {
+        cursorScore = firstScore;
+        cursorId = first.id;
+      }
+      for (let i = batch.length - 1; i >= 0 && userMsgs.length < TEXT_FRUSTRATION_WINDOW; i--) {
+        const m = batch[i]!;
+        // Cloud P2 fix: exclude all system users (scheduler, system, etc.), not just 'system'
+        if (!m.catId && !SYSTEM_USER_IDS.has(m.userId ?? '')) {
+          userMsgs.push(typeof m.content === 'string' ? m.content : '');
+        }
+      }
+    }
+    const detection = detectTextFrustration(userMsgs);
+    return {
+      ...detection,
+      recentUserMessages: userMsgs.slice(0, 3).map((m) => m.slice(0, 200)),
+    };
+  }
+
   private rebuildRuntimeCaches(agentRegistry: AgentRegistry): void {
     this.services = {};
     for (const [catId, service] of agentRegistry.getAllEntries()) {
@@ -1249,6 +1304,39 @@ export class AgentRouter {
       ...(contentBlocks ? { contentBlocks } : {}),
     });
 
+    // F222 Phase B: Text frustration detection (cloud P1 fix: call shared helper for both route paths)
+    if (this.frustrationIssueStore) {
+      try {
+        const { detectTextFrustration } = await import('../../frustration/text-frustration-keywords.js');
+        const detection = await this.collectAndDetectTextFrustration(resolvedThreadId, detectTextFrustration);
+        if (detection.matched) {
+          const { evaluate } = await import('../../frustration/FrustrationDetector.js');
+          await evaluate(
+            {
+              signal: {
+                type: 'text_frustration' as const,
+                matchedKeywords: detection.matchedKeywords,
+                matchCount: detection.matchCount,
+                recentUserMessages: detection.recentUserMessages,
+              },
+              threadId: resolvedThreadId,
+              userId,
+              catId: (targetCats[0] ?? 'unknown') as string,
+            },
+            {
+              frustrationIssueStore: this.frustrationIssueStore,
+              messageStore: this.messageStore,
+              socketManager: this.socketManager as
+                | import('../../../../../infrastructure/websocket/index.js').SocketManager
+                | undefined,
+            },
+          );
+        }
+      } catch {
+        // Non-blocking: text frustration detection failure must not break message routing
+      }
+    }
+
     const strategyDeps = this.getStrategyDeps();
     const routeOptions = {
       contentBlocks,
@@ -1351,6 +1439,40 @@ export class AgentRouter {
         thinkingMode = thread.thinkingMode ?? 'play';
       }
       await this.threadStore.updateLastActive(threadId);
+    }
+
+    // F222 Phase B: Text frustration detection — also runs on routeExecution (production path).
+    // Cloud P1 fix: route() is deprecated; routeExecution is where messages.ts calls.
+    if (this.frustrationIssueStore) {
+      try {
+        const { detectTextFrustration } = await import('../../frustration/text-frustration-keywords.js');
+        const detection = await this.collectAndDetectTextFrustration(threadId, detectTextFrustration);
+        if (detection.matched) {
+          const { evaluate } = await import('../../frustration/FrustrationDetector.js');
+          await evaluate(
+            {
+              signal: {
+                type: 'text_frustration' as const,
+                matchedKeywords: detection.matchedKeywords,
+                matchCount: detection.matchCount,
+                recentUserMessages: detection.recentUserMessages,
+              },
+              threadId,
+              userId,
+              catId: (targetCats[0] ?? 'unknown') as string,
+            },
+            {
+              frustrationIssueStore: this.frustrationIssueStore,
+              messageStore: this.messageStore,
+              socketManager: this.socketManager as
+                | import('../../../../../infrastructure/websocket/index.js').SocketManager
+                | undefined,
+            },
+          );
+        }
+      } catch {
+        // Non-blocking
+      }
     }
 
     const strategyDeps = this.getStrategyDeps();
