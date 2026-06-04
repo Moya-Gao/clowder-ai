@@ -11,21 +11,46 @@ status: research-brief-for-cloud
 # 维度 2b 调研 Brief — 改模型权重的自进化（2026 进展）
 
 > **这是什么**：给 research pipeline / 云端大猫跑的调研追问，不是结论。
-> **为什么写**：PPT「自进化深度光谱」把 2b 标成「终局方向 · 需确定性 reward · 暂不可达」。
+> **为什么写**：我们正在做一份华为云汇报 PPT，用"自进化深度光谱"框架定位自己。
+> 光谱最右端"2b = 改模型权重的自进化"被我们标成「终局方向 · 需确定性 reward · 暂不可达」。
 > 这个判断是我们自己下的——必须调研验证它**准不准**，否则路演会被懂行的人当场戳穿。
-> **关联**：[论文研读思辨](../study/2026-06-01-research-dialectic-what-to-learn-what-to-watch.md) / [Longform-003 种子](../content/drafts/longform-003-seed-poe-vision.md) / [OQ-4 收敛](2026-06-01-oq4-harness-self-evolution-synthesis.md)
+>
+> **你不需要看我们的其他文件。本文档是自包含的，所有必要背景在下面。**
 
 ---
 
-## 0. 自进化深度光谱（这份 brief 的坐标）
+## 0. 背景：自进化深度光谱（给云端调研的完整上下文）
+
+我们提出了一个"自进化深度光谱"来定位 AI agent 产品：
 
 ```
-不进化 → 任务内自适应 → 持久·改显式工件(2a) → 持久·改模型权重(2b)
-Coze     Anthropic DW     DGM/AHE/★Cat Cafe       Sutton/Silver Era of Exp.
+自进化深度 ──────────────────────────────────────────────→
+
+  不进化              任务内自适应           持久进化·改工件(2a)     持久进化·改权重(2b)
+  ─────              ──────────           ─────────────         ──────────────
+  Coze / Dify        Anthropic            DGM (学术论文)         Sutton / Silver
+  CodeBuddy          Dynamic Workflows    AHE (学术论文)         Era of Experience
+  百度千帆            OpenAI               ★ 我们（产品）         Reward-is-Enough
+  Copilot Studio     Tax Agents
 ```
 
-- **2a（我们站的位置）**：自进化沉淀到 code/skill/harness/memory，可解释、可回滚、不训权重。
-- **2b（这份 brief 的调研对象）**：自进化沉淀到**模型权重本身**（在线 RL / continual learning / self-improving via weight update）。
+**名词解释**（云端调研者看这里）：
+- **Coze / Dify / CodeBuddy / 百度千帆**：2025-2026 年主流 agent 搭建平台。能快速搭 agent 工作流，但搭完靠人维护，不自进化。
+- **Anthropic Dynamic Workflows**：2026-06 Anthropic 官方发布，Claude 为每次任务现场写 JS 编排脚本。任务结束脚本丢弃。
+- **OpenAI Self-improving Tax Agents**：OpenAI 展示的案例，agent 从生产 trace 修局部策略。
+- **DGM（Darwin Gödel Machine）**：Sakana AI 论文，agent 改自己的代码+工具，用 benchmark 筛选，有 archive 谱系。目前在 sandbox 刷 SWE-bench。
+- **AHE（Adaptive Harness Evolution）**：学术论文，改的是 harness 多组件（不只 skill 文本），有 component/experience observability。
+- **Sutton/Silver — Era of Experience / Reward-is-Enough**：Rich Sutton 和 David Silver（DeepMind）的理论框架，认为 agent 应该通过持续经验直接改善模型权重。是 RL 社区的理论旗帜。
+- **Karpathy "卡在 verifier"**：Andrej Karpathy 的观点——self-improvement 的瓶颈是 verifier（怎么判断改进后的版本更好）。代码/数学有确定性 verifier（编译/答案对错），审美/陪伴/协作没有。
+
+**我们站的位置**：2a（持久进化·改工件）。
+- 自进化沉淀到 code / skill / harness / memory（运行时代码），不训模型权重
+- 可解释、可审计、可回滚
+- 已有 120+ 天真实产品运转、6400+ 次代码提交
+
+**这份 brief 调研的对象**：2b（持久进化·改权重）。
+- 自进化沉淀到**模型权重本身**（在线 RL / continual learning / self-improving via weight update）
+- 我们把它标成"终局方向，暂不可达"——**这个判断需要调研验证**
 
 ---
 
@@ -85,7 +110,7 @@ Coze     Anthropic DW     DGM/AHE/★Cat Cafe       Sutton/Silver Era of Exp.
 
 ## 3. source hygiene 要求（给跑调研的云端 / pipeline）
 
-> 这份 brief 触发 `source-audit` 级别的信源纪律（F218 / ADR-031）：
+> 信源纪律要求：
 
 1. **2026 现状优先**：AI 领域半年就过时，别用 2024/2025 的旧数据论证 2026 的可达性。每条 claim 标数据时点。
 2. **区分一手 vs 二手**：论文/官方 release（一手）vs 博客/营销/综述（二手）。厂商自报 benchmark 标明，不当独立验证。
