@@ -9,7 +9,7 @@
 
 ## TL;DR
 
-Recommended: approve a **scoped hard check** that blocks first-party Hub/API raw `curl localhost` as a skill main path, while explicitly allowing generic localhost health probes and test fixtures. This turns the 2026-06-03 failure mode ("ability exists, cat handwrites API and user still cannot see result") into a cheap deterministic guard without banning legitimate debugging.
+Recommended: approve a **scoped lightweight hard check** that blocks first-party Hub/API raw `curl localhost` as a skill main path, while explicitly allowing generic localhost health probes and test fixtures. Wire it into both `pnpm check` and merge-gate (`pnpm gate` already calls `pnpm check`). This turns the 2026-06-03 failure mode ("ability exists, cat handwrites API and user still cannot see result") into a cheap deterministic guard without banning legitimate debugging.
 
 ## Why This Is a Design Gate
 
@@ -31,12 +31,25 @@ This memo scopes the hard check and exception allowlist before code is written.
 
 `pnpm check:skills` currently checks skill mount / manifest consistency via `scripts/check-skills-mount.sh`.
 
+`pnpm check` currently runs `check:skills:manifest`, but not `check:skills`. Merge-gate `pnpm gate` calls `pnpm check`, so a lightweight skill-surface check wired into `pnpm check` automatically covers PR merge. It does **not** cover a cat that directly pushes to `main` without running any local checks.
+
 There is already one narrow raw-curl regression guard in `scripts/check-env-port-drift.test.mjs`:
 
 - `workspace-navigator` must not teach raw `/api/workspace/navigate` curl as the main path.
 - It must teach `cat_cafe_workspace_navigate({ ... })`.
 
 Phase D should consolidate that idea into a first-class skill-surface check rather than continuing to add scattered one-off assertions.
+
+## Direct-Commit Escape Concern
+
+CVO concern (2026-06-04): current worktree rules exempt tiny pure-doc edits (`<=5` lines). Skills are markdown files, so a cat can make a tiny skill edit on `main`, skip `pnpm gate`, and push a bad raw-curl example. Then the next unrelated PR author hits the failure in merge-gate.
+
+Phase D should handle this explicitly:
+
+1. The checker must be **fast enough for `pnpm check`**, not a full build/test dependency.
+2. `writing-skills` must say: if a skill/MCP description change mentions API routes, localhost, scripts, CLI commands, or first-party execution surfaces, run `pnpm check` before committing, even if the edit is `<=5` lines and no worktree was opened.
+3. The worktree exemption should be clarified: "pure docs" excludes skill guidance that changes execution instructions for APIs/scripts/tools. Small wording-only skill edits can remain direct-main; execution-surface guidance must run the lightweight check.
+4. This is still not a server-side guarantee against a cat ignoring all checks and pushing directly to `main`. If that repeats, the next escalation is a pre-push/git guard or shared-state guard update. Phase D should not claim stronger enforcement than it actually implements.
 
 ## Proposed Scope
 
@@ -111,8 +124,12 @@ Implementation can choose exact file name, but the allowlist must be machine-che
    - green: generic localhost app health probe is allowed.
    - green: negative warning text ("do not handwrite curl") is allowed.
    - fail-closed: missing/malformed allowlist fails.
-3. Wire script into `pnpm check:skills` or add `pnpm check:skills:surfaces` and call it from `pnpm check`.
-4. Move the existing workspace-navigator raw-curl assertion out of `check-env-port-drift.test.mjs` or duplicate coverage only temporarily with a TODO-free transition.
+3. Add `check:skills:surfaces` to `package.json`.
+4. Add it to `scripts/run-checks.mjs` so `pnpm check` catches skill-surface regressions for direct-main/shared-doc workflows.
+5. Ensure `pnpm gate` continues to catch it through the existing `pnpm check` step in `scripts/pre-merge-check.sh`.
+6. Update `cat-cafe-skills/writing-skills/SKILL.md` publish checklist / common mistakes with the API/script guidance rule above.
+7. Clarify `cat-cafe-skills/worktree/SKILL.md` exemption text so execution-surface skill guidance is not treated as trivial pure docs for verification purposes.
+8. Move the existing workspace-navigator raw-curl assertion out of `check-env-port-drift.test.mjs` or duplicate coverage only temporarily with a TODO-free transition.
 
 ### AC-D2: Eval / Follow-Up Action Loop
 
@@ -149,6 +166,7 @@ Do not split into one PR per capability.
 | Risk | Mitigation |
 |------|------------|
 | False positives block legitimate debugging guidance | Restrict scan to skill guidance; allow generic health probes; require reviewed allowlist entries with reason |
+| Direct-main tiny skill edits still skip PR gate | Wire the check into `pnpm check`, update writing-skills/worktree SOP, and be explicit that full enforcement needs local/pre-push discipline |
 | Guard becomes another scattered check | Add dedicated script and either wire into `check:skills` or `check`; migrate existing workspace-specific assertion |
 | Cats work around the guard by writing vague prose | Contract test should block route/path examples and require typed surface examples for known first-party actions |
 | Hard check ships without eval loop | AC-D2 pairs the guard with F192/manual action states; Phase D cannot close on AC-D1 alone |
@@ -156,12 +174,12 @@ Do not split into one PR per capability.
 
 ## Design Gate Decision Packet
 
-**TL;DR: Recommend Option A because it blocks the exact failure mode F223 exists to prevent while preserving normal localhost debugging.**
+**TL;DR: Recommend Option A because it blocks the exact failure mode F223 exists to prevent while preserving normal localhost debugging and covering both PR gate and normal local `pnpm check` workflows.**
 
 - **Why CVO is needed:** This is a new hard check that changes skill authoring behavior, explicitly requiring CVO accept under F192 Phase F AC-F9 decision #2.
 - **If wrong:** Rollback cost is low/medium. The implementation can be reverted in one commit, but while active it may block skill PRs. False positives are mitigated through allowlist + narrow scan targets.
 - **Trade-off weight:** Prefer reliability and user-visible execution over authoring convenience. Avoid broad bans that would hurt debugging.
-- **Boundary conditions:** Recommendation holds only if the check is scoped to skill guidance and first-party action routes, not all docs/tests and not all localhost probes.
+- **Boundary conditions:** Recommendation holds only if the check is scoped to skill guidance and first-party action routes, not all docs/tests and not all localhost probes. It is a `pnpm check` / merge-gate guard, not a server-side block against a cat who skips all checks and force-pushes/direct-pushes.
 - **Opposition considered:** A soft docs-only reminder is lower friction, but it already failed in the original workspace-navigator path; cats copied raw API guidance into action paths.
 - **Value question:** Are we willing to add a narrow hard authoring gate to prevent cats from bypassing typed first-party capability surfaces?
 
@@ -169,9 +187,15 @@ Do not split into one PR per capability.
 
 ### Option A — Approve Scoped Hard Check (Recommended)
 
-Authorize Phase D implementation with the scan targets, blocked patterns, and allowlist semantics above.
+Authorize Phase D implementation with the scan targets, blocked patterns, allowlist semantics, `pnpm check` wiring, and writing-skills/worktree SOP clarification above.
 
-Expected result: deterministic protection against reintroducing raw first-party API main paths in skills.
+Expected result: deterministic protection in normal local check + PR gate paths against reintroducing raw first-party API main paths in skills.
+
+### Option A+ — Add A Local Git Guard Too
+
+Authorize Option A and additionally require a pre-push/git guard that runs the skill-surface check when `cat-cafe-skills/**` changes.
+
+Expected result: stronger direct-push protection for cats with guards installed, at the cost of more local workflow friction and another hook surface to maintain.
 
 ### Option B — Soft Check Only
 
@@ -189,5 +213,4 @@ Expected result: avoids premature guard, but leaves already-known raw-curl regre
 
 Please accept or reject:
 
-> Approve Option A: F223 Phase D may implement a scoped hard check for first-party raw `curl localhost` skill main paths, with a reviewed exception allowlist and the non-goals above.
-
+> Approve Option A: F223 Phase D may implement a scoped lightweight hard check for first-party raw `curl localhost` skill main paths, wire it into `pnpm check` / merge-gate, update writing-skills + worktree SOP, and keep the reviewed exception allowlist and non-goals above.
