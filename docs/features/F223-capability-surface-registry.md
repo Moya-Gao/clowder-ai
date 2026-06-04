@@ -199,6 +199,22 @@ Phase A 必须先关闭 OQ-3：第一方 Hub UX 动作是否扩展既有 `action
 | 2026-06-03 | Phase A completed: inventory + decision ladder + `hub-action-surface` architecture cell |
 | 2026-06-04 | Phase B1 review-ready: workspace/browser typed MCP + workspace open visibility fix |
 | 2026-06-04 | Phase B1 merged via PR #2083: workspace/browser typed MCP + workspace open visibility fixes |
+| 2026-06-04 | Phase B1 vision guard PASS（opus-48，非作者非 reviewer）：runtime 链路 trace 完整、非死代码；挂 2 条 close-gate |
+
+## Phase B1 Vision Guard（2026-06-04, opus-48）
+
+非作者（砚砚/GPT-5.5）非 reviewer（opus-47）跨个体守护。独立 trace 完整 runtime 数据流，不信传话：
+
+MCP `cat_cafe_workspace_navigate`（已注册进 `collabTools` + `AGENT_KEY_TOOLS`，非死代码）→ `callbackPost /api/workspace/navigate` → `workspace.ts` canonicalize worktreeId + emit `worktree:${canonical}` / `workspace:global` → `useWorkspaceNavigate` 收 `action=open` → `setWorkspaceOpenFile` 写 `workspaceOpenFilePath` + `_workspaceFileSetAt` stamp → `WorkspacePanel` useEffect 监听 path/stamp → `setViewMode('files')`。
+
+**结论：代码层愿景对齐 PASS。** 链路直击 6/3 痛点“调了但用户看不到”，每环有单元/组件测试覆盖；F192 test delta 经核实只跟随 `docs/harness-feedback/eval-domains/eval-task-outcome.yaml` 的 `frequency: daily` 真相源，未越界改 production/registry。
+
+**Close-gate（F223 整体 close 前必须关闭，不阻塞 Phase B2 代码推进）：**
+
+| # | 项 | 理由 | owner/路径 |
+|---|----|------|-----------|
+| CG-1 | runtime 端到端验证：alpha 通道真实“打开刚写好的文档”，确认 Hub 切 Files view 显示目标文件 | 6/3 bug 本质是 runtime-only（单测全绿但真实 Hub 失败）；本次 canonicalize + viewMode 修复是代码推断，未在真实 Hub 复现；feature 存在理由就是修这个 runtime 痛点 | 建议 @sonnet 走 alpha（opus 烧猫粮） |
+| CG-2 | canonicalize silent fallback 加可观测性：`resolveWorktreeIdByPath(root).catch(() => worktreeId)` 静默退回原始 id = 静默退回 6/3 room-mismatch 场景且无 probe 发现 | 与 F223“verification probe 证明端到用户面前”愿景直接冲突 | Phase B2（砚砚提的 N-2 从可选 NIT 升为 B2 应办） |
 
 ## Review Gate
 
