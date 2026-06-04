@@ -95,6 +95,8 @@ describe('POST /api/workspace/navigate (F131)', () => {
     assert.equal(appendedAuditEvents[0].threadId, undefined);
     assert.deepEqual(appendedAuditEvents[0].data, {
       worktreeId: canonicalWorktreeId,
+      requestedWorktreeId: 'test-wt',
+      worktreeIdCanonicalized: true,
       path: 'package.json',
       action: 'reveal',
       line: undefined,
@@ -130,6 +132,57 @@ describe('POST /api/workspace/navigate (F131)', () => {
     assert.equal(body.worktreeId, canonicalWorktreeId);
     assert.equal(emittedEvents[0].data.worktreeId, canonicalWorktreeId);
     assert.equal(emittedEvents[0].room, `worktree:${canonicalWorktreeId}`);
+  });
+
+  it('surfaces canonicalization fallback in response and audit when reverse lookup fails', async () => {
+    const appFallback = Fastify();
+    const fallbackEvents = [];
+    const fallbackAuditEvents = [];
+    const fallbackWorktreeId = 'fallback-wt';
+    registerWorktrees([{ id: fallbackWorktreeId, root: repoRoot, branch: 'main', head: 'abc123' }]);
+    const auditLog = new EventAuditLog({ auditDir: '/tmp/cat-cafe-workspace-navigate-fallback-audit-test' });
+    auditLog.append = async (input) => {
+      fallbackAuditEvents.push(input);
+      return {
+        id: 'audit-fallback-1',
+        timestamp: Date.now(),
+        ...input,
+      };
+    };
+
+    await appFallback.register(workspaceRoutes, {
+      socketEmit: (event, data, room) => {
+        fallbackEvents.push({ event, data, room });
+      },
+      auditLog,
+      resolveWorktreeIdByPathForNavigate: async () => {
+        const error = new Error('registry reverse lookup race');
+        error.code = 'NOT_FOUND';
+        throw error;
+      },
+    });
+    await appFallback.ready();
+
+    const res = await appFallback.inject({
+      method: 'POST',
+      url: '/api/workspace/navigate',
+      payload: { worktreeId: fallbackWorktreeId, path: 'package.json', action: 'open' },
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.equal(body.worktreeId, fallbackWorktreeId);
+    assert.equal(body.worktreeIdCanonicalized, false);
+    assert.equal(body.canonicalizeFallback, true);
+    assert.equal(fallbackEvents[0].room, `worktree:${fallbackWorktreeId}`);
+    assert.equal(fallbackAuditEvents.length, 1);
+    assert.equal(fallbackAuditEvents[0].data.worktreeId, fallbackWorktreeId);
+    assert.equal(fallbackAuditEvents[0].data.requestedWorktreeId, fallbackWorktreeId);
+    assert.equal(fallbackAuditEvents[0].data.worktreeIdCanonicalized, false);
+    assert.equal(fallbackAuditEvents[0].data.canonicalizeFallback.reason, 'resolve_failed');
+    assert.equal(fallbackAuditEvents[0].data.canonicalizeFallback.errorCode, 'NOT_FOUND');
+
+    await appFallback.close();
   });
 
   it('accepts optional line parameter', async () => {
