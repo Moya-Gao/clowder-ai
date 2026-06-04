@@ -8,7 +8,7 @@ created: 2026-06-03
 
 # F223: Capability Surface Registry — 把隐藏能力产品化成可发现、可执行、可验证的能力面
 
-> **Status**: in-progress (Phase D open) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
+> **Status**: in-progress (Phase D Design Gate prepared; pending CVO accept) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
 
 ## Architecture Ownership
 
@@ -205,6 +205,7 @@ Phase A 必须先关闭 OQ-3：第一方 Hub UX 动作是否扩展既有 `action
 | 2026-06-04 | CG-1 alpha-verified (@sonnet)：action=open → Files view + 文件内容可见；Phase B1 close-gates 全部关闭；Phase C/D 仍 open |
 | 2026-06-04 | Phase C review-ready: Tier 1 inventory contract + underused MCP trigger/description normalization + F192 hardcode guard |
 | 2026-06-04 | Phase C merged via PR #2090: Tier 1 capability normalization + underused MCP discoverability + F192 hardcode guard |
+| 2026-06-04 | Phase D Design Gate memo prepared: scoped raw first-party `curl localhost` skill guard + exception allowlist pending CVO accept |
 
 ## Phase B1 Vision Guard（2026-06-04, opus-48）
 
@@ -239,4 +240,5 @@ MCP `cat_cafe_workspace_navigate`（已注册进 `collabTools` + `AGENT_KEY_TOOL
 | **Lesson** | `docs/lessons-learned.md#ll-041-写完产物不主动打开--做了菜不端上桌` | 端上桌能力的历史教训 |
 | **Architecture** | `docs/architecture/ownership/cells/hub-action-surface.md` | 第一方 Hub 用户可见动作 ownership cell |
 | **Inventory** | `docs/features/assets/F223/capability-surface-inventory.md` | Phase A capability surface registry |
+| **Plan** | `docs/plans/2026-06-04-f223-phase-d-guardrail-design-gate.md` | Phase D hard-check Design Gate / CVO accept packet |
 | **Code** | `packages/mcp-server/src/tools/hub-action-tools.ts` | Phase B1 workspace/browser typed MCP wrappers |
