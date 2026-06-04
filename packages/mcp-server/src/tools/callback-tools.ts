@@ -5,10 +5,11 @@
 
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import type { CallbackAuthFailureReason } from '@cat-cafe/shared';
+import type { CallbackAuthFailureReason, DispatchGateState } from '@cat-cafe/shared';
 import {
   CALLBACK_AUTH_FAILURE_REASONS,
   DEVELOPMENT_SOP_STAGE_IDS,
+  extractFeatureIds,
   isCallbackAuthFailureReason,
   normalizeRichBlock,
   SOP_DEFINITION_IDS,
@@ -88,7 +89,7 @@ function parseAgentKeyFileMap(raw: string | undefined): Record<string, string> {
 
 function resolveAgentKeySecret(options?: AgentKeyOptions): string | undefined {
   const requestedCatId = options?.agentKeyCatId?.trim();
-  const variantMapRaw = process.env['CAT_CAFE_AGENT_KEY_FILES']?.trim();
+  const variantMapRaw = process.env.CAT_CAFE_AGENT_KEY_FILES?.trim();
   if (requestedCatId) {
     const variantFiles = parseAgentKeyFileMap(variantMapRaw);
     return readAgentKeyFile(variantFiles[requestedCatId]);
@@ -96,18 +97,18 @@ function resolveAgentKeySecret(options?: AgentKeyOptions): string | undefined {
 
   if (variantMapRaw) return undefined;
 
-  const agentKeySecret = process.env['CAT_CAFE_AGENT_KEY_SECRET'];
+  const agentKeySecret = process.env.CAT_CAFE_AGENT_KEY_SECRET;
   if (agentKeySecret) return agentKeySecret;
 
-  return readAgentKeyFile(process.env['CAT_CAFE_AGENT_KEY_FILE']);
+  return readAgentKeyFile(process.env.CAT_CAFE_AGENT_KEY_FILE);
 }
 
 export function getCallbackConfig(options?: AgentKeyOptions): CallbackConfig | null {
-  const apiUrl = process.env['CAT_CAFE_API_URL'];
+  const apiUrl = process.env.CAT_CAFE_API_URL;
   if (!apiUrl) return null;
 
-  const invocationId = process.env['CAT_CAFE_INVOCATION_ID'];
-  const callbackToken = process.env['CAT_CAFE_CALLBACK_TOKEN'];
+  const invocationId = process.env.CAT_CAFE_INVOCATION_ID;
+  const callbackToken = process.env.CAT_CAFE_CALLBACK_TOKEN;
   const agentKeySecret = resolveAgentKeySecret(options);
   if (options?.forceAgentKey === true) {
     if (!agentKeySecret) return null;
@@ -382,12 +383,90 @@ export const createTaskInputSchema = {
       'Cat ID to assign the task to (optional, defaults to unassigned). ' +
         'F182: if disabled, returns 400 {kind:"cat_disabled", alternatives[]}. Assign to an available cat from alternatives[].',
     ),
+  // F193 Phase E (dispatch gate)
+  relatedFeatureId: z
+    .string()
+    .regex(/^F\d+$/)
+    .optional()
+    .describe(
+      'Feature ID this task relates to (e.g. "F193"). Optional explicit override — ' +
+        'system also auto-extracts F-IDs from title+why. When detected F-IDs differ from ' +
+        'currentFeatureId, a dispatch gate warning is returned.',
+    ),
+  currentFeatureId: z
+    .string()
+    .regex(/^F\d+$/)
+    .optional()
+    .describe(
+      'The feature ID of your current thread/scope (e.g. "F209"). Used to determine which ' +
+        'detected F-IDs are "external". If omitted, all detected F-IDs trigger the dispatch gate.',
+    ),
+  dispatchGate: z
+    .object({
+      status: z
+        .enum(['dispatched', 'not_dispatched'])
+        .describe('Whether you dispatched this info to the owning thread'),
+      dispatchedThreadId: z
+        .string()
+        .optional()
+        .describe('Thread ID you dispatched to (required when status=dispatched)'),
+      dispatchedMessageId: z
+        .string()
+        .optional()
+        .describe('Message ID of the cross-post (required when status=dispatched)'),
+      reason: z.string().optional().describe('Why you chose not to dispatch (required when status=not_dispatched)'),
+    })
+    .refine(
+      (gate) => {
+        if (gate.status === 'dispatched') return !!gate.dispatchedThreadId && !!gate.dispatchedMessageId;
+        if (gate.status === 'not_dispatched') return !!gate.reason;
+        return true;
+      },
+      {
+        message:
+          'dispatched requires BOTH dispatchedThreadId AND dispatchedMessageId; ' + 'not_dispatched requires reason.',
+      },
+    )
+    .optional()
+    .describe(
+      'Dispatch gate decision. Required when task references features outside your current scope. ' +
+        'If omitted and external F-IDs detected, task is created with dispatchGate.status="missing" and a warning is returned. ' +
+        'When status=dispatched, both dispatchedThreadId and dispatchedMessageId are required. ' +
+        'When status=not_dispatched, reason is required.',
+    ),
 };
 
 export const updateTaskInputSchema = {
   taskId: z.string().min(1).describe('The ID of the task to update'),
   status: z.enum(['todo', 'doing', 'blocked', 'done']).optional().describe('New task status'),
   why: z.string().max(1000).optional().describe('Optional note explaining the status change'),
+  // F193-E1 P1-4 fix: allow patching dispatchGate on existing tasks
+  dispatchGate: z
+    .object({
+      status: z.enum(['dispatched', 'not_dispatched']).describe('Dispatch gate resolution'),
+      dispatchedThreadId: z
+        .string()
+        .optional()
+        .describe('Thread ID you dispatched to (required when status=dispatched)'),
+      dispatchedMessageId: z
+        .string()
+        .optional()
+        .describe('Message ID of the cross-post (required when status=dispatched)'),
+      reason: z.string().optional().describe('Why you chose not to dispatch (required when status=not_dispatched)'),
+    })
+    .refine(
+      (gate) => {
+        if (gate.status === 'dispatched') return !!gate.dispatchedThreadId && !!gate.dispatchedMessageId;
+        if (gate.status === 'not_dispatched') return !!gate.reason;
+        return true;
+      },
+      {
+        message:
+          'dispatched requires BOTH dispatchedThreadId AND dispatchedMessageId; ' + 'not_dispatched requires reason.',
+      },
+    )
+    .optional()
+    .describe('Resolve a previously-missing dispatch gate on this task.'),
 };
 
 export const crossPostMessageInputSchema = {
@@ -553,7 +632,7 @@ export async function handlePostMessage(input: {
   targetCats?: string[] | undefined;
   agentKeyCatId?: string | undefined;
 }): Promise<ToolResult> {
-  const hasInvocationCreds = !!process.env['CAT_CAFE_INVOCATION_ID'] && !!process.env['CAT_CAFE_CALLBACK_TOKEN'];
+  const hasInvocationCreds = !!process.env.CAT_CAFE_INVOCATION_ID && !!process.env.CAT_CAFE_CALLBACK_TOKEN;
   if (input.threadId && hasInvocationCreds) {
     return errorResult(
       'post_message rejects threadId from invocation-token callers (F193 KD-1). ' +
@@ -647,6 +726,12 @@ export async function handleUpdateTask(input: {
   taskId: string;
   status?: string | undefined;
   why?: string | undefined;
+  dispatchGate?: {
+    status: 'dispatched' | 'not_dispatched';
+    dispatchedThreadId?: string;
+    dispatchedMessageId?: string;
+    reason?: string;
+  };
 }): Promise<ToolResult> {
   // F174 Phase E (AC-E2/E5): explicit kind:'none'. Task state lives in Redis;
   // local fallback would diverge from server truth. Surface `[degrade]` hint.
@@ -657,6 +742,8 @@ export async function handleUpdateTask(input: {
         taskId: input.taskId,
         ...(input.status ? { status: input.status } : {}),
         ...(input.why ? { why: input.why } : {}),
+        // F193-E1 P1-4: allow patching dispatchGate on existing tasks
+        ...(input.dispatchGate ? { dispatchGate: { ...input.dispatchGate, decidedAt: Date.now() } } : {}),
       }),
     policy: { kind: 'none' },
   });
@@ -666,12 +753,70 @@ export async function handleCreateTask(input: {
   title: string;
   why?: string | undefined;
   ownerCatId?: string | undefined;
+  relatedFeatureId?: string | undefined;
+  currentFeatureId?: string | undefined;
+  dispatchGate?: {
+    status: 'dispatched' | 'not_dispatched';
+    dispatchedThreadId?: string;
+    dispatchedMessageId?: string;
+    reason?: string;
+  };
 }): Promise<ToolResult> {
-  return callbackPost('/api/callbacks/create-task', {
+  // F193-E1: dispatch gate logic
+  const textForExtraction = `${input.title} ${input.why ?? ''}`;
+  const detectedFIds = extractFeatureIds(textForExtraction);
+  const allFIds = input.relatedFeatureId ? [...new Set([input.relatedFeatureId, ...detectedFIds])] : detectedFIds;
+  const externalFIds = input.currentFeatureId ? allFIds.filter((f) => f !== input.currentFeatureId) : allFIds; // no currentFeatureId → all detected F-IDs are potentially external
+
+  // Compute persisted dispatch gate state
+  let computedGate: DispatchGateState | undefined;
+  if (externalFIds.length > 0) {
+    if (input.dispatchGate) {
+      computedGate = {
+        status: input.dispatchGate.status,
+        ...(input.dispatchGate.dispatchedThreadId ? { dispatchedThreadId: input.dispatchGate.dispatchedThreadId } : {}),
+        ...(input.dispatchGate.dispatchedMessageId
+          ? { dispatchedMessageId: input.dispatchGate.dispatchedMessageId }
+          : {}),
+        ...(input.dispatchGate.reason ? { reason: input.dispatchGate.reason } : {}),
+        decidedAt: Date.now(),
+      };
+    } else {
+      // Gate missing — persist status:'missing' so list_tasks can highlight later
+      computedGate = {
+        status: 'missing',
+        suggestedAction: {
+          type: 'cross_post',
+          featureId: externalFIds[0],
+          reason: `Task references ${externalFIds.join(', ')} — consider cross_posting to the owning thread.`,
+          source: 'dispatch_gate',
+        },
+      };
+    }
+  }
+
+  const result = await callbackPost('/api/callbacks/create-task', {
     title: input.title,
     ...(input.why ? { why: input.why } : {}),
     ...(input.ownerCatId ? { ownerCatId: input.ownerCatId } : {}),
+    ...(input.relatedFeatureId ? { relatedFeatureId: input.relatedFeatureId } : {}),
+    ...(detectedFIds.length > 0 ? { detectedFeatureIds: detectedFIds } : {}),
+    ...(computedGate ? { dispatchGate: computedGate } : {}),
   });
+
+  // Append dispatch gate warning to successful result
+  if (computedGate?.status === 'missing' && !result.isError) {
+    const warningText =
+      `\n\n⚠️ DISPATCH GATE: This task references ${externalFIds.join(', ')} ` +
+      `but no dispatch decision was provided. Did you cross_post_message to the ` +
+      `${externalFIds[0]} thread? If so, call update_task with dispatchGate: ` +
+      `{ status: "dispatched", dispatchedThreadId: "<threadId>", dispatchedMessageId: "<msgId>" }. ` +
+      `If not, consider dispatching — the info may be stuck in your thread's local TODO.`;
+    const existingText = result.content[0]?.text ?? '';
+    return { content: [{ type: 'text', text: existingText + warningText }] };
+  }
+
+  return result;
 }
 
 export async function handleCrossPostMessage(input: {
@@ -971,13 +1116,13 @@ export async function handleUpdateWorkflow(input: {
     backlogItemId: input.backlogItemId,
     featureId: input.featureId,
   };
-  if (input.sopDefinitionId !== undefined) body['sopDefinitionId'] = input.sopDefinitionId;
-  if (input.stage !== undefined) body['stage'] = input.stage;
-  if (input.batonHolder !== undefined) body['batonHolder'] = input.batonHolder;
-  if (input.nextSkill !== undefined) body['nextSkill'] = input.nextSkill;
-  if (input.resumeCapsule !== undefined) body['resumeCapsule'] = input.resumeCapsule;
-  if (input.checks !== undefined) body['checks'] = input.checks;
-  if (input.expectedVersion !== undefined) body['expectedVersion'] = input.expectedVersion;
+  if (input.sopDefinitionId !== undefined) body.sopDefinitionId = input.sopDefinitionId;
+  if (input.stage !== undefined) body.stage = input.stage;
+  if (input.batonHolder !== undefined) body.batonHolder = input.batonHolder;
+  if (input.nextSkill !== undefined) body.nextSkill = input.nextSkill;
+  if (input.resumeCapsule !== undefined) body.resumeCapsule = input.resumeCapsule;
+  if (input.checks !== undefined) body.checks = input.checks;
+  if (input.expectedVersion !== undefined) body.expectedVersion = input.expectedVersion;
   return callbackPost('/api/callbacks/update-workflow-sop', body);
 }
 
@@ -1145,13 +1290,13 @@ export async function handleUpdateBootcampState(input: {
   completedAt?: number | undefined;
 }): Promise<ToolResult> {
   const body: Record<string, unknown> = { threadId: input.threadId };
-  if (input.phase !== undefined) body['phase'] = input.phase;
-  if (input.leadCat !== undefined) body['leadCat'] = input.leadCat;
-  if (input.selectedTaskId !== undefined) body['selectedTaskId'] = input.selectedTaskId;
-  if (input.envCheck !== undefined) body['envCheck'] = input.envCheck;
-  if (input.advancedFeatures !== undefined) body['advancedFeatures'] = input.advancedFeatures;
-  if (input.guideStep !== undefined) body['guideStep'] = input.guideStep;
-  if (input.completedAt !== undefined) body['completedAt'] = input.completedAt;
+  if (input.phase !== undefined) body.phase = input.phase;
+  if (input.leadCat !== undefined) body.leadCat = input.leadCat;
+  if (input.selectedTaskId !== undefined) body.selectedTaskId = input.selectedTaskId;
+  if (input.envCheck !== undefined) body.envCheck = input.envCheck;
+  if (input.advancedFeatures !== undefined) body.advancedFeatures = input.advancedFeatures;
+  if (input.guideStep !== undefined) body.guideStep = input.guideStep;
+  if (input.completedAt !== undefined) body.completedAt = input.completedAt;
   return callbackPost('/api/callbacks/update-bootcamp-state', body);
 }
 
@@ -1250,7 +1395,7 @@ export async function handleUpdateGuideState(input: {
   currentStep?: number | undefined;
 }): Promise<ToolResult> {
   const body: Record<string, unknown> = { threadId: input.threadId, guideId: input.guideId, status: input.status };
-  if (input.currentStep !== undefined) body['currentStep'] = input.currentStep;
+  if (input.currentStep !== undefined) body.currentStep = input.currentStep;
   return callbackPost('/api/callbacks/update-guide-state', body);
 }
 
@@ -1383,9 +1528,10 @@ export const callbackTools = [
   {
     name: 'cat_cafe_update_task',
     description:
-      'Update the status of a task you own. Use to mark tasks as doing/blocked/done. ' +
+      'Update a task you own: mark as doing/blocked/done, or resolve a missing dispatch gate. ' +
       'GOTCHA: You can only update tasks assigned to you (your catId). ' +
-      'TIP: Include a "why" note when marking as blocked — it helps others understand the situation.',
+      'TIP: Include a "why" note when marking as blocked — it helps others understand the situation. ' +
+      'F193-E1: Pass dispatchGate to resolve a "missing" dispatch gate (e.g. after cross_posting to the owning thread).',
     inputSchema: updateTaskInputSchema,
     handler: handleUpdateTask,
   },
@@ -1398,7 +1544,11 @@ export const callbackTools = [
       'NOT for: temporary execution steps (use PlanBoard/TodoWrite), NOT for inline checklists in a message (use create_rich_block with kind:"checklist"). ' +
       'Output: task appears in the thread 🧶 毛线球 panel, persists across sessions, visible to all cats and 铲屎官. ' +
       'GOTCHA: 毛线球 ≠ checklist rich block. 毛线球 lives in the task panel and survives session boundaries; checklist is ephemeral inline content in one message. ' +
-      'TIP: Include a "why" to give context to whoever picks up the task.',
+      'TIP: Include a "why" to give context to whoever picks up the task. ' +
+      'F193-E1 DISPATCH GATE: If your task references a feature (F-number) outside your current scope, ' +
+      'provide dispatchGate with status "dispatched" (you already cross_posted to the owning thread) ' +
+      'or "not_dispatched" (with reason). If you omit dispatchGate and external F-IDs are detected, ' +
+      'the task is created but a warning is returned reminding you to dispatch.',
     inputSchema: createTaskInputSchema,
     handler: handleCreateTask,
   },

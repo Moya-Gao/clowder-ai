@@ -590,12 +590,17 @@ export type {
   CiAutomationState,
   ConflictAutomationState,
   CreateTaskInput,
+  DispatchGateState,
   ReviewAutomationState,
+  SuggestedCrossPostAction,
   TaskItem,
   TaskKind,
   TaskStatus,
   UpdateTaskInput,
 } from './task.js';
+export { extractFeatureIds } from './task.js';
+// F193 Phase E: SuggestedCrossPostAction + DispatchGateState re-exported via task.ts
+// (canonical source: cross-thread-affordance.ts; E2/E4 consumers can also import directly)
 export type { CancelReasonValue, PermissionCancelEvent } from './task-outcome.js';
 // Task Outcome types (F192 Phase G)
 export { CANCEL_REASON_OPTIONS } from './task-outcome.js';

@@ -7,7 +7,12 @@
  * kind=pr_tracking: automated PR monitoring tasks (merged from PrTrackingStore)
  */
 
+import type { DispatchGateState } from './cross-thread-affordance.js';
 import type { CatId } from './ids.js';
+
+// Re-export affordance types so existing consumers don't break
+export type { DispatchGateState, SuggestedCrossPostAction } from './cross-thread-affordance.js';
+export { extractFeatureIds } from './cross-thread-affordance.js';
 
 export type TaskStatus = 'todo' | 'doing' | 'blocked' | 'done';
 
@@ -91,6 +96,15 @@ export interface TaskItem {
   readonly sourceMessageId?: string;
   /** Source summary ID for traceability (4-A feature) */
   readonly sourceSummaryId?: string;
+
+  // --- F193 Phase E (dispatch gate) ---
+
+  /** Feature ID explicitly associated with this task (e.g. "F193"). Optional override. */
+  readonly relatedFeatureId?: string;
+  /** All F-IDs auto-extracted from title + why (informational, for gate trigger logic) */
+  readonly detectedFeatureIds?: string[];
+  /** Dispatch gate state. Present when task references features outside current thread scope. */
+  readonly dispatchGate?: DispatchGateState;
 }
 
 export type CreateTaskInput = Pick<TaskItem, 'threadId' | 'title' | 'why' | 'createdBy'> & {
@@ -101,6 +115,13 @@ export type CreateTaskInput = Pick<TaskItem, 'threadId' | 'title' | 'why' | 'cre
   userId?: string;
   sourceMessageId?: string;
   sourceSummaryId?: string;
+  // F193 Phase E (dispatch gate)
+  relatedFeatureId?: string;
+  /** Cat's current feature context — used to determine if detected F-IDs are "external" */
+  currentFeatureId?: string;
+  /** Auto-extracted F-IDs (computed by MCP handler, passed through to store) */
+  detectedFeatureIds?: string[];
+  dispatchGate?: DispatchGateState;
 };
 
 /** Mutable partial for updates — strips readonly from TaskItem fields */
@@ -110,4 +131,8 @@ export type UpdateTaskInput = {
   status?: TaskStatus;
   why?: string;
   automationState?: AutomationState;
+  /** F193-E1 P1-4: allow patching dispatchGate on existing tasks */
+  dispatchGate?: DispatchGateState;
 };
+
+// F193 Phase E utilities re-exported from cross-thread-affordance.ts (see top of file)
