@@ -8,7 +8,7 @@ created: 2026-06-03
 
 # F223: Capability Surface Registry — 把隐藏能力产品化成可发现、可执行、可验证的能力面
 
-> **Status**: in-progress (Phase D Design Gate prepared; pending CVO accept) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
+> **Status**: in-progress (Phase D CVO accepted; implementation starting) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
 
 ## Architecture Ownership
 
@@ -188,6 +188,7 @@ Phase A 必须先关闭 OQ-3：第一方 Hub UX 动作是否扩展既有 `action
 | KD-4 | workspace typed surface 命名方向收敛为 `cat_cafe_workspace_navigate` | `workspace-navigator` 已覆盖 reveal/open 等 action；`open_file` 会把已有语义重新切碎 | 2026-06-03 |
 | KD-5 | 第一方 Hub 展示动作归 `hub-action-surface`，不扩 `action-plane` | action-plane 是外部资源 mutation；workspace/preview/rich block 是 Hub UI/socket/probe 侧效应 | 2026-06-03 |
 | KD-6 | Phase A registry 先用 Markdown inventory，Phase D 再决定是否生成机器格式 | 先让架构边界可 review；hard check 接受后再加机器消费层 | 2026-06-03 |
+| KD-7 | Phase D 采纳 Design Gate Option A：新增 scoped lightweight skill-surface hard check，接入 `pnpm check` / merge-gate，并同步 `writing-skills` + `worktree` SOP；Option A+ pre-push/git guard 暂不做，若直接 push 逃逸复发再升级 | 铲屎官指出只放 PR gate 会让小 skill 直推逃逸；`pnpm check` 覆盖正常本地/PR 流程，SOP 澄清执行面 skill 改动不算免验证纯文档；pre-push 先不加，避免额外 hook 维护摩擦 | 2026-06-04 |
 
 ## Timeline
 
@@ -206,6 +207,7 @@ Phase A 必须先关闭 OQ-3：第一方 Hub UX 动作是否扩展既有 `action
 | 2026-06-04 | Phase C review-ready: Tier 1 inventory contract + underused MCP trigger/description normalization + F192 hardcode guard |
 | 2026-06-04 | Phase C merged via PR #2090: Tier 1 capability normalization + underused MCP discoverability + F192 hardcode guard |
 | 2026-06-04 | Phase D Design Gate memo prepared: scoped raw first-party `curl localhost` skill guard + exception allowlist pending CVO accept |
+| 2026-06-04 | Phase D CVO accept: implement Option A (`pnpm check` + merge-gate hard check, writing-skills/worktree SOP clarification); defer A+ pre-push guard unless escape recurs |
 
 ## Phase B1 Vision Guard（2026-06-04, opus-48）
 

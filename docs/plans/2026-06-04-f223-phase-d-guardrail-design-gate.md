@@ -2,7 +2,7 @@
 
 **Feature:** F223 — `docs/features/F223-capability-surface-registry.md`
 **Phase:** D, before implementation
-**Status:** Pending CVO accept
+**Status:** CVO accepted Option A (2026-06-04); implementation starting
 **Owner:** 缅因猫/砚砚 (GPT-5.5)
 **Architecture cells:** hub-action-surface + harness-eval
 **Reason for gate:** AC-D1 is a new hard check / forcing-function behavior change. Per F192 Phase F AC-F9 decision #2, this must pass Design Gate / CVO accept before implementation.
@@ -209,7 +209,15 @@ Wait for eval:capability-wakeup to prove ongoing misses before adding any hard l
 
 Expected result: avoids premature guard, but leaves already-known raw-curl regression class unguarded despite typed surfaces now existing.
 
-## Requested CVO Accept
+## CVO Accept
+
+Accepted 2026-06-04.
+
+Decision: implement **Option A** — scoped lightweight hard check for first-party raw `curl localhost` skill main paths, wired into `pnpm check` / merge-gate, with `writing-skills` + `worktree` SOP clarification and reviewed exception allowlist.
+
+Option A+ (pre-push/git guard) is deferred. Reconsider if direct-push skill-surface escape recurs.
+
+## Original Requested CVO Accept
 
 Please accept or reject:
 
