@@ -1434,6 +1434,32 @@ async function main(): Promise<void> {
     ...(f101GameStore ? { gameStore: f101GameStore } : {}),
     ...(f101SharedDriver ? { autoPlayer: f101SharedDriver } : {}),
     holdBallCancelDeps: { dynamicTaskStore, taskRunner: taskRunnerV2 },
+    // F192 Phase G AC-G12: magic word detection → task outcome signal
+    onMagicWordDetected: (hits: Array<{ word: string }>, threadId: string, catId: string | null) => {
+      try {
+        for (const hit of hits) {
+          const ep =
+            taskOutcomeStore.getActiveEpisode(threadId) ??
+            taskOutcomeStore.createEpisode({
+              trigger: 'cat_initiated',
+              threadId,
+              participants: catId ? [catId] : [],
+            });
+          taskOutcomeStore.appendSignal(ep.episodeId, {
+            category: 'a2',
+            record: {
+              type: 'magic_word',
+              word: hit.word,
+              timestamp: new Date().toISOString(),
+              threadId,
+              catId: catId ?? 'unknown',
+            },
+          });
+        }
+      } catch {
+        // Best-effort: don't fail message processing
+      }
+    },
   };
   await app.register(messagesRoutes, messagesOpts);
   await app.register(queueRoutes, {
@@ -1524,6 +1550,9 @@ async function main(): Promise<void> {
   const { TaskOutcomeEpisodeStore } = await import('./infrastructure/harness-eval/task-outcome/task-outcome-store.js');
   const taskOutcomeDbPath = process.env.TASK_OUTCOME_DB ?? resolve(repoRoot, 'task-outcome-episodes.sqlite');
   const taskOutcomeStore = new TaskOutcomeEpisodeStore(taskOutcomeDbPath);
+  // AC-G13: Cancel burst detector (in-memory, per-process)
+  const { CancelBurstDetector } = await import('./infrastructure/harness-eval/task-outcome/cancel-burst-detector.js');
+  const cancelBurstDetector = new CancelBurstDetector({ threshold: 3, windowMs: 60_000 });
   const { taskOutcomeRoutes } = await import('./routes/task-outcome.js');
   await app.register(taskOutcomeRoutes, { store: taskOutcomeStore });
 
@@ -1741,8 +1770,11 @@ async function main(): Promise<void> {
     onPermissionCancel: (input) => {
       try {
         // taskOutcomeStore is created earlier in this file (F192 Phase G).
-        // Auth reason is free-text, not cancel category — default to 'skip'.
-        // Structured cancel reason comes from frontend popup (AC-G10).
+        // AC-G10: use structured cancel reason from frontend popup if valid enum,
+        // otherwise default to 'skip' (auth free-text reason is not a cancel category).
+        const VALID_REASONS = ['should_not_do', 'wrong_direction', 'i_will_do_it', 'skip'];
+        const cancelReason =
+          input.cancelReason && VALID_REASONS.includes(input.cancelReason) ? input.cancelReason : 'skip';
         taskOutcomeStore.appendSignal(
           (
             taskOutcomeStore.getActiveEpisode(input.threadId) ??
@@ -1758,13 +1790,30 @@ async function main(): Promise<void> {
               type: 'permission_cancel',
               toolName: input.toolName,
               paramsSummary: input.paramsSummary,
-              reason: 'skip',
+              reason: cancelReason,
               timestamp: new Date().toISOString(),
               catId: input.catId,
               threadId: input.threadId,
             },
           },
         );
+
+        // AC-G13: Check for cancel burst (≥3 cancels in 1 minute)
+        const burstResult = cancelBurstDetector.record(input.threadId, Date.now());
+        if (burstResult.burst) {
+          const ep = taskOutcomeStore.getActiveEpisode(input.threadId);
+          if (ep) {
+            taskOutcomeStore.appendSignal(ep.episodeId, {
+              category: 'proxy',
+              record: {
+                type: 'cancel_burst',
+                value: burstResult.count,
+                timestamp: new Date().toISOString(),
+                threadId: input.threadId,
+              },
+            });
+          }
+        }
       } catch {
         // Best-effort: don't break authorization flow
       }

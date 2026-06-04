@@ -17,7 +17,14 @@ export interface AuthorizationRoutesOptions {
   ruleStore: IAuthorizationRuleStore;
   auditStore: IAuthorizationAuditStore;
   socketManager: SocketManager;
-  onPermissionCancel?: (input: { toolName: string; paramsSummary?: string; catId: string; threadId: string }) => void;
+  onPermissionCancel?: (input: {
+    toolName: string;
+    paramsSummary?: string;
+    catId: string;
+    threadId: string;
+    /** F192 AC-G10: structured cancel reason from frontend popup */
+    cancelReason?: string;
+  }) => void;
 }
 
 function resolveAuthorizationUserId(request: import('fastify').FastifyRequest): string | null {
@@ -72,6 +79,7 @@ export const authorizationRoutes: FastifyPluginAsync<AuthorizationRoutesOptions>
           paramsSummary: updated.context,
           catId: updated.catId,
           threadId: updated.threadId,
+          cancelReason: reason,
         });
       } catch {
         // Best-effort: don't fail the authorization response if recording fails

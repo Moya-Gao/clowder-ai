@@ -30,7 +30,7 @@ describe('eval-domain-daily task spec', () => {
     const result = await spec.admission.gate();
 
     assert.equal(result.run, true);
-    // Daily domains: eval:a2a + eval:memory + eval:task-outcome (eval:sop is weekly)
+    // Daily domains: eval:a2a + eval:memory + eval:task-outcome (eval:sop + eval:capability-wakeup are weekly)
     assert.equal(result.workItems.length, 3, `expected exactly 3 daily domains, got ${result.workItems.length}`);
 
     const a2a = result.workItems.find((w) => w.subjectKey === 'eval:a2a');

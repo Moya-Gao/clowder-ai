@@ -147,9 +147,34 @@ export interface MessagesRoutesOptions {
   streamingHook?: StreamingHookLike;
   /** F167 Phase J: deps for auto-cancelling pending hold-ball tasks on user message */
   holdBallCancelDeps?: HoldBallCancelDeps;
+  /** F192 Phase G AC-G12: callback when magic words detected in user message */
+  onMagicWordDetected?: (hits: Array<{ word: string }>, threadId: string, catId: string | null) => void;
 }
 
 const log = createModuleLogger('routes/messages');
+
+/**
+ * F192 Phase G AC-G12: detect magic words in user message content.
+ * Best-effort, fire-and-forget — failures are silently swallowed.
+ * Called from both queued and immediate message paths.
+ */
+async function tryDetectMagicWords(
+  content: string | null | undefined,
+  threadId: string,
+  targetCats: string[],
+  onMagicWordDetected?: MessagesRoutesOptions['onMagicWordDetected'],
+): Promise<void> {
+  if (!onMagicWordDetected || !content) return;
+  try {
+    const { detectMagicWords } = await import('../infrastructure/harness-eval/task-outcome/magic-word-detector.js');
+    const hits = detectMagicWords(content);
+    if (hits.length > 0) {
+      onMagicWordDetected(hits, threadId, targetCats[0] ?? null);
+    }
+  } catch {
+    // Best-effort: don't fail message send if detection throws
+  }
+}
 
 /**
  * F-invocation-stale-recovery P1-2: Format routing_warnings for user-visible system_info broadcast.
@@ -603,6 +628,9 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
           });
           storedUserMessageId = userMessage.id;
 
+          // F192 Phase G AC-G12: detect magic words (queued path)
+          void tryDetectMagicWords(content, resolvedThreadId, targetCats, opts.onMagicWordDetected);
+
           const queueEntryId = enqueueResult.entry?.id;
           if (queueEntryId) {
             opts.invocationQueue.backfillMessageId(resolvedThreadId, userId, queueEntryId, userMessage.id);
@@ -823,6 +851,9 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
         await opts.invocationRecordStore.update(createResult.invocationId, {
           userMessageId: storedUserMessage.id,
         });
+
+        // F192 Phase G AC-G12: detect magic words (immediate path)
+        void tryDetectMagicWords(content, resolvedThreadId, targetCats, opts.onMagicWordDetected);
       } catch (preExecErr) {
         // Release slots — we haven't entered background coroutine yet
         opts.invocationTracker?.completeAll(resolvedThreadId, targetCats, controller);
