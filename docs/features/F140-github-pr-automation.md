@@ -175,6 +175,9 @@ created: 2026-03-26
 - `CiCdCheckTaskSpec` CI-pass：`intent==='merge'` 才唤醒（normal → merge-gate），否则静默；CI fail 两种 intent 都 urgent 唤醒。一次查表，删除 approval 推断（`isHeadApproved` / retry-marker / `fetchPrReviews`）。
 - 删遗留 dead poller（`CiCdCheckPoller` + `github-ci-bootstrap`），util 迁 `ci-status-fetcher`。
 - 文档收敛：`cicd-tracking.md` / `pr-signals.md` / `merge-gate` / opensource-ops（outbound / hotfix）/ repo-inbox / mcp-callbacks 对齐 intent 语义；开源/owner-merge 路径显式 `intent='merge'`；merge-gate 写清 fingerprint 时机契约（翻 merge 要在 CI 没绿前，已绿则 `gh pr checks` 自查）。
+- **后续噪音收口（2026-06-04，铲屎官）**：
+  - `cancelled` run 不再误判 failure（PR #2087）——push 新 commit 时 GitHub 自动取消旧 run，`computeAggregateBucket` 原把 `cancelled` 当 fail → superseded-run 假 CI-fail 唤醒。改：按 GitHub success 态口径（success/skipped/neutral），`cancelled` 既非 fail 也非 success；`pass` 需至少一个真 positive，`cancelled`-only → `pending`（不当假绿灯）。
+  - cat-cafe 私人仓两个 PR guard workflow（`pr-followup-guard` / `shared-state-guard`）已 `gh workflow disable`——与本地 `pnpm gate`（`check:followup-tails` + `preflight-shared-state`）重复、且制造 CI 噪音；F217 已定私人仓不靠 server-side gate。桌面构建/发布 workflow 保留。可逆（`gh workflow enable`）。
 
 ## Acceptance Criteria
 
