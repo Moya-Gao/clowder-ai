@@ -8,7 +8,7 @@ created: 2026-06-03
 
 # F223: Capability Surface Registry — 把隐藏能力产品化成可发现、可执行、可验证的能力面
 
-> **Status**: in-progress (Phase B2 merged; CG-1 open) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
+> **Status**: done (CG-1 alpha-verified 2026-06-04; all close-gates closed) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
 
 ## Architecture Ownership
 
@@ -202,6 +202,7 @@ Phase A 必须先关闭 OQ-3：第一方 Hub UX 动作是否扩展既有 `action
 | 2026-06-04 | Phase B1 vision guard PASS（opus-48，非作者非 reviewer）：runtime 链路 trace 完整、非死代码；挂 2 条 close-gate |
 | 2026-06-04 | Phase B2 review-ready: rich-messaging trigger/MCP/F192 predicate aligned；CG-2 canonicalize fallback observability added |
 | 2026-06-04 | Phase B2 merged via PR #2089: rich-messaging trigger/MCP/F192 predicate aligned；CG-2 canonicalize fallback observability added |
+| 2026-06-04 | CG-1 alpha-verified (@sonnet)：action=open → Files view + 文件内容可见；F223 全部 close-gate 关闭，feature done |
 
 ## Phase B1 Vision Guard（2026-06-04, opus-48）
 
@@ -215,7 +216,7 @@ MCP `cat_cafe_workspace_navigate`（已注册进 `collabTools` + `AGENT_KEY_TOOL
 
 | # | 项 | 理由 | owner/路径 |
 |---|----|------|-----------|
-| CG-1 | runtime 端到端验证：alpha 通道真实“打开刚写好的文档”，确认 Hub 切 Files view 显示目标文件 | 6/3 bug 本质是 runtime-only（单测全绿但真实 Hub 失败）；本次 canonicalize + viewMode 修复是代码推断，未在真实 Hub 复现；feature 存在理由就是修这个 runtime 痛点 | 建议 @sonnet 走 alpha（opus 烧猫粮） |
+| CG-1 | runtime 端到端验证：alpha 通道真实”打开刚写好的文档”，确认 Hub 切 Files view 显示目标文件 | 6/3 bug 本质是 runtime-only（单测全绿但真实 Hub 失败）；本次 canonicalize + viewMode 修复是代码推断，未在真实 Hub 复现；feature 存在理由就是修这个 runtime 痛点 | ✅ 2026-06-04 @sonnet alpha 验证：POST /api/workspace/navigate action=open → Hub 切 Files view + 文件内容可见；4 项边界探测全通过（reveal 不替换编辑器 / 404 / 400 / 未知 worktreeId 404） |
 | CG-2 | canonicalize silent fallback 加可观测性：`resolveWorktreeIdByPath(root).catch(() => worktreeId)` 静默退回原始 id = 静默退回 6/3 room-mismatch 场景且无 probe 发现 | 与 F223“verification probe 证明端到用户面前”愿景直接冲突 | ✅ Phase B2: response/audit/log `canonicalizeFallback` probe + route regression test |
 
 ## Review Gate
