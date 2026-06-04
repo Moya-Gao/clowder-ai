@@ -13,6 +13,8 @@ const SIGNAL_LABELS: Record<string, string> = {
   cli_error: 'CLI 错误',
   cancel_burst: '操作频繁中断',
   text_frustration: '用户反馈异常',
+  a2a_timeout: '猫猫响应超时',
+  retry_burst: '重复操作',
 };
 
 function buildSignalFields(issue: FrustrationIssue): Array<{ label: string; value: string }> {
@@ -38,6 +40,17 @@ function buildSignalFields(issue: FrustrationIssue): Array<{ label: string; valu
     if (issue.signalDetail.matchCount) {
       fields.push({ label: '匹配消息数', value: `${issue.signalDetail.matchCount} 条` });
     }
+  } else if (issue.signalType === 'a2a_timeout') {
+    if (issue.signalDetail.targetCatId) {
+      fields.push({ label: '目标猫', value: String(issue.signalDetail.targetCatId) });
+    }
+    if (issue.signalDetail.elapsedMs) {
+      fields.push({ label: '等待时间', value: `${Math.round(Number(issue.signalDetail.elapsedMs) / 1000)}s` });
+    }
+  } else if (issue.signalType === 'retry_burst') {
+    if (issue.signalDetail.matchCount) {
+      fields.push({ label: '重复次数', value: `${issue.signalDetail.matchCount} 次` });
+    }
   }
 
   return fields;
@@ -52,6 +65,10 @@ function buildBodyMarkdown(issue: FrustrationIssue): string {
     parts.push(`**问题**: ${issue.signalDetail.publicSummary}`);
   } else if (issue.signalType === 'text_frustration') {
     parts.push('**检测到重复的负面反馈**，你可能遇到了问题。');
+  } else if (issue.signalType === 'a2a_timeout') {
+    parts.push('**猫猫没有及时响应**，可能遇到了问题。');
+  } else if (issue.signalType === 'retry_burst') {
+    parts.push('**检测到重复发送相同消息**，之前的请求可能没有被正确处理。');
   }
   if (issue.context.errorLogs) {
     parts.push(`**日志摘要**:\n\`\`\`\n${issue.context.errorLogs.slice(0, 300)}\n\`\`\``);

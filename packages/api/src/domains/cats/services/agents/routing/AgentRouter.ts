@@ -1304,13 +1304,23 @@ export class AgentRouter {
       ...(contentBlocks ? { contentBlocks } : {}),
     });
 
-    // F222 Phase B: Text frustration detection (cloud P1 fix: call shared helper for both route paths)
+    // F222 Phase B+C: Text frustration + retry burst detection
     if (this.frustrationIssueStore) {
       try {
         const { detectTextFrustration } = await import('../../frustration/text-frustration-keywords.js');
         const detection = await this.collectAndDetectTextFrustration(resolvedThreadId, detectTextFrustration);
+        const { evaluate } = await import('../../frustration/FrustrationDetector.js');
+        const frustDeps = {
+          frustrationIssueStore: this.frustrationIssueStore,
+          messageStore: this.messageStore,
+          socketManager: this.socketManager as
+            | import('../../../../../infrastructure/websocket/index.js').SocketManager
+            | undefined,
+        };
+        const baseSigCtx = { threadId: resolvedThreadId, userId, catId: (targetCats[0] ?? 'unknown') as string };
+
+        // Signal: text_frustration (Phase B)
         if (detection.matched) {
-          const { evaluate } = await import('../../frustration/FrustrationDetector.js');
           await evaluate(
             {
               signal: {
@@ -1319,21 +1329,30 @@ export class AgentRouter {
                 matchCount: detection.matchCount,
                 recentUserMessages: detection.recentUserMessages,
               },
-              threadId: resolvedThreadId,
-              userId,
-              catId: (targetCats[0] ?? 'unknown') as string,
+              ...baseSigCtx,
             },
+            frustDeps,
+          );
+        }
+
+        // Signal: retry_burst (Phase C AC-C2) — same message sent ≥3 times
+        const { detectRetryBurst } = await import('../../frustration/retry-burst-detector.js');
+        const retryResult = detectRetryBurst(message, detection.recentUserMessages);
+        if (retryResult.matched) {
+          await evaluate(
             {
-              frustrationIssueStore: this.frustrationIssueStore,
-              messageStore: this.messageStore,
-              socketManager: this.socketManager as
-                | import('../../../../../infrastructure/websocket/index.js').SocketManager
-                | undefined,
+              signal: {
+                type: 'retry_burst' as const,
+                matchCount: retryResult.matchCount,
+                repeatedPrefix: retryResult.repeatedPrefix,
+              },
+              ...baseSigCtx,
             },
+            frustDeps,
           );
         }
       } catch {
-        // Non-blocking: text frustration detection failure must not break message routing
+        // Non-blocking
       }
     }
 
@@ -1441,14 +1460,22 @@ export class AgentRouter {
       await this.threadStore.updateLastActive(threadId);
     }
 
-    // F222 Phase B: Text frustration detection — also runs on routeExecution (production path).
-    // Cloud P1 fix: route() is deprecated; routeExecution is where messages.ts calls.
+    // F222 Phase B+C: Text frustration + retry burst detection (production path)
     if (this.frustrationIssueStore) {
       try {
         const { detectTextFrustration } = await import('../../frustration/text-frustration-keywords.js');
         const detection = await this.collectAndDetectTextFrustration(threadId, detectTextFrustration);
+        const { evaluate } = await import('../../frustration/FrustrationDetector.js');
+        const frustDeps = {
+          frustrationIssueStore: this.frustrationIssueStore,
+          messageStore: this.messageStore,
+          socketManager: this.socketManager as
+            | import('../../../../../infrastructure/websocket/index.js').SocketManager
+            | undefined,
+        };
+        const baseSigCtx = { threadId, userId, catId: (targetCats[0] ?? 'unknown') as string };
+
         if (detection.matched) {
-          const { evaluate } = await import('../../frustration/FrustrationDetector.js');
           await evaluate(
             {
               signal: {
@@ -1457,17 +1484,26 @@ export class AgentRouter {
                 matchCount: detection.matchCount,
                 recentUserMessages: detection.recentUserMessages,
               },
-              threadId,
-              userId,
-              catId: (targetCats[0] ?? 'unknown') as string,
+              ...baseSigCtx,
             },
+            frustDeps,
+          );
+        }
+
+        // Signal: retry_burst (Phase C AC-C2)
+        const { detectRetryBurst } = await import('../../frustration/retry-burst-detector.js');
+        const retryResult = detectRetryBurst(message, detection.recentUserMessages);
+        if (retryResult.matched) {
+          await evaluate(
             {
-              frustrationIssueStore: this.frustrationIssueStore,
-              messageStore: this.messageStore,
-              socketManager: this.socketManager as
-                | import('../../../../../infrastructure/websocket/index.js').SocketManager
-                | undefined,
+              signal: {
+                type: 'retry_burst' as const,
+                matchCount: retryResult.matchCount,
+                repeatedPrefix: retryResult.repeatedPrefix,
+              },
+              ...baseSigCtx,
             },
+            frustDeps,
           );
         }
       } catch {

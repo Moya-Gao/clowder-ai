@@ -2328,6 +2328,28 @@ export async function* routeSerial(
               );
             }
           }
+
+          // Signal 3: A2A timeout — cat invoked but produced no visible output AND
+          // elapsed > threshold. Spec AC-C1: "超过阈值（如 60s）未响应".
+          // P1 fix: exclude instant crashes/parse errors — only genuine timeouts.
+          const A2A_TIMEOUT_THRESHOLD_MS = 60_000;
+          const elapsedMs = Date.now() - invocationStartedAt;
+          if (!catProducedOutput && hadProviderError && elapsedMs >= A2A_TIMEOUT_THRESHOLD_MS) {
+            await evaluate(
+              {
+                signal: {
+                  type: 'a2a_timeout',
+                  targetCatId: catId as string,
+                  elapsedMs,
+                },
+                threadId,
+                userId,
+                catId: catId as string,
+                invocationId: ownInvocationId,
+              },
+              frustrationDeps,
+            );
+          }
         } catch {
           // Non-blocking: frustration detection failure must not break routing
         }

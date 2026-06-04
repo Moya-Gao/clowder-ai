@@ -148,4 +148,28 @@ export const frustrationIssueRoutes: FastifyPluginAsync<FrustrationIssueRoutesOp
     const drafts = await frustrationIssueStore.listDraft(userId);
     return { issues: drafts };
   });
+
+  // ── GET /api/frustration-issues (AC-C3: user issue list) ───
+
+  app.get('/api/frustration-issues', async (request, reply) => {
+    const userId = resolveUserId(request);
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Not authenticated' };
+    }
+    const query = request.query as { status?: string; threadId?: string };
+
+    // Fetch base set: all user issues (includes draft + confirmed + skipped)
+    let issues = await frustrationIssueStore.listAll(userId);
+
+    // Apply optional filters (combinable: threadId AND/OR status)
+    if (query.threadId) {
+      issues = issues.filter((i) => i.threadId === query.threadId);
+    }
+    if (query.status) {
+      issues = issues.filter((i) => i.status === query.status);
+    }
+
+    return { issues };
+  });
 };

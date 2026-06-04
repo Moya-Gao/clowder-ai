@@ -40,4 +40,7 @@ export interface IFrustrationIssueStore {
 
   /** List draft (pending) issues for a user. */
   listDraft(userId: string): Promise<FrustrationIssue[]>;
+
+  /** List ALL issues for a user (draft + confirmed + skipped), sorted by createdAt desc. */
+  listAll(userId: string): Promise<FrustrationIssue[]>;
 }

@@ -41,6 +41,9 @@ const EXCLUDED_REASON_CODES = new Set([
 /** Minimum permission denials in CANCEL_WINDOW_MS to trigger cancel_burst. */
 export const CANCEL_BURST_THRESHOLD = 3;
 
+/** Minimum elapsed time (ms) for a2a_timeout to fire. Spec: "超过阈值（如 60s）". */
+export const A2A_TIMEOUT_THRESHOLD_MS = 60_000;
+
 /** Window for counting permission denials (ms). */
 export const CANCEL_WINDOW_MS = 60_000;
 
@@ -70,7 +73,33 @@ export interface TextFrustrationSignal {
   recentUserMessages: string[];
 }
 
-export type FrustrationSignal = CliErrorSignal | CancelBurstSignal | TextFrustrationSignal;
+export interface A2ATimeoutSignal {
+  type: 'a2a_timeout';
+  /** Cat ID that was @'d but didn't respond */
+  targetCatId: string;
+  /** How long (ms) the invocation ran before timing out / producing no output */
+  elapsedMs: number;
+}
+
+/** Minimum retry matches to trigger. */
+export const RETRY_BURST_THRESHOLD = 3;
+/** Prefix length for similarity matching (first N chars). */
+export const RETRY_PREFIX_LENGTH = 30;
+
+export interface RetryBurstSignal {
+  type: 'retry_burst';
+  /** Number of recent messages matching the current message */
+  matchCount: number;
+  /** The repeated message prefix */
+  repeatedPrefix: string;
+}
+
+export type FrustrationSignal =
+  | CliErrorSignal
+  | CancelBurstSignal
+  | TextFrustrationSignal
+  | A2ATimeoutSignal
+  | RetryBurstSignal;
 
 /**
  * Evaluate whether a signal should trigger an auto-issue.
@@ -92,6 +121,16 @@ export function shouldTrigger(signal: FrustrationSignal): boolean {
 
   if (signal.type === 'text_frustration') {
     return signal.matchCount >= TEXT_FRUSTRATION_THRESHOLD;
+  }
+
+  if (signal.type === 'a2a_timeout') {
+    // P1 fix: only trigger when elapsed >= threshold (spec: 60s).
+    // Instant crashes/parse errors have low elapsedMs and should not be labeled "timeout".
+    return signal.elapsedMs >= A2A_TIMEOUT_THRESHOLD_MS;
+  }
+
+  if (signal.type === 'retry_burst') {
+    return signal.matchCount >= RETRY_BURST_THRESHOLD;
   }
 
   return false;
@@ -173,11 +212,21 @@ export async function evaluate(
       cancelCount: signal.recentDenials.length,
       windowMs: CANCEL_WINDOW_MS,
     };
-  } else {
-    // text_frustration
+  } else if (signal.type === 'text_frustration') {
     signalDetail = {
       matchedKeywords: signal.matchedKeywords,
       matchCount: signal.matchCount,
+    };
+  } else if (signal.type === 'a2a_timeout') {
+    signalDetail = {
+      targetCatId: signal.targetCatId,
+      elapsedMs: signal.elapsedMs,
+    };
+  } else {
+    // retry_burst
+    signalDetail = {
+      matchCount: signal.matchCount,
+      repeatedPrefix: signal.repeatedPrefix,
     };
   }
 

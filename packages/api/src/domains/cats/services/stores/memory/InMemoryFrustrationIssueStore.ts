@@ -74,4 +74,11 @@ export class InMemoryFrustrationIssueStore implements IFrustrationIssueStore {
       .sort((a, b) => b.createdAt - a.createdAt)
       .map(clone);
   }
+
+  async listAll(userId: string): Promise<FrustrationIssue[]> {
+    return Array.from(this.issues.values())
+      .filter((i) => i.userId === userId)
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .map(clone);
+  }
 }

@@ -153,6 +153,11 @@ export class RedisFrustrationIssueStore implements IFrustrationIssueStore {
     return this.bulkGet(ids);
   }
 
+  async listAll(userId: string): Promise<FrustrationIssue[]> {
+    const ids = await this.redis.zrevrange(FrustrationIssueKeys.userList(userId), 0, DEFAULT_LIST_LIMIT - 1);
+    return this.bulkGet(ids);
+  }
+
   private async bulkGet(ids: string[]): Promise<FrustrationIssue[]> {
     if (ids.length === 0) return [];
     const pipeline = this.redis.pipeline();
