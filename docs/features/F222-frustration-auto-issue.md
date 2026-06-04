@@ -88,10 +88,10 @@ status: draft  # 用户预览后才提交
 - [x] AC-B2: routeParallel 摩擦检测接入（Phase A 云端 review P2→P3 遗留）
 - [x] AC-B3: 误触发防护 — 关键词匹配须结合上下文窗口（避免正常讨论中的"不对"触发）
 
-### Phase C（待立项）
-- A2A 超时触发
-- 用户反复 retry 同一操作触发
-- Issue 列表/看板页面
+### Phase C
+- [ ] AC-C1: A2A 超时触发 — @了猫超过阈值（如 60s）未响应时触发 auto-issue
+- [ ] AC-C2: 用户反复 retry 同一操作触发 — 相同消息/意图连续发送 ≥3 次时触发
+- [ ] AC-C3: Issue 列表 API — GET /api/frustration-issues（用户可查看自己的所有 issue）
 
 ## Timeline
 
