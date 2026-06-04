@@ -8,7 +8,7 @@ created: 2026-06-03
 
 # F223: Capability Surface Registry — 把隐藏能力产品化成可发现、可执行、可验证的能力面
 
-> **Status**: in-progress (Phase B2 review-ready) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
+> **Status**: in-progress (Phase B2 merged; CG-1 open) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
 
 ## Architecture Ownership
 
@@ -201,6 +201,7 @@ Phase A 必须先关闭 OQ-3：第一方 Hub UX 动作是否扩展既有 `action
 | 2026-06-04 | Phase B1 merged via PR #2083: workspace/browser typed MCP + workspace open visibility fixes |
 | 2026-06-04 | Phase B1 vision guard PASS（opus-48，非作者非 reviewer）：runtime 链路 trace 完整、非死代码；挂 2 条 close-gate |
 | 2026-06-04 | Phase B2 review-ready: rich-messaging trigger/MCP/F192 predicate aligned；CG-2 canonicalize fallback observability added |
+| 2026-06-04 | Phase B2 merged via PR #2089: rich-messaging trigger/MCP/F192 predicate aligned；CG-2 canonicalize fallback observability added |
 
 ## Phase B1 Vision Guard（2026-06-04, opus-48）
 
