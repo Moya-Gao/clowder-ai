@@ -83,6 +83,12 @@ status: draft  # 用户预览后才提交
 - [x] AC-A3: 用户确认后 issue 持久化（可被 eval:task-outcome 消费）
 - [x] AC-A4: 用户跳过 → 不产生 issue，但 cancel/error 事件仍被 Permission Cancel 记录
 
+## Timeline
+
+| 日期 | 事件 |
+|------|------|
+| 2026-06-04 | Phase A follow-up merged (PR #2082): auto-issue card status hydration keeps confirmed/skipped state visible after refresh |
+
 ## Dependencies
 
 - F192 Phase G eval:task-outcome（Auto-Issue 确认事件作为 Phase G v1 信号源）
