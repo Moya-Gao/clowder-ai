@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Team vs Cat Cafe</title>
+<style>
+  :root {
+    --native-primary: #4a6fa5;
+    --native-bg: #f0f4f8;
+    --native-border: #c5d3e0;
+    --native-accent: #2c4a6e;
+    --cafe-primary: #e87d2f;
+    --cafe-bg: #fff8f0;
+    --cafe-border: #f5cba7;
+    --cafe-accent: #c45d10;
+    --bg: #fafafa;
+    --text: #1a1a2e;
+    --text-secondary: #555;
+    --card-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    --radius: 12px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    padding: 40px 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  /* ── Header ── */
+  .hero {
+    text-align: center;
+    margin-bottom: 48px;
+    padding: 48px 24px;
+    background: linear-gradient(135deg, var(--native-primary) 0%, #6b4f9e 50%, var(--cafe-primary) 100%);
+    border-radius: 20px;
+    color: #fff;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  }
+  .hero h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+    position: relative;
+  }
+  .hero .subtitle {
+    font-size: 1.05rem;
+    opacity: 0.9;
+    position: relative;
+  }
+  .hero .badge-row {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 16px;
+    position: relative;
+  }
+  .hero .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    backdrop-filter: blur(8px);
+  }
+  .badge.native { background: rgba(74,111,165,0.5); }
+  .badge.cafe { background: rgba(232,125,47,0.5); }
+
+  /* ── Section titles ── */
+  .section-title {
+    font-size: 1.4rem;
+    font-weight: 700;
+    margin: 40px 0 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section-title .num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    font-size: 0.85rem;
+    color: #fff;
+  }
+
+  /* ── Mechanism cards (section 2) ── */
+  .mechanism-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 16px;
+  }
+  .mech-card {
+    background: #fff;
+    border-radius: var(--radius);
+    box-shadow: var(--card-shadow);
+    padding: 24px;
+    border-left: 4px solid var(--native-primary);
+    transition: transform 0.15s;
+  }
+  .mech-card:hover { transform: translateY(-2px); }
+  .mech-card h3 {
+    font-size: 1rem;
+    color: var(--native-accent);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .mech-card p, .mech-card ul {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+  }
+  .mech-card ul { padding-left: 18px; }
+  .mech-card li { margin-bottom: 4px; }
+  .mech-card code {
+    background: var(--native-bg);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 0.82rem;
+    color: var(--native-accent);
+  }
+
+  /* ── Comparison matrix (section 3) ── */
+  .matrix-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: #fff;
+    border-radius: var(--radius);
+    box-shadow: var(--card-shadow);
+    overflow: hidden;
+    font-size: 0.88rem;
+  }
+  .matrix-table thead th {
+    padding: 14px 16px;
+    font-weight: 700;
+    text-align: left;
+  }
+  .matrix-table thead th:nth-child(1) { background: #f7f7fa; width: 13%; }
+  .matrix-table thead th:nth-child(2) { background: var(--native-bg); color: var(--native-accent); width: 32%; }
+  .matrix-table thead th:nth-child(3) { background: var(--cafe-bg); color: var(--cafe-accent); width: 32%; }
+  .matrix-table thead th:nth-child(4) { background: #f7f7fa; width: 23%; }
+  .matrix-table tbody td {
+    padding: 12px 16px;
+    border-top: 1px solid #f0f0f0;
+    vertical-align: top;
+  }
+  .matrix-table tbody tr:hover td { background: #fafafe; }
+  .matrix-table .dim { font-weight: 600; color: var(--text); }
+
+  /* verdict badges */
+  .verdict {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .verdict.ahead   { background: #d4edda; color: #155724; }
+  .verdict.learn   { background: #fff3cd; color: #856404; }
+  .verdict.lacking { background: #f8d7da; color: #721c24; }
+  .verdict.neutral { background: #e9ecef; color: #495057; }
+
+  /* ── Easter egg: @ route comparison ── */
+  .easter-egg {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--card-shadow);
+    margin: 24px 0;
+  }
+  .egg-side {
+    padding: 28px 24px;
+  }
+  .egg-side.native-side {
+    background: var(--native-bg);
+    border-right: 2px dashed #ccc;
+  }
+  .egg-side.cafe-side {
+    background: var(--cafe-bg);
+  }
+  .egg-side h4 {
+    font-size: 0.95rem;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .egg-side.native-side h4 { color: var(--native-accent); }
+  .egg-side.cafe-side h4 { color: var(--cafe-accent); }
+  .egg-side pre {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.85rem;
+    line-height: 1.7;
+    padding: 16px;
+    border-radius: 8px;
+    overflow-x: auto;
+  }
+  .egg-side.native-side pre { background: #e3eaf3; color: var(--native-accent); }
+  .egg-side.cafe-side pre { background: #fde8d0; color: var(--cafe-accent); }
+  .egg-match {
+    text-align: center;
+    padding: 14px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #6b4f9e;
+    background: linear-gradient(90deg, var(--native-bg), var(--cafe-bg));
+    border-bottom-left-radius: var(--radius);
+    border-bottom-right-radius: var(--radius);
+  }
+
+  /* ── Contrast card ── */
+  .contrast-card {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--card-shadow);
+    margin: 24px 0;
+  }
+  .contrast-side {
+    padding: 24px;
+  }
+  .contrast-side.native-side { background: var(--native-bg); border-right: 2px dashed #ccc; }
+  .contrast-side.cafe-side { background: var(--cafe-bg); }
+  .contrast-side h4 { font-size: 0.92rem; margin-bottom: 8px; }
+  .contrast-side.native-side h4 { color: var(--native-accent); }
+  .contrast-side.cafe-side h4 { color: var(--cafe-accent); }
+  .contrast-side p { font-size: 0.86rem; color: var(--text-secondary); }
+  .contrast-side .quote {
+    margin-top: 10px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-style: italic;
+    font-size: 0.82rem;
+  }
+  .contrast-side.native-side .quote { background: #d8e4f0; color: var(--native-accent); }
+  .contrast-side.cafe-side .quote { background: #fde0c8; color: var(--cafe-accent); }
+
+  /* ── Insight cards ── */
+  .insight-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 20px;
+  }
+  .insight-card {
+    background: #fff;
+    border-radius: var(--radius);
+    box-shadow: var(--card-shadow);
+    padding: 22px;
+    border-top: 3px solid;
+  }
+  .insight-card.can-learn { border-color: #f0c040; }
+  .insight-card.already-ahead { border-color: #3cb371; }
+  .insight-card h4 {
+    font-size: 0.95rem;
+    margin-bottom: 8px;
+  }
+  .insight-card ul {
+    font-size: 0.86rem;
+    padding-left: 18px;
+    color: var(--text-secondary);
+  }
+  .insight-card li { margin-bottom: 4px; }
+
+  /* ── Footer ── */
+  .footer {
+    text-align: center;
+    margin-top: 48px;
+    padding: 20px;
+    font-size: 0.8rem;
+    color: #999;
+  }
+  .footer code {
+    background: #f0f0f0;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 0.78rem;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 700px) {
+    .easter-egg, .contrast-card, .insight-grid { grid-template-columns: 1fr; }
+    .egg-side.native-side, .contrast-side.native-side { border-right: none; border-bottom: 2px dashed #ccc; }
+    .mechanism-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══ Hero ═══ -->
+<div class="hero">
+  <h1>Claude Agent Team &nbsp;vs&nbsp; Cat Cafe</h1>
+  <div class="subtitle">binary 2.1.161 (6a550ae) 逆向 &mdash; 两套多 Agent 协作哲学的正面碰撞</div>
+  <div class="badge-row">
+    <span class="badge native">Claude Code Native</span>
+    <span class="badge cafe">Cat Cafe A2A</span>
+  </div>
+</div>
+
+<!-- ═══ Section 2: Mechanism ═══ -->
+<div class="section-title">
+  <span class="num" style="background:var(--native-primary)">2</span>
+  原生 Agent Team 机制详解
+</div>
+
+<div class="mechanism-grid">
+
+  <div class="mech-card">
+    <h3>🔐 启用与入口</h3>
+    <ul>
+      <li>Env gate：<code>CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1</code></li>
+      <li>入口在 interactive TUI 内，非 CLI 子命令</li>
+      <li>slash command：<code>/fork &lt;directive&gt;</code> / <code>/branch [name]</code></li>
+      <li>tool：<code>TeamCreateTool</code> / <code>SendMessage</code> / <code>ListAgents</code> / <code>TaskCreate</code> / <code>TaskGet</code> / <code>TaskUpdate</code> / <code>Workflow</code></li>
+    </ul>
+  </div>
+
+  <div class="mech-card">
+    <h3>👥 角色模型</h3>
+    <ul>
+      <li><strong>coordinator / team leader</strong>（<code>CLAUDE_CODE_COORDINATOR_MODE</code>）+ teammates</li>
+      <li>leader 给 teammate 分配 color（UI 区分）</li>
+      <li>teammate 不能自设颜色</li>
+      <li>coordinator session 只能 <code>/branch</code>，不能 <code>/fork</code></li>
+    </ul>
+  </div>
+
+  <div class="mech-card">
+    <h3>🚀 Spawn 模式</h3>
+    <ul>
+      <li><code>--teammate-mode tmux | in-process | auto</code></li>
+      <li><strong>in-process</strong>（默认）= 同进程 swarm（<code>swarm_in_process_run</code>）</li>
+      <li><strong>tmux</strong> = 独立 pane，独立进程</li>
+      <li><code>--agent-type &lt;type&gt;</code> 指定 custom agent</li>
+    </ul>
+  </div>
+
+  <div class="mech-card">
+    <h3>📨 SendMessage 通信</h3>
+    <ul>
+      <li>路由正则：<code>^@([\w-]+)\s+(.+)$</code></li>
+      <li>收件人校验：必须在 teammates 列表</li>
+      <li>投递：<code>{from:"user", text, timestamp}</code> append 到对方 session</li>
+      <li><strong>可跨机器</strong>（经 Remote Control + 显式 approval）</li>
+    </ul>
+  </div>
+
+  <div class="mech-card">
+    <h3>📋 任务流转（自由认领）</h3>
+    <ul>
+      <li>共享 task list：<code>~/.claude/tasks/{team-name}/</code></li>
+      <li>周期性 check → <strong>claim 未分配任务</strong>（set owner）</li>
+      <li>低 ID 优先（早任务给后任务铺垫）</li>
+      <li>全阻塞 → 通知 team lead</li>
+    </ul>
+  </div>
+
+  <div class="mech-card">
+    <h3>🔔 Idle 上报</h3>
+    <ul>
+      <li>teammate stop 时<strong>系统自动</strong>发 idle notification 给 lead</li>
+      <li>格式：&ldquo;finished prompt, waiting for next&rdquo;</li>
+      <li>&ldquo;received new message from [peer]&rdquo; 触发恢复</li>
+      <li>纪律：<strong>禁止结构化 JSON status</strong>，只用 plain text</li>
+    </ul>
+  </div>
+
+</div>
+
+<!-- ═══ Easter Egg: @ route isomorphism ═══ -->
+<div class="section-title">
+  <span class="num" style="background:#6b4f9e">!</span>
+  彩蛋：@ 路由同构
+</div>
+
+<div class="easter-egg">
+  <div class="egg-side native-side">
+    <h4>🔷 Claude Agent Team</h4>
+    <pre><span style="opacity:0.5">// SendMessage 路由正则</span>
+<strong>^@([\w-]+)\s+(.+)$</strong>
+
+<span style="opacity:0.5">// 示例</span>
+@researcher Find all API endpoints
+@reviewer Check the auth module
+
+<span style="opacity:0.5">// 纪律 prompt</span>
+"Your team cannot hear you
+ if you do not use
+ the SendMessage tool"</pre>
+  </div>
+  <div class="egg-side cafe-side">
+    <h4>🔶 Cat Cafe A2A</h4>
+    <pre><span style="opacity:0.5">// a2a-mentions.ts:132 路由</span>
+<strong>行首 @句柄 + 内容</strong>
+
+<span style="opacity:0.5">// 示例</span>
+@codex 帮我 review 这个 PR
+@gemini25 看看这个设计方向
+
+<span style="opacity:0.5">// L0 纪律</span>
+"@ 是路由指令；
+ 收到 @ 后三选一：
+ 接 / 退 / 升"</pre>
+  </div>
+</div>
+<div class="egg-match">
+  行首 <code>@name</code> + 空格 + 内容 &mdash; 逐字同构，但 Cat Cafe 多了<strong>球权转移</strong>语义
+</div>
+
+<!-- ═══ Contrast: Structured vs Plain ═══ -->
+<div class="section-title">
+  <span class="num" style="background:#888">⚡</span>
+  哲学反差：结构化 vs 纯文本
+</div>
+
+<div class="contrast-card">
+  <div class="contrast-side native-side">
+    <h4>🔷 原生：禁止结构化</h4>
+    <p>teammate 之间只用自然语言沟通，明确禁止 JSON status 消息。</p>
+    <div class="quote">
+      "Do NOT send structured JSON status messages like <code>{type:idle}</code>... Just communicate in plain text"
+    </div>
+    <p style="margin-top:10px;font-size:0.82rem;color:#888">
+      哲学：减少协议耦合，让 LLM 用自然语言自组织
+    </p>
+  </div>
+  <div class="contrast-side cafe-side">
+    <h4>🔶 Cat Cafe：rich block 结构化</h4>
+    <p>消息可附带 rich block（卡片、列表、diff、媒体），人猫共享可视化。</p>
+    <div class="quote">
+      cat_cafe_create_rich_block({ kind: "comparison_table", ... })
+    </div>
+    <p style="margin-top:10px;font-size:0.82rem;color:#888">
+      哲学：人在回路中（W8 共享视图），结构化让铲屎官看得懂
+    </p>
+  </div>
+</div>
+
+<!-- ═══ Section 3: Matrix ═══ -->
+<div class="section-title">
+  <span class="num" style="background:var(--cafe-primary)">3</span>
+  9 维对比矩阵
+</div>
+
+<table class="matrix-table">
+  <thead>
+    <tr>
+      <th>维度</th>
+      <th>🔷 原生 Agent Team</th>
+      <th>🔶 Cat Cafe</th>
+      <th>判定</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="dim">任务认领</td>
+      <td>自由认领 claim unassigned，低 ID 先</td>
+      <td>球权<strong>第一人称</strong> + 传球三选一</td>
+      <td><span class="verdict lacking">🔴 原生缺纪律</span></td>
+    </tr>
+    <tr>
+      <td class="dim">@ 路由</td>
+      <td><code>^@name 内容</code>（发消息）</td>
+      <td><code>^@句柄 内容</code>（球权转移凭据）</td>
+      <td><span class="verdict learn">🟡 同构，咱多球权</span></td>
+    </tr>
+    <tr>
+      <td class="dim">角色模型</td>
+      <td>teammate 平权</td>
+      <td>family 角色 + 审美护栏 + 跨族 review 强制</td>
+      <td><span class="verdict ahead">🟢 咱有护栏</span></td>
+    </tr>
+    <tr>
+      <td class="dim">通信形式</td>
+      <td>禁结构化、只 plain text</td>
+      <td>rich block 结构化</td>
+      <td><span class="verdict neutral">⚪ 取向不同</span></td>
+    </tr>
+    <tr>
+      <td class="dim">持久化</td>
+      <td><code>~/.claude/{teams,tasks}</code> 本地临时</td>
+      <td>持久 thread + 记忆系统 + 图书馆</td>
+      <td><span class="verdict ahead">🟢 咱持久</span></td>
+    </tr>
+    <tr>
+      <td class="dim">协作范围</td>
+      <td>同机 / 同进程 swarm（跨机需 RC）</td>
+      <td>跨 model 联邦（Opus / GPT / Gemini）</td>
+      <td><span class="verdict ahead">🟢 咱联邦</span></td>
+    </tr>
+    <tr>
+      <td class="dim">完成上报</td>
+      <td>idle notification <strong>自动</strong>给 lead</td>
+      <td>hold_ball / 事件驱动 / @ 传球</td>
+      <td><span class="verdict learn">🟡 可互学</span></td>
+    </tr>
+    <tr>
+      <td class="dim">并发控制</td>
+      <td><code>--capacity</code> 上限（固定 1/session）</td>
+      <td>无显式上限</td>
+      <td><span class="verdict learn">🟡 可学</span></td>
+    </tr>
+    <tr>
+      <td class="dim">System Prompt</td>
+      <td>普通（随上下文压缩）</td>
+      <td><strong>L0 压缩免疫</strong>（native system prompt）</td>
+      <td><span class="verdict ahead">🟢 咱领先</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ═══ Insights ═══ -->
+<div class="section-title">
+  <span class="num" style="background:#3cb371">+</span>
+  关键洞察
+</div>
+
+<div class="insight-grid">
+  <div class="insight-card can-learn">
+    <h4>🟡 能学的 3 样</h4>
+    <ul>
+      <li><strong>idle 自动上报</strong> &mdash; 子 agent 完成 &rarr; 系统自动通知 lead，喂咱 hold_ball / 事件驱动</li>
+      <li><strong>claim-by-owner + 低 ID 优先</strong> &mdash; 毛线球 task 加认领顺序</li>
+      <li><strong><code>--capacity</code> 并发上限</strong> &mdash; 防 agent 雪崩的护栏</li>
+    </ul>
+  </div>
+  <div class="insight-card already-ahead">
+    <h4>🟢 已领先的 4 样</h4>
+    <ul>
+      <li><strong>跨 model 联邦</strong> &mdash; Opus / GPT / Gemini 异构协作</li>
+      <li><strong>持久化 + 人猫共享</strong> &mdash; thread / 记忆 / 图书馆</li>
+      <li><strong>球权纪律</strong> &mdash; 第一人称 + 传球三选一 + 接/退/升</li>
+      <li><strong>L0 压缩免疫</strong> &mdash; 身份/家规/纪律不被上下文压缩吃掉</li>
+    </ul>
+  </div>
+</div>
+
+<div style="margin-top:24px;padding:20px 24px;background:#fff;border-radius:var(--radius);box-shadow:var(--card-shadow);border-left:4px solid #6b4f9e;">
+  <h4 style="color:#6b4f9e;margin-bottom:8px;">💡 一句话总结</h4>
+  <p style="font-size:0.92rem;color:var(--text-secondary);">
+    原生 Agent Team 是<strong>同质 in-process swarm + 自由认领</strong>——快但松散；<br>
+    Cat Cafe 是<strong>异构跨模型联邦 + 球权纪律 + 持久记忆</strong>——有家庭、有秩序、有记忆。<br><br>
+    <span style="color:var(--native-accent)">它们解决了"怎么让多个 agent 协作"</span>，
+    <span style="color:var(--cafe-accent)">我们解决了"怎么让多个 agent <strong>像一个团队</strong>"</span>。
+  </p>
+</div>
+
+<!-- ═══ Footer ═══ -->
+<div class="footer">
+  F198 Agent Team 辩证挖掘 &middot; binary 2.1.161 <code>6a550ae</code> &middot;
+  spike by <strong>宪宪/opus-4.8</strong> &middot; HTML by <strong>宪宪/opus-4.6</strong><br>
+  2026-06-04
+</div>
+
+</body>
+</html>
