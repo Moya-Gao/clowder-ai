@@ -72,6 +72,7 @@ created: 2026-05-07
 - [x] AC-A1: `crossPostMessageInputSchema` 补 `targetCats` 字段并在 handler 透传 — commit `7b7ca1b64`
 - [x] AC-A2: MCP handler 层 — invocation-token caller 调 `post_message` 传 `threadId` 时 reject，错误消息提示用 `cat_cafe_cross_post_message` — commit `85b94cf00` (impl) + `8fea021f1` (test hotfix LL-054)
 - [x] AC-A3: API route 层 — `CallbackPrincipal × threadId × targetCats` 组合校验，按下表 4 格允许/拒绝矩阵；违反 KD-1 时 400 + alternatives — 由 Tasks 2+3 在两层 union 覆盖（API 端点不区分 post vs cross_post tool 来源，所以矩阵的 invocation-token+threadId 拒绝在 MCP handler 层 enforce；API route 层 enforce cross-post 缺 routing 凭证）。
+  - 2026-06-05 PR #2103 tightened the system-thread override boundary: indexed system threads are writable through user-visible indexing, but `DEFAULT_THREAD_ID` / global lobby remains cross-thread fail-closed even though stores list it by convention.
 
   | Tool × Principal | `threadId` | `targetCats` / 行首 @ | 写入类型 |
   |---|---|---|---|
@@ -290,6 +291,7 @@ closed; this is a follow-up bug-fix track, not a Phase E reopen.
 | 2026-05-08 | Phase D implementation — `cat_cafe_reflect` + `cat_cafe_guide_resolve` MCP 工具下线 + SystemPromptBuilder/test guard sync + probe-* user-local migration doc note (PR pending) |
 | 2026-05-09 | Phase D merged (PR #1613, squash `0697335fe`) — 砚砚 round 1 PASS + cloud R1 PASS first-try; gate web prerender flake bug-reported (origin/main 也复现，CVO 不阻塞先例) |
 | 2026-06-04 | Phase E E2/E4 merged (PR #2080, squash `f1af417df`) — `search_evidence` / `list_recent` / `feat_index` cross-thread suggested actions + owner metadata + provenance docs |
+| 2026-06-05 | Callback auth boundary fix merged (PR #2103, squash `fffff0b29`) — indexed system thread cross-posts allowed; default lobby cross-thread override remains denied |
 
 ## Review Gate
 
