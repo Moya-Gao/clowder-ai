@@ -14,7 +14,7 @@
  */
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { describe, it } from 'node:test';
@@ -144,6 +144,29 @@ function parseYamlTopLevelList(content, sectionName) {
 
 function readYamlTopLevelList(relPath, sectionName) {
   return parseYamlTopLevelList(readFileSync(resolve(ROOT, relPath), 'utf-8'), sectionName);
+}
+
+function readJsonFile(relPath) {
+  return JSON.parse(readFileSync(resolve(ROOT, relPath), 'utf-8'));
+}
+
+function loadWorkspacePackageRootsByName() {
+  const packagesDir = resolve(ROOT, 'packages');
+  const rootsByName = new Map();
+
+  for (const entry of readdirSync(packagesDir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const packageRoot = `packages/${entry.name}`;
+    const packageJsonPath = resolve(ROOT, packageRoot, 'package.json');
+    if (!existsSync(packageJsonPath)) continue;
+
+    const packageJson = readJsonFile(`${packageRoot}/package.json`);
+    if (typeof packageJson.name === 'string') {
+      rootsByName.set(packageJson.name, packageRoot);
+    }
+  }
+
+  return rootsByName;
 }
 
 function parseYamlTransformTargets(content) {
@@ -683,6 +706,42 @@ excluded:
           managedScripts.includes(scriptPath),
           `sync-manifest should export ${scriptPath} because root package.json references it`,
         );
+      }
+    });
+
+    it('sync-manifest exports workspace dependency closure for managed package roots', () => {
+      const managedRoots = new Set(readYamlTopLevelList('sync-manifest.yaml', 'managed_roots'));
+      const workspaceRootsByName = loadWorkspacePackageRootsByName();
+
+      for (const root of managedRoots) {
+        if (!root.startsWith('packages/')) continue;
+
+        const packageJsonPath = `${root}/package.json`;
+        if (!existsSync(resolve(ROOT, packageJsonPath))) continue;
+
+        const packageJson = readJsonFile(packageJsonPath);
+        const dependencyGroups = [
+          packageJson.dependencies ?? {},
+          packageJson.devDependencies ?? {},
+          packageJson.peerDependencies ?? {},
+          packageJson.optionalDependencies ?? {},
+        ];
+
+        for (const dependencies of dependencyGroups) {
+          for (const [dependencyName, dependencySpec] of Object.entries(dependencies)) {
+            if (typeof dependencySpec !== 'string' || !dependencySpec.startsWith('workspace:')) continue;
+
+            const dependencyRoot = workspaceRootsByName.get(dependencyName);
+            assert.ok(
+              dependencyRoot,
+              `${root} depends on workspace package ${dependencyName}, but packages/* does not contain it`,
+            );
+            assert.ok(
+              managedRoots.has(dependencyRoot),
+              `sync-manifest should export ${dependencyRoot} because managed root ${root} depends on ${dependencyName}`,
+            );
+          }
+        }
       }
     });
 

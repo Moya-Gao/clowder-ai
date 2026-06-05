@@ -15,6 +15,7 @@ managed_roots:
   - packages/web
   - packages/shared
   - packages/mcp-server
+  - packages/finance          # F207 finance fact package (mcp-server workspace dependency)
   - desktop                # F179: Electron desktop shell + Win/Mac build scripts (release-desktop.yml 依赖)
   - cat-cafe-skills        # 运行时依赖 + 核心差异化
   - guides                 # F155 guide registry + flow YAMLs (check:guides/runtime dependency)
