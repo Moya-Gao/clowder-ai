@@ -253,7 +253,7 @@ docs_decisions_allowlist:
   - docs/decisions/020-f102-memory-system-architecture.md
   - docs/decisions/021-f129-pack-system-architecture.md
   - docs/decisions/022-unified-schedule-abstraction.md
-  - docs/decisions/030-system-prompt-engineering.md
+  - docs/decisions/037-mcp-tool-cognitive-entry-points.md
 
 # ── 排除（即使在 managed_roots 内也不导出）─────────────────────
 excluded:
