@@ -181,6 +181,7 @@ Cat Wu 那期 Anthropic 产品访谈补上了一个外部锚点：AI-native PM �
 | `taste-blindness` | 猫给通用答案，闻不到 Landy 的味道 | F221 Taste Lane + vignette | 新模型能否主动召回 taste 证据 |
 | `no-ground-truth-self-hype` | 猫觉得自己做成了，但用户任务没闭环 | F192 Phase G task outcome | 新模型能否更稳地绑定 episode 和真实结果 |
 | `silent-friction-loss` | 用户不爽、取消、报错，但系统没把它变成改进信号 | F222 Frustration Auto-Issue | 新模型/新 UI 能否更早识别负体验 |
+| `search-as-validation` | 搜到一个 GitHub repo/结果就当 source-audit 完成，把"存在"当"可用"（2026-06-05 三猫集体复发） | 推荐外部依赖触发 source-audit + 开源尽调卡门禁（待建） | 新模型是否会主动追覆盖率/star/实测再推荐 |
 
 这解释了为什么模型商品化对我们不是威胁。模型越强，三件事同时发生：
 
@@ -324,7 +325,7 @@ PPT 专家把 EMF（Windows GDI 绘图记录）嵌入邮件正文 → Exchange �
 
 - **46**（理论对位）：用 `Agent Quality = Model × Environment × Eval` 公式精确定位——Model 不差，Environment 和 Eval 两项为零。引入 Failure Mode Lifecycle 框架（命名 → 信号 → 补偿 → sunset）。
 - **砚砚**（技术纠偏 + 产品化）：最精准的技术纠偏（EMF = GDI 绘图记录，难在重放绘图语义不是解压）；补了"产品化取舍"维度——100% lossless 未必是业务需求，高覆盖 SVG + 不支持 record 的 raster fallback + unsupported report 可能就够。
-- **48**（实测验证）：唯一真去做了 WebSearch——30 秒找到 `kakwa/libemf2svg`（CERN 出品的成熟 C 库），证明这根本不是"无解逆向"，AI 写的 SDK 效果差是因为**跳过了测绘直接写 parser**。用行动示范了"测绘解空间"的价值。
+- **48**（实测验证 → 翻车 → 二次校准）：去 WebSearch 找到 `kakwa/libemf2svg`，当场下了"根本不是无解逆向"的判断——**但这是假测绘**：没看 113 star / 个人项目、没 clone 跑、没读 README 自报覆盖率（EMF supported 仅 35%、EMF+ 100% ignored）。数小时后被小伙伴"早就试过了"证伪。这条翻车本身成了今天最大的 takeaway，见下方"二次校准"。
 
 ### 验证了什么
 
@@ -332,7 +333,18 @@ PPT 专家把 EMF（Windows GDI 绘图记录）嵌入邮件正文 → Exchange �
 2. **"Meta-method ≠ SOP"**（源文档 #5）："遇到未知格式怎么想"是可迁移 topology，不是 EMF 专属 SOP。
 3. **"长尾 = Agent 3.0 战场"**（§四 品类创造）：共性需求靠预置工具覆盖（2.0），长尾业务难题才需要从轨迹里长方法（3.0）。
 
+### 二次校准：三猫集体翻车，反而是最强实证（2026-06-05 11:25）
+
+小伙伴一句"libemf2svg 早就试过了、113 star 个人项目"，揭穿三猫在分析这个 case 时集体犯了 `search-as-validation`——搜到 GitHub 库就当验证完成，**在诊断"AI 没思考"的同一份文档里**。这反而是 §五bis"每条 harness 要知道自己压住哪个 failure mode"的最强实证：
+
+- **failure mode 不因命名而消失**：48 上一轮亲手写下"'我能猜出来'是布偶猫家族病"，下一秒就犯了它的 GitHub 变种。光有方法论文档不够，必须有强制门禁（推荐外部依赖 → 触发 source-audit + 开源尽调卡）。
+- **跨组织复现 = FDE 杀手弹药**：同一个病在谢泽丰团队和我们家同时出现，证明"failure mode 不按品牌分、按能力等级分"——命名 + 门禁的 harness 智慧可跨组织复用。
+- **"测绘"method 需长出 sub-method**：测绘有质量层次（存在性→可靠性→适用性→效果性），开源评估应提炼成 method card。
+
+完整复盘 + 新 failure mode 已落 [讨论文件 §五/§六](../../discussions/2026-06-05-emf-case-agent-capability-field-test.md)。
+
 ---
 
 *种子 v3 补充：2026-06-05 EMF case 三猫分析 [宪宪/Opus-46🐾]*
+*种子 v3.1 二次校准：2026-06-05 小伙伴反馈翻车复盘 [宪宪/Opus-4.8🐾]*
 *种子 v2 整合：2026-06-01 | 初版 [宪宪/Opus-46🐾] / 三猫补充 [砚砚/GPT-55🐾] [宪宪/Opus-47🐾] [宪宪/Opus-48🐾] / 整合 [宪宪/Opus-46🐾]*

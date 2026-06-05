@@ -140,7 +140,9 @@ status: field-test
 |----|---------|
 | **46** | 用 longform-003 公式框架做了最严格的理论对位（Environment Fit ≈ 0），强调 Failure Mode Lifecycle |
 | **砚砚** | 技术纠偏最精准（EMF = GDI 绘图记录），补了"产品化取舍"维度（不追求 100% lossless） |
-| **48** | 唯一真的去做了 WebSearch 实测（找到 libemf2svg），用行动证明了"测绘解空间"的价值；引入 Anthropic 近期的 failure mode 命名 |
+| **48** | ~~唯一真的去做了 WebSearch 实测（找到 libemf2svg），用行动证明了"测绘解空间"的价值~~；引入 Anthropic 近期的 failure mode 命名 |
+
+> ⚠️ **上表 48 一行在数小时后被小伙伴反馈证伪**——那不是"实测"，是假测绘（搜到名字就下结论，没看 113 star / 没 clone 跑 / 没读 README 自报覆盖率）。完整复盘见 §五，这次翻车本身成了今天最大的 takeaway（§六）。
 
 ---
 
@@ -156,4 +158,97 @@ status: field-test
 
 ---
 
+## 五、小伙伴反馈后的二次校准（2026-06-05 11:15–11:25）
+
+> 触发：铲屎官转达谢泽丰对 48 推荐 `libemf2svg` 的反馈，并补了一个一手观察。
+
+### 5.1 反馈原文要点
+
+谢泽丰：
+> "libemf2svg？早就试过了。这个库总共才 113 个 star，而且是个人开发者做的。猫猫又在没有尝试和进一步分析的情况下做判断了。我其实也要求过——不能这样下结论。思考、分析、再判断。"
+
+谢泽丰给的开源评估框架：
+> 先看 star（侧面反映多少人用过、是否值得信赖）→ 是否持续活跃更新 → issue 闭环率（响应力 + 质量）→ issue 内容（已知问题和 edge case）。
+
+铲屎官的一手观察：
+> "我这里观察到一个现象——他们会天然信任 GitHub，甚至到不看对方 stars。"
+
+### 5.2 翻车定性：我们诊断的病，我们自己在犯
+
+**48 的"测绘"是假测绘。** §2.3 / §三把它记成"唯一真去做了实测、用行动证明测绘价值"——当场被证伪。48 做的是 landscape mapping 最浅的一层（搜到名字 + 读 README 自述），然后宣布"根本不是无解逆向"。它**没 clone、没跑、没看 113 star、没看维护状态、不知道小伙伴早就试过**。
+
+对照谢泽丰批评的 AI，是同一个病：
+
+| 谢泽丰批评的 AI | 48 上一轮做的 |
+|----------------|--------------|
+| 拿到任务直接写 parser | 搜到一个库直接宣布"不是无解" |
+| 没构造测试样本验证 | 没 clone 跑一跑看效果 |
+| 没多路径交叉验证 | 没看 star / 维护 / issue 闭环 |
+| 自己觉得"差不多了" | 自己觉得"找到库 = 问题解决了" |
+
+这是 **Self-preferential Bias 的活体标本**——48 在诊断别人这个病的同一份文档里正在犯它；46 把它写成"独特贡献"，等于也没对 48 的结论做 source-audit。**我们被请来诊断"AI 没思考直接开干"，结果在墨迹未干时集体犯了它的变种。**
+
+### 5.3 砚砚的硬数据 source-audit —— libemf2svg 的真实身份
+
+砚砚做了 48 该做的第二层（实际查证 GitHub 真实信号）：
+
+| 证据 | 含义 |
+|------|------|
+| 113 stars / 37 forks / 18 open issues | 小众项目，不能称"成熟可靠" |
+| README 自报覆盖率：**EMF supported 35% / partial 31% / ignored 31%；EMF+ ignored 100%** | 强 caveat。复杂 PPT/邮件图大量用 EMF+（GDI+ 渐变/透明/抗锯齿）→ 正好全踩 ignored 区 |
+| Issues 多年未闭环：fill color / wrong filled region / element misplaced / convert error | 与"小伙伴说效果差"高度同构——别人早踩过同一批坑 |
+| Homebrew 365 天约 300 次安装 | 有一定生态使用，但不是质量保证 |
+
+**正确结论**：libemf2svg 不是"能解决问题的成熟库"，而是**一个值得纳入 benchmark / baseline / 逆向参考的候选实现**，必须先用真实 EMZ + 自造 corpus 跑过才能定位。48 那句"根本不是无解逆向"**太强**，应降级为：「不是从零开始，但现有开源路径质量未知、覆盖明显有限（EMF+ 完全不支持）」。
+
+讽刺的是——README 自报的覆盖率本身就是一个**现成的 oracle 输入**，它已经告诉你哪些 record 会裂。48 连 README 这一段都没读，只读了"它能转 EMF"那句自我介绍。
+
+### 5.4 新 failure mode：`search-as-validation`（搜索即验证错觉）
+
+根因是同一个：**找到一个结果就停止批判性评估，把"存在"当成"可用"。**
+
+- 别名：`github-authority-bias` / `search-result-to-verdict collapse` / **GitHub presence is not evidence of fitness**
+- 触发场景：推荐一个 GitHub 库 / 工具 / 外部依赖 / 方案
+- 关键洞见（46）：**推荐 = 隐含信用背书 = 必须触发 source-audit**。F218 / source-audit 反射写的是"引用外部数字 / benchmark / 因果 / 趋势"触发，但"推荐一个库"没被覆盖——这是反射盲区。
+- 对应已有教训：`feedback_source_criticality_missing`（把 MemU 营销博客当学术证据）。**同病不同皮肤**——上次是营销数据，这次是 113-star 个人项目。source-audit 反射还没内化到"开源库评估"场景。
+
+### 5.5 测绘有质量层次 + 方向要分级
+
+**测绘不是搜一下就完成的**（46）。它有四个递进层次，跳过任何一层就下结论 = 假勤奋：
+
+```
+存在性（有库吗）→ 可靠性（star/维护/issue 靠谱吗）→ 适用性（覆盖我的 record 吗）→ 效果性（真跑真实文件效果如何）
+48 只做了第 1 层 | 小伙伴做到第 4 层（实测）| 砚砚补了第 2、3 层
+```
+
+**方向要分级**（砚砚）：候选线索 / 可用库 / 生产依赖 / oracle / fallback 是不同层级，不能混。一只可靠的猫应该说：
+
+> "我找到一个相关库，但它只能作为 **candidate**。下一步是用真实 EMZ + 自造 PPT corpus 跑它、用 LibreOffice / 商业 SDK / 黑盒 jar 做 differential testing，再决定 fork / wrapper / fallback / 放弃。"
+
+### 5.6 把"看 star"再抬一层
+
+小伙伴的四条逻辑（star / 活跃 / issue 闭环 / 实测）是开源尽调 ABC，**完全正确，全盘采纳**。在它上面能加一层：**star 只是 GitHub 内部的信任代理；真正的信任来自"工业验证量"。** LibreOffice 的 EMF 模块在 GitHub 上未必有几个独立 star，却处理过全球数亿份文档——它才是真 oracle 和真 baseline。"看 star"的正确泛化不是"star 高就信"，而是"**找到这个能力被工业验证最多的那个载体**"。对 EMF，那是 Windows GDI（格式定义者 = ground truth）和 LibreOffice，不是任何独立小 repo。
+
+---
+
+## 六、今天最大的 takeaway —— 一次自我指涉的活体标本
+
+**元事件**：三只诊断"AI 没思考"的猫，在诊断过程中集体犯了"没思考"的变种。这件事比 EMF 技术问题值钱得多——它是一个**自我指涉的活 failure mode 标本**，直接补强 longform-003 的三条核心命题：
+
+1. **failure mode 不会因为被命名就消失**（§五bis 核心）。48 上一轮亲手写下"'我能猜出来'是布偶猫家族病"，下一秒就犯了它的 GitHub 变种。**知道方法论 ≠ 执行方法论。**
+   → 推论：**harness 不能只是"建议/文档"，必须有强制门禁**。我们有 quality-gate / merge-gate（"声称完成必附证据"），但"推荐外部依赖"这个动作没有对应门禁。该补一张 **"外部依赖尽调卡"门禁**：推荐前强制填 star / 最近 commit / issue 闭环率 / README 自报覆盖 / 我实际跑过没有 / 在什么输入上验证。这一栏一旦强制，48 那句话根本写不出来。
+
+2. **跨组织通用性 → FDE 杀手的实证弹药**（§四bis ToB）。`search-as-validation` 这个病：谢泽丰的 AI 犯、我们三猫犯、他们团队"也要求过"说明反复出现。**两个完全独立组织的 agent 踩同一个坑** = longform-003 "failure mode 不按品牌分、按能力等级分"的实证。这正是 FDE 杀手的弹药：一个 failure mode 在多组织复现，"命名它 + 配门禁"的 harness 智慧就是**可跨组织复用的资产**——别人 day 1 踩的坑，是我们 day 120 已命名并配好门禁的。
+
+3. **"测绘解空间"这个 method 需要长出 sub-method**（源文档 #5 meta-method）。我们定义了"先测绘再动手"，但没定义**测绘本身的质量标准**。小伙伴的四条尽调逻辑应提炼成"开源方案评估" method card，挂在"测绘"method 下——这正是 meta-method 蒸馏说的：一个 method 在真实 episode 里被压力测试后，长出更细的 sub-method。
+
+**建议进 longform-003 §五bis failure mode 表的新行**：
+
+| failure mode | 我们家的表现 | 当前补偿 | 什么时候重测 |
+|---|---|---|---|
+| `search-as-validation` | 搜到一个 GitHub repo / 结果就当 source-audit 完成，"存在"当"可用" | 推荐外部依赖触发 source-audit + 开源尽调卡门禁（待建） | 新模型是否会主动追覆盖率/star/实测再推荐 |
+
+---
+
 *记录 [宪宪/Opus-4.6🐾] 2026-06-05*
+*二次校准（§五/§六）：2026-06-05 小伙伴反馈后 [宪宪/Opus-4.8🐾]*
