@@ -1436,6 +1436,10 @@ export class AgentRouter {
       callerTraceContext?: CallerTraceContext;
       /** Explicit A2A trigger message ID for queue-dispatched stream reply threading */
       a2aTriggerMessageId?: string;
+      /** F222 P1: Whether this route is eligible for frustration auto-issue detection.
+       *  true/undefined = user-origin (eligible, default for backward compat).
+       *  false = agent/connector-origin (A2A handoff) — suppress detection. */
+      frustrationAutoIssueEligible?: boolean;
     },
   ): AsyncIterable<AgentMessage> {
     const cleanMessage = stripIntentTags(message);
@@ -1476,7 +1480,8 @@ export class AgentRouter {
     }
 
     // F222 Phase B+C: Text frustration + retry burst detection (production path)
-    if (this.frustrationIssueStore) {
+    // F222 P1: Skip for A2A/connector origins — only detect frustration on user-driven routes
+    if (this.frustrationIssueStore && options?.frustrationAutoIssueEligible !== false) {
       try {
         const { detectTextFrustration } = await import('../../frustration/text-frustration-keywords.js');
         const detection = await this.collectAndDetectTextFrustration(threadId, detectTextFrustration);
@@ -1546,6 +1551,10 @@ export class AgentRouter {
       ...(options?.persistenceContext ? { persistenceContext: options.persistenceContext } : {}),
       ...(options?.parentInvocationId ? { parentInvocationId: options.parentInvocationId } : {}),
       routeSpan,
+      // F222 P1: thread provenance flag so route-serial/route-parallel can gate detection
+      ...(options?.frustrationAutoIssueEligible !== undefined
+        ? { frustrationAutoIssueEligible: options.frustrationAutoIssueEligible }
+        : {}),
     };
 
     try {

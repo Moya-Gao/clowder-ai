@@ -2274,7 +2274,8 @@ export async function* routeSerial(
 
       // F222: Frustration auto-issue — detect CLI error + cancel burst signals.
       // Non-blocking: errors in frustration detection must not interrupt the route pipeline.
-      if (deps.frustrationIssueStore) {
+      // F222 P1: Skip for A2A/connector origins — only detect frustration on user-driven routes.
+      if (deps.frustrationIssueStore && options.frustrationAutoIssueEligible !== false) {
         const frustrationDeps = {
           frustrationIssueStore: deps.frustrationIssueStore,
           messageStore: deps.messageStore,

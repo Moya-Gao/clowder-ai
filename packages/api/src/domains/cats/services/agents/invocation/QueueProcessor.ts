@@ -1036,6 +1036,9 @@ export class QueueProcessor {
           ...(invocationId ? { parentInvocationId: invocationId } : {}),
           ...(entry.a2aTriggerMessageId ? { a2aTriggerMessageId: entry.a2aTriggerMessageId } : {}),
           ...(entry.callerTraceContext ? { callerTraceContext: entry.callerTraceContext } : {}),
+          // F222 P1: Only user-originated queue entries trigger frustration detection.
+          // Whitelist (not blacklist) — agent + connector sources both suppressed.
+          frustrationAutoIssueEligible: entry.source === 'user',
         },
       )) {
         if (controller.signal.aborted) {

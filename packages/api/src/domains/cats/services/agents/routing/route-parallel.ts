@@ -1296,7 +1296,8 @@ export async function* routeParallel(
 
       // F222 Phase B AC-B2: Mirror route-serial's frustration detection for parallel mode.
       // Non-blocking: detection failure must not interrupt the parallel route pipeline.
-      if (deps.frustrationIssueStore) {
+      // F222 P1: Skip for A2A/connector origins — only detect frustration on user-driven routes.
+      if (deps.frustrationIssueStore && options.frustrationAutoIssueEligible !== false) {
         const cliDiag = catCliDiagnostics.get(msg.catId);
         try {
           const { evaluate } = await import('../../frustration/FrustrationDetector.js');

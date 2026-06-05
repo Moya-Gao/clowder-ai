@@ -2347,4 +2347,33 @@ describe('QueueProcessor', () => {
       assert.equal(remaining.length, 0, 'queue should be empty after supersede lifecycle');
     });
   });
+
+  describe('F222 P1: frustrationAutoIssueEligible source whitelist', () => {
+    for (const { source, expected, label } of [
+      { source: 'user', expected: true, label: 'user source → eligible=true' },
+      { source: 'agent', expected: false, label: 'agent source → eligible=false' },
+      { source: 'connector', expected: false, label: 'connector source → eligible=false' },
+    ]) {
+      it(label, async () => {
+        let capturedEligible;
+        deps.router.routeExecution = mock.fn(
+          async function* (_userId, _content, _threadId, _messageId, _targetCats, _intent, options) {
+            capturedEligible = options?.frustrationAutoIssueEligible;
+            yield { type: 'done', catId: 'opus', isFinal: true, timestamp: Date.now() };
+          },
+        );
+
+        enqueueEntry(deps.queue, { source });
+        const result = await processor.processNext('t1', 'u1');
+        assert.equal(result.started, true);
+        await new Promise((resolve) => setTimeout(resolve, 80));
+
+        assert.equal(
+          capturedEligible,
+          expected,
+          `source:'${source}' must pass frustrationAutoIssueEligible=${expected}`,
+        );
+      });
+    }
+  });
 });

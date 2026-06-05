@@ -1054,6 +1054,8 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
               cursorBoundaries,
               persistenceContext,
               parentInvocationId: createResult.invocationId,
+              // F222 P1: user direct entry → eligible for frustration auto-issue
+              frustrationAutoIssueEligible: true,
             },
           )) {
             if (!firstRouteEventSeen) {
