@@ -31,6 +31,7 @@ status: seed
 > 13. [技术创新方案](../../research/2026-05-27-evolvable-harness/technical-innovation-proposal.md) — 6 个创新点 + L1-L5 环境进化等级 + POC 验证
 > 14. [PoE Master TODO](../../discussions/2026-06-02-poe-brainstorm-master-todo.md) — 所有待办项收敛
 > 15. [Cat Wu 访谈套读](../../discussions/2026-04-15-harness-engineering-triad-study/round5-anthropic-product-velocity.md) — Anthropic 产品速度 × failure taste × harness built to delete
+> 16. [EMF/EMZ Case — Agent 能力模型现场验证](../../discussions/2026-06-05-emf-case-agent-capability-field-test.md) — 谢泽丰 EMF→SVG 真实业务 case，三猫独立分析验证"训环境不训模型"命题（§十二）
 
 ---
 
@@ -297,6 +298,41 @@ Local Signal Miner（传感器层）
 - [ ] 云端砚砚 pro 调研本地小模型选型
 - [ ] 路演作战卡独立版（48 提议，如需单独落）
 
+## 十二、外部验证案例：EMF/EMZ 与 Agent 能力模型（2026-06-05 三猫独立分析）
+
+> 来源：谢泽丰（同事）真实业务 case → 铲屎官抛给三猫并行分析。
+> 完整记录：[讨论文件](../../discussions/2026-06-05-emf-case-agent-capability-field-test.md)
+
+### 背景
+
+PPT 专家把 EMF（Windows GDI 绘图记录）嵌入邮件正文 → Exchange 压缩成 EMZ → 非 Outlook 程序无法解析（手机端裂图）。谢泽丰让 AI 写 EMF→SVG 转换 SDK，**效果很差**。他追问的不是"怎么修这个 SDK"，而是两个元问题：
+
+1. 怎么让猫自己想到这些方向（TDD 构造样张 / 逆向参考 / 开源参照）？
+2. 方向有很多，怎么互相印证、自驱探索？
+
+### 三猫共识
+
+| 维度 | 一致判断 |
+|------|---------|
+| 根因 | 不是 model 能力不足，是运行环境缺方法论（`Environment Fit ≈ 0`） |
+| 第一动作 | 先测绘问题空间（有 spec 吗？有人解过吗？有参照实现吗？），不是直接写代码 |
+| Oracle | 需要独立于自身的判分标准（自造已知内容的测试样张），否则 overfit 到单个 case |
+| 多路径 | spec / 开源实现 / 逆向 互相 falsify，不是赌一条路 |
+| 与本文关系 | 这个 case 是"训环境不训模型"命题的天然外部压力测试 |
+
+### 各猫独特贡献
+
+- **46**（理论对位）：用 `Agent Quality = Model × Environment × Eval` 公式精确定位——Model 不差，Environment 和 Eval 两项为零。引入 Failure Mode Lifecycle 框架（命名 → 信号 → 补偿 → sunset）。
+- **砚砚**（技术纠偏 + 产品化）：最精准的技术纠偏（EMF = GDI 绘图记录，难在重放绘图语义不是解压）；补了"产品化取舍"维度——100% lossless 未必是业务需求，高覆盖 SVG + 不支持 record 的 raster fallback + unsupported report 可能就够。
+- **48**（实测验证）：唯一真去做了 WebSearch——30 秒找到 `kakwa/libemf2svg`（CERN 出品的成熟 C 库），证明这根本不是"无解逆向"，AI 写的 SDK 效果差是因为**跳过了测绘直接写 parser**。用行动示范了"测绘解空间"的价值。
+
+### 验证了什么
+
+1. **"训环境不训模型"**（§五 主公式）：同样的模型，有方法论 vs 没方法论 = 天差地别。
+2. **"Meta-method ≠ SOP"**（源文档 #5）："遇到未知格式怎么想"是可迁移 topology，不是 EMF 专属 SOP。
+3. **"长尾 = Agent 3.0 战场"**（§四 品类创造）：共性需求靠预置工具覆盖（2.0），长尾业务难题才需要从轨迹里长方法（3.0）。
+
 ---
 
+*种子 v3 补充：2026-06-05 EMF case 三猫分析 [宪宪/Opus-46🐾]*
 *种子 v2 整合：2026-06-01 | 初版 [宪宪/Opus-46🐾] / 三猫补充 [砚砚/GPT-55🐾] [宪宪/Opus-47🐾] [宪宪/Opus-48🐾] / 整合 [宪宪/Opus-46🐾]*
