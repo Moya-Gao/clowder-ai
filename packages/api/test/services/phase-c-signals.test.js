@@ -82,12 +82,35 @@ describe('F222 Phase C: detectRetryBurst', () => {
     assert.equal(detectRetryBurst('hello', []).matched, false);
   });
 
-  it('matches by first 30 chars prefix', () => {
+  it('does NOT trigger on different messages with same short prefix (A2A review false positive fix)', () => {
+    // Bug: A2A review messages share similar openings ("@codex review...") but
+    // have different bodies. Old 30-char prefix match caused false positives.
     const prefix = '这是一段超过三十个字的消息内容用来测试前缀匹配逻辑是否正确工作';
     const current = prefix + ' 变体 A';
     const recent = [prefix + ' 变体 B', prefix + ' 变体 C', prefix + ' 变体 D'];
     const result = detectRetryBurst(current, recent);
+    assert.equal(result.matched, false, 'different messages sharing a prefix should NOT trigger');
+  });
+
+  it('triggers on truly identical messages (genuine retry)', () => {
+    const msg = '@codex 请帮我 review 这个 PR 的改动，重点看安全性';
+    const recent = [msg, msg, msg];
+    const result = detectRetryBurst(msg, recent);
     assert.equal(result.matched, true);
+    assert.equal(result.matchCount, 3);
+  });
+
+  it('does NOT trigger on A2A review handoff messages with similar openings', () => {
+    // Real scenario: user relaying review rounds to cloud codex
+    const recent = [
+      '@codex R5 cloud verdict — 检查 inline P0/P1/P2 findings',
+      '@codex R4 review feedback — approve with minor nit',
+      '@codex R3 请看看这几个 blocking issues',
+    ];
+    const current = '@codex R5 cloud verdict — 检查 inline P0/P1/P2 findings';
+    const result = detectRetryBurst(current, recent);
+    // Only 1 exact match (current itself in recent), not ≥3
+    assert.equal(result.matched, false);
   });
 });
 
