@@ -2,11 +2,11 @@
 doc_kind: draft
 created: 2026-06-04
 participants: [landy, opus, codex, opus48]
-status: v4-autoharness-scenarios
+status: v5-yinqing-extraction-and-eval-memory
 target: 华为云内部创新汇报（三页 PPT + live demo）
 ---
 
-# 华为云汇报 PPT 骨架 v4
+# 华为云汇报 PPT 骨架 v5
 
 > 格式来源：华为创新 IDEA 汇报模板（三页 PPT → 接 live demo）
 > v0：铲屎官纠正对标对象 + 技术挑战框架 + 去黑话
@@ -15,6 +15,7 @@ target: 华为云内部创新汇报（三页 PPT + live demo）
 > v3：接入尹青 PPT 的 AutoHarness L1-L5 框架，改成"责任迁移 + 产品证明"坐标；
 > 对标产品进入候选池，未核验项只作线索不作正式 claim
 > v4：第三页场景升级：commit push 热身退 pocket，主场景改为 F128 编排协议自修正 + 业务专属 harness 进化
+> v5：粗提尹青 PPT Image #3/#4；第三页改成"使用者触发 vs eval 系统触发"双触发路径
 
 ---
 
@@ -68,16 +69,19 @@ L1 部分自演进        L2 部分自进化          L3 系统自进化        
 
 | 候选 | 当前证据 | 可学习点 | PPT 使用方式 |
 |---|---|---|---|
+| Hermes Agent | 尹青图中 L1 代表，待核验 | L1：专家手工设计 harness 架构、组件、benchmark | 只作候选线索 |
 | Aiming-Lab AutoHarness | GitHub 项目：治理 pipeline、YAML constitution、trace diagnostics、multi-agent profiles | "Harness engineering" 正在成为显式品类；可学它的治理组件表达 | 可放 L1/L2 候选，对外只说"开源治理框架" |
 | openJiuwen / JiuwenSwarm | 官网：事件驱动多 Agent、状态管理、断点恢复、实时 tracing、Skills Hub | 华为生态内已有 Agent 平台语境，可借它说明"平台层"不是我们的终点 | 放 L1/L2 平台对标，重点讲我们补"自进化闭环" |
-| Code as Agent Harness | UIUC/Meta/Stanford survey：code 是 executable/verifiable/stateful agent substrate | 给"代码作为 harness 载体"提供学术坐标 | 放技术背书，不当竞品 |
-| Google DeepMind AlphaEvolve | 官方 blog：LLM + evaluator + evolutionary loop，已用于算法/数据中心/芯片/训练流程优化 | 高 verifier 场景的 L3 级北极星；证明"改工件型自进化"有现实工程价值 | 放 L3 参考，但强调它依赖明确 evaluator |
+| MOSS（中科大-港科大） | 尹青图中 L2 代表，待核验 | L2：代码生成部分 harness 组件 + 多 Agent 协作 | 只作候选线索 |
+| Meta Code as Agent Harness | 尹青图中 L2 代表，待核验；另有 code-as-harness 学术坐标 | code 是 executable / verifiable / stateful agent substrate | 放技术背书，不当竞品 |
+| Google DeepMind autoHarness / AlphaEvolve | 尹青图中 L2/L3 线索；AlphaEvolve 官方 blog 可核验 | 高 verifier 场景的 L3 级北极星；证明"改工件型自进化"有现实工程价值 | 放 L3 参考，但强调它依赖明确 evaluator |
 | Adaptive Auto-Harness | 2026 arXiv：open-ended task streams、stateful multi-agent evolver、harness tree、human-steering hooks | 和我们"真实开放任务流 + 人类方向信号"接近 | 作为研究线索，需深调研后再正式引用 |
 | Ineffable Intelligence | NVIDIA blog：David Silver 团队，RL infrastructure / superlearners | L5 北极星叙事，说明"经验学习"是大方向 | 只放长期方向/资本叙事，不说已有产品 |
 
 <!-- source-audit note:
 正式 PPT 若出现具体产品名，必须二次核验：一手链接、发布时间、是否产品/论文/营销、是否真的属于该 Level。
 "Ineffable Intelligent/Intelligence" 目前只可作 L5 北极星线索，不可写成已落地 AutoHarness 产品。
+尹青图中的代表产品目前是候选池，不是已验证 claim。
 -->
 
 ### 【右半：我们的方案】
@@ -172,26 +176,18 @@ L1 部分自演进        L2 部分自进化          L3 系统自进化        
 > **🔴 命题修正**：命题作文是 **AutoHarness**，不是"自进化 AI 工作环境"。
 > 此页标题和框架等明天和铲屎官一起重构。当前版本保留作参考。
 
-**核心技术方案：AutoHarness — 自进化 AI 工作环境**
+**核心技术方案：AutoHarness — 责任从用户逐步迁移到 Agent 系统**
 
 ```
-环境进化等级（我们提出的分级框架）：
+尹青图 Image #4 粗提：
 
-L1 静态环境 ← 当前大多数 AI 产品
-   模型 + 固定 prompt/工具，用完即走，不积累
+用户负责 ───────────────────────────────→ Agent 系统负责
 
-L2 人工调优 ← 认真用 AI 的团队
-   人根据经验手动调 prompt/工具/规则
-
-L3 环境自生长 ← 我们已验证的阶段 ★
-   Agent 自己写代码改进工作环境
-   人提供方向和安全边界
-
-L4 双回路进化 ← 下一步目标
-   环境进化（快回路）+ 模型适配（慢回路）同时转
-
-L5 规模化复制 ← 终局蓝图
-   一套核心能力为千行百业定制自进化环境
+L1 部分自演进：Harness 部分组件自演进，自动化辅助
+L2 部分自进化：Harness 部分组件自进化，部分自动化执行
+L3 系统自进化：Harness 系统自迭代，有条件自动化执行
+L4 自主进化：Harness 系统主动适配业务，高度自动化执行
+L5 自主学习：Harness 系统自主学习，持续协同 Model 迭代，完全自动化执行
 ```
 
 **技术目标**
@@ -257,7 +253,7 @@ L5 规模化复制 ← 终局蓝图
 > **v2 问题**：铲屎官反馈"太泛泛了"。v3 改成真实故事 + 具体数据，
 > 不说"用户反复遇到同一个问题"，说**真实发生过什么、怎么修的、修完什么效果**。
 > **v4 问题**：commit push hook 太小，撑不起 AutoHarness。改成两个更贴企业的故事：
-> 左半讲**多 Agent 编排协议自修正**，右半讲**业务专属 harness 越用越贴合**。
+> 左半讲**使用者显性摩擦触发**，右半讲**eval 系统异常触发**，回答"自进化到底由谁触发"。
 
 ### 【左半：场景 1 — F128 编排协议自修正（进行中案例）】
 
@@ -287,32 +283,33 @@ L5 规模化复制 ← 终局蓝图
 
 > **该自动的是任务级/流程级 harness；系统级稳定性仍走提单、人审、留痕。**
 
-### 【右半：场景 2 — 陌生业务长出专属 harness】
+### 【右半：场景 2 — Memory Eval 发现摩擦激增】
 
-**一句话**：用户给一个陌生业务任务，AI 先建工作流；使用中出现摩擦，工作流继续被修正，越用越贴业务。
+**一句话**：不是等用户抱怨，评估系统自己发现记忆召回健康度异常，并把问题跨线程派给对应 owner。
 
 **真实故事**：
 
-> 用户说："帮我从 LinkedIn 找 AI Infra 候选人，按我们团队标准筛一遍。"
-> 一开始没有现成招聘流程，AI 团队现场搭出 search → 去重 → 候选人画像 → 评分 → shortlist 的 harness。
+> Memory Recall & Library Health Eval 发现：这几天数据摩擦激增，记忆召回 / library health 相关指标异常。
+> 普通聊天里用户未必立刻意识到"记忆系统正在退化"，但 eval 猫已经看到了趋势。
 >
 > **传统做法**：
-> 写一套一次性 prompt 或固定流程；漏掉某类候选人、评分不贴团队偏好时，只能人工补救。
+> 等用户反复说"你怎么又忘了"；或者等维护者手动巡检 dashboard，才知道记忆系统出了问题。
 >
 > **AutoHarness 做法**：
-> 1. AI 先把陌生任务显式化成可执行 harness：搜索源、过滤条件、评分维度、输出格式
-> 2. 真实使用中暴露摩擦：某类候选人总被漏掉，或评分和团队偏好不一致
-> 3. AI 把摩擦转成 harness patch：补搜索 query、改 scoring rubric、加反例样本、更新 checklist
-> 4. 下次同类招聘任务复用升级后的工作流，不从零开始
+> 1. Eval 系统把异常识别成 proxy 信号：摩擦趋势激增，值得深看
+> 2. 绑定到对应领域：Memory Recall / Library Health，而不是泛泛丢给当前聊天 thread
+> 3. 跨线程 handoff 到 F200 / memory owner：带上异常现象、指标窗口、建议排查方向
+> 4. owner 接到结构化问题后修记忆系统 / 检索策略 / library health 评估，而不是靠用户继续骂
 >
-> **结果**：不是"一次帮你搜人"，而是长出一套可复用、可审查、可持续进化的招聘工作流。
+> **结果**：人感受不到或没来得及抱怨的退化，系统自己先发现、先路由、先推动修复。
 
 **客户视角**：
-1. 适合招聘、投研、合规审查、客户分析等"每家企业标准不同"的任务
-2. 企业不需要一次性把流程写完；系统在真实使用中不断吸收偏好、反例和校验规则
-3. 每次修正都有 trace、review、rollback，不是黑箱微调
+1. 企业知识库 / 内部流程系统最怕"慢慢变差但没人发现"，这类问题靠 eval 传感器持续盯
+2. AutoHarness 不只接用户显性反馈，也接系统指标异常和趋势 proxy
+3. 评估系统只负责发现和路由，真正修改仍由 owner thread + review + 回滚机制控制
 
 **Pocket 备用案例（口头可换）**：
+- **LinkedIn 招聘长出专属 harness**：适合讲"陌生业务如何从一次任务长出可复用工作流"，可作为客户业务场景备用。
 - **战略讨论 → 三能力落地**：一次复盘暴露 eval / 负体验 / taste 三个缺口，拆成 F192/F222/F221 并行落地；适合讲"人的一次复盘如何变系统能力"。
 - **commit push hook**：最小可见闭环，适合 live demo 热身，不适合当主案例。
 - **图片记忆缺失 → VLM 能力**：适合讲"AI 区分自己忘了 vs 架构做不到"，可放 demo 第二段。
@@ -374,7 +371,7 @@ Demo 四个递进场景（详见 demo-script-code-as-harness.md）：
 
 > 这些是我不确定的点，需要铲屎官校准
 
-- [ ] **对标产品二次核验**：Aiming-Lab AutoHarness / openJiuwen / Code as Agent Harness / AlphaEvolve / Adaptive Auto-Harness / Ineffable Intelligence 逐个做 source-audit；正式 PPT 只放一手证据充足的名称
+- [ ] **对标产品二次核验**：Hermes Agent / Aiming-Lab AutoHarness / openJiuwen / MOSS / Meta Code as Agent Harness / DeepMind autoHarness or AlphaEvolve / Adaptive Auto-Harness / Ineffable Intelligence 逐个做 source-audit；正式 PPT 只放一手证据充足的名称
 - [ ] **架构图**：六层文字版怎么转成视觉图？砚砚画还是用已有的 LLE 双螺旋图？
 - [ ] **数据/指标**：哪些数字可以对外讲？需要脱敏吗？
 - [ ] **产品名**：华为内部用 Cat Cafe 还是用一个更正式的名字？
