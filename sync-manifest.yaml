@@ -111,6 +111,10 @@ managed_scripts:
   - scripts/check-skills-mount.sh
   - scripts/check-skills-manifest.mjs
   - scripts/check-followup-tails.mjs
+  # F223 public skill-surface guard (root package.json exposes check:skills:surfaces)
+  - scripts/check-skill-first-party-surfaces.test.mjs
+  - scripts/check-skill-first-party-surfaces.mjs
+  - scripts/check-skill-first-party-surfaces.allowlist.json
   - scripts/cleanup-stale-dev-processes.mjs
   - scripts/check-scripts-ascii-only.mjs
   - scripts/gen-guide-catalog.mjs
@@ -141,6 +145,8 @@ managed_scripts:
   - scripts/thread-exports-sync.sh
   - scripts/export-threads-from-redis.mjs
   - scripts/thread-exports-autosave.sh
+  # F138 public video project scaffold (root package.json exposes video:new)
+  - scripts/video-forge/new-project.mjs
   - scripts/services/audio-capture-install.ps1
   - scripts/services/audio-capture-install.sh
   - scripts/services/audio-capture-server.ps1

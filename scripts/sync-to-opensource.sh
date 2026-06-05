@@ -1415,6 +1415,7 @@ if (pkg.scripts.check === "node scripts/run-checks.mjs") {
     "pnpm check:features",
     "pnpm check:sop-definitions",
     "pnpm check:skills:manifest",
+    "pnpm check:skills:surfaces",
     "pnpm check:env-ports",
     "pnpm check:env-registry",
     "pnpm check:env-example",
@@ -1441,6 +1442,7 @@ const internalScripts = [
   "check:settings-primitives",
   "check:root-debris",
   "check:source-hygiene",
+  "check:f223-action-tracking",
   "clean:root-debris",
 ];
 for (const s of internalScripts) {

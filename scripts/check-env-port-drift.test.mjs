@@ -745,9 +745,15 @@ excluded:
       }
     });
 
-    it('sync-manifest exports root package operational helper scripts', () => {
+    it('sync-manifest exports public root package helper script targets', () => {
       const managedScripts = readYamlTopLevelList('sync-manifest.yaml', 'managed_scripts');
-      const requiredScripts = ['scripts/cleanup-stale-dev-processes.mjs'];
+      const requiredScripts = [
+        'scripts/cleanup-stale-dev-processes.mjs',
+        'scripts/video-forge/new-project.mjs',
+        'scripts/check-skill-first-party-surfaces.test.mjs',
+        'scripts/check-skill-first-party-surfaces.mjs',
+        'scripts/check-skill-first-party-surfaces.allowlist.json',
+      ];
 
       for (const scriptPath of requiredScripts) {
         assert.ok(
@@ -825,12 +831,20 @@ excluded:
         'public package.json should strip source-only run-checks.test.mjs from check:pre-merge-gate',
       );
       assert.ok(
+        content.includes('"pnpm check:skills:surfaces"'),
+        'public package.json should run the exported skill surface guard in pnpm check',
+      );
+      assert.ok(
         content.includes('delete pkg.scripts["check:architecture-ownership"]'),
         'public package.json should not expose check:architecture-ownership without exporting its script target',
       );
       assert.ok(
         content.includes('delete pkg.scripts["test:architecture-ownership"]'),
         'public package.json should not expose test:architecture-ownership without exporting its script target',
+      );
+      assert.ok(
+        content.includes('"check:f223-action-tracking"'),
+        'public package.json should drop source-only F223 action tracking because its inventory truth source is not exported',
       );
     });
 
