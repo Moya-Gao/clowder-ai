@@ -55,7 +55,7 @@ Why: session 边界目前只能由 `shouldTakeAction`（context_health / 阈值�
 ### Phase A: 提议 + Gate（discriminated proposal，复用 CAS 不复用 shape）
 
 - 新 MCP tool `cat_cafe_propose_session_handoff`，参数含**结构化五件套交接留言**：`done` / `worktree_branch` / `commits` / `next_steps` / `gotchas`，隐式带当前 `sourceSessionId`。
-- **不复用 `ThreadProposal` shape**（建-thread 专用）。新建 `SessionHandoffProposal`（或 discriminated union），复用 `claimForApproval` 的 CAS/原子 claim 思路，不是同一 record。
+- **不复用 `ThreadProposal` shape**（建-thread 专用）。新建 `SessionHandoffProposal`（或 discriminated union），复用 `claimForApproval` 的 CAS/原子 claim 思路，不是同一 record。带 commit-point checkpoint 字段（`handoffNotePersistedAt` / `sealedSessionId` / `sealAcceptedAt` / `continuationEntryId`，crash recovery 用，见 Approve 事务顺序）。
 - approve/reject 走 **kind-specific dispatcher**，不混入旧建-thread approve route。卡片推当前 thread，**reject/expire = 不 seal，当前 session 继续活**。
 
 ### Phase B: 封印 + 续接 + 留言注入（typed 字段 + always-keep 注入）
@@ -65,18 +65,25 @@ Why: session 边界目前只能由 `shouldTakeAction`（context_health / 阈值�
 - 封印走 `sessionSealer.requestSeal({ reason: 'cat_initiated_handoff' })`；留言在 seal **之前**独立持久化成功（不依赖 best-effort finalize）。
 - 续接：approve 后立即 seal active record + **enqueue 同 thread 同 catId continuation prompt + processNext**（现成队列入口，OQ-2），加 active-session/busy 校验。
 
-### Approve 事务顺序（砚砚 review 钉准 — 原子性硬约束）
+### Approve 事务顺序（commit-point 模型 — 砚砚 R2 钉准）
 
-approve 必须按序，任一步失败即 fail/expire、不算 approve 成功：
+⚠️ `requestSeal accepted` 是**不可逆 commit point**：它把 session 置 `sealing` + 清 active pointer（`SessionSealer.ts:103` / `SessionChainStore.ts:199`），无法 rollback。因此 approve 分**两阶段**——commit point 前可 fail/expire，commit point 后**只能 recover-forward**，不能回滚成"封了但续接没唤醒"的半封印孤儿。参照 F128 范式（`proposal-routes.ts:162` thread 创建后只 recover-forward，不 rollback 否则留 orphan thread）。
 
+**Pre-commit（可 fail/expire，无不可逆副作用）**：
 1. claim proposal（CAS，防并发/重放）
-2. 校验 stored `sourceSessionId` 仍是同 `(user, thread, cat, seq)` 的 **active** session（晚 approve 时 session 可能已变 → reject）
-3. 持久化 `catHandoffNote`（成功才继续）
-4. `requestSeal` **accepted**（rejected → fail，不 seal）
-5. enqueue 同 thread 同 catId continuation
+2. 校验 stored `sourceSessionId` 仍是同 `(user, thread, cat, seq)` 的 **active** session（晚 approve session 已变 → reject）
+3. 持久化 `catHandoffNote` → 记 checkpoint `handoffNotePersistedAt`（失败 → fail/expire；stale note 受下方注入约束不会被误用）
+
+**Commit point**：
+4. `requestSeal`：**rejected**（session 已非 active）→ 仍属 pre-commit，fail/expire、note 作废；**accepted** → 记 `sealedSessionId` + `sealAcceptedAt`，**自此禁止 rollback/expire**
+
+**Post-commit（只 recover-forward，idempotent）**：
+5. enqueue 同 thread 同 catId continuation，带 idempotency key（`proposalId` / `sourceSessionId`）→ 记 `continuationEntryId`
 6. finalize approved
 
-**失败/边界路径**：requestSeal rejected、session 已变、同 session 第二张卡 replay → 全部 fail/expire，不产生半成品 seal。
+**Recovery（stale approving proposal 按 checkpoint 续跑）**：已 seal（有 `sealedSessionId`）未 enqueue（无 `continuationEntryId`）→ idempotent enqueue；已 enqueue 未 finalize → finalize。idempotency key 防重放重复唤醒。
+
+**stale note 注入约束**：`catHandoffNote` 注入受 `sealReason='cat_initiated_handoff'` + 对应 approved/recovering proposal 约束。note 已写但 seal rejected / 被别的 seal（如 threshold）抢先 → stale note **不**随那个 seal 注入。
 
 ## Acceptance Criteria
 
@@ -92,7 +99,8 @@ approve 必须按序，任一步失败即 fail/expire、不算 approve 成功：
 - [ ] AC-B1: approve 后当前 session 被 seal，`sealReason='cat_initiated_handoff'`（复核：`SessionRecord.sealReason` 断言 + `list_session_chain`）。〔→ Why 缺口1〕
 - [ ] AC-B2: 五件套留言走 typed 字段 + always-keep 注入，**extractive/compress 默认模式下续接 session 第一眼可见**（复核：未配 generative 时断言续接 prompt 含五件套内容）。〔→ Why 高保真留言 + 砚砚 P1-1〕
 - [ ] AC-B3: 续接 session 同 thread 同 catId、seq+1（复核：`list_session_chain` 断言 seq 递增 + catId/threadId 一致）。〔→ Why 同 thread 同 catId 续接〕
-- [ ] AC-B4: approve 事务原子——留言 seal 前持久化成功才 seal；requestSeal rejected / session 已变 / 同 session 第二张卡 replay 全部 fail/expire，不产生半成品 seal（复核：各失败路径一条测试）。〔→ 砚砚 P1-1/P1-2 原子性〕
+- [ ] AC-B4: approve 两阶段——commit point（`requestSeal accepted`）**前**失败（note 持久化失败 / requestSeal rejected / session 已变 / replay）→ fail/expire 不 seal；commit point **后**失败（enqueue/finalize）→ **recover-forward**（按 checkpoint idempotent 续跑），不留半封印孤儿（复核：commit point 前后各失败路径一条测试 + recovery 测试）。〔→ 砚砚 R2 commit-point〕
+- [ ] AC-B5: stale note 隔离——`catHandoffNote` 仅在 `sealReason='cat_initiated_handoff'` + 对应 approved/recovering proposal 时注入；note 已写但被别的 seal（如 threshold）抢先 → 不随该 seal 注入（复核：threshold-seal-steals 一条测试）。〔→ 砚砚 R2 stale note〕
 
 ## 需求点 Checklist
 
@@ -123,7 +131,8 @@ approve 必须按序，任一步失败即 fail/expire、不算 approve 成功：
    - 提议被 reject 比例（提议质量 / 时机判断）。
 3. **Regression Fixture**（≥1，建议 2-5）
    - FX-1: 猫调 propose_session_handoff → 生成 proposal + 卡片；**未 approve 时当前 session 不 seal**。
-   - FX-2: approve → 留言 seal 前持久化成功 → session seal（`reason='cat_initiated_handoff'`）；requestSeal rejected / session 已变 / replay 第二张卡 → fail/expire 不 seal。
+   - FX-2: commit point 前失败（requestSeal rejected / session 已变 / replay）→ fail/expire 不 seal；commit point 后失败（enqueue/finalize）→ recover-forward 按 checkpoint idempotent 续跑（不留半封印孤儿）。
+   - FX-2b: stale note 隔离——note 已写但 threshold seal 抢先 → 不随该 seal 注入。
    - FX-3: **extractive/compress 默认 bootstrapDepth** 下续接 session bootstrap 第一眼 prompt **含五件套留言内容**（always-keep 注入断言）。
    - FX-4: 超滥用边界（同 active session 第 2 张 pending 卡 / 冷却期内）被拒。
 4. **Sunset Signal**
@@ -136,7 +145,9 @@ approve 必须按序，任一步失败即 fail/expire、不算 approve 成功：
 |------|------|
 | 留言丢失（finalize best-effort 不保证写盘） | typed `catHandoffNote` 在 seal **前**独立持久化成功才 `requestSeal`；不依赖 `finalize` 写盘（KD-4） |
 | 续接 session 没注入留言（默认 extractive 读不到 generative digest） | always-keep block 注入，不依赖 `bootstrapDepth`；FX-3 在 extractive/compress 模式断言可见（KD-4） |
-| approve 非原子（半成品 seal / replay 重复 seal） | Approve 事务顺序 + 失败路径 fail/expire + 同 session 第二张卡 replay 防护（KD-5 / AC-B4） |
+| 半封印孤儿（commit point 后 enqueue/finalize 失败，session 已封但续接没唤醒） | commit-point 模型：`requestSeal accepted` 后只 recover-forward；checkpoint 字段 + continuation idempotency key，crash recovery 按 checkpoint 续跑（KD-8 / AC-B4） |
+| stale note 误注入（note 已写被 threshold seal 抢先） | note 注入受 sealReason + approved proposal 约束（KD-8 / AC-B5） |
+| replay 重复 seal/唤醒 | claim CAS + continuation idempotency key（`proposalId`/`sourceSessionId`）（KD-8 / AC-B4） |
 | 晚 approve 封错后续 session | approve 时校验 `sourceSessionId` 仍是同 (user,thread,cat,seq) active session（KD-6） |
 | 卡片刷屏（gate 只挡 seal） | ≤1 pending/active session + per (user,thread,cat) 冷却上限（KD-7） |
 | 提议时机不当（任务中段、context 没满） | 猫的判断；MCP description 引导"干净断点"；reject 反馈闭环 |
@@ -162,6 +173,7 @@ approve 必须按序，任一步失败即 fail/expire、不算 approve 成功：
 | KD-5 | discriminated `SessionHandoffProposal`，复用 CAS 不复用 `ThreadProposal` shape | `ThreadProposal`/approve route 建-thread 专用（`proposal.ts:35`/`createdThreadId`），加 kind 会污染旧语义（砚砚 P1-2） | 2026-06-05 |
 | KD-6 | approve 后立即 seal + enqueue 同 thread continuation + processNext，加 busy 校验 | 现成队列入口可表达续接，无需 invoke-single-cat 大改/@opus47；busy 校验防晚 approve 封错后续 session（砚砚 OQ-2） | 2026-06-05 |
 | KD-7 | 硬滥用边界：≤1 pending/active session + per (user,thread,cat) cooldown | gate 只挡 seal 挡不住卡片刷屏；continuation 有 5/h 限流但 propose route 没有（砚砚 P2，`QueueProcessor.ts:169`） | 2026-06-05 |
+| KD-8 | approve 用 commit-point 模型：`requestSeal accepted` = commit point，之后只 recover-forward + checkpoint 字段 + continuation idempotency key | `requestSeal accepted` 不可逆（置 sealing + 清 active pointer，`SessionSealer.ts:103`/`SessionChainStore.ts:199`），commit point 后 rollback 会留半封印孤儿；F128 同范式（`proposal-routes.ts:162`）（砚砚 R2 P1） | 2026-06-05 |
 
 ## Timeline
 
@@ -169,10 +181,11 @@ approve 必须按序，任一步失败即 fail/expire、不算 approve 成功：
 |------|------|
 | 2026-06-05 | 立项（F128 thread opus-48 提议 → 主 thread opus-48 设计收敛 → CVO signoff 单开） |
 | 2026-06-05 | 砚砚（GPT-5.5）spec review：2 P1（留言落点 / proposal 复用）+ 1 P2（滥用边界），亲验代码锚点全部成立；决议钉进 KD-4~7 + Approve 事务顺序节 |
+| 2026-06-05 | 砚砚 R2 confirmation：前 3 项采纳到位，新抓 1 P1——approve 事务在不可逆 commit point（`requestSeal accepted`）后误设 rollback；改 commit-point 模型 + checkpoint + recover-forward（KD-8 / AC-B4,B5 / FX-2,2b） |
 
 ## Review Gate
 
-- Spec design review: 砚砚（GPT-5.5）✅ 封印边界已钉准（OQ-1~4 决议）→ 待砚砚确认决议采纳。
+- Spec design review: 砚砚（GPT-5.5）R2——前 3 项采纳，commit-point P1 已修（KD-8）→ 待砚砚确认放行 writing-plans。
 - Phase A/B 实现: 跨族代码 review（实现后），重点 approve 原子性 + always-keep 可见性测试。
 
 ## Links
