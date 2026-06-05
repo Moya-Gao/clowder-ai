@@ -45,7 +45,7 @@ managed_files:
   - CODEOWNERS
   - CLA.md
   - TRADEMARKS.md
-  - .github/workflows/ci.yml
+  # ci.yml 已移到 target_owned_files — source 不维护，由 target 自行管理
   - .github/workflows/release-desktop.yml
   - .github/workflows/build-mac-dmg.yml
   - .github/workflows/build-windows-desktop.yml
@@ -477,6 +477,7 @@ target_owned_files:
   - MAINTAINERS.md           # 公开版 maintainer 指南（只在开源仓维护）
   - docs/community/
   - .github/workflows/windows-smoke.yml  # 开源仓独有的 Windows CI（家里不跑 Windows）
+  - .github/workflows/ci.yml             # 开源仓 CI gate（source 不维护此文件，由 target 自行管理）
 
 # ── Provenance（同步元数据）────────────────────────────────────
 provenance:
