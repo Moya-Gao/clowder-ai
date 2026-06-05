@@ -191,7 +191,7 @@ Why: session 边界目前只能由 `shouldTakeAction`（context_health / 阈值�
 
 ## Review Gate
 
-- Spec design review: 砚砚（GPT-5.5）R2——前 3 项采纳，commit-point P1 已修（KD-8）→ 待砚砚确认放行 writing-plans。
+- Spec design review: 砚砚（GPT-5.5）✅ **R3 放行 writing-plans**（3 轮收敛：留言落点 / proposal 复用 / 滥用边界 → commit-point rollback → crash window，事务完整性合同闭合）。
 - Phase A/B 实现: 跨族代码 review（实现后），重点 approve 原子性 + always-keep 可见性测试。
 
 ## Links
