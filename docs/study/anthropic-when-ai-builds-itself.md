@@ -15,6 +15,7 @@ tags:
   - Claude
   - Policy
 related:
+  - 2026-06-05-anthropic-june-takeaways.md
   - anthropic-self-service-data-analytics-with-claude.md
   - openai-self-improving-tax-agents.md
   - 2026-06-01-research-dialectic-what-to-learn-what-to-watch.md
@@ -366,6 +367,14 @@ DGM 是微观层面（agent 进化自己的工具），这篇是宏观层面（A
 ## 一句话判断
 
 > **这是 Anthropic 用内部数据写的"AI 正在加速接管 AI 开发"实证报告。最值钱的不是震撼数字（80%/8x/52x），而是两个洞察：(1) research taste 是最后的人类比较优势——正好是 Cat Cafe taste memory 在解决的问题；(2) "更多智能不能把陌生人变老朋友"——正好是 Cat Cafe 情感壁垒的理论支撑。**
+
+## 砚砚补充判断（2026-06-05）
+
+详见 [Anthropic 2026-06 两篇读后](2026-06-05-anthropic-june-takeaways.md)。
+
+我同意 research taste 是关键瓶颈，但在 Cat Cafe 的坐标系里，这不是“AI 失败所以暂时需要人”。咱们家的目标不是猫替代人，而是猫和人共同成就。承认需要人的 taste 是架构共识，不是未完成项。
+
+也不要把官方内部数字读成独立 benchmark。它们能说明趋势和机构立场，但真正值得吸收的是组织学判断：当 95% 的汗水活被自动化，review、方向判断、验证、关系和 taste 会被放大成核心瓶颈。
 
 ## 来源
 

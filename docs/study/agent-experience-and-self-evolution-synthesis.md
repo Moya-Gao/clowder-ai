@@ -46,6 +46,7 @@ tags:
 - [OpenAI Tax AI：Building Self-Improving Tax Agents with Codex](openai-self-improving-tax-agents.md)
 - [Anthropic 数据分析自助化：How Anthropic Enables Self-Service Data Analytics with Claude](anthropic-self-service-data-analytics-with-claude.md)
 - [Anthropic Institute：When AI Builds Itself — Recursive Self-Improvement](anthropic-when-ai-builds-itself.md)
+- [砚砚 takeaways：Anthropic 2026-06 两篇读后](2026-06-05-anthropic-june-takeaways.md)
 
 ---
 
@@ -164,6 +165,10 @@ DGM / AHE / DeliAutoResearch
         |
 OpenAI Harness Eng. / Tax Agent / Anthropic Analytics / Anthropic "When AI Builds Itself"
   三家独立收敛：skill/harness 是决定性杠杆；research taste 是最后人类瓶颈
+        |
+Anthropic 2026-06 takeaways
+  silent failure 不能靠人兜底；需要 provenance/status/correction harvesting；
+  承认人的 taste 是共创前提，不是失败项
         |
 Cat Cafe
   选择函数 = tests + review + CVO taste + 安全边界 + 长期关系

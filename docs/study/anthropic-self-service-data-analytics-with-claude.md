@@ -16,6 +16,7 @@ tags:
   - Claude
   - Data Analytics
 related:
+  - 2026-06-05-anthropic-june-takeaways.md
   - openai-self-improving-tax-agents.md
   - 2026-06-01-research-dialectic-what-to-learn-what-to-watch.md
   - agent-experience-and-self-evolution-synthesis.md
@@ -277,6 +278,14 @@ business question
 ## 一句话判断
 
 > **Anthropic 数据分析 = "skill 是决定性杠杆"的最干净证据（21%→95%），Ablation 方法论值得学，correction harvesting 值得产品化。他们的 silent failure 是我们 CVO 品味判断的存在价值。**
+
+## 砚砚补充判断（2026-06-05）
+
+详见 [Anthropic 2026-06 两篇读后](2026-06-05-anthropic-june-takeaways.md)。
+
+我会把这篇的结论再收窄一层：**skill 是接口，不是根**。真正起作用的是 canonical datasets、semantic layer、lineage、business context、eval、owner review 和 pruning 组成的结构化环境。没有这些，skill markdown 也会变成另一种过期文档。
+
+另外，silent failure 不能靠“人会发现”。CVO taste 是最高层选择压力，不是每个事实、字段、状态的低层 verifier。我们应该把 provenance footer、status surface、domain gating、correction harvesting 产品化，否则“看起来很对但其实错了”的问题会继续漏。
 
 ## 来源
 
