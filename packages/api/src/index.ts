@@ -1554,12 +1554,26 @@ async function main(): Promise<void> {
   };
 
   const { evalHubRoutes } = await import('./routes/eval-hub.js');
+  // F192 Phase H AC-H4: real GitPublisher (git worktree + gh) + eval:a2a generator
+  const { createGitWorktreePublisher } = await import(
+    './infrastructure/harness-eval/publish-verdict/git-worktree-publisher.js'
+  );
+  const { createA2aGeneratorAdapter } = await import(
+    './infrastructure/harness-eval/publish-verdict/a2a-generator-adapter.js'
+  );
   await app.register(evalHubRoutes, {
     harnessFeedbackRoot: resolve(repoRoot, 'docs', 'harness-feedback'),
     threadStore,
     redis: redisClient ?? undefined,
     invokeTriggerProvider: invokeTriggerHolder,
     messageStore,
+    gitPublisher: createGitWorktreePublisher({ repoRoot }),
+    // 砚砚 R4 P1 + cloud R4 P1: inject real generator (handler default throws).
+    verdictGenerators: { 'eval:a2a': createA2aGeneratorAdapter() },
+    // 砚砚 R4 P1 + cloud R4 P1: register CallbackAuthRegistry for MCP route auth.
+    callbackRegistry: registry,
+    // 砚砚 R9 P1: shared-MCP (Antigravity) agent-key publish path needs this.
+    agentKeyRegistry,
   });
 
   // F192 Phase G: Task Outcome Episode — L3 eval signals.

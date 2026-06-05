@@ -124,6 +124,8 @@ const EXPECTED_TOOLS = [
   'cat_cafe_audio_set_talking_points',
   // F207 Phase B0: finance fact layer
   'cat_cafe_finance_query',
+  // F192 Phase H AC-H4: verdict publishing pipeline (eval cat → MCP → handler)
+  'cat_cafe_publish_verdict',
 ];
 
 const EXPECTED_COLLAB_TOOLS = [
@@ -150,6 +152,8 @@ const EXPECTED_COLLAB_TOOLS = [
   'cat_cafe_register_pr_tracking',
   // F211 Phase B: IDE-direct external runtime session registration
   'cat_cafe_register_external_runtime_session',
+  // F192 Phase H AC-H4: cat_cafe_publish_verdict registered in collab toolset
+  'cat_cafe_publish_verdict',
   // cat_cafe_guide_resolve legacy alias removed in F193 Phase D AC-D2
   'cat_cafe_update_guide_state',
   'cat_cafe_get_available_guides',
@@ -432,6 +436,8 @@ const KNOWN_WRITE_TOOLS = [
   'cat_cafe_register_scheduled_task',
   'cat_cafe_remove_scheduled_task',
   'cat_cafe_hold_ball', // callbackPost → writes scheduled task
+  // F192 Phase H AC-H4: publish verdict creates branch + commit + PR (write)
+  'cat_cafe_publish_verdict',
   'cat_cafe_feat_index', // requires callback credentials unavailable in readonly
   'signal_mark_read',
   'signal_summarize',
@@ -511,7 +517,9 @@ describe('F061 READONLY_ALLOWED_TOOLS whitelist', () => {
         !names.includes('cat_cafe_post_message') ||
         !names.includes('cat_cafe_get_thread_context') ||
         !names.includes('cat_cafe_workspace_navigate') ||
-        !names.includes('cat_cafe_preview_open')
+        !names.includes('cat_cafe_preview_open') ||
+        // 砚砚 R9 P1: shared-MCP cats must see publish-verdict
+        !names.includes('cat_cafe_publish_verdict')
       ) {
         console.error(JSON.stringify(names.sort()));
         process.exit(1);

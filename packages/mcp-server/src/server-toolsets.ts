@@ -15,6 +15,7 @@ import {
   libraryLifecycleTools,
   limbTools,
   perspectiveTools,
+  publishVerdictTools,
   recentTools,
   richBlockRulesTools,
   scheduleTools,
@@ -83,6 +84,8 @@ export const AGENT_KEY_TOOLS = new Set([
   'cat_cafe_preview_open',
   // #699: Message lookup by ID
   'cat_cafe_get_message',
+  // F192 Phase H AC-H4 (砚砚 R9 P1): shared-MCP cats can publish verdicts.
+  'cat_cafe_publish_verdict',
 ]);
 
 const isReadonly = process.env['CAT_CAFE_READONLY'] === 'true';
@@ -101,6 +104,7 @@ const collabTools: readonly ToolDef[] = applyReadonlyFilter([
   ...callbackTools,
   ...externalRuntimeSessionCallbackTools,
   ...hubActionTools,
+  ...publishVerdictTools, // F192 Phase H AC-H4
   ...richBlockRulesTools,
   ...gameActionTools,
   ...scheduleTools,
