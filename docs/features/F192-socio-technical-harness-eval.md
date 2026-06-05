@@ -272,7 +272,7 @@ Phase E 将 F192 从单域试点提升为横切的 Harness Eval Control Plane：
 
 依赖：复用 F192 已有 Eval Domain Registry / Verdict Handoff / Re-eval Closure / Eval Hub 控制面。与 F222 Frustration Auto-Issue 的打通（confirmed issue → episode signal）标记为 v1。
 
-### Phase H（Verdict Publishing Pipeline — OQ-21 v1.x 收口 / 砚砚 R0 Path B）
+### Phase H（Verdict Publishing Pipeline — OQ-21 v1.x 收口 / 砚砚 R0 Path B）✅ merged 2026-06-05 (PR #2109, squash `33ee6ae54`)
 
 来源 OQ-21 PR #2092 merge 后 v1.x 收口（铲屎官 2026-06-05 directive: "继续完成最后一公里"）。Path B 由砚砚 R0 narrowed：eval cat 产结构化 packet + 受控 MCP tool 提交，比 raw artifacts auto-export (Path A) scope 小但同样闭环 "eval cat 分析 → Hub 显示新 verdict"。
 
@@ -289,17 +289,14 @@ Phase E 将 F192 从单域试点提升为横切的 Harness Eval Control Plane：
 - Eval: Phase H Eval Contract 下
 
 **AC（Design Gate locked, 砚砚 2026-06-05 narrowing A 方案）**：
-- [ ] AC-H1: 新 MCP tool `cat_cafe_publish_verdict` 接受**完整** `VerdictHandoffPacket`（9 字段全填，server 不从 narrative 猜结构）+ domain；若 generator 需要 evidence bundle 必须显式带 sanitized bundle/provenance 或 source refs，**tool 不造 evidence**
-- [ ] AC-H2: 受控 commit 路径——tool 创建 branch `verdict/auto/{domainSlug}/{verdictId}` + commit verdict.md + bundle/ + 自动开 PR；返回 commit SHA + PR URL；**禁止 working tree only**（非长期 SOT）/ **禁止直推 main**（绕 review，OQ-21 R0 教训）
-- [ ] AC-H3: Auth model = **callback auth (invocationId + callbackToken)** — 不复用 generate-now 的 session+network+owner（那是 browser API model）；额外 **domain-level allowlist**：只有该 eval domain 注册的 eval cat / 受信 invocation 能 publish；v1 暂不进 agent-key allowlist
-- [ ] AC-H4: eval cat DOMAIN_INSTRUCTIONS 升级——所有 5 domain 指引调用此 MCP tool 而非 git push；提供 packet 模板/helper 降低 cat 填写成本（替代 PR #2091 abandoned 的"git push origin main"教学）
-- [ ] AC-H5: Tool returns commit SHA + PR URL 在 success response 给 eval cat 用于 traceability + audit chain
-- [ ] AC-H6: 两层 tests:
-  - Handler unit tests (fake git/generator) — input shape / packet validation / branch naming / commit semantics
-  - Deterministic e2e (NO real LLM) — mock eval cat callback-auth MCP call → publish_verdict → files written → `loadEvalHubSummary()` sees verdict → fake PR created
-  - **失败 fixture 必含**：unsupported domain / invalid packet / duplicate verdictId / missing or wrong callback auth / git or branch conflict
-- [ ] AC-H7: 仅支持已 wired generator 的 domain（v1.x = eval:a2a + eval:capability-wakeup）；其他 domain 返回 unsupported_generator (与 generate-now 对称)
-- [ ] AC-H8: idempotency + length + slug validation 复用 manual-trigger/generate-now.ts 模式（不重新发明）
+- [x] AC-H1: 新 MCP tool `cat_cafe_publish_verdict` 接受**完整** `VerdictHandoffPacket`（12 字段全填——R1 砚砚 + R11 完整性 + R18/R19 newline injection guard）+ domain；evidence 通过 `sourceRefs.snapshotName/attributionName` basenames 显式带（R2 cloud allowlist + R17 live-read/isolated-write 分层），**tool 不造 evidence**
+- [x] AC-H2: 受控 commit 路径——`createGitWorktreePublisher` 实现 git worktree add → stage → commit → push → `gh pr create` → cleanup finally；返回 commit SHA + PR URL；live worktree 永不被改（R1 P1 #1 isolated 抽象 + R12/R13/R15 push-fail 远程分支安全清理）
+- [x] AC-H3: Auth model = **callback auth + agent-key auth**（R4/R9/R10 wiring）— `requireCallbackPrincipal` accepts both `invocation` + `agent_key` principal kinds，catId 从 server-trusted principal 取（非 body 可伪造）；额外 **domain-level allowlist**（R6 P1 尊重 OQ-20 Redis evalCat override 与 trigger-now 对称）
+- [x] AC-H4: eval:a2a DOMAIN_INSTRUCTIONS 升级到 `cat_cafe_publish_verdict` MCP tool（R2 cloud 收口：只在 wired generator 的 domain append，其他 4 个 domain 保留原指引避免 501 loop）；明确禁止 abandoned `git push origin main` 反模式
+- [x] AC-H5: Tool returns commit SHA + PR URL + repo-relative verdictPath/bundleDir（R12 P2 cloud 修：不返回 temp worktree 绝对路径）
+- [x] AC-H6 (partial): handler unit tests + route Fastify-inject e2e（mock GitPublisher 真跑 stage callback + seed live evidence + copy 到 isolated）；deterministic real e2e（git+gh+真 worktree round-trip）deferred 到 alpha 验收
+- [x] AC-H7 (partial): v1 only `eval:a2a` wired；其他 domain 返回 501 unsupported_generator（与 generate-now 对称）；capability-wakeup generator 待后续 Phase
+- [x] AC-H8: idempotency（live + isolated worktree authoritative dup-check, R3 cloud P1 #2）+ length + slug validation（复用 generate-now.ts 模式）
 
 **Eval Contract (F192 mandate)**：
 - Primary Users + Activation Signal: eval cats publishing verdicts after analysis; tool call count per eval cycle
@@ -583,6 +580,7 @@ Based on the first micro fit digest (2026-05-11):
 | 2026-06-03 | **Phase G scoped: eval:task-outcome v0** — 三猫 + 铲屎官收敛（`docs/discussions/2026-06-03-eval-task-outcome-plan.md`）。补 L3 最大 gap：任务交付质量。核心认知：决策即标注，不做标注员；Episode 是评价对象；Verdict 不叫 score。v0 scope 含 TaskOutcomeEpisode schema / Permission Cancel 记录 / Magic Word 上下文记录 / A1 世界真值绑定 / eval:task-outcome 域注册。 |
 | 2026-06-03 | **Phase G v0 implementation (AC-G1 through AC-G9)** — 9/11 AC 完成：TaskOutcomeEpisode Zod schema + PermissionCancelRecord/MagicWordRecord/A1WorldTruthRecord + signal builders + SQLite-backed episode store + route handlers + eval domain registration (domainId/sourceAdapter/DOMAIN_INSTRUCTIONS/YAML) + authorization deny hook + shared types for frontend cancel reason popup. 87 tests all green, 0 regression on existing harness-eval tests. Remaining: AC-G10 前端 cancel 理由浮层 + AC-G11 端到端验证。 |
 | 2026-06-05 | **VERDICT_PATTERNS keyword tuning (eval:a2a fix verdict 2026-06-05)** — #2058 observability shipped → 06-04 clean (2/25 sub-floor) → 06-05 `19/125 = 15.2%` (real signal). 切片数据决定性：所有 19 fires 都是 `thread_system_kind="product"`（system-thread 噪音假设证伪），trigger 分布 `approve: 10` / `p1p2: 8` / `reject: 1`（keyword overload 假设证实，18/19 落在 review-discussion 高频词）。砚砚 `fix` verdict 走 owner action 路径而不是再绕一圈 build。两条最保守的针对性收紧：(1) `approve`: `/\bapprove(d\|s)?\b/i` → `/\bapproved\b/i`，只匹配过去式（决定已下），丢掉裸 `approve`/`approves` 的 intent / 第三人称叙事；(2) `p1p2`: `/\bP[12]\b/` → `/\bP[12]\s*[:：]/`，必须带冒号（典型 verdict 格式），丢掉 `P1 already fixed` / `P0/P1/P2 all clean` 类状态/列举。Trade-off：极少 uncolon 真 verdict（`found P1 in handler`）会漏；可逆——下一次 eval 若 ratio 还高就加 classifier-context fallback，若塌到 floor 下且 cats 真漏球就回调。644 tests green。基于上轮 #2058 R3 base-drift 教训：开 worktree 后第一刀就 rebase 到最新 origin/main，避免后续 squash 倒回别人合入的 commit。 |
+| 2026-06-05 | **Phase H merged (PR #2109, squash `33ee6ae54`)** — `cat_cafe_publish_verdict` MCP tool + handler + real GitPublisher（git worktree add → stage → commit → push → gh pr create → cleanup finally）+ `eval-a2a` adapter（cat 拥有 verdict，generator 只 override bundle refs）。Auth 双 principal（callback invocation + agent-key for shared-MCP Antigravity），catId 从 server-trusted principal 取（非 body）。OQ-20 Redis evalCat override 与 trigger-now 对称尊重。AC-H1（schema + handoff 完整性 + 8 字段 newline injection guard）+ AC-H2（GitPublisher isolated worktree + push--delete remote on probe-confirmed no-PR + 路径 repo-relative return）+ AC-H3/H4/H5/H7-partial/H8 全 ✅，AC-H6 partial（handler unit + route Fastify-inject e2e，real git+gh round-trip deferred 到 alpha）。21 轮 review 闭环（砚砚 R0-R20 + 云端 R1-R21），lessons：(1) 提交报 size 必须 post-lint `wc -l`（biome reformat 会展开 compact one-liner，连续 3 轮 R10/R17/R20 误报）；(2) merge-gate 阶段串行不并行——不要 ping 本地砚砚同时 trigger 云端（铲屎官 R20 push back）。522 tests green，handler 297 / validation 103 / publisher 158 / 全套 <350. |
 
 ## Review Gate
 
