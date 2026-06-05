@@ -98,6 +98,33 @@ test('poll is incremental: cursor advances, only new steps returned', () => {
   rmSync(dir, { recursive: true, force: true });
 });
 
+test('poll tracks active steps and returns status updates', () => {
+  const { dbPath, dir } = makeTrajectoryDb([{ idx: 0, step_type: 9, status: 1 }]);
+  const obs = new AgyTrajectoryObserver(dbPath);
+  const r1 = obs.poll(-1);
+  assert.equal(r1.events.length, 1);
+  assert.equal(r1.events[0].status, 1);
+  assert.equal(r1.cursor, 0);
+
+  // 原地更新 status 变 3
+  const db = new Database(dbPath);
+  db.prepare('UPDATE steps SET status = 3 WHERE idx = 0').run();
+  db.close();
+
+  // 再次 poll，虽然 cursor 已经是 0，但因为 idx=0 之前是 status=1，这次应该能被再次 poll 到 status=3 的更新
+  const r2 = obs.poll(r1.cursor);
+  assert.equal(r2.events.length, 1, 'should poll updated active step');
+  assert.equal(r2.events[0].status, 3);
+  assert.equal(r2.cursor, 0, 'cursor should remain 0');
+
+  // 第三次 poll，因为上一轮它已经变成了 status=3，应该不会再被查出来
+  const r3 = obs.poll(r2.cursor);
+  assert.equal(r3.events.length, 0, 'completed step should not be polled again');
+
+  obs.close();
+  rmSync(dir, { recursive: true, force: true });
+});
+
 test('fail-open: missing db file → enabled=false, no throw', () => {
   const obs = new AgyTrajectoryObserver('/nonexistent/path/conv.db');
   const r = obs.poll(-1);

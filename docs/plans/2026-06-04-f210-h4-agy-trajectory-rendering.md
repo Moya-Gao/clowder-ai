@@ -1,3 +1,9 @@
+---
+title: F210 H4 AGY trajectory tool-call 渲染 + 卡片对齐 Implementation Plan
+date: 2026-06-04
+status: approved
+---
+
 # F210 H4 AGY trajectory tool-call 渲染 + 卡片对齐 Implementation Plan
 
 **Feature:** F210 — `docs/features/F210-antigravity-cli-migration.md`

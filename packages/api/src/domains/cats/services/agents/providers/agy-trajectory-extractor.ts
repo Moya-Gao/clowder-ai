@@ -140,7 +140,7 @@ export function extractAgyFinalTextFromSteps(steps: readonly AgyTrajectoryStep[]
 
 export interface AgyToolInfo {
   readonly toolName?: string;
-  readonly toolInput?: Record<string, any>;
+  readonly toolInput?: Record<string, unknown>;
   readonly toolCallId?: string;
   readonly toolResultOutput?: string;
 }
@@ -206,7 +206,7 @@ export function parseAgyStepTools(payload: Buffer, idx: number): AgyToolInfo | n
         toolCallIdA &&
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(toolCallIdA)
       ) {
-        let toolInput: Record<string, any> | undefined;
+        let toolInput: Record<string, unknown> | undefined;
         if (argsJsonA && argsJsonA.startsWith('{')) {
           try {
             toolInput = JSON.parse(argsJsonA);
@@ -240,7 +240,7 @@ export function parseAgyStepTools(payload: Buffer, idx: number): AgyToolInfo | n
         const toolNameB = innerB.get(2)?.toString('utf8');
 
         if (toolNameB && KNOWN_TOOLS.has(toolNameB) && toolCallIdB) {
-          let toolInput: Record<string, any> = {};
+          let toolInput: Record<string, unknown> = {};
           const argsJsonB = innerB.get(3)?.toString('utf8');
 
           if (argsJsonB && argsJsonB.startsWith('{')) {

@@ -175,6 +175,8 @@ export function listAgyConversationDbs(appDataDir: string): AgyDbCandidate[] {
 export class AgyTrajectoryObserver {
   private readonly dbPath: string;
   private db: Database.Database | null = null;
+  private readonly activeIdxs = new Set<number>();
+  private readonly lastSeenStatus = new Map<number, number>();
   /**
    * Permanent fail-open ONLY when the steps table exists but is schema-incompatible.
    * Transient unavailability (DB file/table not created yet, lock) is RETRYABLE — AGY can write
@@ -221,23 +223,53 @@ export class AgyTrajectoryObserver {
     }
   }
 
-  /** 增量读取 `idx > cursor` 的新 step。SQLite 不可用降级（enabled=false），不抛。 */
+  /** 增量读取 `idx > cursor` 的新 step，以及未完成步骤的状态更新。SQLite 不可用降级（enabled=false），不抛。 */
   poll(cursor: number): AgyPollResult {
     if (this.ensureOpen() !== 'ready' || !this.db) {
       return { enabled: false, events: [], cursor };
     }
     try {
-      const rows = this.db
-        .prepare('SELECT idx, step_type, status, step_payload FROM steps WHERE idx > ? ORDER BY idx')
-        .all(cursor) as Array<{ idx: number; step_type: number; status: number; step_payload: Buffer | null }>;
-      const events: AgyProgressEvent[] = rows.map((r) => ({
-        idx: r.idx,
-        stepType: r.step_type,
-        status: r.status,
-        label: neutralLabel(r.idx, r.step_type, r.status),
-        payload: r.step_payload ?? undefined,
-      }));
-      const nextCursor = events.length > 0 ? events[events.length - 1]!.idx : cursor;
+      const placeholders = Array.from(this.activeIdxs)
+        .map(() => '?')
+        .join(',');
+      const sql = `SELECT idx, step_type, status, step_payload FROM steps WHERE idx > ? ${
+        this.activeIdxs.size > 0 ? `OR idx IN (${placeholders})` : ''
+      } ORDER BY idx`;
+
+      const stmt = this.db.prepare(sql);
+      const params = this.activeIdxs.size > 0 ? [cursor, ...this.activeIdxs] : [cursor];
+
+      const rows = stmt.all(params) as Array<{
+        idx: number;
+        step_type: number;
+        status: number;
+        step_payload: Buffer | null;
+      }>;
+
+      const events: AgyProgressEvent[] = [];
+
+      for (const r of rows) {
+        const prevStatus = this.lastSeenStatus.get(r.idx);
+        if (prevStatus === undefined || r.status !== prevStatus) {
+          events.push({
+            idx: r.idx,
+            stepType: r.step_type,
+            status: r.status,
+            label: neutralLabel(r.idx, r.step_type, r.status),
+            payload: r.step_payload ?? undefined,
+          });
+          this.lastSeenStatus.set(r.idx, r.status);
+        }
+
+        if (r.status === 3) {
+          this.activeIdxs.delete(r.idx);
+          this.lastSeenStatus.delete(r.idx);
+        } else {
+          this.activeIdxs.add(r.idx);
+        }
+      }
+
+      const nextCursor = events.length > 0 ? Math.max(cursor, ...events.map((e) => e.idx)) : cursor;
       return { enabled: true, events, cursor: nextCursor };
     } catch {
       // 运行中读失败（半行 / 锁超时）→ 关闭重置，下次重试（不永久放弃）。
