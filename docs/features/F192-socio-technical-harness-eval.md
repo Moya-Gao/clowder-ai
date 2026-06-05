@@ -272,6 +272,44 @@ Phase E 将 F192 从单域试点提升为横切的 Harness Eval Control Plane：
 
 依赖：复用 F192 已有 Eval Domain Registry / Verdict Handoff / Re-eval Closure / Eval Hub 控制面。与 F222 Frustration Auto-Issue 的打通（confirmed issue → episode signal）标记为 v1。
 
+### Phase H（Verdict Publishing Pipeline — OQ-21 v1.x 收口 / 砚砚 R0 Path B）
+
+来源 OQ-21 PR #2092 merge 后 v1.x 收口（铲屎官 2026-06-05 directive: "继续完成最后一公里"）。Path B 由砚砚 R0 narrowed：eval cat 产结构化 packet + 受控 MCP tool 提交，比 raw artifacts auto-export (Path A) scope 小但同样闭环 "eval cat 分析 → Hub 显示新 verdict"。
+
+**Why（愿景硬度）**：
+- 真实现状：OQ-21 PR #2092 merge 后，trigger-now 真叫醒 eval cat ✓，generate-now API ready ✓，但 eval cat 分析完后**无受控写出路径**——4.6 abandoned PR #2091 教 cat `git push origin main` 违反铁律 #2；当前 cat 只能产 verdict 在 thread 里飘，端到端"Hub 看到新 verdict"靠人工 commit
+- 价值：补完 OQ-21 cycle，eval cat 能 publish verdict 让 Hub 看见，无需人工 commit 中介
+- AC↔Why trace：每条 AC 都指向"eval cat → MCP tool → 受控 commit → Hub 可见"链路
+
+**Architecture cell**: harness-eval (extend); **Map delta**: extend manual-trigger/ with publish-verdict.ts + new MCP tool `cat_cafe_publish_verdict` in cat-cafe-mcp registration
+
+**Software-hardness (ADR-031)**:
+- Soft: eval cat DOMAIN_INSTRUCTIONS 升级指引调用 MCP tool（替代 abandoned R0 "git push" 教学）
+- Hard: MCP tool schema validation (VerdictHandoffPacket) + 受控 commit semantics（worktree write → auto-PR or branch commit, 待 Design Gate 定）
+- Eval: Phase H Eval Contract 下
+
+**AC draft（待 Design Gate 砚砚 collaborate refine）**：
+- [ ] AC-H1: 新 MCP tool `cat_cafe_publish_verdict` 接受 VerdictHandoffPacket schema + domain，validate + 调对应 generator + 写 verdict.md + bundle/
+- [ ] AC-H2: 受控 commit 路径——working tree write 后自动开 PR or commit 到 designated branch（Design Gate 定具体）；**不允许直接 push main**（OQ-21 R0 教训）
+- [ ] AC-H3: eval cat DOMAIN_INSTRUCTIONS 升级——所有 5 domain 指引调用此 MCP tool 而非 git push（替代 PR #2091 abandoned 的指令）
+- [ ] AC-H4: Tool returns commit SHA / PR URL 给 eval cat 用于 traceability + audit chain
+- [ ] AC-H5: e2e test——mock eval cat call → publish_verdict → 文件落盘 → `loadEvalHubSummary()` 看见 verdict
+- [ ] AC-H6: 仅支持已 wired generator 的 domain（v1.x = eval:a2a + eval:capability-wakeup）；其他 domain 返回 unsupported（与 generate-now 对称）
+- [ ] AC-H7: idempotency + length + slug validation 复用 manual-trigger/generate-now.ts 模式（不重新发明）
+
+**Eval Contract (F192 mandate)**：
+- Primary Users + Activation Signal: eval cats publishing verdicts after analysis; tool call count per eval cycle
+- Friction Metric: tool error rate / invalid packet / commit failures / merge conflicts
+- Regression Fixture: success / unsupported domain / invalid packet / duplicate verdictId (idempotency)
+- Sunset Signal: 如果 Path A (raw artifacts auto-export from F153 telemetry) 完全自动化 → cat-mediated publish 可 sunset；或铲屎官明确"我们不要 cat-in-the-loop 了"
+
+**Scope 边界**：
+- v1.x scope: Path B (cat-mediated publish via MCP)
+- v2 scope: Path A (raw artifacts auto from F153 — F192 OQ-15 老 backlog，独立 Phase)
+- 不在 Phase H: audit log (OQ-21 v1.5 backlog) / error sanitize / rate limit
+
+依赖：F192 现有 Verdict Handoff Packet schema + manual-trigger/ generators + 砚砚 R0 narrowed direction 文档。
+
 ## 需求点 Checklist
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
