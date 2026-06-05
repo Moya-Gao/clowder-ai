@@ -100,6 +100,7 @@ continuation lifecycle（seal / consume / reborn）从 `QueueProcessor.executeEn
 | KD-1 | 从 F220 拆出独立 feat（不塞进 F220 Phase 2） | F220 Phase 2 = invocation-hang 深水区（#2053 unsound 边界）；本 feat = session/message 轴，吴浪 #834 没碰深水区。缠在一起才有"又 intake 又改"错觉；拆开后会话延续这摊干净的活可让吴浪按图改，不重复不分叉。铲屎官 2026-06-04 signoff 立项（判为 feat 非 issue：有内聚 Why + 架构终态 + +1215 行体量）。 | 2026-06-04 |
 | KD-2 | 不 intake #834 回 cat-cafe 再改 | 铲屎官 2026-06-04："intake 回来再改怕一团糟 + 版本分叉"。正路：maintainer 出设计图 → contributor 按图改 → merge，或 cat-cafe 实现 + full-sync，**二选一避免双源分叉**。 | 2026-06-04 |
 | KD-3 | 协作方式 = **hybrid + 全量同步归一**（OQ-2 拍板） | CVO 2026-06-04 Design Gate 拍 A，5 步：①worktree 落 coordinator skeleton + red tests（钉四象限第一刀）②merge main ③**全量同步 cat-cafe→clowder-ai**（skeleton 进开源仓——铲屎官补的关键衔接，否则吴浪基于 #834 旧 base 改又分叉）④吴浪 rebase 到含 skeleton 的 main 接 Phase A 局部 + #814/#815 窄 PR ⑤归一。砚砚技术判断：跨 7 文件 + hard edge（failure restore / 多 capsule / sourceCategory 隔离）不宜纯外包，maintainer 钉核心坐标系。 | 2026-06-04 |
+| KD-4 | Coordinator skeleton 先落 main，wire 留 Phase A | PR #2104 落地 `SessionContinuationCoordinator` 三接口 contract + 20 个单测，钉死 continuation lifecycle owner 与 F220 slot/cancel 边界；不提前 wire，因为 passive seal 真实接入绕不开 threadStore Redis Lua / 原子 pending store，按 hybrid 分工留给吴浪 Phase A 或后续窄 PR。 | 2026-06-05 |
 
 ## Architecture cell
 
@@ -112,6 +113,7 @@ Why: 复用现有 invocation / queue / session / bubble 生命周期，本 feat 
 | 日期 | 事件 |
 |------|------|
 | 2026-06-04 | 立项（铲屎官 signoff；从 clowder-ai#834 社区 intake 拆出，F220 姊妹 feat） |
+| 2026-06-05 | PR #2104 merged：coordinator skeleton + red tests 落 main；下一步全量同步到 clowder-ai 后让吴浪 rebase 接 Phase A wire |
 
 ## Links
 
