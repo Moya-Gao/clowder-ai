@@ -81,6 +81,8 @@ export const AGENT_KEY_TOOLS = new Set([
   // persistent agent-key MCP clients need when invocation credentials are absent.
   'cat_cafe_workspace_navigate',
   'cat_cafe_preview_open',
+  // #699: Message lookup by ID
+  'cat_cafe_get_message',
 ]);
 
 const isReadonly = process.env['CAT_CAFE_READONLY'] === 'true';
