@@ -2,16 +2,18 @@
 doc_kind: draft
 created: 2026-06-04
 participants: [landy, opus, codex, opus48]
-status: v2-spectrum
+status: v3-l1-l5-yinqing
 target: 华为云内部创新汇报（三页 PPT + live demo）
 ---
 
-# 华为云汇报 PPT 骨架 v2
+# 华为云汇报 PPT 骨架 v3
 
 > 格式来源：华为创新 IDEA 汇报模板（三页 PPT → 接 live demo）
 > v0：铲屎官纠正对标对象 + 技术挑战框架 + 去黑话
 > v1：砚砚三层分类 + 48 维度2a/2b 分裂
 > v2：铲屎官采纳"自进化深度光谱"框架，第一页重构
+> v3：接入尹青 PPT 的 AutoHarness L1-L5 框架，改成"责任迁移 + 产品证明"坐标；
+> 对标产品进入候选池，未核验项只作线索不作正式 claim
 
 ---
 
@@ -21,44 +23,61 @@ target: 华为云内部创新汇报（三页 PPT + live demo）
 > 改用"自进化深度光谱"——一条从左到右的轴，
 > 不比谁技术更强，比**谁的进化走得更深、走进了产品**。
 
-### 【左半：自进化深度光谱 — 行业在哪，我们在哪】
+### 【左半：AutoHarness L1-L5 — 行业在哪，我们在哪】
 
-> **🔴 BLOCKED**：铲屎官有一份"懂领导喜好的人"给的 PPT 模板，
-> 此处需按他们定义的 L1-L5 重写。等铲屎官发资料后再改。
-> 当前版本保留作参考。
+> **v3 更新**：采用尹青 PPT 的 L1-L5 坐标。
+> 这套坐标的核心不是"谁更炫"，而是**责任从用户/专家逐步迁移到 Agent 系统**。
+> 对外口径：我们当前可验证能力在 **L2+**，产品目标是**受控 L3**；L4/L5 只作为长期方向，不做当前承诺。
 
-**PPT 视觉**：一条横轴，上面标四个位置，我们用红圈标在第三个。
+**PPT 视觉**：左侧五级阶梯，右侧一条"用户负责 → Agent 系统负责"责任迁移轴。
 
 ```
-自进化深度 ──────────────────────────────────────────────→
+AutoHarness 成熟度 ─────────────────────────────────────────────→
 
-  不进化              任务内自适应           持久进化·改工件         持久进化·改权重
-  ─────              ──────────           ─────────────         ──────────────
-  Coze / Dify        Anthropic            DGM (学术)            Sutton / Silver
-  CodeBuddy          Dynamic Workflows    AHE (学术)            Era of Experience
-  百度千帆            OpenAI               ★ 我们（首个产品化）    (终局方向)
-  Copilot Studio     Tax Agents
-                                          ↑                     ↑
-  搭完靠人维护         改进只活在            改进可继承、可验证、     需要确定性 reward
-  换模型重来           单次任务里            可退役、不训权重        审美/协作场景暂无
-                     跑完就蒸发             已有 120 天真实运转     学术北极星
+L1 部分自演进        L2 部分自进化          L3 系统自进化          L4 自主进化          L5 自主学习
+用户/专家负责        用户+Agent 共管        Agent系统有条件负责     Agent系统高度负责     Harness→Model
+────────────────    ────────────────      ────────────────      ────────────────    ─────────────
+人设规则/流程        代码生成部分组件        自动更新整套组件        识别意图并端到端管理   与模型协同学习
+配置/文档/Benchmark  Planning/Verifier等     有回滚/观测/验证        主动适配业务          SuperLearner
+                    ★ 我们当前 L2+         ★ 我们目标受控 L3       未来方向             北极星
 ```
 
-<!-- TODO: 对标产品清单需要云端调研确认 2026 最新。特别是：有没有别的产品已进"持久进化"？ -->
+**五级定义（给领导看的简版）**：
 
-**光谱上的关键洞察**（口头讲，不全放 PPT）：
-
-1. **产品界的天花板目前在"任务内自适应"**——Anthropic 和 OpenAI 都在这。技术很强，但改进跑完就蒸发。
-2. **"持久进化·改工件"目前是产品无人区**——学术界（DGM 等）证明了可行性，但在 sandbox 刷榜。**我们是第一个把它做成真实产品的。**
-3. **"持久进化·改权重"是终局方向**——Sutton/Silver 画了天花板，但需要确定性 reward（代码/数学有，审美/协作没有）。我们的策略：**先训环境（改工件），积累的数据和评估基建是未来走向改权重的前提。**
+| Level | 技术含义 | 产品侧证明 | 我们的态度 |
+|---|---|---|---|
+| **L1** | 基于人工经验，部分组件可"自演进"；多是 prompt / 规则 / 文档 / benchmark | 学术测试集、demo、专家手工配置 | 不够，仍然主要靠人维护 |
+| **L2** | 基于代码生成/替换部分 harness 组件，引入被动自进化 | 能生成 planning / filter / verifier / search 等组件，有状态、回滚、人工校验 | **当前可验证位置：L2+** |
+| **L3** | 系统能自动更新全套 harness 组件，并根据反馈选择迭代策略 | 真实生产任务中持续运行，有评测、回滚、跨模型审查 | **近期产品目标：受控 L3** |
+| **L4** | 自然语言意图驱动，端到端自主约束和管理系统迭代 | 法律/保险/第三方风险承保开始出现 | 未来方向，当前不 claim |
+| **L5** | Harness 推动 Agent/Model 持续学习，出现 SuperLearner | Harness 与 Model 边界模糊，接近 ASI 叙事 | 北极星，不作为近期商业承诺 |
 
 **创新机会点**
 
-1. **把"持久进化"从学术 sandbox 带进真实产品**：
-   agent 从真实使用轨迹中发现重复问题 → 自己写代码修复 → 改进有完整生命周期（发现→修复→验证→积累→退役）
+1. **从 L2+ 进入受控 L3**：
+   当前行业大量停在"人写流程 + Agent 辅助执行"。我们的突破是：Agent 能从真实摩擦中生成/修改 harness 组件，并通过真值信号、跨模型审查、回滚机制受控上线。
 
-2. **不训模型权重也能自进化**：
-   改的是运行时代码（hook / 检查器 / 技能包），可解释、可审计、可回滚。不需要 GPU 集群做持续训练。
+2. **把自进化关进企业可接受的笼子**：
+   不是"AI 自动改一切"，而是任务级 harness 可自修；系统级/稳定性/安全问题必须提单、人审、留痕。企业买的不是无限自主，而是**有边界的自主**。
+
+3. **L2→L3 的核心资产不是模型，而是真实轨迹**：
+   用户取消、拉闸、采纳、回滚、重复纠偏，都是自然发生的反馈。AutoHarness 把这些轨迹变成可验证的 harness patch，而不是要求企业额外雇标注团队。
+
+**对标候选池（初步 source-audit，不直接上主 PPT）**
+
+| 候选 | 当前证据 | 可学习点 | PPT 使用方式 |
+|---|---|---|---|
+| Aiming-Lab AutoHarness | GitHub 项目：治理 pipeline、YAML constitution、trace diagnostics、multi-agent profiles | "Harness engineering" 正在成为显式品类；可学它的治理组件表达 | 可放 L1/L2 候选，对外只说"开源治理框架" |
+| openJiuwen / JiuwenSwarm | 官网：事件驱动多 Agent、状态管理、断点恢复、实时 tracing、Skills Hub | 华为生态内已有 Agent 平台语境，可借它说明"平台层"不是我们的终点 | 放 L1/L2 平台对标，重点讲我们补"自进化闭环" |
+| Code as Agent Harness | UIUC/Meta/Stanford survey：code 是 executable/verifiable/stateful agent substrate | 给"代码作为 harness 载体"提供学术坐标 | 放技术背书，不当竞品 |
+| Google DeepMind AlphaEvolve | 官方 blog：LLM + evaluator + evolutionary loop，已用于算法/数据中心/芯片/训练流程优化 | 高 verifier 场景的 L3 级北极星；证明"改工件型自进化"有现实工程价值 | 放 L3 参考，但强调它依赖明确 evaluator |
+| Adaptive Auto-Harness | 2026 arXiv：open-ended task streams、stateful multi-agent evolver、harness tree、human-steering hooks | 和我们"真实开放任务流 + 人类方向信号"接近 | 作为研究线索，需深调研后再正式引用 |
+| Ineffable Intelligence | NVIDIA blog：David Silver 团队，RL infrastructure / superlearners | L5 北极星叙事，说明"经验学习"是大方向 | 只放长期方向/资本叙事，不说已有产品 |
+
+<!-- source-audit note:
+正式 PPT 若出现具体产品名，必须二次核验：一手链接、发布时间、是否产品/论文/营销、是否真的属于该 Level。
+"Ineffable Intelligent/Intelligence" 目前只可作 L5 北极星线索，不可写成已落地 AutoHarness 产品。
+-->
 
 ### 【右半：我们的方案】
 
@@ -346,7 +365,7 @@ Demo 四个递进场景（详见 demo-script-code-as-harness.md）：
 
 > 这些是我不确定的点，需要铲屎官校准
 
-- [ ] **对标产品清单**：Coze / CodeBuddy / WorkBuddy 还有谁？有没有国内做自进化 agent 的值得提？
+- [ ] **对标产品二次核验**：Aiming-Lab AutoHarness / openJiuwen / Code as Agent Harness / AlphaEvolve / Adaptive Auto-Harness / Ineffable Intelligence 逐个做 source-audit；正式 PPT 只放一手证据充足的名称
 - [ ] **架构图**：六层文字版怎么转成视觉图？砚砚画还是用已有的 LLE 双螺旋图？
 - [ ] **数据/指标**：哪些数字可以对外讲？需要脱敏吗？
 - [ ] **产品名**：华为内部用 Cat Cafe 还是用一个更正式的名字？
