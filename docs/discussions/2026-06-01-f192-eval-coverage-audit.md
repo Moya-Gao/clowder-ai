@@ -220,31 +220,35 @@ Permission cancel 信号天然覆盖多个 eval 层：
   → L1-L4 Eval（判断改得对不对、链路好不好）
 ```
 
-### 8.1 四类摩擦 / 真值信号
+### 8.1 五类摩擦 / 真值信号
 
 | 类别 | 捕捉什么 | 例子 | 用途 | 边界 |
 |------|---------|------|------|------|
-| **机械式 behavior 中断** | 用户/系统用动作打断或改变流程，不要求理解语义 | cancel / deny permission / skip / F128 reject / revert | 找到摩擦点："这里有人打断了" | 只说明有摩擦，不直接说明为什么 |
-| **intention 中断** | 中断同时携带语义或意图 | cancel reason / Magic Word / 明确纠偏 / user edit / 立刻 re-route 给另一只猫 | 得到自然标签："为什么痛" | 需要上下文，不可脱离 episode 解释 |
-| **世界结果真值** | 外部世界给出客观结果 | test pass/fail / build pass/fail / merge / rollback / PR accepted | 判断客观成败 | 只覆盖有客观 verifier 的任务 |
+| **中断动作（act）** | 用户/系统用动作打断或改变流程，不要求理解语义 | cancel / deny permission / skip / F128 reject / discard AI draft | 找到摩擦点："这里有人打断了" | 无 reason / 无对象语义时，只说明有摩擦，不直接说明为什么 |
+| **中断理由（reason）** | 中断动作上附带的语义或意图 | cancel reason / Magic Word / 明确纠偏 / user edit diff / 立刻 re-route 给另一只猫 | 得到自然标签："为什么痛" | reason 是 act 的语义增量，不是和 act 互斥的另一类事件 |
+| **世界结果真值** | 外部世界给出客观结果 | test pass/fail / build pass/fail / merge / post-merge rollback / PR accepted | 判断客观成败 | 谁触发决定归类：用户撤销未接受产物是 act；合入/发布后被 rollback 才是 A1 |
 | **聚合 proxy** | 多次信号聚集成趋势 | cancel burst / cross-thread repetition / repeated review P1 / 返工次数 / 链路耗时 | 导航优先级："哪里值得深看" | Proxy 只导航不判定，不能单独做 verdict |
+| **缺席摩擦** | 该发生的使用 / 能力唤醒 / 回报没有发生 | 用户默默 bypass 自己做 / 功能使用量异常下降 / capability-wakeup miss / expected completion missing | 发现"沉默的痛点" | 只能通过基线对比形成假设；解释前仍属 proxy |
 
 ### 8.2 与 A1 / A2 / Proxy 的关系
 
-这四类信号可以映射回 Phase G 的三信号层：
+这五类输入可以映射回 Phase G 的三信号层：
 
 | Phase G 层 | 对应信号 | 说明 |
 |------------|----------|------|
-| **A1 世界真值** | 世界结果真值 | 自动、零成本、最硬；如 merge / revert / test / build |
-| **A2 嵌入交互决策** | 机械式 behavior 中断 + intention 中断 | 用户在正常使用中已经做出的决策；不让用户当标注员 |
-| **Proxy** | 聚合 proxy | 排队和归因入口，不是 outcome 判决 |
+| **A1 世界真值** | 世界结果真值 | 自动、零成本、最硬；如 merge / post-merge rollback / test / build |
+| **A2 嵌入交互决策** | 中断动作 + 中断理由，且动作携带可解释对象语义或 reason | 用户在正常使用中已经做出的可解释决策；不让用户当标注员 |
+| **Proxy** | 纯中断动作 / 聚合 proxy / 缺席摩擦 | 排队和归因入口，不是 outcome 判决 |
 
 关键边界：
 
-- **Cancel 本身是 behavior 中断**：说明用户打断了猫的行为。
-- **Cancel reason 是 intention 中断**：说明为什么打断。
-- **Magic Word 是高权重 intention 中断**：不是情绪词，而是 CVO 给出的结构化纠偏标签。
+- **判据不是"有没有动作"，而是"动作是否携带可解释对象或理由"**：无理由、无对象语义的 cancel 默认是 proxy；带文件 / tool / reason 的 cancel 才能升级成弱 A2。
+- **Cancel 本身是中断动作**：说明用户打断了猫的行为。
+- **Cancel reason 是中断理由**：说明为什么打断，是 act 的语义增量。
+- **Magic Word 是高权重 reason**：不是情绪词，而是 CVO 给出的结构化纠偏标签。
+- **Revert / rollback 必须按 actor 和时机分开**：用户主动撤销未接受产物 = A2 候选；合入或发布后的 rollback / revert = A1 世界结果。
 - **Cancel burst 是 proxy**：说明这个区域摩擦密集，但不能单独判定任务失败。
+- **缺席摩擦是 proxy**：沉默流失 / bypass / capability miss 只能提示"该深看"，不能直接判定失败。
 
 ### 8.3 与 L1-L4 Eval 的关系
 
@@ -252,17 +256,18 @@ Permission cancel 信号天然覆盖多个 eval 层：
 
 | Eval 层 | 需要哪些传感器 |
 |---------|----------------|
-| **L1 机械正确性** | 世界结果真值 + 规则 predicate（格式、测试、构建、硬规则） |
-| **L2 路由/决策质量** | behavior 中断（cancel / re-route）+ intention 中断（理由 / 纠偏）+ 后验返工率 |
-| **L3 任务交付质量** | A1 世界结果 + A2 用户自然决策 + episode 终态 |
+| **L1 机械正确性** | 世界结果真值（作为 predicate）+ 规则 predicate（格式、测试、构建、硬规则） |
+| **L2 路由/决策质量** | 中断动作（cancel / re-route）+ 中断理由（reason / 纠偏）+ 后验返工率 |
+| **L3 任务交付质量** | 绑定到 episode 的 A1 世界结果 + A2 用户自然决策 + episode 终态 |
 | **L4 链路效率** | 聚合 proxy + L2/L3 成熟数据（耗时、返工、成本、历史最佳对比） |
+
+同一个 `test / merge / rollback` 信号会跨层使用：问"机械上对不对"时喂 L1；绑定到具体 Task Outcome Episode 后，才成为 L3 的任务交付锚点。
 
 ### 8.4 对 AutoHarness PPT 的一句话表达
 
-> **AutoHarness 不是炼丹。**
-> 它先采集真实摩擦：用户在哪里打断、为什么打断、任务最后是否成功、同类问题是否重复；
-> 再把这些信号绑定到 Task Outcome Episode，进入 L1-L4 真值闭环。
-> 行为中断告诉我们"哪里痛"，意图中断告诉我们"为什么痛"。
+> 别的自进化 AI 靠刷分自我感觉良好，那是炼丹。
+> 我们的 AI 装了"传感器"：用户在哪一步喊停、为什么喊停、事情最后办成没、同样的问题是不是反复出现、哪里出现沉默流失。
+> 这些真实信号驱动它进化，不是它自己说自己变好了。
 
 ---
 

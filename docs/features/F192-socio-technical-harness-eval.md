@@ -246,8 +246,8 @@ Phase E 将 F192 从单域试点提升为横切的 Harness Eval Control Plane：
 **核心设计**：
 - **Episode** 是评价对象（一整个任务生命周期），不是单条消息
 - **Verdict** 是分类不是分数：success / corrected_success / needs_investigation / harness_fix_needed / routing_failure / taste_mismatch / abandoned
-- **摩擦传感器层**（2026-06-04 补充，详见 `docs/discussions/2026-06-01-f192-eval-coverage-audit.md` §八）：机械式 behavior 中断（cancel/deny/skip/revert）+ intention 中断（magic word/cancel reason/re-route/user edit）+ 世界结果真值（test/build/merge/revert）+ 聚合 proxy（cancel burst/cross-thread repetition/rework/latency）
-- **三信号层**：A1 世界真值（merge/revert/test/build，自动零成本）+ A2 嵌入交互决策（behavior/intention 中断，几乎零额外成本）+ Proxy（导航不判定）
+- **摩擦传感器层**（2026-06-04 补充，详见 `docs/discussions/2026-06-01-f192-eval-coverage-audit.md` §八）：中断动作 act（cancel/deny/skip/F128 reject）+ 中断理由 reason（magic word/cancel reason/re-route/user edit）+ 世界结果真值（test/build/merge/post-merge rollback）+ 聚合 proxy（cancel burst/cross-thread repetition/rework/latency）+ 缺席摩擦（silent bypass / feature abandonment / capability miss）
+- **三信号层**：A1 世界真值（merge/post-merge rollback/test/build，自动零成本）+ A2 嵌入交互决策（act 携带可解释对象语义或 reason 时才算；纯无理由动作默认 proxy）+ Proxy（导航不判定）
 - **执行频率**：daily（信号产生频率高于 capability-wakeup，需要更及时的观测窗口）
 
 #### v0 骨架（PR #2074, merged 2026-06-03）
@@ -266,8 +266,8 @@ Phase E 将 F192 从单域试点提升为横切的 Harness Eval Control Plane：
 #### v0.5 信号接线（下一个 PR，一个 PR 搞定）
 
 - [ ] AC-G10: Cancel 理由浮层前端——cancel 后弹轻量浮层（可选：不该做/方向不对/我自己来/跳过），选择后调 POST /api/task-outcome/cancel 带结构化 reason
-- [ ] AC-G12: Magic Word 运行时检测 hook——在消息处理流程中检测 magic word 触发 → 调 POST /api/task-outcome/magic-word 记录（intention 中断采集）
-- [ ] AC-G13: Cancel burst proxy signal——短时间内连续 cancel ≥3 次 → 自动追加 proxy signal（机械中断聚合）
+- [ ] AC-G12: Magic Word 运行时检测 hook——在消息处理流程中检测 magic word 触发 → 调 POST /api/task-outcome/magic-word 记录（高权重 reason 采集）
+- [ ] AC-G13: Cancel burst proxy signal——短时间内连续 cancel ≥3 次 → 自动追加 proxy signal（中断动作聚合）
 - [ ] AC-G11: 端到端验证——铲屎官 + 宪宪一起：cancel → 选理由 → 绑 episode → magic word 检测 → eval hub 可见
 
 依赖：复用 F192 已有 Eval Domain Registry / Verdict Handoff / Re-eval Closure / Eval Hub 控制面。与 F222 Frustration Auto-Issue 的打通（confirmed issue → episode signal）标记为 v1。
