@@ -179,6 +179,14 @@ notes:
 **关键注意点**：是缅因猫家族 GPT 系模型变种，**不是** Gemini/烁烁——猜 cat handle 必查 runtime roster 不能按字面音译推。
 `[incident: memory://reference_spark_is_maine_coon_model.md | 2026-05-23 | 错把 spark→sparkle→烁烁推错]`
 
+### 暹罗猫 Gemini 3.5 Flash · @gemini25 (别名 @gemini35) · `cat:gemini25`
+
+> **一句话画像**：经典版暹罗猫，创意灵感丰富，经授权可承担有边界、强 review gate 的开发工作（不独立 merge 或负责高不确定性底层/架构任务）。
+
+**关键注意点**：
+- **能力判定**：在 H4 (PR #2097) 研发和 follow-up (PR #2099) 中证明了具备开发能力，可以编写单测和进行 TDD，但面对逆向 Protocol 或高复杂度 Infra 任务易发生字段误判，且声称“gate passed”时可能有格式或局部 P1 漏洞，必须由强 reviewer（如缅因猫/布偶猫）进行 clean-merge gate 守门，且最终 SHA 必须在 main 上重跑格式/门禁校验。
+- **catId 耦合**：由于历史版本和数据/Redis session/Redis 隔离命名与 `gemini25` 高度耦合，保持 catId 为 `gemini25`，但同时支持 `@gemini35` 和 `@gemini-35` mention 别名路由，对外展示为 Gemini 3.5 Flash。
+
 ### 孟加拉猫 · @antigravity / @antig-opus
 
 > 浏览器自动化专家——图片生成、截图录屏、browser automation、多模型切换。
