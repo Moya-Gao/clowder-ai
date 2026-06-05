@@ -42,7 +42,7 @@ import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata, 
 import { appendLocalImagePathHints, collectImageAccessDirectories } from '../providers/image-cli-bridge.js';
 import { extractImagePaths } from '../providers/image-paths.js';
 import { type AgyProfile, preflightAgyProfile, resolveAgyProfile, resolveAgySpawnCwd } from './agy-profile-manager.js';
-import { extractAgyFinalTextFromSteps, readAgyTrajectorySteps } from './agy-trajectory-extractor.js';
+import { extractAgyFinalTextFromSteps, readAgyTrajectorySteps, parseAgyStepTools } from './agy-trajectory-extractor.js';
 import {
   type AgyProgressEvent,
   listAgyConversationDbs,
@@ -647,6 +647,8 @@ export class GeminiAgentService implements AgentService {
   }
 
   private async *invokeAntigravityCLI(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
+    const yieldedToolCallIds = new Set<string>();
+    const yieldedToolResults = new Set<string>();
     const requestedModelOverride = options?.callbackEnv?.CAT_CAFE_GEMINI_MODEL_OVERRIDE;
     // F210 cache-leak fix (cloud P2)：normalize 成绝对路径。spawn cwd 现在是独立 sandbox（与
     // workingDirectory 解耦），若 workingDirectory 是相对路径（AgentServiceOptions 不强制绝对，
@@ -1017,6 +1019,37 @@ export class GeminiAgentService implements AgentService {
               }),
               timestamp: Date.now(),
             };
+            if (progress.payload) {
+              const toolInfo = parseAgyStepTools(progress.payload, progress.idx);
+              if (toolInfo && toolInfo.toolName && toolInfo.toolCallId) {
+                const { toolName, toolCallId, toolInput, toolResultOutput } = toolInfo;
+                if (!yieldedToolCallIds.has(toolCallId)) {
+                  yieldedToolCallIds.add(toolCallId);
+                  yield {
+                    type: 'tool_use',
+                    catId: this.catId,
+                    toolName,
+                    toolInput,
+                    toolUseId: toolCallId,
+                    metadata,
+                    timestamp: Date.now(),
+                  };
+                }
+                if (progress.status === 3 && !yieldedToolResults.has(toolCallId)) {
+                  yieldedToolResults.add(toolCallId);
+                  yield {
+                    type: 'tool_result',
+                    catId: this.catId,
+                    toolName,
+                    content: toolResultOutput ?? '',
+                    toolUseId: toolCallId,
+                    toolResultStatus: 'ok',
+                    metadata,
+                    timestamp: Date.now(),
+                  };
+                }
+              }
+            }
             progressNext = progressIter.next();
           }
         }

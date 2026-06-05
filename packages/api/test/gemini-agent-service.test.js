@@ -541,6 +541,74 @@ describe('GeminiAgentService (antigravity-cli adapter)', () => {
     rmSync(workDir, { recursive: true, force: true });
   });
 
+  test('F210-H4: yields tool_use and tool_result messages extracted from trajectory payload', async () => {
+    const proc = createMockProcess();
+    const spawnFn = createMockSpawnFn(proc);
+    const service = new GeminiAgentService({ spawnFn, adapter: 'antigravity-cli', model: 'gemini-3.5-flash' });
+
+    const appDataDir = mkdtempSync(join(tmpdir(), 'agy-traj-tool-'));
+    const uuid = 'abcdef12-3456-7890-abcd-ef1234567890';
+    mkdirSync(join(appDataDir, 'conversations'));
+    const tdb = new Database(join(appDataDir, 'conversations', `${uuid}.db`));
+    tdb.exec(
+      'CREATE TABLE steps (idx integer, step_type integer NOT NULL DEFAULT 0, status integer NOT NULL DEFAULT 0, has_subtrajectory numeric, metadata blob, error_details blob, permissions blob, task_details blob, render_info blob, step_payload blob, step_format integer, PRIMARY KEY(idx));',
+    );
+
+    // 辅助编码
+    const encodeVarint = (val) => {
+      const buf = [];
+      let temp = val;
+      while (temp >= 0x80) {
+        buf.push((temp & 0x7f) | 0x80);
+        temp = temp >>> 7;
+      }
+      buf.push(temp & 0x7f);
+      return Buffer.from(buf);
+    };
+    const encodeLengthDelimited = (fieldNum, content) => {
+      const tag = (fieldNum << 3) | 2;
+      const tagBuf = encodeVarint(tag);
+      const contentBuf = typeof content === 'string' ? Buffer.from(content, 'utf8') : content;
+      const lenBuf = encodeVarint(contentBuf.length);
+      return Buffer.concat([tagBuf, lenBuf, contentBuf]);
+    };
+
+    // 拼装一个包含 list_dir 调用的 payload 并嵌套于 field 5 中
+    const innerBytes = Buffer.concat([
+      encodeLengthDelimited(2, 'list_dir'),
+      encodeLengthDelimited(12, '99999999-9999-9999-9999-999999999999'),
+      encodeLengthDelimited(3, '{"DirectoryPath":"/tmp"}'),
+    ]);
+    const payloadBytes = encodeLengthDelimited(5, innerBytes);
+
+    const ins = tdb.prepare('INSERT INTO steps (idx, step_type, status, step_payload) VALUES (?, ?, ?, ?)');
+    ins.run(0, 9, 3, payloadBytes); // idx 0: completed tool step
+    tdb.close();
+
+    const logPath = join(appDataDir, 'agy.log');
+    writeFileSync(logPath, `appDataDir=${appDataDir}\nCreated conversation ${uuid}\n`);
+
+    const workDir = mkdtempSync(join(tmpdir(), 'agy-workdir-'));
+    const promise = collect(service.invoke('Say hi', { workingDirectory: workDir, agyLogPathOverride: logPath }));
+    emitPlainText(proc, 'AGY_FINAL_REPLY\n');
+    const msgs = await promise;
+
+    const toolUse = msgs.find((m) => m.type === 'tool_use');
+    const toolResult = msgs.find((m) => m.type === 'tool_result');
+
+    assert.ok(toolUse, 'should yield tool_use message');
+    assert.equal(toolUse.toolName, 'list_dir');
+    assert.equal(toolUse.toolUseId, '99999999-9999-9999-9999-999999999999');
+    assert.deepEqual(toolUse.toolInput, { DirectoryPath: '/tmp' });
+
+    assert.ok(toolResult, 'should yield tool_result message');
+    assert.equal(toolResult.toolName, 'list_dir');
+    assert.equal(toolResult.toolUseId, '99999999-9999-9999-9999-999999999999');
+
+    rmSync(appDataDir, { recursive: true, force: true });
+    rmSync(workDir, { recursive: true, force: true });
+  });
+
   test('F210-H1b P1-2: liveness warning flushes in real time even when progress is fail-open', async () => {
     const service = new GeminiAgentService({ adapter: 'antigravity-cli', model: 'gemini-3.5-flash' });
     const start = Date.now();

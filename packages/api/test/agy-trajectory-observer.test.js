@@ -29,15 +29,16 @@ function makeTrajectoryDb(steps) {
   const dbPath = join(dir, 'conv.db');
   const db = new Database(dbPath);
   db.exec(STEPS_SCHEMA);
-  const ins = db.prepare('INSERT INTO steps (idx, step_type, status) VALUES (?, ?, ?)');
-  for (const s of steps) ins.run(s.idx, s.step_type, s.status);
+  const ins = db.prepare('INSERT INTO steps (idx, step_type, status, step_payload) VALUES (?, ?, ?, ?)');
+  for (const s of steps) ins.run(s.idx, s.step_type, s.status, s.step_payload ?? null);
   db.close();
   return { dbPath, dir };
 }
 
 test('poll returns steps after cursor as progress events with neutral labels', () => {
+  const payloadBytes = Buffer.from([0x01, 0x02]);
   const { dbPath, dir } = makeTrajectoryDb([
-    { idx: 0, step_type: 14, status: 3 },
+    { idx: 0, step_type: 14, status: 3, step_payload: payloadBytes },
     { idx: 1, step_type: 9, status: 3 },
     { idx: 2, step_type: 15, status: 1 },
   ]);
@@ -46,6 +47,8 @@ test('poll returns steps after cursor as progress events with neutral labels', (
   assert.equal(r.enabled, true);
   assert.equal(r.events.length, 3);
   assert.equal(r.cursor, 2);
+  assert.deepEqual(r.events[0].payload, payloadBytes);
+  assert.equal(r.events[1].payload, undefined);
   // 中性文案：H1 不把 step_type 硬标成 tool call/思考
   assert.match(r.events[2].label, /step #2/i);
   obs.close();

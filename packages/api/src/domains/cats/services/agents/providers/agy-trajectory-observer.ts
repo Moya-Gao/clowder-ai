@@ -23,6 +23,7 @@ export interface AgyProgressEvent {
   readonly status: number;
   /** 中性进度文案（不解 step_type 语义）。 */
   readonly label: string;
+  readonly payload?: Buffer;
 }
 
 export interface AgyPollResult {
@@ -227,13 +228,14 @@ export class AgyTrajectoryObserver {
     }
     try {
       const rows = this.db
-        .prepare('SELECT idx, step_type, status FROM steps WHERE idx > ? ORDER BY idx')
-        .all(cursor) as Array<{ idx: number; step_type: number; status: number }>;
+        .prepare('SELECT idx, step_type, status, step_payload FROM steps WHERE idx > ? ORDER BY idx')
+        .all(cursor) as Array<{ idx: number; step_type: number; status: number; step_payload: Buffer | null }>;
       const events: AgyProgressEvent[] = rows.map((r) => ({
         idx: r.idx,
         stepType: r.step_type,
         status: r.status,
         label: neutralLabel(r.idx, r.step_type, r.status),
+        payload: r.step_payload ?? undefined,
       }));
       const nextCursor = events.length > 0 ? events[events.length - 1]!.idx : cursor;
       return { enabled: true, events, cursor: nextCursor };

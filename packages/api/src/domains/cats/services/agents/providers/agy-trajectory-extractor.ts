@@ -137,3 +137,149 @@ export function extractAgyFinalTextFromSteps(steps: readonly AgyTrajectoryStep[]
   }
   return finalText;
 }
+
+export interface AgyToolInfo {
+  readonly toolName?: string;
+  readonly toolInput?: Record<string, any>;
+  readonly toolCallId?: string;
+  readonly toolResultOutput?: string;
+}
+
+const KNOWN_TOOLS = new Set([
+  'list_dir', 'view_file', 'write_to_file', 'replace_file_content',
+  'multi_replace_file_content', 'run_command', 'grep_search',
+  'ask_permission', 'ask_question', 'define_subagent', 'invoke_subagent',
+  'manage_subagents', 'manage_task', 'schedule', 'search_web',
+  'send_message', 'read_url_content', 'read_resource', 'list_resources',
+  'generate_image'
+]);
+
+export function parseAgyStepTools(payload: Buffer, idx: number): AgyToolInfo | null {
+  try {
+    if (!payload || payload.length === 0) return null;
+    const top = scanLengthDelimitedFields(payload);
+
+    // 1. 处理 runCommand (顶层 field 28)
+    const runCommandBytes = top.get(28);
+    if (runCommandBytes) {
+      const inner = scanLengthDelimitedFields(runCommandBytes);
+      const cwd = inner.get(2)?.toString('utf8');
+      const cmd = inner.get(23)?.toString('utf8') ?? inner.get(25)?.toString('utf8');
+      if (cmd) {
+        const stdout = inner.get(13)?.toString('utf8') ?? inner.get(14)?.toString('utf8');
+        return {
+          toolName: 'run_command',
+          toolInput: { CommandLine: cmd, Cwd: cwd ?? '' },
+          toolCallId: `run-command-${idx}`,
+          toolResultOutput: stdout ?? undefined,
+        };
+      }
+    }
+
+    // 2. 处理 Tool Call / MCP Tool (顶层 field 5)
+    const metadataBytes = top.get(5);
+    if (metadataBytes) {
+      const inner = scanLengthDelimitedFields(metadataBytes);
+
+      // 路径 A (Step 75): 顶层 field 5 直接平铺字段
+      const toolNameA = inner.get(2)?.toString('utf8') ?? inner.get(9)?.toString('utf8');
+      const toolCallIdA = inner.get(12)?.toString('utf8');
+      const argsJsonA = inner.get(3)?.toString('utf8');
+
+      if (
+        toolNameA &&
+        KNOWN_TOOLS.has(toolNameA) &&
+        toolCallIdA &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(toolCallIdA)
+      ) {
+        let toolInput: Record<string, any> | undefined;
+        if (argsJsonA && argsJsonA.startsWith('{')) {
+          try {
+            toolInput = JSON.parse(argsJsonA);
+          } catch {
+            // ignore
+          }
+        }
+
+        // 尝试从顶层 field 14 (toolResult) 提取 output
+        let toolResultOutput: string | undefined;
+        const toolResultBytes = top.get(14);
+        if (toolResultBytes) {
+          const resInner = scanLengthDelimitedFields(toolResultBytes);
+          toolResultOutput = resInner.get(4)?.toString('utf8');
+        }
+
+        return {
+          toolName: toolNameA,
+          toolCallId: toolCallIdA,
+          toolInput,
+          toolResultOutput,
+        };
+      }
+
+      // 路径 B (Step 77): 顶层 field 5 内嵌 field 4
+      const toolCallBytesB = inner.get(4);
+      if (toolCallBytesB) {
+        const innerB = scanLengthDelimitedFields(toolCallBytesB);
+        // 使用 field 5.4.1 (innerB 的 field 1) 提取 per-tool 级唯一的 toolCallId
+        const toolCallIdB = innerB.get(1)?.toString('utf8');
+        const toolNameB = innerB.get(2)?.toString('utf8');
+ 
+        if (toolNameB && KNOWN_TOOLS.has(toolNameB) && toolCallIdB) {
+          let toolInput: Record<string, any> = {};
+          const argsJsonB = innerB.get(3)?.toString('utf8');
+ 
+          if (argsJsonB && argsJsonB.startsWith('{')) {
+            try {
+              toolInput = JSON.parse(argsJsonB);
+            } catch {
+              // ignore
+            }
+          } else {
+            const subParamsBytes = innerB.get(3);
+            if (subParamsBytes) {
+              try {
+                const paramFields = scanLengthDelimitedFields(subParamsBytes);
+                const strValues: string[] = [];
+                for (const [, val] of paramFields.entries()) {
+                  const s = val.toString('utf8');
+                  if (/^[\x20-\x7E\s\u4e00-\u9fa5\d\-\_\{\}\:\"\,]+$/.test(s) && s.length > 0) {
+                    strValues.push(s);
+                  }
+                }
+                toolInput = { rawArguments: strValues };
+              } catch {
+                // ignore
+              }
+            }
+          }
+ 
+          // 尝试从顶层 field 10 (toolResult) 提取 output (field 26)
+          let toolResultOutput: string | undefined;
+          const resultBytes = top.get(10);
+          if (resultBytes) {
+            try {
+              const resInner = scanLengthDelimitedFields(resultBytes);
+              toolResultOutput = resInner.get(26)?.toString('utf8');
+            } catch {
+              // ignore
+            }
+          }
+ 
+          return {
+            toolName: toolNameB,
+            toolCallId: toolCallIdB,
+            toolInput,
+            toolResultOutput,
+          };
+        }
+      }
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+

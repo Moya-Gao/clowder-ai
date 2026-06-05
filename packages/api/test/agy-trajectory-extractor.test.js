@@ -141,3 +141,109 @@ test('classify: fresh turn + empty stdout → empty (不被 resumedFinalText 影
   });
   assert.equal(r.kind, 'empty');
 });
+
+// Protobuf helper functions for tests
+function encodeVarint(val) {
+  const buf = [];
+  let temp = val;
+  while (temp >= 0x80) {
+    buf.push((temp & 0x7f) | 0x80);
+    temp = temp >>> 7;
+  }
+  buf.push(temp & 0x7f);
+  return Buffer.from(buf);
+}
+
+function encodeLengthDelimited(fieldNum, content) {
+  const tag = (fieldNum << 3) | 2;
+  const tagBuf = encodeVarint(tag);
+  const contentBuf = typeof content === 'string' ? Buffer.from(content, 'utf8') : content;
+  const lenBuf = encodeVarint(contentBuf.length);
+  return Buffer.concat([tagBuf, lenBuf, contentBuf]);
+}
+
+test('parseAgyStepTools extracts normal tool call', async () => {
+  const { parseAgyStepTools } = await import(
+    '../dist/domains/cats/services/agents/providers/agy-trajectory-extractor.js'
+  );
+  // 拼接：[toolName, toolCallId, argumentsJson] 包裹在顶级 field 5 里面
+  const innerBuf = Buffer.concat([
+    encodeLengthDelimited(2, 'list_dir'),
+    encodeLengthDelimited(12, '12345678-1234-1234-1234-123456789abc'),
+    encodeLengthDelimited(3, '{"DirectoryPath":"/abc"}'),
+  ]);
+  const buf = encodeLengthDelimited(5, innerBuf);
+  const got = parseAgyStepTools(buf, 99);
+  assert.ok(got);
+  assert.equal(got.toolName, 'list_dir');
+  assert.equal(got.toolCallId, '12345678-1234-1234-1234-123456789abc');
+  assert.deepEqual(got.toolInput, { DirectoryPath: '/abc' });
+});
+
+test('parseAgyStepTools extracts runCommand', async () => {
+  const { parseAgyStepTools } = await import(
+    '../dist/domains/cats/services/agents/providers/agy-trajectory-extractor.js'
+  );
+  const runCommandBuf = Buffer.concat([
+    encodeLengthDelimited(2, '/workspace'),
+    encodeLengthDelimited(23, 'pnpm test'),
+  ]);
+  const buf = encodeLengthDelimited(28, runCommandBuf);
+  const got = parseAgyStepTools(buf, 100);
+  assert.ok(got);
+  assert.equal(got.toolName, 'run_command');
+  assert.equal(got.toolCallId, 'run-command-100');
+  assert.deepEqual(got.toolInput, { CommandLine: 'pnpm test', Cwd: '/workspace' });
+});
+
+test('parseAgyStepTools extracts toolResultOutput from large non-json string', async () => {
+  const { parseAgyStepTools } = await import(
+    '../dist/domains/cats/services/agents/providers/agy-trajectory-extractor.js'
+  );
+  // 拼接：[toolName, toolCallId] 包裹在顶级 field 5 中，另外 [toolResultOutput] 包裹在顶级 field 14.4 中
+  const metadataInner = Buffer.concat([
+    encodeLengthDelimited(2, 'view_file'),
+    encodeLengthDelimited(12, '12345678-1234-1234-1234-123456789abc'),
+  ]);
+  const metadataBuf = encodeLengthDelimited(5, metadataInner);
+
+  const resultInner = encodeLengthDelimited(4, 'This is the content of the file! hello world');
+  const resultBuf = encodeLengthDelimited(14, resultInner);
+
+  const buf = Buffer.concat([metadataBuf, resultBuf]);
+
+  const got = parseAgyStepTools(buf, 99);
+  assert.ok(got);
+  assert.equal(got.toolResultOutput, 'This is the content of the file! hello world');
+});
+
+test('parseAgyStepTools extracts real tool data from binary fixtures', async () => {
+  const { parseAgyStepTools } = await import(
+    '../dist/domains/cats/services/agents/providers/agy-trajectory-extractor.js'
+  );
+  
+  // 1. 测试 Step 350 (replace_file_content 调用)
+  const replaceFixture = readFileSync(join(__dirname, 'fixtures/agy-step5-replace.bin'));
+  const gotReplace = parseAgyStepTools(replaceFixture, 350);
+  assert.ok(gotReplace);
+  assert.equal(gotReplace.toolName, 'replace_file_content');
+  assert.equal(gotReplace.toolCallId, 'ejso2av1');
+  assert.ok(gotReplace.toolInput);
+  assert.equal(gotReplace.toolInput.Description, 'Update test-proto.ts to call and print parsed tools using parseAgyStepTools.');
+  assert.ok(gotReplace.toolResultOutput);
+  assert.ok(gotReplace.toolResultOutput.includes('Update test-proto.ts to call and print parsed tools'));
+
+  // 2. 测试 Step 344 (view_file 调用)
+  const viewFileFixture = readFileSync(join(__dirname, 'fixtures/agy-step8-viewfile.bin'));
+  const gotViewFile = parseAgyStepTools(viewFileFixture, 344);
+  assert.ok(gotViewFile);
+  assert.equal(gotViewFile.toolName, 'view_file');
+  assert.equal(gotViewFile.toolCallId, '62je4zhe');
+  assert.ok(gotViewFile.toolInput);
+  assert.equal(gotViewFile.toolInput.StartLine, 180);
+  assert.equal(gotViewFile.toolInput.EndLine, 265);
+
+  assert.notEqual(gotReplace.toolCallId, gotViewFile.toolCallId, 'different tools must have distinct toolCallIds');
+});
+
+
