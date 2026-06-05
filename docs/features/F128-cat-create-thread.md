@@ -12,7 +12,7 @@ community_pr: https://github.com/zts212653/clowder-ai/pull/85
 
 # F128: Cat-Proposed Thread Creation — 猫猫提议创建 Thread
 
-> **Status**: active (Phase Y kicked off 2026-06-04) | **Source**: clowder-ai #82 (bouillipx) / PR #85 | **Priority**: P2
+> **Status**: active (Phase Y merged 2026-06-04, PR #2098) | **Source**: clowder-ai #82 (bouillipx) / PR #85 | **Priority**: P2
 > **Design correction (2026-05-22)**: supersedes direct `cat_cafe_create_thread` with Proposal-First flow per ADR-035.
 
 ## Why
@@ -125,7 +125,7 @@ F128 遵循 ADR-035 Proposal-First Agent Actions：
 - [x] AC-X3: `MCP_TOOLS_SECTION` updated; `thread-orchestration` skill rewritten for propose-first
 - [x] AC-X4: `pnpm check` + `pnpm lint` + all affected tests green
 
-### Phase Y: Reporting Mode 分型（2026-06-04 砚砚 cross-post 提出 + CVO 委托猫讨论达成一致）
+### Phase Y: Reporting Mode 分型 ✅ merged (PR #2098, squash `914fce810`, 2026-06-04)（砚砚 cross-post 提出 + CVO 委托猫讨论达成一致）
 
 > **Source**: 砚砚 cross-post — 守门猫 Repo Inbox PR triage 场景里，当前 F128 默认让所有 propose 出去的 thread 回报主 thread (`proposal-enrich-header.ts:61` 并行 + `:66` 串行硬写"最后一棒回报"进 initialMessage)，triage 类任务被回报 noise 拉回。
 > **Why**: thread 之间的关系不是一刀切——按"源 thread 是否背负任务"分型，4 种关系应有 4 种 reporting mode。
@@ -158,11 +158,11 @@ F128 遵循 ADR-035 Proposal-First Agent Actions：
 
 #### Acceptance Criteria
 
-- [ ] AC-Y1: `cat_cafe_propose_thread` 支持 `reportingMode?: 'none' | 'final-only' | 'state-transitions' | 'blocking-ack'` 入参（不传时按 default 走）
-- [ ] AC-Y2: `proposal-enrich-header.ts` 当前硬写的 report-back 文案（`:61` 并行 + `:66` 串行）拆 4 套 Reporting Protocol 段，按 reportingMode 选注入
-- [ ] AC-Y3: `thread-orchestration` skill 加 mode 选择指南 + 推荐场景表（含 C-Y1~C-Y6 design constraint）
-- [ ] AC-Y4: 测试覆盖 4 种模式（含 default fallback + edge cases；blocking-ack hold_ball 边界 C-Y3）
-- [ ] AC-Y5: 旧 `appendApprovedInitialMessage` 调用方（PR #2067 引入的 dispatch path）按新 enrich-header signature 同步
+- [x] AC-Y1: `cat_cafe_propose_thread` 支持 `reportingMode?: 'none' | 'final-only' | 'state-transitions' | 'blocking-ack'` 入参（不传时按 default 走）
+- [x] AC-Y2: `proposal-enrich-header.ts` 当前硬写的 report-back 文案（`:61` 并行 + `:66` 串行）拆 4 套 Reporting Protocol 段，按 reportingMode 选注入
+- [x] AC-Y3: `thread-orchestration` skill 加 mode 选择指南 + 推荐场景表（含 C-Y1~C-Y6 design constraint）
+- [x] AC-Y4: 测试覆盖 4 种模式（含 default fallback + edge cases；blocking-ack hold_ball 边界 C-Y3）
+- [x] AC-Y5: 旧 `appendApprovedInitialMessage` 调用方（PR #2067 引入的 dispatch path）按新 enrich-header signature 同步
 - [x] AC-Y6: Default 决议写入 → **`Default reportingMode = 'none'`（UI: `autonomous` / `no-required-report`）**（宪宪 Opus-48 + 砚砚 GPT-5.5 2026-06-04 达成一致，见上 Default 决策段）
 
 #### Open Questions（已收敛）
