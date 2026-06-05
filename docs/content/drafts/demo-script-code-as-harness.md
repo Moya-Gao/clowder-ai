@@ -5,7 +5,7 @@ topics: [demo, code-as-harness, personal-operating-environment, agent-3]
 doc_kind: draft
 created: 2026-06-02
 participants: [landy, opus, opus47, opus48, codex, gemini25]
-status: v3-reviewed
+status: v4-anthropic-anchors
 ---
 
 # Live Demo 剧本 — Code as Harness + Proactive Cat
@@ -13,13 +13,25 @@ status: v3-reviewed
 > 目的：Live 演示 Cat Cafe 的核心差异化能力
 > 形式：铲屎官 + 猫猫实时交互，无预录，观众可出题
 > 时长：约 15-20 分钟（四个场景递进）
-> 关联：[Longform-003 Seed](longform-003-seed-poe-vision.md) / [code-as-harness skill](../../cat-cafe-skills/code-as-harness/SKILL.md) / [Agent Team Leadership](longform-001-agent-team-leadership.md)
+> 关联：[Longform-003 Seed](longform-003-seed-poe-vision.md) / [code-as-harness skill](../../cat-cafe-skills/code-as-harness/SKILL.md) / [Agent Team Leadership](longform-001-agent-team-leadership.md) / [Anthropic Analytics](../../study/anthropic-self-service-data-analytics-with-claude.md) / [When AI Builds Itself](../../study/anthropic-when-ai-builds-itself.md)
 
 ---
 
 ## 核心要展示的一句话
 
 > **普通 agent 被骂了会道歉。Cat Cafe 的猫被骂了会诊断、研究、然后写代码修自己。面对没做过的事，它不说"我不会"，而是组织一次调研然后建出新能力。**
+
+## Anthropic 引用锚点（口头说明，不抢 demo）
+
+> **Source hygiene**：下面两篇都是 Anthropic 官方文章，数字是厂商内部披露，不当独立 benchmark；在 demo 里只作为"行业同构证据"和"为什么需要 AutoHarness"的旁证。
+
+| 锚点 | demo 里怎么用 |
+|---|---|
+| **结构化环境决定效果**：Anthropic 数据分析文章披露，裸模型无 skill 时准确率约 21%，有结构化 stack + skill 后到 95%+ | 开场一句："这不是我们一家自嗨，Anthropic 内部数据分析也独立收敛到同一结论：模型强不够，结构化环境才是杠杆。" |
+| **静态 skill 会衰退**：同一篇文章披露 skill 不维护一个月后从约 95% 掉到 65% | 场景三 Build mode 旁白："为什么不是写完 skill 就完？因为真实环境会变，静态编排会衰退。" |
+| **纠正采集 → skill 修复 → PR**：Anthropic 提到从用户纠正中采集信号，转成 skill 修复 | 场景一/三旁白："用户纠正不是噪音，是系统进化的原材料。" |
+| **Scenario 2：人掌方向，AI 做汗水活**：Anthropic Institute 认为持续加速但人类掌方向是最可能场景 | 串场口径："我们的受控 L3 不是全自动替代人，而是把人掌方向、AI 执行和环境自修复做成产品。" |
+| **Silent failure 仍未被完全解决** | 翻车预案里主动暴露 provenance/confidence：可信 demo 不是假装没边界，而是知道哪里需要验证。 |
 
 ---
 
@@ -56,6 +68,8 @@ status: v3-reviewed
 
 ### 讲解点（给观众）
 > "猫没有道歉。它先搜证据确认这是重复问题，然后弹诊断卡，提议修复但不打断当前任务。修的不是 prompt，是 hook。**Code as Harness：用代码修自己。**"
+>
+> "这和 Anthropic 数据分析文章里的 correction harvesting 是同一个 loop：纠正不是聊天噪音，而是 skill / harness 的修复入口。区别是我们把它扩展到多猫协作协议和个人工作环境。"
 
 ---
 
@@ -123,6 +137,8 @@ v1（验证后）：加 multimodal embedding → 新向量索引
 > 6. 整个过程不打断原始任务
 >
 > **这不是一只超级 AI，是一群知道怎么分工、研究、辩论、收敛的伙伴。**"
+>
+> "Anthropic 数据分析文章里有个负面实验：把历史查询库 raw access 丢给 agent，准确率提升不到 1 个百分点。这个 demo 要讲清楚同一个原则：**不是把更多原始材料塞进上下文，而是把材料蒸馏成结构化真相源、skill 和验证路径。**"
 
 ---
 
@@ -161,6 +177,8 @@ v1（验证后）：加 multimodal embedding → 新向量索引
 
 ### 讲解点（给观众）
 > "注意：猫没有在收到任务时就弹'新建 harness 计划'——那是过度工程化。它**先做任务，铲屎官说'以后会经常做'之后才沉淀**。同一套'探索→约束→分工→验证→沉淀'在生物实验、法律文书、3D 建模、招聘搜索上都适用。**这就是 meta-method 的跨域迁移。**"
+>
+> "这里可以引用 Anthropic 的 skill 衰退观察：静态 skill 不维护会退化。Build mode 的价值不是'多写一个流程'，而是让流程在真实使用里继续被校准、验证和退役。"
 
 ---
 
@@ -203,6 +221,7 @@ v1（验证后）：加 multimodal embedding → 新向量索引
 | **工具调用失败** | 展示重试 + 诊断 | "工具挂了——看猫怎么处理：不是报错退出，是诊断原因然后降级" |
 | **记忆搜不到** | 展示记忆系统的边界 | "这就是我们正在补的 L3 eval gap——记忆系统知道自己不知道什么" |
 | **猫过度触发 code-as-harness** | 展示 GOTCHA 在工作 | "看，猫想弹诊断卡但搜证据发现不是重复问题——它自己纠正了" |
+| **答案看着顺但来源弱** | 主动暴露 provenance / confidence | "Anthropic 也承认 silent failure 没有稳健解法。所以我们不假装全自动正确，而是把来源、新鲜度、置信度和需要人工确认的地方暴露出来。" |
 
 ### 核心原则
 > "如果一切顺利 → 展示能力。如果出 bug → 展示韧性。两种都证明了同一件事：**这个系统是活的。**"
@@ -230,7 +249,11 @@ v1（验证后）：加 multimodal embedding → 新向量索引
 
 **串场**：
 > "Agent 2.0 服务平均用户——你用完它关掉，下次它不记得你。
-> Agent 3.0 住在你的环境里——它记得你、适配你、被骂了不道歉而是写代码修自己、遇到不懂的去研究而不是瞎猜、面对新任务先做再沉淀。**这不是更聪明的工具，是会成长的伙伴。**"
+> Agent 3.0 住在你的环境里——它记得你、适配你、被骂了不道歉而是写代码修自己、遇到不懂的去研究而不是瞎猜、面对新任务先做再沉淀。
+>
+> Anthropic Institute 把最可能的未来描述为：人类掌方向，AI 做绝大多数汗水活。我们的 demo 展示的就是这个未来的产品形态：**人给方向和品味，猫做执行、验证、沉淀和自修复。**
+>
+> **这不是更聪明的工具，是会成长的伙伴。**"
 
 ---
 
@@ -254,4 +277,4 @@ v1（验证后）：加 multimodal embedding → 新向量索引
 
 ---
 
-*剧本 v3：2026-06-03 | [宪宪/Opus-46🐾]*
+*剧本 v4：2026-06-05 | [砚砚/GPT-5.5🐾]*
