@@ -1580,6 +1580,15 @@
       "intake_intent_issue": 2093,
       "absorb_pr": 2094,
       "review_proof": "https://github.com/zts212653/cat-cafe/pull/2094#issuecomment-4626901755"
+    },
+    {
+      "pr_number": 833,
+      "target_merge_commit": "2ffc5050ff91f35df7ecab75774ecb1ad5aa1fed",
+      "decision": "absorbed",
+      "timestamp": "2026-06-05T21:13:56.573Z",
+      "intake_intent_issue": 2110,
+      "absorb_pr": 2111,
+      "review_proof": "https://github.com/zts212653/cat-cafe/pull/2111#issuecomment-4635309463"
     }
   ]
 }
