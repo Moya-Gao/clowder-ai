@@ -1830,6 +1830,30 @@ async function main(): Promise<void> {
             });
           }
         }
+
+        // F222 UX-3: "取消并反馈" — immediately trigger auto-issue (no threshold)
+        if (input.withFeedback && input.userId) {
+          void import('./domains/cats/services/frustration/FrustrationDetector.js')
+            .then(({ evaluate }) =>
+              evaluate(
+                {
+                  signal: {
+                    type: 'user_report',
+                    toolName: input.toolName,
+                    cancelReason: input.cancelReason,
+                  },
+                  threadId: input.threadId,
+                  userId: input.userId,
+                  catId: input.catId,
+                },
+                { frustrationIssueStore, messageStore, socketManager: socketManager ?? undefined },
+              ),
+            )
+            .catch(() => {
+              // Best-effort: swallow import/evaluate failures so the authorization
+              // response is never blocked by frustration detection issues.
+            });
+        }
       } catch {
         // Best-effort: don't break authorization flow
       }
