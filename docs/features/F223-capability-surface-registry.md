@@ -8,7 +8,7 @@ created: 2026-06-03
 
 # F223: Capability Surface Registry — 把隐藏能力产品化成可发现、可执行、可验证的能力面
 
-> **Status**: pending vision guard (all phases merged) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
+> **Status**: done | **Owner**: 缅因猫/砚砚 | **Priority**: P1
 
 ## Architecture Ownership
 
@@ -209,6 +209,7 @@ Phase A 必须先关闭 OQ-3：第一方 Hub UX 动作是否扩展既有 `action
 | 2026-06-04 | Phase D Design Gate memo prepared: scoped raw first-party `curl localhost` skill guard + exception allowlist pending CVO accept |
 | 2026-06-04 | Phase D CVO accept: implement Option A (`pnpm check` + merge-gate hard check, writing-skills/worktree SOP clarification); defer A+ pre-push guard unless escape recurs |
 | 2026-06-04 | Phase D merged via PR #2095: `check:skills:surfaces` hard guard + registry action tracking contract wired into `pnpm check`; F223 pending final vision guard |
+| 2026-06-04 | Final vision guard PASS（opus-48，非作者非 reviewer）：all phases merged, CG-1/CG-2 closed with evidence, Phase D guard armed; F223 closed |
 
 ## Phase B1 Vision Guard（2026-06-04, opus-48）
 
@@ -224,6 +225,23 @@ MCP `cat_cafe_workspace_navigate`（已注册进 `collabTools` + `AGENT_KEY_TOOL
 |---|----|------|-----------|
 | CG-1 | runtime 端到端验证：alpha 通道真实”打开刚写好的文档”，确认 Hub 切 Files view 显示目标文件 | 6/3 bug 本质是 runtime-only（单测全绿但真实 Hub 失败）；本次 canonicalize + viewMode 修复是代码推断，未在真实 Hub 复现；feature 存在理由就是修这个 runtime 痛点 | ✅ 2026-06-04 @sonnet alpha 验证：POST /api/workspace/navigate action=open → Hub 切 Files view + 文件内容可见；4 项边界探测全通过（reveal 不替换编辑器 / 404 / 400 / 未知 worktreeId 404） |
 | CG-2 | canonicalize silent fallback 加可观测性：`resolveWorktreeIdByPath(root).catch(() => worktreeId)` 静默退回原始 id = 静默退回 6/3 room-mismatch 场景且无 probe 发现 | 与 F223“verification probe 证明端到用户面前”愿景直接冲突 | ✅ Phase B2: response/audit/log `canonicalizeFallback` probe + route regression test |
+
+## Final Vision Guard（2026-06-04, opus-48）
+
+非作者（砚砚/GPT-5.5）非 reviewer（opus-47）跨个体终局守护。守护范围不是重复 review 代码，而是确认 F223 愿景“能力可发现、可执行、可验证、可长期追踪”是否兑现。
+
+**结论：PASS，可以 close。** 关键证据：
+
+- **Execution**：workspace/browser/rich-messaging 从 raw first-party `curl` 主路径收敛到 typed MCP / rich block surface；B1 已做 runtime 链路 trace，确认非死代码。
+- **Verification**：CG-1 已由 @sonnet alpha 实测关闭：`action=open` 让 Hub 切 Files view 并显示文件内容，且 reveal / 404 / 400 / unknown worktreeId 边界通过；CG-2 已由 Phase B2 增加 canonicalize fallback probe 与 regression。
+- **Guardrail**：Phase D `check:skills:surfaces` hard guard 已合入并接入 `pnpm check` / merge-gate，守住 skill 不再教猫绕回 raw first-party `curl localhost` 的主路径。
+- **Eval loop**：F192 predicate 对齐 + Phase D action tracking contract 已落地，后续能力条目有 `fix / build / keep_observe / delete_sunset` 状态追踪。
+
+Residual risks are accepted as `keep_observe`, not close blockers:
+
+- `FIRST_PARTY_ACTION_ROUTES` 当前硬编码 workspace / preview / callbacks 三类 route；新增第一方 action route 时需要同步 guard。
+- Guard scope 只查 `curl`，不预防性扩到 `fetch` / `wget`；若直接 push escape 或替代命令复发，再按 KD-7 升级到 Option A+ 或扩展 matcher。
+- Negative-guidance matching 已经 cloud + reviewer 两轮收紧并有 red/green 反例测试；继续观察即可。
 
 ## Review Gate
 
