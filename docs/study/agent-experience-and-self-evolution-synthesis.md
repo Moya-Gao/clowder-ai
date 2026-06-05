@@ -44,6 +44,8 @@ tags:
 - [Agent Harness Engineering: A Survey](../research/2026-05-26-agent-harness-engineering-survey/README.md)
 - [DeliAutoResearch 读后：我们真正能带走什么](../research/2026-06-01-deli-autoresearch-takeaways.md)
 - [OpenAI Tax AI：Building Self-Improving Tax Agents with Codex](openai-self-improving-tax-agents.md)
+- [Anthropic 数据分析自助化：How Anthropic Enables Self-Service Data Analytics with Claude](anthropic-self-service-data-analytics-with-claude.md)
+- [Anthropic Institute：When AI Builds Itself — Recursive Self-Improvement](anthropic-when-ai-builds-itself.md)
 
 ---
 
@@ -159,6 +161,9 @@ Multi-Agent 协作论文
         |
 DGM / AHE / DeliAutoResearch
   工作流、生产轨迹和 harness patch 可以被记录、评估、修改、回滚、遗传
+        |
+OpenAI Harness Eng. / Tax Agent / Anthropic Analytics / Anthropic "When AI Builds Itself"
+  三家独立收敛：skill/harness 是决定性杠杆；research taste 是最后人类瓶颈
         |
 Cat Cafe
   选择函数 = tests + review + CVO taste + 安全边界 + 长期关系
