@@ -1539,11 +1539,27 @@ async function main(): Promise<void> {
     checkReadiness,
   });
   // F192 Phase E-hub: harness eval verdict lifecycle surface.
+  // F192 OQ-21: late-bound holder for ConnectorInvokeTrigger — eval-hub routes
+  // register before invokeTrigger is created (line ~2600). Manual trigger route
+  // resolves the live trigger at request time via this holder, so the provider
+  // returns null until index.ts wires it after invokeTrigger construction.
+  const invokeTriggerHolder: {
+    current: ConnectorInvokeTrigger | null;
+    get(): ConnectorInvokeTrigger | null;
+  } = {
+    current: null,
+    get() {
+      return this.current;
+    },
+  };
+
   const { evalHubRoutes } = await import('./routes/eval-hub.js');
   await app.register(evalHubRoutes, {
     harnessFeedbackRoot: resolve(repoRoot, 'docs', 'harness-feedback'),
     threadStore,
     redis: redisClient ?? undefined,
+    invokeTriggerProvider: invokeTriggerHolder,
+    messageStore,
   });
 
   // F192 Phase G: Task Outcome Episode — L3 eval signals.
@@ -2662,6 +2678,13 @@ async function main(): Promise<void> {
 
   // F139 Phase 4b: late-bind invokeTrigger so templates can wake cats
   taskRunnerV2.setInvokeTrigger(invokeTrigger);
+
+  // F192 OQ-21: late-bind invokeTrigger for manual eval trigger endpoint.
+  // eval-hub routes registered at line ~1543 (before invokeTrigger existed);
+  // the holder pattern lets `POST /api/eval-domains/:domainId/trigger-now`
+  // resolve the live trigger at request time. Without this bind, the route
+  // returns 503 instead of waking the eval cat.
+  invokeTriggerHolder.current = invokeTrigger;
 
   // F167 Phase M: late-bind busy checker for pre-fire defer (hold_ball activation).
   // Same thread-busy signal as delivery-batch-done (messages.ts:1822 /
