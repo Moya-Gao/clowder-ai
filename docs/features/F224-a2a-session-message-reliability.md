@@ -90,8 +90,8 @@ continuation lifecycle（seal / consume / reborn）从 `QueueProcessor.executeEn
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | SessionContinuationCoordinator 边界/形态——独立 service？还是 thread-store 上的收口层？决定 Architecture cell map delta（update vs new cell）。 | ⬜ 待 Design Gate |
-| OQ-2 | 协作执行方式——吴浪按设计图改 #834（社区参与，不重复劳动）vs cat-cafe 实现 + full-sync（掌控质量）。**判据：设计图能否清晰外包**。 | ⬜ 待设计图出来后定 |
+| OQ-1 | SessionContinuationCoordinator 边界/形态 | ✅ **四象限坐标系**（Coordinator=continuation lifecycle / Queue=A2A fan-in / Route=route state / Invoke=session runtime），见设计图 `docs/plans/2026-06-04-session-continuation-coordinator-design.md`（宪宪+砚砚 2 轮收敛 2026-06-04） |
+| OQ-2 | 协作执行方式——纯外包吴浪 vs 纯自做 vs hybrid | ✅ **CVO Design Gate 拍 A（hybrid）2026-06-04**：见 KD-3。全量同步归一是关键衔接（铲屎官补）。 |
 
 ## Key Decisions
 
@@ -99,6 +99,7 @@ continuation lifecycle（seal / consume / reborn）从 `QueueProcessor.executeEn
 |---|------|------|------|
 | KD-1 | 从 F220 拆出独立 feat（不塞进 F220 Phase 2） | F220 Phase 2 = invocation-hang 深水区（#2053 unsound 边界）；本 feat = session/message 轴，吴浪 #834 没碰深水区。缠在一起才有"又 intake 又改"错觉；拆开后会话延续这摊干净的活可让吴浪按图改，不重复不分叉。铲屎官 2026-06-04 signoff 立项（判为 feat 非 issue：有内聚 Why + 架构终态 + +1215 行体量）。 | 2026-06-04 |
 | KD-2 | 不 intake #834 回 cat-cafe 再改 | 铲屎官 2026-06-04："intake 回来再改怕一团糟 + 版本分叉"。正路：maintainer 出设计图 → contributor 按图改 → merge，或 cat-cafe 实现 + full-sync，**二选一避免双源分叉**。 | 2026-06-04 |
+| KD-3 | 协作方式 = **hybrid + 全量同步归一**（OQ-2 拍板） | CVO 2026-06-04 Design Gate 拍 A，5 步：①worktree 落 coordinator skeleton + red tests（钉四象限第一刀）②merge main ③**全量同步 cat-cafe→clowder-ai**（skeleton 进开源仓——铲屎官补的关键衔接，否则吴浪基于 #834 旧 base 改又分叉）④吴浪 rebase 到含 skeleton 的 main 接 Phase A 局部 + #814/#815 窄 PR ⑤归一。砚砚技术判断：跨 7 文件 + hard edge（failure restore / 多 capsule / sourceCategory 隔离）不宜纯外包，maintainer 钉核心坐标系。 | 2026-06-04 |
 
 ## Architecture cell
 
