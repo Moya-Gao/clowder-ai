@@ -19,8 +19,10 @@ const BIOME_COMMAND = ['pnpm', ['biome', 'check', '.', '--diagnostic-level=error
 
 const PARALLEL_CHECKS = [
   'check:features',
+  'check:f223-action-tracking',
   'check:sop-definitions',
   'check:skills:manifest',
+  'check:skills:surfaces',
   'check:env-ports',
   'check:env-registry',
   'check:env-example',

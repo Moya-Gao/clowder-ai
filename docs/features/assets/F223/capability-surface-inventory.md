@@ -78,6 +78,44 @@ created: 2026-06-03
 | `cat_cafe_run_perspective` | memory/navigation advanced route | Candidate anchors + typed reader route hints | `memory` | Keep advanced/niche; not Tier 1 unless eval shows miss. |
 | `cat_cafe_review_distillation` | knowledge-evolution / review close-out | Distillation review result | `memory` | Pair with global nomination triggers. |
 
+## Phase D Action Tracking
+
+Every inventory row has an explicit follow-up state. States are intentionally coarse so F192 verdicts and manual probes can route work without inventing one-off labels:
+
+- `fix`: execution/trigger/probe gap was closed in F223 or an owning feature.
+- `build`: new surface or substantial follow-up remains to be built by the owning feature.
+- `keep_observe`: current surface is acceptable; monitor via listed eval/probe.
+- `delete_sunset`: remove or demote if usage/probe signals stay low.
+
+| Capability | Action state | Tracking route | Next action |
+|---|---|---|---|
+| `rich-messaging` | fix | F192 `rich-messaging` predicate + rich block render probe | Phase B2 aligned trigger/MCP/predicate; keep observing miss rate. |
+| `browser-preview` | fix | F192 `browser-preview` predicate + `BROWSER_PREVIEW_OPEN` audit | Phase B1 typed MCP and probe path done; keep observing. |
+| `image-generation` | keep_observe | Manual artifact/rich-block probe; future F192 predicate only if miss-rate justifies | No Hub MCP; keep as provider/native surface. |
+| `workspace-navigator` | fix | F192 `workspace-navigator` predicate + `WORKSPACE_NAVIGATE` audit + alpha CG-1 probe | Phase B1/B2 fixed typed surface, canonicalization, Files view, and fallback observability. |
+| `pencil-design` | keep_observe | Manual `.pen` frame/screenshot/export proof | Existing Pencil MCP sufficient. |
+| `guide-interaction` | keep_observe | Guide state readback + interactive card probe | Existing guide tools sufficient unless eval misses recur. |
+| `expert-panel` / `collaborative-thinking` | fix | Multi-cat response/vote result + F192 future predicate if needed | Phase C normalized `multi_mention` / `start_vote` trigger descriptions. |
+| `cat_cafe_propose_thread` | keep_observe | Proposal card and user-approval thread creation proof | Keep existing surface. |
+| F211 external runtime sessions | fix | External runtime session list/read metadata probe | Phase C made lost/detached drilldown trigger explicit. |
+| F212 CLI diagnostics | keep_observe | Message `cliDiagnostics` / `debugRef` proof | Keep metadata path; build reader only if repeated miss appears. |
+| F192 Eval Hub / Verdict Handoff | keep_observe | Native F192 domain metrics and verdict bundle | F223 consumes; F192 owns. |
+| `search_evidence` + drilldown | keep_observe | Evidence anchor + session drilldown proof | Keep existing memory MCP chain. |
+| `cat_cafe_update_workflow` | fix | Mission Hub workflow board readback | Phase C locked stage/resumeCapsule description. |
+| F201 Antigravity recovery | keep_observe | Recovery card + side-effect journal | Tier 2 only. |
+| F186/F188 library federation | keep_observe | Collection health/search verification | Tier 2 only. |
+| `video-forge` / `ppt-forge` / `tech-writing` | keep_observe | Generated artifact and review proof | Keep as skill pipelines. |
+| `hyperfocus-brake` | keep_observe | Check-in rich block + reminder metrics | Existing forcing function; no F223 build. |
+| `deep-research` | keep_observe | Source ledger + synthesis artifact | Keep as skill pipeline. |
+| Global lesson nomination | keep_observe | Distillation candidate/review result | Improve trigger only if nomination misses recur. |
+| F210 AGY sticky behavior | keep_observe | Sticky behavior logs/probes | Tier 2 only. |
+| `enterprise-workflow` | keep_observe | External resource handle + permission/audit proof | Action-plane owner; outside Hub action surface. |
+| `cat_cafe_start_vote` | fix | Vote record and result message | Phase C normalized Use when + Output. |
+| `cat_cafe_multi_mention` | keep_observe | Routed responses and callback aggregation | Existing description already has `searchEvidenceRefs` hard check. |
+| `cat_cafe_generate_document` | keep_observe | Uploaded document + file rich block + IM delivery | Existing description already blocks manual pandoc path. |
+| `cat_cafe_run_perspective` | keep_observe | Candidate anchors + typed reader route hints | Keep advanced/niche. |
+| `cat_cafe_review_distillation` | keep_observe | Distillation review result | Pair with global nomination trigger improvements if needed. |
+
 ## ADR-029 Compatibility
 
 - `action-plane` remains the owner for external/vendor operations with permission, dry-run, idempotency, and resource handles.

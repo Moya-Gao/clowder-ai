@@ -3,7 +3,7 @@ name: worktree
 description: >
   创建 Git worktree 隔离开发环境，含 Redis 6398 安全配置。
   Use when: 开始任何代码修改、新功能开发、bug fix。
-  Not for: 纯文档修改（≤5 行）、不涉及代码的讨论。
+  Not for: 纯文档修改（≤5 行）、不涉及代码/脚本/API/第一方执行面的讨论。
   Output: 隔离的 worktree + 正确的 Redis/环境配置。
 triggers:
   - "开始开发"
@@ -14,7 +14,7 @@ renamed-from: using-git-worktrees
 
 # Worktree
 
-开始任何非 trivial 的功能开发前，必须拉 worktree 隔离，不要直接在 main 上改代码。
+开始任何非 trivial 的功能开发前，必须拉 worktree 隔离，不要直接在 main 上改代码。Skill / MCP description 如果改到 API route、localhost、script、CLI command、第一方执行面，即使是 ≤5 行，也不按“纯文档免验证”处理：至少 commit 前跑 `pnpm check`；非 trivial 行为改动仍应开 worktree。
 
 ## 开工前 Recall（F102 记忆系统）🔴
 

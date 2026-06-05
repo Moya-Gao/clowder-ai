@@ -48,7 +48,7 @@ describe('run-checks concurrency validation (gate bypass prevention)', () => {
 
   it('clamps concurrency to [1, check_count]', () => {
     assert.equal(parseConcurrency('1'), 1);
-    assert.equal(parseConcurrency('100'), 19); // max = PARALLEL_CHECKS.length
+    assert.equal(parseConcurrency('100'), 21); // max = PARALLEL_CHECKS.length
   });
 
   it('rounds fractional concurrency', () => {
