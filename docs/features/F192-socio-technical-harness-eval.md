@@ -246,8 +246,8 @@ Phase E 将 F192 从单域试点提升为横切的 Harness Eval Control Plane：
 **核心设计**：
 - **Episode** 是评价对象（一整个任务生命周期），不是单条消息
 - **Verdict** 是分类不是分数：success / corrected_success / needs_investigation / harness_fix_needed / routing_failure / taste_mismatch / abandoned
-- **信号两大类**（铲屎官 2026-06-04 框架）：**机械中断**（按钮/动作，不需要理解语义：cancel 按钮、merge、revert）+ **intention 中断**（需要理解语义/意图：magic word、cancel 理由、re-route、user edit）。本质都是"中断/改变猫的行为"→ 需要打点和观测
-- **三信号层**：A1 世界真值（merge/revert，自动零成本）+ A2 嵌入交互决策（permission cancel + magic word，几乎零额外成本）+ Proxy（导航不判定）
+- **摩擦传感器层**（2026-06-04 补充，详见 `docs/discussions/2026-06-01-f192-eval-coverage-audit.md` §八）：机械式 behavior 中断（cancel/deny/skip/revert）+ intention 中断（magic word/cancel reason/re-route/user edit）+ 世界结果真值（test/build/merge/revert）+ 聚合 proxy（cancel burst/cross-thread repetition/rework/latency）
+- **三信号层**：A1 世界真值（merge/revert/test/build，自动零成本）+ A2 嵌入交互决策（behavior/intention 中断，几乎零额外成本）+ Proxy（导航不判定）
 - **执行频率**：daily（信号产生频率高于 capability-wakeup，需要更及时的观测窗口）
 
 #### v0 骨架（PR #2074, merged 2026-06-03）

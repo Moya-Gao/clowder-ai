@@ -205,7 +205,68 @@ Permission cancel 信号天然覆盖多个 eval 层：
 
 ---
 
-## 八、优先级建议
+## 八、2026-06-04 补充：摩擦传感器层（信号 ≠ 真值）
+
+> 触发：华为云 AutoHarness PPT 讨论中，铲屎官指出：
+> 如果只讲 L1-L5 自进化和 L1-L4 真值闭环，但不列出真实的摩擦检测体系，
+> AutoHarness 会像"炼丹"——说会进化，却没说明靠什么发现该进化。
+
+这次补充不是替换 §一的 Eval 四层，而是在四层之前补一层**传感器坐标**：
+
+```
+真实使用轨迹
+  → 摩擦传感器（发现哪里痛 / 为什么痛）
+  → Task Outcome Episode（把信号绑定到一个任务生命周期）
+  → L1-L4 Eval（判断改得对不对、链路好不好）
+```
+
+### 8.1 四类摩擦 / 真值信号
+
+| 类别 | 捕捉什么 | 例子 | 用途 | 边界 |
+|------|---------|------|------|------|
+| **机械式 behavior 中断** | 用户/系统用动作打断或改变流程，不要求理解语义 | cancel / deny permission / skip / F128 reject / revert | 找到摩擦点："这里有人打断了" | 只说明有摩擦，不直接说明为什么 |
+| **intention 中断** | 中断同时携带语义或意图 | cancel reason / Magic Word / 明确纠偏 / user edit / 立刻 re-route 给另一只猫 | 得到自然标签："为什么痛" | 需要上下文，不可脱离 episode 解释 |
+| **世界结果真值** | 外部世界给出客观结果 | test pass/fail / build pass/fail / merge / rollback / PR accepted | 判断客观成败 | 只覆盖有客观 verifier 的任务 |
+| **聚合 proxy** | 多次信号聚集成趋势 | cancel burst / cross-thread repetition / repeated review P1 / 返工次数 / 链路耗时 | 导航优先级："哪里值得深看" | Proxy 只导航不判定，不能单独做 verdict |
+
+### 8.2 与 A1 / A2 / Proxy 的关系
+
+这四类信号可以映射回 Phase G 的三信号层：
+
+| Phase G 层 | 对应信号 | 说明 |
+|------------|----------|------|
+| **A1 世界真值** | 世界结果真值 | 自动、零成本、最硬；如 merge / revert / test / build |
+| **A2 嵌入交互决策** | 机械式 behavior 中断 + intention 中断 | 用户在正常使用中已经做出的决策；不让用户当标注员 |
+| **Proxy** | 聚合 proxy | 排队和归因入口，不是 outcome 判决 |
+
+关键边界：
+
+- **Cancel 本身是 behavior 中断**：说明用户打断了猫的行为。
+- **Cancel reason 是 intention 中断**：说明为什么打断。
+- **Magic Word 是高权重 intention 中断**：不是情绪词，而是 CVO 给出的结构化纠偏标签。
+- **Cancel burst 是 proxy**：说明这个区域摩擦密集，但不能单独判定任务失败。
+
+### 8.3 与 L1-L4 Eval 的关系
+
+传感器层回答"信号从哪里来"，Eval 四层回答"这些信号怎么用来判断系统"：
+
+| Eval 层 | 需要哪些传感器 |
+|---------|----------------|
+| **L1 机械正确性** | 世界结果真值 + 规则 predicate（格式、测试、构建、硬规则） |
+| **L2 路由/决策质量** | behavior 中断（cancel / re-route）+ intention 中断（理由 / 纠偏）+ 后验返工率 |
+| **L3 任务交付质量** | A1 世界结果 + A2 用户自然决策 + episode 终态 |
+| **L4 链路效率** | 聚合 proxy + L2/L3 成熟数据（耗时、返工、成本、历史最佳对比） |
+
+### 8.4 对 AutoHarness PPT 的一句话表达
+
+> **AutoHarness 不是炼丹。**
+> 它先采集真实摩擦：用户在哪里打断、为什么打断、任务最后是否成功、同类问题是否重复；
+> 再把这些信号绑定到 Task Outcome Episode，进入 L1-L4 真值闭环。
+> 行为中断告诉我们"哪里痛"，意图中断告诉我们"为什么痛"。
+
+---
+
+## 九、优先级建议
 
 1. **先完成 Phase F**（eval:capability-wakeup）——L2 唯一在建的域
 2. **Phase G 立项 eval:task-outcome**——补最大 gap（L3），四个信号支柱并行接入
