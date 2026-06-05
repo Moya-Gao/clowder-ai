@@ -11,8 +11,8 @@ created: 2026-06-05
 > **Status**: spec | **Owner**: 布偶猫（Opus 4.8） | **Priority**: P2
 
 Architecture cell: `identity-runtime-session`（`identity-session` cell 的 subcell，F211 owns）
-Map delta: update required — 新增"猫主动提议"作为一种 session boundary **触发源** + 新 `sealReason: 'cat_initiated_handoff'`，扩展 identity-runtime-session 的 lifecycle registration 与 seal reason 枚举。owner 不变。
-Why: session 边界目前只能由 `shouldTakeAction`（context_health / 阈值策略）被动触发；本 feature 增加一条"猫主动 + 人 gate"的触发路径，归 identity-runtime-session 管 session 生命周期，不新造 Store/Queue。
+Map delta: update required — 新增"猫主动提议"作为一种 session boundary **触发源** + 新 `sealReason: 'cat_initiated_handoff'` + 新 typed `SessionRecord.catHandoffNote`（或独立 SessionHandoffStore）+ 新 `SessionHandoffProposal` 类型，扩展 identity-runtime-session 的 lifecycle registration / seal reason / proposal 谱系。owner 不变。
+Why: session 边界目前只能由 `shouldTakeAction`（context_health / 阈值策略）被动触发；本 feature 增加一条"猫主动 + 人 gate"的触发路径 + 配套 typed 承载，归 identity-runtime-session 管 session 生命周期，不新造通用 Store/Queue。
 
 ## Why
 
@@ -27,36 +27,56 @@ Why: session 边界目前只能由 `shouldTakeAction`（context_health / 阈值�
 
 ## Current State / 现状基线
 
-底层管道**大部分已存在**（agent 代码实测，2026-06-05，见 Links）：
+底层管道**大部分已存在**（agent 调研 + 砚砚 review 亲验代码，2026-06-05，见 Links）：
 
 | 能力 | 现状 | 锚点 |
 |------|------|------|
 | seal 机制 | ✅ 已有 `sessionSealer.requestSeal({sessionId, reason})` | `invoke-single-cat.ts:2096` |
-| 换 session 的 context 桥 | ✅ `buildSessionBootstrap` 注入上个 session digest + ThreadMemory rolling summary，新 session 第一眼可见 | `SessionBootstrap.ts:68` |
-| handoff digest | ✅ seal 时生成（generative→extractive fallback），`[Previous Session Summary]` 标记注入 | `SessionSealer.ts:383` |
+| 换 session 的 context 桥 | ✅ `buildSessionBootstrap` 注入上个 session digest + ThreadMemory | `SessionBootstrap.ts:68` |
+| handoff digest | ✅ seal 时生成（generative→extractive fallback） | `SessionSealer.ts:383` |
 | session 策略 | ✅ `shouldTakeAction` 支持 compress/handoff/hybrid | `session-strategy.ts:220` |
-| F128 proposal 状态机 | ✅ create→claimForApproval(CAS)→finalizeApproval + 确认卡 | `callback-propose-thread-routes.ts:78` |
+| proposal 状态机 | ✅ create→claimForApproval(CAS)→finalizeApproval + 确认卡 | `callback-propose-thread-routes.ts:78` |
+
+**复用契约约束（砚砚 review 2026-06-05 亲验钉准）** — 复用 ≠ 直接挂，三个承载点各有契约边界，spec 初稿低估了：
+
+1. `buildSessionBootstrap` 默认 `bootstrapDepth='extractive'`（`index.ts:550` `?? 'extractive'`），**只有显式配 `generative` 才读 handoff digest 文件**（`SessionBootstrap.ts:164`）。compress 模式下猫写的 digest body 读不到 → **留言落点不能靠 generative digest**。
+2. `SessionSealer.finalize()` 是 best-effort（`SessionSealer.ts:150`，timeout/throw 也置 sealed）→ **留言必须在 seal 之前独立持久化成功**，不能依赖 finalize 写盘。
+3. `ThreadProposal` / approve route 是"建新 thread"专用（`proposal.ts:35` sourceThreadId/parentThreadId/createdThreadId）→ **不能 fake threadId 复用旧 record/route**。
 
 **缺口（净需求，三点）**：
 1. **无猫主动触发入口** — session 边界只能由 `shouldTakeAction`（context_health/阈值）被动触发；`compress` 策略永远返回 `allow_compress` 不 seal（`session-strategy.ts:236`），猫无法在干净断点主动发起。
 2. **无铲屎官 gate** — handoff 策略是自动 seal，无 proposal/确认环节。
-3. **无猫亲手写留言通道** — handoff digest 是系统自动生成（extractive/generative），不是猫写的五件套高保真意图；`SessionRecord`（`session.ts:15-57`）无猫写 handoff note 字段。
+3. **无猫亲手写留言通道** — handoff digest 是系统自动生成；`SessionRecord`（`session.ts:15-57`）无 typed 猫写 handoff note 字段。
 
-**结论**：这不是新机制，是在现有 handoff 管道上接一条"主动 + gate + 猫写留言"的旁路。成本：便宜接线活。
+**结论**：方向成立、底层管道在，但"复用"要按契约边界改造（typed 字段 + discriminated proposal + seal 前持久化），不是直接挂。成本：中等接线 + 边界硬化，非"无脑复用"。
 
 ## What
 
-### Phase A: 提议 + Gate（学 F128 proposal 状态机）
+### Phase A: 提议 + Gate（discriminated proposal，复用 CAS 不复用 shape）
 
-- 新 MCP tool `cat_cafe_propose_session_handoff`，参数含**结构化五件套交接留言**：`done` / `worktree_branch` / `commits` / `next_steps` / `gotchas`。
-- 复用 F128 proposal 状态机（`proposalStore.create/claimForApproval/finalizeApproval`）+ 确认卡（`buildProposalCardBlock`，新增 `kind: 'session_handoff'` + sessionId/五件套字段）。
-- 卡片推到当前 thread，铲屎官点 approve/reject。**reject = 不 seal，当前 session 继续活**。
+- 新 MCP tool `cat_cafe_propose_session_handoff`，参数含**结构化五件套交接留言**：`done` / `worktree_branch` / `commits` / `next_steps` / `gotchas`，隐式带当前 `sourceSessionId`。
+- **不复用 `ThreadProposal` shape**（建-thread 专用）。新建 `SessionHandoffProposal`（或 discriminated union），复用 `claimForApproval` 的 CAS/原子 claim 思路，不是同一 record。
+- approve/reject 走 **kind-specific dispatcher**，不混入旧建-thread approve route。卡片推当前 thread，**reject/expire = 不 seal，当前 session 继续活**。
 
-### Phase B: 封印 + 续接 + 留言注入（复用 F211 seal + F065 bootstrap）
+### Phase B: 封印 + 续接 + 留言注入（typed 字段 + always-keep 注入）
 
-- approve 后：调 `sessionSealer.requestSeal({ sessionId, reason: 'cat_initiated_handoff' })` 封印当前 session。
-- 猫的五件套留言写进 handoff digest body（`TranscriptWriter.writeHandoffDigest`，或 `SessionRecord.continuityCapsule`，见 OQ-1）。
-- spawn 同 thread 同 catId 的 next session，留言通过现有 `buildSessionBootstrap`（generative 路径）注入新 invocation **第一眼可见**（`HANDOFF_MARKER_OPEN/CLOSE` 包裹）。
+- 五件套留言落 **typed 字段**（`SessionRecord.catHandoffNote` 或独立 `SessionHandoffStore`），**不用** `continuityCapsule:unknown`、**不靠** generative digest 文件。
+- `buildSessionBootstrap` 把 catHandoffNote 作为 **always-keep block** 无条件注入（不依赖 `bootstrapDepth`），extractive/compress 模式同样第一眼可见（`HANDOFF_MARKER` 包裹 + sanitize）。
+- 封印走 `sessionSealer.requestSeal({ reason: 'cat_initiated_handoff' })`；留言在 seal **之前**独立持久化成功（不依赖 best-effort finalize）。
+- 续接：approve 后立即 seal active record + **enqueue 同 thread 同 catId continuation prompt + processNext**（现成队列入口，OQ-2），加 active-session/busy 校验。
+
+### Approve 事务顺序（砚砚 review 钉准 — 原子性硬约束）
+
+approve 必须按序，任一步失败即 fail/expire、不算 approve 成功：
+
+1. claim proposal（CAS，防并发/重放）
+2. 校验 stored `sourceSessionId` 仍是同 `(user, thread, cat, seq)` 的 **active** session（晚 approve 时 session 可能已变 → reject）
+3. 持久化 `catHandoffNote`（成功才继续）
+4. `requestSeal` **accepted**（rejected → fail，不 seal）
+5. enqueue 同 thread 同 catId continuation
+6. finalize approved
+
+**失败/边界路径**：requestSeal rejected、session 已变、同 session 第二张卡 replay → 全部 fail/expire，不产生半成品 seal。
 
 ## Acceptance Criteria
 
@@ -64,28 +84,32 @@ Why: session 边界目前只能由 `shouldTakeAction`（context_health / 阈值�
 
 ### Phase A（提议 + Gate）
 - [ ] AC-A1: 新 MCP tool `cat_cafe_propose_session_handoff` 注册；猫调用时附五件套留言 → 生成 proposal + 确认卡推到 thread（复核：MCP tool list + 卡片 JSON/截图）。〔→ Why 缺口1+2〕
-- [ ] AC-A2: 铲屎官 gate 双路径生效——reject 不 seal（session 继续）、approve 才进封印（复核：两条路径各一条测试）。〔→ Why 缺口2〕
-- [ ] AC-A3: 提议层复用 F128 `proposalStore`（claimForApproval CAS 防竞态），不重造 proposal 机制（复核：代码引用 + 无新建 proposal store）。〔→ Why "学 F128" + 不重造轮子〕
+- [ ] AC-A2: 铲屎官 gate 双路径生效——reject/expire 不 seal（session 继续）、approve 才进封印（复核：两条路径各一条测试）。〔→ Why 缺口2〕
+- [ ] AC-A3: proposal 用 discriminated 类型（`SessionHandoffProposal` / union），复用 `claimForApproval` CAS 思路但**不复用 `ThreadProposal` shape**、不走旧建-thread approve route（复核：类型独立 + kind-specific dispatcher）。〔→ 砚砚 P1-2〕
+- [ ] AC-A4: 硬滥用边界——每个 active session 最多 1 个 pending handoff proposal + per `(user,thread,cat)` 冷却/小时上限，reject/expire 后释放（复核：超限被拒一条测试）。〔→ 砚砚 P2〕
 
 ### Phase B（封印 + 续接 + 注入）
 - [ ] AC-B1: approve 后当前 session 被 seal，`sealReason='cat_initiated_handoff'`（复核：`SessionRecord.sealReason` 断言 + `list_session_chain`）。〔→ Why 缺口1〕
-- [ ] AC-B2: 猫的五件套留言注入续接 session 的 bootstrap，**第一眼可见**（复核：新 session prompt 含五件套内容的断言，非空、非系统自动 digest）。〔→ Why "亲手写的高保真留言"〕
-- [ ] AC-B3: 续接 session 同 thread 同 catId、seq+1（复核：`list_session_chain` 断言 seq 递增 + catId/threadId 一致）。〔→ Why "同 thread 同 catId 续接"〕
+- [ ] AC-B2: 五件套留言走 typed 字段 + always-keep 注入，**extractive/compress 默认模式下续接 session 第一眼可见**（复核：未配 generative 时断言续接 prompt 含五件套内容）。〔→ Why 高保真留言 + 砚砚 P1-1〕
+- [ ] AC-B3: 续接 session 同 thread 同 catId、seq+1（复核：`list_session_chain` 断言 seq 递增 + catId/threadId 一致）。〔→ Why 同 thread 同 catId 续接〕
+- [ ] AC-B4: approve 事务原子——留言 seal 前持久化成功才 seal；requestSeal rejected / session 已变 / 同 session 第二张卡 replay 全部 fail/expire，不产生半成品 seal（复核：各失败路径一条测试）。〔→ 砚砚 P1-1/P1-2 原子性〕
 
 ## 需求点 Checklist
 
 - [ ] 猫能在干净断点**主动**发起 handoff（不依赖 context 满 / 阈值）
 - [ ] 提议附**结构化五件套**留言（done/worktree_branch/commits/next_steps/gotchas）
-- [ ] 铲屎官 **gate**：approve 才 seal，reject 当前 session 继续
+- [ ] 铲屎官 **gate**：approve 才 seal，reject/expire 当前 session 继续
 - [ ] approve 后封印当前 session（`cat_initiated_handoff` reason）
-- [ ] 五件套留言**高保真**注入续接 session 第一眼（不被系统自动 digest 覆盖）
+- [ ] 五件套留言**高保真**注入续接 session 第一眼，**extractive/compress 默认模式下也可见**（不靠 generative）
+- [ ] 留言在 seal **前**独立持久化成功（不依赖 best-effort finalize）
+- [ ] approve 事务原子（失败 fail/expire，replay 防护）
 - [ ] 续接 = 同 thread 同 catId（"未来的自己"），非新 thread
 - [ ] 与 compress 模式正交共存（不破坏现有被动压缩路径）
 
 ## Dependencies
 
 - **Evolved from**: F065（session-continuity 桥 — bootstrap / ThreadMemory / handoff digest）
-- **Related**: F033（session 策略 compress/handoff/hybrid）、F128（propose 机制 — proposal 状态机 + 确认卡）、F211（runtime-session / SessionChainStore / seal reason）
+- **Related**: F033（session 策略 compress/handoff/hybrid）、F128（propose 机制 — proposal CAS + 确认卡）、F211（runtime-session / SessionChainStore / seal reason）
 
 ## Eval / Tracking Contract
 
@@ -99,56 +123,65 @@ Why: session 边界目前只能由 `shouldTakeAction`（context_health / 阈值�
    - 提议被 reject 比例（提议质量 / 时机判断）。
 3. **Regression Fixture**（≥1，建议 2-5）
    - FX-1: 猫调 propose_session_handoff → 生成 proposal + 卡片；**未 approve 时当前 session 不 seal**。
-   - FX-2: approve → session seal（`reason='cat_initiated_handoff'`）+ 五件套写入 handoff digest。
-   - FX-3: 续接 session bootstrap 第一眼 prompt **含五件套留言内容**（断言文本存在）。
+   - FX-2: approve → 留言 seal 前持久化成功 → session seal（`reason='cat_initiated_handoff'`）；requestSeal rejected / session 已变 / replay 第二张卡 → fail/expire 不 seal。
+   - FX-3: **extractive/compress 默认 bootstrapDepth** 下续接 session bootstrap 第一眼 prompt **含五件套留言内容**（always-keep 注入断言）。
+   - FX-4: 超滥用边界（同 active session 第 2 张 pending 卡 / 冷却期内）被拒。
 4. **Sunset Signal**
    - 连续 4 周 handoff 提议次数 = 0（猫从不主动用）→ 能力没被采纳，sunset 或重设计。
-   - 或 approve 后续接 session 仍"失忆"（fixture FX-3 长期 fail / friction metric 显示不引用留言）→ 注入路径无效，重新评估。
+   - 或 approve 后续接 session 仍"失忆"（FX-3 长期 fail / friction metric 显示不引用留言）→ 注入路径无效，重新评估。
 
 ## Risk
 
 | 风险 | 缓解 |
 |------|------|
-| 猫滥用 seal（频繁提议打断铲屎官） | 铲屎官 gate 是硬闸（必须 approve）+ 提议频率纳入 friction metric |
-| 留言丢失（seal 后 digest 没写成功） | 留言先持久化（SessionChainStore/handoff digest）**再** seal；seal 前确认写入成功 |
-| 续接 session 没注入留言（bootstrap 没走 generative） | 留言注入走 always-keep 段或显式 generative 路径；FX-3 守护 |
-| 提议时机不当（任务中段、context 没满就提议） | 猫的判断；MCP description 引导"干净断点"；reject 反馈闭环 |
-| 与 compress 模式冲突（双触发） | 猫主动 handoff 不走 context_health 路径；与 `shouldTakeAction` 解耦，独立旁路 |
+| 留言丢失（finalize best-effort 不保证写盘） | typed `catHandoffNote` 在 seal **前**独立持久化成功才 `requestSeal`；不依赖 `finalize` 写盘（KD-4） |
+| 续接 session 没注入留言（默认 extractive 读不到 generative digest） | always-keep block 注入，不依赖 `bootstrapDepth`；FX-3 在 extractive/compress 模式断言可见（KD-4） |
+| approve 非原子（半成品 seal / replay 重复 seal） | Approve 事务顺序 + 失败路径 fail/expire + 同 session 第二张卡 replay 防护（KD-5 / AC-B4） |
+| 晚 approve 封错后续 session | approve 时校验 `sourceSessionId` 仍是同 (user,thread,cat,seq) active session（KD-6） |
+| 卡片刷屏（gate 只挡 seal） | ≤1 pending/active session + per (user,thread,cat) 冷却上限（KD-7） |
+| 提议时机不当（任务中段、context 没满） | 猫的判断；MCP description 引导"干净断点"；reject 反馈闭环 |
 
 ## Open Questions
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | 五件套留言落点：写 handoff digest body（复用现有 bootstrap 读取，agent 推荐）vs 新增 `SessionRecord.handoffNote` 字段 vs 复用 `continuityCapsule`（unknown 类型）？ | ⬜ 未定 → @codex / @opus47 |
-| OQ-2 | 续接 session spawn 时机：approve 后立即 spawn，还是当前 session 自然收尾后由系统 spawn？涉及 invoke-single-cat lifecycle | ⬜ 未定 → 可能需 @opus47 深化 |
-| OQ-3 | proposal 复用：扩 F128 `proposalStore` 加 `kind` 字段 vs 新建独立 handoff proposal 类型？ | ⬜ 未定 → @codex |
-| OQ-4 | 滥用边界：是否需要频率上限 / 冷却期，还是纯靠铲屎官 gate？ | ⬜ 未定 → @codex 安全 review |
+| OQ-1 | 五件套留言落点 | ✅ 决议（砚砚 2026-06-05）：typed `SessionRecord.catHandoffNote`（或独立 store）+ always-keep 注入；**不**用 `continuityCapsule:unknown`、**不**靠 generative digest（默认 extractive 读不到）→ KD-4 |
+| OQ-2 | 续接 spawn 时机 | ✅ 决议：approve 后立即 seal + enqueue 同 thread continuation + processNext（现成队列入口）+ active-session/busy 校验；不需大架构会/@opus47 → KD-6 |
+| OQ-3 | proposal 复用方式 | ✅ 决议：discriminated `SessionHandoffProposal`，复用 CAS 不复用 `ThreadProposal` shape，kind-specific approve dispatcher → KD-5 |
+| OQ-4 | 滥用边界 | ✅ 决议：硬 cooldown + 每 active session ≤1 pending + per (user,thread,cat) 小时上限 → KD-7 |
+| OQ-5 | typed 落点细分：`SessionRecord.catHandoffNote` 字段 vs 独立 `SessionHandoffStore`？ | ⬜ writing-plans 时定（两者都满足 KD-4 约束；倾向字段，绑 session 生命周期 + 复用 SessionRecord 读取） |
 
 ## Key Decisions
 
 | # | 决策 | 理由 | 日期 |
 |---|------|------|------|
-| KD-1 | 软+硬+eval 三层（ADR-031）：Soft = MCP tool description 引导"干净断点主动 handoff"（+ 可选 L0/SOP 触发句）；Hard = proposal 状态机测试 + 五件套 schema + "未 approve 不 seal" runtime guard；Eval = 上方 Eval Contract fixture + activation/friction/sunset | harness feature 必须三层完整 | 2026-06-05 |
-| KD-2 | 单开 F 号，不挂回 F033/F065/F211 | 三个候选父全 done/closed；本能力是它们 + F128 的新组合，无天然父；有独立愿景（猫主导接力）+ 独立验收边界 | 2026-06-05（CVO signoff: "单开！走起喵"） |
-| KD-3 | 复用 > 新建：seal/bootstrap/digest/proposal 全复用现成 | 底层管道已存在；只接"主动+gate+猫写"旁路，不重造（第一性原理，避免脚手架） | 2026-06-05 |
+| KD-1 | 软+硬+eval 三层（ADR-031）：Soft = MCP tool description 引导"干净断点主动 handoff"（+ 可选 L0/SOP 触发句）；Hard = proposal 状态机测试 + 五件套 schema + "未 approve 不 seal" + approve 原子性 runtime guard；Eval = 上方 Eval Contract fixture + activation/friction/sunset | harness feature 必须三层完整 | 2026-06-05 |
+| KD-2 | 单开 F 号，不挂回 F033/F065/F211 | 三个候选父全 done/closed；本能力是它们 + F128 的新组合，无天然父；有独立愿景 + 验收边界 | 2026-06-05（CVO signoff: "单开！走起喵"） |
+| KD-3 | 复用 > 新建：seal/bootstrap/CAS 复用现成，但按契约边界改造 | 底层管道已存在；只接"主动+gate+猫写"旁路（第一性原理）；但复用须验证默认配置/语义契约（见 KD-4/5） | 2026-06-05 |
+| KD-4 | 留言落 typed `catHandoffNote` + bootstrap always-keep 注入，seal 前独立持久化 | 默认 `bootstrapDepth='extractive'`（`index.ts:550`），generative digest 读不到；`finalize` best-effort 不保证写盘（砚砚 P1-1 亲验） | 2026-06-05 |
+| KD-5 | discriminated `SessionHandoffProposal`，复用 CAS 不复用 `ThreadProposal` shape | `ThreadProposal`/approve route 建-thread 专用（`proposal.ts:35`/`createdThreadId`），加 kind 会污染旧语义（砚砚 P1-2） | 2026-06-05 |
+| KD-6 | approve 后立即 seal + enqueue 同 thread continuation + processNext，加 busy 校验 | 现成队列入口可表达续接，无需 invoke-single-cat 大改/@opus47；busy 校验防晚 approve 封错后续 session（砚砚 OQ-2） | 2026-06-05 |
+| KD-7 | 硬滥用边界：≤1 pending/active session + per (user,thread,cat) cooldown | gate 只挡 seal 挡不住卡片刷屏；continuation 有 5/h 限流但 propose route 没有（砚砚 P2，`QueueProcessor.ts:169`） | 2026-06-05 |
 
 ## Timeline
 
 | 日期 | 事件 |
 |------|------|
 | 2026-06-05 | 立项（F128 thread opus-48 提议 → 主 thread opus-48 设计收敛 → CVO signoff 单开） |
+| 2026-06-05 | 砚砚（GPT-5.5）spec review：2 P1（留言落点 / proposal 复用）+ 1 P2（滥用边界），亲验代码锚点全部成立；决议钉进 KD-4~7 + Approve 事务顺序节 |
 
 ## Review Gate
 
-- Phase A/B: 跨族 review @codex（砚砚 GPT-5.5）— 重点封印边界（防滥用 seal / 留言丢失 / gate 绕过）。
+- Spec design review: 砚砚（GPT-5.5）✅ 封印边界已钉准（OQ-1~4 决议）→ 待砚砚确认决议采纳。
+- Phase A/B 实现: 跨族代码 review（实现后），重点 approve 原子性 + always-keep 可见性测试。
 
 ## Links
 
 | 类型 | 路径 | 说明 |
 |------|------|------|
-| **Origin thread** | `thread_mq0qdxh0aysy0rs3` | F128 thread opus-48 提议 + 主 thread 设计收敛 |
+| **Origin thread** | `thread_mq0qdxh0aysy0rs3` | F128 thread opus-48 提议 + 主 thread 设计收敛 + 砚砚 review |
 | **地基** | `docs/features/F065-session-continuity.md` | bootstrap 桥 / ThreadMemory / handoff digest |
 | **地基** | `docs/features/F033-session-strategy-configurability.md` | session 策略 compress/handoff/hybrid |
-| **地基** | `docs/features/F128`（propose 机制） | proposal 状态机 + 确认卡复用源 |
+| **地基** | `docs/features/F128`（propose 机制） | proposal CAS + 确认卡复用源 |
 | **地基** | `docs/features/F211-cross-runtime-session-transparency.md` | SessionChainStore / seal reason |
 | **架构 cell** | `docs/architecture/ownership/cells/identity-session.md` | identity-runtime-session subcell 归属 |
