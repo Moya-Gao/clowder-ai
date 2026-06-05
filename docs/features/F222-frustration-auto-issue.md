@@ -101,6 +101,7 @@ status: draft  # 用户预览后才提交
 | 2026-06-04 | Phase A follow-up merged (PR #2082): auto-issue card status hydration keeps confirmed/skipped state visible after refresh |
 | 2026-06-04 | Phase B merged (PR #2086): text frustration keyword trigger + routeParallel detection + Z5-style user msg paging, 6-round review, 74 tests |
 | 2026-06-04 | Phase C merged (PR #2088): A2A timeout (60s threshold) + retry burst (≥3 same-prefix) + issue list API, 3-round review, 90 tests |
+| 2026-06-05 | Bugfix merged (PR #2096): retry_burst 改为全内容比较（200 字符），修复 A2A review 传球误触发 |
 
 ## Dependencies
 
