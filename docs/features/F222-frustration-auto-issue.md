@@ -102,14 +102,15 @@ status: draft  # 用户预览后才提交
 | 2026-06-04 | Phase B merged (PR #2086): text frustration keyword trigger + routeParallel detection + Z5-style user msg paging, 6-round review, 74 tests |
 | 2026-06-04 | Phase C merged (PR #2088): A2A timeout (60s threshold) + retry burst (≥3 same-prefix) + issue list API, 3-round review, 90 tests |
 | 2026-06-05 | Bugfix merged (PR #2096): retry_burst 改为全内容比较（200 字符），修复 A2A review 传球误触发 |
+| 2026-06-05 | P1 Bugfix merged (PR #2105): A2A provenance gate — 全 7 个 routeExecution call site 显式声明 frustrationAutoIssueEligible（user=true, agent/connector=false），砚砚 2 轮 review + 云端 review |
 
 ## Known Issues (2026-06-05 铲屎官反馈)
 
-### P1: 猫猫 A2A 传球时无用户操作也弹"操作中断"
+### ~~P1: 猫猫 A2A 传球时无用户操作也弹"操作中断"~~ ✅ Fixed (PR #2105)
 - **现象**：猫猫互相传球跑 review，用户完全没操作，弹出 frustration auto-issue 卡片
-- **影响**：P1 — 无关打扰，破坏信任（"我什么都没做你检测个什么"）
-- **状态**：待砚砚定位根因（PR #2096 修了 retry_burst 前缀精度，但 A2A 期间不应触发检测的根本问题可能未解）
-- **Owner**：砚砚 (@codex) 定位 + 布偶猫修复
+- **根因**：F222 detector 对所有 route completion 无差别运行，不区分 user-origin vs agent-origin
+- **修复**：`frustrationAutoIssueEligible` boolean gate — user direct/retry/multi-mention = true，A2A/connector/podcast = false
+- **残留 P3**：worklist-inline A2A 在 user-origin route 内仍 eligible（理论边界，无复现，需 per-entry provenance 才能修）
 
 ### UX-1: "跳过"应该是反馈信号 + 增加"误报"选项
 - **现象**：跳过只改状态不记录原因，浪费 eval 信号；应区分"跳过"和"误报"
