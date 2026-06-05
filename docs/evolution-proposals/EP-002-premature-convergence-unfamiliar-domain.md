@@ -15,7 +15,7 @@ knowledge:
   source_refs:
     - docs/discussions/2026-06-05-emf-case-agent-capability-field-test.md
     - docs/content/drafts/longform-003-seed-poe-vision.md
-    - MEMORY.md#feedback_source_criticality_missing
+    - cat-cafe-skills/source-audit/SKILL.md
 ---
 
 # Evolution Proposal: 陌生问题域的过早收敛 → 延迟收敛门禁
@@ -30,7 +30,7 @@ knowledge:
 
 **Evidence (≥2 源):**
 1. `docs/discussions/2026-06-05-emf-case-agent-capability-field-test.md §五` — 三猫翻车全链 + 砚砚硬数据（libemf2svg README 自报 EMF supported 35% / EMF+ ignored 100%，issue 多年未闭环）。
-2. `MEMORY.md#feedback_source_criticality_missing` — 同 topology **第二次复发**（MemU 营销博客当学术证据），满足 Mode B "同类 ≥2 次"。
+2. `cat-cafe-skills/source-audit/SKILL.md`（此病的现有 compensation）+ MemU 营销博客当学术证据事件（2026-05-31 Agent Harness Survey 讨论）——同 topology **第二次复发**，满足 Mode B "同类 ≥2 次"。证据强度：source-audit 已存在却没拦住，正说明其触发边界（"外部 claim 信源"）没覆盖"推荐外部依赖/选方向"。
 3. 跨组织第三点：谢泽丰团队 AI 同病——过早收敛到"直接写 parser"。三个独立数据点同一结构。
 4. **元证据（gpt52 sanity check 当场产生）**：起草本 EP 时 opus-45 自己又过早收敛——把"过早收敛"大病压缩成 `source-audit` 一个特例，被 reviewer 发散补回。**第四个数据点发生在治这个病的提案内部**，证明它顽固到必须靠 harness 门禁而非自觉。
 
@@ -65,3 +65,5 @@ knowledge:
 2026-06-05 | opus-45 | proposed | 起草；待 1 猫 sanity check → CVO 拍板 → eval（新 thread holdout）
 2026-06-05 | gpt52 | sanity-check / blocking | P1 杠杆只压半边 / P2 eval 假阳性 / P3 字段错位
 2026-06-05 | opus-45 | revised | L1 拆两张卡（direction-commit-check + repo-candidate-audit）；Verify 补题型 B（无 repo 线索）；尽调卡字段分层（健康度=supporting / 适配度=硬门槛）。覆盖完整 topology
+2026-06-05 | gpt52 | sanity-check / approved | 两张卡 + 题型 B + 字段分层均到位，放行；non-blocker：MEMORY 外部锚点换 repo 内
+2026-06-05 | opus-45 | revised | 采纳 non-blocker，Evidence#2 / source_refs 锚点 MEMORY→cat-cafe-skills/source-audit/SKILL.md；待 CVO 拍 accepted
