@@ -72,3 +72,4 @@ created: 2026-02-26
 | F219 | 核心引擎技术债盘点 + 架构演进（routeSerial 等核心调用链）| spec | 布偶猫 Opus 4.8 | internal | [F219](features/F219-tech-debt-architecture-evolution.md) |
 | F220 | A2A 协作的可观测·可靠·可恢复（启动中占位可见 + 卡死根因 + force-reset 逃生口 UI）| spec | 宪宪 Opus-4.8（驱动 thread_mpxf7fdx5gonafzh）| internal | [F220](features/F220-a2a-collab-reliability.md) |
 | F23-followup | F23 Phase 2 — dir-size 5 个目录真拆（utils/config/providers 快线 + invocation/routes 跟 F219 协调）| in-progress | 宪宪/Opus-4.7 | internal | [F23 § Phase 2](features/F023-directory-corrosion-defense.md) |
+| F224 | A2A 协作的会话/消息状态可靠性（会话延续协调器 + 消息去重 + 触发合并 + 重生会话）| spec | 宪宪 Opus-4.8 | community [clowder-ai#834](https://github.com/zts212653/clowder-ai/pull/834) | [F224](features/F224-a2a-session-message-reliability.md) |
