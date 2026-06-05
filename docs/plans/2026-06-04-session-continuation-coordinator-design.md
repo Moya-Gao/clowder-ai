@@ -60,11 +60,13 @@ interface SessionContinuationCoordinator {
     sessionPolicy: 'resume' | 'reborn';
   };
 
-  // invocation 收尾：根据 finalStatus 提交 produced capsule / restore consumed / reborn skip
+  // invocation 收尾：根据 finalStatus 提交 produced capsules / restore consumed / reborn skip
   commitInvocationOutcome(input: {
-    finalStatus: 'succeeded' | 'failed' | 'canceled';
+    // 砚砚 P1：user-cancel 是实际存在的 finalStatus（QueueProcessor + messages 都有）
+    finalStatus: 'succeeded' | 'failed' | 'canceled' | 'canceled_by_user';
     consumedContinuation?: ConsumedToken;  // 来自 prepare
-    producedCapsule?: CollaborationContinuityCapsuleV1; // seal 产出（来自 invoke）
+    // 砚砚 P1：多猫多 capsule（现状是 continuationCapsules: Map<catId, capsule>），不是单数
+    producedCapsules?: Iterable<CollaborationContinuityCapsuleV1>;
   }): void;
 
   // 集中 resume|reborn 决策，调用方只拿结果不查 store
@@ -107,27 +109,38 @@ queue/direct 入口 → coordinator.resolveSessionStrategy() → 'resume' | 'reb
 |----------|-------------|-----------|
 | #813 passive seal | Phase A | **Coordinator 核心**（prepare/commit + pending 存取） |
 | #836 reborn | Phase A | **Coordinator 策略**（resolveSessionStrategy + skip 点） |
-| #815 A2A coalesce | Phase C（曾拟进 coordinator） | **留 Queue**（A2ACoalescer / InvocationQueue）；coordinator 只在 commit 接收"成功才 remove candidates"。理由：coalesce 是 queue fan-in 语义 + `sourceCategory:'a2a'` 不能混进 `'continuation'`，否则 continuation 控制流被当普通 handoff 合并 |
+| #815 A2A coalesce | Phase C（曾拟进 coordinator） | **留 Queue**（A2ACoalescer / InvocationQueue）。**coordinator 完全不碰 A2A candidates**（砚砚 P1 纠正：接 candidates = 把 queue fan-in 塞回 continuation owner，违反四象限）。改为 `QueueProcessor` finally **同时调两个互不相知的提交器**：`queue.commitDeferredA2A(finalStatus)` ⟂ `coordinator.commitInvocationOutcome(...)`。理由：coalesce 是 queue fan-in 语义 + `sourceCategory:'a2a'` 不能混进 `'continuation'`，否则 continuation 控制流被当普通 handoff 合并 |
 | #814 bubble dedup | Phase B | **独立 message identity 轴**（web reducer / `origin:'callback'` + identity 分流），**不进 coordinator**，不加 `extra.isExplicitPost` schema 字段 |
 
 → Coordinator 主设计聚焦 **#813 + #836**；#815 是 queue 的事（coordinator 接结果）；#814 完全独立拆出。
 
-## 8. 现状对接（6 散落点 → 收口）
+## 8. 现状对接（**7** 散落点 → 收口）
 
-- `QueueProcessor.executeEntry`：`prepare` 在 routeExecution **前**调（拿 content + token），`commit` 在 finally 调（替换现在内联的 continuation enqueue 编排）。
+- `QueueProcessor.executeEntry`：`prepare` 在 routeExecution **前**调（拿 content + token），`commit` 在 finally 调。finally **同时调两个互不相知的提交器**——`coordinator.commitInvocationOutcome()` ⟂ `queue.commitDeferredA2A(finalStatus)`（砚砚 P1：A2A fan-in 不进 coordinator）。
+- **`routes/messages.ts:1268`（第 7 散点，砚砚 P1 抽查发现）**：direct user→cat path 现在直接调 `enqueueContinuation`，**必须改接同一套 coordinator prepare/commit**——否则 reborn / passive seal 在 direct path 失效，§5「两 path 不分叉」落不了地。这是最易漏的一刀。
 - `invoke-single-cat`：保留 session runtime + seal request；seal 产出的 capsule 经 `commit` 提交。
 - `route-serial`/`route-parallel`：保留 build capsule + 拿 `sessionPolicy` 决定 skip bootstrap。
-- `session-hooks`：compact boundary continuation 走 coordinator commit。
+- `session-hooks`：compact boundary 是 hook/digest 边界（**无 `finalStatus` / consumed token**），走**单独 `recordCompactBoundary()` helper**，不套 `commitInvocationOutcome`（砚砚 P2）。
 
-## 9. Open Questions（给铲屎官 / 后续）
+## 9. Rejected Alternatives（砚砚 P2：防后面重复争论）
+
+| 被否方案 | 为什么否 |
+|---------|---------|
+| capsule facade（编排塞回 `CollaborationContinuityCapsule`） | 污染纯 value object/codec/formatter，coordinator 的 IO 依赖不该进 capsule 模块 |
+| #815 A2A coalesce 进 coordinator | 违反四象限——A2A fan-in 是 queue 语义，`sourceCategory:'a2a'`↔`'continuation'` 隔离不能破 |
+| coordinator 在 commit 接收 A2A candidates | 同上，等于把 fan-in 塞回 continuation owner（砚砚 P1 纠正初稿） |
+| `extra.isExplicitPost` schema 字段（#814） | 优先从 `origin:'callback'` + message identity 分流推导，不加 schema 字段 |
+| #834 inline as-is merge | inline 扩散加剧 6→7 散点碎裂；本设计就是收口它 |
+
+## 10. Open Questions（给铲屎官 / 后续）
 
 | # | 问题 | 处置 |
 |---|------|------|
-| OQ-2（F224） | 协作方式：吴浪按本设计图改 #834 vs cat-cafe 实现 + full-sync | **本图清晰可外包** → 倾向请吴浪按图改（坐标系明确，corner cases 列全，他熟自己代码）。待铲屎官 Design Gate 拍。 |
+| **OQ-2（F224 协作方式）** | 吴浪纯外包 vs cat-cafe 纯自做 vs hybrid | **推荐 hybrid（砚砚技术判断）**：① maintainer 先落 coordinator skeleton + red tests + 接口边界（钉死坐标系第一刀）；② 吴浪按 skeleton 接 Phase A 局部实现 / 把 #834 转测试 fixture；③ #814 / #815 拆更窄 PR 给吴浪。**不宜纯外包**——抽取跨 7 文件 + failure/cancel restore / 多 capsule / sourceCategory 隔离等 hard edge；#834 已证吴浪能抓 bug，但也证明倾向 inline 扩散。**待铲屎官 Design Gate 拍。** |
 | OQ-D1 | `ConsumedToken` 具体形状（capsule 引用 vs 完整快照） | 技术细节，实现时定 |
 
 ## 收敛检查
-1. 否决理由 → ADR？**没有**（无技术方案被否决，砚砚收紧边界是 align 非否决）
+1. 否决理由 → ADR？**有否决，不升 ADR**（均 feature-local 方案，见 §9 Rejected Alternatives；砚砚 P2 建议补小节而非升 ADR）
 2. 踩坑教训 → lessons-learned？**没有**（设计阶段，未踩新坑）
 3. 操作规则 → 指引文件？**没有**（feature 内设计，无新全局规则）
 
