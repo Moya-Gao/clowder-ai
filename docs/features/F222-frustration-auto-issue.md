@@ -103,6 +103,7 @@ status: draft  # 用户预览后才提交
 | 2026-06-04 | Phase C merged (PR #2088): A2A timeout (60s threshold) + retry burst (≥3 same-prefix) + issue list API, 3-round review, 90 tests |
 | 2026-06-05 | Bugfix merged (PR #2096): retry_burst 改为全内容比较（200 字符），修复 A2A review 传球误触发 |
 | 2026-06-05 | P1 Bugfix merged (PR #2105): A2A provenance gate — 全 7 个 routeExecution call site 显式声明 frustrationAutoIssueEligible（user=true, agent/connector=false），砚砚 2 轮 review + 云端 review |
+| 2026-06-05 | UX-1 + UX-2 merged (PR #2106): false_positive 状态 + 三按钮 UI + 处理后卡片折叠，GPT-5.4 review + 云端 review |
 
 ## Known Issues (2026-06-05 铲屎官反馈)
 
@@ -112,15 +113,13 @@ status: draft  # 用户预览后才提交
 - **修复**：`frustrationAutoIssueEligible` boolean gate — user direct/retry/multi-mention = true，A2A/connector/podcast = false
 - **残留 P3**：worklist-inline A2A 在 user-origin route 内仍 eligible（理论边界，无复现，需 per-entry provenance 才能修）
 
-### UX-1: "跳过"应该是反馈信号 + 增加"误报"选项
+### ~~UX-1: "跳过"应该是反馈信号 + 增加"误报"选项~~ ✅ Fixed (PR #2106)
 - **现象**：跳过只改状态不记录原因，浪费 eval 信号；应区分"跳过"和"误报"
-- **方案**：新增 `false_positive` 状态，按钮变三选一（确认/跳过/误报）
-- **Owner**：布偶猫
+- **修复**：新增 `false_positive` 状态 + `POST /false-positive` 路由，按钮变三选一（确认/跳过/误报）
 
-### UX-2: 处理完的卡片应折叠收起
+### ~~UX-2: 处理完的卡片应折叠收起~~ ✅ Fixed (PR #2106)
 - **现象**：确认/跳过后卡片仍全尺寸展示，"狗皮膏药"影响阅读
-- **方案**：处理后折叠为一行摘要，可点击展开
-- **Owner**：布偶猫
+- **修复**：处理后自动折叠为一行摘要（标题+状态徽章），可点击展开/收起；hydrated resolved 也默认折叠
 
 ## Dependencies
 
