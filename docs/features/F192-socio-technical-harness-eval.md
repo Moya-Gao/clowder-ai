@@ -247,7 +247,7 @@ Phase E 将 F192 从单域试点提升为横切的 Harness Eval Control Plane：
 - **Episode** 是评价对象（一整个任务生命周期），不是单条消息
 - **Verdict** 是分类不是分数：success / corrected_success / needs_investigation / harness_fix_needed / routing_failure / taste_mismatch / abandoned
 - **摩擦传感器层**（2026-06-04 补充，详见 `docs/discussions/2026-06-01-f192-eval-coverage-audit.md` §八）：中断动作 act（cancel/deny/skip/F128 reject）+ 中断理由 reason（magic word/cancel reason/re-route/user edit）+ 世界结果真值（test/build/merge/post-merge rollback）+ 聚合 proxy（cancel burst/cross-thread repetition/rework/latency）+ 缺席摩擦（silent bypass / feature abandonment / capability miss）
-- **三信号层**：A1 世界真值（merge/post-merge rollback/test/build，自动零成本）+ A2 嵌入交互决策（act 携带可解释对象语义或 reason 时才算；纯无理由动作默认 proxy）+ Proxy（导航不判定）
+- **三信号层**：A1 世界真值（merge/post-merge rollback/test/build，自动零成本）+ A2 嵌入交互决策（act 携带可解释对象语义或 reason 时才算；纯无理由动作默认 proxy）+ Proxy（导航不判定）；这是可信度层，不与传感器类型刚性绑定
 - **执行频率**：daily（信号产生频率高于 capability-wakeup，需要更及时的观测窗口）
 
 #### v0 骨架（PR #2074, merged 2026-06-03）
