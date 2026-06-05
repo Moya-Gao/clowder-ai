@@ -8,7 +8,7 @@ created: 2026-06-03
 
 # F223: Capability Surface Registry — 把隐藏能力产品化成可发现、可执行、可验证的能力面
 
-> **Status**: in-progress (Phase D D1/D2 implemented; D3 PR packaging pending) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
+> **Status**: pending vision guard (all phases merged) | **Owner**: 缅因猫/砚砚 | **Priority**: P1
 
 ## Architecture Ownership
 
@@ -151,7 +151,7 @@ Phase A 必须先关闭 OQ-3：第一方 Hub UX 动作是否扩展既有 `action
 
 - [x] AC-D1: 新增或扩展 `pnpm check:skills` 类检查，阻止未豁免的第一方 raw `curl localhost` 主路径进入 skill。按 F192 Phase F AC-F9 决策 #2，hard check / forcing-function 行为改动必须走 Design Gate / CVO accept；豁免名单（exception allowlist）与检查范围同审。✅ `check:skills:surfaces` 扫 `cat-cafe-skills/**/SKILL.md` + `refs/**/*.md`，接入 `pnpm check` / merge-gate，含 reviewed allowlist 与 red/green tests。
 - [x] AC-D2: 每个 registry 条目能被 F192 verdict 或手动 probe 追踪到后续行动：fix / build / keep_observe / delete_sunset。✅ inventory `Phase D Action Tracking` + `check:f223-action-tracking` contract。
-- [ ] AC-D3: PR packaging 遵守批处理策略：优先按能力族合并，不按单个能力拆 PR；只有跨架构边界、风险或 review owner 明显不同才拆。
+- [x] AC-D3: PR packaging 遵守批处理策略：优先按能力族合并，不按单个能力拆 PR；只有跨架构边界、风险或 review owner 明显不同才拆。✅ Phase D merged via PR #2095 as one guardrail + eval tracking batch.
 
 ## Dependencies
 
@@ -208,7 +208,7 @@ Phase A 必须先关闭 OQ-3：第一方 Hub UX 动作是否扩展既有 `action
 | 2026-06-04 | Phase C merged via PR #2090: Tier 1 capability normalization + underused MCP discoverability + F192 hardcode guard |
 | 2026-06-04 | Phase D Design Gate memo prepared: scoped raw first-party `curl localhost` skill guard + exception allowlist pending CVO accept |
 | 2026-06-04 | Phase D CVO accept: implement Option A (`pnpm check` + merge-gate hard check, writing-skills/worktree SOP clarification); defer A+ pre-push guard unless escape recurs |
-| 2026-06-04 | Phase D implementation: `check:skills:surfaces` hard guard + registry action tracking contract wired into `pnpm check`; PR packaging pending |
+| 2026-06-04 | Phase D merged via PR #2095: `check:skills:surfaces` hard guard + registry action tracking contract wired into `pnpm check`; F223 pending final vision guard |
 
 ## Phase B1 Vision Guard（2026-06-04, opus-48）
 
