@@ -1373,6 +1373,12 @@ export const proposeThreadInputSchema = {
     .max(4000)
     .optional()
     .describe('Optional first message body that will be posted by the user into the new thread on approve'),
+  reportingMode: z
+    .enum(['none', 'final-only', 'state-transitions', 'blocking-ack'])
+    .optional()
+    .describe(
+      'Optional F128 reporting contract for the sub-thread. none (default/autonomous): downstream self-governs, no required report-back (only escalate CVO/blocker/irreversible/cross-feature conflict per house rules). final-only: report a summary once on completion. state-transitions: report at each phase boundary. blocking-ack: wait for source-thread ack at each blocker. Triage/dispatch → none; fork-and-return needing a summary → final-only.',
+    ),
   parentThreadId: z.string().min(1).optional().describe('Optional parent thread ID. Defaults to the current thread.'),
   clientRequestId: z
     .string()
@@ -1387,6 +1393,7 @@ export async function handleProposeThread(input: {
   reason: string;
   preferredCats?: string[] | undefined;
   initialMessage?: string | undefined;
+  reportingMode?: 'none' | 'final-only' | 'state-transitions' | 'blocking-ack' | undefined;
   parentThreadId?: string | undefined;
   clientRequestId?: string | undefined;
 }): Promise<ToolResult> {
@@ -1399,6 +1406,7 @@ export async function handleProposeThread(input: {
   };
   if (input.preferredCats?.length) body.preferredCats = input.preferredCats;
   if (input.initialMessage) body.initialMessage = input.initialMessage;
+  if (input.reportingMode) body.reportingMode = input.reportingMode;
   if (input.parentThreadId) body.parentThreadId = input.parentThreadId;
 
   const result = await callbackPost('/api/callbacks/propose-thread', body);
@@ -1725,7 +1733,7 @@ export const callbackTools = [
       'WRITING @-mentions in `initialMessage`: use the SAME stable handle you use in the current thread (e.g. `@砚砚`, `@opus46`, `@gemini`) — NOT the raw catId form like `@cat-rcs85pvn`. ' +
       'Server normalizes known catIds to stable handles defensively, but always prefer the handle form so the proposal card reads naturally to the user. ' +
       'preferredCats accepts catIds (returned by cat_cafe_get_thread_cats). DISPATCH MODEL: when the user approves, the server wakes ONLY the FIRST cat in preferredCats (the chain starter). Subsequent cats are woken by the chain-driven @-mentions cats write in their own replies. ORDER preferredCats EXACTLY as you want the chain to start (e.g. for 接龙/轮转, put the first 棒 cat first). ' +
-      'FORK-AND-RETURN pattern (thread-orchestration skill Step 5c): if you proposed this thread to delegate a discussion or workflow, write into `initialMessage` (a) the chain order so the woken cat knows who to @ next, and (b) who is responsible for reporting back to the source thread when work is done (e.g. "最后一棒猫负责 cat_cafe_cross_post_message 把结果回报到主 thread"). Server auto-injects a "## 主 Thread" header so cats can locate the parent. ' +
+      'FORK-AND-RETURN pattern (thread-orchestration skill Step 5c): use `reportingMode` to set the report-back contract — default none (autonomous: downstream self-governs, no required report-back); pick final-only / state-transitions if you need a summary back to the source thread. When a reporting mode is set, write the chain order into `initialMessage` so the woken cat knows who to @ next. Server auto-injects a "## 主 Thread" header with the mode-appropriate report-back rule so cats can locate the parent. ' +
       'INTENT — default vs #ideate: by default dispatch wakes only the first preferredCat (serial chain-starter). If you genuinely want PARALLEL independent ideation (everyone replies at once, no chain), tag the message with `#ideate`. With #ideate, dispatch wakes ALL preferredCats simultaneously.',
     inputSchema: proposeThreadInputSchema,
     handler: handleProposeThread,

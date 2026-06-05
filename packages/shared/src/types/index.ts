@@ -475,6 +475,7 @@ export type {
 export type {
   ProposalApproveOverrides,
   ProposalStatus,
+  ReportingMode,
   ThreadProposal,
 } from './proposal.js';
 // Reflux types (F076 Phase 2 — 回流)
