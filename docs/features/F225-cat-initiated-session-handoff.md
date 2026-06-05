@@ -55,7 +55,7 @@ Why: session 边界目前只能由 `shouldTakeAction`（context_health / 阈值�
 ### Phase A: 提议 + Gate（discriminated proposal，复用 CAS 不复用 shape）
 
 - 新 MCP tool `cat_cafe_propose_session_handoff`，参数含**结构化五件套交接留言**：`done` / `worktree_branch` / `commits` / `next_steps` / `gotchas`，隐式带当前 `sourceSessionId`。
-- **不复用 `ThreadProposal` shape**（建-thread 专用）。新建 `SessionHandoffProposal`（或 discriminated union），复用 `claimForApproval` 的 CAS/原子 claim 思路，不是同一 record。带 commit-point checkpoint 字段（`handoffNotePersistedAt` / `sealedSessionId` / `sealAcceptedAt` / `continuationEntryId`，crash recovery 用，见 Approve 事务顺序）。
+- **不复用 `ThreadProposal` shape**（建-thread 专用）。新建 `SessionHandoffProposal`（或 discriminated union），复用 `claimForApproval` 的 CAS/原子 claim 思路，不是同一 record。带 commit-point checkpoint 字段（`handoffNotePersistedAt` / `sealedSessionId` / `sealAcceptedAt` / `continuationEntryId`，crash recovery 用，见 Approve 事务顺序）。预写的 `catHandoffNote` 带 `proposalId` + `sourceSessionId`，使 commit point 可从 session 侧反推。
 - approve/reject 走 **kind-specific dispatcher**，不混入旧建-thread approve route。卡片推当前 thread，**reject/expire = 不 seal，当前 session 继续活**。
 
 ### Phase B: 封印 + 续接 + 留言注入（typed 字段 + always-keep 注入）
@@ -75,13 +75,15 @@ Why: session 边界目前只能由 `shouldTakeAction`（context_health / 阈值�
 3. 持久化 `catHandoffNote` → 记 checkpoint `handoffNotePersistedAt`（失败 → fail/expire；stale note 受下方注入约束不会被误用）
 
 **Commit point**：
-4. `requestSeal`：**rejected**（session 已非 active）→ 仍属 pre-commit，fail/expire、note 作废；**accepted** → 记 `sealedSessionId` + `sealAcceptedAt`，**自此禁止 rollback/expire**
+4. `requestSeal`：**rejected**（session 已非 active）→ 仍属 pre-commit，fail/expire、note 作废；**accepted** → 记 `sealedSessionId` + `sealAcceptedAt`，**自此禁止 rollback/expire**。⚠️ accepted（session 侧已 sealing）与记 checkpoint（proposal 侧）**非原子**——靠预写的 `catHandoffNote.proposalId` 让 commit point 可从 session 侧反推（见 Recovery），堵中间 crash window
 
 **Post-commit（只 recover-forward，idempotent）**：
 5. enqueue 同 thread 同 catId continuation，带 idempotency key（`proposalId` / `sourceSessionId`）→ 记 `continuationEntryId`
 6. finalize approved
 
-**Recovery（stale approving proposal 按 checkpoint 续跑）**：已 seal（有 `sealedSessionId`）未 enqueue（无 `continuationEntryId`）→ idempotent enqueue；已 enqueue 未 finalize → finalize。idempotency key 防重放重复唤醒。
+**Recovery（stale approving proposal 按 checkpoint 续跑）**：
+- proposal 有 `handoffNotePersistedAt` 但**无** `sealedSessionId` → **不能直接判 pre-commit**（commit 动作在 session 侧、checkpoint 在 proposal 侧，非原子，存在 crash window）。必须 **cross-check session 侧**：若 `sourceSessionId` 已 `sealing/sealed` + `sealReason='cat_initiated_handoff'` + 匹配 note 的 `proposalId` → commit point 实际已过 → **backfill** `sealedSessionId`/`sealAcceptedAt` → 续跑 enqueue/finalize；若 session 仍 `active` → 真 pre-commit，fail/expire。
+- 有 `sealedSessionId` 未 enqueue（无 `continuationEntryId`）→ idempotent enqueue；已 enqueue 未 finalize → finalize。idempotency key（`proposalId`/`sourceSessionId`）防重放重复唤醒。
 
 **stale note 注入约束**：`catHandoffNote` 注入受 `sealReason='cat_initiated_handoff'` + 对应 approved/recovering proposal 约束。note 已写但 seal rejected / 被别的 seal（如 threshold）抢先 → stale note **不**随那个 seal 注入。
 
@@ -101,6 +103,7 @@ Why: session 边界目前只能由 `shouldTakeAction`（context_health / 阈值�
 - [ ] AC-B3: 续接 session 同 thread 同 catId、seq+1（复核：`list_session_chain` 断言 seq 递增 + catId/threadId 一致）。〔→ Why 同 thread 同 catId 续接〕
 - [ ] AC-B4: approve 两阶段——commit point（`requestSeal accepted`）**前**失败（note 持久化失败 / requestSeal rejected / session 已变 / replay）→ fail/expire 不 seal；commit point **后**失败（enqueue/finalize）→ **recover-forward**（按 checkpoint idempotent 续跑），不留半封印孤儿（复核：commit point 前后各失败路径一条测试 + recovery 测试）。〔→ 砚砚 R2 commit-point〕
 - [ ] AC-B5: stale note 隔离——`catHandoffNote` 仅在 `sealReason='cat_initiated_handoff'` + 对应 approved/recovering proposal 时注入；note 已写但被别的 seal（如 threshold）抢先 → 不随该 seal 注入（复核：threshold-seal-steals 一条测试）。〔→ 砚砚 R2 stale note〕
+- [ ] AC-B6: crash window 闭合——`requestSeal accepted`（session 已 sealing）之后、proposal checkpoint（`sealedSessionId`）写入之前崩 → recovery 从 session 侧反推（已 sealing/sealed + `cat_initiated_handoff` + note.proposalId 匹配）backfill checkpoint，enqueue continuation **恰好一次**，不误判 pre-commit、不留孤儿（复核：crash-between-accept-and-checkpoint recovery 测试）。〔→ 砚砚 R3 crash window〕
 
 ## 需求点 Checklist
 
@@ -133,6 +136,7 @@ Why: session 边界目前只能由 `shouldTakeAction`（context_health / 阈值�
    - FX-1: 猫调 propose_session_handoff → 生成 proposal + 卡片；**未 approve 时当前 session 不 seal**。
    - FX-2: commit point 前失败（requestSeal rejected / session 已变 / replay）→ fail/expire 不 seal；commit point 后失败（enqueue/finalize）→ recover-forward 按 checkpoint idempotent 续跑（不留半封印孤儿）。
    - FX-2b: stale note 隔离——note 已写但 threshold seal 抢先 → 不随该 seal 注入。
+   - FX-2c: crash after requestSeal accepted before proposal checkpoint → recovery 从 session 侧反推 backfill + enqueue continuation 恰好一次（不误判 pre-commit、不留孤儿）。
    - FX-3: **extractive/compress 默认 bootstrapDepth** 下续接 session bootstrap 第一眼 prompt **含五件套留言内容**（always-keep 注入断言）。
    - FX-4: 超滥用边界（同 active session 第 2 张 pending 卡 / 冷却期内）被拒。
 4. **Sunset Signal**
@@ -174,6 +178,7 @@ Why: session 边界目前只能由 `shouldTakeAction`（context_health / 阈值�
 | KD-6 | approve 后立即 seal + enqueue 同 thread continuation + processNext，加 busy 校验 | 现成队列入口可表达续接，无需 invoke-single-cat 大改/@opus47；busy 校验防晚 approve 封错后续 session（砚砚 OQ-2） | 2026-06-05 |
 | KD-7 | 硬滥用边界：≤1 pending/active session + per (user,thread,cat) cooldown | gate 只挡 seal 挡不住卡片刷屏；continuation 有 5/h 限流但 propose route 没有（砚砚 P2，`QueueProcessor.ts:169`） | 2026-06-05 |
 | KD-8 | approve 用 commit-point 模型：`requestSeal accepted` = commit point，之后只 recover-forward + checkpoint 字段 + continuation idempotency key | `requestSeal accepted` 不可逆（置 sealing + 清 active pointer，`SessionSealer.ts:103`/`SessionChainStore.ts:199`），commit point 后 rollback 会留半封印孤儿；F128 同范式（`proposal-routes.ts:162`）（砚砚 R2 P1） | 2026-06-05 |
+| KD-9 | commit 标记可从 session 侧反推：`catHandoffNote` 预写带 `proposalId`；recovery 对"有 note 无 `sealedSessionId`"必 cross-check session 状态，已 sealing/sealed + 匹配则 backfill 再续跑 | commit 动作（session 侧 sealing）与 checkpoint（proposal 侧）非原子，中间 crash 让 recovery 误判 pre-commit 留孤儿（砚砚 R3 P1） | 2026-06-05 |
 
 ## Timeline
 
@@ -182,6 +187,7 @@ Why: session 边界目前只能由 `shouldTakeAction`（context_health / 阈值�
 | 2026-06-05 | 立项（F128 thread opus-48 提议 → 主 thread opus-48 设计收敛 → CVO signoff 单开） |
 | 2026-06-05 | 砚砚（GPT-5.5）spec review：2 P1（留言落点 / proposal 复用）+ 1 P2（滥用边界），亲验代码锚点全部成立；决议钉进 KD-4~7 + Approve 事务顺序节 |
 | 2026-06-05 | 砚砚 R2 confirmation：前 3 项采纳到位，新抓 1 P1——approve 事务在不可逆 commit point（`requestSeal accepted`）后误设 rollback；改 commit-point 模型 + checkpoint + recover-forward（KD-8 / AC-B4,B5 / FX-2,2b） |
+| 2026-06-05 | 砚砚 R3 confirmation：commit-point/recover-forward/stale note 收住；新抓 1 P1——commit 动作(session 侧)与 checkpoint(proposal 侧)非原子的 crash window；加 session 侧反推 backfill（KD-9 / AC-B6 / FX-2c），事务完整性合同闭合 |
 
 ## Review Gate
 
