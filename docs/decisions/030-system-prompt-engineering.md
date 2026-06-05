@@ -417,6 +417,15 @@ Cat Cafe MCP quick index:
 - If a tool is missing, search exact tool name with tool_search.
 ```
 
+**Post-F203 新 MCP tool 认知入口纪律**：
+新增 MCP tool 时，必须更新"目标猫怎么知道该用它"的认知入口，但**不默认塞进 `SystemPromptBuilder.MCP_TOOLS_SECTION`**。优先级：
+1. MCP tool description（常驻 tool metadata，首要路由信号）
+2. 相关 skill refs / SOP（具体场景、参数、GOTCHA）
+3. capability wakeup index 或 L0 quick index（只有跨压缩、跨场景会崩的类别级能力）
+4. `SystemPromptBuilder.MCP_TOOLS_SECTION`（仅 legacy / fallback surface 仍依赖，或非 native L0 provider 确认需要该 user-message prepend 时）
+
+理由：`SystemPromptBuilder` 已被确认是 user/query prepend，不是真 system role；F203 后 native L0 只保留 MCP quick index。把每个新工具都塞进 `MCP_TOOLS_SECTION` 会重新制造 token 膨胀和漂移源。
+
 **预估 token**：~3,000-4,000 token（先量再砍——47 估算 baseline 3,650-4,550，精简目标 ≤ 3,500）
 
 **cache 注意事项**（47 指出）：L0 对同猫必须稳定（per-invocation 不变），否则 prompt cache 命中率掉到地板。变化因子：WORKFLOW_TRIGGERS per-breed（OK，breed 不变）、packBlocks（外部项目场景需单独评估）。
