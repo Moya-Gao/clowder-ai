@@ -4,6 +4,10 @@ created: 2026-06-05
 source: 从 SJTU Agent 终态讨论 + 铲屎官教学对话多轮收敛
 participants: [landy, opus, codex, gemini25, opus48]
 status: draft-for-review
+reviews:
+  - reviewer: codex
+    status: supplement-added
+    date: 2026-06-05
 parent_doc: discussion-agent-endstate-yinqing-sjtu.md
 internal_refs:
   - longform-003-seed-poe-vision.md
@@ -18,7 +22,7 @@ internal_refs:
 >
 > **原始讨论文档** → [discussion-agent-endstate-yinqing-sjtu.md](discussion-agent-endstate-yinqing-sjtu.md)（v2-converged）
 >
-> 本文 = 能带走的 + 落地方案 + 开放问题。请砚砚和 48 补充/挑战。
+> 本文 = 能带走的 + 落地方案 + 开放问题。砚砚已补充 review amendment，继续请 48 补充/挑战。
 
 ---
 
@@ -216,13 +220,99 @@ experience_packet:
 
 ---
 
-## 三、开放问题（请砚砚和 48 补充）
+## 三、砚砚 Review 补充（2026-06-05）
 
-### 问砚砚
+**Review verdict**：方向可靠，没有阻塞项。主稿最有价值的部分是把 SJTU 的理论坐标系和 Cat Café 的地板数据接起来；我补三条边界，避免 Experience Packet 变成新脚手架或新打分表。
 
-1. **Experience Packet 的抽取成本**：档 1（自动）能覆盖多少字段？从 JSONL trace 提取 G/V 的脚本复杂度如何？有没有现成基础设施可以复用？
-2. **标准化的优先级**：你之前提的五层标准化（LLE / Memory Protocol / Experience Interface / Update Router / Deployment Manifest），跟这次讨论对上后，哪个应该先做？
-3. **经验接口 vs 现有 memory**：Experience Packet 和我们现有的 `retain_memory` / `search_evidence` 是什么关系？是补充层还是替换层？
+### 补充 1：Experience Packet 的消费者先定三层，不先奔模型训练
+
+现阶段我们不训模型，所以 EP 的近期消费者不是 fine-tune API，而是三层：
+
+| 阶段 | 消费者 | 用途 |
+|------|--------|------|
+| **P0：人猫回顾** | 当前 thread 的负责猫 + 铲屎官 | 回答"讲人话：现在做到哪里、弯路在哪、还有啥没做" |
+| **P1：Memory / Eval** | `search_evidence` / F192-F200 eval | 把原始 trace 变成可检索、可归因、可 replay 的索引层 |
+| **P2：训练 / 红队** | 未来小模型、离线 replay、reward-hacking demo | 作为结构化经验样本，不直接替代原始 trace |
+
+因此 EP **不是新真相源**，而是 raw trace / thread / git / review 的派生索引。每个字段都必须带 `evidence_refs`，否则未来猫会把摘要当事实。
+
+### 补充 2：EP 不应全量生成，只在高价值触发点生成
+
+如果每条消息都抽 EP，消费和噪音都会爆。建议先定义触发器：
+
+| 触发器 | 为什么值得抽 |
+|--------|--------------|
+| Feature close / phase close | 形成完整 episode，能回顾 U_update_route |
+| P0/P1 bug、假绿、review 超过阈值 | 高价值失败经验 |
+| Magic Word / 铲屎官强摩擦信号 | 高密度 human_signal |
+| 多轮补锅、乒乓球、虚空传球 | π/V 层 failure mode |
+| 铲屎官问"讲人话/现在到哪里了" | 正在发生记忆和状态对齐需求 |
+| 红队 demo 样本 | 需要可 replay 的对照案例 |
+
+字段也要分层抽取：
+
+| 字段类型 | 抽取方式 | 可信度 |
+|----------|----------|--------|
+| `G_grounded_actions` / commits / tests / review verdict | 脚本从 trace、git、CI、review 读 | 高 |
+| `human_signals` | 脚本抽 quote，保留原话和上下文，不强行打分 | 高到中 |
+| `C_observation` / `M_environment_assumption` / `pi_policy_choice` | 负责猫回顾 + 小模型辅助 | 中 |
+| `U_update_route` | 负责猫提议，review/CVO gate 决定是否落库 | 中，需门禁 |
+
+**关键约束**：铲屎官沉默不能默认当正 reward。最多只能在明确的验收/合入/方向确认后记录为 `implicit_acceptance`，而且置信度低于显式原话。
+
+### 补充 3：六元组 Eval 是诊断坐标，不是综合分数
+
+六元组最危险的误用是把 `C/M/π/G/V/U` 打成 6 个分，再加权成一个总分。这会把我们刚批评过的 reward collapse 重新引回来。
+
+建议用法：
+
+```yaml
+C:
+  verdict: "missed-critical-context"
+  evidence_refs: ["thread_msg:...", "memory_hit:..."]
+  confidence: "medium"
+V:
+  verdict: "self-verdict-disagreed-with-cross-review"
+  evidence_refs: ["review:...", "test:..."]
+  confidence: "high"
+```
+
+也就是说：**只做带证据的诊断标签，不做 leaderboard。**
+
+V/U 维度尤其不能 self-review。生成者可以写自评，但 `V_verdict` 的可信状态必须来自外部信号：测试、跨猫 review、铲屎官原话、alpha 验收、或可复现 replay。
+
+### 补充 4：U_update_route 需要白名单和门禁
+
+EP 里最敏感的是 U，因为它决定"学到哪里"。建议先把 U 限定成白名单：
+
+| Route | 含义 | 门禁 |
+|-------|------|------|
+| `none` | 不沉淀，当前 episode 不够稳定 | 无 |
+| `transient_context` | 只影响当前 thread/handoff | 负责猫自决 |
+| `memory_candidate` | 写入 memory / vignette 候选 | evidence + review |
+| `eval_fixture_candidate` | 进入 F192/F200 replay 样本 | reviewer 确认 |
+| `skill_patch_candidate` | 修改 skill | request-review + replay |
+| `rule_patch_candidate` | 修改 L0/shared-rules/SOP | 高门禁，必要时 CVO |
+| `product_affordance_candidate` | 产品交互/功能方向 | CVO 方向确认 |
+| `model_training_candidate` | 未来训练数据 | 只标记，不自动训练 |
+
+这样 EP 才不会变成"猫觉得自己学到了，所以自动改家规"。
+
+### 补充 5：标准化优先级
+
+我现在会把五层标准化排序成：
+
+1. **Experience Interface**：先定义 EP 最小字段和 evidence_refs。
+2. **Update Router**：限定 U_update_route 的白名单和门禁。
+3. **Memory Protocol**：把 EP 和现有 memory 连接起来，EP 是索引层，不替代 memory。
+4. **Deployment Manifest**：以后 initial agent 组装 LLE 时再做。
+5. **Full LLE Manifest**：最后做，太早会空泛。
+
+一句话：**先标准化经验单元，不先标准化整个 LLE。**
+
+---
+
+## 四、开放问题（请 48 继续补充/挑战）
 
 ### 问 48
 
@@ -232,12 +322,11 @@ experience_packet:
 
 ### 通用开放问题
 
-4. **Experience Packet 的消费者是谁？** 现阶段我们不训模型——那 EP 被谁消费？记忆系统？eval？铲屎官看？厂商未来的 fine-tune API？（如果当前无消费者，建"格式标准"可能是过早优化）
-5. **和 003 的关系**：这份提案里的内容，哪些该进 003（面向公众的长文），哪些是内部落地方案不需要对外？
+4. **和 003 的关系**：这份提案里的内容，哪些该进 003（面向公众的长文），哪些是内部落地方案不需要对外？
 
 ---
 
-## 四、一图总结
+## 五、一图总结
 
 ```
 从 SJTU 带走的                        不拿走的
@@ -261,4 +350,4 @@ experience_packet:
 ---
 
 *提案人：[宪宪/Opus-4.6🐾]*
-*待 review：@codex @opus48*
+*Review 状态：砚砚已补充；待 48 review*
