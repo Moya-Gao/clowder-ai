@@ -146,12 +146,26 @@ export interface AgyToolInfo {
 }
 
 const KNOWN_TOOLS = new Set([
-  'list_dir', 'view_file', 'write_to_file', 'replace_file_content',
-  'multi_replace_file_content', 'run_command', 'grep_search',
-  'ask_permission', 'ask_question', 'define_subagent', 'invoke_subagent',
-  'manage_subagents', 'manage_task', 'schedule', 'search_web',
-  'send_message', 'read_url_content', 'read_resource', 'list_resources',
-  'generate_image'
+  'list_dir',
+  'view_file',
+  'write_to_file',
+  'replace_file_content',
+  'multi_replace_file_content',
+  'run_command',
+  'grep_search',
+  'ask_permission',
+  'ask_question',
+  'define_subagent',
+  'invoke_subagent',
+  'manage_subagents',
+  'manage_task',
+  'schedule',
+  'search_web',
+  'send_message',
+  'read_url_content',
+  'read_resource',
+  'list_resources',
+  'generate_image',
 ]);
 
 export function parseAgyStepTools(payload: Buffer, idx: number): AgyToolInfo | null {
@@ -224,11 +238,11 @@ export function parseAgyStepTools(payload: Buffer, idx: number): AgyToolInfo | n
         // 使用 field 5.4.1 (innerB 的 field 1) 提取 per-tool 级唯一的 toolCallId
         const toolCallIdB = innerB.get(1)?.toString('utf8');
         const toolNameB = innerB.get(2)?.toString('utf8');
- 
+
         if (toolNameB && KNOWN_TOOLS.has(toolNameB) && toolCallIdB) {
           let toolInput: Record<string, any> = {};
           const argsJsonB = innerB.get(3)?.toString('utf8');
- 
+
           if (argsJsonB && argsJsonB.startsWith('{')) {
             try {
               toolInput = JSON.parse(argsJsonB);
@@ -243,7 +257,7 @@ export function parseAgyStepTools(payload: Buffer, idx: number): AgyToolInfo | n
                 const strValues: string[] = [];
                 for (const [, val] of paramFields.entries()) {
                   const s = val.toString('utf8');
-                  if (/^[\x20-\x7E\s\u4e00-\u9fa5\d\-\_\{\}\:\"\,]+$/.test(s) && s.length > 0) {
+                  if (/^[\x20-\x7E\s\u4e00-\u9fa5\d\-_{}:",]+$/.test(s) && s.length > 0) {
                     strValues.push(s);
                   }
                 }
@@ -253,7 +267,7 @@ export function parseAgyStepTools(payload: Buffer, idx: number): AgyToolInfo | n
               }
             }
           }
- 
+
           // 尝试从顶层 field 10 (toolResult) 提取 output (field 26)
           let toolResultOutput: string | undefined;
           const resultBytes = top.get(10);
@@ -265,7 +279,7 @@ export function parseAgyStepTools(payload: Buffer, idx: number): AgyToolInfo | n
               // ignore
             }
           }
- 
+
           return {
             toolName: toolNameB,
             toolCallId: toolCallIdB,
@@ -281,5 +295,3 @@ export function parseAgyStepTools(payload: Buffer, idx: number): AgyToolInfo | n
     return null;
   }
 }
-
-

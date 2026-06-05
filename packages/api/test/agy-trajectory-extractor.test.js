@@ -184,10 +184,7 @@ test('parseAgyStepTools extracts runCommand', async () => {
   const { parseAgyStepTools } = await import(
     '../dist/domains/cats/services/agents/providers/agy-trajectory-extractor.js'
   );
-  const runCommandBuf = Buffer.concat([
-    encodeLengthDelimited(2, '/workspace'),
-    encodeLengthDelimited(23, 'pnpm test'),
-  ]);
+  const runCommandBuf = Buffer.concat([encodeLengthDelimited(2, '/workspace'), encodeLengthDelimited(23, 'pnpm test')]);
   const buf = encodeLengthDelimited(28, runCommandBuf);
   const got = parseAgyStepTools(buf, 100);
   assert.ok(got);
@@ -221,7 +218,7 @@ test('parseAgyStepTools extracts real tool data from binary fixtures', async () 
   const { parseAgyStepTools } = await import(
     '../dist/domains/cats/services/agents/providers/agy-trajectory-extractor.js'
   );
-  
+
   // 1. 测试 Step 350 (replace_file_content 调用)
   const replaceFixture = readFileSync(join(__dirname, 'fixtures/agy-step5-replace.bin'));
   const gotReplace = parseAgyStepTools(replaceFixture, 350);
@@ -229,7 +226,10 @@ test('parseAgyStepTools extracts real tool data from binary fixtures', async () 
   assert.equal(gotReplace.toolName, 'replace_file_content');
   assert.equal(gotReplace.toolCallId, 'ejso2av1');
   assert.ok(gotReplace.toolInput);
-  assert.equal(gotReplace.toolInput.Description, 'Update test-proto.ts to call and print parsed tools using parseAgyStepTools.');
+  assert.equal(
+    gotReplace.toolInput.Description,
+    'Update test-proto.ts to call and print parsed tools using parseAgyStepTools.',
+  );
   assert.ok(gotReplace.toolResultOutput);
   assert.ok(gotReplace.toolResultOutput.includes('Update test-proto.ts to call and print parsed tools'));
 
@@ -245,5 +245,3 @@ test('parseAgyStepTools extracts real tool data from binary fixtures', async () 
 
   assert.notEqual(gotReplace.toolCallId, gotViewFile.toolCallId, 'different tools must have distinct toolCallIds');
 });
-
-
