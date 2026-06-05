@@ -2,11 +2,14 @@
 doc_kind: draft
 created: 2026-06-04
 participants: [landy, opus, codex, opus48]
-status: v5-yinqing-extraction-and-eval-memory
+status: v6-title-aligned
+title: AutoHarness：从静态编排走向自进化
 target: 华为云内部创新汇报（三页 PPT + live demo）
 ---
 
-# 华为云汇报 PPT 骨架 v5
+# AutoHarness：从静态编排走向自进化
+
+> 华为云汇报 PPT 骨架 v6
 
 > 格式来源：华为创新 IDEA 汇报模板（三页 PPT → 接 live demo）
 > v0：铲屎官纠正对标对象 + 技术挑战框架 + 去黑话
@@ -16,6 +19,7 @@ target: 华为云内部创新汇报（三页 PPT + live demo）
 > 对标产品进入候选池，未核验项只作线索不作正式 claim
 > v4：第三页场景升级：commit push 热身退 pocket，主场景改为 F128 编排协议自修正 + 业务专属 harness 进化
 > v5：粗提尹青 PPT Image #3/#4；第三页改成"使用者触发 vs eval 系统触发"双触发路径
+> v6：采用正式汇报标题"AutoHarness：从静态编排走向自进化"
 
 ---
 
