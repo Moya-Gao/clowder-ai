@@ -288,14 +288,18 @@ Phase E 将 F192 从单域试点提升为横切的 Harness Eval Control Plane：
 - Hard: MCP tool schema validation (VerdictHandoffPacket) + 受控 commit semantics（worktree write → auto-PR or branch commit, 待 Design Gate 定）
 - Eval: Phase H Eval Contract 下
 
-**AC draft（待 Design Gate 砚砚 collaborate refine）**：
-- [ ] AC-H1: 新 MCP tool `cat_cafe_publish_verdict` 接受 VerdictHandoffPacket schema + domain，validate + 调对应 generator + 写 verdict.md + bundle/
-- [ ] AC-H2: 受控 commit 路径——working tree write 后自动开 PR or commit 到 designated branch（Design Gate 定具体）；**不允许直接 push main**（OQ-21 R0 教训）
-- [ ] AC-H3: eval cat DOMAIN_INSTRUCTIONS 升级——所有 5 domain 指引调用此 MCP tool 而非 git push（替代 PR #2091 abandoned 的指令）
-- [ ] AC-H4: Tool returns commit SHA / PR URL 给 eval cat 用于 traceability + audit chain
-- [ ] AC-H5: e2e test——mock eval cat call → publish_verdict → 文件落盘 → `loadEvalHubSummary()` 看见 verdict
-- [ ] AC-H6: 仅支持已 wired generator 的 domain（v1.x = eval:a2a + eval:capability-wakeup）；其他 domain 返回 unsupported（与 generate-now 对称）
-- [ ] AC-H7: idempotency + length + slug validation 复用 manual-trigger/generate-now.ts 模式（不重新发明）
+**AC（Design Gate locked, 砚砚 2026-06-05 narrowing A 方案）**：
+- [ ] AC-H1: 新 MCP tool `cat_cafe_publish_verdict` 接受**完整** `VerdictHandoffPacket`（9 字段全填，server 不从 narrative 猜结构）+ domain；若 generator 需要 evidence bundle 必须显式带 sanitized bundle/provenance 或 source refs，**tool 不造 evidence**
+- [ ] AC-H2: 受控 commit 路径——tool 创建 branch `verdict/auto/{domainSlug}/{verdictId}` + commit verdict.md + bundle/ + 自动开 PR；返回 commit SHA + PR URL；**禁止 working tree only**（非长期 SOT）/ **禁止直推 main**（绕 review，OQ-21 R0 教训）
+- [ ] AC-H3: Auth model = **callback auth (invocationId + callbackToken)** — 不复用 generate-now 的 session+network+owner（那是 browser API model）；额外 **domain-level allowlist**：只有该 eval domain 注册的 eval cat / 受信 invocation 能 publish；v1 暂不进 agent-key allowlist
+- [ ] AC-H4: eval cat DOMAIN_INSTRUCTIONS 升级——所有 5 domain 指引调用此 MCP tool 而非 git push；提供 packet 模板/helper 降低 cat 填写成本（替代 PR #2091 abandoned 的"git push origin main"教学）
+- [ ] AC-H5: Tool returns commit SHA + PR URL 在 success response 给 eval cat 用于 traceability + audit chain
+- [ ] AC-H6: 两层 tests:
+  - Handler unit tests (fake git/generator) — input shape / packet validation / branch naming / commit semantics
+  - Deterministic e2e (NO real LLM) — mock eval cat callback-auth MCP call → publish_verdict → files written → `loadEvalHubSummary()` sees verdict → fake PR created
+  - **失败 fixture 必含**：unsupported domain / invalid packet / duplicate verdictId / missing or wrong callback auth / git or branch conflict
+- [ ] AC-H7: 仅支持已 wired generator 的 domain（v1.x = eval:a2a + eval:capability-wakeup）；其他 domain 返回 unsupported_generator (与 generate-now 对称)
+- [ ] AC-H8: idempotency + length + slug validation 复用 manual-trigger/generate-now.ts 模式（不重新发明）
 
 **Eval Contract (F192 mandate)**：
 - Primary Users + Activation Signal: eval cats publishing verdicts after analysis; tool call count per eval cycle
