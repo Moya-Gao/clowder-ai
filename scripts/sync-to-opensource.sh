@@ -2135,7 +2135,20 @@ TOTAL_ELAPSED=$(( $(date +%s) - SYNC_START_TIME ))
 echo ""
 echo -e "${GREEN}=== Sync complete ===${NC}  [total: ${TOTAL_ELAPSED}s]"
 echo "Target: $TARGET_DIR"
-echo "Next: cd $TARGET_DIR && git push (or create PR)"
+# Derive target repo from origin URL for precise gh pr create hint
+TARGET_BRANCH=$(git -C "$TARGET_DIR" branch --show-current 2>/dev/null || true)
+TARGET_REMOTE_URL=$(git -C "$TARGET_DIR" config --get remote.origin.url 2>/dev/null || true)
+TARGET_REPO=""
+if [[ "$TARGET_REMOTE_URL" =~ github\.com[:/]([^/]+/[^/.]+) ]]; then
+  TARGET_REPO="${BASH_REMATCH[1]}"
+fi
+echo "Next:"
+echo "  cd $TARGET_DIR && git push origin $TARGET_BRANCH"
+if [ -n "$TARGET_REPO" ] && [ -n "$TARGET_BRANCH" ]; then
+  echo "  gh pr create --repo $TARGET_REPO --head $TARGET_BRANCH --base main"
+else
+  echo "  gh pr create (verify --repo target manually — could not derive from origin URL)"
+fi
 if [ "$DRY_RUN" = false ] && [ "$VALIDATE" = false ]; then
   PUBLISH_HANDOFF_CMD="bash scripts/publish-sync-tag.sh --source-sha=$(git -C "$SOURCE_DIR" rev-parse HEAD) --push"
   if [ -n "${CLOWDER_AI_DIR:-}" ]; then
