@@ -440,7 +440,10 @@ class Qwen3CloneAdapter(TtsAdapter):
 def create_adapter(provider: str, model: str) -> TtsAdapter:
     """Create TTS adapter based on provider name."""
     if provider == "qwen3-clone":
-        return Qwen3CloneAdapter(model=model if model != Qwen3CloneAdapter.DEFAULT_MODEL else None)
+        # When TTS_MODEL equals the provider name (e.g. TTS_MODEL=qwen3-clone),
+        # it's not a valid HF model path — fall through to adapter's built-in default.
+        effective = model if (model and model != provider and model != Qwen3CloneAdapter.DEFAULT_MODEL) else None
+        return Qwen3CloneAdapter(model=effective)
     if provider == "mlx-audio":
         return MlxAudioAdapter(model=model)
     if provider == "edge-tts":
@@ -448,7 +451,7 @@ def create_adapter(provider: str, model: str) -> TtsAdapter:
     if provider == "sapi":
         return SapiAdapter()
     if provider == "piper":
-        return PiperAdapter(model=model if model else None)
+        return PiperAdapter(model=model if (model and model != provider) else None)
     raise ValueError(
         f"Unknown TTS provider: '{provider}'. Supported: qwen3-clone, mlx-audio, edge-tts, sapi, piper"
     )
