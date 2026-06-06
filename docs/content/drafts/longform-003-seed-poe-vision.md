@@ -32,6 +32,7 @@ status: seed
 > 14. [PoE Master TODO](../../discussions/2026-06-02-poe-brainstorm-master-todo.md) — 所有待办项收敛
 > 15. [Cat Wu 访谈套读](../../discussions/2026-04-15-harness-engineering-triad-study/round5-anthropic-product-velocity.md) — Anthropic 产品速度 × failure taste × harness built to delete
 > 16. [EMF/EMZ Case — Agent 能力模型现场验证](../../discussions/2026-06-05-emf-case-agent-capability-field-test.md) — 谢泽丰 EMF→SVG 真实业务 case，三猫独立分析验证"训环境不训模型"命题（§十二）
+> 17. [Workflow Distiller — FDE 前半段的压缩](longform-003-workflow-distiller-fde-front-half.md) — 从行业用户现场语言蒸馏 AI-native 产线、MVP 切片、skills、QA 和验证指标（§四 bis 补充）
 
 ---
 
@@ -136,6 +137,11 @@ status: seed
 | 定期复盘迭代 | Harness self-evolution → 自动信号→patch→sunset |
 
 > **从"每个客户派人"变成"部署一次，自动适配"。FDE 成本从人天变成算力，同时越用越准。**
+
+**补充：FDE 前半段也可以被压缩。**
+上表主要讲“部署后”从真实轨迹里自动适配；新的 [Workflow Distiller note](longform-003-workflow-distiller-fde-front-half.md) 把这个叙事往前推到“部署前 / 立项前”：猫咖可以把一个行业用户讲出来的混乱现场语言，蒸馏成工作流、摩擦点、AI 接管边界、MVP 切片、skills、QA 和验证指标。
+
+> 原则：从用户工作流中寻找 AI-native 产线，不从模型能力中寻找行业场景。
 
 ### 对不同投资人的话术
 
