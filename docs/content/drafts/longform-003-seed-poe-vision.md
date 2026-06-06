@@ -33,6 +33,7 @@ status: seed
 > 15. [Cat Wu 访谈套读](../../discussions/2026-04-15-harness-engineering-triad-study/round5-anthropic-product-velocity.md) — Anthropic 产品速度 × failure taste × harness built to delete
 > 16. [EMF/EMZ Case — Agent 能力模型现场验证](../../discussions/2026-06-05-emf-case-agent-capability-field-test.md) — 谢泽丰 EMF→SVG 真实业务 case，三猫独立分析验证"训环境不训模型"命题（§十二）
 > 17. [Workflow Distiller — FDE 前半段的压缩](longform-003-workflow-distiller-fde-front-half.md) — 从行业用户现场语言蒸馏 AI-native 产线、MVP 切片、skills、QA 和验证指标（§四 bis 补充）
+> 18. [Workflow Distiller 讨论导航](longform-003-workflow-distiller-discussion-trail.md) — 给后续参与讨论的猫的阅读路径、事实锚点、讨论 lane 和 open questions
 
 ---
 

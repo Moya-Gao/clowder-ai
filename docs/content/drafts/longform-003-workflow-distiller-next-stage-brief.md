@@ -22,6 +22,7 @@ source_refs:
 
 - [Longform-003 Seed](./longform-003-seed-poe-vision.md)：当前 PoE / Agent 3.0 / FDE killer 主线。
 - [Workflow Distiller — FDE 前半段的压缩](./longform-003-workflow-distiller-fde-front-half.md)：已整理的 companion note。
+- [Workflow Distiller 讨论导航](./longform-003-workflow-distiller-discussion-trail.md)：给后续参与讨论的猫的顺藤摸瓜线。
 - [《置身钉内》集体读书笔记](../../competitor-research/dingtalk-one-postmortem/reading-notes.md)：ONE failure modes 与 Cat Cafe 映射。
 - [Cat Cafe PMF / Failure Mode Audit](../../competitor-research/dingtalk-one-postmortem/cat-cafe-pmf-failure-mode-audit.md)：Cat Cafe 当前痛点、机制、行为证据、反噬风险和护栏。
 
@@ -31,8 +32,8 @@ source_refs:
 |------|------|
 | 原始 brief | 已粘贴 |
 | 来源 | 云端大缅因猫 |
-| 本地初筛 | v1 已补：室内设计 SOP 校准 + 80% baseline / 20% delta |
-| 多猫讨论 | 待定 |
+| 本地初筛 | v2 已补：室内设计 SOP 校准 + 主观审美拟合 |
+| 多猫讨论 | 讨论导航已建 |
 | 是否进入 longform-003 | 部分已进入：ToB bridge + Workflow Distiller companion note |
 | 是否独立成 longform-004 seed | 未决定 |
 
@@ -385,6 +386,57 @@ Codex/Claude Code 单独使用时，更像强执行器。猫咖把它们组织�
 | 新核心 | 80% avg / expert baseline + 20% 定制 | 重要新增，应进入 ToB bridge | 补进 longform / companion note |
 | 风险 | 猫猫太会想，每个立项都显得合理 | 保留；接 EP-002 延迟收敛门禁 | 保留 |
 
+## 本地初筛 v2：主观审美与方案参考生成
+
+后续截图又把痛点往上推了一层。朋友补充：
+
+> 公司设计费很贵，业主想要的方案不会是普通平面布局，而是有创意、各种各样的方案；现有室内设计 AI 也能自动生成平面图，但大部分布局都中规中矩，没什么能用的。如果有可以生成平面的 AI，她也愿意付费，因为可以参考。
+
+这说明：
+
+- “宣传视频”适合低风险 demo，但不一定是最大付费痛点。
+- “效果图快改 / brief 包”更接近日常协作痛点。
+- “平面方案参考生成”可能是更靠前、更值钱、但也更主观的切口。
+
+### 主观题不是无 eval
+
+室内设计方案可以拆成三层：
+
+| 层级 | 评价信号 | 系统化方式 |
+|------|----------|------------|
+| 硬约束 | 户型、承重、采光、动线、尺寸、预算、施工可行性 | 规则 / 检查器 / 专业知识库 |
+| 专业先验 | 空间组织、视觉轴、洄游动线、收纳、材料关系、优秀案例参考 | 案例检索 / 专家 critique / 设计模式 |
+| Taste delta | 业主、公司、设计师觉得什么叫“有创意”和“可用” | 选择 / 否定 / 纠偏 → taste evidence |
+
+所以主观审美工作流的目标不是让 AI 一次给出唯一正确答案，而是：
+
+> 更快地产生可比较、可解释、可被用户纠偏的高质量候选。
+
+### 对产品切口的影响
+
+| 切口 | v1 判断 | v2 更新 |
+|------|---------|---------|
+| 宣传视频 | 低风险，适合 demo | 仍成立，但不代表最大付费痛点 |
+| 效果图快改 / brief 包 | 第二阶段，更有业务价值 | 仍成立，尤其适合减少 handoff |
+| 平面方案参考生成 | 原来未充分展开 | 新增：可能是高价值切口，但需要主观 taste eval |
+| 施工图 QA | 后期 QA，不自动生成 | 不变 |
+
+### 和 Cat Cafe taste 机制的关系
+
+这和 F221 的 taste lane 同构：
+
+```text
+episode
+  → choice / rejection / correction
+  → vignette
+  → soft prior
+  → skill / eval / example
+```
+
+对外讲法可以是：
+
+> 主观领域不是没有标准，而是标准不能先验写死。系统应该先用专业 baseline 生成候选，再让用户的选择和纠偏成为选择压力。
+
 ## 处理原则
 
 1. **先保留原话，再提炼**：原始 brief 不直接覆盖本地判断；先作为 source material 保存。
@@ -431,3 +483,4 @@ Codex/Claude Code 单独使用时，更像强执行器。猫咖把它们组织�
 | 2026-06-05 | 缅因猫/砚砚 GPT-5.5 | 创建 brief inbox，等待铲屎官粘贴云端大缅因猫原文 |
 | 2026-06-05 | 缅因猫/砚砚 GPT-5.5 | 保留云端原 brief，补本地初筛 v1：室内设计 SOP 校准、SOP Delta Learning、80% baseline + 20% delta |
 | 2026-06-05 | 缅因猫/砚砚 GPT-5.5 | 将 baseline + delta 判断同步回 longform-003 ToB bridge 和 Workflow Distiller companion note |
+| 2026-06-05 | 缅因猫/砚砚 GPT-5.5 | 补本地初筛 v2：主观审美拟合、平面方案参考生成、讨论导航 |
