@@ -66,10 +66,15 @@ describe('Eval Hub API route', () => {
 
     assert.equal(response.statusCode, 200);
     const body = response.json();
-    assert.equal(body.counts.total, 1);
-    assert.equal(body.items[0].id, '2026-05-23-eval-a2a-live-verdict');
-    assert.equal(body.items[0].systemWorkspace.kind, 'eval_domain');
-    assert.equal(body.items[0].evidence.snapshotRefs[0], 'snapshot:bundle/2026-05-23-eval-a2a-live-verdict/snapshot');
+    // PR-3 (F192 H 收尾): #2114 merge added a 2nd verdict to main since this test
+    // was authored. Assert >= 1 (count-tolerant) + verify the original fixture
+    // verdict still appears by ID — not by index (more verdicts WILL accumulate
+    // as scheduled evals publish more artifacts).
+    assert.ok(body.counts.total >= 1, `expected at least 1 verdict, got ${body.counts.total}`);
+    const originalVerdict = body.items.find((v) => v.id === '2026-05-23-eval-a2a-live-verdict');
+    assert.ok(originalVerdict, 'fixture verdict 2026-05-23-eval-a2a-live-verdict must remain in summary');
+    assert.equal(originalVerdict.systemWorkspace.kind, 'eval_domain');
+    assert.equal(originalVerdict.evidence.snapshotRefs[0], 'snapshot:bundle/2026-05-23-eval-a2a-live-verdict/snapshot');
     await app.close();
   });
 

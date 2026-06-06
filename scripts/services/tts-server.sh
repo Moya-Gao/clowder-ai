@@ -51,7 +51,7 @@ else
 fi
 
 # When MODEL equals a provider name (e.g. TTS_MODEL=qwen3-clone), it's not
-# a valid HF model path.  Log a diagnostic — the Python create_adapter()
+# a valid HF model path.  Log a diagnostic -- the Python create_adapter()
 # handles this by falling back to the adapter's built-in DEFAULT_MODEL.
 case "$MODEL" in
   qwen3-clone|mlx-audio|edge-tts|sapi|piper)

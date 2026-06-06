@@ -24,7 +24,6 @@ Evidence:
 - metric:cat_cafe_a2a_c2_exit_checked_total=22
 - metric:cat_cafe_a2a_c2_void_hold_hint_emitted_total=1
 - metric:cat_cafe_a2a_c2_void_hold_checked_total=22
-- docs/harness-feedback/attributions/2026-06-06-F167-attribution.yaml#no_finding_record
 
 Counterarguments:
 - 2/22 is still 9.1%, above the ratio floor; this is accepted only because the attribution pipeline intentionally suppresses samples below count 3.

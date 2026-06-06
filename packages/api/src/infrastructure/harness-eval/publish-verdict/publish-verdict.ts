@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { CapabilityWakeupSourceSelector } from '../capability-wakeup/capability-wakeup-trial-provider.js';
 import { validateCapabilityWakeupSelector } from '../capability-wakeup/capability-wakeup-trial-provider.js';
@@ -9,6 +9,7 @@ import {
   parseVerdictHandoffPacket,
   type VerdictHandoffPacket,
 } from '../verdict-handoff.js';
+import { computePublishPolicy } from './publish-policy.js';
 import type {
   GitPublisher,
   HandlerError,
@@ -275,13 +276,33 @@ export async function handlePublishVerdict(
           harnessFeedbackRoot: isolatedHarnessFeedback,
           liveHarnessFeedbackRoot: deps.harnessFeedbackRoot,
         });
+        // PR-3 (砚砚 R2): read attribution.json from bundle to compute publish policy.
+        // Generator writes attribution.json into bundleDir; if absent or parse fails,
+        // `computePublishPolicy` fail-opens to regular_pr (砚砚 R2 contract).
+        let attribution: unknown;
+        try {
+          const attrPath = resolve(artifact.bundleDir, 'attribution.json');
+          if (existsSync(attrPath)) {
+            attribution = JSON.parse(readFileSync(attrPath, 'utf8'));
+          }
+        } catch {
+          // Fail-open: undefined → computePublishPolicy returns regular_pr
+        }
+        const policy = computePublishPolicy(packet, attribution);
+        const policyFooter =
+          policy.mode === 'evidence_only_interim_pr'
+            ? `\n\n---\n**Cat-owned artifact gate — No CVO merge needed.**\n(Interim: keep_observe + no actionable findings. Rollup mechanism deferred to future Phase. See docs/SOP.md § artifact-only-pr-merge-gate for cat merge contract.)`
+            : policy.labels.includes('evidence-only')
+              ? `\n\n---\n**Cat-owned artifact gate — No CVO merge needed.**\n(Actionable findings present; eval domain owner cat merges per docs/SOP.md § artifact-only-pr-merge-gate.)`
+              : '';
         return {
           // PR-2 R3 P1 (cloud): stage extra paths the generator wrote (cw raw inputs)
           // so the auto-PR includes all evidence referenced by provenance.json.
           paths: [artifact.verdictPath, artifact.bundleDir, ...(artifact.extraStagedPaths ?? [])],
           commitMessage: `verdict(${packet.domainId}): ${packet.id} — ${packet.verdict}\n\n${packet.phenomenon}\n\n[published via cat_cafe_publish_verdict MCP]`,
           prTitle: `verdict(${packet.domainId}): ${packet.id}`,
-          prBody: `Verdict published via cat_cafe_publish_verdict MCP tool.\n\nVerdict: ${packet.verdict}\nDomain: ${packet.domainId}\nPhenomenon: ${packet.phenomenon}\n\nReviewed by: ${packet.ownerAsk.targetOwnerCatId}\nAction: ${packet.ownerAsk.requestedAction}`,
+          prBody: `Verdict published via cat_cafe_publish_verdict MCP tool.\n\nVerdict: ${packet.verdict}\nDomain: ${packet.domainId}\nPhenomenon: ${packet.phenomenon}\n\nReviewed by: ${packet.ownerAsk.targetOwnerCatId}\nAction: ${packet.ownerAsk.requestedAction}${policyFooter}`,
+          labels: policy.labels,
         };
       },
     });

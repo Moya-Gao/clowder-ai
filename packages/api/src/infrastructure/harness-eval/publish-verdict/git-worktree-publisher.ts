@@ -56,7 +56,7 @@ export function createGitWorktreePublisher(deps: GitWorktreePublisherDeps): GitP
         worktreeCreated = true;
 
         // 3. Run caller's stage callback (generator writes verdict artifacts)
-        const { paths, commitMessage, prTitle, prBody } = await opts.stage(worktreePath);
+        const { paths, commitMessage, prTitle, prBody, labels } = await opts.stage(worktreePath);
 
         if (paths.length === 0) {
           throw new Error('stage produced no paths to commit');
@@ -88,9 +88,56 @@ export function createGitWorktreePublisher(deps: GitWorktreePublisherDeps): GitP
         // 砚砚 R4 P1 cloud: `--repo .` is NOT valid gh syntax (fails with
         // 'expected the "[HOST/]OWNER/REPO" format'). Rely on cwd inside the
         // worktree — gh auto-detects owner/repo from the git remote.
+        //
+        // PR-3 (砚砚 R2): pass each label via separate `--label` flag (gh CLI accepts
+        // repeated --label X; not comma-separated). `computePublishPolicy` decides
+        // labels per packet/attribution.
+        //
+        // PR-3 R1 (砚砚 cloud): `gh pr create --label X` fails if label doesn't exist
+        // in repo. Ensure labels exist via `gh label create --force` (idempotent —
+        // creates if missing, updates if exists; either way safe). Errors swallowed:
+        // if label creation fails (network / permissions), we still try `gh pr create`
+        // — better to surface label error there than to block the publish entirely.
+        const standardLabelMeta: Record<string, { color: string; description: string }> = {
+          'evidence-only': {
+            color: '0E8A16',
+            description: 'F192 auto-verdict artifact PR — cat-owned merge per SOP, not CVO',
+          },
+          'no-action-needed': {
+            color: 'C5DEF5',
+            description: 'F192 keep_observe + no actionable findings — interim per-run PR (rollup deferred)',
+          },
+        };
+        for (const label of labels ?? []) {
+          const meta = standardLabelMeta[label];
+          const args = ['label', 'create', label, '--force'];
+          if (meta) {
+            args.push('--color', meta.color, '--description', meta.description);
+          }
+          try {
+            await exec('gh', args, { cwd: worktreePath, timeout: 15_000 });
+          } catch (err) {
+            // Best-effort: surface error on gh pr create below if it actually breaks PR.
+            // (Swallowing here = avoid double-fail on label step; PR create will retry.)
+            void err;
+          }
+        }
+        const labelFlags = (labels ?? []).flatMap((label) => ['--label', label]);
         const prResult = await exec(
           'gh',
-          ['pr', 'create', '--base', 'main', '--head', opts.branchName, '--title', prTitle, '--body', prBody],
+          [
+            'pr',
+            'create',
+            '--base',
+            'main',
+            '--head',
+            opts.branchName,
+            '--title',
+            prTitle,
+            '--body',
+            prBody,
+            ...labelFlags,
+          ],
           { cwd: worktreePath, timeout: 60_000 },
         );
         const prUrl =

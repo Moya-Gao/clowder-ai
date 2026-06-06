@@ -13,6 +13,16 @@ export interface StageResult {
   commitMessage: string;
   prTitle: string;
   prBody: string;
+  /**
+   * F192 Phase H 收尾 PR-3 (砚砚 R2): per-PR labels driven by `computePublishPolicy`.
+   * GitPublisher passes each as `--label X` to `gh pr create`. Omit/empty → no labels.
+   * Standard labels:
+   *   - `evidence-only`: artifact-only PR; merge gate is artifact-only-pr-merge-gate (SOP),
+   *     not full pnpm gate. NOT a regular code review request.
+   *   - `no-action-needed`: keep_observe verdict with noFindingRecord — interim per-run PR;
+   *     rollup mechanism deferred to future Phase.
+   */
+  labels?: string[];
 }
 
 export interface PublishOnIsolatedWorktreeOpts {
