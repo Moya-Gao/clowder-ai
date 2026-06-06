@@ -521,6 +521,12 @@ export type {
   SessionUsageSnapshot,
   StrategyAction,
 } from './session.js';
+// Session handoff proposal types (F225 Cat-Initiated Session Handoff)
+export type {
+  CatHandoffNote,
+  HandoffProposalStatus,
+  SessionHandoffProposal,
+} from './session-handoff-proposal.js';
 // Signals types (F21 Signal Hunter)
 export type {
   SignalArticle,

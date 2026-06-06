@@ -61,6 +61,7 @@ export { resolutionRoutes } from './resolution-routes.js';
 export { rulesRoutes } from './rules.js';
 export { servicesRoutes } from './services.js';
 export { sessionChainRoutes } from './session-chain.js';
+export { sessionHandoffApproveRoutes } from './session-handoff-approve-routes.js';
 export { sessionHooksRoutes } from './session-hooks.js';
 export { sessionStrategyConfigRoutes } from './session-strategy-config.js';
 export { sessionTranscriptRoutes } from './session-transcript.js';

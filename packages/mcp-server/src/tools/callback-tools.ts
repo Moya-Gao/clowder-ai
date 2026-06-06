@@ -1441,6 +1441,78 @@ export async function handleProposeThread(input: {
   return result;
 }
 
+// ============ F225: Cat-Initiated Session Handoff ============
+
+export const proposeSessionHandoffInputSchema = {
+  done: z
+    .string()
+    .min(1)
+    .max(2000)
+    .describe('五件套·已完成：这个 session 你做完了什么（让续接的你一眼看清进展，别重新摸索）'),
+  nextSteps: z.string().min(1).max(2000).describe('五件套·下一步：续接的你从哪里继续、第一步具体做什么'),
+  worktreeBranch: z
+    .string()
+    .max(200)
+    .optional()
+    .describe('五件套·worktree/分支（可选）：当前工作的 worktree 路径或分支名'),
+  commits: z
+    .array(z.string().min(1).max(100))
+    .max(50)
+    .optional()
+    .describe('五件套·commits（可选）：相关 commit SHA 列表'),
+  gotchas: z
+    .string()
+    .max(2000)
+    .optional()
+    .describe('五件套·坑/注意（可选）：续接的你最容易踩的坑、不可逆点、待验证假设'),
+  clientRequestId: z
+    .string()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe('Optional idempotency key. Resending with the same value returns the same proposalId.'),
+};
+
+export async function handleProposeSessionHandoff(input: {
+  done: string;
+  nextSteps: string;
+  worktreeBranch?: string | undefined;
+  commits?: string[] | undefined;
+  gotchas?: string | undefined;
+  clientRequestId?: string | undefined;
+}): Promise<ToolResult> {
+  // P2 (云端): always send an idempotency key — auto-generate when the caller didn't supply one —
+  // so callbackPost transport retries (408/429/5xx) resolve back to the original proposal instead of
+  // tripping the A4 ≤1-pending gate and misreporting "NOT created" (mirrors F128 handleProposeThread).
+  const body: Record<string, unknown> = {
+    done: input.done,
+    nextSteps: input.nextSteps,
+    clientRequestId: input.clientRequestId ?? randomUUID(),
+  };
+  if (input.worktreeBranch) body.worktreeBranch = input.worktreeBranch;
+  if (input.commits?.length) body.commits = input.commits;
+  if (input.gotchas) body.gotchas = input.gotchas;
+
+  const result = await callbackPost('/api/callbacks/propose-session-handoff', body);
+  if (!result.isError) {
+    try {
+      const data = JSON.parse((result.content[0] as { text: string }).text);
+      if (data?.status === 'stale_ignored') {
+        return errorResult(
+          'Handoff proposal NOT created: this invocation was superseded by a newer one (stale_ignored).',
+        );
+      }
+      if (data?.status === 'rejected') {
+        // A4 gate / no-active-session — surface the reason so the cat reacts instead of retry-spamming.
+        return errorResult(`Handoff proposal NOT created (${data.reason}): ${data.message ?? ''}`);
+      }
+    } catch {
+      // parse failure is fine
+    }
+  }
+  return result;
+}
+
 // ============ Thread Cats Discovery ============
 
 export const getThreadCatsInputSchema = {};
@@ -1773,6 +1845,20 @@ export const callbackTools = [
       'INTENT — default vs #ideate: by default dispatch wakes only the first preferredCat (serial chain-starter). If you genuinely want PARALLEL independent ideation (everyone replies at once, no chain), tag the message with `#ideate`. With #ideate, dispatch wakes ALL preferredCats simultaneously.',
     inputSchema: proposeThreadInputSchema,
     handler: handleProposeThread,
+  },
+  // F225: Cat-initiated session handoff (user approves before the current session is sealed + continued)
+  {
+    name: 'cat_cafe_propose_session_handoff',
+    description:
+      'Propose handing off your CURRENT session to a fresh continuation of yourself, at a clean breakpoint. ' +
+      'Use when you just hit a natural seam — last commit landed, tests green, next step is clear — and context is getting heavy: ' +
+      'instead of letting compression silently lossy-summarize you mid-task, you proactively seal HERE and carry a high-fidelity handoff note to the next session. ' +
+      'Returns a proposalId, NOT a sealed session — the seal only happens after the owner approves the confirmation card (reject/expire = current session keeps running, nothing is sealed). ' +
+      'Write the 五件套 note for the FUTURE you (same thread, same cat, seq+1): done (what you finished) + nextSteps (where to resume) required; worktreeBranch / commits / gotchas optional. ' +
+      'The note is injected always-keep into the continuation bootstrap (visible even under the extractive/compress default), so the next you starts with full intent rather than a lossy digest. ' +
+      'Use sparingly — only at genuinely clean breakpoints, never to escape a hard task mid-flight. Orthogonal to compression: compress is the lossy fallback, handoff is the graceful relay.',
+    inputSchema: proposeSessionHandoffInputSchema,
+    handler: handleProposeSessionHandoff,
   },
   // ============ F155: Guide Engine ============
   {

@@ -9,6 +9,7 @@
  */
 
 import type { CatId } from './ids.js';
+import type { CatHandoffNote } from './session-handoff-proposal.js';
 
 export type SessionStatus = 'active' | 'sealing' | 'sealed';
 
@@ -27,8 +28,14 @@ export interface SessionRecord {
   /** Latest token usage snapshot (persisted for frontend display after reload) */
   lastUsage?: SessionUsageSnapshot;
   messageCount: number;
-  /** Seal reason (Phase B) */
-  sealReason?: 'threshold' | 'manual' | 'error' | (string & {});
+  /** Seal reason (Phase B). F225 adds 'cat_initiated_handoff' for 猫主动 handoff. */
+  sealReason?: 'threshold' | 'manual' | 'error' | 'cat_initiated_handoff' | (string & {});
+  /**
+   * F225: 猫亲手写的五件套交接留言（typed，KD-4，非 continuityCapsule:unknown）。
+   * approve 时 seal 前持久化；bootstrap always-keep 注入续接 session 第一眼（B2）。
+   * 带 proposalId 让 commit point 可从 session 侧反推（KD-9 crash recovery）。
+   */
+  catHandoffNote?: CatHandoffNote;
   /** F33: Number of CLI compressions in this session (hybrid strategy) */
   compressionCount?: number;
   /** Structured collaboration control-flow state used across compact/seal/resume boundaries. */

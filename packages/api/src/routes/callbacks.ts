@@ -73,6 +73,7 @@ import { registerCallbackLarkActionRoutes } from './callback-lark-action-routes.
 import { registerCallbackLimbRoutes } from './callback-limb-routes.js';
 import { registerCallbackMemoryRoutes } from './callback-memory-routes.js';
 import { getMultiMentionOrchestrator, registerMultiMentionRoutes } from './callback-multi-mention-routes.js';
+import { registerCallbackProposeSessionHandoffRoutes } from './callback-propose-session-handoff-routes.js';
 import { registerCallbackProposeThreadRoutes } from './callback-propose-thread-routes.js';
 import { registerCallbackQuestRoutes } from './callback-quest-routes.js';
 import { registerCallbackRuntimeSessionRoutes } from './callback-runtime-session-routes.js';
@@ -451,6 +452,8 @@ export interface CallbackRoutesOptions {
   eventAuditLog?: Pick<EventAuditLog, 'append'>;
   /** F128: cat-side thread proposals (propose endpoint) */
   proposalStore?: import('../domains/cats/services/stores/ports/ProposalStore.js').IProposalStore;
+  /** F225: cat-initiated session handoff proposals (propose endpoint) */
+  handoffProposalStore?: import('../domains/cats/services/stores/ports/SessionHandoffProposalStore.js').ISessionHandoffProposalStore;
   /** F155 B-4: Independent guide session store */
   guideSessionStore?: import('../domains/guides/GuideSessionRepository.js').IGuideSessionStore;
   /** AgentRegistry for thread-cats MCP callback */
@@ -2606,6 +2609,17 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       registry,
       proposalStore: opts.proposalStore,
       threadStore: opts.threadStore,
+      messageStore: opts.messageStore,
+      socketManager,
+    });
+  }
+
+  // F225: Cat-initiated session handoff propose callback
+  if (opts.handoffProposalStore && opts.sessionChainStore) {
+    registerCallbackProposeSessionHandoffRoutes(app, {
+      registry,
+      handoffProposalStore: opts.handoffProposalStore,
+      sessionChainStore: opts.sessionChainStore,
       messageStore: opts.messageStore,
       socketManager,
     });

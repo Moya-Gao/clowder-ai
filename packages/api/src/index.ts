@@ -92,6 +92,7 @@ import { createPendingRequestStore } from './domains/cats/services/stores/factor
 import { createProposalStore } from './domains/cats/services/stores/factories/ProposalStoreFactory.js';
 import { createPushSubscriptionStore } from './domains/cats/services/stores/factories/PushSubscriptionStoreFactory.js';
 import { createReadStateStore } from './domains/cats/services/stores/factories/ReadStateStoreFactory.js';
+import { createSessionHandoffProposalStore } from './domains/cats/services/stores/factories/SessionHandoffProposalStoreFactory.js';
 import { createSummaryStore } from './domains/cats/services/stores/factories/SummaryStoreFactory.js';
 import { createTaskStore } from './domains/cats/services/stores/factories/TaskStoreFactory.js';
 import { createThreadStore } from './domains/cats/services/stores/factories/ThreadStoreFactory.js';
@@ -197,6 +198,7 @@ import {
   rulesRoutes,
   servicesRoutes,
   sessionChainRoutes,
+  sessionHandoffApproveRoutes,
   sessionHooksRoutes,
   sessionStrategyConfigRoutes,
   sessionTranscriptRoutes,
@@ -476,6 +478,7 @@ async function main(): Promise<void> {
   const deliveryCursorStore = new DeliveryCursorStore(sessionStore);
   const threadStore = createThreadStore(redis);
   const proposalStore = createProposalStore(redis);
+  const handoffProposalStore = createSessionHandoffProposalStore(redis);
   const frustrationIssueStore = createFrustrationIssueStore(redis);
   // F222: Create early so it's available for both AgentRouter (cancel burst detection) and AuthorizationManager
   const authPendingStore = createPendingRequestStore(redis);
@@ -1749,6 +1752,7 @@ async function main(): Promise<void> {
     sessionChainStore,
     runtimeSessionStore,
     proposalStore,
+    handoffProposalStore,
     agentRegistry,
     router,
     invocationRecordStore,
@@ -1926,6 +1930,15 @@ async function main(): Promise<void> {
     router,
     invocationQueue,
     queueProcessor,
+  });
+  // F225: cat-initiated session handoff approve/reject (user-auth commit-point dispatcher)
+  await app.register(sessionHandoffApproveRoutes, {
+    handoffProposalStore,
+    sessionChainStore,
+    sessionSealer,
+    invocationQueue,
+    queueProcessor,
+    socketManager,
   });
   // F222: Frustration auto-issue routes
   await app.register(frustrationIssueRoutes, { frustrationIssueStore });

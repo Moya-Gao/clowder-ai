@@ -55,6 +55,8 @@ const EXPECTED_TOOLS = [
   'cat_cafe_bootcamp_env_check',
   // F128: Cat-initiated thread proposal
   'cat_cafe_propose_thread',
+  // F225: Cat-initiated session handoff proposal
+  'cat_cafe_propose_session_handoff',
   // Callback-scoped memory tools
   'cat_cafe_retain_memory_callback',
   // Direct evidence tools (cat_cafe_reflect removed in F193 Phase D AC-D1)
@@ -166,6 +168,8 @@ const EXPECTED_COLLAB_TOOLS = [
   'cat_cafe_bootcamp_env_check',
   // F128: Cat-initiated thread proposal
   'cat_cafe_propose_thread',
+  // F225: Cat-initiated session handoff proposal
+  'cat_cafe_propose_session_handoff',
   'cat_cafe_submit_game_action',
   // F139 Phase 3A: Schedule tools
   'cat_cafe_list_schedule_templates',
