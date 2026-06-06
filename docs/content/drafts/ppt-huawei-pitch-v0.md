@@ -2,7 +2,7 @@
 doc_kind: draft
 created: 2026-06-04
 participants: [landy, opus, codex, opus48]
-status: v6-title-aligned
+status: v7-004-fde-lifecycle
 title: AutoHarness：从静态编排走向自进化
 target: 华为云内部创新汇报（三页 PPT + live demo）
 ---
@@ -20,6 +20,7 @@ target: 华为云内部创新汇报（三页 PPT + live demo）
 > v4：第三页场景升级：commit push 热身退 pocket，主场景改为 F128 编排协议自修正 + 业务专属 harness 进化
 > v5：粗提尹青 PPT Image #3/#4；第三页改成"使用者触发 vs eval 系统触发"双触发路径
 > v6：采用正式汇报标题"AutoHarness：从静态编排走向自进化"
+> v7：48 接入 longform-004，创新机会点升级为"FDE 全生命周期压缩"（Discovery+Build+Evolution 三段闭环）+ 主体下沉杀手句；对标候选池上主 PPT 待讨论；架构图六层 update 讨论中
 
 ---
 
@@ -60,6 +61,8 @@ L1 部分自演进        L2 部分自进化          L3 系统自进化        
 
 **创新机会点**
 
+> **统领句（v7 加 004）**：我们压缩的不是模型成本，是 **FDE 全生命周期成本**。企业部署 AI 最贵的是 FDE——理解现场（Discovery）→ 造第一版（Build）→ 持续迭代（Evolution）。行业现在最多自动化了 Evolution，前两段还靠人；**我们三段全压缩**。
+
 1. **从 L2+ 进入受控 L3**：
    当前行业大量停在"人写流程 + Agent 辅助执行"。我们的突破是：Agent 能从真实摩擦中生成/修改 harness 组件，并通过真值信号、跨模型审查、回滚机制受控上线。
 
@@ -68,6 +71,12 @@ L1 部分自演进        L2 部分自进化          L3 系统自进化        
 
 3. **L2→L3 的核心资产不是模型，而是真实轨迹**：
    用户取消、拉闸、采纳、回滚、重复纠偏，都是自然发生的反馈。AutoHarness 把这些轨迹变成可验证的 harness patch，而不是要求企业额外雇标注团队。
+   **而第一条轨迹不需要企业额外雇人造**——harness 能从客户已有的历史项目（被毙的方案、被改的产出、被拒的理由）反推出来。
+
+4. **连"当 FDE"这件事本身都被下沉给客户自己的人**：
+   不需要我们的稀缺专家全程在场——第一个场景我们陪你趟一遍（bootstrap），之后**你们自己的业务专家 + 环境**就能自助造新产线。能力内化进客户组织，不是长期依赖供应商。
+
+> **对领导的杀手句**：我们不是卖更厉害的 FDE 人天，是卖一个**让你们自己的业务专家也能当 FDE**的环境。FDE 成本从人天，变成一次性 bootstrap 加算力。
 
 **对标候选池（初步 source-audit，不直接上主 PPT）**
 
