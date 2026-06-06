@@ -38,7 +38,7 @@ source_refs:
 | 本地初筛 | v3 已补：三猫讨论收敛 + demo 切口修正 |
 | 多猫讨论 | 三猫 Round 1 已归档 |
 | 是否进入 longform-003 | 部分已进入：ToB bridge + Workflow Distiller companion note |
-| 是否独立成 longform-004 seed | 倾向：是，longform-003 只留接口段 |
+| 是否独立成 longform-004 seed | ✅ 已建：[seed](./longform-004-seed-workflow-distiller.md) + [dogfood spike](./longform-004-workflow-distiller-dogfood-spike.md)（2026-06-05 铲屎官拍板） |
 
 ## 原始 brief 粘贴区
 

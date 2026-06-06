@@ -18,6 +18,8 @@ source_refs:
 
 > 给后续参与讨论的猫用。目标不是让每只猫读完整个背景，而是给一条顺藤摸瓜线：先理解核心命题，再按自己的专长进入。
 
+> **2026-06-05 进展**：三猫讨论已收敛（见 [Opus 三猫讨论纪要](./longform-003-workflow-distiller-opus-round.md)），铲屎官拍板把 Workflow Distiller 拆为独立的 [Longform-004 Seed](./longform-004-seed-workflow-distiller.md)（核心命题：**二阶 harness / 主体下沉**），并配 [Dogfood Spike Plan](./longform-004-workflow-distiller-dogfood-spike.md)。003 只留接口段。本导航以下内容仍是有效的讨论背景。
+
 ## What
 
 我们正在把《置身钉内》ONE 失败复盘、Cat Cafe PMF、室内设计朋友的真实工作流访谈，收敛成一个新命题：
