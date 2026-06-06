@@ -18,7 +18,9 @@ created: 2026-06-06
 > - "我想给大家展示我们的毛线球，比如说定时任务、记忆系统，**这些其实也都在右边呢，和 workspace 一个位置**"
 > - "这个右边的 workspace **可以变成漂浮窗口，然后能回归回去**"
 
-**价值**：让铲屎官演示时能把右侧某个 surface（首版：PPT/文档/图片）**抽成浮窗常驻**，右侧 docked 格子腾出来轮播证据（记忆/定时任务/毛线球），讲完**回归归位**——演示流全程不被打断，且有清晰退出，普通使用不被布局困住。
+**价值**：让铲屎官演示时能把**文件/md 文档抽成浮窗常驻**（铲屎官的"PPT"本质就是 md 讲稿），右侧 docked 生态位就腾出来、可以切 mode tab 展示记忆/定时任务/毛线球给观众看真实功能——**文件浮窗 + 右侧切证据两者并存**，讲完**回归归位**，演示流全程不被打断，且有清晰退出，普通使用不被布局困住。
+
+> 铲屎官精确化（2026-06-06 + 截图）：浮的对象是**文件/md**，**不是**让记忆/定时/任务浮。后三者本就在右侧 mode tab 展示，问题是「5 个 mode tab（开发/记忆/定时/任务/社区）挤同一生态位互斥——切到定时任务就没法同时看 md」。解法 = 把 md 拎出来浮着，生态位让给其他 tab。
 
 ## Current State / 现状基线
 
@@ -33,16 +35,17 @@ created: 2026-06-06
 
 ### Phase A: Floating Presentation Surface Host（MVP — 文件/图片/PPT 图）
 
-- 新增 **AppShell/root 级 `FloatingPresentationSurfaceHost`**，mount 在 `(chat)` route group **之上**——切 `/memory`、`/settings`、`/mission-hub` 时**不卸载**（KD-1）。
+- 新增 **AppShell/root 级 `FloatingPresentationSurfaceHost`**，mount 在 `(chat)` route group **之上**、在 `WorkspacePanel` **之外**——无论 ① 切 workspace mode tab（开发→定时/记忆/任务，主场景）还是 ② 切全屏路由（`/memory` 等）都**不卸载**（KD-1）。
 - 新增全局 `presentationSurface` 状态：`{ placement: 'docked'|'floating', content: snapshot{worktreeId, tabs[], activeTab, mode}, pos{x,y}, size{w,h}, minimized }`，挂全局 store，不绑 `(chat)`。
 - **tear-off content snapshot**（KD-2）：detach 时把当前右侧内容**快照成浮窗副本**，docked workspace **保留**——右侧格子仍可切 dev/recall/schedule/tasks/community。不是搬走唯一 panel。
 - 拖拽/resize/回坞复用 `react-rnd`（F195 先例）。
 - 入口：`WorkspacePanel` header 的 detach 按钮（F063 锁按钮旁）+ **全局召回开关放 ActivityBar**（跨路由可见，在 Memory Hub 时也能召回/收起浮窗）。
 - 退出：dock back 按钮 + `Esc`。
 
-### Phase B: 扩展 surface 类型（live detach）
+### Phase B（非本需求，记录边界）: 其他 mode 不浮
 
-- `recall` / `tasks` / `schedule` / `community` 数据驱动 mode 支持 detach 成 live panel（非快照，活数据）。
+- 铲屎官 2026-06-06 明确：**记忆/定时任务/毛线球不需要浮窗**。它们在右侧 docked mode tab（开发/记忆/定时/任务/社区）正常展示即可——浮的只有文件/md，目的就是把文件腾出生态位、让 docked 能切去展示这些 mode。
+- 仅当未来出现「多份内容同时浮」的新需求再评估，**非本 feature scope**。
 
 ### Phase C（评估）: F063 lock 语义合并 + terminal/browser detach
 
@@ -53,8 +56,8 @@ created: 2026-06-06
 <!-- 立项愿景硬度自检：每条 AC ① trace 回 Why ② 非作者可复核。MVP scope（OQ-1）+ 如何讲 show（OQ-4）待 Design Gate / 新 thread 讨论收敛后可能微调 AC，但 Why 已钉死。 -->
 
 ### Phase A（Floating Presentation Surface Host）
-- [ ] AC-A1: 演示时可把右侧文件/图片/PPT 图 tear-off 成浮窗，**docked workspace 仍保留可切其他 mode**（trace Why「两份同框」；复核：手动 + 组件测试）
-- [ ] AC-A2: 浮窗在切到 `/memory`、`/mission-hub`、`/settings`(Eval Hub) 时**不卸载、保持可见**（trace Why「切证据 PPT 不消失」；复核：路由切换 e2e 测试断言 host 存活）
+- [ ] AC-A1: 演示时可把文件/md tear-off 成浮窗，**右侧 docked 生态位腾出、可自由切 mode tab（记忆/定时/任务）展示**，文件浮窗与 docked 内容并存（trace Why「讲稿+活功能并排」；复核：手动 + 组件测试）
+- [ ] AC-A2: 浮窗在 ① workspace mode tab 切换（开发→定时/记忆/任务，主场景）② 切全屏路由（`/memory` 等）时都**不卸载、保持可见**（trace Why「切证据时讲稿不消失」；复核：mode 切换 + 路由切换测试断言 host 存活）
 - [ ] AC-A3: 浮窗可拖拽 / 缩放 / 最小化 / **回坞 dock back**，清晰退出（`Esc` + 按钮）（trace Why「能回归回去 + 清晰退出」）
 - [ ] AC-A4: **不破坏**现有 workspace navigation 和 F063 presentation lock（复核：thread-switch lock 回归测试行为不变）
 - [ ] AC-A5: 关键状态切换有前端测试覆盖：host 跨路由 survival / 单浮窗 / no double `WorkspacePanel` mount / dock back / z-index·bounds·Esc / responsive smoke
@@ -90,7 +93,7 @@ created: 2026-06-06
 | KD-1 | 浮窗 host 必须 mount 在 AppShell/root 层，不在 ChatContainer 下 | `createPortal` 只改 DOM 插入点、不改 React owner 生命周期；跨路由存活由 host 层级决定（砚砚纠正宪宪误判） | 2026-06-06 |
 | KD-2 | tear-off content snapshot，docked workspace 保留 | 铲屎官要「两份同框」（PPT 浮 + 右侧切证据）；搬走唯一 panel 会让右侧空掉 | 2026-06-06 |
 | KD-3 | 开新 F 号，不挂 F063 Phase | 跨 AppShell / rightPanelMode / workspaceMode / F195 / F102 / F139 / F160 六域，挂 Phase 会模糊 F063 边界（CVO signoff） | 2026-06-06 |
-| KD-4 | MVP 先文件/图片/PPT，证据区继续用一级页面 | F102 约束（Memory Hub 不回塞右栏）+ 风险最低、覆盖演示主场景 | 2026-06-06 |
+| KD-4 | 浮窗对象 = 文件/图片/md（PPT 本质是 md）；记忆/定时/任务用 workspace docked mode tab 展示，不浮、不需全屏路由 | 铲屎官精确化 + 截图：演示在 workspace panel 内切 mode tab，浮 md 腾生态位即满足。用的是 workspace recall mode 不是完整 Memory Hub，不违反 F102 | 2026-06-06 |
 | KD-5 | F063 暂不拆，新增 `presentationSurface` 并存 | 不破坏已测的 thread-switch lock，MVP 稳后再评估合并 | 2026-06-06 |
 
 ## Timeline
