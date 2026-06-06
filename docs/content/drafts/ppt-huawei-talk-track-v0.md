@@ -2,7 +2,7 @@
 doc_kind: talk-track
 created: 2026-06-06
 participants: [landy, codex]
-status: v3-ground-truth-anchored-opening
+status: v4-landy-natural-opening
 title: AutoHarness 华为汇报讲稿草案
 related:
   - ppt-huawei-pitch-v0.md
@@ -17,7 +17,7 @@ related:
 
 ## 开场策略
 
-不要一上来讲 L1-L5，也不要先解释 code-as-harness。那会像内部术语。先承认行业语境：self-improving / AutoHarness 已经被 Hermes 等产品讲火了；我们的切口不是"我也会进化"，而是"这次进化到底有没有真值锚点，能不能证明它改对了"。
+不要一上来讲 L1-L5，也不要先解释 code-as-harness。那会像内部术语。先承认行业语境：self-improving / AutoHarness 已经是热点；但不要只拿 Hermes 一个点讲，铲屎官真实口语会自然串成一条近期信号链：Hermes 把概念讲热，OpenAI Tax AI with Codex 把真实业务 trace 接到 eval / patch loop，Anthropic 数据分析文章把 truth source / skill / validation 讲透，Anthropic Institute 又把问题推到 AI 参与 AI 开发本身。
 
 > **今天我不想演示一个"号称会自我进化"的 Agent。这个词已经很热了。我要演示的是更具体的一件事：一个 AI 工作环境，能不能从真实使用里找到真值锚点，证明哪一次改进真的改对了，再把它变成可验证、可回滚、可治理的 harness 变更。**
 
@@ -31,13 +31,40 @@ related:
 
 > 各位老师好。今天我讲的题目是 AutoHarness：从静态编排走向自进化。
 >
-> 我先说一个判断：过去一年，"self-improving agent"已经不是新词了。Hermes 这样的产品把这个方向讲得很热，很多产品都会说自己会记忆、会学技能、会自我改进。问题是，到了企业场景里，不能只听"会进化"这个词，必须继续追问：**这次进化的真值是什么？是用户的自然决策，还是系统 eval、tracing 异常、代码合入/回滚这些世界结果？如果没有 ground truth，所谓进化很容易只是把噪音沉淀成能力。**
+> 我先把行业背景摆一下。远一点看，Hermes 这类产品已经把 self-improving agent 这个概念讲得很热；近一点看，5 月底 OpenAI / Thrive 发了 Tax AI with Codex，把专家纠错、production trace、eval 和 Codex patch 串成一条业务闭环；6 月初 Anthropic 又连续发了两类信号：一类是 self-service data analytics with Claude，核心不是 Claude 会写 SQL，而是 truth source、skills 和 validation；另一类是 Anthropic Institute 的 When AI builds itself，讲 AI 正在参与 AI 自身的工程和研究迭代。
 >
-> 我们想做的不是再做一个更会营销"自进化"的 Agent，而是把自进化变成一条工程闭环：**从真实轨迹里采集真值锚点，把信号归因成证据，再生成可验证、可回滚、可治理的 harness 改动。这里的真值锚点不只来自人，也来自自动 eval、tracing、代码合入、回滚和重复异常。**
+> 所以这不是我们单独造一个新词。行业已经在往同一个方向走：AI 不只是生成一次结果，而是进入工作系统本身。真正的问题是，到了企业里，系统凭什么知道**该学什么、不该学什么、按谁的标准学**？这里就不能只靠一句 self-improving，必须有专家地基、真值锚点、持续校准和治理边界。
+>
+> 我们想做的，就是把这件事变成一条工程闭环：**从真实轨迹里采集真值锚点，把信号归因成证据，再生成可验证、可回滚、可治理的 harness 改动。这里的真值锚点不只来自人，也来自自动 eval、tracing、代码合入、回滚和重复异常。**
 >
 > 一句话讲商业价值：**过去要靠专家和 FDE 长期手工调的 AI 工作流，我们把它变成一个"专家先定调，系统再按公司、团队、个人真实使用持续对齐"的工作环境。**
 >
 > 所以我今天右边会放 PPT 讲框架，左边会直接打开我们的真实 workspace 和 thread。这个系统不是为了汇报临时搭的 showcase，它是我们过去 120 天每天自己在用的工作环境。
+
+## 开场行业锚点：铲屎官口语版接法
+
+如果铲屎官开场自然讲到 Hermes / OpenAI / Anthropic，不要硬拦。正确接法是：**它们不是竞品清单，而是趋势信号链**。
+
+```text
+Hermes：概念被讲热 —— self-improving agent 不是新词
+OpenAI/Thrive Tax AI with Codex：真实生产 trace 可以进入 eval / patch loop
+Anthropic self-service analytics：企业可靠性靠 truth source + skill + validation
+Anthropic Institute RSI：AI 正在参与 AI 自身工程和研究迭代
+→ 我们的问题：企业里怎么让它学对、学稳、按组织和个人持续对齐？
+```
+
+口语接法：
+
+> 所以我不是来证明"AI 会不会自我改进"，这个趋势已经很明显了。我要讲的是下一层：当 AI 真的进企业、进具体工作流以后，它每次改进到底从哪里拿真值、按谁的专业标准校准、怎么沉淀成一个不会乱学、能回滚、能治理的工作环境。
+
+这段比"Hermes 这样的产品把方向讲热"更像铲屎官的口语，也更公平：不否认行业已有信号，但把我们的切口钉在 **专家地基 + 真值锚点 + per-company/team/user alignment + harness governance**。
+
+### 锚点使用 caveat
+
+- OpenAI Tax AI with Codex 是 2026-05-27 官方 case study，不要说"6 月发的"；可以口头说"五月底 / 最近"。
+- Anthropic self-service analytics 是 2026-06-03 Claude 官方博客，适合讲 truth source / skills / validation，不适合包装成完整 self-improving agent。
+- Anthropic Institute 的 When AI builds itself 是 recursive self-improvement / AI 参与 AI 开发的产业信号；其中内部数字要带 caveat，不在 60 秒里堆百分比。
+- Hermes 可以讲"把概念讲热"，不要讲"已经证明完整自进化"，因为我们没有把代码和真实 ground truth loop 审完。
 
 ## 第一句可选钩子
 
