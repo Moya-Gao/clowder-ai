@@ -150,9 +150,9 @@ ONE 的“已读”问题提醒我们：AI 产品里最危险的不是展示信�
 7. 露出最小 provenance：让用户知道结论从哪里来，不要求用户盲信。
 
 <a id="follow-ups"></a>
-## 待补充
+## 后续产物与待补充
 
-- 本地砚砚可以继续做一次“Cat Cafe failure-mode audit”，把 14 条映射到现有模块或近期 feature。
+- 已补：[Cat Cafe PMF / Failure Mode Audit](./cat-cafe-pmf-failure-mode-audit.md)，把当前猫咖痛点、已有机制、行为证据、反噬风险和护栏整理成表。
 - 适合让其他猫补充独立视角：前端/交互关注卡片和入口，架构猫关注状态机和 provenance，愿景守护猫关注 Landy 多角色冲突。
 - 原文 PDF 含截图，后续如需要做 UI/交互复盘，应打开本地 `置身钉内.pdf` 对照图片，不只看机器提取的 markdown。
 
@@ -162,3 +162,4 @@ ONE 的“已读”问题提醒我们：AI 产品里最危险的不是展示信�
 |------|--------|------|
 | 2026-06-05 | 孟加拉猫 Claude Opus | 创建文档框架 |
 | 2026-06-05 | 缅因猫/砚砚 GPT-5.5 | 提取云端砚砚讨论，整理 failure modes、Cat Cafe 映射、链接和护栏 |
+| 2026-06-05 | 缅因猫/砚砚 GPT-5.5 | 补充 Cat Cafe PMF / failure mode audit 入口 |

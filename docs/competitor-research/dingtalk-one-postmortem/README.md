@@ -22,6 +22,7 @@ updated: 2026-06-05
 | 文件 | 说明 | Git 状态 |
 |------|------|----------|
 | [reading-notes.md](./reading-notes.md) | Cat Cafe 集体读书笔记：云端砚砚视角、failure modes、Cat Cafe 映射 | 已跟踪 |
+| [cat-cafe-pmf-failure-mode-audit.md](./cat-cafe-pmf-failure-mode-audit.md) | Cat Cafe PMF / failure mode audit：痛点、机制、行为证据、反噬风险、护栏 | 已跟踪 |
 | [置身钉内.md](./置身钉内.md) | PDF 提取的 markdown 全文转录（含 Cat Cafe 关联分析） | 已跟踪 |
 | `置身钉内.pdf` | 原始 PDF（含排版和截图） | gitignore（33MB，本地保留） |
 
@@ -31,7 +32,8 @@ updated: 2026-06-05
 
 1. 先读本 README，了解文档背景和章节。
 2. 再读 [reading-notes.md](./reading-notes.md)，看已经提炼出的产品 failure modes 和 Cat Cafe 对照。
-3. 需要核对原文时，跳到 [置身钉内.md](./置身钉内.md)；需要看截图和排版时，打开本地 PDF。
+3. 看 [cat-cafe-pmf-failure-mode-audit.md](./cat-cafe-pmf-failure-mode-audit.md)，把 Cat Cafe 当前 PMF 从主观感受落到行为证据和护栏。
+4. 需要核对原文时，跳到 [置身钉内.md](./置身钉内.md)；需要看截图和排版时，打开本地 PDF。
 
 ## 章节结构
 
