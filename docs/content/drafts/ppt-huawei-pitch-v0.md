@@ -2,7 +2,7 @@
 doc_kind: draft
 created: 2026-06-04
 participants: [landy, opus, codex, opus48]
-status: v15-l2-anchors-restored
+status: v16-jiuwen-demoted-pending-source
 title: AutoHarness：从静态编排走向自进化
 target: 华为云内部创新汇报（三页 PPT + live demo）
 ---
@@ -29,6 +29,7 @@ target: 华为云内部创新汇报（三页 PPT + live demo）
 > v13：竞品对标重构——主 PPT 用二维框架（X 自进化深度 × Y 环境真实性）+ 两锚点（飞书妙搭=静态生成派 / AlphaEvolve=benchmark 自改派），我们占两维交集；补漏的飞书 Aily/妙搭 source-audit（2026.3.19 发布，定位"人主导运营"非 agent 自进化，不 overclaim）；8 个学术候选降级 pocket
 > v14：铲屎官抓割裂——v13 二维象限是第三个坐标系=割裂帮凶，撤掉。归一回尹青 L1-L5 单坐标系：对标产品填进每级 + 真实性降注脚。低保真图独立 md 化（ppt-huawei-figures-lowfi.md，图1=L1-L5 归一图，每级标核验状态）。每级产品 source-audit 归一待砚砚补
 > v15：砚砚修正 L2 空洞问题——source-audit 谨慎不等于把 L2 画空。恢复 Hermes / openJiuwen-JiuwenSwarm / OpenAI-Thrive Tax AI with Codex / MOSS / Meta code-as-harness 等 L2/L1-L2 边界锚点；MOSS 从 L3 研究线移回 L2 线索，L3 保留 AlphaEvolve / DGM / Adaptive / 我们 AutoHarness。
+> v16：铲屎官指出 JiuwenSwarm 只看官网/README 就进 L2 太冒进。将 openJiuwen/JiuwenSwarm 从主图 L2 锚点降级为 Pocket 候选：未读代码 / 未做 open-source teardown 前，不作为正式 L2 claim。
 
 ---
 
@@ -62,7 +63,7 @@ L1 部分自演进        L2 部分自进化          L3 系统自进化        
 | Level | 技术含义 | 产品侧证明 | 我们的态度 |
 |---|---|---|---|
 | **L1** | 基于人工经验，部分组件可"自演进"；多是 prompt / 规则 / 文档 / benchmark | 学术测试集、demo、专家手工配置；飞书妙搭/Aily 属于生成强但人主导维护；Hermes 可作 L1/L2 边界标签 | 不够，仍然主要靠人维护 |
-| **L2** | 基于代码生成/替换部分 harness 组件，引入被动自进化 | 能生成 planning / filter / verifier / search / skill / eval / workflow 等局部组件，有状态、回滚、人工校验；代表锚点：Hermes、JiuwenSwarm、OpenAI/Thrive Tax AI with Codex、MOSS/Meta code-as-harness | **当前可验证位置：L2+** |
+| **L2** | 基于代码生成/替换部分 harness 组件，引入被动自进化 | 能生成 planning / filter / verifier / search / skill / eval / workflow 等局部组件，有状态、回滚、人工校验；代表锚点：Hermes、OpenAI/Thrive Tax AI with Codex、MOSS/Meta code-as-harness | **当前可验证位置：L2+** |
 | **L3** | 系统能自动更新全套 harness 组件，并根据反馈选择迭代策略 | 真实生产任务中持续运行，有评测、回滚、跨模型审查；参考：AlphaEvolve、DGM/Adaptive 研究线；我们是 120 天真实生产受控 L3 样本 | **近期产品目标：受控 L3** |
 | **L4** | 自然语言意图驱动，端到端自主约束和管理系统迭代 | 法律/保险/第三方风险承保开始出现 | 未来方向，当前不 claim |
 | **L5** | Harness 推动 Agent/Model 持续学习，出现 SuperLearner | Harness 与 Model 边界模糊，接近 ASI 叙事 | 北极星，不作为近期商业承诺 |
@@ -92,11 +93,13 @@ L1 部分自演进        L2 部分自进化          L3 系统自进化        
 
 竞品就是"自进化走到 L1-L5 哪一级"，不再搞第二个二维象限（那是割裂源，已撤）。视觉归一图（五级 + 每级核验产品 + 责任迁移轴 + 我们位置）见 [figures-lowfi 图 1](./ppt-huawei-figures-lowfi.md)。正式图按下面 v15 的归一定位画。
 
-v15 修正：L2 不能空。此前把 source-audit 的谨慎误用成"没核完就不画"，导致 L2 被抽空，坐标系会失真。正确口径是：**L2 = 局部 harness / skill / eval / workflow 组件可被生成、替换、校验，但整体迭代策略仍由人或外部 gate 主导**。所以 L2/L1-L2 边界必须放进 Hermes、openJiuwen/JiuwenSwarm、OpenAI/Thrive Tax AI with Codex、MOSS、Meta code-as-harness 等锚点；缺一手来源的只降级为小标签或 Pocket，不从图上消失。
+v15 修正：L2 不能空。此前把 source-audit 的谨慎误用成"没核完就不画"，导致 L2 被抽空，坐标系会失真。正确口径是：**L2 = 局部 harness / skill / eval / workflow 组件可被生成、替换、校验，但整体迭代策略仍由人或外部 gate 主导**。所以 L2/L1-L2 边界必须放进 Hermes、OpenAI/Thrive Tax AI with Codex、MOSS、Meta code-as-harness 等锚点；缺一手来源的只降级为小标签或 Pocket，不从图上消失。
+
+v16 收紧：openJiuwen/JiuwenSwarm 不能进主图 L2。原因是现阶段只看到了官网/README 级产品表述，没读源码和真实 harness 实现；这类营销材料不能支撑 L2 claim。先留 Pocket 候选，等 open-source teardown 后再决定是否进图。
 
 已核定位（归一版）：
 - **L1 / L1-L2 边界**：飞书妙搭/Aily（生成业务系统，人主导运营维护）；Hermes Agent（memory/skills 自演进，偏经验/skill 层，放边界）。
-- **L2**：openJiuwen/JiuwenSwarm（轨迹+反馈驱动 skills/team 能力演进）、OpenAI/Thrive Tax AI with Codex（production trace → eval → scoped patch → review）、MOSS / Meta code-as-harness（尹青图 L2 线索，方法层/论文坐标，正式图弱 claim）。
+- **L2**：OpenAI/Thrive Tax AI with Codex（production trace → eval → scoped patch → review）、MOSS / Meta code-as-harness（尹青图 L2 线索，方法层/论文坐标，正式图弱 claim）；Hermes 作为 L1/L2 边界标签。
 - **L3**：AlphaEvolve（高 verifier + automated evaluator + 已部署 Google 计算生态）、DGM / Adaptive Auto-Harness（研究线，自改代码 / harness tree / benchmark 验证）、**我们 AutoHarness**（真实生产 120 天，目标受控 L3）。
 
 > **差异化注脚（不另起轴）**：同在 L3，别人多在 benchmark / sandbox，我们在真实生产跑了 120 天——这就是"生成 vs 进化"、"人主导 vs agent 主导"的分水岭。
@@ -108,7 +111,7 @@ v15 修正：L2 不能空。此前把 source-audit 的谨慎误用成"没核完�
 |---|---|---|---|
 | Hermes Agent | 一手资料讲 structured memory + skills / day-to-day self-improvement；更偏经验/skill 自演进 | L1/L2 边界：领导容易理解，适合解释"经验沉淀还不是系统级自进化" | 进图小标签，放 L1/L2 边界 |
 | Aiming-Lab AutoHarness | GitHub 项目：治理 pipeline、YAML constitution、trace diagnostics、multi-agent profiles | "Harness engineering" 正在成为显式品类；可学它的治理组件表达 | 可放 L1/L2 候选，对外只说"开源治理框架" |
-| openJiuwen / JiuwenSwarm | 官网：事件驱动多 Agent、状态管理、断点恢复、实时 tracing、Skills Hub；用户反馈/轨迹与 Skills Hub 相关 | L2：平台 + skills / team 能力演进，适合讲华为生态可理解的"平台层到自进化层" | 进 L2 锚点；不说已经有 L3 系统级自进化 |
+| openJiuwen / JiuwenSwarm | 目前只核到官网/README 级产品表述，未读源码，营销 claim 风险高 | 可能是华为生态内可理解的平台线索，但不能凭官网文案判 L2 | **不进主图**；留 Pocket，需 open-source teardown 后再定 |
 | OpenAI / Thrive Tax AI with Codex | OpenAI 官方 case study：production trace → finding → targeted eval → Codex-scoped patch → review | L2 强锚点：真实业务 trace 能转成 scoped code patch，但仍有人类 practitioner / engineer gate | 进 L2 锚点；适合讲"不是全自动，是有边界自改" |
 | MOSS（中科大-港科大） | 尹青图中 L2 代表；需按一手论文核具体机制 | L2/L2+：代码生成/重写部分 harness 或 agent 组件 + 多 Agent 协作 | 进 L2 小标签或 Pocket，不再放 L3 主战场 |
 | Meta Code as Agent Harness | 尹青图中 L2 代表；另有 code-as-harness 学术坐标，缺一手产品来源 | code 是 executable / verifiable / stateful agent substrate | 放 L2 方法层小标签；缺源时不做产品 claim |

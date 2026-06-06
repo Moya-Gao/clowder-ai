@@ -31,7 +31,7 @@ participants: [landy, opus48, codex]
 
 这张图必须把主 PPT 的三组内容全部进图：
 1. **L1-L5 五级定义**：`Level / 技术含义 / 产品侧证明 / 我们的态度`
-2. **学术界 / 工业界位置**：飞书妙搭/Aily、Hermes、openJiuwen/JiuwenSwarm、OpenAI/Thrive Tax AI with Codex、MOSS/Meta code-as-harness、AlphaEvolve、DGM/Adaptive、Ineffable/Superlearner、我们 AutoHarness
+2. **学术界 / 工业界位置**：飞书妙搭/Aily、Hermes、OpenAI/Thrive Tax AI with Codex、MOSS/Meta code-as-harness、AlphaEvolve、DGM/Adaptive、Ineffable/Superlearner、我们 AutoHarness
 3. **创新机会点**：四条完整机会点（L2+→受控L3、关进企业笼子、真实轨迹、FDE 下沉）
 
 ### 低保真布局
@@ -66,7 +66,6 @@ participants: [landy, opus48, codex]
 │化  │引入被动自进化 │等组件，有状态、回滚、 │真实轨迹，但目标仍   │  │     │
 │    │               │人工校验。             │是受控 L3。         │  │     │
 │    │               │Hermes（memory/skills）│                  │  │     │
-│    │               │JiuwenSwarm（轨迹+反馈）│                  │  │     │
 │    │               │Tax AI+Codex（trace→eval│                  │  │     │
 │    │               │→scoped patch）        │                  │  │     │
 │    │               │MOSS / Meta code-as-   │                  │  │     │
@@ -97,7 +96,7 @@ participants: [landy, opus48, codex]
 - **右侧竖排责任迁移轴**：底「用户/专家负责」→ 顶「Agent 系统负责」，品牌红渐变箭头贯穿。
 - **L3 是主战场**：整条用品牌红 `#D33941` 描边；**我们 ★ 用红底白字 + 猫爪标记**，钉 L3 并向 L2 回拉一点（"L2+→受控 L3"）。
 - **L4/L5 降饱和 + 虚线框**：表示方向/北极星，非当前 claim。
-- **L2 必须有产品/研究锚点**：Hermes、openJiuwen/JiuwenSwarm、OpenAI/Thrive Tax AI with Codex、MOSS/Meta code-as-harness 作为小标签，不再只写"方法层"。L2 的本质是局部 harness / skill / eval / workflow 可生成或替换，但整体迭代策略还没完全交给 Agent 系统。
+- **L2 必须有产品/研究锚点**：Hermes、OpenAI/Thrive Tax AI with Codex、MOSS/Meta code-as-harness 作为小标签，不再只写"方法层"。L2 的本质是局部 harness / skill / eval / workflow 可生成或替换，但整体迭代策略还没完全交给 Agent 系统。openJiuwen/JiuwenSwarm 先降级为 Pocket 候选，没读代码前不进主图。
 - **L1 灰调**（起点），飞书妙搭/Aily 用灰色产品标签。
 - **底部红底白字结论区**（华为标志手法）= 创新机会点，四条都要保留；可用 8-10pt 小字密排，不可删成一句话。
 - 字体微软雅黑/Arial；直角；无渐变阴影 3D；产品名用 10-12pt 灰色标签。
@@ -114,12 +113,11 @@ participants: [landy, opus48, codex]
 | L3 | 研究线 DGM / Adaptive（自改代码 / harness tree + benchmark 验证） | ✅ | [DGM arXiv](https://arxiv.org/abs/2505.22954) · [Adaptive](https://arxiv.org/abs/2606.01770) |
 | L3 | **★ 我们 AutoHarness**（真实生产 120 天 / 6400 commit / 40 failure mode） | ✅ | 自证 |
 | L2 | OpenAI/Thrive Tax AI with Codex（生产 trace → eval → Codex scoped patch → review） | ✅ | [OpenAI 2026-05-27](https://openai.com/index/building-self-improving-tax-agents-with-codex/) |
-| L2 | openJiuwen / JiuwenSwarm（执行轨迹 + 用户反馈 → Swarm 团队技能 / 成员技能双层协同演进） | ✅ | [openJiuwen](https://openjiuwen.com/) |
 | L2 | Hermes Agent（memory + skills learning loop；更偏经验/skill 自演进，放 L1/L2 边界） | ✅ with caveat | [Hermes self-improving guide](https://hermes-agent.ai/blog/self-improving-ai-guide) |
 | L2 | MOSS / Meta code-as-harness（尹青图 L2 线索；方法层 / 论文坐标，正式图可写小标签或留 pocket） | 🟡 | MOSS: [arXiv](https://arxiv.org/abs/2605.22794)；Meta 待一手来源 |
 | L1 | **飞书妙搭 / Aily**（NL 生成业务系统，**人主导运营维护**，非 agent 自改） | ✅ | [新华网 2026.3.19](https://www3.xinhuanet.com/tech/20260319/e76a237bb21645b6a6f9ced193222cdd/c.html) |
 
-> **边界说明**：Hermes 可进 L1/L2 边界，因为一手资料讲的是 structured memory + skills 的 day-to-day self-improvement，不是完整 AutoHarness L3。Meta Code as Agent Harness 暂作为尹青图 / 方法层线索，缺一手产品来源时不做强 claim。
+> **边界说明**：Hermes 可进 L1/L2 边界，因为一手资料讲的是 structured memory + skills 的 day-to-day self-improvement，不是完整 AutoHarness L3。Meta Code as Agent Harness 暂作为尹青图 / 方法层线索，缺一手产品来源时不做强 claim。openJiuwen/JiuwenSwarm 目前只有官网/README 级营销材料支撑，未读代码，不进主图锚点。
 
 ---
 
