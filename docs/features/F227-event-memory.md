@@ -150,7 +150,7 @@ created: 2026-06-06
 | OQ-1 | 回扫策略：Phase 1 回扫历史 magic word 的范围和深度？（全历史 / 近 N 月 / 按 thread）| 🟢 Design Gate 已定：全可访问 persisted thread/message corpus；实现可 batch/cursor/resumable，不能把近 N 月作为产品语义 |
 | OQ-2 | `cognitiveTransition` 枚举值？（坐标系纠正 / aha / 缺能力发现 / 自拉闸 / ...）| 🟢 Design Gate 已定：stable enum + nullable；Phase A lane1 至少写 `user_brake` |
 | OQ-3 | teleport 先独立做 vs 和面板一起做？| 🟢 已定：teleport first，但必须落最终 generic teleport surface，不做临时 URL hack |
-| OQ-4 | Event 存储架构归属：复用 F102 IEvidenceStore 还是新 event store？| 🟢 Design Gate 已定：`memory` cell owns typed Event Memory sub-store/table；不得新造平行 memory architecture |
+| OQ-4 | Event 存储架构归属 + magic word 真相源（F227↔F192）| 🟢 Design Gate 已定：`memory` cell owns typed Event Memory sub-store/table，不造平行架构。🔴 CVO 2026-06-06 裁定**架构归一/真相源归一**：Event 是 magic word 事件唯一真相源，F192 task-outcome 改引用不双写（详见 design gate「Magic Word 真相源归一」+ KD-9）|
 | OQ-5 | teleport 实现细节：generic `teleport` MCP + 路由如何接 web `scrollToMessage`/`findCrossPostTargetMessageId` 基座（跨 thread 切换 + DOM 未渲染 raf 重试）？| 🟢 Design Gate 已定：`thread-navigation` owns semantics，`hub-action-surface` owns typed execution/audit mechanics if needed |
 | OQ-6 | 优先级 vs 华为 PPT deadline？| 🟢 已定：PPT 用保底方案，功能不绑 deadline |
 
@@ -166,6 +166,7 @@ created: 2026-06-06
 | KD-6 | teleport 先独立做 | 最小、独立有用、demo 全靠它（48 建议）| 2026-06-06 |
 | KD-7 | 趋势必须配 resolution 链，频率下降 ≠ 自进化有效 | 频率下降可能是用户没说/任务少/检测漏（砚砚 push back）| 2026-06-06 |
 | KD-8 | 新开 F 号，不挂现有 feature | 内核独立于 F114 magic words（三猫共识 + 铲屎官）| 2026-06-06 |
+| KD-9 | Magic word 事件真相源归一：Event Memory 是唯一源，F192 task-outcome 改引用不双写 | 实现核实发现 F192 已有 magic word 采集（`detectMagicWords` + `onMagicWordDetected`→episode signal，无 messageId）；CVO 裁定架构归一/真相源归一，复用采集逻辑、Event 当源（语义主体侧）| 2026-06-06 |
 
 ## Timeline
 
@@ -174,6 +175,7 @@ created: 2026-06-06
 | 2026-06-06 | 三猫圆桌（46 + 砚砚 + 48）+ 铲屎官收敛 → brainstorm 三方收敛版 `4cfb9bac4` |
 | 2026-06-06 | 立项（48 写 spec → 砚砚 review）|
 | 2026-06-06 | Design Gate：CVO 裁定 PR 不拆太碎、禁止脚手架；砚砚落厚切 PR + 终态骨架先行方案 |
+| 2026-06-06 | PR-1 核实发现 F192 已有 magic word 采集 → CVO 裁定真相源归一（Event 当源，F192 改引用）→ 落 design gate「Magic Word 真相源归一」（48）|
 
 > **华为前保底（不等功能）**：猫提前回扫 5-8 个经典事件精确坐标，做成 markdown 线索表，现场实时搜不到就点保底表（方案 A+B 组合）。此保底**不绑 deadline**，与 Phase A 功能解耦。
 
