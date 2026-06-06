@@ -75,6 +75,7 @@ export const READONLY_ALLOWED_TOOLS = new Set([
 export const AGENT_KEY_TOOLS = new Set([
   'cat_cafe_post_message',
   'cat_cafe_cross_post_message',
+  'cat_cafe_create_rich_block',
   'cat_cafe_get_thread_context',
   'cat_cafe_list_threads',
   'cat_cafe_register_external_runtime_session',
@@ -88,11 +89,11 @@ export const AGENT_KEY_TOOLS = new Set([
   'cat_cafe_publish_verdict',
 ]);
 
-const isReadonly = process.env['CAT_CAFE_READONLY'] === 'true';
+const isReadonly = process.env.CAT_CAFE_READONLY === 'true';
 const hasAgentKey = !!(
-  process.env['CAT_CAFE_AGENT_KEY_SECRET'] ||
-  process.env['CAT_CAFE_AGENT_KEY_FILE'] ||
-  process.env['CAT_CAFE_AGENT_KEY_FILES']
+  process.env.CAT_CAFE_AGENT_KEY_SECRET ||
+  process.env.CAT_CAFE_AGENT_KEY_FILE ||
+  process.env.CAT_CAFE_AGENT_KEY_FILES
 );
 
 function applyReadonlyFilter(tools: readonly ToolDef[]): readonly ToolDef[] {

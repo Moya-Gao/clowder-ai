@@ -522,6 +522,7 @@ describe('F061 READONLY_ALLOWED_TOOLS whitelist', () => {
         !names.includes('cat_cafe_get_thread_context') ||
         !names.includes('cat_cafe_workspace_navigate') ||
         !names.includes('cat_cafe_preview_open') ||
+        !names.includes('cat_cafe_create_rich_block') ||
         // 砚砚 R9 P1: shared-MCP cats must see publish-verdict
         !names.includes('cat_cafe_publish_verdict')
       ) {

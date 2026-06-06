@@ -11,6 +11,7 @@ import {
   DEVELOPMENT_SOP_STAGE_IDS,
   extractFeatureIds,
   isCallbackAuthFailureReason,
+  isValidRichBlock,
   normalizeRichBlock,
   SOP_DEFINITION_IDS,
 } from '@cat-cafe/shared';
@@ -953,6 +954,12 @@ export const createRichBlockInputSchema = {
     .string()
     .min(1)
     .describe('JSON string of the rich block object. Must include id, kind, v:1, and kind-specific fields.'),
+  threadId: z
+    .string()
+    .min(1)
+    .optional()
+    .describe('Target thread ID. Required for agent-key auth because persistent MCP has no invocation thread.'),
+  agentKeyCatId: agentKeyCatIdSchema,
 };
 
 /**
@@ -964,7 +971,11 @@ export const createRichBlockInputSchema = {
  * legacy 403 / "not configured" path predates Phase A typed reasons and
  * stays inline (preserves pre-Phase-A behavior, marks DEGRADED:true).
  */
-export async function handleCreateRichBlock(input: { block: string }): Promise<ToolResult> {
+export async function handleCreateRichBlock(input: {
+  block: string;
+  threadId?: string | undefined;
+  agentKeyCatId?: string | undefined;
+}): Promise<ToolResult> {
   let parsed: unknown;
   try {
     parsed = JSON.parse(input.block);
@@ -978,13 +989,24 @@ export async function handleCreateRichBlock(input: { block: string }): Promise<T
   if (!parsed || typeof parsed !== 'object' || !('id' in parsed) || !('kind' in parsed)) {
     return errorResult('Block must include id and kind fields');
   }
+  if (!isValidRichBlock(parsed)) {
+    return errorResult('Invalid rich block: block does not match required fields for its kind');
+  }
   const block = parsed;
+  const hasInvocationCreds = !!process.env.CAT_CAFE_INVOCATION_ID && !!process.env.CAT_CAFE_CALLBACK_TOKEN;
+  const hasAgentKeyCreds = !!(
+    process.env.CAT_CAFE_AGENT_KEY_SECRET ||
+    process.env.CAT_CAFE_AGENT_KEY_FILE ||
+    process.env.CAT_CAFE_AGENT_KEY_FILES
+  );
 
   const ccRichText = `\`\`\`cc_rich\n${JSON.stringify({ v: 1, blocks: [block] })}\n\`\`\``;
-  const runRouteB = async (): Promise<ToolResult> => {
+  const runRouteB = async (meta: { route: string; degraded: boolean }): Promise<ToolResult> => {
     const fallback = await handlePostMessage({
       content: ccRichText,
+      ...(input.threadId ? { threadId: input.threadId } : {}),
       clientMessageId: randomUUID(),
+      agentKeyCatId: input.agentKeyCatId,
     });
     if (!fallback.isError) {
       // Cloud Codex P2 (PR #1384): legacy 403/not-configured branch returns
@@ -993,12 +1015,25 @@ export async function handleCreateRichBlock(input: { block: string }): Promise<T
       // (legacy + framework custom degrade) get consistent telemetry. The
       // framework's markDegraded is idempotent so re-tagging on the custom
       // path is harmless.
-      return successResult(JSON.stringify({ status: 'ok', route: 'B_fallback', DEGRADED: true }));
+      return successResult(
+        JSON.stringify({
+          status: 'ok',
+          route: meta.route,
+          ...(meta.degraded ? { DEGRADED: true } : {}),
+        }),
+      );
     }
     return errorResult(
       `Rich block creation failed (callback token expired or missing). As a workaround, include this in your message text:\n\n${ccRichText}`,
     );
   };
+
+  if (!hasInvocationCreds && hasAgentKeyCreds) {
+    if (!input.threadId) {
+      return errorResult('threadId is required for create_rich_block when using agent-key auth.');
+    }
+    return runRouteB({ route: 'B_agent_key', degraded: false });
+  }
 
   // Phase E: framework handles primary call + auth-degradable fallback.
   // For the legacy 403/not-configured path (pre-Phase-A), inspect the
@@ -1008,14 +1043,18 @@ export async function handleCreateRichBlock(input: { block: string }): Promise<T
   return withDegradation({
     toolName: 'create_rich_block',
     primary: async () => {
-      const result = await callbackPost('/api/callbacks/create-rich-block', { block }, { enableOutbox: true });
+      const result = await callbackPost(
+        '/api/callbacks/create-rich-block',
+        { block, ...(input.threadId ? { threadId: input.threadId } : {}) },
+        { enableOutbox: true, agentKeyCatId: input.agentKeyCatId },
+      );
       if (!result.isError) return result;
       const errorText = result.content[0]?.type === 'text' ? result.content[0].text : '';
       const isLegacyConfigFailure = /\(403\)/.test(errorText) || /not configured/i.test(errorText);
-      if (isLegacyConfigFailure) return runRouteB(); // legacy compat path returns success directly
+      if (isLegacyConfigFailure) return runRouteB({ route: 'B_fallback', degraded: true }); // legacy compat path returns success directly
       return result; // framework continues with auth-reason inspection
     },
-    policy: { kind: 'custom', degrade: async () => runRouteB() },
+    policy: { kind: 'custom', degrade: async () => runRouteB({ route: 'B_fallback', degraded: true }) },
   });
 }
 

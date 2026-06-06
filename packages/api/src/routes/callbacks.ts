@@ -246,6 +246,14 @@ function sameStringArray(left: readonly string[] | undefined, right: readonly st
   return a.every((value, index) => value === b[index]);
 }
 
+function richBlocksFingerprintPart(blocks: readonly RichBlock[] | undefined): string {
+  return blocks && blocks.length > 0 ? JSON.stringify(blocks) : '';
+}
+
+function sameRichBlocks(left: readonly RichBlock[] | undefined, right: readonly RichBlock[] | undefined): boolean {
+  return richBlocksFingerprintPart(left) === richBlocksFingerprintPart(right);
+}
+
 type CallbackDuplicateCandidateStore = IMessageStore & {
   getByThreadIncludingQueued?: (
     threadId: string,
@@ -273,6 +281,7 @@ async function findRecentExactCallbackDuplicate(
     userId: string;
     catId: string;
     content: string;
+    richBlocks?: readonly RichBlock[] | undefined;
     mentions: readonly CatId[];
     mentionsUser?: boolean | undefined;
     replyTo?: string | undefined;
@@ -287,6 +296,7 @@ async function findRecentExactCallbackDuplicate(
     if (msg.origin !== 'callback') continue;
     if (msg.catId !== input.catId) continue;
     if (msg.content !== input.content) continue;
+    if (!sameRichBlocks(msg.extra?.rich?.blocks, input.richBlocks)) continue;
     if ((msg.replyTo ?? undefined) !== (input.replyTo ?? undefined)) continue;
     if (Boolean(msg.mentionsUser) !== Boolean(input.mentionsUser)) continue;
     if (!sameStringArray(msg.mentions, input.mentions)) continue;
@@ -297,7 +307,7 @@ async function findRecentExactCallbackDuplicate(
 
 /**
  * Stable fingerprint over the exact dimensions findRecentExactCallbackDuplicate compares
- * (thread/user/cat/content/replyTo/mentionsUser/mentions). Used as the key for the atomic
+ * (thread/user/cat/content/richBlocks/replyTo/mentionsUser/mentions). Used as the key for the atomic
  * content-dedup claim that closes the check-then-act race in the duplicate scan. Hashed so
  * the key stays bounded regardless of message length.
  */
@@ -306,6 +316,7 @@ function buildCallbackContentDedupFingerprint(input: {
   userId: string;
   catId: string;
   content: string;
+  richBlocks?: readonly RichBlock[] | undefined;
   mentions: readonly CatId[];
   mentionsUser?: boolean | undefined;
   replyTo?: string | undefined;
@@ -318,6 +329,7 @@ function buildCallbackContentDedupFingerprint(input: {
     input.mentionsUser ? '1' : '0',
     [...input.mentions].join(','),
     input.content,
+    richBlocksFingerprintPart(input.richBlocks),
   ].join('\u0000');
   return createHash('sha256').update(parts).digest('hex');
 }
@@ -346,6 +358,7 @@ async function claimCallbackContentOrDuplicate(
     userId: string;
     catId: string;
     content: string;
+    richBlocks?: readonly RichBlock[] | undefined;
     mentions: readonly CatId[];
     mentionsUser?: boolean | undefined;
     replyTo?: string | undefined;
@@ -360,6 +373,7 @@ async function claimCallbackContentOrDuplicate(
     userId: input.userId,
     catId: input.catId,
     content: input.content,
+    ...(input.richBlocks && input.richBlocks.length > 0 ? { richBlocks: input.richBlocks } : {}),
     mentions: input.mentions,
     ...(input.mentionsUser ? { mentionsUser: input.mentionsUser } : {}),
     ...(input.replyTo ? { replyTo: input.replyTo } : {}),
@@ -371,6 +385,7 @@ async function claimCallbackContentOrDuplicate(
     userId: input.userId,
     catId: input.catId,
     content: input.content,
+    ...(input.richBlocks && input.richBlocks.length > 0 ? { richBlocks: input.richBlocks } : {}),
     mentions: input.mentions,
     ...(input.mentionsUser ? { mentionsUser: input.mentionsUser } : {}),
     ...(input.replyTo ? { replyTo: input.replyTo } : {}),
@@ -763,7 +778,16 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
         }
       }
 
-      const { cleanText: storedContent, blocks: richBlocks } = extractRichFromText(content);
+      const { cleanText: storedContent, blocks: extractedBlocks } = extractRichFromText(content);
+      let richBlocks = extractedBlocks;
+      const synthesizer = getVoiceBlockSynthesizer();
+      if (synthesizer && richBlocks.some((b) => b.kind === 'audio' && 'text' in b)) {
+        try {
+          richBlocks = await synthesizer.resolveVoiceBlocks(richBlocks, principal.catId);
+        } catch (err) {
+          app.log.error({ err }, '[agent-key/post-message] Voice block synthesis failed');
+        }
+      }
 
       const senderCatId = createCatId(principal.catId);
       // F182 AC-C1: use analyzeA2AMentions (captures routing_warnings for disabled cats)
@@ -817,6 +841,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
               userId: principal.userId,
               catId: principal.catId,
               content: storedContent,
+              ...(richBlocks.length > 0 ? { richBlocks } : {}),
               mentions,
               ...(mentionsUser ? { mentionsUser } : {}),
               ...(validatedReplyTo ? { replyTo: validatedReplyTo } : {}),
@@ -892,6 +917,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
         userId: principal.userId,
         catId: principal.catId,
         content: storedContent,
+        ...(richBlocks.length > 0 ? { richBlocks } : {}),
         mentions,
         ...(mentionsUser ? { mentionsUser } : {}),
         ...(validatedReplyTo ? { replyTo: validatedReplyTo } : {}),
@@ -1286,6 +1312,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
             userId: actor.userId,
             catId: actor.catId,
             content: storedContent,
+            ...(richBlocks.length > 0 ? { richBlocks } : {}),
             mentions,
             ...(mentionsUser ? { mentionsUser } : {}),
             ...(validatedReplyTo ? { replyTo: validatedReplyTo } : {}),
@@ -1369,6 +1396,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       userId: actor.userId,
       catId: actor.catId,
       content: storedContent,
+      ...(richBlocks.length > 0 ? { richBlocks } : {}),
       mentions,
       ...(mentionsUser ? { mentionsUser } : {}),
       ...(validatedReplyTo ? { replyTo: validatedReplyTo } : {}),
