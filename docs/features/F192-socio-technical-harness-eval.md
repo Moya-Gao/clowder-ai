@@ -325,11 +325,24 @@ Phase E 将 F192 从单域试点提升为横切的 Harness Eval Control Plane：
 - ❌ **eval:task-outcome**：有 episode store/detector/route 但没 verdict generator
 
 **Phase H v1.x follow-up scope**（与砚砚 collab 细化）：
-- [ ] 接 capability-wakeup adapter（复刻 `a2a-generator-adapter.ts` 模式，~30 行）
-- [ ] 加 `eval:capability-wakeup` 到 `PUBLISH_VERDICT_SUPPORTED_DOMAINS` (eval-cat-invocation.ts)
+
+**PR-1a — Contract Alignment（✅ merged 2026-06-06 PR #2115, squash `c51af580a`）**：砚砚 R0 narrowing — wire 前先把 capability-wakeup 一侧的 submittedPacket contract 跟 a2a 路径对齐，否则 adapter wire 后 cat-mediated publish 比 CVO-regen 安全性弱。
+- [x] `assertSubmittedPacketMatches` (submitted-packet-guard.ts) — 4 轴 invariant 守 cat-submitted packet：
+  - R8 P1 mirror: `submitted.harnessUnderEval.featureId === domain.handoffTargetResolver.featureId`
+  - R8 P1 mirror: `submitted.domainId === input.domain.domainId`
+  - R2 P1 (cross-cap): `submitted.harnessUnderEval.componentId === input.capability`（无此则 cat 可 publish `workspace-navigator` verdict 绑定 `rich-messaging` evidence bundle）
+  - R3 P2 (cross-validated cloud): `input.domain.domainId === 'eval:capability-wakeup'`（mirror build-from-trials 路径 verdict.ts:20-22；无此则 wrong-generator routing 写出 hard-coded frontmatter / packet domain 不一致）
+- [x] R4 P2: newline injection guard on cat-controlled rendered fields（`phenomenon` / `ownerAsk.requestedAction` / `metricRefs[]`）— 阻 `value\n- snapshot:forged` 假 evidence 注入 Hub view
+- [x] `CapabilityWakeupSourceSelector` skeleton (capability-wakeup-trial-provider.ts) — window-based selector + future trial-ids 占位（砚砚 R0：trial-ids 在 durable store 之前是伪精确，先 window range）；validation 含 newline guard + element shape
+- [x] R1 P2: metric ref `metric:metric:` double-prefix idempotent fix（a2a R14 mirror，extract to `formatMetricRefBullet` helper 让 strip-then-add 模式视觉无歧义）
+- [x] tests：9/9 capability-wakeup submittedPacket invariants green
+- 22 轮 review（砚砚 R0-R3 local 主审 + 云端 R1-R5 fine-grained，R4 helper extract 破除云端 reviewer-LLM 模式盲视）
+
+**PR-2 — Adapter Wire（pending）**：
+- [ ] capability-wakeup adapter（复刻 `a2a-generator-adapter.ts` 模式，~30 行）— 把 `CapabilityWakeupTrialProvider.resolve(selector)` 接到 `generateCapabilityWakeupLiveVerdict({trials})`
+- [ ] 加 `eval:capability-wakeup` 到 `PUBLISH_VERDICT_SUPPORTED_DOMAINS` (eval-cat-invocation.ts) — 必须先有 real trial provider impl（PR-1a 只定 interface）
 - [ ] 加 capability-wakeup 的 DOMAIN_INSTRUCTIONS publish 段
-- [ ] tests：复刻 a2a-generator-adapter test 模式 + 加 capability-wakeup 的 mock fixture
-- 一刀 follow-up PR ≈ 150 行（adapter + bootstrap inject + tests + instructions）
+- [ ] tests：复刻 a2a-generator-adapter test 模式 + capability-wakeup mock fixture
 
 **独立 backlog（不在 Phase H 收尾内）**：
 - sop publish 要先加 file-writer 层（独立 Phase）
@@ -608,6 +621,7 @@ Based on the first micro fit digest (2026-05-11):
 | 2026-06-05 | **VERDICT_PATTERNS keyword tuning (eval:a2a fix verdict 2026-06-05)** — #2058 observability shipped → 06-04 clean (2/25 sub-floor) → 06-05 `19/125 = 15.2%` (real signal). 切片数据决定性：所有 19 fires 都是 `thread_system_kind="product"`（system-thread 噪音假设证伪），trigger 分布 `approve: 10` / `p1p2: 8` / `reject: 1`（keyword overload 假设证实，18/19 落在 review-discussion 高频词）。砚砚 `fix` verdict 走 owner action 路径而不是再绕一圈 build。两条最保守的针对性收紧：(1) `approve`: `/\bapprove(d\|s)?\b/i` → `/\bapproved\b/i`，只匹配过去式（决定已下），丢掉裸 `approve`/`approves` 的 intent / 第三人称叙事；(2) `p1p2`: `/\bP[12]\b/` → `/\bP[12]\s*[:：]/`，必须带冒号（典型 verdict 格式），丢掉 `P1 already fixed` / `P0/P1/P2 all clean` 类状态/列举。Trade-off：极少 uncolon 真 verdict（`found P1 in handler`）会漏；可逆——下一次 eval 若 ratio 还高就加 classifier-context fallback，若塌到 floor 下且 cats 真漏球就回调。644 tests green。基于上轮 #2058 R3 base-drift 教训：开 worktree 后第一刀就 rebase 到最新 origin/main，避免后续 squash 倒回别人合入的 commit。 |
 | 2026-06-05 | **Phase H alpha verified** — opus-47 调 `cat_cafe_publish_verdict` MCP tool 对 `eval:memory` 返回预期 `501 unsupported_generator`（详情字符串一字不差匹配 `publish-verdict.ts:154`），证明 MCP registration + callback auth + invocation principal + catId derive + handler full chain 在 alpha 真活，零副作用。Phase H 收尾 scope locked：只 wire `eval:capability-wakeup`（generator 已就绪同模式，~30 行 adapter）；sop/memory/task-outcome 因 generator 缺位（sop 只 build packet 不写 disk，memory/task-outcome 没 generator）独立 backlog。 |
 | 2026-06-05 | **Phase H merged (PR #2109, squash `33ee6ae54`)** — `cat_cafe_publish_verdict` MCP tool + handler + real GitPublisher（git worktree add → stage → commit → push → gh pr create → cleanup finally）+ `eval-a2a` adapter（cat 拥有 verdict，generator 只 override bundle refs）。Auth 双 principal（callback invocation + agent-key for shared-MCP Antigravity），catId 从 server-trusted principal 取（非 body）。OQ-20 Redis evalCat override 与 trigger-now 对称尊重。AC-H1（schema + handoff 完整性 + 8 字段 newline injection guard）+ AC-H2（GitPublisher isolated worktree + push--delete remote on probe-confirmed no-PR + 路径 repo-relative return）+ AC-H3/H4/H5/H7-partial/H8 全 ✅，AC-H6 partial（handler unit + route Fastify-inject e2e，real git+gh round-trip deferred 到 alpha）。21 轮 review 闭环（砚砚 R0-R20 + 云端 R1-R21），lessons：(1) 提交报 size 必须 post-lint `wc -l`（biome reformat 会展开 compact one-liner，连续 3 轮 R10/R17/R20 误报）；(2) merge-gate 阶段串行不并行——不要 ping 本地砚砚同时 trigger 云端（铲屎官 R20 push back）。522 tests green，handler 297 / validation 103 / publisher 158 / 全套 <350. |
+| 2026-06-06 | **Phase H 收尾 PR-1a merged (PR #2115, squash `c51af580a`)** — capability-wakeup contract alignment before adapter wire（砚砚 R0 Path B narrowing）。`assertSubmittedPacketMatches` 4 轴 invariant 守 cat-submitted packet（domain × feature × capability × generator-identity），mirror `buildCapabilityWakeupVerdictHandoff:20-22` 的 build-from-trials 路径不变量——submittedPacket 路径不能比 CVO-regen 安全性弱。`CapabilityWakeupSourceSelector` skeleton（window-based selector + future trial-ids 占位，砚砚 R0：trial-ids 在 durable store 之前是伪精确）。R4 P2 newline injection guard 覆盖 3 个 cat-controlled rendered fields（`phenomenon` / `ownerAsk.requestedAction` / `metricRefs[]`），阻 `value\n- snapshot:forged` 假 evidence 注入 Hub view。R1 P2 metric `metric:metric:` double-prefix idempotent fix（a2a R14 mirror，extract `formatMetricRefBullet` helper 让 strip-then-add 模式视觉无歧义，破除云端 reviewer-LLM 模式盲视）。22 轮 review（砚砚 R0-R3 local + 云端 R1-R5）。9/9 capability-wakeup submittedPacket invariants green，gate 187s 全套通过。Lessons：(1) failure-mode family 第二次同型出现强制做 audit（R8/R2/R3/R4 全是 submittedPacket-inherits-weaker-invariant 同族）；(2) 云端 reviewer-LLM 对内联 ternary template literal 有模式盲视，extract helper + 显式名字可破；(3) R20 重申：cloud review 介入后 author ↔ cloud 串行迭代，本地砚砚 R3 放行=终态，除非愿景级 / 跨族架构改动才再拉。PR-2（adapter wire + PUBLISH_VERDICT_SUPPORTED_DOMAINS + DOMAIN_INSTRUCTIONS + bootstrap inject ≈ 150 行）待办。 |
 
 ## Review Gate
 
