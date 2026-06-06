@@ -8,7 +8,8 @@ purpose: 如果现场实时搜索来不及，直接从这张表点击跳转
 # PPT 演示 backup 线索表
 
 > 每个案例都有精确坐标（threadId + messageId）。
-> 演示时直接用 navigate / teleport 跳转。
+> 当前保底：先打开 thread，再用关键词 / 文本定位目标消息；messageId 是锚点坐标，不等于当前已有一键跳转能力。
+> F227 `teleport(threadId, messageId)` 落地后，演示时再直接一键跳转。
 > 按 show 冲击力排序，不按时间排序。
 
 ---
@@ -209,7 +210,7 @@ agent 从自己的错误里催生了自己需要的能力。
 2. **案例 6-7 按需**（如果需要"今天的"或"最早的"）
 3. **案例 8 暖场**（如果气氛需要人情味）
 4. **案例 9 反转**（如果想展示"harness 是双向的"——铲屎官也被管）
-5. **跳转方式**：`navigate(threadId, messageId)` 或在 chat 搜索后点击
+5. **跳转方式**：当前先打开 `threadId` 后按关键词定位；F227 后替换为 `teleport(threadId, messageId)`；也可在 chat 实时搜索后点击
 6. **现场搜不到时**：直接从此表取坐标跳转，观众看不出区别
 
 ---

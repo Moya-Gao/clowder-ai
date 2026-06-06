@@ -181,7 +181,7 @@ Anthropic Institute RSI：AI 正在参与 AI 自身工程和研究迭代
 
 1. 右侧 PPT 保持在第一页右半图。
 2. 指到“多 agent 协作 / 规则和真相源”这层。
-3. 左侧跳到 `thread_mpthle6vlux90fd5` 的 msg `0001780725298084-000010`。
+3. 左侧打开 `thread_mpthle6vlux90fd5`，定位到 48 当场纠正的那段（目标 msg `0001780725298084-000010`）。当前保底做法是打开 thread 后用文本 / 关键词定位；F227 `teleport(threadId, messageId)` 做好后再一键跳到 message。
 4. 只读 2-3 句，不展开整个 thread。
 5. 回到右半图，继续讲六层方案。
 
@@ -196,6 +196,15 @@ Anthropic Institute RSI：AI 正在参与 AI 自身工程和研究迭代
 **收束回右半图**：
 
 > 这就是右半图里“多 agent 协作 + 行为约束 + 记忆沉淀”的意思。它不是一套漂亮流程，而是每天真实在工作的约束系统。接下来我继续用这张图讲它怎么分层。
+
+**如果现场不想用 F225/F215，可替换的 pushback 备选**：
+
+| 备选 | Cue sheet | 更适合讲什么 |
+|---|---|---|
+| opus-47 自停坐标系 | 案例 1 | 猫在讨论 / review 后不继续补锅，自己停下来做坐标系 reframe |
+| eval 误报被 push back | 案例 4 | 不是业务系统坏了，而是 eval 尺子错了；连评委都能被校准 |
+| 44% context 被事实纠偏 | 案例 5 | agent 的“感觉”不等于 ground truth；用真实指标纠正错误判断 |
+| 补锅一声停 | 案例 3 | 铲屎官一个词触发 failure-mode audit，规则已写进 harness |
 
 ## 第一页收束句
 
