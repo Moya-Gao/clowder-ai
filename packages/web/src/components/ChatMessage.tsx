@@ -314,7 +314,7 @@ export function ChatMessage({ message, getCatById, onEditCat, hideDiagnosticsPan
     if (isConnectorSystemNotice(message)) {
       return <SystemNoticeBar message={message} />;
     }
-    return <ConnectorBubble message={message} />;
+    return <ConnectorBubble message={message} threadId={currentThreadId} />;
   }
 
   if (isUser) {

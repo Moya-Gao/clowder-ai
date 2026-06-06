@@ -1773,6 +1773,27 @@ async function main(): Promise<void> {
       messageStore,
       socketManager,
       threadStore,
+      onHoldBallCancelFeedback: (input) => {
+        void import('./domains/cats/services/frustration/FrustrationDetector.js')
+          .then(({ evaluate }) =>
+            evaluate(
+              {
+                signal: {
+                  type: 'user_report',
+                  toolName: 'cat_cafe_hold_ball',
+                  cancelReason: 'hold_ball_cancel',
+                },
+                threadId: input.threadId,
+                userId: input.userId,
+                catId: input.catId,
+              },
+              { frustrationIssueStore, messageStore, socketManager: socketManager ?? undefined },
+            ),
+          )
+          .catch(() => {
+            // Best-effort: hold cancellation must not be blocked by feedback issue creation.
+          });
+      },
     },
   } as Parameters<typeof callbacksRoutes>[1];
   await app.register(callbacksRoutes, callbackOpts);

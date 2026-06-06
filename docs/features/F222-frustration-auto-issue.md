@@ -105,6 +105,7 @@ status: draft  # 用户预览后才提交
 | 2026-06-05 | P1 Bugfix merged (PR #2105): A2A provenance gate — 全 7 个 routeExecution call site 显式声明 frustrationAutoIssueEligible（user=true, agent/connector=false），砚砚 2 轮 review + 云端 review |
 | 2026-06-05 | UX-1 + UX-2 merged (PR #2106): false_positive 状态 + 三按钮 UI + 处理后卡片折叠，GPT-5.4 review + 云端 review |
 | 2026-06-05 | UX-3 merged (PR #2107): "取消并反馈" button on AuthorizationCard — user_report signal (no threshold, dedup-exempt), GPT-5.4 review + 云端 2 轮 review |
+| 2026-06-05 | UX-3 follow-up: extend "取消并反馈" to hold-ball connector cards — cancel hold + immediate `user_report` |
 
 ## Known Issues (2026-06-05 铲屎官反馈)
 
@@ -122,10 +123,10 @@ status: draft  # 用户预览后才提交
 - **现象**：确认/跳过后卡片仍全尺寸展示，"狗皮膏药"影响阅读
 - **修复**：处理后自动折叠为一行摘要（标题+状态徽章），可点击展开/收起；hydrated resolved 也默认折叠
 
-### ~~UX-3: 权限卡片上"取消并反馈"一键投诉~~ ✅ Fixed (PR #2107)
+### ~~UX-3: "取消并反馈"一键投诉~~ ✅ Fixed (PR #2107 + follow-up)
 - **现象**：用户否决权限请求后想投诉，需等 cancel_burst 阈值（≥3 次 60s 内）才能触发 auto-issue
 - **铲屎官原话**："我直接！反馈！我投诉！"
-- **修复**：AuthorizationCard 新增"取消并反馈"按钮，走 `user_report` 信号（无阈值，每次点击都生成独立 issue），dedup 豁免
+- **修复**：AuthorizationCard + hold-ball connector card 新增"取消并反馈"按钮，走 `user_report` 信号（无阈值，每次点击都生成独立 issue），dedup 豁免
 
 ## Dependencies
 
