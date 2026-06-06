@@ -191,5 +191,6 @@ created: 2026-06-06
 | **Longform** | `docs/content/drafts/longform-004-seed-workflow-distiller.md` | 004 二阶 harness / AutoHarness 定位 |
 | **PPT** | `docs/content/drafts/ppt-huawei-pitch-v0.md` | 华为演示编排（起源场景）|
 | **Design Gate** | `docs/discussions/2026-06-06-f227-design-gate.md` | 厚切 PR、终态 Event schema、teleport 接法、回扫范围、no-scaffold gate |
+| **Plan** | `docs/plans/2026-06-06-f227-event-memory.md` | PR-1/PR-2 thick-slice 实施计划（真实代码锚点 + TDD steps + 反 disposable 论证）|
 | **Feature** | `docs/features/F114-governance-magic-words.md` | Magic Word 词表真相源 |
 | **Feature** | `docs/features/F192-socio-technical-harness-eval.md` | harness 飞轮可观测性互补 |
