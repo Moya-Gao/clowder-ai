@@ -8,7 +8,7 @@ created: 2026-06-05
 
 # F225: Cat-Initiated Session Handoff — 猫主导的 session 接力
 
-> **Status**: in-progress（实现完成 + merged PR #2112；待 CVO alpha 验收 → 勾 AC + close） | **Owner**: 布偶猫（Opus 4.8） | **Priority**: P2
+> **Status**: done（已通过 CVO alpha 验收，合入 main 并全量测试覆盖） | **Owner**: 布偶猫（Opus 4.8） | **Priority**: P2
 
 Architecture cell: `identity-runtime-session`（`identity-session` cell 的 subcell，F211 owns）
 Map delta: update required — 新增"猫主动提议"作为一种 session boundary **触发源** + 新 `sealReason: 'cat_initiated_handoff'` + 新 typed `SessionRecord.catHandoffNote`（或独立 SessionHandoffStore）+ 新 `SessionHandoffProposal` 类型，扩展 identity-runtime-session 的 lifecycle registration / seal reason / proposal 谱系。owner 不变。
@@ -92,30 +92,30 @@ Why: session 边界目前只能由 `shouldTakeAction`（context_health / 阈值�
 <!-- 立项愿景硬度自检（F216→F219）：每条 AC ① trace 回 Why 的某诉求 ② 非作者可复核（命令/数字/截图）。 -->
 
 ### Phase A（提议 + Gate）
-- [ ] AC-A1: 新 MCP tool `cat_cafe_propose_session_handoff` 注册；猫调用时附五件套留言 → 生成 proposal + 确认卡推到 thread（复核：MCP tool list + 卡片 JSON/截图）。〔→ Why 缺口1+2〕
-- [ ] AC-A2: 铲屎官 gate 双路径生效——reject/expire 不 seal（session 继续）、approve 才进封印（复核：两条路径各一条测试）。〔→ Why 缺口2〕
-- [ ] AC-A3: proposal 用 discriminated 类型（`SessionHandoffProposal` / union），复用 `claimForApproval` CAS 思路但**不复用 `ThreadProposal` shape**、不走旧建-thread approve route（复核：类型独立 + kind-specific dispatcher）。〔→ 砚砚 P1-2〕
-- [ ] AC-A4: 硬滥用边界——每个 active session 最多 1 个 pending handoff proposal + per `(user,thread,cat)` 冷却/小时上限，reject/expire 后释放（复核：超限被拒一条测试）。〔→ 砚砚 P2〕
+- [x] AC-A1: 新 MCP tool `cat_cafe_propose_session_handoff` 注册；猫调用时附五件套留言 → 生成 proposal + 确认卡推到 thread（复核：MCP tool list + 卡片 JSON/截图）。〔→ Why 缺口1+2〕
+- [x] AC-A2: 铲屎官 gate 双路径生效——reject/expire 不 seal（session 继续）、approve 才进封印（复核：两条路径各一条测试）。〔→ Why 缺口2〕
+- [x] AC-A3: proposal 用 discriminated 类型（`SessionHandoffProposal` / union），复用 `claimForApproval` CAS 思路但**不复用 `ThreadProposal` shape**、不走旧建-thread approve route（复核：类型独立 + kind-specific dispatcher）。〔→ 砚砚 P1-2〕
+- [x] AC-A4: 硬滥用边界——每个 active session 最多 1 个 pending handoff proposal + per `(user,thread,cat)` 冷却/小时上限，reject/expire 后释放（复核：超限被拒一条测试）。〔→ 砚砚 P2〕
 
 ### Phase B（封印 + 续接 + 注入）
-- [ ] AC-B1: approve 后当前 session 被 seal，`sealReason='cat_initiated_handoff'`（复核：`SessionRecord.sealReason` 断言 + `list_session_chain`）。〔→ Why 缺口1〕
-- [ ] AC-B2: 五件套留言走 typed 字段 + always-keep 注入，**extractive/compress 默认模式下续接 session 第一眼可见**（复核：未配 generative 时断言续接 prompt 含五件套内容）。〔→ Why 高保真留言 + 砚砚 P1-1〕
-- [ ] AC-B3: 续接 session 同 thread 同 catId、seq+1（复核：`list_session_chain` 断言 seq 递增 + catId/threadId 一致）。〔→ Why 同 thread 同 catId 续接〕
-- [ ] AC-B4: approve 两阶段——commit point（`requestSeal accepted`）**前**失败（note 持久化失败 / requestSeal rejected / session 已变 / replay）→ fail/expire 不 seal；commit point **后**失败（enqueue/finalize）→ **recover-forward**（按 checkpoint idempotent 续跑），不留半封印孤儿（复核：commit point 前后各失败路径一条测试 + recovery 测试）。〔→ 砚砚 R2 commit-point〕
-- [ ] AC-B5: stale note 隔离——`catHandoffNote` 仅在 `sealReason='cat_initiated_handoff'` + 对应 approved/recovering proposal 时注入；note 已写但被别的 seal（如 threshold）抢先 → 不随该 seal 注入（复核：threshold-seal-steals 一条测试）。〔→ 砚砚 R2 stale note〕
-- [ ] AC-B6: crash window 闭合——`requestSeal accepted`（session 已 sealing）之后、proposal checkpoint（`sealedSessionId`）写入之前崩 → recovery 从 session 侧反推（已 sealing/sealed + `cat_initiated_handoff` + note.proposalId 匹配）backfill checkpoint，enqueue continuation **恰好一次**，不误判 pre-commit、不留孤儿（复核：crash-between-accept-and-checkpoint recovery 测试）。〔→ 砚砚 R3 crash window〕
+- [x] AC-B1: approve 后当前 session 被 seal，`sealReason='cat_initiated_handoff'`（复核：`SessionRecord.sealReason` 断言 + `list_session_chain`）。〔→ Why 缺口1〕
+- [x] AC-B2: 五件套留言走 typed 字段 + always-keep 注入，**extractive/compress 默认模式下续接 session 第一眼可见**（复核：未配 generative 时断言续接 prompt 含五件套内容）。〔→ Why 高保真留言 + 砚砚 P1-1〕
+- [x] AC-B3: 续接 session 同 thread 同 catId、seq+1（复核：`list_session_chain` 断言 seq 递增 + catId/threadId 一致）。〔→ Why 同 thread 同 catId 续接〕
+- [x] AC-B4: approve 两阶段——commit point（`requestSeal accepted`）**前**失败（note 持久化失败 / requestSeal rejected / session 已变 / replay）→ fail/expire 不 seal；commit point **后**失败（enqueue/finalize）→ **recover-forward**（按 checkpoint idempotent 续跑），不留半封印孤儿（复核：commit point 前后各失败路径一条测试 + recovery 测试）。〔→ 砚砚 R2 commit-point〕
+- [x] AC-B5: stale note 隔离——`catHandoffNote` 仅在 `sealReason='cat_initiated_handoff'` + 对应 approved/recovering proposal 时注入；note 已写但被别的 seal（如 threshold）抢先 → 不随该 seal 注入（复核：threshold-seal-steals 一条测试）。〔→ 砚砚 R2 stale note〕
+- [x] AC-B6: crash window 闭合——`requestSeal accepted`（session 已 sealing）之后、proposal checkpoint（`sealedSessionId`）写入之前崩 → recovery 从 session 侧反推（已 sealing/sealed + `cat_initiated_handoff` + note.proposalId 匹配）backfill checkpoint，enqueue continuation **恰好一次**，不误判 pre-commit、不留孤儿（复核：crash-between-accept-and-checkpoint recovery 测试）。〔→ 砚砚 R3 crash window〕
 
 ## 需求点 Checklist
 
-- [ ] 猫能在干净断点**主动**发起 handoff（不依赖 context 满 / 阈值）
-- [ ] 提议附**结构化五件套**留言（done/worktree_branch/commits/next_steps/gotchas）
-- [ ] 铲屎官 **gate**：approve 才 seal，reject/expire 当前 session 继续
-- [ ] approve 后封印当前 session（`cat_initiated_handoff` reason）
-- [ ] 五件套留言**高保真**注入续接 session 第一眼，**extractive/compress 默认模式下也可见**（不靠 generative）
-- [ ] 留言在 seal **前**独立持久化成功（不依赖 best-effort finalize）
-- [ ] approve 事务原子（失败 fail/expire，replay 防护）
-- [ ] 续接 = 同 thread 同 catId（"未来的自己"），非新 thread
-- [ ] 与 compress 模式正交共存（不破坏现有被动压缩路径）
+- [x] 猫能在干净断点**主动**发起 handoff（不依赖 context 满 / 阈值）
+- [x] 提议附**结构化五件套**留言（done/worktree_branch/commits/next_steps/gotchas）
+- [x] 铲屎官 **gate**：approve 才 seal，reject/expire 当前 session 继续
+- [x] approve 后封印当前 session（`cat_initiated_handoff` reason）
+- [x] 五件套留言**高保真**注入续接 session 第一眼，**extractive/compress 默认模式下也可见**（不靠 generative）
+- [x] 留言在 seal **前**独立持久化成功（不依赖 best-effort finalize）
+- [x] approve 事务原子（失败 fail/expire，replay 防护）
+- [x] 续接 = 同 thread 同 catId（"未来的自己"），非新 thread
+- [x] 与 compress 模式正交共存（不破坏现有被动压缩路径）
 
 ## Dependencies
 
