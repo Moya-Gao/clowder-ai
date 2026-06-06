@@ -1,6 +1,6 @@
 ---
 feature_ids: [F227]
-related_features: [F114, F102, F192, F095, F225]
+related_features: [F114, F102, F192, F095, F057, F187, F225]
 topics: [memory, observability, harness, magic-words, navigation, cognitive-state]
 doc_kind: spec
 created: 2026-06-06
@@ -29,7 +29,7 @@ created: 2026-06-06
 |------|---------------------|
 | 认知转折维度 | **不存在**。magic word 拉闸事件散落在 raw message 流，无索引、无法 filter、无法精确 teleport |
 | Magic Word 真相源 | 已在 L0 家规注册（10 个词），是 single source of truth，但只用于运行时拉闸，无历史事件视图 |
-| 跳转能力 | 现有 `workspace_navigate` / cross-post 跳转支持 **thread 级**；message 级精确 teleport **缺失**（精确边界待 Design Gate 核实） |
+| 跳转能力 | generic `teleport(threadId, messageId)` MCP **缺失**；但 web 侧已有 message 级基座：`scrollToMessage(messageId)`（`scrollToMessage.ts:6`）+ cross-post scroll substrate `findCrossPostTargetMessageId`（`crosspost-scroll-target.ts:27`，F052/F194）。⚠️ `cat_cafe_workspace_navigate` 是 **repo file/dir reveal/open 工具**（schema 仅 `path/action/worktreeId/line`，`hub-action-tools.ts:26`），**不是** message navigation，不可当扩展点 |
 | 认知轨迹回溯 | 当事猫无法回溯自己的认知轨迹。F225 活案例：起源靠铲屎官人肉记忆"那只猫是 48" |
 | 趋势/闭环度量 | 无。"拉了几次闸""骂完长出什么能力"无任何索引或度量 |
 
@@ -49,7 +49,7 @@ created: 2026-06-06
 - 从已知 10 个 magic word **回扫历史消息**生成 event 索引（回扫范围/深度见 OQ-1）
 - 轨道一检测策略（噪音过滤）：`magic word + @猫` = 高置信拉闸；`magic word + 自检指令` = 检查；magic word 出现在讨论家规/定义新词上下文 = 讨论非拉闸（低置信/不标记）；置信度高/中/低，低置信默认折叠
 - 只读 timeline UI：倒序时间线 + filter by magic word / 事件类型；每条展示 日期 / 信号 icon / 当事猫 / 原话摘要 / thread / [跳转 →]；选中某 word 展示含义解释（从 L0 读）+ 使用次数 badge
-- **`teleport(threadId, messageId)` 精确跳转**——**48 建议先独立做**：最小、独立有用、demo 全靠它。`workspace_navigate` 增强到 message 级
+- **`teleport(threadId, messageId)` 精确跳转**——**48 建议先独立做**：最小、独立有用、demo 全靠它。**复用** web 侧现成 message scroll 基座（`scrollToMessage` + cross-post `findCrossPostTargetMessageId`，含 thread 切换后 DOM 未渲染的 raf 重试语义），新增 generic teleport MCP + 路由把 `(threadId, messageId)` 接到该基座；**禁止扩展 `workspace_navigate`**（它是 repo file 工具，非 message nav）
 
 ### Phase B: 猫主动声明事件 + 跨 thread 聚合
 
@@ -63,12 +63,30 @@ created: 2026-06-06
 - "骂完长出了什么能力"可视化——不仅记录"被骂了"，还记录"骂完长出了什么"
 - 趋势视图，但**趋势不单独展示为"自进化有效"证据**，必须配 resolution 链（砚砚 push back：频率下降可能是用户没说/任务少了/检测漏了）
 
+## 需求点 Checklist
+
+| ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
+|----|---------------------------|---------|----------|------|
+| R1 | "想在台上说'我说过脚手架'然后瞬间跳转到那个 thread 那条 message"（铲屎官原话）| AC-A4 | 15s 录屏端到端 teleport | [ ] |
+| R2 | 内核是 Event Memory 事件级索引，不是 Magic Word 面板（Magic Word 只第一条 lane）| AC-A1 / A3 | schema + filter 截图 | [ ] |
+| R3 | 认知状态转折是一等公民（cognitive-state-transition 为核心字段）| AC-A1 | schema 字段 + 测试 | [ ] |
+| R4 | 两轨采集，猫自拉闸必须主动声明（no-classifier 红线）| AC-B1 | grep 无分类器路径 + 设计审查 | [ ] |
+| R5 | 系统是小本本记录员不 push 猫，猫主动翻阅 | AC-B1 / B3 | 设计审查（无 push / 无分类器）| [ ] |
+| R6 | v1 schema 面向终态，走正确路叠不脚手架 | AC-A1 | schema 承载 B/C 字段审查 | [ ] |
+| R7 | teleport 先独立做（最小、独立有用、demo 全靠它）| AC-A4 | teleport 独立可演示 | [ ] |
+| R8 | 趋势必须配 resolution 链，频率下降 ≠ 自进化有效（砚砚）| AC-C2 | UI 无孤立频率断言 | [ ] |
+
+### 覆盖检查
+- [x] 每个需求点映射到至少一个 AC
+- [x] 每个 AC 都有验证方式
+- [ ] 前端需求→证据映射表（Phase A 交付时补）
+
 ## Acceptance Criteria
 
 <!-- 立项愿景硬度自检（F216→F219）：每条 AC ① trace 回 Why 的某诉求 ② 非作者可复核（命令/数字/截图）。no-classifier / schema 类须可量化验证（无分类器代码路径、schema 测试），不是"提了就算"。 -->
 
 ### Phase A（schema + 只读时间线 + teleport）
-- [ ] AC-A1: Event schema 定型（9 字段），有类型定义 + 测试覆盖 + 文档；schema 设计可承载 Phase B/C 字段（面向终态，非脚手架）—— trace Why「认知转折成一等公民」
+- [ ] AC-A1: Event schema 定型（**10 字段**：`type/trigger/cat/threadId/messageId/timestamp/summary/cognitiveTransition/relatedHarness/confidence`），有类型定义 + 测试覆盖 + 文档；schema 设计可承载 Phase B/C 字段（面向终态，非脚手架）—— trace Why「认知转折成一等公民」
 - [ ] AC-A2: 从 L0 注册的 10 个 magic word 回扫历史消息生成 event 索引；回扫范围/深度按 OQ-1 决议执行；检测置信度（高/中/低）逻辑有测试 —— trace Why「散落无索引 → 可检索」
 - [ ] AC-A3: 只读 timeline UI 可 filter by magic word / 事件类型；每条含 日期/icon/当事猫/原话摘要/thread/[跳转]；低置信默认折叠 —— 可复核：截图 + filter 交互
 - [ ] AC-A4: `teleport(threadId, messageId)` 端到端可演示——"传送到那个脚手架 thread 的 msg" → 搜 Event Memory → 找坐标 → message 级精确跳转 —— trace Why「瞬间跳转到那条 message」，可复核：15s 录屏
@@ -90,14 +108,14 @@ created: 2026-06-06
 - **Related**: F102（记忆 Adapter / IEvidenceStore — Event 存储候选复用，OQ-4）
 - **Related**: F192（Socio-Technical Harness Eval — Event Memory 是 harness 飞轮的可观测性层，Phase C resolution 链与 harness-feedback 闭环互补）
 - **Related**: F095/F057/F187（Thread Navigation cell — teleport 扩展导航到 message 级，OQ-5）
-- **Related**: F225（cross-post 跳转活案例 — teleport 可能复用其跳转机制；F225 也是本 feature Why 的活案例素材）
+- **Related**: F225（cross-post 跳转 dogfood 活案例 — 本 feature Why 的活案例素材；teleport 复用的 message scroll 基座见 Current State，源自 F052/F194）
 
 ## Architecture Cell（Design Gate 一问 — 立项初判，待 Design Gate 钉死）
 
 | 子能力 | 候选 cell | Map delta 倾向 |
 |--------|----------|---------------|
 | Event 索引存储 | `memory`（F102 IEvidenceStore 模式） | update / new cell 待定（OQ-4） |
-| Teleport message 级跳转 | `thread-navigation`（F057/F095/F187） | **update required**（thread 级 → message 级精确度，OQ-5） |
+| Teleport message 级跳转 | `thread-navigation`（F057/F095/F187）— 复用 web `scrollToMessage` + `findCrossPostTargetMessageId` 基座 | **update required**（补 generic teleport MCP + 路由接基座，OQ-5）|
 | mark_event MCP tool | collab MCP 工具面 | update required（新 tool） |
 
 > 禁止私造 `Store`/`Router`/`Adapter` 绕开已有 cell；精确归属在 Design Gate 用 ownership map 钉死。
@@ -107,7 +125,7 @@ created: 2026-06-06
 1. **Primary Users + Activation Signal**：猫（主动 `mark_event` / 翻阅 event memory）+ 铲屎官（teleport 到拉闸 thread）。Activation = `mark_event` 调用次数 / teleport 使用次数 / timeline 翻阅次数
 2. **Friction Metric**：猫想标记转折点但找不到入口 / 搜 event memory 搜不到目标事件 / teleport 跳错或跳不到 message 级
 3. **Regression Fixture**（≥2）：(a) `magic word + @猫` 应被标高置信拉闸；(b) magic word 在讨论家规/定义新词上下文应标低置信或不标记；(c) 猫 `mark_event` 后该事件能在 timeline 检索到且不被分类器改写
-4. **Sunset Signal**：若 `mark_event` 长期零调用（猫不主动声明）**且** timeline 长期无人翻阅 → "小本本记录员"假设证伪，重新评估形态（不设 reviewer 签字降级）
+4. **Sunset Signal（lane 级，两条独立触发，不 AND）**：(a) `mark_event` 长期零调用 → **猫主动声明 lane 证伪**，重设计该 lane；(b) timeline 长期无人翻阅 → **整体"小本本记录员"形态证伪**，重评是否该被动记录 / 换形态。任一触发即评估，不互相 AND（不设 reviewer 签字降级）
 
 ### Harness 三层（软+硬+eval）
 - **Soft**：L0 / skill 提示"认知转折点主动 `mark_event`"；teleport 场景触发反射（铲屎官说"传送到那个 X thread 的 msg"）
@@ -123,7 +141,7 @@ created: 2026-06-06
 | `mark_event` 无猫使用（小本本假设错误）| Sunset Signal 监控；不靠分类器补偿（守 no-classifier） |
 | no-classifier 红线被破坏（有人加分类器猜 aha）| Hard gate CI 断言无分类器路径（AC-B1） |
 | schema 脚手架化（v1 推翻重来）| schema 面向 v5 终态设计，Phase A 一次定型可承载 B/C（AC-A1） |
-| teleport 重复造轮子 | OQ-5 先核实复用 F225/workspace_navigate，禁止私造 Router |
+| teleport 重复造轮子 / 错挂扩展点 | 复用 web `scrollToMessage` + `findCrossPostTargetMessageId`（F052/F194）基座；禁止私造 Router；禁止扩 `workspace_navigate`（repo file 工具，非 message nav）|
 
 ## Open Questions
 
@@ -133,7 +151,7 @@ created: 2026-06-06
 | OQ-2 | `cognitiveTransition` 枚举值？（坐标系纠正 / aha / 缺能力发现 / 自拉闸 / ...）| ⬜ 未定 → Design Gate |
 | OQ-3 | teleport 先独立做 vs 和面板一起做？| 🔵 倾向先做（48 建议，独立有用，demo 全靠它）|
 | OQ-4 | Event 存储架构归属：复用 F102 IEvidenceStore 还是新 event store？| ⬜ 未定 → Design Gate |
-| OQ-5 | teleport 架构归属：复用 F225 cross-post 跳转还是扩展 `workspace_navigate`？| ⬜ 未定 → Design Gate |
+| OQ-5 | teleport 实现细节：generic `teleport` MCP + 路由如何接 web `scrollToMessage`/`findCrossPostTargetMessageId` 基座（跨 thread 切换 + DOM 未渲染 raf 重试）？| 🔵 归属已定：thread-navigation 复用现成基座（砚砚 review 坐实）；接法待 Design Gate |
 | OQ-6 | 优先级 vs 华为 PPT deadline？| 🟢 已定：PPT 用保底方案，功能不绑 deadline |
 
 ## Key Decisions
