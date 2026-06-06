@@ -43,10 +43,12 @@ related:
 持续整理经验
   -> 长出多个专门分支
   -> 每个新任务来时先选分支
-  -> 历史里没有的外部信号，再让人类补
+  -> 系统自己的历史记录里没有、但继续演化需要的访问权 / 数据源 / 方向线索，再让人类补
 ```
 
 这就是 **Adaptive Auto-Harness**。
+
+这里的“外部信号”不是玄学，也不是让人类给答案。它指的是：agent 只看自己的历史轨迹推不出来的东西，比如某个 API key、某个新数据源、某类任务该查哪个网站、某个业务端点值得接入。更像是给系统扩展知识触角，打破它自己的知识孤岛。
 
 ---
 
@@ -225,6 +227,8 @@ research-phase assistance
 
 这点很接近我们说的“人类方向信号”，但还不是 CVO taste。
 
+换成更直白的话：它不是让人类说“这题答案是 A”。它是让人类说“这类题你该接 Box Office Mojo / Maoyan / Eastmoney 这类源”“这个搜索 API 可以用”“这个 API 没额度了，跳过，找别的源”。
+
 ---
 
 ## 实验大概在看什么
@@ -263,7 +267,16 @@ research-phase assistance
 
 ### 3. human steering 不是大规模人类实验
 
-论文附录说，人类 steering 事件是作者提供的系统干预，不是招募人类受试者。很多回复来自预先写好的 cheat-sheet，通过 Telegram 给 API key 或 source direction。
+论文附录说，人类 steering 事件是作者提供的系统干预，不是招募人类受试者。所谓 cheat-sheet，是作者在实验前准备好的一张“如果系统问到 X，就按 Y 回”的受控回复表。系统跑到某个阶段，通过 Telegram 之类的通道问人；作者按这张表回复 API key、`skip`，或者一段 source direction。
+
+比如 FutureX 的事件表里，人类回复过几类东西：
+
+```text
+EXA_API_KEY / SERPER_API_KEY
+skip
+“这类 specialty data task 需要直接接入 Western / Chinese endpoints，
+例如 Box Office Mojo、Yahoo Finance、Maoyan、Eastmoney ...”
+```
 
 所以它能证明“结构化外部信号有价值”，不能证明“任意人类参与都会让系统变好”。
 
@@ -318,11 +331,26 @@ Adaptive Auto-Harness 往前推进了一步：
 
 但差异也很重要：
 
-### 1. 它是 per-domain，我们是 per-person
+### 1. 它是 per-domain，我们是 per-person + per-domain federation
 
 它的 branch 大多是任务类型：sports、politics、crypto、pwn。
 
 我们家的演化对象不只是“哪类题用哪套工具”，还有“这个人怎样判断好、怎样表达、怎样被理解、怎样共同工作”。
+
+更准确说，Cat Cafe 不应该想象成“一个 harness 干一切”。它更像：
+
+```text
+基础发动机
+  多猫协作 / 记忆 / source-audit / eval / git / governance
+        |
+业务 harness 模块
+  室内设计 / 税务 / 数据分析 / 短视频 / 写作 / 编程 ...
+        |
+per-person overlay
+  铲屎官 taste / 关系记忆 / Magic Words / 共创习惯
+```
+
+室内设计 harness 不该和抖音短视频 harness 混成同一个大包；它们可以共享最小可复用组件，比如 source-audit、状态面、版本管理、评估方法、记忆检索，但业务技能和经验应该隔离。这里用“联邦”或“业务模块树”比“一个万能 harness”更准确。
 
 ### 2. 它的人类是 source/access provider，我们的人类是 CVO
 
@@ -439,13 +467,14 @@ DGM
   harness 可以被进化
         |
 Adaptive Auto-Harness
-  开放任务流里，harness 要分支、路由、持续验证，并接收人类外部信号
+  开放任务流里，harness 要分支、路由、持续验证；
+  人类补的是历史轨迹里没有的访问权、数据源和方向线索
         |
 Anthropic 2026 takeaways
   skill / harness 是决定性杠杆；silent failure 和 research taste 被放大
         |
 Cat Cafe
-  per-person 环境里，人类 taste 是共创前提，不是失败项
+  基础发动机 + 业务 harness 联邦 + per-person taste overlay
 ```
 
 ---
