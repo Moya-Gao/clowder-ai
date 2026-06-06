@@ -31,7 +31,7 @@ related:
 
 > 各位老师好。今天我讲的题目是 AutoHarness：从静态编排走向自进化。
 >
-> 我先把行业背景摆一下。学术界这条线，Silver 和 Sutton 在 Era of Experience 里讲得很清楚：下一阶段 AI 不能只靠人类数据和模仿，而要从长程经验流里，通过动作、观测和 grounded reward 持续学习。工程界这条线也在收敛：远一点看，Hermes 这类产品已经把 self-improving agent 这个概念讲得很热；近一点看，5 月底 OpenAI / Thrive 发了 Tax AI with Codex，把专家纠错、production trace、eval 和 Codex patch 串成一条业务闭环；6 月初 Anthropic 又连续发了两类信号：一类是 self-service data analytics with Claude，核心不是 Claude 会写 SQL，而是 truth source、skills 和 validation；另一类是 Anthropic Institute 的 When AI builds itself，讲 AI 正在参与 AI 自身的工程和研究迭代。
+> 我先和大家对齐一下信息。学术界这条线，Silver 和 Sutton 在 Era of Experience 里讲得很清楚：下一阶段 AI 不能只靠人类数据和模仿，而要从长程经验流里，通过动作、观测和 grounded reward 持续学习。工程界这条线也在收敛：远一点看，Hermes 这类产品已经把 self-improving agent 这个概念讲得很热；近一点看，5 月底 OpenAI / Thrive 发了 Tax AI with Codex，把专家纠错、production trace、eval 和 Codex patch 串成一条业务闭环；6 月初 Anthropic 又连续发了两类信号：一类是 self-service data analytics with Claude，核心不是 Claude 会写 SQL，而是 truth source、skills 和 validation；另一类是 Anthropic Institute 的 When AI builds itself，讲 AI 正在参与 AI 自身的工程和研究迭代。
 >
 > 所以这不是我们单独造一个新词。行业已经在往同一个方向走：AI 不只是生成一次结果，而是进入工作系统本身。真正的问题是，到了企业里，系统凭什么知道**该学什么、不该学什么、按谁的标准学**？这里就不能只靠一句 self-improving，必须有专家地基、真值锚点、持续校准和治理边界。
 >
@@ -39,7 +39,7 @@ related:
 >
 > 一句话讲商业价值：**过去要靠专家和 FDE 长期手工调的 AI 工作流，我们把它变成一个"专家先定调，系统再按公司、团队、个人真实使用持续对齐"的工作环境。**
 >
-> 所以我今天右边会放 PPT 讲框架，左边会直接打开我们的真实 workspace 和 thread。接下来大家看到的，不是为了汇报临时搭的 showcase，而是过去四个月真实发生的事情。如果中间有任何地方大家想看现场证据，也可以随时打断我，我们可以直接切到 thread、commit、eval 或聊天记录里一起看。我会用这个自己的创新实验场 Cat Cafe，讲清楚我是怎么把 self-improving / self-evolving agent 做成一条工程闭环的。
+> 所以我今天会在同一个 workspace 里讲：右边打开 PPT 图片讲框架，左边保留我们真实的 thread 和 chat 区域。接下来大家看到的，不是为了汇报临时搭的 showcase，而是过去四个月真实发生的事情。如果中间有任何地方大家想看现场证据，也可以随时打断我，我们可以直接切到 thread、commit、eval 或聊天记录里一起看。我会用这个自己的创新实验场 Cat Cafe，讲清楚我是怎么把 self-improving / self-evolving agent 做成一条工程闭环的。
 
 ## 开场学术 / 工业锚点：铲屎官口语版接法
 
@@ -83,7 +83,7 @@ Anthropic Institute RSI：AI 正在参与 AI 自身工程和研究迭代
 
 ### C. 现场感版
 
-> 我今天不放一个预录 demo。右边是 PPT，左边是我们真实 workspace；等会你们看到的每个 thread、每个 commit、每个纠偏，都是过去真实发生的。
+> 我今天不放一个预录 demo。右边是 workspace 里的 PPT 图，左边就是我们真实 thread 和 chat；等会你们看到的每个 thread、每个 commit、每个纠偏，都是过去真实发生的。
 
 推荐主用 A + C：先稳，再强调真实。
 
@@ -109,9 +109,11 @@ Anthropic Institute RSI：AI 正在参与 AI 自身工程和研究迭代
 >
 > 最下面 L1，主要还是人负责。AI 可以生成东西，或者有一些 prompt、规则、文档、benchmark，但真实使用以后怎么维护，还是人来。
 >
-> L2 开始，AI 可以生成或替换一部分 harness 组件，比如 planning、verifier、skill、eval、workflow，但整体上还是人和外部 gate 在管。
+> L2 开始，AI 可以生成或替换一部分 harness 组件，比如 planning、verifier、skill、eval、workflow，但整体上还是人和外部 gate 在管。这里我会特别强调 code as harness：harness 不是一段 prompt，也不是一张流程图，而是一套可版本化、可测试、可 review、可回滚的代码化工作环境。
 >
-> L3 才是我们要打的目标：系统能根据真实使用反馈，更新成套 harness 组件，并且有评估、回滚、跨模型审查这些安全边界。我们现在可验证的位置是 L2+，目标是受控 L3。L4/L5 是长期方向，不作为今天的商业承诺。
+> L3 才是我们要打的目标：系统能根据真实使用反馈，更新成套 harness 组件，并且有评估、回滚、跨模型审查这些安全边界。我们现在可验证的位置是 L2+，目标是受控 L3。
+>
+> L4 / L5 我也会讲，但要讲清楚它们是长期天花板，不是今天的商业承诺。L4 是系统开始跨场景迁移自己的进化策略，不只是修一个 harness；L5 更接近 Silver / Sutton 那条长期愿景，agent 在持续经验流里自己发现问题、设计实验、更新能力。我们今天为什么死磕 L3？因为没有 L3 的真值、回滚、权限和审计，直接喊 L4/L5 就会变成不可治理的自我修改。
 >
 > 这里最重要的不是模型本身，而是真实轨迹。真实轨迹里的信号分几类：人的自然决策信号，比如取消、拉闸、采纳、回滚、重做、重复纠偏；机器信号，比如自动 eval 和 tracing 异常；世界结果，比如代码合入、被 revert、任务是否真的交付。它们不是直接等于真值，但它们会先变成真值锚点和证据链，再进入下一次系统进化。
 
