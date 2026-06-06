@@ -2,7 +2,7 @@
 doc_kind: draft
 created: 2026-06-04
 participants: [landy, opus, codex, opus48]
-status: v11-page3-flywheel
+status: v12-oracle-self-healing
 title: AutoHarness：从静态编排走向自进化
 target: 华为云内部创新汇报（三页 PPT + live demo）
 ---
@@ -25,6 +25,7 @@ target: 华为云内部创新汇报（三页 PPT + live demo）
 > v9：技术挑战重写聚焦自进化主题——三条全围绕"自己改自己"（真值/验证器、进化生命周期继承+退役、受控边界+回滚）；原"安全隐私/多模型协作"两条通用挑战的精华归位为子机制，不再独立占位
 > v10：48+砚砚切磋——技术挑战第3条从"受控边界"升级为"分层可变性治理"（每层谁能改/blast radius/可变性梯度 + golden path + 为什么必须 code-as-harness）；六层权限矩阵 + 增量进 004 seed §五 bis
 > v11：48+砚砚重构第三页——"两孤立场景"升级为"四类触发源（发现主体从人下沉到系统）+ 统一飞轮 + 120天 showcase reframe + 建筑外推一句"；核实 feat 锚点修正铲屎官口误（clear context = F225 不是 F125；F125 是 Alpha 通道）；原 F128/Memory Eval 详细故事移入 Pocket
+> v12：48+砚砚补 oracle 自校准案例（F200 false positive 被 push back 校准 = 验证器自进化）——pocket 加完整故事 + 底部真值闭环加"最硬一击：连 eval 自己也被校准"（直接回答评委"eval 凭什么可信"）。核实 F200 = Memory Recall Eval（非愿景守护，记忆纠偏）
 
 ---
 
@@ -314,6 +315,7 @@ L5 自主学习：Harness 系统自主学习，持续协同 Model 迭代，完�
 **Pocket 备用案例（口头可换）**：
 - **F128 编排协议自修正**（第 2 类展开）：社区 issue 调度时 F128 写死"sub thread 必须回报发起 thread"，dispatcher 被迫手动转发、主 thread 被污染 → 升级成可配置 report-to 策略，系统从"人肉 PMO"变"按 owner 自动回流"。讲"工单/审批/跨部门系统最常见的汇报链路写死"。
 - **Memory Eval 发现摩擦激增**（第 4 类展开）：Memory Recall / Library Health eval 发现指标异常、用户还没抱怨，系统已跨线程 handoff 给 owner。讲"企业知识库最怕慢慢变差没人发现"。
+- **当验证器自己错了：oracle 自校准**（第 4 类最深一层，2026-06-05 真实发生）：`eval:memory` 报 F200（Memory Recall Eval）指标异常、疑似 ranker 退化 → 找 owner sanity check → 被 push back 查出是 **eval 自己的 MRR 分母没对齐 live/shadow 子集**，不是 ranker 坏 → 修 eval 指标本身、下轮 cron 误报归零、verdict 撤回。证明飞轮不只长出 hook / skill / feature，**也长出 better oracle**。
 - **LinkedIn 招聘长出专属 harness**：适合讲"陌生业务如何从一次任务长出可复用工作流"，可作为客户业务场景备用。
 - **战略讨论 → 三能力落地**：一次复盘暴露 eval / 负体验 / taste 三个缺口，拆成 F192/F222/F221 并行落地；适合讲"人的一次复盘如何变系统能力"。
 - **commit push hook**：最小可见闭环，适合 live demo 热身，不适合当主案例。
@@ -355,6 +357,9 @@ L5 自主学习：Harness 系统自主学习，持续协同 Model 迭代，完�
 
 **落地证据**（口头说，不放 PPT 文字里）：
 > "L1 的规则/流程检测已有基础；L3 的四个信号源已上线：用户中断决策、拉闸词触发、代码合入/回滚结果、连续取消检测。L2 路由统计和 L4 链路效率是下一步。"
+
+**最硬一击：连 eval 自己也会被校准**（真实发生，可现场调记录）：
+> F200（Memory Recall Eval）真出过一次 false positive——eval 报 memory 指标异常、疑似 ranker 退化，被 owner push back 查出**根因是 eval 自己的 MRR 分母没对齐 live / shadow 子集**，不是 ranker 坏。修的是 eval 指标本身（加 mirror metric 对齐分母），下轮 cron 误报归零、verdict 撤回。**这才是"AI 不自评"最硬的证明：连判分的尺子，错了也要被 review 和反例校准。**
 
 ---
 
