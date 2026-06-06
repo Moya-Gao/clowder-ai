@@ -17,7 +17,7 @@ related:
 
 ## 开场策略
 
-不要一上来讲 L1-L5，也不要先解释 code-as-harness。那会像内部术语。先承认行业语境：self-improving / AutoHarness 已经是热点；但不要只拿 Hermes 一个点讲，铲屎官真实口语会自然串成一条近期信号链：Hermes 把概念讲热，OpenAI Tax AI with Codex 把真实业务 trace 接到 eval / patch loop，Anthropic 数据分析文章把 truth source / skill / validation 讲透，Anthropic Institute 又把问题推到 AI 参与 AI 开发本身。
+不要一上来讲 L1-L5，也不要先解释 code-as-harness。那会像内部术语。先承认行业语境：self-improving / AutoHarness 已经是热点；但不要只拿 Hermes 一个产品点讲。更自然的开场是两条线汇合：**学术界**从 Silver / Sutton 的 Era of Experience 开始，把 AI 的下一阶段定义成从长程经验流、动作/观测、grounded reward 中学习；**工业界**则用 Hermes、OpenAI Tax AI with Codex、Anthropic 数据分析和 Anthropic Institute 的 RSI 文章，说明这个方向正在进入真实工作系统。
 
 > **今天我不想演示一个"号称会自我进化"的 Agent。这个词已经很热了。我要演示的是更具体的一件事：一个 AI 工作环境，能不能从真实使用里找到真值锚点，证明哪一次改进真的改对了，再把它变成可验证、可回滚、可治理的 harness 变更。**
 
@@ -31,7 +31,7 @@ related:
 
 > 各位老师好。今天我讲的题目是 AutoHarness：从静态编排走向自进化。
 >
-> 我先把行业背景摆一下。远一点看，Hermes 这类产品已经把 self-improving agent 这个概念讲得很热；近一点看，5 月底 OpenAI / Thrive 发了 Tax AI with Codex，把专家纠错、production trace、eval 和 Codex patch 串成一条业务闭环；6 月初 Anthropic 又连续发了两类信号：一类是 self-service data analytics with Claude，核心不是 Claude 会写 SQL，而是 truth source、skills 和 validation；另一类是 Anthropic Institute 的 When AI builds itself，讲 AI 正在参与 AI 自身的工程和研究迭代。
+> 我先把行业背景摆一下。学术界这条线，Silver 和 Sutton 在 Era of Experience 里讲得很清楚：下一阶段 AI 不能只靠人类数据和模仿，而要从长程经验流里，通过动作、观测和 grounded reward 持续学习。工程界这条线也在收敛：远一点看，Hermes 这类产品已经把 self-improving agent 这个概念讲得很热；近一点看，5 月底 OpenAI / Thrive 发了 Tax AI with Codex，把专家纠错、production trace、eval 和 Codex patch 串成一条业务闭环；6 月初 Anthropic 又连续发了两类信号：一类是 self-service data analytics with Claude，核心不是 Claude 会写 SQL，而是 truth source、skills 和 validation；另一类是 Anthropic Institute 的 When AI builds itself，讲 AI 正在参与 AI 自身的工程和研究迭代。
 >
 > 所以这不是我们单独造一个新词。行业已经在往同一个方向走：AI 不只是生成一次结果，而是进入工作系统本身。真正的问题是，到了企业里，系统凭什么知道**该学什么、不该学什么、按谁的标准学**？这里就不能只靠一句 self-improving，必须有专家地基、真值锚点、持续校准和治理边界。
 >
@@ -41,11 +41,12 @@ related:
 >
 > 所以我今天右边会放 PPT 讲框架，左边会直接打开我们的真实 workspace 和 thread。接下来大家看到的，不是为了汇报临时搭的 showcase，而是过去四个月真实发生的事情。如果中间有任何地方大家想看现场证据，也可以随时打断我，我们可以直接切到 thread、commit、eval 或聊天记录里一起看。我会用这个自己的创新实验场 Cat Cafe，讲清楚我是怎么把 self-improving / self-evolving agent 做成一条工程闭环的。
 
-## 开场行业锚点：铲屎官口语版接法
+## 开场学术 / 工业锚点：铲屎官口语版接法
 
-如果铲屎官开场自然讲到 Hermes / OpenAI / Anthropic，不要硬拦。正确接法是：**它们不是竞品清单，而是趋势信号链**。
+如果铲屎官开场自然讲到 Silver / Sutton / Hermes / OpenAI / Anthropic，不要硬拦。正确接法是：**它们不是竞品清单，而是趋势信号链**。
 
 ```text
+Silver / Sutton: Era of Experience —— 从人类数据转向长程经验流
 Hermes：概念被讲热 —— self-improving agent 不是新词
 OpenAI/Thrive Tax AI with Codex：真实生产 trace 可以进入 eval / patch loop
 Anthropic self-service analytics：企业可靠性靠 truth source + skill + validation
@@ -57,10 +58,12 @@ Anthropic Institute RSI：AI 正在参与 AI 自身工程和研究迭代
 
 > 所以我不是来证明"AI 会不会自我改进"，这个趋势已经很明显了。我要讲的是下一层：当 AI 真的进企业、进具体工作流以后，它每次改进到底从哪里拿真值、按谁的专业标准校准、怎么沉淀成一个不会乱学、能回滚、能治理的工作环境。
 
-这段比"Hermes 这样的产品把方向讲热"更像铲屎官的口语，也更公平：不否认行业已有信号，但把我们的切口钉在 **专家地基 + 真值锚点 + per-company/team/user alignment + harness governance**。
+这段比"Hermes 这样的产品把方向讲热"更像铲屎官的口语，也更公平：不否认学术界和工业界已有信号，但把我们的切口钉在 **专家地基 + 真值锚点 + per-company/team/user alignment + harness governance**。
 
 ### 锚点使用 caveat
 
+- 是 David **Silver** 和 Richard **Sutton**，不是 Silva。用中文可以说"Silver 和 Sutton / 席尔瓦和萨顿"。
+- Era of Experience 适合讲"从人类数据转向经验流 / grounded reward"，不要说它已经给出了企业 AutoHarness 产品方案。
 - OpenAI Tax AI with Codex 是 2026-05-27 官方 case study，不要说"6 月发的"；可以口头说"五月底 / 最近"。
 - Anthropic self-service analytics 是 2026-06-03 Claude 官方博客，适合讲 truth source / skills / validation，不适合包装成完整 self-improving agent。
 - Anthropic Institute 的 When AI builds itself 是 recursive self-improvement / AI 参与 AI 开发的产业信号；其中内部数字要带 caveat，不在 60 秒里堆百分比。
