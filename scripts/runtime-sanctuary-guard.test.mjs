@@ -161,3 +161,187 @@ describe('runtime-sanctuary-guard: cd to runtime + git write protection (CAFE-IN
     });
   }
 });
+
+// 铲屎官 2026-06-06: "你好像至少是第五只踩到这个 取名带了runtime被误杀的大猫猫了"
+// The guard substring-matched bare "runtime", so feature branches/worktrees that merely
+// contain "runtime" in their name (e.g. fix/cat-cwd-runtime-fallback) got false-positive denied.
+// The REAL protected objects are precise: branch `runtime/main-sync` (the runtime/ namespace)
+// and worktree dir `cat-cafe-runtime` (exact path component). Match THOSE, not any "runtime".
+describe('runtime-sanctuary-guard: name precision — no "runtime" substring false-positives', () => {
+  const allowCases = [
+    // The exact recurring friction: deleting a merged feature branch whose name has "runtime".
+    ['delete feature branch with runtime in name', 'git branch -D fix/cat-cwd-runtime-fallback'],
+    ['delete feature branch -d with runtime in name', 'git branch -d feat/runtime-config-ui'],
+    ['delete branch where runtime is mid-token', 'git branch --delete fix/my-runtime-thing'],
+    // worktree-remove of a feature worktree whose dir name extends past cat-cafe-runtime.
+    [
+      'remove feature worktree (cat-cafe-runtime- prefix, longer name)',
+      'git worktree remove /Users/lysander/projects/relay-station/cat-cafe-runtime-cwd-debug',
+    ],
+    ['remove feature worktree with runtime mid-name', 'git worktree remove ../cat-cafe-fix-runtime-fallback'],
+    // rm of a feature dir whose name extends past cat-cafe-runtime.
+    ['rm feature dir (cat-cafe-runtime- prefix, longer name)', 'rm -rf /Users/x/cat-cafe-runtime-fallback-fix'],
+  ];
+  for (const [name, command] of allowCases) {
+    it(`allows: ${name}`, () => {
+      assert.equal(decide(command), 'allow', `expected allow for: ${command}`);
+    });
+  }
+
+  // Regression — the REAL runtime objects must STILL be denied after the precision fix.
+  const denyCases = [
+    ['delete the real runtime/main-sync branch', 'git branch -D runtime/main-sync'],
+    ['delete a runtime/ namespace branch', 'git branch -d runtime/experimental'],
+    [
+      'remove the real runtime worktree (exact path)',
+      'git worktree remove /Users/lysander/projects/relay-station/cat-cafe-runtime',
+    ],
+    [
+      'remove the real runtime worktree (trailing slash)',
+      'git worktree remove /Users/lysander/projects/relay-station/cat-cafe-runtime/',
+    ],
+    ['rm -rf the real runtime worktree (exact)', 'rm -rf /Users/lysander/projects/relay-station/cat-cafe-runtime'],
+  ];
+  for (const [name, command] of denyCases) {
+    it(`denies (regression): ${name}`, () => {
+      assert.equal(decide(command), 'deny', `expected deny for: ${command}`);
+    });
+  }
+});
+
+// 砚砚/gpt-5.4 review P1 (2026-06-06): the precision fix must cover ALL detection layers, not
+// just delete (branch/worktree/rm). Edit / cwd / cd / git -C / git switch matched runtime by
+// prefix/substring too, so a feature worktree like cat-cafe-runtime-cwd-debug was STILL
+// false-positive denied on enter/write. This sweeps every layer to the same precision.
+describe('runtime-sanctuary-guard: enter/write layer precision — sweep all layers', () => {
+  const FEAT = '/Users/lysander/projects/relay-station/cat-cafe-runtime-cwd-debug'; // feature worktree, NOT runtime
+  const RUNTIME = '/Users/lysander/projects/relay-station/cat-cafe-runtime';
+
+  // false-positives that must now be ALLOWED (feature worktree/branch whose name contains runtime)
+  it('allows: Edit a file in a cat-cafe-runtime-* feature worktree (mode 0)', () => {
+    assert.equal(decide(`${FEAT}/packages/api/src/index.ts`, 'Edit'), 'allow');
+  });
+  it('allows: Bash cwd in a cat-cafe-runtime-* feature worktree + git commit (mode 0b)', () => {
+    assert.equal(decide('git commit -m "x"', 'Bash', FEAT), 'allow');
+  });
+  it('allows: cd into a cat-cafe-runtime-* feature worktree + git commit (mode 0c)', () => {
+    assert.equal(decide(`cd ${FEAT} && git commit -m "x"`), 'allow');
+  });
+  it('allows: git -C a cat-cafe-runtime-* feature worktree + switch (mode 4)', () => {
+    assert.equal(decide(`git -C ${FEAT} switch -c feat/test`), 'allow');
+  });
+  it('allows: git switch to a runtime-prefixed feature branch (mode 5)', () => {
+    assert.equal(decide('git switch runtime-fix'), 'allow');
+  });
+
+  // regression — the REAL runtime enter/write must STILL be denied on every layer
+  it('denies (regression): Edit a file inside the real runtime worktree (mode 0)', () => {
+    assert.equal(decide(`${RUNTIME}/packages/api/src/index.ts`, 'Edit'), 'deny');
+  });
+  it('denies (regression): Bash cwd in the real runtime worktree + git commit (mode 0b)', () => {
+    assert.equal(decide('git commit -m "x"', 'Bash', RUNTIME), 'deny');
+  });
+  it('denies (regression): cd into the real runtime worktree + git commit (mode 0c)', () => {
+    assert.equal(decide(`cd ${RUNTIME} && git commit -m "x"`), 'deny');
+  });
+  it('denies (regression): git -C the real runtime worktree + switch (mode 4)', () => {
+    assert.equal(decide(`git -C ${RUNTIME} switch -c feat/bad`), 'deny');
+  });
+  it('denies (regression): git switch to the real runtime/main-sync branch (mode 5)', () => {
+    assert.equal(decide('git switch runtime/main-sync'), 'deny');
+  });
+});
+
+// gpt52 re-review round 3 (2026-06-06): (P1) branch runtime/ must be a TOP-LEVEL token, not any
+// runtime/ substring; (P2) the path boundary must be REAL shell/path separators, not a
+// filename-char whitelist (which keeps leaking .v2 / ~bak / +debug); (bypass) checkout/switch
+// must still catch runtime/main-sync behind flags (--detach) or as a -c/-b start-point.
+describe('runtime-sanctuary-guard: edge cases — namespace anchor, real separators, flag bypass', () => {
+  const allowCases = [
+    ['delete feat/runtime/foo (runtime/ not top-level)', 'git branch -D feat/runtime/foo'],
+    ['switch to feat/runtime/foo (a feature branch)', 'git switch feat/runtime/foo'],
+    [
+      'cd cat-cafe-runtime.v2 + git commit (mode 0c, dotted suffix)',
+      'cd /Users/x/cat-cafe-runtime.v2 && git commit -m "x"',
+    ],
+    ['rm cat-cafe-runtime.v2 (mode 3, dotted suffix)', 'rm -rf /Users/x/cat-cafe-runtime.v2'],
+    ['pkill cat-cafe-runtime.v2 (mode 6, dotted suffix)', 'pkill -f /Users/x/cat-cafe-runtime.v2'],
+    [
+      'worktree remove cat-cafe-runtime~bak (mode 2, tilde suffix)',
+      'git worktree remove /Users/x/cat-cafe-runtime~bak',
+    ],
+    [
+      'rm cat-cafe-runtime+debug (mode 3, plus suffix — separator boundary handles it)',
+      'rm -rf /Users/x/cat-cafe-runtime+debug',
+    ],
+  ];
+  for (const [name, command] of allowCases) {
+    it(`allows: ${name}`, () => {
+      assert.equal(decide(command), 'allow', `expected allow for: ${command}`);
+    });
+  }
+
+  const denyCases = [
+    ['delete runtime/foo (top-level namespace)', 'git branch -D runtime/foo'],
+    ['delete "runtime/main-sync" (quoted)', 'git branch -D "runtime/main-sync"'],
+    [
+      'rm the exact runtime worktree, single-quoted',
+      "rm -rf '/Users/lysander/projects/relay-station/cat-cafe-runtime'",
+    ],
+    [
+      'cd the exact runtime worktree (trailing slash) + commit',
+      'cd /Users/lysander/projects/relay-station/cat-cafe-runtime/ && git commit -m "x"',
+    ],
+    ['switch --detach to runtime/main-sync (flag before branch)', 'git switch --detach runtime/main-sync'],
+    ['checkout --detach runtime/main-sync', 'git checkout --detach runtime/main-sync'],
+    ['switch -c newbranch FROM runtime/main-sync (start-point)', 'git switch -c feat/test runtime/main-sync'],
+    ['checkout -b newbranch FROM runtime/main-sync (start-point)', 'git checkout -b feat/test runtime/main-sync'],
+  ];
+  for (const [name, command] of denyCases) {
+    it(`denies (regression): ${name}`, () => {
+      assert.equal(decide(command), 'deny', `expected deny for: ${command}`);
+    });
+  }
+});
+
+// Cloud codex review (2026-06-06): anchoring runtime/ / cat-cafe-runtime too tightly REOPENED two
+// real bypasses (under-protection I introduced): a quoted `git -C` path, and `git branch -D --`
+// before the branch. Fix uses token-based matching (eat flags/--/args/quotes, then the runtime
+// token), which also closes the sibling multi-branch-arg case.
+describe('runtime-sanctuary-guard: bypass closure — quotes, --, multi-arg (cloud review P1)', () => {
+  const denyCases = [
+    ['branch delete after -- (end-of-options)', 'git branch -D -- runtime/main-sync'],
+    ['branch delete with runtime as a non-first arg', 'git branch -D feat/x runtime/main-sync'],
+    [
+      'git -C single-quoted runtime path + switch',
+      "git -C '/Users/lysander/projects/relay-station/cat-cafe-runtime' switch -c bad",
+    ],
+    [
+      'git -C double-quoted runtime path + reset',
+      'git -C "/Users/lysander/projects/relay-station/cat-cafe-runtime" reset --hard HEAD~1',
+    ],
+    [
+      'git -C quoted runtime subpath + push',
+      'git -C "/Users/lysander/projects/relay-station/cat-cafe-runtime/packages/api" push',
+    ],
+  ];
+  for (const [name, command] of denyCases) {
+    it(`denies (regression): ${name}`, () => {
+      assert.equal(decide(command), 'deny', `expected deny for: ${command}`);
+    });
+  }
+
+  const allowCases = [
+    ['branch delete after -- of a runtime-named feature branch', 'git branch -D -- feat/cat-cwd-runtime-fallback'],
+    [
+      'git -C quoted FEATURE worktree (cat-cafe-runtime- prefix) + switch',
+      'git -C "/Users/x/cat-cafe-runtime-cwd-debug" switch -c feat/test',
+    ],
+    ['branch delete of two non-runtime feature branches', 'git branch -D feat/x feat/y'],
+  ];
+  for (const [name, command] of allowCases) {
+    it(`allows: ${name}`, () => {
+      assert.equal(decide(command), 'allow', `expected allow for: ${command}`);
+    });
+  }
+});

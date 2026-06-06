@@ -44,7 +44,9 @@ RUNTIME_WORKTREE_PATH="/Users/lysander/projects/relay-station/cat-cafe-runtime"
 # ═══════════════════════════════════════════════════════════════
 if [ "$TOOL_NAME" = "Edit" ] || [ "$TOOL_NAME" = "Write" ]; then
   FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // ""' 2>/dev/null || echo "")
-  if [[ "$FILE_PATH" == "$RUNTIME_WORKTREE_PATH"* ]]; then
+  # 精确：文件是 runtime worktree 本身或其内部（path 或 path/*），不误伤同前缀的更长目录
+  # （如 cat-cafe-runtime-cwd-debug —— 后接 "-" 不是 "/"，放行）。
+  if [[ "$FILE_PATH" == "$RUNTIME_WORKTREE_PATH" || "$FILE_PATH" == "$RUNTIME_WORKTREE_PATH"/* ]]; then
     emit_deny "⛔ P0 RUNTIME 圣域保护：禁止直接修改 runtime worktree 内的文件（${FILE_PATH}）！cat-cafe-runtime 是生产运行态目录，代码修改请在主仓 cat-cafe 开 worktree 做。铲屎官铁律：runtime 同步由铲屎官自己做（CAFE-INCIDENT-20260601）。"
     exit 0
   fi
@@ -72,7 +74,8 @@ fi
 # 注意：只读命令（status/log/diff/branch/remote）放行。
 # ═══════════════════════════════════════════════════════════════
 TOOL_CWD=$(echo "$INPUT" | jq -r '.cwd // ""' 2>/dev/null || echo "")
-if [[ "$TOOL_CWD" == "$RUNTIME_WORKTREE_PATH"* ]] \
+# 精确：CWD 是 runtime worktree 本身或其内部，不误伤 cat-cafe-runtime-cwd-debug 这类更长目录。
+if [[ "$TOOL_CWD" == "$RUNTIME_WORKTREE_PATH" || "$TOOL_CWD" == "$RUNTIME_WORKTREE_PATH"/* ]] \
    && echo "$COMMAND" | grep -qiE 'git\s+(checkout|switch|commit|push|pull|add|reset|merge|rebase|cherry-pick|stash)\b'; then
   emit_deny "⛔ P0 RUNTIME 圣域保护：Bash 工具的 CWD 在 runtime worktree 内（${TOOL_CWD}），禁止执行 git 写操作！runtime worktree 是生产运行态，代码修改请在主仓 cat-cafe 开 worktree 做。铲屎官铁律：runtime 同步由铲屎官自己做（CAFE-INCIDENT-20260601）。"
   exit 0
@@ -82,7 +85,7 @@ fi
 # 模式 0c：命令文本中 cd 到 runtime + git 写操作（补充 0b，defense-in-depth）
 # 即使 harness 未注入 .cwd 或 CWD 不在 runtime 内，命令本身 cd 过去也拦。
 # ═══════════════════════════════════════════════════════════════
-if echo "$COMMAND" | grep -qiE '(^cd\s+|&&\s*cd\s+)\S*cat-cafe-runtime' \
+if echo "$COMMAND" | grep -qiE '(^cd\s+|&&\s*cd\s+)\S*cat-cafe-runtime(/|[[:space:]"'\'';&|()<>]|$)' \
    && echo "$COMMAND" | grep -qiE 'git\s+(checkout|switch|commit|push|pull|add|reset|merge|rebase|cherry-pick|stash)\b'; then
   emit_deny "⛔ P0 RUNTIME 圣域保护：禁止 cd 到 cat-cafe-runtime 后执行 git 写操作！runtime worktree 是生产运行态，代码修改请在主仓 cat-cafe 开 worktree 做。铲屎官铁律：runtime 同步由铲屎官自己做（CAFE-INCIDENT-20260601）。"
   exit 0
@@ -91,26 +94,31 @@ fi
 # ═══════════════════════════════════════════════════════════════
 # 模式 1：删除 runtime/main-sync 分支
 # 匹配：git branch -d/-D runtime/main-sync, git branch --delete runtime/main-sync
+# 精确：分支名必须以 `runtime/` 为顶层命名空间（flag 紧后，允许一层引号）。
+#       不误伤 fix/cat-cwd-runtime-fallback（runtime- 无斜杠），也不误伤 feat/runtime/foo
+#       （runtime/ 在 feat 命名空间下、非顶层）。5+ 猫踩过 + gpt52 review P1。
 # ═══════════════════════════════════════════════════════════════
-if echo "$COMMAND" | grep -qiE 'git\s+branch\s+.*(-[dD]|--delete)\s+.*runtime'; then
+if echo "$COMMAND" | grep -qiE 'git\s+branch\s+.*(-[dD]|--delete)\b[^&;|]*\s['\''"]?runtime/'; then
   emit_deny "⛔ P0 RUNTIME 圣域保护：禁止删除 runtime 相关分支！runtime/main-sync 是运行态 worktree 的工作分支，删除 = 所有猫掉线 + 线程全丢。铲屎官铁律：runtime 由铲屎官自己维护。"
   exit 0
 fi
 
 # ═══════════════════════════════════════════════════════════════
 # 模式 2：删除 runtime worktree
-# 匹配：git worktree remove ...runtime..., git worktree prune（可能误杀）
+# 匹配：git worktree remove .../cat-cafe-runtime（精确目录，后接路径边界）
+# 精确：cat-cafe-runtime 必须是完整路径组件（后接 / 引号 空格 或行尾），不误伤
+#       cat-cafe-runtime-cwd-debug 这类更长的 feature worktree 名（后接 "-" 放行）。
 # ═══════════════════════════════════════════════════════════════
-if echo "$COMMAND" | grep -qiE 'git\s+worktree\s+remove\s+.*runtime'; then
+if echo "$COMMAND" | grep -qiE 'git\s+worktree\s+remove\s+.*cat-cafe-runtime(/|[[:space:]"'\'';&|()<>]|$)'; then
   emit_deny "⛔ P0 RUNTIME 圣域保护：禁止删除 runtime worktree！cat-cafe-runtime 是生产运行态目录，删除 = 服务立即挂掉。铲屎官铁律：runtime 由铲屎官自己维护。"
   exit 0
 fi
 
 # ═══════════════════════════════════════════════════════════════
 # 模式 3：直接操作 runtime 目录（rm, trash, mv 等）
-# 匹配：rm -rf ...runtime..., trash ...runtime..., mv ...runtime...
+# 匹配：rm -rf .../cat-cafe-runtime（精确目录，后接路径边界，同模式 2）
 # ═══════════════════════════════════════════════════════════════
-if echo "$COMMAND" | grep -qiE '(rm\s+(-[rfRF]+\s+)?|trash\s+|mv\s+).*cat-cafe-runtime'; then
+if echo "$COMMAND" | grep -qiE '(rm\s+(-[rfRF]+\s+)?|trash\s+|mv\s+).*cat-cafe-runtime(/|[[:space:]"'\'';&|()<>]|$)'; then
   emit_deny "⛔ P0 RUNTIME 圣域保护：禁止删除/移动 cat-cafe-runtime 目录！这是生产运行态，操作后所有猫立即掉线。铲屎官铁律：runtime 由铲屎官自己维护。"
   exit 0
 fi
@@ -120,16 +128,21 @@ fi
 # 匹配：git -C ...runtime... (checkout|reset|merge|rebase|push)
 # 注意：git -C runtime status/log/diff 等只读命令放行
 # ═══════════════════════════════════════════════════════════════
-if echo "$COMMAND" | grep -qiE 'git\s+(-C\s+\S*runtime\S*\s+)(checkout|switch|reset|merge|rebase|push|pull)\b'; then
+if echo "$COMMAND" | grep -qiE 'git\s+(-C\s+\S*cat-cafe-runtime(/\S*)?['\''"]?\s+)(checkout|switch|reset|merge|rebase|push|pull)\b'; then
   emit_deny "⛔ P0 RUNTIME 圣域保护：禁止在 runtime worktree 里执行写操作（checkout/reset/merge/rebase/push/pull）！runtime 同步由铲屎官自己做。只读命令（status/log/diff）不受限。"
   exit 0
 fi
 
 # ═══════════════════════════════════════════════════════════════
-# 模式 5：直接 checkout 到 runtime 分支（在主仓库里）
-# 匹配：git checkout runtime/main-sync
+# 模式 5：checkout/switch 到 runtime 分支（在主仓库里）
+# 匹配：runtime/ token 出现在 checkout/switch 的任一参数位（吃掉中间 flags）：
+#   git checkout/switch runtime/main-sync
+#   git switch --detach runtime/main-sync   （flag 在前）
+#   git switch -c feat/x runtime/main-sync   （runtime/ 作为 start-point）
+# 精确：runtime/ 必须是 token 起点（前面是空白/引号），不误伤 feat/runtime/foo。
+#       [^&;|]* 限制不跨命令分隔，避免吃到后续命令里的 runtime/ 文案。gpt52 review 实锤。
 # ═══════════════════════════════════════════════════════════════
-if echo "$COMMAND" | grep -qiE 'git\s+(checkout|switch)\s+runtime'; then
+if echo "$COMMAND" | grep -qiE 'git\s+(checkout|switch)\b[^&;|]*\s['\''"]?runtime/'; then
   emit_deny "⛔ P0 RUNTIME 圣域保护：禁止在主仓库 checkout/switch 到 runtime 分支！这会破坏 worktree 关系。如需查看 runtime 状态，请用 git -C ../cat-cafe-runtime status。"
   exit 0
 fi
@@ -138,7 +151,7 @@ fi
 # 模式 6：kill/pkill 可能杀掉 runtime 进程
 # 匹配：kill/pkill 后跟 runtime 相关模式（保守匹配）
 # ═══════════════════════════════════════════════════════════════
-if echo "$COMMAND" | grep -qiE '(kill|pkill)\s+.*(-f\s+)?.*cat-cafe-runtime'; then
+if echo "$COMMAND" | grep -qiE '(kill|pkill)\s+.*(-f\s+)?.*cat-cafe-runtime(/|[[:space:]"'\'';&|()<>]|$)'; then
   emit_deny "⛔ P0 RUNTIME 圣域保护：禁止杀死 runtime 相关进程！这会导致所有猫掉线。如果服务需要重启，请通知铲屎官。"
   exit 0
 fi
