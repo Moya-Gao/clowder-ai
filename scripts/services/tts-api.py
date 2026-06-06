@@ -534,6 +534,37 @@ async def health():
     }
 
 
+@app.get("/health/deep")
+async def health_deep():
+    """Deep health check: verifies actual synthesis capability.
+
+    Used by lifecycle reconciler to detect zombie processes -- HTTP alive
+    but inference pipeline broken (e.g. Broken pipe after prolonged uptime).
+    Synthesizes a single character to verify the full pipeline works.
+    """
+    if not adapter_ready or not adapter:
+        raise HTTPException(503, detail="adapter not ready")
+    try:
+        _audio_bytes, _fmt = await asyncio.wait_for(
+            adapter.synthesize(
+                text="a",
+                voice="zm_yunjian",
+                lang_code="en",
+                speed=1.0,
+                audio_format="wav",
+            ),
+            timeout=15.0,
+        )
+        return {
+            "status": "ok",
+            "probe": "synthesis",
+            "model": adapter.model_name,
+        }
+    except Exception as exc:
+        log.warning("Deep health probe failed: %s", exc)
+        raise HTTPException(503, detail=f"synthesis probe failed: {exc}") from exc
+
+
 # ─── Main ─────────────────────────────────────────────────────────────
 
 
