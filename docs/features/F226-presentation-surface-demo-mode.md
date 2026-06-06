@@ -36,7 +36,8 @@ created: 2026-06-06
 ### Phase A: Floating Presentation Surface Host（MVP — 文件/图片/PPT 图）
 
 - 新增 **AppShell/root 级 `FloatingPresentationSurfaceHost`**，mount 在 `(chat)` route group **之上**、在 `WorkspacePanel` **之外**——无论 ① 切 workspace mode tab（开发→定时/记忆/任务，主场景）还是 ② 切全屏路由（`/memory` 等）都**不卸载**（KD-1）。
-- 新增全局 `presentationSurface` 状态：`{ placement: 'docked'|'floating', content: snapshot{worktreeId, tabs[], activeTab, mode}, pos{x,y}, size{w,h}, minimized }`，挂全局 store，不绑 `(chat)`。
+- 新增全局 `presentationSurface` 状态：`{ placement: 'docked'|'floating', content: fileSnapshot{worktreeId, filePath, tabs?, fileKind, renderMode:'rendered'|'raw', line?, scrollTop?, title}, pos{x,y}, size{w,h}, minimized }`，挂全局 store，不绑 `(chat)`。**snapshot 限文件相关字段、不带 `workspaceMode`**——否则实现者可能意外把 recall/tasks/schedule 也做成可浮，破坏 KD-4 边界（砚砚 P2）。
+- **回坞/关闭契约**（核心流程，砚砚 P1）：`dock back` = 把 docked workspace 切回 `dev` mode + 恢复浮窗文件快照（worktreeId/filePath/tabs/renderMode/line/scrollTop）；`close`/`minimize` **不改**当前 docked mode——演示时 docked 可能正停在「定时任务」，收回讲稿浮窗不该把它踢回 dev。
 - **tear-off content snapshot**（KD-2）：detach 时把当前右侧内容**快照成浮窗副本**，docked workspace **保留**——右侧格子仍可切 dev/recall/schedule/tasks/community。不是搬走唯一 panel。
 - 拖拽/resize/回坞复用 `react-rnd`（F195 先例）。
 - 入口：`WorkspacePanel` header 的 detach 按钮（F063 锁按钮旁）+ **全局召回开关放 ActivityBar**（跨路由可见，在 Memory Hub 时也能召回/收起浮窗）。
@@ -53,12 +54,12 @@ created: 2026-06-06
 
 ## Acceptance Criteria
 
-<!-- 立项愿景硬度自检：每条 AC ① trace 回 Why ② 非作者可复核。MVP scope（OQ-1）+ 如何讲 show（OQ-4）待 Design Gate / 新 thread 讨论收敛后可能微调 AC，但 Why 已钉死。 -->
+<!-- 立项愿景硬度自检：每条 AC ① trace 回 Why ② 非作者可复核。scope 已定（只浮文件/md，不含其他 mode）；仅「如何讲 show」OQ-4 待讨论，不影响 AC。 -->
 
 ### Phase A（Floating Presentation Surface Host）
 - [ ] AC-A1: 演示时可把文件/md tear-off 成浮窗，**右侧 docked 生态位腾出、可自由切 mode tab（记忆/定时/任务）展示**，文件浮窗与 docked 内容并存（trace Why「讲稿+活功能并排」；复核：手动 + 组件测试）
 - [ ] AC-A2: 浮窗在 ① workspace mode tab 切换（开发→定时/记忆/任务，主场景）② 切全屏路由（`/memory` 等）时都**不卸载、保持可见**（trace Why「切证据时讲稿不消失」；复核：mode 切换 + 路由切换测试断言 host 存活）
-- [ ] AC-A3: 浮窗可拖拽 / 缩放 / 最小化 / **回坞 dock back**，清晰退出（`Esc` + 按钮）（trace Why「能回归回去 + 清晰退出」）
+- [ ] AC-A3: 浮窗可拖拽 / 缩放 / 最小化 / **回坞 dock back**，清晰退出（`Esc` + 按钮）。**回坞契约**：dock back 切 docked 回 dev + 恢复文件快照；close/minimize 不改当前 docked mode（trace Why「演示中 docked 停在定时任务，收回讲稿不该踢走该视图」；复核：组件测试覆盖 docked=schedule 时 dock back / close 两条路径）
 - [ ] AC-A4: **不破坏**现有 workspace navigation 和 F063 presentation lock（复核：thread-switch lock 回归测试行为不变）
 - [ ] AC-A5: 关键状态切换有前端测试覆盖：host 跨路由 survival / 单浮窗 / no double `WorkspacePanel` mount / dock back / z-index·bounds·Esc / responsive smoke
 
@@ -80,7 +81,7 @@ created: 2026-06-06
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | MVP scope：首版仅文件/图片/PPT，还是含 recall/tasks/schedule？ | ⬜ 待新 thread / Design Gate 收敛 |
+| OQ-1 | 首版文件类型边界：md / rendered markdown / 图片 / raw code 是否都支持？（scope 已定：只浮文件类，**不含** recall/tasks/schedule） | ⬜ 实现时定 |
 | OQ-2 | F063 lock 合并时机：Phase A 并存 vs 立即合并？ | ⬜ 砚砚建议先并存 |
 | OQ-3 | 单浮窗 vs 多浮窗？ | ⬜ 建议先单窗 |
 | OQ-4 | **如何讲 show**：华为汇报演示叙事怎么设计，本功能怎么支撑？ | ⬜ 铲屎官想聊的核心议题 |
