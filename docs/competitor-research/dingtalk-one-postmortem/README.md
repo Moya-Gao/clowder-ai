@@ -1,3 +1,10 @@
+---
+topics: [competitor, research, dingtalk-one, ai-product]
+doc_kind: index
+created: 2026-06-05
+updated: 2026-06-05
+---
+
 # 钉钉 ONE 项目复盘：置身钉内
 
 ## 概览
@@ -14,10 +21,17 @@
 
 | 文件 | 说明 | Git 状态 |
 |------|------|----------|
-| `置身钉内.md` | PDF 提取的 markdown 全文转录（含 Cat Cafe 关联分析） | ✅ 已跟踪 |
-| `置身钉内.pdf` | 原始 PDF（含排版和截图） | ❌ gitignore（33MB） |
+| [reading-notes.md](./reading-notes.md) | Cat Cafe 集体读书笔记：云端砚砚视角、failure modes、Cat Cafe 映射 | 已跟踪 |
+| [置身钉内.md](./置身钉内.md) | PDF 提取的 markdown 全文转录（含 Cat Cafe 关联分析） | 已跟踪 |
+| `置身钉内.pdf` | 原始 PDF（含排版和截图） | gitignore（33MB，本地保留） |
 
 > **注意**：MD 版本是机器提取，排版有瑕疵。文中插图只在 PDF 中可见——需要看图请打开原始 PDF。
+
+## 阅读路径
+
+1. 先读本 README，了解文档背景和章节。
+2. 再读 [reading-notes.md](./reading-notes.md)，看已经提炼出的产品 failure modes 和 Cat Cafe 对照。
+3. 需要核对原文时，跳到 [置身钉内.md](./置身钉内.md)；需要看截图和排版时，打开本地 PDF。
 
 ## 章节结构
 
