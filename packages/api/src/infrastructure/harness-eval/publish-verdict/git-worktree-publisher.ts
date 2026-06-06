@@ -68,7 +68,12 @@ export function createGitWorktreePublisher(deps: GitWorktreePublisherDeps): GitP
           const rel = resolve(p).startsWith(worktreePath) ? resolve(p).slice(worktreePath.length + 1) : p;
           return rel;
         });
-        await exec('git', ['-C', worktreePath, 'add', '--', ...relativePaths], { timeout: 30_000 });
+        // cloud R4 P1 (PR-2): some generators write evidence that lives at paths covered by
+        // .gitignore (cw raw inputs at `generated/capability-wakeup/<verdictId>/` — see
+        // `.gitignore:209`). Stage callback's path list is explicit contract for "must be in
+        // commit"; `-f` forces inclusion (no-op for non-ignored paths). Without -f, `git add`
+        // exits non-zero with "paths are ignored" and the whole publish fails.
+        await exec('git', ['-C', worktreePath, 'add', '-f', '--', ...relativePaths], { timeout: 30_000 });
         await exec('git', ['-C', worktreePath, 'commit', '-m', commitMessage], { timeout: 30_000 });
 
         // 5. Push branch to origin

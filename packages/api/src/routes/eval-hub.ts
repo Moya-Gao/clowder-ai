@@ -218,6 +218,9 @@ export const evalHubRoutes: FastifyPluginAsync<EvalHubRoutesOptions> = async (ap
         messageStore: opts.messageStore,
         threadStore: opts.threadStore,
         redis: opts.redis,
+        // cloud R5 P2 (PR-2): pass wired publish-verdict domain set so
+        // buildEvalCatInvocation omits publish instructions for unwired domains.
+        wiredPublishDomains: new Set(Object.keys(opts.verdictGenerators ?? {})),
       },
       { domainId, userId },
     );
@@ -324,7 +327,10 @@ export const evalHubRoutes: FastifyPluginAsync<EvalHubRoutesOptions> = async (ap
         packet: body.packet,
         domain: domainId,
         catId: principal.catId,
-        sourceRefs: (body.sourceRefs ?? {}) as { snapshotName?: string; attributionName?: string },
+        // PR-2 (砚砚 R1 Q3): sourceRefs is a discriminated union (a2a vs capability-wakeup-trial-window);
+        // adapter discriminates by `kind` field. Cast through unknown — handler/adapter validate shape.
+        sourceRefs: (body.sourceRefs ??
+          {}) as unknown as import('../infrastructure/harness-eval/publish-verdict/types.js').VerdictSourceRefs,
       },
     );
 

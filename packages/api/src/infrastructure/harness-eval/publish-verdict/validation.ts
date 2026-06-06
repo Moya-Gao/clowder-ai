@@ -1,7 +1,17 @@
 import { basename, resolve } from 'node:path';
 import { resolveSafeRawPath } from '../safe-path.js';
 import type { VerdictHandoffPacket } from '../verdict-handoff.js';
-import type { HandlerError, ResolvedSourceRefs, VerdictSourceRefs } from './types.js';
+import type { A2aSnapshotAttributionRefs, HandlerError, ResolvedSourceRefs, VerdictSourceRefs } from './types.js';
+
+/**
+ * F192 Phase H 收尾 PR-2: discriminator helper for the VerdictSourceRefs union.
+ * Returns true when sourceRefs is the a2a variant (or unspecified, default a2a for backward compat).
+ */
+export function isA2aSourceRefs(refs: VerdictSourceRefs | undefined): refs is A2aSnapshotAttributionRefs {
+  if (!refs) return true; // empty/undefined defaults to a2a interpretation
+  if (!('kind' in refs) || refs.kind === undefined) return true;
+  return refs.kind === 'a2a-snapshot-attribution';
+}
 
 /**
  * F192 Phase H publish-verdict validation helpers.
@@ -16,6 +26,16 @@ import type { HandlerError, ResolvedSourceRefs, VerdictSourceRefs } from './type
 export function validateSourceRefsFormat(
   sourceRefs: VerdictSourceRefs | undefined,
 ): { ok: true } | { ok: false; error: HandlerError } {
+  if (!isA2aSourceRefs(sourceRefs)) {
+    return {
+      ok: false,
+      error: {
+        status: 400,
+        error: 'invalid_source_ref',
+        detail: `validateSourceRefsFormat called with non-a2a sourceRefs (kind=${(sourceRefs as { kind?: string }).kind ?? 'unknown'}); use isA2aSourceRefs guard before calling.`,
+      },
+    };
+  }
   const snap = sourceRefs?.snapshotName;
   const attr = sourceRefs?.attributionName;
   if (!snap || !attr) {

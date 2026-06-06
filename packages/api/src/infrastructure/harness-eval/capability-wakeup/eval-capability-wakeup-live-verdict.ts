@@ -9,6 +9,7 @@ import {
   type CapabilityName,
   type ClassifiedCapabilityWakeupTrial,
 } from './eval-capability-wakeup-adapter.js';
+import { formatLiveVerdictMarkdown } from './eval-capability-wakeup-renderer.js';
 import { assertSubmittedPacketMatches } from './submitted-packet-guard.js';
 
 const SANITIZE_RULES_VERSION = 'f192-capability-wakeup-v1';
@@ -28,6 +29,14 @@ export interface GenerateCapabilityWakeupLiveVerdictInput {
 export interface CapabilityWakeupLiveVerdictArtifact {
   path: string;
   bundleDir: string;
+  /**
+   * F192 Phase H 收尾 PR-2 R3 P1 (cloud): replayed raw inputs (`trials.json` + `summary.json`)
+   * live OUTSIDE `bundleDir` at `<repoRoot>/generated/capability-wakeup/<verdictId>/`.
+   * `provenance.json` (inside bundleDir) references them by relative path + sha256, so
+   * publisher MUST stage this directory or the auto-PR omits the referenced raw inputs
+   * → reviewers/main can't audit/replay. Adapter forwards via extraStagedPaths.
+   */
+  rawInputDir: string;
   packet: VerdictHandoffPacket;
   markdown: string;
   refs: {
@@ -125,6 +134,7 @@ export function generateCapabilityWakeupLiveVerdict(
   return {
     path: verdictPath,
     bundleDir,
+    rawInputDir,
     packet: packetWithBundleRefs,
     markdown,
     refs: {
@@ -247,45 +257,8 @@ function buildAttribution(
   };
 }
 
-function formatLiveVerdictMarkdown(
-  verdictId: string,
-  capability: CapabilityName,
-  packet: VerdictHandoffPacket,
-  sourceSnapshotRef: string,
-): string {
-  return [
-    '---',
-    `feature_ids: [F192, ${packet.harnessUnderEval.featureId}]`,
-    'topics: [harness-eval, capability-wakeup, live-verdict]',
-    'doc_kind: harness-feedback',
-    'feedback_type: live-verdict',
-    'domain_id: eval:capability-wakeup',
-    `packet_id: ${packet.id}`,
-    `source_snapshot: "${sourceSnapshotRef}"`,
-    '---',
-    '',
-    `# Live Verdict — ${verdictId}`,
-    '',
-    `- Verdict: \`${packet.verdict}\``,
-    `- Phenomenon: ${packet.phenomenon}`,
-    `- Harness: ${packet.harnessUnderEval.featureId}/${packet.harnessUnderEval.componentId} (${capability})`,
-    `- Owner ask: ${packet.ownerAsk.requestedAction}`,
-    `- Re-eval: next eval at ${packet.acceptanceReevalPlan.nextEvalAt}`,
-    '',
-    'Evidence:',
-    ...packet.evidencePacket.snapshotRefs.map((ref) => `- ${ref}`),
-    ...packet.evidencePacket.attributionRefs.map((ref) => `- ${ref}`),
-    ...packet.evidencePacket.metricRefs.map(formatMetricRefBullet),
-    '',
-  ].join('\n');
-}
-
-/** 砚砚 R1 P2 (a2a R14 mirror): idempotent metric: prefix; cat-submitted packets may already
- * carry `metric:foo` — strip-then-add ensures single prefix, never `metric:metric:foo`. */
-function formatMetricRefBullet(ref: string): string {
-  const bare = ref.startsWith('metric:') ? ref.slice(7) : ref;
-  return `- metric:${bare}`;
-}
+// formatLiveVerdictMarkdown + formatMetricRefBullet extracted to ./eval-capability-wakeup-renderer.ts
+// (PR-2 R9 P1: AGENTS.md 350-line hard limit; parent file hit 356 after R3 rawInputDir).
 
 function countByLabel(trials: ClassifiedCapabilityWakeupTrial[]): Record<string, number> {
   const counts: Record<string, number> = {};

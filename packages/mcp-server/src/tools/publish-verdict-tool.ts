@@ -11,9 +11,10 @@ import type { ToolResult } from './file-tools.js';
  * handlePublishVerdict (validates packet → resolves sourceRefs → invokes
  * isolated-worktree publisher → opens auto-PR).
  *
- * Cat input: VerdictHandoffPacket + sourceRefs (snapshotName + attributionName
- * basenames inside docs/harness-feedback/{snapshots,attributions}/).
- * Tool output: { commitSha, prUrl, verdictPath, bundleDir } on success.
+ * F192 Phase H 收尾 PR-2 (砚砚 R1 Q3): sourceRefs is now a discriminated union
+ * supporting both eval:a2a (snapshot/attribution YAML basenames) and
+ * eval:capability-wakeup (replayable window selector). Tool routes to the same
+ * API endpoint; per-domain generator dispatch happens in the route layer.
  */
 
 const verdictPacketShape = z
@@ -29,23 +30,74 @@ const verdictPacketShape = z
     'VerdictHandoffPacket — 12 fields total (id, domainId, createdAt, phenomenon, harnessUnderEval, evidencePacket, dailyTrend, rootCauseHypothesis, verdict, ownerAsk, acceptanceReevalPlan, counterarguments; governance optional except delete_sunset). See instructions in your eval cat invocation packet for full schema.',
   );
 
+/**
+ * a2a sourceRefs: basenames of pre-sanitized snapshot/attribution YAML files.
+ * `kind` is OPTIONAL for backward compat (eval:a2a cats publishing without kind
+ * still routes correctly through the discriminated union default).
+ */
+const a2aSourceRefsShape = z
+  .object({
+    kind: z.literal('a2a-snapshot-attribution').optional(),
+    snapshotName: z
+      .string()
+      .min(1)
+      .describe('Basename of sanitized eval snapshot YAML inside <harnessFeedbackRoot>/snapshots/.'),
+    attributionName: z
+      .string()
+      .min(1)
+      .describe('Basename of sanitized attribution YAML inside <harnessFeedbackRoot>/attributions/.'),
+  })
+  .describe('eval:a2a sourceRefs — basenames only (path separators / .. rejected by API).');
+
+/**
+ * F192 Phase H 收尾 PR-2 (砚砚 R1 P1+P2): capability-wakeup sourceRefs is a
+ * replayable trial-window selector. Provider replays session events via
+ * buildCapabilityTrace → evaluateCapabilityWakeupTrace → classifyCapabilityWakeupTrials.
+ *
+ * PR-2 narrowed: `sessionIds` REQUIRED non-empty (no global window scan —
+ * needs userId/thread enumeration, deferred to future PR with durable trial store).
+ */
+const capabilityWakeupSourceRefsShape = z
+  .object({
+    kind: z.literal('capability-wakeup-trial-window'),
+    capability: z
+      .string()
+      .min(1)
+      .refine((v) => !/[\r\n]/.test(v), 'capability must not contain newlines (markdown bullet injection)')
+      .describe('Capability the verdict is about (e.g. rich-messaging / workspace-navigator / browser-preview).'),
+    windowStartMs: z.number().finite().describe('Inclusive — trials with timeSpan.startMs >= this qualify (epoch ms).'),
+    windowEndMs: z
+      .number()
+      .finite()
+      .describe('Exclusive — trials with timeSpan.startMs < this qualify. Must be > windowStartMs.'),
+    sessionIds: z
+      .array(z.string().min(1))
+      .min(1)
+      .describe(
+        'REQUIRED non-empty — session IDs to replay (PR-2 narrowed; global window scan deferred to future PR).',
+      ),
+    ruleIds: z
+      .array(z.string().min(1))
+      .optional()
+      .describe('Optional narrowing — restrict to specific rule IDs in the static capability-wakeup-rules registry.'),
+  })
+  .describe(
+    'eval:capability-wakeup sourceRefs — replayable selector (砚砚 R0 narrowing: window edges + sessionIds required).',
+  );
+
+const sourceRefsShape = z
+  .union([a2aSourceRefsShape, capabilityWakeupSourceRefsShape])
+  .describe(
+    '砚砚 R1 P1 #2 + PR-2 R1 Q3: discriminated union by `kind` field. a2a kind is default (backward compat); capability-wakeup-trial-window kind required for cw cats.',
+  );
+
 export const publishVerdictInputSchema = {
-  domainId: z.string().min(1).describe('Your assigned eval domain (e.g. eval:a2a). Must match packet.domainId.'),
+  domainId: z
+    .string()
+    .min(1)
+    .describe('Your assigned eval domain (eval:a2a / eval:capability-wakeup in v2). Must match packet.domainId.'),
   packet: verdictPacketShape,
-  sourceRefs: z
-    .object({
-      snapshotName: z
-        .string()
-        .min(1)
-        .describe('Basename of sanitized eval snapshot YAML inside <harnessFeedbackRoot>/snapshots/.'),
-      attributionName: z
-        .string()
-        .min(1)
-        .describe('Basename of sanitized attribution YAML inside <harnessFeedbackRoot>/attributions/.'),
-    })
-    .describe(
-      '砚砚 R1 P1 #2 + R2 P2: explicit evidence sources (NOT fabricated). BASENAMES only — path separators / .. rejected.',
-    ),
+  sourceRefs: sourceRefsShape,
   // 砚砚 R4 P1 + cloud R4 P1: catId is NOT a cat-supplied field — server
   // derives it from the trusted callback principal (invocationId → registry).
   // Removed from input schema; agentKeyCatId stays for shared-MCP routing.
@@ -56,12 +108,24 @@ export const publishVerdictInputSchema = {
     .describe('Persistent-agent identity selector. Required for shared Antigravity MCP.'),
 };
 
-export async function handlePublishVerdict(input: {
+/** Inferred input type (matches discriminated union). */
+type PublishVerdictToolInput = {
   domainId: string;
   packet: Record<string, unknown>;
-  sourceRefs: { snapshotName: string; attributionName: string };
+  sourceRefs:
+    | { kind?: 'a2a-snapshot-attribution'; snapshotName: string; attributionName: string }
+    | {
+        kind: 'capability-wakeup-trial-window';
+        capability: string;
+        windowStartMs: number;
+        windowEndMs: number;
+        sessionIds: string[];
+        ruleIds?: string[];
+      };
   agentKeyCatId?: string | undefined;
-}): Promise<ToolResult> {
+};
+
+export async function handlePublishVerdict(input: PublishVerdictToolInput): Promise<ToolResult> {
   return callbackPost(
     `/api/eval-domains/${encodeURIComponent(input.domainId)}/publish-verdict`,
     {
@@ -77,11 +141,11 @@ export const publishVerdictTools = [
     name: 'cat_cafe_publish_verdict',
     description:
       'F192 Phase H: publish your eval verdict as a structured commit + auto-PR. ' +
-      'Use after your analysis converges to a verdict for your assigned eval domain (eval:a2a in v1). ' +
-      'Pass the complete VerdictHandoffPacket + sourceRefs (basenames of your sanitized evidence YAMLs). ' +
-      'The handler validates schema, resolves evidence paths under allowlist, invokes the domain generator inside an isolated git worktree, commits + pushes the branch verdict/auto/<domain-slug>/<verdict-id>, and opens an auto-PR. Returns { commitSha, prUrl }. ' +
-      'GOTCHA: only eval:a2a is wired in v1; other domains return 501. ' +
-      'GOTCHA: catId must match the registered eval cat for the domain (eval:a2a → codex); 403 not_allowed otherwise. ' +
+      'Use after your analysis converges to a verdict for your assigned eval domain. ' +
+      'Pass the complete VerdictHandoffPacket + sourceRefs (shape depends on your domain — see your eval cat invocation instructions for the exact selector shape). ' +
+      'The handler validates schema, dispatches to the per-domain generator inside an isolated git worktree, commits + pushes the branch verdict/auto/<domain-slug>/<verdict-id>, and opens an auto-PR. Returns { commitSha, prUrl }. ' +
+      'GOTCHA: wired domains in v2: eval:a2a (snapshot/attribution YAML basenames) + eval:capability-wakeup (replayable trial-window selector). Other domains return 501. ' +
+      'GOTCHA: catId must match the registered eval cat for the domain (or its OQ-20 Redis override); 403 not_allowed otherwise. ' +
       'GOTCHA: DO NOT run git push/commit/add yourself; this tool owns the publish lifecycle.',
     inputSchema: publishVerdictInputSchema,
     handler: handlePublishVerdict,

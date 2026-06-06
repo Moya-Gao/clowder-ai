@@ -1557,13 +1557,44 @@ async function main(): Promise<void> {
   };
 
   const { evalHubRoutes } = await import('./routes/eval-hub.js');
-  // F192 Phase H AC-H4: real GitPublisher (git worktree + gh) + eval:a2a generator
+  // F192 Phase H AC-H4: real GitPublisher (git worktree + gh) + per-domain generators
   const { createGitWorktreePublisher } = await import(
     './infrastructure/harness-eval/publish-verdict/git-worktree-publisher.js'
   );
   const { createA2aGeneratorAdapter } = await import(
     './infrastructure/harness-eval/publish-verdict/a2a-generator-adapter.js'
   );
+
+  // F192 Phase H 收尾 PR-2 (砚砚 R1 P1 + Q5): capability-wakeup generator wires a real
+  // CapabilityWakeupTrialProviderImpl with all 4 required ports (sessionStore /
+  // transcriptReader / toolEventLog / skillLoadEventLog). Constructor fail-closed —
+  // if Redis-backed ports are unavailable (no Redis client), skip cw wire entirely
+  // (eval-cat-invocation domain instructions filtering will degrade gracefully:
+  // cw cats see base instructions without publish section, handler returns 501).
+  const verdictGenerators: Partial<
+    Record<
+      'eval:a2a' | 'eval:capability-wakeup' | 'eval:memory' | 'eval:sop' | 'eval:task-outcome',
+      ReturnType<typeof createA2aGeneratorAdapter>
+    >
+  > = {
+    'eval:a2a': createA2aGeneratorAdapter(),
+  };
+  if (toolEventLog && skillLoadEventLog) {
+    const { createCapabilityWakeupGeneratorAdapter } = await import(
+      './infrastructure/harness-eval/publish-verdict/capability-wakeup-generator-adapter.js'
+    );
+    const { CapabilityWakeupTrialProviderImpl } = await import(
+      './infrastructure/harness-eval/capability-wakeup/capability-wakeup-trial-provider-impl.js'
+    );
+    const cwProvider = new CapabilityWakeupTrialProviderImpl({
+      sessionStore: sessionChainStore,
+      transcriptReader,
+      toolEventLog,
+      skillLoadEventLog,
+    });
+    verdictGenerators['eval:capability-wakeup'] = createCapabilityWakeupGeneratorAdapter(cwProvider);
+  }
+
   await app.register(evalHubRoutes, {
     harnessFeedbackRoot: resolve(repoRoot, 'docs', 'harness-feedback'),
     threadStore,
@@ -1571,8 +1602,7 @@ async function main(): Promise<void> {
     invokeTriggerProvider: invokeTriggerHolder,
     messageStore,
     gitPublisher: createGitWorktreePublisher({ repoRoot }),
-    // 砚砚 R4 P1 + cloud R4 P1: inject real generator (handler default throws).
-    verdictGenerators: { 'eval:a2a': createA2aGeneratorAdapter() },
+    verdictGenerators,
     // 砚砚 R4 P1 + cloud R4 P1: register CallbackAuthRegistry for MCP route auth.
     callbackRegistry: registry,
     // 砚砚 R9 P1: shared-MCP (Antigravity) agent-key publish path needs this.
@@ -3069,12 +3099,25 @@ async function main(): Promise<void> {
     './infrastructure/harness-eval/domain/eval-domain-daily.js'
   );
   const { getOwnerUserId } = await import('./config/cat-config-loader.js');
+  // cloud R6 P2 (PR-2): mirror the same wired set the eval-hub.ts route computes
+  // (Object.keys(verdictGenerators)). Bootstrap-time invariant:
+  //   eval:a2a always wired; eval:capability-wakeup wired iff toolEventLog + skillLoadEventLog exist.
+  // This gates scheduled daily/weekly invocations' publish instructions on actual runtime support
+  // — without this, weekly cw scheduled eval would tell cat to publish even when no Redis →
+  // handler 501 → wasted run. Mirrors the eval-hub.ts route-layer gating.
+  const wiredPublishDomains = new Set<
+    'eval:a2a' | 'eval:memory' | 'eval:sop' | 'eval:capability-wakeup' | 'eval:task-outcome'
+  >(['eval:a2a']);
+  if (toolEventLog && skillLoadEventLog) {
+    wiredPublishDomains.add('eval:capability-wakeup');
+  }
   const evalScheduleOpts = {
     harnessFeedbackRoot: resolve(repoRoot, 'docs', 'harness-feedback'),
     threadStore,
     defaultUserId: getOwnerUserId(),
     listDynamicTasks: () => dynamicTaskStore.getAll(),
     redis: redisClient ?? undefined,
+    wiredPublishDomains,
   };
   taskRunnerV2.register(createEvalDomainDailySpec(evalScheduleOpts));
   taskRunnerV2.register(createEvalDomainWeeklySpec(evalScheduleOpts));

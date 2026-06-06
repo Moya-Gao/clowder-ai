@@ -55,12 +55,13 @@ describe('handlePublishVerdict — AC-H2 pipeline', () => {
           return { commitSha: 'sha1234567890', prUrl: 'https://github.com/zts212653/cat-cafe/pull/9999' };
         },
       };
-      const mockGenerator = async (packet, sources, deps) => {
-        // 砚砚 R17 P1: sources point INTO isolated worktree (after copy from LIVE).
-        // Generator can safely relative() them against deps.harnessFeedbackRoot (= isolated).
-        assert.match(sources.snapshotPath, new RegExp(`${isolatedWorktree}.*snapshots/snap\\.yaml$`));
-        assert.match(sources.attributionPath, new RegExp(`${isolatedWorktree}.*attributions/attr\\.yaml$`));
+      const mockGenerator = async (packet, sourceRefs, deps) => {
+        // PR-2 (砚砚 R1 Q1): generator gets RAW sourceRefs (basenames) + both roots.
+        // Each adapter handles its own resolve+copy (a2a) or provider.resolve (cw).
+        assert.equal(sourceRefs.snapshotName, 'snap.yaml');
+        assert.equal(sourceRefs.attributionName, 'attr.yaml');
         assert.equal(deps.harnessFeedbackRoot, `${isolatedWorktree}/docs/harness-feedback`);
+        assert.equal(deps.liveHarnessFeedbackRoot, root, 'live root from handler deps.harnessFeedbackRoot');
         return {
           verdictPath: `${deps.harnessFeedbackRoot}/verdicts/${packet.id}.md`,
           bundleDir: `${deps.harnessFeedbackRoot}/bundles/${packet.id}`,

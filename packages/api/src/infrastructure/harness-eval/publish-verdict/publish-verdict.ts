@@ -1,5 +1,7 @@
-import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
+import type { CapabilityWakeupSourceSelector } from '../capability-wakeup/capability-wakeup-trial-provider.js';
+import { validateCapabilityWakeupSelector } from '../capability-wakeup/capability-wakeup-trial-provider.js';
 import { getEvalCatOverride } from '../domain/eval-domain-override.js';
 import { loadDomains } from '../hub/eval-hub-read-model.js';
 import {
@@ -15,7 +17,7 @@ import type {
   PublishVerdictSuccess,
   VerdictGenerator,
 } from './types.js';
-import { assertNoNewlineInBulletFields, resolveSourceRefsInRoot, validateSourceRefsFormat } from './validation.js';
+import { assertNoNewlineInBulletFields, isA2aSourceRefs, validateSourceRefsFormat } from './validation.js';
 
 export type {
   GitPublisher,
@@ -48,17 +50,20 @@ const defaultGitPublisher: GitPublisher = {
   },
 };
 
-const defaultGenerator: VerdictGenerator = async (_packet, _sources, _deps) => {
-  throw new Error('generator not injected (must wire per-domain generator at route layer)');
-};
-
 // validateSourceRefsFormat / assertNoNewlineInBulletFields / resolveSourceRefsInRoot
 // extracted to ./validation.ts (350-line limit).
 
 /**
  * AC-H1: Validate VerdictHandoffPacket schema (server NEVER 造 evidence).
- * AC-H7 partial: input.domain must match packet.domainId; only eval:a2a wired in v1.
+ * AC-H7 partial: input.domain must match packet.domainId.
  * AC-H2: call generator → branch + commit + push + auto-PR → return SHA + URL.
+ *
+ * F192 Phase H 收尾 PR-2 (砚砚 R1 P1): handler is now domain-agnostic.
+ *   - Replaced hardcoded `packet.domainId !== 'eval:a2a'` check with
+ *     `if (!deps.generator) → 501` (route-layer dispatches single generator per domain
+ *     via `eval-hub.ts opts.verdictGenerators[domainId]`)
+ *   - Removed a2a-specific source resolution from stage callback (a2a adapter
+ *     handles its own resolve+copy; cw adapter calls provider.resolve internally)
  */
 export async function handlePublishVerdict(
   deps: PublishVerdictDeps,
@@ -95,15 +100,6 @@ export async function handlePublishVerdict(
   // bullets (read-model regex parses first line — newline truncates + enables injection).
   const newlineError = assertNoNewlineInBulletFields(packet);
   if (newlineError) return newlineError;
-
-  // AC-H7 partial: v1 supports eval:a2a only. AC-H6 later adds capability-wakeup.
-  if (packet.domainId !== 'eval:a2a') {
-    return {
-      status: 501,
-      error: 'unsupported_generator',
-      detail: `Domain '${packet.domainId}' has no live-verdict generator wired in Phase H v1. Only eval:a2a supported.`,
-    };
-  }
 
   // AC-H3 + 砚砚 R6 P1: catId from callback auth (MCP layer). Domain allowlist
   // respects OQ-20 Redis override (symmetric with trigger-now), else static registry.
@@ -180,13 +176,68 @@ export async function handlePublishVerdict(
     };
   }
 
-  // 砚砚 R1 P1 #2 + R2/R3/R7 cloud: format-only check at handler level (presence,
-  // type, basename — no live-tree resolve). Actual path resolution happens INSIDE
-  // stage callback against the ISOLATED worktree (generator needs in-repo paths
-  // so provenance.relative() doesn't reject outside-repo paths).
-  if (packet.domainId === 'eval:a2a') {
+  // PR-2 (砚砚 R1 P1): handler pre-validates sourceRefs shape per kind for proper
+  // 4xx error codes. Adapter-level validation is defense-in-depth (catches when
+  // generator called outside handler flow), but user-facing validation lives here.
+  //
+  // cloud R8 P2 (PR-2): cross-check sourceRefs.kind ↔ packet.domainId BEFORE
+  // per-kind validation. Wrong-shape input for a supported domain (e.g. a2a refs
+  // sent for capability-wakeup domain, or cw selector sent for a2a domain) is
+  // user-correctable; rejecting at 400 here is better UX than letting it
+  // dispatch to adapter → throw `*_adapter_wrong_kind` → 500 generator_failed.
+  const refsKind = isA2aSourceRefs(input.sourceRefs) ? 'a2a-snapshot-attribution' : 'capability-wakeup-trial-window';
+  const EXPECTED_REFS_KIND_BY_DOMAIN: Partial<Record<string, string>> = {
+    'eval:a2a': 'a2a-snapshot-attribution',
+    'eval:capability-wakeup': 'capability-wakeup-trial-window',
+  };
+  const expectedKind = EXPECTED_REFS_KIND_BY_DOMAIN[packet.domainId];
+  if (expectedKind && expectedKind !== refsKind) {
+    return {
+      status: 400,
+      error: 'sourceRefs_kind_mismatch',
+      detail: `Domain '${packet.domainId}' expects sourceRefs.kind='${expectedKind}', got '${refsKind}'. Each domain has a specific evidence shape: eval:a2a → {snapshotName, attributionName}; eval:capability-wakeup → {kind:'capability-wakeup-trial-window', capability, windowStartMs, windowEndMs, sessionIds}.`,
+    };
+  }
+
+  if (isA2aSourceRefs(input.sourceRefs)) {
     const refsCheck = validateSourceRefsFormat(input.sourceRefs);
     if (!refsCheck.ok) return refsCheck.error;
+  } else {
+    const cwSelector = input.sourceRefs as unknown as CapabilityWakeupSourceSelector;
+    // PR-1a structural validator (capability non-empty / no newlines / window edges finite + ordered).
+    const selectorError = validateCapabilityWakeupSelector(cwSelector);
+    if (selectorError) return { status: 400, error: 'invalid_source_ref', detail: selectorError };
+    // PR-2 narrow (砚砚 R1 P1 PR-2 review P2): PR-1a validator is permissive — accepts
+    // trial-ids selector + window selector with omitted sessionIds. PR-2 wired the
+    // window/replay path only; reject other shapes at 400 BEFORE isolated worktree
+    // creation (otherwise provider throws → 500 generator_failed, which is misleading:
+    // the input was structurally invalid for PR-2 scope, not generator failure).
+    if (cwSelector.kind !== 'capability-wakeup-trial-window') {
+      return {
+        status: 400,
+        error: 'invalid_source_ref',
+        detail: `PR-2 wired only 'capability-wakeup-trial-window' kind for capability-wakeup domain (got '${cwSelector.kind}'; trial-ids selector reserved for future durable trial store PR)`,
+      };
+    }
+    if (!cwSelector.sessionIds || cwSelector.sessionIds.length === 0) {
+      return {
+        status: 400,
+        error: 'invalid_source_ref',
+        detail:
+          'capability-wakeup-trial-window selector requires non-empty sessionIds (PR-2 narrowed; global window scan deferred to future PR with durable trial store)',
+      };
+    }
+  }
+
+  // PR-2 (砚砚 R1 P1): route layer dispatches per-domain generator from
+  // `opts.verdictGenerators?.[domainId]` → if undefined, no generator wired → 501.
+  // (Old hardcoded `domainId !== 'eval:a2a'` check removed; route layer is now SoT.)
+  if (!deps.generator) {
+    return {
+      status: 501,
+      error: 'unsupported_generator',
+      detail: `Domain '${packet.domainId}' has no live-verdict generator wired. Wire via opts.verdictGenerators in eval-hub.ts route registration.`,
+    };
   }
 
   // AC-H2 + 砚砚 R1 P1 #1: delegate isolated-worktree lifecycle to GitPublisher.
@@ -197,21 +248,20 @@ export async function handlePublishVerdict(
   // 砚砚 R1 P2 #2: branch name `verdict/auto/{domainSlug}/{verdictId}` is
   // unique per packet.id; `git worktree add -b {branch}` fails atomically if
   // branch already exists → race protection via git's own locking.
+  //
+  // PR-2 (砚砚 R1 Q1): stage callback is now domain-agnostic — adapter handles
+  // its own source resolution (a2a: validate+copy; cw: provider.resolve).
   const gitPublisher = deps.gitPublisher ?? defaultGitPublisher;
-  const generator = deps.generator ?? defaultGenerator;
+  const generator: VerdictGenerator = deps.generator; // checked above (501 if missing)
   const domainSlug = packet.domainId.replace(/:/g, '-');
   const branchName = `verdict/auto/${domainSlug}/${packet.id}`;
 
-  let artifact: { verdictPath: string; bundleDir: string } | null = null;
+  let artifact: { verdictPath: string; bundleDir: string; extraStagedPaths?: string[] } | null = null;
   try {
     const { commitSha, prUrl } = await gitPublisher.publishOnIsolatedWorktree({
       branchName,
       sourceBase: 'origin/main',
       async stage(worktreeRoot) {
-        // 砚砚 R7 + cloud R7: resolve sourceRefs INSIDE isolated worktree so the
-        // resulting absolute paths are inside the isolated repo. The real
-        // generateA2aLiveVerdict requires raw paths to live under harnessFeedbackRoot
-        // (relative() rejects outside-repo paths for provenance correctness).
         const isolatedHarnessFeedback = `${worktreeRoot}/docs/harness-feedback`;
         // 砚砚 R3 P1 #2 cloud: AUTHORITATIVE dup check (origin/main truth).
         const isoVerdictPath = resolve(isolatedHarnessFeedback, 'verdicts', `${packet.id}.md`);
@@ -221,34 +271,14 @@ export async function handlePublishVerdict(
             `verdict_already_exists_on_main: packet.id '${packet.id}' already exists on origin/main. Pick a different id.`,
           );
         }
-        // 砚砚 R17 P1 cloud: snapshots/ + attributions/ are GITIGNORED (.gitignore:205-206) —
-        // raw evidence ONLY exists in the live checkout where harness wrote it, NEVER on
-        // origin/main. R7's "resolve in isolated" failed because isolated worktree (from main)
-        // doesn't have these files. Fix: resolve in LIVE, COPY into isolated for in-repo paths
-        // (preserves R7 spirit — generator reads in-repo paths so provenance.relative() works).
-        const snap = input.sourceRefs?.snapshotName as string;
-        const attr = input.sourceRefs?.attributionName as string;
-        const liveRefs = resolveSourceRefsInRoot(deps.harnessFeedbackRoot, snap, attr);
-        if (!liveRefs.ok) throw new Error(`invalid_source_ref: ${liveRefs.reason}`);
-        if (!existsSync(liveRefs.refs.snapshotPath) || !existsSync(liveRefs.refs.attributionPath)) {
-          throw new Error('evidence_not_found: sourceRefs not found in live harness-feedback');
-        }
-        // Copy raw evidence into isolated worktree so generator's in-repo path invariant holds
-        const isoSnapDir = resolve(isolatedHarnessFeedback, 'snapshots');
-        const isoAttrDir = resolve(isolatedHarnessFeedback, 'attributions');
-        mkdirSync(isoSnapDir, { recursive: true });
-        mkdirSync(isoAttrDir, { recursive: true });
-        const isoSnapPath = resolve(isoSnapDir, snap);
-        const isoAttrPath = resolve(isoAttrDir, attr);
-        copyFileSync(liveRefs.refs.snapshotPath, isoSnapPath);
-        copyFileSync(liveRefs.refs.attributionPath, isoAttrPath);
-        artifact = await generator(
-          packet,
-          { snapshotPath: isoSnapPath, attributionPath: isoAttrPath },
-          { harnessFeedbackRoot: isolatedHarnessFeedback },
-        );
+        artifact = await generator(packet, input.sourceRefs, {
+          harnessFeedbackRoot: isolatedHarnessFeedback,
+          liveHarnessFeedbackRoot: deps.harnessFeedbackRoot,
+        });
         return {
-          paths: [artifact.verdictPath, artifact.bundleDir],
+          // PR-2 R3 P1 (cloud): stage extra paths the generator wrote (cw raw inputs)
+          // so the auto-PR includes all evidence referenced by provenance.json.
+          paths: [artifact.verdictPath, artifact.bundleDir, ...(artifact.extraStagedPaths ?? [])],
           commitMessage: `verdict(${packet.domainId}): ${packet.id} — ${packet.verdict}\n\n${packet.phenomenon}\n\n[published via cat_cafe_publish_verdict MCP]`,
           prTitle: `verdict(${packet.domainId}): ${packet.id}`,
           prBody: `Verdict published via cat_cafe_publish_verdict MCP tool.\n\nVerdict: ${packet.verdict}\nDomain: ${packet.domainId}\nPhenomenon: ${packet.phenomenon}\n\nReviewed by: ${packet.ownerAsk.targetOwnerCatId}\nAction: ${packet.ownerAsk.requestedAction}`,
@@ -277,6 +307,16 @@ export async function handlePublishVerdict(
     }
     if (message.startsWith('invalid_source_ref')) return { status: 400, error: 'invalid_source_ref', detail: message };
     if (message.startsWith('evidence_not_found')) return { status: 404, error: 'evidence_not_found', detail: message };
+    // cloud R5 P2 (PR-2): provider throws `session_not_found: <id>` when a selector
+    // sessionId doesn't exist in SessionChainStore — that's user-correctable input
+    // (stale/mistyped sessionId), not generator failure. Map to 404 so cats correct
+    // the input rather than retrying a server failure.
+    if (message.startsWith('session_not_found')) return { status: 404, error: 'session_not_found', detail: message };
+    // cloud R5 P2 (PR-2): cw adapter throws `no_trials_in_window` when provider
+    // returns empty — also user-correctable (selector returned no qualifying trials),
+    // not generator failure. Map to 404 evidence_not_found semantic.
+    if (message.startsWith('no_trials_in_window'))
+      return { status: 404, error: 'no_trials_in_window', detail: message };
     // 砚砚 R11 P1: AC-H1 completeness — generator throws if any ref type empty
     if (message.startsWith('handoff_incomplete')) return { status: 400, error: 'handoff_incomplete', detail: message };
     if (!artifact) return { status: 500, error: 'generator_failed', detail: message };

@@ -52,14 +52,15 @@ const DOMAIN_INSTRUCTIONS: Record<EvalDomainRegistryEntry['domainId'], string> =
  * Appended to all 5 domain instructions so cats see consistent publish path
  * regardless of which domain they're working on.
  */
-const PUBLISH_VERDICT_INSTRUCTIONS = `
+/** Common packet section — used by all domain publish instructions. */
+const PUBLISH_VERDICT_PACKET_INSTRUCTIONS = `
 
 ## Publish your verdict (MANDATORY — NOT git push)
 
 When your analysis converges to a verdict, call the \`cat_cafe_publish_verdict\` MCP tool with a complete \`VerdictHandoffPacket\` (12 top-level fields; governance optional except for delete_sunset; all other fields REQUIRED):
 
-1. **id** — stable verdict slug (lowercase alphanumeric + hyphens, e.g. \`2026-06-05-eval-a2a-c1-friction\`)
-2. **domainId** — must match your assigned domain (e.g. \`eval:a2a\`)
+1. **id** — stable verdict slug (lowercase alphanumeric + hyphens, e.g. \`2026-06-05-{domainSlug}-c1-friction\`)
+2. **domainId** — must match your assigned domain
 3. **createdAt** — ISO 8601 timestamp
 4. **phenomenon** — what you observed (1-2 sentences)
 5. **harnessUnderEval** — { featureId, componentId, name } of harness being evaluated
@@ -71,32 +72,99 @@ When your analysis converges to a verdict, call the \`cat_cafe_publish_verdict\`
 11. **acceptanceReevalPlan** — { nextEvalAt, closureCondition }
 12. **counterarguments** — non-empty array of alternative interpretations
 13. **governance** (OPTIONAL except for \`delete_sunset\` verdict, where \`governance.cvoAcceptRequired: true\` is REQUIRED)
+`;
 
-You must also supply \`sourceRefs\` (NOT part of packet, separate input field): { snapshotName, attributionName } — BASENAMES of your sanitized evidence YAMLs inside \`<harnessFeedbackRoot>/snapshots/\` and \`<harnessFeedbackRoot>/attributions/\` respectively. Path separators / \`..\` will be rejected (allowlist). The tool will NOT fabricate evidence — if you don't provide refs, publish fails.
+/** a2a-specific sourceRefs section (snapshot/attribution YAML basenames). */
+const PUBLISH_VERDICT_INSTRUCTIONS_A2A = `${PUBLISH_VERDICT_PACKET_INSTRUCTIONS}
+You must also supply \`sourceRefs\` (NOT part of packet, separate input field): \`{ snapshotName, attributionName }\` — BASENAMES of your sanitized evidence YAMLs inside \`<harnessFeedbackRoot>/snapshots/\` and \`<harnessFeedbackRoot>/attributions/\` respectively. Path separators / \`..\` will be rejected (allowlist). The tool will NOT fabricate evidence — if you don't provide refs, publish fails.
 
 The MCP tool creates branch \`verdict/auto/{domainSlug}/{verdictId}\` + commits + opens PR. Returns commit SHA + PR URL.
 
 **DO NOT** run \`git add\`, \`git commit\`, \`git push\`, or write verdict files directly. Use the MCP tool.
 `;
 
-// 砚砚 R2 P1 (cloud): only domains with wired generator should see the publish
-// instructions; otherwise cat tries to publish and handler returns 501. v1 only
-// eval:a2a has the generator; others (memory/sop/capability-wakeup/task-outcome)
-// keep base instructions until their generators are wired in Path B+.
-const PUBLISH_VERDICT_SUPPORTED_DOMAINS: ReadonlySet<EvalDomainRegistryEntry['domainId']> = new Set(['eval:a2a']);
+/**
+ * F192 Phase H 收尾 PR-2 (砚砚 R1 P2): capability-wakeup-specific sourceRefs section
+ * (replayable selector — no pre-sanitized YAMLs; provider replays from session/trial data).
+ */
+const PUBLISH_VERDICT_INSTRUCTIONS_CAPABILITY_WAKEUP = `${PUBLISH_VERDICT_PACKET_INSTRUCTIONS}
+You must also supply \`sourceRefs\` (NOT part of packet, separate input field) as a replayable selector:
+\`\`\`json
+{
+  "kind": "capability-wakeup-trial-window",
+  "capability": "rich-messaging",
+  "windowStartMs": 1759276800000,
+  "windowEndMs": 1759363200000,
+  "sessionIds": ["session-id-1", "session-id-2"]
+}
+\`\`\`
 
-function domainInstructions(domainId: EvalDomainRegistryEntry['domainId']): string {
+Fields:
+- \`kind\` — REQUIRED literal \`"capability-wakeup-trial-window"\` (other selector kinds reserved for future durable trial store)
+- \`capability\` — REQUIRED non-empty (e.g. \`rich-messaging\` / \`workspace-navigator\` / \`browser-preview\`); no newlines
+- \`windowStartMs\` / \`windowEndMs\` — REQUIRED finite ms epoch; \`windowEndMs\` must be > \`windowStartMs\`. Trial fire time (\`trial.timeSpan.startMs\`) must fall in \`[windowStartMs, windowEndMs)\`
+- \`sessionIds\` — REQUIRED non-empty array of session IDs to replay (PR-2 narrowed; global window scan deferred to future PR with durable trial store)
+- \`ruleIds\` — OPTIONAL narrowing (filters to specific rule IDs in the static capability-wakeup-rules registry)
+
+Tool resolves the selector by replaying session events via \`buildCapabilityTrace → evaluateCapabilityWakeupTrace → classifyCapabilityWakeupTrials\` — no need for you to pre-sanitize evidence YAMLs. Tool will NOT fabricate evidence — if selector yields zero classified trials, publish fails.
+
+The MCP tool creates branch \`verdict/auto/{domainSlug}/{verdictId}\` + commits + opens PR. Returns commit SHA + PR URL.
+
+**DO NOT** run \`git add\`, \`git commit\`, \`git push\`, or write verdict files directly. Use the MCP tool.
+`;
+
+/**
+ * 砚砚 R2 P1 (cloud) + R1 P2 PR-2: only domains with wired generator see publish
+ * instructions; per-domain instruction blob includes the correct sourceRefs shape.
+ * memory / sop / task-outcome keep base instructions until their generators land.
+ */
+const PUBLISH_VERDICT_INSTRUCTIONS_BY_DOMAIN: Partial<Record<EvalDomainRegistryEntry['domainId'], string>> = {
+  'eval:a2a': PUBLISH_VERDICT_INSTRUCTIONS_A2A,
+  'eval:capability-wakeup': PUBLISH_VERDICT_INSTRUCTIONS_CAPABILITY_WAKEUP,
+};
+
+/**
+ * cloud R5 P2 (PR-2): publish instructions emit ONLY when a generator is actually
+ * wired for the domain in this runtime. Bootstrap fail-closes cw wire when Redis-backed
+ * ports (toolEventLog/skillLoadEventLog) unavailable; without this gating, cw cats
+ * waste a run producing a packet they can't publish (handler returns 501).
+ *
+ * `wiredDomains` parameter is the runtime contract — pass `undefined` (or omit) when
+ * caller can't determine wired set (defaults to "all known-wireable", preserving
+ * pre-R5 behavior for tests + non-route call sites).
+ */
+function domainInstructions(
+  domainId: EvalDomainRegistryEntry['domainId'],
+  wiredDomains?: ReadonlySet<EvalDomainRegistryEntry['domainId']>,
+): string {
   const base = DOMAIN_INSTRUCTIONS[domainId];
-  return PUBLISH_VERDICT_SUPPORTED_DOMAINS.has(domainId) ? base + PUBLISH_VERDICT_INSTRUCTIONS : base;
+  const publishSection = PUBLISH_VERDICT_INSTRUCTIONS_BY_DOMAIN[domainId];
+  if (!publishSection) return base;
+  // If wiredDomains explicitly provided, gate on actual runtime support.
+  if (wiredDomains !== undefined && !wiredDomains.has(domainId)) return base;
+  return base + publishSection;
 }
 
-export function buildEvalCatInvocation(input: EvalCatInvocationInput): EvalCatInvocationPacket {
+export interface BuildEvalCatInvocationOpts {
+  /**
+   * cloud R5 P2 (PR-2): explicit set of domains with wired verdict generators in
+   * this runtime. When provided, publish instructions are omitted for unwired
+   * domains (no point telling cats to publish via a tool that returns 501).
+   * Omit/undefined → all known-wireable domains get publish instructions (legacy default).
+   */
+  wiredPublishDomains?: ReadonlySet<EvalDomainRegistryEntry['domainId']>;
+}
+
+export function buildEvalCatInvocation(
+  input: EvalCatInvocationInput,
+  opts: BuildEvalCatInvocationOpts = {},
+): EvalCatInvocationPacket {
   const domain = parseEvalDomainRegistryEntry(input.domain);
   return {
     domainId: domain.domainId,
     targetThreadId: domain.systemThreadId,
     evalCat: domain.evalCat,
-    instructions: domainInstructions(domain.domainId),
+    instructions: domainInstructions(domain.domainId, opts.wiredPublishDomains),
     context: {
       trendRefs: input.trendRefs,
       verdictRefs: input.verdictRefs,
