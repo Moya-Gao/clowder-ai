@@ -159,6 +159,27 @@ describe('session-handoff approve/reject route (F225 ②b)', () => {
     assert.equal(deps.sealCalls.length, 0, 'never sealed');
   });
 
+  it('approve pre-commit fail (session_changed) emits proposal_updated so a mounted card learns expiry (gpt52 P2)', async () => {
+    const deps = buildDeps({ sessionActive: false });
+    const p = seedProposal(deps);
+    const emits = [];
+    const app = await buildApp(deps, {
+      socketManager: {
+        emitToUser: (userId, event, data) => emits.push({ userId, event, data }),
+        broadcastToRoom() {},
+      },
+    });
+    const res = await approve(app, p.proposalId);
+    assert.equal(res.statusCode, 409);
+    assert.equal(res.json().reason, 'session_changed');
+    // the proposal was markExpired'd pre-commit → a proposal_updated must fire so the mounted card
+    // updates instead of sitting at `pending` until reload.
+    const emit = emits.find((e) => e.event === 'proposal_updated');
+    assert.ok(emit, 'proposal_updated emitted on pre-commit failure');
+    assert.equal(emit.data.status, 'expired', 'emitted the now-expired proposal');
+    assert.equal(res.json().status, 'expired', 'response also carries the settled status');
+  });
+
   it('reject pending → rejected, never seals', async () => {
     const deps = buildDeps();
     const p = seedProposal(deps);

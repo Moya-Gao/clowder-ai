@@ -123,8 +123,17 @@ export const sessionHandoffApproveRoutes: FastifyPluginAsync<SessionHandoffAppro
     const result = await approveSessionHandoff(deps, proposalId);
     if (!result.ok) {
       // pre-commit gate failure (not_pending / session_changed / seal_rejected) → no seal happened.
+      // session_changed / seal_rejected already markExpired'd the proposal; emit so an already-mounted
+      // card learns the settled state instead of sitting at `pending` until reload (gpt52 GPT-5.4 P2).
+      const settled = await handoffProposalStore.get(proposalId);
+      if (settled) socketManager.emitToUser(userId, 'proposal_updated', settled);
       reply.status(409);
-      return { error: 'Handoff approve failed before commit point', stage: result.stage, reason: result.reason };
+      return {
+        error: 'Handoff approve failed before commit point',
+        stage: result.stage,
+        reason: result.reason,
+        ...(settled ? { status: settled.status } : {}),
+      };
     }
     // Commit point crossed → finalize the sealed session. requestSeal only set active→sealing;
     // finalize writes transcript/digest + marks sealed. Without it the stuck reaper would later

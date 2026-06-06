@@ -30,6 +30,12 @@ const btnPrimary =
 const btnDanger =
   'text-xs px-3 py-1 rounded bg-[var(--semantic-critical-surface)] hover:bg-red-200 dark:hover:bg-red-800/50 text-conn-red-text border border-[var(--semantic-critical)] disabled:opacity-50 transition-colors';
 
+/** Optimistic per-verb defaults (the server result, when present, still wins — see act()). */
+const VERB_OUTCOME = {
+  approve: { settled: 'approved' as Status, failMsg: '批准失败' },
+  reject: { settled: 'rejected' as Status, failMsg: '驳回失败' },
+};
+
 /**
  * F225 confirmation card for cat-initiated session handoff. Unlike F128 ProposalCard it does NOT
  * create a thread — approve seals the CURRENT session + enqueues a same-cat continuation, reject
@@ -83,8 +89,7 @@ export function HandoffProposalCard({ block }: { block: RichCardBlock; messageId
   const act = useCallback(
     async (verb: 'approve' | 'reject') => {
       if (!proposalId) return;
-      const settledStatus: Status = verb === 'approve' ? 'approved' : 'rejected';
-      const failMsg = verb === 'approve' ? '批准失败' : '驳回失败';
+      const { settled: settledStatus, failMsg } = VERB_OUTCOME[verb];
       setLoading(true);
       setError(null);
       try {
@@ -94,6 +99,15 @@ export function HandoffProposalCard({ block }: { block: RichCardBlock; messageId
           body: JSON.stringify({}),
         });
         const data = (await res.json().catch(() => ({}))) as { status?: Status; error?: string };
+        // Converge to a SETTLED server status whenever the server reports one — REGARDLESS of res.ok.
+        // Covers success, reject-after-expire dedup ({status:'expired'}), AND a 409 on an already-
+        // terminal proposal (stale/cross-tab card clicking approve — gpt52 P2). A transient 'approving'
+        // or a status-less body falls through, so a retryable 409 still surfaces as a retryable error
+        // and a body-less success still applies the optimistic verb.
+        if (data.status && isSettled(data.status)) {
+          setStatus(data.status);
+          return;
+        }
         if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
         setStatus(settledStatus);
       } catch (err) {

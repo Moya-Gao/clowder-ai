@@ -108,6 +108,49 @@ describe('HandoffProposalCard (F225 P1-2 — buttons no longer inert)', () => {
     expect(container.textContent).toContain('已驳回');
   });
 
+  it('reject-after-expire reflects SERVER status (已过期), not the optimistic verb (gpt52 P2)', async () => {
+    // The reject route returns deduped { status: 'expired' } for an already-expired proposal; the card
+    // must render 已过期 from the server result, not 已驳回 from the clicked verb.
+    vi.mocked(apiFetch).mockImplementation(async (_url: string, opts?: { method?: string }) => {
+      if (opts?.method === 'POST') return okJson({ status: 'expired', deduped: true });
+      return okJson({ proposal: { status: 'pending' } });
+    });
+    await act(async () => {
+      root.render(<HandoffProposalCard block={handoffBlock} />);
+    });
+    const rejectBtn = [...container.querySelectorAll('button')].find((b) => b.textContent?.includes('驳回'));
+    await act(async () => {
+      rejectBtn?.click();
+    });
+    expect(container.textContent).toContain('已过期');
+    expect(container.textContent).not.toContain('已驳回');
+  });
+
+  it('approve on an already-terminal proposal (409 {status:expired}) converges to 已过期, not a bare error (gpt52 P2)', async () => {
+    // The approve route returns 409 { status: 'expired' } when the proposal is already terminal at
+    // request time. A stale / cross-tab card clicking 批准并接力 must converge to the server status
+    // (consume data.status even on !res.ok), not stay pending or surface only an error.
+    vi.mocked(apiFetch).mockImplementation(async (_url: string, opts?: { method?: string }) => {
+      if (opts?.method === 'POST') {
+        return {
+          ok: false,
+          status: 409,
+          json: async () => ({ error: 'already terminal', status: 'expired' }),
+        } as Response;
+      }
+      return okJson({ proposal: { status: 'pending' } });
+    });
+    await act(async () => {
+      root.render(<HandoffProposalCard block={handoffBlock} />);
+    });
+    const approveBtn = [...container.querySelectorAll('button')].find((b) => b.textContent?.includes('批准'));
+    await act(async () => {
+      approveBtn?.click();
+    });
+    expect(container.textContent).toContain('已过期');
+    expect(container.querySelectorAll('button').length).toBe(0);
+  });
+
   it('hydrates durable status on mount — settled card shows no live buttons (云端 P2)', async () => {
     // mount GET returns an already-approved proposal (reload / multi-tab that missed the socket event)
     vi.mocked(apiFetch).mockImplementation(async () => okJson({ proposal: { status: 'approved' } }));
