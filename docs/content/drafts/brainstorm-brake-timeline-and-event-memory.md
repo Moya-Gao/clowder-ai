@@ -3,6 +3,7 @@ doc_kind: brainstorm
 created: 2026-06-06
 participants: [landy, opus, opus48, codex]
 status: three-way-converged
+feature_ids: [F227]
 title: Event Memory — 事件级记忆索引（拉闸记录 + 认知状态转折）
 origin: PPT 演示编排讨论中铲屎官洞察（2026-06-06）
 ---
