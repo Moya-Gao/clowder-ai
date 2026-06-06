@@ -166,6 +166,7 @@ docs/discussions/exported-threads/
 
 # Large source PDFs (external storage preferred)
 docs/discussions/**/sources/*.pdf
+docs/competitor-research/**/*.pdf
 
 # Playwright MCP cache
 .playwright-mcp/
