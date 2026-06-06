@@ -2,7 +2,7 @@
 doc_kind: draft
 created: 2026-06-04
 participants: [landy, opus, codex, opus48]
-status: v12-oracle-self-healing
+status: v13-competitor-axes
 title: AutoHarness：从静态编排走向自进化
 target: 华为云内部创新汇报（三页 PPT + live demo）
 ---
@@ -26,6 +26,7 @@ target: 华为云内部创新汇报（三页 PPT + live demo）
 > v10：48+砚砚切磋——技术挑战第3条从"受控边界"升级为"分层可变性治理"（每层谁能改/blast radius/可变性梯度 + golden path + 为什么必须 code-as-harness）；六层权限矩阵 + 增量进 004 seed §五 bis
 > v11：48+砚砚重构第三页——"两孤立场景"升级为"四类触发源（发现主体从人下沉到系统）+ 统一飞轮 + 120天 showcase reframe + 建筑外推一句"；核实 feat 锚点修正铲屎官口误（clear context = F225 不是 F125；F125 是 Alpha 通道）；原 F128/Memory Eval 详细故事移入 Pocket
 > v12：48+砚砚补 oracle 自校准案例（F200 false positive 被 push back 校准 = 验证器自进化）——pocket 加完整故事 + 底部真值闭环加"最硬一击：连 eval 自己也被校准"（直接回答评委"eval 凭什么可信"）。核实 F200 = Memory Recall Eval（非愿景守护，记忆纠偏）
+> v13：竞品对标重构——主 PPT 用二维框架（X 自进化深度 × Y 环境真实性）+ 两锚点（飞书妙搭=静态生成派 / AlphaEvolve=benchmark 自改派），我们占两维交集；补漏的飞书 Aily/妙搭 source-audit（2026.3.19 发布，定位"人主导运营"非 agent 自进化，不 overclaim）；8 个学术候选降级 pocket
 
 ---
 
@@ -85,7 +86,22 @@ L1 部分自演进        L2 部分自进化          L3 系统自进化        
 >
 > **配一句更软的人话**：让 AI 不只是像**新员工**一样懂这行的通法，还像**共事多年的老同事**一样，懂你们公司的规矩、团队的分工、和每个人的工作默契。
 
-**对标候选池（初步 source-audit，不直接上主 PPT）**
+**主 PPT 对标：两个轴，两个锚点（48 × 砚砚 source-audit 2026-06-06）**
+
+竞品不是"谁技术更强"，是两个维度上的位置：
+
+- **X 轴｜自进化深度**：工件生成后谁让它进化 —— 生成即终态 → 人工运营调优 → **系统从真实轨迹自改 harness**
+- **Y 轴｜环境真实性**：benchmark / sandbox → **真实生产长期运转**
+
+| 象限 | 最强锚点 | 它在哪 | 缺什么 |
+|---|---|---|---|
+| 静态生成派 | **飞书妙搭 / Aily**（2026.3.19 发布会，大厂、华为熟悉） | 真实环境 ✓，但 AI 生成业务系统后**人主导运营调优**（L1-L2） | 不是 agent 从真实轨迹自改 harness |
+| benchmark 自改派 | **AlphaEvolve**（Google，官方 blog 可核） | 能自改工件 ✓，但在 sandbox / 高 verifier benchmark | 没进真实开放生产环境 |
+| **既自进化又真实** | **我们（AutoHarness）** | 自改真实运行时 harness + 120 天真实生产 | 两维交集，目前独一份 |
+
+> **飞书妙搭定位要精确、别 overclaim**：发布会展示"百元 token 生成市价 2 万系统"，证明**生成**很强；但生成后系统跑出问题，是**人回平台改**，不是 harness 从真实摩擦自己改。分水岭 = "生成 vs 进化"、"人主导 vs agent 主导"。这恰好是全 PPT 的 thesis（改进主体从人→Agent）。
+
+**对标候选池（学术 / 产品线索，留 Pocket、被追问时用 — 不直接上主 PPT）**
 
 | 候选 | 当前证据 | 可学习点 | PPT 使用方式 |
 |---|---|---|---|
