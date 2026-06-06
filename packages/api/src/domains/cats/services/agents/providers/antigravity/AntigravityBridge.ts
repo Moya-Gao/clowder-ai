@@ -291,6 +291,21 @@ function hasTerminalPlannerTextInLatestTurn(steps: TrajectoryStep[]): boolean {
   });
 }
 
+function plannerStepHasDisplayableText(step: TrajectoryStep): boolean {
+  if (step.plannerResponse?.stopReason === 'STOP_REASON_CLIENT_STREAM_ERROR') return false;
+  if (isNonEmptyText(step.plannerResponse?.modifiedResponse)) return true;
+  return isNonEmptyText(step.plannerResponse?.response);
+}
+
+function latestPlannerResponseInLatestTurn(steps: TrajectoryStep[]): TrajectoryStep | undefined {
+  const userInputIndex = latestUserInputIndex(steps);
+  for (let index = steps.length - 1; index > userInputIndex; index -= 1) {
+    const step = steps[index];
+    if (step?.type === 'CORTEX_STEP_TYPE_PLANNER_RESPONSE') return step;
+  }
+  return undefined;
+}
+
 function latestTurnHasErrorMessage(steps: TrajectoryStep[]): boolean {
   const userInputIndex = latestUserInputIndex(steps);
   const latestTurnSteps = userInputIndex >= 0 ? steps.slice(userInputIndex + 1) : steps;
@@ -1048,7 +1063,23 @@ export class AntigravityBridge {
         nextPlannerTexts = diff.nextPlannerTexts;
         hadMutation = diff.hadMutation;
       }
-      const terminalReady = isTerminal && !hasGeneratingPlannerResponse(allSteps);
+      const latestPlanner = latestPlannerResponseInLatestTurn(allSteps);
+      const latestPlannerIsGenerating = latestPlanner?.status === 'CORTEX_STEP_STATUS_GENERATING';
+      const latestGeneratingPlannerHasText =
+        latestPlannerIsGenerating && latestPlanner !== undefined && plannerStepHasDisplayableText(latestPlanner);
+      const terminalReady =
+        isTerminal &&
+        (!latestPlannerIsGenerating ||
+          // F211-REG12: if Antigravity flips to IDLE while a planner response is still marked
+          // GENERATING, only close once that latest planner response itself has displayable text.
+          // Earlier planner text in the same user turn cannot prove this final generating step is done.
+          (!shouldFetchForNewSteps && !hadMutation && latestGeneratingPlannerHasText));
+      if (isTerminal && !terminalReady && latestPlannerIsGenerating) {
+        // The status key may already be committed for this IDLE fetch. Force one follow-up
+        // trajectory read so generating-planner text mutations are not hidden by the status gate.
+        lastStatusKey = undefined;
+        fullFetchSkips = 0;
+      }
 
       if (currentSteps > delivered || hadMutation) {
         waitingApprovalSignaled = false;
