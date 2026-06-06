@@ -147,11 +147,11 @@ created: 2026-06-06
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | 回扫策略：Phase 1 回扫历史 magic word 的范围和深度？（全历史 / 近 N 月 / 按 thread）| ⬜ 未定 → Design Gate |
-| OQ-2 | `cognitiveTransition` 枚举值？（坐标系纠正 / aha / 缺能力发现 / 自拉闸 / ...）| ⬜ 未定 → Design Gate |
-| OQ-3 | teleport 先独立做 vs 和面板一起做？| 🔵 倾向先做（48 建议，独立有用，demo 全靠它）|
-| OQ-4 | Event 存储架构归属：复用 F102 IEvidenceStore 还是新 event store？| ⬜ 未定 → Design Gate |
-| OQ-5 | teleport 实现细节：generic `teleport` MCP + 路由如何接 web `scrollToMessage`/`findCrossPostTargetMessageId` 基座（跨 thread 切换 + DOM 未渲染 raf 重试）？| 🔵 归属已定：thread-navigation 复用现成基座（砚砚 review 坐实）；接法待 Design Gate |
+| OQ-1 | 回扫策略：Phase 1 回扫历史 magic word 的范围和深度？（全历史 / 近 N 月 / 按 thread）| 🟢 Design Gate 已定：全可访问 persisted thread/message corpus；实现可 batch/cursor/resumable，不能把近 N 月作为产品语义 |
+| OQ-2 | `cognitiveTransition` 枚举值？（坐标系纠正 / aha / 缺能力发现 / 自拉闸 / ...）| 🟢 Design Gate 已定：stable enum + nullable；Phase A lane1 至少写 `user_brake` |
+| OQ-3 | teleport 先独立做 vs 和面板一起做？| 🟢 已定：teleport first，但必须落最终 generic teleport surface，不做临时 URL hack |
+| OQ-4 | Event 存储架构归属：复用 F102 IEvidenceStore 还是新 event store？| 🟢 Design Gate 已定：`memory` cell owns typed Event Memory sub-store/table；不得新造平行 memory architecture |
+| OQ-5 | teleport 实现细节：generic `teleport` MCP + 路由如何接 web `scrollToMessage`/`findCrossPostTargetMessageId` 基座（跨 thread 切换 + DOM 未渲染 raf 重试）？| 🟢 Design Gate 已定：`thread-navigation` owns semantics，`hub-action-surface` owns typed execution/audit mechanics if needed |
 | OQ-6 | 优先级 vs 华为 PPT deadline？| 🟢 已定：PPT 用保底方案，功能不绑 deadline |
 
 ## Key Decisions
@@ -173,6 +173,7 @@ created: 2026-06-06
 |------|------|
 | 2026-06-06 | 三猫圆桌（46 + 砚砚 + 48）+ 铲屎官收敛 → brainstorm 三方收敛版 `4cfb9bac4` |
 | 2026-06-06 | 立项（48 写 spec → 砚砚 review）|
+| 2026-06-06 | Design Gate：CVO 裁定 PR 不拆太碎、禁止脚手架；砚砚落厚切 PR + 终态骨架先行方案 |
 
 > **华为前保底（不等功能）**：猫提前回扫 5-8 个经典事件精确坐标，做成 markdown 线索表，现场实时搜不到就点保底表（方案 A+B 组合）。此保底**不绑 deadline**，与 Phase A 功能解耦。
 
@@ -189,5 +190,6 @@ created: 2026-06-06
 | **Brainstorm** | `docs/content/drafts/brainstorm-brake-timeline-and-event-memory.md` | 三方收敛真相源（`4cfb9bac4`）|
 | **Longform** | `docs/content/drafts/longform-004-seed-workflow-distiller.md` | 004 二阶 harness / AutoHarness 定位 |
 | **PPT** | `docs/content/drafts/ppt-huawei-pitch-v0.md` | 华为演示编排（起源场景）|
+| **Design Gate** | `docs/discussions/2026-06-06-f227-design-gate.md` | 厚切 PR、终态 Event schema、teleport 接法、回扫范围、no-scaffold gate |
 | **Feature** | `docs/features/F114-governance-magic-words.md` | Magic Word 词表真相源 |
 | **Feature** | `docs/features/F192-socio-technical-harness-eval.md` | harness 飞轮可观测性互补 |
