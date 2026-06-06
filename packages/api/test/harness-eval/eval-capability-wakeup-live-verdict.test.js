@@ -271,4 +271,6 @@ sla:
       `attribution:bundle/${verdictId}/eval-F203-workspace_navigator-2026-05-29:no-finding`,
     ]);
   });
+
+  // 砚砚 R8 P1 mirror tests extracted to eval-capability-wakeup-submitted-packet.test.js (350-line limit)
 });

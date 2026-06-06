@@ -9,6 +9,7 @@ import {
   type CapabilityName,
   type ClassifiedCapabilityWakeupTrial,
 } from './eval-capability-wakeup-adapter.js';
+import { assertSubmittedPacketMatches } from './submitted-packet-guard.js';
 
 const SANITIZE_RULES_VERSION = 'f192-capability-wakeup-v1';
 const SAFE_VERDICT_ID_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
@@ -21,6 +22,7 @@ export interface GenerateCapabilityWakeupLiveVerdictInput {
   trials: ClassifiedCapabilityWakeupTrial[];
   generatedAt?: string;
   generatorCommit?: string;
+  submittedPacket?: VerdictHandoffPacket; // 砚砚 R8 P1 (a2a mirror): Phase H cat-mediated; undefined = CVO regen
 }
 
 export interface CapabilityWakeupLiveVerdictArtifact {
@@ -94,16 +96,20 @@ export function generateCapabilityWakeupLiveVerdict(
   writeJson(join(bundleDir, 'provenance.json'), provenance);
 
   const resolved = resolveA2aEvidenceBundle({ bundleDir, verdictId: input.verdictId });
-  const packet = buildCapabilityWakeupVerdictHandoff({
-    domain: input.domain,
-    capability: input.capability,
-    trials: relevantTrials,
-    createdAt: generatedAt,
-  });
+  // 砚砚 R8 P1 (a2a mirror): cat-submitted packet wins; tool only overrides bundle refs below.
+  assertSubmittedPacketMatches(input.submittedPacket, input.domain, input.capability);
+  const basePacket: VerdictHandoffPacket =
+    input.submittedPacket ??
+    buildCapabilityWakeupVerdictHandoff({
+      domain: input.domain,
+      capability: input.capability,
+      trials: relevantTrials,
+      createdAt: generatedAt,
+    });
   const packetWithBundleRefs = parseVerdictHandoffPacket({
-    ...packet,
+    ...basePacket,
     evidencePacket: {
-      ...packet.evidencePacket,
+      ...basePacket.evidencePacket,
       snapshotRefs: [resolved.snapshotRef],
       attributionRefs: resolved.attributionRefs,
     },
@@ -269,9 +275,16 @@ function formatLiveVerdictMarkdown(
     'Evidence:',
     ...packet.evidencePacket.snapshotRefs.map((ref) => `- ${ref}`),
     ...packet.evidencePacket.attributionRefs.map((ref) => `- ${ref}`),
-    ...packet.evidencePacket.metricRefs.map((ref) => `- metric:${ref}`),
+    ...packet.evidencePacket.metricRefs.map(formatMetricRefBullet),
     '',
   ].join('\n');
+}
+
+/** 砚砚 R1 P2 (a2a R14 mirror): idempotent metric: prefix; cat-submitted packets may already
+ * carry `metric:foo` — strip-then-add ensures single prefix, never `metric:metric:foo`. */
+function formatMetricRefBullet(ref: string): string {
+  const bare = ref.startsWith('metric:') ? ref.slice(7) : ref;
+  return `- metric:${bare}`;
 }
 
 function countByLabel(trials: ClassifiedCapabilityWakeupTrial[]): Record<string, number> {
@@ -317,6 +330,7 @@ function sha256File(path: string): string {
 function repoRelativeRawInputPath(path: string, repoRoot: string): string {
   return relative(repoRoot, path).replace(/\\/g, '/');
 }
+// assertSubmittedPacketMatches extracted to ./submitted-packet-guard.ts (350-line limit)
 
 function assertSafeVerdictId(verdictId: string): void {
   if (!SAFE_VERDICT_ID_PATTERN.test(verdictId)) {
