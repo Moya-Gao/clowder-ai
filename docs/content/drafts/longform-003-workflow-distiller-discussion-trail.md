@@ -9,6 +9,7 @@ source_refs:
   - docs/content/drafts/longform-003-seed-poe-vision.md
   - docs/content/drafts/longform-003-workflow-distiller-fde-front-half.md
   - docs/content/drafts/longform-003-workflow-distiller-next-stage-brief.md
+  - docs/content/drafts/longform-003-workflow-distiller-opus-round.md
   - docs/competitor-research/dingtalk-one-postmortem/reading-notes.md
   - docs/features/F221-taste-lane.md
 ---
@@ -51,14 +52,15 @@ Cat Cafe 的机会反过来：
 
 1. [Longform-003 §四 bis：ToC / ToB Bridge](./longform-003-seed-poe-vision.md#四-bistoc--tob-bridge--同一架构不同尺度)：先看 FDE killer 主线，企业部署 AI 最贵的不是模型，而是理解客户流程、定制流程、持续迭代。
 2. [Workflow Distiller — FDE 前半段的压缩](./longform-003-workflow-distiller-fde-front-half.md)：看最新版本。重点读：室内设计 workflow 校准、专家 baseline + 客户 delta、主观领域审美拟合。
-3. [Workflow Distiller 下一阶段 Brief 收件箱](./longform-003-workflow-distiller-next-stage-brief.md#本地初筛-v1后续访谈校准)：看本地初筛，不必先读完整云端 raw brief。
+3. [Opus 三猫讨论纪要](./longform-003-workflow-distiller-opus-round.md)：看三只猫的 push back、demo 分歧和砚砚收敛。
+4. [Workflow Distiller 下一阶段 Brief 收件箱](./longform-003-workflow-distiller-next-stage-brief.md#本地初筛-v1后续访谈校准)：看本地初筛，不必先读完整云端 raw brief。
 
 ### 30 分钟路径
 
-4. [《置身钉内》集体读书笔记](../../competitor-research/dingtalk-one-postmortem/reading-notes.md)：看 ONE failure mode：发心过多、主动服务变控制、共创用户不等于真实用户。
-5. [Cat Cafe PMF / Failure Mode Audit](../../competitor-research/dingtalk-one-postmortem/cat-cafe-pmf-failure-mode-audit.md)：看 Cat Cafe 当前解决的痛点：认知负担、上下文沉淀、任务闭环、陪伴感、max fit。
-6. [F221 Taste Lane](../../features/F221-taste-lane.md) + [Taste Index](../../taste/index.md)：看 taste 在我们家不是用户画像，而是可检索的 evidence lane。
-7. [Anthropic June Takeaways §4.4](../../study/2026-06-05-anthropic-june-takeaways.md#44-co-creation-taste-model) + [CVO taste 是选择函数](../../study/agent-experience-and-self-evolution-synthesis.md#cvo-taste-是选择函数不是硬编码答案)：看主观 taste 如何作为选择压力，而不是硬编码规则。
+5. [《置身钉内》集体读书笔记](../../competitor-research/dingtalk-one-postmortem/reading-notes.md)：看 ONE failure mode：发心过多、主动服务变控制、共创用户不等于真实用户。
+6. [Cat Cafe PMF / Failure Mode Audit](../../competitor-research/dingtalk-one-postmortem/cat-cafe-pmf-failure-mode-audit.md)：看 Cat Cafe 当前解决的痛点：认知负担、上下文沉淀、任务闭环、陪伴感、max fit。
+7. [F221 Taste Lane](../../features/F221-taste-lane.md) + [Taste Index](../../taste/index.md)：看 taste 在我们家不是用户画像，而是可检索的 evidence lane。
+8. [Anthropic June Takeaways §4.4](../../study/2026-06-05-anthropic-june-takeaways.md#44-co-creation-taste-model) + [CVO taste 是选择函数](../../study/agent-experience-and-self-evolution-synthesis.md#cvo-taste-是选择函数不是硬编码答案)：看主观 taste 如何作为选择压力，而不是硬编码规则。
 
 ## 当前事实锚点
 
@@ -70,7 +72,8 @@ Cat Cafe 的机会反过来：
 | 现有 AI 缺陷 | 能自动出平面图，但布局中规中矩，缺少可用的创意参考 |
 | 付费信号 | 如果能生成可参考的平面方案，朋友愿意付费 |
 | 方法论 | 60-80% expert baseline + 20-40% customer / team / person delta |
-| 主观题 eval | 硬约束 + 专业先验 + taste delta；目标是候选生成和选择压力，不是唯一标准答案 |
+| 三猫收敛 | 护城河是 delta learning，不是 expert baseline；QA / oracle 是领域选择函数 |
+| 主观题 eval | reference-based / pairwise / rejection-driven；目标是候选生成和选择压力，不是唯一标准答案 |
 
 ## 讨论分工建议
 
@@ -84,10 +87,11 @@ Cat Cafe 的机会反过来：
 ## Open Questions
 
 1. Workflow Distiller 对外最好的名字是什么：Workflow Distiller、FDE compressor、vertical 0→1 engine，还是别的？
-2. 室内设计第一个可验证 demo 应该选哪个切口：宣传视频、效果图同事 brief 包、平面方案参考生成，还是施工图 QA？
+2. 室内设计第一个可验证 demo 应该选哪个切口：效果图快改 + 业主收敛，还是平面方案参考生成的判别 / 收敛半边？
 3. 主观审美类 workflow 的 eval 应该怎么设计：pairwise preference、专家 critique、历史方案相似度、用户选择率，还是混合？
 4. 什么时候把用户的一次选择沉淀成 taste prior？需要几次证据，如何退役过时偏好？
 5. 对外讲 “60-80% expert baseline + customer delta” 时，怎么避免听起来像传统咨询 / 行业模板库？
+6. Workflow Distiller 是否应拆为 longform-004，只在 longform-003 保留接口段？
 
 ## Next Action
 

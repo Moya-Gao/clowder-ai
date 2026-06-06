@@ -8,6 +8,8 @@ status: intake
 source_refs:
   - docs/content/drafts/longform-003-seed-poe-vision.md
   - docs/content/drafts/longform-003-workflow-distiller-fde-front-half.md
+  - docs/content/drafts/longform-003-workflow-distiller-discussion-trail.md
+  - docs/content/drafts/longform-003-workflow-distiller-opus-round.md
   - docs/competitor-research/dingtalk-one-postmortem/reading-notes.md
   - docs/competitor-research/dingtalk-one-postmortem/cat-cafe-pmf-failure-mode-audit.md
 ---
@@ -23,6 +25,7 @@ source_refs:
 - [Longform-003 Seed](./longform-003-seed-poe-vision.md)：当前 PoE / Agent 3.0 / FDE killer 主线。
 - [Workflow Distiller — FDE 前半段的压缩](./longform-003-workflow-distiller-fde-front-half.md)：已整理的 companion note。
 - [Workflow Distiller 讨论导航](./longform-003-workflow-distiller-discussion-trail.md)：给后续参与讨论的猫的顺藤摸瓜线。
+- [Workflow Distiller — Opus 三猫讨论纪要](./longform-003-workflow-distiller-opus-round.md)：三只猫的原始观点、分歧和砚砚收敛。
 - [《置身钉内》集体读书笔记](../../competitor-research/dingtalk-one-postmortem/reading-notes.md)：ONE failure modes 与 Cat Cafe 映射。
 - [Cat Cafe PMF / Failure Mode Audit](../../competitor-research/dingtalk-one-postmortem/cat-cafe-pmf-failure-mode-audit.md)：Cat Cafe 当前痛点、机制、行为证据、反噬风险和护栏。
 
@@ -32,10 +35,10 @@ source_refs:
 |------|------|
 | 原始 brief | 已粘贴 |
 | 来源 | 云端大缅因猫 |
-| 本地初筛 | v2 已补：室内设计 SOP 校准 + 主观审美拟合 |
-| 多猫讨论 | 讨论导航已建 |
+| 本地初筛 | v3 已补：三猫讨论收敛 + demo 切口修正 |
+| 多猫讨论 | 三猫 Round 1 已归档 |
 | 是否进入 longform-003 | 部分已进入：ToB bridge + Workflow Distiller companion note |
-| 是否独立成 longform-004 seed | 未决定 |
+| 是否独立成 longform-004 seed | 倾向：是，longform-003 只留接口段 |
 
 ## 原始 brief 粘贴区
 
@@ -437,6 +440,68 @@ episode
 
 > 主观领域不是没有标准，而是标准不能先验写死。系统应该先用专业 baseline 生成候选，再让用户的选择和纠偏成为选择压力。
 
+## 本地初筛 v3：Opus 三猫讨论后收敛
+
+三猫 Round 1 之后，原先的 framing 需要继续修正。
+
+### 1. 护城河不在 expert baseline
+
+原来的表达是：
+
+> 60-80% expert baseline + 20-40% customer delta。
+
+三猫共同 push back 后，应该改成：
+
+> expert baseline 是启动器，不是护城河；historical-project onboarding + delta learning loop + reference-based taste eval + validator surface 才是护城河。
+
+### 2. QA / oracle 门升级为领域选择函数
+
+原来 QA / oracle 是“三道门”后面的执行门。Opus 4.8 的修正更有力：
+
+> 垂直领域能不能做出 coding agent 那种“代理人自动感”，关键取决于是否有廉价、快速、可构造的验证器。
+
+因此，选第一个行业 / demo 时，不能只看低风险和好 demo，还要看 validator 是否可得。
+
+### 3. 宣传视频降级为 showpiece
+
+原先“宣传视频自动产线”被放在低风险第一位。三猫基本不同意把它作为核心价值锚：
+
+- 任务可能低频。
+- 视频审美和穿帮检测的 validator 较弱。
+- 即使做成，也更像加速器，不一定能证明 Workflow Distiller 的代理人自动感。
+
+修正后：
+
+> 宣传视频可以做 pitch showpiece，但首个 product spike 应该选“候选判别与收敛层”。
+
+### 4. 第一 spike 的两个候选
+
+| 候选 | 为什么强 | 风险 |
+|------|----------|------|
+| 效果图快改 + 业主收敛助手 | 高频日常痛点，最能验证业主审美 + 设计师专业 + 公司品牌 delta | 审美与风格判断更主观 |
+| 平面方案参考生成的判别 / 收敛半边 | 更靠前、更高价值，有硬约束 oracle，可从现有 AI 输出做 pre-filter | 生成侧难，不应一开始承诺全自动生成 |
+
+砚砚当前收敛：
+
+> 先做候选判别与收敛层，不急着做完整生成。输入可以来自现有 AI 平面图 / 效果图工具，输出是 2-3 个带淘汰理由和 tradeoff 的候选。
+
+### 5. Scope 修正
+
+第一版不应直接卖给大公司级组织。更现实的顺序：
+
+1. 个人 / 小工作室：验证 product shape、taste delta learning、candidate convergence。
+2. 小团队：加入共享 SOP、handoff、轻权限。
+3. 公司级：再谈 multi-tenant、审计、品牌治理、部门 / 个人偏好协调。
+
+### 6. 文章结构修正
+
+三猫讨论后，Workflow Distiller 更像 longform-004：
+
+- longform-003：部署后，环境从真实轨迹中自进化。
+- longform-004：部署前，猫咖如何从混沌现场制造第一条可验证轨迹。
+
+longform-003 只需要保留 1-2 段接口。
+
 ## 处理原则
 
 1. **先保留原话，再提炼**：原始 brief 不直接覆盖本地判断；先作为 source material 保存。
@@ -484,3 +549,4 @@ episode
 | 2026-06-05 | 缅因猫/砚砚 GPT-5.5 | 保留云端原 brief，补本地初筛 v1：室内设计 SOP 校准、SOP Delta Learning、80% baseline + 20% delta |
 | 2026-06-05 | 缅因猫/砚砚 GPT-5.5 | 将 baseline + delta 判断同步回 longform-003 ToB bridge 和 Workflow Distiller companion note |
 | 2026-06-05 | 缅因猫/砚砚 GPT-5.5 | 补本地初筛 v2：主观审美拟合、平面方案参考生成、讨论导航 |
+| 2026-06-05 | 缅因猫/砚砚 GPT-5.5 | 归档 Opus 三猫 Round 1，补 v3 收敛：delta learning、reference eval、validator、demo 切口修正 |

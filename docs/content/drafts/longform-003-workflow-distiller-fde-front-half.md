@@ -7,6 +7,7 @@ created: 2026-06-05
 status: seed
 source_refs:
   - docs/content/drafts/longform-003-seed-poe-vision.md
+  - docs/content/drafts/longform-003-workflow-distiller-opus-round.md
   - docs/competitor-research/dingtalk-one-postmortem/reading-notes.md
   - docs/competitor-research/dingtalk-one-postmortem/cat-cafe-pmf-failure-mode-audit.md
   - docs/evolution-proposals/EP-002-premature-convergence-unfamiliar-domain.md
@@ -16,6 +17,7 @@ source_refs:
 
 > Companion note for [Longform-003 Seed](./longform-003-seed-poe-vision.md)。
 > 后续讨论入口见 [Workflow Distiller 讨论导航](./longform-003-workflow-distiller-discussion-trail.md)。
+> 三猫讨论收敛见 [Opus 三猫讨论纪要](./longform-003-workflow-distiller-opus-round.md)。
 >
 > 核心补充：longform-003 现有 FDE 叙事主要讲“企业部署后，harness 从真实轨迹里自进化”。本 note 补的是更早的一层：**部署前 / 立项前，猫咖能不能把一个行业用户讲出来的混乱工作流，蒸馏成可落地的 AI-native 产线。**
 
@@ -58,6 +60,22 @@ Cat Cafe 的 FDE-like 能力不只是“去客户现场后自动适配”。更�
 核心原则：
 
 > 从用户工作流中寻找 AI-native 产线，不从模型能力中寻找行业场景。
+
+### Round 1 收敛：Opus 三猫讨论后的修正
+
+三猫讨论后，本 note 的重点需要从“行业先验”继续往后挪：
+
+| 原表述 | 修正后 |
+|--------|--------|
+| 60-80% expert baseline + customer delta | expert baseline 是启动器，不是护城河；delta learning loop 才是护城河 |
+| 主观审美不是无 eval | 进一步收敛为 reference-based / pairwise / rejection-driven eval |
+| QA / oracle 是执行门 | QA / oracle 是领域选择函数：没有廉价验证器，就很难做出代理人自动感 |
+| 宣传视频适合第一版 | 宣传视频降级为 showpiece；核心 spike 应选高频摩擦且能验证 taste delta 的切口 |
+| 先访谈用户 | 访谈不够，要让客户上传 3-5 个真实历史项目，从案例反推 SOP / delta / reference |
+
+新的第一性原理：
+
+> Workflow Distiller 的护城河 = historical-project onboarding + first-class SOP / delta data + reference-based taste eval + validator surface。
 
 很多垂直 AI 产品的路径是反的：我有图生视频、RAG、Agent、工作流编排，所以我给用户堆按钮。Workflow Distiller 应该从现场往回抽：
 
@@ -124,31 +142,32 @@ Cat Cafe 的 FDE-like 能力不只是“去客户现场后自动适配”。更�
 
 | 切口 | 价值 | 难度 / 风险 | 当前判断 |
 |------|------|-------------|----------|
-| 已确认效果图 / 项目图 → 宣传视频 | 风险低，素材已确认，适合 demo | 多模态生成 + QA + 剪辑 | 第一只老鼠，适合跑通 |
-| 业主意见 → 效果图快改 / 方案收敛 | 更接近日常痛点，减少等待和反复沟通 | 审美、风格、家具、业主偏好更难 | 第二阶段，更有业务价值 |
-| 风格方向 / 家具 / 立面 → 效果图同事 brief 包 | 减少 handoff 成本，适合 AI-FDE | 需要理解公司内部格式 | 可能是最稳的 B2B 入口 |
+| 效果图快改 / 业主收敛助手 | 高频日常痛点，业主反馈、设计师专业、公司品牌都在这里交汇 | 审美、风格、家具、业主偏好更难 | 产品核心候选，适合验证 taste delta |
+| 平面方案参考生成的判别 / 收敛半边 | 更靠前、更高价值，朋友有明确付费信号 | 生成难，但硬约束 oracle 更清楚 | 核心 spike 候选：先做判别 / 收敛，不急着生成 |
+| 风格方向 / 家具 / 立面 → 效果图同事 brief 包 | 减少 handoff 成本，适合 AI-FDE | 需要理解公司内部格式 | 可作为效果图快改的前置配套 |
+| 已确认效果图 / 项目图 → 宣传视频 | 风险低，素材已确认，容易做出可展示 demo | 视频审美和穿帮检测验证器较弱，任务可能低频 | showpiece，不作为核心价值锚 |
 | 施工图 QA / 一致性检查 | 价值巨大，能减少返工 | 高风险，不能直接生成 | 后期做 QA，不做全自动画图 |
 | 施工阶段多方协调 | 长线价值 | 需要真实项目数据和权限 | 暂不作为第一版 |
 
 ### MVP 更新
 
-第一版不做“平面图直接生成完美视频”，也不做“自动施工图”。更稳的 MVP 是：
+第一版不做“平面图直接生成完美方案”，也不做“自动施工图”。三猫讨论后，宣传视频应降级为 pitch showpiece，不作为核心产品锚点。更稳的 product spike 是：
 
-> 已确认效果图 / 项目图 → 15-30 秒公司宣传视频。
+> 候选判别与收敛层：接收现有 AI / 人工产出的平面方案或效果图候选，自动做硬约束 pre-filter、专业先验 critique、reference-based taste eval，最后收敛到 2-3 个带淘汰理由和 tradeoff 的候选。
 
 限制条件：
 
-- 输入素材必须已经被设计师确认。
-- 输出目标是“可宣传 / 可发社媒”，不是“方案确认”或“施工依据”。
-- 只做明显 bug 检查：物体突现、漂移、材质跳变、镜头崩坏、空间穿帮。
-- 可剪的自动剪，不可剪的自动重抽。
-- 用户只做最终审片和选择。
+- 输入先来自真实历史项目或现有 AI 工具输出，不从零生成。
+- 系统先判别 / 收敛，不承诺自动替设计师出最终方案。
+- 自动淘汰明显不可用候选：动线冲突、尺寸不合理、预算超界、风格不一致、过于中规中矩。
+- 展示淘汰理由，让用户看到 AI 的判断价值。
+- 用户做 pairwise preference / rejection，系统沉淀 taste delta。
 
-第二阶段再切：
+宣传视频仍可作为 showpiece：
 
-> 业主反馈 / 风格方向 / 家具偏好 → 2-3 个收敛版效果图修改建议 + 给效果图同事的 brief 包。
+> 已确认效果图 / 项目图 → 15-30 秒公司宣传视频。
 
-这里的原则不是“多生成”，而是“先约束，再生成”。业主已经容易纠结，AI 不能用更多选项扩大纠结空间。
+但它证明的是“加速器 / 展示能力”，不是 Workflow Distiller 最关键的“代理人自动感”。
 
 ### SOP Delta Learning
 
