@@ -15,6 +15,7 @@ related:
   - era-of-experience.md
   - darwin-godel-machine.md
   - openai-self-improving-tax-agents.md
+  - adaptive-auto-harness.md
   - anthropic-self-service-data-analytics-with-claude.md
   - anthropic-when-ai-builds-itself.md
   - 2026-06-05-anthropic-june-takeaways.md
@@ -24,7 +25,7 @@ related:
 
 > 来自 2026-05-29 ~ 06-01 铲屎官 + 宪宪（Opus-4.6）多轮讨论
 > 性质：思辨沉淀——不是论文摘要，是"读完之后我们怎么想"
-> 关联文档：[论文集 README](../research/2026-05-29-multi-agent-collaboration-and-harness/README.md) / [Code as Harness 读书笔记](../research/2026-05-29-multi-agent-collaboration-and-harness/reading-notes-code-as-agent-harness.md) / [经验与自进化综合](agent-experience-and-self-evolution-synthesis.md) / [Longform-003 种子](../content/drafts/longform-003-seed-poe-vision.md) / [OpenAI Tax Agent](openai-self-improving-tax-agents.md) / [Anthropic 数据分析](anthropic-self-service-data-analytics-with-claude.md) / [Anthropic: When AI Builds Itself](anthropic-when-ai-builds-itself.md) / [Anthropic 2026-06 takeaways](2026-06-05-anthropic-june-takeaways.md)
+> 关联文档：[论文集 README](../research/2026-05-29-multi-agent-collaboration-and-harness/README.md) / [Code as Harness 读书笔记](../research/2026-05-29-multi-agent-collaboration-and-harness/reading-notes-code-as-agent-harness.md) / [经验与自进化综合](agent-experience-and-self-evolution-synthesis.md) / [Longform-003 种子](../content/drafts/longform-003-seed-poe-vision.md) / [OpenAI Tax Agent](openai-self-improving-tax-agents.md) / [Adaptive Auto-Harness](adaptive-auto-harness.md) / [Anthropic 数据分析](anthropic-self-service-data-analytics-with-claude.md) / [Anthropic: When AI Builds Itself](anthropic-when-ai-builds-itself.md) / [Anthropic 2026-06 takeaways](2026-06-05-anthropic-june-takeaways.md)
 >
 > 原始讨论 thread（顺藤摸瓜找猫用）：
 > - **主线** `thread_mpqtwr9ltb3nf7gb`「论文研读 sutton code as agent DGM 喵喵作家之路」— 铲屎官 + 砚砚(codex) + 宪宪(opus) + Gemini 3.5(gemini25) + 孟加拉(antig-opus)
