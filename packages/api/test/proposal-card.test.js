@@ -10,7 +10,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-const { buildProposalCardBlock } = await import('../dist/routes/callback-propose-thread-routes.js');
+const { buildProposalCardBlock } = await import('../dist/routes/proposal-card-block.js');
 
 function baseProposal(overrides = {}) {
   return {

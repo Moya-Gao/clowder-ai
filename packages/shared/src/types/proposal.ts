@@ -96,4 +96,11 @@ export interface ProposalApproveOverrides {
   parentThreadId?: string;
   preferredCats?: CatId[];
   initialMessage?: string | null;
+  /**
+   * F128: project ownership for the child thread, overridable at approve time. The route
+   * validates it (validateProjectPath → canonical real path) BEFORE claim; an invalid value
+   * is rejected with 400, never silently dropped. Omitted → keep the proposal's projectPath
+   * (which itself defaults to the source thread's at propose time).
+   */
+  projectPath?: string;
 }

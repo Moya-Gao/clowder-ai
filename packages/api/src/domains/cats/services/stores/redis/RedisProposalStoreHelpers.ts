@@ -134,6 +134,7 @@ export function applyOverrides(proposal: ThreadProposal, overrides: ProposalAppr
   if (overrides.title !== undefined) proposal.title = overrides.title;
   if (overrides.parentThreadId !== undefined) proposal.parentThreadId = overrides.parentThreadId;
   if (overrides.preferredCats !== undefined) proposal.preferredCats = [...overrides.preferredCats];
+  if (overrides.projectPath !== undefined) proposal.projectPath = overrides.projectPath;
   if (overrides.initialMessage === null) delete proposal.initialMessage;
   else if (typeof overrides.initialMessage === 'string') proposal.initialMessage = overrides.initialMessage;
 }

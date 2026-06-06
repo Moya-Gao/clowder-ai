@@ -245,6 +245,12 @@ export class RedisProposalStore implements IProposalStore {
       updated.parentThreadId,
       'preferredCats',
       JSON.stringify(updated.preferredCats),
+      // F128: persist project ownership on finalize so an approve-time re-home (overrides
+      // .projectPath, applied by applyOverrides) is durable. Without this HSET the hash keeps
+      // the create-time projectPath and a fresh get() hydrates a stale value — a Redis-only
+      // divergence the in-memory store can't surface (LL: in-memory masks Redis behavior).
+      'projectPath',
+      updated.projectPath,
     ];
     if (updated.createdThreadId) fields.push('createdThreadId', updated.createdThreadId);
     if (updated.initialMessage !== undefined) {

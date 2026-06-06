@@ -1396,6 +1396,14 @@ export const proposeThreadInputSchema = {
       'Optional F128 reporting contract for the sub-thread. none (default/autonomous): downstream self-governs, no required report-back (only escalate CVO/blocker/irreversible/cross-feature conflict per house rules). final-only: report a summary once on completion. state-transitions: report at each phase boundary. blocking-ack: wait for source-thread ack at each blocker. Triage/dispatch → none; fork-and-return needing a summary → final-only.',
     ),
   parentThreadId: z.string().min(1).optional().describe('Optional parent thread ID. Defaults to the current thread.'),
+  projectPath: z
+    .string()
+    .min(1)
+    .max(500)
+    .optional()
+    .describe(
+      'Optional absolute project directory the child thread belongs to (e.g. "/Users/me/projects/clowder-ai"). This decides the working directory cats use when invoked in the new thread. Omit to inherit THIS thread\'s project — but if the child thread targets a different repo than the current one, set it explicitly, or the child inherits "default" (no ownership) and cats fall back to the runtime directory. Validated server-side; an invalid/non-existent path is rejected (400), never silently defaulted. The user can also change it on the approval card.',
+    ),
   clientRequestId: z
     .string()
     .min(1)
@@ -1411,6 +1419,7 @@ export async function handleProposeThread(input: {
   initialMessage?: string | undefined;
   reportingMode?: 'none' | 'final-only' | 'state-transitions' | 'blocking-ack' | undefined;
   parentThreadId?: string | undefined;
+  projectPath?: string | undefined;
   clientRequestId?: string | undefined;
 }): Promise<ToolResult> {
   // P2-1: always send an idempotency key — auto-generate when the caller didn't supply one,
@@ -1424,6 +1433,7 @@ export async function handleProposeThread(input: {
   if (input.initialMessage) body.initialMessage = input.initialMessage;
   if (input.reportingMode) body.reportingMode = input.reportingMode;
   if (input.parentThreadId) body.parentThreadId = input.parentThreadId;
+  if (input.projectPath) body.projectPath = input.projectPath;
 
   const result = await callbackPost('/api/callbacks/propose-thread', body);
   if (!result.isError) {

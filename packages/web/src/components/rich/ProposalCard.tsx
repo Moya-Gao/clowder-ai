@@ -25,6 +25,7 @@ interface ProposalFieldEdits {
   parentThreadId: string;
   preferredCats: string;
   initialMessage: string;
+  projectPath: string;
 }
 
 function extractProposalId(block: RichCardBlock): string | null {
@@ -44,6 +45,14 @@ function parsePreferredCats(raw: string): string[] {
     .filter((s) => s.length > 0 && s !== '（未指定）');
 }
 
+// The 项目归属 card field shows the real path for an owned thread, or a "未指定（default …）"
+// notice when the child has no ownership. For the edit input, prefill only a real absolute path
+// (so an empty box means "no override / keep default"); the default-notice string isn't editable.
+function readProjectPathEdit(block: RichCardBlock): string {
+  const value = readField(block, '项目归属');
+  return value.startsWith('/') ? value : '';
+}
+
 export function ProposalCard({ block }: ProposalCardProps) {
   const proposalId = useMemo(() => extractProposalId(block), [block]);
   const [status, setStatus] = useState<Status>('pending');
@@ -57,7 +66,11 @@ export function ProposalCard({ block }: ProposalCardProps) {
     parentThreadId: readField(block, '父 Thread'),
     preferredCats: readField(block, '建议成员'),
     initialMessage: readField(block, '首条消息'),
+    projectPath: readProjectPathEdit(block),
   }));
+  // 项目归属 display string straight from the card (includes the "未指定（default …）" notice
+  // for unowned children) so the user sees which repo the thread lands in before approving.
+  const projectOwnership = readField(block, '项目归属');
 
   // Mount: fetch real status so reload / multi-tab views don't drift to stale "pending".
   useEffect(() => {
@@ -106,6 +119,9 @@ export function ProposalCard({ block }: ProposalCardProps) {
           parentThreadId: edits.parentThreadId.trim() || undefined,
           preferredCats: parsePreferredCats(edits.preferredCats),
           initialMessage: edits.initialMessage.trim() ? edits.initialMessage.trim() : null,
+          // F128: empty box = no override (keep the proposal's projectPath); a path re-homes the
+          // child thread. Backend validates + fail-loud rejects an invalid path (400).
+          projectPath: edits.projectPath.trim() || undefined,
         }
       : {};
     try {
@@ -195,6 +211,12 @@ export function ProposalCard({ block }: ProposalCardProps) {
             <span className="text-cafe-muted">建议成员:</span>{' '}
             <span className="font-mono break-all">{edits.preferredCats || '（未指定）'}</span>
           </div>
+          {projectOwnership && (
+            <div className="sm:col-span-2">
+              <span className="text-cafe-muted">项目归属:</span>{' '}
+              <span className="font-mono break-all">{projectOwnership}</span>
+            </div>
+          )}
           {edits.initialMessage && (
             <div className="sm:col-span-2">
               <span className="text-cafe-muted">首条消息:</span> <span>{edits.initialMessage}</span>
@@ -209,6 +231,11 @@ export function ProposalCard({ block }: ProposalCardProps) {
             label="父 Thread"
             value={edits.parentThreadId}
             onChange={(v) => setEdits((p) => ({ ...p, parentThreadId: v }))}
+          />
+          <EditField
+            label="项目归属 (绝对路径，留空=默认)"
+            value={edits.projectPath}
+            onChange={(v) => setEdits((p) => ({ ...p, projectPath: v }))}
           />
           <EditField
             label="建议成员 (逗号分隔)"

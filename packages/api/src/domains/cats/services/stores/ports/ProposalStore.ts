@@ -173,6 +173,9 @@ export class InMemoryProposalStore implements IProposalStore {
     if (input.overrides?.preferredCats !== undefined) {
       proposal.preferredCats = [...input.overrides.preferredCats];
     }
+    if (input.overrides?.projectPath !== undefined) {
+      proposal.projectPath = input.overrides.projectPath;
+    }
     if (input.overrides?.initialMessage === null) {
       delete proposal.initialMessage;
     } else if (typeof input.overrides?.initialMessage === 'string') {

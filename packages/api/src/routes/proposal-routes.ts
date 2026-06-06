@@ -9,7 +9,6 @@
  * route lives in callback-propose-thread-routes.ts.
  */
 
-import type { CatId } from '@cat-cafe/shared';
 import { catIdSchema } from '@cat-cafe/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
@@ -22,6 +21,7 @@ import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadS
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 import { resolveUserId } from '../utils/request-identity.js';
 import { appendApprovedInitialMessage } from './proposal-approve-dispatch.js';
+import { resolveApproveOverrides } from './proposal-approve-overrides.js';
 import { handleApproveStaleClaim, handleRejectStaleClaim } from './proposal-stale-recovery.js';
 
 export interface ProposalRoutesOptions {
@@ -40,6 +40,9 @@ const approveBodySchema = z
     parentThreadId: z.string().min(1).optional(),
     preferredCats: z.array(catIdSchema()).max(10).optional(),
     initialMessage: z.string().max(4000).nullable().optional(),
+    // F128: let the user re-home the child thread at approve time. Validated against allowed
+    // roots (validateProjectPath) — supplied-but-invalid → 400 (fail loud, never silent default).
+    projectPath: z.string().min(1).max(500).optional(),
   })
   .strict();
 
@@ -113,19 +116,21 @@ export const proposalRoutes: FastifyPluginAsync<ProposalRoutesOptions> = async (
       // kind === 'cleared' → fall through; claimForApproval below will re-claim.
     }
 
-    const overrides = bodyParse.data;
-    const finalTitle = overrides.title ?? proposal.title;
-    let finalParentThreadId = overrides.parentThreadId ?? proposal.parentThreadId;
-    if (overrides.parentThreadId && overrides.parentThreadId !== proposal.parentThreadId) {
-      const parent = await threadStore.get(overrides.parentThreadId);
-      if (!parent || parent.createdBy !== userId) {
-        reply.status(403);
-        return { error: 'parentThreadId does not belong to the current user' };
-      }
-      finalParentThreadId = overrides.parentThreadId;
+    // Resolve + validate the user's approve-time edits (parentThreadId ownership, projectPath
+    // validity) BEFORE claiming — a rejected override must not leave the proposal in `approving`.
+    const resolution = await resolveApproveOverrides(proposal, bodyParse.data, userId, threadStore);
+    if (!resolution.ok) {
+      reply.status(resolution.status);
+      return { error: resolution.error };
     }
-    const finalPreferredCats = (overrides.preferredCats ?? proposal.preferredCats) as CatId[];
-    const finalInitialMessage = resolveInitialMessage(proposal.initialMessage, overrides.initialMessage);
+    const {
+      finalTitle,
+      finalParentThreadId,
+      finalPreferredCats,
+      finalInitialMessage,
+      finalProjectPath,
+      finalizeOverrides,
+    } = resolution.resolved;
 
     // Atomic claim — guards against concurrent approve/reject leaving an orphan thread.
     const claimed = await proposalStore.claimForApproval({ proposalId: proposal.proposalId, approvedBy: userId });
@@ -138,7 +143,7 @@ export const proposalRoutes: FastifyPluginAsync<ProposalRoutesOptions> = async (
     // because nothing user-visible has been committed yet.
     let thread;
     try {
-      thread = await threadStore.create(userId, finalTitle, proposal.projectPath, finalParentThreadId, {
+      thread = await threadStore.create(userId, finalTitle, finalProjectPath, finalParentThreadId, {
         createdFromProposalId: proposal.proposalId,
         sourceThreadId: proposal.sourceThreadId,
         approvedBy: userId,
@@ -165,12 +170,7 @@ export const proposalRoutes: FastifyPluginAsync<ProposalRoutesOptions> = async (
     const finalized = await proposalStore.finalizeApproval({
       proposalId: proposal.proposalId,
       createdThreadId: thread.id,
-      overrides: {
-        title: finalTitle,
-        parentThreadId: finalParentThreadId,
-        preferredCats: finalPreferredCats,
-        initialMessage: finalInitialMessage === undefined ? null : finalInitialMessage,
-      },
+      overrides: finalizeOverrides,
     });
     if (!finalized) {
       // Should not happen — we hold the approving claim. Surface as 500; thread is intentionally
@@ -263,7 +263,7 @@ export const proposalRoutes: FastifyPluginAsync<ProposalRoutesOptions> = async (
       return { error: 'Proposal already approved', status: proposal.status };
     }
     if (proposal.status === 'approving') {
-      const outcome = await handleRejectStaleClaim({ proposal, proposalStore, reply });
+      const outcome = await handleRejectStaleClaim({ proposal, proposalStore, threadStore, reply });
       if (outcome.kind === 'in_flight') {
         return {
           error: 'Proposal is being approved — wait for the in-flight approve to settle',
@@ -325,12 +325,3 @@ export const proposalRoutes: FastifyPluginAsync<ProposalRoutesOptions> = async (
     return { proposals };
   });
 };
-
-function resolveInitialMessage(
-  fromProposal: string | undefined,
-  override: string | null | undefined,
-): string | undefined {
-  if (override === undefined) return fromProposal;
-  if (override === null) return undefined;
-  return override;
-}

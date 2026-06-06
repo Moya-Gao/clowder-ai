@@ -134,6 +134,28 @@ describe('SystemPromptBuilder', () => {
     assert.ok(prompt.includes('cat_cafe_get_thread_context'));
   });
 
+  test('F128: propose_thread description surfaces the projectPath ownership parameter', async () => {
+    const build = await getBuilder();
+    const prompt = build({
+      catId: 'opus',
+      mode: 'independent',
+      teammates: [],
+      mcpAvailable: true,
+    });
+    assert.ok(prompt.includes('cat_cafe_propose_thread'), 'propose_thread must be listed');
+    // The whole point of the fix is discoverability: a cat proposing a cross-repo child
+    // thread must know it can pin projectPath, or the child inherits `default` and cats
+    // fall back to the runtime cwd. Pin the param + its cross-repo guidance in the prompt.
+    assert.ok(
+      prompt.match(/propose_thread[\s\S]*?projectPath/),
+      'propose_thread description must document the projectPath parameter',
+    );
+    assert.ok(
+      prompt.match(/projectPath[\s\S]*?(工作目录|跨 ?repo|项目归属)/),
+      'projectPath note must explain it controls the child thread working directory / ownership',
+    );
+  });
+
   test('F193 AC-B1: MCP_TOOLS_SECTION lists cat_cafe_cross_post_message with routing hint', async () => {
     const build = await getBuilder();
     const prompt = build({

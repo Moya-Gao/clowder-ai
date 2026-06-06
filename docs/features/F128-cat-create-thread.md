@@ -177,6 +177,47 @@ F128 遵循 ADR-035 Proposal-First Agent Actions：
 - 设计 input：砚砚（Codex GPT-5.5）— design constraint C-Y1~C-Y6 来源（C-Y5/C-Y6 为 default 收敛时补充的实现 review guard）
 - CVO sign-off：landy（立项 + 委托猫讨论 default，2026-06-04）
 
+### Phase Z: projectPath 项目归属 — cwd 圣域回落根因修复（2026-06-05）
+
+> **Status**: implemented，待跨族 code review + merge（branch `fix/cat-cwd-runtime-fallback`）
+> **Source**: F200-B 愿景守护时 opus-47 在子 thread 被唤起后落到 `cat-cafe-runtime/packages/api`（runtime 圣域）——"我竟然在 runtime！🙀"。三方坐实根因（铲屎官 UI 截图 + 砚砚 live API + 代码 trace）。
+> **Why**: Phase A 早已 spec `projectPath`（propose 继承 parent、approve 校验权限，见上 line 39/48），但实现从未让猫真正传/用它。propose 创建的子 thread 继承 source thread 的 `default` projectPath → 子 thread 无项目归属 → cat invocation 的 workingDirectory 解析不到有效 projectPath → cwd 回落 `process.cwd()` = runtime 圣域。本 Phase 补齐并扩展这条契约。
+
+#### What
+
+- **propose 契约**：`cat_cafe_propose_thread` + callback route 接受显式 `projectPath`，`validateProjectPath` 校验为 canonical real path；invalid → 400 fail-loud（绝不 silent fallback 到 source/default）；省略 → 继承 source thread。
+- **approve override**：用户可在审批卡片上 re-home 子 thread（approve body 新增 `projectPath`），同样 fail-loud 校验且发生在 claim 之前（坏路径不会把 proposal 卡在 `approving`）；创建的 thread 与 proposal 审计记录同步成最终归属。
+- **可见性**：proposal 卡片 surface 项目归属（`default` 显式展示、不隐藏）；MCP tool desc + system prompt 教猫"跨 repo 子 thread 必须显式传 projectPath"。
+
+#### Acceptance Criteria
+
+- [x] AC-Z1: propose route 接受显式 `projectPath`，valid → canonical real path，invalid → 400 fail-loud，省略 → 继承 **effective parent**（`callback-propose-thread-routes.ts`）
+- [x] AC-Z2: approve body 支持 `projectPath` override，fail-loud 校验在 claim 之前；创建 thread + proposal 审计同步成最终归属（`proposal-routes.ts` + `proposal-approve-overrides.ts`）
+- [x] AC-Z3: Redis `finalizeApproval` 持久化 projectPath override（`finalizedFields` HSET）— in-memory store 掩盖的 Redis-only 行为，live-redis 测试 revert-to-red 验证有齿
+- [x] AC-Z4: 可见性 + 可用性 — proposal 卡片**前端**渲染项目归属 + 可编辑 projectPath 输入并提交 override（`ProposalCard.tsx`）+ MCP tool desc + system prompt projectPath 说明
+- [x] AC-Z5: 测试覆盖 — propose/approve 契约（in-memory route）+ finalize 持久化（live-redis）+ system prompt 守护 + 前端卡片（vitest）
+- [x] AC-Z6: 文件结构守 AC-X1 — propose/approve route 抽 `proposal-approve-overrides.ts` / `proposal-card-block.ts`，两个 route 回到 ≤350 行
+- [x] AC-Z7: projectPath 默认继承 **effective parent**（显式 parentThreadId 或 source），propose + approve re-parent 都遵守；explicit override 永远赢（砚砚 review P1-2）
+- [x] AC-Z8: stale approve/reject recovery 从 created thread 回填 projectPath 审计（crash 窗口 thread 已 re-home、审计不能留旧值；砚砚 review P1-3）
+
+#### Scope Boundary（砚砚 design review push-back #2）
+
+- **cwd fallback guard 是独立 PR**：本 PR 只做"契约层"——让猫/用户能正确设置 projectPath（根因的正解）。当 projectPath 解析仍失败时的 defense-in-depth guard（走显式 env；**绝不**用 `findMonorepoRoot(process.cwd())`，否则会 mask 契约失败）拆到独立 PR 做。本 PR 不留 fallback 兜底尾巴——这是有意的设计边界，不是 deferred 的偷懒。
+
+#### Review round 1（砚砚 GPT-5.5，2026-06-05）→ REQUEST CHANGES → 3 P1 已修
+
+砚砚 code review 抓 3 个 P1（同族：projectPath 契约在非主路径不完整 / 用户侧未接线），均验证为真并修复：
+- **P1-1**（commit 5d50beb83）：ProposalCard 前端没渲染/提交 projectPath → re-home 用户侧不可用。修：前端落地（AC-Z4）。
+- **P1-2**（commit 1cef5cd34）：projectPath 继承 source 而非 effective parent，re-parent 挂错项目。修：propose + approve 都继承 effective parent（AC-Z7）。
+- **P1-3**（commit f56933e1c）：stale recovery 丢 projectPath 审计同步。修：从 created thread 回填（AC-Z8）。
+- 附带（commit d558c17d4，**非 F128**）：F192 `eval-domain-override.test.js` 的 redis cleanup 传字符串非数组（#1989 引入），阻塞共享 `test:redis` gate，顺手修（独立 commit 可拆）。
+
+#### Reviewer
+
+- 提议/实施猫：宪宪（Opus-47 根因定位 + Opus-48 接手 approve override / Redis 持久化 / 测试 / 结构 / round-1 修复）
+- 设计 input：砚砚（Codex GPT-5.5）— fail-loud 契约 + cwd guard 拆分边界（push-back #1/#2）
+- 跨族 code review：砚砚（GPT-5.5）— round 1 REQUEST CHANGES（3 P1）→ 已修，待 re-review
+
 ## Maintainer Review 结论（2026-03-19，已被 2026-05-22 产品修正补充）
 
 **Reviewer**: 宪宪 (Opus) + 砚砚 (Codex)
