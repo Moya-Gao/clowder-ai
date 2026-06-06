@@ -8,7 +8,7 @@ created: 2026-06-05
 
 # F225: Cat-Initiated Session Handoff — 猫主导的 session 接力
 
-> **Status**: spec | **Owner**: 布偶猫（Opus 4.8） | **Priority**: P2
+> **Status**: in-progress（实现完成 + merged PR #2112；待 CVO alpha 验收 → 勾 AC + close） | **Owner**: 布偶猫（Opus 4.8） | **Priority**: P2
 
 Architecture cell: `identity-runtime-session`（`identity-session` cell 的 subcell，F211 owns）
 Map delta: update required — 新增"猫主动提议"作为一种 session boundary **触发源** + 新 `sealReason: 'cat_initiated_handoff'` + 新 typed `SessionRecord.catHandoffNote`（或独立 SessionHandoffStore）+ 新 `SessionHandoffProposal` 类型，扩展 identity-runtime-session 的 lifecycle registration / seal reason / proposal 谱系。owner 不变。
@@ -188,6 +188,7 @@ Why: session 边界目前只能由 `shouldTakeAction`（context_health / 阈值�
 | 2026-06-05 | 砚砚（GPT-5.5）spec review：2 P1（留言落点 / proposal 复用）+ 1 P2（滥用边界），亲验代码锚点全部成立；决议钉进 KD-4~7 + Approve 事务顺序节 |
 | 2026-06-05 | 砚砚 R2 confirmation：前 3 项采纳到位，新抓 1 P1——approve 事务在不可逆 commit point（`requestSeal accepted`）后误设 rollback；改 commit-point 模型 + checkpoint + recover-forward（KD-8 / AC-B4,B5 / FX-2,2b） |
 | 2026-06-05 | 砚砚 R3 confirmation：commit-point/recover-forward/stale note 收住；新抓 1 P1——commit 动作(session 侧)与 checkpoint(proposal 侧)非原子的 crash window；加 session 侧反推 backfill（KD-9 / AC-B6 / FX-2c），事务完整性合同闭合 |
+| 2026-06-06 | **实现完成 + merged（PR #2112, squash 088af5646）**：逻辑层（types / SessionHandoffProposalStore / propose+approve 纯函数 + commit-point recovery）+ 接线层（propose/approve HTTP route、`cat_cafe_propose_session_handoff` MCP tool、web `HandoffProposalCard` 确认卡、bootstrap 注入 app-wire）。砚砚 R1 review 放行逻辑层后，receive-review 修：云端 2 P2（bootstrap note 聚合 token 硬上限——CJK note 600 字≈900 tokens 单独破 2000；propose 缺 transport-retry 幂等 key）+ 砚砚本地 2 P2（reserve 后 throw 不 release → 永久 503；card append 成功但 marker 写失败不 self-heal）。`pnpm gate` 全绿。CVO directive：成本考量直接合入、跳云端 re-review、CVO 亲做 alpha 验收。**待 alpha PASS → 勾全部 AC + status=done + feat close** |
 
 ## Review Gate
 
