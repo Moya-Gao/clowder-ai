@@ -14,3 +14,5 @@ assets:
 ![AutoHarness L1-L5 光谱](./assets/ppt-huawei-p1-left-l1l5-v2.png)
 
 ![AutoHarness 六层工作环境与双相位适配入口](./assets/ppt-huawei-p1-right-sixlayer-v4.png)
+
+> P2 待生成：企业用户能感知到什么 + FDE 三段压缩。低保真稿见 [ppt-huawei-figures-lowfi.md](./ppt-huawei-figures-lowfi.md) 图 3。
