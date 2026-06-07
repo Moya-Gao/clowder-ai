@@ -50,6 +50,8 @@ const sampleSurface = {
   pos: { x: 600, y: 400 },
   size: { width: 420, height: 320 },
   minimized: false,
+  maximized: false,
+  preMaximizeGeometry: null,
 };
 
 describe('F226 KD-1: presentation float survives route change (AppShell-root mount)', () => {

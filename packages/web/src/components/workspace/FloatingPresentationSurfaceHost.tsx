@@ -21,6 +21,7 @@ export function FloatingPresentationSurfaceHost() {
   const minimizeFloat = useChatStore((s) => s.minimizeFloat);
   const setFloatPos = useChatStore((s) => s.setFloatPos);
   const setFloatSize = useChatStore((s) => s.setFloatSize);
+  const toggleMaximize = useChatStore((s) => s.toggleMaximize);
 
   const [file, setFile] = useState<FileData | null>(null);
   const worktreeId = surface?.content.worktreeId ?? null;
@@ -79,6 +80,7 @@ export function FloatingPresentationSurfaceHost() {
       pos={surface.pos}
       size={surface.size}
       minimized={surface.minimized}
+      maximized={surface.maximized}
       fileContent={file?.content ?? null}
       rawSrc={rawSrc}
       onDockBack={dockBack}
@@ -89,6 +91,7 @@ export function FloatingPresentationSurfaceHost() {
         setFloatPos(pos);
         setFloatSize(size);
       }}
+      onToggleMaximize={toggleMaximize}
     />
   );
 }

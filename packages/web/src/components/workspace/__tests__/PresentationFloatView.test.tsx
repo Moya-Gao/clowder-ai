@@ -20,11 +20,13 @@ const baseProps = {
   size: { width: 420, height: 480 },
   fileContent: null as string | null,
   rawSrc: 'http://localhost:3102/api/workspace/file/raw?worktreeId=wt-main&path=docs%2F%E8%AE%B2%E7%A8%BF.md',
+  maximized: false,
   onDockBack: () => {},
   onClose: () => {},
   onMinimize: () => {},
   onDragStop: () => {},
   onResizeStop: () => {},
+  onToggleMaximize: () => {},
 };
 
 describe('PresentationFloatView (F226 floating window)', () => {
@@ -137,7 +139,27 @@ describe('PresentationFloatView (F226 floating window)', () => {
     const minEl = PresentationFloatView({ ...baseProps, minimized: true });
     const fullEl = PresentationFloatView({ ...baseProps, minimized: false, fileContent: '# doc' });
     expect(minEl.key).toBe('f226-float-minimized');
-    expect(fullEl.key).toBe('f226-float-full');
+    expect(fullEl.key).toBe('f226-float-full-normal');
     expect(minEl.key).not.toBe(fullEl.key);
+  });
+
+  // ── F226 尺寸快捷 enhancement（铲屎官 dogfood）──
+
+  it('renders 适配 PPT (⤢) control; maximized shows restore glyph (⤡) with distinct key for remount', () => {
+    const html = renderToStaticMarkup(<PresentationFloatView {...baseProps} minimized={false} fileContent={'# doc'} />);
+    expect(html).toContain('⤢'); // ⤢ 适配 PPT glyph (not maximized)
+    // maximized 态：key 变 → react-rnd remount 应用放大 geometry；图标变还原 ⤡
+    const maxEl = PresentationFloatView({ ...baseProps, minimized: false, maximized: true, fileContent: '# doc' });
+    expect(maxEl.key).toBe('f226-float-full-max');
+    const maxHtml = renderToStaticMarkup(
+      <PresentationFloatView {...baseProps} minimized={false} maximized={true} fileContent={'# doc'} />,
+    );
+    expect(maxHtml).toContain('⤡'); // ⤡ restore glyph
+  });
+
+  it('drops backdrop-blur so the float is a solid panel readable over the dark chat area (铲屎官 dogfood)', () => {
+    const html = renderToStaticMarkup(<PresentationFloatView {...baseProps} minimized={false} fileContent={'# doc'} />);
+    // 毛玻璃在深色聊天区透字不清；演示讲稿首要清晰 → 实底面板
+    expect(html).not.toContain('backdrop-blur');
   });
 });

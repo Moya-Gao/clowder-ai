@@ -126,4 +126,37 @@ describe('F226 presentation surface (file/md tear-off floating window)', () => {
     expect(useChatStore.getState().workspaceEditToken).toBeNull();
     expect(useChatStore.getState().workspaceEditTokenExpiry).toBeNull();
   });
+
+  // ── F226 尺寸快捷 enhancement（铲屎官 dogfood 反馈）──
+
+  it('detachToFloat initializes maximized=false', () => {
+    useChatStore.getState().detachToFloat();
+    expect(useChatStore.getState().presentationSurface?.maximized).toBe(false);
+  });
+
+  it('toggleMaximize fits PPT to 16:9 + remembers pre-maximize geometry, toggle restores it (一键适配，不用拖)', () => {
+    useChatStore.getState().detachToFloat();
+    useChatStore.getState().setFloatPos({ x: 100, y: 100 });
+    useChatStore.getState().setFloatSize({ width: 420, height: 320 });
+    // 一键适配 PPT
+    useChatStore.getState().toggleMaximize();
+    const max = useChatStore.getState().presentationSurface;
+    expect(max?.maximized).toBe(true);
+    // PPT 是 16:9，适配后浮窗按 16:9 放大（不依赖具体 viewport 尺寸，比例恒定）
+    expect(max!.size.width / max!.size.height).toBeCloseTo(16 / 9, 1);
+    // 比手动 420×320 明显放大（看清 PPT）
+    expect(max!.size.width).toBeGreaterThan(420);
+    // 再 toggle 回到手动尺寸/位置 —— 演示完一键还原，不用重新拖
+    useChatStore.getState().toggleMaximize();
+    const restored = useChatStore.getState().presentationSurface;
+    expect(restored?.maximized).toBe(false);
+    expect(restored?.pos).toEqual({ x: 100, y: 100 });
+    expect(restored?.size).toEqual({ width: 420, height: 320 });
+  });
+
+  it('toggleMaximize is a no-op when no float surface', () => {
+    useChatStore.setState({ presentationSurface: null });
+    useChatStore.getState().toggleMaximize();
+    expect(useChatStore.getState().presentationSurface).toBeNull();
+  });
 });

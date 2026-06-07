@@ -634,6 +634,10 @@ export interface PresentationSurfaceState {
   pos: { x: number; y: number };
   size: { width: number; height: number };
   minimized: boolean;
+  /** F226 尺寸快捷: 一键适配 PPT 的放大态 */
+  maximized: boolean;
+  /** geometry before maximize — toggle restores the user's manual size/pos so they needn't re-drag */
+  preMaximizeGeometry: { pos: { x: number; y: number }; size: { width: number; height: number } } | null;
 }
 
 /** F097: CLI Output unified event stream */

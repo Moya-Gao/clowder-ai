@@ -12,6 +12,8 @@ export interface PresentationFloatViewProps {
   pos: { x: number; y: number };
   size: { width: number; height: number };
   minimized: boolean;
+  /** F226 尺寸快捷: 一键适配 PPT 的放大态 */
+  maximized: boolean;
   /** fetched text content; null = still loading (image kind ignores this) */
   fileContent: string | null;
   rawSrc: string;
@@ -20,6 +22,7 @@ export interface PresentationFloatViewProps {
   onMinimize: (minimized: boolean) => void;
   onDragStop: (pos: { x: number; y: number }) => void;
   onResizeStop: (pos: { x: number; y: number }, size: { width: number; height: number }) => void;
+  onToggleMaximize: () => void;
 }
 
 export function PresentationFloatView({
@@ -27,6 +30,7 @@ export function PresentationFloatView({
   pos,
   size,
   minimized,
+  maximized,
   fileContent,
   rawSrc,
   onDockBack,
@@ -34,6 +38,7 @@ export function PresentationFloatView({
   onMinimize,
   onDragStop,
   onResizeStop,
+  onToggleMaximize,
 }: PresentationFloatViewProps) {
   // Minimized bar — pin prefix + filename (烁烁 P2-4)
   if (minimized) {
@@ -77,7 +82,7 @@ export function PresentationFloatView({
 
   return (
     <Rnd
-      key="f226-float-full"
+      key={`f226-float-full-${maximized ? 'max' : 'normal'}`}
       default={{ x: pos.x, y: pos.y, width: size.width, height: size.height }}
       minWidth={280}
       minHeight={200}
@@ -93,10 +98,13 @@ export function PresentationFloatView({
       {/* 暖色边框区分 F195 transcript 蓝 (烁烁 P2-3) */}
       <div
         tabIndex={-1}
-        className="f226-float-in flex h-full flex-col rounded-lg border-2 border-[var(--bg-owner)] bg-cafe-surface-primary shadow-2xl ring-1 ring-[var(--console-border-soft)] backdrop-blur-md"
+        className="f226-float-in flex h-full flex-col rounded-lg border-2 border-[var(--bg-owner)] bg-cafe-surface-primary shadow-2xl ring-1 ring-[var(--console-border-soft)]"
       >
-        {/* Header — the ONLY drag handle (云端 P2): body stays selectable / clickable */}
-        <div className="f226-float-drag-handle flex items-center gap-2 border-b border-cafe-border px-3 py-2 cursor-move select-none">
+        {/* Header — drag handle (云端 P2) + 双击适配 PPT (F226 尺寸快捷)。body 仍可选可点 */}
+        <div
+          onDoubleClick={onToggleMaximize}
+          className="f226-float-drag-handle flex items-center gap-2 border-b border-cafe-border px-3 py-2 cursor-move select-none"
+        >
           <span className="text-xs" aria-hidden>
             📌
           </span>
@@ -104,6 +112,14 @@ export function PresentationFloatView({
             {c.title}
             {c.worktreeId && <span className="ml-1 text-micro text-cafe-text-muted">· {c.worktreeId}</span>}
           </span>
+          <button
+            type="button"
+            onClick={onToggleMaximize}
+            title={maximized ? '还原尺寸' : '适配 PPT — 一键放大居中看清（也可双击标题栏）'}
+            className="rounded px-1 py-0.5 text-xs text-cafe-text-muted hover:text-cafe-text-primary"
+          >
+            {maximized ? '⤡' : '⤢'}
+          </button>
           <button
             type="button"
             onClick={onDockBack}
