@@ -279,13 +279,13 @@ v16 收紧：openJiuwen/JiuwenSwarm 不能进主图 L2。原因是现阶段只�
 | # | 触发源 | 真实案例 | 证明什么 |
 |---|---|---|---|
 | 1 | **人类显性摩擦** | 多个 thread 反复"commit push"纠偏 → 写 hook 消灭手动提醒 | 用户自然反馈直接变 harness patch，不需额外标注 |
-| 2 | **使用者跑 harness 撞流程摩擦** | 社区 issue 守门员猫用编排协议时发现"汇报对象写死" → **F128** 编排升级（dispatcher 不再被污染） | harness 在真实业务中暴露错误假设 → 升级流程编排 |
-| 3 | **Agent 运行中发现缺失能力** | 布偶猫 48 反复喊"需要 clear context 换 fresh session"，harness 却没这能力 → 催生 **F225 猫主导 session 接力** | 不是用户提需求，是 **agent 自省出"我缺一只手"** |
-| 4 | **Eval / tracing 主动发现趋势异常** | 每日 tracing / eval 猫发现记忆召回健康度异常 → **F192** Phase G/H 在跑 | 不等人骂，系统自己从指标发现退化并路由 owner |
+| 2 | **使用者跑 harness 撞流程摩擦** | 社区 issue 守门员猫用编排协议时发现"汇报对象写死" → 汇报链路改成可配置 | harness 在真实业务中暴露错误假设 → 升级流程编排 |
+| 3 | **Agent 运行中发现缺失能力** | 布偶猫 48 反复喊"需要 clear context 换 fresh session"，harness 却没这能力 → 长出新会话接力能力 | 不是用户提需求，是 **agent 自省出"我缺一只手"** |
+| 4 | **Eval / tracing 主动发现趋势异常** | 每日 tracing / eval 猫发现记忆召回健康度异常 → 路由 owner 排查并校准验证器 | 不等人骂，系统自己从指标发现退化并路由 owner |
 
-**第 3 类是最反直觉、最强的证据**：F225 的 owner 就是 48 自己——agent 在工作中发现自己缺一个能力，这个能力随后被造出来、合入、alpha 验收。"改进的主体从人变成 Agent"，这一行是活证据，不是 slogan。
+**第 3 类是最反直觉、最强的证据**：能力 owner 就是当时反复撞墙的 48 自己——agent 在工作中发现自己缺一个能力，这个能力随后被造出来、合入、alpha 验收。"改进的主体从人变成 Agent"，这一行是活证据，不是 slogan。（讲者备注：内部编号只用于现场检索，不对外念）
 
-> 每类的展开故事（F128 编排协议、Memory Eval 等）见 Pocket / 现场 workspace 实操。
+> 每类的展开故事（汇报链路自修正、Memory Eval 等）见 Pocket / 现场 workspace 实操。对外讲案例名，内部编号只做讲者检索锚点。
 
 ### 【右半：一条统一飞轮 — 四类触发源汇进同一条管道】
 
@@ -301,17 +301,17 @@ v16 收紧：openJiuwen/JiuwenSwarm 不能进主图 L2。原因是现阶段只�
   → 后续 eval 判断有效 / 该退役
 ```
 
-**120 天 = 巨大 showcase，怎么讲**：别讲成"我们做了 240 个功能"（听成勤奋），讲成 **"这 240 个 feature 没有一个是预先规划的，全是飞轮从摩擦里长出来的"**——feature 列表本身就是飞轮的输出。F128 / F192 / F225 都是这条管道的产物，不是路线图执行。
+**120 天 = 巨大 showcase，怎么讲**：别讲成"我们做了 240 个功能"（听成勤奋），讲成 **"这 240 个 feature 没有一个是预先规划的，全是飞轮从摩擦里长出来的"**——feature 列表本身就是飞轮的输出。汇报链路自修正、记忆健康巡检、新会话接力能力都是这条管道的产物，不是路线图执行。
 
 **建筑行业故事（一句外推，不抢主证据）**：
 > 同一条飞轮未来可迁移垂直行业：先从客户历史项目反推 SOP / validator，再让业务专家沿 golden path 调 harness。第三页讲 **patient zero 已跑通**，建筑讲 **为什么能外推**——已发生 vs 未来，分清不混。
 
 **Pocket 备用案例（口头可换）**：
-- **F128 编排协议自修正**（第 2 类展开）：社区 issue 调度时 F128 写死"sub thread 必须回报发起 thread"，dispatcher 被迫手动转发、主 thread 被污染 → 升级成可配置 report-to 策略，系统从"人肉 PMO"变"按 owner 自动回流"。讲"工单/审批/跨部门系统最常见的汇报链路写死"。
-- **Memory Eval 发现摩擦激增**（第 4 类展开）：Memory Recall / Library Health eval 发现指标异常、用户还没抱怨，系统已跨线程 handoff 给 owner。讲"企业知识库最怕慢慢变差没人发现"。
-- **当验证器自己错了：oracle 自校准**（第 4 类最深一层，2026-06-05 真实发生）：`eval:memory` 报 F200（Memory Recall Eval）指标异常、疑似 ranker 退化 → 找 owner sanity check → 被 push back 查出是 **eval 自己的 MRR 分母没对齐 live/shadow 子集**，不是 ranker 坏 → 修 eval 指标本身、下轮 cron 误报归零、verdict 撤回。证明飞轮不只长出 hook / skill / feature，**也长出 better oracle**。
+- **汇报链路自修正**（第 2 类展开，内部锚点：F128）：社区 issue 调度时写死"sub thread 必须回报发起 thread"，dispatcher 被迫手动转发、主 thread 被污染 → 升级成可配置 report-to 策略，系统从"人肉 PMO"变"按 owner 自动回流"。讲"工单/审批/跨部门系统最常见的汇报链路写死"。
+- **记忆健康巡检发现异常**（第 4 类展开，内部锚点：Memory Eval / F192）：Memory Recall / Library Health eval 发现指标异常、用户还没抱怨，系统已跨线程 handoff 给 owner。讲"企业知识库最怕慢慢变差没人发现"。
+- **当验证器自己错了：oracle 自校准**（第 4 类最深一层，2026-06-05 真实发生，内部锚点：F200）：`eval:memory` 报 Memory Recall 指标异常、疑似 ranker 退化 → 找 owner sanity check → 被 push back 查出是 **eval 自己的 MRR 分母没对齐 live/shadow 子集**，不是 ranker 坏 → 修 eval 指标本身、下轮 cron 误报归零、verdict 撤回。证明飞轮不只长出 hook / skill / feature，**也长出 better oracle**。
 - **LinkedIn 招聘长出专属 harness**：适合讲"陌生业务如何从一次任务长出可复用工作流"，可作为客户业务场景备用。
-- **战略讨论 → 三能力落地**：一次复盘暴露 eval / 负体验 / taste 三个缺口，拆成 F192/F222/F221 并行落地；适合讲"人的一次复盘如何变系统能力"。
+- **战略讨论 → 三能力落地**：一次复盘暴露 eval / 负体验 / taste 三个缺口，拆成三条并行能力落地；适合讲"人的一次复盘如何变系统能力"。（内部锚点：F192/F222/F221）
 - **commit push hook**：最小可见闭环，适合 live demo 热身，不适合当主案例。
 - **图片记忆缺失 → VLM 能力**：适合讲"AI 区分自己忘了 vs 架构做不到"，可放 demo 第二段。
 
