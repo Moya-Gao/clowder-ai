@@ -147,7 +147,7 @@ Anthropic Institute RSI：AI 正在参与 AI 自身工程和研究迭代
 
 | 右半图讲到 | 左侧可切证据 | 目的 |
 |---|---|---|
-| 人负责方向 / 不可逆决策 | 当前 thread / chat 区域 | 证明人不是路由器，而是 CVO / 决策者 |
+| 人负责方向 / 不可逆决策 | F227 design gate：Magic Word 真相源归一 | 证明人不是路由器，而是在架构分叉 / 单一真相源这类不可逆决策上拍板 |
 | 目标、任务、节奏 | thread 列表 / project / feature doc | 证明环境在管工作流，不是单个 chat |
 | 记忆、偏好、方法沉淀 | memory / docs / 相关 reading note | 证明不是每次从零 prompt |
 | 多 agent 协作 | 当前 thread 里不同猫的回答和 handoff | 证明不是单 agent，而是协作组织 |
@@ -159,7 +159,37 @@ Anthropic Institute RSI：AI 正在参与 AI 自身工程和研究迭代
 
 > 大家可以把右边这张图当成地图，左边就是这个地图对应的真实城市。每讲到一层，我都可以切到一个真实 thread、真实记忆、真实 eval 或真实 commit，证明它不是 PPT 上画出来的。
 
-### 右半首个 live cut：猫 push back 铲屎官错误 feat 号
+### 右半 live cut 0：F227 design gate，猫把真架构问题抬给人拍板
+
+这个位置用来解释“人负责方向 / 不可逆决策”。不要用日常闲聊证明这一层，要用一个真正会影响后续架构的 open question。
+
+**推荐证据**：F227 Design Gate 的 Magic Word 真相源归一。
+
+- 文档：`docs/discussions/2026-06-06-f227-design-gate.md`
+- 标题锚点：`Magic Word 真相源归一（F227 ↔ F192）— CVO 裁定 2026-06-06`
+- 核心问题：F227 的 magic word 事件 vs F192 已记录的 magic word，是统一真相源还是独立存储？
+- 48 的判断：必须先坐实 F192 现状（是否持久化、是否有 messageId、能否独立 query），否则 F227 schema 写错就是 design gate 禁止的“平行架构”。
+- CVO 裁定：**架构归一，真相源归一**。Event Memory 是 magic word 事件唯一真相源，F192 改引用 / 投影，不双写。
+
+**现场动作**：
+
+1. 指右半图第一层“人负责方向 / 不可逆决策”。
+2. 左侧打开 `docs/discussions/2026-06-06-f227-design-gate.md`，定位到 `Magic Word 真相源归一` 小节。
+3. 念一句“F227 的 magic word 事件 vs F192 已记录的 magic word，是该统一还是独立？”
+4. 念 CVO 裁定：“架构归一，真相源归一。”
+5. 回到右半图，说明这就是“人负责方向”：不是让人处理每个任务细节，而是在真相源、权限边界、不可逆结构上拍板。
+
+**口播草案**：
+
+> 第一层写的是“人负责方向和不可逆决策”。这里的人不是每天当路由器，而是在系统遇到真架构分叉时拍板。
+>
+> 比如 F227 做 Event Memory 时，猫发现一个关键问题：我们已经有 F192 在记录 magic word，如果 F227 再独立记录一套，就会出现两个真相源。这个不是猫该自己拍的细节，因为一旦选错，后面所有 eval、记忆和回扫都会分叉。
+>
+> 所以猫把 open question 抬给我：到底统一，还是独立？我的裁定是：架构归一，真相源归一。F227 当源，F192 只做引用和投影。
+>
+> 这就是这个环境里人的角色：不是持续管每一步，而是在系统边界、单一真相源、不可逆结构上定方向。
+
+### 右半 live cut 1：猫 push back 铲屎官错误 feat 号
 
 这个位置建议先用 **backup cue sheet 案例 9**，不要一上来用 F225 深故事。原因：
 
