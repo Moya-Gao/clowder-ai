@@ -12,7 +12,7 @@ community_pr: https://github.com/zts212653/clowder-ai/pull/85
 
 # F128: Cat-Proposed Thread Creation — 猫猫提议创建 Thread
 
-> **Status**: active (Phase AA spec landed 2026-06-07; implementation pending) | **Source**: clowder-ai #82 (bouillipx) / PR #85 | **Priority**: P2
+> **Status**: active (Phase AA merged 2026-06-07 PR #2134) | **Source**: clowder-ai #82 (bouillipx) / PR #85 | **Priority**: P2
 > **Design correction (2026-05-22)**: supersedes direct `cat_cafe_create_thread` with Proposal-First flow per ADR-035.
 
 ## Why
@@ -181,7 +181,7 @@ F128 遵循 ADR-035 Proposal-First Agent Actions：
 
 ### Phase AA: Reporting Contract UX + Source Attribution（2026-06-07）
 
-> **Status**: spec landed，待实施
+> **Status**: ✅ merged (PR #2134, 2026-06-07)
 > **Source**: 铲屎官 2026-06-07 反馈：猫 post 回主 thread 没有 @ 对应猫，消息存了但没有唤醒；同时 F128 子 thread 的首条消息显示成铲屎官发的，而真实发起者是 propose 的猫。
 > **Why**: Phase Y 在下游 header 里解决 reporting mode，但坐标系仍偏下游。第一性原理是：**猫在 propose 时就必须明确这个 thread 是 fork-and-return 还是 autonomous；子 thread 第一条消息必须带真实来源；需要回报时必须知道回到哪个 thread、唤醒哪只源猫。**
 
@@ -211,14 +211,14 @@ F128 遵循 ADR-035 Proposal-First Agent Actions：
 
 #### Acceptance Criteria
 
-- [ ] AC-AA1: `DEFAULT_REPORTING_MODE` 从 `none` 改为 `final-only`；`cat_cafe_propose_thread` 省略 `reportingMode` 时按 `final-only` 走；`none` 继续作为显式 opt-in autonomous 模式存在。
-- [ ] AC-AA2: `cat_cafe_propose_thread` MCP description、SystemPromptBuilder 工具提示、`thread-orchestration` skill 全部改成场景化选择指南，明确何时选 `final-only` / `none` / `state-transitions` / `blocking-ack`，避免猫只看到 enum 术语。
-- [ ] AC-AA3: Proposal card 继续 surface reporting mode；若未来加 approval-time reportingMode override，必须发生在线程创建前并同步 proposal 审计，不能违反 C-Y1 的"创建后不动态切换"边界。
-- [ ] AC-AA4: Approved seed / initial message 存储为 source-cat authored message：`catId = proposal.sourceCatId`；approval user 只进入 `approvedBy` / `approvedAt` 审计，不作为消息作者。
-- [ ] AC-AA5: Seed message `extra.crossPost` 写入 `{ sourceThreadId: proposal.sourceThreadId, sourceInvocationId: proposal.sourceInvocationId }`；前端复用现有 cross-post pill，可点击回源 thread，并在 `sourceInvocationId` 存在时定位到源 invocation/message。
-- [ ] AC-AA6: `proposal-enrich-header.ts` 的 `final-only` / `state-transitions` / `blocking-ack` report-back 文案生成明确路由：回报到 `sourceThreadId`，并用 `targetCats: [sourceCatId]` 或 line-start `@sourceHandle` 唤醒源猫；serial chain 的 final step 同样必须带 routing credentials。
-- [ ] AC-AA7: `none`/`autonomous` header 保留"无强制回报"，但关键事件上报文案也必须提醒使用 `targetCats` / line-start `@`，避免 voluntary cross-post 变成无唤醒消息。
-- [ ] AC-AA8: Tests 覆盖：default final-only；explicit none 不强制回报；seed message source-cat attribution；`extra.crossPost` round-trip + frontend pill；report-back header 含 `targetCats`/source handle；cross-post without routing 仍 fail-close（F193 AC-A4 不回退）。
+- [x] AC-AA1: `DEFAULT_REPORTING_MODE` 从 `none` 改为 `final-only`；`cat_cafe_propose_thread` 省略 `reportingMode` 时按 `final-only` 走；`none` 继续作为显式 opt-in autonomous 模式存在。
+- [x] AC-AA2: `cat_cafe_propose_thread` MCP description、SystemPromptBuilder 工具提示、`thread-orchestration` skill 全部改成场景化选择指南，明确何时选 `final-only` / `none` / `state-transitions` / `blocking-ack`，避免猫只看到 enum 术语。
+- [x] AC-AA3: Proposal card 继续 surface reporting mode；若未来加 approval-time reportingMode override，必须发生在线程创建前并同步 proposal 审计，不能违反 C-Y1 的"创建后不动态切换"边界。
+- [x] AC-AA4: Approved seed / initial message 存储为 source-cat authored message：`catId = proposal.sourceCatId`；approval user 只进入 `approvedBy` / `approvedAt` 审计，不作为消息作者。
+- [x] AC-AA5: Seed message `extra.crossPost` 写入 `{ sourceThreadId: proposal.sourceThreadId, sourceInvocationId: proposal.sourceInvocationId }`；前端复用现有 cross-post pill，可点击回源 thread，并在 `sourceInvocationId` 存在时定位到源 invocation/message。
+- [x] AC-AA6: `proposal-enrich-header.ts` 的 `final-only` / `state-transitions` / `blocking-ack` report-back 文案生成明确路由：回报到 `sourceThreadId`，并用 `targetCats: [sourceCatId]` 或 line-start `@sourceHandle` 唤醒源猫；serial chain 的 final step 同样必须带 routing credentials。
+- [x] AC-AA7: `none`/`autonomous` header 保留"无强制回报"，但关键事件上报文案也必须提醒使用 `targetCats` / line-start `@`，避免 voluntary cross-post 变成无唤醒消息。
+- [x] AC-AA8: Tests 覆盖：default final-only；explicit none 不强制回报；seed message source-cat attribution；`extra.crossPost` round-trip + frontend pill；report-back header 含 `targetCats`/source handle；cross-post without routing 仍 fail-close（F193 AC-A4 不回退）。
 
 #### Open Questions
 
