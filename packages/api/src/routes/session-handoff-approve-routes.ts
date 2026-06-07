@@ -41,6 +41,8 @@ export interface SessionHandoffApproveRoutesOptions {
    * 30s — a healthy commit-point transaction finishes in seconds (云端 review P1).
    */
   approveStaleMs?: number;
+  /** F192: Record proposal rejection as task outcome A2 signal. */
+  onProposalReject?: (input: { proposalId: string; catId: string; threadId: string; rejectionReason?: string }) => void;
 }
 
 const paramsSchema = z.object({ proposalId: z.string().min(1).max(200) });
@@ -76,8 +78,15 @@ export const sessionHandoffApproveRoutes: FastifyPluginAsync<SessionHandoffAppro
   app,
   opts,
 ) => {
-  const { handoffProposalStore, sessionChainStore, sessionSealer, invocationQueue, queueProcessor, socketManager } =
-    opts;
+  const {
+    handoffProposalStore,
+    sessionChainStore,
+    sessionSealer,
+    invocationQueue,
+    queueProcessor,
+    socketManager,
+    onProposalReject,
+  } = opts;
   const approveStaleMs = opts.approveStaleMs ?? 30_000;
 
   // Shared deps for approveSessionHandoff + recoverStaleHandoffProposal. userId captured from the
@@ -264,6 +273,20 @@ export const sessionHandoffApproveRoutes: FastifyPluginAsync<SessionHandoffAppro
       return { error: 'Proposal is being approved — cannot reject; retry once it settles' };
     }
     socketManager.emitToUser(userId, 'proposal_updated', marked);
+
+    // F192: Record session handoff rejection as task outcome eval signal
+    if (onProposalReject) {
+      try {
+        onProposalReject({
+          proposalId: proposal.proposalId,
+          catId: proposal.sourceCatId,
+          threadId: proposal.sourceThreadId,
+        });
+      } catch {
+        // Best-effort: don't fail the rejection response if signal recording fails
+      }
+    }
+
     return { proposalId: marked.proposalId, status: marked.status };
   });
 };

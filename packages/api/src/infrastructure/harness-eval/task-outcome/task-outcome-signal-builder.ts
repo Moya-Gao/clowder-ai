@@ -5,6 +5,7 @@
  * a validated signal record that can be appended to an episode.
  *
  * - Permission Cancel: built when user denies a tool call
+ * - Proposal Reject: built when user rejects a cat's proposal (F128 thread / F225 handoff)
  * - Magic Word: built when CVO uses a magic word
  * - A1 World Truth: built when merge/revert/test/build events occur
  */
@@ -14,10 +15,13 @@ import {
   type MagicWordRecord,
   type MagicWordRefRecord,
   type PermissionCancelRecord,
+  type ProposalRejectRecord,
+  type ProposalRejectType,
   parseA1WorldTruthRecord,
   parseMagicWordRecord,
   parseMagicWordRefRecord,
   parsePermissionCancelRecord,
+  parseProposalRejectRecord,
 } from './task-outcome-episode.js';
 
 const MAX_SUMMARY_LEN = 200;
@@ -52,6 +56,30 @@ export function buildPermissionCancelSignal(input: BuildPermissionCancelInput): 
     catId: input.catId,
     threadId: input.threadId,
     sessionId: input.sessionId,
+  });
+}
+
+// ---- Proposal Reject ----
+
+export interface BuildProposalRejectInput {
+  proposalId: string;
+  proposalType: ProposalRejectType;
+  catId: string;
+  threadId: string;
+  proposalTitle?: string;
+  rejectionReason?: string;
+}
+
+export function buildProposalRejectSignal(input: BuildProposalRejectInput): ProposalRejectRecord {
+  return parseProposalRejectRecord({
+    type: 'proposal_reject',
+    proposalId: input.proposalId,
+    proposalType: input.proposalType,
+    catId: input.catId,
+    threadId: input.threadId,
+    proposalTitle: truncate(input.proposalTitle, MAX_SUMMARY_LEN),
+    rejectionReason: truncate(input.rejectionReason, MAX_SUMMARY_LEN),
+    timestamp: isoNow(),
   });
 }
 

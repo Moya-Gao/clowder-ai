@@ -1665,6 +1665,9 @@ async function main(): Promise<void> {
   const taskOutcomeDbPath = process.env.TASK_OUTCOME_DB ?? resolve(repoRoot, 'task-outcome-episodes.sqlite');
   const taskOutcomeStore = new TaskOutcomeEpisodeStore(taskOutcomeDbPath);
   // AC-G13: Cancel burst detector (in-memory, per-process)
+  const { buildProposalRejectSignal } = await import(
+    './infrastructure/harness-eval/task-outcome/task-outcome-signal-builder.js'
+  );
   const { CancelBurstDetector } = await import('./infrastructure/harness-eval/task-outcome/cancel-burst-detector.js');
   const cancelBurstDetector = new CancelBurstDetector({ threshold: 3, windowMs: 60_000 });
   const { taskOutcomeRoutes } = await import('./routes/task-outcome.js');
@@ -2003,6 +2006,34 @@ async function main(): Promise<void> {
     socketManager,
   });
   await app.register(threadExportRoutes, { threadStore });
+  // F192: Shared callback — record proposal rejection as task outcome A2 signal.
+  // Covers both F128 (thread proposal) and F225 (session handoff proposal) rejections.
+  const onProposalReject = (input: {
+    proposalId: string;
+    proposalType: 'thread' | 'session_handoff';
+    catId: string;
+    threadId: string;
+    proposalTitle?: string;
+    rejectionReason?: string;
+  }) => {
+    try {
+      const record = buildProposalRejectSignal(input);
+      taskOutcomeStore.appendSignal(
+        (
+          taskOutcomeStore.getActiveEpisode(input.threadId) ??
+          taskOutcomeStore.createEpisode({
+            trigger: 'cat_initiated',
+            threadId: input.threadId,
+            participants: input.catId ? [input.catId] : [],
+          })
+        ).episodeId,
+        { category: 'a2', record },
+      );
+    } catch {
+      // Best-effort: eval signal recording must not break the rejection flow
+    }
+  };
+
   await app.register(proposalRoutes, {
     proposalStore,
     threadStore,
@@ -2011,6 +2042,7 @@ async function main(): Promise<void> {
     router,
     invocationQueue,
     queueProcessor,
+    onProposalReject: (input) => onProposalReject({ ...input, proposalType: 'thread' }),
   });
   // F225: cat-initiated session handoff approve/reject (user-auth commit-point dispatcher)
   await app.register(sessionHandoffApproveRoutes, {
@@ -2020,6 +2052,7 @@ async function main(): Promise<void> {
     invocationQueue,
     queueProcessor,
     socketManager,
+    onProposalReject: (input) => onProposalReject({ ...input, proposalType: 'session_handoff' }),
   });
   // F222: Frustration auto-issue routes
   await app.register(frustrationIssueRoutes, { frustrationIssueStore });

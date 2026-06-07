@@ -32,6 +32,14 @@ export interface ProposalRoutesOptions {
   router?: Pick<AgentRouter, 'resolveTargetsAndIntent'>;
   invocationQueue?: Pick<InvocationQueue, 'enqueue' | 'backfillMessageId' | 'rollbackEnqueue'>;
   queueProcessor?: Pick<QueueProcessor, 'processNext'>;
+  /** F192: Record proposal rejection as task outcome A2 signal. */
+  onProposalReject?: (input: {
+    proposalId: string;
+    catId: string;
+    threadId: string;
+    proposalTitle?: string;
+    rejectionReason?: string;
+  }) => void;
 }
 
 const approveBodySchema = z
@@ -57,7 +65,7 @@ const proposalParamsSchema = z.object({
 });
 
 export const proposalRoutes: FastifyPluginAsync<ProposalRoutesOptions> = async (app, opts) => {
-  const { proposalStore, threadStore, messageStore, socketManager } = opts;
+  const { proposalStore, threadStore, messageStore, socketManager, onProposalReject } = opts;
 
   app.post('/api/proposals/:proposalId/approve', async (request, reply) => {
     const paramsParse = proposalParamsSchema.safeParse(request.params);
@@ -291,6 +299,21 @@ export const proposalRoutes: FastifyPluginAsync<ProposalRoutesOptions> = async (
     }
 
     socketManager.emitToUser(userId, 'proposal_updated', marked);
+
+    // F192: Record proposal rejection as task outcome eval signal
+    if (onProposalReject) {
+      try {
+        onProposalReject({
+          proposalId: proposal.proposalId,
+          catId: proposal.sourceCatId,
+          threadId: proposal.sourceThreadId,
+          proposalTitle: proposal.title,
+          rejectionReason: bodyParse.data.rejectionReason,
+        });
+      } catch {
+        // Best-effort: don't fail the rejection response if signal recording fails
+      }
+    }
 
     return { proposalId: marked.proposalId, status: marked.status };
   });

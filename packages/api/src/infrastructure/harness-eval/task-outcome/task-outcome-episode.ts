@@ -84,12 +84,32 @@ const magicWordRefRecordSchema = z.object({
 
 export type MagicWordRefRecord = z.infer<typeof magicWordRefRecordSchema>;
 
+// ---- A2 Proposal Reject (user rejected a cat's proposal — F128 thread / F225 handoff) ----
+
+export const PROPOSAL_REJECT_TYPES = ['thread', 'session_handoff'] as const;
+
+export type ProposalRejectType = (typeof PROPOSAL_REJECT_TYPES)[number];
+
+const proposalRejectRecordSchema = z.object({
+  type: z.literal('proposal_reject'),
+  proposalId: z.string().min(1),
+  proposalType: z.enum(PROPOSAL_REJECT_TYPES),
+  catId: z.string().min(1),
+  threadId: z.string().min(1),
+  proposalTitle: z.string().optional(),
+  rejectionReason: z.string().optional(),
+  timestamp: z.string().min(1),
+});
+
+export type ProposalRejectRecord = z.infer<typeof proposalRejectRecordSchema>;
+
 // ---- A2 union (extensible — user_edit / re_route added in v1) ----
 
 const a2InteractionDecisionSchema = z.discriminatedUnion('type', [
   permissionCancelRecordSchema,
   magicWordRecordSchema,
   magicWordRefRecordSchema,
+  proposalRejectRecordSchema,
 ]);
 
 export type A2InteractionDecision = z.infer<typeof a2InteractionDecisionSchema>;
@@ -139,6 +159,10 @@ export function parseMagicWordRecord(input: unknown): MagicWordRecord {
 
 export function parseMagicWordRefRecord(input: unknown): MagicWordRefRecord {
   return magicWordRefRecordSchema.parse(input);
+}
+
+export function parseProposalRejectRecord(input: unknown): ProposalRejectRecord {
+  return proposalRejectRecordSchema.parse(input);
 }
 
 export function parseA1WorldTruthRecord(input: unknown): A1WorldTruthRecord {
