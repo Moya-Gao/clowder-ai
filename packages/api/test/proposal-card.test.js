@@ -36,11 +36,13 @@ function modeField(card) {
 }
 
 describe('F128 proposal card — reportingMode visibility (Phase Y P1-2)', () => {
-  it('default (no reportingMode) → card surfaces 回报模式 = autonomous', () => {
+  // AC-AA1: default is now final-only (supersedes Phase Y default none/autonomous).
+  it('default (no reportingMode) → card surfaces 回报模式 = final-only（默认）', () => {
     const card = buildProposalCardBlock(/** @type {any} */ (baseProposal()));
     const field = modeField(card);
     assert.ok(field, 'card must surface a 回报模式 field even when proposal omits reportingMode');
-    assert.ok(field.value.includes('autonomous'), `default none must show as autonomous; got ${field.value}`);
+    assert.ok(field.value.includes('final-only'), `AC-AA1: default must show final-only; got ${field.value}`);
+    assert.ok(field.value.includes('默认'), `AC-AA1: default must include 默认 label; got ${field.value}`);
   });
 
   it('explicit final-only → card surfaces final-only', () => {

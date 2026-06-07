@@ -28,7 +28,7 @@ const proposeThreadCallbackSchema = z.object({
   reason: z.string().trim().min(1).max(1000),
   preferredCats: z.array(catIdSchema()).max(10).optional(),
   initialMessage: z.string().max(4000).optional(),
-  // F128 Phase Y: reporting contract for the sub-thread. Omitted → default none (AC-Y6).
+  // F128 Phase AA (AC-AA1): reporting contract. Omitted → default final-only (supersedes Phase Y AC-Y6 none).
   reportingMode: z.enum(['none', 'final-only', 'state-transitions', 'blocking-ack']).optional(),
   // F128: explicit project ownership for the child thread. Validated against allowed roots
   // (validateProjectPath) — NOT hardcoded. Omitted → inherit source thread's projectPath;

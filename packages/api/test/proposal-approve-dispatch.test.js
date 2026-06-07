@@ -241,15 +241,12 @@ describe('F128 approve dispatch — initialMessage routing', () => {
     assert.ok(enqueued.includes('Strategy Discussion'), 'header must contain sourceThread title when available');
     assert.ok(
       enqueued.includes('cat_cafe_cross_post_message'),
-      'default none still mentions cross_post for critical-event escalation (C-Y2)',
+      'default final-only mentions cross_post for report-back',
     );
-    // F128 Phase Y: default reportingMode is now `none` (autonomous, AC-Y6).
-    // The old hard-wired "最后一棒回报主 Thread" default is gone (C-Y5).
-    assert.ok(
-      enqueued.includes('autonomous') || enqueued.includes('无强制回报'),
-      'default none labels the thread autonomous / 无强制回报',
-    );
-    assert.ok(!enqueued.includes('回到主 Thread'), 'C-Y5: default none must NOT tell cats to 回到主 Thread');
+    // F128 Phase AA (AC-AA1): default reportingMode is now `final-only`
+    // (supersedes Phase Y AC-Y6 default `none`). Cats are told to report back.
+    assert.ok(enqueued.includes('final-only'), 'AC-AA1: default must be final-only (supersedes Phase Y none)');
+    assert.ok(enqueued.includes('回到主 Thread'), 'AC-AA1: default final-only serial chain returns to main thread');
     // Original user content must still be present — header is additive, not destructive.
     assert.ok(enqueued.includes('开玩！我先起头：一帆风顺'), 'original user-typed content must be preserved verbatim');
 

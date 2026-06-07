@@ -185,8 +185,11 @@ describe('F128 propose / approve / reject lifecycle', () => {
     const newThread = await ctx.threadStore.get(threadId);
     assert.equal(newThread.title, 'edited title');
     const msgs = await ctx.messageStore.getByThread(threadId);
-    const userMsg = msgs.find((m) => m.userId === 'alice' && m.catId === null);
-    assert.ok(userMsg);
+    // Phase AA (AC-AA4): seed message catId is now sourceCatId ('opus' from
+    // default test harness), not null. The user who approves is the userId.
+    const userMsg = msgs.find((m) => m.userId === 'alice' && m.content.includes('edited msg'));
+    assert.ok(userMsg, 'seed message must exist with user-edited content');
+    assert.equal(userMsg.catId, 'opus', 'AC-AA4: seed message catId = proposing cat, not null');
     // Server injects "## 主 Thread" header; edited message is at the start.
     assert.ok(userMsg.content.startsWith('edited msg'), 'thread first message should start with user-edited content');
     assert.ok(userMsg.content.includes('## 主 Thread'), 'thread first message should include parent header');

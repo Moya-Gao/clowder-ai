@@ -156,6 +156,30 @@ describe('SystemPromptBuilder', () => {
     );
   });
 
+  test('F128 Phase AA (AC-AA1): propose_thread reportingMode default is final-only, not none', async () => {
+    // Guard test: SystemPromptBuilder's cat-facing propose_thread description must
+    // align with the actual DEFAULT_REPORTING_MODE in proposal-enrich-header.ts.
+    // Phase AA changed the default from none to final-only. If they drift again,
+    // this test catches it at build time rather than in a cross-cut review round.
+    const build = await getBuilder();
+    const prompt = build({
+      catId: 'opus',
+      mode: 'independent',
+      teammates: [],
+      mcpAvailable: true,
+    });
+    const proposeSection = prompt.match(/cat_cafe_propose_thread[\s\S]*?(?=\n- cat_cafe_|$)/);
+    assert.ok(proposeSection, 'propose_thread description must be present');
+    const desc = proposeSection[0];
+    // final-only must be listed as default
+    assert.ok(
+      desc.includes('final-only（默认'),
+      `propose_thread must document final-only as 默认; got: ${desc.slice(0, 200)}`,
+    );
+    // none must NOT be labeled as default
+    assert.ok(!desc.includes('none（默认'), 'propose_thread must NOT label none as 默认 (Phase AA superseded)');
+  });
+
   test('F193 AC-B1: MCP_TOOLS_SECTION lists cat_cafe_cross_post_message with routing hint', async () => {
     const build = await getBuilder();
     const prompt = build({

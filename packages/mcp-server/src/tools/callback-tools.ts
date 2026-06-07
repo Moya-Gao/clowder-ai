@@ -1427,12 +1427,14 @@ export const proposeThreadInputSchema = {
     .string()
     .max(4000)
     .optional()
-    .describe('Optional first message body that will be posted by the user into the new thread on approve'),
+    .describe(
+      'Optional first message body posted as the source cat (AC-AA4 source attribution) into the new thread on approve. Server injects routing credentials (threadId + @handle) into the header so downstream cats can cross-post back.',
+    ),
   reportingMode: z
     .enum(['none', 'final-only', 'state-transitions', 'blocking-ack'])
     .optional()
     .describe(
-      'Optional F128 reporting contract for the sub-thread. none (default/autonomous): downstream self-governs, no required report-back (only escalate CVO/blocker/irreversible/cross-feature conflict per house rules). final-only: report a summary once on completion. state-transitions: report at each phase boundary. blocking-ack: wait for source-thread ack at each blocker. Triage/dispatch → none; fork-and-return needing a summary → final-only.',
+      'Optional F128 reporting contract for the sub-thread (AC-AA1: default is final-only). final-only (default): report a summary once on completion via cross_post with routing credentials. none (autonomous): downstream self-governs, no required report-back (only escalate CVO/blocker/irreversible/cross-feature conflict per house rules). state-transitions: report at each phase boundary. blocking-ack: wait for source-thread ack at each blocker. Triage/dispatch → none; fork-and-return needing a summary → final-only.',
     ),
   parentThreadId: z.string().min(1).optional().describe('Optional parent thread ID. Defaults to the current thread.'),
   projectPath: z
@@ -1727,7 +1729,10 @@ export const callbackTools = [
       'Use when you need to notify a different thread about something relevant. ' +
       'NOT for: posting to your own current thread (use post_message instead). ' +
       'Output: message appears in the target thread as a new message visible to all participants. ' +
-      'GOTCHA: Requires threadId — use list_threads or feat_index to find the right thread first.',
+      'ROUTING: You MUST include routing credentials to wake the target cat — either set `targetCats` array with the recipient catId(s), OR put a line-start `@handle` in content. ' +
+      'Messages without routing (no targetCats, no line-start @) will be REJECTED (F193 AC-A4). ' +
+      'GOTCHA: Requires threadId — use list_threads or feat_index to find the right thread first. ' +
+      'TIP: The sub-thread "## 主 Thread" header includes exact routing credentials (threadId + targetCats/handle) — copy them directly.',
     inputSchema: crossPostMessageInputSchema,
     handler: handleCrossPostMessage,
   },
@@ -1890,7 +1895,7 @@ export const callbackTools = [
       'WRITING @-mentions in `initialMessage`: use the SAME stable handle you use in the current thread (e.g. `@砚砚`, `@opus46`, `@gemini`) — NOT the raw catId form like `@cat-rcs85pvn`. ' +
       'Server normalizes known catIds to stable handles defensively, but always prefer the handle form so the proposal card reads naturally to the user. ' +
       'preferredCats accepts catIds (returned by cat_cafe_get_thread_cats). DISPATCH MODEL: when the user approves, the server wakes ONLY the FIRST cat in preferredCats (the chain starter). Subsequent cats are woken by the chain-driven @-mentions cats write in their own replies. ORDER preferredCats EXACTLY as you want the chain to start (e.g. for 接龙/轮转, put the first 棒 cat first). ' +
-      'FORK-AND-RETURN pattern (thread-orchestration skill Step 5c): use `reportingMode` to set the report-back contract — default none (autonomous: downstream self-governs, no required report-back); pick final-only / state-transitions if you need a summary back to the source thread. When a reporting mode is set, write the chain order into `initialMessage` so the woken cat knows who to @ next. Server auto-injects a "## 主 Thread" header with the mode-appropriate report-back rule so cats can locate the parent. ' +
+      'FORK-AND-RETURN pattern (thread-orchestration skill Step 5c): use `reportingMode` to set the report-back contract. Ask yourself: "做完后源 thread 是否需要结果回来？" — YES (most cases) → omit reportingMode or set `final-only` (default); NO, downstream self-governs → set `none`; need phase updates → `state-transitions`; need blocking ack → `blocking-ack`. Server auto-injects a "## 主 Thread" header with routing credentials (threadId + targetCats/handle) so the last cat knows exactly where and whom to cross-post to. ' +
       'INTENT — default vs #ideate: by default dispatch wakes only the first preferredCat (serial chain-starter). If you genuinely want PARALLEL independent ideation (everyone replies at once, no chain), tag the message with `#ideate`. With #ideate, dispatch wakes ALL preferredCats simultaneously.',
     inputSchema: proposeThreadInputSchema,
     handler: handleProposeThread,

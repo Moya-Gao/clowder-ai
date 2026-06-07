@@ -209,6 +209,9 @@ export const proposalRoutes: FastifyPluginAsync<ProposalRoutesOptions> = async (
           preferredCats: finalPreferredCats,
           // C-Y1: reportingMode is fixed at create time (not in approve overrides).
           reportingMode: proposal.reportingMode,
+          // Phase AA (AC-AA4/AA5): source cat attribution + crossPost metadata
+          sourceCatId: proposal.sourceCatId,
+          sourceInvocationId: proposal.sourceInvocationId,
           messageStore,
           router: opts.router,
           invocationQueue: opts.invocationQueue,

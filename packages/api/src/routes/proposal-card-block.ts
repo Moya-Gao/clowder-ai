@@ -13,9 +13,10 @@ import type { ReportingMode, RichCardBlock, ThreadProposal } from '@cat-cafe/sha
 // F128 Phase Y: user-facing label for each reporting mode (C-Y4 — none shown as
 // "autonomous"). The proposal card MUST surface this create-time contract because
 // it is fixed at create time and not editable on approve (C-Y1).
+// Phase AA (AC-AA1): default is now `final-only`, not `none`.
 const REPORTING_MODE_LABEL: Record<ReportingMode, string> = {
-  none: 'autonomous（默认 · 下游自治，无强制回报）',
-  'final-only': 'final-only（完成时回报一次）',
+  none: 'autonomous（下游自治，无强制回报）',
+  'final-only': 'final-only（默认 · 完成时回报一次）',
   'state-transitions': 'state-transitions（每阶段边界回报）',
   'blocking-ack': 'blocking-ack（遇阻塞点等 ack）',
 };
@@ -27,7 +28,7 @@ export function buildProposalCardBlock(proposal: ThreadProposal): RichCardBlock 
       label: '建议成员',
       value: proposal.preferredCats.length > 0 ? proposal.preferredCats.join(', ') : '（未指定）',
     },
-    { label: '回报模式', value: REPORTING_MODE_LABEL[proposal.reportingMode ?? 'none'] },
+    { label: '回报模式', value: REPORTING_MODE_LABEL[proposal.reportingMode ?? 'final-only'] },
     {
       // F128: surface project ownership so the user sees which repo the child thread lands in
       // before approving. `default` is shown explicitly (NOT hidden) — 砚砚 review: a silent
