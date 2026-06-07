@@ -2816,6 +2816,7 @@ async function main(): Promise<void> {
     invocationTracker,
     invocationQueue,
     queueProcessor,
+    messageStore,
     threadMetaLookup: async (threadId) => {
       const thread = await threadStore.get(threadId);
       if (!thread) return undefined;

@@ -12,6 +12,7 @@ import type {
   ChatMessage,
   ChatMessageMetadata,
   ChatMessagePatch,
+  ComposerDraftInsert,
   GameState,
   PresentationLockSnapshot,
   PresentationSurfaceState,
@@ -1011,9 +1012,9 @@ export interface ChatState {
   setPendingPreviewAutoOpen: (data: { port: number; path: string }) => void;
   consumePreviewAutoOpen: () => { port: number; path: string } | null;
 
-  // ── F63-AC15: Code-to-chat reference ──
-  pendingChatInsert: { threadId: string; text: string } | null;
-  setPendingChatInsert: (insert: { threadId: string; text: string } | null) => void;
+  // ── F63-AC15: Code-to-chat reference ── #706: typed ComposerDraftInsert for recall-edit
+  pendingChatInsert: ComposerDraftInsert | null;
+  setPendingChatInsert: (insert: ComposerDraftInsert | null) => void;
 
   // ── F079: Vote modal ──
   showVoteModal: boolean;
