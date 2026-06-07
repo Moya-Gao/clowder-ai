@@ -8,7 +8,7 @@ created: 2026-06-06
 
 # F226: Presentation Surface / Demo Mode
 
-> **Status**: spec | **Owner**: 宪宪 Opus-4.8 | **Priority**: P1
+> **Status**: Phase A merged (#2126, 194ab86d8) — 代码层完成；browser 视觉/拖拽手感走 alpha 验收 | **Owner**: 宪宪 Opus-4.8 | **Priority**: P1
 
 ## Why
 
@@ -57,11 +57,11 @@ created: 2026-06-06
 <!-- 立项愿景硬度自检：每条 AC ① trace 回 Why ② 非作者可复核。scope 已定（只浮文件/md，不含其他 mode）；仅「如何讲 show」OQ-4 待讨论，不影响 AC。 -->
 
 ### Phase A（Floating Presentation Surface Host）
-- [ ] AC-A1: 演示时可把文件/md tear-off 成浮窗，**右侧 docked 生态位腾出、可自由切 mode tab（记忆/定时/任务）展示**，文件浮窗与 docked 内容并存（trace Why「讲稿+活功能并排」；复核：手动 + 组件测试）
-- [ ] AC-A2: 浮窗在 ① workspace mode tab 切换（开发→定时/记忆/任务，主场景）② 切全屏路由（`/memory` 等）时都**不卸载、保持可见**（trace Why「切证据时讲稿不消失」；复核：mode 切换 + 路由切换测试断言 host 存活）
-- [ ] AC-A3: 浮窗可拖拽 / 缩放 / 最小化 / **回坞 dock back**，清晰退出（`Esc` + 按钮）。**回坞契约**：dock back 切 docked 回 dev + 恢复文件快照；close/minimize 不改当前 docked mode（trace Why「演示中 docked 停在定时任务，收回讲稿不该踢走该视图」；复核：组件测试覆盖 docked=schedule 时 dock back / close 两条路径）
-- [ ] AC-A4: **不破坏**现有 workspace navigation 和 F063 presentation lock（复核：thread-switch lock 回归测试行为不变）
-- [ ] AC-A5: 关键状态切换有前端测试覆盖：host 跨路由 survival / 单浮窗 / no double `WorkspacePanel` mount / dock back / z-index·bounds·Esc / responsive smoke
+- [x] AC-A1: 演示时可把文件/md tear-off 成浮窗，**右侧 docked 生态位腾出、可自由切 mode tab（记忆/定时/任务）展示**，文件浮窗与 docked 内容并存（trace Why「讲稿+活功能并排」；复核：手动 + 组件测试）
+- [x] AC-A2: 浮窗在 ① workspace mode tab 切换（开发→定时/记忆/任务，主场景）② 切全屏路由（`/memory` 等）时都**不卸载、保持可见**（trace Why「切证据时讲稿不消失」；复核：mode 切换 + 路由切换测试断言 host 存活）
+- [x] AC-A3: 浮窗可拖拽 / 缩放 / 最小化 / **回坞 dock back**，清晰退出（`Esc` + 按钮）。**回坞契约**：dock back 切 docked 回 dev + 恢复文件快照；close/minimize 不改当前 docked mode（trace Why「演示中 docked 停在定时任务，收回讲稿不该踢走该视图」；复核：组件测试覆盖 docked=schedule 时 dock back / close 两条路径）
+- [x] AC-A4: **不破坏**现有 workspace navigation 和 F063 presentation lock（复核：thread-switch lock 回归测试行为不变）
+- [x] AC-A5: 关键状态切换有前端测试覆盖：host 跨路由 survival / 单浮窗 / no double `WorkspacePanel` mount / dock back / z-index·bounds·Esc / responsive smoke
 
 ## Dependencies
 
@@ -81,11 +81,11 @@ created: 2026-06-06
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | 首版文件类型边界：md / rendered markdown / 图片 / raw code 是否都支持？（scope 已定：只浮文件类，**不含** recall/tasks/schedule） | ⬜ 实现时定 |
-| OQ-2 | F063 lock 合并时机：Phase A 并存 vs 立即合并？ | ⬜ 砚砚建议先并存 |
-| OQ-3 | 单浮窗 vs 多浮窗？ | ⬜ 建议先单窗 |
-| OQ-4 | **如何讲 show**：华为汇报演示叙事怎么设计，本功能怎么支撑？ | ⬜ 铲屎官想聊的核心议题 |
-| OQ-5 | 状态持久化到 sessionStorage（刷新可恢复）？ | ⬜ 待定 |
+| OQ-1 | 首版文件类型边界：md / rendered markdown / 图片 / raw code 是否都支持？ | ✅ 全支持（`file-kind.ts`；image 排除 avif/bmp 对齐 server MIME_MAP，云端 P2-8） |
+| OQ-2 | F063 lock 合并时机：Phase A 并存 vs 立即合并？ | ✅ Phase A 并存（KD-5）；合并 defer 到 Phase C |
+| OQ-3 | 单浮窗 vs 多浮窗？ | ✅ 单窗（`presentationSurface` 单 slot） |
+| OQ-4 | **如何讲 show**：华为汇报演示叙事怎么设计，本功能怎么支撑？ | ⬜ 铲屎官想聊的核心议题（不影响 Phase A 代码） |
+| OQ-5 | 状态持久化到 sessionStorage（刷新可恢复）？ | ⬜ Phase A 未做，defer（当前刷新丢浮窗，演示场景可接受） |
 
 ## Key Decisions
 
@@ -102,6 +102,7 @@ created: 2026-06-06
 | 日期 | 事件 |
 |------|------|
 | 2026-06-06 | 立项（宪宪调查 + 砚砚工程评估收敛，CVO signoff 开新 F 号） |
+| 2026-06-07 | **Phase A merged**（PR #2126 → 194ab86d8）。宪宪 Opus-4.8 实现；砚砚 GPT-5.5 跨族 review continuity 放行；烁烁/gemini25 UX review。云端 codex 连续 9 轮 COMMENTED 共抓 9 个真实 edge-case P2（basePath / drag-handle / link-worktree / disableCommandPrefix / z-index / viewport / minimize-key / avif-bmp / edit-token），全部修复 + Red→Green 测试 + failure-mode audit。`pnpm gate` 全绿（rebased onto main，22 checks + test）。剩 browser 视觉/拖拽手感走 alpha 验收。 |
 
 ## Review Gate
 
