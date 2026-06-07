@@ -86,11 +86,13 @@ created: 2026-06-06
 <!-- 立项愿景硬度自检（F216→F219）：每条 AC ① trace 回 Why 的某诉求 ② 非作者可复核（命令/数字/截图）。no-classifier / schema 类须可量化验证（无分类器代码路径、schema 测试），不是"提了就算"。 -->
 
 ### Phase A（schema + 只读时间线 + teleport）
-- [ ] AC-A1: Event schema 定型（**10 个语义字段**：`type/trigger/cat/threadId/messageId/timestamp/summary/cognitiveTransition/relatedHarness/confidence` **＋ owner scope 元数据 `ownerUserId`**——存储/权限边界，非第 11 个认知字段；PR-2 cloud-review P1 加固，事件按 owner 隔离、`UNIQUE(ownerUserId,threadId,messageId,type)`、读写都按 owner scope、无 unknown/default fallback，防跨用户泄漏），有类型定义 + 测试覆盖 + 文档；schema 设计可承载 Phase B/C 字段（面向终态，非脚手架）—— trace Why「认知转折成一等公民」
-- [ ] AC-A2: 从 L0 注册的 10 个 magic word 回扫历史消息生成 event 索引；回扫范围/深度按 OQ-1 决议执行；检测置信度（高/中/低）逻辑有测试 —— trace Why「散落无索引 → 可检索」
-- [ ] AC-A3: 只读 timeline UI 可 filter by magic word / 事件类型；每条含 日期/icon/当事猫/原话摘要/thread/[跳转]；低置信默认折叠 —— 可复核：截图 + filter 交互
-- [ ] AC-A4: `teleport(threadId, messageId)` 端到端可演示——"传送到那个脚手架 thread 的 msg" → 搜 Event Memory → 找坐标 → message 级精确跳转 —— trace Why「瞬间跳转到那条 message」，可复核：15s 录屏
-- [ ] AC-A5: magic word 含义解释从 L0 家规读取（single source of truth），Event Memory **不重复定义** magic word 列表 —— 可复核：代码无硬编码词表
+
+> ✅ **Phase A merged** — PR-1（schema + EventMemoryStore + teleport substrate）+ PR-2（confidence backfill + 拉闸记录 timeline UI，#2132 / `34cbab09`，2026-06-07）。砚砚 跨族 review + 多轮云端 review，4×P2 + 4×P1 全修（owner-scoping / dead-letter owner / system-message skip / race-confidence upgrade）。AC 已 code-complete + 单测覆盖；**铲屎官 alpha 批量验收（timeline 视觉 + teleport 录屏）为最终 acceptance，待跑**（先 `cat_cafe_backfill_events` 回扫出数据）。
+- [x] AC-A1: Event schema 定型（**10 个语义字段**：`type/trigger/cat/threadId/messageId/timestamp/summary/cognitiveTransition/relatedHarness/confidence` **＋ owner scope 元数据 `ownerUserId`**——存储/权限边界，非第 11 个认知字段；PR-2 cloud-review P1 加固，事件按 owner 隔离、`UNIQUE(ownerUserId,threadId,messageId,type)`、读写都按 owner scope、无 unknown/default fallback，防跨用户泄漏），有类型定义 + 测试覆盖 + 文档；schema 设计可承载 Phase B/C 字段（面向终态，非脚手架）—— trace Why「认知转折成一等公民」
+- [x] AC-A2: 从 L0 注册的 10 个 magic word 回扫历史消息生成 event 索引；回扫范围/深度按 OQ-1 决议执行；检测置信度（高/中/低）逻辑有测试 —— trace Why「散落无索引 → 可检索」
+- [x] AC-A3: 只读 timeline UI 可 filter by magic word / 事件类型；每条含 日期/icon/当事猫/原话摘要/thread/[跳转]；低置信默认折叠 —— 可复核：截图 + filter 交互
+- [x] AC-A4: `teleport(threadId, messageId)` 端到端可演示——"传送到那个脚手架 thread 的 msg" → 搜 Event Memory → 找坐标 → message 级精确跳转 —— trace Why「瞬间跳转到那条 message」，可复核：15s 录屏
+- [x] AC-A5: magic word 含义解释从 L0 家规读取（single source of truth），Event Memory **不重复定义** magic word 列表 —— 可复核：代码无硬编码词表
 
 ### Phase B（猫主动声明 + 跨 thread 聚合）
 - [ ] AC-B1: MCP tool `cat_cafe_mark_event(...)` 可用；系统只索引猫主动声明的事件，**无分类器/regex/小模型推断 aha 的代码路径**（no-classifier 红线）—— 可复核：grep 无分类器调用 + 设计审查
@@ -177,6 +179,7 @@ created: 2026-06-06
 | 2026-06-06 | Design Gate：CVO 裁定 PR 不拆太碎、禁止脚手架；砚砚落厚切 PR + 终态骨架先行方案 |
 | 2026-06-06 | PR-1 核实发现 F192 已有 magic word 采集 → CVO 裁定真相源归一（Event 当源，F192 改引用）→ 落 design gate「Magic Word 真相源归一」（48）|
 | 2026-06-07 | PR-1 merged `9de0b0a88` — EventMemoryStore substrate + teleport MCP (`cat_cafe_teleport`) + `useTeleport` hook（`pushThreadRouteWithHistory` cross-thread nav）+ magic-word 归一（`onMagicWordDetected → Event Memory`）|
+| 2026-06-07 | PR-2 merged `34cbab09` (#2132) — confidence backfill（graded high/mid/low）+ 拉闸记录 timeline UI（magic-word/事件类型 filter、低置信折叠、[跳转]）+ AC-A5 含义读 L0。砚砚 跨族 review + 9 轮云端 review，4×P2 + 4×P1 全修（owner-scoping、dead-letter owner、system-message skip、race-confidence upgrade）。**Phase A 完结（PR-1 + PR-2）；铲屎官 alpha 验收待跑** |
 
 > **华为前保底（不等功能）**：猫提前回扫 5-8 个经典事件精确坐标，做成 markdown 线索表，现场实时搜不到就点保底表（方案 A+B 组合）。此保底**不绑 deadline**，与 Phase A 功能解耦。
 
