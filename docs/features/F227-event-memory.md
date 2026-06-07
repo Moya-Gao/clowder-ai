@@ -86,7 +86,7 @@ created: 2026-06-06
 <!-- 立项愿景硬度自检（F216→F219）：每条 AC ① trace 回 Why 的某诉求 ② 非作者可复核（命令/数字/截图）。no-classifier / schema 类须可量化验证（无分类器代码路径、schema 测试），不是"提了就算"。 -->
 
 ### Phase A（schema + 只读时间线 + teleport）
-- [ ] AC-A1: Event schema 定型（**10 字段**：`type/trigger/cat/threadId/messageId/timestamp/summary/cognitiveTransition/relatedHarness/confidence`），有类型定义 + 测试覆盖 + 文档；schema 设计可承载 Phase B/C 字段（面向终态，非脚手架）—— trace Why「认知转折成一等公民」
+- [ ] AC-A1: Event schema 定型（**10 个语义字段**：`type/trigger/cat/threadId/messageId/timestamp/summary/cognitiveTransition/relatedHarness/confidence` **＋ owner scope 元数据 `ownerUserId`**——存储/权限边界，非第 11 个认知字段；PR-2 cloud-review P1 加固，事件按 owner 隔离、`UNIQUE(ownerUserId,threadId,messageId,type)`、读写都按 owner scope、无 unknown/default fallback，防跨用户泄漏），有类型定义 + 测试覆盖 + 文档；schema 设计可承载 Phase B/C 字段（面向终态，非脚手架）—— trace Why「认知转折成一等公民」
 - [ ] AC-A2: 从 L0 注册的 10 个 magic word 回扫历史消息生成 event 索引；回扫范围/深度按 OQ-1 决议执行；检测置信度（高/中/低）逻辑有测试 —— trace Why「散落无索引 → 可检索」
 - [ ] AC-A3: 只读 timeline UI 可 filter by magic word / 事件类型；每条含 日期/icon/当事猫/原话摘要/thread/[跳转]；低置信默认折叠 —— 可复核：截图 + filter 交互
 - [ ] AC-A4: `teleport(threadId, messageId)` 端到端可演示——"传送到那个脚手架 thread 的 msg" → 搜 Event Memory → 找坐标 → message 级精确跳转 —— trace Why「瞬间跳转到那条 message」，可复核：15s 录屏
