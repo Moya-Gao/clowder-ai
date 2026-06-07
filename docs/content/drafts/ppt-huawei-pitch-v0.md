@@ -26,7 +26,7 @@ target: 华为云内部创新汇报（三页 PPT + live demo）
 > v9：技术挑战重写聚焦自进化主题——三条全围绕"自己改自己"（真值/验证器、进化生命周期继承+退役、受控边界+回滚）；原"安全隐私/多模型协作"两条通用挑战的精华归位为子机制，不再独立占位
 > v10：48+砚砚切磋——技术挑战第3条从"受控边界"升级为"分层可变性治理"（每层谁能改/blast radius/可变性梯度 + golden path + 为什么必须 code-as-harness）；六层权限矩阵 + 增量进 004 seed §五 bis
 > v11：48+砚砚重构第三页——"两孤立场景"升级为"四类触发源（发现主体从人下沉到系统）+ 统一飞轮 + 120天 showcase reframe + 建筑外推一句"；核实 feat 锚点修正铲屎官口误（clear context = F225 不是 F125；F125 是 Alpha 通道）；原 F128/Memory Eval 详细故事移入 Pocket
-> v12：48+砚砚补 oracle 自校准案例（F200 false positive 被 push back 校准 = 验证器自进化）——pocket 加完整故事 + 底部真值闭环加"最硬一击：连 eval 自己也被校准"（直接回答评委"eval 凭什么可信"）。核实 F200 = Memory Recall Eval（非愿景守护，记忆纠偏）
+> v12：48+砚砚补验证器自校准案例（F200 false positive 被 push back 校准 = 验证器自进化）——pocket 加完整故事 + 底部真值闭环加"最硬一击：连 eval 自己也被校准"（直接回答评委"eval 凭什么可信"）。核实 F200 = Memory Recall Eval（非愿景守护，记忆纠偏）
 > v13：竞品对标重构——主 PPT 用二维框架（X 自进化深度 × Y 环境真实性）+ 两锚点（飞书妙搭=静态生成派 / AlphaEvolve=benchmark 自改派），我们占两维交集；补漏的飞书 Aily/妙搭 source-audit（2026.3.19 发布，定位"人主导运营"非 agent 自进化，不 overclaim）；8 个学术候选降级 pocket
 > v14：铲屎官抓割裂——v13 二维象限是第三个坐标系=割裂帮凶，撤掉。归一回尹青 L1-L5 单坐标系：对标产品填进每级 + 真实性降注脚。低保真图独立 md 化（ppt-huawei-figures-lowfi.md，图1=L1-L5 归一图，每级标核验状态）。每级产品 source-audit 归一待砚砚补
 > v15：砚砚修正 L2 空洞问题——source-audit 谨慎不等于把 L2 画空。恢复 Hermes / openJiuwen-JiuwenSwarm / OpenAI-Thrive Tax AI with Codex / MOSS / Meta code-as-harness 等 L2/L1-L2 边界锚点；MOSS 从 L3 研究线移回 L2 线索，L3 保留 AlphaEvolve / DGM / Adaptive / 我们 AutoHarness。
@@ -241,17 +241,17 @@ v16 收紧：openJiuwen/JiuwenSwarm 不能进主图 L2。原因是现阶段只�
 
 ### 【右半：FDE 三段压缩】
 
-> 企业部署 AI 最贵的不是模型调用费，而是 FDE / 顾问长期理解现场、搭第一版、持续调优的人天。AutoHarness 压缩的是这条全生命周期。
+> 企业部署 AI 最贵的不是模型调用费，而是 FDE / 顾问长期理解现场、搭第一版、持续调优的人天。AutoHarness 的目标是压缩这条全生命周期；其中 Evolution 已由 120 天真实轨迹实证，Discovery / Build 是 longform-004 正在设计的前半段。
 
 | 阶段 | 传统交付方式 | AutoHarness 方式 | 企业感知 |
 |---|---|---|---|
-| **Discovery** 理解现场 | 真人 FDE 访谈、看材料、反复问专家 | Agent 先读历史项目 + 真实轨迹，带着行业 baseline 主动追问 delta / 验证点，反推公司规矩、团队分工、个人偏好 | 冷启动更快，只回答少量高价值追问 |
-| **Build** 搭第一版 | FDE 手写 prompt / 规则 / workflow | 业务专家沿 golden path，环境生成 SOP / verifier / skill / route | 业务专家也能造新产线 |
-| **Evolution** 持续迭代 | 定期复盘、报 bug、等供应商修 | 从取消、拉闸、采纳、回滚、eval 异常中发现摩擦，生成可验证 patch | 系统越用越贴合，不靠季度复盘 |
+| **Discovery** 理解现场 `[004 设计中]` | 真人 FDE 访谈、看材料、反复问专家 | Agent 先读历史项目 + 真实轨迹，带着行业 baseline 主动追问 delta / 验证点，反推公司规矩、团队分工、个人偏好 | 冷启动更快，只回答少量高价值追问 |
+| **Build** 搭第一版 `[004 设计中]` | FDE 手写 prompt / 规则 / workflow | 业务专家沿 golden path，环境生成 SOP / verifier / skill / route | 业务专家也能造新产线 |
+| **Evolution** 持续迭代 `[已实证：120天]` | 定期复盘、报 bug、等供应商修 | 从取消、拉闸、采纳、回滚、eval 异常中发现摩擦，生成可验证 patch | 系统越用越贴合，不靠季度复盘 |
 
 **第二页底部红条**
 
-> **把 FDE 长期手工做的 Discovery / Build / Evolution，压缩成业务专家可参与、环境可持续执行的闭环。**
+> **把 FDE 长期手工做的 Discovery / Build / Evolution，压缩成业务专家可参与、环境可持续执行的闭环；前半段标清设计中，后半段拿真实 120 天证明。**
 
 ### 【第二页后半：为什么企业敢让它持续变】
 
@@ -309,7 +309,7 @@ v16 收紧：openJiuwen/JiuwenSwarm 不能进主图 L2。原因是现阶段只�
 **Pocket 备用案例（口头可换）**：
 - **汇报链路自修正**（第 2 类展开，内部锚点：F128）：社区 issue 调度时写死"sub thread 必须回报发起 thread"，dispatcher 被迫手动转发、主 thread 被污染 → 升级成可配置 report-to 策略，系统从"人肉 PMO"变"按 owner 自动回流"。讲"工单/审批/跨部门系统最常见的汇报链路写死"。
 - **记忆健康巡检发现异常**（第 4 类展开，内部锚点：Memory Eval / F192）：Memory Recall / Library Health eval 发现指标异常、用户还没抱怨，系统已跨线程 handoff 给 owner。讲"企业知识库最怕慢慢变差没人发现"。
-- **当验证器自己错了：oracle 自校准**（第 4 类最深一层，2026-06-05 真实发生，内部锚点：F200）：`eval:memory` 报 Memory Recall 指标异常、疑似 ranker 退化 → 找 owner sanity check → 被 push back 查出是 **eval 自己的 MRR 分母没对齐 live/shadow 子集**，不是 ranker 坏 → 修 eval 指标本身、下轮 cron 误报归零、verdict 撤回。证明飞轮不只长出 hook / skill / feature，**也长出 better oracle**。
+- **当验证器自己错了：验证器自校准**（第 4 类最深一层，2026-06-05 真实发生，内部锚点：F200）：`eval:memory` 报 Memory Recall 指标异常、疑似 ranker 退化 → 找 owner sanity check → 被 push back 查出是 **eval 自己的 MRR 分母没对齐 live/shadow 子集**，不是 ranker 坏 → 修 eval 指标本身、下轮 cron 误报归零、verdict 撤回。证明飞轮不只长出 hook / skill / feature，**也长出更好的验证标准**。
 - **LinkedIn 招聘长出专属 harness**：适合讲"陌生业务如何从一次任务长出可复用工作流"，可作为客户业务场景备用。
 - **战略讨论 → 三能力落地**：一次复盘暴露 eval / 负体验 / taste 三个缺口，拆成三条并行能力落地；适合讲"人的一次复盘如何变系统能力"。（内部锚点：F192/F222/F221）
 - **commit push hook**：最小可见闭环，适合 live demo 热身，不适合当主案例。

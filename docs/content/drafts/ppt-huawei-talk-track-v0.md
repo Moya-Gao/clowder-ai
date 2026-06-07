@@ -152,7 +152,7 @@ Anthropic Institute RSI：AI 正在参与 AI 自身工程和研究迭代
 | 记忆、偏好、方法沉淀 | memory / docs / 相关 reading note | 证明不是每次从零 prompt |
 | 多 agent 协作 | 当前 thread 里不同猫的回答和 handoff | 证明不是单 agent，而是协作组织 |
 | skill / 工具 / 安全边界 | skill 文档 / hook / protocol / feature spec | 证明 harness 是代码化能力，不是口头约定 |
-| eval 判断改对没 | Eval Hub / F192 / F200 / oracle 自校准案例 | 证明有尺子，不是 AI 自评 |
+| eval 判断改对没 | Eval Hub / 验证器自校准案例 | 证明有尺子，不是 AI 自评 |
 | 可回滚 / 可审查 | commit / PR / review / merge 记录 | 证明改动有账可查、有闸可停 |
 
 口头提示：
@@ -272,7 +272,7 @@ Anthropic Institute RSI：AI 正在参与 AI 自身工程和研究迭代
 >
 > 第五，**变化是可见、可回滚、可移交的**。它不是黑箱记住一点偏好。每次 harness 改动都要有证据、版本、验证和回滚路径；个人偏好和团队规则也要能查看、能移交、能撤回。企业用户最怕的不是 AI 不够聪明，而是越用越乱、没人说得清为什么变了。AutoHarness 要解决的就是这个。
 >
-> 所以第二页的落点不是"我们技术很复杂"，而是一个很直接的企业价值：**把 FDE 长期手工做的 Discovery、Build、Evolution，压缩成业务专家可参与、环境可持续执行的闭环。**
+> 所以第二页的落点不是"我们技术很复杂"，而是一个很直接的企业价值：**把 FDE 长期手工做的 Discovery、Build、Evolution，压缩成业务专家可参与、环境可持续执行的闭环。** 但这里要诚实标清成熟度：Evolution 这段已经由 120 天真实轨迹证明；Discovery 和 Build 是 longform-004 正在设计的前半段。
 
 ### 第二页视觉对应
 
@@ -281,7 +281,7 @@ Anthropic Institute RSI：AI 正在参与 AI 自身工程和研究迭代
 | 区域 | 画什么 | 讲什么 |
 |---|---|---|
 | 左半 | 企业用户可感知的五个变化 | 不是空白 prompt、先读历史轨迹再追问、懂团队/个人、业务专家自助长能力、可见可回滚 |
-| 右半 | FDE 三段压缩 | Discovery 理解现场、Build 搭第一版、Evolution 长期迭代，从重复 FDE 人天变成 bootstrap + checkpoint + 算力 |
+| 右半 | FDE 三段压缩 | Discovery / Build 标“004 设计中”，Evolution 标“已实证：120天”，从重复 FDE 人天变成 bootstrap + checkpoint + 算力 |
 | 底部红条 | 一句话结论 | 让 AI 工作环境从"一次性交付"变成"持续贴合组织真实使用" |
 
 ### P2 后半：为什么企业敢让它持续变
@@ -333,7 +333,7 @@ Anthropic Institute RSI：AI 正在参与 AI 自身工程和研究迭代
 >
 > 第三类更有意思，是 **agent 自己在运行中发现缺失能力**。比如布偶猫 48 反复喊需要 clear context / fresh session，但 harness 没有这个能力，最后长出了新会话接力能力。这不是用户提需求，是 agent 在工作中发现自己缺一只手。
 >
-> 第四类是**eval / tracing 主动发现趋势异常**。比如 memory eval 报异常，先怀疑是记忆召回坏了，后来被 owner push back，发现是 eval 自己的分母错了。最后修的不是业务系统，而是 eval 尺子本身。这说明飞轮不只长出 hook、skill、feature，也会长出 better oracle。
+> 第四类是**eval / tracing 主动发现趋势异常**。比如 memory eval 报异常，先怀疑是记忆召回坏了，后来被 owner push back，发现是 eval 自己的分母错了。最后修的不是业务系统，而是 eval 尺子本身。这说明飞轮不只长出 hook、skill、feature，也会长出更好的验证标准。
 >
 > 四类传感器最后都汇入同一条管道：发现摩擦，聚合证据，归因是哪一层的问题，生成 hook / skill / protocol / eval / feature，再经过 review、跨模型 gate、merge，进入新的 golden path，后续再由 eval 判断有效还是该退役。
 >
@@ -344,7 +344,7 @@ Anthropic Institute RSI：AI 正在参与 AI 自身工程和研究迭代
 如果时间紧，只展开 2 个案例：
 
 1. **新会话接力能力**：最反直觉，证明 agent 自己能发现“我缺能力”。讲者备注：内部锚点只用于现场检索，不念编号。
-2. **oracle 自校准**：最能回答领导质疑，“你的 eval 凭什么可信？”——连 eval 错了也会被飞轮校准。
+2. **验证器自校准**：最能回答领导质疑，“你的 eval 凭什么可信？”——连 eval 错了也会被飞轮校准。
 
 如果需要更业务化，再补：
 
@@ -377,7 +377,7 @@ Anthropic Institute RSI：AI 正在参与 AI 自身工程和研究迭代
 1:00-5:00  第一页：左半讲 L1-L5 坐标；右半用 PPT 图当地图，穿插切真实 workspace
 5:00-9:00  第二页：企业用户能感知到什么 + FDE 三段压缩
 9:00-11:00 第二页后半过桥：为什么企业敢让它持续变（真值 / 生命周期 / 分层权限）
-11:00-17:00 第三页：四类触发源 + 统一飞轮，展开新会话接力 / oracle 自校准 / 汇报链路自修正
+11:00-17:00 第三页：四类触发源 + 统一飞轮，展开新会话接力 / 验证器自校准 / 汇报链路自修正
 17:00-27:00 深一点的 live workspace：按现场追问打开 thread / commit / eval 证据链
 27:00-30:00 回到商业闭环：业务专家也能当 FDE + Q&A
 ```
