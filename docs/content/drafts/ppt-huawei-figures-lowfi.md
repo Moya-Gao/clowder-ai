@@ -332,8 +332,8 @@ participants: [landy, opus48, codex]
 |----|------|------|
 | 图1 | 第一页左半 L1-L5 光谱 | ✅ 试稿 v2：`assets/ppt-huawei-p1-left-l1l5-v2.png` |
 | 图2 | 第一页右半 六层方案 + 技术挑战 | ✅ 试稿 v4：`assets/ppt-huawei-p1-right-sixlayer-v4.png` |
-| 图3 | 第二页 企业用户感知 + FDE 三段压缩 | ⏳ 待 imagegen |
-| 图4 | 第三页 统一飞轮 | ⏳ 待 imagegen |
+| 图3 | 第二页 企业用户感知 + FDE 三段压缩 | ✅ 试稿 v2：`assets/ppt-huawei-p2-enterprise-perception-v2.png` |
+| 图4 | 第三页 统一飞轮 | ✅ 试稿 v1：`assets/ppt-huawei-p3-flywheel-v1.png` |
 
 ## 待办
 
