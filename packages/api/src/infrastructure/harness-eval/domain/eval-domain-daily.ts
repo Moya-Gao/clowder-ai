@@ -208,8 +208,15 @@ function createEvalDomainSpec(config: EvalDomainSpecConfig): TaskSpec_P1<EvalDom
 function loadRegisteredDomains(harnessFeedbackRoot: string, frequency: 'daily' | 'weekly'): EvalDomainRegistryEntry[] {
   const domainsDir = join(harnessFeedbackRoot, 'eval-domains');
   if (!existsSync(domainsDir)) return [];
-  return readdirSync(domainsDir, { withFileTypes: true })
-    .filter((e) => e.isFile() && e.name.endsWith('.yaml'))
-    .map((e) => parseEvalDomainRegistryFile(parseYaml(readFileSync(join(domainsDir, e.name), 'utf8'))))
-    .filter((d) => d.frequency === frequency);
+  return (
+    readdirSync(domainsDir, { withFileTypes: true })
+      .filter((e) => e.isFile() && e.name.endsWith('.yaml'))
+      .map((e) => parseEvalDomainRegistryFile(parseYaml(readFileSync(join(domainsDir, e.name), 'utf8'))))
+      .filter((d) => d.frequency === frequency)
+      // Sunset flag: domains marked `enabled: false` in their YAML are silently
+      // skipped by the scheduled cron (no invocation message lands in the domain
+      // thread). Re-enable by removing the field or setting `enabled: true`.
+      // See EvalDomainRegistryEntry schema docs for rationale.
+      .filter((d) => d.enabled !== false)
+  );
 }

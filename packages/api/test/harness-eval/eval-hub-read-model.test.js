@@ -290,14 +290,57 @@ Evidence:
       'no-verdict domain still gets nextCronFireAt',
     );
 
-    // Weekly domain: next Sunday 03:00 UTC after 2026-05-23 (Saturday) = 2026-05-24 (Sunday)
+    // Sunset 2026-06-06 (F192 silent-fire fix): eval:sop has `enabled: false` in
+    // its yaml, so the summary must NOT publish nextCronFireAt (cron silently
+    // skips it — surfacing a future fire time would be the operator-facing
+    // mirror of the silent-fire bug the sunset is meant to fix).
     const sopDomain = summary.domains.find((d) => d.domainId === 'eval:sop');
     assert.ok(sopDomain);
+    assert.equal(sopDomain.enabled, false, 'sunset domain must carry enabled=false');
     assert.equal(
       sopDomain.nextCronFireAt,
-      '2026-05-24T03:00:00.000Z',
-      'weekly domain nextCronFireAt = next Sunday 03:00 UTC',
+      undefined,
+      'sunset domain must NOT have nextCronFireAt (cron skips it, future time would mislead operators)',
     );
+
+    // Weekly + enabled: eval:capability-wakeup is the other weekly domain and
+    // is still enabled — its nextCronFireAt must be present and point at next
+    // Sunday 03:00 UTC after 2026-05-23 (Saturday) = 2026-05-24 (Sunday).
+    const cwDomain = summary.domains.find((d) => d.domainId === 'eval:capability-wakeup');
+    assert.ok(cwDomain);
+    assert.equal(cwDomain.enabled, true, 'enabled weekly domain must carry enabled=true');
+    assert.equal(
+      cwDomain.nextCronFireAt,
+      '2026-05-24T03:00:00.000Z',
+      'enabled weekly domain nextCronFireAt = next Sunday 03:00 UTC',
+    );
+  });
+
+  it('attaches enabled flag for ALL domains in summary (sunset visibility — F192 silent-fire fix)', () => {
+    const summary = loadEvalHubSummary({
+      harnessFeedbackRoot: repoHarnessFeedbackRoot,
+      now: FIXTURE_NOW_BEFORE_DEADLINE,
+    });
+
+    // Every domain summary must carry `enabled` (boolean) so the Hub UI can
+    // render a "Sunset" indicator instead of pretending the domain is active.
+    // This closes the gap that PR #2130 originally left as cosmetic — gpt52 R1
+    // P1 surfaced it as same-class false-green bug as silent-fire.
+    for (const d of summary.domains) {
+      assert.equal(typeof d.enabled, 'boolean', `${d.domainId} must have boolean enabled field`);
+    }
+
+    // sunset: enabled=false + no nextCronFireAt
+    const sopDomain = summary.domains.find((d) => d.domainId === 'eval:sop');
+    assert.ok(sopDomain);
+    assert.equal(sopDomain.enabled, false);
+    assert.equal(sopDomain.nextCronFireAt, undefined);
+
+    // active: enabled=true + has nextCronFireAt
+    const a2aDomain = summary.domains.find((d) => d.domainId === 'eval:a2a');
+    assert.ok(a2aDomain);
+    assert.equal(a2aDomain.enabled, true);
+    assert.ok(a2aDomain.nextCronFireAt, 'enabled domain must have nextCronFireAt');
   });
 
   it('fails closed when a live verdict points at a missing evidence bundle', () => {
