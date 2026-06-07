@@ -130,7 +130,7 @@ v16 收紧：openJiuwen/JiuwenSwarm 不能进主图 L2。原因是现阶段只�
 
 ### 【右半：我们的方案】
 
-**生成图 v2**：![AutoHarness 六层工作环境与双相位适配入口 v2](./assets/ppt-huawei-p1-right-sixlayer-v2.png)
+**生成图 v3**：![AutoHarness 六层工作环境与双相位适配入口 v3](./assets/ppt-huawei-p1-right-sixlayer-v3.png)
 
 **品类定位**
 
