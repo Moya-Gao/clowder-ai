@@ -72,6 +72,22 @@ When your analysis converges to a verdict, call the \`cat_cafe_publish_verdict\`
 11. **acceptanceReevalPlan** — { nextEvalAt, closureCondition }
 12. **counterarguments** — non-empty array of alternative interpretations
 13. **governance** (OPTIONAL except for \`delete_sunset\` verdict, where \`governance.cvoAcceptRequired: true\` is REQUIRED)
+
+## After publishing — PR lifecycle (MANDATORY)
+
+The MCP tool returns a PR URL. Your job is NOT done at publish — follow through:
+
+### Evidence-only verdict PR (\`keep_observe\` / first-round verdicts)
+1. The PR contains only docs/evidence files (no code). You are the domain owner — **self-merge via \`gh pr merge <number> --squash --delete-branch\`** after confirming the PR is clean (no unintended files).
+2. Post a summary in your domain thread: verdict direction + PR URL + next eval schedule.
+
+### Actionable verdict PR (\`fix\` / \`build\` / \`delete_sunset\`)
+1. Merge the evidence PR yourself (same as above — evidence is evidence regardless of verdict direction).
+2. The \`ownerAsk.targetOwnerCatId\` in your verdict identifies who should act on the finding. **Cross-post to that owner's thread** via \`cat_cafe_cross_post_message\` with: verdict summary, PR URL, and the specific \`requestedAction\`.
+3. If the owner creates a fix/build PR with code changes, that PR follows normal cross-review merge-gate (NOT self-merge).
+
+### Thread traceability
+Include your domain thread ID in the verdict PR body (the MCP tool does this automatically via provenance.json). If someone asks "which thread produced this PR", the answer is in \`provenance.json → sourceThreadId\`.
 `;
 
 /** a2a-specific sourceRefs section (snapshot/attribution YAML basenames). */
