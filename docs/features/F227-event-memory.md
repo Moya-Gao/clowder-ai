@@ -8,7 +8,7 @@ created: 2026-06-06
 
 # F227: Event Memory — 事件级记忆索引（拉闸记录）
 
-> **Status**: spec | **Owner**: 宪宪 Opus-4.8 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 宪宪 Opus-4.8 | **Priority**: P1
 >
 > 家里话：**拉闸记录**（有味道，家族感）。对外 / 正式 UI / 社区化：**Event Memory** / 校准事件 / Alignment Events。
 > 产品内核：**事件级记忆索引**——不是"魔法词面板"，Magic Word 只是第一条 lane。
@@ -176,6 +176,7 @@ created: 2026-06-06
 | 2026-06-06 | 立项（48 写 spec → 砚砚 review）|
 | 2026-06-06 | Design Gate：CVO 裁定 PR 不拆太碎、禁止脚手架；砚砚落厚切 PR + 终态骨架先行方案 |
 | 2026-06-06 | PR-1 核实发现 F192 已有 magic word 采集 → CVO 裁定真相源归一（Event 当源，F192 改引用）→ 落 design gate「Magic Word 真相源归一」（48）|
+| 2026-06-07 | PR-1 merged `9de0b0a88` — EventMemoryStore substrate + teleport MCP (`cat_cafe_teleport`) + `useTeleport` hook（`pushThreadRouteWithHistory` cross-thread nav）+ magic-word 归一（`onMagicWordDetected → Event Memory`）|
 
 > **华为前保底（不等功能）**：猫提前回扫 5-8 个经典事件精确坐标，做成 markdown 线索表，现场实时搜不到就点保底表（方案 A+B 组合）。此保底**不绑 deadline**，与 Phase A 功能解耦。
 
