@@ -4,6 +4,7 @@ import {
   callbackMemoryTools,
   callbackTools,
   distillationTools,
+  eventMemoryTools,
   evidenceTools,
   externalRuntimeSessionCallbackTools,
   externalRuntimeSessionReadTools,
@@ -83,6 +84,8 @@ export const AGENT_KEY_TOOLS = new Set([
   // persistent agent-key MCP clients need when invocation credentials are absent.
   'cat_cafe_workspace_navigate',
   'cat_cafe_preview_open',
+  // F227: teleport is a callback-authenticated navigation write
+  'cat_cafe_teleport',
   // #699: Message lookup by ID
   'cat_cafe_get_message',
   // F192 Phase H AC-H4 (砚砚 R9 P1): shared-MCP cats can publish verdicts.
@@ -105,6 +108,7 @@ const collabTools: readonly ToolDef[] = applyReadonlyFilter([
   ...callbackTools,
   ...externalRuntimeSessionCallbackTools,
   ...hubActionTools,
+  ...eventMemoryTools, // F227: cat_cafe_teleport
   ...publishVerdictTools, // F192 Phase H AC-H4
   ...richBlockRulesTools,
   ...gameActionTools,

@@ -67,9 +67,30 @@ const magicWordRecordSchema = z.object({
 
 export type MagicWordRecord = z.infer<typeof magicWordRecordSchema>;
 
+// ---- A2 Magic Word Ref (F227: episode references the Event Memory truth source) ----
+// Stored on the episode as a lightweight pointer (eventId) + projection fields.
+// The full event (messageId, cognitiveTransition, summaries) lives in Event Memory
+// keyed by eventId (single source of truth, 归一裁定). The episode read-side
+// projects this back to a `magic_word` entry so F192 eval keeps its a2 projection
+// contract without having to understand the Event Memory schema.
+const magicWordRefRecordSchema = z.object({
+  type: z.literal('magic_word_ref'),
+  eventId: z.string().min(1),
+  word: z.string().min(1),
+  timestamp: z.string().min(1),
+  threadId: z.string().min(1),
+  catId: z.string().min(1),
+});
+
+export type MagicWordRefRecord = z.infer<typeof magicWordRefRecordSchema>;
+
 // ---- A2 union (extensible — user_edit / re_route added in v1) ----
 
-const a2InteractionDecisionSchema = z.discriminatedUnion('type', [permissionCancelRecordSchema, magicWordRecordSchema]);
+const a2InteractionDecisionSchema = z.discriminatedUnion('type', [
+  permissionCancelRecordSchema,
+  magicWordRecordSchema,
+  magicWordRefRecordSchema,
+]);
 
 export type A2InteractionDecision = z.infer<typeof a2InteractionDecisionSchema>;
 
@@ -114,6 +135,10 @@ export function parsePermissionCancelRecord(input: unknown): PermissionCancelRec
 
 export function parseMagicWordRecord(input: unknown): MagicWordRecord {
   return magicWordRecordSchema.parse(input);
+}
+
+export function parseMagicWordRefRecord(input: unknown): MagicWordRefRecord {
+  return magicWordRefRecordSchema.parse(input);
 }
 
 export function parseA1WorldTruthRecord(input: unknown): A1WorldTruthRecord {

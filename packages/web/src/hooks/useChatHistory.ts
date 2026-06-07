@@ -19,6 +19,7 @@ import {
   saveThreadActiveState,
 } from '@/utils/offline-store';
 import { scrollToMessage } from '@/utils/scrollToMessage';
+import { resolvePendingTeleport } from '@/utils/teleport';
 
 type SavedScrollState = {
   top: number;
@@ -1316,6 +1317,20 @@ export function useChatHistory(threadId: string) {
     if (messages.length === 0) return;
     if (useChatStore.getState().currentThreadId !== threadId) return;
     const targetId = resolveCrossPostScrollTarget(threadId, messages, { authoritative: !isOfflineSnapshot });
+    if (targetId) scheduleScrollToMessage(targetId);
+  }, [messages, threadId, isOfflineSnapshot, scheduleScrollToMessage]);
+
+  // F227: resolve a pending teleport (from cat_cafe_teleport → Event Memory) the
+  // same way as cross-post — across the tentative IDB snapshot + the authoritative
+  // fresh page. Takes a real messageId directly (no invocationId lookup).
+  useEffect(() => {
+    if (messages.length === 0) return;
+    if (useChatStore.getState().currentThreadId !== threadId) return;
+    const targetId = resolvePendingTeleport(
+      threadId,
+      messages.map((m) => m.id),
+      { authoritative: !isOfflineSnapshot },
+    );
     if (targetId) scheduleScrollToMessage(targetId);
   }, [messages, threadId, isOfflineSnapshot, scheduleScrollToMessage]);
 

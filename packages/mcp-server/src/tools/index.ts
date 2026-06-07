@@ -64,6 +64,7 @@ export {
   nominateForGlobalInputSchema,
   reviewDistillationInputSchema,
 } from './distillation-tools.js';
+export { eventMemoryTools, handleTeleport, teleportInputSchema } from './event-memory-tools.js';
 export {
   evidenceTools,
   handleSearchEvidence,

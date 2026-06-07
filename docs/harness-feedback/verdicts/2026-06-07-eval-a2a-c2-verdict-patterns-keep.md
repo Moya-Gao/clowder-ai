@@ -25,7 +25,6 @@ Evidence:
 - metric:cat_cafe_a2a_c2_void_hold_hint_emitted_total=0
 - metric:cat_cafe_a2a_c2_void_hold_checked_total=6
 - metric:cat_cafe_a2a_inline_action_routed_set_skip_total{agent_id="opus-45"}=1
-- docs/harness-feedback/attributions/2026-06-07-F167-attribution.yaml#no_finding_record
 
 Counterarguments:
 - The C2 denominator is very small (6), so a clean day is not enough to delete or sunset this guard.

@@ -257,7 +257,9 @@ Evidence:
 
     const capabilityWakeupDomain = summary.domains.find((d) => d.domainId === 'eval:capability-wakeup');
     assert.ok(capabilityWakeupDomain, 'eval:capability-wakeup must appear in domains');
-    assert.equal(capabilityWakeupDomain.hasVerdict, false);
+    // Updated 2026-06-06: PR #2129 merged cap-wakeup-c1-baseline-probe verdict to main
+    assert.equal(capabilityWakeupDomain.hasVerdict, true);
+    assert.ok(capabilityWakeupDomain.latestVerdictId, 'eval:capability-wakeup should have latestVerdictId');
     assert.equal(capabilityWakeupDomain.evalCatHandle, '@opus47');
   });
 

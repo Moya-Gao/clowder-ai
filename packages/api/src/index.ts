@@ -4,7 +4,14 @@
  */
 
 import { join } from 'node:path';
-import { type CatConfig, type CatId, CORE_COMMANDS, catRegistry, type ILimbNode } from '@cat-cafe/shared';
+import {
+  type CatConfig,
+  type CatId,
+  CORE_COMMANDS,
+  catRegistry,
+  type EventMemoryRecord,
+  type ILimbNode,
+} from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
 import { createRedisClient, SessionStore } from '@cat-cafe/shared/utils';
 import fastifyCookie from '@fastify/cookie';
@@ -158,6 +165,7 @@ import {
   connectorHubRoutes,
   connectorMediaRoutes,
   distillationRoutes,
+  eventsRoutes,
   evidenceRoutes,
   executionDigestRoutes,
   exportRoutes,
@@ -1437,10 +1445,49 @@ async function main(): Promise<void> {
     ...(f101GameStore ? { gameStore: f101GameStore } : {}),
     ...(f101SharedDriver ? { autoPlayer: f101SharedDriver } : {}),
     holdBallCancelDeps: { dynamicTaskStore, taskRunner: taskRunnerV2 },
-    // F192 Phase G AC-G12: magic word detection → task outcome signal
-    onMagicWordDetected: (hits: Array<{ word: string }>, threadId: string, catId: string | null) => {
-      try {
-        for (const hit of hits) {
+    // F192 Phase G AC-G12 / F227 归一: magic word → Event Memory (single truth
+    // source) + a lightweight episode ref for F192's a2 projection.
+    onMagicWordDetected: (
+      hits: Array<{ word: string }>,
+      threadId: string,
+      catId: string | null,
+      messageId: string,
+      messageExcerpt?: string,
+    ) => {
+      for (const hit of hits) {
+        // 1) Write the full event FIRST. LL-048 / 砚砚: user-visible data — never
+        //    silently swallow. On failure, dead-letter for replay (最终不丢);
+        //    must not block message processing.
+        const record: EventMemoryRecord = {
+          type: hit.word,
+          trigger: 'human_brake',
+          cat: catId ?? 'unknown',
+          threadId,
+          messageId,
+          timestamp: Date.now(),
+          summary: messageExcerpt ?? hit.word,
+          cognitiveTransition: 'user_brake',
+          relatedHarness: null,
+          confidence: 'high',
+        };
+        let eventId: string;
+        try {
+          eventId = memoryServices.eventMemoryStore.markEvent(record).eventId;
+        } catch (err) {
+          // P1-3 (砚砚): dead-letter so the event is recoverable, not lost.
+          try {
+            memoryServices.eventMemoryStore.appendDeadLetter(record, String(err));
+          } catch (dlErr) {
+            app.log.error({ dlErr, threadId, word: hit.word }, '[F227] dead-letter append ALSO failed');
+          }
+          app.log.error(
+            { err, threadId, word: hit.word },
+            '[F227] Event Memory write failed — dead-lettered for replay',
+          );
+          continue; // no orphan episode ref without a backing event
+        }
+        // 2) Episode ref = projection convenience for F192 a2 (secondary, best-effort).
+        try {
           const ep =
             taskOutcomeStore.getActiveEpisode(threadId) ??
             taskOutcomeStore.createEpisode({
@@ -1451,16 +1498,20 @@ async function main(): Promise<void> {
           taskOutcomeStore.appendSignal(ep.episodeId, {
             category: 'a2',
             record: {
-              type: 'magic_word',
+              type: 'magic_word_ref',
+              eventId,
               word: hit.word,
               timestamp: new Date().toISOString(),
               threadId,
               catId: catId ?? 'unknown',
             },
           });
+        } catch (err) {
+          app.log.error(
+            { err, threadId, eventId },
+            '[F227] episode magic_word_ref append failed (event already persisted)',
+          );
         }
-      } catch {
-        // Best-effort: don't fail message processing
       }
     },
   };
@@ -2258,6 +2309,16 @@ async function main(): Promise<void> {
     indexBuilder: memoryServices.indexBuilder,
     knowledgeResolver: memoryServices.knowledgeResolver,
     rebuildJobTracker,
+  });
+  // F227: Event Memory query route (GET /api/memory/events)
+  await app.register(eventsRoutes, {
+    eventMemoryStore: memoryServices.eventMemoryStore,
+    socketEmit: (event, data, room) => {
+      socketManager?.broadcastToRoom(room, event, data);
+    },
+    // F227 (砚砚 R2 P1): MCP callback auth for the cat_cafe_teleport callbackPost path.
+    callbackRegistry: registry,
+    agentKeyRegistry,
   });
   await app.register(perspectiveRoutes, {
     repoRoot,

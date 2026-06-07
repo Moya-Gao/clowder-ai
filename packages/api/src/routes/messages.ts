@@ -148,8 +148,16 @@ export interface MessagesRoutesOptions {
   streamingHook?: StreamingHookLike;
   /** F167 Phase J: deps for auto-cancelling pending hold-ball tasks on user message */
   holdBallCancelDeps?: HoldBallCancelDeps;
-  /** F192 Phase G AC-G12: callback when magic words detected in user message */
-  onMagicWordDetected?: (hits: Array<{ word: string }>, threadId: string, catId: string | null) => void;
+  /** F192 Phase G AC-G12 / F227 归一: callback when magic words detected in a user
+   * message. messageId is the stored user-message id — the Event Memory teleport
+   * coordinate. */
+  onMagicWordDetected?: (
+    hits: Array<{ word: string }>,
+    threadId: string,
+    catId: string | null,
+    messageId: string,
+    messageExcerpt?: string,
+  ) => void;
 }
 
 const log = createModuleLogger('routes/messages');
@@ -163,17 +171,26 @@ async function tryDetectMagicWords(
   content: string | null | undefined,
   threadId: string,
   targetCats: string[],
+  messageId: string | null | undefined,
   onMagicWordDetected?: MessagesRoutesOptions['onMagicWordDetected'],
 ): Promise<void> {
-  if (!onMagicWordDetected || !content) return;
+  // F227 归一: messageId is the Event Memory teleport coordinate — never guess it
+  // from thread/time. If it is unavailable, skip rather than store a
+  // coordinate-less event.
+  if (!onMagicWordDetected || !content || !messageId) return;
   try {
     const { detectMagicWords } = await import('../infrastructure/harness-eval/task-outcome/magic-word-detector.js');
     const hits = detectMagicWords(content);
     if (hits.length > 0) {
-      onMagicWordDetected(hits, threadId, targetCats[0] ?? null);
+      // 砚砚 (non-blocking): pass a short excerpt of the triggering message so the
+      // Event summary carries 原话 context, not just the magic word itself.
+      const excerpt = content.length > 200 ? `${content.slice(0, 200)}…` : content;
+      onMagicWordDetected(hits, threadId, targetCats[0] ?? null, messageId, excerpt);
     }
   } catch {
-    // Best-effort: don't fail message send if detection throws
+    // Best-effort: the detection/dispatch wrapper must not fail message send. The
+    // Event-write fail-loud policy lives inside onMagicWordDetected itself (it logs
+    // + observes rather than throwing), so it is not swallowed here.
   }
 }
 
@@ -670,8 +687,14 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
           });
           storedUserMessageId = userMessage.id;
 
-          // F192 Phase G AC-G12: detect magic words (queued path)
-          void tryDetectMagicWords(content, resolvedThreadId, targetCats, opts.onMagicWordDetected);
+          // F192 Phase G AC-G12 / F227: detect magic words → Event Memory (queued path)
+          void tryDetectMagicWords(
+            content,
+            resolvedThreadId,
+            targetCats,
+            storedUserMessageId,
+            opts.onMagicWordDetected,
+          );
 
           const queueEntryId = enqueueResult.entry?.id;
           if (queueEntryId) {
@@ -896,8 +919,8 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
           userMessageId: storedUserMessage.id,
         });
 
-        // F192 Phase G AC-G12: detect magic words (immediate path)
-        void tryDetectMagicWords(content, resolvedThreadId, targetCats, opts.onMagicWordDetected);
+        // F192 Phase G AC-G12 / F227: detect magic words → Event Memory (immediate path)
+        void tryDetectMagicWords(content, resolvedThreadId, targetCats, storedUserMessage.id, opts.onMagicWordDetected);
       } catch (preExecErr) {
         // Release slots — we haven't entered background coroutine yet
         opts.invocationTracker?.completeAll(resolvedThreadId, targetCats, controller);

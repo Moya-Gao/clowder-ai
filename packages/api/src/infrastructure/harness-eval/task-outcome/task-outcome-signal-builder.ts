@@ -12,9 +12,11 @@ import {
   type A1WorldTruthRecord,
   type CancelReason,
   type MagicWordRecord,
+  type MagicWordRefRecord,
   type PermissionCancelRecord,
   parseA1WorldTruthRecord,
   parseMagicWordRecord,
+  parseMagicWordRefRecord,
   parsePermissionCancelRecord,
 } from './task-outcome-episode.js';
 
@@ -63,6 +65,8 @@ export interface BuildMagicWordInput {
   followingMessageSummary?: string;
 }
 
+// F227 归一 (superseded by buildMagicWordRefSignal): Event Memory is the truth
+// source for magic words. Retained only for the deprecated manual route's handler.
 export function buildMagicWordSignal(input: BuildMagicWordInput): MagicWordRecord {
   return parseMagicWordRecord({
     type: 'magic_word',
@@ -72,6 +76,26 @@ export function buildMagicWordSignal(input: BuildMagicWordInput): MagicWordRecor
     catId: input.catId,
     precedingMessageSummary: truncate(input.precedingMessageSummary, MAX_SUMMARY_LEN),
     followingMessageSummary: truncate(input.followingMessageSummary, MAX_SUMMARY_LEN),
+  });
+}
+
+// ---- Magic Word Ref (F227: lightweight episode pointer to Event Memory) ----
+
+export interface BuildMagicWordRefInput {
+  eventId: string;
+  word: string;
+  catId: string;
+  threadId: string;
+}
+
+export function buildMagicWordRefSignal(input: BuildMagicWordRefInput): MagicWordRefRecord {
+  return parseMagicWordRefRecord({
+    type: 'magic_word_ref',
+    eventId: input.eventId,
+    word: input.word,
+    timestamp: isoNow(),
+    threadId: input.threadId,
+    catId: input.catId,
   });
 }
 

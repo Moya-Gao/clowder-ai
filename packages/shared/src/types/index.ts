@@ -254,6 +254,20 @@ export type {
   DeliberateSession,
   DeliberateTransition,
 } from './deliberate.js';
+// F227: Event Memory types (cognitive-transition event index)
+export {
+  COGNITIVE_TRANSITIONS,
+  type CognitiveTransition,
+  EVENT_CONFIDENCES,
+  EVENT_TRIGGERS,
+  type EventConfidence,
+  type EventMemoryId,
+  type EventMemoryRecord,
+  type EventTrigger,
+  generateEventId,
+  isEventMemoryRecord,
+  type StoredEventMemory,
+} from './event-memory.js';
 // External project types (F076 跨项目作战面板)
 export type {
   CreateExternalProjectInput,
