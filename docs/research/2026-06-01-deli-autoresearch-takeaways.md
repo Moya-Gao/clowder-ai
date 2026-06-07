@@ -14,6 +14,8 @@ status: synthesis
 >
 > 结论先行：公开 GitHub 没看到 DeliAutoResearch 的 skill 源码。真正值得参考的不是“AI 写论文”这个噱头，而是三件事：**生产遥测表**、**失败模式词表**、**自我进化护栏**。
 
+> 2026-06-06 更新：Deli Chen 在 2026-06-04 前后公开了 `paper_writing` / Scientific Paper Writing skill 的网页规格说明，见 [Deli paper_writing skill：开放式论文写作 Harness 拆解](../study/2026-06-06-deli-paper-writing-skill-methodology.md)。所以本文“没有公开 skill 源码”的旧结论需要收窄：**`paper_writing` 的方法规格已公开；DeliAutoResearch master framework、内部 search/API/deployment/router 技能，以及可安装 `SKILL.md` 包仍未见公开。**
+
 ## 1. 先把事实钉住
 
 我查了 Deli Chen 的公开 GitHub：

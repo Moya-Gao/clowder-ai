@@ -43,6 +43,7 @@ tags:
 - [Harness 与环境进化：AHE + AgentGym + AgentGym-RL](../research/2026-05-28-skill-evolution-papers/harness-and-environment-evolution.md)
 - [Agent Harness Engineering: A Survey](../research/2026-05-26-agent-harness-engineering-survey/README.md)
 - [DeliAutoResearch 读后：我们真正能带走什么](../research/2026-06-01-deli-autoresearch-takeaways.md)
+- [Deli paper_writing skill：开放式论文写作 Harness 拆解](2026-06-06-deli-paper-writing-skill-methodology.md)
 - [Adaptive Auto-Harness：开放任务流里的 Harness 树、自适应路由与人类方向信号](adaptive-auto-harness.md)
 - [OpenAI Tax AI：Building Self-Improving Tax Agents with Codex](openai-self-improving-tax-agents.md)
 - [Anthropic 数据分析自助化：How Anthropic Enables Self-Service Data Analytics with Claude](anthropic-self-service-data-analytics-with-claude.md)
@@ -132,9 +133,9 @@ ADAS 把搜索对象从“模型答案”推进到“agent 设计”；AI Scient
 
 Cat Cafe 的对应设计是专家路由、显式球权、跨个体 review、记忆三入口、session chain、source-audit、expert-panel 和愿景守护。我们不是让多猫投票取平均，而是让合适的猫在合适的位置承担判断。
 
-### 6. DeliAutoResearch 作为工作流样本
+### 6. DeliAutoResearch / paper_writing 作为工作流样本
 
-DeliAutoResearch 没有公开可安装 skill，本身不能作为可复现系统直接吸收。它的价值在另一层：一个 agent artifact 不只交付正文，还应该交付生产轨迹、引用验证、迭代轮次、已知失败模式和下一轮改进入口。
+截至 2026-06-06，Deli Chen 公开了 `paper_writing` 的方法规格页，但 DeliAutoResearch master framework 和可安装 skill 包仍未公开，不能作为可复现系统直接吸收。它的价值在另一层：一个 agent artifact 不只交付正文，还应该交付生产轨迹、引用验证、迭代轮次、已知失败模式和下一轮改进入口。
 
 这把“AI 写论文”的叙事拉回到 Personal Operating Environment：环境要记得一件事是怎么做成的，也要知道下次怎样做得更好。
 
