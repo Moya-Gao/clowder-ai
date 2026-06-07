@@ -19,10 +19,12 @@ import type {
   EventTrigger,
   StoredEventMemory,
 } from '@cat-cafe/shared';
-import { generateEventId, isEventMemoryRecord } from '@cat-cafe/shared';
+import { generateEventId, isEventMemoryRecord, isValidOwnerUserId } from '@cat-cafe/shared';
 import Database from 'better-sqlite3';
 
 export interface EventMemoryFilter {
+  /** Owner scope (cloud-review P1): restrict to one cocreator's events. */
+  ownerUserId?: string;
   trigger?: EventTrigger;
   cat?: string;
   type?: string;
@@ -37,17 +39,30 @@ export interface EventMemoryFilter {
   offset?: number;
 }
 
+/** Result of an idempotent markEvent: the persisted event + whether THIS call inserted it. */
+export interface MarkEventResult {
+  event: StoredEventMemory;
+  /** true = newly inserted by this call; false = a row with this (threadId,messageId,type) already existed. */
+  inserted: boolean;
+}
+
 export interface IEventMemoryStore {
   initialize(): Promise<void>;
-  /** Write an event, mint its eventId, return the persisted record. */
-  markEvent(record: EventMemoryRecord): StoredEventMemory;
+  /**
+   * Atomically idempotent write keyed on UNIQUE(ownerUserId, threadId, messageId, type):
+   * mints an eventId and inserts, or — if that owner+coordinate+type already exists —
+   * returns the existing event with inserted=false (no duplicate). `ownerUserId` is the
+   * required auth scope (cloud-review P1); empty → throws (no fallback, 砚砚). Safe under
+   * concurrent backfill / live writes.
+   */
+  markEvent(record: EventMemoryRecord, ownerUserId: string): MarkEventResult;
   getEvent(eventId: string): StoredEventMemory | null;
-  /** Newest-first, filtered + paged. */
+  /** Newest-first, filtered + paged. Pass filter.ownerUserId to owner-scope reads. */
   listEvents(filter?: EventMemoryFilter): StoredEventMemory[];
-  /** Teleport reverse lookup: all events at a (threadId, messageId) coordinate. */
-  getByCoord(threadId: string, messageId: string): StoredEventMemory[];
-  /** P1-3 (砚砚): persist a failed write for replay so events are not lost (最终不丢). */
-  appendDeadLetter(record: EventMemoryRecord, errorMessage: string): void;
+  /** Teleport reverse lookup: events at a (threadId, messageId) coordinate, owner-scoped when provided. */
+  getByCoord(threadId: string, messageId: string, ownerUserId?: string): StoredEventMemory[];
+  /** P1-3 (砚砚): persist a failed write + its owner scope for replay so events are not lost (最终不丢). */
+  appendDeadLetter(record: EventMemoryRecord, ownerUserId: string, errorMessage: string): void;
   /** Read dead-lettered entries (replay / inspection). */
   listDeadLetter(): DeadLetterEntry[];
   health(): boolean;
@@ -55,6 +70,8 @@ export interface IEventMemoryStore {
 
 export interface DeadLetterEntry {
   record: EventMemoryRecord;
+  /** Owner scope captured at failure time so a replay re-writes without guessing (砚砚 P1). */
+  ownerUserId: string;
   error: string;
   failedAt: number;
 }
@@ -93,13 +110,37 @@ export class EventMemoryStore implements IEventMemoryStore {
         summary TEXT NOT NULL,
         cognitiveTransition TEXT,
         relatedHarness TEXT,
-        confidence TEXT NOT NULL
+        confidence TEXT NOT NULL,
+        ownerUserId TEXT NOT NULL DEFAULT ''
       );
       CREATE INDEX IF NOT EXISTS idx_event_threadId ON event_memory(threadId);
       CREATE INDEX IF NOT EXISTS idx_event_coord ON event_memory(threadId, messageId);
       CREATE INDEX IF NOT EXISTS idx_event_trigger ON event_memory(trigger_type);
       CREATE INDEX IF NOT EXISTS idx_event_timestamp ON event_memory(timestamp);
       CREATE INDEX IF NOT EXISTS idx_event_confidence ON event_memory(confidence);
+    `);
+    // F227 (cloud-review P1): owner scope. A legacy table (pre-owner) lacks the column —
+    // add it so initialize() upgrades in place. Existing un-owned rows get '' and stay
+    // unreachable to any real authenticated owner (safe-by-default, no cross-user leak).
+    const hasOwner = (db.prepare(`PRAGMA table_info(event_memory)`).all() as Array<{ name: string }>).some(
+      (c) => c.name === 'ownerUserId',
+    );
+    if (!hasOwner) {
+      db.exec(`ALTER TABLE event_memory ADD COLUMN ownerUserId TEXT NOT NULL DEFAULT ''`);
+    }
+    // Atomic idempotency guard, now OWNER-scoped: UNIQUE(ownerUserId, threadId, messageId,
+    // type). Dedup pre-existing duplicates (keep the earliest rowid per owner+coord+type)
+    // BEFORE the UNIQUE index so initialize() never fails on a DB with duplicates. Drop the
+    // pre-owner index it replaces.
+    db.exec(`
+      DROP INDEX IF EXISTS idx_event_coord_type;
+      DELETE FROM event_memory
+      WHERE rowid NOT IN (
+        SELECT MIN(rowid) FROM event_memory GROUP BY ownerUserId, threadId, messageId, type
+      );
+      CREATE INDEX IF NOT EXISTS idx_event_owner ON event_memory(ownerUserId);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_event_owner_coord_type
+        ON event_memory(ownerUserId, threadId, messageId, type);
     `);
   }
 
@@ -108,32 +149,77 @@ export class EventMemoryStore implements IEventMemoryStore {
     return this.db;
   }
 
-  markEvent(record: EventMemoryRecord): StoredEventMemory {
+  markEvent(record: EventMemoryRecord, ownerUserId: string): MarkEventResult {
     // 砚砚 (non-blocking): validate untrusted payloads (backfill / tool writers)
     // with the shared guard before they hit SQLite.
     if (!isEventMemoryRecord(record)) {
       throw new Error('EventMemoryStore.markEvent: record failed isEventMemoryRecord guard');
     }
+    // Owner scope is REQUIRED (cloud-review P1 / 砚砚): no unknown/default fallback — a
+    // writer that can't resolve its authenticated owner must fail, not write unscoped.
+    if (!isValidOwnerUserId(ownerUserId)) {
+      throw new Error('EventMemoryStore.markEvent: ownerUserId is required (no fallback)');
+    }
     const db = this.ensureOpen();
     const eventId = generateEventId();
+    // INSERT OR IGNORE against UNIQUE(ownerUserId, threadId, messageId, type): atomically
+    // idempotent, so concurrent backfill / live writes on the same coordinate can't
+    // double-write.
+    const info = db
+      .prepare(
+        `INSERT OR IGNORE INTO event_memory
+          (eventId, type, trigger_type, cat, ownerUserId, threadId, messageId, timestamp, summary, cognitiveTransition, relatedHarness, confidence)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        eventId,
+        record.type,
+        record.trigger,
+        record.cat,
+        ownerUserId,
+        record.threadId,
+        record.messageId,
+        record.timestamp,
+        record.summary,
+        record.cognitiveTransition,
+        record.relatedHarness === null ? null : JSON.stringify(record.relatedHarness),
+        record.confidence,
+      );
+    if (info.changes === 1) {
+      return { event: { eventId, ownerUserId, ...record }, inserted: true };
+    }
+    // Duplicate (ownerUserId, threadId, messageId, type) already present — no new row.
+    // Race resolution (cloud-review P2): if THIS writer has STRICTLY higher confidence than
+    // the existing row, upgrade its confidence + metadata. So a real live brake (high) is
+    // never left at a backfill grade (mid/low) just because backfill won the insert race;
+    // lower/equal confidence leaves the existing row untouched (idempotent).
     db.prepare(
-      `INSERT INTO event_memory
-        (eventId, type, trigger_type, cat, threadId, messageId, timestamp, summary, cognitiveTransition, relatedHarness, confidence)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `UPDATE event_memory
+          SET confidence = ?, trigger_type = ?, cat = ?, summary = ?, cognitiveTransition = ?, relatedHarness = ?
+        WHERE ownerUserId = ? AND threadId = ? AND messageId = ? AND type = ?
+          AND (CASE ? WHEN 'high' THEN 3 WHEN 'mid' THEN 2 ELSE 1 END)
+            > (CASE confidence WHEN 'high' THEN 3 WHEN 'mid' THEN 2 ELSE 1 END)`,
     ).run(
-      eventId,
-      record.type,
+      record.confidence,
       record.trigger,
       record.cat,
-      record.threadId,
-      record.messageId,
-      record.timestamp,
       record.summary,
       record.cognitiveTransition,
       record.relatedHarness === null ? null : JSON.stringify(record.relatedHarness),
+      ownerUserId,
+      record.threadId,
+      record.messageId,
+      record.type,
       record.confidence,
     );
-    return { eventId, ...record };
+    // Return the existing (possibly just-upgraded) event so the live path still resolves a
+    // real eventId (砚砚); no duplicate row is ever written.
+    const existing = db
+      .prepare(
+        'SELECT * FROM event_memory WHERE ownerUserId = ? AND threadId = ? AND messageId = ? AND type = ? LIMIT 1',
+      )
+      .get(ownerUserId, record.threadId, record.messageId, record.type) as Record<string, unknown> | undefined;
+    return { event: existing ? this.rowToEvent(existing) : { eventId, ownerUserId, ...record }, inserted: false };
   }
 
   getEvent(eventId: string): StoredEventMemory | null {
@@ -155,6 +241,7 @@ export class EventMemoryStore implements IEventMemoryStore {
         params.push(value);
       }
     };
+    eq('ownerUserId', filter.ownerUserId);
     eq('trigger_type', filter.trigger);
     eq('cat', filter.cat);
     eq('type', filter.type);
@@ -180,11 +267,13 @@ export class EventMemoryStore implements IEventMemoryStore {
     return rows.map((r) => this.rowToEvent(r));
   }
 
-  getByCoord(threadId: string, messageId: string): StoredEventMemory[] {
+  getByCoord(threadId: string, messageId: string, ownerUserId?: string): StoredEventMemory[] {
     const db = this.ensureOpen();
+    const where = ownerUserId ? 'threadId = ? AND messageId = ? AND ownerUserId = ?' : 'threadId = ? AND messageId = ?';
+    const params = ownerUserId ? [threadId, messageId, ownerUserId] : [threadId, messageId];
     const rows = db
-      .prepare('SELECT * FROM event_memory WHERE threadId = ? AND messageId = ? ORDER BY timestamp DESC, rowid DESC')
-      .all(threadId, messageId) as Array<Record<string, unknown>>;
+      .prepare(`SELECT * FROM event_memory WHERE ${where} ORDER BY timestamp DESC, rowid DESC`)
+      .all(...params) as Array<Record<string, unknown>>;
     return rows.map((r) => this.rowToEvent(r));
   }
 
@@ -197,8 +286,8 @@ export class EventMemoryStore implements IEventMemoryStore {
     }
   }
 
-  appendDeadLetter(record: EventMemoryRecord, errorMessage: string): void {
-    const line = `${JSON.stringify({ record, error: errorMessage, failedAt: Date.now() })}\n`;
+  appendDeadLetter(record: EventMemoryRecord, ownerUserId: string, errorMessage: string): void {
+    const line = `${JSON.stringify({ record, ownerUserId, error: errorMessage, failedAt: Date.now() })}\n`;
     if (this.deadLetterPath) {
       appendFileSync(this.deadLetterPath, line);
     } else {
@@ -221,6 +310,7 @@ export class EventMemoryStore implements IEventMemoryStore {
   private rowToEvent(row: Record<string, unknown>): StoredEventMemory {
     return {
       eventId: row.eventId as string,
+      ownerUserId: row.ownerUserId as string,
       type: row.type as string,
       trigger: row.trigger_type as EventTrigger,
       cat: row.cat as string,

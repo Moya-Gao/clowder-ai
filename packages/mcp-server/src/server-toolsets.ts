@@ -86,6 +86,12 @@ export const AGENT_KEY_TOOLS = new Set([
   'cat_cafe_preview_open',
   // F227: teleport is a callback-authenticated navigation write
   'cat_cafe_teleport',
+  // F227 Task 7: backfill is a callback-authenticated write (populates Event Memory)
+  'cat_cafe_backfill_events',
+  // F227 (cloud P2): list_events is a callback-backed READ — callbackGet fails closed
+  // without invocation/agent-key creds, so it belongs with the creds-gated tools, NOT
+  // the credential-free readonly whitelist (where it'd be visible-but-unusable).
+  'cat_cafe_list_events',
   // #699: Message lookup by ID
   'cat_cafe_get_message',
   // F192 Phase H AC-H4 (砚砚 R9 P1): shared-MCP cats can publish verdicts.

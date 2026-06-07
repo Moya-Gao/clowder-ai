@@ -3,7 +3,7 @@ import { pushThreadRouteWithHistory } from '@/components/ThreadSidebar/thread-na
 import { useChatStore } from '@/stores/chatStore';
 import { API_URL } from '@/utils/api-client';
 import { scrollToMessage } from '@/utils/scrollToMessage';
-import { planTeleport } from '@/utils/teleport';
+import { kickTeleportResolve, planTeleport } from '@/utils/teleport';
 
 /**
  * F227: drive the Hub to an exact thread message in response to a `thread:teleport`
@@ -40,6 +40,9 @@ export function handleTeleportEvent(
   const plan = planTeleport({ threadId: data.threadId, messageId: data.messageId, currentThreadId });
   if (plan.scrollNow) {
     actions.scrollToMessage(plan.scrollNow);
+    // P1 (砚砚 R1): same-thread — if the target is outside the loaded window, nudge
+    // useChatHistory to run its older-page resolver (planTeleport recorded a pending).
+    kickTeleportResolve();
     return 'scrolled';
   }
   if (plan.navigateTo) {

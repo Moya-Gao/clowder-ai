@@ -29,6 +29,8 @@ function baseRecord(overrides = {}) {
 describe('GET /api/memory/events (F227 PR-1)', () => {
   let app;
   let store;
+  // GET is owner-scoped (cloud-review P1): seed events owned by the test's session user.
+  const mark = (record) => store.markEvent(record, 'test-user');
 
   beforeEach(async () => {
     store = new EventMemoryStore(':memory:');
@@ -46,8 +48,8 @@ describe('GET /api/memory/events (F227 PR-1)', () => {
   });
 
   it('returns all events newest-first with meta', async () => {
-    store.markEvent(baseRecord({ timestamp: 100, messageId: 'm1' }));
-    store.markEvent(baseRecord({ timestamp: 200, messageId: 'm2' }));
+    mark(baseRecord({ timestamp: 100, messageId: 'm1' }));
+    mark(baseRecord({ timestamp: 200, messageId: 'm2' }));
 
     const res = await app.inject({ method: 'GET', url: '/api/memory/events' });
     assert.equal(res.statusCode, 200);
@@ -60,8 +62,8 @@ describe('GET /api/memory/events (F227 PR-1)', () => {
   });
 
   it('filters by trigger query param', async () => {
-    store.markEvent(baseRecord({ trigger: 'human_brake', messageId: 'm1' }));
-    store.markEvent(baseRecord({ trigger: 'cat_brake', messageId: 'm2' }));
+    mark(baseRecord({ trigger: 'human_brake', messageId: 'm1' }));
+    mark(baseRecord({ trigger: 'cat_brake', messageId: 'm2' }));
 
     const res = await app.inject({ method: 'GET', url: '/api/memory/events?trigger=human_brake' });
     assert.equal(res.statusCode, 200);
@@ -71,9 +73,9 @@ describe('GET /api/memory/events (F227 PR-1)', () => {
   });
 
   it('filters by threadId + cat (AND)', async () => {
-    store.markEvent(baseRecord({ cat: 'cat-opus', threadId: 'thread_a', messageId: 'm1' }));
-    store.markEvent(baseRecord({ cat: 'cat-codex', threadId: 'thread_a', messageId: 'm2' }));
-    store.markEvent(baseRecord({ cat: 'cat-opus', threadId: 'thread_b', messageId: 'm3' }));
+    mark(baseRecord({ cat: 'cat-opus', threadId: 'thread_a', messageId: 'm1' }));
+    mark(baseRecord({ cat: 'cat-codex', threadId: 'thread_a', messageId: 'm2' }));
+    mark(baseRecord({ cat: 'cat-opus', threadId: 'thread_b', messageId: 'm3' }));
 
     const res = await app.inject({ method: 'GET', url: '/api/memory/events?cat=cat-opus&threadId=thread_a' });
     const body = res.json();
@@ -83,7 +85,7 @@ describe('GET /api/memory/events (F227 PR-1)', () => {
 
   it('coerces limit/offset from query strings (paging)', async () => {
     for (let i = 1; i <= 5; i++) {
-      store.markEvent(baseRecord({ timestamp: i * 100, messageId: `m${i}` }));
+      mark(baseRecord({ timestamp: i * 100, messageId: `m${i}` }));
     }
 
     const res = await app.inject({ method: 'GET', url: '/api/memory/events?limit=2&offset=2' });
@@ -95,9 +97,9 @@ describe('GET /api/memory/events (F227 PR-1)', () => {
   });
 
   it('filters by time window since/until', async () => {
-    store.markEvent(baseRecord({ timestamp: 100, messageId: 'm1' }));
-    store.markEvent(baseRecord({ timestamp: 200, messageId: 'm2' }));
-    store.markEvent(baseRecord({ timestamp: 300, messageId: 'm3' }));
+    mark(baseRecord({ timestamp: 100, messageId: 'm1' }));
+    mark(baseRecord({ timestamp: 200, messageId: 'm2' }));
+    mark(baseRecord({ timestamp: 300, messageId: 'm3' }));
 
     const res = await app.inject({ method: 'GET', url: '/api/memory/events?since=150&until=250' });
     const body = res.json();
@@ -126,12 +128,13 @@ describe('GET /api/memory/events (F227 PR-1)', () => {
 
 describe('POST /api/memory/teleport (F227 PR-1)', () => {
   let app;
+  let store;
   /** @type {Array<{ event: string; data: { threadId: string; messageId: string; eventId: string }; room: string }>} */
   let emitted;
 
   beforeEach(async () => {
     emitted = [];
-    const store = new EventMemoryStore(':memory:');
+    store = new EventMemoryStore(':memory:');
     await store.initialize();
     app = Fastify();
     app.addHook('onRequest', async (req) => {
@@ -151,6 +154,8 @@ describe('POST /api/memory/teleport (F227 PR-1)', () => {
   });
 
   it('emits thread:teleport on workspace:global with threadId+messageId+eventId', async () => {
+    // cloud-review P1: teleport only resolves to one of the caller's OWN event coords.
+    store.markEvent(baseRecord({ threadId: 'thread_a', messageId: 'm1' }), 'test-user');
     const res = await app.inject({
       method: 'POST',
       url: '/api/memory/teleport',
@@ -272,6 +277,9 @@ describe('Event Memory routes — auth gate (F227 砚砚 P1)', () => {
   it('allows POST teleport via the real MCP callback path and broadcasts', async () => {
     const store = new EventMemoryStore(':memory:');
     await store.initialize();
+    // cloud-review P1: teleport requires one of the caller's OWN events at the coord
+    // (the callback principal's userId is 'u').
+    store.markEvent(baseRecord({ threadId: 'thread_a', messageId: 'm1' }), 'u');
     let emittedCount = 0;
     const cbApp = Fastify();
     await cbApp.register(eventsRoutes, {
@@ -291,5 +299,123 @@ describe('Event Memory routes — auth gate (F227 砚砚 P1)', () => {
     assert.equal(res.statusCode, 200);
     assert.equal(emittedCount, 1);
     await cbApp.close();
+  });
+});
+
+describe('POST /api/memory/events/backfill (F227 PR-2 Task 7)', () => {
+  const threadStore = { list: () => [{ id: 't1' }] };
+  function makeMessageStore() {
+    const corpus = {
+      t1: [
+        {
+          id: 'a',
+          threadId: 't1',
+          content: '这是脚手架 @opus',
+          timestamp: 100,
+          catId: null,
+          userId: 'default-user',
+          mentions: ['opus'],
+        },
+        {
+          id: 'b',
+          threadId: 't1',
+          content: '今天天气不错',
+          timestamp: 200,
+          catId: null,
+          userId: 'default-user',
+          mentions: [],
+        },
+      ],
+    };
+    return {
+      getByThreadAfter: (threadId, afterId, limit) => {
+        const all = corpus[threadId] ?? [];
+        const start = afterId ? all.findIndex((m) => m.id === afterId) + 1 : 0;
+        // backfill loads the whole thread (no limit) — mirror RedisMessageStore (undefined = all)
+        return limit == null ? all.slice(start) : all.slice(start, start + limit);
+      },
+    };
+  }
+
+  it('backfills graded events from the corpus (authenticated)', async () => {
+    const store = new EventMemoryStore(':memory:');
+    await store.initialize();
+    const app = Fastify();
+    app.addHook('onRequest', async (req) => {
+      req.sessionUserId = 'default-user';
+    });
+    await app.register(eventsRoutes, { eventMemoryStore: store, threadStore, messageStore: makeMessageStore() });
+    await app.ready();
+
+    const res = await app.inject({ method: 'POST', url: '/api/memory/events/backfill' });
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.equal(body.ok, true);
+    assert.equal(body.scanned, 2);
+    assert.equal(body.marked, 1); // 脚手架 only; 天气 has no magic word
+
+    const events = store.listEvents();
+    assert.equal(events.length, 1);
+    assert.equal(events[0].type, '脚手架');
+    assert.equal(events[0].confidence, 'high');
+    await app.close();
+  });
+
+  it('rejects an unauthenticated backfill with 401', async () => {
+    const store = new EventMemoryStore(':memory:');
+    await store.initialize();
+    const app = Fastify();
+    await app.register(eventsRoutes, { eventMemoryStore: store, threadStore, messageStore: makeMessageStore() });
+    await app.ready();
+    const res = await app.inject({ method: 'POST', url: '/api/memory/events/backfill' });
+    assert.equal(res.statusCode, 401);
+    await app.close();
+  });
+
+  it('returns 501 when corpus sources are not configured', async () => {
+    const store = new EventMemoryStore(':memory:');
+    await store.initialize();
+    const app = Fastify();
+    app.addHook('onRequest', async (req) => {
+      req.sessionUserId = 'default-user';
+    });
+    await app.register(eventsRoutes, { eventMemoryStore: store }); // no threadStore/messageStore
+    await app.ready();
+    const res = await app.inject({ method: 'POST', url: '/api/memory/events/backfill' });
+    assert.equal(res.statusCode, 501);
+    await app.close();
+  });
+});
+
+describe('GET /api/memory/magic-words (F227 PR-2 AC-A5)', () => {
+  it('returns magic-word meanings sourced from L0 (no hardcoded table)', async () => {
+    const store = new EventMemoryStore(':memory:');
+    await store.initialize();
+    const app = Fastify();
+    app.addHook('onRequest', async (req) => {
+      req.sessionUserId = 'u';
+    });
+    await app.register(eventsRoutes, { eventMemoryStore: store });
+    await app.ready();
+    const res = await app.inject({ method: 'GET', url: '/api/memory/magic-words' });
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.ok(Array.isArray(body.magicWords));
+    assert.ok(body.magicWords.length >= 9, `expected >=9 meanings from L0, got ${body.magicWords.length}`);
+    const scaffold = body.magicWords.find((m) => m.word === '脚手架');
+    assert.ok(scaffold, '脚手架 meaning present');
+    assert.ok(scaffold.meaning.length > 0 && scaffold.action.length > 0);
+    await app.close();
+  });
+
+  it('rejects an unauthenticated meanings request with 401', async () => {
+    const store = new EventMemoryStore(':memory:');
+    await store.initialize();
+    const app = Fastify();
+    await app.register(eventsRoutes, { eventMemoryStore: store });
+    await app.ready();
+    const res = await app.inject({ method: 'GET', url: '/api/memory/magic-words' });
+    assert.equal(res.statusCode, 401);
+    await app.close();
   });
 });

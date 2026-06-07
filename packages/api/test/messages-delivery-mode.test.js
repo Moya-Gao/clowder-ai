@@ -875,8 +875,8 @@ describe('POST /api/messages magic word instrumentation (F227 砚砚 P1 — dete
   beforeEach(async () => {
     magicWordCalls = [];
     deps = buildDeps({
-      onMagicWordDetected: (hits, threadId, catId, messageId, messageExcerpt) => {
-        magicWordCalls.push({ hits, threadId, catId, messageId, messageExcerpt });
+      onMagicWordDetected: (hits, threadId, catId, messageId, ownerUserId, messageExcerpt) => {
+        magicWordCalls.push({ hits, threadId, catId, messageId, ownerUserId, messageExcerpt });
       },
     });
     const { messagesRoutes } = await import('../dist/routes/messages.js');
@@ -910,6 +910,7 @@ describe('POST /api/messages magic word instrumentation (F227 砚砚 P1 — dete
     assert.equal(call.threadId, 'thread-1');
     // The whole point of the instrumentation-gap fix: messageId === persisted user message id
     assert.equal(call.messageId, persistedMessageId);
+    assert.equal(call.ownerUserId, 'user-1', 'F227 P1: owner = the authenticated sender (queued path)');
     assert.ok(call.messageExcerpt?.includes('脚手架'), 'excerpt carries 原话 context');
   });
 
@@ -944,5 +945,6 @@ describe('POST /api/messages magic word instrumentation (F227 砚砚 P1 — dete
     assert.equal(magicWordCalls.length, 1, 'immediate path should also fire the callback');
     assert.equal(magicWordCalls[0].hits[0].word, '脚手架');
     assert.equal(magicWordCalls[0].messageId, persistedMessageId);
+    assert.equal(magicWordCalls[0].ownerUserId, 'user-1', 'F227 P1: owner = the authenticated sender (immediate path)');
   });
 });

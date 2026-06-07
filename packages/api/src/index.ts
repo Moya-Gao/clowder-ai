@@ -1452,6 +1452,7 @@ async function main(): Promise<void> {
       threadId: string,
       catId: string | null,
       messageId: string,
+      ownerUserId: string,
       messageExcerpt?: string,
     ) => {
       for (const hit of hits) {
@@ -1472,11 +1473,11 @@ async function main(): Promise<void> {
         };
         let eventId: string;
         try {
-          eventId = memoryServices.eventMemoryStore.markEvent(record).eventId;
+          eventId = memoryServices.eventMemoryStore.markEvent(record, ownerUserId).event.eventId;
         } catch (err) {
           // P1-3 (砚砚): dead-letter so the event is recoverable, not lost.
           try {
-            memoryServices.eventMemoryStore.appendDeadLetter(record, String(err));
+            memoryServices.eventMemoryStore.appendDeadLetter(record, ownerUserId, String(err));
           } catch (dlErr) {
             app.log.error({ dlErr, threadId, word: hit.word }, '[F227] dead-letter append ALSO failed');
           }
@@ -2352,6 +2353,9 @@ async function main(): Promise<void> {
     // F227 (砚砚 R2 P1): MCP callback auth for the cat_cafe_teleport callbackPost path.
     callbackRegistry: registry,
     agentKeyRegistry,
+    // F227 Task 7: corpus sources for the historical backfill route.
+    threadStore,
+    messageStore,
   });
   await app.register(perspectiveRoutes, {
     repoRoot,

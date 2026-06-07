@@ -10,6 +10,7 @@ import { useWorkspace } from '@/hooks/useWorkspace';
 import { useChatStore } from '@/stores/chatStore';
 import { API_URL, apiFetch } from '@/utils/api-client';
 import { CommunityPanel } from './CommunityPanel';
+import { EventTimeline } from './event-memory/EventTimeline';
 import { RecallFeed } from './memory/RecallFeed';
 import { TaskBoardPanel } from './TaskBoardPanel';
 import { useConfirm } from './useConfirm';
@@ -193,6 +194,8 @@ export function WorkspacePanel() {
   );
 
   const [viewMode, setViewMode] = useState<'files' | 'changes' | 'git' | 'terminal' | 'browser'>('files');
+  // F227: recall mode sub-tab — 记忆流 (RecallFeed) vs 拉闸记录 (EventTimeline)
+  const [recallTab, setRecallTab] = useState<'feed' | 'events'>('feed');
   // Phase H: Workspace mode switcher (dev tools vs knowledge feed)
   const workspaceMode = useChatStore((s) => s.workspaceMode);
   const setWorkspaceMode = useChatStore((s) => s.setWorkspaceMode);
@@ -842,8 +845,27 @@ export function WorkspacePanel() {
 
           {/* Knowledge / Schedule / Tasks / Dev mode routing */}
           {workspaceMode === 'recall' ? (
-            <div className="flex-1 min-h-0 overflow-y-auto">
-              <RecallFeed />
+            <div className="flex-1 min-h-0 flex flex-col">
+              {/* F227: 记忆流 vs 拉闸记录 (Event Memory timeline) */}
+              <div className="flex gap-1 px-3 py-1.5 border-b border-cafe-subtle/40">
+                {(['feed', 'events'] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => setRecallTab(tab)}
+                    className={`px-2.5 py-1 rounded-full text-micro font-semibold transition-all ${
+                      recallTab === tab
+                        ? 'bg-cafe-accent/10 text-cafe-accent border border-cafe-accent/30'
+                        : 'text-cafe-interactive/40 hover:text-cafe-interactive/60'
+                    }`}
+                  >
+                    {tab === 'feed' ? '记忆流' : '拉闸记录'}
+                  </button>
+                ))}
+              </div>
+              <div className="flex-1 min-h-0 overflow-y-auto">
+                {recallTab === 'feed' ? <RecallFeed /> : <EventTimeline />}
+              </div>
             </div>
           ) : workspaceMode === 'schedule' ? (
             <SchedulePanel />

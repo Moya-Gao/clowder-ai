@@ -266,6 +266,7 @@ export {
   type EventTrigger,
   generateEventId,
   isEventMemoryRecord,
+  isValidOwnerUserId,
   type StoredEventMemory,
 } from './event-memory.js';
 // External project types (F076 跨项目作战面板)

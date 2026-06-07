@@ -74,9 +74,23 @@ export interface EventMemoryRecord {
   confidence: EventConfidence;
 }
 
-/** Persisted record: terminal 10 fields + store-minted primary key. */
+/**
+ * Persisted record: terminal 10 semantic fields + store-minted primary key + owner
+ * scope metadata.
+ *
+ * `ownerUserId` is NOT a cognitive field (cloud-review P1 / 砚砚) — it is the storage/auth
+ * boundary: which cocreator's Event Memory this row belongs to. It lets reads be
+ * owner-scoped so the shared `default` thread can't leak one user's brake events to
+ * another. The 10 semantic fields (and their `isEventMemoryRecord` guard) are unchanged.
+ */
 export interface StoredEventMemory extends EventMemoryRecord {
   eventId: string;
+  ownerUserId: string;
+}
+
+/** A non-empty owner scope (auth principal). Writers MUST supply one — no fallback (砚砚). */
+export function isValidOwnerUserId(value: unknown): value is string {
+  return isNonEmptyString(value);
 }
 
 // ── ID generator ───────────────────────────────────────────────────

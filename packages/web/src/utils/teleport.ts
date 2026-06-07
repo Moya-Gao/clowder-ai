@@ -56,9 +56,10 @@ export interface TeleportPlan {
 }
 
 /**
- * Plan a teleport. Same thread → scroll now (no pending). Different thread (or
- * cold load with no current thread) → record pending + signal navigation; the
- * thread page resolves the pending teleport after it renders.
+ * Plan a teleport. Same thread → scroll now + record pending (so an out-of-window
+ * target still auto-loads via the resolver, P1 砚砚 R1). Different thread (or cold load
+ * with no current thread) → record pending + signal navigation; the thread page
+ * resolves the pending teleport after it renders.
  */
 export function planTeleport(params: {
   threadId: string;
@@ -67,6 +68,10 @@ export function planTeleport(params: {
 }): TeleportPlan {
   const { threadId, messageId, currentThreadId } = params;
   if (currentThreadId === threadId) {
+    // P1 (砚砚 R1): record pending even on the same thread so useChatHistory's
+    // older-page resolver can reach a target OUTSIDE the loaded window. scrollNow
+    // still handles the common in-window case immediately.
+    setPendingTeleport({ threadId, messageId });
     return { scrollNow: messageId, navigateTo: null };
   }
   setPendingTeleport({ threadId, messageId });
@@ -95,4 +100,44 @@ export function resolvePendingTeleport(
     consumePendingTeleport(threadId);
   }
   return null;
+}
+
+/**
+ * F227 PR-2 P1-1 (砚砚): a full-corpus Event Memory teleport can target a message
+ * OLDER than the loaded chat window (history loads 50 at a time). When the target
+ * isn't loaded yet but older history remains, the thread should auto-load older
+ * pages until it appears — instead of silently switching thread without scrolling.
+ *
+ * Pure decision (unit-testable); the useChatHistory effect drives the actual fetch.
+ *   - found            → no (the resolve path scrolls + consumes)
+ *   - no pending       → no
+ *   - stale snapshot   → no (wait for the authoritative fresh page first)
+ *   - a fetch in flight→ no (don't stack concurrent loads)
+ *   - no older history → no (real paged-out / deleted → the resolve path gives up)
+ *   - else             → yes (load the next older page, keep the pending teleport)
+ */
+export function shouldLoadOlderForTeleport(params: {
+  hasPending: boolean;
+  found: boolean;
+  isStale: boolean;
+  hasMore: boolean;
+  isLoading: boolean;
+}): boolean {
+  const { hasPending, found, isStale, hasMore, isLoading } = params;
+  return hasPending && !found && !isStale && hasMore && !isLoading;
+}
+
+/**
+ * F227 PR-2 P1 (砚砚 R1): same-thread teleport doesn't change the route, so the
+ * messages-effect that runs the resolver never fires. This event lets the caller
+ * explicitly nudge useChatHistory to (re)run the SAME older-page resolver — no
+ * second paging system.
+ */
+export const TELEPORT_RESOLVE_EVENT = 'cafe:teleport-resolve';
+
+/** Dispatch the resolver kick (browser-only; no-op under SSR/tests without window). */
+export function kickTeleportResolve(): void {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(TELEPORT_RESOLVE_EVENT));
+  }
 }

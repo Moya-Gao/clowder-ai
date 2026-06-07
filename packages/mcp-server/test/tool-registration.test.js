@@ -34,6 +34,9 @@ const EXPECTED_TOOLS = [
   'cat_cafe_preview_open',
   // F227: generic teleport to a thread message
   'cat_cafe_teleport',
+  // F227 Task 7: Event Memory timeline read + corpus backfill
+  'cat_cafe_list_events',
+  'cat_cafe_backfill_events',
   'cat_cafe_get_rich_block_rules',
   'cat_cafe_register_pr_tracking',
   // F211 Phase B: IDE-direct external runtime session registration
@@ -152,6 +155,9 @@ const EXPECTED_COLLAB_TOOLS = [
   'cat_cafe_preview_open',
   // F227: generic teleport to a thread message
   'cat_cafe_teleport',
+  // F227 Task 7: Event Memory timeline read + corpus backfill
+  'cat_cafe_list_events',
+  'cat_cafe_backfill_events',
   'cat_cafe_get_rich_block_rules',
   'cat_cafe_request_permission',
   'cat_cafe_check_permission_status',
@@ -427,6 +433,8 @@ const KNOWN_WRITE_TOOLS = [
   'cat_cafe_preview_open',
   // F227: generic teleport (write — agent-key gated, not in readonly)
   'cat_cafe_teleport',
+  // F227 Task 7: backfill is a write (agent-key gated, not in readonly)
+  'cat_cafe_backfill_events',
   'cat_cafe_request_permission',
   'cat_cafe_register_pr_tracking',
   'cat_cafe_register_external_runtime_session',

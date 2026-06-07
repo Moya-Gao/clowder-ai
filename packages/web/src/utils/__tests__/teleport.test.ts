@@ -5,16 +5,27 @@ import {
   planTeleport,
   resolvePendingTeleport,
   setPendingTeleport,
+  shouldLoadOlderForTeleport,
 } from '../teleport';
 
 describe('planTeleport', () => {
   beforeEach(() => __resetPendingTeleportForTest());
 
-  it('same thread → scrollNow, no navigation, no pending recorded', () => {
+  it('same thread → scrollNow AND records pending (resolver can reach out-of-window)', () => {
     const plan = planTeleport({ threadId: 'thread_a', messageId: 'm1', currentThreadId: 'thread_a' });
     expect(plan).toEqual({ scrollNow: 'm1', navigateTo: null });
-    // same-thread records no pending
-    expect(resolvePendingTeleport('thread_a', ['m1'], { authoritative: true })).toBeNull();
+    // P1 (砚砚 R1): same-thread now records pending so useChatHistory can auto-load older pages
+    expect(resolvePendingTeleport('thread_a', ['m1'], { authoritative: true })).toBe('m1');
+  });
+
+  it('same-thread out-of-window: pending survives the miss → resolver should load older (P1)', () => {
+    planTeleport({ threadId: 'thread_a', messageId: 'old-msg', currentThreadId: 'thread_a' });
+    // target not in the loaded window + more history exists → keep pending (non-authoritative)
+    expect(resolvePendingTeleport('thread_a', ['recent1', 'recent2'], { authoritative: false })).toBeNull();
+    // …and the resolver decides to load an older page
+    expect(
+      shouldLoadOlderForTeleport({ hasPending: true, found: false, isStale: false, hasMore: true, isLoading: false }),
+    ).toBe(true);
   });
 
   it('different thread → navigateTo + records pending for that thread', () => {
@@ -89,5 +100,33 @@ describe('resolvePendingTeleport', () => {
     setPendingTeleport({ threadId: 'thread_other', messageId: 'm1' });
     expect(resolvePendingTeleport('thread_a', ['m1'], { authoritative: true })).toBeNull();
     expect(resolvePendingTeleport('thread_other', ['m1'], { authoritative: true })).toBe('m1');
+  });
+});
+
+describe('shouldLoadOlderForTeleport (P1-1: reach out-of-window events)', () => {
+  const base = { hasPending: true, found: false, isStale: false, hasMore: true, isLoading: false };
+
+  it('loads older when a pending teleport misses the window but older history exists', () => {
+    expect(shouldLoadOlderForTeleport(base)).toBe(true);
+  });
+
+  it('does not load when the target is already found', () => {
+    expect(shouldLoadOlderForTeleport({ ...base, found: true })).toBe(false);
+  });
+
+  it('does not load when nothing is pending', () => {
+    expect(shouldLoadOlderForTeleport({ ...base, hasPending: false })).toBe(false);
+  });
+
+  it('does not load on a stale snapshot (waits for the authoritative fresh page)', () => {
+    expect(shouldLoadOlderForTeleport({ ...base, isStale: true })).toBe(false);
+  });
+
+  it('does not load when there is no older history (real paged-out → resolve gives up)', () => {
+    expect(shouldLoadOlderForTeleport({ ...base, hasMore: false })).toBe(false);
+  });
+
+  it('does not stack a load while a history fetch is in flight', () => {
+    expect(shouldLoadOlderForTeleport({ ...base, isLoading: true })).toBe(false);
   });
 });

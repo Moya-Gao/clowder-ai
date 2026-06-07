@@ -157,6 +157,7 @@ export interface MessagesRoutesOptions {
     threadId: string,
     catId: string | null,
     messageId: string,
+    ownerUserId: string,
     messageExcerpt?: string,
   ) => void;
 }
@@ -173,12 +174,19 @@ async function tryDetectMagicWords(
   threadId: string,
   targetCats: string[],
   messageId: string | null | undefined,
+  ownerUserId: string | null | undefined,
   onMagicWordDetected?: MessagesRoutesOptions['onMagicWordDetected'],
 ): Promise<void> {
   // F227 归一: messageId is the Event Memory teleport coordinate — never guess it
   // from thread/time. If it is unavailable, skip rather than store a
   // coordinate-less event.
   if (!onMagicWordDetected || !content || !messageId) return;
+  // F227 (cloud-review P1 / 砚砚): the live write must carry the authenticated owner —
+  // skip + report rather than store an unscoped event (no unknown/default fallback).
+  if (!ownerUserId) {
+    log.warn({ threadId, messageId }, 'magic-word event skipped: message has no owner userId');
+    return;
+  }
   try {
     const { detectMagicWords } = await import('../infrastructure/harness-eval/task-outcome/magic-word-detector.js');
     const hits = detectMagicWords(content);
@@ -186,7 +194,7 @@ async function tryDetectMagicWords(
       // 砚砚 (non-blocking): pass a short excerpt of the triggering message so the
       // Event summary carries 原话 context, not just the magic word itself.
       const excerpt = content.length > 200 ? `${content.slice(0, 200)}…` : content;
-      onMagicWordDetected(hits, threadId, targetCats[0] ?? null, messageId, excerpt);
+      onMagicWordDetected(hits, threadId, targetCats[0] ?? null, messageId, ownerUserId, excerpt);
     }
   } catch {
     // Best-effort: the detection/dispatch wrapper must not fail message send. The
@@ -698,6 +706,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
             resolvedThreadId,
             targetCats,
             storedUserMessageId,
+            userId,
             opts.onMagicWordDetected,
           );
 
@@ -938,7 +947,14 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
         });
 
         // F192 Phase G AC-G12 / F227: detect magic words → Event Memory (immediate path)
-        void tryDetectMagicWords(content, resolvedThreadId, targetCats, storedUserMessage.id, opts.onMagicWordDetected);
+        void tryDetectMagicWords(
+          content,
+          resolvedThreadId,
+          targetCats,
+          storedUserMessage.id,
+          userId,
+          opts.onMagicWordDetected,
+        );
       } catch (preExecErr) {
         // Release slots — we haven't entered background coroutine yet
         opts.invocationTracker?.completeAll(resolvedThreadId, targetCats, controller);
