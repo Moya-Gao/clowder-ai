@@ -1,6 +1,6 @@
 ---
 feature_ids: [F128]
-related_features: [F108, F050]
+related_features: [F108, F050, F193]
 related_decisions: [ADR-035]
 topics: [mcp, thread, autonomy, orchestration, community, approval, rich-block]
 doc_kind: spec
@@ -12,7 +12,7 @@ community_pr: https://github.com/zts212653/clowder-ai/pull/85
 
 # F128: Cat-Proposed Thread Creation — 猫猫提议创建 Thread
 
-> **Status**: active (Phase Y merged 2026-06-04, PR #2098) | **Source**: clowder-ai #82 (bouillipx) / PR #85 | **Priority**: P2
+> **Status**: active (Phase AA spec landed 2026-06-07; implementation pending) | **Source**: clowder-ai #82 (bouillipx) / PR #85 | **Priority**: P2
 > **Design correction (2026-05-22)**: supersedes direct `cat_cafe_create_thread` with Proposal-First flow per ADR-035.
 
 ## Why
@@ -139,9 +139,11 @@ F128 遵循 ADR-035 Proposal-First Agent Actions：
 | `state-transitions` | 下游每个 phase boundary 回报（≈当前隐式默认） | Bug investigation / Research |
 | `blocking-ack` | 下游必须等源 thread ack 才能继续；持球在**被阻塞的下游 thread** 不是源 thread；下游发 `[BLOCKING]` ack 请求 + 自己 `cat_cafe_hold_ball` 等 ack/超时，源 thread 不背 polling 责任；未来若加结构化 ack 回调 + EYES>0 走事件驱动不续 hold（KD-27 一致） | 等 review / 等 CVO / blocking handoff |
 
-#### Default 决策
+#### Default 决策（历史结论；2026-06-07 被 Phase AA 修正）
 
 **Default = `none`（UI: `autonomous` / `no-required-report`）** — 宪宪（Opus-48）+ 砚砚（GPT-5.5）2026-06-04 收敛。
+
+> **Superseded by Phase AA**: 这条 default 对 Repo Inbox / PR triage / 分发场景仍成立，但 2026-06-07 生产反馈显示，把 `none` 作为 `cat_cafe_propose_thread` 的通用默认会让普通 fork-and-return 子 thread 石沉大海：猫看到"无强制回报 / 接力完成即可"后不再回主 thread。Phase AA 将通用默认修正为 `final-only`，`none` 保留为显式 opt-in 的 autonomous 模式。
 
 收敛论证（两条核心）：
 1. **`final-only` 不解决 silent deadlock**：`final-only` 的"最后回报"也是下游主动发；下游真卡死/崩溃时既不闭环也不发 final summary → 对真正的 silent deadlock 同样无能为力。silent deadlock 的真解药是 `blocking-ack`（带 timeout）或源 thread 主动 poll，不是 `final-only`。去掉 safety 维度后，`final-only` vs `none` 退化为纯"例行 summary noise vs 静默"权衡。
@@ -177,9 +179,61 @@ F128 遵循 ADR-035 Proposal-First Agent Actions：
 - 设计 input：砚砚（Codex GPT-5.5）— design constraint C-Y1~C-Y6 来源（C-Y5/C-Y6 为 default 收敛时补充的实现 review guard）
 - CVO sign-off：landy（立项 + 委托猫讨论 default，2026-06-04）
 
+### Phase AA: Reporting Contract UX + Source Attribution（2026-06-07）
+
+> **Status**: spec landed，待实施
+> **Source**: 铲屎官 2026-06-07 反馈：猫 post 回主 thread 没有 @ 对应猫，消息存了但没有唤醒；同时 F128 子 thread 的首条消息显示成铲屎官发的，而真实发起者是 propose 的猫。
+> **Why**: Phase Y 在下游 header 里解决 reporting mode，但坐标系仍偏下游。第一性原理是：**猫在 propose 时就必须明确这个 thread 是 fork-and-return 还是 autonomous；子 thread 第一条消息必须带真实来源；需要回报时必须知道回到哪个 thread、唤醒哪只源猫。**
+
+#### Design Decision
+
+1. **通用默认改回 `final-only`**
+   大多数 F128 propose 是"开一个子 thread 做事，做完把结果带回来"。`none` 仍是正确模式，但只适用于 Repo Inbox / PR triage / 分发给下游自治闭环等场景，必须显式选择。
+2. **模式选择要场景化，不暴露成纯 enum 题**
+   Tool description / system prompt / thread-orchestration skill 必须先问："这个子 thread 做完后，源 thread 是否需要结果回来？"
+   - 需要结果回来 → `final-only`（默认）
+   - 不需要，交给下游自治闭环 → `none`
+   - 需要阶段性状态 → `state-transitions`
+   - 遇阻塞必须等源 thread ack → `blocking-ack`
+3. **首条消息作者 = source cat，不是 approver**
+   铲屎官点击 approve 是授权动作，不是 seed content 作者。Approved seed / initial message 应显示为 `proposal.sourceCatId` 的猫消息；`approvedBy` 继续保留在线程/proposal 审计元数据里。
+4. **首条消息携带 F193/F52 风格来源元数据**
+   Seed message `extra.crossPost` 必须携带 `sourceThreadId` + `sourceInvocationId`（未来若有 source message id，可一并扩展），前端复用现有 cross-post pill：可点击回源 thread，并尽量定位到 source invocation/message。
+5. **Report-back 指令必须带 routing credentials**
+   任何要求回报主 thread 的 header / protocol 文案，不能只说"用 `cat_cafe_cross_post_message` 回报主 Thread"。必须生成可执行的路由目标：`threadId = proposal.sourceThreadId`，`targetCats = [proposal.sourceCatId]`（或 content 行首 `@<source cat stable handle>`），确保消息不只是存入源 thread，而是唤醒等待的源猫。
+
+#### Contract
+
+- `reportingMode` 仍是 create-time thread contract；v1 不支持创建后动态切换（继承 C-Y1）。
+- `#ideate` 与 `reportingMode` 继续正交（继承 C-Y6）：并行/串行只决定 wake 方式，report-back 由 `reportingMode` 决定。
+- `none` 不强制回报，但不禁止上报。即使 `none` 下遇 CVO 决策 / 阻塞 / 不可逆 / 跨 feature 冲突需要 cross-post，也必须使用 `targetCats` 或 line-start `@`，不能发无路由 cross-post。
+- `sourceCatId` 是默认 report recipient；若实现需要展示 handle，应通过 cat registry / `primaryMentionHandleForCatId` 解析 stable handle，不写死中文名或模型名。
+
+#### Acceptance Criteria
+
+- [ ] AC-AA1: `DEFAULT_REPORTING_MODE` 从 `none` 改为 `final-only`；`cat_cafe_propose_thread` 省略 `reportingMode` 时按 `final-only` 走；`none` 继续作为显式 opt-in autonomous 模式存在。
+- [ ] AC-AA2: `cat_cafe_propose_thread` MCP description、SystemPromptBuilder 工具提示、`thread-orchestration` skill 全部改成场景化选择指南，明确何时选 `final-only` / `none` / `state-transitions` / `blocking-ack`，避免猫只看到 enum 术语。
+- [ ] AC-AA3: Proposal card 继续 surface reporting mode；若未来加 approval-time reportingMode override，必须发生在线程创建前并同步 proposal 审计，不能违反 C-Y1 的"创建后不动态切换"边界。
+- [ ] AC-AA4: Approved seed / initial message 存储为 source-cat authored message：`catId = proposal.sourceCatId`；approval user 只进入 `approvedBy` / `approvedAt` 审计，不作为消息作者。
+- [ ] AC-AA5: Seed message `extra.crossPost` 写入 `{ sourceThreadId: proposal.sourceThreadId, sourceInvocationId: proposal.sourceInvocationId }`；前端复用现有 cross-post pill，可点击回源 thread，并在 `sourceInvocationId` 存在时定位到源 invocation/message。
+- [ ] AC-AA6: `proposal-enrich-header.ts` 的 `final-only` / `state-transitions` / `blocking-ack` report-back 文案生成明确路由：回报到 `sourceThreadId`，并用 `targetCats: [sourceCatId]` 或 line-start `@sourceHandle` 唤醒源猫；serial chain 的 final step 同样必须带 routing credentials。
+- [ ] AC-AA7: `none`/`autonomous` header 保留"无强制回报"，但关键事件上报文案也必须提醒使用 `targetCats` / line-start `@`，避免 voluntary cross-post 变成无唤醒消息。
+- [ ] AC-AA8: Tests 覆盖：default final-only；explicit none 不强制回报；seed message source-cat attribution；`extra.crossPost` round-trip + frontend pill；report-back header 含 `targetCats`/source handle；cross-post without routing 仍 fail-close（F193 AC-A4 不回退）。
+
+#### Open Questions
+
+- **OQ-AA1**: 当前 proposal 只有 `sourceInvocationId`，没有稳定 `sourceMessageId`。v1 先用 `sourceInvocationId` 定位；若后续能拿到 source message id，再扩展 `extra.crossPost.sourceMessageId`。
+- **OQ-AA2**: reportingMode 是否允许 approval card 编辑？当前 Phase Y 实现把 reportingMode 固定在 propose create-time；Phase AA 不强制改这一点，只要求猫 propose 时被清楚引导。若产品上需要用户审批时可改，应作为 AC-AA3 的扩展实现，并保证创建前完成、审计同步。
+
+#### Reviewer / Discussion
+
+- 诊断与方案 input：宪宪（Opus-4.6）— 2026-06-07 指出 Phase Y default `none` + cross-post routing 指引缺失的叠加根因，并提出 source-cat attribution / F193-style source pill 方案。
+- 设计收敛：砚砚（Codex GPT-5.5）— 接受"上游 contract 完整化"方向，补充：保留 Phase Y triage 价值但 supersede 通用 default；routing credentials 是 report-back contract 的硬要求，不是 header 文案 polish。
+- CVO correction：landy — 要求从第一性原理修 propose-time mode choice 和首条消息来源体验，避免下游补锅。
+
 ### Phase Z: projectPath 项目归属 — cwd 圣域回落根因修复（2026-06-05）
 
-> **Status**: implemented，待跨族 code review + merge（branch `fix/cat-cwd-runtime-fallback`）
+> **Status**: merged（PR #2118, squash `b3541acf`, 2026-06-06）
 > **Source**: F200-B 愿景守护时 opus-47 在子 thread 被唤起后落到 `cat-cafe-runtime/packages/api`（runtime 圣域）——"我竟然在 runtime！🙀"。三方坐实根因（铲屎官 UI 截图 + 砚砚 live API + 代码 trace）。
 > **Why**: Phase A 早已 spec `projectPath`（propose 继承 parent、approve 校验权限，见上 line 39/48），但实现从未让猫真正传/用它。propose 创建的子 thread 继承 source thread 的 `default` projectPath → 子 thread 无项目归属 → cat invocation 的 workingDirectory 解析不到有效 projectPath → cwd 回落 `process.cwd()` = runtime 圣域。本 Phase 补齐并扩展这条契约。
 
@@ -216,7 +270,7 @@ F128 遵循 ADR-035 Proposal-First Agent Actions：
 
 - 提议/实施猫：宪宪（Opus-47 根因定位 + Opus-48 接手 approve override / Redis 持久化 / 测试 / 结构 / round-1 修复）
 - 设计 input：砚砚（Codex GPT-5.5）— fail-loud 契约 + cwd guard 拆分边界（push-back #1/#2）
-- 跨族 code review：砚砚（GPT-5.5）— round 1 REQUEST CHANGES（3 P1）→ 已修，待 re-review
+- 跨族 code review：砚砚（GPT-5.5）— round 1 REQUEST CHANGES（3 P1）→ 已修并 APPROVE；云端 codex round 2 "no major issues"；PR #2118 merged
 
 ## Maintainer Review 结论（2026-03-19，已被 2026-05-22 产品修正补充）
 
