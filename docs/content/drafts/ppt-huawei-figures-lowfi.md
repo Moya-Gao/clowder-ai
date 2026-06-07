@@ -32,7 +32,7 @@ participants: [landy, opus48, codex]
 这张图必须把主 PPT 的三组内容全部进图：
 1. **L1-L5 五级定义**：`Level / 技术含义 / 产品侧证明 / 我们的态度`
 2. **学术界 / 工业界位置**：飞书妙搭/Aily、Hermes、OpenAI/Thrive Tax AI with Codex、MOSS/Meta code-as-harness、AlphaEvolve、DGM/Adaptive、Ineffable/Superlearner、我们 AutoHarness
-3. **创新机会点**：四条完整机会点（L2+→受控L3、关进企业笼子、真实轨迹、FDE 下沉）
+3. **创新机会点**：图内必须显式出现“创新机会点”标题，并保留四条完整机会点（L2+→受控L3、关进企业笼子、真实轨迹、FDE 下沉）
 
 ### 低保真布局
 
@@ -77,7 +77,8 @@ participants: [landy, opus48, codex]
 │进  │prompt/规则/   │系统，但人主导运营维护 │                    │        │
 │    │文档/benchmark │Hermes 可作 L1/L2 边界 │                    │        │
 ├────┴──────────────┴──────────────────────┴──────────────────┴────────┤
-│ 创新机会点（红底白字，高密度四条）：                                   │
+│ 【创新机会点 / INNOVATION OPPORTUNITIES】（红底白字，图内显式标题）      │
+│ 红区左侧固定标题“创新机会点”；右侧/下方密排四条机会，不能做成无标题总结条 │
 │ 1. 从 L2+ 进入受控 L3：Agent 能从真实摩擦中生成/修改 harness 组件，      │
 │    并通过真值信号、跨模型审查、回滚机制受控上线。                       │
 │ 2. 把自进化关进企业可接受的笼子：不是 AI 自动改一切，而是任务级          │
@@ -98,7 +99,7 @@ participants: [landy, opus48, codex]
 - **L4/L5 降饱和 + 虚线框**：表示方向/北极星，非当前 claim。
 - **L2 必须有产品/研究锚点**：Hermes、OpenAI/Thrive Tax AI with Codex、MOSS/Meta code-as-harness 作为小标签，不再只写"方法层"。L2 的本质是局部 harness / skill / eval / workflow 可生成或替换，但整体迭代策略还没完全交给 Agent 系统。openJiuwen/JiuwenSwarm 先降级为 Pocket 候选，没读代码前不进主图。
 - **L1 灰调**（起点），飞书妙搭/Aily 用灰色产品标签。
-- **底部红底白字结论区**（华为标志手法）= 创新机会点，四条都要保留；可用 8-10pt 小字密排，不可删成一句话。
+- **底部红底白字创新机会点区**（华为标志手法）：必须在图内用白字明确标出“创新机会点 / INNOVATION OPPORTUNITIES”，再密排四条机会；不要只放四条正文，也不要画成无标题总结条。四条都要保留，可用 8-10pt 小字密排，不可删成一句话。
 - 字体微软雅黑/Arial；直角；无渐变阴影 3D；产品名用 10-12pt 灰色标签。
 
 ### 每级代表产品 —— source-audit 核验状态（砚砚一手核 2026-06-06）
@@ -204,8 +205,8 @@ participants: [landy, opus48, codex]
 
 | 图 | 对应 | 状态 |
 |----|------|------|
-| 图1 | 第一页左半 L1-L5 光谱 | ✅ 低保真就绪，待审 → imagegen |
-| 图2 | 第一页右半 六层方案 | ✅ 低保真就绪，待审 → imagegen |
+| 图1 | 第一页左半 L1-L5 光谱 | ✅ 试稿 v2：`assets/ppt-huawei-p1-left-l1l5-v2.png` |
+| 图2 | 第一页右半 六层方案 | ✅ 试稿 v1：`assets/ppt-huawei-p1-right-sixlayer-v1.png` |
 | 图3 | 第三页右半 统一飞轮 | ⏳ 占位待细化 |
 | 图4 | FDE 三段压缩 | ⏳ 占位待细化 |
 

@@ -10,6 +10,7 @@ target: 华为云内部创新汇报（三页 PPT + live demo）
 # AutoHarness：从静态编排走向自进化
 
 > 华为云汇报 PPT 骨架 v6
+> 演示滚动版（只放成品截图）：[ppt-huawei-scroll-deck.md](./ppt-huawei-scroll-deck.md)
 
 > 格式来源：华为创新 IDEA 汇报模板（三页 PPT → 接 live demo）
 > v0：铲屎官纠正对标对象 + 技术挑战框架 + 去黑话
@@ -47,7 +48,7 @@ target: 华为云内部创新汇报（三页 PPT + live demo）
 
 **PPT 视觉**：左侧五级阶梯，右侧一条"用户负责 → Agent 系统负责"责任迁移轴。
 
-**生成图 v1**：![AutoHarness L1-L5 光谱 v1](./assets/ppt-huawei-p1-left-l1l5-v1.png)
+**生成图 v2**：![AutoHarness L1-L5 光谱 v2](./assets/ppt-huawei-p1-left-l1l5-v2.png)
 
 ```
 AutoHarness 成熟度 ─────────────────────────────────────────────→
@@ -128,6 +129,8 @@ v16 收紧：openJiuwen/JiuwenSwarm 不能进主图 L2。原因是现阶段只�
 -->
 
 ### 【右半：我们的方案】
+
+**生成图 v1**：![AutoHarness 六层工作环境与双相位适配入口 v1](./assets/ppt-huawei-p1-right-sixlayer-v1.png)
 
 **品类定位**
 
