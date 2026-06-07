@@ -8,9 +8,9 @@ author: "[砚砚/gpt-5.5🐾]"
 participants: [landy, opus48, codex]
 assets:
   - docs/content/drafts/assets/ppt-huawei-p1-left-l1l5-v2.png
-  - docs/content/drafts/assets/ppt-huawei-p1-right-sixlayer-v3.png
+  - docs/content/drafts/assets/ppt-huawei-p1-right-sixlayer-v4.png
 ---
 
 ![AutoHarness L1-L5 光谱](./assets/ppt-huawei-p1-left-l1l5-v2.png)
 
-![AutoHarness 六层工作环境与双相位适配入口](./assets/ppt-huawei-p1-right-sixlayer-v3.png)
+![AutoHarness 六层工作环境与双相位适配入口](./assets/ppt-huawei-p1-right-sixlayer-v4.png)
