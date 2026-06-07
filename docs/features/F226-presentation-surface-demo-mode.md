@@ -8,7 +8,7 @@ created: 2026-06-06
 
 # F226: Presentation Surface / Demo Mode
 
-> **Status**: Phase A merged (#2126, 194ab86d8) — 代码层完成；browser 视觉/拖拽手感走 alpha 验收 | **Owner**: 宪宪 Opus-4.8 | **Priority**: P1
+> **Status**: Phase A merged (#2126) + 尺寸快捷 enhancement merged (#2131, 铲屎官 dogfood 验收满意) | **Owner**: 宪宪 Opus-4.8 | **Priority**: P1
 
 ## Why
 
@@ -103,6 +103,7 @@ created: 2026-06-06
 |------|------|
 | 2026-06-06 | 立项（宪宪调查 + 砚砚工程评估收敛，CVO signoff 开新 F 号） |
 | 2026-06-07 | **Phase A merged**（PR #2126 → 194ab86d8）。宪宪 Opus-4.8 实现；砚砚 GPT-5.5 跨族 review continuity 放行；烁烁/gemini25 UX review。云端 codex 连续 9 轮 COMMENTED 共抓 9 个真实 edge-case P2（basePath / drag-handle / link-worktree / disableCommandPrefix / z-index / viewport / minimize-key / avif-bmp / edit-token），全部修复 + Red→Green 测试 + failure-mode audit。`pnpm gate` 全绿（rebased onto main，22 checks + test）。剩 browser 视觉/拖拽手感走 alpha 验收。 |
+| 2026-06-07 | **尺寸快捷 enhancement merged**（PR #2131 → d48b69b0a）。铲屎官 dogfood Phase A 撞到核心痛点：看 PPT 图要放大但无快捷键得拖半天 + 演示功能收起/恢复要重新拖。实现 `toggleMaximize`（一键适配 PPT 16:9 居中放大到 viewport 85% ↔ 恢复手动尺寸，记 `preMaximizeGeometry` 双态切换不重新拖）+ header `⤢` 按钮/双击标题栏 + 去 `backdrop-blur-md` 实底化（深色聊天区可读性）。铲屎官 nohup dev dogfood 验收满意；砚砚 review continuity 放行 + 云端 review "no major issues"；full web 3767 tests + gate 全绿。 |
 
 ## Review Gate
 
