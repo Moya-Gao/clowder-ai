@@ -47,6 +47,8 @@ target: 华为云内部创新汇报（三页 PPT + live demo）
 
 **PPT 视觉**：左侧五级阶梯，右侧一条"用户负责 → Agent 系统负责"责任迁移轴。
 
+**生成图 v1**：![AutoHarness L1-L5 光谱 v1](./assets/ppt-huawei-p1-left-l1l5-v1.png)
+
 ```
 AutoHarness 成熟度 ─────────────────────────────────────────────→
 
