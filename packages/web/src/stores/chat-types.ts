@@ -617,6 +617,25 @@ export interface PresentationLockSnapshot {
   scrollTop: number | null;
 }
 
+/** F226: Presentation Surface — file/md tear-off floating window for demo mode */
+export interface PresentationSurfaceContent {
+  worktreeId: string | null;
+  filePath: string;
+  tabs: string[];
+  fileKind: 'file' | 'image' | 'markdown';
+  renderMode: 'rendered' | 'raw';
+  line: number | null;
+  scrollTop: number | null;
+  title: string;
+}
+
+export interface PresentationSurfaceState {
+  content: PresentationSurfaceContent;
+  pos: { x: number; y: number };
+  size: { width: number; height: number };
+  minimized: boolean;
+}
+
 /** F097: CLI Output unified event stream */
 export type CliEventKind = 'tool_use' | 'tool_result' | 'text' | 'error';
 export type CliStatus = 'streaming' | 'done' | 'failed' | 'interrupted';

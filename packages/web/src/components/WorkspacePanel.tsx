@@ -179,6 +179,9 @@ export function WorkspacePanel() {
   const disablePresentationLock = useChatStore((s) => s.disablePresentationLock);
   const setPresentationLockViewport = useChatStore((s) => s.setPresentationLockViewport);
   const workspaceScrollTop = useChatStore((s) => s.workspaceScrollTop);
+  // F226: presentation surface — tear-off current file into a floating window
+  const detachToFloat = useChatStore((s) => s.detachToFloat);
+  const presentationSurface = useChatStore((s) => s.presentationSurface);
   const { createFile, createDir, deleteItem, renameItem, uploadFile } = useFileManagement();
 
   const viewportRestoreKey = `${currentThreadId}:${openFilePath}`;
@@ -618,6 +621,32 @@ export function WorkspacePanel() {
                   )}
                 </svg>
               </button>
+              {/* F226: detach current file into a floating window (dev mode only — 烁烁 P2-2) */}
+              {workspaceMode === 'dev' && (
+                <button
+                  type="button"
+                  onClick={detachToFloat}
+                  disabled={!openFilePath || !!presentationSurface}
+                  className="w-6 h-6 flex items-center justify-center rounded-md text-cafe-interactive/40 hover:text-cafe-interactive hover:bg-cafe-surface-sunken/60 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="浮出文档窗口 — 讲稿浮起来，右侧腾出来切定时任务/记忆/毛线球"
+                >
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M5 3H3a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-2M9 2h5v5M14 2 7 9"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </button>
+              )}
               {presentationLock && (
                 <span className="text-micro font-medium px-1.5 py-0.5 rounded-full bg-cafe-accent/15 text-cafe-accent">
                   Locked
