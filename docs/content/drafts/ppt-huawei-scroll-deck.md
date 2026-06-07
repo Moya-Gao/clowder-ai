@@ -11,6 +11,6 @@ assets:
   - docs/content/drafts/assets/ppt-huawei-p1-right-sixlayer-v1.png
 ---
 
-<img src="./assets/ppt-huawei-p1-left-l1l5-v2.png" alt="AutoHarness L1-L5 光谱" style="width: 100%; display: block; margin: 0 0 32px 0;" />
+![AutoHarness L1-L5 光谱](./assets/ppt-huawei-p1-left-l1l5-v2.png)
 
-<img src="./assets/ppt-huawei-p1-right-sixlayer-v1.png" alt="AutoHarness 六层工作环境与双相位适配入口" style="width: 100%; display: block; margin: 0;" />
+![AutoHarness 六层工作环境与双相位适配入口](./assets/ppt-huawei-p1-right-sixlayer-v1.png)
