@@ -1,0 +1,31 @@
+{
+  "verdictId": "2026-06-06-cap-wakeup-c1-baseline-probe",
+  "evalSnapshotId": "eval-F203-workspace_navigator-2026-06-07",
+  "featureId": "F203",
+  "generatedAt": "2026-06-07T03:14:02.412Z",
+  "window": {
+    "startMs": 1780540348661,
+    "endMs": 1780569641022,
+    "durationHours": 8.137
+  },
+  "components": [
+    {
+      "id": "workspace-navigator",
+      "name": "workspace-navigator",
+      "activationCounts": {
+        "opportunity_count": 8,
+        "used_count": 0,
+        "false_positive_count": 0
+      },
+      "frictionCounts": {
+        "miss_count": 8,
+        "cognitive_count": 8,
+        "behavioral_count": 0,
+        "attention_dilution_count": 0,
+        "reachability_doubt_count": 0,
+        "unclassified_count": 0
+      },
+      "confidence": "medium"
+    }
+  ]
+}
