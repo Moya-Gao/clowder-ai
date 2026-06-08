@@ -24,7 +24,6 @@ Evidence:
 - metric:cat_cafe_a2a_c2_verdict_without_pass_count_total{agent_id="opus",thread_system_kind="product",trigger="p1p2"}=1
 - metric:cat_cafe_a2a_c2_exit_checked_total=17
 - metric:cat_cafe_a2a_c2_void_hold_hint_emitted_total=0
-- docs/harness-feedback/attributions/2026-06-08-F167-attribution.yaml#AR-2026-06-08-001
 
 Counterarguments:
 - Because count is exactly 3, waiting one more day could avoid work if this is a low-volume blip; I am choosing build because this is the first post-#2101 recurrence where label-level telemetry is no longer enough.

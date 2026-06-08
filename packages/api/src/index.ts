@@ -640,13 +640,25 @@ async function main(): Promise<void> {
       const messages = await messageStore.getByThread(threadId, limit ?? 2000, 'default-user');
       return messages
         .filter((m: { origin?: string }) => m.origin !== 'briefing') // F148 Phase E (AC-E2): exclude briefing from evidence index
-        .map((m: { id: string; content: string; catId?: string | null; threadId: string; timestamp: number }) => ({
-          id: m.id,
-          content: m.content,
-          catId: m.catId ?? undefined,
-          threadId: m.threadId,
-          timestamp: m.timestamp,
-        }));
+        .map(
+          (m: {
+            id: string;
+            content: string;
+            catId?: string | null;
+            threadId: string;
+            timestamp: number;
+            contentBlocks?: readonly unknown[];
+            extra?: { rich?: { blocks?: readonly unknown[] } };
+          }) => ({
+            id: m.id,
+            content: m.content,
+            catId: m.catId ?? undefined,
+            threadId: m.threadId,
+            timestamp: m.timestamp,
+            contentBlocks: m.contentBlocks,
+            richBlocks: m.extra?.rich?.blocks,
+          }),
+        );
     },
     // Phase E-1: thread summary indexing — provide a callback that lists all threads
     threadListFn: async () => {
