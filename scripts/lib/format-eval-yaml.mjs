@@ -99,6 +99,30 @@ export function formatAttributionYaml(report, dateStr, fingerprintFn) {
         lines.push(`        - type: ${e.type}`);
         lines.push(`          anchor: "${e.anchor}"`);
         lines.push(`          excerpt: "${e.excerpt}"`);
+        // F192 Phase D — local R1 P1-2 fix: serialize per-fire sample sub-fields so
+        // the on-disk YAML artifact carries the drilldown anchors. Without this the
+        // in-memory AttributionRecord has samples but the next eval cycle (reads the
+        // YAML) sees nothing — verdict can't close.
+        if (e.sample) {
+          lines.push('          sample:');
+          lines.push(`            trace_id: "${e.sample.traceId}"`);
+          lines.push(`            span_id: "${e.sample.spanId}"`);
+          lines.push(`            message_id_hash: "${e.sample.messageIdHash}"`);
+          lines.push(`            invocation_id_hash: "${e.sample.invocationIdHash}"`);
+          lines.push(`            thread_id_hash: "${e.sample.threadIdHash}"`);
+          lines.push(`            agent_id: "${e.sample.agentId}"`);
+          lines.push(`            thread_system_kind: "${e.sample.threadSystemKind}"`);
+          lines.push(`            trigger: "${e.sample.trigger}"`);
+          lines.push(`            fired_at: "${e.sample.firedAt}"`);
+        }
+      }
+      // F192 Phase D — sampleCoverage (sampled-metric findings only). Honest accounting
+      // of how many fires we captured per-fire-sample evidence for vs counter says.
+      if (f.sampleCoverage) {
+        lines.push('    sample_coverage:');
+        lines.push(`      sample_count: ${f.sampleCoverage.sampleCount}`);
+        lines.push(`      metric_count: ${f.sampleCoverage.metricCount}`);
+        lines.push(`      complete: ${f.sampleCoverage.complete}`);
       }
       lines.push('    proposed_action:');
       for (const a of f.proposedAction) {
