@@ -29,7 +29,12 @@ test('formatAttributionYaml: emits per-fire-sample sub-fields including all *_ha
       {
         id: 'AR-2026-06-08-001',
         relatedFeature: 'F167',
-        frictionSignal: { type: 'c2.verdict_without_pass_count', severity: 'medium', confidence: 0.7, detectedAt: '2026-06-08T00:00:00.000Z' },
+        frictionSignal: {
+          type: 'c2.verdict_without_pass_count',
+          severity: 'medium',
+          confidence: 0.7,
+          detectedAt: '2026-06-08T00:00:00.000Z',
+        },
         attribution: {
           primaryLayer: 'harness_misfit',
           pipelineOrHuman: 'pipeline',
@@ -54,7 +59,9 @@ test('formatAttributionYaml: emits per-fire-sample sub-fields including all *_ha
           ],
         },
         sampleCoverage: { sampleCount: 1, metricCount: 3, complete: false },
-        proposedAction: [{ action: 'harness-tune', target: 'C2/c2.verdict_without_pass_count', rationale: 'ratio exceeds threshold' }],
+        proposedAction: [
+          { action: 'harness-tune', target: 'C2/c2.verdict_without_pass_count', rationale: 'ratio exceeds threshold' },
+        ],
         status: 'open',
       },
     ],
@@ -89,7 +96,12 @@ test('formatAttributionYaml: artifact privacy invariant — no raw IDs leak (onl
       {
         id: 'AR-2026-06-08-001',
         relatedFeature: 'F167',
-        frictionSignal: { type: 'c2.verdict_without_pass_count', severity: 'medium', confidence: 0.7, detectedAt: '2026-06-08T00:00:00.000Z' },
+        frictionSignal: {
+          type: 'c2.verdict_without_pass_count',
+          severity: 'medium',
+          confidence: 0.7,
+          detectedAt: '2026-06-08T00:00:00.000Z',
+        },
         attribution: {
           primaryLayer: 'harness_misfit',
           pipelineOrHuman: 'pipeline',
@@ -114,7 +126,9 @@ test('formatAttributionYaml: artifact privacy invariant — no raw IDs leak (onl
           ],
         },
         sampleCoverage: { sampleCount: 1, metricCount: 1, complete: true },
-        proposedAction: [{ action: 'harness-tune', target: 'C2/c2.verdict_without_pass_count', rationale: 'ratio exceeds threshold' }],
+        proposedAction: [
+          { action: 'harness-tune', target: 'C2/c2.verdict_without_pass_count', rationale: 'ratio exceeds threshold' },
+        ],
         status: 'open',
       },
     ],
@@ -142,7 +156,12 @@ test('formatAttributionYaml: sample_coverage absent on findings without coverage
       {
         id: 'AR-2026-06-08-002',
         relatedFeature: 'F167',
-        frictionSignal: { type: 'observability-gap', severity: 'medium', confidence: 0.9, detectedAt: '2026-06-08T00:00:00.000Z' },
+        frictionSignal: {
+          type: 'observability-gap',
+          severity: 'medium',
+          confidence: 0.9,
+          detectedAt: '2026-06-08T00:00:00.000Z',
+        },
         attribution: {
           primaryLayer: 'tool_gap',
           pipelineOrHuman: 'pipeline',

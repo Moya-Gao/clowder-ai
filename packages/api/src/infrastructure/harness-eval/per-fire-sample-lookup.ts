@@ -13,9 +13,9 @@
  * trace/message/invocation lookup hooks; helper does only the HMAC matching.
  */
 
-import type { EvalTraceSpan } from './telemetry-adapter.js';
 import type { PerFireSample } from './c2-sample-evidence.js';
 import { C2_SAMPLE_EVENT_NAME } from './c2-sample-evidence.js';
+import type { EvalTraceSpan } from './telemetry-adapter.js';
 
 export type DrillDownStatus =
   | 'hit'
@@ -217,9 +217,7 @@ interface ResolveByHmacInput {
   hmac: HmacFn;
 }
 
-async function resolveByHmac(
-  input: ResolveByHmacInput,
-): Promise<{ id: string | null; status: DrillDownStatus }> {
+async function resolveByHmac(input: ResolveByHmacInput): Promise<{ id: string | null; status: DrillDownStatus }> {
   if (!input.lookup || !input.listCandidateIds) {
     return { id: null, status: 'message_lookup_unavailable' };
   }

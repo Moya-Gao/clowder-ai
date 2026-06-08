@@ -477,7 +477,12 @@ describe('findingFingerprint', () => {
 });
 
 describe('F192 Phase D — per-fire sample evidence + sampleCoverage', () => {
-  function makeSample({ spanId = 's-1', trigger = 'reject', agentId = 'codex', firedAt = '2026-06-08T00:00:00.000Z' } = {}) {
+  function makeSample({
+    spanId = 's-1',
+    trigger = 'reject',
+    agentId = 'codex',
+    firedAt = '2026-06-08T00:00:00.000Z',
+  } = {}) {
     return {
       traceId: 't-1',
       spanId,
@@ -559,7 +564,10 @@ describe('F192 Phase D — per-fire sample evidence + sampleCoverage', () => {
 
   it('sampleCoverage.complete=false when active span dropped some sample emissions', () => {
     // Counter shows 5 fires but only 2 samples captured (active span missing for 3)
-    const samples = [makeSample({ spanId: 's-a', trigger: 'reject' }), makeSample({ spanId: 's-b', trigger: 'reject' })];
+    const samples = [
+      makeSample({ spanId: 's-a', trigger: 'reject' }),
+      makeSample({ spanId: 's-b', trigger: 'reject' }),
+    ];
     const report = generateAttributionReport({
       featureId: 'F167',
       snapshot: {

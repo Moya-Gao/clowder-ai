@@ -207,12 +207,14 @@ function buildFrictionFinding(
       anchor: `${componentId}/${metric}`,
       excerpt: `${metric}=${value} (${measureNote})`,
     },
-    ...samples.map((s): EvidenceRow => ({
-      type: 'per-fire-sample',
-      anchor: `${componentId}/${metric}/${s.spanId}`,
-      excerpt: `firedAt=${s.firedAt} trigger=${s.trigger} agentId=${s.agentId} threadSystemKind=${s.threadSystemKind}`,
-      sample: s,
-    })),
+    ...samples.map(
+      (s): EvidenceRow => ({
+        type: 'per-fire-sample',
+        anchor: `${componentId}/${metric}/${s.spanId}`,
+        excerpt: `firedAt=${s.firedAt} trigger=${s.trigger} agentId=${s.agentId} threadSystemKind=${s.threadSystemKind}`,
+        sample: s,
+      }),
+    ),
   ];
 
   const record: AttributionRecord = {

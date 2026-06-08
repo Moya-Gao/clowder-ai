@@ -11,8 +11,8 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 import { createHash } from 'node:crypto';
+import { test } from 'node:test';
 
 const { lookupByEvalSampleRef } = await import('../../dist/infrastructure/harness-eval/per-fire-sample-lookup.js');
 
@@ -275,7 +275,11 @@ test('lookupByEvalSampleRef: passes threadIdHash through to lookup hook (local R
       hmac: toyHmac,
     },
   );
-  assert.equal(observedOpts.threadIdHash, 'hash-thread-xyz', 'helper must pass threadIdHash so lookup is thread-scoped');
+  assert.equal(
+    observedOpts.threadIdHash,
+    'hash-thread-xyz',
+    'helper must pass threadIdHash so lookup is thread-scoped',
+  );
   assert.equal(observedOpts.aroundTimeMs, 1700000000000);
   assert.equal(observedOpts.maxCandidates, 500);
 });
