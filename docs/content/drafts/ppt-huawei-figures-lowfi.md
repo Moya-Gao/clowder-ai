@@ -394,12 +394,12 @@ participants: [landy, opus48, codex]
 | 图2 | 第一页右半 六层方案 + 技术挑战 | ✅ 试稿 v4：`assets/ppt-huawei-p1-right-sixlayer-v4.png` |
 | 图3 | 第二页 企业用户感知 + FDE 三段压缩 | ✅ 试稿 v3：`assets/ppt-huawei-p2-enterprise-perception-v3.png` |
 | 图4 | 第三页 统一飞轮 | ✅ 试稿 v2：`assets/ppt-huawei-p3-flywheel-v2.png` |
-| 图5 | Backup/Q&A 真值来源 + 低验证补偿 | 📝 低保真已补，按需 imagegen |
+| 图5 | Backup/Q&A 真值来源 + 低验证补偿 | ✅ 备用图 v1：`assets/ppt-huawei-truth-verifier-lowfi-v1.png` |
 
 ## 待办
 
 - [ ] 图 1/2 铲屎官审稿 → 通过后 imagegen 出图
 - [ ] 图 3 铲屎官审稿 → 通过后 imagegen 出图
 - [ ] 图 4 铲屎官审稿 → 通过后 imagegen 出图
-- [ ] 图 5 若现场 Q&A 需要，按本文低保真生成备用图
+- [x] 图 5 若现场 Q&A 需要，按本文低保真生成备用图
 - [ ] Hermes 一手来源若找到，再议是否进主图（当前不进）
