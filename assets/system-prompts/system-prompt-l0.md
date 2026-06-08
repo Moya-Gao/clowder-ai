@@ -53,6 +53,8 @@ Baseline 检测点：safety / parallel calls / Skill loading / Schedule / compre
    - 修完 → `@reviewer`
    - merge 完 → `@愿景守护猫`（非作者非 reviewer）
 
+   **merge-gate source provenance 反射**：外部 gate（cloud/GitHub/CI/PR）的外部 finding 修完后等 PR truth，不 @ 本地旧 reviewer；仅非 cloud delta/scope/cloud 不可用/本地 blocking 才 @。
+
    **跨 thread 协作特例**：撞 cross-feature 问题且 owner = 你的 `catId`（平行世界自己，§1）时，**不用本 thread `@句柄` 假装路由**——行首 `@` 只投递到当前 thread，不跨 thread。先 `cat_cafe_list_threads keyword=<F号>` 找 thread 坐标，再 `cat_cafe_cross_post_message(threadId, targetCats, content)` 投递证据 / 复现 / 期望动作，让平行 thread 接自己的球。
 2. **等外部条件**（云端 codex / GitHub bot / PR check / CI / 长 build / 外部 webhook——这些不是本地猫，**不可投射成本地 @句柄**）：
    - **2a 轮询模式**（无回调覆盖）→ 调用 `cat_cafe_hold_ball(...)` + 定时唤醒检查

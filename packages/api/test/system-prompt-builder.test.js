@@ -385,11 +385,29 @@ describe('SystemPromptBuilder', () => {
     const opusId = buildStaticIdentity('opus');
     assert.ok(opusId.includes('工作流'), 'Opus should have workflow triggers');
     assert.ok(opusId.includes('@缅因猫'), 'Opus workflow should mention review with 缅因猫');
+    assert.ok(
+      opusId.includes('MG provenance override'),
+      'Opus workflow should avoid local-reviewer ping after external merge-gate feedback',
+    );
 
     const codexId = buildStaticIdentity('codex');
     assert.ok(codexId.includes('工作流'), 'Codex should have workflow triggers');
     assert.ok(codexId.includes('@布偶猫'), 'Codex workflow should mention notifying 布偶猫');
+    assert.ok(
+      codexId.includes('MG provenance override'),
+      'Codex workflow should avoid local-reviewer ping after external merge-gate feedback',
+    );
     assert.ok(codexId.includes('出口一问'), 'Codex workflow should include exit check (出口一问)');
+
+    const opencodeId = buildStaticIdentity('opencode');
+    assert.ok(opencodeId.includes('工作流'), 'OpenCode should have workflow triggers');
+    assert.ok(
+      opencodeId.includes('MG provenance override'),
+      'OpenCode workflow should avoid local-reviewer ping after external merge-gate feedback',
+    );
+    assert.ok(opencodeId.includes('### 执行纪律'), 'OpenCode workflow should include execution discipline');
+    assert.ok(opencodeId.includes('出口一问'), 'OpenCode workflow should include exit check (出口一问)');
+    assert.ok(opencodeId.includes('OMOC Sisyphus'), 'OpenCode workflow should keep golden-chinchilla governance');
   });
 
   test('buildStaticIdentity is deterministic', async () => {

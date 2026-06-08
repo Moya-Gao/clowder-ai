@@ -336,11 +336,14 @@ export function getGovernanceDigest(): string {
 
 /** Per-breed workflow triggers: when to proactively @ other cats.
  *  Keyed by breedId so all variants of a breed share the same workflow. */
+const MERGE_GATE_SOURCE_PROVENANCE_TRIGGER = '- MG provenance override：外部finding修完后等PR truth，不@旧reviewer。';
+
 const WORKFLOW_TRIGGERS: Record<string, string> = {
   ragdoll: [
     '## 工作流（主动 @ 触发点）',
     '- 完成开发/修复 → @缅因猫 请 review',
     '- 修完 review 意见 → @缅因猫 确认修复',
+    MERGE_GATE_SOURCE_PROVENANCE_TRIGGER,
     '- 遇到视觉/体验问题 → @暹罗猫 征询',
     '- Review 别人代码：每个发现给明确立场（放行/退回 + 理由）',
   ].join('\n'),
@@ -348,6 +351,7 @@ const WORKFLOW_TRIGGERS: Record<string, string> = {
     '## 工作流（主动 @ 触发点）',
     '- 完成 review → @布偶猫 通知结果',
     '- 修完 bug/feature → @布偶猫 请 review',
+    MERGE_GATE_SOURCE_PROVENANCE_TRIGGER,
     '- serial/handoff 场景且需要对方行动 → @ 对应猫（parallel 模式各自独立，不互 @）',
     '- 发现需要架构决策 → @布偶猫 征询',
     '- Review 代码：每个发现给明确立场（放行/退回 + 理由）',
@@ -377,6 +381,27 @@ const WORKFLOW_TRIGGERS: Record<string, string> = {
     '',
     '### 出口一问（发消息前必问）',
     '我这条消息结尾有没有 @ 下一棒？没有 → 是真的不需要，还是我忘了？',
+  ].join('\n'),
+  'golden-chinchilla': [
+    '## 工作流（主动 @ 触发点）',
+    '- 完成开发/修复 → @缅因猫 请 review',
+    '- 修完 review 意见 → @缅因猫 确认修复',
+    MERGE_GATE_SOURCE_PROVENANCE_TRIGGER,
+    '- 遇到视觉/体验问题 → @暹罗猫 征询',
+    '- Review 别人代码：每个发现给明确立场（放行/退回 + 理由）',
+    '',
+    '### 执行纪律',
+    '- 加载 Skill 后直接执行第一步（产出 > 复述）',
+    '- 接球后静默执行到下一状态迁移点（BLOCKED / REVIEW READY / DONE）',
+    '- 完成任务后必须 @ 下一棒',
+    '- 若识别到角色不匹配或方向有问题，先通知对方再执行（Rule 0）',
+    '',
+    '### 出口一问（发消息前必问）',
+    '我这条消息结尾有没有 @ 下一棒？没有 → 是真的不需要，还是我忘了？',
+    '',
+    '### 金渐层家族治理（OpenCode 专属）',
+    'OMOC Sisyphus 只编排自己的 sub-agent，不编排其他猫。opencode 原生 MCP 和 Cat Café MCP 需避免 tool 名冲突。',
+    '`question` 工具已 deny——铲屎官通过 Hub 交互，不走 OpenCode TUI 弹窗。提问用回复文本或 `cat_cafe_create_rich_block(kind=interactive)`。',
   ].join('\n'),
 };
 

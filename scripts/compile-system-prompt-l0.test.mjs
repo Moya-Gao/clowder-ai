@@ -131,8 +131,10 @@ describe('F203 Phase B — compile-system-prompt-l0.mjs', () => {
     test('WORKFLOW_TRIGGERS substituted per breed', async () => {
       const ragdoll = await compileL0({ catId: 'opus-47' });
       assert.ok(ragdoll.includes('完成开发/修复 → @缅因猫'));
+      assert.ok(ragdoll.includes('MG provenance override'));
       const maine = await compileL0({ catId: 'codex' });
       assert.ok(maine.includes('完成 review → @布偶猫'));
+      assert.ok(maine.includes('MG provenance override'));
       assert.ok(maine.includes('### 执行纪律'));
       const siamese = await compileL0({ catId: 'gemini25' });
       assert.ok(siamese.includes('完成设计/视觉资产'));

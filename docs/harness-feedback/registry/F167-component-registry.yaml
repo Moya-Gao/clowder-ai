@@ -51,6 +51,22 @@ components:
       gaps: []
       notes: "D0 split mixed hint_emitted into verdict/void-hold + added verdict_without_pass_count. Old mixed counter retained for routing hints (backwards compat)"
 
+  - id: merge-gate-provenance
+    name: merge-gate review provenance
+    hard:
+      file: packages/api/test/harness-eval/merge-gate-provenance-contract.test.js
+      mechanism: source contract test over merge-gate / receive-review / pr-signals / L0 / workflow triggers
+    soft:
+      skills: [merge-gate §Review Provenance Matrix, receive-review §修复后确认, refs/pr-signals §Source-aware rule]
+      prompts: [L0 merge-gate source provenance 反射, workflow trigger source provenance override]
+    eval:
+      counters:
+        activation: []
+        friction: []
+      confidence: medium
+      gaps: [runtime counter for local-reviewer ping after cloud/GitHub review feedback on same PR SHA lineage]
+      notes: "Trace fixture F167-merge-gate-review-provenance.md captures PR #2141 final-SHA/cloud-gate local reviewer ping regression"
+
   - id: route-serial
     name: route-serial (A2A handoff routing)
     hard:
