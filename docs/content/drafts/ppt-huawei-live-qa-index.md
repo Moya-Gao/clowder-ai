@@ -58,6 +58,8 @@ source_of_truth:
 | *（企业必问）* **怎么接入现有系统，不会推倒重来吗？** | 从一个 golden path 和历史项目开始，不替换全部流程。先读已有文档/项目/审批/交付物，建立 trace 和验证器；再把反复摩擦沉淀成 hook/skill/protocol/eval，逐步接入现有 IM、文档、代码库、工单系统 | pitch §双相位适配入口；talk-track §PPT 是地图、workspace 是城市 | 别讲成"一键改造全公司"；第一步是小切口 + 可验证闭环 |
 | *（企业必问）* **出了错谁负责？AI 能自己改流程会不会失控？** | 责任分层：人定方向/不可逆决策；agent 提议和实现 harness patch；review/gate/eval/rollback 决定能否进 golden path。越靠 kernel 权限越小、验证越重；越靠任务层越可逆 | pitch §技术挑战"分层可变性治理"；004 §权限矩阵 | 别说"AI 自己负责"；企业接受的是有审计链的人机共同责任 |
 | *（企业必问）* **商业模式 / ROI 怎么讲？** | 现场不报价格，先讲 ROI 度量：FDE 人天、冷启动周期、返工次数、重复纠偏、故障复发率、专家 checkpoint 次数。商业价值是把长期顾问/FDE 手调，压缩成 bootstrap + checkpoint + 算力 | pitch §创新机会点 + 第二页 FDE 三段压缩；talk-track §商业价值定锤句 | 别现场拍脑袋定价；可以说价格模型要跟客户价值指标和部署边界绑定 |
+| *（自我拆台·必问）* **这套做下来不还是要 FDE 吗？** | 要，但 FDE 被**拆解+重分配+内化**，不是消除。FDE = 4 种能力：①抠 delta ②工作流建模 ③AI-native 重构+造验证器 ④战略 taste。①②下沉给 agent；③半下沉（看领域有无廉价 verifier）；④永远留人，但**从"我们派的稀缺 FDE"转移到"客户自己的业务专家"**，且只在 checkpoint 出现。第一个行业仍需一次性 bootstrap 手工趟通 | 004 §三.1/§三.2 FDE 子能力下沉表；§六 cold-start 悖论；pitch §第二页 FDE 三段压缩 | **不能说"消除/替代 FDE"**（cold-start 悖论 + 战略 taste 不可下沉）；正解："瓶颈角色消失"——O(N×全能 FDE) → O(1 bootstrap)+O(N×轻量 checkpoint) |
+| *（思辨·可能被问）* **这算 RL 吗？不改模型权重凭啥叫"进化/学习"？** | 算——是 RL 的**治理友好变体**：环境/动作/reward/policy/轨迹更新闭环全有，但 policy 是可审计**代码(harness)**不是权重，credit assignment 是**语义归因+跨模型 review**不是梯度，reward 是**分层价值锚点(A1 世界真值+A2 关系真值)**不是单一标量。正因不 argmax 单标量，才可回滚/可治理/不 reward-hack | longform-003 行 175 Reward 公式 + 行 270/297"种花不是 RL"（=传感器+大猫+CVO+sunset）；pitch §Pocket 2a/2b | 别只说"我们就是 RL"（会被追问 credit assignment/reward shape）；也别说"不是 RL"（行 175 自己用了 reward）。钉"RL 治理变体；种花=拒绝标量最大化，不是拒绝从经验学习" |
 
 ---
 
@@ -157,4 +159,4 @@ source_of_truth:
 ---
 
 > [宪宪/Opus-4.8🐾] 2026-06-07 · 砚砚 cross-thread handoff 的现场答疑索引落地物
-> 覆盖：砚砚 7 问 + 5 技术补充追问 + 5 企业必问 + 事实校准卡 + 10 证据坐标 + 5 红线
+> 覆盖：砚砚 7 问 + 5 技术补充追问 + 5 企业必问 + 2 自我拆台/思辨问（FDE/RL）+ 事实校准卡 + 10 证据坐标 + 5 红线
