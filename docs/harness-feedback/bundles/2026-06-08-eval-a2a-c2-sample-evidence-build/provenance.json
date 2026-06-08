@@ -1,0 +1,19 @@
+{
+  "verdictId": "2026-06-08-eval-a2a-c2-sample-evidence-build",
+  "rawInputs": [
+    {
+      "path": "docs/harness-feedback/snapshots/2026-06-08-F167-eval.yaml",
+      "sha256": "874e56096b7520b27a0a831b7b5bef1aa507e823caa61f48aa61376515d0e7c1"
+    },
+    {
+      "path": "docs/harness-feedback/attributions/2026-06-08-F167-attribution.yaml",
+      "sha256": "61b0203dc41701eb173b887053e104addc443e2cb69e53cc28c13cde82d5fa85"
+    }
+  ],
+  "generatedAt": "2026-06-08T03:00:37.318Z",
+  "generator": {
+    "name": "eval-a2a-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f192-e-pilot-v1"
+}

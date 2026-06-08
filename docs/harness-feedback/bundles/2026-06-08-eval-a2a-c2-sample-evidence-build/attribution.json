@@ -1,0 +1,36 @@
+{
+  "verdictId": "2026-06-08-eval-a2a-c2-sample-evidence-build",
+  "featureId": "F167",
+  "evalSnapshotId": "eval-F167-2026-06-08",
+  "generatedAt": "2026-06-08T03:00:37.318Z",
+  "findings": [
+    {
+      "id": "AR-2026-06-08-001",
+      "relatedFeature": "F167",
+      "frictionSignal": {
+        "type": "c2.verdict_without_pass_count",
+        "severity": "medium",
+        "confidence": 0.7
+      },
+      "attribution": {
+        "primaryLayer": "harness_misfit",
+        "pipelineOrHuman": "pipeline",
+        "evidence": [
+          {
+            "type": "counter",
+            "anchor": "C2/c2.verdict_without_pass_count",
+            "excerpt": "c2.verdict_without_pass_count=3 (baseline c2.checked=17, ratio=17.6%)"
+          }
+        ]
+      },
+      "proposedAction": [
+        {
+          "action": "harness-tune",
+          "target": "C2/c2.verdict_without_pass_count",
+          "rationale": "c2.verdict_without_pass_count ratio 17.6% exceeds threshold"
+        }
+      ],
+      "status": "open"
+    }
+  ]
+}

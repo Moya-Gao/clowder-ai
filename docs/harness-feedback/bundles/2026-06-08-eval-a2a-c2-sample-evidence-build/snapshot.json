@@ -1,0 +1,28 @@
+{
+  "verdictId": "2026-06-08-eval-a2a-c2-sample-evidence-build",
+  "evalSnapshotId": "eval-F167-2026-06-08",
+  "featureId": "F167",
+  "generatedAt": "2026-06-08T03:00:37.316Z",
+  "window": {
+    "startMs": 1780805880140,
+    "endMs": 1780887630512,
+    "durationHours": 22.71
+  },
+  "components": [
+    {
+      "id": "C2",
+      "name": "exit-check (forced-pass guard)",
+      "confidence": "medium",
+      "activationCounts": {
+        "hint_emitted (mixed routing+verdict)": null,
+        "c2.verdict_hint_emitted": 3,
+        "c2.checked": 17,
+        "c2.void_hold_checked": 17
+      },
+      "frictionCounts": {
+        "c2.verdict_without_pass_count": 3,
+        "c2.void_hold_hint_emitted": 0
+      }
+    }
+  ]
+}
