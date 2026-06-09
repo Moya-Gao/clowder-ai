@@ -8,7 +8,7 @@ created: 2026-06-05
 
 # F225: Cat-Initiated Session Handoff — 猫主导的 session 接力
 
-> **Status**: done（已通过 CVO alpha 验收，合入 main 并全量测试覆盖） | **Owner**: 布偶猫（Opus 4.8） | **Priority**: P2
+> **Status**: in-progress（**硬层** done + CVO dogfood 验证 + 3 状态同步 P2 修复；**软层**（L0 反射 + skill）**+ eval 层**（capability-wakeup）2026-06-09 设计收敛、**待实现**——补完 KD-1 的"软+硬+eval"三层） | **Owner**: 布偶猫（Opus 4.8） | **Priority**: P2
 
 Architecture cell: `identity-runtime-session`（`identity-session` cell 的 subcell，F211 owns）
 Map delta: update required — 新增"猫主动提议"作为一种 session boundary **触发源** + 新 `sealReason: 'cat_initiated_handoff'` + 新 typed `SessionRecord.catHandoffNote`（或独立 SessionHandoffStore）+ 新 `SessionHandoffProposal` 类型，扩展 identity-runtime-session 的 lifecycle registration / seal reason / proposal 谱系。owner 不变。
@@ -180,6 +180,16 @@ Why: session 边界目前只能由 `shouldTakeAction`（context_health / 阈值�
 | KD-8 | approve 用 commit-point 模型：`requestSeal accepted` = commit point，之后只 recover-forward + checkpoint 字段 + continuation idempotency key | `requestSeal accepted` 不可逆（置 sealing + 清 active pointer，`SessionSealer.ts:103`/`SessionChainStore.ts:199`），commit point 后 rollback 会留半封印孤儿；F128 同范式（`proposal-routes.ts:162`）（砚砚 R2 P1） | 2026-06-05 |
 | KD-9 | commit 标记可从 session 侧反推：`catHandoffNote` 预写带 `proposalId`；recovery 对"有 note 无 `sealedSessionId`"必 cross-check session 状态，已 sealing/sealed + 匹配则 backfill 再续跑 | commit 动作（session 侧 sealing）与 checkpoint（proposal 侧）非原子，中间 crash 让 recovery 误判 pre-commit 留孤儿（砚砚 R3 P1） | 2026-06-05 |
 
+## 软层 + Eval 层（2026-06-09 设计收敛 — 补完 KD-1 的"软+硬+eval"三层）
+
+> 起因：CVO 灵魂拷问"F225 注入猫的元思维了吗？有 skills 吗？猫知道吗？"→ 发现硬层 done + dogfood 验证，但**软层（L0/SOP 触发）+ eval 层从未实现**，违反本 feature KD-1。设计真相源：`docs/discussions/2026-06-09-f225-context-self-management-heuristic.md`（实现 spec 在该 memo §9）。
+
+- **KD-10 — trigger 锚客观系统信号，不靠猫自我感知 context %。** 猫对自己 token 占用无可靠内省（CVO："我怕你 40% 就报警'我脏了'"）。系统 `shouldTakeAction(fillRatio)` 的 `warn` band 是客观信号（阈值可配）→ 落地加 derived `context_management_hint`（仅 `action.type==='warn'` emit，走 `system_info` 非 hook）。
+- **KD-11 — handoff vs compress 是判断不是二元 trigger。** compress ≠ 坏事：干一半**连贯**任务 + 没压过 → 压缩反而保 in-flight 线索；"脏"=话题漂移（a→g 一堆不相关事）。三轴：context%（系统 warn）/ 断点 vs 中途（猫自检）/ 脏+压缩次数（猫+系统）。**系统给 WHEN，猫给 WHAT。**
+- **KD-12 — 编码 = L0 极简反射（~2 行）+ `context-self-management` skill（~30 行清单非教程）。** 不教猫怎么判漂移（LLM 本能），给清单不给结论（KD-8 线内）。skill 含三问 + 2×2 矩阵 + **冲刺模式**（中途+已压多轮 → 聚焦到断点再 handoff，warn→action 窗口=预算，F24 auto-seal 兜底）。
+- **KD-13 — cross-runtime 优雅降级；compressionCount hook 是 Claude 特有，不可假设全 runtime 有。** `compressionCount` 由 `f24-pre-compact.sh`（Claude Code PreCompact hook）维护，Codex/Gemini/Antigravity/Kimi **不 fire**（CVO 第②问验证成立）。`recentlyCompressed` 改从 runtime-agnostic 的 `_prevContextFill` token-drop 检测取；`fillConfidence` 分层（exact-token / approx-token / bytes-health / unavailable），unavailable runtime 退到纯断点+漂移自检。cat-facing 注入走 `system_info` 非 hook（砚砚确认：hook 在 compact boundary 且 provider 覆盖不统一）。
+- **Eval 层（capability-wakeup，CVO 第①问"属于 capability 得上 eval"）**：F225 是 capability → 接 F192 `eval:capability-wakeup`——activation（warn+干净断点时 propose_session_handoff 调用率）+ friction（续接 session 第一 invocation 是否引用五件套）+ sunset（连续 N 周 0 调用 → 唤醒路径无效，重评）。
+
 ## Timeline
 
 | 日期 | 事件 |
@@ -189,6 +199,8 @@ Why: session 边界目前只能由 `shouldTakeAction`（context_health / 阈值�
 | 2026-06-05 | 砚砚 R2 confirmation：前 3 项采纳到位，新抓 1 P1——approve 事务在不可逆 commit point（`requestSeal accepted`）后误设 rollback；改 commit-point 模型 + checkpoint + recover-forward（KD-8 / AC-B4,B5 / FX-2,2b） |
 | 2026-06-05 | 砚砚 R3 confirmation：commit-point/recover-forward/stale note 收住；新抓 1 P1——commit 动作(session 侧)与 checkpoint(proposal 侧)非原子的 crash window；加 session 侧反推 backfill（KD-9 / AC-B6 / FX-2c），事务完整性合同闭合 |
 | 2026-06-06 | **实现完成 + merged（PR #2112, squash 088af5646）**：逻辑层（types / SessionHandoffProposalStore / propose+approve 纯函数 + commit-point recovery）+ 接线层（propose/approve HTTP route、`cat_cafe_propose_session_handoff` MCP tool、web `HandoffProposalCard` 确认卡、bootstrap 注入 app-wire）。砚砚 R1 review 放行逻辑层后，receive-review 修：云端 2 P2（bootstrap note 聚合 token 硬上限——CJK note 600 字≈900 tokens 单独破 2000；propose 缺 transport-retry 幂等 key）+ 砚砚本地 2 P2（reserve 后 throw 不 release → 永久 503；card append 成功但 marker 写失败不 self-heal）。`pnpm gate` 全绿。CVO directive：成本考量直接合入、跳云端 re-review、CVO 亲做 alpha 验收。**待 alpha PASS → 勾全部 AC + status=done + feat close** |
+| 2026-06-06 | **alpha PASS + 硬层 close**（CVO dogfood：runtime 同步 + 浏览器硬刷新后 approve 通、新续接 spawn）。dogfood 撞 2 部署 gap（runtime 同步 / 浏览器硬刷新——非逻辑 bug，记 `feedback_web_dogfood_deploy_chain`）。后续 gpt52 failure-mode sweep 出状态同步/防御 P2，PR #2119（CardBlock 未知 action warn）+ #2120（approve/reject pre-commit expiry emit + card 统一 server-status 收敛）已修 |
+| 2026-06-09 | **CVO 灵魂拷问 → 发现软层 + eval 从未实现（违反 KD-1）**，Status 由 done 诚实修正回 in-progress。3 连拷问收敛"context 自治启发式"：客观 warn 信号 trigger / handoff-vs-compress 三轴判断 / cross-runtime confidence 降级。砚砚（harness）+ 烁烁（思辨）各一轮 review → KD-10~13 + eval=capability-wakeup。待落 L0 + skill + hint 注入 |
 
 ## Review Gate
 
