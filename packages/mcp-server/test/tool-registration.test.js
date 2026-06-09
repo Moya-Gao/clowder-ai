@@ -39,6 +39,8 @@ const EXPECTED_TOOLS = [
   'cat_cafe_backfill_events',
   'cat_cafe_get_rich_block_rules',
   'cat_cafe_register_pr_tracking',
+  'cat_cafe_register_issue_tracking',
+  'cat_cafe_unregister_tracking',
   // F211 Phase B: IDE-direct external runtime session registration
   'cat_cafe_register_external_runtime_session',
   // Guide tools (cat_cafe_guide_resolve legacy alias removed in F193 Phase D AC-D2)
@@ -162,6 +164,8 @@ const EXPECTED_COLLAB_TOOLS = [
   'cat_cafe_request_permission',
   'cat_cafe_check_permission_status',
   'cat_cafe_register_pr_tracking',
+  'cat_cafe_register_issue_tracking',
+  'cat_cafe_unregister_tracking',
   // F211 Phase B: IDE-direct external runtime session registration
   'cat_cafe_register_external_runtime_session',
   // F192 Phase H AC-H4: cat_cafe_publish_verdict registered in collab toolset
@@ -437,6 +441,8 @@ const KNOWN_WRITE_TOOLS = [
   'cat_cafe_backfill_events',
   'cat_cafe_request_permission',
   'cat_cafe_register_pr_tracking',
+  'cat_cafe_register_issue_tracking',
+  'cat_cafe_unregister_tracking',
   'cat_cafe_register_external_runtime_session',
   'cat_cafe_update_workflow',
   'cat_cafe_start_vote',
