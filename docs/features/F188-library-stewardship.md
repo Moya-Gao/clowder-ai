@@ -276,10 +276,10 @@ evaluator 在 status endpoint handler 里聚合三类输入 → 计算 warnings 
 
 ### Phase K（Memory Center Config Health Surface — reopened 2026-06-09）
 - [ ] AC-K1: `/api/evidence/status` 返回 schema 扩展 `{ healthy, functionalStatus, configWarnings[] }`；`healthy` 字段语义不变（API/DB liveness），外部 healthcheck client 不破坏（snapshot test 锁住）
-- [ ] AC-K2: 5 个 warning detector 实现：`docs_root_suspicious` / `embedding_disabled` / `vectors_empty` / `graph_empty` / `vec_table_missing`；每条产出 `{ code, severity: 'info' \| 'warn', message, suggestedAction }`；trigger 条件按 Phase K Scope 表
-- [ ] AC-K3: `functionalStatus = configWarnings.length > 0 ? 'degraded' : 'ok'`；evaluator 在同一个 `/api/evidence/status` 请求内同步算（复用既有 db reads，不引入新 background job）
-- [ ] AC-K4: Memory Center frontend health panel：`functionalStatus === 'degraded'` 时显示黄色 banner（区分 "API running" 和 "Memory capabilities degraded"）；每条 warning 显示 `message` + clickable `suggestedAction`；`healthy=false` 时仍显示红色 fatal banner（向后兼容）
-- [ ] AC-K5: regression fixture：reporter #880 截图状态（`healthy=true` + `vectors_count=0` + `edges_count=0` + `embedding_model_id=null`）必须 trigger ≥3 warnings（`vectors_empty` + `graph_empty` + `embedding_disabled`），且 `functionalStatus='degraded'`
+- [ ] AC-K2: 5 个 warning detector 实现：`docs_root_suspicious` / `embedding_disabled` / `vectors_empty` / `graph_empty` / `vec_table_missing`；每条产出 `{ code, message, suggestedAction }`（v1 不分 severity——KISS，未来需要 `info`/`error` 等级 v2 再扩展，避免 v1 公式歧义）；trigger 条件 + input source 按 Phase K "Warning codes" 表，**evaluator 输入显式分层**为 evidence.sqlite counts / evidence_meta / embedding service / LibraryCatalog 四类，不允许 implicit 猜测
+- [ ] AC-K3: `functionalStatus = configWarnings.length > 0 ? 'degraded' : 'ok'`（v1 无 severity 字段，length-based 公式无歧义；未来 v2 加 severity 时改 `some(w => w.severity === 'warn')`）；evaluator 在同一个 `/api/evidence/status` 请求内同步算（复用既有 db reads + 新增 catalog read，不引入新 background job）
+- [ ] AC-K4: Memory Center `IndexStatus` 组件（`/memory/status` route）顶部显示 degraded 黄色 banner（`functionalStatus === 'degraded'` 时），区分 "API running" 和 "Memory capabilities degraded"；每条 warning 显示 `message` + clickable `suggestedAction`；`healthy=false` 时仍显示红色 fatal banner（向后兼容）。F163/F188 `HealthReport` debt panel **不混入** Phase K warnings（Phase J system debt 治理 vs Phase K config health 是两个 surface），可在 HealthReport 加入口链接跳转 `/memory/status`
+- [ ] AC-K5: regression fixture：reporter #880 截图状态（`healthy=true` + `vectors_count=0` + `edges_count=0` + `embedding_model=null` — 字段名按 evidence.ts:369-377 实际返回）必须 trigger ≥3 warnings（`vectors_empty` + `graph_empty` + `embedding_disabled`），且 `functionalStatus='degraded'`
 - [ ] AC-K6: external healthcheck 兼容测试：`healthy` 字段在 Phase K 前后**返回值 + 语义完全一致**（snapshot test 跑 healthy/unhealthy 两条 path，无新字段污染 `healthy` 计算）
 - [ ] AC-K7: dogfood report：本地 runtime DB 跑 `/api/evidence/status`，文档化实际产出的 warnings 数 + 截图 + 用户 actionable next steps；至少有一个 warning 状态被验证（不是全绿）
 
