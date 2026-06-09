@@ -61,7 +61,7 @@ created: 2026-02-26
 | F196 | Safety Guardian — 猫猫守护者（紧急安全链路） | idea | 布偶猫 | internal | [F196](features/F196-safety-guardian.md) |
 | F198 | Claude Code Subscription Carrier — 6/15 SDK Credit 拐点前救宪宪 | spec | 布偶猫 Opus 4.7 | internal | [F198](features/F198-claude-code-subscription-carrier.md) |
 | F200 | Memory Recall Eval — 基于猫真实行为的记忆系统反馈闭环 | in-progress | 布偶猫 | internal | [F200](features/F200-memory-recall-eval.md) |
-| F202 | Plugin Framework — local discovery, config, and resource activation | review | community @mindfn + maintainers | community [#686](https://github.com/zts212653/clowder-ai/pull/686) | [F202](features/F202-plugin-framework.md) |
+| F202 | Plugin Framework — local discovery, config, resource activation, and schedule resources | in-progress | community @mindfn + maintainers | community [#686](https://github.com/zts212653/clowder-ai/pull/686) + [#844/#846](https://github.com/zts212653/clowder-ai/pull/846) | [F202](features/F202-plugin-framework.md) |
 | F203 | Native System Prompt L0 — 压缩免疫核心规则注入 | in-progress | 布偶猫 Opus 4.7 | internal | [F203](features/F203-native-system-prompt-l0.md) |
 | F204 | Weixin MP Publisher Plugin — 微信公众号文章发布插件 | review | community @mindfn + maintainers | community [#688](https://github.com/zts212653/clowder-ai/pull/688) | [F204](features/F204-weixin-mp-publisher-plugin.md) |
 | F205 | MediaHub Video Provider Plugins — 视频生成/分析插件 | spec | community @mindfn + maintainers | community [#689](https://github.com/zts212653/clowder-ai/pull/689) | [F205](features/F205-video-provider-plugins.md) |
