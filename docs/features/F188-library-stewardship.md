@@ -8,7 +8,7 @@ created: 2026-05-06
 
 # F188: Library Stewardship — 图书馆管护与成长
 
-> **Status**: done | **Completed**: 2026-05-26 | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: reopened | **Completed (A-J)**: 2026-05-26 | **Reopened**: 2026-06-09 (Phase K) | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -210,6 +210,33 @@ Architecture cell: memory
 Map delta: none — extends existing memory cell（复用 GraphResolver + 新增 RecentBrowseResolver / ToolEventLog / SkillLoadEventLog 等独立 read-models / append-only logs）。Skill 和 canonical .md 配套 (CLAUDE/AGENTS/GEMINI/OPENCODE.md + cat-cafe-skills/memory-navigation/) 同步更新 — 这是 cross-cutting documentation sync，不引入新架构 cell。
 Why: Phase F 不创建新 store/queue/router/adapter cell — graph_resolve 复用 F188 Phase C 的 GraphResolver；list_recent 是 metadata browse read-model（不扩 F102 IEvidenceStore，砚砚 二审 P2 boundary）；ToolEventLog / SkillLoadEventLog 是 ToolUsageCounter 旁支的 append-only sequence 日志（cross-cutting telemetry，4.6 review #1）。
 
+### Phase K: Memory Center Config Health Surface（2026-06-09 reopen）
+
+社区 clowder-ai 用户 #880（`funkdog`）dogfood 后报告：**Memory Center 显示 `healthy=true` 但实际半瘫**（`vectors=0`、`edges=0`、`embedding_model=null`、docs scope 可疑）。截图状态 = API 活着 + 记忆能力实际不可用，但 UI 显示绿勾误导用户。
+
+外部 healthcheck 客户端依赖 `healthy` 字段做 liveness 判断，**不能动它的语义**；但内部 Memory Center health panel 必须把 "API running" 和 "Memory capabilities degraded" 区分开。
+
+Phase B/J 解决**内部 health debt**（orphan edges / verification debt，系统已运行后的治理）。Phase K 解决**配置健康**——用户 setup / onboard 阶段的"配错了但绿灯亮"问题，是 **user-actionable warning**，不是 system debt。
+
+**Scope**：
+
+- 保留 `healthy: boolean` 作为 API/DB liveness（语义不变，外部 healthcheck 客户端无感）
+- 新增 `functionalStatus: 'ok' | 'degraded'`——综合判断记忆能力实际可用性
+- 新增 `configWarnings: ConfigWarning[]`——具体可执行 warnings，每条 `{ code, severity, message, suggestedAction }`
+- Memory Center frontend health panel：黄色 degraded banner，显示 warnings + clickable next steps
+- 不引入新 background job——evaluator 在 `/api/evidence/status` 同步评估（复用既有 db reads）
+- regression fixture：reporter #880 截图状态必须 trigger ≥3 warnings
+
+**Warning codes (v1)**：
+
+| code | trigger condition | suggestedAction |
+|---|---|---|
+| `docs_root_suspicious` | configured docs root 不存在 / 为空 / 非目录 | 检查 collection manifest 中的 `root` 路径 |
+| `embedding_disabled` | `embedding_model_id == null` | 配置 `embedding.provider` + `embedding.model` 启用 semantic recall |
+| `vectors_empty` | `vectors_count == 0` 但 `docs_count > 0` | 触发 rebuild 重新 embed 现有 docs |
+| `graph_empty` | `edges_count == 0` 但 `docs_count > 0` | 检查 frontmatter `related_features` / WikiLink / Markdown link 是否启用 |
+| `vec_table_missing` | `passage_vectors_supported == false` | 安装 sqlite-vec 或确认 native extension 路径 |
+
 ## Acceptance Criteria
 
 ### Phase A（运行期维护入口）✅
@@ -235,6 +262,15 @@ Why: Phase F 不创建新 store/queue/router/adapter cell — graph_resolve 复�
 - [x] AC-J7: Cat-owned verification workflow：猫猫可批量确认低风险 legacy docs、标记 review-needed、或上升少量高风险项；铲屎官不承担逐篇点击，只有语义冲突、事实判断、愿景级取舍才升级
 - [x] AC-J8: F200 integration boundary：F200 consumption 可写入 usage fields（如 last_consumed_at / consumption_count / review_candidate_reason）或生成 review candidate，但不能作为 truth verification；F200 → F188 的接口有单向边界测试
 - [x] AC-J9: Dogfood acceptance report：在 runtime DB 副本或 dry-run 环境验证当前 `201 orphanEdges` 和 `724 unverified` 的拆解；报告包含抽样证据、修复前后 count、不可自动修复列表、以及是否需要 CVO 介入的具体项数
+
+### Phase K（Memory Center Config Health Surface — reopened 2026-06-09）
+- [ ] AC-K1: `/api/evidence/status` 返回 schema 扩展 `{ healthy, functionalStatus, configWarnings[] }`；`healthy` 字段语义不变（API/DB liveness），外部 healthcheck client 不破坏（snapshot test 锁住）
+- [ ] AC-K2: 5 个 warning detector 实现：`docs_root_suspicious` / `embedding_disabled` / `vectors_empty` / `graph_empty` / `vec_table_missing`；每条产出 `{ code, severity: 'info' \| 'warn', message, suggestedAction }`；trigger 条件按 Phase K Scope 表
+- [ ] AC-K3: `functionalStatus = configWarnings.length > 0 ? 'degraded' : 'ok'`；evaluator 在同一个 `/api/evidence/status` 请求内同步算（复用既有 db reads，不引入新 background job）
+- [ ] AC-K4: Memory Center frontend health panel：`functionalStatus === 'degraded'` 时显示黄色 banner（区分 "API running" 和 "Memory capabilities degraded"）；每条 warning 显示 `message` + clickable `suggestedAction`；`healthy=false` 时仍显示红色 fatal banner（向后兼容）
+- [ ] AC-K5: regression fixture：reporter #880 截图状态（`healthy=true` + `vectors_count=0` + `edges_count=0` + `embedding_model_id=null`）必须 trigger ≥3 warnings（`vectors_empty` + `graph_empty` + `embedding_disabled`），且 `functionalStatus='degraded'`
+- [ ] AC-K6: external healthcheck 兼容测试：`healthy` 字段在 Phase K 前后**返回值 + 语义完全一致**（snapshot test 跑 healthy/unhealthy 两条 path，无新字段污染 `healthy` 计算）
+- [ ] AC-K7: dogfood report：本地 runtime DB 跑 `/api/evidence/status`，文档化实际产出的 warnings 数 + 截图 + 用户 actionable next steps；至少有一个 warning 状态被验证（不是全绿）
 
 ### Phase C（Graph Fidelity）✅
 - [x] AC-C0a: edges 表 schema 迁移（补 from_collection_id / to_collection_id / edge_sensitivity / provenance / created_at 列）
@@ -414,6 +450,9 @@ Why: Phase F 不创建新 store/queue/router/adapter cell — graph_resolve 复�
 | KD-11 | F188 reopen Phase J：Health Dashboard 指标必须走向治理闭环 | PR #1790 让 health issue count 主动可见后，铲屎官 dogfood 看到 `201 orphanEdges` / `724 unverified` 并追问可信度与治理。结论：Phase B badge 完成 awareness，但 F188 还需要把可信诊断变成 dry-run / repair / cat-owned review workflow | 2026-05-20 |
 | KD-12 | F200 consumption 不是 truth verification | F200 明确评价 navigation utility，不评价文档真伪或 authority。消费记录可作为 usage prior / review candidate，不能直接写 `verified_at`、不能清空 unverified、不能提升 authority | 2026-05-20 |
 | KD-13 | Phase J 三维分离：authority / verified_at / usage_signal | authority（治理层级）/ verified_at（显式验证事件）/ usage_signal（F200 消费）三维独立。F200 consumption 不写 verified_at，不提升 authority。review_status 是 triage 状态（trusted_legacy / needs_review / reviewed / escalated），独立于 authority。Design Gate R4 通过 | 2026-05-21 |
+| KD-14 | Phase K 不改 `healthy` 字段语义 | 外部 healthcheck client（k8s probe / Prometheus / external monitor）依赖 `healthy: boolean` 做 API/DB liveness 判断。改语义 = break 集成。Phase K 新增 `functionalStatus` + `configWarnings[]` 做 user-facing 区分，`healthy` 保持原意 | 2026-06-09 |
+| KD-15 | `configWarnings` 是 user-actionable hints，不是 system debt | Phase J 已 cover system debt（orphan edges / verification）。Phase K 范围限定**用户 setup / onboard 阶段** 的 actionable warning。每条 warning **必须**带 `suggestedAction`（点击/复制即可执行的下一步），不允许只报"有问题"不给修复路径 | 2026-06-09 |
+| KD-16 | warning evaluator 在 `/api/evidence/status` 同步评估，不引入 background job | `/api/evidence/status` 本来就查 5 个 db count，evaluator 复用这些 reads，零额外 db cost。避免 Phase A `RebuildJobTracker` 后又开第二套 jobs 框架的 scope 膨胀；Phase K 只动 response shape + frontend display，不动 scheduling | 2026-06-09 |
 
 ## Timeline
 
@@ -446,6 +485,7 @@ Why: Phase F 不创建新 store/queue/router/adapter cell — graph_resolve 复�
 | 2026-05-20 | **Feature reopened / Phase J scoped** — PR #1790 dogfood 后铲屎官看到真实 health debt：`201 orphanEdges` / `724 unverified`。砚砚独立核 F188/F200 边界后新增 Health Debt Governance：orphan edge repair + verification debt semantics + cat-owned review workflow |
 | 2026-05-21 | **Phase J merged (PR #1822)** — Health Debt Governance: orphan edge repair (5-bucket classifier + dry-run + apply + from-orphan auto-delete), verification debt migration (3-dimensional separation + review_status state machine), cat-owned verification workflow, F200 boundary tests, dogfood acceptance report. 砚砚 local review 3 rounds + cloud codex 7 rounds (R1-R7: health metric fallback, backup collision, dismiss_review status, from-orphan disk check, wikilink from-orphan, feature_ref from-orphan, runExclusive; R7 pushback accepted — no revert of R3 fix) |
 | 2026-05-26 | **Feature re-closed** — opus-47 第三次愿景守护放行（4 句 F188 quotes 全覆盖 + Phase J dogfood report 实存 87% auto-fix + OQ-5/6/7 由 KD-13/AC-J6 解决）。10 Phase（A-J，E superseded by F200），15 PR。Phase J 反思胶囊：`docs/reflections/2026-05-26-f188-phase-j-governance-capsule.md` |
+| 2026-06-09 | **Feature reopened / Phase K scoped** — clowder-ai 社区 #880（`funkdog`）dogfood 报告：Memory Center 绿勾误导用户（`healthy=true` 同时 `vectors=0` / `edges=0` / `embedding=null`）。砚砚 main thread cross-post 给 F188 thread 47 作 Phase K owner。CVO 选 A 方案：reopen Phase K = Memory Center Config Health Surface，**不改 `healthy` 语义**，新增 `functionalStatus` + `configWarnings[]` 区分 API liveness vs Memory functional health。本 thread 自闭环（local @codex review），不回主 thread 除非 escalation |
 
 ## Review Gate
 
