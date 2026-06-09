@@ -162,8 +162,39 @@ Schema acceptance is not the same as a live wired domain.
   - runtime adds the domain to `wiredPublishDomains`
 - Before that, the honest state is `unsupported_generator` 501.
 
-PR1 for `eval:task-outcome` only adds the schema surface and taxonomy correction.
-It does not flip the runtime wire.
+Current state:
+
+- `eval:a2a` wired
+- `eval:capability-wakeup` wired
+- `eval:memory` wired
+- `eval:task-outcome` wired (PR #2162)
+- `eval:sop` still unwired
+
+## Adding A Domain
+
+If you are wiring a new eval domain into `cat_cafe_publish_verdict`, the minimum checklist is:
+
+1. Add a new `domain_id` registry entry under `docs/harness-feedback/eval-domains/`
+2. Define a replayable `sourceRefs` selector in:
+   - `packages/api/src/infrastructure/harness-eval/publish-verdict/types.ts`
+   - `packages/api/src/infrastructure/harness-eval/publish-verdict/validation.ts`
+3. Implement a domain adapter that resolves `sourceRefs` into trusted live inputs
+4. Implement a generator that writes:
+   - `verdict.md`
+   - `bundle/snapshot.json`
+   - `bundle/attribution.json`
+   - `bundle/provenance.json`
+5. Wire the runtime in all 4 places together:
+   - MCP tool schema
+   - `PUBLISH_VERDICT_INSTRUCTIONS_BY_DOMAIN`
+   - `verdictGenerators`
+   - `wiredPublishDomains`
+6. Prove it with tests:
+   - invalid selector / kind mismatch / honest 501 before wire
+   - generator bundle can round-trip through `loadEvalHubSummary()`
+   - callback route uses server-trusted principal, not user payload
+
+If only some of these are done, the domain is not “half wired”; it is still unwired.
 
 ## Worked Example
 

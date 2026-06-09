@@ -16,6 +16,62 @@ Architecture cell: harness-eval
 Map delta: new cell required (Phase E-pilot)
 Why: Phase E turns F192 from per-feature harness feedback into a cross-domain harness eval control plane. The cell owns eval domain registration, verdict handoff contracts, eval-cat invocation, legacy scheduled-task migration, and re-eval closure semantics.
 
+## Current Control Plane Architecture
+
+F192 现在已经不是“某个 feature 结束后写一篇 feedback”的文档约定，而是一条完整的 runtime control plane。当前主链路可以压成 5 层：
+
+1. **Signal / truth capture layer**
+   - 业务域先把自己的 ground truth 或 proxy signal 落到各自真相源
+   - 例子：
+   - `eval:a2a` 读 F153 telemetry / traces / metrics
+   - `eval:memory` 读 F200 recall metrics + F188 library health
+   - `eval:task-outcome` 读 `task-outcome-episodes.sqlite` + `event-memory.sqlite`
+   - 关键边界：F192 消费这些真相源，但**不拥有**它们；F192 负责解释层和 verdict 层，不负责替业务域定义 canonical data
+
+2. **Domain registry / scheduling layer**
+   - 每个 eval domain 都在 `docs/harness-feedback/eval-domains/*.yaml` 注册
+   - registry 至少定义：
+   - `domainId`
+   - `systemThreadId`
+   - `evalCat`
+   - `frequency`
+   - `sourceAdapter`
+   - `handoffTargetResolver`
+   - `sla`
+   - scheduler / manual trigger 只认 registry，不靠 thread 文本当状态机
+
+3. **Eval invocation layer**
+   - runtime 按 domain 唤醒对应 eval cat，进入该 domain 的 system thread
+   - `eval-cat-invocation.ts` 负责把 domain-specific instructions、publish guidance、selector 形状和 closure 语义注入给 eval cat
+   - eval cat 的职责是：读长期上下文、做 day-over-day analysis、产出 `VerdictHandoffPacket`
+
+4. **Publish pipeline**
+   - eval cat 不直接 `git add/commit/push`
+   - eval cat 只调用 `cat_cafe_publish_verdict`
+   - pipeline 顺序是：
+   - MCP tool schema 验证 `packet + sourceRefs`
+   - `/api/eval-domains/:domainId/publish-verdict` 用 callback principal 取 server-trusted `catId/userId`
+   - handler 做 domain/kind/ownership/selector 校验
+   - per-domain generator adapter 解析 source window / evidence inputs
+   - generator 写 `verdict.md + bundle/{snapshot,attribution,provenance}`
+   - `GitPublisher` 在 isolated worktree 里 commit / push / open PR
+
+5. **Hub / closure layer**
+   - Eval Hub 只消费已提交的 live verdict artifacts
+   - owner 处理 handoff 之后，不靠一句“修了”自闭环
+   - closure 只能来自：
+   - 后续 eval 复验通过
+   - 明确 CVO accept / suppress
+   - 或 domain-specific sunset / delete 语义
+
+### One Eval Cycle
+
+把一次完整闭环压成一句话：
+
+`domain truth source → eval cat analysis → VerdictHandoffPacket → cat_cafe_publish_verdict → isolated-worktree PR → Eval Hub 可见 → owner 响应 → re-eval closure`
+
+如果链路里任何一环需要人手工补文件、手工抄 bundle、手工 commit，那就还不算接进 F192 control plane。
+
 ## Why
 
 Cat Cafe 的 harness（skill、SOP、MCP tool、shared rules）是猫猫和铲屎官共同创造的社会技术系统，但目前缺少系统化的评估和反馈路径。harness 改动后无法追踪效果，不满意的 feature 无法定位归因层级（是愿景不清？翻译偏差？工具不顺手？执行不到位？），猫猫作为 harness 的一线用户没有结构化的反馈通道。
@@ -368,6 +424,76 @@ Phase E 将 F192 从单域试点提升为横切的 Harness Eval Control Plane：
 - task-outcome publish path 已在 PR #2162 (2026-06-09, squash `c9aa0e16d`) 接通；独立 backlog 改为 **episode verdict writeback / rollup mechanism**（packet verdict 已通，7-class episode verdict 仍未落库）
 - AC-H6 real e2e (real git+gh round-trip)：当前 alpha 验已覆盖 happy path 表征，deferred 留待真正端到端测试需求出现时再补
 - **rollup mechanism**（PR-3 占位 futureMode `rollup_deferred`）：daily/weekly batch PR 聚合 N 个 no-action verdict，或 runtime evidence store + 周期 flush archive PR — 等 PR-3 体感数据后再 design
+
+## How To Add A New Eval Domain
+
+以后再接一个新 domain，不要从 UI 或 cron 开始，而是按下面的顺序接：
+
+1. **先确认这个 domain 的 truth source 是谁**
+   - F192 不替你发明真相源
+   - 先回答：
+   - canonical data 在哪
+   - window/replay 怎么切
+   - owner scope 怎么带
+   - 哪些信号是 verdict，哪些只是 proxy
+
+2. **把 domain 注册进 registry**
+   - 新增 `docs/harness-feedback/eval-domains/<domain>.yaml`
+   - 至少填：
+   - `domainId`
+   - `systemThreadId`
+   - `evalCat`
+   - `frequency`
+   - `sourceAdapter`
+   - `handoffTargetResolver`
+   - `sla`
+
+3. **先写 domain instruction，再决定是否已经能 wire**
+   - `eval-cat-invocation.ts` 里给它加 domain-specific analysis instructions
+   - 如果 generator 还没 ready，保持 honest unwired 状态，不要假装能 publish
+   - honest unwired = schema / packet contract 可以先落，但 `verdictGenerators` / `wiredPublishDomains` 不 flip
+
+4. **定义 `sourceRefs` selector 契约**
+   - `publish-verdict/types.ts` 里加新的 discriminated union branch
+   - `validation.ts` 里加 fail-closed selector 校验
+   - selector 必须是 replayable 的：
+   - time window
+   - ids
+   - owner scope
+   - trusted runtime config path
+   - 哪个都行，但不能靠“猫自己记得该读哪份文件”
+
+5. **实现 generator adapter + generator**
+   - adapter 负责把 selector 解成 live source window / raw inputs
+   - generator 只负责把这些 inputs 变成：
+   - `verdict.md`
+   - `bundle/snapshot.json`
+   - `bundle/attribution.json`
+   - `bundle/provenance.json`
+   - bundle contract 必须符合 `docs/harness-feedback/SPEC.md`
+
+6. **只在 generator ready 后再 flip runtime wire**
+   - 这 4 处必须一起到位，否则就是 fake wire：
+   - MCP tool schema 接受该 `sourceRefs`
+   - `PUBLISH_VERDICT_INSTRUCTIONS_BY_DOMAIN[domainId]`
+   - `verdictGenerators[domainId]`
+   - `wiredPublishDomains.add(domainId)`
+
+7. **补 4 类测试**
+   - handler 校验：kind mismatch / invalid selector / honest 501
+   - generator 输出：bundle 能被 `loadEvalHubSummary()` 读回
+   - route e2e：callback principal / server-trusted ownership 正确
+   - MCP wrapper：tool schema 和 callback payload 正确
+
+8. **最后才做 legacy cleanup / Hub 文案 / timeline sync**
+   - 旧 cron / 旧 report / 旧 manual path 如果不关，会双触发
+   - merge 后必须回写 feature truth（timeline / backlog / phase status）
+
+一句话版：
+
+`truth source → registry → instruction → sourceRefs → adapter → generator → wire flip → tests → legacy cleanup`
+
+少任何一环，都不算真正接进 F192。
 
 ## 需求点 Checklist
 
