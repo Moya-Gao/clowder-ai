@@ -23,6 +23,10 @@ changelog:
 > **版本**：v3.0（四猫协作综合扩展版）
 > **日期**：2026 年 5 月 29 日
 > **状态**：正式调研分析报告
+>
+> **Provenance note**: 本 PR 只保留最终 v3.0；v2.0 作为中间版本不入仓，避免同一报告多版本并列污染检索。
+> 外部论文、平台和行业 claim 按调研报告处理，来源集中列在「参考文献」；没有进入 feature
+> spec / ADR / KD 表的判断不作为 Clowder AI 的实现真相源。
 
 ---
 
@@ -249,7 +253,7 @@ OpenTelemetry v1.39+ 对模型上下文协议（MCP）的支持新增 `mcp.metho
 | Braintrust | 评估优先 | 在线/离线评估闭环 | 通用 | 评估驱动 |
 | AgentOps | 智能体专用 | 智能体 / 推理 / 规划 span 分层 | 原生 | 弱 |
 | PromptLayer | 提示词专用 | 提示词版本捕获 + A/B 测试 | — | **设计期版本管理（Level 0）** |
-| Promptfoo | 评估优先（被 OpenAI 收购） | 声明式 eval + CI/CD 集成 | — | **设计期 TDD（Level 0）** |
+| Promptfoo | 评估优先 | 声明式 eval + CI/CD 集成 | — | **设计期 TDD（Level 0）** |
 | DSPy | 编译优化范式 | 提示词与少样本自动优化 | — | **Level 1 编译器优化** |
 
 主流平台共性：以 trace 为核心数据模型，覆盖单次智能体执行可见性。普遍缺失：多智能体协作因果归因、编排器决策记录、强化学习训练就绪格式、协作契约、防篡改设计。**Harness 自进化方向上有零星探索（PromptLayer 做版本管理、Promptfoo 做评估门禁、DSPy 做编译优化），但没有平台做完整的"从可观测到 harness 改动闭环"。**
@@ -258,7 +262,7 @@ OpenTelemetry v1.39+ 对模型上下文协议（MCP）的支持新增 `mcp.metho
 
 **Anthropic（Claude）**：Claude Code 通过 `CLAUDE_CODE_ENABLE_TELEMETRY` 启用追踪。子进程自动继承 `TRACEPARENT`。默认对用户提示词、工具输入做脱敏。后端使用 ClickHouse。
 
-**OpenAI**：Agents SDK 内置可观测，输出符合 OpenTelemetry GenAI 规范的 span。强调"沙箱解耦"。**收购 Promptfoo**强化设计期评估能力。
+**OpenAI**：Agents SDK 内置可观测，输出符合 OpenTelemetry GenAI 规范的 span。强调"沙箱解耦"。
 
 **Google**：A2A 协议显式定义 "Traceability Extension"，规定智能体间 HTTP 调用必须传播 W3C Trace Context。
 
@@ -1035,7 +1039,7 @@ Harness 自进化在业界的成熟度可划分为五级演进光谱：
 | AutoPDL | L2 | prompt 优化转 PDL 程序搜索 + 人在环可编辑 | 新工具，生产稳定性待验证 |
 
 **工业实践证据**：
-- Promptfoo（已被 OpenAI 收购）：YAML 声明式 eval 框架，对同一 test suite 跑新旧 prompt 产出 regression diff，CI/CD 集成
+- Promptfoo：YAML 声明式 eval 框架，对同一 test suite 跑新旧 prompt 产出 regression diff，CI/CD 集成
 - OpenAI Evals：把 eval regression 作为提示词/模型变更门禁
 - LangSmith：把 eval 数据集作为提示词变更的回归基准
 
