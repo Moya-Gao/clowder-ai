@@ -340,7 +340,7 @@ F128 遵循 ADR-035 Proposal-First Agent Actions：
 
 ### Phase AC: Approval-Time Reporting Mode Override（2026-06-09）
 
-> **Status**: implemented, awaiting cross-cat review / merge
+> **Status**: ✅ merged via PR #2179 (squash `4a6c841d0`, 2026-06-09)
 > **Source**: 铲屎官 2026-06-09 追问："F128 到底有没有模式就是主 thread 的猫要求子 thread 不要汇报？会不会格式写死最后汇报？" 进一步确认：proposal card 既然显示"回报模式"，铲屎官 approve 前也应该能改，不满意猫的选择时不该只能驳回重提。
 > **Why**: Phase AA 把默认改回 `final-only`，并保留 `none` 作为 explicit opt-in。这个运行时契约是对的，但 UX 仍然让猫的选择过强：`reportingMode` 只在 propose 时填，用户审批卡只能看，不能改。结果猫忘记选 `none` 时，卡片看起来像"系统写死必须最终汇报"。第一性原理：proposal 是猫提出的草案，approve 是用户授权前的最终编辑点；回报契约和 projectPath 一样，必须能在创建前被用户修正。
 
