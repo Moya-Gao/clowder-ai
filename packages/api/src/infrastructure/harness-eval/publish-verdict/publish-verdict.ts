@@ -292,6 +292,9 @@ export async function handlePublishVerdict(
         artifact = await generator(packet, input.sourceRefs, {
           harnessFeedbackRoot: isolatedHarnessFeedback,
           liveHarnessFeedbackRoot: deps.harnessFeedbackRoot,
+          ownerUserId: input.ownerUserId,
+          taskOutcomeDbPath: deps.taskOutcomeDbPath,
+          eventMemoryDbPath: deps.eventMemoryDbPath,
         });
         // PR-3 (砚砚 R2): read attribution.json from bundle to compute publish policy.
         // Generator writes attribution.json into bundleDir; if absent or parse fails,

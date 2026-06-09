@@ -1,4 +1,4 @@
-import { basename, resolve } from 'node:path';
+import { basename, isAbsolute, resolve } from 'node:path';
 import { resolveSafeRawPath } from '../safe-path.js';
 import type { VerdictHandoffPacket } from '../verdict-handoff.js';
 import type {
@@ -78,6 +78,10 @@ function validateOptionalIdField(value: string | undefined, fieldName: string): 
     return `${fieldName} must not contain newlines (markdown bullet injection guard)`;
   }
   return null;
+}
+
+function hasParentTraversalSegment(value: string): boolean {
+  return value.split(/[\\/]+/).some((segment) => segment === '..');
 }
 
 /**
@@ -217,6 +221,28 @@ export function validateTaskOutcomeSourceRefs(
           detail: `${field} must not contain newlines`,
         },
       };
+    }
+    if (field === 'databasePath' && typeof value === 'string') {
+      if (isAbsolute(value)) {
+        return {
+          ok: false,
+          error: {
+            status: 400,
+            error: 'invalid_source_ref',
+            detail: 'databasePath must be repo-relative (absolute paths are forbidden)',
+          },
+        };
+      }
+      if (hasParentTraversalSegment(value)) {
+        return {
+          ok: false,
+          error: {
+            status: 400,
+            error: 'invalid_source_ref',
+            detail: 'databasePath must not contain parent-directory traversal segments ("..")',
+          },
+        };
+      }
     }
   }
   return { ok: true };

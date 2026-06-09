@@ -140,6 +140,12 @@ export interface GeneratorDeps {
   /** LIVE checkout's docs/harness-feedback — a2a needs this to read raw snapshot/attribution YAML
    *  that are gitignored from origin/main (砚砚 R17 P1 cloud). cw doesn't use it. */
   liveHarnessFeedbackRoot: string;
+  /** Server-trusted callback principal userId for owner-scoped evidence reads. */
+  ownerUserId?: string;
+  /** Runtime-configured task-outcome DB path (trusted server config, may be absolute). */
+  taskOutcomeDbPath?: string;
+  /** Runtime-configured event-memory DB path (trusted server config, may be absolute). */
+  eventMemoryDbPath?: string;
 }
 
 export interface PublishVerdictDeps {
@@ -150,6 +156,10 @@ export interface PublishVerdictDeps {
   generator?: VerdictGenerator;
   /** 砚砚 R6 P1: Redis client for OQ-20 eval-cat overrides (symmetric with trigger-now). */
   redis?: Redis;
+  /** Runtime-configured task-outcome DB path (trusted server config, may be absolute). */
+  taskOutcomeDbPath?: string;
+  /** Runtime-configured event-memory DB path (trusted server config, may be absolute). */
+  eventMemoryDbPath?: string;
 }
 
 export interface PublishVerdictInput {
@@ -157,6 +167,8 @@ export interface PublishVerdictInput {
   domain: string; // must match packet.domainId
   /** AC-H3: catId derived from callback auth at MCP server layer. */
   catId: string;
+  /** Server-trusted callback principal userId (not user-supplied). */
+  ownerUserId?: string;
   /** 砚砚 R1 P1 #2: explicit evidence refs (sanitized YAML basenames OR replayable selector). Tool NEVER fabricates. */
   sourceRefs: VerdictSourceRefs;
 }

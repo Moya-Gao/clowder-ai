@@ -1631,6 +1631,9 @@ async function main(): Promise<void> {
   const { createA2aGeneratorAdapter } = await import(
     './infrastructure/harness-eval/publish-verdict/a2a-generator-adapter.js'
   );
+  const { createTaskOutcomeGeneratorAdapter } = await import(
+    './infrastructure/harness-eval/publish-verdict/task-outcome-generator-adapter.js'
+  );
 
   // F192 Phase H 收尾 PR-2 (砚砚 R1 P1 + Q5): capability-wakeup generator wires a real
   // CapabilityWakeupTrialProviderImpl with all 4 required ports (sessionStore /
@@ -1645,6 +1648,7 @@ async function main(): Promise<void> {
     >
   > = {
     'eval:a2a': createA2aGeneratorAdapter(),
+    'eval:task-outcome': createTaskOutcomeGeneratorAdapter(),
   };
   if (toolEventLog && skillLoadEventLog) {
     const { createCapabilityWakeupGeneratorAdapter } = await import(
@@ -1681,6 +1685,10 @@ async function main(): Promise<void> {
     verdictGenerators['eval:memory'] = createMemoryGeneratorAdapter(memProvider);
   }
 
+  // F192 Phase G: Task Outcome Episode — L3 eval signals.
+  const { TaskOutcomeEpisodeStore } = await import('./infrastructure/harness-eval/task-outcome/task-outcome-store.js');
+  const taskOutcomeDbPath = process.env.TASK_OUTCOME_DB ?? resolve(repoRoot, 'task-outcome-episodes.sqlite');
+  const taskOutcomeStore = new TaskOutcomeEpisodeStore(taskOutcomeDbPath);
   await app.register(evalHubRoutes, {
     harnessFeedbackRoot: resolve(repoRoot, 'docs', 'harness-feedback'),
     threadStore,
@@ -1693,12 +1701,9 @@ async function main(): Promise<void> {
     callbackRegistry: registry,
     // 砚砚 R9 P1: shared-MCP (Antigravity) agent-key publish path needs this.
     agentKeyRegistry,
+    taskOutcomeDbPath,
+    eventMemoryDbPath: memoryServices.eventMemoryDbPath,
   });
-
-  // F192 Phase G: Task Outcome Episode — L3 eval signals.
-  const { TaskOutcomeEpisodeStore } = await import('./infrastructure/harness-eval/task-outcome/task-outcome-store.js');
-  const taskOutcomeDbPath = process.env.TASK_OUTCOME_DB ?? resolve(repoRoot, 'task-outcome-episodes.sqlite');
-  const taskOutcomeStore = new TaskOutcomeEpisodeStore(taskOutcomeDbPath);
   // AC-G13: Cancel burst detector (in-memory, per-process)
   const { buildProposalRejectSignal } = await import(
     './infrastructure/harness-eval/task-outcome/task-outcome-signal-builder.js'
@@ -3515,6 +3520,7 @@ async function main(): Promise<void> {
   const wiredPublishDomains = new Set<
     'eval:a2a' | 'eval:memory' | 'eval:sop' | 'eval:capability-wakeup' | 'eval:task-outcome'
   >(['eval:a2a']);
+  wiredPublishDomains.add('eval:task-outcome');
   if (toolEventLog && skillLoadEventLog) {
     wiredPublishDomains.add('eval:capability-wakeup');
   }

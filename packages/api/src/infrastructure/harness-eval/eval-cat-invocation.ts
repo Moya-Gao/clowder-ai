@@ -129,6 +129,29 @@ The MCP tool creates branch \`verdict/auto/{domainSlug}/{verdictId}\` + commits 
 **DO NOT** run \`git add\`, \`git commit\`, \`git push\`, or write verdict files directly. Use the MCP tool.
 `;
 
+const PUBLISH_VERDICT_INSTRUCTIONS_TASK_OUTCOME = `${PUBLISH_VERDICT_PACKET_INSTRUCTIONS}
+You must also supply \`sourceRefs\` (NOT part of packet, separate input field) as a replayable task-outcome selector:
+\`\`\`json
+{
+  "kind": "task-outcome-snapshot",
+  "windowStartMs": 1759276800000,
+  "windowEndMs": 1759363200000
+}
+\`\`\`
+
+Fields:
+- \`kind\` — REQUIRED literal \`"task-outcome-snapshot"\`
+- \`windowStartMs\` / \`windowEndMs\` — REQUIRED finite ms epoch; \`windowEndMs\` must be > \`windowStartMs\`
+- \`databasePath\` — OPTIONAL repo-relative DB override under repo root; absolute paths and \`..\` traversal are forbidden. Defaults to repo-root \`task-outcome-episodes.sqlite\`
+- \`evidenceCatId\` — OPTIONAL cat filter for event-memory evidence linking
+
+Tool resolves the selector by loading task-outcome episodes/signals for the time window, bundling replay data under \`docs/harness-feedback/bundles/<verdictId>/raw/\`, and writing the live verdict artifacts in the isolated worktree. Tool will NOT fabricate evidence — if the DB path is missing or the selector is invalid, publish fails.
+
+The MCP tool creates branch \`verdict/auto/{domainSlug}/{verdictId}\` + commits + opens PR. Returns commit SHA + PR URL.
+
+**DO NOT** run \`git add\`, \`git commit\`, \`git push\`, or write verdict files directly. Use the MCP tool.
+`;
+
 /**
  * F192 publish_verdict eval:memory wire-up — memory-specific sourceRefs section
  * (replayable selector against `GET /api/recall/metrics` — provider resolves
@@ -162,13 +185,13 @@ The MCP tool creates branch \`verdict/auto/{domainSlug}/{verdictId}\` + commits 
 /**
  * 砚砚 R2 P1 (cloud) + R1 P2 PR-2 + memory wire-up: only domains with wired
  * generator see publish instructions; per-domain instruction blob includes the
- * correct sourceRefs shape. sop / task-outcome keep base instructions until
- * their generators land.
+ * correct sourceRefs shape. sop keeps base instructions until its generator lands.
  */
 const PUBLISH_VERDICT_INSTRUCTIONS_BY_DOMAIN: Partial<Record<EvalDomainRegistryEntry['domainId'], string>> = {
   'eval:a2a': PUBLISH_VERDICT_INSTRUCTIONS_A2A,
   'eval:capability-wakeup': PUBLISH_VERDICT_INSTRUCTIONS_CAPABILITY_WAKEUP,
   'eval:memory': PUBLISH_VERDICT_INSTRUCTIONS_MEMORY,
+  'eval:task-outcome': PUBLISH_VERDICT_INSTRUCTIONS_TASK_OUTCOME,
 };
 
 /**

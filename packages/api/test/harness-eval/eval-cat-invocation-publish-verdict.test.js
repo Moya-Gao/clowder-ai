@@ -131,12 +131,11 @@ describe('Phase H AC-H4: eval cat instructions point to publish_verdict MCP tool
     );
   });
 
-  // 砚砚 R2 P1 cloud + PR-2 (砚砚 R1 P2) + memory wire-up: only domains with
-  // wired generator get publish instructions. Wired: eval:a2a +
-  // eval:capability-wakeup + eval:memory. Remaining (sop/task-outcome) keep base
-  // instructions until generators land.
-  it('only wired domains get publish-verdict directive (砚砚 R2 P1 cloud + PR-2 + memory wire-up)', () => {
-    for (const wiredDomain of ['eval:a2a', 'eval:capability-wakeup', 'eval:memory']) {
+  // Only domains with a real wired generator should see publish instructions.
+  // Wired here: eval:a2a + eval:capability-wakeup + eval:memory + eval:task-outcome.
+  // Remaining (sop) stays on base instructions until its generator lands.
+  it('only wired domains get publish-verdict directive (wired domains only)', () => {
+    for (const wiredDomain of ['eval:a2a', 'eval:capability-wakeup', 'eval:memory', 'eval:task-outcome']) {
       const packet = buildEvalCatInvocation({
         domain: { ...TEST_DOMAIN_BASE, domainId: wiredDomain, sourceAdapter: SOURCE_ADAPTER_FOR[wiredDomain] },
         trendRefs: [],
@@ -186,7 +185,22 @@ describe('Phase H AC-H4: eval cat instructions point to publish_verdict MCP tool
     assert.doesNotMatch(mem.instructions, /snapshotName.*attributionName/s, 'memory does NOT mention a2a refs');
     assert.doesNotMatch(mem.instructions, /capability-wakeup-trial-window/, 'memory does NOT mention cw selector kind');
 
-    for (const domainId of ['eval:sop', 'eval:task-outcome']) {
+    const taskOutcome = buildEvalCatInvocation({
+      domain: { ...TEST_DOMAIN_BASE, domainId: 'eval:task-outcome', sourceAdapter: 'task-outcome-eval' },
+      trendRefs: [],
+      verdictRefs: [],
+      legacyCleanup: { status: 'not_checked' },
+    });
+    assert.match(taskOutcome.instructions, /task-outcome-snapshot/, 'task-outcome selector kind');
+    assert.match(taskOutcome.instructions, /windowStartMs.*windowEndMs/s, 'task-outcome window doc');
+    assert.doesNotMatch(taskOutcome.instructions, /sessionIds.*REQUIRED/s, 'task-outcome does not require sessionIds');
+    assert.doesNotMatch(
+      taskOutcome.instructions,
+      /snapshotName.*attributionName/s,
+      'task-outcome does NOT mention a2a refs',
+    );
+
+    for (const domainId of ['eval:sop']) {
       const packet = buildEvalCatInvocation({
         domain: { ...TEST_DOMAIN_BASE, domainId, sourceAdapter: SOURCE_ADAPTER_FOR[domainId] },
         trendRefs: [],
@@ -269,10 +283,8 @@ describe('Phase H AC-H4: eval cat instructions point to publish_verdict MCP tool
       { wiredPublishDomains: new Set(['eval:a2a', 'eval:capability-wakeup']) },
     );
     assert.match(cwWired.instructions, /cat_cafe_publish_verdict/, 'cw with runtime wire must see publish path');
-  });
 
-  it('task-outcome stays silent on publish path even when wiredPublishDomains uses the legacy default set', () => {
-    const packet = buildEvalCatInvocation(
+    const taskOutcomeUnwired = buildEvalCatInvocation(
       {
         domain: { ...TEST_DOMAIN_BASE, domainId: 'eval:task-outcome', sourceAdapter: 'task-outcome-eval' },
         trendRefs: [],
@@ -281,10 +293,17 @@ describe('Phase H AC-H4: eval cat instructions point to publish_verdict MCP tool
       },
       { wiredPublishDomains: new Set(['eval:a2a', 'eval:capability-wakeup']) },
     );
-    assert.doesNotMatch(
-      packet.instructions,
-      /cat_cafe_publish_verdict/,
-      'task-outcome must remain honest-501 until PR2 flips the real wire',
+    assert.doesNotMatch(taskOutcomeUnwired.instructions, /cat_cafe_publish_verdict/);
+
+    const taskOutcomeWired = buildEvalCatInvocation(
+      {
+        domain: { ...TEST_DOMAIN_BASE, domainId: 'eval:task-outcome', sourceAdapter: 'task-outcome-eval' },
+        trendRefs: [],
+        verdictRefs: [],
+        legacyCleanup: { status: 'not_checked' },
+      },
+      { wiredPublishDomains: new Set(['eval:a2a', 'eval:capability-wakeup', 'eval:task-outcome']) },
     );
+    assert.match(taskOutcomeWired.instructions, /cat_cafe_publish_verdict/);
   });
 });

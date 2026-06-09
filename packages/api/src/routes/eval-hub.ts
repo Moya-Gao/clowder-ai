@@ -58,6 +58,10 @@ export interface EvalHubRoutesOptions {
    * Missing entry for a domain → handler returns 501 unsupported_generator.
    */
   verdictGenerators?: Partial<Record<string, VerdictGenerator>>;
+  /** Runtime-configured task-outcome DB path (trusted bootstrap config). */
+  taskOutcomeDbPath?: string;
+  /** Runtime-configured event-memory DB path (trusted bootstrap config). */
+  eventMemoryDbPath?: string;
   /**
    * F192 Phase H AC-H4: CallbackAuthRegistry for MCP callback auth on
    * publish-verdict route (cat-initiated, not session-initiated).
@@ -322,11 +326,14 @@ export const evalHubRoutes: FastifyPluginAsync<EvalHubRoutesOptions> = async (ap
         // 砚砚 R6 P1: pass redis so handler reads OQ-20 override (same instance
         // as handleTriggerNow uses — symmetric wake/publish for override cats).
         redis: opts.redis,
+        taskOutcomeDbPath: opts.taskOutcomeDbPath,
+        eventMemoryDbPath: opts.eventMemoryDbPath,
       },
       {
         packet: body.packet,
         domain: domainId,
         catId: principal.catId,
+        ownerUserId: principal.userId,
         // PR-2 (砚砚 R1 Q3): sourceRefs is a discriminated union (a2a vs capability-wakeup-trial-window);
         // adapter discriminates by `kind` field. Cast through unknown — handler/adapter validate shape.
         sourceRefs: (body.sourceRefs ??

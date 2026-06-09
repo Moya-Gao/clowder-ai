@@ -129,6 +129,29 @@ describe('handlePublishVerdict', () => {
       assert.equal(result.status, 501);
       assert.equal(result.error, 'unsupported_generator');
     });
+
+    it('returns 400 invalid_source_ref when task-outcome databasePath is absolute or escapes repo root', async () => {
+      for (const databasePath of ['/tmp/task-outcome-episodes.sqlite', '../task-outcome-episodes.sqlite']) {
+        const result = await handlePublishVerdict(
+          { harnessFeedbackRoot: root },
+          {
+            packet: buildPacket({ domainId: 'eval:task-outcome' }),
+            domain: 'eval:task-outcome',
+            catId: 'opus-47',
+            sourceRefs: {
+              kind: 'task-outcome-snapshot',
+              windowStartMs: 1780887600000,
+              windowEndMs: 1780974000000,
+              databasePath,
+            },
+          },
+        );
+        assert.ok('error' in result);
+        assert.equal(result.status, 400);
+        assert.equal(result.error, 'invalid_source_ref');
+        assert.match(result.detail, /databasePath/i);
+      }
+    });
   });
 
   // AC-H3: callback auth + domain allowlist
