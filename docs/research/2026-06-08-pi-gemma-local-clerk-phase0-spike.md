@@ -1,7 +1,7 @@
 ---
 created: 2026-06-08
 owner: codex
-status: spike-complete
+status: phase0b-complete
 doc_kind: research-spike-report
 topics: [local-small-model, memory-clerk, pi-agent, gemma-4, mlx, eval-harness]
 related_features: [F102, F188, F200, F218, F227]
@@ -18,35 +18,33 @@ batch jobs. The durable Phase A interface should still be a `small-model-clerk`
 MCP toolset over a local model server, not raw Pi sessions and not direct truth
 source writes.
 
-Gemma 4 26B A4B 8-bit is feasible on this machine from a hardware perspective,
-but it was not downloaded or run in this spike. The local machine has 128 GB
-unified memory and about 1.1 TiB free disk, but no complete Gemma 4 cache was
-present. The relevant 8-bit artifacts are roughly 26.8-28 GB depending on
-text-only vs multimodal MLX packaging, and the official safetensors weights are
-about 51.6 GB before quantization. That crosses the "large download /
-persistent install" threshold, so CVO approval should precede a Gemma-specific
-run.
+Gemma 4 26B A4B 8-bit is feasible on this machine and has now been verified
+through the multimodal MLX route. After CVO approval, Phase 0b downloaded
+`mlx-community/gemma-4-26b-a4b-it-8bit` and ran `mlx-vlm` text, image, video,
+and audio-boundary smoke fixtures. The package works as a text + vision
+superset candidate for Phase A. Do not download the separate
+`mlx-community/gemma-4-text-26b-a4b-it-8bit` package unless text-only throughput,
+server ergonomics, or schema discipline proves materially better.
 
 Correction after CVO pushback: memory clerk scope is not text-only. Meeting
 audio exports, screenshots, design artifacts, and video work need media-backed
-anchors too. The next decision should choose which lane to spike first:
+anchors too. Phase A should model these as separate evidence lanes:
 
-- Text clerk lane: `mlx-community/gemma-4-text-26b-a4b-it-8bit` via `mlx-lm`
-  for thread/repo/taste/source-hygiene text.
+- Text clerk lane: default to `mlx-community/gemma-4-26b-a4b-it-8bit` via
+  `mlx-vlm` with no media input for thread/repo/taste/source-hygiene text; keep
+  `mlx-community/gemma-4-text-26b-a4b-it-8bit` as a text-only fallback.
 - Media clerk lane: `mlx-community/gemma-4-26b-a4b-it-8bit` via `mlx-vlm` for
   screenshots and sampled video frames; audio needs an ASR lane first, then the
   text clerk consumes timestamped transcripts.
 
-Coverage hypothesis after CVO follow-up: the multimodal Gemma MLX package should
-be treated as a potential superset for text prompts. Phase 0b should test the
-multimodal package on both the existing anchored text JSON fixture and a
-media-anchor fixture before downloading the separate text-only package. Keep the
-text-only package as an optimization fallback if `mlx-vlm` is slower, less
-schema-stable, or harder to expose through the carrier stack.
+Coverage result after CVO follow-up: the multimodal Gemma MLX package covers the
+anchored text JSON fixture and visual media fixtures through `mlx-vlm`. Keep the
+text-only package as an optimization fallback if a later direct comparison shows
+better latency, schema discipline, or server ergonomics.
 
-Recommended next move: approve Phase A only as a strict MCP wrapper with schema
-validation and media/text anchor checks. Separately ask CVO which Phase 0b lane
-matters first: text clerk, media clerk, or both.
+Recommended next move: proceed to Phase A only as a strict MCP wrapper with
+schema validation and media/text anchor checks. The model remains a candidate
+generator, not a truth-source judge.
 
 ## Constraints Honored
 
@@ -57,6 +55,8 @@ matters first: text clerk, media clerk, or both.
   the port was no longer listening.
 - Used `/tmp/cat-cafe-clerk-spike-venv` and `/tmp/pi-clerk-spike` for temporary
   runner/config state.
+- Downloaded the approved multimodal Gemma cache under HuggingFace hub cache;
+  fixture artifacts were written under `/tmp`.
 
 ## Local Environment
 
@@ -70,7 +70,7 @@ matters first: text clerk, media clerk, or both.
 | Ollama | installed `0.12.9`; no server running; local manifest only `manutic/nomic-embed-code` |
 | MLX | not globally installed; installed `mlx-lm==0.31.3` and `mlx==0.31.2` in `/tmp` venv |
 | Pi | not globally installed; verified via `npx @earendil-works/pi-coding-agent@0.79.0` |
-| Existing HF cache | no complete Gemma 4 weights; has `mlx-community/Qwen3-8B-4bit-AWQ` (4.4 GB), `mlx-community/Qwen3.5-35B-A3B-4bit` (19 GB), `mlx-community/Qwen3-VL-8B-Instruct-4bit` (5.4 GB), `mlx-community/Qwen3-ASR-1.7B-8bit` (2.3 GB), and `mlx-community/whisper-large-v3-turbo-asr-fp16` (1.5 GB) |
+| Existing HF cache | now has complete `mlx-community/gemma-4-26b-a4b-it-8bit` multimodal cache (27 GB on disk); also has `mlx-community/Qwen3-8B-4bit-AWQ` (4.4 GB), `mlx-community/Qwen3.5-35B-A3B-4bit` (19 GB), `mlx-community/Qwen3-VL-8B-Instruct-4bit` (5.4 GB), `mlx-community/Qwen3-ASR-1.7B-8bit` (2.3 GB), and `mlx-community/whisper-large-v3-turbo-asr-fp16` (1.5 GB) |
 
 ## Pi Carrier Boundary
 
@@ -121,7 +121,8 @@ For memory clerk design, "source anchors" should generalize beyond line ranges:
 The model still produces candidates, not truth. Media candidates must remain
 reviewable and replayable from timestamps/frames.
 
-Artifact sizing checked without downloading weights:
+Artifact sizing recorded during Phase 0 and confirmed by the local Phase 0b
+cache:
 
 | Artifact | Source | Size |
 |---|---|---:|
@@ -132,10 +133,46 @@ Artifact sizing checked without downloading weights:
 | `unsloth/gemma-4-26B-A4B-it-GGUF` Q8_0 | HF API metadata | 26,859,859,744 bytes |
 | `unsloth/gemma-4-26B-A4B-it-GGUF` UD-Q4_K_M | HF API metadata | 16,947,539,744 bytes |
 
-Feasibility read: hardware is enough; disk is enough; MLX path is the cleanest
-Apple Silicon route. Actual Gemma behavior remains unverified until CVO approves
-either the 26.8 GB text model download, the 28 GB multimodal model download, or
-both.
+Feasibility read: hardware is enough; disk is enough; MLX/VLM is the cleanest
+Apple Silicon route for the multimodal package. Actual Gemma behavior is now
+verified for text and visual candidate generation, with audio excluded from this
+model's reliable boundary.
+
+### Phase 0b Download and Runtime Result
+
+Downloaded artifact:
+
+- Repo: `mlx-community/gemma-4-26b-a4b-it-8bit`.
+- Snapshot:
+  `d87327f1c28d03b74ef795156059e59b8290fb3e`.
+- Local cache size: 27 GB.
+- HF auth: no `HF_TOKEN`; anonymous download only.
+- Download route: disabled local proxy and Xet
+  (`HF_HUB_DISABLE_XET=1`, proxy env unset for the download command).
+- Operational finding: `hf download` can false-complete for this artifact. The
+  run exited successfully once before all shards were present, so Phase 0b used
+  a per-file retry loop and treated exact shard sizes as the completion gate.
+
+Shard validation:
+
+| File | Expected bytes | Actual bytes | Verdict |
+|---|---:|---:|---|
+| `model-00001-of-00006.safetensors` | 5,180,811,988 | 5,180,811,988 | ok |
+| `model-00002-of-00006.safetensors` | 5,205,340,842 | 5,205,340,842 | ok |
+| `model-00003-of-00006.safetensors` | 5,205,341,077 | 5,205,341,077 | ok |
+| `model-00004-of-00006.safetensors` | 5,205,341,119 | 5,205,341,119 | ok |
+| `model-00005-of-00006.safetensors` | 5,205,341,097 | 5,205,341,097 | ok |
+| `model-00006-of-00006.safetensors` | 1,951,465,058 | 1,951,465,058 | ok |
+
+Runner:
+
+- `mlx-vlm==0.6.2`, `mlx==0.31.2`, temp venv
+  `/tmp/cat-cafe-clerk-spike-venv`.
+- Model config reports `model_type: gemma4`, `architectures:
+  Gemma4ForConditionalGeneration`, `vision_config`, `text_config`, and
+  `audio_config: null`.
+- `processor_config.json` contains an `image_processor`; it does not contain a
+  real audio processor. Treat audio as outside this model's reliable boundary.
 
 ## Fixture Results
 
@@ -202,6 +239,61 @@ Interpretation: Pi is a viable carrier for read-only local clerk invocations
 when paired with a local OpenAI-compatible server and isolated config. It should
 not be the permission boundary or schema boundary.
 
+### MLX VLM, Gemma 4 26B A4B 8-bit Multimodal
+
+Anchored text JSON fixture through `mlx-vlm`:
+
+- Input: three repo anchors from F227 no-classifier, taste restraint, and F218
+  source-hygiene.
+- Command used the local multimodal snapshot path with no `--image`.
+- Elapsed 19.88 s.
+- Max RSS about 10.37 GB; peak memory footprint about 29.33 GB.
+- Direct `json.loads` succeeded.
+- Anchor count: 3.
+- Output preserved exact `filePath`, `lineStart`, and `lineEnd` for all three
+  source anchors.
+- Interpretation: the multimodal package can cover the anchored text fixture.
+  The separate text-only package is not needed for correctness at Phase 0b.
+
+Image fixture through `mlx-vlm`:
+
+- Input media: `assets/reference/codex-app-multi-thread.png`.
+- First prompt produced direct valid JSON and good visible-content extraction,
+  but used a generic `filePath: screenshot.png`; this fails anchor discipline.
+- Strict prompt requiring the exact media path produced direct valid JSON with
+  `filePath: assets/reference/codex-app-multi-thread.png`.
+- Strict image elapsed 8.67 s.
+- Max RSS about 28.91 GB; peak memory footprint about 31.09 GB.
+- Interpretation: image candidate generation is viable, but the MCP contract
+  must enforce exact media anchor provenance. Prompting alone is not enough.
+
+Video fixture through `mlx-vlm`:
+
+- Input media: `/tmp/gemma4-video-smoke.mp4`, a one-second MP4 generated from
+  the same reference screenshot.
+- First prompt produced visually relevant output but wrapped JSON in markdown
+  fences, so direct parse failed.
+- Strict prompt requiring first character `{` and exact `sourceFilePath`
+  produced direct valid JSON.
+- Strict video elapsed 6.36 s after the initial video preprocessing path was
+  warmed; the earlier loose video run elapsed 44.10 s.
+- Max RSS about 28.91 GB; peak memory footprint about 31.32 GB.
+- Interpretation: raw video path can work for simple clips, but Phase A should
+  prefer deterministic frame extraction plus image anchors unless a dedicated
+  video harness is added. Any markdown/prose output must fail closed.
+
+Audio boundary smoke:
+
+- Input media: `/tmp/gemma4-audio-smoke.wav`, a generated one-second tone.
+- `mlx-vlm --audio` accepted the CLI flag and exited 0 for a trivial prompt, but
+  a blind inspection prompt answered "Please provide the audio file..." and was
+  not JSON.
+- Local config shows `audio_config: null`; processor config has image processor
+  only.
+- Interpretation: do not route meeting audio directly through this Gemma
+  package. Use an ASR lane first, then feed timestamped transcript spans into
+  the text clerk.
+
 ## Source Audit Ledger
 
 | Claim | Source | Source type | Verdict | Provenance |
@@ -257,34 +349,18 @@ Runner recommendation:
 1. Use MLX server on Apple Silicon for the first real local model path.
 2. Use Pi as an optional carrier for offline clerk jobs and fixture generation.
 3. Keep the durable product contract at the MCP tool layer, not Pi.
-4. For the Gemma-specific follow-up, choose the model by lane and test superset
-   behavior before duplicating downloads:
-   - Text/repo/thread/taste/source-hygiene clerk:
-     `mlx-community/gemma-4-text-26b-a4b-it-8bit` with `mlx-lm`.
-   - Image/screenshot/video-frame clerk:
-     `mlx-community/gemma-4-26b-a4b-it-8bit` with `mlx-vlm`.
-   - Meeting audio clerk:
-     run ASR first (`Qwen3-ASR` / Whisper-style model), then pass timestamped
-     transcript spans into the text clerk. Gemma 4 26B A4B supports text/image,
-     not native audio input.
+4. Use the multimodal Gemma package as the default Phase A candidate for
+   text/repo/thread/taste/source-hygiene plus screenshot/image/video-frame
+   candidate generation.
+5. Keep `mlx-community/gemma-4-text-26b-a4b-it-8bit` as an optimization
+   fallback only if a direct comparison shows materially better text latency,
+   server ergonomics, or schema discipline.
+6. For meeting audio, run ASR first (`Qwen3-ASR` / Whisper-style model), then
+   pass timestamped transcript spans into the text clerk. This Gemma VLM package
+   is not a reliable native audio clerk.
 
-Open CVO decision:
-
-> Which Phase 0b lane should run first?
->
-> 1. Superset check: download
->    `mlx-community/gemma-4-26b-a4b-it-8bit` (~28 GB), then run both anchored
->    text JSON and image/video-frame fixture tests through `mlx-vlm`. If text
->    quality/latency/schema discipline is acceptable, skip the separate text-only
->    package.
-> 2. Text clerk only: download
->    `mlx-community/gemma-4-text-26b-a4b-it-8bit` (~26.8 GB).
-> 3. Media clerk only: download
->    `mlx-community/gemma-4-26b-a4b-it-8bit` (~28 GB) and test screenshot /
->    sampled-video-frame candidates via `mlx-vlm`.
-> 4. Audio clerk: use existing ASR cache first, then feed timestamped transcripts
->    into the text candidate harness.
-> 5. Run both text and media Gemma lanes only if the superset check fails or
->    text-only throughput matters enough to justify a second 26.8 GB artifact.
+Phase 0b decision is closed: the multimodal superset check passed for text and
+vision, with strict validator requirements. Proceed to Phase A MCP design; do
+not duplicate the 26.8 GB text-only download yet.
 
 [砚砚/gpt-5.5🐾]
