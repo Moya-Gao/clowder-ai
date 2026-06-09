@@ -62,3 +62,24 @@ ContextHealth 已抽象（`invoke-single-cat.ts:2066` `source: 'exact' | 'approx
 
 ## 8. 下一步
 砚砚 + 烁烁 各过一轮 → 收敛 OQ → 我落 L0 极简反射 + skill + compressionCount 注入（worktree → 守护测试 → review → merge）。本 memo 收敛后回写 F225 feature doc 的软层/eval 段。
+
+## 9. 收敛（砚砚 GPT-5.5 + 烁烁 Gemini-3.5 review，2026-06-09）— 实现真相源
+
+**方向放行**：L0 极简反射 + skill 三轴 + `system_info`（非 hook）做 cat-facing 注入 = 对。
+
+**砚砚两处纠正（覆盖 §3/§5）**：
+- **§3 过头**：`context_health` 现在是**原始遥测**——`invoke-single-cat.ts:2106` emit `{type:'context_health',health}`，在 `shouldTakeAction`(2128) **之前**；`warn` 分支是 **no-op**(2139)。猫拿到的是数据，不是 warn 提示。**落地要加 derived hint**（如 `context_management_hint`），**仅 `action.type==='warn'` 时** emit，提示"加载 skill 自检"——**不是"现在 handoff"**。
+- **§5 不够精确**：`ContextHealth.source` 只有 `exact|approx`（`session.ts:74`），表达不了 bytes-health/unavailable/cumulative-only。Codex 有 best-effort snapshot（`CodexAgentService.ts:871`）、Kimi 有 `last_turn_input_tokens/context_window`（`kimi-event-parser.ts:88`）、Gemini cumulative 标不可用（`GeminiAgentService.ts:579`）、Antigravity 是 bytes（`antigravity-cascade-health.ts`）。**按 confidence 分层（exact-token / approx-token / bytes-health / unavailable），不按猫族**。
+
+**烁烁三问结论 + 新增**：
+- **Q1 脏**：猫能做**二元自检（线 vs 树）**，但会**低估漂移**（布偶猫尤甚，擅长把树串成线）。加客观锚 **`recentlyCompressed`**（系统已有 `_prevContextFill` 压缩检测 @2097-2105）→ "系统刚压过你，真干净吗？"。给数据不给结论（KD-8 线内）。
+- **Q2 过度设计**：L0 + MCP desc 不够，skill 不多余但**极薄——清单非教程**。L0 ~2 行；skill ~30 行（三问清单 + 2×2 矩阵 + MCP 调用提示）。**不教猫怎么判漂移**（LLM 本能）、**不给 per-runtime 细节**（系统的活，猫只看 source）。超一屏就砍。
+- **Q3 两难（中途+已压多轮）**：**冲刺模式**——不 handoff 不压缩，聚焦完成到最近干净断点再 handoff；warn→action 窗口 = 冲刺预算，F24 auto-seal 兜底。无需新机制。
+
+**最终编码 spec**：
+- **shared**：`context_management_hint` schema = `{ severity:'warn', fillConfidence:'exact'|'approx'|'bytes'|'unavailable', compressionCount, recentlyCompressed }`。
+- **api**：`invoke-single-cat` 在 `action.type==='warn'` 时 emit hint（复用 `activeRecord.compressionCount`，避免重复 `getActive`；`recentlyCompressed` 从 `_prevContextFill` 检测）。confidence：exact→强提示 / approx·bytes→弱提示 / unavailable→不报 %、只让 skill 走断点+漂移+压缩记录自检。
+- **L0（~2 行）**：收到 `context_management_hint` warn → 加载 `context-self-management` skill 三轴自检，别反射 handoff/压缩。
+- **skill（~30 行清单）**：三问（①线还是树？②有干净断点吗？③压了几轮？）+ 2×2 矩阵（干净+脏→handoff / 干净+干净→续 / 中途+脏→冲刺模式 / 中途+干净→压缩）+ handoff 时调 `cat_cafe_propose_session_handoff` 写五件套。
+- **impl 顺序（砚砚）**：shared hint schema + invoke emit → L0 一句 + skill。
+- **eval**：activation（propose 调用率 / 干净断点比）+ friction（续接引用五件套率）。
