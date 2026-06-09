@@ -38,7 +38,7 @@ author: opus-47
   - `dbCounts: { docs_count, edges_count, vectors_count, passage_vectors_count, threads_count, passages_count }`（evidence.sqlite）
   - `embeddingMeta: { embedding_model: string | null }`（evidence_meta）
   - `embeddingService: { passage_vectors_supported: boolean }`（service runtime state）
-  - `catalogSnapshot: { collections: Array<{ id, root, kind, status }> }`（LibraryCatalog；**含 `status`** — detector 只处理 active/routable，archived 不参与；P2-1 from 砚砚 R3）
+  - `catalogSnapshot: { collections: Array<{ id, root, kind, status }> }`（LibraryCatalog.list()；**含 `status`** — `CollectionStatus` enum 只有 6 个值：`registered`/`indexing`/`active`/`stale`/`blocked`/`archived`；detector 只跳过 `archived`，其余 5 个全参与；P2-1 from 砚砚 R3，R4 收窄修正：之前误用 `routable`——那是 LibraryCatalog 内部派生概念，不是 manifest status 字段值）
 - Type `ConfigWarning`: `{ code, message, suggestedAction }`（v1 无 severity per KD-AC-K2）
 - Type `WarningCode` union (5 个)
 - 5 个纯 detector 函数：
