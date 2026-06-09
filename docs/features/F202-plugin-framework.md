@@ -66,7 +66,7 @@ Phase 2 covers:
 - `weixin-mp` migration is a follow-up slice and must not be bundled into Phase 1.
 - Arbitrary same-power script execution is not part of the plugin contract.
 - Plugin framework does not replace F041/F126/F146; it sits on top of their ownership and activation boundaries.
-- `F220` is not a valid anchor for GitHub plugin schedule work. `F220` belongs to A2A collaboration reliability; GitHub schedule/resource work is F202 Phase 2.
+- The conflicting standalone feature-number anchor from clowder-ai#844/#846 is not valid for GitHub plugin schedule work; GitHub schedule/resource work is F202 Phase 2.
 - A full GitHub Issue Inbox / community triage product surface is not Phase 2 unless explicitly split and accepted under F141/F133 follow-up or a new feature anchor.
 
 ## Acceptance Criteria
@@ -137,7 +137,7 @@ Phase 2 covers:
 |------|-------|
 | 2026-05-31 | clowder-ai#686 absorbed into cat-cafe via cat-cafe#1999 (squash `11b24d60334789a3f95d12be355d3ddbd196309c`). Intake ledger advanced to clowder-ai merge `60d1dbbfcbf84954000fcfcdbd645fd20948aa5d`. |
 | 2026-05-31 | Post-merge follow-ups opened: cat-cafe#2000 for P2 deferral re-ranking, cat-cafe#2001 for `eval:capability-wakeup` with the new limb/plugin surface. Architecture ownership cell `plugin` added in this doc sync. |
-| 2026-06-08 | Maintainer decision: clowder-ai#844/#846 is re-anchored from invalid `F220` to F202 Phase 2. The source-truth plan lives here; the open PR must retitle/rewrite body/docs/roadmap before merge review continues. |
+| 2026-06-08 | Maintainer decision: clowder-ai#844/#846 is re-anchored from its conflicting standalone feature number to F202 Phase 2. The source-truth plan lives here; the open PR must retitle/rewrite body/docs/roadmap before merge review continues. |
 
 ## Open Questions
 
@@ -150,7 +150,7 @@ Phase 2 covers:
 
 Phase 1 is accepted and absorbed as the trusted, repository-local plugin framework slice.
 
-Phase 2 is accepted as the correct home for schedule resources and the existing GitHub integration migration. The clowder-ai#844/#846 direction is welcome only after all `F220` anchors are removed and replaced with `F202 Phase 2` in title, body, feature docs, roadmap text, and commits that would enter source truth. `F220` remains the A2A collaboration reliability feature.
+Phase 2 is accepted as the correct home for schedule resources and the existing GitHub integration migration. The clowder-ai#844/#846 direction is welcome only after the conflicting standalone anchor is removed and replaced with `F202 Phase 2` in title, body, feature docs, roadmap text, and commits that would enter source truth.
 
 Concrete product plugins such as Weixin MP (F204) and MediaHub providers (F205) keep their own feature anchors because they add new user-visible capabilities on top of F202. GitHub schedule migration is different: it moves an existing core integration into the F202 lifecycle boundary and therefore belongs under this feature.
 
