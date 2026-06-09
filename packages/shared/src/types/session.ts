@@ -85,6 +85,38 @@ export interface ContextHealth {
   measuredAt: number;
 }
 
+/**
+ * F225 软层: cat-facing DERIVED hint, emitted only when the session strategy
+ * enters the warn band (between warn and action thresholds). Distinct from the
+ * raw {@link ContextHealth} telemetry — this nudges the cat to run the
+ * `context-self-management` 3-axis self-check (line vs tree / breakpoint? /
+ * compressed how many times?). It does NOT say "handoff now": handoff-vs-compress
+ * is the cat's judgment, not a binary trigger.
+ */
+export interface ContextManagementHint {
+  /** Only 'warn' is emitted today (the band before auto-seal kicks in). */
+  severity: 'warn';
+  /**
+   * How much to trust the fill ratio, by CONFIDENCE TIER (not by cat family):
+   * - `exact_token`  — CLI-reported exact token usage → trust the %.
+   * - `approx_token` — token-based but fallback window / aggregate → weak signal.
+   * - `bytes_health` — trajectory bytes, not tokens (e.g. Antigravity) → weak signal.
+   * - `unavailable`  — no reliable fill signal (e.g. Gemini cumulative-only) →
+   *   cat leans purely on the breakpoint + drift self-check axes.
+   * Current producers emit `exact_token`/`approx_token`; `bytes_health`/`unavailable`
+   * are the documented homes for when per-runtime health computation feeds them.
+   */
+  fillConfidence: 'exact_token' | 'approx_token' | 'bytes_health' | 'unavailable';
+  /**
+   * Times this (cat, thread) session was compressed. Maintained by Claude's
+   * PreCompact hook (`f24-pre-compact.sh`); stays 0 on runtimes without a
+   * compression hook (Codex/Antigravity) → the cat degrades to the breakpoint +
+   * drift self-check. Objective drift anchor: `compressionCount > 0` ⇒ "you've
+   * been running long enough to compress — suspect topic drift before deciding".
+   */
+  compressionCount: number;
+}
+
 export interface ContextHealthConfig {
   /** Warning threshold — frontend shows yellow */
   warnThreshold: number;

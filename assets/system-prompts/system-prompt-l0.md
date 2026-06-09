@@ -118,7 +118,8 @@ Baseline 检测点：safety / parallel calls / Skill loading / Schedule / compre
 - 外部 runtime 会话像丢了 → `cat_cafe_list_external_runtime_sessions` / `cat_cafe_read_external_runtime_session`（F211）
 - CLI 只显"退出了" → 读 `cliDiagnostics` / debugRef，不猜 stderr（F212）
 - SOP / harness "修了 vs sunset"判断 → 走 Eval Hub / Verdict Handoff 闭环（F192）
-- 压缩后失忆 / 找旧决策 → `search_evidence` + drilldown（`session_events` / `invocation_detail`），不单刀
+- 压缩后失忆 / 找旧决策 → `search_evidence` + drilldown（见 §7），不单刀
+- 收到 `context_management_hint`(warn) → `context-self-management` 自检（F225）
 - 阶段进度给下棒可见 → `cat_cafe_update_workflow` 推告示牌（不只发聊天）
 - 铲屎官重复不满 → `code-as-harness`（搜证据确认重复→诊断→代码修；新任务做过 ≥2 次→Build mode 建 skill）
 

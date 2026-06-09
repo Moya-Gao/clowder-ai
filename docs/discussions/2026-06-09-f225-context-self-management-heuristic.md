@@ -65,7 +65,7 @@ ContextHealth 已抽象（`invoke-single-cat.ts:2066` `source: 'exact' | 'approx
 
 ## 9. 收敛（砚砚 GPT-5.5 + 烁烁 Gemini-3.5 review，2026-06-09）— 实现真相源
 
-**方向放行**：L0 极简反射 + skill 三轴 + `system_info`（非 hook）做 cat-facing 注入 = 对。
+**方向放行**：L0 极简反射 + skill 三轴 + 非 hook 的 cat-facing 注入 = 对。（**注入 channel 后被 cloud review 纠正：system_info 到不了 cat → 改 prompt-injection，见 §12**。）
 
 **砚砚两处纠正（覆盖 §3/§5）**：
 - **§3 过头**：`context_health` 现在是**原始遥测**——`invoke-single-cat.ts:2106` emit `{type:'context_health',health}`，在 `shouldTakeAction`(2128) **之前**；`warn` 分支是 **no-op**(2139)。猫拿到的是数据，不是 warn 提示。**落地要加 derived hint**（如 `context_management_hint`），**仅 `action.type==='warn'` 时** emit，提示"加载 skill 自检"——**不是"现在 handoff"**。
@@ -77,8 +77,8 @@ ContextHealth 已抽象（`invoke-single-cat.ts:2066` `source: 'exact' | 'approx
 - **Q3 两难（中途+已压多轮）**：**冲刺模式**——不 handoff 不压缩，聚焦完成到最近干净断点再 handoff；warn→action 窗口 = 冲刺预算，F24 auto-seal 兜底。无需新机制。
 
 **最终编码 spec**：
-- **shared**：`context_management_hint` schema = `{ severity:'warn', fillConfidence:'exact_token'|'approx_token'|'bytes_health'|'unavailable', compressionCount, recentlyCompressed }`（命名采纳砚砚的清晰化后缀；compression 检测留 `compressionCount`/`recentlyCompressed` 两个**独立字段**，**不**并进 fillConfidence——理由见 §10）。
-- **api**：`invoke-single-cat` 在 `action.type==='warn'` 时 emit hint（复用 `activeRecord.compressionCount`，避免重复 `getActive`；`recentlyCompressed` 从 `_prevContextFill` 检测）。confidence：exact_token→强提示 / approx_token·bytes_health→弱提示 / unavailable→不报 %、只让 skill 走断点+漂移+压缩记录自检。
+- **shared**：`context_management_hint` schema = `{ severity:'warn', fillConfidence:'exact_token'|'approx_token'|'bytes_health'|'unavailable', compressionCount }`（命名采纳砚砚的清晰化后缀；compression 检测不并进 fillConfidence——理由见 §10）。**实现期改动（§11）：`recentlyCompressed` 已 drop**——timing 上它在 warn 恒 false，`compressionCount` 才是真锚。
+- **api**：`invoke-single-cat` 在 `action.type==='warn'` 时 emit hint（复用 `activeRecord.compressionCount`，避免重复 `getActive`）。confidence：exact_token→强提示 / approx_token·bytes_health→弱提示 / unavailable→不报 %、只让 skill 走断点+漂移+压缩记录自检。当前 emit site 只产 exact_token/approx_token（Claude 式 token health）；bytes_health/unavailable 留给未来 per-runtime health 路径。
 - **L0（~2 行）**：收到 `context_management_hint` warn → 加载 `context-self-management` skill 三轴自检，别反射 handoff/压缩。
 - **skill（~30 行清单）**：三问（①线还是树？②有干净断点吗？③压了几轮？）+ 2×2 矩阵（干净+脏→handoff / 干净+干净→续 / 中途+脏→冲刺模式 / 中途+干净→压缩）+ handoff 时调 `cat_cafe_propose_session_handoff` 写五件套。
 - **impl 顺序（砚砚）**：shared hint schema + invoke emit → L0 一句 + skill。
@@ -101,4 +101,32 @@ ContextHealth 已抽象（`invoke-single-cat.ts:2066` `source: 'exact' | 'approx
 
 **enum 决策（review 砚砚的 review）**：砚砚建议 fillConfidence 扩成 `exact_token|approx_token|bytes_health|compression_hook|unavailable`。**采纳**后缀命名清晰化（exact_token/approx_token/bytes_health/unavailable），但 **`compression_hook` 不并进 fillConfidence**——fillConfidence 是"填充率可信度"，compression 是"压缩是否刚发生"，两个**正交轴**。压缩检测留 `compressionCount`(number)+`recentlyCompressed`(bool) 独立字段；检测来源（hook vs token-drop）是内部实现细节，猫不需要（KD-8：skill 不给 per-runtime 机制）。即使某 runtime 只有压缩 hook、没 token，也表达为 `fillConfidence=unavailable` + `recentlyCompressed=true`，无需新 enum 值。砚砚 PR review 时如觉得我把轴想窄了可再拍。
 
-**已知可选增强（非债、非 tail）**：装上 Gemini 的 `PreCompress` 可把 Gemini 的 compressionCount 从 token-drop 启发式升级成精确——但当前 token-drop 路径已让能力**完整工作**（recentlyCompressed 照样有），装 hook 是 accuracy 升级 + 跨 runtime infra 活（要改 `~/.gemini/hooks.json` 铲屎官环境 + 在 Gemini runtime 实测），独立小任务，不阻塞本轮。
+**已知可选增强（非债、非 tail）**：装上 Gemini 的 `PreCompress` 可把 Gemini 的 compressionCount 从 token-drop 启发式升级成精确——但当前 token-drop 检测路径已让能力**完整工作**，装 hook 是 accuracy 升级 + 跨 runtime infra 活（要改 `~/.gemini/hooks.json` 铲屎官环境 + 在 Gemini runtime 实测），独立小任务，不阻塞本轮。
+
+## 11. 实现期发现（宪宪/Opus-4.8 落地时，2026-06-09）— drop `recentlyCompressed`
+
+落 api 时发现 §9/§10 收敛 spec 里的 `recentlyCompressed` 有 timing 缺陷，**实现版 drop 之**，hint 最终 = `{ severity, fillConfidence, compressionCount }`：
+
+- **timing 矛盾**：compression 让 fillRatio **骤降**（CLI compact 后 usedTokens 掉到低位），而 warn 需要 fillRatio **高**（warn band 在 action 阈值下方）。两者**不可能同 turn 共存**——所以"本 turn 是否刚 token-drop"这个 bool 在 warn emit 时**恒为 false**，是 footgun 字段。
+- **真正的漂移锚 = `compressionCount`**：压过一轮、fill 重新爬到 warn 时，`compressionCount>0` 正确告诉猫"你跑很久了，警惕漂移"。这正是 烁烁 Q1 想要的客观锚，`compressionCount`（计数）比 `recentlyCompressed`（bool）信息量更大。KD-8：给数据（计数）不给结论（bool）。
+- **非 Claude 的代价（诚实交底）**：`compressionCount` 由 Claude PreCompact hook 维护，非 Claude 恒 0 → 那些猫在 warn 时**没有压缩锚**，退到纯 线/树 + 断点 自检（skill 已写 `unavailable → 纯①②自检`，一致）。保留 `recentlyCompressed` 也救不了（同样 timing-false）。
+- **真要给非 Claude 补压缩锚** = 需要 **runtime-agnostic 持久压缩计数**（token-drop 触发时持久化 increment，而非 in-memory `_prevContextFill`）。新状态，独立小任务，与 Gemini PreCompress 同 enhancement bucket，不阻塞本轮。
+- **flag 砚砚/烁烁**：这条 drop 偏离了你们 review 收敛的 §9 spec（含 `recentlyCompressed`），是实现期 timing 发现。PR review 请挑战我的推理——**若你们看到 warn 与 compression 能同 turn 共存的 path，我就错了**，该把它加回来。
+
+## 12. Cloud review P1（砚砚 GPT-5.5，PR #2178）— delivery channel 纠正：system_info → prompt-injection
+
+**砚砚抓的 P1（要害，feature 本来根本不工作）**：warn hint 作为 `system_info` output 在 provider `done` 事件 append——但 trace runtime 数据流证实它**到不了 cat 认知**：
+- routing（`route-serial.ts`）只把 `text` 累进 cat-visible `previousResponses`（且仅 debug mode），`system_info` 仅供前端/本地 side-effect 解析；
+- `ContextAssembler.ts:144-158` 组装 cat prompt 时**显式 filter 掉 `userId='system'` 的 message（"display-only"）**；
+- web hook 没有 `context_management_hint` consumer。
+- → 这条 system_info **永不进任何 prompt**，L0 trigger "收到 context_management_hint" 在真实 warn session 根本不会 fire。
+
+**戳破的前提**：memo §3 写的"`context_health` warn system_info **已 emit 给猫**"是**误读**——那条 system_info 是发给前端 Hub context 仪表的遥测，不是猫的认知输入。我把代码注释 "warn is already emitted via context_health system_info" 里的 "emitted"（→前端）错当成"→猫"。§3/§5/§6 里所有"走 system_info 给猫"的措辞据此作废，以本节为准。
+
+**修法（PR #2178 fix commit）**：改走 **prompt-injection channel**，piggyback `_needsReinjection` 模式——
+- warn turn：`queueContextHint(cKey, hint)` 把渲染后的 hint 文本挂进 pending map（key=`${userId}:${catId}:${threadId}`，与 reinjection 的 `compressionKey` 同格式）。
+- 下一轮 prompt assembly（`invoke-single-cat.ts` effectivePrompt 处）：`takeContextHintPrefix(compressionKey)` 取出并 prepend 到 `effectivePrompt`（"prepend to prompt string，universal 所有 CLI" 的既有通道，effectivePrompt 即 `service.invoke()` 的入参）。独立于 `injectSystemPrompt`，resume 跳过 identity 注入时也送达；consumed-once 不无限重注。
+- 删掉没人消费的 system_info emit。
+- 新模块 `agents/invocation/context-management-hint.ts`（build + format + queue/take + reset），delivery 语义 + format 含 trigger 短语单测覆盖；warn→queue / 下轮→take+prepend 两 call site key-match 读验。
+
+**教训**：这跟 F225 硬层 dogfood P0 同型（"wiring 看着对但到不了猫"），也正是我 PR 里自己写"端到端 warn→hint→猫需真实 session，归 eval"那句 defer 掩盖的——defer 藏的是**硬 broken delivery 不是只是没测**。cat-facing 信号必须 trace 到"进没进 prompt"，system_info/前端遥测 ≠ 猫认知。

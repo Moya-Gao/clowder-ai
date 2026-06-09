@@ -527,6 +527,7 @@ export { isValidRichBlock, normalizeRichBlock } from './rich.js';
 export type {
   ContextHealth,
   ContextHealthConfig,
+  ContextManagementHint,
   SealReason,
   SealResult,
   SessionRecord,
