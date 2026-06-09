@@ -8,7 +8,7 @@ created: 2026-06-05
 
 # F225: Cat-Initiated Session Handoff — 猫主导的 session 接力
 
-> **Status**: in-progress（**硬层** done + CVO dogfood 验证 + 3 状态同步 P2 修复；**软层**（L0 反射 + skill）**+ eval 层**（capability-wakeup）2026-06-09 设计收敛、**待实现**——补完 KD-1 的"软+硬+eval"三层） | **Owner**: 布偶猫（Opus 4.8） | **Priority**: P2
+> **Status**: in-progress（**硬层** done + dogfood；**软层**（L0 §8 反射 + `context-self-management` skill + `context_management_hint` **prompt-injection** delivery）**+ eval 注册**（capability-wakeup #14）done，merged PR #2178；**待**：真实 warn session 观测 hint 是否 fire + eval activation 数据，闭 KD-1 三层后再 close） | **Owner**: 布偶猫（Opus 4.8） | **Priority**: P2
 
 Architecture cell: `identity-runtime-session`（`identity-session` cell 的 subcell，F211 owns）
 Map delta: update required — 新增"猫主动提议"作为一种 session boundary **触发源** + 新 `sealReason: 'cat_initiated_handoff'` + 新 typed `SessionRecord.catHandoffNote`（或独立 SessionHandoffStore）+ 新 `SessionHandoffProposal` 类型，扩展 identity-runtime-session 的 lifecycle registration / seal reason / proposal 谱系。owner 不变。
@@ -201,6 +201,7 @@ Why: session 边界目前只能由 `shouldTakeAction`（context_health / 阈值�
 | 2026-06-06 | **实现完成 + merged（PR #2112, squash 088af5646）**：逻辑层（types / SessionHandoffProposalStore / propose+approve 纯函数 + commit-point recovery）+ 接线层（propose/approve HTTP route、`cat_cafe_propose_session_handoff` MCP tool、web `HandoffProposalCard` 确认卡、bootstrap 注入 app-wire）。砚砚 R1 review 放行逻辑层后，receive-review 修：云端 2 P2（bootstrap note 聚合 token 硬上限——CJK note 600 字≈900 tokens 单独破 2000；propose 缺 transport-retry 幂等 key）+ 砚砚本地 2 P2（reserve 后 throw 不 release → 永久 503；card append 成功但 marker 写失败不 self-heal）。`pnpm gate` 全绿。CVO directive：成本考量直接合入、跳云端 re-review、CVO 亲做 alpha 验收。**待 alpha PASS → 勾全部 AC + status=done + feat close** |
 | 2026-06-06 | **alpha PASS + 硬层 close**（CVO dogfood：runtime 同步 + 浏览器硬刷新后 approve 通、新续接 spawn）。dogfood 撞 2 部署 gap（runtime 同步 / 浏览器硬刷新——非逻辑 bug，记 `feedback_web_dogfood_deploy_chain`）。后续 gpt52 failure-mode sweep 出状态同步/防御 P2，PR #2119（CardBlock 未知 action warn）+ #2120（approve/reject pre-commit expiry emit + card 统一 server-status 收敛）已修 |
 | 2026-06-09 | **CVO 灵魂拷问 → 发现软层 + eval 从未实现（违反 KD-1）**，Status 由 done 诚实修正回 in-progress。3 连拷问收敛"context 自治启发式"：客观 warn 信号 trigger / handoff-vs-compress 三轴判断 / cross-runtime confidence 降级。砚砚（harness）+ 烁烁（思辨）各一轮 review → KD-10~13 + eval=capability-wakeup。待落 L0 + skill + hint 注入 |
+| 2026-06-09 | **软层 + eval 注册 merged（PR #2178, squash 568a56b52）**：`ContextManagementHint`（shared）+ warn 时 build/queue + L0 §8 反射 + `context-self-management` skill + capability-wakeup #14。**砚砚 cloud R1 抓要害 P1**——warn hint 经 `system_info` 到不了 cat（routing 不进 prompt、`ContextAssembler` filter `userId='system'`），trace 确认后 → 改 **prompt-injection** channel（warn queue → 下轮 prepend `effectivePrompt`），R2 clean。实现期 drop `recentlyCompressed`（timing 上 warn 恒 false，`compressionCount` 才是真锚，memo §11）。**待**：真实 warn session 观测 hint 是否 fire + eval activation 数据，闭 KD-1 三层后再 close |
 
 ## Review Gate
 
