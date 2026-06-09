@@ -245,6 +245,49 @@ describe('G2: pollForSteps yields steps incrementally', () => {
     assert.ok(callCount >= 4, 'empty latest generating planner must force polling until that planner has text');
   });
 
+  test('F211-REG14: resumed clean IDLE tail terminalizes before status-gate stall', async () => {
+    const bridge = createBridge();
+    let statusCallCount = 0;
+    let trajectoryCallCount = 0;
+    const cleanTail = [
+      { type: 'CORTEX_STEP_TYPE_USER_INPUT', status: 'CORTEX_STEP_STATUS_DONE' },
+      {
+        type: 'CORTEX_STEP_TYPE_PLANNER_RESPONSE',
+        status: 'CORTEX_STEP_STATUS_DONE',
+        plannerResponse: {
+          response: '铲屎官催我了！来了来了！我已经把所有核心文档全部读完。',
+          stopReason: 'STOP_REASON_CLIENT_CANCELED',
+        },
+      },
+    ];
+    const idleSummary = { stepCount: 2, status: 'CASCADE_RUN_STATUS_IDLE', lastModifiedTime: 'T-final' };
+    mock.method(bridge, 'getCascadeStatus', async () => {
+      statusCallCount += 1;
+      return idleSummary;
+    });
+    mock.method(bridge, 'getTrajectory', async () => {
+      trajectoryCallCount += 1;
+      return {
+        status: 'CASCADE_RUN_STATUS_IDLE',
+        numTotalSteps: 2,
+        trajectory: { steps: cleanTail },
+      };
+    });
+    mock.method(bridge, 'getTrajectorySteps', async () => cleanTail);
+
+    const yielded = [];
+    for await (const batch of bridge.pollForSteps('cascade-1', 2, 40, 5, undefined, false, 0)) {
+      yielded.push(batch);
+    }
+
+    assert.equal(yielded.length, 1, 'resumed clean IDLE tail should emit one empty terminal batch');
+    assert.equal(yielded[0].steps.length, 0);
+    assert.equal(yielded[0].cursor.terminalSeen, true);
+    assert.equal(yielded[0].cursor.lastDeliveredStepCount, 2);
+    assert.ok(statusCallCount >= 1);
+    assert.equal(trajectoryCallCount, 1, 'one full fetch is enough to prove the clean terminal tail');
+  });
+
   test('throws on stall (no new steps within timeout)', async () => {
     const bridge = createBridge();
     mock.method(bridge, 'getTrajectory', async () => ({

@@ -976,19 +976,29 @@ export class AntigravityBridge {
         const changed = lastStatusKey === undefined || statusKey !== lastStatusKey;
         const throttledMutationProbe = isRunning && !changed && fullFetchSkips >= REG9_RUNNING_FULL_FETCH_THROTTLE;
         if (!changed && !throttledMutationProbe) {
-          lastStatusKey = statusKey;
-          fullFetchSkips += 1;
           const idleMs = Date.now() - lastActivityAt;
-          // A cascade awaiting user approval is NOT a stall (carry the last full-fetch observation).
-          // Otherwise the idle-timeout still fires here — so a genuinely hung cascade surfaces instead
-          // of polling forever silently (REG9 core: no done/error must never become an invisible hang).
-          if (!lastAwaitingUserInput && idleMs > idleTimeoutMs) {
-            throw new Error(
-              `Antigravity stall: no activity for ${idleMs}ms (steps=${statusForGate.stepCount}, status=${statusForGate.status})`,
-            );
+          const shouldProbeTerminalBeforeStall =
+            !lastAwaitingUserInput && statusForGate.status === 'CASCADE_RUN_STATUS_IDLE' && idleMs > idleTimeoutMs;
+          if (shouldProbeTerminalBeforeStall) {
+            // F211-REG14: when an unchanged IDLE summary reaches the watchdog deadline, do one final
+            // authoritative trajectory read before surfacing a stall. A retry can resume from the last
+            // delivered step after the cascade has already become a clean terminal tail; throwing from
+            // the cheap status gate would skip the no-new-steps terminalization path below.
+            pendingStatusKey = statusKey;
+          } else {
+            lastStatusKey = statusKey;
+            fullFetchSkips += 1;
+            // A cascade awaiting user approval is NOT a stall (carry the last full-fetch observation).
+            // Otherwise the idle-timeout still fires here — so a genuinely hung cascade surfaces instead
+            // of polling forever silently (REG9 core: no done/error must never become an invisible hang).
+            if (!lastAwaitingUserInput && idleMs > idleTimeoutMs) {
+              throw new Error(
+                `Antigravity stall: no activity for ${idleMs}ms (steps=${statusForGate.stepCount}, status=${statusForGate.status})`,
+              );
+            }
+            await new Promise((r) => setTimeout(r, pollIntervalMs));
+            continue;
           }
-          await new Promise((r) => setTimeout(r, pollIntervalMs));
-          continue;
         }
         // Defer the commit until the full fetch below actually succeeds (砚砚 P1) — a transient
         // getTrajectory failure must keep this change un-consumed so the retry re-fetches it.
@@ -1067,6 +1077,7 @@ export class AntigravityBridge {
       const latestPlannerIsGenerating = latestPlanner?.status === 'CORTEX_STEP_STATUS_GENERATING';
       const latestGeneratingPlannerHasText =
         latestPlannerIsGenerating && latestPlanner !== undefined && plannerStepHasDisplayableText(latestPlanner);
+      const deliveredBeyondReplayBaseline = delivered > replayBaselineStepCount;
       const terminalReady =
         isTerminal &&
         (!latestPlannerIsGenerating ||
@@ -1161,7 +1172,7 @@ export class AntigravityBridge {
         if (
           terminalReady &&
           (!expectFollowUpTurn || followUpUserInputSeen) &&
-          (delivered > stepsBefore || idleMs > idleTimeoutMs)
+          (deliveredBeyondReplayBaseline || idleMs > idleTimeoutMs)
         ) {
           yield {
             steps: [],

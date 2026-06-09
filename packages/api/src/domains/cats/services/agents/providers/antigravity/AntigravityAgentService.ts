@@ -900,6 +900,7 @@ export class AntigravityAgentService implements AgentService {
         const autoApprovedPendingStepKeys = new Set<string>();
         const stallProbeBudget: StallProbeBudget = { attempts: 0, maxAttempts: STALL_PROBE_MAX_ATTEMPTS };
         let lastDelivered = stepsBefore;
+        let busyReuseFollowUpUserInputSeen = false;
         let attemptHasToolActivity = false;
         let attemptHasDispatchedToolResult = false;
         let attemptHasNativeDispatch = false;
@@ -1133,8 +1134,9 @@ export class AntigravityAgentService implements AgentService {
         const seenUnknownKeys = new Set<string>();
         const pollOnce = async function* (self: AntigravityAgentService, fromStep: number) {
           const iterator = self.bridge
-            // F211-REG8: only the FIRST poll (fromStep === the original stepsBefore) is the busy-reuse
-            // follow-up; re-polls advance fromStep and must use normal termination (no extra USER_INPUT wait).
+            // F211-REG8/REG14: busy-reuse follow-up waiting is an attempt-level state, not a
+            // single-iterator state. Stall/probe retries resume from lastDelivered, but they must
+            // continue waiting for the queued follow-up's USER_INPUT until this service observes it.
             // Keep the replay baseline pinned to the original send boundary so same-turn planner
             // mutations still replay after a stall/probe resumes from lastDelivered.
             .pollForSteps(
@@ -1143,7 +1145,7 @@ export class AntigravityAgentService implements AgentService {
               self.pollTimeoutMs,
               2_000,
               options?.signal,
-              wasBusy && fromStep === stepsBefore,
+              wasBusy && !busyReuseFollowUpUserInputSeen,
               stepsBefore,
             )
             [Symbol.asyncIterator]();
@@ -1283,6 +1285,13 @@ export class AntigravityAgentService implements AgentService {
                   seenUnknownKeys.add(unknownKey);
                   log.info('unknown step type %s (status=%s) in cascade %s', step.type, step.status, cascadeId);
                 }
+              }
+              if (
+                wasBusy &&
+                !busyReuseFollowUpUserInputSeen &&
+                batch.steps.some((step) => step.type === 'CORTEX_STEP_TYPE_USER_INPUT')
+              ) {
+                busyReuseFollowUpUserInputSeen = true;
               }
 
               const messages = transformTrajectorySteps(batch.steps, self.catId, metadata);

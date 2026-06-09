@@ -879,7 +879,11 @@ export function consumeBackgroundSystemInfo(
         },
       });
       consumed = true;
-    } else if (parsed?.type === 'strategy_allow_compress' || parsed?.type === 'resume_failure_stats') {
+    } else if (
+      parsed?.type === 'strategy_allow_compress' ||
+      parsed?.type === 'resume_failure_stats' ||
+      parsed?.type === 'tool_activity'
+    ) {
       // Internal telemetry — suppress to avoid raw JSON bubbles in background threads
       consumed = true;
     } else if (parsed?.type === 'session_seal_requested') {
@@ -4605,7 +4609,11 @@ export function useAgentMessages() {
               },
             });
             consumed = true;
-          } else if (parsed?.type === 'strategy_allow_compress' || parsed?.type === 'resume_failure_stats') {
+          } else if (
+            parsed?.type === 'strategy_allow_compress' ||
+            parsed?.type === 'resume_failure_stats' ||
+            parsed?.type === 'tool_activity'
+          ) {
             // Internal telemetry — suppress to avoid raw JSON bubbles
             consumed = true;
           } else if (parsed?.type === 'silent_completion') {
