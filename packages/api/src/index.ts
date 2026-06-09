@@ -1504,23 +1504,11 @@ async function main(): Promise<void> {
         }
         // 2) Episode ref = projection convenience for F192 a2 (secondary, best-effort).
         try {
-          const ep =
-            taskOutcomeStore.getActiveEpisode(threadId) ??
-            taskOutcomeStore.createEpisode({
-              trigger: 'cat_initiated',
-              threadId,
-              participants: catId ? [catId] : [],
-            });
-          taskOutcomeStore.appendSignal(ep.episodeId, {
-            category: 'a2',
-            record: {
-              type: 'magic_word_ref',
-              eventId,
-              word: hit.word,
-              timestamp: new Date().toISOString(),
-              threadId,
-              catId: catId ?? 'unknown',
-            },
+          appendMagicWordRefToEpisode(taskOutcomeStore, {
+            eventId,
+            word: hit.word,
+            threadId,
+            catId: catId ?? 'unknown',
           });
         } catch (err) {
           app.log.error(
@@ -1710,6 +1698,9 @@ async function main(): Promise<void> {
   );
   const { CancelBurstDetector } = await import('./infrastructure/harness-eval/task-outcome/cancel-burst-detector.js');
   const cancelBurstDetector = new CancelBurstDetector({ threshold: 3, windowMs: 60_000 });
+  const { appendPermissionCancelToEpisode, appendMagicWordRefToEpisode, checkAndAppendCancelBurst } = await import(
+    './infrastructure/harness-eval/task-outcome/task-outcome-signal-wiring.js'
+  );
   const { taskOutcomeRoutes } = await import('./routes/task-outcome.js');
   await app.register(taskOutcomeRoutes, { store: taskOutcomeStore });
 
@@ -2173,51 +2164,17 @@ async function main(): Promise<void> {
     socketManager,
     onPermissionCancel: (input) => {
       try {
-        // taskOutcomeStore is created earlier in this file (F192 Phase G).
-        // AC-G10: use structured cancel reason from frontend popup if valid enum,
-        // otherwise default to 'skip' (auth free-text reason is not a cancel category).
-        const VALID_REASONS = ['should_not_do', 'wrong_direction', 'i_will_do_it', 'skip'];
-        const cancelReason =
-          input.cancelReason && VALID_REASONS.includes(input.cancelReason) ? input.cancelReason : 'skip';
-        taskOutcomeStore.appendSignal(
-          (
-            taskOutcomeStore.getActiveEpisode(input.threadId) ??
-            taskOutcomeStore.createEpisode({
-              trigger: 'cat_initiated',
-              threadId: input.threadId,
-              participants: input.catId ? [input.catId] : [],
-            })
-          ).episodeId,
-          {
-            category: 'a2',
-            record: {
-              type: 'permission_cancel',
-              toolName: input.toolName,
-              paramsSummary: input.paramsSummary,
-              reason: cancelReason,
-              timestamp: new Date().toISOString(),
-              catId: input.catId,
-              threadId: input.threadId,
-            },
-          },
-        );
+        // AC-G10/G11: permission cancel → episode a2 signal (production helper)
+        appendPermissionCancelToEpisode(taskOutcomeStore, {
+          toolName: input.toolName,
+          paramsSummary: input.paramsSummary,
+          cancelReason: input.cancelReason,
+          catId: input.catId,
+          threadId: input.threadId,
+        });
 
         // AC-G13: Check for cancel burst (≥3 cancels in 1 minute)
-        const burstResult = cancelBurstDetector.record(input.threadId, Date.now());
-        if (burstResult.burst) {
-          const ep = taskOutcomeStore.getActiveEpisode(input.threadId);
-          if (ep) {
-            taskOutcomeStore.appendSignal(ep.episodeId, {
-              category: 'proxy',
-              record: {
-                type: 'cancel_burst',
-                value: burstResult.count,
-                timestamp: new Date().toISOString(),
-                threadId: input.threadId,
-              },
-            });
-          }
-        }
+        checkAndAppendCancelBurst(taskOutcomeStore, cancelBurstDetector, input.threadId, Date.now());
 
         // F222 UX-3: "取消并反馈" — immediately trigger auto-issue (no threshold)
         if (input.withFeedback && input.userId) {
