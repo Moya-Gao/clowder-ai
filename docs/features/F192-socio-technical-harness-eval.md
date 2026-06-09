@@ -320,12 +320,12 @@ Phase E 将 F192 从单域试点提升为横切的 Harness Eval Control Plane：
 - [x] AC-G9: Shared types——CANCEL_REASON_OPTIONS + CancelReasonValue + PermissionCancelEvent 导出到 @cat-cafe/shared 供前端使用
 - [x] AC-G9b: env-registry + .gitignore——TASK_OUTCOME_DB 注册 + task-outcome-episodes.sqlite* gitignore
 
-#### v0.5 信号接线（下一个 PR，一个 PR 搞定）
+#### v0.5 信号接线（PR #2074 v0.5 scope, merged across v0.5 + F227 归一）
 
-- [ ] AC-G10: Cancel 理由浮层前端——cancel 后弹轻量浮层（可选：不该做/方向不对/我自己来/跳过），选择后调 POST /api/task-outcome/cancel 带结构化 reason
-- [ ] AC-G12: Magic Word 运行时检测 hook——在消息处理流程中检测 magic word 触发 → 调 POST /api/task-outcome/magic-word 记录（高权重 reason 采集）
-- [ ] AC-G13: Cancel burst proxy signal——短时间内连续 cancel ≥3 次 → 自动追加 proxy signal（中断动作聚合）
-- [ ] AC-G11: 端到端验证——铲屎官 + 宪宪一起：cancel → 选理由 → 绑 episode → magic word 检测 → eval hub 可见
+- [x] AC-G10: Cancel 理由结构化采集——AuthorizationCard deny 按钮变体（不该做/方向不对/我自己来/跳过），一键 deny + 结构化 reason 通过 authorization respond → onPermissionCancel → episode a2 signal 流转（设计从原 spec "弹浮层+独立 POST" 进化为"一键 deny 变体+复用 authorization 路由"，功能等价且 UX 更好）
+- [x] AC-G12: Magic Word 运行时检测 hook——messages.ts tryDetectMagicWords() 在 queued + immediate 双路径检测 → F227 Event Memory 真相源写入 + episode magic_word_ref projection signal（F227 归一后，Event Memory 是真相源，episode 存 ref；11 tests green）
+- [x] AC-G13: Cancel burst proxy signal——CancelBurstDetector（threshold=3, window=60s）+ index.ts authorization handler 接线，burst 触发时追加 proxy signal（8 tests green）
+- [ ] AC-G11: 端到端验证——铲屎官 + 宪宪一起：cancel → 选理由 → 绑 episode → magic word 检测 → eval hub 可见（**真缺口：无自动化 e2e 测试，无手动验收记录**）
 
 依赖：复用 F192 已有 Eval Domain Registry / Verdict Handoff / Re-eval Closure / Eval Hub 控制面。与 F222 Frustration Auto-Issue 的打通（confirmed issue → episode signal）标记为 v1。
 
