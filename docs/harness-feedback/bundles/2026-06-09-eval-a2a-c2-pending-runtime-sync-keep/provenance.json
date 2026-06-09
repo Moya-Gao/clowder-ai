@@ -1,0 +1,19 @@
+{
+  "verdictId": "2026-06-09-eval-a2a-c2-pending-runtime-sync-keep",
+  "rawInputs": [
+    {
+      "path": "docs/harness-feedback/snapshots/2026-06-09-F167-eval.yaml",
+      "sha256": "acfc2dfb9ca7b7e2e57507556351d8b4c206e9bc2ae8d47c83b2ddad12d72505"
+    },
+    {
+      "path": "docs/harness-feedback/attributions/2026-06-09-F167-attribution.yaml",
+      "sha256": "da244e7da9a4ebaa3723a02e8a12da9c0e7c6a2aaddc05dd4823bd3794cef073"
+    }
+  ],
+  "generatedAt": "2026-06-09T03:00:43.146Z",
+  "generator": {
+    "name": "eval-a2a-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f192-e-pilot-v1"
+}

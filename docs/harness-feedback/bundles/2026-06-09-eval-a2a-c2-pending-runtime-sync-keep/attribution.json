@@ -1,0 +1,36 @@
+{
+  "verdictId": "2026-06-09-eval-a2a-c2-pending-runtime-sync-keep",
+  "featureId": "F167",
+  "evalSnapshotId": "eval-F167-2026-06-09",
+  "generatedAt": "2026-06-09T03:00:43.146Z",
+  "findings": [
+    {
+      "id": "AR-2026-06-09-001",
+      "relatedFeature": "F167",
+      "frictionSignal": {
+        "type": "c2.verdict_without_pass_count",
+        "severity": "low",
+        "confidence": 0.7
+      },
+      "attribution": {
+        "primaryLayer": "harness_misfit",
+        "pipelineOrHuman": "pipeline",
+        "evidence": [
+          {
+            "type": "counter",
+            "anchor": "C2/c2.verdict_without_pass_count",
+            "excerpt": "c2.verdict_without_pass_count=14 (baseline c2.checked=226, ratio=6.2%)"
+          }
+        ]
+      },
+      "proposedAction": [
+        {
+          "action": "harness-tune",
+          "target": "C2/c2.verdict_without_pass_count",
+          "rationale": "c2.verdict_without_pass_count ratio 6.2% exceeds threshold"
+        }
+      ],
+      "status": "open"
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "verdictId": "2026-06-09-eval-a2a-c2-pending-runtime-sync-keep",
+  "evalSnapshotId": "eval-F167-2026-06-09",
+  "featureId": "F167",
+  "generatedAt": "2026-06-09T03:00:43.143Z",
+  "window": {
+    "startMs": 1780887726734,
+    "endMs": 1780974032522,
+    "durationHours": 23.97
+  },
+  "components": [
+    {
+      "id": "C2",
+      "name": "exit-check (forced-pass guard)",
+      "confidence": "medium",
+      "activationCounts": {
+        "hint_emitted (mixed routing+verdict)": 1,
+        "c2.verdict_hint_emitted": 14,
+        "c2.checked": 226,
+        "c2.void_hold_checked": 227
+      },
+      "frictionCounts": {
+        "c2.verdict_without_pass_count": 14,
+        "c2.void_hold_hint_emitted": 9
+      }
+    }
+  ]
+}
