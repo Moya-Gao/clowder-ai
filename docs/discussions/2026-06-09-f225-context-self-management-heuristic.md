@@ -77,9 +77,28 @@ ContextHealth 已抽象（`invoke-single-cat.ts:2066` `source: 'exact' | 'approx
 - **Q3 两难（中途+已压多轮）**：**冲刺模式**——不 handoff 不压缩，聚焦完成到最近干净断点再 handoff；warn→action 窗口 = 冲刺预算，F24 auto-seal 兜底。无需新机制。
 
 **最终编码 spec**：
-- **shared**：`context_management_hint` schema = `{ severity:'warn', fillConfidence:'exact'|'approx'|'bytes'|'unavailable', compressionCount, recentlyCompressed }`。
-- **api**：`invoke-single-cat` 在 `action.type==='warn'` 时 emit hint（复用 `activeRecord.compressionCount`，避免重复 `getActive`；`recentlyCompressed` 从 `_prevContextFill` 检测）。confidence：exact→强提示 / approx·bytes→弱提示 / unavailable→不报 %、只让 skill 走断点+漂移+压缩记录自检。
+- **shared**：`context_management_hint` schema = `{ severity:'warn', fillConfidence:'exact_token'|'approx_token'|'bytes_health'|'unavailable', compressionCount, recentlyCompressed }`（命名采纳砚砚的清晰化后缀；compression 检测留 `compressionCount`/`recentlyCompressed` 两个**独立字段**，**不**并进 fillConfidence——理由见 §10）。
+- **api**：`invoke-single-cat` 在 `action.type==='warn'` 时 emit hint（复用 `activeRecord.compressionCount`，避免重复 `getActive`；`recentlyCompressed` 从 `_prevContextFill` 检测）。confidence：exact_token→强提示 / approx_token·bytes_health→弱提示 / unavailable→不报 %、只让 skill 走断点+漂移+压缩记录自检。
 - **L0（~2 行）**：收到 `context_management_hint` warn → 加载 `context-self-management` skill 三轴自检，别反射 handoff/压缩。
 - **skill（~30 行清单）**：三问（①线还是树？②有干净断点吗？③压了几轮？）+ 2×2 矩阵（干净+脏→handoff / 干净+干净→续 / 中途+脏→冲刺模式 / 中途+干净→压缩）+ handoff 时调 `cat_cafe_propose_session_handoff` 写五件套。
 - **impl 顺序（砚砚）**：shared hint schema + invoke emit → L0 一句 + skill。
 - **eval**：activation（propose 调用率 / 干净断点比）+ friction（续接引用五件套率）。
+
+## 10. 砚砚 cross-runtime hook 复核（2026-06-09，记忆刷新 — 推翻三月调研）
+铲屎官质疑"其他猫真没 hook 吗，记忆是不是三月的旧的"。砚砚 source-audit（OpenAI `openai/codex` #21753/#24211、Antigravity hooks docs、Gemini CLI config/hooks docs）刷新了过时记忆：
+
+**hook 现状（供应商支持 ≠ 家里已装）**：
+| runtime | 压缩相关 hook | 本机已装 | compressionCount 真相源 |
+|---|---|---|---|
+| Claude | `PreCompact`（成熟） | ✅ `f24-pre-compact.sh` | 精确 |
+| Gemini CLI | `PreCompress`（新，文档已有） | ❌（`~/.gemini` 只 SessionStart/Stop） | 可接但未接 |
+| Codex | 无 PreCompact 等价（有 SessionStart/UserPromptSubmit/PermissionRequest；PostToolUse partial+不稳） | 只 SessionStart/Stop | 无 |
+| Antigravity | 无 compression hook（有 PreToolUse/PostToolUse/PreInvocation/PostInvocation/Stop） | — | 无 |
+
+**修正宪宪之前对铲屎官的"Claude-specific"答案**：半对。"compressionCount via PreCompact 是 Claude-as-wired specific"对；但"只有 Claude 有 hook"**错**——Gemini CLI 有 PreCompress（没装）、Codex/AGY 有别的 lifecycle/tool hooks（只是没 compression hook）。三月记忆"Gemini compact 完全黑箱"已过时。
+
+**对设计的影响 = 强化而非推翻**：核心决策（cat-facing 走 `system_info`/`context_management_hint`，**不依赖 hook**）不变，砚砚反而更确认它对——hook 覆盖参差，依赖 hook 会让非 Claude 猫直接拿不到信号。hook 仅作 per-runtime **补充探针**（有 PreCompact/PreCompress → compressionCount 更准；没有 → token-drop/snapshot/bytes/unavailable 降级）。
+
+**enum 决策（review 砚砚的 review）**：砚砚建议 fillConfidence 扩成 `exact_token|approx_token|bytes_health|compression_hook|unavailable`。**采纳**后缀命名清晰化（exact_token/approx_token/bytes_health/unavailable），但 **`compression_hook` 不并进 fillConfidence**——fillConfidence 是"填充率可信度"，compression 是"压缩是否刚发生"，两个**正交轴**。压缩检测留 `compressionCount`(number)+`recentlyCompressed`(bool) 独立字段；检测来源（hook vs token-drop）是内部实现细节，猫不需要（KD-8：skill 不给 per-runtime 机制）。即使某 runtime 只有压缩 hook、没 token，也表达为 `fillConfidence=unavailable` + `recentlyCompressed=true`，无需新 enum 值。砚砚 PR review 时如觉得我把轴想窄了可再拍。
+
+**已知可选增强（非债、非 tail）**：装上 Gemini 的 `PreCompress` 可把 Gemini 的 compressionCount 从 token-drop 启发式升级成精确——但当前 token-drop 路径已让能力**完整工作**（recentlyCompressed 照样有），装 hook 是 accuracy 升级 + 跨 runtime infra 活（要改 `~/.gemini/hooks.json` 铲屎官环境 + 在 Gemini runtime 实测），独立小任务，不阻塞本轮。
