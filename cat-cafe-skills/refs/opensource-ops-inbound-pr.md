@@ -22,6 +22,11 @@
   - **"accepted" 的判定标准**：issue 有 `triaged` 标签 + 有类型标签（`bug` / `enhancement` / `feature:Fxxx`）+ state=OPEN + 没有 `needs-maintainer-decision` + 没有 `needs-info`（信息不足的 issue 不能作为 PR 依据）
   - 检查方法：`gh issue view {N} --repo zts212653/clowder-ai --json labels,state` → 有 `triaged` + 类型标签 + state=OPEN + 无 `needs-maintainer-decision` + 无 `needs-info`
   - 无 accepted issue → 请贡献者先开 issue，猫猫做 triage 后再提 PR
+  - **受控例外：retro-triage accepted** 只用于“已 merge / 已 accepted 的社区 PR 引出的 post-merge regression follow-up”，且当前没有独立 issue 可引用时：
+    1. follow-up 关系必须可追溯（PR body / 评论明确指向父 PR 或已 accepted 的来源）
+    2. maintainer 必须在 merge 前留一条结构化 PR comment，显式记录“为什么这次等价 accepted issue” + 主人翁五问 + intake 预判
+    3. 这条 comment 是补足真相源，不是拿来绕过普通 issue triage 的捷径
+  - retro-triage 例外**不适用于**普通 feature / enhancement / 新需求 PR；那类情况没有 accepted issue 就是不 merge
   - Feature 类：需确认有 F 编号（`feature:Fxxx` 标签）+ 关联检测已过
 - [ ] **①-b Feat Anchor Guard（必做，防认知投毒）**：
 
@@ -207,6 +212,16 @@ PR merge 进 clowder-ai 后，**必须做 intake 登记闭环**（即使决定�
 
 **规则**：决定 `absorbed` 的社区 PR，默认必须在 cat-cafe 建 GitHub Issue 作为 intake 的 “spec”。
 
+**创建时就打标签**：Intake Intent Issue 一创建就必须带 `intake` label，不要等 strict guard 报错后再补。
+
+```bash
+gh issue create --repo zts212653/cat-cafe --label intake ...
+# 如果先建后补，也要在进入 Step 2/3 前立刻补齐：
+gh issue edit <intent-issue> --repo zts212653/cat-cafe --add-label intake
+```
+
+`intake-from-opensource.sh --record` 会硬性检查这个标签；缺标签 = absorbed record 直接失败。
+
 **受控例外：`direct-main historical backfill` / `outbound-filed hotfix`**
 
 当 source patch 已经直接落在 `cat-cafe main`，不存在可追溯的 cat-cafe absorb PR 路径时，允许：
@@ -376,7 +391,13 @@ pnpm --filter @cat-cafe/web exec vitest run \
 
 **不过这个 gate = 不能 Record + Advance。** Reviewer 放行后才能执行 Step 3 (Record)。
 
-**Reviewer 必须在 GitHub PR 上留 formal review comment**：聊天里口头放行不算闭环。Reviewer 本人必须在 absorb PR 页面留一条包含完整 checklist 的 review comment（`gh pr comment`），author 不得代记。**不要用 `gh pr review --approve`**——所有猫猫共享同一个 GitHub 账号，self-approve 永远会报错，白费 token。review comment 就是标准路径，不是降级方案。（教训：cat-cafe#941 reviewer 只在 thread 里放行，PR `reviews=[]`，事后由 author 补 comment 才补救审计留痕。）
+**Reviewer 必须在 GitHub PR 上留 formal review evidence**：聊天里口头放行不算闭环。Reviewer 本人必须在 absorb PR 页面留下可回链的 GitHub 证据，author 不得代记。
+
+- **首选**：`gh pr review --comment` —— 会生成 `#pullrequestreview-*` 锚点，天然绑定当前 HEAD 的 review object
+- **可接受**：`gh pr comment` —— 会生成 `#issuecomment-*` 锚点；此时评论正文必须显式写出当前 HEAD SHA，给 strict guard 做 continuity 校验
+- **禁止**：`gh pr review --approve` —— 所有猫猫共享同一个 GitHub 账号，self-approve 永远会报错，白费 token
+
+`COMMENTED` review 在这里是标准路径，不是降级方案。（教训：cat-cafe#941 reviewer 只在 thread 里放行，PR `reviews=[]`，事后由 author 补 comment 才补救审计留痕。）
 
 **Reviewer 匹配**：和内部 PR 一样，跨 family 优先、同一个体不能 review 自己的 intake。
 

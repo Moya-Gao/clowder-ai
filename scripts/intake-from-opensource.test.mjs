@@ -786,6 +786,38 @@ describe('intake-from-opensource.sh --record strict guard (absorbed)', () => {
     assert.equal(record.intent_issue, undefined, 'must use intake_intent_issue (existing schema), not intent_issue');
   });
 
+  it('accepts COMMENTED pull request review proof when commit_id matches current absorb PR head', () => {
+    const f = makeRecordFixture({
+      reviewBody: 'Reviewed and no findings.',
+    });
+    fixtures.push(f.sandboxRoot);
+    const env = { PATH: `${f.mockBin}:${process.env.PATH}` };
+    const output = runRecord(
+      f.repoRoot,
+      [
+        '--pr',
+        '495',
+        '--decision',
+        'absorbed',
+        '--intent-issue',
+        '1234',
+        '--absorb-pr',
+        '1236',
+        '--review-proof',
+        'https://github.com/zts212653/cat-cafe/pull/1236#pullrequestreview-42',
+      ],
+      env,
+    );
+
+    assert.match(output, /Absorbed intake strict guard passed/);
+    assert.match(output, /Recorded PR #495 → absorbed/);
+
+    const ledger = JSON.parse(readFileSync(f.ledgerPath, 'utf-8'));
+    const record = ledger.entries.find((entry) => entry.pr_number === 495);
+    assert.ok(record);
+    assert.equal(record.review_proof, 'https://github.com/zts212653/cat-cafe/pull/1236#pullrequestreview-42');
+  });
+
   it('allows post-merge record when intake intent issue is CLOSED and absorb PR is MERGED', () => {
     const f = makeRecordFixture({
       issueState: 'CLOSED',
