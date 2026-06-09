@@ -38,11 +38,11 @@ author: opus-47
   - `dbCounts: { docs_count, edges_count, vectors_count, passage_vectors_count, threads_count, passages_count }`（evidence.sqlite）
   - `embeddingMeta: { embedding_model: string | null }`（evidence_meta）
   - `embeddingService: { passage_vectors_supported: boolean }`（service runtime state）
-  - `catalogSnapshot: { collections: Array<{ id, root, kind }> }`（LibraryCatalog）
+  - `catalogSnapshot: { collections: Array<{ id, root, kind, status }> }`（LibraryCatalog；**含 `status`** — detector 只处理 active/routable，archived 不参与；P2-1 from 砚砚 R3）
 - Type `ConfigWarning`: `{ code, message, suggestedAction }`（v1 无 severity per KD-AC-K2）
 - Type `WarningCode` union (5 个)
 - 5 个纯 detector 函数：
-  - `detectDocsRootSuspicious(signals)`: 检查 catalog 中 collection.root 路径是否存在/为目录/非空（`fs.existsSync` + `fs.statSync` + `fs.readdirSync`）
+  - `detectDocsRootSuspicious(signals)`: **先 filter `status === 'active' \|\| status === 'routable'`**（archived 不参与，per P2-1）→ 检查剩余 collection.root 是否存在/为目录/非空（`fs.existsSync` + `fs.statSync` + `fs.readdirSync`）；测试覆盖 active+missing→报警 / archived+missing→不报警 两条 path
   - `detectEmbeddingDisabled(signals)`: `embedding_model === null`
   - `detectVectorsEmpty(signals)`: `vectors_count === 0 && docs_count > 0`
   - `detectGraphEmpty(signals)`: `edges_count === 0 && docs_count > 0`
@@ -62,11 +62,13 @@ author: opus-47
 **File**: `packages/api/src/routes/evidence.ts:319-398`（修改）
 
 **Changes**:
+- **EvidenceRoutesOptions 扩展**（P1 from 砚砚 R3，真实接口已 verify）: 加 `catalog?: Pick<LibraryCatalog, 'list' | 'getRoutable'>`（**不是** `libraryCatalog?.getCollections()`——后者不存在）
+- **index.ts 注册侧传 catalog**（line ~2599 `app.register(evidenceRoutes, ...)`）: 加 `catalog: memoryServices.catalog`
 - 在 line 389 return 处加 `functionalStatus` + `configWarnings`
-- 在 handler 内 build `EvidenceStatusSignals`（复用既有 db reads，加 catalog read via `opts.libraryCatalog?.getCollections()`）
+- 在 handler 内 build `EvidenceStatusSignals`（复用既有 db reads + catalog read via `opts.catalog?.list()`——真实方法名 per LibraryCatalog.ts:39）
 - 调 `evaluateConfigWarnings()` + `computeFunctionalStatus()`
-- 如果 `opts.libraryCatalog` 不可用（worktree no-catalog 场景），`catalogSnapshot.collections = []`，`docs_root_suspicious` skip（不抛错）
-- `healthy: false` 路径（no_db）不动，不评估 warnings（直接 return）
+- 如果 `opts.catalog` 不可用（worktree no-catalog 场景），`catalogSnapshot.collections = []`，`docs_root_suspicious` skip（不抛错）
+- **`healthy: false` 路径（no_db）也返回扩展 schema**（P2-2 from 砚砚 R3，避免 type 不一致）: `functionalStatus: 'degraded'` + `configWarnings: []`；前端红色 fatal banner 继续优先（healthy=false 时不显示 degraded yellow banner），snapshot test 只锁 `healthy` 字段语义不变
 
 **TDD**:
 - `packages/api/test/routes/evidence-status-config-warnings.test.js`（新建）
@@ -128,15 +130,16 @@ const reporter880State = {
 - 包含 `vectors_empty` + `graph_empty` + `embedding_disabled` codes
 - 可能加 `vec_table_missing`（passage_vectors_supported=false）
 
-### Task 6: Dogfood report（AC-K7，close 时）
+### Task 6: Dogfood report（AC-K7，**PR merge 前** in feature/alpha 环境）
 
-**File**: `docs/harness-feedback/2026-06-09-f188-phase-k-dogfood-report.md`（新建，merge 后）
+**File**: `docs/harness-feedback/2026-06-09-f188-phase-k-dogfood-report.md`（新建，**同 PR commit**，per P2-3 from 砚砚 R3——dogfood 是本 PR 合入 gate，不能 post-merge）
 
 **Content**:
-- Run `curl http://localhost:3001/api/evidence/status`（实际 runtime DB）
-- 文档化 functionalStatus 实际值 + warnings 数 + suggestedAction text
-- Screenshot Memory Center `IndexStatus` 实际效果（degraded banner if any，or "no warnings, all green" 也行）
-- 至少一个 warning 状态被验证（local 跑一个 stale embedding config 或类似）
+- 在 feature worktree 启 alpha 环境（`pnpm alpha:start` 含 3011/3012/4111/6398 隔离 Redis）跑 `curl http://localhost:3011/api/evidence/status`
+- 文档化 functionalStatus 实际值 + warnings 数 + 每条 suggestedAction text
+- Screenshot Memory Center `IndexStatus` 实际效果（degraded banner if any，or "no warnings, all green" 也合法）
+- **至少一个 warning 状态被验证**: 人为造 stale state（如临时改 collection root 到不存在路径 → trigger `docs_root_suspicious`；或 mock embedding_model=null → trigger `embedding_disabled`），跑 endpoint + 截图 + 还原状态
+- Report 提交时机: PR open 之后、merge 之前，同 PR commit chain 内
 
 ## Quality Gate Checklist
 
@@ -148,7 +151,7 @@ const reporter880State = {
 - [ ] #880 fixture regression test pass（Task 5 / AC-K5）
 - [ ] `pnpm gate` 全绿
 - [ ] Biome / lint clean on new files
-- [ ] Dogfood report committed（Task 6 / AC-K7，merge 后）
+- [ ] Dogfood report committed in PR（Task 6 / AC-K7，**PR merge 前** in feature/alpha 环境完成，per 砚砚 R3 P2-3）
 
 ## PR Packaging
 
