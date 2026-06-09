@@ -42,6 +42,7 @@ const approveBodySchema = z
     // F128: let the user re-home the child thread at approve time. Validated against allowed
     // roots (validateProjectPath) — supplied-but-invalid → 400 (fail loud, never silent default).
     projectPath: z.string().min(1).max(500).optional(),
+    reportingMode: z.enum(['none', 'final-only', 'state-transitions', 'blocking-ack']).optional(),
   })
   .strict();
 
@@ -128,6 +129,7 @@ export const proposalRoutes: FastifyPluginAsync<ProposalRoutesOptions> = async (
       finalPreferredCats,
       finalInitialMessage,
       finalProjectPath,
+      finalReportingMode,
       finalizeOverrides,
     } = resolution.resolved;
 
@@ -157,7 +159,7 @@ export const proposalRoutes: FastifyPluginAsync<ProposalRoutesOptions> = async (
     // between create and finalize, the next stale-claim recovery sees this field and re-finalizes
     // against the existing thread — preventing duplicate threads on retry.
     try {
-      await proposalStore.recordCreatedThread(proposal.proposalId, thread.id);
+      await proposalStore.recordCreatedThread(proposal.proposalId, thread.id, finalizeOverrides);
     } catch {
       // best-effort persist; failure here only weakens crash recovery, doesn't break the
       // happy path. Finalize below still writes createdThreadId atomically.
@@ -209,8 +211,7 @@ export const proposalRoutes: FastifyPluginAsync<ProposalRoutesOptions> = async (
           sourceThreadId: proposal.sourceThreadId,
           sourceThreadTitle: sourceThread?.title,
           preferredCats: finalPreferredCats,
-          // C-Y1: reportingMode is fixed at create time (not in approve overrides).
-          reportingMode: proposal.reportingMode,
+          reportingMode: finalReportingMode,
           // Phase AA (AC-AA4/AA5): source cat attribution + crossPost metadata
           sourceCatId: proposal.sourceCatId,
           sourceInvocationId: proposal.sourceInvocationId,

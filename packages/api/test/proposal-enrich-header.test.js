@@ -6,12 +6,12 @@
  * state-transitions / blocking-ack) and the two orthogonality guards the
  * design discussion locked in (spec docs/features/F128 Phase Y):
  *
- *  - C-Y5: default `none` must NOT tell cats to 回到主 Thread (the old hard-wired
- *    report-back default is exactly what Phase Y removes).
+ *  - C-Y5: explicit `none` must NOT tell cats to 回到主 Thread (the old hard-wired
+ *    report-back text is exactly what Phase Y split by mode).
  *  - C-Y6: `#ideate` (wake dimension) is ORTHOGONAL to reportingMode
  *    (report dimension). `#ideate + none` must NOT name a report-back owner.
  *
- * Default (no reportingMode arg) === 'none' (AC-Y6, owner sign-off 2026-06-04).
+ * Phase AA superseded the default: no reportingMode arg now means final-only.
  */
 
 import assert from 'node:assert/strict';
@@ -35,7 +35,7 @@ describe('F128 Phase Y — enrichWithParentThreadHeader reportingMode', () => {
     assert.ok(out.includes('cat_cafe_cross_post_message'), 'final-only reports via cross_post');
   });
 
-  test("reportingMode='none' explicit → same as default", () => {
+  test("reportingMode='none' explicit → autonomous, no forced return", () => {
     const out = enrichWithParentThreadHeader('hi', SRC, TITLE, SOLO, 'hi', null, undefined, 'none');
     assert.ok(out.includes('autonomous') || out.includes('无强制回报'));
     assert.ok(!out.includes('回到主 Thread'), 'C-Y5');

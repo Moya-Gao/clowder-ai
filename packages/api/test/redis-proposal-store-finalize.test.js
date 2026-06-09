@@ -116,5 +116,35 @@ describe(
       assert.equal(fresh.projectPath, '/projects/keep', 'no override → projectPath unchanged');
       assert.equal(fresh.title, 'edited title', 'other overrides still apply');
     });
+
+    it('override.reportingMode is persisted on finalize → fresh get() hydrates the approved contract', async () => {
+      const created = await store.create(baseInput({ reportingMode: 'final-only' }));
+      await store.claimForApproval({ proposalId: created.proposalId, approvedBy: 'alice' });
+
+      const finalized = await store.finalizeApproval({
+        proposalId: created.proposalId,
+        createdThreadId: 'thread_child3',
+        overrides: { reportingMode: 'none' },
+      });
+      assert.ok(finalized, 'finalize should succeed');
+      assert.equal(finalized.reportingMode, 'none', 'returned snapshot reflects the override');
+
+      const fresh = await store.get(created.proposalId);
+      assert.ok(fresh);
+      assert.equal(fresh.reportingMode, 'none', 'persisted hash must carry the final reportingMode');
+    });
+
+    it('recordCreatedThread checkpoints reportingMode override before stale recovery', async () => {
+      const created = await store.create(baseInput({ reportingMode: 'final-only' }));
+      await store.claimForApproval({ proposalId: created.proposalId, approvedBy: 'alice' });
+
+      await store.recordCreatedThread(created.proposalId, 'thread_child4', { reportingMode: 'none' });
+
+      const fresh = await store.get(created.proposalId);
+      assert.ok(fresh);
+      assert.equal(fresh.status, 'approving', 'checkpoint must not finalize the proposal');
+      assert.equal(fresh.createdThreadId, 'thread_child4', 'checkpoint must persist the created thread id');
+      assert.equal(fresh.reportingMode, 'none', 'checkpoint must carry the final reportingMode across crashes');
+    });
   },
 );

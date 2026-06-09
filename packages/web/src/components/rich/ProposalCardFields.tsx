@@ -2,6 +2,8 @@
 
 import { useId } from 'react';
 
+export type ReportingModeEditValue = 'none' | 'final-only' | 'state-transitions' | 'blocking-ack';
+
 interface EditFieldProps {
   label: string;
   value: string;
@@ -31,6 +33,46 @@ export function EditField({ label, value, onChange, multiline }: EditFieldProps)
           onChange={(e) => onChange(e.target.value)}
         />
       )}
+    </label>
+  );
+}
+
+const REPORTING_MODE_OPTIONS: Array<{ value: ReportingModeEditValue; label: string }> = [
+  { value: 'final-only', label: '做完回报一次（默认）' },
+  { value: 'none', label: '下游自治，不强制回报' },
+  { value: 'state-transitions', label: '阶段边界回报' },
+  { value: 'blocking-ack', label: '阻塞点等源 thread ack' },
+];
+
+export function formatReportingMode(value: ReportingModeEditValue): string {
+  if (value === 'none') return 'autonomous（下游自治，无强制回报）';
+  if (value === 'state-transitions') return 'state-transitions（每阶段边界回报）';
+  if (value === 'blocking-ack') return 'blocking-ack（遇阻塞点等 ack）';
+  return 'final-only（默认 · 完成时回报一次）';
+}
+
+export function ReportingModeEdit({
+  value,
+  onChange,
+}: {
+  value: ReportingModeEditValue;
+  onChange: (v: ReportingModeEditValue) => void;
+}) {
+  return (
+    <label className="block">
+      <span className="text-cafe-muted">回报模式:</span>{' '}
+      <select
+        aria-label="回报模式"
+        className="mt-0.5 w-full rounded border border-[var(--console-border-soft)] bg-cafe-surface-canvas p-1 text-xs"
+        value={value}
+        onChange={(e) => onChange(e.target.value as ReportingModeEditValue)}
+      >
+        {REPORTING_MODE_OPTIONS.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
     </label>
   );
 }

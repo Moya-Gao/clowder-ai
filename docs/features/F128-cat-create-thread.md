@@ -223,7 +223,7 @@ F128 遵循 ADR-035 Proposal-First Agent Actions：
 #### Open Questions
 
 - **OQ-AA1**: 当前 proposal 只有 `sourceInvocationId`，没有稳定 `sourceMessageId`。v1 先用 `sourceInvocationId` 定位；若后续能拿到 source message id，再扩展 `extra.crossPost.sourceMessageId`。
-- **OQ-AA2**: reportingMode 是否允许 approval card 编辑？当前 Phase Y 实现把 reportingMode 固定在 propose create-time；Phase AA 不强制改这一点，只要求猫 propose 时被清楚引导。若产品上需要用户审批时可改，应作为 AC-AA3 的扩展实现，并保证创建前完成、审计同步。
+- **OQ-AA2（answered by Phase AC）**: reportingMode 是否允许 approval card 编辑？Phase AC 将答案收敛为"允许，但仅在线程创建前"：approve-time override 写入最终 contract + proposal 审计；创建后仍不支持动态切换。
 
 #### Reviewer / Discussion
 
@@ -337,3 +337,28 @@ F128 遵循 ADR-035 Proposal-First Agent Actions：
 - 查 live `/api/threads` 坐实：两个典型"未分类"子 thread 的 parent 都是 `thread_eval_memory`（`projectPath=default`）
 - 排除后端丢字段的假设：继承逻辑在执行，是 parent 源头就没项目
 - 底层能力已有（`projectPath` 可传 + approval card 可改），缺的是 UX 层的强提示
+
+### Phase AC: Approval-Time Reporting Mode Override（2026-06-09）
+
+> **Status**: implemented, awaiting cross-cat review / merge
+> **Source**: 铲屎官 2026-06-09 追问："F128 到底有没有模式就是主 thread 的猫要求子 thread 不要汇报？会不会格式写死最后汇报？" 进一步确认：proposal card 既然显示"回报模式"，铲屎官 approve 前也应该能改，不满意猫的选择时不该只能驳回重提。
+> **Why**: Phase AA 把默认改回 `final-only`，并保留 `none` 作为 explicit opt-in。这个运行时契约是对的，但 UX 仍然让猫的选择过强：`reportingMode` 只在 propose 时填，用户审批卡只能看，不能改。结果猫忘记选 `none` 时，卡片看起来像"系统写死必须最终汇报"。第一性原理：proposal 是猫提出的草案，approve 是用户授权前的最终编辑点；回报契约和 projectPath 一样，必须能在创建前被用户修正。
+
+#### Design Decision
+
+1. **默认不变**：省略 `reportingMode` 仍按 `final-only`（大多数 fork-and-return 需要结果回来）。
+2. **审批可覆盖**：approval card 编辑态提供 reportingMode selector，用户可把猫提议的 `final-only` 改成 `none` / `state-transitions` / `blocking-ack`。
+3. **最终值唯一**：approve-time override 发生在线程创建前；创建后仍不支持动态切换，保持 C-Y1 的"thread contract 创建后固定"边界。
+4. **审计同步**：proposal audit、Redis hash、seed message `## 主 Thread` header 全部使用最终 reportingMode；不能出现卡片显示 `none` 但子 thread header 仍要求 final report 的分裂。
+
+#### Acceptance Criteria
+
+- [x] AC-AC1: `/api/proposals/:proposalId/approve` 接受 `reportingMode` override（enum 校验，invalid 400），并在 claim 前完成解析。
+- [x] AC-AC2: `resolveApproveOverrides` 输出 `finalReportingMode`；`appendApprovedInitialMessage` 使用最终值生成 header/chain protocol。
+- [x] AC-AC3: `ProposalApproveOverrides` + in-memory/Redis proposal store 持久化最终 `reportingMode`，fresh Redis `get()` 不回到 create-time stale value。
+- [x] AC-AC4: `ProposalCard` 非编辑态显示当前回报模式，编辑态提供场景化 selector；approve body 提交用户选择。
+- [x] AC-AC5: Tests 覆盖：approve `final-only → none` 后 seed header 为 autonomous / 无强制回报；前端 selector 提交 `reportingMode`; Redis finalize 持久化 reportingMode。
+
+#### Scope Boundary
+
+- 本 Phase 只允许**创建前**修改 reportingMode。已创建子 thread 若要换模式，仍需新建/重提 thread；不做运行中动态切换，也不 retroactively 改旧 thread header。

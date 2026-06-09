@@ -9,7 +9,7 @@
  * cognitive complexity in check.
  */
 
-import type { CatId, ProposalApproveOverrides, ThreadProposal } from '@cat-cafe/shared';
+import type { CatId, ProposalApproveOverrides, ReportingMode, ThreadProposal } from '@cat-cafe/shared';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import { validateProjectPath } from '../utils/project-path.js';
 
@@ -20,6 +20,7 @@ export interface ApproveOverridesInput {
   preferredCats?: string[] | undefined;
   initialMessage?: string | null | undefined;
   projectPath?: string | undefined;
+  reportingMode?: ReportingMode | undefined;
 }
 
 export interface ResolvedApproveOverrides {
@@ -28,6 +29,7 @@ export interface ResolvedApproveOverrides {
   finalPreferredCats: CatId[];
   finalInitialMessage: string | undefined;
   finalProjectPath: string;
+  finalReportingMode: ReportingMode;
   /** The audit overrides to hand finalizeApproval so the proposal record matches the thread. */
   finalizeOverrides: ProposalApproveOverrides;
 }
@@ -65,6 +67,7 @@ export async function resolveApproveOverrides(
 
   const finalPreferredCats = (overrides.preferredCats ?? proposal.preferredCats) as CatId[];
   const finalInitialMessage = resolveInitialMessage(proposal.initialMessage, overrides.initialMessage);
+  const finalReportingMode = overrides.reportingMode ?? proposal.reportingMode ?? 'final-only';
 
   // F128 projectPath priority: explicit override (validated, fail-loud 400) > re-parent
   // inheritance (new parent's ownership) > the proposal's projectPath (set at propose time).
@@ -93,6 +96,7 @@ export async function resolveApproveOverrides(
       finalPreferredCats,
       finalInitialMessage,
       finalProjectPath,
+      finalReportingMode,
       finalizeOverrides: {
         title: finalTitle,
         parentThreadId: finalParentThreadId,
@@ -101,6 +105,7 @@ export async function resolveApproveOverrides(
         // Sync the proposal audit record to the final ownership so the persisted proposal
         // doesn't keep a stale projectPath after an approve-time re-home.
         projectPath: finalProjectPath,
+        reportingMode: finalReportingMode,
       },
     },
   };

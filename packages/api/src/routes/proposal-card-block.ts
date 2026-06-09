@@ -3,17 +3,15 @@
  *
  * The proposal card is the ONLY user-facing approval entry point (no pending dashboard
  * fallback), so it must surface the create-time contract the user is about to approve:
- * reporting mode (fixed at create, not editable on approve — C-Y1) and project ownership.
+ * reporting mode (editable before approve creates the thread) and project ownership.
  * Extracted from callback-propose-thread-routes.ts to keep that route within the F128 AC-X1
  * 350-line cap.
  */
 
 import type { ReportingMode, RichCardBlock, ThreadProposal } from '@cat-cafe/shared';
 
-// F128 Phase Y: user-facing label for each reporting mode (C-Y4 — none shown as
-// "autonomous"). The proposal card MUST surface this create-time contract because
-// it is fixed at create time and not editable on approve (C-Y1).
-// Phase AA (AC-AA1): default is now `final-only`, not `none`.
+// F128: user-facing label for each reporting mode. Phase AA makes `final-only`
+// the default; Phase AC lets the approver override this before creation.
 const REPORTING_MODE_LABEL: Record<ReportingMode, string> = {
   none: 'autonomous（下游自治，无强制回报）',
   'final-only': 'final-only（默认 · 完成时回报一次）',

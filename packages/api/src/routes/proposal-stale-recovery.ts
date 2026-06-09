@@ -59,7 +59,8 @@ export async function handleApproveStaleClaim(args: {
     // the approve-time finalProjectPath BEFORE the crash. Backfill projectPath into the proposal
     // audit here so a crash between recordCreatedThread and finalize doesn't leave the audit on
     // the pre-override path (honors the AC-Z2 projectPath audit-sync contract on the recovery
-    // path). (The other approve-time overrides aren't recoverable post-crash — pre-existing.)
+    // path). recordCreatedThread now also checkpoints approve-time overrides before this window,
+    // so non-thread-truth fields such as reportingMode are already carried by `proposal`.
     const recoveredThread = await threadStore.get(proposal.createdThreadId);
     const recovered = await proposalStore.finalizeApproval({
       proposalId: proposal.proposalId,
@@ -115,7 +116,8 @@ export async function handleRejectStaleClaim(args: {
   if (proposal.createdThreadId) {
     // A thread already exists → this proposal is approved, not rejectable. Finalize it and, as on
     // the approve-stale path, backfill projectPath from the created thread so the audit matches
-    // the thread's actual ownership.
+    // the thread's actual ownership. Other approval overrides are preserved by the
+    // recordCreatedThread checkpoint when the normal approve route reached Stage 1.5.
     const recoveredThread = await threadStore.get(proposal.createdThreadId);
     const recovered = await proposalStore.finalizeApproval({
       proposalId: proposal.proposalId,

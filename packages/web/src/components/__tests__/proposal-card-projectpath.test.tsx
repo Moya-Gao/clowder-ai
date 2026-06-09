@@ -46,7 +46,7 @@ import type { RichCardBlock } from '@/stores/chat-types';
 const PROPOSAL_ID = 'proposal_pp123';
 const DEFAULT_NOTICE = '未指定（default · 子 thread 无项目归属，cat 会回落运行时默认目录）';
 
-function makeBlock(ownership: string): RichCardBlock {
+function makeBlock(ownership: string, reportingMode = 'final-only（默认 · 完成时回报一次）'): RichCardBlock {
   return {
     id: `proposal-${PROPOSAL_ID}`,
     kind: 'card',
@@ -57,6 +57,7 @@ function makeBlock(ownership: string): RichCardBlock {
     fields: [
       { label: '父 Thread', value: 'thread_parent' },
       { label: '建议成员', value: '（未指定）' },
+      { label: '回报模式', value: reportingMode },
       { label: '项目归属', value: ownership },
     ],
     actions: [
@@ -142,6 +143,8 @@ describe('ProposalCard — projectPath ownership', () => {
 
   it('surfaces the project ownership in the card (AC-Z4 visibility)', async () => {
     await render(makeBlock('/Users/me/projects/clowder-ai'));
+    expect(container.textContent).toContain('回报模式');
+    expect(container.textContent).toContain('final-only');
     expect(container.textContent).toContain('项目归属');
     expect(container.textContent).toContain('/Users/me/projects/clowder-ai');
   });
@@ -175,6 +178,37 @@ describe('ProposalCard — projectPath ownership', () => {
     });
     const sentBody = readApproveBody();
     expect(sentBody.projectPath).toBe('/Users/me/projects/clowder-ai');
+  });
+
+  it('edit + approve lets the user override reportingMode to autonomous', async () => {
+    await render(makeBlock('/Users/me/projects/cat-cafe'));
+    await act(async () => {
+      findButton('编辑').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    const select = findSelectByLabel('回报模式');
+    expect(select.value).toBe('final-only');
+    await act(async () => {
+      select.value = 'none';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    apiFetchMock.mockImplementation(() =>
+      Promise.resolve(
+        jsonResponse(200, { proposalId: PROPOSAL_ID, threadId: 'thread_autonomous', status: 'approved' }),
+      ),
+    );
+    await act(async () => {
+      findButton('批准（含编辑）').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const sentBody = readApproveBody();
+    expect(sentBody.reportingMode).toBe('none');
+    expect(container.textContent).toContain('autonomous（下游自治，无强制回报）');
+    expect(container.textContent).not.toContain('final-only（默认 · 完成时回报一次）');
   });
 
   it('edit mode offers an existing-project picker for default-owned proposals (AC-AB2)', async () => {
@@ -237,5 +271,48 @@ describe('ProposalCard — projectPath ownership', () => {
       findButton('编辑').dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
     expect(findInputByLabel('项目归属').value).toBe('/Users/me/projects/repo');
+  });
+
+  it('uses finalized reportingMode from proposal GET after reload (cloud P2)', async () => {
+    apiFetchMock.mockImplementation(() =>
+      Promise.resolve(
+        jsonResponse(200, {
+          proposal: {
+            proposalId: PROPOSAL_ID,
+            status: 'approved',
+            createdThreadId: 'thread_autonomous',
+            reportingMode: 'none',
+          },
+        }),
+      ),
+    );
+
+    await render(makeBlock('/Users/me/projects/cat-cafe', 'final-only（默认 · 完成时回报一次）'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).toContain('autonomous（下游自治，无强制回报）');
+    expect(container.textContent).not.toContain('final-only（默认 · 完成时回报一次）');
+  });
+
+  it('uses finalized reportingMode from proposal socket updates (cloud P2)', async () => {
+    await render(makeBlock('/Users/me/projects/cat-cafe', 'final-only（默认 · 完成时回报一次）'));
+
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent('cat-cafe:proposal-updated', {
+          detail: {
+            proposalId: PROPOSAL_ID,
+            status: 'approved',
+            createdThreadId: 'thread_socket_autonomous',
+            reportingMode: 'none',
+          },
+        }),
+      );
+    });
+
+    expect(container.textContent).toContain('autonomous（下游自治，无强制回报）');
+    expect(container.textContent).not.toContain('final-only（默认 · 完成时回报一次）');
   });
 });

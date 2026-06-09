@@ -144,4 +144,28 @@ describe('F128 concurrency + stale-claim recovery', () => {
     const proposal = await ctx.proposalStore.get(proposalId);
     assert.equal(proposal.projectPath, '/projects/rehomed', 'reject-stale recovery also syncs projectPath audit');
   });
+
+  test('stale approve recovery preserves checkpointed reportingMode override', async () => {
+    const ctx = await createProposalTestContext();
+    const source = await ctx.threadStore.create('alice', 'Source', 'default');
+    const { proposalId } = JSON.parse(
+      (
+        await ctx.propose({
+          userId: 'alice',
+          threadId: source.id,
+          reportingMode: 'final-only',
+        })
+      ).body,
+    );
+    ctx.proposalStore.claimForApproval({ proposalId, approvedBy: 'alice' });
+    const orphanedThread = await ctx.threadStore.create('alice', 'Recovered', 'default');
+    ctx.proposalStore.recordCreatedThread(proposalId, orphanedThread.id, { reportingMode: 'none' });
+    ctx.proposalStore.proposals.get(proposalId).claimedAt = Date.now() - 60_000;
+
+    const res = await ctx.approve('alice', proposalId);
+    assert.equal(res.statusCode, 200);
+    const proposal = await ctx.proposalStore.get(proposalId);
+    assert.equal(proposal.status, 'approved');
+    assert.equal(proposal.reportingMode, 'none', 'stale recovery must preserve the user-approved final mode');
+  });
 });

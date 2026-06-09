@@ -2,9 +2,9 @@
 /**
  * F128 Phase Y P1-2 — proposal card MUST surface reportingMode.
  *
- * reportingMode is a create-time contract, fixed and NOT editable on approve
- * (C-Y1). The user approves the card, so the card MUST show which reporting
- * contract they are signing off on (default `none` → shown as autonomous, C-Y4).
+ * reportingMode is part of the approval contract. The proposal card MUST show
+ * which contract the cat proposed, and the frontend lets the user override it
+ * before creation (post-creation dynamic switching is still unsupported).
  */
 
 import assert from 'node:assert/strict';

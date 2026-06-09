@@ -7,56 +7,28 @@ import { pushThreadRouteWithHistory } from '@/components/ThreadSidebar/thread-na
 import type { RichCardBlock } from '@/stores/chat-types';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
-import { EditField, ProjectPathEdit } from './ProposalCardFields';
-
-type Status = 'pending' | 'approving' | 'approved' | 'rejected';
-
-interface ProposalSnapshot {
-  proposalId: string;
-  status: Status;
-  createdThreadId?: string;
-}
+import {
+  EditField,
+  formatReportingMode,
+  ProjectPathEdit,
+  ReportingModeEdit,
+  type ReportingModeEditValue,
+} from './ProposalCardFields';
+import {
+  extractProposalId,
+  isDefaultProjectOwnership,
+  type ProposalCardStatus,
+  type ProposalFieldEdits,
+  type ProposalSnapshot,
+  parsePreferredCats,
+  readField,
+  readProjectPathEdit,
+  readReportingModeEdit,
+} from './ProposalCardUtils';
 
 interface ProposalCardProps {
   block: RichCardBlock;
   messageId?: string;
-}
-
-interface ProposalFieldEdits {
-  title: string;
-  parentThreadId: string;
-  preferredCats: string;
-  initialMessage: string;
-  projectPath: string;
-}
-
-function extractProposalId(block: RichCardBlock): string | null {
-  const approveAction = block.actions?.find((a) => a.action === 'propose:approve');
-  const id = approveAction?.payload?.proposalId;
-  return typeof id === 'string' ? id : null;
-}
-
-function readField(block: RichCardBlock, label: string): string {
-  return block.fields?.find((f) => f.label === label)?.value ?? '';
-}
-
-function parsePreferredCats(raw: string): string[] {
-  return raw
-    .split(',')
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0 && s !== '（未指定）');
-}
-
-// The 项目归属 card field shows the real path for an owned thread, or a "未指定（default …）"
-// notice when the child has no ownership. For the edit input, prefill only a real absolute path
-// (so an empty box means "no override / keep default"); the default-notice string isn't editable.
-function readProjectPathEdit(block: RichCardBlock): string {
-  const value = readField(block, '项目归属');
-  return value.startsWith('/') ? value : '';
-}
-
-function isDefaultProjectOwnership(value: string): boolean {
-  return value.length > 0 && !value.startsWith('/');
 }
 
 function selectExistingProjectPaths(state: ReturnType<typeof useChatStore.getState>): string[] {
@@ -66,22 +38,25 @@ function selectExistingProjectPaths(state: ReturnType<typeof useChatStore.getSta
 
 export function ProposalCard({ block }: ProposalCardProps) {
   const proposalId = useMemo(() => extractProposalId(block), [block]);
-  const [status, setStatus] = useState<Status>('pending');
+  const [status, setStatus] = useState<ProposalCardStatus>('pending');
   const [resultThreadId, setResultThreadId] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pinOnApprove, setPinOnApprove] = useState(false);
+  const [effectiveReportingMode, setEffectiveReportingMode] = useState<ReportingModeEditValue>(() =>
+    readReportingModeEdit(block),
+  );
   const [edits, setEdits] = useState<ProposalFieldEdits>(() => ({
     title: block.title.replace(/^📥 提议新建 thread：/, ''),
     parentThreadId: readField(block, '父 Thread'),
     preferredCats: readField(block, '建议成员'),
     initialMessage: readField(block, '首条消息'),
     projectPath: readProjectPathEdit(block),
+    reportingMode: readReportingModeEdit(block),
   }));
-  // 项目归属 display string straight from the card (includes the "未指定（default …）" notice
-  // for unowned children) so the user sees which repo the thread lands in before approving.
   const projectOwnership = readField(block, '项目归属');
+  const reportingMode = formatReportingMode(effectiveReportingMode);
   const needsProjectChoice = isDefaultProjectOwnership(projectOwnership);
   const existingProjects = useChatStore(useShallow(selectExistingProjectPaths));
 
@@ -97,6 +72,10 @@ export function ProposalCard({ block }: ProposalCardProps) {
         if (data.proposal && !cancelled) {
           setStatus(data.proposal.status);
           if (data.proposal.createdThreadId) setResultThreadId(data.proposal.createdThreadId);
+          if (data.proposal.reportingMode) {
+            setEffectiveReportingMode(data.proposal.reportingMode);
+            setEdits((prev) => ({ ...prev, reportingMode: data.proposal.reportingMode ?? prev.reportingMode }));
+          }
         }
       } catch {
         // best-effort sync; keep the optimistic 'pending' if fetch fails
@@ -115,6 +94,10 @@ export function ProposalCard({ block }: ProposalCardProps) {
       if (!detail || detail.proposalId !== proposalId) return;
       setStatus(detail.status);
       if (detail.createdThreadId) setResultThreadId(detail.createdThreadId);
+      if (detail.reportingMode) {
+        setEffectiveReportingMode(detail.reportingMode);
+        setEdits((prev) => ({ ...prev, reportingMode: detail.reportingMode ?? prev.reportingMode }));
+      }
     };
     window.addEventListener('cat-cafe:proposal-updated', handler);
     return () => {
@@ -135,6 +118,7 @@ export function ProposalCard({ block }: ProposalCardProps) {
           // F128: empty box = no override (keep the proposal's projectPath); a path re-homes the
           // child thread. Backend validates + fail-loud rejects an invalid path (400).
           projectPath: edits.projectPath.trim() || undefined,
+          reportingMode: edits.reportingMode,
         }
       : {};
     try {
@@ -146,6 +130,7 @@ export function ProposalCard({ block }: ProposalCardProps) {
       const data = (await res.json()) as { threadId?: string; error?: string };
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
       const newThreadId = data.threadId ?? null;
+      setEffectiveReportingMode(editing ? edits.reportingMode : effectiveReportingMode);
       setResultThreadId(newThreadId);
       setStatus('approved');
       setEditing(false);
@@ -165,7 +150,6 @@ export function ProposalCard({ block }: ProposalCardProps) {
           // best-effort: pin failure should not block the approve success UX
         }
       }
-      // AC-F8: auto-navigate to the new thread
       if (newThreadId) {
         pushThreadRouteWithHistory(newThreadId, typeof window !== 'undefined' ? window : undefined);
       }
@@ -174,7 +158,7 @@ export function ProposalCard({ block }: ProposalCardProps) {
     } finally {
       setLoading(false);
     }
-  }, [proposalId, editing, edits, pinOnApprove]);
+  }, [proposalId, editing, edits, effectiveReportingMode, pinOnApprove]);
 
   const reject = useCallback(async () => {
     if (!proposalId) return;
@@ -224,6 +208,9 @@ export function ProposalCard({ block }: ProposalCardProps) {
             <span className="text-cafe-muted">建议成员:</span>{' '}
             <span className="font-mono break-all">{edits.preferredCats || '（未指定）'}</span>
           </div>
+          <div className="sm:col-span-2">
+            <span className="text-cafe-muted">回报模式:</span> <span>{reportingMode}</span>
+          </div>
           {projectOwnership && (
             <div className="sm:col-span-2">
               <span className="text-cafe-muted">项目归属:</span>{' '}
@@ -255,6 +242,10 @@ export function ProposalCard({ block }: ProposalCardProps) {
             onChange={(v) => setEdits((p) => ({ ...p, projectPath: v }))}
             existingProjects={existingProjects}
             defaultParent={needsProjectChoice}
+          />
+          <ReportingModeEdit
+            value={edits.reportingMode}
+            onChange={(v) => setEdits((p) => ({ ...p, reportingMode: v }))}
           />
           <EditField
             label="建议成员 (逗号分隔)"

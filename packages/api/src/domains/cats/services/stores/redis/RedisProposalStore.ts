@@ -11,7 +11,7 @@
  * IMPORTANT: ioredis keyPrefix auto-prefixes ALL commands.
  */
 
-import type { ProposalStatus, ThreadProposal } from '@cat-cafe/shared';
+import type { ProposalApproveOverrides, ProposalStatus, ThreadProposal } from '@cat-cafe/shared';
 import { generateProposalId } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
 import type {
@@ -129,8 +129,13 @@ export class RedisProposalStore implements IProposalStore {
     return ok ? updated : null;
   }
 
-  async recordCreatedThread(proposalId: string, threadId: string): Promise<void> {
-    await this.redis.eval(RECORD_CREATED_THREAD_LUA, 1, ProposalKeys.detail(proposalId), threadId);
+  async recordCreatedThread(proposalId: string, threadId: string, overrides?: ProposalApproveOverrides): Promise<void> {
+    await this.redis.eval(
+      RECORD_CREATED_THREAD_LUA,
+      1,
+      ProposalKeys.detail(proposalId),
+      ...this.createdThreadCheckpointFields(threadId, overrides),
+    );
   }
 
   async rollbackClaim(proposalId: string): Promise<boolean> {
@@ -251,6 +256,8 @@ export class RedisProposalStore implements IProposalStore {
       // divergence the in-memory store can't surface (LL: in-memory masks Redis behavior).
       'projectPath',
       updated.projectPath,
+      'reportingMode',
+      updated.reportingMode ?? '',
     ];
     if (updated.createdThreadId) fields.push('createdThreadId', updated.createdThreadId);
     if (updated.initialMessage !== undefined) {
@@ -258,6 +265,19 @@ export class RedisProposalStore implements IProposalStore {
     } else {
       fields.push('initialMessage', '');
     }
+    return fields;
+  }
+
+  private createdThreadCheckpointFields(threadId: string, overrides: ProposalApproveOverrides | undefined): string[] {
+    const fields = ['createdThreadId', threadId];
+    if (!overrides) return fields;
+    if (overrides.title !== undefined) fields.push('title', overrides.title);
+    if (overrides.parentThreadId !== undefined) fields.push('parentThreadId', overrides.parentThreadId);
+    if (overrides.preferredCats !== undefined) fields.push('preferredCats', JSON.stringify(overrides.preferredCats));
+    if (overrides.projectPath !== undefined) fields.push('projectPath', overrides.projectPath);
+    if (overrides.reportingMode !== undefined) fields.push('reportingMode', overrides.reportingMode);
+    if (overrides.initialMessage === null) fields.push('initialMessage', '');
+    else if (typeof overrides.initialMessage === 'string') fields.push('initialMessage', overrides.initialMessage);
     return fields;
   }
 
