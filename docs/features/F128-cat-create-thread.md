@@ -303,3 +303,31 @@ F128 遵循 ADR-035 Proposal-First Agent Actions：
 > 猫猫创建 thread 之类的能力应该弹出一个卡片，填写好创建的信息，铲屎官点击再创建，不是悄摸摸创建。
 
 因此 PR-A 的方向也需从 `cat_cafe_create_thread` 调整为 `cat_cafe_propose_thread`。幂等性、所有权校验、Redis pipeline 仍然有效，但它们属于 approve 后执行阶段的技术约束；产品入口不再是猫直接创建。
+
+### Phase AB: Default-Parent Project Awareness（2026-06-09，待实施）
+
+> **Status**: 📋 spec drafted
+> **Source**: 铲屎官 2026-06-09 反馈："我们的 f128 为什么创建的 thread 有的在未分类呀？难道不应该是和主 thread 一样？或者允许猫猫选到底哪个 project 如果没选那就和主 thread 一样"
+> **Why**: Phase Z 的 projectPath 继承逻辑本身正确（"没选就继承 parent"）。但当 parent 本身是 `default`（eval/lobby/meta thread 无项目归属）时，子 thread 静默继承 `default` = 进"未分类"——继承合法但体验错。Live 数据验证：`F192 publish_verdict` 和 `F200-B' fix shadowConsumedMRR` 的子 thread 都是 `default`，因为 parent `thread_eval_memory` 本身就是 `default`。
+
+#### Design Decision
+
+1. **parent 有项目** → 继承（保持 Phase Z 现有逻辑，不动）
+2. **parent 是 `default`/未分类** → 不能静默继承：
+   - Proposal card 必须强提示"这个子 thread 会进未分类——请选择项目或明确确认保留未分类"
+   - 用户可从已有 project 列表选择（不是纯文本框），或明确确认 default
+3. **Cat-facing 引导**：tool description / skill 补一句：从 eval/default/lobby thread 发起 repo/实现类子 thread 时必须显式传 `projectPath`；纯 eval/meta thread 才可留 default
+4. **可选**：已产生的误归类 thread 提供 re-home 操作（低优先级，按需决定）
+
+#### Acceptance Criteria
+
+- [ ] AC-AB1: approve 时如果 effective projectPath = `default`，response 里加 `warnings: ["子 thread 将进入未分类"]`
+- [ ] AC-AB2: 前端 proposal card 在 parent 是 `default` 时，projectPath 字段升级为强提示（项目选择器或显眼 warning），不是安静的文本框
+- [ ] AC-AB3: `cat_cafe_propose_thread` MCP description 补充：从 `default` parent 提议实现/coding 类子 thread 时必须显式传 `projectPath`
+- [ ] AC-AB4: `thread-orchestration` skill 补一句同上引导
+
+#### Diagnosis（砚砚 GPT-5.5，2026-06-09）
+
+- 查 live `/api/threads` 坐实：两个典型"未分类"子 thread 的 parent 都是 `thread_eval_memory`（`projectPath=default`）
+- 排除后端丢字段的假设：继承逻辑在执行，是 parent 源头就没项目
+- 底层能力已有（`projectPath` 可传 + approval card 可改），缺的是 UX 层的强提示
