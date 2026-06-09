@@ -1,11 +1,11 @@
 ---
-feature_ids: []
+feature_ids: [F228]
 topics: [skills, governance, mount, symlink, distribution, ux]
 doc_kind: decision
 created: 2026-04-07
 status: draft
 supersedes: ADR-009
-related: [F070, F041, F038]
+related: [F070, F041, F038, F228]
 ---
 
 # ADR-025: Skills Canonical Mount Policy — 受管 Symlinks + 外部生态共存
@@ -186,6 +186,7 @@ Hub 扫描时需分两层：
 ## 相关文档
 
 - [ADR-009: Cat Café Skills 分发策略](009-cat-cafe-skills-distribution.md)（superseded，保留为历史记录）
+- [F228: Multi-Project Skill Mount Management](../features/F228-multi-project-skill-mount-management.md)（将本 ADR 的 canonical mount policy 产品化为多项目 / per-provider skill 管理）
 - [F070: Portable Governance](../features/F070-portable-governance.md)
 - [F041: Capability Dashboard](../features/F041-capability-dashboard.md)
 - [clowder-ai#386](https://github.com/zts212653/clowder-ai/issues/386)
