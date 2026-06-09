@@ -200,7 +200,7 @@ describe('ConnectorBubble theme', () => {
     const html = container.innerHTML;
     expect(html).toContain('--color-github-review-surface');
     expect(html).toContain('<svg');
-    expect(html).toContain('#2563EB');
+    expect(html).toContain('#778899');
   });
 
   it('uses OKLCH-derived surface for github-ci bubble', () => {
