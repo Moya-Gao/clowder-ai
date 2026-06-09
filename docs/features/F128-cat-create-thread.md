@@ -304,9 +304,9 @@ F128 遵循 ADR-035 Proposal-First Agent Actions：
 
 因此 PR-A 的方向也需从 `cat_cafe_create_thread` 调整为 `cat_cafe_propose_thread`。幂等性、所有权校验、Redis pipeline 仍然有效，但它们属于 approve 后执行阶段的技术约束；产品入口不再是猫直接创建。
 
-### Phase AB: Default-Parent Project Awareness（2026-06-09，implemented）
+### Phase AB: Default-Parent Project Awareness（2026-06-09，merged）
 
-> **Status**: ✅ implemented in `feat/f128-project-choice` (PR pending)
+> **Status**: ✅ merged via PR #2170 (squash `c411ba14d`)
 > **Source**: 铲屎官 2026-06-09 反馈："我们的 f128 为什么创建的 thread 有的在未分类呀？难道不应该是和主 thread 一样？或者允许猫猫选到底哪个 project 如果没选那就和主 thread 一样"
 > **Why**: Phase Z 的 projectPath 继承逻辑本身正确（"没选就继承 parent"）。但当 parent 本身是 `default`（eval/lobby/meta thread 无项目归属）时，子 thread 静默继承 `default` = 进"未分类"——继承合法但体验错。Live 数据验证：`F192 publish_verdict` 和 `F200-B' fix shadowConsumedMRR` 的子 thread 都是 `default`，因为 parent `thread_eval_memory` 本身就是 `default`。
 
@@ -329,7 +329,7 @@ F128 遵循 ADR-035 Proposal-First Agent Actions：
 #### Implementation Notes
 
 - API approve response: `proposal-routes.ts` returns a warning when the final projectPath remains `default`; pinned by `proposal-project-path.test.js`.
-- Frontend card: `ProposalCard.tsx` detects the default ownership field, shows a visible warning, changes approve copy to "保留未分类", and `ProposalCardFields.tsx` offers existing project paths from the sidebar store plus manual absolute-path input; pinned by `proposal-card-projectpath.test.tsx`.
+- Frontend card: `ProposalCard.tsx` detects the default ownership field, shows a visible warning, changes approve copy to "保留未分类", and `ProposalCardFields.tsx` offers existing project paths from the sidebar store plus manual absolute-path input; the picker subscribes to thread project updates so fresh loads populate after `/api/threads` hydration; pinned by `proposal-card-projectpath.test.tsx`.
 - Cat-facing guidance: `cat_cafe_propose_thread` MCP description and `thread-orchestration` skill now tell cats to pass explicit `projectPath` when forking implementation/repo work from default/eval/lobby threads.
 
 #### Diagnosis（砚砚 GPT-5.5，2026-06-09）
