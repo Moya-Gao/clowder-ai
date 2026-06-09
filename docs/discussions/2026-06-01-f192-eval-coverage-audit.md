@@ -4,6 +4,8 @@
 > 触发来源：[元宝二面复盘](../career-planning/2026-06-01-yuanbao-round2-eval-deep-dive.md)（面试官挑战"你们的 eval 不是真值"）
 > 审计人：[宪宪/Opus-46🐾]
 
+> **2026-06-09 truth-sync note**：本审计的 Phase F 状态是 2026-06-01 当时快照。之后 `eval:capability-wakeup` 已由 PR #2117 / #2125 接通 publish path，并已产出首个 live verdict（`2026-06-06-cap-wakeup-c1-baseline-probe`）。当前真实状态见 `docs/features/F192-socio-technical-harness-eval.md` 的 Phase F checklist：AC-F2-F6 v1 已落地；AC-F7-F9 仍未完成（13 capability 覆盖、cross-family baseline、re-eval closure）。
+
 ---
 
 ## 一、审计框架：Eval 四层模型

@@ -57,7 +57,7 @@ created: 2026-02-26
 | F181 | Reserved Feature Slot — 待补充需求锚点 | idea | 待定 | internal | [F181](features/F181-reserved-feature-slot.md) |
 | F188 | Library Stewardship — 图书馆管护与成长（Phase K: Memory Center Config Health Surface） | in-progress | 布偶猫 | internal | [F188](features/F188-library-stewardship.md) |
 | F189 | Operation Context Unification — 操作上下文单点化（HTTP/MCP/CLI/A2A 统一 builder） | spec | 布偶猫 | internal | [F189](features/F189-operation-context-unification.md) |
-| F192 | Socio-Technical Harness Eval — Phase F `eval:capability-wakeup` reopened | in-progress | 布偶猫 | internal | [F192](features/F192-socio-technical-harness-eval.md) |
+| F192 | Socio-Technical Harness Eval — Phase F coverage + Phase G task-outcome closure | in-progress | 布偶猫 | internal | [F192](features/F192-socio-technical-harness-eval.md) |
 | F195 | Meeting Copilot — 实时会议私人智囊团（AUDHD augmentation） | spec | 布偶猫 | internal | [F195](features/F195-meeting-copilot-live-advisory.md) |
 | F196 | Safety Guardian — 猫猫守护者（紧急安全链路） | idea | 布偶猫 | internal | [F196](features/F196-safety-guardian.md) |
 | F198 | Claude Code Subscription Carrier — 6/15 SDK Credit 拐点前救宪宪 | spec | 布偶猫 Opus 4.7 | internal | [F198](features/F198-claude-code-subscription-carrier.md) |
@@ -74,6 +74,7 @@ created: 2026-02-26
 | F220 | A2A 协作的可观测·可靠·可恢复（启动中占位可见 + 卡死根因 + force-reset 逃生口 UI）| spec | 宪宪 Opus-4.8（驱动 thread_mpxf7fdx5gonafzh）| internal | [F220](features/F220-a2a-collab-reliability.md) |
 | F23-followup | F23 Phase 2 — dir-size 5 个目录真拆（utils/config/providers 快线 + invocation/routes 跟 F219 协调）| in-progress | 宪宪/Opus-4.7 | internal | [F23 § Phase 2](features/F023-directory-corrosion-defense.md) |
 | F224 | A2A 协作的会话/消息状态可靠性（会话延续协调器 + 消息去重 + 触发合并 + 重生会话）| spec | 宪宪 Opus-4.8 | community [clowder-ai#834](https://github.com/zts212653/clowder-ai/pull/834) | [F224](features/F224-a2a-session-message-reliability.md) |
+| F225 | Cat-Initiated Session Handoff — 猫主导 session 接力（硬层 done；软层 + eval 层待实现） | in-progress | 布偶猫 Opus 4.8 | internal | [F225](features/F225-cat-initiated-session-handoff.md) |
 | F226 | Presentation Surface / Demo Mode（右侧 surface 浮窗 PiP + AppShell 级 host + tear-off 快照，演示时 PPT 浮窗常驻、右侧切证据不打断）| Phase A done | 宪宪 Opus-4.8 | internal | [F226](features/F226-presentation-surface-demo-mode.md) |
 | F227 | Event Memory — 事件级记忆索引（拉闸记录 / 认知状态转折一等公民 + magic word 时间线 + teleport message 级跳转 + 飞轮可观测性层）| in-progress | 宪宪 Opus-4.8 | internal | [F227](features/F227-event-memory.md) |
 | F228 | Multi-Project Skill Mount Management — 多项目 / per-provider Skills 挂载管理 | spec | community @mindfn + maintainers | community [clowder-ai#760](https://github.com/zts212653/clowder-ai/pull/760) | [F228](features/F228-multi-project-skill-mount-management.md) |
