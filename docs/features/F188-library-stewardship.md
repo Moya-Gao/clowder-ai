@@ -236,7 +236,7 @@ Phase B/J 解决**内部 health debt**（orphan edges / verification debt，系�
 | `passage_vectors_supported` | embedding service runtime state | `opts.embeddingService?.isReady() === true` (line 360) |
 | `docsRoot` 配置（用于 `docs_root_suspicious` 检测） | LibraryCatalog / collection manifest | `opts.libraryCatalog?.getCollections()` (read manifest), 非 evidence.sqlite |
 
-evaluator 在 status endpoint handler 里聚合三类输入 → 计算 warnings → 输出。
+evaluator 在 status endpoint handler 里聚合**四类**输入 → 计算 warnings → 输出。
 
 **Warning codes (v1)**：
 
