@@ -42,7 +42,7 @@ author: opus-47
 - Type `ConfigWarning`: `{ code, message, suggestedAction }`（v1 无 severity per KD-AC-K2）
 - Type `WarningCode` union (5 个)
 - 5 个纯 detector 函数：
-  - `detectDocsRootSuspicious(signals)`: **先 filter `status === 'active' \|\| status === 'routable'`**（archived 不参与，per P2-1）→ 检查剩余 collection.root 是否存在/为目录/非空（`fs.existsSync` + `fs.statSync` + `fs.readdirSync`）；测试覆盖 active+missing→报警 / archived+missing→不报警 两条 path
+  - `detectDocsRootSuspicious(signals)`: **filter `(m.status ?? 'active') !== 'archived'`**（archived 跳过；registered/indexing/active/stale/blocked 全参与；R4 修正：`routable` 是 LibraryCatalog 派生概念非 manifest 字段值）→ 检查剩余 collection.root 是否存在/为目录/非空（`fs.existsSync` + `fs.statSync` + `fs.readdirSync`）；**测试覆盖 4 条 path**：active+missing→报警 / stale+missing→报警 / archived+missing→不报警 / status 字段缺失（默认 active）+missing→报警
   - `detectEmbeddingDisabled(signals)`: `embedding_model === null`
   - `detectVectorsEmpty(signals)`: `vectors_count === 0 && docs_count > 0`
   - `detectGraphEmpty(signals)`: `edges_count === 0 && docs_count > 0`
