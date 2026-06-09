@@ -20,15 +20,26 @@ source writes.
 
 Gemma 4 26B A4B 8-bit is feasible on this machine from a hardware perspective,
 but it was not downloaded or run in this spike. The local machine has 128 GB
-unified memory and about 1.1 TiB free disk, but no Gemma 4 cache was present.
-The relevant 8-bit artifacts are roughly 26.8-28 GB depending on text-only vs
-multimodal MLX packaging, and the official safetensors weights are about 51.6 GB
-before quantization. That crosses the "large download / persistent install"
-threshold, so CVO approval should precede a Gemma-specific run.
+unified memory and about 1.1 TiB free disk, but no complete Gemma 4 cache was
+present. The relevant 8-bit artifacts are roughly 26.8-28 GB depending on
+text-only vs multimodal MLX packaging, and the official safetensors weights are
+about 51.6 GB before quantization. That crosses the "large download /
+persistent install" threshold, so CVO approval should precede a Gemma-specific
+run.
+
+Correction after CVO pushback: memory clerk scope is not text-only. Meeting
+audio exports, screenshots, design artifacts, and video work need media-backed
+anchors too. The next decision should choose which lane to spike first:
+
+- Text clerk lane: `mlx-community/gemma-4-text-26b-a4b-it-8bit` via `mlx-lm`
+  for thread/repo/taste/source-hygiene text.
+- Media clerk lane: `mlx-community/gemma-4-26b-a4b-it-8bit` via `mlx-vlm` for
+  screenshots and sampled video frames; audio needs an ASR lane first, then the
+  text clerk consumes timestamped transcripts.
 
 Recommended next move: approve Phase A only as a strict MCP wrapper with schema
-validation and quote-anchor checks. Separately ask CVO whether to download
-`mlx-community/gemma-4-text-26b-a4b-it-8bit` for the Gemma-specific follow-up.
+validation and media/text anchor checks. Separately ask CVO which Phase 0b lane
+matters first: text clerk, media clerk, or both.
 
 ## Constraints Honored
 
@@ -52,7 +63,7 @@ validation and quote-anchor checks. Separately ask CVO whether to download
 | Ollama | installed `0.12.9`; no server running; local manifest only `manutic/nomic-embed-code` |
 | MLX | not globally installed; installed `mlx-lm==0.31.3` and `mlx==0.31.2` in `/tmp` venv |
 | Pi | not globally installed; verified via `npx @earendil-works/pi-coding-agent@0.79.0` |
-| Existing HF cache | no Gemma 4; has `mlx-community/Qwen3-8B-4bit-AWQ` (4.4 GB) and `mlx-community/Qwen3.5-35B-A3B-4bit` (19 GB) |
+| Existing HF cache | no complete Gemma 4 weights; has `mlx-community/Qwen3-8B-4bit-AWQ` (4.4 GB), `mlx-community/Qwen3.5-35B-A3B-4bit` (19 GB), `mlx-community/Qwen3-VL-8B-Instruct-4bit` (5.4 GB), `mlx-community/Qwen3-ASR-1.7B-8bit` (2.3 GB), and `mlx-community/whisper-large-v3-turbo-asr-fp16` (1.5 GB) |
 
 ## Pi Carrier Boundary
 
@@ -85,6 +96,24 @@ parameters, 3.8B active parameters, 30 layers, 1024 token sliding window, 256K
 context, and text/image modalities. It is a plausible clerk candidate because
 active parameters are small relative to total weight size.
 
+Important modality correction: the official Gemma 4 26B A4B instruction model is
+multimodal (`image-text-to-text`). The `mlx-community/gemma-4-text-26b-a4b-it-8bit`
+package is a text-generation conversion for `mlx-lm`, not the full multimodal
+runtime surface. The full Mac multimodal route is
+`mlx-community/gemma-4-26b-a4b-it-8bit` via `mlx-vlm`.
+
+For memory clerk design, "source anchors" should generalize beyond line ranges:
+
+- Text: `filePath` / `lineStart` / `lineEnd` / exact quote.
+- Audio: `filePath` / `startMs` / `endMs` / transcript quote / ASR model.
+- Video: `filePath` / `startMs` / `endMs` / sampled frame ids / VLM caption or
+  OCR quote.
+- Image: `filePath` / image region or full-image hash / VLM caption or OCR
+  quote.
+
+The model still produces candidates, not truth. Media candidates must remain
+reviewable and replayable from timestamps/frames.
+
 Artifact sizing checked without downloading weights:
 
 | Artifact | Source | Size |
@@ -98,7 +127,8 @@ Artifact sizing checked without downloading weights:
 
 Feasibility read: hardware is enough; disk is enough; MLX path is the cleanest
 Apple Silicon route. Actual Gemma behavior remains unverified until CVO approves
-the 26.8 GB text model download or an equivalent already-cached artifact appears.
+either the 26.8 GB text model download, the 28 GB multimodal model download, or
+both.
 
 ## Fixture Results
 
@@ -220,14 +250,27 @@ Runner recommendation:
 1. Use MLX server on Apple Silicon for the first real local model path.
 2. Use Pi as an optional carrier for offline clerk jobs and fixture generation.
 3. Keep the durable product contract at the MCP tool layer, not Pi.
-4. For the Gemma-specific follow-up, prefer
-   `mlx-community/gemma-4-text-26b-a4b-it-8bit` first. It is text-only and
-   smaller than the multimodal 28 GB package, which fits the memory/eval clerk
-   workload better.
+4. For the Gemma-specific follow-up, choose the model by lane:
+   - Text/repo/thread/taste/source-hygiene clerk:
+     `mlx-community/gemma-4-text-26b-a4b-it-8bit` with `mlx-lm`.
+   - Image/screenshot/video-frame clerk:
+     `mlx-community/gemma-4-26b-a4b-it-8bit` with `mlx-vlm`.
+   - Meeting audio clerk:
+     run ASR first (`Qwen3-ASR` / Whisper-style model), then pass timestamped
+     transcript spans into the text clerk. Gemma 4 26B A4B supports text/image,
+     not native audio input.
 
 Open CVO decision:
 
-> Approve or reject a 26.8 GB download of
-> `mlx-community/gemma-4-text-26b-a4b-it-8bit` for a Gemma-specific Phase 0b run.
+> Which Phase 0b lane should run first?
+>
+> 1. Text clerk only: download
+>    `mlx-community/gemma-4-text-26b-a4b-it-8bit` (~26.8 GB).
+> 2. Media clerk: download
+>    `mlx-community/gemma-4-26b-a4b-it-8bit` (~28 GB) and test screenshot /
+>    sampled-video-frame candidates via `mlx-vlm`.
+> 3. Audio clerk: use existing ASR cache first, then feed timestamped transcripts
+>    into the text candidate harness.
+> 4. Run both text and media Gemma lanes.
 
 [砚砚/gpt-5.5🐾]
