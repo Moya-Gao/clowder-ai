@@ -115,6 +115,22 @@ describe('Phase H AC-H4: eval cat instructions point to publish_verdict MCP tool
     assert.match(packet.instructions, /NOT fabricate|will not fabricate|tool will NOT/i, 'forbid fabrication');
   });
 
+  it('task-outcome base instruction uses packet-level 4-class verdict and does not promise 7-class queryability', () => {
+    const packet = buildEvalCatInvocation({
+      domain: { ...TEST_DOMAIN_BASE, domainId: 'eval:task-outcome', sourceAdapter: 'task-outcome-eval' },
+      trendRefs: [],
+      verdictRefs: [],
+      legacyCleanup: { status: 'not_checked' },
+    });
+    assert.match(packet.instructions, /fix\/build\/keep_observe\/delete_sunset/i);
+    assert.match(packet.instructions, /writeback path is unfinished|do not assume it is queryable yet/i);
+    assert.doesNotMatch(
+      packet.instructions,
+      /Verdict is categorical \(success\/corrected_success\/needs_investigation\/harness_fix_needed\/routing_failure\/taste_mismatch\/abandoned\)/,
+      'task-outcome base instruction must not promise the old 7-class packet verdict contract',
+    );
+  });
+
   // 砚砚 R2 P1 cloud + PR-2 (砚砚 R1 P2): only domains with wired generator get
   // publish instructions. PR-2 wires eval:capability-wakeup (in addition to eval:a2a).
   // Remaining (memory/sop/task-outcome) keep base instructions until generators land.
@@ -202,5 +218,22 @@ describe('Phase H AC-H4: eval cat instructions point to publish_verdict MCP tool
       { wiredPublishDomains: new Set(['eval:a2a', 'eval:capability-wakeup']) },
     );
     assert.match(cwWired.instructions, /cat_cafe_publish_verdict/, 'cw with runtime wire must see publish path');
+  });
+
+  it('task-outcome stays silent on publish path even when wiredPublishDomains uses the legacy default set', () => {
+    const packet = buildEvalCatInvocation(
+      {
+        domain: { ...TEST_DOMAIN_BASE, domainId: 'eval:task-outcome', sourceAdapter: 'task-outcome-eval' },
+        trendRefs: [],
+        verdictRefs: [],
+        legacyCleanup: { status: 'not_checked' },
+      },
+      { wiredPublishDomains: new Set(['eval:a2a', 'eval:capability-wakeup']) },
+    );
+    assert.doesNotMatch(
+      packet.instructions,
+      /cat_cafe_publish_verdict/,
+      'task-outcome must remain honest-501 until PR2 flips the real wire',
+    );
   });
 });

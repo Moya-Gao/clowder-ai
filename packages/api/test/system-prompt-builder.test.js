@@ -20,6 +20,24 @@ describe('SystemPromptBuilder', () => {
     return buildSystemPrompt;
   }
 
+  async function withFreshRuntimeRegistry(run) {
+    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
+    const originalConfigs = catRegistry.getAllConfigs();
+    catRegistry.reset();
+    try {
+      const runtimeConfigs = toAllCatConfigs(loadCatConfig(CAT_TEMPLATE_PATH));
+      for (const [id, config] of Object.entries(runtimeConfigs)) {
+        catRegistry.register(id, config);
+      }
+      return await run();
+    } finally {
+      catRegistry.reset();
+      for (const [id, config] of Object.entries(originalConfigs)) {
+        catRegistry.register(id, config);
+      }
+    }
+  }
+
   test('contains display name for opus', async () => {
     const build = await getBuilder();
     const prompt = build({
@@ -262,17 +280,19 @@ describe('SystemPromptBuilder', () => {
   //   - 本文件：char budget（runtime prompt）
   //   - scripts/compile-system-prompt-l0.test.mjs：token budget（L0 compiled markdown）
   test('output size stays under 3900 chars after Magic Words + runtime prompt growth', async () => {
-    const build = await getBuilder();
-    const prompt = build({
-      catId: 'opus',
-      mode: 'serial',
-      chainIndex: 1,
-      chainTotal: 3,
-      teammates: ['codex', 'gemini'],
-      mcpAvailable: true,
-      promptTags: ['critique'],
+    await withFreshRuntimeRegistry(async () => {
+      const build = await getBuilder();
+      const prompt = build({
+        catId: 'opus',
+        mode: 'serial',
+        chainIndex: 1,
+        chainTotal: 3,
+        teammates: ['codex', 'gemini'],
+        mcpAvailable: true,
+        promptTags: ['critique'],
+      });
+      assert.ok(prompt.length < 6400, `Full runtime prompt is ${prompt.length} chars, expected < 6400`);
     });
-    assert.ok(prompt.length < 6400, `Full runtime prompt is ${prompt.length} chars, expected < 6400`);
   });
 
   test('returns empty string for unknown catId', async () => {
@@ -660,16 +680,8 @@ describe('SystemPromptBuilder', () => {
   });
 
   test('buildStaticIdentity roster size with full runtime config stays under 4700 chars after Magic Words growth', async () => {
-    const { buildSystemPrompt } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
-    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
-    const originalConfigs = catRegistry.getAllConfigs();
-    catRegistry.reset();
-    try {
-      const runtimeConfigs = toAllCatConfigs(loadCatConfig(CAT_TEMPLATE_PATH));
-      for (const [id, config] of Object.entries(runtimeConfigs)) {
-        catRegistry.register(id, config);
-      }
-
+    await withFreshRuntimeRegistry(async () => {
+      const { buildSystemPrompt } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
       const prompt = buildSystemPrompt({
         catId: 'opus',
         mode: 'serial',
@@ -680,12 +692,7 @@ describe('SystemPromptBuilder', () => {
         promptTags: ['critique'],
       });
       assert.ok(prompt.length < 6400, `Full runtime prompt is ${prompt.length} chars, expected < 6400`);
-    } finally {
-      catRegistry.reset();
-      for (const [id, config] of Object.entries(originalConfigs)) {
-        catRegistry.register(id, config);
-      }
-    }
+    });
   });
 
   test('buildInvocationContext returns teammates when present', async () => {
@@ -1263,21 +1270,23 @@ describe('SystemPromptBuilder', () => {
   });
 
   test('buildSystemPrompt size with activeParticipants stays under 3900 chars after Magic Words + runtime prompt growth', async () => {
-    const build = await getBuilder();
-    const prompt = build({
-      catId: 'opus',
-      mode: 'serial',
-      chainIndex: 1,
-      chainTotal: 3,
-      teammates: ['codex', 'gemini'],
-      mcpAvailable: true,
-      promptTags: ['critique'],
-      activeParticipants: [
-        { catId: 'codex', lastMessageAt: Date.now(), messageCount: 5 },
-        { catId: 'opus', lastMessageAt: Date.now() - 1000, messageCount: 3 },
-      ],
+    await withFreshRuntimeRegistry(async () => {
+      const build = await getBuilder();
+      const prompt = build({
+        catId: 'opus',
+        mode: 'serial',
+        chainIndex: 1,
+        chainTotal: 3,
+        teammates: ['codex', 'gemini'],
+        mcpAvailable: true,
+        promptTags: ['critique'],
+        activeParticipants: [
+          { catId: 'codex', lastMessageAt: Date.now(), messageCount: 5 },
+          { catId: 'opus', lastMessageAt: Date.now() - 1000, messageCount: 3 },
+        ],
+      });
+      assert.ok(prompt.length < 6400, `Full runtime prompt is ${prompt.length} chars, expected < 6400`);
     });
-    assert.ok(prompt.length < 6400, `Full runtime prompt is ${prompt.length} chars, expected < 6400`);
   });
 
   // --- F042: pinned identity constant + direct-message reply target ---

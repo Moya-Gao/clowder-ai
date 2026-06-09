@@ -76,7 +76,7 @@ describe('handlePublishVerdict', () => {
     // a2a validation first → 400 missing_evidence_refs before reaching generator
     // check. To verify 501 specifically, provide valid sourceRefs + omit generator.
     it('returns 501 unsupported_generator when no generator injected (PR-2 route-layer SoT)', async () => {
-      for (const domain of ['eval:memory', 'eval:sop', 'eval:task-outcome']) {
+      for (const domain of ['eval:memory', 'eval:sop']) {
         // For non-a2a/non-cw domains, provide a2a-shaped refs (kind omitted = a2a default)
         // so handler passes pre-validation and reaches generator presence check.
         const result = await handlePublishVerdict(
@@ -93,6 +93,41 @@ describe('handlePublishVerdict', () => {
         // here is that handler does NOT silently succeed.
         assert.ok(result.status >= 400, `${domain} → ≥400 (got ${result.status})`);
       }
+    });
+
+    it('returns 400 sourceRefs_kind_mismatch when task-outcome domain receives a2a refs', async () => {
+      const result = await handlePublishVerdict(
+        { harnessFeedbackRoot: root },
+        {
+          packet: buildPacket({ domainId: 'eval:task-outcome' }),
+          domain: 'eval:task-outcome',
+          catId: 'opus-47',
+          sourceRefs: { snapshotName: 'snap.yaml', attributionName: 'attr.yaml' },
+        },
+      );
+      assert.ok('error' in result);
+      assert.equal(result.status, 400);
+      assert.equal(result.error, 'sourceRefs_kind_mismatch');
+      assert.match(result.detail, /task-outcome-snapshot/);
+    });
+
+    it('returns 501 unsupported_generator when task-outcome receives valid task-outcome-snapshot refs', async () => {
+      const result = await handlePublishVerdict(
+        { harnessFeedbackRoot: root },
+        {
+          packet: buildPacket({ domainId: 'eval:task-outcome' }),
+          domain: 'eval:task-outcome',
+          catId: 'opus-47',
+          sourceRefs: {
+            kind: 'task-outcome-snapshot',
+            windowStartMs: 1780887600000,
+            windowEndMs: 1780974000000,
+          },
+        },
+      );
+      assert.ok('error' in result);
+      assert.equal(result.status, 501);
+      assert.equal(result.error, 'unsupported_generator');
     });
   });
 

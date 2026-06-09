@@ -52,14 +52,31 @@ export interface A2aSnapshotAttributionRefs {
 }
 
 /**
+ * F192 PR1 — task-outcome replayable snapshot selector. The real generator is
+ * not wired yet; PR1 only reserves the schema/type surface so handler + MCP
+ * tool can validate the shape honestly before PR2 flips the wire.
+ */
+export interface TaskOutcomeSnapshotSourceRefs {
+  kind: 'task-outcome-snapshot';
+  windowStartMs: number;
+  windowEndMs: number;
+  databasePath?: string;
+  evidenceCatId?: string;
+}
+
+/**
  * F192 Phase H 收尾 PR-2 — `VerdictSourceRefs` is a discriminated union (砚砚 R1 Q3).
  * - a2a branch: `{snapshotName, attributionName}` (kind optional, default a2a)
  * - capability-wakeup branch: `CapabilityWakeupSourceSelector` (kind required)
+ * - task-outcome branch: `TaskOutcomeSnapshotSourceRefs` (kind required)
  *
  * 砚砚 R1 P1 #2: generator MUST receive explicit `sources` (sanitized
  * evidence refs / replayable selector); tool NEVER fabricates evidence.
  */
-export type VerdictSourceRefs = A2aSnapshotAttributionRefs | CapabilityWakeupSourceSelector;
+export type VerdictSourceRefs =
+  | A2aSnapshotAttributionRefs
+  | CapabilityWakeupSourceSelector
+  | TaskOutcomeSnapshotSourceRefs;
 
 /**
  * Resolved evidence source paths (a2a only — for backward-compat helpers in validation.ts).

@@ -18,7 +18,13 @@ import type {
   PublishVerdictSuccess,
   VerdictGenerator,
 } from './types.js';
-import { assertNoNewlineInBulletFields, isA2aSourceRefs, validateSourceRefsFormat } from './validation.js';
+import {
+  assertNoNewlineInBulletFields,
+  isA2aSourceRefs,
+  isTaskOutcomeSourceRefs,
+  validateSourceRefsFormat,
+  validateTaskOutcomeSourceRefs,
+} from './validation.js';
 
 export type {
   GitPublisher,
@@ -186,22 +192,30 @@ export async function handlePublishVerdict(
   // sent for capability-wakeup domain, or cw selector sent for a2a domain) is
   // user-correctable; rejecting at 400 here is better UX than letting it
   // dispatch to adapter → throw `*_adapter_wrong_kind` → 500 generator_failed.
-  const refsKind = isA2aSourceRefs(input.sourceRefs) ? 'a2a-snapshot-attribution' : 'capability-wakeup-trial-window';
+  const refsKind = isA2aSourceRefs(input.sourceRefs)
+    ? 'a2a-snapshot-attribution'
+    : isTaskOutcomeSourceRefs(input.sourceRefs)
+      ? 'task-outcome-snapshot'
+      : 'capability-wakeup-trial-window';
   const EXPECTED_REFS_KIND_BY_DOMAIN: Partial<Record<string, string>> = {
     'eval:a2a': 'a2a-snapshot-attribution',
     'eval:capability-wakeup': 'capability-wakeup-trial-window',
+    'eval:task-outcome': 'task-outcome-snapshot',
   };
   const expectedKind = EXPECTED_REFS_KIND_BY_DOMAIN[packet.domainId];
   if (expectedKind && expectedKind !== refsKind) {
     return {
       status: 400,
       error: 'sourceRefs_kind_mismatch',
-      detail: `Domain '${packet.domainId}' expects sourceRefs.kind='${expectedKind}', got '${refsKind}'. Each domain has a specific evidence shape: eval:a2a → {snapshotName, attributionName}; eval:capability-wakeup → {kind:'capability-wakeup-trial-window', capability, windowStartMs, windowEndMs, sessionIds}.`,
+      detail: `Domain '${packet.domainId}' expects sourceRefs.kind='${expectedKind}', got '${refsKind}'. Each domain has a specific evidence shape: eval:a2a → {snapshotName, attributionName}; eval:capability-wakeup → {kind:'capability-wakeup-trial-window', capability, windowStartMs, windowEndMs, sessionIds}; eval:task-outcome → {kind:'task-outcome-snapshot', windowStartMs, windowEndMs, databasePath?, evidenceCatId?}.`,
     };
   }
 
   if (isA2aSourceRefs(input.sourceRefs)) {
     const refsCheck = validateSourceRefsFormat(input.sourceRefs);
+    if (!refsCheck.ok) return refsCheck.error;
+  } else if (isTaskOutcomeSourceRefs(input.sourceRefs)) {
+    const refsCheck = validateTaskOutcomeSourceRefs(input.sourceRefs);
     if (!refsCheck.ok) return refsCheck.error;
   } else {
     const cwSelector = input.sourceRefs as unknown as CapabilityWakeupSourceSelector;

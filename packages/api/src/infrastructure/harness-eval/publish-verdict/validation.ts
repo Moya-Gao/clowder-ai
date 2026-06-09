@@ -1,7 +1,13 @@
 import { basename, resolve } from 'node:path';
 import { resolveSafeRawPath } from '../safe-path.js';
 import type { VerdictHandoffPacket } from '../verdict-handoff.js';
-import type { A2aSnapshotAttributionRefs, HandlerError, ResolvedSourceRefs, VerdictSourceRefs } from './types.js';
+import type {
+  A2aSnapshotAttributionRefs,
+  HandlerError,
+  ResolvedSourceRefs,
+  TaskOutcomeSnapshotSourceRefs,
+  VerdictSourceRefs,
+} from './types.js';
 
 /**
  * F192 Phase H 收尾 PR-2: discriminator helper for the VerdictSourceRefs union.
@@ -11,6 +17,10 @@ export function isA2aSourceRefs(refs: VerdictSourceRefs | undefined): refs is A2
   if (!refs) return true; // empty/undefined defaults to a2a interpretation
   if (!('kind' in refs) || refs.kind === undefined) return true;
   return refs.kind === 'a2a-snapshot-attribution';
+}
+
+export function isTaskOutcomeSourceRefs(refs: VerdictSourceRefs | undefined): refs is TaskOutcomeSnapshotSourceRefs {
+  return Boolean(refs && 'kind' in refs && refs.kind === 'task-outcome-snapshot');
 }
 
 /**
@@ -87,6 +97,72 @@ export function resolveSourceRefsInRoot(
   const attrResult = resolveSafeRawPath(resolve(harnessFeedbackRoot, 'attributions'), attr);
   if (!attrResult.ok) return { ok: false, reason: `attributionName invalid: ${attrResult.reason}` };
   return { ok: true, refs: { snapshotPath: snapResult.path, attributionPath: attrResult.path } };
+}
+
+export function validateTaskOutcomeSourceRefs(
+  sourceRefs: VerdictSourceRefs | undefined,
+): { ok: true } | { ok: false; error: HandlerError } {
+  if (!isTaskOutcomeSourceRefs(sourceRefs)) {
+    return {
+      ok: false,
+      error: {
+        status: 400,
+        error: 'invalid_source_ref',
+        detail: `validateTaskOutcomeSourceRefs called with non-task-outcome sourceRefs (kind=${(sourceRefs as { kind?: string } | undefined)?.kind ?? 'unknown'}); use isTaskOutcomeSourceRefs guard before calling.`,
+      },
+    };
+  }
+  if (
+    typeof sourceRefs.windowStartMs !== 'number' ||
+    !Number.isFinite(sourceRefs.windowStartMs) ||
+    typeof sourceRefs.windowEndMs !== 'number' ||
+    !Number.isFinite(sourceRefs.windowEndMs)
+  ) {
+    return {
+      ok: false,
+      error: {
+        status: 400,
+        error: 'invalid_source_ref',
+        detail: 'task-outcome-snapshot requires finite numeric windowStartMs and windowEndMs',
+      },
+    };
+  }
+  if (sourceRefs.windowEndMs <= sourceRefs.windowStartMs) {
+    return {
+      ok: false,
+      error: {
+        status: 400,
+        error: 'invalid_source_ref',
+        detail: 'task-outcome-snapshot requires windowEndMs > windowStartMs',
+      },
+    };
+  }
+  for (const [field, value] of [
+    ['databasePath', sourceRefs.databasePath],
+    ['evidenceCatId', sourceRefs.evidenceCatId],
+  ] as const) {
+    if (value !== undefined && typeof value !== 'string') {
+      return {
+        ok: false,
+        error: {
+          status: 400,
+          error: 'invalid_source_ref',
+          detail: `${field} must be a string when provided`,
+        },
+      };
+    }
+    if (typeof value === 'string' && /[\r\n]/.test(value)) {
+      return {
+        ok: false,
+        error: {
+          status: 400,
+          error: 'invalid_source_ref',
+          detail: `${field} must not contain newlines`,
+        },
+      };
+    }
+  }
+  return { ok: true };
 }
 
 /**

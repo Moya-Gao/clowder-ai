@@ -12,8 +12,9 @@ import type { ToolResult } from './file-tools.js';
  * isolated-worktree publisher → opens auto-PR).
  *
  * F192 Phase H 收尾 PR-2 (砚砚 R1 Q3): sourceRefs is now a discriminated union
- * supporting both eval:a2a (snapshot/attribution YAML basenames) and
- * eval:capability-wakeup (replayable window selector). Tool routes to the same
+ * supporting eval:a2a (snapshot/attribution YAML basenames),
+ * eval:capability-wakeup (replayable window selector), and the PR1 schema-only
+ * task-outcome selector surface. Tool routes to the same
  * API endpoint; per-domain generator dispatch happens in the route layer.
  */
 
@@ -85,10 +86,31 @@ const capabilityWakeupSourceRefsShape = z
     'eval:capability-wakeup sourceRefs — replayable selector (砚砚 R0 narrowing: window edges + sessionIds required).',
   );
 
+const taskOutcomeSourceRefsShape = z
+  .object({
+    kind: z.literal('task-outcome-snapshot'),
+    windowStartMs: z.number().finite().describe('Inclusive epoch ms window start for task-outcome episode replay.'),
+    windowEndMs: z
+      .number()
+      .finite()
+      .describe('Exclusive epoch ms window end for task-outcome episode replay. Must be > windowStartMs.'),
+    databasePath: z
+      .string()
+      .min(1)
+      .optional()
+      .describe('Optional DB path override for replay; PR1 schema-only surface, real generator lands in PR2.'),
+    evidenceCatId: z
+      .string()
+      .min(1)
+      .optional()
+      .describe('Optional evidence anchor catId for cross-thread linking; PR1 schema-only surface.'),
+  })
+  .describe('eval:task-outcome sourceRefs — PR1 schema-only replay window selector (wire stays 501 until PR2).');
+
 const sourceRefsShape = z
-  .union([a2aSourceRefsShape, capabilityWakeupSourceRefsShape])
+  .union([a2aSourceRefsShape, capabilityWakeupSourceRefsShape, taskOutcomeSourceRefsShape])
   .describe(
-    '砚砚 R1 P1 #2 + PR-2 R1 Q3: discriminated union by `kind` field. a2a kind is default (backward compat); capability-wakeup-trial-window kind required for cw cats.',
+    'Discriminated union by `kind` field. a2a kind is default (backward compat); capability-wakeup-trial-window kind wired in PR-2; task-outcome-snapshot kind is PR1 schema-only until its generator lands.',
   );
 
 export const publishVerdictInputSchema = {
@@ -121,6 +143,13 @@ type PublishVerdictToolInput = {
         windowEndMs: number;
         sessionIds: string[];
         ruleIds?: string[];
+      }
+    | {
+        kind: 'task-outcome-snapshot';
+        windowStartMs: number;
+        windowEndMs: number;
+        databasePath?: string;
+        evidenceCatId?: string;
       };
   agentKeyCatId?: string | undefined;
 };

@@ -24,7 +24,6 @@ Evidence:
 - metric:cat_cafe_a2a_c2_void_hold_hint_emitted_total=9
 - metric:cat_cafe_a2a_c2_void_hold_checked_total=227
 - metric:runtime_merge_base_4e2a75974=not_ancestor
-- docs/harness-feedback/attributions/2026-06-09-F167-attribution.yaml#AR-2026-06-09-001
 
 Counterarguments:
 - The current count is much higher than 06-08 (14 vs 3), so there may be a real C2 tuning problem hidden behind the deploy lag; it should wait for samples rather than trigger another blind regex change.

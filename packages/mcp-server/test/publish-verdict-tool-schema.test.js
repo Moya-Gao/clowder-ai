@@ -60,6 +60,19 @@ describe('cat_cafe_publish_verdict MCP schema (砚砚 R1 Q3: discriminated union
     assert.ok(result.success, `expected accept, got: ${JSON.stringify(result)}`);
   });
 
+  it('accepts task-outcome-snapshot sourceRefs (PR1 schema-only half of the wire)', () => {
+    const result = schema.safeParse({
+      domainId: 'eval:task-outcome',
+      packet: { ...validPacket, domainId: 'eval:task-outcome' },
+      sourceRefs: {
+        kind: 'task-outcome-snapshot',
+        windowStartMs: 1700000000000,
+        windowEndMs: 1700086400000,
+      },
+    });
+    assert.ok(result.success, `expected accept, got: ${JSON.stringify(result)}`);
+  });
+
   it('accepts cw selector with optional ruleIds', () => {
     const result = schema.safeParse({
       domainId: 'eval:capability-wakeup',

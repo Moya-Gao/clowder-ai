@@ -38,7 +38,7 @@ const DOMAIN_INSTRUCTIONS: Record<EvalDomainRegistryEntry['domainId'], string> =
   'eval:capability-wakeup':
     'Enter the eval:capability-wakeup domain thread, prioritize workspace-navigator first, compare weekly miss-rate trends across capability wakeup traces, separate cognitive / behavioral / attention-dilution misses, and produce a verdict handoff packet when evidence supports fix/build/keep/delete_sunset.',
   'eval:task-outcome':
-    'Enter the eval:task-outcome domain thread. Analyze task outcome episodes: review permission cancel signals (tool_name, reason, frequency), proposal reject signals (proposalId, proposalType thread/session_handoff, catId, rejectionReason), magic word triggers (word, context), and A1 world truth events (merge/revert). Bind signals to episodes, compare weekly cancel rates and verdict distributions, identify patterns (per-cat, per-task-type), and produce a verdict handoff packet. Verdict is categorical (success/corrected_success/needs_investigation/harness_fix_needed/routing_failure/taste_mismatch/abandoned), not a score. Proxy signals navigate, they do not judge.',
+    'Enter the eval:task-outcome domain thread. Analyze task outcome episodes: review permission cancel signals, proposal reject signals, magic word triggers, and A1 world truth events. Bind signals to episodes, compare weekly cancel rates and terminal-state distributions, identify patterns, and produce a verdict handoff packet. Packet verdict is fix/build/keep_observe/delete_sunset. Terminal-state and signal distributions are evidence, not the packet verdict. Episode 7-class verdict writeback is unfinished; do not assume it is queryable yet. Proxy signals navigate; they do not judge.',
 };
 
 /**
