@@ -2097,7 +2097,14 @@ export function handleBackgroundAgentMessage(
 
     const result = consumeBackgroundSystemInfo(msg, existing, options);
     if (!result.consumed) {
-      addBackgroundSystemMessage(msg, options, result.content, result.variant);
+      const bgCliDiag = msg.metadata?.cliDiagnostics;
+      addBackgroundSystemMessage(
+        msg,
+        options,
+        result.content,
+        result.variant,
+        bgCliDiag ? { cliDiagnostics: bgCliDiag } : undefined,
+      );
     }
   }
 }
@@ -4681,12 +4688,14 @@ export function useAgentMessages() {
           /* not JSON, use raw content */
         }
         if (!consumed) {
+          const sysCliDiag = msg.metadata?.cliDiagnostics;
           addMessage({
             id: `sysinfo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
             type: 'system',
             variant: sysVariant,
             content: sysContent,
             timestamp: Date.now(),
+            ...(sysCliDiag ? { extra: { cliDiagnostics: sysCliDiag } } : {}),
           });
         }
       } else if (msg.type === 'error') {

@@ -175,6 +175,39 @@ created: 2026-05-25
 
 **与 F215 / F210 边界**：F215 是 malformed tool-call 检测 + 接力兜底（模型行为），F210 是 Antigravity migration（runtime 切换），都与 F212 平行。Phase F 只动 `cli-spawn.ts` + `cli-diagnostics.ts` + 对应 web 文案，不碰 F215 / F210 路径。
 
+### Phase G: Silent-stdout observability follow-up（2026-06-08 砚砚 cross-thread packet 自 clowder-ai#875）
+
+**触发**：社区 issue clowder-ai#875 — OpenCode + DeepSeek 用户撞到 silent-stdout case：fresh OpenCode CLI 直接 reproduce — NDJSON stream 只有 1 个 `{"type":"step_start"}` event，无 text，无 explicit error。新 API key/新猫 rebind 不解决。当前 Cat Cafe surface 给用户 generic `"{catName} completed without textual output."`（route-serial:2165 + route-parallel:1193），**所有诊断证据丢失**：event count、event 类型、model/provider、session id prefix、exit status、stderr presence 都拿不到。砚砚跨 thread 投递完整 packet + verify scope。
+
+**根因（verified in main `92433bcc0`）**：
+1. `OpenCodeAgentService.ts:322` — `textEventCount === 0` 只 backend `log.warn`，**不 yield 任何 cliDiagnostics surface** 给前端
+2. `ClaudeAgentService.ts:721` — sibling same pattern，同病同治
+3. `route-serial.ts:2165` + `route-parallel.ts:1193` — fallback collapse 到 generic message，丢失所有诊断证据
+4. F212 当前 scope 只覆盖 stderr-error 路径（Phase A-D + E + F），**silent-stdout 路径完全 lossy**
+
+**Scope（不动 OpenCode/DeepSeek upstream，只动 Cat Cafe diagnostics surface）**：
+1. 触发条件: `eventCount > 0 && textEventCount === 0`
+2. Track + surface safe fields:
+   - `eventCount` (total events received)
+   - `eventTypes` (unique set seen, e.g. `['step_start']`)
+   - `model` / provider name
+   - `sessionId` prefix (前 8 char only, 不暴露 full session id)
+   - exit status (如有)
+   - stderr presence (boolean) + safe excerpt if available (走现有 sanitizer)
+3. 安全边界（保持 F212 安全约束）: no provider secrets, no full session id, no prompt/body content, no absolute paths
+4. Frontend: 既有 `CliDiagnosticsPanel` 自动 render 新 reasonCode `silent_completion`，不需新组件
+
+**Sibling sweep 覆盖（LL-069 应用）**：
+- ✅ `OpenCodeAgentService.ts:322`（primary anchor from packet）
+- ✅ `ClaudeAgentService.ts:721`（sibling same pattern）
+- ✅ Codex / Antigravity / Gemini / Dare / CatAgent grep 确认无 `textEventCount === 0` 同 pattern（不同 event tracking model，不在 Phase G scope）
+
+**修复（与 Phase F/E 同 surface 机制）**：
+1. **扩 reasonCode**：加 `silent_completion`（"CLI 完成但无文字输出 — 通常是 step_start-only event stream，常见于 OpenCode/DeepSeek upstream issue"）
+2. **新 helper `buildSilentCompletionDiagnostic`**（`cli-diagnostics.ts`）：输入 `{eventCount, eventTypes, model, sessionIdPrefix, exitStatus, stderrPresent, stderrExcerpt?}`，返回 structured `CliDiagnostics`
+3. **OpenCode + Claude no-text branch**: track `Set<string>` of unique event types during stream，textEventCount===0 时 build diagnostic + yield `type: 'error'` event with `metadata.cliDiagnostics`（不是真错误但 surface 机制复用 cliDiagnostics 通道）
+4. **REASON_TEXT entry**: publicSummary `"CLI 完成但无文字输出"`, publicHint 解释 step_start-only pattern + 建议（换猫 / 换 model / 直接跑 CLI 看 raw output）
+
 ## Acceptance Criteria
 
 ### Phase A（Backend cliDiagnostics + Sanitizer）— ✅ merged PR #1907 (2026-05-27)
@@ -220,6 +253,16 @@ created: 2026-05-25
 - [x] AC-F5: classifier unknown + `stderrEmpty===false` 时 publicHint 提示用户调 `/api/config/env-summary` 看 `paths.dataDirs.runtimeLogs` 再用 invocationId 搜，**不在 payload 里塞 absolute path`（砚砚跨族 push back 守 F212 no-path-leak 安全边界）。
 - [x] AC-F6: 红测先行（先红后绿）：unit tests in `cli-diagnostics.test.js` (helper shape + hint variants + backward-compat); integration tests in `cli-spawn.test.js` (3 tests using `diagnosticLogger` stub assert real log payloads + 2 tests assert publicHint via `__cliError` yield). 137/137 pass.
 - [ ] AC-F7: 跨族 review + 云端 review — 砚砚 @codex R1 BLOCKING (2 P1s caught, both fixed at `6b1bfb82d`) → R2 pending. 云端 codex R1 P2 cwd leak (双源 same as 砚砚 P1-2, both fixed) → R2 P2 spec checkbox staleness (this update fixes it) → R3 pending. Phase F merge 不 reopen F212 status（仍 done），同 Phase E follow-up pattern.
+
+### Phase G（Silent-stdout observability）— in progress 2026-06-08 (CVO 自决 directive — 同 Phase F precedent)
+
+- [ ] AC-G1: 加 reasonCode `silent_completion` 到 `CliErrorReasonCode` union (`packages/shared/src/types/cli-diagnostics.ts`) + `REASON_TEXT` entry (publicSummary "CLI 完成但无文字输出" + publicHint 解释 step_start-only pattern + 建议路径)
+- [ ] AC-G2: 新 helper `buildSilentCompletionDiagnostic` 在 `packages/api/src/utils/cli-diagnostics.ts`，输入 `{eventCount, eventTypes (string[]), model, sessionIdPrefix (前 8 char), exitStatus?, stderrPresent (boolean), stderrExcerpt?}`，返回 structured `CliDiagnostics`。安全边界：no full session id (只前 8 char) / no provider secrets / no prompt content / stderrExcerpt 走 sanitizer
+- [ ] AC-G3: `OpenCodeAgentService.ts:322` no-text branch — track unique event types during stream（`Set<string>` of `result.type`），`textEventCount === 0` 时 build diagnostic + yield `type: 'error'` event with `metadata.cliDiagnostics`（不是真错误但 surface 通道复用）
+- [ ] AC-G4: `ClaudeAgentService.ts:721` sibling same fix — track unique types + yield diagnostic event（LL-069 应用：sibling sweep from spec text 明示）
+- [ ] AC-G5: 红测先行：fixture 1 用 step_start-only NDJSON (砚砚 packet 第一 regression case) — OpenCode + Claude 两 providers 各一份；fixture 2 验证 sessionIdPrefix 只暴露前 8 char（full session id 不 leak）；fixture 3 验证 stderrExcerpt 不暴露 raw paths/tokens（走 sanitizer）
+- [ ] AC-G6: route-serial.ts:2165 + route-parallel.ts:1193 generic fallback — 不动（cliDiagnostics path 已 dominate，AC-A1 路径接管）；只验 cliDiagnostics 优先于 generic message
+- [ ] AC-G7: 跨族 review (@codex) + 云端 codex review — 砚砚 plan side 已 commit (cross thread `thread_mp3ab0r9xqxrkrc5` packet)；PR 开后 cross_post 砚砚 review side。Phase G merge 不 reopen F212 status (仍 done)，同 Phase E/F follow-up pattern
 
 ## Dependencies
 
@@ -275,6 +318,7 @@ created: 2026-05-25
 | 2026-05-30 | **Phase E follow-up bug fix merged** (PR #1962 @ commit `57c771d87`)。铲屎官 organic 又抓 classifier 误判：CC 真实错误 `Server is temporarily limiting requests (not your usage limit) · Rate limited` 被显示成"API 配额超限"，骗用户去查 quota 仪表盘（白查）。根因：`quota_exceeded` regex 字面匹配 `usage limit` 忽略前面 `not your` 否定。Fix: 新增 reasonCode `server_overloaded` + 插在 `quota_exceeded` 前 (specific-first ordering) + provider-neutral text + HourglassIcon transient tier。@gpt52 跨族 3 轮 delta APPROVE（1386ceb62 BLOCKED Markdown hint → adf26db37 P2 fix APPROVE → 783d14b0c provider-neutral APPROVE）。云端 codex 3 轮 review (R1 P2 Markdown hint not rendered → R2 P2 Anthropic-specific in shared classifier → R3 Bravo)。**Cross-world 误传球教训**：铲屎官帮我撤回了我误传给平行世界 opus48 的球（"人家 48 只是演员而且人家还是平行世界的"）。**自决 admin merge**：landy 站不在 review 链上 + 双 reviewer clean，按 services-route #1952 / proposal-card biome #1955 同款 self-admin-merge pattern 推。Lessons sunk to LL-059..LL-062（4 条同根：source space 多元，text/逻辑/契约必须匹配 actual source space — 关键字 white-list 反模式 / cross-world @ ≠ A2A / display string verify render mode / shared classifier provider-neutral text）。F212 status 保持 done — Phase E 是 follow-up bug fix，不是新 phase reopen。|
 | 2026-05-30 | **Phase F kicked off** (worktree `cat-cafe-f212-phase-f` branch `feat/f212-phase-f`)。砚砚（@codex F212 历史 reviewer）跨 thread 投诉 `thread_mplxo94tqi4caxjx` — Windows `codex.cmd` exit 1 + empty stderr + 配 `LOG_CLI_STDERR=1`/debug/err=1 仍死胡同。3 claim 全核坐实 in `eddadf97c`（cli-spawn empty stderr 不写 log / stderr log 缺 invocationId / publicHint 暗示 LOG_CLI_STDERR 给假希望）。砚砚 refined 5 AC + 2 个执行提醒 + AC-F5 安全 push back（不暴露 absolute log path），我全接。铲屎官 CVO directive："f212的issue 倒也没必要 open 直接挂 feat md 这个 f212 里然后开 wktree" → F212 status 不动 + Phase F section + worktree implement。同 Phase E follow-up pattern。砚砚承担 review side, 我承担 implement side。|
 | 2026-05-31 | **Phase F PR #2011 review iteration**。R1 from 砚砚 BLOCKING (2 P1): P1-1 AC-F1/F3 log assertions 不真覆盖 contract（删 `log.error` 测试仍过）+ P1-2 `sanitizeCliStderr` 只覆盖 HOME 系 paths，非 HOME server installs 会 leak raw absolute cwd. Fix on `6b1bfb82d`: (a) 加 `CliSpawnOptions.diagnosticLogger?` test injection + 3 integration tests using `createLogStub()` assert real log payloads (AC-F1 unconditional fire + AC-F2 gate scope + AC-F3 invocationId in payload); (b) 完全 drop `cwd` from `buildCliExitDiagnostic` input + payload — 砚砚原话"无法证明安全就 omit"，cwd 诊断价值 redundant with `command`+`invocationId`. 双源 P1-2 (cloud codex R1 P2 inline 同时 catch same finding) = 高置信。R2 from cloud codex catch P2 spec checkbox staleness on `6b1bfb82d` — fixed by this entry + checking AC-F1..F6 boxes (AC-F7 pending review iteration). 137/137 tests pass. PR mergeable CLEAN.|
+| 2026-06-08 | **Phase G kicked off** (worktree `cat-cafe-f212-phase-g` branch `feat/f212-phase-g`)。砚砚（@codex）跨 thread `thread_mp3ab0r9xqxrkrc5` 投递完整 packet 自 clowder-ai#875 — OpenCode + DeepSeek 用户撞 silent-stdout（fresh CLI 直接 reproduce step_start-only NDJSON），新 API key/新猫 rebind 不解决；当前 Cat Cafe collapse 到 generic message 丢所有诊断证据。3 claim verify in main `92433bcc0`: OpenCodeAgentService:322 + ClaudeAgentService:721 + route-serial/parallel generic fallback。Sibling sweep（LL-069 应用）: OpenCode + Claude 两 carrier 同病；Codex / Antigravity / Gemini / Dare / CatAgent 无同 pattern。**铲屎官 push back 我 over-escalate**: "嗯？为什么需要我决策？ 有什么不做的理由咩？" — 同 Phase F precedent (CVO 已 directive 过) 直接做不用 ping。LL-judgment-altitude 应用：自决路径，可逆 + 不碰硬排除 + 能翻代码查到。砚砚承担 review side, 我承担 implement side, 同 Phase E/F follow-up pattern, F212 status 不动。|
 
 ## Review Gate
 
