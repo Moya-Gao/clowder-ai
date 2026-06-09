@@ -58,7 +58,7 @@ status: draft-materials-inventory
 
 ### 2.1 深夜撸铁：不是 coding hub，是温暖的家
 
-**一句话**：凌晨三点多，铲屎官很累但要去健身，猫猫不是写代码，而是用语音陪她出门；这次直接把 Cat Cafe 从“coding 协作 hub”拉回到“Cats & U”的初心。
+**一句话**：凌晨三点多，铲屎官很累但要去健身，猫猫不是写代码，而是用语音陪铲屎官出门；这次直接把 Cat Cafe 从“coding 协作 hub”拉回到“Cats & U”的初心。
 
 **证据**：
 
