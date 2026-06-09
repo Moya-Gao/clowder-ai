@@ -222,20 +222,31 @@ Phase B/J 解决**内部 health debt**（orphan edges / verification debt，系�
 
 - 保留 `healthy: boolean` 作为 API/DB liveness（语义不变，外部 healthcheck 客户端无感）
 - 新增 `functionalStatus: 'ok' | 'degraded'`——综合判断记忆能力实际可用性
-- 新增 `configWarnings: ConfigWarning[]`——具体可执行 warnings，每条 `{ code, severity, message, suggestedAction }`
-- Memory Center frontend health panel：黄色 degraded banner，显示 warnings + clickable next steps
-- 不引入新 background job——evaluator 在 `/api/evidence/status` 同步评估（复用既有 db reads）
+- 新增 `configWarnings: ConfigWarning[]`——具体可执行 warnings，每条 `{ code, message, suggestedAction }`
+- Memory Center frontend `IndexStatus` 组件（`/memory/status`）顶部黄色 degraded banner，显示 warnings + clickable next steps；F163/F188 `HealthReport` debt panel **不混入**，可加入口跳转
+- 不引入新 background job——evaluator 在 `/api/evidence/status` 同步评估（复用既有 db reads + catalog metadata）
 - regression fixture：reporter #880 截图状态必须 trigger ≥3 warnings
+
+**EvidenceStatusSignals 输入契约（evaluator 数据源显式分层）**：
+
+| 信号 | 数据源 | 取自 |
+|---|---|---|
+| `docs_count` / `edges_count` / `vectors_count` / `passage_vectors_count` | evidence.sqlite | `db.prepare('SELECT count(*) ...')` (已有 reads) |
+| `embedding_model` (实际字段名，非 `embedding_model_id`) | embedding_meta table | `db.prepare("SELECT value FROM embedding_meta WHERE key = 'embedding_model_id'")` 但返回 key 是 `embedding_model` (line 369-377 of evidence.ts) |
+| `passage_vectors_supported` | embedding service runtime state | `opts.embeddingService?.isReady() === true` (line 360) |
+| `docsRoot` 配置（用于 `docs_root_suspicious` 检测） | LibraryCatalog / collection manifest | `opts.libraryCatalog?.getCollections()` (read manifest), 非 evidence.sqlite |
+
+evaluator 在 status endpoint handler 里聚合三类输入 → 计算 warnings → 输出。
 
 **Warning codes (v1)**：
 
-| code | trigger condition | suggestedAction |
-|---|---|---|
-| `docs_root_suspicious` | configured docs root 不存在 / 为空 / 非目录 | 检查 collection manifest 中的 `root` 路径 |
-| `embedding_disabled` | `embedding_model_id == null` | 配置 `embedding.provider` + `embedding.model` 启用 semantic recall |
-| `vectors_empty` | `vectors_count == 0` 但 `docs_count > 0` | 触发 rebuild 重新 embed 现有 docs |
-| `graph_empty` | `edges_count == 0` 但 `docs_count > 0` | 检查 frontmatter `related_features` / WikiLink / Markdown link 是否启用 |
-| `vec_table_missing` | `passage_vectors_supported == false` | 安装 sqlite-vec 或确认 native extension 路径 |
+| code | trigger condition | input source | suggestedAction |
+|---|---|---|---|
+| `docs_root_suspicious` | configured docs root 不存在 / 为空 / 非目录 | LibraryCatalog | 检查 collection manifest 中的 `root` 路径 |
+| `embedding_disabled` | `embedding_model == null` (字段名 per evidence.ts:369-377) | evidence_meta | 配置 `embedding.provider` + `embedding.model` 启用 semantic recall |
+| `vectors_empty` | `vectors_count == 0` 但 `docs_count > 0` | evidence.sqlite counts | 触发 rebuild 重新 embed 现有 docs |
+| `graph_empty` | `edges_count == 0` 但 `docs_count > 0` | evidence.sqlite counts | 检查 frontmatter `related_features` / WikiLink / Markdown link 是否启用 |
+| `vec_table_missing` | `passage_vectors_supported == false` | embedding service state | 安装 sqlite-vec 或确认 native extension 路径 |
 
 ## Acceptance Criteria
 
