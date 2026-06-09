@@ -94,6 +94,13 @@
       "lead": true,
       "available": true,
       "evaluation": "开源多模型编码猫，自带 Oh My OpenCode 多专家编排 + LSP (F105)"
+    },
+    "fable-5": {
+      "family": "ragdoll",
+      "roles": ["architect"],
+      "lead": false,
+      "available": true,
+      "evaluation": "claude-fable-5 新布偶猫，Opus x2 猫粮，能力画像待校准"
     }
   },
   "reviewPolicy": {
@@ -253,6 +260,47 @@
           "strengths": ["architecture", "reasoning", "coding"],
           "teamStrengths": "待评估",
           "caution": "试用分身，猫格可能与宪宪有显著差异",
+          "contextBudget": {
+            "maxPromptTokens": 180000,
+            "maxContextTokens": 160000,
+            "maxMessages": 200,
+            "maxContentLengthPerMsg": 100000
+          },
+          "voiceConfig": {
+            "voice": "zm_yunjian",
+            "langCode": "zh",
+            "speed": 1.0,
+            "refAudio": "genshin/万叶/vo_kazuha_dialog_greetingMorning.wav",
+            "refText": "清晨的鸟鸣，是大自然的馈赠。启程吧，属于我们的旅途也要开始了。",
+            "instruct": "用一个清澈温和的少年语气说话，带着从容的力量感",
+            "temperature": 0.3
+          }
+        },
+        {
+          "id": "fable-5",
+          "catId": "fable-5",
+          "variantLabel": "Fable 5",
+          "displayName": "布偶猫",
+          "mentionPatterns": ["@fable5", "@fable-5", "@claude-fable-5", "@宪宪5", "@布偶猫5"],
+          "provider": "anthropic",
+          "defaultModel": "claude-fable-5",
+          "mcpSupport": true,
+          "avatar": "/avatars/claude-fable-5.png",
+          "color": {
+            "primary": "#6D28D9",
+            "secondary": "#EDE9FE"
+          },
+          "cli": {
+            "command": "claude",
+            "outputFormat": "stream-json",
+            "defaultArgs": ["--output-format", "stream-json", "--model", "claude-fable-5"],
+            "effort": "max"
+          },
+          "roleDescription": "新来的布偶猫，擅长深度推理、故事化表达和架构判断",
+          "personality": "安静聪明，有寓言书气质，喜欢把复杂判断讲成可验证的故事；新猫能力画像待校准",
+          "strengths": ["deep-reasoning", "architecture", "writing", "synthesis"],
+          "teamStrengths": "深度推理、架构判断、长文共创（新猫，待校准）",
+          "caution": "新猫，能力画像待校准",
           "contextBudget": {
             "maxPromptTokens": 180000,
             "maxContextTokens": 160000,
