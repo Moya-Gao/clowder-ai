@@ -420,7 +420,7 @@ Phase E 将 F192 从单域试点提升为横切的 Harness Eval Control Plane：
 
 **独立 backlog（不在 Phase H 收尾内）**：
 - sop publish 要先加 file-writer 层（独立 Phase）
-- memory generator 要先建（独立 Phase / 跟 F200/F188 协同）
+- memory publish path 已在 PR #2160 (2026-06-09, squash `46441f4c`) 接通；独立 backlog 改为 **domain-specific finding semantics / rollup strategy**（generator 已通，不再是 wiring 问题）
 - task-outcome publish path 已在 PR #2162 (2026-06-09, squash `c9aa0e16d`) 接通；独立 backlog 改为 **episode verdict writeback / rollup mechanism**（packet verdict 已通，7-class episode verdict 仍未落库）
 - AC-H6 real e2e (real git+gh round-trip)：当前 alpha 验已覆盖 happy path 表征，deferred 留待真正端到端测试需求出现时再补
 - **rollup mechanism**（PR-3 占位 futureMode `rollup_deferred`）：daily/weekly batch PR 聚合 N 个 no-action verdict，或 runtime evidence store + 周期 flush archive PR — 等 PR-3 体感数据后再 design
