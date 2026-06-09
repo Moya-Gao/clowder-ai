@@ -123,8 +123,9 @@ Phase N merge → 碰头（不是"要不要继续"，是"方向对不对"）→ 
 1. **路径范围（domain-aware allowlist）**：PR diff 仅含以下任一允许路径：
    - `docs/harness-feedback/` （所有 verdict 的 verdict.md + bundle JSON）
    - `generated/capability-wakeup/<verdictId>/` （**仅 eval:capability-wakeup verdicts**；cw generator 的 replayed raw inputs `trials.json` + `summary.json`，被 provenance.json 引用，PR-2 R3 P1 cloud 锁住 staging）
+   - `generated/memory/<verdictId>/` （**仅 eval:memory verdicts**；memory generator 的 replayed raw inputs `recall-metrics.json` + `library-health.json`，被 provenance.json 引用，F192 memory wire-up cloud R8 P1 锁住 staging）
    - 任何其他路径出现 → 退到 regular merge-gate
-   - **额外校验**：若包含 `generated/capability-wakeup/`，必须满足 PR 是 `verdict/auto/eval-capability-wakeup/<verdictId>` 分支 且 `<verdictId>` 匹配 PR title（防止 a2a/sop PR 借 generated/ 路径绕道）
+   - **额外校验**：若包含 `generated/<domain-slug>/`，必须满足 PR 是 `verdict/auto/eval-<domain-slug>/<verdictId>` 分支 且 `<verdictId>` 匹配 PR title（防止 a2a/sop PR 借 generated/ 路径绕道；适用于 cw + memory）
 2. **零 code files**：无 `.ts` / `.tsx` / `.js` / `.mjs` / `.cjs` / `.py` / `.sh` 等
 3. **零 root artifacts**：复用 Step 0.5 Root Artifact Guard（无根目录 .png / .pen / 媒体文件）
 4. **mergeable + clean**：`mergeState == CLEAN` + `mergeable == MERGEABLE`
@@ -141,10 +142,10 @@ Phase N merge → 碰头（不是"要不要继续"，是"方向对不对"）→ 
 gh pr view N --json title,body,headRefName,mergeable,mergeStateStatus,changedFiles --jq '.'
 
 # 2. Verify 9 conditions
-# Condition #1: paths only in docs/harness-feedback/ OR generated/capability-wakeup/<verdictId>/
+# Condition #1: paths only in docs/harness-feedback/ OR generated/capability-wakeup/<verdictId>/ OR generated/memory/<verdictId>/
 VERDICT_ID=$(gh pr view N --json title --jq '.title' | sed -E 's/.*verdict\([^)]+\): //; s/[[:space:]].*//')
 gh pr view N --json files --jq '.files[].path' \
-  | rg -v "^(docs/harness-feedback/|generated/capability-wakeup/${VERDICT_ID}/)" \
+  | rg -v "^(docs/harness-feedback/|generated/capability-wakeup/${VERDICT_ID}/|generated/memory/${VERDICT_ID}/)" \
   && echo "FAIL #1: paths outside artifact-allowlist"
 PR_NUMBER=N node scripts/check-hotfix-pattern.mjs N | jq -r '.hotfix'  # must be false
 # (title/body checks: gh pr view ... | grep)

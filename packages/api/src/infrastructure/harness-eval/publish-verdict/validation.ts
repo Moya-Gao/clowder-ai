@@ -4,6 +4,7 @@ import type { VerdictHandoffPacket } from '../verdict-handoff.js';
 import type {
   A2aSnapshotAttributionRefs,
   HandlerError,
+  MemoryRecallSourceSelector,
   ResolvedSourceRefs,
   TaskOutcomeSnapshotSourceRefs,
   VerdictSourceRefs,
@@ -21,6 +22,62 @@ export function isA2aSourceRefs(refs: VerdictSourceRefs | undefined): refs is A2
 
 export function isTaskOutcomeSourceRefs(refs: VerdictSourceRefs | undefined): refs is TaskOutcomeSnapshotSourceRefs {
   return Boolean(refs && 'kind' in refs && refs.kind === 'task-outcome-snapshot');
+}
+
+/**
+ * F192 publish_verdict eval:memory wire-up — discriminator helper for memory selector.
+ */
+export function isMemorySourceRefs(refs: VerdictSourceRefs | undefined): refs is MemoryRecallSourceSelector {
+  if (!refs) return false;
+  if (!('kind' in refs)) return false;
+  return refs.kind === 'memory-recall-snapshot';
+}
+
+/**
+ * F192 publish_verdict eval:memory wire-up — infer concrete sourceRefs.kind for
+ * cross-check vs EXPECTED_REFS_KIND_BY_DOMAIN. Extracted to keep handler's
+ * cognitive complexity from creeping further past biome's 15 threshold.
+ */
+export function inferSourceRefsKind(
+  refs: VerdictSourceRefs | undefined,
+): 'a2a-snapshot-attribution' | 'capability-wakeup-trial-window' | 'memory-recall-snapshot' | 'task-outcome-snapshot' {
+  if (isMemorySourceRefs(refs)) return 'memory-recall-snapshot';
+  if (isTaskOutcomeSourceRefs(refs)) return 'task-outcome-snapshot';
+  if (isA2aSourceRefs(refs)) return 'a2a-snapshot-attribution';
+  return 'capability-wakeup-trial-window';
+}
+
+/**
+ * F192 publish_verdict eval:memory wire-up — structural validator for memory selector.
+ * Mirrors `validateCapabilityWakeupSelector` shape (non-throw, returns error string or null).
+ * Returns user-facing error detail; handler maps to 400 invalid_source_ref.
+ */
+export function validateMemoryRecallSelector(selector: MemoryRecallSourceSelector): string | null {
+  if (selector.kind !== 'memory-recall-snapshot') {
+    return `expected kind='memory-recall-snapshot', got '${(selector as { kind?: string }).kind ?? '(omitted)'}'`;
+  }
+  if (typeof selector.windowDays !== 'number' || !Number.isInteger(selector.windowDays)) {
+    return 'windowDays must be an integer';
+  }
+  if (selector.windowDays < 1 || selector.windowDays > 90) {
+    return 'windowDays must be in range [1, 90] (recall API ceiling)';
+  }
+  const catIdError = validateOptionalIdField(selector.catId, 'catId');
+  if (catIdError) return catIdError;
+  const toolNameError = validateOptionalIdField(selector.toolName, 'toolName');
+  if (toolNameError) return toolNameError;
+  return null;
+}
+
+function validateOptionalIdField(value: string | undefined, fieldName: string): string | null {
+  if (value === undefined) return null;
+  if (typeof value !== 'string' || value.length === 0) {
+    return `${fieldName} must be a non-empty string`;
+  }
+  if (/[\r\n]/.test(value)) {
+    return `${fieldName} must not contain newlines (markdown bullet injection guard)`;
+  }
+  return null;
 }
 
 /**

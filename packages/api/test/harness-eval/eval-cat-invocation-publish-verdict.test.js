@@ -131,11 +131,12 @@ describe('Phase H AC-H4: eval cat instructions point to publish_verdict MCP tool
     );
   });
 
-  // 砚砚 R2 P1 cloud + PR-2 (砚砚 R1 P2): only domains with wired generator get
-  // publish instructions. PR-2 wires eval:capability-wakeup (in addition to eval:a2a).
-  // Remaining (memory/sop/task-outcome) keep base instructions until generators land.
-  it('only wired domains get publish-verdict directive (砚砚 R2 P1 cloud + PR-2)', () => {
-    for (const wiredDomain of ['eval:a2a', 'eval:capability-wakeup']) {
+  // 砚砚 R2 P1 cloud + PR-2 (砚砚 R1 P2) + memory wire-up: only domains with
+  // wired generator get publish instructions. Wired: eval:a2a +
+  // eval:capability-wakeup + eval:memory. Remaining (sop/task-outcome) keep base
+  // instructions until generators land.
+  it('only wired domains get publish-verdict directive (砚砚 R2 P1 cloud + PR-2 + memory wire-up)', () => {
+    for (const wiredDomain of ['eval:a2a', 'eval:capability-wakeup', 'eval:memory']) {
       const packet = buildEvalCatInvocation({
         domain: { ...TEST_DOMAIN_BASE, domainId: wiredDomain, sourceAdapter: SOURCE_ADAPTER_FOR[wiredDomain] },
         trendRefs: [],
@@ -145,7 +146,7 @@ describe('Phase H AC-H4: eval cat instructions point to publish_verdict MCP tool
       assert.match(
         packet.instructions,
         /cat_cafe_publish_verdict/,
-        `${wiredDomain} must have publish path (generator wired in PR-2)`,
+        `${wiredDomain} must have publish path (generator wired)`,
       );
     }
 
@@ -158,6 +159,7 @@ describe('Phase H AC-H4: eval cat instructions point to publish_verdict MCP tool
     });
     assert.match(a2a.instructions, /snapshotName.*attributionName/s, 'a2a sourceRefs doc');
     assert.doesNotMatch(a2a.instructions, /capability-wakeup-trial-window/, 'a2a does NOT mention cw selector');
+    assert.doesNotMatch(a2a.instructions, /memory-recall-snapshot/, 'a2a does NOT mention memory selector');
 
     const cw = buildEvalCatInvocation({
       domain: { ...TEST_DOMAIN_BASE, domainId: 'eval:capability-wakeup', sourceAdapter: 'capability-wakeup-eval' },
@@ -169,8 +171,22 @@ describe('Phase H AC-H4: eval cat instructions point to publish_verdict MCP tool
     assert.match(cw.instructions, /windowStartMs.*windowEndMs/s, 'cw window doc');
     assert.match(cw.instructions, /sessionIds.*REQUIRED/s, 'cw sessionIds REQUIRED narrow');
     assert.doesNotMatch(cw.instructions, /snapshotName.*attributionName/s, 'cw does NOT mention a2a refs');
+    assert.doesNotMatch(cw.instructions, /memory-recall-snapshot/, 'cw does NOT mention memory selector');
 
-    for (const domainId of ['eval:memory', 'eval:sop', 'eval:task-outcome']) {
+    const mem = buildEvalCatInvocation({
+      domain: { ...TEST_DOMAIN_BASE, domainId: 'eval:memory', sourceAdapter: 'f200-f188-memory-eval' },
+      trendRefs: [],
+      verdictRefs: [],
+      legacyCleanup: { status: 'not_checked' },
+    });
+    assert.match(mem.instructions, /memory-recall-snapshot/, 'memory selector kind');
+    assert.match(mem.instructions, /windowDays/, 'memory windowDays field');
+    assert.match(mem.instructions, /catId/, 'memory catId optional filter');
+    assert.match(mem.instructions, /toolName/, 'memory toolName optional filter');
+    assert.doesNotMatch(mem.instructions, /snapshotName.*attributionName/s, 'memory does NOT mention a2a refs');
+    assert.doesNotMatch(mem.instructions, /capability-wakeup-trial-window/, 'memory does NOT mention cw selector kind');
+
+    for (const domainId of ['eval:sop', 'eval:task-outcome']) {
       const packet = buildEvalCatInvocation({
         domain: { ...TEST_DOMAIN_BASE, domainId, sourceAdapter: SOURCE_ADAPTER_FOR[domainId] },
         trendRefs: [],
@@ -183,6 +199,41 @@ describe('Phase H AC-H4: eval cat instructions point to publish_verdict MCP tool
         `${domainId} must NOT have publish path (handler would 501; cat would loop)`,
       );
     }
+  });
+
+  // memory wire-up (砚砚 R1 P1 same gating as cw): wiredPublishDomains gates
+  // memory publish instructions on actual runtime support. memoryServices.markerQueue
+  // bootstrap is unconditional in production but the gate must still respect explicit
+  // wired-set so tests + edge configurations don't see 501-bound publish instructions.
+  it('omits memory publish instructions when wiredPublishDomains excludes eval:memory', () => {
+    const memUnwired = buildEvalCatInvocation(
+      {
+        domain: { ...TEST_DOMAIN_BASE, domainId: 'eval:memory', sourceAdapter: 'f200-f188-memory-eval' },
+        trendRefs: [],
+        verdictRefs: [],
+        legacyCleanup: { status: 'not_checked' },
+      },
+      { wiredPublishDomains: new Set(['eval:a2a']) }, // memory NOT wired
+    );
+    assert.doesNotMatch(
+      memUnwired.instructions,
+      /cat_cafe_publish_verdict/,
+      'memory without runtime wire must NOT see publish path (would waste run on 501)',
+    );
+    assert.doesNotMatch(memUnwired.instructions, /memory-recall-snapshot/, 'memory selector docs gated too');
+
+    // Sanity: when memory IS wired, publish instructions + selector docs appear.
+    const memWired = buildEvalCatInvocation(
+      {
+        domain: { ...TEST_DOMAIN_BASE, domainId: 'eval:memory', sourceAdapter: 'f200-f188-memory-eval' },
+        trendRefs: [],
+        verdictRefs: [],
+        legacyCleanup: { status: 'not_checked' },
+      },
+      { wiredPublishDomains: new Set(['eval:a2a', 'eval:memory']) },
+    );
+    assert.match(memWired.instructions, /cat_cafe_publish_verdict/, 'memory with runtime wire must see publish path');
+    assert.match(memWired.instructions, /memory-recall-snapshot/, 'memory with runtime wire must see selector docs');
   });
 
   // cloud R5 P2 (PR-2): wiredPublishDomains gates publish instructions on actual

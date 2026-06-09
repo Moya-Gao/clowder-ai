@@ -130,13 +130,45 @@ The MCP tool creates branch \`verdict/auto/{domainSlug}/{verdictId}\` + commits 
 `;
 
 /**
- * 砚砚 R2 P1 (cloud) + R1 P2 PR-2: only domains with wired generator see publish
- * instructions; per-domain instruction blob includes the correct sourceRefs shape.
- * memory / sop / task-outcome keep base instructions until their generators land.
+ * F192 publish_verdict eval:memory wire-up — memory-specific sourceRefs section
+ * (replayable selector against `GET /api/recall/metrics` — provider resolves
+ * windowDays + optional filters into live RecallMetricsReport + LibraryHealthMetrics
+ * snapshots; generator writes raw inputs + provenance.json sha256).
+ */
+const PUBLISH_VERDICT_INSTRUCTIONS_MEMORY = `${PUBLISH_VERDICT_PACKET_INSTRUCTIONS}
+You must also supply \`sourceRefs\` (NOT part of packet, separate input field) as a replayable selector:
+\`\`\`json
+{
+  "kind": "memory-recall-snapshot",
+  "windowDays": 30,
+  "catId": "opus-47",
+  "toolName": "cat_cafe_search_evidence"
+}
+\`\`\`
+
+Fields:
+- \`kind\` — REQUIRED literal \`"memory-recall-snapshot"\`
+- \`windowDays\` — REQUIRED integer in range [1, 90] (matches the recall metrics API ceiling: \`GET /api/recall/metrics?days=...\`)
+- \`catId\` — OPTIONAL non-empty (restrict to a specific cat id; no newlines)
+- \`toolName\` — OPTIONAL non-empty (restrict to a specific recall tool, e.g. \`cat_cafe_search_evidence\`; no newlines)
+
+Tool resolves the selector by calling \`RecallMetricsComputer.computeMetrics({days, catId, toolName})\` + \`computeLibraryHealth(...)\` — no need for you to pre-sanitize evidence YAMLs. Tool will NOT fabricate evidence — if the window yields zero recall events (\`totalEvents=0\`), publish fails with \`404 no_metrics_in_window\` so you widen the window or relax the filters before retrying.
+
+The MCP tool creates branch \`verdict/auto/{domainSlug}/{verdictId}\` + commits + opens PR. Returns commit SHA + PR URL. Bundle contains snapshot.json + attribution.json + provenance.json (sha256 of \`generated/memory/{verdictId}/{recall-metrics,library-health}.json\` for replay).
+
+**DO NOT** run \`git add\`, \`git commit\`, \`git push\`, or write verdict files directly. Use the MCP tool.
+`;
+
+/**
+ * 砚砚 R2 P1 (cloud) + R1 P2 PR-2 + memory wire-up: only domains with wired
+ * generator see publish instructions; per-domain instruction blob includes the
+ * correct sourceRefs shape. sop / task-outcome keep base instructions until
+ * their generators land.
  */
 const PUBLISH_VERDICT_INSTRUCTIONS_BY_DOMAIN: Partial<Record<EvalDomainRegistryEntry['domainId'], string>> = {
   'eval:a2a': PUBLISH_VERDICT_INSTRUCTIONS_A2A,
   'eval:capability-wakeup': PUBLISH_VERDICT_INSTRUCTIONS_CAPABILITY_WAKEUP,
+  'eval:memory': PUBLISH_VERDICT_INSTRUCTIONS_MEMORY,
 };
 
 /**

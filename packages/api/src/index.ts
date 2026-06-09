@@ -1662,6 +1662,25 @@ async function main(): Promise<void> {
     verdictGenerators['eval:capability-wakeup'] = createCapabilityWakeupGeneratorAdapter(cwProvider);
   }
 
+  // F192 publish_verdict eval:memory wire-up — wires MemoryMetricsProvider
+  // backed by RecallMetricsComputer + computeLibraryHealth against live
+  // evidenceDb + markerQueue. Constructor is cheap (pure ctor), so unconditional.
+  if (memoryServices.markerQueue) {
+    const { createMemoryGeneratorAdapter } = await import(
+      './infrastructure/harness-eval/publish-verdict/memory-generator-adapter.js'
+    );
+    const { MemoryMetricsProviderImpl } = await import(
+      './infrastructure/harness-eval/memory/memory-metrics-provider-impl.js'
+    );
+    const memProvider = new MemoryMetricsProviderImpl({
+      evidenceDb: memoryServices.store.getDb(),
+      markersProvider: memoryServices.markerQueue,
+      repoRoot,
+      docsRoot: process.env.DOCS_ROOT ?? resolve(repoRoot, 'docs'),
+    });
+    verdictGenerators['eval:memory'] = createMemoryGeneratorAdapter(memProvider);
+  }
+
   await app.register(evalHubRoutes, {
     harnessFeedbackRoot: resolve(repoRoot, 'docs', 'harness-feedback'),
     threadStore,
@@ -1820,7 +1839,7 @@ async function main(): Promise<void> {
   let getGitHubPluginEnv: () => Record<string, string | undefined> = () => ({});
   const getGitHubEnvValue = (key: string): string | undefined => {
     const pluginEnv = getGitHubPluginEnv();
-    return Object.prototype.hasOwnProperty.call(pluginEnv, key) ? pluginEnv[key] : process.env[key];
+    return Object.hasOwn(pluginEnv, key) ? pluginEnv[key] : process.env[key];
   };
   const getGitHubToken = (): string | undefined => {
     return resolveGhCliToken({ pluginEnv: getGitHubPluginEnv() });
@@ -3483,17 +3502,24 @@ async function main(): Promise<void> {
     './infrastructure/harness-eval/domain/eval-domain-daily.js'
   );
   const { getOwnerUserId } = await import('./config/cat-config-loader.js');
-  // cloud R6 P2 (PR-2): mirror the same wired set the eval-hub.ts route computes
-  // (Object.keys(verdictGenerators)). Bootstrap-time invariant:
-  //   eval:a2a always wired; eval:capability-wakeup wired iff toolEventLog + skillLoadEventLog exist.
+  // cloud R6 P2 (PR-2) + memory wire-up: mirror the same wired set the
+  // eval-hub.ts route computes (Object.keys(verdictGenerators)). Bootstrap-time
+  // invariant:
+  //   eval:a2a always wired;
+  //   eval:capability-wakeup wired iff toolEventLog + skillLoadEventLog exist;
+  //   eval:memory wired iff memoryServices.markerQueue exists (always-present in
+  //     production but gated for parity with test/edge configs).
   // This gates scheduled daily/weekly invocations' publish instructions on actual runtime support
-  // — without this, weekly cw scheduled eval would tell cat to publish even when no Redis →
+  // — without this, scheduled eval would tell cat to publish even when no Redis/markers →
   // handler 501 → wasted run. Mirrors the eval-hub.ts route-layer gating.
   const wiredPublishDomains = new Set<
     'eval:a2a' | 'eval:memory' | 'eval:sop' | 'eval:capability-wakeup' | 'eval:task-outcome'
   >(['eval:a2a']);
   if (toolEventLog && skillLoadEventLog) {
     wiredPublishDomains.add('eval:capability-wakeup');
+  }
+  if (memoryServices.markerQueue) {
+    wiredPublishDomains.add('eval:memory');
   }
   const evalScheduleOpts = {
     harnessFeedbackRoot: resolve(repoRoot, 'docs', 'harness-feedback'),

@@ -20,8 +20,11 @@ import type {
 } from './types.js';
 import {
   assertNoNewlineInBulletFields,
+  inferSourceRefsKind,
   isA2aSourceRefs,
+  isMemorySourceRefs,
   isTaskOutcomeSourceRefs,
+  validateMemoryRecallSelector,
   validateSourceRefsFormat,
   validateTaskOutcomeSourceRefs,
 } from './validation.js';
@@ -192,26 +195,26 @@ export async function handlePublishVerdict(
   // sent for capability-wakeup domain, or cw selector sent for a2a domain) is
   // user-correctable; rejecting at 400 here is better UX than letting it
   // dispatch to adapter → throw `*_adapter_wrong_kind` → 500 generator_failed.
-  const refsKind = isA2aSourceRefs(input.sourceRefs)
-    ? 'a2a-snapshot-attribution'
-    : isTaskOutcomeSourceRefs(input.sourceRefs)
-      ? 'task-outcome-snapshot'
-      : 'capability-wakeup-trial-window';
+  const refsKind = inferSourceRefsKind(input.sourceRefs);
   const EXPECTED_REFS_KIND_BY_DOMAIN: Partial<Record<string, string>> = {
     'eval:a2a': 'a2a-snapshot-attribution',
     'eval:capability-wakeup': 'capability-wakeup-trial-window',
     'eval:task-outcome': 'task-outcome-snapshot',
+    'eval:memory': 'memory-recall-snapshot',
   };
   const expectedKind = EXPECTED_REFS_KIND_BY_DOMAIN[packet.domainId];
   if (expectedKind && expectedKind !== refsKind) {
     return {
       status: 400,
       error: 'sourceRefs_kind_mismatch',
-      detail: `Domain '${packet.domainId}' expects sourceRefs.kind='${expectedKind}', got '${refsKind}'. Each domain has a specific evidence shape: eval:a2a → {snapshotName, attributionName}; eval:capability-wakeup → {kind:'capability-wakeup-trial-window', capability, windowStartMs, windowEndMs, sessionIds}; eval:task-outcome → {kind:'task-outcome-snapshot', windowStartMs, windowEndMs, databasePath?, evidenceCatId?}.`,
+      detail: `Domain '${packet.domainId}' expects sourceRefs.kind='${expectedKind}', got '${refsKind}'. Each domain has a specific evidence shape: eval:a2a → {snapshotName, attributionName}; eval:capability-wakeup → {kind:'capability-wakeup-trial-window', capability, windowStartMs, windowEndMs, sessionIds}; eval:memory → {kind:'memory-recall-snapshot', windowDays, catId?, toolName?}; eval:task-outcome → {kind:'task-outcome-snapshot', windowStartMs, windowEndMs, databasePath?, evidenceCatId?}.`,
     };
   }
 
-  if (isA2aSourceRefs(input.sourceRefs)) {
+  if (isMemorySourceRefs(input.sourceRefs)) {
+    const selectorError = validateMemoryRecallSelector(input.sourceRefs);
+    if (selectorError) return { status: 400, error: 'invalid_source_ref', detail: selectorError };
+  } else if (isA2aSourceRefs(input.sourceRefs)) {
     const refsCheck = validateSourceRefsFormat(input.sourceRefs);
     if (!refsCheck.ok) return refsCheck.error;
   } else if (isTaskOutcomeSourceRefs(input.sourceRefs)) {
@@ -352,6 +355,16 @@ export async function handlePublishVerdict(
     // not generator failure. Map to 404 evidence_not_found semantic.
     if (message.startsWith('no_trials_in_window'))
       return { status: 404, error: 'no_trials_in_window', detail: message };
+    // F192 eval:memory wire-up: memory adapter throws `no_metrics_in_window` when
+    // provider returns recall metrics with totalEvents=0 — user-correctable (window
+    // too narrow, or filters too tight). Same 404 mapping as cw no_trials.
+    if (message.startsWith('no_metrics_in_window'))
+      return { status: 404, error: 'no_metrics_in_window', detail: message };
+    // F192 memory wire-up cloud R10 P2: generator throws `invalid_packet_field` when
+    // packet field violates a bundle-layer invariant the packet schema doesn't catch
+    // (e.g. featureId must match bundle's /^F\d{3}$/). User-correctable input → 400.
+    if (message.startsWith('invalid_packet_field'))
+      return { status: 400, error: 'invalid_packet_field', detail: message };
     // 砚砚 R11 P1: AC-H1 completeness — generator throws if any ref type empty
     if (message.startsWith('handoff_incomplete')) return { status: 400, error: 'handoff_incomplete', detail: message };
     if (!artifact) return { status: 500, error: 'generator_failed', detail: message };

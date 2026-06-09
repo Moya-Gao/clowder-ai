@@ -65,10 +65,27 @@ export interface TaskOutcomeSnapshotSourceRefs {
 }
 
 /**
+ * F192 publish_verdict eval:memory wire-up — replayable recall metrics selector.
+ * Provider (`MemoryMetricsProvider`) resolves selector → live recall metrics +
+ * library health snapshot. Generator writes them into bundle/snapshot.json +
+ * raw inputs at `<repoRoot>/generated/memory/<verdictId>/`.
+ */
+export interface MemoryRecallSourceSelector {
+  kind: 'memory-recall-snapshot';
+  /** Inclusive window in days [1, 90] — recall API ceiling. */
+  windowDays: number;
+  /** Optional — restrict to a specific cat id. */
+  catId?: string;
+  /** Optional — restrict to a specific recall tool. */
+  toolName?: string;
+}
+
+/**
  * F192 Phase H 收尾 PR-2 — `VerdictSourceRefs` is a discriminated union (砚砚 R1 Q3).
  * - a2a branch: `{snapshotName, attributionName}` (kind optional, default a2a)
  * - capability-wakeup branch: `CapabilityWakeupSourceSelector` (kind required)
- * - task-outcome branch: `TaskOutcomeSnapshotSourceRefs` (kind required)
+ * - task-outcome branch: `TaskOutcomeSnapshotSourceRefs` (kind required, PR1 schema-only)
+ * - memory branch: `MemoryRecallSourceSelector` (kind required, memory wire-up)
  *
  * 砚砚 R1 P1 #2: generator MUST receive explicit `sources` (sanitized
  * evidence refs / replayable selector); tool NEVER fabricates evidence.
@@ -76,7 +93,8 @@ export interface TaskOutcomeSnapshotSourceRefs {
 export type VerdictSourceRefs =
   | A2aSnapshotAttributionRefs
   | CapabilityWakeupSourceSelector
-  | TaskOutcomeSnapshotSourceRefs;
+  | TaskOutcomeSnapshotSourceRefs
+  | MemoryRecallSourceSelector;
 
 /**
  * Resolved evidence source paths (a2a only — for backward-compat helpers in validation.ts).

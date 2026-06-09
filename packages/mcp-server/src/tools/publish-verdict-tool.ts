@@ -107,10 +107,44 @@ const taskOutcomeSourceRefsShape = z
   })
   .describe('eval:task-outcome sourceRefs — PR1 schema-only replay window selector (wire stays 501 until PR2).');
 
+/**
+ * F192 publish_verdict eval:memory wire-up — memory-recall-snapshot sourceRefs.
+ * Replayable selector against the recall metrics API (`GET /api/recall/metrics`):
+ *   - windowDays: integer [1, 90] (API ceiling)
+ *   - catId / toolName: optional filters (no newlines — markdown injection guard)
+ *
+ * Provider resolves selector → {recallMetrics, libraryHealth} which the generator
+ * writes into bundle/snapshot.json + bundle/attribution.json + provenance.json
+ * + raw inputs at `<repoRoot>/generated/memory/<verdictId>/`.
+ */
+const memorySourceRefsShape = z
+  .object({
+    kind: z.literal('memory-recall-snapshot'),
+    windowDays: z
+      .number()
+      .int()
+      .min(1)
+      .max(90)
+      .describe('Inclusive window in days [1, 90] — recall API ceiling (packages/api/src/routes/recall-metrics.ts).'),
+    catId: z
+      .string()
+      .min(1)
+      .refine((v) => !/[\r\n]/.test(v), 'catId must not contain newlines (markdown bullet injection)')
+      .optional()
+      .describe('Optional — restrict to a specific cat id (matches RecallMetricsComputer filters.catId).'),
+    toolName: z
+      .string()
+      .min(1)
+      .refine((v) => !/[\r\n]/.test(v), 'toolName must not contain newlines (markdown bullet injection)')
+      .optional()
+      .describe('Optional — restrict to a specific recall tool (e.g. cat_cafe_search_evidence).'),
+  })
+  .describe('eval:memory sourceRefs — replayable recall metrics selector (windowDays + optional filters).');
+
 const sourceRefsShape = z
-  .union([a2aSourceRefsShape, capabilityWakeupSourceRefsShape, taskOutcomeSourceRefsShape])
+  .union([a2aSourceRefsShape, capabilityWakeupSourceRefsShape, taskOutcomeSourceRefsShape, memorySourceRefsShape])
   .describe(
-    'Discriminated union by `kind` field. a2a kind is default (backward compat); capability-wakeup-trial-window kind wired in PR-2; task-outcome-snapshot kind is PR1 schema-only until its generator lands.',
+    'Discriminated union by `kind` field. a2a kind is default (backward compat); capability-wakeup-trial-window kind wired in PR-2; memory-recall-snapshot kind wired in F192 memory wire-up; task-outcome-snapshot kind is PR1 schema-only until its generator lands.',
   );
 
 export const publishVerdictInputSchema = {
@@ -150,6 +184,12 @@ type PublishVerdictToolInput = {
         windowEndMs: number;
         databasePath?: string;
         evidenceCatId?: string;
+      }
+    | {
+        kind: 'memory-recall-snapshot';
+        windowDays: number;
+        catId?: string;
+        toolName?: string;
       };
   agentKeyCatId?: string | undefined;
 };
@@ -173,7 +213,7 @@ export const publishVerdictTools = [
       'Use after your analysis converges to a verdict for your assigned eval domain. ' +
       'Pass the complete VerdictHandoffPacket + sourceRefs (shape depends on your domain — see your eval cat invocation instructions for the exact selector shape). ' +
       'The handler validates schema, dispatches to the per-domain generator inside an isolated git worktree, commits + pushes the branch verdict/auto/<domain-slug>/<verdict-id>, and opens an auto-PR. Returns { commitSha, prUrl }. ' +
-      'GOTCHA: wired domains in v2: eval:a2a (snapshot/attribution YAML basenames) + eval:capability-wakeup (replayable trial-window selector). Other domains return 501. ' +
+      'GOTCHA: wired domains: eval:a2a (snapshot/attribution YAML basenames) + eval:capability-wakeup (replayable trial-window selector) + eval:memory (memory-recall-snapshot selector with windowDays + optional catId/toolName filters). Other domains return 501. ' +
       'GOTCHA: catId must match the registered eval cat for the domain (or its OQ-20 Redis override); 403 not_allowed otherwise. ' +
       'GOTCHA: DO NOT run git push/commit/add yourself; this tool owns the publish lifecycle.',
     inputSchema: publishVerdictInputSchema,

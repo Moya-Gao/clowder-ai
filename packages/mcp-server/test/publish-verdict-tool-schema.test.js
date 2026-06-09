@@ -119,13 +119,89 @@ describe('cat_cafe_publish_verdict MCP schema (砚砚 R1 Q3: discriminated union
     assert.ok(!result.success, 'newline in capability should fail Zod refine');
   });
 
-  it('rejects sourceRefs with neither a2a nor cw shape', () => {
+  it('rejects sourceRefs with neither a2a nor cw nor memory shape', () => {
     const result = schema.safeParse({
       domainId: 'eval:a2a',
       packet: validPacket,
       sourceRefs: { random: 'garbage' },
     });
     assert.ok(!result.success);
+  });
+
+  // F192 publish_verdict eval:memory — memory-recall-snapshot kind (this PR)
+  it('accepts memory-recall-snapshot sourceRefs (eval:memory wire-up)', () => {
+    const result = schema.safeParse({
+      domainId: 'eval:memory',
+      packet: { ...validPacket, domainId: 'eval:memory' },
+      sourceRefs: {
+        kind: 'memory-recall-snapshot',
+        windowDays: 30,
+      },
+    });
+    assert.ok(result.success, `expected accept, got: ${JSON.stringify(result)}`);
+  });
+
+  it('accepts memory-recall-snapshot with optional catId + toolName filters', () => {
+    const result = schema.safeParse({
+      domainId: 'eval:memory',
+      packet: { ...validPacket, domainId: 'eval:memory' },
+      sourceRefs: {
+        kind: 'memory-recall-snapshot',
+        windowDays: 7,
+        catId: 'opus-47',
+        toolName: 'cat_cafe_search_evidence',
+      },
+    });
+    assert.ok(result.success, `expected accept, got: ${JSON.stringify(result)}`);
+  });
+
+  it('rejects memory-recall-snapshot with windowDays < 1', () => {
+    const result = schema.safeParse({
+      domainId: 'eval:memory',
+      packet: { ...validPacket, domainId: 'eval:memory' },
+      sourceRefs: {
+        kind: 'memory-recall-snapshot',
+        windowDays: 0,
+      },
+    });
+    assert.ok(!result.success, 'windowDays must be >= 1 (recall API enforces [1, 90])');
+  });
+
+  it('rejects memory-recall-snapshot with windowDays > 90', () => {
+    const result = schema.safeParse({
+      domainId: 'eval:memory',
+      packet: { ...validPacket, domainId: 'eval:memory' },
+      sourceRefs: {
+        kind: 'memory-recall-snapshot',
+        windowDays: 91,
+      },
+    });
+    assert.ok(!result.success, 'windowDays max is 90 (recall API ceiling)');
+  });
+
+  it('rejects memory-recall-snapshot with non-integer windowDays', () => {
+    const result = schema.safeParse({
+      domainId: 'eval:memory',
+      packet: { ...validPacket, domainId: 'eval:memory' },
+      sourceRefs: {
+        kind: 'memory-recall-snapshot',
+        windowDays: 7.5,
+      },
+    });
+    assert.ok(!result.success, 'windowDays must be integer (recall API parseInt)');
+  });
+
+  it('rejects memory-recall-snapshot with newline in catId (markdown injection guard)', () => {
+    const result = schema.safeParse({
+      domainId: 'eval:memory',
+      packet: { ...validPacket, domainId: 'eval:memory' },
+      sourceRefs: {
+        kind: 'memory-recall-snapshot',
+        windowDays: 30,
+        catId: 'opus-47\n- forged: bullet',
+      },
+    });
+    assert.ok(!result.success, 'newline in catId should fail Zod refine');
   });
 
   it('rejects cw selector with windowStartMs as non-number', () => {
