@@ -37,6 +37,13 @@ anchors too. The next decision should choose which lane to spike first:
   screenshots and sampled video frames; audio needs an ASR lane first, then the
   text clerk consumes timestamped transcripts.
 
+Coverage hypothesis after CVO follow-up: the multimodal Gemma MLX package should
+be treated as a potential superset for text prompts. Phase 0b should test the
+multimodal package on both the existing anchored text JSON fixture and a
+media-anchor fixture before downloading the separate text-only package. Keep the
+text-only package as an optimization fallback if `mlx-vlm` is slower, less
+schema-stable, or harder to expose through the carrier stack.
+
 Recommended next move: approve Phase A only as a strict MCP wrapper with schema
 validation and media/text anchor checks. Separately ask CVO which Phase 0b lane
 matters first: text clerk, media clerk, or both.
@@ -250,7 +257,8 @@ Runner recommendation:
 1. Use MLX server on Apple Silicon for the first real local model path.
 2. Use Pi as an optional carrier for offline clerk jobs and fixture generation.
 3. Keep the durable product contract at the MCP tool layer, not Pi.
-4. For the Gemma-specific follow-up, choose the model by lane:
+4. For the Gemma-specific follow-up, choose the model by lane and test superset
+   behavior before duplicating downloads:
    - Text/repo/thread/taste/source-hygiene clerk:
      `mlx-community/gemma-4-text-26b-a4b-it-8bit` with `mlx-lm`.
    - Image/screenshot/video-frame clerk:
@@ -264,13 +272,19 @@ Open CVO decision:
 
 > Which Phase 0b lane should run first?
 >
-> 1. Text clerk only: download
+> 1. Superset check: download
+>    `mlx-community/gemma-4-26b-a4b-it-8bit` (~28 GB), then run both anchored
+>    text JSON and image/video-frame fixture tests through `mlx-vlm`. If text
+>    quality/latency/schema discipline is acceptable, skip the separate text-only
+>    package.
+> 2. Text clerk only: download
 >    `mlx-community/gemma-4-text-26b-a4b-it-8bit` (~26.8 GB).
-> 2. Media clerk: download
+> 3. Media clerk only: download
 >    `mlx-community/gemma-4-26b-a4b-it-8bit` (~28 GB) and test screenshot /
 >    sampled-video-frame candidates via `mlx-vlm`.
-> 3. Audio clerk: use existing ASR cache first, then feed timestamped transcripts
+> 4. Audio clerk: use existing ASR cache first, then feed timestamped transcripts
 >    into the text candidate harness.
-> 4. Run both text and media Gemma lanes.
+> 5. Run both text and media Gemma lanes only if the superset check fails or
+>    text-only throughput matters enough to justify a second 26.8 GB artifact.
 
 [砚砚/gpt-5.5🐾]
