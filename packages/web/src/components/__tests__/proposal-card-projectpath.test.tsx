@@ -26,8 +26,18 @@ vi.mock('@/components/ThreadSidebar/thread-navigation', () => ({
   pushThreadRouteWithHistory: vi.fn(),
 }));
 
+const chatStoreState = vi.hoisted(() => ({
+  threads: [] as Array<{ id: string; projectPath?: string }>,
+  updateThreadPin: vi.fn(),
+}));
+
 vi.mock('@/stores/chatStore', () => ({
-  useChatStore: { getState: () => ({ updateThreadPin: vi.fn() }) },
+  useChatStore: Object.assign(
+    (selector?: (state: typeof chatStoreState) => unknown) => (selector ? selector(chatStoreState) : chatStoreState),
+    {
+      getState: () => chatStoreState,
+    },
+  ),
 }));
 
 import { ProposalCard } from '@/components/rich/ProposalCard';
@@ -77,6 +87,12 @@ describe('ProposalCard — projectPath ownership', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
+    chatStoreState.threads = [
+      { id: 'thread_cat_cafe', projectPath: '/Users/me/projects/cat-cafe' },
+      { id: 'thread_clowder', projectPath: '/Users/me/projects/clowder-ai' },
+      { id: 'thread_default', projectPath: 'default' },
+    ];
+    chatStoreState.updateThreadPin.mockReset();
     apiFetchMock.mockReset();
     apiFetchMock.mockImplementation(() => Promise.resolve(jsonResponse(404, { error: 'not found' })));
   });
@@ -105,10 +121,23 @@ describe('ProposalCard — projectPath ownership', () => {
     return input;
   }
 
+  function findSelectByLabel(labelText: string): HTMLSelectElement {
+    const label = [...container.querySelectorAll('label')].find((l) => l.textContent?.includes(labelText));
+    const select = label?.querySelector('select') as HTMLSelectElement | null;
+    if (!select) throw new Error(`Missing select for label: ${labelText}`);
+    return select;
+  }
+
   function setInput(input: HTMLInputElement, value: string) {
     const nativeSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
     nativeSetter?.call(input, value);
     input.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  function readApproveBody(): Record<string, unknown> {
+    const approveCall = apiFetchMock.mock.calls.find(([url]) => String(url).endsWith('/approve'));
+    if (!approveCall) throw new Error('Missing approve call');
+    return JSON.parse((approveCall[1] as { body: string }).body) as Record<string, unknown>;
   }
 
   it('surfaces the project ownership in the card (AC-Z4 visibility)', async () => {
@@ -120,6 +149,8 @@ describe('ProposalCard — projectPath ownership', () => {
   it('shows the default-ownership notice when the child has no project', async () => {
     await render(makeBlock(DEFAULT_NOTICE));
     expect(container.textContent).toContain(DEFAULT_NOTICE);
+    expect(container.textContent).toContain('会进入未分类');
+    expect(findButton('批准并创建').textContent).toContain('保留未分类');
   });
 
   it('edit + approve sends the projectPath override in the approve body (AC-Z2 re-home)', async () => {
@@ -142,10 +173,62 @@ describe('ProposalCard — projectPath ownership', () => {
     await act(async () => {
       await Promise.resolve();
     });
-    const approveCall = apiFetchMock.mock.calls.find(([url]) => String(url).endsWith('/approve'));
-    expect(approveCall).toBeTruthy();
-    const sentBody = JSON.parse((approveCall![1] as { body: string }).body);
+    const sentBody = readApproveBody();
     expect(sentBody.projectPath).toBe('/Users/me/projects/clowder-ai');
+  });
+
+  it('edit mode offers an existing-project picker for default-owned proposals (AC-AB2)', async () => {
+    await render(makeBlock(DEFAULT_NOTICE));
+    await act(async () => {
+      findButton('编辑').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    expect(container.textContent).not.toContain('点“编辑”选择项目');
+    expect(container.textContent).toContain('请选择项目，或留空表示明确保留未分类');
+
+    const select = findSelectByLabel('从已有项目选择');
+    expect([...select.options].map((option) => option.value)).toEqual([
+      '',
+      '/Users/me/projects/cat-cafe',
+      '/Users/me/projects/clowder-ai',
+    ]);
+
+    await act(async () => {
+      select.value = '/Users/me/projects/cat-cafe';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    expect(findInputByLabel('项目归属').value).toBe('/Users/me/projects/cat-cafe');
+    apiFetchMock.mockImplementation(() =>
+      Promise.resolve(jsonResponse(200, { proposalId: PROPOSAL_ID, threadId: 'thread_rehomed', status: 'approved' })),
+    );
+    await act(async () => {
+      findButton('批准（含编辑）').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const sentBody = readApproveBody();
+    expect(sentBody.projectPath).toBe('/Users/me/projects/cat-cafe');
+  });
+
+  it('refreshes the existing-project picker when threads load after first render (cloud P2)', async () => {
+    chatStoreState.threads = [];
+    const block = makeBlock(DEFAULT_NOTICE);
+    await render(block);
+    await act(async () => {
+      findButton('编辑').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(container.textContent).not.toContain('从已有项目选择');
+
+    chatStoreState.threads = [{ id: 'thread_cat_cafe', projectPath: '/Users/me/projects/cat-cafe' }];
+    await render(block);
+
+    expect([...findSelectByLabel('从已有项目选择').options].map((option) => option.value)).toEqual([
+      '',
+      '/Users/me/projects/cat-cafe',
+    ]);
   });
 
   it('prefills a real project path into the editable input', async () => {

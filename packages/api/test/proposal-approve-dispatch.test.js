@@ -44,7 +44,7 @@ describe('F128 approve dispatch — initialMessage routing', () => {
       invocationQueueOverride: invocationQueue,
       queueProcessorOverride: queueProcessor,
     });
-    const source = await ctx.threadStore.create('alice', 'Source');
+    const source = await ctx.threadStore.create('alice', 'Source', '/projects/source-repo');
     const { proposalId } = JSON.parse(
       (
         await ctx.propose({
@@ -119,7 +119,7 @@ describe('F128 approve dispatch — initialMessage routing', () => {
       invocationQueueOverride: invocationQueue,
       queueProcessorOverride: queueProcessor,
     });
-    const source = await ctx.threadStore.create('alice', 'Source');
+    const source = await ctx.threadStore.create('alice', 'Source', '/projects/source-repo');
     const { proposalId } = JSON.parse(
       (
         await ctx.propose({

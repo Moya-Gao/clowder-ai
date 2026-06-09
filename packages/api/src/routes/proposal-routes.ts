@@ -1,13 +1,4 @@
-/**
- * F128 User-side proposal endpoints.
- *
- * POST /api/proposals/:proposalId/approve  — create thread + mark proposal approved
- * POST /api/proposals/:proposalId/reject   — mark proposal rejected
- * GET  /api/proposals/pending              — list user's pending proposals
- *
- * All routes require user auth via X-Cat-Cafe-User. The cat-side propose
- * route lives in callback-propose-thread-routes.ts.
- */
+/** F128 user-side proposal endpoints. Cat-side propose lives in callback-propose-thread-routes.ts. */
 
 import { catIdSchema } from '@cat-cafe/shared';
 import type { FastifyPluginAsync } from 'fastify';
@@ -17,7 +8,7 @@ import type { QueueProcessor } from '../domains/cats/services/agents/invocation/
 import type { AgentRouter } from '../domains/cats/services/index.js';
 import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
 import type { IProposalStore } from '../domains/cats/services/stores/ports/ProposalStore.js';
-import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
+import type { IThreadStore, Thread } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 import { resolveUserId } from '../utils/request-identity.js';
 import { appendApprovedInitialMessage } from './proposal-approve-dispatch.js';
@@ -149,7 +140,7 @@ export const proposalRoutes: FastifyPluginAsync<ProposalRoutesOptions> = async (
 
     // Stage 1: create the thread. Only this step is allowed to rollback the claim,
     // because nothing user-visible has been committed yet.
-    let thread;
+    let thread: Thread;
     try {
       thread = await threadStore.create(userId, finalTitle, finalProjectPath, finalParentThreadId, {
         createdFromProposalId: proposal.proposalId,
@@ -188,7 +179,10 @@ export const proposalRoutes: FastifyPluginAsync<ProposalRoutesOptions> = async (
     }
 
     // Stage 3: best-effort side effects. Failures become warnings, not 500s.
-    const warnings: string[] = [];
+    const warnings: string[] =
+      finalProjectPath === 'default'
+        ? ['子 thread 将进入未分类（projectPath=default）；请选择项目或明确保留未分类']
+        : [];
     if (finalPreferredCats.length > 0) {
       try {
         await threadStore.updatePreferredCats(thread.id, finalPreferredCats);

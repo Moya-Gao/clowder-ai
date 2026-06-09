@@ -1,11 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { MarkdownContent } from '@/components/MarkdownContent';
 import { pushThreadRouteWithHistory } from '@/components/ThreadSidebar/thread-navigation';
 import type { RichCardBlock } from '@/stores/chat-types';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
+import { EditField, ProjectPathEdit } from './ProposalCardFields';
 
 type Status = 'pending' | 'approving' | 'approved' | 'rejected';
 
@@ -53,6 +55,15 @@ function readProjectPathEdit(block: RichCardBlock): string {
   return value.startsWith('/') ? value : '';
 }
 
+function isDefaultProjectOwnership(value: string): boolean {
+  return value.length > 0 && !value.startsWith('/');
+}
+
+function selectExistingProjectPaths(state: ReturnType<typeof useChatStore.getState>): string[] {
+  const threads = state.threads ?? [];
+  return [...new Set(threads.map((t) => t.projectPath).filter((p): p is string => !!p && p !== 'default'))].sort();
+}
+
 export function ProposalCard({ block }: ProposalCardProps) {
   const proposalId = useMemo(() => extractProposalId(block), [block]);
   const [status, setStatus] = useState<Status>('pending');
@@ -71,6 +82,8 @@ export function ProposalCard({ block }: ProposalCardProps) {
   // 项目归属 display string straight from the card (includes the "未指定（default …）" notice
   // for unowned children) so the user sees which repo the thread lands in before approving.
   const projectOwnership = readField(block, '项目归属');
+  const needsProjectChoice = isDefaultProjectOwnership(projectOwnership);
+  const existingProjects = useChatStore(useShallow(selectExistingProjectPaths));
 
   // Mount: fetch real status so reload / multi-tab views don't drift to stale "pending".
   useEffect(() => {
@@ -224,6 +237,11 @@ export function ProposalCard({ block }: ProposalCardProps) {
           )}
         </div>
       )}
+      {needsProjectChoice && !editing && (
+        <div className="mt-2 rounded border border-[var(--semantic-warning)] bg-[var(--semantic-warning-surface)] px-2 py-1 text-xs text-cafe-secondary">
+          这个子 thread 会进入未分类。点“编辑”选择项目，或直接批准表示保留未分类。
+        </div>
+      )}
       {editing && (
         <div className="mt-2 space-y-1 text-xs">
           <EditField label="标题" value={edits.title} onChange={(v) => setEdits((p) => ({ ...p, title: v }))} />
@@ -232,10 +250,11 @@ export function ProposalCard({ block }: ProposalCardProps) {
             value={edits.parentThreadId}
             onChange={(v) => setEdits((p) => ({ ...p, parentThreadId: v }))}
           />
-          <EditField
-            label="项目归属 (绝对路径，留空=默认)"
+          <ProjectPathEdit
             value={edits.projectPath}
             onChange={(v) => setEdits((p) => ({ ...p, projectPath: v }))}
+            existingProjects={existingProjects}
+            defaultParent={needsProjectChoice}
           />
           <EditField
             label="建议成员 (逗号分隔)"
@@ -263,7 +282,13 @@ export function ProposalCard({ block }: ProposalCardProps) {
           </label>
           <div className="flex flex-wrap gap-2">
             <button type="button" disabled={loading} onClick={approve} className={btnPrimary}>
-              {loading ? '处理中...' : editing ? '批准（含编辑）' : '批准并创建'}
+              {loading
+                ? '处理中...'
+                : editing
+                  ? '批准（含编辑）'
+                  : needsProjectChoice
+                    ? '批准并创建（保留未分类）'
+                    : '批准并创建'}
             </button>
             <button type="button" disabled={loading} onClick={() => setEditing((v) => !v)} className={btnSecondary}>
               {editing ? '取消编辑' : '编辑'}
@@ -304,39 +329,6 @@ const btnSecondary =
   'text-xs px-3 py-1 rounded bg-cafe-surface-elevated hover:bg-[var(--console-hover-bg)] dark:hover:bg-gray-700 text-cafe-secondary border border-[var(--console-border-soft)] disabled:opacity-50 transition-colors';
 const btnDanger =
   'text-xs px-3 py-1 rounded bg-[var(--semantic-critical-surface)] hover:bg-red-200 dark:hover:bg-red-800/50 text-conn-red-text border border-[var(--semantic-critical)] disabled:opacity-50 transition-colors';
-
-function EditField({
-  label,
-  value,
-  onChange,
-  multiline,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  multiline?: boolean;
-}) {
-  return (
-    <label className="block">
-      <span className="text-cafe-muted">{label}:</span>{' '}
-      {multiline ? (
-        <textarea
-          className="mt-0.5 w-full rounded border border-[var(--console-border-soft)] bg-cafe-surface-canvas p-1 font-mono text-xs"
-          rows={2}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-        />
-      ) : (
-        <input
-          type="text"
-          className="mt-0.5 w-full rounded border border-[var(--console-border-soft)] bg-cafe-surface-canvas p-1 font-mono text-xs"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-        />
-      )}
-    </label>
-  );
-}
 
 export function isProposalCardBlock(block: RichCardBlock): boolean {
   return block.actions?.some((a) => a.action === 'propose:approve') ?? false;

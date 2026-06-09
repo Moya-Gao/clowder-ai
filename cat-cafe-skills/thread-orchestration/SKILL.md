@@ -56,6 +56,7 @@ triggers:
     title: "简洁描述任务目标",
     reason: "为什么这个子任务值得自己一个 thread（必填）",
     preferredCats: ["执行猫", "review猫"],
+    projectPath: "/abs/path/to/repo",  // 当前 thread 是 default/未分类/eval/lobby 且子任务要做 repo 实现时必填
     reportingMode: "final-only"  // 可选回报契约: none/final-only(默认)/state-transitions/blocking-ack，见下表
   )
 ```
@@ -67,6 +68,10 @@ triggers:
 - 例："P2 工程质量：CI/CD + Linting"
 
 **提议后**：继续主 thread 的工作，等用户批准。批准后用户会在新 thread 里出现，此时再 cross_post 给被分配的猫。
+
+#### projectPath — 项目归属
+
+不传 `projectPath` = 继承当前/parent thread 的项目。若当前 thread 本身是 `default` / 未分类 / eval / lobby，而子 thread 要做 repo 或实现工作，必须显式传绝对路径；只有纯 eval/meta/无需项目归属的 thread 才可留空并进入未分类。
 
 #### reportingMode — 回报契约分型（F128 Phase Y → Phase AA）
 
@@ -200,6 +205,7 @@ A 完成 → 通知主 thread → 确认 commit → A merge
 Proposal = 卡片（cat 提议 → 用户审核/编辑/批准 → 后端创建 thread）
 第一条消息 = 必须含 ## 主 Thread（ID + 标题）
 reportingMode = 回报契约（final-only 默认 / none 自闭环 / state-transitions / blocking-ack）
+projectPath = 项目归属（default parent 发 repo/实现子任务时必填；不传=继承 parent）
 Worktree = 隔离（不冲突）
 汇报 = 按 reportingMode（none 自闭环不回报；需回报 mode 才及时 + 等确认，不让 team lead 追也不越权 commit）
 ```

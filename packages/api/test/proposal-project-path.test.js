@@ -101,6 +101,21 @@ describe('F128 projectPath — approve side (user route)', () => {
     assert.ok(thread);
     assert.equal(thread.projectPath, TMP_CANON, 'no override → inherit proposal ownership');
   });
+
+  test('approving a default-parent proposal keeps default but returns an unclassified warning', async () => {
+    const ctx = await createProposalTestContext();
+    const source = await ctx.threadStore.create('alice', 'Source', 'default');
+    const { proposalId } = JSON.parse((await ctx.propose({ userId: 'alice', threadId: source.id })).body);
+
+    const res = await ctx.approve('alice', proposalId);
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.ok(body.warnings.some((warning) => warning.includes('未分类')));
+
+    const thread = await ctx.threadStore.get(body.threadId);
+    assert.ok(thread);
+    assert.equal(thread.projectPath, 'default', 'explicitly approving without a project keeps the child unclassified');
+  });
 });
 
 // 砚砚 review P1-2: spec says projectPath defaults to inherit the PARENT thread. Inheriting the
