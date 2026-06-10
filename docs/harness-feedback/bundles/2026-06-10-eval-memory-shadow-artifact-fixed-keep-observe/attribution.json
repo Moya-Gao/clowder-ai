@@ -1,0 +1,11 @@
+{
+  "verdictId": "2026-06-10-eval-memory-shadow-artifact-fixed-keep-observe",
+  "featureId": "F200",
+  "evalSnapshotId": "eval-F200-memory-2026-06-10",
+  "generatedAt": "2026-06-10T03:05:00.000Z",
+  "findings": [],
+  "noFindingRecord": {
+    "reason": "Day-1-4 (cron #1-9) 4-day '6.7× shadow:live MRR divergence' confirmed as 1/c indicator-asymmetry artifact (consumedMRR denominator = rows.length all events vs shadowConsumedMRR denominator = shadowRows.length subset). Fixed by B' PR #2108 (merge 3e2effdf7) adding liveOnShadowSubsetMRR mirror metric. Day-5/6/7/8/9 apples-to-apples ratio = shadowConsumedMRR / liveOnShadowSubsetMRR = 1.0000 exactly sustained 5 consecutive days across sample evolution (n: 802→915, shadowMRR 0.5998→0.6490). No ranker promotion signal post-fix.",
+    "evidence": "consumed_mrr, consumed_at_3, search_abandon_rate, shadow_consumed_mrr, live_on_shadow_subset_mrr, non_first_selection_rate, traversal_completion, grep_fallback_rate, orphan_edge_count, stale_anchor_count, verification_debt_count, search_zero_hit_count"
+  }
+}

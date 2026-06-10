@@ -1,0 +1,37 @@
+{
+  "verdictId": "2026-06-10-eval-memory-shadow-artifact-fixed-keep-observe",
+  "featureId": "F200",
+  "windowDays": 30,
+  "filters": {},
+  "generatedAt": "2026-06-10T03:05:00.000Z",
+  "metrics": {
+    "period": {
+      "fromMs": 1778468985349,
+      "toMs": 1781060985349,
+      "days": 30
+    },
+    "filters": {},
+    "totalEvents": 915,
+    "core": {
+      "consumedAt3": 0.1180327868852459,
+      "consumedMRR": 0.09610384044328117,
+      "reformulationRate": 0.3825136612021858,
+      "searchAbandonRate": 0.5497267759562842
+    },
+    "extended": {
+      "readthroughAt3": 0.09055876685934493,
+      "firstConsumedRankMedian": 1,
+      "reformulationsBeforeConsumption": 0.24691358024691357,
+      "reformulateAfterExposure": 0.15737704918032788,
+      "grepFallbackRate": 0,
+      "tokenCostPerHit": 0,
+      "consumedAnchorNotInPoolRate": 0,
+      "shadowConsumedMRR": 0.6489795918367348,
+      "liveOnShadowSubsetMRR": 0.6489795918367348
+    },
+    "graph": {
+      "nonFirstSelectionRate": 0.4444444444444444,
+      "traversalCompletion": 0
+    }
+  }
+}

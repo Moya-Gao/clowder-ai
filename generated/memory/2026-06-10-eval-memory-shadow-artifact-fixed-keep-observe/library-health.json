@@ -1,0 +1,36 @@
+{
+  "verdictId": "2026-06-10-eval-memory-shadow-artifact-fixed-keep-observe",
+  "featureId": "F200",
+  "windowDays": 30,
+  "filters": {},
+  "generatedAt": "2026-06-10T03:05:00.000Z",
+  "libraryHealth": {
+    "staleAnchors": {
+      "count": 0,
+      "items": []
+    },
+    "orphanEdges": {
+      "count": 48
+    },
+    "verificationDebt": {
+      "needsReviewCount": 0,
+      "escalatedCount": 0,
+      "trustedLegacyCount": 0
+    },
+    "searchQuality": {
+      "totalSearches": 200,
+      "zeroHitCount": 0,
+      "lowHitCount": 4,
+      "recentMisses": []
+    },
+    "replayDrift": {
+      "available": true,
+      "sampleCount": 19,
+      "avgSimilarity": 1
+    },
+    "knowledgeFeed": {
+      "pendingCount": 2,
+      "needsReviewCount": 0
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "verdictId": "2026-06-10-eval-memory-shadow-artifact-fixed-keep-observe",
+  "rawInputs": [
+    {
+      "path": "generated/memory/2026-06-10-eval-memory-shadow-artifact-fixed-keep-observe/recall-metrics.json",
+      "sha256": "8af819777ab48d3836794804a3a52cfdc50ae64ba500b2e7dfd7a7caac1f18fd"
+    },
+    {
+      "path": "generated/memory/2026-06-10-eval-memory-shadow-artifact-fixed-keep-observe/library-health.json",
+      "sha256": "214f71aa162c85fb83d68f24edb50486d6e1c86fc26ed307c1608476ff5093bc"
+    }
+  ],
+  "generatedAt": "2026-06-10T03:05:00.000Z",
+  "generator": {
+    "name": "eval-memory-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f192-memory-recall-v1"
+}
