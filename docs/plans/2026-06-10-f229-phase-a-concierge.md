@@ -89,6 +89,8 @@ type ConciergeCardAction =
 
 ## PR-A2: 前端壳（host + 球八态 + 面板 + 安静默认）
 
+> **⚠️ 本段已被 micro-spec 取代**：`docs/plans/2026-06-10-f229-pr-a2-frontend-microspec.md`（PR-A1 20 轮 review 复盘产物——球态改为纯投影 + 9 条不变量 + test matrix，实现以 micro-spec 为准，本段仅留文件清单参考）。
+
 **Files:**
 - Create: `packages/web/src/stores/conciergeStore.ts`（参照 guideStore 模式：config + ballState + panelOpen + 懒 threadId；ballState 由 concierge thread 的 invocation 状态驱动：pending→thinking、卡片待确认→needs-confirmation 等）
 - Create: `packages/web/src/components/concierge/ConciergeSurfaceHost.tsx`（球 + 面板容器；portal(document.body)，z-index 用统一层级 token——与 F226 浮窗/Modal 不冲突）
