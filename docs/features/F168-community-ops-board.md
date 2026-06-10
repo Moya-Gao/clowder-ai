@@ -8,7 +8,7 @@ created: 2026-04-18
 
 # F168: Community Operations Board — 社区事务编排引擎
 
-> **Status**: Phase A ✅ merged (2026-06-10) | **First completed**: 2026-04-20 | **Owner**: 宪宪 (fable-5) | **Priority**: P1
+> **Status**: Phase A ✅ | Phase B PR-1 ✅ merged (2026-06-10) | **First completed**: 2026-04-20 | **Owner**: 宪宪 (fable-5) | **Priority**: P1
 
 ## Reopen（2026-06-10，CVO signoff）
 
@@ -25,6 +25,8 @@ created: 2026-04-18
 **Phase 总览**：A 事件引擎（Event Log + 投影 + 状态机）✅ → B Issue Signals 全量事件 → C Narrator + Role Registry + 路由 → D Closure UX + Reconciler → E 看板决策队列。原 v1 文档（下方）保留为历史语境。
 
 **Phase A 完成（2026-06-10）**：PR #2203，commit `10c3c9bfdb`，squash-merged。Event Log + 纯函数状态机 + CommunityProjector + bootstrap CLI + 3 入口接线 + PR lifecycle + 看板 API（向后兼容）。6 轮 cloud review 全修。Phase B 由 @fable5 规划。
+
+**Phase B PR-1 完成（2026-06-10）**：PR #2210，commit `757ef632f5`，squash-merged。活动信号事件类型（issue.commented / issue.labeled / pr.review_submitted / case.awaiting_external）shared types + webhook 三件套 + linked issue 解析器（parseLinkedIssues）+ projector cascade fix（pr.merged 时正确传播 linkedIssues → fixed）+ 体-enrichment 竞态修复（Cloud R4）+ default-branch gate（Cloud R4）+ projector 重试修复（Cloud R5/R6）。6 轮 cloud review 全修。PR-2（双 cursor + awaiting_external 闭环 + e2e）待续。
 
 ## Why
 
@@ -425,6 +427,8 @@ TTL=0（铁律 #5），用户数据默认持久化
 | 2026-04-19 | Phase E merged (PR #1288) — GitHub issue sync pipeline: state mapper + sync endpoint + production wiring + frontend sync button, 19 new tests, AC-E1~E4 ✅ |
 | 2026-04-20 | Phase F merged (PR #1295) — GitHub PR sync pipeline: CommunityPrStore + mapGitHubPr + sync-prs endpoint + board merge + frontend PR sections, 66 new tests, AC-F1~F5 ✅ |
 | 2026-04-21 | Review fixes merged (PR #1326) — vision guard review fixes: preferredWorkspaceMode write path, board PR fields (prNumber/ownerCatId), clickable GitHub links, CommunityPrStore repos, workspace mode leakage fix |
+| 2026-06-10 | Phase A merged (PR #2203) — Event Log + state machine + CommunityProjector + bootstrap + PR lifecycle, 6 cloud review rounds |
+| 2026-06-10 | Phase B PR-1 merged (PR #2210) — activity signal events (issue.commented/labeled/pr.review_submitted/case.awaiting_external) + link parser + cascade fix, 6 cloud review rounds |
 
 ## Review Gate
 
