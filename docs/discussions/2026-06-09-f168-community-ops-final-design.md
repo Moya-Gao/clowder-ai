@@ -46,7 +46,7 @@ F168 原 spec KD-11（gpt52 review P1）裁定"PR 侧不另建平行台账，看
 
 | 层 | 内容 | 地位 |
 |---|---|---|
-| **Event Log** | 外部事实事件（GitHub webhook/轮询/merge/CI）+ 内部决策事件（routed/ownerDecision/DirectionCard/closure），append-only | **唯一事实 canonical** |
+| **Event Log** | 外部事实事件的观测记录（GitHub webhook/轮询/merge/CI）+ 内部决策事件（routed/ownerDecision/DirectionCard/closure），append-only | **家里内部案件状态的唯一 canonical**（GitHub 本身仍是外部 truth，由 Reconciler 周期校验漂移，见 Phase D；砚砚复审提醒） |
 | CommunityObject 投影 | 从事件流推导的案件状态，物化存储可随时重建；`CommunityIssueStore` 演化为它的物化载体，`CommunityPrStore` 退役并入 | 纯 read model |
 | TaskStore（`pr_tracking`/`issue_tracking`） | 采集器运行态（cursor、automationState、轮询调度） | 采集层 operational state，**不是案件状态 canonical** |
 
