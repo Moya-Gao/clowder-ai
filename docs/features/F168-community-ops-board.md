@@ -8,7 +8,21 @@ created: 2026-04-18
 
 # F168: Community Operations Board — 社区事务编排引擎
 
-> **Status**: done | **Completed**: 2026-04-20 | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: reopened (2026-06-10) | **First completed**: 2026-04-20 | **Owner**: 宪宪 (fable-5) | **Priority**: P1
+
+## Reopen（2026-06-10，CVO signoff）
+
+**为什么 reopen**：v1 看板上线后，运维实战暴露系统性缺口——webhook 事件与看板 dispatch 是两条互不回流的平行线、issue 追评无一等事件、closure 靠猫记性（积压 64 条未回复，2026-06-09 截图）。三猫独立思考收敛 + 砚砚 4 P1 review 放行后，CVO 批准以终态设计重构。
+
+**真相源链**：
+- 终态设计：`docs/discussions/2026-06-09-f168-community-ops-final-design.md`（v1.1）——Canonical/Projection 分层、状态机 + closure invariant、Role Registry、多租户三层边界
+- 思考过程：`2026-06-09-community-ops-eventbus-retrospective.md`（运维砚砚）/ `2026-06-09-community-ops-multiagent-coordination-fable.md`（宪宪）
+- Phase A 实施计划：`docs/plans/f168-phase-a-event-engine.md`
+- 实现依赖挂靠：F141（issue 生命周期事件）/ F140（PR 信号层复用）
+
+**分工（CVO 拍板 2026-06-10）**：宪宪写各 Phase spec/plan + 合入后愿景守护；sonnet 实现；缅因猫家族 review。
+
+**Phase 总览**：A 事件引擎（Event Log + 投影 + 状态机）→ B Issue Signals 全量事件 → C Narrator + Role Registry + 路由 → D Closure UX + Reconciler → E 看板决策队列。原 v1 文档（下方）保留为历史语境。
 
 ## Why
 
