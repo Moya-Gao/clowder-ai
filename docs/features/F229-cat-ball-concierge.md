@@ -91,6 +91,8 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 ### Phase D: 快速档入驻（复合猫生效）
 
 - 「快速档」clerk 接管导航/跳转/快捷操作类 intent——**provider-agnostic**：本地小模型（gemma，借力 F102 provider 抽象）**或** API 快模型（flash/glm 级）均可作 clerk（吴浪部署现实主义：不是每家有 128GB Mac；本地是 opt-in 优化不是前提）
+- **clerk 零工具执行权**（KD-12，砚砚 tool-intent smoke 实测 cat-cafe#2175）：小模型只输出 MD tool-intent candidate，validator 做 handle 映射 + 确认门 + forbidden fail-closed，实际工具调用由可信 harness/值班猫执行
+- **routing rules 必备**（实测：裸工具描述 9 intent 错 1——"之前讨论在哪"被错选 `graph_resolve` 偏向 feature anchor；加显式 rules 后 9/9）：讨论/在哪→search_evidence、spec/status→feat_index、已知 handle→teleport、cross_post/propose_thread→需确认、6399/runtime/truth-source→refuse_or_escalate（不问确认，带原文升级）
 - escalation 协议落地（传原始对话；值班大猫优先级可配置）
 - 无快速档配置自动降级全走值班大猫（Phase A-C 不依赖本 Phase）
 
@@ -196,6 +198,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 | KD-9 | 去/取/传话三动作分叉：记忆结果 = 跳过去(teleport) + 原地看(inline 上下文)；转接 = 传话(relay+回执) + 跟去(go)——同一结果给用户选意图，不替用户猜 | 铲屎官："有的时候是想直接过去，有的时候只是想看看曾经都说了什么"、"1.传话过去 2.直接前端得跳转过去？" | 2026-06-09 |
 | KD-10 | 岗位四件裁剪：身份+人设+工具面+prompt 都按岗裁剪——Phase A 工具白名单 ≈10 个（memory 三入口/get_thread_context/teleport/cross_post/guide×2/feat_index/propose_thread），排除 shell/文件/limb 等全家桶；prompt 不带 SOP/L0 全文。裁到不需要 tool-search | 铲屎官："mcp 太多了全丢给小猫调不清楚，runtime 不支持 tool search 更恐怖" + 吴浪："得控制他暴露出来的工具" | 2026-06-09 |
 | KD-11 | Phase D「小模型」重定位为「快速档」：provider-agnostic（本地 gemma 或 API flash/glm 均可作 clerk），本地权重是 opt-in 优化不是前提 | 吴浪部署现实主义："考虑其他人的使用，live model 可能合适点"——不是每家有 128GB Mac | 2026-06-09 |
+| KD-12 | clerk 零工具执行权：小模型只产 MD tool-intent candidate（显式 routing rules 必备），validator 负责 handle 映射/确认门/forbidden fail-closed，真实工具调用由可信 harness/值班猫执行；危险类（6399/runtime restart/truth-source write）refuse_or_escalate——不问确认，带原始文本升级 | 砚砚 tool-intent smoke（cat-cafe#2175）：裸描述 9 错 1（graph_resolve 偏向 feature anchor），加 routing rules 9/9 通过 | 2026-06-10 |
 
 ## Timeline
 
