@@ -3,7 +3,8 @@
  *
  * Pipeline: HMAC → event filter → allowlist → validate → dedup → normalize → bind thread → deliver → trigger → confirm
  */
-import type { CatId, ConnectorSource } from '@cat-cafe/shared';
+import type { CatId, CommunityEvent, CommunityEventKind, ConnectorSource } from '@cat-cafe/shared';
+import type { ICommunityEventLog } from '../../../domains/community/CommunityEventLog.js';
 import type { WebhookHandleResult } from '../../../routes/connector-webhooks.js';
 import type {
   ConnectorDeliveryDeps,
@@ -16,13 +17,21 @@ import type { RedisDeliveryDedup, RedisLike } from './RedisDeliveryDedup.js';
 import type { GitHubRepoInboxConfig, RepoInboxSignal } from './types.js';
 import { verifyGitHubSignature } from './verify-signature.js';
 
+/** Minimal projector interface — only apply() needed here. */
+interface ICommunityProjectorApply {
+  apply(event: CommunityEvent): Promise<void>;
+}
+
 const CONNECTOR_ID = 'github-repo-event';
 /** Repo owner's own PRs/issues should not trigger community intake. */
 const SKIP_AUTHOR_ASSOCIATIONS = new Set(['OWNER']);
 
 const ALLOWED_EVENTS: Record<string, readonly string[]> = {
   pull_request: ['opened', 'ready_for_review'],
-  issues: ['opened'],
+  // F168 Phase A: include closed/reopened so the event log can track issue lifecycle.
+  // Closed/reopened events feed the projector state machine; they also post an inbox
+  // notification so cats are aware of the change.
+  issues: ['opened', 'closed', 'reopened'],
 };
 
 export interface GitHubRepoHandlerDeps {
@@ -44,6 +53,9 @@ export interface GitHubRepoHandlerDeps {
   readonly deliveryDeps?: ConnectorDeliveryDeps;
   readonly redis?: RedisLike; // KD-20: per-repo inbox thread creation lock
   readonly reconciliationDedup?: Pick<ReconciliationDedup, 'markNotified'>; // Phase B bridge
+  // F168 Phase A: community event log + projector (best-effort, optional)
+  readonly eventLog?: ICommunityEventLog;
+  readonly projector?: ICommunityProjectorApply;
 }
 
 export class GitHubRepoWebhookHandler {
@@ -179,6 +191,38 @@ export class GitHubRepoWebhookHandler {
       // Phase B reconciliation will still work — it just won't skip this item
     }
 
+    // 15. Emit community event (F168 Phase A — best-effort, never blocks notification path)
+    if (this.deps.eventLog) {
+      try {
+        const kindMap: Record<string, CommunityEventKind> = {
+          'pull_request.opened': 'pr.opened',
+          'pull_request.ready_for_review': 'pr.ready_for_review',
+          'issues.opened': 'issue.opened',
+          // F168 Phase A: wire issue lifecycle events to the projector state machine.
+          'issues.closed': 'issue.closed',
+          'issues.reopened': 'issue.reopened',
+        };
+        const eventKind = kindMap[`${signal.subjectType === 'pr' ? 'pull_request' : 'issues'}.${signal.action}`];
+        if (eventKind) {
+          const subjectKey = `${signal.subjectType}:${signal.repoFullName}#${signal.number}`;
+          const communityEvent: CommunityEvent = {
+            sourceEventId: deliveryId,
+            subjectKey,
+            kind: eventKind,
+            classification: 'state-changing',
+            payload: { title: signal.title, authorLogin: signal.authorLogin },
+            at: Date.now(),
+          };
+          const { appended } = await this.deps.eventLog.append(communityEvent);
+          if (appended && this.deps.projector) {
+            await this.deps.projector.apply(communityEvent);
+          }
+        }
+      } catch {
+        // Best-effort — community event failure never blocks notification delivery
+      }
+    }
+
     return { kind: 'processed', messageId: delivered.messageId };
   }
 
@@ -206,7 +250,13 @@ export class GitHubRepoWebhookHandler {
 
   private formatMessage(signal: RepoInboxSignal): string {
     const typeEmoji = signal.subjectType === 'pr' ? '\u{1F500}' : '\u{1F195}';
-    const actionLabel = signal.action === 'ready_for_review' ? 'ready for review' : 'opened';
+    const ACTION_LABELS: Record<string, string> = {
+      opened: 'opened',
+      ready_for_review: 'ready for review',
+      closed: 'closed',
+      reopened: 'reopened',
+    };
+    const actionLabel = ACTION_LABELS[signal.action] ?? signal.action;
     return [
       `${typeEmoji} **${signal.subjectType === 'pr' ? 'PR' : 'Issue'} #${signal.number}** ${actionLabel}`,
       `**${signal.title}**`,

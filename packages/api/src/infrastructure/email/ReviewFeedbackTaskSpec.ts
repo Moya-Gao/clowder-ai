@@ -8,9 +8,10 @@
  * Gate: list pr_tracking tasks → fetch comments + reviews → filter by cursor → workItems.
  * Execute: ReviewFeedbackRouter → ConnectorInvokeTrigger → commitCursor.
  */
-import type { CatId, TaskItem } from '@cat-cafe/shared';
+import type { CatId, CommunityEvent, TaskItem } from '@cat-cafe/shared';
 import { parsePrSubjectKey } from '@cat-cafe/shared';
 import type { ITaskStore } from '../../domains/cats/services/stores/ports/TaskStore.js';
+import type { ICommunityEventLog } from '../../domains/community/CommunityEventLog.js';
 import type { ExecuteContext, TaskSpec_P1 } from '../scheduler/types.js';
 import type { ConnectorInvokeTrigger, ConnectorTriggerPolicy } from './ConnectorInvokeTrigger.js';
 import type { PrFeedbackComment, PrReviewDecision, ReviewFeedbackRouter } from './ReviewFeedbackRouter.js';
@@ -55,6 +56,9 @@ export interface ReviewFeedbackTaskSpecOptions {
   readonly isNoiseComment?: (comment: PrFeedbackComment) => boolean;
   /** F202-2B: Override task ID for plugin-scoped schedule instances */
   readonly id?: string;
+  // F168 Phase A: community event log + projector (best-effort, optional)
+  readonly eventLog?: ICommunityEventLog;
+  readonly projector?: { apply(event: CommunityEvent): Promise<void> };
 }
 
 function resolveCursor(memoryCursor: number | undefined, persistedCursor: number | undefined): number {
@@ -133,6 +137,29 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
             if (prMetadata?.prState === 'merged' || prMetadata?.prState === 'closed') {
               await opts.taskStore.update(task.id, { status: 'done' });
               opts.log.info(`[review-feedback] PR ${prKey} ${prMetadata.prState} — task marked done`);
+
+              // F168 Phase A: emit pr.merged / pr.closed event (best-effort)
+              if (opts.eventLog && task.subjectKey) {
+                const subjectKey = task.subjectKey; // already in format pr:owner/repo#N
+                const eventKind: CommunityEvent['kind'] = prMetadata.prState === 'merged' ? 'pr.merged' : 'pr.closed';
+                try {
+                  const communityEvent: CommunityEvent = {
+                    sourceEventId: `lifecycle:${subjectKey}:${prMetadata.prState}`,
+                    subjectKey,
+                    kind: eventKind,
+                    classification: 'state-changing',
+                    payload: { prState: prMetadata.prState, repoFullName, prNumber },
+                    at: Date.now(),
+                  };
+                  const { appended } = await opts.eventLog.append(communityEvent);
+                  if (appended && opts.projector) {
+                    await opts.projector.apply(communityEvent);
+                  }
+                } catch {
+                  opts.log.warn(`[review-feedback] community event emit failed for ${prKey}`);
+                }
+              }
+
               continue;
             }
 

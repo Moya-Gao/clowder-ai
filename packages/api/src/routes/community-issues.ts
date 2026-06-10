@@ -13,7 +13,13 @@
  */
 
 import { createHash, randomUUID } from 'node:crypto';
-import { type CatId, createCatId, DEFAULT_INTAKE_CHECKLIST, validateIntakeChecklist } from '@cat-cafe/shared';
+import {
+  type CatId,
+  type CommunityEvent,
+  createCatId,
+  DEFAULT_INTAKE_CHECKLIST,
+  validateIntakeChecklist,
+} from '@cat-cafe/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { getRoster } from '../config/cat-config-loader.js';
@@ -22,6 +28,8 @@ import type { ICommunityIssueStore } from '../domains/cats/services/stores/ports
 import type { ICommunityPrStore } from '../domains/cats/services/stores/ports/CommunityPrStore.js';
 import type { ITaskStore } from '../domains/cats/services/stores/ports/TaskStore.js';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
+import type { ICommunityEventLog } from '../domains/community/CommunityEventLog.js';
+import type { ICommunityObjectStore } from '../domains/community/CommunityObjectStore.js';
 import { derivePrGroup } from '../domains/community/derivePrGroup.js';
 import { type GhIssueFull, mapGitHubIssue } from '../domains/community/GitHubIssueFetcher.js';
 import { type GhPrFull, type GhPrReview, mapGitHubPr } from '../domains/community/GitHubPrFetcher.js';
@@ -45,6 +53,11 @@ export interface CommunityIssuesRoutesOptions {
   communityPrStore?: ICommunityPrStore;
   fetchPrs?: (repo: string) => Promise<GhPrFull[]>;
   fetchPrReviews?: (repo: string, prNumber: number) => Promise<GhPrReview[]>;
+  // F168 Phase A: community event log + projector (best-effort, optional)
+  eventLog?: ICommunityEventLog;
+  projector?: { apply(event: CommunityEvent): Promise<void> };
+  // F168 Phase A Task 9: object store for board projection enrichment
+  objectStore?: ICommunityObjectStore;
 }
 
 const VALID_ISSUE_TYPES = ['bug', 'feature', 'enhancement', 'question'] as const;
@@ -164,6 +177,28 @@ export const communityIssueRoutes: FastifyPluginAsync<CommunityIssuesRoutesOptio
       state: 'discussing',
       ...(threadId && { assignedThreadId: threadId }),
     });
+
+    // F168 Phase A: emit case.triaged event (best-effort — never blocks dispatch)
+    if (opts.eventLog) {
+      try {
+        const subjectKey = `issue:${item.repo}#${item.issueNumber}`;
+        const communityEvent: CommunityEvent = {
+          sourceEventId: `dispatch:${id}:${Date.now()}`,
+          subjectKey,
+          kind: 'case.triaged',
+          classification: 'state-changing',
+          payload: { threadId: threadId ?? null, dispatchedAt: Date.now() },
+          at: Date.now(),
+        };
+        const { appended } = await opts.eventLog.append(communityEvent);
+        if (appended && opts.projector) {
+          await opts.projector.apply(communityEvent);
+        }
+      } catch {
+        // Best-effort — event log failure never blocks dispatch
+      }
+    }
+
     return updated;
   });
 
@@ -629,6 +664,152 @@ export const communityIssueRoutes: FastifyPluginAsync<CommunityIssuesRoutesOptio
       }));
 
     const prItems = [...trackedPrItems, ...communityPrItems];
+
+    // F168 Phase A Task 9: enrich issues + prItems with CommunityObjectStore projection fields.
+    // P1-2 fix: objectStore is the authoritative source for new cases (e.g., from webhook).
+    // Items that only exist in objectStore (not in legacy stores) are included via projection-only path.
+    // New fields (projectionState, nextOwner, closureWaiver) are additive — zero frontend breakage.
+    if (opts.objectStore) {
+      const objectStore = opts.objectStore;
+
+      // Enrich existing legacy issues with projection fields
+      const enrichedIssues = await Promise.all(
+        issues.map(async (issue) => {
+          const subjectKey = `issue:${issue.repo}#${issue.issueNumber}`;
+          try {
+            const proj = await objectStore.get(subjectKey);
+            if (!proj) return issue;
+            return {
+              ...issue,
+              projectionState: proj.state,
+              nextOwner: proj.nextOwner,
+              closureWaiver: proj.closureWaiver,
+            };
+          } catch {
+            return issue;
+          }
+        }),
+      );
+
+      // P1-2 fix: find projection-only issues (came via webhook, not in legacy communityIssueStore)
+      const legacyIssueNumbers = new Set(issues.map((i) => i.issueNumber));
+      try {
+        const allSubjectKeys = await objectStore.listSubjectKeys();
+        const issuePrefix = `issue:${repo}#`;
+        const projectionOnlyKeys = allSubjectKeys.filter(
+          (sk) => sk.startsWith(issuePrefix) && !legacyIssueNumbers.has(Number(sk.slice(issuePrefix.length))),
+        );
+
+        for (const sk of projectionOnlyKeys) {
+          try {
+            const proj = await objectStore.get(sk);
+            if (!proj) continue;
+            // Map terminal projection states to their legacy-compatible equivalents so the
+            // board panel shows them in the correct column (closed / fixed issues must not
+            // appear in the active unreplied bucket).
+            const issueIsTerminal = proj.state === 'closed' || proj.state === 'fixed';
+            const issueState = issueIsTerminal ? ('closed' as const) : ('unreplied' as const);
+            // Synthesize a minimal issue from projection — backward-compatible shape.
+            // 'state' uses a legacy-compatible fallback; 'projectionState' carries the canonical state.
+            enrichedIssues.push({
+              id: sk,
+              repo,
+              issueNumber: proj.number,
+              issueType: 'question' as const,
+              title: '',
+              state: issueState,
+              replyState: 'unreplied' as const,
+              assignedThreadId: proj.ownerThreadId,
+              assignedCatId: proj.ownerRole,
+              linkedPrNumbers: proj.linkedPrs ?? [],
+              directionCard: null,
+              ownerDecision: null,
+              relatedFeature: null,
+              guardianAssignment: null,
+              lastActivity: { at: proj.updatedAt, event: 'projection' },
+              createdAt: proj.createdAt,
+              updatedAt: proj.updatedAt,
+              projectionState: proj.state,
+              nextOwner: proj.nextOwner,
+              closureWaiver: proj.closureWaiver,
+            });
+          } catch {
+            /* best-effort */
+          }
+        }
+      } catch {
+        /* best-effort: listSubjectKeys failure should not break the board */
+      }
+
+      // Enrich prItems
+      const enrichedPrItems = await Promise.all(
+        prItems.map(async (item) => {
+          if (item.prNumber == null) return item;
+          const subjectKey = `pr:${repo}#${item.prNumber}`;
+          try {
+            const proj = await objectStore.get(subjectKey);
+            if (!proj) return item;
+            return {
+              ...item,
+              projectionState: proj.state,
+              nextOwner: proj.nextOwner,
+              closureWaiver: proj.closureWaiver,
+            };
+          } catch {
+            return item;
+          }
+        }),
+      );
+
+      // P1-R2-2 fix: find projection-only PRs (webhook-only, not in legacy taskStore or communityPrStore)
+      const trackedAndLegacyPrNumbers = new Set([...trackedPrNumbers, ...communityPrs.map((p) => p.prNumber)]);
+      try {
+        const allSubjectKeys = await objectStore.listSubjectKeys();
+        const prPrefix = `pr:${repo}#`;
+        const projectionOnlyPrKeys = allSubjectKeys.filter(
+          (sk) => sk.startsWith(prPrefix) && !trackedAndLegacyPrNumbers.has(Number(sk.slice(prPrefix.length))),
+        );
+        for (const sk of projectionOnlyPrKeys) {
+          try {
+            const proj = await objectStore.get(sk);
+            if (!proj) continue;
+            // Map projection terminal states to board state/group so these PRs land in the
+            // correct column (merged / closed) rather than always appearing in unreplied.
+            const isFixedProj = proj.state === 'fixed';
+            const isClosedProj = proj.state === 'closed';
+            const projState = isFixedProj
+              ? ('merged' as const)
+              : isClosedProj
+                ? ('closed' as const)
+                : ('open' as const);
+            const projGroup = isFixedProj ? 'merged' : isClosedProj ? 'closed' : 'unreplied';
+            // Synthesize a communityPrItem-shaped entry (matches union member) + projection fields
+            enrichedPrItems.push({
+              taskId: sk,
+              prNumber: proj.number,
+              title: '',
+              author: '',
+              state: projState,
+              status: projState,
+              replyState: 'unreplied' as const,
+              group: projGroup,
+              headSha: '',
+              draft: false,
+              updatedAt: proj.updatedAt,
+              projectionState: proj.state,
+              nextOwner: proj.nextOwner,
+              closureWaiver: proj.closureWaiver,
+            });
+          } catch {
+            /* best-effort */
+          }
+        }
+      } catch {
+        /* best-effort: listSubjectKeys failure must not break the board */
+      }
+
+      return { repo, issues: enrichedIssues, prItems: enrichedPrItems };
+    }
 
     return { repo, issues, prItems };
   });

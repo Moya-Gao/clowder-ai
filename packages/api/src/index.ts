@@ -502,6 +502,24 @@ async function main(): Promise<void> {
   const taskStore = createTaskStore(redis);
   const labelStore = createLabelStore(redis);
   const communityIssueStore = createCommunityIssueStore(redis);
+
+  // F168 Phase A P1-1: create community event services from Redis (best-effort, optional).
+  // Passed to communityIssueRoutes, rehydrateGitHubSchedules, and connector gateway.
+  let communityEventLog: import('./domains/community/CommunityEventLog.js').ICommunityEventLog | undefined;
+  let communityObjectStore: import('./domains/community/CommunityObjectStore.js').ICommunityObjectStore | undefined;
+  let communityProjector: import('./domains/community/community-projector.js').CommunityProjector | undefined;
+  if (redis) {
+    const [elMod, osMod, pjMod] = await Promise.all([
+      import('./domains/community/CommunityEventLog.js'),
+      import('./domains/community/CommunityObjectStore.js'),
+      import('./domains/community/community-projector.js'),
+    ]);
+    communityEventLog = new elMod.RedisCommunityEventLog(redis);
+    communityObjectStore = new osMod.RedisCommunityObjectStore(redis);
+    communityProjector = new pjMod.CommunityProjector(communityEventLog, communityObjectStore);
+    app.log.info('[api] F168 Phase A: community event services initialized');
+  }
+
   if (redis) {
     const { RedisPrTrackingStore } = await import('./infrastructure/email/RedisPrTrackingStore.js');
     const { backfillLegacyPrTracking } = await import('./infrastructure/email/backfill-legacy-pr-tracking.js');
@@ -2401,6 +2419,10 @@ async function main(): Promise<void> {
     communityPrStore,
     fetchPrs: fetchPrsForSync,
     fetchPrReviews: fetchPrReviewsForSync,
+    // F168 Phase A P1-1: wire community event services
+    eventLog: communityEventLog,
+    projector: communityProjector,
+    objectStore: communityObjectStore,
   });
   await app.register(backlogRoutes, { backlogStore, threadStore, messageStore });
 
@@ -3169,6 +3191,9 @@ async function main(): Promise<void> {
           threadId,
         );
       },
+      // F168 Phase A: wire PR lifecycle events to community event engine
+      eventLog: communityEventLog,
+      projector: communityProjector,
       // F192 Phase G: wire PR merge/close events to task-outcome episodes
       onPrLifecycle: (event) => {
         try {
@@ -3434,6 +3459,9 @@ async function main(): Promise<void> {
         fetchIssueState,
         isEchoIssueComment: (c: { author: string }) => feedbackFilter.shouldSkipComment(c),
         ...repoScanDeps,
+        // F168 Phase A P1-1: community event services for spec wiring
+        eventLog: communityEventLog,
+        projector: communityProjector,
       });
       app.log.info('[api] F202-2B: GitHub schedule resources rehydrated via plugin framework');
     }

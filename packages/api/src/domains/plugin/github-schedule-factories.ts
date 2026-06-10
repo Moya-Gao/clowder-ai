@@ -38,7 +38,13 @@ import type { ReviewFeedbackPrMetadata } from '../../infrastructure/email/Review
 import { createReviewFeedbackTaskSpec } from '../../infrastructure/email/ReviewFeedbackTaskSpec.js';
 import type { TaskSpec_P1 } from '../../infrastructure/scheduler/types.js';
 import type { ITaskStore } from '../cats/services/stores/ports/TaskStore.js';
+import type { ICommunityEventLog } from '../community/CommunityEventLog.js';
 import type { ScheduleFactory, ScheduleFactoryDeps, ScheduleFactoryRegistry } from './ScheduleFactoryRegistry.js';
+
+/** Minimal projector interface for optional DI in factories — avoids importing concrete class. */
+interface IFactoryProjectorMin {
+  apply(event: Parameters<ICommunityEventLog['append']>[0]): Promise<void>;
+}
 
 /**
  * Typed dep extraction for GitHub schedule factories.
@@ -79,6 +85,12 @@ export interface GitHubScheduleDeps extends ScheduleFactoryDeps {
   fetchIssueComments?: (repoFullName: string, issueNumber: number, sinceId?: number) => Promise<IssueComment[]>;
   fetchIssueState?: (repoFullName: string, issueNumber: number) => Promise<'open' | 'closed'>;
   isEchoIssueComment?: (c: IssueComment) => boolean;
+  /**
+   * F168 Phase A P1-1 fix: community event services.
+   * Provided by index.ts when Redis is available; factories thread them to spec constructors.
+   */
+  eventLog?: ICommunityEventLog;
+  projector?: IFactoryProjectorMin;
 }
 
 /** Cast ScheduleFactoryDeps to GitHubScheduleDeps with runtime validation */
@@ -138,6 +150,9 @@ const reviewFeedbackFactory: ScheduleFactory = {
       isEchoComment: d.isEchoComment,
       isEchoReview: d.isEchoReview,
       isNoiseComment: d.isNoiseComment,
+      // F168 Phase A P1-1: thread community event services to spec
+      eventLog: d.eventLog,
+      projector: d.projector,
     }) as TaskSpec_P1;
   },
 };
@@ -175,6 +190,9 @@ const repoScanFactory: ScheduleFactory = {
       fetchOpenPRs: d.fetchOpenPRs,
       fetchOpenIssues: d.fetchOpenIssues,
       log: d.log,
+      // F168 Phase A P1-1: thread community event services to spec
+      eventLog: d.eventLog,
+      projector: d.projector,
     }) as TaskSpec_P1;
   },
 };
@@ -211,6 +229,15 @@ export function registerGitHubScheduleFactories(registry: ScheduleFactoryRegistr
   registry.register(repoScanFactory);
   registry.register(issueTrackingFactory);
 }
+
+/** Exported for testing — allows direct factory lookup without constructing a full registry. */
+export const githubScheduleFactories = [
+  cicdCheckFactory,
+  conflictCheckFactory,
+  reviewFeedbackFactory,
+  repoScanFactory,
+  issueTrackingFactory,
+] as const;
 
 // --- F202-2B Migration helpers (P2-1 fix) ---
 
