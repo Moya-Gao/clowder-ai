@@ -7,7 +7,7 @@ created: 2026-02-26
 
 # Cat Cafe Feature Roadmap
 
-> 维护者：三猫 | 最后更新：2026-06-09（feature truth hygiene：F188 reopened / F128 active）
+> 维护者：三猫 | 最后更新：2026-06-10（feature truth hygiene：F168 reopened）
 >
 > **规则**：只放活跃 Feature（idea/spec/in-progress/review），done 后移除。
 > 详细信息见 `docs/features/Fxxx-*.md`。
@@ -53,6 +53,7 @@ created: 2026-02-26
 | F162 | Enterprise Action Toolkit — 官方 CLI 驱动的企业工作流 | spec | 布偶猫 | internal | [F162](features/F162-enterprise-action-toolkit.md) |
 | F165 | Guided Overfitting — 引导式过拟合 / 养猫路径 | spec | 布偶猫 | internal | [F165](features/F165-guided-overfitting.md) |
 | F167 | A2A Chain Quality — 乒乓球熔断 + 虚空传球检测 + 角色护栏 | spec | 布偶猫 | internal | [F167](features/F167-a2a-chain-quality.md) |
+| F168 | Community Operations Board — 社区事务编排引擎 | reopened | 宪宪 Fable-5 | internal | [F168](features/F168-community-ops-board.md) |
 | F178 | Persistent MCP Agent-Key Auth — 跨 invocation 写权限（F061 Bug-H follow-up） | spec | 布偶猫 | internal | [F178](features/F178-persistent-mcp-agent-key-auth.md) |
 | F181 | Reserved Feature Slot — 待补充需求锚点 | idea | 待定 | internal | [F181](features/F181-reserved-feature-slot.md) |
 | F188 | Library Stewardship — 图书馆管护与成长（Phase K: Memory Center Config Health Surface） | in-progress | 布偶猫 | internal | [F188](features/F188-library-stewardship.md) |
