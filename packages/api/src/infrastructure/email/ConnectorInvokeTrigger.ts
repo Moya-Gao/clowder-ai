@@ -687,6 +687,33 @@ export class ConnectorInvokeTrigger {
         },
         threadId,
       );
+
+      // #873: Clean up streaming placeholder so user doesn't see a stale "typing" indicator
+      if (this.opts.streamingHook?.cleanupPlaceholders) {
+        await this.opts.streamingHook.cleanupPlaceholders(threadId, invocationId).catch((cleanupErr) => {
+          log.warn(
+            { err: cleanupErr, threadId },
+            '[ConnectorInvokeTrigger] StreamingHook.cleanupPlaceholders failed (error path)',
+          );
+        });
+      }
+
+      // #873: Deliver error message to external IM platform so user sees a reply (not silence)
+      if (this.opts.outboundHook) {
+        try {
+          await this.opts.outboundHook.deliver(
+            threadId,
+            '抱歉，处理消息时遇到问题，请稍后重试。',
+            catId,
+            undefined,
+            undefined,
+            undefined,
+            messageId,
+          );
+        } catch (deliverErr) {
+          log.error({ err: deliverErr, threadId }, '[ConnectorInvokeTrigger] Error-path outbound delivery failed');
+        }
+      }
     } finally {
       if (heartbeatInterval) clearInterval(heartbeatInterval);
       invocationTracker.complete(threadId, catId, controller);
