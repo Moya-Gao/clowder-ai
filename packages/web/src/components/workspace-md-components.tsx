@@ -47,7 +47,7 @@ export function createWorkspaceLinkComponent(
             // switches to another worktree.
             setOpenFile(resolved, null, worktreeId ?? null);
           }}
-          className="text-cafe-accent hover:text-cafe-interactive hover:underline break-all cursor-pointer"
+          className="text-conn-blue-text hover:text-cafe-interactive hover:underline break-all cursor-pointer"
           title={`在工作区中打开 ${resolved}`}
         >
           {withMentions(children)}
@@ -60,7 +60,7 @@ export function createWorkspaceLinkComponent(
         href={href}
         target="_blank"
         rel="noopener noreferrer"
-        className="text-cafe-accent hover:text-cafe-interactive hover:underline break-all"
+        className="text-conn-blue-text hover:text-cafe-interactive hover:underline break-all"
       >
         {withMentions(children)}
       </a>
