@@ -1,5 +1,5 @@
 ---
-feature_ids: [F226]
+feature_ids: [F230]
 related_features: [F159, F143, F149, F050]
 topics: [provider, agent-runtime, tools, security, architecture]
 doc_kind: spec
@@ -7,7 +7,7 @@ created: 2026-05-07
 community_issue: "zts212653/clowder-ai#653"
 ---
 
-# F226: CatAgent Write/Exec — 轻量内置可工作 Agent
+# F230: CatAgent Write/Exec — 轻量内置可工作 Agent
 
 > **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
 >
@@ -16,7 +16,7 @@ community_issue: "zts212653/clowder-ai#653"
 > **Anchor note**: 本文最初以 stale `F188` 草稿进入 housekeeping；`F188` 已被
 > `F188-library-stewardship` 占用并处于活跃治理状态。第一次重锚到 `F219` 后又撞上
 > `F219-tech-debt-architecture-evolution`。PR #850 最终将 CatAgent Write/Exec 重锚为
-> 当前未占用的 `F226`，避免两个不同 feature 共享同一 truth-source anchor。
+> 当前未占用的 `F230`，避免两个不同 feature 共享同一 truth-source anchor。
 
 ## Why
 
@@ -144,9 +144,9 @@ Cat Cafe 需要一条**轻量、内置、可干活的 agent 通道**——不是
 
 ## ADR-001 修订要点
 
-F226 需要修订 ADR-001 中 F159 添加的禁止边界：
+F230 需要修订 ADR-001 中 F159 添加的禁止边界：
 
-| 原禁止项 | F226 修订 |
+| 原禁止项 | F230 修订 |
 |----------|-----------|
 | No write/edit/delete | L1 允许 write_file / patch_file，受 resolveCreatePath + 原子写 + 大小限制 + 结构化审计 |
 | No shell/command execution | L2 允许 run_command，受命令策略矩阵（binary + subcommand + flag 级）+ execFile + 超时 + env 过滤 |
@@ -179,7 +179,7 @@ F226 需要修订 ADR-001 中 F159 添加的禁止边界：
 
 | # | 决策 | 理由 | 日期 |
 |---|------|------|------|
-| KD-1 | 新开 F226 而非扩展 F159 | F159 的安全边界已被 ADR-001 和 5 轮 review 钉死，在原 spec 上改会重审已验收语义 | 2026-05-07 |
+| KD-1 | 新开 F230 而非扩展 F159 | F159 的安全边界已被 ADR-001 和 5 轮 review 钉死，在原 spec 上改会重审已验收语义 | 2026-05-07 |
 | KD-2 | 分级工具面（L0/L1/L2）而非全开或全关 | 平衡安全与能力：不同猫有不同信任级别 | 2026-05-07 |
 | KD-3 | patch_file 用 compare-and-swap（expected_hash + 精确替换） | 防止基于陈旧读取的盲替换（review finding） | 2026-05-07 |
 | KD-4 | run_command 用 execFile + 结构化 argv 而非 shell 字符串 | 消除 shell 注入 + 解析歧义 | 2026-05-07 |
