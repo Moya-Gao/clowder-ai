@@ -195,6 +195,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 |------|------|
 | 2026-06-09 | 立项（CVO signoff）；#841 社区输入收编；gemma 线（F102）确认为 Phase D 前置 |
 | 2026-06-09 | OQ-1/2/3 铲屎官落定（KD-6/7/8）；Phase 0 research 启动：形态/体验调研 → 烁烁，身份配置模型 + surface 技术路径 → 宪宪 |
+| 2026-06-09 | 形态/体验调研由砚砚接球完成：安静前台入口、主动冒泡四级白名单、默认毛线球视觉状态、Mode B 云端咨询 prompt |
 
 ## Review Gate
 
@@ -206,6 +207,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 | 类型 | 路径 | 说明 |
 |------|------|------|
 | **Community Issue** | [clowder-ai#841](https://github.com/zts212653/clowder-ai/issues/841) | arthas4ever 悬浮球提案（needs-maintainer-decision → 由本 feat 承接，标签待迁移 F229） |
+| **Research** | `docs/research/2026-06-09-f229-companion-form-research.md` | companion 形态/体验调研：Clippy 反面教训、桌宠/派蒙借鉴、主动冒泡白名单、默认毛线球视觉方向、Mode B prompt |
 | **Research** | `docs/research/2026-06-08-pi-gemma-local-clerk-phase0-spike.md` | gemma 4 26B 本地实测 + Pi carrier + harness 收敛（Phase D 前置） |
 | **Issue** | cat-cafe#2175 | F102 MD-first digest candidates + provider 抽象（Phase D 软依赖） |
 | **Feature** | `docs/features/F155-scene-guidance-engine.md` | guide engine 积木（Phase A 求助场景后端） |
