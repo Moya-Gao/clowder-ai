@@ -55,3 +55,34 @@
 | E4 resume | PASS 原地续写零 fork |
 
 残留（Day 2）：runway 三档 telemetry 校准（AC-A5①）+ skeleton 工期对照（②）+ dev support 问询登记（③）+ go/no-go 报告 + F198 AC-D6 回写。OQ-5（transcript 写盘粒度/streaming 时机）+ OQ-8（cancel 注入方式）随 Day 2 顺带采。
+
+---
+
+## E5: cancel 语义探针（OQ-8）— 宪宪/Sonnet 2026-06-10 Day 2
+
+> 环境: cwd=cat-cafe-f230-bmin worktree（trust 继承，无 trust dialog）；`env -u CLAUDE_CODE_ENTRYPOINT -u CLAUDECODE claude`；session id=`6ec1d7ee-acb4-4e42-9de9-eadfa6c31bce`
+
+**inject cwd 教训**：`/tmp/` 临时 cwd 触发两层对话框（trust + bypassPermissions warning），操作失误（Enter 选 No）杀死 session。**fix：用 worktree cwd，trust 继承，零对话框**（E1 同机制，Day 2 复现）。
+
+**两段式注入复现**：文本 send-keys → sleep 2s → 单独 Enter（E1 教训继承）✓
+
+### 方案对照
+
+| 方案 | 操作 | 进程状态 | transcript 证据 | 结论 |
+|------|------|---------|----------------|------|
+| **A: ESC** | `tmux send-keys Escape` | ✅ 存活，返回 ❯ | stop_reason=None（部分）+ `[Request interrupted by user]` user 事件 | **✅ WINNER** |
+| B: kill -INT | `kill -INT <claude_pid>` | ❌ 进程整体退出，session 消失 | user 事件写入，ai-title 写入，无 assistant 响应 | ❌ 等同核弹 |
+| C: kill-session | `tmux kill-session` | ❌ session 消失 | 与 B 类似（in-flight 内容丢失）| ❌ 兜底/dispose 专用 |
+
+**关键 transcript 信号（ESC 中断后）**：
+```
+[13] assistant  stop_reason=None  ← 部分内容（中断在流中）
+[14] assistant  stop_reason=stop_sequence  ← synthetic close event
+[15] user  content=[{type:text, text:"[Request interrupted by user]"}]  ← 中断标记
+```
+
+**D5 决策拍板**（原 OQ-8）：
+- `cancel()` = `tmux send-keys Escape`，watch transcript for `[Request interrupted by user]` user 事件
+- `dispose()` = `tmux kill-session -t <name>`（终态清理；D1 已定）
+
+**注意**：cancel() + dispose() 序列时，先 ESC 等中断标记，再 kill-session；单独 dispose() 可直接 kill-session（invoker 已 yield done）。
