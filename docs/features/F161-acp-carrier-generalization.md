@@ -44,7 +44,7 @@ F149 交付了完整的 ACP runtime operations（进程池 / session lease / lif
 
 **改动**：
 
-1. **Config schema**：variant 级新增 `protocol?: 'cli' | 'acp'` 字段
+1. **Config schema**：variant 有 `acp` config section 即隐式启用 ACP transport（无需额外 `protocol` 字段）
 2. **AcpAgentService**：`GeminiAcpAdapter` 重命名为 `AcpAgentService`，metadata.provider 从配置读
 3. **Registry 路由**：ACP 路由从 `case 'google'` 提升到 switch 之前——任何 clientId + `protocol: 'acp'` 都走通用 ACP 路径
 4. **Env 模板映射**：新建 `env-map.ts`，定义 `BUILTIN_ENV_MAPS`（已知 client 内置映射）+ `resolveEnvMap()`（`${api_key}` / `${base_url}` 模板替换）
@@ -84,7 +84,7 @@ const BUILTIN_ENV_MAPS = {
 
 ### Phase A（通用 ACP 传输 + 模板 Env 映射）
 - [x] AC-A1: `GeminiAcpAdapter` 重命名为 `AcpAgentService`，所有引用更新，现有 Gemini ACP 功能不退化
-- [x] AC-A2: variant config 支持 `protocol: 'cli' | 'acp'` 字段；`protocol: 'acp'` 的 variant 走通用 ACP 路径，不经过 clientId switch
+- [x] AC-A2: variant 有 `acp` config section 即走通用 ACP 路径，不经过 clientId switch（隐式 protocol：有 acp section = ACP transport）
 - [x] AC-A3: `env-map.ts` 实现 `BUILTIN_ENV_MAPS` + `resolveEnvMap()`，已知 client 内置映射覆盖 anthropic/openai/google/openrouter/kimi/dare
 - [x] AC-A4: `invoke-single-cat.ts` 的 env 注入 if/else 链替换为 `resolveEnvMap()` 调用，行为等价（53 tests green）
 - [x] AC-A5: `clientId: 'acp'` 可配置，固定 `protocol: 'acp'`，用户 envVars 中的 `${api_key}` / `${base_url}` 模板变量正确替换

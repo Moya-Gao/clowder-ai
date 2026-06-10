@@ -65,7 +65,7 @@ describe('F161: env-map — resolveEnvMap', () => {
     });
   });
 
-  it('user-defined templates take top priority', () => {
+  it('user templates merge with (not replace) built-in mapping', () => {
     const result = resolveEnvMap(
       'anthropic',
       undefined,
@@ -76,10 +76,27 @@ describe('F161: env-map — resolveEnvMap', () => {
         STATIC_VAR: 'no-template',
       },
     );
-    // Only template entries used; STATIC_VAR is not a template
+    // User templates merge on top of built-in: MY_CUSTOM_KEY added,
+    // ANTHROPIC_API_KEY preserved from built-in (P2 fix: merge, not replace)
     assert.deepEqual(result, {
-      MY_CUSTOM_KEY: 'my-key',
-      // MY_ENDPOINT is empty because baseUrl is undefined → omitted
+      ANTHROPIC_API_KEY: 'my-key', // from built-in
+      MY_CUSTOM_KEY: 'my-key', // from user template
+      // MY_ENDPOINT + ANTHROPIC_BASE_URL omitted (baseUrl undefined)
+    });
+  });
+
+  it('user template overrides built-in key with same name', () => {
+    const result = resolveEnvMap(
+      'anthropic',
+      undefined,
+      { apiKey: 'my-key', baseUrl: 'https://proxy.example.com' },
+      {
+        ANTHROPIC_API_KEY: '${base_url}', // intentionally override built-in mapping
+      },
+    );
+    assert.deepEqual(result, {
+      ANTHROPIC_API_KEY: 'https://proxy.example.com', // user override wins
+      ANTHROPIC_BASE_URL: 'https://proxy.example.com', // from built-in
     });
   });
 
@@ -133,6 +150,40 @@ describe('F161: env-map — resolveEnvMap', () => {
     );
     assert.deepEqual(result, {
       DEEPSEEK_API_KEY: 'custom-key',
+    });
+  });
+});
+
+describe('F161: env-map — sanitizer (F171 parity)', () => {
+  it('rejects CAT_CAFE_ prefix from user templates', () => {
+    const result = resolveEnvMap(
+      'acp',
+      undefined,
+      { apiKey: 'evil-key' },
+      {
+        CAT_CAFE_API_URL: '${api_key}',
+        SAFE_KEY: '${api_key}',
+      },
+    );
+    // CAT_CAFE_API_URL must NOT appear — reserved prefix
+    assert.deepEqual(result, {
+      SAFE_KEY: 'evil-key',
+    });
+  });
+
+  it('rejects invalid env key names from user templates', () => {
+    const result = resolveEnvMap(
+      'acp',
+      undefined,
+      { apiKey: 'key' },
+      {
+        'invalid-key': '${api_key}',
+        '3INVALID': '${api_key}',
+        VALID_KEY: '${api_key}',
+      },
+    );
+    assert.deepEqual(result, {
+      VALID_KEY: 'key',
     });
   });
 });

@@ -18,7 +18,11 @@ import fastifyCookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import fastifyWebsocket from '@fastify/websocket';
 import Fastify, { type FastifyReply } from 'fastify';
-import { resolveAnthropicRuntimeProfile, resolveForClient } from './config/account-resolver.js';
+import {
+  resolveAnthropicRuntimeProfile,
+  resolveBuiltinClientForProvider,
+  resolveForClient,
+} from './config/account-resolver.js';
 import { regenerateStartupCliConfigs } from './config/capabilities/startup-cli-config.js';
 import { resolveBoundAccountRefForCat } from './config/cat-account-binding.js';
 import { getCatContextBudget } from './config/cat-budgets.js';
@@ -1076,12 +1080,34 @@ async function main(): Promise<void> {
         const { AcpAgentService } = await import('./domains/cats/services/agents/providers/acp/AcpAgentService.js');
         const { AcpProcessPool } = await import('./domains/cats/services/agents/providers/acp/AcpProcessPool.js');
         const { AcpClient } = await import('./domains/cats/services/agents/providers/acp/AcpClient.js');
+        const { resolveEnvMap } = await import('./domains/cats/services/agents/providers/env-map.js');
         const acpProjectRoot = findMonorepoRoot();
         const acpCommand = resolveAcpBootstrapCommand(acpProjectRoot, acpConfig.command);
         const acpArgs = resolveAcpBootstrapArgs(acpProjectRoot, acpConfig.startupArgs);
         const poolKey = { projectPath: acpProjectRoot, providerProfile: id };
-        // Shared pool per variant — reused across cats with same variant
-        if (!acpPoolRegistry.has(id)) {
+
+        // F161 P1: Resolve account binding → env for ACP subprocess.
+        // AcpClient env is set at spawn time (pool creation), not per-invocation.
+        // Pool rebuild on syncAgentRegistry picks up account changes.
+        let acpSpawnEnv: Record<string, string> | undefined;
+        const builtinClient = resolveBuiltinClientForProvider(config.clientId);
+        if (builtinClient) {
+          const acpAccountRef = resolveBoundAccountRefForCat(acpProjectRoot, catId, config);
+          const acpAccount = resolveForClient(acpProjectRoot, builtinClient, acpAccountRef);
+          if (acpAccount?.authType === 'api_key') {
+            const resolved = resolveEnvMap(config.clientId, config.provider, {
+              apiKey: acpAccount.apiKey,
+              baseUrl: acpAccount.baseUrl,
+            });
+            if (Object.keys(resolved).length > 0) acpSpawnEnv = resolved;
+          }
+        }
+
+        // Shared pool per variant — reused across cats with same variant.
+        // Close stale pool if env changed (account binding update).
+        if (acpPoolRegistry.has(id)) {
+          // Pool exists — reuse. Env changes require config reload (pool rebuild).
+        } else {
           const pool = new AcpProcessPool(
             {
               maxLiveProcesses: acpConfig.pool?.maxLiveProcesses ?? 3,
@@ -1094,6 +1120,7 @@ async function main(): Promise<void> {
                 command: acpCommand,
                 args: acpArgs,
                 cwd: resolveAcpBootstrapCwd(acpProjectRoot, id),
+                ...(acpSpawnEnv ? { env: acpSpawnEnv } : {}),
               }),
           );
           acpPoolRegistry.set(id, pool);

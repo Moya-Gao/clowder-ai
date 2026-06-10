@@ -18,6 +18,9 @@ export type EnvTemplateVariable = 'api_key' | 'base_url';
 /** Template pattern: ${variable_name} */
 const TEMPLATE_RE = /\$\{(\w+)\}/g;
 
+/** Valid env key pattern (F171 parity: same as accountEnv sanitizer) */
+const VALID_ENV_KEY = /^[A-Z_][A-Za-z0-9_]*$/;
+
 /**
  * Built-in env mappings for known clients/providers.
  * Key = clientId or provider name.
@@ -85,6 +88,8 @@ export function resolveEnvMap(
 
   const result: Record<string, string> = {};
   for (const [envKey, tmpl] of Object.entries(template)) {
+    // Sanitize: reject reserved prefix and malformed key names (F171 parity)
+    if (envKey.startsWith('CAT_CAFE_') || !VALID_ENV_KEY.test(envKey)) continue;
     const resolved = tmpl.replace(TEMPLATE_RE, (_, name: string) => vars[name] ?? '');
     // Only inject non-empty values — empty means the account doesn't have that field
     if (resolved) {
@@ -116,26 +121,24 @@ export function extractUserEnvTemplates(
   return hasTemplates ? templates : undefined;
 }
 
-/** Pick the best template map based on priority chain. */
+/**
+ * Build the effective template map by merging built-in + user templates.
+ * User templates extend/override built-in entries (same key → user wins),
+ * but do NOT replace the entire built-in map (P2 fix: merge, not replace).
+ */
 function pickTemplate(
   clientId: string,
   provider: string | undefined,
   userEnvMap?: Record<string, string>,
 ): Record<string, string> | undefined {
-  // Priority 1: user-defined templates
+  // Built-in base: provider name > clientId > empty
+  const builtinMap = (provider && BUILTIN_ENV_MAPS[provider]) || BUILTIN_ENV_MAPS[clientId] || undefined;
+
+  // User-defined templates: merge on top of built-in (user keys override same-name built-in)
   const userTemplates = extractUserEnvTemplates(userEnvMap);
-  if (userTemplates) return userTemplates;
-
-  // Priority 2: provider name (for multi-provider CLIs like opencode)
-  if (provider && BUILTIN_ENV_MAPS[provider]) {
-    return BUILTIN_ENV_MAPS[provider];
+  if (userTemplates && builtinMap) {
+    return { ...builtinMap, ...userTemplates };
   }
-
-  // Priority 3: clientId
-  if (BUILTIN_ENV_MAPS[clientId]) {
-    return BUILTIN_ENV_MAPS[clientId];
-  }
-
-  // Priority 4: nothing — OAuth / self-managed
-  return undefined;
+  // Only user templates (unknown client with custom env) or only built-in
+  return userTemplates ?? builtinMap;
 }
