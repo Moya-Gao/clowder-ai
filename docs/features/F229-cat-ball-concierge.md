@@ -9,7 +9,7 @@ community_issue: "clowder-ai#841"
 
 # F229: 猫猫球 — 前台猫常驻入口（Cat Ball Concierge）
 
-> **Status**: spec | **Owner**: 宪宪 (Fable-5) | **Priority**: P1
+> **Status**: in-progress | **Owner**: 宪宪 (Fable-5) | **Priority**: P1
 >
 > **立项 signoff**：铲屎官 2026-06-09（msg 0001781064063516-000541）："我判定是新立项 你可以把我想要的想想看 写好铲屎官的愿景 然后立项吧？新的 feat"
 
@@ -210,6 +210,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 | 2026-06-09 | Design Gate 材料完成（宪宪）：架构归属（new cell `concierge-surface`）、身份三层配置模型、对话载体立场（专属 concierge thread）、四态 wireframe、调研采纳决议——待 CVO 过 wireframe |
 | 2026-06-09 | CVO 反馈整合：去/取/传话分叉（KD-9）+ 岗位工具面裁剪（KD-10）+ 吴浪社区视角（KD-11/OQ-7） |
 | 2026-06-09 | **Design Gate 通过**（CVO："可以可以！！我觉得没问题！！"）；分工拍板：宪宪 spec/守护、sonnet 实现、砚砚 review；进 writing-plans 拆 Phase A |
+| 2026-06-10 | **Phase A PR-A1 merged** (PR #2202，squash commit e6f8b4c38)：ConciergeConfigStore + ConciergeThreadService + `/api/concierge/*` 路由 + SystemPromptBuilder 注入 + prompt injection 防护 (R15 P1) + concierge thread lifecycle (R18/R19 P2) |
 
 ## Review Gate / 分工（CVO 拍板 2026-06-09 msg 0001781074572950）
 
