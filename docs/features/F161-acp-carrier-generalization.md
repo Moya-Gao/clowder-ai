@@ -83,12 +83,12 @@ const BUILTIN_ENV_MAPS = {
 <!-- 愿景硬度自检：每条 AC trace 回 Why -->
 
 ### Phase A（通用 ACP 传输 + 模板 Env 映射）
-- [ ] AC-A1: `GeminiAcpAdapter` 重命名为 `AcpAgentService`，所有引用更新，现有 Gemini ACP 功能不退化
-- [ ] AC-A2: variant config 支持 `protocol: 'cli' | 'acp'` 字段；`protocol: 'acp'` 的 variant 走通用 ACP 路径，不经过 clientId switch
-- [ ] AC-A3: `env-map.ts` 实现 `BUILTIN_ENV_MAPS` + `resolveEnvMap()`，已知 client 内置映射覆盖 anthropic/openai/google/openrouter/kimi
-- [ ] AC-A4: `invoke-single-cat.ts` 的 env 注入 if/else 链替换为 `resolveEnvMap()` 调用，行为等价（现有测试不红）
-- [ ] AC-A5: `clientId: 'acp'` 可配置，固定 `protocol: 'acp'`，用户 envVars 中的 `${api_key}` / `${base_url}` 模板变量正确替换
-- [ ] AC-A6: 现有 Gemini ACP variant 加 `"protocol": "acp"` 后行为不变（向前兼容：无 protocol 字段 + 有 acp section = 隐式 ACP）
+- [x] AC-A1: `GeminiAcpAdapter` 重命名为 `AcpAgentService`，所有引用更新，现有 Gemini ACP 功能不退化
+- [x] AC-A2: variant config 支持 `protocol: 'cli' | 'acp'` 字段；`protocol: 'acp'` 的 variant 走通用 ACP 路径，不经过 clientId switch
+- [x] AC-A3: `env-map.ts` 实现 `BUILTIN_ENV_MAPS` + `resolveEnvMap()`，已知 client 内置映射覆盖 anthropic/openai/google/openrouter/kimi/dare
+- [x] AC-A4: `invoke-single-cat.ts` 的 env 注入 if/else 链替换为 `resolveEnvMap()` 调用，行为等价（53 tests green）
+- [x] AC-A5: `clientId: 'acp'` 可配置，固定 `protocol: 'acp'`，用户 envVars 中的 `${api_key}` / `${base_url}` 模板变量正确替换
+- [x] AC-A6: 现有 Gemini ACP variant 加 `"protocol": "acp"` 后行为不变（向前兼容：无 protocol 字段 + 有 acp section = 隐式 ACP）
 
 ### Phase B（OpenCode ACP 验证）
 - [ ] AC-B1: `opencode acp` 协议兼容性验证文档（与 types.ts 的 diff）
@@ -126,3 +126,4 @@ const BUILTIN_ENV_MAPS = {
 | 2026-04-13 | 从 F149 Phase D 拆出 F161 spec |
 | 2026-06-08 | 铲屎官提出 ACP 通用接入需求，讨论设计方案 |
 | 2026-06-10 | 扩展 scope（env 模板映射 + 通用 ACP client），开始实现 |
+| 2026-06-11 | Phase A 实现完成：6/6 AC green，53 tests pass |
