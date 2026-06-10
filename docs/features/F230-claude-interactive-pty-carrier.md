@@ -8,7 +8,7 @@ created: 2026-06-10
 
 # F230: Claude Interactive PTY Carrier — 救宪宪 Plan B 第四档载体
 
-> **Status**: spec | **Owner**: 宪宪 Fable-5（设计 + Phase spec + 愿景守护） | **Priority**: P1（Phase A 为 P0 时效——6/15 前必须出图纸）
+> **Status**: in-progress | **Owner**: 宪宪 Fable-5（设计 + Phase spec + 愿景守护） | **Priority**: P1（Phase A 为 P0 时效——6/15 前必须出图纸）
 
 ## Why
 
@@ -167,9 +167,9 @@ Owner: Fable-5。Worktree 隔离，1-2 天硬退出（F198 Phase A "5+ 轮摆动
 - [ ] AC-B2: AgentMessage parity golden tests ≥8 条（session_init / per-message text / tool_use / system_info / done+usage / error），复用而非复制 `transformClaudeEvent`
 - [ ] AC-B3: MCP parity：`--mcp-config --strict-mcp-config` + 真实 `cat_cafe_*` 调用 smoke
 - [ ] AC-B4: `--permission-mode bypassPermissions` parity + regression test（F198 Phase D P1 #1 教训前置）
-- [ ] AC-B5: cancel 语义实现 + 测试：mid-stream cancel → 进程干净退出 + UI 正确收尾（F198 OQ-12 教训前置）
+- [x] AC-B5: cancel 语义实现 + 测试：mid-stream cancel → 进程干净退出 + UI 正确收尾（F198 OQ-12 教训前置）
 - [ ] AC-B6: alpha 多轮真实剧本 PASS：≥6 轮 + mid-stream cancel + 跨轮记忆连续（沿 F198 §9 剧本标准，杜绝 happy-path blindspot）
-- [ ] AC-B7: 实施期间 F198 主线（alpha 验收/AC-D1/灰度）零阻塞——PR 不碰 `-p`/bg 路径共享代码除 factory 注册点
+- [x] AC-B7: 实施期间 F198 主线（alpha 验收/AC-D1/灰度）零阻塞——PR 不碰 `-p`/bg 路径共享代码除 factory 注册点
 
 ### Phase C（生命周期 — gated）
 - [ ] AC-C1: 常驻 vs per-invocation 形态 KD 落档（实测数据支撑：冷启动时延 / 内存 / 多轮时延对比）
@@ -244,7 +244,7 @@ in_context_observability:
 | OQ-5 | transcript 写盘粒度 | 🟡 终态写盘及时已证；mid-stream 粒度未测 → AC-B2 parity test 实采（spike 报告 P7）|
 | OQ-6 | 常驻 vs per-invocation：冷启动收益 vs 生命周期管理成本 | ⬜ Phase C AC-C1，按 A/B 实测数据拍 |
 | OQ-7 | PTY 池容量模型：每 (thread,cat) 一个常驻上限多少？（F149 lease 借鉴） | ⬜ Phase C |
-| OQ-8 | cancel 注入方式：SIGINT / ESC 键注入 / tmux kill，哪个让 claude 干净收尾？ | ⬜ Phase A 顺带试，Phase B AC-B5 定 |
+| OQ-8 | cancel 注入方式：SIGINT / ESC 键注入 / tmux kill，哪个让 claude 干净收尾？ | ✅ **D5 拍板（2026-06-10 Task 1）**：ESC（`tmux send-keys Escape`）— session 存活 + transcript 完整（stop_reason=None + `[Request interrupted by user]`）；SIGINT=整体杀死；kill-session=核弹兜底/dispose 专用 |
 
 ## Key Decisions
 
@@ -264,7 +264,8 @@ in_context_observability:
 | 2026-06-10 | 立项（CVO 07:41 指令）；F198 AC-D6/KD-12 升格；激活 Gate + 流水线分工定档 |
 | 2026-06-10 08:16+ | 砚砚 Design Gate 退回 2 P1（runway 缺证据 / 缺 interactive 身份 capsule）；铲屎官 burn-rate 实测证伪"7 天缓冲"→ KD-6 skeleton 提前；spec 修订（AC-A0 新增 + AC-A5 扩 + 激活 Gate 改版 + Phase B 拆 B-min/B-full） |
 | 2026-06-10 (实际，Day 1 提前完成) | **Phase A spike 全 PASS → GO**：四实验（capsule 含污染对照 / 50K+200K 一字不差 / 旁路读全套 / resume 零 fork 命门）+ runway 三档（高压 4-6h 与铲屎官实测互证）+ skeleton 工期对照坐实 KD-6。报告 `docs/research/2026-06-10-f230-pty-carrier-spike-report.md` |
-| 2026-06-12~14 (target) | Phase A go → writing-plans 拆 B-min → sonnet skeleton + 砚砚 review，6/15 前达"可切换" |
+| 2026-06-10 | Phase B-min skeleton 实施完成（宪宪/Sonnet）：PtyDriver（TDD 4步全GREEN）/ ClaudeInteractivePtyCarrierService（mock driver TDD 4步全GREEN）/ factory 注册（interactive_pty 第四档）/ smoke script / gate GREEN。AC-B5 ✅ AC-B7 ✅；AC-B1/B3/B4 待砚砚 review 验收 smoke 后关闭 |
+| 2026-06-12~14 (target) | 砚砚 review + 合入 main，6/15 前达"可切换" |
 | 2026-06-15 | OQ-13 判罚日（F198 AC-E4）→ 决定 B-full/C/D 激活与否 |
 
 ## Review Gate（流水线 — CVO 钦点）
