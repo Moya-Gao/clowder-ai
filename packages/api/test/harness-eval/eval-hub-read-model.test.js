@@ -245,9 +245,10 @@ Evidence:
     assert.equal(a2aDomain.evalCatHandle, '@codex');
 
     const memoryDomain = summary.domains.find((d) => d.domainId === 'eval:memory');
-    assert.ok(memoryDomain, 'eval:memory must appear even with zero verdicts');
-    assert.equal(memoryDomain.hasVerdict, false);
-    assert.equal(memoryDomain.latestVerdictId, undefined);
+    assert.ok(memoryDomain, 'eval:memory must appear in domains');
+    // Updated 2026-06-10: PR #2187 merged the first eval:memory live verdict.
+    assert.equal(memoryDomain.hasVerdict, true);
+    assert.ok(memoryDomain.latestVerdictId, 'eval:memory should have latestVerdictId');
     assert.equal(memoryDomain.evalCatHandle, '@opus47');
 
     const sopDomain = summary.domains.find((d) => d.domainId === 'eval:sop');

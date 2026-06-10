@@ -35,6 +35,7 @@ describe('sync-to-opensource public launch transforms', { skip: !existsSync(SYNC
       const publicEnv = readFileSync(resolve(exportDir, '.env.example'), 'utf8');
       const setupDoc = readFileSync(resolve(exportDir, 'SETUP.md'), 'utf8');
       const setupZhDoc = readFileSync(resolve(exportDir, 'SETUP.zh-CN.md'), 'utf8');
+      const apiPkg = JSON.parse(readFileSync(resolve(exportDir, 'packages/api/package.json'), 'utf8'));
 
       assert.match(pkg.scripts['dev:direct'], /start-entry\.mjs dev:direct --profile=opensource/);
       assert.match(pkg.scripts['start:direct'], /start-entry\.mjs start:direct --profile=opensource/);
@@ -63,6 +64,9 @@ describe('sync-to-opensource public launch transforms', { skip: !existsSync(SYNC
       assert.match(pkg.scripts.check, /check:start-profile-isolation/);
       assert.doesNotMatch(pkg.scripts.check, /check:sync-export/);
       assert.doesNotMatch(pkg.scripts.check, /check:incident-containment/);
+      assert.match(apiPkg.scripts['test:public'], /github-schedule-factories\\.test/);
+      assert.match(apiPkg.scripts['test:public'], /harness-eval\/eval-hub-read-model\\.test/);
+      assert.match(apiPkg.scripts['test:public'], /harness-eval\/merge-gate-provenance-contract\\.test/);
       assert.equal(existsSync(resolve(exportDir, 'scripts/download-source-overrides.sh')), true);
       assert.equal(existsSync(resolve(exportDir, 'scripts/start-dev-profile-isolation.test.mjs')), true);
       assert.match(publicEnv, /EMBED_MODE=off/);

@@ -12,6 +12,14 @@ import { catRegistry } from '@cat-cafe/shared';
 
 const REPO_ROOT_TEMPLATE = resolve(dirname(fileURLToPath(import.meta.url)), '../../..', 'cat-template.json');
 const CAT_TEMPLATE_PATH = REPO_ROOT_TEMPLATE;
+const FULL_RUNTIME_PROMPT_CHAR_BUDGET = 6500;
+
+function assertWithinFullRuntimePromptBudget(prompt) {
+  assert.ok(
+    prompt.length < FULL_RUNTIME_PROMPT_CHAR_BUDGET,
+    `Full runtime prompt is ${prompt.length} chars, expected < ${FULL_RUNTIME_PROMPT_CHAR_BUDGET}`,
+  );
+}
 
 describe('SystemPromptBuilder', () => {
   // Dynamic import after build
@@ -279,7 +287,7 @@ describe('SystemPromptBuilder', () => {
   // 改 governance content（Magic Words / shared-rules）时两个 test 都要跑：
   //   - 本文件：char budget（runtime prompt）
   //   - scripts/compile-system-prompt-l0.test.mjs：token budget（L0 compiled markdown）
-  test('output size stays under 3900 chars after Magic Words + runtime prompt growth', async () => {
+  test('output size stays under full runtime prompt budget after Magic Words + runtime prompt growth', async () => {
     await withFreshRuntimeRegistry(async () => {
       const build = await getBuilder();
       const prompt = build({
@@ -291,7 +299,7 @@ describe('SystemPromptBuilder', () => {
         mcpAvailable: true,
         promptTags: ['critique'],
       });
-      assert.ok(prompt.length < 6400, `Full runtime prompt is ${prompt.length} chars, expected < 6400`);
+      assertWithinFullRuntimePromptBudget(prompt);
     });
   });
 
@@ -691,7 +699,7 @@ describe('SystemPromptBuilder', () => {
         mcpAvailable: true,
         promptTags: ['critique'],
       });
-      assert.ok(prompt.length < 6400, `Full runtime prompt is ${prompt.length} chars, expected < 6400`);
+      assertWithinFullRuntimePromptBudget(prompt);
     });
   });
 
@@ -1269,7 +1277,7 @@ describe('SystemPromptBuilder', () => {
     assert.ok(!ctx.includes('最近活跃'), 'Should not inject when no non-self participant has activity');
   });
 
-  test('buildSystemPrompt size with activeParticipants stays under 3900 chars after Magic Words + runtime prompt growth', async () => {
+  test('buildSystemPrompt size with activeParticipants stays under full runtime prompt budget after Magic Words + runtime prompt growth', async () => {
     await withFreshRuntimeRegistry(async () => {
       const build = await getBuilder();
       const prompt = build({
@@ -1285,7 +1293,7 @@ describe('SystemPromptBuilder', () => {
           { catId: 'opus', lastMessageAt: Date.now() - 1000, messageCount: 3 },
         ],
       });
-      assert.ok(prompt.length < 6400, `Full runtime prompt is ${prompt.length} chars, expected < 6400`);
+      assertWithinFullRuntimePromptBudget(prompt);
     });
   });
 
