@@ -529,6 +529,7 @@ start_runtime_worktree() {
     # In-place deployment: binary == workspace == PROJECT_DIR
     export CAT_CAFE_RUNTIME_ROOT="$PROJECT_DIR"
     export CAT_CAFE_WORKSPACE_ROOT="${CAT_CAFE_WORKSPACE_ROOT:-$PROJECT_DIR}"
+    export CAT_CAFE_PROVISION_GLOBAL_SIDECAR=1
     exec ./scripts/start-dev.sh --prod-web ${START_ARGS[@]+"${START_ARGS[@]}"}
   fi
 
@@ -564,8 +565,10 @@ start_runtime_worktree() {
   # project (the main cat-cafe repo where they're editing code).
   export CAT_CAFE_RUNTIME_ROOT="$RUNTIME_DIR"
   export CAT_CAFE_WORKSPACE_ROOT="${CAT_CAFE_WORKSPACE_ROOT:-$PROJECT_DIR}"
+  export CAT_CAFE_PROVISION_GLOBAL_SIDECAR=1
   info "exporting CAT_CAFE_RUNTIME_ROOT=$CAT_CAFE_RUNTIME_ROOT"
   info "exporting CAT_CAFE_WORKSPACE_ROOT=$CAT_CAFE_WORKSPACE_ROOT"
+  info "exporting CAT_CAFE_PROVISION_GLOBAL_SIDECAR=$CAT_CAFE_PROVISION_GLOBAL_SIDECAR"
   # Runtime = production: auto-inject --prod-web for PWA + Tailscale support.
   # Bash 3.2 + set -u: empty-array expansion can throw "unbound variable".
   exec ./scripts/start-dev.sh --prod-web ${START_ARGS[@]+"${START_ARGS[@]}"}

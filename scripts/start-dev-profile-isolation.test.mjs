@@ -470,6 +470,24 @@ describe('cross-platform pnpm-start profile propagation (#421)', () => {
     }
   });
 
+  it('start-windows.ps1 marks production Redis API job as global sidecar owner', () => {
+    const ps1 = readFileSync(resolve(ROOT, 'scripts/start-windows.ps1'), 'utf8');
+    const overridesMatch = ps1.match(/\$runtimeEnvOverrides\s*=\s*@\{([^}]+)\}/s);
+    assert.ok(overridesMatch, 'start-windows.ps1 must define $runtimeEnvOverrides');
+    const overridesBlock = overridesMatch[1];
+
+    assert.match(
+      ps1,
+      /\$globalSidecarOwner\s*=\s*if\s*\(\$useRedis\s*-and\s*-not\s*\$Dev\)\s*\{\s*['"]1['"]\s*\}\s*else\s*\{\s*\$null\s*\}/,
+      'Windows production Redis starts must opt into global sidecar ownership, while -Dev/-Memory stay non-owner',
+    );
+    assert.match(
+      overridesBlock,
+      /CAT_CAFE_PROVISION_GLOBAL_SIDECAR\s*=\s*\$globalSidecarOwner/,
+      'runtimeEnvOverrides must pass CAT_CAFE_PROVISION_GLOBAL_SIDECAR into the API job after dotenv reload',
+    );
+  });
+
   it('start-windows.ps1 assigns NODE_ENV inside the API Start-Job', () => {
     const ps1 = readFileSync(resolve(ROOT, 'scripts/start-windows.ps1'), 'utf8');
     const jobBlocks = ps1.match(/Start-Job[\s\S]*?-ScriptBlock\s*\{([\s\S]*?)\}\s*-ArgumentList/g);

@@ -451,14 +451,33 @@ async function main(): Promise<void> {
   app.log.info(`[api] InvocationRegistry backend: ${registryBackendKind === 'redis' && redis ? 'redis' : 'memory'}`);
 
   const { AgentKeyRegistry } = await import('./domains/cats/services/agents/agent-key/AgentKeyRegistry.js');
-  const agentKeyRegistry = new AgentKeyRegistry();
-  app.log.info('[api] AgentKeyRegistry initialized (memory backend)');
+  const agentKeyRegistryBackendKind = redis ? 'redis' : 'memory';
+  const agentKeyRegistry =
+    agentKeyRegistryBackendKind === 'redis' && redis
+      ? new AgentKeyRegistry({
+          backend: new (
+            await import('./domains/cats/services/agents/agent-key/RedisAgentKeyBackend.js')
+          ).RedisAgentKeyBackend(redis),
+        })
+      : new AgentKeyRegistry();
+  app.log.info(`[api] AgentKeyRegistry initialized (${agentKeyRegistryBackendKind} backend)`);
   try {
-    const { ensureAntigravityAgentKeySidecar } = await import(
-      './domains/cats/services/agents/agent-key/antigravity-agent-key-sidecar.js'
+    const { shouldProvisionAntigravityAgentKeySidecar } = await import(
+      './domains/cats/services/agents/agent-key/antigravity-agent-key-sidecar-policy.js'
     );
-    const sidecar = await ensureAntigravityAgentKeySidecar(agentKeyRegistry);
-    app.log.info(`[api] Antigravity agent-key sidecar ready: ${sidecar.filePath} (${sidecar.catId}/${sidecar.userId})`);
+    if (shouldProvisionAntigravityAgentKeySidecar({ backendKind: agentKeyRegistryBackendKind })) {
+      const { ensureAntigravityAgentKeySidecar } = await import(
+        './domains/cats/services/agents/agent-key/antigravity-agent-key-sidecar.js'
+      );
+      const sidecar = await ensureAntigravityAgentKeySidecar(agentKeyRegistry);
+      app.log.info(
+        `[api] Antigravity agent-key sidecar ready: ${sidecar.filePath} (${sidecar.catId}/${sidecar.userId})`,
+      );
+    } else {
+      app.log.warn(
+        '[api] Antigravity agent-key sidecar skipped: memory AgentKeyRegistry cannot safely back global sidecar files; set CAT_CAFE_AGENT_KEY_ALLOW_MEMORY_SIDECAR=1 only for local degraded development',
+      );
+    }
   } catch (err) {
     app.log.warn(`[api] Antigravity agent-key sidecar setup failed (best-effort): ${String(err)}`);
   }
