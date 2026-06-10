@@ -9,7 +9,6 @@ import {
   type CapabilityName,
   type ClassifiedCapabilityWakeupTrial,
 } from './eval-capability-wakeup-adapter.js';
-import { buildCapabilityWakeupFamilyBreakdown } from './eval-capability-wakeup-family-breakdown.js';
 import { formatLiveVerdictMarkdown } from './eval-capability-wakeup-renderer.js';
 import { assertSubmittedPacketMatches } from './submitted-packet-guard.js';
 
@@ -186,7 +185,6 @@ function buildSnapshot(
           reachability_doubt_count: byLabel.reachability_doubt ?? 0,
           unclassified_count: byLabel.unclassified ?? 0,
         },
-        byFamily: buildCapabilityWakeupFamilyBreakdown(trials),
         confidence: trials.length >= 3 ? 'medium' : 'low',
       },
     ],

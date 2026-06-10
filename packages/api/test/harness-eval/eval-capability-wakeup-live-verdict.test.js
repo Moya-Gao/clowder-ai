@@ -120,32 +120,7 @@ describe('eval:capability-wakeup live verdict generator', () => {
     const snapshot = JSON.parse(readFileSync(join(harnessFeedbackRoot, 'bundles', verdictId, 'snapshot.json'), 'utf8'));
     assert.equal(snapshot.components[0].id, 'rich-messaging');
     assert.equal(snapshot.components[0].frictionCounts.cognitive_count, 2);
-    assert.deepEqual(snapshot.components[0].byFamily, [
-      {
-        family: 'maine-coon',
-        opportunity_count: 1,
-        used_count: 0,
-        false_positive_count: 0,
-        miss_count: 1,
-        cognitive_count: 1,
-        behavioral_count: 0,
-        attention_dilution_count: 0,
-        reachability_doubt_count: 0,
-        unclassified_count: 0,
-      },
-      {
-        family: 'ragdoll',
-        opportunity_count: 1,
-        used_count: 0,
-        false_positive_count: 0,
-        miss_count: 1,
-        cognitive_count: 1,
-        behavioral_count: 0,
-        attention_dilution_count: 0,
-        reachability_doubt_count: 0,
-        unclassified_count: 0,
-      },
-    ]);
+    assert.equal(Object.hasOwn(snapshot.components[0], 'byFamily'), false);
     assert.equal(snapshot.window.startMs, 1700000000000);
     assert.equal(snapshot.window.endMs, 1700000060000);
     assert.equal(snapshot.window.durationHours, 0.017);
@@ -165,6 +140,11 @@ describe('eval:capability-wakeup live verdict generator', () => {
     );
     const trialsBytes = readFileSync(join(root, 'generated', 'capability-wakeup', verdictId, 'trials.json'));
     const summaryBytes = readFileSync(join(root, 'generated', 'capability-wakeup', verdictId, 'summary.json'));
+    const rawTrials = JSON.parse(trialsBytes.toString('utf8'));
+    assert.deepEqual(
+      rawTrials.trials.map((trial) => trial.family),
+      ['maine-coon', 'ragdoll'],
+    );
     assert.equal(provenance.rawInputs[0].sha256, createHash('sha256').update(trialsBytes).digest('hex'));
     assert.equal(provenance.rawInputs[1].sha256, createHash('sha256').update(summaryBytes).digest('hex'));
 
