@@ -72,6 +72,7 @@ created: 2026-04-26
 - Redis-backed registry migration hygiene：
   - sidecar reconcile 重启时不得无界签发新 key；上线 Redis backend 前必须实现按 `catId × userId × scope` 的 upsert/replace，或在 issue 前 revoke existing active key
   - 覆盖测试：连续 API restart / reconcile 不产生不可管理的 orphan active keys
+  - 2026-06-10 hotfix note：PR #2209 已把 agent-key record 持久化到 Redis，并加全局 sidecar owner gate，解决 alpha/dev/test 进程覆盖 `~/.cat-cafe/agent-keys/*` 后 runtime 无法验证 secret 的 `agent_key_unknown` 根因；完整 inventory/audit 与 active-key upsert/replace 仍按 AC-D1~D5 留在 Phase D。
 - audit log：所有 agent-key 写操作记录到 evidence/observability 通道
 - 复用 F174 24h ring buffer + plug indicator：agent-key 失败率挂同一个 indicator（颜色/状态语义扩展）
 - 现场可感知性：thread 内 agent-key 写操作标识 "by agent-key (out-of-invocation)"
@@ -164,6 +165,7 @@ created: 2026-04-26
 | 2026-04-27 | Antigravity follow-up — AC-C4 sidecar 注入落地，图片 prompt path hint 修复；review 记录 Phase D AC-D5 key orphaning guard |
 | 2026-04-28 | PR #1446 merged — Antigravity 图片 path hint + MCP tool exposure 修复；sidecar 从单 key 改为 per-variant key file map，MCP callback tools 增加 `agentKeyCatId` 选择正确 cat identity；同轮追加 fail-closed 防线，共享 variant map 存在时遗漏 `agentKeyCatId` 或显式 variant 映射缺失/损坏都不再回退默认 key |
 | 2026-04-28 | PR #1450 merged — API startup config regeneration 改为从 `packages/api` 向上解析 monorepo root 后读取 `.cat-cafe/capabilities.json`，确保 Antigravity sidecar `CAT_CAFE_AGENT_KEY_FILE(S)` 写入 `~/.gemini/antigravity/mcp_config.json`；同轮修复 A2A prompt 不再暴露 `opus-47` 不可路由的 `@布偶猫` 合成句柄 |
+| 2026-06-10 | PR #2209 merged — agent-key record 改为 Redis-backed backend；全局 sidecar provision 改成显式 owner gate（runtime owner 才写，alpha/dev/test 即使连 Redis 也不覆盖）；dotenv / Windows / `start-dev.sh --prod-web` owner marker 覆盖回归；Redis backend 增加 stale index lazy cleanup、scope fail-closed、跨进程 `clientMessageId` idempotency |
 
 ## Review Gate
 
