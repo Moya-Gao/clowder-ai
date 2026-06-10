@@ -21,6 +21,7 @@ import Fastify, { type FastifyReply } from 'fastify';
 import {
   resolveAnthropicRuntimeProfile,
   resolveBuiltinClientForProvider,
+  resolveByAccountRef,
   resolveForClient,
 } from './config/account-resolver.js';
 import { regenerateStartupCliConfigs } from './config/capabilities/startup-cli-config.js';
@@ -1080,7 +1081,9 @@ async function main(): Promise<void> {
         const { AcpAgentService } = await import('./domains/cats/services/agents/providers/acp/AcpAgentService.js');
         const { AcpProcessPool } = await import('./domains/cats/services/agents/providers/acp/AcpProcessPool.js');
         const { AcpClient } = await import('./domains/cats/services/agents/providers/acp/AcpClient.js');
-        const { resolveEnvMap } = await import('./domains/cats/services/agents/providers/env-map.js');
+        const { resolveEnvMap, extractUserEnvTemplates } = await import(
+          './domains/cats/services/agents/providers/env-map.js'
+        );
         const acpProjectRoot = findMonorepoRoot();
         const acpCommand = resolveAcpBootstrapCommand(acpProjectRoot, acpConfig.command);
         const acpArgs = resolveAcpBootstrapArgs(acpProjectRoot, acpConfig.startupArgs);
@@ -1088,26 +1091,43 @@ async function main(): Promise<void> {
 
         // F161 P1: Resolve account binding → env for ACP subprocess.
         // AcpClient env is set at spawn time (pool creation), not per-invocation.
-        // Pool rebuild on syncAgentRegistry picks up account changes.
+        // Supports both builtin clients (anthropic/openai/google) and generic ACP
+        // clients (clientId: 'acp') which use resolveByAccountRef for direct lookup.
         let acpSpawnEnv: Record<string, string> | undefined;
+        const acpAccountRef = resolveBoundAccountRefForCat(acpProjectRoot, catId, config);
         const builtinClient = resolveBuiltinClientForProvider(config.clientId);
-        if (builtinClient) {
-          const acpAccountRef = resolveBoundAccountRefForCat(acpProjectRoot, catId, config);
-          const acpAccount = resolveForClient(acpProjectRoot, builtinClient, acpAccountRef);
-          if (acpAccount?.authType === 'api_key') {
-            const resolved = resolveEnvMap(config.clientId, config.provider, {
-              apiKey: acpAccount.apiKey,
-              baseUrl: acpAccount.baseUrl,
-            });
-            if (Object.keys(resolved).length > 0) acpSpawnEnv = resolved;
-          }
+        const acpAccount = builtinClient
+          ? resolveForClient(acpProjectRoot, builtinClient, acpAccountRef)
+          : acpAccountRef
+            ? resolveByAccountRef(acpProjectRoot, acpAccountRef)
+            : null;
+        if (acpAccount?.authType === 'api_key') {
+          const userEnvTemplates = acpAccount.envVars ? extractUserEnvTemplates(acpAccount.envVars) : undefined;
+          const resolved = resolveEnvMap(
+            config.clientId,
+            config.provider,
+            { apiKey: acpAccount.apiKey, baseUrl: acpAccount.baseUrl },
+            userEnvTemplates,
+          );
+          if (Object.keys(resolved).length > 0) acpSpawnEnv = resolved;
         }
 
-        // Shared pool per variant — reused across cats with same variant.
-        // Close stale pool if env changed (account binding update).
-        if (acpPoolRegistry.has(id)) {
-          // Pool exists — reuse. Env changes require config reload (pool rebuild).
-        } else {
+        // Shared pool per variant — reuse across cats with same variant.
+        // Detect stale pools: if spawn-affecting inputs changed (env/command/args/cwd),
+        // close old pool so a fresh one picks up the new config.
+        const acpCwd = resolveAcpBootstrapCwd(acpProjectRoot, id);
+        const spawnSignature = JSON.stringify({
+          cmd: acpCommand,
+          args: acpArgs,
+          cwd: acpCwd,
+          env: acpSpawnEnv ?? null,
+        });
+        const existingPool = acpPoolRegistry.get(id);
+        if (existingPool && existingPool._spawnSignature !== spawnSignature) {
+          await existingPool.closeAll();
+          acpPoolRegistry.delete(id);
+        }
+        if (!acpPoolRegistry.has(id)) {
           const pool = new AcpProcessPool(
             {
               maxLiveProcesses: acpConfig.pool?.maxLiveProcesses ?? 3,
@@ -1119,10 +1139,13 @@ async function main(): Promise<void> {
               new AcpClient({
                 command: acpCommand,
                 args: acpArgs,
-                cwd: resolveAcpBootstrapCwd(acpProjectRoot, id),
+                cwd: acpCwd,
                 ...(acpSpawnEnv ? { env: acpSpawnEnv } : {}),
               }),
           );
+          // Attach spawn signature for staleness detection on next sync.
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (pool as any)._spawnSignature = spawnSignature;
           acpPoolRegistry.set(id, pool);
         }
         const { resolveAcpMcpServers } = await import(
