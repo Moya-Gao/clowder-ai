@@ -289,16 +289,28 @@ export function buildCliDiagnostics(args: {
     }
   }
 
-  // Truly unknown (no structured CC error) — keep KD-1: no safeExcerpt.
+  // Truly unknown (no structured CC error).
+  // #857: when rawText is available, sanitize + truncate and surface as safeExcerpt so
+  // users see a desensitized message instead of having to check backend logs.
   // F212 Phase F (AC-F4/F5): pick honest unknown hint by stderrEmpty signal when caller
   // provides it; fall back to legacy hint for backward-compat (callers without Phase F awareness).
   let unknownHint: string = UNKNOWN_TEXT.hint;
   if (args.stderrEmpty === true) unknownHint = UNKNOWN_HINT_EMPTY_STDERR;
   else if (args.stderrEmpty === false) unknownHint = UNKNOWN_HINT_HAS_STDERR;
+
+  const trimmedRaw = args.rawText?.trim();
+  let safeExcerpt: string | undefined;
+  let excerptSource: CliDiagnostics['excerptSource'] | undefined;
+  if (trimmedRaw) {
+    safeExcerpt = sanitizeCliStderr(trimmedRaw).slice(0, MAX_CHARS);
+    excerptSource = 'unknown_raw';
+  }
+
   return {
     publicSummary: panicHeadline ? `CLI panic — ${panicHeadline}` : UNKNOWN_TEXT.summary,
     publicHint: unknownHint,
     debugRef: args.debugRef,
+    ...(safeExcerpt && { safeExcerpt, excerptSource }),
   };
 }
 
