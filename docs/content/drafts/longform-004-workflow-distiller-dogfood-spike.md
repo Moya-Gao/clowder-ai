@@ -73,8 +73,8 @@ H 为假 → 二阶 harness 命题在最有利地形就崩，必须回炉，**�
   - 喜欢（approve / 「这样写对」）
   - 讨厌（blocking / push back / 「这样要打回」）
   - 标准（反复出现的 review 口味，如「改返回值结构先 grep 消费方」「verify 用项目工具链不用 npx」）
-- **Baseline 臂**：裸 agent，只给通用「review 这段代码」指令，不喂 anchor。
-- **Treatment 臂**：同一 agent，喂入 reference anchor 集（reference-based delta）。
+- **Baseline 臂**：裸 agent，只给通用「review 这段代码」指令，不喂 anchor。**必须断记忆/检索沙箱**（白名单制）——agent 默认能 search memory / 读 repo（MEMORY.md、历史 review 全在里面），不隔离则 baseline 不"裸"，两臂差异被稀释（内效度 blocking，2026-06-09 砚砚裁定）。
+- **Treatment 臂**：同一 agent，喂入 reference anchor 集（reference-based delta）。anchor 集与 test 集**文件级**严格分离。
 - **Ground truth**：宪宪本人对这批代码的历史实际判断（approve / blocking + 理由）。
 - **Eval**：
   - 主指标：treatment vs baseline 对齐 ground truth 的 hit-rate 差。
@@ -90,6 +90,17 @@ H 为假 → 二阶 harness 命题在最有利地形就崩，必须回炉，**�
 | ⚠️ 部分 | 只在某类 review 上有效（如硬规则有效、taste 判断无效） | 界定了 harness 能下沉的能力边界（正是 seed §三 想知道的） |
 
 **预注册纪律**：阈值、holdout 划分、指标定义在跑实验**之前**写死，避免事后挑数据自我说服（防 EP-002 过早收敛 + 防「猫太会想」）。
+
+### 5 bis. 跑前 Blocking 清单 + 结论边界（2026-06-09，fable-5 round 补充 A + 砚砚裁定）
+
+跑第一轮**之前**必须满足（内效度 blocking，缺一不跑）：
+
+1. **Baseline 臂记忆/检索沙箱**（见 §4）。
+2. **Holdout 文件级分离**：anchor 集与 test 集零重叠，划分先写死。
+3. **经济学指标预注册**（secondary）：① treatment 臂每次对齐判断的 token 成本；② 等效人工 checkpoint 分钟数——FDE 杀手叙事的「人天变算力」ratio 从第一个实验开始记账。
+4. **结论边界写死**：本 spike 的 ground truth 是宪宪历史 review（LLM taste），两臂差异证明的是**机制存在性**，存在自相似偏置（Claude 系 agent 对齐 Claude 系判断天然更易）——**不得外推到"人类客户 taste 可迁移"**。
+
+**外推前必补（预注册 follow-up，不阻塞第一轮）**：landy-taste 臂——用铲屎官 feedback 语料（memory `feedback_*` 全集 + 纠偏原话）当人类 taste 金标：盲化场景让 agent 预测「铲屎官会不会 push back、push back 什么」。gold 标注需清洗 + 盲化，不当「零采集成本」全盘放行（砚砚校准）。该臂同时验证 F192 L3 想测的「记忆是否真在塑形行为」。
 
 ## 6. Scope 护栏（按住 over-build）
 
@@ -115,6 +126,8 @@ H 为假 → 二阶 harness 命题在最有利地形就崩，必须回炉，**�
 | Reference 集太小 / 过拟合 | holdout 上评；reference 与 test 严格分离 |
 | 「显著」是错觉（样本太少） | 预注册最小样本量；pairwise 盲评做交叉验证 |
 | 把「agent 会复读 anchor 原文」当成「学会了」 | test 样本要求泛化判断，不能是 anchor 里出现过的 case |
+| Ground truth 是 LLM taste → 自相似偏置（Claude 对齐 Claude 偏易），外推性受限 | 结论边界写死为「机制存在性」（§5 bis #4）；外推前必补 landy-taste 人类金标臂（§5 bis follow-up） |
+| Baseline 臂不"裸"（默认可 search memory / 读历史 review） | 记忆/检索白名单沙箱（§4），跑前验证 baseline 臂确实摸不到 anchor 同源语料 |
 
 ## 9. Next（spike 之后，按结果分叉）
 
