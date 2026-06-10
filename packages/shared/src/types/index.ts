@@ -205,7 +205,7 @@ export type {
   ParsedCommand,
   SlashCommandDefinition,
 } from './command.js';
-// Community Ops Event types (F168 Phase A — event-sourcing engine)
+// Community Ops Event types (F168 Phase A/B — event-sourcing engine)
 export type {
   CommunityClosureWaiver,
   CommunityEvent,
@@ -214,6 +214,7 @@ export type {
   CommunityNextOwner,
   CommunityObjectProjection,
   CommunityObjectState,
+  GitHubAuthorAssociation,
 } from './community-event.js';
 export type {
   CommunityIssueItem,

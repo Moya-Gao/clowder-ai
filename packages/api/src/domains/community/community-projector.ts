@@ -18,6 +18,7 @@
 import type { CommunityEvent, CommunityObjectProjection, CommunityObjectState } from '@cat-cafe/shared';
 import type { ICommunityEventLog } from './CommunityEventLog.js';
 import type { ICommunityObjectStore } from './CommunityObjectStore.js';
+import { parseLinkedIssues } from './community-link-parser.js';
 import { transition } from './community-state-machine.js';
 
 // ---------------------------------------------------------------------------
@@ -98,7 +99,20 @@ export class CommunityProjector {
     const result = transition(proj.state, event, snapshot);
 
     if (!result.ok) {
-      // Transition rejected — record for observability, do not change state
+      if (event.classification === 'informational') {
+        // Cloud R2 P2b: informational activity events (issue.commented, issue.labeled,
+        // pr.review_submitted) have no state-machine transition. Do NOT set lastRejectedEvent
+        // (that would pollute observability data with benign activity). Instead, update
+        // lastExternalActivityAt so the community board can surface the latest activity time.
+        const updated: CommunityObjectProjection = {
+          ...proj,
+          lastExternalActivityAt: event.at,
+          updatedAt: now,
+        };
+        await this.objectStore.save(updated);
+        return;
+      }
+      // State-changing event rejected — record for observability, do not change state
       const updated: CommunityObjectProjection = {
         ...proj,
         lastRejectedEvent: event,
@@ -152,6 +166,40 @@ export class CommunityProjector {
       const p = event.payload as Record<string, unknown>;
       if (typeof p.ownerThreadId === 'string') updated.ownerThreadId = p.ownerThreadId;
       if (typeof p.ownerRole === 'string') updated.ownerRole = p.ownerRole;
+    }
+
+    // Side-effect: pr.opened → parse PR body for closing keywords → populate linkedIssues
+    // This fixes the Phase A cascade dead-穴: linked issues discovered via body parsing
+    // (not bootstrap) now receive the pr.merged cascade when the PR is later merged.
+    if (event.kind === 'pr.opened') {
+      const p = event.payload as Record<string, unknown>;
+      // Cloud R4 P1-2: GitHub only auto-closes issues for PRs targeting the default branch.
+      // isDefaultBranchPr=false → skip closing-keyword parsing (release-branch PRs must not
+      // mark issues fixed). undefined = backward-compat (old events without the field) → parse.
+      if (p.isDefaultBranchPr !== false) {
+        const linked = parseLinkedIssues(p.body as string | null | undefined);
+        if (linked.length > 0) {
+          updated.linkedIssues = [...new Set([...updated.linkedIssues, ...linked])];
+        }
+      }
+    }
+
+    // Cloud R2 P2a: pr.merged → also parse body for late-added closing keywords
+    // When a PR is opened without closing keywords and the author edits the description
+    // before merging, the pr.merged payload includes the current body. Parse it here so the
+    // cascade below can reach issues that were not in linkedIssues at open time.
+    // Cloud R4 P1-1: body-enrichment events (sourceEventId ending in :body-enrichment) also
+    // reach this branch; they carry the same kind='pr.merged' but with a distinct event id,
+    // allowing late-discovered linked issues to be cascaded after the poller-won-race scenario.
+    if (event.kind === 'pr.merged') {
+      const p = event.payload as Record<string, unknown>;
+      // Cloud R4 P1-2: same default-branch gate as pr.opened — skip on non-default-branch PRs.
+      if (p.isDefaultBranchPr !== false && p.body !== null && p.body !== undefined) {
+        const linked = parseLinkedIssues(p.body as string | null | undefined);
+        if (linked.length > 0) {
+          updated.linkedIssues = [...new Set([...updated.linkedIssues, ...linked])];
+        }
+      }
     }
 
     await this.objectStore.save(updated);

@@ -12,7 +12,7 @@
 
 /** All event kinds understood by the community-ops engine. */
 export type CommunityEventKind =
-  // External fact events (Phase A: 3 existing ingest paths)
+  // External fact events (Phase A: core lifecycle)
   | 'issue.opened'
   | 'pr.opened'
   | 'pr.ready_for_review'
@@ -20,14 +20,37 @@ export type CommunityEventKind =
   | 'pr.closed'
   | 'issue.closed'
   | 'issue.reopened'
+  // External fact events (Phase B: activity signals)
+  | 'issue.commented' // webhook issue_comment.created / polling IssueCommentTaskSpec
+  | 'issue.labeled' // webhook issues.labeled | unlabeled (payload.label carries name)
+  | 'pr.review_submitted' // webhook pull_request_review.submitted
   // Internal decision events
   | 'case.triaged'
   | 'case.routed'
   | 'case.reported'
   | 'case.waived'
   | 'case.declined'
+  | 'case.awaiting_external' // owner declares waiting for external actor (payload: { reason, declaredBy })
   // Migration synthetic event
   | 'case.bootstrap';
+
+// ---------------------------------------------------------------------------
+// GitHub author association (generic GitHub semantics — no brand coupling)
+// ---------------------------------------------------------------------------
+
+/**
+ * GitHub-native author_association values.
+ * Used by the delivery policy to distinguish maintainer vs external activity
+ * without coupling the engine to any specific repo identity.
+ */
+export type GitHubAuthorAssociation =
+  | 'OWNER'
+  | 'MEMBER'
+  | 'COLLABORATOR'
+  | 'CONTRIBUTOR'
+  | 'FIRST_TIME_CONTRIBUTOR'
+  | 'FIRST_TIMER'
+  | 'NONE';
 
 /** Delivery priority / noise classification for fan-out. */
 export type CommunityEventClassification = 'state-changing' | 'needs-human' | 'needs-owner' | 'informational' | 'stale';

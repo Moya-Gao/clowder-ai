@@ -455,4 +455,99 @@ describe('CommunityObjectStore + projector (Redis)', { skip: redisIsolationSkipR
       assert.strictEqual(proj.state, 'fixed', 'state unchanged by waiver');
     });
   });
+
+  // -----------------------------------------------------------------------
+  // Task 3 (Phase B): pr.opened body → linkedIssues + cascade fix
+  // -----------------------------------------------------------------------
+
+  describe('Task 3 (Phase B) — pr.opened body parsing + cascade', () => {
+    it('pr.opened with Fixes #N body sets linkedIssues on PR projection', async () => {
+      const issueSk = 'issue:owner/repo#200';
+      const prSk = 'pr:owner/repo#10';
+
+      // Issue must exist first
+      const issueOpen = makeEvent('issue.opened', { subjectKey: issueSk, sourceEventId: 'p3-i1' });
+      await eventLog.append(issueOpen);
+      await projector.apply(issueOpen);
+
+      // PR opened with closing keyword in body
+      const prOpen = makeEvent('pr.opened', {
+        subjectKey: prSk,
+        sourceEventId: 'p3-pr1',
+        payload: { title: 'Fix the thing', body: 'Fixes #200' },
+      });
+      await eventLog.append(prOpen);
+      await projector.apply(prOpen);
+
+      const prProj = await objectStore.get(prSk);
+      assert.ok(prProj, 'PR projection must exist');
+      assert.deepStrictEqual(prProj.linkedIssues, [200], 'linkedIssues must be populated from body');
+    });
+
+    it('pr.opened body → merged → cascade fixes linked issue (dead-穴 fix)', async () => {
+      const issueSk = 'issue:owner/repo#201';
+      const prSk = 'pr:owner/repo#11';
+
+      // Issue opened
+      const issueOpen = makeEvent('issue.opened', { subjectKey: issueSk, sourceEventId: 'p3-i2' });
+      await eventLog.append(issueOpen);
+      await projector.apply(issueOpen);
+
+      // PR opened with body "Fixes #201"
+      const prOpen = makeEvent('pr.opened', {
+        subjectKey: prSk,
+        sourceEventId: 'p3-pr2',
+        payload: { title: 'Fix issue 201', body: 'Fixes #201' },
+      });
+      await eventLog.append(prOpen);
+      await projector.apply(prOpen);
+
+      // PR merged — cascade should fire because linkedIssues is now populated
+      const prMerged = makeEvent('pr.merged', {
+        subjectKey: prSk,
+        sourceEventId: 'p3-pr2-merged',
+        payload: { title: 'Fix issue 201' },
+      });
+      await eventLog.append(prMerged);
+      await projector.apply(prMerged);
+
+      // Issue 201 should now be fixed
+      const issueProj = await objectStore.get(issueSk);
+      assert.ok(issueProj, 'issue projection must exist');
+      assert.strictEqual(issueProj.state, 'fixed', 'linked issue must be in fixed state after PR merge');
+    });
+
+    it('rebuildAll: pr.opened body cascade is order-independent (issue before PR and PR before issue)', async () => {
+      const issueSk = 'issue:owner/repo#202';
+      const prSk = 'pr:owner/repo#12';
+
+      // Seed events into log
+      const issueOpen = makeEvent('issue.opened', { subjectKey: issueSk, sourceEventId: 'p3-oi1' });
+      const prOpen = makeEvent('pr.opened', {
+        subjectKey: prSk,
+        sourceEventId: 'p3-opr1',
+        payload: { title: 'Fix 202', body: 'Fixes #202' },
+      });
+      const prMerged = makeEvent('pr.merged', {
+        subjectKey: prSk,
+        sourceEventId: 'p3-opr1-merged',
+        payload: { title: 'Fix 202' },
+      });
+      await eventLog.append(issueOpen);
+      await eventLog.append(prOpen);
+      await eventLog.append(prMerged);
+
+      // Run rebuildAll — order of subjects is non-deterministic; both paths must converge
+      await projector.rebuildAll();
+
+      const issueProj = await objectStore.get(issueSk);
+      assert.ok(issueProj, 'issue projection must exist after rebuildAll');
+      assert.strictEqual(issueProj.state, 'fixed', 'issue must be fixed after rebuildAll (order-independent)');
+
+      // updatedAt must not regress from the cascaded pr.merged timestamp
+      const mergedProj = await objectStore.get(prSk);
+      assert.ok(mergedProj, 'PR projection must exist after rebuildAll');
+      assert.strictEqual(mergedProj.state, 'fixed', 'PR must be in fixed state');
+    });
+  });
 });
