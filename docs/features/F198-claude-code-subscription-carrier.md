@@ -374,10 +374,13 @@ binary 2.1.161 逻辑 + 实测双证，三条固定 id 路径全堵：
 - [ ] AC-D4: 6/15 前所有 thread 默认 `bg_daemon`
 - [ ] **AC-D5 (新 2026-06-03)**: bg session chain pointer 化（不阻塞 Bug #3 / D3 灰度）— bg carrier 每个 `--bg` invocation 必然新 daemon shortId（spike 实证 `d061424f → 61a48e5b → a56e3aa4`），触发 `session_init` handler 的 "CLI session changed → seal+create" 路径，**每轮 bg invoke 产生 1 sealed + 1 new active record**。conversation 内容通过 `--resume UUID` 接力正确，session chain hygiene 退化：recall/digest pipeline 看到的是多条 sealed record 而非一条连续 conversation。**理想终态**：bg 走 chain-pointer (next-record) 而非 seal-and-create，一条 conversation = 一条 record。**为何 defer**：实施碰 session_init handler + provider-aware 分支 + recall/digest pipeline，远超 Bug #3 PR scope；conversation 正确性不受影响（仅 hygiene 退化）。**verdict gate**：愿景守护三审 alpha 真实剧本要 inspect 跑完 3 轮后 sessionChainStore 实际 record 数，记入 Bug #3 PR 回写作为本 AC 优先级实证。发现来源：Bug #3 实施（opus-48）+ 架构评议（opus-47 2026-06-03）。**→ 2026-06-04 update（PR #2085）**：Bug #3 chainKey 实施**已实现 chain-pointer 终态**——bg session_init 用 chainKey 复用一条 record（不 seal+create），一条 conversation = 一条 record，hygiene 不再退化。record 数实证（6 轮 = 1 record，messageCount=6）+ recall/digest pipeline 验证待铲屎官 alpha 跑（§9 剧本）后再勾此 AC
 
+- [ ] **AC-D6 (新 2026-06-10, Fable-5 提议 + 47 接 owner)**: **Plan B spike — PTY interactive + transcript tail 第四档 carrier**（不全量实施，只出图纸 + go/no-go）。详见 KD-12 风险对冲论证。Spike scope (1 天 worktree 隔离)：① PTY 注入 prompt 长度可靠性（bracketed-paste）② session id 捕获时机（interactive 第一次 system_info 时？） ③ interactive `--resume` 语义实测（fork 还是真接力？— 与 `--bg --resume` 强制 fork 对照）。**Spike 退出条件**：1-2 天出 go/no-go 写进 spec 当应急预案；6/15 后 dashboard 一旦判 `--bg` 进 SDK 桶（OQ-13 证伪 KD-10），立即有现成图纸 fast-track 实施。**owner**: Fable-5（新猫第一仗，spike 不碰 production code）
+
 ### Phase E（观察）
 - [ ] AC-E1: 6/15 后 1 周宪宪 daily invocation 数 ≥ 6/15 前 7 日平均的 80%
 - [ ] AC-E2: 无 P0/P1 regression，无 oversight 缺口投诉
 - [ ] AC-E3: 反思胶囊 + harness-feedback 落档（F086 M3 + F192）
+- [ ] AC-E4 (新 2026-06-10): **6/15 当天盯 dashboard 关 OQ-13** — Anthropic 服务端账单 / usage 仪表盘对 `--bg` 的桶归属判罚是本 feat 唯一 conclusive 证据。判进订阅桶 → `--bg` 主路径成立；判进 SDK 桶 → Plan B (AC-D6) 图纸即刻 fast-track 实施 + 主路径降级
 
 ## Dependencies
 
@@ -466,6 +469,7 @@ binary 2.1.161 逻辑 + 实测双证，三条固定 id 路径全堵：
 | KD-9 | **真正决定性信号是 `-p` flag，不是 env var** | 两组控制实验（host env 设/不设 + buildChildEnv delete）+ `-p` 全部产出 entrypoint=sdk-cli；之前 cli +7 是 `--bg` 给的不是 delete 给的（spike 方法论错：没控制变量）| 2026-05-13 21:00+ |
 | KD-10 | **真正 fix 是 invocation 从 `-p` 迁到 `--bg`**（整体 carrier 改造，不是 2 行 env fix） | 配合官方 Agent View daemon（state.json + timeline.jsonl + transcript.jsonl 消费）+ 移除 stream-json stdout 解析 | 2026-05-13 21:00+ |
 | KD-11 | **Bug #3（bg 多轮失忆）方案 = 会员卡 chainKey**（非 captured-id 补锅、非 `-p --resume`）| 双轮平行 spike：`--bg` 固有 fork 无法用固定 id 绕过；唯一 id 稳定路 `-p --resume` 撞 SDK 桶命门（`-p`=sdk-cli，KD-9）；原生 Agent Team（`/fork` 一次性快照、teammate experimental in-process）不适配 carrier。chainKey（`{threadId}:{catId}` 稳定锚点）+ `agents --json` 确定性查 fork id 根治 codex 3 race | 2026-06-04 |
+| KD-12 | **Plan B = PTY interactive + transcript tail（第四档 carrier，与 `--bg` 形成 billing/合规风险对冲）** | bg carrier 已是 F210/F211 sidecar tail 哲学（不走 stdout，走 `state.json` + `<sessionId>.jsonl` transcript）→ "输出通道"上 F198 不输 F210/F211。真命门 = **OQ-13 服务端计费桶归属 6/15 前不可证伪**：bg 赌"entrypoint=cli → 订阅桶"（客户端间接信号）vs PTY 赌"交互式 Claude Code 仍走订阅"（Anthropic 明文保护）—— **不同硬币面**。输出层 100% 复用（`TranscriptTailer` 纯函数对 `--bg` 零耦合），增量仅在**输入面**（PTY 注入 prompt + session id 捕获时机 + interactive `--resume` 语义可能不像 bg 强制 fork，需实测）。Fable-5 论证 + 47 接 KD owner | 2026-06-10 |
 
 ## Timeline
 
