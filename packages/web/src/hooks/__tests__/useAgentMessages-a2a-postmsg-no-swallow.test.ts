@@ -275,5 +275,6 @@ describe('F194 live A2A post_message no-swallow (Z11 contract on live path)', ()
     // stream-origin record (post_msg is speech, not the turn terminal).
     const streamRow = assistantRows().find((m) => m.origin === 'stream');
     expect(streamRow, 'work-log bubble must not be consumed by speech').toBeTruthy();
+    expect(streamRow?.isStreaming).toBe(true);
   });
 });
