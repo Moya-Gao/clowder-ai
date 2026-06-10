@@ -82,7 +82,7 @@ async function seedWindow(taskOutcomeDbPath = join(root, 'task-outcome-episodes.
     },
     'landy',
   );
-  return { baseMs };
+  return { baseMs, episodeId: ep.episodeId, taskOutcomeDbPath };
 }
 
 function buildPacket(overrides = {}) {
@@ -108,6 +108,22 @@ function buildPacket(overrides = {}) {
   };
 }
 
+function buildMockGitPublisher(isoName, commitSha, prNumber) {
+  return {
+    async publishOnIsolatedWorktree(opts) {
+      const iso = join(root, '..', isoName);
+      mkdirSync(join(iso, 'docs', 'harness-feedback', 'eval-domains'), { recursive: true });
+      writeFileSync(
+        join(iso, 'docs', 'harness-feedback', 'eval-domains', 'eval-task-outcome.yaml'),
+        readFileSync(join(harnessFeedbackRoot, 'eval-domains', 'eval-task-outcome.yaml'), 'utf8'),
+      );
+      await (await opts.stage(iso)).afterPublish?.();
+      rmSync(iso, { recursive: true, force: true });
+      return { commitSha, prUrl: `https://github.com/zts212653/cat-cafe/pull/${prNumber}` };
+    },
+  };
+}
+
 before(async () => {
   seedRegistryAndDirs();
   await seedWindow();
@@ -120,19 +136,7 @@ after(() => {
 describe('handlePublishVerdict end-to-end with task-outcome generator', () => {
   it('happy path: handler dispatches to task-outcome adapter and returns repo-relative verdict paths', async () => {
     const generator = createTaskOutcomeGeneratorAdapter();
-    const mockGitPublisher = {
-      async publishOnIsolatedWorktree(opts) {
-        const iso = join(root, '..', 'task-outcome-e2e-iso');
-        mkdirSync(join(iso, 'docs', 'harness-feedback', 'eval-domains'), { recursive: true });
-        writeFileSync(
-          join(iso, 'docs', 'harness-feedback', 'eval-domains', 'eval-task-outcome.yaml'),
-          readFileSync(join(harnessFeedbackRoot, 'eval-domains', 'eval-task-outcome.yaml'), 'utf8'),
-        );
-        await opts.stage(iso);
-        rmSync(iso, { recursive: true, force: true });
-        return { commitSha: 'task-sha-1234', prUrl: 'https://github.com/zts212653/cat-cafe/pull/9001' };
-      },
-    };
+    const mockGitPublisher = buildMockGitPublisher('task-outcome-e2e-iso', 'task-sha-1234', 9001);
 
     const result = await handlePublishVerdict(
       { harnessFeedbackRoot: harnessFeedbackRoot, gitPublisher: mockGitPublisher, generator },
@@ -160,19 +164,7 @@ describe('handlePublishVerdict end-to-end with task-outcome generator', () => {
     const customTaskOutcomeDbPath = join(tmpdir(), `publish-verdict-taskoutcome-custom-${Date.now()}.sqlite`);
     await seedWindow(customTaskOutcomeDbPath);
     const generator = createTaskOutcomeGeneratorAdapter();
-    const mockGitPublisher = {
-      async publishOnIsolatedWorktree(opts) {
-        const iso = join(root, '..', 'task-outcome-configured-db-iso');
-        mkdirSync(join(iso, 'docs', 'harness-feedback', 'eval-domains'), { recursive: true });
-        writeFileSync(
-          join(iso, 'docs', 'harness-feedback', 'eval-domains', 'eval-task-outcome.yaml'),
-          readFileSync(join(harnessFeedbackRoot, 'eval-domains', 'eval-task-outcome.yaml'), 'utf8'),
-        );
-        await opts.stage(iso);
-        rmSync(iso, { recursive: true, force: true });
-        return { commitSha: 'task-sha-5678', prUrl: 'https://github.com/zts212653/cat-cafe/pull/9002' };
-      },
-    };
+    const mockGitPublisher = buildMockGitPublisher('task-outcome-configured-db-iso', 'task-sha-5678', 9002);
 
     const result = await handlePublishVerdict(
       {
@@ -196,5 +188,163 @@ describe('handlePublishVerdict end-to-end with task-outcome generator', () => {
 
     assert.ok(!('error' in result), `expected success, got: ${JSON.stringify(result)}`);
     assert.equal(result.commitSha, 'task-sha-5678');
+  });
+
+  it('writes explicit 7-class episode verdicts back to the task-outcome DB', async () => {
+    const customTaskOutcomeDbPath = join(tmpdir(), `publish-verdict-taskoutcome-writeback-${Date.now()}.sqlite`);
+    const seeded = await seedWindow(customTaskOutcomeDbPath);
+    const generator = createTaskOutcomeGeneratorAdapter();
+    const mockGitPublisher = buildMockGitPublisher('task-outcome-writeback-iso', 'task-sha-writeback', 9003);
+
+    const result = await handlePublishVerdict(
+      {
+        harnessFeedbackRoot: harnessFeedbackRoot,
+        gitPublisher: mockGitPublisher,
+        generator,
+        taskOutcomeDbPath: customTaskOutcomeDbPath,
+      },
+      {
+        packet: buildPacket({ id: 'vhp-task-outcome-e2e-writeback' }),
+        domain: 'eval:task-outcome',
+        catId: 'opus-47',
+        ownerUserId: 'landy',
+        sourceRefs: {
+          kind: 'task-outcome-snapshot',
+          windowStartMs: seeded.baseMs - 60_000,
+          windowEndMs: seeded.baseMs + 60_000,
+          episodeVerdicts: [{ episodeId: seeded.episodeId, verdict: 'corrected_success' }],
+        },
+      },
+    );
+
+    assert.ok(!('error' in result), `expected success, got: ${JSON.stringify(result)}`);
+    assert.equal(result.commitSha, 'task-sha-writeback');
+
+    const store = new TaskOutcomeEpisodeStore(customTaskOutcomeDbPath);
+    assert.equal(store.getEpisode(seeded.episodeId)?.verdict, 'corrected_success');
+    assert.equal(
+      store.listNeedingVerdict().some((episode) => episode.episodeId === seeded.episodeId),
+      false,
+      'written-back episode should no longer appear in needingVerdict',
+    );
+  });
+
+  it('does not write episode verdicts when publish fails after staging', async () => {
+    const customTaskOutcomeDbPath = join(tmpdir(), `publish-verdict-taskoutcome-publish-fail-${Date.now()}.sqlite`);
+    const seeded = await seedWindow(customTaskOutcomeDbPath);
+    const generator = createTaskOutcomeGeneratorAdapter();
+    const failingGitPublisher = {
+      async publishOnIsolatedWorktree(opts) {
+        const iso = join(root, '..', 'task-outcome-writeback-publish-fail-iso');
+        mkdirSync(join(iso, 'docs', 'harness-feedback', 'eval-domains'), { recursive: true });
+        writeFileSync(
+          join(iso, 'docs', 'harness-feedback', 'eval-domains', 'eval-task-outcome.yaml'),
+          readFileSync(join(harnessFeedbackRoot, 'eval-domains', 'eval-task-outcome.yaml'), 'utf8'),
+        );
+        await opts.stage(iso);
+        rmSync(iso, { recursive: true, force: true });
+        throw new Error('simulated gh pr create failure');
+      },
+    };
+    const result = await handlePublishVerdict(
+      {
+        harnessFeedbackRoot,
+        gitPublisher: failingGitPublisher,
+        generator,
+        taskOutcomeDbPath: customTaskOutcomeDbPath,
+      },
+      {
+        packet: buildPacket({ id: 'vhp-task-outcome-e2e-writeback-publish-fail' }),
+        domain: 'eval:task-outcome',
+        catId: 'opus-47',
+        ownerUserId: 'landy',
+        sourceRefs: {
+          kind: 'task-outcome-snapshot',
+          windowStartMs: seeded.baseMs - 60_000,
+          windowEndMs: seeded.baseMs + 60_000,
+          episodeVerdicts: [{ episodeId: seeded.episodeId, verdict: 'corrected_success' }],
+        },
+      },
+    );
+
+    const store = new TaskOutcomeEpisodeStore(customTaskOutcomeDbPath);
+    assert.equal(result.status, 500);
+    assert.equal(result.error, 'git_or_gh_failed');
+    assert.equal(store.getEpisode(seeded.episodeId)?.verdict, null);
+  });
+
+  it('rejects episode verdict writeback for non-terminal episodes', async () => {
+    const customTaskOutcomeDbPath = join(tmpdir(), `publish-verdict-taskoutcome-in-progress-${Date.now()}.sqlite`);
+    const seeded = await seedWindow(customTaskOutcomeDbPath);
+    const invalidVerdictId = `vhp-task-outcome-e2e-writeback-invalid-${Math.random().toString(36).slice(2, 8)}`;
+    const store = new TaskOutcomeEpisodeStore(customTaskOutcomeDbPath);
+    const activeEpisode = store.createEpisode({
+      trigger: 'cat_initiated',
+      threadId: 'thread-task',
+      participants: ['gpt52'],
+    });
+    const generator = createTaskOutcomeGeneratorAdapter();
+    const mockGitPublisher = buildMockGitPublisher('task-outcome-writeback-invalid-iso', 'unreachable', 9004);
+
+    const result = await handlePublishVerdict(
+      {
+        harnessFeedbackRoot: harnessFeedbackRoot,
+        gitPublisher: mockGitPublisher,
+        generator,
+        taskOutcomeDbPath: customTaskOutcomeDbPath,
+      },
+      {
+        packet: buildPacket({ id: invalidVerdictId }),
+        domain: 'eval:task-outcome',
+        catId: 'opus-47',
+        ownerUserId: 'landy',
+        sourceRefs: {
+          kind: 'task-outcome-snapshot',
+          windowStartMs: seeded.baseMs - 60_000,
+          windowEndMs: seeded.baseMs + 60_000,
+          episodeVerdicts: [{ episodeId: activeEpisode.episodeId, verdict: 'success' }],
+        },
+      },
+    );
+
+    assert.equal(result.status, 400);
+    assert.equal(result.error, 'invalid_episode_verdict_writeback');
+    assert.match(result.detail, /terminalState='in_progress'/);
+    assert.equal(store.getEpisode(activeEpisode.episodeId)?.verdict, null);
+  });
+
+  it('rejects episode verdict writeback for episodes outside the selected window', async () => {
+    const customTaskOutcomeDbPath = join(tmpdir(), `publish-verdict-taskoutcome-outside-${Date.now()}.sqlite`);
+    const seeded = await seedWindow(customTaskOutcomeDbPath);
+    const invalidVerdictId = `vhp-task-outcome-e2e-writeback-outside-${Math.random().toString(36).slice(2, 8)}`;
+    const generator = createTaskOutcomeGeneratorAdapter();
+    const mockGitPublisher = buildMockGitPublisher('task-outcome-writeback-outside-iso', 'unreachable', 9005);
+
+    const result = await handlePublishVerdict(
+      {
+        harnessFeedbackRoot: harnessFeedbackRoot,
+        gitPublisher: mockGitPublisher,
+        generator,
+        taskOutcomeDbPath: customTaskOutcomeDbPath,
+      },
+      {
+        packet: buildPacket({ id: invalidVerdictId }),
+        domain: 'eval:task-outcome',
+        catId: 'opus-47',
+        ownerUserId: 'landy',
+        sourceRefs: {
+          kind: 'task-outcome-snapshot',
+          windowStartMs: seeded.baseMs - 120_000,
+          windowEndMs: seeded.baseMs - 60_000,
+          episodeVerdicts: [{ episodeId: seeded.episodeId, verdict: 'success' }],
+        },
+      },
+    );
+
+    const store = new TaskOutcomeEpisodeStore(customTaskOutcomeDbPath);
+    assert.equal(result.status, 400);
+    assert.equal(result.error, 'invalid_episode_verdict_writeback');
+    assert.match(result.detail, /is not in the selected task-outcome window/);
+    assert.equal(store.getEpisode(seeded.episodeId)?.verdict, null);
   });
 });

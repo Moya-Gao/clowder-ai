@@ -46,6 +46,7 @@ describe('cat_cafe_publish_verdict task-outcome wrapper', () => {
         kind: 'task-outcome-snapshot',
         windowStartMs: 1700000000000,
         windowEndMs: 1700086400000,
+        episodeVerdicts: [{ episodeId: 'ep-123', verdict: 'corrected_success' }],
       },
     });
 
@@ -70,6 +71,7 @@ describe('cat_cafe_publish_verdict task-outcome wrapper', () => {
                   kind: 'task-outcome-snapshot',
                   windowStartMs: 1700000000000,
                   windowEndMs: 1700086400000,
+                  episodeVerdicts: [{ episodeId: 'ep-123', verdict: 'corrected_success' }],
                 },
               },
             },

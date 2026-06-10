@@ -86,6 +86,17 @@ const capabilityWakeupSourceRefsShape = z
     'eval:capability-wakeup sourceRefs — replayable selector (砚砚 R0 narrowing: window edges + sessionIds required).',
   );
 
+// KEEP IN SYNC: packages/api/src/infrastructure/harness-eval/task-outcome/task-outcome-episode.ts VERDICT_CLASSES.
+const taskOutcomeVerdictShape = z.enum([
+  'success',
+  'corrected_success',
+  'needs_investigation',
+  'harness_fix_needed',
+  'routing_failure',
+  'taste_mismatch',
+  'abandoned',
+]);
+
 const taskOutcomeSourceRefsShape = z
   .object({
     kind: z.literal('task-outcome-snapshot'),
@@ -104,8 +115,18 @@ const taskOutcomeSourceRefsShape = z
       .min(1)
       .optional()
       .describe('Optional evidence anchor catId for cross-thread linking; PR1 schema-only surface.'),
+    episodeVerdicts: z
+      .array(
+        z.object({
+          episodeId: z.string().min(1).describe('Task Outcome episodeId selected by this replay window.'),
+          verdict: taskOutcomeVerdictShape.describe('7-class per-episode task outcome verdict assigned by eval cat.'),
+        }),
+      )
+      .min(1)
+      .optional()
+      .describe('Optional explicit per-episode writeback list. Omit when no terminal episodes are ready.'),
   })
-  .describe('eval:task-outcome sourceRefs — PR1 schema-only replay window selector (wire stays 501 until PR2).');
+  .describe('eval:task-outcome sourceRefs — replay window selector with optional episode verdict writeback.');
 
 /**
  * F192 publish_verdict eval:memory wire-up — memory-recall-snapshot sourceRefs.

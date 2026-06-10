@@ -125,6 +125,16 @@ export type ProxySignal = z.infer<typeof proxySignalSchema>;
 
 // ---- Episode ----
 
+export const TERMINAL_STATES = [
+  'in_progress',
+  'completed',
+  'abandoned',
+  'escalated_cvo',
+  'corrected_then_completed',
+] as const;
+
+export const TERMINAL_DONE_STATES = ['completed', 'abandoned', 'escalated_cvo', 'corrected_then_completed'] as const;
+
 const taskOutcomeEpisodeSchema = z.object({
   episodeId: z.string().min(1),
   trigger: z.enum(['user_ask', 'task_created', 'cat_initiated']),
@@ -136,7 +146,7 @@ const taskOutcomeEpisodeSchema = z.object({
     a2InteractionDecisions: z.array(a2InteractionDecisionSchema).default([]),
     proxy: z.array(proxySignalSchema).default([]),
   }),
-  terminalState: z.enum(['in_progress', 'completed', 'abandoned', 'escalated_cvo', 'corrected_then_completed']),
+  terminalState: z.enum(TERMINAL_STATES),
   verdict: z.enum(VERDICT_CLASSES).nullable(),
   createdAt: z.string().min(1),
 });

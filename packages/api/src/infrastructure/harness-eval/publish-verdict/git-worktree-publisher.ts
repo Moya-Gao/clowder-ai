@@ -41,6 +41,7 @@ export function createGitWorktreePublisher(deps: GitWorktreePublisherDeps): GitP
       let prOpened = false;
       let pushSucceeded = false;
       let worktreeCreated = false;
+      let prUrl: string | null = null;
 
       try {
         // 1. Fetch latest origin/main to ensure isolated worktree is current
@@ -56,7 +57,7 @@ export function createGitWorktreePublisher(deps: GitWorktreePublisherDeps): GitP
         worktreeCreated = true;
 
         // 3. Run caller's stage callback (generator writes verdict artifacts)
-        const { paths, commitMessage, prTitle, prBody, labels } = await opts.stage(worktreePath);
+        const { paths, commitMessage, prTitle, prBody, labels, afterPublish } = await opts.stage(worktreePath);
 
         if (paths.length === 0) {
           throw new Error('stage produced no paths to commit');
@@ -140,14 +141,40 @@ export function createGitWorktreePublisher(deps: GitWorktreePublisherDeps): GitP
           ],
           { cwd: worktreePath, timeout: 60_000 },
         );
-        const prUrl =
+        prUrl =
           prResult.stdout
             .trim()
             .split('\n')
             .find((line) => line.startsWith('https://')) ?? prResult.stdout.trim();
         prOpened = true;
+        await afterPublish?.();
 
         return { commitSha, prUrl };
+      } catch (err) {
+        if (prOpened && prUrl) {
+          try {
+            await exec(
+              'gh',
+              [
+                'pr',
+                'close',
+                prUrl,
+                '--delete-branch',
+                '--comment',
+                'Closing stale auto-verdict PR because post-publish writeback failed.',
+              ],
+              { cwd: worktreePath, timeout: 60_000 },
+            );
+            prOpened = false;
+          } catch (cleanupErr) {
+            const originalMessage = err instanceof Error ? err.message : String(err);
+            const cleanupMessage = cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr);
+            throw new Error(
+              `post_publish_cleanup_failed: exposed PR ${prUrl} could not be closed after publish hook failed. original=${originalMessage}; cleanup=${cleanupMessage}`,
+            );
+          }
+        }
+        throw err;
       } finally {
         // Cleanup: remove worktree (--force in case stage left dirty state)
         if (worktreeCreated) {

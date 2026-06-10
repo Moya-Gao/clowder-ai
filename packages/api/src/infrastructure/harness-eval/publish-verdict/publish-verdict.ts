@@ -9,6 +9,7 @@ import {
   parseVerdictHandoffPacket,
   type VerdictHandoffPacket,
 } from '../verdict-handoff.js';
+import { mapPublishVerdictError } from './error-mapping.js';
 import { computePublishPolicy } from './publish-policy.js';
 import type {
   GitPublisher,
@@ -59,9 +60,6 @@ const defaultGitPublisher: GitPublisher = {
     throw new Error('GitPublisher not injected (must wire real isolated-worktree impl at route layer)');
   },
 };
-
-// validateSourceRefsFormat / assertNoNewlineInBulletFields / resolveSourceRefsInRoot
-// extracted to ./validation.ts (350-line limit).
 
 /**
  * AC-H1: Validate VerdictHandoffPacket schema (server NEVER 造 evidence).
@@ -248,23 +246,21 @@ export async function handlePublishVerdict(
     };
   }
 
-  // AC-H2 + 砚砚 R1 P1 #1: delegate isolated-worktree lifecycle to GitPublisher.
-  // Generator runs INSIDE the isolated worktree (passed via stage callback's
-  // `worktreeRoot`), so artifacts are produced where they'll be committed.
-  // Live `harnessFeedbackRoot` worktree is NEVER mutated.
-  //
-  // 砚砚 R1 P2 #2: branch name `verdict/auto/{domainSlug}/{verdictId}` is
-  // unique per packet.id; `git worktree add -b {branch}` fails atomically if
-  // branch already exists → race protection via git's own locking.
-  //
-  // PR-2 (砚砚 R1 Q1): stage callback is now domain-agnostic — adapter handles
-  // its own source resolution (a2a: validate+copy; cw: provider.resolve).
+  // AC-H2: delegate isolated-worktree lifecycle to GitPublisher.
+  // Generator runs inside the isolated worktree; live harnessFeedbackRoot is never mutated.
+  // Branch uniqueness/race protection is delegated to git worktree add -b.
+  // PR-2: stage callback stays domain-agnostic; adapters resolve their own sources.
   const gitPublisher = deps.gitPublisher ?? defaultGitPublisher;
   const generator: VerdictGenerator = deps.generator; // checked above (501 if missing)
   const domainSlug = packet.domainId.replace(/:/g, '-');
   const branchName = `verdict/auto/${domainSlug}/${packet.id}`;
 
-  let artifact: { verdictPath: string; bundleDir: string; extraStagedPaths?: string[] } | null = null;
+  let artifact: {
+    verdictPath: string;
+    bundleDir: string;
+    extraStagedPaths?: string[];
+    afterPublish?: () => void | Promise<void>;
+  } | null = null;
   try {
     const { commitSha, prUrl } = await gitPublisher.publishOnIsolatedWorktree({
       branchName,
@@ -313,6 +309,7 @@ export async function handlePublishVerdict(
           prTitle: `verdict(${packet.domainId}): ${packet.id}`,
           prBody: `Verdict published via cat_cafe_publish_verdict MCP tool.\n\nVerdict: ${packet.verdict}\nDomain: ${packet.domainId}\nPhenomenon: ${packet.phenomenon}\n\nReviewed by: ${packet.ownerAsk.targetOwnerCatId}\nAction: ${packet.ownerAsk.requestedAction}${policyFooter}`,
           labels: policy.labels,
+          afterPublish: artifact.afterPublish,
         };
       },
     });
@@ -333,34 +330,8 @@ export async function handlePublishVerdict(
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    if (message.startsWith('verdict_already_exists_on_main')) {
-      return { status: 409, error: 'verdict_already_exists', detail: message };
-    }
-    if (message.startsWith('invalid_source_ref')) return { status: 400, error: 'invalid_source_ref', detail: message };
-    if (message.startsWith('evidence_not_found')) return { status: 404, error: 'evidence_not_found', detail: message };
-    // cloud R5 P2 (PR-2): provider throws `session_not_found: <id>` when a selector
-    // sessionId doesn't exist in SessionChainStore — that's user-correctable input
-    // (stale/mistyped sessionId), not generator failure. Map to 404 so cats correct
-    // the input rather than retrying a server failure.
-    if (message.startsWith('session_not_found')) return { status: 404, error: 'session_not_found', detail: message };
-    if (message.startsWith('owner_user_required')) return { status: 401, error: 'unauthenticated', detail: message };
-    // cloud R5 P2 (PR-2): cw adapter throws `no_trials_in_window` when provider
-    // returns empty — also user-correctable (selector returned no qualifying trials),
-    // not generator failure. Map to 404 evidence_not_found semantic.
-    if (message.startsWith('no_trials_in_window'))
-      return { status: 404, error: 'no_trials_in_window', detail: message };
-    // F192 eval:memory wire-up: memory adapter throws `no_metrics_in_window` when
-    // provider returns recall metrics with totalEvents=0 — user-correctable (window
-    // too narrow, or filters too tight). Same 404 mapping as cw no_trials.
-    if (message.startsWith('no_metrics_in_window'))
-      return { status: 404, error: 'no_metrics_in_window', detail: message };
-    // F192 memory wire-up cloud R10 P2: generator throws `invalid_packet_field` when
-    // packet field violates a bundle-layer invariant the packet schema doesn't catch
-    // (e.g. featureId must match bundle's /^F\d{3}$/). User-correctable input → 400.
-    if (message.startsWith('invalid_packet_field'))
-      return { status: 400, error: 'invalid_packet_field', detail: message };
-    // 砚砚 R11 P1: AC-H1 completeness — generator throws if any ref type empty
-    if (message.startsWith('handoff_incomplete')) return { status: 400, error: 'handoff_incomplete', detail: message };
+    const mapped = mapPublishVerdictError(message);
+    if (mapped) return mapped;
     if (!artifact) return { status: 500, error: 'generator_failed', detail: message };
     return { status: 500, error: 'git_or_gh_failed', detail: message };
   }

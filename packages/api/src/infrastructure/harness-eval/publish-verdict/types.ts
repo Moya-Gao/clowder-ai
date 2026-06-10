@@ -1,5 +1,6 @@
 import type { Redis } from 'ioredis';
 import type { CapabilityWakeupSourceSelector } from '../capability-wakeup/capability-wakeup-trial-provider.js';
+import type { TaskOutcomeVerdict } from '../task-outcome/task-outcome-episode.js';
 import type { VerdictHandoffPacket } from '../verdict-handoff.js';
 
 /**
@@ -23,6 +24,12 @@ export interface StageResult {
    *     rollup mechanism deferred to future Phase.
    */
   labels?: string[];
+  /**
+   * Optional live side effect that runs after commit/push/PR creation succeeds
+   * but before the publisher returns success. If it fails, the publisher must
+   * clean up the newly exposed PR/branch before surfacing the error.
+   */
+  afterPublish?: () => void | Promise<void>;
 }
 
 export interface PublishOnIsolatedWorktreeOpts {
@@ -62,6 +69,15 @@ export interface TaskOutcomeSnapshotSourceRefs {
   windowEndMs: number;
   databasePath?: string;
   evidenceCatId?: string;
+  /**
+   * Optional explicit 7-class episode verdict writeback. Packet-level verdict
+   * remains the shared 4-class harness judgement; these entries are per-episode
+   * labels assigned by the eval cat after reading the replay window.
+   */
+  episodeVerdicts?: Array<{
+    episodeId: string;
+    verdict: TaskOutcomeVerdict;
+  }>;
 }
 
 /**
@@ -132,6 +148,8 @@ export type VerdictGenerator = (
    * everything under `bundleDir`.
    */
   extraStagedPaths?: string[];
+  /** Optional live side effect that may run only after commit/push/PR creation succeeds. */
+  afterPublish?: () => void | Promise<void>;
 }>;
 
 export interface GeneratorDeps {

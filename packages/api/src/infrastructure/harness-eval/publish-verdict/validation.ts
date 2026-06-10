@@ -1,5 +1,6 @@
 import { basename, isAbsolute, resolve } from 'node:path';
 import { resolveSafeRawPath } from '../safe-path.js';
+import { VERDICT_CLASSES } from '../task-outcome/task-outcome-episode.js';
 import type { VerdictHandoffPacket } from '../verdict-handoff.js';
 import type {
   A2aSnapshotAttributionRefs,
@@ -245,7 +246,55 @@ export function validateTaskOutcomeSourceRefs(
       }
     }
   }
+  const episodeVerdictsError = validateEpisodeVerdicts(sourceRefs.episodeVerdicts);
+  if (episodeVerdictsError) return episodeVerdictsError;
   return { ok: true };
+}
+
+function validateEpisodeVerdicts(
+  episodeVerdicts: TaskOutcomeSnapshotSourceRefs['episodeVerdicts'],
+): { ok: false; error: HandlerError } | null {
+  if (episodeVerdicts === undefined) return null;
+  if (!Array.isArray(episodeVerdicts) || episodeVerdicts.length === 0) {
+    return {
+      ok: false,
+      error: {
+        status: 400,
+        error: 'invalid_source_ref',
+        detail: 'episodeVerdicts must be a non-empty array when provided',
+      },
+    };
+  }
+  const seen = new Set<string>();
+  for (const [index, entry] of episodeVerdicts.entries()) {
+    if (!entry || typeof entry !== 'object') {
+      return invalidEpisodeVerdict(index, 'must be an object');
+    }
+    const episodeId = (entry as { episodeId?: unknown }).episodeId;
+    if (typeof episodeId !== 'string' || episodeId.length === 0 || /[\r\n]/.test(episodeId)) {
+      return invalidEpisodeVerdict(index, 'episodeId must be a non-empty string without newlines');
+    }
+    if (seen.has(episodeId)) {
+      return invalidEpisodeVerdict(index, `duplicate episodeId '${episodeId}'`);
+    }
+    seen.add(episodeId);
+    const verdict = (entry as { verdict?: unknown }).verdict;
+    if (typeof verdict !== 'string' || !VERDICT_CLASSES.includes(verdict as (typeof VERDICT_CLASSES)[number])) {
+      return invalidEpisodeVerdict(index, `verdict must be one of ${VERDICT_CLASSES.join(', ')}`);
+    }
+  }
+  return null;
+}
+
+function invalidEpisodeVerdict(index: number, detail: string): { ok: false; error: HandlerError } {
+  return {
+    ok: false,
+    error: {
+      status: 400,
+      error: 'invalid_source_ref',
+      detail: `episodeVerdicts[${index}] ${detail}`,
+    },
+  };
 }
 
 /**

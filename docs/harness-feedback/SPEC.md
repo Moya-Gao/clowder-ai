@@ -170,6 +170,32 @@ Current state:
 - `eval:task-outcome` wired (PR #2162)
 - `eval:sop` still unwired
 
+### `eval:task-outcome` sourceRefs
+
+`eval:task-outcome` uses a replayable window selector:
+
+```json
+{
+  "kind": "task-outcome-snapshot",
+  "windowStartMs": 1759276800000,
+  "windowEndMs": 1759363200000,
+  "databasePath": "task-outcome-episodes.sqlite",
+  "evidenceCatId": "codex",
+  "episodeVerdicts": [
+    { "episodeId": "ep-...", "verdict": "corrected_success" }
+  ]
+}
+```
+
+Notes:
+
+- `windowStartMs` / `windowEndMs` are required; the end must be greater than the start.
+- `databasePath` is optional and must be repo-relative. Absolute paths and `..` traversal are rejected.
+- `evidenceCatId` is optional and only narrows linked Event Memory evidence reads.
+- `episodeVerdicts` is optional. When present, it is an explicit per-episode 7-class writeback list. It is not derived from the packet-level 4-class verdict.
+- Valid episode verdicts are `success`, `corrected_success`, `needs_investigation`, `harness_fix_needed`, `routing_failure`, `taste_mismatch`, and `abandoned`.
+- Writeback only applies to terminal episodes in the selected replay window. Unknown or in-progress episode ids are rejected.
+
 ## Adding A Domain
 
 If you are wiring a new eval domain into `cat_cafe_publish_verdict`, the minimum checklist is:

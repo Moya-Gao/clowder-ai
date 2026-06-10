@@ -38,7 +38,7 @@ const DOMAIN_INSTRUCTIONS: Record<EvalDomainRegistryEntry['domainId'], string> =
   'eval:capability-wakeup':
     'Enter the eval:capability-wakeup domain thread, prioritize workspace-navigator first, compare weekly miss-rate trends across capability wakeup traces, separate cognitive / behavioral / attention-dilution misses, and produce a verdict handoff packet when evidence supports fix/build/keep/delete_sunset.',
   'eval:task-outcome':
-    'Enter the eval:task-outcome domain thread. Analyze task outcome episodes: review permission cancel signals, proposal reject signals, magic word triggers, and A1 world truth events. Bind signals to episodes, compare weekly cancel rates and terminal-state distributions, identify patterns, and produce a verdict handoff packet. Packet verdict is fix/build/keep_observe/delete_sunset. Terminal-state and signal distributions are evidence, not the packet verdict. Episode 7-class verdict writeback is unfinished; do not assume it is queryable yet. Proxy signals navigate; they do not judge.',
+    'Enter the eval:task-outcome domain thread. Analyze task outcome episodes: review permission cancel signals, proposal reject signals, magic word triggers, and A1 world truth events. Bind signals to episodes, compare weekly cancel rates and terminal-state distributions, identify patterns, and produce a verdict handoff packet. Packet verdict is fix/build/keep_observe/delete_sunset. Terminal-state and signal distributions are evidence, not the packet verdict. Assign 7-class episode verdicts only for terminal episodes you actually reviewed; publish them through sourceRefs.episodeVerdicts. Proxy signals navigate; they do not judge.',
 };
 
 /**
@@ -134,7 +134,10 @@ You must also supply \`sourceRefs\` (NOT part of packet, separate input field) a
 {
   "kind": "task-outcome-snapshot",
   "windowStartMs": 1759276800000,
-  "windowEndMs": 1759363200000
+  "windowEndMs": 1759363200000,
+  "episodeVerdicts": [
+    { "episodeId": "ep-...", "verdict": "corrected_success" }
+  ]
 }
 \`\`\`
 
@@ -143,8 +146,9 @@ Fields:
 - \`windowStartMs\` / \`windowEndMs\` — REQUIRED finite ms epoch; \`windowEndMs\` must be > \`windowStartMs\`
 - \`databasePath\` — OPTIONAL repo-relative DB override under repo root; absolute paths and \`..\` traversal are forbidden. Defaults to repo-root \`task-outcome-episodes.sqlite\`
 - \`evidenceCatId\` — OPTIONAL cat filter for event-memory evidence linking
+- \`episodeVerdicts\` — OPTIONAL explicit 7-class writeback list for terminal episodes in the selected window. Use only after reviewing the episode evidence. Valid verdicts: \`success\`, \`corrected_success\`, \`needs_investigation\`, \`harness_fix_needed\`, \`routing_failure\`, \`taste_mismatch\`, \`abandoned\`
 
-Tool resolves the selector by loading task-outcome episodes/signals for the time window, bundling replay data under \`docs/harness-feedback/bundles/<verdictId>/raw/\`, and writing the live verdict artifacts in the isolated worktree. Tool will NOT fabricate evidence — if the DB path is missing or the selector is invalid, publish fails.
+Tool resolves the selector by loading task-outcome episodes/signals for the time window, bundling replay data under \`docs/harness-feedback/bundles/<verdictId>/raw/\`, writing the live verdict artifacts in the isolated worktree, and applying any explicit \`episodeVerdicts\` to the task-outcome DB. Tool will NOT fabricate evidence — if the DB path is missing, the selector is invalid, or an \`episodeVerdicts[].episodeId\` is outside the selected terminal window, publish fails.
 
 The MCP tool creates branch \`verdict/auto/{domainSlug}/{verdictId}\` + commits + opens PR. Returns commit SHA + PR URL.
 

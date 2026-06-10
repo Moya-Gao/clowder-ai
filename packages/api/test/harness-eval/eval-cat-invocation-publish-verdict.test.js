@@ -115,7 +115,7 @@ describe('Phase H AC-H4: eval cat instructions point to publish_verdict MCP tool
     assert.match(packet.instructions, /NOT fabricate|will not fabricate|tool will NOT/i, 'forbid fabrication');
   });
 
-  it('task-outcome base instruction uses packet-level 4-class verdict and does not promise 7-class queryability', () => {
+  it('task-outcome base instruction keeps packet verdict 4-class and routes episode verdicts through sourceRefs', () => {
     const packet = buildEvalCatInvocation({
       domain: { ...TEST_DOMAIN_BASE, domainId: 'eval:task-outcome', sourceAdapter: 'task-outcome-eval' },
       trendRefs: [],
@@ -123,7 +123,9 @@ describe('Phase H AC-H4: eval cat instructions point to publish_verdict MCP tool
       legacyCleanup: { status: 'not_checked' },
     });
     assert.match(packet.instructions, /fix\/build\/keep_observe\/delete_sunset/i);
-    assert.match(packet.instructions, /writeback path is unfinished|do not assume it is queryable yet/i);
+    assert.match(packet.instructions, /sourceRefs\.episodeVerdicts/i);
+    assert.match(packet.instructions, /terminal episodes you actually reviewed/i);
+    assert.doesNotMatch(packet.instructions, /writeback path is unfinished|do not assume it is queryable yet/i);
     assert.doesNotMatch(
       packet.instructions,
       /Verdict is categorical \(success\/corrected_success\/needs_investigation\/harness_fix_needed\/routing_failure\/taste_mismatch\/abandoned\)/,
