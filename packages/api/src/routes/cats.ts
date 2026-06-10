@@ -776,6 +776,16 @@ export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opt
       }
     }
 
+    // F161 invariant: clientId 'acp' must have an effective acp config.
+    // Prevents persisting an unroutable ACP member (no command/startupArgs).
+    if (effectiveClient === 'acp') {
+      const effectiveAcpConfig = body.acp !== undefined ? body.acp : getAcpConfig(request.params.id as string);
+      if (!effectiveAcpConfig) {
+        reply.status(400);
+        return { error: 'clientId "acp" requires an acp transport config (command + startupArgs)' };
+      }
+    }
+
     const managedIdsBefore = getManagedCatalogIds(projectRoot);
     try {
       const hasCommandArgsPatch = body.commandArgs !== undefined;

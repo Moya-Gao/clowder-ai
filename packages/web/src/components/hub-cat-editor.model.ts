@@ -105,7 +105,8 @@ export const CLIENT_OPTIONS: Array<{ value: ClientId; label: string }> = [
   { value: 'opencode', label: 'OpenCode' },
   { value: 'antigravity', label: 'Antigravity' },
   { value: 'catagent', label: 'CatAgent' },
-  { value: 'acp', label: 'ACP (Generic)' },
+  // F161: 'acp' not listed — requires advanced config (command/startupArgs/pool).
+  // Create via API; Hub can display/edit existing ACP members.
 ];
 
 export const SESSION_CHAIN_OPTIONS: Array<{ value: SessionChainValue; label: string }> = [
