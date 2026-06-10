@@ -43,15 +43,18 @@ F230 的价值 = **风险对冲的第四档 carrier**：PTY 驱动真交互式 `
 
 ## 激活 Gate（成本闸门）🔴
 
-直接回应"不然我要破产"——**本 feat 不是无条件全量开工**：
+> **2026-06-10 08:16 修订**（铲屎官 burn-rate 实测 + 砚砚 Design Gate P1 #1）：原版"print_sdk $200 ≈ 7 天缓冲"假设**被铲屎官实测证伪**——铲屎官原话："$200我试过 因为用api 他的cached好像有点问题基本一天就没了 这个一天的意思可能是五个小时"。机理吻合我们的调用模式：invocation 间隔通常 > Anthropic prompt cache 5min TTL → cache miss → 每条 100k+ input 全价。SDK credit 按 API 价折算，api_key 档同价——**两档兜底 runway 都是小时级（~5h-1d），不是天级**（外推自 api 实测，AC-A5 用自家 telemetry 三档校准坐实）。runway（小时级）<< Phase B fast-track 工期（2-3 天）⇒ "翻车后再造备胎"= 断粮 2-3 天 + 全价烧钱，不成立。**结论：Phase B-min skeleton 提前到 6/15 前完成可切换状态（KD-6）。**
 
-| Phase | 激活条件 | 烧谁 |
+直接回应"不然我要破产"——**本 feat 仍不是无条件全量开工**：
+
+| 阶段 | 激活条件 | 烧谁 |
 |-------|---------|------|
 | **Phase A spike** | **无条件立即**（6/15 前图纸必须在手） | Fable-5，1-2 天，worktree 隔离，不碰 production |
-| **Phase B/C/D 实施** | 三选一触发：① 6/15 dashboard 判 `--bg` 进 SDK 桶（OQ-13 证伪）→ **fast-track**；② bg 出现结构性不可修 P0；③ CVO 主动下令 | sonnet（写码）+ 砚砚 5.5（review）+ Fable-5（Phase spec/守护） |
-| 未触发时 | Phase B+ **standby**：spec + Phase A 图纸放着，零猫粮消耗 | — |
+| **Phase B-min skeleton**（最小可切换：carrier service + factory 注册 + 真实 smoke 含 MCP/permission，**不切流量、零默认流量**） | **Phase A go 后立即**（不等 6/15 判罚）——runway 实测撑不住事后 fast-track | sonnet 2-3 天 + 砚砚 5.5 review |
+| **Phase B-full**（golden parity 全量 + alpha 多轮剧本）+ **Phase C/D** | 三选一触发：① 6/15 判罚 `--bg` 进 SDK 桶（OQ-13 证伪）② bg 结构性不可修 P0 ③ CVO 主动下令 | sonnet + 砚砚 + Fable-5 |
+| 未触发时 | B-full/C/D **standby**；skeleton 留在 factory 后零流量零成本 | — |
 
-时间账：`print_sdk` $200 桶 ≈ 7 天缓冲。即使 6/15 当天 bg 被判死，AC-D1(F198) 自动降级接住流量，我们有约一周窗口 fast-track Phase B——**所以 6/15 前只需要图纸（Phase A），不需要完整实施**。这是成本最优解。
+修订后的账：skeleton 提前成本 = sonnet 2-3 天常规开发量；不提前的期望损失 = 判罚翻车时全员断粮 2-3 天 + api_key 全价小时级烧钱。**花小钱封死破产尾部风险**——这才是对"我要破产"的正确响应。若 CVO 认为 skeleton 也应缓（接受断粮尾部风险），在 thread 表态即回退此条。
 
 ## What
 
@@ -109,7 +112,9 @@ Owner: Fable-5。Worktree 隔离，1-2 天硬退出（F198 Phase A "5+ 轮摆动
 
 产出：`docs/research/2026-06-1X-f230-pty-carrier-spike.md`（go/no-go + 失败模式 + fixture 落 `docs/features/assets/F230/`）+ F198 AC-D6 回写。**不开 PR——spike 是图纸不是 production。**
 
-### Phase B: 最小可用 Carrier（gated — 见激活 Gate）
+### Phase B: 最小可用 Carrier（B-min skeleton: Phase A go 后立即；B-full: gated — 见激活 Gate）
+
+**B-min skeleton 范围**（= "可切换状态"，KD-6 提前实施）：AC-B1 + AC-B3 + AC-B4 + AC-B5——factory 注册 + 端到端真实 smoke（含 MCP 注入 + permission bypass + cancel 干净退出）。**B-full 范围**（gated）：AC-B2 golden parity 全量 + AC-B6 alpha 多轮剧本。分界逻辑：skeleton 保证"判罚日有备胎可切"，full 保证"切了以后质量等价"——前者封死断粮尾部风险，后者才允许上量。
 
 - `ClaudeInteractivePtyCarrierService` 实现 AgentService 接口；`claude-carrier-factory.ts` 注册第四档 `CAT_CAFE_CLAUDE_CARRIER=interactive_pty`。
 - per-invocation 形态：spawn PTY → 注入 prompt（Phase A 选定机制）→ TranscriptTailer tail → AgentMessage parity → 终态退出。
@@ -136,7 +141,7 @@ Owner: Fable-5。Worktree 隔离，1-2 天硬退出（F198 Phase A "5+ 轮摆动
 |----|---------------------|---------|----------|------|
 | R1 | "要是这个bg到时候不靠谱 我们至少要现在先想清楚备用方案 避免过几天布偶猫拯救失败"（06-10 07:22） | AC-A1~A5 | spike 报告 + go/no-go | [ ] |
 | R2 | "起交互进程，但是输出的内容不从进程的输出拿 学f210和f211那样的去拿"（06-10 07:22） | AC-A1, AC-B2 | 双通道架构：PTY 输入 + transcript 旁路输出，ANSI 不进解析 | [ ] |
-| R3 | "不然我要破产"（06-10 07:41） | 激活 Gate + AC-B7 | Phase B+ gated standby；流水线成本分工 | [ ] |
+| R3 | "不然我要破产"（06-10 07:41）+ burn-rate 实测"$200…基本一天就没了…可能是五个小时"（06-10 08:16） | 激活 Gate + AC-A5 + AC-B7 | B-full/C/D gated standby；runway 三档 telemetry 校准；skeleton 提前封死断粮尾部 | [ ] |
 | R4 | "具体写代码交给sonnet……砚砚55 review 你做每个Phase spec……愿景守护"（06-10 07:41） | Review Gate 全表 | 每 PR 的 author/reviewer/守护记录 | [ ] |
 | R5 | 6/15 后布偶猫家族不断粮（继承 F198 R1/R3） | AC-D2 | fallback 链注册 + 自动降级测试 | [ ] |
 
@@ -150,11 +155,12 @@ Owner: Fable-5。Worktree 隔离，1-2 天硬退出（F198 Phase A "5+ 轮摆动
 <!-- 立项愿景硬度自检（F216→F219）：每条 AC 必须 ① trace 回 Why 的某诉求 ② 非作者可复核（命令/数字/截图）。 -->
 
 ### Phase A（Spike — 立即）
+- [ ] AC-A0: **Interactive 身份 capsule**（砚砚 Design Gate P1 #2）——spike 每个实验附 reviewer 可独立复核的证据包：完整 argv（确认无 `-p` 无 `--bg`）/ spawn 方式 + TTY 证明（PTY fd 的 isatty 采样或 `tty` 输出）/ `claude --version` / auth mode（订阅 OAuth vs API key）/ transcript 元数据 `entrypoint` 实采值 / 显式确认未误走 print/SDK 路径。F230 计费论证全压在 interactive 边界上，fixture 必须能证明"这次真是 interactive"
 - [ ] AC-A1: PTY 驱动 `claude` interactive 完成 ≥1 完整 prompt→response→transcript 落盘 cycle，fixture 落 `docs/features/assets/F230/`（含成功 + ≥1 失败模式）
 - [ ] AC-A2: 长 prompt 注入实测 50KB / 200KB 两档：成功机制 + 上限数字 + 降级方案结论
 - [ ] AC-A3: session id 捕获机制实测：确定性方式 + 捕获时延数字（p50/p95）
 - [ ] AC-A4: interactive `--resume <id>` 两轮实测：id 稳定性（fork 与否）+ 记忆连续性，与 `--bg --resume` 必 fork 对照结论
-- [ ] AC-A5: go/no-go 报告 push（`docs/research/`）+ F198 AC-D6 回写 + Phase B 激活条件双向确认（本 spec ↔ F198 AC-E4）
+- [ ] AC-A5: go/no-go 报告 push（`docs/research/`）+ F198 AC-D6 回写，报告必含（砚砚 Design Gate P1 #1）：① **print_sdk/api_key runway 三档估算**（保守/中位/高压，用自家 telemetry/usage 真实样本，与铲屎官 api 实测"$200 ≈ 5h-1d"对照校准）② Phase B-min skeleton 最短工期估算（与 runway 比较，验证 KD-6 提前决策）③ Anthropic dev support 问询状态（TOS 自动化驱动 interactive 边界 + 桶归属，随 F198 AC-E4 邮件捎带，书面回复 = 证据）
 
 ### Phase B（最小 Carrier — gated）
 - [ ] AC-B1: `ClaudeInteractivePtyCarrierService` 过 factory 注册，`CAT_CAFE_CLAUDE_CARRIER=interactive_pty` 端到端真实 smoke（订阅 token + transcript `entrypoint` 实采记录）
@@ -223,7 +229,8 @@ in_context_observability:
 | PTY 长 prompt 注入脆弱（bracketed-paste 上限 / 分段竞态） | Phase A AC-A2 先实测两档量级；降级方案（stdin pipe / 文件引用）spike 内验证 |
 | 常驻进程内存泄漏 / 僵尸 | Phase C 借 F149 idle TTL + lease；AC-C3 crash 注入实测；agent-browser 僵尸 5 次复发教训（LL-056 startup cleanup 模式）前置 |
 | transcript schema 无契约，Anthropic 可改 | 与 bg/-p 共享同一风险（非新增）；golden parity tests 当 schema 漂移哨兵；CLI 版本 pin + 升级前跑 fixture |
-| 6/15 前与 F198 主线抢资源 | 激活 Gate：6/15 前只跑 Phase A（Fable-5 一只猫 1-2 天）；AC-B7 硬约束零阻塞主线 |
+| 6/15 前与 F198 主线抢资源 | 激活 Gate：6/15 前 Fable-5 跑 Phase A + sonnet 跑 B-min skeleton（与 F198 主线不同猫，AC-B7 硬约束零阻塞主线代码路径） |
+| **兜底两档 runway 仅小时级**（铲屎官实测：cache miss 下 $200 ≈ 5h-1d；我们 invocation 间隔 > cache 5min TTL 是结构性的） | KD-6 skeleton 提前；AC-A5 telemetry 三档校准坐实外推；F198 AC-D2 预算告警阈值按小时级 runway 重标定（已 cross-link 给 F198 owner） |
 | session id 捕获竞态（并发 invocation 抢新文件） | Phase A AC-A3 实测确定性机制；Phase C mutex 串行化兜底 |
 
 ## Open Questions
@@ -245,7 +252,8 @@ in_context_observability:
 |---|------|------|------|
 | KD-1 | Plan B 从 F198 AC-D6 升格为独立 feat F230 | CVO 明确立项指令（07:41"收敛完成这份feat 立项"）；完整 carrier 工程生命周期超出 F198"6/15 救命"使命（6/15 后持续演进）；F198 spec 已 526 行不宜再扩 | 2026-06-10 |
 | KD-2 | 双通道架构：PTY 只做输入面，输出走 transcript 旁路，ANSI 永不进事件解析 | F210 KD-12 教训（structured sidecar > screen scraping）+ F198 输出层资产 100% 复用（TranscriptTailer 实证零耦合）；当年 tmux 候选被压的"ANSI 解析脆弱"理由被结构性绕开 | 2026-06-10 |
-| KD-3 | 激活 Gate：Phase A 立即、Phase B+ gated standby | CVO 成本约束（"不然我要破产"）；print_sdk $200 ≈ 7 天缓冲足够 fast-track，6/15 前只需图纸不需实施 | 2026-06-10 |
+| KD-3 | 激活 Gate：Phase A 立即、Phase B+ gated standby | CVO 成本约束（"不然我要破产"）；~~print_sdk $200 ≈ 7 天缓冲足够 fast-track~~（**runway 假设被 KD-6 修订**，Gate 结构保留） | 2026-06-10 |
+| KD-6 | **Phase B-min skeleton 提前到 6/15 前（不等判罚），B-full/C/D 仍 gated** | 铲屎官 burn-rate 实测（08:16）："$200我试过 因为用api 他的cached好像有点问题基本一天就没了 这个一天的意思可能是五个小时"——cache miss（invocation 间隔 > 5min TTL）下兜底两档 runway 仅小时级，<< skeleton 工期 2-3 天，正中砚砚 Design Gate P1 #1 触发条件"runway < fast-track 工期 → 提前实施 skeleton"。skeleton 成本（sonnet 2-3 天）<< 断粮尾部损失 | 2026-06-10 |
 | KD-4 | 流水线分工：Fable-5 设计/Phase spec/愿景守护，sonnet 实施，砚砚 GPT-5.5 review | CVO 钦点（07:41）；reviewer 用 5.5 不用 5.4——CVO 原话"54经常会掉球"（覆盖 reviewer_cost_routing 默认，本 feat 线内有效） | 2026-06-10 |
 | KD-5 | Phase B 先 per-invocation，常驻形态留 Phase C 评估 | 对齐现有 carrier 接口风险最小；常驻是优雅终态但生命周期管理成本未知，按实测数据拍（拒绝过度设计） | 2026-06-10 |
 
@@ -254,8 +262,10 @@ in_context_observability:
 | 日期 | 事件 |
 |------|------|
 | 2026-06-10 | 立项（CVO 07:41 指令）；F198 AC-D6/KD-12 升格；激活 Gate + 流水线分工定档 |
-| 2026-06-11~12 (target) | Phase A spike 完成，go/no-go 出 |
-| 2026-06-15 | OQ-13 判罚日（F198 AC-E4）→ 决定 Phase B+ 激活与否 |
+| 2026-06-10 08:16+ | 砚砚 Design Gate 退回 2 P1（runway 缺证据 / 缺 interactive 身份 capsule）；铲屎官 burn-rate 实测证伪"7 天缓冲"→ KD-6 skeleton 提前；spec 修订（AC-A0 新增 + AC-A5 扩 + 激活 Gate 改版 + Phase B 拆 B-min/B-full） |
+| 2026-06-11~12 (target) | Phase A spike 完成，go/no-go + runway 三档 + 身份 capsule 出 |
+| 2026-06-12~14 (target) | Phase A go → writing-plans 拆 B-min → sonnet skeleton + 砚砚 review，6/15 前达"可切换" |
+| 2026-06-15 | OQ-13 判罚日（F198 AC-E4）→ 决定 B-full/C/D 激活与否 |
 
 ## Review Gate（流水线 — CVO 钦点）
 
