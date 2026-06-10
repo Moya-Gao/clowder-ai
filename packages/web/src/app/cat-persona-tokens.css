@@ -56,7 +56,7 @@
   --color-cocreator-surface: oklch(
     var(--cat-surface-l, 0.28) calc(var(--cocreator-chroma) * var(--cat-surface-cmul, 0.25)) var(--cocreator-hue)
   );
-  --color-cocreator-text: oklch(var(--cat-name-l, 0.88) var(--cat-name-c, 0.005) var(--cat-name-h, 139));
+  --color-cocreator-text: oklch(var(--cat-name-l, 0.88) var(--cat-name-c, 0.025) var(--cat-name-h, 5));
   --color-cocreator-ring: oklch(
     var(--cat-ring-l, 0.7) calc(var(--cocreator-chroma) * var(--cat-ring-cmul, 1)) var(--cocreator-hue)
   );
