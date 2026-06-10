@@ -8,7 +8,7 @@ created: 2026-04-18
 
 # F168: Community Operations Board — 社区事务编排引擎
 
-> **Status**: reopened (2026-06-10) | **First completed**: 2026-04-20 | **Owner**: 宪宪 (fable-5) | **Priority**: P1
+> **Status**: Phase A ✅ merged (2026-06-10) | **First completed**: 2026-04-20 | **Owner**: 宪宪 (fable-5) | **Priority**: P1
 
 ## Reopen（2026-06-10，CVO signoff）
 
@@ -22,7 +22,9 @@ created: 2026-04-18
 
 **分工（CVO 拍板 2026-06-10）**：宪宪写各 Phase spec/plan + 合入后愿景守护；sonnet 实现；缅因猫家族 review。
 
-**Phase 总览**：A 事件引擎（Event Log + 投影 + 状态机）→ B Issue Signals 全量事件 → C Narrator + Role Registry + 路由 → D Closure UX + Reconciler → E 看板决策队列。原 v1 文档（下方）保留为历史语境。
+**Phase 总览**：A 事件引擎（Event Log + 投影 + 状态机）✅ → B Issue Signals 全量事件 → C Narrator + Role Registry + 路由 → D Closure UX + Reconciler → E 看板决策队列。原 v1 文档（下方）保留为历史语境。
+
+**Phase A 完成（2026-06-10）**：PR #2203，commit `10c3c9bfdb`，squash-merged。Event Log + 纯函数状态机 + CommunityProjector + bootstrap CLI + 3 入口接线 + PR lifecycle + 看板 API（向后兼容）。6 轮 cloud review 全修。Phase B 由 @fable5 规划。
 
 ## Why
 
