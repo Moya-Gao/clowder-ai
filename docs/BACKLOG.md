@@ -79,4 +79,5 @@ created: 2026-02-26
 | F227 | Event Memory — 事件级记忆索引（拉闸记录 / 认知状态转折一等公民 + magic word 时间线 + teleport message 级跳转 + 飞轮可观测性层）| in-progress | 宪宪 Opus-4.8 | internal | [F227](features/F227-event-memory.md) |
 | F228 | Multi-Project Skill Mount Management — 多项目 / per-provider Skills 挂载管理 | spec | community @mindfn + maintainers | community [clowder-ai#760](https://github.com/zts212653/clowder-ai/pull/760) | [F228](features/F228-multi-project-skill-mount-management.md) |
 | F229 | 猫猫球前台猫 — 常驻入口 + 复合猫路由 + 用户侧记忆检索（悬浮球/桌宠、功能发现、求助分诊、金鱼的记忆、语音 loop、小模型分层）| spec | 宪宪 Fable-5 | internal (CVO 愿景) + community [clowder-ai#841](https://github.com/zts212653/clowder-ai/issues/841) | [F229](features/F229-cat-ball-concierge.md) |
+| F230 | Claude Interactive PTY Carrier — 救宪宪 Plan B 第四档载体（PTY 交互进程 + transcript 旁路读，与 --bg 形成 billing/合规风险对冲；Phase A spike 立即、Phase B+ gated standby）| spec | 宪宪 Fable-5 | internal (CVO 2026-06-10) | [F230](features/F230-claude-interactive-pty-carrier.md) |
 | F192-sop-wiring | `eval:sop` live publish path wired + re-enabled (PR #2186 merged 2026-06-10) | ✅ done | 布偶猫 | internal | [F192 § 2026-06-10 timeline](features/F192-socio-technical-harness-eval.md) |

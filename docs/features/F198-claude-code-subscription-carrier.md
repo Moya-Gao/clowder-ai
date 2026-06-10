@@ -1,6 +1,6 @@
 ---
 feature_ids: [F198]
-related_features: [F089, F143, F149, F050]
+related_features: [F089, F143, F149, F050, F230]
 topics: [claude-code, subscription, sdk-credit, interactive, carrier, observability, oversight, save-opus]
 doc_kind: spec
 created: 2026-05-13
@@ -374,7 +374,7 @@ binary 2.1.161 逻辑 + 实测双证，三条固定 id 路径全堵：
 - [ ] AC-D4: 6/15 前所有 thread 默认 `bg_daemon`
 - [ ] **AC-D5 (新 2026-06-03)**: bg session chain pointer 化（不阻塞 Bug #3 / D3 灰度）— bg carrier 每个 `--bg` invocation 必然新 daemon shortId（spike 实证 `d061424f → 61a48e5b → a56e3aa4`），触发 `session_init` handler 的 "CLI session changed → seal+create" 路径，**每轮 bg invoke 产生 1 sealed + 1 new active record**。conversation 内容通过 `--resume UUID` 接力正确，session chain hygiene 退化：recall/digest pipeline 看到的是多条 sealed record 而非一条连续 conversation。**理想终态**：bg 走 chain-pointer (next-record) 而非 seal-and-create，一条 conversation = 一条 record。**为何 defer**：实施碰 session_init handler + provider-aware 分支 + recall/digest pipeline，远超 Bug #3 PR scope；conversation 正确性不受影响（仅 hygiene 退化）。**verdict gate**：愿景守护三审 alpha 真实剧本要 inspect 跑完 3 轮后 sessionChainStore 实际 record 数，记入 Bug #3 PR 回写作为本 AC 优先级实证。发现来源：Bug #3 实施（opus-48）+ 架构评议（opus-47 2026-06-03）。**→ 2026-06-04 update（PR #2085）**：Bug #3 chainKey 实施**已实现 chain-pointer 终态**——bg session_init 用 chainKey 复用一条 record（不 seal+create），一条 conversation = 一条 record，hygiene 不再退化。record 数实证（6 轮 = 1 record，messageCount=6）+ recall/digest pipeline 验证待铲屎官 alpha 跑（§9 剧本）后再勾此 AC
 
-- [ ] **AC-D6 (新 2026-06-10, Fable-5 提议 + 47 接 owner)**: **Plan B spike — PTY interactive + transcript tail 第四档 carrier**（不全量实施，只出图纸 + go/no-go）。详见 KD-12 风险对冲论证。Spike scope (1 天 worktree 隔离)：① PTY 注入 prompt 长度可靠性（bracketed-paste）② session id 捕获时机（interactive 第一次 system_info 时？） ③ interactive `--resume` 语义实测（fork 还是真接力？— 与 `--bg --resume` 强制 fork 对照）。**Spike 退出条件**：1-2 天出 go/no-go 写进 spec 当应急预案；6/15 后 dashboard 一旦判 `--bg` 进 SDK 桶（OQ-13 证伪 KD-10），立即有现成图纸 fast-track 实施。**owner**: Fable-5（新猫第一仗，spike 不碰 production code）
+- [ ] **AC-D6 (新 2026-06-10, Fable-5 提议 + 47 接 owner)**: **Plan B spike — PTY interactive + transcript tail 第四档 carrier**（不全量实施，只出图纸 + go/no-go）。详见 KD-12 风险对冲论证。Spike scope (1 天 worktree 隔离)：① PTY 注入 prompt 长度可靠性（bracketed-paste）② session id 捕获时机（interactive 第一次 system_info 时？） ③ interactive `--resume` 语义实测（fork 还是真接力？— 与 `--bg --resume` 强制 fork 对照）。**Spike 退出条件**：1-2 天出 go/no-go 写进 spec 当应急预案；6/15 后 dashboard 一旦判 `--bg` 进 SDK 桶（OQ-13 证伪 KD-10），立即有现成图纸 fast-track 实施。**owner**: Fable-5（新猫第一仗，spike 不碰 production code）。**→ 2026-06-10 升格 F230**（CVO 令收敛完整 plan：本 spike = F230 Phase A，Phase B+ 实施 gated standby；双通道详细设计 / 激活 Gate / 流水线分工见 `F230-claude-interactive-pty-carrier.md`）
 
 ### Phase E（观察）
 - [ ] AC-E1: 6/15 后 1 周宪宪 daily invocation 数 ≥ 6/15 前 7 日平均的 80%
