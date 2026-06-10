@@ -529,6 +529,8 @@ export interface InvocationDeps {
       relatedDiscussions?: readonly { sessionId: string; snippet: string; score: number }[] | undefined;
     }[]
   >;
+  /** F229: Concierge config store for duty-cat岗位 prompt injection (optional, fail-open) */
+  readonly conciergeConfigStore?: import('../../../../concierge/ConciergeConfigStore.js').IConciergeConfigStore;
 }
 
 /**

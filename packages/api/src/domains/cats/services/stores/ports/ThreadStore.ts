@@ -175,6 +175,9 @@ export interface Thread {
   preferredWorkspaceMode?: 'dev' | 'recall' | 'schedule' | 'tasks' | 'community';
   /** F187: User-defined label IDs for thread categorization. */
   labels?: string[];
+  /** F229: Thread kind marker. 'concierge' = 专属前台猫载体（per-user，sidebar 默认隐藏）。
+   *  undefined/absence = 普通 thread。 */
+  threadKind?: 'concierge';
   /** #813: Per-cat pending continuation capsule — written at session seal,
    *  consumed at next invocation start. Passive/lazy session renewal. */
   pendingContinuation?: Record<string, PendingContinuationEntry>;
@@ -460,6 +463,8 @@ export interface IThreadStore {
    * skips user-list indexing. Idempotent — re-indexing an already-visible thread is a no-op.
    */
   indexForUser(threadId: string, userId: string): void | Promise<void>;
+  /** F229: Set or clear threadKind marker. 'concierge' = 专属前台猫载体（sidebar 默认隐藏）。null 清除。 */
+  updateThreadKind(threadId: string, kind: 'concierge' | null): void | Promise<void>;
   /** Repair sparse/missing per-user thread indexes from authoritative thread detail hashes. */
   repairIndex?(userId?: string): Promise<{ repairedUsers: number; repairedMembers: number }>;
 }
@@ -846,6 +851,17 @@ export class ThreadStore implements IThreadStore {
       delete thread.systemKind;
     } else {
       thread.systemKind = kind;
+    }
+  }
+
+  /** F229: Set or clear threadKind marker for concierge thread. */
+  updateThreadKind(threadId: string, kind: 'concierge' | null): void {
+    const thread = this.get(threadId);
+    if (!thread) return;
+    if (kind === null) {
+      delete thread.threadKind;
+    } else {
+      thread.threadKind = kind;
     }
   }
 

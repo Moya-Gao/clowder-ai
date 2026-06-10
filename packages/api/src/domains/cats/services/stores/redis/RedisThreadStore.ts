@@ -578,6 +578,16 @@ export class RedisThreadStore implements IThreadStore {
     }
   }
 
+  /** F229: Set or clear threadKind marker for concierge thread. */
+  async updateThreadKind(threadId: string, kind: 'concierge' | null): Promise<void> {
+    const key = ThreadKeys.detail(threadId);
+    if (kind === null) {
+      await this.deleteDetailFields(key, 'threadKind');
+    } else {
+      await this.setDetailFields(key, 'threadKind', kind);
+    }
+  }
+
   async updateConnectorHubState(threadId: string, state: ConnectorHubStateV1 | null): Promise<void> {
     const key = ThreadKeys.detail(threadId);
     if (state === null) {
@@ -1055,6 +1065,11 @@ export class RedisThreadStore implements IThreadStore {
     if (thread.labels && thread.labels.length > 0) {
       result.labels = JSON.stringify(thread.labels);
     }
+    // F229: Concierge thread marker (set separately via updateThreadKind; also persisted here for
+    // cold-create paths where the full thread object is serialized before updateThreadKind is called)
+    if (thread.threadKind) {
+      result.threadKind = thread.threadKind;
+    }
     return result;
   }
 
@@ -1206,6 +1221,10 @@ export class RedisThreadStore implements IThreadStore {
       } catch {
         /* ignore malformed JSON */
       }
+    }
+    // F229: Restore concierge thread marker (written by updateThreadKind; validate value)
+    if (data.threadKind === 'concierge') {
+      result.threadKind = 'concierge';
     }
     return result;
   }

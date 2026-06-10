@@ -239,6 +239,14 @@ export {
   DEFAULT_INTAKE_CHECKLIST,
   validateIntakeChecklist,
 } from './community-issue.js';
+// F229: 猫猫球前台猫 shared types
+export type {
+  ConciergeBallState,
+  ConciergeCardAction,
+  ConciergeConfig,
+  ConciergeThreadKind,
+} from './concierge.js';
+export { CONCIERGE_CONFIG_DEFAULTS } from './concierge.js';
 // Connector types (F97 外部信息源抽象)
 export type {
   ConnectorDefinition,

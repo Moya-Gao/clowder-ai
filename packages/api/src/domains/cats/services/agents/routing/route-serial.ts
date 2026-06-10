@@ -45,6 +45,7 @@ import {
 } from '../../../../../infrastructure/telemetry/instruments.js';
 import { detectUserMention } from '../../../../../routes/user-mention.js';
 import { estimateTokens } from '../../../../../utils/token-counter.js';
+import { conciergeContextForCat, prepareConciergeContext } from '../../../../concierge/ConciergeRoutingInterceptor.js';
 import {
   ackGuideCompletion,
   guideContextForCat,
@@ -353,6 +354,9 @@ export async function* routeSerial(
     dismissTracker: deps.invocationDeps.dismissTracker,
   });
 
+  // F229: Concierge interceptor — load duty-cat 岗位 context for concierge threads
+  const conciergeCtx = await prepareConciergeContext(routeThread, userId, deps.invocationDeps.conciergeConfigStore);
+
   const completedCatInvocationIds: Array<[string, string]> = [];
 
   try {
@@ -542,6 +546,7 @@ export async function* routeSerial(
         ...(alwaysOnDocs && alwaysOnInjectionMode === 'on' ? { alwaysOnDocs } : {}),
         ...guideContextForCat(guideCtx, catId, targetCatIds, threadId),
         ...(worldContext ? { worldContext } : {}),
+        ...conciergeContextForCat(conciergeCtx, catId as string),
       });
       const continuityCapsule = buildCapsuleFromRouteState({
         threadId,

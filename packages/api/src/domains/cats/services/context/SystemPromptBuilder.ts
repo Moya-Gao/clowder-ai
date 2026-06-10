@@ -5,7 +5,7 @@
  * 纯函数，无副作用。读取 catRegistry 生成身份上下文。
  */
 
-import type { CatConfig, CatId, CompiledPackBlocks, WorldContextEnvelope } from '@cat-cafe/shared';
+import type { CatConfig, CatId, CompiledPackBlocks, ConciergeConfig, WorldContextEnvelope } from '@cat-cafe/shared';
 import { catRegistry } from '@cat-cafe/shared';
 import {
   catHasRole,
@@ -19,6 +19,7 @@ import { getCatModel } from '../../../../config/cat-models.js';
 // F167 Phase F P1 (cloud Codex): roster model cell must resolve via getCatModel
 // (env CAT_{CATID}_MODEL → registry → defaults), not from static config.defaultModel,
 // otherwise env overrides cause exactly the handle/model drift Phase F is killing.
+import { buildConciergePromptLines } from '../../../concierge/ConciergePromptSection.js';
 import { buildGuidePromptLines } from '../../../guides/GuidePromptSection.js';
 import type {
   BootcampStateV1,
@@ -174,6 +175,16 @@ export interface InvocationContext {
    * When present, injects world state (characters, scene, canon) into the prompt.
    */
   worldContext?: WorldContextEnvelope;
+  /**
+   * F229: Concierge thread marker.
+   * When 'concierge', ConciergePromptSection is injected into the invocation context.
+   */
+  threadKind?: 'concierge';
+  /**
+   * F229: Per-user concierge configuration.
+   * Required when threadKind === 'concierge'. Provides displayName / personaTone / dutyCatProfileId.
+   */
+  conciergeConfig?: ConciergeConfig;
 }
 
 /** Get all cat configs from catRegistry (.cat-cafe/cat-catalog.json) */
@@ -835,6 +846,11 @@ export function buildInvocationContext(context: InvocationContext): string {
   // F155: Guide candidate — inline protocol (cats don't have /Skill tool at runtime)
   if (context.guideCandidate) {
     lines.push(...buildGuidePromptLines(context.guideCandidate, context.threadId));
+  }
+
+  // F229: Concierge duty section — injected only for per-user concierge threads
+  if (context.threadKind === 'concierge' && context.conciergeConfig) {
+    lines.push(...buildConciergePromptLines(context.conciergeConfig, context.threadId));
   }
 
   // F093: World context envelope — inject world state for world-building mode

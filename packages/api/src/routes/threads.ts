@@ -67,6 +67,12 @@ export interface ThreadsRoutesOptions {
   labelStore?: ILabelStore;
   /** F102: keep thread evidence search in sync after title-only updates */
   indexBuilder?: ThreadIndexBuilder;
+  /**
+   * F229: Reserved — no longer used by GET /api/threads.
+   * createdBy=userId (P1 fix) means threadStore.list(userId) already returns concierge threads;
+   * threadKind='concierge' filter handles default exclusion / includeConcierge=true inclusion.
+   */
+  conciergeThreadService?: import('../domains/concierge/ConciergeThreadService.js').ConciergeThreadService;
 }
 
 /** F087: Bootcamp state Zod schema (F171 v2 flow) */
@@ -128,6 +134,11 @@ const listThreadsSchema = z.object({
   featureIds: z.string().trim().min(1).max(2000).optional(),
   /** F095 Phase D: When true, list soft-deleted threads (trash bin) instead of active threads. */
   deleted: z.union([z.boolean(), z.string().trim().min(1).max(8)]).optional(),
+  /**
+   * F229: When true, include concierge threads in the list (default: excluded).
+   * Used by the concierge surface to load the per-user concierge thread.
+   */
+  includeConcierge: z.union([z.boolean(), z.string().trim().min(1).max(8)]).optional(),
 });
 
 async function resolveCreateThreadProjectPath(
@@ -179,6 +190,10 @@ export function sanitizeThreadForResponse(thread: Thread, _userId: string): Thre
     return sanitized as Thread;
   }
   return thread;
+}
+
+function isConciergeThread(thread: Thread): boolean {
+  return thread.threadKind === 'concierge';
 }
 
 const threadRoutingRuleSchema = z
@@ -337,22 +352,39 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> = async (ap
       hasBacklogItemId: hasBacklogItemIdRaw,
       featureIds,
       deleted: deletedRaw,
+      includeConcierge: includeConciergeRaw,
     } = parseResult.data;
     const hasBacklogItemId = parseOptionalBooleanQuery(hasBacklogItemIdRaw);
     const showDeleted = parseOptionalBooleanQuery(deletedRaw);
+    const includeConcierge = parseOptionalBooleanQuery(includeConciergeRaw);
     const userId = resolveUserId(request, { defaultUserId: 'default-user' });
     if (!userId) return { threads: [] };
 
     // F095 Phase D: Return soft-deleted threads when deleted=true
     if (showDeleted) {
-      const deletedThreads = (await threadStore.listDeleted(userId)).map((thread) =>
+      let deletedThreads = (await threadStore.listDeleted(userId)).map((thread) =>
         sanitizeThreadForResponse(thread, userId),
       );
+      // F229: Apply the same concierge exclusion to the trash view.
+      // Without this, a soft-deleted concierge thread appears in the default trash list;
+      // after /api/concierge/thread creates a replacement and the old thread is restored,
+      // two live concierge threads can exist for the same user.
+      if (!includeConcierge) {
+        deletedThreads = deletedThreads.filter((t) => !isConciergeThread(t));
+      }
       return { threads: deletedThreads };
     }
 
     let threads = projectPath ? await threadStore.listByProject(userId, projectPath) : await threadStore.list(userId);
     threads = threads.map((thread) => sanitizeThreadForResponse(thread, userId));
+
+    // F229: Exclude concierge threads from default sidebar listing.
+    // createdBy=userId (P1 fix) means threadStore.list(userId) includes concierge threads;
+    // threadKind='concierge' is the filter signal at this route layer.
+    // includeConcierge=true opt-in exposes them (used by the concierge surface itself).
+    if (!includeConcierge) {
+      threads = threads.filter((t) => !isConciergeThread(t));
+    }
 
     // F058 Phase G: Match threads by feature IDs in titles
     if (featureIds) {
@@ -619,6 +651,13 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> = async (ap
     if (!thread) {
       reply.status(404);
       return { error: 'Thread not found' };
+    }
+
+    if (isConciergeThread(thread)) {
+      reply.status(400);
+      return {
+        error: 'Concierge threads cannot be restored through the generic trash endpoint; use /api/concierge/thread',
+      };
     }
 
     const restored = await threadStore.restore(id);

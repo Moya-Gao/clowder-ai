@@ -2049,4 +2049,76 @@ describe('SystemPromptBuilder', () => {
     const prompt = buildStaticIdentity('opus');
     assert.ok(prompt.includes('codex'), 'available cat @codex must appear in roster');
   });
+
+  // F229: ConciergePromptSection guard tests
+  test('F229: buildInvocationContext injects concierge duty section when threadKind=concierge', async () => {
+    const { buildInvocationContext } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
+    const context = {
+      catId: 'sonnet',
+      mode: 'independent',
+      teammates: [],
+      mcpAvailable: false,
+      threadId: 'thread-concierge-1',
+      threadKind: 'concierge',
+      conciergeConfig: {
+        enabled: true,
+        skin: 'yarn-ball',
+        displayName: '猫猫球',
+        personaTone: '温暖、简短、不啰嗦',
+        dutyCatProfileId: 'gemini35',
+        proactivePolicy: 'quiet-badge',
+        muted: false,
+      },
+    };
+    const result = buildInvocationContext(context);
+    assert.ok(result.includes('前台岗位'), 'should contain concierge duty marker');
+    assert.ok(result.includes('猫猫球'), 'should inject displayName');
+    assert.ok(result.includes('温暖、简短、不啰嗦'), 'should inject personaTone');
+    assert.ok(result.includes('anchor-first'), 'should contain anchor-first directive');
+    assert.ok(result.includes('search_evidence'), 'should list allowed tool search_evidence in whitelist');
+  });
+
+  test('F229: buildInvocationContext does NOT inject concierge section for normal thread', async () => {
+    const { buildInvocationContext } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
+    const context = {
+      catId: 'sonnet',
+      mode: 'independent',
+      teammates: [],
+      mcpAvailable: false,
+      threadId: 'thread-normal-1',
+      // no threadKind / no conciergeConfig
+    };
+    const result = buildInvocationContext(context);
+    assert.ok(!result.includes('前台岗位'), 'should NOT inject concierge section for normal thread');
+  });
+
+  test('F229: buildInvocationContext includes tool whitelist in concierge section', async () => {
+    const { buildInvocationContext } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
+    const result = buildInvocationContext({
+      catId: 'sonnet',
+      mode: 'independent',
+      teammates: [],
+      mcpAvailable: false,
+      threadId: 'thread-concierge-2',
+      threadKind: 'concierge',
+      conciergeConfig: {
+        enabled: true,
+        skin: 'yarn-ball',
+        displayName: 'Desk Cat',
+        personaTone: 'brief',
+        dutyCatProfileId: 'gemini35',
+        proactivePolicy: 'quiet-badge',
+        muted: false,
+      },
+    });
+    // Verify whitelist mentions from the岗位 section
+    assert.ok(result.includes('graph_resolve'), 'whitelist should include graph_resolve');
+    assert.ok(result.includes('feat_index'), 'whitelist should include feat_index');
+    assert.ok(result.includes('teleport'), 'whitelist should include teleport');
+    // Verify escalation protocol is mentioned
+    assert.ok(
+      result.includes('转接') || result.includes('escalation') || result.includes('escalate'),
+      'should include escalation protocol',
+    );
+  });
 });

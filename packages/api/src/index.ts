@@ -166,6 +166,7 @@ import {
   claudeRescueRoutes,
   commandsRoutes,
   communityIssueRoutes,
+  conciergeRoutes,
   configRoutes,
   connectorHubRoutes,
   connectorMediaRoutes,
@@ -1364,6 +1365,13 @@ async function main(): Promise<void> {
   const worldKnowledgeAdapter = new WorldKnowledgeAdapter(memoryServices.evidenceStore);
   const worldContextProvider = new WorldContextProvider(worldStore, worldKnowledgeAdapter);
 
+  // F229: Concierge config store — created before AgentRouter so it can be passed into
+  // invocationDeps for routing-layer 岗位 prompt injection (ConciergeRoutingInterceptor).
+  const { RedisConciergeConfigStore: _RCCSEarly, MemoryConciergeConfigStore: _MCCSEarly } = await import(
+    './domains/concierge/ConciergeConfigStore.js'
+  );
+  const conciergeConfigStoreShared = redis ? new _RCCSEarly(redis) : new _MCCSEarly();
+
   // Shared AgentRouter — used by messagesRoutes and invocationsRoutes
   router = new AgentRouter({
     agentRegistry,
@@ -1397,6 +1405,7 @@ async function main(): Promise<void> {
     worldStore,
     frustrationIssueStore,
     pendingRequestStore: authPendingStore,
+    conciergeConfigStore: conciergeConfigStoreShared,
   });
 
   // F39: Message queue delivery
@@ -1770,6 +1779,20 @@ async function main(): Promise<void> {
   await app.register(leaderboardEventsRoutes, { gameStore, achievementStore });
   await app.register(bootcampRoutes, { threadStore });
   await app.register(firstRunQuestRoutes, { threadStore });
+
+  // F229: Concierge routes — reuse the shared conciergeConfigStoreShared created before AgentRouter.
+  // conciergeThreadServiceShared is also passed to threadsRoutes so includeConcierge=true works
+  // (threadStore.list cannot return concierge threads — they use createdBy='concierge-system').
+  const { ConciergeThreadService } = await import('./domains/concierge/ConciergeThreadService.js');
+  const conciergeThreadServiceShared = new ConciergeThreadService({
+    threadStore,
+    redis: redis ?? undefined,
+    conciergeConfigStore: conciergeConfigStoreShared,
+  });
+  await app.register(conciergeRoutes, {
+    conciergeConfigStore: conciergeConfigStoreShared,
+    conciergeThreadService: conciergeThreadServiceShared,
+  });
   const connectorHubOpts: Parameters<typeof connectorHubRoutes>[1] = { threadStore };
   await app.register(connectorHubRoutes, connectorHubOpts);
   await app.register(brakeRoutes, { activityTracker });
@@ -2273,6 +2296,7 @@ async function main(): Promise<void> {
     indexBuilder: memoryServices.indexBuilder as
       | { markThreadDirty(threadId: string): void; flushDirtyThreads?(): number | Promise<number> }
       | undefined,
+    conciergeThreadService: conciergeThreadServiceShared,
   });
   await app.register(labelsRoutes, { labelStore, threadStore });
   await app.register(threadBranchRoutes, {
