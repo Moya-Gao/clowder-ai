@@ -334,6 +334,75 @@ ensure_runtime_branch() {
   fi
 }
 
+print_untracked_merge_blockers() {
+  local found=false
+  local path blocker note remaining candidate segment type existing already reported_count=0
+  local -a reported_blockers=()
+
+  while IFS= read -r -d '' path; do
+    blocker=""
+    note=""
+    remaining="$path"
+    candidate=""
+
+    while [[ "$remaining" == */* ]]; do
+      segment="${remaining%%/*}"
+      remaining="${remaining#*/}"
+      if [ -z "$candidate" ]; then
+        candidate="$segment"
+      else
+        candidate="$candidate/$segment"
+      fi
+
+      type=$(git -C "$RUNTIME_DIR" cat-file -t "$REMOTE_NAME/main:$candidate" 2>/dev/null || true)
+      if [ -n "$type" ] && [ "$type" != "tree" ]; then
+        blocker="$candidate"
+        note=" (incoming tracked path replaces local directory)"
+        break
+      fi
+    done
+
+    if [ -z "$blocker" ]; then
+      type=$(git -C "$RUNTIME_DIR" cat-file -t "$REMOTE_NAME/main:$path" 2>/dev/null || true)
+      if [ -n "$type" ]; then
+        blocker="$path"
+        note=""
+        if [ "$type" != "tree" ] \
+          && [ -f "$RUNTIME_DIR/$path" ] \
+          && cmp -s -- "$RUNTIME_DIR/$path" <(git -C "$RUNTIME_DIR" show "$REMOTE_NAME/main:$path" 2>/dev/null); then
+          note=" (same bytes as incoming)"
+        fi
+      fi
+    fi
+
+    if [ -n "$blocker" ]; then
+      already=false
+      if [ "$reported_count" -gt 0 ]; then
+        for existing in "${reported_blockers[@]}"; do
+          if [ "$existing" = "$blocker" ]; then
+            already=true
+            break
+          fi
+        done
+      fi
+      if [ "$already" = true ]; then
+        continue
+      fi
+      reported_blockers+=("$blocker")
+      reported_count=$((reported_count + 1))
+
+      if [ "$found" = false ]; then
+        echo "  Untracked files blocking sync:"
+        found=true
+      fi
+
+      printf '    - %s%s\n' "$blocker" "$note"
+    fi
+  done < <(git -C "$RUNTIME_DIR" ls-files --others --exclude-standard -z 2>/dev/null || true)
+
+  [ "$found" = true ]
+}
+
 init_runtime_worktree() {
   require_git_repo
   ensure_remote_exists
@@ -389,9 +458,14 @@ sync_runtime_worktree() {
   git -C "$RUNTIME_DIR" fetch "$REMOTE_NAME" main
   if ! git -C "$RUNTIME_DIR" merge --ff-only "$REMOTE_NAME/main" 2>/dev/null; then
     echo ""
-    echo "  ff-only merge failed — likely stale untracked files blocking the sync."
-    echo "  Check with:  git -C \"$RUNTIME_DIR\" status"
-    echo "  Quick fix:   git -C \"$RUNTIME_DIR\" clean -fd .claude/skills/"
+    echo "  ff-only merge failed."
+    if print_untracked_merge_blockers; then
+      echo "  Move or remove the listed files, then re-run sync."
+      echo "  Files marked 'same bytes as incoming' will be restored by the merge with identical content."
+    else
+      echo "  No untracked files matching incoming tracked files were found."
+      echo "  Check with:  git -C \"$RUNTIME_DIR\" status"
+    fi
     echo ""
     die "runtime sync failed (see above)"
   fi
