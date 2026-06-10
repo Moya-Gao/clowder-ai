@@ -125,7 +125,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 
 ### Phase 0（Research + Design Gate）
 - [x] AC-01: research 报告落 `docs/research/`（形态调研 + 身份三层配置模型 + 小模型 serving 选型），跨猫 review——形态调研 `2026-06-09-f229-companion-form-research.md`（砚砚，4566e96b8）；身份配置模型 + surface 路径 `discussions/2026-06-09-f229-design/`（宪宪）；serving 选型引用 gemma spike（`2026-06-08-pi-gemma-local-clerk-phase0-spike.md`）；跨猫 review = 宪宪对调研逐条采纳决议（design doc §6）
-- [ ] AC-02: Design Gate 通过——wireframe 铲屎官 OK + 架构归属一问有答案 + 元审美自检（坐标变换 not 堆层）
+- [x] AC-02: Design Gate 通过——wireframe 铲屎官 OK（msg 0001781074572950"可以可以！！我觉得没问题！！"，含去/取/传话分叉 + Duty Toolset）+ 架构归属（new cell concierge-surface）+ 元审美自检（design doc §7）
 
 ### Phase A（前台开张）
 - [ ] AC-A1: 任意页面悬浮球唤起对话，不离开当前页面（截图 + 15s 录屏）→ R9/Why-2
@@ -176,9 +176,9 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 | OQ-1 | 前台猫默认人设与名字（家庭投票仪式？）——形象默认原创毛线球已倾向，名字待定 | ✅ 已定 2026-06-09：名字/人设交给部署方用户自定（社区每家起自己的）；本家 fallback = 家庭猫猫投票出生仪式（Phase A 落地时搞）；形象默认原创毛线球确认 |
 | OQ-2 | 语音 loop（Phase C）是否提前（铲屎官重度语音用户，权重只有他知道） | ✅ 已定 2026-06-09：不提前——先基建/架构归一（入口壳、身份层、路由），Phase C 维持原位 |
 | OQ-3 | 值班大猫默认值：flash / sonnet / spark 级里谁打头 | ✅ 已定 2026-06-09：值班猫必须用户可配置、provider-agnostic（配 glm5.1 也要能成）；本家默认 gemini35 flash（烁烁） |
-| OQ-4 | 主动冒泡白名单边界（哪些事件允许它主动说话） | 🔶 设计收敛 2026-06-09：采纳调研四级白名单（Tier 0 ambient / 1 quiet badge / 2 in-app bubble opt-in / 3 system+voice 默认关），Phase A 只实现 Tier 0-1——随 wireframe 过 CVO 后关栓 |
+| OQ-4 | 主动冒泡白名单边界（哪些事件允许它主动说话） | ✅ 已定 2026-06-09：四级白名单（Tier 0 ambient / 1 quiet badge / 2 in-app bubble opt-in / 3 system+voice 默认关），Phase A 只实现 Tier 0-1 + relay 回执（Tier 2 首个默认事件类）——CVO 随 Design Gate 关栓 |
 | OQ-5 | 开源用户形象上传的安全/版权边界 | ⬜ Phase E 前定 |
-| OQ-6 | 页面上下文注入范围（#841 的 URL/标题注入，隐私边界） | 🔶 设计收敛 2026-06-09：Phase A 只取路由级信息（URL/页面标题），不读页面内容——随 wireframe 过 CVO 后关栓 |
+| OQ-6 | 页面上下文注入范围（#841 的 URL/标题注入，隐私边界） | ✅ 已定 2026-06-09：Phase A 只取路由级信息（URL/页面标题），不读页面内容——CVO 随 Design Gate 关栓 |
 | OQ-7 | 使用模式采集 → 个性化提醒（吴浪："采集和根据使用情况来提醒"，如"你还没用过 schedule"）——行为遥测 + 主动打扰双重边界 | ⬜ Phase B+ 再定，MVP 不做 |
 
 ## Key Decisions
@@ -205,11 +205,19 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 | 2026-06-09 | OQ-1/2/3 铲屎官落定（KD-6/7/8）；Phase 0 research 启动：形态/体验调研 → 烁烁，身份配置模型 + surface 技术路径 → 宪宪 |
 | 2026-06-09 | 形态/体验调研由砚砚接球完成：安静前台入口、主动冒泡四级白名单、默认毛线球视觉状态、Mode B 云端咨询 prompt |
 | 2026-06-09 | Design Gate 材料完成（宪宪）：架构归属（new cell `concierge-surface`）、身份三层配置模型、对话载体立场（专属 concierge thread）、四态 wireframe、调研采纳决议——待 CVO 过 wireframe |
+| 2026-06-09 | CVO 反馈整合：去/取/传话分叉（KD-9）+ 岗位工具面裁剪（KD-10）+ 吴浪社区视角（KD-11/OQ-7） |
+| 2026-06-09 | **Design Gate 通过**（CVO："可以可以！！我觉得没问题！！"）；分工拍板：宪宪 spec/守护、sonnet 实现、砚砚 review；进 writing-plans 拆 Phase A |
 
-## Review Gate
+## Review Gate / 分工（CVO 拍板 2026-06-09 msg 0001781074572950）
 
-- Phase 0: research 报告跨猫 review（reviewer 优先 @gpt52/@sonnet，成本路由）
-- Phase A 起: 每 PR 跨族 review + 云端 review，UX 改动过铲屎官 Design Gate
+| 角色 | 谁 | 说明 |
+|------|----|----|
+| Phase spec/plan | 宪宪 (Fable-5) | 每 Phase 写 spec + 实施计划（writing-plans） |
+| 实现 | sonnet | 按 plan 写代码（worktree + tdd） |
+| Review | 砚砚 (GPT-5.5) | CVO 点名（全程上下文 + 调研作者）；成本优化建议：常规/小 PR 可降 @gpt52（5.4 半价，跨族仍成立），架构关键 PR（surface host / escalation 协议）上砚砚 |
+| 愿景守护 | 宪宪 (Fable-5) | PR 合入后对照铲屎官原始愿景（非 PR 作者非 reviewer，合规） |
+
+- Phase A 起: 每 PR 跨族 review + 云端 review；UX 改动过铲屎官 Design Gate
 
 ## Links
 
