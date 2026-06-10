@@ -2,6 +2,7 @@ import type { TranscriptEvent } from '../../../domains/cats/services/session/Tra
 import type { SkillLoadedEvent, ToolEvent } from '../../../domains/cats/services/tool-usage/event-log-types.js';
 import { getCapabilityWakeupRules } from './capability-wakeup-rules.js';
 import type {
+  CapabilityWakeupResolveScope,
   CapabilityWakeupSourceSelector,
   CapabilityWakeupTrialProvider,
 } from './capability-wakeup-trial-provider.js';
@@ -16,7 +17,7 @@ import type { ClassifiedCapabilityWakeupTrial } from './eval-capability-wakeup-t
  * F192 Phase H 收尾 PR-2 — replay/reclassify provider impl (砚砚 R1 P1).
  *
  * Resolves a `CapabilityWakeupSourceSelector` to classified trials by:
- *   1. enumerating selector.sessionIds (REQUIRED non-empty — PR-2 narrowed; global window scan deferred)
+ *   1. using selector.sessionIds when present, otherwise enumerating a recent runtime-session window
  *   2. resolving each sessionId → SessionRecord (threadId + catId) via sessionStore
  *   3. reading transcript/tool/skill events via real existing ports
  *   4. buildCapabilityTrace → evaluateCapabilityWakeupTrace → classifyCapabilityWakeupTrials
@@ -30,7 +31,26 @@ import type { ClassifiedCapabilityWakeupTrial } from './eval-capability-wakeup-t
 export interface SessionRecordReader {
   get(
     sessionId: string,
-  ): Promise<{ threadId: string; catId: string } | null> | { threadId: string; catId: string } | null;
+  ):
+    | Promise<{ threadId: string; catId: string; userId?: string } | null>
+    | { threadId: string; catId: string; userId?: string }
+    | null;
+}
+
+export interface CapabilityWakeupSessionRef {
+  sessionId: string;
+  threadId: string | null;
+  catId: string | null;
+  userId?: string;
+  family?: string;
+}
+
+export interface SessionWindowEnumerator {
+  listWindow(input: {
+    windowStartMs: number;
+    windowEndMs: number;
+    ownerUserId: string;
+  }): Promise<CapabilityWakeupSessionRef[]> | CapabilityWakeupSessionRef[];
 }
 
 /** Port: paginated transcript reader — production wires `TranscriptReader`. */
@@ -59,15 +79,24 @@ export interface CapabilityWakeupTrialProviderImplDeps {
   transcriptReader: TranscriptEventReader;
   toolEventLog: ToolEventReader;
   skillLoadEventLog: SkillLoadEventReader;
+  sessionEnumerator?: SessionWindowEnumerator;
   /** Override rules registry for tests; defaults to module-level static registry. */
   rulesRegistry?: typeof getCapabilityWakeupRules;
 }
+
+type CapabilityWakeupResolvedSession = {
+  threadId: string;
+  catId: string;
+  userId?: string;
+  family?: string;
+};
 
 export class CapabilityWakeupTrialProviderImpl implements CapabilityWakeupTrialProvider {
   private readonly sessionStore: SessionRecordReader;
   private readonly transcriptReader: TranscriptEventReader;
   private readonly toolEventLog: ToolEventReader;
   private readonly skillLoadEventLog: SkillLoadEventReader;
+  private readonly sessionEnumerator?: SessionWindowEnumerator;
   private readonly rulesRegistry: typeof getCapabilityWakeupRules;
 
   constructor(deps: CapabilityWakeupTrialProviderImplDeps) {
@@ -81,41 +110,42 @@ export class CapabilityWakeupTrialProviderImpl implements CapabilityWakeupTrialP
     this.transcriptReader = deps.transcriptReader;
     this.toolEventLog = deps.toolEventLog;
     this.skillLoadEventLog = deps.skillLoadEventLog;
+    this.sessionEnumerator = deps.sessionEnumerator;
     this.rulesRegistry = deps.rulesRegistry ?? getCapabilityWakeupRules;
   }
 
-  async resolve(selector: CapabilityWakeupSourceSelector): Promise<ClassifiedCapabilityWakeupTrial[]> {
+  async resolve(
+    selector: CapabilityWakeupSourceSelector,
+    scope: CapabilityWakeupResolveScope = {},
+  ): Promise<ClassifiedCapabilityWakeupTrial[]> {
     if (selector.kind !== 'capability-wakeup-trial-window') {
       throw new Error(
         `unsupported selector kind: ${selector.kind} (PR-2 only supports capability-wakeup-trial-window; trial-ids deferred to durable trial store PR)`,
       );
     }
-    if (!selector.sessionIds || selector.sessionIds.length === 0) {
-      throw new Error(
-        'sessionIds is REQUIRED non-empty (PR-2 narrowed; global window scan needs userId/thread enumeration — deferred to future PR)',
-      );
-    }
     const rules = this.rulesRegistry({ capability: selector.capability, ruleIds: selector.ruleIds });
     if (rules.length === 0) return [];
+
+    const sessionRefs = await this.resolveSessionRefs(selector, scope);
 
     // cloud R7 P2 (PR-2): dedupe sessionIds before replay — duplicate sessionId
     // would otherwise replay the same transcript and append the same classified
     // trials repeatedly → inflated trial counts → biased verdict.
-    const uniqueSessionIds = [...new Set(selector.sessionIds)];
+    const uniqueSessionRefs = dedupeSessionRefs(sessionRefs);
     const allClassified: ClassifiedCapabilityWakeupTrial[] = [];
-    for (const sessionId of uniqueSessionIds) {
-      const session = await Promise.resolve(this.sessionStore.get(sessionId));
-      if (!session) {
-        throw new Error(`session_not_found: ${sessionId}`);
-      }
+    for (const sessionRef of uniqueSessionRefs) {
+      const sessionId = sessionRef.sessionId;
+      const session = await this.resolveSessionRecord(sessionRef, scope);
       const transcriptEvents = await this.readAllTranscriptEvents(sessionId, session.threadId, session.catId);
       const toolEvents = await this.toolEventLog.readByThread(session.threadId);
       const skillLoadEvents = await this.skillLoadEventLog.readBySession(sessionId);
+      const family = 'family' in session ? session.family : undefined;
 
       const trace = buildCapabilityTrace({
         sessionId,
         threadId: session.threadId,
         catId: session.catId,
+        ...(family ? { family } : {}),
         transcriptEvents,
         toolEvents,
         skillLoadEvents,
@@ -129,6 +159,44 @@ export class CapabilityWakeupTrialProviderImpl implements CapabilityWakeupTrialP
     return allClassified.filter(
       (t) => t.timeSpan.startMs >= selector.windowStartMs && t.timeSpan.startMs < selector.windowEndMs,
     );
+  }
+
+  private async resolveSessionRecord(
+    sessionRef: CapabilityWakeupSessionRef,
+    scope: CapabilityWakeupResolveScope,
+  ): Promise<CapabilityWakeupResolvedSession> {
+    const session =
+      sessionRef.threadId !== null && sessionRef.catId !== null
+        ? sessionRecordFromRef(sessionRef)
+        : await Promise.resolve(this.sessionStore.get(sessionRef.sessionId));
+    if (!session) {
+      throw new Error(`session_not_found: ${sessionRef.sessionId}`);
+    }
+    if (scope.ownerUserId && session.userId !== scope.ownerUserId) {
+      throw new Error(`session_not_found: ${sessionRef.sessionId}`);
+    }
+    return session;
+  }
+
+  private async resolveSessionRefs(
+    selector: CapabilityWakeupSourceSelector,
+    scope: CapabilityWakeupResolveScope,
+  ): Promise<CapabilityWakeupSessionRef[]> {
+    if (selector.kind !== 'capability-wakeup-trial-window') return [];
+    if (selector.sessionIds && selector.sessionIds.length > 0) {
+      return selector.sessionIds.map((sessionId) => ({ sessionId, threadId: null, catId: null }));
+    }
+    if (!scope.ownerUserId) {
+      throw new Error('owner_user_required: capability-wakeup window scan requires ownerUserId');
+    }
+    if (!this.sessionEnumerator) {
+      throw new Error('sessionEnumerator is required when capability-wakeup-trial-window selector omits sessionIds');
+    }
+    return this.sessionEnumerator.listWindow({
+      windowStartMs: selector.windowStartMs,
+      windowEndMs: selector.windowEndMs,
+      ownerUserId: scope.ownerUserId,
+    });
   }
 
   /** Paginate transcript reader until exhausted. Safety cap 100 pages = 50k events. */
@@ -151,4 +219,27 @@ export class CapabilityWakeupTrialProviderImpl implements CapabilityWakeupTrialP
     }
     return all;
   }
+}
+
+function dedupeSessionRefs(refs: CapabilityWakeupSessionRef[]): CapabilityWakeupSessionRef[] {
+  const seen = new Set<string>();
+  const unique: CapabilityWakeupSessionRef[] = [];
+  for (const ref of refs) {
+    if (seen.has(ref.sessionId)) continue;
+    seen.add(ref.sessionId);
+    unique.push(ref);
+  }
+  return unique;
+}
+
+function sessionRecordFromRef(ref: CapabilityWakeupSessionRef): CapabilityWakeupResolvedSession {
+  if (ref.threadId === null || ref.catId === null) {
+    throw new Error(`session_not_found: ${ref.sessionId}`);
+  }
+  return {
+    threadId: ref.threadId,
+    catId: ref.catId,
+    ...(ref.userId ? { userId: ref.userId } : {}),
+    ...(ref.family ? { family: ref.family } : {}),
+  };
 }

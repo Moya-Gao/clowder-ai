@@ -146,10 +146,36 @@ describe('createCapabilityWakeupGeneratorAdapter', () => {
           windowEndMs: 9999999999999,
           sessionIds: ['session-1'],
         },
-        { harnessFeedbackRoot: '/tmp/iso', liveHarnessFeedbackRoot: '/tmp/live' },
+        { harnessFeedbackRoot: '/tmp/iso', liveHarnessFeedbackRoot: '/tmp/live', ownerUserId: 'default-user' },
       ),
       /no_trials_in_window.*rich-messaging/,
     );
+  });
+
+  it('requires ownerUserId before resolving provider', async () => {
+    let called = false;
+    const provider = {
+      resolve: async () => {
+        called = true;
+        return [buildClassifiedTrial()];
+      },
+    };
+    const adapter = createCapabilityWakeupGeneratorAdapter(provider);
+    await assert.rejects(
+      adapter(
+        buildSubmittedPacket(),
+        {
+          kind: 'capability-wakeup-trial-window',
+          capability: 'rich-messaging',
+          windowStartMs: 0,
+          windowEndMs: 9999999999999,
+          sessionIds: ['session-1'],
+        },
+        { harnessFeedbackRoot: '/tmp/iso', liveHarnessFeedbackRoot: '/tmp/live' },
+      ),
+      /owner_user_required.*publish/,
+    );
+    assert.equal(called, false);
   });
 
   it('throws unknown_domain when packet.domainId not in registry', async () => {
@@ -166,7 +192,7 @@ describe('createCapabilityWakeupGeneratorAdapter', () => {
           windowEndMs: 9999999999999,
           sessionIds: ['session-1'],
         },
-        { harnessFeedbackRoot, liveHarnessFeedbackRoot: '/tmp/live' },
+        { harnessFeedbackRoot, liveHarnessFeedbackRoot: '/tmp/live', ownerUserId: 'default-user' },
       ),
       /unknown_domain.*eval:capability-wakeup/,
     );
@@ -176,9 +202,11 @@ describe('createCapabilityWakeupGeneratorAdapter', () => {
     const harnessFeedbackRoot = mkdtempSync(join(tmpdir(), 'cw-adapter-happy-'));
     seedDomainRegistry(harnessFeedbackRoot);
     let resolveCalledWith = null;
+    let resolveScope = null;
     const provider = {
-      resolve: async (selector) => {
+      resolve: async (selector, scope) => {
         resolveCalledWith = selector;
+        resolveScope = scope;
         return [buildClassifiedTrial()];
       },
     };
@@ -196,9 +224,11 @@ describe('createCapabilityWakeupGeneratorAdapter', () => {
     const result = await adapter(packet, selector, {
       harnessFeedbackRoot,
       liveHarnessFeedbackRoot: '/tmp/live-unused-for-cw',
+      ownerUserId: 'default-user',
     });
 
     assert.deepEqual(resolveCalledWith, selector, 'adapter passes selector to provider unchanged');
+    assert.deepEqual(resolveScope, { ownerUserId: 'default-user' });
     assert.match(result.verdictPath, /verdicts\/vhp-cw-adapter-test\.md$/);
     assert.match(result.bundleDir, /bundles\/vhp-cw-adapter-test$/);
     // cloud R3 P1: cw generator writes raw inputs (trials.json + summary.json) at

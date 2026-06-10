@@ -168,7 +168,12 @@ describe('Phase H AC-H4: eval cat instructions point to publish_verdict MCP tool
     });
     assert.match(cw.instructions, /capability-wakeup-trial-window/, 'cw selector kind');
     assert.match(cw.instructions, /windowStartMs.*windowEndMs/s, 'cw window doc');
-    assert.match(cw.instructions, /sessionIds.*REQUIRED/s, 'cw sessionIds REQUIRED narrow');
+    assert.match(cw.instructions, /sessionIds.*OPTIONAL/s, 'cw sessionIds optional narrow');
+    assert.match(
+      cw.instructions,
+      /Omit it for the default unbiased runtime-session window scan/s,
+      'cw default scan doc',
+    );
     assert.doesNotMatch(cw.instructions, /snapshotName.*attributionName/s, 'cw does NOT mention a2a refs');
     assert.doesNotMatch(cw.instructions, /memory-recall-snapshot/, 'cw does NOT mention memory selector');
 

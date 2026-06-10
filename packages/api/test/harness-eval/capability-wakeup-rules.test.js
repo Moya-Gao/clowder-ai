@@ -15,6 +15,28 @@ import {
  */
 describe('CapabilityWakeupRulesRegistry (砚砚 R1 P2)', () => {
   describe('DEFAULT_CAPABILITY_WAKEUP_RULES', () => {
+    it('covers all 13 L0 §8 Tier 1 capability wakeup entries (AC-F7)', () => {
+      const expected = [
+        'rich-messaging',
+        'browser-preview',
+        'image-generation',
+        'workspace-navigator',
+        'pencil-design',
+        'guide-interaction',
+        'expert-panel',
+        'propose-thread',
+        'external-runtime-sessions',
+        'cli-diagnostics',
+        'eval-verdict',
+        'memory-drilldown',
+        'update-workflow',
+      ];
+      const capabilities = new Set(DEFAULT_CAPABILITY_WAKEUP_RULES.map((r) => r.capability));
+      for (const capability of expected) {
+        assert.ok(capabilities.has(capability), `missing ${capability}`);
+      }
+    });
+
     it('covers all 3 capabilities the normalizer classifies', () => {
       const capabilities = new Set(DEFAULT_CAPABILITY_WAKEUP_RULES.map((r) => r.capability));
       assert.ok(capabilities.has('rich-messaging'), 'missing rich-messaging');
@@ -54,6 +76,16 @@ describe('CapabilityWakeupRulesRegistry (砚砚 R1 P2)', () => {
       for (const rule of DEFAULT_CAPABILITY_WAKEUP_RULES) {
         assert.ok(SUPPORTED.has(rule.predicate.type), `bad predicate.type: ${rule.predicate.type}`);
       }
+    });
+
+    it('expert-panel trigger requires multi-perspective intent, not ordinary analysis wording', () => {
+      const rule = DEFAULT_CAPABILITY_WAKEUP_RULES.find((r) => r.id === 'expert-panel-multi-perspective-request');
+      assert.ok(rule, 'missing expert-panel rule');
+      assert.equal(rule.predicate.type, 'text_pattern_then_capability');
+      const pattern = new RegExp(rule.predicate.patterns[0], 'i');
+
+      assert.equal(pattern.test('帮我分析一下这个 bug'), false);
+      assert.equal(pattern.test('多视角分析一下这个架构决定'), true);
     });
   });
 

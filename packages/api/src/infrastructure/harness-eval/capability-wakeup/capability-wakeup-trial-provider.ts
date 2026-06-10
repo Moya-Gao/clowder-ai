@@ -34,6 +34,10 @@ export interface CapabilityWakeupTrialIdsSelector {
 
 export type CapabilityWakeupSourceSelector = CapabilityWakeupTrialWindowSelector | CapabilityWakeupTrialIdsSelector;
 
+export interface CapabilityWakeupResolveScope {
+  ownerUserId?: string;
+}
+
 /**
  * Provider interface — handler dispatches selector → provider rehydrates trials.
  * PR-1a scope: define interface + fake-provider unit test, NO real query impl
@@ -41,7 +45,10 @@ export type CapabilityWakeupSourceSelector = CapabilityWakeupTrialWindowSelector
  * into `PUBLISH_VERDICT_SUPPORTED_DOMAINS` until a real provider lands.
  */
 export interface CapabilityWakeupTrialProvider {
-  resolve(selector: CapabilityWakeupSourceSelector): Promise<ClassifiedCapabilityWakeupTrial[]>;
+  resolve(
+    selector: CapabilityWakeupSourceSelector,
+    scope?: CapabilityWakeupResolveScope,
+  ): Promise<ClassifiedCapabilityWakeupTrial[]>;
 }
 
 /** Validates selector shape. Returns error message string OR null when ok. */

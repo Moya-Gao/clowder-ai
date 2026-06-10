@@ -45,8 +45,11 @@ export function createCapabilityWakeupGeneratorAdapter(provider: CapabilityWakeu
       // Already narrowed by discriminator check above, but TS needs this for the narrowing below.
       throw new Error(`capability_wakeup_adapter_wrong_kind: unreachable after discriminator check`);
     }
+    if (!deps.ownerUserId) {
+      throw new Error('owner_user_required: capability-wakeup publish requires ownerUserId');
+    }
 
-    const trials = await provider.resolve(selector);
+    const trials = await provider.resolve(selector, { ownerUserId: deps.ownerUserId });
     if (trials.length === 0) {
       throw new Error(
         `no_trials_in_window: capability='${selector.capability}' window=[${selector.windowStartMs},${selector.windowEndMs}) sessionIds=[${selector.sessionIds?.join(',') ?? ''}] yielded zero classified trials`,

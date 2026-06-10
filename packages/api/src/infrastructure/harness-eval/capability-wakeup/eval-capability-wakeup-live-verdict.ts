@@ -9,6 +9,7 @@ import {
   type CapabilityName,
   type ClassifiedCapabilityWakeupTrial,
 } from './eval-capability-wakeup-adapter.js';
+import { buildCapabilityWakeupFamilyBreakdown } from './eval-capability-wakeup-family-breakdown.js';
 import { formatLiveVerdictMarkdown } from './eval-capability-wakeup-renderer.js';
 import { assertSubmittedPacketMatches } from './submitted-packet-guard.js';
 
@@ -185,6 +186,7 @@ function buildSnapshot(
           reachability_doubt_count: byLabel.reachability_doubt ?? 0,
           unclassified_count: byLabel.unclassified ?? 0,
         },
+        byFamily: buildCapabilityWakeupFamilyBreakdown(trials),
         confidence: trials.length >= 3 ? 'medium' : 'low',
       },
     ],
@@ -260,10 +262,25 @@ function buildAttribution(
 // formatLiveVerdictMarkdown + formatMetricRefBullet extracted to ./eval-capability-wakeup-renderer.ts
 // (PR-2 R9 P1: AGENTS.md 350-line hard limit; parent file hit 356 after R3 rawInputDir).
 
-function countByLabel(trials: ClassifiedCapabilityWakeupTrial[]): Record<string, number> {
-  const counts: Record<string, number> = {};
+type TrialLabel = ClassifiedCapabilityWakeupTrial['label'];
+
+function emptyLabelCounts(): Record<TrialLabel, number> {
+  return {
+    false_positive: 0,
+    negative: 0,
+    miss: 0,
+    cognitive: 0,
+    behavioral: 0,
+    attention_dilution: 0,
+    reachability_doubt: 0,
+    unclassified: 0,
+  };
+}
+
+function countByLabel(trials: ClassifiedCapabilityWakeupTrial[]): Record<TrialLabel, number> {
+  const counts = emptyLabelCounts();
   for (const trial of trials) {
-    counts[trial.label] = (counts[trial.label] ?? 0) + 1;
+    counts[trial.label] += 1;
   }
   return counts;
 }

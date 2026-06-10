@@ -59,7 +59,69 @@ export const DEFAULT_CAPABILITY_WAKEUP_RULES: CapabilityWakeupRule[] = [
       patterns: ['看看效果|看下页面|运行起来看|preview the (page|frontend|ui)|see the (result|effect)'],
     },
   },
+  textRule(
+    'image-generation-visual-asset-request',
+    'image-generation',
+    '需要图|生成图片|生图|配图|架构图|视觉 mock|visual asset|generate (an )?image',
+  ),
+  textRule(
+    'pencil-design-ui-design-request',
+    'pencil-design',
+    '设计稿|高保真|\\.pen\\b|Pencil|UI 设计|视觉探索|design file|design mock',
+  ),
+  textRule(
+    'guide-interaction-how-to-request',
+    'guide-interaction',
+    '怎么用|怎么配置|如何操作|新手引导|配置流程|how to (use|configure)|onboarding',
+  ),
+  textRule(
+    'expert-panel-multi-perspective-request',
+    'expert-panel',
+    '多猫|专家团|多视角|辩论|架构决定|brainstorm|expert panel',
+  ),
+  textRule(
+    'propose-thread-new-scope-request',
+    'propose-thread',
+    '另开.*thread|新 thread|开个 thread|独立调查|子任务.*context|propose thread',
+  ),
+  textRule(
+    'external-runtime-sessions-lost-session',
+    'external-runtime-sessions',
+    '外部 runtime|Antigravity|IDE-direct|会话.*丢|截图给我看|runtime session',
+  ),
+  textRule(
+    'cli-diagnostics-exit-debug',
+    'cli-diagnostics',
+    'CLI.*退出|退出了|debugRef|cliDiagnostics|stderr|子进程.*退出|cli diagnostics',
+  ),
+  textRule(
+    'eval-verdict-harness-closure',
+    'eval-verdict',
+    'eval hub|verdict|评估报告|harness.*修了|publish_verdict|re-eval|闭环证据',
+  ),
+  textRule(
+    'memory-drilldown-recall-source',
+    'memory-drilldown',
+    '压缩后失忆|旧决策|哪里.*说过|找.*源头|session.*digest|read_session|drill.?down',
+  ),
+  textRule(
+    'update-workflow-stage-handoff',
+    'update-workflow',
+    '阶段进度|下一棒|告示牌|workflow|Mission Control|update_workflow|stage status',
+  ),
 ];
+
+function textRule(id: string, capability: CapabilityName, pattern: string): CapabilityWakeupRule {
+  return {
+    id,
+    capability,
+    predicate: {
+      type: 'text_pattern_then_capability',
+      capability,
+      patterns: [pattern],
+    },
+  };
+}
 
 export interface CapabilityWakeupRulesFilter {
   capability?: CapabilityName | string;

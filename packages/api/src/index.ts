@@ -1645,11 +1645,18 @@ async function main(): Promise<void> {
     const { CapabilityWakeupTrialProviderImpl } = await import(
       './infrastructure/harness-eval/capability-wakeup/capability-wakeup-trial-provider-impl.js'
     );
+    const { createCapabilityWakeupRuntimeSessionEnumerator } = await import(
+      './infrastructure/harness-eval/capability-wakeup/capability-wakeup-session-enumerator.js'
+    );
     const cwProvider = new CapabilityWakeupTrialProviderImpl({
       sessionStore: sessionChainStore,
       transcriptReader,
       toolEventLog,
       skillLoadEventLog,
+      sessionEnumerator: createCapabilityWakeupRuntimeSessionEnumerator({
+        runtimeSessionStore,
+        getFamilyForCat: (catId) => catRegistry.tryGet(catId)?.config.breedId,
+      }),
     });
     verdictGenerators['eval:capability-wakeup'] = createCapabilityWakeupGeneratorAdapter(cwProvider);
   }

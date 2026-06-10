@@ -207,7 +207,7 @@ export async function handlePublishVerdict(
     return {
       status: 400,
       error: 'sourceRefs_kind_mismatch',
-      detail: `Domain '${packet.domainId}' expects sourceRefs.kind='${expectedKind}', got '${refsKind}'. Each domain has a specific evidence shape: eval:a2a → {snapshotName, attributionName}; eval:capability-wakeup → {kind:'capability-wakeup-trial-window', capability, windowStartMs, windowEndMs, sessionIds}; eval:memory → {kind:'memory-recall-snapshot', windowDays, catId?, toolName?}; eval:task-outcome → {kind:'task-outcome-snapshot', windowStartMs, windowEndMs, databasePath?, evidenceCatId?}.`,
+      detail: `Domain '${packet.domainId}' expects sourceRefs.kind='${expectedKind}', got '${refsKind}'. Each domain has a specific evidence shape: eval:a2a → {snapshotName, attributionName}; eval:capability-wakeup → {kind:'capability-wakeup-trial-window', capability, windowStartMs, windowEndMs, sessionIds?}; eval:memory → {kind:'memory-recall-snapshot', windowDays, catId?, toolName?}; eval:task-outcome → {kind:'task-outcome-snapshot', windowStartMs, windowEndMs, databasePath?, evidenceCatId?}.`,
     };
   }
 
@@ -225,24 +225,14 @@ export async function handlePublishVerdict(
     // PR-1a structural validator (capability non-empty / no newlines / window edges finite + ordered).
     const selectorError = validateCapabilityWakeupSelector(cwSelector);
     if (selectorError) return { status: 400, error: 'invalid_source_ref', detail: selectorError };
-    // PR-2 narrow (砚砚 R1 P1 PR-2 review P2): PR-1a validator is permissive — accepts
-    // trial-ids selector + window selector with omitted sessionIds. PR-2 wired the
-    // window/replay path only; reject other shapes at 400 BEFORE isolated worktree
-    // creation (otherwise provider throws → 500 generator_failed, which is misleading:
-    // the input was structurally invalid for PR-2 scope, not generator failure).
+    // trial-ids selector remains unsupported until a durable trial store ships.
+    // Window selectors may omit sessionIds: provider resolves an unbiased runtime-session
+    // window scan when production wires SessionWindowEnumerator.
     if (cwSelector.kind !== 'capability-wakeup-trial-window') {
       return {
         status: 400,
         error: 'invalid_source_ref',
         detail: `PR-2 wired only 'capability-wakeup-trial-window' kind for capability-wakeup domain (got '${cwSelector.kind}'; trial-ids selector reserved for future durable trial store PR)`,
-      };
-    }
-    if (!cwSelector.sessionIds || cwSelector.sessionIds.length === 0) {
-      return {
-        status: 400,
-        error: 'invalid_source_ref',
-        detail:
-          'capability-wakeup-trial-window selector requires non-empty sessionIds (PR-2 narrowed; global window scan deferred to future PR with durable trial store)',
       };
     }
   }
@@ -353,6 +343,7 @@ export async function handlePublishVerdict(
     // (stale/mistyped sessionId), not generator failure. Map to 404 so cats correct
     // the input rather than retrying a server failure.
     if (message.startsWith('session_not_found')) return { status: 404, error: 'session_not_found', detail: message };
+    if (message.startsWith('owner_user_required')) return { status: 401, error: 'unauthenticated', detail: message };
     // cloud R5 P2 (PR-2): cw adapter throws `no_trials_in_window` when provider
     // returns empty — also user-correctable (selector returned no qualifying trials),
     // not generator failure. Map to 404 evidence_not_found semantic.

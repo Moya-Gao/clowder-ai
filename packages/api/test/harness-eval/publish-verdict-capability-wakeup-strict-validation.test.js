@@ -11,7 +11,8 @@ import { handlePublishVerdict } from '../../dist/infrastructure/harness-eval/pub
  *
  * Covers handler-level strict validation BEFORE isolated worktree creation:
  * - cloud R8 P2: sourceRefs.kind ↔ packet.domainId cross-check (mismatch → 400)
- * - 砚砚 R1 PR-2 review P2: PR-2 narrowed cw selector (sessionIds REQUIRED, trial-ids rejected)
+ * - 砚砚 R1 PR-2 review P2: PR-2 wired window selectors; AC-F8 later allows omitted sessionIds
+ *   for unbiased window scan while trial-ids stays rejected until durable trial store exists.
  */
 
 const root = mkdtempSync(join(tmpdir(), 'publish-verdict-cw-strict-'));
@@ -157,7 +158,7 @@ describe('handlePublishVerdict strict validation (PR-2 R5/R8)', () => {
     assert.match(result.detail, /trial-ids/);
   });
 
-  it('rejects cw window selector with missing sessionIds at handler (PR-2 narrowed REQUIRED)', async () => {
+  it('accepts cw window selector with omitted sessionIds through handler prevalidation (AC-F8)', async () => {
     const result = await handlePublishVerdict(
       { harnessFeedbackRoot: root },
       {
@@ -173,8 +174,7 @@ describe('handlePublishVerdict strict validation (PR-2 R5/R8)', () => {
       },
     );
     assert.ok('error' in result);
-    assert.equal(result.status, 400);
-    assert.equal(result.error, 'invalid_source_ref');
-    assert.match(result.detail, /sessionIds/);
+    assert.equal(result.status, 501);
+    assert.equal(result.error, 'unsupported_generator');
   });
 });

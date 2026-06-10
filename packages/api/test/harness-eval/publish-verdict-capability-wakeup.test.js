@@ -185,6 +185,7 @@ sla:
           windowEndMs: 9999999999999,
           sessionIds: ['session-1'],
         },
+        ownerUserId: 'default-user',
       },
     );
 
@@ -233,6 +234,7 @@ sla:
           windowEndMs: 9999999999999,
           sessionIds: ['stale-session-id'],
         },
+        ownerUserId: 'default-user',
       },
     );
     assert.ok('error' in result);
@@ -267,6 +269,7 @@ sla:
           windowEndMs: 9999999999999,
           sessionIds: ['session-1'],
         },
+        ownerUserId: 'default-user',
       },
     );
     assert.ok('error' in result);
@@ -294,6 +297,7 @@ sla:
           windowEndMs: 9999999999999,
           sessionIds: ['session-1'],
         },
+        ownerUserId: 'default-user',
       },
     );
     assert.ok('error' in result);
@@ -302,7 +306,7 @@ sla:
     assert.match(result.detail, /eval:capability-wakeup/);
   });
 
-  it('returns 500 when cw provider yields zero trials (no_trials_in_window propagates)', async () => {
+  it('returns 404 when cw provider yields zero trials (no_trials_in_window propagates)', async () => {
     const emptyProvider = { resolve: async () => [] };
     const cwGenerator = createCapabilityWakeupGeneratorAdapter(emptyProvider);
     const mockGitPublisher = {
@@ -326,6 +330,7 @@ sla:
           windowEndMs: 9999999999999,
           sessionIds: ['session-1'],
         },
+        ownerUserId: 'default-user',
       },
     );
     assert.ok('error' in result);

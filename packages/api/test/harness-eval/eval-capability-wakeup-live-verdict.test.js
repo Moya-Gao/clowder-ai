@@ -90,7 +90,11 @@ describe('eval:capability-wakeup live verdict generator', () => {
     const root = mkdtempSync(join(tmpdir(), 'f192-capability-live-'));
     const harnessFeedbackRoot = join(root, 'docs/harness-feedback');
     const verdictId = '2026-05-29-eval-capability-wakeup-live-verdict';
-    const trials = buildTrials();
+    const trials = buildTrials().map((trial, index) => ({
+      ...trial,
+      family: index === 0 ? 'maine-coon' : 'ragdoll',
+      catId: index === 0 ? 'codex' : 'opus',
+    }));
 
     const result = generateCapabilityWakeupLiveVerdict({
       verdictId,
@@ -116,6 +120,32 @@ describe('eval:capability-wakeup live verdict generator', () => {
     const snapshot = JSON.parse(readFileSync(join(harnessFeedbackRoot, 'bundles', verdictId, 'snapshot.json'), 'utf8'));
     assert.equal(snapshot.components[0].id, 'rich-messaging');
     assert.equal(snapshot.components[0].frictionCounts.cognitive_count, 2);
+    assert.deepEqual(snapshot.components[0].byFamily, [
+      {
+        family: 'maine-coon',
+        opportunity_count: 1,
+        used_count: 0,
+        false_positive_count: 0,
+        miss_count: 1,
+        cognitive_count: 1,
+        behavioral_count: 0,
+        attention_dilution_count: 0,
+        reachability_doubt_count: 0,
+        unclassified_count: 0,
+      },
+      {
+        family: 'ragdoll',
+        opportunity_count: 1,
+        used_count: 0,
+        false_positive_count: 0,
+        miss_count: 1,
+        cognitive_count: 1,
+        behavioral_count: 0,
+        attention_dilution_count: 0,
+        reachability_doubt_count: 0,
+        unclassified_count: 0,
+      },
+    ]);
     assert.equal(snapshot.window.startMs, 1700000000000);
     assert.equal(snapshot.window.endMs, 1700000060000);
     assert.equal(snapshot.window.durationHours, 0.017);

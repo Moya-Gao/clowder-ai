@@ -24,14 +24,14 @@ function makeTranscriptEvent({ eventNo, invocationId, sessionId, threadId, catId
  *
  * 砚砚 R1 P1 locks:
  * - real ports (SessionRecordReader / TranscriptEventReader / ToolEventReader / SkillLoadEventReader)
- * - PR-2 narrowed: selector.sessionIds REQUIRED non-empty (no global window scan)
+ * - AC-F8: selector.sessionIds is an optional narrowing when sessionEnumerator is wired
  * - constructor fail closed on missing port (no silent empty-array → fake miss)
  */
 
 function buildMocks(overrides = {}) {
   const sessions = new Map([
-    ['session-1', { id: 'session-1', threadId: 'thread-1', catId: 'gpt52' }],
-    ['session-2', { id: 'session-2', threadId: 'thread-2', catId: 'gpt52' }],
+    ['session-1', { id: 'session-1', threadId: 'thread-1', catId: 'gpt52', userId: 'default-user' }],
+    ['session-2', { id: 'session-2', threadId: 'thread-2', catId: 'gpt52', userId: 'default-user' }],
   ]);
   return {
     sessionStore: {
@@ -81,30 +81,36 @@ describe('CapabilityWakeupTrialProviderImpl (砚砚 R1 P1 — replay/reclassify)
       );
     });
 
-    it('throws when selector.sessionIds missing (PR-2 narrowed)', async () => {
+    it('throws when selector.sessionIds missing and no sessionEnumerator is wired', async () => {
       const provider = new CapabilityWakeupTrialProviderImpl(buildMocks());
       await assert.rejects(
-        provider.resolve({
-          kind: 'capability-wakeup-trial-window',
-          capability: 'rich-messaging',
-          windowStartMs: 0,
-          windowEndMs: 9999999999999,
-        }),
-        /sessionIds is REQUIRED/i,
+        provider.resolve(
+          {
+            kind: 'capability-wakeup-trial-window',
+            capability: 'rich-messaging',
+            windowStartMs: 0,
+            windowEndMs: 9999999999999,
+          },
+          { ownerUserId: 'default-user' },
+        ),
+        /sessionEnumerator is required/i,
       );
     });
 
-    it('throws when selector.sessionIds is empty array', async () => {
+    it('throws when selector.sessionIds is empty array and no sessionEnumerator is wired', async () => {
       const provider = new CapabilityWakeupTrialProviderImpl(buildMocks());
       await assert.rejects(
-        provider.resolve({
-          kind: 'capability-wakeup-trial-window',
-          capability: 'rich-messaging',
-          windowStartMs: 0,
-          windowEndMs: 9999999999999,
-          sessionIds: [],
-        }),
-        /sessionIds is REQUIRED/i,
+        provider.resolve(
+          {
+            kind: 'capability-wakeup-trial-window',
+            capability: 'rich-messaging',
+            windowStartMs: 0,
+            windowEndMs: 9999999999999,
+            sessionIds: [],
+          },
+          { ownerUserId: 'default-user' },
+        ),
+        /sessionEnumerator is required/i,
       );
     });
 
@@ -123,7 +129,17 @@ describe('CapabilityWakeupTrialProviderImpl (砚砚 R1 P1 — replay/reclassify)
     });
 
     it('returns classified trials for valid window + sessionIds', async () => {
-      const provider = new CapabilityWakeupTrialProviderImpl(buildMocks());
+      const sessionStoreGets = [];
+      const provider = new CapabilityWakeupTrialProviderImpl(
+        buildMocks({
+          sessionStore: {
+            get: (sessionId) => {
+              sessionStoreGets.push(sessionId);
+              return { threadId: 'thread-1', catId: 'gpt52', userId: 'default-user' };
+            },
+          },
+        }),
+      );
       const trials = await provider.resolve({
         kind: 'capability-wakeup-trial-window',
         capability: 'rich-messaging',
@@ -131,6 +147,7 @@ describe('CapabilityWakeupTrialProviderImpl (砚砚 R1 P1 — replay/reclassify)
         windowEndMs: 9999999999999,
         sessionIds: ['session-1'],
       });
+      assert.deepEqual(sessionStoreGets, ['session-1']);
       assert.ok(Array.isArray(trials), 'returns array');
       assert.ok(trials.length >= 1, 'expected at least one rich-messaging trial');
       for (const t of trials) {
@@ -192,7 +209,7 @@ describe('CapabilityWakeupTrialProviderImpl (砚砚 R1 P1 — replay/reclassify)
         windowEndMs: 9999999999999,
         sessionIds: ['session-1', 'session-1', 'session-1'], // 3x dupe
       });
-      assert.equal(calls, 1, 'expected 1 readEvents call (dedupe); got ' + calls);
+      assert.equal(calls, 1, `expected 1 readEvents call (dedupe); got ${calls}`);
       const trialsNoDupe = await provider.resolve({
         kind: 'capability-wakeup-trial-window',
         capability: 'rich-messaging',
@@ -243,7 +260,7 @@ describe('CapabilityWakeupTrialProviderImpl (砚砚 R1 P1 — replay/reclassify)
                     sessionId,
                     threadId,
                     catId,
-                    event: { type: 'text', content: 'first batch ' + 'word '.repeat(60) },
+                    event: { type: 'text', content: `first batch ${'word '.repeat(60)}` },
                   }),
                 ],
                 nextCursor: { eventNo: 1 },

@@ -110,8 +110,7 @@ You must also supply \`sourceRefs\` (NOT part of packet, separate input field) a
   "kind": "capability-wakeup-trial-window",
   "capability": "rich-messaging",
   "windowStartMs": 1759276800000,
-  "windowEndMs": 1759363200000,
-  "sessionIds": ["session-id-1", "session-id-2"]
+  "windowEndMs": 1759363200000
 }
 \`\`\`
 
@@ -119,7 +118,7 @@ Fields:
 - \`kind\` — REQUIRED literal \`"capability-wakeup-trial-window"\` (other selector kinds reserved for future durable trial store)
 - \`capability\` — REQUIRED non-empty (e.g. \`rich-messaging\` / \`workspace-navigator\` / \`browser-preview\`); no newlines
 - \`windowStartMs\` / \`windowEndMs\` — REQUIRED finite ms epoch; \`windowEndMs\` must be > \`windowStartMs\`. Trial fire time (\`trial.timeSpan.startMs\`) must fall in \`[windowStartMs, windowEndMs)\`
-- \`sessionIds\` — REQUIRED non-empty array of session IDs to replay (PR-2 narrowed; global window scan deferred to future PR with durable trial store)
+- \`sessionIds\` — OPTIONAL narrowing. Omit it for the default unbiased runtime-session window scan; provide it only when investigating known sessions.
 - \`ruleIds\` — OPTIONAL narrowing (filters to specific rule IDs in the static capability-wakeup-rules registry)
 
 Tool resolves the selector by replaying session events via \`buildCapabilityTrace → evaluateCapabilityWakeupTrace → classifyCapabilityWakeupTrials\` — no need for you to pre-sanitize evidence YAMLs. Tool will NOT fabricate evidence — if selector yields zero classified trials, publish fails.
