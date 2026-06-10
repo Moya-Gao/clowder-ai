@@ -47,13 +47,15 @@ created: 2026-06-10
 | 短问答 job（F198 alpha smoke 实测 109,562 in / 342 out） | 109.5k×$5/M + 0.3k×$25/M | ≈ **$0.56** |
 | 长 review/coding job（10-20 LLM calls，context 100k→150k，loop 内 cache 命中、首 call 全价 + 增量） | 估 | ≈ **$3-15** |
 
-| 档位 | 场景 | $200 runway |
+| 档位（**Opus baseline**，$5/$25） | 场景 | $200 runway |
 |------|------|------------|
 | 高压 | saga 日：40+ invocations 含多个长 job | ≈ **4-6 小时**（吻合铲屎官"可能五个小时"） |
 | 中位 | 常规日：20-30 invocations 混合 | ≈ **1 天**（吻合"基本一天"） |
 | 保守 | 轻量日：10 短 invocations | ≈ 2-4 天 |
 
-**结论**：runway = 小时级～低天级，**与铲屎官实测互相印证**。原 spec "7 天缓冲"假设证伪成立，KD-6 的前提坐实。
+**Fable-5 sensitivity（砚砚 re-review P2-1）**：上表按实验机 Opus 4.x 牌价；**Fable-5 牌价 $10/M in、$50/M out = 2× Opus** → 同 workload 成本翻倍、**runway 减半**（高压 ≈ 2-3h / 中位 ≈ 半天）。布偶猫家族混跑 Opus 系 + Fable-5 时按 mix 内插，Fable 占比越高越接近减半档。**方向不变且更强**：runway 进一步压缩 ⇒ KD-6 skeleton 提前的论证更硬。
+
+**结论**：runway = 小时级～低天级（Fable-5 重载时取下沿），**与铲屎官实测互相印证**。原 spec "7 天缓冲"假设证伪成立，KD-6 的前提坐实。
 
 ## 4. Skeleton 工期对照（AC-A5②）
 
@@ -71,10 +73,20 @@ B-min skeleton（AC-B1+B3+B4+B5：carrier service + factory 注册 + MCP/permiss
 | P1 | **spawn 前必须 delete `CLAUDE_CODE_ENTRYPOINT` + `CLAUDECODE`**（E1 污染实证；`buildClaudeEnvOverrides` 已有该逻辑，复用勿重写） | 计费正确性 |
 | P2 | **两段式注入**：写文本 → ≥2s → 单发 Enter（连发被 TUI 渲染循环吞 Enter，E1 实测） | 正确性 |
 | P3 | 长 prompt 走 **bracketed paste**（tmux `load-buffer`+`paste-buffer -p` 或 node-pty 等价实现），200KB 验证无截断；paste 后等待 ∝ 长度（50K→6s / 200K→12s 实测值起步） | 正确性 |
-| P4 | session id 捕获：fs.watch `~/.claude/projects/<cwd-slug>/` 新 `.jsonl`（E1/E4 实测新 session 文件名 = sessionId；resume 不产新文件可作 resume 成功信号） | 机制 |
+| P4 | session id 捕获：fs.watch `~/.claude/projects/<cwd-slug>/` 新 `.jsonl`（文件名 = sessionId；resume 不产新文件可作 resume 成功信号）。**时机修正（E5 probe）**：jsonl 在**首 prompt 提交后**才创建，spawn→ready 阶段不建文件——watch 起点 = prompt 注入后，不是 spawn 后 | 机制（已实测） |
 | P5 | 每 invocation 产出身份 capsule 字段入 telemetry（argv/TTY/entrypoint 抽检）——防 silent 计费漂移 | 防御 |
 | P6 | cancel 语义未测（OQ-8：SIGINT vs ESC 注入 vs tmux kill）→ AC-B5 首个 RED test 先探 | 待验 |
 | P7 | transcript mid-stream 写盘粒度未测（OQ-5）：终态写盘及时已证；streaming 粒度沿 bg 的 per-message 假设，AC-B2 parity test 实采修正 | 待验 |
+
+## 5b. E5 补测：session id 捕获时延（AC-A3 完整化，砚砚 re-review P2-2）
+
+| 测量 | 结果 |
+|------|------|
+| spawn→ready（无 prompt）期间 jsonl 是否创建 | **否**——5 样本 45s 全无文件（现场确认无 trust dialog、claude 完全 ready）。E1 时 prompt 后才查，漏了这个时机 |
+| **prompt 提交 → 首事件落盘**（捕获时延的正确定义） | n=5 fresh sessions：`[0.12, 0.11, 0.11, 0.11, 0.12]`s → **p50 = 0.11s / max(p95 代理) = 0.12s** |
+| carrier 含义 | 注入 prompt 后开始 watch，~110ms 拿到 sessionId；冷启动等待（spawn→ready ≈ 10-15s）与 id 捕获解耦 |
+
+环境：/tmp 隔离 cwd（空目录、无 CLAUDE.md/MCP）、干净 env、claude 2.1.170。样本量 n=5，p95 以 max 代理（样本少，如实标注）。
 
 ## 6. Dev support 问询登记（AC-A5③）
 

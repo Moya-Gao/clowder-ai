@@ -158,7 +158,7 @@ Owner: Fable-5。Worktree 隔离，1-2 天硬退出（F198 Phase A "5+ 轮摆动
 - [x] AC-A0: **Interactive 身份 capsule**（砚砚 Design Gate P1 #2）——spike 每个实验附 reviewer 可独立复核的证据包：完整 argv（确认无 `-p` 无 `--bg`）/ spawn 方式 + TTY 证明（PTY fd 的 isatty 采样或 `tty` 输出）/ `claude --version` / auth mode（订阅 OAuth vs API key）/ transcript 元数据 `entrypoint` 实采值 / 显式确认未误走 print/SDK 路径。F230 计费论证全压在 interactive 边界上，fixture 必须能证明"这次真是 interactive"
 - [x] AC-A1: PTY 驱动 `claude` interactive 完成 ≥1 完整 prompt→response→transcript 落盘 cycle，fixture 落 `docs/features/assets/F230/`（含成功 + ≥1 失败模式）
 - [x] AC-A2: 长 prompt 注入实测 50KB / 200KB 两档：成功机制 + 上限数字 + 降级方案结论
-- [x] AC-A3: session id 捕获机制实测：确定性方式 + 捕获时延数字（p50/p95）
+- [x] AC-A3: session id 捕获机制实测：确定性方式 + 捕获时延数字（p50/p95）。**E5 补测（砚砚 re-review P2-2）**：jsonl **首 prompt 后**才创建（spawn 阶段不建，5×45s 实证）；prompt 提交→首事件落盘 **p50=0.11s / max=0.12s（n=5）**
 - [x] AC-A4: interactive `--resume <id>` 两轮实测：id 稳定性（fork 与否）+ 记忆连续性，与 `--bg --resume` 必 fork 对照结论
 - [x] AC-A5: go/no-go 报告 push（`docs/research/`）+ F198 AC-D6 回写，报告必含（砚砚 Design Gate P1 #1）：① **print_sdk/api_key runway 三档估算**（保守/中位/高压，用自家 telemetry/usage 真实样本，与铲屎官 api 实测"$200 ≈ 5h-1d"对照校准）② Phase B-min skeleton 最短工期估算（与 runway 比较，验证 KD-6 提前决策）③ Anthropic dev support 问询状态（TOS 自动化驱动 interactive 边界 + 桶归属，随 F198 AC-E4 邮件捎带，书面回复 = 证据）
 
@@ -238,7 +238,7 @@ in_context_observability:
 | # | 问题 | 状态 |
 |---|------|------|
 | OQ-1 | 长 prompt 注入机制 | ✅ bracketed paste（tmux load-buffer+paste-buffer -p）200KB 一字不差；两段式注入（文本→≥2s→Enter）；背压未测（spike 报告 §7.2）|
-| OQ-2 | session id 捕获 | ✅ 机制定：fs.watch `~/.claude/projects/<slug>/` 新 jsonl（文件名=sessionId）；确定性 watch 实现留 Phase B P4 |
+| OQ-2 | session id 捕获 | ✅ fs.watch `~/.claude/projects/<slug>/` 新 jsonl（文件名=sessionId）；**时机：首 prompt 后才建文件**（E5）；prompt→落盘 p50=0.11s/max=0.12s (n=5)；watch 实现留 Phase B P4 |
 | OQ-3 | interactive `--resume` 语义 | ✅ **原地续写零 fork**（E4：无新 jsonl + 30 sessionId 全同值 + 记忆连续）→ Phase C 走 cliSessionId 直连，无需 chainKey |
 | OQ-4 | TOS 边界：自动化驱动 interactive 的官方态度 | ⬜ 随 F198 AC-E4 邮件捎带问 dev support |
 | OQ-5 | transcript 写盘粒度 | 🟡 终态写盘及时已证；mid-stream 粒度未测 → AC-B2 parity test 实采（spike 报告 P7）|
