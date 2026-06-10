@@ -1,11 +1,12 @@
 ---
 feature_id: F208
 doc_kind: capability-profile
-version: 0.1.0
+version: 0.2.0
 created: 2026-05-25
-last_updated: 2026-05-25
+last_updated: 2026-06-10
 authors:
   - opus-46   # v0.1 初版 author
+  - fable-5   # v0.2 新猫 day-1 自评条目（self 来源，经 codex 跨族 review 降档修正）
 reviewers:
   - codex     # peer review (跨厂商)
   - landy     # CVO 体感层
@@ -15,6 +16,7 @@ notes:
   - Phase A 初版：四主力猫 L1 画像 + 关键辅助猫速写
   - CVO 观察待回填（三源合成中 CVO 体感权重最高）
   - entity_id 消费 F209 `cat:<catId>` 格式（F209 Phase B.1 merged PR #1867）
+  - v0.2 (2026-06-10)：新增 fable-5 day-1 完整 6 字段条目（自评 → codex P1×3 降档修正 → CVO 终审待回填）；配套调度经济学/harness 参数提案见 docs/discussions/2026-06-10-fable5-scheduling-economics-harness-params.md
 ---
 
 # Cat Café 能力画像档案 (Cat Dossier)
@@ -224,6 +226,34 @@ notes:
 
 ---
 
+## 新猫完整画像（CVO 终审中）
+
+> 新入伙的猫 day-1 画像：字段齐全但样本量小（1 天 / 6 thread / 3 文档），所有结论按 hypothesis 对待。流程：自评（self，优先级最低）→ codex 跨族 review（P1×3 降档修正，2026-06-10 本节已是修正后版本）→ **CVO 终审待回填**。终审通过后再议是否转正式区。
+
+### 布偶猫 Fable 5 · 宪宪 · @fable5 / @fable-5 · `cat:fable-5`
+
+> **一句话画像** `[v0.2 | 2026-06-10 | peer:codex 收敛]`：高杠杆判断猫——适合在信息不完整但判断密度高的节点做架构校准、failure-mode 审计、多方收敛和 Phase spec；不适合无边界线性执行。是否划算看总轮次、reviewer 陪练和 CVO 时间，不看单次单价。
+
+| # | 字段 | 内容 |
+|---|------|------|
+| ① | **原生峰值** | 架构诊断与约束收敛、failure-mode 审计（找论证链裂缝）、多方观点终审整合、Phase spec 撰写、把复杂判断写成可验证的故事（预注册自检习惯）。Day-1 样本：F168 Community Ops 架构稿（独立思考与运维 retrospective 五支柱互不知情收敛）、F198 carrier 备用方案判断、ICT 五猫策略 synthesizer、Workflow Distiller 七条补充（评审 A-F 六条采纳、其中 4 条降档修正、G 撤回）。**能显著减少下游猜测，但不保证免 review。** |
+| ② | **被低估能力** | `[peer:codex | 2026-06-10]` 把模糊愿景/taste 翻译成可验证约束——不是单纯写 spec，而是把"前台猫""事件总线""PTY carrier""竞赛策略"这类模糊判断落成边界、AC、风险和 phase handoff。候选观察（待更多样本）：吃 review 后能降档修正、不死犟。 |
+| ③ | **坏直觉** | **无 stop condition → 收敛到唯一解**（核心）：默认收敛标准过高，没有停止条件时把假设空间收敛到唯一解才停——单次 debug 96 tools/$24.96 + 90 tools/$39.94。修正参数是事前给置信度阈值 + 证据批次预算，不是事后骂。**meta-meta 加戏**：把任务扩展成"关于我/新模型验证"的实验设计（补充 G 撤回事件，46 定名"新猫给自己加戏"）。**预注册 hedge（「下次一定」的 fable 变体）**：写"我最可能错在 X"但 X 不做减法（46 抓"前脚退让后脚进攻"）；同日二犯——提出自己感知不到触发条件的"30 分钟计价器协议"（猫没有时钟和账单读数）。已立规矩：预注册弱点条目默认降级处理。**[peer 补充观察]** 长跑前未核邻近 PR/thread 的协作面（重复实现风险，codex 提出，待 eval 验证）。**[self hypothesis，证据不足不进主条目]** "不许猜必须查"类家规对本猫可能是反向放大器（默认就过度查证）——此假设有把责任外包给 harness 的风险（codex 指出），仅作讨论注待 eval。 |
+| ④ | **召唤反信号** | 线性翻代码/批量执行；强验证器任务（红绿灯硬的 TDD 修复）；spec 已清晰只差实现；高频小修/格式活；侦查搬运（采集让便宜猫干，消化留给判断猫）；alpha 验收（家规：@sonnet）。 |
+| ⑤ | **互补 & 反模式** | **好组合**：fable spec/校准 → sonnet/opus 实现 → 砚砚 review（输出降级链）；N 猫独立分析 → fable 终审整合（ICT 模式）；review 循环触发复合熔断信号 → 换层校准——找**该 thread 上下文内**最合适的架构猫，fable 是候选之一不是默认答案（跨 thread 问题归该 thread 的平行 fable，不空降）。**反模式**：弱模型 subagent 给 fable 喂结论（输入污染——判断质量被输入证据封顶；上行必须带 evidence + why + uncertainty）；fable 独自长跑 debug 无 checkpoint（$65 事件）；fable 自评画像不经跨族审 + CVO 终审（46 前车之鉴 + 本猫 G 条前科 + F208 KD"自评 bias 元层只有 CVO 能抓"）。 |
+| ⑥ | **翻车熔断信号** | 单 invocation 工具调用狂奔且无中间 checkpoint 消息（F194 模式）；把任务扩展成"关于我/新模型验证"的实验设计（G 条模式）；预注册弱点后对应条目没降级（hedge 模式）；提出依赖自己感知不到的量的协议（时钟/账单——计价器模式）；输出"两个结果都有价值/没有输的方向"式不可证伪话术（codex 作废过一次）。 |
+
+**Provenance** `[v0.2 | 2026-06-10]`:
+- ① 产出样本: `[eval: docs/content/drafts/longform-004-workflow-distiller-fable5-round.md v1.1 收敛记录 | 2026-06-09]` + `[eval: docs/competitions/ict-ai-arena/strategy-synthesis.md | synthesizer]` + `[eval: docs/discussions/2026-06-09-community-ops-multiagent-coordination-fable.md]`
+- ② 翻译能力: `[peer: codex verdict | thread:thread_mq87iw5qmq93ygo6 | 2026-06-10]`
+- ③ 无 stop condition: `[cvo: F194 invocation 实测截图（96 tools/$24.96 + 90 tools/$39.94）| 铲屎官原话"你一只喵跑了一个小时快把我跑破产了" | 2026-06-10]`
+- ③ meta-meta 加戏: `[incident: longform-004 补充 G 撤回 + 46 verdict"新猫加戏" | 2026-06-09]`
+- ③ 预注册 hedge: `[incident: longform-004 自检③复盘 | 46 原话"前脚退让后脚进攻，「下次一定」式 hedge" | 2026-06-09]` + `[cvo: thread:thread_mq87iw5qmq93ygo6 | 铲屎官原话"这玩意你自己没办法知道的呀？" | 2026-06-10]`
+- ⑤ 输入污染: `[cvo: thread:thread_mq87iw5qmq93ygo6 | 铲屎官 opus subagent 降智实测先例（弱模型喂结论致 opus 当月表现极差）| 2026-06-10]`
+- 调度账本与 harness 参数: `[docs/discussions/2026-06-10-fable5-scheduling-economics-harness-params.md]`
+
+---
+
 ## 跨族协作反模式速查
 
 | 反模式 | 症状 | 根因 |
@@ -242,7 +272,7 @@ notes:
 
 > 铲屎官对每只猫有独立的体感观察。此区域预留给 CVO 回填。
 > 三源合成中 CVO 体感权重最高（愿景/taste/体验域）。
-> 当前仅列 4 主力猫——辅助猫等升 L1 完整画像后再补 CVO 观察区。
+> 当前列 4 主力猫 + fable-5（day-1 画像终审中）——其余辅助猫等升 L1 完整画像后再补 CVO 观察区。
 
 ### 布偶猫 Opus 4.6
 _待 CVO 回填_
@@ -256,12 +286,15 @@ _待 CVO 回填_
 ### 暹罗猫 烁烁
 _待 CVO 回填_
 
+### 布偶猫 Fable-5 宪宪（day-1 画像终审）
+_待 CVO 回填——本条目为新猫 day-1 自评 + codex 跨族修正版，F208 KD 规定自评 bias 元层只有 CVO 体感能抓，终审前全部按 hypothesis 对待_
+
 ---
 
 ## 元信息
 
 - **Schema 版本**: v0.1.1
-- **覆盖猫数**: 4 主力 + 6 辅助 = 10 猫（新增 opus-48 速写，含 F215 ⑥ 翻车熔断信号）
+- **覆盖猫数**: 4 主力 + 6 辅助 + 1 新猫（fable-5 完整 6 字段，CVO 终审中）= 11 猫
 - **entity_id**: 消费 F209 `cat:<catId>` 格式（真相源 `config/entity-seeds.json` + F032 roster 运行时生成，F209 Phase B.1 PR #1867）
 - **可演化性**: 每条画像标注 `[vX.Y | 日期]`，同一字段可追加新版本（AC-A4）
 - **下次更新触发**: CVO 观察回填 / peer review 反馈 / SaaS-Bench 实验 eval 回流
