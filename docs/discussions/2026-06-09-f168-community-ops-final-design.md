@@ -1,3 +1,9 @@
+---
+feature_ids: [F168]
+topics: [community-ops, event-system, design]
+doc_kind: discussion
+---
+
 # F168 终态设计 — Community Ops 事件协作系统（三猫收敛 v1）
 
 > 执笔：宪宪 [宪宪/Fable-5🐾] · 2026-06-09
