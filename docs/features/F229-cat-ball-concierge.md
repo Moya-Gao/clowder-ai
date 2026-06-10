@@ -124,7 +124,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 <!-- 立项愿景硬度自检（F216→F219）：每条 AC 必须 ① trace 回 Why 的某诉求 ② 非作者可复核（命令/数字/截图）。 -->
 
 ### Phase 0（Research + Design Gate）
-- [ ] AC-01: research 报告落 `docs/research/`（形态调研 + 身份三层配置模型 + 小模型 serving 选型），跨猫 review
+- [x] AC-01: research 报告落 `docs/research/`（形态调研 + 身份三层配置模型 + 小模型 serving 选型），跨猫 review——形态调研 `2026-06-09-f229-companion-form-research.md`（砚砚，4566e96b8）；身份配置模型 + surface 路径 `discussions/2026-06-09-f229-design/`（宪宪）；serving 选型引用 gemma spike（`2026-06-08-pi-gemma-local-clerk-phase0-spike.md`）；跨猫 review = 宪宪对调研逐条采纳决议（design doc §6）
 - [ ] AC-02: Design Gate 通过——wireframe 铲屎官 OK + 架构归属一问有答案 + 元审美自检（坐标变换 not 堆层）
 
 ### Phase A（前台开张）
@@ -133,6 +133,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 - [ ] AC-A3: 记忆导航——3 个真实历史讨论 query 给出正确 thread/message 链接且一键跳转成功 → R3/Why-3
 - [ ] AC-A4: 求助场景能触发对应 F155 guide flow（录屏一条）→ R2/Why-2
 - [ ] AC-A5: 形象/人设/值班猫在设置页可配置，与 cat profile 解耦（截图）→ R5
+- [ ] AC-A6: 安静默认——默认零主动文本弹出；低优先级事件只显示 badge（hover 才出文字）；用户可一键 hide/mute 整个球（录屏 + 设置截图）→ R8/调研红线
 
 ### Phase B（总机能力）
 - [ ] AC-B1: 用户描述问题 → 前台猫给出分诊建议并经确认执行（cross_post/propose_thread 留痕可查）→ R4
@@ -164,6 +165,9 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 | 第三方形象版权（机器猫/加菲猫/派蒙） | 内置皮肤全原创（毛线球）；开源用户自定义形象自担，平台只提供配置位 |
 | 常驻小模型资源占用（27GB 权重 + 推理内存） | 可配置开关；无小模型自动降级（AC-D3），Phase A-C 零依赖 |
 | 前台猫答错"有什么功能"损害信任 | 知识源限定 release notes/feature docs/guide catalog，带 anchor 引用，答不了就转接 |
+| Notification fatigue：主动冒泡无分级 → 用户关掉/无视整只球 | OQ-4 四级白名单（Tier 0-1 默认，2 逐事件 opt-in，3 默认关）+ 同类事件聚合 + 单 session 非关键气泡 ≤1 |
+| Persona over utility：可爱替代不了可用 | 每个回答必须带 anchor/action；紧凑面板禁长人设独白；状态机八态全程可见（无隐藏状态） |
+| Stale badge 信任流失：过期红点变成注意力债 | badge 查看即消 / 事件解决即消，禁止常驻未读 |
 
 ## Open Questions
 
@@ -172,9 +176,9 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 | OQ-1 | 前台猫默认人设与名字（家庭投票仪式？）——形象默认原创毛线球已倾向，名字待定 | ✅ 已定 2026-06-09：名字/人设交给部署方用户自定（社区每家起自己的）；本家 fallback = 家庭猫猫投票出生仪式（Phase A 落地时搞）；形象默认原创毛线球确认 |
 | OQ-2 | 语音 loop（Phase C）是否提前（铲屎官重度语音用户，权重只有他知道） | ✅ 已定 2026-06-09：不提前——先基建/架构归一（入口壳、身份层、路由），Phase C 维持原位 |
 | OQ-3 | 值班大猫默认值：flash / sonnet / spark 级里谁打头 | ✅ 已定 2026-06-09：值班猫必须用户可配置、provider-agnostic（配 glm5.1 也要能成）；本家默认 gemini35 flash（烁烁） |
-| OQ-4 | 主动冒泡白名单边界（哪些事件允许它主动说话） | ⬜ Design Gate |
+| OQ-4 | 主动冒泡白名单边界（哪些事件允许它主动说话） | 🔶 设计收敛 2026-06-09：采纳调研四级白名单（Tier 0 ambient / 1 quiet badge / 2 in-app bubble opt-in / 3 system+voice 默认关），Phase A 只实现 Tier 0-1——随 wireframe 过 CVO 后关栓 |
 | OQ-5 | 开源用户形象上传的安全/版权边界 | ⬜ Phase E 前定 |
-| OQ-6 | 页面上下文注入范围（#841 的 URL/标题注入，隐私边界） | ⬜ Design Gate |
+| OQ-6 | 页面上下文注入范围（#841 的 URL/标题注入，隐私边界） | 🔶 设计收敛 2026-06-09：Phase A 只取路由级信息（URL/页面标题），不读页面内容——随 wireframe 过 CVO 后关栓 |
 
 ## Key Decisions
 
@@ -196,6 +200,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 | 2026-06-09 | 立项（CVO signoff）；#841 社区输入收编；gemma 线（F102）确认为 Phase D 前置 |
 | 2026-06-09 | OQ-1/2/3 铲屎官落定（KD-6/7/8）；Phase 0 research 启动：形态/体验调研 → 烁烁，身份配置模型 + surface 技术路径 → 宪宪 |
 | 2026-06-09 | 形态/体验调研由砚砚接球完成：安静前台入口、主动冒泡四级白名单、默认毛线球视觉状态、Mode B 云端咨询 prompt |
+| 2026-06-09 | Design Gate 材料完成（宪宪）：架构归属（new cell `concierge-surface`）、身份三层配置模型、对话载体立场（专属 concierge thread）、四态 wireframe、调研采纳决议——待 CVO 过 wireframe |
 
 ## Review Gate
 
@@ -208,6 +213,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 |------|------|------|
 | **Community Issue** | [clowder-ai#841](https://github.com/zts212653/clowder-ai/issues/841) | arthas4ever 悬浮球提案（needs-maintainer-decision → 由本 feat 承接，标签待迁移 F229） |
 | **Research** | `docs/research/2026-06-09-f229-companion-form-research.md` | companion 形态/体验调研：Clippy 反面教训、桌宠/派蒙借鉴、主动冒泡白名单、默认毛线球视觉方向、Mode B prompt |
+| **Design Gate** | `docs/discussions/2026-06-09-f229-design/README.md` | Phase 0 设计材料：架构归属一问、身份三层配置模型、对话载体决策、surface 技术路径、四态 wireframe、调研采纳决议 |
 | **Research** | `docs/research/2026-06-08-pi-gemma-local-clerk-phase0-spike.md` | gemma 4 26B 本地实测 + Pi carrier + harness 收敛（Phase D 前置） |
 | **Issue** | cat-cafe#2175 | F102 MD-first digest candidates + provider 抽象（Phase D 软依赖） |
 | **Feature** | `docs/features/F155-scene-guidance-engine.md` | guide engine 积木（Phase A 求助场景后端） |
