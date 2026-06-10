@@ -39,6 +39,21 @@ triggers:
 
 **Steps are internal implementation rhythm, NOT delivery batches.** The deliverable to the user is a complete feat matching the full spec — not a step's output. Do not expose intermediate steps as "验收点" to the user.
 
+## Stateful Object Gate（F229 PR-A1 20 轮教训）🔴
+
+Plan 涉及**有生命周期的状态对象**（thread 标记 / carrier / session / 持久 config / cache / 索引 / 注册表）时，「功能描述 + 幂等测试点」**不够**——那是把状态机的边留给 reviewer 逐轮补（PR #2202 实测：4 P1 + 16 P2 全是同一对象的状态转移边——crash window / restore 复活 / deleted-list 漏过滤 / 并发 race / self-heal，打了 20 轮才合入）。
+
+**三件套，缺一 = plan 不完整，不准发给实现猫：**
+
+1. **状态×事件转移表** — 含「唯一 lifecycle owner 是谁」+「旁路 API（generic restore / delete / list）禁止哪些操作」
+2. **不变量清单** — INV-N 编号，每条标注可测方式，test matrix 逐条对应
+3. **对抗场景** — crash window / 并发双写 / 恢复路径 / 旁路 API 误用，每个场景一条测试
+
+**派生值规则**：能用纯投影（pure selector，零存储）表达的状态，禁止落独立存储——无同步即无失同步。
+
+- 范例：`docs/plans/2026-06-10-f229-pr-a2-frontend-microspec.md`（球态纯投影 + INV-1~9 + test matrix 即写码顺序）
+- 反例：同 feature PR-A1 plan 段（一行"幂等懒创建"→ 云端 review 20 轮逐边补课）
+
 ## Bite-Sized Task Granularity
 
 **Each step is one action (2-5 minutes):**
