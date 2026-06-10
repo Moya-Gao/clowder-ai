@@ -88,11 +88,11 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 - F020 STT + F111 流式 TTS 串成对话式闭环：按住说话 → 前台猫答 → 自动播
 - 复用 F092 VoiceSession 的"设备会话与 UI thread 解耦"模型
 
-### Phase D: 小模型入驻（复合猫生效）
+### Phase D: 快速档入驻（复合猫生效）
 
-- gemma clerk 接管导航/跳转/快捷操作类 intent（借力 F102 provider 抽象：local-small-model / cloud-strong-model / manual-cat）
+- 「快速档」clerk 接管导航/跳转/快捷操作类 intent——**provider-agnostic**：本地小模型（gemma，借力 F102 provider 抽象）**或** API 快模型（flash/glm 级）均可作 clerk（吴浪部署现实主义：不是每家有 128GB Mac；本地是 opt-in 优化不是前提）
 - escalation 协议落地（传原始对话；值班大猫优先级可配置）
-- 无小模型环境自动降级全走大猫（Phase A-C 不依赖本 Phase）
+- 无快速档配置自动降级全走值班大猫（Phase A-C 不依赖本 Phase）
 
 ### Phase E: 桌宠化 + 形象生态 + 操作演示（远期）
 
@@ -130,13 +130,13 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 ### Phase A（前台开张）
 - [ ] AC-A1: 任意页面悬浮球唤起对话，不离开当前页面（截图 + 15s 录屏）→ R9/Why-2
 - [ ] AC-A2: 功能发现——非作者拿 3 个"最近有什么新功能/X 怎么用"问题验收，答案与 release notes/feature docs 一致 → R1/Why-1
-- [ ] AC-A3: 记忆导航——3 个真实历史讨论 query 给出正确 thread/message 链接且一键跳转成功 → R3/Why-3
+- [ ] AC-A3: 记忆导航——3 个真实历史讨论 query 给出正确 thread/message 链接，且**两种动作都可用**：跳过去（teleport）+ 原地看（卡内 inline 展开 anchor 前后原文，不离开当前页）→ R3/Why-3 + CVO 去/取分叉反馈
 - [ ] AC-A4: 求助场景能触发对应 F155 guide flow（录屏一条）→ R2/Why-2
 - [ ] AC-A5: 形象/人设/值班猫在设置页可配置，与 cat profile 解耦（截图）→ R5
 - [ ] AC-A6: 安静默认——默认零主动文本弹出；低优先级事件只显示 badge（hover 才出文字）；用户可一键 hide/mute 整个球（录屏 + 设置截图）→ R8/调研红线
 
 ### Phase B（总机能力）
-- [ ] AC-B1: 用户描述问题 → 前台猫给出分诊建议并经确认执行（cross_post/propose_thread 留痕可查）→ R4
+- [ ] AC-B1: 用户描述问题 → 前台猫给出分诊建议并经确认执行，**传话/跟去双路径**：relay（cross_post 投递 + 对方回复后回执卡）+ go（teleport 跟进），留痕可查 → R4 + CVO 分叉反馈
 - [ ] AC-B2: "自己调查"产出带 anchor 的报告回对话框（抽查 anchor 真实性）→ R4
 
 ### Phase C（语音 loop）
@@ -179,6 +179,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 | OQ-4 | 主动冒泡白名单边界（哪些事件允许它主动说话） | 🔶 设计收敛 2026-06-09：采纳调研四级白名单（Tier 0 ambient / 1 quiet badge / 2 in-app bubble opt-in / 3 system+voice 默认关），Phase A 只实现 Tier 0-1——随 wireframe 过 CVO 后关栓 |
 | OQ-5 | 开源用户形象上传的安全/版权边界 | ⬜ Phase E 前定 |
 | OQ-6 | 页面上下文注入范围（#841 的 URL/标题注入，隐私边界） | 🔶 设计收敛 2026-06-09：Phase A 只取路由级信息（URL/页面标题），不读页面内容——随 wireframe 过 CVO 后关栓 |
+| OQ-7 | 使用模式采集 → 个性化提醒（吴浪："采集和根据使用情况来提醒"，如"你还没用过 schedule"）——行为遥测 + 主动打扰双重边界 | ⬜ Phase B+ 再定，MVP 不做 |
 
 ## Key Decisions
 
@@ -192,6 +193,9 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 | KD-6 | 名字/人设不出厂写死：per-deployment 用户配置；本家实例由家庭投票命名（出生仪式，Phase A 落地时） | 铲屎官："这个应该交给社区用户？……我们家的猫猫们大家自己来投票好了" | 2026-06-09 |
 | KD-7 | 值班层 provider-agnostic：值班槽指向一只已配置的 cat profile（第三方模型如 glm5.1 走现有 provider/adapter 框架接入，不为前台猫另造模型配置体系）；本家默认烁烁（gemini35 flash） | 铲屎官："必须用户可配置吧？甚至我要是配置 glm5.1 呢？"——与 OQ-2 的"架构归一"同源：复用 cat 体系，零平行设施 | 2026-06-09 |
 | KD-8 | 语音 loop 不提前：基建（入口壳/身份层/路由归一）优先，Phase C 维持原位 | 铲屎官："暂时不用，我们得先基建？架构归一那种" | 2026-06-09 |
+| KD-9 | 去/取/传话三动作分叉：记忆结果 = 跳过去(teleport) + 原地看(inline 上下文)；转接 = 传话(relay+回执) + 跟去(go)——同一结果给用户选意图，不替用户猜 | 铲屎官："有的时候是想直接过去，有的时候只是想看看曾经都说了什么"、"1.传话过去 2.直接前端得跳转过去？" | 2026-06-09 |
+| KD-10 | 岗位四件裁剪：身份+人设+工具面+prompt 都按岗裁剪——Phase A 工具白名单 ≈10 个（memory 三入口/get_thread_context/teleport/cross_post/guide×2/feat_index/propose_thread），排除 shell/文件/limb 等全家桶；prompt 不带 SOP/L0 全文。裁到不需要 tool-search | 铲屎官："mcp 太多了全丢给小猫调不清楚，runtime 不支持 tool search 更恐怖" + 吴浪："得控制他暴露出来的工具" | 2026-06-09 |
+| KD-11 | Phase D「小模型」重定位为「快速档」：provider-agnostic（本地 gemma 或 API flash/glm 均可作 clerk），本地权重是 opt-in 优化不是前提 | 吴浪部署现实主义："考虑其他人的使用，live model 可能合适点"——不是每家有 128GB Mac | 2026-06-09 |
 
 ## Timeline
 

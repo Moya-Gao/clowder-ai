@@ -102,7 +102,10 @@ interface ConciergeConfig {
 ╰───────────────────────────────╯
 ```
 
-### 态 3 — Anchor 结果态（anchor-first：证据可点，不是嘴说）
+### 态 3 — Anchor 结果态（anchor-first + 去/取分叉，CVO 2026-06-09 反馈）
+
+> 铲屎官："有的时候是想直接过去，有的时候只是想看看曾经都说了什么。"——**"去"（teleport）和"取"（原地预览）是两种意图**，每张结果卡都给两个动作。
+
 ```
 ╭───────────────────────────────╮
 │ 🧶 找到 3 条，最相关：          │
@@ -110,14 +113,22 @@ interface ConciergeConfig {
 │ │ 📌 图书馆记忆架构           │ │
 │ │ thread · 2026-05           │ │
 │ │ "多域知识联邦，试点…"       │ │ ← exact quote
-│ │ [跳过去]  [看上下文]        │ │ ← F227 teleport，点了才跳
+│ │ [跳过去]   [原地看 ▾]      │ │ ← 去：F227 teleport
+│ ├───────────────────────────┤ │    取：卡内 inline 展开
+│ │ ▾ 原地看（不离开当前页）：   │ │      anchor 前后往来原文
+│ │  铲屎官: 图书馆记忆要…      │ │      (get_thread_context
+│ │  宪宪: 多域知识联邦…        │ │       before/after 窗口)
+│ │  [展开更多] [还是跳过去]    │ │
 │ └───────────────────────────┘ │
 │ + 2 条其他匹配 ▾               │
 │ ⓘ 不对？换个说法，或喊值班猫    │
 ╰───────────────────────────────╯
 ```
 
-### 态 4 — 转接确认态（escalation：原话带走，用户点头才发）
+### 态 4 — 转接确认态（escalation：原话带走 + 传话/跟去分叉，CVO 2026-06-09 反馈）
+
+> 铲屎官："1. 传话过去 2. 直接前端得跳转过去？"——转接同样分**relay（我留在原地，球帮我投递）**和 **go（我跟着过去）**。
+
 ```
 ╭───────────────────────────────╮
 │ 🧶 这题得请值班猫 {烁烁}：      │
@@ -125,11 +136,16 @@ interface ConciergeConfig {
 │ │ 将带去的上下文：            │ │
 │ │ · 你的原话（完整，非摘要）   │ │ ← KD-3 原始对话
 │ │ · 相关 anchor × 2          │ │
-│ │ 去向：concierge thread 继续 │ │
 │ └───────────────────────────┘ │
-│ [确认转接]        [取消]       │ ← 不确认不发（调研红线）
-╰───────────────────────────────╯
+│ 你想怎么处理？                 │
+│ [传话过去·我留在这]            │ ← relay: cross_post 投递，
+│ [跳过去跟进]                   │   回复回来时 Tier 2 回执卡
+│ [取消]                        │   （调研白名单已预埋
+╰───────────────────────────────╯    "handoff returned" 事件类）
+                                  ← go: teleport 到目标 thread
 ```
+
+- **relay 的回执闭环**：投递后球态进入 handoff（毛线伸向目标猫 chip）；对方回复 → Tier 2 回执卡"烁烁回来了，要看吗"（这是 opt-in 气泡的第一个默认开启事件类，因为它是用户自己发起的订阅——满足白名单 hard gate #1 relevance）。
 
 ### 设置页（Settings → 前台猫）
 ```
@@ -141,12 +157,49 @@ interface ConciergeConfig {
 └ 主动性          [安静 Tier 0-1 ▾]     （气泡 Tier 2 默认关，逐事件 opt-in）
 ```
 
+## 5.5 岗位工具面与 prompt 裁剪（Duty Toolset，CVO + 吴浪 2026-06-09 同时提出）
+
+> 铲屎官："家里的 mcp 太多了全丢给小猫感觉人家未必能调用的清楚。甚至这个 agent runtime 如果不支持 tool search tool 那更恐怖。"
+> 吴浪："提示词什么也得剪裁的……他的主要职责是管理，所以得控制下他暴露出来的工具这些。"
+
+**原则：岗位 = 身份 + 人设 + 工具面 + prompt，四件都按岗裁剪，不继承全家桶。**
+
+Phase A 工具面（≈10 个，curated 白名单）：
+
+| 类别 | 工具 | 服务的 Job |
+|------|------|-----------|
+| 记忆三入口 | `search_evidence` / `graph_resolve` / `list_recent` | 金鱼的记忆 |
+| 原地看 | `get_thread_context`（bounded window） | 态 3 "取" |
+| 跳转 | `teleport` | 态 3 "去" |
+| 传话 | `cross_post_message` | 态 4 relay |
+| 开调查 | `propose_thread`（Phase B 启用） | 分诊 |
+| 引导 | `get_available_guides` / `start_guide` | 求助 |
+| 功能发现 | `feat_index` | 有什么功能 |
+
+- **明确排除**：shell_exec、文件读写、worktree/git、limb、finance、browser、audio capture 等全部工作猫工具——前台猫职责是**接线和管理**（吴浪），不操作本地（他说的"检索"裁掉的是 repo/file 检索，**memory 检索保留**——金鱼的记忆是本 feat 核心 Why，这是我们与吴浪表述的一个明确差异点）。
+- **裁剪的红利**：工具面 ≤10 个 → schema 可全量静态注入，**不依赖 runtime 的 tool-search 能力**——铲屎官担心的"runtime 不支持 tool search"被裁剪直接消解（坐标变换：不是给小猫配检索器，是把面裁到不需要检索）。
+- **Prompt 裁剪**：岗位 prompt = 简身份（displayName/personaTone）+ anchor-first 纪律 + 工具面说明 + escalation 协议 + 白名单事件语义，**不带 SOP/家规/L0 全文**——值班猫在前台岗位时用岗位 prompt，回普通 thread 用完整 L0（岗位 prompt 跟岗位走，§2 人设注入点的推广）。
+- 实现载体：`ConciergeConfig` 增加隐式常量 `dutyToolset`（代码内白名单，Phase A 不开放配置——先固定面，等真实使用反馈再决定是否开放）。
+
 ## 6. 砚砚调研采纳决议（逐条表态）
 
 - **Adopt 6 条全收**：root host / 单球单面板 / anchor-first / quiet default / 五配置位（voiceOutput 恒 false 算第六位）/ 权限可见边界
 - **Defer 5 条全收**：系统级桌宠、语音 loop、OpenCLI 演示、多角色收集、独立 companion 记忆——与 F229 Phase 划分一致
 - **Reject 4 条全收**：无 tip-of-the-day / 无未经请求的 modal tour / F229 内零模型配置 / 小模型不经 wrapper+确认不得执行——其中第 4 条已是 KD-3/KD-5
 - **OQ-4 四级白名单采纳为正式设计**：Phase A 只实现 Tier 0-1；Tier 2 逐事件 opt-in；Tier 3 默认关、绑 Phase C+
+
+## 6.5 社区视角输入（吴浪/mindfn，2026-06-09 微信，铲屎官转达 4 截图）
+
+吴浪是 F155 guide engine 作者，他的独立思考与本设计的对照：
+
+| 吴浪观点 | 对照结论 |
+|---------|---------|
+| "直接新增一个 live cat 成员，复用语音配置和基础 prompt 配置，模型可选已有配置或小模型" | ✅ 与 KD-2/KD-7 独立收敛——值班槽指向 cat profile，双方撞出同一答案，方向置信度 +1 |
+| "得控制他暴露出来的工具…提示词也得剪裁" | ✅ 与铲屎官 MCP 裁剪点撞车 → 已落为 §5.5 Duty Toolset（我们之前**确实漏了显式设计**，社区视角补盲） |
+| "考虑其他人的使用，live model（API）比内置小模型合适" | ✅ **补盲：部署现实主义**——不是每家有 128GB Mac 跑 27GB 模型。Phase D 定位修正：「快速档」provider-agnostic（本地 gemma **或** API flash/glm 均可作 clerk），本地小模型是 opt-in 优化不是前提 |
+| "采集和根据使用情况，通过猫猫球来提醒和反馈" | 🔶 **补盲但设边界**：基于使用模式的个性化提醒（"你还没用过 schedule"）有价值，但涉及行为遥测 + 主动打扰双重边界 → 记 OQ-7，Phase B+ 再定，MVP 不做 |
+| "让猫猫自己去构建那个能力引导"（guide 自生成） | 🔶 好方向但归属 F155 演进线（guide 供给侧），F229 是消费侧——记入 Related，不进本 feat scope |
+| "live cat 不需要他去操作本地和检索" | ⚠️ **部分不采纳**：repo/file 检索裁掉 ✓，但 **memory 检索保留**——金鱼的记忆是 F229 核心 Why，裁掉它前台猫只剩转接价值 |
 
 ## 7. 自检
 
