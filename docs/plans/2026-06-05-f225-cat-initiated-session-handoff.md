@@ -135,7 +135,7 @@ interface SessionHandoffProposal {
 ```
 Pre-commit:  claim → 校验 sourceSessionId 仍是同(user,thread,cat,seq)active → 持久化 catHandoffNote + 记 handoffNotePersistedAt
 Commit pt:   requestSeal → rejected=pre-commit fail/expire；accepted → 记 sealedSessionId/sealAcceptedAt（自此禁 rollback）
-Post-commit: enqueue 同thread continuation(idempotency key) + 记 continuationEntryId → finalize approved
+Post-commit: enqueue 同thread continuation(idempotency key) + 记 continuationEntryId（观测字段）→ finalize approved
 ```
 
 **Step 1–5:** Red（多个测试：happy path approve → seal + catHandoffNote 落 SessionRecord；reject → 不 seal；session 已变 → reject）→ Green → Commit `feat(F225): commit-point approve dispatcher`。〔AC-A2/B1/B4〕
@@ -162,8 +162,8 @@ proposal 有 handoffNotePersistedAt 无 sealedSessionId →
   cross-check session: 已 sealing/sealed + cat_initiated_handoff + note.proposalId 匹配
     → backfill sealedSessionId/sealAcceptedAt → 续跑 enqueue/finalize
   session 仍 active → 真 pre-commit fail/expire
-有 sealedSessionId 无 continuationEntryId → idempotent enqueue
-有 continuationEntryId 无 finalize → finalize
+有 sealedSessionId 且仍 approving → idempotent enqueue/verify（不能信任旧 continuationEntryId；queue entry 是进程内状态）
+enqueue/verify 后 → finalize
 ```
 
 **Step 1–5:** Red（**模拟 crash**：accepted 后不写 checkpoint，跑 recovery → 从 session 反推 backfill + enqueue 恰好一次；session 仍 active → fail/expire）→ Green → Commit `feat(F225): crash-window recovery via session-side backfill`。〔AC-B6 / FX-2c〕
