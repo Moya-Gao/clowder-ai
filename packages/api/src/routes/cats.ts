@@ -388,7 +388,8 @@ async function toCatResponse(
           evaluation: metadata.roster.evaluation,
         }
       : null,
-    adapterMode: cat.clientId === 'google' ? (getAcpConfig(cat.id as string) ? 'acp' : 'cli') : undefined,
+    // F161: adapterMode is now provider-agnostic — any clientId can have ACP config
+    adapterMode: getAcpConfig(cat.id as string) ? 'acp' : 'cli',
   };
 }
 
