@@ -55,7 +55,6 @@ created: 2026-02-26
 | F167 | A2A Chain Quality — 乒乓球熔断 + 虚空传球检测 + 角色护栏 | spec | Ragdoll | internal | [F167](features/F167-a2a-chain-quality.md) |
 | F178 | Persistent MCP Agent-Key Auth — 跨 invocation 写权限（F061 Bug-H follow-up） | spec | Ragdoll | internal | [F178](features/F178-persistent-mcp-agent-key-auth.md) |
 | F181 | Reserved Feature Slot — 待补充需求锚点 | idea | 待定 | internal | [F181](features/F181-reserved-feature-slot.md) |
-| F219 | CatAgent Write/Exec — 轻量内置可工作 Agent（F159 只读基座扩展 write/exec） | spec | 布偶猫 | internal | [F219](features/F219-catagent-write-exec.md) |
 | F189 | Operation Context Unification — 操作上下文单点化（HTTP/MCP/CLI/A2A 统一 builder） | spec | Ragdoll | internal | [F189](features/F189-operation-context-unification.md) |
 | F192 | Socio-Technical Harness Eval — Phase F `eval:capability-wakeup` reopened | in-progress | Ragdoll | internal | [F192](features/F192-socio-technical-harness-eval.md) |
 | F198 | Claude Code Subscription Carrier — 6/15 SDK Credit 拐点前救Ragdoll | spec | Ragdoll Opus 4.7 | internal | [F198](features/F198-claude-code-subscription-carrier.md) |
@@ -73,3 +72,4 @@ created: 2026-02-26
 | F23-followup | F23 Phase 2 — dir-size 5 个目录真拆（utils/config/providers 快线 + invocation/routes 跟 F219 协调）| in-progress | Ragdoll/Opus-4.7 | internal | [F23 § Phase 2](features/F023-directory-corrosion-defense.md) |
 | F224 | A2A 协作的会话/消息状态可靠性（会话延续协调器 + 消息去重 + 触发合并 + 重生会话）| spec | Ragdoll Opus-4.8 | community [clowder-ai#834](https://github.com/zts212653/clowder-ai/pull/834) | [F224](features/F224-a2a-session-message-reliability.md) |
 | F225 | Cat-Initiated Session Handoff — 猫主导的 session 接力（猫主动提议封印 + 铲屎官 gate + 同 thread 续接注入交接留言）| spec | Ragdoll Opus-4.8 | internal | [F225](features/F225-cat-initiated-session-handoff.md) |
+| F226 | CatAgent Write/Exec — 轻量内置可工作 Agent（F159 只读基座扩展 write/exec） | spec | 布偶猫 | internal | [F226](features/F226-catagent-write-exec.md) |
