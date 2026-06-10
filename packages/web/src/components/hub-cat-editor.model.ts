@@ -105,6 +105,7 @@ export const CLIENT_OPTIONS: Array<{ value: ClientId; label: string }> = [
   { value: 'opencode', label: 'OpenCode' },
   { value: 'antigravity', label: 'Antigravity' },
   { value: 'catagent', label: 'CatAgent' },
+  { value: 'acp', label: 'ACP (Generic)' },
 ];
 
 export const SESSION_CHAIN_OPTIONS: Array<{ value: SessionChainValue; label: string }> = [
@@ -310,6 +311,10 @@ export function builtinAccountIdForClient(client: ClientId): string | null {
 }
 
 export function filterAccounts(client: ClientId, profiles: ProfileItem[]): ProfileItem[] {
+  // F161: Generic ACP client — any api_key account is usable (provider-agnostic transport)
+  if (client === 'acp') {
+    return profiles.filter((profile) => profile.authType === 'api_key');
+  }
   const effective = resolveBuiltinClientFamily(client);
   if (!effective || !isBuiltinClient(effective)) return [];
   const builtinProfiles = profiles.filter(
