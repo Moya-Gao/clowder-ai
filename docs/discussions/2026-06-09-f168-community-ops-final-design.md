@@ -3,6 +3,7 @@
 > 执笔：宪宪 [宪宪/Fable-5🐾] · 2026-06-09
 > 输入：三份独立思考（宪宪 `2026-06-09-community-ops-multiagent-coordination-fable.md` / 本 thread 砚砚 GPT-5.5 独立稿 / 运维砚砚 `2026-06-09-community-ops-eventbus-retrospective.md`）+ 铲屎官 2026-06-09 五条新约束
 > 性质：终态设计（非脚手架）。等 CVO signoff F168 reopen 后转入 feature doc。
+> **v1.1**（2026-06-09）：修复砚砚 review 4 P1——①Canonical/Projection 分层声明（接 KD-11）②Event Log cursor/idempotency 语义 ③最小 closure invariant 前移 Phase A ④RoleResolver contract + skill 双层拆分。
 
 ---
 
@@ -39,6 +40,18 @@ merge/CI 事实事件 ─┘     │   + closure guard        │     └─ SLA
                          ─────────────────────────
 ```
 
+**Canonical / Projection 分层（P4 声明，接 F168 spec KD-11）**：
+
+F168 原 spec KD-11（gpt52 review P1）裁定"PR 侧不另建平行台账，看板是两个 read model 的聚合视图"——它反对的是**平行 canonical**，不反对统一投影。引入 Event Log 后 canonical 层级升级如下，**CommunityObject 是纯投影，不是第四个 canonical store**：
+
+| 层 | 内容 | 地位 |
+|---|---|---|
+| **Event Log** | 外部事实事件（GitHub webhook/轮询/merge/CI）+ 内部决策事件（routed/ownerDecision/DirectionCard/closure），append-only | **唯一事实 canonical** |
+| CommunityObject 投影 | 从事件流推导的案件状态，物化存储可随时重建；`CommunityIssueStore` 演化为它的物化载体，`CommunityPrStore` 退役并入 | 纯 read model |
+| TaskStore（`pr_tracking`/`issue_tracking`） | 采集器运行态（cursor、automationState、轮询调度） | 采集层 operational state，**不是案件状态 canonical** |
+
+KD-11 的"两个 read model 聚合"由此统一为"一个事件源、多个投影"——这是 KD-11 精神的升级而非违背：平行真相源从两个减到零。
+
 **CommunityObject 读模型**（合并运维砚砚 schema + 本 thread 砚砚的 Case 概念）：
 
 ```text
@@ -66,9 +79,19 @@ new → triaged → routed → in_progress ⇄ awaiting_external → fixed → r
 ```
 
 - `fixed` 由 **merge/CI 事实事件**驱动，不由猫口头声明（消息不是真相源）
-- `fixed` 未 `reported` 超 SLA → cron 提醒 owner + 自动生成回帖草稿
+- **最小 closure invariant（第一天生效，状态机转换规则本身）**：`fixed` 不得直接 → `closed`，必经 `reported` 或显式 `waived(reason, actor, evidence)`；linked PR merged/closed 自动产生 `fixed`；`fixed` 未 `reported` 超 SLA → dead-letter + cron 提醒 owner + 自动生成回帖草稿
 - 任何状态超 SLA → 浮回看板死信区，**没人接的 case 不许沉底**
 - 打扰分级（采纳本 thread 砚砚）：事件分 state-changing / needs-human / needs-owner / informational / stale，只有前三类唤醒猫或人
+
+**Event Log schema 与双 cursor 语义（idempotency）**：
+
+```text
+Event { sourceEventId, subjectKey, kind, classification, payload, at }
+```
+
+- **采集 cursor**：事件 append 进 Event Log 成功**即推进**——informational/stale 被静默 ≠ 丢失，事件已持久化，不再重复扫描重复分类（修正现 `IssueCommentTaskSpec:194` 仅 `notified` 才 commit cursor 的语义——旧语义在"通知=唯一去处"时是对的 at-least-once 保证，在"入库=去处"的新模型里会造成重复消费）
+- **投递 cursor**：唤醒猫/人的 delivery 状态独立管理（per-view），重试/合并（coalescing）在投影层做，与采集解耦
+- `sourceEventId` 去重（webhook delivery ID / 轮询合成 ID），同一事实多入口到达只 append 一次
 
 ## 3. F168 ↔ 守门 thread 联动：现状实锤与终态
 
@@ -94,6 +117,7 @@ roles:
     binding: none            # 纯代码 cron：GitHub truth ⇄ Case truth diff
 ```
 
+- **RoleResolver capability contract**：core engine 只依赖注入的 `RoleResolver` 接口（`resolve(role) → executor`），**禁止 import `getRoster()`/猫名/模型名常量**。家里实现 resolve 到 roster，别人家 resolve 到他们的 agent catalog。现状迁移点：`community-issues.ts:394` guardian 路由直接 `getRoster()` 校验 cat id——这类调用全部收敛到家里的 RoleResolver 实现内
 - 引擎代码零猫名、零模型名、零品牌（outbound sanitizer 不变式：sync 时零替换）
 - narrator 的 prompt 模板、社区回复语气模板都是配置
 - **eval 钩子内建**：owner 确认/推翻 narrator 初判 → 记入 timeline → F192 eval 闭环。自动路由权限用数据开，不用信任开
@@ -119,16 +143,23 @@ roles:
 | "GitHub 编号优先于技术域" | narrator 搜证清单内建（linked PR/issue 自动解析进 timeline） | 教歧义时怎么裁 |
 | 闭环靠全量同步兜底 | closureChecklist guard：不满足不许 `closed` | 教 waive 的正当理由 |
 
-skill 瘦身方向：流程细节让位给状态机，保留判断标准和文化——这恰好让 skill 也可被别人家复用（他们的猫读同一份判断标准，驱动同一个状态机，绑定他们自己的模型）。
+**skill 双层拆分**（修正 v1.0 "skill 可被别人家复用"的笼统表述——现 SKILL.md:62 明写本 skill"不同步出去"，该条款对文化层依然正确）：
+
+| 层 | 内容 | 同步政策 |
+|---|---|---|
+| `community-ops`（通用判断标准层） | 状态机驱动方法、DirectionCard 质量标准、external-wait 判断、closure waive 正当理由 | engine-agnostic，可随引擎开源复用 |
+| `opensource-ops`（家里文化层） | 双仓边界表、发布线口径、intake 哲学、猫猫签名规范 | 内部 playbook，**不同步出去**（维持现条款） |
+
+skill 瘦身方向：流程细节让位给状态机，通用层教"怎么判断"，文化层教"我们家怎么做"。
 
 ## 7. Phase 划分（每 Phase = 终态的一个完整组件，无临时桥）
 
 | Phase | 交付 | 性质 |
 |---|---|---|
-| A 引擎心脏 | Event Log + CommunityObject 读模型 + 状态机 + 事实事件驱动（merge/close 自动转换）；看板/thread 自此同源 | 纯后端，可逆，猫力零消耗 |
+| A 引擎心脏 | Event Log（双 cursor 语义）+ CommunityObject 投影 + 状态机**含最小 closure invariant**（`fixed`→`closed` 必经 `reported`\|`waived`，merge/close 事实事件自动转换）；看板/thread 自此同源 | 纯后端，可逆，猫力零消耗 |
 | B Issue Signals | comment/review/label/close/reopen 事件全量进引擎（webhook-first + 轮询兜底，复用 HMAC/去重/RepoScan 既有框架）；`routed` 自动注册 tracking | 复用 F140/F141 基础设施，不建平行系统 |
 | C Narrator + 路由 | Role Registry + narrator 短命 spawn + DirectionCard + F128 扩展（路由到已有 thread + role 下拉） | 含 eval 钩子，第一天就采数据 |
-| D Closure + Reconciler | closureChecklist guard + GitHub⇄Case diff cron + SLA/死信重浮 | 杀死"修完忘回报" |
+| D Closure UX + Reconciler | **完整** closureChecklist（最小 invariant 已在 Phase A）+ waive 审计 UX + GitHub⇄Case diff cron + SLA/死信重浮 | 闭环体验收口（invariant 不在此 Phase，第一天就有） |
 | E 看板决策队列 | "未回复 64"式积压展示 → Decision Packet 队列 UX；opensource-ops skill 改写合入 | CVO 体验收口 |
 
 过渡期（任何代码落地前）：运维砚砚 retrospective 的 6 条操作纪律即刻生效，不等产品。
