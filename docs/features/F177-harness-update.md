@@ -378,6 +378,7 @@ GitHub issue: TBD（kickoff 后开）
 | KD-10 | Phase G 方案选型：session end hook 提醒（Gmail 模型）而非 grep 提取意图 / 新增 MCP / forced tool call | grep 文本 = 47 换表达就失效（补锅）；新增 tool = 47 不调用（hold_ball 已证伪）；hook 提醒 = 时机正确 + 零意图猜测 + 猫自己补 | 2026-04-29 |
 | KD-11 | Phase H reopen F177 而非新开 F 号 | routing guard 真相源（OQ-G1 决策 / `f177-routing-guard.sh` 实现 / 24 测试）全在 F177；Phase H 是 Phase G 能力从"Claude 系猫"扩到"全猫族"的同一能力延伸，非新 feat。CVO 明确 signoff reopen | 2026-06-11 |
 | KD-12 | Phase H 走路径 B（server re-invoke），非路径 A（codex CLI hook） | H0 spike 实测：`CodexAgentService` 走 `codex exec --json`，本机 0.137.0 该路径不触发 codex CLI hooks（即使 Codex 产品 `hooks stable` 且官方支持 `Stop decision:block`）。CLI hook 不可达 → `route-serial.ts` 出站 settle 前做 guard（真实 `parseA2AMentions` + invocation 工具事件扫描）+ `codex exec resume` re-invoke 补救，cost guard 1 次/掉球、二次失败停止并显式暴露 guard failure | 2026-06-11 |
+| KD-13 | 路径 B 实现架构（砚砚 cross-review 定稿 2026-06-11）：capability 轴 + inline remedial invoke + local one-shot guard | ① 非 Claude 判别用显式 `needsServerRoutingGuard?.()` + 短期 allowlist codex-family，**不复用 `injectsL0Natively`**（Codex 原生注入 L0 但 `codex exec` 不 dispatch hooks → 该信号必误判），不波及 Antigravity/Gemini（resume 语义未验证）；② re-invoke **不入 worklist**（纯 A2A 队列，塞 prompt/session payload 会坏 ping-pong/depth/isFinal）——在检测点（`validateRoutingSyntax`/`evaluateVoidHold`）后同轮直接再调一次 `invokeSingleCat`（已有 sessionManager/cliSessionId resume，先红测证明 resume 再决定是否加窄口 `forceCliSessionId`）；③ cost guard 用本 route iteration 本地 `routingGuardAttempted`（one-shot）不放 worklistEntry，二次失败→可见 guard failure 不静默；fake-hold（voidHold）必触发 = gpt52 主 failure | 2026-06-11 |
 
 ## Timeline
 
