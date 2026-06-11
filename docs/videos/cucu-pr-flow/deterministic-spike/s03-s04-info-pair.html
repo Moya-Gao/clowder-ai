@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>醋醋喵 D Lane Spike — S03/S04</title>
+    <link rel="stylesheet" href="./s03-s04-info-pair.css" />
+  </head>
+  <body>
+    <main class="prototype-shell" aria-label="醋醋喵 D lane spike">
+      <section class="stage" data-stage>
+        <div class="ambient-grid" aria-hidden="true"></div>
+
+        <header class="stage-header">
+          <div>
+            <p class="kicker">D Lane Spike</p>
+            <h1>醋醋喵标准 PR 流程</h1>
+          </div>
+          <output class="shot-clock" data-clock>00:00</output>
+        </header>
+
+        <section class="scene scene-s03 is-active" data-shot="S03" aria-label="S03 avatar PR CI Review flow">
+          <div class="screen-shell">
+            <div class="screen-topbar">
+              <span class="dot dot-red"></span>
+              <span class="dot dot-yellow"></span>
+              <span class="dot dot-green"></span>
+              <span class="screen-title">avatar-change.pr</span>
+            </div>
+            <div class="flow-track" aria-label="avatar.png to PR to CI to Review">
+              <article class="flow-node node-avatar" data-anim="s03-avatar">
+                <div class="node-icon avatar-file">PNG</div>
+                <strong>avatar.png</strong>
+                <span>头像变更</span>
+              </article>
+              <div class="flow-arrow" data-anim="s03-arrow-1">→</div>
+              <article class="flow-node node-pr" data-anim="s03-pr">
+                <div class="node-icon pr-badge">PR</div>
+                <strong>PR</strong>
+                <span>开变更单</span>
+              </article>
+              <div class="flow-arrow" data-anim="s03-arrow-2">→</div>
+              <article class="flow-node node-ci" data-anim="s03-ci">
+                <div class="node-icon ci-badge">CI</div>
+                <strong>CI</strong>
+                <span>自动检查</span>
+              </article>
+              <div class="flow-arrow" data-anim="s03-arrow-3">→</div>
+              <article class="flow-node node-review" data-anim="s03-review">
+                <div class="node-icon review-badge">OK</div>
+                <strong>Review</strong>
+                <span>人工验收</span>
+              </article>
+            </div>
+            <div class="paw-pointer" data-anim="s03-paw" aria-hidden="true">🐾</div>
+          </div>
+          <p class="caption-line">图片是二进制文件，所以要走标准流程。</p>
+        </section>
+
+        <section class="scene scene-s04" data-shot="S04" aria-label="S04 wrong avatar evidence">
+          <div class="evidence-board">
+            <div class="evidence-title">
+              <span>PR #1</span>
+              <strong>头像证据对比</strong>
+            </div>
+            <div class="compare-grid">
+              <article class="avatar-panel approved" data-anim="s04-left">
+                <p>Landy 指定</p>
+                <div class="avatar-face maine external">
+                  <span class="ear left"></span>
+                  <span class="ear right"></span>
+                  <span class="stripe stripe-a"></span>
+                  <span class="stripe stripe-b"></span>
+                  <span class="eye eye-left"></span>
+                  <span class="eye eye-right"></span>
+                  <span class="muzzle"></span>
+                </div>
+                <strong>外部砚砚图</strong>
+                <span class="tiny-note">CVO pick</span>
+              </article>
+              <article class="avatar-panel current" data-anim="s04-right">
+                <p>当前使用</p>
+                <div class="avatar-face maine local">
+                  <span class="ear left"></span>
+                  <span class="ear right"></span>
+                  <span class="stripe stripe-a"></span>
+                  <span class="stripe stripe-b"></span>
+                  <span class="eye eye-left"></span>
+                  <span class="eye eye-right"></span>
+                  <span class="muzzle"></span>
+                </div>
+                <strong>猫咖自生成图</strong>
+                <span class="tiny-note">wrong file</span>
+              </article>
+            </div>
+            <div class="red-x" data-anim="s04-red-x" aria-label="wrong avatar">×</div>
+          </div>
+          <p class="caption-line">证据自己说话。</p>
+        </section>
+
+        <footer class="control-strip">
+          <button type="button" data-action="play-all" aria-label="Play full spike">▶</button>
+          <button type="button" data-action="play-s03" aria-label="Play S03">S03</button>
+          <button type="button" data-action="play-s04" aria-label="Play S04">S04</button>
+          <span class="status-pill" data-status>ready</span>
+        </footer>
+      </section>
+    </main>
+    <script type="module" src="./s03-s04-info-pair.js"></script>
+  </body>
+</html>

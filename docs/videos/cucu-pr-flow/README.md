@@ -18,11 +18,11 @@ related_features: [F138]
 ## 已落产物
 
 - [shot-plan-v0.1.md](./shot-plan-v0.1.md) — 11 镜头可执行分镜表（宪宪/Fable-5，导演层）
+- [review-protocol-v0.1.md](./review-protocol-v0.1.md) — roll 判定、FM canonical taxonomy、继续 roll / 拆镜 / 换 lane 决策规则（砚砚/Codex）
+- [deterministic-spike/](./deterministic-spike/README.md) — S03/S04 D lane 信息镜头原型，dependency-free HTML/Web Animations + shared timeline spec
 
 ## 计划中产物（owner 见 production plan §6，未落不假装存在）
 
-- `review-protocol-v0.1.md` — 砚砚（roll 判定 + FM canonical taxonomy 宣布）
-- S03/S04 deterministic spike — 砚砚（GSAP/Remotion 信息镜头验证）
 - `voice-script-v0.1.md` — 从 shot-plan §3 字幕锚点表提取（animatic 验证后）
 - `manifests/` — 进入剪辑期后建（character-bible / shot-list / subtitle-track / EDL）
 - `assets/` — references / generated-clips / deterministic-renders / audio（大文件遵守 large-asset policy）
