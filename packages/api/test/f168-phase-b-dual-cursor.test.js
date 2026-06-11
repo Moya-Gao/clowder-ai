@@ -1106,3 +1106,84 @@ describe('IssueCommentTaskSpec: one-time delivery cursor seed before collection 
     );
   });
 });
+
+// ---------------------------------------------------------------------------
+// F168 Phase B dead-code cleanup (PR-3): execute() guard for null/undefined routing metadata
+// Dead semantic fallbacks removed: ?? '' at lines :442/:443/:465
+// R13+R14 ensure auto-registered tasks always have ownerCatId and userId set.
+// The old ?? '' silently passed empty strings, masking misconfigured tasks.
+// After cleanup: null ownerCatId or undefined userId → warn + skip, not silent empty-string call.
+// ---------------------------------------------------------------------------
+describe('F168 dead-code cleanup: execute() guard — null/undefined ownerCatId / userId', () => {
+  it('execute: null ownerCatId must warn and NOT call route() (dead ?? "" removed, F168 PR-3)', async () => {
+    const warnCalls = [];
+    const taskStore = makeTaskStore();
+    const router = makeIssueCommentRouter();
+    taskStore.addTask(
+      makeTask({
+        id: 'task-null-catid',
+        subjectKey: 'issue:owner/repo#99',
+        ownerCatId: null, // simulates pre-R13 task missing ownerCatId
+        userId: 'user-ok',
+      }),
+    );
+    const spec = createIssueCommentTaskSpec({
+      taskStore,
+      issueCommentRouter: router,
+      fetchComments: async () => [{ id: 200, author: 'external', body: 'hi', authorAssociation: 'NONE' }],
+      fetchIssueState: async () => 'open',
+      log: {
+        info: () => {},
+        error: () => {},
+        warn: (...args) => warnCalls.push(args),
+      },
+    });
+    const gate = await spec.admission.gate();
+    assert.ok(gate.run, 'gate must produce a work item (comment 200 is new)');
+    for (const { signal, subjectKey } of gate.workItems) {
+      await spec.run.execute(signal, subjectKey, {});
+    }
+    assert.strictEqual(
+      router.calls.length,
+      0,
+      'route() must NOT be called when ownerCatId is null — guard must return early',
+    );
+    assert.ok(warnCalls.length > 0, 'warn() must be called when ownerCatId is null');
+  });
+
+  it('execute: undefined userId must warn and NOT call route() (dead ?? "" removed, F168 PR-3)', async () => {
+    const warnCalls = [];
+    const taskStore = makeTaskStore();
+    const router = makeIssueCommentRouter();
+    taskStore.addTask(
+      makeTask({
+        id: 'task-no-userid',
+        subjectKey: 'issue:owner/repo#98',
+        ownerCatId: 'opus',
+        userId: undefined, // simulates pre-R13 task missing userId
+      }),
+    );
+    const spec = createIssueCommentTaskSpec({
+      taskStore,
+      issueCommentRouter: router,
+      fetchComments: async () => [{ id: 201, author: 'external', body: 'hey', authorAssociation: 'NONE' }],
+      fetchIssueState: async () => 'open',
+      log: {
+        info: () => {},
+        error: () => {},
+        warn: (...args) => warnCalls.push(args),
+      },
+    });
+    const gate = await spec.admission.gate();
+    assert.ok(gate.run, 'gate must produce a work item (comment 201 is new)');
+    for (const { signal, subjectKey } of gate.workItems) {
+      await spec.run.execute(signal, subjectKey, {});
+    }
+    assert.strictEqual(
+      router.calls.length,
+      0,
+      'route() must NOT be called when userId is undefined — guard must return early',
+    );
+    assert.ok(warnCalls.length > 0, 'warn() must be called when userId is undefined');
+  });
+});

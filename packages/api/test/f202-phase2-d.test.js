@@ -277,6 +277,7 @@ describe('AC-D3: IssueCommentTaskSpec', () => {
       title: 'Issue #42',
       why: 'track',
       createdBy: 'cat1',
+      ownerCatId: 'cat1', // required: execute() guard enforces ownerCatId presence (F168 PR-3)
       userId: 'u1',
     });
 

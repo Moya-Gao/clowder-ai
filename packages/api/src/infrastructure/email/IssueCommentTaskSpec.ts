@@ -431,6 +431,18 @@ export function createIssueCommentTaskSpec(opts: IssueCommentTaskSpecOptions): T
       timeoutMs: 30_000,
       async execute(signal: IssueCommentSignal, subjectKey: string, _ctx: ExecuteContext) {
         const { task } = signal;
+
+        // Guard: ownerCatId and userId must be present — auto-registered tasks always
+        // have both set via R13 (userId) and R14 (ownerCatId from case.routed payload).
+        // Silently passing '' (the old ?? '' fallback) caused invocation failures without
+        // any visible error. Log a warning and skip to surface misconfigured tasks instead.
+        if (!task.ownerCatId || !task.userId) {
+          opts.log.warn(
+            `[issue-comment] skipping execute for ${subjectKey}: task ${task.id} missing ownerCatId or userId`,
+          );
+          return;
+        }
+
         const routeResult = await opts.issueCommentRouter.route(
           {
             repoFullName: signal.repoFullName,
@@ -439,8 +451,8 @@ export function createIssueCommentTaskSpec(opts: IssueCommentTaskSpecOptions): T
           },
           {
             threadId: task.threadId,
-            catId: task.ownerCatId ?? '',
-            userId: task.userId ?? '',
+            catId: task.ownerCatId,
+            userId: task.userId,
             trackingInstructions: task.automationState?.trackingInstructions,
           },
         );
@@ -462,7 +474,7 @@ export function createIssueCommentTaskSpec(opts: IssueCommentTaskSpecOptions): T
               .trigger(
                 routeResult.threadId,
                 routeResult.catId as CatId,
-                task.userId ?? '',
+                task.userId,
                 routeResult.content,
                 routeResult.messageId,
                 undefined,
