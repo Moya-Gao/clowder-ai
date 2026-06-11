@@ -324,6 +324,17 @@ export interface AgentService {
    * cliSessionId path unchanged.
    */
   usesChainKeyResume?(): boolean;
+
+  /**
+   * F177 Phase H (KD-13) — true iff this service runs in a harness that does
+   * NOT honor the Claude Code F177-G Stop hook (e.g. CodexAgentService via
+   * `codex exec --json`, which does not dispatch ~/.codex/hooks.json — H0 spike
+   * 2026-06-11). When true, the serial route layer applies a server-side
+   * routing guard: one inline remedial invoke when the turn ends with no valid
+   * routing exit. Optional — defaults to false (Claude-family is already
+   * covered by the Stop hook).
+   */
+  needsServerRoutingGuard?(): boolean;
 }
 
 /**

@@ -388,6 +388,20 @@ export class CodexAgentService implements AgentService {
   }
 
   /**
+   * F177 Phase H (KD-13) — codex-family runs via `codex exec --json`, which does
+   * NOT dispatch ~/.codex/hooks.json Stop hooks (H0 spike 2026-06-11), so the
+   * Claude Code F177-G routing guard never fires for codex/gpt52. The serial
+   * route layer applies a server-side remedial guard instead. Covers all
+   * CodexAgentService instances (codex GPT-5.5 + gpt52 GPT-5.4).
+   *
+   * NOTE: do NOT derive this from injectsL0Natively() — codex injects L0
+   * natively yet still needs the guard, so the two capabilities are orthogonal.
+   */
+  needsServerRoutingGuard(): boolean {
+    return true;
+  }
+
+  /**
    * F203 Phase C: compile per-cat L0 → `-c developer_instructions=` argv
    * (S4-verified, 砚砚 62b9255e2 — enters the OpenAI `developer` role,
    * additive, NOT replacing Codex's base instructions; per-invocation argv,
