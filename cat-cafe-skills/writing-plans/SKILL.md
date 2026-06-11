@@ -43,6 +43,8 @@ triggers:
 
 Plan 涉及**有生命周期的状态对象**（thread 标记 / carrier / session / 持久 config / cache / 索引 / 注册表）时，「功能描述 + 幂等测试点」**不够**——那是把状态机的边留给 reviewer 逐轮补（PR #2202 实测：4 P1 + 16 P2 全是同一对象的状态转移边——crash window / restore 复活 / deleted-list 漏过滤 / 并发 race / self-heal，打了 20 轮才合入）。
 
+**Census 先行（F229 A3a 二次教训 2026-06-11）**：gate 第一步是**普查**——列出 plan 涉及的全部有生命周期对象再逐个三件套。特别注意"复用现有 API"场景下的**新消费侧状态**（轮询循环、发送闸门、到达判定器都是状态机）。漏报对象 = gate 形同虚设：F229 A3b 三对象三件套齐全，A3a 的 ConversationSendCycle 漏普查 → 云端同型 5 轮逐边补课。
+
 **三件套，缺一 = plan 不完整，不准发给实现猫：**
 
 1. **状态×事件转移表** — 含「唯一 lifecycle owner 是谁」+「旁路 API（generic restore / delete / list）禁止哪些操作」

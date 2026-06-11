@@ -61,6 +61,26 @@
 - **工具栏四钮动作**：找找看/新功能 = 展开气泡 + 预填 prompt 模板；传话 = 展开气泡 + 预填转接引导；聊聊 = 直接展开空气泡
 - 测试：A2 全量回归（投影表驱动改 surfaceState 后重跑）+ 消息往返 / 流式 / route survival 下消息流不断 / found badge 清除 / 三层转移全路径 / token 断言（零 Tailwind 原生色——grep 架构测试）/ V8 reduced-motion / V9 dark mode
 
+### A3a 补账：ConversationSendCycle 状态机（2026-06-11 R3-R7 同型 5 轮 finding 复盘——本该立项时就有，spec 作者欠的）
+
+> 我把"对话集成"写成了"接现有 API + 流式渲染"一行话，没把 **send→poll→arrive 生命周期**当 stateful 对象普查进 Gate——云端用 5 轮 finding（13:50/14:13/14:37/16:05/16:25）逐边补了这个状态机。现在反推钉死，每条 INV 对应一轮已付的学费：
+
+```
+idle → sending(POST in flight，输入闸门关) → awaiting-reply(invocation in-progress，持续 polling)
+     → reply-arrived(post-send marker 判定；streaming draft 不算到达) → idle
+失败边：sending --POST fail--> send-error(可手动重试，闸门开)
+```
+
+| INV | 内容 | 学费来源 |
+|-----|------|---------|
+| S1 | 发送即置 concierge invocation 态（球进 thinking） | R3 13:50 |
+| S2 | polling 持续到 reply-arrived，不得提前停 | R4 14:13 |
+| S3 | 回复判定用 **post-send marker**，禁止消息计数比较（stale count 假阳性） | R5 14:37 |
+| S4 | streaming draft ≠ reply-arrived，in-progress 不提前退出 | R6 16:05 (P1) |
+| S5 | sending/awaiting 期间键盘 + 按钮双闸门，in-flight 不重复发 | R7 16:25 |
+
+A3a 收尾以本表为兜底：上述五边的测试若有缺补齐；A3b/Phase C 任何触碰此循环的改动先对本表。
+
 ### PR-A3b 交互卡 + relay（依赖 A3a）
 - 前端：CardBlock 注册 `concierge_teleport`（确认后跳 + 收面板，A2 INV-7）/ `concierge_peek`（卡内 inline 展开 anchor 前后窗口，`get_thread_context` before/after；边界：thread 首尾）/ `concierge_relay` / `concierge_go`；ConciergePeekCard 组件
 - 后端：`POST /api/concierge/relay`（§1a/1c 全部 INV）+ confirmation 状态 store（`domains/concierge/` 内新文件，三件套模式同 ConfigStore）
