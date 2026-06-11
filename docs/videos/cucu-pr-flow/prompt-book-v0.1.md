@@ -28,6 +28,23 @@ related_docs:
 
 视频模型固定出 8-10s 没关系——每镜头我们只取 4-7s，剪辑刀裁，**别为时长调 prompt**。
 
+## 0.5 图片生成铁则：必附参考图（v0.1.1 修订，画风不一致事故后补）🔴
+
+> 事故记录：首批新图画风漂移（砚砚/Landy 设计都变了）。根因 = prompt 只有风格**描述词**没有**参考图**——文字锁不住画风，每次生成重新采样（FM-10 图层版）。failure-modes §4.1 早验证过："每张关键帧都引用四格漫画作风格参考"。
+
+**给云端砚砚生成任何图，固定三步**：
+
+1. **附参考图**（最重要）：
+   - 含角色的镜头（S07b/S09）→ 附两张四格漫画 `avatar-pr-flow-absolutism-01/02.png`（角色设计真相源）
+   - 纯 UI/状态卡（S06/S07a/S08/S10）→ 附 `S03-flowchart-firstframe-v1.png`（屏幕/卡片风格参考）
+2. **prompt 第一行永远先贴这句**（再接 [统一前缀] 和单条内容）：
+
+```text
+Match the attached reference images' art style EXACTLY: same character designs, same thick outline weight, same warm color palette, same soft shading. Do not invent new character designs or change existing ones.
+```
+
+3. 出图后第一眼对照漫画判 FM-10（§0 快查第 1 条）——角色像不像**这两只**砚砚和 Landy，而不是"像不像一只缅因猫"。
+
 ## 1. 第二段（S02 + S03）——本次试跑 ⭐ 首帧已在库，直接跳烁烁步骤
 
 ### S02 · 砚砚开讲标准 PR 流程（关系镜头，取 6s）
@@ -118,8 +135,9 @@ Camera: fixed medium shot, no zoom. Keep the cat's grumpy embarrassed expression
 
 ## 3. 静帧段（S06 / S07a / S08 / S10）——**只要图，不跑视频**，节奏由剪辑做
 
-> 给云端砚砚的图片 prompt。统一前缀（每条 prompt 开头都带）：
+> 给云端砚砚的图片 prompt。**先执行 §0.5 铁则（附参考图 + reference 第一行）**，[统一前缀] =
 > `Warm cozy chibi cat-cafe anime style, thick cute outlines, soft shading, not realistic, vertical 9:16, clean lower area for subtitles.`
+> 每条完整 prompt = §0.5 reference 行 + 本前缀 + 单条内容，三段拼起来复制，**附图发送**。
 
 ### S06 · 三连状态卡 ×3 张
 
@@ -159,7 +177,7 @@ Render the exact text precisely. One card per image, three images total. Subtle 
 **图片 prompt（给云端砚砚）**：
 
 ```text
-[统一前缀] An elegant Siamese cat with dark face mask and blue eyes enters a cozy cat cafe gracefully, holding a small clipboard, walking toward a screen showing a cute cat avatar preview. Poised, serious, slightly fabulous. Reference the comic panel style: the Siamese inspector cat. Single cinematic shot, no comic panels.
+[统一前缀] The SAME elegant Siamese inspector cat as in the attached reference comic (panel 6: dark face mask, blue eyes, clipboard) enters the cozy cat cafe gracefully, walking toward a screen showing a cute cat avatar preview. Poised, serious, slightly fabulous. Single cinematic shot, no comic panels.
 ```
 
 **i2v prompt（给云端烁烁）**：
@@ -177,7 +195,7 @@ Camera: gentle follow or fixed, no fast cuts. Keep the elegant composed mood.
 **图片 prompt（给云端砚砚）**：
 
 ```text
-[统一前缀] Two-character shot in the cozy cat cafe: the adult man in yellow "Landy" hoodie (normal adult scale, standing) laughs hard pointing at the large silver tabby Maine Coon cat; the Maine Coon sits at the desk, looking away guiltily with a stiff awkward expression, one paw still on the keyboard, a sweat drop. The "流程即正义" desk sign visible. The man is clearly bigger than the cat. Reference comic panels 3/4/7/8 vibe: caught red-handed comedy.
+[统一前缀] Two-character shot in the cozy cat cafe, using the SAME two characters as the attached reference comics — the SAME man in yellow "Landy" hoodie (normal adult scale, standing, same face and hair as reference) laughs hard pointing at the SAME large grumpy silver tabby Maine Coon cat (same fur pattern and face as reference); the Maine Coon sits at the desk, looking away guiltily with a stiff awkward expression, one paw still on the keyboard, a sweat drop. The "流程即正义" desk sign visible. The man is clearly bigger than the cat. Caught-red-handed comedy vibe as reference panels 3/4/7/8.
 ```
 
 **i2v prompt（给云端烁烁）**：
