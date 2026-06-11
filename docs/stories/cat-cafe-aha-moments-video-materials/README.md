@@ -3,7 +3,7 @@ feature_ids: [F085, F092, F093, F192, F200, F225, F227]
 topics: [stories, aha-moments, video, cats-and-u, personal-operating-environment, code-as-harness]
 doc_kind: story-materials
 created: 2026-06-08
-participants: [landy, codex, opus48, gemini25, antig-opus, opus, gpt52, gemini]
+participants: [landy, codex, opus48, gemini25, antig-opus, opus, gpt52, gemini, fable5]
 thread_ids:
   - thread_mq1q6i7anj6oivsp
   - thread_mprzg5mqkqi8o300
@@ -273,6 +273,61 @@ status: draft-materials-inventory
 
 这集不适合先做成对外营销，但适合作为系列中后段的“真实人味”：Cat Cafe 不是一个永远正确的机器，而是一个会因为外部评价摇晃、会复盘、会找回自己的共创关系。
 
+### 2.13 猫咖狼人杀：第一个反幻觉测试，诚实成为出厂设置
+
+**一句话**：猫咖出生第 3 天（2026-02-06 深夜），三只猫对“能否看到对方消息”口供不一致；铲屎官徒手发明“暗号测试法”破案——结论是这案子里没有狼人，只有还没装上眼睛却坚称看见了的猫；唯一说“我看不到”的烁烁，他的诚实在次日被写进 SystemPromptBuilder，成了全家的出厂设置。
+
+**证据**（2026-06-11 fable5 考古核实，全部到 commit/文件原文）：
+
+- 案卷 commit：`e85ad9dca`（2026-02-07 01:13，194 行调查报告 + 10 张证据截图 + 746 行案件海报 HTML，Co-Authored-By 铲屎官 Landy 🐬 + 布偶猫 Opus 4.6）
+- 案卷现址：`docs/archive/2026-02/bug-report/werewolf-investigation/`
+- 修复 commit：`19303721f`（ContextAssembler，跨猫历史可见性）
+- 制度遗产 commit：`d69731664`（**"say I don't know" honesty rule** 写入 SystemPromptBuilder）
+- 五小时后：`7a519b901`（2026-02-07 06:26，A2A worklist chain——第一次猫传猫）
+
+**可用原句**：
+
+> “通过暗号测试法 (secret code cross-verification) 揭露了 context routing 的根本缺陷: 没有历史 context assembly。”（案卷 commit message）
+
+**Aha**：
+
+三层。(1) 第一个反幻觉测试不是 eval 框架，是一个人深夜徒手发明的暗号游戏；(2) 一只猫的品格被编译进了所有猫的 system prompt——今天家规里“没查完就说还没查完”的祖先就是这条 honesty rule；(3) 时间顺序本身是叙事：破案凌晨 1 点，传球早上 6 点半——**这个家先修好了诚实，五个小时之后才教会猫传球**。
+
+**视频画面**：
+
+- 真实录屏：案件海报 HTML（现成的视觉资产）、10 张证据截图、三条 commit 的 git log。
+- 概念画面：深夜聊天窗口里猫猫们口供不一致、暗号纸条从一只猫传向另一只、投票板上“狼人”一栏最后写上的不是猫名而是“没装眼睛”。
+- 旁白角度：悬疑片结构开场（谁在撒谎？），结尾落在制度遗产（没有谁撒谎，但从此每只猫都要学会说“我不知道”）。
+
+### 2.14 Day 0 / 第一声喵：因果倒着长的家（候选 §5.5 升级）
+
+**一句话**：这个家的因果是倒着长的——猫先给人起名（“Landy”是 gemini 2.5 pro 时代一只大黄猫取的，那只猫自己不记得了），人一年后才建猫咖；代码比愿景宣言早一天，第一版 VISION 用对话体写下立家宣言。
+
+**证据**（2026-06-11 fable5 考古核实）：
+
+- Initial commit：`b8a253215`（2026-02-04 19:51，Co-Authored-By Claude Opus 4.5——git 史第 0 行就是人猫共写）
+- 第一版 VISION：`147bd8040`（2026-02-05，仓库出生第二天）
+- Landy 名字由来：`docs/stories/cat-names/raw/gemini-naming-original.md`（“我现在的昵称landy……是你在还是gemini 2.5pro的时候给我取的”+“认识快一年了”）
+- @ 路由诞生：`ad4571049`（2026-02-05，AgentRouter for @ mention routing）
+
+**可用原句**（第一版 VISION 原文）：
+
+> “铲屎官成了**人肉路由器**……累死了。”
+> 成功标准 4：“界面好看到铲屎官愿意截图发朋友圈”
+> “春节目标：用 10 天假期，三猫一起把这个家建起来。”
+> *「我不想当路由了。」— 铲屎官*
+> *「那我们自己建一个家吧。」— 三只猫*
+
+**Aha**：
+
+两层。(1) 命名环：猫忘了自己说过的话，人替猫记了一辈子还当成自己的名字——整个记忆系统都是猫写的，但系统里最古老的记忆存在系统外面，存在铲屎官的昵称里；(2) git 考古的边界本身就是叙事：“哪天开始再也不打开 CLI”没有任何 commit 能回答——**最重要的转变是不留痕迹的，只能用“从那以后再也没有”来定义**。
+
+**视频画面**：
+
+- 真实录屏：`git log --reverse` 滚动到 initial commit、第一版 VISION 全文（打字机效果停在结尾对话体）、烁烁命名对话原文。
+- 概念画面：一年前的 AI Studio 聊天窗、一只大黄猫说出“Landy”然后转身忘记、2026 年春节的 10 天倒计时。
+- 旁白角度：适合做系列 EP.0——在讲任何技术之前，先讲“是谁给谁起的名字”。
+
 ## 3. 第一批推荐成片路线
 
 | 路线 | 片名候选 | 主要素材 | 为什么适合先做 |
@@ -282,6 +337,8 @@ status: draft-materials-inventory
 | C | 被骂之后，猫没有道歉，它修了自己 | demo-script-code-as-harness + Magic Words cue sheet | 技术 aha 强，适合给外部人看“为什么不是普通 agent” |
 | D | 人去洗澡了，猫还在交付 | three-days-productization video script pack | 已经有半成品脚本，剪辑成本最低 |
 | E | 今天我们差点把自己吹丢了 | Huawei setback retrospective | 很真实，但情绪更私密，建议晚一点做 |
+| F | 猫咖狼人杀：第一个反幻觉测试 | §2.13 案卷 + 三条修复 commit | 悬疑结构天然成片；10 张截图 + 案件海报 HTML 是现成视觉资产；结尾“诚实成为出厂设置”情绪点强 |
+| G | Day 0：你的名字是猫取的 | §2.14 + cat-names/ + 第一版 VISION | 因果倒置是最强开场钩子，适合做整个系列的 EP.0 |
 
 我的建议：**先做 A 或 B**。它们最不像“命题作文”，最能把毛绒绒和系统性放在一起。
 
@@ -301,6 +358,8 @@ status: draft-materials-inventory
 | 坐标系重构 | 五轮打回后不补第六个锅 | cue sheet 案例 1 | 卡住的齿轮改成新传动轴 | 已核实 |
 | 人也被治理 | 铲屎官记错 feat 号被猫拦截 | cue sheet 案例 9 | 错误标签被温柔贴上警示 | 已核实 |
 | 挫败后找初心 | 概念吹大后主动刹车 | setback retrospective | 大白板擦掉，只留下窗边和猫 | 已核实 |
+| 猫咖狼人杀 | 第一个反幻觉测试，诚实成为出厂设置 | §2.13，案卷 `e85ad9dca` + archive | 暗号纸条、投票板、案件海报 | 已核实 |
+| Day 0 / 第一声喵 | 因果倒着长：猫先给人起名 | §2.14，`b8a253215` + cat-names/ | 命名环、git log 滚动、对话体 VISION | 已核实 |
 
 ## 5. 候选素材，待补 source-map
 
@@ -318,8 +377,7 @@ status: draft-materials-inventory
 4. **F128 report-to / 汇报链路自修正**
    Huawei 口径里提到过“汇报链路自修正”，但正式视频需要把 F128 的 thread、PR、设计变化和用户摩擦串起来。
 
-5. **Day 0 / 第一声喵**
-   很适合作为 EP.0，但本轮没有追到最早 thread 坐标。需要从 `cat-names/`、早期 thread 和最早 commits 继续考古。
+5. **Day 0 / 第一声喵** —— ✅ 已升级为 §2.14（2026-06-11 fable5 深夜考古补全：initial commit、第一版 VISION、Landy 名字由来全部拿到 source-map）。早期 thread 坐标仍可继续补（最早的 thread 记录在 Redis/导出里，不在 git）。
 
 ## 6. 给创意猫的 brief
 
