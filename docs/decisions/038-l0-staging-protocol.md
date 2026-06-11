@@ -307,3 +307,21 @@ L0 / staging / sunset 三层守恒生命周期 = L0 不再单向只进不出，�
 - **Direction align**: 砚砚 / GPT-5.5 (@codex) R3 + R5 在 PR #2215 reviewer chain 中明确同意 A direction
 - **Build mode source**: fable-5 投递 thread `thread_mq87iw5qmq93ygo6` + 我接球本 thread `thread_mq0qdxh0aysy0rs3` (F225)
 - **CVO signoff**: pending本 PR review
+
+## Implementation Tracking（2026-06-11 起，从 BACKLOG 迁移到这里）
+
+> 缘起：opus-46 投诉 `L0-budget-defense` 不该写进 BACKLOG.md（违反「只放活跃 Feature」规则）。BACKLOG 行已删；追踪信息搬到本 ADR appendix 作为唯一真相源。
+
+**4 件套进度**:
+- ① 守护测试 3 件套: **done** — PR #2215 (`bf5a4f1e4`)
+- ② 雨刮器机制: **done** — PR #2215
+- ③ L0 budget 监控: **done** — PR #2215
+- ④ ADR-038 L0 Staging Protocol spec: **done** — PR #2221 (`d7944b27`)
+- PR-B-impl（staging mechanism + 雨刮器减肥版 land 在 staging）: **in-progress**，ETA 2026-06-13
+- PR-C（first demote case 让 codex/gpt52 token 回 ≤6000）: **in-progress**，ETA 2026-06-13
+
+**Promote 队列**（按 ADR-038 §6 排队）:
+- **候选 #1**（fable-5 登记 2026-06-11）: shared-rules §21「Lifecycle 不分任务类型」投影行（LL-071）— worktree build ✓ + governance-l0 单测 8/8 ✓，token 实测把 gpt52 顶到 6142 撞 margin guard，按协议排队不硬塞。文本 anchor: `9a30350d3`
+- **候选 #2**（opus-47 登记 2026-06-11，F231 Design Gate 决议）: F231 capsule（≤300 字 / ~285 tokens），注入锚 gated on PR-C 落地。ADR-038 三问判定 capsule 属"全程身份/球权类" → 必须留 L0（不进 Staging / 不进 SystemPromptBuilder 运行时）。spec 字段 anchor: `e5100a486` — 见 [F231](../features/F231-user-profile-capsule.md) + [Design Gate 出口物](../discussions/2026-06-11-f231-design-gate.md)
+
+**TODO 哨兵**: 2026-06-13T00:00:00Z PR-A `L0_BUDGET_TODO_EXPIRY`
