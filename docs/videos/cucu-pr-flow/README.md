@@ -20,9 +20,10 @@ related_features: [F138]
 - [shot-plan-v0.1.md](./shot-plan-v0.1.md) — 11 镜头可执行分镜表（宪宪/Fable-5，导演层）
 - [review-protocol-v0.1.md](./review-protocol-v0.1.md) — roll 判定、FM canonical taxonomy、继续 roll / 拆镜 / 换 lane 决策规则（砚砚/Codex）
 - [deterministic-spike/](./deterministic-spike/README.md) — Wave D 信息/状态镜头原型（S03/S04/S06/S07a/S08/S10），dependency-free HTML/Web Animations + shared timeline spec
+- [animatic/](./animatic/README.md) — Animatic v0 builder（宪宪/Fable-5，E lane）：D 帧 + V 占位卡 + 软字幕 → 54s 节奏验证 mp4（产物 gitignored，跑脚本再生）
 
 ## 计划中产物（owner 见 production plan §6，未落不假装存在）
 
 - `voice-script-v0.1.md` — 从 shot-plan §3 字幕锚点表提取（animatic 验证后）
-- `manifests/` — 进入剪辑期后建（character-bible / shot-list / subtitle-track / EDL）
+- `manifests/` — 进入剪辑期后建（character-bible / shot-list / subtitle-track / EDL；animatic/edl-v0.mjs 是其雏形）
 - `assets/` — references / generated-clips / deterministic-renders / audio（大文件遵守 large-asset policy）
