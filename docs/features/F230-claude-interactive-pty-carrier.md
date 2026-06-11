@@ -277,7 +277,7 @@ in_context_observability:
 
 ## 6/15 判罚日 Runbook（B-min 版）
 
-**前置**：pin 哨兵每日确认 `~/.local/share/claude/versions/2.1.170` 存活（scheduled task，至 6/16）。
+**前置**：① pin 确认 `~/.local/share/claude/versions/2.1.170` 存活；② **proxy 客户端开着**（`nc -z 127.0.0.1 7897`）——试驾 #2 实证（2026-06-11 14:09）：proxy 没开 → claude 在 pane 里 ECONNRESET 重试 ~3min 才透传错误，UI 表现为"执行中"长卡。此为机器级依赖（-p/bg 同样会挂），非 F230 特有，但 interactive 错误形态是慢卡不是秒错，列入前置自查。
 
 1. **判罚观察**（6/15，47 + CVO）：Anthropic dashboard usage 页看 `--bg` invocations 计入订阅桶还是 SDK credit 桶（F198 AC-E4 / OQ-13 唯一 conclusive 证据）。
 2. **bg 安全（判进订阅桶）** → 什么都不做。B-full/C/D 维持 standby；interactive_pty 留在 factory 后零流量。
