@@ -2,7 +2,7 @@
 cell_id: identity-session
 title: Identity / Session
 summary: Agent identity、connector session binding、bubble identity、runtime session binding、user profile 五个 subcell 的边界。
-canonical_features: [F032, F088, F183, F211]
+canonical_features: [F032, F088, F183, F211, F231]
 code_anchors:
   - cat-config.json
   - packages/api/src/config/cat-config-loader.ts
@@ -23,8 +23,6 @@ code_anchors:
   - packages/mcp-server/src/tools/external-runtime-session-tools.ts
   - packages/api/src/domains/cats/services/agents/providers/antigravity/AntigravityBridge.ts
   - packages/api/src/domains/cats/services/agents/providers/antigravity/antigravity-runtime-session-import.ts
-  - private/profile/
-  - .cat-cafe/cat-catalog.json
 doc_anchors:
   - docs/features/F032-agent-plugin-architecture.md
   - docs/features/F088-multi-platform-chat-gateway.md
@@ -54,7 +52,7 @@ This is a top-level routing cell with five subcells. It exists to prevent identi
 - `identity-connector`: F088 owns connector principal link and external chat/thread binding.
 - `identity-bubble`: F183 / ADR-033 own frontend bubble identity within a thread.
 - `identity-runtime-session`: F211 owns runtime session identity and binding for long-lived or external runtimes: cascade/conversation IDs, SessionChainStore bridge records, lifecycle registration, hidden external-runtime anchor threads, seal reason, and per-session identity history.
-- `identity-user-profile`: F231 owns per-user profile capsule, relationship primer, and the breed/instance/user/relationship layering of persona data (breed = tracked/shared; instance/user/relationship = per-user private). Prompt injection anchor pending Design Gate (OQ-1).
+- `identity-user-profile`: F231 owns per-user profile capsule, relationship primer, and the breed/instance/user/relationship layering of persona data (breed = tracked/shared; instance/user/relationship = per-user private). Private data lives at gitignored paths (`private/profile/`, `.cat-cafe/cat-catalog.json` personality) — intentionally NOT listed in `code_anchors`, which only carries tracked checker-verifiable paths; tracked fixture paths join `code_anchors` in Phase A. Prompt injection anchor pending Design Gate (OQ-1).
 
 F209's entity registry is adjacent but not canonical for agent identity. Its `entity_id` / aliases are retrievable memory anchors with provenance; they may point to cats, humans, features, or external concepts, but they do not decide roster membership, current model, role, reviewer eligibility, or who a cat is.
 

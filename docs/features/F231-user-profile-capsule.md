@@ -12,8 +12,9 @@ created: 2026-06-11
 
 ## Architecture Ownership
 
-Architecture cell: identity-session（new subcell: identity-user-profile）
-Map delta: update required — **已同步**（identity-session cell 登记 F231 cited_by + identity-user-profile subcell + `private/profile/` 数据 anchor；prompt 注入 anchor 待 Design Gate 收敛 OQ-1 后补，cell 内已标注 pending）
+Architecture cell: identity-session
+Subcell: identity-user-profile（new，F231 owns）
+Map delta: update required — **已同步**（identity-session cell 登记 F231 canonical + cited_by + identity-user-profile subcell；私有数据锚点 `private/profile/` 记录在 cell prose/scan hints，不进 code_anchors——gitignored 路径不可被 checker 验证；prompt 注入 anchor 待 Design Gate 收敛 OQ-1 后补）
 Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity 的既有边界，不新建 cell。
 
 ## Why
