@@ -84,7 +84,7 @@ F209's entity registry is adjacent but not canonical for agent identity. Its `en
 - `identity-user-profile` instance/user/relationship layers must never enter tracked shared assets (cat-template.json, public test baselines, outbound sync). Tracked tests verify the overlay mechanism via fixtures only (F231 KD-6).
 - F209 `entity_id` is not `identity-agent`. Entity aliases such as `landy` / `CVO` / `铲屎官` or `gemini` / `烁烁` are retrieval anchors, not roster truth.
 - `ConnectorThreadBindingStore` is an intentional shared touchpoint with `transport`: transport uses it for routing, while `identity-connector` uses it as the binding contract. Shared file ownership does not merge the cells.
-- Do not add a generic `IdentityStore` to cover all four. Shared vocabulary is not shared ownership.
+- Do not add a generic `IdentityStore` to cover all subcells. Shared vocabulary is not shared ownership.
 
 ## Static Scan Hints
 
