@@ -663,28 +663,40 @@ describe(
       );
     });
 
-    it('valid full UUID → resumeSessionId passed through correctly', async () => {
+    it('valid full UUID + matching .jsonl present → resumeSessionId passed through correctly', async () => {
       const validId = '11223344-aabb-ccdd-eeff-001122334455';
 
-      let capturedDriverOpts;
-      const carrier = new ClaudeInteractivePtyCarrierService({
-        driverFactory: (opts) => {
-          capturedDriverOpts = opts;
-          return new MockPtyDriver();
-        },
-        pollIntervalMs: 20,
-        terminalTimeoutMs: 100,
-      });
+      // Create a tmpDir with the matching .jsonl file so the fail-safe check passes
+      const td = await mkdtemp(join(tmpdir(), 'cat-cafe-step11-'));
+      try {
+        await writeFile(
+          join(td, `${validId}.jsonl`),
+          `${JSON.stringify({ type: 'system', subtype: 'init', sessionId: validId })}\n`,
+        );
 
-      const iter = carrier.invoke('test prompt', { sessionId: validId });
-      await iter.next().catch(() => void 0);
-      iter.return?.();
+        let capturedDriverOpts;
+        const carrier = new ClaudeInteractivePtyCarrierService({
+          transcriptDirOverride: td, // point to the dir containing the validId.jsonl
+          driverFactory: (opts) => {
+            capturedDriverOpts = opts;
+            return new MockPtyDriver();
+          },
+          pollIntervalMs: 20,
+          terminalTimeoutMs: 100,
+        });
 
-      assert.equal(
-        capturedDriverOpts?.resumeSessionId,
-        validId,
-        'valid UUID must be passed to driver as resumeSessionId',
-      );
+        const iter = carrier.invoke('test prompt', { sessionId: validId });
+        await iter.next().catch(() => void 0);
+        iter.return?.();
+
+        assert.equal(
+          capturedDriverOpts?.resumeSessionId,
+          validId,
+          'valid UUID with existing transcript must be passed to driver as resumeSessionId',
+        );
+      } finally {
+        await rm(td, { recursive: true, force: true });
+      }
     });
   },
 );
@@ -1021,3 +1033,73 @@ describe('ptyTranscriptDir: respects custom effectiveHome (F230 R8 P2)', () => {
     assert.ok(result.startsWith(homedir()), `must start with process homedir() ${homedir()}, got: ${result}`);
   });
 });
+
+// ─── Step 16: stale cross-carrier sessionId → new session fallback ────────────
+//
+// Production P1 (F230 alpha 2026-06-11): when options.sessionId is a bg/-p era
+// cliSessionId that doesn't exist in the PTY carrier's transcriptDir, the
+// carrier must NOT pass it as resumeSessionId to PtyDriver — doing so causes
+// PtyDriver to dead-wait for `<stale-id>.jsonl` which never appears (5s timeout).
+//
+// Fail-safe: if transcript file is absent → treat as fresh session (fallthrough
+// to watchForTranscriptFile path) rather than hard-erroring.
+describe(
+  'ClaudeInteractivePtyCarrierService — Step 16: stale sessionId falls back to new session',
+  { timeout: 10_000 },
+  () => {
+    let tmpDir;
+    before(async () => {
+      tmpDir = await mkdtemp(join(tmpdir(), 'cat-cafe-step16-'));
+    });
+    after(async () => {
+      await rm(tmpDir, { recursive: true, force: true });
+    });
+
+    it('ignores sessionId with no matching .jsonl in transcriptDir — starts fresh', async () => {
+      const staleId = 'a1ceef46-0000-0000-0000-000000000000';
+      let capturedResumeSessionId = 'NOT_SET';
+      const newId = '99999999-0000-0000-0000-000000000000';
+
+      const service = new ClaudeInteractivePtyCarrierService({
+        transcriptDirOverride: tmpDir, // empty dir — staleId.jsonl does NOT exist
+        driverFactory: (opts) => {
+          capturedResumeSessionId = opts.resumeSessionId;
+          return {
+            start: () => Promise.resolve(),
+            injectPrompt: async (_text, transcriptDir) => {
+              // Simulate Claude writing a fresh session transcript
+              const path = join(transcriptDir, `${newId}.jsonl`);
+              await writeFile(path, `${JSON.stringify({ type: 'system', subtype: 'turn_duration', durationMs: 1 })}\n`);
+              return { transcriptPath: path, sessionId: newId };
+            },
+            cancel: () => Promise.resolve(),
+            dispose: () => Promise.resolve(),
+          };
+        },
+        pollIntervalMs: 10,
+        terminalTimeoutMs: 500,
+      });
+
+      const msgs = [];
+      for await (const m of service.invoke('Hello', { sessionId: staleId })) {
+        msgs.push(m);
+      }
+
+      // resumeSessionId must be undefined — file absent → fail-safe triggered
+      assert.equal(
+        capturedResumeSessionId,
+        undefined,
+        'resumeSessionId must be undefined when transcript file absent (fail-safe: cross-carrier stale ID)',
+      );
+      // Invocation must complete normally
+      assert.ok(
+        msgs.some((m) => m.type === 'done'),
+        'must complete with done event',
+      );
+      // session_init must NOT carry the stale ID
+      const init = msgs.find((m) => m.type === 'session_init');
+      assert.ok(init, 'must emit session_init');
+      assert.notEqual(init.sessionId, staleId, 'session_init must use new session ID, not stale cross-carrier ID');
+    });
+  },
+);

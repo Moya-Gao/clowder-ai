@@ -174,20 +174,22 @@ export class ClaudeInteractivePtyCarrierService implements AgentService {
       }
       extraArgs.push('--mcp-config', this.mcpConfigFilePath, '--strict-mcp-config');
     }
-    // --resume (F230 E4: no fork). P1-D: full UUID regex prevents shell injection —
-    // a prefix-only check allows malformed IDs like "id-'; rm -rf /" to be shell-interpreted.
-    const resumeSessionId =
-      options?.sessionId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(options.sessionId)
-        ? options.sessionId
-        : undefined;
-
     const cwd = options?.workingDirectory ?? this.cwd;
     // P2 fix (R8): if accountEnv sets HOME, Claude runs with that HOME and writes
     // transcripts to <accountEnv.HOME>/.claude/projects/<slug>. We must derive the
     // transcript dir from the same HOME, not the API process homedir().
     const effectiveHome = options?.accountEnv?.HOME;
     const transcriptDir = this.transcriptDirOverride ?? ptyTranscriptDir(cwd, effectiveHome);
-
+    // --resume (E4 P1-D): UUID regex + existsSync guards stale cross-carrier IDs (F230 alpha P1 2026-06-11).
+    const resumeSessionId =
+      options?.sessionId &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(options.sessionId) &&
+      existsSync(join(transcriptDir, `${options.sessionId}.jsonl`))
+        ? options.sessionId
+        : undefined;
+    if (!resumeSessionId && options?.sessionId) {
+      log.info({ sessionId: options.sessionId, transcriptDir }, 'stale sessionId — fresh session');
+    }
     // `--session-id` removed (R10): flag writes ai-title only; real events go to a different UUID. PtyDriver watches via watchForTranscriptFile.
 
     // ─── Image inputs (P2-image-inputs fix, mirrors ClaudeAgentService pattern) ──
