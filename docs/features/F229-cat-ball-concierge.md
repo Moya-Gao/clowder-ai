@@ -217,6 +217,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 | 2026-06-10 | **PR-A1+A2 alpha smoke 全绿**（sonnet 执行，S1-S8 全 PASS、concierge console 0 错误；证据 `assets/F229/smoke-2026-06-10/`）。技术层 AC-A1/A6 底座就绪，待铲屎官人因验收（存在感/安静/muted 直觉/不打断感/视觉打架 5 项）后打勾。观察项：呼吸动画未实装 + 球为 🐱 emoji 占位——并入 KD-14 形象升级工作项一起做 |
 | 2026-06-10 | 铲屎官人因验收："丑的飞起"——emoji 违例 + token 未接 + 企业 SaaS 范式 → KD-15 形态修正；烁烁出视觉返工方案，宪宪验证放行（素材/token 实锚），**CVO 六题全过**；流程修正：UI PR 合入后 owner 起 alpha 请 CVO 30 秒验收 + 视觉稿前置成为 F229 UI PR 硬规则 |
 | 2026-06-10 | PR 重排（CVO"别拆太稀碎"）：**A3a = 气泡化对话集成**（对话 + V1-V9 视觉一体，避免先填旧 drawer 再搬家）→ **A3b = 交互卡+relay** → **A4 = 设置页+spike**，共 3 个 PR 收尾 Phase A |
+| 2026-06-11 | PR-A3a merged（`70a689fd`，R1-R8 含 ConversationSendCycle 同型 5 轮复盘→spec 补账+skill census）；CVO 拉闸复盘：Phase A 两天时间账 = spec 欠账（A1 状态机/视觉环节/A3a census）+ 云端排队空转；**策略调整：实现改派 opus 家族，sonnet 转 alpha 验收**；"狗皮膏药"反馈 → A3b 补球拖拽+位置持久化（BallPosition） |
 | 2026-06-10 | **Phase A PR-A1 merged** (PR #2202，squash commit e6f8b4c38)：ConciergeConfigStore + ConciergeThreadService + `/api/concierge/*` 路由 + SystemPromptBuilder 注入 + prompt injection 防护 (R15 P1) + concierge thread lifecycle (R18/R19 P2) |
 | 2026-06-10 | **Phase A PR-A2 merged** (PR #2211，squash commit 3df6f643f)：ConciergeHost（常驻根容器）+ ConciergeBall（8 态投影）+ ConciergePanel（对话窗）+ ConciergeRailToggle（ActivityBar 唤回入口）+ ConciergeStore（INV-2 纯投影架构）+ muted toggle UI (AC-A6 前端); R1-R7 cloud review cycle — 7 轮修复全清零 P1/P2 |
 | 2026-06-11 | **Phase A PR-A3a merged** (PR #2228，squash commit 70a689fd)：ConciergeToolbar（Layer 2 能力按钮：找找看/新功能/传话 + Escape 折叠）+ ConciergePanel 气泡化（Layer 3 漫画气泡 + 对话集成：发送/乐观插入/错误恢复/滚动锚点）+ useConciergeMessages（GET /api/messages 消息流 + refresh-after-send）+ R7 speech bubble tail overflow-hidden 修复（尾角不被 clip）+ R8 streaming draft filter（isDraft=true 不计入 reply detection）+ keyboard double-send guard（Enter 键 invocationStatus 守门）；R1-R8 cloud review cycle — 8 轮修复全清零 P1/P2 |
@@ -226,8 +227,9 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 | 角色 | 谁 | 说明 |
 |------|----|----|
 | Phase spec/plan | 宪宪 (Fable-5) | 每 Phase 写 spec + 实施计划（writing-plans） |
-| 实现 | sonnet | 按 plan 写代码（worktree + tdd） |
-| Review | 砚砚 (GPT-5.5) | CVO 点名（全程上下文 + 调研作者）；成本优化建议：常规/小 PR 可降 @gpt52（5.4 半价，跨族仍成立），架构关键 PR（surface host / escalation 协议）上砚砚 |
+| 实现 | **opus 家族（46 优先 / 47 / 48）** | CVO 2026-06-11 调整（msg 0001781206855531）：sonnet 单 token 便宜但 A1/A3a 的 review 轮次成本反超——总账判断改派 opus；A3b 起生效 |
+| Alpha 验收执行 | sonnet | 转岗：smoke/验收操作（A1+A2 smoke 已证明他这块又快又干净），opus 猫粮不耗在点验上 |
+| Review | 砚砚 (GPT-5.5) | CVO 点名（全程上下文 + 调研作者）；常规/小 PR 可降 @gpt52 |
 | 愿景守护 | 宪宪 (Fable-5) | PR 合入后对照铲屎官原始愿景（非 PR 作者非 reviewer，合规） |
 
 - Phase A 起: 每 PR 跨族 review + 云端 review；UX 改动过铲屎官 Design Gate

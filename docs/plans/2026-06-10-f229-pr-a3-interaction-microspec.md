@@ -85,7 +85,11 @@ A3a 收尾以本表为兜底：上述五边的测试若有缺补齐；A3b/Phase 
 - 前端：CardBlock 注册 `concierge_teleport`（确认后跳 + 收面板，A2 INV-7）/ `concierge_peek`（卡内 inline 展开 anchor 前后窗口，`get_thread_context` before/after；边界：thread 首尾）/ `concierge_relay` / `concierge_go`；ConciergePeekCard 组件
 - 后端：`POST /api/concierge/relay`（§1a/1c 全部 INV）+ confirmation 状态 store（`domains/concierge/` 内新文件，三件套模式同 ConfigStore）
 - `ConciergePromptSection.ts` 增量：卡片纪律（结构化 payload 带真实 ID + 原文快照；anchor-first 答案附 teleport/peek 双动作卡）——**改完即跑 SystemPromptBuilder 守护测试**
-- 测试：§1a-1c 全部 INV + peek 边界 + teleport 后收面板
+- **球可拖拽 + 位置持久化**（CVO 2026-06-11"狗皮膏药"反馈：球钉死右下角不能挪）——新状态对象 **BallPosition** 按 census 纪律登记：
+  - 状态：`default → dragging → settled(自动吸附回视口内) → persisted`
+  - INV-P1 拖拽与点击不冲突（drag threshold ~5px，点击仍是展开）；INV-P2 位置出视口自动吸附回最近合法位；INV-P3 持久化走 config PUT（KD-13 app 归属，per-user），写失败静默回会话内位置不丢交互；INV-P4 muted 唤回后位置保持
+  - 技术先例：react-rnd（F195/F226 已用）
+- 测试：§1a-1c 全部 INV + peek 边界 + teleport 后收面板 + BallPosition 四 INV
 
 ## 3. Not Building（A3 明确不做）
 
