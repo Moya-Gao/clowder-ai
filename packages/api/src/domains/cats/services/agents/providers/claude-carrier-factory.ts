@@ -20,6 +20,9 @@
  * - 6/08: 100% if no regression (Phase D AC-D3)
  * - 6/15: subscription policy cutover (R1 hard deadline)
  */
+import { existsSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import type { CatId } from '@cat-cafe/shared';
 import type { AgentService } from '../../types.js';
 import { ClaudeAgentService } from './ClaudeAgentService.js';
@@ -30,6 +33,28 @@ export const CARRIER_ENV_KEY = 'CAT_CAFE_CLAUDE_CARRIER';
 export const CARRIER_BG_DAEMON = 'bg_daemon';
 /** F230: opt-in value for interactive PTY carrier */
 export const CARRIER_INTERACTIVE_PTY = 'interactive_pty';
+
+/**
+ * Env var override for the claude binary used by `interactive_pty` carrier.
+ * Default: `~/.local/share/claude/versions/2.1.170`.
+ * Fail-fast if binary not found — 2.1.172+ interactive TUI no longer writes
+ * transcripts (F230 R13), so falling back to the system `claude` silently
+ * breaks AC-B1/AC-B4 capsule checks.
+ */
+export const CARRIER_PTY_BINARY_KEY = 'CAT_CAFE_CLAUDE_PTY_BINARY';
+const DEFAULT_PTY_BINARY_170 = join(homedir(), '.local', 'share', 'claude', 'versions', '2.1.170');
+
+function resolveInteractivePtyBinary(env: Record<string, string | undefined>): string {
+  const envPath = env[CARRIER_PTY_BINARY_KEY];
+  if (envPath) return envPath;
+  if (existsSync(DEFAULT_PTY_BINARY_170)) return DEFAULT_PTY_BINARY_170;
+  throw new Error(
+    `interactive_pty carrier requires claude 2.1.170 binary ` +
+      `(2.1.172+ regression: interactive TUI no longer writes transcripts). ` +
+      `Expected: ${DEFAULT_PTY_BINARY_170}. ` +
+      `Override via ${CARRIER_PTY_BINARY_KEY} env var.`,
+  );
+}
 
 /**
  * Construct the appropriate Claude carrier for a布偶猫 cat invocation.
@@ -50,7 +75,7 @@ export function createClaudeAgentServiceForCanary(
     return new ClaudeBgCarrierService({ catId });
   }
   if (carrier === CARRIER_INTERACTIVE_PTY) {
-    return new ClaudeInteractivePtyCarrierService({ catId });
+    return new ClaudeInteractivePtyCarrierService({ catId, claudeBinary: resolveInteractivePtyBinary(env) });
   }
   return new ClaudeAgentService({ catId });
 }

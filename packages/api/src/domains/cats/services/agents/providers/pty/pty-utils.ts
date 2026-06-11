@@ -3,9 +3,9 @@
  * Functions here are stateless or use tmux/fs primitives only.
  */
 import { execFile, execFileSync } from 'node:child_process';
-import { existsSync, watch } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, watch } from 'node:fs';
 import { homedir } from 'node:os';
-import { basename, dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { promisify } from 'node:util';
 import type { PtyDriverOptions } from './PtyDriver.js';
 
@@ -47,10 +47,6 @@ export function buildClaudeCommand(opts: PtyDriverOptions): string {
 
   if (opts.resumeSessionId) {
     args.push('--resume', opts.resumeSessionId);
-  } else if (opts.newSessionId) {
-    // F230 R10: pre-assign session ID so transcript path is deterministic.
-    // Claude names the transcript file <newSessionId>.jsonl in the projects dir.
-    args.push('--session-id', opts.newSessionId);
   }
   if (opts.extraArgs?.length) {
     args.push(...opts.extraArgs);
@@ -86,27 +82,69 @@ export function tmuxSync(...args: string[]): string {
 }
 
 /**
- * Wait for a specific file to appear at a known path.
+ * Take a snapshot of existing .jsonl filenames in transcriptDir.
+ * Returns an empty Set if the directory doesn't exist yet.
  *
- * Used when the transcript path is pre-determined via `--session-id` (F230 R10 fix).
- * Resolves as soon as `filePath` exists; rejects after `timeoutMs`.
- *
- * Combines fs.watch (parent directory) for fast notification with polling (200ms)
- * as a fallback for platforms where fs.watch is unreliable.
+ * Call this immediately before `send-keys Enter` so that
+ * watchForTranscriptFile can distinguish pre-existing files from newly-created ones.
  */
-export function waitForExactFile(filePath: string, timeoutMs: number): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (existsSync(filePath)) {
-      resolve();
-      return;
-    }
+export function snapshotTranscriptFiles(transcriptDir: string): Set<string> {
+  try {
+    return new Set(readdirSync(transcriptDir).filter((f) => f.endsWith('.jsonl')));
+  } catch {
+    return new Set(); // dir doesn't exist yet — fine, no files to exclude
+  }
+}
 
+/**
+ * Watch for a new .jsonl transcript file to appear in transcriptDir.
+ *
+ * Background: `claude --session-id <uuid>` writes session metadata (ai-title) to
+ * <uuid>.jsonl but routes conversation events to a DIFFERENT file with a
+ * Claude-generated UUID. PtyDriver therefore does NOT use `--session-id`, and
+ * instead detects the real transcript by watching for any new .jsonl that appears
+ * after the prompt Enter key is sent.
+ *
+ * Algorithm:
+ *   1. existingFiles — snapshot from snapshotTranscriptFiles() taken right before Enter
+ *   2. Watch for any new .jsonl that is NOT an ai-title-only metadata file
+ *   3. ai-title-only files are tracked separately; they resolve the watcher if they
+ *      grow beyond one line (i.e., conversation events are appended to the same file)
+ *   4. Resolve with the full path of the first qualifying file
+ *   5. Reject after timeoutMs
+ *
+ * Evidence (F230 R10 / R11 root-cause analysis 2026-06-11):
+ *   - With --session-id: the given UUID file = {"type":"ai-title",...} (1 line only);
+ *     real conversation → different UUID file (mode/user/assistant events)
+ *   - Without --session-id: same pattern — Claude still writes ai-title to its own
+ *     UUID file first, then routes conversation events to a different file.
+ *   - The ai-title file appears p50=0.11s after Enter; the conversation file follows.
+ *   - Skipping ai-title-only files prevents premature resolution on the metadata file.
+ *   - aiTitleOnlyFiles map also watches tracked files for growth (covers the case
+ *     where conversation events ARE appended to the same file in future Claude versions).
+ *
+ * B-min limitation: concurrent invocations sharing the same transcriptDir can race
+ * to claim the same transcript file. For B-min, callers should use unique
+ * workingDirectory values when parallel invocations are needed. Phase C will add a
+ * per-dir coordination mechanism.
+ *
+ * @param transcriptDir - directory to watch (may not exist yet)
+ * @param existingFiles - set of .jsonl basenames present before Enter was sent
+ * @param timeoutMs - max time to wait for a new file to appear
+ */
+export function watchForTranscriptFile(
+  transcriptDir: string,
+  existingFiles: Set<string>,
+  timeoutMs: number,
+): Promise<string> {
+  return new Promise((resolve, reject) => {
     let watcher: ReturnType<typeof watch> | undefined;
     let pollInterval: ReturnType<typeof setInterval>;
     let timer: ReturnType<typeof setTimeout>;
-
-    const targetName = basename(filePath);
-    const parentDir = dirname(filePath);
+    // Track ai-title-only files: Claude writes a metadata file (ai-title) first,
+    // then either appends conversation events to it or creates a separate file.
+    // We defer resolution until the file grows or a new non-ai-title file appears.
+    const aiTitleOnlyFiles = new Map<string, string>(); // basename → fullPath
 
     const cleanup = () => {
       clearInterval(pollInterval);
@@ -114,19 +152,69 @@ export function waitForExactFile(filePath: string, timeoutMs: number): Promise<v
       watcher?.close();
     };
 
-    const check = () => {
-      if (existsSync(filePath)) {
-        cleanup();
-        resolve();
+    /**
+     * Returns true iff the file contains ONLY a single {"type":"ai-title",...} line.
+     *
+     * P2 fix (cloud review): also returns true for empty or partially-written files.
+     * Claude may open the .jsonl fd before flushing the first JSON line (empty file)
+     * or the write may be mid-flight (partial JSON, JSON.parse throws). In both cases
+     * the file is NOT a real transcript yet — treat as "defer" (same as ai-title-only)
+     * so we keep watching rather than resolving immediately with a wrong path.
+     *
+     * The re-check loop in checkDir() will resolve when the file grows into a real
+     * conversation transcript (or into a complete ai-title-only file that later gets
+     * conversation events appended).
+     */
+    const isAiTitleOnly = (fullPath: string): boolean => {
+      try {
+        const content = readFileSync(fullPath, 'utf8');
+        const lines = content.split('\n').filter(Boolean);
+        if (lines.length === 0) return true; // empty file — defer, not a real transcript yet
+        if (lines.length !== 1) return false; // multiple lines — real transcript
+        const event = JSON.parse(lines[0]);
+        return event.type === 'ai-title';
+      } catch {
+        return true; // partial/unreadable — defer, not a real transcript yet
       }
     };
 
-    // Watch parent directory for the specific file to appear
+    const checkDir = () => {
+      try {
+        const files = readdirSync(transcriptDir).filter((f) => f.endsWith('.jsonl'));
+
+        // Re-check previously-skipped ai-title-only files: if Claude appended
+        // conversation events to the same file, it now has more than one line.
+        for (const [, fullPath] of aiTitleOnlyFiles) {
+          if (!isAiTitleOnly(fullPath)) {
+            cleanup();
+            resolve(fullPath);
+            return;
+          }
+        }
+
+        // Check for newly created files not yet seen
+        for (const file of files) {
+          if (existingFiles.has(file) || aiTitleOnlyFiles.has(file)) continue;
+          const fullPath = join(transcriptDir, file);
+          if (isAiTitleOnly(fullPath)) {
+            // Metadata-only file — defer: track for growth and keep watching
+            aiTitleOnlyFiles.set(file, fullPath);
+          } else {
+            // Real conversation transcript (has non-ai-title content or is unreadable)
+            cleanup();
+            resolve(fullPath);
+            return;
+          }
+        }
+      } catch {
+        // dir doesn't exist yet — polling will retry
+      }
+    };
+
+    // fs.watch on the directory (fast notification)
     try {
-      if (existsSync(parentDir)) {
-        watcher = watch(parentDir, { persistent: false }, (_event, filename) => {
-          if (filename === targetName) check();
-        });
+      if (existsSync(transcriptDir)) {
+        watcher = watch(transcriptDir, { persistent: false }, () => checkDir());
         watcher.on('error', () => {
           // ignore watch errors — polling covers it
         });
@@ -135,13 +223,16 @@ export function waitForExactFile(filePath: string, timeoutMs: number): Promise<v
       // fs.watch may fail on some platforms — polling covers it
     }
 
-    // Polling fallback every 200ms (covers dirs that don't exist yet)
-    pollInterval = setInterval(check, 200);
+    // Polling fallback every 200ms (covers the case where the dir doesn't exist yet)
+    pollInterval = setInterval(checkDir, 200);
 
     timer = setTimeout(() => {
       cleanup();
-      reject(new Error(`PtyDriver: transcript file not found within ${timeoutMs}ms: ${filePath}`));
+      reject(new Error(`PtyDriver: no new transcript file appeared within ${timeoutMs}ms in ${transcriptDir}`));
     }, timeoutMs);
+
+    // Initial check in case a file already appeared before we set up the watcher
+    checkDir();
   });
 }
 
@@ -176,6 +267,14 @@ export function isBypassConfirmationScreen(paneContent: string): boolean {
 /**
  * Compute the Claude transcript directory for a given cwd.
  *
+ * Claude writes conversation transcripts to `~/.claude/projects/<slug>/`
+ * where the slug is derived directly from the process cwd by replacing
+ * path separators with `-`.
+ *
+ * F230 diagnostic (2026-06-11): confirmed that Claude uses the ACTUAL CWD slug,
+ * not the git-common-dir parent. An earlier hypothesis (resolveGitProjectDir)
+ * was incorrect — conversation events appear in the cwd-derived directory.
+ *
  * @param effectiveHome — the HOME used by the child Claude process. Pass
  *   `options.accountEnv.HOME` when it is set so that account-isolated
  *   invocations (which run Claude with a different HOME via tmux -e HOME=...)
@@ -189,4 +288,49 @@ export function ptyTranscriptDir(cwd: string, effectiveHome?: string): string {
 
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Serialize concurrent `injectPrompt` calls on the same transcript directory.
+ *
+ * `watchForTranscriptFile` claims the first new `.jsonl` that appears after Enter.
+ * Two concurrent invocations watching the same directory would race — each could
+ * claim the other's file, producing wrong session IDs and lost responses.
+ *
+ * This queue serializes access: the second caller AWAITS the first's release before
+ * proceeding with any tmux operations. Both callers complete in order; the second
+ * does not paste or send Enter until the first has identified its transcript.
+ *
+ * Trade-off: same-cwd parallel PTY invocations run sequentially
+ * (wall-clock ≈ A + B) instead of concurrently (max(A, B)).
+ * For true parallel performance, use unique `workingDirectory` values per invocation.
+ *
+ * Call before the first `await tmux(...)` in `injectPrompt`. Returns a release
+ * function to call in a `finally` block.
+ */
+const _watchDirQueue = new Map<string, Promise<void>>();
+
+export async function acquireTranscriptDirWatch(dir: string): Promise<() => void> {
+  const prev = _watchDirQueue.get(dir) ?? Promise.resolve();
+
+  let release!: () => void;
+  const slot = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+
+  // Chain: after `prev` resolves, block until `slot` resolves (this invocation's turn ends)
+  const tail = prev.then(() => slot);
+  _watchDirQueue.set(dir, tail);
+
+  // Wait for all prior holders to finish
+  await prev;
+
+  // This invocation now holds the dir; return a release function
+  return () => {
+    release();
+    // Remove the map entry when no new waiter has chained onto us (tail is still current)
+    if (_watchDirQueue.get(dir) === tail) {
+      _watchDirQueue.delete(dir);
+    }
+  };
 }

@@ -22,6 +22,7 @@ import {
   ClaudeInteractivePtyCarrierService,
   ptyTranscriptDir,
 } from '../dist/domains/cats/services/agents/providers/ClaudeInteractivePtyCarrierService.js';
+import { acquireTranscriptDirWatch } from '../dist/domains/cats/services/agents/providers/pty/pty-utils.js';
 
 // Set env so getCatModel('opus') resolves without registry (test-env has no cat-catalog)
 process.env.CAT_OPUS_MODEL = 'claude-opus-4-8';
@@ -883,28 +884,28 @@ describe(
   },
 );
 
-// ─── Step 15: concurrent invoke() on same transcriptDir use unique session IDs ──
+// ─── Step 15: concurrent invoke() on same transcriptDir — queue serialization ───
 //
-// R10 fix (F230, 砚砚 first-principles audit 2026-06-10):
-// `--session-id <uuid>` makes the transcript path deterministic per invocation.
-// ClaudeInteractivePtyCarrierService generates a fresh randomUUID() for each new
-// (non-resume) session and passes it as PtyDriverOptions.newSessionId.
-// PtyDriver adds `--session-id <newSessionId>` to the claude command, so the
-// transcript lands at `${transcriptDir}/${newSessionId}.jsonl` — known before
-// claude even runs.
+// F230 R10 / R11 root-cause context:
+//   `--session-id <uuid>` does NOT route conversation events to the given UUID.
+//   The flag writes ONLY the ai-title metadata file to that UUID; real conversation
+//   events go to a DIFFERENT file with Claude's own generated UUID.
+//   PtyDriver therefore uses watchForTranscriptFile (heuristic, not deterministic).
 //
-// With deterministic paths, concurrent same-cwd invocations (route-parallel.ts
-// Promise.all) each operate on a unique file — no directory-scan race, no
-// cross-claim, no serialization mutex needed.
+// With watchForTranscriptFile, two concurrent watchers on the same transcriptDir would
+// race and each could claim the other's .jsonl — silent wrong session IDs and lost
+// responses. acquireTranscriptDirWatch serializes access via an async queue: the SECOND
+// caller AWAITS the first's release, then proceeds independently with a fresh watch.
+// Both invocations complete successfully with their own session IDs.
 //
-// RED (before fix): carrier had no newSessionId — driver used watchForTranscriptFile
-//   heuristic. Two concurrent invocations racing to claim the first new .jsonl would
-//   both resolve to the same file.
-// GREEN (after fix): each invocation gets its own UUID → its own transcript file.
-//   Both run fully concurrently — no ordering dependency.
+// Cloud P1 fix: changed from fail-fast Set (second got error+done) to async queue
+// (second waits, then runs — both callers complete).
+//
+// This test covers the production path: the mock's injectPrompt calls
+// acquireTranscriptDirWatch just like real PtyDriver does.
 
 describe(
-  'ClaudeInteractivePtyCarrierService — Step 15: concurrent invoke() use unique deterministic session IDs (R10 fix)',
+  'ClaudeInteractivePtyCarrierService — Step 15: concurrent invoke() same-dir — queue serialization',
   { timeout: 10_000 },
   () => {
     let tmpDir;
@@ -915,27 +916,33 @@ describe(
       await rm(tmpDir, { recursive: true, force: true });
     });
 
-    it('two concurrent invoke() on same transcriptDir each get a unique newSessionId in driver opts', async () => {
-      const capturedSessionIds = [];
-      const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-      // driverFactory receives PtyDriverOptions including newSessionId.
-      // The mock writes the terminal transcript at the deterministic path
-      // so the carrier's poll loop exits cleanly.
+    it('two concurrent invoke() on same dir both complete — second waits, then gets its own session', async () => {
+      // Mock simulates the REAL PtyDriver: acquires the queue slot before any async I/O.
+      // The async writeFile holds the slot while the concurrent caller waits at
+      // `await acquireTranscriptDirWatch`. Both complete sequentially.
+      let counter = 0;
       const service = new ClaudeInteractivePtyCarrierService({
         transcriptDirOverride: tmpDir,
-        driverFactory: (opts) => ({
+        driverFactory: () => ({
           start: () => Promise.resolve(),
           injectPrompt: async (_text, transcriptDir) => {
-            const sessionId = opts.newSessionId;
-            capturedSessionIds.push(sessionId);
-            const path = join(transcriptDir, `${sessionId}.jsonl`);
-            await writeFile(
-              path,
-              `${JSON.stringify({ type: 'system', subtype: 'turn_duration', durationMs: 1 })}\n`,
-              'utf8',
-            );
-            return { transcriptPath: path, sessionId };
+            // ← Real PtyDriver awaits the queue here, before any async ops.
+            //   Second concurrent caller waits at this line until first releases.
+            const releaseDir = await acquireTranscriptDirWatch(transcriptDir);
+            try {
+              const idx = ++counter;
+              const sessionId = `00000000-0000-0000-0000-${String(idx).padStart(12, '0')}`;
+              const path = join(transcriptDir, `${sessionId}.jsonl`);
+              // writeFile holds the queue slot while concurrent caller waits
+              await writeFile(
+                path,
+                `${JSON.stringify({ type: 'system', subtype: 'turn_duration', durationMs: 1 })}\n`,
+                'utf8',
+              );
+              return { transcriptPath: path, sessionId };
+            } finally {
+              releaseDir();
+            }
           },
           cancel: () => Promise.resolve(),
           dispose: () => Promise.resolve(),
@@ -950,22 +957,30 @@ describe(
         return msgs;
       };
 
-      // Simulate route-parallel.ts Promise.all with two concurrent PTY invocations
-      await Promise.all([drain(service.invoke('Hello from A')), drain(service.invoke('Hello from B'))]);
+      // Both invocations run concurrently. The queue serializes same-dir access:
+      // one runs first, releases, then the other runs independently.
+      const [msgsA, msgsB] = await Promise.all([
+        drain(service.invoke('Hello from A')),
+        drain(service.invoke('Hello from B')),
+      ]);
 
-      // Both invocations must have received a session ID
-      assert.strictEqual(capturedSessionIds.length, 2, 'both invocations must call injectPrompt');
+      // Both must complete without error
+      const errA = msgsA.filter((m) => m.type === 'error');
+      const errB = msgsB.filter((m) => m.type === 'error');
+      assert.ok(errA.length === 0, `invoke A must not error; got: ${JSON.stringify(errA)}`);
+      assert.ok(errB.length === 0, `invoke B must not error; got: ${JSON.stringify(errB)}`);
 
-      // Each ID must be a valid UUID
-      assert.ok(uuidRe.test(capturedSessionIds[0]), `ID[0] must be a UUID; got: ${capturedSessionIds[0]}`);
-      assert.ok(uuidRe.test(capturedSessionIds[1]), `ID[1] must be a UUID; got: ${capturedSessionIds[1]}`);
+      // Both must reach done
+      assert.ok(msgsA.some((m) => m.type === 'done'), 'invoke A must produce a done event');
+      assert.ok(msgsB.some((m) => m.type === 'done'), 'invoke B must produce a done event');
 
-      // Each invocation must use a DIFFERENT UUID (no cross-claim possible)
-      assert.notStrictEqual(
-        capturedSessionIds[0],
-        capturedSessionIds[1],
-        `concurrent invocations must use distinct session IDs — got: ${JSON.stringify(capturedSessionIds)}`,
-      );
+      // Each must use a unique session_init sessionId (no cross-claim)
+      const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const initA = msgsA.find((m) => m.type === 'session_init');
+      const initB = msgsB.find((m) => m.type === 'session_init');
+      assert.ok(initA && uuidRe.test(initA.sessionId), `A must have a UUID sessionId; got: ${initA?.sessionId}`);
+      assert.ok(initB && uuidRe.test(initB.sessionId), `B must have a UUID sessionId; got: ${initB?.sessionId}`);
+      assert.notStrictEqual(initA.sessionId, initB.sessionId, 'A and B must use different session IDs (no cross-claim)');
     });
   },
 );

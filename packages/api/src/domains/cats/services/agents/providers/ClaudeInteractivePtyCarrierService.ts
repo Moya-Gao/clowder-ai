@@ -20,7 +20,6 @@
  * deferred to a later phase) to stay minimal and avoid dependency on
  * compileL0ViaSubprocess machinery.
  */
-import { randomUUID } from 'node:crypto';
 import { existsSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { isAbsolute, join, resolve } from 'node:path';
@@ -69,6 +68,8 @@ export interface ClaudeInteractivePtyCarrierServiceOptions {
    * Mirrors ClaudeBgCarrierService.mcpServerPath for AC-B3 parity.
    */
   mcpServerPath?: string;
+  /** claude binary path override; default: 'claude'. 2.1.172 breaks transcript writes — use 2.1.170 for AC-B1/B4. */
+  claudeBinary?: string;
 }
 
 /**
@@ -86,6 +87,7 @@ export class ClaudeInteractivePtyCarrierService implements AgentService {
   private readonly driverFactory: (opts: PtyDriverOptions) => PtyDriver;
   private readonly transcriptDirOverride: string | undefined;
   private readonly mcpServerPath: string | undefined;
+  private readonly claudeBinary: string | undefined;
   /** Cached MCP config file path (created once per instance, reused across invocations). */
   private mcpConfigFilePath: string | undefined;
 
@@ -105,6 +107,8 @@ export class ClaudeInteractivePtyCarrierService implements AgentService {
     } else {
       this.mcpServerPath = resolveDefaultClaudeMcpServerPath();
     }
+
+    this.claudeBinary = options?.claudeBinary;
   }
 
   /**
@@ -184,15 +188,7 @@ export class ClaudeInteractivePtyCarrierService implements AgentService {
     const effectiveHome = options?.accountEnv?.HOME;
     const transcriptDir = this.transcriptDirOverride ?? ptyTranscriptDir(cwd, effectiveHome);
 
-    // F230 R10 fix: pre-assign session ID for new sessions.
-    // Pass as `--session-id <uuid>` to Claude so the transcript filename is deterministic:
-    //   ${transcriptDir}/${newSessionId}.jsonl
-    // This eliminates the `watchForTranscriptFile` heuristic and the carrier-level
-    // serialization mutex (transcriptDirGate / serializedInjectPrompt — R9 approach).
-    // Concurrent same-cwd invocations (route-parallel.ts Promise.all) each get their
-    // own UUID → their own transcript file → no cross-claim race possible.
-    // Resume sessions already know their transcript path (opts.resumeSessionId) — no UUID needed.
-    const newSessionId = resumeSessionId ? undefined : randomUUID();
+    // `--session-id` removed (R10): flag writes ai-title only; real events go to a different UUID. PtyDriver watches via watchForTranscriptFile.
 
     // ─── Image inputs (P2-image-inputs fix, mirrors ClaudeAgentService pattern) ──
     // When a turn includes uploaded images, extract paths from contentBlocks,
@@ -211,7 +207,7 @@ export class ClaudeInteractivePtyCarrierService implements AgentService {
       env: envDelta,
       extraArgs,
       resumeSessionId,
-      newSessionId,
+      claudeBinary: this.claudeBinary,
       readyTimeoutMs: 30_000,
       readyGraceMs: 15_000,
     });
@@ -264,9 +260,10 @@ export class ClaudeInteractivePtyCarrierService implements AgentService {
       let sessionId: string;
       let initialLines: number | undefined;
       try {
-        // F230 R10 fix: transcript path is pre-determined via --session-id (new sessions)
-        // or known via resumeSessionId (resume sessions). No serialization gate needed —
-        // each concurrent invocation has its own UUID → its own transcript file.
+        // F230 R10 root-cause fix (2026-06-11): PtyDriver uses watchForTranscriptFile to
+        // discover the transcript — Claude generates its own UUID per session. For resume
+        // sessions the path is deterministic (resumeSessionId.jsonl). No serialization gate
+        // needed — each concurrent invocation operates on Claude's independently-generated UUID.
         ({ transcriptPath, sessionId, initialLines } = await driver.injectPrompt(effectivePrompt, transcriptDir));
       } catch (err) {
         yield {

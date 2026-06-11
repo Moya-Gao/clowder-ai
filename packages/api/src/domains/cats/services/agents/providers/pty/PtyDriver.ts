@@ -29,22 +29,24 @@
  *           (双保险: even if caller already deleted them, tmux server env may carry)
  *
  * Utility helpers (generateSessionName, buildClaudeCommand, tmux, tmuxSync,
- * waitForExactFile, isBypassConfirmationScreen, sleep) live in ./pty-utils.ts
- * to stay within the 350-line file limit.
+ * snapshotTranscriptFiles, watchForTranscriptFile, isBypassConfirmationScreen, sleep)
+ * live in ./pty-utils.ts to stay within the 350-line file limit.
  */
 import { existsSync } from 'node:fs';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { createModuleLogger } from '../../../../../../infrastructure/logger.js';
 import {
+  acquireTranscriptDirWatch,
   buildClaudeCommand,
   generateSessionName,
   isBypassConfirmationScreen,
   sleep,
+  snapshotTranscriptFiles,
   tmux,
   tmuxSync,
-  waitForExactFile,
+  watchForTranscriptFile,
 } from './pty-utils.js';
 
 // Re-export for test backward compatibility (f230-pty-driver-helpers.test.js
@@ -69,15 +71,6 @@ export interface PtyDriverOptions {
   env: Record<string, string | null>;
   claudeBinary?: string; // default 'claude'
   resumeSessionId?: string; // → `claude --resume <id>`
-  /**
-   * Pre-assigned session ID for new (non-resume) sessions.
-   * Passed as `--session-id <uuid>` to claude, making transcript path deterministic:
-   *   `${transcriptDir}/${newSessionId}.jsonl`
-   * Eliminates the `watchForTranscriptFile` heuristic and the carrier-level mutex
-   * (F230 R10 fix — 砚砚 empirical proof 2026-06-10).
-   * Required for all new sessions; throw in injectPrompt if missing.
-   */
-  newSessionId?: string;
   extraArgs?: string[]; // --mcp-config etc, injected in Task 4
   readyTimeoutMs?: number; // default 30_000 (spike: ready 10-15s)
   /** Test seam: grace period after pane alive (ms). Default 15_000 (spike: ready 10-15s). */
@@ -116,12 +109,6 @@ export class PtyDriver {
    * No screen scraping — grace is sufficient for the B-min skeleton.
    */
   async start(): Promise<void> {
-    // Fail-fast: non-resume sessions must have newSessionId (F230 R10 contract).
-    // Checked here so we throw before any tmux operations — avoids injecting a
-    // real prompt via paste+Enter before discovering the contract is broken.
-    if (!this.opts.resumeSessionId && !this.opts.newSessionId) {
-      throw new Error('PtyDriver: newSessionId required for new sessions — set via PtyDriverOptions (F230 R10)');
-    }
     const prefix = this.opts.sessionPrefix ?? 'f230pty';
     this.sessionName = generateSessionName(prefix);
     const { cwd, readyTimeoutMs = 30_000 } = this.opts;
@@ -190,13 +177,14 @@ export class PtyDriver {
    * Note 2 three-step:
    *   ① Write text to temp file → tmux load-buffer → paste-buffer -p (bracketed paste)
    *   ② grace sleep (len/15KB seconds, min 2s) for TUI to consume the paste
-   *   ③ send-keys Enter (two-stage — connecting Enter to text causes TUI render race)
-   *   ④ wait for exact transcript path (known via --session-id) → return {transcriptPath, sessionId}
+   *   ③ snapshot existing .jsonl files + send-keys Enter (two-stage — paste + Enter separate)
+   *   ④ watchForTranscriptFile: detect the first new .jsonl that appears after Enter
+   *      → return {transcriptPath, sessionId} (sessionId = filename without .jsonl)
    *
-   * F230 R10 fix: transcript path is pre-determined via `--session-id <newSessionId>`.
-   * Claude writes to `${transcriptDir}/${newSessionId}.jsonl` deterministically.
-   * waitForExactFile() replaces the old `watchForTranscriptFile` heuristic and the
-   * carrier-level serialization mutex (transcriptDirGate / serializedInjectPrompt).
+   * F230 R10 root-cause fix (2026-06-11): `--session-id` is NOT used.
+   * Claude's `--session-id <uuid>` writes only metadata (ai-title) to the named file;
+   * conversation events go to a DIFFERENT file with Claude's own UUID.
+   * watchForTranscriptFile detects whatever new file Claude creates after Enter.
    *
    * P1-B fix: resume sessions (`--resume <sessionId>`) append to an EXISTING transcript.
    * Return the known path immediately instead of waiting for a new file.
@@ -205,101 +193,119 @@ export class PtyDriver {
     if (!this.sessionName) throw new Error('PtyDriver: call start() before injectPrompt()');
     if (this.disposed) throw new Error('PtyDriver: session already disposed');
 
-    // P1-D fix: count resume transcript lines BEFORE submitting the prompt.
-    //
-    // Claude appends new lines to the existing <sessionId>.jsonl immediately after
-    // receiving Enter. If we count AFTER Enter there is a race window: any user-event,
-    // assistant, or turn_duration line written between `send-keys Enter` and `readFile`
-    // increments the count — those lines get included in `initialLines` and are then
-    // SKIPPED by TranscriptTailer, causing lost response output or premature termination.
-    //
-    // Solution: count existing lines here, before the paste/Enter sequence, and carry
-    // the value forward to the resume return path below.
-    let preEnterResumeLines: number | undefined;
-    if (this.opts.resumeSessionId) {
-      const rPath = join(transcriptDir, `${this.opts.resumeSessionId}.jsonl`);
-      if (existsSync(rPath)) {
-        const content = await readFile(rPath, 'utf8');
-        const parts = content.split('\n');
-        // Count complete lines (same split logic as TranscriptTailer)
-        let count = parts.slice(0, -1).length;
-        // Also count trailing partial if it JSON-parses (mirror includeTrailingPartial)
-        const trailing = parts[parts.length - 1];
-        if (trailing) {
-          try {
-            JSON.parse(trailing);
-            count += 1;
-          } catch {
-            // genuinely partial — will be consumed when next \n arrives
-          }
-        }
-        preEnterResumeLines = count;
-      } else {
-        preEnterResumeLines = 0;
-      }
-    }
-
-    // ① Write prompt to temp file and load into a named tmux buffer.
-    //
-    // P1-C fix: use a per-session named buffer to prevent concurrent prompt cross-talk.
-    // tmux's default paste-buffer uses the most recently added automatic buffer across
-    // ALL sessions in the server — two concurrent injectPrompt calls would race: A's
-    // load-buffer is overwritten by B's load-buffer before A's paste-buffer executes,
-    // causing A to paste B's prompt. Named buffers (-b flag) are per-name and isolated.
-    const tmpDir = await mkdtemp(join(tmpdir(), 'f230-prompt-'));
-    const promptFile = join(tmpDir, 'prompt.txt');
-    // Session name is unique per PtyDriver instance (generateSessionName prefix+random token).
-    const bufferName = `f230-${this.sessionName}`;
+    // Serialize per-dir access (await queue, not fail-fast).
+    // A concurrent same-dir caller WAITS here until the current holder releases —
+    // it never touches tmux or sends Enter until it acquires the queue slot.
+    // This prevents watchForTranscriptFile from racing to claim each other's .jsonl.
+    const releaseDir = await acquireTranscriptDirWatch(transcriptDir);
     try {
-      await writeFile(promptFile, text, 'utf8');
-      // P2-temp-files fix: delete temp dir in finally so plaintext prompt does not persist
-      // on disk. tmux only needs the file to load it into its in-memory buffer; once
-      // load-buffer returns the file can be removed safely.
-      await tmux('load-buffer', '-b', bufferName, promptFile);
+      // P1-D fix (+ P2 lock-ordering fix): count resume transcript lines BEFORE submitting
+      // the prompt, and INSIDE the dir-lock so concurrent resume callers see the correct offset.
+      //
+      // P1-D invariant: count BEFORE paste/Enter (not after) — Claude appends lines to the
+      // existing transcript immediately after receiving Enter. Counting after Enter races with
+      // those newly-written lines: they'd be included in `initialLines` and SKIPPED by
+      // TranscriptTailer, causing lost response output or premature turn_duration detection.
+      //
+      // P2 lock-ordering fix: must be INSIDE the lock so concurrent resume callers see a
+      // consistent offset. Without the lock, two concurrent callers can both read the line
+      // count before either pastes; the second caller returns a stale `initialLines` that
+      // excludes the first caller's appended lines, causing TranscriptTailer to re-read the
+      // first turn's output as if it belonged to the second invocation.
+      let preEnterResumeLines: number | undefined;
+      if (this.opts.resumeSessionId) {
+        const rPath = join(transcriptDir, `${this.opts.resumeSessionId}.jsonl`);
+        if (existsSync(rPath)) {
+          const content = await readFile(rPath, 'utf8');
+          const parts = content.split('\n');
+          // Count complete lines (same split logic as TranscriptTailer)
+          let count = parts.slice(0, -1).length;
+          // Also count trailing partial if it JSON-parses (mirror includeTrailingPartial)
+          const trailing = parts[parts.length - 1];
+          if (trailing) {
+            try {
+              JSON.parse(trailing);
+              count += 1;
+            } catch {
+              // genuinely partial — will be consumed when next \n arrives
+            }
+          }
+          preEnterResumeLines = count;
+        } else {
+          preEnterResumeLines = 0;
+        }
+      }
+
+      // ① Write prompt to temp file and load into a named tmux buffer.
+      //
+      // P1-C fix: use a per-session named buffer to prevent concurrent prompt cross-talk.
+      // tmux's default paste-buffer uses the most recently added automatic buffer across
+      // ALL sessions in the server — two concurrent injectPrompt calls would race: A's
+      // load-buffer is overwritten by B's load-buffer before A's paste-buffer executes,
+      // causing A to paste B's prompt. Named buffers (-b flag) are per-name and isolated.
+      const tmpDir = await mkdtemp(join(tmpdir(), 'f230-prompt-'));
+      const promptFile = join(tmpDir, 'prompt.txt');
+      // Session name is unique per PtyDriver instance (generateSessionName prefix+random token).
+      const bufferName = `f230-${this.sessionName}`;
+      try {
+        await writeFile(promptFile, text, 'utf8');
+        // P2-temp-files fix: delete temp dir in finally so plaintext prompt does not persist
+        // on disk. tmux only needs the file to load it into its in-memory buffer; once
+        // load-buffer returns the file can be removed safely.
+        await tmux('load-buffer', '-b', bufferName, promptFile);
+      } finally {
+        await rm(tmpDir, { recursive: true, force: true }).catch(() => void 0);
+      }
+      // Bracketed paste into the pane using the session-scoped named buffer
+      await tmux('paste-buffer', '-b', bufferName, '-p', '-t', this.sessionName);
+      // Clean up the named buffer immediately after paste to avoid tmux buffer accumulation
+      await tmux('delete-buffer', '-b', bufferName).catch(() => void 0);
+
+      // ② Grace sleep: let TUI digest the paste
+      const graceSec = Math.max(2, text.length / 15_000);
+      await sleep(graceSec * 1000);
+
+      // ③ Snapshot + Send Enter (two-stage: paste + Enter are separate).
+      //
+      // Snapshot MUST be taken right before Enter (not earlier) so that any files
+      // created during the paste grace period are captured as "existing" and excluded
+      // from the new-file detection in watchForTranscriptFile.
+      //
+      // `--session-id` removed (R10): flag writes ai-title only; real events go to a
+      // different UUID. PtyDriver watches via watchForTranscriptFile (spike E5: p50=0.11s).
+      const existingFiles = snapshotTranscriptFiles(transcriptDir);
+      await tmux('send-keys', '-t', this.sessionName, '', 'Enter');
+
+      // P1-B fix: resume mode — transcript path is deterministic.
+      // `--resume <sessionId>` appends to an EXISTING <sessionId>.jsonl rather than
+      // creating a new file. watchForTranscriptFile only detects NEW files, so it
+      // would time out 100% of the time for resume. Return the known path directly.
+      //
+      // initialLines was computed BEFORE paste+Enter (P1-D fix above) so it only
+      // counts lines from the previous turn — not any new lines Claude writes after
+      // receiving this turn's Enter.
+      if (this.opts.resumeSessionId) {
+        const sessionId = this.opts.resumeSessionId;
+        const transcriptPath = join(transcriptDir, `${sessionId}.jsonl`);
+        const initialLines = preEnterResumeLines ?? 0;
+
+        log.debug(
+          { sessionId, transcriptPath, initialLines },
+          'resume: returning known transcript path with line offset',
+        );
+        return { transcriptPath, sessionId, initialLines };
+      }
+
+      // ④ Watch for the new .jsonl transcript file (first file not in the pre-Enter snapshot).
+      // Claude writes the transcript when the first prompt is processed (spike E5: p50=0.11s).
+      const transcriptPath = await watchForTranscriptFile(transcriptDir, existingFiles, 5_000);
+      const sessionId = basename(transcriptPath).replace('.jsonl', '');
+
+      log.debug({ sessionId, transcriptPath }, 'prompt injected, transcript ack');
+      return { transcriptPath, sessionId };
     } finally {
-      await rm(tmpDir, { recursive: true, force: true }).catch(() => void 0);
+      releaseDir();
     }
-    // Bracketed paste into the pane using the session-scoped named buffer
-    await tmux('paste-buffer', '-b', bufferName, '-p', '-t', this.sessionName);
-    // Clean up the named buffer immediately after paste to avoid tmux buffer accumulation
-    await tmux('delete-buffer', '-b', bufferName).catch(() => void 0);
-
-    // ② Grace sleep: let TUI digest the paste
-    const graceSec = Math.max(2, text.length / 15_000);
-    await sleep(graceSec * 1000);
-
-    // ③ Send Enter (two-stage: paste + Enter are separate)
-    await tmux('send-keys', '-t', this.sessionName, '', 'Enter');
-
-    // P1-B fix: resume mode — transcript path is deterministic.
-    // `--resume <sessionId>` appends to an EXISTING <sessionId>.jsonl rather than
-    // creating a new file. watchForTranscriptFile only detects NEW files, so it
-    // would time out 100% of the time for resume. Return the known path directly.
-    //
-    // initialLines was computed BEFORE paste+Enter (P1-D fix above) so it only
-    // counts lines from the previous turn — not any new lines Claude writes after
-    // receiving this turn's Enter.
-    if (this.opts.resumeSessionId) {
-      const sessionId = this.opts.resumeSessionId;
-      const transcriptPath = join(transcriptDir, `${sessionId}.jsonl`);
-      const initialLines = preEnterResumeLines ?? 0;
-
-      log.debug(
-        { sessionId, transcriptPath, initialLines },
-        'resume: returning known transcript path with line offset',
-      );
-      return { transcriptPath, sessionId, initialLines };
-    }
-
-    // ④ Wait for exact transcript path (F230 R10 fix: --session-id makes path deterministic).
-    // newSessionId is guaranteed by start() — non-resume sessions cannot reach here without it.
-    // biome-ignore lint/style/noNonNullAssertion: guaranteed by start() guard above
-    const sessionId = this.opts.newSessionId!;
-    const transcriptPath = join(transcriptDir, `${sessionId}.jsonl`);
-    await waitForExactFile(transcriptPath, 5_000);
-
-    log.debug({ sessionId, transcriptPath }, 'prompt injected, transcript ack');
-    return { transcriptPath, sessionId };
   }
 
   /**

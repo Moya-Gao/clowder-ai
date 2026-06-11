@@ -63,14 +63,40 @@ if (!hasTmux()) {
   process.exit(1);
 }
 
-const WORKTREE_CWD = resolve(__dirname, '../../../'); // cat-cafe-f230-bmin root
-console.log(`🔍 cwd: ${WORKTREE_CWD}`);
+// D6 constraint: independent cwd to isolate the smoke's transcript directory.
+//
+// TRUST CONSTRAINT (E5 lesson): /tmp dirs are NOT trusted by Claude Code — they
+// trigger a "Do you trust files in this directory?" dialog that blocks the TUI
+// before the prompt is sent. Claude must be invoked from a TRUSTED directory.
+//
+// Solution: use the worktree root (already trusted — devs run `claude` here).
+// Slug collision risk is minimal: watchForTranscriptFile snapshots existing .jsonl
+// files RIGHT BEFORE send-keys Enter, so any pre-existing session's files are in
+// the exclusion set. A collision requires another NEW Claude session to start in
+// the exact same directory within the <2s grace window, which is extremely unlikely
+// for sequential smoke runs.
+const SMOKE_CWD = resolve(__dirname, '../../..');
+console.log(`🔍 smoke cwd (trusted worktree root): ${SMOKE_CWD}`);
 console.log('🚀 Starting F230 PTY smoke test...');
 
+// B-min compatibility: Claude 2.1.172 interactive TUI does NOT write real-time
+// transcripts (confirmed 2026-06-11). Use 2.1.170 explicitly — it writes
+// transcripts with entrypoint=cli, enabling AC-B1/B4 capsule verification.
+// Path: ~/.local/share/claude/versions/2.1.170 (present on dev machines).
+const CLAUDE_170 = join(homedir(), '.local', 'share', 'claude', 'versions', '2.1.170');
+const claudeBinary = existsSync(CLAUDE_170) ? CLAUDE_170 : undefined;
+if (claudeBinary) {
+  console.log(`🔧 Using claude 2.1.170 binary: ${claudeBinary}`);
+} else {
+  console.warn(`⚠️  2.1.170 binary not found at ${CLAUDE_170}, falling back to default 'claude'`);
+  console.warn('   AC-B1/AC-B4 may fail if running Claude 2.1.172+ (transcript regression)');
+}
+
 const carrier = new ClaudeInteractivePtyCarrierService({
-  cwd: WORKTREE_CWD,
+  cwd: SMOKE_CWD,
   pollIntervalMs: 500,
   terminalTimeoutMs: 5 * 60 * 1_000,
+  claudeBinary,
 });
 
 const results = {
@@ -81,7 +107,15 @@ const results = {
   transcriptPath: null,
 };
 
-/** Compute ~/.claude/projects/<slug>/ for a given cwd (mirrors ptyTranscriptDir). */
+/**
+ * Compute ~/.claude/projects/<slug>/ for a given cwd (mirrors ptyTranscriptDir).
+ *
+ * Claude writes conversation transcripts to `~/.claude/projects/<slug>/`
+ * where the slug is derived directly from the cwd.
+ *
+ * F230 diagnostic 2026-06-11: confirmed that Claude uses the ACTUAL CWD slug,
+ * not the git-common-dir parent (earlier resolveGitProjectDir hypothesis was wrong).
+ */
 function ptyTranscriptDir(cwd) {
   const slug = cwd.replace(/\//g, '-');
   return join(homedir(), '.claude', 'projects', slug);
@@ -100,7 +134,7 @@ try {
         results.sessionInit = msg;
         // Resolve transcript path now (used for AC-B1/B4 capsule check after loop)
         if (msg.sessionId) {
-          results.transcriptPath = join(ptyTranscriptDir(WORKTREE_CWD), `${msg.sessionId}.jsonl`);
+          results.transcriptPath = join(ptyTranscriptDir(SMOKE_CWD), `${msg.sessionId}.jsonl`);
         }
         process.stdout.write(` sessionId=${msg.sessionId}\n`);
         break;

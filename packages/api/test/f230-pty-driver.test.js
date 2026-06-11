@@ -14,7 +14,6 @@
 
 import assert from 'node:assert/strict';
 import { execSync, spawnSync } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
@@ -113,7 +112,6 @@ describe('PtyDriver lifecycle', { timeout: 30_000 }, () => {
     const driver = new PtyDriver({
       cwd: TRUSTED_CWD,
       env: {},
-      newSessionId: randomUUID(), // F230 R10: required for non-resume sessions
       sessionPrefix: SESSION_PREFIX,
       readyTimeoutMs: 5_000,
       readyGraceMs: 0, // test seam: skip grace, just verify session lifecycle
@@ -139,7 +137,6 @@ describe('PtyDriver lifecycle', { timeout: 30_000 }, () => {
     const driver = new PtyDriver({
       cwd: TRUSTED_CWD,
       env: {},
-      newSessionId: randomUUID(), // F230 R10: required for non-resume sessions
       sessionPrefix: SESSION_PREFIX,
       readyTimeoutMs: 5_000,
       readyGraceMs: 0,
@@ -167,12 +164,9 @@ describe('PtyDriver injectPrompt', { timeout: 90_000 }, () => {
     const needle = 'F230_STEP2_NEEDLE_' + Date.now();
     const transcriptDir = claudeTranscriptDir(TRUSTED_CWD);
 
-    // F230 R10: pre-assign sessionId so transcript path is deterministic
-    const newSessionId = randomUUID();
     const driver = new PtyDriver({
       cwd: TRUSTED_CWD,
       env: {},
-      newSessionId,
       sessionPrefix: SESSION_PREFIX,
       readyTimeoutMs: 30_000,
       readyGraceMs: 15_000, // real TUI ready wait
@@ -186,12 +180,16 @@ describe('PtyDriver injectPrompt', { timeout: 90_000 }, () => {
       // Must return valid paths
       assert.ok(result.transcriptPath, 'transcriptPath returned');
       assert.ok(existsSync(result.transcriptPath), 'transcriptPath file exists');
-      // F230 R10: sessionId must match pre-assigned newSessionId; transcript named accordingly
-      assert.equal(result.sessionId, newSessionId, 'sessionId matches pre-assigned newSessionId');
+      // sessionId comes from Claude's generated UUID (filename of the discovered transcript)
+      assert.match(
+        result.sessionId,
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+        'sessionId is a valid UUID',
+      );
       assert.equal(
         basename(result.transcriptPath),
-        `${newSessionId}.jsonl`,
-        'transcript filename = newSessionId.jsonl',
+        `${result.sessionId}.jsonl`,
+        'transcript filename = sessionId.jsonl',
       );
 
       // Give claude ~3s for the user event to be written (transcript ack is fast)
@@ -226,12 +224,9 @@ describe('PtyDriver injectPrompt', { timeout: 90_000 }, () => {
 
     const transcriptDir = claudeTranscriptDir(TRUSTED_CWD);
 
-    // F230 R10: pre-assign sessionId so transcript path is deterministic
-    const newSessionId = randomUUID();
     const driver = new PtyDriver({
       cwd: TRUSTED_CWD,
       env: {},
-      newSessionId,
       sessionPrefix: SESSION_PREFIX,
       readyTimeoutMs: 30_000,
       readyGraceMs: 15_000,
@@ -298,12 +293,9 @@ describe('PtyDriver cancel', { timeout: 90_000 }, () => {
     const needle = 'F230_CANCEL_' + Date.now();
     const transcriptDir = claudeTranscriptDir(TRUSTED_CWD);
 
-    // F230 R10: pre-assign sessionId so transcript path is deterministic
-    const newSessionId = randomUUID();
     const driver = new PtyDriver({
       cwd: TRUSTED_CWD,
       env: {},
-      newSessionId,
       sessionPrefix: SESSION_PREFIX,
       readyTimeoutMs: 30_000,
       readyGraceMs: 15_000,
