@@ -219,6 +219,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 | 2026-06-10 | PR 重排（CVO"别拆太稀碎"）：**A3a = 气泡化对话集成**（对话 + V1-V9 视觉一体，避免先填旧 drawer 再搬家）→ **A3b = 交互卡+relay** → **A4 = 设置页+spike**，共 3 个 PR 收尾 Phase A |
 | 2026-06-10 | **Phase A PR-A1 merged** (PR #2202，squash commit e6f8b4c38)：ConciergeConfigStore + ConciergeThreadService + `/api/concierge/*` 路由 + SystemPromptBuilder 注入 + prompt injection 防护 (R15 P1) + concierge thread lifecycle (R18/R19 P2) |
 | 2026-06-10 | **Phase A PR-A2 merged** (PR #2211，squash commit 3df6f643f)：ConciergeHost（常驻根容器）+ ConciergeBall（8 态投影）+ ConciergePanel（对话窗）+ ConciergeRailToggle（ActivityBar 唤回入口）+ ConciergeStore（INV-2 纯投影架构）+ muted toggle UI (AC-A6 前端); R1-R7 cloud review cycle — 7 轮修复全清零 P1/P2 |
+| 2026-06-11 | **Phase A PR-A3a merged** (PR #2228，squash commit 70a689fd)：ConciergeToolbar（Layer 2 能力按钮：找找看/新功能/传话 + Escape 折叠）+ ConciergePanel 气泡化（Layer 3 漫画气泡 + 对话集成：发送/乐观插入/错误恢复/滚动锚点）+ useConciergeMessages（GET /api/messages 消息流 + refresh-after-send）+ R7 speech bubble tail overflow-hidden 修复（尾角不被 clip）+ R8 streaming draft filter（isDraft=true 不计入 reply detection）+ keyboard double-send guard（Enter 键 invocationStatus 守门）；R1-R8 cloud review cycle — 8 轮修复全清零 P1/P2 |
 
 ## Review Gate / 分工（CVO 拍板 2026-06-09 msg 0001781074572950）
 
