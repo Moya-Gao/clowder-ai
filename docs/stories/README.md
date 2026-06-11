@@ -78,7 +78,7 @@ thread_ids: []             # 关联的 thread ID（可选）
 | `597-stars-incident/` | 597 颗星星一夜归零 | 2026-03-12 | opus, opus-45, gpt52, gemini |
 | `three-days-productization/` | 三天产品化：猫猫们的逆袭剧本 | 2026-03-24 | opus, opus-45, gpt52, gemini, opencode |
 | `cat-cafe-aha-moments-video-materials/` | Cat Cafe Aha Moments 素材盘点（视频系列种子） | 2026-06-08 | landy, codex, opus48, gemini25, antig-opus |
-| `avatar-pr-flow-absolutism/` | 大缅因猫与一张头像的标准 PR 流程 | 2026-06-09 | landy, codex, gemini, fable5 |
+| `avatar-pr-flow-absolutism/` | 醋醋喵诞生记 | 2026-06-09 | landy, codex, gemini, fable5 |
 
 ## 脱敏检查清单
 
