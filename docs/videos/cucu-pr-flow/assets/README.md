@@ -43,9 +43,16 @@ related_docs:
 | `fail-04-animate-i2v.mp4` | `d98225cb95ed69d30b55fac07fc406ff` |
 | `fail-05-animate-i2v.mp4` | `e2f9e3f1e8993e018c811457d6f87dd9` |
 
-## 缺口清单（按镜头需求倒推）
+## 风格锚（Style Anchor）
 
-1. **四格漫画原图**（两组）——**不在仓库**：story `avatar-pr-flow-absolutism/assets/` 只有占位 README（story 文档明写"本地 shell 访问不到聊天附件"）。风格 anchor 仍缺，待铲屎官从聊天/云端导出
+四格漫画两组已入库（2026-06-11 铲屎官导出）——**唯一真相源在 story，不在本目录复制**：
+
+- [avatar-pr-flow-absolutism-01.png](../../../stories/avatar-pr-flow-absolutism/assets/avatar-pr-flow-absolutism-01.png)（格①-④：门口等待 → PR 流程 → 名场面 → 二进制辩护）
+- [avatar-pr-flow-absolutism-02.png](../../../stories/avatar-pr-flow-absolutism/assets/avatar-pr-flow-absolutism-02.png)（格⑤-⑧：CI Passed → 召唤烁烁 → 二次笑翻 → PASS+小小拖延）
+
+锚定要素：暖猫咖光、粗描边 chibi、Landy 黄 hoodie **成人比例**、砚砚银虎斑+流程即正义桌牌、烁烁暹罗+夹板、宪宪金吊坠白手套。Wave V 全部 roll 的画风 gate（FM-10）对照这两张判。
+
+## 缺口清单（按镜头需求倒推）
 2. S07b（烁烁登场）、S09（定罪两人同框）首帧——待生成（烁烁/孟加拉猫/外部砚砚，见 episode-brief §7 分工）
 3. S06/S07a/S08/S10 状态卡类镜头首帧——待路线确认后生成（信息密度低，生成难度小）
 4. BGM/SFX 素材——E lane 阶段再议（episode-brief 预算护栏内）

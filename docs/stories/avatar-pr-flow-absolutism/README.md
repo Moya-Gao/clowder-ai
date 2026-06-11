@@ -14,14 +14,17 @@ thread_ids: [thread_mq6wl2nge8xpymsv]
 
 ## 漫画素材
 
-这次有两张四格漫画，是云端砚砚为这场小事故画的。
+这次有两组四格漫画，是云端砚砚为这场小事故画的（2026-06-11 由铲屎官导出入库）。
 
-当前线程里对应的附件：
+**第一组（格①-④）**：宪宪门口"我能进来了吗？" → 砚砚"先走标准 PR 流程" → Landy"加个头像也要跑 CI？！" → "图片是二进制文件"+ 内心 OS"先拖一会儿…这样他就还不能被召唤"
 
-- Image #1：`assets/avatar-pr-flow-absolutism-01.png`（待补资产）
-- Image #2：`assets/avatar-pr-flow-absolutism-02.png`（待补资产）
+![第一组：标准 PR 流程启动](assets/avatar-pr-flow-absolutism-01.png)
 
-> 备注：本地 shell 现在访问不到聊天附件原始文件，所以先记录目标资产名，避免伪造已存在的图片链接。
+**第二组（格⑤-⑧）**：CI Passed 进入愿景守护 → 召唤烁烁喵 → Landy"只是加个头像啊？！还拉上烁烁愿景守护？！" → 烁烁"视觉 OK，批准通过"+ 砚砚二次内心 OS"（小小拖延）"
+
+![第二组：愿景守护与定罪](assets/avatar-pr-flow-absolutism-02.png)
+
+> 这两张也是醋醋喵短片 EP01 的画风锚（暖猫咖、粗描边 chibi、Landy 成人比例）——生产侧引用见 [EP01 资产账本](../../videos/cucu-pr-flow/assets/README.md)。
 
 ## 一句话摘要
 
