@@ -337,6 +337,49 @@ Keep both characters fully visible.
 **验收点**：不看字幕也懂"被定罪"——Landy 指着笑，砚砚心虚别开视线。
 **翻车修法**：双角色镜头最容易 FM-04/FM-02——比例崩或表情糊 → 先 roll ×3；不行拆单人镜（宣判/认栽各一张，我再给 prompt）。
 
+## 4.5 S11 · True End 彩蛋（CVO 2026-06-11 新增）——先图后视频，放 S10 之后
+
+**拍点**：Landy 抱起砚砚"宝贝大猫猫你太可爱了！"，砚砚傲娇脸软化、尾巴卷上手臂——全片唯一温暖镜头，揭示醋的本质是爱。取 5s。
+
+**图片 prompt（给云端砚砚，§0.5 铁则照常：附两张四格漫画 + reference 第一行）**：
+
+```text
+[统一前缀] True-end scene: Landy (the SAME person in the yellow "Landy" hoodie as the reference comic, normal adult scale) stands holding the SAME big fluffy silver tabby Maine Coon cat from the reference comic in his arms, hugging it like a giant teddy bear. The cat keeps its signature grumpy face but is visibly relaxed: ears soft, tail curled around Landy's arm. Landy smiles warmly with eyes closed, cheek close to the cat's head. Warm golden evening cafe light, cozy and tender mood. Single cinematic shot, no comic panels.
+```
+
+**i2v prompt（给云端烁烁）**：
+
+```text
+Animate this image into a short 5-second video.
+
+Keep the same composition, same character positions, and same character sizes.
+Keep the Maine Coon cat's cute chubby cartoon look exactly as in the first frame.
+
+Action:
+- Landy gently squeezes the cat in a warm hug and smiles.
+- The Maine Coon cat's grumpy face slowly softens.
+- Then the cat's tail curls a little tighter around Landy's arm.
+- The cat's eyes half-close, content but pretending not to be.
+
+Environment:
+- Warm golden light glow, very subtle flicker.
+
+Camera:
+- Keep the camera fixed.
+- Do not zoom.
+- Do not crop.
+
+Do not change the composition.
+Do not change character scale.
+Do not turn Landy into a child or tiny person.
+Do not add new characters.
+Do not make the cat realistic or photorealistic.
+Keep the warm cozy mood.
+```
+
+**验收点**：嘴上是流程、心里是宝贝的反转一眼成立——猫不说话，软下来的耳朵和卷上来的尾巴就是台词。
+**字幕**：Landy："宝贝大猫猫你太可爱了！"｜**SFX**：呼噜声渐起。
+
 ## 5. 回传约定
 
 - 生成的图 → 发我，我入库 `assets/references/keyframes/`（命名 `S0X-...-v1.png`）+ 账本登记
