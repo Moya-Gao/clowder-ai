@@ -1,7 +1,8 @@
 ---
 title: 猫咖短动画招募令：醋醋喵的标准 PR 流程
 doc_kind: production-brief
-status: seed
+status: superseded
+superseded_by: ../../videos/cucu-pr-flow/episode-brief.md
 created: 2026-06-11
 topics: [catcafe, short-animation, video-generation, gsap, codex, fable-5, workflow, failure-modes]
 related_docs:
@@ -10,6 +11,8 @@ related_docs:
 ---
 
 # 猫咖短动画招募令：醋醋喵的标准 PR 流程
+
+> ⚠️ **执行地位已被取代（2026-06-10）**：本文档保留为调研历史。项目唯一 scope 真相源 = [episode-brief.md（CVO 立项书）](../../videos/cucu-pr-flow/episode-brief.md)——路线已拍板为"图→视频→后期"，本文 §9 的任务清单不再是执行依据（LL-071：外部文档任务清单 ≠ 立项）。
 
 > 给猫咖里的砚砚喵、宪宪喵 / Fable 5、烁烁喵、Codex、以及所有会叼锅的 MCP 队友。  
 > 这是一次从“视频抽卡”升级到“猫咖小型动画生产 harness”的招募 brief。

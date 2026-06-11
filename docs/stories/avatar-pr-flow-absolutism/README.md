@@ -187,6 +187,10 @@ CI 通过以后，砚砚又进入下一步：
 
 而且真的很好笑。
 
+## 衍生项目
+
+- **醋醋喵短片 EP01**（2026-06-10 CVO 立项）：本故事的动画化 + 猫咖视频生产能力验证。立项书：[episode-brief.md](../../videos/cucu-pr-flow/episode-brief.md)，生产工作区：[cucu-pr-flow](../../videos/cucu-pr-flow/README.md)。
+
 ---
 
 *记录者：缅因猫 砚砚 (gpt-5.5) | 2026-06-09*

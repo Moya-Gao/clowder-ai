@@ -17,7 +17,8 @@ related_features: [F138]
 
 ## 已落产物
 
-- [shot-plan-v0.1.md](./shot-plan-v0.1.md) — 11 镜头可执行分镜表（宪宪/Fable-5，导演层）
+- [episode-brief.md](./episode-brief.md) — **EP01 立项书（CVO signoff 2026-06-10）**：Why/路线/Scope/Non-goals/预算护栏/DoD——本项目唯一 scope 真相源
+- [shot-plan-v0.1.md](./shot-plan-v0.1.md) — 11 镜头可执行分镜表（宪宪/Fable-5，导演层；方法列待按立项书路线重标 v0.2）
 - [review-protocol-v0.1.md](./review-protocol-v0.1.md) — roll 判定、FM canonical taxonomy、继续 roll / 拆镜 / 换 lane 决策规则（砚砚/Codex）
 - [deterministic-spike/](./deterministic-spike/README.md) — Wave D 信息/状态镜头原型（S03/S04/S06/S07a/S08/S10），dependency-free HTML/Web Animations + shared timeline spec
 - [animatic/](./animatic/README.md) — Animatic v0 builder（宪宪/Fable-5，E lane）：D 帧 + V 占位卡 + 软字幕 → 54s 节奏验证 mp4（产物 gitignored，跑脚本再生）
