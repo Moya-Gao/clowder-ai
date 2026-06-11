@@ -1,5 +1,5 @@
-import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 import { estimateCostFromTokens, getModelPricing } from '../../dist/config/model-pricing.js';
 
 describe('model-pricing', () => {
@@ -18,9 +18,12 @@ describe('model-pricing', () => {
 
     it('covers all expected Codex variants including long-context', () => {
       for (const model of [
-        'gpt-5.3-codex', 'gpt-5.3-codex-spark',
-        'gpt-5.4', 'gpt-5.4-long',
-        'gpt-5.5', 'gpt-5.5-long',
+        'gpt-5.3-codex',
+        'gpt-5.3-codex-spark',
+        'gpt-5.4',
+        'gpt-5.4-long',
+        'gpt-5.5',
+        'gpt-5.5-long',
       ]) {
         assert.ok(getModelPricing(model), `missing pricing for ${model}`);
       }
