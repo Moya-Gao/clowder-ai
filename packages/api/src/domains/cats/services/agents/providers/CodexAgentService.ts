@@ -22,6 +22,7 @@ import { type CatId, createCatId } from '@cat-cafe/shared';
 import { getCatContextWindowConfig, getCatEffort } from '../../../../../config/cat-config-loader.js';
 import { getCatModel } from '../../../../../config/cat-models.js';
 import { getCodexApprovalPolicy, getCodexSandboxMode } from '../../../../../config/codex-cli.js';
+import { estimateCostFromTokens } from '../../../../../config/model-pricing.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { formatCliExitError } from '../../../../../utils/cli-format.js';
 import { formatCliNotFoundError, resolveCliCommand } from '../../../../../utils/cli-resolve.js';
@@ -900,6 +901,30 @@ export class CodexAgentService implements AgentService {
               metadata.sessionId = result.sessionId;
             }
             yield { ...result, metadata };
+          }
+        }
+      }
+
+      // Estimate cost from pricing table when CLI doesn't provide costUsd.
+      // MUST run BEFORE contextSnapshotResolver — the resolver overwrites
+      // metadata.usage.inputTokens/outputTokens with context-fill values for
+      // display, but cost estimation needs the original turn.completed totals
+      // which reflect cumulative billing (cloud P2 fix).
+      // Use metadata.model (= effectiveModel = actual model that ran) rather than
+      // getCatModel() which misses per-invocation overrides (review P1-2).
+      if (metadata.usage && metadata.usage.costUsd == null && metadata.model) {
+        const inputTokens = metadata.usage.inputTokens ?? metadata.usage.lastTurnInputTokens ?? 0;
+        const outputTokens = metadata.usage.outputTokens ?? 0;
+        if (inputTokens > 0 || outputTokens > 0) {
+          const estimated = estimateCostFromTokens(
+            metadata.model,
+            inputTokens,
+            outputTokens,
+            metadata.usage.cacheReadTokens,
+          );
+          if (estimated != null) {
+            metadata.usage.costUsd = estimated;
+            metadata.usage.costEstimated = true;
           }
         }
       }

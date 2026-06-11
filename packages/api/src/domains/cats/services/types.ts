@@ -19,7 +19,9 @@ export interface TokenUsage {
   totalTokens?: number; // Gemini fallback (doesn't split in/out)
   cacheReadTokens?: number; // Subset of inputTokens from cache (Claude + Codex)
   cacheCreationTokens?: number; // Subset of inputTokens written to cache (Claude only)
-  costUsd?: number; // Claude only
+  costUsd?: number; // Claude: exact from CLI; Codex: estimated from pricing table
+  /** True when costUsd was calculated from a pricing table rather than reported by the CLI */
+  costEstimated?: boolean;
   durationMs?: number; // Claude: total duration
   durationApiMs?: number; // Claude: pure API duration
   numTurns?: number; // Claude: number of turns
@@ -68,6 +70,9 @@ export function mergeTokenUsage(existing: TokenUsage | undefined, incoming: Toke
   }
   if (incoming.isCumulativeUsage != null) {
     result.isCumulativeUsage = incoming.isCumulativeUsage;
+  }
+  if (incoming.costEstimated != null) {
+    result.costEstimated = incoming.costEstimated;
   }
   return result;
 }

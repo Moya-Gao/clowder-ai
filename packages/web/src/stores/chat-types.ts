@@ -27,6 +27,8 @@ export interface TokenUsage {
   cacheReadTokens?: number;
   cacheCreationTokens?: number;
   costUsd?: number;
+  /** True when costUsd is estimated from a pricing table, not reported by CLI */
+  costEstimated?: boolean;
   durationMs?: number;
   durationApiMs?: number;
   numTurns?: number;
