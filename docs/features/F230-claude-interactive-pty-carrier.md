@@ -265,7 +265,7 @@ in_context_observability:
 | 2026-06-10 08:16+ | 砚砚 Design Gate 退回 2 P1（runway 缺证据 / 缺 interactive 身份 capsule）；铲屎官 burn-rate 实测证伪"7 天缓冲"→ KD-6 skeleton 提前；spec 修订（AC-A0 新增 + AC-A5 扩 + 激活 Gate 改版 + Phase B 拆 B-min/B-full） |
 | 2026-06-10 (实际，Day 1 提前完成) | **Phase A spike 全 PASS → GO**：四实验（capsule 含污染对照 / 50K+200K 一字不差 / 旁路读全套 / resume 零 fork 命门）+ runway 三档（高压 4-6h 与铲屎官实测互证）+ skeleton 工期对照坐实 KD-6。报告 `docs/research/2026-06-10-f230-pty-carrier-spike-report.md` |
 | 2026-06-10 | Phase B-min skeleton 实施完成（宪宪/Sonnet）：PtyDriver（TDD 4步全GREEN）/ ClaudeInteractivePtyCarrierService（mock driver TDD 4步全GREEN）/ factory 注册（interactive_pty 第四档）/ smoke script / gate GREEN。AC-B5 ✅ AC-B7 ✅；AC-B1/B3/B4 待砚砚 review 验收 smoke 后关闭 |
-| 2026-06-12~14 (target) | 砚砚 review + 合入 main，6/15 前达"可切换" |
+| 2026-06-11 | Phase B-min skeleton PR #2204 merged to main（squash `3f40b6c6`）。R1-R13 review 全轮 PASS（砚砚 R12 独立审计 + R13 cloud "no major issues"）。R10 fix（--session-id 确定性 transcript path）/ R11 fix（pty-utils.ts 分文件）/ R12 fix（fail-fast 提前到 start() + 集成测试 newSessionId 合规）全部合入。**6/15 可切换目标达成**。AC-B1/B3/B4 待真实订阅 smoke 验收后关闭 |
 | 2026-06-15 | OQ-13 判罚日（F198 AC-E4）→ 决定 B-full/C/D 激活与否 |
 
 ## Review Gate（流水线 — CVO 钦点）
