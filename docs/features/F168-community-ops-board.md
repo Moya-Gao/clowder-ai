@@ -8,7 +8,7 @@ created: 2026-04-18
 
 # F168: Community Operations Board — 社区事务编排引擎
 
-> **Status**: Phase A ✅ | Phase B PR-1 ✅ merged (2026-06-10) | **First completed**: 2026-04-20 | **Owner**: 宪宪 (fable-5) | **Priority**: P1
+> **Status**: Phase A ✅ | Phase B PR-1 ✅ merged (2026-06-10) | Phase B PR-2 ✅ merged (2026-06-11) | **First completed**: 2026-04-20 | **Owner**: 宪宪 (fable-5) | **Priority**: P1
 
 ## Reopen（2026-06-10，CVO signoff）
 
@@ -429,6 +429,7 @@ TTL=0（铁律 #5），用户数据默认持久化
 | 2026-04-21 | Review fixes merged (PR #1326) — vision guard review fixes: preferredWorkspaceMode write path, board PR fields (prNumber/ownerCatId), clickable GitHub links, CommunityPrStore repos, workspace mode leakage fix |
 | 2026-06-10 | Phase A merged (PR #2203) — Event Log + state machine + CommunityProjector + bootstrap + PR lifecycle, 6 cloud review rounds |
 | 2026-06-10 | Phase B PR-1 merged (PR #2210) — activity signal events (issue.commented/labeled/pr.review_submitted/case.awaiting_external) + link parser + cascade fix, 6 cloud review rounds |
+| 2026-06-11 | Phase B PR-2 merged (PR #2214, commit 05596c67) — dual-cursor delivery (collectionCursor/deliveryCursor), await-external endpoint, case.routed auto-tracking, 21 cloud review rounds; 3 targeted fixes: in-memory TaskStore cursor anti-regression (Math.max), await-external null projection 404, projector/tracking decoupling |
 
 ## Review Gate
 
