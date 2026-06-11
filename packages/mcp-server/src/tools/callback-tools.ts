@@ -1224,6 +1224,52 @@ export async function handleUnregisterTracking(input: { subjectKey: string }): P
   });
 }
 
+// F168 Phase B Task 6: Declare awaiting_external state for a community case
+export const communityAwaitExternalInputSchema = {
+  subjectKey: z
+    .string()
+    .min(1)
+    .describe(
+      'Community case subject key. Format: "issue:{owner/repo}#{number}" or "pr:{owner/repo}#{number}". ' +
+        'Example: "issue:my-org/my-repo#42".',
+    ),
+  reason: z
+    .string()
+    .max(500)
+    .optional()
+    .describe(
+      'Optional free-text reason describing what you are waiting for (e.g. "waiting for reporter to provide reproduction steps").',
+    ),
+};
+
+/**
+ * Declare that the owner (you) is waiting for an external response on a community case.
+ *
+ * WHEN TO USE: After responding to an issue/PR and explicitly waiting for the reporter or
+ * external contributor to reply. While in awaiting_external state:
+ *  - Maintainer (OWNER/MEMBER) activity on the case is silently logged — no wake notification.
+ *  - External actor (reporter, contributor) activity automatically restores the case to
+ *    in_progress and sends you a wake notification.
+ *
+ * EFFECT: Appends case.awaiting_external to the community event log and updates the
+ * projection so the community board shows the correct state.
+ */
+export async function handleCommunityAwaitExternal(input: {
+  subjectKey: string;
+  reason?: string;
+}): Promise<ToolResult> {
+  // URL-encode subjectKey so the colon, slashes, and hash are safe in the path segment
+  const encodedKey = encodeURIComponent(input.subjectKey);
+  return withDegradation({
+    toolName: 'community_await_external',
+    primary: () =>
+      callbackPost(`/api/community-issues/${encodedKey}/await-external`, {
+        ...(input.reason !== undefined ? { reason: input.reason } : {}),
+      }),
+    policy: { kind: 'none' },
+  });
+}
+
 export const updateWorkflowInputSchema = {
   backlogItemId: z.string().min(1).describe('The backlog item ID to update workflow SOP for'),
   featureId: z.string().min(1).describe('Feature ID (e.g. "F073")'),
@@ -1913,6 +1959,17 @@ export const callbackTools = [
       'Format: "pr:{owner/repo}#{num}" or "issue:{owner/repo}#{num}".',
     inputSchema: unregisterTrackingInputSchema,
     handler: handleUnregisterTracking,
+  },
+  {
+    name: 'cat_cafe_community_await_external',
+    description:
+      'Declare that you (the case owner) are waiting for an external response on a community case. ' +
+      'WHEN: After responding to an issue/PR and explicitly waiting for the reporter or contributor to reply. ' +
+      'EFFECT WHILE WAITING: Maintainer (OWNER/MEMBER) activity → silently logged, no wake. ' +
+      'External actor (reporter, contributor) activity → auto-restores case to in_progress + wakes you. ' +
+      'Provide the subjectKey in "issue:{owner/repo}#{number}" format (e.g. "issue:my-org/my-repo#42").',
+    inputSchema: communityAwaitExternalInputSchema,
+    handler: handleCommunityAwaitExternal,
   },
   {
     name: 'cat_cafe_update_workflow',

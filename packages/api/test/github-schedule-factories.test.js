@@ -352,6 +352,72 @@ describe('GitHub schedule factory registration (F202-2B Task 3)', () => {
     assert.throws(() => factory.createTaskSpec('schedule:github:issue-tracking', deps), /fetchIssueComments/);
   });
 
+  test('github.issue-tracking factory threads projector into spec (Cloud R5 P1)', async () => {
+    // Verifies: factory passes d.projector to createIssueCommentTaskSpec so
+    // awaiting_external → in_progress transitions fire on polled comments
+    // without a full rebuild (per Cloud R5 P1 finding).
+    const registry = new ScheduleFactoryRegistry();
+    registerGitHubScheduleFactories(registry);
+    const factory = registry.get('github.issue-tracking');
+    assert.ok(factory);
+
+    const task = {
+      id: 'task-r5-projector',
+      kind: 'issue_tracking',
+      status: 'active',
+      subjectKey: 'issue:owner/repo#99',
+      threadId: 'thread-r5',
+      ownerCatId: 'cat1',
+      userId: 'user1',
+      automationState: {},
+    };
+    const taskStore = {
+      listByKind: async (kind) => (kind === 'issue_tracking' ? [task] : []),
+      patchAutomationState: async () => {},
+    };
+    const events = [];
+    const eventLog = {
+      async append(event) {
+        events.push(event);
+        return { appended: true, sequence: events.length - 1 };
+      },
+      async read(subjectKey) {
+        return events.filter((e) => e.subjectKey === subjectKey);
+      },
+      async listSubjects() {
+        return [];
+      },
+    };
+    const projectorApplyCalls = [];
+    const projector = {
+      async apply(event) {
+        projectorApplyCalls.push(event);
+      },
+    };
+
+    const spec = factory.createTaskSpec(
+      'schedule:github:issue-tracking',
+      makeGitHubDeps({
+        taskStore,
+        fetchIssueComments: async () => [
+          { id: 10, author: 'user', body: 'help', authorAssociation: 'NONE', createdAt: '2026-01-01T00:00:00Z' },
+        ],
+        eventLog,
+        projector,
+      }),
+    );
+
+    // Gate drives the collection loop — projector.apply must be called for the collected comment.
+    await spec.admission.gate();
+
+    assert.strictEqual(
+      projectorApplyCalls.length,
+      1,
+      'factory must thread projector into spec — apply called once per collected comment',
+    );
+    assert.strictEqual(projectorApplyCalls[0].payload.commentId, 10);
+  });
+
   test('asGitHub validates taskStore presence', () => {
     const registry = new ScheduleFactoryRegistry();
     registerGitHubScheduleFactories(registry);

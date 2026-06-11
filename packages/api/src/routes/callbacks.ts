@@ -2423,7 +2423,14 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
 
     const automationState = {
       ...(instructions !== undefined ? { trackingInstructions: instructions } : {}),
-      ...(seededIssueCursor !== undefined ? { issue: { lastCommentCursor: seededIssueCursor } } : {}),
+      // Cloud R17 P1: seed both cursors together. Without lastDeliveredCursor, the gate's
+      // fallback (lastDeliveredCursor ?? collectionCursor) uses the post-advance collection
+      // cursor if a crash occurs between collection advance and delivery cursor persist,
+      // silently losing the undelivered comment on the next poll. Seeding both to the same
+      // value mirrors the R14 fix in registerRoutingTracking (community-auto-tracking.ts).
+      ...(seededIssueCursor !== undefined
+        ? { issue: { lastCommentCursor: seededIssueCursor, lastDeliveredCursor: seededIssueCursor } }
+        : {}),
     };
     try {
       const task = await taskStore.upsertBySubject({

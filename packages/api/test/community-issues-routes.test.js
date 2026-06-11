@@ -1232,4 +1232,223 @@ describe('Community Issues Routes', () => {
     assert.equal(tracked.prNumber, 42, 'tracked PR must include prNumber extracted from subjectKey');
     assert.equal(tracked.ownerCatId, 'opus', 'tracked PR must include ownerCatId');
   });
+
+  test('POST resolve accepted — case.routed event ownerRole must be catId not relatedFeature (Cloud R7 P2)', async () => {
+    // Cloud R7 P2: when /resolve is called with both catId and relatedFeature,
+    // the case.routed event payload must set ownerRole = catId (the assigned cat),
+    // NOT relatedFeature (the feature ID). The projector maps ownerRole → assignedCatId
+    // in the board view; storing the feature ID there silently loses the actual routed cat.
+    const appendedEvents = [];
+    const eventLog = {
+      async append(event) {
+        appendedEvents.push(event);
+        return { appended: true, sequence: appendedEvents.length - 1 };
+      },
+      async read() {
+        return [];
+      },
+      async listSubjects() {
+        return [];
+      },
+    };
+    const app = await createApp({ eventLog });
+    const issue = await createAndDispatch(app, { issueNumber: 99 });
+    await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/triage-complete`,
+      payload: { catId: 'opus', verdict: 'WELCOME', questions: fivePass },
+    });
+    await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/triage-complete`,
+      payload: { catId: 'codex', verdict: 'POLITELY-DECLINE', questions: fivePass, reasonCode: 'NOT_NOW' },
+    });
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/resolve`,
+      headers: { 'x-cat-cafe-user': 'landy' },
+      payload: {
+        decision: 'accepted',
+        catId: 'opus',
+        relatedFeature: 'F056',
+        threadId: 'thread_f168_test',
+      },
+    });
+    assert.equal(res.statusCode, 200);
+    const routedEvent = appendedEvents.find((e) => e.kind === 'case.routed');
+    assert.ok(routedEvent, 'case.routed event must be appended when accepted with catId+threadId');
+    assert.equal(
+      routedEvent.payload.ownerRole,
+      'opus',
+      'case.routed ownerRole must be the catId ("opus"), not the relatedFeature ("F056") — Cloud R7 P2',
+    );
+    assert.notEqual(
+      routedEvent.payload.ownerRole,
+      'F056',
+      'case.routed ownerRole must NOT be the relatedFeature string',
+    );
+  });
+
+  test('POST resolve accepted with catId but no threadId — case.routed emitted with auto-created threadId (Cloud R11 P1)', async () => {
+    // Cloud R11 P1: when /resolve is called without threadId in body, routeAccepted()
+    // auto-creates a thread. The case.routed guard must use the resolved assignedThreadId
+    // (not result.data.threadId which is undefined), otherwise case.routed is never emitted
+    // and issue tracking is never registered.
+    const autoCreatedThreadId = 'thread_auto_r11_test';
+    const deterministicThreadStore = {
+      create: async (_userId, _title) => ({ id: autoCreatedThreadId, title: _title, createdAt: Date.now() }),
+    };
+
+    const appendedEvents = [];
+    const eventLog = {
+      async append(event) {
+        appendedEvents.push(event);
+        return { appended: true, sequence: appendedEvents.length - 1 };
+      },
+      async read() {
+        return [];
+      },
+      async listSubjects() {
+        return [];
+      },
+    };
+
+    const app = await createApp({ eventLog, threadStore: deterministicThreadStore });
+    const issue = await createAndDispatch(app, { issueNumber: 111 });
+    await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/triage-complete`,
+      payload: { catId: 'opus', verdict: 'WELCOME', questions: fivePass },
+    });
+    await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/triage-complete`,
+      payload: { catId: 'codex', verdict: 'POLITELY-DECLINE', questions: fivePass, reasonCode: 'NOT_NOW' },
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/resolve`,
+      headers: { 'x-cat-cafe-user': 'landy' },
+      payload: {
+        decision: 'accepted',
+        catId: 'opus',
+        // NOTE: no threadId — routeAccepted() must auto-create one
+      },
+    });
+    assert.equal(res.statusCode, 200, 'resolve must succeed');
+
+    const routedEvent = appendedEvents.find((e) => e.kind === 'case.routed');
+    assert.ok(routedEvent, 'case.routed must be emitted even when threadId is not in request body (Cloud R11 P1)');
+    assert.equal(
+      routedEvent.payload.ownerThreadId,
+      autoCreatedThreadId,
+      'case.routed ownerThreadId must be the auto-created thread ID from routeAccepted()',
+    );
+    assert.equal(routedEvent.payload.catId, 'opus', 'case.routed catId must be the assigned cat');
+  });
+
+  test('POST resolve accepted — auto-registered tracking task carries userId from resolving request (Cloud R13 P1)', async () => {
+    // Cloud R13 P1: when /resolve auto-registers an issue_tracking task via registerRoutingTracking,
+    // the task's userId must be set to the resolving user so the poller can deliver notifications.
+    // Without userId, IssueCommentTaskSpec uses task.userId ?? '' (empty string) as the invocation
+    // target, causing silent delivery failures.
+    const appendedEvents = [];
+    const eventLog = {
+      async append(event) {
+        appendedEvents.push(event);
+        return { appended: true, sequence: appendedEvents.length - 1 };
+      },
+      async read() {
+        return [];
+      },
+      async listSubjects() {
+        return [];
+      },
+    };
+    const app = await createApp({ eventLog });
+    const issue = await createAndDispatch(app, { issueNumber: 222 });
+    await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/triage-complete`,
+      payload: { catId: 'opus', verdict: 'WELCOME', questions: fivePass },
+    });
+    await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/triage-complete`,
+      payload: { catId: 'codex', verdict: 'POLITELY-DECLINE', questions: fivePass, reasonCode: 'NOT_NOW' },
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/resolve`,
+      headers: { 'x-cat-cafe-user': 'landy' },
+      payload: { decision: 'accepted', catId: 'opus', threadId: 'thread_r13_test' },
+    });
+    assert.equal(res.statusCode, 200, 'resolve must succeed');
+
+    // The tracking task should carry the resolving userId ('landy')
+    const tasks = await taskStore.listByKind('issue_tracking');
+    const trackingTask = tasks.find((t) => t.subjectKey?.includes('222'));
+    assert.ok(trackingTask, 'issue_tracking task must be auto-registered');
+    assert.equal(trackingTask.userId, 'landy', 'tracking task userId must be the resolving user (Cloud R13 P1)');
+  });
+
+  test('POST resolve accepted — projector.apply() throwing must not skip registerRoutingTracking (Cloud R21 P1)', async () => {
+    // Cloud R21 P1: when eventLog.append() succeeds (appended:true) but projector.apply() throws,
+    // the outer catch previously skipped registerRoutingTracking(). Because the case.routed event
+    // already claimed its sourceEventId, any retry sees appended:false and the auto-tracking path
+    // is intentionally not called — leaving an accepted case permanently without issue_tracking.
+    // Fix: projector.apply() must be wrapped in its own try-catch so its failure does not block
+    // registerRoutingTracking().
+    const appendedEvents = [];
+    const eventLog = {
+      async append(event) {
+        appendedEvents.push(event);
+        return { appended: true, sequence: appendedEvents.length - 1 };
+      },
+      async read() {
+        return [];
+      },
+      async listSubjects() {
+        return [];
+      },
+    };
+    // Projector that always throws — simulates transient failure
+    const throwingProjector = {
+      async apply(_event) {
+        throw new Error('transient projector error');
+      },
+    };
+
+    const app = await createApp({ eventLog, projector: throwingProjector });
+    const issue = await createAndDispatch(app, { issueNumber: 321 });
+    await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/triage-complete`,
+      payload: { catId: 'opus', verdict: 'WELCOME', questions: fivePass },
+    });
+    await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/triage-complete`,
+      payload: { catId: 'codex', verdict: 'POLITELY-DECLINE', questions: fivePass, reasonCode: 'NOT_NOW' },
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/resolve`,
+      headers: { 'x-cat-cafe-user': 'landy' },
+      payload: { decision: 'accepted', catId: 'opus', threadId: 'thread_r21_p1_test' },
+    });
+    assert.equal(res.statusCode, 200, 'resolve must succeed even when projector throws');
+
+    // case.routed must have been appended despite projector throwing
+    const routedEvent = appendedEvents.find((e) => e.kind === 'case.routed');
+    assert.ok(routedEvent, 'case.routed event must be appended');
+
+    // issue_tracking task must still be auto-registered despite projector failure
+    const tasks = await taskStore.listByKind('issue_tracking');
+    const trackingTask = tasks.find((t) => t.subjectKey?.includes('321'));
+    assert.ok(trackingTask, 'issue_tracking task must be registered even when projector.apply() throws (Cloud R21 P1)');
+  });
 });

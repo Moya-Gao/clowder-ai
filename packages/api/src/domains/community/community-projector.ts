@@ -131,6 +131,13 @@ export class CommunityProjector {
       updatedAt: now,
     };
 
+    // Side-effect: informational events (issue.commented, pr.review_submitted, etc.)
+    // always update lastExternalActivityAt, even when they cause a state transition
+    // (e.g. awaiting_external → in_progress restore on external actor comment).
+    if (event.classification === 'informational') {
+      updated.lastExternalActivityAt = event.at;
+    }
+
     // Side-effect: case.reported → set lastPublicCommentAt
     if (event.kind === 'case.reported') {
       updated.lastPublicCommentAt = event.at;

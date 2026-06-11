@@ -75,6 +75,13 @@ export interface IssueAutomationState {
   readonly lastCommentCursor?: number;
   readonly lastNotifiedAt?: number;
   readonly issueState?: 'open' | 'closed';
+  /**
+   * F168 Phase B: dual-cursor delivery tracking.
+   * Tracks the max comment id that was successfully delivered (notified) to the owner.
+   * Separate from lastCommentCursor (collection) so delivery retries don't re-append events.
+   * Undefined means "not yet managed by dual-cursor; default to lastCommentCursor".
+   */
+  readonly lastDeliveredCursor?: number;
 }
 
 /** Composite automation state embedded in pr_tracking/issue_tracking tasks (#320 KD-14, F202-2D) */

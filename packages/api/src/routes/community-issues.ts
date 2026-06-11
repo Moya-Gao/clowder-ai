@@ -18,6 +18,8 @@ import {
   type CommunityEvent,
   createCatId,
   DEFAULT_INTAKE_CHECKLIST,
+  parseIssueSubjectKey,
+  parsePrSubjectKey,
   validateIntakeChecklist,
 } from '@cat-cafe/shared';
 import type { FastifyPluginAsync } from 'fastify';
@@ -30,6 +32,7 @@ import type { ITaskStore } from '../domains/cats/services/stores/ports/TaskStore
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import type { ICommunityEventLog } from '../domains/community/CommunityEventLog.js';
 import type { ICommunityObjectStore } from '../domains/community/CommunityObjectStore.js';
+import { registerRoutingTracking } from '../domains/community/community-auto-tracking.js';
 import { derivePrGroup } from '../domains/community/derivePrGroup.js';
 import { type GhIssueFull, mapGitHubIssue } from '../domains/community/GitHubIssueFetcher.js';
 import { type GhPrFull, type GhPrReview, mapGitHubPr } from '../domains/community/GitHubPrFetcher.js';
@@ -53,6 +56,10 @@ export interface CommunityIssuesRoutesOptions {
   communityPrStore?: ICommunityPrStore;
   fetchPrs?: (repo: string) => Promise<GhPrFull[]>;
   fetchPrReviews?: (repo: string, prNumber: number) => Promise<GhPrReview[]>;
+  /** Cloud R2 P2: optional cursor seeder for auto-registered issue_tracking tasks.
+   * When provided, the initial comment cursor is seeded to the current latest
+   * comment ID so the first poll does not replay all historical comments. */
+  fetchIssueCommentCursor?: (repoFullName: string, issueNumber: number) => Promise<number>;
   // F168 Phase A: community event log + projector (best-effort, optional)
   eventLog?: ICommunityEventLog;
   projector?: { apply(event: CommunityEvent): Promise<void> };
@@ -404,6 +411,62 @@ export const communityIssueRoutes: FastifyPluginAsync<CommunityIssuesRoutesOptio
       await communityIssueStore.update(id, { assignedCatId: result.data.catId });
     }
 
+    // Cloud R11 P1: routeAccepted() may auto-create a thread (assignedThreadId) when
+    // no threadId is supplied in the request body. Re-read the store to resolve the
+    // actual thread ID so case.routed is always emitted for accepted cases.
+    let resolvedThreadId = result.data.threadId ?? undefined;
+    if (result.data.decision === 'accepted' && !resolvedThreadId) {
+      resolvedThreadId = (await communityIssueStore.get(id))?.assignedThreadId ?? undefined;
+    }
+
+    // F168 Phase B Task 5: emit case.routed event + auto-register tracking (best-effort)
+    if (result.data.decision === 'accepted' && opts.eventLog && resolvedThreadId && result.data.catId) {
+      try {
+        const subjectKey = `issue:${issue.repo}#${issue.issueNumber}`;
+        const routedEvent: CommunityEvent = {
+          sourceEventId: `routed:${id}:${resolvedThreadId}`,
+          subjectKey,
+          kind: 'case.routed',
+          classification: 'state-changing',
+          payload: {
+            ownerThreadId: resolvedThreadId,
+            catId: result.data.catId,
+            // Cloud R7 P2: ownerRole must be the assigned cat (catId), not the feature ID.
+            // The projector maps ownerRole → assignedCatId in the board view; storing
+            // relatedFeature here would display the feature ID as the owner cat.
+            ownerRole: result.data.catId ?? null,
+            relatedFeature: result.data.relatedFeature ?? null,
+            routedAt: Date.now(),
+          },
+          at: Date.now(),
+        };
+        const { appended } = await opts.eventLog.append(routedEvent);
+        if (appended) {
+          // Projector is best-effort — its failure must not prevent tracking registration.
+          // Cloud R21 P1: if projector.apply() throws, the outer catch would previously skip
+          // registerRoutingTracking(). Since the case.routed sourceEventId is already claimed,
+          // any retry sees appended:false and the tracking path is never re-entered,
+          // leaving the accepted case permanently without an issue_tracking task.
+          if (opts.projector) {
+            try {
+              await opts.projector.apply(routedEvent);
+            } catch {
+              // best-effort — projector failure does not block tracking registration
+            }
+          }
+          // Auto-register tracking task — fires only on first ingest (appended:true)
+          // Cloud R2 P2: pass fetchIssueCommentCursor to seed the initial cursor
+          // Cloud R13 P1: pass userId so the poller can deliver notifications to the right user
+          await registerRoutingTracking(routedEvent, opts.taskStore, {
+            fetchCommentCursor: opts.fetchIssueCommentCursor,
+            userId,
+          });
+        }
+      } catch {
+        // Best-effort — event log failure never blocks resolve
+      }
+    }
+
     return communityIssueStore.get(id);
   });
 
@@ -576,6 +639,104 @@ export const communityIssueRoutes: FastifyPluginAsync<CommunityIssuesRoutesOptio
       signedOff: issue.guardianAssignment.signedOff,
       checklistComplete: validation.valid,
       missingItems: validation.missing,
+    };
+  });
+
+  // ── F168 Phase B Task 6: awaiting_external endpoint ──────────────────────────
+  // POST /api/community-issues/:subjectKey/await-external
+  // Declares that the owner is waiting for an external response.
+  // Appends case.awaiting_external to the community event log and applies the projector.
+  // Requires callback auth. subjectKey must be URL-encoded by the caller
+  // (e.g. "issue:owner/repo#42" → "issue%3Aowner%2Frepo%2342").
+
+  app.post('/api/community-issues/:subjectKey/await-external', async (request, reply) => {
+    if (!request.callbackAuth) {
+      reply.status(401);
+      return { error: 'Callback authentication required' };
+    }
+
+    const { subjectKey } = request.params as { subjectKey: string };
+
+    // Cloud R10 P1: validate full format, not just prefix.
+    // Prefix-only check accepts malformed keys like "issue:not-a-real-key" or
+    // "issue:owner/repo#abc" which cause 500s or unprojectable events downstream.
+    if (parseIssueSubjectKey(subjectKey) === null && parsePrSubjectKey(subjectKey) === null) {
+      reply.status(400);
+      return { error: 'Invalid subjectKey format. Expected: issue:{owner/repo}#{number} or pr:{owner/repo}#{number}' };
+    }
+
+    if (!opts.eventLog) {
+      reply.status(501);
+      return { error: 'Community event log not configured' };
+    }
+
+    // Pre-flight checks: validate state AND ownership before appending.
+    // If objectStore is available, the case must exist before declaring awaiting_external.
+    // case.awaiting_external is only valid from {in_progress, awaiting_external, routed};
+    // a missing projection would always be rejected by the state machine ('new' state),
+    // and returning state:'awaiting_external' in that case is misleading (Cloud R20 P2).
+    if (opts.objectStore) {
+      const proj = await opts.objectStore.get(subjectKey);
+      if (proj === null) {
+        reply.status(404);
+        return { error: 'not_found', detail: 'No tracked case found for this subject key' };
+      }
+      // P1-B (R1): State check — case.awaiting_external is valid from:
+      //   - in_progress: owner actively working on the case
+      //   - awaiting_external: idempotent re-declare (owner re-confirms waiting)
+      //   - routed: primary workflow entry — /resolve sets state=routed and there
+      //     is no production path that automatically advances routed→in_progress,
+      //     so the owner must be able to declare awaiting_external directly from routed.
+      //     (Cloud R6 P1-1)
+      const ACTIVATABLE_STATES = new Set<string>(['in_progress', 'awaiting_external', 'routed']);
+      if (!ACTIVATABLE_STATES.has(proj.state)) {
+        reply.status(409);
+        return {
+          error: 'invalid_transition',
+          currentState: proj.state,
+          detail: `case.awaiting_external requires state in {in_progress, awaiting_external, routed}, got: ${proj.state}`,
+        };
+      }
+
+      // P1-B (R2): Ownership check — only the case owner can declare awaiting_external.
+      // ownerThreadId is set when the case is routed (case.routed event).
+      // null/undefined ownerThreadId (no owner assigned yet) → allow.
+      const callerThreadId = (request.callbackAuth as { threadId?: string }).threadId;
+      if (proj.ownerThreadId != null && callerThreadId !== undefined && callerThreadId !== proj.ownerThreadId) {
+        reply.status(403);
+        return {
+          error: 'forbidden',
+          detail: 'Only the case owner (ownerThreadId match) can declare awaiting_external',
+        };
+      }
+    }
+
+    const body = (request.body ?? {}) as { reason?: string };
+    const at = Date.now();
+    const callerCatId = (request.callbackAuth.catId as string | undefined) ?? 'unknown';
+    const communityEvent: CommunityEvent = {
+      sourceEventId: `await-external:${subjectKey}:${at}`,
+      subjectKey,
+      kind: 'case.awaiting_external',
+      classification: 'state-changing',
+      payload: {
+        reason: body.reason ?? null,
+        declaredBy: callerCatId,
+        declaredAt: at,
+      },
+      at,
+    };
+
+    const { appended } = await opts.eventLog.append(communityEvent);
+    if (appended && opts.projector) {
+      await opts.projector.apply(communityEvent);
+    }
+
+    return {
+      subjectKey,
+      appended,
+      state: 'awaiting_external',
+      eventId: communityEvent.sourceEventId,
     };
   });
 

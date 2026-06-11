@@ -135,6 +135,8 @@ const EXPECTED_TOOLS = [
   'cat_cafe_finance_query',
   // F192 Phase H AC-H4: verdict publishing pipeline (eval cat → MCP → handler)
   'cat_cafe_publish_verdict',
+  // F168 Phase B Task 6: declare awaiting_external state for a community case
+  'cat_cafe_community_await_external',
 ];
 
 const EXPECTED_COLLAB_TOOLS = [
@@ -194,6 +196,8 @@ const EXPECTED_COLLAB_TOOLS = [
   'cat_cafe_list_labels',
   // F061 Bug-F workaround: MCP shell exec for read-only commands
   'cat_cafe_shell_exec',
+  // F168 Phase B Task 6: declare awaiting_external state for a community case
+  'cat_cafe_community_await_external',
 ];
 
 const EXPECTED_MEMORY_TOOLS = [

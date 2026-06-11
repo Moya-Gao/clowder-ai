@@ -1,7 +1,7 @@
 ---
 cell_id: community-ops
 title: Community Ops Engine
-summary: 社区事件 Log（append-only canonical）、CommunityObject 投影/状态机、closure invariant 与看板读模型。
+summary: 社区事件 Log（append-only canonical）、CommunityObject 投影/状态机、closure invariant、activity-signal 双游标交付、awaiting_external 状态流转与交付策略。
 canonical_features: [F168]
 code_anchors:
   - packages/shared/src/types/community-event.ts
@@ -11,12 +11,15 @@ code_anchors:
   - packages/api/src/domains/community/CommunityObjectStore.ts
   - packages/api/src/domains/community/community-bootstrap.ts
   - packages/api/src/domains/community/community-keys.ts
+  - packages/api/src/domains/community/community-delivery-policy.ts
+  - packages/api/src/domains/community/community-auto-tracking.ts
 doc_anchors:
   - docs/features/F168-community-ops-board.md
   - docs/discussions/2026-06-09-f168-community-ops-final-design.md
-static_scan_hints: [CommunityEvent, CommunityObject, CommunityEventLog, community-projector, community-state-machine, closure_invariant, community-bootstrap]
+static_scan_hints: [CommunityEvent, CommunityObject, CommunityEventLog, community-projector, community-state-machine, closure_invariant, community-bootstrap, community-delivery-policy, community-auto-tracking, awaiting_external, decideDelivery]
 cited_by:
   - {feature: F168, date: 2026-06-10, delta: new cell}
+  - {feature: F168-Phase-B, date: 2026-06-10, delta: "dual-cursor delivery + case.awaiting_external + delivery-policy + auto-tracking"}
 ---
 
 # Community Ops Engine

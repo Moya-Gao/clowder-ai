@@ -217,6 +217,15 @@ const issueTrackingFactory: ScheduleFactory = {
       invokeTrigger: d.invokeTrigger,
       isEchoComment: d.isEchoIssueComment,
       log: d.log,
+      // F168 Phase B Task 4: thread community event log for dual-cursor collection/delivery.
+      // Without this, the dual-cursor code path in IssueCommentTaskSpec is never activated
+      // and Task 4 is dead code in production. eventLog is optional — TaskSpec falls back
+      // to single-cursor mode when undefined (backward-compat for tests without Redis).
+      eventLog: d.eventLog,
+      // Cloud R5 P1: thread projector so polled issue.commented events update the community
+      // projection immediately (awaiting_external → in_progress, lastExternalActivityAt) —
+      // matches ReviewFeedbackTaskSpec + repoScanFactory wiring.
+      projector: d.projector,
     }) as TaskSpec_P1;
   },
 };

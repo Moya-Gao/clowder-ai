@@ -12,6 +12,7 @@ import type { CatId, CommunityEvent, TaskItem } from '@cat-cafe/shared';
 import { parsePrSubjectKey } from '@cat-cafe/shared';
 import type { ITaskStore } from '../../domains/cats/services/stores/ports/TaskStore.js';
 import type { ICommunityEventLog } from '../../domains/community/CommunityEventLog.js';
+import { decideDelivery } from '../../domains/community/community-delivery-policy.js';
 import type { ExecuteContext, TaskSpec_P1 } from '../scheduler/types.js';
 import type { ConnectorInvokeTrigger, ConnectorTriggerPolicy } from './ConnectorInvokeTrigger.js';
 import type { PrFeedbackComment, PrReviewDecision, ReviewFeedbackRouter } from './ReviewFeedbackRouter.js';
@@ -186,19 +187,179 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
             const freshNewComments = allNewComments.filter((c) => !isStaleCommitFeedback(c, prMetadata?.headSha));
             const freshNewReviews = allNewReviews.filter((r) => !isStaleCommitFeedback(r, prMetadata?.headSha));
 
+            // F168 Phase B (R3-P1, R4-P1-A/B, R5-P1/P2): append ALL fresh activity to event log
+            // BEFORE delivery filter — polling fallback for AC #1 dual-path (webhook + polling).
+            //
+            // Safe cursor tracking (R4-P1-B): track max ID of successfully processed items.
+            // Break on first append/projector failure so cursor stays before the failing item,
+            // ensuring it is retried on the next poll (never permanently lost).
+            //
+            // Repair path (R5-P1, matches GitHubRepoWebhookHandler.ts:469): when appended=false
+            // (prior round: append succeeded but projector threw), call projector.apply best-effort
+            // so the projection is repaired. Event log is source of truth; projector is eventual
+            // consistency — a failed repair is swallowed; the projection rebuilds from the log.
+            //
+            // Delivery truncation (R5-P2): delivery uses only items that completed event-log
+            // processing (safeDeliveryXxx). Items after the break point are excluded from this
+            // poll's delivery to prevent duplicate notifications on the next poll.
+            //
+            // sourceEventId alignment (R4-P1-A): reviews use `review:{repo}#{pr}:{id}` to match
+            // the webhook handler (GitHubRepoWebhookHandler.ts:445). Comments use `prcomment:...`
+            // (unique to polling — PR conversation/inline comments are skipped by the webhook).
+            let maxSafeCommentCursor = commentCursor;
+            let maxSafeReviewCursor = reviewCursor;
+            // Default: all fresh items are eligible for delivery (no eventLog configured).
+            let safeDeliveryComments: typeof freshNewComments = freshNewComments;
+            let safeDeliveryReviews: typeof freshNewReviews = freshNewReviews;
+            if (opts.eventLog && task.subjectKey) {
+              const subjectKey = task.subjectKey;
+              const processedComments: typeof freshNewComments = [];
+              const processedReviews: typeof freshNewReviews = [];
+              // Cloud R18 P1: track the id of the first fresh item that fails (break boundary).
+              // The stale-cursor advancement loops must NOT advance past this boundary — otherwise
+              // a stale item with a higher id would advance the cursor past the failed fresh item,
+              // silently dropping it from the retry queue (it would never be re-collected).
+              let commentBreakBeforeId = Infinity;
+              for (const comment of freshNewComments) {
+                try {
+                  const communityEvent: CommunityEvent = {
+                    sourceEventId: `prcomment:${repoFullName}#${prNumber}:${comment.id}`,
+                    subjectKey,
+                    kind: 'pr.review_submitted',
+                    classification: 'informational',
+                    payload: {
+                      commentId: comment.id,
+                      author: comment.author,
+                      authorAssociation: comment.authorAssociation,
+                      commentType: comment.commentType,
+                    },
+                    at: new Date(comment.createdAt).getTime(),
+                  };
+                  const { appended: commentAppended } = await opts.eventLog.append(communityEvent);
+                  // Cloud R8 P1-2: only project newly appended events (appended:true).
+                  // Duplicate events (appended:false) are already in the log at their original
+                  // temporal position; applying them again out of order undoes state transitions
+                  // (e.g. case.awaiting_external → in_progress revert from stale PR activity).
+                  if (commentAppended && opts.projector) {
+                    await opts.projector.apply(communityEvent);
+                  }
+                  maxSafeCommentCursor = Math.max(maxSafeCommentCursor, comment.id);
+                  processedComments.push(comment);
+                } catch {
+                  // append or projector.apply failed (including repair failure) — break so cursor
+                  // stays before this comment; next poll retries it and all subsequent comments.
+                  commentBreakBeforeId = comment.id; // R18 P1: record break boundary
+                  opts.log.warn(
+                    `[review-feedback] processing failed for comment ${comment.id} on ${prKey} — will retry`,
+                  );
+                  break;
+                }
+              }
+              let reviewBreakBeforeId = Infinity;
+              for (const review of freshNewReviews) {
+                try {
+                  const communityEvent: CommunityEvent = {
+                    // R4-P1-A: matches webhook handler format for idempotent dual-path convergence
+                    sourceEventId: `review:${repoFullName}#${prNumber}:${review.id}`,
+                    subjectKey,
+                    kind: 'pr.review_submitted',
+                    classification: 'informational',
+                    payload: {
+                      reviewId: review.id,
+                      author: review.author,
+                      authorAssociation: review.authorAssociation,
+                      reviewState: review.state,
+                    },
+                    at: new Date(review.submittedAt).getTime(),
+                  };
+                  const { appended: reviewAppended } = await opts.eventLog.append(communityEvent);
+                  // Cloud R8 P1-2: only project newly appended events (appended:true).
+                  if (reviewAppended && opts.projector) {
+                    await opts.projector.apply(communityEvent);
+                  }
+                  maxSafeReviewCursor = Math.max(maxSafeReviewCursor, review.id);
+                  processedReviews.push(review);
+                } catch {
+                  reviewBreakBeforeId = review.id; // R18 P1: record break boundary
+                  opts.log.warn(`[review-feedback] processing failed for review ${review.id} on ${prKey} — will retry`);
+                  break;
+                }
+              }
+              // R5-P2: narrow delivery to items that completed event-log processing without error.
+              safeDeliveryComments = processedComments;
+              safeDeliveryReviews = processedReviews;
+
+              // Cloud R16 P2: advance cursor past stale items (those filtered by isStaleCommitFeedback).
+              // Staleness is a delivery policy filter — a comment on an old commit is recognized and
+              // deliberately not delivered, but it must still advance the cursor. Without this, when
+              // ALL new comments are stale, maxSafeCommentCursor stays at commentCursor and advanceCursor
+              // is called with the same value → cursor never moves → infinite polling churn.
+              //
+              // Cloud R18 P1: gate stale advancement by the fresh-loop break boundary. If the fresh
+              // loop broke at id=X (append/projector failure), stale items with id >= X must NOT
+              // advance the cursor — they lie beyond the failure point and advancing there would
+              // silently drop the failed fresh item from the retry queue.
+              for (const c of allNewComments) {
+                if (isStaleCommitFeedback(c, prMetadata?.headSha) && c.id < commentBreakBeforeId) {
+                  maxSafeCommentCursor = Math.max(maxSafeCommentCursor, c.id);
+                }
+              }
+              for (const r of allNewReviews) {
+                if (isStaleCommitFeedback(r, prMetadata?.headSha) && r.id < reviewBreakBeforeId) {
+                  maxSafeReviewCursor = Math.max(maxSafeReviewCursor, r.id);
+                }
+              }
+            }
+
             const commentFilter = opts.isEchoComment;
             const noiseFilter = opts.isNoiseComment;
             const reviewFilter = opts.isEchoReview;
-            const newComments = freshNewComments.filter((c) => {
+            // R5-P2: use safeDeliveryXxx (items up to first failure) so items after a break are
+            // not notified this round — they will be retried next poll without double-notification.
+            const newComments = safeDeliveryComments.filter((c) => {
               if (commentFilter?.(c)) return false;
               if (noiseFilter?.(c)) return false;
+              // F168 Phase B: apply delivery policy — OWNER/MEMBER activity is silent-log
+              const decision = decideDelivery({
+                state: 'in_progress', // stateless function — state field not used
+                eventKind: 'pr.review_submitted',
+                authorAssociation: c.authorAssociation as
+                  | import('@cat-cafe/shared').GitHubAuthorAssociation
+                  | undefined,
+              });
+              if (decision === 'silent-log') return false;
               return true;
             });
-            const newDecisions = reviewFilter ? freshNewReviews.filter((r) => !reviewFilter(r)) : freshNewReviews;
+            const newDecisions = (
+              reviewFilter ? safeDeliveryReviews.filter((r) => !reviewFilter(r)) : safeDeliveryReviews
+            ).filter((r) => {
+              // F168 Phase B: apply delivery policy — OWNER/MEMBER review decisions are silent-log
+              const decision = decideDelivery({
+                state: 'in_progress', // stateless function — state field not used
+                eventKind: 'pr.review_submitted',
+                authorAssociation: r.authorAssociation as
+                  | import('@cat-cafe/shared').GitHubAuthorAssociation
+                  | undefined,
+              });
+              return decision !== 'silent-log';
+            });
 
+            // R4-P1-B: when eventLog is configured, cap cursor advancement at the last
+            // successfully projected item (maxSafeXxxCursor). Items beyond a projection
+            // failure are excluded, ensuring they are retried on the next poll.
+            // Without eventLog, fall back to the original all-new-items max (no change).
             const maxCommentId =
-              allNewComments.length > 0 ? Math.max(...allNewComments.map((c) => c.id)) : commentCursor;
-            const maxReviewId = allNewReviews.length > 0 ? Math.max(...allNewReviews.map((r) => r.id)) : reviewCursor;
+              opts.eventLog && task.subjectKey
+                ? maxSafeCommentCursor
+                : allNewComments.length > 0
+                  ? Math.max(...allNewComments.map((c) => c.id))
+                  : commentCursor;
+            const maxReviewId =
+              opts.eventLog && task.subjectKey
+                ? maxSafeReviewCursor
+                : allNewReviews.length > 0
+                  ? Math.max(...allNewReviews.map((r) => r.id))
+                  : reviewCursor;
 
             const allSkipped = newComments.length === 0 && newDecisions.length === 0;
             const hadNewItems = allNewComments.length > 0 || allNewReviews.length > 0;

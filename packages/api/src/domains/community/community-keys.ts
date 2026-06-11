@@ -26,3 +26,25 @@ export const CommunityKeys = {
   /** Index set of all subjectKeys that have a projection */
   objectsIndex: 'community:objects:index',
 } as const;
+
+// ---------------------------------------------------------------------------
+// Community event sourceEventId helpers
+// Shared between webhook and polling paths to ensure convergence on the same
+// idempotency key for the same underlying GitHub fact.
+// ---------------------------------------------------------------------------
+
+/**
+ * Construct a stable sourceEventId for a GitHub issue comment.
+ * Format: `comment:{owner}/{repo}#{issueNumber}:{commentId}`
+ *
+ * GitHub comment IDs are globally unique integers, so this key is globally
+ * unique without needing the issue number — but including it makes the key
+ * human-readable and aids debugging.
+ *
+ * Both the webhook handler (issue_comment.created) and the polling path
+ * (IssueCommentTaskSpec) MUST use this function to ensure a single
+ * occurrence of the comment reaches the event log exactly once.
+ */
+export function issueCommentEventId(repoFullName: string, issueNumber: number, commentId: number): string {
+  return `comment:${repoFullName}#${issueNumber}:${commentId}`;
+}

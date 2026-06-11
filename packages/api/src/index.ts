@@ -2497,6 +2497,9 @@ async function main(): Promise<void> {
     eventLog: communityEventLog,
     projector: communityProjector,
     objectStore: communityObjectStore,
+    // Cloud R2 P2: seed initial comment cursor on auto-registration to avoid
+    // replaying historical comments on first poll after case.routed
+    fetchIssueCommentCursor,
   });
   await app.register(backlogRoutes, { backlogStore, threadStore, messageStore });
 
@@ -3374,6 +3377,7 @@ async function main(): Promise<void> {
           path?: string;
           line?: number;
           pull_request_review_id?: number;
+          author_association?: string; // F168 Phase B: needed for delivery policy
         }) => ({
           id: c.id,
           author: c.user?.login ?? 'unknown',
@@ -3383,6 +3387,7 @@ async function main(): Promise<void> {
           commentType: c.pull_request_review_id ? ('inline' as const) : ('conversation' as const),
           ...(c.path ? { filePath: c.path } : {}),
           ...(c.line ? { line: c.line } : {}),
+          ...(c.author_association !== undefined ? { authorAssociation: c.author_association } : {}),
         }),
       );
     };
@@ -3398,6 +3403,7 @@ async function main(): Promise<void> {
           body: string;
           submitted_at: string;
           commit_id?: string;
+          author_association?: string; // F168 Phase B: needed for delivery policy
         }) => ({
           id: r.id,
           author: r.user?.login ?? 'unknown',
@@ -3405,6 +3411,7 @@ async function main(): Promise<void> {
           body: r.body,
           submittedAt: r.submitted_at,
           ...(r.commit_id ? { commitId: r.commit_id } : {}),
+          ...(r.author_association !== undefined ? { authorAssociation: r.author_association } : {}),
         }),
       );
     };
@@ -3413,12 +3420,22 @@ async function main(): Promise<void> {
     const fetchIssueComments = async (repoFullName: string, issueNumber: number, sinceId?: number) => {
       await refreshGitHubSelfLogin();
       const comments = await fetchPaginated(`/repos/${repoFullName}/issues/${issueNumber}/comments`, sinceId);
-      return comments.map((c: { id: number; body: string; created_at: string; user?: { login: string } }) => ({
-        id: c.id,
-        author: c.user?.login ?? 'unknown',
-        body: c.body,
-        createdAt: c.created_at,
-      }));
+      return comments.map(
+        (c: {
+          id: number;
+          body: string;
+          created_at: string;
+          user?: { login: string };
+          author_association?: string; // F168 Phase B: needed for delivery policy
+        }) => ({
+          id: c.id,
+          author: c.user?.login ?? 'unknown',
+          body: c.body,
+          createdAt: c.created_at,
+          // Map snake_case GitHub API field to camelCase IssueComment.authorAssociation
+          ...(c.author_association !== undefined ? { authorAssociation: c.author_association } : {}),
+        }),
+      );
     };
 
     const fetchIssueState = async (repoFullName: string, issueNumber: number): Promise<'open' | 'closed'> => {

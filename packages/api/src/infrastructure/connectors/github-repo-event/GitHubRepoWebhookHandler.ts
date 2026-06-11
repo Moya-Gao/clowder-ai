@@ -5,6 +5,7 @@
  */
 import type { CatId, CommunityEvent, CommunityEventKind, ConnectorSource } from '@cat-cafe/shared';
 import type { ICommunityEventLog } from '../../../domains/community/CommunityEventLog.js';
+import { issueCommentEventId } from '../../../domains/community/community-keys.js';
 import type { WebhookHandleResult } from '../../../routes/connector-webhooks.js';
 import type {
   ConnectorDeliveryDeps,
@@ -412,7 +413,8 @@ export class GitHubRepoWebhookHandler {
       subjectKey = `issue:${repo}#${issue.number}`;
       // Unified sourceEventId: same key used by the polling path (IssueCommentTaskSpec)
       // for idempotent convergence — delivery ID would differ between the two paths.
-      sourceEventId = `comment:${repo}#${issue.number}:${comment.id}`;
+      // P2-③: use shared factory so webhook + polling paths can never drift on format.
+      sourceEventId = issueCommentEventId(repo, issue.number, comment.id);
       eventPayload = {
         commentId: comment.id,
         authorLogin: comment.user?.login ?? '',

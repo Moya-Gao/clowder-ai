@@ -61,6 +61,14 @@ const TRANSITION_TABLE: Record<string, TransitionRule> = {
   'case.declined': { from: '*', to: 'declined' },
   'case.reported': { from: '*', to: 'reported' },
 
+  // F168 Phase B: owner declares "waiting for external response"
+  // Valid from in_progress, routed (primary post-accept workflow — Cloud R6 P1-1), or
+  // awaiting_external (idempotent re-declare).
+  'case.awaiting_external': {
+    from: new Set<CommunityObjectState>(['in_progress', 'awaiting_external', 'routed']),
+    to: 'awaiting_external',
+  },
+
   'pr.merged': { from: '*', to: 'fixed' },
   'pr.closed': { from: '*', to: 'closed' },
   'issue.closed': { from: '*', to: 'closed' },
@@ -109,11 +117,37 @@ function isBootstrapPayloadValid(
 // Main pure function
 // ---------------------------------------------------------------------------
 
+/** OWNER and MEMBER are the two GitHub associations treated as "maintainer" for delivery policy. */
+const MAINTAINER_ASSOCIATIONS = new Set(['OWNER', 'MEMBER']);
+
 export function transition(
   current: CommunityObjectState,
   event: CommunityEvent,
   snapshot: TransitionSnapshot,
 ): TransitionResult {
+  // ─── F168 Phase B: informational events in awaiting_external ────────────
+  // When the owner has declared they're waiting for an external response and
+  // a new activity arrives, automatically restore state based on who acted:
+  //   - External actor (not OWNER/MEMBER) → in_progress (wake owner)
+  //   - Maintainer (OWNER/MEMBER)         → stay in awaiting_external (silent)
+  //
+  // From any other state, informational events are not state-changing — the
+  // projector handles them as lastExternalActivityAt updates only.
+  if (event.classification === 'informational') {
+    if (current === 'awaiting_external') {
+      const payload = event.payload as Record<string, unknown>;
+      const authorAssociation = typeof payload.authorAssociation === 'string' ? payload.authorAssociation : undefined;
+      // Cloud R9 P2: treat missing authorAssociation as "not an external respondent".
+      // Label/unlabeled events carry no authorAssociation in GitHubRepoWebhookHandler —
+      // they are silent metadata and must NOT wake the owner. Only a confirmed external
+      // actor (authorAssociation present and not OWNER/MEMBER) triggers in_progress.
+      const isExternalRespondent = authorAssociation !== undefined && !MAINTAINER_ASSOCIATIONS.has(authorAssociation);
+      return { ok: true, next: isExternalRespondent ? 'in_progress' : 'awaiting_external' };
+    }
+    // From any other state: informational event has no state transition
+    return { ok: false, reason: 'invalid_transition' };
+  }
+
   const rule = TRANSITION_TABLE[event.kind];
 
   // Unknown event kind

@@ -249,4 +249,61 @@ describe('community-state-machine', () => {
       assert.strictEqual(result.reason, 'invalid_transition');
     });
   });
+
+  // -------------------------------------------------------------------------
+  // awaiting_external — informational events (Cloud R9 P2)
+  // -------------------------------------------------------------------------
+
+  describe('awaiting_external — informational events', () => {
+    it('issue.labeled (no authorAssociation) from awaiting_external stays awaiting_external — label events must not wake owner (Cloud R9 P2)', () => {
+      // Label events carry no authorAssociation in the webhook handler.
+      // Without this fix, authorAssociation=undefined → isMaintainer=false →
+      // in_progress (false wake-up for owner).
+      const event = {
+        sourceEventId: 'test-issue.labeled',
+        subjectKey: 'issue:owner/repo#42',
+        kind: 'issue.labeled',
+        classification: 'informational',
+        payload: {},
+        at: Date.now(),
+      };
+      const result = transition('awaiting_external', event, makeSnapshot());
+      assert.strictEqual(result.ok, true);
+      assert.strictEqual(
+        result.next,
+        'awaiting_external',
+        'label event (no authorAssociation) must NOT trigger in_progress wake-up',
+      );
+    });
+
+    it('informational event with NONE authorAssociation from awaiting_external → in_progress (genuine external respondent)', () => {
+      // A real external commenter always provides authorAssociation=NONE/COLLABORATOR/etc.
+      // This must still wake the owner.
+      const event = {
+        sourceEventId: 'test-pr.review_submitted',
+        subjectKey: 'issue:owner/repo#42',
+        kind: 'pr.review_submitted',
+        classification: 'informational',
+        payload: { authorAssociation: 'NONE' },
+        at: Date.now(),
+      };
+      const result = transition('awaiting_external', event, makeSnapshot());
+      assert.strictEqual(result.ok, true);
+      assert.strictEqual(result.next, 'in_progress', 'external respondent (NONE) must wake owner');
+    });
+
+    it('informational event with OWNER authorAssociation from awaiting_external stays awaiting_external (maintainer activity)', () => {
+      const event = {
+        sourceEventId: 'test-issue.commented-owner',
+        subjectKey: 'issue:owner/repo#42',
+        kind: 'issue.commented',
+        classification: 'informational',
+        payload: { authorAssociation: 'OWNER' },
+        at: Date.now(),
+      };
+      const result = transition('awaiting_external', event, makeSnapshot());
+      assert.strictEqual(result.ok, true);
+      assert.strictEqual(result.next, 'awaiting_external', 'maintainer activity must not wake owner');
+    });
+  });
 });
