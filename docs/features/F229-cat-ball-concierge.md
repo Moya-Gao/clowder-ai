@@ -232,6 +232,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 | **Research** | `docs/research/2026-06-09-f229-companion-form-research.md` | companion 形态/体验调研：Clippy 反面教训、桌宠/派蒙借鉴、主动冒泡白名单、默认毛线球视觉方向、Mode B prompt |
 | **Design Gate** | `docs/discussions/2026-06-09-f229-design/README.md` | Phase 0 设计材料：架构归属一问、身份三层配置模型、对话载体决策、surface 技术路径、四态 wireframe、调研采纳决议 |
 | **Research** | `docs/research/2026-06-08-pi-gemma-local-clerk-phase0-spike.md` | gemma 4 26B 本地实测 + Pi carrier + harness 收敛（Phase D 前置） |
+| **Research** | `docs/research/2026-06-10-f102-f229-gemma-clerk-carrier-spike.md` | F102/F229 共享的 Gemma clerk carrier/harness spike：MD-first、短 handle、Pi/OpenCode/MCP 结论 |
 | **Issue** | cat-cafe#2175 | F102 MD-first digest candidates + provider 抽象（Phase D 软依赖） |
 | **Feature** | `docs/features/F155-scene-guidance-engine.md` | guide engine 积木（Phase A 求助场景后端） |
 | **Feature** | `docs/features/F092-voice-companion-experience.md` | VoiceSession 模型（Phase C 复用） |
