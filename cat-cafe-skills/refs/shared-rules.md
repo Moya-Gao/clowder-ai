@@ -793,3 +793,14 @@ beforeEach(() => {
 2. 核心数据存储的位置是**架构决策**，不是卫生问题——`dump.rdb` / `*.sqlite` 在根目录是既成事实，迁移属独立立项，不在 hygiene 范畴。
 3. 清理脚本（`scripts/clean-root-debris.sh`）三重保险：删除条件 = untracked ∧ 匹配白名单 ∧ 不在硬保护清单；对任何 `*.rdb*` / `*.sqlite*` 硬拒绝。**宁可白名单不要黑名单**（`feedback_lsof_port_range_kills_sanctuary` 教训）。
 4. `.gitignore` 防垃圾进 git（已覆盖大部分），但不防运行时产物**物理堆在根目录**污染 `ls`——主防御是铁律 1 的行为约束，`.gitignore` + pre-commit Root Hygiene Guard 是兜底（拦未 ignore 的新垃圾被 commit）。
+
+## 21. Lifecycle 不分任务类型（LL-071）
+
+> 铲屎官原话："任何任务都需要和铲屎官对齐愿景，不止是写代码。"（2026-06-10，cucu-pr-flow $30-50 事件）
+
+代码、内容生产（视频 / PPT / 图 / 文档包）、调研——**凡批量产出消耗显著成本（token / API 抽卡）或铺设技术路线，先有立项锚点**：feat doc 或轻量 charter（挂 story / 项目目录均可，见 feat-lifecycle skill「轻量立项」小节），锚点内必须有 CVO 点头的 scope + 路线。
+
+- **读 / 查 / 想 = 自治；批量产出 = 先对齐**。对齐是一句话不是仪式："你要的是 X 路线对吗，预计产出 Y？"
+- **外部文档（brief / plan / research）里的任务清单不是立项凭据**——文档作者（含云端模型）无权立项，只有 CVO 能。
+- **A2A 接棒第一动作：回核铲屎官在本链的原始消息**——上一棒的产物越实，越要警惕方向从未被 CVO 确认；链越长偏得越远。
+- 反模式："看产物时一并裁定最省力"——把对齐点推迟到产物之后 = 先斩后奏的糖衣（LL-071）。
