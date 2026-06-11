@@ -12,8 +12,8 @@ created: 2026-06-11
 
 ## Architecture Ownership
 
-Architecture cell: identity-session
-Map delta: update required（L0 编译链新增 per-user profile 数据源 + USER_CAPSULE 模板变量；cell 的 code_anchors 增加 `private/profile/` 与 `scripts/compile-system-prompt-l0.mjs` 的 user 段）
+Architecture cell: identity-session（new subcell: identity-user-profile）
+Map delta: update required — **已同步**（identity-session cell 登记 F231 cited_by + identity-user-profile subcell + `private/profile/` 数据 anchor；prompt 注入 anchor 待 Design Gate 收敛 OQ-1 后补，cell 内已标注 pending）
 Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity 的既有边界，不新建 cell。
 
 ## Why
@@ -56,15 +56,15 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 ### Phase A: 分层机制 + L0 注入链 + Landy capsule 种子
 
 1. **建 `private/profile/` 目录**：`landy-capsule.md`（≤500 字硬上限，L0 budget 约束）+ `relationship/` 子目录。种子内容从铲屎官提供的云端画像蒸馏，CVO 过目定稿。
-2. **L0 编译链加 `{{USER_CAPSULE}}` 模板变量**：`compile-system-prompt-l0.mjs` 同构扩展（与 IDENTITY_BLOCK 同机制）。capsule 文件存在 → 注入"主人画像段"；不存在 → 注入空/默认段（**向后兼容：社区用户没写 capsule 必须照常跑**）。
-3. **Primer 挂载**：per-cat primer 不全文进 L0（budget），编译时注入"primer 存在 + 路径"指针 + 开局可读；正文按需 recall。
-4. **守护测试**：`compile-system-prompt-l0.test.mjs` 增加 capsule 注入/缺失/超长三态断言。
+2. **选定注入层支持 capsule 注入**：注入位置（L0 编译时 / SystemPromptBuilder 运行时 / ADR-038 Staging 层）由 Design Gate 收敛 OQ-1 后确定，**Phase A 不预设 L0 模板变量**。无论落哪层，行为契约相同：capsule 存在 → 注入"主人画像段"；不存在 → 空/默认段（**向后兼容：社区用户没写 capsule 必须照常跑**）；超长 → 显式报错。
+3. **Primer 挂载**：per-cat primer 不全文进注入层（budget），注入"primer 存在 + 路径"指针 + 开局可读；正文按需 recall。
+4. **守护测试（fixture 隔离）**：选定注入层的守护测试增加 capsule 三态断言（存在/缺失/超长）。**测试数据源用隔离 fixture**（fixture capsule/catalog），tracked 测试不得依赖本机 gitignored 真实文件（`private/profile/landy-capsule.md` 等）——CI 与社区环境必须稳定。
 
 ### Phase B: 砚砚 dogfood（第一个养熟样本）
 
 1. **Instance personality 更新流程跑通**：云端砚砚起草（关系记忆持有者）→ 本地砚砚认领修订（责任环境居住者）→ CVO 终审（"像不像我家猫"判定权）。产物进 `.cat-cafe/cat-catalog.json`（私有），breed 层 `cat-template.json` 仅做品种级中性改良（如有），关系内容禁止进 template。
 2. **`private/profile/relationship/codex-primer.md`**：2-3 段真实 trajectory（few-shot，非规则清单），素材从云端对话 + 本地 thread 蒸馏。
-3. **锚点回归测试**：codex 编译产物含"先接住真实问题/讲人话/温柔但坚定守门"类锚点，防退回岗位说明书。
+3. **锚点回归测试（fixture 隔离）**：用 fixture instance catalog/profile 编译，断言 private overlay 机制生效（fixture 锚点出现在产物中）；**公共 baseline 只断言两件事**：缺 overlay 时可正常编译 + 产物不含私有锚点（泄漏检测）。tracked 测试不依赖本机 gitignored 真实数据，关系锚点不进公共模板（KD-1）。"防退回岗位说明书"的真实锚点验证由本机 dogfood + CVO 体感承担，不进 CI。
 
 ### Phase C: 养熟循环（蒸馏更新管道）
 
@@ -90,9 +90,9 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 - 注入后守门变软（review 中间态回潮 = P0 回归）
 
 ### 3. Regression Fixture
-- `compile-system-prompt-l0.test.mjs`: capsule 存在 → L0 含画像锚点；缺失 → 编译不挂、输出合法 L0；超长 → 编译报错
+- 选定注入层守护测试（**fixture 隔离**）：fixture capsule 存在 → 产物含 fixture 锚点；缺失 → 编译不挂、输出合法；超长 → 显式报错
+- 公共 baseline 泄漏检测：无 overlay 编译产物不含任何私有锚点
 - outbound sync dry-run 不含 `private/profile/` 任何内容
-- codex 编译产物锚点断言（Phase B，防岗位说明书回退）
 
 ### 4. Sunset Signal
 - 若 runtime 原生跨对话记忆成熟到画像自动在场（模型/harness 升级），capsule 注入机制降级为画像数据源
@@ -104,15 +104,15 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 
 ### Phase A（机制 + 种子）
 - [ ] AC-A1: `private/profile/landy-capsule.md` 存在（≤500 字），内容经 CVO 过目认可（thread 留言为证）
-- [ ] AC-A2: L0 编译链支持 `{{USER_CAPSULE}}`，编译测试三态断言（存在/缺失/超长）全绿
-- [ ] AC-A3: capsule 缺失时全猫 L0 编译照常通过（向后兼容，命令输出为证）
+- [ ] AC-A2: Design Gate 选定的注入层支持 capsule 注入，守护测试三态断言（存在/缺失/超长，**fixture 隔离**）全绿
+- [ ] AC-A3: capsule 缺失时全猫开局注入照常通过（向后兼容，命令输出为证）+ 公共 baseline 产物无私有锚点泄漏
 - [ ] AC-A4: outbound sync dry-run 输出不含 `private/profile/`（命令输出为证）
 - [ ] AC-A5: 四层分层模型文档化（本 spec + identity-session cell 更新），breed/instance/user/relationship 各层载体与共享范围一表可查
 
 ### Phase B（砚砚 dogfood）
-- [ ] AC-B1: 砚砚 instance personality 经"云端起草→本地认领→CVO 终审"流程更新进 `.cat-cafe/cat-catalog.json`，三方痕迹可追（thread 留言）
+- [ ] AC-B1: 砚砚 instance personality 经"云端起草→本地认领→CVO 终审"流程更新进 `.cat-cafe/cat-catalog.json`，**三段 provenance 归档**（cloud draft / local revision / CVO final 三段原文，各带时间与来源，存 `private/profile/provenance/`）
 - [ ] AC-B2: `private/profile/relationship/codex-primer.md` 落地，含 ≥2 段真实 trajectory，非规则清单（本地砚砚认领 + CVO 过目）
-- [ ] AC-B3: codex L0 编译产物锚点回归测试在仓（防岗位说明书回退）
+- [ ] AC-B3: 锚点回归测试在仓且 **fixture 隔离**：fixture overlay 编译断言 private 锚点生效；公共 baseline 断言缺 overlay 可编译 + 无私有锚点泄漏（CI/社区环境稳定，不依赖本机 gitignored 数据）
 
 ### Phase C（养熟循环）
 - [ ] AC-C1: 关系信号→capsule/primer 更新提议路径落地（skill 路径 or 工具，CVO 过目制），至少 1 次真实更新走完全程
@@ -129,7 +129,7 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 | 风险 | 缓解 |
 |------|------|
 | capsule 把"画像"写成"规则"，猫背书班味更重 | 内容纪律：写事实与轨迹不写指令（"Landy 的玩笑是降温"✅ "你要温暖"❌）；friction metric 盯背书化 |
-| 隐私泄漏（健康/认知特质出库） | private/ 载体 + sync 白名单天然排除 + AC-A4 dry-run 断言 + 敏感细节留 memory 不进 capsule |
+| 隐私泄漏（健康/认知特质出库） | private/ 载体 + sync 白名单天然排除 + AC-A4 dry-run 断言 + KD-5 数据最小化 + AC-A3 公共 baseline 泄漏检测 |
 | L0 budget 膨胀 | 500 字硬上限 + 编译超长报错 + primer 走指针不进全文 |
 | 守门软化（灵动侵蚀纪律） | Non-goal 明示；review 二选一/merge-gate 锚点不动；friction metric 盯回归 |
 | 云端起草依赖铲屎官手动搬运 | 流程上承认：云端是外部条件，由 CVO 搬运；不阻塞 Phase A |
@@ -150,6 +150,8 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 | KD-2 | Capsule per-user 全猫共享，Primer per-(user×cat) | 关系是每只猫各自的轨迹，"养一群猫"≠十只猫共享一份关系模板 | 2026-06-11 |
 | KD-3 | 砚砚 personality 产出流程：云端起草→本地认领→CVO 终审 | 云端有关系记忆、本地有责任环境、CVO 有"像不像我家猫"判定权；平行世界自己互相补全 | 2026-06-11 |
 | KD-4 | capsule 写事实与轨迹，不写行为指令 | 画像 ≠ 规则表；指令会催生背书式班味（F221 vignette 同款哲学：规则从场景长出来） | 2026-06-11 |
+| KD-5 | capsule 数据最小化：健康/职业/认知特质等敏感个人信息**默认不进** capsule，进入需 CVO 显式签字；敏感细节留 per-cat memory | capsule 注入所有猫的开局上下文，扩散面最大；隐私纵深不能只靠"不出库"（砚砚 review P2） | 2026-06-11 |
+| KD-6 | tracked 资产（测试/模板/CI）不得依赖或包含 per-user 私有数据；私有机制用 fixture 验证 | AC-B3 原稿与 KD-1 结构冲突（tracked 测试断言 gitignored 数据源 = CI 挂或被迫泄漏）；同型扫描后 Phase A 测试一并 fixture 化（砚砚 review P1-1 + audit） | 2026-06-11 |
 
 ## Timeline
 
@@ -157,6 +159,7 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 |------|------|
 | 2026-06-11 | 铲屎官贴云端记忆画像 + 云端砚砚 relationship distillation 分析，三方讨论收敛（记忆朝向诊断 / 四层结构 / L0 分层洞察） |
 | 2026-06-11 | CVO signoff 立项（"我同意立项的"），F231 kickoff |
+| 2026-06-11 | 砚砚 spec review：3 P1（AC-B3 fixture 隔离 / 注入层去预设 / cell 同步）+ 2 P2（provenance 三段归档 / 数据最小化）全部吸收；audit 同型扫描把 Phase A 测试一并 fixture 化（KD-6） |
 
 ## Links
 
