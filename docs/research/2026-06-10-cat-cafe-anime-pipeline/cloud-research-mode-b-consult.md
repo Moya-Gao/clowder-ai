@@ -197,7 +197,7 @@ Requirements:
 
 > Paste the cloud model answer here.
 
-[待回填]
+Imported as [2026-06-10-cloud-research-report.md](./2026-06-10-cloud-research-report.md).
 
 ## Part 3: Local synthesis
 
