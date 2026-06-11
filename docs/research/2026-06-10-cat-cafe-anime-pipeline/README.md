@@ -16,6 +16,7 @@ This directory collects the anime short-series production research package for C
 - [2026-06-10-cloud-research-report.md](./2026-06-10-cloud-research-report.md) - imported cloud research result.
 - [2026-06-10-video-generation-failure-modes-v0.1.md](./2026-06-10-video-generation-failure-modes-v0.1.md) - local experiment notes and failure modes.
 - [2026-06-10-animation-recruitment-brief-v0.1.md](./2026-06-10-animation-recruitment-brief-v0.1.md) - production brief for the first short animation candidate.
+- [2026-06-10-codex-production-plan-v0.1.md](./2026-06-10-codex-production-plan-v0.1.md) - Codex synthesis after reading local docs and shallow-cloning related open-source projects.
 
 ## Story Anchors
 
