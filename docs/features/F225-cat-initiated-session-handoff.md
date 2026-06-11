@@ -10,7 +10,7 @@ created: 2026-06-05
 
 > **Status**: in-progress（**硬层** done + dogfood；**软层**（L0 §8 反射 + `context-self-management` skill + `context_management_hint` **prompt-injection** delivery）**+ eval 注册**（capability-wakeup #14）done，merged PR #2178；**待**：真实 warn session 观测 hint 是否 fire + eval activation 数据，闭 KD-1 三层后再 close） | **Owner**: 布偶猫（Opus 4.8） | **Priority**: P2
 
-Architecture cell: `identity-runtime-session`（`identity-session` cell 的 subcell，F211 owns）
+Architecture cell: identity-session（subcell: `identity-runtime-session`，F211 owns）
 Map delta: update required — 新增"猫主动提议"作为一种 session boundary **触发源** + 新 `sealReason: 'cat_initiated_handoff'` + 新 typed `SessionRecord.catHandoffNote`（或独立 SessionHandoffStore）+ 新 `SessionHandoffProposal` 类型，扩展 identity-runtime-session 的 lifecycle registration / seal reason / proposal 谱系。owner 不变。
 Why: session 边界目前只能由 `shouldTakeAction`（context_health / 阈值策略）被动触发；本 feature 增加一条"猫主动 + 人 gate"的触发路径 + 配套 typed 承载，归 identity-runtime-session 管 session 生命周期，不新造通用 Store/Queue。
 
