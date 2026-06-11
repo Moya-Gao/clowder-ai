@@ -7,7 +7,7 @@ participants: [landy, codex, gemini, fable5]
 thread_ids: [thread_mq6wl2nge8xpymsv]
 ---
 
-# 醋醋喵诞生记
+# 醋醋喵诞生记：大缅因猫醋意 max 与一张头像的标准 PR 流程
 
 > "我取消了烁烁的愿景守护，然后大缅因猫收到了云端缅因猫 PR review 过的结果，他合入了 PR，**继续契而不舍喊烁烁愿景守护**。😅🤣 笑不活了。"
 > —— Landy，事发当晚 19:17，本 story 的立项原话
