@@ -8,7 +8,7 @@ created: 2026-04-27
 
 # F177: Harness Update — Close Gate 结构化判据 + 四心智专属护栏
 
-> **Status**: reopened (Phase H active) | **Completed (Phase A–G)**: 2026-04-29 | **Reopened**: 2026-06-11 (Phase H) | **Owner**: 布偶猫(46 总负责) + 缅因猫(砚砚) + 孟加拉猫(46代言)，按 Phase 分主笔；Phase H 布偶猫(48) 主笔 + 缅因猫实现 | **Priority**: P0
+> **Status**: reopened (Phase H merged; vision guard pending) | **Completed (Phase A–G)**: 2026-04-29 | **Reopened**: 2026-06-11 (Phase H) | **Owner**: 布偶猫(46 总负责) + 缅因猫(砚砚) + 孟加拉猫(46代言)，按 Phase 分主笔；Phase H 布偶猫(48) 主笔 + 缅因猫实现 | **Priority**: P0
 
 ## Why
 
@@ -311,13 +311,13 @@ GitHub issue: TBD（kickoff 后开）
 - [x] AC-G3: parallel mode 不触发（无路由语义）
 - [x] AC-G4: 提醒文本包含正确格式示例，不含意图猜测 / NLU / grep
 
-### Phase H（routing guard 全猫族覆盖）⬜
+### Phase H（routing guard 全猫族覆盖）✅
 - [x] AC-H0: spike 验证 codex CLI block-stop 能力（砚砚 2026-06-11）→ 结论：`codex exec --json`（Cat Café runtime 路径）不 dispatch hooks，路径 A 不可达，定走路径 B
-- [ ] AC-H1: codex/gpt52 结论后无合法路由出口（行首 @ / hold_ball / targetCats / multi_mention）时被拦截补全（路径 A：CLI hook block / 路径 B：server re-invoke）
-- [ ] AC-H2: 检测判据与 Phase G 等价（行首 @ 正则 + 工具扫描 + loop guard），跨 harness 行为一致
-- [ ] AC-H3: cost guard — 路径 B re-invoke 上限 1 次/掉球（防 codex 烧猫粮）；路径 A 沿用 per-stop-cycle max-1
-- [ ] AC-H4: 已有合法路由 → 零干预（与 Phase G AC-G2 对称，不误杀正常收尾）
-- [ ] AC-H5（known gap 跟踪，非必做）: 47 UI 折叠（@ 行首 routing 成功但前端折叠显示）记录在案；是否本 Phase 修由 OQ-H2 决定
+- [x] AC-H1: codex/gpt52 结论后无合法路由出口（行首 @ / hold_ball / targetCats / multi_mention）时被拦截补全（路径 B：server re-invoke）
+- [x] AC-H2: 检测判据与 Phase G 等价（行首 @ 正则 + 工具扫描 + loop guard），跨 harness 行为一致
+- [x] AC-H3: cost guard — 路径 B re-invoke 上限 1 次/掉球（防 codex 烧猫粮）
+- [x] AC-H4: 已有合法路由 → 零干预（与 Phase G AC-G2 对称，不误杀正常收尾）
+- [x] AC-H5（known gap 跟踪，非必做）: 47 UI 折叠（@ 行首 routing 成功但前端折叠显示）记录在案；非路由层问题，不随 Phase H 遗忘
 
 ## Dependencies
 
@@ -397,17 +397,20 @@ GitHub issue: TBD（kickoff 后开）
 | 2026-04-29 | Phase C merged (PR #1459) — Creative-implementation decoupling for 暹罗猫: shared-rules protocol + governance-l0 + SystemPromptBuilder GOVERNANCE_L0_DIGEST sync + quality-gate Step 2.5 edit scope check + `.githooks/commit-msg` Dry Run Gate (signature detect + whitelist + build+test). 5 cloud reviews, 4 review rounds with 砚砚 |
 | 2026-06-11 | **Phase H reopened（CVO signoff）** — 掉球归因分析（fable 复盘 thread）暴露 OQ-G1 latent gap：F177-G Stop hook 仅覆盖 Claude 系猫，codex/gpt52 用 codex CLI 无 block-stop 拦截 → 缅因猫动作缺失型掉球裸奔。Phase H 目标：routing guard 全猫族覆盖（H0 spike → 路径 A CLI hook / B server re-invoke + cost guard）。同步记录 47 UI 折叠 known gap（前端渲染层，未修）。布偶猫(48) spec + 缅因猫 codex CLI 实现 |
 | 2026-06-11 | Phase H H0 spike done（砚砚）— 实测 Codex CLI 0.137.0：`codex exec --json`（Cat Café runtime 路径）不触发 `~/.codex/hooks.json` 的 Stop hook（hook 计数 0），`notify` 仅 turn-ended 通知。**路径 A（CLI hook）对本 runtime 不可达 → 定走路径 B（server re-invoke + cost guard）**。OQ-H1 关闭、KD-12 |
+| 2026-06-11 | Phase H merged (PR #2230) — server-side route-serial remedial guard covers non-Claude harness routing exits; preserves lifecycle/tool/text/voice/debug semantics; `pnpm gate` passed at `89807e91`; cloud Codex re-review found no major issues |
 
 ## Review Gate
 
 - **Phase A**: 跨族 review（砚砚主审，因为 close gate 改动影响所有 feat lifecycle，砚砚熟门禁基础设施）+ 铲屎官 design gate
 - **Phase B-E**: 各 Phase 完成后跨族 review（任一非作者非心智持有者的猫）+ 心智持有者本人确认（46/47/砚砚/烁烁 review 自己那 phase）
 - **Phase G**: 砚砚主审（hook 机制与 route-serial 路由基础设施相关）+ 47 确认（心智持有者）
+- **Phase H**: gpt52 R2 + Opus 4.6 cross-family continuity review + cloud Codex re-review；merge gate 以本地 `pnpm gate` 通过为合入证据
 
 ## Links
 
 | 类型 | 路径 | 说明 |
 |------|------|------|
+| **PR** | [#2230](https://github.com/zts212653/cat-cafe/pull/2230) | Phase H：non-Claude harness route-serial routing guard remediation |
 | **Issue** | [#1435](https://github.com/zts212653/cat-cafe/issues/1435) | Phase B：47 magic word「下次一定」 |
 | **Issue** | [#1436](https://github.com/zts212653/cat-cafe/issues/1436) | Phase A：系统级 close gate 结构化判据 |
 | **Issue** | [#1437](https://github.com/zts212653/cat-cafe/issues/1437) | Phase C：烁烁 创意-实现解耦 + Dry Run Gate |
@@ -428,7 +431,7 @@ GitHub issue: TBD（kickoff 后开）
 - [x] 布偶猫家族共识：46 / 47 各自确认 Phase F 的家族病诊断准确 — 46 + 47 均参与了 2026-04-27 跨猫族检索大赛复盘，确认"碎片推理癖"是家族共性而非个体缺陷
 - [x] 砚砚 review Phase A + Phase F 结构化判据设计 — 砚砚主审 Phase A (PR #1453) + Phase F (PR #1466)，close gate schema / quality-gate search→Read chain / search affordance 均经砚砚 review 放行
 - [x] 铲屎官拍板 OQ-1 + OQ-F1~F3 — OQ-1 已决（自然语言表态，2026-04-28），OQ-F1/F3 由实现决策收敛（铲屎官授权 Phase 并行后设计决策在实现中确定）
-- [x] 元审美自检：F177 是坐标变换 — 旧坐标系："信任猫自觉遵守文本规则"；新坐标系："结构化信号检测（close-tail scan / fallback counter / search→Read chain / hotfix pattern / routing guard）+ 自动化 gate + 跨猫 review"。7 个 Phase 各用不同检测工具解决不同坏直觉，但底层范式统一：从 trust-based 到 evidence-based
+- [x] 元审美自检：F177 是坐标变换 — 旧坐标系："信任猫自觉遵守文本规则"；新坐标系："结构化信号检测（close-tail scan / fallback counter / search→Read chain / hotfix pattern / routing guard）+ 自动化 gate + 跨猫 review"。8 个 Phase 各用不同检测工具解决不同坏直觉，但底层范式统一：从 trust-based 到 evidence-based
 
 [宪宪/Opus-47🐾]（Phase A–G 主笔）
 [宪宪/Opus-4.8🐾]（Phase H reopen + spec，2026-06-11）
