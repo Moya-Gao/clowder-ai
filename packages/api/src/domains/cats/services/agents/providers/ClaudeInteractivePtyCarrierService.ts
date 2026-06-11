@@ -1,0 +1,351 @@
+/**
+ * F230 Phase B: ClaudeInteractivePtyCarrierService
+ *
+ * Carrier that invokes Claude via an interactive PTY session managed by tmux.
+ * Backup/alternative to `claude --bg` daemon (F198). Avoids the `-p` flag
+ * entirely → billing identity stays `cli` (not `sdk-cli`).
+ *
+ * Architecture:
+ *   - PtyDriver handles tmux session lifecycle + prompt injection
+ *   - TranscriptTailer reads output from ~/.claude/projects/<slug>/<session>.jsonl
+ *   - transcriptEntriesToAgentMessages/accumulateUsageFromEntries reused from bg path
+ *   - Terminal state: `system/turn_duration` event (D4) + silence fallback
+ *   - Cancel: options.signal → driver.cancel() (ESC) → drain → driver.dispose()
+ *
+ * F230 KD-1: per-invocation form — each invoke() starts a fresh tmux session
+ * and disposes it when done. Resume via `sessionId` option reuses transcript.
+ * Persistent session form (Phase C) is out of B-min scope.
+ *
+ * Note: B-min does NOT inject --system-prompt-file (L0 compiler integration
+ * deferred to a later phase) to stay minimal and avoid dependency on
+ * compileL0ViaSubprocess machinery.
+ */
+import { randomUUID } from 'node:crypto';
+import { existsSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { isAbsolute, join, resolve } from 'node:path';
+import { type CatId, createCatId } from '@cat-cafe/shared';
+import { getCatModel } from '../../../../../config/cat-models.js';
+import { createModuleLogger } from '../../../../../infrastructure/logger.js';
+import type { AgentMessage, AgentService, AgentServiceOptions, TokenUsage } from '../../types.js';
+import {
+  accumulateUsageFromEntries,
+  createUsageAccumulator,
+  finalizeTranscriptUsage,
+  transcriptEntriesToAgentMessages,
+} from './BgTranscriptEventConsumer.js';
+import {
+  ANTHROPIC_PROFILE_MODE_KEY,
+  buildClaudeEnvOverrides,
+  resolveClaudeModelSelection,
+  resolveDefaultClaudeMcpServerPath,
+} from './ClaudeAgentService.js';
+import { appendLocalImagePathHints, collectImageAccessDirectories } from './image-cli-bridge.js';
+import { extractImagePaths } from './image-paths.js';
+import type { PtyDriverOptions } from './pty/PtyDriver.js';
+import { PtyDriver } from './pty/PtyDriver.js';
+import { ptyTranscriptDir, sleep } from './pty/pty-utils.js';
+export { ptyTranscriptDir }; // re-export for consumers (f230-interactive-pty-carrier.test.js)
+
+import { TranscriptTailer } from './TranscriptTailer.js';
+
+const log = createModuleLogger('interactive-pty-carrier');
+
+export interface ClaudeInteractivePtyCarrierServiceOptions {
+  catId?: CatId;
+  /** Test seam: polling interval for TranscriptTailer (ms). Default 500. */
+  pollIntervalMs?: number;
+  /** Test seam: terminal timeout (silence fallback, ms). Default 5 min. */
+  terminalTimeoutMs?: number;
+  /** Test seam: working directory for PtyDriver (default to resolved cwd). */
+  cwd?: string;
+  /** Test seam: inject a custom PtyDriver factory. Default creates real PtyDriver. */
+  driverFactory?: (opts: PtyDriverOptions) => PtyDriver;
+  /** Test seam: transcript directory override. */
+  transcriptDirOverride?: string;
+  /**
+   * Absolute path to the MCP server entry point (dist/index.js).
+   * Defaults to CAT_CAFE_MCP_SERVER_PATH env var or repo-layout heuristics.
+   * Mirrors ClaudeBgCarrierService.mcpServerPath for AC-B3 parity.
+   */
+  mcpServerPath?: string;
+}
+
+/**
+ * Carrier for `claude` interactive PTY mode (F230 Plan B).
+ * Complements F198 `--bg` daemon; reads transcript from `~/.claude/projects/…/<session>.jsonl`.
+ * Reuses: TranscriptTailer, BgTranscriptEventConsumer, transcriptEntriesToAgentMessages.
+ */
+export class ClaudeInteractivePtyCarrierService implements AgentService {
+  readonly catId: CatId;
+  // biome-ignore lint/correctness/noUnusedPrivateClassMembers: used via `const { model } = this` destructuring in invoke()
+  private readonly model: string;
+  private readonly pollIntervalMs: number;
+  private readonly terminalTimeoutMs: number;
+  private readonly cwd: string;
+  private readonly driverFactory: (opts: PtyDriverOptions) => PtyDriver;
+  private readonly transcriptDirOverride: string | undefined;
+  private readonly mcpServerPath: string | undefined;
+  /** Cached MCP config file path (created once per instance, reused across invocations). */
+  private mcpConfigFilePath: string | undefined;
+
+  constructor(options?: ClaudeInteractivePtyCarrierServiceOptions) {
+    this.catId = options?.catId ?? createCatId('opus');
+    this.model = getCatModel(this.catId) ?? 'claude-opus-4-8';
+    this.pollIntervalMs = options?.pollIntervalMs ?? 500;
+    this.terminalTimeoutMs = options?.terminalTimeoutMs ?? 5 * 60 * 1_000; // 5 min
+    this.cwd = options?.cwd ?? process.cwd();
+    this.driverFactory = options?.driverFactory ?? ((opts) => new PtyDriver(opts));
+    this.transcriptDirOverride = options?.transcriptDirOverride;
+
+    // Resolve MCP server path (mirrors ClaudeBgCarrierService pattern)
+    const configuredPath = options?.mcpServerPath ?? process.env.CAT_CAFE_MCP_SERVER_PATH;
+    if (configuredPath) {
+      this.mcpServerPath = isAbsolute(configuredPath) ? configuredPath : resolve(process.cwd(), configuredPath);
+    } else {
+      this.mcpServerPath = resolveDefaultClaudeMcpServerPath();
+    }
+  }
+
+  /**
+   * Invoke claude via interactive PTY.
+   *
+   * Lifecycle:
+   *   start → injectPrompt → [yield session_init] → tail transcript → [yield text/tool_use/system_info]
+   *   → turn_duration terminal signal → [yield done + usage] → dispose
+   */
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: async generator with cancellation, multiple error paths, and inline polling loop — extracting would worsen readability
+  async *invoke(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
+    const { catId, model, pollIntervalMs, terminalTimeoutMs } = this;
+
+    // ─── Env construction (F230 D3 + KD-7: reuse buildClaudeEnvOverrides) ─────
+    const callbackEnvWithMode: Record<string, string> = {
+      [ANTHROPIC_PROFILE_MODE_KEY]: 'subscription',
+      ...(options?.callbackEnv ?? {}),
+    };
+    const envOverrides = buildClaudeEnvOverrides(callbackEnvWithMode);
+    if (options?.accountEnv) {
+      for (const [k, v] of Object.entries(options.accountEnv)) {
+        envOverrides[k] = v;
+      }
+    }
+    // Hardcoded guard — always unset entrypoint vars (D3 double-safety)
+    // These will map to env -u flags in PtyDriver.buildClaudeCommand().
+    envOverrides.CLAUDE_CODE_ENTRYPOINT = null;
+    envOverrides.CLAUDECODE = null;
+
+    // Pass envOverrides (delta, not merged env) directly to PtyDriver.
+    // PtyDriver uses string values as tmux -e KEY=VALUE args and null values as env -u flags.
+    // buildChildEnv (full merge with process.env) is NOT needed for PTY — tmux inherits
+    // the shell env on its own; we only need to apply the delta on top.
+    const envDelta = envOverrides as Record<string, string | null>;
+
+    // ─── Model + args ──────────────────────────────────────────────────────────
+    const { effectiveModel, useEnvModelOverride } = resolveClaudeModelSelection(options?.callbackEnv, model);
+    const extraArgs: string[] = [];
+    // --permission-mode bypassPermissions (F230 AC-B4, F198 Phase D parity)
+    extraArgs.push('--permission-mode', 'bypassPermissions');
+    // --model (skip if env-based override)
+    if (!useEnvModelOverride) {
+      extraArgs.push('--model', effectiveModel);
+    }
+    // --mcp-config + --strict-mcp-config (F230 AC-B3, mirrors ClaudeBgCarrierService)
+    // Gated on callbackEnv presence (same as bg carrier): without callbackEnv there is
+    // no callback system running, so MCP tools would fail anyway.
+    if (options?.callbackEnv && this.mcpServerPath && existsSync(this.mcpServerPath)) {
+      // Write MCP config JSON to a temp file (safer than inline JSON in a shell command).
+      // Mirrors ClaudeBgCarrierService's Windows path — file-based is unambiguous.
+      if (!this.mcpConfigFilePath || !existsSync(this.mcpConfigFilePath)) {
+        const dir = mkdtempSync(join(tmpdir(), 'cat-cafe-pty-mcp-'));
+        this.mcpConfigFilePath = join(dir, 'mcp-config.json');
+        writeFileSync(
+          this.mcpConfigFilePath,
+          JSON.stringify({
+            mcpServers: {
+              'cat-cafe': { command: 'node', args: [this.mcpServerPath] },
+            },
+          }),
+          'utf-8',
+        );
+      }
+      extraArgs.push('--mcp-config', this.mcpConfigFilePath, '--strict-mcp-config');
+    }
+    // --resume (F230 E4: no fork). P1-D: full UUID regex prevents shell injection —
+    // a prefix-only check allows malformed IDs like "id-'; rm -rf /" to be shell-interpreted.
+    const resumeSessionId =
+      options?.sessionId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(options.sessionId)
+        ? options.sessionId
+        : undefined;
+
+    const cwd = options?.workingDirectory ?? this.cwd;
+    // P2 fix (R8): if accountEnv sets HOME, Claude runs with that HOME and writes
+    // transcripts to <accountEnv.HOME>/.claude/projects/<slug>. We must derive the
+    // transcript dir from the same HOME, not the API process homedir().
+    const effectiveHome = options?.accountEnv?.HOME;
+    const transcriptDir = this.transcriptDirOverride ?? ptyTranscriptDir(cwd, effectiveHome);
+
+    // F230 R10 fix: pre-assign session ID for new sessions.
+    // Pass as `--session-id <uuid>` to Claude so the transcript filename is deterministic:
+    //   ${transcriptDir}/${newSessionId}.jsonl
+    // This eliminates the `watchForTranscriptFile` heuristic and the carrier-level
+    // serialization mutex (transcriptDirGate / serializedInjectPrompt — R9 approach).
+    // Concurrent same-cwd invocations (route-parallel.ts Promise.all) each get their
+    // own UUID → their own transcript file → no cross-claim race possible.
+    // Resume sessions already know their transcript path (opts.resumeSessionId) — no UUID needed.
+    const newSessionId = resumeSessionId ? undefined : randomUUID();
+
+    // ─── Image inputs (P2-image-inputs fix, mirrors ClaudeAgentService pattern) ──
+    // When a turn includes uploaded images, extract paths from contentBlocks,
+    // grant Claude CLI directory access via --add-dir, and append path hints to
+    // the prompt so Claude can read them. Without this, image turns are text-only.
+    const imagePaths = extractImagePaths(options?.contentBlocks, options?.uploadDir);
+    const imageAccessDirs = collectImageAccessDirectories(imagePaths);
+    const effectivePrompt = appendLocalImagePathHints(prompt, imagePaths);
+    for (const dir of imageAccessDirs) {
+      extraArgs.push('--add-dir', dir);
+    }
+
+    // ─── Driver setup ──────────────────────────────────────────────────────────
+    const driver = this.driverFactory({
+      cwd,
+      env: envDelta,
+      extraArgs,
+      resumeSessionId,
+      newSessionId,
+      readyTimeoutMs: 30_000,
+      readyGraceMs: 15_000,
+    });
+
+    // ─── Abort signal wiring ───────────────────────────────────────────────────
+    let abortRequested = false;
+    const abortListener = async () => {
+      abortRequested = true;
+      await driver.cancel().catch(() => void 0);
+    };
+    options?.signal?.addEventListener('abort', abortListener);
+
+    // P2-abort fix: check if signal is already aborted before committing resources.
+    // addEventListener('abort') does not fire if the signal was aborted before it was
+    // attached; without this check, a pre-aborted signal would let the carrier proceed
+    // through start() (30s+ grace) and injectPrompt(), wasting a Claude turn.
+    if (options?.signal?.aborted) {
+      options.signal.removeEventListener('abort', abortListener);
+      yield { type: 'error', catId, error: 'cancelled before start (signal already aborted)', timestamp: Date.now() };
+      yield { type: 'done', catId, isFinal: true, timestamp: Date.now() };
+      return;
+    }
+
+    try {
+      // ─── Start + inject ──────────────────────────────────────────────────────
+      try {
+        await driver.start();
+      } catch (err) {
+        yield {
+          type: 'error',
+          catId,
+          error: `PtyDriver start failed: ${(err as Error).message}`,
+          timestamp: Date.now(),
+        };
+        yield { type: 'done', catId, isFinal: true, timestamp: Date.now() };
+        return;
+      }
+
+      // P2-abort-mid fix: re-check abort after start() completes.
+      // The abort listener may have fired during start()'s 30 s grace window —
+      // in that case abortRequested is now true but the event won't fire again.
+      // Without this guard the carrier proceeds to injectPrompt(), wasting a turn.
+      if (abortRequested) {
+        yield { type: 'error', catId, error: 'cancelled during start', timestamp: Date.now() };
+        yield { type: 'done', catId, isFinal: true, timestamp: Date.now() };
+        return;
+      }
+
+      let transcriptPath: string;
+      let sessionId: string;
+      let initialLines: number | undefined;
+      try {
+        // F230 R10 fix: transcript path is pre-determined via --session-id (new sessions)
+        // or known via resumeSessionId (resume sessions). No serialization gate needed —
+        // each concurrent invocation has its own UUID → its own transcript file.
+        ({ transcriptPath, sessionId, initialLines } = await driver.injectPrompt(effectivePrompt, transcriptDir));
+      } catch (err) {
+        yield {
+          type: 'error',
+          catId,
+          error: `PtyDriver injectPrompt failed: ${(err as Error).message}`,
+          timestamp: Date.now(),
+        };
+        yield { type: 'done', catId, isFinal: true, timestamp: Date.now() };
+        return;
+      }
+
+      // ─── session_init ────────────────────────────────────────────────────────
+      yield { type: 'session_init', catId, sessionId, timestamp: Date.now() };
+
+      // ─── Tail transcript ──────────────────────────────────────────────────────
+      // P1-B fix: for resume sessions, start tailer at initialLines to skip old content.
+      // New sessions have initialLines=undefined → starts at 0 (default behavior unchanged).
+      const tailer = new TranscriptTailer(transcriptPath, initialLines ?? 0);
+      const acc = createUsageAccumulator();
+      let lastActivityMs = Date.now();
+      let terminal = false;
+
+      while (!terminal) {
+        if (abortRequested) {
+          yield { type: 'error', catId, error: 'cancelled by abort signal', timestamp: Date.now() };
+          yield { type: 'done', catId, isFinal: true, timestamp: Date.now() };
+          return;
+        }
+
+        // P2 fix: when regular read returns nothing, do a final drain with
+        // includeTrailingPartial:true. Handles the flush race where Claude writes
+        // `system/turn_duration` without a trailing \n (mirrors bg-carrier pattern).
+        let entries = await tailer.readNew();
+        if (entries.length === 0) {
+          entries = await tailer.readNew({ includeTrailingPartial: true });
+        }
+        if (entries.length > 0) {
+          lastActivityMs = Date.now();
+          accumulateUsageFromEntries(acc, entries);
+
+          // Emit messages from this batch
+          const messages = transcriptEntriesToAgentMessages(entries, { catId });
+          for (const msg of messages) {
+            yield msg;
+          }
+
+          // Detect terminal event: system/turn_duration (D4)
+          for (const raw of entries) {
+            const entry = raw as Record<string, unknown>;
+            if (entry.type === 'system' && entry.subtype === 'turn_duration') {
+              log.debug({ catId, sessionId }, 'terminal event: turn_duration');
+              terminal = true;
+              break;
+            }
+          }
+        } else {
+          // Silence fallback: if no new entries for terminalTimeoutMs → done
+          if (Date.now() - lastActivityMs > terminalTimeoutMs) {
+            log.warn({ catId, sessionId, terminalTimeoutMs }, 'transcript silence timeout, treating as done');
+            terminal = true;
+          } else {
+            await sleep(pollIntervalMs);
+          }
+        }
+      }
+
+      // ─── done + usage ─────────────────────────────────────────────────────────
+      const usage: TokenUsage = finalizeTranscriptUsage(acc);
+      yield {
+        type: 'done',
+        catId,
+        isFinal: true,
+        timestamp: Date.now(),
+        metadata: { model: effectiveModel, usage, provider: 'claude_interactive_pty' },
+      };
+    } finally {
+      options?.signal?.removeEventListener('abort', abortListener);
+      await driver.dispose();
+    }
+  }
+}
