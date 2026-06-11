@@ -138,11 +138,17 @@ export class ClaudeInteractivePtyCarrierService implements AgentService {
     envOverrides.CLAUDE_CODE_ENTRYPOINT = null;
     envOverrides.CLAUDECODE = null;
 
-    // Pass envOverrides (delta, not merged env) directly to PtyDriver.
-    // PtyDriver uses string values as tmux -e KEY=VALUE args and null values as env -u flags.
-    // buildChildEnv (full merge with process.env) is NOT needed for PTY — tmux inherits
-    // the shell env on its own; we only need to apply the delta on top.
+    // PtyDriver: string → tmux -e KEY=VALUE; null → env -u. Proxy vars injected below (P2 F230 2026-06-11).
     const envDelta = envOverrides as Record<string, string | null>;
+    // P2 proxy: explicitly forward network proxy vars — defeats tmux server env snapshot.
+    Object.assign(
+      envDelta,
+      Object.fromEntries(
+        ['HTTP_PROXY', 'http_proxy', 'HTTPS_PROXY', 'https_proxy', 'ALL_PROXY', 'all_proxy', 'NO_PROXY', 'no_proxy']
+          .filter((k) => process.env[k] != null && !(k in envDelta))
+          .map((k) => [k, process.env[k]]),
+      ),
+    );
 
     // ─── Model + args ──────────────────────────────────────────────────────────
     const { effectiveModel, useEnvModelOverride } = resolveClaudeModelSelection(options?.callbackEnv, model);
@@ -153,12 +159,9 @@ export class ClaudeInteractivePtyCarrierService implements AgentService {
     if (!useEnvModelOverride) {
       extraArgs.push('--model', effectiveModel);
     }
-    // --mcp-config + --strict-mcp-config (F230 AC-B3, mirrors ClaudeBgCarrierService)
-    // Gated on callbackEnv presence (same as bg carrier): without callbackEnv there is
-    // no callback system running, so MCP tools would fail anyway.
+    // --mcp-config + --strict-mcp-config (F230 AC-B3): gated on callbackEnv (no callback = MCP unusable).
     if (options?.callbackEnv && this.mcpServerPath && existsSync(this.mcpServerPath)) {
-      // Write MCP config JSON to a temp file (safer than inline JSON in a shell command).
-      // Mirrors ClaudeBgCarrierService's Windows path — file-based is unambiguous.
+      // Write MCP config to temp file (file-based avoids inline JSON shell quoting issues).
       if (!this.mcpConfigFilePath || !existsSync(this.mcpConfigFilePath)) {
         const dir = mkdtempSync(join(tmpdir(), 'cat-cafe-pty-mcp-'));
         this.mcpConfigFilePath = join(dir, 'mcp-config.json');
@@ -175,9 +178,7 @@ export class ClaudeInteractivePtyCarrierService implements AgentService {
       extraArgs.push('--mcp-config', this.mcpConfigFilePath, '--strict-mcp-config');
     }
     const cwd = options?.workingDirectory ?? this.cwd;
-    // P2 fix (R8): if accountEnv sets HOME, Claude runs with that HOME and writes
-    // transcripts to <accountEnv.HOME>/.claude/projects/<slug>. We must derive the
-    // transcript dir from the same HOME, not the API process homedir().
+    // R8: use accountEnv.HOME (if set) for transcriptDir derivation instead of API process homedir.
     const effectiveHome = options?.accountEnv?.HOME;
     const transcriptDir = this.transcriptDirOverride ?? ptyTranscriptDir(cwd, effectiveHome);
     // --resume (E4 P1-D): UUID regex + existsSync guards stale cross-carrier IDs (F230 alpha P1 2026-06-11).
@@ -192,10 +193,7 @@ export class ClaudeInteractivePtyCarrierService implements AgentService {
     }
     // `--session-id` removed (R10): flag writes ai-title only; real events go to a different UUID. PtyDriver watches via watchForTranscriptFile.
 
-    // ─── Image inputs (P2-image-inputs fix, mirrors ClaudeAgentService pattern) ──
-    // When a turn includes uploaded images, extract paths from contentBlocks,
-    // grant Claude CLI directory access via --add-dir, and append path hints to
-    // the prompt so Claude can read them. Without this, image turns are text-only.
+    // ─── Image inputs: extract paths, grant --add-dir, append path hints (F230 P2-image-inputs fix) ──
     const imagePaths = extractImagePaths(options?.contentBlocks, options?.uploadDir);
     const imageAccessDirs = collectImageAccessDirectories(imagePaths);
     const effectivePrompt = appendLocalImagePathHints(prompt, imagePaths);

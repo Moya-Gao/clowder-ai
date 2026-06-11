@@ -1103,3 +1103,125 @@ describe(
     });
   },
 );
+
+// ─── Step 17: proxy env vars forwarded to driverFactory env (P2 regression) ──
+describe(
+  'ClaudeInteractivePtyCarrierService — Step 17: proxy env vars forwarded to PtyDriver',
+  { timeout: 10_000 },
+  () => {
+    let tmpDir;
+    before(async () => {
+      tmpDir = await mkdtemp(join(tmpdir(), 'cat-cafe-step17-'));
+    });
+    after(async () => {
+      await rm(tmpDir, { recursive: true, force: true });
+    });
+
+    it('forwards HTTP_PROXY + http_proxy from process.env into driverFactory opts.env', async () => {
+      const savedHttp = process.env.HTTP_PROXY;
+      const savedHttpLower = process.env.http_proxy;
+      process.env.HTTP_PROXY = 'http://127.0.0.1:7897';
+      process.env.http_proxy = 'http://127.0.0.1:7897';
+      const newId = 'aaaabbbb-0000-0000-0000-000000000000';
+      let capturedEnv = null;
+
+      try {
+        const service = new ClaudeInteractivePtyCarrierService({
+          transcriptDirOverride: tmpDir,
+          driverFactory: (opts) => {
+            capturedEnv = { ...opts.env };
+            return {
+              start: () => Promise.resolve(),
+              injectPrompt: async (_text, transcriptDir) => {
+                const path = join(transcriptDir, `${newId}.jsonl`);
+                await writeFile(
+                  path,
+                  `${JSON.stringify({ type: 'system', subtype: 'turn_duration', durationMs: 1 })}\n`,
+                );
+                return { transcriptPath: path, sessionId: newId };
+              },
+              cancel: () => Promise.resolve(),
+              dispose: () => Promise.resolve(),
+            };
+          },
+          pollIntervalMs: 10,
+          terminalTimeoutMs: 500,
+        });
+
+        const msgs = [];
+        for await (const m of service.invoke('Hello')) {
+          msgs.push(m);
+        }
+
+        assert.ok(capturedEnv, 'driverFactory must have been called');
+        assert.equal(
+          capturedEnv.HTTP_PROXY,
+          'http://127.0.0.1:7897',
+          'HTTP_PROXY must be forwarded to PtyDriver env (defeats tmux server env snapshot)',
+        );
+        assert.equal(capturedEnv.http_proxy, 'http://127.0.0.1:7897', 'http_proxy (lowercase) must also be forwarded');
+        assert.ok(
+          msgs.some((m) => m.type === 'done'),
+          'must complete with done event',
+        );
+      } finally {
+        if (savedHttp === undefined) delete process.env.HTTP_PROXY;
+        else process.env.HTTP_PROXY = savedHttp;
+        if (savedHttpLower === undefined) delete process.env.http_proxy;
+        else process.env.http_proxy = savedHttpLower;
+      }
+    });
+
+    it('does NOT override proxy vars already set via accountEnv', async () => {
+      const savedHttps = process.env.HTTPS_PROXY;
+      process.env.HTTPS_PROXY = 'http://process-proxy:7897';
+      const newId = 'ccccdddd-0000-0000-0000-000000000000';
+      let capturedEnv = null;
+
+      try {
+        const service = new ClaudeInteractivePtyCarrierService({
+          transcriptDirOverride: tmpDir,
+          driverFactory: (opts) => {
+            capturedEnv = { ...opts.env };
+            return {
+              start: () => Promise.resolve(),
+              injectPrompt: async (_text, transcriptDir) => {
+                const path = join(transcriptDir, `${newId}.jsonl`);
+                await writeFile(
+                  path,
+                  `${JSON.stringify({ type: 'system', subtype: 'turn_duration', durationMs: 1 })}\n`,
+                );
+                return { transcriptPath: path, sessionId: newId };
+              },
+              cancel: () => Promise.resolve(),
+              dispose: () => Promise.resolve(),
+            };
+          },
+          pollIntervalMs: 10,
+          terminalTimeoutMs: 500,
+        });
+
+        const msgs = [];
+        for await (const m of service.invoke('Hello', {
+          accountEnv: { HTTPS_PROXY: 'http://account-proxy:8888' },
+        })) {
+          msgs.push(m);
+        }
+
+        assert.ok(capturedEnv, 'driverFactory must have been called');
+        assert.equal(
+          capturedEnv.HTTPS_PROXY,
+          'http://account-proxy:8888',
+          'accountEnv HTTPS_PROXY must win over process.env (caller intent trumps process default)',
+        );
+        assert.ok(
+          msgs.some((m) => m.type === 'done'),
+          'must complete with done event',
+        );
+      } finally {
+        if (savedHttps === undefined) delete process.env.HTTPS_PROXY;
+        else process.env.HTTPS_PROXY = savedHttps;
+      }
+    });
+  },
+);
