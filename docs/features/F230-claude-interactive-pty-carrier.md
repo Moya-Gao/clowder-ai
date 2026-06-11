@@ -229,6 +229,7 @@ in_context_observability:
 | PTY 长 prompt 注入脆弱（bracketed-paste 上限 / 分段竞态） | Phase A AC-A2 先实测两档量级；降级方案（stdin pipe / 文件引用）spike 内验证 |
 | 常驻进程内存泄漏 / 僵尸 | Phase C 借 F149 idle TTL + lease；AC-C3 crash 注入实测；agent-browser 僵尸 5 次复发教训（LL-056 startup cleanup 模式）前置 |
 | transcript schema 无契约，Anthropic 可改 | 与 bg/-p 共享同一风险（非新增）；golden parity tests 当 schema 漂移哨兵；CLI 版本 pin + 升级前跑 fixture |
+| **🔴 已兑现：上游 interactive transcript 回归**（2.1.172 起 interactive TUI 不写 real-time transcript；sonnet 4 轮实测 + 守护猫独立验证 **2.1.173 仍未恢复**，2026-06-11）——F230 输出面依赖的行为被上游关闭，恰是"合规面被堵"风险的首个实际形态 | 短期：pin `~/.local/share/claude/versions/2.1.170`（smoke PASS 实证可用）+ **pin 存活哨兵**（6/15 前每日确认 binary 在 + 可跑，防自动清理）；中期：Phase C pane-scraping fallback 从可选项**升为必选评估项**（OQ-9）；每个新 CLI 版本发布即重测 transcript 行为，恢复则解除 pin |
 | 6/15 前与 F198 主线抢资源 | 激活 Gate：6/15 前 Fable-5 跑 Phase A + sonnet 跑 B-min skeleton（与 F198 主线不同猫，AC-B7 硬约束零阻塞主线代码路径） |
 | **兜底两档 runway 仅小时级**（铲屎官实测：cache miss 下 $200 ≈ 5h-1d；我们 invocation 间隔 > cache 5min TTL 是结构性的） | KD-6 skeleton 提前；AC-A5 telemetry 三档校准坐实外推；F198 AC-D2 预算告警阈值按小时级 runway 重标定（已 cross-link 给 F198 owner） |
 | session id 捕获竞态（并发 invocation 抢新文件） | Phase A AC-A3 实测确定性机制；Phase C mutex 串行化兜底 |
