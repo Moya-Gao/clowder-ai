@@ -7,8 +7,8 @@ import { afterEach, beforeEach, describe, it } from 'node:test';
 
 const SCRIPT = resolve(process.cwd(), 'scripts/mcp-doctor.mjs');
 
-function runDoctor(root, env = {}) {
-  return spawnSync('node', [SCRIPT, root], {
+function runDoctor(root, env = {}, extraArgs = []) {
+  return spawnSync('node', [SCRIPT, root, ...extraArgs], {
     encoding: 'utf-8',
     env: { ...process.env, ...env },
   });
@@ -224,5 +224,84 @@ describe('mcp-doctor.mjs', () => {
     assert.equal(result.status, 0, result.stderr || result.stdout);
     assert.match(result.stdout, /tilde-artifact/i);
     assert.match(result.stdout, /ready/i);
+  });
+
+  it('with --probe validates initialize + tools/list for ready stdio servers', () => {
+    const fakeServer = join(sandboxRoot, 'fake-mcp-server.mjs');
+    writeFileSync(
+      fakeServer,
+      [
+        "import { createInterface } from 'node:readline';",
+        'const rl = createInterface({ input: process.stdin });',
+        "rl.on('line', (line) => {",
+        '  const msg = JSON.parse(line);',
+        "  if (msg.method === 'initialize') {",
+        "    process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: msg.id, result: { protocolVersion: '2024-11-05', capabilities: {}, serverInfo: { name: 'fake', version: '1.0.0' } } }) + '\\n');",
+        '  }',
+        "  if (msg.method === 'tools/list') {",
+        "    process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: msg.id, result: { tools: [{ name: 'probe_echo', description: 'probe fixture' }] } }) + '\\n');",
+        '  }',
+        '});',
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+
+    writeRepoFixture(sandboxRoot, {
+      manifest: ['skills:', '  x:', '    requires_mcp: ["probe-ok"]', ''].join('\n'),
+      capabilities: {
+        version: 1,
+        capabilities: [makeCapability('probe-ok', { command: process.execPath, args: [fakeServer] })],
+      },
+    });
+
+    const result = runDoctor(sandboxRoot, {}, ['--probe']);
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    assert.match(result.stdout, /probe-ok/i);
+    assert.match(result.stdout, /probe=connected/i);
+    assert.match(result.stdout, /tools=probe_echo/i);
+  });
+
+  it('with --probe skips ready streamableHttp servers because live probe only supports stdio', () => {
+    writeRepoFixture(sandboxRoot, {
+      manifest: ['skills:', '  x:', '    requires_mcp: ["remote-ready"]', ''].join('\n'),
+      capabilities: {
+        version: 1,
+        capabilities: [
+          makeCapability('remote-ready', {
+            transport: 'streamableHttp',
+            url: 'https://example.test/mcp',
+            command: '',
+            args: [],
+          }),
+        ],
+      },
+    });
+
+    const result = runDoctor(sandboxRoot, {}, ['--probe']);
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    assert.match(result.stdout, /remote-ready/i);
+    assert.match(result.stdout, /ready/i);
+    assert.doesNotMatch(result.stdout, /probe=unknown/i);
+    assert.match(result.stdout, /probe_unknown=0/i);
+  });
+
+  it('with --probe exits non-zero when a ready stdio server fails live startup', () => {
+    const fakeServer = join(sandboxRoot, 'broken-mcp-server.mjs');
+    writeFileSync(fakeServer, "process.stderr.write('boom\\n'); process.exit(7);\n", 'utf8');
+
+    writeRepoFixture(sandboxRoot, {
+      manifest: ['skills:', '  x:', '    requires_mcp: ["probe-broken"]', ''].join('\n'),
+      capabilities: {
+        version: 1,
+        capabilities: [makeCapability('probe-broken', { command: process.execPath, args: [fakeServer] })],
+      },
+    });
+
+    const result = runDoctor(sandboxRoot, {}, ['--probe']);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stdout, /probe-broken/i);
+    assert.match(result.stdout, /probe=disconnected/i);
+    assert.match(result.stdout, /boom/i);
   });
 });

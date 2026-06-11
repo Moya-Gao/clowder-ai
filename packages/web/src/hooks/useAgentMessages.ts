@@ -30,7 +30,7 @@ import {
   markReplacedInvocation,
   removeReplacedInvocation,
 } from './shared-replaced-invocations';
-import { formatAgyProgressDetail, formatVisibleSystemInfo } from './system-info-visible';
+import { formatAgyProgressDetail, formatVisibleSystemInfo, isInternalSystemInfoTelemetry } from './system-info-visible';
 import {
   clearActiveBubble as clearActiveBubbleLedger,
   clearAllActiveBubblesForThread as clearAllActiveBubblesForThreadLedger,
@@ -897,11 +897,7 @@ export function consumeBackgroundSystemInfo(
         },
       });
       consumed = true;
-    } else if (
-      parsed?.type === 'strategy_allow_compress' ||
-      parsed?.type === 'resume_failure_stats' ||
-      parsed?.type === 'tool_activity'
-    ) {
+    } else if (isInternalSystemInfoTelemetry(parsed)) {
       // Internal telemetry — suppress to avoid raw JSON bubbles in background threads
       consumed = true;
     } else if (parsed?.type === 'session_seal_requested') {
@@ -4688,11 +4684,7 @@ export function useAgentMessages() {
               },
             });
             consumed = true;
-          } else if (
-            parsed?.type === 'strategy_allow_compress' ||
-            parsed?.type === 'resume_failure_stats' ||
-            parsed?.type === 'tool_activity'
-          ) {
+          } else if (isInternalSystemInfoTelemetry(parsed)) {
             // Internal telemetry — suppress to avoid raw JSON bubbles
             consumed = true;
           } else if (parsed?.type === 'silent_completion') {
