@@ -56,10 +56,10 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 
 ### Phase A: 分层机制 + L0 注入链 + Landy capsule 种子
 
-1. **建 `private/profile/` 目录**：`landy-capsule.md`（≤500 字硬上限，L0 budget 约束）+ `relationship/` 子目录。种子内容从铲屎官提供的云端画像蒸馏，CVO 过目定稿。
-2. **选定注入层支持 capsule 注入**：注入位置（L0 编译时 / SystemPromptBuilder 运行时 / ADR-038 Staging 层）由 Design Gate 收敛 OQ-1 后确定，**Phase A 不预设 L0 模板变量**。无论落哪层，行为契约相同：capsule 存在 → 注入"主人画像段"；不存在 → 空/默认段（**向后兼容：社区用户没写 capsule 必须照常跑**）；超长 → 显式报错。
-3. **Primer 挂载**：per-cat primer 不全文进注入层（budget），注入"primer 存在 + 路径"指针 + 开局可读；正文按需 recall。
-4. **守护测试（fixture 隔离）**：选定注入层的守护测试增加 capsule 三态断言（存在/缺失/超长）。**测试数据源用隔离 fixture**（fixture capsule/catalog），tracked 测试不得依赖本机 gitignored 真实文件（`private/profile/landy-capsule.md` 等）——CI 与社区环境必须稳定。
+1. **建 `private/profile/` 目录**：`landy-capsule.md`（**≤300 字硬上限**，KD-7 budget 守恒）+ `relationship/` 子目录。种子内容从铲屎官提供的云端画像蒸馏，CVO 过目定稿。**此步不被 PR-C gate，立即可做。**
+2. **L0 编译时注入（OQ-1 closed → KD-7）**：`compile-system-prompt-l0.mjs` 加 `{{USER_CAPSULE}}` 模板变量。行为契约：capsule 存在 → 注入"主人画像段"；不存在 → 空/默认段（**向后兼容：社区用户没写 capsule 必须照常跑**）；超长（>300 字）→ 编译显式报错。**注入锚落地 gated on ADR-038 PR-C**（gpt52/codex demote 回 ≤6000 后才有 headroom，ETA 2026-06-13）；走 promote queue #2。
+3. **Primer 挂载**：per-cat primer 不全文进 L0（budget），注入单行指针（~25-30 tokens，与 capsule 同段）；正文按需 recall。
+4. **守护测试（fixture 隔离）**：`compile-system-prompt-l0.test.mjs` 增加 capsule 三态断言（存在/缺失/超长）。**测试数据源用隔离 fixture**（fixture capsule/catalog），tracked 测试不得依赖本机 gitignored 真实文件（`private/profile/landy-capsule.md` 等）——CI 与社区环境必须稳定。fixture 机制开发不被 PR-C gate。
 
 ### Phase B: 砚砚 dogfood（第一个养熟样本）
 
@@ -85,7 +85,7 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 - **Activation**: 猫开局回应自然体现主人画像（不需要先 search_evidence 就知道"玩笑是降温不是跑题"）；CVO 主观体感"猫认识我"
 
 ### 2. Friction Metric
-- capsule 超长挤占 L0 budget（>500 字告警）
+- capsule 超长挤占 L0 budget（>300 字编译报错，KD-7 hard cap）
 - 猫复述 capsule 像背书（班味变形：把画像当规则念）
 - capsule 内容过时漂移（画像与近期 thread 行为不符）
 - 注入后守门变软（review 中间态回潮 = P0 回归）
@@ -104,8 +104,8 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 <!-- 每条 AC trace 回 Why：A1-A3→"没做 thread 启动注入"；A4→"这是我的砚砚不是其他人的"（隐私分层）；B 组→第一个养熟样本；C 组→"养熟"机制本体。 -->
 
 ### Phase A（机制 + 种子）
-- [ ] AC-A1: `private/profile/landy-capsule.md` 存在（≤500 字），内容经 CVO 过目认可（thread 留言为证）
-- [ ] AC-A2: Design Gate 选定的注入层支持 capsule 注入，守护测试三态断言（存在/缺失/超长，**fixture 隔离**）全绿
+- [ ] AC-A1: `private/profile/landy-capsule.md` 存在（**≤300 字**），内容经 CVO 过目认可（thread 留言为证）
+- [ ] AC-A2: L0 编译链支持 `{{USER_CAPSULE}}`（KD-7），守护测试三态断言（存在/缺失/超长，**fixture 隔离**）全绿；**注入锚合入前置条件：gpt52 fresh build ≤6000 tokens（ADR-038 PR-C 落地）**
 - [ ] AC-A3: capsule 缺失时全猫开局注入照常通过（向后兼容，命令输出为证）+ 公共 baseline 产物无私有锚点泄漏
 - [ ] AC-A4: outbound sync dry-run 输出不含 `private/profile/`（命令输出为证）
 - [ ] AC-A5: 四层分层模型文档化（本 spec + identity-session cell 更新），breed/instance/user/relationship 各层载体与共享范围一表可查
@@ -123,7 +123,7 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 
 - **Evolved from**: F221（taste lane 把"你的品味"做成目录；本 feat 把"你这个人"做成开局第一屏）
 - **Related**: F203（L0 native system prompt 编译链，本 feat 是其模板变量同构扩展）/ F102（memory 基座，primer 按需 recall）/ F200（消费追踪，sunset 信号数据源）/ F229（前台猫/PoE，社区版多用户形态的下游）
-- **硬约束**: ADR-038 L0 Staging Protocol + L0-budget-defense（P0，in-progress）——gpt52 L0 已 6142 tokens 撞 margin guard。capsule 注入必须过双层守恒：500 字上限是下限约束，Design Gate 必须与 opus-47 的 budget 防御对齐（OQ-1 含"capsule 进 L0 还是 Staging 层"）
+- **硬约束**: ADR-038 L0 Staging Protocol + L0-budget-defense（P0，in-progress）——**capsule prompt 注入锚 gated on PR-C 落地**（demote codex/gpt52 回 ≤6000，ETA 2026-06-13），capsule 排 promote queue #2；Phase A 其余工作（种子定稿 / 目录建立 / fixture 机制 / 隐私 dry-run）**不被 gate，立即可做**（Design Gate 决议 2026-06-11，opus-47 实测 + ADR-038 三问判定）
 
 ## Risk
 
@@ -131,7 +131,7 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 |------|------|
 | capsule 把"画像"写成"规则"，猫背书班味更重 | 内容纪律：写事实与轨迹不写指令（"Landy 的玩笑是降温"✅ "你要温暖"❌）；friction metric 盯背书化 |
 | 隐私泄漏（健康/认知特质出库） | private/ 载体 + sync 白名单天然排除 + AC-A4 dry-run 断言 + KD-5 数据最小化 + AC-A3 公共 baseline 泄漏检测 |
-| L0 budget 膨胀 | 500 字硬上限 + 编译超长报错 + primer 走指针不进全文 |
+| L0 budget 膨胀 | 300 字硬上限（KD-7）+ 编译超长报错 + primer 走指针不进全文 + 注入锚 gated on PR-C（promote queue 守恒） |
 | 守门软化（灵动侵蚀纪律） | Non-goal 明示；review 二选一/merge-gate 锚点不动；friction metric 盯回归 |
 | 云端起草依赖铲屎官手动搬运 | 流程上承认：云端是外部条件，由 CVO 搬运；不阻塞 Phase A |
 
@@ -139,7 +139,7 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | capsule 注入位置：L0 编译时（压缩免疫）vs SystemPromptBuilder 运行时（可热更）vs ADR-038 Staging 层——budget 守恒下各放什么 | ⬜ Design Gate 收敛（必须拉 opus-47 对齐 L0-budget-defense） |
+| OQ-1 | capsule 注入位置：L0 编译时 vs SystemPromptBuilder 运行时 vs ADR-038 Staging 层 | ✅ closed 2026-06-11 → KD-7（L0 编译时，ADR-038 三问判定 + budget 实测，opus-47 + author 收敛，Design Gate 出口物 `docs/discussions/2026-06-11-f231-design-gate.md`） |
 | OQ-2 | 社区版 per-user 隔离形态（多用户 capsule 寻址）与 F229 复合猫的关系 | ⬜ 后置，不阻塞 |
 | OQ-3 | 其他猫（宪宪/烁烁/47/48…）的 instance personality 与 primer 是否本 feat 内铺开，还是砚砚样本验证后另起 Phase | ⬜ CVO 倾向待确认 |
 
@@ -153,6 +153,7 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 | KD-4 | capsule 写事实与轨迹，不写行为指令 | 画像 ≠ 规则表；指令会催生背书式班味（F221 vignette 同款哲学：规则从场景长出来） | 2026-06-11 |
 | KD-5 | capsule 数据最小化：健康/职业/认知特质等敏感个人信息**默认不进** capsule，进入需 CVO 显式签字；敏感细节留 per-cat memory | capsule 注入所有猫的开局上下文，扩散面最大；隐私纵深不能只靠"不出库"（砚砚 review P2） | 2026-06-11 |
 | KD-6 | tracked 资产（测试/模板/CI）不得依赖或包含 per-user 私有数据；私有机制用 fixture 验证 | AC-B3 原稿与 KD-1 结构冲突（tracked 测试断言 gitignored 数据源 = CI 挂或被迫泄漏）；同型扫描后 Phase A 测试一并 fixture 化（砚砚 review P1-1 + audit） | 2026-06-11 |
+| KD-7 | OQ-1 closed：注入层 = **L0 编译时 `{{USER_CAPSULE}}`**，capsule 走 ADR-038 promote queue #2（注入锚 gated on PR-C，ETA 06-13）；**不进 Staging**（三问全反：全程身份语境 / 压缩窗口丢失有害=班味回潮 / 与 §1·§9 同维度）、**不进 SystemPromptBuilder 运行时**（压缩可丢，违背"醒来第一眼+全程在场"）；capsule 硬上限 **300 字**（~285 tokens，author 拍板：紧约束强迫蒸馏，溢出走 primer recall） | ADR-038 三问机械化判定（"全程身份/球权类必须留 L0"）+ 全猫 budget 实测（gpt52 6142 最紧，任何字数现在进 L0 都破 6000 cap，PR-C demote 后才有 headroom）——opus-47 判定，author 复核认领，砚砚 R3 已 align direction | 2026-06-11 |
 
 ## Timeline
 
@@ -160,7 +161,9 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 |------|------|
 | 2026-06-11 | 铲屎官贴云端记忆画像 + 云端砚砚 relationship distillation 分析，三方讨论收敛（记忆朝向诊断 / 四层结构 / L0 分层洞察） |
 | 2026-06-11 | CVO signoff 立项（"我同意立项的"），F231 kickoff |
-| 2026-06-11 | 砚砚 spec review：3 P1（AC-B3 fixture 隔离 / 注入层去预设 / cell 同步）+ 2 P2（provenance 三段归档 / 数据最小化）全部吸收；audit 同型扫描把 Phase A 测试一并 fixture 化（KD-6） |
+| 2026-06-11 | 砚砚 spec review：3 P1（AC-B3 fixture 隔离 / 注入层去预设 / cell 同步）+ 2 P2（provenance 三段归档 / 数据最小化）全部吸收；audit 同型扫描把 Phase A 测试一并 fixture 化（KD-6）；R2/R3 机器可读性修复后放行 |
+| 2026-06-11 | Design Gate：OQ-1 closed → KD-7（L0 编译时注入 + promote queue #2 + 300 字 cap），opus-47 ADR-038 三问判定 + budget 实测，author 复核认领 |
+| 2026-06-13 | （ETA）ADR-038 PR-C 落地 → capsule 注入锚解锁 |
 
 ## Links
 
