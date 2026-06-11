@@ -131,7 +131,6 @@
 | F169 | F169: Agent Memory Reflex — 愿景文档（vision artifact） | done (vision realized 2026-05-11) | [F169-agent-memory-reflex.md](./F169-agent-memory-reflex.md) |
 | F061 | F061: Antigravity 接入 — 孟加拉猫（混血家族） | done | [F061-antigravity-bengal-cat.md](./F061-antigravity-bengal-cat.md) |
 | F174 | F174: Callback Auth Lifecycle & Resilience — 鉴权基础设施持久化、降级、telemetry + D2b 三层明厨亮灶（HubButton unread badge + 五件套信号设计教训）| done | [F174-callback-auth-lifecycle.md](./F174-callback-auth-lifecycle.md) |
-| F177 | F177: Harness Update — Close Gate 结构化判据 + 四心智专属护栏 | done | [F177-harness-update.md](./F177-harness-update.md) |
 | F185 | F185: 入口级判忙策略分层 — ADR-034 实施 | done | [F185-dispatch-busy-gate-unification.md](./F185-dispatch-busy-gate-unification.md) |
 | F182 | F182: Cat Roster Lifecycle Toggle — 成员启停的全链路降级反馈 | done | [F182-cat-roster-lifecycle-toggle.md](./F182-cat-roster-lifecycle-toggle.md) |
 | F186 | F186: 图书馆记忆架构 — 多域知识联邦（LibraryCatalog + Scanner + SecurityGate + QueryReplay + GraphViz） | done | [F186-library-memory-architecture.md](./F186-library-memory-architecture.md) |
