@@ -28,6 +28,8 @@ created: 2026-04-18
 
 **Phase B PR-1 完成（2026-06-10）**：PR #2210，commit `757ef632f5`，squash-merged。活动信号事件类型（issue.commented / issue.labeled / pr.review_submitted / case.awaiting_external）shared types + webhook 三件套 + linked issue 解析器（parseLinkedIssues）+ projector cascade fix（pr.merged 时正确传播 linkedIssues → fixed）+ 体-enrichment 竞态修复（Cloud R4）+ default-branch gate（Cloud R4）+ projector 重试修复（Cloud R5/R6）。6 轮 cloud review 全修。PR-2（双 cursor + awaiting_external 闭环 + e2e）待续。
 
+**Phase B 验收状态（2026-06-11，fable-5 收尾核对）**：⚠️ **code-complete，未 close**。三 PR 合入 + 双轮愿景守护 PASS + LL-072 封板协议执行完毕，但 plan 验收口径（`docs/plans/f168-phase-b-issue-signals.md`）两项硬前置未完成：① Task 0 production bootstrap（64 条积压迁投影，6399 圣域操作，流程 = **先 dry-run 审报告再 execute**）；② 真实 webhook 全链路验收（issue comment → log → 投影 → 唤醒，需 runtime 的 `GITHUB_WEBHOOK_SECRET` 配置，alpha 无法替代）。两项均为 runtime 级 CVO 操作。close 二选一：完成两项 OR CVO 明确签字降级（如挪 Phase C dogfood 一并验）。
+
 ## Why
 
 铲屎官现在是人肉 dispatcher：手动 @ 猫看 issue/PR、手动分配线程、手动跟进进度、手动叮嘱"好好看 skill"、手动触发 guardian 验证。现有 F141（发现层）+ F116（ops skill）有完整的流程定义，但缺少**状态管理**和**自动编排**——流程靠铲屎官口头驱动，进度靠铲屎官脑子记。
