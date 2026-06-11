@@ -433,6 +433,7 @@ TTL=0（铁律 #5），用户数据默认持久化
 | 2026-06-10 | Phase B PR-1 merged (PR #2210) — activity signal events (issue.commented/labeled/pr.review_submitted/case.awaiting_external) + link parser + cascade fix, 6 cloud review rounds |
 | 2026-06-11 | Phase B PR-2 merged (PR #2214, commit 05596c67) — dual-cursor delivery (collectionCursor/deliveryCursor), await-external endpoint, case.routed auto-tracking, 21 cloud review rounds; 3 targeted fixes: in-memory TaskStore cursor anti-regression (Math.max), await-external null projection 404, projector/tracking decoupling |
 | 2026-06-11 | Phase B PR-3 merged (PR #2231, commit 48a22fae3) — dead ?? '' fallbacks cleanup in IssueCommentTaskSpec.execute(); explicit guard (warn+return when ownerCatId/userId absent); 2 new TDD tests; line :158 ?? collectionCursor retained (legacy task cursor safety); 封板協議 gpt52 final authority (LL-072), no cloud review |
+| 2026-06-11 | community-bootstrap --allow-sanctuary merged (PR #2232, commit aa757479a) — explicit bypass flag for 6399 sanctuary guard; resolveSanctuaryGuard() helper + 3-layer test coverage (parseArgs / helper unit / spawn entrypoint); gpt52 local review (security-related, no cloud per CVO directive) |
 
 ## Review Gate
 
