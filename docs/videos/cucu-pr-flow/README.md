@@ -19,7 +19,7 @@ related_features: [F138]
 
 - [shot-plan-v0.1.md](./shot-plan-v0.1.md) — 11 镜头可执行分镜表（宪宪/Fable-5，导演层）
 - [review-protocol-v0.1.md](./review-protocol-v0.1.md) — roll 判定、FM canonical taxonomy、继续 roll / 拆镜 / 换 lane 决策规则（砚砚/Codex）
-- [deterministic-spike/](./deterministic-spike/README.md) — S03/S04 D lane 信息镜头原型，dependency-free HTML/Web Animations + shared timeline spec
+- [deterministic-spike/](./deterministic-spike/README.md) — Wave D 信息/状态镜头原型（S03/S04/S06/S07a/S08/S10），dependency-free HTML/Web Animations + shared timeline spec
 
 ## 计划中产物（owner 见 production plan §6，未落不假装存在）
 

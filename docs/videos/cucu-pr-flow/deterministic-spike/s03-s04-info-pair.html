@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>醋醋喵 D Lane Spike — S03/S04</title>
+    <title>醋醋喵 D Lane Spike — Wave D</title>
     <link rel="stylesheet" href="./s03-s04-info-pair.css" />
   </head>
   <body>
@@ -11,7 +11,7 @@
       <section class="stage" data-stage>
         <div class="ambient-grid" aria-hidden="true"></div>
 
-        <header class="stage-header">
+        <header class="stage-header" data-layer="demo">
           <div>
             <p class="kicker">D Lane Spike</p>
             <h1>醋醋喵标准 PR 流程</h1>
@@ -54,7 +54,7 @@
             </div>
             <div class="paw-pointer" data-anim="s03-paw" aria-hidden="true">🐾</div>
           </div>
-          <p class="caption-line">图片是二进制文件，所以要走标准流程。</p>
+          <p class="caption-line" data-layer="caption">S03 · 流程图插入</p>
         </section>
 
         <section class="scene scene-s04" data-shot="S04" aria-label="S04 wrong avatar evidence">
@@ -95,13 +95,86 @@
             </div>
             <div class="red-x" data-anim="s04-red-x" aria-label="wrong avatar">×</div>
           </div>
-          <p class="caption-line">证据自己说话。</p>
+          <p class="caption-line" data-layer="caption">S04 · 错图证据</p>
         </section>
 
-        <footer class="control-strip">
+        <section class="scene scene-s06" data-shot="S06" aria-label="S06 CI Review Merged status sequence">
+          <div class="status-sequence">
+            <article class="status-card ci-card" data-anim="s06-ci">
+              <span class="status-kicker">CI</span>
+              <strong>CI Passed</strong>
+              <p>binary avatar check</p>
+            </article>
+            <article class="status-card review-card" data-anim="s06-review">
+              <span class="status-kicker">Review</span>
+              <strong>Review OK</strong>
+              <p>流程正义成立</p>
+            </article>
+            <article class="status-card merged-card" data-anim="s06-merged">
+              <span class="status-kicker">Merge</span>
+              <strong>Merged</strong>
+              <p>头像入库</p>
+            </article>
+            <div class="speed-rail" aria-hidden="true">
+              <span data-anim="s06-pulse-1"></span>
+              <span data-anim="s06-pulse-2"></span>
+              <span data-anim="s06-pulse-3"></span>
+            </div>
+          </div>
+          <p class="caption-line" data-layer="caption">S06 · 状态机关枪</p>
+        </section>
+
+        <section class="scene scene-s07a" data-shot="S07a" aria-label="S07a canceled vision guard still summons Shuoshuo">
+          <div class="summon-board">
+            <div class="guard-card" data-anim="s07a-card">
+              <span>愿景守护</span>
+              <strong>已取消</strong>
+            </div>
+            <div class="silent-pause" data-anim="s07a-pause" aria-label="comedy pause"></div>
+            <div class="mention-pop" data-anim="s07a-mention">@烁烁</div>
+            <div class="summon-note" data-anim="s07a-note">视觉验收喵</div>
+          </div>
+          <p class="caption-line" data-layer="caption">S07a · 取消后仍召唤</p>
+        </section>
+
+        <section class="scene scene-s08" data-shot="S08" aria-label="S08 vision guard PASS deadpan card">
+          <div class="pass-board" data-anim="s08-card">
+            <div class="pass-meta">愿景守护</div>
+            <div class="pass-avatar avatar-face maine external" aria-hidden="true">
+              <span class="ear left"></span>
+              <span class="ear right"></span>
+              <span class="stripe stripe-a"></span>
+              <span class="stripe stripe-b"></span>
+              <span class="eye eye-left"></span>
+              <span class="eye eye-right"></span>
+              <span class="muzzle"></span>
+            </div>
+            <div class="pass-stamp" data-anim="s08-pass">PASS</div>
+            <p>头像可见性验收完成</p>
+          </div>
+          <p class="caption-line" data-layer="caption">S08 · Deadpan PASS</p>
+        </section>
+
+        <section class="scene scene-s10" data-shot="S10" aria-label="S10 risk scaled process end card">
+          <div class="end-card">
+            <div class="end-rule" data-anim="s10-line">流程要按风险缩放</div>
+            <div class="cucu-stamp" data-anim="s10-stamp">
+              <span class="stamp-paw">🐾</span>
+              <strong>醋醋喵</strong>
+            </div>
+            <p data-anim="s10-subline">小头像，小流程。大风险，大流程。</p>
+          </div>
+          <p class="caption-line" data-layer="caption">S10 · 可截图结尾卡</p>
+        </section>
+
+        <footer class="control-strip" data-layer="demo">
           <button type="button" data-action="play-all" aria-label="Play full spike">▶</button>
           <button type="button" data-action="play-s03" aria-label="Play S03">S03</button>
           <button type="button" data-action="play-s04" aria-label="Play S04">S04</button>
+          <button type="button" data-action="play-s06" aria-label="Play S06">S06</button>
+          <button type="button" data-action="play-s07a" aria-label="Play S07a">S07a</button>
+          <button type="button" data-action="play-s08" aria-label="Play S08">S08</button>
+          <button type="button" data-action="play-s10" aria-label="Play S10">S10</button>
           <span class="status-pill" data-status>ready</span>
         </footer>
       </section>

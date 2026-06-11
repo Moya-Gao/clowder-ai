@@ -5,9 +5,16 @@ const scenes = [...document.querySelectorAll('[data-shot]')];
 const clock = document.querySelector('[data-clock]');
 const status = document.querySelector('[data-status]');
 const controls = document.querySelector('.control-strip');
+const params = new URLSearchParams(window.location.search);
+const sequence = ['S03', 'S04', 'S06', 'S07a', 'S08', 'S10'];
 
 let activeAnimations = [];
 let clockTimer = null;
+
+if (params.get('export') === '1') {
+  document.documentElement.classList.add('export-mode');
+  stage.dataset.export = '1';
+}
 
 function byAnim(name) {
   const el = document.querySelector(`[data-anim="${name}"]`);
@@ -70,6 +77,12 @@ function startClock(durationMs) {
   }, 80);
 }
 
+function finishStatus(shot, text = `${shot.id} hold`) {
+  setTimeout(() => {
+    status.textContent = text;
+  }, shot.durationMs);
+}
+
 function playS03() {
   resetAnimations();
   setActiveShot('S03');
@@ -117,17 +130,15 @@ function playS03() {
   animate(
     byAnim('s03-paw'),
     [
-      { opacity: 0, transform: 'translate(-22px, 34px) rotate(-12deg) scale(.8)' },
+      { opacity: 0, transform: 'translate(-18px, 26px) rotate(-12deg) scale(.8)' },
       { opacity: 1, transform: 'translate(0, 0) rotate(-12deg) scale(1.05)', offset: 0.42 },
-      { opacity: 1, transform: 'translate(8px, 8px) rotate(-18deg) scale(.92)', offset: 0.62 },
-      { opacity: 1, transform: 'translate(0, 0) rotate(-12deg) scale(1)' },
+      { opacity: 1, transform: 'translate(10px, 10px) rotate(-18deg) scale(.92)', offset: 0.62 },
+      { opacity: 1, transform: 'translate(12px, 12px) rotate(-12deg) scale(1)' },
     ],
     { delay: tap.atMs, duration: tap.durationMs },
   );
 
-  setTimeout(() => {
-    status.textContent = 'S03 hold';
-  }, shot.durationMs);
+  finishStatus(shot);
 }
 
 function playS04() {
@@ -179,15 +190,196 @@ function playS04() {
     { delay: redX.atMs + 80, duration: 360 },
   );
 
-  setTimeout(() => {
-    status.textContent = 'S04 hold';
-  }, shot.durationMs);
+  finishStatus(shot);
+}
+
+function playS06() {
+  resetAnimations();
+  setActiveShot('S06');
+  status.textContent = 'S06 playing';
+  const shot = getShot('S06');
+  startClock(shot.durationMs);
+
+  const ci = label(shot, 's06-ci-card');
+  const review = label(shot, 's06-review-card');
+  const merged = label(shot, 's06-merged-card');
+
+  for (const [target, timing] of [
+    ['s06-ci', ci],
+    ['s06-review', review],
+    ['s06-merged', merged],
+  ]) {
+    animate(
+      byAnim(target),
+      [
+        { opacity: 0, transform: 'translateX(-22px) scale(.98)' },
+        { opacity: 1, transform: 'translateX(0) scale(1.035)', offset: 0.48 },
+        { opacity: 1, transform: 'translateX(0) scale(1)' },
+      ],
+      { delay: timing.atMs, duration: 320 },
+    );
+  }
+
+  for (const [target, timing] of [
+    ['s06-pulse-1', ci],
+    ['s06-pulse-2', review],
+    ['s06-pulse-3', merged],
+  ]) {
+    animate(
+      byAnim(target),
+      [
+        { opacity: 0, transform: 'translateX(-50%) scale(.6)' },
+        { opacity: 1, transform: 'translateX(-50%) scale(1.22)', offset: 0.45 },
+        { opacity: 0.8, transform: 'translateX(-50%) scale(1)' },
+      ],
+      { delay: timing.atMs + 120, duration: 380 },
+    );
+  }
+
+  finishStatus(shot);
+}
+
+function playS07a() {
+  resetAnimations();
+  setActiveShot('S07a');
+  status.textContent = 'S07a playing';
+  const shot = getShot('S07a');
+  startClock(shot.durationMs);
+
+  const cancel = label(shot, 's07a-cancel-stamp');
+  const pause = label(shot, 's07a-comedy-pause');
+  const mention = label(shot, 's07a-shuoshuo-pop');
+
+  animate(
+    byAnim('s07a-card'),
+    [
+      { opacity: 0, transform: 'translateY(26px) rotate(-1deg)' },
+      { opacity: 1, transform: 'translateY(0) rotate(-1deg)', offset: 0.52 },
+      { opacity: 1, transform: 'translateY(0) rotate(0deg)' },
+    ],
+    { delay: cancel.atMs, duration: cancel.durationMs },
+  );
+  animate(
+    byAnim('s07a-pause'),
+    [
+      { opacity: 0 },
+      { opacity: 0.7, offset: 0.18 },
+      { opacity: 0.7, offset: 0.82 },
+      { opacity: 0 },
+    ],
+    { delay: pause.atMs, duration: pause.durationMs },
+  );
+  animate(
+    byAnim('s07a-mention'),
+    [
+      { opacity: 0, transform: 'scale(.55) rotate(8deg)' },
+      { opacity: 1, transform: 'scale(1.18) rotate(-3deg)', offset: 0.48 },
+      { opacity: 1, transform: 'scale(1) rotate(0deg)' },
+    ],
+    { delay: mention.atMs, duration: mention.durationMs, easing: 'cubic-bezier(.16,1,.3,1)' },
+  );
+  animate(byAnim('s07a-note'), [{ opacity: 0 }, { opacity: 1 }], {
+    delay: mention.atMs + 280,
+    duration: 240,
+  });
+
+  finishStatus(shot);
+}
+
+function playS08() {
+  resetAnimations();
+  setActiveShot('S08');
+  status.textContent = 'S08 playing';
+  const shot = getShot('S08');
+  startClock(shot.durationMs);
+
+  const card = label(shot, 's08-card-in');
+  const stamp = label(shot, 's08-pass-thunk');
+
+  animate(
+    byAnim('s08-card'),
+    [
+      { opacity: 0, transform: 'translateY(22px)' },
+      { opacity: 1, transform: 'translateY(0)' },
+    ],
+    { delay: card.atMs, duration: card.durationMs },
+  );
+  animate(
+    byAnim('s08-pass'),
+    [
+      { opacity: 0, transform: 'scale(.7) rotate(-5deg)' },
+      { opacity: 1, transform: 'scale(1.16) rotate(-7deg)', offset: 0.48 },
+      { opacity: 1, transform: 'scale(1) rotate(-5deg)' },
+    ],
+    { delay: stamp.atMs, duration: stamp.durationMs, easing: 'cubic-bezier(.16,1,.3,1)' },
+  );
+
+  finishStatus(shot);
+}
+
+function playS10() {
+  resetAnimations();
+  setActiveShot('S10');
+  status.textContent = 'S10 playing';
+  const shot = getShot('S10');
+  startClock(shot.durationMs);
+
+  const line = label(shot, 's10-main-line-in');
+  const stamp = label(shot, 's10-paw-stamp');
+
+  animate(
+    byAnim('s10-line'),
+    [
+      { opacity: 0, transform: 'translateY(18px)' },
+      { opacity: 1, transform: 'translateY(0)' },
+    ],
+    { delay: line.atMs, duration: line.durationMs },
+  );
+  animate(
+    byAnim('s10-stamp'),
+    [
+      { opacity: 0, transform: 'scale(.58) rotate(-12deg)' },
+      { opacity: 1, transform: 'scale(1.14) rotate(-8deg)', offset: 0.46 },
+      { opacity: 1, transform: 'scale(1) rotate(-12deg)' },
+    ],
+    { delay: stamp.atMs, duration: stamp.durationMs, easing: 'cubic-bezier(.16,1,.3,1)' },
+  );
+  animate(byAnim('s10-subline'), [{ opacity: 0 }, { opacity: 1 }], {
+    delay: stamp.atMs + 320,
+    duration: 320,
+  });
+
+  finishStatus(shot);
 }
 
 async function playAll() {
-  playS03();
-  await new Promise((resolve) => setTimeout(resolve, getShot('S03').durationMs + 450));
-  playS04();
+  for (const [index, shotId] of sequence.entries()) {
+    playById(shotId);
+    if (index < sequence.length - 1) {
+      await new Promise((resolve) => setTimeout(resolve, getShot(shotId).durationMs + 450));
+    }
+  }
+}
+
+const playMap = {
+  S03: playS03,
+  S04: playS04,
+  S06: playS06,
+  S07a: playS07a,
+  S08: playS08,
+  S10: playS10,
+};
+
+function normalizeShotId(value) {
+  return sequence.find((shotId) => shotId.toLowerCase() === value?.toLowerCase());
+}
+
+function playById(shotId) {
+  const play = playMap[shotId];
+  if (!play) {
+    throw new Error(`No player for shot: ${shotId}`);
+  }
+  play();
 }
 
 controls.addEventListener('click', (event) => {
@@ -201,6 +393,23 @@ controls.addEventListener('click', (event) => {
   if (action === 'play-s04') {
     playS04();
   }
+  if (action === 'play-s06') {
+    playS06();
+  }
+  if (action === 'play-s07a') {
+    playS07a();
+  }
+  if (action === 'play-s08') {
+    playS08();
+  }
+  if (action === 'play-s10') {
+    playS10();
+  }
 });
 
-playAll();
+const requestedShot = normalizeShotId(params.get('shot'));
+if (requestedShot) {
+  playById(requestedShot);
+} else {
+  playAll();
+}
