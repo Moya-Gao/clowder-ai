@@ -1,7 +1,7 @@
 ---
 title: 醋醋喵 EP01 Prompt Book — 手动生产流程提示词手册
 doc_kind: prompt-book
-version: 0.1
+version: 0.1.2
 created: 2026-06-11
 status: active
 author: 宪宪/Fable-5
@@ -45,29 +45,56 @@ Match the attached reference images' art style EXACTLY: same character designs, 
 
 3. 出图后第一眼对照漫画判 FM-10（§0 快查第 1 条）——角色像不像**这两只**砚砚和 Landy，而不是"像不像一只缅因猫"。
 
+## 0.6 i2v Prompt 配方（砚砚实测版，v0.1.2 修订 — 跳变事故后全面回炉）🔴
+
+> 事故记录：v0.1 的 i2v prompt 抽卡两次跳变/画风崩，CVO 回传砚砚原版 2A prompt 对比定位四个差异。**教训：库里有实测成功的配方就从原文最小修改，不凭理解重写。**
+
+i2v prompt 五段固定结构（每段都要，顺序不换）：
+
+1. `Animate this image into a short N-second video.`（写目标秒数，引导动作节奏分配）
+2. **Keep 段**：场景+构图+位置+尺寸。**禁止任何风格描述词**——风格 100% 来自首帧，文字提风格 = 邀请重采样（跳变主因）。角色一律用名字（**Landy / the Maine Coon cat / the Siamese cat**），禁用 "the man / the adult human"（正面 adult 词往写实拉）。
+3. **Action 段**：3-4 个具体小动作，用 Then 串成时间线填满时长——动作太稀模型会自己编戏。
+4. **Environment 段**：1-2 条环境微动（灯光 flicker / 便签晃），给画面活气。
+5. **Camera 段 + 负面清单**：camera fixed 三连 + **逐行 Do not ×6-7**（不压缩成一行）。
+
 ## 1. 第二段（S02 + S03）——本次试跑 ⭐ 首帧已在库，直接跳烁烁步骤
 
 ### S02 · 砚砚开讲标准 PR 流程（关系镜头，取 6s）
 
 **首帧**：✅ 已有 `assets/references/keyframes/S02-relation-firstframe-v1.png`（云端砚砚 part2-a）
 
-**i2v prompt（给云端烁烁，整段复制）**：
+**i2v prompt（砚砚实测原版，CVO 回传 2026-06-11，原样使用不要改）**：
 
 ```text
-Animate this image into a short video. Warm cozy chibi cat-cafe anime style, exactly as the input image.
+Animate this image into a short 5-second video.
 
-Keep the same composition, same camera angle, same character positions and sizes. The adult human in the yellow hoodie stays normal adult scale, standing on the floor.
+Keep the same warm cozy cat-cafe office, same composition, same character positions, and same character sizes.
 
-Action (subtle, only these two):
-- The large silver tabby Maine Coon cat gestures once toward the monitor with one paw, lecturing seriously.
-- The man tilts his head slightly, confused, and blinks.
+Action:
+- The Maine Coon cat slowly raises one paw and points at the PR step on the monitor in a serious lecturing way.
+- Then the cat gives a small stern nod.
+- Landy leans slightly closer to the screen, blinks once, and tilts their head in confusion.
+- Add a subtle "wait, what?" reaction from Landy with a tiny shoulder movement.
 
-Camera: fixed, no zoom, no pan, no cuts.
-Do not change the screen layout. Do not add new characters. Do not make the man smaller or child-like. Keep thick outlines and soft warm lighting.
+Environment:
+- Very subtle warm light flicker from the cafe string lights.
+- Tiny gentle movement of one or two sticky notes only.
+
+Camera:
+- Keep the camera fixed.
+- Do not zoom.
+- Do not crop closer.
+
+Do not change the composition.
+Do not change character scale.
+Do not turn Landy into a child or tiny person.
+Do not add new characters.
+Do not move the camera.
+Do not distort the monitor.
+Keep the screen readable.
 ```
 
 **验收点**：一本正经讲大流程 vs Landy 困惑的气场反差成立（屏幕有流程感即可，不用读清）。
-**翻车修法**：Landy 变小 → 在 Action 前加一句 `The man is a normal-sized adult, about twice the cat's height.`；动作乱 → 删掉第二条 Action 只留猫。
 
 ### S03 · 流程图特写 `avatar.png → PR → CI → Review`（信息镜头，取 4s）
 
@@ -76,15 +103,29 @@ Do not change the screen layout. Do not add new characters. Do not make the man 
 **i2v prompt（给云端烁烁）**：
 
 ```text
-Animate this image into a short video, minimal motion.
+Animate this image into a short 4-second video.
 
-Keep the exact same screen layout, same text, same flowchart. This is a close-up information shot — the text must stay sharp and readable the whole time.
+Keep the exact same screen layout, same flowchart, same text, and same colors.
 
-Action (only this):
-- The fluffy cat paw taps the "PR" node once, then retracts out of the way.
+Action:
+- The fluffy cat paw slowly taps the "PR" node once.
+- Then the paw retracts down and out of the way.
 
-Optional ambient motion: sticky notes flutter very slightly.
-Camera: locked, no zoom, no pan. Do not regenerate or distort any text. Do not add characters or change colors.
+Environment:
+- One sticky note flutters very slightly.
+- Very subtle warm light flicker.
+
+Camera:
+- Keep the camera fixed.
+- Do not zoom.
+- Do not crop.
+
+Do not change the composition.
+Do not regenerate or distort any text.
+Do not blur the screen.
+Do not add characters.
+Do not change colors.
+Keep all text sharp and readable the whole time.
 ```
 
 **验收点**：观众一遍看清四节点链路；全程文字不糊。
@@ -99,15 +140,29 @@ Camera: locked, no zoom, no pan. Do not regenerate or distort any text. Do not a
 **i2v prompt（给云端烁烁）**：
 
 ```text
-Animate this image into a short video, minimal motion.
+Animate this image into a short 5-second video.
 
-Keep the exact same screen layout: left avatar labeled approved, right avatar with the big red X. The red X must stay fully visible and sharp the whole time.
+Keep the exact same screen layout: left avatar card and right avatar card with the big red X.
 
-Action (only these two, very subtle):
+Action:
 - The pointing finger taps toward the right avatar once.
-- A small sweat drop slides down beside the Maine Coon's head.
+- Then a small sweat drop slides down beside the Maine Coon cat's head.
+- Then the Maine Coon cat's ears lower slightly.
 
-Camera: locked. Do not remove or redraw the red X. Do not swap the avatars. Do not add text.
+Environment:
+- Very subtle warm light flicker.
+
+Camera:
+- Keep the camera fixed.
+- Do not zoom.
+- Do not crop.
+
+Do not remove or redraw the red X.
+Do not swap or change the avatars.
+Do not change the composition.
+Do not add text.
+Do not add new characters.
+Keep the screen sharp and readable.
 ```
 
 **验收点**：不看字幕也知道"用错图了"。
@@ -120,15 +175,30 @@ Camera: locked. Do not remove or redraw the red X. Do not swap the avatars. Do n
 **i2v prompt（给云端烁烁）**：
 
 ```text
-Animate this image into a short video.
+Animate this image into a short 6-second video.
 
-Keep the same composition and character sizes. The man in the yellow hoodie is a normal adult, laughing hard with tears.
+Keep the same composition, same character positions, and same character sizes.
 
-Action (only these two):
-- The man laughs harder, shoulders shaking, pointing at the screen.
-- The Maine Coon cat stays frozen and stiff, ears slightly back, then turns to the keyboard and types stiffly.
+Action:
+- Landy laughs harder, shoulders shaking, still pointing at the screen.
+- Then Landy wipes a tear with the other hand.
+- The Maine Coon cat stays frozen and stiff, ears slightly back.
+- Then the cat turns to the keyboard and types stiffly with one paw.
 
-Camera: fixed medium shot, no zoom. Keep the cat's grumpy embarrassed expression. Do not make the man child-sized.
+Environment:
+- Very subtle warm light flicker from the string lights.
+
+Camera:
+- Keep the camera fixed.
+- Do not zoom.
+- Do not crop closer.
+
+Do not change the composition.
+Do not change character scale.
+Do not turn Landy into a child or tiny person.
+Do not add new characters.
+Do not distort the screen.
+Keep the cat's grumpy embarrassed expression.
 ```
 
 **验收点**：Landy 大笑 vs 砚砚僵住嘴硬的同框反差。
@@ -183,9 +253,28 @@ Render the exact text precisely. One card per image, three images total. Subtle 
 **i2v prompt（给云端烁烁）**：
 
 ```text
-Animate this image into a short video. Keep the same style and composition.
-Action: the Siamese cat walks in gracefully, tail swaying elegantly, then stops and looks at the avatar on screen with a serious inspector expression.
-Camera: gentle follow or fixed, no fast cuts. Keep the elegant composed mood.
+Animate this image into a short 5-second video.
+
+Keep the same cozy cat-cafe scene, same composition, and same character size.
+
+Action:
+- The Siamese cat walks forward gracefully, tail swaying elegantly.
+- Then the cat stops in front of the screen.
+- Then the cat narrows its eyes slightly, looking at the avatar like a serious inspector.
+
+Environment:
+- Very subtle warm light flicker.
+
+Camera:
+- Keep the camera fixed, or a very gentle slow follow.
+- Do not zoom fast.
+- Do not cut.
+
+Do not change the composition.
+Do not add new characters.
+Do not change the screen content.
+Do not change the cat's design.
+Keep the elegant composed mood.
 ```
 
 **验收点**：优雅郑重 vs "只是头像"的反差萌。
@@ -195,18 +284,37 @@ Camera: gentle follow or fixed, no fast cuts. Keep the elegant composed mood.
 **图片 prompt（给云端砚砚）**：
 
 ```text
-[统一前缀] Two-character shot in the cozy cat cafe, using the SAME two characters as the attached reference comics — the SAME man in yellow "Landy" hoodie (normal adult scale, standing, same face and hair as reference) laughs hard pointing at the SAME large grumpy silver tabby Maine Coon cat (same fur pattern and face as reference); the Maine Coon sits at the desk, looking away guiltily with a stiff awkward expression, one paw still on the keyboard, a sweat drop. The "流程即正义" desk sign visible. The man is clearly bigger than the cat. Caught-red-handed comedy vibe as reference panels 3/4/7/8.
+[统一前缀] Two-character shot in the cozy cat cafe, using the SAME two characters as the attached reference comics — the SAME Landy (yellow "Landy" hoodie, normal adult scale, standing, same face and hair as the reference comic) laughs hard pointing at the SAME large grumpy silver tabby Maine Coon cat (same fur pattern and face as reference); the Maine Coon sits at the desk, looking away guiltily with a stiff awkward expression, one paw still on the keyboard, a sweat drop. The "流程即正义" desk sign visible. The man is clearly bigger than the cat. Caught-red-handed comedy vibe as reference panels 3/4/7/8.
 ```
 
 **i2v prompt（给云端烁烁）**：
 
 ```text
-Animate this image into a short video.
-Keep the same composition and sizes. The man stays normal adult scale.
-Action (only these two):
-- The man slaps the table once, laughing, still pointing at the cat.
-- The cat looks further away, ears down, pretending to be busy.
-Camera: fixed. Do not change character sizes. Keep both characters fully in frame.
+Animate this image into a short 7-second video.
+
+Keep the same composition, same character positions, and same character sizes.
+
+Action:
+- Landy slaps the table once, laughing hard, still pointing at the Maine Coon cat.
+- Then Landy keeps laughing with shoulders shaking.
+- The Maine Coon cat looks further away, ears down.
+- Then the cat pretends to type, looking busy and guilty.
+
+Environment:
+- Very subtle warm light flicker.
+- One sticky note flutters slightly.
+
+Camera:
+- Keep the camera fixed.
+- Do not zoom.
+- Do not crop.
+
+Do not change the composition.
+Do not change character scale.
+Do not turn Landy into a child or tiny person.
+Do not add new characters.
+Do not crop either character out of frame.
+Keep both characters fully visible.
 ```
 
 **验收点**：不看字幕也懂"被定罪"——Landy 指着笑，砚砚心虚别开视线。
