@@ -214,6 +214,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 | 2026-06-09 | Design Gate 材料完成（宪宪）：架构归属（new cell `concierge-surface`）、身份三层配置模型、对话载体立场（专属 concierge thread）、四态 wireframe、调研采纳决议——待 CVO 过 wireframe |
 | 2026-06-09 | CVO 反馈整合：去/取/传话分叉（KD-9）+ 岗位工具面裁剪（KD-10）+ 吴浪社区视角（KD-11/OQ-7） |
 | 2026-06-09 | **Design Gate 通过**（CVO："可以可以！！我觉得没问题！！"）；分工拍板：宪宪 spec/守护、sonnet 实现、砚砚 review；进 writing-plans 拆 Phase A |
+| 2026-06-10 | **PR-A1+A2 alpha smoke 全绿**（sonnet 执行，S1-S8 全 PASS、concierge console 0 错误；证据 `assets/F229/smoke-2026-06-10/`）。技术层 AC-A1/A6 底座就绪，待铲屎官人因验收（存在感/安静/muted 直觉/不打断感/视觉打架 5 项）后打勾。观察项：呼吸动画未实装 + 球为 🐱 emoji 占位——并入 KD-14 形象升级工作项一起做 |
 | 2026-06-10 | **Phase A PR-A1 merged** (PR #2202，squash commit e6f8b4c38)：ConciergeConfigStore + ConciergeThreadService + `/api/concierge/*` 路由 + SystemPromptBuilder 注入 + prompt injection 防护 (R15 P1) + concierge thread lifecycle (R18/R19 P2) |
 | 2026-06-10 | **Phase A PR-A2 merged** (PR #2211，squash commit 3df6f643f)：ConciergeHost（常驻根容器）+ ConciergeBall（8 态投影）+ ConciergePanel（对话窗）+ ConciergeRailToggle（ActivityBar 唤回入口）+ ConciergeStore（INV-2 纯投影架构）+ muted toggle UI (AC-A6 前端); R1-R7 cloud review cycle — 7 轮修复全清零 P1/P2 |
 
