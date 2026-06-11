@@ -44,7 +44,8 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 **1. 前台猫 = 岗位，不是一只新猫。** 三层解耦（"和现在 profile 那样解耦的可以配置"）：
 
 ```
-形象层：默认原创毛线球桌宠，可换皮肤（机器猫/加菲猫式/派蒙式/开源用户自家猫）
+形象层：默认家养像素猫桌宠——【布偶猫/缅因猫/孟加拉猫/暹罗猫】四选一，v1 默认布偶猫（KD-14）；
+        毛线球降为备选皮肤/过渡形态；开源用户可换自家猫
 人设层：前台猫自己的名字与性格（用户感知的"这是谁"）
 值班层：背后真正干活的模型，按任务分层路由（可配置）
 ```
@@ -165,7 +166,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 | 桌宠变 Clippy（打扰式主动的失败史） | 主动行为白名单 + 频率上限 + Design Gate 钉死"安静优先"；默认只在白名单事件冒泡 |
 | 小模型幻觉导致导航错 thread | MD-first + validator fail-closed + 跳转前确认卡（继承 gemma 线 harness） |
 | 六 job 全要导致 scope 膨胀 | Phase 切片各自独立可验收；3+ Phase 大 feature 走 Phase 碰头制 |
-| 第三方形象版权（机器猫/加菲猫/派蒙） | 内置皮肤全原创（毛线球）；开源用户自定义形象自担，平台只提供配置位 |
+| 第三方形象版权（机器猫/加菲猫/派蒙） | 内置皮肤全自家原创（家养像素猫四只 + 毛线球，KD-14）；开源用户自定义形象自担，平台只提供配置位 |
 | 常驻小模型资源占用（27GB 权重 + 推理内存） | 可配置开关；无小模型自动降级（AC-D3），Phase A-C 零依赖 |
 | 前台猫答错"有什么功能"损害信任 | 知识源限定 release notes/feature docs/guide catalog，带 anchor 引用，答不了就转接 |
 | Notification fatigue：主动冒泡无分级 → 用户关掉/无视整只球 | OQ-4 四级白名单（Tier 0-1 默认，2 逐事件 opt-in，3 默认关）+ 同类事件聚合 + 单 session 非关键气泡 ≤1 |
@@ -176,7 +177,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | 前台猫默认人设与名字（家庭投票仪式？）——形象默认原创毛线球已倾向，名字待定 | ✅ 已定 2026-06-09：名字/人设交给部署方用户自定（社区每家起自己的）；本家 fallback = 家庭猫猫投票出生仪式（Phase A 落地时搞）；形象默认原创毛线球确认 |
+| OQ-1 | 前台猫默认人设与名字（家庭投票仪式？） | ✅ 已定 2026-06-09，**形象部分被 KD-14 修正（2026-06-10）**：名字/人设交给部署方用户自定；本家 fallback = 家庭投票出生仪式；默认形象 = 家养像素猫（v1 布偶猫），毛线球降为备选皮肤 |
 | OQ-2 | 语音 loop（Phase C）是否提前（铲屎官重度语音用户，权重只有他知道） | ✅ 已定 2026-06-09：不提前——先基建/架构归一（入口壳、身份层、路由），Phase C 维持原位 |
 | OQ-3 | 值班大猫默认值：flash / sonnet / spark 级里谁打头 | ✅ 已定 2026-06-09：值班猫必须用户可配置、provider-agnostic（配 glm5.1 也要能成）；本家默认 gemini35 flash（烁烁） |
 | OQ-4 | 主动冒泡白名单边界（哪些事件允许它主动说话） | ✅ 已定 2026-06-09：四级白名单（Tier 0 ambient / 1 quiet badge / 2 in-app bubble opt-in / 3 system+voice 默认关），Phase A 只实现 Tier 0-1 + relay 回执（Tier 2 首个默认事件类）——CVO 随 Design Gate 关栓 |
@@ -201,6 +202,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 | KD-11 | Phase D「小模型」重定位为「快速档」：provider-agnostic（本地 gemma 或 API flash/glm 均可作 clerk），本地权重是 opt-in 优化不是前提 | 吴浪部署现实主义："考虑其他人的使用，live model 可能合适点"——不是每家有 128GB Mac | 2026-06-09 |
 | KD-12 | clerk 零工具执行权：小模型只产 MD tool-intent candidate（显式 routing rules 必备），validator 负责 handle 映射/确认门/forbidden fail-closed，真实工具调用由可信 harness/值班猫执行；危险类（6399/runtime restart/truth-source write）refuse_or_escalate——不问确认，带原始文本升级 | 砚砚 tool-intent smoke（cat-cafe#2175）：裸描述 9 错 1（graph_resolve 偏向 feature anchor），加 routing rules 9/9 通过 | 2026-06-10 |
 | KD-13 | 前台猫产品状态自持：current route / recent handle map / pending confirmations / go·inline·relay 选择 / relay receipts / guide state / escalation 原文——全部存 Cat Cafe app code（store/Redis），**不依赖 carrier（Pi/OpenCode）或模型 context compaction**。PR-A2 conciergeStore（pending counts 入 store 零模型依赖）已是此原则第一个落点；PR-A3+ 的 handle map / relay receipts / escalation 原文按此实现 | 砚砚 carrier spike 收束（2026-06-10）：carrier 是可换的壳，产品状态进壳就会随 carrier 丢失 | 2026-06-10 |
+| KD-14 | 默认形象修正（CVO 愿景对齐）：默认 = **家养像素猫桌宠**四选一【布偶猫/缅因猫/孟加拉猫/暹罗猫】（家里桌宠像素风格、砚砚绘制——自家原创，"避版权"不再构成毛线球的立身理由），v1 默认**布偶猫**（CVO 拍板）。毛线球降为备选皮肤/过渡形态——Phase A 已实现的球先走通不返工，形象升级为独立工作项（A4 同期或之后；素材先行：定位家里既有像素素材，定位不到请砚砚按 codex 桌宠风格绘制四猫 + 八态动画映射） | 铲屎官 2026-06-10（msg 0001781148650752）："我们不是想要一只猫猫吗…最好做成我们曾经桌宠系统里砚砚画的…【布偶猫，缅因猫，孟加拉猫，暹罗猫】当 default 可选…私心我喜欢可爱的布偶猫…现拿球走通也可以" | 2026-06-10 |
 
 ## Timeline
 
