@@ -591,8 +591,39 @@ describe('F192 Phase D — per-fire sample evidence + sampleCoverage', () => {
     assert.equal(finding.attribution.evidence.length, 3);
   });
 
-  it('sampleCoverage absent on findings whose metric is not sampled (e.g. void_hold)', () => {
-    // void_hold is NOT in this PR's sample scope — sampleCoverage stays undefined.
+  it('void_hold finding carries sampleCoverage when samples are present (F192 D — 2026-06-10 build verdict)', () => {
+    // Verdict 2026-06-10-eval-a2a-c2-void-hold-samples-build extends sampling to
+    // `c2.void_hold_hint_emitted` so void-hold findings now carry per-fire drilldown
+    // refs + sampleCoverage just like verdict-without-pass.
+    const samples = [
+      makeSample({ spanId: 's-vh-a', trigger: 'cn_chiqiu', agentId: 'opus-47' }),
+      makeSample({ spanId: 's-vh-b', trigger: 'mcp_tool_name', agentId: 'opus-47' }),
+    ];
+    const report = generateAttributionReport({
+      featureId: 'F167',
+      snapshot: {
+        components: [
+          {
+            componentId: 'C2',
+            activationCounts: { 'c2.void_hold_checked': 25 },
+            frictionCounts: { 'c2.void_hold_hint_emitted': 4 },
+            frictionSamples: { 'c2.void_hold_hint_emitted': samples },
+            telemetryGaps: [],
+            confidence: 'medium',
+            falsePositiveCandidates: [],
+            bypassCandidates: [],
+          },
+        ],
+      },
+    });
+    const finding = report.findings.find((f) => f.frictionSignal.type === 'c2.void_hold_hint_emitted');
+    assert.ok(finding, 'void_hold friction must surface');
+    assert.deepEqual(finding.sampleCoverage, { sampleCount: 2, metricCount: 4, complete: false });
+  });
+
+  it('void_hold finding still emits sampleCoverage with sampleCount=0 when frictionSamples empty (honest gap report)', () => {
+    // Counters say 4 fires happened but no span events captured them →
+    // sampleCoverage still emitted (showing the gap honestly: sampleCount=0).
     const report = generateAttributionReport({
       featureId: 'F167',
       snapshot: {
@@ -612,7 +643,7 @@ describe('F192 Phase D — per-fire sample evidence + sampleCoverage', () => {
     });
     const finding = report.findings.find((f) => f.frictionSignal.type === 'c2.void_hold_hint_emitted');
     assert.ok(finding, 'void_hold friction must surface');
-    assert.equal(finding.sampleCoverage, undefined, 'sampleCoverage absent — void_hold not in sample scope');
+    assert.deepEqual(finding.sampleCoverage, { sampleCount: 0, metricCount: 4, complete: false });
   });
 
   it('artifact contains NO raw IDs — only hashes and OTel locators (privacy invariant)', () => {

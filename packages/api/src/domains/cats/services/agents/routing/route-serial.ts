@@ -111,7 +111,7 @@ import {
 import { resolveRoutingDecisions } from './routing-decision.js';
 import { appendThinkingChunk, renderThinkingChunks } from './thinking-chunks.js';
 import { detectMatchedVerdictKeyword, shouldWarnVerdictWithoutPass } from './verdict-detect.js';
-import { shouldWarnVoidHold } from './void-hold-detect.js';
+import { evaluateVoidHold } from './void-hold-detect.js';
 import { buildVoteTally, checkVoteCompletion, extractVoteFromText, VOTE_RESULT_SOURCE } from './vote-intercept.js';
 
 const log = createModuleLogger('route-serial');
@@ -1462,15 +1462,19 @@ export async function* routeSerial(
         // attribution grades void_hold_hint against c2.void_hold_checked, NOT the
         // verdict-check count c2.checked (different guard → wrong ratio / suppression).
         c2VoidHoldChecked.add(1, c2BaseAttr);
-        if (
-          shouldWarnVoidHold({
-            text: storedContent,
-            toolNames: collectedToolNames,
-            lineStartMentions: a2aMentions,
-            structuredTargetCats: [...structuredTargetCats],
-            hasCoCreatorLineStartMention: storedContent ? detectUserMention(storedContent) : false,
-          })
-        ) {
+        // F192 Phase D — eval:a2a 2026-06-10 build verdict: capture matched HOLD_PATTERN
+        // id as trigger for deferred sample emission. Same pattern as verdict-without-pass:
+        // addEvent fires in the post-storage block once `storedMsgId` is bound to the cat's
+        // hold-claim message, so drilldown lands on the original content, not on the hint.
+        let pendingC2VoidHoldSampleTrigger: string | null = null;
+        const voidHoldEval = evaluateVoidHold({
+          text: storedContent,
+          toolNames: collectedToolNames,
+          lineStartMentions: a2aMentions,
+          structuredTargetCats: [...structuredTargetCats],
+          hasCoCreatorLineStartMention: storedContent ? detectUserMention(storedContent) : false,
+        });
+        if (voidHoldEval.shouldEmit) {
           try {
             const hintSource = {
               connector: 'void-hold-hint',
@@ -1489,7 +1493,13 @@ export async function* routeSerial(
               timestamp: Date.now(),
               source: hintSource,
             });
-            c2VoidHoldHintEmitted.add(1, c2BaseAttr);
+            const voidHoldFireAttr: Record<string, string> = {
+              ...c2BaseAttr,
+              [TRIGGER]: voidHoldEval.matchedPattern ?? 'unknown',
+            };
+            c2VoidHoldHintEmitted.add(1, voidHoldFireAttr);
+            // F192 Phase D — capture trigger for deferred sample event emission.
+            pendingC2VoidHoldSampleTrigger = voidHoldFireAttr[TRIGGER] as string;
             if (deps.socketManager) {
               deps.socketManager.broadcastToRoom(`thread:${threadId}`, 'connector_message', {
                 threadId,
@@ -1739,6 +1749,32 @@ export async function* routeSerial(
                 [AGENT_ID]: catId as string,
                 [THREAD_SYSTEM_KIND]: routeThread?.systemKind ?? 'product',
                 [TRIGGER]: pendingC2SampleTrigger,
+              });
+              sampleSpan.end();
+            } catch {
+              /* best-effort sample emission */
+            }
+          }
+          // F192 Phase D — eval:a2a 2026-06-10 build verdict: parallel per-fire sample
+          // for void_hold_hint fires. Same span/event discipline as verdict-without-pass:
+          // marker span parented to still-open route/invocation span so RedactingSpanProcessor
+          // HMACs the raw IDs (Class C) before they reach LocalTraceStore.
+          // Independent of the verdict sample emission above — both can fire on the same
+          // turn if the cat both gave a verdict AND text-claimed a hold without tool call.
+          if (pendingC2VoidHoldSampleTrigger !== null && storedMsgId) {
+            try {
+              const parentSpan = options.routeSpan ?? invocationSpanRef.current;
+              const parentCtx = parentSpan ? trace.setSpan(context.active(), parentSpan) : context.active();
+              const sampleSpan = trace
+                .getTracer('cat-cafe-api', '0.1.0')
+                .startSpan('cat_cafe.a2a.c2.void_hold_sample', undefined, parentCtx);
+              sampleSpan.addEvent('c2.void_hold_fired', {
+                messageId: storedMsgId,
+                invocationId: ownInvocationId ?? 'unknown',
+                threadId,
+                [AGENT_ID]: catId as string,
+                [THREAD_SYSTEM_KIND]: routeThread?.systemKind ?? 'product',
+                [TRIGGER]: pendingC2VoidHoldSampleTrigger,
               });
               sampleSpan.end();
             } catch {

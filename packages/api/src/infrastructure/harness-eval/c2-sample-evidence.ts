@@ -66,10 +66,32 @@ export function extractC2VerdictWithoutPassSamples(
   spans: ReadonlyArray<EvalTraceSpan>,
   cap: PerFireSampleCap = DEFAULT_C2_SAMPLE_CAP,
 ): PerFireSample[] {
+  return extractPerFireSamples(spans, C2_SAMPLE_EVENT_NAME, cap);
+}
+
+/**
+ * F192 Phase D — eval:a2a 2026-06-10 build verdict: generic per-fire sample
+ * extractor parameterized by event name. Shared by `extractC2VerdictWithoutPassSamples`
+ * and `extractC2VoidHoldSamples` (parallel void-hold extractor) so defensive-parse,
+ * ordering, and capping discipline stay single-sourced.
+ *
+ * Contract:
+ *   - Filters `span.events[]` to the given event name.
+ *   - Same field schema as `extractC2VerdictWithoutPassSamples` (HMAC ids on
+ *     messageId/invocationId/threadId, semconv labels on agent.id / thread.system_kind,
+ *     trigger string).
+ *   - Same fail-closed parse: rows missing messageId / threadId / trigger are dropped.
+ *   - Same ordering (firedAt desc → spanId asc) and capping (per-trigger then total).
+ */
+export function extractPerFireSamples(
+  spans: ReadonlyArray<EvalTraceSpan>,
+  eventName: string,
+  cap: PerFireSampleCap = DEFAULT_C2_SAMPLE_CAP,
+): PerFireSample[] {
   const samples: PerFireSample[] = [];
   for (const span of spans) {
     for (const event of span.events ?? []) {
-      if (event.name !== C2_SAMPLE_EVENT_NAME) continue;
+      if (event.name !== eventName) continue;
       const attrs = event.attributes ?? {};
       // Defensive parse — required fields must be strings; absent/wrong type → skip
       const messageIdHash = stringAttr(attrs, 'messageId');

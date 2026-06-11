@@ -437,4 +437,159 @@ describe('F167 Runtime Eval Snapshot', () => {
     // frictionSamples empty (attribution will mark sampleCoverage.complete=false later).
     assert.deepEqual(c2.frictionSamples, {});
   });
+
+  it('C2 frictionSamples surfaces void-hold per-fire samples under c2.void_hold_hint_emitted (F192 D — 2026-06-10 build verdict)', () => {
+    const baseSpan = {
+      traceId: 'trace-vh',
+      spanId: 's-x',
+      name: 'cat_cafe.route',
+      startTimeMs: 0,
+      endTimeMs: 0,
+      durationMs: 0,
+      status: { code: 0 },
+      attributes: {},
+      events: [],
+    };
+    const spans = [
+      {
+        ...baseSpan,
+        spanId: 's-vh-a',
+        events: [
+          {
+            name: 'c2.void_hold_fired',
+            timeMs: 1000,
+            attributes: {
+              messageId: 'hash-msg-vh-a',
+              invocationId: 'hash-inv-vh-a',
+              threadId: 'hash-thread-vh-a',
+              'agent.id': 'opus-47',
+              'thread.system_kind': 'product',
+              trigger: 'cn_chiqiu',
+            },
+          },
+        ],
+      },
+      {
+        ...baseSpan,
+        spanId: 's-vh-b',
+        events: [
+          {
+            name: 'c2.void_hold_fired',
+            timeMs: 2000,
+            attributes: {
+              messageId: 'hash-msg-vh-b',
+              invocationId: 'hash-inv-vh-b',
+              threadId: 'hash-thread-vh-b',
+              'agent.id': 'opus-47',
+              'thread.system_kind': 'product',
+              trigger: 'mcp_tool_name',
+            },
+          },
+        ],
+      },
+    ];
+
+    const snapshot = generateF167Snapshot({
+      ...emptyInput,
+      traces: { spans, count: 2 },
+      metrics: {
+        cat_cafe_a2a_c2_void_hold_hint_emitted: 2,
+        cat_cafe_a2a_c2_void_hold_checked: 25,
+      },
+      traceStats: {
+        spanCount: 2,
+        maxSpans: 10000,
+        maxAgeMs: 86400000,
+        oldestStoredAt: Date.now() - 3600000,
+        newestStoredAt: Date.now(),
+      },
+    });
+
+    const c2 = snapshot.components.find((c) => c.componentId === 'C2');
+    const samples = c2.frictionSamples['c2.void_hold_hint_emitted'];
+    assert.ok(Array.isArray(samples) && samples.length === 2, 'void_hold frictionSamples must surface both fires');
+    // firedAt desc: 2000 > 1000
+    assert.equal(samples[0].spanId, 's-vh-b');
+    assert.equal(samples[0].trigger, 'mcp_tool_name');
+    assert.equal(samples[0].messageIdHash, 'hash-msg-vh-b');
+    assert.equal(samples[1].spanId, 's-vh-a');
+    assert.equal(samples[1].trigger, 'cn_chiqiu');
+  });
+
+  it('C2 frictionSamples: void-hold and verdict-without-pass samples surface independently on same finding', () => {
+    const baseSpan = {
+      traceId: 'trace-mix',
+      spanId: 's-x',
+      name: 'cat_cafe.route',
+      startTimeMs: 0,
+      endTimeMs: 0,
+      durationMs: 0,
+      status: { code: 0 },
+      attributes: {},
+      events: [],
+    };
+    const spans = [
+      {
+        ...baseSpan,
+        spanId: 's-v',
+        events: [
+          {
+            name: 'c2.verdict_without_pass_fired',
+            timeMs: 1500,
+            attributes: {
+              messageId: 'hash-msg-v',
+              invocationId: 'hash-inv-v',
+              threadId: 'hash-thread-v',
+              'agent.id': 'codex',
+              'thread.system_kind': 'product',
+              trigger: 'p1p2',
+            },
+          },
+        ],
+      },
+      {
+        ...baseSpan,
+        spanId: 's-vh',
+        events: [
+          {
+            name: 'c2.void_hold_fired',
+            timeMs: 1500,
+            attributes: {
+              messageId: 'hash-msg-vh',
+              invocationId: 'hash-inv-vh',
+              threadId: 'hash-thread-vh',
+              'agent.id': 'opus-47',
+              'thread.system_kind': 'product',
+              trigger: 'cn_wo_chi_qiu',
+            },
+          },
+        ],
+      },
+    ];
+
+    const snapshot = generateF167Snapshot({
+      ...emptyInput,
+      traces: { spans, count: 2 },
+      metrics: {
+        cat_cafe_a2a_c2_verdict_without_pass_count: 1,
+        cat_cafe_a2a_c2_void_hold_hint_emitted: 1,
+        cat_cafe_a2a_c2_exit_checked: 17,
+        cat_cafe_a2a_c2_void_hold_checked: 25,
+      },
+      traceStats: {
+        spanCount: 2,
+        maxSpans: 10000,
+        maxAgeMs: 86400000,
+        oldestStoredAt: Date.now() - 3600000,
+        newestStoredAt: Date.now(),
+      },
+    });
+
+    const c2 = snapshot.components.find((c) => c.componentId === 'C2');
+    assert.equal(c2.frictionSamples['c2.verdict_without_pass_count']?.length, 1);
+    assert.equal(c2.frictionSamples['c2.void_hold_hint_emitted']?.length, 1);
+    // No cross-contamination: each bucket holds only its own event type
+    assert.equal(c2.frictionSamples['c2.verdict_without_pass_count'][0].trigger, 'p1p2');
+    assert.equal(c2.frictionSamples['c2.void_hold_hint_emitted'][0].trigger, 'cn_wo_chi_qiu');
+  });
 });

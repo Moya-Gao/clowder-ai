@@ -1,4 +1,5 @@
 import { extractC2VerdictWithoutPassSamples, type PerFireSample } from './c2-sample-evidence.js';
+import { extractC2VoidHoldSamples } from './c2-void-hold-sample-evidence.js';
 import type {
   EvalMetricsHistoryResponse,
   EvalTraceSpan,
@@ -217,9 +218,17 @@ function buildC2(spans: EvalTraceSpan[], metrics: Record<string, number>): Compo
   // Extracted regardless of `hasSplitCounters`: if events exist but counters are
   // (somehow) missing, samples are still surfaced so attribution can still drill down.
   const verdictWithoutPassSamples = extractC2VerdictWithoutPassSamples(spans);
+  // F192 Phase D — eval:a2a 2026-06-10 build verdict: parallel per-fire samples
+  // for void_hold_hint fires. Same extraction discipline, different event name.
+  // The C2 finding can now classify void-hold fires (e.g. distinguish a noisy
+  // `cn_chiqiu` regex from a rare `mcp_tool_name` narrative reference).
+  const voidHoldSamples = extractC2VoidHoldSamples(spans);
   const frictionSamples: Record<string, PerFireSample[]> = {};
   if (verdictWithoutPassSamples.length > 0) {
     frictionSamples['c2.verdict_without_pass_count'] = verdictWithoutPassSamples;
+  }
+  if (voidHoldSamples.length > 0) {
+    frictionSamples['c2.void_hold_hint_emitted'] = voidHoldSamples;
   }
 
   const activationCounts: Record<string, number | null> = {
