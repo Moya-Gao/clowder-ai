@@ -27,9 +27,15 @@ related_docs:
 
 ## generated-clips/ — 可用成片素材（gitignored，账本记录）
 
+> 🎉 **Wave V-spike PASS（2026-06-11）**：S02-S05 四镜头 i2v 一轮全过（prompt book v0.1.3 配方），S03 信息镜头文字未崩 = FM-08 风险解除，全片管线验证通过。**实测发现 ×2**：(1) 烁烁模型遵守 prompt 的 N-second 指令（时长精确 5/4/5/6s，非固定 10s）；(2) Google 系图/视频中文渲染乱码——**所有含中文的静帧必须走云端砚砚（GPT 系）生成**，已写入 prompt book §3。
+
 | 文件 | 镜头 | 时长 | md5 | 备注 |
 |---|---|---|---|---|
 | `S01-clip1-usable-v1.mp4` | S01 | 10.0s | `02c023054c171f20f86c3dd96225d2f2` | 原名 `Warm_cozy_chibi_cat_cafe_anima.mp4`，已验证可用（failure-modes 文档 Clip 1）。S01 预算 6s → 剪辑刀裁 |
+| `S02-i2v-v1.mp4` | S02 | 5.0s | `98ecf055b21f56474494dade3a7fc1c6` | 砚砚原版 prompt，烁烁 i2v，CVO 验收效果好（原名 2a.mp4） |
+| `S03-i2v-v1.mp4` | S03 | 4.0s | `7d0ca4f4bc82c7c2023f85f7f60bbf3c` | **spike 关键镜头 PASS**——信息镜头文字保持住了（原名 2b.mp4） |
+| `S04-i2v-v1.mp4` | S04 | 5.0s | `d31b9fa2c200a1a719f2b81418c6ef9d` | 红叉全程在位（原名 3a.mp4） |
+| `S05-i2v-v1.mp4` | S05 | 6.0s | `1a96bf7303ddc15c09e13fe66596591e` | 名场面反应镜头（原名 3b.mp4） |
 
 ## failure-samples/ — 翻车样本（gitignored，FM 校准 + 花絮资产）
 

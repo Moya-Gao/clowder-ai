@@ -217,7 +217,9 @@ Keep the cat's grumpy embarrassed expression.
 
 ## 3. 静帧段（S06 / S07a / S08 / S10）——**只要图，不跑视频**，节奏由剪辑做
 
-> 给云端砚砚的图片 prompt。**先执行 §0.5 铁则（附参考图 + reference 第一行）**，[统一前缀] =
+> **本节产物 = 7 张静态图片，只走云端砚砚一步，没有烁烁/视频步骤**——这些状态卡的"动效"（机关枪切换、弹出、停顿）全部由剪辑卡点 + SFX 实现，图本身不用动。
+> ⚠️ **必须云端砚砚（GPT 系）生成，不能用烁烁**：实测（2026-06-11）Google 系图/视频中文渲染乱码，而这 7 张卡全是中文大字（"愿景守护已取消"/"流程要按风险缩放"）；GPT 系中文渲染正常（part2-b 已证）。
+> 给云端砚砚的图片 prompt：**先执行 §0.5 铁则（附参考图 + reference 第一行）**，[统一前缀] =
 > `Warm cozy chibi cat-cafe anime style, thick cute outlines, soft shading, not realistic, vertical 9:16, clean lower area for subtitles.`
 > 每条完整 prompt = §0.5 reference 行 + 本前缀 + 单条内容，三段拼起来复制，**附图发送**。
 
