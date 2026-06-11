@@ -249,10 +249,7 @@ describe('acquireTranscriptDirWatch — Step 7e: async queue serialization', () 
   it('allows concurrent acquires on different dirs', async () => {
     const dirA = '/tmp/f230-test-concurrent-guard-a';
     const dirB = '/tmp/f230-test-concurrent-guard-b';
-    const [releaseA, releaseB] = await Promise.all([
-      acquireTranscriptDirWatch(dirA),
-      acquireTranscriptDirWatch(dirB),
-    ]);
+    const [releaseA, releaseB] = await Promise.all([acquireTranscriptDirWatch(dirA), acquireTranscriptDirWatch(dirB)]);
     // Both acquired without waiting — different dirs are independent
     releaseA();
     releaseB();

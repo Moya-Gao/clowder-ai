@@ -971,8 +971,14 @@ describe(
       assert.ok(errB.length === 0, `invoke B must not error; got: ${JSON.stringify(errB)}`);
 
       // Both must reach done
-      assert.ok(msgsA.some((m) => m.type === 'done'), 'invoke A must produce a done event');
-      assert.ok(msgsB.some((m) => m.type === 'done'), 'invoke B must produce a done event');
+      assert.ok(
+        msgsA.some((m) => m.type === 'done'),
+        'invoke A must produce a done event',
+      );
+      assert.ok(
+        msgsB.some((m) => m.type === 'done'),
+        'invoke B must produce a done event',
+      );
 
       // Each must use a unique session_init sessionId (no cross-claim)
       const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -980,7 +986,11 @@ describe(
       const initB = msgsB.find((m) => m.type === 'session_init');
       assert.ok(initA && uuidRe.test(initA.sessionId), `A must have a UUID sessionId; got: ${initA?.sessionId}`);
       assert.ok(initB && uuidRe.test(initB.sessionId), `B must have a UUID sessionId; got: ${initB?.sessionId}`);
-      assert.notStrictEqual(initA.sessionId, initB.sessionId, 'A and B must use different session IDs (no cross-claim)');
+      assert.notStrictEqual(
+        initA.sessionId,
+        initB.sessionId,
+        'A and B must use different session IDs (no cross-claim)',
+      );
     });
   },
 );
