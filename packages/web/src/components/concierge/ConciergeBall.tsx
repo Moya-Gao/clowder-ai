@@ -1,12 +1,20 @@
 'use client';
 
 /**
- * F229 PR-A2: ConciergeBall — 悬浮球 UI
+ * F229 PR-A3a: ConciergeBall — 猫本体（Layer 1）
  *
- * z-30 < FloatingPresentationSurface z-[35] (micro-spec §4)
- * Non-modal: no focus trap, accessible keyboard nav
- * aria-live="polite" (安静默认 §3): badge changes announced non-disruptively
- * Quiet default: badge shows dot only (no count text), hover/focus for tooltip
+ * V1 (P0): 替换 🐱 emoji → 布偶猫 PNG sprite（过渡素材，待正式桌宠素材替换）
+ * V2 (P0): 全部颜色从 OKLCH token 来，零 Tailwind 原生色
+ * V3 (P1): 方圆形底座 72×72 + 猫图 64×64 + 状态指示点
+ * V4 (P1): idle 态呼吸动画（4s 慢呼吸，reduced-motion 降级）
+ * V5 (P1): 八态 sprite 映射 + crossfade 过渡
+ *
+ * 交互：
+ *   collapsed → toolbar（点猫，不直接开气泡）
+ *   expanded (toolbar/bubble) → collapsed（再次点猫收起）
+ *
+ * z-30: same layer as toolbar + bubble (below FloatingPresentationSurface z-[35])
+ * aria-expanded: true when surfaceState !== 'collapsed'
  */
 
 import type { ConciergeBallState } from '@cat-cafe/shared';
@@ -16,16 +24,28 @@ interface ConciergeBallProps {
   ballState: ConciergeBallState;
 }
 
-// State → visual color class
-const STATE_COLORS: Record<ConciergeBallState, string> = {
-  idle: 'bg-zinc-500',
-  sleeping: 'bg-zinc-700',
-  listening: 'bg-blue-500',
-  thinking: 'bg-amber-500',
-  found: 'bg-emerald-500',
-  'needs-confirmation': 'bg-orange-500',
-  handoff: 'bg-violet-500',
-  error: 'bg-red-500',
+// Eight-state sprite mapping (过渡素材：opus 贴纸 2026-02，正式桌宠素材待砚砚创作)
+const STATE_SPRITES: Record<ConciergeBallState, string> = {
+  idle: '/concierge/sprites/ragdoll/idle.png',
+  sleeping: '/concierge/sprites/ragdoll/sleeping.png',
+  listening: '/concierge/sprites/ragdoll/listening.png',
+  thinking: '/concierge/sprites/ragdoll/thinking.png',
+  found: '/concierge/sprites/ragdoll/found.png',
+  'needs-confirmation': '/concierge/sprites/ragdoll/confirm.png',
+  handoff: '/concierge/sprites/ragdoll/handoff.png',
+  error: '/concierge/sprites/ragdoll/error.png',
+};
+
+// State → indicator dot color via CSS var (V2: zero Tailwind native color)
+const STATE_DOT_COLORS: Record<ConciergeBallState, string> = {
+  idle: 'var(--accent-300)',
+  sleeping: 'var(--neutral-400)',
+  listening: 'var(--accent-500)',
+  thinking: 'var(--accent-400)',
+  found: 'var(--semantic-success)',
+  'needs-confirmation': 'var(--semantic-warning)',
+  handoff: 'var(--semantic-info)',
+  error: 'var(--semantic-critical)',
 };
 
 // State → aria-label suffix
@@ -41,60 +61,87 @@ const STATE_LABELS: Record<ConciergeBallState, string> = {
 };
 
 export function ConciergeBall({ ballState }: ConciergeBallProps) {
-  const setPanelOpen = useConciergeStore((s) => s.setPanelOpen);
-  const panelOpen = useConciergeStore((s) => s.panelOpen);
+  const setSurfaceState = useConciergeStore((s) => s.setSurfaceState);
+  const surfaceState = useConciergeStore((s) => s.surfaceState);
   const unseenResultCount = useConciergeStore((s) => s.unseenResultCount);
 
   const handleClick = () => {
-    setPanelOpen(!panelOpen);
+    // Layer 1 → Layer 2: click cat opens toolbar
+    if (surfaceState === 'collapsed') {
+      setSurfaceState('toolbar');
+    } else {
+      // Already expanded — collapse fully
+      setSurfaceState('collapsed');
+    }
   };
 
-  const colorClass = STATE_COLORS[ballState] ?? 'bg-zinc-500';
+  const spriteSrc = STATE_SPRITES[ballState] ?? STATE_SPRITES.idle;
+  const dotColor = STATE_DOT_COLORS[ballState] ?? 'var(--accent-300)';
   const stateLabel = STATE_LABELS[ballState] ?? ballState;
+  const isExpanded = surfaceState !== 'collapsed';
+  const isIdle = ballState === 'idle';
 
   return (
-    <div aria-live="polite" aria-atomic="false" className="fixed bottom-6 right-6 z-30 pointer-events-none">
+    <div aria-live="polite" aria-atomic="false" className="pointer-events-none">
       <button
         type="button"
         aria-label={`猫猫球 — ${stateLabel}`}
-        aria-expanded={panelOpen}
+        aria-expanded={isExpanded}
         aria-haspopup="dialog"
+        style={{
+          backgroundColor: 'var(--cafe-surface-elevated)',
+          boxShadow: 'var(--shadow-elevation-1)',
+        }}
         className={[
           'pointer-events-auto',
           'relative flex items-center justify-center',
-          'w-12 h-12 rounded-full shadow-lg',
-          'transition-colors duration-200',
-          'focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500',
+          'w-[72px] h-[72px]',
+          // Squircle: border-radius 16px per design spec (§7)
+          'rounded-2xl',
+          'transition-transform duration-200',
+          // V3: breathing animation for idle state (4s slow breathing)
+          isIdle ? 'animate-[concierge-breathe_4s_ease-in-out_infinite]' : '',
+          'focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--cafe-accent)] focus-visible:ring-offset-2',
           'select-none cursor-pointer',
-          colorClass,
+          'hover:scale-105',
         ].join(' ')}
         onClick={handleClick}
       >
-        {/* Cat icon placeholder (Phase E: replace with skin sprite) */}
-        <span className="text-xl leading-none" aria-hidden="true">
-          🐱
-        </span>
+        {/* Cat sprite — 64×64 inside 72×72 base
+            V1: PNG sprite replaces emoji
+            V5: crossfade on state change via CSS transition */}
+        <img
+          src={spriteSrc}
+          alt=""
+          aria-hidden="true"
+          width={64}
+          height={64}
+          className="object-contain"
+          style={{ transition: 'opacity 300ms ease-in-out' }}
+        />
 
         {/* Badge dot — shows only when unseenResultCount > 0 (quiet-badge policy §3)
-            No text node: just a color indicator. role="img" lets aria-label attach. */}
+            role="img" lets aria-label attach to an empty visual element */}
         {unseenResultCount > 0 && (
           <span
             role="img"
             aria-label={`${unseenResultCount} 条未读结果`}
+            style={{ backgroundColor: 'var(--semantic-critical)' }}
             className={[
-              'absolute -top-0.5 -right-0.5',
+              'absolute -top-1 -right-1',
               'w-3 h-3 rounded-full',
-              'bg-emerald-400 border-2 border-white',
+              'border-2 border-[color:var(--cafe-surface-elevated)]',
             ].join(' ')}
           />
         )}
 
-        {/* State indicator dot (always shown, color varies) */}
+        {/* State indicator dot (always shown, color varies by state) */}
         <span
+          style={{ backgroundColor: dotColor }}
           className={[
-            'absolute -bottom-0.5 -right-0.5',
-            'w-2.5 h-2.5 rounded-full border-2 border-white',
-            colorClass,
+            'absolute -bottom-1 -right-1',
+            'w-3 h-3 rounded-full',
+            'border-2 border-[color:var(--cafe-surface-elevated)]',
           ].join(' ')}
           aria-hidden="true"
         />

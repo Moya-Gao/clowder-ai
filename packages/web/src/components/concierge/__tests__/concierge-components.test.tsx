@@ -78,11 +78,11 @@ beforeEach(() => {
   mockApiFetch.mockReset();
   mockApiFetch.mockImplementation(configOk);
 
-  // Reset store to known defaults
+  // Reset store to known defaults (A3a: surfaceState replaces panelOpen)
   useConciergeStore.setState({
     enabled: true,
     muted: false,
-    panelOpen: false,
+    surfaceState: 'collapsed',
     inputFocused: false,
     invocationStatus: 'idle',
     pendingConfirmationCount: 0,
@@ -140,28 +140,28 @@ describe('Block 2: 生命周期', () => {
     expect(buttons.length).toBe(1);
   });
 
-  it('INV-7: panelOpen=false → panel NOT in DOM initially', async () => {
+  it('INV-7: surfaceState=collapsed → panel NOT in DOM initially', async () => {
     await render(<ConciergeHost />);
     await flushEffects();
     expect(container.querySelector('[role="dialog"]')).toBeNull();
   });
 
-  it('INV-7: setPanelOpen(true) → panel appears; onNavigationAction → panelOpen=false', async () => {
+  it('INV-7: setSurfaceState(bubble) → panel appears; onNavigationAction → surfaceState=collapsed', async () => {
     await render(<ConciergeHost />);
     await flushEffects();
 
     act(() => {
-      useConciergeStore.getState().setPanelOpen(true);
+      useConciergeStore.getState().setSurfaceState('bubble');
     });
     await flushEffects();
     expect(container.querySelector('[role="dialog"]')).not.toBeNull();
 
-    // Navigation action collapses panel
+    // Navigation action collapses surface
     act(() => {
       useConciergeStore.getState().onNavigationAction();
     });
     await flushEffects();
-    expect(useConciergeStore.getState().panelOpen).toBe(false);
+    expect(useConciergeStore.getState().surfaceState).toBe('collapsed');
   });
 
   it('ConciergeHost renders ball after config fetch fails (P2 R5: no dead state on network error)', async () => {
@@ -249,12 +249,12 @@ describe('Block 5: 安静默认', () => {
     expect(liveRegion?.getAttribute('aria-live')).not.toBe('assertive');
   });
 
-  it('§3.3: no panel popup on first ConciergeHost render (panelOpen starts false)', async () => {
+  it('§3.3: no panel popup on first ConciergeHost render (surfaceState starts collapsed)', async () => {
     await render(<ConciergeHost />);
     await flushEffects();
     // No dialog in DOM on first render
     expect(container.querySelector('[role="dialog"]')).toBeNull();
-    expect(useConciergeStore.getState().panelOpen).toBe(false);
+    expect(useConciergeStore.getState().surfaceState).toBe('collapsed');
   });
 
   it('§3.3: unseenResultCount=0 → no badge dot rendered', async () => {
@@ -279,23 +279,23 @@ describe('Block 6: a11y + motion', () => {
     expect(btn.getAttribute('aria-haspopup')).toBe('dialog');
   });
 
-  it('ball button aria-expanded=true when panel is open', async () => {
-    useConciergeStore.setState({ panelOpen: true });
+  it('ball button aria-expanded=true when surface is not collapsed', async () => {
+    useConciergeStore.setState({ surfaceState: 'bubble' });
     await render(<ConciergeBall ballState="idle" />);
     const btn = container.querySelector('button[aria-haspopup="dialog"]') as HTMLButtonElement;
     expect(btn.getAttribute('aria-expanded')).toBe('true');
   });
 
   it('panel role=dialog aria-modal=false (non-modal, no focus trap)', async () => {
-    useConciergeStore.setState({ panelOpen: true });
+    useConciergeStore.setState({ surfaceState: 'bubble' });
     await render(<ConciergePanel />);
     const panel = container.querySelector('[role="dialog"]') as HTMLElement;
     expect(panel).not.toBeNull();
     expect(panel.getAttribute('aria-modal')).toBe('false');
   });
 
-  it('Esc key closes panel (sets panelOpen=false)', async () => {
-    useConciergeStore.setState({ panelOpen: true });
+  it('Esc key in bubble closes to toolbar (surfaceState: bubble→toolbar)', async () => {
+    useConciergeStore.setState({ surfaceState: 'bubble' });
     await render(<ConciergePanel />);
     await flushEffects();
 
@@ -305,11 +305,12 @@ describe('Block 6: a11y + motion', () => {
     });
     await flushEffects();
 
-    expect(useConciergeStore.getState().panelOpen).toBe(false);
+    // bubble→toolbar on first Esc (two-level Esc back)
+    expect(useConciergeStore.getState().surfaceState).toBe('toolbar');
   });
 
-  it('panel has mute toggle button when panel is open (AC-A6)', async () => {
-    useConciergeStore.setState({ panelOpen: true, muted: false, configLoaded: true });
+  it('panel has mute toggle button when bubble is open (AC-A6)', async () => {
+    useConciergeStore.setState({ surfaceState: 'bubble', muted: false, configLoaded: true });
     await render(<ConciergePanel />);
     // Mute toggle button must be present in panel header
     const muteBtn = container.querySelector('button[aria-label="静音"]');
@@ -317,14 +318,14 @@ describe('Block 6: a11y + motion', () => {
   });
 
   it('panel mute toggle shows "取消静音" when already muted (AC-A6)', async () => {
-    useConciergeStore.setState({ panelOpen: true, muted: true, configLoaded: true });
+    useConciergeStore.setState({ surfaceState: 'bubble', muted: true, configLoaded: true });
     await render(<ConciergePanel />);
     const unmuteBtn = container.querySelector('button[aria-label="取消静音"]');
     expect(unmuteBtn).not.toBeNull();
   });
 
   it('panel mute toggle calls setMuted when clicked (AC-A6)', async () => {
-    useConciergeStore.setState({ panelOpen: true, muted: false, configLoaded: true });
+    useConciergeStore.setState({ surfaceState: 'bubble', muted: false, configLoaded: true });
     // Mock setMuted call — apiFetch is already mocked (configOk)
     mockApiFetch.mockImplementation(() =>
       Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({}) } as unknown as Response),
@@ -366,5 +367,484 @@ describe('Block 6: a11y + motion', () => {
     } finally {
       window.matchMedia = originalMatchMedia;
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// A3a: Three-layer interaction model
+// ---------------------------------------------------------------------------
+
+import { ConciergeToolbar } from '../ConciergeToolbar';
+
+describe('A3a: three-layer surfaceState interaction', () => {
+  it('ConciergeToolbar renders only when surfaceState=toolbar', async () => {
+    useConciergeStore.setState({ surfaceState: 'toolbar', configLoaded: true });
+    await render(<ConciergeToolbar />);
+    const toolbar = container.querySelector('[data-testid="concierge-toolbar"]');
+    expect(toolbar).not.toBeNull();
+  });
+
+  it('ConciergeToolbar not rendered when surfaceState=collapsed', async () => {
+    useConciergeStore.setState({ surfaceState: 'collapsed', configLoaded: true });
+    await render(<ConciergeToolbar />);
+    const toolbar = container.querySelector('[data-testid="concierge-toolbar"]');
+    expect(toolbar).toBeNull();
+  });
+
+  it('ConciergeToolbar not rendered when surfaceState=bubble', async () => {
+    useConciergeStore.setState({ surfaceState: 'bubble', configLoaded: true });
+    await render(<ConciergeToolbar />);
+    const toolbar = container.querySelector('[data-testid="concierge-toolbar"]');
+    expect(toolbar).toBeNull();
+  });
+
+  it('clicking "聊聊" button in toolbar sets surfaceState=bubble', async () => {
+    useConciergeStore.setState({ surfaceState: 'toolbar', configLoaded: true });
+    await render(<ConciergeToolbar />);
+    await flushEffects();
+
+    const chatBtn = container.querySelector('button[aria-label="聊聊"]') as HTMLButtonElement;
+    expect(chatBtn).not.toBeNull();
+    act(() => chatBtn.click());
+    await flushEffects();
+
+    expect(useConciergeStore.getState().surfaceState).toBe('bubble');
+  });
+
+  it('ConciergePanel renders only when surfaceState=bubble', async () => {
+    useConciergeStore.setState({ surfaceState: 'bubble', configLoaded: true });
+    await render(<ConciergePanel />);
+    const panel = container.querySelector('[role="dialog"]');
+    expect(panel).not.toBeNull();
+  });
+
+  it('ConciergePanel returns null when surfaceState=toolbar', async () => {
+    useConciergeStore.setState({ surfaceState: 'toolbar', configLoaded: true });
+    await render(<ConciergePanel />);
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+  });
+
+  it('ConciergePanel returns null when surfaceState=collapsed', async () => {
+    useConciergeStore.setState({ surfaceState: 'collapsed', configLoaded: true });
+    await render(<ConciergePanel />);
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+  });
+
+  it('ball click sets surfaceState=toolbar when collapsed', async () => {
+    useConciergeStore.setState({ surfaceState: 'collapsed', configLoaded: true });
+    await render(<ConciergeBall ballState="idle" />);
+    await flushEffects();
+
+    const btn = container.querySelector('button[aria-haspopup="dialog"]') as HTMLButtonElement;
+    expect(btn).not.toBeNull();
+    act(() => btn.click());
+    await flushEffects();
+
+    expect(useConciergeStore.getState().surfaceState).toBe('toolbar');
+  });
+
+  it('ConciergeHost renders ball + toolbar when surfaceState=toolbar', async () => {
+    useConciergeStore.setState({ surfaceState: 'toolbar', configLoaded: true });
+    await render(<ConciergeHost />);
+    await flushEffects();
+
+    expect(container.querySelector('button[aria-haspopup="dialog"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="concierge-toolbar"]')).not.toBeNull();
+    expect(container.querySelector('[role="dialog"]')).toBeNull(); // no bubble
+  });
+
+  it('ConciergeHost renders ball + bubble (no toolbar) when surfaceState=bubble', async () => {
+    useConciergeStore.setState({ surfaceState: 'bubble', configLoaded: true });
+    await render(<ConciergeHost />);
+    await flushEffects();
+
+    expect(container.querySelector('button[aria-haspopup="dialog"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="concierge-toolbar"]')).toBeNull(); // toolbar hidden
+    expect(container.querySelector('[role="dialog"]')).not.toBeNull(); // bubble shown
+  });
+
+  // -------------------------------------------------------------------------
+  // Cloud P1-A: toolbar positioning (absolute inside Fragment → no positioned parent)
+  // -------------------------------------------------------------------------
+  it('P1-A (cloud fix): toolbar nested inside concierge-ball-wrapper', async () => {
+    useConciergeStore.setState({ surfaceState: 'toolbar', configLoaded: true });
+    await render(<ConciergeHost />);
+    await flushEffects();
+    const wrapper = container.querySelector('[data-testid="concierge-ball-wrapper"]');
+    expect(wrapper).not.toBeNull();
+    expect(wrapper!.querySelector('[data-testid="concierge-toolbar"]')).not.toBeNull();
+  });
+
+  // -------------------------------------------------------------------------
+  // Cloud P1-B: muted wake path (muted=true early return suppressed toolbar)
+  // -------------------------------------------------------------------------
+  it('P1-B (cloud fix): muted=true + surfaceState=toolbar → toolbar renders for unmute', async () => {
+    useConciergeStore.setState({ muted: true, configLoaded: true, surfaceState: 'toolbar' });
+    await render(<ConciergeHost />);
+    await flushEffects();
+    // Toolbar must be accessible so user can reach panel's unmute button
+    expect(container.querySelector('[data-testid="concierge-toolbar"]')).not.toBeNull();
+  });
+
+  it('P1-B (cloud fix): muted=true + surfaceState=collapsed → nothing renders (INV-3 preserved)', async () => {
+    useConciergeStore.setState({ muted: true, configLoaded: true, surfaceState: 'collapsed' });
+    await render(<ConciergeHost />);
+    await flushEffects();
+    // Ball must still be hidden when muted+collapsed (INV-3 unchanged)
+    expect(container.querySelector('button[aria-haspopup="dialog"]')).toBeNull();
+    expect(container.querySelector('[data-testid="concierge-toolbar"]')).toBeNull();
+  });
+
+  // -------------------------------------------------------------------------
+  // gpt52 P2: toolbar prompts not wired (all 4 buttons call setSurfaceState only)
+  // -------------------------------------------------------------------------
+  it('P2 (gpt52 fix): 找找看 opens bubble with prefilled prompt', async () => {
+    useConciergeStore.setState({ configLoaded: true, surfaceState: 'toolbar' });
+    await render(<ConciergeHost />);
+    await flushEffects();
+
+    const findBtn = container.querySelector('button[aria-label="找找看"]') as HTMLButtonElement;
+    expect(findBtn).not.toBeNull();
+    act(() => {
+      findBtn.click();
+    });
+    await flushEffects();
+
+    expect(useConciergeStore.getState().surfaceState).toBe('bubble');
+    const inputEl = container.querySelector('textarea[aria-label="消息输入框"]') as HTMLTextAreaElement;
+    expect(inputEl?.value).toBe('帮我找找：');
+  });
+
+  it('P2 (gpt52 fix): 聊聊 opens bubble with empty input', async () => {
+    useConciergeStore.setState({ configLoaded: true, surfaceState: 'toolbar' });
+    await render(<ConciergeHost />);
+    await flushEffects();
+
+    const chatBtn = container.querySelector('button[aria-label="聊聊"]') as HTMLButtonElement;
+    expect(chatBtn).not.toBeNull();
+    act(() => {
+      chatBtn.click();
+    });
+    await flushEffects();
+
+    expect(useConciergeStore.getState().surfaceState).toBe('bubble');
+    const inputEl = container.querySelector('textarea[aria-label="消息输入框"]') as HTMLTextAreaElement;
+    expect(inputEl?.value).toBe('');
+  });
+
+  it('P2 (cloud R2): 聊聊 clears existing draft set by previous ability button', async () => {
+    useConciergeStore.setState({ configLoaded: true, surfaceState: 'toolbar' });
+    await render(<ConciergeHost />);
+    await flushEffects();
+
+    // Step 1: 找找看 → bubble with prefilled draft
+    const findBtn = container.querySelector('button[aria-label="找找看"]') as HTMLButtonElement;
+    act(() => {
+      findBtn.click();
+    });
+    await flushEffects();
+    expect((container.querySelector('textarea[aria-label="消息输入框"]') as HTMLTextAreaElement)?.value).toBe(
+      '帮我找找：',
+    );
+
+    // Step 2: Escape → back to toolbar (draft '帮我找找：' persists in component state)
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    });
+    await flushEffects();
+    expect(useConciergeStore.getState().surfaceState).toBe('toolbar');
+
+    // Step 3: 聊聊 → bubble must open with *empty* input (not the old draft)
+    const chatBtn = container.querySelector('button[aria-label="聊聊"]') as HTMLButtonElement;
+    act(() => {
+      chatBtn.click();
+    });
+    await flushEffects();
+
+    expect(useConciergeStore.getState().surfaceState).toBe('bubble');
+    expect((container.querySelector('textarea[aria-label="消息输入框"]') as HTMLTextAreaElement)?.value).toBe('');
+  });
+
+  it('P2 (cloud fix): Escape in toolbar state collapses to collapsed', async () => {
+    useConciergeStore.setState({ configLoaded: true, surfaceState: 'toolbar' });
+    await render(<ConciergeHost />);
+    await flushEffects();
+
+    expect(container.querySelector('[data-testid="concierge-toolbar"]')).not.toBeNull();
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    });
+    await flushEffects();
+
+    expect(useConciergeStore.getState().surfaceState).toBe('collapsed');
+  });
+
+  it('P2 (cloud R3): send transitions invocationStatus idle→pending→in_progress', async () => {
+    // threadIdLoaded:true prevents fetchThreadId from overwriting our test threadId when bubble opens
+    useConciergeStore.setState({
+      configLoaded: true,
+      surfaceState: 'collapsed',
+      threadId: 'thread-test-r3',
+      threadIdLoaded: true,
+      invocationStatus: 'idle',
+    });
+
+    // Mock POST /api/messages as success
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url === '/api/messages') {
+        return Promise.resolve({ ok: true, status: 200, json: async () => ({}) } as unknown as Response);
+      }
+      return configOk();
+    });
+
+    await render(<ConciergeHost />);
+    await flushEffects();
+
+    // Use pendingPrompt mechanism to open bubble with pre-filled text (reliable vs nativeSet+change)
+    act(() => {
+      useConciergeStore.getState().setSurfaceState('bubble', 'hello cat');
+    });
+    await flushEffects();
+
+    // Verify pre-fill worked
+    const inputEl = container.querySelector('textarea[aria-label="消息输入框"]') as HTMLTextAreaElement;
+    expect(inputEl).not.toBeNull();
+    expect(inputEl.value).toBe('hello cat');
+
+    // Before send: idle
+    expect(useConciergeStore.getState().invocationStatus).toBe('idle');
+
+    // Send
+    await act(async () => {
+      const sendBtn = container.querySelector('button[aria-label="发送"]') as HTMLButtonElement;
+      sendBtn.click();
+      // Flush the POST promise (microtask resolves before this 0ms macrotask)
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    await flushEffects();
+
+    // After successful POST: in_progress (ball shows thinking while polling for cat reply)
+    expect(useConciergeStore.getState().invocationStatus).toBe('in_progress');
+  });
+
+  it('P2 (R4): reply detection sets invocationStatus to idle when cat reply arrives', async () => {
+    // Simulate post-send state: in_progress, thread loaded, no pre-existing cat messages
+    useConciergeStore.setState({
+      configLoaded: true,
+      surfaceState: 'bubble',
+      threadId: 'thread-test-r4',
+      threadIdLoaded: true,
+      invocationStatus: 'in_progress', // post-send state
+    });
+
+    // Mock GET /api/messages to return a cat reply (catMsgCountAtSendRef defaults to 0)
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url.includes('/api/messages?')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            messages: [{ id: 'a1', type: 'assistant', content: '你好！', catId: 'gemini25', timestamp: 1000 }],
+          }),
+        } as unknown as Response);
+      }
+      return configOk();
+    });
+
+    await render(<ConciergeHost />);
+    await flushEffects();
+
+    // Reply detection effect: catCount(1) > catMsgCountAtSendRef.current(0) → idle
+    expect(useConciergeStore.getState().invocationStatus).toBe('idle');
+  });
+
+  it('P2 (R5): send button disabled while initial messages are loading', async () => {
+    // Demonstrates the race condition fix: user cannot send before catMsgCountAtSendRef
+    // is captured from settled messages. Without the fix, a button with text would be
+    // enabled while isLoading=true, allowing stale-count captures.
+    let resolveLoad!: (v: Response) => void;
+
+    useConciergeStore.setState({
+      configLoaded: true,
+      surfaceState: 'bubble',
+      threadId: 'thread-test-r5',
+      threadIdLoaded: true,
+      invocationStatus: 'idle',
+      pendingPrompt: null,
+    });
+
+    // GET never resolves until we call resolveLoad — keeps isLoading=true
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url.includes('/api/messages?')) {
+        return new Promise<Response>((resolve) => {
+          resolveLoad = resolve;
+        });
+      }
+      return configOk();
+    });
+
+    // Render: ConciergePanel mounts, loadMessages starts, isLoading=true
+    await render(<ConciergeHost />);
+
+    // Pre-fill input so the send button would otherwise be enabled
+    act(() => {
+      useConciergeStore.getState().setSurfaceState('bubble', 'hello');
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const sendBtn = container.querySelector('button[aria-label="发送"]') as HTMLButtonElement;
+    // R5 fix: button must be disabled while initial messages are still loading
+    expect(sendBtn?.disabled).toBe(true);
+
+    // Resolve the GET with pre-existing cat messages
+    await act(async () => {
+      resolveLoad({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          messages: [{ id: 'm1', type: 'assistant', content: '你好！', catId: 'gemini25', timestamp: 1000 }],
+        }),
+      } as unknown as Response);
+      await Promise.resolve();
+    });
+    await flushEffects();
+
+    // After load completes: button now enabled (text present, not in-flight)
+    const sendBtnAfter = container.querySelector('button[aria-label="发送"]') as HTMLButtonElement;
+    expect(sendBtnAfter?.disabled).toBe(false);
+  });
+
+  it('P2 (R7): speech-bubble tail triangles are not clipped by outer overflow-hidden', async () => {
+    // The tail triangles use absolute positioning with negative bottom offsets.
+    // If the outer panel has overflow-hidden, the tail is clipped and invisible.
+    // Fix: move overflow-hidden to an inner content wrapper.
+    useConciergeStore.setState({ surfaceState: 'bubble', configLoaded: true });
+    await render(<ConciergePanel />);
+    await flushEffects();
+
+    const panel = container.querySelector('[role="dialog"]') as HTMLDivElement;
+    expect(panel).not.toBeNull();
+
+    // R7 fix: outer shell must NOT have overflow-hidden (lets tail escape the clip)
+    expect(panel?.className).not.toContain('overflow-hidden');
+
+    // Inner content wrapper must have overflow-hidden (clips header/messages/input at corners)
+    const inner = panel?.querySelector('[data-testid="concierge-inner-content"]') as HTMLDivElement;
+    expect(inner).not.toBeNull();
+    expect(inner?.className).toContain('overflow-hidden');
+  });
+
+  it('P1 (R8): streaming draft messages do not trigger reply detection', async () => {
+    // When the backend returns a streaming draft (isDraft: true), mapApiMessages must
+    // filter it out so catCount does not increase and reply detection does not fire.
+    // Without the fix: draft arrives → catCount(1) > catMsgCountAtSendRef(0) → idle (WRONG)
+    // With the fix: draft filtered → catCount(0) = catMsgCountAtSendRef(0) → stays in_progress
+    useConciergeStore.setState({
+      configLoaded: true,
+      surfaceState: 'bubble',
+      threadId: 'thread-test-r8-draft',
+      threadIdLoaded: true,
+      invocationStatus: 'in_progress',
+    });
+
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url.includes('/api/messages?')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            messages: [
+              {
+                id: 'a1',
+                type: 'assistant',
+                content: '在思考…',
+                catId: 'gemini25',
+                timestamp: 1000,
+                isDraft: true,
+              },
+            ],
+          }),
+        } as unknown as Response);
+      }
+      return configOk();
+    });
+
+    await render(<ConciergeHost />);
+    await flushEffects();
+
+    // Draft must NOT trigger idle — invocationStatus must stay in_progress
+    expect(useConciergeStore.getState().invocationStatus).toBe('in_progress');
+  });
+
+  it('P2 (R8): Enter key in textarea is blocked when invocationStatus=in_progress', async () => {
+    // handleSend only guards with isLoading; without an invocationStatus guard, pressing
+    // Enter while a send is in-flight bypasses the button disabled check and fires another POST.
+    useConciergeStore.setState({
+      configLoaded: true,
+      surfaceState: 'collapsed',
+      threadId: 'thread-test-r8-keyboard',
+      threadIdLoaded: true,
+      invocationStatus: 'idle',
+      pendingPrompt: null,
+    });
+
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url.includes('/api/messages?')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ messages: [] }),
+        } as unknown as Response);
+      }
+      return configOk();
+    });
+
+    await render(<ConciergeHost />);
+    // Open bubble with pre-filled text
+    act(() => {
+      useConciergeStore.getState().setSurfaceState('bubble', 'second message');
+    });
+    await flushEffects();
+
+    // Simulate active in-flight send
+    act(() => {
+      useConciergeStore.getState().setInvocationStatus('in_progress');
+    });
+    await flushEffects();
+
+    const textarea = container.querySelector('textarea[aria-label="消息输入框"]') as HTMLTextAreaElement;
+    expect(textarea?.value).toBe('second message');
+
+    // Reset mock to track POST calls only going forward
+    mockApiFetch.mockReset();
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url === '/api/messages') {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({}),
+        } as unknown as Response);
+      }
+      if (url.includes('/api/messages?')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ messages: [] }),
+        } as unknown as Response);
+      }
+      return configOk();
+    });
+
+    // Press Enter — must be blocked by invocationStatus=in_progress guard in handleSend
+    await act(async () => {
+      textarea?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    await flushEffects();
+
+    const postCalls = mockApiFetch.mock.calls.filter((args) => args[0] === '/api/messages');
+    expect(postCalls.length).toBe(0);
   });
 });

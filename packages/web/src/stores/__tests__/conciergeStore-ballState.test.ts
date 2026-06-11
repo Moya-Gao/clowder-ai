@@ -1,8 +1,11 @@
 /**
- * F229 PR-A2: projectBallState 投影函数表驱动测试
+ * F229 PR-A3a: projectBallState 投影函数表驱动测试
  *
  * 验证 INV-1（全序唯一）/ INV-2（零存储，see conciergeStore-lifecycle.test）/ INV-4（纯函数）
  * micro-spec §1: 任意 inputs 恰好一个输出，含全部相邻优先级冲突对
+ *
+ * A3a delta: panelOpen: boolean → surfaceState: 'collapsed' | 'toolbar' | 'bubble'
+ *   listening 条件从 panelOpen+inputFocused → surfaceState==='bubble'+inputFocused
  */
 import { describe, expect, it } from 'vitest';
 import { type ConciergeInputs, projectBallState } from '../conciergeStore';
@@ -14,7 +17,7 @@ const BASE: ConciergeInputs = {
   pendingConfirmationCount: 0,
   pendingRelayCount: 0,
   unseenResultCount: 0,
-  panelOpen: false,
+  surfaceState: 'collapsed',
   inputFocused: false,
 };
 
@@ -71,12 +74,18 @@ describe('projectBallState — INV-1 全序唯一', () => {
     expect(projectBallState(inp({ pendingRelayCount: 1 }))).toBe('handoff');
   });
 
-  // --- listening (priority 5) ---
-  it('panelOpen + inputFocused → listening', () => {
-    expect(projectBallState(inp({ panelOpen: true, inputFocused: true }))).toBe('listening');
+  // --- listening (priority 5) — A3a: requires surfaceState='bubble' not just 'open' ---
+  it('surfaceState=bubble + inputFocused → listening', () => {
+    expect(projectBallState(inp({ surfaceState: 'bubble', inputFocused: true }))).toBe('listening');
   });
-  it('panelOpen but not focused → NOT listening', () => {
-    expect(projectBallState(inp({ panelOpen: true, inputFocused: false }))).not.toBe('listening');
+  it('surfaceState=toolbar + inputFocused → NOT listening (toolbar ≠ bubble)', () => {
+    expect(projectBallState(inp({ surfaceState: 'toolbar', inputFocused: true }))).not.toBe('listening');
+  });
+  it('surfaceState=bubble but not focused → NOT listening', () => {
+    expect(projectBallState(inp({ surfaceState: 'bubble', inputFocused: false }))).not.toBe('listening');
+  });
+  it('surfaceState=collapsed + inputFocused → NOT listening', () => {
+    expect(projectBallState(inp({ surfaceState: 'collapsed', inputFocused: true }))).not.toBe('listening');
   });
 
   // --- found (priority 6) ---
@@ -87,6 +96,9 @@ describe('projectBallState — INV-1 全序唯一', () => {
   // --- idle (default) ---
   it('all zeros → idle', () => {
     expect(projectBallState(BASE)).toBe('idle');
+  });
+  it('surfaceState=toolbar (no inputFocused) → idle', () => {
+    expect(projectBallState(inp({ surfaceState: 'toolbar' }))).toBe('idle');
   });
 
   // --- INV-4: pure function — same inputs → same output ---
@@ -108,5 +120,9 @@ describe('projectBallState — 清除规则状态转移', () => {
   it('handoff → found transition: pendingRelayCount=0 and unseenResultCount=1', () => {
     // relay回执到达 → pendingRelayCount-1, unseenResultCount+1
     expect(projectBallState(inp({ pendingRelayCount: 0, unseenResultCount: 1 }))).toBe('found');
+  });
+
+  it('bubble collapsed → listening stops (surfaceState=collapsed clears listening)', () => {
+    expect(projectBallState(inp({ surfaceState: 'collapsed', inputFocused: true }))).toBe('idle');
   });
 });

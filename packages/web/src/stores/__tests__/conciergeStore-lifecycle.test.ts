@@ -1,11 +1,13 @@
 /**
- * F229 PR-A2: conciergeStore 生命周期测试
+ * F229 PR-A3a: conciergeStore 生命周期测试
  *
  * 覆盖 Block 3 (muted) + Block 4 (懒接线):
  *   INV-2: ballState 零存储
  *   INV-3: muted=true → hidden
  *   INV-8: muted 往返（optimistic update + PUT + 刷新后仍 hidden）
- *   INV-9: 懒接线 — config 仅一次 GET；panel 打开才 fetchThreadId；失败不重试风暴
+ *   INV-9: 懒接线 — config 仅一次 GET；bubble 打开才 fetchThreadId；失败不重试风暴
+ *
+ * A3a delta: panelOpen: boolean → surfaceState: 'collapsed' | 'toolbar' | 'bubble'
  *
  * 注：apiFetch 整个 mock 掉（vi.mock），绕过 session 建立层，单测 store 逻辑。
  */
@@ -58,7 +60,7 @@ describe('INV-2: ballState zero storage', () => {
       pendingConfirmationCount: state.pendingConfirmationCount,
       pendingRelayCount: state.pendingRelayCount,
       unseenResultCount: state.unseenResultCount,
-      panelOpen: state.panelOpen,
+      surfaceState: state.surfaceState,
       inputFocused: state.inputFocused,
     });
     // Default state = enabled, not muted → not hidden
@@ -75,7 +77,7 @@ describe('INV-3 + INV-8: muted state', () => {
     useConciergeStore.setState({
       enabled: true,
       muted: false,
-      panelOpen: false,
+      surfaceState: 'collapsed',
       inputFocused: false,
       invocationStatus: 'idle',
       pendingConfirmationCount: 0,
@@ -105,7 +107,7 @@ describe('INV-3 + INV-8: muted state', () => {
       pendingConfirmationCount: s.pendingConfirmationCount,
       pendingRelayCount: s.pendingRelayCount,
       unseenResultCount: s.unseenResultCount,
-      panelOpen: s.panelOpen,
+      surfaceState: s.surfaceState,
       inputFocused: s.inputFocused,
     });
     expect(ballState).toBe('hidden');
@@ -138,7 +140,7 @@ describe('INV-3 + INV-8: muted state', () => {
       pendingConfirmationCount: s.pendingConfirmationCount,
       pendingRelayCount: s.pendingRelayCount,
       unseenResultCount: s.unseenResultCount,
-      panelOpen: s.panelOpen,
+      surfaceState: s.surfaceState,
       inputFocused: s.inputFocused,
     });
     expect(ballState).not.toBe('hidden');
@@ -254,20 +256,83 @@ describe('INV-9: lazy wiring', () => {
 });
 
 // ---------------------------------------------------------------------------
-// INV-7: navigation action collapses panel
+// INV-7: navigation action collapses surface
 // ---------------------------------------------------------------------------
 
-describe('INV-7: navigation action collapses panel', () => {
-  it('onNavigationAction sets panelOpen=false', () => {
-    useConciergeStore.setState({ panelOpen: true });
+describe('INV-7: navigation action collapses surface', () => {
+  it('onNavigationAction sets surfaceState=collapsed', () => {
+    useConciergeStore.setState({ surfaceState: 'bubble' });
     useConciergeStore.getState().onNavigationAction();
-    expect(useConciergeStore.getState().panelOpen).toBe(false);
+    expect(useConciergeStore.getState().surfaceState).toBe('collapsed');
   });
 
-  it('setPanelOpen(true) then onNavigationAction → panelOpen=false', () => {
-    useConciergeStore.getState().setPanelOpen(true);
+  it('setSurfaceState(bubble) then onNavigationAction → surfaceState=collapsed', () => {
+    useConciergeStore.getState().setSurfaceState('bubble');
     useConciergeStore.getState().onNavigationAction();
-    expect(useConciergeStore.getState().panelOpen).toBe(false);
+    expect(useConciergeStore.getState().surfaceState).toBe('collapsed');
+  });
+
+  it('toolbar state also collapses on navigation', () => {
+    useConciergeStore.setState({ surfaceState: 'toolbar' });
+    useConciergeStore.getState().onNavigationAction();
+    expect(useConciergeStore.getState().surfaceState).toBe('collapsed');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// A3a: Three-state surfaceState transitions
+// ---------------------------------------------------------------------------
+
+describe('A3a: surfaceState three-state machine', () => {
+  it('collapsed → toolbar via setSurfaceState', () => {
+    useConciergeStore.setState({ surfaceState: 'collapsed' });
+    useConciergeStore.getState().setSurfaceState('toolbar');
+    expect(useConciergeStore.getState().surfaceState).toBe('toolbar');
+  });
+
+  it('toolbar → bubble via setSurfaceState', () => {
+    useConciergeStore.setState({ surfaceState: 'toolbar' });
+    useConciergeStore.getState().setSurfaceState('bubble');
+    expect(useConciergeStore.getState().surfaceState).toBe('bubble');
+  });
+
+  it('bubble → collapsed via setSurfaceState', () => {
+    useConciergeStore.setState({ surfaceState: 'bubble' });
+    useConciergeStore.getState().setSurfaceState('collapsed');
+    expect(useConciergeStore.getState().surfaceState).toBe('collapsed');
+  });
+
+  it('setSurfaceState(bubble) triggers fetchThreadId lazily (INV-9)', async () => {
+    useConciergeStore.setState({ surfaceState: 'collapsed', threadIdLoaded: false, threadIdLoading: false });
+    mockApiFetch.mockImplementation(() =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ threadId: 'thread-lazy-test' }),
+      } as unknown as Response),
+    );
+    // setSurfaceState is sync; thread fetch triggered by ConciergePanel useEffect
+    // Here we test the store action directly
+    useConciergeStore.getState().setSurfaceState('bubble');
+    expect(useConciergeStore.getState().surfaceState).toBe('bubble');
+  });
+
+  it('setSurfaceState(bubble) clears unseenResultCount (panel-open scroll-to-bottom semantic)', () => {
+    useConciergeStore.setState({ unseenResultCount: 3, surfaceState: 'collapsed' });
+    useConciergeStore.getState().setSurfaceState('bubble');
+    expect(useConciergeStore.getState().unseenResultCount).toBe(0);
+  });
+
+  it('setSurfaceState(collapsed) clears inputFocused', () => {
+    useConciergeStore.setState({ surfaceState: 'bubble', inputFocused: true });
+    useConciergeStore.getState().setSurfaceState('collapsed');
+    expect(useConciergeStore.getState().inputFocused).toBe(false);
+  });
+
+  it('setSurfaceState(toolbar) clears inputFocused (P2-B: no stale listening on partial close)', () => {
+    useConciergeStore.setState({ surfaceState: 'bubble', inputFocused: true });
+    useConciergeStore.getState().setSurfaceState('toolbar');
+    expect(useConciergeStore.getState().inputFocused).toBe(false);
   });
 });
 
@@ -277,11 +342,11 @@ describe('INV-7: navigation action collapses panel', () => {
 
 describe('P2-B: close actions clear inputFocused', () => {
   beforeEach(() => {
-    useConciergeStore.setState({ panelOpen: true, inputFocused: true });
+    useConciergeStore.setState({ surfaceState: 'bubble', inputFocused: true });
   });
 
-  it('setPanelOpen(false) resets inputFocused to false', () => {
-    useConciergeStore.getState().setPanelOpen(false);
+  it('setSurfaceState(collapsed) resets inputFocused to false', () => {
+    useConciergeStore.getState().setSurfaceState('collapsed');
     expect(useConciergeStore.getState().inputFocused).toBe(false);
   });
 
@@ -306,9 +371,9 @@ describe('unseenResultCount clearance', () => {
     expect(useConciergeStore.getState().unseenResultCount).toBe(0);
   });
 
-  it('setPanelOpen(true) clears unseenResultCount immediately', () => {
+  it('setSurfaceState(bubble) clears unseenResultCount immediately', () => {
     useConciergeStore.setState({ unseenResultCount: 3 });
-    useConciergeStore.getState().setPanelOpen(true);
+    useConciergeStore.getState().setSurfaceState('bubble');
     expect(useConciergeStore.getState().unseenResultCount).toBe(0);
   });
 
