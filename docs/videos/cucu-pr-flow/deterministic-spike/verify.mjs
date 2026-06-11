@@ -124,7 +124,7 @@ assert(css.includes('aspect-ratio: 9 / 16'), 'css must lock 9:16 stage');
 assert(css.includes('.export-mode [data-layer="demo"]'), 'css must hide demo layer in export mode');
 assert(css.includes('.export-mode [data-layer="caption"]'), 'css must hide caption layer in export mode');
 assert(css.includes('font-size: 30px'), 'S03 node text must be large enough for mobile prototype');
-assert(js.includes("import { getShot, timelineSpec }"), 'js must import shared timeline spec');
+assert(js.includes('import { getShot, timelineSpec }'), 'js must import shared timeline spec');
 assert(js.includes("label(shot, 's04-red-x-duang')"), 'js must drive red X from label');
 assert(js.includes("params.get('export') === '1'"), 'js must support export mode');
 assert(js.includes("normalizeShotId(params.get('shot'))"), 'js must support shot-specific playback');

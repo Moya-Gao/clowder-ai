@@ -372,6 +372,35 @@ describe('cross-platform pnpm-start profile propagation (#421)', () => {
     assert.ok(source.includes('env: childEnv'), 'Windows spawn must use childEnv (which contains profile env vars)');
   });
 
+  it('start-entry.mjs defaults direct Unix starts to connector gateway autostart off', () => {
+    const source = readFileSync(resolve(ROOT, 'scripts/start-entry.mjs'), 'utf8');
+    const unixDispatchStart = source.indexOf('// Unix: dispatch based on mode');
+    const startDirectBlock = source.slice(
+      source.indexOf("mode === 'start:direct'", unixDispatchStart),
+      source.indexOf("} else if (mode === 'dev:direct'", unixDispatchStart),
+    );
+    const devDirectBlock = source.slice(
+      source.indexOf("mode === 'dev:direct'", unixDispatchStart),
+      source.indexOf('} else {', source.indexOf("mode === 'dev:direct'", unixDispatchStart)),
+    );
+
+    assert.match(
+      source,
+      /CONNECTOR_GATEWAY_AUTOSTART:\s*'0'/,
+      'direct fail-closed helper must default CONNECTOR_GATEWAY_AUTOSTART=0',
+    );
+    assert.match(
+      startDirectBlock,
+      /directConnectorAutostartFailClosed/,
+      'start:direct must explicitly fail closed for preconfigured IM connector autostart',
+    );
+    assert.match(
+      devDirectBlock,
+      /directConnectorAutostartFailClosed/,
+      'dev:direct must explicitly fail closed for preconfigured IM connector autostart',
+    );
+  });
+
   it('start-windows.ps1 clears inherited profile vars when strict mode is on', () => {
     const ps1 = readFileSync(resolve(ROOT, 'scripts/start-windows.ps1'), 'utf8');
 
@@ -485,6 +514,24 @@ describe('cross-platform pnpm-start profile propagation (#421)', () => {
       overridesBlock,
       /CAT_CAFE_PROVISION_GLOBAL_SIDECAR\s*=\s*\$globalSidecarOwner/,
       'runtimeEnvOverrides must pass CAT_CAFE_PROVISION_GLOBAL_SIDECAR into the API job after dotenv reload',
+    );
+  });
+
+  it('start-windows.ps1 marks production API job as connector runtime but leaves -Dev unmarked', () => {
+    const ps1 = readFileSync(resolve(ROOT, 'scripts/start-windows.ps1'), 'utf8');
+    const overridesMatch = ps1.match(/\$runtimeEnvOverrides\s*=\s*@\{([^}]+)\}/s);
+    assert.ok(overridesMatch, 'start-windows.ps1 must define $runtimeEnvOverrides');
+    const overridesBlock = overridesMatch[1];
+
+    assert.match(
+      ps1,
+      /\$runtimeRootMarker\s*=\s*if\s*\(-not\s*\$Dev\)\s*\{\s*\$ProjectRoot\s*\}\s*else\s*\{\s*\$null\s*\}/,
+      'Windows production starts must mark the API job as runtime, while -Dev stays fail-closed',
+    );
+    assert.match(
+      overridesBlock,
+      /CAT_CAFE_RUNTIME_ROOT\s*=\s*\$runtimeRootMarker/,
+      'runtimeEnvOverrides must pass CAT_CAFE_RUNTIME_ROOT into the API job after dotenv reload',
     );
   });
 

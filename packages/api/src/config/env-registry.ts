@@ -403,7 +403,7 @@ export const ENV_VARS: EnvDefinition[] = [
   {
     name: 'CAT_CAFE_GLOBAL_CONFIG_ROOT',
     defaultValue: '(未设置 → homedir())',
-    description: '全局配置根目录（accounts / credentials 查找路径的父目录，实际路径为 ${ROOT}/.cat-cafe/）',
+    description: '全局配置根目录（accounts / credentials 查找路径的父目录，实际路径为 <ROOT>/.cat-cafe/）',
     category: 'server',
     sensitive: false,
     hubVisible: false,
@@ -888,6 +888,15 @@ export const ENV_VARS: EnvDefinition[] = [
   },
 
   // --- connector ---
+  {
+    name: 'CONNECTOR_GATEWAY_AUTOSTART',
+    defaultValue: 'runtime-production-only',
+    description:
+      '预配置 IM connector 自动接入开关：默认仅 runtime production（NODE_ENV=production + CAT_CAFE_RUNTIME_ROOT）启用；start:direct/alpha/dev 默认禁用。需在启动前通过 env/.env 设置，设 1 强制启用，0 强制禁用',
+    category: 'connector',
+    sensitive: false,
+    runtimeEditable: false,
+  },
   {
     name: 'TELEGRAM_BOT_TOKEN',
     defaultValue: '(未设置 → 不启用)',

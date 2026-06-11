@@ -4,7 +4,7 @@
 // 输出: out/animatic-v0.mp4（silent + 烧字幕；产物不进 git，见 .gitignore）
 // 依赖: 本机 Chrome + ffmpeg/ffprobe + python3（http.server），零 npm 依赖
 import { spawn, spawnSync } from 'node:child_process';
-import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { edl, totalDurationMs } from './edl-v0.mjs';
@@ -27,7 +27,9 @@ function run(cmd, args, opts = {}) {
 
 function capture(url, pngPath, virtualTimeMs) {
   run(CHROME, [
-    '--headless', '--disable-gpu', '--hide-scrollbars',
+    '--headless',
+    '--disable-gpu',
+    '--hide-scrollbars',
     '--window-size=720,1280',
     `--screenshot=${pngPath}`,
     `--virtual-time-budget=${virtualTimeMs}`,
@@ -61,11 +63,7 @@ try {
     if (shot.kind === 'frames') {
       shot.segments.forEach((seg, i) => {
         const png = resolve(framesDir, `${shot.id}-f${i + 1}.png`);
-        capture(
-          `http://127.0.0.1:${PORT}/s03-s04-info-pair.html?export=1&shot=${shot.id}`,
-          png,
-          seg.virtualTimeMs,
-        );
+        capture(`http://127.0.0.1:${PORT}/s03-s04-info-pair.html?export=1&shot=${shot.id}`, png, seg.virtualTimeMs);
         stills.push({ png, holdMs: seg.holdMs });
         console.log(`frame ${shot.id}-f${i + 1} @${seg.virtualTimeMs}ms`);
       });
@@ -92,15 +90,39 @@ const concatLines = [];
 stills.forEach((item, i) => {
   const seg = resolve(segsDir, `seg-${String(i).padStart(2, '0')}.mp4`);
   run('ffmpeg', [
-    '-y', '-loop', '1', '-t', (item.holdMs / 1000).toFixed(3), '-i', item.png,
-    '-r', String(edl.fps), '-c:v', 'libx264', '-preset', 'veryfast', '-pix_fmt', 'yuv420p',
+    '-y',
+    '-loop',
+    '1',
+    '-t',
+    (item.holdMs / 1000).toFixed(3),
+    '-i',
+    item.png,
+    '-r',
+    String(edl.fps),
+    '-c:v',
+    'libx264',
+    '-preset',
+    'veryfast',
+    '-pix_fmt',
+    'yuv420p',
     seg,
   ]);
   concatLines.push(`file '${seg}'`);
 });
 const concatList = resolve(outDir, 'concat.txt');
 writeFileSync(concatList, concatLines.join('\n') + '\n');
-run('ffmpeg', ['-y', '-f', 'concat', '-safe', '0', '-i', concatList, '-c', 'copy', resolve(outDir, 'animatic-v0-silent.mp4')]);
+run('ffmpeg', [
+  '-y',
+  '-f',
+  'concat',
+  '-safe',
+  '0',
+  '-i',
+  concatList,
+  '-c',
+  'copy',
+  resolve(outDir, 'animatic-v0-silent.mp4'),
+]);
 
 // --- subtitles: per-shot relative -> absolute SRT ---
 let cursorMs = 0;
@@ -111,26 +133,49 @@ for (const shot of edl.shots) {
   }
   cursorMs += shot.durationMs;
 }
-const srt = cues
-  .map((cue, i) => `${i + 1}\n${msToSrt(cue.start)} --> ${msToSrt(cue.end)}\n${cue.text}\n`)
-  .join('\n');
+const srt = cues.map((cue, i) => `${i + 1}\n${msToSrt(cue.start)} --> ${msToSrt(cue.end)}\n${cue.text}\n`).join('\n');
 writeFileSync(resolve(outDir, 'animatic-v0.srt'), srt);
 
 // 本机 ffmpeg 无 libass/freetype（无 subtitles/drawtext 滤镜）——
 // 对白已烤进占位卡（Chrome 渲染），SRT 以 mov_text 软字幕流 mux（原生 encoder 零依赖）
-run('ffmpeg', [
-  '-y', '-i', 'animatic-v0-silent.mp4', '-i', 'animatic-v0.srt',
-  '-map', '0:v', '-map', '1:0',
-  '-c:v', 'copy', '-c:s', 'mov_text',
-  '-metadata:s:s:0', 'language=zho',
-  'animatic-v0.mp4',
-], { cwd: outDir });
+run(
+  'ffmpeg',
+  [
+    '-y',
+    '-i',
+    'animatic-v0-silent.mp4',
+    '-i',
+    'animatic-v0.srt',
+    '-map',
+    '0:v',
+    '-map',
+    '1:0',
+    '-c:v',
+    'copy',
+    '-c:s',
+    'mov_text',
+    '-metadata:s:s:0',
+    'language=zho',
+    'animatic-v0.mp4',
+  ],
+  { cwd: outDir },
+);
 
 // --- verify duration ---
-const probe = run('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', resolve(outDir, 'animatic-v0.mp4')]);
+const probe = run('ffprobe', [
+  '-v',
+  'error',
+  '-show_entries',
+  'format=duration',
+  '-of',
+  'csv=p=0',
+  resolve(outDir, 'animatic-v0.mp4'),
+]);
 const actualSec = parseFloat(probe.stdout.trim());
 const expectedSec = totalDurationMs() / 1000;
 if (Math.abs(actualSec - expectedSec) > 0.8) {
   throw new Error(`duration mismatch: expected ~${expectedSec}s got ${actualSec}s`);
 }
-console.log(`animatic ok: ${resolve(outDir, 'animatic-v0.mp4')} (${actualSec.toFixed(2)}s, expected ${expectedSec}s, ${cues.length} subtitle cues)`);
+console.log(
+  `animatic ok: ${resolve(outDir, 'animatic-v0.mp4')} (${actualSec.toFixed(2)}s, expected ${expectedSec}s, ${cues.length} subtitle cues)`,
+);

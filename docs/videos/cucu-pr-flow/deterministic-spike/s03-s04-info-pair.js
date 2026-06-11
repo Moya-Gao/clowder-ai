@@ -261,12 +261,7 @@ function playS07a() {
   );
   animate(
     byAnim('s07a-pause'),
-    [
-      { opacity: 0 },
-      { opacity: 0.7, offset: 0.18 },
-      { opacity: 0.7, offset: 0.82 },
-      { opacity: 0 },
-    ],
+    [{ opacity: 0 }, { opacity: 0.7, offset: 0.18 }, { opacity: 0.7, offset: 0.82 }, { opacity: 0 }],
     { delay: pause.atMs, duration: pause.durationMs },
   );
   animate(

@@ -127,6 +127,8 @@ import { CommandRegistry } from './infrastructure/commands/CommandRegistry.js';
 import { parseManifestSlashCommands } from './infrastructure/commands/manifest-commands.js';
 import { buildThreadDeepLink } from './infrastructure/connectors/connector-command-helpers.js';
 import {
+  applyConnectorGatewayAutostartPolicy,
+  isPreconfiguredConnectorAutostartEnabled,
   loadConnectorGatewayConfig,
   startConnectorGateway,
 } from './infrastructure/connectors/connector-gateway-bootstrap.js';
@@ -3667,7 +3669,14 @@ async function main(): Promise<void> {
   let connectorGatewayHandle: Awaited<ReturnType<typeof startConnectorGateway>> = null;
   let connectorReloadUnsub: (() => void) | null = null;
   try {
-    const gatewayConfig = loadConnectorGatewayConfig();
+    const preconfiguredConnectorAutostart = isPreconfiguredConnectorAutostartEnabled(process.env);
+    if (!preconfiguredConnectorAutostart) {
+      app.log.info(
+        { nodeEnv: process.env.NODE_ENV ?? '(unset)' },
+        '[api] Preconfigured connector autostart disabled; starting connector gateway in QR-only mode',
+      );
+    }
+    const gatewayConfig = applyConnectorGatewayAutostartPolicy(loadConnectorGatewayConfig(), process.env);
     connectorGatewayHandle = await startConnectorGateway(gatewayConfig, gatewayDeps);
     if (connectorGatewayHandle) {
       wireGatewayHooks(connectorGatewayHandle);
@@ -3694,7 +3703,7 @@ async function main(): Promise<void> {
     async onRestart() {
       app.log.info('[api] F136: Hot-reloading connector gateway...');
       const newHandle = await restartConnectorGateway(connectorGatewayHandle, async () => {
-        const freshConfig = loadConnectorGatewayConfig();
+        const freshConfig = applyConnectorGatewayAutostartPolicy(loadConnectorGatewayConfig(), process.env);
         return startConnectorGateway(freshConfig, gatewayDeps);
       });
       if (newHandle) {

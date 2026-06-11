@@ -266,6 +266,57 @@ export function loadConnectorGatewayConfig(): ConnectorGatewayConfig {
   };
 }
 
+type ConnectorAutostartEnv = {
+  readonly [key: string]: string | undefined;
+  readonly CONNECTOR_GATEWAY_AUTOSTART?: string | undefined;
+  readonly CAT_CAFE_RUNTIME_ROOT?: string | undefined;
+  readonly NODE_ENV?: string | undefined;
+};
+
+function parseBooleanOverride(value: string | undefined): boolean | undefined {
+  const normalized = value?.trim().toLowerCase();
+  if (!normalized) return undefined;
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
+  if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
+  return undefined;
+}
+
+export function isPreconfiguredConnectorAutostartEnabled(env: ConnectorAutostartEnv = process.env): boolean {
+  const explicit = parseBooleanOverride(env.CONNECTOR_GATEWAY_AUTOSTART);
+  if (explicit !== undefined) return explicit;
+  return env.NODE_ENV === 'production' && Boolean(env.CAT_CAFE_RUNTIME_ROOT?.trim());
+}
+
+export function applyConnectorGatewayAutostartPolicy(
+  config: ConnectorGatewayConfig,
+  env: ConnectorAutostartEnv = process.env,
+): ConnectorGatewayConfig {
+  if (isPreconfiguredConnectorAutostartEnabled(env)) return config;
+
+  return {
+    ...config,
+    telegramBotToken: undefined,
+    feishuAppId: undefined,
+    feishuAppSecret: undefined,
+    feishuVerificationToken: undefined,
+    feishuBotOpenId: undefined,
+    feishuAdminOpenIds: undefined,
+    dingtalkAppKey: undefined,
+    dingtalkAppSecret: undefined,
+    weixinBotToken: undefined,
+    wecomBotId: undefined,
+    wecomBotSecret: undefined,
+    wecomCorpId: undefined,
+    wecomAgentId: undefined,
+    wecomAgentSecret: undefined,
+    wecomToken: undefined,
+    wecomEncodingAesKey: undefined,
+    xiaoyiAk: undefined,
+    xiaoyiSk: undefined,
+    xiaoyiAgentId: undefined,
+  };
+}
+
 export async function startConnectorGateway(
   config: ConnectorGatewayConfig,
   deps: ConnectorGatewayDeps,
