@@ -317,7 +317,7 @@ L0 / staging / sunset 三层守恒生命周期 = L0 不再单向只进不出，�
 - ② 雨刮器机制: **done** — PR #2215
 - ③ L0 budget 监控: **done** — PR #2215
 - ④ ADR-038 L0 Staging Protocol spec: **done** — PR #2221 (`d7944b27`)
-- PR-B-impl（staging mechanism + 雨刮器减肥版 land 在 staging）: **in-progress**，ETA 2026-06-13
+- PR-B-impl（staging mechanism + 雨刮器减肥版 land 在 staging）: **done** — PR #2237 (`4334066cf`)，5 轮 reviewer chain（R1 cloud P1 L1060 dead-code helper + 砚砚 P1#1 manifest declared vs actual rendered cap + 砚砚 P1#2 budget guard / R2 砚砚 P1 native L0 no-pack 路径丢 staging / R3 cloud P1 L1099 折叠 staging into staticIdentity 被 resume skip / R4 砚砚 P1 真 delivery test in invoke-single-cat / R5 CLEAR + cloud "Hooray!"）。雨刮器在 staging 层生效 — **fable-5 trigger 锚达成**（"staging 层雨刮器生效之时" = "细则进 code-as-harness skill" 触发）。架构落点：staging prepend 在 invoke-single-cat 中（mirrors F225 contextHintPrefix，independent of injectSystemPrompt，每轮注入 contract 真测断言）
 - PR-C（first demote case 让 codex/gpt52 token 回 ≤6000）: **in-progress**，ETA 2026-06-13
 
 **Promote 队列**（按 ADR-038 §6 排队）:
