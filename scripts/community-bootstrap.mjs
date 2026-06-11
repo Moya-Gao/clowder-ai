@@ -11,10 +11,20 @@
  *   node scripts/community-bootstrap.mjs --dry-run   # explicit dry-run
  *   node scripts/community-bootstrap.mjs --execute   # live run (writes events)
  *
+ * By default this script refuses to target the Redis sanctuary (port 6399 / production).
+ * To intentionally run against production Redis (e.g. one-time historical migration with
+ * CVO authorisation), combine with --allow-sanctuary:
+ *
+ *   REDIS_URL=redis://localhost:6399 node scripts/community-bootstrap.mjs --dry-run --allow-sanctuary
+ *   REDIS_URL=redis://localhost:6399 node scripts/community-bootstrap.mjs --execute --allow-sanctuary
+ *
+ * ⚠️  --allow-sanctuary bypasses the sanctuary guard. Use ONLY with CVO explicit sign-off.
+ *     Always dry-run first. --allow-sanctuary without --execute is always safe (no writes).
+ *
  * Environment:
  *   REDIS_URL  — required; e.g. redis://localhost:6398
  *
- * ⚠️  NEVER point REDIS_URL at port 6399 (Redis sanctuary / production).
+ * ⚠️  NEVER point REDIS_URL at port 6399 (Redis sanctuary / production) without --allow-sanctuary.
  *     Use port 6398 for dev/worktree environments.
  *
  * Requires a prior `pnpm --filter @cat-cafe/api build` to populate dist/.
@@ -35,13 +45,34 @@ const DIST_ROOT = resolve(__dirname, '../packages/api/dist');
  *
  * Defaults:
  *  - dryRun: true (safe by default; require explicit --execute to write)
+ *  - allowSanctuary: false (require explicit --allow-sanctuary to target port 6399)
  *
  * @param {string[]} argv - process.argv.slice(2) or any equivalent array
- * @returns {{ dryRun: boolean }}
+ * @returns {{ dryRun: boolean, allowSanctuary: boolean }}
  */
 export function parseArgs(argv = process.argv.slice(2)) {
   const dryRun = !argv.includes('--execute');
-  return { dryRun };
+  const allowSanctuary = argv.includes('--allow-sanctuary');
+  return { dryRun, allowSanctuary };
+}
+
+/**
+ * Decide whether the sanctuary guard should block or warn.
+ *
+ * Extracted for testability — this is the security-critical branch.
+ * Tests can verify guard semantics without spawning a real process
+ * or connecting to Redis.
+ *
+ * @param {string} redisUrl
+ * @param {boolean} allowSanctuary
+ * @returns {{ blocked: boolean, warnSanctuary: boolean }}
+ */
+export function resolveSanctuaryGuard(redisUrl, allowSanctuary) {
+  const targetsSanctuary = /:[63]399\b/.test(redisUrl) || redisUrl.includes(':6399');
+  if (targetsSanctuary && !allowSanctuary) {
+    return { blocked: true, warnSanctuary: false };
+  }
+  return { blocked: false, warnSanctuary: targetsSanctuary };
 }
 
 // ---------------------------------------------------------------------------
@@ -49,7 +80,7 @@ export function parseArgs(argv = process.argv.slice(2)) {
 // ---------------------------------------------------------------------------
 
 async function main() {
-  const { dryRun } = parseArgs(process.argv.slice(2));
+  const { dryRun, allowSanctuary } = parseArgs(process.argv.slice(2));
 
   const REDIS_URL = process.env.REDIS_URL;
   if (!REDIS_URL) {
@@ -58,12 +89,22 @@ async function main() {
     process.exit(1);
   }
 
-  // Hard guard: refuse to run against the Redis sanctuary (port 6399 = production).
-  // Worktree / dev environments must use port 6398.
-  if (/:[63]399\b/.test(REDIS_URL) || REDIS_URL.includes(':6399')) {
+  // Sanctuary guard — uses resolveSanctuaryGuard() so decision logic is independently testable.
+  const { blocked, warnSanctuary } = resolveSanctuaryGuard(REDIS_URL, allowSanctuary);
+  if (blocked) {
     console.error('[community-bootstrap] ERROR: REDIS_URL targets port 6399 (Redis sanctuary / production).');
     console.error('  Use port 6398 for dev/worktree environments. Refusing to proceed.');
+    console.error('  To intentionally target production Redis with CVO sign-off, pass --allow-sanctuary.');
     process.exit(1);
+  }
+  if (warnSanctuary) {
+    console.warn('');
+    console.warn('[community-bootstrap] ⚠️  ════════════════════════════════════════════════════════');
+    console.warn('[community-bootstrap] ⚠️  TARGETING REDIS SANCTUARY (PORT 6399 / PRODUCTION)');
+    console.warn('[community-bootstrap] ⚠️  --allow-sanctuary explicitly passed. CVO sign-off required.');
+    console.warn('[community-bootstrap] ⚠️  Ensure dry-run output was reviewed before --execute.');
+    console.warn('[community-bootstrap] ⚠️  ════════════════════════════════════════════════════════');
+    console.warn('');
   }
 
   console.log(
