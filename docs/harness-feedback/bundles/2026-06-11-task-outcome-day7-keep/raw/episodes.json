@@ -59,9 +59,7 @@
       "episodeId": "ep-1781098677304-u5w972",
       "trigger": "cat_initiated",
       "threadId": "thread_mq7h69untjt5ld61",
-      "participants": [
-        "sonnet"
-      ],
+      "participants": ["sonnet"],
       "artifacts": [],
       "terminalState": "completed",
       "verdict": null,
@@ -81,9 +79,7 @@
       "episodeId": "ep-1781107602086-v4zx77",
       "trigger": "cat_initiated",
       "threadId": "thread_mq87iw5qmq93ygo6",
-      "participants": [
-        "fable-5"
-      ],
+      "participants": ["fable-5"],
       "artifacts": [],
       "terminalState": "in_progress",
       "verdict": null,
@@ -93,9 +89,7 @@
       "episodeId": "ep-1781109647387-7br61x",
       "trigger": "cat_initiated",
       "threadId": "thread_mp4q3spnwkex2mfw",
-      "participants": [
-        "codex"
-      ],
+      "participants": ["codex"],
       "artifacts": [],
       "terminalState": "completed",
       "verdict": null,
