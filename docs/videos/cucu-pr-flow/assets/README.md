@@ -58,7 +58,25 @@ related_docs:
 
 锚定要素：暖猫咖光、粗描边 chibi、Landy 黄 hoodie **成人比例**、砚砚银虎斑+流程即正义桌牌、烁烁暹罗+夹板、宪宪金吊坠白手套。Wave V 全部 roll 的画风 gate（FM-10）对照这两张判。
 
+## references/static-frames/ — 静帧卡（S06/S07a/S08/S10，云端砚砚生成，2026-06-11 入库）
+
+直接进剪辑轨，不走 i2v。节奏/切点由 E lane 剪辑实现。中文全部 GPT 系生成（Google 系中文乱码——账本已注）。
+
+| 文件 | 镜头 | 画面内容 | 剪辑用途 |
+|---|---|---|---|
+| `S06-ci-passed-static-v1.png` | S06 机关枪-1 | 绿勾 CI Passed 卡 + `binary avatar check` | 三连卡第一张，1.6s |
+| `S06-review-passed-static-v1.png` | S06 机关枪-2 | 绿勾 Review ✅ 卡 + `流程正义成立` | 三连卡第二张，1.3s |
+| `S06-merged-static-v1.png` | S06 机关枪-3 | 紫合并图标 Merged 卡 + `头像入库` | 三连卡第三张，1.0s + hold 0.6s |
+| `S07a-cancelled-chapter-static-v1.png` | S07a 荒谬峰值-1 | 愿景守护「已取消」红章卡 | 章卡停留 1.0s |
+| `S07a-cancelled-mention-static-v1.png` | S07a 荒谬峰值-2 | 愿景守护「已取消」+ @烁烁 chip 弹出 | 静止 0.5s 停顿后 pop（喜剧梗点） |
+| `S08-pass-static-v1.png` | S08 deadpan | 愿景守护验收结果「PASS」卡，砚砚头像居中 | deadpan hold 3s，盖章 SFX |
+| `S10-end-card-static-v1.png` | S10 结尾卡 | 「流程要按风险缩放」大字 + 醋醋喵爪章 | 微动 hold 5s，收尾 BGM 落 |
+
 ## 缺口清单（按镜头需求倒推）
-2. S07b（烁烁登场）、S09（定罪两人同框）首帧——待生成（烁烁/孟加拉猫/外部砚砚，见 episode-brief §7 分工）
-3. S06/S07a/S08/S10 状态卡类镜头首帧——待路线确认后生成（信息密度低，生成难度小）
-4. BGM/SFX 素材——E lane 阶段再议（episode-brief 预算护栏内）
+
+| 镜头 | 状态 | 说明 |
+|---|---|---|
+| S06/S07a/S08/S10 静帧 | ✅ 已入库 | `references/static-frames/` 七张 |
+| S07b 首帧（烁烁登场） | ⬜ 待生成 | 烁烁+夹板+头像预览板，参考漫画格⑥ |
+| S09 首帧（定罪两人同框） | ⬜ 待生成 | 双角色比例+表情，难度高，参考格③④⑦⑧ |
+| BGM/SFX 素材 | ⬜ E lane 阶段再议 | 锚点见 shot-plan §3 |
