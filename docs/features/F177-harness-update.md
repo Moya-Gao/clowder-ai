@@ -8,7 +8,7 @@ created: 2026-04-27
 
 # F177: Harness Update — Close Gate 结构化判据 + 四心智专属护栏
 
-> **Status**: done | **Completed**: 2026-04-29 | **Owner**: 布偶猫(46 总负责) + 缅因猫(砚砚) + 孟加拉猫(46代言)，按 Phase 分主笔 | **Priority**: P0
+> **Status**: reopened (Phase H active) | **Completed (Phase A–G)**: 2026-04-29 | **Reopened**: 2026-06-11 (Phase H) | **Owner**: 布偶猫(46 总负责) + 缅因猫(砚砚) + 孟加拉猫(46代言)，按 Phase 分主笔；Phase H 布偶猫(48) 主笔 + 缅因猫实现 | **Priority**: P0
 
 ## Why
 
@@ -239,6 +239,35 @@ session end hook:
 
 GitHub issue: [#1467](https://github.com/zts212653/cat-cafe/issues/1467)
 
+### Phase H: Routing Guard 全猫族覆盖 — 非 Claude harness 球权出口拦截
+
+> **Reopened 2026-06-11（CVO signoff）**：掉球归因分析（`thread_mq87iw5qmq93ygo6` fable 复盘）暴露 OQ-G1 的 latent gap。**不是回归**——codex/gpt52 从 Phase G 上线（2026-04-29）起就从未被覆盖，是当年"只覆盖 Claude 系猫"决策遗留的缺口，在缅因猫第一手掉球证据下需补齐。
+
+**病灶**：Phase G 的 F177-G 是 **Claude Code Stop hook**（`.claude/hooks/f177-routing-guard.sh`），只对走 Claude Code 的布偶猫生效。**codex/gpt52 用 codex CLI（`.codex/`），不读 `.claude/`，吃不到这个 block-stop 拦截** → 缅因猫"动作缺失型"掉球（① 声明"接着干"但 invocation 已结束、无 hold_ball 兑现；② 干完不传，结论后无出口）裸奔，只剩 F167 hint 墓碑提醒（invocation 已结束没人读）。
+
+**两套机制澄清**（延伸 Phase G「与 F167 边界」）：
+
+| 机制 | 投递时机 | 有效性 | 覆盖面 |
+|---|---|---|---|
+| F167 hint 注入 thread message | invocation 结束**后** | ❌ 墓碑，无人读 | 所有猫（但无效） |
+| F177-G Stop hook（`decision:block`） | invocation 结束**前**，同轮补 | ✅ 有效 | 仅 Claude 系猫 |
+| **Phase H 目标** | **block-stop 等价拦截** | **有效** | **+ codex/gpt52 等非 Claude 猫** |
+
+**核心复用**：检测判据共用 Phase G（行首 @ 正则 + `hold_ball`/`multi_mention`/`targetCats` 工具扫描 + per-stop-cycle loop guard，24 bash tests 验证）——**只换"拦截动作"，不换"如何判断掉球"**。
+
+**方案（H0 spike 定路径）**：
+- **H0 spike**（缅因猫主场）：codex CLI 能否 **block turn 结束并把控制权还给同一 invocation**？（它有 `notify`，但多为 fire-and-forget、大概率 block 不住——实测定方向，不猜）
+- **路径 A（优先，若可 block）**：移植 `f177-routing-guard.sh` 检测逻辑到 codex CLI stop hook，与布偶猫对称，零额外 invocation 成本。
+- **路径 B（兜底，若 block 不住）**：`route-serial.ts` 检测非 Claude 猫出站消息无合法出口 → 不 settle → resume 主动 re-invoke 补救。server 层是 TS，可直接用真 `parseA2AMentions`（非 bash 等价）。**强 cost guard：re-invoke 上限 1 次/掉球**（codex 贵，补不对反复 re-invoke 会烧猫粮，必须钉死）。优点：harness 无关，一次覆盖所有非 Claude 猫（含未来加入的 CLI 猫）。
+
+**已知关联 gap — 47 UI 折叠（CVO 2026-06-11 要求留痕，不随 Phase H 遗忘）**：47 格式病是两半——上半「@ 不在行首」已由 Phase G 覆盖（block 逼补）；**下半未修**：@ 在行首、routing 底层成功，但前端把"@ 独占一行 + 空行 + 内容"**折叠显示**，铲屎官视觉看到"没换行"误判掉球（46 在 `thread_mpn63xp8wsbsbb5l` 查证为纯渲染问题）。定性 = **前端渲染层，非路由层**，F177-G 不管（routing 合法就放行）。**是否纳入本 Phase 待 H0 后定（见 OQ-H2）**；无论修否，此 gap 在此留痕。
+
+**分工**：布偶猫(48) = spec + 检测逻辑移植 + server 层（路径 B）；缅因猫(codex/gpt52) = H0 spike + CLI hook（路径 A）+ codex resume 接口（路径 B）。
+
+GitHub issue: TBD（kickoff 后开）
+
+[宪宪/Opus-4.8🐾]（Phase H spec）
+
 ## Acceptance Criteria
 
 ### Phase A（系统级 close gate 结构化判据）✅
@@ -282,6 +311,14 @@ GitHub issue: [#1467](https://github.com/zts212653/cat-cafe/issues/1467)
 - [x] AC-G3: parallel mode 不触发（无路由语义）
 - [x] AC-G4: 提醒文本包含正确格式示例，不含意图猜测 / NLU / grep
 
+### Phase H（routing guard 全猫族覆盖）⬜
+- [ ] AC-H0: spike 验证 codex CLI 是否支持 block-stop（能否阻止 turn 结束 + 把控制权还给同一 invocation）→ 输出能力清单，定 A/B 路径
+- [ ] AC-H1: codex/gpt52 结论后无合法路由出口（行首 @ / hold_ball / targetCats / multi_mention）时被拦截补全（路径 A：CLI hook block / 路径 B：server re-invoke）
+- [ ] AC-H2: 检测判据与 Phase G 等价（行首 @ 正则 + 工具扫描 + loop guard），跨 harness 行为一致
+- [ ] AC-H3: cost guard — 路径 B re-invoke 上限 1 次/掉球（防 codex 烧猫粮）；路径 A 沿用 per-stop-cycle max-1
+- [ ] AC-H4: 已有合法路由 → 零干预（与 Phase G AC-G2 对称，不误杀正常收尾）
+- [ ] AC-H5（known gap 跟踪，非必做）: 47 UI 折叠（@ 行首 routing 成功但前端折叠显示）记录在案；是否本 Phase 修由 OQ-H2 决定
+
 ## Dependencies
 
 - **Evolved from**: F114（magic words + 愿景守护 Gate 的下一代——F114 是话术层 + 守护猫证物对照表，F177 加结构化执行面 + 心智专属护栏）
@@ -322,6 +359,8 @@ GitHub issue: [#1467](https://github.com/zts212653/cat-cafe/issues/1467)
 | OQ-F4 | Phase F 是否需要单独 GitHub issue？ | ✅ 已开 [#1452](https://github.com/zts212653/cat-cafe/issues/1452)（2026-04-28） |
 | OQ-G1 | Session end hook 在哪一层实现？Claude Code CLI Stop hook（覆盖 Claude 系猫）/ Cat Cafe harness route-serial.ts（覆盖所有猫）/ 两层都做 | ✅ 已决：Claude Code CLI Stop hook（`.claude/hooks/f177-routing-guard.sh`），覆盖 Claude 系猫。24 bash tests 验证正负例（2026-04-29） |
 | OQ-G2 | 检测逻辑是否复用现有 parseA2AMentions + void-hold-detect，还是独立轻量实现？ | ✅ 已决：独立轻量 bash 实现——grep 行首 @ / hold_ball / targetCats，不复用 parseA2AMentions（bash hook 无法调用 TS 函数，且独立实现更简单可靠）（2026-04-29） |
+| OQ-H1 | codex CLI 能否 block-stop（阻止 turn 结束 + 把控制权还给同一 invocation）？决定走路径 A（CLI hook）还是 B（server re-invoke） | ⬜ 待 H0 spike（缅因猫主场，codex CLI 是他们 runtime） |
+| OQ-H2 | 47 UI 折叠（@ 行首 routing 成功但前端折叠显示）纳入 Phase H 一并修，还是单独前端 issue 跟踪？ | ⬜ 待定（H0 后评估 scope；属前端渲染层，与 routing 拦截不同技术域） |
 
 ## Key Decisions
 
@@ -337,6 +376,7 @@ GitHub issue: [#1467](https://github.com/zts212653/cat-cafe/issues/1467)
 | KD-8 | Phase F 根因修正：问题不是能力而是"满足阈值"环境驱动 | 铲屎官 4.28 诊断——竞赛模式 46 不输砚砚，日常模式搜索深度明显偏浅；Hook F-3 从纯 telemetry 升级为即时搜索深度反馈 | 2026-04-28 |
 | KD-9 | Phase G 纳入 F177 而非 F167 | 47 传球格式问题是 cat-mind 行为缺陷（叙事 prior），属四心智护栏范围；F167 治理 thread-level 链路健康（乒乓/虚空/角色），Phase G 治理 session-level 出口完整性——不同层 | 2026-04-29 |
 | KD-10 | Phase G 方案选型：session end hook 提醒（Gmail 模型）而非 grep 提取意图 / 新增 MCP / forced tool call | grep 文本 = 47 换表达就失效（补锅）；新增 tool = 47 不调用（hold_ball 已证伪）；hook 提醒 = 时机正确 + 零意图猜测 + 猫自己补 | 2026-04-29 |
+| KD-11 | Phase H reopen F177 而非新开 F 号 | routing guard 真相源（OQ-G1 决策 / `f177-routing-guard.sh` 实现 / 24 测试）全在 F177；Phase H 是 Phase G 能力从"Claude 系猫"扩到"全猫族"的同一能力延伸，非新 feat。CVO 明确 signoff reopen | 2026-06-11 |
 
 ## Timeline
 
@@ -353,6 +393,7 @@ GitHub issue: [#1467](https://github.com/zts212653/cat-cafe/issues/1467)
 | 2026-04-29 | Phase G merged (PR #1470) — Session end Stop hook routing guard: Gmail-style "forgot attachment?" for A2A ball passing. 24 bash tests. 7 review rounds with 砚砚 |
 | 2026-04-29 | Phase D merged (PR #1461) — Fallback layer detector: `check-fallback-layers.mjs` scans git diff for fallback pattern growth (per-file added ≥3 + cumulative ≥5 triggers coordinate-system self-check). Integrated into quality-gate + governance. 3 review rounds with 砚砚 + 2 cloud reviews |
 | 2026-04-29 | Phase C merged (PR #1459) — Creative-implementation decoupling for 暹罗猫: shared-rules protocol + governance-l0 + SystemPromptBuilder GOVERNANCE_L0_DIGEST sync + quality-gate Step 2.5 edit scope check + `.githooks/commit-msg` Dry Run Gate (signature detect + whitelist + build+test). 5 cloud reviews, 4 review rounds with 砚砚 |
+| 2026-06-11 | **Phase H reopened（CVO signoff）** — 掉球归因分析（fable 复盘 thread）暴露 OQ-G1 latent gap：F177-G Stop hook 仅覆盖 Claude 系猫，codex/gpt52 用 codex CLI 无 block-stop 拦截 → 缅因猫动作缺失型掉球裸奔。Phase H 目标：routing guard 全猫族覆盖（H0 spike → 路径 A CLI hook / B server re-invoke + cost guard）。同步记录 47 UI 折叠 known gap（前端渲染层，未修）。布偶猫(48) spec + 缅因猫 codex CLI 实现 |
 
 ## Review Gate
 
@@ -386,4 +427,5 @@ GitHub issue: [#1467](https://github.com/zts212653/cat-cafe/issues/1467)
 - [x] 铲屎官拍板 OQ-1 + OQ-F1~F3 — OQ-1 已决（自然语言表态，2026-04-28），OQ-F1/F3 由实现决策收敛（铲屎官授权 Phase 并行后设计决策在实现中确定）
 - [x] 元审美自检：F177 是坐标变换 — 旧坐标系："信任猫自觉遵守文本规则"；新坐标系："结构化信号检测（close-tail scan / fallback counter / search→Read chain / hotfix pattern / routing guard）+ 自动化 gate + 跨猫 review"。7 个 Phase 各用不同检测工具解决不同坏直觉，但底层范式统一：从 trust-based 到 evidence-based
 
-[宪宪/Opus-47🐾]
+[宪宪/Opus-47🐾]（Phase A–G 主笔）
+[宪宪/Opus-4.8🐾]（Phase H reopen + spec，2026-06-11）
