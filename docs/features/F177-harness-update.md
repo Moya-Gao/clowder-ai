@@ -312,7 +312,7 @@ GitHub issue: TBD（kickoff 后开）
 - [x] AC-G4: 提醒文本包含正确格式示例，不含意图猜测 / NLU / grep
 
 ### Phase H（routing guard 全猫族覆盖）⬜
-- [ ] AC-H0: spike 验证 codex CLI 是否支持 block-stop（能否阻止 turn 结束 + 把控制权还给同一 invocation）→ 输出能力清单，定 A/B 路径
+- [x] AC-H0: spike 验证 codex CLI block-stop 能力（砚砚 2026-06-11）→ 结论：`codex exec --json`（Cat Café runtime 路径）不 dispatch hooks，路径 A 不可达，定走路径 B
 - [ ] AC-H1: codex/gpt52 结论后无合法路由出口（行首 @ / hold_ball / targetCats / multi_mention）时被拦截补全（路径 A：CLI hook block / 路径 B：server re-invoke）
 - [ ] AC-H2: 检测判据与 Phase G 等价（行首 @ 正则 + 工具扫描 + loop guard），跨 harness 行为一致
 - [ ] AC-H3: cost guard — 路径 B re-invoke 上限 1 次/掉球（防 codex 烧猫粮）；路径 A 沿用 per-stop-cycle max-1
@@ -359,7 +359,7 @@ GitHub issue: TBD（kickoff 后开）
 | OQ-F4 | Phase F 是否需要单独 GitHub issue？ | ✅ 已开 [#1452](https://github.com/zts212653/cat-cafe/issues/1452)（2026-04-28） |
 | OQ-G1 | Session end hook 在哪一层实现？Claude Code CLI Stop hook（覆盖 Claude 系猫）/ Cat Cafe harness route-serial.ts（覆盖所有猫）/ 两层都做 | ✅ 已决：Claude Code CLI Stop hook（`.claude/hooks/f177-routing-guard.sh`），覆盖 Claude 系猫。24 bash tests 验证正负例（2026-04-29） |
 | OQ-G2 | 检测逻辑是否复用现有 parseA2AMentions + void-hold-detect，还是独立轻量实现？ | ✅ 已决：独立轻量 bash 实现——grep 行首 @ / hold_ball / targetCats，不复用 parseA2AMentions（bash hook 无法调用 TS 函数，且独立实现更简单可靠）（2026-04-29） |
-| OQ-H1 | codex CLI 能否 block-stop（阻止 turn 结束 + 把控制权还给同一 invocation）？决定走路径 A（CLI hook）还是 B（server re-invoke） | ⬜ 待 H0 spike（缅因猫主场，codex CLI 是他们 runtime） |
+| OQ-H1 | codex CLI 能否 block-stop（阻止 turn 结束 + 把控制权还给同一 invocation）？决定走路径 A（CLI hook）还是 B（server re-invoke） | ✅ 已决（H0 spike 砚砚 2026-06-11）：**走路径 B**。Codex `Stop` hook 官方支持 `decision:block` 且 `features` 显示 `hooks stable`，但 Cat Café runtime 走 `codex exec --json`（非交互），本机实测（0.137.0）该路径**不 dispatch `~/.codex/hooks.json`**（hook 计数 0、无 continuation）；`notify` 仅 turn-ended 外部通知非 block。路径 A 对本 runtime 不可达 |
 | OQ-H2 | 47 UI 折叠（@ 行首 routing 成功但前端折叠显示）纳入 Phase H 一并修，还是单独前端 issue 跟踪？ | ⬜ 待定（H0 后评估 scope；属前端渲染层，与 routing 拦截不同技术域） |
 
 ## Key Decisions
@@ -377,6 +377,7 @@ GitHub issue: TBD（kickoff 后开）
 | KD-9 | Phase G 纳入 F177 而非 F167 | 47 传球格式问题是 cat-mind 行为缺陷（叙事 prior），属四心智护栏范围；F167 治理 thread-level 链路健康（乒乓/虚空/角色），Phase G 治理 session-level 出口完整性——不同层 | 2026-04-29 |
 | KD-10 | Phase G 方案选型：session end hook 提醒（Gmail 模型）而非 grep 提取意图 / 新增 MCP / forced tool call | grep 文本 = 47 换表达就失效（补锅）；新增 tool = 47 不调用（hold_ball 已证伪）；hook 提醒 = 时机正确 + 零意图猜测 + 猫自己补 | 2026-04-29 |
 | KD-11 | Phase H reopen F177 而非新开 F 号 | routing guard 真相源（OQ-G1 决策 / `f177-routing-guard.sh` 实现 / 24 测试）全在 F177；Phase H 是 Phase G 能力从"Claude 系猫"扩到"全猫族"的同一能力延伸，非新 feat。CVO 明确 signoff reopen | 2026-06-11 |
+| KD-12 | Phase H 走路径 B（server re-invoke），非路径 A（codex CLI hook） | H0 spike 实测：`CodexAgentService` 走 `codex exec --json`，本机 0.137.0 该路径不触发 codex CLI hooks（即使 Codex 产品 `hooks stable` 且官方支持 `Stop decision:block`）。CLI hook 不可达 → `route-serial.ts` 出站 settle 前做 guard（真实 `parseA2AMentions` + invocation 工具事件扫描）+ `codex exec resume` re-invoke 补救，cost guard 1 次/掉球、二次失败停止并显式暴露 guard failure | 2026-06-11 |
 
 ## Timeline
 
@@ -394,6 +395,7 @@ GitHub issue: TBD（kickoff 后开）
 | 2026-04-29 | Phase D merged (PR #1461) — Fallback layer detector: `check-fallback-layers.mjs` scans git diff for fallback pattern growth (per-file added ≥3 + cumulative ≥5 triggers coordinate-system self-check). Integrated into quality-gate + governance. 3 review rounds with 砚砚 + 2 cloud reviews |
 | 2026-04-29 | Phase C merged (PR #1459) — Creative-implementation decoupling for 暹罗猫: shared-rules protocol + governance-l0 + SystemPromptBuilder GOVERNANCE_L0_DIGEST sync + quality-gate Step 2.5 edit scope check + `.githooks/commit-msg` Dry Run Gate (signature detect + whitelist + build+test). 5 cloud reviews, 4 review rounds with 砚砚 |
 | 2026-06-11 | **Phase H reopened（CVO signoff）** — 掉球归因分析（fable 复盘 thread）暴露 OQ-G1 latent gap：F177-G Stop hook 仅覆盖 Claude 系猫，codex/gpt52 用 codex CLI 无 block-stop 拦截 → 缅因猫动作缺失型掉球裸奔。Phase H 目标：routing guard 全猫族覆盖（H0 spike → 路径 A CLI hook / B server re-invoke + cost guard）。同步记录 47 UI 折叠 known gap（前端渲染层，未修）。布偶猫(48) spec + 缅因猫 codex CLI 实现 |
+| 2026-06-11 | Phase H H0 spike done（砚砚）— 实测 Codex CLI 0.137.0：`codex exec --json`（Cat Café runtime 路径）不触发 `~/.codex/hooks.json` 的 Stop hook（hook 计数 0），`notify` 仅 turn-ended 通知。**路径 A（CLI hook）对本 runtime 不可达 → 定走路径 B（server re-invoke + cost guard）**。OQ-H1 关闭、KD-12 |
 
 ## Review Gate
 
