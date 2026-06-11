@@ -1,0 +1,36 @@
+{
+  "verdictId": "2026-06-10-eval-a2a-c2-void-hold-samples-build",
+  "featureId": "F167",
+  "evalSnapshotId": "eval-F167-2026-06-10",
+  "generatedAt": "2026-06-10T03:01:12.774Z",
+  "findings": [
+    {
+      "id": "AR-2026-06-10-002",
+      "relatedFeature": "F167",
+      "frictionSignal": {
+        "type": "c2.void_hold_hint_emitted",
+        "severity": "medium",
+        "confidence": 0.7
+      },
+      "attribution": {
+        "primaryLayer": "harness_misfit",
+        "pipelineOrHuman": "pipeline",
+        "evidence": [
+          {
+            "type": "counter",
+            "anchor": "C2/c2.void_hold_hint_emitted",
+            "excerpt": "c2.void_hold_hint_emitted=25 (baseline c2.void_hold_checked=181, ratio=13.8%)"
+          }
+        ]
+      },
+      "proposedAction": [
+        {
+          "action": "harness-tune",
+          "target": "C2/c2.void_hold_hint_emitted",
+          "rationale": "c2.void_hold_hint_emitted ratio 13.8% exceeds threshold"
+        }
+      ],
+      "status": "open"
+    }
+  ]
+}

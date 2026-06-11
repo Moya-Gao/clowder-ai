@@ -1,0 +1,19 @@
+{
+  "verdictId": "2026-06-10-eval-a2a-c2-void-hold-samples-build",
+  "rawInputs": [
+    {
+      "path": "docs/harness-feedback/snapshots/2026-06-10-F167-eval.yaml",
+      "sha256": "70e5a96d0db7408e700d55f4eb7407f4ac7329cd7977ec585fe90b3bfbe15b21"
+    },
+    {
+      "path": "docs/harness-feedback/attributions/2026-06-10-F167-attribution.yaml",
+      "sha256": "67fa7e56ec870aa9bc51afee7a617c67d14f7dc477eea1a6625d209ab8812a26"
+    }
+  ],
+  "generatedAt": "2026-06-10T03:01:12.774Z",
+  "generator": {
+    "name": "eval-a2a-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f192-e-pilot-v1"
+}
