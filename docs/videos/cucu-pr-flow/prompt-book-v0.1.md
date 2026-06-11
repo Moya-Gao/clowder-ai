@@ -1,7 +1,7 @@
 ---
 title: 醋醋喵 EP01 Prompt Book — 手动生产流程提示词手册
 doc_kind: prompt-book
-version: 0.1.2
+version: 0.1.3
 created: 2026-06-11
 status: active
 author: 宪宪/Fable-5
@@ -56,6 +56,7 @@ i2v prompt 五段固定结构（每段都要，顺序不换）：
 3. **Action 段**：3-4 个具体小动作，用 Then 串成时间线填满时长——动作太稀模型会自己编戏。
 4. **Environment 段**：1-2 条环境微动（灯光 flicker / 便签晃），给画面活气。
 5. **Camera 段 + 负面清单**：camera fixed 三连 + **逐行 Do not ×6-7**（不压缩成一行）。
+6. **猫角色双保险（v0.1.3，缅因猫写实化事故后补）**：模型对 "cat" 的先验强烈偏真实猫，猫比人容易漂写实（实测：Landy 锁住了、缅因猫写实化）。所有含猫的镜头：Keep 段加 `Keep the Maine Coon cat's cute chubby cartoon look exactly as in the first frame.`，负面清单加 `Do not make the cat realistic or photorealistic.` + `Do not change the cat into a real cat.`。**多图锚点**：若烁烁的生成界面支持首帧之外再附参考图，把漫画格②一并附上（无坏处）；只能单图就靠上述 prompt 双保险。
 
 ## 1. 第二段（S02 + S03）——本次试跑 ⭐ 首帧已在库，直接跳烁烁步骤
 
@@ -95,6 +96,13 @@ Keep the screen readable.
 ```
 
 **验收点**：一本正经讲大流程 vs Landy 困惑的气场反差成立（屏幕有流程感即可，不用读清）。
+**追加行（仅当缅因猫写实化时，贴在负面清单末尾，其余不动）**：
+
+```text
+Keep the Maine Coon cat's cute chubby cartoon look exactly as in the first frame.
+Do not make the cat realistic or photorealistic.
+Do not change the cat into a real cat.
+```
 
 ### S03 · 流程图特写 `avatar.png → PR → CI → Review`（信息镜头，取 4s）
 
@@ -143,6 +151,7 @@ Keep all text sharp and readable the whole time.
 Animate this image into a short 5-second video.
 
 Keep the exact same screen layout: left avatar card and right avatar card with the big red X.
+Keep the Maine Coon cat's cute chubby cartoon look exactly as in the first frame.
 
 Action:
 - The pointing finger taps toward the right avatar once.
@@ -162,6 +171,7 @@ Do not swap or change the avatars.
 Do not change the composition.
 Do not add text.
 Do not add new characters.
+Do not make the cat realistic or photorealistic.
 Keep the screen sharp and readable.
 ```
 
@@ -178,6 +188,7 @@ Keep the screen sharp and readable.
 Animate this image into a short 6-second video.
 
 Keep the same composition, same character positions, and same character sizes.
+Keep the Maine Coon cat's cute chubby cartoon look exactly as in the first frame.
 
 Action:
 - Landy laughs harder, shoulders shaking, still pointing at the screen.
@@ -198,6 +209,7 @@ Do not change character scale.
 Do not turn Landy into a child or tiny person.
 Do not add new characters.
 Do not distort the screen.
+Do not make the cat realistic or photorealistic.
 Keep the cat's grumpy embarrassed expression.
 ```
 
@@ -274,6 +286,7 @@ Do not change the composition.
 Do not add new characters.
 Do not change the screen content.
 Do not change the cat's design.
+Do not make the Siamese cat realistic or photorealistic.
 Keep the elegant composed mood.
 ```
 
@@ -293,6 +306,7 @@ Keep the elegant composed mood.
 Animate this image into a short 7-second video.
 
 Keep the same composition, same character positions, and same character sizes.
+Keep the Maine Coon cat's cute chubby cartoon look exactly as in the first frame.
 
 Action:
 - Landy slaps the table once, laughing hard, still pointing at the Maine Coon cat.
@@ -314,6 +328,7 @@ Do not change character scale.
 Do not turn Landy into a child or tiny person.
 Do not add new characters.
 Do not crop either character out of frame.
+Do not make the cat realistic or photorealistic.
 Keep both characters fully visible.
 ```
 
