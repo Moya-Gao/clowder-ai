@@ -21,3 +21,7 @@ This directory collects the anime short-series production research package for C
 ## Story Anchors
 
 - [大缅因猫与一张头像的标准 PR 流程](../../stories/avatar-pr-flow-absolutism/README.md)
+
+## Production Workspace
+
+- [docs/videos/cucu-pr-flow/](../../videos/cucu-pr-flow/README.md) - 短片生产工作区（shot-plan-v0.1 已落，后续 review-protocol / spike / manifests 都进这里）
