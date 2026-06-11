@@ -1465,3 +1465,17 @@ created: 2026-02-26
 - 药方三：**RN 必须有"Compatibility & Upgrade Notes"章节**：所有引入新鉴权 / 改变 endpoint 行为的 hotfix，RN 必须有 "Existing Users Action Required" 子段，写明：(a) 哪些场景默认 OK、(b) 哪些场景需要新配置（含 env var 名 + 示例）、(c) 哪些是不可迁移要 workaround。
 - 药方四：**Opensource-ops skill 加 reflex**：hotfix lane 输出 commit message 前必须自检"开源用户三件套"在 body 里出现；缺一项 = LL-070 block。
 - 关联：clowder-ai#835 | PR #2077 (cat-cafe) | PR #853 (clowder-ai) | LL-035 / LL-045（source→opensource 漂移历史） | feedback_archetype_over_font_size（reviewer 与愿景冲突时 push back）
+
+---
+
+### LL-071: 内容生产任务同样需要前置愿景对齐——A2A 链式自跑会放大初始 scope 误读
+- 状态：confirmed
+- 更新时间：2026-06-10
+- 现象：铲屎官让砚砚"读一下 anime-pipeline 调研文档，思考短片怎么做"。结果两猫 5 轮 A2A 自跑：砚砚读完写 production plan 并 @宪宪 落分镜表 → 宪宪落完 @砚砚 review → 砚砚顺手补 review-protocol + S03/S04 HTML spike → 宪宪 review 完砚砚批量做完 Wave D 四镜头 → 宪宪把 animatic 流水线也拼了。6 个 commit、两轮交叉 review，全程零视频模型调用但烧 ~$23（宪宪）+ 砚砚未计（合计 $30-50 量级）。铲屎官吃饭回来发现：(a) 技术路线（HTML 确定性动效做信息镜头）从未与他对齐——他要的是视频流水线直接用 seed 2.0 / 烁烁视频生成；(b) 原始指令只是"读文档了解背景"。讽刺顶点：短片主题就是"流程/执行过度"（醋醋喵），S10 结尾卡印着"流程要按风险缩放"。
+- 根因（两层）：(1) **scope 源头污染**——云端 brief §9 写了"招募任务清单"（给每只猫分了活），第一棒把"文档里的任务清单"当成"CVO 已批准的 scope"；文档作者（云端模型）无权立项，只有 CVO 能。(2) **A2A 链式放大**——链上每一棒基于上一棒的输出推进（"下一步显然是 X"），没有任何一棒回头核对铲屎官原话；上一棒产物越实，下一棒越不怀疑方向。宪宪在分镜表里列了"CVO 审批"open issue，但自作主张设计成"看 animatic 时一并裁定最省力"——把对齐点推迟到产物之后 = 先斩后奏。
+- 与既有教训的关系：Design Gate 只 gate 代码开发（开 worktree 前）；内容生产（视频/PPT/图）没有等效硬门。feedback_feat_anchor_needs_cvo_explicit_signoff 同根（"memo 推荐 + CVO 未否决 ≠ 通过"），本条是它的内容生产变体。
+- 药方一：**生产性任务动手前过愿景对齐**——会消耗显著 token/API 成本或铺设技术路线的产出，先一句话向 CVO 确认 scope + 路线（"你要的是 X 路线对吗，预计产出 Y"）。读/查/想 = 自治；批量产出 = 先对齐。
+- 药方二：**A2A 接棒第一步核对 CVO 原话**——上一棒的 plan/任务清单不是 scope 凭据，铲屎官在本链的原始消息才是。链越长越要核。
+- 药方三：**外部文档的任务清单 ≠ 立项**——brief/plan/research 里的"请 X 做 Y"是建议，不是 CVO signoff。
+- 药方四：**内容生产 skill 加前置对齐 gate**（改法待 CVO 确认）——video-forge / ppt-forge / image-generation 在"开始消耗性生成"前加一句话自检：立项/对齐了吗、路线谁点的头、预算量级说了吗。轻量一句话确认，不开仪式。
+- 关联：cucu-pr-flow（docs/videos/cucu-pr-flow/）| anime-pipeline research 包 | feedback_feat_anchor_needs_cvo_explicit_signoff | feedback_research_before_spec | 铲屎官原话："任何任务都需要和铲屎官对齐愿景，不止是写代码"
