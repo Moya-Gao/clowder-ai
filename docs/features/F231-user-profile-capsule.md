@@ -156,7 +156,7 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 | KD-4 | capsule 写事实与轨迹，不写行为指令 | 画像 ≠ 规则表；指令会催生背书式班味（F221 vignette 同款哲学：规则从场景长出来） | 2026-06-11 |
 | KD-5 | capsule 数据最小化：健康/职业/认知特质等敏感个人信息**默认不进** capsule，进入需 CVO 显式签字；敏感细节留 per-cat memory | capsule 注入所有猫的开局上下文，扩散面最大；隐私纵深不能只靠"不出库"（砚砚 review P2） | 2026-06-11 |
 | KD-6 | tracked 资产（测试/模板/CI）不得依赖或包含 per-user 私有数据；私有机制用 fixture 验证 | AC-B3 原稿与 KD-1 结构冲突（tracked 测试断言 gitignored 数据源 = CI 挂或被迫泄漏）；同型扫描后 Phase A 测试一并 fixture 化（砚砚 review P1-1 + audit） | 2026-06-11 |
-| KD-7 | OQ-1 closed：注入层 = **L0 编译时 `{{USER_CAPSULE}}`**，capsule 走 ADR-038 promote queue #2（注入锚 gated on PR-C，ETA 06-13）；**不进 Staging**（三问全反：全程身份语境 / 压缩窗口丢失有害=班味回潮 / 与 §1·§9 同维度）、**不进 SystemPromptBuilder 运行时**（压缩可丢，违背"醒来第一眼+全程在场"）；capsule 硬上限 **300 字**（~285 tokens，author 拍板：紧约束强迫蒸馏，溢出走 primer recall） | ADR-038 三问机械化判定（"全程身份/球权类必须留 L0"）+ 全猫 budget 实测（gpt52 6142 最紧，任何字数现在进 L0 都破 6000 cap，PR-C demote 后才有 headroom）——opus-47 判定，author 复核认领，砚砚 R3 已 align direction | 2026-06-11 |
+| KD-7 | OQ-1 closed：注入层 = **L0 编译时 `{{USER_CAPSULE}}`**，capsule 走 ADR-038 promote queue #2（注入锚 gated on PR-C，ETA 06-13）；**不进 Staging**（三问全反：全程身份语境 / 压缩窗口丢失有害=班味回潮 / 与 §1·§9 同维度）、**不进 SystemPromptBuilder 运行时**（压缩可丢，违背"醒来第一眼+全程在场"）；capsule 硬上限 **300 字**（~285 tokens，author 拍板：紧约束强迫蒸馏，溢出走 primer recall）；**口径定义（PR #2236 实现校准 2026-06-11）**：300 = 剥除空白后 Unicode 码点数（visible chars，含标点/英文/符号），与 guard `[...body.replace(/\s/g,'')].length` 同口径，非 CJK-only 字数——真实 capsule v2→v2.1 据此 387→299 裁剪 | ADR-038 三问机械化判定（"全程身份/球权类必须留 L0"）+ 全猫 budget 实测（gpt52 6142 最紧，任何字数现在进 L0 都破 6000 cap，PR-C demote 后才有 headroom）——opus-47 判定，author 复核认领，砚砚 R3 已 align direction | 2026-06-11 |
 
 ## Timeline
 
