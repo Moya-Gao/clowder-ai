@@ -188,6 +188,8 @@ export async function* routeParallel(
       }
       const service = getService(deps.services, catId);
       const hasNativeL0 = service.injectsL0Natively?.() ?? false;
+      // Staging is injected in invoke-single-cat independently of staticIdentity
+      // (Cloud R2 P1 #2237 L1099). See route-serial.ts for the architecture rationale.
       const staticIdentity = hasNativeL0
         ? buildStaticIdentityPackOnly(catId, { packBlocks })
         : buildStaticIdentity(catId, { mcpAvailable, packBlocks });

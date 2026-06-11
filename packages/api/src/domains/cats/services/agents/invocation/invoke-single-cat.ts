@@ -67,6 +67,9 @@ import type { AgentPaneRegistry } from '../../../../terminal/agent-pane-registry
 import type { TmuxGateway } from '../../../../terminal/tmux-gateway.js';
 import { resolveBootcampWorkspaceRoot } from '../../bootcamp/workspace-root.js';
 import { createPromptDigest } from '../../context/prompt-digest.js';
+// L0-budget-defense PR-B-impl (ADR-038): staging layer prepend, wired here
+// (next to F225 contextHintPrefix) so it lands every turn including resumes.
+import { buildStagingPrepend } from '../../context/StagingContent.js';
 import { AuditEventTypes, getEventAuditLog } from '../../orchestration/EventAuditLog.js';
 import { resolveDefaultClaudeMcpServerPath } from '../providers/ClaudeAgentService.js';
 import { compileL0ViaSubprocess } from '../providers/l0-compiler.js';
@@ -1567,6 +1570,19 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     const contextHintPrefix = takeContextHintPrefix(compressionKey);
     if (contextHintPrefix) {
       effectivePrompt = `${contextHintPrefix}\n\n---\n\n${effectivePrompt}`;
+    }
+
+    // L0-budget-defense PR-B-impl (ADR-038 件套 ④): staging layer prepend.
+    // Wired here (next to F225 contextHintPrefix) and NOT folded into
+    // staticIdentity — Cloud R2 P1 #2237 L1099: folding into staticIdentity
+    // would let resumed session-chain turns drop staging because the
+    // staticIdentity injection is skipped on canSkipOnResume + isResume
+    // turns. ADR-038 contract is "每轮注入生效" → must mirror F225 pattern
+    // (independent of injectSystemPrompt). Staging content goes to runtime
+    // prompt path, NOT compiled native L0 (砚砚 PR #2221 R1 P2 boundary).
+    const stagingPrepend = buildStagingPrepend(catId);
+    if (stagingPrepend) {
+      effectivePrompt = `${stagingPrepend}\n\n---\n\n${effectivePrompt}`;
     }
 
     effectivePrompt = appendTranscriptPathHints(effectivePrompt, TRANSCRIPT_DIR, threadId);

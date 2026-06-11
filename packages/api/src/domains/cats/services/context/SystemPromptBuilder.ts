@@ -29,6 +29,9 @@ import type {
 } from '../stores/ports/ThreadStore.js';
 import { loadCompiledGovernanceL0, loadCompiledGovernanceL0Sync } from './governance-l0.js';
 import { RICH_BLOCK_SHORT } from './rich-block-rules.js';
+// L0-budget-defense PR-B-impl (ADR-038 件套 ④): staging is wired in
+// invoke-single-cat (mirrors F225 contextHintPrefix), NOT here. See note
+// at the buildLiveStaticIdentity removal site below for the rationale.
 
 /**
  * Context for a single cat invocation
@@ -1058,3 +1061,16 @@ export function buildSystemPrompt(context: InvocationContext): string {
 
   return parts.join('\n\n');
 }
+
+// L0-budget-defense PR-B-impl (ADR-038 件套 ④): staging is now injected directly
+// in invoke-single-cat at the per-invocation prompt prefix level (mirrors F225
+// contextHintPrefix), NOT folded into staticIdentity at route-serial/parallel.
+//
+// Cloud R2 P1 #2237 L1099 (root cause): folding staging into staticIdentity
+// causes resumed session-chain turns to drop staging, because invoke-single-cat
+// skips systemPrompt injection on canSkipOnResume + isResume turns. Staging
+// must apply EVERY turn per ADR-038 "每轮注入生效" contract → wire it
+// independently of injectSystemPrompt.
+//
+// buildLiveStaticIdentity removed. buildStagingPrepend (in StagingContent.ts)
+// is the single source — invoke-single-cat consumes it directly.

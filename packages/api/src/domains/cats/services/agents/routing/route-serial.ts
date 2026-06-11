@@ -511,6 +511,12 @@ export async function* routeSerial(
       const staticIdentity = hasNativeL0
         ? buildStaticIdentityPackOnly(catId, { packBlocks })
         : buildStaticIdentity(catId, { mcpAvailable, packBlocks });
+      // L0-budget-defense PR-B-impl (ADR-038 件套 ④): staging is NOT prepended
+      // to staticIdentity here. Cloud R2 P1 #2237 L1099: folding staging into
+      // staticIdentity breaks ADR-038 "每轮注入生效" contract on resumed
+      // session-chain turns, because invoke-single-cat skips systemPrompt
+      // injection on those resumes. Staging is now injected in invoke-single-cat
+      // independently (mirrors F225 contextHintPrefix pattern).
       // F041: inject HTTP callback only when MCP is NOT actually available (fallback)
       const mcpInstructions = needsMcpInjection(mcpAvailable, catConfig?.clientId)
         ? buildMcpCallbackInstructions({
