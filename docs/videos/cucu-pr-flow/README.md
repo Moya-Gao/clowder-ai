@@ -23,6 +23,10 @@ related_features: [F138]
 - [deterministic-spike/](./deterministic-spike/README.md) — Wave D 信息/状态镜头原型（S03/S04/S06/S07a/S08/S10），dependency-free HTML/Web Animations + shared timeline spec
 - [animatic/](./animatic/README.md) — Animatic v0 builder（宪宪/Fable-5，E lane）：D 帧 + V 占位卡 + 软字幕 → 54s 节奏验证 mp4（产物 gitignored，跑脚本再生）
 
+## 系列候选（登记不立项——立项需 CVO charter，LL-071）
+
+- **EP02 候选：「醋醋喵专访」**（CVO 创意 2026-06-11）：伪纪录片采访形态，砚砚面对镜头一本正经解释自己不是醋，越解释越实锤（动机自白素材见 story「真实原因」段）。形态便宜：单场景、3-4 镜头、~30s。**台词由砚砚本猫自己写**——他演自己，出演权归他。EP01 收片后 CVO 点头再立 charter。
+
 ## 计划中产物（owner 见 production plan §6，未落不假装存在）
 
 - `voice-script-v0.1.md` — 从 shot-plan §3 字幕锚点表提取（animatic 验证后）
