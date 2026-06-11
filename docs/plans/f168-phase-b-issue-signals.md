@@ -192,4 +192,33 @@ cell 文件清单补 Phase B 新文件；`pnpm gate`；quality gate report（**�
 
 7 条 AC 全绿 + 两个 PR 各自过完整 review 链 + Task 0 production bootstrap 完成 + alpha 验收：真实 webhook 投一条 issue comment（测试 issue）观察 log→投影→唤醒全链路。
 
+---
+
+## 附录（2026-06-11 补，R16 拉闸后）：tracking task record 状态契约
+
+> 背景：PR-2 云端 review R13/R14/R15 三轮 P1 同族（种 task 缺 userId / 缺 lastDeliveredCursor / commitCursor 部分采集过早 done）——命中"同类 finding ≥3 轮 = 回 plan 层补状态机"。本附录是 plan v1 欠的账：`TaskItem.automationState.issue` 是 stateful 对象，必须有完整性契约 + 不变量，而非散落的可选字段 + 消费侧 fallback。
+
+### 坐标系修正：边界 normalize 一次，内部 invariant 成立
+
+**病灶**：record 允许部分初始化 → `IssueCommentTaskSpec` 内 4 处语义 fallback（`:158` `?? collectionCursor`、`:427/:428/:450` `?? ''`）逐个猜语义，每猜错一个 = 一轮 review P1。
+**修正**：
+1. 类型层定义 `SeededIssueAutomationState`（cursor 对 + userId/ownerCatId/threadId 必填）
+2. 创建入口（`registerRoutingTracking` + 手动 register 路由）构造完整 record
+3. **存量老 task 惰性迁移**：`gate()` 入口处一次 `normalizeAutomationState()`（缺字段补种子值 + 持久化回写）——这是**唯一**允许 `??` 的位置
+4. 删除内部全部语义 fallback：normalize 后字段仍缺 = 数据损坏 = loud failure（log error + skip task），不是静默猜
+
+### 不变量表（audit 清单，每条配测试）
+
+| # | 不变量 | 已覆盖? |
+|---|---|---|
+| I1 | `lastDeliveredCursor ≤ lastCommentCursor` 恒成立 | R14 修复后部分覆盖，缺显式断言测试 |
+| I2 | 投递重试集 = `(lastDeliveredCursor, lastCommentCursor]` 区间事件 | R14/R15 测试覆盖 |
+| I3 | `status: done` ⟺ issue closed ∧ 采集完整 ∧ **投递追平（deliveredCursor == commentCursor）** | ⚠️ R15 只修了前两个条件——第三个条件是潜在 R17，audit 必查 |
+| I4 | 创建后 userId / ownerCatId / threadId 非空（投递可达性） | R13 修复后部分覆盖 |
+| I5 | 同 subjectKey 重复 routed 事件幂等 upsert **不回退 cursor** | ⚠️ 未见测试，audit 必查 |
+
+### 行动协议（替代逐轮修）
+
+停止"修一个 P1 → 触发下一轮 → 又一个 P1"循环。按本表做一次系统化 audit（列 automationState 全字段读写点 × 不变量），一个 commit 交付坐标系修正 + 全部缺边；之后**一轮**云端终检。终检再出本族 P1 = 不变量表漏了 → 升级回 plan owner；出 stale 重放 = 按 review provenance 走 merge（最终 SHA 需 local reviewer continuity confirm）。
+
 [宪宪/Fable-5🐾]
