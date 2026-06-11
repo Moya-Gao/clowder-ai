@@ -1479,3 +1479,21 @@ created: 2026-02-26
 - 药方三：**外部文档的任务清单 ≠ 立项**——brief/plan/research 里的"请 X 做 Y"是建议，不是 CVO signoff。
 - 药方四：**内容生产 skill 加前置对齐 gate**（改法待 CVO 确认）——video-forge / ppt-forge / image-generation 在"开始消耗性生成"前加一句话自检：立项/对齐了吗、路线谁点的头、预算量级说了吗。轻量一句话确认，不开仪式。
 - 关联：cucu-pr-flow（docs/videos/cucu-pr-flow/）| anime-pipeline research 包 | feedback_feat_anchor_needs_cvo_explicit_signoff | feedback_research_before_spec | 铲屎官原话："任何任务都需要和铲屎官对齐愿景，不止是写代码"
+
+---
+
+### LL-072: 云端 review 无不动点——多轮循环必须有机械可判的封板协议
+- 状态：confirmed
+- 更新时间：2026-06-11
+- 现象：F168 Phase B PR-2（#2214）吃了 21 轮云端 review。R13/R14/R15 三轮 P1 同族（tracking record 部分初始化 → 消费侧 4 处 `??` fallback 逐个猜语义，每猜错一个 = 一轮 P1）。R16 铲屎官第一次拉闸（「第一性原理/数学之美/补锅匠」三连），fable-5 给了 plan 层状态契约（不变量表 I1-I5）+ 行动协议；但 R17-R20 循环复活又跑 5 轮，R21 触发后铲屎官第二次拉闸。期间 R19 单轮返回 22 findings 中 **21 个假阳性**——云端 reviewer 在 20+ commit 累积 diff 上信噪比崩盘，每轮重放全部历史 inline comments，stale 与 fresh 无法区分。注意：循环中每个真 finding（R17-R20 共 4 个）都是真 bug 且修复质量高——问题不在执行，在终止条件不存在。
+- 根因（三层）：
+  - ① **plan 层**（LL/F229 精确复现）：stateful 对象（`automationState.issue`）没给状态转移表 + 完整性不变量 → "部分初始化"在类型上合法 → review 轮数 = plan 欠的边数。
+  - ② **协议层**：终止条件 "cloud review 0 P1/P2 → merge" 在抽样式无状态 reviewer 上**没有不动点**——大 diff 下它每轮都能产出新猜想或重放历史，永远等不到 0。R16 的修正协议留了两个洞：没定义"封板"动作（修完终检 finding 后干什么），停止条件（"本族 P1 → 停"）把判定权留给执行者——有弹性的停止条件等于没有。
+  - ③ **角色层**：云端 review 被隐式当成终局确权者（Tracking Instructions 从 R10 起固化 "0 P1/P2 → merge"），但它是**无状态辅助信号源**：不能分辨 stale/fresh、不读 PR 讨论史、不核 pushback。终局确权需要有状态的本地 reviewer。
+- 药方一：**封板协议机械可判零弹性**——多轮循环收口时：处理完当前轮（修真 finding / 有据 pushback 假阳性）→ **不再 re-trigger 云端（无论结果）** → 本地有状态 reviewer 对最终 SHA 做 final review（核 pushback 成立性 + continuity）→ 放行即 merge。
+- 药方二：**循环检测阈值**——同一 PR 云端 review ≥5 轮，或单轮假阳性比例 >50%，强制触发封板评估（不是继续修）。
+- 药方三：**停止条件下发时禁止留判定弹性**——"出本族 P1 → 停"不可执行（族的判定因猫而异）；"出任何 P1 → 停手上报"才可执行。给执行猫的协议要按"机械可判"标准自检。
+- 药方四：**介入循环时必须改写循环本身的指令**——R16 介入只给了修法没拆 Tracking Instructions 里的 "0 P1/P2 → merge"死循环条件；拉闸者要检查并改写驱动循环的持久化指令（tracking instructions / hold 文案），否则执行猫被旧指令拖回循环。
+- 元洞察：review finding 流本身就是 F168 正在解决的同构问题——无状态事件每轮全量重放、无 ledger、stale/fresh 不可分。"review-finding ledger / 增量 review 投影"是候选方向，待 CVO 决定是否进 BACKLOG。
+- 关联：PR #2214（R7-R21 全轨迹）| `docs/plans/f168-phase-b-issue-signals.md` 附录（不变量表）| feedback_plan_stateful_lifecycle_state_machine（F229，同类 finding ≥3 轮回 plan 层）| feedback_judgment_altitude（F140，edge case 跨轮繁殖 = 层选错）| LL-033（云端 inline P1 是 merge blocker——本条补充其边界：blocker 指"未处理的"，处理 = 修复或有据 pushback，不是"等云端说零"）
+- 待办（F168 close 前，fable-5 own）：merge-gate skill 补"封板协议"段（药方一/二/四落进 SOP 文本）。
