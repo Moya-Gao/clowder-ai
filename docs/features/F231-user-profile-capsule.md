@@ -71,6 +71,8 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 
 1. **关系信号沉淀路径**：类比 F221 taste 路径——猫捕捉关系信号（"被接住了"/玩笑节奏/新偏好）→ 提议 capsule/primer 更新 → CVO 过目生效。复用 code-as-harness 信号分类，新增 relationship 分支。
 2. **更新节奏**：提议制不自动写入（capsule 是真相源，漂移即投毒）；正向轨迹与教训同权重沉淀（记忆配平——不只记检讨书）。
+3. **外部画像迁移路径（import 冷启动，CVO 2026-06-11 提出）**：把本 thread 手动跑通的流程（用户贴 ChatGPT/claude.ai/Gemini 导出的记忆画像 → 猫蒸馏成 capsule 种子 → 数据最小化过滤（KD-5）→ 用户签字入库）固化为 onboarding guide/skill。社区用户第一天就有"被认识"的体感，不必从零养。隐私同纪律：用户自己的数据自己带入，per-user 私有层，永不出库。
+4. **user-signal 记录层（抽象的原料层，CVO 洞察："得先记录各种铲屎官的信息，抽象才可能出现"）**：复刻 F221 三层论（空气/目录/海马体）到 user 维度——猫日常捕捉的主人信号需要一个可累积的 lane（类比 `docs/taste/` 的 user-signal 版，载体在 private/），蒸馏 cron 或 MCP 提议工具定期把信号抽象成 capsule/primer 更新提议。具体形态（lane 结构 / MCP 工具增量 / 与 F102 memory 的边界）Phase C Design Gate 收敛。
 
 ### 非目标（Non-goals）
 
@@ -104,15 +106,15 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 <!-- 每条 AC trace 回 Why：A1-A3→"没做 thread 启动注入"；A4→"这是我的砚砚不是其他人的"（隐私分层）；B 组→第一个养熟样本；C 组→"养熟"机制本体。 -->
 
 ### Phase A（机制 + 种子）
-- [ ] AC-A1: `private/profile/landy-capsule.md` 存在（**≤300 字**），内容经 CVO 过目认可（thread 留言为证）
+- [x] AC-A1: `private/profile/landy-capsule.md` 存在（**≤300 字**），内容经 CVO 过目认可（✅ 2026-06-11 CVO 签字 msg 0001781191204902-001074；v2 含云端 review 四修补吸收 + CVO"软件工程师不对"裁定，provenance 归档）
 - [ ] AC-A2: L0 编译链支持 `{{USER_CAPSULE}}`（KD-7），守护测试三态断言（存在/缺失/超长，**fixture 隔离**）全绿；**注入锚合入前置条件：gpt52 fresh build ≤6000 tokens（ADR-038 PR-C 落地）**
 - [ ] AC-A3: capsule 缺失时全猫开局注入照常通过（向后兼容，命令输出为证）+ 公共 baseline 产物无私有锚点泄漏
 - [ ] AC-A4: outbound sync dry-run 输出不含 `private/profile/`（命令输出为证）
 - [ ] AC-A5: 四层分层模型文档化（本 spec + identity-session cell 更新），breed/instance/user/relationship 各层载体与共享范围一表可查
 
 ### Phase B（砚砚 dogfood）
-- [ ] AC-B1: 砚砚 instance personality 经"云端起草→本地认领→CVO 终审"流程更新进 `.cat-cafe/cat-catalog.json`，**三段 provenance 归档**（cloud draft / local revision / CVO final 三段原文，各带时间与来源，存 `private/profile/provenance/`）
-- [ ] AC-B2: `private/profile/relationship/codex-primer.md` 落地，含 ≥2 段真实 trajectory，非规则清单（本地砚砚认领 + CVO 过目）
+- [x] AC-B1: 砚砚 instance personality 经"云端起草→本地认领→CVO 终审"流程更新进 `.cat-cafe/cat-catalog.json`，**三段 provenance 归档**（✅ 2026-06-11 三棒完整：cloud draft / local revision / CVO final 全文存档 `private/profile/provenance/`，catalog 旧值带 `.bak-f231` 备份，CVO final = 砚砚认领版零 delta）
+- [x] AC-B2: `private/profile/relationship/codex-primer.md` 落地，含 ≥2 段真实 trajectory，非规则清单（✅ 3 段重构式 few-shot + 事实/推断/示例边界标注 + 分工附注；砚砚清洗原则执行 + CVO 签字 status: signed）
 - [ ] AC-B3: 锚点回归测试在仓且 **fixture 隔离**：fixture overlay 编译断言 private 锚点生效；公共 baseline 断言缺 overlay 可编译 + 无私有锚点泄漏（CI/社区环境稳定，不依赖本机 gitignored 数据）
 
 ### Phase C（养熟循环）
@@ -142,6 +144,7 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 | OQ-1 | capsule 注入位置：L0 编译时 vs SystemPromptBuilder 运行时 vs ADR-038 Staging 层 | ✅ closed 2026-06-11 → KD-7（L0 编译时，ADR-038 三问判定 + budget 实测，opus-47 + author 收敛，Design Gate 出口物 `docs/discussions/2026-06-11-f231-design-gate.md`） |
 | OQ-2 | 社区版 per-user 隔离形态（多用户 capsule 寻址）与 F229 复合猫的关系 | ⬜ 后置，不阻塞 |
 | OQ-3 | 其他猫（宪宪/烁烁/47/48…）的 instance personality 与 primer 是否本 feat 内铺开，还是砚砚样本验证后另起 Phase | ⬜ CVO 倾向待确认 |
+| OQ-4 | Phase C user-signal lane 形态：信号捕捉反射（skill 路径）+ 抽象提议（cron vs MCP 工具 `propose_profile_update`）+ 与 F102 memory 边界——记忆系统/MCP 增量范围 | ⬜ Phase C Design Gate 收敛（CVO 2026-06-11 预感"记忆系统甚至 MCP 都有需要优化"） |
 
 ## Key Decisions
 
@@ -163,6 +166,8 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 | 2026-06-11 | CVO signoff 立项（"我同意立项的"），F231 kickoff |
 | 2026-06-11 | 砚砚 spec review：3 P1（AC-B3 fixture 隔离 / 注入层去预设 / cell 同步）+ 2 P2（provenance 三段归档 / 数据最小化）全部吸收；audit 同型扫描把 Phase A 测试一并 fixture 化（KD-6）；R2/R3 机器可读性修复后放行 |
 | 2026-06-11 | Design Gate：OQ-1 closed → KD-7（L0 编译时注入 + promote queue #2 + 300 字 cap），opus-47 ADR-038 三问判定 + budget 实测，author 复核认领 |
+| 2026-06-11 | Phase B 主体闭环：KD-3 三棒走完（cloud draft → 砚砚认领 → CVO 签字 msg ...204902），personality 入 instance catalog + primer signed + capsule v2 signed（AC-A1/B1/B2 ✅）；云端 capsule review 四修补吸收、两项拒绝留痕（超 hard cap / 三猫分工超 scope） |
+| 2026-06-11 | CVO 提出 import 冷启动 + user-signal 记录层 → Phase C §3/§4 + OQ-4 |
 | 2026-06-13 | （ETA）ADR-038 PR-C 落地 → capsule 注入锚解锁 |
 
 ## Links
