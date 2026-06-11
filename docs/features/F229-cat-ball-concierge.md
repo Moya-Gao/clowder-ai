@@ -215,6 +215,8 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 | 2026-06-09 | CVO 反馈整合：去/取/传话分叉（KD-9）+ 岗位工具面裁剪（KD-10）+ 吴浪社区视角（KD-11/OQ-7） |
 | 2026-06-09 | **Design Gate 通过**（CVO："可以可以！！我觉得没问题！！"）；分工拍板：宪宪 spec/守护、sonnet 实现、砚砚 review；进 writing-plans 拆 Phase A |
 | 2026-06-10 | **PR-A1+A2 alpha smoke 全绿**（sonnet 执行，S1-S8 全 PASS、concierge console 0 错误；证据 `assets/F229/smoke-2026-06-10/`）。技术层 AC-A1/A6 底座就绪，待铲屎官人因验收（存在感/安静/muted 直觉/不打断感/视觉打架 5 项）后打勾。观察项：呼吸动画未实装 + 球为 🐱 emoji 占位——并入 KD-14 形象升级工作项一起做 |
+| 2026-06-10 | 铲屎官人因验收："丑的飞起"——emoji 违例 + token 未接 + 企业 SaaS 范式 → KD-15 形态修正；烁烁出视觉返工方案，宪宪验证放行（素材/token 实锚），**CVO 六题全过**；流程修正：UI PR 合入后 owner 起 alpha 请 CVO 30 秒验收 + 视觉稿前置成为 F229 UI PR 硬规则 |
+| 2026-06-10 | PR 重排（CVO"别拆太稀碎"）：**A3a = 气泡化对话集成**（对话 + V1-V9 视觉一体，避免先填旧 drawer 再搬家）→ **A3b = 交互卡+relay** → **A4 = 设置页+spike**，共 3 个 PR 收尾 Phase A |
 | 2026-06-10 | **Phase A PR-A1 merged** (PR #2202，squash commit e6f8b4c38)：ConciergeConfigStore + ConciergeThreadService + `/api/concierge/*` 路由 + SystemPromptBuilder 注入 + prompt injection 防护 (R15 P1) + concierge thread lifecycle (R18/R19 P2) |
 | 2026-06-10 | **Phase A PR-A2 merged** (PR #2211，squash commit 3df6f643f)：ConciergeHost（常驻根容器）+ ConciergeBall（8 态投影）+ ConciergePanel（对话窗）+ ConciergeRailToggle（ActivityBar 唤回入口）+ ConciergeStore（INV-2 纯投影架构）+ muted toggle UI (AC-A6 前端); R1-R7 cloud review cycle — 7 轮修复全清零 P1/P2 |
 
@@ -236,6 +238,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 | **Community Issue** | [clowder-ai#841](https://github.com/zts212653/clowder-ai/issues/841) | arthas4ever 悬浮球提案（needs-maintainer-decision → 由本 feat 承接，标签待迁移 F229） |
 | **Research** | `docs/research/2026-06-09-f229-companion-form-research.md` | companion 形态/体验调研：Clippy 反面教训、桌宠/派蒙借鉴、主动冒泡白名单、默认毛线球视觉方向、Mode B prompt |
 | **Design Gate** | `docs/discussions/2026-06-09-f229-design/README.md` | Phase 0 设计材料：架构归属一问、身份三层配置模型、对话载体决策、surface 技术路径、四态 wireframe、调研采纳决议 |
+| **视觉设计** | `docs/research/2026-06-10-f229-visual-design-proposal.md` | 烁烁视觉返工方案（KD-15 落地）：八态贴纸映射（砚砚 opus 贴纸）、三层展开（猫→工具栏→气泡）、OKLCH token 接入表、V1-V9 清单——CVO 六题全过 2026-06-10 |
 | **Research** | `docs/research/2026-06-08-pi-gemma-local-clerk-phase0-spike.md` | gemma 4 26B 本地实测 + Pi carrier + harness 收敛（Phase D 前置） |
 | **Research** | `docs/research/2026-06-10-f102-f229-gemma-clerk-carrier-spike.md` | F102/F229 共享的 Gemma clerk carrier/harness spike：MD-first、短 handle、Pi/OpenCode/MCP 结论 |
 | **Issue** | cat-cafe#2175 | F102 MD-first digest candidates + provider 抽象（Phase D 软依赖） |

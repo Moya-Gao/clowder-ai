@@ -51,10 +51,15 @@
 
 **A3 拆两个 PR（review 面控制，PR-A1 二十轮教训）：**
 
-### PR-A3a 对话集成（先行，纯前端 + 现有 API）
-- `ConciergePanel.tsx:112` placeholder → concierge thread 消息流（复用 ChatMessage，A2 spike 已决策）+ 输入 POST 现有 messages API → RoutingInterceptor 唤值班猫 → 流式渲染
-- `unseenResultCount`：面板关时收到值班猫消息 +1（found 态），开面板滚到底清零（A2 投影清除规则落地）
-- 测试：消息往返 / 流式渲染 / route survival 下消息流不断 / found badge 清除规则
+### PR-A3a 气泡化对话集成（先行；含视觉返工 V1-V9，CVO 2026-06-10"别拆太稀碎"+ 避免先填旧 drawer 再搬气泡的二次浪费）
+
+**设计真相源：`docs/research/2026-06-10-f229-visual-design-proposal.md`（烁烁方案，CVO 六题全过）——V1-V9 清单、八态贴纸映射、三层展开、OKLCH token 表、CSS 动画规格、布局标注全在其中，本段只列 delta：**
+
+- **对话集成**：`ConciergePanel.tsx:112` placeholder → concierge thread 消息流（复用 ChatMessage）+ 输入 POST 现有 messages API → RoutingInterceptor 唤值班猫 → 流式渲染——**直接做进漫画气泡形态**（Layer 3），不经过旧 drawer
+- **三层展开状态机**：A2 的 `panelOpen: boolean` 升级为 `surfaceState: 'collapsed' | 'toolbar' | 'bubble'`——**纯投影原则不变**（ballState 投影函数的 `panelOpen` 输入相应改为 `surfaceState !== 'collapsed'`，listening 态需 bubble + inputFocused）；转移：点猫 collapsed→toolbar，点"聊聊"或工具钮 toolbar→bubble，Esc bubble→toolbar→collapsed（两级返回），teleport/go 后 →collapsed（A2 INV-7 继承）
+- **素材**：`assets/stickers/opus/` 单张已全部切好（38 文件含命名版 + manifest，无需抠图）——确认透明底 + resize 三档（128/64/48）+ 复制 `assets/concierge/sprites/ragdoll/` 按八态命名，脚本完成
+- **工具栏四钮动作**：找找看/新功能 = 展开气泡 + 预填 prompt 模板；传话 = 展开气泡 + 预填转接引导；聊聊 = 直接展开空气泡
+- 测试：A2 全量回归（投影表驱动改 surfaceState 后重跑）+ 消息往返 / 流式 / route survival 下消息流不断 / found badge 清除 / 三层转移全路径 / token 断言（零 Tailwind 原生色——grep 架构测试）/ V8 reduced-motion / V9 dark mode
 
 ### PR-A3b 交互卡 + relay（依赖 A3a）
 - 前端：CardBlock 注册 `concierge_teleport`（确认后跳 + 收面板，A2 INV-7）/ `concierge_peek`（卡内 inline 展开 anchor 前后窗口，`get_thread_context` before/after；边界：thread 首尾）/ `concierge_relay` / `concierge_go`；ConciergePeekCard 组件
