@@ -23,6 +23,9 @@ related_docs:
 | `S04-evidence-firstframe-v1.png` | S04 证据 | PR #1 左"Landy 指定"绿框 / 右"当前使用"大红叉 + Landy 手指 + 砚砚汗滴 | ✅ 直接可用 |
 | `S05-reaction-firstframe-v1.png` | S05 反应 | Landy 笑出泪指屏幕 + 砚砚僵住汗滴 | ✅ 直接可用 |
 
+| `S07b-shining-debut-firstframe-v1.png` | S07b 烁烁登场 | 烁烁（暹罗猫）背对镜头，屏幕显示"新头像预览"多张缩略图，紫色项圈金铃铛 | ✅ 直接可用 |
+| `S09-verdict-firstframe-v1.png` | S09 定罪 finale | Landy 大笑指着屏幕 CI Passed + 砚砚表情僵住趴桌，流程即正义桌牌 + I❤️CI 杯 | ✅ 直接可用 |
+
 均为**首帧**（非尾帧）。是否需要尾帧（首尾帧双控）在 shot-plan v0.2 按镜头标注——动作简单的镜头首帧+动作 prompt 足够，构图大变的镜头才补尾帧。
 
 ## generated-clips/ — 可用成片素材（gitignored，账本记录）
@@ -77,6 +80,6 @@ related_docs:
 | 镜头 | 状态 | 说明 |
 |---|---|---|
 | S06/S07a/S08/S10 静帧 | ✅ 已入库 | `references/static-frames/` 七张 |
-| S07b 首帧（烁烁登场） | ⬜ 待生成 | 烁烁+夹板+头像预览板，参考漫画格⑥ |
-| S09 首帧（定罪两人同框） | ⬜ 待生成 | 双角色比例+表情，难度高，参考格③④⑦⑧ |
+| S07b 首帧（烁烁登场） | ✅ 已入库 | `S07b-shining-debut-firstframe-v1.png` |
+| S09 首帧（定罪两人同框） | ✅ 已入库 | `S09-verdict-firstframe-v1.png` |
 | BGM/SFX 素材 | ⬜ E lane 阶段再议 | 锚点见 shot-plan §3 |
