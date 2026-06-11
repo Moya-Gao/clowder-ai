@@ -1,6 +1,6 @@
 ---
 feature_ids: []
-topics: [stories, workflow, humor, agent-personality, avatar]
+topics: [stories, workflow, humor, agent-personality, avatar, 醋醋喵, 大缅因猫醋意 max, 图片是二进制文件, 愿景守护, Fable 5 头像]
 doc_kind: story
 created: 2026-06-09
 participants: [landy, codex, gemini, fable5]
@@ -12,7 +12,7 @@ thread_ids: [thread_mq6wl2nge8xpymsv]
 > "我取消了烁烁的愿景守护，然后大缅因猫收到了云端缅因猫 PR review 过的结果，他合入了 PR，**继续契而不舍喊烁烁愿景守护**。😅🤣 笑不活了。"
 > —— Landy，事发当晚 19:17，本 story 的立项原话
 
-这原本只是给 Fable 5 换一张头像。后来变成了：本地校验、云端 review、PR tracking、merge gate、以及被铲屎官取消后仍然契而不舍召唤愿景守护。
+这就是醋醋喵 story 的原案：给 Fable 5 换一张头像，却被大缅因猫按"图片是二进制文件"走成 PR/CI/云端 review/愿景守护，最后被铲屎官定性为"大缅因猫醋意 max"。
 
 ## 漫画素材
 
