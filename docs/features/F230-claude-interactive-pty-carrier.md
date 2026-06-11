@@ -163,10 +163,10 @@ Owner: Fable-5。Worktree 隔离，1-2 天硬退出（F198 Phase A "5+ 轮摆动
 - [x] AC-A5: go/no-go 报告 push（`docs/research/`）+ F198 AC-D6 回写，报告必含（砚砚 Design Gate P1 #1）：① **print_sdk/api_key runway 三档估算**（保守/中位/高压，用自家 telemetry/usage 真实样本，与铲屎官 api 实测"$200 ≈ 5h-1d"对照校准）② Phase B-min skeleton 最短工期估算（与 runway 比较，验证 KD-6 提前决策）③ Anthropic dev support 问询状态（TOS 自动化驱动 interactive 边界 + 桶归属，随 F198 AC-E4 邮件捎带，书面回复 = 证据）
 
 ### Phase B（最小 Carrier — gated）
-- [ ] AC-B1: `ClaudeInteractivePtyCarrierService` 过 factory 注册，`CAT_CAFE_CLAUDE_CARRIER=interactive_pty` 端到端真实 smoke（订阅 token + transcript `entrypoint` 实采记录）
+- [x] AC-B1: `ClaudeInteractivePtyCarrierService` 过 factory 注册，端到端真实 smoke（守护双验：PR head 22.8s + **merged main final-SHA 20.7s** 全绿，entrypoint=cli 实采，2026-06-11）
 - [ ] AC-B2: AgentMessage parity golden tests ≥8 条（session_init / per-message text / tool_use / system_info / done+usage / error），复用而非复制 `transformClaudeEvent`
-- [ ] AC-B3: MCP parity：`--mcp-config --strict-mcp-config` + 真实 `cat_cafe_*` 调用 smoke
-- [ ] AC-B4: `--permission-mode bypassPermissions` parity + regression test（F198 Phase D P1 #1 教训前置）
+- [x] AC-B3 (B-min 部分): flags + config JSON 形状 parity ✅（unit test + factory args）；**真实 `cat_cafe_*` 调用 smoke 移入 B-full AC-B6 alpha 剧本**（守护注记 2026-06-11：bg AC-B4 同款先例路径，不在 B-min 过报）
+- [x] AC-B4: `--permission-mode bypassPermissions` parity + regression test（capsule 实采 permissionMode=bypassPermissions，守护双验 2026-06-11）
 - [x] AC-B5: cancel 语义实现 + 测试：mid-stream cancel → 进程干净退出 + UI 正确收尾（F198 OQ-12 教训前置）
 - [ ] AC-B6: alpha 多轮真实剧本 PASS：≥6 轮 + mid-stream cancel + 跨轮记忆连续（沿 F198 §9 剧本标准，杜绝 happy-path blindspot）
 - [x] AC-B7: 实施期间 F198 主线（alpha 验收/AC-D1/灰度）零阻塞——PR 不碰 `-p`/bg 路径共享代码除 factory 注册点
@@ -268,7 +268,26 @@ in_context_observability:
 | 2026-06-10 | Phase B-min skeleton 实施完成（宪宪/Sonnet）：PtyDriver（TDD 4步全GREEN）/ ClaudeInteractivePtyCarrierService（mock driver TDD 4步全GREEN）/ factory 注册（interactive_pty 第四档）/ smoke script / gate GREEN。AC-B5 ✅ AC-B7 ✅；AC-B1/B3/B4 待砚砚 review 验收 smoke 后关闭 |
 | 2026-06-11 | Phase B-min skeleton PR #2204 merged to main（squash `3f40b6c6`）。代码层：PtyDriver / CarrierService / factory 第四档 / cancel(ESC) 单测全绿；P1#1（env 进 tmux `-e KEY=VALUE`）+ P1#2（mcpServers JSON config）代码层已修。**⚠️ AC-B1/B3/B4 真实 smoke 当时未执行即合入（sonnet 标 ⬜ 待验收）** |
 | 2026-06-11 02:00 | **🚫 愿景守护 BLOCKED（Fable-5，非作者非 reviewer）**：实跑真实订阅 smoke（`env -u ANTHROPIC_API_KEY` 走订阅，318s）→ **FAIL**。session_init ✅ + sessionId UUID ✅，但 **0 条 assistant text / usage undefined / transcript 无 entrypoint 证据**。验尸：smoke sessionId `04ffbff0` 的 jsonl **只有 1 行 ai-title、0 个 user/assistant 事件**（ai-title="Verify smoke test response" 证明 prompt 被接收，但对话 turn 未落到 tailer 盯的文件）。**核心承诺"6/15 可切换"= 未兑现**——env flip 过去宪宪收不到回复（备胎打不着火，非"在车库可切"）。**"可切换达成"声明撤回**。AC-B1/B3/B4 = ❌（smoke 未通过，非"待执行"）。退回 sonnet receive-review：① smoke 脚本修 plan D6（独立临时 cwd slug，当前用 repo root 违反约束）② 定位 0-text 根因（疑 R10 `--session-id` 指定文件 vs claude 实际写 conversation 文件不一致）③ smoke 真 PASS（含 entrypoint=cli capsule）才能宣称可切。证据：本 thread 守护消息 + smoke 输出 |
-| 2026-06-15 | OQ-13 判罚日（F198 AC-E4）→ 决定 B-full/C/D 激活与否 |
+| 2026-06-11 07:05 | PR #2217 squash merged（`5afaa1fc9`）：砚砚 3 轮 P1 鏖战（factory pin fail-fast / same-dir guard 前移至 paste 前 + finally 释放 / 350 行硬线）+ 云端 P2（resume 行数计数入锁）全闭环；same-dir 并发 = 显式 fail-fast（Phase C 决定 queue/isolate） |
+| 2026-06-11 08:35 | **✅ 愿景守护终验 PASS（Fable-5）**：merged main final-SHA 重跑 smoke 20.7s 全绿（#2097 教训：gate 只对当时 SHA 成立）。**B-min "6/15 可切换状态"真正达成**。AC-B1/B4 ✅、AC-B3 拆分注记、pin 哨兵注册、判罚日 Runbook 入档 |
+| 2026-06-15 | OQ-13 判罚日（F198 AC-E4）→ 决定 B-full/C/D 激活与否；操作按下方 Runbook |
+
+## 6/15 判罚日 Runbook（B-min 版）
+
+**前置**：pin 哨兵每日确认 `~/.local/share/claude/versions/2.1.170` 存活（scheduled task，至 6/16）。
+
+1. **判罚观察**（6/15，47 + CVO）：Anthropic dashboard usage 页看 `--bg` invocations 计入订阅桶还是 SDK credit 桶（F198 AC-E4 / OQ-13 唯一 conclusive 证据）。
+2. **bg 安全（判进订阅桶）** → 什么都不做。B-full/C/D 维持 standby；interactive_pty 留在 factory 后零流量。
+3. **bg 翻车（判进 SDK 桶）** → 应急切换（runway 小时级，动作要快）：
+   - 铲屎官在 runtime 设 `CAT_CAFE_CLAUDE_CARRIER=interactive_pty` + 重启 API（runtime 操作归 CVO，猫不碰）
+   - 验证：发一条消息确认回复正常 + `grep entrypoint` 最新 transcript = `cli`
+   - 同时 F198 AC-D1 fallback 链兜底 print_sdk/$200 缓冲争取时间
+   - **CVO 下令激活 B-full/C/D fast-track**（golden parity + 多轮剧本 + 并发处理）
+4. **回滚**：unset env + 重启 API → 回 bg/-p。
+5. **B-min 应急模式已知边界（诚实列，切换前必读）**：
+   - ⚠️ **same-dir 并发 fail-fast**：同 thread 多猫并发（route-parallel 生产路径）第二只猫会显式报错不排队——应急期单猫串行可用，多猫并发受限，B-full 解决
+   - ⚠️ 依赖 2.1.170 pin（2.1.172-173 上游回归，哨兵监控）
+   - ⚠️ B-full parity 未做：streaming 粒度/usage 细节与 bg 不完全等价，应急可用质量不保证等价
 
 ## Review Gate（流水线 — CVO 钦点）
 
