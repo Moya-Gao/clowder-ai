@@ -723,6 +723,32 @@ skills:
     sop_step: null
     merged_from: null
 
+  anime-forge:
+    description: >
+      AI 生成动画短片生产线：图（关键帧锁确定性）→ 视频（i2v 给活气）→ 后期（剪辑做节奏）。
+      Use when: 做动画短剧/角色 IP 短片、猫咖日记系列新集、图生视频管线、剧情类 AI 视频。
+      Not for: 录屏/教程/showcase 视频（用 video-forge）、单张图生成（用 image-generation）、PPT（用 ppt-forge）。
+      Output: charter+分镜+prompt book+素材账本+EDL 驱动的成片，全程可复现可重渲。
+      GOTCHA: 与 video-forge 的区别——video-forge 素材是录的，anime-forge 素材是生成的，
+      核心难题是控制生成模型；含中文文字的图必须 GPT 系生成（Google 系中文乱码，实测）。
+    triggers:
+      - "动画短剧"
+      - "动漫短剧"
+      - "角色短片"
+      - "图生视频"
+      - "i2v"
+      - "猫咖日记"
+      - "醋醋喵"
+      - "AI 动画"
+    not_for:
+      - "录屏/教程/showcase 视频"
+      - "单张图生成"
+      - "PPT"
+    output: "Charter+shot-plan+prompt-book+ledger+EDL driven reproducible anime short"
+    next: ["feat-lifecycle", "rich-messaging"]
+    sop_step: null
+    merged_from: null
+
   # ── Skill 编写 ──
   writing-skills:
     description: >

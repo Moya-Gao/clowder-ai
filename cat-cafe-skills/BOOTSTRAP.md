@@ -56,6 +56,7 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 | `workspace-navigator` | 铲屎官说"打开日志/看代码/打开设计图"等模糊指令 → 猫猫自己找路径 → API 导航 | — |
 | `ppt-forge` | 做 PPT/演示文稿/视觉审查（三猫流水线） | — |
 | `video-forge` | 做视频/showcase/教程视频/视频审查 | — |
+| `anime-forge` | 做动画短剧/角色 IP 短片/图生视频管线（素材是生成的不是录的） | — |
 
 ### 参考文件（refs/，按需读取）
 
