@@ -68,13 +68,18 @@ created: 2026-06-12
 
 横切视图："现在谁该动、什么晾着、什么死了"。
 
-- **数据源（全部现存，只读）**：tasks（blocked/doing + 晾龄）、hold_ball 状态、pending mentions、thread 尾部消息 @ 解析、F167 telemetry、F177-G 守卫事件
-- **简报结构**：🔴 CVO 收件箱（含晾龄，降序）→ 💀 死球/睡美人告警 → ⚠️ 虚空传球 → 🟢 活球仅计数一行（**异常优先：正常推进的球不配出现在 CVO 眼前**）
+- **数据源（按可靠性分级，全部只读）**：
+  - **结构化（可直接信）**：tasks（blocked/doing + 晾龄 + owner）、hold_ball 状态、invocation 终态/错误（F212 cliDiagnostics 面）、F167 telemetry（streak / forced-pass）、F177-G 守卫事件
+  - **启发式（仅产候选，不产结论）**：thread 尾部 `@landy` / mentionsUser 解析——当前消息模型只有 `mentionsUser?: boolean`，**无 handoff/fyi/done intent 维度**（gpt52 R1 P1 钉死），故此面在 Phase A 只能生成"候选球"并显式标注推断来源
+- **简报结构**：🔴 CVO 候选球区（结构化 task 面 = 确信条目；mention 启发式 = 候选条目，带"推断"标记；含晾龄降序）→ 💀 死球/睡美人告警 → ⚠️ 虚空传球 → 🟢 活球仅计数一行（**异常优先：正常推进的球不配出现在 CVO 眼前**）
 - **Surface**：rich block 简报卡（每日定时 + on-demand），具体落点过 Design Gate in-context observability checklist（OQ-1）
 - 简报每条目附 thread/task/message 锚点，可跳转
+- 启发式候选的假阳性由 Eval Contract friction metric 兜底；**"CVO 收件箱"转正条件 = Phase B intent 字段落地**
 
-### Phase B: 死球心跳 + 睡美人探针（结构化回执）
+### Phase B: 球权事件流 + 死球心跳 + 睡美人探针（结构化回执）
 
+- **球权事件流（KD-2 的真正落点，本 Phase 核心交付）**：系统级 append-only ball-custody event log——@ 路由投递、hold_ball 设/释、task 状态转移、探针判定、唤醒投递、（Phase C 的）安乐死操作，统一写入单一事件流。**这是系统级记录，不新增任何猫侧手动汇报义务**。事件流自此成为简报与轨迹共同的唯一账本（向前）
+- **CVO handoff intent 结构化**：`@landy` 类消息/路由增加 intent 维度（`handoff` 真传球 / `fyi` 知会 / `done-notify` 完成通知），来源可以是猫侧显式声明 + 路由层默认推断兜底；落地后 Phase A 的"候选球区"转正为"CVO 收件箱"（schema 细节 → OQ-2）
 - invocation 异常退出（error / spend limit / timeout）→ 该 invocation 名义持有的球标记"无心跳"，进简报死球区（接 F212 cliDiagnostics / F153 health 信号）
 - blocked task 增加结构化 `probe` 字段（可执行判据，如 curl endpoint 判 handler 存在）+ `resolve` 二态字段；定时探针跑 probe，条件满足 → 按 resolve 语义完结或弹回 owner（弹回 = 真实唤醒投递，不是改状态）
 - 传球回执聚合：@ 后的接/退/升三选一是否发生（数据来源 F167 + 路由事件，不新增猫侧义务）
@@ -82,7 +87,11 @@ created: 2026-06-12
 ### Phase C: 安乐死通道 + feat 轨迹下钻
 
 - **安乐死通道**：球/task/thread 可显式「冷冻 / 降级 / 放弃」并留一行 why——feat close"实做 or 签字降级"二选一纪律的轻量 thread/task 层版本。目标：132 个置顶里"不敢杀的"有体面出口
-- **feat 轨迹视图**：纵切叙事——立项 → Phase 跃迁 → 关键 PR/verdict → 跨 thread 分叉/汇聚 → 当前状态。从现有痕迹（feat_index + feature doc Timeline + git log + thread 关联 + F192 verdict 流）推导生成，**不新增埋点**；简报每行可下钻进对应球的轨迹
+- **feat 轨迹视图**：纵切叙事——立项 → Phase 跃迁 → 关键 PR/verdict → 跨 thread 分叉/汇聚 → 当前状态。**数据来源按时间轴双轨**（gpt52 R1 P1 修正）：
+  - **事件流轨（≥ Phase B 上线时刻）**：直接读 Phase B 球权事件流——与简报同一账本，真·单账两投影
+  - **历史回填轨（< Phase B 上线时刻）**：从现有痕迹（feat_index + feature doc Timeline + git log + thread 关联 + F192 verdict 流）做一次性 stitched 回填，**每条标注 provenance + 置信度，明示为考古拼接而非账本**——feature doc 是覆盖式快照，历史轨迹本质不可能无损还原，不假装能
+  - 不新增猫侧手动汇报义务（系统级事件流记录属 Phase B 交付，不是埋点义务）
+- 简报每行可下钻进对应球的轨迹
 - 轨迹要能回答铲屎官的原问："F192 都经历了怎样的 thread、怎么变成现在这样、现在又是什么情况"（含"已器官化"这类非线性终态）
 
 ## Acceptance Criteria
@@ -90,9 +99,9 @@ created: 2026-06-12
 <!-- 每条 AC trace 回 Why；非作者可复核 -->
 
 ### Phase A（值班简报 MVP）
-- [ ] AC-A1: 简报对真实 runtime 数据运行，能暴露 ≥1 件 CVO 自报不知道的掉球（fixture：2026-06-12 spike 三球同型——30 天睡美人 / 死球断流 / 虚空传球——任一同型可被检出）→ trace Why"掉球不可观测"
+- [ ] AC-A1: 简报对真实 runtime 数据运行，能暴露 ≥1 件 CVO 自报不知道的掉球（fixture：2026-06-12 spike 三球同型——30 天睡美人【task 面，结构化】/ 死球断流【invocation 终态，结构化】/ 虚空传球【F167+F177-G 事件，结构化】——三型 fixture 均不依赖 mention 启发式，Phase A 可达性已钉）→ trace Why"掉球不可观测"
 - [ ] AC-A2: 正常推进的球不出现在简报正文，仅计数一行（用当日真实数据截图复核）→ trace Why"放心不看"
-- [ ] AC-A3: CVO 收件箱区每条含晾龄并降序排列，条目带可跳转锚点 → trace Why"CVO 没有收件箱"
+- [ ] AC-A3: CVO 候选球区每条含晾龄并降序排列、带可跳转锚点；启发式候选条目显式标注"推断"来源，与结构化条目视觉可区分 → trace Why"CVO 没有收件箱" + gpt52 R1 数据分级
 - [ ] AC-A4: 简报默认态正文 ≤15 行（10 秒可读完，CVO 判断"要不要介入"）→ trace Why"看的时候只看异常"
 - [ ] AC-A5: 简报生成全程只读，零写副作用（代码 review 复核数据访问面）→ trace KD-4
 
@@ -104,7 +113,7 @@ created: 2026-06-12
 ### Phase C（安乐死 + 轨迹）
 - [ ] AC-C1: 球可显式冷冻/降级/放弃且留 why，操作记入事件流；简报僵尸球区随之消项
 - [ ] AC-C2: 任选一个 ≥3 Phase 的 feat（如 F192）生成轨迹视图，铲屎官读后能回答"它怎么走到今天 + 现在啥情况"（验收人：铲屎官）
-- [ ] AC-C3: 简报任一条目可下钻到该球轨迹（同一事件流两个投影，无双写——代码 review 复核数据路径唯一）
+- [ ] AC-C3: Phase B 上线后产生的球权事件，简报与轨迹读同一事件流（代码 review 复核该时间段数据路径唯一、无双写）；历史回填条目带 stitched provenance 标注（抽查 ≥3 条可见标注）
 
 ## Eval / Tracking Contract
 
@@ -147,7 +156,7 @@ created: 2026-06-12
 | # | 问题 | 状态 |
 |---|------|------|
 | OQ-1 | 简报 primary surface：固定 thread 每日推送 / Hub 面板 / 两者（须过 in-context observability checklist 产出 `in_context_observability` 字段） | ⬜ Design Gate |
-| OQ-2 | "球在 CVO 手上"判定算法 v1（@landy 解析 + 待验收信号）的误报收敛策略 | ⬜ Design Gate |
+| OQ-2 | CVO handoff intent 字段 schema（`handoff`/`fyi`/`done-notify`：猫侧显式声明的载体——MCP 参数 or 消息标记——+ 路由层默认推断规则 + 历史消息兜底策略） | ⬜ Phase B plan |
 | OQ-3 | 安乐死通道是否提前到 Phase A 轻量版（一个显式标记 + why） | ⬜ Design Gate |
 | OQ-4 | probe 字段结构与安全白名单设计 | ⬜ Phase B plan |
 | OQ-5 | 账号级断流（spend limit）单独告警通道 | ⬜ Phase B plan |
@@ -158,7 +167,7 @@ created: 2026-06-12
 | # | 决策 | 理由 | 日期 |
 |---|------|------|------|
 | KD-1 | 不引入"球 ID"新原语，轨迹从现有痕迹推导 | ID 不修复断链（断链根因是传球未走系统动作），只是查询优化；实体化滑坡 = ticket play，与拒绝 role play 同源（四猫共识 + fable 论证） | 2026-06-12 |
-| KD-2 | 一条 append-only 球权事件流，两个视图投影（简报横切 / 轨迹纵切），下钻连接 | "一本账两个读法"；只存当前态快照会丢轨迹历史；双写必漂移（P4） | 2026-06-12 |
+| KD-2 | 一条 append-only 球权事件流，两个视图投影（简报横切 / 轨迹纵切），下钻连接。**时间边界（R1 修正）**：单账本承诺仅对事件流上线（Phase B）后的新事件成立；历史轨迹是 stitched 回填，标 provenance，不伪装账本 | "一本账两个读法"；只存当前态快照会丢轨迹历史；双写必漂移（P4）；历史不可无损还原是事实，诚实标注优于虚假承诺（gpt52 R1） | 2026-06-12 |
 | KD-3 | 简报异常优先：正常球只计数不出现 | CVO"放心不看"的对偶是"该看时系统叫你"，不是"全都能看"；地铁图式全景作对外叙事材料另议，不做运维仪表 | 2026-06-12 |
 | KD-4 | 只读观测先行，不做 workflow engine；给数据不给结论 | F073 告示牌原则 + KD-8 家规；自动转派/升级留给人和猫的判断力 | 2026-06-12 |
 | KD-5 | blocked 必须声明 on-resolve 二态（completes / bounces-back-to-owner） | 铲屎官 2026-06-12 原话区分两种等待语义；睡美人球（30 天 Repo Inbox task）为实证 | 2026-06-12 |
@@ -168,6 +177,7 @@ created: 2026-06-12
 | 日期 | 事件 |
 |------|------|
 | 2026-06-12 | 立项（CVO 原话 "我觉得可以！走起！喵" + "① 立项"）；spike 实测三暗球 + 唤醒 30 天睡美人球（cross_post 砚砚 msg 0001781247508616） |
+| 2026-06-12 | gpt52 spec R1 blocking ×2 → 修正：① Phase A 数据源按可靠性分级（mention 面无 intent 字段只产候选，"收件箱"转正条件 = Phase B intent 落地）② KD-2 单账本钉时间边界（事件流向前 / stitched 回填向后，标 provenance）。睡美人球后续：砚砚探针确认 handler 已就绪，task blocked reason 已更新为"等公网 ingress 或 CVO 决定走 reconciliation"——新 CVO 决策球一颗 |
 
 ## Review Gate
 
