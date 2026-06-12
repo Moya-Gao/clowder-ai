@@ -73,6 +73,20 @@ export function transcriptEntriesToAgentMessages(
     const entry = raw as Record<string, unknown>;
 
     if (entry.type === 'assistant') {
+      // F230 P2-synthetic: Claude CLI synthesizes assistant entries locally for two cases:
+      //   1. "No response requested." — nothing to do (zero API calls, zero tokens)
+      //   2. "API Error: ..." — ECONNRESET / network hiccup (CLI makes it look like a reply)
+      // These must NEVER surface as cat chat bubbles. Filter before transformClaudeEvent.
+      const msg = entry.message as Record<string, unknown> | undefined;
+      if (msg?.model === '<synthetic>') {
+        const content = msg?.content as Array<{ type: string; text?: string }> | undefined;
+        const text = content?.find((c) => c.type === 'text')?.text ?? '';
+        if (text.startsWith('API Error:') || text.startsWith('Error:')) {
+          out.push({ type: 'error', catId, error: text, timestamp: Date.now() });
+        }
+        // "No response requested." and other synthetic variants → silently drop
+        continue;
+      }
       // assistant shape matches -p NDJSON assistant event → feed directly.
       const result = transformClaudeEvent(entry, catId, state);
       if (result == null) continue;
@@ -152,8 +166,13 @@ export function accumulateUsageFromEntries(acc: UsageAccumulator, entries: unkno
     const entry = raw as Record<string, unknown>;
 
     if (entry.type === 'assistant') {
-      acc.assistantTurnCount++;
+      // F230 Codex-P2: skip synthetic entries — same predicate as
+      // transcriptEntriesToAgentMessages — so zero-API-call turns do not
+      // inflate assistantTurnCount or numTurns in the done metadata.
       const message = entry.message as Record<string, unknown> | undefined;
+      if (message?.model === '<synthetic>') continue;
+
+      acc.assistantTurnCount++;
       const usage = message?.usage as Record<string, unknown> | undefined;
       if (usage) {
         // Per-field: undefined = never observed, real number = observed.

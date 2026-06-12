@@ -10,6 +10,7 @@ const INTERNAL_SYSTEM_INFO_TELEMETRY_TYPES = new Set([
   'resume_failure_stats',
   'strategy_allow_compress',
   'tool_activity',
+  'turn_duration', // F230 P2: PTY carrier terminal event — silently consumed, never shown as bubble
 ]);
 
 export function isInternalSystemInfoTelemetry(parsed: Record<string, unknown>): boolean {

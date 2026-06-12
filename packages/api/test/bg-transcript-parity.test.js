@@ -13,7 +13,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
+  accumulateUsageFromEntries,
+  createUsageAccumulator,
   extractTranscriptUsage,
+  finalizeTranscriptUsage,
   transcriptEntriesToAgentMessages,
 } from '../dist/domains/cats/services/agents/providers/BgTranscriptEventConsumer.js';
 import {
@@ -230,4 +233,156 @@ test('extractTranscriptUsage: numTurns auto-counted from assistant entries when 
   ];
   const usage = extractTranscriptUsage(entries);
   assert.equal(usage.numTurns, 3, 'numTurns auto-counted from assistant entries');
+});
+
+// ─── F230 P2 synthetic-filter (2026-06-12) ─────────────────────────────────────
+// Claude CLI synthesizes <synthetic> assistant entries locally (zero API calls) for:
+//   - "No response requested." — nothing to do this turn (e.g. context compression check)
+//   - "API Error: ..." — ECONNRESET / network hiccup (the CLI makes this look like an assistant reply)
+// These must NEVER surface as cat chat bubbles in the UI.
+
+test('synthetic assistant "No response requested." → silently dropped (P2-synthetic)', () => {
+  const entries = [
+    {
+      type: 'assistant',
+      sessionId: 'sess-001',
+      message: {
+        id: 'msg_syn001',
+        model: '<synthetic>',
+        content: [{ type: 'text', text: 'No response requested.' }],
+        usage: { input_tokens: 0, output_tokens: 0 },
+      },
+    },
+  ];
+  const out = transcriptEntriesToAgentMessages(entries, { catId: CAT_ID });
+  assert.equal(out.length, 0, 'synthetic no-response must produce no AgentMessage events');
+});
+
+test('synthetic assistant "API Error: ECONNRESET" → error AgentMessage (P2-synthetic)', () => {
+  const entries = [
+    {
+      type: 'assistant',
+      sessionId: 'sess-001',
+      message: {
+        id: 'msg_syn002',
+        model: '<synthetic>',
+        content: [{ type: 'text', text: 'API Error: ECONNRESET' }],
+        usage: { input_tokens: 0, output_tokens: 0 },
+      },
+    },
+  ];
+  const out = transcriptEntriesToAgentMessages(entries, { catId: CAT_ID });
+  assert.equal(out.length, 1, 'synthetic API error must emit exactly one error AgentMessage');
+  assert.equal(out[0].type, 'error', 'emitted message must be type=error');
+  assert.ok(
+    typeof out[0].error === 'string' && out[0].error.includes('ECONNRESET'),
+    'error message must include the original error text',
+  );
+});
+
+test('synthetic assistant does not affect usage accumulation (zero tokens, P2-synthetic)', () => {
+  // Verifies that accumulateUsageFromEntries handles <synthetic> entries without double-counting
+  // (they have usage:{input_tokens:0,output_tokens:0} so the sum stays correct).
+  const entries = [
+    {
+      type: 'assistant',
+      sessionId: 'sess-001',
+      message: {
+        id: 'msg_real',
+        content: [{ type: 'text', text: 'Real reply.' }],
+        usage: { input_tokens: 10, output_tokens: 5 },
+      },
+    },
+    {
+      type: 'assistant',
+      sessionId: 'sess-001',
+      message: {
+        id: 'msg_syn003',
+        model: '<synthetic>',
+        content: [{ type: 'text', text: 'No response requested.' }],
+        usage: { input_tokens: 0, output_tokens: 0 },
+      },
+    },
+  ];
+  // Only the real assistant entry should produce a message
+  const msgs = transcriptEntriesToAgentMessages(entries, { catId: CAT_ID });
+  assert.equal(msgs.length, 1, 'only the real assistant entry should yield a message');
+  assert.equal(msgs[0].type, 'text');
+});
+
+// ─── Codex P2 review finding (2026-06-12): usage accumulator must skip synthetic ──
+// accumulateUsageFromEntries ran on raw entries before transcriptEntriesToAgentMessages
+// filtered them → synthetic "No response requested." incremented assistantTurnCount,
+// causing the done event to carry usage.numTurns=1 on zero-API-call turns.
+
+test('accumulateUsageFromEntries: synthetic-only session → assistantTurnCount stays 0 (Codex-P2)', () => {
+  // RED: before fix, synthetic entry increments assistantTurnCount to 1.
+  const entries = [
+    {
+      type: 'assistant',
+      sessionId: 'sess-syn',
+      message: {
+        id: 'msg_syn004',
+        model: '<synthetic>',
+        content: [{ type: 'text', text: 'No response requested.' }],
+        // no usage field — as produced by Claude CLI with zero real API call
+      },
+    },
+  ];
+  const acc = createUsageAccumulator();
+  accumulateUsageFromEntries(acc, entries);
+  assert.equal(
+    acc.assistantTurnCount,
+    0,
+    'synthetic entry must NOT increment assistantTurnCount (zero real API calls)',
+  );
+});
+
+test('accumulateUsageFromEntries: synthetic-only session → numTurns undefined in usage (Codex-P2)', () => {
+  // RED: before fix, numTurns=1 is emitted in usage for a pure-synthetic session.
+  const entries = [
+    {
+      type: 'assistant',
+      sessionId: 'sess-syn',
+      message: {
+        id: 'msg_syn005',
+        model: '<synthetic>',
+        content: [{ type: 'text', text: 'No response requested.' }],
+      },
+    },
+  ];
+  const usage = extractTranscriptUsage(entries);
+  assert.equal(
+    usage.numTurns,
+    undefined,
+    'pure-synthetic session must have numTurns=undefined, not 1 (no real API calls)',
+  );
+});
+
+test('accumulateUsageFromEntries: real+synthetic mix → only real turn counted (Codex-P2)', () => {
+  // Mixed: one real turn + one synthetic. assistantTurnCount must be 1, not 2.
+  const entries = [
+    {
+      type: 'assistant',
+      message: {
+        id: 'msg_real',
+        content: [{ type: 'text', text: 'Real reply.' }],
+        usage: { input_tokens: 10, output_tokens: 5 },
+      },
+    },
+    {
+      type: 'assistant',
+      message: {
+        id: 'msg_syn006',
+        model: '<synthetic>',
+        content: [{ type: 'text', text: 'No response requested.' }],
+      },
+    },
+  ];
+  const acc = createUsageAccumulator();
+  accumulateUsageFromEntries(acc, entries);
+  assert.equal(acc.assistantTurnCount, 1, 'only the real entry should count toward assistantTurnCount');
+  const usage = finalizeTranscriptUsage(acc);
+  assert.equal(usage.numTurns, 1, 'numTurns must be 1 for a single real turn');
+  assert.equal(usage.outputTokens, 5, 'token counts from the real turn must be preserved');
 });
