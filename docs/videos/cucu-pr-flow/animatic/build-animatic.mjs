@@ -149,7 +149,7 @@ let cursor = 0;
 const cues = [];
 for (const shot of edl.shots) {
   for (const sub of shot.subtitles ?? []) {
-    cues.push({ start: (cursor + sub.startMs) / 1000, end: (cursor + sub.endMs) / 1000, text: sub.text });
+    cues.push({ start: (cursor + sub.startMs) / 1000, end: (cursor + sub.endMs) / 1000, text: sub.text, os: sub.os === true });
   }
   cursor += shotDurationMs(shot);
 }
@@ -166,7 +166,7 @@ writeFileSync(
 // --- render subtitle strips (Chrome transparent PNG) + overlay burn ---
 cues.forEach((cue, i) => {
   const png = resolve(subsDir, `sub-${String(i).padStart(2, '0')}.png`);
-  const url = `file://${resolve(here, 'subtitle.html')}?${new URLSearchParams({ text: cue.text })}`;
+  const url = `file://${resolve(here, 'subtitle.html')}?${new URLSearchParams({ text: cue.text, ...(cue.os ? { os: '1' } : {}) })}`;
   run(CHROME, [
     '--headless',
     '--disable-gpu',

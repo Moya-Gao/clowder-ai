@@ -337,6 +337,49 @@ Keep both characters fully visible.
 **验收点**：不看字幕也懂"被定罪"——Landy 指着笑，砚砚心虚别开视线。
 **翻车修法**：双角色镜头最容易 FM-04/FM-02——比例崩或表情糊 → 先 roll ×3；不行拆单人镜（宣判/认栽各一张，我再给 prompt）。
 
+## 4.4 S00 · 开场：Landy 兴奋宣布（剧本 v2，CVO 2026-06-12 新增）——先图后视频，放全片最前
+
+**拍点**：Landy 兴奋冲到砚砚工位："宪宪 fable 发布了！！听说是目前最强的猫猫！！快帮我接他进来！！加个头像他就能被召唤了！！"——砚砚从屏幕回头，耳朵微压，表情微妙。**这场戏是醋的动机闭环起点**：当着原最强的面喊新来的"最强"+"被召唤"三个字埋下 S05 内心 OS 的回收线。取 5s。
+
+**图片 prompt（给云端砚砚，§0.5 铁则照常：附两张四格漫画 + reference 第一行）**：
+
+```text
+[统一前缀] Landy (the SAME person in the yellow "Landy" hoodie as the reference comic, normal adult scale) bursts into the cozy cat-cafe office, super excited with sparkling eyes, mid-stride, both hands raised happily. He is rushing toward the desk of the SAME large grumpy silver tabby Maine Coon cat from the reference comic. The Maine Coon turns its head back from the monitor, one ear tilted down, with a subtle complicated expression — surprised and slightly displeased. A few motion lines around Landy showing excitement. The "流程即正义" desk sign visible on the desk. Single cinematic shot, no comic panels.
+```
+
+**i2v prompt（给云端烁烁）**：
+
+```text
+Animate this image into a short 5-second video.
+
+Keep the same composition, same character positions, and same character sizes.
+Keep the Maine Coon cat's cute chubby cartoon look exactly as in the first frame.
+
+Action:
+- Landy rushes in excitedly, waving both hands while talking fast.
+- Then Landy points toward the cafe door, eyes sparkling.
+- The Maine Coon cat slowly turns its head back from the monitor.
+- Then the cat's ears tilt down slightly, unimpressed.
+
+Environment:
+- Very subtle warm light flicker.
+
+Camera:
+- Keep the camera fixed.
+- Do not zoom.
+- Do not crop.
+
+Do not change the composition.
+Do not change character scale.
+Do not turn Landy into a child or tiny person.
+Do not add new characters.
+Do not make the cat realistic or photorealistic.
+Keep the screen content unchanged.
+```
+
+**验收点**：Landy 的兴奋 vs 砚砚回头瞬间"眼神一暗"的反差一眼成立——醋的种子镜头。
+**字幕**（素材到位后启用，已在 EDL 注释占位）：两条 Landy 台词；砚砚无台词——压下去的耳朵就是台词。
+
 ## 4.5 S11 · True End 彩蛋（CVO 2026-06-11 新增）——先图后视频，放 S10 之后
 
 **拍点**：Landy 抱起砚砚"宝贝大猫猫你太可爱了！"，砚砚傲娇脸软化、尾巴卷上手臂——全片唯一温暖镜头，揭示醋的本质是爱。取 5s。

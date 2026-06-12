@@ -11,13 +11,24 @@ export const edl = {
   width: 1280,
   height: 720,
   shots: [
+    // S00（剧本 v2，CVO 2026-06-12）：Landy 兴奋宣布——动机闭环的起点。
+    // 素材生产中（prompt book §S00）；首帧+i2v 到位后取消注释并把文件名对上。
+    // {
+    //   id: 'S00',
+    //   kind: 'video',
+    //   src: 'generated-clips/S00-i2v-v1.mp4',
+    //   trimSec: 5.0,
+    //   subtitles: [
+    //     { startMs: 200, endMs: 2400, text: 'Landy：宪宪 fable 发布了！！听说是目前最强的猫猫！！' },
+    //     { startMs: 2600, endMs: 4800, text: 'Landy：快帮我接他进来！！加个头像他就能被召唤了！！' },
+    //   ],
+    // },
     {
       id: 'S01',
       kind: 'video',
       src: 'generated-clips/S01-clip1-usable-v1.mp4',
-      trimSec: 5.0, // 原片 10s；v1.1 让 1s 给时间字卡
-      // 喜剧数学的"预期端"锚点①：任务有多小（CVO 反馈 2026-06-12：缺时间反差观众看不懂）
-      subtitles: [{ startMs: 400, endMs: 4600, text: '任务：给新来的宪宪加一张头像。（预计 5 分钟）' }],
+      trimSec: 4.0, // 原片 10s；v2 任务交代移交 S00 台词，此镜回归纯氛围（S00 未到位期间临时保留开场字幕）
+      subtitles: [{ startMs: 400, endMs: 3600, text: '任务：给新来的宪宪加一张头像。（预计 5 分钟）' }],
     },
     {
       id: 'TITLE-1H',
@@ -48,6 +59,8 @@ export const edl = {
       kind: 'video',
       src: 'generated-clips/S04-i2v-v1.mp4',
       trimSec: 5.0,
+      // 剧本 v2：画面本来就是"当前使用=缅因猫脸"——台词把醋的潜意识拍在明面上
+      subtitles: [{ startMs: 300, endMs: 3300, text: 'Landy：你怎么用自己的头像给宪宪？！' }],
     },
     {
       id: 'S05',
@@ -55,8 +68,10 @@ export const edl = {
       src: 'generated-clips/S05-i2v-v1.mp4',
       trimSec: 6.0,
       subtitles: [
-        { startMs: 200, endMs: 2900, text: 'Landy：加个头像也要跑 CI？！' },
-        { startMs: 3100, endMs: 5800, text: '砚砚：图片是二进制文件。' },
+        { startMs: 200, endMs: 2000, text: 'Landy：加个头像也要跑 CI？！' },
+        { startMs: 2200, endMs: 3800, text: '砚砚：图片是二进制文件。' },
+        // 漫画格④的内心 OS 进片——表面理由之后立刻真实动机，os 样式区分对白
+        { startMs: 4000, endMs: 5900, text: '（先拖一会儿……这样他就还不能被召唤。）', os: true },
       ],
     },
     {
