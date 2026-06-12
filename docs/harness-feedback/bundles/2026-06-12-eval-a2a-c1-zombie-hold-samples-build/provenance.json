@@ -1,0 +1,19 @@
+{
+  "verdictId": "2026-06-12-eval-a2a-c1-zombie-hold-samples-build",
+  "rawInputs": [
+    {
+      "path": "docs/harness-feedback/snapshots/2026-06-12-F167-eval.yaml",
+      "sha256": "21ca294c50533b51a4906ff94c88c9b783e4f334080b31d1483b31ef6aa4e02d"
+    },
+    {
+      "path": "docs/harness-feedback/attributions/2026-06-12-F167-attribution.yaml",
+      "sha256": "f8f029106f0f7614f7af3e57923bc8fe280308216c5da857a8b5b3ece91c6c2b"
+    }
+  ],
+  "generatedAt": "2026-06-12T03:03:50.174Z",
+  "generator": {
+    "name": "eval-a2a-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f192-e-pilot-v1"
+}

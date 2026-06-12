@@ -1,0 +1,36 @@
+{
+  "verdictId": "2026-06-12-eval-a2a-c1-zombie-hold-samples-build",
+  "featureId": "F167",
+  "evalSnapshotId": "eval-F167-2026-06-12",
+  "generatedAt": "2026-06-12T03:03:50.174Z",
+  "findings": [
+    {
+      "id": "AR-2026-06-12-001",
+      "relatedFeature": "F167",
+      "frictionSignal": {
+        "type": "c1.zombie_hold_count",
+        "severity": "high",
+        "confidence": 0.7
+      },
+      "attribution": {
+        "primaryLayer": "harness_misfit",
+        "pipelineOrHuman": "human-required",
+        "evidence": [
+          {
+            "type": "counter",
+            "anchor": "C1/c1.zombie_hold_count",
+            "excerpt": "c1.zombie_hold_count=5 (baseline hold_ball_calls=7, ratio=71.4%)"
+          }
+        ]
+      },
+      "proposedAction": [
+        {
+          "action": "harness-tune",
+          "target": "C1/c1.zombie_hold_count",
+          "rationale": "c1.zombie_hold_count ratio 71.4% exceeds threshold"
+        }
+      ],
+      "status": "open"
+    }
+  ]
+}

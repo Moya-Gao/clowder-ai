@@ -1,0 +1,25 @@
+{
+  "verdictId": "2026-06-12-eval-a2a-c1-zombie-hold-samples-build",
+  "evalSnapshotId": "eval-F167-2026-06-12",
+  "featureId": "F167",
+  "generatedAt": "2026-06-12T03:03:50.166Z",
+  "window": {
+    "startMs": 1781147083920,
+    "endMs": 1781233419123,
+    "durationHours": 23.98
+  },
+  "components": [
+    {
+      "id": "C1",
+      "name": "hold_ball (MCP tool)",
+      "confidence": "medium",
+      "activationCounts": {
+        "hold_ball_calls": 7
+      },
+      "frictionCounts": {
+        "c1.zombie_hold_count": 5,
+        "c1.hold_cancel_count": 2
+      }
+    }
+  ]
+}
