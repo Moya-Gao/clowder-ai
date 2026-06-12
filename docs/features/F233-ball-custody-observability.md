@@ -48,7 +48,7 @@ created: 2026-06-12
 
 | # | 形态 | 定义 | 检测信号 |
 |---|------|------|----------|
-| 1 | **搁置球** | 名义在某 agent（尤其 CVO）手上，晾龄超阈值 | @landy / 待验收信号 + 无后续消息 |
+| 1 | **搁置球** | 名义在某 agent（尤其 CVO）手上，晾龄超阈值 | 结构化：task owner + 晾龄；启发式（仅候选）：@landy / 待验收信号 + 无后续消息——Phase B intent 字段落地前不作结论（R1 口径） |
 | 2 | **死球** | 持有 invocation 死亡（spend limit / crash / 网络），名义持有者无心跳 | invocation error/exit + 无后续扫描 |
 | 3 | **睡美人球** | 阻塞条件已满足，但无唤醒通道 | blocked task 条件探针返回"已满足" |
 | 4 | **虚空传球** | 说"让 X 做"但无系统动作 | F167 forced-pass guard + 路由守卫事件 |
@@ -155,12 +155,12 @@ created: 2026-06-12
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | 简报 primary surface：固定 thread 每日推送 / Hub 面板 / 两者（须过 in-context observability checklist 产出 `in_context_observability` 字段） | ⬜ Design Gate |
+| OQ-1 | 简报 primary surface。**作者推荐**：固定「值班简报」thread + 每日 cron 推 rich block 简报卡 + on-demand 触发；Hub 面板**不做** Phase A primary（132 置顶已实证"CVO 主动巡逻"模式失败；dashboard-only 是 F174 教训反面），留作 Phase C deep-dive 候选。`in_context_observability` 草案：primary_surface=值班简报 thread rich block（cron+on-demand）/ why_not_dashboard_only=主动巡逻模式已被 132 置顶实证失败，须系统叫人 / deep_dive_surface=Phase C 轨迹下钻（简报条目锚点跳转）/ noise_dedup_policy=异常优先（KD-3）+ 同根因聚合（Risk 表）+ friction metric 盯假阳性 | ⬜ 待 CVO 拍板（推荐已出） |
 | OQ-2 | CVO handoff intent 字段 schema（`handoff`/`fyi`/`done-notify`：猫侧显式声明的载体——MCP 参数 or 消息标记——+ 路由层默认推断规则 + 历史消息兜底策略） | ⬜ Phase B plan |
 | OQ-3 | 安乐死通道是否提前到 Phase A 轻量版（一个显式标记 + why） | ⬜ Design Gate |
 | OQ-4 | probe 字段结构与安全白名单设计 | ⬜ Phase B plan |
 | OQ-5 | 账号级断流（spend limit）单独告警通道 | ⬜ Phase B plan |
-| OQ-6 | Architecture cell 归属 + Map delta（对照 `docs/architecture/ownership/README.md`） | ⬜ Design Gate |
+| OQ-6 | Architecture cell 归属 + Map delta | ✅ 已决：**Phase A** cell=`hub-action-surface`（只读聚合 + rich block surface，全在既有边界内），Map delta: **none**；**Phase B** 球权事件流为新 domain，Map delta: **new cell required**（`ball-custody`，event-log + projector 模式参照 `community-ops` cell 先例：CommunityEventLog/projector/state-machine），cell 文档随 Phase B PR 创建 |
 
 ## Key Decisions
 
