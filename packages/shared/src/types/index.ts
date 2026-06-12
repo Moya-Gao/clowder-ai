@@ -652,6 +652,8 @@ export { extractFeatureIds, isTrackingKind } from './task.js';
 export type { CancelReasonValue, PermissionCancelEvent } from './task-outcome.js';
 // Task Outcome types (F192 Phase G)
 export { CANCEL_REASON_OPTIONS } from './task-outcome.js';
+// F232: thread artifacts panel DTO
+export type { ThreadArtifactDTO, ThreadArtifactsResponse, ThreadArtifactType } from './thread-artifact.js';
 // TTS types (F34 TTS Provider)
 export type {
   ITtsProvider,

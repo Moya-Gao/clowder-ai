@@ -1,6 +1,13 @@
 {
   "exceptions": [
     {
+      "path": "packages/api/src/domains/cats/services/agents/routing",
+      "owner": "opus-48",
+      "reason": "Routing 25 files（agent routing + artifact-tracking + F232 thread-artifacts-aggregator）。与 invocation(25)/providers(32) 同属 agents 子域债务，ADR-010 该子拆分但 scope 不含 F232。F232 加 aggregator 顶过 25 线，time-bound 豁免待 routing 子拆分（记 F23 Phase 2）。",
+      "expiresAt": "2026-06-30",
+      "ticket": "F23-followup"
+    },
+    {
       "path": "packages/api/src/routes",
       "owner": "opus",
       "reason": "Routes 按功能已分文件（147 files），ADR-010 重构 scope 不含 routes，需要按 HTTP verb / domain 重新评估子拆分边界。SECOND-ROUND unblock（首轮 a4e81b8791 续期到 2026-06-01）。Follow-up split plan 记在 F23 § Phase 2 follow-up。",

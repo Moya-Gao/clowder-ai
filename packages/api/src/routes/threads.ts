@@ -13,6 +13,10 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import type { InvocationTracker } from '../domains/cats/services/agents/invocation/InvocationTracker.js';
 import type { TaskProgressStore } from '../domains/cats/services/agents/invocation/TaskProgressStore.js';
+import {
+  aggregateThreadArtifacts,
+  collectAllThreadMessages,
+} from '../domains/cats/services/agents/routing/thread-artifacts-aggregator.js';
 import { resolveBootcampWorkspaceRoot } from '../domains/cats/services/bootcamp/workspace-root.js';
 import { AuditEventTypes, getEventAuditLog } from '../domains/cats/services/orchestration/EventAuditLog.js';
 import type { IBacklogStore } from '../domains/cats/services/stores/ports/BacklogStore.js';
@@ -268,7 +272,7 @@ const updateThreadSchema = z
   );
 
 export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> = async (app, opts) => {
-  const { threadStore, messageStore, taskProgressStore } = opts;
+  const { threadStore, messageStore, taskProgressStore, taskStore } = opts;
 
   // POST /api/threads - 创建对话
   app.post('/api/threads', async (request, reply) => {
@@ -694,6 +698,44 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> = async (ap
 
     const snapshot = taskProgressStore ? await taskProgressStore.getThreadSnapshots(threadId) : {};
     return { threadId, taskProgress: snapshot };
+  });
+
+  // F232: GET /api/threads/:threadId/artifacts — aggregate thread products (rich blocks + PR tasks + file ledger)
+  app.get<{ Params: { threadId: string } }>('/api/threads/:threadId/artifacts', async (request, reply) => {
+    const userId = resolveUserId(request, {});
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required' };
+    }
+
+    const { threadId } = request.params;
+    const thread = await threadStore.get(threadId);
+    if (!thread) {
+      reply.status(404);
+      return { error: 'Thread not found' };
+    }
+
+    if (thread.createdBy !== userId && thread.createdBy !== 'system') {
+      reply.status(403);
+      return { error: 'Access denied' };
+    }
+
+    // P1 fix (砚砚 review): 分页扫全量消息，getByThread 默认 limit=50 会吞掉 >50 条 thread 的早期产物
+    const messages = messageStore ? await collectAllThreadMessages(messageStore, threadId, userId) : [];
+    const allTasks = taskStore ? await taskStore.listByThread(threadId) : [];
+    // F232 P1 (cloud review): system thread（createdBy='system'，shared default thread）任何认证用户
+    // 都通过上面的 access guard，但 PR tracking task 带注册者 userId（user-specific）。必须按 userId 过滤，
+    // 否则 shared system thread 上 Alice 会看到 Bob 的 PR titles/refs。messages 已由
+    // collectAllThreadMessages(userId) scoped；ledger 是 thread 级产物记录（updatedBy=cat/'user'，非
+    // user 私有数据），无需过滤。
+    const prTasks = allTasks.filter((t) => t.kind === 'pr_tracking' && t.userId === userId);
+    const mem = await threadStore.getThreadMemory(threadId);
+    // P1 fix (砚砚 review): ledger 含 file/plan/feature-doc 文档产物（F148 类型），不止 file；都映射为面板 file 类，不静默丢
+    const fileLedger = (mem?.recentArtifacts ?? []).filter(
+      (a) => a.type === 'file' || a.type === 'plan' || a.type === 'feature-doc',
+    );
+    const artifacts = aggregateThreadArtifacts({ messages, prTasks, fileLedger });
+    return { threadId, artifacts };
   });
 
   // F35: PATCH /api/threads/:id/reveal — reveal all whispers in a thread

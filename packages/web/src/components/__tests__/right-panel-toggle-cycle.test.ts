@@ -8,11 +8,11 @@ import { rightPanelToggleTransition } from '../ChatContainerHeader';
 
 describe('F099 RightPanelToggle three-state cycle', () => {
   let panelOpen: boolean;
-  let mode: 'status' | 'workspace' | 'transcript';
+  let mode: 'status' | 'workspace' | 'transcript' | 'artifacts';
   const togglePanel = () => {
     panelOpen = !panelOpen;
   };
-  const setMode = (m: 'status' | 'workspace' | 'transcript') => {
+  const setMode = (m: 'status' | 'workspace' | 'transcript' | 'artifacts') => {
     mode = m;
   };
 

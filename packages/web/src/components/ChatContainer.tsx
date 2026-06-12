@@ -36,6 +36,7 @@ import { computeCliDiagnosticsDedup } from '@/utils/cli-diagnostics-dedup';
 import { computeScrollRecomputeSignal } from '@/utils/scrollRecomputeSignal';
 import { getUserId } from '@/utils/userId';
 import { AgentHookHealthNotice, shouldRenderAgentHookHealthNotice } from './AgentHookHealthNotice';
+import { ArtifactsPanel } from './ArtifactsPanel';
 import { AuthorizationCard } from './AuthorizationCard';
 import { BootcampListModal } from './BootcampListModal';
 import { BootstrapOrchestrator } from './BootstrapOrchestrator';
@@ -1168,6 +1169,20 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
             onDoubleClick={resetChatBasis}
           />
           <TranscriptPanel />
+        </>
+      )}
+      {statusPanelOpen && rightPanelMode === 'artifacts' && threadId && (
+        <>
+          <div className="hidden lg:flex">
+            <ResizeHandle
+              direction="horizontal"
+              label="右侧产物栏"
+              onResize={handleStatusPanelResize}
+              onCollapse={() => setStatusPanelOpen(false)}
+              onDoubleClick={resetStatusPanelWidth}
+            />
+          </div>
+          <ArtifactsPanel threadId={threadId} width={statusPanelWidth} onClose={() => setStatusPanelOpen(false)} />
         </>
       )}
       <FloatingTranscriptContainer />

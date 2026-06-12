@@ -619,8 +619,13 @@ export class MessageStore {
       if (msg.deletedAt) continue;
       if (!isDelivered(msg)) continue; // F117: exclude queued/canceled
       if (userId && msg.userId !== userId && !isSystemUserMessage(msg)) continue;
-      if (msg.timestamp > timestamp) continue;
-      if (msg.timestamp === timestamp) {
+      // F232 P1 (cloud review): 游标按 effective order time（deliveredAt ?? timestamp）比较，
+      // 与 RedisMessageStore 的 zset score 语义一致——queued 消息投递后 markDelivered 会把其
+      // effective order time 推到 deliveredAt。若仍按 raw timestamp 比较，传入 deliveredAt 游标时
+      // 游标消息自身（timestamp < deliveredAt）会被重复包含 → collectAllThreadMessages 同页无限循环。
+      const effectiveTs = msg.deliveredAt ?? msg.timestamp;
+      if (effectiveTs > timestamp) continue;
+      if (effectiveTs === timestamp) {
         if (!beforeId || msg.id >= beforeId) continue;
       }
       matches.push(msg);
