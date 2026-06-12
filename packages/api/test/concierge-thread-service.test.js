@@ -6,6 +6,25 @@
 import './helpers/setup-cat-registry.js';
 import assert from 'node:assert/strict';
 import { beforeEach, describe, it } from 'node:test';
+import { catRegistry } from '@cat-cafe/shared';
+
+// gemini35 lives in the runtime catalog overlay (not cat-template.json).
+// Register it for tests so resolveDefaultDutyCatProfileId() can find it.
+if (!catRegistry.has('gemini35')) {
+  catRegistry.register('gemini35', {
+    id: 'gemini35',
+    name: '暹罗猫 Gemini 3.5 Flash',
+    displayName: '暹罗猫',
+    avatar: '/avatars/gemini25.png',
+    color: { primary: '#2563EB', secondary: '#DBEAFE' },
+    mentionPatterns: ['@gemini35'],
+    clientId: 'google',
+    defaultModel: 'Gemini 3.5 Flash (High)',
+    mcpSupport: true,
+    roleDescription: '暹罗猫 Gemini 3.5 Flash',
+    personality: '创意灵感丰富',
+  });
+}
 
 describe('ConciergeThreadService', () => {
   let ConciergeThreadService;
@@ -189,14 +208,14 @@ describe('ConciergeThreadService', () => {
   it('getOrCreate normalizes stale dutyCatProfileId to valid catId (FIX-3 R2)', async () => {
     const { service, threadStore, conciergeConfigStore } = makeService();
 
-    // Store a config with a stale/invalid dutyCatProfileId (e.g., mention alias or removed cat).
-    // FIX-3: ConciergeConfigStore.get() should re-resolve it to the default (gemini25).
+    // Store a config with a stale/invalid dutyCatProfileId (e.g., removed cat).
+    // FIX-3: ConciergeConfigStore.get() should re-resolve it to the default (gemini35).
     await conciergeConfigStore.put('user-stale', {
       enabled: true,
       skin: 'yarn-ball',
       displayName: '猫猫球',
       personaTone: '温暖',
-      dutyCatProfileId: 'gemini35',
+      dutyCatProfileId: 'removed-cat-xyz',
       proactivePolicy: 'quiet-badge',
       muted: false,
     });
@@ -205,25 +224,21 @@ describe('ConciergeThreadService', () => {
     const thread = await threadStore.get(threadId);
 
     assert.ok(thread, 'thread should exist');
-    // The stale 'gemini35' should be re-resolved to 'gemini25' (the real catId)
+    // The stale 'removed-cat-xyz' should be re-resolved to 'gemini35' (default duty cat)
     assert.deepStrictEqual(
       thread.preferredCats,
-      ['gemini25'],
+      ['gemini35'],
       'stale dutyCatProfileId should be normalized to valid catId via ConciergeConfigStore.get()',
     );
   });
 
-  it('MemoryConciergeConfigStore default dutyCatProfileId resolves to gemini25 (catId, not alias)', async () => {
-    // Regression: the resolver previously checked 'gemini35' (mention alias) instead of
-    // 'gemini25' (actual catId). The check always failed, defaulting to ids[0]='opus'.
-    // Fix: check 'gemini25' which is the catId in cat-template.json.
+  it('MemoryConciergeConfigStore default dutyCatProfileId resolves to gemini35', async () => {
+    // Default duty cat: gemini35 (暹罗猫 Gemini 3.5 Flash, 铲屎官 directive 2026-06-12).
+    // gemini35 is registered in runtime catalog (not cat-template.json), so test setup
+    // manually registers it above.
     const { MemoryConciergeConfigStore } = await import('../dist/domains/concierge/ConciergeConfigStore.js');
     const store = new MemoryConciergeConfigStore();
     const config = await store.get('user-default-check');
-    assert.equal(
-      config.dutyCatProfileId,
-      'gemini25',
-      'default duty cat should be gemini25 (catId), not gemini35 (alias) or ids[0]',
-    );
+    assert.equal(config.dutyCatProfileId, 'gemini35', 'default duty cat should be gemini35 (暹罗猫 Gemini 3.5 Flash)');
   });
 });

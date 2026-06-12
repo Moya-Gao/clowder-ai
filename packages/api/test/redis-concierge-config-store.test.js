@@ -6,6 +6,26 @@
 import './helpers/setup-cat-registry.js';
 import assert from 'node:assert/strict';
 import { after, before, beforeEach, describe, it } from 'node:test';
+import { catRegistry } from '@cat-cafe/shared';
+
+// gemini35 lives in the runtime catalog overlay (not cat-template.json).
+// Register it for tests so resolveDefaultDutyCatProfileId() finds the expected default.
+if (!catRegistry.has('gemini35')) {
+  catRegistry.register('gemini35', {
+    id: 'gemini35',
+    name: '暹罗猫 Gemini 3.5 Flash',
+    displayName: '暹罗猫',
+    avatar: '/avatars/gemini25.png',
+    color: { primary: '#2563EB', secondary: '#DBEAFE' },
+    mentionPatterns: ['@gemini35'],
+    clientId: 'google',
+    defaultModel: 'Gemini 3.5 Flash (High)',
+    mcpSupport: true,
+    roleDescription: '暹罗猫 Gemini 3.5 Flash',
+    personality: '创意灵感丰富',
+  });
+}
+
 import {
   assertRedisIsolationOrThrow,
   cleanupPrefixedRedisKeys,
@@ -62,7 +82,7 @@ describe('RedisConciergeConfigStore', { skip: redisIsolationSkipReason(REDIS_URL
     assert.equal(config.personaTone, '温暖、简短、不啰嗦');
     assert.equal(config.proactivePolicy, 'quiet-badge');
     assert.equal(config.muted, false);
-    // dutyCatProfileId default: 'gemini25' (catId) if in roster, else first available
+    // dutyCatProfileId default: 'gemini35' (暹罗猫 Gemini 3.5 Flash) if in roster, else first available
     assert.ok(typeof config.dutyCatProfileId === 'string' && config.dutyCatProfileId.length > 0);
   });
 

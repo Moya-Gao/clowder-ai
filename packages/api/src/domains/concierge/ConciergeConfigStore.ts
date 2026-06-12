@@ -5,7 +5,7 @@
  * 遵照 LabelStore/GameStore 三件模式：port interface + Redis 实现 + Memory 实现（测试用）。
  *
  * dutyCatProfileId 默认值解析：
- * - 优先 'gemini25'（铲屎官 KD-7 首选；注：catId 是 gemini25，mention alias @gemini35）
+ * - 优先 'gemini35'（铲屎官 directive 2026-06-12：暹罗猫 Gemini 3.5 Flash）
  * - 不存在则取 catRegistry.getAllIds()[0]
  * - registry 为空时 fallback 'sonnet'
  */
@@ -20,7 +20,7 @@ import { ConciergeKeys } from './concierge-keys.js';
 
 function resolveDefaultDutyCatProfileId(): string {
   const ids = catRegistry.getAllIds();
-  if (ids.includes('gemini25' as never)) return 'gemini25';
+  if (ids.includes('gemini35' as never)) return 'gemini35';
   if (ids.length > 0) return ids[0];
   return 'sonnet';
 }
@@ -58,7 +58,7 @@ export class RedisConciergeConfigStore implements IConciergeConfigStore {
     const config = JSON.parse(raw) as ConciergeConfig;
     // FIX-3: validate stored dutyCatProfileId — stale/missing values (e.g., config
     // saved before resolution logic existed, or cat removed from roster) should
-    // re-resolve to the plan default (gemini25 → first available → sonnet).
+    // re-resolve to the plan default (gemini35 → first available → sonnet).
     if (!config.dutyCatProfileId || !catRegistry.has(config.dutyCatProfileId)) {
       config.dutyCatProfileId = resolveDefaultDutyCatProfileId();
     }
