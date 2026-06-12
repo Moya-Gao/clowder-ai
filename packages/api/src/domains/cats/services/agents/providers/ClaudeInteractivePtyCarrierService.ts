@@ -36,6 +36,7 @@ import {
   resolveDefaultClaudeMcpServerPath,
 } from './ClaudeAgentService.js';
 import {
+  extractEntrypointFromHookEntries,
   extractSessionIdFromHookEntries,
   hookEntriesToAgentMessages,
   isHookTerminalEvent,
@@ -323,6 +324,7 @@ export class ClaudeInteractivePtyCarrierService implements AgentService {
       let lastActivityMs = Date.now();
       let terminal = false;
       let hookSessionId: string | undefined;
+      let hookEntrypoint: string | undefined;
 
       while (!terminal) {
         if (abortRequested) {
@@ -352,6 +354,11 @@ export class ClaudeInteractivePtyCarrierService implements AgentService {
                 sessionInitYielded = true;
               }
             }
+          }
+
+          // Extract entrypoint from enriched hook entries (F230 follow-up ①: AC-B1)
+          if (!hookEntrypoint) {
+            hookEntrypoint = extractEntrypointFromHookEntries(entries);
           }
 
           // Emit AgentMessages from hook events (Stop→text, PostToolUse→tool_use)
@@ -390,7 +397,13 @@ export class ClaudeInteractivePtyCarrierService implements AgentService {
         catId,
         isFinal: true,
         timestamp: Date.now(),
-        metadata: { model: effectiveModel, usage, provider: 'claude_interactive_pty' },
+        metadata: {
+          model: effectiveModel,
+          usage,
+          provider: 'claude_interactive_pty',
+          // F230 follow-up ①: billing identity from hook sidecar (AC-B1)
+          ...(hookEntrypoint ? { entrypoint: hookEntrypoint } : {}),
+        },
       };
     } finally {
       options?.signal?.removeEventListener('abort', abortListener);

@@ -93,9 +93,29 @@ function encodeBlackSeg(durationMs, name) {
 function encodeTitleSeg(shot, name) {
   const png = resolve(segsDir, `${name}.png`);
   const url = `file://${resolve(here, 'intertitle.html')}?${new URLSearchParams({ text: shot.text, sub: shot.sub ?? '' })}`;
-  run(CHROME, ['--headless', '--disable-gpu', '--hide-scrollbars', `--window-size=${W},${H}`, `--screenshot=${png}`, '--virtual-time-budget=600', url]);
+  run(CHROME, [
+    '--headless',
+    '--disable-gpu',
+    '--hide-scrollbars',
+    `--window-size=${W},${H}`,
+    `--screenshot=${png}`,
+    '--virtual-time-budget=600',
+    url,
+  ]);
   const seg = resolve(segsDir, `${name}.mp4`);
-  run('ffmpeg', ['-y', '-loop', '1', '-t', (shot.durationMs / 1000).toFixed(3), '-i', png, '-vf', 'format=yuv420p', ...ENC, seg]);
+  run('ffmpeg', [
+    '-y',
+    '-loop',
+    '1',
+    '-t',
+    (shot.durationMs / 1000).toFixed(3),
+    '-i',
+    png,
+    '-vf',
+    'format=yuv420p',
+    ...ENC,
+    seg,
+  ]);
   return seg;
 }
 
@@ -149,7 +169,12 @@ let cursor = 0;
 const cues = [];
 for (const shot of edl.shots) {
   for (const sub of shot.subtitles ?? []) {
-    cues.push({ start: (cursor + sub.startMs) / 1000, end: (cursor + sub.endMs) / 1000, text: sub.text, os: sub.os === true });
+    cues.push({
+      start: (cursor + sub.startMs) / 1000,
+      end: (cursor + sub.endMs) / 1000,
+      text: sub.text,
+      os: sub.os === true,
+    });
   }
   cursor += shotDurationMs(shot);
 }

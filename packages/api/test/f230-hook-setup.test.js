@@ -146,6 +146,75 @@ test('hook setup: cleanup removes settings.json when none existed before', async
   assert.ok(!existsSync(result.settingsPath), 'settings.json must be removed when none existed before');
 });
 
+// ---------------------------------------------------------------------------
+// Capture script — CLAUDE_CODE_ENTRYPOINT enrichment (F230 follow-up ①)
+// ---------------------------------------------------------------------------
+
+test('hook setup: capture script injects CLAUDE_CODE_ENTRYPOINT into sidecar JSON', async () => {
+  const tmpCwd = makeTmpCwd();
+  const sidecarPath = join(tmpCwd, 'sidecar.jsonl');
+  const result = await setupHookInfrastructure(tmpCwd, sidecarPath);
+  try {
+    const testData = JSON.stringify({ hook_event_name: 'Stop', session_id: 'test-ep' });
+    execSync(`echo '${testData}' | ${result.scriptPath}`, {
+      env: { ...process.env, CAT_CAFE_HOOK_SIDECAR: sidecarPath, CLAUDE_CODE_ENTRYPOINT: 'cli' },
+    });
+    const lines = readFileSync(sidecarPath, 'utf8').trim().split('\n');
+    assert.equal(lines.length, 1);
+    const parsed = JSON.parse(lines[0]);
+    assert.equal(parsed._cc_entrypoint, 'cli', 'must inject CLAUDE_CODE_ENTRYPOINT as _cc_entrypoint');
+    assert.equal(parsed.hook_event_name, 'Stop', 'original fields preserved');
+    assert.equal(parsed.session_id, 'test-ep', 'original fields preserved');
+  } finally {
+    await result.cleanup();
+  }
+});
+
+test('hook setup: capture script omits _cc_entrypoint when env var is unset', async () => {
+  const tmpCwd = makeTmpCwd();
+  const sidecarPath = join(tmpCwd, 'sidecar.jsonl');
+  const result = await setupHookInfrastructure(tmpCwd, sidecarPath);
+  try {
+    const testData = JSON.stringify({ hook_event_name: 'Stop', session_id: 'test-noep' });
+    const env = { ...process.env, CAT_CAFE_HOOK_SIDECAR: sidecarPath };
+    delete env.CLAUDE_CODE_ENTRYPOINT;
+    execSync(`echo '${testData}' | ${result.scriptPath}`, { env });
+    const lines = readFileSync(sidecarPath, 'utf8').trim().split('\n');
+    const parsed = JSON.parse(lines[0]);
+    assert.equal(parsed._cc_entrypoint, undefined, 'must not inject when env var is unset');
+  } finally {
+    await result.cleanup();
+  }
+});
+
+test('hook setup: capture script preserves valid JSON with enrichment on complex payload', async () => {
+  const tmpCwd = makeTmpCwd();
+  const sidecarPath = join(tmpCwd, 'sidecar.jsonl');
+  const result = await setupHookInfrastructure(tmpCwd, sidecarPath);
+  try {
+    const testData = JSON.stringify({
+      hook_event_name: 'PostToolUse',
+      tool_name: 'Read',
+      tool_input: { path: '/tmp/test' },
+      session_id: 'rich-test',
+    });
+    execSync(`echo '${testData}' | ${result.scriptPath}`, {
+      env: { ...process.env, CAT_CAFE_HOOK_SIDECAR: sidecarPath, CLAUDE_CODE_ENTRYPOINT: 'cli' },
+    });
+    const parsed = JSON.parse(readFileSync(sidecarPath, 'utf8').trim());
+    assert.equal(parsed._cc_entrypoint, 'cli');
+    assert.equal(parsed.hook_event_name, 'PostToolUse');
+    assert.equal(parsed.tool_name, 'Read');
+    assert.deepStrictEqual(parsed.tool_input, { path: '/tmp/test' });
+  } finally {
+    await result.cleanup();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Sidecar file
+// ---------------------------------------------------------------------------
+
 test('hook setup: creates empty sidecar file for tailer', async () => {
   const tmpCwd = makeTmpCwd();
   const sidecarPath = join(tmpCwd, 'sidecar.jsonl');

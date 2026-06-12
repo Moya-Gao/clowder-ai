@@ -49,12 +49,20 @@ export async function setupHookInfrastructure(cwd: string, sidecarPath: string):
   // Write capture script — POSIX sh, reads stdin, appends to sidecar
   // The script receives the hook event JSON on stdin and must append it
   // as a single line to the sidecar jsonl file.
+  // F230 follow-up ①: enrich with CLAUDE_CODE_ENTRYPOINT env var (AC-B1
+  // billing identity guard). Claude sets this to 'cli' for interactive
+  // mode — injecting it into the sidecar JSON lets the carrier surface
+  // it in done.metadata as file-level evidence of subscription billing.
   const captureScript = `#!/bin/sh
 # F230 B-hook capture script — reads hook event JSON from stdin,
+# enriches with CLAUDE_CODE_ENTRYPOINT env (AC-B1 billing identity),
 # appends to sidecar jsonl. POSIX sh for zero-dependency instant start.
 # CAT_CAFE_HOOK_SIDECAR env var set by PtyDriver.
 input=$(cat)
 if [ -n "$input" ] && [ -n "$CAT_CAFE_HOOK_SIDECAR" ]; then
+  if [ -n "$CLAUDE_CODE_ENTRYPOINT" ]; then
+    input=$(printf '%s' "$input" | sed 's/}$/,"_cc_entrypoint":"'"$CLAUDE_CODE_ENTRYPOINT"'"}/')
+  fi
   printf '%s\\n' "$input" >> "$CAT_CAFE_HOOK_SIDECAR"
 fi
 `;

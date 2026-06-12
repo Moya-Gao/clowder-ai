@@ -1,11 +1,12 @@
 /**
- * F230 Phase B: end-to-end PTY smoke test
+ * F230 Phase B: end-to-end PTY smoke test (B-hook adapted)
  *
  * Exercises ClaudeInteractivePtyCarrierService with a real claude interactive
  * session via tmux. Validates:
  *   - session_init is yielded with a real sessionId (UUID)
  *   - at least one text message is yielded
- *   - done is yielded with usage.outputTokens > 0
+ *   - done is yielded (usage degraded — hooks carry no token data)
+ *   - done.metadata.entrypoint === 'cli' (AC-B1 billing identity guard)
  *   - no zombie tmux session after invocation
  *
  * Usage (from repo root):
@@ -16,12 +17,16 @@
  *   ANTHROPIC_PROFILE_MODE=subscription (default)
  *
  * Takes ~30-60s: TUI startup 10-15s + claude response + cleanup.
+ *
+ * F230 follow-up ②: adapted from transcript-based to hook-sidecar-based.
+ * - Removed 2.1.170 pin — hooks work on any claude version
+ * - AC-B1 reads entrypoint from done.metadata (sidecar-enriched)
+ * - AC-B4 downgraded to informational (verified by unit test + CLI flag)
+ * - Usage assertion downgraded (hooks carry no token data)
  */
 
 import { execSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
@@ -70,33 +75,17 @@ if (!hasTmux()) {
 // before the prompt is sent. Claude must be invoked from a TRUSTED directory.
 //
 // Solution: use the worktree root (already trusted — devs run `claude` here).
-// Slug collision risk is minimal: watchForTranscriptFile snapshots existing .jsonl
-// files RIGHT BEFORE send-keys Enter, so any pre-existing session's files are in
-// the exclusion set. A collision requires another NEW Claude session to start in
-// the exact same directory within the <2s grace window, which is extremely unlikely
-// for sequential smoke runs.
 const SMOKE_CWD = resolve(__dirname, '../../..');
 console.log(`🔍 smoke cwd (trusted worktree root): ${SMOKE_CWD}`);
-console.log('🚀 Starting F230 PTY smoke test...');
+console.log('🚀 Starting F230 PTY smoke test (B-hook adapted)...');
 
-// B-min compatibility: Claude 2.1.172 interactive TUI does NOT write real-time
-// transcripts (confirmed 2026-06-11). Use 2.1.170 explicitly — it writes
-// transcripts with entrypoint=cli, enabling AC-B1/B4 capsule verification.
-// Path: ~/.local/share/claude/versions/2.1.170 (present on dev machines).
-const CLAUDE_170 = join(homedir(), '.local', 'share', 'claude', 'versions', '2.1.170');
-const claudeBinary = existsSync(CLAUDE_170) ? CLAUDE_170 : undefined;
-if (claudeBinary) {
-  console.log(`🔧 Using claude 2.1.170 binary: ${claudeBinary}`);
-} else {
-  console.warn(`⚠️  2.1.170 binary not found at ${CLAUDE_170}, falling back to default 'claude'`);
-  console.warn('   AC-B1/AC-B4 may fail if running Claude 2.1.172+ (transcript regression)');
-}
-
+// B-hook: no version pin needed — hooks work on any claude version.
+// The capture script injects CLAUDE_CODE_ENTRYPOINT from env, and the carrier
+// surfaces it in done.metadata.entrypoint (F230 follow-up ①).
 const carrier = new ClaudeInteractivePtyCarrierService({
   cwd: SMOKE_CWD,
   pollIntervalMs: 500,
   terminalTimeoutMs: 5 * 60 * 1_000,
-  claudeBinary,
 });
 
 const results = {
@@ -104,22 +93,7 @@ const results = {
   texts: [],
   done: null,
   errors: [],
-  transcriptPath: null,
 };
-
-/**
- * Compute ~/.claude/projects/<slug>/ for a given cwd (mirrors ptyTranscriptDir).
- *
- * Claude writes conversation transcripts to `~/.claude/projects/<slug>/`
- * where the slug is derived directly from the cwd.
- *
- * F230 diagnostic 2026-06-11: confirmed that Claude uses the ACTUAL CWD slug,
- * not the git-common-dir parent (earlier resolveGitProjectDir hypothesis was wrong).
- */
-function ptyTranscriptDir(cwd) {
-  const slug = cwd.replace(/\//g, '-');
-  return join(homedir(), '.claude', 'projects', slug);
-}
 
 const startMs = Date.now();
 console.log('📡 Invoking carrier...');
@@ -132,10 +106,6 @@ try {
     switch (msg.type) {
       case 'session_init':
         results.sessionInit = msg;
-        // Resolve transcript path now (used for AC-B1/B4 capsule check after loop)
-        if (msg.sessionId) {
-          results.transcriptPath = join(ptyTranscriptDir(SMOKE_CWD), `${msg.sessionId}.jsonl`);
-        }
         process.stdout.write(` sessionId=${msg.sessionId}\n`);
         break;
       case 'text':
@@ -144,7 +114,7 @@ try {
         break;
       case 'done':
         results.done = msg;
-        process.stdout.write(` isFinal=${msg.isFinal} outputTokens=${msg.metadata?.usage?.outputTokens ?? '?'}\n`);
+        process.stdout.write(` isFinal=${msg.isFinal} entrypoint=${msg.metadata?.entrypoint ?? '?'}\n`);
         break;
       case 'error':
         results.errors.push(msg);
@@ -165,36 +135,6 @@ try {
 const elapsedSec = ((Date.now() - startMs) / 1000).toFixed(1);
 console.log(`\n⏱  Total: ${elapsedSec}s`);
 
-// ─── Read transcript for AC-B1/B4 capsule checks ──────────────────────────────
-// AC-B1: entrypoint must be 'cli' (not 'sdk-cli') — billing identity guard
-// AC-B4: permissionMode must be 'bypassPermissions'
-let transcriptEntrypoint = null;
-let transcriptPermMode = null;
-if (results.transcriptPath && existsSync(results.transcriptPath)) {
-  try {
-    const lines = readFileSync(results.transcriptPath, 'utf8').split('\n').filter(Boolean);
-    for (const line of lines) {
-      try {
-        const event = JSON.parse(line);
-        // entrypoint is on the first user event
-        if (event.type === 'user' && event.entrypoint && !transcriptEntrypoint) {
-          transcriptEntrypoint = event.entrypoint;
-        }
-        // permission-mode event carries the effective permissionMode
-        if (event.type === 'permission-mode' && event.permissionMode) {
-          transcriptPermMode = event.permissionMode;
-        }
-      } catch {
-        // skip malformed lines
-      }
-    }
-  } catch (err) {
-    console.error(`  ⚠️  Could not read transcript: ${err.message}`);
-  }
-} else {
-  console.error(`  ⚠️  Transcript file not found: ${results.transcriptPath}`);
-}
-
 // ─── assertions ────────────────────────────────────────────────────────────────
 
 let pass = true;
@@ -206,6 +146,10 @@ function check(label, condition, detail) {
     console.error(`  ❌ ${label}${detail ? `: ${detail}` : ''}`);
     pass = false;
   }
+}
+
+function info(label, detail) {
+  console.log(`  ℹ️  ${label}${detail ? `: ${detail}` : ''}`);
 }
 
 console.log('\n📋 Smoke assertions:');
@@ -220,11 +164,15 @@ check(
 check('at least 1 text message', results.texts.length > 0, `got ${results.texts.length} texts`);
 check('done yielded', results.done != null);
 check('done.isFinal === true', results.done?.isFinal === true);
+
+// Usage: degraded assertion — hooks carry no token data (accepted degradation KD-7).
+// Only check that usage object exists (may be empty), not that outputTokens > 0.
 check(
-  'usage.outputTokens > 0',
-  typeof results.done?.metadata?.usage?.outputTokens === 'number' && results.done.metadata.usage.outputTokens > 0,
-  `outputTokens = ${results.done?.metadata?.usage?.outputTokens}`,
+  'done.metadata.usage present (degraded — hooks carry no token data)',
+  results.done?.metadata?.usage != null,
+  `usage = ${JSON.stringify(results.done?.metadata?.usage)}`,
 );
+
 check('no errors', results.errors.length === 0, results.errors.map((e) => e.error).join('; '));
 check(
   'no zombie tmux sessions (f230pty prefix)',
@@ -232,25 +180,24 @@ check(
   `found ${countTmuxSessionsWithPrefix('f230pty')} lingering sessions`,
 );
 
-// AC-B1: entrypoint capsule — billing identity must be 'cli' not 'sdk-cli'
+// AC-B1: entrypoint from hook sidecar via done.metadata (F230 follow-up ①).
+// The capture script injects $CLAUDE_CODE_ENTRYPOINT into each hook event JSON.
+// Interactive claude sets this to 'cli' — billing identity proof.
+const entrypoint = results.done?.metadata?.entrypoint;
 check(
-  'AC-B1: entrypoint=cli in transcript (billing identity guard)',
-  transcriptEntrypoint === 'cli',
-  `got entrypoint=${transcriptEntrypoint ?? 'NOT FOUND'} from transcript`,
+  'AC-B1: entrypoint=cli in done.metadata (billing identity guard)',
+  entrypoint === 'cli',
+  `got entrypoint=${entrypoint ?? 'NOT FOUND'} from done.metadata`,
 );
 
-// AC-B4: permission mode bypass — must be 'bypassPermissions'
-check(
-  'AC-B4: permissionMode=bypassPermissions in transcript',
-  transcriptPermMode === 'bypassPermissions',
-  `got permissionMode=${transcriptPermMode ?? 'NOT FOUND'} from transcript`,
-);
+// AC-B4: permission mode bypass — verified by CLI flag (--permission-mode bypassPermissions)
+// and unit test Step 3 (f230-interactive-pty-carrier.test.js). Hook events don't carry
+// a dedicated permission_mode field, so this is informational in the smoke test.
+info('AC-B4 (permissionMode=bypassPermissions)', 'verified by CLI flag + unit test Step 3');
 
 // AC-B3: MCP config shape (validated by unit test Step 6)
 // The standalone smoke does NOT pass callbackEnv, so MCP config is not injected here.
-// MCP config shape (mcpServers.cat-cafe.command=node + args=[path]) is validated by
-// the unit test Step 6 in f230-interactive-pty-carrier.test.js.
-console.log('  ℹ️  AC-B3 (MCP config): gated on callbackEnv — validated by unit test Step 6');
+info('AC-B3 (MCP config)', 'gated on callbackEnv — validated by unit test Step 6');
 
 if (pass) {
   console.log('\n🎉 F230 PTY smoke test PASS');

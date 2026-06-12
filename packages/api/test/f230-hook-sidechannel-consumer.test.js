@@ -8,6 +8,7 @@ import './helpers/setup-cat-registry.js';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
+  extractEntrypointFromHookEntries,
   extractSessionIdFromHookEntries,
   hookEntriesToAgentMessages,
   isHookTerminalEvent,
@@ -205,4 +206,30 @@ test('hook consumer: extractSessionIdFromHookEntries — no session_id fields �
 test('hook consumer: extractSessionIdFromHookEntries — non-string session_id → undefined', () => {
   const entries = [{ hook_event_name: 'PostToolUse', session_id: 123, tool_name: 'X' }];
   assert.equal(extractSessionIdFromHookEntries(entries), undefined);
+});
+
+// ---------------------------------------------------------------------------
+// extractEntrypointFromHookEntries (F230 follow-up ①)
+// ---------------------------------------------------------------------------
+
+test('hook consumer: extractEntrypointFromHookEntries — returns _cc_entrypoint', () => {
+  const entries = [
+    { hook_event_name: 'PostToolUse', session_id: 'abc', tool_name: 'X', _cc_entrypoint: 'cli' },
+    { hook_event_name: 'Stop', session_id: 'abc', last_assistant_message: '', _cc_entrypoint: 'cli' },
+  ];
+  assert.equal(extractEntrypointFromHookEntries(entries), 'cli');
+});
+
+test('hook consumer: extractEntrypointFromHookEntries — empty entries → undefined', () => {
+  assert.equal(extractEntrypointFromHookEntries([]), undefined);
+});
+
+test('hook consumer: extractEntrypointFromHookEntries — no _cc_entrypoint → undefined', () => {
+  const entries = [{ hook_event_name: 'Stop', session_id: 'abc', last_assistant_message: '' }];
+  assert.equal(extractEntrypointFromHookEntries(entries), undefined);
+});
+
+test('hook consumer: extractEntrypointFromHookEntries — non-string → undefined', () => {
+  const entries = [{ hook_event_name: 'Stop', session_id: 'abc', _cc_entrypoint: 42 }];
+  assert.equal(extractEntrypointFromHookEntries(entries), undefined);
 });

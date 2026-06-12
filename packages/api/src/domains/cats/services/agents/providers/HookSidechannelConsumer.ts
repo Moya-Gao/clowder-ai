@@ -98,3 +98,20 @@ export function extractSessionIdFromHookEntries(entries: unknown[]): string | un
   }
   return undefined;
 }
+
+/**
+ * Extract CLAUDE_CODE_ENTRYPOINT from enriched hook entries.
+ *
+ * The capture script injects `_cc_entrypoint` into each hook event JSON
+ * from the $CLAUDE_CODE_ENTRYPOINT env var (F230 follow-up ①). This is
+ * the billing identity proof — 'cli' means interactive subscription
+ * billing, 'sdk-cli' means API billing.
+ */
+export function extractEntrypointFromHookEntries(entries: unknown[]): string | undefined {
+  for (const raw of entries) {
+    if (typeof raw !== 'object' || raw === null) continue;
+    const entry = raw as Record<string, unknown>;
+    if (typeof entry._cc_entrypoint === 'string') return entry._cc_entrypoint;
+  }
+  return undefined;
+}

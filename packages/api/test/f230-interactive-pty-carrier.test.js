@@ -32,12 +32,14 @@ process.env.CAT_OPUS_MODEL = 'claude-opus-4-8';
 const TEST_SESSION_ID = 'f230test-1111-2222-3333-444444444444';
 
 /** Stop hook event → text AgentMessage. Terminal signal. */
-function stopEventLine(text, sessionId = TEST_SESSION_ID) {
-  return JSON.stringify({
+function stopEventLine(text, sessionId = TEST_SESSION_ID, entrypoint = undefined) {
+  const evt = {
     hook_event_name: 'Stop',
     session_id: sessionId,
     last_assistant_message: text,
-  });
+  };
+  if (entrypoint) evt._cc_entrypoint = entrypoint;
+  return JSON.stringify(evt);
 }
 
 /** PostToolUse hook event → tool_use AgentMessage. */
@@ -1369,6 +1371,60 @@ describe(
         );
       } finally {
         await rm(tmpCwd, { recursive: true, force: true });
+      }
+    });
+  },
+);
+
+// ─── Step 20: F230 follow-up ① — entrypoint in done.metadata (AC-B1) ─────────
+
+describe(
+  'ClaudeInteractivePtyCarrierService — Step 20: hookEntrypoint surfaces in done.metadata (F230 follow-up ①)',
+  { timeout: 15_000 },
+  () => {
+    it('done.metadata.entrypoint extracted from enriched sidecar entries', async () => {
+      const tmpDir = await mkdtemp(join(tmpdir(), 'f230-carrier-s20-'));
+      const sidecarPath = await writeSidecar(tmpDir, [stopEventLine('ep test', undefined, 'cli')]);
+      try {
+        const mock = new MockPtyDriver();
+        mock.injectResult = { transcriptPath: join(tmpDir, 'stub.jsonl'), sessionId: TEST_SESSION_ID };
+        const carrier = new ClaudeInteractivePtyCarrierService({
+          transcriptDirOverride: tmpDir,
+          cwd: tmpDir,
+          hookSidecarPathOverride: sidecarPath,
+          driverFactory: () => mock,
+          pollIntervalMs: 20,
+          terminalTimeoutMs: 2_000,
+        });
+        const msgs = await collect(carrier.invoke('test-s20'));
+        const done = msgs.find((m) => m.type === 'done');
+        assert.ok(done, 'done yielded');
+        assert.equal(done.metadata?.entrypoint, 'cli', 'done.metadata.entrypoint must be cli');
+      } finally {
+        await rm(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    it('done.metadata has no entrypoint when sidecar entries lack _cc_entrypoint', async () => {
+      const tmpDir = await mkdtemp(join(tmpdir(), 'f230-carrier-s20b-'));
+      const sidecarPath = await writeSidecar(tmpDir, [stopEventLine('no ep test')]);
+      try {
+        const mock = new MockPtyDriver();
+        mock.injectResult = { transcriptPath: join(tmpDir, 'stub.jsonl'), sessionId: TEST_SESSION_ID };
+        const carrier = new ClaudeInteractivePtyCarrierService({
+          transcriptDirOverride: tmpDir,
+          cwd: tmpDir,
+          hookSidecarPathOverride: sidecarPath,
+          driverFactory: () => mock,
+          pollIntervalMs: 20,
+          terminalTimeoutMs: 2_000,
+        });
+        const msgs = await collect(carrier.invoke('test-s20b'));
+        const done = msgs.find((m) => m.type === 'done');
+        assert.ok(done, 'done yielded');
+        assert.equal(done.metadata?.entrypoint, undefined, 'no entrypoint when not in sidecar');
+      } finally {
+        await rm(tmpDir, { recursive: true, force: true });
       }
     });
   },
