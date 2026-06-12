@@ -27,6 +27,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { flushSync } from 'react-dom';
 import { Rnd } from 'react-rnd';
 import { projectBallState, useConciergeStore } from '@/stores/conciergeStore';
 import { ConciergeBall } from './ConciergeBall';
@@ -127,7 +128,17 @@ export function ConciergeHost() {
       if (dx > DRAG_THRESHOLD || dy > DRAG_THRESHOLD) {
         // Real drag — persist position. isDragging stays true so ConciergeBall.onClick
         // can suppress the toolbar toggle (reset happens in ConciergeBall.handleClick).
-        void setBallPosition({ x: d.x, y: d.y });
+        //
+        // Bug fix: flushSync forces React to re-render synchronously within the
+        // mouseup handler. Without it, React 18 batches the Zustand update →
+        // Rnd re-renders with old clampedPosition before the new position arrives
+        // → ball visibly snaps back to origin then jumps to the correct position.
+        const pos = { x: d.x, y: d.y };
+        flushSync(() => {
+          useConciergeStore.setState({ ballPosition: pos });
+        });
+        // Persist to API (fire-and-forget); local state already synced above.
+        void setBallPosition(pos);
       } else {
         // Not a real drag (under threshold) — snap back, treat as click
         setIsDragging(false);

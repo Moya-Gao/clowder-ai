@@ -328,7 +328,14 @@ export const useConciergeStore = create<ConciergeStoreState>((set, get) => ({
     // Note: isDragging is NOT reset here — it stays true so ConciergeBall's onClick
     // can detect "this was a drag, not a click" and suppress the toolbar toggle.
     // ConciergeBall.onClick resets isDragging to false after suppressing.
-    set({ ballPosition: pos });
+    //
+    // Equality guard: handleDragStop uses flushSync to set position synchronously
+    // before calling this function. Skip the redundant set() if position is already
+    // current to avoid a wasted re-render (Zustand creates new object → fails ===).
+    const current = get().ballPosition;
+    if (!current || current.x !== pos.x || current.y !== pos.y) {
+      set({ ballPosition: pos });
+    }
     try {
       await apiFetch('/api/concierge/config', {
         method: 'PUT',

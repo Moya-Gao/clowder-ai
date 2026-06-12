@@ -122,6 +122,23 @@ describe('INV-P3: setBallPosition', () => {
     // Position stays — write failure is silent (INV-P3)
     expect(useConciergeStore.getState().ballPosition).toEqual({ x: 300, y: 400 });
   });
+
+  it('skips redundant set() when position is already current (drag-stop equality guard)', async () => {
+    mockApiFetch.mockReturnValue(mockOk({ config: {} }));
+
+    // Simulate flushSync pre-set (what ConciergeHost.handleDragStop does)
+    useConciergeStore.setState({ ballPosition: { x: 42, y: 84 } });
+    const posBeforeCall = useConciergeStore.getState().ballPosition;
+
+    // setBallPosition with same values — should NOT overwrite with new object
+    await useConciergeStore.getState().setBallPosition({ x: 42, y: 84 });
+    const posAfterCall = useConciergeStore.getState().ballPosition;
+
+    // Same reference (set() was skipped, not called with a new object)
+    expect(posAfterCall).toBe(posBeforeCall);
+    // API call still fires (persist is the purpose)
+    expect(mockApiFetch).toHaveBeenCalledOnce();
+  });
 });
 
 // ---------------------------------------------------------------------------

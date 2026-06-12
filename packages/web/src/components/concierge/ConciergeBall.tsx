@@ -106,12 +106,14 @@ export function ConciergeBall({ ballState }: ConciergeBallProps) {
           'w-[72px] h-[72px]',
           // Squircle: border-radius 16px per design spec (§7)
           'rounded-2xl',
-          'transition-transform duration-200',
-          // V3: breathing animation for idle state (4s slow breathing)
-          isIdle ? 'animate-[concierge-breathe_4s_ease-in-out_infinite]' : '',
+          // Bug fix: disable CSS transition + breathing animation during drag.
+          // The transition on `transform` caused a visible "teleport then slide"
+          // artifact when react-rnd's position prop updated after drag stop.
+          isDragging ? '' : 'transition-transform duration-200',
+          isIdle && !isDragging ? 'animate-[concierge-breathe_4s_ease-in-out_infinite]' : '',
           'focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--cafe-accent)] focus-visible:ring-offset-2',
-          'select-none cursor-pointer',
-          'hover:scale-105',
+          'select-none',
+          isDragging ? 'cursor-grabbing' : 'cursor-pointer hover:scale-105',
         ].join(' ')}
         onClick={handleClick}
       >
