@@ -25,6 +25,7 @@ related_docs:
 
 | `S07b-shining-debut-firstframe-v1.png` | S07b 烁烁登场 | 烁烁（暹罗猫）背对镜头，屏幕显示"新头像预览"多张缩略图，紫色项圈金铃铛 | ✅ 直接可用 |
 | `S09-verdict-firstframe-v1.png` | S09 定罪 finale | Landy 大笑指着屏幕 CI Passed + 砚砚表情僵住趴桌，流程即正义桌牌 + I❤️CI 杯 | ✅ 直接可用 |
+| `S11-trueend-firstframe-v1.png` | S11 True End | Landy 双手抱起大砚砚，砚砚傲娇被抱的脸，背景暖光猫咖 + 两只小橙猫 | ✅ 直接可用 |
 
 均为**首帧**（非尾帧）。是否需要尾帧（首尾帧双控）在 shot-plan v0.2 按镜头标注——动作简单的镜头首帧+动作 prompt 足够，构图大变的镜头才补尾帧。
 
@@ -39,6 +40,9 @@ related_docs:
 | `S03-i2v-v1.mp4` | S03 | 4.0s | `7d0ca4f4bc82c7c2023f85f7f60bbf3c` | **spike 关键镜头 PASS**——信息镜头文字保持住了（原名 2b.mp4） |
 | `S04-i2v-v1.mp4` | S04 | 5.0s | `d31b9fa2c200a1a719f2b81418c6ef9d` | 红叉全程在位（原名 3a.mp4） |
 | `S05-i2v-v1.mp4` | S05 | 6.0s | `1a96bf7303ddc15c09e13fe66596591e` | 名场面反应镜头（原名 3b.mp4） |
+| `S07b-i2v-v1.mp4` | S07b | 5.0s | `740c495d596956d65dd7f9028211d63f` | 烁烁优雅登场，9:16 ✅（shot-plan 规格正确），剪辑裁 4.5s |
+| `S09-i2v-v1.mp4` | S09 | 7.0s | `f8b7d699e213a46e88d55f51292ebe71` | 定罪 finale，9:16 ✅，铲屎官十连抽最满意版 |
+| `S11-i2v-v1.mp4` | S11 | 7.0s | `f32b20bcfaf92331c059afd5da296f45` | True End 拥抱镜头，9:16 ✅，post-credit 彩蛋 |
 
 ## failure-samples/ — 翻车样本（gitignored，FM 校准 + 花絮资产）
 
@@ -80,6 +84,9 @@ related_docs:
 | 镜头 | 状态 | 说明 |
 |---|---|---|
 | S06/S07a/S08/S10 静帧 | ✅ 已入库 | `references/static-frames/` 七张 |
-| S07b 首帧（烁烁登场） | ✅ 已入库 | `S07b-shining-debut-firstframe-v1.png` |
-| S09 首帧（定罪两人同框） | ✅ 已入库 | `S09-verdict-firstframe-v1.png` |
+| S07b 首帧 + 视频 | ✅ 全齐 | firstframe + `S07b-i2v-v1.mp4`（5s，剪辑裁 4.5s） |
+| S09 首帧 + 视频 | ✅ 全齐 | firstframe + `S09-i2v-v1.mp4`（7s，十连抽最满意版） |
+| S11 True End 首帧 + 视频 | ✅ 全齐 | `S11-trueend-firstframe-v1.png` + `S11-i2v-v1.mp4`（7s） |
 | BGM/SFX 素材 | ⬜ E lane 阶段再议 | 锚点见 shot-plan §3 |
+
+> **🎉 Wave V 素材全部到位**：generated-clips 覆盖 S01/S02/S03/S04/S05/S07b/S09/S11（8 个 i2v/clip），静帧卡 S06×3/S07a×2/S08/S10（7 张）。下一步：animatic v1 粗剪 59s → Landy 笑测。
