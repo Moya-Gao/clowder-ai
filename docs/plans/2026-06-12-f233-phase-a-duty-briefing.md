@@ -179,3 +179,45 @@ Fixture 注入 → cron/on-demand 触发 → 绑定 thread 收到卡 → 卡内�
 | Task 0 发现关键源不可读（如 invocation 终态无查询面） | 该区降级 + plan 回写；若 needsUser+staleBlocked 两区都立不起来（task 面已实测可达，概率低）→ 停，回 fable 重排 Phase |
 | 死球误报刷屏 | 阈值常量可调 + Eval Contract friction metric 兜底（连续一周 ≥1/3 假阳性 → 校准） |
 | 回滚 | Phase A 全部增量代码 + 1 个 config key + 1 个 cron 注册，单 PR revert + 注销 cron 即净回滚 |
+
+---
+
+## 附录：Task 0 数据源探查结论（2026-06-12，宪宪 Opus-4.8 实测）
+
+**方法**：5 个并行 Explore agent fan-out 定位 + 关键源（invocation 死球）亲自 Read 源码核实——agent 静态判定"死球不可行"被推翻（漏看 F194 liveness read model）。
+
+| # | 源 | 可达性 | 读取入口（文件:函数） | 关键字段 | confidence |
+|---|---|---|---|---|---|
+| 1 | tasks | ✅ | `ITaskStore.listByKind('work')` + 客户端 filter status（**无 listByStatus/listByOwner**，需应用层 filter）；类型 `packages/shared/src/types/task.ts:100` | ownerCatId / status / why / **updatedAt（晾龄）** / threadId / id / sourceMessageId | structured |
+| 2 | hold_ball | ✅ | `DynamicTaskStore.getAll()` + filter `isHoldBallTask`（id 前缀 `hold-ball-` + templateId='reminder' + createdBy 前缀 `hold-ball:`）；SQLite `dynamic_task_defs` | deliveryThreadId / createdBy(含 catId) / **trigger.fireAt（过期=fireAt<now）** / params.message / enabled | structured |
+| 3 | invocation 死球 | ✅【纠正 agent ❌】 | **主路径** `InvocationRecordStore.scanAll()`（Redis only，`RedisInvocationRecordStore.ts:449`）filter status='running' + 自判 freshness；**精确路径** per-thread `getThreadLiveInvocations`（F194，只读）取 `zombies[]`。⚠️ **绝不调 `reconcileZombies`**（running→failed 写操作，违反 KD-4） | InvocationRecord: id/threadId/targetCats(catId)/status/updatedAt/error；ZombieRecord: reason='no_tracker_no_fresh_draft_age_exceeded'；阈值 600s grace（=2×draft TTL） | structured |
+| 4 | F167 telemetry | ⚠️ 部分 | `/api/telemetry/metrics`（计数）+ `/api/telemetry/traces`（样本 **cap 10**）；`f167-eval.ts:320 generateF167Snapshot` | C2 verdict_without_pass count + PerFireSample{trigger, firedAt, **id 全 HMAC 伪名**} | structured 计数 / **锚点不可逆** |
+| 5 | mention 启发式 | ✅ | `ThreadStore.list(userId)`（`ThreadStore.ts:350`）枚举 + `MessageStore.getByThread(tid,1)`（`:536`）取尾 + `getByThreadAfter` 判后续；mentionsUser at `MessageStore.ts:117` | mentionsUser / catId / threadId / id / timestamp；**无 handoff/fyi/done intent 维度**（确认 gpt52 R1） | heuristic（only） |
+
+### 砍源 / 降级声明（诚实降级，plan Task 0 段内置路径，不回 CVO）
+
+1. **F177-G 守卫事件 ❌ 砍**：`.claude/hooks/f177-routing-guard.sh` 纯 bash stop hook，block 判定返回 CC 进程，**零持久化/telemetry**，无事后可查记录 → **虚空传球区降级为 F167 C2 单源**（spec Task 0 段已预言此降级）。
+2. **虚空传球锚点 ⚠️ 降级**：F167 样本 messageId/threadId 经 RedactingSpanProcessor 单向 HMAC，**无法反向映射真实锚点** → 虚空传球条目只能展示"trigger + firedAt + 计数"，**无精确跳转锚点**（AC-A3 的"可跳转锚点"对此类条目不成立，卡面标注"来自 telemetry · 无跳转"）。task/invocation/mention 三类锚点正常。
+3. **hold_ball 处置**：可达但 Phase A schema 无独立 hold 区。**活跃未过期 hold → healthy 计数**；**过期 hold（fireAt<now 且 enabled）→ deadBalls 区次级 collector**（zombie-hold 是死球的一种形态，同区）。Phase A 以 invocation 死球为主，过期 hold 作可选增强，不阻塞三球 fixture。
+
+### 停止条件检查（plan Open）
+- needsUser（搁置球）：task ✅ + mention heuristic ✅ → **立得起**
+- staleBlocked（blocked >7d）：task ✅ → **立得起**
+- → 两区都立得起，**不触发"停手回 fable 重排"，继续 Task 1** ✅
+
+### AC-A1 三球 fixture 可达性（全 structured，钉死）
+1. 30 天睡美人 → staleBlocked（task blocked >7d）✅
+2. 死球断流 → deadBalls（invocation zombie via scanAll + freshness）✅【纠正 Explore agent 静态误判】
+3. 虚空传球 → voidPasses（F167 C2，锚点降级）✅
+
+### Task 2 collector 清单（探查后最终版）
+- `collectStaleBlocked`：`listByKind('work')` filter status='blocked' && now-updatedAt>7d（阈值 config 常量）
+- `collectNeedsUser`：(a) task filter status∈{blocked,doing} + owner/晾龄（structured）；(b) mention 启发式 `ThreadStore.list` + `MessageStore` 尾部 mentionsUser（heuristic）
+- `collectDeadBalls`：`scanAll()` filter running + freshness 自判 zombie（**不 reconcile**）+ 可选过期 hold_ball
+- `collectVoidPasses`：F167 C2 verdict-without-pass 样本（structured 计数 / 锚点降级标注）
+- `countHealthy`：doing task + 活跃 hold + active invocation 计数
+
+### 技术 OQ 决议（48 自决）
+- **invocation"后续无消息"查询**：死球判定复用 F194 freshness 模型（draft.updatedAt 信号 + 600s grace），不自己 join message——比"该 cat 此后无消息"更准（draft 是真心跳，message 有投递延迟）。
+- **rich block kind**：Task 4 取 `get_rich_block_rules` 后定（倾向 card kind）。
+- **阈值常量**：blocked staleness 7d / zombie grace 600s（沿用 F194）/ 死球"无消息"窗 2h，全部归 `duty-briefing/constants.ts` 单文件。
