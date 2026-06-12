@@ -415,3 +415,82 @@ test('lookupByEvalSampleRef: default eventName remains verdict_without_pass_fire
   assert.equal(result.status.message, 'hit');
   assert.equal(result.messageId, rawMsgId);
 });
+
+test('lookupByEvalSampleRef: C1 variant — eventName=c1.zombie_hold_fired finds event + builds sample', async () => {
+  const rawPriorTaskId = 'hold-ball-1700000000000-abc123';
+  const span = {
+    traceId: 't-c1',
+    spanId: 's-c1',
+    name: 'cat_cafe.a2a.c1.zombie_hold_sample',
+    startTimeMs: 0,
+    endTimeMs: 0,
+    durationMs: 0,
+    status: { code: 0 },
+    attributes: {},
+    events: [
+      {
+        name: 'c1.zombie_hold_fired',
+        timeMs: 1750000000000,
+        attributes: {
+          messageId: toyHmac(rawPriorTaskId),
+          invocationId: toyHmac('inv-c1-1'),
+          threadId: 'hash-thread-c1',
+          'agent.id': 'opus-47',
+          'thread.system_kind': 'product',
+          trigger: 'prior_imminent',
+          priorTaskIdHash: toyHmac(rawPriorTaskId),
+          newTaskIdHash: toyHmac('hold-ball-1700000060000-def456'),
+        },
+      },
+    ],
+  };
+  const result = await lookupByEvalSampleRef(
+    { traceId: 't-c1', spanId: 's-c1' },
+    {
+      traceLookup: { getSpan: () => span },
+      messageLookup: { listCandidateMessageIds: () => [rawPriorTaskId] },
+      invocationLookup: { listCandidateInvocationIds: () => ['inv-c1-1'] },
+      hmac: toyHmac,
+      eventName: 'c1.zombie_hold_fired',
+    },
+  );
+  assert.equal(result.status.message, 'hit');
+  assert.equal(result.messageId, rawPriorTaskId, 'C1 messageId resolves to the cancelled priorTaskId');
+  assert.equal(result.sample.trigger, 'prior_imminent');
+});
+
+test('lookupByEvalSampleRef: eventName mismatch (asking for C1 on a C2 span) → event_not_found_in_span', async () => {
+  const span = {
+    traceId: 't-1',
+    spanId: 's-1',
+    name: 'cat_cafe.route',
+    startTimeMs: 0,
+    endTimeMs: 0,
+    durationMs: 0,
+    status: { code: 0 },
+    attributes: {},
+    events: [
+      {
+        name: 'c2.verdict_without_pass_fired',
+        timeMs: 1700000000000,
+        attributes: {
+          messageId: toyHmac('msg-v-1'),
+          threadId: 'hash-thread-v',
+          'agent.id': 'codex',
+          'thread.system_kind': 'product',
+          trigger: 'reject',
+        },
+      },
+    ],
+  };
+  const result = await lookupByEvalSampleRef(
+    { traceId: 't-1', spanId: 's-1' },
+    {
+      traceLookup: { getSpan: () => span },
+      hmac: toyHmac,
+      eventName: 'c1.zombie_hold_fired',
+    },
+  );
+  assert.equal(result.status.message, 'event_not_found_in_span');
+  assert.equal(result.sample, null);
+});

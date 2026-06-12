@@ -675,3 +675,70 @@ describe('F192 Phase D — per-fire sample evidence + sampleCoverage', () => {
     assert.ok(serialized.includes('hash-msg-s-a'), 'messageIdHash retained');
   });
 });
+
+describe('F192 D — C1 zombie-hold sampleCoverage (eval:a2a 2026-06-12 build verdict)', () => {
+  function makeC1Sample({ spanId = 's-1', trigger = 'prior_imminent', firedAt = '2026-06-12T00:00:00.000Z' } = {}) {
+    return {
+      traceId: 't-1',
+      spanId,
+      messageIdHash: `hash-prior-${spanId}`,
+      invocationIdHash: `hash-inv-${spanId}`,
+      threadIdHash: `hash-thread-${spanId}`,
+      agentId: 'opus-47',
+      threadSystemKind: 'product',
+      trigger,
+      firedAt,
+    };
+  }
+
+  it('C1 zombie-hold finding carries sampleCoverage when samples are present', () => {
+    const samples = [
+      makeC1Sample({ spanId: 's-c1-a', trigger: 'prior_imminent' }),
+      makeC1Sample({ spanId: 's-c1-b', trigger: 'prior_long' }),
+      makeC1Sample({ spanId: 's-c1-c', trigger: 'prior_imminent' }),
+    ];
+    const report = generateAttributionReport({
+      featureId: 'F167',
+      snapshot: {
+        components: [
+          {
+            componentId: 'C1',
+            activationCounts: { hold_ball_calls: 7 },
+            frictionCounts: { 'c1.zombie_hold_count': 5 },
+            frictionSamples: { 'c1.zombie_hold_count': samples },
+            telemetryGaps: [],
+            confidence: 'medium',
+            falsePositiveCandidates: [],
+            bypassCandidates: [],
+          },
+        ],
+      },
+    });
+    const finding = report.findings.find((f) => f.frictionSignal.type === 'c1.zombie_hold_count');
+    assert.ok(finding, 'C1 zombie-hold friction must surface');
+    assert.deepEqual(finding.sampleCoverage, { sampleCount: 3, metricCount: 5, complete: false });
+  });
+
+  it('C1 zombie-hold finding sampleCoverage still emits when frictionSamples empty (honest gap report)', () => {
+    const report = generateAttributionReport({
+      featureId: 'F167',
+      snapshot: {
+        components: [
+          {
+            componentId: 'C1',
+            activationCounts: { hold_ball_calls: 7 },
+            frictionCounts: { 'c1.zombie_hold_count': 5 },
+            frictionSamples: {},
+            telemetryGaps: [],
+            confidence: 'medium',
+            falsePositiveCandidates: [],
+            bypassCandidates: [],
+          },
+        ],
+      },
+    });
+    const finding = report.findings.find((f) => f.frictionSignal.type === 'c1.zombie_hold_count');
+    assert.ok(finding, 'C1 zombie-hold friction must surface');
+    assert.deepEqual(finding.sampleCoverage, { sampleCount: 0, metricCount: 5, complete: false });
+  });
+});

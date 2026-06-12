@@ -114,6 +114,21 @@ export function formatAttributionYaml(report, dateStr, fingerprintFn) {
           lines.push(`            thread_system_kind: "${e.sample.threadSystemKind}"`);
           lines.push(`            trigger: "${e.sample.trigger}"`);
           lines.push(`            fired_at: "${e.sample.firedAt}"`);
+          // F192 Phase D R1 P1-1 fix (砚砚): render per-metric extra hashed attrs
+          // (e.g. C1 priorTaskIdHash / newTaskIdHash). Keys are camelCase as emitted
+          // by the route handler — converted to snake_case for YAML consistency with
+          // the other sample fields. Iteration is deterministic via Object.keys order
+          // (extractor inserts in extraAttrKeys order — allowlist iteration order).
+          if (e.sample.extras) {
+            lines.push('            extras:');
+            for (const [key, value] of Object.entries(e.sample.extras)) {
+              const snakeKey = key
+                .replace(/([A-Z])/g, '_$1')
+                .toLowerCase()
+                .replace(/^_/, '');
+              lines.push(`              ${snakeKey}: "${value}"`);
+            }
+          }
         }
       }
       // F192 Phase D — sampleCoverage (sampled-metric findings only). Honest accounting

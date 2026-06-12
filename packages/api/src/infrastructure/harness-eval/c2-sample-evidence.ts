@@ -37,6 +37,15 @@ export interface PerFireSample {
   // Derived from OTel `event.timeMs` (never runtime `Date.now()` — single
   // source of truth, no drift between counter time and event time).
   firedAt: string; // ISO 8601 UTC
+  /**
+   * F192 Phase D — eval:a2a 2026-06-12 R1 P1-1 (砚砚 review): per-metric
+   * extra hashed attrs that the generic extractor passes through verbatim
+   * from the span event. Keys must be in the per-extractor allowlist passed
+   * to `extractPerFireSamples(spans, eventName, cap, extraAttrKeys)`. C1
+   * uses `priorTaskIdHash` + `newTaskIdHash`; C2 metrics pass no extras.
+   * Absent when no extras configured for the metric (back-compat).
+   */
+  extras?: Record<string, string>;
 }
 
 export interface PerFireSampleCap {
@@ -87,6 +96,7 @@ export function extractPerFireSamples(
   spans: ReadonlyArray<EvalTraceSpan>,
   eventName: string,
   cap: PerFireSampleCap = DEFAULT_C2_SAMPLE_CAP,
+  extraAttrKeys: readonly string[] = [],
 ): PerFireSample[] {
   const samples: PerFireSample[] = [];
   for (const span of spans) {
@@ -104,6 +114,23 @@ export function extractPerFireSamples(
       // helper has no scope to limit message HMAC scan; surfacing samples with empty
       // threadIdHash would advertise a join key we can't honor. Skip the row instead.
       if (messageIdHash == null || trigger == null || threadIdHash == null) continue;
+      // F192 Phase D R1 P1-1 fix (砚砚): copy per-metric extra hashed attrs through
+      // verbatim. Allowlist-only (not arbitrary attr passthrough) — caller passes
+      // the keys it knows the route emits. Missing extras at parse time are dropped
+      // silently (each is independently optional; the sample still surfaces).
+      let extras: Record<string, string> | undefined;
+      if (extraAttrKeys.length > 0) {
+        const collected: Record<string, string> = {};
+        let hasAny = false;
+        for (const key of extraAttrKeys) {
+          const v = stringAttr(attrs, key);
+          if (v !== null) {
+            collected[key] = v;
+            hasAny = true;
+          }
+        }
+        if (hasAny) extras = collected;
+      }
       samples.push({
         traceId: span.traceId,
         spanId: span.spanId,
@@ -114,6 +141,7 @@ export function extractPerFireSamples(
         threadSystemKind: threadSystemKind ?? '',
         trigger,
         firedAt: new Date(event.timeMs).toISOString(),
+        ...(extras ? { extras } : {}),
       });
     }
   }
