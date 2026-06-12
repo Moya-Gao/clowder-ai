@@ -78,6 +78,26 @@ describe('HandoffProposalCard (F225 P1-2 — buttons no longer inert)', () => {
     expect(container.querySelectorAll('button').length).toBe(2);
   });
 
+  it('renders metadata as compact text and rich handoff fields as markdown sections', () => {
+    const richBlock: RichCardBlock = {
+      ...handoffBlock,
+      fields: [
+        { label: '封印 session', value: 'sess_2' },
+        { label: 'worktree', value: 'cat-cafe-f225' },
+        { label: '已完成', value: '- **wired A**\n- wired B' },
+        { label: '下一步', value: '1. wire C\n2. wire D' },
+      ],
+    };
+    act(() => root.render(<HandoffProposalCard block={richBlock} />));
+
+    expect(container.textContent).toContain('sess_2');
+    expect(container.textContent).toContain('cat-cafe-f225');
+    expect(container.textContent).toContain('已完成');
+    expect(container.textContent).toContain('下一步');
+    expect(container.querySelector('strong')?.textContent).toBe('wired A');
+    expect(container.querySelectorAll('li').length).toBeGreaterThanOrEqual(4);
+  });
+
   it('approve button POSTs /api/session-handoff/:id/approve then shows approved', async () => {
     await act(async () => {
       root.render(<HandoffProposalCard block={handoffBlock} />);
