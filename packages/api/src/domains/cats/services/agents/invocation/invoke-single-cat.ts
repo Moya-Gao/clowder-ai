@@ -2062,6 +2062,11 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
             );
           }
 
+          // F230: include model + provider so all carrier paths (PTY, bg, -p) can
+          // populate bubble footer metadata from invocation_usage.
+          // PTY carrier text events carry no metadata (transcriptEntriesToAgentMessages);
+          // this is their only metadata source. For -p/bg the frontend handler is
+          // first-write-wins → idempotent (text event writes metadata first, this is no-op).
           outputs.push({
             type: 'system_info' as const,
             catId,
@@ -2069,6 +2074,8 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
               type: 'invocation_usage',
               catId,
               usage: msg.metadata.usage,
+              model: msg.metadata.model,
+              provider: msg.metadata.provider,
             }),
             timestamp: Date.now(),
           });

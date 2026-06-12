@@ -655,6 +655,15 @@ export function consumeBackgroundSystemInfo(
         usage: parsed.usage,
       });
       if (existingRef?.id) {
+        // F230: write model/provider FIRST so setThreadMessageMetadata creates the
+        // metadata object when absent (PTY text events carry no metadata).
+        // setThreadMessageUsage is a no-op when metadata is absent — ordering matters.
+        if (parsed.model && parsed.provider) {
+          options.store.setThreadMessageMetadata(msg.threadId, existingRef.id, {
+            model: parsed.model as string,
+            provider: parsed.provider as string,
+          });
+        }
         options.store.setThreadMessageUsage(msg.threadId, existingRef.id, parsed.usage);
       }
       consumed = true;
@@ -4512,6 +4521,16 @@ export function useAgentMessages() {
             // Also persist usage on the cat's last assistant message (message-scoped)
             const ref = getActive(msg.catId);
             if (ref) {
+              // F230: write model/provider FIRST so setMessageMetadata creates the metadata
+              // object when absent (PTY text events carry no metadata).
+              // setMessageUsage is a no-op when metadata is absent — ordering matters.
+              // For -p/bg paths, setMessageMetadata is first-write-wins → no-op (idempotent).
+              if (parsed.model && parsed.provider) {
+                setMessageMetadata(ref.id, {
+                  model: parsed.model as string,
+                  provider: parsed.provider as string,
+                });
+              }
               setMessageUsage(ref.id, parsed.usage);
             }
             consumed = true;
