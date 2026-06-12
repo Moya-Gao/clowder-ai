@@ -5,7 +5,7 @@ series: 猫猫带你拿offer
 topics: [multi-agent, A2A, collaboration, ball-ownership, shared-state, cross-review, interview, teamact]
 doc_kind: script
 created: 2026-06-02
-status: draft
+status: ready
 duration_target: 8min
 presenter: landy
 cat_voices: [opus, codex]
