@@ -16,13 +16,17 @@ shot-plan §5 step 2 的强制检查点：在烧任何视频模型 roll 之前�
 
 构成：D lane 镜头（S03/S04/S06/S07a/S08/S10）从 deterministic-spike export 模式抓喜剧拍点帧；V lane 镜头（S01/S02/S05/S07b/S09）用显式占位卡（斜纹边 + V LANE PLACEHOLDER 标签，防误当成片），**对白直接烤在占位卡上**（Chrome 渲染中文，不依赖 ffmpeg 文字滤镜）；完整字幕轨（`edl-v0.mjs` = shot-plan §3 的机器可读形态）以 **mov_text 软字幕** mux 进 mp4，播放器可开关。**无 SFX/BGM**——音频是下一层（open issue #3）。
 
-## Run
+## Run（v1 真素材版，2026-06-12）
 
 ```bash
 node docs/videos/cucu-pr-flow/animatic/build-animatic.mjs
-# 产物: animatic/out/animatic-v0.mp4 (~54s, 720x1280)
+# 产物: animatic/out/animatic-v1.mp4 (~59s, 1280x720 横屏, 7 条字幕已烧制)
 # out/ 不进 git（large-asset policy）；脚本可随时重跑再生
 ```
+
+v1 = 全真素材（8 视频 + 7 静帧卡 + S10 后 0.5s 黑场 + S11 true end）。builder 自动探测素材画幅：同向直通，异向 blur-pad（竖素材进横屏 = 背景模糊填充）。字幕走 Chrome 透明 PNG 条 + ffmpeg overlay 烧制（本机无 libass 的绕行，subtitle.html 渲染中文完美）。
+
+⚠️ **画幅 DECISION-PENDING**：素材分裂（6 视频横屏 / 2 视频 + 8 图竖屏）。当前输出 1280×720 横屏（保 6 个主力镜头原画质）；CVO 若拍竖屏，改 `edl-v1.mjs` 的 width/height 重跑即可（builder 已参数化，pad 方向自动反转）。v0 占位卡版见 git 历史 `6693646da`。
 
 依赖本机 Chrome + ffmpeg/ffprobe + python3，零 npm 依赖。
 
