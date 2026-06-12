@@ -13,13 +13,16 @@ export const edl = {
   width: 1280,
   height: 720,
   shots: [
-    // 片头免责声明卡（CVO 2026-06-12）：伪纪录片式一本正经，定罪叙事的开场白
+    // 海报式片头（CVO 2026-06-12）：先给可传播片名，再进入真实事件叙事
     {
       id: 'TITLE-DISCLAIMER',
-      kind: 'title',
-      text: '本故事根据真实事件改编',
-      sub: '肇事猫猫已主动提供 commit 记录与 CI 日志作为呈堂证供',
-      durationMs: 2500,
+      kind: 'posterTitle',
+      src: 'references/title-cards/S00-title-card-bg-v1.png',
+      badge: '真实猫咖事件改编',
+      text: '醋醋喵诞生记',
+      sub: '一张头像引发的标准 PR 流程',
+      note: 'commit 记录与 CI 日志已作为呈堂证供',
+      durationMs: 2600,
     },
     // S00（剧本 v2）：Landy 兴奋宣布——动机闭环的起点（素材 2026-06-12 到位）
     {
@@ -180,7 +183,7 @@ export const edl = {
 export function shotDurationMs(shot) {
   if (shot.kind === 'video') return Math.round(shot.trimSec * 1000);
   if (shot.kind === 'stills') return shot.segments.reduce((sum, seg) => sum + seg.holdMs, 0);
-  if (shot.kind === 'black' || shot.kind === 'title') return shot.durationMs;
+  if (shot.kind === 'black' || shot.kind === 'title' || shot.kind === 'posterTitle') return shot.durationMs;
   throw new Error(`unknown kind: ${shot.kind}`);
 }
 

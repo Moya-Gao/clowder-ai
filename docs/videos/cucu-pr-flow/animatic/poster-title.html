@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>Poster Title Card</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100vw; height: 100vh; overflow: hidden; background: #120d09; }
+  body {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", sans-serif;
+  }
+  .bg {
+    position: absolute;
+    inset: -32px;
+    width: calc(100% + 64px);
+    height: calc(100% + 64px);
+    object-fit: cover;
+    filter: blur(28px) brightness(0.58) saturate(1.08);
+    transform: scale(1.05);
+  }
+  .poster {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+  .title-block {
+    position: absolute;
+    top: 6.2vh;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(78vw, 760px);
+    text-align: center;
+    color: #3f2917;
+    text-shadow:
+      0 2px 0 rgba(255, 246, 220, 0.9),
+      0 10px 26px rgba(80, 44, 20, 0.24);
+  }
+  .badge {
+    display: inline-block;
+    padding: 8px 18px 9px;
+    border: 2px solid rgba(94, 52, 24, 0.45);
+    border-radius: 999px;
+    background: rgba(250, 232, 189, 0.72);
+    font-size: clamp(18px, 2.5vw, 28px);
+    font-weight: 700;
+    letter-spacing: 0;
+  }
+  .title {
+    margin-top: 18px;
+    font-size: clamp(52px, 8.4vw, 92px);
+    line-height: 1.05;
+    font-weight: 900;
+    letter-spacing: 0;
+    white-space: nowrap;
+  }
+  .sub {
+    margin-top: 16px;
+    font-size: clamp(23px, 3.5vw, 38px);
+    line-height: 1.28;
+    font-weight: 800;
+    letter-spacing: 0;
+  }
+  .note {
+    margin: 18px auto 0;
+    width: min(70vw, 620px);
+    color: #6d4b2a;
+    font-size: clamp(15px, 2vw, 24px);
+    line-height: 1.35;
+    font-weight: 700;
+    letter-spacing: 0;
+  }
+  @media (orientation: landscape) {
+    .title-block {
+      top: 6.4vh;
+      width: min(52vh, 380px);
+    }
+    .badge { font-size: clamp(14px, 2vw, 22px); padding: 6px 14px 7px; }
+    .title { margin-top: 11px; font-size: clamp(36px, 3.4vw, 44px); }
+    .sub { margin-top: 8px; font-size: clamp(16px, 1.6vw, 21px); line-height: 1.18; }
+    .note { display: none; }
+  }
+</style>
+</head>
+<body>
+  <img class="bg" data-field="bg" alt="" />
+  <img class="poster" data-field="poster" alt="" />
+  <div class="title-block">
+    <div class="badge" data-field="badge"></div>
+    <div class="title" data-field="text"></div>
+    <div class="sub" data-field="sub"></div>
+    <div class="note" data-field="note"></div>
+  </div>
+  <script>
+    var params = new URLSearchParams(location.search);
+    var bg = params.get('bg') || '';
+    document.querySelector('[data-field="bg"]').src = bg;
+    document.querySelector('[data-field="poster"]').src = bg;
+    document.querySelector('[data-field="badge"]').textContent = params.get('badge') || '';
+    document.querySelector('[data-field="text"]').textContent = params.get('text') || '';
+    document.querySelector('[data-field="sub"]').textContent = params.get('sub') || '';
+    document.querySelector('[data-field="note"]').textContent = params.get('note') || '';
+  </script>
+</body>
+</html>

@@ -29,6 +29,14 @@ related_docs:
 
 均为**首帧**（非尾帧）。是否需要尾帧（首尾帧双控）在 shot-plan v0.2 按镜头标注——动作简单的镜头首帧+动作 prompt 足够，构图大变的镜头才补尾帧。
 
+## references/title-cards/ — 片头海报背景（Codex imagegen，2026-06-12 入库）
+
+> 文字不烤进图里：图片只负责视觉钩子，精确中文标题由 `animatic/poster-title.html` + Chrome 后期叠字。当前片名建议：**《醋醋喵诞生记》**；副标题：**一张头像引发的标准 PR 流程**。
+
+| 文件 | 用途 | 尺寸 | md5 | 可用性 |
+|---|---|---:|---|---|
+| `S00-title-card-bg-v1.png` | 片头海报背景：Landy 指向门口新猫，砚砚在桌前盖章，桌面有头像卡/CI 清单/PR 氛围；上方留标题区 | 941×1672 | `1ee52d4cef3a168210f5794bb3f30429` | ✅ 直接可用；EDL 首段 `posterTitle` 已引用 |
+
 ## generated-clips/ — 可用成片素材（gitignored，账本记录）
 
 > 🎉 **Wave V-spike PASS（2026-06-11）**：S02-S05 四镜头 i2v 一轮全过（prompt book v0.1.3 配方），S03 信息镜头文字未崩 = FM-08 风险解除，全片管线验证通过。**实测发现 ×2**：(1) 烁烁模型遵守 prompt 的 N-second 指令（时长精确 5/4/5/6s，非固定 10s）；(2) Google 系图/视频中文渲染乱码——**所有含中文的静帧必须走云端砚砚（GPT 系）生成**，已写入 prompt book §3。

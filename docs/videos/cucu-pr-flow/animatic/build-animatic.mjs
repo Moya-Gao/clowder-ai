@@ -119,6 +119,44 @@ function encodeTitleSeg(shot, name) {
   return seg;
 }
 
+// 海报式片头：AI 背景图 + Chrome 精确叠中文标题，避免把可读文字赌给图片模型。
+function encodePosterTitleSeg(shot, name) {
+  const bg = resolve(assetsDir, shot.src);
+  const png = resolve(segsDir, `${name}.png`);
+  const url = `file://${resolve(here, 'poster-title.html')}?${new URLSearchParams({
+    bg: `file://${bg}`,
+    badge: shot.badge ?? '',
+    text: shot.text,
+    sub: shot.sub ?? '',
+    note: shot.note ?? '',
+  })}`;
+  run(CHROME, [
+    '--headless',
+    '--disable-gpu',
+    '--hide-scrollbars',
+    '--allow-file-access-from-files',
+    `--window-size=${W},${H}`,
+    `--screenshot=${png}`,
+    '--virtual-time-budget=600',
+    url,
+  ]);
+  const seg = resolve(segsDir, `${name}.mp4`);
+  run('ffmpeg', [
+    '-y',
+    '-loop',
+    '1',
+    '-t',
+    (shot.durationMs / 1000).toFixed(3),
+    '-i',
+    png,
+    '-vf',
+    'format=yuv420p',
+    ...ENC,
+    seg,
+  ]);
+  return seg;
+}
+
 function msToSrt(ms) {
   const h = String(Math.floor(ms / 3600000)).padStart(2, '0');
   const m = String(Math.floor((ms % 3600000) / 60000)).padStart(2, '0');
@@ -146,6 +184,8 @@ edl.shots.forEach((shot, i) => {
     concatLines.push(`file '${encodeBlackSeg(shot.durationMs, `seg-${String(i).padStart(2, '0')}-black`)}'`);
   } else if (shot.kind === 'title') {
     concatLines.push(`file '${encodeTitleSeg(shot, `seg-${String(i).padStart(2, '0')}-${shot.id}`)}'`);
+  } else if (shot.kind === 'posterTitle') {
+    concatLines.push(`file '${encodePosterTitleSeg(shot, `seg-${String(i).padStart(2, '0')}-${shot.id}`)}'`);
   }
   console.log(`seg ${shot.id} done`);
 });
@@ -213,6 +253,7 @@ const chain = cues
     return `${inLabel}[${i + 1}:v]overlay=0:H-h:enable='between(t,${cue.start.toFixed(2)},${cue.end.toFixed(2)})'${outLabel}`;
   })
   .join(';');
+const expectedSec = totalDurationMs() / 1000;
 run('ffmpeg', [
   '-y',
   ...inputs,
@@ -220,6 +261,8 @@ run('ffmpeg', [
   chain,
   '-map',
   '[vout]',
+  '-t',
+  expectedSec.toFixed(3),
   ...ENC,
   resolve(outDir, 'animatic-v1.mp4'),
 ]);
@@ -235,7 +278,6 @@ const probeDur = run('ffprobe', [
   resolve(outDir, 'animatic-v1.mp4'),
 ]);
 const actualSec = parseFloat(probeDur.stdout.trim());
-const expectedSec = totalDurationMs() / 1000;
 if (Math.abs(actualSec - expectedSec) > 0.8) {
   throw new Error(`duration mismatch: expected ~${expectedSec}s got ${actualSec}s`);
 }
