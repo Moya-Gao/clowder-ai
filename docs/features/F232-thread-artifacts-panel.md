@@ -8,7 +8,7 @@ created: 2026-06-11
 
 # F232: Thread Artifacts Panel — Thread 产物视图
 
-> **Status**: spec | **Owner**: 宪宪 Opus-4.8 | **Priority**: P1
+> **Status**: in-progress（Phase A merged PR #2247，视觉待 alpha 验收；Phase B 未启动）| **Owner**: 宪宪 Opus-4.8 | **Priority**: P1
 
 ## Why
 
@@ -51,13 +51,13 @@ created: 2026-06-11
 
 <!-- 立项愿景硬度自检（F216→F219）：每条 AC ① trace 回 Why 的某诉求 ② 非作者可复核（命令/数字/截图）。 -->
 
-### Phase A（Thread 内产物视图）
-- [ ] AC-A1: `GET /api/threads/:threadId/artifacts` 返回该 thread 全部产物（rich blocks + 生成文件 + PR），按时间倒序，每项含 `type / name / catId / createdAt / sourceMessageId`。有 test 覆盖。（trace: "搜半天找不到" → 一次聚合拿全）
-- [ ] AC-A2: 产物可按类型筛选（图 / 文件 / 代码·PR / 语音 / 全部），各类计数与列表一致。（trace: "忘记名字" → 按类型缩小范围）
-- [ ] AC-A3: thread 内产物名搜索（子串匹配，不用记全名），命中实时过滤。（trace: 铲屎官原话"忘记名字是啥了"）
-- [ ] AC-A4: 每个产物可「跳回原消息」（`sourceMessageId` 锚点跳转），定位到生成它的对话位置。（trace: "想看这个 thread 的某个产物"→ 找到还能回现场）
-- [ ] AC-A5: 前端右侧抽屉面板，视觉对齐低保真设计稿（assets/F232/），图标用 inline SVG（**禁 emoji**，家规），≤3 张实现截图 + "需求→截图"映射表。
-- [ ] AC-A6: 聚合查询有 **Redis-backed 测试**覆盖（in-memory store 测不到索引/分页差异，LL `feedback_inmemory_store_tests_miss_redis_behavior`）。
+### Phase A（Thread 内产物视图）✅ merged PR #2247（视觉待 alpha 验收）
+- [x] AC-A1: `GET /api/threads/:threadId/artifacts` 返回该 thread 全部产物（rich blocks + 生成文件 + PR），按时间倒序，每项含 `type / name / catId / createdAt / sourceMessageId`。有 test 覆盖。（trace: "搜半天找不到" → 一次聚合拿全）
+- [x] AC-A2: 产物可按类型筛选（图 / 文件 / 代码·PR / 语音 / 全部），各类计数与列表一致。（trace: "忘记名字" → 按类型缩小范围）
+- [x] AC-A3: thread 内产物名搜索（子串匹配，不用记全名），命中实时过滤。（trace: 铲屎官原话"忘记名字是啥了"）
+- [x] AC-A4: 每个产物可「跳回原消息」（`sourceMessageId` 锚点跳转），定位到生成它的对话位置。jump-with-load（planTeleport）覆盖窗口外老产物（cloud R4 修复）。（trace: "想看这个 thread 的某个产物"→ 找到还能回现场）
+- [ ] AC-A5: 前端右侧抽屉面板，视觉对齐低保真设计稿（assets/F232/），图标用 inline SVG（**禁 emoji**，家规），≤3 张实现截图 + "需求→截图"映射表。**（前端面板 + inline SVG 已交付；视觉对齐验证 + 实现截图/映射表待 alpha 验收 — 砚砚 final review 已确认其余 AC + 全部 cloud finding 修复）**
+- [x] AC-A6: 聚合查询有 **Redis-backed 测试**覆盖（in-memory store 测不到索引/分页差异，LL `feedback_inmemory_store_tests_miss_redis_behavior`）。
 
 ### Phase B（全局产物中心 — 未来）
 - [ ] AC-B1: 全局产物搜索页，跨 thread 按名字 / 类型 / 时间 / 猫聚合检索。
@@ -99,6 +99,7 @@ created: 2026-06-11
 | 日期 | 事件 |
 |------|------|
 | 2026-06-11 | 立项（CVO signoff "我觉得ok了 你立项"）；Design Gate UX 低保真已确认 |
+| 2026-06-12 | Phase A merged (PR #2247) — 聚合 API + 右侧抽屉面板。cloud review 4 轮 6 finding（分页游标/前端 toggle/docs frontmatter/in-memory cursor 无限循环/跳转 AC-A4/system thread 权限泄露）全修 + 砚砚 final 封板放行（LL-072）。视觉待 alpha 验收 |
 
 ## Design Gate
 
