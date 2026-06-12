@@ -30,7 +30,7 @@ export interface ConciergeConfig {
   skin: 'yarn-ball';           // Phase A 唯一皮肤
   displayName: string;         // default '猫猫球'（本家投票后改）
   personaTone: string;         // default '温暖、简短、不啰嗦'
-  dutyCatProfileId: string;    // default 解析：'gemini35' 存在则用之，否则 roster 第一只可用猫
+  dutyCatProfileId: string;    // default 解析：catId 'gemini25'（烁烁，@gemini35 是句柄不是 catId——2026-06-12 订正，handle≠catId）存在则用之，否则 roster 第一只可用猫
   proactivePolicy: 'ambient' | 'quiet-badge';  // Phase A 仅 Tier 0/0-1；default 'quiet-badge'
   muted: boolean;              // 一键 hide/mute（AC-A6）；default false
 }
@@ -80,7 +80,7 @@ type ConciergeCardAction =
 
 **Steps（TDD 节奏）:**
 1. 写 `concierge.ts` types + `pnpm --filter @cat-cafe/shared build`
-2. 失败测试：ConciergeConfigStore get 返回默认值（dutyCatProfileId 解析：gemini35 不在 roster 时 fallback 第一只可用）→ 实现 → 绿。**Redis-backed 测试**（`pnpm --filter @cat-cafe/api test:redis`，in-memory 假绿教训）；**持久化 TTL=0**（铁律 5）
+2. 失败测试：ConciergeConfigStore get 返回默认值（dutyCatProfileId 解析：catId gemini25 不在 roster 时 fallback 第一只可用（订正：原文误写句柄 gemini35））→ 实现 → 绿。**Redis-backed 测试**（`pnpm --filter @cat-cafe/api test:redis`，in-memory 假绿教训）；**持久化 TTL=0**（铁律 5）
 3. 失败测试：ConciergeThreadService 同 user 二次调用返回同一 threadId（幂等懒创建）+ threadKind 标记 → 实现 → 绿
 4. 失败测试：threads 列表默认不含 concierge thread；带 `includeConcierge=true` 包含 → 实现 → 绿
 5. 失败测试：SystemPromptBuilder 在 concierge thread 注入岗位 section（含白名单文案），普通 thread 不注入 → 实现 → 绿。**改完立刻跑守护测试 `node --test test/system-prompt-builder.test.js`**

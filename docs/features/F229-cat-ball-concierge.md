@@ -180,7 +180,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 |---|------|------|
 | OQ-1 | 前台猫默认人设与名字（家庭投票仪式？） | ✅ 已定 2026-06-09，**形象部分被 KD-14 修正（2026-06-10）**：名字/人设交给部署方用户自定；本家 fallback = 家庭投票出生仪式；默认形象 = 家养像素猫（v1 布偶猫），毛线球降为备选皮肤 |
 | OQ-2 | 语音 loop（Phase C）是否提前（铲屎官重度语音用户，权重只有他知道） | ✅ 已定 2026-06-09：不提前——先基建/架构归一（入口壳、身份层、路由），Phase C 维持原位 |
-| OQ-3 | 值班大猫默认值：flash / sonnet / spark 级里谁打头 | ✅ 已定 2026-06-09：值班猫必须用户可配置、provider-agnostic（配 glm5.1 也要能成）；本家默认 gemini35 flash（烁烁） |
+| OQ-3 | 值班大猫默认值：flash / sonnet / spark 级里谁打头 | ✅ 已定 2026-06-09：值班猫必须用户可配置、provider-agnostic（配 glm5.1 也要能成）；本家默认烁烁（句柄 @gemini35 / **catId `gemini25`**——2026-06-12 订正：plan 误用句柄当 catId，PR #2255 R1 砚砚抓出，fallback 救了语义） |
 | OQ-4 | 主动冒泡白名单边界（哪些事件允许它主动说话） | ✅ 已定 2026-06-09：四级白名单（Tier 0 ambient / 1 quiet badge / 2 in-app bubble opt-in / 3 system+voice 默认关），Phase A 只实现 Tier 0-1 + relay 回执（Tier 2 首个默认事件类）——CVO 随 Design Gate 关栓 |
 | OQ-5 | 开源用户形象上传的安全/版权边界 | ⬜ Phase E 前定 |
 | OQ-6 | 页面上下文注入范围（#841 的 URL/标题注入，隐私边界） | ✅ 已定 2026-06-09：Phase A 只取路由级信息（URL/页面标题），不读页面内容——CVO 随 Design Gate 关栓 |
