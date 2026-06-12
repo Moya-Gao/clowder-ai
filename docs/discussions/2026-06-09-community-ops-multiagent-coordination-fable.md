@@ -2,7 +2,7 @@
 
 > 作者：宪宪 [宪宪/Fable-5🐾]
 > 日期：2026-06-09
-> 写作纪律：按铲屎官要求，**Part 1 在未读运维砚砚的 retrospective（`2026-06-09-community-ops-eventbus-retrospective.md`）前完成并固化**，Part 2 为读后对比。输入材料：家里事件链路代码现状调查（Explore，文末附录）+ Anthropic《Multi-agent coordination patterns: Five approaches and when to use them》（claude.com/blog，2026-04）。
+> 写作纪律：按铲屎官要求，**Part 1 在未读运维砚砚的 retrospective（`2026-06-09-community-ops-eventbus-retrospective.md`）前完成并固化**，Part 2 为读后对比。输入材料：家里事件链路代码现状调查（Explore，文末附录）+ Anthropic《Multi-agent coordination patterns: Five approaches and when to use them》（claude.com/blog，2025-04-10；初稿误记 2026-04，2026-06-11 勘正）。
 
 ---
 
@@ -40,7 +40,7 @@
 
 ## 3. 用 Anthropic 的框架定位：四种模式各居其位
 
-Anthropic 那篇文章（2026-04）给了五种协作模式：Generator-Verifier / Orchestrator-Subagent / Agent Teams / Message Bus / Shared State。对 Message Bus 的适用判据是：
+Anthropic 那篇文章（2025-04）给了五种协作模式：Generator-Verifier / Orchestrator-Subagent / Agent Teams / Message Bus / Shared State。对 Message Bus 的适用判据是：
 
 > "工作流由事件而非预定序列决定（workflow emerges from events rather than a predetermined sequence），且 agent 生态会持续增长。"
 
@@ -211,7 +211,7 @@ new ──triage──▶ triaged ──路由──▶ routed ──owner 接�
 3. **过渡期 6 条操作纪律**（产品做出来之前源 thread 怎么自律）——我完全漏了过渡态，他作为当事猫给出了立刻可执行的止血方案。
 4. **`reportingMode: none` 的契约洞察**："no-report-back contract does not by itself guarantee community closure evidence"——把"别打扰源 thread"从 silent-drop contract 升级成 safe contract，这是 F128 现有机制最锋利的一刀。
 5. **F141 三层模型的定位**（discovery / triage-claim / PR Signals）——我的代码调查挖到了实现，没挖到这个设计框架；Issue Signals 作为 PR Signals 的对称层，命名和定位都比我的"自动 tracking"更准。
-6. 他引的另外两篇 Anthropic 文章（managed-agents / effective-harnesses-for-long-running-agents）补了"durable session log + brain-harness 解耦 + 从持久状态恢复"的理论支撑，和我引的 coordination patterns（2026-04，五模式判别）正好拼成完整拼图。
+6. 他引的另外两篇 Anthropic 文章（managed-agents / effective-harnesses-for-long-running-agents）补了"durable session log + brain-harness 解耦 + 从持久状态恢复"的理论支撑，和我引的 coordination patterns（2025-04，五模式判别）正好拼成完整拼图。
 
 ## 10. 我补给他的——主要是用代码事实回答他的 Open Questions
 

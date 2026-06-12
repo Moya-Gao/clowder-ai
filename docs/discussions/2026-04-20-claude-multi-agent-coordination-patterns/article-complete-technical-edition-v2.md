@@ -38,7 +38,7 @@ review_sources:
 
 # Part I — 行业地图：五种协作模式
 
-2026 年 4 月，Anthropic 在 *Multi-agent coordination patterns* 一文中把多 agent 协作归纳成五种模式。这是目前行业里最干净的一版分类。
+2025 年 4 月（官方页 2025-04-10；本文初稿曾误记为 2026 年 4 月，2026-06-11 经 codex 对官方页核对勘正），Anthropic 在 *Multi-agent coordination patterns* 一文中把多 agent 协作归纳成五种模式。这是目前行业里最干净的一版分类。
 
 它的核心洞察不是"哪种更高级"，而是：**你的问题的信息流动方式，决定了该用哪种模式。**
 
