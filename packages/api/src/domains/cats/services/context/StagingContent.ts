@@ -48,6 +48,14 @@ export interface StagingItem {
   added_at: string;
   estimated_tokens: number;
   first_principles_check: FirstPrinciplesCheck;
+  /**
+   * Trigger-rate evidence (ADR-038 §Demote 判据 AND 而非 OR, cloud R1 P1 #2239).
+   * Required for demote-from-L0 path; can be "not-applicable-investment-from-source-thread"
+   * for items that arrived via direct staging investment (e.g. wipers-clause).
+   */
+  trigger_rate_method?: string;
+  trigger_rate_window?: string;
+  trigger_rate_note?: string;
   cvo_signoff?: string;
 }
 

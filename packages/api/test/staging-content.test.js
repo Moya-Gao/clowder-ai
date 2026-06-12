@@ -52,6 +52,55 @@ describe('L0 Staging Protocol PR-B-impl (ADR-038)', () => {
       assert.equal(fp.compress_gap_harmful, false);
       assert.equal(fp.referenced_by_l0, false);
     });
+
+    test('Cloud R1 P1 #2239: every item carries trigger_rate evidence fields (ADR-038 AND 判据条款 1)', () => {
+      // Cloud R1 P1: manifest schema must enforce trigger-rate evidence,
+      // otherwise "first_principles_check + signoff alone" lets any
+      // staging-compatible clause slip out of L0 without decay evidence —
+      // exactly the ADR's "only 2 is not enough" hole.
+      const m = loadStagingManifest();
+      for (const item of m.items) {
+        assert.ok(item.trigger_rate_method, `${item.id} missing trigger_rate_method (ADR-038 §Demote 判据 AND 条款 1)`);
+        assert.ok(item.trigger_rate_window, `${item.id} missing trigger_rate_window`);
+        assert.ok(
+          item.trigger_rate_note,
+          `${item.id} missing trigger_rate_note (must reference ADR-038 carve-out or telemetry source)`,
+        );
+      }
+    });
+
+    test('Cloud R1 P1 #2239: bootstrap-from-L0 reflexes use v1 carve-out method', () => {
+      // Items demoted from L0 reflex layer (no telemetry pipeline) must use
+      // the explicit cvo-signoff-carveout-v1-bootstrap method. Source-thread
+      // investments (e.g. wipers) use a different non-applicable method.
+      // Mis-tagging a real L0 demote as "not-applicable" would silently
+      // bypass the carve-out boundary.
+      //
+      // PR-C R2 (cloud R2 L33 #2239): F218 source-audit demote reverted to
+      // restore system-role authority — only friction-detection remains as
+      // bootstrap-from-L0 demote case in v1.
+      const m = loadStagingManifest();
+      const bootstrapItems = m.items.filter((it) => it.source?.includes('demote 从 L0'));
+      assert.ok(
+        bootstrapItems.length >= 1,
+        'expected ≥1 bootstrap-from-L0 demoted item (friction-detection; f218 reverted in PR-C R2)',
+      );
+      for (const item of bootstrapItems) {
+        assert.equal(
+          item.trigger_rate_method,
+          'cvo-signoff-carveout-v1-bootstrap',
+          `${item.id} demoted from L0 must use carve-out method`,
+        );
+        assert.ok(
+          item.trigger_rate_note?.includes('telemetry'),
+          `${item.id} trigger_rate_note must reference telemetry pipeline gap`,
+        );
+        assert.ok(
+          item.trigger_rate_note?.includes('CVO signoff'),
+          `${item.id} trigger_rate_note must reference CVO signoff substitute`,
+        );
+      }
+    });
   });
 
   describe('Hard cap invariant (双层守恒, fable-5 P1-1 PR #2221 + 砚砚 R1 P1#1 #2237)', () => {
@@ -130,6 +179,45 @@ describe('L0 Staging Protocol PR-B-impl (ADR-038)', () => {
       const out = buildStagingPrepend('opus-47');
       assert.ok(out.includes('ADR-038'));
       assert.match(out, /outside L0\s+\d+-cap/);
+    });
+
+    test('PR-C R2 (cloud L33 #2239): F218 source-audit NOT in staging (kept in L0)', () => {
+      // Cloud R2 L33 P1: F218 source-audit is security-class — must stay in
+      // L0 (system-role) to keep authority against user "skip provenance"
+      // override. Verify staging body does NOT carry source-audit content,
+      // and compile-system-prompt-l0.test.mjs has the inverse assertion that
+      // L0 retains it.
+      const out = buildStagingPrepend('opus-47');
+      assert.ok(
+        !out.includes('搜索结果只是候选线索'),
+        'F218 trigger phrase must NOT be in staging — see compile-system-prompt-l0.test.mjs for L0 presence',
+      );
+      assert.ok(!out.includes('source-audit'), 'F218 source-audit reflex must NOT be in staging body');
+    });
+
+    test('Cloud R1 P2 #2239: 摩擦检测反射 trigger phrases rendered (positive coverage for demoted reflex)', () => {
+      // Same hole-plugging: ensure 铲屎官重复不满 → code-as-harness reflex
+      // is actually injected, not just declared in manifest.
+      const out = buildStagingPrepend('opus-47');
+      assert.ok(
+        out.includes('铲屎官重复不满'),
+        '摩擦检测反射 trigger "铲屎官重复不满" must be rendered (demoted from L0 §2)',
+      );
+      assert.ok(out.includes('code-as-harness'), '摩擦检测反射 action "code-as-harness" must be rendered');
+      assert.ok(out.includes('搜证据确认'), '摩擦检测反射 procedure "搜证据确认" must be rendered');
+    });
+
+    test('Cloud R5 P2 #2239: ADR-031 harness 三层反射 rendered (disentangled from F218 trim)', () => {
+      // Cloud R5 P2: trimming F218 dropped the "harness 改动按软+硬+eval 三层
+      // 落地" reflex along with source-audit's 对象适用性 dimension. Cloud asked
+      // to retain the triggers OR move them to an always-injected replacement.
+      // 对象适用性 restored in L0; harness 三层 disentangled into its own
+      // staging reflex (always-injected per turn, non-security-class so no
+      // user-override concern per cloud R2 L33 boundary).
+      const out = buildStagingPrepend('opus-47');
+      assert.ok(out.includes('harness 三层反射'), 'harness 三层反射 title must be rendered (R5 disentangle from F218)');
+      assert.ok(out.includes('软+硬+eval'), 'harness 三层 methodology "软+硬+eval" must be rendered');
+      assert.ok(out.includes('ADR-031'), 'harness 三层 reflex must reference ADR-031');
     });
   });
 

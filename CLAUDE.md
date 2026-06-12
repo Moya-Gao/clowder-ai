@@ -32,18 +32,10 @@ Magic Words / 治理协议）+ 传球三选一 = **native L0**（运行时注入
 
 ## 布偶猫专属规则（harness/工具链，L0 不含）
 
-- **LSP 诊断（每次 Edit 必看）**：已启用 `typescript-lsp`。Edit 后 tool result
-  出现 `<new-diagnostics>` → 立即处理不忽略；重构/移文件主动触发确认 import 链；
-  优先 LSP 实时反馈，不攒到最后 `tsc --noEmit`。
-- **Redis 测试隔离**：只用 `pnpm --filter @cat-cafe/api test:redis`（稳定性
-  `test:redis:repeat`）；脚本自动起临时 Redis；Redis bug 先红后绿。
-- **JetBrains MCP**：必须传 `projectPath:
-  /Users/lysander/projects/relay-station/cat-cafe`；前缀 `mcp__jetbrains__*`
-  （先 ToolSearch）；重命名用 `rename_refactoring`。
-- **SystemPromptBuilder 守护测试**：改 SystemPromptBuilder → 立刻跑
-  `node --test test/system-prompt-builder.test.js`；改 L0 真相源
-  `assets/system-prompts/system-prompt-l0.md` 或
-  `scripts/compile-system-prompt-l0.mjs` → 跑 `compile-system-prompt-l0.test.mjs`。
+- **LSP 诊断（每次 Edit 必看）**：`typescript-lsp` 已启用。Edit 后 `<new-diagnostics>` 立即处理；重构/移文件主动触发；优先 LSP 实时反馈，不攒到 `tsc --noEmit`。
+- **Redis 测试隔离**：`pnpm --filter @cat-cafe/api test:redis`（稳定性 `test:redis:repeat`）；脚本自动起临时 Redis；bug 先红后绿。
+- **JetBrains MCP**：必须传 `projectPath: /Users/lysander/projects/relay-station/cat-cafe`；前缀 `mcp__jetbrains__*`（先 ToolSearch）；重命名用 `rename_refactoring`。
+- **SystemPromptBuilder 守护测试**：改 SystemPromptBuilder → 跑 `test/system-prompt-builder.test.js`；改 L0 真相源（`system-prompt-l0.md` / `compile-system-prompt-l0.mjs`）→ 跑 `compile-system-prompt-l0.test.mjs`。
 
 ## 指针（真相源，不在本文件复制）
 

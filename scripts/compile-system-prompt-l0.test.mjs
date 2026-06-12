@@ -40,44 +40,26 @@ const CATS = ['opus', 'opus-47', 'sonnet', 'codex', 'gpt52', 'gemini25'];
 //     —— 每个 L0 toucher 直观看到自己吃掉了多少公地
 const REPO_ROOT = fileURLToPath(new URL('../', import.meta.url));
 const HARD_CAP = 6000;
-const WARN_MARGIN = 50; // tokens; ≤ HARD_CAP - WARN_MARGIN = 5,950
+const WARN_MARGIN = 50; // ADR-038 line 39+194 soft invariant: L0 + 50 ≤ HARD_CAP
+
+// PR-C R3 (cloud R3 P2 #2239): per-cat relaxed warn margin (15 for codex/gpt52)
+// was reverted — cloud correctly flagged that the highest-risk overlays lost
+// 15-49 token early warning coverage exactly where it mattered most, and it
+// breached the ADR-038 soft invariant. Resolution: trim maine-coon overlay
+// content (长任务纪律 + fallback 治理 line tighten, ~38 tokens save) restores
+// uniform 50-token warn margin globally. F218 source-audit stayed in L0
+// (cloud R2 L33). All cats now safe within hard cap + 50 token warn.
 const marginTable = new Map(); // catId -> { tokens, margin, status }
 
-// 砚砚 PR-A R1 P1 #2 + 云端 R3 P1 L334 修复: 不能 intentionally land
-// executable failing tests, AND todo 必须 bound to known excess 避免掩盖
-// future regression.
-// codex/gpt52 当前 over cap (main baseline red) — backlog 完成前用
-// t.todo() 标 (只在 tokens ≤ known baseline 时 todo, 否则 fail).
-// 这样 future toucher 让 codex 从 6051 涨到 6200 会触发 fail 报警,
-// 不被 todo 掩盖 (云端 L334 finding: 防 todo 变成 future regression
-// blind spot).
-// 强制 expiry 检查: expiry 之后必须解决 (件套 ④ + 雨刮器减肥版 land)
-// 或撤回扩展 expiry (要 @landy signoff).
-// GOTCHA: 件套 ④ staging 协议本身不直接 reduce L0 budget — 它是 mechanism
-// (新条款先 staging then graduate), 不是 budget reducer. 真要 codex/gpt52 绿,
-// 要么件套 ④ 双向 (含 demote 老 L0 内容到 staging) 要么单独 ⑤ budget reducer.
-// 这是 fable-5 + 砚砚 + opus-47 共同 refine 的 plan-level 深度问题, PR-A 不
-// 单独决策 — 标 todo + flag 给 PR-B 立项前 refine.
-const L0_BUDGET_KNOWN_BASELINE = new Map([
-  // 云端 R3 P1 L334: 各猫当前已知 baseline tokens 上限 (主 baseline + 5 token 噪音
-  // 容差). tokens ≤ baseline 视为 known debt → t.todo();
-  // tokens > baseline → 触发 assertion → fail 报警 = future regression detector.
-  ['codex', 6055], // known 6051 (2026-06-10 fresh build)
-  ['gpt52', 6055], // known 6050
-]);
-const L0_BUDGET_TODO_REASON =
-  'L0-budget-defense backlog 件套 ④ + 雨刮器减肥版 land + budget reducer (TBD: 件套 ④ 双向 / 独立 ⑤) 后启用; owner @opus-47; ETA 2026-06-12; anchor docs/BACKLOG.md § L0-budget-defense (PR #2213 deadlock 跟进)';
-const L0_BUDGET_TODO_EXPIRY = new Date('2026-06-13T00:00:00Z');
-
-// 云端 R3 P1 L334 helper: 检查 tokens 是否在 known baseline 内 → 决定 todo vs fail
-function maybeBoundedTodo(t, catId, tokens) {
-  const knownBaseline = L0_BUDGET_KNOWN_BASELINE.get(catId);
-  if (knownBaseline !== undefined && tokens <= knownBaseline) {
-    t.todo(`${L0_BUDGET_TODO_REASON} (token ${tokens} ≤ known baseline ${knownBaseline})`);
-    return true; // skip assertion, treated as todo
-  }
-  return false; // run assertion normally
-}
+// 砚砚 PR-A R1 P1 #2 + 云端 R3 P1 L334 (PR-A 历史): bounded todo + expiry guard
+// 机制 — codex/gpt52 当时 over cap, 用 t.todo() 标已知 excess (tokens ≤ baseline),
+// expiry 2026-06-13 强制解决.
+//
+// PR-C (2026-06-11) 完成 first demote case (F218 source-audit 反射 + 摩擦检测反射
+// → staging) → codex 6051 → 5913, gpt52 6050 → 5912, 都过 cap 且 margin > 50.
+// bounded todo + expiry guard 历史使命完成, 移除. 简单 assertion 守 ≤ 6000 即可,
+// margin guard (≤5950) 守贴线预警, regression detector 自然成立 (任何 toucher 超
+// baseline 都 fail).
 
 describe('F203 Phase B — compile-system-prompt-l0.mjs', () => {
   // ① pre-test build hook (L0-budget-defense): 跑测试前 rebuild api + shared
@@ -92,13 +74,8 @@ describe('F203 Phase B — compile-system-prompt-l0.mjs', () => {
   //   后强制解决或 extend (需 @landy signoff).
   //   NODE_ENV=production 会跳 devDeps, 用 env override unset.
   before(async () => {
-    // 砚砚 PR-A R1 P1 #2 expiry guard
-    const now = new Date();
-    if (now > L0_BUDGET_TODO_EXPIRY) {
-      throw new Error(
-        `[L0-budget-defense] todo expired ${L0_BUDGET_TODO_EXPIRY.toISOString()} — 必须解决 codex/gpt52 over-cap 或扩展 expiry (需 @landy signoff). anchor: docs/BACKLOG.md § L0-budget-defense.`,
-      );
-    }
+    // PR-C (2026-06-11): expiry guard removed — over-cap debt cleared by first
+    // demote case. See historical note above L0_BUDGET infrastructure removal.
     console.log(
       '\n[L0 budget defense ①] pre-test build hook: rebuild @cat-cafe/shared + @cat-cafe/api dist (fresh source)...',
     );
@@ -287,21 +264,55 @@ describe('F203 Phase B — compile-system-prompt-l0.mjs', () => {
     });
   });
 
-  describe('Objective carry-over + F218 source hygiene triggers', () => {
-    test('source hygiene and harness methodology triggers are present and compact', async () => {
+  describe('Objective carry-over (PR-C partial demote: 摩擦检测 → staging; F218 kept in L0)', () => {
+    test('carry-over section retains F218 + 摩擦检测 demote breadcrumb (post-PR-C R2)', async () => {
+      // Cloud R2 L33 #2239 (P1): demoting F218 source-audit reflex to staging
+      // would weaken system-role guarantee — staging is prepended via
+      // effectivePrompt (user channel) in invoke-single-cat, so user "skip
+      // provenance" prompt could more easily override the audit reflex than
+      // the original system-role L0 line. F218 is security-class; it stays
+      // in L0 until v2 system-channel staging mechanism lands (see ADR-038
+      // §v1 source-audit demote carve-out).
+      // Only 摩擦检测反射 demoted in PR-C (low override surface — user has no
+      // incentive to "skip friction detection").
       const l0 = await compileL0({ catId: 'opus-47' });
-      const carryOverMatch = l0.match(/## 2\. 客观性 carry-over 段[\s\S]*?(?=\n## 3\.)/);
+      const carryOverMatch = l0.match(/## 2\. 客观性 carry-over 段[\s\S]*?(?=\n## 3\.|\n---)/);
       assert.ok(carryOverMatch, 'carry-over section not found');
       const carryOver = carryOverMatch[0];
+      // Section meta still present
       assert.ok(carryOver.includes('0 项功能性能力退化'));
-      assert.ok(carryOver.includes('source-audit'));
-      assert.ok(carryOver.includes('搜索结果只是候选线索'));
-      assert.ok(carryOver.includes('软+硬+eval'));
-      assert.ok(carryOver.includes('ADR-031'));
-
-      const f218Line = carryOver.match(/F218 常驻反射[^：]*：(.+)/)?.[1] ?? '';
-      assert.ok(f218Line, 'missing F218 compact reflex line');
-      assert.ok(tok(f218Line) <= 150, `F218 L0 reflex is ${tok(f218Line)} tokens (limit 150)`);
+      // Demote breadcrumb references ADR-038 + staging
+      assert.ok(carryOver.includes('ADR-038'), 'carry-over should reference ADR-038 demote');
+      assert.ok(carryOver.includes('staging'), 'carry-over should reference staging layer');
+      // F218 source-audit reflex STAYS in L0 (cloud R2 L33 P1 — security-class)
+      assert.ok(
+        carryOver.includes('source-audit'),
+        'F218 source-audit content MUST stay in L0 — security-class, system-role抗 user "skip" override (cloud R2 L33 #2239)',
+      );
+      assert.ok(
+        carryOver.includes('搜索结果只是候选线索'),
+        'F218 trigger phrase MUST stay in L0 — see cloud R2 L33 #2239',
+      );
+      // Cloud R5 P2: F218 source-audit must keep all 4 audit dimensions
+      // (一手来源 / 利益冲突 / 时效 / 对象适用性) — trimming 对象适用性 lost
+      // applicability-fit check (does the external data apply to YOUR object).
+      assert.ok(
+        carryOver.includes('对象适用性'),
+        'F218 source-audit dimension 对象适用性 MUST stay in L0 (cloud R5 P2 #2239)',
+      );
+      // 摩擦检测反射 demoted to staging (low-override-surface behavior pattern)
+      assert.ok(
+        !carryOver.includes('铲屎官重复不满'),
+        '摩擦检测反射 content should be in staging, not L0 (demoted in PR-C)',
+      );
+      // Cloud R5 P2: harness 三层 reflex disentangled to staging (own item),
+      // not deleted. Body content (methodology guidance: 软+硬+eval) lives
+      // in staging — verify L0 carry-over does NOT carry the methodology
+      // (it's referenced via breadcrumb only).
+      assert.ok(
+        !carryOver.includes('软+硬+eval'),
+        'harness 三层 methodology should be in staging body, not L0 carry-over (R5 disentangle)',
+      );
     });
   });
 
@@ -351,16 +362,13 @@ describe('F203 Phase B — compile-system-prompt-l0.mjs', () => {
   // 6,000 占 200k context 3%。详见 F203 AC-B3 + KD-14。
   describe('Token budget (AC-B3, ≤6,000)', () => {
     for (const catId of CATS) {
-      test(`${catId}: total tokens ≤ 6,000`, async (t) => {
+      test(`${catId}: total tokens ≤ 6,000`, async () => {
         const l0 = await compileL0({ catId });
         const tokens = tok(l0);
         const margin = HARD_CAP - tokens;
-        // ③ 记录给 after hook 用 (margin 表) — 即使是 todo 也记录 (visibility 保留)
+        // ③ 记录给 after hook 用 (margin 表) — uniform 50 warn (PR-C R3)
         const status = margin >= WARN_MARGIN ? '🟢' : margin >= 0 ? '🟡' : '🔴';
         marginTable.set(catId, { tokens, margin, status });
-        // 砚砚 R1 P1 #2 + 云端 R3 L334: tokens ≤ known baseline → todo (known debt);
-        // tokens > known baseline → fail (future regression detector).
-        if (maybeBoundedTodo(t, catId, tokens)) return;
         assert.ok(tokens <= HARD_CAP, `${catId} L0 = ${tokens} tokens (limit ${HARD_CAP})`);
       });
     }
@@ -377,12 +385,10 @@ describe('F203 Phase B — compile-system-prompt-l0.mjs', () => {
   //   docs/BACKLOG.md § L0-budget-defense, owner = @opus-47, ETA 1-2 day).
   describe(`Token budget margin guard (≤${HARD_CAP - WARN_MARGIN}, 防贴线跳舞)`, () => {
     for (const catId of CATS) {
-      test(`${catId}: total tokens ≤ ${HARD_CAP - WARN_MARGIN} (${WARN_MARGIN} token warn margin)`, async (t) => {
+      test(`${catId}: total tokens ≤ ${HARD_CAP - WARN_MARGIN} (${WARN_MARGIN} token warn margin)`, async () => {
         const l0 = await compileL0({ catId });
         const tokens = tok(l0);
         const margin = HARD_CAP - tokens;
-        // 同 cap test: tokens ≤ known baseline → todo, tokens > baseline → fail
-        if (maybeBoundedTodo(t, catId, tokens)) return;
         assert.ok(
           tokens <= HARD_CAP - WARN_MARGIN,
           `${catId} L0 = ${tokens} tokens (margin ${margin} < ${WARN_MARGIN}) — 贴线跳舞预警 (温水煮蛙). 不准砍 truth-source-protected 内容给新条款腾位 (PR #2213 教训). 走 L0 staging 协议 (件套 ④) 或先撤回新增内容.`,

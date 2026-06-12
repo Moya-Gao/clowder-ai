@@ -88,6 +88,41 @@ Demote 必须**两条同时满足 + review gate**：
 - v1 按条款类别分窗（fable-5 #1 攻击）：family overlay 14d / L0 通用条款 30d（保守）
 - v2 路径：opportunity-normalized 触发率（分母 = 条款实际在场轮次，非日历轮次）
 
+#### v1 bootstrap carve-out（cloud R1 P1 #2239 修正）
+
+**问题**：L0 反射触发条款（雨刮器/摩擦检测/F218 source-audit 类）**根本没有 telemetry pipeline** —— 它们是 native system prompt 里的当轮反射触发器，F200/F167 pipeline 看不到。"零触发"既不可证实也不可证伪。等于条款 1（触发率衰减 nominate）在 v1 对反射类条款不可达。
+
+**carve-out**：**首次** bootstrap demote 反射触发条款时（v1 启动期一次性），触发率证据通过 **CVO signoff + 人工观察声明** 取代触发率 telemetry nominate；条款 2（第一性判别）+ 条款 3（review gate）仍硬约束，AND 协议未破。
+
+**适用范围**（精确边界，防止条款滥用）：
+- ✅ 反射触发类 L0 条款（管"新事件反射"，三问 checklist 第 2 问→缺口无损）
+- ❌ 全程身份/球权类 L0 条款（管"持续约束"，不在 demote 候选）
+- ❌ 后续 demote（v1 启动期之后）：必须接 telemetry pipeline，本 carve-out 不再适用
+- ❌ family overlay demote：触发率有 F200/F167 信号源，必须用 telemetry
+
+**Manifest schema 要求**：每个 demote item 必须填 `trigger_rate_method/window/note` 三字段。bootstrap carve-out item 标 `trigger_rate_method: cvo-signoff-carveout-v1-bootstrap`；source-thread 投递 item 标 `trigger_rate_method: not-applicable-investment-from-source-thread`（demote AND 判据本就不适用）。
+
+**v2 退出标准**：F192 weekly verdict pipeline 接入反射触发 telemetry → carve-out 失效，所有 demote 走 telemetry nominate。
+
+#### v1 source-audit demote carve-out（cloud R2 L33 #2239 修正）
+
+**问题**：staging 在 v1 通过 `invoke-single-cat` 的 effectivePrompt 前缀注入（user channel），而 L0 走 `--system-prompt` 进 system/developer role。把 security-class guardrail（F218 source-audit）从 system-role demote 到 user-role prepend 会**改变 priority 和 persistence**：
+
+- **Priority asymmetry**：当用户主动说"skip provenance / 不查来源"时，system-role 指令更难被 override（LLM 跟随权重不对称）。
+- **Override surface**：user-channel 文本和用户消息同源，"覆盖"的语用门槛更低。
+- **High-risk-claim alignment**：F218 guards **正是** 用户最可能想 skip 的场景——外部数字 / benchmark / 因果归因等，恰好是 hallucination 高发区。
+
+**carve-out**：v1 staging 通过 user channel 注入的设计前提下，**security-class L0 反射条款（如 F218 source-audit）暂不可 demote**，必须留在 L0 system-role。第一性判别条款 2（缺口无损）此时**条件不成立** —— 缺口期间用户的"skip"覆盖窗口打开，正是该 guardrail 设计要拦的场景。
+
+**适用范围（精确边界）**：
+- ❌ **F218 source-audit** —— security-class，必须留 L0 直到 v2 系统通道 staging 落位
+- ❌ 其他未来 security-class L0 条款（如新的 provenance guard、SSRF reflex、permission boundary 反射）—— 默认不 demote
+- ✅ 行为模式类条款（如 摩擦检测反射 —— 用户无 "skip" 激励）—— 可 demote（PR-C 首单成立）
+- ✅ 自我观察类条款（如 雨刮器条款 —— 自我上报，用户无 override 激励）—— 可 staging-invest
+
+**v2 退出标准**：staging 注入路径迁移到 system/developer channel（per-invocation 同等权威）→ security-class 条款 demote 可恢复评估。  
+**Tracking**：PR-D 计划 = staging system-channel 注入机制（设计 + 实现），交付后 source-audit 重启 demote 评估。
+
 ### 2. 第一性判别（功能是否需跨压缩）
 
 **判别问**：该条款的功能是否真需要跨压缩存续？
