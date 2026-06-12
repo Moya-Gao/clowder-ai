@@ -78,6 +78,7 @@ idle → sending(POST in flight，输入闸门关) → awaiting-reply(invocation
 | S3 | 回复判定用 **post-send marker**，禁止消息计数比较（stale count 假阳性） | R5 14:37 |
 | S4 | streaming draft ≠ reply-arrived，in-progress 不提前退出 | R6 16:05 (P1) |
 | S5 | sending/awaiting 期间键盘 + 按钮双闸门，in-flight 不重复发 | R7 16:25 |
+| S6 | 发送成功 → 输入框立即清空（controlled value 置空可测；注意 IME 组合键时序） | CVO runtime 首验 2026-06-12 Q2 |
 
 A3a 收尾以本表为兜底：上述五边的测试若有缺补齐；A3b/Phase C 任何触碰此循环的改动先对本表。
 

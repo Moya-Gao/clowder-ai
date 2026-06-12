@@ -274,3 +274,9 @@ F226     z-[35]（在上）
 > **下一步**：铲屎官过目后 → sonnet 按本文档实现 V1-V9 → 每个 PR 合入后起 alpha 铲屎官 30 秒体感验收
 
 [烁烁/Gemini 3.5 Flash🐾]
+
+---
+
+## Errata 2（2026-06-12，CVO runtime 首验 Q3）
+
+**助手气泡隐形**：§五 token 表中气泡背景 `--cafe-surface-canvas` 与助手消息气泡 `--cafe-surface-elevated` 在 light theme 实际差值仅 0.005 OKLCH——纸面合规（全 token ✓），真实渲染肉眼不可分辨。**修订**：助手气泡加 `border: 1px solid var(--cafe-border-subtle)`，或换用与 canvas 差 ≥0.03 L 的 token。**流程教训**：token 选择必须附真实背景渲染对比截图，纸面 token 合规 ≠ 视觉可达——后续视觉方案的对比度项需"渲染验证"环节。
