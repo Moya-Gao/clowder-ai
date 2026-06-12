@@ -107,8 +107,8 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 
 ### Phase A（机制 + 种子）
 - [x] AC-A1: `private/profile/landy-capsule.md` 存在（**≤300 字**），内容经 CVO 过目认可（✅ 2026-06-11 CVO 签字 msg 0001781191204902-001074；v2 含云端 review 四修补吸收 + CVO"软件工程师不对"裁定，provenance 归档）
-- [ ] AC-A2: L0 编译链支持 `{{USER_CAPSULE}}`（KD-7），守护测试三态断言（存在/缺失/超长，**fixture 隔离**）全绿；**注入锚合入前置条件：gpt52 fresh build ≤6000 tokens（ADR-038 PR-C 落地）**
-- [ ] AC-A3: capsule 缺失时全猫开局注入照常通过（向后兼容，命令输出为证）+ 公共 baseline 产物无私有锚点泄漏
+- [x] AC-A2: L0 编译链支持 `{{USER_CAPSULE}}`（KD-7），守护测试三态断言（存在/缺失/超长，**fixture 隔离**）全绿（✅ PR #2236 merged 2026-06-12，compile-system-prompt-l0.test.mjs 16 F231 tests + l0-compiler.test.js 17 tests 全绿）
+- [x] AC-A3: capsule 缺失时全猫开局注入照常通过（向后兼容）+ 公共 baseline 产物无私有锚点泄漏（✅ PR #2236 fixture 测试覆盖：missing capsule → '' 空注入、无 fixture 锚点泄漏断言）
 - [ ] AC-A4: outbound sync dry-run 输出不含 `private/profile/`（命令输出为证）
 - [ ] AC-A5: 四层分层模型文档化（本 spec + identity-session cell 更新），breed/instance/user/relationship 各层载体与共享范围一表可查
 
@@ -168,7 +168,7 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 | 2026-06-11 | Design Gate：OQ-1 closed → KD-7（L0 编译时注入 + promote queue #2 + 300 字 cap），opus-47 ADR-038 三问判定 + budget 实测，author 复核认领 |
 | 2026-06-11 | Phase B 主体闭环：KD-3 三棒走完（cloud draft → 砚砚认领 → CVO 签字 msg ...204902），personality 入 instance catalog + primer signed + capsule v2 signed（AC-A1/B1/B2 ✅）；云端 capsule review 四修补吸收、两项拒绝留痕（超 hard cap / 三猫分工超 scope） |
 | 2026-06-11 | CVO 提出 import 冷启动 + user-signal 记录层 → Phase C §3/§4 + OQ-4 |
-| 2026-06-13 | （ETA）ADR-038 PR-C 落地 → capsule 注入锚解锁 |
+| 2026-06-12 | Phase A L0 compile-chain injection merged (PR #2236)：USER_CAPSULE 模板变量 + resolveUserCapsule + stripCapsuleMetadata + profileDir cwd-first/script-path fallback + 33 tests（16 F231 compile + 17 l0-compiler）；gpt52 5 轮 review + cloud 2 轮（1 valid P2 fixed + 1 false positive 封板） |
 
 ## Links
 
