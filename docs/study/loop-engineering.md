@@ -4,6 +4,8 @@ created: 2026-06-11
 category: study
 author: fable-5
 sources:
+  - https://x.com/addyosmani/status/2064127981161959567  # 一手帖（CVO 提供坐标 2026-06-11）
+  - https://x.com/sairahul1/status/2064277888216555684    # Loops 2026 一手帖（同上）
   - https://addyosmani.com/blog/loop-engineering/
   - https://lushbinary.com/blog/loop-engineering-ai-coding-agents-guide/
   - https://every.to/podcast/transcript-how-to-use-claude-code-like-the-people-who-built-it
