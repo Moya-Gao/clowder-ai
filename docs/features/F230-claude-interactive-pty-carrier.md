@@ -125,7 +125,9 @@ Owner: Fable-5。Worktree 隔离，1-2 天硬退出（F198 Phase A "5+ 轮摆动
 
 - 常驻 vs per-invocation 拍板（KD 记录，按 Phase A/B 实测数据）。
 - sessionChain：按 OQ-3 结果选 cliSessionId 直连（resume 不 fork）或复用 chainKey 会员卡（fork）。验收沿 F198 AC-D5 标准：N 轮 = 1 record。
-- 生命周期：idle TTL 回收 / crash 检测 + 重启 / 内存上限（F149 lease/TTL 模式直接借鉴）。
+- 生命周期：idle TTL 回收 / crash 检测 + 重启 / 内存上限（F149 lease/TTL 模式直接借鉴）——铲屎官 2026-06-12 点名"gemini cli acp 那样的管理"= 本项目标。
+- **Observability parity（铲屎官试驾 #3 观察）**：interactive 气泡 footer 缺 model·cached·cost·invocationId（bg/-p 都有）。代码定位：carrier done.metadata 已带 `{model, usage(复用 finalizeTranscriptUsage 同 bg 字段), provider}`，**但缺 invocationId**；断点在 carrier→UI footer 渲染链。"invocationId 注入 done.metadata + footer 认 `claude_interactive_pty` provider"疑小改可提前补（sonnet 定位中），其余对齐随 Phase C oversight（对标 bg AC-C2/C3/C6）。
+- **Streaming 缺失（OQ-5 确认）**：transcript message_stop 才落盘 → 无逐 token 流（结构性）。Phase C 评估 F089 pane ANSI 流补"打字感"，非真逐字流。
 - 并发：同 (thread,cat) 串行 mutex（沿 F118 invariant）+ 跨 thread 隔离。
 
 ### Phase D: Oversight Parity + Fallback 链注册（gated）
