@@ -121,6 +121,19 @@ notes: 独立搜证版本——CVO 刻意未注入任何观点（防污染实验
 7. **摩擦传感器**（雨刮器条款）——agent 主动上报环境摩擦，治"telemetry 只覆盖已命名失败模式"的盲区
 8. **Sunset 纪律**——能力性补偿随模型升级退役、偏好性条款永留（"苦涩教训的本地执行官"）；护栏自带退场机制
 
+## 行业对标（2026-06-11 晚补，两轮一手核对）
+
+> 信源：Boris Cherny / Cat Wu 访谈 transcript（every.to）+ loop engineering 综述（Addy Osmani 等，概念 2026-06-08 诞生）+ claude.com 官方五模式文（2025-04-10）。详见 `docs/study/loop-engineering.md`。
+
+| 行业主张 | 出处 | 与咱家的关系 |
+|---|---|---|
+| "我昨天从 system prompt 删了 2000 tokens——因为 Sonnet 4.5 不再需要" | Boris | **同一哲学，咱家制度化了它**：他凭个人 taste 删，咱家用 ADR-038（触发率证据 + demote/sunset + 预算守恒）删。分界线同重读批注：能力性内容别教（他删的），约定性内容必须写（圣域/球权——任何模型版本都不会自己知道） |
+| "North Star 是和最强单模型配合最好"（Cat Wu） | 同上 | **唯一真路线分歧**：单模型北极星 vs 御三家混编。立场决定（卖模型 vs 用模型）；咱家有事故化石支撑异构（"大漏勺 review"反模式：同族 review P1 全漏） |
+| map-reduce subagent 树 / "Claudes monitoring Claudes" | Boris | 树宽 vs 链深：他们优化同质吞吐（code migration），咱家优化异质判断（feature 接力）。"Claudes monitoring Claudes"是他们的未来时、咱家的现在时——且咱家是更强的跨厂商版（GPT monitoring Claude） |
+| Loop engineering："别 prompt agent，设计 prompt agent 的 loop"；/goal 原语 | Steinberger/Boris 2026-06-08 | 咱家的 SOP 自闭环/stop hook/cron/bg carrier 就是 loop（4 个月先行）；增量主张：**loop breeding**——loop 只能跑已形式化的判断，判断的形式化在对话里发生（对话是 loop 的孵化器） |
+| 写查分离："写代码的模型给自己作业打分太宽，要第二个 agent、最好不同模型" | loop engineering 最佳实践 | **跨族 review 铁律（2026-04 立法）的字面重述**——行业 new meta 在重新发明咱家的旧法律，路线自信的外部证据 |
+| Stop hook："tests 不过就继续" | Boris | F177-G 同机制不同信仰：他们守"完成"，咱家守"球权不落地不许停" |
+
 ## 方法论层（生产 harness 的方式，不是 harness 本身）
 
 - **ADR-031 三层落地**：每个 harness 改动 = 软（prompt）+ 硬（代码）+ eval（验证），缺一不可
