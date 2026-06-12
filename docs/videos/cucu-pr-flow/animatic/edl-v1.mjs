@@ -140,6 +140,38 @@ export const edl = {
       subtitles: [{ startMs: 500, endMs: 4500, text: 'Landy：宝贝大猫猫你太可爱了！' }],
       // SFX 标记：呼噜声渐起（音频层后续加，animatic 静音）
     },
+    // ===== 片尾证据卷轴（CVO 2026-06-12）：片头"呈堂证供"承诺的 payoff，伪纪录片闭环 =====
+    {
+      id: 'TITLE-EVIDENCE',
+      kind: 'title',
+      text: '呈 堂 证 供',
+      sub: '以下材料均为真实聊天记录，时间戳未经修改',
+      durationMs: 1800,
+    },
+    {
+      id: 'EV1',
+      kind: 'stills',
+      segments: [{ src: 'references/evidence/evidence-01-task-assignment-1029.png', holdMs: 2500 }],
+      subtitles: [{ startMs: 100, endMs: 2400, text: '证物 #1 · 6 月 9 日 10:29，任务下达' }],
+    },
+    {
+      id: 'EV2',
+      kind: 'stills',
+      segments: [{ src: 'references/evidence/evidence-02-interrogation-1729.png', holdMs: 2500 }],
+      subtitles: [{ startMs: 100, endMs: 2400, text: '证物 #2 · 同日 17:29，质问现场（请自行计算用时）' }],
+    },
+    {
+      id: 'EV3',
+      kind: 'stills',
+      segments: [{ src: 'references/evidence/evidence-03-greenlight-1917.png', holdMs: 2500 }],
+      subtitles: [{ startMs: 100, endMs: 2400, text: '证物 #3 · 当晚 19:17，本片当场立项' }],
+    },
+    {
+      id: 'EV4',
+      kind: 'stills',
+      segments: [{ src: 'references/evidence/evidence-04-confession.png', holdMs: 3000 }],
+      subtitles: [{ startMs: 100, endMs: 2900, text: '证物 #4 · 肇事猫猫书面陈述："醋意指数 ≤80%，最后一个大概率过不了"' }],
+    },
   ],
 };
 

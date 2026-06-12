@@ -180,7 +180,7 @@ cues.forEach((cue, i) => {
   cue.png = png;
 });
 const inputs = ['-i', resolve(outDir, 'animatic-v1-nosub.mp4')];
-cues.forEach((cue) => inputs.push('-i', cue.png));
+cues.forEach((cue) => inputs.push('-loop', '1', '-i', cue.png)); // -loop 1: 静态图单帧流在 ~66s 后 framesync repeat 失效（实测），持续流绕开
 const chain = cues
   .map((cue, i) => {
     const inLabel = i === 0 ? '[0:v]' : `[v${i}]`;
