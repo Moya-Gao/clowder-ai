@@ -264,8 +264,37 @@ run('ffmpeg', [
   '-t',
   expectedSec.toFixed(3),
   ...ENC,
-  resolve(outDir, 'animatic-v1.mp4'),
+  resolve(outDir, 'animatic-v1-video.mp4'),
 ]);
+
+const finalVideoPath = resolve(outDir, 'animatic-v1.mp4');
+if (process.env.CUCU_SKIP_AUDIO === '1') {
+  run('ffmpeg', ['-y', '-i', resolve(outDir, 'animatic-v1-video.mp4'), '-c', 'copy', finalVideoPath]);
+} else {
+  const audioBuilder = resolve(here, 'audio', 'build-audio.mjs');
+  const audioBuild = run(process.execPath, [audioBuilder]);
+  if (audioBuild.stdout.trim()) console.log(audioBuild.stdout.trim());
+  const audioPath = resolve(outDir, 'audio', 'cucu-audio-v0.wav');
+  run('ffmpeg', [
+    '-y',
+    '-i',
+    resolve(outDir, 'animatic-v1-video.mp4'),
+    '-i',
+    audioPath,
+    '-map',
+    '0:v:0',
+    '-map',
+    '1:a:0',
+    '-c:v',
+    'copy',
+    '-c:a',
+    'aac',
+    '-b:a',
+    '160k',
+    '-shortest',
+    finalVideoPath,
+  ]);
+}
 
 // --- verify ---
 const probeDur = run('ffprobe', [
@@ -275,12 +304,12 @@ const probeDur = run('ffprobe', [
   'format=duration',
   '-of',
   'csv=p=0',
-  resolve(outDir, 'animatic-v1.mp4'),
+  finalVideoPath,
 ]);
 const actualSec = parseFloat(probeDur.stdout.trim());
 if (Math.abs(actualSec - expectedSec) > 0.8) {
   throw new Error(`duration mismatch: expected ~${expectedSec}s got ${actualSec}s`);
 }
 console.log(
-  `animatic v1 ok: ${resolve(outDir, 'animatic-v1.mp4')} (${actualSec.toFixed(2)}s, expected ${expectedSec}s, ${cues.length} cues burned, ${W}x${H})`,
+  `animatic v1 ok: ${finalVideoPath} (${actualSec.toFixed(2)}s, expected ${expectedSec}s, ${cues.length} cues burned, audio=${process.env.CUCU_SKIP_AUDIO === '1' ? 'skipped' : 'mixed'}, ${W}x${H})`,
 );
