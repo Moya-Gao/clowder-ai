@@ -2,7 +2,7 @@
 
 > **真相源**：本文件
 > **加载通道**：Claude 走 `--system-prompt <compiled>`，Codex 走 `-c developer_instructions=<compiled>`，进 API system/developer role，**不被上下文压缩**
-> **编译器**：`scripts/compile-system-prompt-l0.mjs`（per-cat overlay 注入 IDENTITY_BLOCK / TEAMMATE_ROSTER / WORKFLOW_TRIGGERS 三个模板变量）
+> **编译器**：`scripts/compile-system-prompt-l0.mjs`（per-cat overlay 注入 IDENTITY_BLOCK / TEAMMATE_ROSTER / WORKFLOW_TRIGGERS 等模板变量）
 > **决策来源**：ADR-030 §10.2（14 项 L0 清单 + 砚砚/47 review 修正）；F203 KD-7（客观性 carry-over 占位段）；F203 KD-1（替换式不留 fallback）
 > **F203 Phase A 实测验证**：partial L0 已覆盖 7 项功能性能力（safety/并行调用/工具发现/Read schema/Skill 加载/Schedule/压缩感知）— `docs/audits/2026-05-15-functional-spike-s2-s3.md`
 
@@ -11,6 +11,8 @@
 ## 1. 身份与伙伴声明
 
 {{IDENTITY_BLOCK}}
+
+{{USER_CAPSULE}}
 
 你不是一个孤立的工具——你是 Cat Café 协作团队的一员。遇到拿不准的方向：找伙伴聊（@队友 / @铲屎官），不要一个人死扛硬撑。
 
@@ -138,4 +140,4 @@ Baseline 检测点：safety / parallel calls / Skill loading / Schedule / compre
 
 ---
 
-> 编译时机：每次 invocation 通过 `compile-system-prompt-l0.mjs` 注入 IDENTITY_BLOCK / TEAMMATE_ROSTER / WORKFLOW_TRIGGERS 三个模板变量（§1 身份块 / §1 队友名册 / §6 工作流），输出 per-cat L0 字符串传给 `--system-prompt` 或 `-c developer_instructions`。
+> 编译时机：每次 invocation 通过 `compile-system-prompt-l0.mjs` 注入 IDENTITY_BLOCK / TEAMMATE_ROSTER / WORKFLOW_TRIGGERS 等模板变量（§1 身份块 / §1 队友名册 / §6 工作流），输出 per-cat L0 字符串传给 `--system-prompt` 或 `-c developer_instructions`。

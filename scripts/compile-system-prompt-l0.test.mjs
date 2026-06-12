@@ -24,6 +24,7 @@ let compileL0;
 let filterAvailableTeammates;
 let isCliEntrypoint;
 let writeL0File;
+let resolveUserCapsule;
 
 const enc = encodingForModel('gpt-4o');
 const tok = (s) => (s ? enc.encode(s, [], []).length : 0);
@@ -85,7 +86,7 @@ describe('F203 Phase B — compile-system-prompt-l0.mjs', () => {
       env: { ...process.env, NODE_ENV: undefined },
     });
     // 动态 import compile-system-prompt-l0.mjs 在 build 之后 (砚砚 P1 #1 修)
-    ({ compileL0, filterAvailableTeammates, isCliEntrypoint, writeL0File } = await import(
+    ({ compileL0, filterAvailableTeammates, isCliEntrypoint, writeL0File, resolveUserCapsule } = await import(
       './compile-system-prompt-l0.mjs'
     ));
   });
@@ -323,6 +324,7 @@ describe('F203 Phase B — compile-system-prompt-l0.mjs', () => {
         assert.doesNotMatch(l0, /\{\{IDENTITY_BLOCK\}\}/);
         assert.doesNotMatch(l0, /\{\{TEAMMATE_ROSTER\}\}/);
         assert.doesNotMatch(l0, /\{\{WORKFLOW_TRIGGERS\}\}/);
+        assert.doesNotMatch(l0, /\{\{USER_CAPSULE\}\}/);
       });
 
       test(`${catId}: identity block contains its own catId or displayName`, async () => {
@@ -523,6 +525,149 @@ describe('F203 Phase B — compile-system-prompt-l0.mjs', () => {
       for (const p of cc.mentionPatterns) {
         assert.ok(l0.includes(p), `CVO handle ${p} missing from compiled L0`);
       }
+    });
+  });
+
+  // ─── F231 Phase A: USER_CAPSULE injection + fixture isolation ────────────
+  // Verifies:
+  //   - resolveUserCapsule three-state behavior (present/missing/overlong)
+  //   - {{USER_CAPSULE}} template substitution (no placeholder leak)
+  //   - Primer pointer append when relationship/{catId}-primer.md exists
+  //   - Leak detection: baseline without capsule has no '主人画像' heading
+  //   - Boundary: exactly 300 chars passes, 301 chars throws
+  //   - Fixture isolation: all tests use test/fixtures/profile*, never private/profile/
+  // AC coverage: AC-A2 (three-state), AC-A3 (backward compat + leak), AC-B3 (fixture overlay)
+
+  describe('F231 Phase A — USER_CAPSULE injection', () => {
+    const FIXTURE_DIR = fileURLToPath(new URL('../test/fixtures/profile', import.meta.url));
+    const FIXTURE_EMPTY_DIR = fileURLToPath(new URL('../test/fixtures/profile-empty', import.meta.url));
+    const FIXTURE_NO_PRIMER_DIR = fileURLToPath(new URL('../test/fixtures/profile-no-primer', import.meta.url));
+    const FIXTURE_300_DIR = fileURLToPath(new URL('../test/fixtures/profile-boundary-300', import.meta.url));
+    const FIXTURE_301_DIR = fileURLToPath(new URL('../test/fixtures/profile-boundary-301', import.meta.url));
+    const FIXTURE_HR_DIR = fileURLToPath(new URL('../test/fixtures/profile-body-with-hr', import.meta.url));
+
+    describe('resolveUserCapsule three-state behavior (AC-A2)', () => {
+      test('capsule exists and ≤300 chars → returns formatted section with heading', () => {
+        const section = resolveUserCapsule(FIXTURE_DIR, 'codex');
+        assert.ok(section.startsWith('## 主人画像'), 'section must start with heading');
+        assert.ok(section.includes('FIXTURE_CAPSULE_ANCHOR_7x9k'), 'fixture anchor must be present');
+      });
+
+      test('capsule missing → returns empty string (no heading)', () => {
+        const section = resolveUserCapsule(FIXTURE_EMPTY_DIR, 'codex');
+        assert.equal(section, '', 'missing capsule must return empty string');
+      });
+
+      test('capsule >300 chars → throws with char count and limit', () => {
+        assert.throws(
+          () => resolveUserCapsule(FIXTURE_301_DIR, 'codex'),
+          (err) => {
+            assert.ok(err.message.includes('301'), 'error must contain actual char count');
+            assert.ok(err.message.includes('300'), 'error must contain limit');
+            return true;
+          },
+        );
+      });
+
+      test('capsule exactly 300 chars → passes (boundary)', () => {
+        const section = resolveUserCapsule(FIXTURE_300_DIR, 'codex');
+        assert.ok(section.includes('FIXTURE_BOUNDARY_300_ANCHOR'), 'boundary anchor must be present');
+        assert.ok(section.startsWith('## 主人画像'), 'boundary capsule must have heading');
+      });
+
+      test('frontmatter is stripped (not counted as chars)', () => {
+        const section = resolveUserCapsule(FIXTURE_DIR, 'codex');
+        assert.ok(!section.includes('status: signed'), 'frontmatter must not leak into section');
+        assert.ok(!section.includes('author: test-fixture'), 'frontmatter must not leak into section');
+      });
+
+      // gpt52 review P1 regression: body containing `---` horizontal rules
+      // must NOT be silently truncated by metadata stripping.
+      test('body with --- horizontal rule preserves all content (gpt52 P1 regression)', () => {
+        const section = resolveUserCapsule(FIXTURE_HR_DIR, 'codex');
+        assert.ok(section.includes('FIXTURE_HR_PART_ONE'), 'content before --- HR must be preserved');
+        assert.ok(section.includes('FIXTURE_HR_PART_TWO'), 'content after --- HR must be preserved');
+        assert.ok(!section.includes('status: test'), 'frontmatter must still be stripped');
+      });
+    });
+
+    describe('primer pointer behavior', () => {
+      test('primer exists → pointer line appended with standard path', () => {
+        const section = resolveUserCapsule(FIXTURE_DIR, 'codex');
+        assert.ok(
+          section.includes('private/profile/relationship/codex-primer.md'),
+          'primer pointer must use standard path format',
+        );
+        assert.match(section, /关系轨迹/);
+      });
+
+      test('primer missing → no pointer line', () => {
+        const section = resolveUserCapsule(FIXTURE_NO_PRIMER_DIR, 'codex');
+        assert.ok(!section.includes('关系轨迹'), 'no primer → no pointer');
+        assert.ok(!section.includes('primer'), 'no primer content at all');
+      });
+
+      test('primer pointer uses catId in path', () => {
+        // opus has no primer in fixture dir → no pointer
+        const section = resolveUserCapsule(FIXTURE_DIR, 'no-such-cat');
+        assert.ok(!section.includes('关系轨迹'), 'non-existent catId primer → no pointer');
+      });
+    });
+
+    describe('{{USER_CAPSULE}} template integration', () => {
+      test('template contains {{USER_CAPSULE}} placeholder', () => {
+        const template = readFileSync(new URL('../assets/system-prompts/system-prompt-l0.md', import.meta.url), 'utf8');
+        assert.ok(template.includes('{{USER_CAPSULE}}'), 'template must have USER_CAPSULE slot');
+      });
+
+      test('compileL0 with capsule → 主人画像 section in output', async () => {
+        const l0 = await compileL0({ catId: 'codex', profileDir: FIXTURE_DIR });
+        assert.ok(l0.includes('## 主人画像'), 'compiled L0 must have capsule heading');
+        assert.ok(l0.includes('FIXTURE_CAPSULE_ANCHOR_7x9k'), 'compiled L0 must have fixture content');
+        assert.ok(l0.includes('codex-primer.md'), 'compiled L0 must have primer pointer');
+      });
+
+      test('compileL0 without capsule → no 主人画像 heading (AC-A3 backward compat)', async () => {
+        const l0 = await compileL0({ catId: 'codex', profileDir: FIXTURE_EMPTY_DIR });
+        assert.ok(!l0.includes('## 主人画像'), 'no capsule → no heading section (backward compat)');
+        assert.doesNotMatch(l0, /\{\{USER_CAPSULE\}\}/, 'placeholder must not leak');
+      });
+    });
+
+    describe('leak detection (AC-A3)', () => {
+      test('baseline compilation (no capsule) contains no fixture anchors', async () => {
+        const l0 = await compileL0({ catId: 'opus', profileDir: FIXTURE_EMPTY_DIR });
+        assert.ok(!l0.includes('FIXTURE'), 'baseline must not contain any FIXTURE string');
+        assert.ok(!l0.includes('## 主人画像'), 'baseline must not contain capsule heading section');
+      });
+
+      test('capsule in one cat does not leak to another compilation', async () => {
+        const withCapsule = await compileL0({ catId: 'codex', profileDir: FIXTURE_DIR });
+        assert.ok(withCapsule.includes('FIXTURE_CAPSULE_ANCHOR_7x9k'));
+        const without = await compileL0({ catId: 'codex', profileDir: FIXTURE_EMPTY_DIR });
+        assert.ok(!without.includes('FIXTURE_CAPSULE_ANCHOR_7x9k'));
+      });
+    });
+
+    // AC-B3: fixture overlay anchor regression — fixture instance catalog验证 overlay 机制
+    // 此处用 fixture profileDir 验证 capsule overlay 生效，不依赖真实 private/ 数据
+    describe('fixture overlay anchor regression (AC-B3)', () => {
+      test('fixture capsule anchor appears in compiled output', async () => {
+        const l0 = await compileL0({ catId: 'codex', profileDir: FIXTURE_DIR });
+        assert.ok(
+          l0.includes('FIXTURE_CAPSULE_ANCHOR_7x9k'),
+          'overlay anchor from fixture must survive full compilation pipeline',
+        );
+      });
+
+      test('capsule section position: after identity, before team declaration', async () => {
+        const l0 = await compileL0({ catId: 'codex', profileDir: FIXTURE_DIR });
+        const identityIdx = l0.indexOf('Identity constant:');
+        const capsuleIdx = l0.indexOf('## 主人画像');
+        const teamIdx = l0.indexOf('协作团队的一员');
+        assert.ok(identityIdx < capsuleIdx, 'capsule must come after identity block');
+        assert.ok(capsuleIdx < teamIdx, 'capsule must come before team declaration');
+      });
     });
   });
 
