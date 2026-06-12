@@ -28,7 +28,7 @@ created: 2026-04-18
 
 **Phase B PR-1 完成（2026-06-10）**：PR #2210，commit `757ef632f5`，squash-merged。活动信号事件类型（issue.commented / issue.labeled / pr.review_submitted / case.awaiting_external）shared types + webhook 三件套 + linked issue 解析器（parseLinkedIssues）+ projector cascade fix（pr.merged 时正确传播 linkedIssues → fixed）+ 体-enrichment 竞态修复（Cloud R4）+ default-branch gate（Cloud R4）+ projector 重试修复（Cloud R5/R6）。6 轮 cloud review 全修。PR-2（双 cursor + awaiting_external 闭环 + e2e）待续。
 
-**Phase B 验收状态（2026-06-12 更新）**：⚠️ **code-complete，未 close**。三 PR 合入 + 双轮愿景守护 PASS + LL-072 封板协议执行完毕。**Task 0 ✅ 完成（2026-06-12）**：453 条 legacy records 已迁移至 Event Log（production 6399），0 error，0 skip。仍待：② 真实 webhook 全链路验收（issue comment → log → 投影 → 唤醒，需 runtime 的 `GITHUB_WEBHOOK_SECRET` 配置，alpha 无法替代）。close 二选一：完成 ② OR CVO 明确签字降级（如挪 Phase C dogfood 一并验）。
+**Phase B 验收状态（2026-06-12 更新）**：✅ **code-complete + 轮询链路验收 PASS**。三 PR 合入 + 双轮愿景守护 PASS + LL-072 封板协议执行完毕。**Task 0 ✅ 完成（2026-06-12）**：453 条 legacy records 已迁移至 Event Log（production 6399），0 error，0 skip。**轮询链路验收 ✅（2026-06-12）**：test issue #912 → resolve(accepted) → issue comment → 轮询周期 → event log 出现 `issue.commented`（`comment:zts212653/clowder-ai#912:4695069413`）+ projector 更新 `lastExternalActivityAt` + delivery cursor 推进（OWNER 静默 = 正确行为）。webhook = opt-in（CVO 2026-06-12 signoff）。待 @fable-5 做 Phase B close 归档。已知 bug：`threadStore` 未传给 `communityIssueRoutes`（routeAccepted Path 2 静默退出）— 独立追踪修复。
 
 ## Why
 
@@ -435,6 +435,7 @@ TTL=0（铁律 #5），用户数据默认持久化
 | 2026-06-11 | Phase B PR-3 merged (PR #2231, commit 48a22fae3) — dead ?? '' fallbacks cleanup in IssueCommentTaskSpec.execute(); explicit guard (warn+return when ownerCatId/userId absent); 2 new TDD tests; line :158 ?? collectionCursor retained (legacy task cursor safety); 封板協議 gpt52 final authority (LL-072), no cloud review |
 | 2026-06-11 | community-bootstrap --allow-sanctuary merged (PR #2232, commit aa757479a) — explicit bypass flag for 6399 sanctuary guard; resolveSanctuaryGuard() helper + 3-layer test coverage (parseArgs / helper unit / spawn entrypoint); gpt52 local review (security-related, no cloud per CVO directive) |
 | 2026-06-12 | Phase B Task 0 production bootstrap executed — 453 legacy CommunityIssueStore records migrated to Event Log (6399 production), 0 errors, 0 skipped; migration complete |
+| 2026-06-12 | Phase B polling chain verified — test issue #912: case.routed → issue_tracking task auto-registered → GH comment → poll cycle → issue.commented in event log + lastExternalActivityAt updated + OWNER silence policy correct; webhook = opt-in (CVO signoff); Phase B verification complete, awaiting fable-5 close archival |
 
 ## Review Gate
 
