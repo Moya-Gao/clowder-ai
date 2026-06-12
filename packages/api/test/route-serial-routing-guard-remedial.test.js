@@ -4,7 +4,8 @@
  * Pure decision coverage lives in `routing-guard-remedial.test.js`. This suite
  * locks the route-serial side effect: codex-family cats that cannot use native
  * Stop hooks get one inline remedial invoke when they end without a routing
- * exit. The remedial output replaces the invalid stream output for persistence.
+ * exit. Exit-only remedials route the original visible content instead of
+ * replacing it with a bare outlet.
  */
 
 import assert from 'node:assert/strict';
@@ -85,6 +86,7 @@ function createMockDeps(services, appendedMessages, { voiceMode = false, socketE
           timestamp: msg.timestamp ?? 0,
           source: msg.source,
           origin: msg.origin,
+          mentionsUser: msg.mentionsUser,
           toolEvents: msg.toolEvents,
           extra: msg.extra,
         };
@@ -162,7 +164,7 @@ async function runRoute(service, threadId, extraServices = {}, mockOptions = {})
 }
 
 describe('F177 Phase H — route-serial routing guard remedial invoke', () => {
-  test('guard-enabled cat with no exit gets one remedial invoke and persists the remedial exit', async () => {
+  test('guard-enabled cat with no exit gets one remedial invoke and persists the original visible content', async () => {
     const service = createSequenceService('codex', ['I will keep going from here.', '@co-creator']);
 
     const { appended, calls, yielded } = await runRoute(service, 'thread-routing-guard-1');
@@ -172,19 +174,32 @@ describe('F177 Phase H — route-serial routing guard remedial invoke', () => {
     assert.match(calls[1], /不要重做/);
 
     const codexMessages = appended.filter((m) => m.catId === 'codex' && m.origin === 'stream');
-    assert.equal(codexMessages.length, 1, 'invalid first output must not be persisted as a cat message');
-    assert.equal(codexMessages[0].content, '@co-creator');
+    assert.equal(codexMessages.length, 1);
+    assert.equal(codexMessages[0].content, 'I will keep going from here.');
+    assert.equal(
+      codexMessages[0].mentionsUser,
+      true,
+      'co-creator route-only remedial must still mark the stored visible message as mentioning the user',
+    );
     assert.equal(
       appended.find((m) => m.source?.connector === 'routing-guard-failure'),
       undefined,
       'successful remedial exit should not emit a guard failure notice',
     );
 
-    const yieldedText = yielded.filter((m) => m.type === 'text').map((m) => m.content);
+    const yieldedTextEvents = yielded.filter((m) => m.type === 'text');
+    const yieldedText = yieldedTextEvents.map((m) => m.content);
     assert.deepEqual(
       yieldedText,
-      ['@co-creator'],
-      'live stream must replace the invalid first output instead of leaking it as a ghost bubble',
+      ['I will keep going from here.'],
+      'live stream must surface the first-pass visible text after the route-only remedial validates it',
+    );
+    const done = yielded.find((m) => m.type === 'done');
+    assert.equal(done?.mentionsUser, true, 'final done event should preserve co-creator mention notification');
+    assert.equal(
+      yieldedTextEvents[0]?.invocationId,
+      done?.invocationId,
+      'preserved first-pass text must be restamped to the same remedial turn identity as done',
     );
   });
 
@@ -237,13 +252,63 @@ describe('F177 Phase H — route-serial routing guard remedial invoke', () => {
     );
     assert.deepEqual(
       yielded.filter((m) => m.type === 'text').map((m) => m.content),
-      ['@co-creator'],
-      'only the invalid first-pass text should be withheld and replaced',
+      ['Invalid first-pass response.'],
+      'first-pass text should be withheld until the route-only remedial validates it',
     );
 
     const codexMessages = appended.filter((m) => m.catId === 'codex' && m.origin === 'stream');
     assert.equal(codexMessages.length, 1);
-    assert.equal(codexMessages[0].content, '@co-creator');
+    assert.equal(codexMessages[0].content, 'Invalid first-pass response.');
+  });
+
+  test('markdown-prefixed co-creator route-only remedial preserves mention notifications', async () => {
+    const service = createSequenceService('codex', ['I will escalate this to the co-creator.', '1) @co-creator']);
+
+    const { appended, calls, yielded } = await runRoute(service, 'thread-routing-guard-prefixed-co-creator');
+
+    assert.equal(calls.length, 2, 'first-pass no-exit text should trigger one remedial invoke');
+    const codexMessages = appended.filter((m) => m.catId === 'codex' && m.origin === 'stream');
+    assert.equal(codexMessages.length, 1);
+    assert.equal(codexMessages[0].content, 'I will escalate this to the co-creator.');
+    assert.equal(codexMessages[0].mentionsUser, true);
+    assert.equal(
+      appended.find((m) => m.source?.connector === 'routing-guard-failure'),
+      undefined,
+      'markdown-prefixed co-creator remedial should count as a valid routing exit',
+    );
+    const done = yielded.find((m) => m.type === 'done');
+    assert.equal(done?.mentionsUser, true);
+  });
+
+  test('punctuated co-creator route-only remedial preserves original rich content', async () => {
+    const richBlock = {
+      id: 'generated-image-punctuated-co-creator',
+      kind: 'media_gallery',
+      v: 1,
+      title: 'codex:image_gen',
+      items: [{ url: '/uploads/generated-image-punctuated.png', alt: 'generated image' }],
+    };
+    const service = createSequenceService('codex', [
+      [
+        {
+          type: 'system_info',
+          content: JSON.stringify({ type: 'rich_block', block: richBlock }),
+        },
+        { type: 'text', content: 'Here is the generated cover candidate.' },
+      ],
+      '@co-creator。',
+    ]);
+
+    const { appended, calls, yielded } = await runRoute(service, 'thread-routing-guard-punctuated-co-creator');
+
+    assert.equal(calls.length, 2, 'punctuated route-only remedial should validate the guarded response');
+    const codexMessages = appended.filter((m) => m.catId === 'codex' && m.origin === 'stream');
+    assert.equal(codexMessages.length, 1);
+    assert.equal(codexMessages[0].content, 'Here is the generated cover candidate.');
+    assert.equal(codexMessages[0].mentionsUser, true);
+    assert.deepEqual(codexMessages[0].extra?.rich?.blocks, [richBlock]);
+    const done = yielded.find((m) => m.type === 'done');
+    assert.equal(done?.mentionsUser, true);
   });
 
   test('remedial line-start cat mention flows through existing A2A worklist enqueue', async () => {
@@ -256,12 +321,12 @@ describe('F177 Phase H — route-serial routing guard remedial invoke', () => {
     assert.equal(opusService.calls.length, 1, 'remedial @opus should enqueue and invoke opus');
     const codexMessages = appended.filter((m) => m.catId === 'codex' && m.origin === 'stream');
     assert.equal(codexMessages.length, 1);
-    assert.equal(codexMessages[0].content, '@opus');
+    assert.equal(codexMessages[0].content, 'I will keep going from here.');
     assert.deepEqual(codexMessages[0].mentions, ['opus']);
   });
 
-  test('debug A2A prompt sees remedial replacement instead of discarded first pass', async () => {
-    const codexService = createSequenceService('codex', ['Discarded first-pass debug context.', '@opus']);
+  test('debug A2A prompt sees validated first-pass content routed by remedial exit', async () => {
+    const codexService = createSequenceService('codex', ['First-pass debug context.', '@opus']);
     const opusService = createSequenceService('opus', ['ack from opus'], { needsGuard: false });
 
     const { calls } = await runRoute(
@@ -275,13 +340,13 @@ describe('F177 Phase H — route-serial routing guard remedial invoke', () => {
     assert.equal(opusService.calls.length, 1, 'remedial @opus should enqueue opus');
     assert.match(
       opusService.calls[0],
-      /\[codex responded: @opus\]/,
-      'debug context should expose the final validated remedial response',
+      /\[codex responded: First-pass debug context\.\]/,
+      'debug context should expose the final persisted visible response',
     );
     assert.doesNotMatch(
       opusService.calls[0],
-      /Discarded first-pass debug context/,
-      'debug context must not expose discarded guarded output',
+      /\[codex responded: @opus\]/,
+      'debug context should not expose a bare route-only patch as the visible response',
     );
   });
 
@@ -439,6 +504,71 @@ describe('F177 Phase H — route-serial routing guard remedial invoke', () => {
     );
   });
 
+  test('route-only text remedial preserves original text and rich blocks from the original response', async () => {
+    const richBlock = {
+      id: 'generated-image-1',
+      kind: 'media_gallery',
+      v: 1,
+      title: 'codex:image_gen',
+      items: [{ url: '/uploads/generated-image.png', alt: 'generated image' }],
+    };
+    const service = createSequenceService('codex', [
+      [
+        {
+          type: 'system_info',
+          content: JSON.stringify({ type: 'rich_block', block: richBlock }),
+        },
+        { type: 'text', content: 'Here is the generated title card.' },
+      ],
+      '@co-creator',
+    ]);
+
+    const { appended, calls } = await runRoute(service, 'thread-routing-guard-rich-text-remedial');
+
+    assert.equal(calls.length, 2, 'original rich-block response should trigger route-only remediation');
+    const codexMessages = appended.filter((m) => m.catId === 'codex' && m.origin === 'stream');
+    assert.equal(codexMessages.length, 1);
+    assert.equal(codexMessages[0].content, 'Here is the generated title card.');
+    assert.deepEqual(
+      codexMessages[0].extra?.rich?.blocks,
+      [richBlock],
+      'route-only text remedial must not drop first-pass generated image rich blocks on F5',
+    );
+  });
+
+  test('route-only remedial with numbered parenthesis prefix routes while preserving original rich content', async () => {
+    const richBlock = {
+      id: 'generated-image-2',
+      kind: 'media_gallery',
+      v: 1,
+      title: 'codex:image_gen',
+      items: [{ url: '/uploads/generated-image-2.png', alt: 'generated image' }],
+    };
+    const codexService = createSequenceService('codex', [
+      [
+        {
+          type: 'system_info',
+          content: JSON.stringify({ type: 'rich_block', block: richBlock }),
+        },
+        { type: 'text', content: 'Here is the generated title card with details.' },
+      ],
+      '1) @opus',
+    ]);
+    const opusService = createSequenceService('opus', ['ack from opus'], { needsGuard: false });
+
+    const { appended, calls } = await runRoute(codexService, 'thread-routing-guard-rich-numbered-remedial', {
+      opus: opusService,
+    });
+
+    assert.equal(calls.length, 2, 'original rich-block response should trigger route-only remediation');
+    assert.equal(opusService.calls.length, 1, 'numbered parenthesis route-only remedial should enqueue opus');
+    const codexMessages = appended.filter((m) => m.catId === 'codex' && m.origin === 'stream');
+    assert.equal(codexMessages.length, 1);
+    assert.equal(codexMessages[0].content, 'Here is the generated title card with details.');
+    assert.deepEqual(codexMessages[0].mentions, ['opus']);
+    assert.deepEqual(codexMessages[0].extra?.rich?.blocks, [richBlock]);
+  });
+
   test('tool-only hold_ball remedial preserves original tool events when keeping the original text', async () => {
     const service = createSequenceService('codex', [
       [
@@ -479,7 +609,7 @@ describe('F177 Phase H — route-serial routing guard remedial invoke', () => {
     );
   });
 
-  test('voice-mode remediation speaks the remedial text instead of the discarded first pass', async () => {
+  test('voice-mode route-only remediation speaks the validated first-pass text', async () => {
     await installFakeStreamingTtsRegistry();
     const service = createSequenceService('codex', ['Invalid first-pass response.', '@co-creator']);
     const socketEvents = [];
@@ -490,13 +620,13 @@ describe('F177 Phase H — route-serial routing guard remedial invoke', () => {
     const spokenChunks = socketEvents.filter((e) => e.event === 'voice_chunk').map((e) => e.payload.text);
     assert.deepEqual(
       spokenChunks,
-      ['@co-creator'],
-      'voice TTS must follow the same validated replacement as the live/persisted text',
+      ['Invalid first-pass response.'],
+      'voice TTS must follow the same validated visible text as live/persistence',
     );
     assert.equal(
-      spokenChunks.includes('Invalid first-pass response.'),
+      spokenChunks.includes('@co-creator'),
       false,
-      'discarded first-pass text must not be synthesized for guarded turns',
+      'route-only remedial text must not be synthesized as user-visible speech',
     );
   });
 

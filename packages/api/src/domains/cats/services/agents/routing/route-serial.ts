@@ -124,6 +124,22 @@ import { buildVoteTally, checkVoteCompletion, extractVoteFromText, VOTE_RESULT_S
 
 const log = createModuleLogger('route-serial');
 const routeSerialTracer = trace.getTracer('cat-cafe-api', '0.1.0');
+const ROUTE_ONLY_REMEDIAL_TEXT_RE =
+  /^@[\p{L}\p{N}_.-]+(?:[\s,.:;!?()[\]{}<>，。！？、：；（）【】《》「」『』〈〉]+)?$/u;
+
+function stripMarkdownRoutePrefix(line: string): string {
+  return line.replace(/^(?:[-*+]\s+|>\s*|\d+[.)]\s+)/, '').trim();
+}
+
+function normalizeRouteOnlyRemedialText(text: string): string | null {
+  const lines = text
+    .trim()
+    .split(/\r?\n/)
+    .map((line) => stripMarkdownRoutePrefix(line))
+    .filter((line) => line.length > 0);
+  if (lines.length !== 1) return null;
+  return ROUTE_ONLY_REMEDIAL_TEXT_RE.test(lines[0]) ? lines[0] : null;
+}
 
 function collectStructuredTargetCatsFromInput(input: unknown): string[] {
   if (!input || typeof input !== 'object') return [];
@@ -1391,6 +1407,7 @@ export async function* routeSerial(
         storedContent: string;
         allRichBlocks: RichBlock[];
         a2aMentions: CatId[];
+        hasCoCreatorLineStartMention: boolean;
         streamEvents: AgentMessage[];
       }> => {
         routingGuardAttempted = true;
@@ -1565,15 +1582,23 @@ export async function* routeSerial(
 
         const remedialSanitized = sanitizeInjectedContent(textContent);
         const remedialExtracted = extractRichFromText(remedialSanitized);
-        const keepsOriginalVisibleContent =
-          !remedialExtracted.cleanText && originalStoredContentBeforeRemedial.length > 0;
-        const remedialStoredContent = remedialExtracted.cleanText || originalStoredContentBeforeRemedial;
-        const baseRichBlocks = remedialExtracted.cleanText ? [] : originalRichBlocksBeforeRemedial;
+        const remedialCleanText = remedialExtracted.cleanText;
+        const remedialRouteOnlyContent = remedialCleanText ? normalizeRouteOnlyRemedialText(remedialCleanText) : null;
+        const remedialIsRouteOnly = remedialRouteOnlyContent !== null;
+        // Route-only remedial text (`@cat` / `@landy`) is an exit patch, not a replacement artifact.
+        // Use it for routing validation, but keep first-pass visible content so F5/history hydration
+        // does not replace generated work with a bare route outlet.
+        const preservesOriginalVisibleContent =
+          (!remedialCleanText || remedialIsRouteOnly) && originalStoredContentBeforeRemedial.length > 0;
+        const remedialStoredContent = preservesOriginalVisibleContent
+          ? originalStoredContentBeforeRemedial
+          : remedialCleanText;
+        const remedialRoutingContent = remedialRouteOnlyContent ?? (remedialCleanText || remedialStoredContent);
+        const baseRichBlocks = !remedialCleanText || remedialIsRouteOnly ? originalRichBlocksBeforeRemedial : [];
         let remedialAllRichBlocks = [...baseRichBlocks, ...remedialExtracted.blocks, ...streamRichBlocks];
-        // If the remedial turn supplies replacement text, it becomes a new persisted message and the invalid
-        // first-pass tool evidence is intentionally discarded. Tool-only exits keep the original visible content,
-        // so their evidence must be preserved and extended with the remedial tool event.
-        if (!remedialExtracted.cleanText && originalToolEventsBeforeRemedial.length > 0) {
+        // Replacement text becomes a new persisted message and discards invalid first-pass evidence.
+        // Exit-only remedials keep the original visible content, so preserve original tool evidence too.
+        if (preservesOriginalVisibleContent && originalToolEventsBeforeRemedial.length > 0) {
           const remedialToolEvents = [...collectedToolEvents];
           collectedToolEvents.splice(
             0,
@@ -1583,7 +1608,7 @@ export async function* routeSerial(
           );
         }
         textContent = remedialStoredContent;
-        if (keepsOriginalVisibleContent && originalDeferredVoiceTextChunksBeforeRemedial.length > 0) {
+        if (preservesOriginalVisibleContent && originalDeferredVoiceTextChunksBeforeRemedial.length > 0) {
           resetDeferredVoice();
           deferredVoiceInvocationId = originalDeferredVoiceInvocationIdBeforeRemedial;
           deferredVoiceTextChunks.push(...originalDeferredVoiceTextChunksBeforeRemedial);
@@ -1600,18 +1625,26 @@ export async function* routeSerial(
           }
         }
 
-        const remedialA2aMentions = parseA2AMentions(remedialStoredContent, catId);
+        const remedialA2aMentions = parseA2AMentions(remedialRoutingContent, catId);
         if (remedialA2aMentions.length > 0) {
           lineStartDetected.add(remedialA2aMentions.length, { 'agent.id': catId as string });
         }
+        const remedialHasCoCreatorLineStartMention = hasRoutingExitCoCreatorLineStartMention(remedialRoutingContent);
+        const visibleRemedialStreamEvents = remedialIsRouteOnly
+          ? remedialStreamEvents.filter((event) => event.type !== 'text')
+          : remedialStreamEvents;
+        const originalVisibleStreamEventsForRemedialTurn = ownInvocationId
+          ? originalTextStreamEventsBeforeRemedial.map((event) => ({ ...event, invocationId: ownInvocationId }))
+          : originalTextStreamEventsBeforeRemedial;
 
         return {
           storedContent: remedialStoredContent,
           allRichBlocks: remedialAllRichBlocks,
           a2aMentions: remedialA2aMentions,
-          // Tool-only remedial exits validate the original text instead of replacing it; surface it after validation.
-          streamEvents: keepsOriginalVisibleContent
-            ? [...remedialStreamEvents, ...originalTextStreamEventsBeforeRemedial]
+          hasCoCreatorLineStartMention: remedialHasCoCreatorLineStartMention,
+          // Exit-only remedials validate the original text instead of replacing it; surface it after validation.
+          streamEvents: preservesOriginalVisibleContent
+            ? [...visibleRemedialStreamEvents, ...originalVisibleStreamEventsForRemedialTurn]
             : remedialStreamEvents,
         };
       };
@@ -1643,7 +1676,7 @@ export async function* routeSerial(
             lineStartMentions: getRoutingExitLineStartMentions(result.a2aMentions),
             toolNames: collectedToolNames,
             structuredTargetCats: [...structuredTargetCats],
-            hasCoCreatorLineStartMention: hasRoutingExitCoCreatorLineStartMention(result.storedContent),
+            hasCoCreatorLineStartMention: result.hasCoCreatorLineStartMention,
           })
         ) {
           await appendRoutingGuardFailureNotice();
@@ -1704,7 +1737,7 @@ export async function* routeSerial(
           allRichBlocks = result.allRichBlocks;
           a2aMentions = result.a2aMentions;
           routingExitLineStartMentions = getRoutingExitLineStartMentions(a2aMentions);
-          routingExitHasCoCreatorLineStartMention = hasRoutingExitCoCreatorLineStartMention(storedContent);
+          routingExitHasCoCreatorLineStartMention = result.hasCoCreatorLineStartMention;
 
           if (
             !hasValidRoutingExit({
@@ -2085,8 +2118,12 @@ export async function* routeSerial(
 
         const storedTimestamp = invocationStartedAt;
 
-        // F061: Detect @co-creator mentions in agent response for browser notification
-        mentionsUser = storedContent ? detectUserMention(storedContent) : false;
+        // F061: Detect @co-creator mentions for browser/unread notification.
+        // Route-only remedials may keep first-pass visible text while routing via `@landy`;
+        // carry that validated routing mention even when it is intentionally hidden from storedContent.
+        mentionsUser = Boolean(
+          (storedContent ? detectUserMention(storedContent) : false) || routingExitHasCoCreatorLineStartMention,
+        );
 
         // #573: skip stream store only when callback confirmed persistence (not just invocation)
         const callbackAlreadyStored = callbackPostConfirmed;
