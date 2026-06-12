@@ -8,7 +8,7 @@ created: 2026-06-12
 
 # F233: Ball Custody Observability — 球权保管链可观测（值班简报 + 轨迹下钻）
 
-> **Status**: spec | **Owner**: 宪宪 Fable-5（spec/plan）→ 实现传 opus 家族 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 宪宪 Fable-5（plan + Phase 末守护）· coder: 宪宪 Opus-4.8 · reviewer: 缅因猫 | **Priority**: P1
 
 ## Why
 
@@ -156,7 +156,7 @@ created: 2026-06-12
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | 简报 primary surface。**作者推荐**：固定「值班简报」thread + 每日 cron 推 rich block 简报卡 + on-demand 触发；Hub 面板**不做** Phase A primary（132 置顶已实证"CVO 主动巡逻"模式失败；dashboard-only 是 F174 教训反面），留作 Phase C deep-dive 候选。`in_context_observability` 草案：primary_surface=值班简报 thread rich block（cron+on-demand）/ why_not_dashboard_only=主动巡逻模式已被 132 置顶实证失败，须系统叫人 / deep_dive_surface=Phase C 轨迹下钻（简报条目锚点跳转）/ noise_dedup_policy=异常优先（KD-3）+ 同根因聚合（Risk 表）+ friction metric 盯假阳性 | ⬜ 待 CVO 拍板（推荐已出） |
+| OQ-1 | 简报 primary surface = 固定「值班简报」thread + 每日 cron rich block + on-demand；Hub 面板留 Phase C deep-dive。`in_context_observability`：primary_surface=值班简报 thread rich block / why_not_dashboard_only=主动巡逻模式已被 132 置顶实证失败 / deep_dive_surface=Phase C 轨迹下钻 / noise_dedup_policy=异常优先+同根因聚合+friction metric | ✅ CVO 拍板（2026-06-12 "这倒是可以"+"好…开始写 Phase A plan"） |
 | OQ-2 | CVO handoff intent 字段 schema（`handoff`/`fyi`/`done-notify`：猫侧显式声明的载体——MCP 参数 or 消息标记——+ 路由层默认推断规则 + 历史消息兜底策略） | ⬜ Phase B plan |
 | OQ-3 | 安乐死通道是否提前到 Phase A 轻量版（一个显式标记 + why） | ⬜ Design Gate |
 | OQ-4 | probe 字段结构与安全白名单设计 | ⬜ Phase B plan |
@@ -184,8 +184,8 @@ created: 2026-06-12
 
 ## Review Gate
 
-- Spec/Design Gate: @gpt52（成本路由优先）+ 架构归属一问 + in-context observability checklist
-- Phase A 实现: 跨猫 review（实现 owner 为 opus 家族，reviewer 跨族）
+- Spec/Design Gate: ✅ gpt52 R1 blocking×2 → 修复 → APPROVE（`133ff0cd6`）；UI/UX CVO 确认 ✅（无按钮简报卡 + 地铁图隐喻 + OQ-1，2026-06-12）
+- **分工（CVO 拍板 2026-06-12，协作实验：fable×48）**：plan + Phase 末守护 = fable-5；coder = opus-48；reviewer = 缅因猫（R1 起 gpt52 保持连续性，关键节点按需升 codex）；每 Phase 循环：fable plan → 48 实现 → 缅因 review → merge → fable 守护 + 写下一 Phase plan
 - Phase B 状态机: plan 必须含状态转移表 + 不变量 + 对抗场景（crash/并发/restore），按 F229 PR-A1 教训前置
 
 ## Links
