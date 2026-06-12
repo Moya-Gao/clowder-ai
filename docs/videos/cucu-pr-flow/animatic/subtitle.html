@@ -6,17 +6,17 @@
 <style>
   /* 透明字幕条：Chrome --default-background-color=00000000 截图 → PNG 带 alpha → ffmpeg overlay */
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { width: 1280px; height: 160px; background: transparent; overflow: hidden; }
+  html, body { width: 100vw; height: 100vh; background: transparent; overflow: hidden; }
   body { display: flex; align-items: flex-end; justify-content: center; padding-bottom: 18px; }
   .line {
     font-family: "PingFang SC", "Hiragino Sans GB", sans-serif;
-    font-size: 40px; font-weight: 700; color: #ffffff; line-height: 1.35;
+    font-size: clamp(30px, 5vw, 44px); font-weight: 700; color: #ffffff; line-height: 1.35;
     background: rgba(0, 0, 0, 0.55); padding: 8px 26px; border-radius: 14px;
-    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8); max-width: 1180px; text-align: center;
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8); max-width: 92vw; text-align: center;
   }
   /* 内心 OS：暖灰金斜体，区别于对白（醋醋喵的小心思专用） */
   .line.os {
-    color: #ead9b0; font-style: italic; font-weight: 600; font-size: 36px;
+    color: #ead9b0; font-style: italic; font-weight: 600; font-size: clamp(27px, 4.5vw, 40px);
     background: rgba(20, 12, 4, 0.72);
   }
 </style>

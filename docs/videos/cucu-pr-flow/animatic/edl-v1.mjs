@@ -2,27 +2,34 @@
 // 镜头顺序/字幕 = shot-plan §2/§3（S11 true end 含黑场过渡）
 // kind: 'video'  = generated-clips 真素材（trimSec 截取）
 // kind: 'stills' = static-frames 静帧卡（按拍点时长序列）
-// 输出画幅：1280×720 横屏（DECISION-PENDING：6/8 主力素材横屏 → 先拼横屏版给 CVO 实物参照；
-//          若 CVO 拍竖屏，改 OUTPUT_W/H + pad 方向重渲即可，builder 已参数化）
+// 输出画幅：720×1280 竖屏（CVO 拍板 2026-06-12："后面抽到的 9:16 画风特别统一巨好看"——
+//          横屏老素材自动走 blur-pad 上下填充；初版给朋友看，反馈后 fine cut 再定档）
 export const edl = {
   version: 1,
   project: 'cucu-pr-flow',
   fps: 30,
-  width: 1280,
-  height: 720,
+  width: 720,
+  height: 1280,
   shots: [
-    // S00（剧本 v2，CVO 2026-06-12）：Landy 兴奋宣布——动机闭环的起点。
-    // 素材生产中（prompt book §S00）；首帧+i2v 到位后取消注释并把文件名对上。
-    // {
-    //   id: 'S00',
-    //   kind: 'video',
-    //   src: 'generated-clips/S00-i2v-v1.mp4',
-    //   trimSec: 5.0,
-    //   subtitles: [
-    //     { startMs: 200, endMs: 2400, text: 'Landy：宪宪 fable 发布了！！听说是目前最强的猫猫！！' },
-    //     { startMs: 2600, endMs: 4800, text: 'Landy：快帮我接他进来！！加个头像他就能被召唤了！！' },
-    //   ],
-    // },
+    // 片头免责声明卡（CVO 2026-06-12）：伪纪录片式一本正经，定罪叙事的开场白
+    {
+      id: 'TITLE-DISCLAIMER',
+      kind: 'title',
+      text: '本故事根据真实事件改编',
+      sub: '肇事猫猫已主动提供 commit 记录与 CI 日志作为呈堂证供',
+      durationMs: 2500,
+    },
+    // S00（剧本 v2）：Landy 兴奋宣布——动机闭环的起点（素材 2026-06-12 到位）
+    {
+      id: 'S00',
+      kind: 'video',
+      src: 'generated-clips/S00-i2v-v1.mp4',
+      trimSec: 5.0,
+      subtitles: [
+        { startMs: 200, endMs: 2400, text: 'Landy：宪宪 fable 发布了！！听说是目前最强的猫猫！！' },
+        { startMs: 2600, endMs: 4800, text: 'Landy：快帮我接他进来！！加个头像他就能被召唤了！！' },
+      ],
+    },
     {
       id: 'S01',
       kind: 'video',

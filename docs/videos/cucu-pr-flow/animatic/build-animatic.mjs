@@ -171,7 +171,7 @@ cues.forEach((cue, i) => {
     '--headless',
     '--disable-gpu',
     '--hide-scrollbars',
-    `--window-size=${W},160`,
+    `--window-size=${W},220`,
     '--default-background-color=00000000',
     `--screenshot=${png}`,
     '--virtual-time-budget=600',
