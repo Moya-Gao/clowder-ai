@@ -12,6 +12,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { RichBlock } from '@/stores/chat-types';
 import { apiFetch } from '@/utils/api-client';
 
 export type ConciergeMessage = {
@@ -19,6 +20,8 @@ export type ConciergeMessage = {
   content: string;
   isUser: boolean;
   timestamp: number;
+  /** Rich blocks from duty cat responses (cards with concierge_teleport/peek/relay/go actions). */
+  richBlocks?: RichBlock[];
 };
 
 type ApiMessage = {
@@ -29,6 +32,8 @@ type ApiMessage = {
   timestamp: number;
   // R8 P1 fix: streaming partial replies arrive with isDraft=true — must not count as real reply
   isDraft?: boolean;
+  // R-review R4 P1 fix: carry rich blocks through so bubble can render interaction cards
+  extra?: { rich?: { blocks?: RichBlock[] } };
 };
 
 function mapApiMessages(raw: ApiMessage[]): ConciergeMessage[] {
@@ -39,6 +44,7 @@ function mapApiMessages(raw: ApiMessage[]): ConciergeMessage[] {
       content: m.content,
       isUser: m.type === 'user',
       timestamp: m.timestamp,
+      ...(m.extra?.rich?.blocks?.length ? { richBlocks: m.extra.rich.blocks } : {}),
     }));
 }
 

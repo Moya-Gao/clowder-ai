@@ -122,14 +122,33 @@ interface ConciergeStoreState extends ConciergeInputs {
   pendingPrompt: string | null;
   setInputFocused: (focused: boolean) => void;
   setInvocationStatus: (status: ConciergeInputs['invocationStatus']) => void;
-  /** Called when relay receipt arrives: pendingRelayCount-1, unseenResultCount+1. */
+  /** Called before relay dispatch: pendingRelayCount+1 (ball enters handoff). R-review P1 fix. */
+  onRelayDispatching: () => void;
+  /** Called when relay dispatch HTTP succeeds: pendingRelayCount-1, exit handoff → idle.
+   *  Does NOT increment unseenResultCount — found badge waits for the target cat's
+   *  actual reply message arriving in the concierge thread (Phase B message detection).
+   *  Spec §0: "目标猫回报 = concierge thread 收到普通消息 = found badge". */
+  onRelayDispatched: () => void;
+  /** Called when target cat's reply message arrives in concierge thread (Phase B).
+   *  Decrements pendingRelayCount + increments unseenResultCount → found badge. */
   onRelayReceived: () => void;
+  /** Called when relay dispatch fails: pendingRelayCount-1 only (no unseen increment). */
+  onRelayFailed: () => void;
   /** Mark all results seen (bubble opened + scrolled to bottom). */
   markResultsSeen: () => void;
   incrementPendingConfirmation: () => void;
   decrementPendingConfirmation: () => void;
   /** Called on concierge_teleport/concierge_go action — collapses surface (INV-7). */
   onNavigationAction: () => void;
+
+  // Ball position (PR-A3b INV-P1~P4)
+  /** Ball position in viewport coordinates. null = default bottom-right. */
+  ballPosition: { x: number; y: number } | null;
+  isDragging: boolean;
+  /** Set ball position after drag end. Persists to config (INV-P3: write failure silent). */
+  setBallPosition: (pos: { x: number; y: number }) => void;
+  /** Set drag state (INV-P1: drag/click disambiguation). */
+  setIsDragging: (dragging: boolean) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -148,6 +167,10 @@ export const useConciergeStore = create<ConciergeStoreState>((set, get) => ({
   unseenResultCount: 0,
   surfaceState: 'collapsed',
   inputFocused: false,
+
+  // Ball position (PR-A3b)
+  ballPosition: null,
+  isDragging: false,
 
   // Config
   displayName: DEFAULTS.displayName,
@@ -190,6 +213,7 @@ export const useConciergeStore = create<ConciergeStoreState>((set, get) => ({
         dutyCatProfileId: config.dutyCatProfileId,
         proactivePolicy: config.proactivePolicy,
         skin: config.skin,
+        ballPosition: config.ballPosition ?? null,
         configLoaded: true,
         configLoading: false,
       });
@@ -263,6 +287,15 @@ export const useConciergeStore = create<ConciergeStoreState>((set, get) => ({
 
   setInvocationStatus: (status) => set({ invocationStatus: status }),
 
+  // R-review P1 fix: relay must go through handoff before found.
+  // Without onRelayDispatching, pendingRelayCount stays 0 and handoff is unreachable.
+  onRelayDispatching: () => set((s) => ({ pendingRelayCount: s.pendingRelayCount + 1 })),
+
+  // R-review R3: dispatch success exits handoff → idle (NOT found).
+  // Spec §0: found badge waits for target cat's cross_post reply, not dispatch ACK.
+  onRelayDispatched: () => set((s) => ({ pendingRelayCount: Math.max(0, s.pendingRelayCount - 1) })),
+
+  // Phase B: called when target cat's reply actually arrives in concierge thread.
   onRelayReceived: () => {
     const { pendingRelayCount, unseenResultCount } = get();
     set({
@@ -270,6 +303,8 @@ export const useConciergeStore = create<ConciergeStoreState>((set, get) => ({
       unseenResultCount: unseenResultCount + 1,
     });
   },
+
+  onRelayFailed: () => set((s) => ({ pendingRelayCount: Math.max(0, s.pendingRelayCount - 1) })),
 
   markResultsSeen: () => set({ unseenResultCount: 0 }),
 
@@ -283,4 +318,27 @@ export const useConciergeStore = create<ConciergeStoreState>((set, get) => ({
     // P2-B: also clear inputFocused — same stale-listening prevention
     set({ surfaceState: 'collapsed', inputFocused: false });
   },
+
+  // -------------------------------------------------------------------------
+  // Ball position actions (PR-A3b INV-P1~P4)
+  // -------------------------------------------------------------------------
+
+  setBallPosition: async (pos: { x: number; y: number }) => {
+    // Optimistic update (INV-P3: persist via config PUT, write failure silent)
+    // Note: isDragging is NOT reset here — it stays true so ConciergeBall's onClick
+    // can detect "this was a drag, not a click" and suppress the toolbar toggle.
+    // ConciergeBall.onClick resets isDragging to false after suppressing.
+    set({ ballPosition: pos });
+    try {
+      await apiFetch('/api/concierge/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ballPosition: pos }),
+      });
+    } catch {
+      // INV-P3: write failure silent — position stays in local state until next session
+    }
+  },
+
+  setIsDragging: (dragging: boolean) => set({ isDragging: dragging }),
 }));

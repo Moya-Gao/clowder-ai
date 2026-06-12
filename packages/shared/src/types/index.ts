@@ -246,6 +246,10 @@ export type {
   ConciergeCardAction,
   ConciergeConfig,
   ConciergeThreadKind,
+  ConfirmationStatus,
+  PendingConfirmation,
+  RelayReceipt,
+  RelayReceiptStatus,
 } from './concierge.js';
 export { CONCIERGE_CONFIG_DEFAULTS } from './concierge.js';
 // Connector types (F97 外部信息源抽象)

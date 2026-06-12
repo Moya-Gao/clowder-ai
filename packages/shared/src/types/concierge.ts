@@ -26,6 +26,8 @@ export interface ConciergeConfig {
   proactivePolicy: 'ambient' | 'quiet-badge';
   /** 一键静音/隐藏整个球 (AC-A6) */
   muted: boolean;
+  /** 球位置 (PR-A3b INV-P3: per-user 持久化) — null = default bottom-right */
+  ballPosition: { x: number; y: number } | null;
 }
 
 /** ConciergeConfig 默认值（dutyCatProfileId 由 API 层根据 roster 解析） */
@@ -36,6 +38,7 @@ export const CONCIERGE_CONFIG_DEFAULTS: Omit<ConciergeConfig, 'dutyCatProfileId'
   personaTone: '温暖、简短、不啰嗦',
   proactivePolicy: 'quiet-badge',
   muted: false,
+  ballPosition: null,
 };
 
 /**
@@ -75,6 +78,71 @@ export type ConciergeCardAction =
   /** 取：原地 inline 展开 anchor 前后往来原文（不离开当前页） */
   | { kind: 'concierge_peek'; threadId: string; messageId: string }
   /** 传话：cross_post 投递 + 注册回执监听 */
-  | { kind: 'concierge_relay'; targetThreadId: string; targetCats: string[] }
+  | {
+      kind: 'concierge_relay';
+      targetThreadId: string;
+      targetCats: string[];
+      originalText: string;
+      sourceMessageId: string;
+    }
   /** 跟去：teleport 到目标 thread 跟进 */
   | { kind: 'concierge_go'; targetThreadId: string };
+
+// ---------------------------------------------------------------------------
+// RelayReceipt — §1a state machine (lifecycle owner = POST /api/concierge/relay)
+// ---------------------------------------------------------------------------
+
+/**
+ * RelayReceipt 状态：
+ *   draft(确认卡渲染) → confirmed(用户点传话) → dispatched(cross_post 成功)
+ *                                              ↘ dispatch_failed(可手动重试 → confirmed)
+ *
+ * INV R1: 先落记录再投递（crash window 内可恢复）
+ * INV R2: dispatch_failed 手动重试，不自动重试
+ * INV R3: 同一 receipt 重试用同一 clientMessageId（幂等）
+ * INV R4: 仅 relay 端点写 relay 记录（旁路禁令）
+ */
+export type RelayReceiptStatus = 'draft' | 'confirmed' | 'dispatched' | 'dispatch_failed';
+
+export interface RelayReceipt {
+  id: string;
+  userId: string;
+  conciergeThreadId: string;
+  targetThreadId: string;
+  targetCats: string[];
+  /** 用户原话全文（KD-3/KD-13：不是模型复述） */
+  originalText: string;
+  /** concierge thread 中的源消息 ID */
+  sourceMessageId: string;
+  /** cross_post 幂等 key（INV R3） */
+  clientMessageId: string;
+  status: RelayReceiptStatus;
+  createdAt: number;
+  updatedAt: number;
+}
+
+// ---------------------------------------------------------------------------
+// PendingConfirmation — §1b state machine
+// ---------------------------------------------------------------------------
+
+/**
+ * PendingConfirmation 状态：
+ *   rendered → confirmed(执行一次) | cancelled(变灰)
+ *   刷新后从持久层重建可点性
+ *
+ * INV C1: 点击即 disabled，double-click 不双发
+ * INV C2: payload 自包含，执行 deterministic，不回查模型
+ * INV C3: 确认/取消状态持久化，刷新后保持
+ * INV C4: 未知 action 走 CardBlock:102 现有 warn 路径
+ */
+export type ConfirmationStatus = 'rendered' | 'confirmed' | 'cancelled';
+
+export interface PendingConfirmation {
+  id: string;
+  userId: string;
+  messageId: string;
+  action: ConciergeCardAction;
+  status: ConfirmationStatus;
+  createdAt: number;
+  updatedAt: number;
+}

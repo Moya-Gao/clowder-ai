@@ -1810,9 +1810,24 @@ async function main(): Promise<void> {
     redis: redis ?? undefined,
     conciergeConfigStore: conciergeConfigStoreShared,
   });
+  // F229 PR-A3b: relay + confirmation stores
+  const { RedisConciergeRelayStore, MemoryConciergeRelayStore } = await import(
+    './domains/concierge/ConciergeRelayStore.js'
+  );
+  const { RedisConciergeConfirmationStore, MemoryConciergeConfirmationStore } = await import(
+    './domains/concierge/ConciergeConfirmationStore.js'
+  );
+  const conciergeRelayStore = redis ? new RedisConciergeRelayStore(redis) : new MemoryConciergeRelayStore();
+  const conciergeConfirmationStore = redis
+    ? new RedisConciergeConfirmationStore(redis)
+    : new MemoryConciergeConfirmationStore();
+
   await app.register(conciergeRoutes, {
     conciergeConfigStore: conciergeConfigStoreShared,
     conciergeThreadService: conciergeThreadServiceShared,
+    conciergeRelayStore,
+    conciergeConfirmationStore,
+    messageStore,
   });
   const connectorHubOpts: Parameters<typeof connectorHubRoutes>[1] = { threadStore };
   await app.register(connectorHubRoutes, connectorHubOpts);

@@ -64,8 +64,16 @@ export function ConciergeBall({ ballState }: ConciergeBallProps) {
   const setSurfaceState = useConciergeStore((s) => s.setSurfaceState);
   const surfaceState = useConciergeStore((s) => s.surfaceState);
   const unseenResultCount = useConciergeStore((s) => s.unseenResultCount);
+  const isDragging = useConciergeStore((s) => s.isDragging);
+  const setIsDragging = useConciergeStore((s) => s.setIsDragging);
 
   const handleClick = () => {
+    // INV-P1: suppress click after drag (drag threshold ~5px in ConciergeHost)
+    // isDragging stays true from onDragStop until this click handler resets it.
+    if (isDragging) {
+      setIsDragging(false);
+      return;
+    }
     // Layer 1 → Layer 2: click cat opens toolbar
     if (surfaceState === 'collapsed') {
       setSurfaceState('toolbar');

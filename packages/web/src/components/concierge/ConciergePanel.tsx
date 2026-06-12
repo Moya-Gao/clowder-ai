@@ -24,6 +24,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useConciergeStore } from '@/stores/conciergeStore';
 import { apiFetch } from '@/utils/api-client';
+import { RichBlocks } from '../rich/RichBlocks';
 import { useConciergeMessages } from './useConciergeMessages';
 
 export function ConciergePanel() {
@@ -317,6 +318,12 @@ export function ConciergePanel() {
                     className="max-w-[85%] px-3 py-1.5 rounded-xl text-sm leading-snug whitespace-pre-wrap break-words"
                   >
                     {msg.content}
+                    {/* R-review R4 P1 fix: render rich blocks (interaction cards) in bubble */}
+                    {!msg.isUser && msg.richBlocks && msg.richBlocks.length > 0 && (
+                      <div className="mt-2">
+                        <RichBlocks blocks={msg.richBlocks} messageId={msg.id} />
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
