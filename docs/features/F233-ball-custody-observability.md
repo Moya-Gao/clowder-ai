@@ -162,6 +162,7 @@ created: 2026-06-12
 | OQ-4 | probe 字段结构与安全白名单设计 | ⬜ Phase B plan |
 | OQ-5 | 账号级断流（spend limit）单独告警通道 | ⬜ Phase B plan |
 | OQ-6 | Architecture cell 归属 + Map delta | ✅ 已决：**Phase A** cell=`hub-action-surface`（只读聚合 + rich block surface，全在既有边界内），Map delta: **none**；**Phase B** 球权事件流为新 domain，Map delta: **new cell required**（`ball-custody`，event-log + projector 模式参照 `community-ops` cell 先例：CommunityEventLog/projector/state-machine），cell 文档随 Phase B PR 创建 |
+| OQ-7 | 全景网络渲染模式（all-lines 系统图 + 动效 + 暗色霓虹）——CVO 明确定位为**传播资产**非运维仪表（铲屎官 2026-06-12："有噱头 可以宣传"）。差异化 vs graph-RAG 3D 球：每条线/每个站可点开验证真实协作史。同一事件流数据零额外埋点。**Phase C stretch 或 close 后衍生，不阻塞 A/B/C 主线**；视觉可交烁烁/antig-opus | ⬜ Phase C plan 时定 |
 
 ## Key Decisions
 
