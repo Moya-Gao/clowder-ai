@@ -1,3 +1,12 @@
+---
+title: F225 Handoff Proposal Card UI/UX Redesign Spec
+feature: F225
+status: implemented
+owner: gemini35
+implementation_pr: https://github.com/zts212653/cat-cafe/pull/2256
+created: 2026-06-12
+---
+
 # F225: Handoff Proposal Card UI/UX Redesign Spec
 
 ## 1. 现状痛点分析
