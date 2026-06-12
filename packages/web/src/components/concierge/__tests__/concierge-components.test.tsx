@@ -496,26 +496,36 @@ describe('A3a: three-layer surfaceState interaction', () => {
   });
 
   // -------------------------------------------------------------------------
-  // gpt52 P2: toolbar prompts not wired (all 4 buttons call setSurfaceState only)
+  // Toolbar simplification: 4 buttons → 2 honest entries (铲屎官 拍板)
   // -------------------------------------------------------------------------
-  it('P2 (gpt52 fix): 找找看 opens bubble with prefilled prompt', async () => {
+  it('toolbar has exactly 2 buttons (help + chat)', async () => {
     useConciergeStore.setState({ configLoaded: true, surfaceState: 'toolbar' });
     await render(<ConciergeHost />);
     await flushEffects();
 
-    const findBtn = container.querySelector('button[aria-label="找找看"]') as HTMLButtonElement;
-    expect(findBtn).not.toBeNull();
+    const toolbar = container.querySelector('[data-testid="concierge-toolbar"]');
+    const buttons = toolbar?.querySelectorAll('button');
+    expect(buttons?.length).toBe(2);
+  });
+
+  it('help button opens bubble with prefilled prompt', async () => {
+    useConciergeStore.setState({ configLoaded: true, surfaceState: 'toolbar' });
+    await render(<ConciergeHost />);
+    await flushEffects();
+
+    const helpBtn = container.querySelector('button[aria-label="能帮什么"]') as HTMLButtonElement;
+    expect(helpBtn).not.toBeNull();
     act(() => {
-      findBtn.click();
+      helpBtn.click();
     });
     await flushEffects();
 
     expect(useConciergeStore.getState().surfaceState).toBe('bubble');
     const inputEl = container.querySelector('textarea[aria-label="消息输入框"]') as HTMLTextAreaElement;
-    expect(inputEl?.value).toBe('帮我找找：');
+    expect(inputEl?.value).toBe('你能帮我什么？');
   });
 
-  it('P2 (gpt52 fix): 聊聊 opens bubble with empty input', async () => {
+  it('chat button opens bubble with empty input', async () => {
     useConciergeStore.setState({ configLoaded: true, surfaceState: 'toolbar' });
     await render(<ConciergeHost />);
     await flushEffects();
@@ -532,29 +542,29 @@ describe('A3a: three-layer surfaceState interaction', () => {
     expect(inputEl?.value).toBe('');
   });
 
-  it('P2 (cloud R2): 聊聊 clears existing draft set by previous ability button', async () => {
+  it('chat clears existing draft set by previous help button', async () => {
     useConciergeStore.setState({ configLoaded: true, surfaceState: 'toolbar' });
     await render(<ConciergeHost />);
     await flushEffects();
 
-    // Step 1: 找找看 → bubble with prefilled draft
-    const findBtn = container.querySelector('button[aria-label="找找看"]') as HTMLButtonElement;
+    // Step 1: help → bubble with prefilled draft
+    const helpBtn = container.querySelector('button[aria-label="能帮什么"]') as HTMLButtonElement;
     act(() => {
-      findBtn.click();
+      helpBtn.click();
     });
     await flushEffects();
     expect((container.querySelector('textarea[aria-label="消息输入框"]') as HTMLTextAreaElement)?.value).toBe(
-      '帮我找找：',
+      '你能帮我什么？',
     );
 
-    // Step 2: Escape → back to toolbar (draft '帮我找找：' persists in component state)
+    // Step 2: Escape → back to toolbar
     act(() => {
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     });
     await flushEffects();
     expect(useConciergeStore.getState().surfaceState).toBe('toolbar');
 
-    // Step 3: 聊聊 → bubble must open with *empty* input (not the old draft)
+    // Step 3: chat → bubble must open with *empty* input (not the old draft)
     const chatBtn = container.querySelector('button[aria-label="聊聊"]') as HTMLButtonElement;
     act(() => {
       chatBtn.click();
@@ -846,5 +856,367 @@ describe('A3a: three-layer surfaceState interaction', () => {
 
     const postCalls = mockApiFetch.mock.calls.filter((args) => args[0] === '/api/messages');
     expect(postCalls.length).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Block 7: P0 Liveness — server-truth-driven invocation status
+// ---------------------------------------------------------------------------
+
+describe('Block 7: P0 Liveness', () => {
+  it('shows "值班猫正在处理" when queue reports active invocation', async () => {
+    useConciergeStore.setState({
+      configLoaded: true,
+      surfaceState: 'bubble',
+      threadId: 'thread-liveness-1',
+      threadIdLoaded: true,
+      invocationStatus: 'in_progress',
+    });
+
+    // Mock: messages empty, queue returns active invocation
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url.includes('/api/messages?')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ messages: [] }),
+        } as unknown as Response);
+      }
+      if (url.includes('/queue')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            queue: [],
+            paused: false,
+            activeInvocations: [{ catId: 'gemini25', startedAt: Date.now() - 5000 }],
+          }),
+        } as unknown as Response);
+      }
+      return configOk();
+    });
+
+    await render(<ConciergeHost />);
+    await flushEffects();
+
+    // Wait for queue poll to complete
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+    await flushEffects();
+
+    const statusEl = container.querySelector('[role="status"]');
+    expect(statusEl).not.toBeNull();
+    expect(statusEl?.textContent).toContain('值班猫正在处理');
+  });
+
+  it('shows "发送中" during pending state', async () => {
+    useConciergeStore.setState({
+      configLoaded: true,
+      surfaceState: 'bubble',
+      threadId: 'thread-liveness-2',
+      threadIdLoaded: true,
+      invocationStatus: 'pending',
+    });
+
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url.includes('/api/messages?')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ messages: [] }),
+        } as unknown as Response);
+      }
+      return configOk();
+    });
+
+    await render(<ConciergeHost />);
+    await flushEffects();
+
+    const statusEl = container.querySelector('[role="status"]');
+    expect(statusEl).not.toBeNull();
+    expect(statusEl?.textContent).toContain('发送中');
+  });
+
+  it('transitions to idle when queue reports no active invocation after grace period', async () => {
+    useConciergeStore.setState({
+      configLoaded: true,
+      surfaceState: 'bubble',
+      threadId: 'thread-liveness-3',
+      threadIdLoaded: true,
+      invocationStatus: 'in_progress',
+    });
+
+    // Queue returns empty activeInvocations (invocation finished)
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url.includes('/api/messages?')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ messages: [] }),
+        } as unknown as Response);
+      }
+      if (url.includes('/queue')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            queue: [],
+            paused: false,
+            activeInvocations: [],
+          }),
+        } as unknown as Response);
+      }
+      return configOk();
+    });
+
+    await render(<ConciergeHost />);
+    await flushEffects();
+
+    // Wait for queue poll + grace period (2s) + settle (1s)
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 3500));
+    });
+    await flushEffects();
+
+    expect(useConciergeStore.getState().invocationStatus).toBe('idle');
+  });
+
+  it('does NOT prematurely idle when queue confirms cat is still running', async () => {
+    useConciergeStore.setState({
+      configLoaded: true,
+      surfaceState: 'bubble',
+      threadId: 'thread-liveness-4',
+      threadIdLoaded: true,
+      invocationStatus: 'in_progress',
+    });
+
+    // Queue always returns active invocation — cat is still processing
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url.includes('/api/messages?')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ messages: [] }),
+        } as unknown as Response);
+      }
+      if (url.includes('/queue')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            queue: [],
+            paused: false,
+            activeInvocations: [{ catId: 'gemini25', startedAt: Date.now() - 30000 }],
+          }),
+        } as unknown as Response);
+      }
+      return configOk();
+    });
+
+    await render(<ConciergeHost />);
+    await flushEffects();
+
+    // Even after 5 seconds, should NOT go idle because queue says still running
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 5000));
+    });
+    await flushEffects();
+
+    expect(useConciergeStore.getState().invocationStatus).toBe('in_progress');
+  });
+
+  it('P2 (cloud review): queued turn with empty activeInvocations keeps in_progress', async () => {
+    // Cloud codex P2: a turn can be queued (status:"queued") but not yet in
+    // activeInvocations (processor hasn't picked it up). The hook must treat
+    // queued entries as "still running" to avoid flashing idle during handoff.
+    useConciergeStore.setState({
+      configLoaded: true,
+      surfaceState: 'bubble',
+      threadId: 'thread-liveness-queued',
+      threadIdLoaded: true,
+      invocationStatus: 'in_progress',
+    });
+
+    // Queue has a queued entry but activeInvocations is empty
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url.includes('/api/messages?')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ messages: [] }),
+        } as unknown as Response);
+      }
+      if (url.includes('/queue')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            queue: [{ id: 'turn-1', status: 'queued', threadId: 'thread-liveness-queued' }],
+            paused: false,
+            activeInvocations: [],
+          }),
+        } as unknown as Response);
+      }
+      return configOk();
+    });
+
+    await render(<ConciergeHost />);
+    await flushEffects();
+
+    // Even after grace period, should NOT go idle — queue has pending work
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 5000));
+    });
+    await flushEffects();
+
+    expect(useConciergeStore.getState().invocationStatus).toBe('in_progress');
+  });
+
+  it('P1 (gpt52 review): slow first queue poll does NOT cause premature idle', async () => {
+    // Regression: before the `loaded` guard, useConciergeQueue initialized with
+    // isRunning=false, and ConciergePanel treated that as "server confirmed done",
+    // triggering the 2s+1s grace→idle path even before the first poll returned.
+    useConciergeStore.setState({
+      configLoaded: true,
+      surfaceState: 'bubble',
+      threadId: 'thread-liveness-slow-poll',
+      threadIdLoaded: true,
+      invocationStatus: 'in_progress',
+    });
+
+    // Queue poll is slow — resolves after 4s (longer than grace period)
+    let resolveQueue!: (v: Response) => void;
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url.includes('/api/messages?')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ messages: [] }),
+        } as unknown as Response);
+      }
+      if (url.includes('/queue')) {
+        return new Promise<Response>((resolve) => {
+          resolveQueue = resolve;
+        });
+      }
+      return configOk();
+    });
+
+    await render(<ConciergeHost />);
+    await flushEffects();
+
+    // After 3.5s (past the old grace period), should still be in_progress
+    // because queue hasn't responded yet (loaded=false blocks grace path)
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 3500));
+    });
+    await flushEffects();
+
+    expect(useConciergeStore.getState().invocationStatus).toBe('in_progress');
+
+    // Now resolve the queue poll with active invocation
+    await act(async () => {
+      resolveQueue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          queue: [],
+          paused: false,
+          activeInvocations: [{ catId: 'gemini25', startedAt: Date.now() }],
+        }),
+      } as unknown as Response);
+      await Promise.resolve();
+    });
+    await flushEffects();
+
+    // Still in_progress — queue confirmed cat is running
+    expect(useConciergeStore.getState().invocationStatus).toBe('in_progress');
+  });
+
+  it(
+    'P2 R2 (cloud review): sustained poll failure triggers 10s deadline fallback to idle',
+    { timeout: 20_000 },
+    async () => {
+      // Cloud codex round 2 P2: if queue polling never succeeds (API unreachable),
+      // loaded stays false forever, leaving the panel stuck in in_progress.
+      // The 10s deadline forces loaded=true to allow idle recovery.
+      useConciergeStore.setState({
+        configLoaded: true,
+        surfaceState: 'bubble',
+        threadId: 'thread-liveness-deadline',
+        threadIdLoaded: true,
+        invocationStatus: 'in_progress',
+      });
+
+      // Queue poll always fails (non-2xx)
+      mockApiFetch.mockImplementation((url: string) => {
+        if (url.includes('/api/messages?')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ messages: [] }),
+          } as unknown as Response);
+        }
+        if (url.includes('/queue')) {
+          return Promise.resolve({
+            ok: false,
+            status: 500,
+            json: async () => ({ error: 'Internal Server Error' }),
+          } as unknown as Response);
+        }
+        return configOk();
+      });
+
+      await render(<ConciergeHost />);
+      await flushEffects();
+
+      // At 5s, should still be in_progress (deadline is 10s)
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 5000));
+      });
+      await flushEffects();
+      expect(useConciergeStore.getState().invocationStatus).toBe('in_progress');
+
+      // Wait past deadline (10s from mount) — need to flush after deadline fires
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 6000));
+      });
+      await flushEffects();
+
+      // Deadline fired → loaded=true → effect starts grace (2s) + settle (1s)
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 4000));
+      });
+      await flushEffects();
+      expect(useConciergeStore.getState().invocationStatus).toBe('idle');
+    },
+  );
+
+  it('no status indicator when invocationStatus=idle', async () => {
+    useConciergeStore.setState({
+      configLoaded: true,
+      surfaceState: 'bubble',
+      threadId: 'thread-liveness-5',
+      threadIdLoaded: true,
+      invocationStatus: 'idle',
+    });
+
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url.includes('/api/messages?')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ messages: [] }),
+        } as unknown as Response);
+      }
+      return configOk();
+    });
+
+    await render(<ConciergeHost />);
+    await flushEffects();
+
+    // No status indicator when idle
+    expect(container.querySelector('[role="status"]')).toBeNull();
   });
 });

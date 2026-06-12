@@ -1,47 +1,31 @@
 'use client';
 
 /**
- * F229 PR-A3a: ConciergeToolbar — 猫的能力工具栏（Layer 2）
+ * F229 ConciergeToolbar — 猫的能力工具栏（Layer 2）
  *
  * surfaceState=toolbar 时渲染，其他态返回 null
- * 四个能力按钮 + stagger 动画（0/80/160/240ms）
+ * 两个诚实入口 + stagger 动画（0/80ms）
  * 全部颜色从 OKLCH token 来，零 Tailwind 原生色
  *
- * 按钮动作：
- *   找找看 → setSurfaceState('bubble') + 预填 prompt
- *   新功能 → setSurfaceState('bubble') + 预填 prompt
- *   传话   → setSurfaceState('bubble') + 预填 prompt
- *   聊聊   → setSurfaceState('bubble') 空气泡
+ * 按钮动作（铲屎官拍板简化：四假按钮 → 两诚实入口）：
+ *   ? → setSurfaceState('bubble') + 预填"你能帮我什么？"（能力引导）
+ *   💬 → setSurfaceState('bubble') 空气泡（直接聊）
  */
 
 import { useEffect } from 'react';
 import { useConciergeStore } from '@/stores/conciergeStore';
 
 // Inline SVG icons (no icon library dependency)
-const SearchIcon = () => (
+const HelpIcon = () => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-    <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.5" />
-    <line x1="10.5" y1="10.5" x2="13.5" y2="13.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-  </svg>
-);
-
-const LightbulbIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+    <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5" />
     <path
-      d="M8 2C5.8 2 4 3.8 4 6c0 1.5.8 2.8 2 3.5V11h4V9.5c1.2-.7 2-2 2-3.5 0-2.2-1.8-4-4-4z"
+      d="M6.5 6.2c0-1 .7-1.7 1.5-1.7s1.5.7 1.5 1.7c0 .7-.4 1.1-1 1.4-.3.2-.5.4-.5.9"
       stroke="currentColor"
       strokeWidth="1.5"
-      strokeLinejoin="round"
+      strokeLinecap="round"
     />
-    <line x1="6" y1="12" x2="10" y2="12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    <line x1="6.5" y1="13.5" x2="9.5" y2="13.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-  </svg>
-);
-
-const MailIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-    <rect x="2" y="4" width="12" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
-    <polyline points="2,4 8,9 14,4" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+    <circle cx="8" cy="11" r="0.8" fill="currentColor" />
   </svg>
 );
 
@@ -58,22 +42,10 @@ const ChatIcon = () => (
 
 const TOOLS = [
   {
-    key: 'search',
-    label: '找找看',
-    icon: <SearchIcon />,
-    prompt: '帮我找找：',
-  },
-  {
-    key: 'discover',
-    label: '新功能',
-    icon: <LightbulbIcon />,
-    prompt: '我想了解',
-  },
-  {
-    key: 'relay',
-    label: '传话',
-    icon: <MailIcon />,
-    prompt: '帮我转达：',
+    key: 'help',
+    label: '能帮什么',
+    icon: <HelpIcon />,
+    prompt: '你能帮我什么？',
   },
   {
     key: 'chat',

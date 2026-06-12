@@ -18,6 +18,11 @@
  *   - 错误：草稿还原 + 错误提示
  *   - streaming token-by-token: Phase B2（需要 socket room join）
  *
+ * Liveness (P0 fix):
+ *   - Polls /api/threads/:threadId/queue for authoritative activeInvocations
+ *   - Replaces 60s local safety valve with server-truth-driven status
+ *   - Shows real "值班猫处理中" / "似乎卡住了" / "未收到回复" status
+ *
  * z-30: same layer as ball (below FloatingPresentationSurface z-[35])
  */
 
@@ -26,6 +31,7 @@ import { useConciergeStore } from '@/stores/conciergeStore';
 import { apiFetch } from '@/utils/api-client';
 import { RichBlocks } from '../rich/RichBlocks';
 import { useConciergeMessages } from './useConciergeMessages';
+import { useConciergeQueue } from './useConciergeQueue';
 
 export function ConciergePanel() {
   const surfaceState = useConciergeStore((s) => s.surfaceState);
@@ -51,6 +57,9 @@ export function ConciergePanel() {
   const [sendError, setSendError] = useState<string | null>(null);
 
   const { messages, isLoading, addOptimistic, removeOptimistic, refresh } = useConciergeMessages(threadId);
+
+  // P0 liveness: poll /api/threads/:threadId/queue for authoritative invocation status
+  const queueStatus = useConciergeQueue(threadId, invocationStatus === 'in_progress');
 
   // INV-9: lazy thread creation on first bubble open
   useEffect(() => {
@@ -103,12 +112,33 @@ export function ConciergePanel() {
     return () => clearInterval(id);
   }, [invocationStatus, refresh]);
 
-  // 60 s safety valve — prevents stuck in_progress if cat reply never arrives
+  // P0 liveness fix: server-truth-driven idle transition.
+  // When queue says no active invocation, give 3s grace for the reply message
+  // to arrive via refresh, then settle to idle. Replaces the blind 60s safety valve.
+  // P1 fix (gpt52 review): don't treat isRunning=false as authoritative until first
+  // poll succeeds — otherwise a slow/failed first fetch triggers premature idle.
   useEffect(() => {
     if (invocationStatus !== 'in_progress') return;
-    const id = setTimeout(() => setInvocationStatus('idle'), 60_000);
-    return () => clearTimeout(id);
-  }, [invocationStatus, setInvocationStatus]);
+    if (queueStatus.isRunning || !queueStatus.loaded) return; // still running OR not loaded yet
+    // Server says invocation finished; grace period for reply message to arrive
+    let settleId: ReturnType<typeof setTimeout> | undefined;
+    const graceId = setTimeout(() => {
+      refresh();
+      // After refresh, the reply-detection effect (catCount comparison) will
+      // set idle if a cat reply arrived. If not, force idle after another 1s.
+      settleId = setTimeout(() => {
+        // Reading from store directly avoids stale closure
+        const current = useConciergeStore.getState().invocationStatus;
+        if (current === 'in_progress') {
+          setInvocationStatus('idle');
+        }
+      }, 1000);
+    }, 2000);
+    return () => {
+      clearTimeout(graceId);
+      if (settleId !== undefined) clearTimeout(settleId);
+    };
+  }, [invocationStatus, queueStatus.isRunning, queueStatus.loaded, refresh, setInvocationStatus]);
 
   const handleInputFocus = useCallback(() => setInputFocused(true), [setInputFocused]);
   const handleInputBlur = useCallback(() => setInputFocused(false), [setInputFocused]);
@@ -327,6 +357,25 @@ export function ConciergePanel() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+          {/* P0 liveness status — shows real invocation state from server */}
+          {invocationStatus === 'pending' && (
+            <div
+              style={{ color: 'var(--cafe-text-muted)' }}
+              className="text-xs text-center mt-2 animate-pulse"
+              role="status"
+            >
+              发送中…
+            </div>
+          )}
+          {invocationStatus === 'in_progress' && (
+            <div style={{ color: 'var(--cafe-text-secondary)' }} className="text-xs text-center mt-2" role="status">
+              {queueStatus.isRunning ? (
+                <span className="animate-pulse">值班猫正在处理…</span>
+              ) : (
+                <span className="animate-pulse">确认回复中…</span>
+              )}
             </div>
           )}
           {/* Error display */}
