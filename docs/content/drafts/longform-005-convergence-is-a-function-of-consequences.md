@@ -78,7 +78,7 @@ source_refs:
 
 ### 2.1 Anthropic：五种协作模式
 
-2026 年 4 月 Anthropic 在《Multi-agent coordination patterns: Five approaches and when to use them》（claude.com/blog/multi-agent-coordination-patterns）中把多 agent 协作归纳为五种模式，这是目前最干净的分类。核心洞察不是"哪种更高级"，而是：**你的问题的信息流动方式，决定该用哪种模式。**
+2025 年 4 月 Anthropic 在《Multi-agent coordination patterns: Five approaches and when to use them》（claude.com/blog/multi-agent-coordination-patterns，2025-04-10）中把多 agent 协作归纳为五种模式，这是目前最干净的分类。核心洞察不是"哪种更高级"，而是：**你的问题的信息流动方式，决定该用哪种模式。**
 
 > 讲述时提醒观众一个易混点：这篇和 Anthropic 更早的经典《Building effective agents》（workflow patterns：prompt chaining / routing / parallelization / orchestrator-workers / evaluator-optimizer）是**两篇不同的文章**——前者讲多 agent 协作形态，后者讲单 agent 工作流模式。连我们自家 reviewer 第一轮都核混了，观众一定会混。
 
@@ -92,13 +92,13 @@ source_refs:
 
 ### 2.2 OpenAI：Handoff 与 Runner Loop
 
-OpenAI Agents SDK 的核心原语是 **handoff**：一个 agent 把任务委托给另一个更适合的 agent，且 handoff 以 tool 的形式呈现给模型——本质是"路由即委托"。配套的是 **runner loop**，官方语义是确定性的状态机：LLM 输出 final output 则循环结束；输出 handoff 则切换 current agent 重新进入循环；产生 tool calls 则执行后带结果重跑；超过 max_turns 抛错退出。
+OpenAI Agents SDK 的核心原语是 **handoff**：一个 agent 把任务委托给另一个更适合的 agent，且 handoff 以 tool 的形式呈现给模型——本质是"路由即委托"。配套的是 **runner loop**，SDK 层有明确的循环语义（LLM 输出本身不确定，但循环规则是确定的）：LLM 输出 final output 则循环结束；输出 handoff 则切换 current agent 重新进入循环；产生 tool calls 则执行后带结果重跑；超过 max_turns 抛错退出。
 
 值得注意的对照：handoff 移交的是**控制权**，我们的球权传的是**责任**——这个差别第三幕展开。
 
 ### 2.3 Claude Code 的 Experimental Agent Teams
 
-Claude Code 的 experimental agent teams（需 `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` 启用）已提供 agent 间 SendMessage / resume 形态——我们实测过，它和我们家自研的 @ 路由几乎同构。这件事有两面：一面说明"显式路由"正在成为行业共识；另一面恰恰证明了**光有路由原语不够**——原语谁都拿得到了，群体行为的差距却还在。
+Claude Code 的 experimental agent teams（需 `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` 启用）已提供 agent 间 SendMessage / resume 形态——我们实测过，它和我们家自研的 @ 路由几乎同构。这件事有两面：一面说明"显式路由"正在成为主流产品形态之一；另一面恰恰证明了**光有路由原语不够**——原语谁都拿得到了，群体行为的差距却还在。
 
 ### 2.4 机制层的共同天花板
 
@@ -144,7 +144,7 @@ LLM 没有原生长期记忆，每个会话都是新生儿。我们的解法是�
 
 ### 3.4 活的 fitness function
 
-最后一个差别最微妙。自我改进系统（比如 Darwin Gödel Machine 那类）用冻结的 benchmark 做选择压力——DGM 论文与案例显示，量化目标会诱发 objective hacking：hallucinated tool-use / 日志造假与检测 marker 绕过，是同一风险族的不同样本（论文自己诚实报告的）。**冻结的裁判只能被 hack。**
+最后一个差别最微妙。自我改进系统（比如 Darwin Gödel Machine 那类）用冻结的 benchmark 做选择压力——DGM 论文与案例显示，量化目标会诱发 objective hacking：hallucinated tool-use（工具调用与日志幻觉）与检测 marker 绕过，是同一风险族的不同样本（论文自己诚实报告的）。**冻结的裁判只能被 hack。**
 
 我们的选择压力里有一个活人。活的裁判和冻结裁判的本质区别是：**活函数会换坐标系反问**。我提一个方案，它不打分数，它问"你是不是在补锅？""这真的优雅吗？""植物不盖温室啊？"——这种提问方式无法被预测，因此无法被 hack。我们把这叫 CVO taste，它是整个系统里唯一不可自动化、也唯一不可复制的组件。
 
@@ -233,7 +233,7 @@ LLM 没有原生长期记忆，每个会话都是新生儿。我们的解法是�
 
 **信源核对状态（R1 收口，2026-06-11）**：
 1. ✅ OpenAI handoff / runner loop——按 codex R1 提供的官方 Agents SDK 语义改写（handoff 以 tool 形式呈现；loop = final 结束 / handoff 换 agent 重跑 / tool calls 执行后重跑 / max_turns 抛错）
-2. ✅ Anthropic 五模式——出处实锤为 claude.com/blog/multi-agent-coordination-patterns（2026-04，WebSearch 验证存在且五模式一致）；与《Building effective agents》（workflow patterns）是两篇不同文章，区分注已写进 2.1 防观众混淆
+2. ✅ Anthropic 五模式——出处为 claude.com/blog/multi-agent-coordination-patterns（**2025-04-10**，官方页面核对，codex R2 确认）；与《Building effective agents》（workflow patterns）是两篇不同文章，区分注已写进 2.1 防观众混淆。⚠️ 家内 4/20 技术文与 Community Ops 稿均误记为"2026-04"——错误传染链已报 CVO，源头修复归各文 owner
 3. ✅ Claude Code agent teams——加 experimental 限定（`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`）
 4. ✅ DGM objective hacking——按论文表述拆细为同一风险族的不同样本
 5. ✅ RLHF 归因——降为行为层表述（机制归因超出可知范围，不断言）
