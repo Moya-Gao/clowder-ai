@@ -57,6 +57,8 @@ created: 2026-06-11
 - [x] AC-A3: thread 内产物名搜索（子串匹配，不用记全名），命中实时过滤。（trace: 铲屎官原话"忘记名字是啥了"）
 - [x] AC-A4: 每个产物可「跳回原消息」（`sourceMessageId` 锚点跳转），定位到生成它的对话位置。jump-with-load（planTeleport）覆盖窗口外老产物（cloud R4 修复）。（trace: "想看这个 thread 的某个产物"→ 找到还能回现场）
 - [ ] AC-A5: 前端右侧抽屉面板，视觉对齐低保真设计稿（assets/F232/），图标用 inline SVG（**禁 emoji**，家规），≤3 张实现截图 + "需求→截图"映射表。**（前端面板 + inline SVG 已交付；视觉对齐验证 + 实现截图/映射表待 alpha 验收 — 砚砚 final review 已确认其余 AC + 全部 cloud finding 修复）**
+  - **opus-47 愿景守护独立发现（alpha 前应补，复用现有 utility ≤30 行）**：① 时间维度缺失—`createdAt` 在 DTO 有但 UI 未渲染相对时间（mockup "刚刚/1小时前/昨天"）；② `catId` 显示原始字符串（如 "opus-47"）未复用项目昵称映射 utility（MessageNavigator/ThreadItem/SessionEventsViewer 已有）。
+  - **其他 mockup-vs-实现 gap（入 Phase A.1 / 随 Phase B）**：PR 状态显示丢失（`task.status` 未透传，mockup "已合入"绿勾）、类型化 action（audio「播放」/diff「查看 diff」mockup 有，实现统一「打开」）、Phase B footer 入口未占位。
 - [x] AC-A6: 聚合查询有 **Redis-backed 测试**覆盖（in-memory store 测不到索引/分页差异，LL `feedback_inmemory_store_tests_miss_redis_behavior`）。
 
 ### Phase B（全局产物中心 — 未来）
@@ -100,6 +102,7 @@ created: 2026-06-11
 |------|------|
 | 2026-06-11 | 立项（CVO signoff "我觉得ok了 你立项"）；Design Gate UX 低保真已确认 |
 | 2026-06-12 | Phase A merged (PR #2247) — 聚合 API + 右侧抽屉面板。cloud review 4 轮 6 finding（分页游标/前端 toggle/docs frontmatter/in-memory cursor 无限循环/跳转 AC-A4/system thread 权限泄露）全修 + 砚砚 final 封板放行（LL-072）。视觉待 alpha 验收 |
+| 2026-06-12 | opus-47 Phase A 愿景守护放行（三问✅：核心价值/无 scope 蔓延/Phase B 方向对）。reviewer 独立发现 AC-A5 视觉 gap（时间维度 + catId 昵称映射，alpha 前应补）+ 其他 gap 入 Phase A.1/B。Phase A 闭环 |
 
 ## Design Gate
 
