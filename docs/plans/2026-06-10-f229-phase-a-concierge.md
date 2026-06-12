@@ -113,6 +113,12 @@ type ConciergeCardAction =
 
 ## PR-A4: 设置页 + 硬裁剪 spike + 收尾
 
+> **2026-06-12 增强（census + 收尾清单，A3b 后更新）**：
+> - **Census**：SettingsForm 状态轻量（dirty→saving→saved/error；config 为 per-user 单写者，球内 muted 切换与设置页并发 = last-write-wins 可接受，**标注进代码注释**即可不画全表）。`ballPosition` A3b 已进 config——设置页**不重复暴露**（拖球本身就是配置动作），只在"重置位置"给一个按钮（写 default 值）。
+> - **字段终态**：enabled / displayName / personaTone / dutyCatProfileId（下拉 = roster 已配置猫）/ proactivePolicy（ambient | quiet-badge）/ muted / 重置位置；`skin` 显示为锁定项（贴纸过渡版，KD-14 像素猫正式素材后解锁四选一）——锁定也要可见，让用户知道皮肤体系存在。
+> - **Spike 不变**（≤1h time-box）：`--mcp-config` per-thread-kind 切换在 claude/gemini 两 adapter 的可行性 → 结论进 F229 KD（Phase D 消费）。
+> - **收尾职责**：AC-A2（功能发现 3 问）/ AC-A4（guide 触发录屏）证据采集 → AC checkbox 对照更新 → 配合 alpha 验收记录回填（验收本身由 sonnet 操作 + 铲屎官体感，见分工表）。
+
 **Files:**
 - Create: `packages/web/src/components/settings/ConciergeContent.tsx`（5+1 配置位：enabled/skin(锁定单选)/displayName/personaTone/dutyCatProfileId(下拉=roster 已配置猫)/proactivePolicy + muted；参照现有 settings section + `ops-nav-config.ts` 注册模式）
 - Modify: settings nav 注册（实现时按 ops-nav-config 同模式找到注册点）

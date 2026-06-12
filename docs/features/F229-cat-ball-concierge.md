@@ -83,6 +83,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 
 - 分诊：代用户 cross_post 到归属 thread / propose_thread 开新调查（用户确认后执行）
 - 自主调查：spawn task 自己查（记忆/docs/GitHub），回对话框交带 anchor 的报告
+- **承接 A3b deferred**：PendingConfirmation 跨刷新持久化 wiring（spec §1b C3——后端 store/route 已就绪，缺 (messageId, blockId, action)→confirmationId 反向索引 + mount-time 查询；gpt52 final review 降级 P3 放行，2026-06-12）
 
 ### Phase C: 语音 loop（长出嘴和耳朵）
 
