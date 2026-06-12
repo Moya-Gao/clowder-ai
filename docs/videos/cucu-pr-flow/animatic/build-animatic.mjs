@@ -5,7 +5,7 @@
 // 能力: 自动画幅探测——竖屏素材进横屏输出走 blur-pad（背景模糊填充），横屏直通
 // 依赖: 本机 Chrome + ffmpeg/ffprobe，零 npm 依赖
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { edl, shotDurationMs, totalDurationMs } from './edl-v1.mjs';
@@ -21,13 +21,25 @@ const { width: W, height: H, fps: FPS } = edl;
 function run(cmd, args, opts = {}) {
   const result = spawnSync(cmd, args, { encoding: 'utf8', ...opts });
   if (result.status !== 0) {
-    throw new Error(`${cmd} ${args.slice(0, 4).join(' ')}... failed:\n${(result.stderr || result.stdout || '').slice(-1500)}`);
+    throw new Error(
+      `${cmd} ${args.slice(0, 4).join(' ')}... failed:\n${(result.stderr || result.stdout || '').slice(-1500)}`,
+    );
   }
   return result;
 }
 
 function probe(path) {
-  const r = run('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'csv=p=0', path]);
+  const r = run('ffprobe', [
+    '-v',
+    'error',
+    '-select_streams',
+    'v:0',
+    '-show_entries',
+    'stream=width,height',
+    '-of',
+    'csv=p=0',
+    path,
+  ]);
   const [w, h] = r.stdout.trim().split(',').map(Number);
   return { w, h };
 }
@@ -65,7 +77,15 @@ function encodeStillSeg(srcRel, holdMs, name) {
 
 function encodeBlackSeg(durationMs, name) {
   const seg = resolve(segsDir, `${name}.mp4`);
-  run('ffmpeg', ['-y', '-f', 'lavfi', '-i', `color=c=black:s=${W}x${H}:r=${FPS}:d=${(durationMs / 1000).toFixed(3)}`, ...ENC.slice(0, -1), seg]);
+  run('ffmpeg', [
+    '-y',
+    '-f',
+    'lavfi',
+    '-i',
+    `color=c=black:s=${W}x${H}:r=${FPS}:d=${(durationMs / 1000).toFixed(3)}`,
+    ...ENC.slice(0, -1),
+    seg,
+  ]);
   return seg;
 }
 
@@ -98,7 +118,9 @@ edl.shots.forEach((shot, i) => {
     concatLines.push(`file '${encodeVideoSeg(shot, i)}'`);
   } else if (shot.kind === 'stills') {
     shot.segments.forEach((seg, j) => {
-      concatLines.push(`file '${encodeStillSeg(seg.src, seg.holdMs, `seg-${String(i).padStart(2, '0')}-${shot.id}-${j}`)}'`);
+      concatLines.push(
+        `file '${encodeStillSeg(seg.src, seg.holdMs, `seg-${String(i).padStart(2, '0')}-${shot.id}-${j}`)}'`,
+      );
     });
   } else if (shot.kind === 'black') {
     concatLines.push(`file '${encodeBlackSeg(shot.durationMs, `seg-${String(i).padStart(2, '0')}-black`)}'`);
@@ -109,7 +131,18 @@ edl.shots.forEach((shot, i) => {
 });
 const concatList = resolve(outDir, 'concat.txt');
 writeFileSync(concatList, concatLines.join('\n') + '\n');
-run('ffmpeg', ['-y', '-f', 'concat', '-safe', '0', '-i', concatList, '-c', 'copy', resolve(outDir, 'animatic-v1-nosub.mp4')]);
+run('ffmpeg', [
+  '-y',
+  '-f',
+  'concat',
+  '-safe',
+  '0',
+  '-i',
+  concatList,
+  '-c',
+  'copy',
+  resolve(outDir, 'animatic-v1-nosub.mp4'),
+]);
 
 // --- subtitle cues: per-shot relative -> absolute ---
 let cursor = 0;
@@ -122,14 +155,28 @@ for (const shot of edl.shots) {
 }
 writeFileSync(
   resolve(outDir, 'animatic-v1.srt'),
-  cues.map((c, i) => `${i + 1}\n${msToSrt(Math.round(c.start * 1000))} --> ${msToSrt(Math.round(c.end * 1000))}\n${c.text}\n`).join('\n'),
+  cues
+    .map(
+      (c, i) =>
+        `${i + 1}\n${msToSrt(Math.round(c.start * 1000))} --> ${msToSrt(Math.round(c.end * 1000))}\n${c.text}\n`,
+    )
+    .join('\n'),
 );
 
 // --- render subtitle strips (Chrome transparent PNG) + overlay burn ---
 cues.forEach((cue, i) => {
   const png = resolve(subsDir, `sub-${String(i).padStart(2, '0')}.png`);
   const url = `file://${resolve(here, 'subtitle.html')}?${new URLSearchParams({ text: cue.text })}`;
-  run(CHROME, ['--headless', '--disable-gpu', '--hide-scrollbars', `--window-size=${W},160`, '--default-background-color=00000000', `--screenshot=${png}`, '--virtual-time-budget=600', url]);
+  run(CHROME, [
+    '--headless',
+    '--disable-gpu',
+    '--hide-scrollbars',
+    `--window-size=${W},160`,
+    '--default-background-color=00000000',
+    `--screenshot=${png}`,
+    '--virtual-time-budget=600',
+    url,
+  ]);
   cue.png = png;
 });
 const inputs = ['-i', resolve(outDir, 'animatic-v1-nosub.mp4')];
@@ -141,13 +188,32 @@ const chain = cues
     return `${inLabel}[${i + 1}:v]overlay=0:H-h:enable='between(t,${cue.start.toFixed(2)},${cue.end.toFixed(2)})'${outLabel}`;
   })
   .join(';');
-run('ffmpeg', ['-y', ...inputs, '-filter_complex', chain, '-map', '[vout]', ...ENC, resolve(outDir, 'animatic-v1.mp4')]);
+run('ffmpeg', [
+  '-y',
+  ...inputs,
+  '-filter_complex',
+  chain,
+  '-map',
+  '[vout]',
+  ...ENC,
+  resolve(outDir, 'animatic-v1.mp4'),
+]);
 
 // --- verify ---
-const probeDur = run('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', resolve(outDir, 'animatic-v1.mp4')]);
+const probeDur = run('ffprobe', [
+  '-v',
+  'error',
+  '-show_entries',
+  'format=duration',
+  '-of',
+  'csv=p=0',
+  resolve(outDir, 'animatic-v1.mp4'),
+]);
 const actualSec = parseFloat(probeDur.stdout.trim());
 const expectedSec = totalDurationMs() / 1000;
 if (Math.abs(actualSec - expectedSec) > 0.8) {
   throw new Error(`duration mismatch: expected ~${expectedSec}s got ${actualSec}s`);
 }
-console.log(`animatic v1 ok: ${resolve(outDir, 'animatic-v1.mp4')} (${actualSec.toFixed(2)}s, expected ${expectedSec}s, ${cues.length} cues burned, ${W}x${H})`);
+console.log(
+  `animatic v1 ok: ${resolve(outDir, 'animatic-v1.mp4')} (${actualSec.toFixed(2)}s, expected ${expectedSec}s, ${cues.length} cues burned, ${W}x${H})`,
+);

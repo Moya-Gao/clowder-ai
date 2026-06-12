@@ -13,10 +13,10 @@
  */
 
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { after, before, describe, it } from 'node:test';
 import {
   ClaudeInteractivePtyCarrierService,
@@ -27,45 +27,35 @@ import { acquireTranscriptDirWatch } from '../dist/domains/cats/services/agents/
 // Set env so getCatModel('opus') resolves without registry (test-env has no cat-catalog)
 process.env.CAT_OPUS_MODEL = 'claude-opus-4-8';
 
-// ─── JSONL fixture builders ────────────────────────────────────────────────────
+// ─── Hook sidecar JSONL fixture builders (F230 B-hook) ────────────────────────
 
 const TEST_SESSION_ID = 'f230test-1111-2222-3333-444444444444';
 
-function assistantLine(text) {
+/** Stop hook event → text AgentMessage. Terminal signal. */
+function stopEventLine(text, sessionId = TEST_SESSION_ID) {
   return JSON.stringify({
-    type: 'assistant',
-    sessionId: TEST_SESSION_ID,
-    message: {
-      id: 'msg_test001',
-      content: [{ type: 'text', text }],
-      usage: { input_tokens: 10, output_tokens: 5 },
-    },
+    hook_event_name: 'Stop',
+    session_id: sessionId,
+    last_assistant_message: text,
   });
 }
 
-function toolUseLine(toolName, input) {
+/** PostToolUse hook event → tool_use AgentMessage. */
+function postToolUseLine(toolName, input, sessionId = TEST_SESSION_ID) {
   return JSON.stringify({
-    type: 'assistant',
-    sessionId: TEST_SESSION_ID,
-    message: {
-      id: 'msg_test002',
-      content: [{ type: 'tool_use', id: 'tool_1', name: toolName, input: input ?? {} }],
-      usage: { input_tokens: 20, output_tokens: 8 },
-    },
+    hook_event_name: 'PostToolUse',
+    session_id: sessionId,
+    tool_name: toolName,
+    tool_input: input ?? {},
+    tool_response: '',
+    tool_use_id: 'tu_test',
+    duration_ms: 100,
   });
 }
 
-function turnDurationLine(durationMs = 1234) {
-  return JSON.stringify({
-    type: 'system',
-    subtype: 'turn_duration',
-    durationMs,
-    messageCount: 1,
-  });
-}
-
-async function writeFixture(dir, lines) {
-  const path = join(dir, `${TEST_SESSION_ID}.jsonl`);
+/** Write hook sidecar fixture file. Returns the path. */
+async function writeSidecar(dir, lines) {
+  const path = join(dir, 'hook-sidecar.jsonl');
   await writeFile(path, `${lines.join('\n')}\n`, 'utf8');
   return path;
 }
@@ -110,7 +100,7 @@ async function collect(gen, onMessage) {
 
 // ─── Step 1: happy path ──────────────────────────────────────────────────────
 
-describe('ClaudeInteractivePtyCarrierService — Step 1: happy path', { timeout: 10_000 }, () => {
+describe('ClaudeInteractivePtyCarrierService — Step 1: happy path (B-hook)', { timeout: 10_000 }, () => {
   let tmpDir;
   before(async () => {
     tmpDir = await mkdtemp(join(tmpdir(), 'f230-carrier-s1-'));
@@ -119,15 +109,16 @@ describe('ClaudeInteractivePtyCarrierService — Step 1: happy path', { timeout:
     await rm(tmpDir, { recursive: true, force: true });
   });
 
-  it('yields session_init → text → done; turn_duration consumed silently (no bubble) + usage', async () => {
-    const transcriptPath = await writeFixture(tmpDir, [assistantLine('Hello from F230'), turnDurationLine(800)]);
+  it('yields session_init → text → done via Stop hook event; usage degraded', async () => {
+    const sidecarPath = await writeSidecar(tmpDir, [stopEventLine('Hello from F230 hook')]);
 
     const mock = new MockPtyDriver();
-    mock.injectResult = { transcriptPath, sessionId: TEST_SESSION_ID };
+    mock.injectResult = { transcriptPath: join(tmpDir, 'stub.jsonl'), sessionId: TEST_SESSION_ID };
 
     const carrier = new ClaudeInteractivePtyCarrierService({
       driverFactory: () => mock,
       transcriptDirOverride: tmpDir,
+      hookSidecarPathOverride: sidecarPath,
       pollIntervalMs: 20,
       terminalTimeoutMs: 5_000,
     });
@@ -139,33 +130,20 @@ describe('ClaudeInteractivePtyCarrierService — Step 1: happy path', { timeout:
     assert.ok(sessionInit, 'session_init yielded');
     assert.equal(sessionInit.sessionId, TEST_SESSION_ID, 'sessionId matches');
 
-    // text
+    // text (from Stop hook's last_assistant_message)
     const text = msgs.find((m) => m.type === 'text');
     assert.ok(text, 'text yielded');
-    assert.ok(text.content.includes('Hello from F230'), 'text content matches');
-
-    // F230 bubble fix: turn_duration is a TERMINAL signal, NOT user-facing content.
-    // It must be consumed silently — never yielded as a raw-JSON system_info "blue bubble".
-    const turnDurationBubble = msgs.find(
-      (m) => m.type === 'system_info' && typeof m.content === 'string' && m.content.includes('turn_duration'),
-    );
-    assert.equal(turnDurationBubble, undefined, 'turn_duration must NOT surface as a system_info bubble');
+    assert.ok(text.content.includes('Hello from F230 hook'), 'text content matches hook response');
 
     // done
     const done = msgs.find((m) => m.type === 'done');
     assert.ok(done, 'done yielded');
     assert.equal(done.isFinal, true, 'done.isFinal = true');
 
-    // usage
+    // usage is degraded (hooks carry no token data)
     const usage = done?.metadata?.usage;
-    assert.ok(usage, 'done.metadata.usage present');
-    assert.ok(
-      typeof usage.outputTokens === 'number' && usage.outputTokens > 0,
-      `outputTokens > 0, got ${usage.outputTokens}`,
-    );
-    // turn_duration is still consumed by the usage accumulator (just not surfaced as a bubble):
-    // durationMs flows into usage via acc.totalTurnDurationMs → finalizeTranscriptUsage.
-    assert.equal(usage.durationMs, 800, `turn_duration still feeds usage.durationMs, got ${usage.durationMs}`);
+    assert.ok(usage, 'done.metadata.usage present (empty object)');
+    assert.equal(usage.outputTokens, undefined, 'outputTokens undefined — hook has no usage data');
 
     // driver lifecycle
     assert.equal(mock.calls.start, 1, 'start() called once');
@@ -186,17 +164,18 @@ describe('ClaudeInteractivePtyCarrierService — Step 2: abort signal', { timeou
   });
 
   it('abort after session_init → cancel() called; stream ends with error+done', async () => {
-    // Fixture WITHOUT turn_duration — loop would run indefinitely without abort
-    const transcriptPath = await writeFixture(tmpDir, [assistantLine('Streaming response...')]);
+    // Empty sidecar — no Stop event, loop would run indefinitely without abort
+    const sidecarPath = await writeSidecar(tmpDir, []);
 
     const mock = new MockPtyDriver();
-    mock.injectResult = { transcriptPath, sessionId: TEST_SESSION_ID };
+    mock.injectResult = { transcriptPath: join(tmpDir, 'stub.jsonl'), sessionId: TEST_SESSION_ID };
 
     const controller = new AbortController();
 
     const carrier = new ClaudeInteractivePtyCarrierService({
       driverFactory: () => mock,
       transcriptDirOverride: tmpDir,
+      hookSidecarPathOverride: sidecarPath,
       pollIntervalMs: 20,
       terminalTimeoutMs: 30_000, // long — we abort before silence timeout
     });
@@ -228,7 +207,7 @@ describe('ClaudeInteractivePtyCarrierService — Step 2: abort signal', { timeou
 
 // ─── Step 3: tool_use in transcript ─────────────────────────────────────────
 
-describe('ClaudeInteractivePtyCarrierService — Step 3: tool_use', { timeout: 10_000 }, () => {
+describe('ClaudeInteractivePtyCarrierService — Step 3: tool_use (B-hook)', { timeout: 10_000 }, () => {
   let tmpDir;
   before(async () => {
     tmpDir = await mkdtemp(join(tmpdir(), 'f230-carrier-s3-'));
@@ -237,18 +216,19 @@ describe('ClaudeInteractivePtyCarrierService — Step 3: tool_use', { timeout: 1
     await rm(tmpDir, { recursive: true, force: true });
   });
 
-  it('tool_use in transcript → AgentMessage stream contains type=tool_use', async () => {
-    const transcriptPath = await writeFixture(tmpDir, [
-      toolUseLine('cat_cafe_search_evidence', { query: 'F230' }),
-      turnDurationLine(500),
+  it('PostToolUse hook event → AgentMessage stream contains type=tool_use', async () => {
+    const sidecarPath = await writeSidecar(tmpDir, [
+      postToolUseLine('cat_cafe_search_evidence', { query: 'F230' }),
+      stopEventLine('Done with tool call'),
     ]);
 
     const mock = new MockPtyDriver();
-    mock.injectResult = { transcriptPath, sessionId: TEST_SESSION_ID };
+    mock.injectResult = { transcriptPath: join(tmpDir, 'stub.jsonl'), sessionId: TEST_SESSION_ID };
 
     const carrier = new ClaudeInteractivePtyCarrierService({
       driverFactory: () => mock,
       transcriptDirOverride: tmpDir,
+      hookSidecarPathOverride: sidecarPath,
       pollIntervalMs: 20,
       terminalTimeoutMs: 5_000,
     });
@@ -260,7 +240,7 @@ describe('ClaudeInteractivePtyCarrierService — Step 3: tool_use', { timeout: 1
     assert.equal(toolUse.toolName, 'cat_cafe_search_evidence', 'toolName matches');
     assert.deepEqual(toolUse.toolInput, { query: 'F230' }, 'toolInput matches');
 
-    // done present (stream terminated normally)
+    // done present (stream terminated normally via Stop event)
     const done = msgs.find((m) => m.type === 'done');
     assert.ok(done, 'done yielded');
   });
@@ -281,10 +261,10 @@ describe('ClaudeInteractivePtyCarrierService — Step 5: env delta contract', { 
   });
 
   it('opts.env passed to driver is delta (null=unset, string=set), not merged process.env', async () => {
-    const transcriptPath = await writeFixture(tmpDir, [assistantLine('hello'), turnDurationLine(100)]);
+    const sidecarPath = await writeSidecar(tmpDir, [stopEventLine('hello')]);
     let capturedOpts = null;
     const mock = new MockPtyDriver();
-    mock.injectResult = { transcriptPath, sessionId: TEST_SESSION_ID };
+    mock.injectResult = { transcriptPath: join(tmpDir, 'stub.jsonl'), sessionId: TEST_SESSION_ID };
 
     const carrier = new ClaudeInteractivePtyCarrierService({
       driverFactory: (opts) => {
@@ -292,6 +272,7 @@ describe('ClaudeInteractivePtyCarrierService — Step 5: env delta contract', { 
         return mock;
       },
       transcriptDirOverride: tmpDir,
+      hookSidecarPathOverride: sidecarPath,
       pollIntervalMs: 20,
       terminalTimeoutMs: 5_000,
     });
@@ -309,6 +290,9 @@ describe('ClaudeInteractivePtyCarrierService — Step 5: env delta contract', { 
     // Delta must NOT include process.env keys like PATH, HOME (it's a delta, not full env)
     assert.ok(!('PATH' in env), 'PATH must NOT be in env delta (not a full merged env)');
     assert.ok(!('HOME' in env), 'HOME must NOT be in env delta');
+
+    // B-hook P1-1 fix: skipTranscriptAck must be passed to PtyDriver
+    assert.equal(capturedOpts.skipTranscriptAck, true, 'skipTranscriptAck must be true (B-hook: no transcript ack)');
   });
 });
 
@@ -331,10 +315,10 @@ describe('ClaudeInteractivePtyCarrierService — Step 6: MCP config shape', { ti
     const fakeMcpServerPath = join(tmpDir, 'fake-mcp-index.js');
     await writeFile(fakeMcpServerPath, '// fake mcp server', 'utf8');
 
-    const transcriptPath = await writeFixture(tmpDir, [assistantLine('ok'), turnDurationLine(100)]);
+    const sidecarPath = await writeSidecar(tmpDir, [stopEventLine('ok')]);
     let capturedOpts = null;
     const mock = new MockPtyDriver();
-    mock.injectResult = { transcriptPath, sessionId: TEST_SESSION_ID };
+    mock.injectResult = { transcriptPath: join(tmpDir, 'stub.jsonl'), sessionId: TEST_SESSION_ID };
 
     const carrier = new ClaudeInteractivePtyCarrierService({
       driverFactory: (opts) => {
@@ -342,6 +326,7 @@ describe('ClaudeInteractivePtyCarrierService — Step 6: MCP config shape', { ti
         return mock;
       },
       transcriptDirOverride: tmpDir,
+      hookSidecarPathOverride: sidecarPath,
       pollIntervalMs: 20,
       terminalTimeoutMs: 5_000,
       mcpServerPath: fakeMcpServerPath, // test seam
@@ -384,10 +369,11 @@ describe('ClaudeInteractivePtyCarrierService — Step 6: MCP config shape', { ti
     const fakeMcpServerPath = join(tmpDir, 'fake-mcp-index2.js');
     await writeFile(fakeMcpServerPath, '// fake', 'utf8');
 
-    const transcriptPath = await writeFixture(tmpDir, [assistantLine('ok'), turnDurationLine(100)]);
+    const sidecarPath2 = join(tmpDir, 'hook-sidecar-2.jsonl');
+    writeFileSync(sidecarPath2, stopEventLine('ok') + '\n', 'utf8');
     let capturedOpts = null;
     const mock = new MockPtyDriver();
-    mock.injectResult = { transcriptPath, sessionId: TEST_SESSION_ID };
+    mock.injectResult = { transcriptPath: join(tmpDir, 'stub.jsonl'), sessionId: TEST_SESSION_ID };
 
     const carrier = new ClaudeInteractivePtyCarrierService({
       driverFactory: (opts) => {
@@ -395,6 +381,7 @@ describe('ClaudeInteractivePtyCarrierService — Step 6: MCP config shape', { ti
         return mock;
       },
       transcriptDirOverride: tmpDir,
+      hookSidecarPathOverride: sidecarPath2,
       pollIntervalMs: 20,
       terminalTimeoutMs: 5_000,
       mcpServerPath: fakeMcpServerPath,
@@ -424,15 +411,13 @@ describe('ClaudeInteractivePtyCarrierService — Step 7a: resume sessionId', { t
 
   it('valid UUID sessionId → driverFactory receives resumeSessionId', async () => {
     const resumeId = 'aabbccdd-0011-2233-4455-667788990011';
-    const transcriptPath = await writeFile(
-      join(tmpDir, `${resumeId}.jsonl`),
-      `${assistantLine('resume reply')}\n${turnDurationLine(100)}\n`,
-      'utf8',
-    ).then(() => join(tmpDir, `${resumeId}.jsonl`));
+    // Create transcript stub so resume existsSync check passes
+    await writeFile(join(tmpDir, `${resumeId}.jsonl`), '', 'utf8');
+    const sidecarPath = await writeSidecar(tmpDir, [stopEventLine('resume reply', resumeId)]);
 
     let capturedOpts = null;
     const mock = new MockPtyDriver();
-    mock.injectResult = { transcriptPath, sessionId: resumeId };
+    mock.injectResult = { transcriptPath: join(tmpDir, `${resumeId}.jsonl`), sessionId: resumeId };
 
     const carrier = new ClaudeInteractivePtyCarrierService({
       driverFactory: (opts) => {
@@ -440,6 +425,7 @@ describe('ClaudeInteractivePtyCarrierService — Step 7a: resume sessionId', { t
         return mock;
       },
       transcriptDirOverride: tmpDir,
+      hookSidecarPathOverride: sidecarPath,
       pollIntervalMs: 20,
       terminalTimeoutMs: 5_000,
     });
@@ -451,10 +437,11 @@ describe('ClaudeInteractivePtyCarrierService — Step 7a: resume sessionId', { t
   });
 
   it('invalid/short sessionId → resumeSessionId is undefined', async () => {
-    const transcriptPath = await writeFixture(tmpDir, [assistantLine('hello'), turnDurationLine(100)]);
+    const sidecarPath2 = join(tmpDir, 'hook-sidecar-inv.jsonl');
+    writeFileSync(sidecarPath2, stopEventLine('hello') + '\n', 'utf8');
     let capturedOpts = null;
     const mock = new MockPtyDriver();
-    mock.injectResult = { transcriptPath, sessionId: TEST_SESSION_ID };
+    mock.injectResult = { transcriptPath: join(tmpDir, 'stub.jsonl'), sessionId: TEST_SESSION_ID };
 
     const carrier = new ClaudeInteractivePtyCarrierService({
       driverFactory: (opts) => {
@@ -462,6 +449,7 @@ describe('ClaudeInteractivePtyCarrierService — Step 7a: resume sessionId', { t
         return mock;
       },
       transcriptDirOverride: tmpDir,
+      hookSidecarPathOverride: sidecarPath2,
       pollIntervalMs: 20,
       terminalTimeoutMs: 5_000,
     });
@@ -478,7 +466,7 @@ describe('ClaudeInteractivePtyCarrierService — Step 7a: resume sessionId', { t
 // readNew() drops it (partial line guard). The fix: when entries is empty, retry
 // with { includeTrailingPartial: true } to catch the final flush race.
 
-describe('ClaudeInteractivePtyCarrierService — Step 8: trailing partial drain (P2)', { timeout: 10_000 }, () => {
+describe('ClaudeInteractivePtyCarrierService — Step 8: trailing partial drain (B-hook)', { timeout: 10_000 }, () => {
   let tmpDir;
   before(async () => {
     tmpDir = await mkdtemp(join(tmpdir(), 'f230-carrier-s8-'));
@@ -487,47 +475,36 @@ describe('ClaudeInteractivePtyCarrierService — Step 8: trailing partial drain 
     await rm(tmpDir, { recursive: true, force: true });
   });
 
-  it('turn_duration with no trailing \\n → detected via final drain (usage.durationMs), not silence timeout', async () => {
-    // Write transcript WITHOUT trailing \n — this is the P2 bug trigger.
-    // With the bug: readNew() drops trailing partial → turn_duration never detected → silence timeout.
-    // With the fix: final drain via readNew({includeTrailingPartial:true}) catches it.
-    const path = join(tmpDir, `${TEST_SESSION_ID}.jsonl`);
-    // intentionally NO trailing \n (join without append)
-    const content = [assistantLine('hello from P2 test'), turnDurationLine(200)].join('\n');
+  it('Stop event with no trailing \\n → detected via final drain, not silence timeout', async () => {
+    // Write sidecar WITHOUT trailing \n — triggers the partial drain path.
+    const path = join(tmpDir, 'hook-sidecar-partial.jsonl');
+    // intentionally NO trailing \n
+    const content = stopEventLine('hello from partial test');
     await writeFile(path, content, 'utf8');
 
     const mock = new MockPtyDriver();
-    mock.injectResult = { transcriptPath: path, sessionId: TEST_SESSION_ID };
+    mock.injectResult = { transcriptPath: join(tmpDir, 'stub.jsonl'), sessionId: TEST_SESSION_ID };
 
     const carrier = new ClaudeInteractivePtyCarrierService({
       driverFactory: () => mock,
       transcriptDirOverride: tmpDir,
+      hookSidecarPathOverride: path,
       pollIntervalMs: 20,
-      // Short timeout: without fix, done arrives via silence timeout and system_info is absent.
+      // Short timeout: without fix, done arrives via silence timeout.
       terminalTimeoutMs: 200,
     });
 
     const msgs = await collect(carrier.invoke('test trailing partial'));
 
-    // turn_duration (no trailing newline) must be detected via the final drain
+    // Stop event (no trailing newline) must be detected via the final drain
     // (readNew({includeTrailingPartial:true})), NOT the silence-timeout fallback.
-    // Deterministic proof (replaces the old system_info-bubble proxy): only the drain path
-    // feeds the entry to accumulateUsageFromEntries, so usage.durationMs reflects
-    // turnDurationLine(200). The silence-timeout path never reads the entry →
-    // acc.sawTurnDuration stays false → durationMs absent.
     const done = msgs.find((m) => m.type === 'done');
     assert.ok(done, 'done yielded (terminal reached)');
-    assert.equal(
-      done.metadata?.usage?.durationMs,
-      200,
-      'turn_duration detected via final drain (usage.durationMs=200), not silence timeout',
-    );
 
-    // F230 bubble fix: the detected turn_duration must NOT leak as a system_info bubble.
-    const turnDurationBubble = msgs.find(
-      (m) => m.type === 'system_info' && typeof m.content === 'string' && m.content.includes('turn_duration'),
-    );
-    assert.equal(turnDurationBubble, undefined, 'turn_duration must NOT surface as a system_info bubble');
+    // Text content proves the Stop event was actually read (not silence timeout)
+    const text = msgs.find((m) => m.type === 'text');
+    assert.ok(text, 'text from Stop event must be yielded');
+    assert.ok(text.content.includes('hello from partial test'), 'text content matches');
   });
 });
 
@@ -542,59 +519,46 @@ describe('ClaudeInteractivePtyCarrierService — Step 8: trailing partial drain 
 // After fix: carrier creates TranscriptTailer(path, 2) → emittedLines starts at 2 →
 //   no old content returned → silence timeout → done without old text (GREEN).
 
-describe(
-  'ClaudeInteractivePtyCarrierService — Step 9: resume old content NOT replayed (P1-B)',
-  { timeout: 10_000 },
-  () => {
-    let tmpDir;
-    before(async () => {
-      tmpDir = await mkdtemp(join(tmpdir(), 'f230-carrier-s9-'));
+describe('ClaudeInteractivePtyCarrierService — Step 9: resume uses fresh sidecar (B-hook)', { timeout: 10_000 }, () => {
+  let tmpDir;
+  before(async () => {
+    tmpDir = await mkdtemp(join(tmpdir(), 'f230-carrier-s9-'));
+  });
+  after(async () => {
+    await rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it('resume session uses fresh hook sidecar — no old content replayed', async () => {
+    const resumeId = '11223344-aabb-ccdd-eeff-001122334455';
+    // Create transcript stub so resume existsSync check passes
+    await writeFile(join(tmpDir, `${resumeId}.jsonl`), '', 'utf8');
+
+    // Fresh sidecar with only new-turn content (B-hook: each invoke creates fresh sidecar)
+    const sidecarPath = await writeSidecar(tmpDir, [stopEventLine('NEW_RESUME_REPLY', resumeId)]);
+
+    const mock = new MockPtyDriver();
+    mock.injectResult = { transcriptPath: join(tmpDir, `${resumeId}.jsonl`), sessionId: resumeId, initialLines: 0 };
+
+    const carrier = new ClaudeInteractivePtyCarrierService({
+      driverFactory: () => mock,
+      transcriptDirOverride: tmpDir,
+      hookSidecarPathOverride: sidecarPath,
+      pollIntervalMs: 20,
+      terminalTimeoutMs: 5_000,
     });
-    after(async () => {
-      await rm(tmpDir, { recursive: true, force: true });
-    });
 
-    it('driver returns initialLines=2 → old transcript content NOT replayed by carrier', async () => {
-      const resumeId = '11223344-aabb-ccdd-eeff-001122334455';
-      const path = join(tmpDir, `${resumeId}.jsonl`);
+    const msgs = await collect(carrier.invoke('continue', { sessionId: resumeId }));
 
-      // Old transcript: 2 complete lines with trailing \n
-      // Simulates a previous session that already finished.
-      await writeFile(path, `${assistantLine('OLD_CONTENT_MUST_NOT_APPEAR')}\n${turnDurationLine(100)}\n`, 'utf8');
+    // Only new content from this turn's Stop event
+    const texts = msgs.filter((m) => m.type === 'text');
+    assert.equal(texts.length, 1, 'exactly one text message');
+    assert.ok(texts[0].content.includes('NEW_RESUME_REPLY'), 'text is from this turn');
 
-      const mock = new MockPtyDriver();
-      // Driver returns initialLines=2 (correct resume offset for 2-line old transcript).
-      // Before fix: carrier ignores initialLines → TranscriptTailer(path) → replays old content (RED).
-      // After fix: carrier passes initialLines → TranscriptTailer(path, 2) → starts past old content (GREEN).
-      mock.injectResult = { transcriptPath: path, sessionId: resumeId, initialLines: 2 };
-
-      const carrier = new ClaudeInteractivePtyCarrierService({
-        driverFactory: () => mock,
-        transcriptDirOverride: tmpDir,
-        pollIntervalMs: 20,
-        // Short timeout: no new content will be written; done arrives via silence fallback.
-        terminalTimeoutMs: 150,
-      });
-
-      const msgs = await collect(carrier.invoke('continue', { sessionId: resumeId }));
-
-      // Old text MUST NOT be in any emitted message.
-      const texts = msgs.filter((m) => m.type === 'text');
-      const hasOldText = texts.some(
-        (m) => typeof m.content === 'string' && m.content.includes('OLD_CONTENT_MUST_NOT_APPEAR'),
-      );
-      assert.ok(
-        !hasOldText,
-        `old text from previous turn MUST NOT be replayed (got ${texts.length} text messages: [${texts.map((m) => `"${String(m.content ?? '').slice(0, 60)}"`).join(', ')}])`,
-      );
-
-      // done must be yielded (via silence timeout — no new content after offset 2)
-      const done = msgs.find((m) => m.type === 'done');
-      assert.ok(done, 'done yielded');
-      assert.equal(done.isFinal, true, 'done.isFinal = true');
-    });
-  },
-);
+    const done = msgs.find((m) => m.type === 'done');
+    assert.ok(done, 'done yielded');
+    assert.equal(done.isFinal, true, 'done.isFinal = true');
+  });
+});
 
 // ─── Step 10: pre-aborted signal → early exit before start() ────────────────
 //
@@ -869,15 +833,14 @@ describe(
     });
 
     it('[Local image path: ...] hint appended to prompt passed to injectPrompt', async () => {
-      // Write a terminal transcript fixture so the carrier completes without real tmux.
-      const transcriptPath = await writeFixture(tmpDir, [turnDurationLine(100)]);
+      const sidecarPath = await writeSidecar(tmpDir, [stopEventLine('image response')]);
 
       let capturedPrompt = null;
       const mockDriver = {
         start: async () => {},
         injectPrompt: async (text, _transcriptDir) => {
           capturedPrompt = text;
-          return { transcriptPath, sessionId: TEST_SESSION_ID, initialLines: 0 };
+          return { transcriptPath: join(tmpDir, 'stub.jsonl'), sessionId: TEST_SESSION_ID, initialLines: 0 };
         },
         dispose: async () => {},
         cancel: async () => {},
@@ -886,6 +849,7 @@ describe(
       const carrier = new ClaudeInteractivePtyCarrierService({
         driverFactory: () => mockDriver,
         transcriptDirOverride: tmpDir,
+        hookSidecarPathOverride: sidecarPath,
         pollIntervalMs: 20,
         terminalTimeoutMs: 5_000,
       });
@@ -948,28 +912,31 @@ describe(
     });
 
     it('two concurrent invoke() on same dir both complete — second waits, then gets its own session', async () => {
-      // Mock simulates the REAL PtyDriver: acquires the queue slot before any async I/O.
-      // The async writeFile holds the slot while the concurrent caller waits at
-      // `await acquireTranscriptDirWatch`. Both complete sequentially.
+      // Shared sidecar for both invocations — each invoke reads from offset 0
+      const sidecarPath = join(tmpDir, 'hook-sidecar-concurrent.jsonl');
+      // Pre-write two Stop events so both invocations can terminate
+      writeFileSync(
+        sidecarPath,
+        stopEventLine('done-1', '00000000-0000-0000-0000-000000000001') +
+          '\n' +
+          stopEventLine('done-2', '00000000-0000-0000-0000-000000000002') +
+          '\n',
+        'utf8',
+      );
+
       let counter = 0;
       const service = new ClaudeInteractivePtyCarrierService({
         transcriptDirOverride: tmpDir,
+        hookSidecarPathOverride: sidecarPath,
         driverFactory: () => ({
           start: () => Promise.resolve(),
           injectPrompt: async (_text, transcriptDir) => {
-            // ← Real PtyDriver awaits the queue here, before any async ops.
-            //   Second concurrent caller waits at this line until first releases.
             const releaseDir = await acquireTranscriptDirWatch(transcriptDir);
             try {
               const idx = ++counter;
               const sessionId = `00000000-0000-0000-0000-${String(idx).padStart(12, '0')}`;
               const path = join(transcriptDir, `${sessionId}.jsonl`);
-              // writeFile holds the queue slot while concurrent caller waits
-              await writeFile(
-                path,
-                `${JSON.stringify({ type: 'system', subtype: 'turn_duration', durationMs: 1 })}\n`,
-                'utf8',
-              );
+              await writeFile(path, '', 'utf8');
               return { transcriptPath: path, sessionId };
             } finally {
               releaseDir();
@@ -1079,16 +1046,19 @@ describe(
       let capturedResumeSessionId = 'NOT_SET';
       const newId = '99999999-0000-0000-0000-000000000000';
 
+      const sidecarPath = join(tmpDir, 'hook-sidecar-stale.jsonl');
+      writeFileSync(sidecarPath, stopEventLine('fresh', newId) + '\n', 'utf8');
+
       const service = new ClaudeInteractivePtyCarrierService({
         transcriptDirOverride: tmpDir, // empty dir — staleId.jsonl does NOT exist
+        hookSidecarPathOverride: sidecarPath,
         driverFactory: (opts) => {
           capturedResumeSessionId = opts.resumeSessionId;
           return {
             start: () => Promise.resolve(),
             injectPrompt: async (_text, transcriptDir) => {
-              // Simulate Claude writing a fresh session transcript
               const path = join(transcriptDir, `${newId}.jsonl`);
-              await writeFile(path, `${JSON.stringify({ type: 'system', subtype: 'turn_duration', durationMs: 1 })}\n`);
+              await writeFile(path, '');
               return { transcriptPath: path, sessionId: newId };
             },
             cancel: () => Promise.resolve(),
@@ -1144,19 +1114,20 @@ describe(
       const newId = 'aaaabbbb-0000-0000-0000-000000000000';
       let capturedEnv = null;
 
+      const sidecarPath = join(tmpDir, 'hook-sidecar-proxy.jsonl');
+      writeFileSync(sidecarPath, stopEventLine('ok', newId) + '\n', 'utf8');
+
       try {
         const service = new ClaudeInteractivePtyCarrierService({
           transcriptDirOverride: tmpDir,
+          hookSidecarPathOverride: sidecarPath,
           driverFactory: (opts) => {
             capturedEnv = { ...opts.env };
             return {
               start: () => Promise.resolve(),
               injectPrompt: async (_text, transcriptDir) => {
                 const path = join(transcriptDir, `${newId}.jsonl`);
-                await writeFile(
-                  path,
-                  `${JSON.stringify({ type: 'system', subtype: 'turn_duration', durationMs: 1 })}\n`,
-                );
+                await writeFile(path, '');
                 return { transcriptPath: path, sessionId: newId };
               },
               cancel: () => Promise.resolve(),
@@ -1197,19 +1168,20 @@ describe(
       const newId = 'ccccdddd-0000-0000-0000-000000000000';
       let capturedEnv = null;
 
+      const sidecarPath = join(tmpDir, 'hook-sidecar-proxy2.jsonl');
+      writeFileSync(sidecarPath, stopEventLine('ok', newId) + '\n', 'utf8');
+
       try {
         const service = new ClaudeInteractivePtyCarrierService({
           transcriptDirOverride: tmpDir,
+          hookSidecarPathOverride: sidecarPath,
           driverFactory: (opts) => {
             capturedEnv = { ...opts.env };
             return {
               start: () => Promise.resolve(),
               injectPrompt: async (_text, transcriptDir) => {
                 const path = join(transcriptDir, `${newId}.jsonl`);
-                await writeFile(
-                  path,
-                  `${JSON.stringify({ type: 'system', subtype: 'turn_duration', durationMs: 1 })}\n`,
-                );
+                await writeFile(path, '');
                 return { transcriptPath: path, sessionId: newId };
               },
               cancel: () => Promise.resolve(),
@@ -1240,6 +1212,163 @@ describe(
       } finally {
         if (savedHttps === undefined) delete process.env.HTTPS_PROXY;
         else process.env.HTTPS_PROXY = savedHttps;
+      }
+    });
+  },
+);
+
+// ─── Step 18: B-hook review fixes (R1 P1-2 + P2) ────────────────────────────
+
+describe('ClaudeInteractivePtyCarrierService — Step 18: pre-abort hook cleanup (R1 P1-2)', { timeout: 10_000 }, () => {
+  it('pre-aborted signal cleans up hook infra and sidecar dir', async () => {
+    const tmpDir = await mkdtemp(join(tmpdir(), 'f230-carrier-s18-'));
+    try {
+      const controller = new AbortController();
+      controller.abort(); // pre-abort
+
+      const carrier = new ClaudeInteractivePtyCarrierService({
+        transcriptDirOverride: tmpDir,
+        // No hookSidecarPathOverride — exercise real setupHookInfrastructure path
+        cwd: tmpDir,
+        driverFactory: () => new MockPtyDriver(),
+        pollIntervalMs: 20,
+        terminalTimeoutMs: 500,
+      });
+
+      const msgs = await collect(carrier.invoke('test', { signal: controller.signal }));
+
+      // Must yield error + done
+      assert.ok(
+        msgs.some((m) => m.type === 'error'),
+        'error yielded on pre-abort',
+      );
+      assert.ok(
+        msgs.some((m) => m.type === 'done'),
+        'done yielded on pre-abort',
+      );
+
+      // Hook infra artifacts must be cleaned from cwd
+      const { existsSync } = await import('node:fs');
+      const settingsPath = join(tmpDir, '.claude', 'settings.json');
+      const scriptPath = join(tmpDir, '.claude', 'hook-capture.sh');
+      assert.ok(!existsSync(settingsPath), '.claude/settings.json must be cleaned on pre-abort');
+      assert.ok(!existsSync(scriptPath), '.claude/hook-capture.sh must be cleaned on pre-abort');
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe(
+  'ClaudeInteractivePtyCarrierService — Step 18: sidecar dir cleanup after normal invoke (R1 P2)',
+  { timeout: 15_000 },
+  () => {
+    it('sidecar temp dir is removed after normal completion', async () => {
+      const tmpCwd = await mkdtemp(join(tmpdir(), 'f230-carrier-s18p2-'));
+      let capturedSidecarPath;
+
+      try {
+        const carrier = new ClaudeInteractivePtyCarrierService({
+          transcriptDirOverride: tmpCwd,
+          cwd: tmpCwd,
+          // No hookSidecarPathOverride — exercise real setupHookInfrastructure + sidecar dir lifecycle
+          driverFactory: (opts) => {
+            // Capture sidecar path injected via env delta by carrier
+            capturedSidecarPath = opts.env?.CAT_CAFE_HOOK_SIDECAR;
+            const d = new MockPtyDriver();
+            d.injectResult = { transcriptPath: '', sessionId: '' };
+            // Override injectPrompt to write a Stop event to sidecar so carrier terminates
+            d.injectPrompt = async (_text, _dir) => {
+              d.calls.injectPrompt++;
+              if (capturedSidecarPath) {
+                writeFileSync(capturedSidecarPath, stopEventLine('s18p2 done') + '\n', 'utf8');
+              }
+              return d.injectResult;
+            };
+            return d;
+          },
+          pollIntervalMs: 20,
+          terminalTimeoutMs: 2_000,
+        });
+
+        const msgs = await collect(carrier.invoke('test-s18p2', {}));
+
+        // Must complete normally with done message
+        assert.ok(
+          msgs.some((m) => m.type === 'done'),
+          'done yielded after normal invoke',
+        );
+
+        // Sidecar path must have been set (proves we exercised the non-override path)
+        assert.ok(capturedSidecarPath, 'sidecar path was set via env delta (CAT_CAFE_HOOK_SIDECAR)');
+
+        // P2 assertion: sidecar temp dir must be cleaned up by finally block
+        const { existsSync } = await import('node:fs');
+        const sidecarDir = dirname(capturedSidecarPath);
+        assert.ok(!existsSync(sidecarDir), `sidecar temp dir must be removed after normal invoke: ${sidecarDir}`);
+
+        // Also verify hook infra was cleaned from cwd
+        const settingsPath = join(tmpCwd, '.claude', 'settings.json');
+        assert.ok(!existsSync(settingsPath), '.claude/settings.json must be cleaned after normal invoke');
+      } finally {
+        await rm(tmpCwd, { recursive: true, force: true });
+      }
+    });
+  },
+);
+
+// ─── Step 19: B-hook review R2 fix (P1-3: hookSessionId → session_init) ──────
+
+describe(
+  'ClaudeInteractivePtyCarrierService — Step 19: hookSessionId propagates to session_init (R2 P1-3)',
+  { timeout: 15_000 },
+  () => {
+    it('session_init.sessionId comes from hook event, not empty driver result', async () => {
+      const tmpCwd = await mkdtemp(join(tmpdir(), 'f230-carrier-s19-'));
+      const HOOK_SESSION_UUID = 'a1b2c3d4-5678-90ab-cdef-111111111111';
+
+      try {
+        const carrier = new ClaudeInteractivePtyCarrierService({
+          transcriptDirOverride: tmpCwd,
+          cwd: tmpCwd,
+          // No hookSidecarPathOverride — exercises real setupHookInfrastructure
+          driverFactory: (opts) => {
+            const sidecarPath = opts.env?.CAT_CAFE_HOOK_SIDECAR;
+            const d = new MockPtyDriver();
+            // skipTranscriptAck → driver returns empty sessionId
+            d.injectResult = { transcriptPath: '', sessionId: '' };
+            d.injectPrompt = async (_text, _dir) => {
+              d.calls.injectPrompt++;
+              if (sidecarPath) {
+                // Write Stop event with real session_id to sidecar
+                writeFileSync(sidecarPath, `${stopEventLine('s19 hello', HOOK_SESSION_UUID)}\n`, 'utf8');
+              }
+              return d.injectResult;
+            };
+            return d;
+          },
+          pollIntervalMs: 20,
+          terminalTimeoutMs: 2_000,
+        });
+
+        const msgs = await collect(carrier.invoke('test-s19', {}));
+
+        // session_init must carry the hook-extracted sessionId, not empty string
+        const sessionInit = msgs.find((m) => m.type === 'session_init');
+        assert.ok(sessionInit, 'session_init yielded');
+        assert.equal(
+          sessionInit.sessionId,
+          HOOK_SESSION_UUID,
+          'session_init.sessionId must come from hook event session_id, not empty driver result',
+        );
+
+        // done must also be present
+        assert.ok(
+          msgs.some((m) => m.type === 'done'),
+          'done yielded',
+        );
+      } finally {
+        await rm(tmpCwd, { recursive: true, force: true });
       }
     });
   },

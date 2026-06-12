@@ -75,6 +75,13 @@ export interface PtyDriverOptions {
   readyTimeoutMs?: number; // default 30_000 (spike: ready 10-15s)
   /** Test seam: grace period after pane alive (ms). Default 15_000 (spike: ready 10-15s). */
   readyGraceMs?: number;
+  /**
+   * B-hook: skip watchForTranscriptFile ack after Enter.
+   * When true, injectPrompt returns immediately with empty transcriptPath/sessionId.
+   * The caller (CarrierService) gets sessionId from hook sidecar events instead.
+   * Required for claude 2.1.172+ where interactive TUI no longer writes transcripts.
+   */
+  skipTranscriptAck?: boolean;
   /** Test seam: tmux session name prefix (default 'f230pty') */
   sessionPrefix?: string;
   /**
@@ -294,6 +301,15 @@ export class PtyDriver {
           'resume: returning known transcript path with line offset',
         );
         return { transcriptPath, sessionId, initialLines };
+      }
+
+      // B-hook: skip transcript ack — session_id comes from hook sidecar events.
+      // Claude 2.1.172+ interactive TUI no longer writes transcript files, so
+      // watchForTranscriptFile would always timeout. The carrier's
+      // extractSessionIdFromHookEntries handles sessionId discovery.
+      if (this.opts.skipTranscriptAck) {
+        log.debug('skipTranscriptAck: returning without waiting for transcript file');
+        return { transcriptPath: '', sessionId: '' };
       }
 
       // ④ Watch for the new .jsonl transcript file (first file not in the pre-Enter snapshot).

@@ -5,12 +5,14 @@
  * Backup/alternative to `claude --bg` daemon (F198). Avoids the `-p` flag
  * entirely → billing identity stays `cli` (not `sdk-cli`).
  *
- * Architecture:
+ * Architecture (B-hook):
  *   - PtyDriver handles tmux session lifecycle + prompt injection
- *   - TranscriptTailer reads output from ~/.claude/projects/<slug>/<session>.jsonl
- *   - transcriptEntriesToAgentMessages/accumulateUsageFromEntries reused from bg path
- *   - Terminal state: `system/turn_duration` event (D4) + silence fallback
+ *   - Hook sidechannel: Stop/PostToolUse hooks write structured JSON to sidecar jsonl
+ *   - TranscriptTailer reads sidecar (not transcript) for output events
+ *   - hookEntriesToAgentMessages transforms hook events to AgentMessages
+ *   - Terminal state: Stop hook event + silence fallback
  *   - Cancel: options.signal → driver.cancel() (ESC) → drain → driver.dispose()
+ *   - Usage: degraded (hooks carry no token data)
  *
  * F230 KD-1: per-invocation form — each invoke() starts a fresh tmux session
  * and disposes it when done. Resume via `sessionId` option reuses transcript.
@@ -20,27 +22,27 @@
  * deferred to a later phase) to stay minimal and avoid dependency on
  * compileL0ViaSubprocess machinery.
  */
-import { existsSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { isAbsolute, join, resolve } from 'node:path';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { type CatId, createCatId } from '@cat-cafe/shared';
 import { getCatModel } from '../../../../../config/cat-models.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import type { AgentMessage, AgentService, AgentServiceOptions, TokenUsage } from '../../types.js';
-import {
-  accumulateUsageFromEntries,
-  createUsageAccumulator,
-  finalizeTranscriptUsage,
-  transcriptEntriesToAgentMessages,
-} from './BgTranscriptEventConsumer.js';
 import {
   ANTHROPIC_PROFILE_MODE_KEY,
   buildClaudeEnvOverrides,
   resolveClaudeModelSelection,
   resolveDefaultClaudeMcpServerPath,
 } from './ClaudeAgentService.js';
+import {
+  extractSessionIdFromHookEntries,
+  hookEntriesToAgentMessages,
+  isHookTerminalEvent,
+} from './HookSidechannelConsumer.js';
 import { appendLocalImagePathHints, collectImageAccessDirectories } from './image-cli-bridge.js';
 import { extractImagePaths } from './image-paths.js';
+import { type HookInfrastructureResult, setupHookInfrastructure } from './pty/hook-setup.js';
 import type { PtyDriverOptions } from './pty/PtyDriver.js';
 import { PtyDriver } from './pty/PtyDriver.js';
 import { ptyTranscriptDir, sleep } from './pty/pty-utils.js';
@@ -68,14 +70,16 @@ export interface ClaudeInteractivePtyCarrierServiceOptions {
    * Mirrors ClaudeBgCarrierService.mcpServerPath for AC-B3 parity.
    */
   mcpServerPath?: string;
-  /** claude binary path override; default: 'claude'. 2.1.172 breaks transcript writes — use 2.1.170 for AC-B1/B4. */
+  /** claude binary path override; default: 'claude' from PATH. B-hook works with any version. */
   claudeBinary?: string;
+  /** Test seam: pre-created hook sidecar path. Skips setupHookInfrastructure; carrier tails this file directly. */
+  hookSidecarPathOverride?: string;
 }
 
 /**
- * Carrier for `claude` interactive PTY mode (F230 Plan B).
- * Complements F198 `--bg` daemon; reads transcript from `~/.claude/projects/…/<session>.jsonl`.
- * Reuses: TranscriptTailer, BgTranscriptEventConsumer, transcriptEntriesToAgentMessages.
+ * Carrier for `claude` interactive PTY mode (F230 B-hook).
+ * Complements F198 `--bg` daemon; reads hook sidecar jsonl (Stop/PostToolUse events).
+ * Reuses: TranscriptTailer (generic jsonl reader), PtyDriver (tmux lifecycle).
  */
 export class ClaudeInteractivePtyCarrierService implements AgentService {
   readonly catId: CatId;
@@ -88,6 +92,7 @@ export class ClaudeInteractivePtyCarrierService implements AgentService {
   private readonly transcriptDirOverride: string | undefined;
   private readonly mcpServerPath: string | undefined;
   private readonly claudeBinary: string | undefined;
+  private readonly hookSidecarPathOverride: string | undefined;
   /** Cached MCP config file path (created once per instance, reused across invocations). */
   private mcpConfigFilePath: string | undefined;
 
@@ -109,6 +114,7 @@ export class ClaudeInteractivePtyCarrierService implements AgentService {
     }
 
     this.claudeBinary = options?.claudeBinary;
+    this.hookSidecarPathOverride = options?.hookSidecarPathOverride;
   }
 
   /**
@@ -201,6 +207,18 @@ export class ClaudeInteractivePtyCarrierService implements AgentService {
       extraArgs.push('--add-dir', dir);
     }
 
+    // ─── Hook sidecar setup (F230 B-hook: output face switch) ──────────────────
+    let sidecarPath: string;
+    let hookInfra: HookInfrastructureResult | undefined;
+    if (this.hookSidecarPathOverride) {
+      sidecarPath = this.hookSidecarPathOverride;
+    } else {
+      const sidecarDir = mkdtempSync(join(tmpdir(), 'f230-hook-'));
+      sidecarPath = join(sidecarDir, 'hook-events.jsonl');
+      hookInfra = await setupHookInfrastructure(cwd, sidecarPath);
+      envDelta.CAT_CAFE_HOOK_SIDECAR = sidecarPath;
+    }
+
     // ─── Driver setup ──────────────────────────────────────────────────────────
     const driver = this.driverFactory({
       cwd,
@@ -210,6 +228,9 @@ export class ClaudeInteractivePtyCarrierService implements AgentService {
       claudeBinary: this.claudeBinary,
       readyTimeoutMs: 30_000,
       readyGraceMs: 15_000,
+      // B-hook: skip transcript ack — session_id comes from hook sidecar events.
+      // Required for claude 2.1.172+ where interactive TUI no longer writes transcripts.
+      skipTranscriptAck: true,
     });
 
     // ─── Abort signal wiring ───────────────────────────────────────────────────
@@ -226,6 +247,15 @@ export class ClaudeInteractivePtyCarrierService implements AgentService {
     // through start() (30s+ grace) and injectPrompt(), wasting a Claude turn.
     if (options?.signal?.aborted) {
       options.signal.removeEventListener('abort', abortListener);
+      // B-hook P1-2 fix: clean up hook infra + sidecar on pre-abort path (outside try/finally)
+      await hookInfra?.cleanup().catch(() => void 0);
+      if (hookInfra && sidecarPath) {
+        try {
+          rmSync(dirname(sidecarPath), { recursive: true, force: true });
+        } catch {
+          /* best-effort */
+        }
+      }
       yield { type: 'error', catId, error: 'cancelled before start (signal already aborted)', timestamp: Date.now() };
       yield { type: 'done', catId, isFinal: true, timestamp: Date.now() };
       return;
@@ -256,15 +286,15 @@ export class ClaudeInteractivePtyCarrierService implements AgentService {
         return;
       }
 
-      let transcriptPath: string;
       let sessionId: string;
-      let initialLines: number | undefined;
       try {
         // F230 R10 root-cause fix (2026-06-11): PtyDriver uses watchForTranscriptFile to
         // discover the transcript — Claude generates its own UUID per session. For resume
         // sessions the path is deterministic (resumeSessionId.jsonl). No serialization gate
         // needed — each concurrent invocation operates on Claude's independently-generated UUID.
-        ({ transcriptPath, sessionId, initialLines } = await driver.injectPrompt(effectivePrompt, transcriptDir));
+        // B-hook: transcriptPath/initialLines no longer used for tailing (hook sidecar replaces),
+        // but injectPrompt still discovers transcript for sessionId.
+        ({ sessionId } = await driver.injectPrompt(effectivePrompt, transcriptDir));
       } catch (err) {
         yield {
           type: 'error',
@@ -276,54 +306,71 @@ export class ClaudeInteractivePtyCarrierService implements AgentService {
         return;
       }
 
-      // ─── session_init ────────────────────────────────────────────────────────
-      yield { type: 'session_init', catId, sessionId, timestamp: Date.now() };
+      // ─── session_init (may be deferred for B-hook) ─────────────────────────
+      // R2 P1-3 fix: when skipTranscriptAck is true, driver returns empty sessionId.
+      // Defer session_init until we extract the real session_id from hook events.
+      // Hook events (both Stop and PostToolUse) carry session_id, so session_init
+      // is yielded before any content messages — preserving the expected ordering.
+      let sessionInitYielded = false;
+      if (sessionId) {
+        yield { type: 'session_init', catId, sessionId, timestamp: Date.now() };
+        sessionInitYielded = true;
+      }
 
-      // ─── Tail transcript ──────────────────────────────────────────────────────
-      // P1-B fix: for resume sessions, start tailer at initialLines to skip old content.
-      // New sessions have initialLines=undefined → starts at 0 (default behavior unchanged).
-      const tailer = new TranscriptTailer(transcriptPath, initialLines ?? 0);
-      const acc = createUsageAccumulator();
+      // ─── Tail hook sidecar (F230 B-hook: replaces transcript tailing) ─────────
+      // Sidecar is always fresh per invocation (created empty by setupHookInfrastructure).
+      const tailer = new TranscriptTailer(sidecarPath, 0);
       let lastActivityMs = Date.now();
       let terminal = false;
+      let hookSessionId: string | undefined;
 
       while (!terminal) {
         if (abortRequested) {
+          // Yield deferred session_init before error+done (consumers expect it)
+          if (!sessionInitYielded) {
+            yield { type: 'session_init', catId, sessionId: hookSessionId || sessionId, timestamp: Date.now() };
+          }
           yield { type: 'error', catId, error: 'cancelled by abort signal', timestamp: Date.now() };
           yield { type: 'done', catId, isFinal: true, timestamp: Date.now() };
           return;
         }
 
-        // P2 fix: when regular read returns nothing, do a final drain with
-        // includeTrailingPartial:true. Handles the flush race where Claude writes
-        // `system/turn_duration` without a trailing \n (mirrors bg-carrier pattern).
         let entries = await tailer.readNew();
         if (entries.length === 0) {
           entries = await tailer.readNew({ includeTrailingPartial: true });
         }
         if (entries.length > 0) {
           lastActivityMs = Date.now();
-          accumulateUsageFromEntries(acc, entries);
 
-          // Emit messages from this batch
-          const messages = transcriptEntriesToAgentMessages(entries, { catId });
+          // Extract hook session_id and propagate to session_init (R2 P1-3)
+          if (!hookSessionId) {
+            hookSessionId = extractSessionIdFromHookEntries(entries);
+            if (hookSessionId) {
+              sessionId = hookSessionId;
+              if (!sessionInitYielded) {
+                yield { type: 'session_init', catId, sessionId, timestamp: Date.now() };
+                sessionInitYielded = true;
+              }
+            }
+          }
+
+          // Emit AgentMessages from hook events (Stop→text, PostToolUse→tool_use)
+          const messages = hookEntriesToAgentMessages(entries, { catId });
           for (const msg of messages) {
             yield msg;
           }
 
-          // Detect terminal event: system/turn_duration (D4)
+          // Detect terminal: Stop hook event (replaces turn_duration)
           for (const raw of entries) {
-            const entry = raw as Record<string, unknown>;
-            if (entry.type === 'system' && entry.subtype === 'turn_duration') {
-              log.debug({ catId, sessionId }, 'terminal event: turn_duration');
+            if (isHookTerminalEvent(raw)) {
+              log.debug({ catId, sessionId }, 'terminal event: Stop hook');
               terminal = true;
               break;
             }
           }
         } else {
-          // Silence fallback: if no new entries for terminalTimeoutMs → done
           if (Date.now() - lastActivityMs > terminalTimeoutMs) {
-            log.warn({ catId, sessionId, terminalTimeoutMs }, 'transcript silence timeout, treating as done');
+            log.warn({ catId, sessionId, terminalTimeoutMs }, 'hook sidecar silence timeout, treating as done');
             terminal = true;
           } else {
             await sleep(pollIntervalMs);
@@ -331,8 +378,13 @@ export class ClaudeInteractivePtyCarrierService implements AgentService {
         }
       }
 
-      // ─── done + usage ─────────────────────────────────────────────────────────
-      const usage: TokenUsage = finalizeTranscriptUsage(acc);
+      // Fallback: yield session_init if loop ended without finding hookSessionId
+      if (!sessionInitYielded) {
+        yield { type: 'session_init', catId, sessionId: hookSessionId || sessionId, timestamp: Date.now() };
+      }
+
+      // ─── done + usage (degraded: hooks carry no token data) ──────────────────
+      const usage: TokenUsage = {};
       yield {
         type: 'done',
         catId,
@@ -343,6 +395,15 @@ export class ClaudeInteractivePtyCarrierService implements AgentService {
     } finally {
       options?.signal?.removeEventListener('abort', abortListener);
       await driver.dispose();
+      await hookInfra?.cleanup().catch(() => void 0);
+      // B-hook P2 fix: clean up sidecar temp dir (hookInfra.cleanup only handles settings/script)
+      if (hookInfra && sidecarPath) {
+        try {
+          rmSync(dirname(sidecarPath), { recursive: true, force: true });
+        } catch {
+          /* best-effort sidecar cleanup */
+        }
+      }
     }
   }
 }
