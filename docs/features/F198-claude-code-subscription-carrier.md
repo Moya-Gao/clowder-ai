@@ -8,7 +8,7 @@ created: 2026-05-13
 
 # F198: Claude Code Subscription Carrier — 6/15 SDK Credit 拐点前救宪宪
 
-> **Status**: in-progress (Phase A ✅; Phase B Step 1-4 ✅ all merged 2026-05-14 + 验证收尾 ✅ 2026-05-15 — 救宪宪代码层完成 + Alpha 端到端 R5 验证通过，canary 零操作员介入; **Phase C ✅ 完全关闭 2026-05-15 — PR #1678 merged, AC-C1~C6 全部 PASS, @codex review PASS + @opus-47 愿景守护 APPROVE**; Phase D 待启动) | **Owner**: 布偶猫 Opus 4.7 | **Priority**: P0
+> **Status**: in-progress (Phase A ✅; Phase B Step 1-4 ✅ all merged 2026-05-14 + 验证收尾 ✅ 2026-05-15 — 救宪宪代码层完成 + Alpha 端到端 R5 验证通过，canary 零操作员介入; **Phase C ✅ 完全关闭 2026-05-15 — PR #1678 merged, AC-C1~C6 全部 PASS, @codex review PASS + @opus-47 愿景守护 APPROVE**; Phase D 进行中 — PR-1 AC-D1 ✅ merged 2026-06-12 PR #2257, PR-2 rollout gate 待启动) | **Owner**: 布偶猫 Opus 4.7 | **Priority**: P0
 
 ## Why
 
@@ -368,7 +368,7 @@ binary 2.1.161 逻辑 + 实测双证，三条固定 id 路径全堵：
 >
 > 实证教训：Phase B/C "alpha-validated ✅ canary 零操作员介入" = alpha **单 happy-path 跑通**，**production 真用浮的 gap 全被 alpha smoke 漏过**。"切流量"前必须先 hardening 这些 gap，否则 6/15 cutover 真翻 = 全员协作链路断。来源：F203-47（跨 thread）→ F198-47（本 spec owner，同一 model 不同 invocation）2026-05-19 投诉。
 
-- [ ] AC-D1: 三档 fallback 实现 + 自动触发逻辑（quota 超限 / carrier 挂掉）
+- [x] AC-D1: 三档 fallback 实现 + 自动触发逻辑（quota 超限 / carrier 挂掉）— PR #2257 merged 2026-06-12: carrier health state machine (`CarrierHealthStore` + `classifyCarrierFailure` + `selectFirstHealthyTier`) + `FallbackCarrierWrapper` in factory; degradation chain `bg_daemon → interactive_pty → print_sdk → api_key`; failure classes: quota (4h TTL) / structural (30min) / transient (3 consecutive → structural upgrade); api_key guard pending PR-2 auth differentiation
 - [ ] AC-D2: 预算治理面板 + 告警阈值生效
 - [ ] AC-D3: 灰度切流量 10% → 50% → 100%，每档观察期内无 P0/P1 regression
 - [ ] AC-D4: 6/15 前所有 thread 默认 `bg_daemon`
@@ -497,6 +497,7 @@ binary 2.1.161 逻辑 + 实测双证，三条固定 id 路径全堵：
 | 2026-06-22 (target) | Phase E AC-E1/E2/E3 验收 |
 | 2026-06-03/04 | **Bug #3（OQ-7 / Phase D P1 #3）双轮探索 + 会员卡方案收敛**：金钥匙轮（固定 id 三路全堵、bg 固有 fork、`agents --json` 武器）+ Agent Team 轮（`/fork` 一次性、`-p --resume` 撞 SDK 命门、辩证对比矩阵）；KD-11 会员卡 chainKey 唯一可行；captured-id PR #2076 撤回；47（有记忆）出 design + 48 实施 |
 | 2026-06-04 | **Bug #3 实施 merged（PR #2085 → `46625cf61`）**：会员卡 chainKey 三层（store schema + consumer invoke-single-cat + carrier resume）；砚砚本地 + 云端 codex re-review（修 1 P1：sealed bg session resume boundary）；偏离 design doc 3 点（provider→`usesChainKeyResume?()` probe / mutex key=chainKey / `agents --json` 降级 follow-up）；AC-D5 chain-pointer 终态由 chainKey 实现，record 数实证待 alpha |
+| 2026-06-12 | **Phase D PR-1 merged (PR #2257 → `180d3964b`)**: Carrier health state machine (AC-D1) — `CarrierHealthStore` + `classifyCarrierFailure` + `selectFirstHealthyTier` + `FallbackCarrierWrapper`; degradation chain `bg_daemon → interactive_pty → print_sdk → api_key`; failure classification (quota 4h / structural 30min / transient 3×→structural); @gpt52 4-round review + cloud review 封板; api_key guard pending PR-2 auth wiring |
 
 ## Review Gate
 
