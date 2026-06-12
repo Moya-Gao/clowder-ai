@@ -20,7 +20,7 @@
  * - 6/08: 100% if no regression (Phase D AC-D3)
  * - 6/15: subscription policy cutover (R1 hard deadline)
  */
-import { existsSync } from 'node:fs';
+import { accessSync, constants, existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { CatId } from '@cat-cafe/shared';
@@ -46,7 +46,17 @@ const DEFAULT_PTY_BINARY_170 = join(homedir(), '.local', 'share', 'claude', 'ver
 
 function resolveInteractivePtyBinary(env: Record<string, string | undefined>): string {
   const envPath = env[CARRIER_PTY_BINARY_KEY];
-  if (envPath) return envPath;
+  if (envPath) {
+    try {
+      accessSync(envPath, constants.X_OK);
+    } catch {
+      throw new Error(
+        `${CARRIER_PTY_BINARY_KEY}=${envPath} does not exist or is not executable. ` +
+          `Verify the path points to an executable claude binary.`,
+      );
+    }
+    return envPath;
+  }
   if (existsSync(DEFAULT_PTY_BINARY_170)) return DEFAULT_PTY_BINARY_170;
   throw new Error(
     `interactive_pty carrier requires claude 2.1.170 binary ` +
@@ -75,7 +85,21 @@ export function createClaudeAgentServiceForCanary(
     return new ClaudeBgCarrierService({ catId });
   }
   if (carrier === CARRIER_INTERACTIVE_PTY) {
-    return new ClaudeInteractivePtyCarrierService({ catId, claudeBinary: resolveInteractivePtyBinary(env) });
+    try {
+      return new ClaudeInteractivePtyCarrierService({
+        catId,
+        claudeBinary: resolveInteractivePtyBinary(env),
+      });
+    } catch (err) {
+      // Canary carrier dependency failure must not crash the server — degrade
+      // gracefully to -p. ERROR level so operator sees the degradation in logs
+      // (Fable-5 硬要求: silent fallback = 6/15 判罚日 misread risk).
+      console.error(
+        `[carrier-factory] interactive_pty fallback → -p for ${catId}:`,
+        err instanceof Error ? err.message : err,
+      );
+      return new ClaudeAgentService({ catId });
+    }
   }
   return new ClaudeAgentService({ catId });
 }
