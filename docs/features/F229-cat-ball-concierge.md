@@ -137,7 +137,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 - [ ] AC-A2: 功能发现——非作者拿 3 个"最近有什么新功能/X 怎么用"问题验收，答案与 release notes/feature docs 一致 → R1/Why-1
 - [ ] AC-A3: 记忆导航——3 个真实历史讨论 query 给出正确 thread/message 链接，且**两种动作都可用**：跳过去（teleport）+ 原地看（卡内 inline 展开 anchor 前后原文，不离开当前页）→ R3/Why-3 + CVO 去/取分叉反馈
 - [ ] AC-A4: 求助场景能触发对应 F155 guide flow（录屏一条）→ R2/Why-2
-- [ ] AC-A5: 形象/人设/值班猫在设置页可配置，与 cat profile 解耦（截图）→ R5
+- [x] AC-A5: 形象/人设/值班猫在设置页可配置，与 cat profile 解耦（截图）→ R5
 - [ ] AC-A6: 安静默认——默认零主动文本弹出；低优先级事件只显示 badge（hover 才出文字）；用户可一键 hide/mute 整个球（录屏 + 设置截图）→ R8/调研红线
 
 ### Phase B（总机能力）
@@ -219,6 +219,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 | 2026-06-10 | 铲屎官人因验收："丑的飞起"——emoji 违例 + token 未接 + 企业 SaaS 范式 → KD-15 形态修正；烁烁出视觉返工方案，宪宪验证放行（素材/token 实锚），**CVO 六题全过**；流程修正：UI PR 合入后 owner 起 alpha 请 CVO 30 秒验收 + 视觉稿前置成为 F229 UI PR 硬规则 |
 | 2026-06-10 | PR 重排（CVO"别拆太稀碎"）：**A3a = 气泡化对话集成**（对话 + V1-V9 视觉一体，避免先填旧 drawer 再搬家）→ **A3b = 交互卡+relay** → **A4 = 设置页+spike**，共 3 个 PR 收尾 Phase A |
 | 2026-06-11 | PR-A3a merged（`70a689fd`，R1-R8 含 ConversationSendCycle 同型 5 轮复盘→spec 补账+skill census）；CVO 拉闸复盘：Phase A 两天时间账 = spec 欠账（A1 状态机/视觉环节/A3a census）+ 云端排队空转；**策略调整：实现改派 opus 家族，sonnet 转 alpha 验收**；"狗皮膏药"反馈 → A3b 补球拖拽+位置持久化（BallPosition） |
+| 2026-06-12 | **Phase A PR-A4 merged** (PR #2241)：ConciergeSettingsContent（设置页 6 区：基本开关/皮肤锁定/身份人设/值班猫/主动性/球位置重置）+ ConciergeSettingsParts（ToggleSwitch/TextInput/RadioOption 子组件）+ settings-nav concierge 入口 + SECTION_KEYWORDS 搜索关键词；optimistic UI + PUT 全量 config 同步 + snapshot rollback + mount GET→store sync + 不可用值班猫 disabled option；R1-R5 cloud review cycle（LL-072 封板 5/5：P1 文件拆分 415→291 + P2 store sync/keywords/skin/duty-cat stale） |
 | 2026-06-12 | **Phase A PR-A3b merged** (PR #2238，squash commit `5ec808903`)：CardBlock concierge action handlers（teleport/go/peek/relay §1a-§2）+ `/api/concierge/peek` endpoint（userId scoping + R3-R4 security hardening）+ `/api/concierge/relay` endpoint（cross_post dispatch + UUID receipt）+ BallPosition drag（INV-2 纯投影 projectBallState）+ relay double-click guard（copiedAction + disabled prop）；R1-R5 cloud review cycle + @gpt52 封板 final review（LL-072 封板协议）；AC-A3 teleport+peek 前端就绪、AC-A1 ball drag 就绪——待 alpha 验收打勾；C3 PendingConfirmation cross-refresh persistence deferred P3 Phase B |
 | 2026-06-10 | **Phase A PR-A1 merged** (PR #2202，squash commit e6f8b4c38)：ConciergeConfigStore + ConciergeThreadService + `/api/concierge/*` 路由 + SystemPromptBuilder 注入 + prompt injection 防护 (R15 P1) + concierge thread lifecycle (R18/R19 P2) |
 | 2026-06-10 | **Phase A PR-A2 merged** (PR #2211，squash commit 3df6f643f)：ConciergeHost（常驻根容器）+ ConciergeBall（8 态投影）+ ConciergePanel（对话窗）+ ConciergeRailToggle（ActivityBar 唤回入口）+ ConciergeStore（INV-2 纯投影架构）+ muted toggle UI (AC-A6 前端); R1-R7 cloud review cycle — 7 轮修复全清零 P1/P2 |
