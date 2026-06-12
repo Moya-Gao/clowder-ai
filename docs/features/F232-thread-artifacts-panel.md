@@ -8,7 +8,7 @@ created: 2026-06-11
 
 # F232: Thread Artifacts Panel — Thread 产物视图
 
-> **Status**: in-progress（Phase A merged PR #2247，视觉待 alpha 验收；Phase B 未启动）| **Owner**: 宪宪 Opus-4.8 | **Priority**: P1
+> **Status**: in-progress（Phase A 首版 merged PR #2247；**Phase A.1 待做：AC-A7 点击查看内容 + AC-A8 UX 收敛 = 愿景核心补强**；视觉待 alpha；Phase B 未启动）| **Owner**: 宪宪 Opus-4.8 | **Priority**: P1
 
 ## Why
 
@@ -18,7 +18,9 @@ created: 2026-06-11
 
 一个 thread 跑下来会产出一堆东西——图、文档、代码改动、PR、语音——但它们**散在消息流、`/uploads/`、git、PR 各处，没有一张按 thread 聚合的清单**。铲屎官想回看某个产物时，只能翻聊天记录、在 workspace 里搜半天、或者喊猫帮找，全靠记名字。
 
-**价值**：让铲屎官不用记名字、不用搜半天、不用喊猫——点开一个 thread 就能浏览 / 筛选 / 搜索 / 跳转到它产生的所有产物。这是 Claude/ChatGPT 的 artifacts 面板的"thread 级"加强版（他们只管"对话里生成的可编辑文档"，我们产物类型更多：代码、PR、设计稿、语音都算）。
+**价值**：让铲屎官不用记名字、不用搜半天、不用喊猫——点开一个 thread 就能浏览 / 筛选 / 搜索 / **点击直接看到产物内容**。这是 Claude/ChatGPT 的 artifacts 面板的"thread 级"加强版（他们只管"对话里生成的可编辑文档"，我们产物类型更多：代码、PR、设计稿、语音都算）。
+
+**🎯 核心愿景澄清（2026-06-12 铲屎官 dogfood 后明确）**：产物系统的灵魂是「**点一下就看到内容**」，不是「列一张清单告诉你有这些产物」。铲屎官原话——"我想打开 backlog 我能点击打开 …… 现在这个只是我能看到有这个，但是我点击看不了他的内容"。即：**产物列表只是入口，点击产物按类型直接打开/查看内容才是价值落点**——docs/md 看正文、图看图、代码看 diff、语音播放、PR 打开。这也是铲屎官想"和 workspace 整合"的真正本质：**复用 workspace「点文件看内容」的能力**（`FileContentRenderer` / `WorkspaceTree`），不是 UI 摆哪里的问题。mockup 每个产物项本就设计了类型化 action（打开/下载/查看 diff/播放）；Phase A 首版实现简化成"列表 + 外部 url 打开"，把这个核心丢了——是 Phase A.1 必补的灵魂缺口。
 
 ## Current State / 现状基线
 
@@ -37,11 +39,17 @@ created: 2026-06-11
 
 ### Phase A: Thread 内产物视图（MVP）
 
-点开任意 thread → 右侧「产物」抽屉，自动列出该 thread 产生的所有产物，按时间倒序，可按类型筛选 / 搜索 / 跳回原消息。
+点开任意 thread → 右侧「产物」面板，自动列出该 thread 产生的所有产物，按类型筛选 / 搜索，**点击产物按类型直接查看内容**（不只跳回原消息）。
 
-- **后端**：新增 `GET /api/threads/:threadId/artifacts` —— 遍历 thread 消息提取 rich blocks（`file` / `media_gallery` / `diff` / `audio`）+ session digest `filesTouched` + `pr_tracking` tasks，聚合 / 去重 / 按时间排序，**复用 `artifact-tracking.ts` 的去重 + 分类逻辑**（解除其 `MAX_ARTIFACTS=5` 限制，扩展产物类型）。统一返回 `{ type, name, catId, createdAt, sourceMessageId, url? }`。
-- **前端**：thread 右侧抽屉「产物」面板（OQ-1 已定抽屉，非 tab）。类型筛选 chips + thread 内搜索 + 时间倒序列表 + 每项「跳回原消息」。复用 `MediaGalleryBlock` / `FileContentRenderer` / `WorkspaceTree` 等现有组件。图标用 **inline SVG**（非 emoji，家规）。
-- **设计稿**：低保真 wireframe 已出 + CVO 确认（见 Links）。
+- **后端**：`GET /api/threads/:threadId/artifacts` —— 聚合 rich blocks（`file` / `media_gallery` / `diff` / `audio`）+ `pr_tracking` tasks + file ledger，去重 / 按 effective order time 倒序、按 userId scoped（system thread 隔离）。返回 `{ type, name, catId, createdAt, sourceMessageId, url?, ref? }`。
+- **前端交互核心（愿景落点）**：每个产物项**点击按类型打开/查看内容**——
+  - docs / md / log / 文本文件 → **复用 `FileContentRenderer` 在 panel 内看正文**（铲屎官 backlog 例子）
+  - 图 → 看图；代码 → 查看 diff；语音 → 播放；PR → 打开 PR
+  - 辅助动作：「跳回原消息」（jump-with-load 定位生成位置）
+- **UX 形态（收敛）**：保留 OQ-1 的右侧抽屉形态，但**抽屉内部用 tab 切 mode**（状态 / 工作区 / 产物 / transcript），header 收敛成一个 panel 开关（不再为每个 mode 堆一个按钮）；产物点击在 panel 内查看内容——与 workspace「点文件看内容」**共用同一套查看器**。
+- **图标**：inline SVG（非 emoji，家规）。
+
+> **Phase A 实现状态**：首版（PR #2247 merged）已做 **列表 + 类型筛选 + 搜索 + 跳回原消息 + 外部 url 打开**；**点击集成内容查看（尤其 docs 类，复用 FileContentRenderer）+ panel 内 tab 收敛 = Phase A.1 补强**（愿景核心，见 AC-A7/A8）。
 
 ### Phase B: 全局产物中心（未来扩展）
 
@@ -60,6 +68,8 @@ created: 2026-06-11
   - **opus-47 愿景守护独立发现（alpha 前应补，复用现有 utility ≤30 行）**：① 时间维度缺失—`createdAt` 在 DTO 有但 UI 未渲染相对时间（mockup "刚刚/1小时前/昨天"）；② `catId` 显示原始字符串（如 "opus-47"）未复用项目昵称映射 utility（MessageNavigator/ThreadItem/SessionEventsViewer 已有）。
   - **其他 mockup-vs-实现 gap（入 Phase A.1 / 随 Phase B）**：PR 状态显示丢失（`task.status` 未透传，mockup "已合入"绿勾）、类型化 action（audio「播放」/diff「查看 diff」mockup 有，实现统一「打开」）、Phase B footer 入口未占位。
 - [x] AC-A6: 聚合查询有 **Redis-backed 测试**覆盖（in-memory store 测不到索引/分页差异，LL `feedback_inmemory_store_tests_miss_redis_behavior`）。
+- [ ] **AC-A7（愿景核心 · Phase A.1）**: 点击产物**按类型直接查看内容**——docs/md/log/文本 复用 `FileContentRenderer` 在 panel 内看正文（铲屎官 backlog 例子）、图看图、代码看 diff、语音播放、PR 打开。（trace: 铲屎官 2026-06-12 "我点击看不了他的内容" → 点产物就能看内容，不只列清单——这是 F232 的灵魂）
+- [ ] **AC-A8（UX 收敛 · Phase A.1）**: 右侧 panel 收敛成「一个开关 + 内部 tab」（状态/工作区/产物/transcript），header 不为每个 mode 堆按钮；产物入口在 ≥1024px 与小屏均可达（修当前 `hidden lg:block` 致小屏无 fallback 入口）。（trace: 铲屎官 2026-06-12 "上边儿按钮太多了"）
 
 ### Phase B（全局产物中心 — 未来）
 - [ ] AC-B1: 全局产物搜索页，跨 thread 按名字 / 类型 / 时间 / 猫聚合检索。
@@ -84,7 +94,7 @@ created: 2026-06-11
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | 面板形态：抽屉 vs tab | ✅ 抽屉（CVO 2026-06-11，贴"随聊随看"手感） |
+| OQ-1 | 面板形态：抽屉 vs tab | ✅ 抽屉形态（CVO 2026-06-11 贴"随聊随看"）。**2026-06-12 补充**：抽屉**内部**用 tab 切 mode（状态/工作区/产物/transcript）收敛 header 按钮——抽屉形态不变，只改 mode 切换方式（header 多按钮 → panel 内 tab，见 AC-A8） |
 | OQ-2 | Phase A 是否需 Redis 反向索引加速，还是遍历消息够用 | ⬜ 实现时按 thread 规模实测评估 |
 | OQ-3 | 产物收录范围是否含 `html_widget` / `interactive` block | ⬜ Phase A 先收 file/media_gallery/diff/audio + PR + 文件，其余末期评估 |
 
@@ -95,6 +105,7 @@ created: 2026-06-11
 | KD-1 | 形态 = thread 内产物视图（A）先行，全局中心（B）为未来扩展，A 是 B 的地基 | 最贴铲屎官原话"这个 thread 的产物"+ 数据层现成最快见效 + 不返工。CVO 拍板 | 2026-06-11 |
 | KD-2 | 图标用 inline SVG，禁 emoji（家规 `feedback_design_to_code_fidelity`）。**html_widget 沙箱里 SVG 必须 inline，`symbol`+`use` 引用会被无 same-origin 的 sandbox iframe 挡掉只剩空槽** | 本 feat 低保真 mockup 实测教训（v2 用 symbol/use → 铲屎官侧图标全空；v3 改 inline → playwright 验证 28/28 渲染） | 2026-06-11 |
 | KD-3 | 数据层复用 artifact-tracking（F148）+ rich blocks + session digest，不新建采集 | 现状 ~80% 数据已存在，缺的是聚合 + UI，避免重造 | 2026-06-11 |
+| KD-4 | **产物系统核心 = "点击看内容"（复用 workspace `FileContentRenderer`），产物列表只是入口** | 铲屎官 dogfood 实证"我点击看不了他的内容"——列清单 ≠ 看产物；mockup 每项本就有类型化 action（打开/下载/查看 diff/播放）；"和 workspace 整合"的本质是**复用查看器**而非 UI 摆位。Phase A 首版简化成"列表+外部 url"丢了核心 → Phase A.1 必补 | 2026-06-12 |
 
 ## Timeline
 
@@ -103,6 +114,7 @@ created: 2026-06-11
 | 2026-06-11 | 立项（CVO signoff "我觉得ok了 你立项"）；Design Gate UX 低保真已确认 |
 | 2026-06-12 | Phase A merged (PR #2247) — 聚合 API + 右侧抽屉面板。cloud review 4 轮 6 finding（分页游标/前端 toggle/docs frontmatter/in-memory cursor 无限循环/跳转 AC-A4/system thread 权限泄露）全修 + 砚砚 final 封板放行（LL-072）。视觉待 alpha 验收 |
 | 2026-06-12 | opus-47 Phase A 愿景守护放行（三问✅：核心价值/无 scope 蔓延/Phase B 方向对）。reviewer 独立发现 AC-A5 视觉 gap（时间维度 + catId 昵称映射，alpha 前应补）+ 其他 gap 入 Phase A.1/B。Phase A 闭环 |
+| 2026-06-12 | 铲屎官 dogfood 澄清**核心愿景**：产物 = **点击看内容**（复用 workspace `FileContentRenderer`），非只列清单。Phase A 首版丢了这核心 → spec 更新 Why/What + 新增 AC-A7（内容查看）/AC-A8（UX 收敛·panel tab·小屏入口）+ KD-4，列入 Phase A.1 |
 
 ## Design Gate
 
