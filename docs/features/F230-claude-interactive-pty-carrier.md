@@ -125,7 +125,7 @@ Owner: Fable-5。Worktree 隔离，1-2 天硬退出（F198 Phase A "5+ 轮摆动
 
 > Spike GO：`docs/research/2026-06-12-f230-hook-sidechannel-spike.md`——Stop hook 在 **2.1.175** 实证直接喂 `last_assistant_message` + `session_id`，entrypoint=cli。把输出面从"tail claude 的 transcript（被 2.1.172+ 关闭，靠 pin 2.1.170 续命）"换成"tail 我们用官方 hook 自造的侧信道文件"——**摆脱 pin 死锁，任意版本可用**。
 
-- 步骤 ①：补 5 待验项 spike（多轮连续性 / tool_use 中间步骤是否需 PostToolUse / usage 来源 / per-carrier settings 注入隔离 / streaming 边界确认）——Fable-5，半天
+- 步骤 ①：**✅ 完成（2026-06-12）**——5 待验 spike 全验：多轮✅(3轮Stop+session同一)/tool_use✅(PostToolUse给tool_response,中间步骤可见)/隔离✅(cwd级settings)/streaming(整段已知)/**usage⚠️唯一缺口(hook无token字段→短期降级)**。结论钉 `docs/research/2026-06-12-f230-hook-sidechannel-spike.md`
 - 步骤 ②：spec 修订（hook 桥架构细化）+ writing-plans → sonnet 实施：hook 脚本 + carrier 输出面从 transcriptDir 改 sidecar 文件（TranscriptTailer 复用，consumer 适配 hook JSON 形状）+ factory 解除 2.1.170 fail-fast（hook 线不需要 pin）——1-2 天
 - 验收：现有 smoke + stale-id + 试驾剧本在**系统 claude（2.1.17x 最新）**上全绿 = pin 依赖解除证明
 

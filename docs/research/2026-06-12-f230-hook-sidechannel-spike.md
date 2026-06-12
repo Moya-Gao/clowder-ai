@@ -58,3 +58,20 @@ carrier 启动 interactive claude 时注入一个 `.claude/settings.json`（或 
 ## 结论
 
 **GO**：hook-sidechannel 在最新版 claude 实证可拿回复内容 + session_id + cli entrypoint，**彻底绕过 transcript 回归、摆脱 pin 2.1.170 死锁**。这把 interactive 从"靠考古旧版本续命"升级成"靠官方扩展点长期可用"。pin 2.1.170 降级为短期兜底，hook 路线是终态。
+
+
+---
+
+## 5 待验项结论（2026-06-12 spike 续，claude 2.1.175，单 tmux session 3 轮）
+
+| # | 待验 | 结论 | 证据 |
+|---|------|------|------|
+| 1 | 多轮连续性 | ✅ | 3 轮 Stop hook 全触发，`last_assistant_message`=OK/42/FILEDONE，**session_id 全同 `00d24fb4`**（多轮 + 接力天然成立）；轮2 答"42"=记忆连续 |
+| 2 | tool_use 中间步骤 | ✅ **超预期** | 轮3 Read 文件 → PostToolUse hook 触发，给 `tool_name`/`tool_input`/**`tool_response`(有内容)**/`tool_use_id`/`duration_ms` → 中间工具步骤**完全可见且结构化**（比 transcript 解析更干净）；Stop 仍给最终 `FILEDONE` |
+| 3 | usage 来源 | ⚠️ **唯一缺口** | Stop + PostToolUse input **均无 usage/token 字段**。处置：短期 footer cost 降级显示（不阻塞功能，B-min footer 本就后补）/ 中期探 SessionEnd hook 或别的侧信道 / 6-15 dev support 问 Anthropic |
+| 4 | settings 注入隔离 | ✅ | hook 只在 `<cwd>/.claude/settings.json`，全局 `~/.claude/settings.json` 零污染 → per-carrier 隔离天然成立（carrier 给每个 PTY cwd 写独立 settings） |
+| 5 | streaming | 整段（已知边界，不退化，同 transcript 路线） | — |
+
+**最终新架构（实施纲要）**：carrier 启动 interactive claude 时，往该 cwd 写 `.claude/settings.json` 配 **Stop hook**（捕获 `last_assistant_message` = 回复全文）+ **PostToolUse hook**（捕获 `tool_name`/`tool_input`/`tool_response` = 工具步骤）→ 两个 hook 脚本把结构化 JSON append 到 carrier 约定的 sidecar jsonl → 现有 consumer 改 tail 这个 sidecar（`session_id` 多轮接力，`tool_use_id` 关联）。**解除 factory 的 2.1.170 pin fail-fast**（hook 任意版本可用，175 实证）。usage 短期降级。
+
+**GO 确认**：5 项 4 绿 1 降级（usage 非阻塞）。hook-sidechannel 是 interactive carrier 终态，pin 2.1.170 退役为短期兜底。
