@@ -2,14 +2,16 @@
 // 镜头顺序/字幕 = shot-plan §2/§3（S11 true end 含黑场过渡）
 // kind: 'video'  = generated-clips 真素材（trimSec 截取）
 // kind: 'stills' = static-frames 静帧卡（按拍点时长序列）
-// 输出画幅：720×1280 竖屏（CVO 拍板 2026-06-12："后面抽到的 9:16 画风特别统一巨好看"——
-//          横屏老素材自动走 blur-pad 上下填充；初版给朋友看，反馈后 fine cut 再定档）
+// 输出画幅：1280×720 横屏 = **初版/节奏验证版**（CVO 路线 2026-06-12 二次澄清）：
+//   初版用 16:9 给朋友验证故事节奏（横屏主力素材最大保真，竖素材 blur-pad）；
+//   节奏过关后 fine cut 阶段重新生成全套 9:16 统一素材（终态画幅 = 竖屏，
+//   理由：后期抽的 9:16 画风统一更好看）。届时改回 720×1280 重渲。
 export const edl = {
   version: 1,
   project: 'cucu-pr-flow',
   fps: 30,
-  width: 720,
-  height: 1280,
+  width: 1280,
+  height: 720,
   shots: [
     // 片头免责声明卡（CVO 2026-06-12）：伪纪录片式一本正经，定罪叙事的开场白
     {
