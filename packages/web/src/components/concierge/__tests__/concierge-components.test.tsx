@@ -214,13 +214,17 @@ describe('Block 2: 生命周期', () => {
     expect(container.querySelector('[data-testid="concierge-rail-toggle"]')).toBeNull();
   });
 
-  it('INV-9: ConciergeHost triggers one fetchConfig on mount', async () => {
+  it('INV-9: ConciergeHost triggers fetchConfig on mount', async () => {
     mockApiFetch.mockReset();
     mockApiFetch.mockImplementation(configOk);
     await render(<ConciergeHost />);
     await flushEffects();
-    expect(mockApiFetch).toHaveBeenCalledTimes(1);
-    expect(mockApiFetch.mock.calls[0][0]).toContain('/api/concierge/config');
+    // Check that fetchConfig was called (first call). Other hooks (e.g. useCatData
+    // inside ConciergePanel) may also fire fetches, so we don't assert exact total count.
+    const configCalls = mockApiFetch.mock.calls.filter(
+      (args) => typeof args[0] === 'string' && args[0].includes('/api/concierge/config'),
+    );
+    expect(configCalls.length).toBe(1);
   });
 });
 
@@ -1218,5 +1222,257 @@ describe('Block 7: P0 Liveness', () => {
 
     // No status indicator when idle
     expect(container.querySelector('[role="status"]')).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Block 8: Runtime fixes (CVO 首验 4 问, 2026-06-12)
+// ---------------------------------------------------------------------------
+
+describe('Block 8: Runtime fixes', () => {
+  // FIX-1 (P1): Assistant message bubble must be visually distinct from panel background
+  it('FIX-1: assistant message bubble has visible border', async () => {
+    useConciergeStore.setState({
+      configLoaded: true,
+      surfaceState: 'bubble',
+      threadId: 'thread-fix1',
+      threadIdLoaded: true,
+      invocationStatus: 'idle',
+    });
+
+    // Return user + cat messages
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url.includes('/api/messages?')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            messages: [
+              { id: 'u1', type: 'user', content: 'hi', timestamp: 1000 },
+              { id: 'a1', type: 'assistant', content: '你好！', catId: 'gemini25', timestamp: 2000 },
+            ],
+          }),
+        } as unknown as Response);
+      }
+      return configOk();
+    });
+
+    // Render panel directly (ConciergeHost config fetch can interfere with surfaceState)
+    await render(<ConciergePanel />);
+    await flushEffects();
+    // Wait for message fetch to complete
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+    await flushEffects();
+
+    // Find message bubbles (rendered in order: user=0, assistant=1)
+    const messageDivs = container.querySelectorAll('.max-w-\\[85\\%\\]');
+    expect(messageDivs.length).toBeGreaterThanOrEqual(2);
+    // The assistant message (index 1, left-aligned) must have a visible border
+    const assistantBubble = messageDivs[1] as HTMLElement;
+    expect(assistantBubble.style.borderWidth).toBe('1px');
+  });
+
+  // FIX-2 (P1 S6): Successful send must clear input value
+  it('FIX-2 S6: successful send clears textarea value', async () => {
+    useConciergeStore.setState({
+      configLoaded: true,
+      surfaceState: 'collapsed',
+      threadId: 'thread-fix2',
+      threadIdLoaded: true,
+      invocationStatus: 'idle',
+    });
+
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url === '/api/messages') {
+        return Promise.resolve({ ok: true, status: 200, json: async () => ({}) } as unknown as Response);
+      }
+      if (url.includes('/api/messages?')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ messages: [] }),
+        } as unknown as Response);
+      }
+      return configOk();
+    });
+
+    await render(<ConciergeHost />);
+    await flushEffects();
+
+    // Open bubble with pre-filled text
+    act(() => {
+      useConciergeStore.getState().setSurfaceState('bubble', 'hello cat');
+    });
+    await flushEffects();
+
+    const inputEl = container.querySelector('textarea[aria-label="消息输入框"]') as HTMLTextAreaElement;
+    expect(inputEl.value).toBe('hello cat');
+
+    // Send
+    await act(async () => {
+      const sendBtn = container.querySelector('button[aria-label="发送"]') as HTMLButtonElement;
+      sendBtn.click();
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    await flushEffects();
+
+    // S6: input must be cleared after successful send
+    expect(inputEl.value).toBe('');
+  });
+
+  // FIX-2b R2: Enter during IME composition must NOT trigger send.
+  // Uses useIMEGuard (composition ref) — not just nativeEvent.isComposing — because
+  // Chrome fires compositionend BEFORE keydown(Enter), so isComposing is already false.
+  it('FIX-2b R2: Enter during active composition does not trigger send (Firefox path)', async () => {
+    useConciergeStore.setState({
+      configLoaded: true,
+      surfaceState: 'collapsed',
+      threadId: 'thread-fix2b',
+      threadIdLoaded: true,
+      invocationStatus: 'idle',
+    });
+
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url.includes('/api/messages?')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ messages: [] }),
+        } as unknown as Response);
+      }
+      return configOk();
+    });
+
+    await render(<ConciergeHost />);
+    act(() => {
+      useConciergeStore.getState().setSurfaceState('bubble', '你好');
+    });
+    await flushEffects();
+
+    // Reset to track POST calls
+    mockApiFetch.mockReset();
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url === '/api/messages') {
+        return Promise.resolve({ ok: true, status: 200, json: async () => ({}) } as unknown as Response);
+      }
+      if (url.includes('/api/messages?')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ messages: [] }),
+        } as unknown as Response);
+      }
+      return configOk();
+    });
+
+    const textarea = container.querySelector('textarea[aria-label="消息输入框"]') as HTMLTextAreaElement;
+
+    // Firefox path: compositionstart → keydown(Enter) fires DURING composition
+    await act(async () => {
+      textarea.dispatchEvent(new Event('compositionstart', { bubbles: true }));
+    });
+    await act(async () => {
+      textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    await flushEffects();
+
+    // Must NOT have triggered a POST — Enter during composition = IME confirm, not send
+    const postCalls = mockApiFetch.mock.calls.filter((args) => args[0] === '/api/messages');
+    expect(postCalls.length).toBe(0);
+  });
+
+  // FIX-2b R2: Chrome path — compositionend fires BEFORE keydown(Enter), so
+  // nativeEvent.isComposing is already false. useIMEGuard's rAF-delayed ref bridges this.
+  it('FIX-2b R2: Chrome compositionend→keydown sequence does not trigger send', async () => {
+    useConciergeStore.setState({
+      configLoaded: true,
+      surfaceState: 'collapsed',
+      threadId: 'thread-fix2b-chrome',
+      threadIdLoaded: true,
+      invocationStatus: 'idle',
+    });
+
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url.includes('/api/messages?')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ messages: [] }),
+        } as unknown as Response);
+      }
+      return configOk();
+    });
+
+    await render(<ConciergeHost />);
+    act(() => {
+      useConciergeStore.getState().setSurfaceState('bubble', '你好');
+    });
+    await flushEffects();
+
+    mockApiFetch.mockReset();
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url === '/api/messages') {
+        return Promise.resolve({ ok: true, status: 200, json: async () => ({}) } as unknown as Response);
+      }
+      if (url.includes('/api/messages?')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ messages: [] }),
+        } as unknown as Response);
+      }
+      return configOk();
+    });
+
+    const textarea = container.querySelector('textarea[aria-label="消息输入框"]') as HTMLTextAreaElement;
+
+    // Chrome sequence: compositionstart → compositionend → keydown(Enter)
+    await act(async () => {
+      textarea.dispatchEvent(new Event('compositionstart', { bubbles: true }));
+    });
+    await act(async () => {
+      textarea.dispatchEvent(new Event('compositionend', { bubbles: true }));
+    });
+    // Immediately dispatch Enter — rAF hasn't flushed yet, so useIMEGuard ref is still true
+    await act(async () => {
+      textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    await flushEffects();
+
+    const postCalls = mockApiFetch.mock.calls.filter((args) => args[0] === '/api/messages');
+    expect(postCalls.length).toBe(0);
+  });
+
+  // FIX-4 (P2 KD-16): Panel header must show duty cat identity
+  it('FIX-4 KD-16: panel header shows duty cat name alongside displayName', async () => {
+    useConciergeStore.setState({
+      configLoaded: true,
+      surfaceState: 'bubble',
+      displayName: '猫猫球',
+      dutyCatProfileId: 'gemini25',
+    });
+
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url.includes('/api/messages?')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ messages: [] }),
+        } as unknown as Response);
+      }
+      return configOk();
+    });
+
+    await render(<ConciergePanel />);
+    await flushEffects();
+
+    // Header must contain some indication of which cat is on duty (not just "猫猫球")
+    const headerSpan = container.querySelector('[role="dialog"] .text-sm.font-semibold');
+    expect(headerSpan).not.toBeNull();
+    expect(headerSpan?.textContent).toContain('值班');
   });
 });

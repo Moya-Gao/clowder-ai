@@ -165,13 +165,15 @@ describe('ConciergeThreadService', () => {
   it('getOrCreate syncs preferredCats to [dutyCatProfileId] from config', async () => {
     const { service, threadStore, conciergeConfigStore } = makeService();
 
-    // Pre-configure the duty cat
+    // Pre-configure the duty cat — use gemini25 (the real catId), not gemini35 (mention alias).
+    // FIX-3 R2: ConciergeConfigStore.get() now validates dutyCatProfileId against catRegistry,
+    // so using an alias like 'gemini35' would be re-resolved to the default.
     await conciergeConfigStore.put('user-6', {
       enabled: true,
       skin: 'yarn-ball',
       displayName: '猫猫球',
       personaTone: '温暖',
-      dutyCatProfileId: 'gemini35',
+      dutyCatProfileId: 'gemini25',
       proactivePolicy: 'quiet-badge',
       muted: false,
     });
@@ -181,7 +183,34 @@ describe('ConciergeThreadService', () => {
 
     assert.ok(thread, 'thread should exist');
     assert.ok(Array.isArray(thread.preferredCats), 'preferredCats should be an array');
-    assert.deepStrictEqual(thread.preferredCats, ['gemini35'], 'preferredCats should contain dutyCatProfileId');
+    assert.deepStrictEqual(thread.preferredCats, ['gemini25'], 'preferredCats should contain dutyCatProfileId');
+  });
+
+  it('getOrCreate normalizes stale dutyCatProfileId to valid catId (FIX-3 R2)', async () => {
+    const { service, threadStore, conciergeConfigStore } = makeService();
+
+    // Store a config with a stale/invalid dutyCatProfileId (e.g., mention alias or removed cat).
+    // FIX-3: ConciergeConfigStore.get() should re-resolve it to the default (gemini25).
+    await conciergeConfigStore.put('user-stale', {
+      enabled: true,
+      skin: 'yarn-ball',
+      displayName: '猫猫球',
+      personaTone: '温暖',
+      dutyCatProfileId: 'gemini35',
+      proactivePolicy: 'quiet-badge',
+      muted: false,
+    });
+
+    const threadId = await service.getOrCreate('user-stale');
+    const thread = await threadStore.get(threadId);
+
+    assert.ok(thread, 'thread should exist');
+    // The stale 'gemini35' should be re-resolved to 'gemini25' (the real catId)
+    assert.deepStrictEqual(
+      thread.preferredCats,
+      ['gemini25'],
+      'stale dutyCatProfileId should be normalized to valid catId via ConciergeConfigStore.get()',
+    );
   });
 
   it('MemoryConciergeConfigStore default dutyCatProfileId resolves to gemini25 (catId, not alias)', async () => {

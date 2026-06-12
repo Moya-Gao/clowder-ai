@@ -27,6 +27,8 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCatData } from '@/hooks/useCatData';
+import { useIMEGuard } from '@/hooks/useIMEGuard';
 import { useConciergeStore } from '@/stores/conciergeStore';
 import { apiFetch } from '@/utils/api-client';
 import { RichBlocks } from '../rich/RichBlocks';
@@ -39,6 +41,8 @@ export function ConciergePanel() {
   const setInputFocused = useConciergeStore((s) => s.setInputFocused);
   const fetchThreadId = useConciergeStore((s) => s.fetchThreadId);
   const displayName = useConciergeStore((s) => s.displayName);
+  // FIX-4 KD-16: show which cat is on duty in the panel header
+  const dutyCatProfileId = useConciergeStore((s) => s.dutyCatProfileId);
   const invocationStatus = useConciergeStore((s) => s.invocationStatus);
   const muted = useConciergeStore((s) => s.muted);
   const setMuted = useConciergeStore((s) => s.setMuted);
@@ -48,6 +52,14 @@ export function ConciergePanel() {
   const clearPendingPrompt = useConciergeStore((s) => s.clearPendingPrompt);
   // cloud R3 fix: wire invocationStatus transitions so ball enters thinking + send btn guards work
   const setInvocationStatus = useConciergeStore((s) => s.setInvocationStatus);
+
+  // FIX-2b R2: use project-standard IME guard (useIMEGuard) instead of bare
+  // nativeEvent.isComposing — Chrome fires compositionend BEFORE keydown(Enter),
+  // so isComposing is already false. The hook keeps a ref true for one extra rAF frame.
+  const ime = useIMEGuard();
+  // FIX-4 R2: resolve dutyCatProfileId → human-readable display name from cat roster
+  const { cats } = useCatData();
+  const dutyCatDisplayName = cats.find((c) => c.id === dutyCatProfileId)?.displayName;
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -203,12 +215,16 @@ export function ConciergePanel() {
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
+      // FIX-2b R2: skip Enter during IME composition. Uses useIMEGuard's ref-based
+      // check instead of bare nativeEvent.isComposing — Chrome fires compositionend
+      // BEFORE the final keydown(Enter), so isComposing is already false by then.
+      // The hook's rAF-delayed ref stays true for one extra frame to bridge the gap.
+      if (e.key === 'Enter' && !e.shiftKey && !ime.isComposing()) {
         e.preventDefault();
         void handleSend();
       }
     },
-    [handleSend],
+    [handleSend, ime],
   );
 
   // INV-3 variant: only bubble → something in DOM
@@ -269,7 +285,9 @@ export function ConciergePanel() {
           className="flex items-center gap-2 px-4 py-3 border-b"
         >
           <span style={{ color: 'var(--cafe-text)' }} className="text-sm font-semibold flex-1">
-            {displayName}
+            {/* FIX-4 KD-16 R2: show duty cat's display name (not raw catId) so user
+                sees "猫猫球 · 值班：烁烁" instead of "猫猫球 · 值班：gemini25" */}
+            {dutyCatProfileId ? `${displayName} · 值班：${dutyCatDisplayName ?? dutyCatProfileId}` : displayName}
           </span>
           {invocationStatus === 'error' && (
             <span style={{ color: 'var(--semantic-critical)' }} className="text-xs" role="status">
@@ -343,6 +361,11 @@ export function ConciergePanel() {
                         : {
                             backgroundColor: 'var(--cafe-surface-elevated)',
                             color: 'var(--cafe-text)',
+                            // FIX-1: canvas vs elevated 差 0.005 OKLCH 肉眼不可分辨，
+                            // 加 border 确保气泡可见（CVO 首验 Q3）
+                            borderWidth: '1px',
+                            borderStyle: 'solid',
+                            borderColor: 'var(--cafe-border-subtle)',
                           }
                     }
                     className="max-w-[85%] px-3 py-1.5 rounded-xl text-sm leading-snug whitespace-pre-wrap break-words"
@@ -399,6 +422,8 @@ export function ConciergePanel() {
               if (sendError) setSendError(null);
             }}
             onKeyDown={handleKeyDown}
+            onCompositionStart={ime.onCompositionStart}
+            onCompositionEnd={ime.onCompositionEnd}
             placeholder="发消息给前台猫…"
             aria-label="消息输入框"
             style={{

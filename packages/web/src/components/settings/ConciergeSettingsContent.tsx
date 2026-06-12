@@ -93,6 +93,10 @@ export function ConciergeSettingsContent() {
       setSaving(true);
       setError(null);
 
+      // FIX-5 A4 plan: muted toggle in ball vs settings page = single-writer per-user config.
+      // Concurrent writes are last-write-wins — acceptable because both write the full config
+      // (partial merge on server), and the user is the only writer of their own config.
+      // No state machine or conflict resolution needed (plan §Census).
       // Capture pre-patch snapshot for local rollback (no network dependency)
       let prevSnapshot: ConciergeSettingsState | null = null;
       setState((prev) => {

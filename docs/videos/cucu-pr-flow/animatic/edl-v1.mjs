@@ -170,7 +170,9 @@ export const edl = {
       id: 'EV4',
       kind: 'stills',
       segments: [{ src: 'references/evidence/evidence-04-confession.png', holdMs: 3000 }],
-      subtitles: [{ startMs: 100, endMs: 2900, text: '证物 #4 · 肇事猫猫书面陈述："醋意指数 ≤80%，最后一个大概率过不了"' }],
+      subtitles: [
+        { startMs: 100, endMs: 2900, text: '证物 #4 · 肇事猫猫书面陈述："醋意指数 ≤80%，最后一个大概率过不了"' },
+      ],
     },
   ],
 };

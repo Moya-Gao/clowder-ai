@@ -55,7 +55,14 @@ export class RedisConciergeConfigStore implements IConciergeConfigStore {
         dutyCatProfileId: resolveDefaultDutyCatProfileId(),
       };
     }
-    return JSON.parse(raw) as ConciergeConfig;
+    const config = JSON.parse(raw) as ConciergeConfig;
+    // FIX-3: validate stored dutyCatProfileId — stale/missing values (e.g., config
+    // saved before resolution logic existed, or cat removed from roster) should
+    // re-resolve to the plan default (gemini25 → first available → sonnet).
+    if (!config.dutyCatProfileId || !catRegistry.has(config.dutyCatProfileId)) {
+      config.dutyCatProfileId = resolveDefaultDutyCatProfileId();
+    }
+    return config;
   }
 
   async put(userId: string, config: ConciergeConfig): Promise<void> {
@@ -79,7 +86,12 @@ export class MemoryConciergeConfigStore implements IConciergeConfigStore {
         dutyCatProfileId: resolveDefaultDutyCatProfileId(),
       };
     }
-    return { ...entry };
+    const config = { ...entry };
+    // FIX-3: same validation as Redis impl
+    if (!config.dutyCatProfileId || !catRegistry.has(config.dutyCatProfileId)) {
+      config.dutyCatProfileId = resolveDefaultDutyCatProfileId();
+    }
+    return config;
   }
 
   async put(userId: string, config: ConciergeConfig): Promise<void> {
