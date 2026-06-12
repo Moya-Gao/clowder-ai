@@ -11,7 +11,10 @@
  * - transcript jsonl `assistant` entries match -p NDJSON `assistant` event
  *   shape exactly. Reuse `transformClaudeEvent` — no second event semantic.
  * - transcript `system` subtypes (verified by real --bg sample 2026-05-14):
- *   `turn_duration` → system_info; `stop_hook_summary` → skip (diagnostic).
+ *   BOTH skipped (no user-facing message). `turn_duration` is a terminal signal
+ *   consumed by the carrier via entry.subtype; its timing flows into usage through
+ *   accumulateUsageFromEntries, not a message (F230 blue-bubble fix). `stop_hook_summary`
+ *   is hook diagnostics. Matches -p parity: transformClaudeEvent emits nothing for either.
  * - usage uses `extractClaudeUsage` via synthetic result event (per砚砚 P1.2
  *   review — true reuse, not duplicated normalization rules).
  *
@@ -22,7 +25,8 @@
  *
  * Public API:
  *   `transcriptEntriesToAgentMessages(entries, {catId})` → AgentMessage[]
- *     Pure transform: assistant + system entries → text/tool_use/system_info.
+ *     Pure transform: assistant entries → text/tool_use/error; system + bookkeeping
+ *     entries are skipped (no user-facing message).
  *   `extractTranscriptUsage(entries, terminalMeta?)` → TokenUsage
  *     Aggregate per-turn usage + reuse extractClaudeUsage normalization.
  */
@@ -95,25 +99,19 @@ export function transcriptEntriesToAgentMessages(
       continue;
     }
 
-    if (entry.type === 'system') {
-      // Real --bg sample (2026-05-14 c555a987) confirmed two subtypes:
-      // - turn_duration: per-turn timing — surface as system_info
-      // - stop_hook_summary: hook diagnostics — skip (not user-facing)
-      const subtype = entry.subtype;
-      if (subtype === 'turn_duration') {
-        const durationMs = typeof entry.durationMs === 'number' ? entry.durationMs : undefined;
-        const messageCount = typeof entry.messageCount === 'number' ? entry.messageCount : undefined;
-        out.push({
-          type: 'system_info',
-          catId,
-          content: JSON.stringify({ type: 'turn_duration', catId, durationMs, messageCount }),
-          timestamp: Date.now(),
-        });
-      }
-    }
-
-    // Skip everything else: last-prompt / file-history-snapshot / agent-name
-    // / ai-title / user / attachment / permission-mode / etc.
+    // Skip everything else (produce no user-facing AgentMessage):
+    //   - system/turn_duration: per-turn TERMINAL timing signal. The carrier detects it via
+    //     entry.subtype to stop tailing (ClaudeBgCarrierService / ClaudeInteractivePtyCarrierService)
+    //     and accumulateUsageFromEntries reads its durationMs directly — no message is needed.
+    //     Surfacing it as system_info caused the raw-JSON "blue bubble" regression on the active
+    //     PTY path (F230): the active stream yielded {"type":"turn_duration",...} and a frontend
+    //     caller rendered it before the system-info-visible.ts suppression could drop it (that
+    //     suppression was a band-aid covering only the bg-path callers). The -p NDJSON baseline
+    //     (transformClaudeEvent) emits nothing for turn_duration either, so skipping it here
+    //     also restores the bg/PTY ⇄ -p parity this consumer is meant to guarantee.
+    //   - system/stop_hook_summary: hook diagnostics — not user-facing.
+    //   - last-prompt / file-history-snapshot / agent-name / ai-title / user / attachment /
+    //     permission-mode / etc.: transcript bookkeeping, not content.
   }
 
   return out;

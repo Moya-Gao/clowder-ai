@@ -119,7 +119,7 @@ describe('ClaudeInteractivePtyCarrierService — Step 1: happy path', { timeout:
     await rm(tmpDir, { recursive: true, force: true });
   });
 
-  it('yields session_init → text → system_info → done; usage outputTokens > 0', async () => {
+  it('yields session_init → text → done; turn_duration consumed silently (no bubble) + usage', async () => {
     const transcriptPath = await writeFixture(tmpDir, [assistantLine('Hello from F230'), turnDurationLine(800)]);
 
     const mock = new MockPtyDriver();
@@ -144,10 +144,12 @@ describe('ClaudeInteractivePtyCarrierService — Step 1: happy path', { timeout:
     assert.ok(text, 'text yielded');
     assert.ok(text.content.includes('Hello from F230'), 'text content matches');
 
-    // system_info (turn_duration)
-    const sysInfo = msgs.find((m) => m.type === 'system_info');
-    assert.ok(sysInfo, 'system_info yielded from turn_duration event');
-    assert.ok(sysInfo.content.includes('turn_duration'), 'system_info contains turn_duration');
+    // F230 bubble fix: turn_duration is a TERMINAL signal, NOT user-facing content.
+    // It must be consumed silently — never yielded as a raw-JSON system_info "blue bubble".
+    const turnDurationBubble = msgs.find(
+      (m) => m.type === 'system_info' && typeof m.content === 'string' && m.content.includes('turn_duration'),
+    );
+    assert.equal(turnDurationBubble, undefined, 'turn_duration must NOT surface as a system_info bubble');
 
     // done
     const done = msgs.find((m) => m.type === 'done');
@@ -161,6 +163,9 @@ describe('ClaudeInteractivePtyCarrierService — Step 1: happy path', { timeout:
       typeof usage.outputTokens === 'number' && usage.outputTokens > 0,
       `outputTokens > 0, got ${usage.outputTokens}`,
     );
+    // turn_duration is still consumed by the usage accumulator (just not surfaced as a bubble):
+    // durationMs flows into usage via acc.totalTurnDurationMs → finalizeTranscriptUsage.
+    assert.equal(usage.durationMs, 800, `turn_duration still feeds usage.durationMs, got ${usage.durationMs}`);
 
     // driver lifecycle
     assert.equal(mock.calls.start, 1, 'start() called once');
@@ -482,7 +487,7 @@ describe('ClaudeInteractivePtyCarrierService — Step 8: trailing partial drain 
     await rm(tmpDir, { recursive: true, force: true });
   });
 
-  it('turn_duration with no trailing \\n → detected via final drain; system_info present', async () => {
+  it('turn_duration with no trailing \\n → detected via final drain (usage.durationMs), not silence timeout', async () => {
     // Write transcript WITHOUT trailing \n — this is the P2 bug trigger.
     // With the bug: readNew() drops trailing partial → turn_duration never detected → silence timeout.
     // With the fix: final drain via readNew({includeTrailingPartial:true}) catches it.
@@ -504,11 +509,25 @@ describe('ClaudeInteractivePtyCarrierService — Step 8: trailing partial drain 
 
     const msgs = await collect(carrier.invoke('test trailing partial'));
 
-    // system_info must be present — proves turn_duration was actually detected,
-    // not just the silence timeout path which never processes the entry.
-    const sysInfo = msgs.find((m) => m.type === 'system_info');
-    assert.ok(sysInfo, 'system_info yielded (turn_duration detected via trailing partial drain, not silence timeout)');
-    assert.ok(sysInfo.content.includes('turn_duration'), 'system_info content includes turn_duration');
+    // turn_duration (no trailing newline) must be detected via the final drain
+    // (readNew({includeTrailingPartial:true})), NOT the silence-timeout fallback.
+    // Deterministic proof (replaces the old system_info-bubble proxy): only the drain path
+    // feeds the entry to accumulateUsageFromEntries, so usage.durationMs reflects
+    // turnDurationLine(200). The silence-timeout path never reads the entry →
+    // acc.sawTurnDuration stays false → durationMs absent.
+    const done = msgs.find((m) => m.type === 'done');
+    assert.ok(done, 'done yielded (terminal reached)');
+    assert.equal(
+      done.metadata?.usage?.durationMs,
+      200,
+      'turn_duration detected via final drain (usage.durationMs=200), not silence timeout',
+    );
+
+    // F230 bubble fix: the detected turn_duration must NOT leak as a system_info bubble.
+    const turnDurationBubble = msgs.find(
+      (m) => m.type === 'system_info' && typeof m.content === 'string' && m.content.includes('turn_duration'),
+    );
+    assert.equal(turnDurationBubble, undefined, 'turn_duration must NOT surface as a system_info bubble');
   });
 });
 

@@ -7,7 +7,8 @@
  * 砚砚 cross-cat Design Gate (2026-05-14) + slice 1 review:
  * - P1.1: lifecycle (session_init/done) is caller responsibility, not embedded
  * - P1.2: usage extraction MUST reuse extractClaudeUsage (no duplicated rules)
- * - real-sample `system` subtypes: turn_duration (surface) / stop_hook_summary (skip)
+ * - real-sample `system` subtypes: BOTH skipped — turn_duration (terminal signal, not
+ *   user-facing; F230 blue-bubble fix) / stop_hook_summary (diagnostic)
  */
 
 import assert from 'node:assert/strict';
@@ -100,17 +101,49 @@ test('tool_use block: produces tool_use AgentMessage equivalent to -p path (R2 c
   assert.deepEqual(toolUse.toolInput, { file_path: '/tmp/foo.txt' });
 });
 
-test('system.turn_duration: surfaced as system_info (per real --bg sample)', () => {
-  // Real sample (c555a987 2026-05-14): system entry with subtype=turn_duration
-  // carries durationMs + messageCount.
+test('system.turn_duration: skipped — terminal signal, not a user-facing message (F230 bubble fix)', () => {
+  // turn_duration is a --bg / interactive-PTY transcript TERMINAL signal, NOT user content:
+  //   - the carrier detects it via entry.subtype to stop tailing (ClaudeBgCarrierService /
+  //     ClaudeInteractivePtyCarrierService) — it does not need a message to do so;
+  //   - usage is read by accumulateUsageFromEntries directly off entry.durationMs.
+  // Surfacing it as system_info created the raw-JSON "blue bubble" regression: the active
+  // PTY stream yielded {"type":"turn_duration",...} and a frontend caller rendered it before
+  // the telemetry suppression in system-info-visible.ts could drop it (suppression was a
+  // band-aid that only covered the bg-path callers). Fix at source: never emit it.
+  // Parity: the -p NDJSON baseline (transformClaudeEvent) emits NO message for turn_duration
+  // (-p has no system/turn_duration entry; it ends turns via the `result` event), so skipping
+  // here also restores bg/PTY ⇄ -p parity that this golden file is meant to assert.
+  // Real sample (c555a987 2026-05-14): system entry with subtype=turn_duration.
   const entries = [{ type: 'system', subtype: 'turn_duration', durationMs: 6303, messageCount: 6 }];
   const out = transcriptEntriesToAgentMessages(entries, { catId: CAT_ID });
-  assert.equal(out.length, 1);
-  assert.equal(out[0].type, 'system_info');
-  const payload = JSON.parse(out[0].content);
-  assert.equal(payload.type, 'turn_duration');
-  assert.equal(payload.durationMs, 6303);
-  assert.equal(payload.messageCount, 6);
+  assert.equal(out.length, 0, 'turn_duration must produce no AgentMessage (terminal signal consumed by carrier)');
+});
+
+test('turn_duration mixed with assistant text: only text surfaces, no turn_duration bubble (F230 blue-bubble regression)', () => {
+  // Real active-PTY tailer batch: an assistant reply immediately followed by the terminal
+  // turn_duration entry in the SAME read (ClaudeInteractivePtyCarrierService emits the whole
+  // batch via transcriptEntriesToAgentMessages, then detects terminal). The terminal entry
+  // must not leak as a {"type":"turn_duration"} bubble. Payload mirrors the real observed
+  // bubble from the bug report screenshot: durationMs=10455, messageCount=77.
+  const entries = [
+    {
+      type: 'assistant',
+      message: {
+        id: 'msg_x',
+        role: 'assistant',
+        content: [{ type: 'text', text: 'Hello!' }],
+        usage: { input_tokens: 5, output_tokens: 3 },
+      },
+    },
+    { type: 'system', subtype: 'turn_duration', durationMs: 10455, messageCount: 77 },
+  ];
+  const out = transcriptEntriesToAgentMessages(entries, { catId: CAT_ID });
+  assert.equal(out.length, 1, 'only the assistant text should surface');
+  assert.equal(out[0].type, 'text');
+  assert.ok(
+    !out.some((m) => m.type === 'system_info' && typeof m.content === 'string' && m.content.includes('turn_duration')),
+    'no turn_duration system_info bubble may be emitted',
+  );
 });
 
 test('system.stop_hook_summary: skipped (hook diagnostics not user-facing)', () => {
