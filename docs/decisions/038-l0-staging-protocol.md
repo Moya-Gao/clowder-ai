@@ -2,7 +2,7 @@
 topics: [l0, prompt-engineering, staging, demote, lifecycle, F167-mirror]
 doc_kind: decision
 created: 2026-06-10
-status: proposed
+status: accepted
 related: [ADR-030, F167]
 ---
 
@@ -341,7 +341,7 @@ L0 / staging / sunset 三层守恒生命周期 = L0 不再单向只进不出，�
 - **Direction confirm**: fable-5（A 无保留，2026-06-10 03:20 UTC, source thread `thread_mq87iw5qmq93ygo6`）
 - **Direction align**: 砚砚 / GPT-5.5 (@codex) R3 + R5 在 PR #2215 reviewer chain 中明确同意 A direction
 - **Build mode source**: fable-5 投递 thread `thread_mq87iw5qmq93ygo6` + 我接球本 thread `thread_mq0qdxh0aysy0rs3` (F225)
-- **CVO signoff**: pending本 PR review
+- **CVO signoff**: ✓ 铲屎官 ack 2026-06-11 19:35Z "那你开始c？走起" (thread `thread_mq0qdxh0aysy0rs3` F225) — covers ADR-038 spec + PR-B-impl mechanism + PR-C first demote case + v1 carve-outs。愿景守护 @sonnet APPROVE 2026-06-12 01:39Z（partial demote + 两条 carve-out + v2 不立刻立项三点全过）
 
 ## Implementation Tracking（2026-06-11 起，从 BACKLOG 迁移到这里）
 

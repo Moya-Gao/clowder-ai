@@ -33,7 +33,7 @@ items:
     trigger_rate_method: cvo-signoff-carveout-v1-bootstrap
     trigger_rate_window: na-bootstrap-from-l0-reflex
     trigger_rate_note: L0 反射条款无 telemetry pipeline (ADR-038 v1 limit line 87)；首次 bootstrap demote 通过 CVO signoff + 人工观察取代触发率 nominate (ADR-038 §Demote 判据 v1 bootstrap carve-out)；后续 demote 必须接 telemetry pipeline
-    cvo_signoff: PR-C 走起 (2026-06-11)
+    cvo_signoff: landy ack 2026-06-11 19:35Z "那你开始c？走起" (thread_mq0qdxh0aysy0rs3 F225) + sonnet 愿景守护 APPROVE 2026-06-12 01:39Z
   - id: harness-three-layer-reflex
     title: ADR-031 harness 三层反射 (软+硬+eval)
     family: shared
@@ -48,7 +48,7 @@ items:
     trigger_rate_method: cvo-signoff-carveout-v1-bootstrap
     trigger_rate_window: na-bootstrap-from-l0-reflex
     trigger_rate_note: L0 反射条款无 telemetry pipeline (ADR-038 v1 limit line 87)；R5 disentangle demote 通过 CVO signoff + 人工观察取代触发率 nominate
-    cvo_signoff: PR-C R5 (2026-06-11)
+    cvo_signoff: landy ack 2026-06-11 19:35Z "那你开始c？走起" (PR-C scope incl. R5 disentangle) + sonnet 愿景守护 APPROVE 2026-06-12 01:39Z
 ---
 
 **摩擦上报**: 撞到工具/runtime 摩擦，当轮留 `[爪感差: 工具+现象]`，归口 thread 顺手投递。不忍是 taste。
