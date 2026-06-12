@@ -121,7 +121,15 @@ Owner: Fable-5。Worktree 隔离，1-2 天硬退出（F198 Phase A "5+ 轮摆动
 - 复用清单（sonnet 实施时照抄，不重写）：`TranscriptTailer` / `BgTranscriptEventConsumer` / `transformClaudeEvent` / `extractClaudeUsage` / `buildClaudeEnvOverrides` / `resolveClaudeModelSelection`。
 - F198 血泪前置（不重蹈）：`--permission-mode bypassPermissions` parity（Phase D P1 #1）、cancel 语义一等公民（OQ-12）、`--mcp-config --strict-mcp-config` parity（Step 4）、golden parity tests 先行（砚砚 Step 2 卡口模式）。
 
-### Phase C: Session 生命周期 + sessionChain 接入（gated）
+### Phase B-hook: 输出面器官移植 — hook sidechannel（NEW 2026-06-12，KD-7）
+
+> Spike GO：`docs/research/2026-06-12-f230-hook-sidechannel-spike.md`——Stop hook 在 **2.1.175** 实证直接喂 `last_assistant_message` + `session_id`，entrypoint=cli。把输出面从"tail claude 的 transcript（被 2.1.172+ 关闭，靠 pin 2.1.170 续命）"换成"tail 我们用官方 hook 自造的侧信道文件"——**摆脱 pin 死锁，任意版本可用**。
+
+- 步骤 ①：补 5 待验项 spike（多轮连续性 / tool_use 中间步骤是否需 PostToolUse / usage 来源 / per-carrier settings 注入隔离 / streaming 边界确认）——Fable-5，半天
+- 步骤 ②：spec 修订（hook 桥架构细化）+ writing-plans → sonnet 实施：hook 脚本 + carrier 输出面从 transcriptDir 改 sidecar 文件（TranscriptTailer 复用，consumer 适配 hook JSON 形状）+ factory 解除 2.1.170 fail-fast（hook 线不需要 pin）——1-2 天
+- 验收：现有 smoke + stale-id + 试驾剧本在**系统 claude（2.1.17x 最新）**上全绿 = pin 依赖解除证明
+
+### Phase C: Session 生命周期 + sessionChain 接入（gated；**在 hook 形态上做——KD-7 顺序**）
 
 - 常驻 vs per-invocation 拍板（KD 记录，按 Phase A/B 实测数据）。
 - sessionChain：按 OQ-3 结果选 cliSessionId 直连（resume 不 fork）或复用 chainKey 会员卡（fork）。验收沿 F198 AC-D5 标准：N 轮 = 1 record。
@@ -256,6 +264,7 @@ in_context_observability:
 | KD-1 | Plan B 从 F198 AC-D6 升格为独立 feat F230 | CVO 明确立项指令（07:41"收敛完成这份feat 立项"）；完整 carrier 工程生命周期超出 F198"6/15 救命"使命（6/15 后持续演进）；F198 spec 已 526 行不宜再扩 | 2026-06-10 |
 | KD-2 | 双通道架构：PTY 只做输入面，输出走 transcript 旁路，ANSI 永不进事件解析 | F210 KD-12 教训（structured sidecar > screen scraping）+ F198 输出层资产 100% 复用（TranscriptTailer 实证零耦合）；当年 tmux 候选被压的"ANSI 解析脆弱"理由被结构性绕开 | 2026-06-10 |
 | KD-3 | 激活 Gate：Phase A 立即、Phase B+ gated standby | CVO 成本约束（"不然我要破产"）；~~print_sdk $200 ≈ 7 天缓冲足够 fast-track~~（**runway 假设被 KD-6 修订**，Gate 结构保留） | 2026-06-10 |
+| KD-7 | **顺序：先 B-hook（换输出面）再 Phase C（可靠性骨架），不是先可靠性再 hook** | 铲屎官 2026-06-12 08:10 提出"先做可靠性再 hook"，架构分析后反转：骨架形状由输出面决定——终态检测（Stop hook 触发=天然终态信号 vs turn_duration+静默超时）、same-dir 并发（per-session sidecar 文件=结构性消失 vs watch 抢目录要 queue/isolate）、常驻形态（Stop 每轮触发天然适配）三大件在 hook 形态下全部简化；先在 transcript 形态做可靠性 = 一半工程在换 hook 时拆掉重做（绕路）。且 pin 2.1.170 是借来的时间（已被自动清理偷袭一次），hook 越早脱离 pin 越早。两线共用件仅 sessionChain（session_id 语义一致） | 2026-06-12 |
 | KD-6 | **Phase B-min skeleton 提前到 6/15 前（不等判罚），B-full/C/D 仍 gated** | 铲屎官 burn-rate 实测（08:16）："$200我试过 因为用api 他的cached好像有点问题基本一天就没了 这个一天的意思可能是五个小时"——cache miss（invocation 间隔 > 5min TTL）下兜底两档 runway 仅小时级，<< skeleton 工期 2-3 天，正中砚砚 Design Gate P1 #1 触发条件"runway < fast-track 工期 → 提前实施 skeleton"。skeleton 成本（sonnet 2-3 天）<< 断粮尾部损失 | 2026-06-10 |
 | KD-4 | 流水线分工：Fable-5 设计/Phase spec/愿景守护，sonnet 实施，砚砚 GPT-5.5 review | CVO 钦点（07:41）；reviewer 用 5.5 不用 5.4——CVO 原话"54经常会掉球"（覆盖 reviewer_cost_routing 默认，本 feat 线内有效） | 2026-06-10 |
 | KD-5 | Phase B 先 per-invocation，常驻形态留 Phase C 评估 | 对齐现有 carrier 接口风险最小；常驻是优雅终态但生命周期管理成本未知，按实测数据拍（拒绝过度设计） | 2026-06-10 |
@@ -283,6 +292,7 @@ in_context_observability:
 | 2026-06-12（PR #2242 后续）| **🔧 P2-turn_duration 根因修复（branch `fix/f230-turn-duration-bubble`）**：PR #2242 的前端 suppress 漏了 active PTY caller——铲屎官重启 alpha 试驾蓝条仍在（发消息现 / F5 消 / 再发又现）。根因：`transcriptEntriesToAgentMessages` 把 `turn_duration` **终态信号**emit 成 `system_info` 可见气泡，前端 `INTERNAL_SYSTEM_INFO_TELEMETRY_TYPES` suppress 是 band-aid 只盖 bg-path caller，active PTY stream 的 caller 漏过滤 → 裸 JSON 蓝条。修法**对齐本表 06-12 01:31 设计意图**（"turn_duration → 不进 text 流，仅作终态信号 + telemetry"）：consumer 层直接不 emit（删 `system` 分支），恢复 bg/PTY ⇄ -p parity（-p baseline `transformClaudeEvent` 同样不 emit turn_duration）；usage 不受影响（`accumulateUsageFromEntries` 直读 `durationMs`→`done.metadata.usage.durationMs`）；前端 suppress 保留为 defense-in-depth。宪宪/Opus-4.8 实施（red→green，bg-transcript-parity + f230-pty-carrier 回归测试用真实截图 payload，132 carrier 测试全绿），砚砚 review。**已 merge：PR #2246（squash `20b0f4a96`，2026-06-12 06:56Z）— 砚砚本地 PASS + 云端 Codex CLEAN（`b6cccc04e9`）+ pnpm gate 全绿。蓝条消失待 merge 后 alpha 真实 PTY 验收。** |
 | 2026-06-12 07:1x | **🔴→✅ pin 清理风险兑现 + 结构性修复（守护）**：claude 自动更新把 `versions/2.1.170` 清掉（Risk 条目预判兑现、哨兵未建被打脸）→ alpha 启动 fail-fast crash（46 定位 startup bug 另修）。恢复链：实测 **2.1.174/175 仍不写 interactive transcript**（回归 172-175 全系持续）→ **npm registry 找回 `@anthropic-ai/claude-code@2.1.170`** → 装入防清理路径 `~/.cat-cafe/pinned-claude-2.1.170/` → probe 三件套 PASS（transcript 落盘 + needle 3 hits + entrypoint=cli×8）。**防护升级为结构性**：binary 脱离 claude 更新机制管辖 = 风险源消灭，免哨兵。Runbook 前置同步。教训：pin 外部 binary 必须放分发方触不到的路径，"原版本目录 + 哨兵"是软防护 |
 | 2026-06-12 07:57 | **✅ factory graceful fallback merged（PR #2249，squash `7e3833a3`）**：46 实施 + 砚砚 5.4 三轮 review（R1: env override existsSync + 测试紧固；R2: accessSync X_OK 补不可执行路径；R3: push back executable-but-wrong 在 invoke error path 正常收口不炸服务器，接受）+ 云端 Codex CLEAN。`resolveInteractivePtyBinary` env override 从裸 return 升级到 `accessSync(X_OK)` 全校验，factory catch → `-p` fallback + ERROR log。10/10 测试含 3 个 deterministic fallback 场景。P1-2（降级标记）defer：status endpoint 是 placeholder |
+| 2026-06-12 08:1x | **路线图收敛（KD-7）**：铲屎官问"先可靠性还是先 hook"→ 架构论证反转为 **B-hook → Phase C → B-full → Phase D**（骨架形状由输出面决定，三大可靠性难题在 hook 形态下降维）。新增 Phase B-hook 段；F198 同步 Timeline + AC-E4 补 transcript 回归问询。**拍板点（CVO）**：B-hook 实施现在开（推荐——摆脱 pin 死锁 + 6/15 前 interactive 更稳）vs 等 6/15 判罚 |
 | 2026-06-15 | OQ-13 判罚日（F198 AC-E4）→ 决定 B-full/C/D 激活与否；操作按下方 Runbook |
 
 ## 6/15 判罚日 Runbook（B-min 版）

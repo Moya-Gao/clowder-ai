@@ -380,7 +380,7 @@ binary 2.1.161 逻辑 + 实测双证，三条固定 id 路径全堵：
 - [ ] AC-E1: 6/15 后 1 周宪宪 daily invocation 数 ≥ 6/15 前 7 日平均的 80%
 - [ ] AC-E2: 无 P0/P1 regression，无 oversight 缺口投诉
 - [ ] AC-E3: 反思胶囊 + harness-feedback 落档（F086 M3 + F192）
-- [ ] AC-E4 (新 2026-06-10): **6/15 当天盯 dashboard 关 OQ-13** — Anthropic 服务端账单 / usage 仪表盘对 `--bg` 的桶归属判罚是本 feat 唯一 conclusive 证据。判进订阅桶 → `--bg` 主路径成立；判进 SDK 桶 → Plan B (AC-D6) 图纸即刻 fast-track 实施 + 主路径降级
+- [ ] AC-E4 (新 2026-06-10): **6/15 当天盯 dashboard 关 OQ-13** — Anthropic 服务端账单 / usage 仪表盘对 `--bg` 的桶归属判罚是本 feat 唯一 conclusive 证据。判进订阅桶 → `--bg` 主路径成立；判进 SDK 桶 → Plan B (AC-D6→F230) fast-track + 主路径降级。**2026-06-12 注记**：dev support 邮件除问桶归属外，捎带问 ① 自动化驱动 interactive 的 TOS 边界 ② **2.1.172+ interactive TUI 停写 transcript 是 bug 还是收紧前兆**（F230 OQ-9，影响备胎长期形态判断）
 
 ## Dependencies
 
