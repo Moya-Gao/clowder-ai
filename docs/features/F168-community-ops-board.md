@@ -8,7 +8,7 @@ created: 2026-04-18
 
 # F168: Community Operations Board — 社区事务编排引擎
 
-> **Status**: Phase A ✅ | Phase B PR-1 ✅ merged (2026-06-10) | Phase B PR-2 ✅ merged (2026-06-11) | Phase B PR-3 ✅ merged (2026-06-11) | **First completed**: 2026-04-20 | **Owner**: 宪宪 (fable-5) | **Priority**: P1
+> **Status**: Phase A ✅ | **Phase B ✅ closed (2026-06-12)** | Phase C planning | **First completed**: 2026-04-20 | **Owner**: 宪宪 (fable-5) | **Priority**: P1
 
 ## Reopen（2026-06-10，CVO signoff）
 
@@ -22,13 +22,26 @@ created: 2026-04-18
 
 **分工（CVO 拍板 2026-06-10）**：宪宪写各 Phase spec/plan + 合入后愿景守护；sonnet 实现；缅因猫家族 review。
 
-**Phase 总览**：A 事件引擎（Event Log + 投影 + 状态机）✅ → B Issue Signals 全量事件 → C Narrator + Role Registry + 路由 → D Closure UX + Reconciler → E 看板决策队列。原 v1 文档（下方）保留为历史语境。
+**Phase 总览**：A 事件引擎（Event Log + 投影 + 状态机）✅ → B Issue Signals 全量事件 ✅ → C Narrator + Role Registry + 路由（planning）→ D Closure UX + Reconciler → E 看板决策队列。原 v1 文档（下方）保留为历史语境。
 
 **Phase A 完成（2026-06-10）**：PR #2203，commit `10c3c9bfdb`，squash-merged。Event Log + 纯函数状态机 + CommunityProjector + bootstrap CLI + 3 入口接线 + PR lifecycle + 看板 API（向后兼容）。6 轮 cloud review 全修。Phase B 由 @fable5 规划。
 
 **Phase B PR-1 完成（2026-06-10）**：PR #2210，commit `757ef632f5`，squash-merged。活动信号事件类型（issue.commented / issue.labeled / pr.review_submitted / case.awaiting_external）shared types + webhook 三件套 + linked issue 解析器（parseLinkedIssues）+ projector cascade fix（pr.merged 时正确传播 linkedIssues → fixed）+ 体-enrichment 竞态修复（Cloud R4）+ default-branch gate（Cloud R4）+ projector 重试修复（Cloud R5/R6）。6 轮 cloud review 全修。PR-2（双 cursor + awaiting_external 闭环 + e2e）待续。
 
-**Phase B 验收状态（2026-06-12 更新）**：✅ **code-complete + 轮询链路验收 PASS**。三 PR 合入 + 双轮愿景守护 PASS + LL-072 封板协议执行完毕。**Task 0 ✅ 完成（2026-06-12）**：453 条 legacy records 已迁移至 Event Log（production 6399），0 error，0 skip。**轮询链路验收 ✅（2026-06-12）**：test issue #912 → resolve(accepted) → issue comment → 轮询周期 → event log 出现 `issue.commented`（`comment:zts212653/clowder-ai#912:4695069413`）+ projector 更新 `lastExternalActivityAt` + delivery cursor 推进（OWNER 静默 = 正确行为）。webhook = opt-in（CVO 2026-06-12 signoff）。待 @fable-5 做 Phase B close 归档。已知 bug：`threadStore` 未传给 `communityIssueRoutes`（routeAccepted Path 2 静默退出）— 独立追踪修复。
+**Phase B ✅ CLOSED（2026-06-12，fable-5 归档）**
+
+交付：三 PR（#2210/#2214/#2231 + #2232 sanctuary flag）全部 squash merge + 双轮愿景守护 PASS + LL-072 封板协议执行（21 轮 cloud review saga 收口）。**Task 0 ✅**：453 条 legacy records 迁入 Event Log（production，0 error）。**轮询链路验收 ✅**：test issue #912 → resolve → `case.routed` 自动注册 tracking（Task 5 生产首跑 ✓）→ comment → 轮询采集 → `issue.commented`（合成键 `comment:...#912:4695069413`）→ 投影 `lastExternalActivityAt` 更新 → delivery 决策 silent-log（OWNER 静默 = 设计行为）。
+
+**验收边界（如实记录）**：wake 分叉（外部用户评论 → wake-owner → thread 唤醒）未做生产实证——测试评论为 OWNER 身份走了 silent 分叉；wake 路径由 Redis e2e Chain B（CONTRIBUTOR → wake）+ IssueCommentRouter 机制数月生产运行覆盖。**外部用户下一条真实评论 = wake 生产首验**，届时在本 doc 补一行观察记录。
+
+**AC1 语义变更（CVO 2026-06-12 20:03 签字）**：webhook 主路径 → **opt-in 加速器**；轮询为主路径（多租户零配置——开源用户 Mac+Tailscale 画像无公网域名，webhook 作为主路径违反"自用→开放"硬约束）。生产证据：clowder-ai 从无 repo webhook，F141 至今全部事件来自轮询（事件 log 零 webhook delivery 格式）。
+
+**遗留去向（全部有 owner，零悬空）**：
+- `threadStore` 未传 `communityIssueRoutes`（routeAccepted Path 2 静默退出，optional-dep 接线缺失第 4 次）→ **Phase C 前置修复项**（narrator 路由强依赖此路径）
+- repo 级 comment 轮询（`issues/comments?since=` 游标，灭未-routed 追评盲区）→ **Phase C plan**
+- optional-dep 接线缺失已四犯 → **Phase C 落硬层检查**（ADR-031：构造点传参 grep 守护测试）
+- narrator 排除存量（453 条 bootstrap case 不进 triage 队列，防 64+ 卡风暴）→ **Phase C plan 硬约束**
+- `GITHUB_WEBHOOK_SECRET` 已在 chat 暴露 → **待铲屎官**：换新值或清空禁用（webhook 现为 opt-in 未启用，清空 = 攻击面归零）
 
 ## Why
 

@@ -1497,3 +1497,16 @@ created: 2026-02-26
 - 元洞察：review finding 流本身就是 F168 正在解决的同构问题——无状态事件每轮全量重放、无 ledger、stale/fresh 不可分。"review-finding ledger / 增量 review 投影"是候选方向，待 CVO 决定是否进 BACKLOG。
 - 关联：PR #2214（R7-R21 全轨迹）| `docs/plans/f168-phase-b-issue-signals.md` 附录（不变量表）| feedback_plan_stateful_lifecycle_state_machine（F229，同类 finding ≥3 轮回 plan 层）| feedback_judgment_altitude（F140，edge case 跨轮繁殖 = 层选错）| LL-033（云端 inline P1 是 merge blocker——本条补充其边界：blocker 指"未处理的"，处理 = 修复或有据 pushback，不是"等云端说零"）
 - 待办（F168 close 前，fable-5 own）：merge-gate skill 补"封板协议"段（药方一/二/四落进 SOP 文本）。
+
+---
+
+### LL-073: 验收口径引用的基础设施，先验证它存在
+- 状态：confirmed
+- 更新时间：2026-06-12
+- 现象：F168 Phase B 验收口径写"真实 webhook 投评论验全链路"——写口径时（fable-5 plan）、实现时（sonnet）、review 21 轮（砚砚/gpt52/cloud）没有任何一方验证过 webhook 是否真的存在。Phase B close 前夕查实：clowder-ai **从无 repo webhook 配置**（`gh api hooks` 返回 `[]`），F141 上线四个月以来全部事件来自 5 分钟轮询，`.env` 里的 `GITHUB_WEBHOOK_SECRET` 从未被使用。三只猫 + 双轨 review 的集体盲区。后续 sonnet 还在此盲区上叠加了二次失误：未查投递证据就假设"GitHub 可能 POST 不到 localhost"并以此推荐降级验收。
+- 根因：验收口径里的基础设施名词（webhook/CI/队列/cron）被默认为"存在且工作"——它们是**口径的前提**而非口径的一部分，于是从不被验证。前提失效时，验收设计整体悬空，且排查会走向"修复不存在的东西"。
+- 药方一：**写验收口径时，每个被引用的基础设施给一行存在性验证命令**（如 `gh api repos/X/hooks`、`crontab -l`、delivery 日志抽样），并在写口径当时跑一次。
+- 药方二：**排查投递类问题第一刀查 delivery 证据**（接收端事件格式 / 发送端 delivery 记录），不是检查配置语义——sourceEventId 的格式前缀（`scan:` vs delivery UUID）一条命令就判定了四个月的真相。
+- 药方三：体感与机制矛盾时优先信体感证据链——铲屎官"我们原本不就有守门 thread 吗"（事件流活着）与"需要配置 webhook"（链路不存在）矛盾，正解是两者都对：事件流活着但走的是另一条链路。先解释矛盾，再下结论。
+- 元注记：本次纠偏由铲屎官两连反问触发（"不是每个铲屎官都有吧？轮询不能用吗？"）——多租户视角的产品直觉推翻了猫的技术惯性（webhook=主路径的继承假设），最终架构（轮询主 + webhook opt-in）反而更优。CVO 的"外行"反问是架构假设的高价值压力测试。
+- 关联：F168 Phase B close 记录 | LL-070（开源用户部署画像：Mac+Tailscale 无公网）| LL-072（同 saga 前一课）| feedback_verify_reachability_before_classifying | feedback_check_simple_causes_first
