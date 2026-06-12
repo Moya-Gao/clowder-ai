@@ -15,14 +15,27 @@ export const edl = {
       id: 'S01',
       kind: 'video',
       src: 'generated-clips/S01-clip1-usable-v1.mp4',
-      trimSec: 6.0, // 原片 10s
+      trimSec: 5.0, // 原片 10s；v1.1 让 1s 给时间字卡
+      // 喜剧数学的"预期端"锚点①：任务有多小（CVO 反馈 2026-06-12：缺时间反差观众看不懂）
+      subtitles: [{ startMs: 400, endMs: 4600, text: '任务：给新来的宪宪加一张头像。（预计 5 分钟）' }],
+    },
+    {
+      id: 'TITLE-1H',
+      kind: 'title',
+      text: '一 小 时 后 。',
+      sub: '（还在跑流程）',
+      durationMs: 1500, // 预期端锚点②：时间有多久——笑点引爆器
     },
     {
       id: 'S02',
       kind: 'video',
       src: 'generated-clips/S02-i2v-v1.mp4',
       trimSec: 5.0,
-      subtitles: [{ startMs: 300, endMs: 4700, text: '砚砚：先走标准 PR 流程。' }],
+      // v1.1 改发现式对白：画面里 Landy 本来就困惑歪头，语义自动从"听讲"变"质问进度"
+      subtitles: [
+        { startMs: 200, endMs: 2100, text: 'Landy：咋还没好？？' },
+        { startMs: 2300, endMs: 4700, text: '砚砚：先走标准 PR 流程。' },
+      ],
     },
     {
       id: 'S03',
@@ -109,7 +122,7 @@ export const edl = {
 export function shotDurationMs(shot) {
   if (shot.kind === 'video') return Math.round(shot.trimSec * 1000);
   if (shot.kind === 'stills') return shot.segments.reduce((sum, seg) => sum + seg.holdMs, 0);
-  if (shot.kind === 'black') return shot.durationMs;
+  if (shot.kind === 'black' || shot.kind === 'title') return shot.durationMs;
   throw new Error(`unknown kind: ${shot.kind}`);
 }
 

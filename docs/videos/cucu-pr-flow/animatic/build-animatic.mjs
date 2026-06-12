@@ -69,6 +69,16 @@ function encodeBlackSeg(durationMs, name) {
   return seg;
 }
 
+// 默片式时间字卡：Chrome 渲染 intertitle.html → 静帧循环（喜剧"预期端"锚点，v1.1）
+function encodeTitleSeg(shot, name) {
+  const png = resolve(segsDir, `${name}.png`);
+  const url = `file://${resolve(here, 'intertitle.html')}?${new URLSearchParams({ text: shot.text, sub: shot.sub ?? '' })}`;
+  run(CHROME, ['--headless', '--disable-gpu', '--hide-scrollbars', `--window-size=${W},${H}`, `--screenshot=${png}`, '--virtual-time-budget=600', url]);
+  const seg = resolve(segsDir, `${name}.mp4`);
+  run('ffmpeg', ['-y', '-loop', '1', '-t', (shot.durationMs / 1000).toFixed(3), '-i', png, '-vf', 'format=yuv420p', ...ENC, seg]);
+  return seg;
+}
+
 function msToSrt(ms) {
   const h = String(Math.floor(ms / 3600000)).padStart(2, '0');
   const m = String(Math.floor((ms % 3600000) / 60000)).padStart(2, '0');
@@ -92,6 +102,8 @@ edl.shots.forEach((shot, i) => {
     });
   } else if (shot.kind === 'black') {
     concatLines.push(`file '${encodeBlackSeg(shot.durationMs, `seg-${String(i).padStart(2, '0')}-black`)}'`);
+  } else if (shot.kind === 'title') {
+    concatLines.push(`file '${encodeTitleSeg(shot, `seg-${String(i).padStart(2, '0')}-${shot.id}`)}'`);
   }
   console.log(`seg ${shot.id} done`);
 });

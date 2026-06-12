@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>Intertitle Card</title>
+<style>
+  /* 默片式时间字卡：黑底居中大字，Chrome 截图为静帧进剪辑轨 */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1280px; height: 720px; background: #0d0b09; overflow: hidden; }
+  body { display: flex; align-items: center; justify-content: center; }
+  .card { text-align: center; padding: 0 80px; }
+  .text {
+    font-family: "PingFang SC", "Hiragino Sans GB", serif;
+    font-size: 64px; font-weight: 700; color: #f2e9da; line-height: 1.5;
+    letter-spacing: 6px;
+  }
+  .sub {
+    margin-top: 18px; font-family: "PingFang SC", sans-serif;
+    font-size: 26px; color: #8d8576; letter-spacing: 2px;
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="text" data-field="text"></div>
+    <div class="sub" data-field="sub"></div>
+  </div>
+  <script>
+    var params = new URLSearchParams(location.search);
+    document.querySelector('[data-field="text"]').textContent = params.get('text') || '';
+    document.querySelector('[data-field="sub"]').textContent = params.get('sub') || '';
+  </script>
+</body>
+</html>
