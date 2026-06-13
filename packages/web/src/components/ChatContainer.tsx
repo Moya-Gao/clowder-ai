@@ -59,7 +59,7 @@ import { MessageNavigator } from './MessageNavigator';
 import { MobileStatusSheet } from './MobileStatusSheet';
 import { ParallelStatusBar } from './ParallelStatusBar';
 import { ProjectSetupCard } from './ProjectSetupCard';
-import { PanelTabs } from './panel/PanelTabs';
+
 import { QueuePanel } from './QueuePanel';
 import { RightStatusPanel } from './RightStatusPanel';
 import { ScrollToBottomButton } from './ScrollToBottomButton';
@@ -235,7 +235,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   }, [rightPanelMode, statusPanelOpen]);
 
   // F232 P2（云端 round 5）：显式关闭右侧 panel——先退出 workspace/transcript mode（否则上面的 auto-open
-  // effect 立即重开，关不掉），再关闭。所有 close 入口（header toggle / ResizeHandle 折叠 / PanelTabs 关闭）统一走这里。
+  // effect 立即重开，关不掉），再关闭。所有 close 入口（header toggle / ResizeHandle 折叠）统一走这里。
   const closeStatusPanel = useCallback(() => {
     closeRightPanel();
     setStatusPanelOpen(false);
@@ -863,7 +863,16 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
           onToggleViewMode={() => setViewMode(viewMode === 'single' ? 'split' : 'single')}
           onOpenMobileStatus={() => setMobileStatusOpen(true)}
           statusPanelOpen={statusPanelOpen}
-          onToggleStatusPanel={() => (statusPanelOpen ? closeStatusPanel() : setStatusPanelOpen(true))}
+          onToggleStatusPanel={() => {
+            if (statusPanelOpen) {
+              closeStatusPanel();
+            } else {
+              // closeRightPanel() 退回 'status' 防 auto-open 循环；重新打开时默认进 workspace
+              // （status/transcript 各有底部工具栏图标单独入口，不需要 PanelTabs tab 栏切换）。
+              setRightPanelMode('workspace');
+              setStatusPanelOpen(true);
+            }
+          }}
           defaultCatId={targetCats[0] || 'opus'}
         />
 
@@ -1132,12 +1141,11 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
         />
       </div>
 
-      {/* P2-2（云端 review）：右侧 panel 仅桌面渲染——RightStatusPanel/WorkspacePanel 本身 hidden lg:flex，
-          小屏渲染 wrapper 会出现 288px 空容器 + PanelTabs 挤压/溢出 chat。小屏走 MobileStatusSheet。 */}
+      {/* P2-2（云端 review）：右侧 panel 仅桌面渲染——小屏走 MobileStatusSheet。 */}
       {statusPanelOpen && isDesktop && (
         <>
-          {/* F232 AC-A8 修订：产物升为 workspaceMode 顶层入口，rightPanelMode 只剩 status/workspace/transcript。
-              status 固定宽（statusPanelWidth）；workspace/transcript 百分比（chatBasis）。 */}
+          {/* rightPanelMode：status 固定宽（statusPanelWidth）；workspace/transcript 百分比（chatBasis）。
+              mode 切换从底部工具栏图标触发（ChatVoiceFeatureControls / header toggle），面板内不再有 tab 栏。 */}
           {rightPanelMode === 'status' ? (
             <div className="hidden lg:flex">
               <ResizeHandle
@@ -1163,7 +1171,6 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
               rightPanelMode === 'status' ? { width: statusPanelWidth, flexShrink: 0 } : { flex: '1 1 0%', minWidth: 0 }
             }
           >
-            <PanelTabs mode={rightPanelMode} onSelect={setRightPanelMode} onClose={closeStatusPanel} />
             <div className="flex min-h-0 flex-1 overflow-hidden">
               {rightPanelMode === 'status' && (
                 <RightStatusPanel

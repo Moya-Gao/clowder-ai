@@ -91,10 +91,8 @@ export function ChatContainerHeader({
             />
           </svg>
         </button>
-        {/* F232 AC-A8: 单一 panel 开关（桌面 lg:block，收敛旧 ArtifactsToggle+RightPanelToggle 两按钮）；
-            4 个 mode（状态/工作区/产物/转录）切换收敛到 panel 内 PanelTabs。
-            P2-2（云端 review）：右侧 panel 是 desktop-only（panel 组件本身 hidden lg:flex），小屏走 MobileStatusSheet；
-            小屏产物入口待 MobileStatusSheet 扩展（spec AC-A8 小屏 OQ）。 */}
+        {/* F232 AC-A8: 单一 panel 开关（桌面 lg:block）；mode 切换从底部工具栏图标触发。
+            P2-2：右侧 panel desktop-only，小屏走 MobileStatusSheet。 */}
         <PanelToggle onToggleStatusPanel={onToggleStatusPanel} statusPanelOpen={statusPanelOpen} />
       </div>
     </header>
@@ -241,9 +239,8 @@ export function ThreadIndicator({ threadId }: { threadId: string }) {
 }
 
 /**
- * F232 AC-A8: 单一 panel 开关。原 F099 RightPanelToggle（status↔workspace）+ F232
- * ArtifactsToggle（artifacts↔status）两个按钮收敛成一个开关——4 个 mode 切换移到
- * panel 内 PanelTabs。桌面 lg:block——右侧 panel desktop-only（P2-2 云端 review），小屏走 MobileStatusSheet。
+ * F232 AC-A8: 单一 panel 开关。原 F099 RightPanelToggle + F232 ArtifactsToggle
+ * 收敛成一个 toggle——mode 切换从底部工具栏图标触发。桌面 lg:block，小屏走 MobileStatusSheet。
  */
 function PanelToggle({
   onToggleStatusPanel,
