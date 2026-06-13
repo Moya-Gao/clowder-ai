@@ -297,15 +297,7 @@ if (process.env.CUCU_SKIP_AUDIO === '1') {
 }
 
 // --- verify ---
-const probeDur = run('ffprobe', [
-  '-v',
-  'error',
-  '-show_entries',
-  'format=duration',
-  '-of',
-  'csv=p=0',
-  finalVideoPath,
-]);
+const probeDur = run('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', finalVideoPath]);
 const actualSec = parseFloat(probeDur.stdout.trim());
 if (Math.abs(actualSec - expectedSec) > 0.8) {
   throw new Error(`duration mismatch: expected ~${expectedSec}s got ${actualSec}s`);

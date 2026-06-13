@@ -277,6 +277,8 @@ export type {
   DeliberateSession,
   DeliberateTransition,
 } from './deliberate.js';
+// F233 Phase A: 值班简报 DTO (pure-projection aggregator output; impl stays in api)
+export type { BallEntry, BallEntryKind, DutyBriefing, DutyBriefingCounts } from './duty-briefing.js';
 // F227: Event Memory types (cognitive-transition event index)
 export {
   COGNITIVE_TRANSITIONS,

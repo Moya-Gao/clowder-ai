@@ -1,12 +1,12 @@
 #!/usr/bin/env node
+import { spawnSync } from 'node:child_process';
 // Builds the EP01 scratch sound bed: Cat Cafe TTS voice cues + procedural BGM/SFX.
 // Generated audio lives under animatic/out/audio and is intentionally not committed.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { spawnSync } from 'node:child_process';
-import { audioPlan } from './audio-plan-v0.1.mjs';
 import { edl, shotDurationMs } from '../edl-v1.mjs';
+import { audioPlan } from './audio-plan-v0.1.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const assetsDir = resolve(here, '..', '..', 'assets');

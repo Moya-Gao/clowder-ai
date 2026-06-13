@@ -916,6 +916,30 @@ async function main(): Promise<void> {
     registry,
   });
 
+  // ── F233 Phase A: 值班简报（BriefingConfigStore + route + daily cron）──
+  const { RedisBriefingConfigStore, MemoryBriefingConfigStore } = await import(
+    './domains/cats/services/duty-briefing/BriefingConfigStore.js'
+  );
+  const { getOwnerUserId: getDutyBriefingOwnerUserId } = await import('./config/cat-config-loader.js');
+  const briefingConfigStore = redis ? new RedisBriefingConfigStore(redis) : new MemoryBriefingConfigStore();
+  // f167SnapshotProvider Phase A 未接 → voidPasses 暂空（F167 锚点降级，Phase B 接）
+  const dutyBriefingCollectDeps = {
+    taskStore,
+    invocationRecordStore,
+    draftStore,
+    dynamicTaskStore,
+    threadStore,
+    messageStore,
+    userId: getDutyBriefingOwnerUserId(),
+  };
+  const { dutyBriefingRoutes } = await import('./routes/duty-briefing.js');
+  await app.register(dutyBriefingRoutes, {
+    configStore: briefingConfigStore,
+    messageStore,
+    threadStore,
+    collectDeps: dutyBriefingCollectDeps,
+  });
+
   // ── Phase G: Summary Compaction (registers into unified scheduler) ──
   if (process.env.F102_ABSTRACTIVE === 'on' && memoryServices.indexBuilder) {
     try {
@@ -3644,6 +3668,29 @@ async function main(): Promise<void> {
   };
   taskRunnerV2.register(createEvalDomainDailySpec(evalScheduleOpts));
   taskRunnerV2.register(createEvalDomainWeeklySpec(evalScheduleOpts));
+
+  // F233 Phase A: builtin daily 值班简报 cron（07:00 PT；INV-4 幂等 — 同 id 重复注册静默）
+  try {
+    const { createDutyBriefingDailySpec } = await import(
+      './domains/cats/services/duty-briefing/duty-briefing-cron-spec.js'
+    );
+    taskRunnerV2.register(
+      createDutyBriefingDailySpec({
+        collectDeps: dutyBriefingCollectDeps,
+        configStore: briefingConfigStore,
+        threadStore,
+        messageStore,
+        log: app.log,
+      }),
+    );
+    app.log.info('[api] F233: duty-briefing daily cron registered');
+  } catch (err) {
+    if (String((err as Error)?.message ?? '').includes('duplicate')) {
+      app.log.info('[api] F233: duty-briefing cron already registered (idempotent)');
+    } else {
+      throw err;
+    }
+  }
 
   // F139: Start unified scheduler (all registered specs)
   taskRunnerV2.start();
