@@ -7,6 +7,10 @@ export const audioPlan = {
   apiUrl: process.env.CAT_CAFE_API_URL ?? 'http://localhost:3002',
   userId: process.env.CAT_CAFE_USER_ID ?? 'default-user',
   voiceCatId: 'codex',
+  bgmVolume: 0.42,
+  sfxVolume: 0.9,
+  voiceVolume: 1.08,
+  sourceAudioBedVolume: 0.34,
   voiceCues: [
     {
       id: 'yy-01-not-jealous',

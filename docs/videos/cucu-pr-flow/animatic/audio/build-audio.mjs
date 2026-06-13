@@ -6,8 +6,10 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { audioPlan } from './audio-plan-v0.1.mjs';
+import { edl, shotDurationMs } from '../edl-v1.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
+const assetsDir = resolve(here, '..', '..', 'assets');
 const outDir = resolve(here, '..', 'out', 'audio');
 const voiceDir = resolve(outDir, 'voice');
 mkdirSync(voiceDir, { recursive: true });
@@ -20,6 +22,36 @@ function run(cmd, args) {
     );
   }
   return result;
+}
+
+function hasAudioStream(filePath) {
+  const result = spawnSync(
+    'ffprobe',
+    ['-v', 'error', '-select_streams', 'a:0', '-show_entries', 'stream=codec_name', '-of', 'csv=p=0', filePath],
+    { encoding: 'utf8' },
+  );
+  return result.status === 0 && result.stdout.trim().length > 0;
+}
+
+function collectSourceAudioCues() {
+  let cursorSec = 0;
+  const cues = [];
+  for (const shot of edl.shots) {
+    const durationSec = shotDurationMs(shot) / 1000;
+    if (shot.kind === 'video') {
+      const src = resolve(assetsDir, shot.src);
+      if (hasAudioStream(src)) {
+        cues.push({
+          id: shot.id,
+          src,
+          startSec: cursorSec,
+          durationSec: Math.min(shot.trimSec, durationSec),
+        });
+      }
+    }
+    cursorSec += durationSec;
+  }
+  return cues;
 }
 
 function writeWavMono16(filePath, samples, sampleRate) {
@@ -152,20 +184,36 @@ const voicePaths = [];
 for (const cue of audioPlan.voiceCues) {
   voicePaths.push(await synthesizeVoiceCue(cue));
 }
+const sourceAudioCues = collectSourceAudioCues();
 
 const args = ['-y', '-i', bgmPath, '-i', sfxPath];
 for (const path of voicePaths) args.push('-i', path);
-const filters = ['[0:a]volume=0.70[bgm]', '[1:a]volume=0.95[sfx]'];
+for (const cue of sourceAudioCues) args.push('-i', cue.src);
+const filters = [`[0:a]volume=${audioPlan.bgmVolume}[bgm]`, `[1:a]volume=${audioPlan.sfxVolume}[sfx]`];
 audioPlan.voiceCues.forEach((cue, i) => {
   const inputIndex = i + 2;
   const delayMs = Math.round(cue.startSec * 1000);
   filters.push(
-    `[${inputIndex}:a]aresample=${audioPlan.sampleRate},adelay=${delayMs}:all=1,volume=1.08[v${i}]`,
+    `[${inputIndex}:a]aresample=${audioPlan.sampleRate},adelay=${delayMs}:all=1,volume=${audioPlan.voiceVolume}[v${i}]`,
   );
 });
-const labels = ['[bgm]', '[sfx]', ...audioPlan.voiceCues.map((_, i) => `[v${i}]`)].join('');
+sourceAudioCues.forEach((cue, i) => {
+  const inputIndex = i + 2 + voicePaths.length;
+  const delayMs = Math.round(cue.startSec * 1000);
+  const trim = cue.durationSec.toFixed(3);
+  filters.push(
+    `[${inputIndex}:a]atrim=0:${trim},asetpts=PTS-STARTPTS,aresample=${audioPlan.sampleRate},` +
+      `adelay=${delayMs}:all=1,volume=${audioPlan.sourceAudioBedVolume}[src${i}]`,
+  );
+});
+const labels = [
+  '[bgm]',
+  '[sfx]',
+  ...audioPlan.voiceCues.map((_, i) => `[v${i}]`),
+  ...sourceAudioCues.map((_, i) => `[src${i}]`),
+].join('');
 filters.push(
-  `${labels}amix=inputs=${audioPlan.voiceCues.length + 2}:duration=first:normalize=0,alimiter=limit=0.95[out]`,
+  `${labels}amix=inputs=${audioPlan.voiceCues.length + sourceAudioCues.length + 2}:duration=first:normalize=0,alimiter=limit=0.95[out]`,
 );
 run('ffmpeg', [
   ...args,
@@ -182,4 +230,6 @@ run('ffmpeg', [
   mixPath,
 ]);
 
-console.log(`audio ok: ${mixPath} (${audioPlan.voiceCues.length} codex cues, ${audioPlan.sfxCues.length} sfx cues)`);
+console.log(
+  `audio ok: ${mixPath} (${audioPlan.voiceCues.length} codex cues, ${audioPlan.sfxCues.length} sfx cues, ${sourceAudioCues.length} source beds)`,
+);

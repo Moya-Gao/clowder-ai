@@ -26,7 +26,7 @@ node docs/videos/cucu-pr-flow/animatic/build-animatic.mjs
 
 v1 = 全真素材（8 视频 + 7 静帧卡 + S10 后 0.5s 黑场 + S11 true end）。builder 自动探测素材画幅：同向直通，异向 blur-pad（竖素材进横屏 = 背景模糊填充）。字幕走 Chrome 透明 PNG 条 + ffmpeg overlay 烧制（本机无 libass 的绕行，subtitle.html 渲染中文完美）。
 
-音频层（2026-06-12）由 `audio/audio-plan-v0.1.mjs` + `audio/build-audio.mjs` 生成：砚砚本猫 `codex` 声线走家里 `/api/tts/synthesize`，BGM/SFX 为本地程序化合成（无外部素材授权风险）。Landy 录音到位后作为新 stem 加入 audio plan；当前不是让 Landy 念完整字幕。若只想重渲无声视频，可临时 `CUCU_SKIP_AUDIO=1 node docs/videos/cucu-pr-flow/animatic/build-animatic.mjs`。
+音频层（2026-06-12）由 `audio/audio-plan-v0.1.mjs` + `audio/build-audio.mjs` 生成：砚砚本猫 `codex` 声线走家里 `/api/tts/synthesize`，BGM/SFX 为本地程序化合成（无外部素材授权风险），并自动把每个 i2v 源视频的原始音轨按 EDL 时间线铺成低音量环境声 bed（保留键盘声/房间声这类 diegetic texture）。Landy 录音到位后作为新 stem 加入 audio plan；当前不是让 Landy 念完整字幕。若只想重渲无声视频，可临时 `CUCU_SKIP_AUDIO=1 node docs/videos/cucu-pr-flow/animatic/build-animatic.mjs`。
 
 ⚠️ **画幅 DECISION-PENDING**：素材分裂（6 视频横屏 / 2 视频 + 8 图竖屏）。当前输出 1280×720 横屏（保 6 个主力镜头原画质）；CVO 若拍竖屏，改 `edl-v1.mjs` 的 width/height 重跑即可（builder 已参数化，pad 方向自动反转）。v0 占位卡版见 git 历史 `6693646da`。
 
@@ -38,8 +38,8 @@ v1 = 全真素材（8 视频 + 7 静帧卡 + S10 后 0.5s 黑场 + S11 true end�
 |---|---|
 | `edl-v0.mjs` | 镜头顺序/时长/字幕真相源（来自 shot-plan §2/§3） |
 | `build-animatic.mjs` | 抓帧 → 拼段 → concat → 烧字幕 → 时长校验 |
-| `audio/audio-plan-v0.1.mjs` | 音频 cue 真相源：砚砚 TTS / BGM / SFX / 后续 Landy stem 插入点 |
-| `audio/build-audio.mjs` | 调 Cat Café TTS 合成 codex 声线 + 生成程序化 BGM/SFX + ffmpeg 混音 |
+| `audio/audio-plan-v0.1.mjs` | 音频 cue 真相源：砚砚 TTS / BGM / SFX / 源视频环境声 bed 音量 / 后续 Landy stem 插入点 |
+| `audio/build-audio.mjs` | 调 Cat Café TTS 合成 codex 声线 + 生成程序化 BGM/SFX + 抽取源视频音轨 + ffmpeg 混音 |
 | `placeholder.html` | V 镜头占位卡（standalone，file:// 直开安全） |
 | `out/` | 生成产物，gitignored |
 
