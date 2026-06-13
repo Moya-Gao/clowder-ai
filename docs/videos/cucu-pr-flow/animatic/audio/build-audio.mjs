@@ -41,11 +41,17 @@ function collectSourceAudioCues() {
     if (shot.kind === 'video') {
       const src = resolve(assetsDir, shot.src);
       if (hasAudioStream(src)) {
+        const sourceDurationSec = Math.min(Number(shot.trimSec), durationSec);
+        if (!Number.isFinite(sourceDurationSec) || sourceDurationSec <= 0) {
+          throw new Error(
+            `video shot ${shot.id} has invalid source audio duration: trimSec=${shot.trimSec}, timelineDurationSec=${durationSec.toFixed(3)}`,
+          );
+        }
         cues.push({
           id: shot.id,
           src,
           startSec: cursorSec,
-          durationSec: Math.min(shot.trimSec, durationSec),
+          durationSec: sourceDurationSec,
         });
       }
     }
