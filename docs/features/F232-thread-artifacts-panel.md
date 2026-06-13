@@ -77,7 +77,7 @@ created: 2026-06-11
 - [x] **AC-A7（愿景核心 · Phase A.1）✅ merged PR #2259**: 点击产物**按类型直接查看内容**——docs/md/log/文本 复用 `FileContentRenderer`/`CodeViewer`/`MarkdownContent` 在 panel 内看正文（铲屎官 backlog 例子）、图看图、代码看 diff、语音播放、PR 打开。（trace: 铲屎官 2026-06-12 "我点击看不了他的内容" → 点产物就能看内容，不只列清单——这是 F232 的灵魂）。云端 5 轮 review 硬化：分类 allowlist 防二进制误判文本、uploads 跨域 fetch 带 credentials、workspace markdown basePath 解析相对引用。
 - [x] **AC-A8（UX 收敛 → IA 升级 · Phase A.1 + AC-A8 修订）**: ~~右侧 panel 收敛成「一个开关 + 内部 tab」（状态/工作区/产物/transcript）~~ → **铲屎官 dogfood 后拍板方向 (b)（2026-06-13）**：产物从 PanelTabs 独立 tab（"狗皮膏药"）升为 workspaceMode 顶层入口（开发/记忆/调度/任务/社区/**产物**），PanelTabs 只剩 3 tab（状态/工作区/转录）。（trace: 铲屎官 2026-06-12 "上边儿按钮太多了" + 2026-06-13 "(b) 跟开发/记忆/调度/任务/社区平级做顶层入口"）
   - **PR #2259 交付**：✅ panel 收敛成单一开关 + 内部 tab（PanelTabs）、header 去多按钮、desktop（≥1024px）产物入口可达、close 行为修复。
-  - **AC-A8 修订（in review）**：✅ 产物升为 workspaceMode 顶层入口（layers 图标 pill button）、PanelTabs 删产物 tab（4→3）、ArtifactsPanel flex 适配。
+  - **AC-A8 修订 ✅ merged PR #2278**：产物升为 workspaceMode 顶层入口（layers 图标 pill button）、PanelTabs 删产物 tab（4→3）、ArtifactsPanel flex 适配。云端 3 轮 review：R1 P1 Redis hydration whitelist + P2 mode reset 修、R2 P2 workspace search bar dev-only 修、R3 P2 race condition push back P3（pre-existing pattern）。+ F168 thread-preference 全 5 层端到端补齐。
   - **⬜ 小屏产物入口 → OQ 待 CVO**：右侧 panel desktop-only（`hidden lg:block`），小屏走 `MobileStatusSheet` 尚未含产物入口。
 
 ### Phase A.2（视频产物 panel 内播放）✅ merged PR #2269
@@ -132,7 +132,7 @@ created: 2026-06-11
 | 2026-06-12 | 铲屎官 dogfood 发现产物面板**漏视频类型**（图能看/音频能放/视频只能下载）→ 开 **Phase A.2**（AC-A9 视频 panel 内播放，跨 shared 类型层）。CVO 拍板 A.2 独立做、不塞 A.1。Phase A.1（PR #2259）含云端 2×P2 修复，待 fresh session 收尾（#4 session decoder 漂移，详见安全事件 thread + F215 提案）|
 | 2026-06-13 | **Phase A.1 merged (PR #2259)** — AC-A7 点击看内容（复用 FileContentRenderer/CodeViewer/MarkdownContent）✅ + AC-A8 panel tab 收敛 ✅。云端 5 轮 re-review 全修、0 假阳性（R1 2×P2 download路由/小屏panel · R2 P1 跨域 credentials · R3 P2 二进制误判文本 allowlist · R4 P2 markdown basePath · R5 P2 panel 关不掉 closeRightPanel）+ 砚砚封板 final review 放行（LL-072 5 轮硬上限）。**小屏产物入口收窄为 OQ 待 CVO**（云端 P2-2 desktop-only panel + MobileStatusSheet）。视觉仍待 alpha |
 | 2026-06-13 | **Phase A.2 merged (PR #2269)** — AC-A9 视频产物 panel 内播放 ✅。跨 5 层扩展（shared type / aggregator 视频识别 / classify / `<video controls>` 渲染 / 筛选图标）+ 7 新测试。local @gpt52 review（1 P1 push back accepted → approve）+ 云端 R1 2 findings（P2 mimeType 优先级 + P1 frontmatter）修复 + R2 封板（stale replay 100% 假阳性，LL-072） |
-| 2026-06-13 | **AC-A8 修订（in review）** — 铲屎官 dogfood 觉得产物 panel tab 像"狗皮膏药"，CVO 拍板 (b) 产物升为 workspaceMode 顶层入口。7 文件 +82/-36 纯前端 IA 重组：rightPanelMode 移除 artifacts / workspaceMode 新增 artifacts / PanelTabs 4→3 tab / WorkspacePanel 加产物 pill + 条件渲染 / ArtifactsPanel flex 适配 |
+| 2026-06-13 | **AC-A8 修订 merged (PR #2278)** — 铲屎官 dogfood 觉得产物 panel tab 像"狗皮膏药"，CVO 拍板 (b) 产物升为 workspaceMode 顶层入口。IA 重组 + F168 preference 全链路 + 云端 3 轮 review（R1 P1+P2 真 bug 修、R2 P2 搜索栏隔离修、R3 P2 race push back P3）。bonus: workspace search bar 限 dev mode（pre-existing 全 mode 泄漏 fix） |
 
 ## Design Gate
 
