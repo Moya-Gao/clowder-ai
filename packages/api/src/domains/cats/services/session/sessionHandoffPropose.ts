@@ -111,7 +111,7 @@ export function buildHandoffProposalCardBlock(proposal: SessionHandoffProposal):
     id: `handoff-${proposal.proposalId}`,
     kind: 'card',
     v: 1,
-    title: '🔄 提议 session 接力（封印当前 → 续接 fresh 自己）',
+    title: '提议 session 接力（封印当前 → 续接 fresh 自己）',
     bodyMarkdown: `${proposal.sourceCatId} 想在干净断点封印当前 session，把这份亲手写的交接带给续接的自己。`,
     tone: 'info',
     fields,

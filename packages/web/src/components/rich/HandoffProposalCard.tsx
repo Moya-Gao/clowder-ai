@@ -26,6 +26,36 @@ function extractProposalId(block: RichCardBlock): string | null {
 }
 
 const METADATA_LABELS = new Set(['封印 session']);
+const LEGACY_HANDOFF_TITLE_PREFIX = String.fromCodePoint(0x1f504);
+
+function displayHandoffTitle(title: string): string {
+  return title.startsWith(LEGACY_HANDOFF_TITLE_PREFIX)
+    ? title.slice(LEGACY_HANDOFF_TITLE_PREFIX.length).trimStart()
+    : title;
+}
+
+function HandoffCardIcon() {
+  return (
+    <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-conn-blue-ring bg-conn-blue-bg text-conn-blue-text">
+      <svg
+        aria-hidden="true"
+        data-testid="handoff-card-icon"
+        viewBox="0 0 24 24"
+        className="h-3.5 w-3.5"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      >
+        <path d="M7 7h9.5a3.5 3.5 0 0 1 0 7H14" />
+        <path d="m15 4 3 3-3 3" />
+        <path d="M17 17H7.5a3.5 3.5 0 0 1 0-7H10" />
+        <path d="m9 20-3-3 3-3" />
+      </svg>
+    </span>
+  );
+}
 
 function isMetadataField(field: { label: string }): boolean {
   const lower = field.label.toLowerCase();
@@ -163,6 +193,7 @@ export function HandoffProposalCard({ block }: { block: RichCardBlock; messageId
     }
     return { metadataFields: metadata, contentFields: content };
   }, [block.fields]);
+  const title = useMemo(() => displayHandoffTitle(block.title), [block.title]);
   const settled = isSettled(status);
   const presentation = statusPresentation(status);
 
@@ -179,15 +210,21 @@ export function HandoffProposalCard({ block }: { block: RichCardBlock; messageId
       className={`border bg-[var(--cafe-surface-elevated)]/80 backdrop-blur-md rounded-xl p-4 transition-all duration-300 ${presentation.card}`}
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="font-semibold text-sm text-[var(--cafe-text)] leading-snug">{block.title}</div>
-          {block.bodyMarkdown && (
-            <div className="mt-1 text-xs text-cafe-secondary leading-relaxed [&_p]:mb-1 [&_p:last-child]:mb-0">
-              <MarkdownContent content={block.bodyMarkdown} className="!text-xs" disableCommandPrefix />
-            </div>
-          )}
+        <div className="flex min-w-0 items-start gap-2">
+          <HandoffCardIcon />
+          <div className="min-w-0">
+            <div className="font-semibold text-sm text-[var(--cafe-text)] leading-snug">{title}</div>
+            {block.bodyMarkdown && (
+              <div className="mt-1 text-xs text-cafe-secondary leading-relaxed [&_p]:mb-1 [&_p:last-child]:mb-0">
+                <MarkdownContent content={block.bodyMarkdown} className="!text-xs" disableCommandPrefix />
+              </div>
+            )}
+          </div>
         </div>
-        <span className={`shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium ${presentation.badge}`}>
+        <span
+          title="F225 session handoff"
+          className={`shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium ${presentation.badge}`}
+        >
           F225
         </span>
       </div>

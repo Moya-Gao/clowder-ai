@@ -11,11 +11,13 @@ vi.mock('@/utils/api-client', () => ({
 
 Object.assign(globalThis as Record<string, unknown>, { React });
 
+const legacyHandoffTitlePrefix = String.fromCodePoint(0x1f504);
+
 const handoffBlock: RichCardBlock = {
   id: 'handoff-prop_1',
   kind: 'card',
   v: 1,
-  title: '🔄 提议 session 接力（封印当前 → 续接 fresh 自己）',
+  title: `${legacyHandoffTitlePrefix} 提议 session 接力（封印当前 → 续接 fresh 自己）`,
   bodyMarkdown: 'opus 想在干净断点封印当前 session。',
   tone: 'info',
   fields: [
@@ -73,6 +75,9 @@ describe('HandoffProposalCard (F225 P1-2 — buttons no longer inert)', () => {
 
   it('renders 五件套 fields + two real approve/reject buttons', () => {
     act(() => root.render(<HandoffProposalCard block={handoffBlock} />));
+    expect(container.textContent).toContain('提议 session 接力');
+    expect(container.textContent).not.toContain(legacyHandoffTitlePrefix);
+    expect(container.querySelector('svg[data-testid="handoff-card-icon"]')).not.toBeNull();
     expect(container.textContent).toContain('sess_1');
     expect(container.textContent).toContain('wire B');
     expect(container.querySelectorAll('button').length).toBe(2);
