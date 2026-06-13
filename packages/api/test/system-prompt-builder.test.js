@@ -2121,4 +2121,36 @@ describe('SystemPromptBuilder', () => {
       'should include escalation protocol',
     );
   });
+
+  // KD-17: marker-based instructions replace old Rule #3 (actions array output)
+  test('F229 KD-17: concierge prompt has marker instructions [跳过去 R] [原地看 R], not actions array', async () => {
+    const { buildInvocationContext } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
+    const result = buildInvocationContext({
+      catId: 'sonnet',
+      mode: 'independent',
+      teammates: [],
+      mcpAvailable: false,
+      threadId: 'thread-concierge-kd17',
+      threadKind: 'concierge',
+      conciergeConfig: {
+        enabled: true,
+        skin: 'yarn-ball',
+        displayName: '猫猫球',
+        personaTone: '温暖、简短',
+        dutyCatProfileId: 'gemini35',
+        proactivePolicy: 'quiet-badge',
+        muted: false,
+      },
+    });
+
+    // New marker instructions must be present
+    assert.ok(result.includes('[跳过去 R'), 'should contain [跳过去 R] marker instruction');
+    assert.ok(result.includes('[原地看 R'), 'should contain [原地看 R] marker instruction');
+
+    // Old Rule #3 (actions array literal) must be gone
+    assert.ok(!result.includes('{ actions: [{ action:'), 'old Rule #3 actions array literal must be removed');
+
+    // Must NOT instruct model to output structured actions payload
+    assert.ok(!result.includes('anchor-first 答案必须附 teleport+peek 双动作卡'), 'old Rule #3 text must be removed');
+  });
 });

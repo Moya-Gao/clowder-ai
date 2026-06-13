@@ -1393,6 +1393,12 @@ async function main(): Promise<void> {
   );
   const conciergeConfigStoreShared = redis ? new _RCCSEarly(redis) : new _MCCSEarly();
 
+  // F229 KD-17: HandleMap store — per-concierge-thread R1/R2→anchor mapping
+  const { RedisConciergeHandleMapStore: _RHMSEarly, MemoryConciergeHandleMapStore: _MHMSEarly } = await import(
+    './domains/concierge/ConciergeHandleMapStore.js'
+  );
+  const conciergeHandleMapStoreShared = redis ? new _RHMSEarly(redis) : new _MHMSEarly();
+
   // Shared AgentRouter — used by messagesRoutes and invocationsRoutes
   router = new AgentRouter({
     agentRegistry,
@@ -1427,6 +1433,7 @@ async function main(): Promise<void> {
     frustrationIssueStore,
     pendingRequestStore: authPendingStore,
     conciergeConfigStore: conciergeConfigStoreShared,
+    conciergeHandleMapStore: conciergeHandleMapStoreShared,
   });
 
   // F39: Message queue delivery

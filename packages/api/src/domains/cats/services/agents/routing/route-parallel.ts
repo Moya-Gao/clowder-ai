@@ -15,6 +15,8 @@ import {
 } from '../../../../../infrastructure/telemetry/genai-semconv.js';
 import { estimateTokens } from '../../../../../utils/token-counter.js';
 import { conciergeContextForCat, prepareConciergeContext } from '../../../../concierge/ConciergeRoutingInterceptor.js';
+import { extractConciergeActions } from '../../../../concierge/concierge-reply-validator.js';
+import { buildConciergeSearchContext } from '../../../../concierge/concierge-search-context.js';
 import {
   ackGuideCompletion,
   guideContextForCat,
@@ -160,6 +162,22 @@ export async function* routeParallel(
 
   // F229: Concierge interceptor — load duty-cat 岗位 context for concierge threads
   const conciergeCtx = await prepareConciergeContext(routeThread, userId, deps.invocationDeps.conciergeConfigStore);
+
+  // F229 KD-17: Pre-fetch search context for concierge threads
+  let conciergeSearchContextString = '';
+  if ('conciergeConfig' in conciergeCtx && deps.invocationDeps.conciergeHandleMapStore) {
+    try {
+      const searchResult = await buildConciergeSearchContext({
+        userMessage: message,
+        threadId,
+        handleMapStore: deps.invocationDeps.conciergeHandleMapStore,
+        evidenceStore: deps.evidenceStore,
+      });
+      conciergeSearchContextString = searchResult.contextString;
+    } catch {
+      // Fail-open
+    }
+  }
 
   // F148 OQ-2: briefing→invocation link per cat (must be before Promise.all — TDZ fix)
   const catBriefingMessageId = new Map<string, string>();
@@ -437,6 +455,11 @@ export async function* routeParallel(
         } else {
           prompt = message;
         }
+      }
+
+      // F229 KD-17: Inject search context into duty cat prompt
+      if (conciergeSearchContextString && conciergeContextForCat(conciergeCtx, catId as string)?.conciergeConfig) {
+        prompt = `${prompt}\n${conciergeSearchContextString}`;
       }
 
       // F-parallel-cancel: each concurrent cat listens to ITS OWN slot signal, not the
@@ -1043,6 +1066,36 @@ export async function* routeParallel(
             }
           } catch (voteErr) {
             log.warn({ catId: msg.catId, err: voteErr }, 'Vote interception failed');
+          }
+        }
+
+        // F229 KD-17: Post-process concierge reply — inject CardBlock actions from HandleMap markers
+        if (
+          'conciergeConfig' in conciergeCtx &&
+          conciergeContextForCat(conciergeCtx, msg.catId as string)?.conciergeConfig &&
+          deps.invocationDeps.conciergeHandleMapStore &&
+          storedContent
+        ) {
+          try {
+            const conciergeActions = await extractConciergeActions(
+              storedContent,
+              threadId,
+              deps.invocationDeps.conciergeHandleMapStore,
+            );
+            if (conciergeActions.length > 0) {
+              allRichBlocks = [
+                ...allRichBlocks,
+                {
+                  kind: 'card' as const,
+                  v: 1 as const,
+                  id: `concierge-actions-${Date.now()}`,
+                  title: '',
+                  actions: conciergeActions,
+                },
+              ];
+            }
+          } catch {
+            // Fail-open
           }
         }
 

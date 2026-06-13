@@ -534,6 +534,8 @@ export interface InvocationDeps {
   >;
   /** F229: Concierge config store for duty-cat岗位 prompt injection (optional, fail-open) */
   readonly conciergeConfigStore?: import('../../../../concierge/ConciergeConfigStore.js').IConciergeConfigStore;
+  /** F229 KD-17: HandleMap store for concierge R1/R2 short-handle → anchor mapping (optional, fail-open) */
+  readonly conciergeHandleMapStore?: import('../../../../concierge/ConciergeHandleMapStore.js').IConciergeHandleMapStore;
 }
 
 /**

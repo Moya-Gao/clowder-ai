@@ -53,6 +53,8 @@ import {
 import { detectUserMention } from '../../../../../routes/user-mention.js';
 import { estimateTokens } from '../../../../../utils/token-counter.js';
 import { conciergeContextForCat, prepareConciergeContext } from '../../../../concierge/ConciergeRoutingInterceptor.js';
+import { extractConciergeActions } from '../../../../concierge/concierge-reply-validator.js';
+import { buildConciergeSearchContext } from '../../../../concierge/concierge-search-context.js';
 import {
   ackGuideCompletion,
   guideContextForCat,
@@ -430,6 +432,22 @@ export async function* routeSerial(
   // F229: Concierge interceptor — load duty-cat 岗位 context for concierge threads
   const conciergeCtx = await prepareConciergeContext(routeThread, userId, deps.invocationDeps.conciergeConfigStore);
 
+  // F229 KD-17: Pre-fetch search context for concierge threads → HandleMap + prompt context
+  let conciergeSearchContextString = '';
+  if ('conciergeConfig' in conciergeCtx && deps.invocationDeps.conciergeHandleMapStore) {
+    try {
+      const searchResult = await buildConciergeSearchContext({
+        userMessage: message,
+        threadId,
+        handleMapStore: deps.invocationDeps.conciergeHandleMapStore,
+        evidenceStore: deps.evidenceStore,
+      });
+      conciergeSearchContextString = searchResult.contextString;
+    } catch {
+      // Fail-open: search context failure → no context injection, no crash
+    }
+  }
+
   const completedCatInvocationIds: Array<[string, string]> = [];
 
   try {
@@ -459,6 +477,11 @@ export async function* routeSerial(
       if (!incrementalMode && previousResponses.length > 0) {
         const contextParts = previousResponses.map((r) => `[${r.catId} responded: ${r.content}]`);
         prompt = `${message}\n\n${contextParts.join('\n')}`;
+      }
+
+      // F229 KD-17: Inject search context into duty cat prompt
+      if (conciergeSearchContextString && conciergeContextForCat(conciergeCtx, catId as string)?.conciergeConfig) {
+        prompt = `${prompt}\n${conciergeSearchContextString}`;
       }
 
       // Build identity: static goes in -p content (+ systemPrompt as defense-in-depth), dynamic in -p only
@@ -2134,6 +2157,36 @@ export async function* routeSerial(
         try {
           // #573: persist with the OUTER cat-cafe parentInvocationId (set by QueueProcessor)
           const persistedInvocationId = options.parentInvocationId ?? ownInvocationId;
+          // F229 KD-17: Post-process concierge reply — inject CardBlock actions from HandleMap markers
+          if (
+            'conciergeConfig' in conciergeCtx &&
+            conciergeContextForCat(conciergeCtx, catId as string)?.conciergeConfig &&
+            deps.invocationDeps.conciergeHandleMapStore &&
+            storedContent
+          ) {
+            try {
+              const conciergeActions = await extractConciergeActions(
+                storedContent,
+                threadId,
+                deps.invocationDeps.conciergeHandleMapStore,
+              );
+              if (conciergeActions.length > 0) {
+                allRichBlocks = [
+                  ...allRichBlocks,
+                  {
+                    kind: 'card' as const,
+                    v: 1 as const,
+                    id: `concierge-actions-${Date.now()}`,
+                    title: '',
+                    actions: conciergeActions,
+                  },
+                ];
+              }
+            } catch {
+              // Fail-open: action extraction failure → no actions, no crash
+            }
+          }
+
           if (!callbackAlreadyStored) {
             const storedMsg = await deps.messageStore.append({
               userId,

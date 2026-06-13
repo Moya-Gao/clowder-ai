@@ -500,6 +500,8 @@ export interface AgentRouterOptions {
   pendingRequestStore?: import('../../stores/ports/PendingRequestStore.js').IPendingRequestStore;
   /** F229: Concierge config store for duty-cat岗位 prompt injection */
   conciergeConfigStore?: import('../../../../concierge/ConciergeConfigStore.js').IConciergeConfigStore;
+  /** F229 KD-17: HandleMap store for concierge R1/R2→anchor mapping */
+  conciergeHandleMapStore?: import('../../../../concierge/ConciergeHandleMapStore.js').IConciergeHandleMapStore;
 }
 
 /**
@@ -559,6 +561,8 @@ export class AgentRouter {
   private pendingRequestStore?: import('../../stores/ports/PendingRequestStore.js').IPendingRequestStore;
   /** F229 */
   private conciergeConfigStore?: import('../../../../concierge/ConciergeConfigStore.js').IConciergeConfigStore;
+  /** F229 KD-17 */
+  private conciergeHandleMapStore?: import('../../../../concierge/ConciergeHandleMapStore.js').IConciergeHandleMapStore;
   private speechMentionRe: RegExp;
 
   /**
@@ -662,6 +666,7 @@ export class AgentRouter {
     this.frustrationIssueStore = options.frustrationIssueStore;
     this.pendingRequestStore = options.pendingRequestStore;
     this.conciergeConfigStore = options.conciergeConfigStore;
+    this.conciergeHandleMapStore = options.conciergeHandleMapStore;
   }
 
   refreshFromRegistry(agentRegistry: AgentRegistry): void {
@@ -1251,6 +1256,7 @@ export class AgentRouter {
         ...(this.guideSessionStore ? { guideSessionStore: this.guideSessionStore } : {}),
         ...(this.dismissTracker ? { dismissTracker: this.dismissTracker } : {}),
         ...(this.conciergeConfigStore ? { conciergeConfigStore: this.conciergeConfigStore } : {}),
+        ...(this.conciergeHandleMapStore ? { conciergeHandleMapStore: this.conciergeHandleMapStore } : {}),
       },
       messageStore: this.messageStore,
       deliveryCursorStore: this.deliveryCursorStore,

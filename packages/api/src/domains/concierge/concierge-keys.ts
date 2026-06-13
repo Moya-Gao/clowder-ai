@@ -16,4 +16,6 @@ export const ConciergeKeys = {
   confirmation: (confirmationId: string) => `concierge:confirm:${confirmationId}`,
   /** Set: per-user confirmation IDs (for listing) */
   confirmationIndex: (userId: string) => `concierge:confirm-idx:${userId}`,
+  /** String (JSON): per-thread handle map R1/R2→anchor (KD-17, TTL=0) */
+  handleMap: (threadId: string) => `concierge:handlemap:${threadId}`,
 } as const;
