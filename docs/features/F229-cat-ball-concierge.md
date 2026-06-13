@@ -102,6 +102,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 ### Phase E: 桌宠化 + 形象生态 + 操作演示（远期）
 
 - 桌宠动效系统（呼吸/打盹/状态表情）+ 皮肤生态（开源用户自家猫形象）
+- **素材池已开仓**：`assets/F229/desktop-pet-sprite/`（README 含 production pipeline 五步 + 砚砚验证的云端生图 prompt 模板）——缅因猫 raw sheet ×2 已入库（fbb0e8add）；v1 默认布偶猫 + 孟加拉/暹罗 sheet 待生成
 - 主动冒泡（新版本发布等白名单事件，安静优先）
 - OpenCLI 式页面操作演示（#841 终态收编：猫操作页面给用户看，操作前用户确认）
 
