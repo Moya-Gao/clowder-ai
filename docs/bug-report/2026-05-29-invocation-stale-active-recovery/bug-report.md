@@ -127,3 +127,14 @@ Thread 1 根因明确（§3.2，main 最新代码确认）、与 Thread 2 真因
 1. **测试假绿**：验证 unknown-handle/边界逻辑，输入必须真不满足前提（@ghostcat 非 @kimi），断言钉真实行为（非永真的 Array.isArray）。配 feedback_inmemory_store_tests_miss。
 2. **hold 冗余**：云端 review 已 register PR tracking = 结构化回调（决策树 2b 事件驱动），触发后直接释放靠回调，不 hold_ball 等 EYES（我犯 2 次过时 hold）。
 3. **reviewer 多轮同类边界 = 架构债投影**：6 轮 force-reset 边界全是 processingSlots 无 userId 一个债的不同投影；反复同类边界 ≥3 轮 = 停下识别根因 + 根本修留后续 ticket，不逐个补丁无限循环。
+
+## 10. Hotfix 2 周升级处置（宪宪 Opus-4.8，2026-06-13）
+
+**决定：✅ 接受永久方案（permanent）**
+
+**理由**：
+1. **2 周生产无回归** — 2026-05-30 合入后，未收到 cancel 僵死/stale 状态/force-reset 失效相关 issue 或用户报告
+2. **架构正当不是权宜** — orphan cancel 查 record 再 404、force-reset 作为逃生口、routing_warnings 透传，都是正确的长期设计而非 band-aid workaround
+3. **后续 ticket 是增强不是债务** — §9.3 的 processingSlots 加 userId 是 scope 扩展（让 force-reset 对 processing-only slot 也做 user-scoped cleanup），不是本次 hotfix 的技术债；当前靠 processingSlotTtlMs + sweepZombieSlots 自愈兜底已足够
+
+**状态**：permanent（非 hotfix 技术债，无升级必要）。
