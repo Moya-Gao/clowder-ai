@@ -2533,6 +2533,7 @@ async function main(): Promise<void> {
   await app.register(communityIssueRoutes, {
     communityIssueStore,
     taskStore,
+    threadStore, // F168 Phase C: narrator Path 2 (new-thread routing) requires threadStore
     socketManager,
     registry,
     fetchIssues: fetchIssuesForSync,
