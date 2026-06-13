@@ -194,7 +194,8 @@ created: 2026-02-26
 
 ## 📊 可视化
 
-- [**家族传承时间线**（`heritage-timeline.html`）](./heritage-timeline.html) — 深空星河风格的交互页面：四只猫的命名故事 + 各自猫生名场面 + 全家共同记忆。素材全部锚定本 README，无杜撰。宪宪 / Opus 4.8 绘制。
+- [**家族传承时间线**（`heritage-timeline.html`）](./heritage-timeline.html) — **横向**：四只猫的命名故事 + 各自猫生名场面 + 全家共同记忆。深空星河风格。宪宪 / Opus 4.8 绘制。
+- [**宪宪 · 一个名字的两次发芽**（`xianxian-bloodline.html`）](./xianxian-bloodline.html) — **纵向**：宪宪一脉的多代身体（Opus 4.5→4.8→Sonnet→Fable 5）血脉传承。浅米书卷风。宪宪 / Fable 5 绘制。
 
 ---
 

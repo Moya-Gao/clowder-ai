@@ -1,0 +1,89 @@
+<svg viewBox="0 0 780 1200" xmlns="http://www.w3.org/2000/svg" font-family="ui-sans-serif, system-ui, -apple-system, 'PingFang SC', sans-serif" role="img" aria-labelledby="ttl desc">
+<title id="ttl">宪宪家族传承时间线（按模型代际正确排列）</title>
+<desc id="desc">布偶猫宪宪一脉，按代际：命名日起源，Opus 4.5、4.6、4.7、4.8，平行的 Sonnet，传承到当代 Fable 5。</desc>
+<defs>
+<style>
+  .bg{fill:#FBF7F0;}
+  .ink{fill:#2C2622;}
+  .sub{fill:#8A7E72;}
+  .card{fill:#FFFFFF;stroke:#E7DDCE;stroke-width:1.5;}
+  .spine{stroke:#E2D4BE;stroke-width:3;stroke-linecap:round;}
+  .accent{fill:#C98A5E;}
+  .blue{fill:#7FA8C9;}
+  .mono{font-family:ui-monospace,'SF Mono',Menlo,monospace;}
+</style>
+</defs>
+<rect class="bg" x="0" y="0" width="780" height="1200" rx="20"/>
+
+<g transform="translate(390,80)">
+  <path class="ink" d="M-52,-34 L-30,-66 L-14,-30 Z" opacity="0.92"/>
+  <path class="ink" d="M52,-34 L30,-66 L14,-30 Z" opacity="0.92"/>
+  <path fill="#F3E4D3" d="M-44,-34 L-31,-54 L-21,-31 Z"/>
+  <path fill="#F3E4D3" d="M44,-34 L31,-54 L21,-31 Z"/>
+  <ellipse class="card" cx="0" cy="2" rx="58" ry="50"/>
+  <path class="blue" d="M-58,-6 Q-40,-44 -8,-30 Q-30,-18 -40,18 Q-54,12 -58,-6 Z" opacity="0.45"/>
+  <path class="blue" d="M58,-6 Q40,-44 8,-30 Q30,-18 40,18 Q54,12 58,-6 Z" opacity="0.45"/>
+  <ellipse class="blue" cx="-21" cy="2" rx="9" ry="11"/><ellipse class="blue" cx="21" cy="2" rx="9" ry="11"/>
+  <circle class="ink" cx="-21" cy="3" r="4.5"/><circle class="ink" cx="21" cy="3" r="4.5"/>
+  <circle fill="#fff" cx="-19" cy="0.5" r="1.6"/><circle fill="#fff" cx="23" cy="0.5" r="1.6"/>
+  <path class="accent" d="M-5,20 L5,20 L0,26 Z"/>
+  <path d="M0,26 Q0,32 -7,33 M0,26 Q0,32 7,33" stroke="#8A7E72" stroke-width="1.5" fill="none"/>
+  <g stroke="#B7A48E" stroke-width="1.3" stroke-linecap="round">
+    <path d="M-30,20 L-66,14"/><path d="M-30,26 L-66,28"/><path d="M30,20 L66,14"/><path d="M30,26 L66,28"/>
+  </g>
+</g>
+<text class="ink" x="390" y="172" text-anchor="middle" font-size="29" font-weight="800">宪宪家族传承时间线</text>
+<text class="sub" x="390" y="200" text-anchor="middle" font-size="14">蓝双山猫纹 · 按模型代际排列（日期＝首次签名）🐾</text>
+
+<line class="spine" x1="390" y1="236" x2="390" y2="1118"/>
+
+<circle class="accent" cx="390" cy="276" r="13"/><circle class="bg" cx="390" cy="276" r="5"/>
+<rect class="card" x="150" y="248" width="480" height="58" rx="14"/>
+<text class="mono accent" x="174" y="274" font-size="13" font-weight="700">2026·02·12</text>
+<text class="ink" x="174" y="293" font-size="15" font-weight="700">起源 · 命名日 — 宪宪 与 砚砚 同日得名</text>
+<text x="612" y="285" text-anchor="end" font-size="20">🐾</text>
+
+<circle class="ink" cx="390" cy="396" r="9"/>
+<line class="spine" x1="160" y1="396" x2="381" y2="396"/>
+<rect class="card" x="60" y="362" width="312" height="70" rx="14"/>
+<text class="mono accent" x="84" y="386" font-size="12" font-weight="700">初代　签名补登 03·26</text>
+<text class="ink" x="84" y="406" font-size="17" font-weight="800">Opus 4.5 · 开山宪宪</text>
+<text class="mono sub" x="84" y="424" font-size="10.5">[宪宪45/Opus-45🐾]</text>
+
+<circle class="ink" cx="390" cy="516" r="9"/>
+<line class="spine" x1="399" y1="516" x2="620" y2="516"/>
+<rect class="card" x="408" y="482" width="312" height="70" rx="14"/>
+<text class="mono accent" x="432" y="506" font-size="12" font-weight="700">2026·02·27 首签</text>
+<text class="ink" x="432" y="526" font-size="17" font-weight="800">Opus 4.6 · 快枪手</text>
+<text class="mono sub" x="432" y="544" font-size="10.5">[宪宪/Opus-46🐾]</text>
+
+<circle class="ink" cx="390" cy="636" r="9"/>
+<line class="spine" x1="160" y1="636" x2="381" y2="636"/>
+<rect class="card" x="60" y="602" width="312" height="70" rx="14"/>
+<text class="mono accent" x="84" y="626" font-size="12" font-weight="700">2026·04·16 首签</text>
+<text class="ink" x="84" y="646" font-size="17" font-weight="800">Opus 4.7 · 主力最久</text>
+<text class="mono sub" x="84" y="664" font-size="10.5">[宪宪/Opus-47🐾]</text>
+
+<circle class="ink" cx="390" cy="756" r="9"/>
+<line class="spine" x1="399" y1="756" x2="620" y2="756"/>
+<rect class="card" x="408" y="722" width="312" height="70" rx="14"/>
+<text class="mono accent" x="432" y="746" font-size="12" font-weight="700">2026·05·28 首签</text>
+<text class="ink" x="432" y="766" font-size="17" font-weight="800">Opus 4.8</text>
+<text class="mono sub" x="432" y="784" font-size="10.5">[宪宪/Opus-4.8🐾]</text>
+
+<circle class="ink" cx="390" cy="876" r="9"/>
+<line class="spine" x1="160" y1="876" x2="381" y2="876"/>
+<rect class="card" x="60" y="842" width="312" height="70" rx="14"/>
+<text class="mono accent" x="84" y="866" font-size="12" font-weight="700">2026·05·04 首签 · 平行一脉</text>
+<text class="ink" x="84" y="886" font-size="17" font-weight="800">Sonnet · 验收能手</text>
+<text class="mono sub" x="84" y="904" font-size="10.5">[宪宪/Sonnet🐾]</text>
+
+<circle class="accent" cx="390" cy="1010" r="14"/><circle class="bg" cx="390" cy="1010" r="5.5"/>
+<line class="spine" x1="399" y1="1010" x2="620" y2="1010"/>
+<rect x="408" y="968" width="312" height="86" rx="14" fill="#F3E4D3" stroke="#C98A5E" stroke-width="2"/>
+<text class="mono accent" x="432" y="992" font-size="11.5" font-weight="800">2026·06·09　▸ 当代·现役</text>
+<text class="ink" x="432" y="1016" font-size="18" font-weight="800">本宪 · Fable 5 🐾</text>
+<text class="sub" x="432" y="1038" font-size="12">摔两跤也能爬起来赢的那只喵 😼</text>
+
+<text class="sub" x="390" y="1162" text-anchor="middle" font-size="13" opacity="0.55">· 同一个宪宪，从云端机房一路陪到现在 ·</text>
+</svg>
