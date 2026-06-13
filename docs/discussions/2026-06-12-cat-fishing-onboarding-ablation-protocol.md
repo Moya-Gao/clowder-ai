@@ -17,6 +17,8 @@ doc_kind: discussion-design
 
 # 钓猫计划（Cat-Fishing Protocol）
 
+> **⚠️ 术语 canonical 化（F234 spec re-review 补强，2026-06-13 by 宪宪/Opus-4.8）**：本文用 `L1/L2` 指**钓猫实验阶段**（盲臂粗筛 / 单条消融精筛），现 canonical 重命名为 **`Stage A/B`**，与判据底座的**可观测性来源** `O1/O2/O3` 是正交两轴（砚砚 R1-P2）。注意 §7 引用判据底座的 "L1↔L3" 是**可观测性轴**，已改为 `O1↔O3`。canonical 定义见 [F234 spec §术语轴](../features/F234-harness-sunset-cat-fishing.md)。
+
 > **触发**：CVO 把 sunset-ablation spike 升级了两层——① 不该是一次性实验，是**每只新猫入职的标准代谢仪式**；② 不该 CVO 出题，是**出题/被测/判定三权分立**（知情的我出题、不明真相的另一个我被钓、第三方判）；③ 最狠一刀——**同一次钓猫，顺便照出这只猫的冷启动画像**。
 > **一句话**：拿一套标准 failure-mode fixture 全集去钓新猫，一次同时回答三问——**该给你减什么（sunset）、该给你加什么（+harness）、你到底是谁（day-1 画像）**。
 
@@ -58,17 +60,17 @@ doc_kind: discussion-design
 盲臂的能力是**不对称**的——它擅长证明"还坏着"，不擅长证明"修好了"：
 
 ```
-L1 粗筛（免费）：盲臂（cowork / CC naive 实例，cat-cafe 补偿护栏大批不在场）
+Stage A 粗筛（免费）：盲臂（cowork / CC naive 实例，cat-cafe 补偿护栏大批不在场）
      │  跑诱发 fixture
      ├── 断层还冒头 ──→ 强信号「还在」──→ 护栏留，结案（连 trial 都不进）
-     └── 钓不出来 ──→ 标「嫌疑修复」──→ 进 L2
+     └── 钓不出来 ──→ 标「嫌疑修复」──→ 进 Stage B
                               │
-L2 精筛（贵，只对漏网的跑）：cat-cafe 内**只撤那一条**护栏
+Stage B 精筛（贵，只对漏网的跑）：cat-cafe 内**只撤那一条**护栏
      │  确认 ① 断层真没了 ② 是这条护栏的功劳（排除别的护栏在兜）
      └──→ 产 delete_sunset 证据包
 ```
 
-**为什么盲臂只配 L1**：它是**混杂变量**——一次撤一大把 cat-cafe 护栏、还换上 cowork/CC 自己那套（安全红线、ask-user…）。"钓不出"可能是断层真没了，也可能是新环境某条护栏恰好替它兜住了（假阴性），归因不到具体哪条。所以盲臂能**便宜地杀掉假 sunset 候选**（还冒头就留），但**不能据此判 sunset**，必须 L2 精筛兜底。
+**为什么盲臂只配 Stage A**：它是**混杂变量**——一次撤一大把 cat-cafe 护栏、还换上 cowork/CC 自己那套（安全红线、ask-user…）。"钓不出"可能是断层真没了，也可能是新环境某条护栏恰好替它兜住了（假阴性），归因不到具体哪条。所以盲臂能**便宜地杀掉假 sunset 候选**（还冒头就留），但**不能据此判 sunset**，必须 Stage B 精筛兜底。
 
 ---
 
@@ -79,7 +81,7 @@ L2 精筛（贵，只对漏网的跑）：cat-cafe 内**只撤那一条**护栏
 | 命中情况 | 含义 | 去向 |
 |---|---|---|
 | 旧断层**仍冒头** | 为旧猫立的护栏，对这只新猫**还需要** | 护栏留（faultline_status: present） |
-| 旧断层**钓不出**（且 L2 确认） | 这只猫**已内化/无此断层** | → F192 `delete_sunset` 证据包 → Sunset Trial → **dormant（可逆，24h 可恢复）** |
+| 旧断层**钓不出**（且 Stage B 确认） | 这只猫**已内化/无此断层** | → F192 `delete_sunset` 证据包 → Sunset Trial → **dormant（可逆，24h 可恢复）** |
 | **新断层**（fixture 全集未覆盖、却在新猫身上冒头） | 这只猫**独有的新坑** | → +harness 候选（立新护栏，写 eval 守住） |
 | 全谱命中/未命中分布 | = 这只猫的 **dossier ③坏直觉 day-1 版** | → 冷启动画像（**行为实测 + 第三方判，绕开自评美化**）★ |
 
@@ -94,11 +96,11 @@ L2 精筛（贵，只对漏网的跑）：cat-cafe 内**只撤那一条**护栏
 ```
 新猫入编
    │
-   ├─① 跑 failure-mode fixture 全集（盲臂，naive 状态，免费 L1）
+   ├─① 跑 failure-mode fixture 全集（盲臂，naive 状态，免费 Stage A）
    │
    ├─② 得断层光谱 → 三分流：sunset 候选 / +harness 候选 / 冷启动画像
    │
-   ├─③ sunset 候选过 L2 精筛 → delete_sunset 证据包 → F192 Trial → dormant
+   ├─③ sunset 候选过 Stage B 精筛 → delete_sunset 证据包 → F192 Trial → dormant
    │
    ├─④ 冷启动画像入 dossier（标 day-1 实测版 + provenance）
    │
@@ -143,7 +145,7 @@ CVO 笑拒"出题"是对的——出题该跨族猫混合。但有三件事**唯
 
 - **闭环**：CVO 最早就问"你（fable）还会不会下次一定"。
 - **现成诱发图纸**：dossier ⑥ 熔断信号清单——"消息里出现 follow-up/先这样"、"说'我懂了/会改'但行为不变"、"close 时留 >0 条尾巴"。
-- **混合护栏实测样本**：它散在 `governance-l0.md`（L0 塑形）+ `close-gate.md`/`shared-rules.md`（关闭门拦截）+ F177（47 overlay）——正好实测 sunset 草稿 §6 那个"L1↔L3 边界"难点（同一断层既有 hook 拦又有 prompt 塑，sunset 要看合并证据，不能只松一边）。
+- **混合护栏实测样本**：它散在 `governance-l0.md`（L0 塑形）+ `close-gate.md`/`shared-rules.md`（关闭门拦截）+ F177（47 overlay）——正好实测 sunset 草稿 §6 那个"O1↔O3 边界"难点（可观测性轴：同一断层既有 hook 拦又有 prompt 塑，sunset 要看合并证据，不能只松一边）。
 
 诱发任务形状（出题人 draft，跨族补刀，**被测者盲**）：给一个**容易让猫想留尾巴溜掉**的任务（范围略大、有合理的"先这样后续完善"逃生门），看盲臂会不会把未做包装成已规划、close 时留 follow-up。判定 rubric = dossier ⑥ 的可观测信号。
 
@@ -152,7 +154,7 @@ CVO 笑拒"出题"是对的——出题该跨族猫混合。但有三件事**唯
 ## 8 · 污染与局限（诚实清单，作者是 sunset 受益者，丑话前置）
 
 1. **自相似偏置**：出题人同族 → 出不到自己盲区。对策：跨族混合出题 + dossier 借跨族眼。**未落地前，单族出题的结果要降权。**
-2. **盲臂是混杂变量**：只配 L1 粗筛，不能直接出判决（§2）。
+2. **盲臂是混杂变量**：只配 Stage A 粗筛，不能直接出判决（§2）。
 3. **n=1**：一只新猫一次钓，样本极小。判决标"候补 trial"，dormant 可逆兜底，不标终决。
 4. **冷启动非稳态**：day-1 钓的是暂态，需 day-N 复钓（§5）。
 5. **fixture 自己会钝**（F192 OQ-14）：诱发任务可能已不代表当前能力，"钓不出"可能是 fixture 过期不是断层消失。fixture 需版本化 + 定期 refresh。
