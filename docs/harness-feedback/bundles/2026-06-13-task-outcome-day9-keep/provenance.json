@@ -1,0 +1,15 @@
+{
+  "verdictId": "2026-06-13-task-outcome-day9-keep",
+  "rawInputs": [
+    {
+      "path": "docs/harness-feedback/bundles/2026-06-13-task-outcome-day9-keep/raw/episodes.json",
+      "sha256": "11f1becd70da90f5d4036b0e01bba6ef2491b4789f2075862de0932b1db99c24"
+    }
+  ],
+  "generatedAt": "2026-06-13T03:01:35.925Z",
+  "generator": {
+    "name": "eval-task-outcome-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f192-task-outcome-v1"
+}

@@ -1,0 +1,36 @@
+{
+  "verdictId": "2026-06-13-task-outcome-day9-keep",
+  "featureId": "F192",
+  "evalSnapshotId": "eval-F192-2026-06-13",
+  "generatedAt": "2026-06-13T03:01:35.925Z",
+  "findings": [
+    {
+      "id": "TO-2026-06-13-open-window",
+      "relatedFeature": "F192",
+      "frictionSignal": {
+        "type": "task_outcome.in_progress_total",
+        "severity": "low",
+        "confidence": 0.8,
+        "detectedAt": "2026-06-13T03:01:35.925Z"
+      },
+      "attribution": {
+        "primaryLayer": "needs_investigation",
+        "evidence": [
+          {
+            "type": "counter",
+            "anchor": "Phase-G-v0/in_progress_total",
+            "excerpt": "1 episode(s) are still in progress inside the selected window"
+          }
+        ]
+      },
+      "proposedAction": [
+        {
+          "action": "inspect-open-window",
+          "target": "F192/Phase-G-v0",
+          "rationale": "Open episodes in the selected window need manual review before verdict writeback exists."
+        }
+      ],
+      "status": "open"
+    }
+  ]
+}
