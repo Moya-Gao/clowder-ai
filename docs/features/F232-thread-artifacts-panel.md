@@ -8,7 +8,7 @@ created: 2026-06-11
 
 # F232: Thread Artifacts Panel — Thread 产物视图
 
-> **Status**: in-progress（Phase A 首版 merged PR #2247；**Phase A.1：AC-A7 点击查看内容 + AC-A8 UX 收敛 = 愿景核心补强**，PR #2259 待 fresh session 收尾；**Phase A.2 待做：AC-A9 视频产物 panel 内播放**；视觉待 alpha；Phase B 未启动）| **Owner**: 宪宪 Opus-4.8 | **Priority**: P1
+> **Status**: in-progress（Phase A 首版 merged PR #2247；**Phase A.1 merged PR #2259：AC-A7 点击查看内容 ✅ + AC-A8 panel tab 收敛 ✅（小屏产物入口收窄为 OQ 待 CVO）= 愿景核心补强**；**Phase A.2 待做：AC-A9 视频产物 panel 内播放**；视觉待 alpha；Phase B 未启动）| **Owner**: 宪宪 Opus-4.8 | **Priority**: P1
 
 ## Why
 
@@ -74,8 +74,10 @@ created: 2026-06-11
   - **opus-47 愿景守护独立发现（alpha 前应补，复用现有 utility ≤30 行）**：① 时间维度缺失—`createdAt` 在 DTO 有但 UI 未渲染相对时间（mockup "刚刚/1小时前/昨天"）；② `catId` 显示原始字符串（如 "opus-47"）未复用项目昵称映射 utility（MessageNavigator/ThreadItem/SessionEventsViewer 已有）。
   - **其他 mockup-vs-实现 gap（入 Phase A.1 / 随 Phase B）**：PR 状态显示丢失（`task.status` 未透传，mockup "已合入"绿勾）、类型化 action（audio「播放」/diff「查看 diff」mockup 有，实现统一「打开」）、Phase B footer 入口未占位。
 - [x] AC-A6: 聚合查询有 **Redis-backed 测试**覆盖（in-memory store 测不到索引/分页差异，LL `feedback_inmemory_store_tests_miss_redis_behavior`）。
-- [ ] **AC-A7（愿景核心 · Phase A.1）**: 点击产物**按类型直接查看内容**——docs/md/log/文本 复用 `FileContentRenderer` 在 panel 内看正文（铲屎官 backlog 例子）、图看图、代码看 diff、语音播放、PR 打开。（trace: 铲屎官 2026-06-12 "我点击看不了他的内容" → 点产物就能看内容，不只列清单——这是 F232 的灵魂）
+- [x] **AC-A7（愿景核心 · Phase A.1）✅ merged PR #2259**: 点击产物**按类型直接查看内容**——docs/md/log/文本 复用 `FileContentRenderer`/`CodeViewer`/`MarkdownContent` 在 panel 内看正文（铲屎官 backlog 例子）、图看图、代码看 diff、语音播放、PR 打开。（trace: 铲屎官 2026-06-12 "我点击看不了他的内容" → 点产物就能看内容，不只列清单——这是 F232 的灵魂）。云端 5 轮 review 硬化：分类 allowlist 防二进制误判文本、uploads 跨域 fetch 带 credentials、workspace markdown basePath 解析相对引用。
 - [ ] **AC-A8（UX 收敛 · Phase A.1）**: 右侧 panel 收敛成「一个开关 + 内部 tab」（状态/工作区/产物/transcript），header 不为每个 mode 堆按钮；产物入口在 ≥1024px 与小屏均可达（修当前 `hidden lg:block` 致小屏无 fallback 入口）。（trace: 铲屎官 2026-06-12 "上边儿按钮太多了"）
+  - **PR #2259 交付**：✅ panel 收敛成单一开关 + 内部 tab（PanelTabs）、header 去多按钮、desktop（≥1024px）产物入口可达、close 行为修复（workspace/transcript 退 status 不被 auto-open 重开）。
+  - **⬜ 小屏产物入口未交付 → OQ 待 CVO**：云端 P2-2 把右侧 panel 收窄为 desktop-only（`hidden lg:block`），小屏走 `MobileStatusSheet`——但 MobileStatusSheet 尚未含产物入口，故原「小屏直达产物」目标未达。merge 后碰头铲屎官定：扩展 MobileStatusSheet 含产物 / 接受 desktop-only / 其他。**未 CVO signoff 前 AC-A8 不勾。**
 
 ### Phase A.2（视频产物 panel 内播放 — 待做）
 - [ ] **AC-A9**: 视频产物点击在 panel 内播放（`<video controls>`），不再只「下载」。跨层改动：shared `ThreadArtifactType` 加 `'video'` + aggregator 识别视频源 + `classifyArtifactView` video 分支 + `ArtifactDetailView` video 渲染 + 类型筛选/图标补 video。有 test 覆盖（classify 纯函数 + 渲染）。（trace: 铲屎官 2026-06-12 "忘记考虑视频之类的东西了" → 图/音/视频在 panel 内查看能力对齐 AC-A7 愿景）
@@ -126,6 +128,7 @@ created: 2026-06-11
 | 2026-06-12 | opus-47 Phase A 愿景守护放行（三问✅：核心价值/无 scope 蔓延/Phase B 方向对）。reviewer 独立发现 AC-A5 视觉 gap（时间维度 + catId 昵称映射，alpha 前应补）+ 其他 gap 入 Phase A.1/B。Phase A 闭环 |
 | 2026-06-12 | 铲屎官 dogfood 澄清**核心愿景**：产物 = **点击看内容**（复用 workspace `FileContentRenderer`），非只列清单。Phase A 首版丢了这核心 → spec 更新 Why/What + 新增 AC-A7（内容查看）/AC-A8（UX 收敛·panel tab·小屏入口）+ KD-4，列入 Phase A.1 |
 | 2026-06-12 | 铲屎官 dogfood 发现产物面板**漏视频类型**（图能看/音频能放/视频只能下载）→ 开 **Phase A.2**（AC-A9 视频 panel 内播放，跨 shared 类型层）。CVO 拍板 A.2 独立做、不塞 A.1。Phase A.1（PR #2259）含云端 2×P2 修复，待 fresh session 收尾（#4 session decoder 漂移，详见安全事件 thread + F215 提案）|
+| 2026-06-13 | **Phase A.1 merged (PR #2259)** — AC-A7 点击看内容（复用 FileContentRenderer/CodeViewer/MarkdownContent）✅ + AC-A8 panel tab 收敛 ✅。云端 5 轮 re-review 全修、0 假阳性（R1 2×P2 download路由/小屏panel · R2 P1 跨域 credentials · R3 P2 二进制误判文本 allowlist · R4 P2 markdown basePath · R5 P2 panel 关不掉 closeRightPanel）+ 砚砚封板 final review 放行（LL-072 5 轮硬上限）。**小屏产物入口收窄为 OQ 待 CVO**（云端 P2-2 desktop-only panel + MobileStatusSheet）。视觉仍待 alpha |
 
 ## Design Gate
 
