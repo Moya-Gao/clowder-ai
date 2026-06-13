@@ -668,20 +668,9 @@ export function consumeBackgroundSystemInfo(
       }
       consumed = true;
     } else if (parsed?.type === 'context_briefing') {
-      const storedMessage = parsed.storedMessage as
-        | { id: string; content: string; origin: string; timestamp: number; extra?: Record<string, unknown> }
-        | undefined;
-      if (storedMessage?.id) {
-        options.store.addMessageToThread(msg.threadId, {
-          id: storedMessage.id,
-          type: 'system',
-          content: storedMessage.content ?? '',
-          origin: (storedMessage.origin as 'briefing') ?? 'briefing',
-          timestamp: storedMessage.timestamp ?? Date.now(),
-          ...(storedMessage.extra ? { extra: storedMessage.extra } : {}),
-        });
-        consumed = true;
-      }
+      // Suppress: internal routing context for cats, not user-facing timeline.
+      // The briefing is already persisted in messageStore for cat context assembly.
+      consumed = true;
     } else if (parsed?.type === 'context_health') {
       const targetCatId = parsed.catId ?? msg.catId;
       options.store.setThreadCatInvocation(msg.threadId, targetCatId, {
@@ -4535,20 +4524,7 @@ export function useAgentMessages() {
             }
             consumed = true;
           } else if (parsed?.type === 'context_briefing') {
-            // F148 Phase E: Insert briefing card into chat store for immediate display
-            const sm = parsed.storedMessage as
-              | { id: string; content: string; origin: string; timestamp: number; extra?: Record<string, unknown> }
-              | undefined;
-            if (sm?.id) {
-              addMessage({
-                id: sm.id,
-                type: 'system',
-                content: sm.content ?? '',
-                origin: (sm.origin as 'briefing') ?? 'briefing',
-                timestamp: sm.timestamp ?? Date.now(),
-                ...(sm.extra ? { extra: sm.extra } : {}),
-              });
-            }
+            // Suppress: internal routing context for cats, not user-facing timeline.
             consumed = true;
           } else if (parsed?.type === 'context_health') {
             // F24: Store context health silently

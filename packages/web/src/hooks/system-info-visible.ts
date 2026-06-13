@@ -11,6 +11,8 @@ const INTERNAL_SYSTEM_INFO_TELEMETRY_TYPES = new Set([
   'strategy_allow_compress',
   'tool_activity',
   'turn_duration', // F230 P2: PTY carrier terminal event — silently consumed, never shown as bubble
+  'silent_completion', // Internal diagnostic — cat completed without text; noise for users
+  'context_briefing', // F148: Internal routing context for cats, not user-facing
 ]);
 
 export function isInternalSystemInfoTelemetry(parsed: Record<string, unknown>): boolean {

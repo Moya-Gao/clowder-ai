@@ -707,8 +707,8 @@ describe('background thread socket handling', () => {
     });
   });
 
-  describe('F148: context briefing system_info', () => {
-    it('stores the briefing card message instead of a raw JSON system bubble', () => {
+  describe('F148: context briefing system_info — suppressed from user timeline', () => {
+    it('suppresses context_briefing from user timeline (internal routing context for cats)', () => {
       const now = Date.now();
 
       simulateBackgroundMessage({
@@ -743,57 +743,32 @@ describe('background thread socket handling', () => {
       });
 
       const ts = useChatStore.getState().getThreadState('thread-bg');
-      expect(ts.messages).toEqual([
-        expect.objectContaining({
-          id: 'briefing-msg-1',
-          type: 'system',
-          content: '看到 13 条 · 省略 8 条 · 锚点 3 条 · 记忆 5 sessions · 证据 3 条',
-          origin: 'briefing',
-          extra: {
-            rich: {
-              v: 1,
-              blocks: [
-                expect.objectContaining({
-                  id: 'briefing-1',
-                  kind: 'card',
-                  title: '看到 13 条 · 省略 8 条 · 锚点 3 条 · 记忆 5 sessions · 证据 3 条',
-                }),
-              ],
-            },
-          },
-        }),
-      ]);
+      // Briefing is consumed silently — no message added to user-facing store
+      expect(ts.messages).toHaveLength(0);
     });
 
-    it('falls back to the raw system message when briefing payload is incomplete', () => {
+    it('also suppresses incomplete briefing payloads (no id) from user timeline', () => {
       const now = Date.now();
-      const rawBriefing = JSON.stringify({
-        type: 'context_briefing',
-        messageId: 'briefing-msg-2',
-        storedMessage: {
-          content: 'briefing without id should not be swallowed',
-          origin: 'briefing',
-          timestamp: now,
-        },
-      });
 
       simulateBackgroundMessage({
         type: 'system_info',
         catId: 'opus',
         threadId: 'thread-bg',
-        content: rawBriefing,
+        content: JSON.stringify({
+          type: 'context_briefing',
+          messageId: 'briefing-msg-2',
+          storedMessage: {
+            content: 'briefing without id should not be swallowed',
+            origin: 'briefing',
+            timestamp: now,
+          },
+        }),
         timestamp: now,
       });
 
       const ts = useChatStore.getState().getThreadState('thread-bg');
-      expect(ts.messages).toHaveLength(1);
-      expect(ts.messages[0]).toEqual(
-        expect.objectContaining({
-          type: 'system',
-          content: rawBriefing,
-          variant: 'info',
-        }),
-      );
+      // Even incomplete briefing payloads are suppressed — they are internal routing context
+      expect(ts.messages).toHaveLength(0);
     });
   });
 
