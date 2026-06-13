@@ -1,12 +1,22 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { describe, it } from 'node:test';
 import { buildWindowsStatus, resolveWindowsStatusPorts } from './lib/platform-status.mjs';
 
 const ROOT = resolve(process.cwd());
+const localRequire = createRequire(import.meta.url);
+
+function resolvePackageBin(packageName) {
+  const pkgPath = localRequire.resolve(`${packageName}/package.json`);
+  const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
+  const bin = typeof pkg.bin === 'string' ? pkg.bin : pkg.bin?.[packageName];
+  assert.equal(typeof bin, 'string', `${packageName} package.json must declare a bin entry`);
+  return resolve(dirname(pkgPath), bin);
+}
 
 function createSandbox(envFile = '') {
   const dir = mkdtempSync(join(tmpdir(), 'cc-start-dev-profile-'));
@@ -229,6 +239,28 @@ describe('start-dev strict profile isolation', () => {
     } finally {
       rmSync(sandboxDir, { recursive: true, force: true });
     }
+  });
+
+  it('keeps API dev watcher away from build artifacts', () => {
+    const pkg = JSON.parse(readFileSync(resolve(ROOT, 'packages/api/package.json'), 'utf8'));
+    const devScript = pkg.scripts.dev;
+
+    assert.match(devScript, /\btsx watch\b/, devScript);
+    assert.match(devScript, /--exclude "dist\/\*\*"/, devScript);
+    assert.match(devScript, /--exclude "\.\.\/shared\/dist\/\*\*"/, devScript);
+
+    const help = spawnSync(process.execPath, [resolvePackageBin('tsx'), 'watch', '--help'], {
+      cwd: resolve(ROOT, 'packages/api'),
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        PATH: '',
+      },
+    });
+    assert.equal(help.status, 0, help.error?.message || help.stderr || help.stdout);
+    const helpText = `${help.stdout}\n${help.stderr}`;
+    assert.match(helpText, /--exclude <string>/);
+    assert.match(helpText, /--ignore <string>.*Deprecated: use --exclude/);
   });
 
   it('marks opensource profile API launches WITHOUT --prod-web as NODE_ENV=development (dev:direct path)', () => {
