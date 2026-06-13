@@ -100,11 +100,11 @@ created: 2026-06-12
 <!-- 每条 AC trace 回 Why；非作者可复核 -->
 
 ### Phase A（值班简报 MVP）
-- [ ] AC-A1: 简报对真实 runtime 数据运行，能暴露 ≥1 件 CVO 自报不知道的掉球（fixture：2026-06-12 spike 三球同型——30 天睡美人【task 面，结构化】/ 死球断流【invocation 终态，结构化】/ 虚空传球【F167+F177-G 事件，结构化】——三型 fixture 均不依赖 mention 启发式，Phase A 可达性已钉）→ trace Why"掉球不可观测"
-- [ ] AC-A2: 正常推进的球不出现在简报正文，仅计数一行（用当日真实数据截图复核）→ trace Why"放心不看"
-- [ ] AC-A3: CVO 候选球区每条含晾龄并降序排列、带可跳转锚点；启发式候选条目显式标注"推断"来源，与结构化条目视觉可区分 → trace Why"CVO 没有收件箱" + gpt52 R1 数据分级
-- [ ] AC-A4: 简报默认态正文 ≤15 行（10 秒可读完，CVO 判断"要不要介入"）→ trace Why"看的时候只看异常"
-- [ ] AC-A5: 简报生成全程只读，零写副作用（代码 review 复核数据访问面）→ trace KD-4
+- [x] AC-A1: 简报对真实 runtime 数据运行，能暴露 ≥1 件 CVO 自报不知道的掉球（fixture：2026-06-12 spike 三球同型——30 天睡美人【task 面，结构化】/ 死球断流【invocation 终态，结构化】/ 虚空传球【F167+F177-G 事件，结构化】——三型 fixture 均不依赖 mention 启发式，Phase A 可达性已钉）→ trace Why"掉球不可观测"
+- [x] AC-A2: 正常推进的球不出现在简报正文，仅计数一行（用当日真实数据截图复核）→ trace Why"放心不看"
+- [x] AC-A3: CVO 候选球区每条含晾龄并降序排列、带可跳转锚点；启发式候选条目显式标注"推断"来源，与结构化条目视觉可区分 → trace Why"CVO 没有收件箱" + gpt52 R1 数据分级
+- [x] AC-A4: 简报默认态正文 ≤15 行（10 秒可读完，CVO 判断"要不要介入"）→ trace Why"看的时候只看异常"
+- [x] AC-A5: 简报生成全程只读，零写副作用（代码 review 复核数据访问面）→ trace KD-4
 
 ### Phase B（结构化回执）
 - [ ] AC-B1: 复现"invocation 中途死亡"（测试环境模拟），死球在下一次简报被点名，含最后扫描点
@@ -181,10 +181,12 @@ created: 2026-06-12
 |------|------|
 | 2026-06-12 | 立项（CVO 原话 "我觉得可以！走起！喵" + "① 立项"）；spike 实测三暗球 + 唤醒 30 天睡美人球（cross_post 砚砚 msg 0001781247508616） |
 | 2026-06-12 | gpt52 spec R1 blocking ×2 → 修正：① Phase A 数据源按可靠性分级（mention 面无 intent 字段只产候选，"收件箱"转正条件 = Phase B intent 落地）② KD-2 单账本钉时间边界（事件流向前 / stitched 回填向后，标 provenance）。睡美人球后续：砚砚探针确认 handler 已就绪，task blocked reason 已更新为"等公网 ingress 或 CVO 决定走 reconciliation"——新 CVO 决策球一颗 |
+| 2026-06-13 | Phase A 经本地 reviewer（opus-47）final continuity 放行后，通过 PR [#2262](https://github.com/zts212653/cat-cafe/pull/2262) squash merge 到 `main`（merge commit `ed2d8c697f2b0be618344e0985ae5998eb818b27`）；收尾 blocker 仅为 `packages/api/test/duty-briefing-collect.test.js` 的 biome 格式化，已在 `90cca39ef` 清空 |
 
 ## Review Gate
 
 - Spec/Design Gate: ✅ gpt52 R1 blocking×2 → 修复 → APPROVE（`133ff0cd6`）；UI/UX CVO 确认 ✅（无按钮简报卡 + 地铁图隐喻 + OQ-1，2026-06-12）
+- Phase A merge gate: ✅ local peer review continuity 覆盖最终合入 SHA（opus-47 @ `90cca39ef`）→ PR [#2262](https://github.com/zts212653/cat-cafe/pull/2262) squash merged；cloud review 多轮 COMMENTED finding 已全部清空，终局以本地有状态 reviewer final-SHA enforce 收口
 - **分工（CVO 拍板 2026-06-12，协作实验：fable×48）**：plan + Phase 末守护 = fable-5；coder = opus-48；reviewer = 缅因猫（R1 起 gpt52 保持连续性，关键节点按需升 codex）；每 Phase 循环：fable plan → 48 实现 → 缅因 review → merge → fable 守护 + 写下一 Phase plan
 - Phase B 状态机: plan 必须含状态转移表 + 不变量 + 对抗场景（crash/并发/restore），按 F229 PR-A1 教训前置
 
