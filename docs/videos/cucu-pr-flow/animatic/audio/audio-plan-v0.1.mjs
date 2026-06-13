@@ -7,10 +7,14 @@ export const audioPlan = {
   apiUrl: process.env.CAT_CAFE_API_URL ?? 'http://localhost:3002',
   userId: process.env.CAT_CAFE_USER_ID ?? 'default-user',
   voiceCatId: 'codex',
-  bgmVolume: 0.42,
+  bgmVolume: 0.3,
   sfxVolume: 0.9,
   voiceVolume: 1.08,
-  sourceAudioBedVolume: 0.34,
+  sourceAudioBedVolume: 0.28,
+  sourceAudioPolicies: {
+    S00: { mode: 'skip', reason: 'source clip contains off-timeline Landy dialogue' },
+    S01: { mode: 'skip', reason: 'source clip contains off-timeline dialogue; use procedural room/keyboard bed' },
+  },
   voiceCues: [
     {
       id: 'yy-01-not-jealous',
@@ -35,6 +39,8 @@ export const audioPlan = {
   ],
   sfxCues: [
     { id: 'opening-ding', kind: 'ding', startSec: 2.6 },
+    { id: 'opening-room-tone', kind: 'roomTone', startSec: 2.6, durationSec: 9.0 },
+    { id: 'opening-keyboard-bed', kind: 'keyboardBed', startSec: 2.9, durationSec: 8.3 },
     { id: 'red-cross-duang', kind: 'thump', startSec: 22.92 },
     { id: 'review-burst', kind: 'machineTicks', startSec: 33.25, count: 12, intervalSec: 0.22 },
     { id: 'cancel-pop', kind: 'pop', startSec: 38.62 },

@@ -33,12 +33,22 @@ function hasAudioStream(filePath) {
   return result.status === 0 && result.stdout.trim().length > 0;
 }
 
+function sourceAudioPolicyFor(shot) {
+  const policy = audioPlan.sourceAudioPolicies?.[shot.id] ?? {};
+  return typeof policy === 'string' ? { mode: policy } : policy;
+}
+
 function collectSourceAudioCues() {
   let cursorSec = 0;
   const cues = [];
   for (const shot of edl.shots) {
     const durationSec = shotDurationMs(shot) / 1000;
     if (shot.kind === 'video') {
+      const policy = sourceAudioPolicyFor(shot);
+      if (policy.mode === 'skip') {
+        cursorSec += durationSec;
+        continue;
+      }
       const src = resolve(assetsDir, shot.src);
       if (hasAudioStream(src)) {
         const sourceDurationSec = Math.min(Number(shot.trimSec), durationSec);
@@ -47,11 +57,16 @@ function collectSourceAudioCues() {
             `video shot ${shot.id} has invalid source audio duration: trimSec=${shot.trimSec}, timelineDurationSec=${durationSec.toFixed(3)}`,
           );
         }
+        const volume = Number(policy.volume ?? audioPlan.sourceAudioBedVolume);
+        if (!Number.isFinite(volume) || volume < 0) {
+          throw new Error(`video shot ${shot.id} has invalid source audio volume: ${policy.volume}`);
+        }
         cues.push({
           id: shot.id,
           src,
           startSec: cursorSec,
           durationSec: sourceDurationSec,
+          volume,
         });
       }
     }
@@ -99,29 +114,80 @@ function addTone(samples, sampleRate, startSec, durationSec, freq, amp, opts = {
   }
 }
 
+function seededRandom(seed) {
+  let state = seed >>> 0;
+  return () => {
+    state = (state * 1664525 + 1013904223) >>> 0;
+    return state / 0x100000000;
+  };
+}
+
+function addFilteredNoise(samples, sampleRate, startSec, durationSec, amp, opts = {}) {
+  const start = Math.max(0, Math.floor(startSec * sampleRate));
+  const end = Math.min(samples.length, Math.floor((startSec + durationSec) * sampleRate));
+  const attack = opts.attackSec ?? 0.05;
+  const release = opts.releaseSec ?? 0.12;
+  const smoothing = opts.smoothing ?? 0.92;
+  const rng = seededRandom(opts.seed ?? 1);
+  let state = 0;
+  for (let i = start; i < end; i += 1) {
+    const local = (i - start) / sampleRate;
+    const remain = (end - i) / sampleRate;
+    const env = Math.max(0, Math.min(1, local / attack, remain / release));
+    state = state * smoothing + (rng() * 2 - 1) * (1 - smoothing);
+    samples[i] += amp * env * state;
+  }
+}
+
+function addKeyboardBed(samples, sampleRate, startSec, durationSec, seed = 0xc0ffee) {
+  const rng = seededRandom(seed);
+  const endSec = startSec + durationSec;
+  let t = startSec;
+  while (t < endSec) {
+    t += 0.08 + rng() * 0.19;
+    if (t >= endSec) break;
+    const freq = 1450 + rng() * 850;
+    addTone(samples, sampleRate, t, 0.028 + rng() * 0.018, freq, 0.014 + rng() * 0.01, {
+      attackSec: 0.001,
+      releaseSec: 0.025,
+      decay: 34,
+      harmonic: true,
+    });
+    addFilteredNoise(samples, sampleRate, t, 0.035, 0.012, {
+      attackSec: 0.001,
+      releaseSec: 0.026,
+      smoothing: 0.72,
+      seed: Math.floor(rng() * 0xffffffff),
+    });
+    if (rng() < 0.2) t += 0.16 + rng() * 0.22;
+  }
+}
+
 function makeBgm() {
   const sr = audioPlan.sampleRate;
   const samples = new Float32Array(Math.ceil(audioPlan.durationSec * sr));
   const chords = [
-    [196.0, 261.63, 329.63, 392.0],
-    [174.61, 261.63, 349.23, 440.0],
-    [196.0, 246.94, 329.63, 392.0],
-    [220.0, 261.63, 329.63, 440.0],
+    [196.0, 261.63, 329.63],
+    [174.61, 261.63, 349.23],
+    [196.0, 246.94, 329.63],
+    [220.0, 261.63, 329.63],
   ];
-  for (let start = 0, chord = 0; start < audioPlan.durationSec; start += 4, chord += 1) {
+  for (let start = 0, chord = 0; start < audioPlan.durationSec; start += 6, chord += 1) {
     for (const freq of chords[chord % chords.length]) {
-      addTone(samples, sr, start, 4.2, freq, 0.006, { attackSec: 0.18, releaseSec: 0.5 });
+      addTone(samples, sr, start, 6.4, freq, 0.0045, { attackSec: 0.55, releaseSec: 1.0 });
     }
   }
-  const melody = [523.25, 659.25, 587.33, 783.99, 659.25, 523.25, 440.0, 493.88];
-  for (let i = 0; i * 0.5 < audioPlan.durationSec; i += 1) {
-    const t = i * 0.5;
-    const amp = t >= 48.6 && t <= 55.6 ? 0.012 : 0.018;
-    addTone(samples, sr, t, 0.16, melody[i % melody.length], amp, {
-      attackSec: 0.004,
-      releaseSec: 0.13,
-      decay: 10,
-      harmonic: true,
+  const motif = [392.0, 523.25, 659.25];
+  for (let phrase = 0; phrase * 8 < audioPlan.durationSec; phrase += 1) {
+    const base = phrase * 8 + 1.2;
+    const amp = base >= 49 && base <= 56 ? 0.003 : 0.005;
+    motif.forEach((freq, i) => {
+      addTone(samples, sr, base + i * 0.72, 0.28, freq, amp, {
+        attackSec: 0.012,
+        releaseSec: 0.22,
+        decay: 7,
+        harmonic: true,
+      });
     });
   }
   return samples;
@@ -154,6 +220,16 @@ function makeSfx() {
         addTone(samples, sr, t, 0.2, 54, 0.028, { attackSec: 0.04, releaseSec: 0.11 });
         addTone(samples, sr, t, 0.2, 108, 0.018, { attackSec: 0.04, releaseSec: 0.11 });
       }
+    } else if (cue.kind === 'roomTone') {
+      addFilteredNoise(samples, sr, cue.startSec, cue.durationSec, 0.018, {
+        attackSec: 0.8,
+        releaseSec: 1.1,
+        smoothing: 0.985,
+        seed: 0x515151,
+      });
+      addTone(samples, sr, cue.startSec, cue.durationSec, 96, 0.004, { attackSec: 1.2, releaseSec: 1.4 });
+    } else if (cue.kind === 'keyboardBed') {
+      addKeyboardBed(samples, sr, cue.startSec, cue.durationSec);
     }
   }
   return samples;
@@ -209,7 +285,7 @@ sourceAudioCues.forEach((cue, i) => {
   const trim = cue.durationSec.toFixed(3);
   filters.push(
     `[${inputIndex}:a]atrim=0:${trim},asetpts=PTS-STARTPTS,aresample=${audioPlan.sampleRate},` +
-      `adelay=${delayMs}:all=1,volume=${audioPlan.sourceAudioBedVolume}[src${i}]`,
+      `adelay=${delayMs}:all=1,volume=${cue.volume}[src${i}]`,
   );
 });
 const labels = [
