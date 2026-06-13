@@ -764,10 +764,10 @@ describe('#723 interactive button guard — no grey pill on action/toggle contro
     expect(src).toContain('text-cafe-secondary');
   });
 
-  it('ChatContainerHeader: RightPanelToggle text color in conditional branches, no cascade conflict', () => {
+  it('ChatContainerHeader: PanelToggle text color in conditional branches, no cascade conflict', () => {
     const src = readSrc('ChatContainerHeader.tsx');
     const lines = src.split('\n');
-    const start = lines.findIndex((l) => l.includes('function RightPanelToggle'));
+    const start = lines.findIndex((l) => l.includes('function PanelToggle'));
     const fnSrc = lines.slice(start, start + 50).join('\n');
     expect(fnSrc).not.toContain('hover:bg-[var(--console-hover-bg)]');
     expect(fnSrc).toContain('hover:text-cafe-accent');

@@ -8,7 +8,7 @@ created: 2026-06-11
 
 # F232: Thread Artifacts Panel — Thread 产物视图
 
-> **Status**: in-progress（Phase A 首版 merged PR #2247；**Phase A.1 待做：AC-A7 点击查看内容 + AC-A8 UX 收敛 = 愿景核心补强**；视觉待 alpha；Phase B 未启动）| **Owner**: 宪宪 Opus-4.8 | **Priority**: P1
+> **Status**: in-progress（Phase A 首版 merged PR #2247；**Phase A.1：AC-A7 点击查看内容 + AC-A8 UX 收敛 = 愿景核心补强**，PR #2259 待 fresh session 收尾；**Phase A.2 待做：AC-A9 视频产物 panel 内播放**；视觉待 alpha；Phase B 未启动）| **Owner**: 宪宪 Opus-4.8 | **Priority**: P1
 
 ## Why
 
@@ -51,6 +51,12 @@ created: 2026-06-11
 
 > **Phase A 实现状态**：首版（PR #2247 merged）已做 **列表 + 类型筛选 + 搜索 + 跳回原消息 + 外部 url 打开**；**点击集成内容查看（尤其 docs 类，复用 FileContentRenderer）+ panel 内 tab 收敛 = Phase A.1 补强**（愿景核心，见 AC-A7/A8）。
 
+### Phase A.2: 视频产物 panel 内播放（AC-A9 · 待做）
+
+铲屎官 dogfood 发现（2026-06-12）：产物面板**漏了视频类型**。现状 `ThreadArtifactType = 'pr'|'image'|'audio'|'file'|'code'|'doc'` **没有 `'video'`**——视频文件被归成 `file`，命中二进制扩展名（mp4/mov/webm）→ 走「下载」分支，**不能在 panel 内播放**（图能看、音频能放，唯独视频只能下载）。与 AC-A7「点击看内容」愿景同源：视频也该点开就在 panel 内播放（`<video controls>`）。
+
+跨层补充（独立 A.2，**不塞 A.1 收尾 PR**）：① shared `ThreadArtifactType` 加 `'video'`；② aggregator 识别视频产物（视频类 rich block / media 文件 / 视频扩展名）→ `type='video'`；③ `classifyArtifactView` 加 `video` 分支；④ `ArtifactDetailView` 加 `<video controls>` 渲染；⑤ 类型筛选 + 图标补 video。
+
 ### Phase B: 全局产物中心（未来扩展）
 
 把聚合 scope 从"单 thread"放开到"全部"——独立页面，跨所有 thread 按名字 / 类型 / 时间 / 哪只猫做的搜产物，顺带解决"在 workspace 里搜半天"。**Phase A 的聚合管线就是 Phase B 的地基**，不重写。
@@ -70,6 +76,9 @@ created: 2026-06-11
 - [x] AC-A6: 聚合查询有 **Redis-backed 测试**覆盖（in-memory store 测不到索引/分页差异，LL `feedback_inmemory_store_tests_miss_redis_behavior`）。
 - [ ] **AC-A7（愿景核心 · Phase A.1）**: 点击产物**按类型直接查看内容**——docs/md/log/文本 复用 `FileContentRenderer` 在 panel 内看正文（铲屎官 backlog 例子）、图看图、代码看 diff、语音播放、PR 打开。（trace: 铲屎官 2026-06-12 "我点击看不了他的内容" → 点产物就能看内容，不只列清单——这是 F232 的灵魂）
 - [ ] **AC-A8（UX 收敛 · Phase A.1）**: 右侧 panel 收敛成「一个开关 + 内部 tab」（状态/工作区/产物/transcript），header 不为每个 mode 堆按钮；产物入口在 ≥1024px 与小屏均可达（修当前 `hidden lg:block` 致小屏无 fallback 入口）。（trace: 铲屎官 2026-06-12 "上边儿按钮太多了"）
+
+### Phase A.2（视频产物 panel 内播放 — 待做）
+- [ ] **AC-A9**: 视频产物点击在 panel 内播放（`<video controls>`），不再只「下载」。跨层改动：shared `ThreadArtifactType` 加 `'video'` + aggregator 识别视频源 + `classifyArtifactView` video 分支 + `ArtifactDetailView` video 渲染 + 类型筛选/图标补 video。有 test 覆盖（classify 纯函数 + 渲染）。（trace: 铲屎官 2026-06-12 "忘记考虑视频之类的东西了" → 图/音/视频在 panel 内查看能力对齐 AC-A7 愿景）
 
 ### Phase B（全局产物中心 — 未来）
 - [ ] AC-B1: 全局产物搜索页，跨 thread 按名字 / 类型 / 时间 / 猫聚合检索。
@@ -106,6 +115,7 @@ created: 2026-06-11
 | KD-2 | 图标用 inline SVG，禁 emoji（家规 `feedback_design_to_code_fidelity`）。**html_widget 沙箱里 SVG 必须 inline，`symbol`+`use` 引用会被无 same-origin 的 sandbox iframe 挡掉只剩空槽** | 本 feat 低保真 mockup 实测教训（v2 用 symbol/use → 铲屎官侧图标全空；v3 改 inline → playwright 验证 28/28 渲染） | 2026-06-11 |
 | KD-3 | 数据层复用 artifact-tracking（F148）+ rich blocks + session digest，不新建采集 | 现状 ~80% 数据已存在，缺的是聚合 + UI，避免重造 | 2026-06-11 |
 | KD-4 | **产物系统核心 = "点击看内容"（复用 workspace `FileContentRenderer`），产物列表只是入口** | 铲屎官 dogfood 实证"我点击看不了他的内容"——列清单 ≠ 看产物；mockup 每项本就有类型化 action（打开/下载/查看 diff/播放）；"和 workspace 整合"的本质是**复用查看器**而非 UI 摆位。Phase A 首版简化成"列表+外部 url"丢了核心 → Phase A.1 必补 | 2026-06-12 |
+| KD-5 | 视频产物支持开独立 **Phase A.2**，不塞 A.1 收尾 PR | 视频是跨 shared `ThreadArtifactType` 类型层的新增（image/audio 已支持，video 缺）；A.1（PR #2259）已过两轮 review 接近收尾，塞入会让其重新变大、需重新完整 review。CVO 拍板 | 2026-06-12 |
 
 ## Timeline
 
@@ -115,6 +125,7 @@ created: 2026-06-11
 | 2026-06-12 | Phase A merged (PR #2247) — 聚合 API + 右侧抽屉面板。cloud review 4 轮 6 finding（分页游标/前端 toggle/docs frontmatter/in-memory cursor 无限循环/跳转 AC-A4/system thread 权限泄露）全修 + 砚砚 final 封板放行（LL-072）。视觉待 alpha 验收 |
 | 2026-06-12 | opus-47 Phase A 愿景守护放行（三问✅：核心价值/无 scope 蔓延/Phase B 方向对）。reviewer 独立发现 AC-A5 视觉 gap（时间维度 + catId 昵称映射，alpha 前应补）+ 其他 gap 入 Phase A.1/B。Phase A 闭环 |
 | 2026-06-12 | 铲屎官 dogfood 澄清**核心愿景**：产物 = **点击看内容**（复用 workspace `FileContentRenderer`），非只列清单。Phase A 首版丢了这核心 → spec 更新 Why/What + 新增 AC-A7（内容查看）/AC-A8（UX 收敛·panel tab·小屏入口）+ KD-4，列入 Phase A.1 |
+| 2026-06-12 | 铲屎官 dogfood 发现产物面板**漏视频类型**（图能看/音频能放/视频只能下载）→ 开 **Phase A.2**（AC-A9 视频 panel 内播放，跨 shared 类型层）。CVO 拍板 A.2 独立做、不塞 A.1。Phase A.1（PR #2259）含云端 2×P2 修复，待 fresh session 收尾（#4 session decoder 漂移，详见安全事件 thread + F215 提案）|
 
 ## Design Gate
 

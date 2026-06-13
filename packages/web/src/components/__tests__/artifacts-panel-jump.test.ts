@@ -27,6 +27,9 @@ vi.mock('@/hooks/useThreadArtifacts', () => ({
     error: null,
   }),
 }));
+vi.mock('@/hooks/useCatData', () => ({
+  useCatData: () => ({ getCatById: () => undefined }),
+}));
 
 import { useChatStore } from '@/stores/chatStore';
 import { ArtifactsPanel } from '../ArtifactsPanel';

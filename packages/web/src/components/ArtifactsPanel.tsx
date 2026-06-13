@@ -2,19 +2,17 @@
 
 import type { ThreadArtifactDTO, ThreadArtifactType } from '@cat-cafe/shared';
 import type { JSX } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCatData } from '@/hooks/useCatData';
 import { useChatStore } from '@/stores/chatStore';
 import { API_URL } from '@/utils/api-client';
 import { scrollToMessage } from '@/utils/scrollToMessage';
 import { kickTeleportResolve, planTeleport } from '@/utils/teleport';
 import { useThreadArtifacts } from '../hooks/useThreadArtifacts';
+import { ArtifactDetailView } from './artifacts/ArtifactDetailView';
+import { artifactRowMeta, resolveAssetUrl } from './artifacts/artifact-view';
 
-function resolveUrl(url?: string): string | undefined {
-  if (!url) return undefined;
-  const t = url.trim();
-  if (t.startsWith('/uploads/') || t.startsWith('/api/') || t.startsWith('/avatars/')) return `${API_URL}${t}`;
-  return t;
-}
+const resolveUrl = (url?: string): string | undefined => resolveAssetUrl(url, API_URL);
 
 // Inline SVG icons (sandbox/sanitizer-safe: no <symbol>/<use> — see F232 KD-2).
 const S = {
@@ -106,8 +104,21 @@ export function ArtifactsPanel({
   onClose?: () => void;
 }) {
   const { artifacts, loading, error } = useThreadArtifacts(threadId);
+  const { getCatById } = useCatData();
+  const workspaceWorktreeId = useChatStore((s) => s.workspaceWorktreeId);
   const [filter, setFilter] = useState<FilterKey>('all');
   const [q, setQ] = useState('');
+  // AC-A7: 选中产物 → panel 内进入内容详情视图（null = 列表视图）。
+  const [selected, setSelected] = useState<ThreadArtifactDTO | null>(null);
+
+  // P1-2（砚砚 review）：组件不随 threadId remount，切 thread 时本地视图状态会残留——
+  // selected 残留会显示旧 thread 产物详情，且「跳回原消息」用新 threadId 配旧 sourceMessageId 串 thread。
+  // 切 thread 一并清空选中/筛选/搜索，回到干净列表。
+  useEffect(() => {
+    setSelected(null);
+    setFilter('all');
+    setQ('');
+  }, [threadId]);
 
   // F232 P2 (cloud review): 跳回原消息走 teleport（jump-with-load），不裸 scrollToMessage。
   // 全量聚合后老产物的 source message 常在已加载窗口外，裸 scroll 静默 no-op；planTeleport 在
@@ -156,110 +167,139 @@ export function ArtifactsPanel({
       className="flex flex-col overflow-hidden"
       style={{ width: width ?? 304, flexShrink: 0, background: 'var(--console-shell-bg, #fff)', color: '#2c2c2c' }}
     >
-      <div className="px-4 pt-[18px] pb-3" style={{ borderBottom: '1px solid #eee' }}>
-        <div className="flex items-center justify-between">
-          <span className="flex items-center gap-1.5 text-sm font-semibold" style={{ color: '#333' }}>
-            <IconLayers />
-            产物 · 当前 thread
-          </span>
-          {onClose && (
-            <button type="button" onClick={onClose} aria-label="关闭" className="flex" style={{ color: '#bbb' }}>
-              <IconX />
-            </button>
-          )}
-        </div>
-        <div className="mt-1 text-xs" style={{ color: '#999' }}>
-          {loading
-            ? '加载中…'
-            : error
-              ? '加载失败，点筛选可重试'
-              : `共 ${counts.all} 项 · ${counts.image} 图 · ${counts.file} 文件 · ${counts.codepr} 代码/PR · ${counts.audio} 语音`}
-        </div>
-        <label
-          className="mt-3 flex items-center gap-2 rounded-md px-3 py-2 text-sm"
-          style={{ background: '#f4f4f4', border: '1px solid #e4e4e4', color: '#888' }}
-        >
-          <IconSearch />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="在本 thread 的产物里搜…（不用记全名）"
-            className="flex-1 bg-transparent text-sm outline-none"
-            style={{ color: '#2c2c2c' }}
-          />
-        </label>
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {chips.map(([key, label, n]) => {
-            const on = filter === key;
-            return (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setFilter(key)}
-                className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs"
-                style={on ? { background: '#333', color: '#fff' } : { background: '#f0f0f0', color: '#666' }}
-              >
-                {label} {n}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-      <div className="flex-1 overflow-y-auto">
-        {visible.length === 0 ? (
-          <div className="px-4 py-8 text-center text-sm" style={{ color: '#bbb' }}>
-            {loading ? '' : '该类型暂无产物'}
+      {selected ? (
+        <ArtifactDetailView
+          artifact={selected}
+          worktreeId={workspaceWorktreeId}
+          onBack={() => setSelected(null)}
+          onJump={handleJump}
+        />
+      ) : (
+        <>
+          <div className="px-4 pt-[18px] pb-3" style={{ borderBottom: '1px solid #eee' }}>
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-1.5 text-sm font-semibold" style={{ color: '#333' }}>
+                <IconLayers />
+                产物 · 当前 thread
+              </span>
+              {onClose && (
+                <button type="button" onClick={onClose} aria-label="关闭" className="flex" style={{ color: '#bbb' }}>
+                  <IconX />
+                </button>
+              )}
+            </div>
+            <div className="mt-1 text-xs" style={{ color: '#999' }}>
+              {loading
+                ? '加载中…'
+                : error
+                  ? '加载失败，点筛选可重试'
+                  : `共 ${counts.all} 项 · ${counts.image} 图 · ${counts.file} 文件 · ${counts.codepr} 代码/PR · ${counts.audio} 语音`}
+            </div>
+            <label
+              className="mt-3 flex items-center gap-2 rounded-md px-3 py-2 text-sm"
+              style={{ background: '#f4f4f4', border: '1px solid #e4e4e4', color: '#888' }}
+            >
+              <IconSearch />
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="在本 thread 的产物里搜…（不用记全名）"
+                className="flex-1 bg-transparent text-sm outline-none"
+                style={{ color: '#2c2c2c' }}
+              />
+            </label>
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {chips.map(([key, label, n]) => {
+                const on = filter === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setFilter(key)}
+                    className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs"
+                    style={on ? { background: '#333', color: '#fff' } : { background: '#f0f0f0', color: '#666' }}
+                  >
+                    {label} {n}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        ) : (
-          visible.map((a, i) => {
-            const Icon = TYPE_ICON[a.type];
-            const tint = TYPE_TINT[a.type];
-            const url = resolveUrl(a.url);
-            return (
-              <div
-                key={`${a.ref ?? a.name}-${i}`}
-                className="flex items-center gap-3 px-4 py-3"
-                style={{ borderBottom: '1px solid #f2f2f2' }}
-              >
-                <span
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
-                  style={{ color: tint.color, background: tint.background, border: '1px solid #e6e6e6' }}
-                >
-                  <Icon />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium">{a.name}</div>
-                  <div className="mt-0.5 flex items-center gap-1.5 text-xs" style={{ color: '#9a9a9a' }}>
-                    <span className="truncate">{a.catId ?? '—'}</span>
-                    {a.sourceMessageId && (
-                      <button
-                        type="button"
-                        onClick={() => a.sourceMessageId && handleJump(a.sourceMessageId)}
-                        className="flex shrink-0 items-center gap-0.5"
-                        style={{ color: '#5a7fa3' }}
+          <div className="flex-1 overflow-y-auto">
+            {visible.length === 0 ? (
+              <div className="px-4 py-8 text-center text-sm" style={{ color: '#bbb' }}>
+                {loading ? '' : '该类型暂无产物'}
+              </div>
+            ) : (
+              visible.map((a, i) => {
+                const Icon = TYPE_ICON[a.type];
+                const tint = TYPE_TINT[a.type];
+                const url = resolveUrl(a.url);
+                const meta = artifactRowMeta(a, (id) => getCatById(id)?.nickname);
+                return (
+                  // biome-ignore lint/a11y/useSemanticElements: 整行可点击进入产物详情 + 内嵌跳转/打开按钮，嵌套 interactive 元素无法用 <button>
+                  <div
+                    key={`${a.ref ?? a.name}-${i}`}
+                    data-artifact-row
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setSelected(a)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setSelected(a);
+                      }
+                    }}
+                    className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-[#fafafa]"
+                    style={{ borderBottom: '1px solid #f2f2f2', cursor: 'pointer' }}
+                  >
+                    <span
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
+                      style={{ color: tint.color, background: tint.background, border: '1px solid #e6e6e6' }}
+                    >
+                      <Icon />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-medium">{a.name}</div>
+                      <div className="mt-0.5 flex items-center gap-1.5 text-xs" style={{ color: '#9a9a9a' }}>
+                        <span className="truncate">
+                          {meta.catLabel} · {meta.relativeTime}
+                        </span>
+                        {a.sourceMessageId && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (a.sourceMessageId) handleJump(a.sourceMessageId);
+                            }}
+                            className="flex shrink-0 items-center gap-0.5"
+                            style={{ color: '#5a7fa3' }}
+                          >
+                            跳转
+                            <IconArrow />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {url && (
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="shrink-0 rounded px-2.5 py-1 text-xs"
+                        style={{ border: '1px solid #e0e0e0', background: '#fafafa', color: '#666' }}
                       >
-                        跳转
-                        <IconArrow />
-                      </button>
+                        打开
+                      </a>
                     )}
                   </div>
-                </div>
-                {url && (
-                  <a
-                    href={url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="shrink-0 rounded px-2.5 py-1 text-xs"
-                    style={{ border: '1px solid #e0e0e0', background: '#fafafa', color: '#666' }}
-                  >
-                    打开
-                  </a>
-                )}
-              </div>
-            );
-          })
-        )}
-      </div>
+                );
+              })
+            )}
+          </div>
+        </>
+      )}
     </aside>
   );
 }

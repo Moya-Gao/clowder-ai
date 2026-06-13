@@ -60,6 +60,7 @@ import { MessageNavigator } from './MessageNavigator';
 import { MobileStatusSheet } from './MobileStatusSheet';
 import { ParallelStatusBar } from './ParallelStatusBar';
 import { ProjectSetupCard } from './ProjectSetupCard';
+import { PanelTabs } from './panel/PanelTabs';
 import { QueuePanel } from './QueuePanel';
 import { RightStatusPanel } from './RightStatusPanel';
 import { ScrollToBottomButton } from './ScrollToBottomButton';
@@ -92,6 +93,8 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     confirmUnreadAck,
     armUnreadSuppression,
     rightPanelMode,
+    setRightPanelMode,
+    closeRightPanel,
   } = useChatStore();
   // F173 Phase C Task 3 — full read-side migration. All thread liveness +
   // messages now flow through thread-scoped selectors keyed off this
@@ -231,6 +234,13 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
       setStatusPanelOpen(true);
     }
   }, [rightPanelMode, statusPanelOpen]);
+
+  // F232 P2（云端 round 5）：显式关闭右侧 panel——先退出 workspace/transcript mode（否则上面的 auto-open
+  // effect 立即重开，关不掉），再关闭。所有 close 入口（header toggle / ResizeHandle 折叠 / PanelTabs 关闭）统一走这里。
+  const closeStatusPanel = useCallback(() => {
+    closeRightPanel();
+    setStatusPanelOpen(false);
+  }, [closeRightPanel]);
 
   const isDesktop = useIsDesktop();
 
@@ -840,7 +850,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
       <div
         className="flex flex-col min-w-0"
         style={
-          statusPanelOpen && (rightPanelMode === 'workspace' || rightPanelMode === 'transcript')
+          statusPanelOpen && isDesktop && (rightPanelMode === 'workspace' || rightPanelMode === 'transcript')
             ? { flexBasis: `${chatBasis}%`, flexGrow: 0, flexShrink: 0 }
             : { flex: '1 1 0%' }
         }
@@ -854,7 +864,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
           onToggleViewMode={() => setViewMode(viewMode === 'single' ? 'split' : 'single')}
           onOpenMobileStatus={() => setMobileStatusOpen(true)}
           statusPanelOpen={statusPanelOpen}
-          onToggleStatusPanel={() => setStatusPanelOpen((v) => !v)}
+          onToggleStatusPanel={() => (statusPanelOpen ? closeStatusPanel() : setStatusPanelOpen(true))}
           defaultCatId={targetCats[0] || 'opus'}
         />
 
@@ -1123,66 +1133,61 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
         />
       </div>
 
-      {statusPanelOpen && rightPanelMode === 'status' && (
+      {/* P2-2（云端 review）：右侧 panel 仅桌面渲染——RightStatusPanel/WorkspacePanel 本身 hidden lg:flex，
+          小屏渲染 wrapper 会出现 288px 空容器 + PanelTabs 挤压/溢出 chat。小屏走 MobileStatusSheet。 */}
+      {statusPanelOpen && isDesktop && (
         <>
-          <div className="hidden lg:flex">
+          {/* F232 AC-A8: 统一 panel 容器 + 顶部 PanelTabs 切 4 mode（收敛 header 多按钮）。
+              status/artifacts 固定宽（statusPanelWidth）；workspace/transcript 百分比（chatBasis）。 */}
+          {rightPanelMode === 'status' || rightPanelMode === 'artifacts' ? (
+            <div className="hidden lg:flex">
+              <ResizeHandle
+                direction="horizontal"
+                label="右侧面板"
+                onResize={handleStatusPanelResize}
+                onCollapse={closeStatusPanel}
+                onDoubleClick={resetStatusPanelWidth}
+              />
+            </div>
+          ) : (
             <ResizeHandle
               direction="horizontal"
-              label="右侧状态栏"
-              onResize={handleStatusPanelResize}
-              onCollapse={() => setStatusPanelOpen(false)}
-              onDoubleClick={resetStatusPanelWidth}
+              label="右侧面板"
+              onResize={handleHorizontalResize}
+              onCollapse={closeStatusPanel}
+              onDoubleClick={resetChatBasis}
             />
+          )}
+          <div
+            className="flex flex-col min-h-0 overflow-hidden"
+            style={
+              rightPanelMode === 'status' || rightPanelMode === 'artifacts'
+                ? { width: statusPanelWidth, flexShrink: 0 }
+                : { flex: '1 1 0%', minWidth: 0 }
+            }
+          >
+            <PanelTabs mode={rightPanelMode} onSelect={setRightPanelMode} onClose={closeStatusPanel} />
+            <div className="flex min-h-0 flex-1 overflow-hidden">
+              {rightPanelMode === 'status' && (
+                <RightStatusPanel
+                  intentMode={intentMode}
+                  targetCats={targetCats}
+                  catStatuses={catStatuses}
+                  catInvocations={catInvocations}
+                  activeInvocations={activeInvocations}
+                  hasActiveInvocation={hasActiveInvocation}
+                  threadId={threadId}
+                  messageSummary={messageSummary}
+                  width={statusPanelWidth}
+                />
+              )}
+              {rightPanelMode === 'workspace' && <WorkspacePanel />}
+              {rightPanelMode === 'transcript' && <TranscriptPanel />}
+              {rightPanelMode === 'artifacts' && threadId && (
+                <ArtifactsPanel threadId={threadId} width={statusPanelWidth} />
+              )}
+            </div>
           </div>
-          <RightStatusPanel
-            intentMode={intentMode}
-            targetCats={targetCats}
-            catStatuses={catStatuses}
-            catInvocations={catInvocations}
-            activeInvocations={activeInvocations}
-            hasActiveInvocation={hasActiveInvocation}
-            threadId={threadId}
-            messageSummary={messageSummary}
-            width={statusPanelWidth}
-          />
-        </>
-      )}
-      {statusPanelOpen && rightPanelMode === 'workspace' && (
-        <>
-          <ResizeHandle
-            direction="horizontal"
-            label="右侧工作区"
-            onResize={handleHorizontalResize}
-            onCollapse={() => setStatusPanelOpen(false)}
-            onDoubleClick={resetChatBasis}
-          />
-          <WorkspacePanel />
-        </>
-      )}
-      {statusPanelOpen && rightPanelMode === 'transcript' && (
-        <>
-          <ResizeHandle
-            direction="horizontal"
-            label="右侧转录栏"
-            onResize={handleHorizontalResize}
-            onCollapse={() => setStatusPanelOpen(false)}
-            onDoubleClick={resetChatBasis}
-          />
-          <TranscriptPanel />
-        </>
-      )}
-      {statusPanelOpen && rightPanelMode === 'artifacts' && threadId && (
-        <>
-          <div className="hidden lg:flex">
-            <ResizeHandle
-              direction="horizontal"
-              label="右侧产物栏"
-              onResize={handleStatusPanelResize}
-              onCollapse={() => setStatusPanelOpen(false)}
-              onDoubleClick={resetStatusPanelWidth}
-            />
-          </div>
-          <ArtifactsPanel threadId={threadId} width={statusPanelWidth} onClose={() => setStatusPanelOpen(false)} />
         </>
       )}
       <FloatingTranscriptContainer />

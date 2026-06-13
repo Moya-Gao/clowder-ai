@@ -91,9 +91,11 @@ export function ChatContainerHeader({
             />
           </svg>
         </button>
-        {/* F099: Unified right panel toggle (merged workspace + status panel) */}
-        <ArtifactsToggle onToggleStatusPanel={onToggleStatusPanel} statusPanelOpen={statusPanelOpen} />
-        <RightPanelToggle onToggleStatusPanel={onToggleStatusPanel} statusPanelOpen={statusPanelOpen} />
+        {/* F232 AC-A8: 单一 panel 开关（桌面 lg:block，收敛旧 ArtifactsToggle+RightPanelToggle 两按钮）；
+            4 个 mode（状态/工作区/产物/转录）切换收敛到 panel 内 PanelTabs。
+            P2-2（云端 review）：右侧 panel 是 desktop-only（panel 组件本身 hidden lg:flex），小屏走 MobileStatusSheet；
+            小屏产物入口待 MobileStatusSheet 扩展（spec AC-A8 小屏 OQ）。 */}
+        <PanelToggle onToggleStatusPanel={onToggleStatusPanel} statusPanelOpen={statusPanelOpen} />
       </div>
     </header>
   );
@@ -239,60 +241,26 @@ export function ThreadIndicator({ threadId }: { threadId: string }) {
 }
 
 /**
- * F099: Pure state-transition logic for the right panel toggle.
- * Exported for testability — the component delegates to this function.
+ * F232 AC-A8: 单一 panel 开关。原 F099 RightPanelToggle（status↔workspace）+ F232
+ * ArtifactsToggle（artifacts↔status）两个按钮收敛成一个开关——4 个 mode 切换移到
+ * panel 内 PanelTabs。桌面 lg:block——右侧 panel desktop-only（P2-2 云端 review），小屏走 MobileStatusSheet。
  */
-export function rightPanelToggleTransition(
-  statusPanelOpen: boolean,
-  rightPanelMode: 'status' | 'workspace' | 'transcript' | 'artifacts',
-  callbacks: {
-    onToggleStatusPanel: () => void;
-    setRightPanelMode: (mode: 'status' | 'workspace' | 'transcript' | 'artifacts') => void;
-  },
-) {
-  if (!statusPanelOpen) {
-    callbacks.onToggleStatusPanel();
-    callbacks.setRightPanelMode('status');
-  } else if (rightPanelMode === 'status') {
-    callbacks.setRightPanelMode('workspace');
-  } else {
-    callbacks.onToggleStatusPanel();
-    callbacks.setRightPanelMode('status');
-  }
-}
-
-function RightPanelToggle({
+function PanelToggle({
   onToggleStatusPanel,
   statusPanelOpen,
 }: {
   onToggleStatusPanel: () => void;
   statusPanelOpen: boolean;
 }) {
-  const rightPanelMode = useChatStore((s) => s.rightPanelMode);
-  const setRightPanelMode = useChatStore((s) => s.setRightPanelMode);
-
-  const handleClick = () => {
-    rightPanelToggleTransition(statusPanelOpen, rightPanelMode, {
-      onToggleStatusPanel,
-      setRightPanelMode,
-    });
-  };
-
-  const isWorkspace = rightPanelMode === 'workspace';
-  const label = !statusPanelOpen ? '打开面板' : isWorkspace ? '关闭面板' : '工作区';
-
   return (
     <button
-      onClick={handleClick}
+      type="button"
+      onClick={onToggleStatusPanel}
       className={`p-1 rounded-lg transition-colors ml-1 hidden lg:block ${
-        statusPanelOpen
-          ? isWorkspace
-            ? 'bg-[var(--cafe-accent)]/5 text-[var(--cafe-accent)]'
-            : 'text-cafe-accent'
-          : 'text-cafe-secondary hover:text-cafe-accent'
+        statusPanelOpen ? 'text-cafe-accent' : 'text-cafe-secondary hover:text-cafe-accent'
       }`}
-      aria-label={label}
-      title={label}
+      aria-label={statusPanelOpen ? '收起面板' : '打开面板'}
+      title={statusPanelOpen ? '收起面板' : '打开面板'}
     >
       <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
         <path
@@ -301,76 +269,6 @@ function RightPanelToggle({
           clipRule="evenodd"
         />
         {statusPanelOpen && <rect x="12" y="4" width="4" height="12" rx="0.5" opacity="0.3" />}
-      </svg>
-    </button>
-  );
-}
-
-/**
- * F232: Pure state-transition logic for the artifacts toggle button.
- * Exported for testability — mirrors rightPanelToggleTransition (F099).
- *
- * P2 fix (cloud review): 面板被其自身的关闭/折叠控件关掉后 statusPanelOpen=false，但
- * rightPanelMode 可能残留 'artifacts'。面板关着时点"产物"必须强制打开 artifacts，而不是
- * 基于残留 mode toggle（旧逻辑 stale='artifacts' 会被切到 status，按钮失效）。
- */
-export function artifactsToggleTransition(
-  statusPanelOpen: boolean,
-  rightPanelMode: 'status' | 'workspace' | 'transcript' | 'artifacts',
-  callbacks: {
-    onToggleStatusPanel: () => void;
-    setRightPanelMode: (mode: 'status' | 'workspace' | 'transcript' | 'artifacts') => void;
-  },
-) {
-  if (!statusPanelOpen) {
-    callbacks.onToggleStatusPanel();
-    callbacks.setRightPanelMode('artifacts');
-  } else if (rightPanelMode === 'artifacts') {
-    callbacks.setRightPanelMode('status');
-  } else {
-    callbacks.setRightPanelMode('artifacts');
-  }
-}
-
-function ArtifactsToggle({
-  onToggleStatusPanel,
-  statusPanelOpen,
-}: {
-  onToggleStatusPanel: () => void;
-  statusPanelOpen: boolean;
-}) {
-  const rightPanelMode = useChatStore((s) => s.rightPanelMode);
-  const setRightPanelMode = useChatStore((s) => s.setRightPanelMode);
-  const isArtifacts = rightPanelMode === 'artifacts';
-
-  const handleClick = () => {
-    artifactsToggleTransition(statusPanelOpen, rightPanelMode, {
-      onToggleStatusPanel,
-      setRightPanelMode,
-    });
-  };
-
-  return (
-    <button
-      onClick={handleClick}
-      className={`p-1 rounded-lg transition-colors ml-1 hidden lg:block ${
-        isArtifacts ? 'text-cafe-accent' : 'text-cafe-secondary hover:text-cafe-accent'
-      }`}
-      aria-label="产物"
-      title="产物"
-    >
-      <svg
-        className="w-5 h-5"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M12 2L2 7l10 5 10-5-10-5z" />
-        <path d="M2 17l10 5 10-5" />
-        <path d="M2 12l10 5 10-5" />
       </svg>
     </button>
   );
