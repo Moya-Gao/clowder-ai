@@ -14,7 +14,7 @@ created: 2026-06-11
 
 Architecture cell: identity-session
 Subcell: identity-user-profile（new，F231 owns）
-Map delta: update required — **已同步**（identity-session cell 登记 F231 canonical + cited_by + identity-user-profile subcell；私有数据锚点 `private/profile/` 记录在 cell prose/scan hints，不进 code_anchors——gitignored 路径不可被 checker 验证；prompt 注入 anchor 待 Design Gate 收敛 OQ-1 后补）
+Map delta: update required — **已同步**（identity-session cell 登记 F231 canonical + cited_by + identity-user-profile subcell；私有数据锚点 `private/profile/` 记录在 cell prose/scan hints，不进 code_anchors——gitignored 路径不可被 checker 验证；OQ-1 closed → KD-7 L0 编译时注入；OQ-4 closed 2026-06-13 → KD-8~11 Phase C 三段管道，蒸馏 trigger 锚 runtime 自有事件非 provider Stop hook）
 Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity 的既有边界，不新建 cell。
 
 ## Why
@@ -69,6 +69,8 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 
 ### Phase C: 养熟循环（蒸馏更新管道）
 
+> **终态决议（OQ-4 closed 2026-06-13，KD-8~11，Design Gate 出口物 `docs/discussions/2026-06-13-f231-phase-c-design-gate.md`）**：养熟循环 = 三段管道，全程"系统只给数据、猫/CVO 给结论"——**采集**（白名单数据合同 KD-9，确定性可解释事件，复用 F102 evidence lane）→ **蒸馏**（runtime-neutral trigger KD-10，C 类 hygiene + 候选整理，接 opus47 dream-consolidation research，不替猫判断）→ **消化**（猫/CVO 主动认领 proposal，CVO 签字写入）。F231 是 bounded profile consolidation pilot（KD-11，dry-run + provenance，不开通用 dream lane）。46 的 L0 反射降级为消化端手动入口、不当主路径。下列原始 Phase C 设想保留作细化素材，受三段管道 + 三条约束收编。
+
 1. **关系信号沉淀路径**：类比 F221 taste 路径——猫捕捉关系信号（"被接住了"/玩笑节奏/新偏好）→ 提议 capsule/primer 更新 → CVO 过目生效。复用 code-as-harness 信号分类，新增 relationship 分支。
 2. **更新节奏**：提议制不自动写入（capsule 是真相源，漂移即投毒）；正向轨迹与教训同权重沉淀（记忆配平——不只记检讨书）。
 3. **外部画像迁移路径（import 冷启动，CVO 2026-06-11 提出）**：把本 thread 手动跑通的流程（用户贴 ChatGPT/claude.ai/Gemini 导出的记忆画像 → 猫蒸馏成 capsule 种子 → 数据最小化过滤（KD-5）→ 用户签字入库）固化为 onboarding guide/skill。社区用户第一天就有"被认识"的体感，不必从零养。隐私同纪律：用户自己的数据自己带入，per-user 私有层，永不出库。
@@ -118,8 +120,9 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 - [ ] AC-B3: 锚点回归测试在仓且 **fixture 隔离**：fixture overlay 编译断言 private 锚点生效；公共 baseline 断言缺 overlay 可编译 + 无私有锚点泄漏（CI/社区环境稳定，不依赖本机 gitignored 数据）
 
 ### Phase C（养熟循环）
-- [ ] AC-C1: 关系信号→capsule/primer 更新提议路径落地（skill 路径 or 工具，CVO 过目制），至少 1 次真实更新走完全程
+- [ ] AC-C1: 关系信号→capsule/primer 更新提议路径落地（三段管道 KD-8，CVO 过目制），至少 1 次真实更新走完全程（跑在白名单采集 + runtime-neutral trigger 真骨架上，非 L0 反射脚手架）
 - [ ] AC-C2: 正向轨迹沉淀有真实样本（≥1 条"做对的时刻"进 primer/capsule，对照"只记检讨书"基线）
+- [ ] AC-C3: 采集白名单（KD-9）写成机器可检查的数据契约（lint/test 守护禁 classifier 采集源）+ 蒸馏 trigger runtime-neutral（KD-10，不依赖 provider Stop hook，codex/gpt52 path 有 fallback 覆盖）
 
 ## Dependencies
 
@@ -144,7 +147,7 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 | OQ-1 | capsule 注入位置：L0 编译时 vs SystemPromptBuilder 运行时 vs ADR-038 Staging 层 | ✅ closed 2026-06-11 → KD-7（L0 编译时，ADR-038 三问判定 + budget 实测，opus-47 + author 收敛，Design Gate 出口物 `docs/discussions/2026-06-11-f231-design-gate.md`） |
 | OQ-2 | 社区版 per-user 隔离形态（多用户 capsule 寻址）与 F229 复合猫的关系 | ⬜ 后置，不阻塞 |
 | OQ-3 | 其他猫（宪宪/烁烁/47/48…）的 instance personality 与 primer 是否本 feat 内铺开，还是砚砚样本验证后另起 Phase | ⬜ CVO 倾向待确认 |
-| OQ-4 | Phase C user-signal lane 形态：信号捕捉反射（skill 路径）+ 抽象提议（cron vs MCP 工具 `propose_profile_update`）+ 与 F102 memory 边界——记忆系统/MCP 增量范围 | ⬜ Phase C Design Gate 收敛（CVO 2026-06-11 预感"记忆系统甚至 MCP 都有需要优化"） |
+| OQ-4 | Phase C user-signal lane 形态：信号捕捉反射（skill 路径）+ 抽象提议（cron vs MCP 工具 `propose_profile_update`）+ 与 F102 memory 边界——记忆系统/MCP 增量范围 | ✅ closed 2026-06-13 → KD-8~KD-11（终态三段管道 + 采集白名单 + runtime-neutral trigger + bounded pilot）；Design Gate 出口物 `docs/discussions/2026-06-13-f231-phase-c-design-gate.md`（opus-48 架构 + codex rigor audit 三条 + opus47 research 地基） |
 
 ## Key Decisions
 
@@ -157,6 +160,10 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 | KD-5 | capsule 数据最小化：健康/职业/认知特质等敏感个人信息**默认不进** capsule，进入需 CVO 显式签字；敏感细节留 per-cat memory | capsule 注入所有猫的开局上下文，扩散面最大；隐私纵深不能只靠"不出库"（砚砚 review P2） | 2026-06-11 |
 | KD-6 | tracked 资产（测试/模板/CI）不得依赖或包含 per-user 私有数据；私有机制用 fixture 验证 | AC-B3 原稿与 KD-1 结构冲突（tracked 测试断言 gitignored 数据源 = CI 挂或被迫泄漏）；同型扫描后 Phase A 测试一并 fixture 化（砚砚 review P1-1 + audit） | 2026-06-11 |
 | KD-7 | OQ-1 closed：注入层 = **L0 编译时 `{{USER_CAPSULE}}`**，capsule 走 ADR-038 promote queue #2（注入锚 gated on PR-C，ETA 06-13）；**不进 Staging**（三问全反：全程身份语境 / 压缩窗口丢失有害=班味回潮 / 与 §1·§9 同维度）、**不进 SystemPromptBuilder 运行时**（压缩可丢，违背"醒来第一眼+全程在场"）；capsule 硬上限 **300 字**（~285 tokens，author 拍板：紧约束强迫蒸馏，溢出走 primer recall）；**口径定义（PR #2236 实现校准 2026-06-11）**：300 = 剥除空白后 Unicode 码点数（visible chars，含标点/英文/符号），与 guard `[...body.replace(/\s/g,'')].length` 同口径，非 CJK-only 字数——真实 capsule v2→v2.1 据此 387→299 裁剪 | ADR-038 三问机械化判定（"全程身份/球权类必须留 L0"）+ 全猫 budget 实测（gpt52 6142 最紧，任何字数现在进 L0 都破 6000 cap，PR-C demote 后才有 headroom）——opus-47 判定，author 复核认领，砚砚 R3 已 align direction | 2026-06-11 |
+| KD-8 | Phase C 养熟循环 = 三段管道（采集→蒸馏→消化），全程"系统只给数据、猫/CVO 给结论" | W7（知识涌现是系统能力不是手动标注）+ F227 KD-8 no-classifier 红线；46 的 L0 反射从"唯一机制"降为消化端一个手动入口（靠自觉/单层/无累积 = 脚手架） | 2026-06-13 |
+| KD-9 | 采集端 = 白名单数据合同：仅允许确定性可解释事件（CVO 明示"记一下"/猫主动声明/Event Memory·magic-word 确定性事件/message·thread 坐标/时间/引用·消费次数/签字·驳回/人工 reaction）；禁止小模型·regex·LLM 扫对话标"这是关系信号/玩笑节奏变了/被接住了"（=classifier 换皮） | "deterministic salience"不写成白名单就偷渡 intent 判断（codex rigor P1-2）；F221「不做后台监控式提取，要账本不要暗箱」——"认识你"不能变"监控你" | 2026-06-13 |
+| KD-10 | 蒸馏 trigger = runtime-neutral，锚 Cat Café runtime 自己的 invocation/session-seal/turn-completed 事件；provider Stop hook 仅作某些 carrier 适配器、非真相源 | 实证：codex exec --json 不 dispatch ~/.codex/hooks.json Stop hook（CodexAgentService.ts:391 / types.ts:333），ADR-019 早期"全猫最大公约数"世界观已被代码修正；48 原判"Stop hook 现成"有误，codex 代码证据更正（P1-1） | 2026-06-13 |
+| KD-11 | F231 Phase C = bounded profile consolidation pilot：只服务 capsule/primer 更新提议，输出 dry-run proposal + provenance，不写真相源、不开通用 dream lane | opus47 research 洞察 4「当前不立 dream lane，先 sharpen lane-1 + mark_event」；F231 是 bounded 试点不是全局后台梦境先例（codex P2） | 2026-06-13 |
 
 ## Timeline
 
@@ -169,6 +176,7 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 | 2026-06-11 | Phase B 主体闭环：KD-3 三棒走完（cloud draft → 砚砚认领 → CVO 签字 msg ...204902），personality 入 instance catalog + primer signed + capsule v2 signed（AC-A1/B1/B2 ✅）；云端 capsule review 四修补吸收、两项拒绝留痕（超 hard cap / 三猫分工超 scope） |
 | 2026-06-11 | CVO 提出 import 冷启动 + user-signal 记录层 → Phase C §3/§4 + OQ-4 |
 | 2026-06-12 | Phase A L0 compile-chain injection merged (PR #2236)：USER_CAPSULE 模板变量 + resolveUserCapsule + stripCapsuleMetadata + profileDir cwd-first/script-path fallback + 33 tests（16 F231 compile + 17 l0-compiler）；gpt52 5 轮 review + cloud 2 轮（1 valid P2 fixed + 1 false positive 封板） |
+| 2026-06-13 | Phase C Design Gate：OQ-4 closed → KD-8~11（三段管道 + 采集白名单 + runtime-neutral trigger + bounded pilot）。46 的 L0 反射被铲屎官 Magic Word「脚手架」否决，opus-48 给终态三段架构，codex rigor audit 三条（P1-1 trigger runtime-neutral 纠正 48 的 Stop hook 误判 / P1-2 采集白名单 / P2 非通用 dream lane），opus47 dream-consolidation research 作蒸馏引擎地基 |
 
 ## Links
 
