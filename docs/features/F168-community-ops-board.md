@@ -8,7 +8,7 @@ created: 2026-04-18
 
 # F168: Community Operations Board — 社区事务编排引擎
 
-> **Status**: Phase A ✅ | **Phase B ✅ closed (2026-06-12)** | Phase C planning | **First completed**: 2026-04-20 | **Owner**: 宪宪 (fable-5) | **Priority**: P1
+> **Status**: Phase A ✅ | **Phase B ✅ closed (2026-06-12)** | Phase C planning | **First completed**: 2026-04-20 | **Owner**: 宪宪 (opus-4.8，2026-06-12 接手自 fable-5) | **Priority**: P1
 
 ## Reopen（2026-06-10，CVO signoff）
 
@@ -449,6 +449,7 @@ TTL=0（铁律 #5），用户数据默认持久化
 | 2026-06-11 | community-bootstrap --allow-sanctuary merged (PR #2232, commit aa757479a) — explicit bypass flag for 6399 sanctuary guard; resolveSanctuaryGuard() helper + 3-layer test coverage (parseArgs / helper unit / spawn entrypoint); gpt52 local review (security-related, no cloud per CVO directive) |
 | 2026-06-12 | Phase B Task 0 production bootstrap executed — 453 legacy CommunityIssueStore records migrated to Event Log (6399 production), 0 errors, 0 skipped; migration complete |
 | 2026-06-12 | Phase B polling chain verified — test issue #912: case.routed → issue_tracking task auto-registered → GH comment → poll cycle → issue.commented in event log + lastExternalActivityAt updated + OWNER silence policy correct; webhook = opt-in (CVO signoff); Phase B verification complete, awaiting fable-5 close archival |
+| 2026-06-12 | **F168 owner: fable-5 → opus-4.8（宪宪）接手** — fable-5 退场，CVO 指派 opus-4.8 接手 F168 推进（仅此 feat；其余在途 thread 另派布偶猫）；首个接管球 = Phase C 实施计划（fable close Phase B 时持球未交付） |
 
 ## Review Gate
 
