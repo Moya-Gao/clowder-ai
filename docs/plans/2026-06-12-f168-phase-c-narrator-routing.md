@@ -211,6 +211,8 @@ interface RouteDecisionEvalEvent {
 - **AC-C5**: F128 路由 — 卡片可路由到已有 thread + role 下拉改派
 - **AC-C6**: eval 钩子 — owner confirm/override 记 timeline → F192
 
+**narrator 绑定粒度 — DECIDED（CVO 2026-06-12）**: ① 部署配置可换（C1.2 落地，满足"可选+解耦"硬约束）= Phase C 交付物；② Hub UI 点选切换 = **接缝预留 + follow-up**（C1 配置层留好读写接口，后续增量加 UI 不返工，不在 Phase C 强做）；③ per-case 临时选**不做**（违背 F168 解放人肉 dispatcher 愿景）。F208 画像注入 narrator 见 §4 OQ-V1。
+
 ---
 
 ## 3. Tasks（TDD：RED→GREEN→commit；bite-sized）
@@ -359,10 +361,7 @@ interface RouteDecisionEvalEvent {
 - SPIKE-1: narrator spawn 机制（C2.0 输出）
 
 **价值 OQ（需 CVO 知情/判断，附 Decision Packet）:**
-- **OQ-V1（F208 联动）**: narrator 的 `routeRecommendation`/`recommendedOwnerRole` 要不要联动 **F208 能力画像路由**（按 task 画像 × cat 能力画像匹配推荐 owner），还是 Phase C 先用简单规则（relatedFeature→该 feat thread + 默认 case-owner）、F208 联动留后续？
-  - **TL;DR**: F208 是"认知路由"的正解，但 Phase C 接它会扩 scope + 依赖 F208 成熟度。
-  - **回滚成本**: 低——Phase C 先出简单规则推荐，schema 已留 `recommendedOwnerRole` 字段，后续接 F208 是增量。
-  - **倾向（可自决）**: Phase C 用简单规则（不阻塞），schema 预留联动位，F208 联动作为 follow-up feat 关联。除非铲屎官要 Phase C 直接联动。
+- **OQ-V1（F208 联动）— DECIDED（CVO 2026-06-12）**: F208 能力画像**采纳**为 narrator 的判断材料——narrator 路由推荐时引用 F208 画像（哪只猫擅长啥 × task 要啥能力）作上下文，**判断权在 narrator 猫，非画像算法自动拍板**（铲屎官原话："本质还是当事猫判断"，正合 KD-8 给数据不给结论）。Phase C 落地：narrator prompt 注入相关 F208 画像 + 简单规则（relatedFeature→feat thread）兜底；画像 → 自动路由权限走 eval 数据开（INV-13），不靠信任。
 
 ---
 
