@@ -1,7 +1,7 @@
 ---
 feature_ids: [F229]
 related_features: [F155, F020, F092, F111, F128, F226, F227, F102, F099]
-topics: [concierge, desktop-pet, routing, small-model, voice, memory, ux, community]
+topics: [concierge, desktop-pet, pet-skin, routing, small-model, voice, memory, ux, community]
 doc_kind: spec
 created: 2026-06-09
 community_issue: "clowder-ai#841"
@@ -102,6 +102,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 ### Phase E: 桌宠化 + 形象生态 + 操作演示（远期）
 
 - 桌宠动效系统（呼吸/打盹/状态表情）+ 皮肤生态（开源用户自家猫形象）
+- **PetSkinContract**：参考 `hatch-pet` 的 Codex pet atlas/QA/provenance 纪律，但 F229 不降级为纯桌宠。PetSkin 是 `conciergeState -> petState` 的纯投影；动画是增强信号，状态必须同时有非 pet 通道表达；完整 8x9 atlas defer，v0 只要求 idle/running/review/failed 四态打通（见 `docs/features/F229-petskin-contract.md`）
 - **素材池已开仓**：`assets/F229/desktop-pet-sprite/`（README 含 production pipeline 五步 + 砚砚验证的云端生图 prompt 模板）——缅因猫 raw sheet ×2 已入库（fbb0e8add）；v1 默认布偶猫 + 孟加拉/暹罗 sheet 待生成
 - 主动冒泡（新版本发布等白名单事件，安静优先）
 - OpenCLI 式页面操作演示（#841 终态收编：猫操作页面给用户看，操作前用户确认）
@@ -207,6 +208,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 | KD-14 | 默认形象修正（CVO 愿景对齐）：默认 = **家养像素猫桌宠**四选一【布偶猫/缅因猫/孟加拉猫/暹罗猫】（家里桌宠像素风格、砚砚绘制——自家原创，"避版权"不再构成毛线球的立身理由），v1 默认**布偶猫**（CVO 拍板）。毛线球降为备选皮肤/过渡形态——Phase A 已实现的球先走通不返工，形象升级为独立工作项（A4 同期或之后；素材先行：定位家里既有像素素材，定位不到请砚砚按 codex 桌宠风格绘制四猫 + 八态动画映射） | 铲屎官 2026-06-10（msg 0001781148650752）："我们不是想要一只猫猫吗…最好做成我们曾经桌宠系统里砚砚画的…【布偶猫，缅因猫，孟加拉猫，暹罗猫】当 default 可选…私心我喜欢可爱的布偶猫…现拿球走通也可以" | 2026-06-10 |
 | KD-16 | 值班猫身份必须 UI 可见：气泡 header 显示"{displayName} · 值班：{值班猫名}"（或等效角标）——值班层是用户该看见的状态，不是实现细节 | 铲屎官 runtime 首验（2026-06-12）："这个猫猫球到底什么猫啊！"——值班身份隐藏违反调研红线 No hidden state；KD-1 三层里值班层此前 UI 不可见 | 2026-06-12 |
 | KD-17 | 值班猫输出契约统一 MD-first + 短 handle：搜索工具结果（concierge 上下文）附短标记（R1/R2…），值班猫 MD 里只引用标记（`[跳过去 R1]`/`[原地看 R1]`），**服务端 validator 解析标记 → HandleMap 查真实 anchor → ID 校验 fail-closed → 注入 CardBlock actions**。废除"值班猫直接输出 actions 数组/转抄长 ID"假设——flash 档遵循性实测不可靠（验收 0/3 输出 actions；gemma 线长 ID 直抄全失效先例）。HandleMap 从 Phase D 前移（KD-13 早已点名 "recent handle map" 属产品状态）；值班猫与 Phase D clerk 输出契约就此统一，validator 复用 | sonnet Phase A 验收 P1（2026-06-12）+ gemma 线 attempt 2 实测（短 handle 9/9）+ 铲屎官"你们最会的是 md" | 2026-06-12 |
+| KD-18 | PetSkinContract：参考 `hatch-pet` 的 atlas/QA/provenance 纪律，但 PetSkin 必须是 concierge 状态机的纯投影，不是平行状态机。`conciergeState` 是唯一真值源，PetSkin 只定义 `conciergeState -> petState`；缺失状态 fallback idle；pet 永远是增强信号，不是唯一状态信号；验收有三道闸：readability / identity-diff / provenance | 铲屎官 2026-06-13："要学习人家的好处比较好…但也不必换成这个…前台猫猫不止是一个好看的桌宠" + 宪宪 cowork 收敛（投影函数 + 三道闸 + v0 四态竖切） | 2026-06-13 |
 
 ## Timeline
 
@@ -229,6 +231,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 | 2026-06-12 | **Liveness fix merged** (PR #2248, squash commit `7997ec56`)：useConciergeQueue server-truth polling 取代 60s 盲 safety valve（P0 no-reply bug）+ toolbar 4 按钮简化为 2 按钮（❓help + 💬chat，铲屎官 directive）+ loaded guard 防首次 poll 前误判 idle（P1 @gpt52）+ queue entries check 覆盖 queued-but-no-active 间隙（P2 cloud R1）+ 10s deadline fallback 防 API 不可达时永久 in_progress（P2 cloud R2）；57 tests（含 Block 7 liveness 8 tests） |
 | 2026-06-12 | **Hotfix: duty cat default gemini25→gemini35** (PR #2261, squash commit `94e4b087`)：铲屎官 directive 纠正——gemini35 是 runtime catalog 独立 breed（catId=gemini35, Gemini 3.5 Flash High），非 gemini25 别名；PR #2255 误将 gemini35→gemini25（主仓 template 无此 catId 误判为 alias）；resolveDefaultDutyCatProfileId() 优先链 gemini35→first→sonnet；@gpt52 review（2 false P1 push-back 后 APPROVED）+ 云端 review（1 false P1 dismissed with evidence）；⚠️ 存量用户 Redis 6399 仍存 dutyCatProfileId=gemini25（通过 catRegistry 校验不会被自动纠正）——需铲屎官在设置页手动切换 |
 | 2026-06-13 | **KD-17 HandleMap merged** (PR #2266, squash commit `5ab6be823a`)：ConciergeHandleMapStore（Redis+Memory port/impl, max 20 rolling, TTL=0）+ ConciergePromptSection rewrite（删 Rule#3 actions 数组，加 MD-first 短 handle 标记指令）+ concierge-search-context（pre-fetch→R1..Rn 编号→HandleMap 写入→prompt 注入）+ concierge-reply-validator（post-process [跳过去 Rn]/[原地看 Rn]→CardBlock actions 注入）+ route-serial/parallel wire-up；4 个 fail-closed guard（unknown handle / stale handle clear / peek 缺 messageId / teleport 非 thread 类型）；砚砚 local review 3 P1 修复 + 云端 2 轮（R1 P1 non-thread anchor，R2 clean）；151 tests |
+| 2026-06-13 | **PetSkinContract drafted**：`hatch-pet` skill installed and reviewed；F229 采纳其 Codex pet atlas/QA/provenance 纪律，但钉死"老师不是本体"：PetSkin 是 `conciergeState -> petState` 纯投影，三道闸 readability / identity-diff / provenance，状态必须有非 pet 通道；v0 只覆盖 idle/running/review/failed 四态，8x9 全 atlas defer |
 | 2026-06-10 | **Phase A PR-A1 merged** (PR #2202，squash commit e6f8b4c38)：ConciergeConfigStore + ConciergeThreadService + `/api/concierge/*` 路由 + SystemPromptBuilder 注入 + prompt injection 防护 (R15 P1) + concierge thread lifecycle (R18/R19 P2) |
 | 2026-06-10 | **Phase A PR-A2 merged** (PR #2211，squash commit 3df6f643f)：ConciergeHost（常驻根容器）+ ConciergeBall（8 态投影）+ ConciergePanel（对话窗）+ ConciergeRailToggle（ActivityBar 唤回入口）+ ConciergeStore（INV-2 纯投影架构）+ muted toggle UI (AC-A6 前端); R1-R7 cloud review cycle — 7 轮修复全清零 P1/P2 |
 | 2026-06-11 | **Phase A PR-A3a merged** (PR #2228，squash commit 70a689fd)：ConciergeToolbar（Layer 2 能力按钮：找找看/新功能/传话 + Escape 折叠）+ ConciergePanel 气泡化（Layer 3 漫画气泡 + 对话集成：发送/乐观插入/错误恢复/滚动锚点）+ useConciergeMessages（GET /api/messages 消息流 + refresh-after-send）+ R7 speech bubble tail overflow-hidden 修复（尾角不被 clip）+ R8 streaming draft filter（isDraft=true 不计入 reply detection）+ keyboard double-send guard（Enter 键 invocationStatus 守门）；R1-R8 cloud review cycle — 8 轮修复全清零 P1/P2 |
@@ -253,6 +256,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 | **Research** | `docs/research/2026-06-09-f229-companion-form-research.md` | companion 形态/体验调研：Clippy 反面教训、桌宠/派蒙借鉴、主动冒泡白名单、默认毛线球视觉方向、Mode B prompt |
 | **Design Gate** | `docs/discussions/2026-06-09-f229-design/README.md` | Phase 0 设计材料：架构归属一问、身份三层配置模型、对话载体决策、surface 技术路径、四态 wireframe、调研采纳决议 |
 | **视觉设计** | `docs/research/2026-06-10-f229-visual-design-proposal.md` | 烁烁视觉返工方案（KD-15 落地）：八态贴纸映射（砚砚 opus 贴纸）、三层展开（猫→工具栏→气泡）、OKLCH token 接入表、V1-V9 清单——CVO 六题全过 2026-06-10 |
+| **PetSkin Contract** | `docs/features/F229-petskin-contract.md` | `hatch-pet` 参考落地：atlas/状态投影/identity-diff/provenance/accessibility/v0 四态竖切 |
 | **Research** | `docs/research/2026-06-08-pi-gemma-local-clerk-phase0-spike.md` | gemma 4 26B 本地实测 + Pi carrier + harness 收敛（Phase D 前置） |
 | **Research** | `docs/research/2026-06-10-f102-f229-gemma-clerk-carrier-spike.md` | F102/F229 共享的 Gemma clerk carrier/harness spike：MD-first、短 handle、Pi/OpenCode/MCP 结论 |
 | **Issue** | cat-cafe#2175 | F102 MD-first digest candidates + provider 抽象（Phase D 软依赖） |
