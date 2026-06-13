@@ -8,6 +8,7 @@
 
 1. **回执零监听设施**：relay 不建"目标 thread 订阅/marker 监听"子系统。relay = **A2A cross_post 接力**——投递内容带 routing credentials 模板（"完成后 cross_post 回 `thread_<concierge>` + targetCats」），目标猫回报 = concierge thread 收到普通消息 = 现有消息流直接渲染 + found badge。幂等靠 cross_post `clientMessageId`。Trade-off 接受：依赖 A2A 回报纪律（家里成熟），不回报时用户有"跳过去跟进"兜底。
 2. **HandleMap 不建**：值班猫（大猫）直接用 `create_rich_block` 发结构化卡，**actions payload 带真实 ID**（threadId/messageId），payload 即真值，前端零解析模型文本。HandleMap 是 Phase D clerk（小模型 MD→validator）的设施，A3 不预建（YAGNI）。
+   > **⚠️ 2026-06-12 假设被验收推翻（KD-17）**：默认值班猫是 flash 档，实测 0/3 输出 actions 数组——"大猫=结构化可靠"对 flash 不成立。修正：HandleMap **前移**——搜索结果附短标记（R1/R2…），值班猫 MD 只引用标记，服务端 validator 解析→HandleMap 查 ID→fail-closed→注入 actions。这是 gemma 线 attempt 2（短 handle 9/9 vs 长 ID 全失效）的复刻 + KD-13 "recent handle map" 的兑现；值班猫与 Phase D clerk 输出契约就此统一。详见 F229 KD-17 + A3-fix 修复 PR。
 
 ## 1. 状态对象规格
 

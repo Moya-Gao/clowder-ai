@@ -134,12 +134,12 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 - [x] AC-02: Design Gate 通过——wireframe 铲屎官 OK（msg 0001781074572950"可以可以！！我觉得没问题！！"，含去/取/传话分叉 + Duty Toolset）+ 架构归属（new cell concierge-surface）+ 元审美自检（design doc §7）
 
 ### Phase A（前台开张）
-- [ ] AC-A1: 任意页面悬浮球唤起对话，不离开当前页面（截图 + 15s 录屏）→ R9/Why-2
-- [ ] AC-A2: 功能发现——非作者拿 3 个"最近有什么新功能/X 怎么用"问题验收，答案与 release notes/feature docs 一致 → R1/Why-1
-- [ ] AC-A3: 记忆导航——3 个真实历史讨论 query 给出正确 thread/message 链接，且**两种动作都可用**：跳过去（teleport）+ 原地看（卡内 inline 展开 anchor 前后原文，不离开当前页）→ R3/Why-3 + CVO 去/取分叉反馈
-- [ ] AC-A4: 求助场景能触发对应 F155 guide flow（录屏一条）→ R2/Why-2
+- [x] AC-A1: 任意页面悬浮球唤起对话，不离开当前页面（截图 + 15s 录屏）→ R9/Why-2——证据 `assets/F229/acceptance-phase-a/ac-a1-*.png`（sonnet 验收 2026-06-12，球+toolbar+面板+拖拽）
+- [x] AC-A2: 功能发现——非作者拿 3 个"最近有什么新功能/X 怎么用"问题验收，答案与 release notes/feature docs 一致 → R1/Why-1——3/3 核对通过（F225/F226/F229/F228 答案与 docs 一致），证据 `ac-a2-*.png`
+- [ ] AC-A3: 记忆导航——3 个真实历史讨论 query 给出正确 thread/message 链接，且**两种动作都可用**：跳过去（teleport）+ 原地看（卡内 inline 展开）→ R3/Why-3——**基础设施 ✅（CardBlock handler + peek API 200）；交互闭环 ⚠️ 验收 P1：flash 值班猫 0/3 输出 actions 数组 → KD-17 修复后补验**（证据 `ac-a3-*.png`）
+- [x] AC-A4: 求助场景能触发对应 F155 guide flow（录屏一条）→ R2/Why-2——intent 检测 + 9 guide 列举 + handoff 卡 ✅，证据 `ac-a4-*.png`
 - [x] AC-A5: 形象/人设/值班猫在设置页可配置，与 cat profile 解耦（截图）→ R5
-- [ ] AC-A6: 安静默认——默认零主动文本弹出；低优先级事件只显示 badge（hover 才出文字）；用户可一键 hide/mute 整个球（录屏 + 设置截图）→ R8/调研红线
+- [x] AC-A6: 安静默认——默认零主动文本弹出；低优先级事件只显示 badge（hover 才出文字）；用户可一键 hide/mute 整个球（录屏 + 设置截图）→ R8/调研红线——alpha muted 往返全链 ✅（API+UI 双确认），证据 `ac-a6-*.png`
 
 ### Phase B（总机能力）
 - [ ] AC-B1: 用户描述问题 → 前台猫给出分诊建议并经确认执行，**传话/跟去双路径**：relay（cross_post 投递 + 对方回复后回执卡）+ go（teleport 跟进），留痕可查 → R4 + CVO 分叉反馈
@@ -206,6 +206,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 | KD-13 | 前台猫产品状态自持：current route / recent handle map / pending confirmations / go·inline·relay 选择 / relay receipts / guide state / escalation 原文——全部存 Cat Cafe app code（store/Redis），**不依赖 carrier（Pi/OpenCode）或模型 context compaction**。PR-A2 conciergeStore（pending counts 入 store 零模型依赖）已是此原则第一个落点；PR-A3+ 的 handle map / relay receipts / escalation 原文按此实现 | 砚砚 carrier spike 收束（2026-06-10）：carrier 是可换的壳，产品状态进壳就会随 carrier 丢失 | 2026-06-10 |
 | KD-14 | 默认形象修正（CVO 愿景对齐）：默认 = **家养像素猫桌宠**四选一【布偶猫/缅因猫/孟加拉猫/暹罗猫】（家里桌宠像素风格、砚砚绘制——自家原创，"避版权"不再构成毛线球的立身理由），v1 默认**布偶猫**（CVO 拍板）。毛线球降为备选皮肤/过渡形态——Phase A 已实现的球先走通不返工，形象升级为独立工作项（A4 同期或之后；素材先行：定位家里既有像素素材，定位不到请砚砚按 codex 桌宠风格绘制四猫 + 八态动画映射） | 铲屎官 2026-06-10（msg 0001781148650752）："我们不是想要一只猫猫吗…最好做成我们曾经桌宠系统里砚砚画的…【布偶猫，缅因猫，孟加拉猫，暹罗猫】当 default 可选…私心我喜欢可爱的布偶猫…现拿球走通也可以" | 2026-06-10 |
 | KD-16 | 值班猫身份必须 UI 可见：气泡 header 显示"{displayName} · 值班：{值班猫名}"（或等效角标）——值班层是用户该看见的状态，不是实现细节 | 铲屎官 runtime 首验（2026-06-12）："这个猫猫球到底什么猫啊！"——值班身份隐藏违反调研红线 No hidden state；KD-1 三层里值班层此前 UI 不可见 | 2026-06-12 |
+| KD-17 | 值班猫输出契约统一 MD-first + 短 handle：搜索工具结果（concierge 上下文）附短标记（R1/R2…），值班猫 MD 里只引用标记（`[跳过去 R1]`/`[原地看 R1]`），**服务端 validator 解析标记 → HandleMap 查真实 anchor → ID 校验 fail-closed → 注入 CardBlock actions**。废除"值班猫直接输出 actions 数组/转抄长 ID"假设——flash 档遵循性实测不可靠（验收 0/3 输出 actions；gemma 线长 ID 直抄全失效先例）。HandleMap 从 Phase D 前移（KD-13 早已点名 "recent handle map" 属产品状态）；值班猫与 Phase D clerk 输出契约就此统一，validator 复用 | sonnet Phase A 验收 P1（2026-06-12）+ gemma 线 attempt 2 实测（短 handle 9/9）+ 铲屎官"你们最会的是 md" | 2026-06-12 |
 
 ## Timeline
 
