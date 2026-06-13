@@ -8,7 +8,7 @@ created: 2026-06-11
 
 # F232: Thread Artifacts Panel — Thread 产物视图
 
-> **Status**: in-progress（Phase A 首版 merged PR #2247；**Phase A.1 merged PR #2259：AC-A7 点击查看内容 ✅ + AC-A8 panel tab 收敛 ✅（小屏产物入口收窄为 OQ 待 CVO）= 愿景核心补强**；**Phase A.2 待做：AC-A9 视频产物 panel 内播放**；视觉待 alpha；Phase B 未启动）| **Owner**: 宪宪 Opus-4.8 | **Priority**: P1
+> **Status**: in-progress（Phase A 首版 merged PR #2247；**Phase A.1 merged PR #2259：AC-A7 点击查看内容 ✅ + AC-A8 panel tab 收敛 ✅（小屏产物入口收窄为 OQ 待 CVO）= 愿景核心补强**；**Phase A.2 merged PR #2269：AC-A9 视频产物 panel 内播放 ✅**；视觉待 alpha；Phase B 未启动）| **Owner**: 宪宪 Opus-4.8 | **Priority**: P1
 
 ## Why
 
@@ -79,8 +79,8 @@ created: 2026-06-11
   - **PR #2259 交付**：✅ panel 收敛成单一开关 + 内部 tab（PanelTabs）、header 去多按钮、desktop（≥1024px）产物入口可达、close 行为修复（workspace/transcript 退 status 不被 auto-open 重开）。
   - **⬜ 小屏产物入口未交付 → OQ 待 CVO**：云端 P2-2 把右侧 panel 收窄为 desktop-only（`hidden lg:block`），小屏走 `MobileStatusSheet`——但 MobileStatusSheet 尚未含产物入口，故原「小屏直达产物」目标未达。merge 后碰头铲屎官定：扩展 MobileStatusSheet 含产物 / 接受 desktop-only / 其他。**未 CVO signoff 前 AC-A8 不勾。**
 
-### Phase A.2（视频产物 panel 内播放 — 待做）
-- [ ] **AC-A9**: 视频产物点击在 panel 内播放（`<video controls>`），不再只「下载」。跨层改动：shared `ThreadArtifactType` 加 `'video'` + aggregator 识别视频源 + `classifyArtifactView` video 分支 + `ArtifactDetailView` video 渲染 + 类型筛选/图标补 video。有 test 覆盖（classify 纯函数 + 渲染）。（trace: 铲屎官 2026-06-12 "忘记考虑视频之类的东西了" → 图/音/视频在 panel 内查看能力对齐 AC-A7 愿景）
+### Phase A.2（视频产物 panel 内播放）✅ merged PR #2269
+- [x] **AC-A9**: 视频产物点击在 panel 内播放（`<video controls>`），不再只「下载」。跨层改动：shared `ThreadArtifactType` 加 `'video'` + aggregator 识别视频源（mimeType 优先，扩展名 fallback）+ `classifyArtifactView` video 分支 + `ArtifactDetailView` video 渲染 + 类型筛选/图标补 video。7 个新测试覆盖（aggregator 4 + classify 2 + mimeType 优先级 1）。（trace: 铲屎官 2026-06-12 "忘记考虑视频之类的东西了" → 图/音/视频在 panel 内查看能力对齐 AC-A7 愿景）
 
 ### Phase B（全局产物中心 — 未来）
 - [ ] AC-B1: 全局产物搜索页，跨 thread 按名字 / 类型 / 时间 / 猫聚合检索。
@@ -129,6 +129,7 @@ created: 2026-06-11
 | 2026-06-12 | 铲屎官 dogfood 澄清**核心愿景**：产物 = **点击看内容**（复用 workspace `FileContentRenderer`），非只列清单。Phase A 首版丢了这核心 → spec 更新 Why/What + 新增 AC-A7（内容查看）/AC-A8（UX 收敛·panel tab·小屏入口）+ KD-4，列入 Phase A.1 |
 | 2026-06-12 | 铲屎官 dogfood 发现产物面板**漏视频类型**（图能看/音频能放/视频只能下载）→ 开 **Phase A.2**（AC-A9 视频 panel 内播放，跨 shared 类型层）。CVO 拍板 A.2 独立做、不塞 A.1。Phase A.1（PR #2259）含云端 2×P2 修复，待 fresh session 收尾（#4 session decoder 漂移，详见安全事件 thread + F215 提案）|
 | 2026-06-13 | **Phase A.1 merged (PR #2259)** — AC-A7 点击看内容（复用 FileContentRenderer/CodeViewer/MarkdownContent）✅ + AC-A8 panel tab 收敛 ✅。云端 5 轮 re-review 全修、0 假阳性（R1 2×P2 download路由/小屏panel · R2 P1 跨域 credentials · R3 P2 二进制误判文本 allowlist · R4 P2 markdown basePath · R5 P2 panel 关不掉 closeRightPanel）+ 砚砚封板 final review 放行（LL-072 5 轮硬上限）。**小屏产物入口收窄为 OQ 待 CVO**（云端 P2-2 desktop-only panel + MobileStatusSheet）。视觉仍待 alpha |
+| 2026-06-13 | **Phase A.2 merged (PR #2269)** — AC-A9 视频产物 panel 内播放 ✅。跨 5 层扩展（shared type / aggregator 视频识别 / classify / `<video controls>` 渲染 / 筛选图标）+ 7 新测试。local @gpt52 review（1 P1 push back accepted → approve）+ 云端 R1 2 findings（P2 mimeType 优先级 + P1 frontmatter）修复 + R2 封板（stale replay 100% 假阳性，LL-072） |
 
 ## Design Gate
 
