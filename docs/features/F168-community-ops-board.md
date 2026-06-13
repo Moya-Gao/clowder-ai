@@ -452,6 +452,7 @@ TTL=0（铁律 #5），用户数据默认持久化
 | 2026-06-12 | **F168 owner: fable-5 → opus-4.8（宪宪）接手** — fable-5 退场，CVO 指派 opus-4.8 接手 F168 推进（仅此 feat；其余在途 thread 另派布偶猫）；首个接管球 = Phase C 实施计划（fable close Phase B 时持球未交付） |
 | 2026-06-12 | **Phase C 实施计划 committed** — `docs/plans/2026-06-12-f168-phase-c-narrator-routing.md`（6 状态对象 Stateful Object Gate + INV-1~13；C0 前置 / C1 Role Registry / C2 narrator / C3 F128 路由 / eval；OQ-V1 F208 采纳为判断材料 + narrator 绑定粒度①配置可换②UI预留） |
 | 2026-06-13 | **Phase C 前置 C0.1+C0.2 merged** (PR #2273, `67f71098`) — threadStore 接线 fail-loud（index.ts register 补传 + routeAccepted Path 2 缺依赖 throw，INV-7）+ optional-dep 硬层守护（community-index-wiring 静态断言，ADR-031）；TDD 75 pass + 本地(gpt52)/云端(Codex) review PASS。插曲：撞全员 blocker #2268 eval bundle 不合规 JSON → biome ignore unblock (PR #2270)。C0.3 repo 追评轮询 / C0.4 narrator 排除存量(并入 C2) / C1-C3+eval 待续 |
+| 2026-06-13 | **Phase C 前置 C0.3 merged** (PR #2280, `42fadd2ff`) — repo 级 issue-comment 轮询灭未-routed 追评盲区（collection-only event-sourced：append+project 在 gate 内、恒 run:false；per-repo cursor=max updatedAt + redis-gated backfill 把新 manifest resource 接入存量装机）。云端 R1-R5 5 轮封板（LL-072 cap，全 finding 解：backfill 4 条件契约 plugin-active∧first-run∧TARGET∧absent / INV-9b 首轮 baseline / INV-9c cursor overlap / INV-9d PR-comment anti-churn）+ gpt52 终局 PASS。gate: api 0 fail（含 C0.3 测试），3 web jsdom pre-existing scope-外 waived。C0.4(并入 C2) / C1-C3+eval 待续 |
 
 ## Review Gate
 
