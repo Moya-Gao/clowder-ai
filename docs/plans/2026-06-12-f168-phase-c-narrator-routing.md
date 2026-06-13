@@ -1,3 +1,10 @@
+---
+doc_kind: plan
+created: 2026-06-12
+anchor: doc:plans/2026-06-12-f168-phase-c-narrator-routing
+topics: [f168, phase, narrator, role, registry]
+---
+
 # F168 Phase C — Narrator + Role Registry + 路由 Implementation Plan
 
 **Feature:** F168 — `docs/features/F168-community-ops-board.md`（reopened 2026-06-10）
@@ -147,18 +154,25 @@ interface RouteDecisionEvalEvent {
 
 | 状态 \ 事件 | poll(since=cursor) | append success | append dedup-hit |
 |---|---|---|---|
-| cursor=T0 | fetch comments since T0 | cursor→T_latest | cursor→T_latest（仍推进） |
+| cursor=undefined（首次/lost） | **baseline：cursor→now，skip fetch**（不 backfill 历史） | — | — |
+| cursor=T0 | fetch since **T0-1s**（query overlap，防 skip 同秒 comment） | cursor→T_latest（存 exact max） | cursor→T_latest（仍推进） |
 
 - **唯一 lifecycle owner:** TaskStore（采集 operational state，**不是案件 canonical**，终态设计 §2）。
 - **旁路 API 禁止:** cursor 只由 poller 推进，不被投影层/视图改写。
 
 **不变量:**
 - **INV-9**（采集 cursor append 即推进）：事件 append 进 Event Log 成功即推进 cursor——informational 被静默 ≠ 丢失（终态设计 §2 双 cursor 语义；修正旧 `IssueCommentTaskSpec` 仅 notified 才 commit cursor 的语义）。可测：informational comment → append + cursor 推进，不重复消费。
+- **INV-9b**（首次 baseline 不 backfill，cloud review P1-2）：无 cursor（首次 enable / 新 repo / lost cursor）时 baseline cursor=now + skip fetch——**不**把 repo 全部历史 comment backfill 进 Event Log（poll storm）。C0.3 灭的是 enable 后的**新**追评盲区，历史是存量（C0.4 narrator 存量排除的对应）。可测：无 cursor → 不 fetch、不 append、cursor 被设为 ISO timestamp。
 - **INV-10**（sourceEventId 去重）：同 comment id 多次轮询只 append 一次。可测：同 comment 二次 poll → 第二次 dedup no-op。
+- **INV-9c**（cursor query overlap，cloud review R2 P2）：cursor 存 exact max，但 fetch 时 since=cursor-1s。GitHub `since` 是 after-timestamp + 秒粒度，同秒内 max 之后产生的 comment 否则被永久 skip；overlap 重 fetch 由 INV-10 dedup 兜住，cursor 存 exact max 保证推进（不 stuck）。可测：fetch since = cursor-1s，cursor 仍存 exact max。
+- **INV-9d**（PR 评论推进 cursor 但不投影，cloud review R4 P2）：repo 级 `/issues/comments` endpoint 也返回 PR 会话评论（PR 在 GitHub 是 issue）。PR 评论 TAG `isPullRequest` → 不 append/project（归 ReviewFeedbackTaskSpec 轨道），但**仍推进 cursor**（cursor 跨 issue+PR 全量取 max）。否则 repo 有 PR 活动但无新 issue 评论时，filter 后返回空 → cursor 永不推进 → 每 tick 重 fetch 同分页（API churn / rate-limit 风险）。可测：纯 PR 评论 → 不 append、不 project，但 cursor 推进到 PR 评论 updatedAt；混合 → 只 append issue，cursor=全量 max。
 
 **对抗场景:**
 - crash window（cursor 推进前崩溃）→ 重复消费靠 sourceEventId 幂等兜底
 - since 游标分页边界 → 不漏不重
+- 首次 enable 在大 repo（大量历史 comment）→ baseline 跳过历史，不 poll storm（cloud P1-2）
+- 同秒边界 comment（max updatedAt 后、分页响应后产生）→ cursor query overlap（since=cursor-1s）+ dedup 兜，不 skip（cloud R2 P2）
+- repo 有 PR 会话评论但无新 issue 评论（PR 评论本属 ReviewFeedbackTaskSpec 轨道、不投影）→ PR 评论仍推进 cursor，不 stuck 在重 fetch 同分页（cloud R4 P2 churn）
 - 未-routed issue 的追评（**本 task 要灭的盲区**）→ repo 级轮询覆盖所有 issue，不只已注册 tracking 的
 
 ### SO-5 DirectionCard（case 投影 + narrator 扩展字段）— 三件套
@@ -250,7 +264,9 @@ interface RouteDecisionEvalEvent {
 **Step 2（GREEN）:** 实现 repo 级 `GET /repos/{repo}/issues/comments?since={cursor}` 游标轮询，sourceEventId 去重（INV-9/10）。复用 RepoScan 框架的 HMAC/去重/调度。
 **Step 3:** 双 cursor 语义——append 成功即推进 cursor（INV-9）。redis-backed 测试断言 cursor 单调 + dedup。**Step 4:** commit。
 
-> **技术 OQ-C0a:** 扩展 RepoScanTaskSpec vs 新建 repo-comment poller —— 实现时按耦合度定（倾向扩展 RepoScan，复用调度）。
+> **技术 OQ-C0a — DECIDED（SPIKE 2026-06-13）:** 新建轻量 repo-comment poller。调研结论：`IssueCommentTaskSpec`=per-tracked-issue 轮询（盲区源——未-routed issue 没 tracking task）；`RepoScanTaskSpec`=repo 级扫 open PRs/issues（reconciliation 语义，**不扫 comments**）。新建 poller 复用 RepoScan allowlist+调度 + IssueComment 双 cursor + event log append（Phase B 已建），语义清晰（repo 级追评轮询 ≠ reconciliation 发现），不混入 RepoScan。
+
+> **Backfill 状态契约（cloud review R1-R3 衍生，feedback_plan_stateful）:** 已有安装升级时 migration marker 已存在（shouldRunMigration 返回 false）→ 新 manifest resource 不被加 → poller 死代码（R1 P1-1）。修 = `backfillMissingGitHubScheduleEntries` 一次性补。但 "capabilities 缺失" 有多因（真新 / schedule disabled / 整 plugin disabled / 全 schedule disabled，均物理删除 row），backfill 必须区分，否则复活 disabled（R2/R3 P1）。**充要条件（四条件全满足才补 repo-comment-poll）:** `plugin-active`（≥1 github schedule row；排除整 plugin disabled [R3] / 全 schedule disabled）∧ `first-run`（alreadyBackfilled marker 未设；排除升级后 disable [R2]）∧ `TARGET`（∈ BACKFILL_TARGET_RESOURCES；只补本版本新增，排除升级前 disable 的 legacy [R2]）∧ `absent`（不在 capabilities）。**未来新增 schedule resource：加入 BACKFILL_TARGET_RESOURCES + bump backfill marker（否则一次性 marker 已存在不会补）。**
 
 ### C0.4 — narrator 排除存量（防 453 卡风暴，终态设计硬约束）
 
@@ -356,7 +372,7 @@ interface RouteDecisionEvalEvent {
 ## 4. Open Questions
 
 **技术 OQ（实现时自行解决）:**
-- OQ-C0a: repo 轮询扩展 RepoScan vs 新建 poller（倾向扩展）
+- OQ-C0a — DECIDED（SPIKE 2026-06-13）: 新建轻量 repo-comment poller（RepoScan 扫 open 不扫 comments，语义分离）；复用 allowlist + 双 cursor + event log append
 - OQ-C1a: guardian getRoster 本 Phase 收敛 vs Phase D（倾向 Phase D）
 - SPIKE-1: narrator spawn 机制（C2.0 输出）
 

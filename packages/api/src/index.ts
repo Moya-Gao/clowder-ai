@@ -134,6 +134,7 @@ import {
 } from './infrastructure/connectors/connector-gateway-bootstrap.js';
 import { restartConnectorGateway } from './infrastructure/connectors/connector-gateway-lifecycle.js';
 import { createConnectorReloadSubscriber } from './infrastructure/connectors/connector-reload-subscriber.js';
+import type { RepoIssueComment } from './infrastructure/connectors/github-repo-event/RepoCommentPollTaskSpec.js';
 import { IssueCommentRouter } from './infrastructure/email/IssueCommentRouter.js';
 import {
   CiCdRouter,
@@ -2147,6 +2148,9 @@ async function main(): Promise<void> {
           buildGitHubMigrationEnv,
           buildGitHubScheduleOverrideMigrations,
           promotePendingGitHubMigrationEntries,
+          backfillMissingGitHubScheduleEntries,
+          hasGitHubScheduleBackfillRun,
+          markGitHubScheduleBackfillDone,
         } = await import('./domains/plugin/github-schedule-factories.js');
         const hasRepoScanRuntimeDeps = !!(githubDeps as Record<string, unknown>).reconciliationDedup;
         const migrationEnv = buildGitHubMigrationEnv(getGitHubPluginEnv());
@@ -2184,6 +2188,28 @@ async function main(): Promise<void> {
                 `and migrated ${overrideMigrations.length} scheduler overrides`,
             );
           }
+        }
+        // P1-1 (cloud review): backfill manifest schedule resources missing from existing
+        // installations. shouldRunGitHubScheduleMigration returns false once any github
+        // schedule exists, so a NEW resource (repo-comment-poll) added after the one-time
+        // migration ran would never be added. Runs every startup; adds only absent entries
+        // (respects explicit disable). Redis-gated entries land pending → promoted below.
+        const alreadyBackfilled = hasGitHubScheduleBackfillRun(root);
+        const backfill = backfillMissingGitHubScheduleEntries(
+          latestCaps ?? { version: 1 as const, capabilities: [] },
+          githubManifest,
+          migrationEnv,
+          { repoScanDepsAvailable: hasRepoScanRuntimeDeps, alreadyBackfilled },
+        );
+        if (backfill.changed) {
+          await writeCapabilitiesConfig(root, backfill.config);
+          latestCaps = backfill.config;
+          app.log.info('[api] F168-C0.3: backfilled missing GitHub schedule resource(s) for existing installation');
+        }
+        if (!alreadyBackfilled) {
+          // One-time (cloud R2 P1): mark backfill done so a TARGET resource the operator
+          // later disables (physically removed) is not resurrected on the next startup.
+          markGitHubScheduleBackfillDone(root);
         }
         const pendingPromotion = promotePendingGitHubMigrationEntries(
           latestCaps ?? { version: 1 as const, capabilities: [] },
@@ -3561,6 +3587,37 @@ async function main(): Promise<void> {
       const { getOwnerUserId } = await import('./config/cat-config-loader.js');
       const effectiveUserId = getOwnerUserId();
 
+      // F168 C0.3: repo-level comment poller deps (collection-only, redis-gated).
+      // Lists ALL issue comments across allowlisted repos — including un-routed/untracked
+      // issues — closing the IssueCommentTaskSpec per-tracked-issue blind spot. PR
+      // conversation comments are surfaced too (the repo-level endpoint returns them because
+      // PRs are issues in GitHub); they are TAGGED isPullRequest so RepoCommentPollTaskSpec
+      // skips appending them (they belong to the ReviewFeedbackTaskSpec track) yet still
+      // advances the cursor past them — otherwise PR activity with no new issue comments
+      // would re-fetch the same pages every tick (cloud review R4 P2 — churn).
+      // since = the per-repo cursor (max comment updatedAt, ISO-8601) → GitHub `since` param.
+      const fetchRepoComments = async (repo: string, sinceIso?: string): Promise<RepoIssueComment[]> => {
+        const query = new URLSearchParams({ sort: 'updated', direction: 'asc', per_page: '100' });
+        if (sinceIso) query.set('since', sinceIso);
+        const stdout = await fetchGhApi([
+          'api',
+          `/repos/${repo}/issues/comments?${query.toString()}`,
+          '--jq',
+          '.[] | {issueNumber: (.issue_url | split("/") | last | tonumber), commentId: .id, author: .user.login, authorAssociation: .author_association, body: .body, updatedAt: .updated_at, isPullRequest: (.html_url | contains("/pull/"))}',
+          '--paginate',
+        ]);
+        if (!stdout.trim()) return [];
+        return stdout
+          .trim()
+          .split('\n')
+          .map((line: string) => JSON.parse(line));
+      };
+
+      const { RedisRepoCommentCursorStore } = await import(
+        './infrastructure/connectors/github-repo-event/RepoCommentCursorStore.js'
+      );
+      const repoCommentCursorStore = new RedisRepoCommentCursorStore(redisClient);
+
       repoScanDeps = {
         repoAllowlist: ghRepoAllowlist.split(',').map((r: string) => r.trim()),
         inboxCatId: ghInboxCatId,
@@ -3571,6 +3628,10 @@ async function main(): Promise<void> {
         deliveryDeps: { messageStore, socketManager },
         fetchOpenPRs,
         fetchOpenIssues,
+        // F168 C0.3: repo-level comment poller wiring
+        fetchRepoComments,
+        readRepoCommentCursor: (repo: string) => repoCommentCursorStore.read(repo),
+        writeRepoCommentCursor: (repo: string, cursor: string) => repoCommentCursorStore.write(repo, cursor),
       };
     }
 

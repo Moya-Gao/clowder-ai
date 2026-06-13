@@ -25,6 +25,9 @@ export const CommunityKeys = {
 
   /** Index set of all subjectKeys that have a projection */
   objectsIndex: 'community:objects:index',
+
+  /** F168 C0.3: per-repo collection cursor for the repo-level comment poller (max comment updatedAt, ISO-8601) */
+  repoCommentCursor: (repo: string) => `community:repo-comment:cursor:${repo}`,
 } as const;
 
 // ---------------------------------------------------------------------------

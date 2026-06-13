@@ -83,6 +83,15 @@ function makeGitHubDeps(overrides = {}) {
     fetchIssueComments: async () => [],
     fetchIssueState: async () => 'open',
     isEchoIssueComment: () => false,
+    // F168 C0.3: repo-comment-poll deps (collection-only, redis-gated like repo-scan)
+    eventLog: {
+      append: async () => ({ appended: true, sequence: 0 }),
+      read: async () => [],
+      listSubjects: async () => [],
+    },
+    fetchRepoComments: async () => [],
+    readRepoCommentCursor: async () => undefined,
+    writeRepoCommentCursor: async () => {},
     ...overrides,
   };
 }
@@ -210,7 +219,7 @@ describe('schedule name validation (P2-2)', () => {
 // --- Task 2: plugin.yaml manifest parsing ---
 
 describe('plugins/github/plugin.yaml (AC-B1)', () => {
-  test('parses as valid PluginManifest with 3 config + 5 schedule resources', () => {
+  test('parses as valid PluginManifest with 3 config + 6 schedule resources', () => {
     const yamlPath = join(__dirname, '../../../plugins/github/plugin.yaml');
     assert.ok(existsSync(yamlPath), `plugin.yaml must exist at ${yamlPath}`);
 
@@ -234,8 +243,8 @@ describe('plugins/github/plugin.yaml (AC-B1)', () => {
     const noiseField = manifest.config.find((c) => c.envName === 'GITHUB_SETUP_NOISE_BOT_LOGINS');
     assert.strictEqual(noiseField?.required, false);
 
-    // Schedule resources (4 original + 1 issue-tracking from F202-2D)
-    assert.strictEqual(manifest.resources.length, 5);
+    // Schedule resources (4 original + issue-tracking F202-2D + repo-comment-poll F168-C0.3)
+    assert.strictEqual(manifest.resources.length, 6);
     for (const r of manifest.resources) {
       assert.strictEqual(r.type, 'schedule');
       assert.ok(r.factoryId?.startsWith('github.'), `factoryId must start with "github.": ${r.factoryId}`);
@@ -247,6 +256,7 @@ describe('plugins/github/plugin.yaml (AC-B1)', () => {
       'cicd-check',
       'conflict-check',
       'issue-tracking',
+      'repo-comment-poll',
       'repo-scan',
       'review-feedback',
     ]);
@@ -256,7 +266,7 @@ describe('plugins/github/plugin.yaml (AC-B1)', () => {
 // --- Task 3: Factory registration + task creation ---
 
 describe('GitHub schedule factory registration (F202-2B Task 3)', () => {
-  test('registerGitHubScheduleFactories registers all 5 factories', () => {
+  test('registerGitHubScheduleFactories registers all 6 factories', () => {
     const registry = new ScheduleFactoryRegistry();
     registerGitHubScheduleFactories(registry);
     assert.ok(registry.has('github.cicd-check'));
@@ -264,6 +274,7 @@ describe('GitHub schedule factory registration (F202-2B Task 3)', () => {
     assert.ok(registry.has('github.review-feedback'));
     assert.ok(registry.has('github.repo-scan'));
     assert.ok(registry.has('github.issue-tracking'));
+    assert.ok(registry.has('github.repo-comment-poll'));
   });
 
   test('github.cicd-check factory creates TaskSpec with correct instanceId', () => {
@@ -418,6 +429,111 @@ describe('GitHub schedule factory registration (F202-2B Task 3)', () => {
     assert.strictEqual(projectorApplyCalls[0].payload.commentId, 10);
   });
 
+  // --- F168 C0.3: repo-comment-poll factory ---
+
+  test('github.repo-comment-poll factory creates TaskSpec with correct instanceId', () => {
+    const registry = new ScheduleFactoryRegistry();
+    registerGitHubScheduleFactories(registry);
+    const factory = registry.get('github.repo-comment-poll');
+    assert.ok(factory);
+    const spec = factory.createTaskSpec('schedule:github:repo-comment-poll', makeGitHubDeps());
+    assert.strictEqual(spec.id, 'schedule:github:repo-comment-poll');
+    assert.strictEqual(spec.profile, 'poller');
+  });
+
+  test('github.repo-comment-poll factory throws when repoAllowlist missing', () => {
+    const registry = new ScheduleFactoryRegistry();
+    registerGitHubScheduleFactories(registry);
+    const factory = registry.get('github.repo-comment-poll');
+    assert.ok(factory);
+    const deps = makeGitHubDeps({ repoAllowlist: undefined });
+    assert.throws(() => factory.createTaskSpec('schedule:github:repo-comment-poll', deps), /repoAllowlist/);
+  });
+
+  test('github.repo-comment-poll factory throws when eventLog missing', () => {
+    const registry = new ScheduleFactoryRegistry();
+    registerGitHubScheduleFactories(registry);
+    const factory = registry.get('github.repo-comment-poll');
+    assert.ok(factory);
+    const deps = makeGitHubDeps({ eventLog: undefined });
+    assert.throws(() => factory.createTaskSpec('schedule:github:repo-comment-poll', deps), /eventLog/);
+  });
+
+  test('github.repo-comment-poll factory throws when Redis cursor deps missing', () => {
+    const registry = new ScheduleFactoryRegistry();
+    registerGitHubScheduleFactories(registry);
+    const factory = registry.get('github.repo-comment-poll');
+    assert.ok(factory);
+    const deps = makeGitHubDeps({ readRepoCommentCursor: undefined, writeRepoCommentCursor: undefined });
+    assert.throws(
+      () => factory.createTaskSpec('schedule:github:repo-comment-poll', deps),
+      /fetchRepoComments|RepoCommentCursor|cursor/i,
+    );
+  });
+
+  test('github.repo-comment-poll factory wires collection: gate appends + projects + advances cursor (not dead code)', async () => {
+    const registry = new ScheduleFactoryRegistry();
+    registerGitHubScheduleFactories(registry);
+    const factory = registry.get('github.repo-comment-poll');
+    assert.ok(factory);
+
+    const events = [];
+    const eventLog = {
+      async append(event) {
+        events.push(event);
+        return { appended: true, sequence: events.length - 1 };
+      },
+      async read(subjectKey) {
+        return events.filter((e) => e.subjectKey === subjectKey);
+      },
+      async listSubjects() {
+        return [];
+      },
+    };
+    const projectorApplyCalls = [];
+    const projector = {
+      async apply(event) {
+        projectorApplyCalls.push(event);
+      },
+    };
+    const writtenCursors = [];
+
+    const spec = factory.createTaskSpec(
+      'schedule:github:repo-comment-poll',
+      makeGitHubDeps({
+        repoAllowlist: ['owner/repo'],
+        eventLog,
+        projector,
+        fetchRepoComments: async () => [
+          {
+            issueNumber: 42,
+            commentId: 7,
+            author: 'bob',
+            authorAssociation: 'NONE',
+            body: 'still broken?',
+            updatedAt: '2026-06-13T10:00:00Z',
+          },
+        ],
+        // Non-first poll (cursor exists) so the fetch+append path runs. First-poll
+        // baseline (no cursor → skip fetch) is covered in community-repo-comment-poll.test.js.
+        readRepoCommentCursor: async () => '2026-06-13T00:00:00Z',
+        writeRepoCommentCursor: async (_repo, cursor) => {
+          writtenCursors.push(cursor);
+        },
+      }),
+    );
+
+    // Collection-only: gate appends + projects, always returns run:false.
+    const result = await spec.admission.gate();
+    assert.strictEqual(result.run, false);
+    assert.strictEqual(events.length, 1, 'collected comment must be appended to the event log');
+    assert.strictEqual(events[0].kind, 'issue.commented');
+    assert.strictEqual(events[0].subjectKey, 'issue:owner/repo#42');
+    assert.strictEqual(events[0].payload.commentId, 7);
+    assert.strictEqual(projectorApplyCalls.length, 1, 'projector must apply the newly-appended comment');
+    assert.deepStrictEqual(writtenCursors, ['2026-06-13T10:00:00Z'], 'cursor advances to max comment updatedAt');
+  });
+
   test('asGitHub validates taskStore presence', () => {
     const registry = new ScheduleFactoryRegistry();
     registerGitHubScheduleFactories(registry);
@@ -475,7 +591,7 @@ describe('GitHub plugin lifecycle (AC-B4)', () => {
     return JSON.parse(readFileSync(p, 'utf-8'));
   }
 
-  test('enable → 5 schedule tasks registered; disable → 5 unregistered', async () => {
+  test('enable → 6 schedule tasks registered; disable → 6 unregistered', async () => {
     const tmpDir = createTempDir();
     try {
       // Setup
@@ -500,27 +616,28 @@ describe('GitHub plugin lifecycle (AC-B4)', () => {
       const manifest = parsePluginManifest(join(__dirname, '../../../plugins/github/plugin.yaml'));
       const result = await activator.enablePlugin(manifest);
 
-      // All 5 schedule resources should succeed
+      // All 6 schedule resources should succeed
       assert.strictEqual(result.status, 'success', `enable should succeed: ${JSON.stringify(result)}`);
-      assert.strictEqual(result.resources.length, 5);
+      assert.strictEqual(result.resources.length, 6);
       for (const r of result.resources) {
         assert.ok(r.ok, `resource ${r.name} should be ok: ${r.error}`);
       }
 
-      // TaskRunner should have 5 registered tasks
-      assert.strictEqual(taskRunner.registered.length, 5);
+      // TaskRunner should have 6 registered tasks
+      assert.strictEqual(taskRunner.registered.length, 6);
       const ids = taskRunner.registered.map((t) => t.id).sort();
       assert.deepStrictEqual(ids, [
         'schedule:github:cicd-check',
         'schedule:github:conflict-check',
         'schedule:github:issue-tracking',
+        'schedule:github:repo-comment-poll',
         'schedule:github:repo-scan',
         'schedule:github:review-feedback',
       ]);
 
-      // Disable → all 5 unregistered
+      // Disable → all 6 unregistered
       await activator.disablePlugin(manifest);
-      assert.strictEqual(taskRunner.unregistered.length, 5);
+      assert.strictEqual(taskRunner.unregistered.length, 6);
       const unregIds = [...taskRunner.unregistered].sort();
       assert.deepStrictEqual(unregIds, ids);
     } finally {
@@ -562,9 +679,9 @@ describe('GitHub plugin lifecycle (AC-B4)', () => {
         'first startup should trigger migration',
       );
 
-      // Enable → 5 registered
+      // Enable → 6 registered
       await activator.enablePlugin(manifest);
-      assert.strictEqual(taskRunner.registered.length, 5);
+      assert.strictEqual(taskRunner.registered.length, 6);
 
       // Write marker (simulating what index.ts migration does after writing entries)
       markGitHubScheduleMigrationDone(tmpDir);
@@ -609,7 +726,7 @@ describe('GitHub plugin lifecycle (AC-B4)', () => {
     }
   });
 
-  test('enable with missing repo-scan deps → 4 required succeed, 1 optional fails → success', async () => {
+  test('enable with missing repo deps → 4 required succeed, 2 redis-gated optionals fail → success', async () => {
     const tmpDir = createTempDir();
     try {
       const registry = new ScheduleFactoryRegistry();
@@ -618,7 +735,8 @@ describe('GitHub plugin lifecycle (AC-B4)', () => {
       writeCapabilities(tmpDir, { capabilities: [] });
 
       const { PluginResourceActivator } = await import('../dist/domains/plugin/PluginResourceActivator.js');
-      // Remove repo-scan deps to simulate no redis
+      // Remove repo deps to simulate no redis — both repo-scan AND repo-comment-poll
+      // are redis-gated optionals that require repoAllowlist.
       const deps = makeGitHubDeps({ repoAllowlist: undefined, reconciliationDedup: undefined });
       const activator = new PluginResourceActivator({
         resolveProjectRoot: () => tmpDir,
@@ -635,16 +753,19 @@ describe('GitHub plugin lifecycle (AC-B4)', () => {
       const manifest = parsePluginManifest(join(__dirname, '../../../plugins/github/plugin.yaml'));
       const result = await activator.enablePlugin(manifest);
 
-      // 4 succeed, 1 fails (repo-scan — optional), so overall status = success
+      // 4 succeed, 2 fail (repo-scan + repo-comment-poll — both optional), overall status = success
       assert.strictEqual(result.status, 'success');
       const succeeded = result.resources.filter((r) => r.ok);
       const failed = result.resources.filter((r) => !r.ok);
       assert.strictEqual(succeeded.length, 4);
-      assert.strictEqual(failed.length, 1);
-      assert.strictEqual(failed[0].name, 'repo-scan');
-      assert.ok(failed[0].error?.includes('repoAllowlist'));
+      assert.strictEqual(failed.length, 2);
+      const failedNames = failed.map((r) => r.name).sort();
+      assert.deepStrictEqual(failedNames, ['repo-comment-poll', 'repo-scan']);
+      for (const r of failed) {
+        assert.ok(r.error?.includes('repoAllowlist'), `${r.name} should fail on repoAllowlist: ${r.error}`);
+      }
 
-      // Only 4 tasks registered (all except repo-scan)
+      // Only 4 tasks registered (all except the 2 redis-gated optionals)
       assert.strictEqual(taskRunner.registered.length, 4);
     } finally {
       rmSync(tmpDir, { recursive: true, force: true });
@@ -979,5 +1100,233 @@ describe('buildGitHubMigrationEntries (P2-B)', () => {
         updatedBy: 'lang',
       },
     ]);
+  });
+
+  // --- F168 C0.3: repo-comment-poll redis-gated pending (twin of repo-scan) ---
+
+  test('repo-comment-poll is redis-gated pending like repo-scan when deps missing', async () => {
+    const { buildGitHubMigrationEntries } = await import('../dist/domains/plugin/github-schedule-factories.js');
+    const manifest = {
+      resources: [
+        { type: 'schedule', name: 'cicd-check' },
+        { type: 'schedule', name: 'repo-scan' },
+        { type: 'schedule', name: 'repo-comment-poll' },
+      ],
+    };
+    // No repo env → BOTH redis-gated resources kept pending (avoids ghost-enabled P2-1).
+    const entries = buildGitHubMigrationEntries(manifest, {});
+    assert.strictEqual(entries.length, 3);
+    const rcp = entries.find((e) => e.id === 'plugin:github:repo-comment-poll');
+    assert.ok(rcp, 'repo-comment-poll entry should be present');
+    assert.strictEqual(rcp.enabled, false, 'pending repo-comment-poll must not be reported enabled');
+    assert.strictEqual(rcp.migrationPendingReason, 'deps-unavailable');
+    // cicd-check (not redis-gated) stays enabled
+    const cicd = entries.find((e) => e.id === 'plugin:github:cicd-check');
+    assert.strictEqual(cicd.enabled, true);
+  });
+
+  test('repo-comment-poll promotes (with repo-scan) once redis deps become available', async () => {
+    const { buildGitHubMigrationEntries, promotePendingGitHubMigrationEntries } = await import(
+      '../dist/domains/plugin/github-schedule-factories.js'
+    );
+    const manifest = {
+      resources: [
+        { type: 'schedule', name: 'repo-scan' },
+        { type: 'schedule', name: 'repo-comment-poll' },
+      ],
+    };
+    const env = { GITHUB_REPO_ALLOWLIST: 'org/repo', GITHUB_REPO_INBOX_CAT_ID: 'cat-1' };
+    const pendingCaps = {
+      version: 1,
+      capabilities: buildGitHubMigrationEntries(manifest, env, { repoScanDepsAvailable: false }),
+    };
+
+    const result = promotePendingGitHubMigrationEntries(pendingCaps, manifest, env, { repoScanDepsAvailable: true });
+    assert.strictEqual(result.changed, true);
+    const rcp = result.config.capabilities.find((e) => e.id === 'plugin:github:repo-comment-poll');
+    assert.ok(rcp, 'repo-comment-poll entry should still exist');
+    assert.strictEqual(rcp.enabled, true);
+    assert.strictEqual(rcp.migrationPendingReason, undefined);
+    // repo-scan also promoted (both redis-gated)
+    const rs = result.config.capabilities.find((e) => e.id === 'plugin:github:repo-scan');
+    assert.strictEqual(rs.enabled, true);
+  });
+
+  // --- F168 C0.3 (cloud review P1-1): backfill new manifest resource to existing installs ---
+
+  test('backfill adds a new manifest schedule resource missing from an existing install', async () => {
+    const { backfillMissingGitHubScheduleEntries } = await import('../dist/domains/plugin/github-schedule-factories.js');
+    // Existing install: one-time migration already ran (has cicd-check), but NO repo-comment-poll.
+    const config = {
+      version: 1,
+      capabilities: [
+        {
+          id: 'plugin:github:cicd-check',
+          type: 'schedule',
+          enabled: true,
+          source: 'cat-cafe',
+          pluginId: 'github',
+          scheduleTaskId: 'schedule:github:cicd-check',
+        },
+      ],
+    };
+    const manifest = {
+      resources: [
+        { type: 'schedule', name: 'cicd-check' },
+        { type: 'schedule', name: 'repo-comment-poll' }, // new resource, absent from caps
+      ],
+    };
+    const result = backfillMissingGitHubScheduleEntries(
+      config,
+      manifest,
+      { GITHUB_REPO_ALLOWLIST: 'org/repo', GITHUB_REPO_INBOX_CAT_ID: 'cat-1' },
+      { repoScanDepsAvailable: true },
+    );
+    assert.strictEqual(result.changed, true);
+    const rcp = result.config.capabilities.find((e) => e.id === 'plugin:github:repo-comment-poll');
+    assert.ok(rcp, 'repo-comment-poll backfilled into existing install');
+    assert.strictEqual(rcp.enabled, true); // redis deps available → enabled
+    assert.ok(result.config.capabilities.find((e) => e.id === 'plugin:github:cicd-check'), 'existing entry untouched');
+  });
+
+  test('backfill is one-time — alreadyBackfilled does NOT resurrect a disabled TARGET (cloud R2 P1)', async () => {
+    const { backfillMissingGitHubScheduleEntries } = await import('../dist/domains/plugin/github-schedule-factories.js');
+    // Operator disabled repo-comment-poll → removeCapabilityEntry PHYSICALLY removed the row,
+    // so capabilities has NO repo-comment-poll. With the one-time marker already set, backfill
+    // must NOT recreate it (the bug cloud R2 P1 flagged).
+    const config = {
+      version: 1,
+      capabilities: [
+        {
+          id: 'plugin:github:cicd-check',
+          type: 'schedule',
+          enabled: true,
+          source: 'cat-cafe',
+          pluginId: 'github',
+          scheduleTaskId: 'schedule:github:cicd-check',
+        },
+      ],
+    };
+    const manifest = {
+      resources: [
+        { type: 'schedule', name: 'cicd-check' },
+        { type: 'schedule', name: 'repo-comment-poll' },
+      ],
+    };
+    const result = backfillMissingGitHubScheduleEntries(
+      config,
+      manifest,
+      { GITHUB_REPO_ALLOWLIST: 'org/repo', GITHUB_REPO_INBOX_CAT_ID: 'cat-1' },
+      { repoScanDepsAvailable: true, alreadyBackfilled: true },
+    );
+    assert.strictEqual(result.changed, false, 'one-time guard: must not resurrect disabled repo-comment-poll');
+  });
+
+  test('backfill only touches TARGET — does NOT resurrect a disabled legacy resource (cloud R2 P1)', async () => {
+    const { backfillMissingGitHubScheduleEntries } = await import('../dist/domains/plugin/github-schedule-factories.js');
+    // Operator disabled repo-scan (legacy) before upgrade → physically removed. backfill must
+    // NOT resurrect it (not a TARGET resource), but still backfills the new repo-comment-poll.
+    const config = {
+      version: 1,
+      capabilities: [
+        {
+          id: 'plugin:github:cicd-check',
+          type: 'schedule',
+          enabled: true,
+          source: 'cat-cafe',
+          pluginId: 'github',
+          scheduleTaskId: 'schedule:github:cicd-check',
+        },
+      ],
+    };
+    const manifest = {
+      resources: [
+        { type: 'schedule', name: 'cicd-check' },
+        { type: 'schedule', name: 'repo-scan' }, // legacy, disabled (physically removed)
+        { type: 'schedule', name: 'repo-comment-poll' }, // new TARGET
+      ],
+    };
+    const result = backfillMissingGitHubScheduleEntries(
+      config,
+      manifest,
+      { GITHUB_REPO_ALLOWLIST: 'org/repo', GITHUB_REPO_INBOX_CAT_ID: 'cat-1' },
+      { repoScanDepsAvailable: true },
+    );
+    assert.ok(
+      result.config.capabilities.find((e) => e.id === 'plugin:github:repo-comment-poll'),
+      'TARGET repo-comment-poll is backfilled',
+    );
+    assert.ok(
+      !result.config.capabilities.find((e) => e.id === 'plugin:github:repo-scan'),
+      'legacy disabled repo-scan must NOT be resurrected (not a TARGET)',
+    );
+  });
+
+  test('backfill keeps redis-gated resource pending when deps unavailable', async () => {
+    const { backfillMissingGitHubScheduleEntries } = await import('../dist/domains/plugin/github-schedule-factories.js');
+    const config = {
+      version: 1,
+      capabilities: [
+        {
+          id: 'plugin:github:cicd-check',
+          type: 'schedule',
+          enabled: true,
+          source: 'cat-cafe',
+          pluginId: 'github',
+          scheduleTaskId: 'schedule:github:cicd-check',
+        },
+      ],
+    };
+    const manifest = {
+      resources: [
+        { type: 'schedule', name: 'cicd-check' },
+        { type: 'schedule', name: 'repo-comment-poll' },
+      ],
+    };
+    // No repo env → redis-gated repo-comment-poll backfilled as pending (avoids ghost-enabled).
+    const result = backfillMissingGitHubScheduleEntries(config, manifest, {}, { repoScanDepsAvailable: false });
+    assert.strictEqual(result.changed, true);
+    const rcp = result.config.capabilities.find((e) => e.id === 'plugin:github:repo-comment-poll');
+    assert.ok(rcp);
+    assert.strictEqual(rcp.enabled, false);
+    assert.strictEqual(rcp.migrationPendingReason, 'deps-unavailable');
+  });
+
+  test('backfill gated on plugin-active — does NOT resurrect when GitHub plugin was disabled (cloud R3 P1)', async () => {
+    const { backfillMissingGitHubScheduleEntries } = await import('../dist/domains/plugin/github-schedule-factories.js');
+    // Operator disabled the whole GitHub plugin before upgrade → deactivateSchedule physically
+    // removed ALL github schedule rows. capabilities has no github rows; the f202 marker still
+    // suppresses migration. backfill must NOT resurrect repo-comment-poll.
+    const config = {
+      version: 1,
+      capabilities: [
+        // a non-github schedule remains; NO github schedule rows (github plugin disabled)
+        {
+          id: 'plugin:other:something',
+          type: 'schedule',
+          enabled: true,
+          source: 'cat-cafe',
+          pluginId: 'other',
+          scheduleTaskId: 'schedule:other:something',
+        },
+      ],
+    };
+    const manifest = {
+      resources: [
+        { type: 'schedule', name: 'cicd-check' },
+        { type: 'schedule', name: 'repo-comment-poll' },
+      ],
+    };
+    const result = backfillMissingGitHubScheduleEntries(
+      config,
+      manifest,
+      { GITHUB_REPO_ALLOWLIST: 'org/repo', GITHUB_REPO_INBOX_CAT_ID: 'cat-1' },
+      { repoScanDepsAvailable: true },
+    );
+    assert.strictEqual(
+      result.changed,
+      false,
+      'plugin-active gate: no github schedule rows (plugin disabled) → must not backfill/resurrect',
+    );
   });
 });

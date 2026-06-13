@@ -41,3 +41,7 @@ resources:
   - type: schedule
     name: issue-tracking
     factoryId: github.issue-tracking
+  - type: schedule
+    name: repo-comment-poll
+    factoryId: github.repo-comment-poll
+    optional: true
