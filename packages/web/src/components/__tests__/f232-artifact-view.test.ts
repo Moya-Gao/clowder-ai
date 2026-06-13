@@ -85,6 +85,15 @@ describe('F232 AC-A7 classifyArtifactView — 产物 → 内容查看策略', ()
   it('image 无 url → fallback (无内容源)', () => {
     expect(classifyArtifactView({ type: 'image', name: 'x.png' })).toBe('fallback');
   });
+
+  // F232 Phase A.2: video support (AC-A9)
+  it('video + url → video (panel 内播放)', () => {
+    expect(classifyArtifactView({ type: 'video', name: 'demo.mp4', url: '/uploads/demo.mp4' })).toBe('video');
+  });
+
+  it('video 无 url → fallback', () => {
+    expect(classifyArtifactView({ type: 'video', name: 'missing.mp4' })).toBe('fallback');
+  });
 });
 
 describe('F232 AC-A7 prRefToUrl — PR ref → GitHub url', () => {

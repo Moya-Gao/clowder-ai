@@ -217,6 +217,14 @@ export function ArtifactDetailView({
             </audio>
           </div>
         )}
+        {view === 'video' && url && (
+          <div className="flex flex-1 items-center justify-center p-4">
+            {/* AC-A9: video/img/audio 标签由浏览器自动带 same-site cookie，无 R2 跨域 fetch 问题 */}
+            <video controls src={url} className="max-h-full max-w-full rounded">
+              浏览器不支持视频播放
+            </video>
+          </div>
+        )}
         {view === 'pr' && <PrBody artifact={artifact} />}
         {view === 'text' && <ArtifactTextBody artifact={artifact} worktreeId={worktreeId} onJump={onJump} />}
         {/* P1-1（砚砚）+ P2-1（云端）：uploads binary 有 url → 下载/打开；repo binary（只有 ref 无 url）

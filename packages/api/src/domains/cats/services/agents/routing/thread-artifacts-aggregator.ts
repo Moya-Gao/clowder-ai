@@ -84,6 +84,13 @@ export interface ThreadArtifactsAggregatorInput {
 
 const AUDIO_NAME_MAX = 24;
 
+/** F232 A.2: video 扩展名集合——mimeType 优先，扩展名 fallback（无 mimeType 的旧 file block）。 */
+const VIDEO_EXTENSIONS = new Set(['mp4', 'mov', 'webm', 'avi', 'mkv', 'm4v', 'ogv']);
+function extensionOf(name: string): string {
+  const dot = name.lastIndexOf('.');
+  return dot > 0 ? name.slice(dot + 1).toLowerCase() : '';
+}
+
 /** 单个 rich block → 产物（每 kind 一个 flat mapper；不收录的 kind 返回 []）。 */
 function blockToArtifacts(b: RichBlock, msg: AggregatorMessage): ThreadArtifactDTO[] {
   const base = { catId: msg.catId, createdAt: msg.timestamp, sourceMessageId: msg.id };
@@ -97,8 +104,11 @@ function blockToArtifacts(b: RichBlock, msg: AggregatorMessage): ThreadArtifactD
           url: item.url,
         }),
       );
-    case 'file':
-      return [{ ...base, type: 'file', name: b.fileName, url: b.url }];
+    case 'file': {
+      // AC-A9: video 识别——mimeType 优先，扩展名 fallback
+      const isVideo = b.mimeType ? b.mimeType.startsWith('video/') : VIDEO_EXTENSIONS.has(extensionOf(b.fileName));
+      return [{ ...base, type: isVideo ? 'video' : 'file', name: b.fileName, url: b.url }];
+    }
     case 'diff':
       return [{ ...base, type: 'code', name: b.filePath, ref: b.filePath }];
     case 'audio':

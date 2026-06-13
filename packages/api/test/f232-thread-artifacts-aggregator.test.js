@@ -161,6 +161,84 @@ test('collectAllThreadMessages paginates a REAL store with no overlap (oldest→
   assert.equal(uniqueIds.size, 250, 'all unique — no duplicate re-scan');
 });
 
+// ── F232 Phase A.2: video artifact detection ──────────────────
+
+test('file block with video mimeType → type=video (AC-A9)', () => {
+  const r = aggregateThreadArtifacts({
+    messages: [
+      msg('m-v1', 200, [
+        { kind: 'file', v: 1, id: 'b1', url: '/uploads/demo.mp4', fileName: 'demo.mp4', mimeType: 'video/mp4' },
+      ]),
+    ],
+    prTasks: [],
+    fileLedger: [],
+  });
+  assert.equal(r.length, 1);
+  assert.equal(r[0].type, 'video');
+  assert.equal(r[0].name, 'demo.mp4');
+  assert.equal(r[0].url, '/uploads/demo.mp4');
+});
+
+test('file block with video extension but no mimeType → type=video (extension fallback)', () => {
+  const r = aggregateThreadArtifacts({
+    messages: [msg('m-v2', 210, [{ kind: 'file', v: 1, id: 'b2', url: '/uploads/clip.webm', fileName: 'clip.webm' }])],
+    prTasks: [],
+    fileLedger: [],
+  });
+  assert.equal(r[0].type, 'video');
+});
+
+test('file block with non-video mimeType stays type=file', () => {
+  const r = aggregateThreadArtifacts({
+    messages: [
+      msg('m-v3', 220, [
+        {
+          kind: 'file',
+          v: 1,
+          id: 'b3',
+          url: '/uploads/report.pdf',
+          fileName: 'report.pdf',
+          mimeType: 'application/pdf',
+        },
+      ]),
+    ],
+    prTasks: [],
+    fileLedger: [],
+  });
+  assert.equal(r[0].type, 'file');
+});
+
+test('file block with non-video mimeType wins over misleading video-looking filename', () => {
+  const r = aggregateThreadArtifacts({
+    messages: [
+      msg('m-v3b', 225, [
+        {
+          kind: 'file',
+          v: 1,
+          id: 'b3b',
+          url: '/uploads/report.mp4',
+          fileName: 'report.mp4',
+          mimeType: 'application/pdf',
+        },
+      ]),
+    ],
+    prTasks: [],
+    fileLedger: [],
+  });
+  assert.equal(r[0].type, 'file');
+});
+
+test('file block with mov extension → type=video', () => {
+  const r = aggregateThreadArtifacts({
+    messages: [
+      msg('m-v4', 230, [{ kind: 'file', v: 1, id: 'b4', url: '/uploads/screen.mov', fileName: 'screen.mov' }]),
+    ],
+    prTasks: [],
+    fileLedger: [],
+  });
+  assert.equal(r[0].type, 'video');
+});
+
 test('getByThreadBefore (in-memory) uses effective order time — queued→delivered cursor does not re-include itself (P1 cloud review round 3)', async () => {
   // P1 回归：collectAllThreadMessages 的游标用 effective order time（deliveredAt ?? timestamp），
   // 与 Redis zset score 一致。但 in-memory getByThreadBefore 原本只比较 raw msg.timestamp——

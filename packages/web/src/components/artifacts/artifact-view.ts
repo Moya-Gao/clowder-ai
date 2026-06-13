@@ -26,7 +26,7 @@ export function artifactRowMeta(
 }
 
 /** 内容查看策略：决定点击产物后 panel 内渲染什么。 */
-export type ArtifactView = 'image' | 'audio' | 'pr' | 'text' | 'download' | 'fallback';
+export type ArtifactView = 'image' | 'audio' | 'video' | 'pr' | 'text' | 'download' | 'fallback';
 
 // 文本类扩展名 → panel 内看正文（MarkdownContent / CodeViewer）。
 const TEXT_EXTENSIONS = new Set([
@@ -71,6 +71,7 @@ function extensionOf(name: string): string {
 export function classifyArtifactView(a: Pick<ThreadArtifactDTO, 'type' | 'name' | 'url' | 'ref'>): ArtifactView {
   if (a.type === 'image' && a.url) return 'image';
   if (a.type === 'audio' && a.url) return 'audio';
+  if (a.type === 'video' && a.url) return 'video';
   if (a.type === 'pr') return 'pr';
   // file / code：先看有无内容源，再按扩展名分文本 vs 二进制。
   const hasSource = Boolean(a.url || a.ref);

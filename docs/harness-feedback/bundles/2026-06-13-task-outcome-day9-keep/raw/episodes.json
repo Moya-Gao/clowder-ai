@@ -39,9 +39,7 @@
       "episodeId": "ep-1781241220435-l29j7z",
       "trigger": "cat_initiated",
       "threadId": "thread_mq9za0fv55o9s28g",
-      "participants": [
-        "opus-48"
-      ],
+      "participants": ["opus-48"],
       "artifacts": [],
       "terminalState": "completed",
       "verdict": null,
@@ -131,9 +129,7 @@
       "episodeId": "ep-1781276650538-9m01kp",
       "trigger": "cat_initiated",
       "threadId": "thread_mq9za0fv55o9s28g",
-      "participants": [
-        "opus-48"
-      ],
+      "participants": ["opus-48"],
       "artifacts": [],
       "terminalState": "in_progress",
       "verdict": null,

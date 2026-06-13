@@ -75,12 +75,21 @@ const IconX = () => (
   </svg>
 );
 
+// AC-A9: video play icon (inline SVG, 家规 KD-2)
+const IconVideo = () => (
+  <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" {...S}>
+    <rect x="2" y="4" width="15" height="16" rx="2" />
+    <path d="M17 10l5-3v10l-5-3" />
+  </svg>
+);
+
 const TYPE_ICON: Record<ThreadArtifactType, () => JSX.Element> = {
   image: IconImage,
   file: IconFile,
   code: IconCode,
   pr: IconCode,
   audio: IconMic,
+  video: IconVideo,
 };
 const TYPE_TINT: Record<ThreadArtifactType, { color: string; background: string }> = {
   image: { color: '#4a7fb0', background: '#eef3f8' },
@@ -88,9 +97,10 @@ const TYPE_TINT: Record<ThreadArtifactType, { color: string; background: string 
   code: { color: '#479a5a', background: '#edf5ef' },
   pr: { color: '#479a5a', background: '#edf5ef' },
   audio: { color: '#8866b0', background: '#f2edf8' },
+  video: { color: '#b05a5a', background: '#f8eded' },
 };
 
-type FilterKey = 'all' | 'image' | 'file' | 'codepr' | 'audio';
+type FilterKey = 'all' | 'image' | 'file' | 'codepr' | 'audio' | 'video';
 const inFilter = (a: ThreadArtifactDTO, f: FilterKey): boolean =>
   f === 'all' ? true : f === 'codepr' ? a.type === 'code' || a.type === 'pr' : a.type === f;
 
@@ -139,11 +149,12 @@ export function ArtifactsPanel({
   );
 
   const counts = useMemo(() => {
-    const c = { all: artifacts.length, image: 0, file: 0, codepr: 0, audio: 0 };
+    const c = { all: artifacts.length, image: 0, file: 0, codepr: 0, audio: 0, video: 0 };
     for (const a of artifacts) {
       if (a.type === 'image') c.image++;
       else if (a.type === 'file') c.file++;
       else if (a.type === 'audio') c.audio++;
+      else if (a.type === 'video') c.video++;
       else c.codepr++; // code | pr
     }
     return c;
@@ -160,6 +171,7 @@ export function ArtifactsPanel({
     ['file', '文件', counts.file],
     ['codepr', '代码·PR', counts.codepr],
     ['audio', '语音', counts.audio],
+    ['video', '视频', counts.video],
   ];
 
   return (
@@ -193,7 +205,7 @@ export function ArtifactsPanel({
                 ? '加载中…'
                 : error
                   ? '加载失败，点筛选可重试'
-                  : `共 ${counts.all} 项 · ${counts.image} 图 · ${counts.file} 文件 · ${counts.codepr} 代码/PR · ${counts.audio} 语音`}
+                  : `共 ${counts.all} 项 · ${counts.image} 图 · ${counts.file} 文件 · ${counts.codepr} 代码/PR · ${counts.audio} 语音 · ${counts.video} 视频`}
             </div>
             <label
               className="mt-3 flex items-center gap-2 rounded-md px-3 py-2 text-sm"
