@@ -463,8 +463,16 @@ sync_runtime_worktree() {
       echo "  Move or remove the listed files, then re-run sync."
       echo "  Files marked 'same bytes as incoming' will be restored by the merge with identical content."
     else
-      echo "  No untracked files matching incoming tracked files were found."
-      echo "  Check with:  git -C \"$RUNTIME_DIR\" status"
+      ahead_count=$(git -C "$RUNTIME_DIR" rev-list --count "$REMOTE_NAME/main..HEAD" 2>/dev/null || echo 0)
+      if [ "$ahead_count" -gt 0 ]; then
+        echo "  Local branch is ahead of $REMOTE_NAME/main by $ahead_count commit(s) — diverged, cannot fast-forward."
+        echo "  Likely local commits on the runtime sync branch (e.g. auto-materialized lessons/docs)."
+        echo "  Inspect:  git -C \"$RUNTIME_DIR\" log --oneline $REMOTE_NAME/main..HEAD"
+        echo "  Resolve:  git -C \"$RUNTIME_DIR\" reset --hard $REMOTE_NAME/main   (discards local commits; untracked files kept)"
+      else
+        echo "  No untracked files matching incoming tracked files were found."
+        echo "  Check with:  git -C \"$RUNTIME_DIR\" status"
+      fi
     fi
     echo ""
     die "runtime sync failed (see above)"

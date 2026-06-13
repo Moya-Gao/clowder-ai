@@ -733,4 +733,53 @@ server.listen(3010,'127.0.0.1',()=>setInterval(()=>{},1000));`,
     assert.match(result.stdout, /incoming-dir/);
     assert.doesNotMatch(result.stdout, /No untracked files matching incoming tracked files were found/);
   });
+
+  it('reports local ahead/diverged commits blocking an ff-only runtime sync', () => {
+    const projectDir = createTempProject('runtime-diverged-blocker');
+    const runtimeDir = mkdtempSync(join(tmpdir(), 'runtime-diverged-blocker-worktree-'));
+    const remoteDir = mkdtempSync(join(tmpdir(), 'runtime-diverged-blocker-remote-'));
+    tempDirs.push(runtimeDir, remoteDir);
+
+    execFileSync('git', ['init', '-b', 'main'], { cwd: projectDir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: projectDir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: projectDir, stdio: 'ignore' });
+    execFileSync('git', ['add', '.'], { cwd: projectDir, stdio: 'ignore' });
+    execFileSync('git', ['commit', '-m', 'init'], { cwd: projectDir, stdio: 'ignore' });
+
+    execFileSync('git', ['init', '--bare', remoteDir], { stdio: 'ignore' });
+    execFileSync('git', ['remote', 'add', 'origin', remoteDir], { cwd: projectDir, stdio: 'ignore' });
+    execFileSync('git', ['push', '-u', 'origin', 'main'], { cwd: projectDir, stdio: 'ignore' });
+    execFileSync('git', ['fetch', 'origin', 'main'], { cwd: projectDir, stdio: 'ignore' });
+    execFileSync('git', ['worktree', 'add', runtimeDir, '-b', 'runtime/main-sync', 'origin/main'], {
+      cwd: projectDir,
+      stdio: 'ignore',
+    });
+    const normalizedRuntimeDir = realpathSync(runtimeDir);
+
+    // Local commit on the runtime branch → ahead of origin/main (simulates auto-materialized lesson commit)
+    writeFileSync(join(normalizedRuntimeDir, 'local-materialized.md'), 'local\n', 'utf8');
+    execFileSync('git', ['add', 'local-materialized.md'], { cwd: normalizedRuntimeDir, stdio: 'ignore' });
+    execFileSync('git', ['commit', '-m', 'materialize: lesson-local'], { cwd: normalizedRuntimeDir, stdio: 'ignore' });
+
+    // origin/main advances → behind; ahead + behind = diverged, ff-only impossible
+    writeFileSync(join(projectDir, 'REMOTE_ADVANCE.md'), 'remote\n', 'utf8');
+    execFileSync('git', ['add', 'REMOTE_ADVANCE.md'], { cwd: projectDir, stdio: 'ignore' });
+    execFileSync('git', ['commit', '-m', 'remote advance'], { cwd: projectDir, stdio: 'ignore' });
+    execFileSync('git', ['push', 'origin', 'main'], { cwd: projectDir, stdio: 'ignore' });
+
+    const result = spawnSync('bash', [join(projectDir, 'scripts', 'runtime-worktree.sh'), 'sync', '--no-install'], {
+      cwd: projectDir,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        CAT_CAFE_RUNTIME_DIR: normalizedRuntimeDir,
+        API_SERVER_PORT: '19899',
+      },
+    });
+
+    assert.notEqual(result.status, 0);
+    assert.match(result.stdout, /ahead of origin\/main by 1 commit/);
+    assert.match(result.stdout, /reset --hard origin\/main/);
+    assert.doesNotMatch(result.stdout, /No untracked files matching incoming tracked files were found/);
+  });
 });
