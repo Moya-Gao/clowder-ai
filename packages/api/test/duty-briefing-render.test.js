@@ -153,3 +153,24 @@ test('collector degradedSources → 头部可见告警行（不能伪装全量�
   );
   assert.ok(card.bodyMarkdown.includes('数据降级：invocation / f167_telemetry'));
 });
+
+test('entryLine 渲染 holder 猫名（有 holder → @catId 显示）', () => {
+  const card = renderBriefingCard(
+    briefing({
+      counts: { active: 0, needsUser: 1, dead: 0, voidPass: 0, staleBlocked: 0 },
+      needsUser: [entry({ title: 'f233 球权流转图', anchor: { threadId: 'thr-t' }, ageMs: DAY, holder: 'fable-5' })],
+    }),
+  );
+  assert.ok(card.bodyMarkdown.includes('@fable-5'), 'holder 猫名在 entry 中显示');
+  assert.ok(card.bodyMarkdown.includes('f233 球权流转图'), '标题正确');
+});
+
+test('entryLine 无 holder 时不输出多余 @', () => {
+  const card = renderBriefingCard(
+    briefing({
+      counts: { active: 0, needsUser: 1, dead: 0, voidPass: 0, staleBlocked: 0 },
+      needsUser: [entry({ title: '无持球者球', anchor: { threadId: 'thr-u' }, ageMs: 2 * HOUR })],
+    }),
+  );
+  assert.ok(!card.bodyMarkdown.includes('@'), '无 holder 不含 @');
+});

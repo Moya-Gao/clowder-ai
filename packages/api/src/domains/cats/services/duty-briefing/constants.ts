@@ -20,6 +20,9 @@ export const MAX_BRIEFING_BODY_LINES = 15;
 /** mention 启发式：只扫近期活跃 thread 的窗口（降噪 + 性能，72h）。 */
 export const MENTION_SCAN_ACTIVE_WINDOW_MS = 72 * 60 * 60 * 1000;
 
+/** 条目标题最大字符数（截断后加 …）。 */
+export const TITLE_MAX = 60;
+
 /** 值班简报 rich card 的稳定 id：renderBriefingCard 设置 + hasBriefingToday 识别当日已发卡（INV-5）。 */
 export const DUTY_BRIEFING_CARD_ID = 'duty-briefing';
 

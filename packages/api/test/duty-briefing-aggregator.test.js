@@ -21,6 +21,7 @@ function baseInput(over = {}) {
     expiredHolds: [],
     voidPasses: [],
     mentionCandidates: [],
+    threadTitles: {},
     activeCount: 0,
     oldestHeartbeatMs: 0,
     bindingStatus: 'bound',
@@ -176,4 +177,37 @@ test('过期 hold → deadBalls（zombie-hold 形态，holder=catId）', () => {
   assert.equal(b.deadBalls[0].kind, 'hold-expired');
   assert.equal(b.deadBalls[0].holder, 'sonnet');
   assert.equal(b.deadBalls[0].anchor.threadId, 'thr-e');
+});
+
+test('threadTitles 传入时 zombie/hold 标题用 thread 名而非纯 catId', () => {
+  const b = aggregateDutyBriefing(
+    baseInput({
+      zombies: [
+        { invocationId: 'inv-z1', threadId: 'thr-f', catId: 'gpt52', recordUpdatedAt: NOW - DAY, detail: 'no_tracker' },
+      ],
+      expiredHolds: [{ threadId: 'thr-g', catId: 'opus-48', fireAt: NOW - 3 * HOUR, message: '等 CI' }],
+      threadTitles: {
+        'thr-f': 'f233 球权流转图',
+        'thr-g': 'f198 拯救宪宪倒计时',
+      },
+    }),
+  );
+  assert.equal(b.deadBalls.length, 2);
+  const zombie = b.deadBalls.find((e) => e.kind === 'invocation-death');
+  assert.equal(zombie.title, 'f233 球权流转图', 'zombie 标题用 thread 名');
+  assert.equal(zombie.holder, 'gpt52', 'holder 保留 catId');
+  const hold = b.deadBalls.find((e) => e.kind === 'hold-expired');
+  assert.equal(hold.title, 'f198 拯救宪宪倒计时', 'hold 标题用 thread 名');
+  assert.equal(hold.holder, 'opus-48');
+});
+
+test('threadTitles 缺失时 zombie/hold 退化到 catId 标题', () => {
+  const b = aggregateDutyBriefing(
+    baseInput({
+      zombies: [{ invocationId: 'inv-z2', threadId: 'thr-unknown', catId: 'fable-5', recordUpdatedAt: NOW - 2 * DAY }],
+      // threadTitles 空 = 无匹配
+    }),
+  );
+  assert.equal(b.deadBalls.length, 1);
+  assert.equal(b.deadBalls[0].title, 'fable-5 无心跳', 'fallback 到 catId 标题');
 });

@@ -32,7 +32,9 @@ function formatAge(ms: number): string {
 function entryLine(emoji: string, e: BallEntry): string {
   const url = e.anchor.threadId ? `/thread/${e.anchor.threadId}` : null;
   const title = url ? `[${e.title}](${url})` : e.title;
-  const tags: string[] = [`晾${formatAge(e.ageMs)}`];
+  const tags: string[] = [];
+  if (e.holder) tags.push(`@${e.holder}`);
+  tags.push(`晾${formatAge(e.ageMs)}`);
   if (e.confidence === 'heuristic') tags.push('推断');
   if (!url) tags.push('无跳转'); // void-pass：telemetry HMAC 不可逆，诚实标注
   return `${emoji} ${title} · ${tags.join(' · ')}`;

@@ -28,11 +28,11 @@ import {
   DEAD_BALL_FRESH_DRAFT_WINDOW_MS,
   DEAD_BALL_ZOMBIE_GRACE_MS,
   MENTION_SCAN_ACTIVE_WINDOW_MS,
+  TITLE_MAX,
 } from './constants.js';
 
 const HOLD_BALL_ID_PREFIX = 'hold-ball-';
 const HOLD_BALL_CREATED_BY_PREFIX = 'hold-ball:';
-const TITLE_MAX = 60;
 
 export interface CollectDutyBriefingDeps {
   taskStore: Pick<ITaskStore, 'listByKind'>;
@@ -195,7 +195,8 @@ function deriveTitle(content: string, threadTitle: string | null): string {
     .split('\n')
     .find((l) => l.trim().length > 0)
     ?.trim();
-  const raw = firstLine || threadTitle || '(无标题)';
+  // thread 标题优先（识别球在哪个上下文），消息内容是 fallback（无标题 thread）
+  const raw = threadTitle || firstLine || '(无标题)';
   return raw.length > TITLE_MAX ? `${raw.slice(0, TITLE_MAX - 1)}…` : raw;
 }
 
@@ -274,6 +275,17 @@ export async function collectDutyBriefingInput(deps: CollectDutyBriefingDeps): P
     degradedSources,
   );
 
+  // 构建 threadId→title 映射：zombie/hold 条目需要 thread 名做标题（而非纯 catId）
+  const threadTitles: Record<string, string> = {};
+  try {
+    const threads = await deps.threadStore.list(userId);
+    for (const t of threads) {
+      if (t.title) threadTitles[t.id] = t.title;
+    }
+  } catch {
+    // thread list 失败不阻塞简报——zombie/hold 标题退化到旧逻辑（catId 标题）
+  }
+
   const doingCount = tasks.filter((t) => t.status === 'doing').length;
   const healthyInvocations = Math.max(0, invocation.runningCount - invocation.runningZombieCount);
   const activeCount = doingCount + holds.activeCount + healthyInvocations;
@@ -285,6 +297,7 @@ export async function collectDutyBriefingInput(deps: CollectDutyBriefingDeps): P
     expiredHolds: holds.expired,
     voidPasses: voidPassResult.entries,
     mentionCandidates,
+    threadTitles,
     activeCount,
     oldestHeartbeatMs: Math.max(oldestTaskHeartbeatMs, invocation.oldestHealthyAgeMs),
     bindingStatus: deps.bindingStatus,

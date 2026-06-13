@@ -9,7 +9,7 @@
  */
 
 import type { BallEntry, DutyBriefing } from '@cat-cafe/shared';
-import { NEEDS_USER_BLOCKED_MIN_MS, STALE_BLOCKED_THRESHOLD_MS } from './constants.js';
+import { NEEDS_USER_BLOCKED_MIN_MS, STALE_BLOCKED_THRESHOLD_MS, TITLE_MAX } from './constants.js';
 
 // ---- 窄 Input 类型（只声明聚合用到的字段，降耦合 + 好测）----
 
@@ -58,6 +58,8 @@ export interface DutyBriefingInput {
   expiredHolds: AggregatorExpiredHold[];
   voidPasses: AggregatorVoidPass[];
   mentionCandidates: AggregatorMentionCandidate[];
+  /** threadId→title 映射，用于 zombie/hold 条目标题（无 title 的 thread 不在 map 中） */
+  threadTitles: Record<string, string>;
   /** 健康活球计数（doing task + 活跃 hold + active invocation） */
   activeCount: number;
   /** 健康球里最老的心跳（ms 时长） */
@@ -122,29 +124,45 @@ function mentionsToNeedsUser(candidates: AggregatorMentionCandidate[], now: numb
 }
 
 /** invocation zombie → deadBalls（死球，复用 F194 liveness 判定结果） */
-function zombiesToDeadBalls(zombies: AggregatorZombie[], now: number): BallEntry[] {
-  return zombies.map((z) => ({
-    kind: 'invocation-death' as const,
-    confidence: 'structured' as const,
-    title: z.catId ? `${z.catId} 的调用无心跳` : '调用无心跳',
-    ageMs: now - z.recordUpdatedAt,
-    holder: asHolder(z.catId),
-    anchor: { threadId: z.threadId, invocationId: z.invocationId },
-    detail: z.detail,
-  }));
+function zombiesToDeadBalls(
+  zombies: AggregatorZombie[],
+  now: number,
+  threadTitles: Record<string, string>,
+): BallEntry[] {
+  return zombies.map((z) => {
+    const tTitle = threadTitles[z.threadId];
+    const label = tTitle || (z.catId ? `${z.catId} 无心跳` : '调用无心跳');
+    return {
+      kind: 'invocation-death' as const,
+      confidence: 'structured' as const,
+      title: label.length > TITLE_MAX ? `${label.slice(0, TITLE_MAX - 1)}…` : label,
+      ageMs: now - z.recordUpdatedAt,
+      holder: asHolder(z.catId),
+      anchor: { threadId: z.threadId, invocationId: z.invocationId },
+      detail: z.detail,
+    };
+  });
 }
 
 /** 过期 hold → deadBalls（zombie-hold 形态：猫该被唤醒但 hold 已过期） */
-function expiredHoldsToDeadBalls(holds: AggregatorExpiredHold[], now: number): BallEntry[] {
-  return holds.map((h) => ({
-    kind: 'hold-expired' as const,
-    confidence: 'structured' as const,
-    title: h.catId ? `${h.catId} 的持球已过期` : '持球已过期',
-    ageMs: now - h.fireAt,
-    holder: asHolder(h.catId),
-    anchor: { threadId: h.threadId },
-    detail: h.message,
-  }));
+function expiredHoldsToDeadBalls(
+  holds: AggregatorExpiredHold[],
+  now: number,
+  threadTitles: Record<string, string>,
+): BallEntry[] {
+  return holds.map((h) => {
+    const tTitle = threadTitles[h.threadId];
+    const label = tTitle || (h.catId ? `${h.catId} 持球过期` : '持球已过期');
+    return {
+      kind: 'hold-expired' as const,
+      confidence: 'structured' as const,
+      title: label.length > TITLE_MAX ? `${label.slice(0, TITLE_MAX - 1)}…` : label,
+      ageMs: now - h.fireAt,
+      holder: asHolder(h.catId),
+      anchor: { threadId: h.threadId },
+      detail: h.message,
+    };
+  });
 }
 
 /** F167 C2 verdict-without-pass → voidPasses（锚点恒空，HMAC 不可逆 — Task 0 降级） */
@@ -167,8 +185,8 @@ export function aggregateDutyBriefing(input: DutyBriefingInput): DutyBriefing {
     ...mentionsToNeedsUser(input.mentionCandidates, input.now),
   ].sort(byAgeDesc);
   const deadBalls = [
-    ...zombiesToDeadBalls(input.zombies, input.now),
-    ...expiredHoldsToDeadBalls(input.expiredHolds, input.now),
+    ...zombiesToDeadBalls(input.zombies, input.now, input.threadTitles),
+    ...expiredHoldsToDeadBalls(input.expiredHolds, input.now, input.threadTitles),
   ].sort(byAgeDesc);
   const voidPasses = voidPassesToEntries(input.voidPasses, input.now).sort(byAgeDesc);
   const staleBlocked = tasksToStaleBlocked(input.tasks, input.now).sort(byAgeDesc);
