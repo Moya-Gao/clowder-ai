@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 
@@ -53,5 +54,15 @@ describe('run-checks concurrency validation (gate bypass prevention)', () => {
 
   it('rounds fractional concurrency', () => {
     assert.equal(parseConcurrency('2.7'), 3);
+  });
+});
+
+describe('run-checks Biome scope policy', () => {
+  it('excludes generated video production assets from the Biome fast-fail gate', () => {
+    const biomeConfig = JSON.parse(readFileSync(path.resolve(process.cwd(), 'biome.json'), 'utf8'));
+    assert.ok(
+      biomeConfig.files?.includes?.includes('!docs/videos/**'),
+      'docs/videos/** must stay excluded from Biome; video production assets are not product code',
+    );
   });
 });

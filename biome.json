@@ -7,7 +7,7 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "includes": ["**", "!gitnexus"]
+    "includes": ["**", "!gitnexus", "!docs/videos/**"]
   },
   "formatter": {
     "enabled": true,
