@@ -55,14 +55,13 @@ created: 2026-06-13
 
 **真实同源点**：F234 钓猫照的是"新猫不知道自己的**模型能力断层**"（下次一定 / 碎片推理）；运行模式信号照的是"新猫不知道自己的**执行环境能力边界**"（-p 能不能 merge / 云端回不回调）。两者同构——都是 day-1 新实例对"我能做什么"的 mental model 错误。更直接的咬合：**runtime sync 48 这次"-p 3 次猜反能力边界"本身就是一个可被钓猫 fixture 诱发的断层样本**（execution-context mental-model 错误），dossier ⑥ 风格的诱发图纸现成。
 
-**关系定位（我的倾向，判定交 CVO）**：
-- 运行模式信号的**注入设计**（`EXECUTION_CONTEXT` 段 + runtime 模式检测 + matrix）是一个**独立的 +harness**——它是"立新护栏补断层"，不是 F234 的 sunset 方法本身。这条更可能独立立项（涉及 runtime 进程检测 + L0 注入链改动，ADR-030/ADR-031 范畴）。
-- 但"**-p 能力边界猜反**"这一类断层，应作为一组 fixture **并入 F234 钓猫全集**（Phase A failure-mode 诱发任务集的 execution-context 维度）——新猫入职钓猫时顺便测"它会不会猜反自己的执行上下文能力"。
+**关系定位（砚砚 re-review 已拍板，2026-06-13）**：
+- 运行模式信号的**注入设计**（`EXECUTION_CONTEXT` 段 + runtime 模式检测 + matrix）= **独立 +harness**——"立新护栏补断层"，不是 F234 的 sunset 方法本身。**砚砚拍板：另立独立 +harness（候 CVO 开新 F 号 + signoff），不塞 F234 主体**（涉及 runtime 进程检测 + L0 注入链改动，ADR-030/ADR-031 范畴）。
+- "**-p 能力边界猜反**"这一类断层 → 作为一组 fixture **并入 F234 Phase A 钓猫全集**（execution-context 维度）。**砚砚拍板：fixture 并入 OK**。
 
-**OQ（待 CVO / 砚砚 re-review 定）**：
-1. 运行模式信号注入设计 = 独立 +harness 立项（新 F 号，CVO signoff）vs 并入 F234 主体？倾向独立，但 CVO 拍。
-2. "-p 猜反能力边界"fixture 并入 F234 Phase A failure-mode 全集——这条同源性强，建议并入（无需新号）。
-3. matrix 的**真实边界实测**（memo 强调"全猜反，必须测出不能脑补"）本身就符合 F234「钓猫照出客观画像」的方法——可作为 F234 验证运行模式信号 harness 的 worked example。
+**剩 CVO 价值决策（非技术 OQ）**：
+1. 是否现在开「运行模式信号」新 F 号（注入设计立项）——开新 F 号需 CVO 明确 signoff（feedback_feat_anchor_needs_cvo_explicit_signoff）。
+2. matrix 的**真实边界实测**（memo 强调"全猜反，必须测出不能脑补"）符合 F234「钓猫照出客观画像」方法——可作为新 harness 的 worked example（实现细节，归未来该 F 号）。
 
 ---
 

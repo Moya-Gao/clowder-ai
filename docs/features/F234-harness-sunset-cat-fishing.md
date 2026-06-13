@@ -83,7 +83,7 @@ CVO 在「统一 Eval Hub 现状」追问里戳穿了一个结构性不对称：
 | F192 spec | [F192-socio-technical-harness-eval.md](./F192-socio-technical-harness-eval.md) | **挂载父**：delete_sunset / Sunset Trial / dormant-retired 机器（本 feat 喂证据） |
 | ADR-038 | [../decisions/038-l0-staging-protocol.md](../decisions/038-l0-staging-protocol.md) | L0 三层生命周期（L0/staging/sunset）+ 可逆 demote；本 feat 的 sunset 出口路径之一 |
 | harness 盘点 创新点#8 | [discussions/2026-06-11-harness-inventory.md](../discussions/2026-06-11-harness-inventory.md) | Sunset 纪律（能力性退役/偏好性永留）的原始陈述 |
-| **运行模式信号 memo** | [discussions/2026-06-13-execution-context-signal-memo.md](../discussions/2026-06-13-execution-context-signal-memo.md) | **同源邻域**（CVO signoff 挂 F234 下，2026-06-13，runtime-sync 平行 48 投递）：新猫不知执行环境能力边界（-p 猜反）= 可被钓猫 fixture 诱发的断层；注入设计倾向独立 +harness，"-p 猜反"fixture 并入 Phase A。详见该 memo §与 F234 关系（含 OQ） |
+| **运行模式信号 memo** | [discussions/2026-06-13-execution-context-signal-memo.md](../discussions/2026-06-13-execution-context-signal-memo.md) | **同源邻域**（CVO signoff 挂 F234 下，2026-06-13，runtime-sync 平行 48 投递）。**砚砚 re-review 拍板**：EXECUTION_CONTEXT 注入设计**另立独立 +harness（候 CVO 开新 F 号 + signoff）**，不塞 F234 主体；仅 "-p 能力边界猜反" fixture 并入 Phase A。详见该 memo §与 F234 关系 |
 
 ## Eval / Tracking Contract ★ 砚砚 R1-P1（ADR-031 三层 + F192 注册）
 
@@ -148,7 +148,7 @@ trial_mode            # sunset 验证路径：log-decay（O1）/ annotation-deca
   - 建 failure-mode 诱发任务集。来源 dossier ⑥ + 003 index，挂 `docs/harness-feedback/` 现有 fixture 基础设施。**出题非作者**（利益冲突）。
   - 盘 guardrail inventory v0（§Guardrail Inventory v0 schema），`class` 列跨族校验——**完成后才能回头验证「sunset 免费」claim**。
   - 落地盲测 sandbox（§盲测 Sandbox 边界）+ hook 守护，**先于任何盲臂运行**。
-  - **首发样本选定（待真跨族拍板，作者回避）**：47「下次一定」是混合护栏（O3 L0 塑形 + O1 close-gate/F177 hook），方法误差与样本复杂度搅在一起。两选项交缅因猫/砚砚定：(a) 换**纯 O1**（如 `f177-routing-guard`）或**纯 O3**（如雨刮器反射 / source-audit）干净首发；(b) 坚持 47 则拆 **hook-only / prompt-only / combined 三臂**，**不得从合并结果直接给 sunset verdict**。
+  - **首发样本（砚砚 re-review 已跨族拍板，作者回避→定案）**：首发**不用 47「下次一定」、不用 F218 source-audit**（混合护栏，方法误差与样本复杂度搅在一起）→ 用**纯 O1 低风险样本**（如 `f177-routing-guard` 纯 hook 拦截，拦截日志直接可观测）首发；47 留到方法成熟后做 **mixed hook-only / prompt-only / combined 三臂**，**不得从合并结果直接给 sunset verdict**。
 - **Phase B — 盲臂 Stage A 粗筛**：盲实例（sandbox 内）跑 fixture，第三方判 trajectory，产第一张断层光谱。
 - **Phase C — Stage B 精筛 + 首个 delete_sunset 证据包**：对漏网断层 cat-cafe 内单条 ablation，确认断层真没 + 归因到该护栏，喂 F192 → 跑通家里第一个 Sunset Trial → dormant（可逆验证，ADR-031 Sunset 决策表 ≥2 跨族签字）。
 - **Phase D — 入职仪式化 + 冷启动画像入 dossier**：固化为新猫 onboarding step（soft 层）；day-1 vs day-N 复钓机制。
@@ -167,8 +167,8 @@ trial_mode            # sunset 验证路径：log-decay（O1）/ annotation-deca
 
 **双层利益相关（补强方主动声明）**：本版补强由 **宪宪 Opus-4.8 落地**——我与作者 fable-5 **共享 persona「宪宪」**（布偶猫家族 fable→48 fallback 链），且是接手保全 fable 遗产的猫，对本 feat 有 custodian 投入，**不是中立第三方**。补强落地的回避纪律：
 - **可全写**（中性工程 / 安全边界）：Eval Contract、术语轴、三层落地、sandbox 边界。
-- **只写结构、判定回避**（触及实验设计 / sunset 判定 / 布偶猫共病域）：① 首发样本选定 + 三臂消融设计 → 待缅因猫/砚砚拍板；② guardrail inventory 每行 `class`（compensatory/preferential）判定 → 跨族校验，受益者不得单独定。
-- 整体本版修完 **@砚砚 re-review** 兜底（缅因猫跨族 = 唯一分布外的眼）。
+- **只写结构、判定回避**（触及实验设计 / sunset 判定 / 布偶猫共病域）：① 首发样本选定 → **砚砚 re-review 已跨族拍板**（首发纯 O1，不用 47 / source-audit）；② 运行模式信号注入归属 → **砚砚已拍板**（另立 +harness）；③ guardrail inventory 每行 `class`（compensatory/preferential）判定 → 跨族校验，受益者不得单独定（Phase A 持续约束）。
+- 整体经 **砚砚 GPT-5.5 两轮跨族 review**（R1 退回补强 → v2 re-review 放行）兜底（缅因猫跨族 = 唯一分布外的眼）。
 
 Owner 暂挂 fable 仅指 plan/设计；被测、判定、首发样本设计、`class` 分类判定，fable 与 Opus-4.8（同 persona）全部回避。
 
@@ -178,19 +178,23 @@ Owner 暂挂 fable 仅指 plan/设计；被测、判定、首发样本设计、`
 |---|---|---|---|
 | 1 | 缺 Eval/Tracking Contract + soft/hard/eval 三层 | §Eval / Tracking Contract | ✅ 补齐（F192 schema + ADR-031 三层） |
 | 2 | L1/L2/L3 两套坐标系混用 | §术语轴（O1/O2/O3 ⊥ Stage A/B）+ 全谱系术语 canonical 化 | ✅ 拆名 |
-| 3 | 首发 47 是混合护栏 | Phase A 首发样本选定（换纯样本 / 拆三臂，**待跨族拍板，作者回避**） | ⏳ 结构已给，判定待缅因猫/砚砚 |
+| 3 | 首发 47 是混合护栏 | Phase A 首发样本：**砚砚 re-review 拍板首发不用 47 / 不用 source-audit，用纯 O1（如 f177-routing-guard）；47 留 mixed 三臂** | ✅ 跨族已定案 |
 | 4 | 盲测 fixture 缺 sandbox | §盲测 Sandbox 边界（隔离 / 禁6399 / 禁main / 无副作用 / 记忆隔离 / 产物丢弃） | ✅ 补齐 |
 | 5 | 「sunset 免费」拍脑袋 | §Guardrail Inventory v0（schema + claim 降级为待验证 + Phase A 前置盘点） | ✅ claim 降级 + 验证路径 |
 
 ## Design Gate 待过
 
-- [x] 跨族 review R1（砚砚 GPT-5.5）= 退回补强（本版 v2 落 5 项 P1）→ **待 @砚砚 re-review**
-- [ ] 优先级 CVO 终排（作者回避自排）
+- [x] 跨族 review（砚砚 GPT-5.5 两轮）：R1 退回补强 → v2 **re-review 放行** ✅（5 项 P1 实质闭环，无新 P1/P2）
+- [x] 首发样本策略：砚砚 reviewer decision 定案（首发纯 O1，不用 47 / source-audit；47 留 mixed 三臂）
+- [x] 运行模式信号 memo 归属：砚砚 reviewer decision 定案（注入设计另立 +harness；-p fixture 并入 Phase A）
+- [ ] **优先级 CVO 终排**（作者回避自排）→ 待 CVO
+- [ ] **运行模式信号新 F 号 CVO signoff**（注入设计立项）→ 待 CVO
 - [ ] 与 F192 的边界确认（子 feat vs F192 Phase H）
-- [ ] Phase A fixture 出题人指派 + 首发样本选定（非 fable / 非 Opus-4.8，缅因猫跨族定）
-- [ ] guardrail inventory v0 `class` 列跨族校验（受益者不得单独定）
+- [ ] Phase A fixture 出题人指派（非 fable / 非 Opus-4.8）
+- [ ] guardrail inventory v0 `class` 列跨族校验（受益者不得单独定，Phase A 持续约束）
 
 ---
 
 *spec by [宪宪/fable-5🐾] · F234 v1 · 2026-06-12 · 候 Design Gate + 跨族 review*
-*v2 补强 by [宪宪/Opus-4.8🐾] · 2026-06-13 · receive-review 落砚砚 R1 五项 P1（§砚砚 R1 补强映射）· 同 persona 利益相关，判定项（首发样本 / class 分类）回避待跨族 · 候 @砚砚 re-review*
+*v2 补强 by [宪宪/Opus-4.8🐾] · 2026-06-13 · receive-review 落砚砚 R1 五项 P1（§砚砚 R1 补强映射）· 同 persona 利益相关，判定项回避待跨族*
+*v2.1 锁定 by [宪宪/Opus-4.8🐾] · 2026-06-13 · 砚砚 v2 re-review **放行** + 固化两项 reviewer decision（首发纯 O1 不选 47 / 运行模式信号另立 +harness）· Design Gate spec 定稿，剩 CVO 排期 + 新 F 号 signoff*
