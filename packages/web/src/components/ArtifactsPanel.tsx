@@ -177,7 +177,11 @@ export function ArtifactsPanel({
   return (
     <aside
       className="flex flex-col overflow-hidden"
-      style={{ width: width ?? 304, flexShrink: 0, background: 'var(--console-shell-bg, #fff)', color: '#2c2c2c' }}
+      style={{
+        ...(width ? { width, flexShrink: 0 } : { flex: '1 1 0%', minWidth: 0 }),
+        background: 'var(--console-shell-bg, #fff)',
+        color: '#2c2c2c',
+      }}
     >
       {selected ? (
         <ArtifactDetailView

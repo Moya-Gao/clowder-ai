@@ -46,7 +46,7 @@ created: 2026-06-11
   - docs / md / log / 文本文件 → **复用 `FileContentRenderer` 在 panel 内看正文**（铲屎官 backlog 例子）
   - 图 → 看图；代码 → 查看 diff；语音 → 播放；PR → 打开 PR
   - 辅助动作：「跳回原消息」（jump-with-load 定位生成位置）
-- **UX 形态（收敛）**：保留 OQ-1 的右侧抽屉形态，但**抽屉内部用 tab 切 mode**（状态 / 工作区 / 产物 / transcript），header 收敛成一个 panel 开关（不再为每个 mode 堆一个按钮）；产物点击在 panel 内查看内容——与 workspace「点文件看内容」**共用同一套查看器**。
+- **UX 形态（收敛 → AC-A8 修订升级）**：~~抽屉内部用 tab 切 mode（状态/工作区/产物/转录）~~ → **铲屎官 dogfood 反馈"狗皮膏药"后拍板方向 (b)**：产物升为 workspaceMode 顶层入口（开发/记忆/调度/任务/社区/**产物**），PanelTabs 只剩 3 tab（状态/工作区/转录）。产物点击在 panel 内查看内容——与 workspace「点文件看内容」**共用同一套查看器**。
 - **图标**：inline SVG（非 emoji，家规）。
 
 > **Phase A 实现状态**：首版（PR #2247 merged）已做 **列表 + 类型筛选 + 搜索 + 跳回原消息 + 外部 url 打开**；**点击集成内容查看（尤其 docs 类，复用 FileContentRenderer）+ panel 内 tab 收敛 = Phase A.1 补强**（愿景核心，见 AC-A7/A8）。
@@ -75,9 +75,10 @@ created: 2026-06-11
   - **其他 mockup-vs-实现 gap（入 Phase A.1 / 随 Phase B）**：PR 状态显示丢失（`task.status` 未透传，mockup "已合入"绿勾）、类型化 action（audio「播放」/diff「查看 diff」mockup 有，实现统一「打开」）、Phase B footer 入口未占位。
 - [x] AC-A6: 聚合查询有 **Redis-backed 测试**覆盖（in-memory store 测不到索引/分页差异，LL `feedback_inmemory_store_tests_miss_redis_behavior`）。
 - [x] **AC-A7（愿景核心 · Phase A.1）✅ merged PR #2259**: 点击产物**按类型直接查看内容**——docs/md/log/文本 复用 `FileContentRenderer`/`CodeViewer`/`MarkdownContent` 在 panel 内看正文（铲屎官 backlog 例子）、图看图、代码看 diff、语音播放、PR 打开。（trace: 铲屎官 2026-06-12 "我点击看不了他的内容" → 点产物就能看内容，不只列清单——这是 F232 的灵魂）。云端 5 轮 review 硬化：分类 allowlist 防二进制误判文本、uploads 跨域 fetch 带 credentials、workspace markdown basePath 解析相对引用。
-- [ ] **AC-A8（UX 收敛 · Phase A.1）**: 右侧 panel 收敛成「一个开关 + 内部 tab」（状态/工作区/产物/transcript），header 不为每个 mode 堆按钮；产物入口在 ≥1024px 与小屏均可达（修当前 `hidden lg:block` 致小屏无 fallback 入口）。（trace: 铲屎官 2026-06-12 "上边儿按钮太多了"）
-  - **PR #2259 交付**：✅ panel 收敛成单一开关 + 内部 tab（PanelTabs）、header 去多按钮、desktop（≥1024px）产物入口可达、close 行为修复（workspace/transcript 退 status 不被 auto-open 重开）。
-  - **⬜ 小屏产物入口未交付 → OQ 待 CVO**：云端 P2-2 把右侧 panel 收窄为 desktop-only（`hidden lg:block`），小屏走 `MobileStatusSheet`——但 MobileStatusSheet 尚未含产物入口，故原「小屏直达产物」目标未达。merge 后碰头铲屎官定：扩展 MobileStatusSheet 含产物 / 接受 desktop-only / 其他。**未 CVO signoff 前 AC-A8 不勾。**
+- [x] **AC-A8（UX 收敛 → IA 升级 · Phase A.1 + AC-A8 修订）**: ~~右侧 panel 收敛成「一个开关 + 内部 tab」（状态/工作区/产物/transcript）~~ → **铲屎官 dogfood 后拍板方向 (b)（2026-06-13）**：产物从 PanelTabs 独立 tab（"狗皮膏药"）升为 workspaceMode 顶层入口（开发/记忆/调度/任务/社区/**产物**），PanelTabs 只剩 3 tab（状态/工作区/转录）。（trace: 铲屎官 2026-06-12 "上边儿按钮太多了" + 2026-06-13 "(b) 跟开发/记忆/调度/任务/社区平级做顶层入口"）
+  - **PR #2259 交付**：✅ panel 收敛成单一开关 + 内部 tab（PanelTabs）、header 去多按钮、desktop（≥1024px）产物入口可达、close 行为修复。
+  - **AC-A8 修订（in review）**：✅ 产物升为 workspaceMode 顶层入口（layers 图标 pill button）、PanelTabs 删产物 tab（4→3）、ArtifactsPanel flex 适配。
+  - **⬜ 小屏产物入口 → OQ 待 CVO**：右侧 panel desktop-only（`hidden lg:block`），小屏走 `MobileStatusSheet` 尚未含产物入口。
 
 ### Phase A.2（视频产物 panel 内播放）✅ merged PR #2269
 - [x] **AC-A9**: 视频产物点击在 panel 内播放（`<video controls>`），不再只「下载」。跨层改动：shared `ThreadArtifactType` 加 `'video'` + aggregator 识别视频源（mimeType 优先，扩展名 fallback）+ `classifyArtifactView` video 分支 + `ArtifactDetailView` video 渲染 + 类型筛选/图标补 video。7 个新测试覆盖（aggregator 4 + classify 2 + mimeType 优先级 1）。（trace: 铲屎官 2026-06-12 "忘记考虑视频之类的东西了" → 图/音/视频在 panel 内查看能力对齐 AC-A7 愿景）
@@ -105,7 +106,7 @@ created: 2026-06-11
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | 面板形态：抽屉 vs tab | ✅ 抽屉形态（CVO 2026-06-11 贴"随聊随看"）。**2026-06-12 补充**：抽屉**内部**用 tab 切 mode（状态/工作区/产物/transcript）收敛 header 按钮——抽屉形态不变，只改 mode 切换方式（header 多按钮 → panel 内 tab，见 AC-A8） |
+| OQ-1 | 面板形态：抽屉 vs tab | ✅ 抽屉形态（CVO 2026-06-11 贴"随聊随看"）。**2026-06-12**：抽屉内部 tab 切 mode 收敛 header 按钮。**2026-06-13 AC-A8 修订**：铲屎官 dogfood 觉得产物做独立 tab 像"狗皮膏药"→ CVO 拍板 (b) 产物升为 workspaceMode 顶层入口（与开发/记忆/调度/任务/社区平级），PanelTabs 只剩 3 tab（状态/工作区/转录） |
 | OQ-2 | Phase A 是否需 Redis 反向索引加速，还是遍历消息够用 | ⬜ 实现时按 thread 规模实测评估 |
 | OQ-3 | 产物收录范围是否含 `html_widget` / `interactive` block | ⬜ Phase A 先收 file/media_gallery/diff/audio + PR + 文件，其余末期评估 |
 
@@ -118,6 +119,7 @@ created: 2026-06-11
 | KD-3 | 数据层复用 artifact-tracking（F148）+ rich blocks + session digest，不新建采集 | 现状 ~80% 数据已存在，缺的是聚合 + UI，避免重造 | 2026-06-11 |
 | KD-4 | **产物系统核心 = "点击看内容"（复用 workspace `FileContentRenderer`），产物列表只是入口** | 铲屎官 dogfood 实证"我点击看不了他的内容"——列清单 ≠ 看产物；mockup 每项本就有类型化 action（打开/下载/查看 diff/播放）；"和 workspace 整合"的本质是**复用查看器**而非 UI 摆位。Phase A 首版简化成"列表+外部 url"丢了核心 → Phase A.1 必补 | 2026-06-12 |
 | KD-5 | 视频产物支持开独立 **Phase A.2**，不塞 A.1 收尾 PR | 视频是跨 shared `ThreadArtifactType` 类型层的新增（image/audio 已支持，video 缺）；A.1（PR #2259）已过两轮 review 接近收尾，塞入会让其重新变大、需重新完整 review。CVO 拍板 | 2026-06-12 |
+| KD-6 | 产物从 PanelTabs 独立 tab 升为 workspaceMode 顶层入口（AC-A8 修订） | 铲屎官 dogfood 觉得产物做独立 panel tab 像"狗皮膏药"——位置不自然。CVO 拍板 (b)：产物与开发/记忆/调度/任务/社区平级做 workspaceMode，PanelTabs 只剩 3 tab。实现上 rightPanelMode 移除 'artifacts'、workspaceMode 新增 'artifacts'、ArtifactsPanel 挂到 WorkspacePanel 条件渲染 | 2026-06-13 |
 
 ## Timeline
 
@@ -130,6 +132,7 @@ created: 2026-06-11
 | 2026-06-12 | 铲屎官 dogfood 发现产物面板**漏视频类型**（图能看/音频能放/视频只能下载）→ 开 **Phase A.2**（AC-A9 视频 panel 内播放，跨 shared 类型层）。CVO 拍板 A.2 独立做、不塞 A.1。Phase A.1（PR #2259）含云端 2×P2 修复，待 fresh session 收尾（#4 session decoder 漂移，详见安全事件 thread + F215 提案）|
 | 2026-06-13 | **Phase A.1 merged (PR #2259)** — AC-A7 点击看内容（复用 FileContentRenderer/CodeViewer/MarkdownContent）✅ + AC-A8 panel tab 收敛 ✅。云端 5 轮 re-review 全修、0 假阳性（R1 2×P2 download路由/小屏panel · R2 P1 跨域 credentials · R3 P2 二进制误判文本 allowlist · R4 P2 markdown basePath · R5 P2 panel 关不掉 closeRightPanel）+ 砚砚封板 final review 放行（LL-072 5 轮硬上限）。**小屏产物入口收窄为 OQ 待 CVO**（云端 P2-2 desktop-only panel + MobileStatusSheet）。视觉仍待 alpha |
 | 2026-06-13 | **Phase A.2 merged (PR #2269)** — AC-A9 视频产物 panel 内播放 ✅。跨 5 层扩展（shared type / aggregator 视频识别 / classify / `<video controls>` 渲染 / 筛选图标）+ 7 新测试。local @gpt52 review（1 P1 push back accepted → approve）+ 云端 R1 2 findings（P2 mimeType 优先级 + P1 frontmatter）修复 + R2 封板（stale replay 100% 假阳性，LL-072） |
+| 2026-06-13 | **AC-A8 修订（in review）** — 铲屎官 dogfood 觉得产物 panel tab 像"狗皮膏药"，CVO 拍板 (b) 产物升为 workspaceMode 顶层入口。7 文件 +82/-36 纯前端 IA 重组：rightPanelMode 移除 artifacts / workspaceMode 新增 artifacts / PanelTabs 4→3 tab / WorkspacePanel 加产物 pill + 条件渲染 / ArtifactsPanel flex 适配 |
 
 ## Design Gate
 

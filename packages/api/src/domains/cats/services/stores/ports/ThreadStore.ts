@@ -172,7 +172,7 @@ export interface Thread {
   /** F211 Phase B: Hidden per-user runtime anchor for orphan external runtime sessions. */
   externalRuntimeAnchorState?: ExternalRuntimeAnchorStateV1;
   /** F168: Auto-switch workspace panel when this thread is opened. */
-  preferredWorkspaceMode?: 'dev' | 'recall' | 'schedule' | 'tasks' | 'community';
+  preferredWorkspaceMode?: 'dev' | 'recall' | 'schedule' | 'tasks' | 'community' | 'artifacts';
   /** F187: User-defined label IDs for thread categorization. */
   labels?: string[];
   /** F229: Thread kind marker. 'concierge' = 专属前台猫载体（per-user，sidebar 默认隐藏）。
@@ -405,7 +405,7 @@ export interface IThreadStore {
   updateConnectorHubState(threadId: string, state: ConnectorHubStateV1 | null): void | Promise<void>;
   updatePreferredWorkspaceMode(
     threadId: string,
-    mode: 'dev' | 'recall' | 'schedule' | 'tasks' | 'community' | null,
+    mode: 'dev' | 'recall' | 'schedule' | 'tasks' | 'community' | 'artifacts' | null,
   ): void | Promise<void>;
   /** F187: Update thread labels (replaces entire array). */
   updateLabels(threadId: string, labelIds: string[]): void | Promise<void>;
@@ -877,7 +877,7 @@ export class ThreadStore implements IThreadStore {
 
   updatePreferredWorkspaceMode(
     threadId: string,
-    mode: 'dev' | 'recall' | 'schedule' | 'tasks' | 'community' | null,
+    mode: 'dev' | 'recall' | 'schedule' | 'tasks' | 'community' | 'artifacts' | null,
   ): void {
     const thread = this.get(threadId);
     if (!thread) return;

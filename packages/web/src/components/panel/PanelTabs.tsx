@@ -1,12 +1,12 @@
 import type { JSX } from 'react';
 
-/** 右侧 panel 的四种内容模式（与 chatStore.rightPanelMode 对齐）。 */
-export type RightPanelMode = 'status' | 'workspace' | 'transcript' | 'artifacts';
+/** 右侧 panel 的三种内容模式（与 chatStore.rightPanelMode 对齐）。
+ * F232 AC-A8 修订：产物已升级为 workspaceMode 顶层入口（不再是独立 panel tab）。 */
+export type RightPanelMode = 'status' | 'workspace' | 'transcript';
 
 const TABS: Array<{ mode: RightPanelMode; label: string }> = [
   { mode: 'status', label: '状态' },
   { mode: 'workspace', label: '工作区' },
-  { mode: 'artifacts', label: '产物' },
   { mode: 'transcript', label: '转录' },
 ];
 

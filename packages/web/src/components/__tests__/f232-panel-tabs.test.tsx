@@ -1,6 +1,6 @@
 /**
- * F232 AC-A8 — PanelTabs：右侧 panel 顶部统一 tab（状态/工作区/产物/转录），
- * 收敛 header 的多个 mode 切换按钮。点 tab 切 mode；关闭按钮收起 panel。
+ * F232 AC-A8 修订 — PanelTabs：右侧 panel 顶部统一 tab（状态/工作区/转录），
+ * 产物已升级为 workspaceMode 顶层入口。点 tab 切 mode；关闭按钮收起 panel。
  */
 import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -28,31 +28,38 @@ describe('F232 AC-A8 PanelTabs', () => {
     document.body.innerHTML = '';
   });
 
-  it('渲染 4 个 tab（状态/工作区/产物/转录）', () => {
+  it('渲染 3 个 tab（状态/工作区/转录）— 产物已升为 workspaceMode', () => {
     const container = render({ mode: 'status', onSelect: () => {}, onClose: () => {} });
     const tabs = [...container.querySelectorAll('[role="tab"]')];
-    expect(tabs).toHaveLength(4);
+    expect(tabs).toHaveLength(3);
     const labels = tabs.map((t) => t.textContent);
-    expect(labels).toEqual(['状态', '工作区', '产物', '转录']);
+    expect(labels).toEqual(['状态', '工作区', '转录']);
   });
 
   it('当前 mode 对应 tab 标记 aria-selected', () => {
-    const container = render({ mode: 'artifacts', onSelect: () => {}, onClose: () => {} });
+    const container = render({ mode: 'workspace', onSelect: () => {}, onClose: () => {} });
     const selected = [...container.querySelectorAll('[role="tab"]')].filter(
       (t) => t.getAttribute('aria-selected') === 'true',
     );
     expect(selected).toHaveLength(1);
-    expect(selected[0].textContent).toBe('产物');
+    expect(selected[0].textContent).toBe('工作区');
   });
 
   it('点击 tab → onSelect(对应 mode)', () => {
     const picked: string[] = [];
     const container = render({ mode: 'status', onSelect: (m: RightPanelMode) => picked.push(m), onClose: () => {} });
-    const artifactsTab = [...container.querySelectorAll('[role="tab"]')].find((t) => t.textContent === '产物');
+    const workspaceTab = [...container.querySelectorAll('[role="tab"]')].find((t) => t.textContent === '工作区');
     act(() => {
-      artifactsTab!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      workspaceTab!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
-    expect(picked).toEqual(['artifacts']);
+    expect(picked).toEqual(['workspace']);
+  });
+
+  it('不含产物 tab（已移到 workspaceMode）', () => {
+    const container = render({ mode: 'status', onSelect: () => {}, onClose: () => {} });
+    const tabs = [...container.querySelectorAll('[role="tab"]')];
+    const labels = tabs.map((t) => t.textContent);
+    expect(labels).not.toContain('产物');
   });
 
   it('点击关闭按钮 → onClose', () => {

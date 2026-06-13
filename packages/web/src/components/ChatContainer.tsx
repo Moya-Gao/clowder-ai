@@ -36,7 +36,6 @@ import { computeCliDiagnosticsDedup } from '@/utils/cli-diagnostics-dedup';
 import { computeScrollRecomputeSignal } from '@/utils/scrollRecomputeSignal';
 import { getUserId } from '@/utils/userId';
 import { AgentHookHealthNotice, shouldRenderAgentHookHealthNotice } from './AgentHookHealthNotice';
-import { ArtifactsPanel } from './ArtifactsPanel';
 import { AuthorizationCard } from './AuthorizationCard';
 import { BootcampListModal } from './BootcampListModal';
 import { BootstrapOrchestrator } from './BootstrapOrchestrator';
@@ -1137,9 +1136,9 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
           小屏渲染 wrapper 会出现 288px 空容器 + PanelTabs 挤压/溢出 chat。小屏走 MobileStatusSheet。 */}
       {statusPanelOpen && isDesktop && (
         <>
-          {/* F232 AC-A8: 统一 panel 容器 + 顶部 PanelTabs 切 4 mode（收敛 header 多按钮）。
-              status/artifacts 固定宽（statusPanelWidth）；workspace/transcript 百分比（chatBasis）。 */}
-          {rightPanelMode === 'status' || rightPanelMode === 'artifacts' ? (
+          {/* F232 AC-A8 修订：产物升为 workspaceMode 顶层入口，rightPanelMode 只剩 status/workspace/transcript。
+              status 固定宽（statusPanelWidth）；workspace/transcript 百分比（chatBasis）。 */}
+          {rightPanelMode === 'status' ? (
             <div className="hidden lg:flex">
               <ResizeHandle
                 direction="horizontal"
@@ -1161,9 +1160,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
           <div
             className="flex flex-col min-h-0 overflow-hidden"
             style={
-              rightPanelMode === 'status' || rightPanelMode === 'artifacts'
-                ? { width: statusPanelWidth, flexShrink: 0 }
-                : { flex: '1 1 0%', minWidth: 0 }
+              rightPanelMode === 'status' ? { width: statusPanelWidth, flexShrink: 0 } : { flex: '1 1 0%', minWidth: 0 }
             }
           >
             <PanelTabs mode={rightPanelMode} onSelect={setRightPanelMode} onClose={closeStatusPanel} />
@@ -1183,9 +1180,6 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
               )}
               {rightPanelMode === 'workspace' && <WorkspacePanel />}
               {rightPanelMode === 'transcript' && <TranscriptPanel />}
-              {rightPanelMode === 'artifacts' && threadId && (
-                <ArtifactsPanel threadId={threadId} width={statusPanelWidth} />
-              )}
             </div>
           </div>
         </>

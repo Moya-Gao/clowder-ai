@@ -966,7 +966,7 @@ export interface ChatState {
   ) => void;
 
   // ── F63: Workspace Explorer ──
-  rightPanelMode: 'status' | 'workspace' | 'transcript' | 'artifacts';
+  rightPanelMode: 'status' | 'workspace' | 'transcript';
   workspaceWorktreeId: string | null;
   workspaceOpenTabs: string[];
   workspaceOpenFilePath: string | null;
@@ -976,7 +976,7 @@ export interface ChatState {
   /** @internal Last workspace-file-set event context (timestamp + threadId).
    * Used by WorkspacePanel to distinguish fresh navigate from stale leftovers on mount. */
   _workspaceFileSetAt: { ts: number; threadId: string | null };
-  setRightPanelMode: (mode: 'status' | 'workspace' | 'transcript' | 'artifacts') => void;
+  setRightPanelMode: (mode: 'status' | 'workspace' | 'transcript') => void;
   /** 显式关闭右侧 panel 时退出 workspace/transcript mode（否则 ChatContainer auto-open effect 立即重开，关不掉）。 */
   closeRightPanel: () => void;
   setWorkspaceWorktreeId: (id: string | null) => void;
@@ -1012,8 +1012,8 @@ export interface ChatState {
   toggleMaximize: () => void;
 
   // Phase H + F139 + F160 + F168: Workspace mode
-  workspaceMode: 'dev' | 'recall' | 'schedule' | 'tasks' | 'community';
-  setWorkspaceMode: (mode: 'dev' | 'recall' | 'schedule' | 'tasks' | 'community') => void;
+  workspaceMode: 'dev' | 'recall' | 'schedule' | 'tasks' | 'community' | 'artifacts';
+  setWorkspaceMode: (mode: 'dev' | 'recall' | 'schedule' | 'tasks' | 'community' | 'artifacts') => void;
 
   // ── F195 Phase C: Floating transcript window ──
   floatingTranscriptVisible: boolean;
@@ -1279,7 +1279,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   _workspaceFileSetAt: { ts: 0, threadId: null },
   setRightPanelMode: (mode) => set({ rightPanelMode: mode }),
   // F232 P2（云端 round 5）：workspace/transcript mode 被 ChatContainer auto-open effect 强制开，
-  // 显式关闭 panel 时必须先退出这两个 mode 回 status，否则 effect 立即重开（关不掉）。status/artifacts 无此问题，保留。
+  // 显式关闭 panel 时必须先退出这两个 mode 回 status，否则 effect 立即重开（关不掉）。status 无此问题，保留。
   closeRightPanel: () =>
     set((s) => ({
       rightPanelMode:
