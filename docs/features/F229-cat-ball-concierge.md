@@ -137,7 +137,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 ### Phase A（前台开张）
 - [x] AC-A1: 任意页面悬浮球唤起对话，不离开当前页面（截图 + 15s 录屏）→ R9/Why-2——证据 `assets/F229/acceptance-phase-a/ac-a1-*.png`（sonnet 验收 2026-06-12，球+toolbar+面板+拖拽）
 - [x] AC-A2: 功能发现——非作者拿 3 个"最近有什么新功能/X 怎么用"问题验收，答案与 release notes/feature docs 一致 → R1/Why-1——3/3 核对通过（F225/F226/F229/F228 答案与 docs 一致），证据 `ac-a2-*.png`
-- [ ] AC-A3: 记忆导航——3 个真实历史讨论 query 给出正确 thread/message 链接，且**两种动作都可用**：跳过去（teleport）+ 原地看（卡内 inline 展开）→ R3/Why-3——**基础设施 ✅；KD-19 修复 merged（PR #2284 squash `14250e50c`）：接口透传 scope:threads/depth:raw 召回 thread + passage messageId（治 P1-A/C）+ validator 全量兜底（治 P1-B 不依赖 marker 遵从）；待 @sonnet alpha 端到端验收（teleport/peek 按钮 + 兜底列表）打勾**（证据 `ac-a3-*.png`）
+- [x] AC-A3: 记忆导航——3 个真实历史讨论 query 给出正确 thread/message 链接，且**两种动作都可用**：跳过去（teleport）+ 原地看（卡内 inline 展开）→ R3/Why-3——**基础设施 ✅；KD-19 修复 merged（PR #2284）+ sonnet alpha 验收通过（2026-06-14）：Q1/Q2 gemini25 不遵从 marker → validator 全量兜底出 teleport ✅（命门：之前 0 actions，兜底后出按钮）；Q5 passage-level hit → marker path teleport+peek ✅；P1-A/B/C 全验证；alpha memory 稀疏（6 thread doc）故 Q1/Q2 无 peek，生产 passage-level 充足（production MCP 已验）**（证据 `ac-a3-*.png`）
 - [x] AC-A4: 求助场景能触发对应 F155 guide flow（录屏一条）→ R2/Why-2——intent 检测 + 9 guide 列举 + handoff 卡 ✅，证据 `ac-a4-*.png`
 - [x] AC-A5: 形象/人设/值班猫在设置页可配置，与 cat profile 解耦（截图）→ R5
 - [x] AC-A6: 安静默认——默认零主动文本弹出；低优先级事件只显示 badge（hover 才出文字）；用户可一键 hide/mute 整个球（录屏 + 设置截图）→ R8/调研红线——alpha muted 往返全链 ✅（API+UI 双确认），证据 `ac-a6-*.png`
