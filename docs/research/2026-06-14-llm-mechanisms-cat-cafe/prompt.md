@@ -86,7 +86,7 @@ GLM（5.1 / 5.2？）· DeepSeek（V4 Pro？）· Kimi（2.7？）· MiniMax（M
 
 > - ① 和 ② 分开填：可能 ①存在 但 ②none（模型真实但无公开报告 = 有效结果，照实记，不算失败）。
 > - **证据锚点强制**：method/data/post-train 的每个 claim 必须指到具体 section / table / repo path / ≤30字原文摘录；**没有证据锚点的 claim 不得进 Round 2**（防概括词污染 + 二手摘要被 Round 2 放大）。existence claim 至少锚到官方发布页 / repo。
-> - 互引博客不算独立锚点；锚点必须落在 T0/T1 源内。
+> - 互引博客不算独立锚点。**method/data/post-train 锚点必须落 T0/T1**；**existence 锚点可放官方源（含官方 T2 release page / 发布公告）**，但须官方一手、非第三方转述。
 
 ### 6b. 方法谱系骨架（喂思维导图，只列一手源实际提到的）
 
