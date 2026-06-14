@@ -11,6 +11,8 @@ import { kickTeleportResolve, planTeleport } from '@/utils/teleport';
 import { useGlobalArtifacts } from '../hooks/useGlobalArtifacts';
 import { useThreadArtifacts } from '../hooks/useThreadArtifacts';
 import { ArtifactDetailView } from './artifacts/ArtifactDetailView';
+import type { ArtifactGroup, GroupingMode } from './artifacts/artifact-grouping';
+import { groupArtifacts } from './artifacts/artifact-grouping';
 import { artifactRowMeta, resolveAssetUrl } from './artifacts/artifact-view';
 
 const resolveUrl = (url?: string): string | undefined => resolveAssetUrl(url, API_URL);
@@ -84,6 +86,13 @@ const IconVideo = () => (
   </svg>
 );
 
+// Collapsible group chevron (F232 Phase B grouping)
+const IconChevron = ({ open }: { open: boolean }) => (
+  <svg className={`h-3 w-3 shrink-0 transition-transform ${open ? 'rotate-90' : ''}`} viewBox="0 0 24 24" {...S}>
+    <path d="M9 18l6-6-6-6" />
+  </svg>
+);
+
 const TYPE_ICON: Record<ThreadArtifactType, () => JSX.Element> = {
   image: IconImage,
   file: IconFile,
@@ -103,6 +112,91 @@ const TYPE_TINT: Record<ThreadArtifactType, { color: string; background: string 
   audio: { color: '#8866b0', background: '#f2edf8' },
   video: { color: '#b05a5a', background: '#f8eded' },
 };
+
+/** F232 Phase B: extracted row component to reduce ArtifactsPanel cognitive complexity. */
+function ArtifactRow({
+  a,
+  index,
+  grouping,
+  resolveNick,
+  onSelect,
+  onJump,
+}: {
+  a: ThreadArtifactDTO;
+  index: number;
+  grouping: GroupingMode;
+  resolveNick: (id: string) => string | undefined;
+  onSelect: (a: ThreadArtifactDTO) => void;
+  onJump: (messageId: string, threadId?: string) => void;
+}) {
+  const Icon = TYPE_ICON[a.type];
+  const tint = TYPE_TINT[a.type];
+  const url = resolveUrl(a.url);
+  const meta = artifactRowMeta(a, resolveNick);
+  const global = isGlobal(a);
+  return (
+    // biome-ignore lint/a11y/useSemanticElements: 整行可点击进入产物详情 + 内嵌跳转/打开按钮，嵌套 interactive 元素无法用 <button>
+    <div
+      key={`${a.ref ?? a.name}-${index}`}
+      data-artifact-row
+      role="button"
+      tabIndex={0}
+      onClick={() => onSelect(a)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onSelect(a);
+        }
+      }}
+      className="flex w-full cursor-pointer items-center gap-3 border-b border-cafe-subtle px-3 py-2.5 text-left transition-colors hover:bg-cafe-surface-elevated/50"
+    >
+      <span
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-cafe-subtle"
+        style={{ color: tint.color, background: tint.background }}
+      >
+        <Icon />
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-sm font-medium text-cafe-secondary">{a.name}</div>
+        <div className="mt-0.5 flex items-center gap-1.5 text-micro text-cafe-muted">
+          <span className="truncate">
+            {meta.catLabel} · {meta.relativeTime}
+          </span>
+          {/* Phase B: thread badge in global scope (skip when already grouped by thread) */}
+          {global && grouping !== 'thread' && (
+            <span className="shrink-0 truncate rounded bg-cafe-surface-elevated px-1.5 py-0.5 text-micro text-cafe-muted">
+              {a.threadTitle}
+            </span>
+          )}
+          {a.sourceMessageId && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (a.sourceMessageId) onJump(a.sourceMessageId, global ? a.threadId : undefined);
+              }}
+              className="flex shrink-0 items-center gap-0.5 text-cafe-crosspost transition-colors hover:text-cafe-accent"
+            >
+              跳转
+              <IconArrow />
+            </button>
+          )}
+        </div>
+      </div>
+      {url && (
+        <a
+          href={url}
+          target="_blank"
+          rel="noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="shrink-0 rounded-lg border border-cafe bg-cafe-surface-elevated px-2.5 py-1 text-micro text-cafe-muted transition-colors hover:text-cafe-secondary"
+        >
+          打开
+        </a>
+      )}
+    </div>
+  );
+}
 
 type FilterKey = 'all' | 'image' | 'file' | 'codepr' | 'audio' | 'video';
 const inFilter = (a: ThreadArtifactDTO, f: FilterKey): boolean =>
@@ -142,11 +236,28 @@ export function ArtifactsPanel({
   // AC-A7: 选中产物 → panel 内进入内容详情视图（null = 列表视图）。
   const [selected, setSelected] = useState<ThreadArtifactDTO | null>(null);
 
-  // Reset view state when threadId or scope changes
+  // F232 Phase B: grouping mode (only active in global scope)
+  const [grouping, setGrouping] = useState<GroupingMode>('time');
+  // Track collapsed groups by stable id (not label — labels can collide, gpt52 P1)
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const toggleCollapse = useCallback(
+    (groupId: string) =>
+      setCollapsed((prev) => {
+        const next = new Set(prev);
+        if (next.has(groupId)) next.delete(groupId);
+        else next.add(groupId);
+        return next;
+      }),
+    [],
+  );
+
+  // Reset view state when threadId or scope changes.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: threadId + scope are intentional effect triggers (prop/state change → reset UI state)
   useEffect(() => {
     setSelected(null);
     setFilter('all');
     setQ('');
+    setCollapsed(new Set());
   }, [threadId, scope]);
 
   // F232 P2 (cloud review): 跳回原消息走 teleport（jump-with-load），不裸 scrollToMessage。
@@ -182,6 +293,24 @@ export function ArtifactsPanel({
     const needle = q.trim().toLowerCase();
     return artifacts.filter((a) => inFilter(a, filter) && (!needle || a.name.toLowerCase().includes(needle)));
   }, [artifacts, filter, q]);
+
+  // F232 Phase B: compute grouped view (only meaningful in global scope)
+  const resolveNickname = useCallback((catId: string) => getCatById(catId)?.nickname, [getCatById]);
+  const groups: ArtifactGroup[] = useMemo(() => {
+    // Thread scope: flat list, no grouping (items typed as ThreadArtifactDTO but we
+    // only access shared fields in the row renderer; cast is safe).
+    if (scope !== 'global') {
+      return [{ id: '__flat', label: '', count: visible.length, items: visible as GlobalArtifactDTO[] }];
+    }
+    // Global scope: artifacts are always GlobalArtifactDTO from useGlobalArtifacts
+    return groupArtifacts(visible as GlobalArtifactDTO[], grouping, resolveNickname);
+  }, [visible, grouping, resolveNickname, scope]);
+
+  const groupingChips: Array<[GroupingMode, string]> = [
+    ['time', '时间'],
+    ['thread', '对话'],
+    ['cat', '猫'],
+  ];
 
   const chips: Array<[FilterKey, string, number]> = [
     ['all', '全部', counts.all],
@@ -281,78 +410,66 @@ export function ArtifactsPanel({
                 );
               })}
             </div>
+            {/* F232 Phase B: Grouping chips — only in global scope */}
+            {scope === 'global' && (
+              <div className="mt-2 flex items-center gap-1.5">
+                <span className="text-micro text-cafe-muted">分组:</span>
+                {groupingChips.map(([mode, label]) => {
+                  const on = grouping === mode;
+                  return (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => {
+                        setGrouping(mode);
+                        setCollapsed(new Set());
+                      }}
+                      className={`rounded-full px-2 py-0.5 text-micro transition-colors ${
+                        on
+                          ? 'bg-cafe-crosspost/15 font-semibold text-cafe-crosspost'
+                          : 'bg-cafe-surface-elevated text-cafe-muted hover:text-cafe-secondary'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
           {/* List */}
           <div className="flex-1 overflow-y-auto">
             {visible.length === 0 ? (
               <div className="px-3 py-8 text-center text-xs text-cafe-muted">{loading ? '' : '该类型暂无产物'}</div>
             ) : (
-              visible.map((a, i) => {
-                const Icon = TYPE_ICON[a.type];
-                const tint = TYPE_TINT[a.type];
-                const url = resolveUrl(a.url);
-                const meta = artifactRowMeta(a, (id) => getCatById(id)?.nickname);
-                const global = isGlobal(a);
+              groups.map((group) => {
+                const isOpen = !collapsed.has(group.id);
+                const showHeader = scope === 'global' && group.label !== '';
                 return (
-                  // biome-ignore lint/a11y/useSemanticElements: 整行可点击进入产物详情 + 内嵌跳转/打开按钮，嵌套 interactive 元素无法用 <button>
-                  <div
-                    key={`${a.ref ?? a.name}-${i}`}
-                    data-artifact-row
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => setSelected(a)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        setSelected(a);
-                      }
-                    }}
-                    className="flex w-full cursor-pointer items-center gap-3 border-b border-cafe-subtle px-3 py-2.5 text-left transition-colors hover:bg-cafe-surface-elevated/50"
-                  >
-                    <span
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-cafe-subtle"
-                      style={{ color: tint.color, background: tint.background }}
-                    >
-                      <Icon />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-medium text-cafe-secondary">{a.name}</div>
-                      <div className="mt-0.5 flex items-center gap-1.5 text-micro text-cafe-muted">
-                        <span className="truncate">
-                          {meta.catLabel} · {meta.relativeTime}
-                        </span>
-                        {/* Phase B: thread badge in global scope */}
-                        {global && (
-                          <span className="shrink-0 truncate rounded bg-cafe-surface-elevated px-1.5 py-0.5 text-micro text-cafe-muted">
-                            {a.threadTitle}
-                          </span>
-                        )}
-                        {a.sourceMessageId && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (a.sourceMessageId) handleJump(a.sourceMessageId, global ? a.threadId : undefined);
-                            }}
-                            className="flex shrink-0 items-center gap-0.5 text-cafe-crosspost transition-colors hover:text-cafe-accent"
-                          >
-                            跳转
-                            <IconArrow />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    {url && (
-                      <a
-                        href={url}
-                        target="_blank"
-                        rel="noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="shrink-0 rounded-lg border border-cafe bg-cafe-surface-elevated px-2.5 py-1 text-micro text-cafe-muted transition-colors hover:text-cafe-secondary"
+                  <div key={group.id}>
+                    {showHeader && (
+                      <button
+                        type="button"
+                        onClick={() => toggleCollapse(group.id)}
+                        className="flex w-full items-center gap-1.5 border-b border-cafe-subtle bg-cafe-surface-sunken px-3 py-2 text-left"
                       >
-                        打开
-                      </a>
+                        <IconChevron open={isOpen} />
+                        <span className="flex-1 truncate text-xs font-semibold text-cafe-secondary">{group.label}</span>
+                        <span className="text-micro text-cafe-muted">{group.count}</span>
+                      </button>
                     )}
+                    {isOpen &&
+                      group.items.map((a, i) => (
+                        <ArtifactRow
+                          key={`${a.ref ?? a.name}-${i}`}
+                          a={a}
+                          index={i}
+                          grouping={grouping}
+                          resolveNick={(id) => getCatById(id)?.nickname}
+                          onSelect={setSelected}
+                          onJump={handleJump}
+                        />
+                      ))}
                   </div>
                 );
               })
