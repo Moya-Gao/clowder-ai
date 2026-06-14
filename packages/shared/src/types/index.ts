@@ -240,6 +240,17 @@ export {
   DEFAULT_INTAKE_CHECKLIST,
   validateIntakeChecklist,
 } from './community-issue.js';
+// F168 Phase C: Community Role Registry (engine routes by role, never cat name)
+export {
+  COMMUNITY_ROLES,
+  type CommunityRole,
+  isCommunityRole,
+  isRoleCapability,
+  ROLE_CAPABILITIES,
+  type RoleCapability,
+  type RoleExecutor,
+  type RoleResolver,
+} from './community-role.js';
 // F229: 猫猫球前台猫 shared types
 export type {
   ConciergeBallState,

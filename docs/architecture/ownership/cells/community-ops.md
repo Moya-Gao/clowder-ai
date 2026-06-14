@@ -13,13 +13,16 @@ code_anchors:
   - packages/api/src/domains/community/community-keys.ts
   - packages/api/src/domains/community/community-delivery-policy.ts
   - packages/api/src/domains/community/community-auto-tracking.ts
+  - packages/shared/src/types/community-role.ts
+  - packages/api/src/domains/community/RoleResolver.ts
 doc_anchors:
   - docs/features/F168-community-ops-board.md
   - docs/discussions/2026-06-09-f168-community-ops-final-design.md
-static_scan_hints: [CommunityEvent, CommunityObject, CommunityEventLog, community-projector, community-state-machine, closure_invariant, community-bootstrap, community-delivery-policy, community-auto-tracking, awaiting_external, decideDelivery]
+static_scan_hints: [CommunityEvent, CommunityObject, CommunityEventLog, community-projector, community-state-machine, closure_invariant, community-bootstrap, community-delivery-policy, community-auto-tracking, awaiting_external, decideDelivery, CommunityRole, RoleResolver, RoleBinding]
 cited_by:
   - {feature: F168, date: 2026-06-10, delta: new cell}
   - {feature: F168-Phase-B, date: 2026-06-10, delta: "dual-cursor delivery + case.awaiting_external + delivery-policy + auto-tracking"}
+  - {feature: F168-Phase-C, date: 2026-06-13, delta: "RoleResolver binding layer — engine routes by CommunityRole via injected resolver (fail-closed), INV-6 engine-zero-catname grep guard"}
 ---
 
 # Community Ops Engine
