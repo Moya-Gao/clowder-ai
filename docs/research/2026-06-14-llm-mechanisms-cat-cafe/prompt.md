@@ -21,7 +21,7 @@ status: draft-in-review
 **北极星**：本研究服务一个判断——猫咖关心的每个 LLM 能力，该落在 **等猫舍（前沿训练）/ 自养（本地小模型）/ harness（context·记忆·工具·家规）** 哪一层。**不是科普 LLM 训练，是做 layer allocation 判断。**
 
 **候选模型家族**（截至 2026-06-14，**均按"候选"处理，版本号不得假设为真**）：
-GLM（5.1 / 5.2？）· DeepSeek（V4 Pro？）· Kimi（2.7？）· MiniMax（M3？）· Qwen（3.7 / 3.6 Max？）· + 1 个机动位（最新公开强开源/开放权重模型，**优先训练透明度高的，不是单纯最强**）。
+GLM（5.1 / 5.2？）· DeepSeek（V4 Pro？）· Kimi（2.7？）· MiniMax（M3？）· Qwen（3.7 / 3.6 Max？）· + 1 个机动位（由 research agent 按**训练方法+数据披露完整度**裁定：优先"方法/数据也公开"的全开放模型（不只开放权重），因为本 study 要学"怎么做"而非比性能；按一手资料可得性锁定，不预设具体目标）。
 
 **方法铁律**：
 - 一手优先：机制论断只认 T0/T1（technical report / model card / repo / 作者论文），挂链接 + 日期。
@@ -122,6 +122,10 @@ inference: [ 推理期技术 → (哪几家 + 出处) ]
 `pre-training data 配比` · `architecture（如 MoE / attention 变体）` · `tokenizer` · `long-context 方法` · `SFT` · `preference tuning` · `RLHF / RLAIF / DPO / GRPO / RLVR 等 RL 变体` · `tool-use / agentic post-training` · `inference-time scaling（如 test-time compute）` · `memory / personalization 方法`
 
 ## Output Schema（每个机制一行——这是 study 的核心交付）
+
+> **分工边界**（云端 research vs 本地猫，避免云端 mischaracterize 猫咖内部资产）：
+> - 云端 research **只填**：`机制` + `模型层能做什么（一手源+锚点）` + 外部业界做法（如 per-user 的 live-train vs retrieval 各家怎么做）。
+> - `猫咖已有设计/gap` / `最终决策` / `为什么不是另外两层` / `判断轴` / `迁移信号` / `最小验证实验` = **本地猫综合时填**（宪宪+砚砚，fable 回来接分层判断），云端不读猫咖内部 doc（它没 codebase 语境）。
 
 **同一张表逼出单一决策，不许用"混合/视情况"回避**：
 
