@@ -741,6 +741,41 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> = async (ap
     return { threadId, artifacts };
   });
 
+  // F232 Phase B: GET /api/artifacts — global artifact aggregation across all user threads (AC-B1, AC-B2).
+  // Iterates all threads calling aggregateThreadArtifacts() per thread (reuses Phase A pipeline).
+  app.get('/api/artifacts', async (request, reply) => {
+    const userId = resolveUserId(request, {});
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required' };
+    }
+
+    const userThreads = await threadStore.list(userId);
+
+    // Parallel aggregation across all threads (AC-B2: reuse pipeline)
+    const perThread = await Promise.all(
+      userThreads.map(async (thread) => {
+        const messages = messageStore ? await collectAllThreadMessages(messageStore, thread.id, userId) : [];
+        const allTasks = taskStore ? await taskStore.listByThread(thread.id) : [];
+        const prTasks = allTasks.filter((t) => t.kind === 'pr_tracking' && t.userId === userId);
+        const mem = await threadStore.getThreadMemory(thread.id);
+        const fileLedger = (mem?.recentArtifacts ?? []).filter(
+          (a) => a.type === 'file' || a.type === 'plan' || a.type === 'feature-doc',
+        );
+        const artifacts = aggregateThreadArtifacts({ messages, prTasks, fileLedger });
+        return artifacts.map((a) => ({
+          ...a,
+          threadId: thread.id,
+          threadTitle: thread.title ?? thread.id,
+        }));
+      }),
+    );
+
+    // Flatten + sort descending by createdAt
+    const all = perThread.flat().sort((a, b) => b.createdAt - a.createdAt);
+    return { artifacts: all, total: all.length };
+  });
+
   // F35: PATCH /api/threads/:id/reveal — reveal all whispers in a thread
   app.patch<{ Params: { id: string } }>('/api/threads/:id/reveal', async (request, reply) => {
     const userId = resolveUserId(request, {});

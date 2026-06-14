@@ -1,6 +1,6 @@
 'use client';
 
-import type { ThreadArtifactDTO, ThreadArtifactType } from '@cat-cafe/shared';
+import type { GlobalArtifactDTO, ThreadArtifactDTO, ThreadArtifactType } from '@cat-cafe/shared';
 import type { JSX } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useCatData } from '@/hooks/useCatData';
@@ -8,6 +8,7 @@ import { useChatStore } from '@/stores/chatStore';
 import { API_URL } from '@/utils/api-client';
 import { scrollToMessage } from '@/utils/scrollToMessage';
 import { kickTeleportResolve, planTeleport } from '@/utils/teleport';
+import { useGlobalArtifacts } from '../hooks/useGlobalArtifacts';
 import { useThreadArtifacts } from '../hooks/useThreadArtifacts';
 import { ArtifactDetailView } from './artifacts/ArtifactDetailView';
 import { artifactRowMeta, resolveAssetUrl } from './artifacts/artifact-view';
@@ -91,6 +92,9 @@ const TYPE_ICON: Record<ThreadArtifactType, () => JSX.Element> = {
   audio: IconMic,
   video: IconVideo,
 };
+
+// Type-specific color system (F232 design language — intentionally NOT generic cafe tokens).
+// These represent artifact type identity; kept as explicit values for visual consistency.
 const TYPE_TINT: Record<ThreadArtifactType, { color: string; background: string }> = {
   image: { color: '#4a7fb0', background: '#eef3f8' },
   file: { color: '#b58a45', background: '#f8f2e9' },
@@ -104,6 +108,14 @@ type FilterKey = 'all' | 'image' | 'file' | 'codepr' | 'audio' | 'video';
 const inFilter = (a: ThreadArtifactDTO, f: FilterKey): boolean =>
   f === 'all' ? true : f === 'codepr' ? a.type === 'code' || a.type === 'pr' : a.type === f;
 
+/** F232 Phase B: scope toggle — 当前对话 vs 全局 */
+type ArtifactScope = 'thread' | 'global';
+
+/** Type guard: is this a global artifact (has threadId/threadTitle)? */
+function isGlobal(a: ThreadArtifactDTO): a is GlobalArtifactDTO {
+  return 'threadId' in a && 'threadTitle' in a;
+}
+
 export function ArtifactsPanel({
   threadId,
   width,
@@ -113,7 +125,16 @@ export function ArtifactsPanel({
   width?: number;
   onClose?: () => void;
 }) {
-  const { artifacts, loading, error } = useThreadArtifacts(threadId);
+  // F232 Phase B: scope toggle state
+  const [scope, setScope] = useState<ArtifactScope>('thread');
+
+  // Data sources: thread-scoped (Phase A) + global (Phase B)
+  const threadData = useThreadArtifacts(threadId);
+  const globalData = useGlobalArtifacts(scope === 'global');
+
+  // Active data source based on scope
+  const { artifacts, loading, error } = scope === 'global' ? globalData : threadData;
+
   const { getCatById } = useCatData();
   const workspaceWorktreeId = useChatStore((s) => s.workspaceWorktreeId);
   const [filter, setFilter] = useState<FilterKey>('all');
@@ -121,23 +142,20 @@ export function ArtifactsPanel({
   // AC-A7: 选中产物 → panel 内进入内容详情视图（null = 列表视图）。
   const [selected, setSelected] = useState<ThreadArtifactDTO | null>(null);
 
-  // P1-2（砚砚 review）：组件不随 threadId remount，切 thread 时本地视图状态会残留——
-  // selected 残留会显示旧 thread 产物详情，且「跳回原消息」用新 threadId 配旧 sourceMessageId 串 thread。
-  // 切 thread 一并清空选中/筛选/搜索，回到干净列表。
+  // Reset view state when threadId or scope changes
   useEffect(() => {
     setSelected(null);
     setFilter('all');
     setQ('');
-  }, [threadId]);
+  }, [threadId, scope]);
 
   // F232 P2 (cloud review): 跳回原消息走 teleport（jump-with-load），不裸 scrollToMessage。
-  // 全量聚合后老产物的 source message 常在已加载窗口外，裸 scroll 静默 no-op；planTeleport 在
-  // 同 thread 也记录 pending teleport，让 useChatHistory 的 older-page resolver 自动加载更老
-  // 历史再定位（AC-A4 跳回原消息）。对齐 CardBlock 同款 same-thread teleport pattern。
+  // Phase B: 全局 scope 下 artifact 自带 threadId，teleport 跨 thread 跳转正确。
   const handleJump = useCallback(
-    (sourceMessageId: string) => {
+    (sourceMessageId: string, artifactThreadId?: string) => {
+      const tid = artifactThreadId ?? threadId;
       const currentThreadId = useChatStore.getState().currentThreadId;
-      const plan = planTeleport({ threadId, messageId: sourceMessageId, currentThreadId });
+      const plan = planTeleport({ threadId: tid, messageId: sourceMessageId, currentThreadId });
       if (plan.scrollNow) {
         scrollToMessage(plan.scrollNow);
         kickTeleportResolve();
@@ -176,55 +194,75 @@ export function ArtifactsPanel({
 
   return (
     <aside
-      className="flex flex-col overflow-hidden"
-      style={{
-        ...(width ? { width, flexShrink: 0 } : { flex: '1 1 0%', minWidth: 0 }),
-        background: 'var(--console-shell-bg, #fff)',
-        color: '#2c2c2c',
-      }}
+      className="flex flex-col overflow-hidden bg-cafe-surface text-cafe"
+      style={width ? { width, flexShrink: 0 } : { flex: '1 1 0%', minWidth: 0 }}
     >
       {selected ? (
         <ArtifactDetailView
           artifact={selected}
-          worktreeId={workspaceWorktreeId}
+          // P1 fix (gpt52 review): global scope artifact from another thread must NOT use the current
+          // thread's worktreeId — that would fetch the wrong file version or 404. Pass null to force
+          // fallback to URL/non-workspace content resolution for cross-thread artifacts.
+          worktreeId={isGlobal(selected) && selected.threadId !== threadId ? null : workspaceWorktreeId}
           onBack={() => setSelected(null)}
-          onJump={handleJump}
+          onJump={(msgId) => handleJump(msgId, isGlobal(selected) ? selected.threadId : undefined)}
         />
       ) : (
         <>
-          <div className="px-4 pt-[18px] pb-3" style={{ borderBottom: '1px solid #eee' }}>
+          {/* Header — aligned with TaskBoardPanel / RecallPanel structure */}
+          <div className="border-b border-cafe px-3 py-2.5">
             <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1.5 text-sm font-semibold" style={{ color: '#333' }}>
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-cafe-secondary">
                 <IconLayers />
-                产物 · 当前 thread
+                产物
               </span>
               {onClose && (
-                <button type="button" onClick={onClose} aria-label="关闭" className="flex" style={{ color: '#bbb' }}>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  aria-label="关闭"
+                  className="flex text-cafe-muted transition-colors hover:text-cafe-secondary"
+                >
                   <IconX />
                 </button>
               )}
             </div>
-            <div className="mt-1 text-xs" style={{ color: '#999' }}>
+
+            {/* F232 Phase B: Scope toggle — matches recall panel [记忆流] [拉闸记录] pattern */}
+            <div className="mt-2 flex rounded-lg border border-cafe-subtle bg-cafe-surface-sunken p-0.5">
+              {(['thread', 'global'] as const).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setScope(s)}
+                  className={`flex-1 rounded-md px-2 py-1 text-micro font-medium transition-colors ${
+                    scope === s
+                      ? 'bg-cafe-surface-elevated text-cafe-secondary shadow-sm'
+                      : 'text-cafe-muted hover:text-cafe-secondary'
+                  }`}
+                >
+                  {s === 'thread' ? '当前对话' : '全局'}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-1.5 text-micro text-cafe-muted">
               {loading
                 ? '加载中…'
                 : error
                   ? '加载失败，点筛选可重试'
                   : `共 ${counts.all} 项 · ${counts.image} 图 · ${counts.file} 文件 · ${counts.codepr} 代码/PR · ${counts.audio} 语音 · ${counts.video} 视频`}
             </div>
-            <label
-              className="mt-3 flex items-center gap-2 rounded-md px-3 py-2 text-sm"
-              style={{ background: '#f4f4f4', border: '1px solid #e4e4e4', color: '#888' }}
-            >
+            <label className="mt-2 flex items-center gap-2 rounded-lg border border-cafe-subtle bg-cafe-surface-sunken px-2.5 py-1.5 text-xs text-cafe-muted">
               <IconSearch />
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                placeholder="在本 thread 的产物里搜…（不用记全名）"
-                className="flex-1 bg-transparent text-sm outline-none"
-                style={{ color: '#2c2c2c' }}
+                placeholder={scope === 'global' ? '搜索所有对话的产物…' : '在本 thread 的产物里搜…'}
+                className="flex-1 bg-transparent text-xs text-cafe outline-none placeholder:text-cafe-muted"
               />
             </label>
-            <div className="mt-3 flex flex-wrap gap-1.5">
+            <div className="mt-2 flex flex-wrap gap-1.5">
               {chips.map(([key, label, n]) => {
                 const on = filter === key;
                 return (
@@ -232,8 +270,11 @@ export function ArtifactsPanel({
                     key={key}
                     type="button"
                     onClick={() => setFilter(key)}
-                    className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs"
-                    style={on ? { background: '#333', color: '#fff' } : { background: '#f0f0f0', color: '#666' }}
+                    className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-micro transition-colors ${
+                      on
+                        ? 'bg-cafe-crosspost/15 font-semibold text-cafe-crosspost'
+                        : 'bg-cafe-surface-elevated text-cafe-muted hover:text-cafe-secondary'
+                    }`}
                   >
                     {label} {n}
                   </button>
@@ -241,17 +282,17 @@ export function ArtifactsPanel({
               })}
             </div>
           </div>
+          {/* List */}
           <div className="flex-1 overflow-y-auto">
             {visible.length === 0 ? (
-              <div className="px-4 py-8 text-center text-sm" style={{ color: '#bbb' }}>
-                {loading ? '' : '该类型暂无产物'}
-              </div>
+              <div className="px-3 py-8 text-center text-xs text-cafe-muted">{loading ? '' : '该类型暂无产物'}</div>
             ) : (
               visible.map((a, i) => {
                 const Icon = TYPE_ICON[a.type];
                 const tint = TYPE_TINT[a.type];
                 const url = resolveUrl(a.url);
                 const meta = artifactRowMeta(a, (id) => getCatById(id)?.nickname);
+                const global = isGlobal(a);
                 return (
                   // biome-ignore lint/a11y/useSemanticElements: 整行可点击进入产物详情 + 内嵌跳转/打开按钮，嵌套 interactive 元素无法用 <button>
                   <div
@@ -266,30 +307,34 @@ export function ArtifactsPanel({
                         setSelected(a);
                       }
                     }}
-                    className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-[#fafafa]"
-                    style={{ borderBottom: '1px solid #f2f2f2', cursor: 'pointer' }}
+                    className="flex w-full cursor-pointer items-center gap-3 border-b border-cafe-subtle px-3 py-2.5 text-left transition-colors hover:bg-cafe-surface-elevated/50"
                   >
                     <span
-                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
-                      style={{ color: tint.color, background: tint.background, border: '1px solid #e6e6e6' }}
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-cafe-subtle"
+                      style={{ color: tint.color, background: tint.background }}
                     >
                       <Icon />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-medium">{a.name}</div>
-                      <div className="mt-0.5 flex items-center gap-1.5 text-xs" style={{ color: '#9a9a9a' }}>
+                      <div className="truncate text-sm font-medium text-cafe-secondary">{a.name}</div>
+                      <div className="mt-0.5 flex items-center gap-1.5 text-micro text-cafe-muted">
                         <span className="truncate">
                           {meta.catLabel} · {meta.relativeTime}
                         </span>
+                        {/* Phase B: thread badge in global scope */}
+                        {global && (
+                          <span className="shrink-0 truncate rounded bg-cafe-surface-elevated px-1.5 py-0.5 text-micro text-cafe-muted">
+                            {a.threadTitle}
+                          </span>
+                        )}
                         {a.sourceMessageId && (
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (a.sourceMessageId) handleJump(a.sourceMessageId);
+                              if (a.sourceMessageId) handleJump(a.sourceMessageId, global ? a.threadId : undefined);
                             }}
-                            className="flex shrink-0 items-center gap-0.5"
-                            style={{ color: '#5a7fa3' }}
+                            className="flex shrink-0 items-center gap-0.5 text-cafe-crosspost transition-colors hover:text-cafe-accent"
                           >
                             跳转
                             <IconArrow />
@@ -303,8 +348,7 @@ export function ArtifactsPanel({
                         target="_blank"
                         rel="noreferrer"
                         onClick={(e) => e.stopPropagation()}
-                        className="shrink-0 rounded px-2.5 py-1 text-xs"
-                        style={{ border: '1px solid #e0e0e0', background: '#fafafa', color: '#666' }}
+                        className="shrink-0 rounded-lg border border-cafe bg-cafe-surface-elevated px-2.5 py-1 text-micro text-cafe-muted transition-colors hover:text-cafe-secondary"
                       >
                         打开
                       </a>

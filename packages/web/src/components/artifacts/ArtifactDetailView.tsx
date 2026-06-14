@@ -32,32 +32,24 @@ const IconDownload = () => (
   </svg>
 );
 
+/** Shared button style for detail-view action buttons (cafe token aligned). */
+const actionBtnClass =
+  'flex items-center gap-1.5 rounded-lg border border-cafe bg-cafe-surface-elevated px-3 py-1.5 text-xs font-medium text-cafe-muted transition-colors hover:text-cafe-secondary';
+const linkBtnClass =
+  'flex items-center gap-1.5 rounded-lg border border-cafe bg-cafe-surface-elevated px-3 py-1.5 text-xs font-medium text-cafe-crosspost transition-colors hover:text-cafe-accent';
+
 function PrBody({ artifact }: { artifact: ThreadArtifactDTO }): JSX.Element {
   const prUrl = prRefToUrl(artifact.ref);
   return (
     <div className="flex flex-col items-center justify-center gap-3 px-6 py-10 text-center">
-      <div className="text-sm font-medium" style={{ color: '#333' }}>
-        {artifact.name}
-      </div>
-      {artifact.ref && (
-        <div className="font-mono text-xs" style={{ color: '#999' }}>
-          {artifact.ref}
-        </div>
-      )}
+      <div className="text-sm font-medium text-cafe-secondary">{artifact.name}</div>
+      {artifact.ref && <div className="font-mono text-xs text-cafe-muted">{artifact.ref}</div>}
       {prUrl ? (
-        <a
-          href={prUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-1 flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium"
-          style={{ border: '1px solid #e0e0e0', background: '#fafafa', color: '#5a7fa3' }}
-        >
+        <a href={prUrl} target="_blank" rel="noreferrer" className={`mt-1 ${linkBtnClass}`}>
           在 GitHub 打开 <IconExternal />
         </a>
       ) : (
-        <div className="text-xs" style={{ color: '#bbb' }}>
-          无法解析 PR 链接
-        </div>
+        <div className="text-xs text-cafe-muted">无法解析 PR 链接</div>
       )}
     </div>
   );
@@ -66,28 +58,15 @@ function PrBody({ artifact }: { artifact: ThreadArtifactDTO }): JSX.Element {
 function DownloadBody({ artifact, url }: { artifact: ThreadArtifactDTO; url: string }): JSX.Element {
   return (
     <div className="flex flex-col items-center justify-center gap-3 px-6 py-10 text-center">
-      <div className="truncate text-sm font-medium" style={{ color: '#333' }} title={artifact.name}>
+      <div className="truncate text-sm font-medium text-cafe-secondary" title={artifact.name}>
         {artifact.name}
       </div>
-      <div className="text-xs" style={{ color: '#999' }}>
-        此类型无法在面板内预览
-      </div>
+      <div className="text-xs text-cafe-muted">此类型无法在面板内预览</div>
       <div className="mt-1 flex gap-2">
-        <a
-          href={url}
-          download
-          className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium"
-          style={{ border: '1px solid #e0e0e0', background: '#fafafa', color: '#666' }}
-        >
+        <a href={url} download className={actionBtnClass}>
           下载 <IconDownload />
         </a>
-        <a
-          href={url}
-          target="_blank"
-          rel="noreferrer"
-          className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium"
-          style={{ border: '1px solid #e0e0e0', background: '#fafafa', color: '#5a7fa3' }}
-        >
+        <a href={url} target="_blank" rel="noreferrer" className={linkBtnClass}>
           新标签打开 <IconExternal />
         </a>
       </div>
@@ -104,18 +83,15 @@ function FallbackBody({
 }): JSX.Element {
   return (
     <div className="flex flex-col items-center justify-center gap-3 px-6 py-10 text-center">
-      <div className="truncate text-sm font-medium" style={{ color: '#333' }} title={artifact.name}>
+      <div className="truncate text-sm font-medium text-cafe-secondary" title={artifact.name}>
         {artifact.name}
       </div>
-      <div className="text-xs" style={{ color: '#999' }}>
-        此产物无内容源，无法在面板内查看
-      </div>
+      <div className="text-xs text-cafe-muted">此产物无内容源，无法在面板内查看</div>
       {artifact.sourceMessageId && (
         <button
           type="button"
           onClick={() => artifact.sourceMessageId && onJump(artifact.sourceMessageId)}
-          className="mt-1 flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium"
-          style={{ border: '1px solid #e0e0e0', background: '#fafafa', color: '#5a7fa3' }}
+          className={`mt-1 ${linkBtnClass}`}
         >
           跳回原消息 <IconExternal />
         </button>
@@ -136,11 +112,7 @@ function ArtifactTextBody({
 }): JSX.Element {
   const { content, path, isMarkdown, loading, error } = useArtifactContent(artifact, worktreeId, true);
   if (loading) {
-    return (
-      <div className="px-4 py-8 text-center text-xs" style={{ color: '#bbb' }}>
-        正文加载中…
-      </div>
-    );
+    return <div className="px-4 py-8 text-center text-xs text-cafe-muted">正文加载中…</div>;
   }
   if (error || content === null) {
     return <FallbackBody artifact={artifact} onJump={onJump} />;
@@ -189,17 +161,16 @@ export function ArtifactDetailView({
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <div className="flex items-center gap-2 px-3 py-2.5" style={{ borderBottom: '1px solid #eee' }}>
+      <div className="flex items-center gap-2 border-b border-cafe px-3 py-2.5">
         <button
           type="button"
           aria-label="返回"
           onClick={onBack}
-          className="flex shrink-0 items-center gap-1 rounded px-1.5 py-1 text-xs"
-          style={{ color: '#5a7fa3' }}
+          className="flex shrink-0 items-center gap-1 rounded px-1.5 py-1 text-xs text-cafe-crosspost transition-colors hover:text-cafe-accent"
         >
           <IconBack />
         </button>
-        <span className="truncate text-sm font-semibold" style={{ color: '#333' }} title={artifact.name}>
+        <span className="truncate text-xs font-semibold text-cafe-secondary" title={artifact.name}>
           {artifact.name}
         </span>
       </div>

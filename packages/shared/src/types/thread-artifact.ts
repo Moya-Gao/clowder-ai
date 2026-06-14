@@ -32,3 +32,21 @@ export interface ThreadArtifactsResponse {
   /** 时间倒序 */
   artifacts: ThreadArtifactDTO[];
 }
+
+/**
+ * F232 Phase B: 全局产物 DTO — 扩展 ThreadArtifactDTO 附带 thread 上下文。
+ * GET /api/artifacts 返回跨所有 thread 的产物聚合。
+ */
+export interface GlobalArtifactDTO extends ThreadArtifactDTO {
+  /** 产物所属 thread */
+  threadId: string;
+  /** thread 标题（用于分组标签 / 上下文显示） */
+  threadTitle: string;
+}
+
+/** GET /api/artifacts 响应 */
+export interface GlobalArtifactsResponse {
+  /** 时间倒序 */
+  artifacts: GlobalArtifactDTO[];
+  total: number;
+}
