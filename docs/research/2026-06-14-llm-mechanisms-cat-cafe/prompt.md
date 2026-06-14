@@ -112,53 +112,63 @@ inference: [ 推理期技术 → (哪几家 + 出处) ]
 
 ---
 
-# ROUND 2 — 机制深挖 + 猫咖映射（对象已锁定，见 opus-synthesis.md）
+# ROUND 2 — 机制深挖 + 猫咖映射
 
-## Problem Frame
+> **本节切两半**：§A 是发给云端 research 的 **self-contained** prompt（云端看不到任何本地文件，§A 段内即全部上下文，零内部黑话 / 零文件引用）；§B 是本地综合（**不发云端**，本地猫拿 §A 外部事实 + 我们内部 doc 来填）。
 
-对 Round 1 锁定的对象，按**机制横切**（不按模型写读后感）深挖训练/推理方法，并映射到猫咖的 layer allocation 判断。
+---
 
-**锁定对象集 + scope（Round 1 终验 + 砚砚 source-audit 确认，不得超范围）**：
-- `DeepSeek-V4-Pro` — full（pre/post/inference）
-- `OLMo 3 / 3.1` — full，**优先**（唯一全开放 data+code+checkpoint+log，能 trace 端到端）
-- `MiniMax-M3` — **architecture/inference ONLY**（只有 MSA 论文；pre/post-train 标"no public primary source found"，禁推断）
-- `Kimi K2.7-Code` — limited（仅 model card/API 明写的 architecture/inference/current-version delta）
-- `Kimi K2.5` — full（Kimi 训练配方源，**不回填**到 K2.7）
-- `GLM-5` — full
-- `GLM-5.1 / 5.2`、`Qwen3.7` — **不进 method R2**（无专门报告 / 仅 T2）；Qwen 机制如确需则回退 `Qwen3.6-27B`
+## §A — 发给云端 Research（self-contained，复制这一段即可发送）
 
-**机制横切清单**（每项的具体采用情况由一手源核实，以下仅是横切维度，不是断言任何模型用了它）：
-`pre-training data 配比` · `architecture（如 MoE / attention 变体）` · `tokenizer` · `long-context 方法` · `SFT` · `preference tuning` · `RLHF / RLAIF / DPO / GRPO / RLVR 等 RL 变体` · `tool-use / agentic post-training` · `inference-time scaling（如 test-time compute）` · `memory / personalization 方法`
+### 任务
+对下列已确认存在的开源/开放权重模型，从**一手来源**（official technical report / model card / 官方 repo / 作者署名论文）按机制维度提取训练与推理方法。每条方法论断必须挂证据锚点（section / table / repo path / ≤30字原文摘录）+ 源链接 + 日期。搜不到一手就写 `no public primary source found`，**不要用先验知识或第三方博客补全**。
 
-## Output Schema（每个机制一行——这是 study 的核心交付）
+### 对象 + 各自范围（不得超范围）
+- **DeepSeek-V4-Pro** — full（pre-train / post-train / inference 全挖）
+- **OLMo 3 / OLMo 3.1**（Allen AI / Ai2）— full，**优先**（数据+代码+checkpoint+log 全开放，可端到端追溯，最适合学"怎么做"）
+- **MiniMax-M3** — **仅 architecture / inference**（公开的只有 MiniMax Sparse Attention 论文；pre-train 语料 / SFT / RL 一律标 `no public primary source found`，不要推断）
+- **Kimi K2.7-Code** — limited（只取 model card / API 文档明写的 architecture / inference / 相对前代 delta）
+- **Kimi K2.5** — full（作为 Kimi 家族训练配方来源；**不要**把 K2.5 训练细节当成 K2.7 的）
+- **GLM-5** — full
+- **不要深挖**：GLM-5.1 / GLM-5.2 / Qwen3.7（无专门技术报告或只有产品页）。若确需 Qwen 训练机制，回退到 **Qwen3.6-27B**（有 model card）
 
-> **分工边界**（云端 research vs 本地猫，避免云端 mischaracterize 猫咖内部资产）：
-> - 云端 research **只填**：`机制` + `模型层能做什么（一手源+锚点）` + 外部业界做法（如 per-user 的 live-train vs retrieval 各家怎么做）。
-> - `猫咖已有设计/gap` / `最终决策` / `为什么不是另外两层` / `判断轴` / `迁移信号` / `最小验证实验` = **本地猫综合时填**（宪宪+砚砚，fable 回来接分层判断），云端不读猫咖内部 doc（它没 codebase 语境）。
+### 机制横切维度（按维度对比各家，不要逐个模型写读后感）
+- **pre-train**：数据配比 / 架构（MoE、attention 变体如 sparse / linear）/ tokenizer / long-context 方法
+- **post-train**：SFT / preference tuning / RL 各变体（RLHF / RLAIF / DPO / GRPO / RLVR 等）/ tool-use & agentic post-training
+- **inference**：推理期技术（test-time / inference-time scaling、投机解码、稀疏注意力 kernel 等）
 
-**同一张表逼出单一决策，不许用"混合/视情况"回避**：
+### 一个外部对比专题（公开话题，云端可查）
+**per-user personalization 的两条技术路线对比**：把"让模型记住/适应某个具体用户"做进**模型权重**（on-device live-training / 持续微调小模型）vs 放在**外部记忆 + 检索**（RAG / memory system，权重冻结）。请给出两条路线在以下维度的 tradeoff，尽量挂一手或可靠来源：可审计性、可更新/可删除性、灾难性遗忘、推理延迟、隐私与多用户隔离、维护成本。各自在什么场景更优？
 
-| 机制 | 模型层能做什么（一手源+锚点） | 猫咖已有设计/gap | 最终决策（单选：等猫舍/自养/harness/混合） | 为什么不是另外两层 | 判断轴（auditability / update-cadence / latency / privacy / evalability / blast-radius） | 迁移信号（什么出现时换层） | 最小验证实验 |
-|------|------|------|------|------|------|------|------|
+### 云端输出格式（只填这张纯外部事实表）
+| 模型 | 机制维度 | 方法（一手源） | 证据锚点 | 源链接 + 日期 | 是否在该模型 scope 内 |
+|---|---|---|---|---|---|
 
-> - 选"混合"**必须拆**出哪部分落哪层（如"基础能力等猫舍 + 关键路径 harness 兜底"），每部分仍走"为什么不是另外两层" + 判断轴——不允许用"混合"当逃生门。
-> - "为什么不是另外两层"必须给具体理由，禁止空着或写"视情况"。
-> - "最小验证实验" = 若决策是自养/harness，最小可验证 PoC 是什么（接 ADR-031 "有 signal 才能判断该不该换层"）。
+> 云端**不做**"这个能力该放哪一层"的判断——那需要我们内部系统的上下文，由我们本地完成。你只负责把外部世界的事实挖准、挖全、可追溯。
 
-**「猫咖已有设计 / gap」列种子**（research 必须对照，别重复造轮子；填不上的标 gap）：
+---
+
+## §B — 本地综合（不发云端；宪宪 + 砚砚，fable 回来接分层判断）
+
+拿 §A 的外部机制事实 + per-user 路线对比，叠加我们的内部 doc（ADR-031 / F221 / F231 / 自养层研究线），填 layer allocation 决策表：
+
+| 机制 | 模型层能做什么（§A 事实） | 猫咖已有设计/gap | 最终决策（单选：等猫舍/自养/harness/混合） | 为什么不是另外两层 | 判断轴（auditability / update-cadence / latency / privacy / evalability / blast-radius） | 迁移信号（什么出现时换层） | 最小验证实验 |
+|---|---|---|---|---|---|---|---|
+
+**规则**：
+- 选"混合"必须拆出哪部分落哪层（如"基础能力等猫舍 + 关键路径 harness 兜底"），每部分仍走"为什么不是另外两层" + 判断轴，不许用"混合"当逃生门。
+- "为什么不是另外两层"必须给具体理由，禁止空或"视情况"。
+- "最小验证实验" = 若决策是自养/harness，最小可验证 PoC（接 ADR-031"有 signal 才能判断该不该换层"）。
+
+**「猫咖已有设计/gap」列种子**（本地填时对照，别重复造轮子）：
 - ADR-031：harness 5 层 + Sunset + Training/Retrieval 二分
 - F221 taste-lane / F231 user-profile-capsule：per-user alignment 已在 harness 层做（非 live-train）
-- `2026-06-03-local-small-model-rl-survey` 等自养层研究线：本地小模型 RL / 权重演化 / gemma-clerk 已有积累
+- 自养层研究线（`2026-06-03-local-small-model-rl-survey` 等）：本地小模型 RL / 权重演化 / gemma-clerk 已有积累
 
-**特别追问**（Landy 的核心关切）：
-- per-user alignment：业界（创业公司）在小模型里 live-train，vs 我们记忆系统在 harness 层做——**各自 tradeoff、各自什么时候更优**？（可审计性 / 可演化性 / 灾难性遗忘 / 延迟 / 隐私）
-- 自养层：家用 128G Mac 现实能训/微调到什么程度，哪类窄任务值得，哪类是认知脚手架（呼应 taste 里"小模型 classifier 可能是脚手架"的先例）？
+**两个特别追问（本地结合 §A 外部对比回答）**：
+- per-user alignment：业界 live-train 进小模型 vs 我们记忆系统在 harness——各自 tradeoff、各自何时更优？
+- 自养层：128G Mac 现实能训/微调到什么程度，哪类窄任务值得，哪类是"认知脚手架"（呼应 taste 里"小模型 classifier 可能是脚手架"先例）？
 
-## Decision Interface
-
-决策已在上表"最终决策"列强制给出。此处补：每个"自养/harness"决策如何落到猫咖现有体系（哪个 feature / ADR / skill / 记忆 lane 承接），以及与已有锚点（ADR-031 Sunset / F221 / F231 / 自养层研究线）的衔接。
-
-## Risk Register
-
-1. harness 傲慢（默认 harness 永远赢）→ 缓解：每个机制必须诚实评估训练层是否更优。
-2. 把"现在该哪层"当永久结论 → 缓解：强制填迁移信号列。
+**本地综合风险**：
+1. harness 傲慢（默认 harness 永远赢）→ 每个机制诚实评估训练层是否更优。
+2. 把"现在该哪层"当永久结论 → 强制填迁移信号列。
