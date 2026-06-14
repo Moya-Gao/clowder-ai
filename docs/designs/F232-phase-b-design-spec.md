@@ -1,7 +1,7 @@
 # F232 Phase B — Design Spec: 全局产物中心
 
 > **Author**: 宪宪/Opus [宪宪/Opus🐾]
-> **Status**: Waiting CVO Approval
+> **Status**: CVO Approved — implementing
 > **Date**: 2026-06-13
 > **Base**: gemini35 UX concept → 实现落地翻译
 > **Spec ref**: docs/features/F232-thread-artifacts-panel.md (AC-B1, AC-B2)
@@ -200,10 +200,24 @@ MVP：遍历全部 thread 并行聚合，前端分页。
 
 ---
 
-## 6. 需要 CVO 确认
+## 6. CVO 决策记录
 
-1. **scope toggle vs 独立页面** — 推荐 toggle，如偏好独立页面请告知
-2. **分组维度** — 时间/对话/猫 三种，是否足够？
-3. **统一列表 vs 混合布局** — 面板内推荐统一列表，是否接受？
+| # | 问题 | CVO 决策 | 日期 |
+|---|------|---------|------|
+| 1 | scope toggle vs 独立页面 | ✅ scope toggle（面板内切换） | 2026-06-13 |
+| 2 | 分组维度 | 时间/对话/猫 三种（待后续体验反馈） | — |
+| 3 | 统一列表 vs 混合布局 | 统一列表（面板宽度有限，混合布局不实际） | 2026-06-13 |
+| 4 | 悬停上下文 tooltip | defer — 记录为 OQ，后续看需要再做 | 2026-06-13 |
 
-等待铲屎官 approve 后进 worktree 实现。
+### CVO 追加要求（Phase B 前置）
+
+**UI 归一**：Phase A 产物面板使用硬编码 hex 色值，与其他 workspace 模式（任务、记忆等）
+的 `cafe-*` 语义 token 系统严重不统一。Phase B 实施时一并迁移：
+- 全部 inline style hex 色值 → `cafe-*` CSS 变量 / Tailwind token
+- header / search / filter chips / item row 结构对齐其他 workspace 模式
+- 保留类型色彩系统（image/file/code/pr/audio/video 的 tint 色）
+
+### OQ（预留增强）
+
+- **OQ-B1**: 悬停上下文 tooltip（悬停产物行 → 显示来源对话的 3 句上下文）
+- **OQ-B2**: Redis 反向索引（Phase A OQ-2 延续）——thread 数量过多时的性能优化
