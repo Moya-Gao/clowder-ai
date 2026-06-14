@@ -35,7 +35,7 @@ status: round1-complete-canonical
 | MiniMax MSA `arXiv:2606.13392` | 宪宪 WebFetch | ✅ 真实，**确认仅 attention-architecture 论文**（非完整模型报告）→ 坐实"限 scope" |
 | GLM-5 `arXiv:2602.15763` | 砚砚 source-audit | ✅ full method/data/post-train（27T corpus / DSA / 28.5T tokens / async RL） |
 | Kimi K2.5 `arXiv:2602.02276` | 砚砚 source-audit | ✅ full training report（joint text-vision，~15T mixed tokens） |
-| Kimi K2.7-Code `HF moonshotai/Kimi-K2.7-Code` | 砚砚 source-audit | ✅ 存在，但仅 model-card 级（基于 K2.6 的 coding agentic model） |
+| Kimi K2.7-Code `HF moonshotai/Kimi-K2.7-Code` | 砚砚 source-audit + 宪宪 WebFetch 二次确认 | ✅ 存在（基于 K2.6，MoE 1T/32B，coding-focused agentic），仅 model-card 级。**注**：Claude 路 Round 1 没搜到它（停在 K2.6）= 搜索覆盖差异，**非不存在**——三方分歧靠亲核一手源 HF model card 解决 |
 
 ## Canonical Round 1 Ledger + Round 2 决策（砚砚 verdict 已采纳）
 
