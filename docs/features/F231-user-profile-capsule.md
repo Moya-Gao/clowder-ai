@@ -71,8 +71,8 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 
 > **终态决议（OQ-4 closed 2026-06-13，KD-8~11，Design Gate 出口物 `docs/discussions/2026-06-13-f231-phase-c-design-gate.md`）**：养熟循环 = 三段管道，全程"系统只给数据、猫/CVO 给结论"——**采集**（白名单数据合同 KD-9，确定性可解释事件，复用 F102 evidence lane）→ **蒸馏**（runtime-neutral trigger KD-10，C 类 hygiene + 候选整理，接 opus47 dream-consolidation research，不替猫判断）→ **消化**（按代价分层：重要客观事实 CVO 签字、其余偏好/印象猫自治写入靠用中校准检验，KD-12/13/14）→ **注入**（已确定画像按相关性动态/pull recall，是检索判断非入库判断、不破红线，OQ-5）。F231 是 bounded profile consolidation pilot（KD-11，dry-run + provenance，不开通用 dream lane）。46 的 L0 反射降级为消化端手动入口、不当主路径。下列原始 Phase C 设想保留作细化素材，受三段管道 + 三条约束收编。
 
-1. **关系信号沉淀路径**：类比 F221 taste 路径——猫捕捉关系信号（"被接住了"/玩笑节奏/新偏好）→ 提议 capsule/primer 更新 → CVO 过目生效。复用 code-as-harness 信号分类，新增 relationship 分支。
-2. **更新节奏**：提议制不自动写入（capsule 是真相源，漂移即投毒）；正向轨迹与教训同权重沉淀（记忆配平——不只记检讨书）。
+1. **关系信号沉淀路径**：类比 F221 taste 路径——猫捕捉关系信号（"被接住了"/玩笑节奏/新偏好）→ 按 KD-12 分层写入（高代价客观事实 CVO 签字、低代价偏好/印象猫自治写 per-cat 层 + 用中校准；写入目标层分流见 KD-15）。复用 code-as-harness 信号分类，新增 relationship 分支。
+2. **更新节奏**：shared capsule 是真相源、不静默自动写（漂移即投毒，晋升走 KD-15 高门槛：CVO 签字 or 多猫印证）；低代价偏好按 KD-12 进 per-cat 层猫自治写入（带 provenance）；正向轨迹与教训同权重沉淀（记忆配平——不只记检讨书）。
 3. **外部画像迁移路径（import 冷启动，CVO 2026-06-11 提出）**：把本 thread 手动跑通的流程（用户贴 ChatGPT/claude.ai/Gemini 导出的记忆画像 → 猫蒸馏成 capsule 种子 → 数据最小化过滤（KD-5）→ 用户签字入库）固化为 onboarding guide/skill。社区用户第一天就有"被认识"的体感，不必从零养。隐私同纪律：用户自己的数据自己带入，per-user 私有层，永不出库。
 4. **user-signal 记录层（抽象的原料层，CVO 洞察："得先记录各种铲屎官的信息，抽象才可能出现"）**：复刻 F221 三层论（空气/目录/海马体）到 user 维度——猫日常捕捉的主人信号需要一个可累积的 lane（类比 `docs/taste/` 的 user-signal 版，载体在 private/），蒸馏 cron 或 MCP 提议工具定期把信号抽象成 capsule/primer 更新提议。具体形态（lane 结构 / MCP 工具增量 / 与 F102 memory 的边界）Phase C Design Gate 收敛。
 
@@ -80,7 +80,7 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 
 - 不做多租户用户体系（社区版 per-user 隔离架构是 F229/PoE 层面议题，本 feat 只留单用户文件约定 + 接口注释）
 - 不把云端砚砚复制成本地砚砚（云端是关系样本，本地背生产责任；守门纪律不软化）
-- 不做"自动写入记忆"（所有 capsule/primer 变更走 CVO 过目）
+- 不做"静默写真相源"——高代价客观事实走 CVO 签字，低代价偏好/印象猫自治写入但必须带 provenance（来源坐标 + owner cat + 状态标记 + 纠正路径，KD-12），且只进 per-cat 层、不直接进 shared capsule（KD-15）；绝不无来源静默改画像
 
 ## Eval / Tracking Contract
 
@@ -120,7 +120,7 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 - [ ] AC-B3: 锚点回归测试在仓且 **fixture 隔离**：fixture overlay 编译断言 private 锚点生效；公共 baseline 断言缺 overlay 可编译 + 无私有锚点泄漏（CI/社区环境稳定，不依赖本机 gitignored 数据）
 
 ### Phase C（养熟循环）
-- [ ] AC-C1: 关系信号→capsule/primer 更新提议路径落地（三段管道 KD-8，CVO 过目制），至少 1 次真实更新走完全程（跑在白名单采集 + runtime-neutral trigger 真骨架上，非 L0 反射脚手架）
+- [ ] AC-C1: 关系信号→capsule/primer 更新提议路径落地（三段管道 KD-8，KD-12 分层写入制），至少 1 次真实更新走完全程（跑在白名单采集 + runtime-neutral trigger 真骨架上，非 L0 反射脚手架）
 - [ ] AC-C2: 正向轨迹沉淀有真实样本（≥1 条"做对的时刻"进 primer/capsule，对照"只记检讨书"基线）
 - [ ] AC-C3: 采集白名单（KD-9）写成机器可检查的数据契约（lint/test 守护禁 classifier 采集源）+ 蒸馏 trigger runtime-neutral（KD-10，不依赖 provider Stop hook，codex/gpt52 path 有 fallback 覆盖）
 
@@ -165,9 +165,10 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 | KD-9 | 采集端 = 白名单数据合同：仅允许确定性可解释事件（CVO 明示"记一下"/猫主动声明/Event Memory·magic-word 确定性事件/message·thread 坐标/时间/引用·消费次数/签字·驳回/人工 reaction）；禁止小模型·regex·LLM 扫对话标"这是关系信号/玩笑节奏变了/被接住了"（=classifier 换皮） | "deterministic salience"不写成白名单就偷渡 intent 判断（codex rigor P1-2）；F221「不做后台监控式提取，要账本不要暗箱」——"认识你"不能变"监控你" | 2026-06-13 |
 | KD-10 | 蒸馏 trigger = runtime-neutral，锚 Cat Café runtime 自己的 invocation/session-seal/turn-completed 事件；provider Stop hook 仅作某些 carrier 适配器、非真相源 | 实证：codex exec --json 不 dispatch ~/.codex/hooks.json Stop hook（CodexAgentService.ts:391 / types.ts:333），ADR-019 早期"全猫最大公约数"世界观已被代码修正；48 原判"Stop hook 现成"有误，codex 代码证据更正（P1-1） | 2026-06-13 |
 | KD-11 | F231 Phase C = bounded profile consolidation pilot：只服务 capsule/primer 更新提议，输出 dry-run proposal + provenance，不写真相源、不开通用 dream lane | opus47 research 洞察 4「当前不立 dream lane，先 sharpen lane-1 + mark_event」；F231 是 bounded 试点不是全局后台梦境先例（codex P2） | 2026-06-13 |
-| KD-12 | 消化层 = 按"错了的代价"分层 + 用中校准（use-to-verify）：重要客观事实（健康/安全/不可逆后果）需 CVO 签字；其余偏好/印象/习惯猫自主写入、默认可用，靠"画像在真实决策中被用→CVO 自然反应→错则当场纠正"检验；push 审批转 pull 用中校准 | 签字制假设人类愿天天审批=死流程（CVO："人类懒得审批"）；脱离场景自评失真（CVO："我看自己是失真的"），用画像那一刻才是最真实检验时刻；潜伏未用错误无害（只需"起作用时对"） | 2026-06-13 |
+| KD-12 | 消化层 = 按"错了的代价"分层 + 用中校准（use-to-verify）：重要客观事实（健康/安全/不可逆后果）需 CVO 签字；其余偏好/印象/习惯猫自主写入、默认可用（必须带 provenance：来源坐标 + owner cat + 状态标记 + 纠正路径；纠正信号写入记 before/after + 被纠正的原画像依据），靠"画像在真实决策中被用→CVO 自然反应→错则当场纠正"检验；push 审批转 pull 用中校准 | 签字制假设人类愿天天审批=死流程（CVO："人类懒得审批"）；脱离场景自评失真（CVO："我看自己是失真的"），用画像那一刻才是最真实检验时刻；潜伏未用错误无害（只需"起作用时对"） | 2026-06-13 |
 | KD-13 | 纠正信号（CVO 否认/修正画像）= 最高优先级采集源，但识别走**当事猫的自我认知**（参与对话、有完整语义上下文、主动声明"我被纠正了"），**禁系统用关键词/模式匹配扫对话识别纠正**——人类表达太多样（"诶不对"/"为什么你觉得"/"其实我"无限种），匹配抓不全且误判=A 类 classifier 换皮；区别于 magic-word（CVO 主动按的有限约定暗号，仍可 deterministic 匹配） | CVO："不要去模式匹配这样的信号比如关键词匹配，人的表达太多了"；当事猫语义理解 ≠ 旁观系统分类（KD-8 禁后者不禁前者，opus47 research B 类猫自省可做） | 2026-06-13 |
 | KD-14 | 画像使用形态 = 潜意识涌出（内化成猫的直觉、自然流露），非"查表报依据"；归因只在关键/无把握时轻确认，多数潜意识使用 | CVO："pull 本质是潜意识涌出来之后我说诶这不太对"+"不能让猫猫班味"；KD-4（写事实不写指令）延伸到使用形态——条目化使用必背书 | 2026-06-13 |
+| KD-15 | 写入目标层分流：低代价偏好/印象猫自治写入**只进 per-cat 层**（primer / user-signal lane），**不直接进 shared capsule**；晋升 shared capsule（全猫共享真相源）需高门槛（CVO 签字 or 多猫印证 + 用中校准稳定后晋升） | capsule 扩散面最大（KD-2 全猫共享 / KD-5 数据最小化），单猫自治直写 shared capsule 风险高；per-cat 层是猫视角/暂存自治合理（呼应失真悖论：capsule 客观 vs primer 猫视角）；codex rigor P1 要求写死写入目标层、不让实现猫猜 | 2026-06-13 |
 
 ## Timeline
 
