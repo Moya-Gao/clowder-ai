@@ -73,7 +73,7 @@ dry-run proposal + provenance，**不写真相源、不开全局后台梦境系�
 
 - **Soft**：L0 消化端入口（46 反射降级版）+ 猫/CVO 主动认领反射
 - **Hard**：KD-9 白名单数据合同（机器可检查，lint/test 禁 classifier 采集源）+ KD-10 runtime-neutral
-  trigger（不赌 provider hook，有 fallback）+ 写入 gate（CVO 签字 + provenance）
+  trigger（不赌 provider hook，有 fallback）+ 分层写入 gate（高代价 / shared capsule 晋升 = CVO 签字 or 多猫印证；低代价 per-cat 写入 = provenance + 纠正路径，KD-12/15）
 - **Eval**：F200 消费追踪 + friction metric（提议数 / 采纳·驳回率 / 背书腔检测 / 班味摩擦是否下降）
 
 ## 决议
