@@ -53,7 +53,7 @@ import {
 import { detectUserMention } from '../../../../../routes/user-mention.js';
 import { estimateTokens } from '../../../../../utils/token-counter.js';
 import { conciergeContextForCat, prepareConciergeContext } from '../../../../concierge/ConciergeRoutingInterceptor.js';
-import { extractConciergeActions } from '../../../../concierge/concierge-reply-validator.js';
+import { buildConciergeActions } from '../../../../concierge/concierge-reply-validator.js';
 import { buildConciergeSearchContext } from '../../../../concierge/concierge-search-context.js';
 import {
   ackGuideCompletion,
@@ -2165,7 +2165,7 @@ export async function* routeSerial(
             storedContent
           ) {
             try {
-              const conciergeActions = await extractConciergeActions(
+              const conciergeActions = await buildConciergeActions(
                 storedContent,
                 threadId,
                 deps.invocationDeps.conciergeHandleMapStore,

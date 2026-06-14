@@ -283,4 +283,31 @@ describe('buildConciergeSearchContext', () => {
     const staleR1 = await store.getHandle('concierge_p2b', 'R1');
     assert.strictEqual(staleR1, null, 'stale R1 must be cleared after search failure');
   });
+
+  // P1-A + P1-C fix (AC-A3 recall, KD-19): search must request thread-scoped + hybrid + passage-level.
+  // P1-C: scope=threads recalls discussion threads (AC-A3 finds discussions, not conclusion docs).
+  // P1-A: depth=raw yields passage-level messageId (peek was always skipped without it).
+  it('requests scope=threads, mode=hybrid, depth=raw from evidence search', async () => {
+    const store = new MemoryConciergeHandleMapStore();
+    const calls = [];
+    const evidenceStore = {
+      search: async (query, options) => {
+        calls.push({ query, options });
+        return [{ anchor: 'thread-thread_x', title: 'T', kind: 'thread', summary: '...' }];
+      },
+    };
+
+    await buildConciergeSearchContext({
+      userMessage: '之前讨论 X 在哪',
+      threadId: 'concierge_scope',
+      handleMapStore: store,
+      evidenceStore,
+    });
+
+    assert.equal(calls.length, 1, 'search called once');
+    const opts = calls[0].options ?? {};
+    assert.equal(opts.scope, 'threads', 'P1-C: should request thread-scoped recall');
+    assert.equal(opts.mode, 'hybrid', 'should request hybrid mode');
+    assert.equal(opts.depth, 'raw', 'P1-A: should request passage-level (messageId for peek)');
+  });
 });

@@ -151,3 +151,67 @@ describe('extractConciergeActions', () => {
     assert.strictEqual(actions[0].payload.messageId, undefined);
   });
 });
+
+// KD-19 (P1-B): AC-A3 robustness must not depend on duty cat marker compliance.
+// gemini-class cats ignore [跳过去 Rn] markers → without fallback, no actions → AC-A3 fails.
+// buildConciergeActions: marker-first (honor sonnet-class curation), else surface ALL thread handles.
+describe('buildConciergeActions (KD-19 fallback)', () => {
+  let buildConciergeActions;
+  let MemoryConciergeHandleMapStore;
+
+  beforeEach(async () => {
+    const mod = await import('../dist/domains/concierge/concierge-reply-validator.js');
+    buildConciergeActions = mod.buildConciergeActions;
+    const storeMod = await import('../dist/domains/concierge/ConciergeHandleMapStore.js');
+    MemoryConciergeHandleMapStore = storeMod.MemoryConciergeHandleMapStore;
+  });
+
+  it('honors curated marker actions when duty cat used markers', async () => {
+    const store = new MemoryConciergeHandleMapStore();
+    await store.setHandles('t', [
+      { label: 'R1', anchor: { threadId: 'th1', messageId: 'm1', title: 'A', type: 'thread' } },
+      { label: 'R2', anchor: { threadId: 'th2', messageId: 'm2', title: 'B', type: 'thread' } },
+    ]);
+
+    const actions = await buildConciergeActions('你可以看 [跳过去 R1]', 't', store);
+    // marker present → honor curation (only R1), do NOT dump the full fallback list
+    assert.equal(actions.length, 1, 'marker-first: only curated R1');
+    assert.equal(actions[0].action, 'concierge_teleport');
+    assert.equal(actions[0].payload.threadId, 'th1');
+  });
+
+  it('falls back to all thread handles when no markers (gemini non-compliance)', async () => {
+    const store = new MemoryConciergeHandleMapStore();
+    await store.setHandles('t', [
+      { label: 'R1', anchor: { threadId: 'th1', messageId: 'm1', title: 'A', type: 'thread' } },
+      { label: 'R2', anchor: { threadId: 'th2', title: 'B', type: 'thread' } },
+    ]);
+
+    const actions = await buildConciergeActions('纯文本回复，没有任何标记', 't', store);
+    const teleports = actions.filter((a) => a.action === 'concierge_teleport');
+    assert.equal(teleports.length, 2, 'fallback surfaces both threads as teleport');
+    const peeks = actions.filter((a) => a.action === 'concierge_peek');
+    assert.equal(peeks.length, 1, 'only R1 (has messageId) gets peek');
+  });
+
+  it('fallback skips non-thread handles (only real threads navigable)', async () => {
+    const store = new MemoryConciergeHandleMapStore();
+    await store.setHandles('t', [
+      { label: 'R1', anchor: { threadId: 'feature:F229', title: 'F', type: 'feature' } },
+      { label: 'R2', anchor: { threadId: 'th2', messageId: 'm2', title: 'B', type: 'thread' } },
+    ]);
+
+    const actions = await buildConciergeActions('纯文本', 't', store);
+    assert.ok(actions.length > 0, 'thread handle still produces actions');
+    assert.ok(
+      actions.every((a) => a.payload.threadId === 'th2'),
+      'feature-type handle must be skipped (not navigable)',
+    );
+  });
+
+  it('returns empty when HandleMap empty and no markers', async () => {
+    const store = new MemoryConciergeHandleMapStore();
+    const actions = await buildConciergeActions('纯文本', 't', store);
+    assert.deepStrictEqual(actions, []);
+  });
+});

@@ -20,7 +20,10 @@ import type { HandleAnchor, HandleEntry, IConciergeHandleMapStore } from './Conc
 
 /** Minimal evidence store interface (subset of IEvidenceStore) */
 export interface ConciergeEvidenceStore {
-  search(query: string, options?: { limit?: number }): Promise<ConciergeEvidenceItem[]>;
+  search(
+    query: string,
+    options?: { limit?: number; scope?: string; mode?: string; depth?: string },
+  ): Promise<ConciergeEvidenceItem[]>;
 }
 
 /** Minimal evidence item (subset of EvidenceItem from memory/interfaces) */
@@ -124,7 +127,15 @@ export async function buildConciergeSearchContext(
 
   let items: ConciergeEvidenceItem[];
   try {
-    items = await evidenceStore.search(userMessage, { limit: maxResults });
+    // P1-A + P1-C (KD-19, AC-A3 recall): pass thread-scoped + hybrid + passage-level.
+    // scope='threads' recalls discussion threads (AC-A3 finds discussions, not conclusion docs → teleport works);
+    // depth='raw' yields passage-level messageId (peek requires it, was always skipped without it).
+    items = await evidenceStore.search(userMessage, {
+      limit: maxResults,
+      scope: 'threads',
+      mode: 'hybrid',
+      depth: 'raw',
+    });
   } catch {
     // Fail-open: search failure → clear stale handles (P1-2 fix), no crash
     await handleMapStore.clearHandles(threadId).catch(() => {});

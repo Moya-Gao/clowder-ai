@@ -119,3 +119,52 @@ export async function extractConciergeActions(
 
   return actions;
 }
+
+/** Cap on fallback action count — avoid flooding the card with buttons when HandleMap is full. */
+const FALLBACK_MAX_ACTIONS = 8;
+
+/**
+ * Build concierge CardBlock actions with KD-19 fallback (AC-A3 robustness).
+ *
+ * Marker-first: if the duty cat used [跳过去/原地看 Rn] markers, honor its curation
+ * (sonnet-class compliance) and return only those actions.
+ *
+ * Fallback: if the duty cat produced NO usable marker actions (gemini-class
+ * non-compliance — knows the protocol but ignores it, per KD-19 alpha comparison),
+ * surface ALL thread-type handles from the HandleMap as a "related records"
+ * clickable list. AC-A3 (the goldfish-memory use case) must not depend on duty
+ * cat marker compliance.
+ *
+ * Non-thread handles (feature/doc) are skipped — only real threads are navigable.
+ * Markers remain a bonus (in-body precise highlight is a Phase B enhancement).
+ */
+export async function buildConciergeActions(
+  replyText: string,
+  threadId: string,
+  store: IConciergeHandleMapStore,
+): Promise<ConciergeAction[]> {
+  const markerActions = await extractConciergeActions(replyText, threadId, store);
+  if (markerActions.length > 0) return markerActions;
+
+  const handles = await store.getAllHandles(threadId);
+  const actions: ConciergeAction[] = [];
+  for (const { anchor } of handles) {
+    if (anchor.type !== 'thread') continue; // only real threads are navigable
+    actions.push({
+      action: 'concierge_teleport',
+      label: `跳过去：${anchor.title}`,
+      payload: {
+        threadId: anchor.threadId,
+        ...(anchor.messageId != null ? { messageId: anchor.messageId } : {}),
+      },
+    });
+    if (anchor.messageId) {
+      actions.push({
+        action: 'concierge_peek',
+        label: `原地看：${anchor.title}`,
+        payload: { threadId: anchor.threadId, messageId: anchor.messageId },
+      });
+    }
+  }
+  return actions.slice(0, FALLBACK_MAX_ACTIONS);
+}
