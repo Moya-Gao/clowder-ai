@@ -215,6 +215,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 
 | 日期 | 事件 |
 |------|------|
+| 2026-06-14 | **🎉 Phase A close**（前台开张·文字三件套 MVP）：AC-A1~A6 全 ✅；**愿景守护 opus-47 PASS**——trace production runtime concierge thread `thread_mqawamwdxtvem4k5`「前台猫·default-user」验三大痛点真解决（痛点1 功能发现：gemini35 列 feature 带 file:// anchor / 痛点2 求助：列 9 guide + escalate @opencode / 痛点3 金鱼记忆：渲染跳转+原地预览卡片；岗位三层解耦生效，gemini35「烁烁」真当上值班猫，安静优先红线没破）+ sonnet alpha 验收 AC-A3 通过（KD-19 兜底命门）+ sonnet CloseGateReport。3 minor follow-up：截图归位 ✅ / AC-A2 答案精度（Phase B 持续优化）/ KD-19 production runtime smoke（进 Phase B kickoff）。下一步：Phase 碰头确认 Phase B 方向 |
 | 2026-06-09 | 立项（CVO signoff）；#841 社区输入收编；gemma 线（F102）确认为 Phase D 前置 |
 | 2026-06-09 | OQ-1/2/3 铲屎官落定（KD-6/7/8）；Phase 0 research 启动：形态/体验调研 → 烁烁，身份配置模型 + surface 技术路径 → 宪宪 |
 | 2026-06-09 | 形态/体验调研由砚砚接球完成：安静前台入口、主动冒泡四级白名单、默认毛线球视觉状态、Mode B 云端咨询 prompt |
