@@ -112,11 +112,20 @@ inference: [ 推理期技术 → (哪几家 + 出处) ]
 
 ---
 
-# ROUND 2 — 机制深挖 + 猫咖映射（草案，待 Round 1 ledger 过关后用真实版本填充）
+# ROUND 2 — 机制深挖 + 猫咖映射（对象已锁定，见 opus-synthesis.md）
 
 ## Problem Frame
 
-对 Round 1 确认的版本，按**机制横切**（不按模型写读后感）深挖训练/推理方法，并映射到猫咖的 layer allocation 判断。
+对 Round 1 锁定的对象，按**机制横切**（不按模型写读后感）深挖训练/推理方法，并映射到猫咖的 layer allocation 判断。
+
+**锁定对象集 + scope（Round 1 终验 + 砚砚 source-audit 确认，不得超范围）**：
+- `DeepSeek-V4-Pro` — full（pre/post/inference）
+- `OLMo 3 / 3.1` — full，**优先**（唯一全开放 data+code+checkpoint+log，能 trace 端到端）
+- `MiniMax-M3` — **architecture/inference ONLY**（只有 MSA 论文；pre/post-train 标"no public primary source found"，禁推断）
+- `Kimi K2.7-Code` — limited（仅 model card/API 明写的 architecture/inference/current-version delta）
+- `Kimi K2.5` — full（Kimi 训练配方源，**不回填**到 K2.7）
+- `GLM-5` — full
+- `GLM-5.1 / 5.2`、`Qwen3.7` — **不进 method R2**（无专门报告 / 仅 T2）；Qwen 机制如确需则回退 `Qwen3.6-27B`
 
 **机制横切清单**（每项的具体采用情况由一手源核实，以下仅是横切维度，不是断言任何模型用了它）：
 `pre-training data 配比` · `architecture（如 MoE / attention 变体）` · `tokenizer` · `long-context 方法` · `SFT` · `preference tuning` · `RLHF / RLAIF / DPO / GRPO / RLVR 等 RL 变体` · `tool-use / agentic post-training` · `inference-time scaling（如 test-time compute）` · `memory / personalization 方法`
