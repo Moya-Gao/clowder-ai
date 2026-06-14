@@ -55,13 +55,12 @@ created: 2026-06-13
 
 **真实同源点**：F234 钓猫照的是"新猫不知道自己的**模型能力断层**"（下次一定 / 碎片推理）；运行模式信号照的是"新猫不知道自己的**执行环境能力边界**"（-p 能不能 merge / 云端回不回调）。两者同构——都是 day-1 新实例对"我能做什么"的 mental model 错误。更直接的咬合：**runtime sync 48 这次"-p 3 次猜反能力边界"本身就是一个可被钓猫 fixture 诱发的断层样本**（execution-context mental-model 错误），dossier ⑥ 风格的诱发图纸现成。
 
-**关系定位（砚砚 re-review 已拍板，2026-06-13）**：
-- 运行模式信号的**注入设计**（`EXECUTION_CONTEXT` 段 + runtime 模式检测 + matrix）= **独立 +harness**——"立新护栏补断层"，不是 F234 的 sunset 方法本身。**砚砚拍板：另立独立 +harness（候 CVO 开新 F 号 + signoff），不塞 F234 主体**（涉及 runtime 进程检测 + L0 注入链改动，ADR-030/ADR-031 范畴）。
-- "**-p 能力边界猜反**"这一类断层 → 作为一组 fixture **并入 F234 Phase A 钓猫全集**（execution-context 维度）。**砚砚拍板：fixture 并入 OK**。
+**关系定位（砚砚 re-review → 铲屎官 CVO 终裁，2026-06-13）**：
+- 注入设计：砚砚 re-review 拍板"另立独立 +harness（新 F 号）"。**铲屎官 CVO 终裁推翻：太小，开不了独立 feat——归 ADR-038 staging / F203 L0 注入增量，不开 F 号、不进 backlog、直接做。**
+- **落地（本 memo 同 PR 实现）**：运行模式能力 matrix 作为 **ADR-038 staging item**（`cat-cafe-skills/refs/l0-staging-content.md` 加 `execution-context-signal` 项），由 **`invoke-single-cat` per-invocation 调 `buildStagingPrepend`** 注入（**独立于 `injectSystemPrompt`/`buildSystemPrompt`**——staging 刻意移出 SystemPromptBuilder，避免 session-chain resume 时被 `canSkipOnResume` 跳过而丢注入；真相源 `StagingContent.ts` 注释 + `staging-content.test.js` 的"staging NOT in buildSystemPrompt"解耦断言），**不动 F203（47 owner）编译器、不占 L0 core cap**。治根因"猫**知道**自己是哪个 mode 但**猜反能力边界**"= 给静态能力 matrix（不做 runtime 动态检测，省跨层集成）。守护测试 `staging-content.test.js` 加 rendered 断言（ADR-031 硬层）。
+- "**-p 能力边界猜反**"断层 → 作为 fixture **并入 F234 Phase A 钓猫全集**（execution-context 维度）。**砚砚拍板：fixture 并入 OK**（不变）。
 
-**剩 CVO 价值决策（非技术 OQ）**：
-1. 是否现在开「运行模式信号」新 F 号（注入设计立项）——开新 F 号需 CVO 明确 signoff（feedback_feat_anchor_needs_cvo_explicit_signoff）。
-2. matrix 的**真实边界实测**（memo 强调"全猜反，必须测出不能脑补"）符合 F234「钓猫照出客观画像」方法——可作为新 harness 的 worked example（实现细节，归未来该 F 号）。
+**CVO 决策已闭（2026-06-13）**：① 新 F 号——**否**（太小，归 F203/staging 增量）；② matrix 真实边界——已用 runtime-sync 48 的 -p 3 次实测负样本（见 §问题）作 worked example，写进 staging item verdict。
 
 ---
 

@@ -219,6 +219,25 @@ describe('L0 Staging Protocol PR-B-impl (ADR-038)', () => {
       assert.ok(out.includes('软+硬+eval'), 'harness 三层 methodology "软+硬+eval" must be rendered');
       assert.ok(out.includes('ADR-031'), 'harness 三层 reflex must reference ADR-031');
     });
+
+    test('EXECUTION_CONTEXT 运行模式能力 matrix rendered (CVO direct investment 2026-06-13)', () => {
+      // runtime-sync 48 -p 3-times-wrong root cause: cats KNOW their mode but
+      // guess capability boundaries wrong. Static matrix injected via staging
+      // (F203/staging 增量, not a new feat — CVO 终裁 2026-06-13).
+      const out = buildStagingPrepend('opus-47');
+      assert.ok(out.includes('运行模式能力'), 'EXECUTION_CONTEXT title must be rendered');
+      assert.ok(out.includes('-p') && out.includes('bg-cron'), 'must list the run modes');
+      assert.ok(
+        out.includes('能力 ≠ 授权'),
+        'must distinguish capability from authorization (砚砚 R2 P1: cron 不可外推自发 merge)',
+      );
+      assert.ok(
+        out.includes('任务授权范围'),
+        'bg-cron must be scoped to task authorization, not default-merge (砚砚 R2 P1)',
+      );
+      assert.ok(out.includes('merge-gate'), 'all modes still bound by merge-gate (capability ≠ self-authorization)');
+      assert.ok(out.includes('靠实测不靠脑补'), 'must carry the empirical-boundary principle');
+    });
   });
 
   describe('Staging wired in invoke-single-cat per-invocation (Cloud R2 P1 #2237 L1099 fix)', () => {

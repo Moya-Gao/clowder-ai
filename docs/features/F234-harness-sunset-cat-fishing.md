@@ -83,7 +83,7 @@ CVO 在「统一 Eval Hub 现状」追问里戳穿了一个结构性不对称：
 | F192 spec | [F192-socio-technical-harness-eval.md](./F192-socio-technical-harness-eval.md) | **挂载父**：delete_sunset / Sunset Trial / dormant-retired 机器（本 feat 喂证据） |
 | ADR-038 | [../decisions/038-l0-staging-protocol.md](../decisions/038-l0-staging-protocol.md) | L0 三层生命周期（L0/staging/sunset）+ 可逆 demote；本 feat 的 sunset 出口路径之一 |
 | harness 盘点 创新点#8 | [discussions/2026-06-11-harness-inventory.md](../discussions/2026-06-11-harness-inventory.md) | Sunset 纪律（能力性退役/偏好性永留）的原始陈述 |
-| **运行模式信号 memo** | [discussions/2026-06-13-execution-context-signal-memo.md](../discussions/2026-06-13-execution-context-signal-memo.md) | **同源邻域**（CVO signoff 挂 F234 下，2026-06-13，runtime-sync 平行 48 投递）。**砚砚 re-review 拍板**：EXECUTION_CONTEXT 注入设计**另立独立 +harness（候 CVO 开新 F 号 + signoff）**，不塞 F234 主体；仅 "-p 能力边界猜反" fixture 并入 Phase A。详见该 memo §与 F234 关系 |
+| **运行模式信号 memo** | [discussions/2026-06-13-execution-context-signal-memo.md](../discussions/2026-06-13-execution-context-signal-memo.md) | **同源邻域**（CVO signoff 挂 F234 下，2026-06-13，runtime-sync 平行 48 投递）。**铲屎官 CVO 终裁**：太小不开 F 号 → 落 **ADR-038 staging 增量**（`l0-staging-content.md` 加 `execution-context-signal` 项，已实现 + 守护测试）；仅 "-p 能力边界猜反" fixture 并入本 feat Phase A。详见该 memo §与 F234 关系 |
 
 ## Eval / Tracking Contract ★ 砚砚 R1-P1（ADR-031 三层 + F192 注册）
 
