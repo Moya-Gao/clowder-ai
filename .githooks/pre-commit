@@ -15,6 +15,7 @@
 # 可被 --no-verify 绕过，所以需要 CI guard 兜底。
 
 BRANCH=$(git branch --show-current 2>/dev/null)
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
 
 # ── Root Hygiene Guard (F214): 白名单制拦根目录新增文件（所有分支，含 main）──
 # 规则来源：shared-rules.md §20。白名单制（不是黑名单）：根目录新增的文件，除非匹配
@@ -63,6 +64,34 @@ if [ ${#hygiene_debris[@]} -gt 0 ] || [ ${#hygiene_unknown[@]} -gt 0 ]; then
   echo "" >&2
   echo "处理：无状态产物移到 tmp/ 或删除；*.rdb/*.sqlite 是核心存储绝不 commit；合法新类型加白名单。" >&2
   echo "规则来源：shared-rules.md §20。绕过（确认合法时）：git commit --no-verify" >&2
+  exit 1
+fi
+
+# ── Partial Commit Guard: pre-commit Biome scans the working tree, not the index ──
+STAGED_FILES="$(git diff --cached --name-only || true)"
+UNSTAGED_FILES="$(git diff --name-only || true)"
+PARTIAL_OVERLAP="$(printf '%s\n' "$STAGED_FILES" | grep -Fxf <(printf '%s\n' "$UNSTAGED_FILES") || true)"
+if [ -n "$PARTIAL_OVERLAP" ]; then
+  echo "" >&2
+  echo "🚫 BIOME GUARD: staged/unstaged overlap detected — partial commit would bypass index validation." >&2
+  echo "重叠文件：" >&2
+  printf '  - %s\n' "$PARTIAL_OVERLAP" >&2
+  echo "" >&2
+  echo "处理：把这些文件完整 stage，或先 stash/还原未暂存改动后再 commit。" >&2
+  echo "原因：pre-commit 的 Biome 扫描读取 working tree；若 index 和 working tree 分叉，会出现假绿。" >&2
+  exit 1
+fi
+
+# ── Biome Guard: fail closed on stale local installs + full-repo error scan ──
+echo "" >&2
+echo "🧭 BIOME GUARD: verifying lockfile version + full-repo error scan..." >&2
+if ! (
+  cd "$REPO_ROOT" &&
+  pnpm run check:biome-version >&2 &&
+  pnpm exec biome check . --diagnostic-level=error >&2
+); then
+  echo "" >&2
+  echo "🚫 BIOME GUARD failed! Refresh the worktree install or fix the reported Biome errors." >&2
   exit 1
 fi
 

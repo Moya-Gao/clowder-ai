@@ -15,6 +15,7 @@ import { spawn } from 'node:child_process';
 // biome runs first as a fast-fail gate (cheap, catches most formatting issues).
 // The rest are independent read-only checks that can safely run in parallel.
 
+const BIOME_VERSION_COMMAND = ['pnpm', ['run', 'check:biome-version']];
 const BIOME_COMMAND = ['pnpm', ['biome', 'check', '.', '--diagnostic-level=error']];
 
 const PARALLEL_CHECKS = [
@@ -103,8 +104,18 @@ async function runPool(checks, concurrency) {
 async function main() {
   const totalStart = Date.now();
 
+  // Phase 0: Biome toolchain must match pnpm-lock before we trust any local lint result.
+  console.log('── biome toolchain ──');
+  const biomeVersion = await runCommand('biome-version', BIOME_VERSION_COMMAND[0], BIOME_VERSION_COMMAND[1]);
+  if (biomeVersion.code !== 0) {
+    process.stderr.write(biomeVersion.stderr || biomeVersion.stdout);
+    console.error(`\n\x1b[31m✗ biome toolchain failed (${biomeVersion.elapsed}ms)\x1b[0m`);
+    process.exit(1);
+  }
+  console.log(`  \x1b[32m✓\x1b[0m biome version (${biomeVersion.elapsed}ms)`);
+
   // Phase 1: biome (fast-fail)
-  console.log('── biome (fast-fail) ──');
+  console.log('\n── biome (fast-fail) ──');
   const biome = await runCommand('biome', BIOME_COMMAND[0], BIOME_COMMAND[1]);
   if (biome.code !== 0) {
     process.stderr.write(biome.stderr || biome.stdout);

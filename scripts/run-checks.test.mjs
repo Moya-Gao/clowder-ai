@@ -61,8 +61,44 @@ describe('run-checks Biome scope policy', () => {
   it('excludes generated video production assets from the Biome fast-fail gate', () => {
     const biomeConfig = JSON.parse(readFileSync(path.resolve(process.cwd(), 'biome.json'), 'utf8'));
     assert.ok(
-      biomeConfig.files?.includes?.includes('!docs/videos/**'),
-      'docs/videos/** must stay excluded from Biome; video production assets are not product code',
+      biomeConfig.files?.includes?.includes('!docs/videos'),
+      'docs/videos must stay excluded from Biome; video production assets are not product code',
+    );
+  });
+
+  it('excludes non-runtime design and generated artifact trees from the Biome fast-fail gate', () => {
+    const biomeConfig = JSON.parse(readFileSync(path.resolve(process.cwd(), 'biome.json'), 'utf8'));
+    const includes = biomeConfig.files?.includes ?? [];
+
+    assert.ok(!includes.includes('!assets'), 'runtime asset shards must not be excluded by a broad !assets rule');
+    assert.ok(includes.includes('!assets/design-concepts'), 'design concepts must stay excluded from Biome');
+    assert.ok(includes.includes('!assets/icons'), 'icon preview assets must stay excluded from Biome');
+    assert.ok(includes.includes('!assets/stickers'), 'sticker sprites must stay excluded from Biome');
+    assert.ok(
+      !includes.includes('!assets/system-prompts'),
+      'assets/system-prompts must remain inside Biome scope because they are runtime prompt input',
+    );
+    assert.ok(
+      !includes.includes('!assets/themes'),
+      'assets/themes must remain inside Biome scope because they are design-system source files',
+    );
+    assert.ok(includes.includes('!docs/features/assets'), 'docs/features/assets must stay excluded from Biome');
+    assert.ok(
+      includes.includes('!docs/harness-feedback/bundles'),
+      'docs/harness-feedback/bundles must stay excluded from Biome',
+    );
+    assert.ok(includes.includes('!.claude/skills'), '.claude/skills symlink tree must stay excluded from Biome');
+  });
+});
+
+describe('run-checks Biome toolchain guard', () => {
+  it('registers an explicit lockfile-version Biome guard script', () => {
+    const pkg = JSON.parse(readFileSync(path.resolve(process.cwd(), 'package.json'), 'utf8'));
+
+    assert.equal(
+      pkg.scripts['check:biome-version'],
+      'node scripts/check-biome-version.mjs',
+      'package.json must expose the Biome version guard for hooks and gate scripts',
     );
   });
 });

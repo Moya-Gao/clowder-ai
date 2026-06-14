@@ -7,16 +7,14 @@
 import './helpers/setup-cat-registry.js';
 import assert from 'node:assert/strict';
 import { execSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { setupHookInfrastructure } from '../dist/domains/cats/services/agents/providers/pty/hook-setup.js';
 
 function makeTmpCwd() {
-  const dir = join(tmpdir(), `hook-test-${process.pid}-${Date.now()}`);
-  mkdirSync(dir, { recursive: true });
-  return dir;
+  return mkdtempSync(join(tmpdir(), `hook-test-${process.pid}-`));
 }
 
 // ---------------------------------------------------------------------------

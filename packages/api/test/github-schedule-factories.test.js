@@ -1155,7 +1155,9 @@ describe('buildGitHubMigrationEntries (P2-B)', () => {
   // --- F168 C0.3 (cloud review P1-1): backfill new manifest resource to existing installs ---
 
   test('backfill adds a new manifest schedule resource missing from an existing install', async () => {
-    const { backfillMissingGitHubScheduleEntries } = await import('../dist/domains/plugin/github-schedule-factories.js');
+    const { backfillMissingGitHubScheduleEntries } = await import(
+      '../dist/domains/plugin/github-schedule-factories.js'
+    );
     // Existing install: one-time migration already ran (has cicd-check), but NO repo-comment-poll.
     const config = {
       version: 1,
@@ -1186,11 +1188,16 @@ describe('buildGitHubMigrationEntries (P2-B)', () => {
     const rcp = result.config.capabilities.find((e) => e.id === 'plugin:github:repo-comment-poll');
     assert.ok(rcp, 'repo-comment-poll backfilled into existing install');
     assert.strictEqual(rcp.enabled, true); // redis deps available → enabled
-    assert.ok(result.config.capabilities.find((e) => e.id === 'plugin:github:cicd-check'), 'existing entry untouched');
+    assert.ok(
+      result.config.capabilities.find((e) => e.id === 'plugin:github:cicd-check'),
+      'existing entry untouched',
+    );
   });
 
   test('backfill is one-time — alreadyBackfilled does NOT resurrect a disabled TARGET (cloud R2 P1)', async () => {
-    const { backfillMissingGitHubScheduleEntries } = await import('../dist/domains/plugin/github-schedule-factories.js');
+    const { backfillMissingGitHubScheduleEntries } = await import(
+      '../dist/domains/plugin/github-schedule-factories.js'
+    );
     // Operator disabled repo-comment-poll → removeCapabilityEntry PHYSICALLY removed the row,
     // so capabilities has NO repo-comment-poll. With the one-time marker already set, backfill
     // must NOT recreate it (the bug cloud R2 P1 flagged).
@@ -1223,7 +1230,9 @@ describe('buildGitHubMigrationEntries (P2-B)', () => {
   });
 
   test('backfill only touches TARGET — does NOT resurrect a disabled legacy resource (cloud R2 P1)', async () => {
-    const { backfillMissingGitHubScheduleEntries } = await import('../dist/domains/plugin/github-schedule-factories.js');
+    const { backfillMissingGitHubScheduleEntries } = await import(
+      '../dist/domains/plugin/github-schedule-factories.js'
+    );
     // Operator disabled repo-scan (legacy) before upgrade → physically removed. backfill must
     // NOT resurrect it (not a TARGET resource), but still backfills the new repo-comment-poll.
     const config = {
@@ -1263,7 +1272,9 @@ describe('buildGitHubMigrationEntries (P2-B)', () => {
   });
 
   test('backfill keeps redis-gated resource pending when deps unavailable', async () => {
-    const { backfillMissingGitHubScheduleEntries } = await import('../dist/domains/plugin/github-schedule-factories.js');
+    const { backfillMissingGitHubScheduleEntries } = await import(
+      '../dist/domains/plugin/github-schedule-factories.js'
+    );
     const config = {
       version: 1,
       capabilities: [
@@ -1293,7 +1304,9 @@ describe('buildGitHubMigrationEntries (P2-B)', () => {
   });
 
   test('backfill gated on plugin-active — does NOT resurrect when GitHub plugin was disabled (cloud R3 P1)', async () => {
-    const { backfillMissingGitHubScheduleEntries } = await import('../dist/domains/plugin/github-schedule-factories.js');
+    const { backfillMissingGitHubScheduleEntries } = await import(
+      '../dist/domains/plugin/github-schedule-factories.js'
+    );
     // Operator disabled the whole GitHub plugin before upgrade → deactivateSchedule physically
     // removed ALL github schedule rows. capabilities has no github rows; the f202 marker still
     // suppresses migration. backfill must NOT resurrect repo-comment-poll.
