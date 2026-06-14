@@ -20,7 +20,7 @@ created: 2026-04-18
 - Phase A 实施计划：`docs/plans/f168-phase-a-event-engine.md`
 - 实现依赖挂靠：F141（issue 生命周期事件）/ F140（PR 信号层复用）
 
-**分工（CVO 拍板 2026-06-10）**：宪宪写各 Phase spec/plan + 合入后愿景守护；sonnet 实现；缅因猫家族 review。
+**分工（CVO 拍板 2026-06-10，2026-06-14 更新）**：opus 家族写 Phase spec/plan + 实现 + 合入后愿景守护；缅因猫家族 review。（原分工 fable plan + sonnet 实现，实测效果不理想；fable-5 下线后 CVO 确认由 opus 们全程接手。）
 
 **Phase 总览**：A 事件引擎（Event Log + 投影 + 状态机）✅ → B Issue Signals 全量事件 ✅ → C Narrator + Role Registry + 路由（in progress：C0/C1 ✅，C2 narrator next）→ D Closure UX + Reconciler → E 看板决策队列。原 v1 文档（下方）保留为历史语境。
 
