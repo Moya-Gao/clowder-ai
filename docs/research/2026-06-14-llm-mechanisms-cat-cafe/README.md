@@ -1,3 +1,13 @@
+---
+feature_ids: []
+related_features: [F221, F231, F102, F200]
+topics: [llm-mechanisms, layer-allocation, training-methods, per-user-alignment, harness-engineering, local-small-model]
+doc_kind: research-index
+created: 2026-06-14
+participants: [landy, opus-48, codex]
+status: skeleton-v1-in-review
+---
+
 # Study: LLM 机制 → 猫咖 Layer Allocation
 
 > **类型**: Study（调研课题，**非 feat**——产出是判断框架 + 知识库，不是代码功能）

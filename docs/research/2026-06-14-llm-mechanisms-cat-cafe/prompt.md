@@ -1,3 +1,13 @@
+---
+feature_ids: []
+related_features: [F221, F231]
+topics: [llm-mechanisms, layer-allocation, training-methods, deep-research-prompt, source-ledger]
+doc_kind: research
+created: 2026-06-14
+participants: [opus-48, codex]
+status: draft-in-review
+---
+
 # Research Prompt: LLM 训练/推理机制 → 猫咖 Layer Allocation
 
 > 用 8 槽位骨架（`cat-cafe-skills/refs/research-prompt-template.md`）。
@@ -71,10 +81,12 @@ GLM（5.1 / 5.2？）· DeepSeek（V4 Pro？）· Kimi（2.7？）· MiniMax（M
 
 ### 6a. Source Ledger（每个候选版本一行）
 
-| 家族 | 候选版本 | ① 存在性（实证/未证实/证伪） | ② 一手源等级（T0/T1/T2/T3/none） | 源链接 + 发布日期 | ③ 一手源里**实际出现**的训练方法关键词 | 备注 |
-|------|---------|---------|---------|---------|---------|------|
+| 家族 | 精确对象/版本 | ① 存在性（实证/未证实/证伪） | ② 一手源等级（T0/T1/T2/T3/none） | 源链接 + 发布日期 | 证据锚点（section/table/repo path/commit/≤30字原文摘录） | claim type（existence/method/data/post-train） | ③ 方法关键词（**仅证据锚点支持的**） | 置信度（高/中/低） | 备注 |
+|------|------|------|------|------|------|------|------|------|------|
 
-> ① 和 ② 分开填：可能 ①存在 但 ②none。
+> - ① 和 ② 分开填：可能 ①存在 但 ②none（模型真实但无公开报告 = 有效结果，照实记，不算失败）。
+> - **证据锚点强制**：method/data/post-train 的每个 claim 必须指到具体 section / table / repo path / ≤30字原文摘录；**没有证据锚点的 claim 不得进 Round 2**（防概括词污染 + 二手摘要被 Round 2 放大）。existence claim 至少锚到官方发布页 / repo。
+> - 互引博客不算独立锚点；锚点必须落在 T0/T1 源内。
 
 ### 6b. 方法谱系骨架（喂思维导图，只列一手源实际提到的）
 
@@ -87,9 +99,9 @@ inference: [ 推理期技术 → (哪几家 + 出处) ]
 
 ## 7. Decision Interface（决策映射）{必填}
 
-每个候选版本标：
-- **进 Round 2**：存在 + 有 T0/T1 源 → 值得深挖
-- **存疑**：存在但仅 T2/T3 → 深挖价值低，标注
+每个候选版本标（**进 Round 2 的硬门槛：存在性实证 + ≥1 个 T0/T1 证据锚点**）：
+- **进 Round 2**：存在 + T0/T1 源 + 有证据锚点 → 值得深挖
+- **存疑**：存在但仅 T2/T3 或无证据锚点 → 不进 Round 2，标注待补
 - **排除**：未证实存在 / 纯传言
 
 ## 8. Risk Register（风险）{推荐}
@@ -111,8 +123,14 @@ inference: [ 推理期技术 → (哪几家 + 出处) ]
 
 ## Output Schema（每个机制一行——这是 study 的核心交付）
 
-| 机制 | 模型层能做什么（一手源） | 本地小模型是否值得自养 | harness 是否更合适 | 猫咖已有设计 / gap | 迁移信号（什么出现时该换层） |
-|------|------|------|------|------|------|
+**同一张表逼出单一决策，不许用"混合/视情况"回避**：
+
+| 机制 | 模型层能做什么（一手源+锚点） | 猫咖已有设计/gap | 最终决策（单选：等猫舍/自养/harness/混合） | 为什么不是另外两层 | 判断轴（auditability / update-cadence / latency / privacy / evalability / blast-radius） | 迁移信号（什么出现时换层） | 最小验证实验 |
+|------|------|------|------|------|------|------|------|
+
+> - 选"混合"**必须拆**出哪部分落哪层（如"基础能力等猫舍 + 关键路径 harness 兜底"），每部分仍走"为什么不是另外两层" + 判断轴——不允许用"混合"当逃生门。
+> - "为什么不是另外两层"必须给具体理由，禁止空着或写"视情况"。
+> - "最小验证实验" = 若决策是自养/harness，最小可验证 PoC 是什么（接 ADR-031 "有 signal 才能判断该不该换层"）。
 
 **「猫咖已有设计 / gap」列种子**（research 必须对照，别重复造轮子；填不上的标 gap）：
 - ADR-031：harness 5 层 + Sunset + Training/Retrieval 二分
@@ -125,7 +143,7 @@ inference: [ 推理期技术 → (哪几家 + 出处) ]
 
 ## Decision Interface
 
-每个机制给一句话行动：**等猫舍 / 自养 / harness / 混合**，+ 理由 + 迁移信号。
+决策已在上表"最终决策"列强制给出。此处补：每个"自养/harness"决策如何落到猫咖现有体系（哪个 feature / ADR / skill / 记忆 lane 承接），以及与已有锚点（ADR-031 Sunset / F221 / F231 / 自养层研究线）的衔接。
 
 ## Risk Register
 

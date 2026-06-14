@@ -1,3 +1,12 @@
+---
+feature_ids: []
+related_features: [F221, F231]
+topics: [llm-mechanisms, layer-allocation, mind-map]
+doc_kind: research
+created: 2026-06-14
+status: skeleton-awaiting-research
+---
+
 # 思维导图：LLM 机制 → 落在哪层
 
 > **状态**: 骨架（research 前）。Round 2 完成后，每个机制进对应层分支，并加「迁移信号」标注。

@@ -1,3 +1,12 @@
+---
+feature_ids: []
+related_features: [F221, F231]
+topics: [llm-mechanisms, layer-allocation, interactive-learning, per-user-alignment]
+doc_kind: research
+created: 2026-06-14
+status: skeleton-v1-in-review
+---
+
 # 互动学习脚本：和 Landy 一起把 LLM 机制学进猫咖
 
 > **不是报告**——丢一份 40 页 PDF = 读完就忘。这是**互动课**：一个机制一节，Landy 是参与者不是读者。
@@ -15,9 +24,9 @@
 
 ---
 
-## 示范节（已确认，现在就能跑）：per-user alignment 该落哪层？
+## 示范节（**示范框架 + 当前猫咖立场，外部路线 tradeoff 待 Round 2 一手核实后校准**）：per-user alignment 该落哪层？
 
-> 用这节给铲屎官 + 砚砚看互动课的形态。其余节待 research 后按同模板填。
+> 用这节给铲屎官 + 砚砚看互动课的**形态**——不是把结论教死。下面的"落 harness"是**当前猫咖立场**，外部 live-train 路线的真实 tradeoff 要等 Round 2 一手证据校准。其余节待 research 后按同模板填。
 
 **Step 1 · 问直觉**
 > 宪宪问 Landy：「让猫'懂你'这件事——你觉得该把对你的理解**训练进一个小模型的权重**，还是**放在外部记忆里随时读**？凭直觉选一个，说一句为什么。」
@@ -33,9 +42,9 @@
 > - `MEMORY.md` + feedback 文件：你能**亲手打开、看到、改正**猫对你的理解
 
 **Step 4 · 标 gap / action**
-> **落 harness。** 理由：alignment 需要可审计 / 可即时纠正 / 随你演化——焊进权重是黑箱、改不动、会灾难性遗忘。这不是技术妥协，是**架构优势**。
+> **当前立场：落 harness（待 Round 2 一手证据校准，不是定论）。** 我们的理由：alignment 需要可审计 / 可即时纠正 / 随你演化——焊进权重是黑箱、改不动、会灾难性遗忘，所以我们判断这是架构选择而非妥协。
+> ⚠️ 待校准：(a) live-train 路线的真实 tradeoff、在**极低延迟 / 离线 / 强隐私**场景是否有局部优势——这些要 Round 2 一手核实，现在不教死。
 > 迁移信号：若某天 frontier 原生支持透明可编辑的 per-user 记忆，这层可部分"毕业"（ADR-031 Sunset）。
-> 诚实 caveat：(a) 在**极低延迟 / 离线 / 强隐私**场景可能有局部优势——这正是"自养层"要研究的边界。
 
 **Step 5 · 回流**
 > → mind-map `harness` 分支已挂 `per-user alignment ✓`；对照表"猫咖已有设计"列填 F221/F231。
