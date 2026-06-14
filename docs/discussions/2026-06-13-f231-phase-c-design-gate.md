@@ -38,7 +38,7 @@ participants:
 |----|--------|------------|------|
 | **采集（原料 / 空气）** | 把关系信号当一类 evidence 确定性累积，记可解释事件不记结论标签 | 复用 F102 evidence lane（F221 已验证可复用、不新建 cell） | KD-9 白名单数据合同 |
 | **蒸馏（海马体）** | 把累积原料做 C 类 hygiene + 候选整理，给猫/CVO 一篮子坐标和 diff，不替猫判断 | 接 opus47 Event Memory × Dream/Consolidation research（salience 回放/能量重分配，非分类筛） | KD-10 runtime-neutral trigger / KD-11 bounded pilot |
-| **消化（真相源 / 目录）** | 猫/CVO 主动把候选认领成 proposal → CVO 签字后写 capsule/primer | Phase B 三段 provenance 机制复用 | CVO 过目制（KD-4 不自动写入） |
+| **消化（真相源 / 目录）** | 猫/CVO 主动把候选认领成 proposal → 写入 capsule/primer（**后续 KD-12/15 深化为分层写入**：高代价 CVO 签字 / 低代价猫自治 per-cat 层 + 用中校准） | Phase B 三段 provenance 机制复用 | 分层写入制（KD-12，本表为 OQ-4 时点记录） |
 
 **46 的 L0 反射不废弃，降级为消化端一个手动入口**（猫主动声明 + 铲屎官明示"记一下"都走这），
 不当主路径。
