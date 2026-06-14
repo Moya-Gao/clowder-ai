@@ -8,7 +8,7 @@ created: 2026-04-18
 
 # F168: Community Operations Board — 社区事务编排引擎
 
-> **Status**: Phase A ✅ | **Phase B ✅ closed (2026-06-12)** | Phase C in-progress（C0 前置）| **First completed**: 2026-04-20 | **Owner**: 宪宪 (opus-4.8，2026-06-12 接手自 fable-5) | **Priority**: P1
+> **Status**: Phase A ✅ | **Phase B ✅ closed (2026-06-12)** | Phase C in-progress（C0 前置 ✅ / C1 Role Registry ✅ / C2 narrator next）| **First completed**: 2026-04-20 | **Owner**: 宪宪 (opus-4.8，2026-06-12 接手自 fable-5) | **Priority**: P1
 
 ## Reopen（2026-06-10，CVO signoff）
 
@@ -22,7 +22,7 @@ created: 2026-04-18
 
 **分工（CVO 拍板 2026-06-10）**：宪宪写各 Phase spec/plan + 合入后愿景守护；sonnet 实现；缅因猫家族 review。
 
-**Phase 总览**：A 事件引擎（Event Log + 投影 + 状态机）✅ → B Issue Signals 全量事件 ✅ → C Narrator + Role Registry + 路由（planning）→ D Closure UX + Reconciler → E 看板决策队列。原 v1 文档（下方）保留为历史语境。
+**Phase 总览**：A 事件引擎（Event Log + 投影 + 状态机）✅ → B Issue Signals 全量事件 ✅ → C Narrator + Role Registry + 路由（in progress：C0/C1 ✅，C2 narrator next）→ D Closure UX + Reconciler → E 看板决策队列。原 v1 文档（下方）保留为历史语境。
 
 **Phase A 完成（2026-06-10）**：PR #2203，commit `10c3c9bfdb`，squash-merged。Event Log + 纯函数状态机 + CommunityProjector + bootstrap CLI + 3 入口接线 + PR lifecycle + 看板 API（向后兼容）。6 轮 cloud review 全修。Phase B 由 @fable5 规划。
 
@@ -453,6 +453,7 @@ TTL=0（铁律 #5），用户数据默认持久化
 | 2026-06-12 | **Phase C 实施计划 committed** — `docs/plans/2026-06-12-f168-phase-c-narrator-routing.md`（6 状态对象 Stateful Object Gate + INV-1~13；C0 前置 / C1 Role Registry / C2 narrator / C3 F128 路由 / eval；OQ-V1 F208 采纳为判断材料 + narrator 绑定粒度①配置可换②UI预留） |
 | 2026-06-13 | **Phase C 前置 C0.1+C0.2 merged** (PR #2273, `67f71098`) — threadStore 接线 fail-loud（index.ts register 补传 + routeAccepted Path 2 缺依赖 throw，INV-7）+ optional-dep 硬层守护（community-index-wiring 静态断言，ADR-031）；TDD 75 pass + 本地(gpt52)/云端(Codex) review PASS。插曲：撞全员 blocker #2268 eval bundle 不合规 JSON → biome ignore unblock (PR #2270)。C0.3 repo 追评轮询 / C0.4 narrator 排除存量(并入 C2) / C1-C3+eval 待续 |
 | 2026-06-13 | **Phase C 前置 C0.3 merged** (PR #2280, `42fadd2ff`) — repo 级 issue-comment 轮询灭未-routed 追评盲区（collection-only event-sourced：append+project 在 gate 内、恒 run:false；per-repo cursor=max updatedAt + redis-gated backfill 把新 manifest resource 接入存量装机）。云端 R1-R5 5 轮封板（LL-072 cap，全 finding 解：backfill 4 条件契约 plugin-active∧first-run∧TARGET∧absent / INV-9b 首轮 baseline / INV-9c cursor overlap / INV-9d PR-comment anti-churn）+ gpt52 终局 PASS。gate: api 0 fail（含 C0.3 测试），3 web jsdom pre-existing scope-外 waived。C0.4(并入 C2) / C1-C3+eval 待续 |
+| 2026-06-14 | **Phase C C1 merged** (PR #2283, `715407aae`) — CommunityRole/RoleCapability 封闭契约 + injectable RoleResolver + default narrator binding (`gemini25`) + engine zero-catname guard（RoleResolver 不拉 roster、cat id set 从 catalog 派生、防 nested blind spot）。修复 cloud R2/R3/R4 findings 后 cloud Codex PASS；opus-4.7 独立复核 APPROVE；focused C1 suite 30/30 PASS。C2 narrator spawn / DirectionCard / C3 routing / eval 待续 |
 
 ## Review Gate
 
