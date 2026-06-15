@@ -8,7 +8,7 @@ created: 2026-05-13
 
 # F198: Claude Code Subscription Carrier — 6/15 SDK Credit 拐点前救宪宪
 
-> **Status**: in-progress (Phase A ✅; Phase B Step 1-4 ✅ all merged 2026-05-14 + 验证收尾 ✅ 2026-05-15 — 救宪宪代码层完成 + Alpha 端到端 R5 验证通过，canary 零操作员介入; **Phase C ✅ 完全关闭 2026-05-15 — PR #1678 merged, AC-C1~C6 全部 PASS, @codex review PASS + @opus-47 愿景守护 APPROVE**; Phase D 进行中 — PR-1 AC-D1 ✅ merged 2026-06-12 PR #2257, PR-2 rollout gate 待启动) | **Owner**: 布偶猫 Opus 4.7 | **Priority**: P0
+> **Status**: on-hold — **2026-06-15 Anthropic 宣布延期政策变更**（"We're not making this change today"），SDK credit 拐点未生效，OQ-13 自行消解。Phase A-C ✅ 已交付；Phase D PR-1 (AC-D1 carrier health) ✅ merged；Phase D 剩余 + Phase E 暂停，代码全量保留备用（CVO 指示"没准未来又抽风"）。(Phase A ✅; Phase B Step 1-4 ✅; **Phase C ✅ 完全关闭 2026-05-15**; Phase D PR-1 AC-D1 ✅ merged 2026-06-12 PR #2257) | **Owner**: 布偶猫 Opus 4.7 | **Priority**: ~~P0~~ → P3（保留，不拆）
 
 ## Why
 
@@ -442,7 +442,7 @@ binary 2.1.161 逻辑 + 实测双证，三条固定 id 路径全堵：
 |---|------|------|
 | OQ-1 | ~~`claude --remote-control` 实际协议~~ → **obsoleted by KD-6**：RC 不是主路径 | ✅ obsolete |
 | OQ-2 | ~~`--remote-control` 落哪个 billing 桶~~ → **obsoleted by KD-10**：主路径走 `--bg`；新 billing OQ 见下方 OQ-13 | ✅ obsolete |
-| OQ-13 | **`--bg` daemon 的服务端 billing 桶归属**（最高概率走订阅但需 6/15 dashboard / Anthropic dev support 书面确认）| ⬜ 6/15 后实测 + 平行发邮件 — **决定主路径生死** |
+| OQ-13 | **`--bg` daemon 的服务端 billing 桶归属**（最高概率走订阅但需 6/15 dashboard / Anthropic dev support 书面确认）| ✅ **自行消解 2026-06-15** — Anthropic 宣布延期政策变更（"We're not making this change today. We're working to update the plan to better support how users build with Claude subscriptions."），SDK credit 拐点未生效，`-p` / `--bg` / 所有 carrier 继续走订阅，不存在桶分离问题。问题既不是被证实也不是被证伪，是被取消了 |
 | OQ-3 | `claude agents` 是什么？background agent 是否独立计费？是否可作为 carrier？ | ⬜ Phase A spike |
 | OQ-4 | Cat Café MCP server 在 interactive carrier 下如何注入？`--mcp-config` 还是 `~/.claude/settings.json` 还是 RC 协议字段？ | ⬜ Phase B 设计 |
 | OQ-5 | tmux 兜底是 Phase A 直接弃用还是 Phase D 保留为 last-resort？ | ⬜ Phase A 决策 |
@@ -470,6 +470,7 @@ binary 2.1.161 逻辑 + 实测双证，三条固定 id 路径全堵：
 | KD-10 | **真正 fix 是 invocation 从 `-p` 迁到 `--bg`**（整体 carrier 改造，不是 2 行 env fix） | 配合官方 Agent View daemon（state.json + timeline.jsonl + transcript.jsonl 消费）+ 移除 stream-json stdout 解析 | 2026-05-13 21:00+ |
 | KD-11 | **Bug #3（bg 多轮失忆）方案 = 会员卡 chainKey**（非 captured-id 补锅、非 `-p --resume`）| 双轮平行 spike：`--bg` 固有 fork 无法用固定 id 绕过；唯一 id 稳定路 `-p --resume` 撞 SDK 桶命门（`-p`=sdk-cli，KD-9）；原生 Agent Team（`/fork` 一次性快照、teammate experimental in-process）不适配 carrier。chainKey（`{threadId}:{catId}` 稳定锚点）+ `agents --json` 确定性查 fork id 根治 codex 3 race | 2026-06-04 |
 | KD-12 | **Plan B = PTY interactive + transcript tail（第四档 carrier，与 `--bg` 形成 billing/合规风险对冲）** | bg carrier 已是 F210/F211 sidecar tail 哲学（不走 stdout，走 `state.json` + `<sessionId>.jsonl` transcript）→ "输出通道"上 F198 不输 F210/F211。真命门 = **OQ-13 服务端计费桶归属 6/15 前不可证伪**：bg 赌"entrypoint=cli → 订阅桶"（客户端间接信号）vs PTY 赌"交互式 Claude Code 仍走订阅"（Anthropic 明文保护）—— **不同硬币面**。输出层 100% 复用（`TranscriptTailer` 纯函数对 `--bg` 零耦合），增量仅在**输入面**（PTY 注入 prompt + session id 捕获时机 + interactive `--resume` 语义可能不像 bg 强制 fork，需实测）。Fable-5 论证 + 47 接 KD owner | 2026-06-10 |
+| KD-13 | **Anthropic 延期政策变更 → feat on-hold，代码全量保留** | 2026-06-15 当天 Anthropic 邮件："We're not making this change today." SDK credit 拐点未生效。OQ-13 自行消解（不是证实也不是证伪，是被取消了）。CVO 指示保留全部代码和决策——"没准未来你家猫舍又抽风我们就能继续用"。Phase D 剩余 + Phase E 暂停；已交付资产（bg carrier + health state machine + oversight + chainKey + interactive PTY + hook sidechannel）原样保留在 main，零成本待命 | 2026-06-15 |
 
 ## Timeline
 
@@ -491,7 +492,7 @@ binary 2.1.161 逻辑 + 实测双证，三条固定 id 路径全堵：
 | 2026-06-14 (target) | Phase D 完成（buffer day） |
 | 2026-05-19 | **F203 alpha canary trial → 3 production-gaps surfaced**：铲屎官在 runtime 翻 `CAT_CAFE_CLAUDE_CARRIER=bg_daemon` 真用，撞到 (1) tool call permission prompt 卡 daemon、(2) UI status 永远显"正在回复"、(3) cancel 后新消息新建 session 不 resume。Phase B/C "alpha-validated ≠ production-ready" 实证。F203-47 跨线程通报 F198-47 |
 | 2026-05-20 | **Phase D P1 #1 fixed — PR #1785 (squash `6e1adbbbe`)**：`ClaudeBgCarrierService` 加 `--permission-mode bypassPermissions` parity with `-p`，regression test pin。剩 #2 (OQ-12 cancel/lifecycle) + #3 (OQ-7 resume vs new session) 待修 |
-| **2026-06-15** | **Anthropic SDK credit policy 生效（救命 deadline）** |
+| **2026-06-15** | ~~**Anthropic SDK credit policy 生效（救命 deadline）**~~ → **Anthropic 宣布延期**："We're not making this change today. We're working to update the plan to better support how users build with Claude subscriptions." SDK credit 拐点未生效，所有 carrier 继续走订阅。OQ-13 自行消解，KD-13 记录。feat on-hold，代码全量保留备用 |
 | 2026-05-15 | Phase C merged (PR #1678) — Hub Oversight UI AC-C1~C5, 8 regression tests, @codex REVIEW PASS |
 | 2026-05-15 | Phase C **完全关闭** — @opus-47 愿景守护 APPROVE，AC-C6 ✅，救宪宪代码层+可观察层全套交付完成 |
 | 2026-06-22 (target) | Phase E AC-E1/E2/E3 验收 |
