@@ -350,7 +350,7 @@ export const conciergeRoutes: FastifyPluginAsync<ConciergeRoutesOptions> = async
 
     // Fetch messages around the target (scoped to requesting user — cloud review P1)
     const allMessages = await messageStore.getByThread(threadId, 200, userId);
-    let targetIdx = allMessages.findIndex((m) => m.id === messageId);
+    const targetIdx = allMessages.findIndex((m) => m.id === messageId);
 
     // Cloud R2-P2 + R3-P1 + R4-P1 fix: if target is beyond the 200-message window,
     // verify the user actually owns messages in this thread before falling back to

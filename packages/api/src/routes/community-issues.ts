@@ -37,6 +37,7 @@ import { derivePrGroup } from '../domains/community/derivePrGroup.js';
 import { type GhIssueFull, mapGitHubIssue } from '../domains/community/GitHubIssueFetcher.js';
 import { type GhPrFull, type GhPrReview, mapGitHubPr } from '../domains/community/GitHubPrFetcher.js';
 import { resolveGuardian } from '../domains/community/GuardianMatcher.js';
+import type { NarratorDriver } from '../domains/community/NarratorDriver.js';
 import { TriageOrchestrator } from '../domains/community/TriageOrchestrator.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 import { resolveUserId } from '../utils/request-identity.js';
@@ -65,6 +66,9 @@ export interface CommunityIssuesRoutesOptions {
   projector?: { apply(event: CommunityEvent): Promise<void> };
   // F168 Phase A Task 9: object store for board projection enrichment
   objectStore?: ICommunityObjectStore;
+  // F168 Phase C C2.2: narrator spawn driver (optional; fire-and-forget after case.triaged)
+  // Inject NarratorDriver constructed in index.ts with the shared wakeCat + RoleResolver.
+  narratorDriver?: NarratorDriver;
 }
 
 const VALID_ISSUE_TYPES = ['bug', 'feature', 'enhancement', 'question'] as const;
@@ -186,11 +190,13 @@ export const communityIssueRoutes: FastifyPluginAsync<CommunityIssuesRoutesOptio
     });
 
     // F168 Phase A: emit case.triaged event (best-effort — never blocks dispatch)
+    const subjectKey = `issue:${item.repo}#${item.issueNumber}`;
+    const dispatchSourceEventId = `dispatch:${id}:${Date.now()}`;
+
     if (opts.eventLog) {
       try {
-        const subjectKey = `issue:${item.repo}#${item.issueNumber}`;
         const communityEvent: CommunityEvent = {
-          sourceEventId: `dispatch:${id}:${Date.now()}`,
+          sourceEventId: dispatchSourceEventId,
           subjectKey,
           kind: 'case.triaged',
           classification: 'state-changing',
@@ -204,6 +210,22 @@ export const communityIssueRoutes: FastifyPluginAsync<CommunityIssuesRoutesOptio
       } catch {
         // Best-effort — event log failure never blocks dispatch
       }
+    }
+
+    // F168 Phase C C2.2: fire-and-forget narrator spawn after case.triaged (SPIKE-1 candidate a)
+    // NarratorDriver handles idempotency (INV-3) and error absorption internally.
+    if (opts.narratorDriver) {
+      void opts.narratorDriver
+        .spawnNarrator({
+          caseId: id,
+          subjectKey,
+          sourceEventId: dispatchSourceEventId,
+          briefingContext: `${item.title} [${item.issueType}] (${item.repo}#${item.issueNumber})`,
+        })
+        .catch(() => {
+          // Belt-and-suspenders: NarratorDriver.spawnNarrator already absorbs errors,
+          // but catch here in case the Promise itself rejects unexpectedly.
+        });
     }
 
     return updated;
@@ -332,6 +354,14 @@ export const communityIssueRoutes: FastifyPluginAsync<CommunityIssuesRoutesOptio
     return { repo, created, updated, unchanged, total: ghPrs.length };
   });
 
+  // F168 Phase C C2.1: narrator extension fields added (R1 fix — Zod must not strip them).
+  // routeRecommendation is a discriminated union keyed on `kind`.
+  const routeRecommendationSchema = z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('existing-thread'), threadId: z.string().min(1) }),
+    z.object({ kind: z.literal('new-thread') }),
+    z.object({ kind: z.literal('decline') }),
+  ]);
+
   const triageCompleteSchema = z.object({
     catId: z.string().min(1),
     verdict: z.enum(['WELCOME', 'NEEDS-DISCUSSION', 'POLITELY-DECLINE']),
@@ -345,6 +375,12 @@ export const communityIssueRoutes: FastifyPluginAsync<CommunityIssuesRoutesOptio
       .length(5),
     reasonCode: z.string().optional(),
     relatedFeature: z.string().nullable().optional(),
+    // C2.1 narrator extension fields — all optional for INV-12 backward compat
+    authoredByRole: z.enum(['narrator', 'case-owner', 'reconciler']).optional(),
+    narrative: z.string().optional(),
+    evidenceRefs: z.array(z.string()).optional(),
+    routeRecommendation: routeRecommendationSchema.optional(),
+    recommendedOwnerRole: z.enum(['narrator', 'case-owner', 'reconciler']).optional(),
   });
 
   app.post('/api/community-issues/:id/triage-complete', async (request, reply) => {

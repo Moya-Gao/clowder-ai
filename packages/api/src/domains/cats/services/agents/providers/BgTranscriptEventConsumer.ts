@@ -96,7 +96,6 @@ export function transcriptEntriesToAgentMessages(
       if (result == null) continue;
       if (Array.isArray(result)) out.push(...result);
       else out.push(result);
-      continue;
     }
 
     // Skip everything else (produce no user-facing AgentMessage):

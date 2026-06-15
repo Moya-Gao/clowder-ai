@@ -1451,4 +1451,144 @@ describe('Community Issues Routes', () => {
     const trackingTask = tasks.find((t) => t.subjectKey?.includes('321'));
     assert.ok(trackingTask, 'issue_tracking task must be registered even when projector.apply() throws (Cloud R21 P1)');
   });
+
+  // F168 Phase C C2.2 R1 fix: triage-complete must accept narrator extension fields
+  test('POST triage-complete preserves narrator extension fields (P1-1 R1)', async () => {
+    const app = await createApp();
+    const issue = await createAndDispatch(app, { issueNumber: 2001 });
+    const narratorPayload = {
+      catId: 'opus',
+      verdict: 'WELCOME',
+      questions: fivePass,
+      // C2.1 narrator extension fields — must survive Zod validation, not be stripped
+      authoredByRole: 'narrator',
+      narrative: 'This issue requests dark mode support for the web client.',
+      evidenceRefs: ['F056', 'issue:clowder-ai#100'],
+      routeRecommendation: { kind: 'existing-thread', threadId: 'thread_f056' },
+      recommendedOwnerRole: 'case-owner',
+    };
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/triage-complete`,
+      payload: narratorPayload,
+    });
+    assert.equal(res.statusCode, 200);
+
+    // Verify the stored entry preserves narrator fields
+    const detail = (await app.inject({ method: 'GET', url: `/api/community-issues/${issue.id}` })).json();
+    const entries = detail.directionCard?.entries ?? [];
+    const entry = entries.find((e) => e.catId === 'opus');
+    assert.ok(entry, 'entry must exist');
+    assert.equal(entry.authoredByRole, 'narrator', 'authoredByRole must be preserved');
+    assert.equal(entry.narrative, narratorPayload.narrative, 'narrative must be preserved');
+    assert.deepEqual(entry.evidenceRefs, narratorPayload.evidenceRefs, 'evidenceRefs must be preserved');
+    assert.deepEqual(
+      entry.routeRecommendation,
+      narratorPayload.routeRecommendation,
+      'routeRecommendation must be preserved',
+    );
+    assert.equal(entry.recommendedOwnerRole, 'case-owner', 'recommendedOwnerRole must be preserved');
+  });
+
+  test('POST triage-complete still works with legacy payload without narrator fields (INV-12)', async () => {
+    const app = await createApp();
+    const issue = await createAndDispatch(app, { issueNumber: 2002 });
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/triage-complete`,
+      payload: { catId: 'opus', verdict: 'WELCOME', questions: fivePass },
+    });
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.json().action, 'await-second-cat');
+  });
+
+  // F168 Phase C C2.2: narrator spawn via NarratorDriver integration
+  describe('narrator spawn on dispatch (C2.2)', () => {
+    test('dispatch fires narrator via narratorDriver.spawnNarrator (fire-and-forget)', async () => {
+      const spawnCalls = [];
+      const mockNarratorDriver = {
+        spawnNarrator: async (params) => {
+          spawnCalls.push(params);
+        },
+      };
+
+      const app = await createApp({ narratorDriver: mockNarratorDriver });
+
+      const created = (
+        await app.inject({
+          method: 'POST',
+          url: '/api/community-issues',
+          payload: {
+            repo: 'zts212653/clowder-ai',
+            issueNumber: 999,
+            issueType: 'feature',
+            title: 'Narrator dispatch test',
+          },
+        })
+      ).json();
+      assert.equal(created.state, 'unreplied');
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/api/community-issues/${created.id}/dispatch`,
+      });
+      assert.equal(res.statusCode, 200, 'dispatch should succeed regardless of narrator');
+
+      // Give fire-and-forget a microtask to settle
+      await new Promise((resolve) => setImmediate(resolve));
+
+      assert.equal(spawnCalls.length, 1, 'spawnNarrator must be called once after dispatch');
+      const call = spawnCalls[0];
+      assert.equal(call.subjectKey, 'issue:zts212653/clowder-ai#999', 'subjectKey must match issue');
+      assert.ok(
+        typeof call.sourceEventId === 'string' && call.sourceEventId.startsWith('dispatch:'),
+        'sourceEventId must start with dispatch:',
+      );
+      assert.ok(
+        typeof call.briefingContext === 'string' && call.briefingContext.includes('Narrator dispatch test'),
+        'briefingContext must include issue title',
+      );
+      assert.equal(call.caseId, created.id, 'caseId must be passed so narrator can call triage-complete (P1-2 R1)');
+    });
+
+    test('dispatch still succeeds when narratorDriver is not provided (opt optional)', async () => {
+      // No narratorDriver in opts
+      const app = await createApp();
+      const created = (
+        await app.inject({
+          method: 'POST',
+          url: '/api/community-issues',
+          payload: { repo: 'x/y', issueNumber: 1001, issueType: 'bug', title: 'No narrator' },
+        })
+      ).json();
+      const res = await app.inject({
+        method: 'POST',
+        url: `/api/community-issues/${created.id}/dispatch`,
+      });
+      assert.equal(res.statusCode, 200, 'dispatch must not require narratorDriver (opt optional)');
+    });
+
+    test('dispatch still returns 200 even when narrator spawnNarrator throws (fire-and-forget)', async () => {
+      const mockNarratorDriver = {
+        spawnNarrator: async () => {
+          throw new Error('narrator infra failure');
+        },
+      };
+      const app = await createApp({ narratorDriver: mockNarratorDriver });
+      const created = (
+        await app.inject({
+          method: 'POST',
+          url: '/api/community-issues',
+          payload: { repo: 'x/y', issueNumber: 1002, issueType: 'question', title: 'Narrator crash test' },
+        })
+      ).json();
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/api/community-issues/${created.id}/dispatch`,
+      });
+      // Fire-and-forget: narrator failure must never crash dispatch
+      assert.equal(res.statusCode, 200, 'narrator crash must not affect dispatch response');
+    });
+  });
 });

@@ -231,6 +231,7 @@ export type {
   QuestionId,
   QuestionResult,
   ReplyState,
+  RouteRecommendation,
   TriageEntry,
   UpdateCommunityIssueInput,
   Verdict,

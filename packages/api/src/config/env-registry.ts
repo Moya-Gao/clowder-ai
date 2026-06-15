@@ -386,6 +386,14 @@ export const ENV_VARS: EnvDefinition[] = [
     hubVisible: false,
   },
   {
+    name: 'COMMUNITY_NARRATOR_THREAD_ID',
+    defaultValue: '(未设置 → 不启用)',
+    description: 'F168 社区 narrator 工作线程 ID（设置后 dispatch 自动 spawn narrator 讲人话）',
+    category: 'server',
+    sensitive: false,
+    hubVisible: false,
+  },
+  {
     name: 'WEB_PUBLIC_DIR',
     defaultValue: '../web/public',
     description: 'Web 前端静态文件目录（connector gateway 静态资源服务）',

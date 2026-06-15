@@ -2556,6 +2556,30 @@ async function main(): Promise<void> {
     './domains/cats/services/stores/memory/InMemoryCommunityPrStore.js'
   );
   const communityPrStore = new InMemoryCommunityPrStore();
+
+  // F168 Phase C C2.2: community narrator wiring (conditional — disabled without thread ID)
+  const communityNarratorThreadId = process.env.COMMUNITY_NARRATOR_THREAD_ID;
+  let communityNarratorDriver: import('./domains/community/NarratorDriver.js').NarratorDriver | undefined;
+  if (communityNarratorThreadId) {
+    const { NarratorDriver } = await import('./domains/community/NarratorDriver.js');
+    const { createRoleResolver, DEFAULT_COMMUNITY_ROLE_BINDINGS } = await import('./domains/community/RoleResolver.js');
+    const { createWakeCatFn } = await import('./domains/cats/services/game/wakeCatImpl.js');
+    const communityWakeCat = createWakeCatFn({
+      threadStore,
+      invocationQueue,
+      queueProcessor,
+      log: app.log,
+    });
+    const communityRoleResolver = createRoleResolver(getRoster, DEFAULT_COMMUNITY_ROLE_BINDINGS);
+    communityNarratorDriver = new NarratorDriver({
+      roleResolver: communityRoleResolver,
+      narratorThreadId: communityNarratorThreadId,
+      wakeCat: communityWakeCat,
+      log: app.log,
+    });
+    app.log.info({ narratorThreadId: communityNarratorThreadId }, '[F168] Community NarratorDriver wired');
+  }
+
   await app.register(communityIssueRoutes, {
     communityIssueStore,
     taskStore,
@@ -2573,6 +2597,8 @@ async function main(): Promise<void> {
     // Cloud R2 P2: seed initial comment cursor on auto-registration to avoid
     // replaying historical comments on first poll after case.routed
     fetchIssueCommentCursor,
+    // F168 Phase C C2.2: narrator driver (fire-and-forget after case.triaged)
+    narratorDriver: communityNarratorDriver,
   });
   await app.register(backlogRoutes, { backlogStore, threadStore, messageStore });
 
