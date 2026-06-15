@@ -160,14 +160,12 @@ ConciergePromptSection 追加：
 - 确认卡生成协议（不自行 dispatch，必须经确认）
 - 调查报告格式指引
 
-## PR 拆分
+## PR 拆分（2 PR，Phase A 教训：别拆太稀碎）
 
-| PR | 内容 | 依赖 | 预估 |
-|----|------|------|------|
-| **PR-B1** | Confirmation persistence + TriagePlan schema + dispatch 确认卡 + targetCats resolver + duty cat prompt rewrite | — | 中 |
-| **PR-B2** | Relay receipt UX + return path 收口 + dispatch 执行链 (relay/go/propose) | B1 | 小 |
-| **PR-B3** | InvestigationJob (bounded async + 报告 + anchor + cancel/deadline) | B1 | 中 |
-| **PR-B4** | Alpha 验收 + Phase B close prep | B2+B3 | 小 |
+| PR | 内容 | AC | 依赖 |
+|----|------|-----|------|
+| **PR-B1** | AC-B1 一把过：confirmation persistence + TriagePlan + dispatch 全链 (relay/go/propose_thread) + relay receipt UX + targetCats resolver + duty cat prompt rewrite | AC-B1 + PendingConfirmation | — |
+| **PR-B2** | AC-B2 + alpha 验收：InvestigationJob (bounded async + 报告 + anchor + cancel/deadline) + Phase B close | AC-B2 | B1 |
 
 ## 验收标准
 
