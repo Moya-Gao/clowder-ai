@@ -104,7 +104,7 @@ interface BallCustodyProjection {
 | `task.done` | 任何 | resolved | 唯一正常终结（probe completes 也走这条）|
 | `ball.wake_sent` | blocked→blocked(更新 lastWakeAt) ; 其它→informational ignore | | best-effort 唤醒已发的记录（不改 state）|
 
-> **probe 不入事件流**（§C）：ProbeScheduler 判 satisfied&completes → append `task.done`；satisfied&bounces_back → §E 发唤醒 → append `ball.wake_sent`。**球全程留 blocked**，简报照显（R3-1 黑洞根除：没有 wake_pending/woken 这种简报盲区状态）。
+> **probe 不入事件流**（§C）：ProbeScheduler 判 satisfied&completes → append `task.done`；satisfied&bounces_back → §E 发唤醒 → append `ball.wake_sent`。Phase B 事件流只记 probe 的**结果性痕迹**（task.done / ball.wake_sent），**不记每个 unsatisfied tick**（避免噪音，砚砚 R4 备注）。**球全程留 blocked**，简报照显（R3-1 黑洞根除：没有 wake_pending/woken 这种简报盲区状态）。
 
 **blocked → 简报区映射（纯投影 selector，复用 Phase A `constants.ts`）**：`1d ≤ ageMs ≤ 7d` → `needsUser`🔴；`>7d` → `staleBlocked`💤。active(held)→healthy；void→voidPass；dead(含 hold_expired)→deadBalls。**切源后 Phase A 全 signal 有状态，零回归**（R2-1 已闭环，R3 未动此部分）。
 
