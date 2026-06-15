@@ -74,4 +74,23 @@ describe('F232 ArtifactsPanel jump (P2 cloud review round 3)', () => {
     expect(pending, 'jump must record a pending teleport (jump-with-load), not bare scrollToMessage').not.toBeNull();
     expect(pending?.messageId).toBe('msg-old');
   });
+
+  it('cross-thread jump navigates to /thread/<id> pathname, not /?threadId= query (Bug1 lobby fallback)', () => {
+    // currentThread != panel thread → planTeleport returns navigateTo → must use pathname route.
+    useChatStore.setState({ currentThreadId: 'other-thread' });
+    window.history.replaceState(null, '', '/');
+    const pushStateSpy = vi.spyOn(window.history, 'pushState');
+    const root = createRoot(container);
+    act(() => {
+      root.render(createElement(ArtifactsPanel, { threadId: 'T' }));
+    });
+
+    const jumpBtn = [...container.querySelectorAll('button')].find((b) => b.textContent?.includes('跳转'));
+    expect(jumpBtn).toBeTruthy();
+    act(() => {
+      jumpBtn!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    expect(pushStateSpy).toHaveBeenCalledWith({}, '', '/thread/T');
+  });
 });

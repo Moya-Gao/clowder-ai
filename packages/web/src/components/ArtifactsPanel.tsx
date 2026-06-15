@@ -3,6 +3,7 @@
 import type { GlobalArtifactDTO, ThreadArtifactDTO, ThreadArtifactType } from '@cat-cafe/shared';
 import type { JSX } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { pushThreadRouteWithHistory } from '@/components/ThreadSidebar/thread-navigation';
 import { useCatData } from '@/hooks/useCatData';
 import { useChatStore } from '@/stores/chatStore';
 import { API_URL } from '@/utils/api-client';
@@ -275,7 +276,8 @@ export function ArtifactsPanel({
         scrollToMessage(plan.scrollNow);
         kickTeleportResolve();
       } else if (plan.navigateTo) {
-        window.location.href = `/?threadId=${plan.navigateTo}`;
+        // Bug1 fix: pathname route (/thread/X), not /?threadId= query (lobby fallback).
+        pushThreadRouteWithHistory(plan.navigateTo, window);
       }
     },
     [threadId],

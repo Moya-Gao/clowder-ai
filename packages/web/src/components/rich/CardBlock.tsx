@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import { MarkdownContent } from '@/components/MarkdownContent';
+import { pushThreadRouteWithHistory } from '@/components/ThreadSidebar/thread-navigation';
 import type { RichCardBlock } from '@/stores/chat-types';
 import { useChatStore } from '@/stores/chatStore';
 import { useConciergeStore } from '@/stores/conciergeStore';
@@ -111,11 +112,15 @@ export function CardBlock({ block, messageId }: { block: RichCardBlock; messageI
         scrollToMessage(plan.scrollNow);
         kickTeleportResolve();
       } else if (plan.navigateTo) {
-        window.location.href = `/?threadId=${plan.navigateTo}`;
+        // Bug1 fix: pathname route (/thread/X) + pushState — chat route reads threadId
+        // from pathname only ((chat)/layout.tsx); /?threadId= query has no consumer → lobby.
+        // Matches useTeleport.ts:91 (the already-shipped cross-thread teleport path).
+        pushThreadRouteWithHistory(plan.navigateTo, window);
       }
     } else {
-      // No messageId — just navigate to thread
-      window.location.href = `/?threadId=${threadId}`;
+      // No messageId — navigate to thread via pathname route
+      // (Bug1: was /?threadId= → getThreadIdFromPathname('/') = 'default' = lobby).
+      pushThreadRouteWithHistory(threadId, window);
     }
   }, []);
 
@@ -125,7 +130,8 @@ export function CardBlock({ block, messageId }: { block: RichCardBlock; messageI
 
     // INV-7: collapse surface
     useConciergeStore.getState().onNavigationAction();
-    window.location.href = `/?threadId=${targetThreadId}`;
+    // Bug1 fix: pathname route, not /?threadId= query (lobby fallback).
+    pushThreadRouteWithHistory(targetThreadId, window);
   }, []);
 
   const handleConciergeRelay = useCallback(
