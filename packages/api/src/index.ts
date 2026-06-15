@@ -3746,6 +3746,40 @@ async function main(): Promise<void> {
   if (memoryServices.markerQueue) {
     wiredPublishDomains.add('eval:memory');
   }
+  // Direction B (clowder-ai#923 fix): per-domain publish-prereq probe.
+  // wiredPublishDomains answers "is the generator registered?" but a stale runtime can
+  // have the generator AND lack the sourceRefs validator that current eval cats expect.
+  // This probe runs once per (domain, cron fire) — its first call dynamically imports
+  // the adapter and caches the result; the cached value answers all subsequent calls.
+  // Unknown domains pass through (true) — only domains with a registered probe can fail
+  // closed. Adding a domain to the switch is opt-in defense; omitting one is no-op.
+  const publishPrereqCache = new Map<string, boolean>();
+  const publishPrereqProbe = async (
+    domainId: 'eval:a2a' | 'eval:memory' | 'eval:sop' | 'eval:capability-wakeup' | 'eval:task-outcome',
+  ): Promise<boolean> => {
+    const cached = publishPrereqCache.get(domainId);
+    if (cached !== undefined) return cached;
+    let ok: boolean;
+    try {
+      if (domainId === 'eval:a2a') {
+        // 砚砚 R1 P1 fix: `isA2aSourceRefs` is exported from `validation.ts`, not from
+        // `a2a-generator-adapter.ts` (the adapter imports + calls it but does not re-export).
+        // Probing the adapter's namespace would always miss the symbol → probe would mark
+        // a healthy runtime as "missing prereq" → eval:a2a skipped forever (P1).
+        const mod = await import('./infrastructure/harness-eval/publish-verdict/validation.js');
+        // isA2aSourceRefs is the post-fix validator; absence on a stale runtime means
+        // the publish flow will throw infra blockers when the cat calls publish_verdict.
+        ok = typeof (mod as { isA2aSourceRefs?: unknown }).isA2aSourceRefs === 'function';
+      } else {
+        ok = true; // Future per-domain probes plug in here.
+      }
+    } catch {
+      ok = false;
+    }
+    publishPrereqCache.set(domainId, ok);
+    return ok;
+  };
+
   const evalScheduleOpts = {
     harnessFeedbackRoot: resolve(repoRoot, 'docs', 'harness-feedback'),
     threadStore,
@@ -3753,6 +3787,7 @@ async function main(): Promise<void> {
     listDynamicTasks: () => dynamicTaskStore.getAll(),
     redis: redisClient ?? undefined,
     wiredPublishDomains,
+    publishPrereqProbe,
   };
   taskRunnerV2.register(createEvalDomainDailySpec(evalScheduleOpts));
   taskRunnerV2.register(createEvalDomainWeeklySpec(evalScheduleOpts));
