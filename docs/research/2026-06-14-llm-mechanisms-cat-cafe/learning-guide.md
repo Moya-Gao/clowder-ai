@@ -4,7 +4,7 @@ related_features: [F221, F231]
 topics: [llm-mechanisms, layer-allocation, interactive-learning, per-user-alignment]
 doc_kind: research
 created: 2026-06-14
-status: skeleton-v1-in-review
+status: first-node-ready
 ---
 
 # 互动学习脚本：和 Landy 一起把 LLM 机制学进猫咖
@@ -24,30 +24,33 @@ status: skeleton-v1-in-review
 
 ---
 
-## 示范节（**示范框架 + 当前猫咖立场，外部路线 tradeoff 待 Round 2 一手核实后校准**）：per-user alignment 该落哪层？
+## 第一节（Round 2 + 砚砚校准已落，**可实跑**）：per-user alignment 该落哪层？
 
-> 用这节给铲屎官 + 砚砚看互动课的**形态**——不是把结论教死。下面的"落 harness"是**当前猫咖立场**，外部 live-train 路线的真实 tradeoff 要等 Round 2 一手证据校准。其余节待 research 后按同模板填。
+> 这节现在是**实证版**——Round 2 一手证据回来了、F231 内部状态由砚砚核准，可直接跑给 Landy。
 
 **Step 1 · 问直觉**
 > 宪宪问 Landy：「让猫'懂你'这件事——你觉得该把对你的理解**训练进一个小模型的权重**，还是**放在外部记忆里随时读**？凭直觉选一个，说一句为什么。」
 
-**Step 2 · 讲机制**
-> 业界两条路：(a) live-train / 持续微调一个 per-user 小模型，把偏好烧进权重；(b) 检索增强——偏好存外部，推理时注入 context。
-> ⚠️ 具体哪家创业公司用 (a)、效果如何 → 待 Round 2 一手源核实，**此处不编**。
+**Step 2 · 讲机制（Round 2 一手证据）**
+> 两条路：(A) 把个性化 live-train 进权重（on-device 持续微调）；(B) 外部记忆 + 检索（RAG/memory，权重冻结）。Round 2 两路独立挖到：
+> - **权重路三硬伤**：灾难性遗忘（连续微调覆盖旧能力，EWC PNAS 2017 能缓不能除）；删除难（unlearning arXiv:2410.15267——删了能被无关数据 fine-tune "复活"，甚至 in-context un-unlearning）；多用户不隔离（共享参数串味）。
+> - **检索路代价**：延迟（RAG 可占端到端 ~41%）+ 记忆治理（删除要同步日志/摘要/向量索引/副本，否则"复活"）。
+> - 共识：retrieval 在可审计/可删除/多用户隔离/防遗忘**全胜**；weights 只在"离线 on-device 低延迟 + 纯风格"窄场景胜。
 
-**Step 3 · 对照猫咖（打开看）**
-> 我们走的是 (b) 的重度版——一整套记忆系统：
-> - `docs/taste/` evidence lane（F221）：你的品味信号可搜
-> - user-profile-capsule（F231）：画像注入 context
-> - `MEMORY.md` + feedback 文件：你能**亲手打开、看到、改正**猫对你的理解
+**Step 3 · 对照猫咖（打开看真实状态）**
+> 我们走 (B) 的重度版——记忆系统：
+> - F221 taste-lane（**已 done**）：品味信号 evidence lane，可搜、当场记
+> - F231 user-profile-capsule（**Phase A/B 已落 + 砚砚 dogfood；Phase C 养熟循环未落**）：≤300字 capsule 编进 L0 注入
+> - MEMORY.md + feedback：你能**亲手打开、看到、改正**猫对你的理解
+> （砚砚校准：F231 不是整体 done，别说成闭环完成）
 
 **Step 4 · 标 gap / action**
-> **当前立场：落 harness（待 Round 2 一手证据校准，不是定论）。** 我们的理由：alignment 需要可审计 / 可即时纠正 / 随你演化——焊进权重是黑箱、改不动、会灾难性遗忘，所以我们判断这是架构选择而非妥协。
-> ⚠️ 待校准：(a) live-train 路线的真实 tradeoff、在**极低延迟 / 离线 / 强隐私**场景是否有局部优势——这些要 Round 2 一手核实，现在不教死。
-> 迁移信号：若某天 frontier 原生支持透明可编辑的 per-user 记忆，这层可部分"毕业"（ADR-031 Sunset）。
+> **落 harness——Round 2 给了外部背书，不再是猜。** alignment 需要可审计/可删除/可演化/多用户隔离，权重路在这四点有一手证据支持的硬伤。这是**场景匹配**（我们是多用户云端协作），不是普世真理——weights 在单用户离线纯风格仍有真实胜场，不傲慢。
+> **真实 gap**：F231 Phase C 养熟循环（采集→蒸馏→消化→更新提议）未落；Round 2 提醒的"删除要彻底否则复活"正是我们该自查的——profile/taste/memory 删除纠错是否真彻底（连 LL-048 持久化纪律）。
+> 迁移信号：frontier/runtime 原生支持透明可编辑·可删除·可追溯 per-user memory 时，capsule 注入部分毕业为数据源。
 
 **Step 5 · 回流**
-> → mind-map `harness` 分支已挂 `per-user alignment ✓`；对照表"猫咖已有设计"列填 F221/F231。
+> → 已回流 `layer-allocation.md`（per-user=harness 行）+ `mind-map.md`（harness 分支）。本节学到的"F231 Phase C gap"是**真实待办**，不是教学例子——这就是互动学习的回流：你学一课，我们发现一个真 gap。
 
 ---
 
