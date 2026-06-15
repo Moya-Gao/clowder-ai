@@ -8,7 +8,7 @@ created: 2026-06-11
 
 # F231: 启动胶囊 — per-user 画像注入与 L0 分层
 
-> **Status**: spec | **Owner**: 布偶猫（宪宪 Fable-5） | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫（宪宪 Fable-5） | **Priority**: P1
 
 ## Architecture Ownership
 
@@ -120,7 +120,7 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 - [ ] AC-B3: 锚点回归测试在仓且 **fixture 隔离**：fixture overlay 编译断言 private 锚点生效；公共 baseline 断言缺 overlay 可编译 + 无私有锚点泄漏（CI/社区环境稳定，不依赖本机 gitignored 数据）
 
 ### Phase C（养熟循环）
-- [ ] AC-C1: 关系信号→capsule/primer 更新提议路径落地（三段管道 KD-8，KD-12 分层写入制），至少 1 次真实更新走完全程（跑在白名单采集 + runtime-neutral trigger 真骨架上，非 L0 反射脚手架）
+- [x] AC-C1: 关系信号→capsule/primer 更新提议路径落地（三段管道 KD-8，KD-12 分层写入制），至少 1 次真实更新走完全程（跑在白名单采集 + runtime-neutral trigger 真骨架上，非 L0 反射脚手架）（✅ PR #2296 merged 2026-06-15：profile-update proposal store/routes/tool/card + approve/reject write path + provenance audit + settled-card recovery；`pnpm gate` passed at `be6185ad`）
 - [ ] AC-C2: 正向轨迹沉淀有真实样本（≥1 条"做对的时刻"进 primer/capsule，对照"只记检讨书"基线）
 - [ ] AC-C3: 采集白名单（KD-9）写成机器可检查的数据契约（lint/test 守护禁 classifier 采集源）+ 蒸馏 trigger runtime-neutral（KD-10，不依赖 provider Stop hook，codex/gpt52 path 有 fallback 覆盖）
 
@@ -183,6 +183,7 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 | 2026-06-12 | Phase A L0 compile-chain injection merged (PR #2236)：USER_CAPSULE 模板变量 + resolveUserCapsule + stripCapsuleMetadata + profileDir cwd-first/script-path fallback + 33 tests（16 F231 compile + 17 l0-compiler）；gpt52 5 轮 review + cloud 2 轮（1 valid P2 fixed + 1 false positive 封板） |
 | 2026-06-13 | Phase C Design Gate：OQ-4 closed → KD-8~11（三段管道 + 采集白名单 + runtime-neutral trigger + bounded pilot）。46 的 L0 反射被铲屎官 Magic Word「脚手架」否决，opus-48 给终态三段架构，codex rigor audit 三条（P1-1 trigger runtime-neutral 纠正 48 的 Stop hook 误判 / P1-2 采集白名单 / P2 非通用 dream lane），opus47 dream-consolidation research 作蒸馏引擎地基 |
 | 2026-06-13 | Phase C 设计深化（CVO 共创）：消化层从全签字改为「按代价分层签字 + 用中校准」（KD-12，解"人类懒得审批"+"自评失真"）；纠正信号采集走当事猫自我认知、禁模式匹配（KD-13）；画像潜意识化反班味（KD-14）；注入悖论拆解（入库 vs 注入两种判断分离）→ 注入层新维度立 OQ-5 |
+| 2026-06-15 | Phase C AC-C1 merged (PR #2296)：profile-update proposal loop landed end-to-end（propose tool/callback/card/decision routes/approval write path/provenance audit/terminal card recovery），cloud review clean on `be6185ad` + `pnpm gate` passed |
 
 ## Links
 
