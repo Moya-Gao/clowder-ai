@@ -26,8 +26,8 @@ Phase B = 前台猫从"能找、能跳、能看"升级为"能接线"：用户一
 
 | 组件 | 位置 | 状态 |
 |------|------|------|
-| CardBlock action handlers (teleport/go/peek/relay) | `CardBlock.tsx` | ✅ |
-| `/api/concierge/relay` endpoint | `route-serial.ts` | ✅ |
+| CardBlock action handlers (teleport/go/peek/relay/propose_thread) | `CardBlock.tsx` | ✅ (propose_thread 新增于 B1) |
+| `/api/concierge/relay` endpoint | `routes/concierge.ts` | ✅ |
 | `ConciergeRelayStore` (Redis, TTL=0) | `ConciergeRelayStore.ts` | ✅ |
 | `ConciergeConfirmationStore` (Redis, TTL=0) | `ConciergeConfirmationStore.ts` | ✅ |
 | HandleMap + reply validator + inline marker buttons | `ConciergeHandleMapStore.ts` / `concierge-reply-validator.ts` / `ConciergeMessageContent.tsx` | ✅ |
@@ -44,7 +44,7 @@ Phase B = 前台猫从"能找、能跳、能看"升级为"能接线"：用户一
 
 **交付物**：
 - 反向索引 key: `concierge:confirm-rev:{messageId}:{blockId}:{action}`
-- `GET /api/concierge/confirmations?userId=X` mount-time 批量查询
+- `GET /api/concierge/confirmations` mount-time 批量查询（userId 从 session identity 解析，不从 query 传）
 - 前端 `useConciergeConfirmations` hook：mount 时查 + 写入 richBlock 状态
 - 测试：确认 → 刷新 → 状态保持；取消 → 刷新 → 按钮 disabled
 
@@ -97,6 +97,17 @@ failed → confirmed       用户重试（重新确认）
 3. feat_index 归属猫 → 候选列表
 4. 候选 > 1 或候选 = 0 → **确认卡让用户选择**，fail-closed 不盲投
 
+### 2b. propose_thread 执行面（B1 新增）
+
+TriagePlan intent `propose_thread` 的 click path：
+1. 用户确认 TriagePlan（intent=propose_thread, target.query="调查 XXX"）
+2. dispatch handler 调用 `cat_cafe_propose_thread(title, description)` MCP
+3. 后端返回 proposedThreadId → 写入 TriagePlan.result
+4. 前端展示"已提议开新调查"确认卡，含 [跳过去] 按钮（复用 teleport action）
+5. 铲屎官在 Hub 确认 → thread 创建
+
+**CardBlock 新增**：`propose_thread` action type → 调用 `/api/concierge/propose-thread` endpoint → 转发 MCP 调用。`ConciergeCardAction` 类型扩展为 `teleport | peek | relay | go | propose_thread`。
+
 ### 3. Relay Receipt UX 收口
 
 v1 语义：
@@ -148,7 +159,7 @@ queued → cancelled      用户取消
 
 1. search_evidence(query, mode='hybrid') → anchors
 2. feat_index(keyword) → feature 状态
-3. GitHub（如可用）：`gh issue list --search` / `gh pr list --search`
+3. GitHub（如可用）：通过参数化 GitHub API 调用（`octokit.search.issuesAndPullRequests`），query 作为参数传入，禁止拼 shell
 4. 汇总成带 anchor 的报告消息，回 concierge thread
 5. 报告使用 [跳过去 Rn] marker → inline button 复用 Bug2 基建
 
@@ -170,7 +181,7 @@ ConciergePromptSection 追加：
 ## 验收标准
 
 - [ ] AC-B1: 用户描述问题 → 前台猫给确认卡（含目标 thread + targetCat + intent）→ 用户确认 → relay 投递 + receipt 卡 / teleport 跳转 / propose_thread 开新调查——**刷新后确认状态保持**
-- [ ] AC-B2: "自己调查" → 前台猫查 memory/docs/feat_index → 带 anchor 报告回对话框——**anchor 可点击跳转**
+- [ ] AC-B2: "自己调查" → 前台猫查 memory/docs/feat_index → 带 anchor 报告回对话框——**thread/message anchor 可点击跳转；docs/feature/GitHub references 以路径/URL/编号呈现（不承诺 concierge action button，doc action 留 Phase B+ 按需补）**
 - [ ] PendingConfirmation: 刷新后 confirmed/cancelled 状态正确重建
 
 ## 风险
