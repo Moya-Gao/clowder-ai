@@ -8,7 +8,7 @@ created: 2026-06-11
 
 # F232: Thread Artifacts Panel — Thread 产物视图
 
-> **Status**: in-progress（Phase A 全部 merged；**Phase B foundation merged PR #2285 + grouping merged PR #2288**（AC-B1 partial，cat filter + server-side query 待 follow-up）；视觉待 alpha）| **Owner**: 宪宪 Opus-4.8 | **Priority**: P1
+> **Status**: in-progress（Phase A 全部 merged；**Phase B foundation merged PR #2285 + grouping merged PR #2288 + cat filter merged PR #2290**（AC-B1 ✅）；视觉待 alpha）| **Owner**: 宪宪 Opus-4.8 | **Priority**: P1
 
 ## Why
 
@@ -83,8 +83,8 @@ created: 2026-06-11
 ### Phase A.2（视频产物 panel 内播放）✅ merged PR #2269
 - [x] **AC-A9**: 视频产物点击在 panel 内播放（`<video controls>`），不再只「下载」。跨层改动：shared `ThreadArtifactType` 加 `'video'` + aggregator 识别视频源（mimeType 优先，扩展名 fallback）+ `classifyArtifactView` video 分支 + `ArtifactDetailView` video 渲染 + 类型筛选/图标补 video。7 个新测试覆盖（aggregator 4 + classify 2 + mimeType 优先级 1）。（trace: 铲屎官 2026-06-12 "忘记考虑视频之类的东西了" → 图/音/视频在 panel 内查看能力对齐 AC-A7 愿景）
 
-### Phase B（全局产物中心）🚧 foundation merged PR #2285 + grouping merged PR #2288（cat filter 待 follow-up）
-- [ ] AC-B1: 全局产物搜索页，跨 thread 按名字 / 类型 / 时间 / 猫聚合检索。**Foundation slice merged**：`[当前对话] [全局]` scope toggle + `GET /api/artifacts` 全局聚合 API + `useGlobalArtifacts` hook + thread badge + cross-thread teleport。**Grouping slice merged (PR #2288)**：三种分组模式（时间/对话/猫）可切换 chips + 可折叠分组 section + stable group id（P1 duplicate-label fix）+ 18 单元测试。**待 follow-up**：猫 filter、server-side query params、tooltip（OQ-B1）、Redis 索引优化（OQ-B2）。
+### Phase B（全局产物中心）🚧 foundation merged PR #2285 + grouping merged PR #2288 + cat filter merged PR #2290（tooltip/Redis 优化待 follow-up）
+- [x] AC-B1: 全局产物搜索页，跨 thread 按名字 / 类型 / 时间 / 猫聚合检索。**Foundation slice merged**：`[当前对话] [全局]` scope toggle + `GET /api/artifacts` 全局聚合 API + `useGlobalArtifacts` hook + thread badge + cross-thread teleport。**Grouping slice merged (PR #2288)**：三种分组模式（时间/对话/猫）可切换 chips + 可折叠分组 section + stable group id（P1 duplicate-label fix）+ 18 单元测试。**Cat filter + server-side query merged (PR #2290)**：`extractCatChips()` + `filterByCat()` 纯函数 + cat chip UI + `GET /api/artifacts?type=X&cat=X&q=keyword` server-side filtering + null catId→'—' sentinel 归一化（P1 fix）+ duplicate query param defense（cloud P2 fix）+ 11 web 测试 + 13 API 测试。**待 follow-up**：tooltip（OQ-B1）、Redis 索引优化（OQ-B2）。
 - [x] AC-B2: 复用 Phase A 聚合管线，不重写采集层。（`GET /api/artifacts` 内部调 `aggregateThreadArtifacts()` per-thread，flatten + sort）
 
 ## Dependencies
@@ -135,6 +135,7 @@ created: 2026-06-11
 | 2026-06-13 | **AC-A8 修订 merged (PR #2278)** — 铲屎官 dogfood 觉得产物 panel tab 像"狗皮膏药"，CVO 拍板 (b) 产物升为 workspaceMode 顶层入口。IA 重组 + F168 preference 全链路 + 云端 3 轮 review（R1 P1+P2 真 bug 修、R2 P2 搜索栏隔离修、R3 P2 race push back P3）。bonus: workspace search bar 限 dev mode（pre-existing 全 mode 泄漏 fix） |
 | 2026-06-14 | **Phase B foundation merged (PR #2285)** — scope toggle `[当前对话] [全局]` + UI归一（20+ hex → cafe-* tokens）+ `GET /api/artifacts` 全局聚合 API + `useGlobalArtifacts` hook + cross-thread teleport + P1 worktreeId guard fix。local gpt52 review 2 轮（P1-1 跨 thread worktreeId bug 修 + P1-2 rescope accepted）+ 云端 R1（P2 cross-thread preview deferred — acknowledged, safe fallback > wrong content）。AC-B2 ✅，AC-B1 partial（toggle+list done，grouping/filter 待 follow-up） |
 | 2026-06-14 | **Phase B grouping merged (PR #2288)** — 三种分组模式（时间/对话/猫）可切换 chips + 可折叠 section（chevron + label + count）+ ArtifactRow 组件提取降低 cognitive complexity。local gpt52 review P1（group.label 碰撞 → stable `id` field 修复，4 红→绿测试）+ 云端 R1 pass（"no major issues"）。AC-B1 grouping ✅，猫 filter 待 follow-up |
+| 2026-06-14 | **Phase B cat filter + server-side query merged (PR #2290)** — `extractCatChips()` / `filterByCat()` 纯函数模块 + cat chip UI + `GET /api/artifacts?type=X&cat=X&q=keyword` server-side filtering。local gpt52 review P1（null catId→'—' sentinel 归一化不一致修）+ 云端 R1 P2（duplicate `?q=` param → 500 crash，Array.isArray guard fix）+ R2 pass（"Chef's kiss"）。AC-B1 ✅ |
 
 ## Design Gate
 
