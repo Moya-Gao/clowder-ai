@@ -52,6 +52,8 @@ import {
 } from '../../../../../infrastructure/telemetry/instruments.js';
 import { detectUserMention } from '../../../../../routes/user-mention.js';
 import { estimateTokens } from '../../../../../utils/token-counter.js';
+import type { IBallCustodyIngest } from '../../../../ball-custody/BallCustodyIngest.js';
+import { buildHandedEvent, buildVoidPassEvent } from '../../../../ball-custody/ball-custody-events.js';
 import { conciergeContextForCat, prepareConciergeContext } from '../../../../concierge/ConciergeRoutingInterceptor.js';
 import {
   buildConciergeActions,
@@ -130,6 +132,40 @@ import { evaluateVoidHold } from './void-hold-detect.js';
 import { buildVoteTally, checkVoteCompletion, extractVoteFromText, VOTE_RESULT_SOURCE } from './vote-intercept.js';
 
 const log = createModuleLogger('route-serial');
+
+/**
+ * F233 Phase B (B2): fire-and-forget 旁路写 ball.handed（行首 @ 路由投递 → holder 变更，球继续）。
+ * 紧贴现有 A2A_HANDOFF 审计旁路点调用；失败仅 log、不阻塞路由；无 messageId 则 skip
+ * （best-effort observability，漏写由后续动作 / 简报 rebuild 兜底）。
+ */
+function emitBallHanded(
+  ballCustody: IBallCustodyIngest | undefined,
+  threadId: string,
+  fromCatId: string,
+  toCatId: string,
+  messageId: string | undefined,
+): void {
+  if (!ballCustody || !messageId) return;
+  ballCustody
+    .record(buildHandedEvent({ fromCatId, toCatId, threadId, messageId, at: Date.now() }))
+    .catch((err) => log.warn({ threadId, toCat: toCatId, err }, 'ball.handed ingest failed'));
+}
+
+/**
+ * F233 Phase B (B2): fire-and-forget 旁路写 ball.void_pass（声明持球但无 hold_ball / 无行首 @ / 无 structured 路由）。
+ * 紧贴 void-hold-hint sample emit 调用（此时 storedMsgId 已绑定）。
+ */
+function emitBallVoidPass(
+  ballCustody: IBallCustodyIngest | undefined,
+  threadId: string,
+  messageId: string | undefined,
+  matchedPattern: string | null,
+): void {
+  if (!ballCustody || !messageId) return;
+  ballCustody
+    .record(buildVoidPassEvent({ threadId, messageId, matchedPattern: matchedPattern ?? undefined, at: Date.now() }))
+    .catch((err) => log.warn({ threadId, err }, 'ball.void_pass ingest failed'));
+}
 const routeSerialTracer = trace.getTracer('cat-cafe-api', '0.1.0');
 const ROUTE_ONLY_REMEDIAL_TEXT_RE =
   /^@[\p{L}\p{N}_.-]+(?:[\s,.:;!?()[\]{}<>，。！？、：；（）【】《》「」『』〈〉]+)?$/u;
@@ -993,6 +1029,17 @@ export async function* routeSerial(
             }
           : ownStampedMsg;
       };
+      // F233 P1 (云端 review): 球到此 cat 手上（接球时刻）→ ball.handed。统一覆盖 original routing
+      // (user→cat，directMessageFrom=undefined) 与 A2A (cat→cat，directMessageFrom=前手猫)。这是球真正
+      // 抵达持有者的时刻，取代原先只在 A2A handoff 发射点 emit（那里 `wi<targetCats.length` continue 会
+      // skip original targets，导致 initial routing 的 ball.handed 漏记，projection 空/stale 到后续 handoff）。
+      emitBallHanded(
+        deps.ballCustody,
+        threadId,
+        directMessageFrom ?? '',
+        catId as string,
+        streamReplyTo ?? currentUserMessageId,
+      );
       for await (const msg of invokeSingleCat(deps.invocationDeps, {
         catId,
         service,
@@ -2411,6 +2458,8 @@ export async function* routeSerial(
             } catch {
               /* best-effort sample emission */
             }
+            // F233 Phase B (B2): 同一虚空传球旁路写 ball.void_pass（storedMsgId 此时已绑定）
+            emitBallVoidPass(deps.ballCustody, threadId, storedMsgId, pendingC2VoidHoldSampleTrigger);
           }
         } catch (err) {
           log.error({ catId: catId as string, err }, 'messageStore.append failed, degrading');
@@ -2780,6 +2829,8 @@ export async function* routeSerial(
               log.warn({ threadId, fromCat: catId, toCat: pendingCat, err }, 'A2A_HANDOFF audit write failed');
             });
 
+          // F233 P1 (云端 review): ball.handed 已移到 worklist 主循环接球时刻统一 emit（覆盖 original +
+          // A2A），此处不再 emit——这里只是 A2A handoff 发射点（球离开前手），A2A target 真正接球在主循环。
           const nextConfig: CatConfig | undefined = catRegistry.tryGet(pendingCat as string)?.config;
           if (options.invocationController && options.trackA2ASlot && !activeTrackedA2ASlots.has(pendingCat)) {
             options.trackA2ASlot(threadId, pendingCat, userId, options.invocationController);
@@ -3032,6 +3083,8 @@ export async function* routeSerial(
             log.warn({ threadId, fromCat: catId, toCat: pendingCat, err }, 'A2A_HANDOFF audit write failed');
           });
 
+        // F233 P1 (云端 review): ball.handed 已移到 worklist 主循环接球时刻统一 emit（覆盖 original +
+        // A2A），此处不再 emit——这里只是 A2A handoff 发射点（球离开前手），A2A target 真正接球在主循环。
         const nextConfig: CatConfig | undefined = catRegistry.tryGet(pendingCat as string)?.config;
         if (options.invocationController && options.trackA2ASlot && !activeTrackedA2ASlots.has(pendingCat)) {
           options.trackA2ASlot(threadId, pendingCat, userId, options.invocationController);

@@ -162,7 +162,9 @@ ProbeScheduler 判 satisfied&bounces_back
 
 | event | sourceEventId |
 |---|---|
-| ball.handed / handed_cvo / void_pass | `route:{messageId}` |
+| ball.handed | `route:{messageId}:{toCatId}` ← **B2 PR1 细化**：一条消息行首 @ 多猫（`@catA @catB`）各产生独立 handed 事件；原 `route:{messageId}` 会被全局 seen 去重吞掉第二只 |
+| ball.handed_cvo | `route:{messageId}`（**B2 PR1 推迟**：@landy 不带 intent，intent 推断触 KD-8 禁分类器——待 intent 来源设计 MCP 显式 vs 结构推断） |
+| ball.void_pass | `route:{messageId}:void`（与 handed 同消息互斥，evaluateVoidHold 在有 lineStartMention 时不触发；`:void` 后缀显式防御） |
 | ball.held / hold_expired | `hold:{threadId}:{catId}:{fireAt}` / `holdexp:{…}:{fireAt}` |
 | invocation.* | `inv:{invocationId}:started\|hb:{draftUpdatedAt}\|died` |
 | task.blocked/unblocked/idle_long/done | `task:{taskId}:blocked:{blockedSinceAt}` / `:unblocked:{at}` / `:idle:{at}` / `:done` |
@@ -212,3 +214,20 @@ ProbeScheduler 判 satisfied&bounces_back
 2. **WAKE_COOLDOWN_MS 取值**：12h 是拍的——太短 owner 被频繁提醒（friction），太长睡美人醒得慢。靠 friction metric 实测调。
 3. **ball.wake_sent 在非 blocked state 的 ignore 语义**：INV-10 第 91 格里 wake_sent×{active/parked/dead/…} 都 ignore，但理论上 wake_sent 只该在 blocked 产生——若实现误在其它 state append，是静默吞还是该报？倾向 informational ignore（不污染），但请 review 判。
 > （原第 4 条「wakeSlot 固定槽 vs 滑动窗口」我自审时发现与 §E 滑动窗口打架，已自决统一为滑动窗口 + at-唯一 id，见 §F。）
+
+---
+
+## B2 实现进度（Task 2 拆分，opus-48）
+
+Task 2「全 13 event 源接线」按子系统垂直切片拆 3 个 PR（每个独立可 review/merge，避免一个 PR 横跨 6 子系统、回滚粒度粗）：
+
+- **PR1（done，本次）— 路由层 handed + void_pass**：
+  - 新 `ball-custody-events.ts`（buildHandedEvent / buildVoidPassEvent 纯函数）+ `BallCustodyIngest.ts`（append + `appended:true` guard → apply，照 community-auto-tracking）。
+  - 接线：`route-serial.ts` 两处 A2A_HANDOFF 旁路点 → `ball.handed`（fire-and-forget，紧贴现有 audit 写入）；void-hold-hint sample 点 → `ball.void_pass`。`RouteStrategyDeps.ballCustody` optional 注入，index.ts wiring 照 community（550-560）。
+  - **handed_cvo 推迟**（不是遗漏）：@landy 路由不带 intent，intent 推断（handoff/fyi/done_notify）触 KD-8（禁分类器）——需专门设计 intent 来源（MCP 显式声明 vs 结构推断），与 PR2 的 CVO/blocked 语义一起做。
+- **PR2 — hold + task**：`ball.held` / `hold_expired`（callback-hold-ball-routes）+ `task.blocked/unblocked/idle_long/done`（taskStore.update 旁路）+ `handed_cvo`（含 intent 设计）。
+- **PR3 — invocation**：`invocation.started/heartbeat/died`（messages.ts / draftStore / reconcileZombies），含 AC-B1 死球 lastScanAt（Task 3）。
+
+**发现的 pre-existing 问题（非本 PR 引入，已建 task 跟踪）**：
+1. **B1 ball-custody redis 测试并发 race**：`event-log-redis`（清 `events:*`）+ `projector-redis`（清 `ballcustody:*` 通配）node --test 文件级并发时互清对方 key → 6 fail（串行全绿）。B1 既有，PR1 的 ingest-redis 已用唯一 keyPrefix 隔离不加剧；B1 两文件根因修（唯一 keyPrefix / 唯一 subjectKey per it）作独立测试基础设施 task。
+2. **`agent-router.test.js` F203 Phase C**（system prompt A2A section 重复抑制）pre-existing fail——stash baseline 确认 main 版同样失败，与 B2 无关。

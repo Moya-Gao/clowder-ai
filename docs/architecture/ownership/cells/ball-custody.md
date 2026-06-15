@@ -10,12 +10,15 @@ code_anchors:
   - packages/api/src/domains/ball-custody/ball-custody-state-machine.ts
   - packages/api/src/domains/ball-custody/BallCustodyProjectionStore.ts
   - packages/api/src/domains/ball-custody/ball-custody-keys.ts
+  - packages/api/src/domains/ball-custody/BallCustodyIngest.ts
+  - packages/api/src/domains/ball-custody/ball-custody-events.ts
 doc_anchors:
   - docs/features/F233-ball-custody-observability.md
   - docs/plans/2026-06-14-f233-phase-b-ball-custody-event-stream.md
-static_scan_hints: [BallCustodyEvent, BallCustodyProjection, BallCustodyEventLog, ball-custody-state-machine, ball-custody-projector, ballcustody:events, ballcustody:projection, blockedSinceAt, ProbeScheduler, WakeSender]
+static_scan_hints: [BallCustodyEvent, BallCustodyProjection, BallCustodyEventLog, BallCustodyIngest, ball-custody-events, buildHandedEvent, ball-custody-state-machine, ball-custody-projector, ballcustody:events, ballcustody:projection, blockedSinceAt, ProbeScheduler, WakeSender]
 cited_by:
   - {feature: F233-Phase-B, date: 2026-06-15, delta: new cell (B1 event-log + projector + state-machine 骨架)}
+  - {feature: F233-Phase-B, date: 2026-06-15, delta: B2 PR1 — ingest 层 (BallCustodyIngest append+apply guard) + 路由事件接线 (ball.handed / ball.void_pass)}
 ---
 
 # Ball Custody Engine
@@ -36,6 +39,7 @@ F233 owns the ball-custody event-sourcing infrastructure: append-only Event Log 
 - 向 shared type append 新 `BallEventKind` + 在 state-machine 显式转移表（STATIC_TABLE / DYNAMIC_TABLE）加规则；**INV-10 穷举测试同步**（全 event × state 无未定义）。
 - projection 字段 effect 作为纯函数加在 `BallCustodyProjector` 的 `applyFieldEffects`。
 - subjectKey 从现有痕迹派生（`ball:thread:{id}` / `ball:task:{id}`），**不引入球 ID 新原语**（KD-1）。
+- 接事件源（B2）：写 `buildXxxEvent` 纯函数（`ball-custody-events.ts`，§F sourceEventId + KD-1 subjectKey + classification）→ 在现有系统动作旁路点 **fire-and-forget** 调 `BallCustodyIngest.record`（append + `appended:true` guard → `projector.apply`，照 `community-auto-tracking` 先例，rebuild 安全）。失败仅 log、不阻塞主流程；ingest 注入 `RouteStrategyDeps.ballCustody`（optional, fail-open）。
 
 ## Do NOT Unify With
 

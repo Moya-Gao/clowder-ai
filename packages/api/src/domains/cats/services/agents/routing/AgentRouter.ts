@@ -494,6 +494,8 @@ export interface AgentRouterOptions {
   worldContextProvider?: import('../../../../world/WorldContextProvider.js').WorldContextProvider;
   /** F093: World store for thread→world lookup */
   worldStore?: import('../../../../world/interfaces.js').IWorldStore;
+  /** F233 Phase B (B2): ball-custody ingest（注入 route deps 供旁路写球权事件，fail-open） */
+  ballCustody?: import('../../../../ball-custody/BallCustodyIngest.js').IBallCustodyIngest;
   /** F222: Frustration auto-issue store */
   frustrationIssueStore?: import('../../stores/ports/FrustrationIssueStore.js').IFrustrationIssueStore;
   /** F222: Pending request store — cancel burst detection */
@@ -558,6 +560,7 @@ export class AgentRouter {
   /** F093 */
   private worldContextProvider?: import('../../../../world/WorldContextProvider.js').WorldContextProvider;
   private worldStore?: import('../../../../world/interfaces.js').IWorldStore;
+  private ballCustody?: import('../../../../ball-custody/BallCustodyIngest.js').IBallCustodyIngest;
   /** F222 */
   private frustrationIssueStore?: import('../../stores/ports/FrustrationIssueStore.js').IFrustrationIssueStore;
   private pendingRequestStore?: import('../../stores/ports/PendingRequestStore.js').IPendingRequestStore;
@@ -667,6 +670,7 @@ export class AgentRouter {
     this.dismissTracker = options.dismissTracker;
     this.worldContextProvider = options.worldContextProvider;
     this.worldStore = options.worldStore;
+    this.ballCustody = options.ballCustody;
     this.frustrationIssueStore = options.frustrationIssueStore;
     this.pendingRequestStore = options.pendingRequestStore;
     this.conciergeConfigStore = options.conciergeConfigStore;
@@ -1277,6 +1281,7 @@ export class AgentRouter {
       ...(this.worldStore ? { worldStore: this.worldStore } : {}),
       ...(this.frustrationIssueStore ? { frustrationIssueStore: this.frustrationIssueStore } : {}),
       ...(this.pendingRequestStore ? { pendingRequestStore: this.pendingRequestStore } : {}),
+      ...(this.ballCustody ? { ballCustody: this.ballCustody } : {}),
     };
   }
 

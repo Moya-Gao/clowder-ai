@@ -547,6 +547,8 @@ async function main(): Promise<void> {
   let communityEventLog: import('./domains/community/CommunityEventLog.js').ICommunityEventLog | undefined;
   let communityObjectStore: import('./domains/community/CommunityObjectStore.js').ICommunityObjectStore | undefined;
   let communityProjector: import('./domains/community/community-projector.js').CommunityProjector | undefined;
+  // F233 Phase B (B2): ball-custody ingest（fire-and-forget 旁路写球权事件，注入 AgentRouter）
+  let ballCustodyIngest: import('./domains/ball-custody/BallCustodyIngest.js').BallCustodyIngest | undefined;
   if (redis) {
     const [elMod, osMod, pjMod] = await Promise.all([
       import('./domains/community/CommunityEventLog.js'),
@@ -557,6 +559,19 @@ async function main(): Promise<void> {
     communityObjectStore = new osMod.RedisCommunityObjectStore(redis);
     communityProjector = new pjMod.CommunityProjector(communityEventLog, communityObjectStore);
     app.log.info('[api] F168 Phase A: community event services initialized');
+
+    // F233 Phase B (B2): ball-custody 事件流 stack（旁路写球权事件，照 community ingest 先例）
+    const [bcMod, bcStoreMod, bcProjMod, bcIngestMod] = await Promise.all([
+      import('./domains/ball-custody/BallCustodyEventLog.js'),
+      import('./domains/ball-custody/BallCustodyProjectionStore.js'),
+      import('./domains/ball-custody/BallCustodyProjector.js'),
+      import('./domains/ball-custody/BallCustodyIngest.js'),
+    ]);
+    const ballCustodyEventLog = new bcMod.RedisBallCustodyEventLog(redis);
+    const ballCustodyProjectionStore = new bcStoreMod.RedisBallCustodyProjectionStore(redis);
+    const ballCustodyProjector = new bcProjMod.BallCustodyProjector(ballCustodyEventLog, ballCustodyProjectionStore);
+    ballCustodyIngest = new bcIngestMod.BallCustodyIngest(ballCustodyEventLog, ballCustodyProjector);
+    app.log.info('[api] F233 Phase B: ball-custody ingest initialized');
   }
 
   if (redis) {
@@ -1480,6 +1495,7 @@ async function main(): Promise<void> {
     dismissTracker,
     worldContextProvider,
     worldStore,
+    ...(ballCustodyIngest ? { ballCustody: ballCustodyIngest } : {}),
     frustrationIssueStore,
     pendingRequestStore: authPendingStore,
     conciergeConfigStore: conciergeConfigStoreShared,
