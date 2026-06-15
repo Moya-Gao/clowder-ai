@@ -94,6 +94,16 @@ export type {
   ThreadPhase,
   UpdateBacklogDispatchProgressInput,
 } from './backlog.js';
+// F233 Phase B: Ball Custody event-stream types (event-sourcing; impl stays in api)
+export type {
+  BallCustodyEvent,
+  BallCustodyProjection,
+  BallEventClassification,
+  BallEventKind,
+  BallIntent,
+  BallResolveMode,
+  BallState,
+} from './ball-custody.js';
 // Brake types (F085 Phase 4 — 平台级健康守护)
 export type {
   BrakeCheckinRequest,
