@@ -79,8 +79,8 @@ describe('FrustrationIssueCard', () => {
     });
 
     // UX-2: hydrated resolved state starts collapsed — badge visible, no action buttons
-    await vi.waitFor(() => expect(container.textContent).toContain('已提交'));
-    expect(container.textContent).not.toContain('确认提交');
+    await vi.waitFor(() => expect(container.textContent).toContain('已记录'));
+    expect(container.textContent).not.toContain('确认记录');
     expect(vi.mocked(apiFetch)).toHaveBeenCalledWith('/api/frustration-issues/fi_test_status/status');
   });
 
@@ -139,7 +139,7 @@ describe('FrustrationIssueCard', () => {
     });
 
     const confirmButton = Array.from(container.querySelectorAll('button')).find((button) =>
-      button.textContent?.includes('确认提交'),
+      button.textContent?.includes('确认记录'),
     );
     expect(confirmButton).toBeTruthy();
 
@@ -147,16 +147,16 @@ describe('FrustrationIssueCard', () => {
       confirmButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
 
-    await vi.waitFor(() => expect(container.textContent).toContain('已提交'));
-    expect(container.textContent).not.toContain('确认提交');
+    await vi.waitFor(() => expect(container.textContent).toContain('已记录'));
+    expect(container.textContent).not.toContain('确认记录');
 
     await act(async () => {
       resolveStatus(okJson({ issue: { status: 'draft', userDescription: 'stale draft' } }));
       await statusPromise;
     });
 
-    expect(container.textContent).toContain('已提交');
-    expect(container.textContent).not.toContain('确认提交');
+    expect(container.textContent).toContain('已记录');
+    expect(container.textContent).not.toContain('确认记录');
   });
 
   it('hydrates confirmed status after a duplicate confirm conflict resolves first', async () => {
@@ -181,7 +181,7 @@ describe('FrustrationIssueCard', () => {
     });
 
     const confirmButton = Array.from(container.querySelectorAll('button')).find((button) =>
-      button.textContent?.includes('确认提交'),
+      button.textContent?.includes('确认记录'),
     );
     expect(confirmButton).toBeTruthy();
 
@@ -190,15 +190,15 @@ describe('FrustrationIssueCard', () => {
     });
 
     await vi.waitFor(() => expect(container.textContent).toContain('Issue already confirmed'));
-    expect(container.textContent).toContain('确认提交');
+    expect(container.textContent).toContain('确认记录');
 
     await act(async () => {
       resolveStatus(okJson({ issue: { status: 'confirmed', userDescription: 'Already submitted' } }));
       await statusPromise;
     });
 
-    await vi.waitFor(() => expect(container.textContent).toContain('已提交'));
-    expect(container.textContent).not.toContain('确认提交');
+    await vi.waitFor(() => expect(container.textContent).toContain('已记录'));
+    expect(container.textContent).not.toContain('确认记录');
     expect(container.textContent).not.toContain('Issue already confirmed');
   });
 
@@ -230,7 +230,7 @@ describe('FrustrationIssueCard', () => {
     });
 
     await vi.waitFor(() => expect(container.textContent).toContain('误报'));
-    expect(container.textContent).not.toContain('确认提交');
+    expect(container.textContent).not.toContain('确认记录');
   });
 
   it('hydrates false_positive status from persisted issue', async () => {
@@ -248,7 +248,7 @@ describe('FrustrationIssueCard', () => {
     });
 
     await vi.waitFor(() => expect(container.textContent).toContain('误报'));
-    expect(container.textContent).not.toContain('确认提交');
+    expect(container.textContent).not.toContain('确认记录');
     expect(container.textContent).not.toContain('跳过');
   });
 
@@ -271,7 +271,7 @@ describe('FrustrationIssueCard', () => {
     });
 
     const confirmButton = Array.from(container.querySelectorAll('button')).find((button) =>
-      button.textContent?.includes('确认提交'),
+      button.textContent?.includes('确认记录'),
     );
     expect(confirmButton).toBeTruthy();
 
@@ -280,7 +280,7 @@ describe('FrustrationIssueCard', () => {
     });
 
     // After confirm, card should collapse — body should not be visible
-    await vi.waitFor(() => expect(container.textContent).toContain('已提交'));
+    await vi.waitFor(() => expect(container.textContent).toContain('已记录'));
     expect(container.textContent).not.toContain('模型工具调用解析失败');
   });
 
@@ -339,7 +339,7 @@ describe('FrustrationIssueCard', () => {
     });
 
     // Should be collapsed: shows badge but not body
-    await vi.waitFor(() => expect(container.textContent).toContain('已提交'));
+    await vi.waitFor(() => expect(container.textContent).toContain('已记录'));
     expect(container.textContent).not.toContain('模型工具调用解析失败');
   });
 
@@ -371,7 +371,7 @@ describe('FrustrationIssueCard', () => {
     });
 
     const confirmButton = Array.from(container.querySelectorAll('button')).find((button) =>
-      button.textContent?.includes('确认提交'),
+      button.textContent?.includes('确认记录'),
     );
     expect(confirmButton).toBeTruthy();
 
@@ -384,16 +384,16 @@ describe('FrustrationIssueCard', () => {
       await statusPromise;
     });
 
-    await vi.waitFor(() => expect(container.textContent).toContain('已提交'));
-    expect(container.textContent).not.toContain('确认提交');
+    await vi.waitFor(() => expect(container.textContent).toContain('已记录'));
+    expect(container.textContent).not.toContain('确认记录');
 
     await act(async () => {
       resolveConfirm(errorJson(409, { error: 'Issue already confirmed' }));
       await confirmPromise;
     });
 
-    expect(container.textContent).toContain('已提交');
-    expect(container.textContent).not.toContain('确认提交');
+    expect(container.textContent).toContain('已记录');
+    expect(container.textContent).not.toContain('确认记录');
     expect(container.textContent).not.toContain('Issue already confirmed');
   });
 });

@@ -64,7 +64,7 @@ function displayFrustrationTitle(title: string): string {
 
 /** Status badge label for resolved states. */
 function resolvedLabel(status: IssueStatus): string {
-  if (status === 'confirmed') return '已提交';
+  if (status === 'confirmed') return '已记录';
   if (status === 'false_positive') return '误报';
   return '已跳过';
 }
@@ -263,9 +263,10 @@ export function FrustrationIssueCard({ block }: FrustrationIssueCardProps) {
               type="button"
               onClick={handleConfirm}
               disabled={isActionInProgress}
+              title="记录到本地反馈池，供猫猫优先处理"
               className="rounded bg-cafe-accent px-3 py-1.5 text-xs font-medium text-white transition hover:bg-cafe-accent/80 disabled:opacity-50"
             >
-              {status === 'confirming' ? '提交中...' : '确认提交'}
+              {status === 'confirming' ? '记录中...' : '确认记录'}
             </button>
             <button
               type="button"
