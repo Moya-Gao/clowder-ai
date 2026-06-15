@@ -106,6 +106,7 @@ status: draft  # 用户预览后才提交
 | 2026-06-05 | UX-1 + UX-2 merged (PR #2106): false_positive 状态 + 三按钮 UI + 处理后卡片折叠，GPT-5.4 review + 云端 review |
 | 2026-06-05 | UX-3 merged (PR #2107): "取消并反馈" button on AuthorizationCard — user_report signal (no threshold, dedup-exempt), GPT-5.4 review + 云端 2 轮 review |
 | 2026-06-05 | UX-3 follow-up merged (PR #2113): extend "取消并反馈" to hold-ball connector cards — live hold cancel + immediate `user_report`; stale hold cards fallback to dedicated feedback route after 404 |
+| 2026-06-15 | UX copy fix merged (PR #2300): 「确认提交」→「确认记录」+「已提交」→「已记录」，消除社区用户误解（以为提到 GitHub）；button tooltip 说明落点"记录到本地反馈池" |
 
 ## Known Issues (2026-06-05 铲屎官反馈)
 
