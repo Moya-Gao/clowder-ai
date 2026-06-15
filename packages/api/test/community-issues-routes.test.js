@@ -22,8 +22,27 @@ describe('Community Issues Routes', () => {
     communityPrStore = new InMemoryCommunityPrStore();
   });
 
+  // C3.1: mockThreadStore needs get() for routeRecommendation thread validation (INV-7)
+  // Known threads: thread_community_ops (C3.1), plus legacy test fixtures.
+  // INV-7 validation now rejects unknown threadIds, so all test fixtures must be registered.
+  const knownThreads = new Set([
+    'thread_community_ops',
+    'thread_f056',
+    'thread_abc',
+    't1',
+    'thread_f168_test',
+    'thread_r13_test',
+    'thread_r21_p1_test',
+  ]);
+  // Cloud R2 P2: soft-deleted threads must be rejected by INV-7
+  const softDeletedThreads = new Set(['thread_soft_deleted']);
   const mockThreadStore = {
     create: async (_userId, title) => ({ id: `thread_${Date.now()}`, title, createdAt: Date.now() }),
+    get: async (id) => {
+      if (knownThreads.has(id)) return { id, title: 'mock', createdAt: Date.now() };
+      if (softDeletedThreads.has(id)) return { id, title: 'mock', createdAt: Date.now(), deletedAt: Date.now() };
+      return null;
+    },
   };
 
   const catCredentials = {
@@ -554,6 +573,173 @@ describe('Community Issues Routes', () => {
       payload: { decision: 'accepted' },
     });
     assert.equal(res.statusCode, 409);
+  });
+
+  // --- Phase C C3.1: resolve consumes routeRecommendation for routing ---
+
+  /** Helper: create issue → dispatch → two conflicting triages → pending-decision */
+  async function createPendingDecisionIssue(app, issueNumber = 100) {
+    const issue = await createAndDispatch(app, { issueNumber });
+    await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/triage-complete`,
+      payload: { catId: 'opus', verdict: 'WELCOME', questions: fivePass },
+    });
+    await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/triage-complete`,
+      payload: { catId: 'codex', verdict: 'POLITELY-DECLINE', questions: fivePass, reasonCode: 'UNSURE' },
+    });
+    return issue;
+  }
+
+  test('POST resolve with routeRecommendation existing-thread → routes to that thread (C3.1)', async () => {
+    const app = await createApp();
+    const issue = await createPendingDecisionIssue(app, 101);
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/resolve`,
+      headers: { 'x-cat-cafe-user': 'landy' },
+      payload: {
+        decision: 'accepted',
+        routeRecommendation: { kind: 'existing-thread', threadId: 'thread_community_ops' },
+      },
+    });
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.equal(body.state, 'accepted');
+    assert.equal(body.assignedThreadId, 'thread_community_ops');
+  });
+
+  test('POST resolve with routeRecommendation new-thread → creates new thread (C3.1)', async () => {
+    const app = await createApp();
+    const issue = await createPendingDecisionIssue(app, 102);
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/resolve`,
+      headers: { 'x-cat-cafe-user': 'landy' },
+      payload: {
+        decision: 'accepted',
+        routeRecommendation: { kind: 'new-thread' },
+      },
+    });
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.equal(body.state, 'accepted');
+    assert.ok(body.assignedThreadId, 'new thread must be auto-created');
+  });
+
+  test('POST resolve with routeRecommendation existing-thread for nonexistent thread → 404 (INV-7 C3.1)', async () => {
+    const app = await createApp();
+    const issue = await createPendingDecisionIssue(app, 103);
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/resolve`,
+      headers: { 'x-cat-cafe-user': 'landy' },
+      payload: {
+        decision: 'accepted',
+        routeRecommendation: { kind: 'existing-thread', threadId: 'thread_does_not_exist_xyz' },
+      },
+    });
+    assert.equal(res.statusCode, 404, 'dead thread must be rejected (INV-7)');
+    assert.ok(res.json().error.includes('thread'), 'error message must mention thread');
+  });
+
+  test('POST resolve without routeRecommendation → backward compat unchanged (INV-12 C3.1)', async () => {
+    const app = await createApp();
+    const issue = await createPendingDecisionIssue(app, 104);
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/resolve`,
+      payload: { decision: 'accepted' },
+    });
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.json().state, 'accepted');
+  });
+
+  test('POST resolve with routeRecommendation new-thread + relatedFeature → still creates thread (Cloud R2 P1)', async () => {
+    const app = await createApp();
+    const issue = await createPendingDecisionIssue(app, 105);
+    // Resolve with both new-thread recommendation AND relatedFeature.
+    // Bug: routeAccepted takes the relatedFeature early return and skips
+    // thread creation, leaving accepted issue without assignedThreadId.
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/resolve`,
+      headers: { 'x-cat-cafe-user': 'landy' },
+      payload: {
+        decision: 'accepted',
+        relatedFeature: 'F168',
+        routeRecommendation: { kind: 'new-thread' },
+      },
+    });
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.equal(body.state, 'accepted');
+    assert.ok(body.assignedThreadId, 'new-thread must create a thread even when relatedFeature exists');
+  });
+
+  test('POST resolve with routeRecommendation existing-thread for soft-deleted thread → 404 (Cloud R2 P2)', async () => {
+    const app = await createApp();
+    const issue = await createPendingDecisionIssue(app, 106);
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/resolve`,
+      headers: { 'x-cat-cafe-user': 'landy' },
+      payload: {
+        decision: 'accepted',
+        routeRecommendation: { kind: 'existing-thread', threadId: 'thread_soft_deleted' },
+      },
+    });
+    assert.equal(res.statusCode, 404, 'soft-deleted thread must be rejected (INV-7)');
+    assert.ok(res.json().error.includes('thread'), 'error message must mention thread');
+  });
+
+  test('POST resolve with legacy threadId for nonexistent thread → 404 (Cloud R3 P1)', async () => {
+    const app = await createApp();
+    const issue = await createPendingDecisionIssue(app, 107);
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/resolve`,
+      headers: { 'x-cat-cafe-user': 'landy' },
+      payload: {
+        decision: 'accepted',
+        threadId: 'thread_does_not_exist_legacy',
+      },
+    });
+    assert.equal(res.statusCode, 404, 'legacy threadId must be validated (INV-7)');
+    assert.ok(res.json().error.includes('thread'), 'error message must mention thread');
+  });
+
+  test('POST resolve with legacy threadId for soft-deleted thread → 404 (Cloud R3 P1)', async () => {
+    const app = await createApp();
+    const issue = await createPendingDecisionIssue(app, 108);
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/resolve`,
+      headers: { 'x-cat-cafe-user': 'landy' },
+      payload: {
+        decision: 'accepted',
+        threadId: 'thread_soft_deleted',
+      },
+    });
+    assert.equal(res.statusCode, 404, 'soft-deleted legacy threadId must be rejected (INV-7)');
+    assert.ok(res.json().error.includes('thread'), 'error message must mention thread');
+  });
+
+  test('POST resolve with threadId but no threadStore wired → 500 fail-closed (Cloud R4 P2)', async () => {
+    const app = await createApp({ threadStore: undefined });
+    const issue = await createPendingDecisionIssue(app, 109);
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/resolve`,
+      headers: { 'x-cat-cafe-user': 'landy' },
+      payload: {
+        decision: 'accepted',
+        threadId: 'thread_anything',
+      },
+    });
+    assert.equal(res.statusCode, 500, 'must fail-closed when threadStore unavailable for validation');
   });
 
   // --- Phase D: Guardian assignment endpoints ---

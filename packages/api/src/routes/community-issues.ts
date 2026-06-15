@@ -51,7 +51,7 @@ export interface CommunityIssuesRoutesOptions {
   communityIssueStore: ICommunityIssueStore;
   taskStore: ITaskStore;
   socketManager: SocketManager;
-  threadStore?: Pick<IThreadStore, 'create'>;
+  threadStore?: Pick<IThreadStore, 'create' | 'get'>;
   registry?: CallbackAuthVerifier;
   fetchIssues?: (repo: string) => Promise<GhIssueFull[]>;
   communityPrStore?: ICommunityPrStore;
@@ -411,6 +411,7 @@ export const communityIssueRoutes: FastifyPluginAsync<CommunityIssuesRoutesOptio
     relatedFeature: z.string().nullable().optional(),
     threadId: z.string().min(1).optional(),
     catId: z.string().min(1).optional(),
+    routeRecommendation: routeRecommendationSchema.optional(),
   });
 
   app.post('/api/community-issues/:id/resolve', async (request, reply) => {
@@ -432,13 +433,47 @@ export const communityIssueRoutes: FastifyPluginAsync<CommunityIssuesRoutesOptio
     }
 
     const userId = resolveUserId(request, { defaultUserId: 'system' }) ?? 'system';
+
+    // C3.1: routeRecommendation → effectiveThreadId mapping
+    let effectiveThreadId = result.data.threadId ?? undefined;
+    const rr = result.data.routeRecommendation;
+    if (rr && result.data.decision === 'accepted') {
+      if (rr.kind === 'existing-thread') {
+        effectiveThreadId = rr.threadId;
+      } else if (rr.kind === 'new-thread') {
+        // Cloud R2 P1: new-thread must create a thread even when relatedFeature exists.
+        // Without explicit creation here, routeAccepted takes the relatedFeature early
+        // return and skips thread creation, leaving the issue without assignedThreadId.
+        if (opts.threadStore) {
+          const newThread = await opts.threadStore.create(userId, `Community: ${issue.title}`);
+          effectiveThreadId = newThread.id;
+        }
+      }
+      // kind === 'decline': handled by decision='declined' path (not reachable here)
+    }
+
+    // INV-7 (consolidated Cloud R2 P2 + R3 P1 + R4 P2): validate effectiveThreadId if
+    // it came from user input (legacy threadId or existing-thread recommendation). Skip
+    // for new-thread — we just created it. Fail-closed when threadStore is unavailable.
+    if (effectiveThreadId && result.data.decision === 'accepted' && rr?.kind !== 'new-thread') {
+      if (!opts.threadStore) {
+        reply.status(500);
+        return { error: 'Thread validation unavailable — threadStore not wired' };
+      }
+      const targetThread = await opts.threadStore.get(effectiveThreadId);
+      if (!targetThread || targetThread.deletedAt) {
+        reply.status(404);
+        return { error: `Target thread not found: ${effectiveThreadId}` };
+      }
+    }
+
     const orchestrator = new TriageOrchestrator({ communityIssueStore, threadStore: opts.threadStore });
     if (result.data.decision === 'accepted') {
       await orchestrator.routeAccepted(
         id,
         result.data.relatedFeature ?? issue.relatedFeature,
         userId,
-        result.data.threadId ?? undefined,
+        effectiveThreadId,
       );
     } else {
       await orchestrator.routeDeclined(id);
@@ -450,7 +485,9 @@ export const communityIssueRoutes: FastifyPluginAsync<CommunityIssuesRoutesOptio
     // Cloud R11 P1: routeAccepted() may auto-create a thread (assignedThreadId) when
     // no threadId is supplied in the request body. Re-read the store to resolve the
     // actual thread ID so case.routed is always emitted for accepted cases.
-    let resolvedThreadId = result.data.threadId ?? undefined;
+    // C3.1 Cloud P2: use effectiveThreadId (which incorporates routeRecommendation)
+    // instead of raw result.data.threadId, so case.routed/tracking align with actual routing.
+    let resolvedThreadId = effectiveThreadId;
     if (result.data.decision === 'accepted' && !resolvedThreadId) {
       resolvedThreadId = (await communityIssueStore.get(id))?.assignedThreadId ?? undefined;
     }
