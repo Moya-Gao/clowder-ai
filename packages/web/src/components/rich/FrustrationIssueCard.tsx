@@ -10,6 +10,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { RichCardBlock } from '@/stores/chat-types';
 import { apiFetch } from '@/utils/api-client';
+import { CafeIcon } from './CafeIcons';
 
 interface FrustrationIssueCardProps {
   block: RichCardBlock;
@@ -48,6 +49,17 @@ export function isFrustrationIssueCardBlock(block: RichCardBlock, messageSource?
 
 function extractIssueId(block: RichCardBlock): string | null {
   return (block.meta as { issueId?: string } | undefined)?.issueId ?? null;
+}
+
+/** F225 猫猫化: signalType 透传 → user_report 用 megaphone，其余用 search（CafeIcon SVG）。 */
+function frustrationIconName(block: RichCardBlock): string {
+  const signalType = (block.meta as { signalType?: string } | undefined)?.signalType;
+  return signalType === 'user_report' ? 'megaphone' : 'search';
+}
+
+/** 剥离历史消息 title 的 🔍/📢 emoji 前缀（后端已停止生成，兼容旧卡片）。 */
+function displayFrustrationTitle(title: string): string {
+  return title.replace(/^(?:📢|🔍)\s*/u, '');
 }
 
 /** Status badge label for resolved states. */
@@ -183,8 +195,8 @@ export function FrustrationIssueCard({ block }: FrustrationIssueCardProps) {
         onClick={() => setCollapsed(false)}
         className="flex w-full items-center gap-2 rounded-lg border border-cafe/20 bg-cafe-surface/30 px-3 py-2 text-left text-sm transition hover:bg-cafe-surface/50"
       >
-        <span className="text-base">🔍</span>
-        <span className="flex-1 truncate text-cafe-muted">{block.title}</span>
+        <CafeIcon name={frustrationIconName(block)} className="h-4 w-4 shrink-0 text-cafe-muted" />
+        <span className="flex-1 truncate text-cafe-muted">{displayFrustrationTitle(block.title)}</span>
         <span className={`rounded px-2 py-0.5 text-xs ${resolvedBadgeClass(status)}`}>{resolvedLabel(status)}</span>
         <span className="text-xs text-cafe-muted/50">▸</span>
       </button>
@@ -197,8 +209,8 @@ export function FrustrationIssueCard({ block }: FrustrationIssueCardProps) {
     >
       {/* Header */}
       <div className="mb-2 flex items-center gap-2">
-        <span className="text-lg">🔍</span>
-        <span className="font-medium text-cafe-text">{block.title}</span>
+        <CafeIcon name={frustrationIconName(block)} className="h-[18px] w-[18px] shrink-0 text-amber-700" />
+        <span className="font-medium text-cafe-text">{displayFrustrationTitle(block.title)}</span>
         {isResolved && (
           <>
             <span className={`ml-auto rounded px-2 py-0.5 text-xs ${resolvedBadgeClass(status)}`}>

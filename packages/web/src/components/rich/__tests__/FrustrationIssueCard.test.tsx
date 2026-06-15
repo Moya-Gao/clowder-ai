@@ -84,6 +84,39 @@ describe('FrustrationIssueCard', () => {
     expect(vi.mocked(apiFetch)).toHaveBeenCalledWith('/api/frustration-issues/fi_test_status/status');
   });
 
+  // F225 猫猫化: header icon 按 signalType 选 megaphone/search SVG（替代 🔍/📢 emoji）+ 剥离 title 前缀
+  it('user_report card renders megaphone SVG and strips 📢', async () => {
+    vi.mocked(apiFetch).mockResolvedValue(okJson({ issue: { issueId: 'fi_ur', status: 'draft' } }));
+    const block = {
+      ...issueBlock,
+      title: '📢 你的问题反馈',
+      meta: { kind: 'frustration_auto_issue', issueId: 'fi_ur', signalType: 'user_report' },
+    };
+    await act(async () => {
+      root.render(<FrustrationIssueCard block={block} />);
+    });
+    expect(container.textContent).not.toContain('📢');
+    expect(container.textContent).toContain('你的问题反馈');
+    const d = container.querySelector('svg path')?.getAttribute('d') ?? '';
+    expect(d).toContain('m3 11 18-5'); // megaphone signature
+  });
+
+  it('auto-detect card renders search SVG and strips 🔍', async () => {
+    vi.mocked(apiFetch).mockResolvedValue(okJson({ issue: { issueId: 'fi_auto', status: 'draft' } }));
+    const block = {
+      ...issueBlock,
+      title: '🔍 我注意到刚才可能出了问题',
+      meta: { kind: 'frustration_auto_issue', issueId: 'fi_auto', signalType: 'cli_error' },
+    };
+    await act(async () => {
+      root.render(<FrustrationIssueCard block={block} />);
+    });
+    expect(container.textContent).not.toContain('🔍');
+    expect(container.textContent).toContain('我注意到刚才可能出了问题');
+    const d = container.querySelector('svg path')?.getAttribute('d') ?? '';
+    expect(d).toContain('M21 21l-6-6'); // search signature
+  });
+
   it('ignores stale draft hydration after a local confirm action resolves', async () => {
     let resolveStatus!: (response: Response) => void;
     const statusPromise = new Promise<Response>((resolve) => {

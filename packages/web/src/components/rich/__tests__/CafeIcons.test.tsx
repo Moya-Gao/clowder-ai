@@ -28,7 +28,7 @@ describe('CafeIcons — F225 SVG coverage to retire rich-block emoji', () => {
   it('exposes the system-semantic icons that replace card emoji (📥 📌 ☑ ☐)', () => {
     // inbox ← 📥 (propose-thread title), pin ← 📌 (pin-on-approve),
     // square / check-square ← ☐ / ☑ (checklist items)
-    for (const name of ['inbox', 'pin', 'square', 'check-square']) {
+    for (const name of ['inbox', 'pin', 'square', 'check-square', 'megaphone']) {
       expect(cafeIconNames).toContain(name);
     }
   });

@@ -103,11 +103,13 @@ export function buildFrustrationIssueCard(issue: FrustrationIssue): RichCardBloc
     id: `frustration-${issue.issueId}`,
     kind: 'card',
     v: 1,
-    title: issue.signalType === 'user_report' ? '📢 你的问题反馈' : '🔍 我注意到刚才可能出了问题',
+    // F225 猫猫化: title 去掉 emoji 前缀（前端按 meta.signalType 渲染 megaphone/search SVG）。
+    title: issue.signalType === 'user_report' ? '你的问题反馈' : '我注意到刚才可能出了问题',
     bodyMarkdown: buildBodyMarkdown(issue),
     tone: 'warning',
     fields: buildSignalFields(issue),
-    meta: { kind: 'frustration_auto_issue', issueId: issue.issueId },
+    // signalType 透传给前端选 icon：user_report → megaphone，其余 → search。
+    meta: { kind: 'frustration_auto_issue', issueId: issue.issueId, signalType: issue.signalType },
   };
 }
 
