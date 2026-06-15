@@ -89,14 +89,20 @@ function globalSkillMountPolicy(
   const cap = findCatCafeSkillCapability(config, skillName);
   if (!cap) return null;
   if (Array.isArray(cap.mountPaths)) return new Set(cap.mountPaths);
-  return cap.enabled ? new Set(enabledSkillMountTargetIds(rules)) : new Set();
+  return (cap.globalEnabled ?? cap.enabled) ? new Set(enabledSkillMountTargetIds(rules)) : new Set();
 }
 
 async function readDisabledCatCafeSkillNames(projectRoot: string): Promise<Set<string>> {
   const config = await readCapabilitiesConfig(projectRoot);
   return new Set(
     config?.capabilities
-      .filter((cap) => cap.type === 'skill' && cap.source === 'cat-cafe' && !cap.pluginId && cap.enabled === false)
+      .filter(
+        (cap) =>
+          cap.type === 'skill' &&
+          cap.source === 'cat-cafe' &&
+          !cap.pluginId &&
+          (cap.globalEnabled ?? cap.enabled) === false,
+      )
       .map((cap) => cap.id) ?? [],
   );
 }
@@ -111,14 +117,19 @@ function ensureDisabledSkillPolicy(config: CapabilitiesConfig, skillName: string
       type: 'skill',
       source: 'cat-cafe',
       enabled: false,
+      globalEnabled: false,
       mountPaths: [],
     });
     return true;
   }
 
-  const dirty = existing.enabled !== false || !Array.isArray(existing.mountPaths) || existing.mountPaths.length > 0;
+  const dirty =
+    (existing.globalEnabled ?? existing.enabled) !== false ||
+    !Array.isArray(existing.mountPaths) ||
+    existing.mountPaths.length > 0;
   existing.source = 'cat-cafe';
   existing.enabled = false;
+  existing.globalEnabled = false;
   existing.mountPaths = [];
   return dirty;
 }

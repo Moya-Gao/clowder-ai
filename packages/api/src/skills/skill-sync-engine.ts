@@ -143,6 +143,8 @@ export async function syncProject(
     (cap) => cap.type === 'skill' && cap.source === 'cat-cafe' && !cap.pluginId && isValidSkillName(cap.id),
   );
   const previousNames = managedCaps.map((cap) => cap.id);
+  // F228: Use `enabled` (per-config project intent) for local disabled check.
+  // `globalEnabled` is the global state used by syncAll for cascade — not here.
   const configDisabledSet = new Set(managedCaps.filter((cap) => !cap.enabled).map((cap) => cap.id));
   const configMountPaths = new Map(
     managedCaps.flatMap((cap) => (Array.isArray(cap.mountPaths) ? [[cap.id, [...cap.mountPaths]] as const] : [])),

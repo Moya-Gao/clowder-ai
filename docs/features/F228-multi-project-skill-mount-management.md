@@ -105,9 +105,9 @@ Close the loop between the shipped UI/API behavior and ADR-025: document the fin
 
 ```
 capabilities.json v2
-├─ capabilities[]          # skill 列表
-│   ├─ enabled             # skill 级开关（用户/级联操作）
-│   ├─ mountPaths          # 目标挂载策略（声明该 skill 应挂载到哪些挂载点）
+├─ capabilities[]          # skill/mcp/limb 列表
+│   ├─ enabled             # 全局开关（全局 scope 操作写入；项目 scope 不修改此字段）
+│   ├─ mountPaths          # [skill only] 目标挂载策略（声明该 skill 应挂载到哪些挂载点）
 │   ├─ source              # "cat-cafe" | "external"
 │   └─ type, id, ...
 ├─ skillsSync              # 源同步追踪
@@ -116,6 +116,8 @@ capabilities.json v2
 └─ mountRules              # 挂载点配置（哪些挂载点启用）
     └─ MountRuleEntry[]    # 标准 + 自定义挂载点
 ```
+
+**`enabled` 字段语义澄清**：`CapabilityEntry.enabled` 是**全局**开关，适用于所有 capability 类型（mcp/skill/limb/schedule）。对 MCP 来说语义直白——全局启禁用。对 skill 来说，项目 scope 的启禁用状态由 `mountPaths` 派生，不读/不写 `enabled`（详见下方 mountPaths 状态模型）。
 
 文件系统 symlinks（`.claude/skills/xxx`、`.codex/skills/xxx` 等）是 capabilities.json 的**派生状态**，每次操作后同步。
 
@@ -133,10 +135,12 @@ capabilities.json v2
 |---|------|---------|
 | `['claude','codex','gemini','kimi']` | skill 挂载到了这 4 个挂载点 | true |
 | `['claude','kimi']` | skill 只挂载到 claude 和 kimi | true |
-| `[]` + `enabled: false` | skill 被用户/级联禁用，无挂载 | false |
+| `[]` + `enabled: false` | skill 被全局/级联禁用，无挂载 | false |
 | `[]` + `enabled: true` | 所有挂载点均被禁用，skill 本身未禁用 | true |
 
 **不再使用 `mountPaths: undefined`**——每个 managed skill 必须有明确的挂载点列表。
+
+**项目维度显示由 mountPaths 派生**：项目 scope 下的 skill 启禁用状态 = `mountPaths.length > 0`，不读取 `enabled`。这解决了 catCafeRoot capabilities.json 同时承担全局配置和项目配置的双重角色问题——项目 scope 的 toggle 只操作 mountPaths，不修改 enabled，避免"项目禁用 = 全局禁用"的歧义。
 
 **`enabled: true` + `mountPaths: []` 的读路径行为**：当所有挂载点均被禁用时，读路径（`resolveCapabilityMountPolicy`、drift 检测、skills 列表）将此状态视为"实际不可用"（等效 disabled）。这是合理的预期行为——skill 本身未被用户禁用，但因无可用挂载点而无法生效。当挂载点重新启用时，`restoreNewlyEnabledMountPoints()` 自动恢复挂载，skill 恢复为可用状态。
 
@@ -147,10 +151,10 @@ capabilities.json v2
 | # | 操作 | mountPaths 变化 | enabled |
 |---|------|----------------|---------|
 | 1 | 新项目 sync，skill 首次挂载 | → 当前项目所有可用挂载点 | true |
-| 2 | 用户禁用 skill 在某个挂载点 | 移除该挂载点 | true |
-| 3 | 用户启用 skill 在某个挂载点 | 加上该挂载点 | true |
-| 4 | 项目下禁用 skill | → `[]` | false |
-| 5 | 项目下启用 skill | → 当前项目所有可用挂载点 | true |
+| 2 | 用户禁用 skill 在某个挂载点 | 移除该挂载点 | 不变 |
+| 3 | 用户启用 skill 在某个挂载点 | 加上该挂载点 | 不变 |
+| 4 | 项目下禁用 skill | → `[]` | 不变 |
+| 5 | 项目下启用 skill | → 当前项目所有可用挂载点 | 不变 |
 
 #### 全局 Skill 级联
 

@@ -72,6 +72,7 @@ export async function updateSkillMountPaths(
     if (isCatCafeSkill(cap) && nameSet.has(cap.id)) {
       if (resolvedEnabled !== undefined) {
         cap.enabled = resolvedEnabled;
+        cap.globalEnabled = resolvedEnabled;
         cap.mountPaths = [...providerNames];
       }
       nameSet.delete(cap.id);

@@ -102,13 +102,13 @@ describe('scanProviderSkillDirs', () => {
 });
 
 describe('shouldPropagateManagedSkillToggle', () => {
-  it('propagates global toggles and main-project project toggles only', async () => {
+  it('propagates global toggles only, never project scope', async () => {
     const { shouldPropagateManagedSkillToggle } = await import('../dist/routes/capabilities.js');
     const mainRoot = '/repo/main';
     const externalRoot = '/repo/external';
 
     assert.equal(shouldPropagateManagedSkillToggle('global', true, mainRoot, mainRoot), true);
-    assert.equal(shouldPropagateManagedSkillToggle('project', true, mainRoot, mainRoot), true);
+    assert.equal(shouldPropagateManagedSkillToggle('project', true, mainRoot, mainRoot), false);
     assert.equal(shouldPropagateManagedSkillToggle('project', true, externalRoot, mainRoot), false);
     assert.equal(shouldPropagateManagedSkillToggle('project', false, mainRoot, mainRoot), false);
     assert.equal(shouldPropagateManagedSkillToggle('cat', true, mainRoot, mainRoot), false);
@@ -3550,7 +3550,8 @@ describe('PATCH /api/capabilities write auth (Fastify)', () => {
     }
   });
 
-  it('propagates main-project project skill disables to registered external projects', async () => {
+  it('does not propagate main-project project skill disables to registered external projects', async () => {
+    // Project scope NEVER cascades — only global scope does.
     const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
     const previousHome = process.env.HOME;
     const previousCwd = process.cwd();
@@ -3627,12 +3628,12 @@ describe('PATCH /api/capabilities write auth (Fastify)', () => {
       assert.equal(mainSkill?.enabled, false);
       assert.deepEqual(mainSkill?.mountPaths, []);
 
-      // F228 redesign: cascade respects project-configured skills. The external
-      // project has enabled:true in its own config, so cascade does NOT override it.
-      // The mount stays because the skill remains locally enabled.
+      // Project scope NEVER cascades — external project is completely untouched
       const externalConfig = await readCapabilitiesConfig(externalDir);
       const externalSkill = externalConfig?.capabilities.find((cap) => cap.type === 'skill' && cap.id === skillId);
-      assert.equal(externalSkill?.enabled, true, 'project-configured skill not overridden by cascade');
+      assert.equal(externalSkill?.enabled, true, 'external project untouched — no cascade for project scope');
+      assert.deepEqual(externalSkill?.mountPaths, ['claude'], 'external mountPaths untouched — no cascade');
+      assert.equal((await lstat(externalLink)).isSymbolicLink(), true, 'external symlink preserved — no cascade');
     } finally {
       await app.close();
       process.chdir(previousCwd);

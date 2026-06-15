@@ -53,7 +53,9 @@ export async function syncAll(catCafeRoot: string, skillsSource: string, opts: S
   const mainManagedCaps =
     mainConfig?.capabilities.filter((cap) => cap.type === 'skill' && cap.source === 'cat-cafe' && !cap.pluginId) ?? [];
 
-  const globalDisabledSkills = new Set(mainManagedCaps.filter((cap) => !cap.enabled).map((cap) => cap.id));
+  const globalDisabledSkills = new Set(
+    mainManagedCaps.filter((cap) => !(cap.globalEnabled ?? cap.enabled)).map((cap) => cap.id),
+  );
   for (const name of opts.globalDisabledSkills ?? []) globalDisabledSkills.add(name);
 
   const globalMountPathsBySkill = new Map(

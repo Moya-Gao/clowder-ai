@@ -184,7 +184,7 @@ export function composeSkillItems(governance: SkillsData, capabilityItems: Capab
       controls: cap
         ? {
             source: cap.source,
-            enabled: cap.enabled,
+            enabled: cap.globalEnabled ?? cap.enabled,
             cats: cap.cats ?? {},
             canToggle: true,
           }

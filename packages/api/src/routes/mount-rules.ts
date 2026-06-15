@@ -158,7 +158,7 @@ export const mountRulesRoutes: FastifyPluginAsync<MountRulesRouteOptions> = asyn
       const globalManagedCaps =
         globalConfig?.capabilities.filter((c) => c.type === 'skill' && c.source === 'cat-cafe' && !c.pluginId) ?? [];
       for (const cap of globalManagedCaps) {
-        if (!cap.enabled) cascadeDisabled.add(cap.id);
+        if (!(cap.globalEnabled ?? cap.enabled)) cascadeDisabled.add(cap.id);
       }
       const mountMap = new Map<string, readonly string[]>();
       for (const cap of globalManagedCaps) {

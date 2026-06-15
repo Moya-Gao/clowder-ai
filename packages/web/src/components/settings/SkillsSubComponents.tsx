@@ -49,7 +49,7 @@ export function SkillRow({
   const isGlobalToggling = toggling === skill.id;
   const isMountExpanded = expandedMounts === skill.id;
   const isProject = scope === SCOPE_PROJECT;
-  const effectiveEnabled = skill.controls?.enabled ?? false;
+  const effectiveEnabled = isProject ? (skill.mountPaths?.length ?? 0) > 0 : (skill.controls?.enabled ?? false);
   const toggleTitle = `${isProject ? '项目' : '全局'}${effectiveEnabled ? '禁用' : '启用'}`;
   const ss = syncSummary;
   const syncLabel = !ss

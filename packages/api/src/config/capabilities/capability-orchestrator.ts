@@ -533,10 +533,20 @@ export async function readCapabilitiesConfig(projectRoot: string): Promise<Capab
     const raw = await readFile(filePath, 'utf-8');
     const data = JSON.parse(raw) as CapabilitiesConfig;
     if ((data.version !== 1 && data.version !== 2) || !Array.isArray(data.capabilities)) return null;
+    let config: CapabilitiesConfig;
     if (data.version === 1) {
-      return migrateCapabilitiesV1ToV2(projectRoot, data, await resolveCatCafeSkillsSource());
+      config = await migrateCapabilitiesV1ToV2(projectRoot, data, await resolveCatCafeSkillsSource());
+    } else {
+      config = data;
     }
-    return data;
+    // F228: Fill globalEnabled for skill entries that lack it (field migration).
+    // MCP/limb/schedule entries are left untouched — they still use `enabled`.
+    for (const cap of config.capabilities) {
+      if (cap.type === 'skill' && cap.globalEnabled === undefined) {
+        cap.globalEnabled = cap.enabled;
+      }
+    }
+    return config;
   } catch {
     return null;
   }
@@ -561,6 +571,23 @@ export async function migrateAndPersistCapabilities(projectRoot: string): Promis
         console.warn(`[capabilities] Failed to persist v1->v2 migration for ${projectRoot}: ${(err as Error).message}`);
       }
       return migrated;
+    }
+    // F228: Fill globalEnabled for skill entries that lack it (field migration).
+    let needsPersist = false;
+    for (const cap of data.capabilities) {
+      if (cap.type === 'skill' && cap.globalEnabled === undefined) {
+        cap.globalEnabled = cap.enabled;
+        needsPersist = true;
+      }
+    }
+    if (needsPersist) {
+      try {
+        await writeCapabilitiesConfig(projectRoot, data);
+      } catch (err) {
+        console.warn(
+          `[capabilities] Failed to persist globalEnabled migration for ${projectRoot}: ${(err as Error).message}`,
+        );
+      }
     }
     return data;
   } catch {

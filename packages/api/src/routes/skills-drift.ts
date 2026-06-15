@@ -102,7 +102,7 @@ export function readCatCafeSkillMountPolicy(config: CapabilitiesConfig | null | 
       } else {
         disabledSkills.push(cap.id);
       }
-    } else if (cap.enabled === false) {
+    } else if ((cap.globalEnabled ?? cap.enabled) === false) {
       disabledSkills.push(cap.id);
     }
   }

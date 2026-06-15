@@ -234,6 +234,7 @@ export async function addSkill(
   const existing = findSkillEntry(config.capabilities, capId, pluginId);
   if (existing) {
     existing.enabled = enabled;
+    existing.globalEnabled = enabled;
     if (opts.mountPaths) existing.mountPaths = [...opts.mountPaths];
   } else {
     config.capabilities.push({
@@ -272,6 +273,7 @@ export async function removeSkill(
     const existing = findSkillEntry(config.capabilities, capId, pluginId);
     if (existing) {
       existing.enabled = false;
+      existing.globalEnabled = false;
       existing.mountPaths = [];
       await writeCapabilitiesConfig(projectRoot, config);
     }

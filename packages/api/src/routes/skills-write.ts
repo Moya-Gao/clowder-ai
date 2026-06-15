@@ -80,7 +80,7 @@ export const skillsWriteRoutes: FastifyPluginAsync<SkillsWriteRouteOptions> = as
     const globalMountPaths = new Map<string, readonly string[]>();
     for (const cap of globalConfig?.capabilities ?? []) {
       if (cap.type !== 'skill' || cap.source !== 'cat-cafe' || cap.pluginId) continue;
-      if (!cap.enabled) cascadeDisabled.add(cap.id);
+      if (!(cap.globalEnabled ?? cap.enabled)) cascadeDisabled.add(cap.id);
       if (Array.isArray(cap.mountPaths)) globalMountPaths.set(cap.id, cap.mountPaths);
     }
 
@@ -192,7 +192,7 @@ export const skillsWriteRoutes: FastifyPluginAsync<SkillsWriteRouteOptions> = as
     const globalMountPaths = new Map<string, readonly string[]>();
     for (const cap of globalConfig?.capabilities ?? []) {
       if (cap.type !== 'skill' || cap.source !== 'cat-cafe' || cap.pluginId) continue;
-      if (!cap.enabled) cascadeDisabled.add(cap.id);
+      if (!(cap.globalEnabled ?? cap.enabled)) cascadeDisabled.add(cap.id);
       if (Array.isArray(cap.mountPaths)) globalMountPaths.set(cap.id, cap.mountPaths);
     }
 

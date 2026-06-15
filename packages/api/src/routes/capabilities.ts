@@ -81,7 +81,8 @@ function enabledMountTargetIds(rules: MountRules): string[] {
 
 function currentSkillMountTargetIds(cap: CapabilityEntry, rules: MountRules): string[] {
   if (Array.isArray(cap.mountPaths)) return cap.mountPaths;
-  return cap.enabled ? enabledMountTargetIds(rules) : [];
+  const isEnabled = cap.globalEnabled ?? cap.enabled;
+  return isEnabled ? enabledMountTargetIds(rules) : [];
 }
 
 function findCatCafeSkillCapability(
@@ -99,13 +100,19 @@ function createCatCafeSkillCapabilityFromGlobalPolicy(
   skillId: string,
   globalCap: CapabilityEntry | null,
 ): CapabilityEntry {
-  const entry: CapabilityEntry = { id: skillId, type: 'skill', enabled: true, source: 'cat-cafe' };
+  const globalEnabled = globalCap ? (globalCap.globalEnabled ?? globalCap.enabled) : true;
+  const entry: CapabilityEntry = {
+    id: skillId,
+    type: 'skill',
+    enabled: globalEnabled,
+    globalEnabled,
+    source: 'cat-cafe',
+  };
   if (!globalCap) return entry;
-  entry.enabled = globalCap.enabled;
   // P2: Only copy mountPaths for disabled skills (empty array = disabled state signal).
   // Do NOT copy non-empty mountPaths — that would freeze specific provider policy
   // as a project-level override, preventing future global cascade changes.
-  if (!globalCap.enabled) {
+  if (!globalEnabled) {
     entry.mountPaths = [];
   }
   return entry;
@@ -282,12 +289,13 @@ export async function buildKnownProjectPaths(
 export function shouldPropagateManagedSkillToggle(
   scope: 'global' | 'project',
   shouldWritebackManagedSkill: boolean,
-  projectRoot: string,
-  catCafeRoot: string,
+  _projectRoot: string,
+  _catCafeRoot: string,
 ): boolean {
   if (!shouldWritebackManagedSkill) return false;
-  if (scope === 'global') return true;
-  return scope === 'project' && pathsEqual(projectRoot, catCafeRoot);
+  // F228: Only global scope cascades. Project scope (even on catCafeRoot) only
+  // modifies mountPaths — it never changes globalEnabled, so no cascade needed.
+  return scope === 'global';
 }
 
 function canReadSensitiveMcpConfig(request: FastifyRequest): boolean {
@@ -770,14 +778,15 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
         const presentForProvider = (providerSkills[provider] ?? []).includes(cap.id);
         if (!presentForProvider) continue; // Sparse cats: omit irrelevant cats so frontend filter works
         const override = cap.overrides?.find((o) => o.catId === catId);
-        const enabled = override ? override.enabled : cap.enabled;
+        const enabled = override ? override.enabled : (cap.globalEnabled ?? cap.enabled);
         cats[catId] = enabled;
       }
       const skillItem: CapabilityBoardItem = {
         id: cap.id,
         type: 'skill',
         source: cap.source,
-        enabled: cap.enabled,
+        enabled: cap.globalEnabled ?? cap.enabled,
+        globalEnabled: cap.globalEnabled ?? cap.enabled,
         cats,
         layer: cap.source === 'external' ? 'L3' : 'L2',
         pluginId: cap.pluginId,
@@ -1053,10 +1062,10 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
         }
       }
 
-      // Update config: cap.enabled + mountPaths
+      // Update config: globalEnabled (skill) / enabled (mcp) + mountPaths
       if (body.scope === 'global' || body.scope === 'project') {
         if (body.providerId && shouldWritebackManagedSkill) {
-          // Per-provider toggle: validate + update mountPaths, derive cap.enabled
+          // Per-provider toggle: validate + update mountPaths
           const mountRules = await readMountRules(projectRoot, getProjectRoot());
           const validProviders = new Set<string>([
             ...STANDARD_PROVIDER_IDS.filter((id) => mountRules.providers[id].enabled),
@@ -1070,14 +1079,25 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
           cap.mountPaths = body.enabled
             ? [...new Set([...current, body.providerId])]
             : current.filter((p) => p !== body.providerId);
-          cap.enabled = (cap.mountPaths ?? []).length > 0;
-        } else {
-          // Whole-skill toggle
-          cap.enabled = body.enabled;
-          if (shouldWritebackManagedSkill) {
-            const mountRules = await readMountRules(projectRoot, getProjectRoot());
-            cap.mountPaths = body.enabled ? enabledMountTargetIds(mountRules) : [];
+          // F228: enabled = per-config intent (sync engine reads this).
+          // globalEnabled = global state (only global scope changes it).
+          const derived = (cap.mountPaths ?? []).length > 0;
+          cap.enabled = derived;
+          if (body.scope === 'global') {
+            cap.globalEnabled = derived;
           }
+        } else if (shouldWritebackManagedSkill) {
+          // Whole-skill toggle (skill)
+          cap.enabled = body.enabled;
+          if (body.scope === 'global') {
+            cap.globalEnabled = body.enabled;
+          }
+          // Both scopes update mountPaths
+          const mountRules = await readMountRules(projectRoot, getProjectRoot());
+          cap.mountPaths = body.enabled ? enabledMountTargetIds(mountRules) : [];
+        } else {
+          // Non-skill (MCP/limb): write enabled as before
+          cap.enabled = body.enabled;
         }
       } else {
         // scope === 'cat' (MCP only — skills already rejected above)
@@ -1114,7 +1134,7 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
           const disabled = new Set<string>();
           const mountMap = new Map<string, readonly string[]>();
           for (const gc of globalManagedCaps) {
-            if (!gc.enabled) disabled.add(gc.id);
+            if (!(gc.globalEnabled ?? gc.enabled)) disabled.add(gc.id);
             if (Array.isArray(gc.mountPaths)) mountMap.set(gc.id, gc.mountPaths);
           }
           if (disabled.size > 0) cascadeDisabledSkills = disabled;

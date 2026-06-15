@@ -111,6 +111,7 @@ describe('Skills sync state (F228)', () => {
       id: 'debugging',
       type: 'skill',
       enabled: true,
+      globalEnabled: true,
       source: 'cat-cafe',
       mountPaths: ['claude'],
     });
@@ -118,6 +119,7 @@ describe('Skills sync state (F228)', () => {
       id: 'worktree',
       type: 'skill',
       enabled: true,
+      globalEnabled: true,
       source: 'cat-cafe',
       mountPaths: ['codex'],
     });
@@ -129,6 +131,7 @@ describe('Skills sync state (F228)', () => {
       id: 'tdd',
       type: 'skill',
       enabled: true,
+      globalEnabled: true,
       source: 'cat-cafe',
       mountPaths: [],
     });
@@ -152,6 +155,7 @@ describe('Skills sync state (F228)', () => {
       id: 'debugging',
       type: 'skill',
       enabled: false,
+      globalEnabled: false,
       source: 'cat-cafe',
       mountPaths: [],
     });
@@ -159,6 +163,7 @@ describe('Skills sync state (F228)', () => {
       id: 'tdd',
       type: 'skill',
       enabled: false,
+      globalEnabled: false,
       source: 'cat-cafe',
       mountPaths: [],
     });

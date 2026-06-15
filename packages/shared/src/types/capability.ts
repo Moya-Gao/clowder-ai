@@ -51,8 +51,14 @@ export interface CapabilityEntry {
   id: string;
   /** Type of capability (F126: 'limb' for device/hardware nodes; F202 Phase 2: 'schedule' for plugin-managed tasks) */
   type: 'mcp' | 'skill' | 'limb' | 'schedule';
-  /** Global enabled state */
+  /** Global enabled state (MCP/limb/schedule still use this; skill uses globalEnabled) */
   enabled: boolean;
+  /**
+   * F228: Global enabled state for skills. Skill code reads/writes this field exclusively.
+   * MCP/limb/schedule continue using `enabled` until their migration.
+   * Migration: startup fills this from `enabled` for skill entries that lack it.
+   */
+  globalEnabled?: boolean;
   /** Per-cat overrides (only stores differences from global; MCP only — not applicable to skills) */
   overrides?: CatCapabilityOverride[];
   /** MCP server descriptor (only for type: 'mcp') */
@@ -133,6 +139,8 @@ export interface CapabilityBoardItem {
   type: 'mcp' | 'skill' | 'limb';
   source: 'cat-cafe' | 'external';
   enabled: boolean;
+  /** F228: Global enabled for skills (mirrors CapabilityEntry.globalEnabled in board response) */
+  globalEnabled?: boolean;
   /** Per-cat effective state (global + overrides resolved) */
   cats: Record<string, boolean>;
   /** Description if available */

@@ -69,7 +69,7 @@ async function populateSkillMountPaths(
   for (const cap of config.capabilities) {
     if (cap.type !== 'skill' || cap.source !== 'cat-cafe' || cap.pluginId || cap.mountPaths !== undefined) continue;
     // Disabled skills get empty mountPaths — don't backfill stale symlinks (P2 data invariant)
-    if (cap.enabled === false) {
+    if ((cap.globalEnabled ?? cap.enabled) === false) {
       cap.mountPaths = [];
       continue;
     }

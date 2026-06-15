@@ -94,7 +94,13 @@ async function loadDisabledCatCafeSkillNames(projectRoot: string): Promise<Set<s
   const config = await readCapabilitiesConfig(projectRoot);
   return new Set(
     config?.capabilities
-      .filter((cap) => cap.type === 'skill' && cap.source === 'cat-cafe' && !cap.pluginId && cap.enabled === false)
+      .filter(
+        (cap) =>
+          cap.type === 'skill' &&
+          cap.source === 'cat-cafe' &&
+          !cap.pluginId &&
+          (cap.globalEnabled ?? cap.enabled) === false,
+      )
       .map((cap) => cap.id) ?? [],
   );
 }
@@ -107,7 +113,7 @@ function collectCatCafeSkillPolicy(
     if (cap.type !== 'skill' || cap.source !== 'cat-cafe' || cap.pluginId) continue;
     lookup.set(cap.id, {
       source: 'cat-cafe',
-      enabled: cap.enabled,
+      enabled: cap.globalEnabled ?? cap.enabled,
       mountPaths: cap.mountPaths,
     });
   }
