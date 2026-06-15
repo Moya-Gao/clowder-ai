@@ -11,6 +11,7 @@ import { kickTeleportResolve, planTeleport } from '@/utils/teleport';
 import { useGlobalArtifacts } from '../hooks/useGlobalArtifacts';
 import { useThreadArtifacts } from '../hooks/useThreadArtifacts';
 import { ArtifactDetailView } from './artifacts/ArtifactDetailView';
+import { extractCatChips, filterByCat } from './artifacts/artifact-filters';
 import type { ArtifactGroup, GroupingMode } from './artifacts/artifact-grouping';
 import { groupArtifacts } from './artifacts/artifact-grouping';
 import { artifactRowMeta, resolveAssetUrl } from './artifacts/artifact-view';
@@ -238,6 +239,8 @@ export function ArtifactsPanel({
 
   // F232 Phase B: grouping mode (only active in global scope)
   const [grouping, setGrouping] = useState<GroupingMode>('time');
+  // F232 Phase B: cat filter (null = show all, catId string = filter to that cat)
+  const [catFilter, setCatFilter] = useState<string | null>(null);
   // Track collapsed groups by stable id (not label — labels can collide, gpt52 P1)
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const toggleCollapse = useCallback(
@@ -257,6 +260,7 @@ export function ArtifactsPanel({
     setSelected(null);
     setFilter('all');
     setQ('');
+    setCatFilter(null);
     setCollapsed(new Set());
   }, [threadId, scope]);
 
@@ -277,9 +281,24 @@ export function ArtifactsPanel({
     [threadId],
   );
 
+  // F232 Phase B: resolve catId → display nickname (shared by grouping + cat filter)
+  const resolveNickname = useCallback((catId: string) => getCatById(catId)?.nickname, [getCatById]);
+
+  // F232 Phase B: apply cat filter first, then compute counts on the cat-filtered set
+  const catFiltered = useMemo(
+    () => (scope === 'global' ? filterByCat(artifacts as GlobalArtifactDTO[], catFilter) : artifacts),
+    [artifacts, catFilter, scope],
+  );
+
+  // F232 Phase B: cat chips derived from FULL artifacts (not filtered) so all cats are always visible
+  const catChips = useMemo(
+    () => (scope === 'global' ? extractCatChips(artifacts as GlobalArtifactDTO[], resolveNickname) : []),
+    [artifacts, resolveNickname, scope],
+  );
+
   const counts = useMemo(() => {
-    const c = { all: artifacts.length, image: 0, file: 0, codepr: 0, audio: 0, video: 0 };
-    for (const a of artifacts) {
+    const c = { all: catFiltered.length, image: 0, file: 0, codepr: 0, audio: 0, video: 0 };
+    for (const a of catFiltered) {
       if (a.type === 'image') c.image++;
       else if (a.type === 'file') c.file++;
       else if (a.type === 'audio') c.audio++;
@@ -287,15 +306,14 @@ export function ArtifactsPanel({
       else c.codepr++; // code | pr
     }
     return c;
-  }, [artifacts]);
+  }, [catFiltered]);
 
   const visible = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    return artifacts.filter((a) => inFilter(a, filter) && (!needle || a.name.toLowerCase().includes(needle)));
-  }, [artifacts, filter, q]);
+    return catFiltered.filter((a) => inFilter(a, filter) && (!needle || a.name.toLowerCase().includes(needle)));
+  }, [catFiltered, filter, q]);
 
   // F232 Phase B: compute grouped view (only meaningful in global scope)
-  const resolveNickname = useCallback((catId: string) => getCatById(catId)?.nickname, [getCatById]);
   const groups: ArtifactGroup[] = useMemo(() => {
     // Thread scope: flat list, no grouping (items typed as ThreadArtifactDTO but we
     // only access shared fields in the row renderer; cast is safe).
@@ -410,6 +428,40 @@ export function ArtifactsPanel({
                 );
               })}
             </div>
+            {/* F232 Phase B: Cat filter chips — only in global scope, when multiple cats */}
+            {scope === 'global' && catChips.length > 1 && (
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <span className="text-micro text-cafe-muted">猫:</span>
+                <button
+                  type="button"
+                  onClick={() => setCatFilter(null)}
+                  className={`rounded-full px-2 py-0.5 text-micro transition-colors ${
+                    catFilter === null
+                      ? 'bg-cafe-crosspost/15 font-semibold text-cafe-crosspost'
+                      : 'bg-cafe-surface-elevated text-cafe-muted hover:text-cafe-secondary'
+                  }`}
+                >
+                  全部
+                </button>
+                {catChips.map((chip) => {
+                  const on = catFilter === chip.catId;
+                  return (
+                    <button
+                      key={chip.catId}
+                      type="button"
+                      onClick={() => setCatFilter(on ? null : chip.catId)}
+                      className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-micro transition-colors ${
+                        on
+                          ? 'bg-cafe-crosspost/15 font-semibold text-cafe-crosspost'
+                          : 'bg-cafe-surface-elevated text-cafe-muted hover:text-cafe-secondary'
+                      }`}
+                    >
+                      {chip.label} {chip.count}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
             {/* F232 Phase B: Grouping chips — only in global scope */}
             {scope === 'global' && (
               <div className="mt-2 flex items-center gap-1.5">

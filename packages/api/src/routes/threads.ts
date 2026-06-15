@@ -772,7 +772,26 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> = async (ap
     );
 
     // Flatten + sort descending by createdAt
-    const all = perThread.flat().sort((a, b) => b.createdAt - a.createdAt);
+    let all = perThread.flat().sort((a, b) => b.createdAt - a.createdAt);
+
+    // F232 Phase B: server-side query param filtering (AC-B1)
+    const { type, cat, q } = request.query as { type?: string; cat?: string; q?: string };
+    if (type) {
+      all = all.filter((a) => a.type === type);
+    }
+    if (cat) {
+      // Normalize null catId → '—' sentinel (same as client-side extractCatChips)
+      all = all.filter((a) => (a.catId ?? '—') === cat);
+    }
+    if (q) {
+      // Normalize: Fastify may expose duplicate ?q= as array; take first element
+      const qStr = Array.isArray(q) ? q[0] : q;
+      if (typeof qStr === 'string') {
+        const lower = qStr.toLowerCase();
+        all = all.filter((a) => a.name && a.name.toLowerCase().includes(lower));
+      }
+    }
+
     return { artifacts: all, total: all.length };
   });
 
