@@ -26,7 +26,7 @@ Phase B = 前台猫从"能找、能跳、能看"升级为"能接线"：用户一
 
 | 组件 | 位置 | 状态 |
 |------|------|------|
-| CardBlock action handlers (teleport/go/peek/relay/propose_thread) | `CardBlock.tsx` | ✅ (propose_thread 新增于 B1) |
+| CardBlock action handlers (teleport/go/peek/relay) | `CardBlock.tsx` | ✅ |
 | `/api/concierge/relay` endpoint | `routes/concierge.ts` | ✅ |
 | `ConciergeRelayStore` (Redis, TTL=0) | `ConciergeRelayStore.ts` | ✅ |
 | `ConciergeConfirmationStore` (Redis, TTL=0) | `ConciergeConfirmationStore.ts` | ✅ |
@@ -101,12 +101,13 @@ failed → confirmed       用户重试（重新确认）
 
 TriagePlan intent `propose_thread` 的 click path：
 1. 用户确认 TriagePlan（intent=propose_thread, target.query="调查 XXX"）
-2. dispatch handler 调用 `cat_cafe_propose_thread(title, description)` MCP
-3. 后端返回 proposedThreadId → 写入 TriagePlan.result
-4. 前端展示"已提议开新调查"确认卡，含 [跳过去] 按钮（复用 teleport action）
-5. 铲屎官在 Hub 确认 → thread 创建
+2. confirm handler 调用 `ConciergeThreadService.createProposedThread(userId, query)` → 直接创建 thread（不走 F128 MCP proposal 流程——用户已在 TriagePlan 确认卡上做了决策，再加 Hub 提议审批卡 = 双重确认 UX 噪音）
+3. 后端返回 threadId → 写入 `TriagePlan.result.proposedThreadId`
+4. 前端收到 threadId → `pushThreadRouteWithHistory` 跳到新 thread
 
-**CardBlock 新增**：`propose_thread` action type → 调用 `/api/concierge/propose-thread` endpoint → 转发 MCP 调用。`ConciergeCardAction` 类型扩展为 `teleport | peek | relay | go | propose_thread`。
+**设计决策**：F128 `cat_cafe_propose_thread` 是 proposal-first（返回 `proposalId`，用户审批后才建 thread）。此处不复用该流程，因为 TriagePlan 确认卡本身就是审批行为——再走 proposal 卡片等于让用户审批两次同一件事。直接 `threadStore.create()` 即可。
+
+**CardBlock 新增**：`concierge_propose_thread` + `concierge_triage_confirm` + `concierge_triage_cancel` action types。`ConciergeCardAction` 类型扩展含三个新 variant。
 
 ### 3. Relay Receipt UX 收口
 
