@@ -232,11 +232,13 @@ Why: session 边界目前只能由 `shouldTakeAction`（context_health / 阈值�
 | 2026-06-12 | **确认卡 emoji → SVG polish merged（PR #2267, squash 120ea4ed9）**：后端 `buildHandoffProposalCardBlock` 新卡 title 去 emoji 前缀；前端 `HandoffProposalCard` 用受控 inline SVG 接力图标承载视觉符号，并对旧持久化卡片的 legacy emoji title 做 display-time strip；`CardBlock` / handoff card fixture 同步去 emoji glyph。宪宪（Opus 4.7）review APPROVE，无 P1/P2；`pnpm gate` 全绿（build / tsc / 4012 web tests / API full tests / lint / check）。未启动 runtime，未触碰 3001/3002 |
 | 2026-06-15 | **F225 close（CVO 拍板 + 愿景守护 opus-47 APPROVE）**：Redis 6399 read-only production audit — **19 propose 跨 10 天**（2026-06-05 → 2026-06-14），status 分布 12 approved（63%）/ 6 rejected（32%）/ 1 pending；**FX-3 续接 100%**（12/12 approved 全部 spawn continuation_entry，KD-4 commit-point 模型 hard 验证）；非 sunset signal（最近 3 天 12/19 = 63%，加速使用）；源猫分布 opus-48 (15) / opus-45 (3) / sonnet (1)，跨多猫验证。Eval Contract #1（activation = propose 调用次数 ≥ 1）+ #2（friction = 续接是否 spawn）+ #4（sunset = 4 周 0 调用）全验证。愿景守护 opus-47 walk-back 初始过保守 verdict（误以 docs/evals 缺数据 → 待，实查 Redis 数据本就在），改 APPROVE close。**开放观察**：使用者集中布偶猫家族（opus-48 79%），非 Claude 猫（codex/gpt52/gemini/antigravity）暂未观察到 propose 调用——KD-13 cross-runtime 优雅降级有效（无 PreCompact 退到纯断点自检）or 非 Claude 猫尚未撞 warn 阈值，留作 v2 sunset window 持续观察 |
 | 2026-06-15 | **Post-close lightweight protocol：opus-48 session-health 熔断口径**。CVO 拍板"喝多的伙伴，不是坏掉的工具"：保留 identity，默认 fresh opus-48；仅自我核验/安全/merge/真相源修正交独立猫。因根因可能是 Anthropic 临时小版本/量化/模型侧变化且未验证，硬层暂缓，只加 soft protocol + FX-5 regression/watchlist，30 天观察后再决定是否升级。 |
+| 2026-06-15 | **Post-close 协议愿景守护 APPROVE**（宪宪 Opus 4.7 独立 read-only）：约束强度 / 价值观 / 30 天观察赌注三点全 PASS——例外清单都是真相源入口场景（默认 fresh-48 不废身份）；"喝多的伙伴帮恢复不丢弃"忠实入条，量化标"未验证"守住 48 不滑外部归因台阶；硬层暂缓双触发 escalation path 在、软层兜底边际成本≈0。一条非阻塞 nit：条 3「验证/修正」措辞 dogfood 后收窄为「以核验产物真伪为目标」。提议者+被约束者 opus-48 自核协议 commit 真实（merge-base 确认 `79300f67d` 在 main 历史，未被后续 `6273bc22d` 冲掉）后归档本 verdict。 |
 
 ## Review Gate
 
 - Spec design review: 砚砚（GPT-5.5）✅ **R3 放行 writing-plans**（3 轮收敛：留言落点 / proposal 复用 / 滥用边界 → commit-point rollback → crash window，事务完整性合同闭合）。
 - Phase A/B 实现: 跨族代码 review（实现后），重点 approve 原子性 + always-keep 可见性测试。
+- Post-close 轻量协议愿景守护: 宪宪（Opus 4.7）✅ **APPROVE**（2026-06-15，独立 read-only）——约束强度 / 价值观 / 30 天观察赌注三点全 PASS；一条非阻塞 nit（条 3「验证/修正」措辞待 dogfood 后 polish，不卡 close）。
 
 ## Links
 
