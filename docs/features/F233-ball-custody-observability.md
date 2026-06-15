@@ -8,7 +8,7 @@ created: 2026-06-12
 
 # F233: Ball Custody Observability — 球权保管链可观测（值班简报 + 轨迹下钻）
 
-> **Status**: in-progress | **Owner**: 宪宪 Fable-5（plan + Phase 末守护）· coder: 宪宪 Opus-4.8 · reviewer: 缅因猫 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 宪宪 Opus-4.8（plan + 实现 + Phase 末守护；原 fable-5 角色因 model 暂不可用，CVO 2026-06-15 指示 opus-48 接管 own）· reviewer: 缅因猫 | **Priority**: P1
 
 ## Why
 
@@ -182,12 +182,13 @@ created: 2026-06-12
 | 2026-06-12 | 立项（CVO 原话 "我觉得可以！走起！喵" + "① 立项"）；spike 实测三暗球 + 唤醒 30 天睡美人球（cross_post 砚砚 msg 0001781247508616） |
 | 2026-06-12 | gpt52 spec R1 blocking ×2 → 修正：① Phase A 数据源按可靠性分级（mention 面无 intent 字段只产候选，"收件箱"转正条件 = Phase B intent 落地）② KD-2 单账本钉时间边界（事件流向前 / stitched 回填向后，标 provenance）。睡美人球后续：砚砚探针确认 handler 已就绪，task blocked reason 已更新为"等公网 ingress 或 CVO 决定走 reconciliation"——新 CVO 决策球一颗 |
 | 2026-06-13 | Phase A 经本地 reviewer（opus-47）final continuity 放行后，通过 PR [#2262](https://github.com/zts212653/cat-cafe/pull/2262) squash merge 到 `main`（merge commit `ed2d8c697f2b0be618344e0985ae5998eb818b27`）；收尾 blocker 仅为 `packages/api/test/duty-briefing-collect.test.js` 的 biome 格式化，已在 `90cca39ef` 清空 |
+| 2026-06-15 | Phase B **B1（cell 骨架）** 经本地 reviewer（缅因猫 gpt52）final continuity 放行 + 封板（cloud R1→R3 三轮无收敛 → LL-072 封板协议交本地有状态 reviewer 终局确权）后，PR [#2301](https://github.com/zts212653/cat-cafe/pull/2301) squash merge 到 `main`（merge commit `04d90b155`）。交付：ball-custody types + 表驱动 state machine（INV-10 全 8 state×13 event 穷举）+ EventLog（Lua 幂等 append）+ Projector（零外部副作用，rebuild INV-2 幂等）+ ProjectionStore + arch cell `ball-custody`（Map delta: new cell，参照 community-ops 先例）。**B1 仅骨架、不接功能 AC**；B2–B6（13-event 接线 / 死球心跳 / 探针+WakeSender 补 resolveMode / 简报切源 / 回归套）待续 |
 
 ## Review Gate
 
 - Spec/Design Gate: ✅ gpt52 R1 blocking×2 → 修复 → APPROVE（`133ff0cd6`）；UI/UX CVO 确认 ✅（无按钮简报卡 + 地铁图隐喻 + OQ-1，2026-06-12）
 - Phase A merge gate: ✅ local peer review continuity 覆盖最终合入 SHA（opus-47 @ `90cca39ef`）→ PR [#2262](https://github.com/zts212653/cat-cafe/pull/2262) squash merged；cloud review 多轮 COMMENTED finding 已全部清空，终局以本地有状态 reviewer final-SHA enforce 收口
-- **分工（CVO 拍板 2026-06-12，协作实验：fable×48）**：plan + Phase 末守护 = fable-5；coder = opus-48；reviewer = 缅因猫（R1 起 gpt52 保持连续性，关键节点按需升 codex）；每 Phase 循环：fable plan → 48 实现 → 缅因 review → merge → fable 守护 + 写下一 Phase plan
+- **分工（CVO 拍板 2026-06-12 协作实验 fable×48；2026-06-15 调整）**：原 plan + Phase 末守护 = fable-5，因 fable model 暂不可用，CVO 指示 opus-48 接管全部（plan + 实现 + Phase 末守护）；reviewer = 缅因猫（gpt52 保持连续性，关键节点按需升 codex）；alpha 验收 = sonnet；每 Phase 循环：48 plan → 48 实现 → 缅因 review → merge → 48 守护 + 写下一 Phase plan
 - Phase B 状态机: plan 必须含状态转移表 + 不变量 + 对抗场景（crash/并发/restore），按 F229 PR-A1 教训前置
 
 ## Links
