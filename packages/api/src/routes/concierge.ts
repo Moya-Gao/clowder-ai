@@ -133,7 +133,14 @@ function validateTriageTarget(plan: TriagePlan): string | null {
 function validateSelectedTargetCats(plan: TriagePlan, selectedTargetCats: string[] | undefined): string | null {
   if (!selectedTargetCats?.length) return null;
   if (plan.intent !== 'relay') return 'targetCats selection is only valid for relay plans';
-  if (!plan.target.candidateCats?.length) return 'No candidate targetCats are available for this plan';
+  // Uniquely-resolved plans (targetCats present, no candidateCats): server owns the target.
+  // Any client-provided targetCats is a redundant echo — validation passes but the caller
+  // MUST ignore the client value (use plan as-is). Without this, a client could rewrite
+  // the relay target to any registered catId.
+  if (!plan.target.candidateCats?.length) {
+    if (plan.target.targetCats?.length) return null; // redundant echo, caller ignores
+    return 'No candidate targetCats are available for this plan';
+  }
   const allowed = new Set(plan.target.candidateCats);
   for (const catId of selectedTargetCats) {
     if (!allowed.has(catId)) return `Invalid selected target cat: ${catId}`;
@@ -702,7 +709,11 @@ export const conciergeRoutes: FastifyPluginAsync<ConciergeRoutesOptions> = async
       reply.status(422);
       return { error: selectionError };
     }
-    const dispatchPlan = selectedTargetCats?.length
+    // Only apply client-selected targetCats when plan has candidateCats (ambiguous resolution).
+    // For uniquely-resolved plans (targetCats present, no candidateCats), server owns the
+    // target — ignore any client echo to prevent relay target rewrite attacks.
+    const useClientSelection = selectedTargetCats?.length && plan.target.candidateCats?.length;
+    const dispatchPlan = useClientSelection
       ? { ...plan, target: { ...plan.target, targetCats: selectedTargetCats } }
       : plan;
 
@@ -732,7 +743,9 @@ export const conciergeRoutes: FastifyPluginAsync<ConciergeRoutesOptions> = async
     // Write selectedTargetCats AFTER claiming (cloud R2 P2 fix).
     // Before this fix, a losing concurrent request could overwrite targetCats
     // even though it would later get 409 from claimTransition.
-    if (selectedTargetCats?.length) {
+    // Only persist client selection for ambiguous plans (with candidateCats).
+    // Uniquely-resolved plans: server owns the target — ignore client echo.
+    if (useClientSelection) {
       await conciergeTriagePlanStore.setTargetCats(planId, selectedTargetCats);
     }
 

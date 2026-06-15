@@ -354,7 +354,11 @@ function buildTriageConfirmActions(
         intent,
         summary,
         ...(target.threadId ? { threadId: target.threadId } : {}),
-        ...(target.targetCats ? { targetCats: target.targetCats } : {}),
+        // Note: do NOT include targetCats here for uniquely-resolved targets.
+        // The plan already stores target.targetCats in Redis; the server uses it directly.
+        // Including it causes the frontend to echo it back, triggering 422 because
+        // validateSelectedTargetCats checks candidateCats (empty for unique resolution).
+        // Only the multi-candidate branch (line 325-337 above) needs targetCats in payload.
       },
     },
   ];

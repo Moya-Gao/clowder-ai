@@ -447,6 +447,95 @@ describe('POST /api/concierge/triage/:planId/confirm', () => {
     assert.ok(plan.result?.relayReceiptId);
   });
 
+  it('P1: uniquely-resolved relay confirm does not 422 when frontend echoes targetCats from action payload', async () => {
+    // Bug: buildTriageConfirmActions puts targetCats in the else-branch payload
+    // for uniquely-resolved targets. Frontend reads payload and sends it back.
+    // Server's validateSelectedTargetCats checks candidateCats (empty) → 422.
+    const { app, conciergeTriagePlanStore } = await buildApp();
+
+    const threadRes = await app.inject({
+      method: 'POST',
+      url: '/api/concierge/thread',
+      headers: USER_HEADER_NO_BODY,
+    });
+    assert.strictEqual(threadRes.statusCode, 200);
+
+    // Create a relay plan with uniquely-resolved target (targetCats, NOT candidateCats)
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/api/concierge/triage',
+      headers: USER_HEADER,
+      payload: {
+        sourceMessageId: 'msg-1',
+        originalText: '帮我传话给砚砚',
+        intent: 'relay',
+        target: { threadId: 'thread-abc', targetCats: ['codex'] },
+      },
+    });
+    const { planId } = JSON.parse(createRes.body);
+
+    // Frontend echoes targetCats from the confirm action payload — this is the bug trigger.
+    // Before the fix, this returns 422 "No candidate targetCats are available for this plan"
+    const confirmRes = await app.inject({
+      method: 'POST',
+      url: `/api/concierge/triage/${planId}/confirm`,
+      headers: USER_HEADER,
+      payload: { targetCats: ['codex'] },
+    });
+    assert.strictEqual(confirmRes.statusCode, 200, `Expected 200 but got ${confirmRes.statusCode}: ${confirmRes.body}`);
+    assert.strictEqual(JSON.parse(confirmRes.body).status, 'completed');
+
+    const plan = await conciergeTriagePlanStore.get(planId);
+    assert.strictEqual(plan.status, 'completed');
+  });
+
+  it('P1: uniquely-resolved relay ignores client attempt to rewrite targetCats to a different cat', async () => {
+    // Security regression: a malicious/buggy client could POST targetCats: ['opus']
+    // to a plan that was uniquely resolved to ['codex']. Without the guard,
+    // dispatchPlan would overwrite the target, misrouting the relay.
+    const { app, conciergeTriagePlanStore } = await buildApp();
+
+    const threadRes = await app.inject({
+      method: 'POST',
+      url: '/api/concierge/thread',
+      headers: USER_HEADER_NO_BODY,
+    });
+    assert.strictEqual(threadRes.statusCode, 200);
+
+    // Create a relay plan uniquely resolved to codex
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/api/concierge/triage',
+      headers: USER_HEADER,
+      payload: {
+        sourceMessageId: 'msg-1',
+        originalText: '帮我传话给砚砚',
+        intent: 'relay',
+        target: { threadId: 'thread-abc', targetCats: ['codex'] },
+      },
+    });
+    const { planId } = JSON.parse(createRes.body);
+
+    // Attacker sends a different catId — server must ignore it
+    const confirmRes = await app.inject({
+      method: 'POST',
+      url: `/api/concierge/triage/${planId}/confirm`,
+      headers: USER_HEADER,
+      payload: { targetCats: ['opus'] },
+    });
+    assert.strictEqual(confirmRes.statusCode, 200, `Expected 200 but got ${confirmRes.statusCode}: ${confirmRes.body}`);
+    assert.strictEqual(JSON.parse(confirmRes.body).status, 'completed');
+
+    // Critical: the plan must still use the original target, not the attacker's
+    const plan = await conciergeTriagePlanStore.get(planId);
+    assert.strictEqual(plan.status, 'completed');
+    assert.deepStrictEqual(
+      plan.target.targetCats,
+      ['codex'],
+      'Server must use stored targetCats, not client-submitted ones',
+    );
+  });
+
   it('P1: dispatches ambiguous relay after user-selected targetCats are supplied', async () => {
     const { app, conciergeTriagePlanStore } = await buildApp();
 
