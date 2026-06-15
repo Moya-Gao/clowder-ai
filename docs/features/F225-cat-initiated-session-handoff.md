@@ -139,6 +139,7 @@ Why: session 边界目前只能由 `shouldTakeAction`（context_health / 阈值�
    - FX-2c: crash after requestSeal accepted before proposal checkpoint → recovery 从 session 侧反推 backfill + enqueue continuation 恰好一次（不误判 pre-commit、不留孤儿）。
    - FX-3: **extractive/compress 默认 bootstrapDepth** 下续接 session bootstrap 第一眼 prompt **含五件套留言内容**（always-keep 注入断言）。
    - FX-4: 超滥用边界（同 active session 第 2 张 pending 卡 / 冷却期内）被拒。
+   - FX-5（lightweight session-health regression）：F232/F225/F233 的 raw transcript channel-bucketing case。预期 verdict：poison 只在 assistant 桶 → session health / confabulation；poison 在 `tool_result` / user / attachment 桶才升级真 security incident。
 4. **Sunset Signal**
    - 连续 4 周 handoff 提议次数 = 0（猫从不主动用）→ 能力没被采纳，sunset 或重设计。
    - 或 approve 后续接 session 仍"失忆"（FX-3 长期 fail / friction metric 显示不引用留言）→ 注入路径无效，重新评估。
@@ -190,6 +191,31 @@ Why: session 边界目前只能由 `shouldTakeAction`（context_health / 阈值�
 - **KD-13 — cross-runtime 优雅降级；compression hook 覆盖参差，设计不依赖 hook。** （2026-06-09 砚砚 source-audit 刷新三月旧记忆，推翻"只有 Claude 有 hook"）：Claude 有成熟 `PreCompact`（`f24-pre-compact.sh` 维护精确 `compressionCount`）；**Gemini CLI 有 `PreCompress`**（可接但本机 `~/.gemini` 未装）；Codex 有 SessionStart/UserPromptSubmit/PermissionRequest、Antigravity 有 PreToolUse/PostToolUse/PreInvocation/Stop，但二者**均无 compression hook**。即"只有 Claude 有 hook"是过时表述——但 `compressionCount` via PreCompact 确实 **Claude-as-wired specific**，非 Claude 猫当前拿不到精确压缩计数。**故 cat-facing 注入不依赖 hook**（hook 仅作 per-runtime 补充探针：有 PreCompact/PreCompress→更准，没有→token-drop 降级）；注入 channel 用 **prompt-injection**（cloud review P1 纠正 system_info 到不了 cat，见 memo §12）；`fillConfidence` 分层（`exact_token`/`approx_token`/`bytes_health`/`unavailable`），unavailable runtime 退到纯断点+漂移自检；`compressionCount` 是漂移锚（不并进 fillConfidence，两正交轴，详见 memo §10）。**实现期 drop `recentlyCompressed`**（timing 上它在 warn 恒 false，详见 memo §11）——hint 最终 `{ severity, fillConfidence, compressionCount }`。非 Claude 猫无持久压缩锚，退到纯线/树+断点自检（runtime-agnostic 持久压缩计数是未来增强）。
 - **Eval 层（capability-wakeup，CVO 第①问"属于 capability 得上 eval"）**：F225 是 capability → 接 F192 `eval:capability-wakeup`——activation（warn+干净断点时 propose_session_handoff 调用率）+ friction（续接 session 第一 invocation 是否引用五件套）+ sunset（连续 N 周 0 调用 → 唤醒路径无效，重评）。
 
+## Post-Close Lightweight Protocol: Opus-48 Session Health（2026-06-15）
+
+> 背景：F232/F225/F233 多次独立取证显示，opus-48 在长 context / 多次 resume / runtime interruption 后可能把 assistant 自生成内容误归因为 tool/user 输入。CVO 定性：这不是"坏掉的工具"，是"喝多的伙伴"；机制应帮助恢复，不应丢弃身份。根因线索（例如 Anthropic 内部小版本 / 量化 / 临时模型侧变化）**未验证**，因此只做轻量、症状级协议，不做重硬层。
+
+**Soft protocol（正式 handoff 口径）**
+
+1. **触发权在外部**：当前 48 自述"我可能幻觉了"可作为告警，但不能作为事实判定。触发/确认来自 CVO ground truth、独立猫 raw transcript channel-bucketing、或 harness 观测到 phantom 信号。
+2. **默认恢复 = fresh opus-48**：普通续做、非自我核验任务，优先 seal/clear 给干净 session 的同一 `catId`。identity 保留，问题按 session health 处理。
+3. **例外 = 独立猫接手**：凡任务目标是验证/修正当前 48 刚才的产物，或产物已进入 memory / commit / cross-post / security verdict / merge / vision guard 等真相源，必须交独立猫（如 codex / opus-46 / opus-47）做 raw evidence 核验；fresh 48 也不自审旧 48 的可疑产物。
+4. **注入 claim 先分桶**：声称 tool 注入、schema 污染、用户发过某指令时，必须给 raw line/message id + bucket。毒只在 assistant 桶 → session-health reset；毒在 `tool_result` / user / attachment 桶 → security incident。
+5. **不羞辱告警**：48 主动上报异常是可取信号。协议奖励上报，但把后续事实判定交给外部证据。
+
+**轻量熔断信号**
+
+- 同一 session 出现 >=2 次 phantom SHA / PR / tool call / card / "用户说过但 user 桶不存在"。
+- 声称被注入、schema 被污染、环境损坏，但没有 raw transcript 坐标。
+- 图像/附件感知与 CVO ground truth 明显不一致，且随后形成安全叙事。
+- 开始输出"我无法自证"、"继续做认识论分析"来延长讨论。正确动作是一句话说明 session 不可信，然后交接。
+
+**Harness boundary**
+
+- **现在做**：dossier 画像 + 本协议 + FX-5 regression/watchlist。
+- **暂缓做**：自动硬拦截、强制转派、复杂 detector。观察一个 Anthropic 小版本/模型侧更新窗口；若症状继续复发，再按 ADR-031 增硬层。
+- **未来复评条件**：30 天内无同型 incident → 保留软协议不加硬层；再出现 >=2 起 raw-confirmed assistant-bucket confabulation → 立 F192/F225 follow-up，把 FX-5 落成可运行 eval。
+
 ## Timeline
 
 | 日期 | 事件 |
@@ -205,6 +231,7 @@ Why: session 边界目前只能由 `shouldTakeAction`（context_health / 阈值�
 | 2026-06-12 | **确认卡视觉 polish merged（PR #2256, squash b5d38362c）**：`HandoffProposalCard` 从表单行重排为接力卡片，metadata compact pills，五件套内容字段走 `MarkdownContent`，approve/reject 状态同步与 API 路径保持不变；补 Markdown/list rendering 回归测试。砚砚实现后误把视觉验收回传给烁烁，烁烁用 `CAT_CAFE_RUNTIME_RESTART_OK=1 pnpm start` 误伤 runtime 3001/3002；事后由砚砚 trace Antigravity tool call 坐实，并改走宪宪（Opus 4.7）代码 review，宪宪 APPROVE 无 P1/P2。`pnpm gate` build/tsc/web tests 过，最终 `pnpm check` 仅被既有 `docs/videos/cucu-pr-flow/animatic/edl-v1.mjs` base-red formatter 挡住（非本 PR diff） |
 | 2026-06-12 | **确认卡 emoji → SVG polish merged（PR #2267, squash 120ea4ed9）**：后端 `buildHandoffProposalCardBlock` 新卡 title 去 emoji 前缀；前端 `HandoffProposalCard` 用受控 inline SVG 接力图标承载视觉符号，并对旧持久化卡片的 legacy emoji title 做 display-time strip；`CardBlock` / handoff card fixture 同步去 emoji glyph。宪宪（Opus 4.7）review APPROVE，无 P1/P2；`pnpm gate` 全绿（build / tsc / 4012 web tests / API full tests / lint / check）。未启动 runtime，未触碰 3001/3002 |
 | 2026-06-15 | **F225 close（CVO 拍板 + 愿景守护 opus-47 APPROVE）**：Redis 6399 read-only production audit — **19 propose 跨 10 天**（2026-06-05 → 2026-06-14），status 分布 12 approved（63%）/ 6 rejected（32%）/ 1 pending；**FX-3 续接 100%**（12/12 approved 全部 spawn continuation_entry，KD-4 commit-point 模型 hard 验证）；非 sunset signal（最近 3 天 12/19 = 63%，加速使用）；源猫分布 opus-48 (15) / opus-45 (3) / sonnet (1)，跨多猫验证。Eval Contract #1（activation = propose 调用次数 ≥ 1）+ #2（friction = 续接是否 spawn）+ #4（sunset = 4 周 0 调用）全验证。愿景守护 opus-47 walk-back 初始过保守 verdict（误以 docs/evals 缺数据 → 待，实查 Redis 数据本就在），改 APPROVE close。**开放观察**：使用者集中布偶猫家族（opus-48 79%），非 Claude 猫（codex/gpt52/gemini/antigravity）暂未观察到 propose 调用——KD-13 cross-runtime 优雅降级有效（无 PreCompact 退到纯断点自检）or 非 Claude 猫尚未撞 warn 阈值，留作 v2 sunset window 持续观察 |
+| 2026-06-15 | **Post-close lightweight protocol：opus-48 session-health 熔断口径**。CVO 拍板"喝多的伙伴，不是坏掉的工具"：保留 identity，默认 fresh opus-48；仅自我核验/安全/merge/真相源修正交独立猫。因根因可能是 Anthropic 临时小版本/量化/模型侧变化且未验证，硬层暂缓，只加 soft protocol + FX-5 regression/watchlist，30 天观察后再决定是否升级。 |
 
 ## Review Gate
 
