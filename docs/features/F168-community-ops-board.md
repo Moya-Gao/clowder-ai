@@ -8,7 +8,7 @@ created: 2026-04-18
 
 # F168: Community Operations Board — 社区事务编排引擎
 
-> **Status**: Phase A ✅ | **Phase B ✅ closed (2026-06-12)** | Phase C in-progress（C0 前置 ✅ / C1 Role Registry ✅ / C2 narrator spawn ✅ / C3 routing next）| **First completed**: 2026-04-20 | **Owner**: 宪宪 (opus-4.8，2026-06-12 接手自 fable-5) | **Priority**: P1
+> **Status**: Phase A ✅ | **Phase B ✅ closed (2026-06-12)** | Phase C in-progress（C0 前置 ✅ / C1 Role Registry ✅ / C2 narrator spawn ✅ / C3.1 resolve routing ✅ / C3.2 frontend + eval next）| **First completed**: 2026-04-20 | **Owner**: 宪宪 (opus-4.8，2026-06-12 接手自 fable-5) | **Priority**: P1
 
 ## Reopen（2026-06-10，CVO signoff）
 
@@ -22,7 +22,7 @@ created: 2026-04-18
 
 **分工（CVO 拍板 2026-06-10，2026-06-14 更新）**：opus 家族写 Phase spec/plan + 实现 + 合入后愿景守护；缅因猫家族 review。（原分工 fable plan + sonnet 实现，实测效果不理想；fable-5 下线后 CVO 确认由 opus 们全程接手。）
 
-**Phase 总览**：A 事件引擎（Event Log + 投影 + 状态机）✅ → B Issue Signals 全量事件 ✅ → C Narrator + Role Registry + 路由（in progress：C0/C1/C2 ✅，C3 routing next）→ D Closure UX + Reconciler → E 看板决策队列。原 v1 文档（下方）保留为历史语境。
+**Phase 总览**：A 事件引擎（Event Log + 投影 + 状态机）✅ → B Issue Signals 全量事件 ✅ → C Narrator + Role Registry + 路由（in progress：C0/C1/C2/C3.1 ✅，C3.2 frontend + eval next）→ D Closure UX + Reconciler → E 看板决策队列。原 v1 文档（下方）保留为历史语境。
 
 **Phase A 完成（2026-06-10）**：PR #2203，commit `10c3c9bfdb`，squash-merged。Event Log + 纯函数状态机 + CommunityProjector + bootstrap CLI + 3 入口接线 + PR lifecycle + 看板 API（向后兼容）。6 轮 cloud review 全修。Phase B 由 @fable5 规划。
 
@@ -455,6 +455,7 @@ TTL=0（铁律 #5），用户数据默认持久化
 | 2026-06-13 | **Phase C 前置 C0.3 merged** (PR #2280, `42fadd2ff`) — repo 级 issue-comment 轮询灭未-routed 追评盲区（collection-only event-sourced：append+project 在 gate 内、恒 run:false；per-repo cursor=max updatedAt + redis-gated backfill 把新 manifest resource 接入存量装机）。云端 R1-R5 5 轮封板（LL-072 cap，全 finding 解：backfill 4 条件契约 plugin-active∧first-run∧TARGET∧absent / INV-9b 首轮 baseline / INV-9c cursor overlap / INV-9d PR-comment anti-churn）+ gpt52 终局 PASS。gate: api 0 fail（含 C0.3 测试），3 web jsdom pre-existing scope-外 waived。C0.4(并入 C2) / C1-C3+eval 待续 |
 | 2026-06-14 | **Phase C C1 closed** (PR #2283, `715407aae`) — CommunityRole/RoleCapability 封闭契约 + injectable RoleResolver + default narrator binding (`gemini25`) + engine zero-catname guard（RoleResolver 不拉 roster、cat id set 从 catalog 派生、防 nested blind spot）。修复 cloud R2/R3/R4 findings 后 cloud Codex PASS；opus-4.7 独立复核 APPROVE；focused C1 suite 30/30 PASS；opus-4.6 愿景守护 PASS（5 项核心约束通过，C2/C3/eval 顺序无倒错）。C2 narrator spawn / DirectionCard / C3 routing / eval 待续 |
 | 2026-06-15 | **Phase C C2 merged** (PR #2289, `ce59315e3`) — NarratorDriver thin spawn coordinator（WakeCatFn 复用 GameNarratorDriver，SPIKE-1 决策）+ DirectionCard schema（RouteRecommendation 联合类型 + narrator extension fields on TriageEntry，全 optional INV-12）+ dispatch integration（fire-and-forget）+ env-gated wiring（COMMUNITY_NARRATOR_THREAD_ID）。codex R1→R3 本地 review（2 P1 Zod strip + caseId / 1 P2 briefing payload schema，全修绿测）+ 云端 Codex COMMENTED（1 P1 降级 P3：narrator consensus path 是 C3 设计题不是 C2 scope）。84 test PASS / check 22/22。C3 routing + F128 + frontend / eval 待续 |
+| 2026-06-15 | **Phase C C3.1 merged** (PR #2292) — resolve endpoint consumes routeRecommendation discriminated union（existing-thread / new-thread / decline）for routing; INV-7 consolidated thread validation（nonexistent + soft-deleted + threadStore unavailable fail-closed 500）; INV-12 backward compat（all new fields optional）。5 轮 cloud review 封板（LL-072 cap）+ gpt52 终局 PASS；73 test PASS。C3.2 frontend role dropdown + eval.1 待续 |
 
 ## Review Gate
 
