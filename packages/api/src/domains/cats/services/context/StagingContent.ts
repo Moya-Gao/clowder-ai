@@ -32,6 +32,17 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 // staging content lives in cat-cafe-skills/refs/ — package-relative path
 const STAGING_CONTENT_PATH = resolve(__dirname, '../../../../../../../cat-cafe-skills/refs/l0-staging-content.md');
 
+const EMPTY_STAGING_CONTENT: ParsedStagingContent = {
+  manifest: {
+    staging_version: 1,
+    schema_doc: '',
+    hard_cap_tokens: 2000,
+    soft_margin_tokens: 200,
+    items: [],
+  },
+  body: '',
+};
+
 interface FirstPrinciplesCheck {
   single_round_complete: boolean;
   compress_gap_harmful: boolean;
@@ -193,7 +204,16 @@ function parseManifest(yaml: string): StagingManifest {
 
 function loadStagingContent(): ParsedStagingContent {
   if (_cachedContent) return _cachedContent;
-  const raw = readFileSync(STAGING_CONTENT_PATH, 'utf-8');
+  let raw: string;
+  try {
+    raw = readFileSync(STAGING_CONTENT_PATH, 'utf-8');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      _cachedContent = EMPTY_STAGING_CONTENT;
+      return _cachedContent;
+    }
+    throw error;
+  }
   const { frontmatter, body } = parseFrontmatter(raw);
   const manifest = parseManifest(frontmatter);
   _cachedContent = { manifest, body };

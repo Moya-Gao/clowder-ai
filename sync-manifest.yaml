@@ -45,6 +45,9 @@ managed_files:
   - CODEOWNERS
   - CLA.md
   - TRADEMARKS.md
+  # GitHub plugin schedule manifest restored by #905/#906; public runtime schedule
+  # factories load it directly, so source owns it rather than target-owned restore.
+  - plugins/github/plugin.yaml
   # ci.yml 已移到 target_owned_files — source 不维护，由 target 自行管理
   - .github/workflows/release-desktop.yml
   - .github/workflows/build-mac-dmg.yml
@@ -297,6 +300,7 @@ excluded:
   - cat-cafe-skills/refs/decision-matrix.md
   - cat-cafe-skills/refs/vision-evidence-workflow.md
   - cat-cafe-skills/refs/evidence-output-contract.md
+  - cat-cafe-skills/refs/l0-staging-content.md
   # 同步脚本自身
   - scripts/sync-to-opensource.sh
   - scripts/sync-to-tutorials.sh

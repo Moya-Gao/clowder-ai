@@ -952,6 +952,26 @@ excluded:
       }
     });
 
+    it('sync-manifest exports the GitHub plugin manifest used by public schedule factories', () => {
+      const managedFiles = readYamlTopLevelList('sync-manifest.yaml', 'managed_files');
+      const targetOwnedFiles = readYamlTopLevelList('sync-manifest.yaml', 'target_owned_files');
+      const pluginManifest = 'plugins/github/plugin.yaml';
+
+      assert.ok(
+        existsSync(resolve(ROOT, pluginManifest)),
+        `${pluginManifest} should exist in the source repo so outbound sync can export it`,
+      );
+      assert.ok(
+        managedFiles.includes(pluginManifest),
+        `${pluginManifest} must be exported because packages/api public schedule tests and runtime plugin loading depend on it`,
+      );
+      assert.equal(
+        targetOwnedFiles.includes(pluginManifest),
+        false,
+        `${pluginManifest} is source-managed after #906/#905 intake and must not be restored over from the target repo`,
+      );
+    });
+
     it('sync-manifest marks the F203 native L0 template as a sanitized transform', () => {
       const transformTargets = readYamlTransformTargets('sync-manifest.yaml');
 
@@ -970,6 +990,64 @@ excluded:
       assert.doesNotMatch(sanitized, /\b6398\b|\b6399\b/);
       assert.match(sanitized, /\*\*Runtime data safety\*\*/);
       assert.doesNotMatch(sanitized, /Cat Café 的护城河是情感壁垒不是技术壁垒/);
+    });
+
+    it('public docs and skill refs sanitize internal role, thread, and ops-cost markers', () => {
+      const source = [
+        '铲屎官 原话',
+        '孟加拉猫 / 暹罗猫 / 缅因猫',
+        'thread_mq87iw5qmq93ygo6',
+        'thread_eval_a2a',
+        'cat_cafe_get_thread_context(<sub_thread_id>)',
+        '$30-50 and $23',
+        'shell examples may mention $1 and $2',
+        '21 轮云端 review',
+        'CVO decision packet',
+      ].join('\n');
+      const sanitized = sanitizeFixture('docs/public-lessons.md', source);
+
+      assert.doesNotMatch(sanitized, /铲屎官|孟加拉猫|暹罗猫|缅因猫/);
+      assert.doesNotMatch(sanitized, /\bthread_(?=[a-z0-9_]*[0-9])[a-z0-9_]{8,}\b/);
+      assert.doesNotMatch(sanitized, /\$[1-9][0-9]+(?:-[1-9][0-9]+)?\b/);
+      assert.doesNotMatch(sanitized, /云端 review|\bCVO\b/);
+      assert.match(sanitized, /operator/);
+      assert.match(sanitized, /Bengal/);
+      assert.match(sanitized, /\[thread-id\]/);
+      assert.match(sanitized, /operational cost/);
+      assert.match(sanitized, /remote review/);
+      assert.match(sanitized, /cat_cafe_get_thread_context\(<sub_thread_id>\)/);
+      assert.match(sanitized, /\$1 and \$2/);
+    });
+
+    it('public skill shell scripts keep positional parameters while sanitizing prose docs', () => {
+      const shell = sanitizeFixture(
+        'cat-cafe-skills/hyperfocus-brake/state.sh',
+        'local field="$1"\nlocal value="$2"\nprintf "%s=%s\\n" "$field" "$value"',
+      );
+
+      assert.match(shell, /local field="\$1"/);
+      assert.match(shell, /local value="\$2"/);
+    });
+
+    it('sync-manifest excludes internal raw L0 staging content from public skill refs', () => {
+      const excluded = readYamlTopLevelList('sync-manifest.yaml', 'excluded');
+      const stagingContent = 'cat-cafe-skills/refs/l0-staging-content.md';
+
+      assert.ok(existsSync(resolve(ROOT, stagingContent)), `${stagingContent} must still exist in the source repo`);
+      assert.ok(
+        excluded.includes(stagingContent),
+        'ADR-038 raw L0 staging content contains internal routing/thread context and must not be exported as a public skill ref',
+      );
+
+      const stagingContentSource = readFileSync(
+        resolve(ROOT, 'packages/api/src/domains/cats/services/context/StagingContent.ts'),
+        'utf-8',
+      );
+      assert.match(
+        stagingContentSource,
+        /code === 'ENOENT'[\s\S]*EMPTY_STAGING_CONTENT/,
+        'public export may omit raw L0 staging content, so API must tolerate ENOENT with an empty staging manifest',
+      );
     });
 
     it('sync-to-opensource.sh hard-fails if public L0 still contains internal patterns', () => {

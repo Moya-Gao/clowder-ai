@@ -6,6 +6,15 @@ import { describe, it } from 'node:test';
 
 const ROOT = resolve(process.cwd());
 const SYNC_SCRIPT = resolve(ROOT, 'scripts/sync-to-opensource.sh');
+const PUBLIC_DOC_LEAK_RE =
+  /铲屎官|孟加拉猫|暹罗猫|缅因猫|\bthread_(?=[a-z0-9_]*[0-9])[a-z0-9_]{8,}\b|\$[1-9][0-9]+(?:-[1-9][0-9]+)?\b|云端 review|\bCVO\b/;
+const PUBLIC_SYNC_DOCS = [
+  'docs/public-lessons.md',
+  'docs/ROADMAP.md',
+  'docs/features/F177-harness-update.md',
+  'docs/features/F229-cat-ball-concierge.md',
+  'docs/features/F233-ball-custody-observability.md',
+];
 
 describe('sync-to-opensource public launch transforms', { skip: !existsSync(SYNC_SCRIPT) }, () => {
   it('exports opensource-pinned direct launch wrappers and runtime startup', () => {
@@ -67,8 +76,37 @@ describe('sync-to-opensource public launch transforms', { skip: !existsSync(SYNC
       assert.match(apiPkg.scripts['test:public'], /github-schedule-factories\\.test/);
       assert.match(apiPkg.scripts['test:public'], /harness-eval\/eval-hub-read-model\\.test/);
       assert.match(apiPkg.scripts['test:public'], /harness-eval\/merge-gate-provenance-contract\\.test/);
+      assert.equal(
+        existsSync(resolve(exportDir, 'plugins/github/plugin.yaml')),
+        true,
+        'GitHub plugin manifest must be exported so public schedule factories can register GitHub jobs',
+      );
+      assert.match(
+        readFileSync(resolve(exportDir, 'plugins/github/plugin.yaml'), 'utf8'),
+        /factoryId:\s*github\.issue-tracking/,
+      );
       assert.equal(existsSync(resolve(exportDir, 'scripts/download-source-overrides.sh')), true);
       assert.equal(existsSync(resolve(exportDir, 'scripts/start-dev-profile-isolation.test.mjs')), true);
+      assert.equal(
+        existsSync(resolve(exportDir, 'cat-cafe-skills/refs/l0-staging-content.md')),
+        false,
+        'raw L0 staging content contains internal thread/routing context and must not be exported',
+      );
+      assert.match(
+        readFileSync(resolve(exportDir, 'packages/api/src/domains/cats/services/context/StagingContent.ts'), 'utf8'),
+        /code === 'ENOENT'[\s\S]*EMPTY_STAGING_CONTENT/,
+        'API must tolerate omitted raw L0 staging content in the public export',
+      );
+      for (const relPath of PUBLIC_SYNC_DOCS) {
+        const exportedPath = resolve(exportDir, relPath);
+        if (!existsSync(exportedPath)) continue;
+
+        assert.doesNotMatch(
+          readFileSync(exportedPath, 'utf8'),
+          PUBLIC_DOC_LEAK_RE,
+          `${relPath} should not leak internal role names, thread ids, ops cost markers, or cloud-review process text`,
+        );
+      }
       assert.match(publicEnv, /EMBED_MODE=off/);
       assert.match(setupDoc, /install the \*\*Embedding\*\* service from Console settings/i);
       assert.doesNotMatch(setupDoc, /scripts\/embed-server\.sh/);

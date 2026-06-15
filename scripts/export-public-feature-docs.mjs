@@ -36,17 +36,23 @@ const INTERNAL_LINK_PATTERNS = [
 ];
 
 const SANITIZE_REPLACEMENTS = [
-  [/铲屎官原话/g, 'team experience'],
-  [/铲屎官/g, 'team lead'],
+  [/铲屎官原话/g, 'operator experience'],
+  [/铲屎官/g, 'operator'],
   [/Landy/g, 'You'],
   [/lysander/g, 'you'],
   [/suces-MacBook[^\s]*/g, 'dev-machine'],
   [/布偶猫/g, 'Ragdoll'],
   [/缅因猫/g, 'Maine Coon'],
   [/暹罗猫/g, 'Siamese'],
+  [/孟加拉猫/g, 'Bengal'],
   [/宪宪/g, 'Ragdoll'],
   [/砚砚/g, 'Maine Coon'],
   [/烁烁/g, 'Siamese'],
+  [/\bthread_(?=[a-z0-9_]*[0-9])[a-z0-9_]{8,}\b/g, '[thread-id]'],
+  [/\$[1-9][0-9]+(?:-[1-9][0-9]+)?\b/g, 'operational cost'],
+  [/\b[0-9]+\s*轮云端 review/g, 'multiple remote review rounds'],
+  [/云端 review/g, 'remote review'],
+  [/\bCVO\b/g, 'operator'],
   // Redis ports: no transform — open-source uses same ports (6399/6398) as internal
   [/6399 圣域/g, 'production Redis (sacred)'],
 ];

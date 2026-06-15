@@ -7,7 +7,9 @@
 # Files under docs/ or cat-cafe-skills/ get additional transforms (cat names, internal links).
 
 # ── Personal info (all files) ──
-# 铲屎官：猫圈通用梗（猫主子的仆人），非个人信息，保留不替换
+# Most personal identifiers are scrubbed globally. Role-language cleanup for
+# docs/ and skill refs happens in the docs/skills block below so package fixtures
+# can keep deliberate user-mention test strings.
 s/\@Landy/\@co-creator/g;
 s/\@landy/\@co-creator/g;
 s/\@Lysander/\@co-creator/g;
@@ -262,12 +264,20 @@ if ($ARGV =~ m{BOOTSTRAP\.md$}) {
 
 # ── Cat names + BACKLOG ref (docs + skills only) ──
 if ($ARGV =~ m{/(docs|cat-cafe-skills)/}) {
+  s/铲屎官原话/operator experience/g;
+  s/铲屎官/operator/g;
   s/布偶猫/Ragdoll/g;
   s/缅因猫/Maine Coon/g;
   s/暹罗猫/Siamese/g;
+  s/孟加拉猫/Bengal/g;
   s/宪宪/Ragdoll/g;
   s/砚砚/Maine Coon/g;
   s/烁烁/Siamese/g;
+  s/\bthread_(?=[a-z0-9_]*[0-9])[a-z0-9_]{8,}\b/[thread-id]/g;
+  s/\$[1-9][0-9]+(?:-[1-9][0-9]+)?\b/operational cost/g if $ARGV =~ m{\.(md|mdx|txt)$};
+  s/\b[0-9]+\s*轮云端 review/multiple remote review rounds/g;
+  s/云端 review/remote review/g;
+  s/\bCVO\b/operator/g;
   s/BACKLOG\.md/ROADMAP.md/g;
   s/lessons-learned\.md/public-lessons.md/g;
 }

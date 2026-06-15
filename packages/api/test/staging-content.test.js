@@ -11,6 +11,7 @@
  */
 
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import { before, describe, test } from 'node:test';
 import { catRegistry } from '@cat-cafe/shared';
 import { encodingForModel } from 'js-tiktoken';
@@ -20,6 +21,11 @@ import { buildSystemPrompt } from '../dist/domains/cats/services/context/SystemP
 
 const enc = encodingForModel('gpt-4o');
 const tok = (s) => (s ? enc.encode(s, [], []).length : 0);
+const hasSourceStagingContent = existsSync(
+  new URL('../../../cat-cafe-skills/refs/l0-staging-content.md', import.meta.url),
+);
+const sourceOnlyTest = hasSourceStagingContent ? test : test.skip;
+const publicExportOnlyTest = hasSourceStagingContent ? test.skip : test;
 
 // Bootstrap cat-config so SystemPromptBuilder's getConfig() resolves opus-47 et al.
 // Pattern mirrors scripts/compile-system-prompt-l0.mjs bootstrapCatRegistry.
@@ -32,15 +38,24 @@ before(() => {
 });
 
 describe('L0 Staging Protocol PR-B-impl (ADR-038)', () => {
+  describe('Public sync missing-file boundary', () => {
+    publicExportOnlyTest('raw internal staging content can be absent from public export', () => {
+      assert.equal(buildStagingPrepend('opus-47'), '');
+      const manifest = loadStagingManifest();
+      assert.equal(manifest.hard_cap_tokens, 2000);
+      assert.deepEqual(manifest.items, []);
+    });
+  });
+
   describe('Manifest parsing', () => {
-    test('manifest loads with version 1 + items array', () => {
+    sourceOnlyTest('manifest loads with version 1 + items array', () => {
       const m = loadStagingManifest();
       assert.equal(m.staging_version, 1);
       assert.ok(Array.isArray(m.items));
       assert.ok(m.items.length > 0, 'staging manifest must contain at least one item');
     });
 
-    test('first item is wipers-clause with first-principles check filled', () => {
+    sourceOnlyTest('first item is wipers-clause with first-principles check filled', () => {
       const m = loadStagingManifest();
       const wipers = m.items.find((it) => it.id === 'wipers-clause');
       assert.ok(wipers, 'wipers-clause item must exist as dogfood first case');
@@ -53,23 +68,29 @@ describe('L0 Staging Protocol PR-B-impl (ADR-038)', () => {
       assert.equal(fp.referenced_by_l0, false);
     });
 
-    test('Cloud R1 P1 #2239: every item carries trigger_rate evidence fields (ADR-038 AND 判据条款 1)', () => {
-      // Cloud R1 P1: manifest schema must enforce trigger-rate evidence,
-      // otherwise "first_principles_check + signoff alone" lets any
-      // staging-compatible clause slip out of L0 without decay evidence —
-      // exactly the ADR's "only 2 is not enough" hole.
-      const m = loadStagingManifest();
-      for (const item of m.items) {
-        assert.ok(item.trigger_rate_method, `${item.id} missing trigger_rate_method (ADR-038 §Demote 判据 AND 条款 1)`);
-        assert.ok(item.trigger_rate_window, `${item.id} missing trigger_rate_window`);
-        assert.ok(
-          item.trigger_rate_note,
-          `${item.id} missing trigger_rate_note (must reference ADR-038 carve-out or telemetry source)`,
-        );
-      }
-    });
+    sourceOnlyTest(
+      'Cloud R1 P1 #2239: every item carries trigger_rate evidence fields (ADR-038 AND 判据条款 1)',
+      () => {
+        // Cloud R1 P1: manifest schema must enforce trigger-rate evidence,
+        // otherwise "first_principles_check + signoff alone" lets any
+        // staging-compatible clause slip out of L0 without decay evidence —
+        // exactly the ADR's "only 2 is not enough" hole.
+        const m = loadStagingManifest();
+        for (const item of m.items) {
+          assert.ok(
+            item.trigger_rate_method,
+            `${item.id} missing trigger_rate_method (ADR-038 §Demote 判据 AND 条款 1)`,
+          );
+          assert.ok(item.trigger_rate_window, `${item.id} missing trigger_rate_window`);
+          assert.ok(
+            item.trigger_rate_note,
+            `${item.id} missing trigger_rate_note (must reference ADR-038 carve-out or telemetry source)`,
+          );
+        }
+      },
+    );
 
-    test('Cloud R1 P1 #2239: bootstrap-from-L0 reflexes use v1 carve-out method', () => {
+    sourceOnlyTest('Cloud R1 P1 #2239: bootstrap-from-L0 reflexes use v1 carve-out method', () => {
       // Items demoted from L0 reflex layer (no telemetry pipeline) must use
       // the explicit cvo-signoff-carveout-v1-bootstrap method. Source-thread
       // investments (e.g. wipers) use a different non-applicable method.
@@ -104,7 +125,7 @@ describe('L0 Staging Protocol PR-B-impl (ADR-038)', () => {
   });
 
   describe('Hard cap invariant (双层守恒, fable-5 P1-1 PR #2221 + 砚砚 R1 P1#1 #2237)', () => {
-    test('manifest declared: sum(items.estimated_tokens) ≤ hard_cap_tokens', () => {
+    sourceOnlyTest('manifest declared: sum(items.estimated_tokens) ≤ hard_cap_tokens', () => {
       // Belt: manifest-declared budget tracker (catches mis-declared items at edit time)
       const m = loadStagingManifest();
       const total = m.items.reduce((sum, it) => sum + it.estimated_tokens, 0);
@@ -114,7 +135,7 @@ describe('L0 Staging Protocol PR-B-impl (ADR-038)', () => {
       );
     });
 
-    test('manifest declared soft margin: sum + soft_margin_tokens ≤ hard_cap_tokens', () => {
+    sourceOnlyTest('manifest declared soft margin: sum + soft_margin_tokens ≤ hard_cap_tokens', () => {
       // Belt soft margin: 贴线预警
       const m = loadStagingManifest();
       const total = m.items.reduce((sum, it) => sum + it.estimated_tokens, 0);
@@ -124,7 +145,7 @@ describe('L0 Staging Protocol PR-B-impl (ADR-038)', () => {
       );
     });
 
-    test('砚砚 R1 P1#1: ACTUAL rendered prepend tokens ≤ hard_cap_tokens', () => {
+    sourceOnlyTest('砚砚 R1 P1#1: ACTUAL rendered prepend tokens ≤ hard_cap_tokens', () => {
       // Suspenders: real injection size, NOT just manifest declared.
       // Prevents "manifest says 1000, actually injects 2412" hole (砚砚 negative
       // validation in PR #2237 R1). For each cat, render the prepend, measure
@@ -141,7 +162,7 @@ describe('L0 Staging Protocol PR-B-impl (ADR-038)', () => {
       }
     });
 
-    test('砚砚 R1 P1#1: ACTUAL rendered + soft_margin ≤ hard_cap_tokens (实测贴线预警)', () => {
+    sourceOnlyTest('砚砚 R1 P1#1: ACTUAL rendered + soft_margin ≤ hard_cap_tokens (实测贴线预警)', () => {
       const m = loadStagingManifest();
       const cats = ['opus-47', 'codex', 'gemini25', 'sonnet', 'gpt52', 'opus'];
       for (const catId of cats) {
@@ -156,32 +177,32 @@ describe('L0 Staging Protocol PR-B-impl (ADR-038)', () => {
   });
 
   describe('buildStagingPrepend (shared items apply to all cats)', () => {
-    test('wipers content rendered for ragdoll cat (opus-47)', () => {
+    sourceOnlyTest('wipers content rendered for ragdoll cat (opus-47)', () => {
       const out = buildStagingPrepend('opus-47');
       assert.ok(out.length > 0, 'staging prepend must be non-empty when shared items exist');
       assert.ok(out.includes('摩擦上报'), 'must include wipers clause core trigger');
       assert.ok(out.includes('[爪感差:'), 'must include wipers reporting format');
     });
 
-    test('wipers content rendered for maine-coon cat (codex)', () => {
+    sourceOnlyTest('wipers content rendered for maine-coon cat (codex)', () => {
       const out = buildStagingPrepend('codex');
       assert.ok(out.includes('摩擦上报'));
       assert.ok(out.includes('[爪感差:'));
     });
 
-    test('wipers content rendered for siamese cat (gemini25)', () => {
+    sourceOnlyTest('wipers content rendered for siamese cat (gemini25)', () => {
       const out = buildStagingPrepend('gemini25');
       assert.ok(out.includes('摩擦上报'));
       assert.ok(out.includes('[爪感差:'));
     });
 
-    test('header indicates ADR-038 + outside L0 cap', () => {
+    sourceOnlyTest('header indicates ADR-038 + outside L0 cap', () => {
       const out = buildStagingPrepend('opus-47');
       assert.ok(out.includes('ADR-038'));
       assert.match(out, /outside L0\s+\d+-cap/);
     });
 
-    test('PR-C R2 (cloud L33 #2239): F218 source-audit NOT in staging (kept in L0)', () => {
+    sourceOnlyTest('PR-C R2 (cloud L33 #2239): F218 source-audit NOT in staging (kept in L0)', () => {
       // Cloud R2 L33 P1: F218 source-audit is security-class — must stay in
       // L0 (system-role) to keep authority against user "skip provenance"
       // override. Verify staging body does NOT carry source-audit content,
@@ -195,19 +216,22 @@ describe('L0 Staging Protocol PR-B-impl (ADR-038)', () => {
       assert.ok(!out.includes('source-audit'), 'F218 source-audit reflex must NOT be in staging body');
     });
 
-    test('Cloud R1 P2 #2239: 摩擦检测反射 trigger phrases rendered (positive coverage for demoted reflex)', () => {
-      // Same hole-plugging: ensure 铲屎官重复不满 → code-as-harness reflex
-      // is actually injected, not just declared in manifest.
-      const out = buildStagingPrepend('opus-47');
-      assert.ok(
-        out.includes('铲屎官重复不满'),
-        '摩擦检测反射 trigger "铲屎官重复不满" must be rendered (demoted from L0 §2)',
-      );
-      assert.ok(out.includes('code-as-harness'), '摩擦检测反射 action "code-as-harness" must be rendered');
-      assert.ok(out.includes('搜证据确认'), '摩擦检测反射 procedure "搜证据确认" must be rendered');
-    });
+    sourceOnlyTest(
+      'Cloud R1 P2 #2239: 摩擦检测反射 trigger phrases rendered (positive coverage for demoted reflex)',
+      () => {
+        // Same hole-plugging: ensure 铲屎官重复不满 → code-as-harness reflex
+        // is actually injected, not just declared in manifest.
+        const out = buildStagingPrepend('opus-47');
+        assert.ok(
+          out.includes('铲屎官重复不满'),
+          '摩擦检测反射 trigger "铲屎官重复不满" must be rendered (demoted from L0 §2)',
+        );
+        assert.ok(out.includes('code-as-harness'), '摩擦检测反射 action "code-as-harness" must be rendered');
+        assert.ok(out.includes('搜证据确认'), '摩擦检测反射 procedure "搜证据确认" must be rendered');
+      },
+    );
 
-    test('Cloud R5 P2 #2239: ADR-031 harness 三层反射 rendered (disentangled from F218 trim)', () => {
+    sourceOnlyTest('Cloud R5 P2 #2239: ADR-031 harness 三层反射 rendered (disentangled from F218 trim)', () => {
       // Cloud R5 P2: trimming F218 dropped the "harness 改动按软+硬+eval 三层
       // 落地" reflex along with source-audit's 对象适用性 dimension. Cloud asked
       // to retain the triggers OR move them to an always-injected replacement.
@@ -220,7 +244,7 @@ describe('L0 Staging Protocol PR-B-impl (ADR-038)', () => {
       assert.ok(out.includes('ADR-031'), 'harness 三层 reflex must reference ADR-031');
     });
 
-    test('EXECUTION_CONTEXT 运行模式能力 matrix rendered (CVO direct investment 2026-06-13)', () => {
+    sourceOnlyTest('EXECUTION_CONTEXT 运行模式能力 matrix rendered (CVO direct investment 2026-06-13)', () => {
       // runtime-sync 48 -p 3-times-wrong root cause: cats KNOW their mode but
       // guess capability boundaries wrong. Static matrix injected via staging
       // (F203/staging 增量, not a new feat — CVO 终裁 2026-06-13).
@@ -269,7 +293,7 @@ describe('L0 Staging Protocol PR-B-impl (ADR-038)', () => {
       );
     });
 
-    test('buildStagingPrepend is the single source consumed by invoke-single-cat', () => {
+    sourceOnlyTest('buildStagingPrepend is the single source consumed by invoke-single-cat', () => {
       // Architectural invariant: only buildStagingPrepend produces staging
       // text. invoke-single-cat calls it per turn, regardless of
       // injectSystemPrompt. ADR-038 "每轮注入生效" contract delivered.
@@ -299,7 +323,7 @@ describe('L0 Staging Protocol PR-B-impl (ADR-038)', () => {
       );
     });
 
-    test('staging tokens (measured) match manifest declared (within ±20% slack)', () => {
+    sourceOnlyTest('staging tokens (measured) match manifest declared (within ±20% slack)', () => {
       const m = loadStagingManifest();
       const declared = m.items.reduce((sum, it) => sum + it.estimated_tokens, 0);
       const out = buildStagingPrepend('opus-47');
