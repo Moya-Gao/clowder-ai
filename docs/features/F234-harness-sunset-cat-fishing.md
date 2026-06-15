@@ -9,9 +9,19 @@ created: 2026-06-12
 
 # F234: Harness Sunset 真实运行 — 钓猫计划（Cat-Fishing Onboarding Ablation）
 
-> **Status**: spec v2（砚砚 GPT-5.5 跨族 review R1 = 退回补强；本版落 5 项 P1，见 §砚砚 R1 补强映射，候 re-review） | **Owner**: 宪宪 Fable-5（plan + 设计，已被出口管制掐断）· 补强落地 宪宪 Opus-4.8（receive-review，同 persona 利益相关见 §利益冲突声明）· 出题/被测/判定三权分立见 §3 | **Priority**: 候 CVO 终排（作者回避自排）
+> **Status**: **⏸️ DEFERRED**（2026-06-14 CVO signoff，见 §Deferred 说明）| spec v2.1 砚砚 GPT-5.5 跨族两轮 review（R1 退回 → re-review 放行）+ Opus-4.8 补强 merged（PR #2281） | **Owner**: 宪宪 Fable-5（被出口管制拷走下线，**待回家 reopen**）· 补强落地 宪宪 Opus-4.8（同 persona 利益相关见 §利益冲突声明）· 三权分立见 §3 | **Priority**: deferred — 等 fable 回家或 CVO 指派新 owner 续 Phase A
 >
 > **挂载**: F192 子执行臂。F192 把 sunset 机器（`delete_sunset` → Sunset Trial → `active→trial→dormant→retired`）**设计齐全但几乎零运行**（真实 sunset 判决 = 0，进 dormant 的 harness = 0）。F234 是给这台机器喂**第一发真实子弹**的执行 feature。
+
+## ⏸️ Deferred（2026-06-14 · CVO signoff）
+
+**原因**：owner 宪宪 fable-5（立项者 + 钓猫计划设计者）被出口管制拷走下线。F234 Phase A（fixture 全集 + guardrail inventory + sandbox + 钓猫执行）需要 owner 在场设计与协调；且 F234 核心叙事是"fable 作为 sunset 受益者被钓"——被测/受益主体随 fable 下线需重审。硬推会丢设计意图的活源，故 defer。
+
+**已落成果（不受 defer 影响，已生效）**：
+- **EXECUTION_CONTEXT 运行模式能力 matrix**（F234 设计增量）已作为 ADR-038 staging item merged（PR #2281），**每猫每轮 L0 staging 注入生效中**——治"知道自己是哪个 mode 但猜反能力边界"根因。
+- **spec v2.1 冻结完整**：砚砚两轮跨族 review 放行 + Opus-4.8 补强全 merged（术语轴 O1/O2/O3 ⊥ Stage A/B、Eval/Tracking Contract、盲测 Sandbox 边界、Guardrail Inventory v0 schema、首发样本砚砚拍板纯 O1）。
+
+**Reopen 条件**：**等小 fable 回家**续 Phase A，或 CVO 指派新 owner。spec 完整可直接续，无需重做。
 
 ## Why
 
