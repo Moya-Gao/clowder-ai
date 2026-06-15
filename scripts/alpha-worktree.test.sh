@@ -40,6 +40,7 @@ test_print_alpha_env_exports() {
   assert_contains "$output" "export ASR_ENABLED=0" "should disable ASR sidecar"
   assert_contains "$output" "export TTS_ENABLED=0" "should disable TTS sidecar"
   assert_contains "$output" "export LLM_POSTPROCESS_ENABLED=0" "should disable LLM postprocess sidecar"
+  assert_contains "$output" "export CONNECTOR_GATEWAY_AUTOSTART=0" "should disable preconfigured IM connector autostart"
   echo "PASS: alpha env exports are fixed to isolated defaults"
 }
 

@@ -222,7 +222,15 @@ async function doCompileL0(
     );
   }
 
-  const args = [scriptPath, '--cat', catId, ...(outPath ? ['--out', outPath] : [])];
+  // F231: capsule lives in private/profile/ (gitignored user data).
+  // In packaged installs (Windows #802), cwd = project dir (AppData) where
+  // user data lives; scriptPath resolves to the install dir via deriveInstallRoot.
+  // Try cwd-based first (finds capsule in project dir), fall back to
+  // script-path-based (handles cwd=packages/api where cwd/private doesn't exist).
+  const cwdProfileDir = resolve(cwd, 'private', 'profile');
+  const scriptProfileDir = resolve(dirname(scriptPath), '..', 'private', 'profile');
+  const profileDir = existsSync(cwdProfileDir) ? cwdProfileDir : scriptProfileDir;
+  const args = [scriptPath, '--cat', catId, '--profile-dir', profileDir, ...(outPath ? ['--out', outPath] : [])];
 
   const stdout = await new Promise<string>((resolvePromise, rejectPromise) => {
     const child = spawnFn(process.execPath, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] });

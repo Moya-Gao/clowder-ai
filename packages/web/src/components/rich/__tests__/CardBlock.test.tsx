@@ -40,7 +40,7 @@ describe('CardBlock — unhandled action defense (F225 dogfood)', () => {
       id: 'card_1',
       kind: 'card',
       v: 1,
-      title: '🔄 提议 session 接力',
+      title: '提议 session 接力',
       actions: [{ label: '批准并接力', action: 'handoff:approve', payload: { proposalId: 'p1' } }],
     };
     await act(async () => {

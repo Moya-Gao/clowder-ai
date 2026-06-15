@@ -136,6 +136,8 @@ VERIFY 完所有 findings 之后、动手修之前，做一次 failure-mode 判�
 
 **R2+ 额外检查**：如果本轮的 finding 和上轮是**同型**——不管数量多少，**强制 audit**。同型第二次出现 = author 上轮没泛化，这次必须补上。
 
+**≥3 轮升级规则（F229 PR-A1 20 轮教训）🔴**：同一状态对象的 finding 连续 **≥3 轮**出现（哪怕每轮都"修好了"）= 不是你修得不对，是 **plan/spec 层欠状态机的边**——代码层 audit 扫不出"spec 没定义 restore boundary"这种上游缺失。停手，@ plan/spec 作者按 writing-plans「Stateful Object Gate」补状态转移表 + 不变量，补完再继续修。**别一个人打到 R20**（PR #2202：实现猫每轮诚实修好当轮 finding，但缺这个升级出口，20 轮才合入）。
+
 > **为什么在 FIX 之前**：先 audit 再修 = 一次修完所有同类；先修再 audit = 改了一个又发现三个，反复 rebase。
 
 ## Red→Green 修复流程
@@ -238,6 +240,7 @@ Reviewer 在 review 过程中发现 author 触发以下任一条件，可直接�
 | 云端 P1 修完不 re-trigger | 必须重新触发云端 review |
 | 前端改动只看代码不开浏览器 | 涉及 UX 必须打开浏览器实操验证 |
 | 只修 reviewer 指的那一个点（补锅匠） | 先判 failure mode 是否同类，是则 audit 本 PR diff 全扫再修 |
+| 同型 finding 打到 R5+ 还在逐轮修 | **第 3 轮就停**，升级 plan/spec 作者补状态机（≥3 轮升级规则）——代码层修不掉 spec 层的洞 |
 
 ## 和其他 skill 的区别
 

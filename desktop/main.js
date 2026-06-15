@@ -2,9 +2,9 @@
 // Launches backend services (Redis, API, Web) then shows the web UI.
 
 const { app, BrowserWindow, Menu, Tray, dialog } = require('electron');
-const path = require('path');
-const fs = require('fs');
-const os = require('os');
+const path = require('node:path');
+const fs = require('node:fs');
+const os = require('node:os');
 const { resolveProjectRootFromDir } = require('./project-root');
 const ServiceManager = require('./service-manager');
 

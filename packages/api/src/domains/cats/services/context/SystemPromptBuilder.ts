@@ -5,7 +5,7 @@
  * 纯函数，无副作用。读取 catRegistry 生成身份上下文。
  */
 
-import type { CatConfig, CatId, CompiledPackBlocks, WorldContextEnvelope } from '@cat-cafe/shared';
+import type { CatConfig, CatId, CompiledPackBlocks, ConciergeConfig, WorldContextEnvelope } from '@cat-cafe/shared';
 import { catRegistry } from '@cat-cafe/shared';
 import {
   catHasRole,
@@ -19,6 +19,7 @@ import { getCatModel } from '../../../../config/cat-models.js';
 // F167 Phase F P1 (cloud Codex): roster model cell must resolve via getCatModel
 // (env CAT_{CATID}_MODEL → registry → defaults), not from static config.defaultModel,
 // otherwise env overrides cause exactly the handle/model drift Phase F is killing.
+import { buildConciergePromptLines } from '../../../concierge/ConciergePromptSection.js';
 import { buildGuidePromptLines } from '../../../guides/GuidePromptSection.js';
 import type {
   BootcampStateV1,
@@ -28,6 +29,9 @@ import type {
 } from '../stores/ports/ThreadStore.js';
 import { loadCompiledGovernanceL0, loadCompiledGovernanceL0Sync } from './governance-l0.js';
 import { RICH_BLOCK_SHORT } from './rich-block-rules.js';
+// L0-budget-defense PR-B-impl (ADR-038 件套 ④): staging is wired in
+// invoke-single-cat (mirrors F225 contextHintPrefix), NOT here. See note
+// at the buildLiveStaticIdentity removal site below for the rationale.
 
 /**
  * Context for a single cat invocation
@@ -174,6 +178,16 @@ export interface InvocationContext {
    * When present, injects world state (characters, scene, canon) into the prompt.
    */
   worldContext?: WorldContextEnvelope;
+  /**
+   * F229: Concierge thread marker.
+   * When 'concierge', ConciergePromptSection is injected into the invocation context.
+   */
+  threadKind?: 'concierge';
+  /**
+   * F229: Per-user concierge configuration.
+   * Required when threadKind === 'concierge'. Provides displayName / personaTone / dutyCatProfileId.
+   */
+  conciergeConfig?: ConciergeConfig;
 }
 
 /** Get all cat configs from catRegistry (.cat-cafe/cat-catalog.json) */
@@ -837,6 +851,11 @@ export function buildInvocationContext(context: InvocationContext): string {
     lines.push(...buildGuidePromptLines(context.guideCandidate, context.threadId));
   }
 
+  // F229: Concierge duty section — injected only for per-user concierge threads
+  if (context.threadKind === 'concierge' && context.conciergeConfig) {
+    lines.push(...buildConciergePromptLines(context.conciergeConfig, context.threadId));
+  }
+
   // F093: World context envelope — inject world state for world-building mode
   if (context.worldContext) {
     const wc = context.worldContext;
@@ -1042,3 +1061,16 @@ export function buildSystemPrompt(context: InvocationContext): string {
 
   return parts.join('\n\n');
 }
+
+// L0-budget-defense PR-B-impl (ADR-038 件套 ④): staging is now injected directly
+// in invoke-single-cat at the per-invocation prompt prefix level (mirrors F225
+// contextHintPrefix), NOT folded into staticIdentity at route-serial/parallel.
+//
+// Cloud R2 P1 #2237 L1099 (root cause): folding staging into staticIdentity
+// causes resumed session-chain turns to drop staging, because invoke-single-cat
+// skips systemPrompt injection on canSkipOnResume + isResume turns. Staging
+// must apply EVERY turn per ADR-038 "每轮注入生效" contract → wire it
+// independently of injectSystemPrompt.
+//
+// buildLiveStaticIdentity removed. buildStagingPrepend (in StagingContent.ts)
+// is the single source — invoke-single-cat consumes it directly.

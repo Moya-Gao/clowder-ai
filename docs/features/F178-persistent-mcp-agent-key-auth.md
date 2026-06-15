@@ -71,6 +71,7 @@ created: 2026-04-26
 - Redis-backed registry migration hygiene：
   - sidecar reconcile 重启时不得无界签发新 key；上线 Redis backend 前必须实现按 `catId × userId × scope` 的 upsert/replace，或在 issue 前 revoke existing active key
   - 覆盖测试：连续 API restart / reconcile 不产生不可管理的 orphan active keys
+  - 2026-06-10 hotfix note：PR #2209 已把 agent-key record 持久化到 Redis，并加全局 sidecar owner gate，解决 alpha/dev/test 进程覆盖 `~/.cat-cafe/agent-keys/*` 后 runtime 无法验证 secret 的 `agent_key_unknown` 根因；完整 inventory/audit 与 active-key upsert/replace 仍按 AC-D1~D5 留在 Phase D。
 - audit log：所有 agent-key 写操作记录到 evidence/observability 通道
 - 复用 F174 24h ring buffer + plug indicator：agent-key 失败率挂同一个 indicator（颜色/状态语义扩展）
 - 现场可感知性：thread 内 agent-key 写操作标识 "by agent-key (out-of-invocation)"

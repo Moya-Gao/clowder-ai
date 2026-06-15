@@ -131,6 +131,13 @@
       "available": true,
       "evaluation": "热血创意，富文本与语音，表达力强，禁写代码"
     },
+    "gemini25": {
+      "family": "siamese",
+      "roles": ["designer", "triage"],
+      "lead": false,
+      "available": true,
+      "evaluation": "Gemini 3.5 Flash 轻量 triage/narrator，适合高频社区初筛，强 review，禁自合"
+    },
     "dare": {
       "family": "dragon-li",
       "roles": ["coding"],

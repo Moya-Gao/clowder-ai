@@ -2,9 +2,13 @@
 
 import { useCallback, useState } from 'react';
 import { MarkdownContent } from '@/components/MarkdownContent';
+import { pushThreadRouteWithHistory } from '@/components/ThreadSidebar/thread-navigation';
 import type { RichCardBlock } from '@/stores/chat-types';
 import { useChatStore } from '@/stores/chatStore';
+import { useConciergeStore } from '@/stores/conciergeStore';
 import { apiFetch } from '@/utils/api-client';
+import { scrollToMessage } from '@/utils/scrollToMessage';
+import { kickTeleportResolve, planTeleport } from '@/utils/teleport';
 
 const TONE_STYLES: Record<string, string> = {
   info: 'border-l-conn-blue-ring bg-conn-blue-bg ',
@@ -86,6 +90,151 @@ export function CardBlock({ block, messageId }: { block: RichCardBlock; messageI
     [messageId, block.id],
   );
 
+  // ---------------------------------------------------------------------------
+  // F229 PR-A3b: Concierge card action handlers (§1a/§1b/§2)
+  // ---------------------------------------------------------------------------
+
+  const handleConciergeTeleport = useCallback((payload?: Record<string, unknown>) => {
+    const threadId = typeof payload?.threadId === 'string' ? payload.threadId : '';
+    const messageId = typeof payload?.messageId === 'string' ? payload.messageId : undefined;
+    if (!threadId) return;
+
+    // INV-7: collapse surface so user's intent has transferred
+    useConciergeStore.getState().onNavigationAction();
+
+    const currentThreadId = useChatStore.getState().currentThreadId;
+    if (messageId) {
+      const plan = planTeleport({ threadId, messageId, currentThreadId });
+      if (plan.scrollNow) {
+        // Same thread: bubble already collapsed (onNavigationAction above),
+        // scroll underlying chat to target + kick resolver for out-of-window targets.
+        // Matches useTeleport.ts same-thread path (cloud review P2 fix).
+        scrollToMessage(plan.scrollNow);
+        kickTeleportResolve();
+      } else if (plan.navigateTo) {
+        // Bug1 fix: pathname route (/thread/X) + pushState — chat route reads threadId
+        // from pathname only ((chat)/layout.tsx); /?threadId= query has no consumer → lobby.
+        // Matches useTeleport.ts:91 (the already-shipped cross-thread teleport path).
+        pushThreadRouteWithHistory(plan.navigateTo, window);
+      }
+    } else {
+      // No messageId — navigate to thread via pathname route
+      // (Bug1: was /?threadId= → getThreadIdFromPathname('/') = 'default' = lobby).
+      pushThreadRouteWithHistory(threadId, window);
+    }
+  }, []);
+
+  const handleConciergeGo = useCallback((payload?: Record<string, unknown>) => {
+    const targetThreadId = typeof payload?.targetThreadId === 'string' ? payload.targetThreadId : '';
+    if (!targetThreadId) return;
+
+    // INV-7: collapse surface
+    useConciergeStore.getState().onNavigationAction();
+    // Bug1 fix: pathname route, not /?threadId= query (lobby fallback).
+    pushThreadRouteWithHistory(targetThreadId, window);
+  }, []);
+
+  const handleConciergeRelay = useCallback(
+    async (payload?: Record<string, unknown>) => {
+      if (!payload) return;
+      // Cloud R4 P1: one-shot guard — prevent duplicate relay dispatch on double-click.
+      // After first success, copiedAction is 'concierge_relay'; early-return blocks re-post.
+      if (copiedAction === 'concierge_relay') return;
+      const targetThreadId = typeof payload.targetThreadId === 'string' ? payload.targetThreadId : '';
+      const targetCats = Array.isArray(payload.targetCats) ? (payload.targetCats as string[]) : [];
+      const originalText = typeof payload.originalText === 'string' ? payload.originalText : '';
+      const sourceMessageId = typeof payload.sourceMessageId === 'string' ? payload.sourceMessageId : '';
+
+      // INV-E1: all required fields present
+      if (!targetThreadId || targetCats.length === 0 || !originalText || !sourceMessageId) {
+        setError('传话参数不完整');
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+      const store = useConciergeStore.getState();
+
+      // R-review P1 fix: increment pendingRelayCount BEFORE dispatch → ball enters handoff
+      store.onRelayDispatching();
+
+      try {
+        const conciergeThreadId = store.threadId;
+        if (!conciergeThreadId) {
+          throw new Error('Concierge thread not initialized');
+        }
+
+        const res = await apiFetch('/api/concierge/relay', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ targetThreadId, targetCats, originalText, sourceMessageId, conciergeThreadId }),
+        });
+
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error((body as { error?: string }).error ?? `HTTP ${res.status}`);
+        }
+
+        // Relay dispatched successfully → exit handoff → idle (NOT found).
+        // Spec §0: found badge waits for target cat's actual cross_post reply
+        // message arriving in concierge thread, not dispatch ACK.
+        store.onRelayDispatched();
+        // Mark this card as completed
+        setCopiedAction('concierge_relay');
+      } catch (err) {
+        // Dispatch failed → revert handoff without adding unseen
+        useConciergeStore.getState().onRelayFailed();
+        setError(err instanceof Error ? err.message : '传话失败');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [copiedAction],
+  );
+
+  const handleConciergePeek = useCallback(
+    async (payload?: Record<string, unknown>) => {
+      const threadId = typeof payload?.threadId === 'string' ? payload.threadId : '';
+      const msgId = typeof payload?.messageId === 'string' ? payload.messageId : '';
+      if (!threadId || !msgId) return;
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const res = await apiFetch(`/api/concierge/peek?threadId=${threadId}&messageId=${msgId}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const data = (await res.json()) as {
+          window: Array<{ id: string; content: string; catId: string | null; userId: string; isTarget: boolean }>;
+        };
+
+        // Update the card's bodyMarkdown to show the peeked content inline
+        if (messageId) {
+          const peekContent = data.window
+            .map((m) => {
+              const prefix = m.isTarget ? '**→ ' : '  ';
+              const sender = m.catId ? `🐱 ${m.catId}` : `👤 ${m.userId}`;
+              const suffix = m.isTarget ? ' ←**' : '';
+              return `${prefix}${sender}: ${m.content?.slice(0, 200) ?? ''}${suffix}`;
+            })
+            .join('\n\n');
+
+          useChatStore.getState().updateRichBlock(messageId, block.id, {
+            ...block,
+            bodyMarkdown: peekContent,
+            actions: block.actions?.filter((a) => a.action !== 'concierge_peek'),
+          });
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : '查看失败');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [messageId, block],
+  );
+
   const handleAction = useCallback(
     async (action: string, payload?: Record<string, unknown>) => {
       if (action === 'copy-to-clipboard') {
@@ -96,6 +245,23 @@ export function CardBlock({ block, messageId }: { block: RichCardBlock; messageI
         await resynthesizeTts(payload);
         return;
       }
+      // F229 PR-A3b: Concierge card actions (§2 CardBlock:90 registration point)
+      if (action === 'concierge_teleport') {
+        handleConciergeTeleport(payload);
+        return;
+      }
+      if (action === 'concierge_go') {
+        handleConciergeGo(payload);
+        return;
+      }
+      if (action === 'concierge_relay') {
+        await handleConciergeRelay(payload);
+        return;
+      }
+      if (action === 'concierge_peek') {
+        await handleConciergePeek(payload);
+        return;
+      }
       // Defense-in-depth (F225 dogfood): a card whose action this build doesn't handle — e.g. a stale
       // browser bundle rendering a newer `handoff:approve` card via this generic renderer instead of
       // the dedicated one — would silently no-op. Warn so the dead button self-diagnoses (→ refresh).
@@ -103,7 +269,14 @@ export function CardBlock({ block, messageId }: { block: RichCardBlock; messageI
         `[CardBlock] unhandled card action "${action}" — the app bundle may be stale; hard-refresh (Cmd+Shift+R).`,
       );
     },
-    [copyToClipboard, resynthesizeTts],
+    [
+      copyToClipboard,
+      resynthesizeTts,
+      handleConciergeTeleport,
+      handleConciergeGo,
+      handleConciergeRelay,
+      handleConciergePeek,
+    ],
   );
 
   return (
@@ -130,7 +303,7 @@ export function CardBlock({ block, messageId }: { block: RichCardBlock; messageI
             <button
               key={`${a.action}:${a.label}:${i}`}
               type="button"
-              disabled={loading}
+              disabled={loading || (a.action === 'concierge_relay' && copiedAction === 'concierge_relay')}
               onClick={() => handleAction(a.action, a.payload)}
               className="text-xs px-2 py-1 rounded bg-[var(--semantic-warning-surface)] hover:bg-[var(--semantic-warning-surface)] text-conn-amber-text border border-conn-amber-ring disabled:opacity-50 transition-colors"
             >

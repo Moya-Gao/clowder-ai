@@ -8,7 +8,38 @@ created: 2026-04-18
 
 # F168: Community Operations Board — 社区事务编排引擎
 
-> **Status**: done | **Completed**: 2026-04-20 | **Owner**: Ragdoll | **Priority**: P1
+> **Status**: Phase A ✅ | **Phase B ✅ closed (2026-06-12)** | Phase C in-progress（C0 前置 ✅ / C1 Role Registry ✅ / C2 narrator spawn ✅ / C3.1 resolve routing ✅ / C3.2 frontend + eval next）| **First completed**: 2026-04-20 | **Owner**: Ragdoll (opus-4.8，2026-06-12 接手自 fable-5) | **Priority**: P1
+
+## Reopen（2026-06-10，CVO signoff）
+
+**为什么 reopen**：v1 看板上线后，运维实战暴露系统性缺口——webhook 事件与看板 dispatch 是两条互不回流的平行线、issue 追评无一等事件、closure 靠猫记性（积压 64 条未回复，2026-06-09 截图）。三猫独立思考收敛 + Maine Coon 4 P1 review 放行后，CVO 批准以终态设计重构。
+
+**真相源链**：
+- 思考过程：`2026-06-09-community-ops-eventbus-retrospective.md`（运维Maine Coon）/ `2026-06-09-community-ops-multiagent-coordination-fable.md`（Ragdoll）
+- 实现依赖挂靠：F141（issue 生命周期事件）/ F140（PR 信号层复用）
+
+**分工（CVO 拍板 2026-06-10，2026-06-14 更新）**：opus 家族写 Phase spec/plan + 实现 + 合入后愿景守护；Maine Coon家族 review。（原分工 fable plan + sonnet 实现，实测效果不理想；fable-5 下线后 CVO 确认由 opus 们全程接手。）
+
+**Phase 总览**：A 事件引擎（Event Log + 投影 + 状态机）✅ → B Issue Signals 全量事件 ✅ → C Narrator + Role Registry + 路由（in progress：C0/C1/C2/C3.1 ✅，C3.2 frontend + eval next）→ D Closure UX + Reconciler → E 看板决策队列。原 v1 文档（下方）保留为历史语境。
+
+**Phase A 完成（2026-06-10）**：PR #2203，commit `10c3c9bfdb`，squash-merged。Event Log + 纯函数状态机 + CommunityProjector + bootstrap CLI + 3 入口接线 + PR lifecycle + 看板 API（向后兼容）。6 轮 cloud review 全修。Phase B 由 @fable5 规划。
+
+**Phase B PR-1 完成（2026-06-10）**：PR #2210，commit `757ef632f5`，squash-merged。活动信号事件类型（issue.commented / issue.labeled / pr.review_submitted / case.awaiting_external）shared types + webhook 三件套 + linked issue 解析器（parseLinkedIssues）+ projector cascade fix（pr.merged 时正确传播 linkedIssues → fixed）+ 体-enrichment 竞态修复（Cloud R4）+ default-branch gate（Cloud R4）+ projector 重试修复（Cloud R5/R6）。6 轮 cloud review 全修。PR-2（双 cursor + awaiting_external 闭环 + e2e）待续。
+
+**Phase B ✅ CLOSED（2026-06-12，fable-5 归档）**
+
+交付：三 PR（#2210/#2214/#2231 + #2232 sanctuary flag）全部 squash merge + 双轮愿景守护 PASS + LL-072 封板协议执行（21 轮 cloud review saga 收口）。**Task 0 ✅**：453 条 legacy records 迁入 Event Log（production，0 error）。**轮询链路验收 ✅**：test issue #912 → resolve → `case.routed` 自动注册 tracking（Task 5 生产首跑 ✓）→ comment → 轮询采集 → `issue.commented`（合成键 `comment:...#912:4695069413`）→ 投影 `lastExternalActivityAt` 更新 → delivery 决策 silent-log（OWNER 静默 = 设计行为）。
+
+**验收边界（如实记录）**：wake 分叉（外部用户评论 → wake-owner → thread 唤醒）未做生产实证——测试评论为 OWNER 身份走了 silent 分叉；wake 路径由 Redis e2e Chain B（CONTRIBUTOR → wake）+ IssueCommentRouter 机制数月生产运行覆盖。**外部用户下一条真实评论 = wake 生产首验**，届时在本 doc 补一行观察记录。
+
+**AC1 语义变更（CVO 2026-06-12 20:03 签字）**：webhook 主路径 → **opt-in 加速器**；轮询为主路径（多租户零配置——开源用户 Mac+Tailscale 画像无公网域名，webhook 作为主路径违反"自用→开放"硬约束）。生产证据：clowder-ai 从无 repo webhook，F141 至今全部事件来自轮询（事件 log 零 webhook delivery 格式）。
+
+**遗留去向（全部有 owner，零悬空）**：
+- `threadStore` 未传 `communityIssueRoutes`（routeAccepted Path 2 静默退出，optional-dep 接线缺失第 4 次）→ **Phase C 前置修复项**（narrator 路由强依赖此路径）
+- repo 级 comment 轮询（`issues/comments?since=` 游标，灭未-routed 追评盲区）→ **Phase C plan**
+- optional-dep 接线缺失已四犯 → **Phase C 落硬层检查**（ADR-031：构造点传参 grep 守护测试）
+- narrator 排除存量（453 条 bootstrap case 不进 triage 队列，防 64+ 卡风暴）→ **Phase C plan 硬约束**
+- `GITHUB_WEBHOOK_SECRET` 已在 chat 暴露 → **待team lead**：换新值或清空禁用（webhook 现为 opt-in 未启用，清空 = 攻击面归零）
 
 ## Why
 

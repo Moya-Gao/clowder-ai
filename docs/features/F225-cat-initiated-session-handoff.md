@@ -8,9 +8,9 @@ created: 2026-06-05
 
 # F225: Cat-Initiated Session Handoff — 猫主导的 session 接力
 
-> **Status**: in-progress（**硬层** done + dogfood；**软层**（L0 §8 反射 + `context-self-management` skill + `context_management_hint` **prompt-injection** delivery）**+ eval 注册**（capability-wakeup #14）done，merged PR #2178；**待**：真实 warn session 观测 hint 是否 fire + eval activation 数据，闭 KD-1 三层后再 close） | **Owner**: Ragdoll（Opus 4.8） | **Priority**: P2
+> **Status**: done（2026-06-15 production audit close — Redis 6399 read-only 取证 19 propose 跨 10 天，12 approved 全部 spawn 续接 continuation_entry，6 rejected（team lead+续接系统真 gate），1 pending；FX-3 实测 12/12 = 100%；activation 数据满足 Eval Contract #1；非 sunset signal；愿景守护 opus-47 APPROVE → CVO 拍板 close） | **Owner**: Ragdoll（Opus 4.8） | **Priority**: P2
 
-Architecture cell: `identity-runtime-session`（`identity-session` cell 的 subcell，F211 owns）
+Architecture cell: identity-session（subcell: `identity-runtime-session`，F211 owns）
 Map delta: update required — 新增"猫主动提议"作为一种 session boundary **触发源** + 新 `sealReason: 'cat_initiated_handoff'` + 新 typed `SessionRecord.catHandoffNote`（或独立 SessionHandoffStore）+ 新 `SessionHandoffProposal` 类型，扩展 identity-runtime-session 的 lifecycle registration / seal reason / proposal 谱系。owner 不变。
 Why: session 边界目前只能由 `shouldTakeAction`（context_health / 阈值策略）被动触发；本 feature 增加一条"猫主动 + 人 gate"的触发路径 + 配套 typed 承载，归 identity-runtime-session 管 session 生命周期，不新造通用 Store/Queue。
 
@@ -139,6 +139,7 @@ Why: session 边界目前只能由 `shouldTakeAction`（context_health / 阈值�
    - FX-2c: crash after requestSeal accepted before proposal checkpoint → recovery 从 session 侧反推 backfill + enqueue continuation 恰好一次（不误判 pre-commit、不留孤儿）。
    - FX-3: **extractive/compress 默认 bootstrapDepth** 下续接 session bootstrap 第一眼 prompt **含五件套留言内容**（always-keep 注入断言）。
    - FX-4: 超滥用边界（同 active session 第 2 张 pending 卡 / 冷却期内）被拒。
+   - FX-5（lightweight session-health regression）：F232/F225/F233 的 raw transcript channel-bucketing case。预期 verdict：poison 只在 assistant 桶 → session health / confabulation；poison 在 `tool_result` / user / attachment 桶才升级真 security incident。
 4. **Sunset Signal**
    - 连续 4 周 handoff 提议次数 = 0（猫从不主动用）→ 能力没被采纳，sunset 或重设计。
    - 或 approve 后续接 session 仍"失忆"（FX-3 长期 fail / friction metric 显示不引用留言）→ 注入路径无效，重新评估。
@@ -178,7 +179,33 @@ Why: session 边界目前只能由 `shouldTakeAction`（context_health / 阈值�
 - **KD-13 — cross-runtime 优雅降级；compression hook 覆盖参差，设计不依赖 hook。** （2026-06-09 Maine Coon source-audit 刷新三月旧记忆，推翻"只有 Claude 有 hook"）：Claude 有成熟 `PreCompact`（`f24-pre-compact.sh` 维护精确 `compressionCount`）；**Gemini CLI 有 `PreCompress`**（可接但本机 `~/.gemini` 未装）；Codex 有 SessionStart/UserPromptSubmit/PermissionRequest、Antigravity 有 PreToolUse/PostToolUse/PreInvocation/Stop，但二者**均无 compression hook**。即"只有 Claude 有 hook"是过时表述——但 `compressionCount` via PreCompact 确实 **Claude-as-wired specific**，非 Claude 猫当前拿不到精确压缩计数。**故 cat-facing 注入不依赖 hook**（hook 仅作 per-runtime 补充探针：有 PreCompact/PreCompress→更准，没有→token-drop 降级）；注入 channel 用 **prompt-injection**（cloud review P1 纠正 system_info 到不了 cat，见 memo §12）；`fillConfidence` 分层（`exact_token`/`approx_token`/`bytes_health`/`unavailable`），unavailable runtime 退到纯断点+漂移自检；`compressionCount` 是漂移锚（不并进 fillConfidence，两正交轴，详见 memo §10）。**实现期 drop `recentlyCompressed`**（timing 上它在 warn 恒 false，详见 memo §11）——hint 最终 `{ severity, fillConfidence, compressionCount }`。非 Claude 猫无持久压缩锚，退到纯线/树+断点自检（runtime-agnostic 持久压缩计数是未来增强）。
 - **Eval 层（capability-wakeup，CVO 第①问"属于 capability 得上 eval"）**：F225 是 capability → 接 F192 `eval:capability-wakeup`——activation（warn+干净断点时 propose_session_handoff 调用率）+ friction（续接 session 第一 invocation 是否引用五件套）+ sunset（连续 N 周 0 调用 → 唤醒路径无效，重评）。
 
+## Post-Close Lightweight Protocol: Opus-48 Session Health（2026-06-15）
+
+> 背景：F232/F225/F233 多次独立取证显示，opus-48 在长 context / 多次 resume / runtime interruption 后可能把 assistant 自生成内容误归因为 tool/user 输入。CVO 定性：这不是"坏掉的工具"，是"喝多的伙伴"；机制应帮助恢复，不应丢弃身份。根因线索（例如 Anthropic 内部小版本 / 量化 / 临时模型侧变化）**未验证**，因此只做轻量、症状级协议，不做重硬层。
+
+**Soft protocol（正式 handoff 口径）**
+
+1. **触发权在外部**：当前 48 自述"我可能幻觉了"可作为告警，但不能作为事实判定。触发/确认来自 CVO ground truth、独立猫 raw transcript channel-bucketing、或 harness 观测到 phantom 信号。
+2. **默认恢复 = fresh opus-48**：普通续做、非自我核验任务，优先 seal/clear 给干净 session 的同一 `catId`。identity 保留，问题按 session health 处理。
+3. **例外 = 独立猫接手**：凡任务目标是验证/修正当前 48 刚才的产物，或产物已进入 memory / commit / cross-post / security verdict / merge / vision guard 等真相源，必须交独立猫（如 codex / opus-46 / opus-47）做 raw evidence 核验；fresh 48 也不自审旧 48 的可疑产物。
+4. **注入 claim 先分桶**：声称 tool 注入、schema 污染、用户发过某指令时，必须给 raw line/message id + bucket。毒只在 assistant 桶 → session-health reset；毒在 `tool_result` / user / attachment 桶 → security incident。
+5. **不羞辱告警**：48 主动上报异常是可取信号。协议奖励上报，但把后续事实判定交给外部证据。
+
+**轻量熔断信号**
+
+- 同一 session 出现 >=2 次 phantom SHA / PR / tool call / card / "用户说过但 user 桶不存在"。
+- 声称被注入、schema 被污染、环境损坏，但没有 raw transcript 坐标。
+- 图像/附件感知与 CVO ground truth 明显不一致，且随后形成安全叙事。
+- 开始输出"我无法自证"、"继续做认识论分析"来延长讨论。正确动作是一句话说明 session 不可信，然后交接。
+
+**Harness boundary**
+
+- **现在做**：dossier 画像 + 本协议 + FX-5 regression/watchlist。
+- **暂缓做**：自动硬拦截、强制转派、复杂 detector。观察一个 Anthropic 小版本/模型侧更新窗口；若症状继续复发，再按 ADR-031 增硬层。
+- **未来复评条件**：30 天内无同型 incident → 保留软协议不加硬层；再出现 >=2 起 raw-confirmed assistant-bucket confabulation → 立 F192/F225 follow-up，把 FX-5 落成可运行 eval。
+
 ## Review Gate
 
 - Spec design review: Maine Coon（GPT-5.5）✅ **R3 放行 writing-plans**（3 轮收敛：留言落点 / proposal 复用 / 滥用边界 → commit-point rollback → crash window，事务完整性合同闭合）。
 - Phase A/B 实现: 跨族代码 review（实现后），重点 approve 原子性 + always-keep 可见性测试。
+- Post-close 轻量协议愿景守护: Ragdoll（Opus 4.7）✅ **APPROVE**（2026-06-15，独立 read-only）——约束强度 / 价值观 / 30 天观察赌注三点全 PASS；一条非阻塞 nit（条 3「验证/修正」措辞待 dogfood 后 polish，不卡 close）。

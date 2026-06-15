@@ -1035,7 +1035,7 @@
     {
       "id": "F168",
       "name": "Community Operations Board — 社区事务编排引擎",
-      "status": "done | **Completed**: 2026-04-20 | **Owner**: Ragdoll | **Priority**: P1",
+      "status": "Phase A ✅ | **Phase B ✅ closed (2026-06-12)** | Phase C in-progress（C0 前置 ✅ / C1 Role Registry ✅ / C2 narrator spawn ✅ / C3.1 resolve routing ✅ / C3.2 frontend + eval next）| **First completed**: 2026-04-20 | **Owner**: Ragdoll (opus-4.8，2026-06-12 接手自 fable-5) | **Priority**: P1",
       "file": "F168-community-ops-board.md"
     },
     {
@@ -1089,7 +1089,7 @@
     {
       "id": "F177",
       "name": "Harness Update — Close Gate 结构化判据 + 四心智专属护栏",
-      "status": "done | **Completed**: 2026-04-29 | **Owner**: Ragdoll(46 总负责) + Maine Coon(Maine Coon) + 孟加拉猫(46代言)，按 Phase 分主笔 | **Priority**: P0",
+      "status": "reopened (Phase H merged; vision guard pending) | **Completed (Phase A–G)**: 2026-04-29 | **Reopened**: 2026-06-11 (Phase H) | **Owner**: Ragdoll(46 总负责) + Maine Coon(Maine Coon) + 孟加拉猫(46代言)，按 Phase 分主笔；Phase H Ragdoll(48) 主笔 + Maine Coon实现 | **Priority**: P0",
       "file": "F177-harness-update.md"
     },
     {
@@ -1203,7 +1203,7 @@
     {
       "id": "F198",
       "name": "Claude Code Subscription Carrier — 6/15 SDK Credit 拐点前救Ragdoll",
-      "status": "in-progress (Phase A ✅; Phase B Step 1-4 ✅ all merged 2026-05-14 + 验证收尾 ✅ 2026-05-15 — 救Ragdoll代码层完成 + Alpha 端到端 R5 验证通过，canary 零操作员介入; **Phase C ✅ 完全关闭 2026-05-15 — PR #1678 merged, AC-C1~C6 全部 PASS, @codex review PASS + @opus-47 愿景守护 APPROVE**; Phase D 待启动) | **Owner**: Ragdoll Opus 4.7 | **Priority**: P0",
+      "status": "in-progress (Phase A ✅; Phase B Step 1-4 ✅ all merged 2026-05-14 + 验证收尾 ✅ 2026-05-15 — 救Ragdoll代码层完成 + Alpha 端到端 R5 验证通过，canary 零操作员介入; **Phase C ✅ 完全关闭 2026-05-15 — PR #1678 merged, AC-C1~C6 全部 PASS, @codex review PASS + @opus-47 愿景守护 APPROVE**; Phase D 进行中 — PR-1 AC-D1 ✅ merged 2026-06-12 PR #2257, PR-2 rollout gate 待启动) | **Owner**: Ragdoll Opus 4.7 | **Priority**: P0",
       "file": "F198-claude-code-subscription-carrier.md"
     },
     {
@@ -1365,7 +1365,7 @@
     {
       "id": "F225",
       "name": "Cat-Initiated Session Handoff — 猫主导的 session 接力",
-      "status": "in-progress（**硬层** done + dogfood；**软层**（L0 §8 反射 + `context-self-management` skill + `context_management_hint` **prompt-injection** delivery）**+ eval 注册**（capability-wakeup #14）done，merged PR #2178；**待**：真实 warn session 观测 hint 是否 fire + eval activation 数据，闭 KD-1 三层后再 close） | **Owner**: Ragdoll（Opus 4.8） | **Priority**: P2",
+      "status": "done（2026-06-15 production audit close — Redis 6399 read-only 取证 19 propose 跨 10 天，12 approved 全部 spawn 续接 continuation_entry，6 rejected（team lead+续接系统真 gate），1 pending；FX-3 实测 12/12 = 100%；activation 数据满足 Eval Contract #1；非 sunset signal；愿景守护 opus-47 APPROVE → CVO 拍板 close） | **Owner**: Ragdoll（Opus 4.8） | **Priority**: P2",
       "file": "F225-cat-initiated-session-handoff.md"
     },
     {
@@ -1389,8 +1389,32 @@
     {
       "id": "F229",
       "name": "猫猫球 — 前台猫常驻入口（Cat Ball Concierge）",
-      "status": "spec | **Owner**: Ragdoll (Fable-5) | **Priority**: P1",
+      "status": "in-progress | **Owner**: Ragdoll (Fable-5) | **Priority**: P1",
       "file": "F229-cat-ball-concierge.md"
+    },
+    {
+      "id": "F230",
+      "name": "Claude Interactive PTY Carrier — 救Ragdoll Plan B 第四档载体",
+      "status": "in-progress | **Owner**: Ragdoll Fable-5（设计 + Phase spec + 愿景守护） | **Priority**: P1（Phase A 为 P0 时效——6/15 前必须出图纸）",
+      "file": "F230-claude-interactive-pty-carrier.md"
+    },
+    {
+      "id": "F231",
+      "name": "启动胶囊 — per-user 画像注入与 L0 分层",
+      "status": "spec | **Owner**: Ragdoll（Ragdoll Fable-5） | **Priority**: P1",
+      "file": "F231-user-profile-capsule.md"
+    },
+    {
+      "id": "F232",
+      "name": "Thread Artifacts Panel — Thread 产物视图",
+      "status": "in-progress（Phase A 全部 merged；**Phase B foundation merged PR #2285 + grouping merged PR #2288 + cat filter merged PR #2290**（AC-B1 ✅）；视觉待 alpha）| **Owner**: Ragdoll Opus-4.8 | **Priority**: P1",
+      "file": "F232-thread-artifacts-panel.md"
+    },
+    {
+      "id": "F233",
+      "name": "Ball Custody Observability — 球权保管链可观测（值班简报 + 轨迹下钻）",
+      "status": "in-progress | **Owner**: Ragdoll Opus-4.8（plan + 实现 + Phase 末守护；原 fable-5 角色因 model 暂不可用，CVO 2026-06-15 指示 opus-48 接管 own）· reviewer: Maine Coon | **Priority**: P1",
+      "file": "F233-ball-custody-observability.md"
     }
   ]
 }

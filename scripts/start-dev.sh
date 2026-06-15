@@ -94,6 +94,8 @@ done
 #     默认模式: CLI env > .env.local > .env（CLI 值在 source 后恢复）
 #     RESPECT_DOTENV_PORTS 模式: .env.local > .env（CLI 端口值不恢复）
 #   对于其他键: .env.local > .env（无 CLI 恢复机制）
+#   例外：CAT_CAFE_PROVISION_GLOBAL_SIDECAR 是 machine-global sidecar
+#   owner marker，只能来自 wrapper/CLI 环境；dotenv 不得授予 ownership。
 #   安全注意: .env.local 全量 source，不再限于 DARE 白名单。
 CLI_FRONTEND_PORT_OVERRIDE="${FRONTEND_PORT-}"
 CLI_API_SERVER_PORT_OVERRIDE="${API_SERVER_PORT-}"
@@ -106,6 +108,7 @@ CLI_ANTHROPIC_PROXY_PORT_OVERRIDE="${ANTHROPIC_PROXY_PORT-}"
 CLI_WHISPER_PORT_OVERRIDE="${WHISPER_PORT-}"
 CLI_TTS_PORT_OVERRIDE="${TTS_PORT-}"
 CLI_LLM_POSTPROCESS_PORT_OVERRIDE="${LLM_POSTPROCESS_PORT-}"
+CLI_CAT_CAFE_PROVISION_GLOBAL_SIDECAR_OVERRIDE="${CAT_CAFE_PROVISION_GLOBAL_SIDECAR-}"
 
 clear_inherited_profile_env() {
     [ "${CAT_CAFE_STRICT_PROFILE_DEFAULTS:-0}" = "1" ] || return 0
@@ -153,6 +156,12 @@ if [ "$PREFER_DOTENV_PORTS" != "1" ]; then
     restore_cli_override "WHISPER_PORT" "$CLI_WHISPER_PORT_OVERRIDE"
     restore_cli_override "TTS_PORT" "$CLI_TTS_PORT_OVERRIDE"
     restore_cli_override "LLM_POSTPROCESS_PORT" "$CLI_LLM_POSTPROCESS_PORT_OVERRIDE"
+fi
+
+if [ -n "$CLI_CAT_CAFE_PROVISION_GLOBAL_SIDECAR_OVERRIDE" ]; then
+    export CAT_CAFE_PROVISION_GLOBAL_SIDECAR="$CLI_CAT_CAFE_PROVISION_GLOBAL_SIDECAR_OVERRIDE"
+else
+    unset CAT_CAFE_PROVISION_GLOBAL_SIDECAR
 fi
 
 # === F182 大赛 / 多 worktree 并发：WORKTREE_PORT_OFFSET 派生 + 主动覆盖 ===

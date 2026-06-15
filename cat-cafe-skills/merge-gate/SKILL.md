@@ -51,6 +51,15 @@ triggers:
 - `headChangeCause = pr-meta`（只改 PR body/comment，不改 commit SHA）→ 不影响 local/cloud review coverage。
 - cloud 额度/权限不可用时，才降级为另一只合格本地猫做**完整 PR review**；这不是把旧 reviewer 拉回来续签。
 
+**封板协议（LL-072，cloud re-review 循环的硬上限）**：
+
+"cloud-finding 修复 → 重新触发 cloud review" 没有自然终点——cloud reviewer 是**无状态抽样信号源**（每轮重放全部历史 inline comments、不能分辨 stale/fresh、不读 pushback），在多 commit 累积 diff 上"0 P1/P2"这个条件**没有不动点**，等它说零等于无限循环（F168 PR #2214 实测 21 轮，R19 单轮 22 findings 中 21 个假阳性）。因此：
+
+1. **循环检测阈值（机械判定，无弹性）**：同一 PR cloud review 达到 **5 轮**，或单轮假阳性（stale 重放/已修重报）比例 **>50%** → 当轮处理完**强制进入封板**，不是继续修-触发循环。
+2. **封板动作**：处理完当前轮全部 finding（真 P1/P2 修复 + 红绿测试；假阳性在 PR comment 有据 pushback）→ **不再 re-trigger cloud review，无论结果**。终局确权交给**本地有状态 reviewer** 对最终 SHA 做 final review（核 pushback 成立性 + 全 diff continuity），放行即 merge。cloud 的角色定位：有贡献预算的辅助信号源，不是终局确权者。
+3. **介入循环时必须改写驱动循环的持久化指令**：tracking instructions / hold 文案里若写有 "0 P1/P2 → merge" 类无不动点条件，拉闸者第一动作是改写它——只改修法不拆循环指令，执行猫会被旧指令拖回循环（F168 R16→R17 复活实证）。
+4. 同类 finding ≥3 轮（同一 stateful 对象/同一 fallback 族）→ 停手回 plan 层补状态契约（转移表+不变量），不是补第 4 个锅（LL/F229）。
+
 进入 Step 7 之前，author 必须核对：
 
 ```bash

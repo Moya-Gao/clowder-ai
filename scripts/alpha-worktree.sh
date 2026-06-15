@@ -183,6 +183,7 @@ export EMBED_ENABLED=0
 export EMBED_MODE=off
 export AUDIO_SERVICE_ENABLED=0
 export AUDIO_SERVICE_PORT=$ALPHA_AUDIO_PORT
+export CONNECTOR_GATEWAY_AUTOSTART=0
 EOF
 }
 
@@ -249,6 +250,7 @@ apply_alpha_env() {
   export EMBED_MODE=off
   export AUDIO_SERVICE_ENABLED=0
   export AUDIO_SERVICE_PORT="$ALPHA_AUDIO_PORT"
+  export CONNECTOR_GATEWAY_AUTOSTART=0
 
   # Next.js dev only reads .env files relative to its own cwd (packages/web/),
   # not monorepo root .env, and does not always pick up exported NEXT_PUBLIC_*

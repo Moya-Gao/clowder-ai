@@ -7,7 +7,7 @@ created: 2026-02-26
 
 # Cat Cafe Feature Roadmap
 
-> 维护者：三猫 | 最后更新：2026-06-09（feature truth hygiene：F188 reopened / F128 active）
+> 维护者：三猫 | 最后更新：2026-06-11（feature truth hygiene：F177 reopened）
 >
 > **规则**：只放活跃 Feature（idea/spec/in-progress/review），done 后移除。
 > 详细信息见 `docs/features/Fxxx-*.md`。
@@ -53,6 +53,8 @@ created: 2026-02-26
 | F162 | Enterprise Action Toolkit — 官方 CLI 驱动的企业工作流 | spec | Ragdoll | internal | [F162](features/F162-enterprise-action-toolkit.md) |
 | F165 | Guided Overfitting — 引导式过拟合 / 养猫路径 | spec | Ragdoll | internal | [F165](features/F165-guided-overfitting.md) |
 | F167 | A2A Chain Quality — 乒乓球熔断 + 虚空传球检测 + 角色护栏 | spec | Ragdoll | internal | [F167](features/F167-a2a-chain-quality.md) |
+| F168 | Community Operations Board — 社区事务编排引擎 | reopened | Ragdoll Fable-5 | internal | [F168](features/F168-community-ops-board.md) |
+| F177 | Harness Update — Close Gate 结构化判据 + 四心智专属护栏（Phase H: routing guard 全猫族覆盖） | reopened | Ragdoll(48) + Maine Coon | internal | [F177](features/F177-harness-update.md) |
 | F178 | Persistent MCP Agent-Key Auth — 跨 invocation 写权限（F061 Bug-H follow-up） | spec | Ragdoll | internal | [F178](features/F178-persistent-mcp-agent-key-auth.md) |
 | F181 | Reserved Feature Slot — 待补充需求锚点 | idea | 待定 | internal | [F181](features/F181-reserved-feature-slot.md) |
 | F188 | Library Stewardship — 图书馆管护与成长（Phase K: Memory Center Config Health Surface） | in-progress | Ragdoll | internal | [F188](features/F188-library-stewardship.md) |
@@ -72,9 +74,11 @@ created: 2026-02-26
 | F220 | A2A 协作的可观测·可靠·可恢复（启动中占位可见 + 卡死根因 + force-reset 逃生口 UI）| spec | Ragdoll Opus-4.8（驱动 thread_mpxf7fdx5gonafzh）| internal | [F220](features/F220-a2a-collab-reliability.md) |
 | F23-followup | F23 Phase 2 — dir-size 5 个目录真拆（utils/config/providers 快线 + invocation/routes 跟 F219 协调）| in-progress | Ragdoll/Opus-4.7 | internal | [F23 § Phase 2](features/F023-directory-corrosion-defense.md) |
 | F224 | A2A 协作的会话/消息状态可靠性（会话延续协调器 + 消息去重 + 触发合并 + 重生会话）| spec | Ragdoll Opus-4.8 | community [clowder-ai#834](https://github.com/zts212653/clowder-ai/pull/834) | [F224](features/F224-a2a-session-message-reliability.md) |
-| F225 | Cat-Initiated Session Handoff — 猫主动封印会话接力（硬层 done + dogfood；软层 L0+skill 元思维注入 + context_management_hint + eval=capability-wakeup 进行中）| in-progress | Ragdoll Opus-4.8 | internal | [F225](features/F225-cat-initiated-session-handoff.md) |
 | F226 | Presentation Surface / Demo Mode（右侧 surface 浮窗 PiP + AppShell 级 host + tear-off 快照，演示时 PPT 浮窗常驻、右侧切证据不打断）| Phase A done | Ragdoll Opus-4.8 | internal | [F226](features/F226-presentation-surface-demo-mode.md) |
 | F227 | Event Memory — 事件级记忆索引（拉闸记录 / 认知状态转折一等公民 + magic word 时间线 + teleport message 级跳转 + 飞轮可观测性层）| in-progress | Ragdoll Opus-4.8 | internal | [F227](features/F227-event-memory.md) |
 | F228 | Multi-Project Skill Mount Management — 多项目 / per-provider Skills 挂载管理 | spec | community @mindfn + maintainers | community [clowder-ai#760](https://github.com/zts212653/clowder-ai/pull/760) | [F228](features/F228-multi-project-skill-mount-management.md) |
 | F229 | 猫猫球前台猫 — 常驻入口 + 复合猫路由 + 用户侧记忆检索（悬浮球/桌宠、功能发现、求助分诊、金鱼的记忆、语音 loop、小模型分层）| spec | Ragdoll Fable-5 | internal (CVO 愿景) + community [clowder-ai#841](https://github.com/zts212653/clowder-ai/issues/841) | [F229](features/F229-cat-ball-concierge.md) |
-| F192-sop-wiring | `eval:sop` live publish path wired + re-enabled (PR #2186 merged 2026-06-10) | ✅ done | Ragdoll | internal | [F192 § 2026-06-10 timeline](features/F192-socio-technical-harness-eval.md) |
+| F230 | Claude Interactive PTY Carrier — 救Ragdoll Plan B 第四档载体（PTY 交互进程 + transcript 旁路读，与 --bg 形成 billing/合规风险对冲；Phase A spike 立即、Phase B+ gated standby）| spec | Ragdoll Fable-5 | internal (CVO 2026-06-10) | [F230](features/F230-claude-interactive-pty-carrier.md) |
+| F231 | 启动胶囊 — per-user 画像注入与 L0 分层（猫醒来第一眼看到主人：profile capsule + relationship primer + breed/instance/user/relationship 四层，养成护城河机制本体）| spec | Ragdoll Fable-5 | internal (CVO 2026-06-11 "我同意立项的") | [F231](features/F231-user-profile-capsule.md) |
+| F232 | Thread Artifacts Panel — Thread 产物视图（点开 thread 就看到它产生的所有产物：图/文件/代码PR/语音聚合 + 类型筛选 + 搜索 + 跳回原消息；A thread 内抽屉先行，B 全局产物中心未来扩展）| spec | Ragdoll Opus-4.8 | internal (CVO 2026-06-11 "我觉得ok了 你立项") | [F232](features/F232-thread-artifacts-panel.md) |
+| F233 | Ball Custody Observability — 球权保管链可观测（值班简报：CVO 收件箱+死球/睡美人/虚空告警，异常优先；feat 轨迹下钻；安乐死通道；A 简报 MVP / B 心跳+探针回执 / C 安乐死+轨迹）| spec | Ragdoll Fable-5（spec）→ opus 家族（实现） | internal (CVO 2026-06-12 "走起！喵"+"① 立项") | [F233](features/F233-ball-custody-observability.md) |

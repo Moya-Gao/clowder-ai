@@ -1010,7 +1010,7 @@ export function isCatLead(catId: string, config?: CatCafeConfig): boolean {
 // ── F067: Co-Creator config accessor ────────────────────────────────
 
 /** Default co-creator mention patterns (backward compat when not configured) */
-const DEFAULT_CO_CREATOR_MENTION_PATTERNS = ['@co-creator', '@铲屎官'];
+const DEFAULT_CO_CREATOR_MENTION_PATTERNS = ['@co-creator', '@铲屎官', '@co-creator', '@co-creator', '@co-creator'];
 
 let _cachedCoCreator: CoCreatorConfig | null = null;
 

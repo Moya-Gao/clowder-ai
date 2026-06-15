@@ -13,7 +13,15 @@
  * TTL: 30 days default. Tracking tasks (pr_tracking/issue_tracking) with status!=done have no TTL.
  */
 
-import type { AutomationState, CatId, CreateTaskInput, TaskItem, TaskKind, UpdateTaskInput } from '@cat-cafe/shared';
+import type {
+  AutomationState,
+  CatId,
+  CreateTaskInput,
+  IssueAutomationState,
+  TaskItem,
+  TaskKind,
+  UpdateTaskInput,
+} from '@cat-cafe/shared';
 import { isTrackingKind } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
 import { generateSortableId } from '../ports/MessageStore.js';
@@ -425,7 +433,34 @@ export class RedisTaskStore implements ITaskStore {
       ci: patch.ci ? { ...existing?.ci, ...patch.ci } : existing?.ci,
       conflict: patch.conflict ? { ...existing?.conflict, ...patch.conflict } : existing?.conflict,
       review: patch.review ? { ...existing?.review, ...patch.review } : existing?.review,
-      issue: patch.issue ? { ...existing?.issue, ...patch.issue } : existing?.issue,
+      issue: patch.issue ? this.mergeIssueAutomationState(existing?.issue, patch.issue) : existing?.issue,
+    };
+  }
+
+  /**
+   * Merge issue automation state with cursor anti-regression (I5).
+   *
+   * Cursors (lastCommentCursor, lastDeliveredCursor) must never decrease — a re-routing event
+   * with a stale fetchCommentCursor seed must not overwrite already-advanced cursor values.
+   * All other fields (issueState, lastNotifiedAt, etc.) use the standard last-write-wins spread.
+   */
+  private mergeIssueAutomationState(
+    existing: IssueAutomationState | undefined,
+    patch: IssueAutomationState,
+  ): IssueAutomationState {
+    const merged: IssueAutomationState = { ...existing, ...patch };
+    return {
+      ...merged,
+      // I5: cursors use Math.max — only apply when both sides are defined to avoid
+      // overwriting a genuinely new seed (undefined → value) with a null/0 floor.
+      lastCommentCursor:
+        existing?.lastCommentCursor !== undefined && patch.lastCommentCursor !== undefined
+          ? Math.max(existing.lastCommentCursor, patch.lastCommentCursor)
+          : merged.lastCommentCursor,
+      lastDeliveredCursor:
+        existing?.lastDeliveredCursor !== undefined && patch.lastDeliveredCursor !== undefined
+          ? Math.max(existing.lastDeliveredCursor, patch.lastDeliveredCursor)
+          : merged.lastDeliveredCursor,
     };
   }
 

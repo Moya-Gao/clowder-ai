@@ -113,6 +113,22 @@ Step 2 写完 spec，Why / 现状 / AC 逐条过这道自检：
 
 **检查**：聚合文件创建 ✓ frontmatter 完整 ✓ BACKLOG 索引 ✓ 关联文档双向链接 ✓ 愿景硬度自检 ✓ 已 commit ✓ 毛线球任务创建 ✓
 
+### 轻量立项（非 F 号：内容生产 / 能力验证项目）
+
+> LL-071 起源：内容生产任务（视频 / PPT / 系列产出）同样有 lifecycle，但不一定进 feat 体系（shared-rules §21）。
+
+**适用**：批量产出消耗显著成本（token / API 抽卡）或铺设技术路线，且 CVO 决定不开 F 号（挂 story / IP / 项目目录）。
+
+**锚点形态**：项目目录里的 charter 文档，结构学 feat doc（范例：`docs/videos/cucu-pr-flow/episode-brief.md`）：
+
+- Why（双重目的写清）/ 路线（**引 CVO 原话做锚**）/ Scope / **Non-goals（防跑偏的牙齿，最重要的段）** / 预算护栏 / DoD / 分工 / CVO signoff（frontmatter `cvo_signoff` 字段记日期与原话）
+- charter 自声明"唯一 scope 真相源"：链上任何一棒发现产出超出 charter scope → 停，回 CVO
+- 被取代的外部文档（云端 brief 等）标 `superseded` + 指针，保留为历史不篡改
+
+**与正式 feat 的区别**：无 F 号、无 BACKLOG 索引、无 Design Gate 仪式——但 scope 纪律同强度。
+
+**选型**：改产品代码 / 对外契约 → 正式 feat；内容产出 / 能力验证 → CVO 选轻量 charter 或 feat。拿不准 → 问一句，别替 CVO 决定。
+
 ## 讨论 (Discussion)
 
 **两种模式**：

@@ -76,6 +76,7 @@ import {
   buildAntigravitySessionLifecycle,
 } from './antigravity-runtime-lifecycle.js';
 import { classifyAntigravityStepEffect, summarizeAntigravityEffects } from './antigravity-step-effects.js';
+import { isLsOwnedApprovalTool } from './antigravity-tool-surface.js';
 import { summarizeStepShape, TRACE_ENABLED, traceLog } from './antigravity-trace.js';
 import { AuditLogger } from './executors/AuditLogger.js';
 import { ExecutorRegistry } from './executors/ExecutorRegistry.js';
@@ -274,13 +275,33 @@ function detectStallLivenessFromTrajectory(
   return null;
 }
 
-function getWaitingCodeActionStepFromTrajectory(trajectory: StallTrajectorySnapshot): TrajectoryStep | undefined {
+function getTrajectoryStepsFromSnapshot(trajectory: StallTrajectorySnapshot): readonly TrajectoryStep[] {
   let steps: readonly TrajectoryStep[] = [];
   if (trajectory.trajectory?.steps) {
     steps = trajectory.trajectory.steps;
   } else if (trajectory.steps) {
     steps = trajectory.steps;
   }
+  return steps;
+}
+
+function getWaitingCodeActionStepsFromTrajectory(trajectory: StallTrajectorySnapshot): TrajectoryStep[] {
+  const steps = getTrajectoryStepsFromSnapshot(trajectory);
+  const waitingSteps: TrajectoryStep[] = [];
+  for (const step of steps) {
+    if (
+      step.type === 'CORTEX_STEP_TYPE_CODE_ACTION' &&
+      step.status === 'CORTEX_STEP_STATUS_WAITING' &&
+      isLsOwnedApprovalTool(getTrajectoryStepToolName(step))
+    ) {
+      waitingSteps.push(step);
+    }
+  }
+  return waitingSteps;
+}
+
+function getWaitingCodeActionStepFromTrajectory(trajectory: StallTrajectorySnapshot): TrajectoryStep | undefined {
+  const steps = getTrajectoryStepsFromSnapshot(trajectory);
   for (let index = steps.length - 1; index >= 0; index -= 1) {
     const step = steps[index];
     if (step.type === 'CORTEX_STEP_TYPE_CODE_ACTION' && step.status === 'CORTEX_STEP_STATUS_WAITING') {
@@ -1249,6 +1270,60 @@ export class AntigravityAgentService implements AgentService {
               if (self.autoApprove && !cursorAutoApproveAttempted) {
                 cursorAutoApproveAttempted = true;
                 try {
+                  let waitingCodeActionSteps: TrajectoryStep[] = [];
+                  try {
+                    const trajectory = await self.bridge.getTrajectory(cascadeId);
+                    waitingCodeActionSteps = getWaitingCodeActionStepsFromTrajectory(trajectory);
+                  } catch (err) {
+                    log.warn(
+                      { cascadeId, err },
+                      'failed to inspect awaiting-user-input trajectory before generic auto-approve',
+                    );
+                  }
+                  if (waitingCodeActionSteps.length > 0) {
+                    let approvedCodeActionCount = 0;
+                    let failedCodeActionCount = 0;
+                    for (const waitingCodeActionStep of waitingCodeActionSteps) {
+                      const stepIndex = getTrajectoryStepIndex(waitingCodeActionStep);
+                      let toolName = getTrajectoryStepToolName(waitingCodeActionStep);
+                      if (!toolName) toolName = waitingCodeActionStep.type;
+                      const approved = await self.bridge
+                        .approvePendingInteraction(cascadeId, waitingCodeActionStep)
+                        .then(
+                          () => {
+                            log.info(
+                              { cascadeId, toolName, stepIndex },
+                              'auto-approved pending CODE_ACTION interaction from awaiting-user-input trajectory',
+                            );
+                            return true;
+                          },
+                          (err) => {
+                            log.warn(
+                              { cascadeId, toolName, stepIndex, err },
+                              'failed to auto-approve pending CODE_ACTION interaction; continuing',
+                            );
+                            return false;
+                          },
+                        );
+                      if (approved) approvedCodeActionCount += 1;
+                      else failedCodeActionCount += 1;
+                    }
+                    if (approvedCodeActionCount > 0) {
+                      if (failedCodeActionCount > 0) {
+                        log.warn(
+                          { cascadeId, approvedCodeActionCount, failedCodeActionCount },
+                          'some pending CODE_ACTION auto-approvals failed after successful approvals',
+                        );
+                      }
+                      continue;
+                    }
+                    if (failedCodeActionCount > 0) {
+                      log.warn(
+                        { cascadeId, failedCodeActionCount },
+                        'all pending CODE_ACTION auto-approvals failed; falling back to generic auto-approve',
+                      );
+                    }
+                  }
                   await self.bridge.resolveOutstandingSteps(cascadeId);
                   log.info(`auto-approved pending interaction for cascade ${cascadeId}`);
                   continue;

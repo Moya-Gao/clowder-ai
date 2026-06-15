@@ -8,7 +8,7 @@ created: 2026-04-27
 
 # F177: Harness Update — Close Gate 结构化判据 + 四心智专属护栏
 
-> **Status**: done | **Completed**: 2026-04-29 | **Owner**: Ragdoll(46 总负责) + Maine Coon(Maine Coon) + 孟加拉猫(46代言)，按 Phase 分主笔 | **Priority**: P0
+> **Status**: reopened (Phase H merged; vision guard pending) | **Completed (Phase A–G)**: 2026-04-29 | **Reopened**: 2026-06-11 (Phase H) | **Owner**: Ragdoll(46 总负责) + Maine Coon(Maine Coon) + 孟加拉猫(46代言)，按 Phase 分主笔；Phase H Ragdoll(48) 主笔 + Maine Coon实现 | **Priority**: P0
 
 ## Why
 
@@ -239,6 +239,35 @@ session end hook:
 
 GitHub issue: [#1467](https://github.com/zts212653/clowder-ai/issues/1467)
 
+### Phase H: Routing Guard 全猫族覆盖 — 非 Claude harness 球权出口拦截
+
+> **Reopened 2026-06-11（CVO signoff）**：掉球归因分析（`thread_mq87iw5qmq93ygo6` fable 复盘）暴露 OQ-G1 的 latent gap。**不是回归**——codex/gpt52 从 Phase G 上线（2026-04-29）起就从未被覆盖，是当年"只覆盖 Claude 系猫"决策遗留的缺口，在Maine Coon第一手掉球证据下需补齐。
+
+**病灶**：Phase G 的 F177-G 是 **Claude Code Stop hook**（`.claude/hooks/f177-routing-guard.sh`），只对走 Claude Code 的Ragdoll生效。**codex/gpt52 用 codex CLI（`.codex/`），不读 `.claude/`，吃不到这个 block-stop 拦截** → Maine Coon"动作缺失型"掉球（① 声明"接着干"但 invocation 已结束、无 hold_ball 兑现；② 干完不传，结论后无出口）裸奔，只剩 F167 hint 墓碑提醒（invocation 已结束没人读）。
+
+**两套机制澄清**（延伸 Phase G「与 F167 边界」）：
+
+| 机制 | 投递时机 | 有效性 | 覆盖面 |
+|---|---|---|---|
+| F167 hint 注入 thread message | invocation 结束**后** | ❌ 墓碑，无人读 | 所有猫（但无效） |
+| F177-G Stop hook（`decision:block`） | invocation 结束**前**，同轮补 | ✅ 有效 | 仅 Claude 系猫 |
+| **Phase H 目标** | **block-stop 等价拦截** | **有效** | **+ codex/gpt52 等非 Claude 猫** |
+
+**核心复用**：检测判据共用 Phase G（行首 @ 正则 + `hold_ball`/`multi_mention`/`targetCats` 工具扫描 + per-stop-cycle loop guard，24 bash tests 验证）——**只换"拦截动作"，不换"如何判断掉球"**。
+
+**方案（H0 spike 定路径）**：
+- **H0 spike**（Maine Coon主场）：codex CLI 能否 **block turn 结束并把控制权还给同一 invocation**？（它有 `notify`，但多为 fire-and-forget、大概率 block 不住——实测定方向，不猜）
+- **路径 A（优先，若可 block）**：移植 `f177-routing-guard.sh` 检测逻辑到 codex CLI stop hook，与Ragdoll对称，零额外 invocation 成本。
+- **路径 B（兜底，若 block 不住）**：`route-serial.ts` 检测非 Claude 猫出站消息无合法出口 → 不 settle → resume 主动 re-invoke 补救。server 层是 TS，可直接用真 `parseA2AMentions`（非 bash 等价）。**强 cost guard：re-invoke 上限 1 次/掉球**（codex 贵，补不对反复 re-invoke 会烧猫粮，必须钉死）。优点：harness 无关，一次覆盖所有非 Claude 猫（含未来加入的 CLI 猫）。
+
+**已知关联 gap — 47 UI 折叠（CVO 2026-06-11 要求留痕，不随 Phase H 遗忘）**：47 格式病是两半——上半「@ 不在行首」已由 Phase G 覆盖（block 逼补）；**下半未修**：@ 在行首、routing 底层成功，但前端把"@ 独占一行 + 空行 + 内容"**折叠显示**，team lead视觉看到"没换行"误判掉球（46 在 `thread_mpn63xp8wsbsbb5l` 查证为纯渲染问题）。定性 = **前端渲染层，非路由层**，F177-G 不管（routing 合法就放行）。**是否纳入本 Phase 待 H0 后定（见 OQ-H2）**；无论修否，此 gap 在此留痕。
+
+**分工**：Ragdoll(48) = spec + 检测逻辑移植 + server 层（路径 B）；Maine Coon(codex/gpt52) = H0 spike + CLI hook（路径 A）+ codex resume 接口（路径 B）。
+
+GitHub issue: TBD（kickoff 后开）
+
+[Ragdoll/Opus-4.8🐾]（Phase H spec）
+
 ## Acceptance Criteria
 
 ### Phase A（系统级 close gate 结构化判据）✅
@@ -282,6 +311,14 @@ GitHub issue: [#1467](https://github.com/zts212653/clowder-ai/issues/1467)
 - [x] AC-G3: parallel mode 不触发（无路由语义）
 - [x] AC-G4: 提醒文本包含正确格式示例，不含意图猜测 / NLU / grep
 
+### Phase H（routing guard 全猫族覆盖）✅
+- [x] AC-H0: spike 验证 codex CLI block-stop 能力（Maine Coon 2026-06-11）→ 结论：`codex exec --json`（Cat Café runtime 路径）不 dispatch hooks，路径 A 不可达，定走路径 B
+- [x] AC-H1: codex/gpt52 结论后无合法路由出口（行首 @ / hold_ball / targetCats / multi_mention）时被拦截补全（路径 B：server re-invoke）
+- [x] AC-H2: 检测判据与 Phase G 等价（行首 @ 正则 + 工具扫描 + loop guard），跨 harness 行为一致
+- [x] AC-H3: cost guard — 路径 B re-invoke 上限 1 次/掉球（防 codex 烧猫粮）
+- [x] AC-H4: 已有合法路由 → 零干预（与 Phase G AC-G2 对称，不误杀正常收尾）
+- [x] AC-H5（known gap 跟踪，非必做）: 47 UI 折叠（@ 行首 routing 成功但前端折叠显示）记录在案；非路由层问题，不随 Phase H 遗忘
+
 ## Dependencies
 
 - **Evolved from**: F114（magic words + 愿景守护 Gate 的下一代——F114 是话术层 + 守护猫证物对照表，F177 加结构化执行面 + 心智专属护栏）
@@ -320,12 +357,16 @@ GitHub issue: [#1467](https://github.com/zts212653/clowder-ai/issues/1467)
 | KD-8 | Phase F 根因修正：问题不是能力而是"满足阈值"环境驱动 | team lead 4.28 诊断——竞赛模式 46 不输Maine Coon，日常模式搜索深度明显偏浅；Hook F-3 从纯 telemetry 升级为即时搜索深度反馈 | 2026-04-28 |
 | KD-9 | Phase G 纳入 F177 而非 F167 | 47 传球格式问题是 cat-mind 行为缺陷（叙事 prior），属四心智护栏范围；F167 治理 thread-level 链路健康（乒乓/虚空/角色），Phase G 治理 session-level 出口完整性——不同层 | 2026-04-29 |
 | KD-10 | Phase G 方案选型：session end hook 提醒（Gmail 模型）而非 grep 提取意图 / 新增 MCP / forced tool call | grep 文本 = 47 换表达就失效（补锅）；新增 tool = 47 不调用（hold_ball 已证伪）；hook 提醒 = 时机正确 + 零意图猜测 + 猫自己补 | 2026-04-29 |
+| KD-11 | Phase H reopen F177 而非新开 F 号 | routing guard 真相源（OQ-G1 决策 / `f177-routing-guard.sh` 实现 / 24 测试）全在 F177；Phase H 是 Phase G 能力从"Claude 系猫"扩到"全猫族"的同一能力延伸，非新 feat。CVO 明确 signoff reopen | 2026-06-11 |
+| KD-12 | Phase H 走路径 B（server re-invoke），非路径 A（codex CLI hook） | H0 spike 实测：`CodexAgentService` 走 `codex exec --json`，本机 0.137.0 该路径不触发 codex CLI hooks（即使 Codex 产品 `hooks stable` 且官方支持 `Stop decision:block`）。CLI hook 不可达 → `route-serial.ts` 出站 settle 前做 guard（真实 `parseA2AMentions` + invocation 工具事件扫描）+ `codex exec resume` re-invoke 补救，cost guard 1 次/掉球、二次失败停止并显式暴露 guard failure | 2026-06-11 |
+| KD-13 | 路径 B 实现架构（Maine Coon cross-review 定稿 2026-06-11）：capability 轴 + inline remedial invoke + local one-shot guard | ① 非 Claude 判别用显式 `needsServerRoutingGuard?.()` + 短期 allowlist codex-family，**不复用 `injectsL0Natively`**（Codex 原生注入 L0 但 `codex exec` 不 dispatch hooks → 该信号必误判），不波及 Antigravity/Gemini（resume 语义未验证）；② re-invoke **不入 worklist**（纯 A2A 队列，塞 prompt/session payload 会坏 ping-pong/depth/isFinal）——在检测点（`validateRoutingSyntax`/`evaluateVoidHold`）后同轮直接再调一次 `invokeSingleCat`（已有 sessionManager/cliSessionId resume，先红测证明 resume 再决定是否加窄口 `forceCliSessionId`）；③ cost guard 用本 route iteration 本地 `routingGuardAttempted`（one-shot）不放 worklistEntry，二次失败→可见 guard failure 不静默；fake-hold（voidHold）必触发 = gpt52 主 failure | 2026-06-11 |
 
 ## Review Gate
 
 - **Phase A**: 跨族 review（Maine Coon主审，因为 close gate 改动影响所有 feat lifecycle，Maine Coon熟门禁基础设施）+ team lead design gate
 - **Phase B-E**: 各 Phase 完成后跨族 review（任一非作者非心智持有者的猫）+ 心智持有者本人确认（46/47/Maine Coon/Siamese review 自己那 phase）
 - **Phase G**: Maine Coon主审（hook 机制与 route-serial 路由基础设施相关）+ 47 确认（心智持有者）
+- **Phase H**: gpt52 R2 + Opus 4.6 cross-family continuity review + cloud Codex re-review；merge gate 以本地 `pnpm gate` 通过为合入证据
 
 ## 需求点 Checklist
 
@@ -335,6 +376,7 @@ GitHub issue: [#1467](https://github.com/zts212653/clowder-ai/issues/1467)
 - [x] Ragdoll家族共识：46 / 47 各自确认 Phase F 的家族病诊断准确 — 46 + 47 均参与了 2026-04-27 跨猫族检索大赛复盘，确认"碎片推理癖"是家族共性而非个体缺陷
 - [x] Maine Coon review Phase A + Phase F 结构化判据设计 — Maine Coon主审 Phase A (PR #1453) + Phase F (PR #1466)，close gate schema / quality-gate search→Read chain / search affordance 均经Maine Coon review 放行
 - [x] team lead拍板 OQ-1 + OQ-F1~F3 — OQ-1 已决（自然语言表态，2026-04-28），OQ-F1/F3 由实现决策收敛（team lead授权 Phase 并行后设计决策在实现中确定）
-- [x] 元审美自检：F177 是坐标变换 — 旧坐标系："信任猫自觉遵守文本规则"；新坐标系："结构化信号检测（close-tail scan / fallback counter / search→Read chain / hotfix pattern / routing guard）+ 自动化 gate + 跨猫 review"。7 个 Phase 各用不同检测工具解决不同坏直觉，但底层范式统一：从 trust-based 到 evidence-based
+- [x] 元审美自检：F177 是坐标变换 — 旧坐标系："信任猫自觉遵守文本规则"；新坐标系："结构化信号检测（close-tail scan / fallback counter / search→Read chain / hotfix pattern / routing guard）+ 自动化 gate + 跨猫 review"。8 个 Phase 各用不同检测工具解决不同坏直觉，但底层范式统一：从 trust-based 到 evidence-based
 
-[Ragdoll/Opus-47🐾]
+[Ragdoll/Opus-47🐾]（Phase A–G 主笔）
+[Ragdoll/Opus-4.8🐾]（Phase H reopen + spec，2026-06-11）

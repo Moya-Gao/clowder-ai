@@ -30,7 +30,7 @@ import {
   markReplacedInvocation,
   removeReplacedInvocation,
 } from './shared-replaced-invocations';
-import { formatAgyProgressDetail, formatVisibleSystemInfo } from './system-info-visible';
+import { formatAgyProgressDetail, formatVisibleSystemInfo, isInternalSystemInfoTelemetry } from './system-info-visible';
 import {
   clearActiveBubble as clearActiveBubbleLedger,
   clearAllActiveBubblesForThread as clearAllActiveBubblesForThreadLedger,
@@ -655,24 +655,22 @@ export function consumeBackgroundSystemInfo(
         usage: parsed.usage,
       });
       if (existingRef?.id) {
+        // F230: write model/provider FIRST so setThreadMessageMetadata creates the
+        // metadata object when absent (PTY text events carry no metadata).
+        // setThreadMessageUsage is a no-op when metadata is absent — ordering matters.
+        if (parsed.model && parsed.provider) {
+          options.store.setThreadMessageMetadata(msg.threadId, existingRef.id, {
+            model: parsed.model as string,
+            provider: parsed.provider as string,
+          });
+        }
         options.store.setThreadMessageUsage(msg.threadId, existingRef.id, parsed.usage);
       }
       consumed = true;
     } else if (parsed?.type === 'context_briefing') {
-      const storedMessage = parsed.storedMessage as
-        | { id: string; content: string; origin: string; timestamp: number; extra?: Record<string, unknown> }
-        | undefined;
-      if (storedMessage?.id) {
-        options.store.addMessageToThread(msg.threadId, {
-          id: storedMessage.id,
-          type: 'system',
-          content: storedMessage.content ?? '',
-          origin: (storedMessage.origin as 'briefing') ?? 'briefing',
-          timestamp: storedMessage.timestamp ?? Date.now(),
-          ...(storedMessage.extra ? { extra: storedMessage.extra } : {}),
-        });
-        consumed = true;
-      }
+      // Suppress: internal routing context for cats, not user-facing timeline.
+      // The briefing is already persisted in messageStore for cat context assembly.
+      consumed = true;
     } else if (parsed?.type === 'context_health') {
       const targetCatId = parsed.catId ?? msg.catId;
       options.store.setThreadCatInvocation(msg.threadId, targetCatId, {
@@ -897,11 +895,7 @@ export function consumeBackgroundSystemInfo(
         },
       });
       consumed = true;
-    } else if (
-      parsed?.type === 'strategy_allow_compress' ||
-      parsed?.type === 'resume_failure_stats' ||
-      parsed?.type === 'tool_activity'
-    ) {
+    } else if (isInternalSystemInfoTelemetry(parsed)) {
       // Internal telemetry — suppress to avoid raw JSON bubbles in background threads
       consumed = true;
     } else if (parsed?.type === 'session_seal_requested') {
@@ -4516,24 +4510,21 @@ export function useAgentMessages() {
             // Also persist usage on the cat's last assistant message (message-scoped)
             const ref = getActive(msg.catId);
             if (ref) {
+              // F230: write model/provider FIRST so setMessageMetadata creates the metadata
+              // object when absent (PTY text events carry no metadata).
+              // setMessageUsage is a no-op when metadata is absent — ordering matters.
+              // For -p/bg paths, setMessageMetadata is first-write-wins → no-op (idempotent).
+              if (parsed.model && parsed.provider) {
+                setMessageMetadata(ref.id, {
+                  model: parsed.model as string,
+                  provider: parsed.provider as string,
+                });
+              }
               setMessageUsage(ref.id, parsed.usage);
             }
             consumed = true;
           } else if (parsed?.type === 'context_briefing') {
-            // F148 Phase E: Insert briefing card into chat store for immediate display
-            const sm = parsed.storedMessage as
-              | { id: string; content: string; origin: string; timestamp: number; extra?: Record<string, unknown> }
-              | undefined;
-            if (sm?.id) {
-              addMessage({
-                id: sm.id,
-                type: 'system',
-                content: sm.content ?? '',
-                origin: (sm.origin as 'briefing') ?? 'briefing',
-                timestamp: sm.timestamp ?? Date.now(),
-                ...(sm.extra ? { extra: sm.extra } : {}),
-              });
-            }
+            // Suppress: internal routing context for cats, not user-facing timeline.
             consumed = true;
           } else if (parsed?.type === 'context_health') {
             // F24: Store context health silently
@@ -4688,11 +4679,7 @@ export function useAgentMessages() {
               },
             });
             consumed = true;
-          } else if (
-            parsed?.type === 'strategy_allow_compress' ||
-            parsed?.type === 'resume_failure_stats' ||
-            parsed?.type === 'tool_activity'
-          ) {
+          } else if (isInternalSystemInfoTelemetry(parsed)) {
             // Internal telemetry — suppress to avoid raw JSON bubbles
             consumed = true;
           } else if (parsed?.type === 'silent_completion') {

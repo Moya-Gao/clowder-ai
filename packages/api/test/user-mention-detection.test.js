@@ -72,12 +72,20 @@ describe('detectUserMention', () => {
     assert.equal(detectUserMention('@co-creatorfoo'), false);
   });
 
-  // F067 co-creator config: default mention patterns from cat-template.json
-  // The template provides @co-creator; @铲屎官 is always added as fallback.
-  // Deployment-specific patterns (e.g. @co-creator) come from cat-catalog.json overlay.
+  // F067 co-creator config + L0: canonical co-creator handles are always-present fallbacks.
   it('detects @铲屎官 at line start (always-present fallback)', () => {
     assert.equal(detectUserMention('@铲屎官 请看'), true);
     assert.equal(detectUserMention('@铲屎官请看'), true);
+  });
+
+  it('detects L0 co-creator aliases at line start (always-present fallback)', () => {
+    assert.equal(detectUserMention('@co-creator 请看'), true);
+    assert.equal(detectUserMention('@co-creator 请看'), true);
+    assert.equal(detectUserMention('@co-creator 请看'), true);
+  });
+
+  it('rejects @co-creator continuation (token boundary)', () => {
+    assert.equal(detectUserMention('@co-creator123 not a real mention'), false);
   });
 
   it('rejects @co-creator continuation (e.g. @co-creatorfoo)', () => {

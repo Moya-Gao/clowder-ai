@@ -1,7 +1,7 @@
 ---
 feature_ids: [F229]
 related_features: [F155, F020, F092, F111, F128, F226, F227, F102, F099]
-topics: [concierge, desktop-pet, routing, small-model, voice, memory, ux, community]
+topics: [concierge, desktop-pet, pet-skin, routing, small-model, voice, memory, ux, community]
 doc_kind: spec
 created: 2026-06-09
 community_issue: "clowder-ai#841"
@@ -9,7 +9,7 @@ community_issue: "clowder-ai#841"
 
 # F229: 猫猫球 — 前台猫常驻入口（Cat Ball Concierge）
 
-> **Status**: spec | **Owner**: Ragdoll (Fable-5) | **Priority**: P1
+> **Status**: in-progress | **Owner**: Ragdoll (Fable-5) | **Priority**: P1
 >
 > **立项 signoff**：team lead 2026-06-09（msg 0001781064063516-000541）："我判定是新立项 你可以把我想要的想想看 写好team lead的愿景 然后立项吧？新的 feat"
 
@@ -43,7 +43,8 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 **1. 前台猫 = 岗位，不是一只新猫。** 三层解耦（"和现在 profile 那样解耦的可以配置"）：
 
 ```
-形象层：默认原创毛线球桌宠，可换皮肤（机器猫/加菲猫式/派蒙式/开源用户自家猫）
+形象层：默认家养像素猫桌宠——【Ragdoll/Maine Coon/孟加拉猫/Siamese】四选一，v1 默认Ragdoll（KD-14）；
+        毛线球降为备选皮肤/过渡形态；开源用户可换自家猫
 人设层：前台猫自己的名字与性格（用户感知的"这是谁"）
 值班层：背后真正干活的模型，按任务分层路由（可配置）
 ```
@@ -81,21 +82,26 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 
 - 分诊：代用户 cross_post 到归属 thread / propose_thread 开新调查（用户确认后执行）
 - 自主调查：spawn task 自己查（记忆/docs/GitHub），回对话框交带 anchor 的报告
+- **承接 A3b deferred**：PendingConfirmation 跨刷新持久化 wiring（spec §1b C3——后端 store/route 已就绪，缺 (messageId, blockId, action)→confirmationId 反向索引 + mount-time 查询；gpt52 final review 降级 P3 放行，2026-06-12）
 
 ### Phase C: 语音 loop（长出嘴和耳朵）
 
 - F020 STT + F111 流式 TTS 串成对话式闭环：按住说话 → 前台猫答 → 自动播
 - 复用 F092 VoiceSession 的"设备会话与 UI thread 解耦"模型
 
-### Phase D: 小模型入驻（复合猫生效）
+### Phase D: 快速档入驻（复合猫生效）
 
-- gemma clerk 接管导航/跳转/快捷操作类 intent（借力 F102 provider 抽象：local-small-model / cloud-strong-model / manual-cat）
+- 「快速档」clerk 接管导航/跳转/快捷操作类 intent——**provider-agnostic**：本地小模型（gemma，借力 F102 provider 抽象）**或** API 快模型（flash/glm 级）均可作 clerk（吴浪部署现实主义：不是每家有 128GB Mac；本地是 opt-in 优化不是前提）
+- **clerk 零工具执行权**（KD-12，Maine Coon tool-intent smoke 实测 cat-cafe#2175）：小模型只输出 MD tool-intent candidate，validator 做 handle 映射 + 确认门 + forbidden fail-closed，实际工具调用由可信 harness/值班猫执行
+- **routing rules 必备**（实测：裸工具描述 9 intent 错 1——"之前讨论在哪"被错选 `graph_resolve` 偏向 feature anchor；加显式 rules 后 9/9）：讨论/在哪→search_evidence、spec/status→feat_index、已知 handle→teleport、cross_post/propose_thread→需确认、6399/runtime/truth-source→refuse_or_escalate（不问确认，带原文升级）
 - escalation 协议落地（传原始对话；值班大猫优先级可配置）
-- 无小模型环境自动降级全走大猫（Phase A-C 不依赖本 Phase）
+- 无快速档配置自动降级全走值班大猫（Phase A-C 不依赖本 Phase）
 
 ### Phase E: 桌宠化 + 形象生态 + 操作演示（远期）
 
 - 桌宠动效系统（呼吸/打盹/状态表情）+ 皮肤生态（开源用户自家猫形象）
+- **PetSkinContract**：参考 `hatch-pet` 的 Codex pet atlas/QA/provenance 纪律，但 F229 不降级为纯桌宠。PetSkin 是 `conciergeState -> petState` 的纯投影；动画是增强信号，状态必须同时有非 pet 通道表达；完整 8x9 atlas defer，v0 只要求 idle/running/review/failed 四态打通（见 `docs/features/F229-petskin-contract.md`）
+- **素材池已开仓**：`assets/F229/desktop-pet-sprite/`（README 含 production pipeline 五步 + Maine Coon验证的云端生图 prompt 模板）——Maine Coon raw sheet ×2 已入库（fbb0e8add）；v1 默认Ragdoll + 孟加拉/暹罗 sheet 待生成
 - 主动冒泡（新版本发布等白名单事件，安静优先）
 - OpenCLI 式页面操作演示（#841 终态收编：猫操作页面给用户看，操作前用户确认）
 
@@ -123,18 +129,18 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 <!-- 立项愿景硬度自检（F216→F219）：每条 AC 必须 ① trace 回 Why 的某诉求 ② 非作者可复核（命令/数字/截图）。 -->
 
 ### Phase 0（Research + Design Gate）
-- [ ] AC-02: Design Gate 通过——wireframe team lead OK + 架构归属一问有答案 + 元审美自检（坐标变换 not 堆层）
+- [x] AC-02: Design Gate 通过——wireframe team lead OK（msg 0001781074572950"可以可以！！我觉得没问题！！"，含去/取/传话分叉 + Duty Toolset）+ 架构归属（new cell concierge-surface）+ 元审美自检（design doc §7）
 
 ### Phase A（前台开张）
-- [ ] AC-A1: 任意页面悬浮球唤起对话，不离开当前页面（截图 + 15s 录屏）→ R9/Why-2
-- [ ] AC-A2: 功能发现——非作者拿 3 个"最近有什么新功能/X 怎么用"问题验收，答案与 release notes/feature docs 一致 → R1/Why-1
-- [ ] AC-A3: 记忆导航——3 个真实历史讨论 query 给出正确 thread/message 链接且一键跳转成功 → R3/Why-3
-- [ ] AC-A4: 求助场景能触发对应 F155 guide flow（录屏一条）→ R2/Why-2
-- [ ] AC-A5: 形象/人设/值班猫在设置页可配置，与 cat profile 解耦（截图）→ R5
-- [ ] AC-A6: 安静默认——默认零主动文本弹出；低优先级事件只显示 badge（hover 才出文字）；用户可一键 hide/mute 整个球（录屏 + 设置截图）→ R8/调研红线
+- [x] AC-A1: 任意页面悬浮球唤起对话，不离开当前页面（截图 + 15s 录屏）→ R9/Why-2——证据 `assets/F229/acceptance-phase-a/ac-a1-*.png`（sonnet 验收 2026-06-12，球+toolbar+面板+拖拽）
+- [x] AC-A2: 功能发现——非作者拿 3 个"最近有什么新功能/X 怎么用"问题验收，答案与 release notes/feature docs 一致 → R1/Why-1——3/3 核对通过（F225/F226/F229/F228 答案与 docs 一致），证据 `ac-a2-*.png`
+- [x] AC-A3: 记忆导航——3 个真实历史讨论 query 给出正确 thread/message 链接，且**两种动作都可用**：跳过去（teleport）+ 原地看（卡内 inline 展开）→ R3/Why-3——**基础设施 ✅；KD-19 修复 merged（PR #2284）+ sonnet alpha 验收通过（2026-06-14）：Q1/Q2 gemini25 不遵从 marker → validator 全量兜底出 teleport ✅（命门：之前 0 actions，兜底后出按钮）；Q5 passage-level hit → marker path teleport+peek ✅；P1-A/B/C 全验证；alpha memory 稀疏（6 thread doc）故 Q1/Q2 无 peek，生产 passage-level 充足（production MCP 已验）**（证据 `ac-a3-*.png`）
+- [x] AC-A4: 求助场景能触发对应 F155 guide flow（录屏一条）→ R2/Why-2——intent 检测 + 9 guide 列举 + handoff 卡 ✅，证据 `ac-a4-*.png`
+- [x] AC-A5: 形象/人设/值班猫在设置页可配置，与 cat profile 解耦（截图）→ R5
+- [x] AC-A6: 安静默认——默认零主动文本弹出；低优先级事件只显示 badge（hover 才出文字）；用户可一键 hide/mute 整个球（录屏 + 设置截图）→ R8/调研红线——alpha muted 往返全链 ✅（API+UI 双确认），证据 `ac-a6-*.png`
 
 ### Phase B（总机能力）
-- [ ] AC-B1: 用户描述问题 → 前台猫给出分诊建议并经确认执行（cross_post/propose_thread 留痕可查）→ R4
+- [ ] AC-B1: 用户描述问题 → 前台猫给出分诊建议并经确认执行，**传话/跟去双路径**：relay（cross_post 投递 + 对方回复后回执卡）+ go（teleport 跟进），留痕可查 → R4 + CVO 分叉反馈
 - [ ] AC-B2: "自己调查"产出带 anchor 的报告回对话框（抽查 anchor 真实性）→ R4
 
 ### Phase C（语音 loop）
@@ -160,7 +166,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 | 桌宠变 Clippy（打扰式主动的失败史） | 主动行为白名单 + 频率上限 + Design Gate 钉死"安静优先"；默认只在白名单事件冒泡 |
 | 小模型幻觉导致导航错 thread | MD-first + validator fail-closed + 跳转前确认卡（继承 gemma 线 harness） |
 | 六 job 全要导致 scope 膨胀 | Phase 切片各自独立可验收；3+ Phase 大 feature 走 Phase 碰头制 |
-| 第三方形象版权（机器猫/加菲猫/派蒙） | 内置皮肤全原创（毛线球）；开源用户自定义形象自担，平台只提供配置位 |
+| 第三方形象版权（机器猫/加菲猫/派蒙） | 内置皮肤全自家原创（家养像素猫四只 + 毛线球，KD-14）；开源用户自定义形象自担，平台只提供配置位 |
 | 常驻小模型资源占用（27GB 权重 + 推理内存） | 可配置开关；无小模型自动降级（AC-D3），Phase A-C 零依赖 |
 | 前台猫答错"有什么功能"损害信任 | 知识源限定 release notes/feature docs/guide catalog，带 anchor 引用，答不了就转接 |
 | Notification fatigue：主动冒泡无分级 → 用户关掉/无视整只球 | OQ-4 四级白名单（Tier 0-1 默认，2 逐事件 opt-in，3 默认关）+ 同类事件聚合 + 单 session 非关键气泡 ≤1 |
@@ -179,8 +185,25 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 | KD-6 | 名字/人设不出厂写死：per-deployment 用户配置；本家实例由家庭投票命名（出生仪式，Phase A 落地时） | team lead："这个应该交给社区用户？……我们家的猫猫们大家自己来投票好了" | 2026-06-09 |
 | KD-7 | 值班层 provider-agnostic：值班槽指向一只已配置的 cat profile（第三方模型如 glm5.1 走现有 provider/adapter 框架接入，不为前台猫另造模型配置体系）；本家默认Siamese（gemini35 flash） | team lead："必须用户可配置吧？甚至我要是配置 glm5.1 呢？"——与 OQ-2 的"架构归一"同源：复用 cat 体系，零平行设施 | 2026-06-09 |
 | KD-8 | 语音 loop 不提前：基建（入口壳/身份层/路由归一）优先，Phase C 维持原位 | team lead："暂时不用，我们得先基建？架构归一那种" | 2026-06-09 |
+| KD-9 | 去/取/传话三动作分叉：记忆结果 = 跳过去(teleport) + 原地看(inline 上下文)；转接 = 传话(relay+回执) + 跟去(go)——同一结果给用户选意图，不替用户猜 | team lead："有的时候是想直接过去，有的时候只是想看看曾经都说了什么"、"1.传话过去 2.直接前端得跳转过去？" | 2026-06-09 |
+| KD-10 | 岗位四件裁剪：身份+人设+工具面+prompt 都按岗裁剪——Phase A 工具白名单 ≈10 个（memory 三入口/get_thread_context/teleport/cross_post/guide×2/feat_index/propose_thread），排除 shell/文件/limb 等全家桶；prompt 不带 SOP/L0 全文。裁到不需要 tool-search | team lead："mcp 太多了全丢给小猫调不清楚，runtime 不支持 tool search 更恐怖" + 吴浪："得控制他暴露出来的工具" | 2026-06-09 |
+| KD-11 | Phase D「小模型」重定位为「快速档」：provider-agnostic（本地 gemma 或 API flash/glm 均可作 clerk），本地权重是 opt-in 优化不是前提 | 吴浪部署现实主义："考虑其他人的使用，live model 可能合适点"——不是每家有 128GB Mac | 2026-06-09 |
+| KD-12 | clerk 零工具执行权：小模型只产 MD tool-intent candidate（显式 routing rules 必备），validator 负责 handle 映射/确认门/forbidden fail-closed，真实工具调用由可信 harness/值班猫执行；危险类（6399/runtime restart/truth-source write）refuse_or_escalate——不问确认，带原始文本升级 | Maine Coon tool-intent smoke（cat-cafe#2175）：裸描述 9 错 1（graph_resolve 偏向 feature anchor），加 routing rules 9/9 通过 | 2026-06-10 |
+| KD-13 | 前台猫产品状态自持：current route / recent handle map / pending confirmations / go·inline·relay 选择 / relay receipts / guide state / escalation 原文——全部存 Cat Cafe app code（store/Redis），**不依赖 carrier（Pi/OpenCode）或模型 context compaction**。PR-A2 conciergeStore（pending counts 入 store 零模型依赖）已是此原则第一个落点；PR-A3+ 的 handle map / relay receipts / escalation 原文按此实现 | Maine Coon carrier spike 收束（2026-06-10）：carrier 是可换的壳，产品状态进壳就会随 carrier 丢失 | 2026-06-10 |
+| KD-14 | 默认形象修正（CVO 愿景对齐）：默认 = **家养像素猫桌宠**四选一【Ragdoll/Maine Coon/孟加拉猫/Siamese】（家里桌宠像素风格、Maine Coon绘制——自家原创，"避版权"不再构成毛线球的立身理由），v1 默认**Ragdoll**（CVO 拍板）。毛线球降为备选皮肤/过渡形态——Phase A 已实现的球先走通不返工，形象升级为独立工作项（A4 同期或之后；素材先行：定位家里既有像素素材，定位不到请Maine Coon按 codex 桌宠风格绘制四猫 + 八态动画映射） | team lead 2026-06-10（msg 0001781148650752）："我们不是想要一只猫猫吗…最好做成我们曾经桌宠系统里Maine Coon画的…【Ragdoll，Maine Coon，孟加拉猫，Siamese】当 default 可选…私心我喜欢可爱的Ragdoll…现拿球走通也可以" | 2026-06-10 |
+| KD-16 | 值班猫身份必须 UI 可见：气泡 header 显示"{displayName} · 值班：{值班猫名}"（或等效角标）——值班层是用户该看见的状态，不是实现细节 | team lead runtime 首验（2026-06-12）："这个猫猫球到底什么猫啊！"——值班身份隐藏违反调研红线 No hidden state；KD-1 三层里值班层此前 UI 不可见 | 2026-06-12 |
+| KD-17 | 值班猫输出契约统一 MD-first + 短 handle：搜索工具结果（concierge 上下文）附短标记（R1/R2…），值班猫 MD 里只引用标记（`[跳过去 R1]`/`[原地看 R1]`），**服务端 validator 解析标记 → HandleMap 查真实 anchor → ID 校验 fail-closed → 注入 CardBlock actions**。废除"值班猫直接输出 actions 数组/转抄长 ID"假设——flash 档遵循性实测不可靠（验收 0/3 输出 actions；gemma 线长 ID 直抄全失效先例）。HandleMap 从 Phase D 前移（KD-13 早已点名 "recent handle map" 属产品状态）；值班猫与 Phase D clerk 输出契约就此统一，validator 复用 | sonnet Phase A 验收 P1（2026-06-12）+ gemma 线 attempt 2 实测（短 handle 9/9）+ team lead"你们最会的是 md" | 2026-06-12 |
+| KD-18 | PetSkinContract：参考 `hatch-pet` 的 atlas/QA/provenance 纪律，但 PetSkin 必须是 concierge 状态机的纯投影，不是平行状态机。`conciergeState` 是唯一真值源，PetSkin 只定义 `conciergeState -> petState`；缺失状态 fallback idle；pet 永远是增强信号，不是唯一状态信号；验收有三道闸：readability / identity-diff / provenance | team lead 2026-06-13："要学习人家的好处比较好…但也不必换成这个…前台猫猫不止是一个好看的桌宠" + Ragdoll cowork 收敛（投影函数 + 三道闸 + v0 四态竖切） | 2026-06-13 |
+| KD-19 | AC-A3 鲁棒性不依赖值班猫 marker 遵从：sonnet×gemini25 对照实测——Claude 族遵从 marker，Gemini 族（默认值班猫）不遵从（知道协议却不执行 + 倾向自跑工具无视注入上下文）。KD-17 "值班猫用 marker→validator 解析" 假设对默认 Gemini 失效，纯 prompt 强化无效。解法两层：① 修 `ConciergeEvidenceStore.search` 透传 `scope:threads/all + mode:hybrid + depth:raw`（底层 evidence store 已支持、concierge 接口收窄没透传）——召回 thread 讨论（治 P1-C 召回偏差：AC-A3 找的是讨论记录非结论文档）+ passage messageId（治 P1-A peek）；② validator 从 HandleMap **全量兜底**呈现"相关记录"可点列表（thread→teleport/peek，复用现有 action 类型），marker 降级 bonus（遵守则正文精准高亮）。docs 类型"打开文档"是不存在的新前后端 action，降 Phase B 增强（不阻塞 AC-A3）。KD-17 marker 解析保留，新增不依赖遵从的兜底层。符合 KD-7 provider-agnostic（AC-A3 不绑高遵从度模型，靠系统兜底不靠贵模型）；否决"换默认值班猫为 Claude 族"（违反 KD-7 + flash 更省） | sonnet alpha 对照实测（2026-06-13）+ Ragdoll spec owner 拍（opus-48）；CVO 否决窗口开放 | 2026-06-13 |
 
-## Review Gate
+## Review Gate / 分工（CVO 拍板 2026-06-09 msg 0001781074572950）
 
-- Phase 0: research 报告跨猫 review（reviewer 优先 @gpt52/@sonnet，成本路由）
-- Phase A 起: 每 PR 跨族 review + 云端 review，UX 改动过team lead Design Gate
+| 角色 | 谁 | 说明 |
+|------|----|----|
+| Phase spec/plan | Ragdoll (Fable-5) | 每 Phase 写 spec + 实施计划（writing-plans） |
+| 实现 | **opus 家族（46 优先 / 47 / 48）** | CVO 2026-06-11 调整（msg 0001781206855531）：sonnet 单 token 便宜但 A1/A3a 的 review 轮次成本反超——总账判断改派 opus；A3b 起生效 |
+| Alpha 验收执行 | sonnet | 转岗：smoke/验收操作（A1+A2 smoke 已证明他这块又快又干净），opus 猫粮不耗在点验上 |
+| Review | Maine Coon (GPT-5.5) | CVO 点名（全程上下文 + 调研作者）；常规/小 PR 可降 @gpt52 |
+| 愿景守护 | Ragdoll (Fable-5) | PR 合入后对照team lead原始愿景（非 PR 作者非 reviewer，合规） |
+
+- Phase A 起: 每 PR 跨族 review + 云端 review；UX 改动过team lead Design Gate

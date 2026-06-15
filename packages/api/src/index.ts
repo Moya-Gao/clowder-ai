@@ -127,11 +127,14 @@ import { CommandRegistry } from './infrastructure/commands/CommandRegistry.js';
 import { parseManifestSlashCommands } from './infrastructure/commands/manifest-commands.js';
 import { buildThreadDeepLink } from './infrastructure/connectors/connector-command-helpers.js';
 import {
+  applyConnectorGatewayAutostartPolicy,
+  isPreconfiguredConnectorAutostartEnabled,
   loadConnectorGatewayConfig,
   startConnectorGateway,
 } from './infrastructure/connectors/connector-gateway-bootstrap.js';
 import { restartConnectorGateway } from './infrastructure/connectors/connector-gateway-lifecycle.js';
 import { createConnectorReloadSubscriber } from './infrastructure/connectors/connector-reload-subscriber.js';
+import type { RepoIssueComment } from './infrastructure/connectors/github-repo-event/RepoCommentPollTaskSpec.js';
 import { IssueCommentRouter } from './infrastructure/email/IssueCommentRouter.js';
 import {
   CiCdRouter,
@@ -166,6 +169,7 @@ import {
   claudeRescueRoutes,
   commandsRoutes,
   communityIssueRoutes,
+  conciergeRoutes,
   configRoutes,
   connectorHubRoutes,
   connectorMediaRoutes,
@@ -450,14 +454,33 @@ async function main(): Promise<void> {
   app.log.info(`[api] InvocationRegistry backend: ${registryBackendKind === 'redis' && redis ? 'redis' : 'memory'}`);
 
   const { AgentKeyRegistry } = await import('./domains/cats/services/agents/agent-key/AgentKeyRegistry.js');
-  const agentKeyRegistry = new AgentKeyRegistry();
-  app.log.info('[api] AgentKeyRegistry initialized (memory backend)');
+  const agentKeyRegistryBackendKind = redis ? 'redis' : 'memory';
+  const agentKeyRegistry =
+    agentKeyRegistryBackendKind === 'redis' && redis
+      ? new AgentKeyRegistry({
+          backend: new (
+            await import('./domains/cats/services/agents/agent-key/RedisAgentKeyBackend.js')
+          ).RedisAgentKeyBackend(redis),
+        })
+      : new AgentKeyRegistry();
+  app.log.info(`[api] AgentKeyRegistry initialized (${agentKeyRegistryBackendKind} backend)`);
   try {
-    const { ensureAntigravityAgentKeySidecar } = await import(
-      './domains/cats/services/agents/agent-key/antigravity-agent-key-sidecar.js'
+    const { shouldProvisionAntigravityAgentKeySidecar } = await import(
+      './domains/cats/services/agents/agent-key/antigravity-agent-key-sidecar-policy.js'
     );
-    const sidecar = await ensureAntigravityAgentKeySidecar(agentKeyRegistry);
-    app.log.info(`[api] Antigravity agent-key sidecar ready: ${sidecar.filePath} (${sidecar.catId}/${sidecar.userId})`);
+    if (shouldProvisionAntigravityAgentKeySidecar({ backendKind: agentKeyRegistryBackendKind })) {
+      const { ensureAntigravityAgentKeySidecar } = await import(
+        './domains/cats/services/agents/agent-key/antigravity-agent-key-sidecar.js'
+      );
+      const sidecar = await ensureAntigravityAgentKeySidecar(agentKeyRegistry);
+      app.log.info(
+        `[api] Antigravity agent-key sidecar ready: ${sidecar.filePath} (${sidecar.catId}/${sidecar.userId})`,
+      );
+    } else {
+      app.log.warn(
+        '[api] Antigravity agent-key sidecar skipped: memory AgentKeyRegistry cannot safely back global sidecar files; set CAT_CAFE_AGENT_KEY_ALLOW_MEMORY_SIDECAR=1 only for local degraded development',
+      );
+    }
   } catch (err) {
     app.log.warn(`[api] Antigravity agent-key sidecar setup failed (best-effort): ${String(err)}`);
   }
@@ -478,6 +501,8 @@ async function main(): Promise<void> {
   }
   const storageResult = assertStorageReady(!!redis);
   app.log.info(`[api] Storage mode: ${storageResult.mode}`);
+  const { systemStatusRoutes } = await import('./routes/system-status.js');
+  await app.register(systemStatusRoutes, { storageMode: storageResult.mode });
 
   // F102 KD-34: append listener placeholder (wired after memoryServices init)
   let appendListener: ((msg: { id: string; threadId: string; timestamp: number; content: string }) => void) | null =
@@ -504,6 +529,24 @@ async function main(): Promise<void> {
   const taskStore = createTaskStore(redis);
   const labelStore = createLabelStore(redis);
   const communityIssueStore = createCommunityIssueStore(redis);
+
+  // F168 Phase A P1-1: create community event services from Redis (best-effort, optional).
+  // Passed to communityIssueRoutes, rehydrateGitHubSchedules, and connector gateway.
+  let communityEventLog: import('./domains/community/CommunityEventLog.js').ICommunityEventLog | undefined;
+  let communityObjectStore: import('./domains/community/CommunityObjectStore.js').ICommunityObjectStore | undefined;
+  let communityProjector: import('./domains/community/community-projector.js').CommunityProjector | undefined;
+  if (redis) {
+    const [elMod, osMod, pjMod] = await Promise.all([
+      import('./domains/community/CommunityEventLog.js'),
+      import('./domains/community/CommunityObjectStore.js'),
+      import('./domains/community/community-projector.js'),
+    ]);
+    communityEventLog = new elMod.RedisCommunityEventLog(redis);
+    communityObjectStore = new osMod.RedisCommunityObjectStore(redis);
+    communityProjector = new pjMod.CommunityProjector(communityEventLog, communityObjectStore);
+    app.log.info('[api] F168 Phase A: community event services initialized');
+  }
+
   if (redis) {
     const { RedisPrTrackingStore } = await import('./infrastructure/email/RedisPrTrackingStore.js');
     const { backfillLegacyPrTracking } = await import('./infrastructure/email/backfill-legacy-pr-tracking.js');
@@ -874,6 +917,30 @@ async function main(): Promise<void> {
     taskStore,
     notifyLifecycle: schedulerLifecycleToast,
     registry,
+  });
+
+  // ── F233 Phase A: 值班简报（BriefingConfigStore + route + daily cron）──
+  const { RedisBriefingConfigStore, MemoryBriefingConfigStore } = await import(
+    './domains/cats/services/duty-briefing/BriefingConfigStore.js'
+  );
+  const { getOwnerUserId: getDutyBriefingOwnerUserId } = await import('./config/cat-config-loader.js');
+  const briefingConfigStore = redis ? new RedisBriefingConfigStore(redis) : new MemoryBriefingConfigStore();
+  // f167SnapshotProvider Phase A 未接 → voidPasses 暂空（F167 锚点降级，Phase B 接）
+  const dutyBriefingCollectDeps = {
+    taskStore,
+    invocationRecordStore,
+    draftStore,
+    dynamicTaskStore,
+    threadStore,
+    messageStore,
+    userId: getDutyBriefingOwnerUserId(),
+  };
+  const { dutyBriefingRoutes } = await import('./routes/duty-briefing.js');
+  await app.register(dutyBriefingRoutes, {
+    configStore: briefingConfigStore,
+    messageStore,
+    threadStore,
+    collectDeps: dutyBriefingCollectDeps,
   });
 
   // ── Phase G: Summary Compaction (registers into unified scheduler) ──
@@ -1346,6 +1413,19 @@ async function main(): Promise<void> {
   const worldKnowledgeAdapter = new WorldKnowledgeAdapter(memoryServices.evidenceStore);
   const worldContextProvider = new WorldContextProvider(worldStore, worldKnowledgeAdapter);
 
+  // F229: Concierge config store — created before AgentRouter so it can be passed into
+  // invocationDeps for routing-layer 岗位 prompt injection (ConciergeRoutingInterceptor).
+  const { RedisConciergeConfigStore: _RCCSEarly, MemoryConciergeConfigStore: _MCCSEarly } = await import(
+    './domains/concierge/ConciergeConfigStore.js'
+  );
+  const conciergeConfigStoreShared = redis ? new _RCCSEarly(redis) : new _MCCSEarly();
+
+  // F229 KD-17: HandleMap store — per-concierge-thread R1/R2→anchor mapping
+  const { RedisConciergeHandleMapStore: _RHMSEarly, MemoryConciergeHandleMapStore: _MHMSEarly } = await import(
+    './domains/concierge/ConciergeHandleMapStore.js'
+  );
+  const conciergeHandleMapStoreShared = redis ? new _RHMSEarly(redis) : new _MHMSEarly();
+
   // Shared AgentRouter — used by messagesRoutes and invocationsRoutes
   router = new AgentRouter({
     agentRegistry,
@@ -1379,6 +1459,8 @@ async function main(): Promise<void> {
     worldStore,
     frustrationIssueStore,
     pendingRequestStore: authPendingStore,
+    conciergeConfigStore: conciergeConfigStoreShared,
+    conciergeHandleMapStore: conciergeHandleMapStoreShared,
   });
 
   // F39: Message queue delivery
@@ -1752,6 +1834,35 @@ async function main(): Promise<void> {
   await app.register(leaderboardEventsRoutes, { gameStore, achievementStore });
   await app.register(bootcampRoutes, { threadStore });
   await app.register(firstRunQuestRoutes, { threadStore });
+
+  // F229: Concierge routes — reuse the shared conciergeConfigStoreShared created before AgentRouter.
+  // conciergeThreadServiceShared is also passed to threadsRoutes so includeConcierge=true works
+  // (threadStore.list cannot return concierge threads — they use createdBy='concierge-system').
+  const { ConciergeThreadService } = await import('./domains/concierge/ConciergeThreadService.js');
+  const conciergeThreadServiceShared = new ConciergeThreadService({
+    threadStore,
+    redis: redis ?? undefined,
+    conciergeConfigStore: conciergeConfigStoreShared,
+  });
+  // F229 PR-A3b: relay + confirmation stores
+  const { RedisConciergeRelayStore, MemoryConciergeRelayStore } = await import(
+    './domains/concierge/ConciergeRelayStore.js'
+  );
+  const { RedisConciergeConfirmationStore, MemoryConciergeConfirmationStore } = await import(
+    './domains/concierge/ConciergeConfirmationStore.js'
+  );
+  const conciergeRelayStore = redis ? new RedisConciergeRelayStore(redis) : new MemoryConciergeRelayStore();
+  const conciergeConfirmationStore = redis
+    ? new RedisConciergeConfirmationStore(redis)
+    : new MemoryConciergeConfirmationStore();
+
+  await app.register(conciergeRoutes, {
+    conciergeConfigStore: conciergeConfigStoreShared,
+    conciergeThreadService: conciergeThreadServiceShared,
+    conciergeRelayStore,
+    conciergeConfirmationStore,
+    messageStore,
+  });
   const connectorHubOpts: Parameters<typeof connectorHubRoutes>[1] = { threadStore };
   await app.register(connectorHubRoutes, connectorHubOpts);
   await app.register(brakeRoutes, { activityTracker });
@@ -2039,6 +2150,9 @@ async function main(): Promise<void> {
           buildGitHubMigrationEnv,
           buildGitHubScheduleOverrideMigrations,
           promotePendingGitHubMigrationEntries,
+          backfillMissingGitHubScheduleEntries,
+          hasGitHubScheduleBackfillRun,
+          markGitHubScheduleBackfillDone,
         } = await import('./domains/plugin/github-schedule-factories.js');
         const hasRepoScanRuntimeDeps = !!(githubDeps as Record<string, unknown>).reconciliationDedup;
         const migrationEnv = buildGitHubMigrationEnv(getGitHubPluginEnv());
@@ -2076,6 +2190,28 @@ async function main(): Promise<void> {
                 `and migrated ${overrideMigrations.length} scheduler overrides`,
             );
           }
+        }
+        // P1-1 (cloud review): backfill manifest schedule resources missing from existing
+        // installations. shouldRunGitHubScheduleMigration returns false once any github
+        // schedule exists, so a NEW resource (repo-comment-poll) added after the one-time
+        // migration ran would never be added. Runs every startup; adds only absent entries
+        // (respects explicit disable). Redis-gated entries land pending → promoted below.
+        const alreadyBackfilled = hasGitHubScheduleBackfillRun(root);
+        const backfill = backfillMissingGitHubScheduleEntries(
+          latestCaps ?? { version: 1 as const, capabilities: [] },
+          githubManifest,
+          migrationEnv,
+          { repoScanDepsAvailable: hasRepoScanRuntimeDeps, alreadyBackfilled },
+        );
+        if (backfill.changed) {
+          await writeCapabilitiesConfig(root, backfill.config);
+          latestCaps = backfill.config;
+          app.log.info('[api] F168-C0.3: backfilled missing GitHub schedule resource(s) for existing installation');
+        }
+        if (!alreadyBackfilled) {
+          // One-time (cloud R2 P1): mark backfill done so a TARGET resource the operator
+          // later disables (physically removed) is not resurrected on the next startup.
+          markGitHubScheduleBackfillDone(root);
         }
         const pendingPromotion = promotePendingGitHubMigrationEntries(
           latestCaps ?? { version: 1 as const, capabilities: [] },
@@ -2255,6 +2391,7 @@ async function main(): Promise<void> {
     indexBuilder: memoryServices.indexBuilder as
       | { markThreadDirty(threadId: string): void; flushDirtyThreads?(): number | Promise<number> }
       | undefined,
+    conciergeThreadService: conciergeThreadServiceShared,
   });
   await app.register(labelsRoutes, { labelStore, threadStore });
   await app.register(threadBranchRoutes, {
@@ -2421,15 +2558,49 @@ async function main(): Promise<void> {
     './domains/cats/services/stores/memory/InMemoryCommunityPrStore.js'
   );
   const communityPrStore = new InMemoryCommunityPrStore();
+
+  // F168 Phase C C2.2: community narrator wiring (conditional — disabled without thread ID)
+  const communityNarratorThreadId = process.env.COMMUNITY_NARRATOR_THREAD_ID;
+  let communityNarratorDriver: import('./domains/community/NarratorDriver.js').NarratorDriver | undefined;
+  if (communityNarratorThreadId) {
+    const { NarratorDriver } = await import('./domains/community/NarratorDriver.js');
+    const { createRoleResolver, DEFAULT_COMMUNITY_ROLE_BINDINGS } = await import('./domains/community/RoleResolver.js');
+    const { createWakeCatFn } = await import('./domains/cats/services/game/wakeCatImpl.js');
+    const communityWakeCat = createWakeCatFn({
+      threadStore,
+      invocationQueue,
+      queueProcessor,
+      log: app.log,
+    });
+    const communityRoleResolver = createRoleResolver(getRoster, DEFAULT_COMMUNITY_ROLE_BINDINGS);
+    communityNarratorDriver = new NarratorDriver({
+      roleResolver: communityRoleResolver,
+      narratorThreadId: communityNarratorThreadId,
+      wakeCat: communityWakeCat,
+      log: app.log,
+    });
+    app.log.info({ narratorThreadId: communityNarratorThreadId }, '[F168] Community NarratorDriver wired');
+  }
+
   await app.register(communityIssueRoutes, {
     communityIssueStore,
     taskStore,
+    threadStore, // F168 Phase C: narrator Path 2 (new-thread routing) requires threadStore
     socketManager,
     registry,
     fetchIssues: fetchIssuesForSync,
     communityPrStore,
     fetchPrs: fetchPrsForSync,
     fetchPrReviews: fetchPrReviewsForSync,
+    // F168 Phase A P1-1: wire community event services
+    eventLog: communityEventLog,
+    projector: communityProjector,
+    objectStore: communityObjectStore,
+    // Cloud R2 P2: seed initial comment cursor on auto-registration to avoid
+    // replaying historical comments on first poll after case.routed
+    fetchIssueCommentCursor,
+    // F168 Phase C C2.2: narrator driver (fire-and-forget after case.triaged)
+    narratorDriver: communityNarratorDriver,
   });
   await app.register(backlogRoutes, { backlogStore, threadStore, messageStore });
 
@@ -3198,6 +3369,9 @@ async function main(): Promise<void> {
           threadId,
         );
       },
+      // F168 Phase A: wire PR lifecycle events to community event engine
+      eventLog: communityEventLog,
+      projector: communityProjector,
       // F192 Phase G: wire PR merge/close events to task-outcome episodes
       onPrLifecycle: (event) => {
         try {
@@ -3304,6 +3478,7 @@ async function main(): Promise<void> {
           path?: string;
           line?: number;
           pull_request_review_id?: number;
+          author_association?: string; // F168 Phase B: needed for delivery policy
         }) => ({
           id: c.id,
           author: c.user?.login ?? 'unknown',
@@ -3313,6 +3488,7 @@ async function main(): Promise<void> {
           commentType: c.pull_request_review_id ? ('inline' as const) : ('conversation' as const),
           ...(c.path ? { filePath: c.path } : {}),
           ...(c.line ? { line: c.line } : {}),
+          ...(c.author_association !== undefined ? { authorAssociation: c.author_association } : {}),
         }),
       );
     };
@@ -3328,6 +3504,7 @@ async function main(): Promise<void> {
           body: string;
           submitted_at: string;
           commit_id?: string;
+          author_association?: string; // F168 Phase B: needed for delivery policy
         }) => ({
           id: r.id,
           author: r.user?.login ?? 'unknown',
@@ -3335,6 +3512,7 @@ async function main(): Promise<void> {
           body: r.body,
           submittedAt: r.submitted_at,
           ...(r.commit_id ? { commitId: r.commit_id } : {}),
+          ...(r.author_association !== undefined ? { authorAssociation: r.author_association } : {}),
         }),
       );
     };
@@ -3343,12 +3521,22 @@ async function main(): Promise<void> {
     const fetchIssueComments = async (repoFullName: string, issueNumber: number, sinceId?: number) => {
       await refreshGitHubSelfLogin();
       const comments = await fetchPaginated(`/repos/${repoFullName}/issues/${issueNumber}/comments`, sinceId);
-      return comments.map((c: { id: number; body: string; created_at: string; user?: { login: string } }) => ({
-        id: c.id,
-        author: c.user?.login ?? 'unknown',
-        body: c.body,
-        createdAt: c.created_at,
-      }));
+      return comments.map(
+        (c: {
+          id: number;
+          body: string;
+          created_at: string;
+          user?: { login: string };
+          author_association?: string; // F168 Phase B: needed for delivery policy
+        }) => ({
+          id: c.id,
+          author: c.user?.login ?? 'unknown',
+          body: c.body,
+          createdAt: c.created_at,
+          // Map snake_case GitHub API field to camelCase IssueComment.authorAssociation
+          ...(c.author_association !== undefined ? { authorAssociation: c.author_association } : {}),
+        }),
+      );
     };
 
     const fetchIssueState = async (repoFullName: string, issueNumber: number): Promise<'open' | 'closed'> => {
@@ -3427,6 +3615,37 @@ async function main(): Promise<void> {
       const { getOwnerUserId } = await import('./config/cat-config-loader.js');
       const effectiveUserId = getOwnerUserId();
 
+      // F168 C0.3: repo-level comment poller deps (collection-only, redis-gated).
+      // Lists ALL issue comments across allowlisted repos — including un-routed/untracked
+      // issues — closing the IssueCommentTaskSpec per-tracked-issue blind spot. PR
+      // conversation comments are surfaced too (the repo-level endpoint returns them because
+      // PRs are issues in GitHub); they are TAGGED isPullRequest so RepoCommentPollTaskSpec
+      // skips appending them (they belong to the ReviewFeedbackTaskSpec track) yet still
+      // advances the cursor past them — otherwise PR activity with no new issue comments
+      // would re-fetch the same pages every tick (cloud review R4 P2 — churn).
+      // since = the per-repo cursor (max comment updatedAt, ISO-8601) → GitHub `since` param.
+      const fetchRepoComments = async (repo: string, sinceIso?: string): Promise<RepoIssueComment[]> => {
+        const query = new URLSearchParams({ sort: 'updated', direction: 'asc', per_page: '100' });
+        if (sinceIso) query.set('since', sinceIso);
+        const stdout = await fetchGhApi([
+          'api',
+          `/repos/${repo}/issues/comments?${query.toString()}`,
+          '--jq',
+          '.[] | {issueNumber: (.issue_url | split("/") | last | tonumber), commentId: .id, author: .user.login, authorAssociation: .author_association, body: .body, updatedAt: .updated_at, isPullRequest: (.html_url | contains("/pull/"))}',
+          '--paginate',
+        ]);
+        if (!stdout.trim()) return [];
+        return stdout
+          .trim()
+          .split('\n')
+          .map((line: string) => JSON.parse(line));
+      };
+
+      const { RedisRepoCommentCursorStore } = await import(
+        './infrastructure/connectors/github-repo-event/RepoCommentCursorStore.js'
+      );
+      const repoCommentCursorStore = new RedisRepoCommentCursorStore(redisClient);
+
       repoScanDeps = {
         repoAllowlist: ghRepoAllowlist.split(',').map((r: string) => r.trim()),
         inboxCatId: ghInboxCatId,
@@ -3437,6 +3656,10 @@ async function main(): Promise<void> {
         deliveryDeps: { messageStore, socketManager },
         fetchOpenPRs,
         fetchOpenIssues,
+        // F168 C0.3: repo-level comment poller wiring
+        fetchRepoComments,
+        readRepoCommentCursor: (repo: string) => repoCommentCursorStore.read(repo),
+        writeRepoCommentCursor: (repo: string, cursor: string) => repoCommentCursorStore.write(repo, cursor),
       };
     }
 
@@ -3463,6 +3686,9 @@ async function main(): Promise<void> {
         fetchIssueState,
         isEchoIssueComment: (c: { author: string }) => feedbackFilter.shouldSkipComment(c),
         ...repoScanDeps,
+        // F168 Phase A P1-1: community event services for spec wiring
+        eventLog: communityEventLog,
+        projector: communityProjector,
       });
       app.log.info('[api] F202-2B: GitHub schedule resources rehydrated via plugin framework');
     }
@@ -3522,6 +3748,40 @@ async function main(): Promise<void> {
   if (memoryServices.markerQueue) {
     wiredPublishDomains.add('eval:memory');
   }
+  // Direction B (clowder-ai#923 fix): per-domain publish-prereq probe.
+  // wiredPublishDomains answers "is the generator registered?" but a stale runtime can
+  // have the generator AND lack the sourceRefs validator that current eval cats expect.
+  // This probe runs once per (domain, cron fire) — its first call dynamically imports
+  // the adapter and caches the result; the cached value answers all subsequent calls.
+  // Unknown domains pass through (true) — only domains with a registered probe can fail
+  // closed. Adding a domain to the switch is opt-in defense; omitting one is no-op.
+  const publishPrereqCache = new Map<string, boolean>();
+  const publishPrereqProbe = async (
+    domainId: 'eval:a2a' | 'eval:memory' | 'eval:sop' | 'eval:capability-wakeup' | 'eval:task-outcome',
+  ): Promise<boolean> => {
+    const cached = publishPrereqCache.get(domainId);
+    if (cached !== undefined) return cached;
+    let ok: boolean;
+    try {
+      if (domainId === 'eval:a2a') {
+        // 砚砚 R1 P1 fix: `isA2aSourceRefs` is exported from `validation.ts`, not from
+        // `a2a-generator-adapter.ts` (the adapter imports + calls it but does not re-export).
+        // Probing the adapter's namespace would always miss the symbol → probe would mark
+        // a healthy runtime as "missing prereq" → eval:a2a skipped forever (P1).
+        const mod = await import('./infrastructure/harness-eval/publish-verdict/validation.js');
+        // isA2aSourceRefs is the post-fix validator; absence on a stale runtime means
+        // the publish flow will throw infra blockers when the cat calls publish_verdict.
+        ok = typeof (mod as { isA2aSourceRefs?: unknown }).isA2aSourceRefs === 'function';
+      } else {
+        ok = true; // Future per-domain probes plug in here.
+      }
+    } catch {
+      ok = false;
+    }
+    publishPrereqCache.set(domainId, ok);
+    return ok;
+  };
+
   const evalScheduleOpts = {
     harnessFeedbackRoot: resolve(repoRoot, 'docs', 'harness-feedback'),
     threadStore,
@@ -3529,9 +3789,33 @@ async function main(): Promise<void> {
     listDynamicTasks: () => dynamicTaskStore.getAll(),
     redis: redisClient ?? undefined,
     wiredPublishDomains,
+    publishPrereqProbe,
   };
   taskRunnerV2.register(createEvalDomainDailySpec(evalScheduleOpts));
   taskRunnerV2.register(createEvalDomainWeeklySpec(evalScheduleOpts));
+
+  // F233 Phase A: builtin daily 值班简报 cron（07:00 PT；INV-4 幂等 — 同 id 重复注册静默）
+  try {
+    const { createDutyBriefingDailySpec } = await import(
+      './domains/cats/services/duty-briefing/duty-briefing-cron-spec.js'
+    );
+    taskRunnerV2.register(
+      createDutyBriefingDailySpec({
+        collectDeps: dutyBriefingCollectDeps,
+        configStore: briefingConfigStore,
+        threadStore,
+        messageStore,
+        log: app.log,
+      }),
+    );
+    app.log.info('[api] F233: duty-briefing daily cron registered');
+  } catch (err) {
+    if (String((err as Error)?.message ?? '').includes('duplicate')) {
+      app.log.info('[api] F233: duty-briefing cron already registered (idempotent)');
+    } else {
+      throw err;
+    }
+  }
 
   // F139: Start unified scheduler (all registered specs)
   taskRunnerV2.start();
@@ -3602,7 +3886,14 @@ async function main(): Promise<void> {
   let connectorGatewayHandle: Awaited<ReturnType<typeof startConnectorGateway>> = null;
   let connectorReloadUnsub: (() => void) | null = null;
   try {
-    const gatewayConfig = loadConnectorGatewayConfig();
+    const preconfiguredConnectorAutostart = isPreconfiguredConnectorAutostartEnabled(process.env);
+    if (!preconfiguredConnectorAutostart) {
+      app.log.info(
+        { nodeEnv: process.env.NODE_ENV ?? '(unset)' },
+        '[api] Preconfigured connector autostart disabled; starting connector gateway in QR-only mode',
+      );
+    }
+    const gatewayConfig = applyConnectorGatewayAutostartPolicy(loadConnectorGatewayConfig(), process.env);
     connectorGatewayHandle = await startConnectorGateway(gatewayConfig, gatewayDeps);
     if (connectorGatewayHandle) {
       wireGatewayHooks(connectorGatewayHandle);
@@ -3629,7 +3920,7 @@ async function main(): Promise<void> {
     async onRestart() {
       app.log.info('[api] F136: Hot-reloading connector gateway...');
       const newHandle = await restartConnectorGateway(connectorGatewayHandle, async () => {
-        const freshConfig = loadConnectorGatewayConfig();
+        const freshConfig = applyConnectorGatewayAutostartPolicy(loadConnectorGatewayConfig(), process.env);
         return startConnectorGateway(freshConfig, gatewayDeps);
       });
       if (newHandle) {

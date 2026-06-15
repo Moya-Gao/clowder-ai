@@ -41,6 +41,17 @@ function runGuard(tempDir, args, env = {}) {
   });
 }
 
+function writeFakeRedisCli(filePath, logPath) {
+  writeFileSync(
+    filePath,
+    `#!${process.execPath}
+const { appendFileSync } = require('node:fs');
+appendFileSync(${JSON.stringify(logPath)}, process.argv.slice(2).join(' ') + '\\n');
+`,
+    { mode: 0o755 },
+  );
+}
+
 describe('pre-merge gate guard', () => {
   it('blocks a second gate while the holder pid is still alive', () => {
     const tempDir = mkdtempSync(path.join(os.tmpdir(), 'gate-guard-test-'));
@@ -171,7 +182,7 @@ describe('pre-merge gate guard', () => {
     const fakeBinDir = path.join(tempDir, 'bin');
     mkdirSync(fakeBinDir);
     const redisCliLog = path.join(tempDir, 'redis-cli.log');
-    writeFileSync(path.join(fakeBinDir, 'redis-cli'), `#!/bin/bash\necho "$@" >> "${redisCliLog}"\n`, { mode: 0o755 });
+    writeFakeRedisCli(path.join(fakeBinDir, 'redis-cli'), redisCliLog);
     writeFileSync(
       path.join(tempDir, 'ps.txt'),
       `1 0 16016 /System/Library/PrivateFrameworks/fseventsd\n${process.pid} 1 100 node\n101 1 4096 redis-server 127.0.0.1:63552\n`,
@@ -209,7 +220,7 @@ describe('pre-merge gate guard', () => {
     const fakeBinDir = path.join(tempDir, 'bin');
     mkdirSync(fakeBinDir);
     const redisCliLog = path.join(tempDir, 'redis-cli.log');
-    writeFileSync(path.join(fakeBinDir, 'redis-cli'), `#!/bin/bash\necho "$@" >> "${redisCliLog}"\n`, { mode: 0o755 });
+    writeFakeRedisCli(path.join(fakeBinDir, 'redis-cli'), redisCliLog);
     writeFileSync(
       path.join(tempDir, 'ps.txt'),
       `1 0 16016 /System/Library/PrivateFrameworks/fseventsd\n${process.pid} 1 100 node\n101 1 4096 redis-server 127.0.0.1:63552\n`,

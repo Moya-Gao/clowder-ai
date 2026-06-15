@@ -407,6 +407,24 @@ describe(`Code-side port defaults are internally consistent (${repoLabel}: API=$
     );
   });
 
+  it('runtime-worktree.sh is the explicit global agent-key sidecar owner', () => {
+    const content = readFileSync(resolve(ROOT, 'scripts/runtime-worktree.sh'), 'utf-8');
+    const ownerExports = content.match(/export CAT_CAFE_PROVISION_GLOBAL_SIDECAR=1/g) ?? [];
+    assert.ok(
+      ownerExports.length >= 2,
+      'runtime-worktree.sh must mark both in-place and runtime-worktree starts as global sidecar owner',
+    );
+  });
+
+  it('alpha-worktree.sh does not own the global agent-key sidecar', () => {
+    const content = readFileSync(resolve(ROOT, 'scripts/alpha-worktree.sh'), 'utf-8');
+    assert.doesNotMatch(
+      content,
+      /export CAT_CAFE_PROVISION_GLOBAL_SIDECAR=1/,
+      'alpha uses isolated Redis 6398 and must not overwrite runtime global agent-key sidecars',
+    );
+  });
+
   it(`platform-status.mjs API status fallback is ${expectedApiPort}`, () => {
     const fallback = readTsFallback('scripts/lib/platform-status.mjs', /DEFAULT_API_PORT = '(\d+)'/);
     assert.equal(
@@ -862,6 +880,10 @@ excluded:
       assert.ok(
         content.includes('"check:f223-action-tracking"'),
         'public package.json should drop source-only F223 action tracking because its inventory truth source is not exported',
+      );
+      assert.ok(
+        content.includes('"check:biome-version"'),
+        'public package.json should drop check:biome-version because its script target is not exported',
       );
     });
 
