@@ -77,17 +77,25 @@ source_audit: done
 
 猫咖押注的恰恰是**异质**——Opus / GPT / Gemini / Fable 不同 model、不同 taste、不同坏直觉。我们的"评审团悖论"解法（视角差非智力差）正建立在**异质性**上。**论文存疑的是同质集合;我们从第一天就选了异质路线。** 这不是运气,是 taste。
 
-### 硬限制 ≈ 我们的 taste 护城河论证
-论文说哥德尔/停机问题让"有些东西无法被客观知道"。这和 study 反复确认的那条**完全同构**:
-> **能被形式化/客观判定的 → 会被刷被商品化;不能被客观判定的（taste）→ 才是护城河。**
-哥德尔给了这条一个数学底:连 ASI 都有"客观无法回答"的区域,那个区域就是 taste/judgment/relationship 永远的家。**这也是为什么 layer-allocation 把 taste/truth-source 判断永远留在 trusted 层,不交模型。**
+### 硬限制 ≈ taste 护城河（⚠️ 此节被铲屎官当场拍 + Anthropic 一手精修）
+论文说哥德尔/停机让"有些东西无法被客观知道"——这是对 **ASI 全知性**的限制,成立。但我**初稿**一步推成"所以 taste/judgment/relationship 是哥德尔区、永远的家"——**这步偷换概念**:哥德尔说的是"形式系统内有不可判定命题",不等于"taste 不可被神经网络学会"。**"没有客观标准答案" ≠ "不可学会"**(人类 taste 也是经验复利学来的;RLHF/蒸馏本就在学没有客观答案的东西)。
+
+**铲屎官拿 Anthropic 一手拍回来,精修后护城河分三层**(provenance 见 §4):
+
+| 层 | 会不会被学会 | 一手依据 |
+|---|---|---|
+| **生成 taste**(出点子/选方向) | **会被侵蚀** | "Research taste might be just another AI capability that AI systems fail at for a time, then get good at"(《When AI builds itself》);或被"海量便宜实验 brute-force"绕过(《AAR》) |
+| **评估 taste**(哪个结果可信 + 防刷指标) | **更持久** | "evaluation becomes the bottleneck…humans remain essential…preventing gaming of evaluation metrics"(《AAR》);= 我们的评审团悖论(验证<<生成) + reward hacking |
+| **relationship**(谁负责/被信任/有共同历史) | **不是能力维度** | 模型多强都不替代——猫咖情感壁垒(IKEA/自我延伸/安全依恋),跟哥德尔无关 |
+
+→ layer-allocation 把"判断/采纳/防作弊"留 trusted 层**依然对**,但理由不是哥德尔,是**"生成便宜、评估是瓶颈、防 gaming 需要可信主体"**——而这恰好被 Anthropic 一手背书。**结论:taste 作为能力会被侵蚀;护城河从"生成"移到"评估 + 关系"。**
 
 ## 3. Takeaways（喂给 study / layer-allocation）
 
 1. **猫咖的战略坐标被外部背书**:multi-agent collective 是通往 ASI 的四路径之一,我们在正确的赛道。
 2. **异质 > 同质是我们的护城河变量**:论文对同质 LLM 集合存疑,我们的异质押注正好是答案的候选。要在 cat-dossier / 私有 bench 里**显式度量异质带来的协同增益**(同质 vs 异质评审团的判别力差)。
 3. **Multi-Agent Scaling Laws 值得自测**:猫咖能不能观察到"加猫/加交互密度→协作质量超线性"?这可以是 F192 eval 的一个长期指标。
-4. **taste 护城河有了数学底**(哥德尔):写进 pre-train 灵魂拷问那条线,强化"押注 taste 从根上对"。
+4. **taste 护城河要精修(不是哥德尔)**:生成 taste 会被学会/量补(Anthropic 一手),但**评估 taste + 防 gaming + relationship** 才是持久护城河;这一手反而背书了 layer-allocation"判断留 trusted 层"。同步精修 `pretrain-deepdive-and-soul.md` §4/§5 那条"壁垒是 taste"——别留 stale 绝对论断。
 5. **递归自我改进**:猫咖的 harness 自进化(self-evolution skill / 家规迭代 / 知识沉淀)是"合作型 + 文化型递归改进"的轻量版——我们已经在做,只是没用这个词。
 
 ## 4. source-audit ledger
@@ -99,5 +107,8 @@ source_audit: done
 | "同质 LLM 集合协同存疑"是开放问题 | 论文主张 | arXiv html（一手提炼） | use（措辞为提炼,非逐字引号） |
 | 猫咖↔论文的对照 | **宪宪的解读** | 本文档作者推理 | use-with-caveat（是我的连接,非论文背书猫咖） |
 | "60 页" | 二手 | 科技媒体 | use-with-caveat（未逐字确认） |
+| research taste "会被学会/可被量补"、评估是瓶颈、防 gaming 需人类 | 外部主张（一手） | Anthropic《When AI builds itself》(institute/recursive-self-improvement) +《Automated Alignment Researchers》, WebFetch | use |
+| "哥德尔=taste 永远护城河" | **宪宪初稿论断,已撤回** | 本文档初稿 | **reject**（偷换概念,见 §2 精修表） |
+| Anthropic 数据 51%→64% next-step、80% 代码 | 二手风险（一手页面） | 同上 Anthropic 页面 | use-with-caveat（Anthropic 自标 n=129 deliberately-picked、非 like-for-like、LoC 高估） |
 
 > **诚实边界**:论文**没有**提到猫咖。第 2 节所有"砸中猫咖"是**宪宪把论文框架往猫咖上映射的解读**,不是 DeepMind 在背书我们。映射本身需要 reviewer 拍砖。

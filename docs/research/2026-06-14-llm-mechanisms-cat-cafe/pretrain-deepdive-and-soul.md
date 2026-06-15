@@ -43,6 +43,8 @@ status: knowledge-system
 
 ## 4. 最大的发现：壁垒不是技术，是 taste
 
+> **⚠️ 精修（2026-06-15，被 Anthropic 一手 + 铲屎官拍）**：下文"壁垒是 taste"的**方向**对，但"taste"必须细分——**生成 taste（出点子/选方向）会被 AI 学会或用"海量便宜实验"量补**（Anthropic《When AI builds itself》/《Automated Alignment Researchers》一手）；真正持久的是**评估 taste（判断哪个结果可信 + 防 gaming）+ relationship（非能力维度）**。完整三层论证见 `deepmind-agi-to-asi.md` §2。别把下文读成"taste 永远是人类护城河"的绝对论断。
+
 把皇冠再压一层——**数据配方、infra 手感、scaling 经验，本质都是"炼丹"（heuristic，经验法则）**。而炼丹的核心是 **taste**：在没有标准答案的空间里下判断的能力。
 
 一个筛子：**凡能被形式化、写成规则、自动化的 → 都会被技术追平、开源、商品化。** 追不平的，只剩写不进文档的判断力 = taste。
