@@ -881,6 +881,10 @@ excluded:
         content.includes('"check:f223-action-tracking"'),
         'public package.json should drop source-only F223 action tracking because its inventory truth source is not exported',
       );
+      assert.ok(
+        content.includes('"check:biome-version"'),
+        'public package.json should drop check:biome-version because its script target is not exported',
+      );
     });
 
     it('sync-manifest exports F180 user-level hook truth source', () => {

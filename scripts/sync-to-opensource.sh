@@ -1436,6 +1436,7 @@ const internalScripts = [
   "antigravity:smoke",
   "check:hmac-salt",
   "check:antigravity-smoke",
+  "check:biome-version",
   "check:incident-containment",
   "check:sync-export",
   "check:web-global-css-imports",
