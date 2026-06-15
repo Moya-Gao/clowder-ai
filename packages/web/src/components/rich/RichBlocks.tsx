@@ -4,7 +4,7 @@ import type { ConnectorSource } from '@cat-cafe/shared';
 import type { RichBlock, RichInteractiveBlock } from '@/stores/chat-types';
 import { AudioBlock } from './AudioBlock';
 import { CallbackAuthFailureBlock } from './CallbackAuthFailureBlock';
-import { CardBlock } from './CardBlock';
+import { CardBlock, type CardConfirmationEntry } from './CardBlock';
 import { ChecklistBlock } from './ChecklistBlock';
 import { DiffBlock } from './DiffBlock';
 import { FileBlock } from './FileBlock';
@@ -21,11 +21,13 @@ function RichBlockRenderer({
   catId,
   messageId,
   messageSource,
+  confirmations,
 }: {
   block: RichBlock;
   catId?: string;
   messageId?: string;
   messageSource?: ConnectorSource;
+  confirmations?: CardConfirmationEntry[];
 }) {
   switch (block.kind) {
     case 'card': {
@@ -52,7 +54,7 @@ function RichBlockRenderer({
       if (isTrustedCallbackAuth) {
         return <CallbackAuthFailureBlock block={block} />;
       }
-      return <CardBlock block={block} messageId={messageId} />;
+      return <CardBlock block={block} messageId={messageId} confirmations={confirmations} />;
     }
     case 'diff':
       return <DiffBlock block={block} />;
@@ -161,6 +163,7 @@ export function RichBlocks({
   catId,
   messageId,
   messageSource,
+  confirmations,
 }: {
   blocks: RichBlock[];
   catId?: string;
@@ -172,6 +175,7 @@ export function RichBlocks({
    * as a system warning + trigger hide-similar. Other renderers ignore this.
    */
   messageSource?: ConnectorSource;
+  confirmations?: CardConfirmationEntry[];
 }) {
   if (blocks.length === 0) return null;
   const items = groupBlocks(blocks);
@@ -187,6 +191,7 @@ export function RichBlocks({
             catId={catId}
             messageId={messageId}
             messageSource={messageSource}
+            confirmations={confirmations}
           />
         ),
       )}

@@ -12,6 +12,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CardBlock } from '@/components/rich/CardBlock';
 import type { RichCardBlock } from '@/stores/chat-types';
+import { apiFetch } from '@/utils/api-client';
 import { __resetPendingTeleportForTest, peekPendingTeleport } from '@/utils/teleport';
 
 const mockOnNavigationAction = vi.fn();
@@ -41,6 +42,7 @@ describe('CardBlock concierge teleport/go cross-thread navigation (Bug1: query �
   beforeEach(() => {
     __resetPendingTeleportForTest();
     chatState.currentThreadId = 'thread_A';
+    vi.mocked(apiFetch).mockReset();
     // Reset pathname to '/' so pushThreadRouteWithHistory doesn't skip pushState
     // (it short-circuits when location.pathname already === target href — cross-test pollution).
     window.history.replaceState(null, '', '/');
@@ -62,7 +64,7 @@ describe('CardBlock concierge teleport/go cross-thread navigation (Bug1: query �
     const btn = [...container.querySelectorAll('button')].find((b) => b.textContent?.includes(label));
     expect(btn, `button containing "${label}" should render`).toBeTruthy();
     act(() => {
-      btn!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      btn?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
   }
 
@@ -107,5 +109,163 @@ describe('CardBlock concierge teleport/go cross-thread navigation (Bug1: query �
     };
     renderAndClick(block, '跟去');
     expect(pushStateSpy).toHaveBeenCalledWith({}, '', '/thread/thread_B');
+  });
+
+  it('P1: restored confirmed triage state disables the plan buttons after refresh', () => {
+    const block: RichCardBlock = {
+      id: 'triage-card',
+      kind: 'card',
+      v: 1,
+      title: '分诊计划',
+      actions: [
+        {
+          action: 'concierge_triage_confirm',
+          label: '确认传话',
+          payload: { planId: 'plan-1', intent: 'relay' },
+        },
+        {
+          action: 'concierge_triage_cancel',
+          label: '取消',
+          payload: { planId: 'plan-1' },
+        },
+      ],
+    };
+
+    act(() => {
+      root.render(
+        createElement(CardBlock, {
+          block,
+          messageId: 'msg-1',
+          confirmations: [
+            {
+              id: 'c1',
+              messageId: 'msg-1',
+              status: 'confirmed',
+              action: { kind: 'concierge_triage_confirm', planId: 'plan-1', intent: 'relay', summary: '传话' },
+            },
+          ],
+        }),
+      );
+    });
+
+    const buttons = [...container.querySelectorAll('button')];
+    expect(buttons.map((b) => b.textContent)).toContain('已确认');
+    expect(buttons.every((b) => b.disabled)).toBe(true);
+  });
+
+  it('P1: restored cancelled triage state disables the plan buttons after refresh', () => {
+    const block: RichCardBlock = {
+      id: 'triage-card',
+      kind: 'card',
+      v: 1,
+      title: '分诊计划',
+      actions: [
+        {
+          action: 'concierge_triage_confirm',
+          label: '确认传话',
+          payload: { planId: 'plan-1', intent: 'relay' },
+        },
+        {
+          action: 'concierge_triage_cancel',
+          label: '取消',
+          payload: { planId: 'plan-1' },
+        },
+      ],
+    };
+
+    act(() => {
+      root.render(
+        createElement(CardBlock, {
+          block,
+          messageId: 'msg-1',
+          confirmations: [
+            {
+              id: 'c1',
+              messageId: 'msg-1',
+              status: 'cancelled',
+              action: { kind: 'concierge_triage_cancel', planId: 'plan-1' },
+            },
+          ],
+        }),
+      );
+    });
+
+    const buttons = [...container.querySelectorAll('button')];
+    expect(buttons.map((b) => b.textContent)).toContain('已取消');
+    expect(buttons.every((b) => b.disabled)).toBe(true);
+  });
+
+  it('P1: propose_thread triage confirmation navigates to the created thread', async () => {
+    vi.mocked(apiFetch).mockResolvedValue({
+      ok: true,
+      json: async () => ({ status: 'completed', threadId: 'thread_new_investigation' }),
+    } as Response);
+    const block: RichCardBlock = {
+      id: 'triage-card',
+      kind: 'card',
+      v: 1,
+      title: '开新调查',
+      actions: [
+        {
+          action: 'concierge_triage_confirm',
+          label: '确认开新调查',
+          payload: { planId: 'plan-2', intent: 'propose_thread' },
+        },
+      ],
+    };
+
+    await act(async () => {
+      root.render(createElement(CardBlock, { block, messageId: 'msg-1' }));
+    });
+    const btn = [...container.querySelectorAll('button')].find((b) => b.textContent?.includes('确认开新调查'));
+    expect(btn).toBeTruthy();
+
+    await act(async () => {
+      btn?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(apiFetch).toHaveBeenCalledWith('/api/concierge/triage/plan-2/confirm', { method: 'POST' });
+    expect(mockOnNavigationAction).toHaveBeenCalled();
+    expect(pushStateSpy).toHaveBeenCalledWith({}, '', '/thread/thread_new_investigation');
+  });
+
+  it('P1: relay triage confirmation posts user-selected targetCats', async () => {
+    vi.mocked(apiFetch).mockResolvedValue({
+      ok: true,
+      json: async () => ({ status: 'completed', relayReceiptId: 'receipt-1' }),
+    } as Response);
+    const block: RichCardBlock = {
+      id: 'triage-card',
+      kind: 'card',
+      v: 1,
+      title: '选择目标猫',
+      actions: [
+        {
+          action: 'concierge_triage_confirm',
+          label: '确认传话给 @codex',
+          payload: { planId: 'plan-3', intent: 'relay', targetCats: ['codex'] },
+        },
+      ],
+    };
+
+    await act(async () => {
+      root.render(createElement(CardBlock, { block, messageId: 'msg-1' }));
+    });
+    const btn = [...container.querySelectorAll('button')].find((b) => b.textContent?.includes('确认传话给 @codex'));
+    expect(btn).toBeTruthy();
+
+    await act(async () => {
+      btn?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(apiFetch).toHaveBeenCalledWith('/api/concierge/triage/plan-3/confirm', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ targetCats: ['codex'] }),
+    });
   });
 });

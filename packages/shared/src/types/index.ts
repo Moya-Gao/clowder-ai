@@ -272,6 +272,11 @@ export type {
   PendingConfirmation,
   RelayReceipt,
   RelayReceiptStatus,
+  TriagePlan,
+  TriagePlanIntent,
+  TriagePlanResult,
+  TriagePlanStatus,
+  TriagePlanTarget,
 } from './concierge.js';
 export { CONCIERGE_CONFIG_DEFAULTS } from './concierge.js';
 // Connector types (F97 外部信息源抽象)

@@ -182,6 +182,22 @@ export class ConciergeThreadService {
   }
 
   // ---------------------------------------------------------------------------
+  // Phase B: propose_thread action
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Create a proposed thread (Phase B §2b).
+   * Unlike getOrCreate (concierge-specific lazy singleton), this creates a regular
+   * thread on behalf of the user, used by the propose_thread intent.
+   */
+  async createProposedThread(userId: string, title: string, _description?: string): Promise<string> {
+    // threadStore.create(userId, title, projectPath?, parentThreadId?, proposalAudit?)
+    // description is informational only — not stored as projectPath
+    const thread = await this.threadStore.create(userId, title);
+    return thread.id;
+  }
+
+  // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
 

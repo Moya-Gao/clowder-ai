@@ -53,7 +53,12 @@ import {
 import { detectUserMention } from '../../../../../routes/user-mention.js';
 import { estimateTokens } from '../../../../../utils/token-counter.js';
 import { conciergeContextForCat, prepareConciergeContext } from '../../../../concierge/ConciergeRoutingInterceptor.js';
-import { buildConciergeActions } from '../../../../concierge/concierge-reply-validator.js';
+import {
+  buildConciergeActions,
+  extractTriagePlanIdsFromActions,
+  stripTriagePlanMarkers,
+  type TriagePlanExtractionDeps,
+} from '../../../../concierge/concierge-reply-validator.js';
 import { buildConciergeSearchContext } from '../../../../concierge/concierge-search-context.js';
 import {
   ackGuideCompletion,
@@ -2154,6 +2159,7 @@ export async function* routeSerial(
         // Store with actual mentions — degrade on failure to ensure done reaches frontend
         // (缅因猫 review P1-2: Redis failure must not block done yield)
         let storedMsgId: string | undefined;
+        let triagePlanIdsToLink: string[] = [];
         try {
           // #573: persist with the OUTER cat-cafe parentInvocationId (set by QueueProcessor)
           const persistedInvocationId = options.parentInvocationId ?? ownInvocationId;
@@ -2165,11 +2171,29 @@ export async function* routeSerial(
             storedContent
           ) {
             try {
+              // Phase B: pass triageDeps if TriagePlanStore is available
+              const triageDeps: TriagePlanExtractionDeps | undefined = deps.invocationDeps.conciergeTriagePlanStore
+                ? {
+                    triagePlanStore: deps.invocationDeps.conciergeTriagePlanStore,
+                    userId,
+                    sourceMessageId: currentUserMessageId ?? `triage-${Date.now()}`,
+                    ...(deps.invocationDeps.threadStore
+                      ? {
+                          targetCatsResolverDeps: {
+                            messageStore: deps.messageStore,
+                            threadStore: deps.invocationDeps.threadStore,
+                          },
+                        }
+                      : {}),
+                  }
+                : undefined;
               const conciergeActions = await buildConciergeActions(
                 storedContent,
                 threadId,
                 deps.invocationDeps.conciergeHandleMapStore,
+                triageDeps,
               );
+              triagePlanIdsToLink = extractTriagePlanIdsFromActions(conciergeActions);
               if (conciergeActions.length > 0) {
                 allRichBlocks = [
                   ...allRichBlocks,
@@ -2181,6 +2205,11 @@ export async function* routeSerial(
                     actions: conciergeActions,
                   },
                 ];
+                // Strip <!-- triage-plan --> markers from stored content (cloud P2 fix).
+                // Users should not see raw HTML comment markers in the concierge panel.
+                if (triagePlanIdsToLink.length > 0) {
+                  storedContent = stripTriagePlanMarkers(storedContent);
+                }
               }
             } catch {
               // Fail-open: action extraction failure → no actions, no crash
@@ -2222,6 +2251,16 @@ export async function* routeSerial(
               },
             });
             storedMsgId = storedMsg.id;
+            const triagePlanStore = deps.invocationDeps.conciergeTriagePlanStore;
+            if (triagePlanStore && triagePlanIdsToLink.length > 0) {
+              try {
+                await Promise.all(
+                  triagePlanIdsToLink.map((planId) => triagePlanStore.setConfirmationMessageId(planId, storedMsg.id)),
+                );
+              } catch (err) {
+                log.warn({ err, threadId, messageId: storedMsg.id }, 'Failed to link triage plan confirmation message');
+              }
+            }
             // F088-P3: Stash rich blocks for outbound delivery
             if (options.persistenceContext && allRichBlocks.length > 0) {
               options.persistenceContext.richBlocks = allRichBlocks;
@@ -2231,6 +2270,22 @@ export async function* routeSerial(
               { threadId, catId: catId as string, callbackMessageId: callbackPostMessageId },
               'Stream store skipped — cat_cafe_post_message callback already persisted',
             );
+            const callbackTriagePlanStore = deps.invocationDeps.conciergeTriagePlanStore;
+            const linkedCallbackMessageId = callbackPostMessageId;
+            if (linkedCallbackMessageId && callbackTriagePlanStore && triagePlanIdsToLink.length > 0) {
+              try {
+                await Promise.all(
+                  triagePlanIdsToLink.map((planId) =>
+                    callbackTriagePlanStore.setConfirmationMessageId(planId, linkedCallbackMessageId),
+                  ),
+                );
+              } catch (err) {
+                log.warn(
+                  { err, threadId, messageId: linkedCallbackMessageId },
+                  'Failed to link callback triage plan confirmation message',
+                );
+              }
+            }
             if (callbackPostMessageId) {
               // F192 Phase D: bind sample anchor in callback path so post-storage
               // emission uses the actual cat-stored message id (via callback).

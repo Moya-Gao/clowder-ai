@@ -86,7 +86,18 @@ export type ConciergeCardAction =
       sourceMessageId: string;
     }
   /** 跟去：teleport 到目标 thread 跟进 */
-  | { kind: 'concierge_go'; targetThreadId: string };
+  | { kind: 'concierge_go'; targetThreadId: string }
+  /** 开新调查：propose_thread 创建新 thread (Phase B) */
+  | { kind: 'concierge_propose_thread'; title: string; description: string }
+  /** 分诊确认：用户确认 TriagePlan (Phase B) */
+  | {
+      kind: 'concierge_triage_confirm';
+      planId: string;
+      intent: TriagePlanIntent;
+      summary: string;
+    }
+  /** 分诊取消：用户取消 TriagePlan (Phase B) */
+  | { kind: 'concierge_triage_cancel'; planId: string };
 
 // ---------------------------------------------------------------------------
 // RelayReceipt — §1a state machine (lifecycle owner = POST /api/concierge/relay)
@@ -145,4 +156,82 @@ export interface PendingConfirmation {
   status: ConfirmationStatus;
   createdAt: number;
   updatedAt: number;
+}
+
+// ---------------------------------------------------------------------------
+// TriagePlan — Phase B §2 state machine (lifecycle owner = dispatch handler)
+// ---------------------------------------------------------------------------
+
+/**
+ * TriagePlan intent — 总机四大路径
+ * relay: 传话到目标 thread
+ * go: 跳转到目标 thread
+ * propose_thread: 开新调查 thread
+ * investigate: 前台猫自己查（Phase B2 InvestigationJob）
+ */
+export type TriagePlanIntent = 'relay' | 'go' | 'propose_thread' | 'investigate';
+
+/**
+ * TriagePlan 状态：
+ *   proposed(值班猫生成) → confirmed(用户点确认) → dispatched(执行中)
+ *                                                → completed(执行成功)
+ *                                                → failed(执行失败，可重试)
+ *   proposed → cancelled(用户取消/超时)
+ *   failed → confirmed(用户重试)
+ *
+ * INV T1: 先落 proposed 再出确认卡
+ * INV T2: 确认后才 dispatch（不自行跳过确认）
+ * INV T3: failed 可手动重试（→ confirmed）
+ */
+export type TriagePlanStatus = 'proposed' | 'confirmed' | 'dispatched' | 'completed' | 'failed' | 'cancelled';
+
+/** TriagePlan target — 根据 intent 不同字段可选 */
+export interface TriagePlanTarget {
+  /** relay/go 的目标 thread */
+  threadId?: string;
+  /** 目标 thread 标题（展示用） */
+  threadTitle?: string;
+  /** relay 的目标猫（resolver 产出或用户选择） */
+  targetCats?: string[];
+  /** relay 目标猫候选（resolver 模糊时，等待用户选择） */
+  candidateCats?: string[];
+  /** investigate/propose_thread 的查询/描述 */
+  query?: string;
+}
+
+/** TriagePlan dispatch 结果 */
+export interface TriagePlanResult {
+  /** relay dispatch 的 receipt ID */
+  relayReceiptId?: string;
+  /** propose_thread 的 thread ID */
+  proposedThreadId?: string;
+  /** investigate 的 job ID (Phase B2) */
+  investigationJobId?: string;
+}
+
+/**
+ * TriagePlan: 用户描述 → 值班猫分诊 → 可确认的执行计划
+ * TTL=0（铁律 5 LL-048）
+ */
+export interface TriagePlan {
+  id: string;
+  userId: string;
+  /** 用户原话所在消息 ID */
+  sourceMessageId: string;
+  /** 承载确认卡的值班猫回复消息 ID（刷新后恢复 CardBlock 状态用） */
+  confirmationMessageId?: string;
+  /** 用户原话全文快照 */
+  originalText: string;
+  /** 分诊意图 */
+  intent: TriagePlanIntent;
+  /** 执行目标（按 intent 填充） */
+  target: TriagePlanTarget;
+  /** 状态机 */
+  status: TriagePlanStatus;
+  createdAt: number;
+  updatedAt: number;
+  dispatchedAt?: number;
+  completedAt?: number;
+  /** dispatch 结果 */
+  result?: TriagePlanResult;
 }

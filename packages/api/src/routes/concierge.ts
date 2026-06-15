@@ -1,17 +1,21 @@
 /**
- * Concierge API Routes (F229 PR-A1 + A3b)
+ * Concierge API Routes (F229 PR-A1 + A3b + Phase B)
  *
- * GET  /api/concierge/config   — 获取当前用户的前台猫配置（不存在则返回默认值）
- * PUT  /api/concierge/config   — 覆盖写入用户的前台猫配置（TTL=0 持久化）
- * POST /api/concierge/thread   — 懒创建/获取 per-user concierge thread，返回 threadId
- * POST /api/concierge/relay    — 投递 relay 消息到目标 thread (§1a RelayReceipt)
- * POST /api/concierge/confirm  — 更新确认卡状态 (§1b PendingConfirmation)
- * GET  /api/concierge/peek     — 获取目标消息的前后上下文 (concierge_peek)
+ * GET  /api/concierge/config         — 获取当前用户的前台猫配置（不存在则返回默认值）
+ * PUT  /api/concierge/config         — 覆盖写入用户的前台猫配置（TTL=0 持久化）
+ * POST /api/concierge/thread         — 懒创建/获取 per-user concierge thread，返回 threadId
+ * POST /api/concierge/relay          — 投递 relay 消息到目标 thread (§1a RelayReceipt)
+ * POST /api/concierge/confirm        — 更新确认卡状态 (§1b PendingConfirmation)
+ * GET  /api/concierge/peek           — 获取目标消息的前后上下文 (concierge_peek)
+ * GET  /api/concierge/confirmations  — mount-time 批量查询确认状态 (Phase B §1)
+ * POST /api/concierge/triage         — 创建 TriagePlan (Phase B §2)
+ * POST /api/concierge/triage/:planId/confirm — 确认 TriagePlan (Phase B §2)
+ * POST /api/concierge/triage/:planId/cancel  — 取消 TriagePlan (Phase B §2)
  */
 
 import { randomUUID } from 'node:crypto';
-import { type CatId, catIdSchema } from '@cat-cafe/shared';
-import type { FastifyPluginAsync } from 'fastify';
+import { type CatId, catIdSchema, type PendingConfirmation, type TriagePlan } from '@cat-cafe/shared';
+import type { FastifyInstance, FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { isCatAvailable } from '../config/cat-config-loader.js';
 import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
@@ -19,6 +23,7 @@ import type { IConciergeConfigStore } from '../domains/concierge/ConciergeConfig
 import type { IConciergeConfirmationStore } from '../domains/concierge/ConciergeConfirmationStore.js';
 import type { IConciergeRelayStore } from '../domains/concierge/ConciergeRelayStore.js';
 import type { ConciergeThreadService } from '../domains/concierge/ConciergeThreadService.js';
+import type { IConciergeTriagePlanStore } from '../domains/concierge/ConciergeTriagePlanStore.js';
 import { createModuleLogger } from '../infrastructure/logger.js';
 import { resolveStrictUserId, resolveUserId } from '../utils/request-identity.js';
 
@@ -82,12 +87,178 @@ const peekSchema = z.object({
   windowSize: z.coerce.number().int().min(1).max(10).default(3),
 });
 
+/** Schema for POST /api/concierge/triage body (Phase B §2) */
+const triageSchema = z.object({
+  sourceMessageId: z.string().min(1).max(100),
+  originalText: z.string().min(1).max(100000),
+  intent: z.enum(['relay', 'go', 'propose_thread', 'investigate']),
+  target: z
+    .object({
+      threadId: z.string().min(1).max(100).optional(),
+      threadTitle: z.string().max(200).optional(),
+      targetCats: z.array(z.string().min(1)).optional(),
+      candidateCats: z.array(z.string().min(1)).optional(),
+      query: z.string().max(10000).optional(),
+    })
+    .default({}),
+});
+
+/** Optional body for POST /api/concierge/triage/:planId/confirm */
+const triageConfirmSchema = z
+  .object({
+    targetCats: z.array(catIdSchema()).min(1).optional(),
+  })
+  .default({});
+
 interface ConciergeRoutesOptions {
   conciergeConfigStore: IConciergeConfigStore;
   conciergeThreadService: ConciergeThreadService;
   conciergeRelayStore: IConciergeRelayStore;
   conciergeConfirmationStore: IConciergeConfirmationStore;
+  conciergeTriagePlanStore?: IConciergeTriagePlanStore;
   messageStore: IMessageStore;
+}
+
+function validateTriageTarget(plan: TriagePlan): string | null {
+  if (plan.intent === 'relay' && (!plan.target.threadId || !plan.target.targetCats?.length)) {
+    return 'Invalid relay target: threadId and targetCats are required';
+  }
+  if (plan.intent === 'go' && !plan.target.threadId) return 'Invalid go target: threadId is required';
+  if (plan.intent === 'propose_thread' && !plan.target.query) {
+    return 'Invalid propose_thread target: query is required';
+  }
+  return null;
+}
+
+function validateSelectedTargetCats(plan: TriagePlan, selectedTargetCats: string[] | undefined): string | null {
+  if (!selectedTargetCats?.length) return null;
+  if (plan.intent !== 'relay') return 'targetCats selection is only valid for relay plans';
+  if (!plan.target.candidateCats?.length) return 'No candidate targetCats are available for this plan';
+  const allowed = new Set(plan.target.candidateCats);
+  for (const catId of selectedTargetCats) {
+    if (!allowed.has(catId)) return `Invalid selected target cat: ${catId}`;
+  }
+  return null;
+}
+
+function mapTriagePlanToConfirmation(plan: TriagePlan): PendingConfirmation | null {
+  if (!plan.confirmationMessageId) return null;
+
+  if (plan.status === 'cancelled') {
+    return {
+      id: `triage:${plan.id}:cancel`,
+      userId: plan.userId,
+      messageId: plan.confirmationMessageId,
+      action: { kind: 'concierge_triage_cancel', planId: plan.id },
+      status: 'cancelled',
+      createdAt: plan.createdAt,
+      updatedAt: plan.updatedAt,
+    };
+  }
+  if (plan.status !== 'confirmed' && plan.status !== 'dispatched' && plan.status !== 'completed') return null;
+
+  return {
+    id: `triage:${plan.id}:confirm`,
+    userId: plan.userId,
+    messageId: plan.confirmationMessageId,
+    action: {
+      kind: 'concierge_triage_confirm',
+      planId: plan.id,
+      intent: plan.intent,
+      summary: plan.originalText || plan.target.threadTitle || plan.target.query || plan.intent,
+    },
+    status: 'confirmed',
+    createdAt: plan.createdAt,
+    updatedAt: plan.updatedAt,
+  };
+}
+
+async function dispatchConfirmedTriagePlan(opts: {
+  app: FastifyInstance;
+  conciergeThreadService: ConciergeThreadService;
+  conciergeTriagePlanStore: IConciergeTriagePlanStore;
+  plan: TriagePlan;
+  planId: string;
+  userId: string;
+}): Promise<{ statusCode?: number; body: Record<string, unknown> }> {
+  const { app, conciergeThreadService, conciergeTriagePlanStore, plan, planId, userId } = opts;
+  if (plan.intent === 'go') {
+    await conciergeTriagePlanStore.updateStatus(planId, 'completed');
+    return { body: { planId, status: 'completed', threadId: plan.target.threadId } };
+  }
+  if (plan.intent === 'investigate') return { body: { planId, status: 'confirmed' } };
+
+  try {
+    await conciergeTriagePlanStore.updateStatus(planId, 'dispatched');
+    if (plan.intent === 'relay') {
+      return await dispatchRelayTriage({ app, conciergeThreadService, conciergeTriagePlanStore, plan, planId, userId });
+    }
+    return await dispatchProposeThreadTriage({
+      conciergeThreadService,
+      conciergeTriagePlanStore,
+      plan,
+      planId,
+      userId,
+    });
+  } catch (err) {
+    log.error({ err, planId }, 'TriagePlan dispatch failed');
+    await conciergeTriagePlanStore.updateStatus(planId, 'failed');
+    return { statusCode: 502, body: { error: 'Triage dispatch failed' } };
+  }
+}
+
+async function dispatchRelayTriage(opts: {
+  app: FastifyInstance;
+  conciergeThreadService: ConciergeThreadService;
+  conciergeTriagePlanStore: IConciergeTriagePlanStore;
+  plan: TriagePlan;
+  planId: string;
+  userId: string;
+}): Promise<{ body: Record<string, unknown> }> {
+  const { app, conciergeThreadService, conciergeTriagePlanStore, plan, planId, userId } = opts;
+  const { threadId, targetCats } = plan.target;
+  if (!threadId || !targetCats?.length) throw new Error('Invalid relay target');
+
+  const conciergeThreadId = await conciergeThreadService.findThreadId(userId);
+  if (!conciergeThreadId) throw new Error('Concierge thread not found');
+
+  const relayResult = await app.inject({
+    method: 'POST',
+    url: '/api/concierge/relay',
+    payload: {
+      targetThreadId: threadId,
+      targetCats,
+      originalText: plan.originalText,
+      sourceMessageId: plan.sourceMessageId,
+      conciergeThreadId,
+    },
+    headers: {
+      'x-cat-cafe-user': userId,
+      'content-type': 'application/json',
+    },
+  });
+
+  if (relayResult.statusCode >= 400) throw new Error(`Relay dispatch failed: HTTP ${relayResult.statusCode}`);
+
+  const relayBody = JSON.parse(relayResult.body) as { receiptId?: string };
+  await conciergeTriagePlanStore.setResult(planId, { relayReceiptId: relayBody.receiptId });
+  await conciergeTriagePlanStore.updateStatus(planId, 'completed');
+  return { body: { planId, status: 'completed', relayReceiptId: relayBody.receiptId } };
+}
+
+async function dispatchProposeThreadTriage(opts: {
+  conciergeThreadService: ConciergeThreadService;
+  conciergeTriagePlanStore: IConciergeTriagePlanStore;
+  plan: TriagePlan;
+  planId: string;
+  userId: string;
+}): Promise<{ body: Record<string, unknown> }> {
+  const { conciergeThreadService, conciergeTriagePlanStore, plan, planId, userId } = opts;
+  if (!plan.target.query) throw new Error('Invalid propose_thread target');
+  const thread = await conciergeThreadService.createProposedThread(userId, plan.target.query);
+  await conciergeTriagePlanStore.setResult(planId, { proposedThreadId: thread });
+  await conciergeTriagePlanStore.updateStatus(planId, 'completed');
+  return { body: { planId, status: 'completed', threadId: thread } };
 }
 
 export const conciergeRoutes: FastifyPluginAsync<ConciergeRoutesOptions> = async (app, opts) => {
@@ -96,6 +267,7 @@ export const conciergeRoutes: FastifyPluginAsync<ConciergeRoutesOptions> = async
     conciergeThreadService,
     conciergeRelayStore,
     conciergeConfirmationStore,
+    conciergeTriagePlanStore,
     messageStore,
   } = opts;
 
@@ -397,6 +569,222 @@ export const conciergeRoutes: FastifyPluginAsync<ConciergeRoutesOptions> = async
     }));
 
     return { threadId, messageId, window };
+  });
+
+  // =========================================================================
+  // Phase B routes (F229 Phase B: 总机能力)
+  // =========================================================================
+
+  // GET /api/concierge/confirmations — mount-time 批量查询确认状态
+  // userId 从 session identity 解析（砚砚 P1: 不从 query 传）
+  app.get('/api/concierge/confirmations', async (request, reply) => {
+    const userId = resolveStrictUserId(request);
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required' };
+    }
+    const confirmations = await conciergeConfirmationStore.listByUser(userId);
+    const triageConfirmations = conciergeTriagePlanStore
+      ? (await conciergeTriagePlanStore.listByUser(userId)).map(mapTriagePlanToConfirmation).filter((entry) => entry)
+      : [];
+    confirmations.push(...(triageConfirmations as PendingConfirmation[]));
+    confirmations.sort((a, b) => b.createdAt - a.createdAt);
+    return { confirmations };
+  });
+
+  // POST /api/concierge/propose-thread — propose_thread action 的后端执行面 (Phase B §2b)
+  // 前端 CardBlock concierge_propose_thread → 此 endpoint → 创建 thread 提议
+  app.post('/api/concierge/propose-thread', async (request, reply) => {
+    const userId = resolveStrictUserId(request);
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required' };
+    }
+
+    const bodySchema = z.object({
+      title: z.string().min(1).max(200),
+      description: z.string().max(10000).default(''),
+    });
+    const parseResult = bodySchema.safeParse(request.body);
+    if (!parseResult.success) {
+      reply.status(400);
+      return { error: 'Invalid propose-thread payload', details: parseResult.error.flatten().fieldErrors };
+    }
+    const { title, description } = parseResult.data;
+
+    // Create a new thread via the thread service
+    // Phase B v1: simple thread creation, no propose_thread MCP (that's for cat-side proposals)
+    const threadId = await conciergeThreadService.createProposedThread(userId, title, description);
+    log.info({ threadId, title, userId }, 'Proposed thread created');
+
+    return { threadId, title };
+  });
+
+  // POST /api/concierge/triage — 创建 TriagePlan（INV T1: 先落 proposed 再出确认卡）
+  app.post('/api/concierge/triage', async (request, reply) => {
+    if (!conciergeTriagePlanStore) {
+      reply.status(501);
+      return { error: 'Triage not available' };
+    }
+    const userId = resolveStrictUserId(request);
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required' };
+    }
+
+    const parseResult = triageSchema.safeParse(request.body);
+    if (!parseResult.success) {
+      reply.status(400);
+      return { error: 'Invalid triage payload', details: parseResult.error.flatten().fieldErrors };
+    }
+    const { sourceMessageId, originalText, intent, target } = parseResult.data;
+
+    const planId = randomUUID();
+    const now = Date.now();
+    const plan = {
+      id: planId,
+      userId,
+      sourceMessageId,
+      originalText,
+      intent: intent as import('@cat-cafe/shared').TriagePlanIntent,
+      target,
+      status: 'proposed' as const,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    // T1: 先落记录再出确认卡
+    await conciergeTriagePlanStore.create(plan);
+    log.info({ planId, intent, userId }, 'TriagePlan created');
+
+    return { planId, status: 'proposed' };
+  });
+
+  // POST /api/concierge/triage/:planId/confirm — 确认 TriagePlan（proposed → confirmed）
+  app.post<{ Params: { planId: string } }>('/api/concierge/triage/:planId/confirm', async (request, reply) => {
+    if (!conciergeTriagePlanStore) {
+      reply.status(501);
+      return { error: 'Triage not available' };
+    }
+    const userId = resolveStrictUserId(request);
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required' };
+    }
+
+    const { planId } = request.params;
+    const plan = await conciergeTriagePlanStore.get(planId);
+    if (!plan) {
+      reply.status(404);
+      return { error: 'Plan not found' };
+    }
+    if (plan.userId !== userId) {
+      reply.status(403);
+      return { error: 'Not your plan' };
+    }
+    // Fast-fail: reject plans in terminal/non-retryable states.
+    // State machine allows: proposed → confirmed, failed → confirmed (retry).
+    // The real race protection is claimTransition below.
+    const confirmableStatuses = new Set(['proposed', 'failed']);
+    if (!confirmableStatuses.has(plan.status)) {
+      reply.status(409);
+      return { error: `Cannot confirm plan in status: ${plan.status}` };
+    }
+
+    const selectionResult = triageConfirmSchema.safeParse(request.body ?? {});
+    if (!selectionResult.success) {
+      reply.status(400);
+      return { error: 'Invalid triage confirmation payload', details: selectionResult.error.flatten().fieldErrors };
+    }
+    const selectedTargetCats = selectionResult.data.targetCats;
+    const selectionError = validateSelectedTargetCats(plan, selectedTargetCats);
+    if (selectionError) {
+      reply.status(422);
+      return { error: selectionError };
+    }
+    const dispatchPlan = selectedTargetCats?.length
+      ? { ...plan, target: { ...plan.target, targetCats: selectedTargetCats } }
+      : plan;
+
+    const targetError = validateTriageTarget(dispatchPlan);
+    if (targetError) {
+      // Atomic claim: only the first request transitions to 'failed'.
+      // Use plan.status as expected (supports both proposed and failed→retry paths).
+      const claimedForFail = await conciergeTriagePlanStore.claimTransition(planId, plan.status, 'failed');
+      if (!claimedForFail) {
+        reply.status(409);
+        return { error: 'Plan already processed by another request' };
+      }
+      reply.status(422);
+      return { error: targetError };
+    }
+
+    // Atomic claim: current status → confirmed. Only the winner dispatches.
+    // Supports both proposed → confirmed and failed → confirmed (retry).
+    // Prevents double-dispatch on concurrent confirm clicks (cloud R1 P1 race fix).
+    const claimed = await conciergeTriagePlanStore.claimTransition(planId, plan.status, 'confirmed');
+    if (!claimed) {
+      reply.status(409);
+      return { error: 'Plan already confirmed or cancelled' };
+    }
+    log.info({ planId, intent: plan.intent }, 'TriagePlan confirmed');
+
+    // Write selectedTargetCats AFTER claiming (cloud R2 P2 fix).
+    // Before this fix, a losing concurrent request could overwrite targetCats
+    // even though it would later get 409 from claimTransition.
+    if (selectedTargetCats?.length) {
+      await conciergeTriagePlanStore.setTargetCats(planId, selectedTargetCats);
+    }
+
+    const result = await dispatchConfirmedTriagePlan({
+      app,
+      conciergeThreadService,
+      conciergeTriagePlanStore,
+      plan: dispatchPlan,
+      planId,
+      userId,
+    });
+    if (result.statusCode) reply.status(result.statusCode);
+    return result.body;
+  });
+
+  // POST /api/concierge/triage/:planId/cancel — 取消 TriagePlan（proposed → cancelled）
+  app.post<{ Params: { planId: string } }>('/api/concierge/triage/:planId/cancel', async (request, reply) => {
+    if (!conciergeTriagePlanStore) {
+      reply.status(501);
+      return { error: 'Triage not available' };
+    }
+    const userId = resolveStrictUserId(request);
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required' };
+    }
+
+    const { planId } = request.params;
+    const plan = await conciergeTriagePlanStore.get(planId);
+    if (!plan) {
+      reply.status(404);
+      return { error: 'Plan not found' };
+    }
+    if (plan.userId !== userId) {
+      reply.status(403);
+      return { error: 'Not your plan' };
+    }
+    // Fast-fail for obviously stale requests
+    if (plan.status !== 'proposed') {
+      reply.status(409);
+      return { error: `Cannot cancel plan in status: ${plan.status}` };
+    }
+
+    // Atomic claim: proposed → cancelled (prevents race with concurrent confirm)
+    const claimed = await conciergeTriagePlanStore.claimTransition(planId, 'proposed', 'cancelled');
+    if (!claimed) {
+      reply.status(409);
+      return { error: 'Plan already confirmed or cancelled' };
+    }
+    log.info({ planId }, 'TriagePlan cancelled');
+
+    return { planId, status: 'cancelled' };
   });
 };
 

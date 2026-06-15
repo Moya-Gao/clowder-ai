@@ -1426,6 +1426,12 @@ async function main(): Promise<void> {
   );
   const conciergeHandleMapStoreShared = redis ? new _RHMSEarly(redis) : new _MHMSEarly();
 
+  // F229 Phase B: TriagePlan store (needed by AgentRouter for reply validator)
+  const { RedisConciergeTriagePlanStore: _RTPSEarly, MemoryConciergeTriagePlanStore: _MTPSEarly } = await import(
+    './domains/concierge/ConciergeTriagePlanStore.js'
+  );
+  const conciergeTriagePlanStore = redis ? new _RTPSEarly(redis) : new _MTPSEarly();
+
   // Shared AgentRouter — used by messagesRoutes and invocationsRoutes
   router = new AgentRouter({
     agentRegistry,
@@ -1461,6 +1467,7 @@ async function main(): Promise<void> {
     pendingRequestStore: authPendingStore,
     conciergeConfigStore: conciergeConfigStoreShared,
     conciergeHandleMapStore: conciergeHandleMapStoreShared,
+    conciergeTriagePlanStore,
   });
 
   // F39: Message queue delivery
@@ -1855,12 +1862,13 @@ async function main(): Promise<void> {
   const conciergeConfirmationStore = redis
     ? new RedisConciergeConfirmationStore(redis)
     : new MemoryConciergeConfirmationStore();
-
+  // F229 Phase B: triage plan store — already created above for AgentRouter, reuse here
   await app.register(conciergeRoutes, {
     conciergeConfigStore: conciergeConfigStoreShared,
     conciergeThreadService: conciergeThreadServiceShared,
     conciergeRelayStore,
     conciergeConfirmationStore,
+    conciergeTriagePlanStore,
     messageStore,
   });
   const connectorHubOpts: Parameters<typeof connectorHubRoutes>[1] = { threadStore };

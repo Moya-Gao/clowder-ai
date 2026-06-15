@@ -2,6 +2,7 @@
  * Redis key patterns for ConciergeConfigStore + ConciergeThreadService (F229)
  *
  * PR-A3b: added relay + confirmation keys (§1a/§1b state objects)
+ * Phase B: added triage plan keys (§2 TriagePlan state object)
  */
 export const ConciergeKeys = {
   /** String (JSON): per-user ConciergeConfig */
@@ -18,4 +19,8 @@ export const ConciergeKeys = {
   confirmationIndex: (userId: string) => `concierge:confirm-idx:${userId}`,
   /** String (JSON): per-thread handle map R1/R2→anchor (KD-17, TTL=0) */
   handleMap: (threadId: string) => `concierge:handlemap:${threadId}`,
+  /** String (JSON): triage plan by ID (TTL=0, INV T1) — Phase B */
+  triagePlan: (planId: string) => `concierge:triage:${planId}`,
+  /** Set: per-user triage plan IDs (for listing) — Phase B */
+  triagePlanIndex: (userId: string) => `concierge:triage-idx:${userId}`,
 } as const;

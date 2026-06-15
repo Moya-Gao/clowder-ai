@@ -546,6 +546,8 @@ export interface InvocationDeps {
   readonly conciergeConfigStore?: import('../../../../concierge/ConciergeConfigStore.js').IConciergeConfigStore;
   /** F229 KD-17: HandleMap store for concierge R1/R2 short-handle → anchor mapping (optional, fail-open) */
   readonly conciergeHandleMapStore?: import('../../../../concierge/ConciergeHandleMapStore.js').IConciergeHandleMapStore;
+  /** F229 Phase B: TriagePlan store for triage-plan marker → confirm/cancel card actions (optional, fail-open) */
+  readonly conciergeTriagePlanStore?: import('../../../../concierge/ConciergeTriagePlanStore.js').IConciergeTriagePlanStore;
 }
 
 /**

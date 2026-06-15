@@ -1226,6 +1226,99 @@ describe('Block 7: P0 Liveness', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Block 7b: Phase B confirmation recovery
+// ---------------------------------------------------------------------------
+
+describe('Block 7b: Phase B confirmation recovery', () => {
+  it('P1: ConciergePanel wires restored confirmation state into CardBlock buttons', async () => {
+    useConciergeStore.setState({
+      configLoaded: true,
+      surfaceState: 'bubble',
+      threadId: 'thread-confirmation',
+      threadIdLoaded: true,
+      invocationStatus: 'idle',
+    });
+
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url === '/api/concierge/confirmations') {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            confirmations: [
+              {
+                id: 'confirmation-1',
+                messageId: 'msg-confirmation',
+                status: 'confirmed',
+                action: { kind: 'concierge_triage_confirm', planId: 'plan-1', intent: 'relay' },
+              },
+            ],
+          }),
+        } as unknown as Response);
+      }
+      if (url.includes('/api/messages?')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            messages: [
+              {
+                id: 'msg-confirmation',
+                type: 'assistant',
+                content: '我建议帮你传话。',
+                catId: 'gemini25',
+                timestamp: 1000,
+                extra: {
+                  rich: {
+                    blocks: [
+                      {
+                        id: 'triage-card',
+                        kind: 'card',
+                        v: 1,
+                        title: '分诊计划',
+                        actions: [
+                          {
+                            action: 'concierge_triage_confirm',
+                            label: '确认传话',
+                            payload: { planId: 'plan-1', intent: 'relay' },
+                          },
+                          {
+                            action: 'concierge_triage_cancel',
+                            label: '取消',
+                            payload: { planId: 'plan-1' },
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                },
+              },
+            ],
+          }),
+        } as unknown as Response);
+      }
+      return configOk();
+    });
+
+    await render(<ConciergePanel />);
+    await flushEffects();
+    await flushEffects();
+
+    const confirmButton = [...container.querySelectorAll('button')].find((button) =>
+      button.textContent?.includes('已确认'),
+    ) as HTMLButtonElement | undefined;
+    const cancelButton = [...container.querySelectorAll('button')].find((button) => button.textContent === '取消') as
+      | HTMLButtonElement
+      | undefined;
+
+    expect(confirmButton).toBeTruthy();
+    expect(confirmButton?.disabled).toBe(true);
+    expect(cancelButton).toBeTruthy();
+    expect(cancelButton?.disabled).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Block 8: Runtime fixes (CVO 首验 4 问, 2026-06-12)
 // ---------------------------------------------------------------------------
 

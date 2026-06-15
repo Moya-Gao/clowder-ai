@@ -15,7 +15,12 @@ import {
 } from '../../../../../infrastructure/telemetry/genai-semconv.js';
 import { estimateTokens } from '../../../../../utils/token-counter.js';
 import { conciergeContextForCat, prepareConciergeContext } from '../../../../concierge/ConciergeRoutingInterceptor.js';
-import { buildConciergeActions } from '../../../../concierge/concierge-reply-validator.js';
+import {
+  buildConciergeActions,
+  extractTriagePlanIdsFromActions,
+  stripTriagePlanMarkers,
+  type TriagePlanExtractionDeps,
+} from '../../../../concierge/concierge-reply-validator.js';
 import { buildConciergeSearchContext } from '../../../../concierge/concierge-search-context.js';
 import {
   ackGuideCompletion,
@@ -970,7 +975,7 @@ export async function* routeParallel(
         const meta = catMeta.get(msg.catId);
         const sanitized = sanitizeInjectedContent(text);
         // F22: Extract cc_rich blocks from text + merge with buffered
-        const { cleanText: storedContent, blocks: textBlocks } = extractRichFromText(sanitized);
+        let { cleanText: storedContent, blocks: textBlocks } = extractRichFromText(sanitized);
         let allRichBlocks = [...bufferedBlocks, ...textBlocks, ...(catStreamRichBlocks.get(msg.catId) ?? [])];
         // F34-b: synthesize text-only audio blocks (voice messages)
         // F111: skip synthesis in voiceMode — frontend streams via /api/tts/stream
@@ -1069,6 +1074,8 @@ export async function* routeParallel(
           }
         }
 
+        let triagePlanIdsToLink: string[] = [];
+
         // F229 KD-17: Post-process concierge reply — inject CardBlock actions from HandleMap markers
         if (
           'conciergeConfig' in conciergeCtx &&
@@ -1077,11 +1084,29 @@ export async function* routeParallel(
           storedContent
         ) {
           try {
+            // Phase B: pass triageDeps if TriagePlanStore is available
+            const triageDeps: TriagePlanExtractionDeps | undefined = deps.invocationDeps.conciergeTriagePlanStore
+              ? {
+                  triagePlanStore: deps.invocationDeps.conciergeTriagePlanStore,
+                  userId,
+                  sourceMessageId: currentUserMessageId ?? `triage-${Date.now()}`,
+                  ...(deps.invocationDeps.threadStore
+                    ? {
+                        targetCatsResolverDeps: {
+                          messageStore: deps.messageStore,
+                          threadStore: deps.invocationDeps.threadStore,
+                        },
+                      }
+                    : {}),
+                }
+              : undefined;
             const conciergeActions = await buildConciergeActions(
               storedContent,
               threadId,
               deps.invocationDeps.conciergeHandleMapStore,
+              triageDeps,
             );
+            triagePlanIdsToLink = extractTriagePlanIdsFromActions(conciergeActions);
             if (conciergeActions.length > 0) {
               allRichBlocks = [
                 ...allRichBlocks,
@@ -1093,6 +1118,11 @@ export async function* routeParallel(
                   actions: conciergeActions,
                 },
               ];
+              // Strip <!-- triage-plan --> markers from stored content (cloud P2 fix).
+              // Users should not see raw HTML comment markers in the concierge panel.
+              if (triagePlanIdsToLink.length > 0) {
+                storedContent = stripTriagePlanMarkers(storedContent);
+              }
             }
           } catch {
             // Fail-open
@@ -1101,7 +1131,7 @@ export async function* routeParallel(
 
         const thinking = catThinking.get(msg.catId);
         try {
-          await deps.messageStore.append({
+          const storedMsg = await deps.messageStore.append({
             userId,
             catId: msg.catId as CatId,
             content: storedContent,
@@ -1127,6 +1157,16 @@ export async function* routeParallel(
               ...(msg.tracing ? { tracing: msg.tracing } : {}),
             },
           });
+          const triagePlanStore = deps.invocationDeps.conciergeTriagePlanStore;
+          if (triagePlanStore && triagePlanIdsToLink.length > 0) {
+            try {
+              await Promise.all(
+                triagePlanIdsToLink.map((planId) => triagePlanStore.setConfirmationMessageId(planId, storedMsg.id)),
+              );
+            } catch (err) {
+              log.warn({ err, threadId, messageId: storedMsg.id }, 'Failed to link triage plan confirmation message');
+            }
+          }
           // F088-P3: Stash rich blocks for outbound delivery
           if (options.persistenceContext && allRichBlocks.length > 0) {
             options.persistenceContext.richBlocks = [

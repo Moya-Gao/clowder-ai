@@ -33,6 +33,7 @@ import { useConciergeStore } from '@/stores/conciergeStore';
 import { apiFetch } from '@/utils/api-client';
 import { RichBlocks } from '../rich/RichBlocks';
 import { ConciergeMessageContent } from './ConciergeMessageContent';
+import { useConciergeConfirmations } from './useConciergeConfirmations';
 import { useConciergeMessages } from './useConciergeMessages';
 import { useConciergeQueue } from './useConciergeQueue';
 
@@ -53,6 +54,11 @@ export function ConciergePanel() {
   const clearPendingPrompt = useConciergeStore((s) => s.clearPendingPrompt);
   // cloud R3 fix: wire invocationStatus transitions so ball enters thinking + send btn guards work
   const setInvocationStatus = useConciergeStore((s) => s.setInvocationStatus);
+
+  // F229 Phase B: mount-time confirmation state recovery (INV C3)
+  // Fetches all user confirmations when panel opens so CardBlock buttons
+  // reflect confirmed/cancelled states on refresh.
+  const { confirmations } = useConciergeConfirmations(surfaceState === 'bubble');
 
   // FIX-2b R2: use project-standard IME guard (useIMEGuard) instead of bare
   // nativeEvent.isComposing — Chrome fires compositionend BEFORE keydown(Enter),
@@ -400,7 +406,11 @@ export function ConciergePanel() {
                          Card actions still render below as KD-19 fallback (AC-6). */}
                     {!msg.isUser && msg.richBlocks && msg.richBlocks.length > 0 && (
                       <div className="mt-2">
-                        <RichBlocks blocks={msg.richBlocks} messageId={msg.id} />
+                        <RichBlocks
+                          blocks={msg.richBlocks}
+                          messageId={msg.id}
+                          confirmations={confirmations.get(msg.id)}
+                        />
                       </div>
                     )}
                   </div>

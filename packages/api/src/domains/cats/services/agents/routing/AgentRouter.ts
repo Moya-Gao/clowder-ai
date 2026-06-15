@@ -502,6 +502,8 @@ export interface AgentRouterOptions {
   conciergeConfigStore?: import('../../../../concierge/ConciergeConfigStore.js').IConciergeConfigStore;
   /** F229 KD-17: HandleMap store for concierge R1/R2→anchor mapping */
   conciergeHandleMapStore?: import('../../../../concierge/ConciergeHandleMapStore.js').IConciergeHandleMapStore;
+  /** F229 Phase B: TriagePlan store for triage-plan marker → confirm/cancel card actions */
+  conciergeTriagePlanStore?: import('../../../../concierge/ConciergeTriagePlanStore.js').IConciergeTriagePlanStore;
 }
 
 /**
@@ -563,6 +565,8 @@ export class AgentRouter {
   private conciergeConfigStore?: import('../../../../concierge/ConciergeConfigStore.js').IConciergeConfigStore;
   /** F229 KD-17 */
   private conciergeHandleMapStore?: import('../../../../concierge/ConciergeHandleMapStore.js').IConciergeHandleMapStore;
+  /** F229 Phase B */
+  private conciergeTriagePlanStore?: import('../../../../concierge/ConciergeTriagePlanStore.js').IConciergeTriagePlanStore;
   private speechMentionRe: RegExp;
 
   /**
@@ -667,6 +671,7 @@ export class AgentRouter {
     this.pendingRequestStore = options.pendingRequestStore;
     this.conciergeConfigStore = options.conciergeConfigStore;
     this.conciergeHandleMapStore = options.conciergeHandleMapStore;
+    this.conciergeTriagePlanStore = options.conciergeTriagePlanStore;
   }
 
   refreshFromRegistry(agentRegistry: AgentRegistry): void {
@@ -1257,6 +1262,7 @@ export class AgentRouter {
         ...(this.dismissTracker ? { dismissTracker: this.dismissTracker } : {}),
         ...(this.conciergeConfigStore ? { conciergeConfigStore: this.conciergeConfigStore } : {}),
         ...(this.conciergeHandleMapStore ? { conciergeHandleMapStore: this.conciergeHandleMapStore } : {}),
+        ...(this.conciergeTriagePlanStore ? { conciergeTriagePlanStore: this.conciergeTriagePlanStore } : {}),
       },
       messageStore: this.messageStore,
       deliveryCursorStore: this.deliveryCursorStore,

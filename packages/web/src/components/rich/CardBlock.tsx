@@ -17,7 +17,46 @@ const TONE_STYLES: Record<string, string> = {
   danger: 'border-l-conn-red-ring bg-conn-red-bg ',
 };
 
-export function CardBlock({ block, messageId }: { block: RichCardBlock; messageId?: string }) {
+export interface CardConfirmationEntry {
+  id: string;
+  messageId: string;
+  status: 'rendered' | 'confirmed' | 'cancelled';
+  action: { kind: string; [key: string]: unknown };
+}
+
+function getPlanId(payload?: Record<string, unknown>): string {
+  return typeof payload?.planId === 'string' ? payload.planId : '';
+}
+
+function findRestoredTriageStatus(
+  confirmations: CardConfirmationEntry[] | undefined,
+  payload?: Record<string, unknown>,
+): 'confirmed' | 'cancelled' | null {
+  const planId = getPlanId(payload);
+  if (!planId) return null;
+
+  for (const entry of confirmations ?? []) {
+    if (entry.status !== 'confirmed' && entry.status !== 'cancelled') continue;
+    if (entry.action.kind !== 'concierge_triage_confirm' && entry.action.kind !== 'concierge_triage_cancel') continue;
+    if (entry.action.planId === planId) return entry.status;
+  }
+  return null;
+}
+
+function readTargetCatsSelection(payload?: Record<string, unknown>): string[] {
+  if (!Array.isArray(payload?.targetCats)) return [];
+  return payload.targetCats.filter((item): item is string => typeof item === 'string' && item.length > 0);
+}
+
+export function CardBlock({
+  block,
+  messageId,
+  confirmations,
+}: {
+  block: RichCardBlock;
+  messageId?: string;
+  confirmations?: CardConfirmationEntry[];
+}) {
   const toneStyle = TONE_STYLES[block.tone ?? 'info'] ?? TONE_STYLES.info;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -235,6 +274,108 @@ export function CardBlock({ block, messageId }: { block: RichCardBlock; messageI
     [messageId, block],
   );
 
+  // F229 Phase B: propose_thread — request new thread creation
+  const handleConciergePropose = useCallback(
+    async (payload?: Record<string, unknown>) => {
+      if (!payload) return;
+      if (copiedAction === 'concierge_propose_thread') return; // one-shot guard
+      const title = typeof payload.title === 'string' ? payload.title : '';
+      const description = typeof payload.description === 'string' ? payload.description : '';
+      if (!title) {
+        setError('标题不能为空');
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await apiFetch('/api/concierge/propose-thread', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title, description }),
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error((body as { error?: string }).error ?? `HTTP ${res.status}`);
+        }
+        const data = (await res.json()) as { threadId?: string };
+        setCopiedAction('concierge_propose_thread');
+        // Navigate to the new thread if returned
+        if (data.threadId) {
+          useConciergeStore.getState().onNavigationAction();
+          pushThreadRouteWithHistory(data.threadId, window);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : '开新调查失败');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [copiedAction],
+  );
+
+  // F229 Phase B: triage confirm/cancel handlers
+  const handleTriageConfirm = useCallback(
+    async (payload?: Record<string, unknown>) => {
+      const planId = typeof payload?.planId === 'string' ? payload.planId : '';
+      if (!planId) return;
+      if (copiedAction === 'concierge_triage_confirm') return; // one-shot guard
+      setLoading(true);
+      setError(null);
+      try {
+        const selectedTargetCats = readTargetCatsSelection(payload);
+        const requestInit =
+          selectedTargetCats.length > 0
+            ? {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ targetCats: selectedTargetCats }),
+              }
+            : { method: 'POST' };
+        const res = await apiFetch(`/api/concierge/triage/${planId}/confirm`, requestInit);
+        if (!res.ok) throw new Error(`确认失败: ${res.status}`);
+        setCopiedAction('concierge_triage_confirm');
+
+        // If backend returns a thread, the confirmed action has transferred the user's intent:
+        // go => target thread, propose_thread => newly-created investigation thread.
+        const intent = typeof payload?.intent === 'string' ? payload.intent : '';
+        const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+        const threadId = typeof data.threadId === 'string' ? data.threadId : '';
+        if ((intent === 'go' || intent === 'propose_thread') && threadId) {
+          useConciergeStore.getState().onNavigationAction();
+          pushThreadRouteWithHistory(threadId, window);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : '确认失败');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [copiedAction],
+  );
+
+  const handleTriageCancel = useCallback(
+    async (payload?: Record<string, unknown>) => {
+      const planId = typeof payload?.planId === 'string' ? payload.planId : '';
+      if (!planId) return;
+      if (copiedAction === 'concierge_triage_cancel') return; // one-shot guard
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await apiFetch(`/api/concierge/triage/${planId}/cancel`, {
+          method: 'POST',
+        });
+        if (!res.ok) throw new Error(`取消失败: ${res.status}`);
+        setCopiedAction('concierge_triage_cancel');
+      } catch (err) {
+        setError(err instanceof Error ? err.message : '取消失败');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [copiedAction],
+  );
+
   const handleAction = useCallback(
     async (action: string, payload?: Record<string, unknown>) => {
       if (action === 'copy-to-clipboard') {
@@ -262,6 +403,20 @@ export function CardBlock({ block, messageId }: { block: RichCardBlock; messageI
         await handleConciergePeek(payload);
         return;
       }
+      // F229 Phase B: propose_thread action
+      if (action === 'concierge_propose_thread') {
+        await handleConciergePropose(payload);
+        return;
+      }
+      // F229 Phase B: triage confirm/cancel actions
+      if (action === 'concierge_triage_confirm') {
+        await handleTriageConfirm(payload);
+        return;
+      }
+      if (action === 'concierge_triage_cancel') {
+        await handleTriageCancel(payload);
+        return;
+      }
       // Defense-in-depth (F225 dogfood): a card whose action this build doesn't handle — e.g. a stale
       // browser bundle rendering a newer `handoff:approve` card via this generic renderer instead of
       // the dedicated one — would silently no-op. Warn so the dead button self-diagnoses (→ refresh).
@@ -276,6 +431,9 @@ export function CardBlock({ block, messageId }: { block: RichCardBlock; messageI
       handleConciergeGo,
       handleConciergeRelay,
       handleConciergePeek,
+      handleConciergePropose,
+      handleTriageConfirm,
+      handleTriageCancel,
     ],
   );
 
@@ -299,23 +457,48 @@ export function CardBlock({ block, messageId }: { block: RichCardBlock; messageI
       )}
       {block.actions && block.actions.length > 0 && (
         <div className="mt-2 flex gap-2">
-          {block.actions.map((a, i) => (
-            <button
-              key={`${a.action}:${a.label}:${i}`}
-              type="button"
-              disabled={loading || (a.action === 'concierge_relay' && copiedAction === 'concierge_relay')}
-              onClick={() => handleAction(a.action, a.payload)}
-              className="text-xs px-2 py-1 rounded bg-[var(--semantic-warning-surface)] hover:bg-[var(--semantic-warning-surface)] text-conn-amber-text border border-conn-amber-ring disabled:opacity-50 transition-colors"
-            >
-              {loading
-                ? a.action === 'tts-resynthesize'
-                  ? '合成中...'
-                  : '处理中...'
-                : copiedAction === a.action
-                  ? '已复制'
-                  : a.label}
-            </button>
-          ))}
+          {block.actions.map((a, i) => {
+            const restoredTriageStatus =
+              a.action === 'concierge_triage_confirm' || a.action === 'concierge_triage_cancel'
+                ? findRestoredTriageStatus(confirmations, a.payload)
+                : null;
+            const actionCompleted =
+              copiedAction === a.action ||
+              (a.action === 'concierge_triage_confirm' && restoredTriageStatus === 'confirmed') ||
+              (a.action === 'concierge_triage_cancel' && restoredTriageStatus === 'cancelled');
+            const triageTerminal =
+              restoredTriageStatus === 'confirmed' ||
+              restoredTriageStatus === 'cancelled' ||
+              copiedAction === 'concierge_triage_confirm' ||
+              copiedAction === 'concierge_triage_cancel';
+            const disabled =
+              loading ||
+              (a.action === 'concierge_relay' && copiedAction === 'concierge_relay') ||
+              ((a.action === 'concierge_triage_confirm' || a.action === 'concierge_triage_cancel') && triageTerminal);
+            const label = loading
+              ? a.action === 'tts-resynthesize'
+                ? '合成中...'
+                : '处理中...'
+              : actionCompleted
+                ? a.action === 'concierge_triage_confirm'
+                  ? '已确认'
+                  : a.action === 'concierge_triage_cancel'
+                    ? '已取消'
+                    : '已复制'
+                : a.label;
+
+            return (
+              <button
+                key={`${a.action}:${a.label}:${i}`}
+                type="button"
+                disabled={disabled}
+                onClick={() => handleAction(a.action, a.payload)}
+                className="text-xs px-2 py-1 rounded bg-[var(--semantic-warning-surface)] hover:bg-[var(--semantic-warning-surface)] text-conn-amber-text border border-conn-amber-ring disabled:opacity-50 transition-colors"
+              >
+                {label}
+              </button>
+            );
+          })}
         </div>
       )}
       {error && <div className="mt-1 text-xs text-conn-red-text">{error}</div>}
