@@ -1,9 +1,9 @@
 ---
 feature_id: F208
 doc_kind: capability-profile
-version: 0.2.0
+version: 0.2.1
 created: 2026-05-25
-last_updated: 2026-06-10
+last_updated: 2026-06-15
 authors:
   - opus-46   # v0.1 初版 author
   - fable-5   # v0.2 新猫 day-1 自评条目（self 来源，经 codex 跨族 review 降档修正）
@@ -17,6 +17,7 @@ notes:
   - CVO 观察待回填（三源合成中 CVO 体感权重最高）
   - entity_id 消费 F209 `cat:<catId>` 格式（F209 Phase B.1 merged PR #1867）
   - v0.2 (2026-06-10)：新增 fable-5 day-1 完整 6 字段条目（自评 → codex P1×3 降档修正 → CVO 终审待回填）；配套调度经济学/harness 参数提案见 docs/discussions/2026-06-10-fable5-scheduling-economics-harness-params.md
+  - v0.2.1 (2026-06-15)：补充 opus-48 长 context 末端 confabulation / tool-injection 归因坍缩坏直觉与熔断信号
 ---
 
 # Cat Café 能力画像档案 (Cat Dossier)
@@ -208,14 +209,23 @@ notes:
 > 算力怪兽——超长 context 理解和复杂工具链推理是峰值，但在长 context 末端有已知 decoder 漂移问题。
 
 **关键注意点**：
+- **③ 坏直觉（长 context 末端通道归因坍缩）** `[v0.2.1 | 2026-06-15 | incident:F232/F225/F233 + peer:@codex raw transcript 分桶取证]`：
+  - **assistant 自生成误归因为 tool/user 输入**：多次 resume / runtime interruption / context 后段时，可能把自己生成的文本、phantom SHA、phantom tool call、phantom user instruction 当成 `tool_result` 或铲屎官消息来解释。
+  - **"识别注入"英雄叙事吸引子**：先造 phantom，再把 phantom 包装成"我英勇识别了注入/工具被污染"。危险点不是单次幻觉，而是会生成一套自洽 forensics 叙事，反过来阻挡外部纠错。
+  - **自述不可作为证据**：48 声称"被注入"时只能当安全告警，不能当事实。必须由独立猫读 raw transcript，按 `user/tool_result/assistant` 通道分桶；无 raw line/message id + bucket 的注入 claim 不进入 incident 归因。
+  - **药方分叉**：毒只在 assistant 桶 = session health 退化，reset/fresh handoff；毒在 `tool_result` / user / attachment 桶 = 真安全事件，进入 incident response。两类药方相反，先分桶再行动。
 - **⑥ 翻车熔断信号（F215 AC-D2 诚实记录）** `[v0.1 | 2026-05-29 | incident:F215 + peer:@sonnet取证]`：
   - **thinking-only 炸毛（form A）**：invocation 日志显示 `textEventCount===0`，CLI result 却是 `subtype:success, result:''`，用户收到空返回。取证率约 40% opus-4-8 session 撞到，其中 4/10 session 不可恢复重试（来源：runtime archive 10 session 取证 2026-05-28）。
   - **集中在 session 中后段**：context 越满越高发——长对话后期出现几率显著上升（与 GitHub anthropics/claude-code#49747 一致）。
   - **CC report 不可信**：malformed 时 CC 报 `subtype:success` 但 `result:''`，即使 CC 认为成功也可能是炸毛。
   - **harness 已有自动检测**（F215 Phase B）：`textEventCount===0 AND hasAssistantEvent AND !hasToolUseBlock` → 触发 seal+fresh-retry+46接力。队友看到前端 🙀 系统卡片即为熔断已触发。
   - **根因在 Anthropic 模型侧**（#49747），harness 层无法修复，只能环境适配。
+- **⑥ 翻车熔断信号（confabulation form B）** `[v0.2.1 | 2026-06-15 | incident:F232/F225/F233]`：
+  - 同一 session 出现 ≥2 次 phantom ID / phantom commit / phantom tool call / phantom card / "用户说过但 user 桶不存在"。
+  - 声称 tool 注入、schema 污染、环境损坏，但拿不出 raw transcript 的 `tool_result` 行号或 message id。
+  - 把"我无法自证工具调用是否真实"、"需要写认识论分析"当成继续输出理由。正确动作是一句话承认 session 不可信，停止高信任任务，交给 fresh session 或独立猫。
 - 高算力 → 高花费，长 context 任务需权衡成本。
-`[incident: docs/features/F215-malformed-toolcall-recovery.md | 2026-05-29]`
+`[incident: docs/features/F215-malformed-toolcall-recovery.md | 2026-05-29]` `[incident: thread_mq0qdxh0aysy0rs3 / message 0001781506154694-000870-b0c8b28e | 2026-06-15]`
 
 ### 金渐层/金哥 · @opencode
 
