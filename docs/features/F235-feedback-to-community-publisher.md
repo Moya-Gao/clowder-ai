@@ -13,7 +13,7 @@ created: 2026-06-15
 ## Architecture Ownership
 
 Architecture cell: community-ops
-Map delta: none（扩展 F168 社区运营域，从纯 inbound 增加 outbound 方向；复用 F141 GitHub API 层）
+Map delta: update required（community-ops cell 从纯 inbound 扩展为双向；新增 outbound publisher 子域：sanitizer + draft store + GitHub issue publisher）
 
 ## Why
 
@@ -31,6 +31,22 @@ Map delta: none（扩展 F168 社区运营域，从纯 inbound 增加 outbound �
 - F128 propose_thread / F225 context management 的卡片模式（preview → submit）是可复用的交互范式
 
 ## What
+
+### 架构管线（KD-6，宪宪×砚砚收敛）
+
+```text
+Source adapter                          ← F222 confirmed / 猫猫整理 / 未来其他来源
+  ↓
+CommunityIssueDraftStore               ← 本地 draft 持久化
+  ↓
+CommunityIssueSanitizer                ← 白名单 + fail-closed 脱敏
+  ↓
+Preview rich block                     ← 用户可编辑标题/描述/仓库
+  ↓ user submit（二次确认）
+GitHubIssuePublisher                   ← bot token → GitHub API
+  ↓
+CommunityIssueStore / F168 projection  ← 幂等回写，防重复 triage
+```
 
 ### Phase A: F222 Issue → 社区发布（最短路径）
 
@@ -106,22 +122,22 @@ Map delta: none（扩展 F168 社区运营域，从纯 inbound 增加 outbound �
 | 脱敏不完整，内部信息泄露到公开 issue | 白名单机制：只允许明确字段通过，其余全部剥离；preview 是人工确认门禁 |
 | GitHub API 权限：社区用户可能没有目标仓库写权限 | Phase A 先用 bot token（Cat Café 服务端发布）；Phase B 可选用户 OAuth |
 | 发布后 issue 质量差（上下文不足或格式不对） | 使用社区 issue template 自动填充；猫猫整理上下文时遵循模板结构 |
-| 与 F168 inbound 产生循环（自己发的 issue 又被 F168 拾取） | 发布时打内部 label（如 `source:cat-cafe-auto`），F168 projector 过滤 |
+| 与 F168 inbound 产生循环（自己发的 issue 又被 F168 拾取） | 发布后写本地 board projection 做幂等；F168 polling reconcile 时识别已知 issue（by GitHub issue number）跳过重复 triage，但保留 comment/status reconcile |
 
 ## Open Questions
 
-| # | 问题 | 状态 |
-|---|------|------|
-| OQ-1 | GitHub 认证方式：bot token（服务端统一发布）vs 用户 OAuth（以用户身份发布）？Phase A 先 bot 还是先 OAuth？ | ⬜ 待讨论 |
-| OQ-2 | 目标仓库默认值：固定 clowder-ai/cat-cafe 还是可配置？多租户场景下怎么处理？ | ⬜ 待讨论 |
-| OQ-3 | 脱敏规则粒度：白名单（只放行已知安全字段）vs 黑名单（过滤已知敏感字段）？ | ⬜ 待讨论 |
-| OQ-4 | Phase B 的"猫猫主动整理"触发时机：用户请求时？还是猫检测到可整理的问题时？ | ⬜ 待讨论 |
+（OQ-1~4 已在宪宪×砚砚讨论中收敛为 KD-2~5，见下方 Key Decisions。）
 
 ## Key Decisions
 
 | # | 决策 | 理由 | 日期 |
 |---|------|------|------|
 | KD-1 | 独立 F 号，不放进 F222 | F222 是 producer（检测+本地存储），F235 是 publisher（外发+社区接入），安全语义完全不同（本地 vs 公开副作用），砚砚分析 + CVO 同意 | 2026-06-15 |
+| KD-2 | Phase A 用 bot token，不用 OAuth | 社区用户未必有 clowder-ai 仓库写权限，OAuth 绑定/撤权是新复杂度。issue body 标明 "Reported via Cat Cafe"，不伪装用户。Phase B 可选加 OAuth | 2026-06-15 |
+| KD-3 | 目标仓库：配置式 default + allowlist，Phase A 单默认仓库 | 不硬编码 repo 名。Phase A 一个默认仓库 + allowlist 配置；Phase B 加 repo picker UI | 2026-06-15 |
+| KD-4 | 脱敏策略：白名单 + fail-closed + 服务端 re-sanitize | 可放：用户编辑后的描述/标题/复现步骤/公开错误摘要。不可放：threadId/userId/catId/invocationId/cardMessageId/Redis key/callback token/session id/完整 recentMessages/debugRef/绝对路径/API key。submit 时服务端必须重新 sanitize，不信前端预览 | 2026-06-15 |
+| KD-5 | Phase B 触发：用户主动请求优先，猫可主动建议但发布必须用户二次确认 | 猫可以弹 draft 卡，但不能自动外发。公开发布 = 不可逆外部副作用，必须 opt-in | 2026-06-15 |
+| KD-6 | 架构：通用发布管线（CommunityIssuePublisher），F222 只是一个 source adapter | 管线只接受结构化 draft，不关心来源。成功发布后写本地 board projection + 用 GitHub issue number/url 幂等。F168 后续 polling 保留 reconcile/update，跳过重复 triage | 2026-06-15 |
 
 ## Timeline
 
