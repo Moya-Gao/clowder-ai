@@ -25,7 +25,6 @@ import { getCatContextBudget } from './config/cat-budgets.js';
 import {
   bootstrapDefaultCatCatalog,
   getAcpConfig,
-  getAllCatIdsFromConfig,
   getConfigSessionStrategy,
   getDefaultCatId,
   isCatAvailable,
@@ -49,6 +48,7 @@ import type {
 } from './domains/cats/services/agents/invocation/QueueProcessor.js';
 import { QueueProcessor } from './domains/cats/services/agents/invocation/QueueProcessor.js';
 import { SessionContinuationCoordinator } from './domains/cats/services/agents/invocation/SessionContinuationCoordinator.js';
+import { SessionMutex } from './domains/cats/services/agents/invocation/SessionMutex.js';
 import {
   resolveAcpBootstrapArgs,
   resolveAcpBootstrapCommand,
@@ -56,7 +56,11 @@ import {
 } from './domains/cats/services/agents/providers/acp/acp-bootstrap-cwd.js';
 import { AntigravityAgentService } from './domains/cats/services/agents/providers/antigravity/AntigravityAgentService.js';
 import { RedisAntigravitySupervisorStore } from './domains/cats/services/agents/providers/antigravity/AntigravitySupervisorStore.js';
-import { clearL0Cache, warmL0Cache } from './domains/cats/services/agents/providers/l0-compiler.js';
+import {
+  clearL0Cache,
+  resolveL0CompilerScriptPath,
+  warmL0Cache,
+} from './domains/cats/services/agents/providers/l0-compiler.js';
 import { AgentRegistry } from './domains/cats/services/agents/registry/AgentRegistry.js';
 import { AuthorizationManager } from './domains/cats/services/auth/AuthorizationManager.js';
 import {
@@ -74,6 +78,7 @@ import {
   MemoryGovernanceStore,
   OpenCodeAgentService,
 } from './domains/cats/services/index.js';
+import { resolveWritableProfileDir } from './domains/cats/services/profile/profile-dir.js';
 import {
   getPushNotificationService,
   initPushNotificationService,
@@ -98,6 +103,7 @@ import { createLabelStore } from './domains/cats/services/stores/factories/Label
 import { createMemoryStore } from './domains/cats/services/stores/factories/MemoryStoreFactory.js';
 import { createMessageStore } from './domains/cats/services/stores/factories/MessageStoreFactory.js';
 import { createPendingRequestStore } from './domains/cats/services/stores/factories/PendingRequestStoreFactory.js';
+import { createProfileUpdateProposalStore } from './domains/cats/services/stores/factories/ProfileUpdateProposalStoreFactory.js';
 import { createProposalStore } from './domains/cats/services/stores/factories/ProposalStoreFactory.js';
 import { createPushSubscriptionStore } from './domains/cats/services/stores/factories/PushSubscriptionStoreFactory.js';
 import { createReadStateStore } from './domains/cats/services/stores/factories/ReadStateStoreFactory.js';
@@ -211,6 +217,7 @@ import {
   refluxRoutes,
   registerCallbackAuthDebugRoute,
   registerCallbackDocsRoutes,
+  registerProfileUpdateDecisionRoutes,
   resolutionRoutes,
   rulesRoutes,
   servicesRoutes,
@@ -518,6 +525,11 @@ async function main(): Promise<void> {
   const threadStore = createThreadStore(redis);
   const proposalStore = createProposalStore(redis);
   const handoffProposalStore = createSessionHandoffProposalStore(redis);
+  // F231 Phase C: profile-update proposals + per-target write lock (process-scoped, like
+  // SessionMutex/F118) + profile data dir (MUST match l0-compiler's capsule/primer read path).
+  const profileUpdateProposalStore = createProfileUpdateProposalStore(redis);
+  const profileUpdateLock = new SessionMutex();
+  const profileDir = resolveWritableProfileDir(process.cwd(), resolveL0CompilerScriptPath());
   const frustrationIssueStore = createFrustrationIssueStore(redis);
   // F222: Create early so it's available for both AgentRouter (cancel burst detection) and AuthorizationManager
   const authPendingStore = createPendingRequestStore(redis);
@@ -2268,6 +2280,8 @@ async function main(): Promise<void> {
     runtimeSessionStore,
     proposalStore,
     handoffProposalStore,
+    profileUpdateProposalStore,
+    profileDir,
     agentRegistry,
     router,
     invocationRecordStore,
@@ -2445,6 +2459,13 @@ async function main(): Promise<void> {
     invocationQueue,
     queueProcessor,
     onProposalReject: (input) => onProposalReject({ ...input, proposalType: 'thread' }),
+  });
+  // F231 Phase C: profile-update approve/reject (user-auth; locked critical section in service)
+  registerProfileUpdateDecisionRoutes(app, {
+    store: profileUpdateProposalStore,
+    lock: profileUpdateLock,
+    profileDir,
+    socketManager,
   });
   // F225: cat-initiated session handoff approve/reject (user-auth commit-point dispatcher)
   await app.register(sessionHandoffApproveRoutes, {

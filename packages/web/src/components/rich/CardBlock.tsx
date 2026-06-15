@@ -9,6 +9,11 @@ import { useConciergeStore } from '@/stores/conciergeStore';
 import { apiFetch } from '@/utils/api-client';
 import { scrollToMessage } from '@/utils/scrollToMessage';
 import { kickTeleportResolve, planTeleport } from '@/utils/teleport';
+import {
+  handleProfileUpdateDecisionAction,
+  isProfileUpdateDecisionAction,
+  useProfileUpdateTerminalSync,
+} from './profile-update-actions';
 
 const TONE_STYLES: Record<string, string> = {
   info: 'border-l-conn-blue-ring bg-conn-blue-bg ',
@@ -61,6 +66,7 @@ export function CardBlock({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copiedAction, setCopiedAction] = useState<string | null>(null);
+  useProfileUpdateTerminalSync({ block, messageId });
 
   const copyToClipboard = useCallback(async (payload?: Record<string, unknown>) => {
     const text = typeof payload?.text === 'string' ? payload.text : '';
@@ -417,6 +423,20 @@ export function CardBlock({
         await handleTriageCancel(payload);
         return;
       }
+      // F231 Phase C: profile-update confirmation card (generic card-block actions).
+      if (isProfileUpdateDecisionAction(action)) {
+        await handleProfileUpdateDecisionAction({
+          action,
+          block,
+          copiedAction,
+          messageId,
+          payload,
+          setCopiedAction,
+          setError,
+          setLoading,
+        });
+        return;
+      }
       // Defense-in-depth (F225 dogfood): a card whose action this build doesn't handle — e.g. a stale
       // browser bundle rendering a newer `handoff:approve` card via this generic renderer instead of
       // the dedicated one — would silently no-op. Warn so the dead button self-diagnoses (→ refresh).
@@ -434,6 +454,9 @@ export function CardBlock({
       handleConciergePropose,
       handleTriageConfirm,
       handleTriageCancel,
+      block,
+      copiedAction,
+      messageId,
     ],
   );
 

@@ -1677,6 +1677,76 @@ export async function handleProposeSessionHandoff(input: {
   return result;
 }
 
+// ============ F231 Phase C: Propose Profile Update ============
+
+export const proposeProfileUpdateInputSchema = {
+  afterContent: z
+    .string()
+    .min(1)
+    .max(20000)
+    .describe(
+      'The COMPLETE new primer content (whole-file replacement, NOT a diff/patch). On approval the server writes this verbatim into relationship/{yourCatId}-primer.md. Include everything you want kept — anything you omit is dropped.',
+    ),
+  rationale: z
+    .string()
+    .min(1)
+    .max(1000)
+    .describe(
+      'Why this update — shown to the CVO on the confirmation card (e.g. "铲屎官说更喜欢先给结论再展开，固化沟通偏好"). Be specific so the CVO can judge the change at a glance.',
+    ),
+  signalKind: z
+    .enum(['cat-declared', 'cvo-instructed'])
+    .describe(
+      "Where the relationship signal came from (provenance). 'cat-declared' = you observed/inferred it from the interaction; 'cvo-instructed' = the CVO explicitly asked you to remember it. AC-C1 is manual-entry only (no auto-classifier).",
+    ),
+  sourceMessageId: z
+    .string()
+    .min(1)
+    .optional()
+    .describe(
+      'Optional message ID that triggered this update (provenance trail — lets the audit log trace back to the exact message).',
+    ),
+  clientRequestId: z
+    .string()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe('Optional idempotency key. Resending with the same value returns the same proposalId.'),
+};
+
+export async function handleProposeProfileUpdate(input: {
+  afterContent: string;
+  rationale: string;
+  signalKind: 'cat-declared' | 'cvo-instructed';
+  sourceMessageId?: string | undefined;
+  clientRequestId?: string | undefined;
+}): Promise<ToolResult> {
+  // Always send an idempotency key — auto-generate when the caller didn't supply one, so transient
+  // callbackPost retries never produce duplicate proposals (mirrors F128 handleProposeThread).
+  const body: Record<string, unknown> = {
+    afterContent: input.afterContent,
+    rationale: input.rationale,
+    signalKind: input.signalKind,
+    clientRequestId: input.clientRequestId ?? randomUUID(),
+  };
+  if (input.sourceMessageId) body.sourceMessageId = input.sourceMessageId;
+
+  const result = await callbackPost('/api/callbacks/propose-profile-update', body);
+  if (!result.isError) {
+    try {
+      const data = JSON.parse((result.content[0] as { text: string }).text);
+      if (data?.status === 'stale_ignored') {
+        return errorResult(
+          'Profile-update proposal was NOT created: this invocation has been superseded by a newer one (stale_ignored).',
+        );
+      }
+    } catch {
+      // parse failure is fine
+    }
+  }
+  return result;
+}
+
 // ============ Thread Cats Discovery ============
 
 export const getThreadCatsInputSchema = {};
@@ -2057,6 +2127,19 @@ export const callbackTools = [
       'Use sparingly — only at genuinely clean breakpoints, never to escape a hard task mid-flight. Orthogonal to compression: compress is the lossy fallback, handoff is the graceful relay.',
     inputSchema: proposeSessionHandoffInputSchema,
     handler: handleProposeSessionHandoff,
+  },
+  // F231 Phase C: Cat-initiated profile-update proposal (CVO approves before the primer is written)
+  {
+    name: 'cat_cafe_propose_profile_update',
+    description:
+      'Propose an update to YOUR OWN per-cat relationship primer (relationship/{yourCatId}-primer.md) — the "养熟循环" digest entry point (F231 KD-12). ' +
+      'Returns a proposalId, NOT a written file: the primer is only written after the CVO approves the confirmation card (reject/expire = nothing changes). ' +
+      'Use when you have observed a STABLE relationship signal worth persisting — a durable CVO preference, communication style, working boundary, or a fact the CVO explicitly asked you to remember — not for one-off context. ' +
+      'afterContent is the COMPLETE new primer (whole-file replacement, not a diff) — include everything you want kept. ' +
+      'The target is ALWAYS your own per-cat primer, derived server-side from your authenticated identity — you cannot target another cat or the shared capsule (capsule promotion is a later phase). ' +
+      'Use sparingly: propose when a signal has clearly stabilized, not on every interaction. signalKind records provenance: cat-declared (you inferred it) vs cvo-instructed (the CVO told you to).',
+    inputSchema: proposeProfileUpdateInputSchema,
+    handler: handleProposeProfileUpdate,
   },
   // ============ F155: Guide Engine ============
   {

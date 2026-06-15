@@ -64,6 +64,8 @@ const EXPECTED_TOOLS = [
   'cat_cafe_propose_thread',
   // F225: Cat-initiated session handoff proposal
   'cat_cafe_propose_session_handoff',
+  // F231 Phase C: Cat-initiated profile-update proposal
+  'cat_cafe_propose_profile_update',
   // Callback-scoped memory tools
   'cat_cafe_retain_memory_callback',
   // Direct evidence tools (cat_cafe_reflect removed in F193 Phase D AC-D1)
@@ -186,6 +188,8 @@ const EXPECTED_COLLAB_TOOLS = [
   'cat_cafe_propose_thread',
   // F225: Cat-initiated session handoff proposal
   'cat_cafe_propose_session_handoff',
+  // F231 Phase C: Cat-initiated profile-update proposal
+  'cat_cafe_propose_profile_update',
   'cat_cafe_submit_game_action',
   // F139 Phase 3A: Schedule tools
   'cat_cafe_list_schedule_templates',

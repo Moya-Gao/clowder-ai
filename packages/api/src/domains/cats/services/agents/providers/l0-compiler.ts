@@ -24,6 +24,7 @@ import { spawn as nodeSpawn } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { resolveProfileDir } from '../../profile/profile-dir.js';
 
 const SCRIPT_BASENAME = 'compile-system-prompt-l0.mjs';
 
@@ -222,14 +223,11 @@ async function doCompileL0(
     );
   }
 
-  // F231: capsule lives in private/profile/ (gitignored user data).
-  // In packaged installs (Windows #802), cwd = project dir (AppData) where
-  // user data lives; scriptPath resolves to the install dir via deriveInstallRoot.
-  // Try cwd-based first (finds capsule in project dir), fall back to
-  // script-path-based (handles cwd=packages/api where cwd/private doesn't exist).
-  const cwdProfileDir = resolve(cwd, 'private', 'profile');
-  const scriptProfileDir = resolve(dirname(scriptPath), '..', 'private', 'profile');
-  const profileDir = existsSync(cwdProfileDir) ? cwdProfileDir : scriptProfileDir;
+  // F231: capsule/primer live in private/profile/ (gitignored user data). resolveProfileDir is
+  // the SINGLE SOURCE OF TRUTH shared with the profile-update write routes — read (here) and
+  // write (routes) MUST resolve identically or the nurturing loop silently breaks (a primer
+  // written to one path while the injector reads another).
+  const profileDir = resolveProfileDir(cwd, scriptPath);
   const args = [scriptPath, '--cat', catId, '--profile-dir', profileDir, ...(outPath ? ['--out', outPath] : [])];
 
   const stdout = await new Promise<string>((resolvePromise, rejectPromise) => {

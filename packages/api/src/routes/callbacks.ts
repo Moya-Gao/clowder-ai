@@ -74,6 +74,7 @@ import { registerCallbackLarkActionRoutes } from './callback-lark-action-routes.
 import { registerCallbackLimbRoutes } from './callback-limb-routes.js';
 import { registerCallbackMemoryRoutes } from './callback-memory-routes.js';
 import { getMultiMentionOrchestrator, registerMultiMentionRoutes } from './callback-multi-mention-routes.js';
+import { registerCallbackProposeProfileUpdateRoutes } from './callback-propose-profile-update-routes.js';
 import { registerCallbackProposeSessionHandoffRoutes } from './callback-propose-session-handoff-routes.js';
 import { registerCallbackProposeThreadRoutes } from './callback-propose-thread-routes.js';
 import { registerCallbackQuestRoutes } from './callback-quest-routes.js';
@@ -470,6 +471,10 @@ export interface CallbackRoutesOptions {
   proposalStore?: import('../domains/cats/services/stores/ports/ProposalStore.js').IProposalStore;
   /** F225: cat-initiated session handoff proposals (propose endpoint) */
   handoffProposalStore?: import('../domains/cats/services/stores/ports/SessionHandoffProposalStore.js').ISessionHandoffProposalStore;
+  /** F231 Phase C: cat-side profile-update proposals (propose endpoint) */
+  profileUpdateProposalStore?: import('../domains/cats/services/stores/ports/ProfileUpdateProposalStore.js').IProfileUpdateProposalStore;
+  /** F231 Phase C: profile data dir — propose route reads the current primer to pin beforeContent/baseContentHash */
+  profileDir?: string;
   /** F155 B-4: Independent guide session store */
   guideSessionStore?: import('../domains/guides/GuideSessionRepository.js').IGuideSessionStore;
   /** AgentRegistry for thread-cats MCP callback */
@@ -2871,6 +2876,17 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       threadStore: opts.threadStore,
       messageStore: opts.messageStore,
       socketManager,
+    });
+  }
+
+  // F231 Phase C: Cat-side profile-update proposal callback
+  if (opts.profileUpdateProposalStore && opts.profileDir) {
+    registerCallbackProposeProfileUpdateRoutes(app, {
+      registry,
+      proposalStore: opts.profileUpdateProposalStore,
+      messageStore: opts.messageStore,
+      socketManager,
+      profileDir: opts.profileDir,
     });
   }
 
