@@ -1444,6 +1444,11 @@ async function main(): Promise<void> {
   );
   const conciergeTriagePlanStore = redis ? new _RTPSEarly(redis) : new _MTPSEarly();
 
+  // F229 Phase B2: InvestigationJob store
+  const { RedisConciergeInvestigationJobStore: _RIJSEarly, MemoryConciergeInvestigationJobStore: _MIJSEarly } =
+    await import('./domains/concierge/ConciergeInvestigationJobStore.js');
+  const conciergeInvestigationJobStore = redis ? new _RIJSEarly(redis) : new _MIJSEarly();
+
   // Shared AgentRouter — used by messagesRoutes and invocationsRoutes
   router = new AgentRouter({
     agentRegistry,
@@ -1881,6 +1886,8 @@ async function main(): Promise<void> {
     conciergeRelayStore,
     conciergeConfirmationStore,
     conciergeTriagePlanStore,
+    conciergeInvestigationJobStore,
+    evidenceStore: memoryServices?.evidenceStore,
     messageStore,
   });
   const connectorHubOpts: Parameters<typeof connectorHubRoutes>[1] = { threadStore };

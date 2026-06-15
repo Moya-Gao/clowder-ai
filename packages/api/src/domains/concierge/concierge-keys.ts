@@ -23,4 +23,10 @@ export const ConciergeKeys = {
   triagePlan: (planId: string) => `concierge:triage:${planId}`,
   /** Set: per-user triage plan IDs (for listing) — Phase B */
   triagePlanIndex: (userId: string) => `concierge:triage-idx:${userId}`,
+  /** String (JSON): investigation job by ID (TTL=0, INV I1) — Phase B2 */
+  investigationJob: (jobId: string) => `concierge:investigation:${jobId}`,
+  /** String: triagePlanId → jobId lookup (1:1 relationship) — Phase B2 */
+  investigationJobByPlan: (triagePlanId: string) => `concierge:investigation-plan:${triagePlanId}`,
+  /** Set: per-user investigation job IDs (for listing) — Phase B2 */
+  investigationJobIndex: (userId: string) => `concierge:investigation-idx:${userId}`,
 } as const;

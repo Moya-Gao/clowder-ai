@@ -235,3 +235,72 @@ export interface TriagePlan {
   /** dispatch 结果 */
   result?: TriagePlanResult;
 }
+
+// ---------------------------------------------------------------------------
+// InvestigationJob — Phase B2 §4 state machine (bounded async investigation)
+// ---------------------------------------------------------------------------
+
+/**
+ * InvestigationJob 状态：
+ *   queued(dispatch 创建) → running(worker 开始)
+ *   running → done(报告已生成)
+ *   running → failed(API 错误 / 所有源均失败)
+ *   running → cancelled(用户取消 / deadline 到期)
+ *   queued → cancelled(用户取消)
+ *
+ * INV I1: queued/running → cancelled（fail-closed on deadline）
+ * INV I2: running → done 必须有 report
+ * INV I3: 60s deadline 到期自动 cancel（不能 stuck running）
+ */
+export type InvestigationJobStatus = 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
+
+/** InvestigationJob 报告中的单个 anchor（R-handle） */
+export interface InvestigationAnchor {
+  /** R1, R2, ... — 复用 KD-17 HandleMap 短标记 */
+  handle: string;
+  /** anchor 类型：thread=可跳转, doc/feature/github=路径/URL 呈现 */
+  kind: 'thread' | 'doc' | 'feature' | 'github' | 'unknown';
+  /** 目标 thread ID（仅 kind=thread） */
+  threadId?: string;
+  /** 可选 message ID（仅 kind=thread，精确到消息级别） */
+  messageId?: string;
+  /** 文件路径/URL（仅 kind=doc/feature/github） */
+  path?: string;
+  /** anchor 标题（展示用） */
+  title: string;
+  /** 相关度说明 */
+  relevance: string;
+}
+
+/** InvestigationJob 报告（search 完成后生成） */
+export interface InvestigationReport {
+  /** 调查摘要 */
+  summary: string;
+  /** 带 R-handle 的 anchor 列表 */
+  anchors: InvestigationAnchor[];
+}
+
+/**
+ * InvestigationJob: 前台猫自查——bounded async 调查任务
+ * TTL=0（铁律 5 LL-048）
+ */
+export interface InvestigationJob {
+  id: string;
+  userId: string;
+  /** 关联的 TriagePlan ID */
+  triagePlanId: string;
+  /** 调查查询 */
+  query: string;
+  /** 允许的调查源 */
+  scope: Array<'memory' | 'docs' | 'feat_index' | 'github'>;
+  /** 状态机 */
+  status: InvestigationJobStatus;
+  createdAt: number;
+  updatedAt: number;
+  startedAt?: number;
+  completedAt?: number;
+  /** deadline = createdAt + 60_000（默认 1 分钟上限） */
+  deadline: number;
+  /** 调查报告（done 时必有） */
+  report?: InvestigationReport;
+}

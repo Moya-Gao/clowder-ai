@@ -25,6 +25,9 @@ async function buildApp() {
   const { MemoryConciergeRelayStore } = await import('../dist/domains/concierge/ConciergeRelayStore.js');
   const { MemoryConciergeConfirmationStore } = await import('../dist/domains/concierge/ConciergeConfirmationStore.js');
   const { MemoryConciergeTriagePlanStore } = await import('../dist/domains/concierge/ConciergeTriagePlanStore.js');
+  const { MemoryConciergeInvestigationJobStore } = await import(
+    '../dist/domains/concierge/ConciergeInvestigationJobStore.js'
+  );
   const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
 
   const conciergeConfigStore = new MemoryConciergeConfigStore();
@@ -33,6 +36,7 @@ async function buildApp() {
   const conciergeRelayStore = new MemoryConciergeRelayStore();
   const conciergeConfirmationStore = new MemoryConciergeConfirmationStore();
   const conciergeTriagePlanStore = new MemoryConciergeTriagePlanStore();
+  const conciergeInvestigationJobStore = new MemoryConciergeInvestigationJobStore();
   const messageStore = new MessageStore();
 
   const app = Fastify();
@@ -49,10 +53,17 @@ async function buildApp() {
     conciergeRelayStore,
     conciergeConfirmationStore,
     conciergeTriagePlanStore,
+    conciergeInvestigationJobStore,
     messageStore,
   });
 
-  return { app, conciergeConfirmationStore, conciergeTriagePlanStore, conciergeRelayStore };
+  return {
+    app,
+    conciergeConfirmationStore,
+    conciergeTriagePlanStore,
+    conciergeInvestigationJobStore,
+    conciergeRelayStore,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -686,5 +697,348 @@ describe('POST /api/concierge/triage/:planId/cancel', () => {
 
     const plan = await conciergeTriagePlanStore.get(planId);
     assert.strictEqual(plan.status, 'cancelled');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Investigation dispatch (Phase B2)
+// ---------------------------------------------------------------------------
+
+describe('POST /api/concierge/triage/:planId/confirm — investigate intent', () => {
+  it('creates InvestigationJob on investigate confirm', async () => {
+    const { app, conciergeTriagePlanStore, conciergeInvestigationJobStore } = await buildApp();
+
+    // Create concierge thread first
+    const threadRes = await app.inject({
+      method: 'POST',
+      url: '/api/concierge/thread',
+      headers: USER_HEADER_NO_BODY,
+    });
+    assert.strictEqual(threadRes.statusCode, 200);
+
+    // Create investigate triage plan
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/api/concierge/triage',
+      headers: USER_HEADER,
+      payload: {
+        sourceMessageId: 'msg-1',
+        originalText: '帮我查一下砚砚那个 Redis bug',
+        intent: 'investigate',
+        target: { query: '砚砚 Redis bug 修复状态' },
+      },
+    });
+    assert.strictEqual(createRes.statusCode, 200, `Create failed: ${createRes.body}`);
+    const { planId } = JSON.parse(createRes.body);
+
+    // Confirm the investigation
+    const confirmRes = await app.inject({
+      method: 'POST',
+      url: `/api/concierge/triage/${planId}/confirm`,
+      headers: USER_HEADER,
+      payload: {},
+    });
+    assert.strictEqual(confirmRes.statusCode, 200, `Confirm failed: ${confirmRes.body}`);
+    const confirmBody = JSON.parse(confirmRes.body);
+    assert.strictEqual(confirmBody.status, 'dispatched');
+    assert.ok(confirmBody.investigationJobId, 'Should return investigationJobId');
+
+    // Verify TriagePlan status — fire-and-forget worker may have already propagated
+    // 'completed' by the time we read (Memory store has no real async delay).
+    const plan = await conciergeTriagePlanStore.get(planId);
+    assert.ok(
+      ['dispatched', 'completed'].includes(plan.status),
+      `Expected dispatched or completed but got ${plan.status}`,
+    );
+    assert.strictEqual(plan.result.investigationJobId, confirmBody.investigationJobId);
+
+    // Verify InvestigationJob was created and processing started.
+    // Worker runs fire-and-forget, so by the time we read the job it may already
+    // be running or done (Memory store has no real async delay).
+    const job = await conciergeInvestigationJobStore.get(confirmBody.investigationJobId);
+    assert.ok(job, 'InvestigationJob should exist');
+    assert.ok(['queued', 'running', 'done'].includes(job.status), `Expected queued/running/done but got ${job.status}`);
+    assert.strictEqual(job.triagePlanId, planId);
+    assert.strictEqual(job.query, '砚砚 Redis bug 修复状态');
+    assert.ok(job.deadline > job.createdAt, 'deadline should be after createdAt');
+  });
+
+  // Cloud P2: dispatch failure must not leave plan stuck in 'confirmed'
+  it('investigation dispatch failure marks plan as failed (not stuck confirmed)', async () => {
+    const { app, conciergeTriagePlanStore, conciergeInvestigationJobStore } = await buildApp();
+
+    // Create concierge thread first
+    await app.inject({
+      method: 'POST',
+      url: '/api/concierge/thread',
+      headers: USER_HEADER_NO_BODY,
+    });
+
+    // Create investigate triage plan
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/api/concierge/triage',
+      headers: USER_HEADER,
+      payload: {
+        sourceMessageId: 'msg-1',
+        originalText: 'test dispatch failure',
+        intent: 'investigate',
+        target: { query: 'test dispatch failure' },
+      },
+    });
+    assert.strictEqual(createRes.statusCode, 200, `Create failed: ${createRes.body}`);
+    const { planId } = JSON.parse(createRes.body);
+
+    // Make job creation throw (simulates Redis failure during dispatch)
+    const origCreate = conciergeInvestigationJobStore.create.bind(conciergeInvestigationJobStore);
+    conciergeInvestigationJobStore.create = async () => {
+      throw new Error('Redis connection refused');
+    };
+
+    // Confirm — dispatch will fail
+    const confirmRes = await app.inject({
+      method: 'POST',
+      url: `/api/concierge/triage/${planId}/confirm`,
+      headers: USER_HEADER,
+      payload: {},
+    });
+
+    // Restore original
+    conciergeInvestigationJobStore.create = origCreate;
+
+    // Should return 502 (handled), not 500 (unhandled crash)
+    assert.strictEqual(confirmRes.statusCode, 502, 'Dispatch failure should return 502');
+
+    // Plan should be 'failed', not stuck in 'confirmed'
+    const plan = await conciergeTriagePlanStore.get(planId);
+    assert.strictEqual(plan.status, 'failed', 'Plan should be failed when dispatch throws, not stuck confirmed');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/concierge/investigation/:jobId — Investigation status
+// ---------------------------------------------------------------------------
+
+describe('GET /api/concierge/investigation/:jobId', () => {
+  it('returns investigation job status', async () => {
+    const { app, conciergeInvestigationJobStore } = await buildApp();
+
+    // Manually create a job for direct testing
+    const now = Date.now();
+    const job = {
+      id: 'test-job-1',
+      userId: 'test-user',
+      triagePlanId: 'plan-1',
+      query: 'test query',
+      scope: ['memory'],
+      status: 'running',
+      createdAt: now,
+      updatedAt: now,
+      startedAt: now,
+      deadline: now + 60_000,
+    };
+    await conciergeInvestigationJobStore.create(job);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/concierge/investigation/test-job-1',
+      headers: USER_HEADER_NO_BODY,
+    });
+    assert.strictEqual(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.strictEqual(body.job.id, 'test-job-1');
+    assert.strictEqual(body.job.status, 'running');
+  });
+
+  it('returns 404 for unknown job', async () => {
+    const { app } = await buildApp();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/concierge/investigation/nonexistent',
+      headers: USER_HEADER_NO_BODY,
+    });
+    assert.strictEqual(res.statusCode, 404);
+  });
+
+  it('returns 403 for job owned by another user', async () => {
+    const { app, conciergeInvestigationJobStore } = await buildApp();
+    const now = Date.now();
+    await conciergeInvestigationJobStore.create({
+      id: 'other-job',
+      userId: 'other-user',
+      triagePlanId: 'plan-x',
+      query: 'test',
+      scope: ['memory'],
+      status: 'queued',
+      createdAt: now,
+      updatedAt: now,
+      deadline: now + 60_000,
+    });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/concierge/investigation/other-job',
+      headers: USER_HEADER_NO_BODY,
+    });
+    assert.strictEqual(res.statusCode, 403);
+  });
+
+  it('auto-cancels expired running job on status check (INV I3)', async () => {
+    const { app, conciergeInvestigationJobStore } = await buildApp();
+    const now = Date.now();
+    await conciergeInvestigationJobStore.create({
+      id: 'expired-job',
+      userId: 'test-user',
+      triagePlanId: 'plan-exp',
+      query: 'test',
+      scope: ['memory'],
+      status: 'running',
+      createdAt: now - 120_000,
+      updatedAt: now - 120_000,
+      startedAt: now - 120_000,
+      deadline: now - 60_000, // Already past deadline
+    });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/concierge/investigation/expired-job',
+      headers: USER_HEADER_NO_BODY,
+    });
+    assert.strictEqual(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.strictEqual(body.job.status, 'cancelled', 'Expired job should be auto-cancelled');
+    assert.ok(body.job.completedAt, 'Should have completedAt set');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/concierge/investigation/:jobId/cancel — Cancel investigation
+// ---------------------------------------------------------------------------
+
+describe('POST /api/concierge/investigation/:jobId/cancel', () => {
+  it('cancels a queued investigation', async () => {
+    const { app, conciergeInvestigationJobStore } = await buildApp();
+    const now = Date.now();
+    await conciergeInvestigationJobStore.create({
+      id: 'cancel-job',
+      userId: 'test-user',
+      triagePlanId: 'plan-c',
+      query: 'test',
+      scope: ['memory'],
+      status: 'queued',
+      createdAt: now,
+      updatedAt: now,
+      deadline: now + 60_000,
+    });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/concierge/investigation/cancel-job/cancel',
+      headers: USER_HEADER_NO_BODY,
+    });
+    assert.strictEqual(res.statusCode, 200);
+    assert.strictEqual(JSON.parse(res.body).status, 'cancelled');
+
+    const job = await conciergeInvestigationJobStore.get('cancel-job');
+    assert.strictEqual(job.status, 'cancelled');
+  });
+
+  it('cancelling investigation propagates cancelled to parent TriagePlan', async () => {
+    const { app, conciergeTriagePlanStore, conciergeInvestigationJobStore } = await buildApp();
+    const now = Date.now();
+
+    // Seed a dispatched triage plan
+    await conciergeTriagePlanStore.create({
+      id: 'plan-cancel',
+      userId: 'test-user',
+      sourceMessageId: 'msg-1',
+      originalText: 'test',
+      intent: 'investigate',
+      target: { query: 'test query' },
+      status: 'dispatched',
+      createdAt: now,
+      updatedAt: now,
+      result: { investigationJobId: 'cancel-job-p' },
+    });
+    await conciergeInvestigationJobStore.create({
+      id: 'cancel-job-p',
+      userId: 'test-user',
+      triagePlanId: 'plan-cancel',
+      query: 'test',
+      scope: ['memory'],
+      status: 'queued',
+      createdAt: now,
+      updatedAt: now,
+      deadline: now + 60_000,
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/concierge/investigation/cancel-job-p/cancel',
+      headers: USER_HEADER_NO_BODY,
+    });
+    assert.strictEqual(res.statusCode, 200);
+
+    const plan = await conciergeTriagePlanStore.get('plan-cancel');
+    assert.strictEqual(plan.status, 'cancelled', 'Parent plan should be cancelled when job is cancelled');
+  });
+
+  it('auto-cancel on expired job propagates cancelled to parent TriagePlan', async () => {
+    const { app, conciergeTriagePlanStore, conciergeInvestigationJobStore } = await buildApp();
+    const now = Date.now();
+
+    await conciergeTriagePlanStore.create({
+      id: 'plan-expire',
+      userId: 'test-user',
+      sourceMessageId: 'msg-1',
+      originalText: 'test',
+      intent: 'investigate',
+      target: { query: 'test query' },
+      status: 'dispatched',
+      createdAt: now - 120_000,
+      updatedAt: now - 120_000,
+    });
+    await conciergeInvestigationJobStore.create({
+      id: 'expired-job-p',
+      userId: 'test-user',
+      triagePlanId: 'plan-expire',
+      query: 'test',
+      scope: ['memory'],
+      status: 'running',
+      createdAt: now - 120_000,
+      updatedAt: now - 120_000,
+      startedAt: now - 120_000,
+      deadline: now - 60_000,
+    });
+
+    await app.inject({
+      method: 'GET',
+      url: '/api/concierge/investigation/expired-job-p',
+      headers: USER_HEADER_NO_BODY,
+    });
+
+    const plan = await conciergeTriagePlanStore.get('plan-expire');
+    assert.strictEqual(plan.status, 'cancelled', 'Parent plan should be cancelled on auto-expire');
+  });
+
+  it('rejects cancelling already-done investigation', async () => {
+    const { app, conciergeInvestigationJobStore } = await buildApp();
+    const now = Date.now();
+    await conciergeInvestigationJobStore.create({
+      id: 'done-job',
+      userId: 'test-user',
+      triagePlanId: 'plan-d',
+      query: 'test',
+      scope: ['memory'],
+      status: 'done',
+      createdAt: now,
+      updatedAt: now,
+      startedAt: now,
+      completedAt: now,
+      deadline: now + 60_000,
+    });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/concierge/investigation/done-job/cancel',
+      headers: USER_HEADER_NO_BODY,
+    });
+    assert.strictEqual(res.statusCode, 409);
   });
 });

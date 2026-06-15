@@ -14,13 +14,22 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { type CatId, catIdSchema, type PendingConfirmation, type TriagePlan } from '@cat-cafe/shared';
+import {
+  type CatId,
+  catIdSchema,
+  type InvestigationJob,
+  type PendingConfirmation,
+  type TriagePlan,
+} from '@cat-cafe/shared';
 import type { FastifyInstance, FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { isCatAvailable } from '../config/cat-config-loader.js';
 import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
 import type { IConciergeConfigStore } from '../domains/concierge/ConciergeConfigStore.js';
 import type { IConciergeConfirmationStore } from '../domains/concierge/ConciergeConfirmationStore.js';
+import type { IConciergeInvestigationJobStore } from '../domains/concierge/ConciergeInvestigationJobStore.js';
+import { isJobExpired } from '../domains/concierge/ConciergeInvestigationJobStore.js';
+import { executeInvestigation } from '../domains/concierge/ConciergeInvestigationWorker.js';
 import type { IConciergeRelayStore } from '../domains/concierge/ConciergeRelayStore.js';
 import type { ConciergeThreadService } from '../domains/concierge/ConciergeThreadService.js';
 import type { IConciergeTriagePlanStore } from '../domains/concierge/ConciergeTriagePlanStore.js';
@@ -116,6 +125,9 @@ interface ConciergeRoutesOptions {
   conciergeRelayStore: IConciergeRelayStore;
   conciergeConfirmationStore: IConciergeConfirmationStore;
   conciergeTriagePlanStore?: IConciergeTriagePlanStore;
+  conciergeInvestigationJobStore?: IConciergeInvestigationJobStore;
+  /** Evidence store for investigation search (optional — investigation degrades gracefully) */
+  evidenceStore?: import('../domains/concierge/concierge-search-context.js').ConciergeEvidenceStore;
   messageStore: IMessageStore;
 }
 
@@ -184,16 +196,42 @@ async function dispatchConfirmedTriagePlan(opts: {
   app: FastifyInstance;
   conciergeThreadService: ConciergeThreadService;
   conciergeTriagePlanStore: IConciergeTriagePlanStore;
+  conciergeInvestigationJobStore?: IConciergeInvestigationJobStore;
+  evidenceStore?: import('../domains/concierge/concierge-search-context.js').ConciergeEvidenceStore;
   plan: TriagePlan;
   planId: string;
   userId: string;
 }): Promise<{ statusCode?: number; body: Record<string, unknown> }> {
-  const { app, conciergeThreadService, conciergeTriagePlanStore, plan, planId, userId } = opts;
+  const {
+    app,
+    conciergeThreadService,
+    conciergeTriagePlanStore,
+    conciergeInvestigationJobStore,
+    evidenceStore,
+    plan,
+    planId,
+    userId,
+  } = opts;
   if (plan.intent === 'go') {
     await conciergeTriagePlanStore.updateStatus(planId, 'completed');
     return { body: { planId, status: 'completed', threadId: plan.target.threadId } };
   }
-  if (plan.intent === 'investigate') return { body: { planId, status: 'confirmed' } };
+  if (plan.intent === 'investigate') {
+    try {
+      return await dispatchInvestigateTriage({
+        conciergeTriagePlanStore,
+        conciergeInvestigationJobStore,
+        evidenceStore,
+        plan,
+        planId,
+        userId,
+      });
+    } catch (err) {
+      log.error({ err, planId }, 'InvestigationJob dispatch failed');
+      await conciergeTriagePlanStore.updateStatus(planId, 'failed');
+      return { statusCode: 502, body: { error: 'Investigation dispatch failed' } };
+    }
+  }
 
   try {
     await conciergeTriagePlanStore.updateStatus(planId, 'dispatched');
@@ -268,6 +306,58 @@ async function dispatchProposeThreadTriage(opts: {
   return { body: { planId, status: 'completed', threadId: thread } };
 }
 
+/** Default investigation deadline: 60 seconds */
+const INVESTIGATION_DEADLINE_MS = 60_000;
+
+async function dispatchInvestigateTriage(opts: {
+  conciergeTriagePlanStore: IConciergeTriagePlanStore;
+  conciergeInvestigationJobStore?: IConciergeInvestigationJobStore;
+  evidenceStore?: import('../domains/concierge/concierge-search-context.js').ConciergeEvidenceStore;
+  plan: TriagePlan;
+  planId: string;
+  userId: string;
+}): Promise<{ statusCode?: number; body: Record<string, unknown> }> {
+  const { conciergeTriagePlanStore, conciergeInvestigationJobStore, evidenceStore, plan, planId, userId } = opts;
+  if (!conciergeInvestigationJobStore) {
+    // Graceful degradation: store not wired up yet → fall back to confirmed-only
+    return { body: { planId, status: 'confirmed' } };
+  }
+  if (!plan.target.query) {
+    await conciergeTriagePlanStore.updateStatus(planId, 'failed');
+    return { statusCode: 422, body: { error: 'Invalid investigate target: query is required' } };
+  }
+
+  const now = Date.now();
+  const job: InvestigationJob = {
+    id: randomUUID(),
+    userId,
+    triagePlanId: planId,
+    query: plan.target.query,
+    scope: ['memory', 'docs', 'feat_index'],
+    status: 'queued',
+    createdAt: now,
+    updatedAt: now,
+    deadline: now + INVESTIGATION_DEADLINE_MS,
+  };
+
+  await conciergeInvestigationJobStore.create(job);
+  await conciergeTriagePlanStore.setResult(planId, { investigationJobId: job.id });
+  await conciergeTriagePlanStore.updateStatus(planId, 'dispatched');
+
+  // Fire-and-forget: kick off async investigation worker.
+  // The worker handles its own error recovery (→ failed transition).
+  // Client polls GET /investigation/:jobId for status + report.
+  executeInvestigation({
+    jobId: job.id,
+    jobStore: conciergeInvestigationJobStore,
+    evidenceStore,
+    triagePlanStore: conciergeTriagePlanStore,
+  }).catch((err) => log.error({ err, jobId: job.id }, 'Investigation worker uncaught error'));
+
+  log.info({ planId, jobId: job.id, query: plan.target.query }, 'InvestigationJob created');
+  return { body: { planId, status: 'dispatched', investigationJobId: job.id } };
+}
+
 export const conciergeRoutes: FastifyPluginAsync<ConciergeRoutesOptions> = async (app, opts) => {
   const {
     conciergeConfigStore,
@@ -275,6 +365,7 @@ export const conciergeRoutes: FastifyPluginAsync<ConciergeRoutesOptions> = async
     conciergeRelayStore,
     conciergeConfirmationStore,
     conciergeTriagePlanStore,
+    conciergeInvestigationJobStore,
     messageStore,
   } = opts;
 
@@ -753,6 +844,8 @@ export const conciergeRoutes: FastifyPluginAsync<ConciergeRoutesOptions> = async
       app,
       conciergeThreadService,
       conciergeTriagePlanStore,
+      conciergeInvestigationJobStore,
+      evidenceStore: opts.evidenceStore,
       plan: dispatchPlan,
       planId,
       userId,
@@ -798,6 +891,88 @@ export const conciergeRoutes: FastifyPluginAsync<ConciergeRoutesOptions> = async
     log.info({ planId }, 'TriagePlan cancelled');
 
     return { planId, status: 'cancelled' };
+  });
+
+  // GET /api/concierge/investigation/:jobId — InvestigationJob 状态查询 (Phase B2)
+  app.get<{ Params: { jobId: string } }>('/api/concierge/investigation/:jobId', async (request, reply) => {
+    if (!conciergeInvestigationJobStore) {
+      reply.status(501);
+      return { error: 'Investigation not available' };
+    }
+    const userId = resolveStrictUserId(request);
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required' };
+    }
+
+    const { jobId } = request.params;
+    const job = await conciergeInvestigationJobStore.get(jobId);
+    if (!job) {
+      reply.status(404);
+      return { error: 'Investigation job not found' };
+    }
+    if (job.userId !== userId) {
+      reply.status(403);
+      return { error: 'Not your investigation job' };
+    }
+
+    // Deadline check: if job is past deadline and still active, auto-cancel (INV I3)
+    if (isJobExpired(job)) {
+      const cancelled = await conciergeInvestigationJobStore.claimTransition(job.id, job.status, 'cancelled');
+      if (cancelled) {
+        // Propagate cancellation to parent TriagePlan
+        if (conciergeTriagePlanStore) {
+          await conciergeTriagePlanStore.updateStatus(job.triagePlanId, 'cancelled');
+        }
+        log.info({ jobId: job.id }, 'InvestigationJob auto-cancelled (deadline expired)');
+        const updated = await conciergeInvestigationJobStore.get(job.id);
+        return { job: updated };
+      }
+    }
+
+    return { job };
+  });
+
+  // POST /api/concierge/investigation/:jobId/cancel — 取消调查 (Phase B2)
+  app.post<{ Params: { jobId: string } }>('/api/concierge/investigation/:jobId/cancel', async (request, reply) => {
+    if (!conciergeInvestigationJobStore) {
+      reply.status(501);
+      return { error: 'Investigation not available' };
+    }
+    const userId = resolveStrictUserId(request);
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required' };
+    }
+
+    const { jobId } = request.params;
+    const job = await conciergeInvestigationJobStore.get(jobId);
+    if (!job) {
+      reply.status(404);
+      return { error: 'Investigation job not found' };
+    }
+    if (job.userId !== userId) {
+      reply.status(403);
+      return { error: 'Not your investigation job' };
+    }
+
+    // Can only cancel active jobs (queued or running)
+    if (job.status !== 'queued' && job.status !== 'running') {
+      reply.status(409);
+      return { error: `Cannot cancel investigation in status: ${job.status}` };
+    }
+
+    const claimed = await conciergeInvestigationJobStore.claimTransition(jobId, job.status, 'cancelled');
+    if (!claimed) {
+      reply.status(409);
+      return { error: 'Investigation already completed or cancelled' };
+    }
+    // Propagate cancellation to parent TriagePlan
+    if (conciergeTriagePlanStore) {
+      await conciergeTriagePlanStore.updateStatus(job.triagePlanId, 'cancelled');
+    }
+    log.info({ jobId }, 'InvestigationJob cancelled by user');
+    return { jobId, status: 'cancelled' };
   });
 };
 
