@@ -32,6 +32,7 @@ import { useIMEGuard } from '@/hooks/useIMEGuard';
 import { useConciergeStore } from '@/stores/conciergeStore';
 import { apiFetch } from '@/utils/api-client';
 import { RichBlocks } from '../rich/RichBlocks';
+import { ConciergeMessageContent } from './ConciergeMessageContent';
 import { useConciergeMessages } from './useConciergeMessages';
 import { useConciergeQueue } from './useConciergeQueue';
 
@@ -370,8 +371,33 @@ export function ConciergePanel() {
                     }
                     className="max-w-[85%] px-3 py-1.5 rounded-xl text-sm leading-snug whitespace-pre-wrap break-words"
                   >
-                    {msg.content}
-                    {/* R-review R4 P1 fix: render rich blocks (interaction cards) in bubble */}
+                    {/* Bug2 method A: inline marker buttons for duty cat replies.
+                         User messages render as plain text (no markers to parse). */}
+                    {msg.isUser ? (
+                      msg.content
+                    ) : (
+                      <ConciergeMessageContent
+                        content={msg.content}
+                        actions={
+                          msg.richBlocks
+                            ?.flatMap((b) => ('actions' in b && Array.isArray(b.actions) ? b.actions : []))
+                            .filter(
+                              (
+                                a,
+                              ): a is {
+                                action: string;
+                                label: string;
+                                handle?: string;
+                                verb?: string;
+                                payload: { threadId: string; messageId?: string };
+                              } => typeof a.action === 'string' && typeof a.label === 'string',
+                            ) ?? []
+                        }
+                        messageId={msg.id}
+                      />
+                    )}
+                    {/* R-review R4 P1 fix: render rich blocks (interaction cards) in bubble.
+                         Card actions still render below as KD-19 fallback (AC-6). */}
                     {!msg.isUser && msg.richBlocks && msg.richBlocks.length > 0 && (
                       <div className="mt-2">
                         <RichBlocks blocks={msg.richBlocks} messageId={msg.id} />

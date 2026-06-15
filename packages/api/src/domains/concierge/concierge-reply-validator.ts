@@ -19,6 +19,10 @@ import type { IConciergeHandleMapStore } from './ConciergeHandleMapStore.js';
 export interface ConciergeAction {
   action: 'concierge_teleport' | 'concierge_peek';
   label: string;
+  /** Marker handle (R1, R2, ...) for inline rendering — undefined in KD-19 fallback. */
+  handle?: string;
+  /** Marker verb (跳过去, 原地看) for inline rendering — undefined in KD-19 fallback. */
+  verb?: string;
   payload: {
     threadId: string;
     messageId?: string;
@@ -110,6 +114,8 @@ export async function extractConciergeActions(
     actions.push({
       action: actionType,
       label: `${LABEL_PREFIX[verb]}：${anchor.title}`,
+      handle,
+      verb,
       payload: {
         threadId: anchor.threadId,
         ...(anchor.messageId != null ? { messageId: anchor.messageId } : {}),

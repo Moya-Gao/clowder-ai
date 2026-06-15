@@ -32,6 +32,9 @@ describe('extractConciergeActions', () => {
     assert.equal(actions[0].payload.threadId, 'thread_abc');
     assert.equal(actions[0].payload.messageId, 'msg_123');
     assert.equal(actions[0].label, '跳过去：F229 讨论');
+    // Bug2 AC-1: handle+verb for inline marker rendering
+    assert.equal(actions[0].handle, 'R1');
+    assert.equal(actions[0].verb, '跳过去');
   });
 
   it('extracts peek action from [原地看 R1]', async () => {
@@ -46,6 +49,9 @@ describe('extractConciergeActions', () => {
     assert.equal(actions[0].payload.threadId, 'thread_abc');
     assert.equal(actions[0].payload.messageId, 'msg_456');
     assert.equal(actions[0].label, '原地看：记忆搜索');
+    // Bug2 AC-1: handle+verb for inline marker rendering
+    assert.equal(actions[0].handle, 'R1');
+    assert.equal(actions[0].verb, '原地看');
   });
 
   it('extracts both teleport and peek from the same reply', async () => {
