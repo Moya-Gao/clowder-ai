@@ -8,7 +8,7 @@
 - **AC-B3**: 球权状态转移表 + 不变量有测试覆盖（含 crash / 并发 / 重复探针对抗场景）。
 **Architecture cell:** `ball-custody`（new）
 **Map delta:** new cell required（照 `community-ops` event-log + projector + ingest，OQ-6 已决）
-**Architecture:** `BallCustodyEventLog`（Redis LIST + Lua 幂等 append）→ **ingest 层**（`appended:true` 时做 best-effort 外部副作用：唤醒投递，照 `community-auto-tracking`）→ `BallCustodyProjector`（`transition()` 纯函数 + 幂等 store 写，**零外部副作用**，rebuild=replay）→ 简报读 projection。事件由现有系统动作旁路写入，零猫侧手动义务（KD-2）。
+**Architecture:** `BallCustodyEventLog`（Redis LIST + Lua 幂等 append）→ `BallCustodyProjector`（`transition()` 纯函数 + 幂等 store 写，**零外部副作用**，rebuild=replay）→ 简报读 projection。**唤醒投递在 ProbeScheduler 实时 tick 路径**（best-effort + cooldown 去重，§E），不在 projector，故 rebuild 不重发。事件由现有系统动作旁路写入，零猫侧手动义务（KD-2）。
 **Tech Stack:** TypeScript / Redis (ioredis) / Fastify / Vitest
 **前端验证:** No（数据层；简报卡 Phase A 已有，只切数据源）。
 
@@ -59,6 +59,7 @@ interface BallCustodyProjection {
   holder: string | null;                 // catId 或 'cvo'
   intent: 'handoff' | 'fyi' | 'done_notify' | null;
   resolveMode: 'completes' | 'bounces_back' | null;
+  heldUntil: number | null;              // hold 球 fireAt（ball.held 设 / ball.hold_expired 判据）；非 hold 球 null  ← R4 补回（R3 重写误删，转移表 + Task5 仍引用）
   blockedSinceAt: number | null;         // 进入当前 blocked episode 的时刻（= 该次 task.blocked 的 at）——episode identity  ← R3
   lastWakeAt: number | null;             // 当前 episode 最近唤醒时刻；task.blocked(新episode) 清空，ball.wake_sent 更新  ← R3
   lastStateChangeAt: number;             // 晾龄基准（ageMs 纯派生）
@@ -79,7 +80,7 @@ interface BallCustodyProjection {
 | 1 | BallCustodyEventLog | `eventLog.append()` Lua | flush/delete 禁触 `ballcustody:*`（TTL=0 铁律#5）| 照 community |
 | 2 | BallCustodyProjection | `projector.apply()`（**零外部副作用**）| 只读消费；generic delete 仅 rebuild | §B |
 | 3 | ProbeScheduler（消费侧）| scheduler tick | probe 只读不改 task；cooldown 控唤醒频率 | §C |
-| 4 | WakeSender（best-effort 副作用）| ingest `appended:true` | rebuild 不触；per-episode cooldown 去重 | §E |
+| 4 | WakeSender（best-effort 副作用）| ProbeScheduler tick（实时路径，非 projector）| rebuild 不跑 scheduler→不重发；per-episode cooldown 去重 | §E |
 
 ---
 
@@ -113,9 +114,10 @@ interface BallCustodyProjection {
 - **INV-3** 幂等去重：同 sourceEventId 二次 append→`appended:false`。
 - **INV-4** 结构化替代推断：dead/void/blocked 必由结构化事件产生，不接受 mention 启发式。
 - **INV-5** resolved 准终态：仅接受 ball.handed(reopen)/informational，其它 reject。
-- **INV-6**（**best-effort 唤醒，R3 改**）：`bounces_back` 唤醒是 best-effort——同一 blocked episode（`blockedSinceAt` 不变）内，仅当 `lastWakeAt==null` 或 `now-lastWakeAt>WAKE_COOLDOWN_MS` 才发；发在 ingest（`appended:true`），rebuild 不重发；漏发由每日简报兜底。*测* 同 episode N tick → cooldown 内仅 1 次；跨 episode（task.unblocked→blocked 清 lastWakeAt）→ 第二次可发（**砚砚卡点**）；rebuild 无新投递。
+- **INV-6**（**best-effort 唤醒，R3 改**）：`bounces_back` 唤醒是 best-effort——同一 blocked episode（`blockedSinceAt` 不变）内，仅当 `lastWakeAt==null` 或 `now-lastWakeAt>WAKE_COOLDOWN_MS` 才发；投递在 ProbeScheduler tick（非 projector），rebuild 不跑 scheduler 故不重发；漏发由每日简报兜底。*测* 同 episode N tick → cooldown 内仅 1 次；跨 episode（task.unblocked→blocked 清 lastWakeAt）→ 第二次可发（**砚砚卡点**）；rebuild 无新投递。
 - **INV-7** CVO intent 三态：fyi 不产搁置球；done_notify→resolved。
 - **INV-8** 死球留痕：died→lastScanAt 非空。
+- *(INV-9「woken 停表」R3 pivot 已删——无 woken 状态了；编号保留不重编，稳定下游引用。)*
 - **INV-10**（**完整性**）：全 13 event × 7 state = **91 格**穷举测试，每格转移 or 显式 reject，断言无未定义。
 
 **对抗场景（每个一测）**：
@@ -141,7 +143,7 @@ interface BallCustodyProjection {
 
 ### §E WakeSender（best-effort 副作用，R3 替代 outbox）
 
-照 `community-auto-tracking:9-13`：外部投递只在 ingest（`eventLog.append` 返回 `appended:true`）做，**绝不放 projector.apply()**，rebuild replay（`appended:false`）不重发。
+**rebuild 安全机制（R4 改诚实——best-effort 不走 community-auto-tracking 的 `appended:true` guard）**：唤醒投递发生在 **ProbeScheduler 实时 tick 路径**（线上判 cooldown + 发），**不在** `projector.apply()`（projector 零外部副作用，只更新 lastWakeAt）。rebuild = replay 事件重建 projection（含 lastWakeAt），**不跑 ProbeScheduler** → 不重发投递。与 community-auto-tracking 的「副作用绑 ingest append」是**不同机制**（这里副作用绑 scheduler tick），但同样 rebuild-safe。`ball.wake_sent` 事件只是「已发」的记录，projector 应用它仅更新 lastWakeAt、不触发投递。
 
 **唤醒流（bounces_back，best-effort，无 exactly-once）**：
 ```
