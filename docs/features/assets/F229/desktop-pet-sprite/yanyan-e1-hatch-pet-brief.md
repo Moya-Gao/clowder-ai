@@ -117,13 +117,14 @@ Low-distraction loop. Body anchor stays planted; first and last frame should be 
 | Frame | Eyes | Body / head | Tail | Notes |
 |---:|---|---|---|---|
 | 1 | open, calm | neutral seated pose | tail rests curled at baseline | canonical rest pose |
-| 2 | open | chest slightly fuller, head 1-2 px higher | tail tip lifts a little | inhale start |
-| 3 | half blink | body at highest point, cheeks slightly softer | tail tip curls inward | visible but tiny change |
-| 4 | closed blink | body still high, head gently dipped | tail tip holds curl | blink peak |
+| 2 | open | same seated posture, whole body/head 1-2 px higher only | tail **tip only** lifts a little | inhale start; no proud chest-out pose |
+| 3 | half blink | same silhouette, body at highest point | tail **tip only** curls inward | visible but tiny change |
+| 4 | closed blink | same silhouette, tiny head dip within the same pose | tail tip holds curl | blink peak |
 | 5 | open | body lowers back toward neutral | tail tip relaxes downward | exhale |
 | 6 | open | almost same as frame 1, head just slightly different | tail back near baseline | loop back to frame 1 |
 
 Hard reject if 4 or more frames are visually identical.
+Hard reject if any frame changes into a proud chest-out pose, changes the full tail pose, or redraws the cat at a different scale.
 
 ### `running-right` - 8 frames
 
@@ -259,7 +260,7 @@ Use the attached cat reference image as the exact character identity. Use the at
 
 Create one Codex pet animation row for state `idle`.
 
-Output exactly 6 full-body frames in one horizontal strip, left to right, on a flat removable chroma-key background. Target output size is 1152 x 208 px: 6 slots, each 192 x 208 px.
+Output exactly 6 full-body frames in one horizontal strip, left to right, on a flat solid removable chroma-key background, preferably pure green #00FF00. Target output size is 1152 x 208 px: 6 slots, each 192 x 208 px. Do not use a checkerboard transparency preview background.
 
 Treat the strip as 6 invisible equal-width slots: one centered complete cat per slot, evenly spaced, no overlap, no cropping, no empty slots, no labels, no borders, no visible guide marks. Do not copy the blue boxes, crosshairs, or guide background into the output.
 
@@ -273,19 +274,30 @@ Scale and baseline lock:
 - Keep head top, ear height, body width, and tail size consistent.
 - Keep at least 16 px padding between the cat silhouette and every slot edge.
 - Do not zoom, shrink, stretch, slide, or re-center the cat differently per frame.
-- Only the breathing height, eyelids, head dip, and tail-tip position should change.
+- Do not make any frame a proud chest-out pose, heroic pose, or different posture.
+- Do not redraw the tail in a different full pose; only the tail tip may move.
+- Do not change the mouth shape or expression; this should remain the same calm serious Codex cat.
+- Only the whole-body 1-2 px breathing offset, eyelids, tiny head dip, and tail-tip position should change.
 
 Frame plan:
 1. Eyes open, neutral seated pose, tail rests curled at baseline. This is the canonical rest pose.
-2. Eyes open, chest slightly fuller, head/body 1-2 px higher, tail tip lifts a little. Inhale start.
-3. Half blink, body at the highest point, cheeks slightly softer, tail tip curls inward. Small but visible change.
-4. Closed blink, body still high, head gently dipped, tail tip holds the curl. Blink peak.
+2. Eyes open, same seated silhouette as frame 1, whole head/body 1-2 px higher only, tail tip lifts a little. Inhale start. Do not puff the chest or raise the chin.
+3. Half blink, same silhouette, body at the highest point, tail tip curls inward. Small but visible change.
+4. Closed blink, same silhouette, tiny head dip within the same pose, tail tip holds the curl. Blink peak.
 5. Eyes open, body lowers back toward neutral, tail tip relaxes downward. Exhale.
 6. Eyes open, almost the same as frame 1 but not pixel-identical, head slightly different, tail back near baseline. Loop back to frame 1.
 
 Every frame must be visibly different from adjacent frames. Hard reject if 4 or more frames look identical. The first and last frames should be close enough to loop smoothly, but not exact duplicates.
 
 Forbidden: text, UI, scenery, speech bubbles, labels, code, shadows, floor marks, guide lines, boxes, borders, detached stars, detached droplets, speed lines, dust clouds, motion trails, glow, halo, floating symbols, or action marks. The idle meaning must come only from the cat's body, blink, breathing, and tail-tip motion.
+
+Reject examples:
+- frame 2 turns into an upright proud / chest-out pose
+- any frame is noticeably larger or smaller than the others
+- the cat's feet baseline moves up or down
+- the tail root or full tail pose changes instead of only the tip
+- the expression changes into happy, smug, angry, or sleepy except for the intended blink
+- background is checkerboard instead of a flat solid chroma key
 
 Return only one clean horizontal row strip image.
 ```
