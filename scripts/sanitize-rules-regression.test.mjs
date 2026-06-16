@@ -466,4 +466,203 @@ describe('sanitize-rules regression (home repo only)', { skip: !isHomeRepo }, ()
       assert.ok(!result.includes('someone'), `username must be scrubbed, got: ${result}`);
     });
   });
+
+  // ── F238: Extension coverage — brand transforms must apply beyond .ts/.tsx/.js ──
+  // These tests prove that brand/L4 terms are sanitized in ALL managed text
+  // extensions, not just TypeScript/JavaScript. Each test uses a filename with the
+  // target extension so the sanitizer's $ARGV match sees the right suffix.
+  //
+  // Dictionary truth source: assets/brand-dictionary.yaml (term IDs in comments)
+  describe('F238: .json brand transforms', () => {
+    // term: product.primary — manifest.json currently leaks "Cat Café" (O1)
+    it('transforms "Cat Café" → "Clowder AI" in .json files', () => {
+      const input = `{ "name": "Cat Café", "short_name": "猫猫" }\n`;
+      const result = applySanitizer(input, 'packages/web/public/manifest.json');
+      assert.ok(result.includes('Clowder AI'), `expected "Clowder AI" in .json, got: ${result}`);
+      assert.ok(!result.includes('Cat Café'), `"Cat Café" must not survive in .json, got: ${result}`);
+    });
+
+    // term: product.primary — "猫猫" as standalone Chinese product name
+    it('transforms "猫猫" (Chinese product name) in .json files', () => {
+      const input = `{ "short_name": "猫猫" }\n`;
+      const result = applySanitizer(input, 'packages/web/public/manifest.json');
+      assert.ok(!result.includes('猫猫'), `"猫猫" must not survive in manifest .json, got: ${result}`);
+    });
+
+    // term: product.tagline
+    it('transforms tagline in .json files', () => {
+      const input = `{ "description": "三只 AI 猫猫的协作空间" }\n`;
+      const result = applySanitizer(input, 'packages/web/public/manifest.json');
+      assert.ok(
+        result.includes('Your AI team collaboration space'),
+        `expected English tagline in .json, got: ${result}`,
+      );
+    });
+
+    // term: product.primary — concierge pet.json (O5)
+    it('transforms "Cat Cafe" in concierge pet.json', () => {
+      const input = `{ "description": "Cat Cafe default concierge skin — ragdoll cat pixel art." }\n`;
+      const result = applySanitizer(input, 'packages/web/public/concierge/skins/ragdoll-v1/pet.json');
+      assert.ok(result.includes('Clowder AI'), `expected "Clowder AI" in pet.json, got: ${result}`);
+      assert.ok(!result.includes('Cat Cafe'), `"Cat Cafe" must not survive in pet.json, got: ${result}`);
+    });
+  });
+
+  describe('F238: .mjs brand transforms', () => {
+    // term: product.primary — compile-system-prompt-l0.mjs currently leaks (O2)
+    it('transforms "Cat Café" → "Clowder AI" in .mjs files', () => {
+      const input = `const msg = 'opencode 原生 MCP 和 Cat Café MCP 需避免 tool 名冲突。';\n`;
+      const result = applySanitizer(input, 'scripts/compile-system-prompt-l0.mjs');
+      assert.ok(result.includes('Clowder AI'), `expected "Clowder AI" in .mjs, got: ${result}`);
+      assert.ok(!result.includes('Cat Café'), `"Cat Café" must not survive in .mjs, got: ${result}`);
+    });
+
+    // term: role.co_creator — 铲屎官 in .mjs (O2)
+    it('transforms "铲屎官" in .mjs files', () => {
+      const input = `return \`\${name}（铲屎官/CVO）。重要决策由\${name}拍板。\`;\n`;
+      const result = applySanitizer(input, 'scripts/compile-system-prompt-l0.mjs');
+      assert.ok(!result.includes('铲屎官'), `"铲屎官" must not survive in .mjs, got: ${result}`);
+    });
+  });
+
+  describe('F238: .yaml/.yml brand transforms', () => {
+    // term: product.primary — sop-definitions YAML currently leaks
+    it('transforms "Cat Cafe" in .yaml files', () => {
+      const input = `description: "Cat Cafe development SOP"\n`;
+      const result = applySanitizer(input, 'sop-definitions/development.yaml');
+      assert.ok(result.includes('Clowder AI'), `expected "Clowder AI" in .yaml, got: ${result}`);
+      assert.ok(!result.includes('Cat Cafe'), `"Cat Cafe" must not survive in .yaml, got: ${result}`);
+    });
+
+    // term: role.co_creator — 铲屎官 in YAML
+    it('transforms "铲屎官" in .yaml files', () => {
+      const input = `role: "铲屎官"\n`;
+      const result = applySanitizer(input, 'sop-definitions/development.yaml');
+      assert.ok(!result.includes('铲屎官'), `"铲屎官" must not survive in .yaml, got: ${result}`);
+    });
+
+    // term: role.cvo — CVO in YAML
+    it('transforms "CVO" in .yaml files', () => {
+      const input = `escalation: "CVO 拍板"\n`;
+      const result = applySanitizer(input, 'sop-definitions/development.yaml');
+      assert.ok(!result.includes('CVO'), `"CVO" must not survive in .yaml, got: ${result}`);
+    });
+
+    // term: product.primary — plugin YAML
+    it('transforms "Cat Cafe" in plugin .yaml files', () => {
+      const input = `name: "Cat Cafe GitHub Plugin"\n`;
+      const result = applySanitizer(input, 'plugins/github/plugin.yaml');
+      assert.ok(result.includes('Clowder AI'), `expected "Clowder AI" in plugin.yaml, got: ${result}`);
+    });
+  });
+
+  describe('F238: L0 system-prompt L4 residual terms', () => {
+    // term: l4.redis_sanctum — "圣域" in L0 decision tree context (O4)
+    it('transforms "Redis 圣域" in L0 decision tree (non-Iron-Law context)', () => {
+      const input = `不碰硬排除（愿景/权限/生产数据/Redis 圣域/新外部依赖/契约/显著成本）\n`;
+      const result = applySanitizer(input, 'assets/system-prompts/system-prompt-l0.md');
+      assert.ok(!result.includes('Redis 圣域'), `"Redis 圣域" must be sanitized in L0 decision tree, got: ${result}`);
+    });
+
+    // term: role.cvo — "CVO" in L0 governance text outside Iron Laws
+    it('transforms standalone "CVO" in L0 governance text', () => {
+      const input = `CVO 授权自主：co-creator只在关键决策点介入，让 CVO 能"放心不看"\n`;
+      const result = applySanitizer(input, 'assets/system-prompts/system-prompt-l0.md');
+      assert.ok(!result.includes('CVO'), `standalone "CVO" must be sanitized in L0 governance text, got: ${result}`);
+    });
+
+    // term: l4.redis_sanctum — "改 Redis 圣域" in L0 escalation rules
+    it('transforms "改 Redis 圣域" in L0 escalation rules', () => {
+      const input = `不可逆操作：删数据 / force push / 合第三方 PR / close feat / 改 Redis 圣域\n`;
+      const result = applySanitizer(input, 'assets/system-prompts/system-prompt-l0.md');
+      assert.ok(
+        !result.includes('Redis 圣域'),
+        `"Redis 圣域" must be sanitized in L0 escalation rules, got: ${result}`,
+      );
+    });
+  });
+
+  describe('F238: cat-config.json generator 铲屎官 sanitization', () => {
+    // This tests the cat-config Node transform in sync-to-opensource.sh,
+    // not the Perl sanitizer. We verify by checking the Perl path would catch
+    // 铲屎官 if cat-config content were processed as a .json personality field.
+    it('transforms "铲屎官" in personality-like .json text', () => {
+      const input = `{ "personality": "据铲屎官反馈风格偏缅因猫" }\n`;
+      const result = applySanitizer(input, 'cat-config-generated.json');
+      assert.ok(!result.includes('铲屎官'), `"铲屎官" must not survive in generated .json, got: ${result}`);
+    });
+  });
+
+  describe('F238: cat-cafe-skills YAML uses operator not co-creator (cloud P2)', () => {
+    // Cloud P2: brand block 铲屎官→co-creator at line 228 pre-empts the
+    // docs/skills block 铲屎官→operator at line 301 for .yaml files under
+    // cat-cafe-skills/. The docs/skills mapping must win for these paths.
+    it('maps 铲屎官 to operator in cat-cafe-skills/manifest.yaml', () => {
+      const input = `      Use when: 铲屎官说"帮我分析一下"。\n`;
+      const result = applySanitizer(input, 'cat-cafe-skills/manifest.yaml');
+      assert.ok(result.includes('operator'), `expected "operator" in skills yaml, got: ${result}`);
+      assert.ok(!result.includes('co-creator'), `"co-creator" must NOT appear in skills yaml, got: ${result}`);
+    });
+
+    it('maps 铲屎官 to operator in cat-cafe-skills subdirectory yaml', () => {
+      const input = `description: 铲屎官健康提醒\n`;
+      const result = applySanitizer(input, 'cat-cafe-skills/refs/health-check.yaml');
+      assert.ok(result.includes('operator'), `expected "operator" in skills sub-yaml, got: ${result}`);
+      assert.ok(!result.includes('co-creator'), `"co-creator" must NOT appear in skills sub-yaml, got: ${result}`);
+    });
+  });
+
+  describe('F238: 铲屎官 in .ts files must not create invalid identifiers (cloud P1)', () => {
+    // Cloud P1: co-creator (hyphenated) is invalid as an unquoted TS/JS identifier.
+    // The brand block must NOT replace 铲屎官 in .ts/.tsx/.js/.mjs files.
+    it('quotes co-creator when it replaces 铲屎官 at unquoted key position in .ts', () => {
+      const input = `      铲屎官: '__co-creator__',\n`;
+      const result = applySanitizer(input, 'packages/web/src/lib/__tests__/parse-direction.test.ts');
+      // Two-pass: 铲屎官→co-creator (all contexts), then quote key position
+      assert.ok(!result.includes('铲屎官'), `铲屎官 must be replaced, got: ${result}`);
+      assert.ok(result.includes("'co-creator'"), `co-creator key must be quoted, got: ${result}`);
+    });
+
+    it('DOES replace 铲屎官 in string literals in .tsx files (no trailing colon)', () => {
+      const input = `const msg = '通知铲屎官';\n`;
+      const result = applySanitizer(input, 'packages/web/src/components/ChatMessage.tsx');
+      assert.ok(result.includes('co-creator'), `铲屎官 in string should become co-creator, got: ${result}`);
+      assert.ok(!result.includes('铲屎官'), `铲屎官 should not survive in string context, got: ${result}`);
+    });
+
+    it('DOES replace 铲屎官 in colon-containing string values (gpt52 delta P2)', () => {
+      // gpt52 found: (?!\s*:) lookahead skips 铲屎官 even in strings like '铲屎官: 看这里'
+      const input = `const s = '铲屎官: 看这里';\n`;
+      const result = applySanitizer(input, 'packages/web/src/components/ChatMessage.tsx');
+      assert.ok(result.includes('co-creator'), `铲屎官 in colon-containing string must be replaced, got: ${result}`);
+      assert.ok(!result.includes('铲屎官'), `铲屎官 must not survive in string with colon, got: ${result}`);
+    });
+
+    it('DOES replace 铲屎官 in YAML value context with colon', () => {
+      const input = `description: "铲屎官: 健康提醒"\n`;
+      const result = applySanitizer(input, 'plugins/github/plugin.yaml');
+      assert.ok(!result.includes('铲屎官'), `铲屎官 in YAML value must be replaced, got: ${result}`);
+    });
+  });
+
+  describe('F238: cat-template.json mentionPatterns dedupe (P2 review finding)', () => {
+    // P2 from @gpt52 review: 铲屎官→co-creator transform creates duplicate
+    // @co-creator in mentionPatterns that already has @co-creator.
+    // Input mirrors cat-template.json line 110: ["@co-creator", "@owner", "@铲屎官"]
+    it('dedupes @co-creator after 铲屎官 transform in mentionPatterns', () => {
+      const input = `    "mentionPatterns": ["@co-creator", "@owner", "@铲屎官"]\n`;
+      const result = applySanitizer(input, 'cat-template.json');
+      assert.ok(!result.includes('@铲屎官'), `"@铲屎官" must be transformed, got: ${result}`);
+      const matches = result.match(/@co-creator/g);
+      assert.equal(matches?.length, 1, `expected exactly one @co-creator (no duplicate), got: ${result}`);
+    });
+
+    // Ensure non-duplicate mentionPatterns are preserved
+    it('preserves single @co-creator in mentionPatterns without removing', () => {
+      const input = `    "mentionPatterns": ["@co-creator", "@owner"]\n`;
+      const result = applySanitizer(input, 'cat-template.json');
+      assert.ok(result.includes('@co-creator'), `single @co-creator must survive, got: ${result}`);
+      assert.ok(result.includes('@owner'), `@owner must survive, got: ${result}`);
+    });
+  });
 });

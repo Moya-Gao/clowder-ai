@@ -40,7 +40,12 @@ if ($ARGV =~ m{assets/system-prompts/system-prompt-l0\.md$}) {
   s/Cat Café/Clowder AI/g;
   s/Cat Cafe/Clowder AI/g;
   s/铲屎官/co-creator/g;
+  # F238: CVO in L0 governance text (assets/ path doesn't match docs/skills block)
+  s/\bCVO\b/operator/g;
   s/改 Redis 圣域/修改生产数据边界/g;
+  # F238: Standalone "Redis 圣域" in decision tree / escalation contexts (O4)
+  # Must run AFTER "改 Redis 圣域" to avoid partial match.
+  s/Redis 圣域/production data boundary/g;
 
   if (/^1\. \*\*(?:Redis 6399 圣域|Redis production Redis \(sacred\))\*\* — /) {
     $_ = "1. **Runtime data safety** — Use isolated development/test data stores; never point local experiments at production user data\n";
@@ -49,6 +54,11 @@ if ($ARGV =~ m{assets/system-prompts/system-prompt-l0\.md$}) {
     $_ = "4. **Release acceptance channel** — Validate merged changes in an isolated acceptance environment; test unmerged work in a feature checkout\n";
   }
 }
+
+# ── F238: L4 cultural terms (all managed files, after L0 block) ──
+# Standalone "Redis 圣域" for non-L0 files (L0 handled above with ordering guard).
+# Must be AFTER L0 block so L0's "改 Redis 圣域" → specific rewrite wins.
+s/Redis 圣域/production data boundary/g;
 
 # ── Port remapping (all files) ──
 # Convention: internal 3001(Frontend)→3003, internal 3002(API)→3004
@@ -174,11 +184,12 @@ if ($ARGV =~ m{\.(tsx?|js)$}) {
   s#\.\./BACKLOG\.md#../ROADMAP.md#g;
 }
 
-# ── Brand name: UI-facing "Cat Cafe" → "Clowder AI" (source + test files) ──
-# Applies to .ts/.tsx/.js files — user-visible strings like <title>, <h1>, aria-label.
-# Also runs on test files so that assertions match the transformed source output.
+# ── Brand name: UI-facing "Cat Cafe" → "Clowder AI" (source + test + data files) ──
+# Applies to .ts/.tsx/.js/.mjs/.json/.yaml/.yml files — user-visible strings.
+# F238: Extended from .ts/.tsx/.js to cover manifest.json, compile-system-prompt-l0.mjs,
+# sop-definitions/*.yaml, plugin manifests, and generated configs.
 # Does NOT touch: @cat-cafe/* imports, cat-cafe-skills/, cat-cafe: keys, cat_cafe_* tools.
-if ($ARGV =~ m{\.(tsx?|js)$}) {
+if ($ARGV =~ m{\.(tsx?|js|mjs|json|ya?ml)$}) {
   # Page metadata and header titles
   s/title: 'Cat Cafe'/title: 'Clowder AI'/g;
   s/'Cat Cafe'/'Clowder AI'/g;
@@ -197,6 +208,10 @@ if ($ARGV =~ m{\.(tsx?|js)$}) {
   # "Cat Café" with accent (Hub labels, aria-labels, titles, warnings)
   s/Cat Café Hub/Clowder AI Hub/g;
   s/Cat Café/Clowder AI/g;
+  # F238: Bare "Cat Cafe" (no accent) within larger strings — must run AFTER
+  # quoted and accented patterns above so specific matches win first.
+  # Safe: lowercase "cat-cafe" (imports, paths, keys) does not match.
+  s/Cat Cafe/Clowder AI/g;
   # Chinese welcome message (unquoted in JSX)
   s/欢迎来到 Cat Cafe!/Welcome to Clowder AI!/g;
   # Push settings Chinese text → English
@@ -206,6 +221,35 @@ if ($ARGV =~ m{\.(tsx?|js)$}) {
   s/Unified API client for Cat Cafe frontend/Unified API client for Clowder AI frontend/g;
   # Capability tab skill category labels
   s/Cat Cafe Skills/Clowder AI Skills/g;
+  # F238: Role, L4, and Chinese product terms for all managed text extensions
+  # (dictionary: assets/brand-dictionary.yaml — role.co_creator, role.cvo, product.primary)
+  # docs/cat-cafe-skills paths have their own 铲屎官→operator mapping below;
+  # for source/config/data files, co-creator is the dictionary canonical.
+  # Guard: skip docs/skills paths (their operator mapping wins — cloud P2).
+  s/铲屎官/co-creator/g unless $ARGV =~ m{/(docs|cat-cafe-skills)/};
+  s/\bCVO\b/operator/g;
+  # Chinese product name (manifest short_name, UI labels)
+  s/"猫猫"/"Clowder AI"/g;
+}
+
+# ── F238: Quote co-creator at unquoted JS/TS key position (cloud P1 + gpt52 delta P2) ──
+# Two-pass fix: the brand block above replaces ALL 铲屎官→co-creator (including
+# in strings with colons). This second pass then quotes "co-creator" when it
+# appears as an unquoted object key — "co-creator:" is invalid JS/TS syntax.
+# Matches: line-start/whitespace/comma/brace + co-creator + colon.
+# Does NOT match: 'co-creator:' (preceded by quote, not whitespace/brace).
+if ($ARGV =~ m{\.(tsx?|jsx?|mjs)$}) {
+  s/(^|[\s,{])co-creator(\s*:)/$1'co-creator'$2/g;
+}
+
+# ── F238: cat-template.json mentionPatterns dedupe (P2 review finding) ──
+# 铲屎官→co-creator above creates duplicate @co-creator in mentionPatterns
+# arrays that already had @co-creator. Dedupe by removing the trailing duplicate
+# on mentionPatterns lines. Must run AFTER the brand block.
+if ($ARGV =~ m{cat-template\.json$} && /mentionPatterns/) {
+  # Remove second @co-creator when first already present in same array.
+  # Note: \@ required — bare @ is Perl array interpolation in regex.
+  while (s/("\@co-creator".*?),\s*"\@co-creator"/$1/) {}
 }
 
 # ── api-client-resolve test: bare-IP port assertions ──
