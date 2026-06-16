@@ -10,8 +10,8 @@
 export interface ConciergeConfig {
   /** 是否启用前台猫 (default true) */
   enabled: boolean;
-  /** 皮肤 — Phase A 唯一内置皮肤，Phase E 开放自定义 */
-  skin: 'yarn-ball';
+  /** 皮肤 — Phase E0: ragdoll-v1 默认，yarn-ball 保留为 legacy fallback */
+  skin: 'yarn-ball' | 'ragdoll-v1';
   /** 前台猫显示名（KD-6: per-deployment 可配置，本家 Phase A 落地投票） */
   displayName: string;
   /** 一句话人设基调（注入岗位 prompt） */
@@ -33,7 +33,7 @@ export interface ConciergeConfig {
 /** ConciergeConfig 默认值（dutyCatProfileId 由 API 层根据 roster 解析） */
 export const CONCIERGE_CONFIG_DEFAULTS: Omit<ConciergeConfig, 'dutyCatProfileId'> = {
   enabled: true,
-  skin: 'yarn-ball',
+  skin: 'ragdoll-v1',
   displayName: '猫猫球',
   personaTone: '温暖、简短、不啰嗦',
   proactivePolicy: 'quiet-badge',

@@ -180,7 +180,7 @@ describe('INV-9: lazy wiring', () => {
           personaTone: 'cool',
           dutyCatProfileId: 'gemini25',
           proactivePolicy: 'quiet-badge',
-          skin: 'yarn-ball',
+          skin: 'ragdoll-v1',
         },
       }),
     );

@@ -15,7 +15,7 @@ const { prepareConciergeContext, conciergeContextForCat } = await import(
 
 const MOCK_CONFIG = {
   enabled: true,
-  skin: 'yarn-ball',
+  skin: 'ragdoll-v1',
   displayName: '猫猫球',
   personaTone: '温暖、简短',
   dutyCatProfileId: 'gemini35',

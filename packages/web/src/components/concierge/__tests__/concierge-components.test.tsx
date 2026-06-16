@@ -45,7 +45,7 @@ function configOk() {
           personaTone: 'cool',
           dutyCatProfileId: 'gemini25',
           proactivePolicy: 'quiet-badge',
-          skin: 'yarn-ball',
+          skin: 'ragdoll-v1',
         },
       }),
   } as unknown as Response);

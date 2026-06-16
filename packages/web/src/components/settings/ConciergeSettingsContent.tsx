@@ -30,8 +30,15 @@ interface ConciergeSettingsState {
   dutyCatProfileId: string;
   proactivePolicy: 'ambient' | 'quiet-badge';
   muted: boolean;
+  skin: 'yarn-ball' | 'ragdoll-v1';
   ballPosition: { x: number; y: number } | null;
 }
+
+/** Skin ID → display label (locked chip in settings) */
+const SKIN_DISPLAY_NAMES: Record<string, string> = {
+  'yarn-ball': '🧶 毛线球',
+  'ragdoll-v1': '🐱 布偶猫 v1',
+};
 
 // ---------------------------------------------------------------------------
 // Component
@@ -190,7 +197,7 @@ export function ConciergeSettingsContent() {
               opacity: 0.7,
             }}
           >
-            🧶 毛线球
+            {SKIN_DISPLAY_NAMES[state?.skin ?? 'ragdoll-v1'] ?? state?.skin}
             <svg aria-hidden="true" viewBox="0 0 16 16" fill="currentColor" style={{ width: 12, height: 12 }}>
               <path d="M4 6V4a4 4 0 118 0v2h1a1 1 0 011 1v7a1 1 0 01-1 1H3a1 1 0 01-1-1V7a1 1 0 011-1h1zm2-2a2 2 0 114 0v2H6V4z" />
             </svg>

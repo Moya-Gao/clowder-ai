@@ -189,7 +189,7 @@ describe('ConciergeThreadService', () => {
     // so using an alias would be re-resolved to the default.
     await conciergeConfigStore.put('user-6', {
       enabled: true,
-      skin: 'yarn-ball',
+      skin: 'ragdoll-v1',
       displayName: '猫猫球',
       personaTone: '温暖',
       dutyCatProfileId: 'gemini25',
@@ -212,7 +212,7 @@ describe('ConciergeThreadService', () => {
     // FIX-3: ConciergeConfigStore.get() should re-resolve it to the default (gemini35).
     await conciergeConfigStore.put('user-stale', {
       enabled: true,
-      skin: 'yarn-ball',
+      skin: 'ragdoll-v1',
       displayName: '猫猫球',
       personaTone: '温暖',
       dutyCatProfileId: 'removed-cat-xyz',

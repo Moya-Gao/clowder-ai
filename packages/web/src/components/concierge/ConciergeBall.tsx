@@ -1,13 +1,14 @@
 'use client';
 
 /**
- * F229 PR-A3a: ConciergeBall — 猫本体（Layer 1）
+ * F229 ConciergeBall — 猫本体（Layer 1）
  *
- * V1 (P0): 替换 🐱 emoji → 布偶猫 PNG sprite（过渡素材，待正式桌宠素材替换）
+ * V1 (P0): 替换 emoji → 布偶猫 PNG sprite
  * V2 (P0): 全部颜色从 OKLCH token 来，零 Tailwind 原生色
  * V3 (P1): 方圆形底座 72×72 + 猫图 64×64 + 状态指示点
  * V4 (P1): idle 态呼吸动画（4s 慢呼吸，reduced-motion 降级）
  * V5 (P1): 八态 sprite 映射 + crossfade 过渡
+ * V6 (Phase E0): PetSkinContract v0 — projection-driven sprite resolution
  *
  * 交互：
  *   collapsed → toolbar（点猫，不直接开气泡）
@@ -19,22 +20,11 @@
 
 import type { ConciergeBallState } from '@cat-cafe/shared';
 import { useConciergeStore } from '@/stores/conciergeStore';
+import { resolvePetSprite } from './usePetSkin';
 
 interface ConciergeBallProps {
   ballState: ConciergeBallState;
 }
-
-// Eight-state sprite mapping (过渡素材：opus 贴纸 2026-02，正式桌宠素材待砚砚创作)
-const STATE_SPRITES: Record<ConciergeBallState, string> = {
-  idle: '/concierge/sprites/ragdoll/idle.png',
-  sleeping: '/concierge/sprites/ragdoll/sleeping.png',
-  listening: '/concierge/sprites/ragdoll/listening.png',
-  thinking: '/concierge/sprites/ragdoll/thinking.png',
-  found: '/concierge/sprites/ragdoll/found.png',
-  'needs-confirmation': '/concierge/sprites/ragdoll/confirm.png',
-  handoff: '/concierge/sprites/ragdoll/handoff.png',
-  error: '/concierge/sprites/ragdoll/error.png',
-};
 
 // State → indicator dot color via CSS var (V2: zero Tailwind native color)
 const STATE_DOT_COLORS: Record<ConciergeBallState, string> = {
@@ -83,7 +73,8 @@ export function ConciergeBall({ ballState }: ConciergeBallProps) {
     }
   };
 
-  const spriteSrc = STATE_SPRITES[ballState] ?? STATE_SPRITES.idle;
+  const skin = useConciergeStore((s) => s.skin);
+  const spriteSrc = resolvePetSprite(ballState, skin);
   const dotColor = STATE_DOT_COLORS[ballState] ?? 'var(--accent-300)';
   const stateLabel = STATE_LABELS[ballState] ?? ballState;
   const isExpanded = surfaceState !== 'collapsed';

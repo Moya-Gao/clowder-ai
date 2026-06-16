@@ -177,7 +177,7 @@ describe('fetchConfig loads ballPosition', () => {
           personaTone: '温暖',
           dutyCatProfileId: 'opus',
           proactivePolicy: 'quiet-badge',
-          skin: 'yarn-ball',
+          skin: 'ragdoll-v1',
           ballPosition: { x: 42, y: 84 },
         },
       }),
@@ -197,7 +197,7 @@ describe('fetchConfig loads ballPosition', () => {
           personaTone: '温暖',
           dutyCatProfileId: 'opus',
           proactivePolicy: 'quiet-badge',
-          skin: 'yarn-ball',
+          skin: 'ragdoll-v1',
           // no ballPosition field
         },
       }),

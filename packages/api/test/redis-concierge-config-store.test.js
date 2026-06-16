@@ -77,7 +77,7 @@ describe('RedisConciergeConfigStore', { skip: redisIsolationSkipReason(REDIS_URL
   it('get returns defaults when no config stored', async () => {
     const config = await store.get('user-1');
     assert.equal(config.enabled, true);
-    assert.equal(config.skin, 'yarn-ball');
+    assert.equal(config.skin, 'ragdoll-v1');
     assert.equal(config.displayName, '猫猫球');
     assert.equal(config.personaTone, '温暖、简短、不啰嗦');
     assert.equal(config.proactivePolicy, 'quiet-badge');
@@ -89,7 +89,7 @@ describe('RedisConciergeConfigStore', { skip: redisIsolationSkipReason(REDIS_URL
   it('put persists config and get returns it (round-trip)', async () => {
     const input = {
       enabled: false,
-      skin: 'yarn-ball',
+      skin: 'ragdoll-v1',
       displayName: 'KittyDesk',
       personaTone: '简洁',
       dutyCatProfileId: 'gpt52',
@@ -108,7 +108,7 @@ describe('RedisConciergeConfigStore', { skip: redisIsolationSkipReason(REDIS_URL
   it('put is idempotent — second put overwrites first', async () => {
     await store.put('user-3', {
       enabled: true,
-      skin: 'yarn-ball',
+      skin: 'ragdoll-v1',
       displayName: 'First',
       personaTone: 'test',
       dutyCatProfileId: 'sonnet',
@@ -117,7 +117,7 @@ describe('RedisConciergeConfigStore', { skip: redisIsolationSkipReason(REDIS_URL
     });
     await store.put('user-3', {
       enabled: false,
-      skin: 'yarn-ball',
+      skin: 'ragdoll-v1',
       displayName: 'Second',
       personaTone: 'test2',
       dutyCatProfileId: 'codex',
@@ -133,7 +133,7 @@ describe('RedisConciergeConfigStore', { skip: redisIsolationSkipReason(REDIS_URL
   it('config is stored with TTL=0 (persistent, no expiry)', async () => {
     await store.put('user-4', {
       enabled: true,
-      skin: 'yarn-ball',
+      skin: 'ragdoll-v1',
       displayName: 'NeverExpire',
       personaTone: 'test',
       dutyCatProfileId: 'sonnet',
@@ -152,7 +152,7 @@ describe('RedisConciergeConfigStore', { skip: redisIsolationSkipReason(REDIS_URL
   it('different users have independent configs', async () => {
     await store.put('user-a', {
       enabled: true,
-      skin: 'yarn-ball',
+      skin: 'ragdoll-v1',
       displayName: 'Alice',
       personaTone: 'warm',
       dutyCatProfileId: 'gemini35',
@@ -161,7 +161,7 @@ describe('RedisConciergeConfigStore', { skip: redisIsolationSkipReason(REDIS_URL
     });
     await store.put('user-b', {
       enabled: false,
-      skin: 'yarn-ball',
+      skin: 'ragdoll-v1',
       displayName: 'Bob',
       personaTone: 'brief',
       dutyCatProfileId: 'sonnet',
