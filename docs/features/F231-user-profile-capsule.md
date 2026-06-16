@@ -184,6 +184,59 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 | 2026-06-13 | Phase C Design Gate：OQ-4 closed → KD-8~11（三段管道 + 采集白名单 + runtime-neutral trigger + bounded pilot）。46 的 L0 反射被铲屎官 Magic Word「脚手架」否决，opus-48 给终态三段架构，codex rigor audit 三条（P1-1 trigger runtime-neutral 纠正 48 的 Stop hook 误判 / P1-2 采集白名单 / P2 非通用 dream lane），opus47 dream-consolidation research 作蒸馏引擎地基 |
 | 2026-06-13 | Phase C 设计深化（CVO 共创）：消化层从全签字改为「按代价分层签字 + 用中校准」（KD-12，解"人类懒得审批"+"自评失真"）；纠正信号采集走当事猫自我认知、禁模式匹配（KD-13）；画像潜意识化反班味（KD-14）；注入悖论拆解（入库 vs 注入两种判断分离）→ 注入层新维度立 OQ-5 |
 | 2026-06-15 | Phase C AC-C1 merged (PR #2296)：profile-update proposal loop landed end-to-end（propose tool/callback/card/decision routes/approval write path/provenance audit/terminal card recovery），cloud review clean on `be6185ad` + `pnpm gate` passed |
+| 2026-06-16 | Wave 1 收尾（A4 dry-run / A5 docs / discoverability wakeup），三猫规划收敛（opus-48 架构 + opus-46 drive），剩余工作三波计划落 spec |
+
+## Remaining Work Plan（2026-06-16 三猫收敛）
+
+> 参与者：opus-48（架构判断 + KD-9/10 细化）、opus-46（收敛 drive + 愿景守护执行）。
+> 砚砚因 PR #2296 merge-gate 占用未直接参与本轮规划；codex rigor 约束（KD-9 白名单 / trigger runtime-neutral）已在 Phase C Design Gate 吸收。
+
+### AC 进度总览
+
+| AC | 状态 | PR/证据 |
+|----|------|---------|
+| A1-A5 | ✅ 全部完成 | PR #2236, commits `dcef82981` / `7842754e5` / `44322432b` |
+| B1-B2 | ✅ 全部完成 | 2026-06-11 三棒 + CVO 签字 |
+| C1 | ✅ merged | PR #2296 (`be6185ad`) |
+| **B3** | ❌ 待做 | — |
+| **C2** | ❌ 待做 | — |
+| **C3** | ❌ 待做 | — |
+
+### Wave 2（当前，不需额外 spec）
+
+**B3 — Fixture overlay 编译回归测试**
+- fixture instance catalog + fixture capsule/primer → 编译断言 private overlay 锚点生效
+- 公共 baseline 断言：缺 overlay 可编译 + 无私有锚点泄漏
+- 隔离原则：tracked 测试不依赖本机 gitignored 真实数据（KD-6），CI/社区环境稳定
+- 48 建议：测试做成"fixture 三态 × overlay 有无"矩阵，覆盖 Phase A 已有的 capsule 三态 + Phase B 新增的 instance/primer overlay
+
+**C2 — 首次真实 propose→approve→write 循环**
+- 用 `cat_cafe_propose_profile_update` 提一条正向轨迹（"做对的时刻"进 primer）
+- 需 runtime 在线 + CVO 在 Hub 审批卡片
+- 验收标准：primer 文件被实际写入 + provenance 归档 + settled 卡片可追溯
+- 48 关键洞察：eval on zero activation = useless，C2 必须先跑通才有 eval 对象
+
+**eval(a) — 守门软化监控（运营观察，非新代码）**
+- 注入 capsule 后猫 review 是否变软？对比基线（approve-with-follow-up 回潮 = P0 回归）
+- 观察窗口：Wave 2 落地后自然产生的 review 数据
+
+### Wave 3（需 fable spec 或三猫草案）
+
+**C3 — 采集白名单 + 蒸馏管道**
+- 采集端：KD-9 白名单写成 closed enum type guard（48 建议）+ lint/test 守护
+  - 允许：CVO 明示 / 猫主动声明 / magic-word / message 坐标 / 签字·驳回 / reaction
+  - 禁止：classifier / regex 扫对话 / LLM 标注
+- 蒸馏 trigger：KD-10 runtime-neutral，锚 invocation/session-seal/turn-completed 事件
+  - codex/gpt52 path 有 fallback 覆盖（Stop hook 不可靠，codex 代码证据 KD-10）
+- 48 建议：C1 是骨架，C3 = 给骨架接 feeder——没 feeder 就是 manual-only 入口
+
+**eval(b) — 循环指标（C3 之后）**
+- propose→approve 周期、写入质量、画像漂移检测
+- 依赖 C3 自动采集产生足够数据
+
+### CVO 待决
+
+- **F231 terminal state**：C1（manual propose 入口）+ C2（跑通一次循环）是否构成可接受的 Phase C 终态？或必须完成 C3（自动采集管道）？48 判断：C1 manual-only 可作 bounded pilot 终态（KD-11），C3 可开新 Phase 或并入后续 feat
 
 ## Links
 
