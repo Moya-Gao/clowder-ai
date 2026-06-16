@@ -1,0 +1,31 @@
+{
+  "id": "yanyan-codex-character-base-v1",
+  "role": "canonical-identity-base",
+  "character": "砚砚 / Codex Maine Coon skin",
+  "source": {
+    "kind": "cvo-provided-cloud-codex-image",
+    "originalPath": "/Users/lysander/Downloads/角色母设-砚砚.png",
+    "receivedAt": "2026-06-16",
+    "archivedPath": "docs/features/assets/F229/desktop-pet-sprite/raw/yanyan-codex-character-base-v1.png"
+  },
+  "file": {
+    "sha256": "16b642a4b17fe9dbbe2ad8a0fa16c36c01e78afddb6cb898113982e369974b94",
+    "pixelWidth": 1122,
+    "pixelHeight": 1402
+  },
+  "identityNotes": [
+    "silver-gray Maine Coon style cat",
+    "large ears with dark rim and pink inner ear",
+    "central forehead tuft",
+    "white chest and muzzle",
+    "dense gray tabby markings",
+    "fluffy striped tail",
+    "calm serious Codex expression"
+  ],
+  "qa": {
+    "readabilityCheck": "reference-only",
+    "identityDiffCheck": "canonical",
+    "provenanceCheck": "pass",
+    "notes": "Use as visual source of truth for E1 hatch-pet atlas generation. Not a runtime sprite."
+  }
+}

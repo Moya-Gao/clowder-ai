@@ -1,0 +1,22 @@
+{
+  "id": "yanyan-codex-key-pose-draft-v1",
+  "role": "key-pose-draft",
+  "character": "砚砚 / Codex Maine Coon skin",
+  "source": {
+    "kind": "cvo-provided-cloud-codex-image",
+    "originalPath": "/Users/lysander/Downloads/ChatGPT Image 2026年6月16日 09_25_55.png",
+    "receivedAt": "2026-06-16",
+    "archivedPath": "docs/features/assets/F229/desktop-pet-sprite/raw/yanyan-codex-key-pose-draft-v1.png"
+  },
+  "file": {
+    "sha256": "bcc56e90b4fbdcfaf91153ebbe034d7d454cdb682413a106fd5132ea1e4300a1",
+    "pixelWidth": 1774,
+    "pixelHeight": 887
+  },
+  "qa": {
+    "readabilityCheck": "draft-only",
+    "identityDiffCheck": "partial-pass",
+    "provenanceCheck": "pass",
+    "notes": "Useful for discussing state key poses. Not production-ready: contains detached spark/star/drop/action-line effects and single-frame poses rather than hatch-pet row strips."
+  }
+}

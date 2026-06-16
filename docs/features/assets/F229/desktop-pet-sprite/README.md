@@ -7,6 +7,8 @@
 
 | 文件 | 角色 | 状态 | 来源 |
 |------|------|------|------|
+| `raw/yanyan-codex-character-base-v1.png` | 缅因猫（砚砚/Codex 皮肤） | **canonical identity base**（已由 CVO 敲定） | CVO 经云端 Codex 生成，2026-06-16 |
+| `raw/yanyan-codex-key-pose-draft-v1.png` | 缅因猫（砚砚/Codex 皮肤） | key-pose draft（不可直接当 atlas） | CVO 经云端 Codex 生成，2026-06-16 |
 | `raw/yanyan-codex-desktop-pet-expression-sheet-v1.png` | 缅因猫（砚砚/Codex 皮肤） | raw（无透明底，需加工） | CVO 经云端 Codex 生成，2026-06-12，commit fbb0e8add |
 | `raw/yanyan-codex-desktop-pet-working-sheet-v1.png` | 缅因猫（工作姿态） | raw（同上） | 同上 |
 | （待生成）布偶猫 sheet | **v1 默认皮肤**（KD-14） | 未生成 | 用下方 prompt 模板 |
@@ -14,15 +16,19 @@
 
 ## Production Sprite Pipeline（raw → 可接入 skin config）
 
-1. **透明化**：抠背景 → 透明 PNG
-2. **切片**：严格等格切 8 态（每格角色大小一致、完整身体不裁切）
-3. **状态映射 manifest**：8 态文件名对齐 `ConciergeBallState`（idle / sleeping / listening / thinking / found / needs-confirmation(confirm) / handoff / error）
-4. **多档 resize**：128×128（2x）+ 64×64（1x）
-5. 接 `ConciergeConfig.skin` 皮肤体系（A4 设置页已留锁定位）
+Current production contract follows `hatch-pet` + `docs/features/F229-petskin-contract.md`, not the old static 4x2 sheet.
 
-## 云端生图 Prompt 模板（砚砚验证版，2026-06-12）
+1. **锁身份**：以 `raw/yanyan-codex-character-base-v1.png` 作为 canonical base；后续所有 row strip 必须保持同一张脸、银灰虎斑、白胸毛、呆毛、蓬松尾巴。
+2. **生成 9 个状态行**：`idle` / `running-right` / `running-left` / `waving` / `jumping` / `failed` / `waiting` / `running` / `review`。
+3. **每状态多帧**：每个状态生成 row strip，而不是 1 张静态姿势。`idle` 先做身份与动画试点；`running-right` 先验方向步态，再决定 `running-left` 是否可镜像。
+4. **确定性加工**：用 `hatch-pet` scripts 抽帧、透明化、合成 `spritesheet.webp`、生成 `pet.json`、contact sheet 和 motion preview。
+5. **三道闸**：readability / identity-diff / provenance 全过才接 `ConciergeConfig.skin`。
 
-> 给 CVO/猫向云端模型要"直接可用"素材时照抄，替换角色描述行即可：
+`raw/yanyan-codex-key-pose-draft-v1.png` 只用于状态语义讨论；它包含星星、水滴、动效线等 detached effects，不能直接作为 production atlas。
+
+## 云端生图 Prompt 模板（legacy 4x2 静态打样）
+
+> 仅用于早期 key-pose 打样，不再作为 E1 production atlas 输入。
 
 ```text
 生成一张 production-ready desktop pet sprite sheet：
@@ -34,3 +40,13 @@
 
 - 布偶猫版替换行：`角色是奶白色重点色布偶猫桌宠（蓝眼睛、蓬松长毛）`
 - 已知失败模式：无透明背景 / 阴影道具影响小尺寸 / 非等格——拿到图先对照 pipeline §1-3 验收再入库。
+
+## E1 云端生成指令边界
+
+给云端模型的下一步不应是"再给 8 个姿势"，而是按 `hatch-pet` 生产行来要图：
+
+- 先用 `raw/yanyan-codex-character-base-v1.png` 作为 reference，生成 `idle` row strip（多帧，低干扰呼吸/眨眼/尾巴尖动）。
+- `idle` 通过 identity-diff 后，再生成 `running-right` row strip。
+- 每次只生成一个 row strip；不要一次性生成完整 atlas。
+- 禁止文字、UI、场景、阴影、guide marks、星星、水滴、动效线、速度线、漂浮符号。
+- 输出必须是干净可抠背景、全身完整、不跨格、不裁切、同一只猫。
