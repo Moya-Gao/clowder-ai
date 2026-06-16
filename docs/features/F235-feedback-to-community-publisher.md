@@ -156,4 +156,5 @@ CommunityIssueStore / F168 projection  ← 幂等回写，防重复 triage
 | **Feature** | `docs/features/F222-frustration-auto-issue.md` | Producer — 本地反馈池 |
 | **Feature** | `docs/features/F168-community-ops-board.md` | Community ops（inbound 方向） |
 | **Feature** | `docs/features/F141-github-repo-inbox.md` | GitHub API 层复用 |
+| **Design** | `docs/designs/F235-publish-to-community.html` | Design Gate wireframe: 3 states (confirmed+publish, preview card, published collapsed) |
 | **Thread evidence** | 砚砚 2026-06-15 实测 | 确认 F222 confirmed 只在本地 Redis，无外发路径 |

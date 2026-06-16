@@ -141,3 +141,4 @@ status: draft  # 用户预览后才提交
 - [OQ-4 §4.5c Frustration Auto-Issue](../discussions/2026-06-01-oq4-harness-self-evolution-synthesis.md)
 - [F192 审计 §7.5](../discussions/2026-06-01-f192-eval-coverage-audit.md)
 - [Demo 剧本](../content/drafts/demo-script-code-as-harness.md)
+- [F235 Design: Publish to Community wireframe](../designs/F235-publish-to-community.html) — FrustrationIssueCard → 社区发布的 3 状态 UI 设计

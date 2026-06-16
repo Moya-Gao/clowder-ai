@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>F235 — Publish to Community: FrustrationIssueCard + Preview Card</title>
+<style>
+  /* ============================================================
+   * Cat Cafe Design System — OKLCH Token Subset for Mockup
+   * Source: packages/web/src/app/theme-tokens.css
+   * ============================================================ */
+  :root {
+    /* Surface */
+    --cafe-surface-sunken: oklch(0.92 0.015 80);
+    --cafe-surface: oklch(0.95 0.012 80);
+    --cafe-surface-elevated: oklch(0.99 0.005 80);
+    --cafe-surface-canvas: oklch(0.995 0.003 80);
+    /* Text */
+    --cafe-text: oklch(0.2 0.005 30);
+    --cafe-text-secondary: oklch(0.45 0.005 30);
+    --cafe-text-muted: oklch(0.56 0.005 30);
+    /* Border */
+    --cafe-border: oklch(0.84 0.005 30);
+    --cafe-border-subtle: oklch(0.915 0.005 30);
+    /* Accent */
+    --cafe-accent: oklch(0.55 0.14 50);
+    --cafe-accent-hover: oklch(0.45 0.14 50);
+    /* Semantic */
+    --cafe-crosspost: oklch(0.55 0.12 210);
+    --cafe-interactive: oklch(0.36 0.005 30);
+    --semantic-success: oklch(0.55 0.12 135);
+    --semantic-success-surface: oklch(0.96 0.03 135);
+    --semantic-warning: oklch(0.55 0.12 45);
+    --semantic-warning-surface: oklch(0.96 0.04 45);
+    --semantic-critical: oklch(0.55 0.12 35);
+    --semantic-info: oklch(0.55 0.12 210);
+    --semantic-info-surface: oklch(0.96 0.03 210);
+    /* Shadow */
+    --shadow-elevation-1: 0 1px 2px oklch(0 0 0 / 0.06);
+    --shadow-elevation-2: 0 4px 10px oklch(0 0 0 / 0.1);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', sans-serif;
+    background: var(--cafe-surface);
+    color: var(--cafe-text);
+    line-height: 1.5;
+  }
+
+  .page-wrapper {
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+
+  /* -- Spec Header -- */
+  .spec-header {
+    background: var(--cafe-surface-canvas);
+    border: 1px solid var(--cafe-border-subtle);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 32px;
+    box-shadow: var(--shadow-elevation-1);
+  }
+  .spec-header h1 {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .spec-header p {
+    font-size: 12px;
+    color: var(--cafe-text-muted);
+    margin-bottom: 4px;
+  }
+  .spec-tags {
+    margin-top: 8px;
+    display: flex;
+    gap: 6px;
+  }
+  .spec-tag {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 99px;
+  }
+  .tag-feature { background: oklch(0.94 0.03 210); color: oklch(0.35 0.12 210); }
+  .tag-phase { background: oklch(0.94 0.04 45); color: oklch(0.35 0.12 45); }
+  .tag-ux { background: oklch(0.94 0.03 135); color: oklch(0.35 0.12 135); }
+
+  /* -- Section titles -- */
+  .section-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--cafe-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 32px 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--cafe-border-subtle);
+  }
+  .section-desc {
+    font-size: 12px;
+    color: var(--cafe-text-muted);
+    margin-bottom: 16px;
+    line-height: 1.6;
+  }
+
+  /* -- Annotation (design notes, outside cards) -- */
+  .annotation {
+    font-size: 11px;
+    color: oklch(0.45 0.08 280);
+    background: oklch(0.96 0.02 280);
+    border: 1px dashed oklch(0.75 0.08 280);
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin: 8px 0;
+    line-height: 1.5;
+  }
+  .annotation strong { font-weight: 700; }
+
+  hr.divider {
+    border: none;
+    border-top: 1px solid var(--cafe-border-subtle);
+    margin: 24px 0;
+  }
+
+  /* ============================================================
+   * FrustrationIssueCard (existing pattern, from F222)
+   * ============================================================ */
+  .frustr-card {
+    background: var(--cafe-surface-canvas);
+    border: 1px solid var(--cafe-border-subtle);
+    border-left: 3px solid var(--semantic-warning);
+    border-radius: 8px;
+    padding: 12px 14px;
+    box-shadow: var(--shadow-elevation-1);
+    margin-bottom: 8px;
+  }
+  .frustr-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+  .frustr-header svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .frustr-title { font-size: 12px; font-weight: 500; }
+
+  .badge {
+    font-size: 9px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 99px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .badge svg { width: 10px; height: 10px; }
+  .badge-confirmed { background: var(--semantic-success-surface); color: var(--semantic-success); }
+  .badge-draft { background: var(--semantic-warning-surface); color: var(--semantic-warning); }
+  .badge-published { background: var(--semantic-info-surface); color: var(--semantic-info); }
+
+  .frustr-body {
+    font-size: 11px;
+    color: var(--cafe-text-secondary);
+    margin-bottom: 8px;
+    padding: 8px 10px;
+    background: var(--cafe-surface-elevated);
+    border-radius: 6px;
+    border: 1px solid oklch(0.915 0.005 30 / 0.3);
+    line-height: 1.6;
+  }
+
+  .frustr-fields {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 8px;
+    font-size: 10px;
+  }
+  .frustr-fields .label { color: var(--cafe-text-muted); }
+  .frustr-fields .value { color: var(--cafe-text-secondary); font-weight: 500; }
+
+  /* -- Buttons -- */
+  .btn-row {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+  }
+  .btn {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.15s;
+  }
+  .btn svg { width: 12px; height: 12px; }
+  .btn-publish {
+    background: var(--cafe-accent);
+    color: white;
+    border-color: var(--cafe-accent);
+  }
+  .btn-publish:hover { background: var(--cafe-accent-hover); }
+  .btn-ghost {
+    background: var(--cafe-surface-canvas);
+    color: var(--cafe-text-muted);
+    border-color: var(--cafe-border);
+  }
+  .btn-ghost:hover { border-color: var(--cafe-accent); color: var(--cafe-accent); }
+  .btn-confirm {
+    background: var(--semantic-success);
+    color: white;
+    border-color: var(--semantic-success);
+  }
+  .btn-confirm:hover { background: oklch(0.48 0.12 135); }
+  .btn-cancel {
+    background: var(--cafe-surface-canvas);
+    color: var(--cafe-text-muted);
+    border-color: var(--cafe-border);
+  }
+  .btn-cancel:hover { border-color: var(--semantic-critical); color: var(--semantic-critical); }
+
+  /* ============================================================
+   * NEW: Community Issue Preview Card
+   * Left border = cafe-crosspost (outbound semantic)
+   * ============================================================ */
+  .preview-card {
+    background: var(--cafe-surface-canvas);
+    border: 1px solid var(--cafe-border-subtle);
+    border-left: 3px solid var(--cafe-crosspost);
+    border-radius: 8px;
+    padding: 12px 14px;
+    box-shadow: var(--shadow-elevation-1);
+    margin-bottom: 8px;
+    animation: card-in 0.2s ease-out;
+  }
+  @keyframes card-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .preview-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .preview-header svg { width: 16px; height: 16px; flex-shrink: 0; color: var(--cafe-crosspost); }
+  .preview-title { font-size: 12px; font-weight: 500; }
+
+  .field-group { margin-bottom: 10px; }
+  .field-label {
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--cafe-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+  }
+  .field-input {
+    width: 100%;
+    border-radius: 6px;
+    border: 1px solid var(--cafe-border);
+    background: var(--cafe-surface-canvas);
+    padding: 6px 10px;
+    font-size: 11px;
+    color: var(--cafe-text);
+    font-family: inherit;
+    outline: none;
+  }
+  .field-input:focus { border-color: var(--cafe-accent); outline: 2px solid oklch(0.55 0.14 50 / 0.15); }
+  .field-area { min-height: 80px; resize: vertical; }
+  .field-row { display: flex; gap: 12px; margin-bottom: 10px; }
+  .field-row > div { flex: 1; }
+  .field-select {
+    width: 100%;
+    appearance: none;
+    border-radius: 6px;
+    border: 1px solid var(--cafe-border);
+    background: var(--cafe-surface-canvas);
+    padding: 6px 10px;
+    font-size: 11px;
+    color: var(--cafe-text-secondary);
+    font-family: inherit;
+    outline: none;
+  }
+  .field-select:hover { border-color: var(--cafe-accent); }
+  .field-select:focus { border-color: var(--cafe-accent); outline: 2px solid oklch(0.55 0.14 50 / 0.15); }
+
+  .tag-row { display: flex; gap: 4px; flex-wrap: wrap; padding-top: 4px; }
+  .issue-tag {
+    font-size: 9px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--cafe-surface-sunken);
+    color: var(--cafe-text-secondary);
+    border: 1px solid var(--cafe-border-subtle);
+  }
+
+  .warn-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    background: var(--semantic-warning-surface);
+    font-size: 10px;
+    color: var(--semantic-warning);
+    margin-bottom: 10px;
+    line-height: 1.5;
+  }
+  .warn-banner svg { width: 14px; height: 14px; flex-shrink: 0; margin-top: 1px; }
+
+  /* ============================================================
+   * Published State (Collapsed)
+   * Same collapse pattern as resolved FrustrationIssueCard (UX-2)
+   * ============================================================ */
+  .collapsed-card {
+    background: var(--cafe-surface-canvas);
+    border: 1px solid var(--cafe-border-subtle);
+    border-radius: 8px;
+    padding: 8px 14px;
+    box-shadow: var(--shadow-elevation-1);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .collapsed-card:hover { background: var(--cafe-surface-elevated); }
+  .collapsed-card svg { width: 14px; height: 14px; flex-shrink: 0; color: var(--cafe-text-muted); }
+  .collapsed-title {
+    font-size: 11px;
+    color: var(--cafe-text-muted);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .collapsed-link {
+    font-size: 10px;
+    color: var(--cafe-crosspost);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .collapsed-link:hover { text-decoration: underline; }
+  .collapsed-link svg { width: 10px; height: 10px; }
+
+  /* -- Dark Mode Toggle -- */
+  .mode-toggle {
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    padding: 6px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 6px;
+    border: 1px solid var(--cafe-border);
+    background: var(--cafe-surface-canvas);
+    color: var(--cafe-text-secondary);
+    cursor: pointer;
+    z-index: 100;
+  }
+
+  /* -- Dark Mode -- */
+  [data-theme="dark"] {
+    --cafe-surface-sunken: oklch(0.2 0.008 30);
+    --cafe-surface: oklch(0.22 0.006 30);
+    --cafe-surface-elevated: oklch(0.26 0.004 30);
+    --cafe-surface-canvas: oklch(0.28 0.003 30);
+    --cafe-text: oklch(0.95 0.005 30);
+    --cafe-text-secondary: oklch(0.75 0.005 30);
+    --cafe-text-muted: oklch(0.66 0.005 30);
+    --cafe-border: oklch(0.35 0.005 30);
+    --cafe-border-subtle: oklch(0.24 0.005 30);
+    --cafe-accent: oklch(0.68 0.072 35);
+    --cafe-accent-hover: oklch(0.78 0.08 35);
+    --cafe-crosspost: oklch(0.65 0.1 210);
+    --cafe-interactive: oklch(0.84 0.005 30);
+    --semantic-success: oklch(0.65 0.1 135);
+    --semantic-success-surface: oklch(0.25 0.03 135);
+    --semantic-warning: oklch(0.65 0.1 45);
+    --semantic-warning-surface: oklch(0.25 0.04 45);
+    --semantic-critical: oklch(0.65 0.1 35);
+    --semantic-info: oklch(0.65 0.1 210);
+    --semantic-info-surface: oklch(0.25 0.03 210);
+    --shadow-elevation-1: 0 1px 3px oklch(0 0 0 / 0.3);
+    --shadow-elevation-2: 0 4px 12px oklch(0 0 0 / 0.4);
+  }
+</style>
+</head>
+<body>
+<button class="mode-toggle" onclick="document.documentElement.toggleAttribute('data-theme') || document.documentElement.setAttribute('data-theme', document.documentElement.getAttribute('data-theme') === 'dark' ? '' : 'dark'); this.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? 'Light' : 'Dark'">Dark</button>
+
+<div class="page-wrapper">
+
+<!-- Spec Header -->
+<div class="spec-header">
+  <h1>F235 — Publish to Community</h1>
+  <p>Design mockup | 2026-06-15 | cat: opus-4.6</p>
+  <div class="spec-tags">
+    <span class="spec-tag tag-feature">F235</span>
+    <span class="spec-tag tag-phase">Phase A</span>
+    <span class="spec-tag tag-ux">UX Design</span>
+  </div>
+  <p style="margin-top: 12px; font-size: 11px; color: var(--cafe-text-secondary); line-height: 1.6;">
+    FrustrationIssueCard (F222) confirmed state gains a "Publish to Community" button.
+    Clicking opens an inline preview card for editing before submitting to GitHub.
+    Three states: confirmed + publish button, preview/edit card, published collapsed.
+    All icons SVG, zero emoji.
+  </p>
+</div>
+
+<!-- ================================================================
+     STATE 1: FrustrationIssueCard confirmed + Publish button (NEW)
+     ================================================================ -->
+<div class="section-title">State 1 | Confirmed + Publish Button</div>
+<p class="section-desc">
+  After user confirms a FrustrationIssue, a new "Publish to Community" button appears
+  alongside the disabled "confirmed" ghost button. Left border = semantic-warning (amber,
+  inherited from existing FrustrationIssueCard pattern).
+</p>
+
+<div class="frustr-card">
+  <div class="frustr-header">
+    <svg viewBox="0 0 18 18" fill="none">
+      <path d="M9 1.5L16.5 15H1.5L9 1.5Z" stroke="var(--semantic-warning)" stroke-width="1.5" stroke-linejoin="round"/>
+      <line x1="9" y1="7" x2="9" y2="10.5" stroke="var(--semantic-warning)" stroke-width="1.5" stroke-linecap="round"/>
+      <circle cx="9" cy="13" r="0.8" fill="var(--semantic-warning)"/>
+    </svg>
+    <span class="frustr-title">Frustration Issue</span>
+    <span class="badge badge-confirmed">
+      <svg viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      confirmed
+    </span>
+  </div>
+
+  <div class="frustr-body">
+    Signal: cancel_burst | 60s cancelled 4 permission requests<br>
+    User: permission prompts too frequent
+  </div>
+
+  <div class="frustr-fields">
+    <div><span class="label">trigger </span><span class="value">cancel_burst</span></div>
+    <div><span class="label">severity </span><span class="value">medium</span></div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-ghost" disabled style="opacity: 0.4;">
+      <svg viewBox="0 0 14 14"><path d="M2 7l4 4 6-6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      confirmed
+    </button>
+    <button class="btn btn-publish">
+      <svg viewBox="0 0 14 14" fill="none">
+        <path d="M7 10V3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M4 5.5L7 2.5L10 5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M2 11h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      Publish to Community
+    </button>
+  </div>
+</div>
+
+<div class="annotation">
+  <strong>Design note A</strong> --
+  Publish button uses <code>cafe-accent</code> (warm gold), consistent with all primary CTAs in the system.
+  Arrow-up SVG icon signals "outbound" without introducing a new color.
+  Button only appears after <code>status=confirmed</code>.
+  FrustrationIssueCard left-border uses <code>semantic-warning</code> (amber, friction context) -- existing pattern from F222 PR #2075.
+</div>
+
+<hr class="divider">
+
+<!-- ================================================================
+     STATE 2: Community Issue Preview Card (NEW rich block)
+     ================================================================ -->
+<div class="section-title">State 2 | Community Issue Preview Card</div>
+<p class="section-desc">
+  Inline rich block for editing title/description before publishing.
+  Left border = <code>cafe-crosspost</code> (semantic-info, outbound/cross-post semantic).
+  User can edit title, description (markdown), pick target repository.
+  Sanitizer warning banner always visible.
+</p>
+
+<div class="preview-card">
+  <div class="preview-header">
+    <svg viewBox="0 0 18 18" fill="none">
+      <rect x="2" y="3" width="14" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/>
+      <path d="M2 7h14" stroke="currentColor" stroke-width="1.5"/>
+      <circle cx="5" cy="5" r="0.8" fill="currentColor"/>
+      <circle cx="7.5" cy="5" r="0.8" fill="currentColor"/>
+    </svg>
+    <span class="preview-title">Publish to Community</span>
+    <span class="badge badge-draft">draft</span>
+  </div>
+
+  <div class="field-group">
+    <div class="field-label">Title</div>
+    <input class="field-input" value="Permission prompts too frequent during package install" />
+  </div>
+
+  <div class="field-group">
+    <div class="field-label">Description (markdown)</div>
+    <textarea class="field-input field-area">## Problem
+User cancelled permission requests 4 times within 60 seconds during npm package installation.
+
+## Context
+- Signal type: cancel_burst
+- User note: "permission prompts too frequent"
+
+## Steps to Reproduce
+1. Start a task that requires package installation
+2. Cat requests permission for each npm install command
+3. Repeated prompts cause friction
+
+---
+*Reported via Cat Cafe*</textarea>
+  </div>
+
+  <div class="field-row">
+    <div>
+      <div class="field-label">Repository</div>
+      <select class="field-select">
+        <option>clowder-ai/cat-cafe</option>
+        <option>clowder-ai/cat-cafe-tutorials</option>
+      </select>
+    </div>
+    <div>
+      <div class="field-label">Labels</div>
+      <div class="tag-row">
+        <span class="issue-tag">bug</span>
+        <span class="issue-tag">user-reported</span>
+        <span class="issue-tag">friction</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="warn-banner">
+    <svg viewBox="0 0 14 14" fill="none">
+      <circle cx="7" cy="7" r="6" stroke="currentColor" stroke-width="1.2"/>
+      <line x1="7" y1="4" x2="7" y2="7.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+      <circle cx="7" cy="9.5" r="0.6" fill="currentColor"/>
+    </svg>
+    <span>Internal info (threadId, sessionId, Redis key, catId) has been removed. Please review before publishing.</span>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-confirm">
+      <svg viewBox="0 0 14 14" fill="none">
+        <path d="M7 10V3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M4 5.5L7 2.5L10 5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M2 11h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      Submit to GitHub
+    </button>
+    <button class="btn btn-cancel">Cancel</button>
+  </div>
+</div>
+
+<div class="annotation">
+  <strong>Design note B</strong> --
+  Preview card left-border uses <code>cafe-crosspost</code> (semantic-info, teal-blue) to signal outbound action.
+  Submit button uses <code>semantic-success</code> (green) -- confirming an irreversible external action.
+  Warning banner uses <code>semantic-warning-surface</code> (amber tint).
+  Fields use <code>cafe-surface-canvas</code> bg + <code>cafe-border</code>.
+  All colors from token system, zero ad-hoc values.
+  Server re-sanitizes on submit (KD-4, defense-in-depth: user edits could re-introduce internal info).
+</div>
+
+<hr class="divider">
+
+<!-- ================================================================
+     STATE 3: Published (Collapsed)
+     ================================================================ -->
+<div class="section-title">State 3 | Published (Collapsed)</div>
+<p class="section-desc">
+  After successful publish, card collapses to a single row with badges and GitHub issue link.
+  Same collapse pattern as existing confirmed/skipped FrustrationIssueCards (UX-2, PR #2106).
+  Click to expand full card details.
+</p>
+
+<div class="collapsed-card">
+  <svg viewBox="0 0 16 16" fill="none">
+    <path d="M8 1.5L14.5 13H1.5L8 1.5Z" stroke="var(--cafe-text-muted)" stroke-width="1.2" stroke-linejoin="round"/>
+  </svg>
+  <span class="badge badge-confirmed" style="font-size: 8px;">
+    <svg viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    confirmed
+  </span>
+  <span class="badge badge-published">
+    <svg viewBox="0 0 12 12">
+      <path d="M6 8V3" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+      <path d="M4 4.5L6 2.5L8 4.5" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    published
+  </span>
+  <span class="collapsed-title">Permission prompts too frequent...</span>
+  <a href="#" class="collapsed-link">
+    <svg viewBox="0 0 14 14" fill="none">
+      <path d="M6 8L4.5 9.5C3.7 10.3 2.4 10.3 1.6 9.5C0.8 8.7 0.8 7.4 1.6 6.6L4 4.2C4.8 3.4 6.1 3.4 6.9 4.2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+      <path d="M8 6L9.5 4.5C10.3 3.7 11.6 3.7 12.4 4.5C13.2 5.3 13.2 6.6 12.4 7.4L10 9.8C9.2 10.6 7.9 10.6 7.1 9.8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+    </svg>
+    #347
+  </a>
+</div>
+
+<div class="annotation">
+  <strong>Design note C</strong> --
+  Collapsed state: single row, pill badges, muted icon, truncated title, <code>cafe-crosspost</code>-colored link.
+  Published badge uses <code>semantic-info-surface</code> / <code>semantic-info</code> (same token as crosspost).
+  Click to expand shows full card with all original details.
+  Same collapse pattern as resolved FrustrationIssueCard (UX-2, PR #2106).
+</div>
+
+<hr class="divider">
+
+<!-- ================================================================
+     Design Constraints
+     ================================================================ -->
+<div class="section-title">Design Constraints</div>
+<div style="font-size: 12px; color: var(--cafe-text-secondary); line-height: 2;">
+  <p><strong>KD-2</strong>  Phase A uses bot token (no OAuth). Issue body includes "Reported via Cat Cafe".</p>
+  <p><strong>KD-3</strong>  Target repo from allowlist config. Phase A: single default repo.</p>
+  <p><strong>KD-4</strong>  Whitelist + fail-closed sanitizer. Server re-sanitizes on submit.</p>
+  <p><strong>KD-5</strong>  User-initiated publish. Cat can suggest, publish requires opt-in.</p>
+  <p><strong>KD-6</strong>  Generic CommunityIssuePublisher pipeline. F222 = one source adapter.</p>
+  <p><strong>OKLCH</strong> All colors from theme-tokens.css. Dark mode auto-switches via CSS vars.</p>
+  <p><strong>SVG</strong>  All icons SVG, zero emoji.</p>
+  <p><strong>F222</strong>  Left accent border (semantic-warning) inherited from existing FrustrationIssueCard.</p>
+  <p><strong>F128</strong>  Preview card interaction pattern inspired by propose_thread cards.</p>
+</div>
+
+</div><!-- /page-wrapper -->
+
+</body>
+</html>
