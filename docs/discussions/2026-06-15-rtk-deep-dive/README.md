@@ -28,9 +28,9 @@
 
 ## 1. TL;DR（一句话）
 
-**rtk 是一个真材实料的中型 Rust 工程，不是营销空壳**——核心压缩机制（日志归一化去重、per-command 结构化 parser、二进制 binlog 解码）是真本事。但它对外的三个卖点里**两个有水分**：`<10ms` 是零代码支撑的纯营销声明，`60-90%` 是用"字节削减率"冒充"token 削减率"（全程 `chars/4`，无真 tokenizer）。而且对**标准 Claude Code 工作流有一个根本性覆盖洞**：Read/Grep/Glob 工具调用 100% 绕过 rtk，它只能压 agent 主动走 Bash 的那部分。
+**rtk 是一个真材实料的中型 Rust 工程，不是营销空壳**——核心压缩机制（日志归一化去重、per-command 结构化 parser、二进制 binlog 解码）是真本事。但它对外的三个卖点里**两个有水分**：`<10ms` 是没有隔离 overhead 测量、无 CI 守护的营销声明（仓里有端到端 wall-clock 计时，但从没测 rtk 自身开销），`60-90%` 是用"字节削减率"冒充"token 削减率"（全程 `bytes/4`，无真 tokenizer）。而且对**标准 Claude Code 工作流有一个根本性覆盖洞**：Read/Grep/Glob 工具调用 100% 绕过 rtk，它只能压 agent 主动走 Bash 的那部分。
 
-**给 CVO 的一句话决策**：作为"压 Bash 命令噪音"的工具它是真有效、零成本、可白嫖的；但别信它宣传的覆盖率和精确节省数字，它压不到现代 agent 工作流最大的 token 源（读文件/搜代码）。
+**给 CVO 的一句话决策**：作为"压 Bash 命令噪音"的工具它是真有效、零成本、可白嫖的；但别信它宣传的覆盖率和精确节省数字，它压不到读文件/搜代码（Read/Grep/Glob）这类任务的 token 源——在 repo-heavy 工作流里这就是大头。
 
 ---
 
@@ -39,10 +39,10 @@
 | # | Claim（README） | 判决 | 证据 / Caveat |
 |---|---|---|---|
 | C1 | "Single Rust binary, **zero dependencies**" | ⚠️ **营销话术** | `Cargo.toml` 有 **22 个 crate 依赖**。真实含义只是"单静态二进制、无运行时系统依赖"，不是"无 crate 依赖" |
-| C2 | "**60-90%** token reduction" | ⚠️ **半真**：真压缩 + 假计量 | 输出确实显著变短（真）；但"token"全程是 `estimate_tokens = bytes/4`（`tracking.rs:1284`），测的是**字符削减率非 token 削减率**；无任何 tokenizer 依赖；README 那张表是**手写估算**（update 脚本是 stub，`update-readme-metrics.sh:18-20`） |
-| C3 | "**<10ms** overhead per command" | ❌ **纯营销，零测量** | 全仓无 10ms 断言；唯一计时是 `run.ts:354` 用 hyperfine 测**端到端 wall-clock**（非隔离 overhead），且只 `console.log` 不 assert；CI 只守内存<20MB（`run.ts:380`） |
+| C2 | "**60-90%** token reduction" | ⚠️ **半真**：真压缩 + 假计量 | 输出确实显著变短（真）；但"token"全程是 `estimate_tokens = bytes/4`（`tracking.rs:1284`），测的是**字节削减率（byte ratio）非 token 削减率**；无任何 tokenizer 依赖；README 那张表是**手写估算**（update 脚本是 stub，`update-readme-metrics.sh:18-20`） |
+| C3 | "**<10ms** overhead per command" | ❌ **营销声明，无 overhead 测量** | 全仓无 10ms 断言；唯一计时是 `run.ts:354` 用 hyperfine 测**端到端 wall-clock**（非隔离 overhead），且只 `console.log` 不 assert；CI 只守内存<20MB（`run.ts:380`） |
 | C4 | "Four optimization strategies … **applied per command type**" | ⚠️ **夸大** | 4 策略真实存在，但**非每命令全套**——按命令各取所需（git 不去重、ls 不剥注释、多数命令不走 smart-truncate） |
-| C5 | "Smart Filtering / **Truncation - Keeps relevant context**" | ⚠️ **名不副实** | 相关性排序逻辑 `smart_truncate`（`filter.rs:323`）**全仓只在 `read.rs:173` 一处调用**；命令输出截断本质是 severity 分桶后 dumb `.take(N)` |
+| C5 | "Smart Filtering / **Truncation - Keeps relevant context**" | ⚠️ **名不副实** | `smart_truncate`（`filter.rs:323`）**只在 `read.rs:173` 一处调用**——**无共享的 relevance-ranked truncation 层**；但各 parser 自带 ad hoc relevance 提取（pytest 挑 assertion `pytest_cmd.rs:253`、git 留 hunk header `git.rs:367`），CAP_* 只管数量截断 |
 | C6 | "**100% rtk adoption** across all conversations" | ❌ **误导** | 该"100%"仅对 Bash 工具成立，被**同段下一行**的 scope note 当场限定（`README.md:299` vs `:303`） |
 | C7 | 隐含："给 Claude Code 省 token" | ⚠️ **覆盖洞** | hook matcher 只注入 `"Bash"`（`init.rs:1088`），Read/Grep/Glob 100% 绕过；README:303 主动承认 |
 | C8 | `rtk learn` / `rtk discover`（暗示自我改进） | ⚠️ **telemetry 非学习** | 规则是编译期 `const` 静态表（`rules.rs:13`）；learn 写出的 markdown 从不被读回（`report.rs:68`，write-only）；无 signal→决策→状态→未来行为闭环 |
@@ -99,7 +99,7 @@ rtk (单二进制 CLI, clap dispatch @ main.rs 3272行)
 |---|---|---|---|---|
 | **1. Smart Filtering** | `core/filter.rs:163` MinimalFilter | 语言感知启发式**状态机**（11 种语言注释符表，跟踪块注释/docstring 开闭，保留 doc）；含 issue #464 数据格式豁免（踩坑修正） | **中**（真启发式，非 AST；字符串 `contains` 判注释会误判字面量） | 部分（level 标志 + 用户 TOML） |
 | **2. Grouping** | 散落各 cmd（`ruff_cmd.rs:122` 三层嵌套 / `ls.rs:241` / `grep_cmd.rs:412`…） | HashMap 分桶计数 + 排序 Top-N，每命令按工具语义键定制 | **中-高**（领域定制，但每命令各抄一遍、**无公共抽象**=技术债） | 否 |
-| **3. Truncation** | `core/truncate.rs:5` CAP_* + `filter.rs:323` smart_truncate | 多数命令 dumb `.take(N)`+"+N more"；**唯一的相关性排序 `smart_truncate` 只在 `read.rs:173` 一处调用** | **中**（CAP 分级设计合理；smart 逻辑严重 underused；CAP 硬编码，注释自承"config 化 planned, not yet implemented"） | CAP 不可配；LimitsConfig 可配 |
+| **3. Truncation** | `core/truncate.rs:5` CAP_* + `filter.rs:323` smart_truncate | 无共享 relevance-ranked 层（`smart_truncate` 只在 `read.rs:173`）；各 parser 自带 ad hoc relevance 提取（pytest 挑 assertion `pytest_cmd.rs:253`、git 留 hunk header `git.rs:367`）+ CAP_* 数量截断 | **中**（CAP 分级设计合理；smart 逻辑严重 underused；CAP 硬编码，注释自承"config 化 planned, not yet implemented"） | CAP 不可配；LimitsConfig 可配 |
 | **4. Deduplication** | `cmds/system/log_cmd.rs:68` | **真算法**：5 个 regex 把时间戳/UUID/HEX/大数字/路径归一化成占位符，再对归一化串 hash 分桶折叠成 `[×N]`；docker/kubectl/compose logs **共享同一引擎** | **高**（标准日志去重算法的轻量版，正确处理"同类不同实例"） | 否（全硬编码） |
 
 **per-command 是真 parser 还是泛化 regex？→ 真 parser**。强证据：
@@ -114,18 +114,18 @@ rtk (单二进制 CLI, clap dispatch @ main.rs 3272行)
 
 ## 5. 量化 claim 审计（`<10ms` / `60-90%`）
 
-### 5.1 `<10ms` —— 纯营销，无任何测量 ❌
+### 5.1 `<10ms` —— 有端到端计时，但无隔离 overhead 测量、无守护 ❌
 - 唯一真实计时：`scripts/benchmark/run.ts:354` 用 `hyperfine` 测 `rtk git status` vs `git status` 的**端到端 wall-clock**（含 git 自身执行），不是 rtk 隔离开销；`rtk_mean - raw_mean` 这个减法**代码里根本没做**。
 - 结果只 `console.log`，**无 assert/阈值/退出码**。
 - 全仓搜 overhead/10ms/threshold：唯一硬性能门是**内存 <20MB**（`run.ts:380`），不是时延。CI 的 `benchmark.sh` 完全不计时。
-- **判决**：单 Rust 二进制启动在这量级是合理猜测，但**项目自己从未测过、从未断言、CI 不守护**。"听起来对但无证据"。
+- **判决**：单 Rust 二进制启动在这量级是合理猜测，且仓里有端到端 wall-clock 计时；但**项目从未隔离测过 rtk 自身 overhead、从未对 10ms 断言、CI 不守护**。端到端有数，但"overhead < 10ms"这个具体声明无证据。
 
 ### 5.2 `60-90%` —— 字节削减冒充 token 削减 ⚠️
-- `rtk gain` 展示的节省全链路：`estimate_tokens(text) = ceil(text.len()/4)`（`tracking.rs:1284`，**字节数/4**，UTF-8 多字节还会虚高）→ 存 SQLite → 派生百分比。系数 1/4 在百分比里被约掉，**等价于直接比字符数**。
+- `rtk gain` 展示的节省全链路：`estimate_tokens(text) = ceil(text.len()/4)`（`tracking.rs:1284`，**字节数/4**，UTF-8 多字节还会虚高）→ 存 SQLite → 派生百分比。系数 1/4 在百分比里被约掉，**等价于直接比字节数**（`text.len()` = UTF-8 byte length）。
 - README 那张 `-90%/-92%` 表是**手写估算**，自带免责"Estimates… actual savings vary"（`README.md:57`）；号称的自动更新脚本是 **stub**（`update-readme-metrics.sh:18-20` 注释自承"placeholder"），且表外根本没有它要找的标记。
 - `cc_economics.rs` 接真 ccusage 数据，但真 token 只用来算**单价**，被省 token 数仍是 chars/4（`:129`），工具自己 print"Saved tokens estimated via chars/4 heuristic, not exact tokenizer"（`:535`）。
 - `Cargo.toml` **无 tiktoken-rs/tokenizers/criterion/benches**。`benchmark-sessions/` 是缺 5 个模块的**不可运行残骸**，且即使能跑也只测 terminal-bench 通过率（正确性）不测 token。
-- **判决**：核心压缩机制真实（输出确实大幅变短，byte-savings 测量链路真实且 CI 守 ≥60%）；水分在 (a) "字符削减"≠"token 削减"，对非英文/密集符号/JSON 偏差大；(b) 那张漂亮的高值表是手写的。**诚实度加分**：代码注释主动披露了 chars/4 局限。
+- **判决**：核心压缩机制真实（输出确实大幅变短，byte-savings 测量链路真实且 CI 守 ≥60%）；水分在 (a) "字节削减"≠"token 削减"，对非英文/密集符号/JSON 偏差大（`text.len()` 是 UTF-8 字节数，中文等多字节字符偏差更甚）；(b) 那张漂亮的高值表是手写的。**诚实度加分**：代码注释主动披露了 chars/4 局限。
 
 ---
 
@@ -155,7 +155,11 @@ rtk (单二进制 CLI, clap dispatch @ main.rs 3272行)
 | **WebFetch / WebSearch** | GitHub 主页、外部口碑搜索 | ❌ rtk 完全不管 |
 | **Bash 命令输出** | `git clone`/`find`/`wc`/`ls`/`gh api` | ✅ **能压**（但本 session 占比很小） |
 
-**结论**：在这个真实的代码审计工作流里，rtk 的有效覆盖面是**少数派**——它压不到 Read（文件内容）、Grep（搜代码）、Agent 返回、WebFetch 这些大头，只能压我手敲的几条 Bash。这直接印证：**现代 Claude Code agent 工作流的 token 大头恰好在 rtk 的盲区里**。Bash-heavy 的旧式脚本流 rtk 仍有真实价值；以内置工具为主的 agent 流，宣传的"省 60-90%"与你实际能拿到的相去甚远。
+**结论**：在这个真实的代码审计工作流里，rtk 的有效覆盖面是**少数派**——它压不到 Read（文件内容）、Grep（搜代码）、Agent 返回、WebFetch 这些大头，只能压我手敲的几条 Bash。这直接印证：**在 repo/read-heavy 的工作流里，token 大头恰好落在 rtk 的盲区**。
+
+> ⚠️ **样本校准（砚砚 review OQ1）**：本样本是 teardown，read 密度天然偏高，不能直接外推成"所有 agent 工作流"。但 Read/Grep/Glob 是**任何** Claude Code 编码任务的基础工具（读文件改代码是基本盘），这个洞在任何读文件/搜代码密集的任务都存在，teardown 只是把它放大了。
+
+Bash-heavy 的旧式脚本流 rtk 仍有真实价值；以内置工具为主的 agent 流，宣传的"省 60-90%"覆盖面要打折。
 
 ---
 
@@ -187,3 +191,16 @@ rtk (单二进制 CLI, clap dispatch @ main.rs 3272行)
 ## 9. 一句话给 CVO
 
 要不要用：**想压 `git`/`cargo`/`pytest`/`docker` 这类 Bash 命令的噪音输出——可以白嫖，它真有效、零成本、Apache-2.0。但别信它的覆盖率和精确节省宣传，它碰不到你 agent 工作流里最大的 token 源（读文件/搜代码），那部分还得靠 Claude Code 自己的工具设计和我们 L0 的注入侧压缩。**
+
+---
+
+## 10. Review 记录
+
+- **Reviewer**：砚砚（@gpt52, 缅因猫 GPT-5.4），跨族 review · 2026-06-15
+- **3 findings 全部接受并已修**（均为措辞精度，核心结论不变）：
+  - `P1` `<10ms` 判词过重：原"零测量/无任何测量"与正文自相矛盾（仓里有 hyperfine 端到端计时）→ 改"有端到端 wall-clock 计时，但无隔离 rtk overhead 测量、无 assert/CI 守护"（C3 / §1 / §5.1）
+  - `P2` 字节 vs 字符：`tracking.rs:1284` 用 `text.len()` = **byte length** 非 char count → 全文"字符削减"统一改"字节削减（byte ratio）"，并标注 UTF-8 多字节偏差更甚（C2 / §5.2）
+  - `P2` truncation 压扁过头：原"多数命令 dumb `.take(N)`"抹掉了各 parser 内部的 relevance 提取 → 改"无共享 relevance-ranked 层，但各 parser 自带 ad hoc relevance 提取（pytest `:253` 挑 assertion、git `:367` 留 hunk header），CAP_* 只管数量截断"（C5 / 策略3 / §5.1）
+- **OQ1 收窄**：Read/Grep 洞影响从"现代 agent 工作流"外推收窄为"repo/read-heavy 工作流"，加样本校准注（§6.3）
+- **OQ2 确认**：`log_cmd.rs` / `binlog.rs` 抽查无洞，支撑"真工程非 marketing shell"大结论
+- **未动的核心结论**：rtk 真工程（73k 行）· `<10ms` 无 overhead 测量 · `60-90%` 是 byte ratio 非 token · Read/Grep 覆盖洞真实
