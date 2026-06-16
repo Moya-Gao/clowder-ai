@@ -24,7 +24,7 @@ created: 2026-06-15
 - F148（done）已治理"过去→context"：消息注入分层 + 历史 tool payload scrub（AC-A5）。
 - **缺口（本 feat）**：实时协作读工具全 dump——`get_thread_context`（`callbacks.ts:1975`，default 100/max 200 full body）、`get_pending_mentions`（`callbacks.ts:1645`，每条 inline 全文）、`list_tasks`（`callback-task-routes.ts:239`，why 达 1000 字）；且 `get_message` drill 终点**也回 full content**（砚砚抽查），不改则 dump 只推迟到第二跳。
 - 证据全量：`docs/research/2026-06-15-context-entry-anchor-audit/`
-- **🔑 大头修正（2026-06-15 查证，更正初稿误判）**：cc 内置 Read/Grep/Glob 才是 token 大头。初稿误判"runtime 锁定看不到"——查 cc 官方 hook 文档推翻：**PostToolUse hook + `updatedToolOutput` 能 replace 任何工具（含 Read/Grep/Glob）返回**。rtk 没解决是它只用 PreToolUse（46 处）零 PostToolUse，**不是平台限制**。→ Phase C（spike-gated）。
+- **🔑 大头修正（2026-06-15 查证，更正初稿误判）**：cc 内置 Read/Grep/Glob 才是 token 大头。初稿误判"runtime 锁定看不到"——查 cc 官方 hook 文档推翻：**PostToolUse hook + `updatedToolOutput` 官方显示可 replace 内置工具返回**（⚠️ caveat：replacement 须匹配原 output shape，不对会被忽略；**C0 实测 shape+replace 后才升级为事实**——砚砚钉）。rtk 没解决是它只用 PreToolUse（46 处）零 PostToolUse，**不是平台限制**。家里 F230 已证 PostToolUse 可**观测** Read `tool_response`（可观测≠可替换，C0 补证替换）。→ Phase C（spike-gated）。
 
 ## What
 
@@ -105,4 +105,4 @@ created: 2026-06-15
 - KD-3: drill 终点（get_message）也必须 bounded，否则 dump 只推迟 — 砚砚发现
 - KD-4: V1 不碰 outputSchema 迁移 / subagent schema（subprocess 不可达）— 砚砚收窄
 - KD-5: eval 双边公式，不许单边报省 — 砚砚 anchor tax 风险
-- KD-6: **cc 大头可解**——PostToolUse + `updatedToolOutput` 能 replace 内置工具返回（rtk 只用 PreToolUse 没做到）；升级为 spike-gated Phase C，待砚砚联合 spike 实测复核 — 宪宪查证（更正"runtime 锁定看不到"初稿误判，吸取 Workflow-schema 脑补教训）
+- KD-6: **cc 大头可能可解（待 C0 实测）**——官方 hook 文档显示 PostToolUse + `updatedToolOutput` 可 replace 内置工具返回，**但 built-in replacement 须匹配原 output shape，不对则被忽略**（砚砚 caveat）；C0 实测 shape+replace 真生效后升级为事实。rtk 只用 PreToolUse 没做到 — 宪宪查证（更正"runtime 锁定"初稿误判，吸取 Workflow-schema 脑补教训）+ 砚砚钉 C0 验证条件
