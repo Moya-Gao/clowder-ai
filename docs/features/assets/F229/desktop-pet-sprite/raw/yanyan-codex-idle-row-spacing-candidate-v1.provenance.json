@@ -1,0 +1,31 @@
+{
+  "asset": "yanyan-codex-idle-row-spacing-candidate-v1.png",
+  "featureId": "F229",
+  "role": "spacing-candidate",
+  "status": "rejected-for-production",
+  "source": {
+    "provider": "ChatGPT cloud image generation via CVO prompt iteration",
+    "originalPath": "/Users/lysander/Downloads/idle-yanyan-2.png",
+    "receivedAt": "2026-06-16"
+  },
+  "technicalProperties": {
+    "width": 2951,
+    "height": 533,
+    "mode": "RGB",
+    "sha256": "a0bf26de794bc0d47e45b747daa4782fd759e5f25ff1815dd4201e5ecf70fd5a"
+  },
+  "qa": {
+    "acceptedAsReference": true,
+    "acceptedForAtlas": false,
+    "positiveFindings": [
+      "Six frames are well separated on a wide horizontal strip.",
+      "Frame height, apparent scale, and baseline are much more stable than earlier idle drafts.",
+      "The visual identity is close enough to use as prompt evidence for spacing and idle expression."
+    ],
+    "blockingFindings": [
+      "The file is RGB and has no alpha channel; the checkerboard background is painted into the image.",
+      "The row is not a clean transparent or flat chroma-key source, so automatic extraction treats the background as foreground.",
+      "The strip should be regenerated with true alpha transparency or a single flat chroma-key color."
+    ]
+  }
+}

@@ -9,6 +9,7 @@
 |------|------|------|------|
 | `raw/yanyan-codex-character-base-v1.png` | 缅因猫（砚砚/Codex 皮肤） | **canonical identity base**（已由 CVO 敲定） | CVO 经云端 Codex 生成，2026-06-16 |
 | `raw/yanyan-codex-key-pose-draft-v1.png` | 缅因猫（砚砚/Codex 皮肤） | key-pose draft（不可直接当 atlas） | CVO 经云端 Codex 生成，2026-06-16 |
+| `raw/yanyan-codex-idle-row-spacing-candidate-v1.png` | 缅因猫（砚砚/Codex 皮肤） | spacing candidate（不可直接当 atlas；RGB 棋盘格背景） | CVO 经云端 Codex 生成，2026-06-16 |
 | `raw/yanyan-codex-desktop-pet-expression-sheet-v1.png` | 缅因猫（砚砚/Codex 皮肤） | raw（无透明底，需加工） | CVO 经云端 Codex 生成，2026-06-12，commit fbb0e8add |
 | `raw/yanyan-codex-desktop-pet-working-sheet-v1.png` | 缅因猫（工作姿态） | raw（同上） | 同上 |
 | （待生成）布偶猫 sheet | **v1 默认皮肤**（KD-14） | 未生成 | 用下方 prompt 模板 |
@@ -21,7 +22,7 @@ Current production contract follows `hatch-pet` + `docs/features/F229-petskin-co
 1. **锁身份**：以 `raw/yanyan-codex-character-base-v1.png` 作为 canonical base；后续所有 row strip 必须保持同一张脸、银灰虎斑、白胸毛、呆毛、蓬松尾巴。
 2. **生成 9 个状态行**：`idle` / `running-right` / `running-left` / `waving` / `jumping` / `failed` / `waiting` / `running` / `review`。
 3. **每状态多帧**：每个状态生成 row strip，而不是 1 张静态姿势。`idle` 先做身份与动画试点；`running-right` 先验方向步态，再决定 `running-left` 是否可镜像。
-4. **确定性加工**：用 `hatch-pet` scripts 抽帧、透明化、合成 `spritesheet.webp`、生成 `pet.json`、contact sheet 和 motion preview。
+4. **宽松生成，确定性加工**：云端 row strip 可以是高分辨率宽画布，重点是帧间距、同尺度、同基线、干净透明/纯色背景；最终 `192x208` 格子由 `hatch-pet` scripts 抽帧、透明化、缩放、合成 `spritesheet.webp`、生成 `pet.json`、contact sheet 和 motion preview。
 5. **三道闸**：readability / identity-diff / provenance 全过才接 `ConciergeConfig.skin`。
 
 `raw/yanyan-codex-key-pose-draft-v1.png` 只用于状态语义讨论；它包含星星、水滴、动效线等 detached effects，不能直接作为 production atlas。
@@ -49,4 +50,6 @@ Current production contract follows `hatch-pet` + `docs/features/F229-petskin-co
 - `idle` 通过 identity-diff 后，再生成 `running-right` row strip。
 - 每次只生成一个 row strip；不要一次性生成完整 atlas。
 - 禁止文字、UI、场景、阴影、guide marks、星星、水滴、动效线、速度线、漂浮符号。
-- 输出必须是干净可抠背景、全身完整、不跨格、不裁切、同一只猫。
+- 输出必须是全身完整、不跨格、不裁切、同一只猫。
+- 优先真实透明 PNG（文件必须有 alpha 通道）。如果云端不能给真透明，退而求其次用单一纯色 chroma-key 背景；禁止把棋盘格透明预览画进 RGB 图。
+- 不要要求云端直接挤进最终 `192x208` cell；生成阶段用宽画布和大间距，后处理再归一化到 atlas。

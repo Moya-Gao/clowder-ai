@@ -37,9 +37,14 @@ Full final atlas:
 - transparent output after processing
 - row strips are generated first, then deterministic scripts compose the final atlas
 
+Important distinction:
+
+- **Final atlas geometry** is strict: each processed frame becomes a `192 x 208` cell.
+- **Cloud generation geometry** should be generous: ask for a wide working strip with large spacing, stable scale, stable baseline, and clean background. Do not ask the image model to cram final `192 x 208` cells directly; deterministic scripts own the final crop/downscale.
+
 Rows:
 
-| Row | State | Frames | Strip size | Layout guide | Meaning |
+| Row | State | Frames | Final processed strip | Layout guide | Meaning |
 |---:|---|---:|---|---|---|
 | 0 | `idle` | 6 | 1152 x 208 | `layout-guides/idle.png` | calm resting, breathing, blinking |
 | 1 | `running-right` | 8 | 1536 x 208 | `layout-guides/running-right.png` | drag movement to the right |
@@ -58,6 +63,17 @@ Always attach both:
 
 The layout guide is for spacing only. The output must not contain visible guide lines, boxes, crosshairs, labels, or guide background.
 
+For cloud generation, prefer these working-strip sizes before deterministic processing:
+
+| Frames | Suggested working strip | Approx slot |
+|---:|---|---|
+| 4 | 2000 x 540 | 500 x 540 |
+| 5 | 2500 x 540 | 500 x 540 |
+| 6 | 3000 x 540 | 500 x 540 |
+| 8 | 4000 x 540 | 500 x 540 |
+
+Each full-body cat should occupy roughly `360 x 450` px inside the working slot, with at least `60 px` clear horizontal padding and `35 px` vertical padding. The final atlas will downsample after extraction.
+
 ## Generation Order
 
 Do not generate everything at once.
@@ -75,7 +91,9 @@ All state meaning must come from the pet pose and expression, not from loose eff
 
 ## Per-Row Prompt Template
 
-Use the canonical reference image and the row layout guide. Create Codex pet row `<state>` for `yanyan-codex`: exactly `<frames>` full-body frames in one horizontal strip on a flat removable chroma-key background. Output size should match the row contract: `<strip-width>` x 208 px. Treat the row as `<frames>` invisible 192 x 208 slots: one centered complete pose per slot, evenly spaced, with no overlap, clipping, empty slots, labels, or borders.
+Use the canonical reference image and the row layout guide. Create Codex pet row `<state>` for `yanyan-codex`: exactly `<frames>` full-body frames in one wide horizontal working strip. Use a real transparent PNG background if possible; if true alpha is not available, use one flat solid chroma-key color. Do not paint a checkerboard transparency preview into the image.
+
+Do not cram the cat into final atlas cells during generation. Treat the working strip as `<frames>` large invisible slots, roughly 500 px wide and 540 px tall each: one centered complete pose per slot, evenly spaced, with generous empty space between frames, no overlap, clipping, empty slots, labels, or borders.
 
 Same pet in every frame: silver-gray Maine Coon, central forehead tuft, white chest and muzzle, dense gray tabby markings, fluffy striped tail, calm serious Codex expression. Preserve silhouette, face, proportions, markings, palette, material, and tail design.
 
@@ -85,8 +103,9 @@ Animation continuity: keep apparent pet scale and baseline stable within the row
 
 Spacing and scale lock:
 
-- each frame lives inside its own 192 x 208 slot
-- keep at least 16 px clear padding between the pet silhouette and slot edges
+- each frame lives inside its own wide working slot
+- keep at least 60 px clear horizontal padding between the cat silhouette and each slot edge
+- keep at least 35 px clear vertical padding above and below the cat silhouette
 - keep feet/body anchor on the same baseline for all non-jumping rows
 - keep head top, body height, and tail size consistent across frames
 - move only the intended body parts for the frame plan
@@ -246,7 +265,7 @@ Reject the row if:
 - idle is visually static or too distracting
 - directional rows face or travel the wrong way
 
-## Copy-Paste Prompt: `idle` Row v3
+## Copy-Paste Prompt: `idle` Row v4
 
 Attach both images:
 
@@ -260,9 +279,13 @@ Use the attached cat reference image as the exact character identity. Use the at
 
 Create one Codex pet animation row for state `idle`.
 
-Output exactly 6 full-body frames in one horizontal strip, left to right, on a flat solid removable chroma-key background, preferably pure green #00FF00. Target output size is 1152 x 208 px: 6 slots, each 192 x 208 px. Do not use a checkerboard transparency preview background.
+Output exactly 6 full-body frames in one wide horizontal strip, left to right.
 
-Treat the strip as 6 invisible equal-width slots: one centered complete cat per slot, evenly spaced, no overlap, no cropping, no empty slots, no labels, no borders, no visible guide marks. Do not copy the blue boxes, crosshairs, or guide background into the output.
+Preferred output: true transparent PNG with an actual alpha channel.
+
+If true alpha transparency is not available, use one flat solid removable chroma-key background color instead. Do not use white, gray, checkerboard, or a transparency-preview checker pattern. Do not paint a checkerboard into the image.
+
+Use a large working canvas, about 3000 x 540 px. Treat it as 6 large invisible slots, about 500 x 540 px each: one centered complete cat per slot, evenly spaced, no overlap, no cropping, no empty slots, no labels, no borders, no visible guide marks. Do not copy the blue boxes, crosshairs, or guide background into the output. This is a working strip; the final atlas will be cropped and downsampled later.
 
 Same cat in every frame: silver-gray Maine Coon, central forehead tuft, large pointed ears with dark rim and pink inner ear, white chest and muzzle, dense gray tabby markings, fluffy striped tail, calm serious Codex expression. Do not change face shape, species, markings, palette, body proportions, tail shape, or ear shape between frames.
 
@@ -272,7 +295,9 @@ Scale and baseline lock:
 - Keep the cat the same apparent size in all 6 frames.
 - Keep the seated body and feet on the same baseline in all 6 frames.
 - Keep head top, ear height, body width, and tail size consistent.
-- Keep at least 16 px padding between the cat silhouette and every slot edge.
+- Each cat should occupy roughly the same area, about 360 px wide and 450 px tall inside its large working slot.
+- Keep at least 60 px clear horizontal padding between the cat silhouette and the slot edges.
+- Keep at least 35 px clear vertical padding above the ears and below the paws/tail.
 - Do not zoom, shrink, stretch, slide, or re-center the cat differently per frame.
 - Do not make any frame a proud chest-out pose, heroic pose, or different posture.
 - Do not redraw the tail in a different full pose; only the tail tip may move.
@@ -297,9 +322,12 @@ Reject examples:
 - the cat's feet baseline moves up or down
 - the tail root or full tail pose changes instead of only the tip
 - the expression changes into happy, smug, angry, or sleepy except for the intended blink
-- background is checkerboard instead of a flat solid chroma key
+- background is checkerboard, white, gray, textured, or scene-like instead of real alpha transparency or a single flat chroma-key color
+- the strip is too narrow and the cats are crowded together
 
 Return only one clean horizontal row strip image.
 ```
 
-If the result has too-small spacing, visible drift, frame-to-frame scale changes, or expression drift, reject it instead of repairing locally. Regenerate the row with the same two attached images and the same prompt.
+If the result has too-small spacing, visible drift, frame-to-frame scale changes, expression drift, painted checkerboard background, or no true alpha/chroma background, reject it instead of repairing locally. Regenerate the row with the same two attached images and the same prompt.
+
+Reference QA note: `raw/yanyan-codex-idle-row-spacing-candidate-v1.png` has good spacing and stable scale, but it is rejected for production because it is RGB with a painted checkerboard background rather than true transparency or clean chroma key.
