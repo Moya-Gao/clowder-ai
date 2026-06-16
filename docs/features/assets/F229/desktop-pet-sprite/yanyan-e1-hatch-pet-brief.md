@@ -39,17 +39,24 @@ Full final atlas:
 
 Rows:
 
-| Row | State | Frames | Meaning |
-|---:|---|---:|---|
-| 0 | `idle` | 6 | calm resting, breathing, blinking |
-| 1 | `running-right` | 8 | drag movement to the right |
-| 2 | `running-left` | 8 | drag movement to the left |
-| 3 | `waving` | 4 | greeting / attention gesture |
-| 4 | `jumping` | 5 | hover or playful jump |
-| 5 | `failed` | 8 | blocked / failed / cancelled |
-| 6 | `waiting` | 6 | waiting for approval/help/user input |
-| 7 | `running` | 6 | active task work / processing |
-| 8 | `review` | 6 | ready / reviewing completed output |
+| Row | State | Frames | Strip size | Layout guide | Meaning |
+|---:|---|---:|---|---|---|
+| 0 | `idle` | 6 | 1152 x 208 | `layout-guides/idle.png` | calm resting, breathing, blinking |
+| 1 | `running-right` | 8 | 1536 x 208 | `layout-guides/running-right.png` | drag movement to the right |
+| 2 | `running-left` | 8 | 1536 x 208 | `layout-guides/running-left.png` | drag movement to the left |
+| 3 | `waving` | 4 | 768 x 208 | `layout-guides/waving.png` | greeting / attention gesture |
+| 4 | `jumping` | 5 | 960 x 208 | `layout-guides/jumping.png` | hover or playful jump |
+| 5 | `failed` | 8 | 1536 x 208 | `layout-guides/failed.png` | blocked / failed / cancelled |
+| 6 | `waiting` | 6 | 1152 x 208 | `layout-guides/waiting.png` | waiting for approval/help/user input |
+| 7 | `running` | 6 | 1152 x 208 | `layout-guides/running.png` | active task work / processing |
+| 8 | `review` | 6 | 1152 x 208 | `layout-guides/review.png` | ready / reviewing completed output |
+
+Always attach both:
+
+1. canonical identity image: `raw/yanyan-codex-character-base-v1.png`
+2. row layout guide: `layout-guides/<state>.png`
+
+The layout guide is for spacing only. The output must not contain visible guide lines, boxes, crosshairs, labels, or guide background.
 
 ## Generation Order
 
@@ -68,13 +75,22 @@ All state meaning must come from the pet pose and expression, not from loose eff
 
 ## Per-Row Prompt Template
 
-Use the canonical reference image. Create Codex pet row `<state>` for `yanyan-codex`: exactly `<frames>` full-body frames in one horizontal strip on a flat removable chroma-key background. Treat the row as `<frames>` invisible equal-width slots: one centered complete pose per slot, evenly spaced, with no overlap, clipping, empty slots, labels, or borders.
+Use the canonical reference image and the row layout guide. Create Codex pet row `<state>` for `yanyan-codex`: exactly `<frames>` full-body frames in one horizontal strip on a flat removable chroma-key background. Output size should match the row contract: `<strip-width>` x 208 px. Treat the row as `<frames>` invisible 192 x 208 slots: one centered complete pose per slot, evenly spaced, with no overlap, clipping, empty slots, labels, or borders.
 
 Same pet in every frame: silver-gray Maine Coon, central forehead tuft, white chest and muzzle, dense gray tabby markings, fluffy striped tail, calm serious Codex expression. Preserve silhouette, face, proportions, markings, palette, material, and tail design.
 
 State action: `<state-specific action>`.
 
-Animation continuity: keep apparent pet scale and baseline stable within the row unless the state intentionally changes vertical position, such as `jumping`. The first and last frame should loop cleanly.
+Animation continuity: keep apparent pet scale and baseline stable within the row unless the state intentionally changes vertical position, such as `jumping`. The first and last frame should loop cleanly. The body bounding box must remain within roughly the same width and height across frames; do not zoom the cat larger or smaller between slots.
+
+Spacing and scale lock:
+
+- each frame lives inside its own 192 x 208 slot
+- keep at least 16 px clear padding between the pet silhouette and slot edges
+- keep feet/body anchor on the same baseline for all non-jumping rows
+- keep head top, body height, and tail size consistent across frames
+- move only the intended body parts for the frame plan
+- never let a pose cross into a neighboring slot
 
 Return only one clean row strip image for this state.
 
@@ -229,18 +245,35 @@ Reject the row if:
 - idle is visually static or too distracting
 - directional rows face or travel the wrong way
 
-## Copy-Paste Prompt: `idle` Row v2
+## Copy-Paste Prompt: `idle` Row v3
 
-Attach `docs/features/assets/F229/desktop-pet-sprite/raw/yanyan-codex-character-base-v1.png` as the reference image, then send:
+Attach both images:
+
+1. `docs/features/assets/F229/desktop-pet-sprite/raw/yanyan-codex-character-base-v1.png` as the character identity reference.
+2. `docs/features/assets/F229/desktop-pet-sprite/layout-guides/idle.png` as the spacing/layout guide.
+
+Then send:
 
 ```text
-Use the attached reference image as the exact character identity. Create one Codex pet animation row for state `idle`.
+Use the attached cat reference image as the exact character identity. Use the attached layout guide only for spacing and slot geometry.
 
-Output exactly 6 full-body frames in one horizontal strip, left to right, on a flat removable chroma-key background. Treat the strip as 6 invisible equal-width slots: one centered complete cat per slot, evenly spaced, no overlap, no cropping, no empty slots, no labels, no borders, no visible guide marks.
+Create one Codex pet animation row for state `idle`.
+
+Output exactly 6 full-body frames in one horizontal strip, left to right, on a flat removable chroma-key background. Target output size is 1152 x 208 px: 6 slots, each 192 x 208 px.
+
+Treat the strip as 6 invisible equal-width slots: one centered complete cat per slot, evenly spaced, no overlap, no cropping, no empty slots, no labels, no borders, no visible guide marks. Do not copy the blue boxes, crosshairs, or guide background into the output.
 
 Same cat in every frame: silver-gray Maine Coon, central forehead tuft, large pointed ears with dark rim and pink inner ear, white chest and muzzle, dense gray tabby markings, fluffy striped tail, calm serious Codex expression. Do not change face shape, species, markings, palette, body proportions, tail shape, or ear shape between frames.
 
 This is a calm low-distraction idle loop. Do not make the cat wave, walk, run, jump, work, talk, react dramatically, or use props.
+
+Scale and baseline lock:
+- Keep the cat the same apparent size in all 6 frames.
+- Keep the seated body and feet on the same baseline in all 6 frames.
+- Keep head top, ear height, body width, and tail size consistent.
+- Keep at least 16 px padding between the cat silhouette and every slot edge.
+- Do not zoom, shrink, stretch, slide, or re-center the cat differently per frame.
+- Only the breathing height, eyelids, head dip, and tail-tip position should change.
 
 Frame plan:
 1. Eyes open, neutral seated pose, tail rests curled at baseline. This is the canonical rest pose.
@@ -256,3 +289,5 @@ Forbidden: text, UI, scenery, speech bubbles, labels, code, shadows, floor marks
 
 Return only one clean horizontal row strip image.
 ```
+
+If the result has too-small spacing, visible drift, frame-to-frame scale changes, or expression drift, reject it instead of repairing locally. Regenerate the row with the same two attached images and the same prompt.
