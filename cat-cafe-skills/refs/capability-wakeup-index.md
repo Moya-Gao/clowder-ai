@@ -293,6 +293,7 @@ opus-47 原把 `workspace-navigator` / `rich-messaging` / `browser-preview` 一�
 | expert-panel / review 报告只发聊天 | `cat_cafe_generate_document` | 生成正式 DOCX/PDF 文档（凭证不过期、可存档、可对外） |
 | 想重开一条已知调查路线 | `cat_cafe_run_perspective` | git-backed Perspective live query 计划重放（advanced/niche，返回 route hints + anchors，仍需 typed reader 取证据） |
 | review 后 lesson 散在脑子里 | `cat_cafe_review_distillation` | 蒸馏 review 结论沉淀（配合 mark_generalizable） |
+| 发现铲屎官偏好/习惯变了，或做对了某个互动 | `cat_cafe_propose_profile_update` | 提议更新 per-cat 关系画像 primer（F231 Phase C），CVO 在 Hub 卡片审批（已进 L0 §8 Tier 1） |
 
 > **MCP 完整速查**：L0 §7 是 quick index（记忆 / 协作 / 任务 / Rich block / Drill-down 5 类）；本表补"能力类但易忘"的。完整工具集 `tool_search` 精确搜或读 `packages/mcp-server/src/tools/`。
 
