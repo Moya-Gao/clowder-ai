@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>F168 C3.2 — DirectionCard + Role Dropdown Design</title>
+<style>
+  /* ============================================================
+   * Cat Café Design System — OKLCH Token Subset for Mockup
+   * Source: packages/web/src/app/theme-tokens.css
+   * ============================================================ */
+  :root {
+    /* Surface */
+    --cafe-surface-sunken: oklch(0.92 0.015 80);
+    --cafe-surface: oklch(0.95 0.012 80);
+    --cafe-surface-elevated: oklch(0.99 0.005 80);
+    --cafe-surface-canvas: oklch(0.995 0.003 80);
+    /* Text */
+    --cafe-text: oklch(0.2 0.005 30);
+    --cafe-text-secondary: oklch(0.45 0.005 30);
+    --cafe-text-muted: oklch(0.56 0.005 30);
+    /* Border */
+    --cafe-border: oklch(0.84 0.005 30);
+    --cafe-border-subtle: oklch(0.915 0.005 30);
+    /* Accent */
+    --cafe-accent: oklch(0.55 0.14 50);
+    --cafe-accent-hover: oklch(0.45 0.14 50);
+    /* Semantic */
+    --cafe-crosspost: oklch(0.55 0.12 210);
+    --cafe-interactive: oklch(0.36 0.005 30);
+    --semantic-success: oklch(0.55 0.12 135);
+    --semantic-success-surface: oklch(0.96 0.03 135);
+    --semantic-warning: oklch(0.55 0.12 45);
+    --semantic-warning-surface: oklch(0.96 0.04 45);
+    --semantic-critical: oklch(0.55 0.12 35);
+    --semantic-critical-surface: oklch(0.96 0.03 35);
+    --semantic-info: oklch(0.55 0.12 210);
+    --semantic-info-surface: oklch(0.96 0.03 210);
+    /* Agent Brand */
+    --color-opus-primary: #9B7EBD;
+    --color-codex-primary: #5B8C5A;
+    --color-gemini-primary: #5B9BD5;
+    --color-owner-primary: #E29578;
+    /* Shadow */
+    --shadow-elevation-1: 0 1px 2px oklch(0 0 0 / 0.06);
+    --shadow-elevation-2: 0 4px 10px oklch(0 0 0 / 0.1);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', sans-serif;
+    background: var(--cafe-surface);
+    color: var(--cafe-text);
+    line-height: 1.5;
+  }
+
+  .page-wrapper {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+
+  /* ── Design Spec Header ── */
+  .spec-header {
+    background: var(--cafe-surface-canvas);
+    border: 1px solid var(--cafe-border-subtle);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 32px;
+    box-shadow: var(--shadow-elevation-1);
+  }
+  .spec-header h1 {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .spec-header p {
+    font-size: 12px;
+    color: var(--cafe-text-muted);
+    margin-bottom: 4px;
+  }
+  .spec-header .tag {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 99px;
+    margin-right: 6px;
+  }
+  .tag-feature { background: oklch(0.94 0.03 210); color: oklch(0.35 0.12 210); }
+  .tag-phase { background: oklch(0.94 0.04 45); color: oklch(0.35 0.12 45); }
+  .tag-ux { background: oklch(0.94 0.03 135); color: oklch(0.35 0.12 135); }
+
+  /* ── Section titles ── */
+  .section-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--cafe-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 32px 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--cafe-border-subtle);
+  }
+  .section-desc {
+    font-size: 12px;
+    color: var(--cafe-text-muted);
+    margin-bottom: 16px;
+    line-height: 1.6;
+  }
+
+  /* ── Mockup Container（模拟 Workspace 右侧面板） ── */
+  .workspace-mock {
+    background: var(--cafe-surface);
+    border: 1px solid var(--cafe-border);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: var(--shadow-elevation-2);
+    margin-bottom: 32px;
+  }
+  .workspace-tabs {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 12px;
+    background: var(--cafe-surface-sunken);
+    border-bottom: 1px solid var(--cafe-border-subtle);
+  }
+  .workspace-tab {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 99px;
+    cursor: pointer;
+    color: oklch(0.36 0.005 30 / 0.4);
+    border: 1px solid transparent;
+    background: none;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .workspace-tab.active {
+    background: var(--cafe-surface);
+    color: var(--cafe-interactive);
+    border-color: oklch(0.84 0.005 30 / 0.6);
+  }
+  .workspace-tab svg { width: 12px; height: 12px; }
+
+  /* ── Community Panel Header（现有） ── */
+  .panel-filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid oklch(0.915 0.005 30 / 0.4);
+  }
+  .panel-filter-bar select {
+    font-size: 10px;
+    background: var(--cafe-surface);
+    border: 1px solid oklch(0.915 0.005 30 / 0.3);
+    border-radius: 4px;
+    padding: 3px 6px;
+    color: var(--cafe-text-secondary);
+  }
+  .sync-btn {
+    font-size: 10px;
+    color: oklch(0.36 0.005 30 / 0.6);
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .sync-btn:hover { color: var(--cafe-interactive); }
+  .sync-btn svg { width: 14px; height: 14px; }
+
+  .panel-stats {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 12px;
+    font-size: 9px;
+    color: var(--cafe-text-muted);
+    border-bottom: 1px solid oklch(0.915 0.005 30 / 0.2);
+  }
+
+  /* ── Section Header（现有 pattern） ── */
+  .section-hdr {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .section-hdr:hover { background: oklch(0.99 0.005 80 / 0.5); }
+  .section-hdr-label {
+    font-size: 10px;
+    font-weight: 600;
+  }
+  .section-hdr-count {
+    font-size: 9px;
+    color: var(--cafe-text-muted);
+    background: var(--cafe-surface-elevated);
+    border-radius: 99px;
+    padding: 1px 6px;
+  }
+  .section-hdr-arrow {
+    margin-left: auto;
+    font-size: 9px;
+    color: var(--cafe-text-muted);
+  }
+
+  /* ── Issue Row（现有 pattern） ── */
+  .issue-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .issue-row:hover { background: oklch(0.99 0.005 80 / 0.3); }
+  .issue-row svg { width: 12px; height: 12px; flex-shrink: 0; }
+  .issue-num {
+    font-size: 9px;
+    color: var(--cafe-text-muted);
+  }
+  .issue-num:hover { color: var(--cafe-accent); text-decoration: underline; }
+  .issue-title { flex: 1; color: var(--cafe-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .issue-time { font-size: 9px; color: var(--cafe-text-muted); }
+  .issue-cat { font-size: 9px; color: oklch(0.55 0.14 50 / 0.6); }
+
+  /* ── Dispatch Button（现有） ── */
+  .dispatch-btn {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    background: oklch(0.55 0.12 210 / 0.1);
+    color: var(--cafe-crosspost);
+    transition: background 0.15s;
+  }
+  .dispatch-btn:hover { background: oklch(0.55 0.12 210 / 0.2); }
+
+  /* ============================================================
+   * ★ NEW: DirectionCard — C3.2 核心新增组件
+   * 嵌入 Issue Row 展开态 / 或独立卡片
+   * ============================================================ */
+  .direction-card {
+    margin: 4px 12px 8px 12px;
+    background: var(--cafe-surface-canvas);
+    border: 1px solid var(--cafe-border-subtle);
+    border-left: 3px solid var(--cafe-accent);
+    border-radius: 8px;
+    padding: 12px 14px;
+    box-shadow: var(--shadow-elevation-1);
+    animation: card-in 0.2s ease-out;
+  }
+  @keyframes card-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .dc-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .dc-badge {
+    font-size: 9px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 99px;
+  }
+  .dc-badge-welcome { background: var(--semantic-success-surface); color: var(--semantic-success); }
+  .dc-badge-discuss { background: var(--semantic-warning-surface); color: var(--semantic-warning); }
+  .dc-badge-decline { background: var(--semantic-critical-surface); color: var(--semantic-critical); }
+  .dc-badge-narrator {
+    background: oklch(0.94 0.03 280);
+    color: oklch(0.4 0.12 280);
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .dc-badge-narrator svg { width: 10px; height: 10px; }
+  .dc-source {
+    font-size: 9px;
+    color: var(--cafe-text-muted);
+    margin-left: auto;
+  }
+
+  .dc-narrative {
+    font-size: 12px;
+    color: var(--cafe-text);
+    margin-bottom: 10px;
+    line-height: 1.6;
+    padding: 8px 10px;
+    background: var(--cafe-surface-elevated);
+    border-radius: 6px;
+    border: 1px solid oklch(0.915 0.005 30 / 0.3);
+  }
+  .dc-narrative em {
+    font-style: normal;
+    color: var(--cafe-accent);
+    font-weight: 500;
+  }
+
+  /* 5 问结果 */
+  .dc-questions {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 4px;
+    margin-bottom: 10px;
+  }
+  .dc-q {
+    text-align: center;
+    padding: 4px 2px;
+    border-radius: 4px;
+    font-size: 9px;
+    font-weight: 600;
+  }
+  .dc-q-label {
+    display: block;
+    font-size: 8px;
+    font-weight: 400;
+    color: var(--cafe-text-muted);
+    margin-bottom: 2px;
+  }
+  .dc-q-pass { background: var(--semantic-success-surface); color: var(--semantic-success); }
+  .dc-q-warn { background: var(--semantic-warning-surface); color: var(--semantic-warning); }
+  .dc-q-fail { background: var(--semantic-critical-surface); color: var(--semantic-critical); }
+
+  /* 证据引用 */
+  .dc-evidence {
+    margin-bottom: 10px;
+  }
+  .dc-evidence-title {
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--cafe-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+  }
+  .dc-evidence-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .dc-evidence-tag {
+    font-size: 9px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--cafe-surface-sunken);
+    color: var(--cafe-text-secondary);
+    border: 1px solid var(--cafe-border-subtle);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .dc-evidence-tag:hover { border-color: var(--cafe-accent); color: var(--cafe-accent); }
+  .dc-evidence-tag svg { width: 10px; height: 10px; }
+
+  /* ★ 路由推荐 + Role 下拉 */
+  .dc-route-section {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px;
+    margin-top: 8px;
+    background: var(--cafe-surface-sunken);
+    border-radius: 6px;
+    border: 1px solid var(--cafe-border-subtle);
+  }
+  .dc-route-label {
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--cafe-text-muted);
+    white-space: nowrap;
+  }
+  .dc-route-target {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--cafe-interactive);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .dc-route-target svg { width: 14px; height: 14px; color: var(--cafe-accent); }
+
+  /* Role 下拉 */
+  .dc-role-select {
+    font-size: 10px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--cafe-border);
+    background: var(--cafe-surface-canvas);
+    color: var(--cafe-text-secondary);
+    cursor: pointer;
+    min-width: 100px;
+  }
+  .dc-role-select:hover { border-color: var(--cafe-accent); }
+  .dc-role-select:focus { outline: 2px solid oklch(0.55 0.14 50 / 0.3); border-color: var(--cafe-accent); }
+
+  /* ★ 行动按钮组 */
+  .dc-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+  }
+  .dc-btn {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.15s;
+  }
+  .dc-btn svg { width: 12px; height: 12px; }
+  .dc-btn-accept {
+    background: var(--semantic-success);
+    color: white;
+    border-color: var(--semantic-success);
+  }
+  .dc-btn-accept:hover { background: oklch(0.48 0.12 135); }
+  .dc-btn-decline {
+    background: var(--cafe-surface-canvas);
+    color: var(--cafe-text-muted);
+    border-color: var(--cafe-border);
+  }
+  .dc-btn-decline:hover { border-color: var(--semantic-critical); color: var(--semantic-critical); }
+  .dc-btn-discuss {
+    background: var(--cafe-surface-canvas);
+    color: var(--semantic-warning);
+    border-color: oklch(0.55 0.12 45 / 0.3);
+  }
+  .dc-btn-discuss:hover { border-color: var(--semantic-warning); }
+
+  .dc-spacer { flex: 1; }
+
+  /* ── Annotation lines ── */
+  .annotation {
+    font-size: 11px;
+    color: oklch(0.45 0.08 280);
+    background: oklch(0.96 0.02 280);
+    border: 1px dashed oklch(0.75 0.08 280);
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin: 8px 0;
+    line-height: 1.5;
+  }
+  .annotation strong { font-weight: 700; }
+
+  /* ── Dark Mode Toggle ── */
+  .mode-toggle {
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    padding: 6px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 6px;
+    border: 1px solid var(--cafe-border);
+    background: var(--cafe-surface-canvas);
+    color: var(--cafe-text-secondary);
+    cursor: pointer;
+    z-index: 100;
+  }
+
+  /* ── Dark Mode ── */
+  [data-theme="dark"] {
+    --cafe-surface-sunken: oklch(0.2 0.008 30);
+    --cafe-surface: oklch(0.22 0.006 30);
+    --cafe-surface-elevated: oklch(0.26 0.004 30);
+    --cafe-surface-canvas: oklch(0.28 0.003 30);
+    --cafe-text: oklch(0.95 0.005 30);
+    --cafe-text-secondary: oklch(0.75 0.005 30);
+    --cafe-text-muted: oklch(0.66 0.005 30);
+    --cafe-border: oklch(0.35 0.005 30);
+    --cafe-border-subtle: oklch(0.24 0.005 30);
+    --cafe-accent: oklch(0.68 0.072 35);
+    --cafe-accent-hover: oklch(0.78 0.08 35);
+    --cafe-crosspost: oklch(0.65 0.1 210);
+    --cafe-interactive: oklch(0.84 0.005 30);
+    --semantic-success: oklch(0.65 0.1 135);
+    --semantic-success-surface: oklch(0.25 0.03 135);
+    --semantic-warning: oklch(0.65 0.1 45);
+    --semantic-warning-surface: oklch(0.25 0.04 45);
+    --semantic-critical: oklch(0.65 0.1 35);
+    --semantic-critical-surface: oklch(0.25 0.03 35);
+    --semantic-info: oklch(0.65 0.1 210);
+    --semantic-info-surface: oklch(0.25 0.03 210);
+    --shadow-elevation-1: 0 1px 3px oklch(0 0 0 / 0.3);
+    --shadow-elevation-2: 0 4px 12px oklch(0 0 0 / 0.4);
+  }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--cafe-border-subtle);
+    margin: 24px 0;
+  }
+</style>
+</head>
+<body>
+<button class="mode-toggle" onclick="document.documentElement.toggleAttribute('data-theme') || document.documentElement.setAttribute('data-theme', document.documentElement.getAttribute('data-theme') === 'dark' ? '' : 'dark'); this.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀ Light' : '☾ Dark'">☾ Dark</button>
+
+<div class="page-wrapper">
+
+<!-- ── Spec Header ── -->
+<div class="spec-header">
+  <h1>F168 C3.2 — DirectionCard + Role Dropdown</h1>
+  <p>设计稿 · 2026-06-15 · 宪宪/claude-opus-4-6</p>
+  <div style="margin-top: 8px;">
+    <span class="tag tag-feature">F168</span>
+    <span class="tag tag-phase">Phase C3.2</span>
+    <span class="tag tag-ux">UX Design</span>
+  </div>
+  <p style="margin-top: 12px; font-size: 11px; color: var(--cafe-text-secondary); line-height: 1.6;">
+    narrator 初判产出定方向卡片，铲屎官/owner 在看板展开后一键路由（接受路由到已有 thread / 新建 thread / 拒绝），
+    支持通过 role 下拉改派负责猫。所有图标 SVG，零 emoji。
+  </p>
+</div>
+
+<!-- ════════════════════════════════════════════
+     MOCKUP 1: 看板视图 — Issue 展开态含 DirectionCard
+     ════════════════════════════════════════════ -->
+<div class="section-title">Mockup 1 · 看板中展开 DirectionCard</div>
+<p class="section-desc">
+  用户在 Community 面板点击待决策的 Issue 行，行下方展开 DirectionCard。
+  卡片由 narrator 自动生成（标注 narrator badge），展示初判结果 + 路由推荐。
+</p>
+
+<div class="workspace-mock">
+  <!-- Workspace Tabs -->
+  <div class="workspace-tabs">
+    <button class="workspace-tab">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+      开发
+    </button>
+    <button class="workspace-tab">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+      记忆
+    </button>
+    <button class="workspace-tab">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+      调度
+    </button>
+    <button class="workspace-tab">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="1"/></svg>
+      任务
+    </button>
+    <button class="workspace-tab active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+      社区
+    </button>
+    <button class="workspace-tab">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><path d="M8 21h8M12 17v4"/></svg>
+      产物
+    </button>
+  </div>
+
+  <!-- Filter Bar -->
+  <div class="panel-filter-bar">
+    <select style="flex: 1;">
+      <option>zts212653/clowder-ai</option>
+    </select>
+    <button class="sync-btn" title="手动同步">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6M3 12a9 9 0 0115-6.7L21 8M3 22v-6h6M21 12a9 9 0 01-15 6.7L3 16"/></svg>
+    </button>
+  </div>
+  <div class="panel-filter-bar" style="border-bottom-color: oklch(0.915 0.005 30 / 0.2);">
+    <select><option>全部状态</option></select>
+    <select><option>全部负责猫</option></select>
+    <select><option>全部时间</option></select>
+  </div>
+
+  <!-- Stats -->
+  <div class="panel-stats">
+    <span>Issues: 6</span>
+    <span>PRs: 4</span>
+  </div>
+
+  <!-- Issue Sections -->
+  <div style="border-bottom: 1px solid oklch(0.915 0.005 30 / 0.2);">
+    <div style="padding: 6px 12px; font-size: 9px; font-weight: 700; color: var(--cafe-text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Issues</div>
+
+    <!-- 未回复 -->
+    <div class="section-hdr">
+      <span class="section-hdr-label" style="color: var(--cafe-accent);">未回复</span>
+      <span class="section-hdr-count">1</span>
+      <span class="section-hdr-arrow">▾</span>
+    </div>
+    <div class="issue-row">
+      <svg viewBox="0 0 24 24" fill="none" stroke="var(--cafe-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      <span class="issue-num">#52</span>
+      <span class="issue-title">SSO 登录支持</span>
+      <span class="issue-time">2小时前</span>
+      <button class="dispatch-btn">发送给系统猫</button>
+    </div>
+
+    <!-- 待决策（展开态 — 含 DirectionCard）★ -->
+    <div class="section-hdr">
+      <span class="section-hdr-label" style="color: var(--semantic-warning);">待决策</span>
+      <span class="section-hdr-count">1</span>
+      <span class="section-hdr-arrow">▾</span>
+    </div>
+    <div class="issue-row" style="background: oklch(0.99 0.005 80 / 0.5); border-left: 2px solid var(--cafe-accent);">
+      <svg viewBox="0 0 24 24" fill="none" stroke="var(--semantic-warning)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      <span class="issue-num">#42</span>
+      <span class="issue-title">深色模式支持</span>
+      <span class="issue-cat">@gemini25</span>
+      <span class="issue-time">3小时前</span>
+    </div>
+
+    <!-- ★★★ DirectionCard 展开 ★★★ -->
+    <div class="direction-card">
+      <!-- Header: badges -->
+      <div class="dc-header">
+        <span class="dc-badge dc-badge-narrator">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z"/></svg>
+          narrator
+        </span>
+        <span class="dc-badge dc-badge-welcome">WELCOME</span>
+        <span class="dc-source">F056 相关 · issue#42</span>
+      </div>
+
+      <!-- Narrative -->
+      <div class="dc-narrative">
+        社区用户请求为 Clowder AI 添加<em>深色模式</em>支持。该 issue 与 <em>F056</em>（设计系统升级）直接相关——F056 Phase E 已完成 OKLCH 七类色 token 体系，深色模式的基础设施已到位，剩余工作是全局 CSS variable 切换逻辑。建议路由到 F056 工作线程继续推进。
+      </div>
+
+      <!-- 5问结果 -->
+      <div class="dc-questions">
+        <div class="dc-q dc-q-pass">
+          <span class="dc-q-label">Q1 愿景</span>
+          PASS
+        </div>
+        <div class="dc-q dc-q-pass">
+          <span class="dc-q-label">Q2 质量</span>
+          PASS
+        </div>
+        <div class="dc-q dc-q-warn">
+          <span class="dc-q-label">Q3 范围</span>
+          WARN
+        </div>
+        <div class="dc-q dc-q-pass">
+          <span class="dc-q-label">Q4 安全</span>
+          PASS
+        </div>
+        <div class="dc-q dc-q-pass">
+          <span class="dc-q-label">Q5 架构</span>
+          PASS
+        </div>
+      </div>
+
+      <!-- 证据引用 -->
+      <div class="dc-evidence">
+        <div class="dc-evidence-title">证据引用</div>
+        <div class="dc-evidence-list">
+          <a href="#" class="dc-evidence-tag">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            F056 Phase E
+          </a>
+          <a href="#" class="dc-evidence-tag">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 012 2v7M6 9v12"/></svg>
+            PR #1295 色彩体系
+          </a>
+          <a href="#" class="dc-evidence-tag">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            theme-tokens.css
+          </a>
+        </div>
+      </div>
+
+      <!-- 路由推荐 + Role 下拉 -->
+      <div class="dc-route-section">
+        <span class="dc-route-label">推荐路由</span>
+        <span class="dc-route-target">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          F056 工作线程
+        </span>
+        <div class="dc-spacer"></div>
+        <span class="dc-route-label">负责角色</span>
+        <select class="dc-role-select">
+          <option>case-owner</option>
+          <option>narrator</option>
+          <option>reconciler</option>
+        </select>
+      </div>
+
+      <!-- 行动按钮 -->
+      <div class="dc-actions">
+        <button class="dc-btn dc-btn-accept">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          接受路由
+        </button>
+        <button class="dc-btn dc-btn-discuss">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+          需要讨论
+        </button>
+        <button class="dc-btn dc-btn-decline">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          礼貌回绝
+        </button>
+      </div>
+    </div>
+
+    <!-- 讨论中 -->
+    <div class="section-hdr">
+      <span class="section-hdr-label" style="color: var(--cafe-crosspost);">讨论中</span>
+      <span class="section-hdr-count">2</span>
+      <span class="section-hdr-arrow">▸</span>
+    </div>
+
+    <!-- 已接受（折叠） -->
+    <div class="section-hdr">
+      <span class="section-hdr-label" style="color: var(--semantic-success);">已接受</span>
+      <span class="section-hdr-count">1</span>
+      <span class="section-hdr-arrow">▸</span>
+    </div>
+
+    <!-- 已关闭（折叠） -->
+    <div class="section-hdr">
+      <span class="section-hdr-label" style="color: oklch(0.56 0 0 / 0.6);">已关闭</span>
+      <span class="section-hdr-count">1</span>
+      <span class="section-hdr-arrow">▸</span>
+    </div>
+  </div>
+
+  <!-- PR Sections (collapsed) -->
+  <div>
+    <div style="padding: 6px 12px; font-size: 9px; font-weight: 700; color: var(--cafe-text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Pull Requests</div>
+    <div class="section-hdr">
+      <span class="section-hdr-label" style="color: var(--cafe-accent);">PR 未回复</span>
+      <span class="section-hdr-count">1</span>
+      <span class="section-hdr-arrow">▸</span>
+    </div>
+    <div class="section-hdr">
+      <span class="section-hdr-label" style="color: var(--semantic-success);">PR 已回复</span>
+      <span class="section-hdr-count">2</span>
+      <span class="section-hdr-arrow">▸</span>
+    </div>
+    <div class="section-hdr">
+      <span class="section-hdr-label" style="color: var(--semantic-success);">已合入</span>
+      <span class="section-hdr-count">1</span>
+      <span class="section-hdr-arrow">▸</span>
+    </div>
+  </div>
+</div>
+
+<div class="annotation">
+  <strong>设计说明 A — DirectionCard 交互</strong><br>
+  1. 点击 Issue 行展开/收起 DirectionCard（toggle 模式）<br>
+  2. 展开态 Issue 行加左侧 accent border 高亮<br>
+  3. 「接受路由」→ 调用 resolve 端点（routeRecommendation: existing-thread），跳转到目标线程<br>
+  4. 「需要讨论」→ 状态转回 discussing，铲屎官继续在对话中讨论<br>
+  5. 「礼貌回绝」→ 调用 resolve 端点（decision: declined），自动生成礼貌回复模板<br>
+  6. Role 下拉改派 → 调用 resolve 时带 recommendedOwnerRole 覆盖默认
+</div>
+
+<hr class="divider">
+
+<!-- ════════════════════════════════════════════
+     MOCKUP 2: new-thread 场景 — DirectionCard 变体
+     ════════════════════════════════════════════ -->
+<div class="section-title">Mockup 2 · new-thread 场景（无关联 feat）</div>
+<p class="section-desc">
+  当 narrator 判断该 issue 不属于任何已有 Feature，推荐新建工作线程。
+  路由推荐区域显示"新建线程"而非已有线程。
+</p>
+
+<div class="workspace-mock" style="max-width: 420px;">
+  <div style="padding: 6px 12px; font-size: 9px; font-weight: 700; color: var(--cafe-text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Issues</div>
+
+  <div class="section-hdr">
+    <span class="section-hdr-label" style="color: var(--semantic-warning);">待决策</span>
+    <span class="section-hdr-count">1</span>
+    <span class="section-hdr-arrow">▾</span>
+  </div>
+
+  <div class="issue-row" style="background: oklch(0.99 0.005 80 / 0.5); border-left: 2px solid var(--cafe-accent);">
+    <svg viewBox="0 0 24 24" fill="none" stroke="var(--semantic-warning)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3M12 17h.01"/></svg>
+    <span class="issue-num">#55</span>
+    <span class="issue-title">插件系统 API 设计</span>
+    <span class="issue-cat">@opus</span>
+    <span class="issue-time">1天前</span>
+  </div>
+
+  <div class="direction-card">
+    <div class="dc-header">
+      <span class="dc-badge dc-badge-narrator">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z"/></svg>
+        narrator
+      </span>
+      <span class="dc-badge dc-badge-discuss">NEEDS-DISCUSSION</span>
+      <span class="dc-source">全新事项 · issue#55</span>
+    </div>
+
+    <div class="dc-narrative">
+      社区用户提出为 Clowder AI 增加<em>插件系统</em>，允许第三方通过标准 API 扩展功能。该提案不属于任何现有 Feature，需评估与<em>架构解耦</em>（多租户约束）的关系。建议新建工作线程由猫猫独立评估范围。
+    </div>
+
+    <div class="dc-questions">
+      <div class="dc-q dc-q-pass"><span class="dc-q-label">Q1 愿景</span>PASS</div>
+      <div class="dc-q dc-q-warn"><span class="dc-q-label">Q2 质量</span>WARN</div>
+      <div class="dc-q dc-q-fail"><span class="dc-q-label">Q3 范围</span>FAIL</div>
+      <div class="dc-q dc-q-pass"><span class="dc-q-label">Q4 安全</span>PASS</div>
+      <div class="dc-q dc-q-warn"><span class="dc-q-label">Q5 架构</span>WARN</div>
+    </div>
+
+    <div class="dc-route-section">
+      <span class="dc-route-label">推荐路由</span>
+      <span class="dc-route-target">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+        新建工作线程
+      </span>
+      <div class="dc-spacer"></div>
+      <span class="dc-route-label">负责角色</span>
+      <select class="dc-role-select">
+        <option>case-owner</option>
+        <option>narrator</option>
+        <option>reconciler</option>
+      </select>
+    </div>
+
+    <div class="dc-actions">
+      <button class="dc-btn dc-btn-accept">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+        接受 · 新建线程
+      </button>
+      <button class="dc-btn dc-btn-discuss">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        需要讨论
+      </button>
+      <button class="dc-btn dc-btn-decline">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        礼貌回绝
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="annotation">
+  <strong>设计说明 B — new-thread vs existing-thread</strong><br>
+  1. 「接受路由」按钮文案根据 routeRecommendation.kind 动态变化：<br>
+  &nbsp;&nbsp;&nbsp;- existing-thread → "接受路由"（跳转到已有线程）<br>
+  &nbsp;&nbsp;&nbsp;- new-thread → "接受 · 新建线程"（创建新线程后跳转）<br>
+  2. 路由推荐区图标也动态变化：箭头（→ 已有）vs 加号（+ 新建）<br>
+  3. NEEDS-DISCUSSION badge 用 warning 色（不阻断，但提醒铲屎官关注）<br>
+  4. Q3 范围 FAIL 用 critical 色，明确标记需要注意的维度
+</div>
+
+<hr class="divider">
+
+<!-- ════════════════════════════════════════════
+     MOCKUP 3: decline 场景 — 简化 DirectionCard
+     ════════════════════════════════════════════ -->
+<div class="section-title">Mockup 3 · decline 场景（建议拒绝）</div>
+<p class="section-desc">
+  当 narrator 判断不符合愿景或超出范围，建议礼貌回绝。
+  卡片左侧 border 变为 critical 色。
+</p>
+
+<div class="workspace-mock" style="max-width: 420px;">
+  <div style="padding: 6px 12px; font-size: 9px; font-weight: 700; color: var(--cafe-text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Issues</div>
+
+  <div class="issue-row" style="background: oklch(0.99 0.005 80 / 0.5); border-left: 2px solid var(--semantic-critical);">
+    <svg viewBox="0 0 24 24" fill="none" stroke="var(--semantic-critical)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2l1.88 1.88M14.12 3.88L16 2M9 7.13v-1a3.003 3.003 0 116 0v1"/><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 014-4h4a4 4 0 014 4v3c0 3.3-2.7 6-6 6M12 20v-9"/></svg>
+    <span class="issue-num">#60</span>
+    <span class="issue-title">请求接入 LangChain</span>
+    <span class="issue-cat">@sonnet</span>
+    <span class="issue-time">5小时前</span>
+  </div>
+
+  <div class="direction-card" style="border-left-color: var(--semantic-critical);">
+    <div class="dc-header">
+      <span class="dc-badge dc-badge-narrator">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z"/></svg>
+        narrator
+      </span>
+      <span class="dc-badge dc-badge-decline">POLITELY-DECLINE</span>
+      <span class="dc-source">issue#60</span>
+    </div>
+
+    <div class="dc-narrative">
+      社区用户提出接入 <em>LangChain</em> 作为猫猫调用链。这与猫咖的<em>核心架构约束</em>冲突——Cat Cafe 的 Agent 体系直接走原生 API + MCP 协议，引入 LangChain 会增加不必要的抽象层且与多租户解耦目标矛盾。建议礼貌回绝并解释架构选择。
+    </div>
+
+    <div class="dc-questions">
+      <div class="dc-q dc-q-fail"><span class="dc-q-label">Q1 愿景</span>FAIL</div>
+      <div class="dc-q dc-q-pass"><span class="dc-q-label">Q2 质量</span>PASS</div>
+      <div class="dc-q dc-q-fail"><span class="dc-q-label">Q3 范围</span>FAIL</div>
+      <div class="dc-q dc-q-pass"><span class="dc-q-label">Q4 安全</span>PASS</div>
+      <div class="dc-q dc-q-fail"><span class="dc-q-label">Q5 架构</span>FAIL</div>
+    </div>
+
+    <div class="dc-actions">
+      <button class="dc-btn dc-btn-decline" style="border-color: var(--semantic-critical); color: var(--semantic-critical);">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        确认回绝
+      </button>
+      <button class="dc-btn dc-btn-discuss">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        我想讨论一下
+      </button>
+      <div class="dc-spacer"></div>
+      <button class="dc-btn dc-btn-accept" style="opacity: 0.4; font-size: 9px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        覆盖：接受
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="annotation">
+  <strong>设计说明 C — decline 变体</strong><br>
+  1. 卡片左侧 border 变 critical 色，视觉传达"不建议接受"<br>
+  2. 「确认回绝」置前、「我想讨论一下」次之<br>
+  3. 「覆盖：接受」降低视觉权重（opacity 0.4），铲屎官仍可覆盖 narrator 判断（eval 记 agreed=false）<br>
+  4. 回绝后 narrator 自动草拟礼貌回复，铲屎官确认后发送 GitHub comment
+</div>
+
+<hr class="divider">
+
+<!-- ════════════════════════════════════════════
+     设计约束总结
+     ════════════════════════════════════════════ -->
+<div class="section-title">设计约束清单</div>
+<div style="font-size: 12px; color: var(--cafe-text-secondary); line-height: 2;">
+  <p><strong>KD-9</strong>  所有图标用 SVG，零 emoji</p>
+  <p><strong>INV-12</strong> DirectionCard 新增字段全 optional，向后兼容（无 narrator 数据的 issue 不渲染卡片）</p>
+  <p><strong>INV-13</strong> 每次 owner 路由决策记录 RouteDecisionEvalEvent（agreed = narrator 推荐 == owner 实选）</p>
+  <p><strong>KD-5</strong>  Community 是 Workspace tab，不是独立页面</p>
+  <p><strong>KD-8</strong>  给数据不给结论——narrator 推荐仅为参考，铲屎官可覆盖</p>
+  <p><strong>OKLCH</strong> 色值全部从 theme-tokens.css 派生，支持 dark mode 自动切换</p>
+  <p><strong>F128</strong>  new-thread 路由走 propose-thread 端点（已有基础设施）</p>
+  <p><strong>Responsive</strong> DirectionCard 宽度跟随 Workspace 面板宽度（min 320px ~ max 480px）</p>
+</div>
+
+</div><!-- /page-wrapper -->
+
+</body>
+</html>

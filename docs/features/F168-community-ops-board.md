@@ -473,3 +473,4 @@ TTL=0（铁律 #5），用户数据默认持久化
 | **Feature** | `docs/features/F140-github-pr-signals.md` | PR 信号（上游） |
 | **Skill** | `cat-cafe-skills/opensource-ops/SKILL.md` | 现有社区运营 skill |
 | **Ref** | `cat-cafe-skills/refs/ownership-gate.md` | Ownership 5 问 |
+| **Design** | `docs/designs/F168-c3.2-direction-card-routing.html` | C3.2 DirectionCard + Role Dropdown 设计稿（CVO 2026-06-15 approved） |
