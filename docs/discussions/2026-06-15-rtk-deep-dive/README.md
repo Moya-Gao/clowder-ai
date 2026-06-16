@@ -59,7 +59,7 @@ rtk (单二进制 CLI, clap dispatch @ main.rs 3272行)
 │   ├─ filter.rs        语言感知注释剥离 + smart_truncate（550行）
 │   ├─ toml_filter.rs   通用 8 段 regex 管线 + RUST_HANDLED 列表(264-314)（1696行）
 │   ├─ truncate.rs      CAP_* 分级常量 + reduced()
-│   ├─ tracking.rs      SQLite token 统计 + estimate_tokens=chars/4（1689行）
+│   ├─ tracking.rs      SQLite token 统计 + estimate_tokens=bytes/4（1689行）
 │   ├─ stream.rs        BlockHandler/LineHandler 流式 trait（1120行）
 │   └─ telemetry.rs     ureq 上报（opt-in）
 │
@@ -81,7 +81,7 @@ rtk (单二进制 CLI, clap dispatch @ main.rs 3272行)
 ├─ src/parser/          ParseResult::{Full,Degraded,Passthrough} 三层降级
 │
 ├─ hooks/{claude,cursor,gemini,codex,windsurf,cline,…}/  host 适配脚本
-├─ scripts/benchmark*/  hyperfine(端到端) + chars/4 token 估算；benchmark-sessions 是残骸
+├─ scripts/benchmark*/  hyperfine(端到端) + bytes/4 token 估算；benchmark-sessions 是残骸
 └─ .claude/             ★ dogfooding：自带 skills/agents/commands/hooks 全套
 ```
 
@@ -123,9 +123,9 @@ rtk (单二进制 CLI, clap dispatch @ main.rs 3272行)
 ### 5.2 `60-90%` —— 字节削减冒充 token 削减 ⚠️
 - `rtk gain` 展示的节省全链路：`estimate_tokens(text) = ceil(text.len()/4)`（`tracking.rs:1284`，**字节数/4**，UTF-8 多字节还会虚高）→ 存 SQLite → 派生百分比。系数 1/4 在百分比里被约掉，**等价于直接比字节数**（`text.len()` = UTF-8 byte length）。
 - README 那张 `-90%/-92%` 表是**手写估算**，自带免责"Estimates… actual savings vary"（`README.md:57`）；号称的自动更新脚本是 **stub**（`update-readme-metrics.sh:18-20` 注释自承"placeholder"），且表外根本没有它要找的标记。
-- `cc_economics.rs` 接真 ccusage 数据，但真 token 只用来算**单价**，被省 token 数仍是 chars/4（`:129`），工具自己 print"Saved tokens estimated via chars/4 heuristic, not exact tokenizer"（`:535`）。
+- `cc_economics.rs` 接真 ccusage 数据，但真 token 只用来算**单价**，被省 token 数仍是 bytes/4 估算（`:129`），工具自己 print"Saved tokens estimated via chars/4 heuristic, not exact tokenizer"（`:535`）（注：rtk 文案写 chars/4，实现是 `text.len()` 字节）。
 - `Cargo.toml` **无 tiktoken-rs/tokenizers/criterion/benches**。`benchmark-sessions/` 是缺 5 个模块的**不可运行残骸**，且即使能跑也只测 terminal-bench 通过率（正确性）不测 token。
-- **判决**：核心压缩机制真实（输出确实大幅变短，byte-savings 测量链路真实且 CI 守 ≥60%）；水分在 (a) "字节削减"≠"token 削减"，对非英文/密集符号/JSON 偏差大（`text.len()` 是 UTF-8 字节数，中文等多字节字符偏差更甚）；(b) 那张漂亮的高值表是手写的。**诚实度加分**：代码注释主动披露了 chars/4 局限。
+- **判决**：核心压缩机制真实（输出确实大幅变短，byte-savings 测量链路真实且 CI 守 ≥60%）；水分在 (a) "字节削减"≠"token 削减"，对非英文/密集符号/JSON 偏差大（`text.len()` 是 UTF-8 字节数，中文等多字节字符偏差更甚）；(b) 那张漂亮的高值表是手写的。**诚实度加分**：代码注释/print 主动披露了估算非精确（rtk 文案用 chars/4，实为 bytes/4）。
 
 ---
 
@@ -174,7 +174,7 @@ Bash-heavy 的旧式脚本流 rtk 仍有真实价值；以内置工具为主的 
 - 我们目前没有系统性的"工具输出 token 压缩层"。rtk 证明了在 Bash 输出侧做压缩有真实收益。**但**它的洞恰恰是我们已经在做对的地方——我们的 L0 是从**指令注入侧**（system prompt 压缩免疫）下手，rtk 是从**工具输出侧**。两者正交，可并存。
 
 ### 不 follow（Do-Not-Follow + 哲学理由）
-1. **不学它的宣传话术**：把 chars/4 叫"token reduction"、未测量却写"<10ms"、"100% adoption"被自己脚注打脸——这是我们 `source-audit` / F218 明确反对的"营销冒充测量"。我们的数字必须接真测量或明确标注估算。
+1. **不学它的宣传话术**：把 bytes/4 长度估算叫"token reduction"、未测量却写"<10ms"、"100% adoption"被自己脚注打脸——这是我们 `source-audit` / F218 明确反对的"营销冒充测量"。我们的数字必须接真测量或明确标注估算。
 2. **不学 CAP 全硬编码**：注释自己写着"config 化 planned"却一直没做——我们的"用户状态默认持久化/可配置"价值观不接受这种。
 3. **不学 learn/discover 的命名**：把 telemetry 包装成"learn/自我改进"。我们的 W7 Knowledge Feed 要求真闭环（signal→决策→状态→未来行为），命名必须诚实。
 
@@ -182,7 +182,7 @@ Bash-heavy 的旧式脚本流 rtk 仍有真实价值；以内置工具为主的 
 
 ## 8. Lessons 候选（待 CVO 确认，不直接入全局）
 
-- **L-candidate-1**：评估"省 token / 压上下文"类工具时，第一刀必须问"它的 token 是真 tokenizer 还是 chars/N 估算"——chars/4 对非英文/JSON/密集符号偏差大，"字节削减率"≠"token 削减率"。
+- **L-candidate-1**：评估"省 token / 压上下文"类工具时，第一刀必须问"它的 token 是真 tokenizer 还是 chars/N、bytes/N 这类长度估算"——这类长度估算对非英文/JSON/密集符号偏差大，"字节削减率"≠"token 削减率"。
 - **L-candidate-2**：评估 Claude Code 生态 hook 类工具，必查"matcher 覆盖哪些工具"——只 hook Bash 的工具，对 Read/Grep/Glob 为主的现代 agent 流覆盖面有限。这是结构性判据，不是个案。
 - **L-candidate-3**：star 数 ≠ 质量。rtk 5 个月 62k stars 但 watcher/star≈0.23%（异常低），核心数字含水分——但代码本体确实扎实。两件事要分开判，别被任一极端带跑。
 
