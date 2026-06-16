@@ -114,7 +114,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 | R1 | "更新太快…不知道有什么功能" | AC-A2 | manual 问答验收 | [ ] |
 | R2 | "使用猫咖遇到的困难也会找猫猫球" | AC-A4 | manual + guide 触发录屏 | [ ] |
 | R3 | "之前讨论的xxx到底在哪里来着？"（金鱼的记忆） | AC-A3 | manual 3 query 验收 | [ ] |
-| R4 | "帮忙发送到哪个 thread 或者自己调查" | AC-B1, AC-B2 | 留痕 + 报告抽查 | [ ] |
+| R4 | "帮忙发送到哪个 thread 或者自己调查" | AC-B1, AC-B2 | 留痕 + 报告抽查 | [x] |
 | R5 | "和 profile 那样解耦的可以配置"（形象/人设/值班） | AC-A5 | screenshot | [ ] |
 | R6 | "支持语音输入输出" | AC-C1 | 录屏 + 延迟实测 | [ ] |
 | R7 | "小模型发现自己干不了→喊大喵（优先 flash/sonnet/spark）" | AC-D1, AC-D2 | 延迟数字 + 代码断言 | [ ] |
@@ -216,6 +216,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 
 | 日期 | 事件 |
 |------|------|
+| 2026-06-16 | **AC-B2 alpha E2E validation ✅（宪宪/sonnet）— InvestigationJob 完整流程**：alpha env（3011/3012/6398，main HEAD 6360df3）；triage plan `99e0328a` confirmed → job `d50a9ea8` dispatched；queued→running→done in ~22ms；`/api/concierge/investigation/:jobId` GET 返回 status:done + 10 anchors；InvestigationReportCard 在 concierge bubble 渲染（R1-R10，feature/unknown kind inline path）；R2=F225 / R3=F209 feature anchors 内联路径可见（screenshots ac-b2-12/13）；60s 期限 fail-closed：`isJobExpired` pre+post-search (INV I3) code verified；cancel 409 race handling：POST /cancel on done job → 409 "Cannot cancel in status: done" ✅；thread→planTeleport + github→external anchor click behavior code-verified（AnchorItem lines 207-256），本次查询返回 feature/unknown anchors（非 thread/github），anchor-type mix 非 E2E 但 component 逻辑已两轮 review 封板。证据 `docs/features/assets/F229/acceptance-phase-b/ac-b2-*.png` |
 | 2026-06-16 | **AC-B2 investigation report frontend merged** (PR #2316)：InvestigationProgress 组件——poll job status（2s interval + terminalReachedRef stale guard + transient error resilience）+ render report summary（ANCHOR_MARKER_RE strip）+ clickable anchor list（thread→planTeleport message-level, github→external, doc/feature→inline）+ cancel 409 race handling + confirmation restoration。gpt52 local review 2 rounds（3 P1 + 4 P2 全修）+ cloud review 2 rounds（封板 LL-072，R2 stale ratio 66%）；14 tests green |
 | 2026-06-16 | **Phase B triage boundary fix merged** (PR #2310)：两个铲屎官发现的 bug——Bug1 intent 误分类（"你能干啥" 触发 investigate 而非直答，根因=overly broad "用户描述需求时" trigger）用判据重写修复（"需要跨出当前对话吗？"）；Bug2 concierge 确认按钮泄漏"确认"文字到猫 thread（`sendContext` guard 全链打通 InteractiveBlock + InteractiveBlockGroup + RichBlocks + ChatContainer）。gpt52 local review 2 rounds（P1 InteractiveBlockGroup bypass 修复确认）+ cloud review 1 P2 降级 P3（理论场景无复现证据） |
 | 2026-06-15 | **Relay P1 fix merged** (PR #2305)：gpt52 review 发现 defense-in-depth guard 留了 fail-open 路径——uniquely-resolved relay 的 `selectedTargetCats` 可被客户端任意重写。两处写入门控（`dispatchPlan` 构造 + `setTargetCats` 持久化）加 `useClientSelection` guard：仅 `candidateCats` 存在时用客户端值，否则用 store 原值。回归测试覆盖 rewrite attack vector。gpt52 local review + cloud 0 P1/P2。→ sonnet re-alpha 需重验 relay + go |
