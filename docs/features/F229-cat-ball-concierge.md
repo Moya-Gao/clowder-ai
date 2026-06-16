@@ -154,7 +154,11 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 - [ ] AC-D2: escalation 传原始对话不传小模型总结（测试断言，KD-8 合规）→ R7
 - [ ] AC-D3: 小模型不可用时自动降级全走值班大猫（测试）→ R7
 
-### Phase E（远期，启动时补 AC）
+### Phase E（桌宠化 + 形象生态）
+- [x] AC-E0-1: PetSkinContract v0 — `conciergeState → petState` pure projection (4 states: idle/running/review/failed), shared types + `projectToPetState()` function, 10 unit tests
+- [x] AC-E0-2: ragdoll-v1 skin — manifest (`pet.json`) + 4 individual sprite PNGs (idle/running/review/failed), three QA gates pass (readability/identity-diff/provenance)
+- [x] AC-E0-3: ConciergeBall skin-aware resolution — `resolvePetSprite(ballState, skin)` with ragdoll-v1 (v0 4-state projection) + yarn-ball (legacy 8-state direct, filename override for needs-confirmation→confirm.png) backward compat, 19 web unit tests
+- [x] AC-E0-4: Settings page skin display — dynamic `SKIN_DISPLAY_NAMES[skin]` + default `ragdoll-v1` in store + API validation + `FALLBACK_SPRITE_PATH`
 
 ## Dependencies
 
@@ -216,6 +220,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 
 | 日期 | 事件 |
 |------|------|
+| 2026-06-16 | **Phase E0 PetSkin MVP merged** (PR #2320, squash `9f12c4aa`)：PetSkinContract v0 projection types + `projectToPetState()` (shared) + ragdoll-v1 skin manifest + 4 sprites (idle/running/review/failed) + `resolvePetSprite(ballState, skin)` skin-aware resolver (ragdoll-v1 projection + yarn-ball legacy 8-state compat with `YARN_BALL_FILENAME_OVERRIDES`) + ConciergeBall integration + settings skin display + `FALLBACK_SPRITE_PATH`。gpt52 local review 3 rounds (R0 3P1+1P2, R1 1P1, R2 0 findings at `bbd3811c`) + cloud review 3 rounds (封板 LL-072, R3 stale ratio 75%: 4 P2s total all fixed)。29 tests (10 shared + 19 web)。AC-E0-1~E0-4 ✅ |
 | 2026-06-16 | **AC-B2 alpha E2E validation ✅（宪宪/sonnet）— InvestigationJob 完整流程**：alpha env（3011/3012/6398，main HEAD 6360df3）；triage plan `99e0328a` confirmed → job `d50a9ea8` dispatched；queued→running→done in ~22ms；`/api/concierge/investigation/:jobId` GET 返回 status:done + 10 anchors；InvestigationReportCard 在 concierge bubble 渲染（R1-R10，feature/unknown kind inline path）；R2=F225 / R3=F209 feature anchors 内联路径可见（screenshots ac-b2-12/13）；60s 期限 fail-closed：`isJobExpired` pre+post-search (INV I3) code verified；cancel 409 race handling：POST /cancel on done job → 409 "Cannot cancel in status: done" ✅；thread→planTeleport + github→external anchor click behavior code-verified（AnchorItem lines 207-256），本次查询返回 feature/unknown anchors（非 thread/github），anchor-type mix 非 E2E 但 component 逻辑已两轮 review 封板。证据 `docs/features/assets/F229/acceptance-phase-b/ac-b2-*.png` |
 | 2026-06-16 | **Alpha env gap fix merged** (PR #2318, squash `716f3b01d`)：gemini35 standalone breed 加入 cat-template.json（alpha 从 template 引导，无 runtime catalog overlay → gemini35 此前不可解析）。附带修：gemini25 conflicting aliases 清理（@gemini35/@gemini-35/@暹罗gemini35 迁移到 gemini35 breed）+ system prompt budget 6500→6700 + normalize-cat-id 测试同步。gpt52 local 3 rounds + cloud 2 rounds（封板 LL-072：R1 100% FP, R2 50% FP；1 real P2 @暹罗gemini35 alias preservation 已修）。关闭 KD-20 记录的 alpha env gap |
 | 2026-06-16 | **AC-B2 investigation report frontend merged** (PR #2316)：InvestigationProgress 组件——poll job status（2s interval + terminalReachedRef stale guard + transient error resilience）+ render report summary（ANCHOR_MARKER_RE strip）+ clickable anchor list（thread→planTeleport message-level, github→external, doc/feature→inline）+ cancel 409 race handling + confirmation restoration。gpt52 local review 2 rounds（3 P1 + 4 P2 全修）+ cloud review 2 rounds（封板 LL-072，R2 stale ratio 66%）；14 tests green |
