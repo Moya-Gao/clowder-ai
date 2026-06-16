@@ -1768,10 +1768,11 @@
       "pr_number": 929,
       "target_merge_commit": "cb862f793b450f977dd69bf7dc98ac4e311f8774",
       "decision": "absorbed",
-      "timestamp": "2026-06-16T03:33:24.816Z",
+      "timestamp": "2026-06-16T03:43:00.000Z",
       "intake_intent_issue": 2311,
       "absorb_pr": 2312,
-      "review_proof": "https://github.com/zts212653/cat-cafe/pull/2312#pullrequestreview-4503038605"
+      "review_proof": "https://github.com/zts212653/cat-cafe/pull/2312#pullrequestreview-4503077481",
+      "note": "review_proof refreshed to round-4 URL (covers HEAD dbdef4f76 after rebase)"
     }
   ]
 }
