@@ -112,7 +112,7 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 - [x] AC-A2: L0 编译链支持 `{{USER_CAPSULE}}`（KD-7），守护测试三态断言（存在/缺失/超长，**fixture 隔离**）全绿（✅ PR #2236 merged 2026-06-12，compile-system-prompt-l0.test.mjs 16 F231 tests + l0-compiler.test.js 17 tests 全绿）
 - [x] AC-A3: capsule 缺失时全猫开局注入照常通过（向后兼容）+ 公共 baseline 产物无私有锚点泄漏（✅ PR #2236 fixture 测试覆盖：missing capsule → '' 空注入、无 fixture 锚点泄漏断言）
 - [x] AC-A4: outbound sync dry-run 输出不含 `private/profile/`（命令输出为证）（✅ 2026-06-16 dry-run 验证：export 目录 0 个 `private/` 文件、`landy` 关键词零命中、`capsule` 仅出现在 docs/tests 公开引用中）
-- [ ] AC-A5: 四层分层模型文档化（本 spec + identity-session cell 更新），breed/instance/user/relationship 各层载体与共享范围一表可查
+- [x] AC-A5: 四层分层模型文档化（本 spec + identity-session cell 更新），breed/instance/user/relationship 各层载体与共享范围一表可查（✅ spec KD-1 四层表已完整；`docs/architecture/ownership/cells/identity-session.md` 已含 `identity-user-profile` subcell + F231 canonical + cited_by 5 条 delta + scan hints；2026-06-16 验证）
 
 ### Phase B（砚砚 dogfood）
 - [x] AC-B1: 砚砚 instance personality 经"云端起草→本地认领→CVO 终审"流程更新进 `.cat-cafe/cat-catalog.json`，**三段 provenance 归档**（✅ 2026-06-11 三棒完整：cloud draft / local revision / CVO final 全文存档 `private/profile/provenance/`，catalog 旧值带 `.bak-f231` 备份，CVO final = 砚砚认领版零 delta）
