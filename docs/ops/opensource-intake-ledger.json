@@ -1756,6 +1756,13 @@
       "decision": "absorbed",
       "timestamp": "2026-06-13T07:32:49.937Z",
       "note": "absorbed record created with --skip-absorbed-guard (outbound-filed hotfix or historical backfill)"
+    },
+    {
+      "pr_number": 930,
+      "target_merge_commit": "fb186bf086beaf03207e8cc6f95f74fcb6f6011a",
+      "decision": "absorbed",
+      "timestamp": "2026-06-16T03:19:46.633Z",
+      "note": "absorbed record created with --skip-absorbed-guard (outbound-filed hotfix or historical backfill)"
     }
   ]
 }
