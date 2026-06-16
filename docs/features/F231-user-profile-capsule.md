@@ -111,7 +111,7 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 - [x] AC-A1: `private/profile/landy-capsule.md` 存在（**≤300 字**），内容经 CVO 过目认可（✅ 2026-06-11 CVO 签字 msg 0001781191204902-001074；v2 含云端 review 四修补吸收 + CVO"软件工程师不对"裁定，provenance 归档）
 - [x] AC-A2: L0 编译链支持 `{{USER_CAPSULE}}`（KD-7），守护测试三态断言（存在/缺失/超长，**fixture 隔离**）全绿（✅ PR #2236 merged 2026-06-12，compile-system-prompt-l0.test.mjs 16 F231 tests + l0-compiler.test.js 17 tests 全绿）
 - [x] AC-A3: capsule 缺失时全猫开局注入照常通过（向后兼容）+ 公共 baseline 产物无私有锚点泄漏（✅ PR #2236 fixture 测试覆盖：missing capsule → '' 空注入、无 fixture 锚点泄漏断言）
-- [ ] AC-A4: outbound sync dry-run 输出不含 `private/profile/`（命令输出为证）
+- [x] AC-A4: outbound sync dry-run 输出不含 `private/profile/`（命令输出为证）（✅ 2026-06-16 dry-run 验证：export 目录 0 个 `private/` 文件、`landy` 关键词零命中、`capsule` 仅出现在 docs/tests 公开引用中）
 - [ ] AC-A5: 四层分层模型文档化（本 spec + identity-session cell 更新），breed/instance/user/relationship 各层载体与共享范围一表可查
 
 ### Phase B（砚砚 dogfood）
