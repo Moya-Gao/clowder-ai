@@ -60,7 +60,9 @@ created: 2026-06-15
 
 ### Phase C: cc 原生工具 anchor 化（spike-gated — 这才是大头）
 > 前置 spike（与砚砚一起）：实测 cc PostToolUse hook + `updatedToolOutput` 能否 replace Read/Grep/Glob 返回。**spike 不过则本 Phase 不启动**（不脑补——文档说能 ≠ 我们场景能用）。
-- [ ] AC-C0 (spike): 隔离环境（不碰主 settings）验证 PostToolUse matcher=Read + `updatedToolOutput` 真能把 Read 全文 replace 成 anchorized preview——猫侧实测，非文档推断
+- [x] **AC-C0a (spike) ✅ PASS**: `claude -p/sdk-cli` 下 shape-matched PostToolUse `Read.updatedToolOutput` replace（保 `.file.content` 结构）+ bounded drill pass-through（`Read(offset,limit)` 返回真实 slice）实证 — spike 报告 `docs/research/2026-06-16-f236-posttooluse-anchor-spike.md`，双猫复核
+- [x] **AC-C0b (spike) ✅ PASS**: Grep shape（正文在顶层 `.content`）shape-matched replace 实证
+- [ ] AC-C0c (spike) pending: Glob shape / 多 Read `tool_use_id` 独立 / session 持久化 / **interactive carrier parity**（本 spike 是 sdk-cli ≠ carrier；Phase C 若含 interactive carrier 须单独 AC 在 carrier path 复测）
 - [ ] AC-C1: Read 返回默认 anchorized（文件路径 + 总行数 + 预览 + `read_file_slice` drill 指针），全文按需 drill
 - [ ] AC-C2: Grep/Glob 返回分组 anchor（命中文件 + 计数 + drill），不 inline 全部命中行
 - [ ] AC-C3: PostToolUse 仅 cc；codex（transform 可改）/ agy / opencode 等价机制单独评估，不假设都有
@@ -105,4 +107,4 @@ created: 2026-06-15
 - KD-3: drill 终点（get_message）也必须 bounded，否则 dump 只推迟 — 砚砚发现
 - KD-4: V1 不碰 outputSchema 迁移 / subagent schema（subprocess 不可达）— 砚砚收窄
 - KD-5: eval 双边公式，不许单边报省 — 砚砚 anchor tax 风险
-- KD-6: **cc 大头可能可解（待 C0 实测）**——官方 hook 文档显示 PostToolUse + `updatedToolOutput` 可 replace 内置工具返回，**但 built-in replacement 须匹配原 output shape，不对则被忽略**（砚砚 caveat）；C0 实测 shape+replace 真生效后升级为事实。rtk 只用 PreToolUse 没做到 — 宪宪查证（更正"runtime 锁定"初稿误判，吸取 Workflow-schema 脑补教训）+ 砚砚钉 C0 验证条件
+- KD-6: **cc 大头可解（C0a/C0b 已实证 PASS，2026-06-16）**——`claude -p/sdk-cli` 下 shape-matched PostToolUse replace（Read `.file.content` / Grep `.content`）+ bounded drill pass-through 实测打通；built-in replacement 须匹配原 output shape（字符串被忽略，砚砚 caveat 实证）。rtk 只用 PreToolUse 没做到。interactive carrier parity 待 Phase C 单独验 — 宪宪×砚砚双猫 spike（更正"runtime 锁定"初稿误判，吸取 Workflow-schema 脑补教训）
