@@ -540,6 +540,9 @@ describe('GeminiAgentService (antigravity-cli adapter)', () => {
       assert.ok(diagnostic, 'empty AGY output must surface a user-visible cliDiagnostics panel');
       assert.equal(diagnostic.metadata?.cliDiagnostics?.debugRef.command, 'agy');
       assert.equal(diagnostic.metadata?.cliDiagnostics?.debugRef.invocationId, 'inv-agy-empty');
+      assert.equal(diagnostic.metadata?.cliDiagnostics?.debugRef.homeMode, 'process_home');
+      assert.equal(diagnostic.metadata?.cliDiagnostics?.debugRef.spawnCwdMode, 'cat_cafe_agy_cwd');
+      assert.match(String(diagnostic.metadata?.cliDiagnostics?.debugRef.spawnCwdKey), /^[a-f0-9]{16}$/);
     } finally {
       rmSync(workDir, { recursive: true, force: true });
     }
@@ -614,6 +617,7 @@ describe('GeminiAgentService (antigravity-cli adapter)', () => {
       model: 'gemini-3.5-flash',
     });
     const workDir = mkdtempSync(join(tmpdir(), 'agy-empty-unclassified-stderr-'));
+    const childHomePath = '/srv/agy/silent-home';
 
     try {
       const promise = collect(
@@ -621,9 +625,10 @@ describe('GeminiAgentService (antigravity-cli adapter)', () => {
           workingDirectory: workDir,
           agyLogPathOverride: join(workDir, 'missing-agy.log'),
           auditContext: { invocationId: 'inv-agy-empty-unclassified-stderr' },
+          accountEnv: { HOME: childHomePath },
         }),
       );
-      emitPlainText(proc, '', 0, 'debug: AGY completed without a text segment\n');
+      emitPlainText(proc, '', 0, `debug: AGY completed without a text segment for ${childHomePath}\n`);
 
       const msgs = await promise;
       assert.equal(
@@ -637,6 +642,13 @@ describe('GeminiAgentService (antigravity-cli adapter)', () => {
       assert.ok(diagnostic, 'unclassified empty AGY output must keep silent_completion diagnostics');
       assert.equal(diagnostic.metadata?.cliDiagnostics?.debugRef.command, 'agy');
       assert.equal(diagnostic.metadata?.cliDiagnostics?.debugRef.invocationId, 'inv-agy-empty-unclassified-stderr');
+      assert.equal(diagnostic.metadata?.cliDiagnostics?.debugRef.homeMode, 'child_env_home');
+      assert.equal(diagnostic.metadata?.cliDiagnostics?.debugRef.spawnCwdMode, 'cat_cafe_agy_cwd');
+      assert.match(String(diagnostic.metadata?.cliDiagnostics?.debugRef.spawnCwdKey), /^[a-f0-9]{16}$/);
+      assert.ok(
+        !JSON.stringify(diagnostic.metadata?.cliDiagnostics).includes(childHomePath),
+        'child HOME path must not leak',
+      );
     } finally {
       rmSync(workDir, { recursive: true, force: true });
     }
@@ -677,10 +689,14 @@ describe('GeminiAgentService (antigravity-cli adapter)', () => {
       assert.equal(err.metadata?.cliDiagnostics?.reasonCode, 'auth_failed');
       assert.equal(err.metadata?.cliDiagnostics?.debugRef.command, 'agy');
       assert.equal(err.metadata?.cliDiagnostics?.debugRef.invocationId, 'inv-agy-auth');
+      assert.equal(err.metadata?.cliDiagnostics?.debugRef.homeMode, 'process_home');
+      assert.equal(err.metadata?.cliDiagnostics?.debugRef.spawnCwdMode, 'cat_cafe_agy_cwd');
+      assert.match(String(err.metadata?.cliDiagnostics?.debugRef.spawnCwdKey), /^[a-f0-9]{16}$/);
       assert.ok(
         !JSON.stringify(err.metadata?.cliDiagnostics).includes('accounts.google.com'),
         'OAuth URL must not leak into cliDiagnostics payload',
       );
+      assert.ok(!JSON.stringify(err.metadata?.cliDiagnostics).includes(workDir), 'worktree path must not leak');
     } finally {
       rmSync(workDir, { recursive: true, force: true });
     }
@@ -1600,6 +1616,10 @@ describe('GeminiAgentService (antigravity-cli adapter)', () => {
       assert.equal(err.metadata?.cliDiagnostics?.reasonCode, 'auth_failed');
       assert.equal(err.metadata?.cliDiagnostics?.debugRef.command, 'agy');
       assert.equal(err.metadata?.cliDiagnostics?.debugRef.invocationId, 'inv-agy-profile-auth-stderr');
+      assert.equal(err.metadata?.cliDiagnostics?.debugRef.homeMode, 'agy_profile_home');
+      assert.equal(err.metadata?.cliDiagnostics?.debugRef.spawnCwdMode, 'agy_profile_cwd');
+      assert.equal(err.metadata?.cliDiagnostics?.debugRef.profileId, 'gemini');
+      assert.match(String(err.metadata?.cliDiagnostics?.debugRef.spawnCwdKey), /^[a-f0-9]{16}$/);
       assert.equal(
         msgs.some((m) => m.type === 'system_info' && m.metadata?.cliDiagnostics?.reasonCode === 'silent_completion'),
         false,
@@ -1609,6 +1629,7 @@ describe('GeminiAgentService (antigravity-cli adapter)', () => {
       const diagnosticsPayload = JSON.stringify(err.metadata?.cliDiagnostics);
       assert.match(diagnosticsPayload, /FRAGMENT_REDACTED/);
       assert.doesNotMatch(diagnosticsPayload, new RegExp(profileHomePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+      assert.doesNotMatch(diagnosticsPayload, new RegExp(workDir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
       assert.doesNotMatch(diagnosticsPayload, /very-secret-state/);
       assert.doesNotMatch(diagnosticsPayload, /ya29\.AGYAccessToken/);
     } finally {
@@ -2074,6 +2095,9 @@ describe('GeminiAgentService (antigravity-cli adapter)', () => {
     assert.equal(errorMsg.metadata.cliDiagnostics.reasonCode, 'network_error');
     assert.equal(errorMsg.metadata.cliDiagnostics.safeExcerpt, 'ETIMEDOUT after 30s');
     assert.match(errorMsg.metadata.cliDiagnostics.publicSummary, /网络/);
+    assert.equal(errorMsg.metadata.cliDiagnostics.debugRef.homeMode, 'process_home');
+    assert.equal(errorMsg.metadata.cliDiagnostics.debugRef.spawnCwdMode, 'cat_cafe_agy_cwd');
+    assert.match(String(errorMsg.metadata.cliDiagnostics.debugRef.spawnCwdKey), /^[a-f0-9]{16}$/);
   });
 });
 

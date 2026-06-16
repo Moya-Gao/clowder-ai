@@ -22,7 +22,7 @@ import { randomUUID } from 'node:crypto';
 import { closeSync, existsSync, openSync, readdirSync, readFileSync, readSync, rmSync, statSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
-import { type AgyProfileConfig, type CatId, createCatId } from '@cat-cafe/shared';
+import { type AgyProfileConfig, type CatId, type CliDiagnostics, createCatId } from '@cat-cafe/shared';
 import { getCatModel } from '../../../../../config/cat-models.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { buildCliDiagnostics, buildSilentCompletionDiagnostic } from '../../../../../utils/cli-diagnostics.js';
@@ -374,6 +374,62 @@ function removeAntigravityLogFile(logPath: string): void {
   } catch {
     // Best-effort cleanup only; provider result delivery should not fail on temp-file deletion.
   }
+}
+
+function resolveAgyDebugHomeMode(
+  agyProfile: AgyProfile | null,
+  childEnv: NodeJS.ProcessEnv | undefined,
+): NonNullable<CliDiagnostics['debugRef']['homeMode']> {
+  if (agyProfile) return 'agy_profile_home';
+  return typeof childEnv?.HOME === 'string' && childEnv.HOME.trim().length > 0 ? 'child_env_home' : 'process_home';
+}
+
+function buildAgyDebugRef(input: {
+  readonly agyProfile: AgyProfile | null;
+  readonly childEnv: NodeJS.ProcessEnv | undefined;
+  readonly spawnCwd: string;
+  readonly exitCode: number | null;
+  readonly signal: NodeJS.Signals | string | null;
+  readonly invocationId?: string;
+}): CliDiagnostics['debugRef'] {
+  const spawnCwdBasename = basename(input.spawnCwd);
+  const spawnCwdKey = /^[a-f0-9]{16}$/.test(spawnCwdBasename) ? spawnCwdBasename : undefined;
+  return {
+    command: 'agy',
+    exitCode: input.exitCode,
+    signal: input.signal,
+    ...(input.invocationId ? { invocationId: input.invocationId } : {}),
+    homeMode: resolveAgyDebugHomeMode(input.agyProfile, input.childEnv),
+    spawnCwdMode: input.agyProfile ? 'agy_profile_cwd' : 'cat_cafe_agy_cwd',
+    ...(spawnCwdKey ? { spawnCwdKey } : {}),
+    ...(input.agyProfile ? { profileId: input.agyProfile.profileId } : {}),
+  };
+}
+
+function pickAgyDebugRefExtras(
+  debugRef: CliDiagnostics['debugRef'],
+): Pick<CliDiagnostics['debugRef'], 'homeMode' | 'spawnCwdMode' | 'spawnCwdKey' | 'profileId'> {
+  return {
+    ...(debugRef.homeMode ? { homeMode: debugRef.homeMode } : {}),
+    ...(debugRef.spawnCwdMode ? { spawnCwdMode: debugRef.spawnCwdMode } : {}),
+    ...(debugRef.spawnCwdKey ? { spawnCwdKey: debugRef.spawnCwdKey } : {}),
+    ...(debugRef.profileId ? { profileId: debugRef.profileId } : {}),
+  };
+}
+
+function withAgyDebugRefExtras(
+  diagnostics: CliDiagnostics | undefined,
+  extras: Pick<CliDiagnostics['debugRef'], 'homeMode' | 'spawnCwdMode' | 'spawnCwdKey' | 'profileId'>,
+): CliDiagnostics | undefined {
+  return diagnostics
+    ? {
+        ...diagnostics,
+        debugRef: {
+          ...diagnostics.debugRef,
+          ...extras,
+        },
+      }
+    : undefined;
 }
 
 /**
@@ -1149,12 +1205,15 @@ export class GeminiAgentService implements AgentService {
         resumedFinalText,
       });
       const diagnosticInvocationId = resolveDiagnosticInvocationId(options);
-      const agyDebugRef = {
-        command: 'agy',
+      const agyDebugRef = buildAgyDebugRef({
+        agyProfile,
+        childEnv,
+        spawnCwd: agySpawnCwd,
         exitCode,
         signal: exitSignal,
         ...(diagnosticInvocationId ? { invocationId: diagnosticInvocationId } : {}),
-      };
+      });
+      const agyDebugRefExtras = pickAgyDebugRefExtras(agyDebugRef);
       const agyDiagnosticHomePaths =
         typeof childEnv?.HOME === 'string' && childEnv.HOME.trim().length > 1 ? [childEnv.HOME] : undefined;
       const stderrPresent = stderr.trim().length > 0;
@@ -1219,12 +1278,15 @@ export class GeminiAgentService implements AgentService {
                 stderrPresent,
                 ...(stderrPresent ? { stderrExcerpt: stderr } : {}),
                 ...(agyDiagnosticHomePaths ? { additionalHomePaths: agyDiagnosticHomePaths } : {}),
+                debugRefExtras: agyDebugRefExtras,
               })
           : undefined;
       const actionableEmptyPlainTextDiagnostics =
         emptyPlainTextDiagnostics?.reasonCode && emptyPlainTextDiagnostics.reasonCode !== 'silent_completion'
           ? emptyPlainTextDiagnostics
           : undefined;
+      const timeoutCliDiagnostics = withAgyDebugRefExtras(timeoutEvent?.cliDiagnostics, agyDebugRefExtras);
+      const cliErrorEventDiagnostics = withAgyDebugRefExtras(cliErrorEvent?.cliDiagnostics, agyDebugRefExtras);
       const canRecordFreshConversation =
         !emittedSessionInit &&
         parsedPlainText.kind === 'text' &&
@@ -1272,9 +1334,7 @@ export class GeminiAgentService implements AgentService {
           type: 'error',
           catId: this.catId,
           error: `Antigravity CLI 响应超时 (${Math.round(timeoutEvent.timeoutMs / 1000)}s)`,
-          metadata: timeoutEvent.cliDiagnostics
-            ? { ...metadata, cliDiagnostics: timeoutEvent.cliDiagnostics }
-            : metadata,
+          metadata: timeoutCliDiagnostics ? { ...metadata, cliDiagnostics: timeoutCliDiagnostics } : metadata,
           timestamp: Date.now(),
         };
       } else if (cancelled) {
@@ -1299,8 +1359,8 @@ export class GeminiAgentService implements AgentService {
           error: formatCliExitError('Antigravity CLI', cliErrorEvent),
           metadata: agyExitDiagnostics
             ? { ...metadata, cliDiagnostics: agyExitDiagnostics }
-            : cliErrorEvent.cliDiagnostics
-              ? { ...metadata, cliDiagnostics: cliErrorEvent.cliDiagnostics }
+            : cliErrorEventDiagnostics
+              ? { ...metadata, cliDiagnostics: cliErrorEventDiagnostics }
               : metadata,
           timestamp: Date.now(),
         };

@@ -486,6 +486,8 @@ export function buildSilentCompletionDiagnostic(input: {
   stderrExcerpt?: string;
   /** Extra HOME roots used by an isolated child CLI spawn, redacted before public excerpts. */
   additionalHomePaths?: readonly string[];
+  /** Path-safe provider spawn context, if the provider has one. */
+  debugRefExtras?: Pick<CliDiagnostics['debugRef'], 'homeMode' | 'spawnCwdMode' | 'spawnCwdKey' | 'profileId'>;
 }): CliDiagnostics {
   const base = REASON_TEXT.silent_completion;
   // Safety: only first 8 chars of sessionId (CCID-style prefix), never the full ID
@@ -531,6 +533,7 @@ export function buildSilentCompletionDiagnostic(input: {
       exitCode: input.exitCode ?? 0,
       signal: null,
       ...(input.invocationId ? { invocationId: input.invocationId } : {}),
+      ...input.debugRefExtras,
     },
     // safeExcerpt slot holds the structured evidence (JSON-stringified — frontend renders
     // as raw text in disclosure section). KD-1: this is admitted because the content is
