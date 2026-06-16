@@ -649,15 +649,23 @@ describe('F203 Phase B — compile-system-prompt-l0.mjs', () => {
       });
     });
 
-    // AC-B3: fixture overlay anchor regression — fixture instance catalog验证 overlay 机制
-    // 此处用 fixture profileDir 验证 capsule overlay 生效，不依赖真实 private/ 数据
+    // AC-B3: fixture overlay anchor regression — full overlay mechanism validation
+    // Four compile-level regression tests using fixture profileDir:
+    //   1. capsule + primer overlay → both survive full pipeline
+    //   2. section ordering (identity < capsule < team)
+    //   3. capsule-only overlay (no primer) → capsule heading, no primer pointer
+    //   4. public baseline (no overlay) → zero private content of any kind
+    // All use test/fixtures/profile*, never private/profile/ (KD-6 fixture isolation)
     describe('fixture overlay anchor regression (AC-B3)', () => {
-      test('fixture capsule anchor appears in compiled output', async () => {
+      test('capsule + primer overlay → both anchors survive full compilation', async () => {
         const l0 = await compileL0({ catId: 'codex', profileDir: FIXTURE_DIR });
         assert.ok(
           l0.includes('FIXTURE_CAPSULE_ANCHOR_7x9k'),
-          'overlay anchor from fixture must survive full compilation pipeline',
+          'capsule overlay anchor must survive full compilation pipeline',
         );
+        assert.ok(l0.includes('## 主人画像'), 'capsule heading must be present');
+        assert.ok(l0.includes('关系轨迹'), 'primer pointer must be present when primer exists');
+        assert.ok(l0.includes('codex-primer.md'), 'primer path must reference catId');
       });
 
       test('capsule section position: after identity, before team declaration', async () => {
@@ -667,6 +675,24 @@ describe('F203 Phase B — compile-system-prompt-l0.mjs', () => {
         const teamIdx = l0.indexOf('协作团队的一员');
         assert.ok(identityIdx < capsuleIdx, 'capsule must come after identity block');
         assert.ok(capsuleIdx < teamIdx, 'capsule must come before team declaration');
+      });
+
+      test('capsule without primer → capsule heading present, no primer pointer', async () => {
+        const l0 = await compileL0({ catId: 'codex', profileDir: FIXTURE_NO_PRIMER_DIR });
+        assert.ok(l0.includes('## 主人画像'), 'capsule heading must be present');
+        assert.ok(l0.includes('FIXTURE_CAPSULE_ANCHOR_7x9k'), 'capsule anchor must survive');
+        assert.ok(!l0.includes('关系轨迹'), 'no primer pointer without primer file');
+        assert.ok(!l0.includes('codex-primer.md'), 'no primer path reference without primer');
+      });
+
+      test('public baseline (no overlay) → zero private content', async () => {
+        const l0 = await compileL0({ catId: 'opus', profileDir: FIXTURE_EMPTY_DIR });
+        assert.ok(!l0.includes('FIXTURE'), 'baseline must not contain any fixture string');
+        assert.ok(!l0.includes('## 主人画像'), 'baseline must not have capsule section');
+        assert.ok(!l0.includes('关系轨迹'), 'baseline must not have primer pointer');
+        // Verify compilation still succeeds without overlay (backward compat)
+        assert.ok(l0.includes('Identity constant:'), 'identity block must still be present');
+        assert.ok(l0.includes('协作团队的一员'), 'team declaration must still be present');
       });
     });
   });

@@ -117,7 +117,7 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 ### Phase B（砚砚 dogfood）
 - [x] AC-B1: 砚砚 instance personality 经"云端起草→本地认领→CVO 终审"流程更新进 `.cat-cafe/cat-catalog.json`，**三段 provenance 归档**（✅ 2026-06-11 三棒完整：cloud draft / local revision / CVO final 全文存档 `private/profile/provenance/`，catalog 旧值带 `.bak-f231` 备份，CVO final = 砚砚认领版零 delta）
 - [x] AC-B2: `private/profile/relationship/codex-primer.md` 落地，含 ≥2 段真实 trajectory，非规则清单（✅ 3 段重构式 few-shot + 事实/推断/示例边界标注 + 分工附注；砚砚清洗原则执行 + CVO 签字 status: signed）
-- [ ] AC-B3: 锚点回归测试在仓且 **fixture 隔离**：fixture overlay 编译断言 private 锚点生效；公共 baseline 断言缺 overlay 可编译 + 无私有锚点泄漏（CI/社区环境稳定，不依赖本机 gitignored 数据）
+- [x] AC-B3: 锚点回归测试在仓且 **fixture 隔离**：fixture overlay 编译断言 private 锚点生效；公共 baseline 断言缺 overlay 可编译 + 无私有锚点泄漏（CI/社区环境稳定，不依赖本机 gitignored 数据）（✅ 2026-06-16 四项 compile-level 回归：capsule+primer overlay / section ordering / capsule-only no-primer / public baseline zero-private；`compile-system-prompt-l0.test.mjs` F231 全 18 tests pass）
 
 ### Phase C（养熟循环）
 - [x] AC-C1: 关系信号→capsule/primer 更新提议路径落地（三段管道 KD-8，KD-12 分层写入制），至少 1 次真实更新走完全程（跑在白名单采集 + runtime-neutral trigger 真骨架上，非 L0 反射脚手架）（✅ PR #2296 merged 2026-06-15：profile-update proposal store/routes/tool/card + approve/reject write path + provenance audit + settled-card recovery；`pnpm gate` passed at `be6185ad`）
@@ -198,7 +198,7 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 | A1-A5 | ✅ 全部完成 | PR #2236, commits `dcef82981` / `7842754e5` / `44322432b` |
 | B1-B2 | ✅ 全部完成 | 2026-06-11 三棒 + CVO 签字 |
 | C1 | ✅ merged | PR #2296 (`be6185ad`) |
-| **B3** | ❌ 待做 | — |
+| B3 | ✅ 完成 | `compile-system-prompt-l0.test.mjs` 4 项 compile-level regression |
 | **C2** | ❌ 待做 | — |
 | **C3** | ❌ 待做 | — |
 
