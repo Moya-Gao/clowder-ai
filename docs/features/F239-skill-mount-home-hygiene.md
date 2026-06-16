@@ -8,7 +8,7 @@ created: 2026-06-16
 
 # F239: Skill Mount HOME Hygiene — `sync:skills` 默认改 project-level + 老 symlinks 清理（ADR-025 Phase 5 收尾）
 
-> **Status**: spec | **Owner**: 布偶猫/宪宪 (Opus 4.7) | **Priority**: P2
+> **Status**: in-progress (Phase A merged 2026-06-16) | **Owner**: 布偶猫/宪宪 (Opus 4.7) | **Priority**: P2
 
 ## Why
 
@@ -71,12 +71,12 @@ DRY_RUN=false
 
 <!-- 立项愿景硬度自检（F216→F219）：每条 AC 必须 ① trace 回 Why 的某诉求 ② 非作者可复核（命令/数字/截图）。重构/降复杂度类须实测可量（数字下降），不是"提了可测性就算"。详见 feat-lifecycle SKILL.md。 -->
 
-### Phase A（`sync-skills.sh` --user opt-in）
+### Phase A（`sync-skills.sh` --user opt-in）— ✅ 2026-06-16 (PR #2325 squash `6228ee96e`)
 
-- [ ] AC-A1: `pnpm sync:skills`（不带 flag）跑完后 `~/.{claude,codex,gemini,kimi}/skills/` 不新增 / 不更新任何指向 cat-cafe-skills/ 的 symlink；项目级 `.{provider}/skills/` 正常更新（per-skill symlinks 全部就位）— 复核命令：`ls -la ~/.claude/skills/ .claude/skills/ | grep cat-cafe-skills` 前后对比
-- [ ] AC-A2: `pnpm sync:skills --user` 跑完后 `~/.{claude,codex,gemini,kimi}/skills/` 出现指向当前 cat-cafe-skills/ 的 symlinks（与改造前同等行为）— 复核命令：同 AC-A1 + `--user` flag
-- [ ] AC-A3: 新增 targeted test `packages/api/test/governance/sync-skills-cli.test.js`（或扩 setup-skills-sync.test.js）验证：(a) 默认参数下脚本输出不包含 HOME paths (b) `--user` flag 时输出包含 HOME paths — 复核命令：`node --test packages/api/test/governance/sync-skills-cli.test.js`
-- [ ] AC-A4: `CONTRIBUTING.md` 已存在的 `pnpm sync:skills` step 更新为 `pnpm sync:skills --user`（contributor 想全局 = opt-in）— 复核：`git diff CONTRIBUTING.md`
+- [x] AC-A1: `pnpm sync:skills`（不带 flag）跑完后 `~/.{claude,codex,gemini,kimi}/skills/` 不新增 / 不更新任何指向 cat-cafe-skills/ 的 symlink；项目级 `.{provider}/skills/` 正常更新（per-skill symlinks 全部就位）— 复核命令：`ls -la ~/.claude/skills/ .claude/skills/ | grep cat-cafe-skills` 前后对比
+- [x] AC-A2: `pnpm sync:skills --user` 跑完后 `~/.{claude,codex,gemini,kimi}/skills/` 出现指向当前 cat-cafe-skills/ 的 symlinks（与改造前同等行为）— 复核命令：同 AC-A1 + `--user` flag
+- [x] AC-A3: 新增 targeted test `packages/api/test/governance/sync-skills-cli.test.js`（或扩 setup-skills-sync.test.js）验证：(a) 默认参数下脚本输出不包含 HOME paths (b) `--user` flag 时输出包含 HOME paths — 复核命令：`node --test packages/api/test/governance/sync-skills-cli.test.js`
+- [x] AC-A4: `CONTRIBUTING.md` 已存在的 `pnpm sync:skills` step 更新为 `pnpm sync:skills --user`（contributor 想全局 = opt-in）— 复核：`git diff CONTRIBUTING.md`
 
 ### Phase B（老 symlinks cleanup）
 
@@ -136,6 +136,7 @@ DRY_RUN=false
 | 日期 | 事件 |
 |------|------|
 | 2026-06-16 | 立项（CVO ack via 16:17 UTC "都得做"），Phase 5 part 1 已完成 via cat-cafe#2323 |
+| 2026-06-16 | Phase A merged (PR #2325, squash `6228ee96e`) — 5 rounds cloud review + 砚砚 LL-072 final review approved。新增 worktree-source / dir-mount classification / write-boundary guards 边角 case 收口 |
 
 ## Review Gate
 
