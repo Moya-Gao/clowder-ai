@@ -14,7 +14,9 @@ created: 2026-06-15
 
 每只猫每天烧的 context token，很大一块来自**实时调 MCP 工具的全文返回**——`get_thread_context` 默认就回 100 条、最多 200 条完整 message body，单次可塞爆上下文窗口，猫还没开始思考就耗掉一大半预算。这与 F148 在消息侧治理的痛点**同源**，只是发生在"当下→context"（猫实时调工具）而非"过去→context"（冷启动注入历史）。
 
-**价值一句话**：让猫调协作工具时默认拿到"指针 + 预览"，全文按需第二跳取——把单次工具返回的 token 占用砍下来，且**不丢信息**（无损 anchor，不是有损截断）。
+**价值一句话**：让猫调工具时默认拿到"指针 + 预览"，全文按需第二跳取——把单次工具返回的 token 占用砍下来，且**不丢信息**（无损 anchor，不是有损截断）。
+
+> **更大的图景（2026-06-15 发现）**：MCP 协作工具是**可控的起点**，但 cc 内置 Read/Grep（读文件/搜代码）才是 agent 工作流 token **大头**——经查证 cc PostToolUse hook 能治（Phase C）。本 feat 不止治小头，更要治大头，且做到 **rtk 做不到的**（rtk 只 hook Bash，放弃了 Read/Grep）。
 
 ## Current State / 现状基线（research 实测，2026-06-15）
 
@@ -22,6 +24,7 @@ created: 2026-06-15
 - F148（done）已治理"过去→context"：消息注入分层 + 历史 tool payload scrub（AC-A5）。
 - **缺口（本 feat）**：实时协作读工具全 dump——`get_thread_context`（`callbacks.ts:1975`，default 100/max 200 full body）、`get_pending_mentions`（`callbacks.ts:1645`，每条 inline 全文）、`list_tasks`（`callback-task-routes.ts:239`，why 达 1000 字）；且 `get_message` drill 终点**也回 full content**（砚砚抽查），不改则 dump 只推迟到第二跳。
 - 证据全量：`docs/research/2026-06-15-context-entry-anchor-audit/`
+- **🔑 大头修正（2026-06-15 查证，更正初稿误判）**：cc 内置 Read/Grep/Glob 才是 token 大头。初稿误判"runtime 锁定看不到"——查 cc 官方 hook 文档推翻：**PostToolUse hook + `updatedToolOutput` 能 replace 任何工具（含 Read/Grep/Glob）返回**。rtk 没解决是它只用 PreToolUse（46 处）零 PostToolUse，**不是平台限制**。→ Phase C（spike-gated）。
 
 ## What
 
@@ -37,7 +40,8 @@ created: 2026-06-15
 - ❌ runtime transform 层（codex/agy tool_result）—— 二期，跨 runtime 兼容性项目
 - ❌ outputSchema 迁移（`server.tool` → `registerTool`）—— Phase B 架构升级
 - ❌ subagent 返回 schema 硬约束 —— subprocess 架构不可达，硬层另设计
-- ❌ cc/opencode 内置工具返回 —— runtime 锁定，我们看不到
+- ⏳ cc 内置工具返回（Read/Grep/Glob）—— **移出 Non-goals**：PostToolUse 路径技术可行，升级为 Phase C（spike-gated，见下）
+- ❌ opencode 内置工具返回 —— transformer 不发 tool_result，仍 runtime 锁定（cc ≠ opencode）
 
 ## Acceptance Criteria
 
@@ -53,6 +57,14 @@ created: 2026-06-15
 ### Phase B: drill 终点 bounded
 - [ ] AC-B1: `get_message` 支持 `mode=preview|full`（或 maxChars），默认非 full
 - [ ] AC-B2: full drill 显式触发，记录 `fullDrillChars` telemetry
+
+### Phase C: cc 原生工具 anchor 化（spike-gated — 这才是大头）
+> 前置 spike（与砚砚一起）：实测 cc PostToolUse hook + `updatedToolOutput` 能否 replace Read/Grep/Glob 返回。**spike 不过则本 Phase 不启动**（不脑补——文档说能 ≠ 我们场景能用）。
+- [ ] AC-C0 (spike): 隔离环境（不碰主 settings）验证 PostToolUse matcher=Read + `updatedToolOutput` 真能把 Read 全文 replace 成 anchorized preview——猫侧实测，非文档推断
+- [ ] AC-C1: Read 返回默认 anchorized（文件路径 + 总行数 + 预览 + `read_file_slice` drill 指针），全文按需 drill
+- [ ] AC-C2: Grep/Glob 返回分组 anchor（命中文件 + 计数 + drill），不 inline 全部命中行
+- [ ] AC-C3: PostToolUse 仅 cc；codex（transform 可改）/ agy / opencode 等价机制单独评估，不假设都有
+- [ ] AC-C4: 双边 eval 对 cc 工具同样适用（Read drill 净收益 = 省 − drill 成本）
 
 ## Eval / Tracking Contract（F192 / ADR-031）
 
@@ -93,3 +105,4 @@ created: 2026-06-15
 - KD-3: drill 终点（get_message）也必须 bounded，否则 dump 只推迟 — 砚砚发现
 - KD-4: V1 不碰 outputSchema 迁移 / subagent schema（subprocess 不可达）— 砚砚收窄
 - KD-5: eval 双边公式，不许单边报省 — 砚砚 anchor tax 风险
+- KD-6: **cc 大头可解**——PostToolUse + `updatedToolOutput` 能 replace 内置工具返回（rtk 只用 PreToolUse 没做到）；升级为 spike-gated Phase C，待砚砚联合 spike 实测复核 — 宪宪查证（更正"runtime 锁定看不到"初稿误判，吸取 Workflow-schema 脑补教训）
