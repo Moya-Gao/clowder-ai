@@ -185,6 +185,8 @@ function mapTriagePlanToConfirmation(plan: TriagePlan): PendingConfirmation | nu
       planId: plan.id,
       intent: plan.intent,
       summary: plan.originalText || plan.target.threadTitle || plan.target.query || plan.intent,
+      // P1-1 fix: include investigationJobId so frontend can restore report on refresh
+      ...(plan.result?.investigationJobId ? { investigationJobId: plan.result.investigationJobId } : {}),
     },
     status: 'confirmed',
     createdAt: plan.createdAt,

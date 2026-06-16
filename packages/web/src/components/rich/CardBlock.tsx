@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { InvestigationProgress } from '@/components/concierge/InvestigationProgress';
 import { MarkdownContent } from '@/components/MarkdownContent';
 import { pushThreadRouteWithHistory } from '@/components/ThreadSidebar/thread-navigation';
 import type { RichCardBlock } from '@/stores/chat-types';
@@ -48,6 +49,25 @@ function findRestoredTriageStatus(
   return null;
 }
 
+/** P1-1 fix: find investigationJobId from restored confirmations for intent=investigate cards */
+function findRestoredInvestigationJobId(
+  confirmations: CardConfirmationEntry[] | undefined,
+  payload?: Record<string, unknown>,
+): string | null {
+  const planId = getPlanId(payload);
+  if (!planId) return null;
+
+  for (const entry of confirmations ?? []) {
+    if (entry.status !== 'confirmed') continue;
+    if (entry.action.kind !== 'concierge_triage_confirm') continue;
+    if (entry.action.planId !== planId) continue;
+    if (entry.action.intent !== 'investigate') continue;
+    const jobId = entry.action.investigationJobId;
+    if (typeof jobId === 'string' && jobId) return jobId;
+  }
+  return null;
+}
+
 function readTargetCatsSelection(payload?: Record<string, unknown>): string[] {
   if (!Array.isArray(payload?.targetCats)) return [];
   return payload.targetCats.filter((item): item is string => typeof item === 'string' && item.length > 0);
@@ -66,7 +86,25 @@ export function CardBlock({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copiedAction, setCopiedAction] = useState<string | null>(null);
+  // F229 AC-B2: investigation job tracking after triage confirm with intent=investigate
+  const [investigationJobId, setInvestigationJobId] = useState<string | null>(null);
   useProfileUpdateTerminalSync({ block, messageId });
+
+  // P1-1 fix: restore investigationJobId from persisted confirmations on mount/re-render.
+  // When panel reopens, confirmations include investigationJobId for investigate intents.
+  // This triggers InvestigationProgress which polls the persisted job and renders the report.
+  useEffect(() => {
+    if (investigationJobId) return; // already set (live confirm flow)
+    // Check each triage_confirm action in the block for matching restored confirmations
+    for (const action of block.actions ?? []) {
+      if (action.action !== 'concierge_triage_confirm') continue;
+      const restoredJobId = findRestoredInvestigationJobId(confirmations, action.payload);
+      if (restoredJobId) {
+        setInvestigationJobId(restoredJobId);
+        break;
+      }
+    }
+  }, [confirmations, block.actions, investigationJobId]);
 
   const copyToClipboard = useCallback(async (payload?: Record<string, unknown>) => {
     const text = typeof payload?.text === 'string' ? payload.text : '';
@@ -344,12 +382,19 @@ export function CardBlock({
 
         // If backend returns a thread, the confirmed action has transferred the user's intent:
         // go => target thread, propose_thread => newly-created investigation thread.
+        // investigate => extract investigationJobId and start polling (AC-B2).
         const intent = typeof payload?.intent === 'string' ? payload.intent : '';
         const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
         const threadId = typeof data.threadId === 'string' ? data.threadId : '';
         if ((intent === 'go' || intent === 'propose_thread') && threadId) {
           useConciergeStore.getState().onNavigationAction();
           pushThreadRouteWithHistory(threadId, window);
+        } else if (intent === 'investigate') {
+          // AC-B2: extract investigationJobId → InvestigationProgress polls and renders report
+          const jobId = typeof data.investigationJobId === 'string' ? data.investigationJobId : '';
+          if (jobId) {
+            setInvestigationJobId(jobId);
+          }
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : '确认失败');
@@ -525,6 +570,8 @@ export function CardBlock({
         </div>
       )}
       {error && <div className="mt-1 text-xs text-conn-red-text">{error}</div>}
+      {/* F229 AC-B2: Investigation progress/report after triage confirm with intent=investigate */}
+      {investigationJobId && <InvestigationProgress jobId={investigationJobId} />}
     </div>
   );
 }
