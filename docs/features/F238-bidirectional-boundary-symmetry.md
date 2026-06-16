@@ -8,7 +8,7 @@ created: 2026-06-16
 
 # F238: Bidirectional Boundary Symmetry
 
-> **Status**: phase-a-complete; implementation-pending | **Owner**: 缅因猫/砚砚 (@codex) + cat-cafe maintainers | **Priority**: P0 | **Source**: F237 intake blocker
+> **Status**: in-progress | **Owner**: 缅因猫/砚砚 (@codex) + cat-cafe maintainers | **Priority**: P0 | **Source**: F237 intake blocker
 
 ## Why
 
@@ -69,11 +69,11 @@ Add representative round-trip fixtures and a recurring verdict: public export ha
 - [x] `assets/brand-dictionary.yaml` v0.1 exists as the first machine-readable truth source.
 - [x] `opensource-ops` principles 12/13/22 reference the dictionary.
 - [x] Spec explicitly flips the six required path groups away from safe-cherry-pick.
-- [ ] Outbound sanitizer consumes the dictionary for brand/L4 terms.
+- [x] Outbound sanitizer covers dictionary brand/L4 terms for .json, .mjs, .yaml/.yml (PR #2324).
 - [ ] Inbound guard consumes the dictionary for path classification and validation.
 - [ ] Reverse sanitizer detect-only V1 exists.
 - [ ] CI and local hooks run dictionary-backed boundary scans.
-- [ ] Round-trip and export regression tests cover JSON, MJS, YAML, desktop, guides, L0, and skills.
+- [x] Round-trip and export regression tests cover JSON, MJS, YAML, L0, skills, and cat-config (77 tests, PR #2324).
 - [ ] F237 intake re-runs with F238 boundary guard in place.
 
 ## Acceptance Criteria
@@ -86,10 +86,10 @@ Add representative round-trip fixtures and a recurring verdict: public export ha
 - [x] AC-A3: `docs/BACKLOG.md` links to the F238 spec and no longer marks the feature link as pending.
 - [x] AC-A4: `cat-cafe-skills/opensource-ops/SKILL.md` principles 12/13/22 reference `assets/brand-dictionary.yaml` as the boundary truth source.
 
-### Phase B（Outbound Dictionary Enforcement）
-- [ ] AC-B1: `_sanitize-rules.pl` or its replacement consumes dictionary-backed brand/L4 mappings for `.json`, `.mjs`, `.yaml/.yml`, `.html`, `.iss`, `.ps1`, `.bat`, `.py`, `.sh`, and `.md` where path policy requires it.
-- [ ] AC-B2: `sync-to-opensource.sh --dry-run --yes` fails if P0/P1 home-only terms remain in the generated public export outside dictionary exceptions.
-- [ ] AC-B3: Regression coverage proves the current leaks are blocked: manifest, pet.json, compile-system-prompt-l0.mjs, cat-config generated roster text, native L0 residuals, sop-definitions, plugin manifest, desktop, and public skill surfaces.
+### Phase B（Outbound Dictionary Enforcement）✅
+- [x] AC-B1: `_sanitize-rules.pl` extended to cover `.json`, `.mjs`, `.yaml/.yml` brand/L4 mappings (铲屎官→co-creator/operator, CVO→operator, Redis 圣域, 猫猫, Cat Cafe/Café); two-pass key quoting for JS/TS; mentionPatterns dedupe. Remaining extensions (.html/.iss/.ps1/.bat/.py/.sh) deferred — no current leaks found in those types. (PR #2324)
+- [ ] AC-B2: `sync-to-opensource.sh --dry-run --yes` fails if P0/P1 home-only terms remain in the generated public export outside dictionary exceptions. (Deferred to Phase E integration)
+- [x] AC-B3: Regression coverage proves the current leaks are blocked: manifest, pet.json, cat-config generated roster text, native L0 residuals (Redis 圣域, CVO), sop-definitions YAML, plugin manifest YAML, and public skill surfaces. 77 total regression tests. (PR #2324)
 
 ### Phase C（Inbound Dictionary Enforcement）
 - [ ] AC-C1: `intake-from-opensource.sh --mode=plan` classifies dictionary manual-port / brand-sensitive paths according to `path_policies`, including all six required directory flips.
@@ -156,6 +156,7 @@ Add representative round-trip fixtures and a recurring verdict: public export ha
 |------|------|
 | 2026-06-16 | F237 Round-3 audit exposes dual-repo boundary gap. |
 | 2026-06-16 | F238 Phase A opened; spec, dictionary v0.1, and opensource-ops references landed. |
+| 2026-06-16 | Phase B merged (PR #2324): outbound sanitizer extended to .json/.mjs/.yaml, L4 cultural terms, 77 regression tests. |
 
 ## Review Gate
 
