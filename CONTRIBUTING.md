@@ -36,12 +36,17 @@ pnpm --filter @cat-cafe/api run test:public
 # Run lint checks
 pnpm check
 
-# (Dev / contributor mode) Mount cat-cafe-skills/ symlinks to ~/.{claude,codex,gemini,kimi}/skills
-# for local agent CLI access while developing this repo. End users don't need this — runtime
-# governance bootstrap (POST /api/projects/setup) creates project-level skill links automatically
-# per ADR-025. Run this command if you are developing cat-cafe-skills/ itself or want HOME-level
-# agent CLIs to see this repo's skills.
-pnpm sync:skills
+# (Dev / contributor mode) Mount cat-cafe-skills/ symlinks at the project level
+# (.{claude,codex,gemini,kimi}/skills/ inside the repo and all worktrees) so local agent CLIs
+# see this repo's skills while developing. End users don't need this — runtime governance
+# bootstrap (POST /api/projects/setup) creates project-level skill links automatically per ADR-025.
+#
+# Default (no flag) writes only project-level links across all worktrees.
+# Add `--user` if you also want them mounted at ~/.{claude,codex,gemini,kimi}/skills/ so agent
+# CLIs running outside this repo can still find these skills (per ADR-025 第 3 条: 用户级目录
+# 不默认承载官方 skills, contributor 想全局共享需显式 opt-in).
+pnpm sync:skills          # project-level only (recommended)
+# pnpm sync:skills --user # also mount HOME-level (opt-in)
 ```
 
 ### Project Structure
