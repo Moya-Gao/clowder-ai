@@ -184,9 +184,9 @@ describe('ConciergeThreadService', () => {
   it('getOrCreate syncs preferredCats to [dutyCatProfileId] from config', async () => {
     const { service, threadStore, conciergeConfigStore } = makeService();
 
-    // Pre-configure the duty cat — use gemini25 (the real catId), not gemini35 (mention alias).
+    // Pre-configure the duty cat — use gemini25 (its catId).
     // FIX-3 R2: ConciergeConfigStore.get() now validates dutyCatProfileId against catRegistry,
-    // so using an alias like 'gemini35' would be re-resolved to the default.
+    // so using an alias would be re-resolved to the default.
     await conciergeConfigStore.put('user-6', {
       enabled: true,
       skin: 'yarn-ball',

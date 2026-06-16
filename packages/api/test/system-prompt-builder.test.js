@@ -12,7 +12,7 @@ import { catRegistry } from '@cat-cafe/shared';
 
 const REPO_ROOT_TEMPLATE = resolve(dirname(fileURLToPath(import.meta.url)), '../../..', 'cat-template.json');
 const CAT_TEMPLATE_PATH = REPO_ROOT_TEMPLATE;
-const FULL_RUNTIME_PROMPT_CHAR_BUDGET = 6500;
+const FULL_RUNTIME_PROMPT_CHAR_BUDGET = 6700; // 6500→6700: gemini35 standalone breed adds ~78 chars to roster
 
 function assertWithinFullRuntimePromptBudget(prompt) {
   assert.ok(
@@ -1710,8 +1710,8 @@ describe('SystemPromptBuilder', () => {
         featureId: 'F073',
       },
     });
-    // 6200→6500: decision funnel §17 projection adds ~250 chars (four-cat discussion 2026-06-01)
-    assert.ok(prompt.length < 6500, `Prompt with SOP hint is ${prompt.length} chars, expected < 6500`);
+    // 6200→6500→6700: decision funnel §17 + gemini35 standalone breed roster growth
+    assert.ok(prompt.length < 6700, `Prompt with SOP hint is ${prompt.length} chars, expected < 6700`);
   });
 
   // --- F092: Voice Mode prompt injection ---
@@ -1758,8 +1758,8 @@ describe('SystemPromptBuilder', () => {
       },
       voiceMode: true,
     });
-    // 6200→6500: decision funnel §17 projection adds ~250 chars (four-cat discussion 2026-06-01)
-    assert.ok(prompt.length < 6500, `Prompt with voice mode + SOP hint is ${prompt.length} chars, expected < 6500`);
+    // 6200→6500→6700: decision funnel §17 + gemini35 standalone breed roster growth
+    assert.ok(prompt.length < 6700, `Prompt with voice mode + SOP hint is ${prompt.length} chars, expected < 6700`);
   });
 
   test('buildInvocationContext injects bootcamp mode when bootcampState provided', async () => {

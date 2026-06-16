@@ -142,7 +142,7 @@ describe('F168 Phase C C1.2: createRoleResolver (家里 roster binding)', () => 
       const { DEFAULT_COMMUNITY_ROLE_BINDINGS } = await import(RESOLVER);
       const n = DEFAULT_COMMUNITY_ROLE_BINDINGS.narrator;
       assert.ok(n, 'narrator must have a default binding');
-      assert.equal(n.catId, 'gemini25', '@gemini35 资料卡 → catId gemini25');
+      assert.equal(n.catId, 'gemini25', 'default narrator binding uses gemini25 catId');
       assert.equal(n.model, 'gemini-3.5-flash');
       for (const forbidden of ['code', 'merge', 'worktree']) {
         assert.equal(
