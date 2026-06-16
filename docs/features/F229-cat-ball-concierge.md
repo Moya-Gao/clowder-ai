@@ -144,7 +144,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 
 ### Phase B（总机能力）
 - [x] AC-B1: 用户描述问题 → 前台猫给出分诊建议并经确认执行，**传话/跟去双路径**：relay（cross_post 投递 + 对方回复后回执卡）+ go（teleport 跟进），留痕可查 → R4 + CVO 分叉反馈——TriagePlan state machine（proposed→confirmed→dispatched→completed/failed, retry from failed）+ atomic claimTransition（Redis Lua CAS + Memory sync CAS）+ targetCats resolver（fail-closed, registry validation）+ stripTriagePlanMarkers + CardBlock wiring；PR #2299 merged 2026-06-15
-- [ ] AC-B2: "自己调查"产出带 anchor 的报告回对话框（抽查 anchor 真实性）→ R4
+- [x] AC-B2: "自己调查"产出带 anchor 的报告回对话框（抽查 anchor 真实性）→ R4——InvestigationProgress 组件：poll job status（2s interval, terminalReachedRef stale guard）+ render report summary（ANCHOR_MARKER_RE strip）+ clickable anchor list（thread→planTeleport, github→external link, doc/feature→inline path）+ cancel with 409 race handling + confirmation restoration on mount；PR #2316 merged 2026-06-16
 
 ### Phase C（语音 loop）
 - [ ] AC-C1: 按住说话 → STT → 回答 → TTS 自动播全链路可用，端到端延迟实测记录（数字进 doc）→ R6
@@ -216,6 +216,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 
 | 日期 | 事件 |
 |------|------|
+| 2026-06-16 | **AC-B2 investigation report frontend merged** (PR #2316)：InvestigationProgress 组件——poll job status（2s interval + terminalReachedRef stale guard + transient error resilience）+ render report summary（ANCHOR_MARKER_RE strip）+ clickable anchor list（thread→planTeleport message-level, github→external, doc/feature→inline）+ cancel 409 race handling + confirmation restoration。gpt52 local review 2 rounds（3 P1 + 4 P2 全修）+ cloud review 2 rounds（封板 LL-072，R2 stale ratio 66%）；14 tests green |
 | 2026-06-16 | **Phase B triage boundary fix merged** (PR #2310)：两个铲屎官发现的 bug——Bug1 intent 误分类（"你能干啥" 触发 investigate 而非直答，根因=overly broad "用户描述需求时" trigger）用判据重写修复（"需要跨出当前对话吗？"）；Bug2 concierge 确认按钮泄漏"确认"文字到猫 thread（`sendContext` guard 全链打通 InteractiveBlock + InteractiveBlockGroup + RichBlocks + ChatContainer）。gpt52 local review 2 rounds（P1 InteractiveBlockGroup bypass 修复确认）+ cloud review 1 P2 降级 P3（理论场景无复现证据） |
 | 2026-06-15 | **Relay P1 fix merged** (PR #2305)：gpt52 review 发现 defense-in-depth guard 留了 fail-open 路径——uniquely-resolved relay 的 `selectedTargetCats` 可被客户端任意重写。两处写入门控（`dispatchPlan` 构造 + `setTargetCats` 持久化）加 `useClientSelection` guard：仅 `candidateCats` 存在时用客户端值，否则用 store 原值。回归测试覆盖 rewrite attack vector。gpt52 local review + cloud 0 P1/P2。→ sonnet re-alpha 需重验 relay + go |
 | 2026-06-15 | **KD-20 lock + opus-47 Phase B intermediate 愿景守护 PASS**：go 路径 marker 优先 + triage-go fallback（triage-only-for-write 原则）。AC-B1 实质满足——spec 六条款 trace 回 Why 痛点4 R4 全对齐（relay E2E ✅ / PendingConfirmation ✅ / go via KD-19 marker ✅ / triage XML 遵从 ✅）。alpha env gap（gemini35 不在 cat-catalog）记录待 Phase B close 前补 |
