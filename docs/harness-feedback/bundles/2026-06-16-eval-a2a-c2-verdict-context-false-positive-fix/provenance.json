@@ -1,0 +1,19 @@
+{
+  "verdictId": "2026-06-16-eval-a2a-c2-verdict-context-false-positive-fix",
+  "rawInputs": [
+    {
+      "path": "docs/harness-feedback/snapshots/2026-06-16-F167-eval.yaml",
+      "sha256": "2e3ec056c541ca0b16fa7e5ca8403c0b3af65ae0197a5ad95b20b1b3e663f0b6"
+    },
+    {
+      "path": "docs/harness-feedback/attributions/2026-06-16-F167-attribution.yaml",
+      "sha256": "68ec20089d2a32738574b9846e299be6e88cda9b6ccc5f1117240be56a3faab9"
+    }
+  ],
+  "generatedAt": "2026-06-16T03:02:12.317Z",
+  "generator": {
+    "name": "eval-a2a-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f192-e-pilot-v1"
+}
