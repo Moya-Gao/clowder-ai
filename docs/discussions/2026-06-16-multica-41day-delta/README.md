@@ -330,6 +330,206 @@ issue_pull_request      (issue ↔ PR 多对多链接表，记录 linked_by_type
 
 > Multica 在 41 天里证明了"agent control plane + 商业化 SaaS"是一条可达的产品路径——但它**主动收窄了 multi-agent 协作的宣传**（squad SKILL.md 自己澄清 "not an agent, no fan-out"），等于在产品语言上承认"我们做的是 agent ops，不是 agent 协作"。Cat Café 的"agent 协作"差异点因此**反而被强化**：行业里没有人在这条路上做出来，Multica 也主动绕开了。
 
+## Strategic Intent Deep Dive：Multica 41 天里想做什么（铲屎官追问）
+
+第一节是审计层"做了什么"，这节是战略层"为什么这么做"。每条都用 41 天的代码/schema/commit 证据说话，不脑补意图。
+
+### 1. 商业模式：典型"开源核心 + SaaS / Enterprise 上层"
+
+证据链：
+
+- LICENSE **0 行 diff**——保持 Apache 2.0 + SaaS/前端 branding 限制。这是 BSL-style 模板：**开源代码可读可学，云端托管/嵌入式 SaaS 须授权**。同型项目：PostHog / Supabase / Sentry / Cal.com。
+- `migrations/098_contact_sales_inquiries.up.sql` —— **B2B 销售线索表**。这是产品准备接 enterprise 客户的硬证据，开源个人版用不上这张表。
+- `feat: support Claude Fable 5 pricing (#3982)` + `task_usage_hourly` + `task_usage_daily_rollup` + `pgcron` + `task_usage_daily_invalidation` ——**多模型 pricing + 用量计量 + 失效重算**。这套是按 token / per-task 计费的标准基础设施。
+- `feat(server): funnel/community/commercial business metrics + PostHog pairing` + `BusinessSamplerCollector for active users / queued / runtime gauges` ——业务漏斗指标 + community vs commercial 区分采样。投资人 due diligence 需要的数字现在能一键拉出来。
+- `apps/docs/content/docs/squads.{en,ja,ko,zh}.mdx` + `user_timezone` migration ——4 语言文档 + 时区表。**全球化产品姿态**，不是单一英文市场玩家。
+
+**判断**：41 天里 Multica 把"开源吸引开发者 → 转化为付费 enterprise 用户"这套漏斗装齐了。下一个 41 天的核心动作几乎可以预测——**正式开通付费层 / 公布定价 / 拉资本**。
+
+### 2. 市场押注：亚太 IM + 全球 dev 双线作战
+
+证据链：
+
+- **亚太 IM 押注**：109_lark_integration 一整套 270 行 + 后续 lark-* 多条 migration（installation region / bot union id / inbound dedup / chat origin）+ 一长串 `feat(lark)` commits（typing indicator / group context / @ mention prefetch / Feishu+Lark 同一部署 / WebSocket proxy）。
+- **西方 dev 工作流押注**：079_github_integration（PR mirror + issue↔PR 链接）+ `feat(cli): list issue pull requests` + `issue_pull_request_close_intent` migration。
+- **中国 coding agent 拉拢**：`feat(agent): add CodeBuddy as first-class CLI backend (#3186)` + `feat(daemon): enable Antigravity (agy) per-agent model selection`。CodeBuddy / Antigravity 都是 Anthropic 朝向中国市场的延伸品牌或可平替接入；first-class 待遇 = Multica 在主动迎接中国开发者。
+- **合规姿态**：`lark_inbound_audit` 强制 "never message body, only routing/identity/drop_reason"。这是 enterprise/合规客户能接受的数据姿态。
+
+**判断**：Multica 在押**"在哪里有付费意愿的 agent ops 用户"**。亚太 IM = 高 ARPU 企业市场入口；GitHub PR = 全球开发者高活跃用户基础；CodeBuddy/Antigravity = 中国开发者池子。这不是"广撒网"，是**有市场分析过的精准三线投入**。
+
+### 3. 产品路线推断：下个 41 天大概率会做什么
+
+按 41 天 schema + commits 留下的"半成品"判断：
+
+| 已留好接口 / 部分实现 | 下个 41 天大概率补全 |
+| --- | --- |
+| `issue_pull_request.linked_by_type/id` + PR mirror 单向 | **GitHub PR 反向 push**（multica issue → GitHub repo） |
+| `lark_installation` schema + Feishu/Lark 同部署 | **更多 IM 平台**：Slack / 微信 / Discord，schema 已经模板化 |
+| `task_usage_hourly` + pgcron + invalidation | **付费层定价表 + 自助 billing UI**，schema 已就绪 |
+| `squad` + leader 单点 + member 不 fan-out | 大概率**保持克制不做 fan-out**——产品方已 SKILL.md 明确收窄宣传 |
+| `autopilot_trigger_event_filters` + DB-backed scheduler | autopilot **多步骤编排**（DAG）仍是未填的坑，但优先级看起来比 IM 集成低 |
+| `builtin_skills` embed | 内置 skill **数量扩张 + 多语言**几乎必然 |
+| `contact_sales_inquiries` + business metrics | **enterprise tier 公布**（私有部署服务 / 企业 SLA / 专属支持） |
+
+**几乎肯定不会做的事**：
+
+- "Every solution becomes a reusable skill" 自动 compound：**41 天 0 个相关 commit + 内置 skill 全是 manual authored** = 战略上放弃了这个 README claim。
+- Workflow DAG / 多步骤编排：autopilot 一直在 trigger 系修补，没有 planner / scheduler / DAG 模型迹象。
+- Multi-agent fan-out 真协作：squad SKILL.md **主动澄清** "members not fanned out"——这是产品决策，不是没来得及做。
+
+### 4. 资本/团队信号：从开源到组织化的转变
+
+证据链：
+
+- `MUL-XXXX` 内部 ticket 前缀贯穿 41 天大量 commit（如 MUL-2759 / MUL-3104 / MUL-3125 / MUL-3158 / MUL-3304 / MUL-3324）——**linear/jira-style 项目管理**，社区贡献者通常不会用这种 ticket ID 提 PR。这意味着 Multica 已经有规模化的内部团队 + 流程化产品管理。
+- `changelog 制度化`：`MUL-3324: add 2026-06-16 changelog entry (#4194)` ——**每日 changelog entry**。这是有专门 owner / 流程的产品节奏，不是开源 maintainer 顺手。
+- `central error translation layer (PR1, PR2)` + `pkg/taskfailure classifier` ——这种"中枢化重构"需要**多人协作 + 多周时间**，不是一个 maintainer 周末干的活。
+- 商业指标 / 销售线索表 / 多语言文档 / per-status error hints —— 这些是**产品经理 + 设计师 + 客户成功**这种岗位才会推动的工作。
+
+**判断**：Multica 从 41 天前的"较成熟开源 + 早期商业化探索"演进到"组织化产品团队 + 进入种子/A 轮募资准备状态"。stars 从 25k → 37k（+47%）也是给投资人的 traction 信号。
+
+### 5. 威胁判断：他们会不会做 Cat Café 的方向？
+
+**答：不会，且 41 天里 Multica 主动放弃了走这条路的所有可能。**
+
+- squad SKILL.md 明确写 "A squad is not an agent. squad members are not automatically fanned out." ——产品方**主动收窄宣传**而不是补功能。这是市场定位决策。
+- 没有 thread / handoff / 球权 / cross-cat-review / 平行猫自意识 相关的 schema 或 commit。
+- 协作模型仍以 issue 为中心（assignee + comment + mention），即使加了 squad 也是路由抽象。
+- 商业化 SaaS 的路径**强制要求**"单点责任 + 可计量 + 可计费"——多猫真协作的"球权可流转 / 多猫共担"恰恰反向于 SaaS 计价模型。
+
+**Multica 选择了"agent ops 产品化"的路径并按此优化全部产品决策**。这一选择越坚定，Cat Café 的"多猫真协作 + 情感壁垒 + 知识沉淀"差异化越独特。
+
+### 6. 战略意图小结
+
+| 维度 | Multica 的押注 | 证据 |
+| --- | --- | --- |
+| 商业模式 | 开源核 + Enterprise SaaS | LICENSE 0 diff + sales 表 + business metrics + 计费基础 |
+| 市场入口 | 亚太 IM + 全球 GitHub dev + 中国 coding agent | Lark + GitHub mirror + CodeBuddy/Antigravity first-class |
+| 产品哲学 | Agent ops（单点责任 / 可计量 / 可计费） | squad 路由抽象 + leader 单点 + 主动收窄宣传 |
+| 团队/资本 | 组织化产品团队，准备募资 | MUL-XXXX ticket + 日 changelog + 中枢化重构 + 4 语言文档 |
+| 不做 | 多 agent 真协作 / skill 自动 compound / workflow DAG | 主动收窄宣传 + 41 天 0 个相关 commit |
+
+## Cat Café 可执行学习清单（Actionable Five，铲屎官追问）
+
+不是抽象"我们应该学"，是**具体到文件 / 模式 / 估计工作量**的清单。按 ROI 排序（高在前）：
+
+### 学习项 #1：schema 注释即合约（ROI 极高，工作量小）
+
+**Multica 怎么做**（`server/migrations/109_lark_integration.up.sql` 头部 18 行）：
+
+```sql
+-- Lark (飞书) Bot integration: per-agent PersonalAgent installations,
+-- user/chat bindings, inbound dedup + drop audit, outbound card mapping,
+-- and short-lived member binding tokens.
+--
+-- Scope notes (mirror description §4.8 boundaries):
+--   * `chat_session` is reused as-is — Lark routes through a separate
+--     `lark_chat_session_binding` rather than adding a `metadata` JSONB
+--     column to chat_session.
+--   * Outbound card-message mapping is *task/message* scoped, not session
+--     scoped, so multiple runs on the same chat_session don't stomp each
+--     other's cards.
+--   * `app_secret` is stored encrypted; the application layer encrypts
+--     before writing and decrypts on read (no DB-side decryption helper).
+--   * `lark_inbound_audit` is the only writable surface for events that
+--     fail identity check or group-mention filter — it stores routing /
+--     identity / drop_reason / timestamp ONLY, never message body.
+```
+
+字段级注释也是同款风格——"composite FK 是为了守哪个不变量"、"为什么不加 metadata JSONB"。**schema 自己就是 ADR**。
+
+**Cat Café 当前现状**：Postgres migrations / Redis schema 注释密度不高，决策原因主要在 `docs/decisions/`。当架构问题问到字段级时，要跳转。
+
+**怎么搬**：
+- 已有 schema 在下次重构时按"每张表 head 注释 = 这张表存在的理由 + 与谁的不变量"补
+- 新 schema 强制 head 注释：scope notes / 不变量 / 安全约束
+- 工作量：每张表 5-15 分钟 head 注释；不需新功能
+
+### 学习项 #2：平台说明书的程序化分发（ROI 高，工作量中）
+
+**Multica 怎么做**（`server/internal/service/builtin_skills.go` + `builtin_skills/multica-*/SKILL.md`）：
+
+- Go 1.16 `//go:embed builtin_skills` 把 8 个 SKILL.md 编译进二进制
+- 每个 agent 启动时收到这 8 份 + workspace 自己的 skill
+- frontmatter 标 `user-invocable: false`，**只给 agent 看**
+- 内容是教 agent 用 Multica 自己的 API/CLI（autopilots / mentioning / projects / runtimes / skill-importing / squads / working-on-issues）
+- 每条 claim 都引用 `references/*-source-map.md` 回链 server 源码路径
+
+**Cat Café 当前现状**：
+- native L0 system prompt（每次注入 catId / 家规 / 队友 / SOP 导航）已经覆盖**全局基线**
+- 但"如何用 cat-cafe-collab MCP / 怎么 hold_ball / 怎么 cross_post / 怎么用 memory 三入口"散落在 cat-cafe-skills/refs/ 文档里
+- 猫读这些文档的时机依赖 skill 触发反射，不是每次启动自动加载
+
+**怎么搬**：
+- 立 feat：建 `cat-cafe-builtin-skills/`（独立目录与 user skills 区分），仿 Multica 用 frontmatter `user-invocable: false` 标记
+- 内容覆盖：`how-to-hold-ball.md` / `how-to-cross-post.md` / `how-to-recall-memory.md` / `how-to-merge-gate.md` / `how-to-vision-guard.md`
+- 每条 claim 引用源码路径（`packages/api/src/...` / `packages/collab/src/...`）
+- 修改 SystemPromptBuilder：每次 invocation embed 这批 skill 到 user message 头部（不是 system prompt），猫加载触发时直接读
+- 工作量：建目录 + 5-8 篇 SKILL.md + SystemPromptBuilder 改动 ≈ 1-2 个 worktree
+
+### 学习项 #3：Failure 中枢化（ROI 中等，工作量中）
+
+**Multica 怎么做**（`pkg/taskfailure` classifier + `feat(cli): central error translation layer (PR1+PR2)`）：
+
+- 所有 task failure reason 写入路径走 `pkg/taskfailure.Classify(err)` 一处
+- CLI 用户层错误展示走 central error translation：error code → actionable hint
+- "per-status error copy with actionable hints" 让用户看到"这步失败因为 X，你可以试 Y"
+
+**Cat Café 当前现状**：hold_ball 失败 / merge_gate 失败 / mention 路由失败 / memory 检索失败 各自处理，error 信息分散，lesson 各自写。
+
+**怎么搬**：
+- 立 feat：建 `packages/api/src/failure-classifier.ts`，定义 `FailureKind` enum + `classify(err): { kind, retriable, userHint, sourceModule }`
+- 所有写 fail 状态的地方走 classifier
+- Hub / message UI 展示 classifier 的 userHint
+- 配套 telemetry：哪类 failure 出现频率最高
+- 工作量：1 个 feat（classifier 中枢 + 5-7 处迁移 + UI 展示）≈ 2-3 个 worktree
+
+### 学习项 #4：外部对象镜像 + 中间链接表（ROI 中等，工作量中）
+
+**Multica 怎么做**（`migrations/079_github_integration.up.sql`）：
+
+```text
+github_installation       -- workspace 装了哪个 GitHub App
+github_pull_request       -- 镜像 PR state (open/closed/merged/draft, branch, author, merged_at)
+issue_pull_request        -- issue ↔ PR 多对多链接表 (linked_by_type/id)
+```
+
+"外部对象在我们库里有个镜像 + 用中间链接表组织关系"是个能复用的模式。
+
+**Cat Café 当前现状**：PR / GitHub issue 现在通过 `cat_cafe_register_pr_tracking` / `cat_cafe_register_issue_tracking` 做了部分镜像，但中间链接表（哪个 thread 关注哪个 PR / 哪只猫 review 过 / merge 后哪只猫接 vision guard）还不是一等数据。
+
+**怎么搬**：
+- 增量改 F167 / register_pr_tracking 当前 schema，补"PR ↔ thread ↔ cat ↔ phase" 链接表
+- 让"PR 状态在哪 / 哪只猫看过 / 哪只猫批了 / merge 后是谁接" 进入 graph_resolve 可达
+- 工作量：schema 改 + tracking handler 改 + graph_resolve 索引 ≈ 1-2 个 worktree
+
+### 学习项 #5：WS lease + 应用层加密 + 合规 audit（ROI 取决于产品方向）
+
+**Multica 怎么做**（`migrations/109_lark_integration.up.sql`）：
+
+- `ws_lease_token` + `ws_lease_expires_at`：多副本部署时只有持有有效 lease 的 server 能保持 WebSocket，防 inbound 事件重复消费
+- `app_secret_encrypted BYTEA`：应用层 secretbox 加密，DB 永不见明文
+- `lark_inbound_audit` ：**只存 routing/identity/drop_reason，never message body**
+
+**Cat Café 当前现状**：
+- 单机部署，没遇到多副本竞争
+- 没接外部 IM 平台，没有 enterprise IM 安全约束
+
+**怎么搬**：
+- **当前不抄**——产品阶段不到
+- 但**留为参考模板**：当 Cat Café 决定接入任何外部 IM / SaaS / enterprise 客户时，这套"WS lease + 应用层加密 + audit 不存敏感 body"是 day 1 必备规格
+- 工作量：当前 0；触发条件出现后单独立 feat
+
+### 学习项小结 / 优先级建议
+
+| # | 学习项 | ROI | 工作量 | 推荐立项时机 |
+| --- | --- | --- | --- | --- |
+| 1 | schema 注释即合约 | 极高 | 极小（每张表 5-15 分钟） | 下一次重构 schema 时顺手补 |
+| 2 | 平台说明书程序化分发 | 高 | 中（1-2 个 worktree） | 短期立项可考虑 |
+| 3 | Failure 中枢化 | 中 | 中（2-3 个 worktree） | 中期立项（先看 lesson 频率） |
+| 4 | 外部对象镜像 + 链接表 | 中 | 中（1-2 个 worktree） | 增量改 F167 时顺路 |
+| 5 | WS lease + 加密 + audit | 低（当前） | 0（当前） | 触发条件出现后单独立 feat |
+
 ## Bottom Line
 
 41 天 Multica delta 不是路线转向，是**密度跃迁 + 边界澄清**：
