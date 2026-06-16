@@ -261,10 +261,14 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   } = useAuthorization(threadId);
 
   // F096: Listen for interactive block send events
+  // F229 Bug 2 fix: ignore events tagged with sendContext (e.g. 'concierge')
+  // to prevent InteractiveBlock clicks in the concierge panel from leaking
+  // "确认"/"取消" text as messages to the main thread.
   useEffect(() => {
     const handler = (e: Event) => {
-      const text = (e as CustomEvent<{ text: string }>).detail.text;
-      if (text) handleSend(text);
+      const detail = (e as CustomEvent<{ text: string; sendContext?: string }>).detail;
+      if (detail.sendContext) return; // belongs to another panel, not main thread
+      if (detail.text) handleSend(detail.text);
     };
     window.addEventListener('cat-cafe:interactive-send', handler);
     return () => window.removeEventListener('cat-cafe:interactive-send', handler);

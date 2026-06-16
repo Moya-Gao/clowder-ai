@@ -2153,4 +2153,47 @@ describe('SystemPromptBuilder', () => {
     // Must NOT instruct model to output structured actions payload
     assert.ok(!result.includes('anchor-first 答案必须附 teleport+peek 双动作卡'), 'old Rule #3 text must be removed');
   });
+
+  // F229 Bug 1: Triage boundary criterion — duty cat must know when NOT to triage
+  test('F229: concierge prompt contains triage boundary criterion (direct-answer vs triage judgment)', async () => {
+    const { buildInvocationContext } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
+    const result = buildInvocationContext({
+      catId: 'sonnet',
+      mode: 'independent',
+      teammates: [],
+      mcpAvailable: false,
+      threadId: 'thread-concierge-boundary',
+      threadKind: 'concierge',
+      conciergeConfig: {
+        enabled: true,
+        skin: 'yarn-ball',
+        displayName: '猫猫球',
+        personaTone: '温暖、简短',
+        dutyCatProfileId: 'gemini35',
+        proactivePolicy: 'quiet-badge',
+        muted: false,
+      },
+    });
+
+    // Must have the boundary judgment criterion
+    assert.ok(result.includes('直接回答'), 'should contain direct-answer path');
+    assert.ok(result.includes('走分诊'), 'should contain triage path');
+    assert.ok(
+      result.includes('跨出当前对话'),
+      'should contain the core criterion: "does this need to leave the current conversation?"',
+    );
+
+    // Must explicitly list direct-answer cases (no triage-plan)
+    assert.ok(result.includes('不生成 triage-plan'), 'should explicitly say no triage-plan for direct answers');
+
+    // Must NOT have the old overly-broad trigger
+    assert.ok(
+      !result.includes('用户描述需求时，你要先理解意图，生成一个可确认的分诊计划'),
+      'old broad triage trigger must be removed',
+    );
+
+    // Investigate intent must be scoped to async search, not "查功能状态"
+    assert.ok(result.includes('当场答不了的异步搜索'), 'investigate intent should be scoped to async search');
+    assert.ok(!result.includes('查资料/记忆/功能状态'), 'old broad investigate description must be removed');
+  });
 });

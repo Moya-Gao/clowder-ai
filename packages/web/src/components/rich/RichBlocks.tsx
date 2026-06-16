@@ -22,12 +22,15 @@ function RichBlockRenderer({
   messageId,
   messageSource,
   confirmations,
+  sendContext,
 }: {
   block: RichBlock;
   catId?: string;
   messageId?: string;
   messageSource?: ConnectorSource;
   confirmations?: CardConfirmationEntry[];
+  /** F229 Bug 2 fix: propagated to InteractiveBlock to tag interactive-send events */
+  sendContext?: string;
 }) {
   switch (block.kind) {
     case 'card': {
@@ -65,7 +68,7 @@ function RichBlockRenderer({
     case 'audio':
       return <AudioBlock block={block} catId={catId} />;
     case 'interactive':
-      return <InteractiveBlock block={block} messageId={messageId} />;
+      return <InteractiveBlock block={block} messageId={messageId} sendContext={sendContext} />;
     case 'html_widget':
       return <HtmlWidgetBlock block={block} />;
     case 'file':
@@ -164,6 +167,7 @@ export function RichBlocks({
   messageId,
   messageSource,
   confirmations,
+  sendContext,
 }: {
   blocks: RichBlock[];
   catId?: string;
@@ -176,6 +180,9 @@ export function RichBlocks({
    */
   messageSource?: ConnectorSource;
   confirmations?: CardConfirmationEntry[];
+  /** F229 Bug 2 fix: context tag for interactive-send events (e.g. 'concierge').
+   *  Prevents InteractiveBlock events from leaking to the wrong thread's handler. */
+  sendContext?: string;
 }) {
   if (blocks.length === 0) return null;
   const items = groupBlocks(blocks);
@@ -183,7 +190,12 @@ export function RichBlocks({
     <div className="mt-2 space-y-2">
       {items.map((item) =>
         'grouped' in item ? (
-          <InteractiveBlockGroup key={item.groupId} blocks={item.blocks} messageId={messageId} />
+          <InteractiveBlockGroup
+            key={item.groupId}
+            blocks={item.blocks}
+            messageId={messageId}
+            sendContext={sendContext}
+          />
         ) : (
           <RichBlockRenderer
             key={item.id}
@@ -192,6 +204,7 @@ export function RichBlocks({
             messageId={messageId}
             messageSource={messageSource}
             confirmations={confirmations}
+            sendContext={sendContext}
           />
         ),
       )}

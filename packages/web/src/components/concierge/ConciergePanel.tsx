@@ -410,6 +410,7 @@ export function ConciergePanel() {
                           blocks={msg.richBlocks}
                           messageId={msg.id}
                           confirmations={confirmations.get(msg.id)}
+                          sendContext="concierge"
                         />
                       </div>
                     )}
