@@ -540,6 +540,60 @@ export const communityIssueRoutes: FastifyPluginAsync<CommunityIssuesRoutesOptio
       }
     }
 
+    // F168 C3.2 eval.1 (INV-13): record RouteDecisionEvalEvent when narrator had a recommendation.
+    // `agreed` is a pure projection — computed at creation, not separately stored.
+    // When no narrator recommendation exists (pure human decision), skip eval entirely.
+    if (opts.eventLog) {
+      try {
+        const freshIssue = await communityIssueStore.get(id);
+        const dc = freshIssue?.directionCard as {
+          entries?: Array<{ authoredByRole?: string; routeRecommendation?: unknown }>;
+        } | null;
+        const narratorEntry = dc?.entries?.find(
+          (e) => e.authoredByRole === 'narrator' && e.routeRecommendation != null,
+        );
+        if (narratorEntry) {
+          const narratorRec = narratorEntry.routeRecommendation as { kind: string; threadId?: string };
+          // Compute agreed: narrator recommendation matches owner decision
+          let agreed: boolean;
+          if (result.data.decision === 'declined') {
+            agreed = narratorRec.kind === 'decline';
+          } else {
+            // accepted: compare route kind + threadId if applicable
+            const ownerRR = result.data.routeRecommendation;
+            if (!ownerRR) {
+              // Owner accepted without specifying route → doesn't match narrator recommendation
+              agreed = false;
+            } else {
+              agreed =
+                ownerRR.kind === narratorRec.kind &&
+                (ownerRR.kind !== 'existing-thread' ||
+                  (ownerRR as { threadId: string }).threadId === narratorRec.threadId);
+            }
+          }
+          const subjectKey = `issue:${issue.repo}#${issue.issueNumber}`;
+          const evalEvent: CommunityEvent = {
+            sourceEventId: `route-eval:${id}:${Date.now()}`,
+            subjectKey,
+            kind: 'case.route_decision_eval',
+            classification: 'informational',
+            payload: {
+              narratorRecommendation: narratorRec,
+              ownerDecision: {
+                threadId: resolvedThreadId ?? null,
+                verdict: result.data.decision,
+              },
+              agreed,
+            },
+            at: Date.now(),
+          };
+          await opts.eventLog.append(evalEvent);
+        }
+      } catch {
+        // Best-effort — eval recording failure never blocks resolve
+      }
+    }
+
     return communityIssueStore.get(id);
   });
 

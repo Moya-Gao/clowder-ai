@@ -742,6 +742,115 @@ describe('Community Issues Routes', () => {
     assert.equal(res.statusCode, 500, 'must fail-closed when threadStore unavailable for validation');
   });
 
+  // --- C3.2 eval.1: RouteDecisionEvalEvent recording (INV-13) ---
+
+  /** Mock event log that collects appended events for assertion. */
+  function createMockEventLog() {
+    const events = [];
+    return {
+      events,
+      append: async (event) => {
+        events.push(event);
+        return { appended: true, sequence: events.length };
+      },
+      read: async () => events,
+    };
+  }
+
+  test('POST resolve records RouteDecisionEvalEvent agreed=true when owner confirms narrator recommendation (INV-13)', async () => {
+    const mockEventLog = createMockEventLog();
+    const app = await createApp({ eventLog: mockEventLog });
+    const issue = await createPendingDecisionIssue(app, 200);
+
+    // Triage with narrator recommendation: existing-thread to thread_community_ops
+    await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/triage-complete`,
+      payload: {
+        catId: 'narrator-cat',
+        verdict: 'WELCOME',
+        questions: fivePass,
+        authoredByRole: 'narrator',
+        routeRecommendation: { kind: 'existing-thread', threadId: 'thread_community_ops' },
+      },
+    });
+
+    // Owner confirms same route as narrator recommended
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/resolve`,
+      headers: { 'x-cat-cafe-user': 'landy' },
+      payload: {
+        decision: 'accepted',
+        catId: 'opus',
+        routeRecommendation: { kind: 'existing-thread', threadId: 'thread_community_ops' },
+      },
+    });
+    assert.equal(res.statusCode, 200);
+
+    const evalEvents = mockEventLog.events.filter((e) => e.kind === 'case.route_decision_eval');
+    assert.equal(evalEvents.length, 1, 'must record exactly one RouteDecisionEvalEvent');
+    const evalEvent = evalEvents[0];
+    assert.equal(evalEvent.payload.agreed, true, 'agreed must be true when owner confirms narrator');
+    assert.deepStrictEqual(evalEvent.payload.narratorRecommendation, {
+      kind: 'existing-thread',
+      threadId: 'thread_community_ops',
+    });
+    assert.equal(evalEvent.payload.ownerDecision.verdict, 'accepted');
+    assert.equal(evalEvent.classification, 'informational');
+  });
+
+  test('POST resolve records RouteDecisionEvalEvent agreed=false when owner overrides narrator (INV-13)', async () => {
+    const mockEventLog = createMockEventLog();
+    const app = await createApp({ eventLog: mockEventLog });
+    const issue = await createPendingDecisionIssue(app, 201);
+
+    // Narrator recommends existing-thread
+    await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/triage-complete`,
+      payload: {
+        catId: 'narrator-cat',
+        verdict: 'WELCOME',
+        questions: fivePass,
+        authoredByRole: 'narrator',
+        routeRecommendation: { kind: 'existing-thread', threadId: 'thread_community_ops' },
+      },
+    });
+
+    // Owner overrides: declines instead of accepting
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/resolve`,
+      headers: { 'x-cat-cafe-user': 'landy' },
+      payload: { decision: 'declined' },
+    });
+    assert.equal(res.statusCode, 200);
+
+    const evalEvents = mockEventLog.events.filter((e) => e.kind === 'case.route_decision_eval');
+    assert.equal(evalEvents.length, 1, 'must record eval even when declining');
+    assert.equal(evalEvents[0].payload.agreed, false, 'agreed must be false when owner overrides');
+    assert.equal(evalEvents[0].payload.ownerDecision.verdict, 'declined');
+  });
+
+  test('POST resolve does NOT record RouteDecisionEvalEvent when no narrator recommendation (INV-13)', async () => {
+    const mockEventLog = createMockEventLog();
+    const app = await createApp({ eventLog: mockEventLog });
+    const issue = await createPendingDecisionIssue(app, 202);
+
+    // Resolve without any narrator recommendation (pure human decision)
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/resolve`,
+      headers: { 'x-cat-cafe-user': 'landy' },
+      payload: { decision: 'accepted' },
+    });
+    assert.equal(res.statusCode, 200);
+
+    const evalEvents = mockEventLog.events.filter((e) => e.kind === 'case.route_decision_eval');
+    assert.equal(evalEvents.length, 0, 'must NOT record eval when no narrator recommendation');
+  });
+
   // --- Phase D: Guardian assignment endpoints ---
 
   async function createAcceptedIssue(app, issueNumber = 50) {

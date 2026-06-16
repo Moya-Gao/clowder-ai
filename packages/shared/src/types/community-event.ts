@@ -31,6 +31,8 @@ export type CommunityEventKind =
   | 'case.waived'
   | 'case.declined'
   | 'case.awaiting_external' // owner declares waiting for external actor (payload: { reason, declaredBy })
+  // Eval events (INV-13: narrator recommendation vs owner decision)
+  | 'case.route_decision_eval'
   // Migration synthetic event
   | 'case.bootstrap';
 

@@ -100,6 +100,11 @@ export class CommunityProjector {
 
     if (!result.ok) {
       if (event.classification === 'informational') {
+        // Internal calibration events (eval records) are not external activity —
+        // skip projection entirely so rebuild() doesn't corrupt lastExternalActivityAt.
+        if (event.kind === 'case.route_decision_eval') {
+          return;
+        }
         // Cloud R2 P2b: informational activity events (issue.commented, issue.labeled,
         // pr.review_submitted) have no state-machine transition. Do NOT set lastRejectedEvent
         // (that would pollute observability data with benign activity). Instead, update
