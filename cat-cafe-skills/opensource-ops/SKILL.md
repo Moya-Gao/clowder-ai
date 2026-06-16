@@ -156,17 +156,18 @@ owner 时，给铲屎官 2-3 个路由建议，不要本 thread 偷偷开修。
 9. **稳定承诺只由 release tag 给出**：`clowder-ai main` 是 rolling stable；真正的 stable/support 口径以 `vX.Y.Z` release 为准
 10. **release 出 bug 优先走 patch**：shared bug 先回家修再 sync 出 `vX.Y.(Z+1)`；public-only hotfix 可以先在 `clowder-ai` 修，但 sync-managed 文件必须回补到家里
 11. **full sync 是长跑门禁，不是中途 checkpoint**：一旦 `sync-to-opensource.sh` 进入 temp target public gate（install / `pnpm check` / `pnpm lint` / `build` / `test:public` / startup acceptance），执行中的猫必须持续等待到脚本给出明确成功或失败结果；禁止在 `Step 5` 半路以"到 `test:public` 了""CI 还没开"之类的中间状态退出或汇报完成
-12. **🛡 Intake 必须跑 Inbound Guard（Brand Guard）**：outbound sync 有 sanitizer（Cat Cafe → Clowder AI），intake 必须有**反向守卫**——cherry-pick/port 进来的文件不能带着开源仓的品牌覆盖家里的品牌标识。`intake-from-opensource.sh --pr N --mode=plan` 会自动检测 brand-sensitive 文件并发出 `🛡 BRAND GUARD` 警告。手工 cherry-pick 也必须在 commit 前跑 `bash scripts/intake-from-opensource.sh --validate-inbound`
-13. **Brand Identity 保护清单**：以下文件包含家里的品牌标识，intake 时**绝不能**用开源仓版本直接覆盖，必须手工对照 diff 只取逻辑改动、保留家里的品牌值：
+12. **🛡 Intake 必须跑 Dictionary-backed Inbound Guard（Brand Guard）**：outbound sync 有 sanitizer（Cat Cafe → Clowder AI），intake 必须有**反向守卫**——cherry-pick/port 进来的文件不能带着开源仓的品牌覆盖家里的品牌标识。F238 起边界真相源是 `assets/brand-dictionary.yaml`；`intake-from-opensource.sh --pr N --mode=plan` 和 `bash scripts/intake-from-opensource.sh --validate-inbound` 必须按词典的 `path_policies` / `terms` / `exceptions` 分类与扫描。手工 cherry-pick 也必须在 commit 前跑 `--validate-inbound`。
+13. **Brand Identity 保护清单不得在 skill 手写维护**：保护对象以 `assets/brand-dictionary.yaml` 为准；skill 只记录操作原则，避免 prose 清单和脚本漂移。遇到新品牌面 / L4 文化术语 / prompt 路径，先更新词典，再更新脚本和测试。当前 F238 明确翻转的 intake 默认项：
 
-| 文件 | 保护内容 | 家里的值 | 开源仓的值（sanitizer 产物） |
-|------|---------|---------|---------------------------|
-| `packages/web/src/app/layout.tsx` | `title` / `description` / `icons` / `appleWebApp.title` | `Cat Cafe` / 三只 AI 猫猫的协作空间 / favicon+icon 声明 | `Clowder AI` / English desc / 只有 apple-touch-icon |
-| `packages/web/public/manifest.json` | `name` / `short_name` / `description` | `Cat Cafe` / `猫猫` / 三只 AI 猫猫的协作空间 | 可能被替换 |
-| `packages/web/src/components/SplitPaneView.tsx` | `<h1>` 品牌名 | `Cat Cafe` 相关 | `Clowder AI` |
-| `packages/web/src/components/ChatContainerHeader.tsx` | `INTERNAL_BASENAMES` 数组 | 包含 `cat-cafe` | 可能被修改 |
-| `packages/web/src/utils/api-client.ts` | CORS origins / 域名 | 双仓域名共存 | 可能只有开源仓域名 |
-| `packages/web/public/icons/*` | favicon.svg / icon-*.png | 家里的三猫 logo | 可能不同 |
+| 路径 | intake 策略 | 原因 |
+|------|-------------|------|
+| `assets/system-prompts/**` | `manual-port` | Native L0 真相源，开源版本不能覆盖家里 prompt/governance。 |
+| `assets/prompt-templates/**` | `manual-port` | F237 模板提取会把核心 prompt 语义移动到这里。 |
+| `sop-definitions/**` | `manual-port` | SOP 文案承载安全边界和 operator/CVO 术语。 |
+| `desktop/**` | `manual-port` | 桌面产品名、安装器、启动脚本和支持路径双仓不同。 |
+| `guides/**` | `manual-port` | 引导 YAML 是用户可见 onboarding copy。 |
+| `cat-cafe-skills/**` | `manual-port + dictionary scan` | Skill 是运行时行为指令，不能只做文本替换。 |
+| `packages/web/public/manifest.json` / `packages/web/public/concierge/**/pet.json` / `scripts/compile-system-prompt-l0.mjs` / `cat-config.json` | 依词典策略处理 | 已知泄漏面，具体 severity 和例外看词典。 |
 
 14. **recorded ≠ absorbed-complete**：ledger 里有 `absorbed` 记录只证明"看过了"，不证明"intake 完整"。默认 complete 的判定标准：Intake Intent Issue 里每个 `absorb` 文件都有对应的 commit，且 reviewer 对照 Intent Issue 签字确认。事故来源：clowder-ai#290 sync 覆盖了 clowder-ai#276 的社区修复——ledger 记了 absorbed 但只 intake 了 5 个文件中的 1 个
 15. **`direct-main historical backfill` / `outbound-filed hotfix` 是受控例外，不伪装成 absorb PR 流程**：这两类 case 允许 `--skip-absorbed-guard`，可没有 `intake_intent_issue` / `absorb_pr` / `review_proof`。它们的 complete 标准改为：source patch 已落到 `cat-cafe main`、有可追溯 commit/测试证据、ledger 记录带 backfill note、并且立刻 `--advance-ledger`。允许缺字段，不允许伪造字段。
@@ -178,6 +179,7 @@ owner 时，给铲屎官 2-3 个路由建议，不要本 thread 偷偷开修。
 21. **三真相不是三份文件表，而是两类行为 + 一个结果**：每个 manual-port 必须写清 `Source Behavior`（社区想带回什么）、`Must Preserve Home Behavior`（家里已有功能/bugfix/安全边界不能丢）、`Proof`（测试、zero-diff 对照、review 证据）。最终判定是 `Result ⊇ Source Intent` 且 `Result ⊇ Home Invariants`。如果猫说不清 home invariant，先停下来查 main 历史 / feature spec / 现有测试，不能继续吸收。
 
 22. **🖼️ Inbound Visual + Functional Parity Gate（F190 Phase C post-close 教训 2026-05-13）**：inbound intake review/愿景守护链路必须做 **开源 vs 本地 visual + functional parity diff**。
+    - **F238 boundary dictionary check 是 request-review 前置**：任何命中 `assets/brand-dictionary.yaml` `path_policies` 的文件，author 必须附 intake 分类与 dictionary scan 结果；`deliberate defer` 不能绕过 P0/P1 boundary violation。
     - **request-review 前 author 产出**：① 开源 vs 本地 components diff（`ls` 级别全列）② visual side-by-side screenshots（每个用户可见 surface / settings section 各一对）
     - **deliberate defer 必须 CVO signoff**，且 **必须以"用户可见性"语言**披露——不是技术语言：
       - ❌ "secret write-back deferred" → ✅ "通知页用户无法在 UI 配置 VAPID 公私钥（需手动改 .env + 重启）"
@@ -204,6 +206,7 @@ owner 时，给铲屎官 2-3 个路由建议，不要本 thread 偷偷开修。
 | 已 cross-post / propose-thread 后还在守门 thread hold 外部条件 | 双 owner、重复轮询、球权死锁 | 下游 thread 接球后由下游负责 hold / event-driven；守门 thread只记录路由 |
 | 把“拉猫评估”等同于升级铲屎官 | CVO 被重新变成人肉路由器 | 猫猫可自主 consult；只有 roadmap/承诺/敏感社区关系/merge 等硬决策才 @landy |
 | PR 方向没过就做深度代码 review | 浪费 reviewer 时间，还可能被实现细节带偏 | Inbound PR 先查 accepted issue + 主人翁五问，再看质量 |
+| 在 skill / hook / 脚本里手写新的品牌文件清单 | F238 词典和执行层继续漂移，下一次 sync/intake 仍会漏 | 先改 `assets/brand-dictionary.yaml`，再让脚本、hook、CI、skill 引用词典 |
 
 ## 和其他 skill 的区别
 
