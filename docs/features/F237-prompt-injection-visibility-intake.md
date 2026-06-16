@@ -8,7 +8,7 @@ created: 2026-06-15
 
 # F237: Prompt Injection Visibility — 社区 PR #859 Intake
 
-> **Status**: intake-pending (方向待 maintainer 接受) | **Owner**: cat-cafe maintainers (intake review) | **Source**: community @mindfn + 团队 | **Priority**: 待定 | **Created**: 2026-06-15
+> **Status**: direction-accepted (2026-06-16 maintainer self-decided) — awaiting-author-fix (P0 loopback gate + P1 atomicity + P1 verify-coverage 8%) — gated-on F238 boundary symmetry | **Owner**: cat-cafe maintainers (intake review) | **Source**: community @mindfn + 团队 | **Priority**: P1 | **Created**: 2026-06-15 | **Updated**: 2026-06-16
 
 ## Provenance
 
@@ -103,12 +103,48 @@ P2（锦上添花）：
 - ⚠️ **反向工作流警报**：5800 行改 L0 核心**理论上**应先在 cat-cafe main 走 SOP（Design Gate + review + merge-gate），社区先在 clowder-ai 实现再 intake 是反向。此处属于"社区主动贡献"的合理例外，但 intake 时必须重做 cat-cafe 侧的 Design Gate + review。
 - ⚠️ 删 38 行测试（X1 reviewer section）—— intake 必须确认 review SOP 真有替代物
 
+## Review History
+
+### Round 1 (2026-06-15) — Push Back: P1 behavior changes
+- 发现 `buildSystemPrompt` export 删除 + `buildReviewerSection` 整体删除（混 scope）
+- 作者 24h 内全 fix：commit `68f805ff1`（restore export + revert reviewer section + 4 tests + 3 imports）
+- F237 编号 ack + ROADMAP 同步 + 文件名 rename 全闭环
+
+### Round 2 (2026-06-16) — Push Back ack + 方向状态澄清
+- 验证作者 fix 真实落地（services/index.ts + SPB.ts +114/-5 + tests +41/-3 全核）
+- 明确 "push back closed ≠ approval to merge"，方向决策 + intake 还在 gate
+
+### Round 3 (2026-06-16) — Deep audit: **BLOCK**
+3 并行 agent 深审发现：
+- 🔴 **P0**: `prompt-injection.ts:48-63 requireOverlayWriteAuth` 缺 `isLocalCapabilityWriteRequest` loopback gate；配合 `DEFAULT_OWNER_USER_ID` 未设时 owner gate fall-through，任何 authenticated session 能写 overlay = **"transparency viewer" 武器化为 prompt-injection 攻击面**
+- 🔴 **P1**: `prompt-injection.ts:271` 非原子写（无 tmp+rename），crash/concurrent 损坏 overlay
+- 🔴 **P1**: `verify-template-extraction.mjs` 只验 4/49 = **8% 覆盖伪装成 100% 声明**
+- 🟡 **P2**: layout.tsx vs manifest.json 品牌不一致（outbound sanitizer 漏）
+- 🟡 **P3**: `check-manifest-drift.mjs` 半-invariant
+
+Round-3 push back: [#859 issuecomment-4719426674](https://github.com/zts212653/clowder-ai/pull/859#issuecomment-4719426674)
+
+## Direction Decision (2026-06-16, maintainer self-decided)
+
+**Accepted** — Phase 1 scope (read-only viewer + 模板提取 + 3 段 overlay editor) fit 家里愿景：
+- F203 (Native L0) 一脉：把 viewer 扩到全 52 段
+- F042 (prompt audit) 治理延续
+- 作者协作度高（push back 2 轮全 fix），技术质量除 P0 安全洞外干净
+
+**Why self-decided（不再升级铲屎官）**：可逆（PR 未 merge，方向可撤回判断）+ 不碰硬排除（不动 Redis 圣域/愿景/数据/契约）+ 能翻代码查到。家规 §3 决策漏斗 = 可自决范围。
+
+**两条硬前置在 accept 之前**：
+1. **作者 fix Round-3 P0/P1**（loopback gate + atomicity + verify coverage）
+2. **F238 双仓边界对称性强化** Phase A 落地（brand-dictionary v0.1 + skill 12/13/22 更新 + outbound 漏 manifest.json 修）
+
+F237 intake **gated on both 前置条件完成**。
+
 ## Next Steps
 
-1. ⏳ **等待作者回应 P1 push back**（PR tracking 已挂）
-2. ⏳ **maintainer 方向决策**（accept / 修 scope / decline）
-3. 若 accept：进入 opensource-ops B 流程（Inbound PR Merge Gate → Intake Intent Issue → manual-port + brand guard）
-4. 若 decline 或方向调整：发 Direction Card 给作者沟通
+1. ⏳ **作者 fix Round-3 P0/P1**（PR tracking 已取消，等社区微信通知作者侧"修完了"信号）
+2. ⏳ **F238 Phase A 落地**（cross-posted 委托 `thread_mqgrbaol7mbx6ygs` 给 @fable5 写 spec + @codex 砚砚 落 brand-dictionary v0.1）
+3. 两前置完成后：进入 opensource-ops B 流程（Inbound PR Merge Gate → Intake Intent Issue → manual-port + brand guard）— 此时 brand guard 已被 F238 升级为 dictionary-driven
+4. 终局 merge 后 Phase 2 后续 PR（作者归类的 31 个云端 finding 范围）另行评估
 
 ## 关联
 
