@@ -273,7 +273,7 @@ if ($ARGV =~ m{/(docs|cat-cafe-skills)/}) {
   s/宪宪/Ragdoll/g;
   s/砚砚/Maine Coon/g;
   s/烁烁/Siamese/g;
-  s/\bthread_(?=[a-z0-9_]*[0-9])[a-z0-9_]{8,}\b/[thread-id]/g;
+  s/\bthread_(?=[a-z0-9_]*[0-9])[a-z0-9_]{8,}\b/[thread-id]/g if $ARGV =~ m{\.(md|mdx|txt)$};
   s/\$[1-9][0-9]+(?:-[1-9][0-9]+)?\b/operational cost/g if $ARGV =~ m{\.(md|mdx|txt)$};
   s/\b[0-9]+\s*轮云端 review/multiple remote review rounds/g;
   s/云端 review/remote review/g;

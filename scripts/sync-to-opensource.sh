@@ -1674,6 +1674,22 @@ find "$FILTERED_DIR" \( -name "*.md" -o -name "*.ts" -o -name "*.tsx" -o -name "
 echo "  ✓ Comprehensive sanitization complete (single-pass)"
 TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 
+# 3-POST-1: Sanitization can intentionally change public governance headings
+# (for example CVO → operator). Keep the exported drift guard pinned to the
+# exported shared-rules truth source instead of the private source hash.
+PUBLIC_SHARED_RULES="$FILTERED_DIR/cat-cafe-skills/refs/shared-rules.md"
+PUBLIC_SYSTEM_PROMPT_TEST="$FILTERED_DIR/packages/api/test/system-prompt-builder.test.js"
+PUBLIC_GOVERNANCE_HASH_HELPER="$SOURCE_SYNC_DIR/scripts/update-public-governance-hash.mjs"
+if [ -f "$PUBLIC_SHARED_RULES" ] && [ -f "$PUBLIC_SYSTEM_PROMPT_TEST" ]; then
+  if [ ! -f "$PUBLIC_GOVERNANCE_HASH_HELPER" ]; then
+    echo -e "${RED}✗ update-public-governance-hash.mjs not found at $PUBLIC_GOVERNANCE_HASH_HELPER${NC}"
+    exit 1
+  fi
+  node "$PUBLIC_GOVERNANCE_HASH_HELPER" "$PUBLIC_SHARED_RULES" "$PUBLIC_SYSTEM_PROMPT_TEST" >/dev/null
+  echo "  ✓ Public governance drift hash rebased"
+  TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
+fi
+
 # 3-POST: Re-format sanitized files with biome (sanitize may break formatting)
 echo "  Post-sanitize biome format..."
 if command -v pnpm >/dev/null 2>&1 && [ -f "$FILTERED_DIR/biome.json" ]; then

@@ -5,15 +5,33 @@
 
 import './helpers/setup-cat-registry.js';
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const hasSourceStagingContent = existsSync(
+  new URL('../../../cat-cafe-skills/refs/l0-staging-content.md', import.meta.url),
+);
 
 import { afterEach, before, beforeEach, describe, it, mock } from 'node:test';
 import { catRegistry } from '@cat-cafe/shared';
+
+function assertStagingPromptContract(prompt, mode) {
+  if (hasSourceStagingContent) {
+    assert.ok(
+      prompt.includes('摩擦上报'),
+      `staging wipers core trigger MUST appear in ${mode} prompt (ADR-038 每轮注入生效)`,
+    );
+    assert.ok(prompt.includes('[爪感差:'), `staging wipers report format MUST appear in ${mode} prompt`);
+    return;
+  }
+
+  assert.ok(!prompt.includes('摩擦上报'), `public export omits raw L0 staging content in ${mode} prompt`);
+  assert.ok(!prompt.includes('[爪感差:'), `public export omits staging wipers format in ${mode} prompt`);
+}
 
 async function collect(iterable) {
   const msgs = [];
@@ -4057,11 +4075,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       !promptsSeen[0].includes('static identity here'),
       'systemPrompt is skipped on resume (baseline, mirrors F-BLOAT)',
     );
-    assert.ok(
-      promptsSeen[0].includes('摩擦上报'),
-      'staging wipers core trigger MUST appear in resume prompt (ADR-038 每轮注入生效)',
-    );
-    assert.ok(promptsSeen[0].includes('[爪感差:'), 'staging wipers report format MUST appear in resume prompt');
+    assertStagingPromptContract(promptsSeen[0], 'resume');
     assert.ok(promptsSeen[0].includes('user message'), 'original user prompt still present');
   });
 
@@ -4093,7 +4107,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       }),
     );
     assert.ok(promptsSeen[0].includes('static identity here'), 'systemPrompt prepended on new session');
-    assert.ok(promptsSeen[0].includes('摩擦上报'), 'staging also delivered on new session');
+    assertStagingPromptContract(promptsSeen[0], 'new-session');
     assert.ok(promptsSeen[0].includes('user message'), 'original user prompt still present');
   });
 

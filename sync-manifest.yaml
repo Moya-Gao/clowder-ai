@@ -108,6 +108,7 @@ managed_scripts:
   - scripts/logs-health.sh
   - scripts/check-feature-truth.mjs
   - scripts/check-env-port-drift.test.mjs
+  - scripts/update-public-governance-hash.mjs
   - scripts/check-env-registry.test.mjs
   - scripts/check-env-example.test.mjs
   - scripts/compile-system-prompt-l0.mjs

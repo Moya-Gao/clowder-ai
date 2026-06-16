@@ -14,7 +14,17 @@
  */
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { describe, it } from 'node:test';
@@ -1029,6 +1039,16 @@ excluded:
       assert.match(shell, /local value="\$2"/);
     });
 
+    it('public harness eval domain registries keep systemThreadId as a runtime string', () => {
+      const yaml = sanitizeFixture(
+        'docs/harness-feedback/eval-domains/eval-a2a.yaml',
+        'domainId: eval:a2a\nsystemThreadId: thread_eval_a2a\n',
+      );
+
+      assert.match(yaml, /systemThreadId: thread_eval_a2a/);
+      assert.doesNotMatch(yaml, /systemThreadId: \[thread-id\]/);
+    });
+
     it('sync-manifest excludes internal raw L0 staging content from public skill refs', () => {
       const excluded = readYamlTopLevelList('sync-manifest.yaml', 'excluded');
       const stagingContent = 'cat-cafe-skills/refs/l0-staging-content.md';
@@ -1047,6 +1067,87 @@ excluded:
         stagingContentSource,
         /code === 'ENOENT'[\s\S]*EMPTY_STAGING_CONTENT/,
         'public export may omit raw L0 staging content, so API must tolerate ENOENT with an empty staging manifest',
+      );
+
+      const invokeSingleCatTest = readFileSync(resolve(ROOT, 'packages/api/test/invoke-single-cat.test.js'), 'utf-8');
+      assert.match(
+        invokeSingleCatTest,
+        /hasSourceStagingContent/,
+        'invoke-single-cat ADR-038 tests must distinguish source repo staging from public export without raw L0 staging content',
+      );
+      assert.match(
+        invokeSingleCatTest,
+        /assertStagingPromptContract/,
+        'invoke-single-cat ADR-038 prompt assertions must keep source strict while allowing public export to omit raw staging strings',
+      );
+    });
+
+    it('public governance hash helper rebases drift guard to sanitized shared-rules headings', () => {
+      const tempRoot = mkdtempSync(resolve(tmpdir(), 'cat-cafe-public-governance-hash-'));
+      try {
+        const sharedRulesPath = resolve(tempRoot, 'cat-cafe-skills/refs/shared-rules.md');
+        const testFilePath = resolve(tempRoot, 'packages/api/test/system-prompt-builder.test.js');
+        const helperDir = resolve(tempRoot, 'helper path with spaces');
+        const helperPath = resolve(helperDir, 'update-public-governance-hash.mjs');
+        mkdirSync(dirname(sharedRulesPath), { recursive: true });
+        mkdirSync(dirname(testFilePath), { recursive: true });
+        mkdirSync(helperDir, { recursive: true });
+        copyFileSync(resolve(ROOT, 'scripts/update-public-governance-hash.mjs'), helperPath);
+
+        const publicSharedRules = [
+          '### P1. 面向终态，不绕路',
+          '### W3. 用户是 operator，不是甲方路由器',
+          '### W8. 共享视图——人猫共创家园，产物天然该在共享工作空间里可见',
+          '',
+        ].join('\n');
+        writeFileSync(sharedRulesPath, publicSharedRules);
+        writeFileSync(testFilePath, "const PINNED_HASH = '89989b48ac64c6ee';\n");
+
+        execFileSync('node', [helperPath, sharedRulesPath, testFilePath]);
+
+        const expectedHash = createHash('sha256')
+          .update(
+            publicSharedRules
+              .split('\n')
+              .filter((line) => /^###?\s+(P\d|W\d)/.test(line))
+              .sort()
+              .join('\n'),
+          )
+          .digest('hex')
+          .slice(0, 16);
+        const updatedTest = readFileSync(testFilePath, 'utf-8');
+        assert.match(updatedTest, new RegExp(`const PINNED_HASH = '${expectedHash}';`));
+        assert.doesNotMatch(updatedTest, /89989b48ac64c6ee/);
+      } finally {
+        rmSync(tempRoot, { recursive: true, force: true });
+      }
+    });
+
+    it('sync-to-opensource.sh rebases public governance hash after comprehensive sanitization', () => {
+      const content = readSyncScript();
+
+      assert.match(
+        content,
+        /scripts\/update-public-governance-hash\.mjs/,
+        'sync should call the public governance hash helper after sanitizer changes shared-rules.md',
+      );
+      assert.match(
+        content,
+        /cat-cafe-skills\/refs\/shared-rules\.md[\s\S]*packages\/api\/test\/system-prompt-builder\.test\.js/,
+        'sync should derive the public PINNED_HASH from the exported shared-rules.md and patch the exported test',
+      );
+    });
+
+    it('sync-manifest exports the public governance hash helper used by public env-port checks', () => {
+      const managedScripts = readYamlTopLevelList('sync-manifest.yaml', 'managed_scripts');
+
+      assert.ok(
+        managedScripts.includes('scripts/check-env-port-drift.test.mjs'),
+        'public check:env-ports exports check-env-port-drift.test.mjs',
+      );
+      assert.ok(
+        managedScripts.includes('scripts/update-public-governance-hash.mjs'),
+        'check-env-port-drift.test.mjs copies the governance hash helper and needs it in public checkouts',
       );
     });
 
