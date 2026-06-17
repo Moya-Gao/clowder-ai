@@ -93,7 +93,25 @@ spike（2026-06-16，C0a Read / C0b Grep ✅ 实证）证明 cc PostToolUse hook
    - 成本：`anchorOpenRate`（drill 触发率）+ `fullDrillChars`（drill 取回量）+ 任务返工轮次
    - **净收益 = 省 − drill 成本**
 3. **Regression Fixture**（≥1）：① 长 thread `get_thread_context` 返回 token 上限；② pending mention 关键传球指令不丢；③ `get_message` full drill 仍可取全文。
-4. **Sunset Signal**：若 `anchorOpenRate` 持续 >80%（猫几乎每次都 drill）→ anchor tax 净亏，该工具回退 inline 或调 threshold。
+4. **Sunset Signal（两类，缺一不可）**：① **anchor tax** —— `anchorOpenRate` 持续 >80%（猫几乎每次都 drill）→ 净亏，回退 inline；② **变瞎子（更隐蔽，token 账看不到）** —— 任务正确性 / 返工率下降：anchor 后猫漏信息、误判、返工变多 → preview 偷走了判断所需信息，立即回退该工具 anchor。**只测 token（①）测不出变瞎子（②），必须同时测任务结果。**
+
+## ⚠️ 信息完整性风险（"变瞎子"）—— 比 anchor tax 更深（铲屎官 2026-06-17）
+
+**核心**：anchor tax 是"猫知道要 drill、多花 token"（可逆、token 账可见）；**变瞎子是"猫看 preview 以为够了、不知道自己漏了、基于残缺信息误判"**（不可逆、token 账**不**可见）。后者更严重——我们之前只防前者。
+
+**Failure modes**：
+1. **虚假完整感**：preview 给 head+tail，关键逻辑在中间，猫以为读懂不 drill → 误判
+2. **重要性判断被偷走**：猫 drill 哪段依赖 preview 给的线索；preview 没点出"这里关键"，猫就不 drill——把"什么重要"从猫挪给了**不懂当前任务**的截断逻辑
+3. **cc 自读代码最危险**：review/debug 靠 Read 全文，preview 化 → 基于残缺代码判断、引入 bug（省 token 换判断质量 = 本末倒置）
+
+**防瞎子设计（硬约束）**：
+- **诚实标注省略**：preview 必须明示"省了 N 行 / 这是 head+tail / 中间有 X"，绝不制造"看全了"假象
+- **drill 极低成本**：一跳拿到，否则猫懒得 drill 就瞎
+- **保守默认**：只 anchor 超大输出，宁可少省不误伤
+- **任务感知（难点，待设计）**：debug/review 默认给全文、浏览可 anchor——hook 不知任务，对"读代码"类默认保守
+- **eval 必测判断质量**：见 Sunset Signal ②，不只测 token
+
+> 砚砚有粮后 review 此段（failure-mode 审计强）。**这是 F236「该不该实现 / 怎么实现才不伤判断」的关键闸门，比技术 spike 更重要。**
 
 ## 软 + 硬 + eval 三层（ADR-031）
 
