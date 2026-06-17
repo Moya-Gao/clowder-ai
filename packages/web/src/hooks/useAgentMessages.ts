@@ -1059,6 +1059,35 @@ export function consumeBackgroundSystemInfo(
         options.store.updateThreadCatStatus(msg.threadId, msg.catId, 'streaming', formatAgyProgressDetail(parsed));
       }
       consumed = true;
+    } else if (parsed?.type === 'provider_capability') {
+      // #939 part A (kimi auth dual-path): capability telemetry from provider backends
+      // (kimi emits `thinking: unavailable` / `image_input: limited`, etc.). Mirror of the
+      // foreground branch (~line 5123) but using the background chain `options.store.*` API.
+      // F210-H1 dual-handler pattern: BOTH foreground and background chains must handle the
+      // same telemetry type — otherwise kimi running in a background thread still surfaces
+      // raw JSON bubbles (the original #939 bug). Caught by [宪宪/opus-4.6] review of #2352.
+      // Note: || (not ??) so empty-string parsed.catId falls through to msg.catId.
+      const targetCatId = (parsed.catId || msg.catId) as string | undefined;
+      const capability = typeof parsed.capability === 'string' ? parsed.capability : 'unknown';
+      const status =
+        parsed.status === 'available' || parsed.status === 'limited' || parsed.status === 'unavailable'
+          ? parsed.status
+          : 'unavailable';
+      const reason = typeof parsed.reason === 'string' ? parsed.reason : '';
+      const provider = typeof parsed.provider === 'string' ? parsed.provider : 'unknown';
+      if (targetCatId && msg.threadId) {
+        // Read-merge-write so multiple capabilities coexist on the same cat invocation
+        // (setThreadCatInvocation is shallow-merged, so passing a fresh object would clobber).
+        const existing =
+          options.store.getThreadState(msg.threadId).catInvocations?.[targetCatId]?.providerCapabilities ?? {};
+        options.store.setThreadCatInvocation(msg.threadId, targetCatId, {
+          providerCapabilities: {
+            ...existing,
+            [capability]: { status, reason, provider, receivedAt: Date.now() },
+          },
+        });
+      }
+      consumed = true;
     } else if (parsed?.type === 'governance_blocked') {
       const projectPath = typeof parsed.projectPath === 'string' ? parsed.projectPath : '';
       const reasonKind = (parsed.reasonKind as string) ?? 'needs_bootstrap';
@@ -5118,6 +5147,38 @@ export function useAgentMessages() {
                   .getState()
                   .updateThreadCatStatus(tid, msg.catId, 'streaming', formatAgyProgressDetail(parsed));
               }
+            }
+            consumed = true;
+          } else if (parsed?.type === 'provider_capability') {
+            // #939 part A (kimi auth dual-path): capability telemetry from provider backends
+            // (kimi emits `thinking: unavailable` / `image_input: limited`, etc.). These are
+            // capability status reports — NOT user-facing errors. Before this branch they
+            // fell through to the default addMessage() path and surfaced as raw-JSON system
+            // bubbles, which first-time users read as "thinking failed" (the bug). Pattern
+            // mirrors F210-H1 agy_trajectory_progress + F045 rate_limit / compact_boundary:
+            // store on the invocation snapshot for a future capability UI (tooltip / badge);
+            // consumed silently here so the bubble layer never sees these.
+            // Note: || (not ??) so empty-string parsed.catId falls through to msg.catId
+            // (opus-46 nit from #2352 review — defensive against backend emitting empty string).
+            const targetCatId = parsed.catId || msg.catId;
+            const capability = typeof parsed.capability === 'string' ? parsed.capability : 'unknown';
+            const status =
+              parsed.status === 'available' || parsed.status === 'limited' || parsed.status === 'unavailable'
+                ? parsed.status
+                : 'unavailable';
+            const reason = typeof parsed.reason === 'string' ? parsed.reason : '';
+            const provider = typeof parsed.provider === 'string' ? parsed.provider : 'unknown';
+            if (targetCatId) {
+              // Read-merge-write so multiple capabilities (thinking + image_input) coexist on
+              // the same cat invocation. setCatInvocation is a shallow zustand merge, so
+              // passing a fresh object would clobber other capabilities already stored.
+              const existing = useChatStore.getState().catInvocations?.[targetCatId]?.providerCapabilities ?? {};
+              setCatInvocation(targetCatId, {
+                providerCapabilities: {
+                  ...existing,
+                  [capability]: { status, reason, provider, receivedAt: Date.now() },
+                },
+              });
             }
             consumed = true;
           } else if (parsed?.type === 'governance_blocked') {
