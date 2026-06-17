@@ -102,7 +102,7 @@ Add representative round-trip fixtures and a recurring verdict: public export ha
 - [x] AC-D3: The tool supports outbound-export validation and inbound cat-cafe validation without auto-rewriting.
 
 ### Phase E（Round-Trip and Eval Loop）
-- [ ] AC-E1: Round-trip fixtures cover representative files across L0, prompt templates, manifest, cat-config, desktop, sop-definitions, guides, and cat-cafe-skills.
+- [ ] AC-E1: Round-trip fixtures cover representative files across L0, manifest, cat-config, desktop, sop-definitions, guides, and cat-cafe-skills. (Prompt templates deferred — `assets/prompt-templates/` does not exist yet; coverage extends automatically when F237 creates the directory.)
 - [ ] AC-E2: Sync/intake logs emit scan counters by term class, severity, and consumed exceptions.
 - [ ] AC-E3: A recurring verdict or equivalent eval records whether dictionary-backed boundary scans remain green over time.
 

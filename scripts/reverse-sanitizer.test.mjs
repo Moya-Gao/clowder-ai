@@ -418,6 +418,86 @@ describe('R4-P1: canonical-first — non-parallel lists use canonical, not index
   });
 });
 
+// ═══════════════════════════════════════════════════════════════════
+// Task 5: --summary-json structured counters (AC-E2)
+// ═══════════════════════════════════════════════════════════════════
+
+describe('--summary-json flag', () => {
+  it('outputs structured summary as last stdout line after NDJSON findings', () => {
+    const file = join(tmpDir, 'mixed.txt');
+    writeFileSync(file, 'Cat Café is managed by CVO.\n');
+    const { stdout } = run(['--direction', 'outbound', '--summary-json', file]);
+    const lines = stdout.trim().split('\n');
+    const summary = JSON.parse(lines[lines.length - 1]);
+
+    assert.equal(summary._type, 'summary');
+    assert.ok(summary.totalFindings >= 2, `expected >=2 total, got ${summary.totalFindings}`);
+    assert.ok(typeof summary.byTermClass === 'object');
+    assert.ok(typeof summary.bySeverity === 'object');
+    assert.ok(typeof summary.exceptionsConsumed === 'number');
+  });
+
+  it('counts by termClass correctly', () => {
+    const file = join(tmpDir, 'mixed.txt');
+    writeFileSync(file, 'Cat Café is managed by CVO.\n');
+    const { stdout } = run(['--direction', 'outbound', '--summary-json', file]);
+    const lines = stdout.trim().split('\n');
+    const summary = JSON.parse(lines[lines.length - 1]);
+
+    // Dictionary uses "brand" class for product terms, "role" for role terms
+    assert.ok(summary.byTermClass.brand >= 1, 'should count brand terms');
+    assert.ok(summary.byTermClass.role >= 1, 'should count role terms');
+  });
+
+  it('counts by severity correctly', () => {
+    const file = join(tmpDir, 'mixed.txt');
+    writeFileSync(file, 'Cat Café is managed by CVO.\n');
+    const { stdout } = run(['--direction', 'outbound', '--summary-json', file]);
+    const lines = stdout.trim().split('\n');
+    const summary = JSON.parse(lines[lines.length - 1]);
+
+    assert.ok(summary.bySeverity.P1 >= 1, 'should count P1');
+    assert.ok(summary.bySeverity.P2 >= 1, 'should count P2');
+  });
+
+  it('tracks exceptionsConsumed as a number (0 when no exceptions fire)', () => {
+    // Current dictionary exceptions are safety nets — matched text (e.g. "Cat Cafe")
+    // never contains exception cores (e.g. "cat-cafe-skills"). Counter stays 0 but
+    // must still be present as a number in the summary.
+    const file = join(tmpDir, 'mixed.txt');
+    writeFileSync(file, 'Cat Café is managed by CVO.\n');
+    const { stdout } = run(['--direction', 'outbound', '--summary-json', file]);
+    const lines = stdout.trim().split('\n');
+    const summary = JSON.parse(lines[lines.length - 1]);
+
+    assert.equal(typeof summary.exceptionsConsumed, 'number');
+    assert.equal(summary.exceptionsConsumed, 0);
+  });
+
+  it('does not output summary without --summary-json flag', () => {
+    const file = join(tmpDir, 'mixed.txt');
+    writeFileSync(file, 'Cat Café is managed by CVO.\n');
+    const { stdout } = run(['--direction', 'outbound', file]);
+    const lines = stdout.trim().split('\n');
+    for (const line of lines) {
+      if (line.trim()) {
+        const parsed = JSON.parse(line);
+        assert.ok(!parsed._type, 'without --summary-json, no summary line expected');
+      }
+    }
+  });
+
+  it('outputs summary even when zero findings', () => {
+    const file = join(tmpDir, 'clean.txt');
+    writeFileSync(file, 'Hello world.\n');
+    const { stdout } = run(['--direction', 'outbound', '--summary-json', file]);
+    const summary = JSON.parse(stdout.trim());
+    assert.equal(summary._type, 'summary');
+    assert.equal(summary.totalFindings, 0);
+    assert.equal(summary.exceptionsConsumed, 0);
+  });
+});
+
 describe('CLI validation', () => {
   it('errors when --direction is missing', () => {
     const file = join(tmpDir, 'any.txt');

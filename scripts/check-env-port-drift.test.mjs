@@ -225,6 +225,7 @@ function buildExportedRootScripts(sourceScripts) {
     // F238 Phase D: reverse-sanitizer detect-only CLI — internal boundary tooling
     // (PR #2333). Must mirror sync-to-opensource.sh internalScripts list.
     'check:reverse-sanitizer',
+    'check:boundary-roundtrip',
     'clean:root-debris',
   ];
   for (const scriptName of internalScripts) {

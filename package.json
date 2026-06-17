@@ -99,6 +99,7 @@
     "check:brand-dictionary": "node --test scripts/brand-dictionary-helper.test.mjs",
     "check:brand-guard": "node --test scripts/intake-from-opensource.test.mjs",
     "check:reverse-sanitizer": "node --test scripts/reverse-sanitizer.test.mjs",
+    "check:boundary-roundtrip": "node --test scripts/boundary-roundtrip.test.mjs",
     "desktop:prepare": "npm --prefix ./desktop install --include=dev",
     "desktop:dev": "pnpm desktop:prepare && npm --prefix ./desktop run start",
     "desktop:dev:unix": "env -u ELECTRON_RUN_AS_NODE pnpm desktop:prepare && env -u ELECTRON_RUN_AS_NODE npm --prefix ./desktop run start",

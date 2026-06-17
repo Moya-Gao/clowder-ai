@@ -158,7 +158,7 @@ function isExcepted(matched, exceptions) {
  * Scan a structured data object (parsed JSON/YAML) for term violations.
  * Returns findings with field-path locations (e.g., "$.app.title").
  */
-function scanStructured(obj, matchers, filePath, direction, prefix = '$') {
+function scanStructured(obj, matchers, filePath, direction, prefix = '$', stats = null) {
   const findings = [];
 
   if (typeof obj === 'string') {
@@ -177,16 +177,18 @@ function scanStructured(obj, matchers, filePath, direction, prefix = '$') {
             matched: match[0],
             suggestion: m.suggestion,
           });
+        } else if (stats) {
+          stats.exceptionsConsumed++;
         }
       }
     }
   } else if (Array.isArray(obj)) {
     for (let i = 0; i < obj.length; i++) {
-      findings.push(...scanStructured(obj[i], matchers, filePath, direction, `${prefix}[${i}]`));
+      findings.push(...scanStructured(obj[i], matchers, filePath, direction, `${prefix}[${i}]`, stats));
     }
   } else if (obj && typeof obj === 'object') {
     for (const [key, val] of Object.entries(obj)) {
-      findings.push(...scanStructured(val, matchers, filePath, direction, `${prefix}.${key}`));
+      findings.push(...scanStructured(val, matchers, filePath, direction, `${prefix}.${key}`, stats));
     }
   }
 
@@ -197,7 +199,7 @@ function scanStructured(obj, matchers, filePath, direction, prefix = '$') {
  * Scan a text file line by line for term violations.
  * Returns findings with line-number locations (e.g., "line:42").
  */
-function scanText(content, matchers, filePath, direction) {
+function scanText(content, matchers, filePath, direction, stats = null) {
   const findings = [];
   const lines = content.split('\n');
 
@@ -218,6 +220,8 @@ function scanText(content, matchers, filePath, direction) {
             matched: match[0],
             suggestion: m.suggestion,
           });
+        } else if (stats) {
+          stats.exceptionsConsumed++;
         }
       }
     }
@@ -229,7 +233,7 @@ function scanText(content, matchers, filePath, direction) {
 /**
  * Scan a single file. Dispatches to structured or text scanner based on extension.
  */
-function scanFile(filePath, matchers, direction) {
+function scanFile(filePath, matchers, direction, stats = null) {
   const content = readFileSync(filePath, 'utf-8');
   const ext = extname(filePath).toLowerCase();
   const relPath = relative(process.cwd(), filePath);
@@ -237,23 +241,23 @@ function scanFile(filePath, matchers, direction) {
   if (ext === '.json') {
     try {
       const obj = JSON.parse(content);
-      return scanStructured(obj, matchers, relPath, direction);
+      return scanStructured(obj, matchers, relPath, direction, '$', stats);
     } catch {
       // Fall back to text scanning if JSON parse fails
-      return scanText(content, matchers, relPath, direction);
+      return scanText(content, matchers, relPath, direction, stats);
     }
   }
 
   if (ext === '.yaml' || ext === '.yml') {
     try {
       const obj = YAML.parse(content);
-      return scanStructured(obj, matchers, relPath, direction);
+      return scanStructured(obj, matchers, relPath, direction, '$', stats);
     } catch {
-      return scanText(content, matchers, relPath, direction);
+      return scanText(content, matchers, relPath, direction, stats);
     }
   }
 
-  return scanText(content, matchers, relPath, direction);
+  return scanText(content, matchers, relPath, direction, stats);
 }
 
 // ── Deduplicate findings ──
@@ -330,8 +334,10 @@ function main() {
     process.exit(3);
   }
 
-  // File args = everything that's not --direction or its value
-  const files = args.filter((_, i) => i !== dirIdx && i !== dirIdx + 1);
+  const summaryJson = args.includes('--summary-json');
+
+  // File args = everything that's not a known flag or its value
+  const files = args.filter((a, i) => i !== dirIdx && i !== dirIdx + 1 && a !== '--summary-json');
   if (files.length === 0) {
     process.stderr.write('Error: at least one file path is required.\n');
     process.exit(3);
@@ -339,10 +345,11 @@ function main() {
 
   const dict = loadDictionary();
   const matchers = buildMatchers(dict, direction);
+  const stats = { exceptionsConsumed: 0 };
 
   let allFindings = [];
   for (const file of files) {
-    allFindings.push(...scanFile(file, matchers, direction));
+    allFindings.push(...scanFile(file, matchers, direction, stats));
   }
 
   allFindings = dedupeFindings(allFindings);
@@ -350,6 +357,25 @@ function main() {
   // Output findings as NDJSON on stdout
   for (const f of allFindings) {
     process.stdout.write(`${JSON.stringify(f)}\n`);
+  }
+
+  // --summary-json: emit structured counters as final stdout line
+  if (summaryJson) {
+    const byTermClass = {};
+    const bySeverity = {};
+    for (const f of allFindings) {
+      byTermClass[f.termClass] = (byTermClass[f.termClass] || 0) + 1;
+      bySeverity[f.severity] = (bySeverity[f.severity] || 0) + 1;
+    }
+    process.stdout.write(
+      `${JSON.stringify({
+        _type: 'summary',
+        totalFindings: allFindings.length,
+        byTermClass,
+        bySeverity,
+        exceptionsConsumed: stats.exceptionsConsumed,
+      })}\n`,
+    );
   }
 
   // Summary on stderr
