@@ -28,13 +28,20 @@ created: 2026-06-15
 
 ## What
 
-把"anchor-first + 最内层封顶"落到**完全可控的 MCP 协作读工具**，与 F148（消息侧）形成完整版图。第一刀落在 callback route 的 projection helper（payload 组装处），不是 MCP wrapper（否则 HTTP/agent-key/UI 等调用方会绕过）。
+两段式 scope：**V1 先治完全可控的 MCP 协作读工具**（小头、立样板、最内层封顶），**Phase C 治 cc 原生 Read/Grep 大头**（spike PASS 后正式纳入——这是 agent token 真大头、rtk 放弃的）。与 F148（消息侧）形成完整版图。MCP 侧第一刀落在 callback route 的 projection helper（payload 组装处），不是 MCP wrapper（否则 HTTP/agent-key/UI 等调用方会绕过）。
 
 ### V1 scope（本期）
 - `get_thread_context` / `get_pending_mentions` / `list_tasks` 默认返回 anchorized preview
 - `get_message` drill 终点加 bounded 模式（`mode=preview|full` / `maxChars`）
 - preview 字段：`id / threadId / timestamp / speaker / preview / contentLength / truncated / drillDown`
 - pending mentions 特殊：长 mention 用 head+tail actionable excerpt + `requiresDrill=true`（不丢传球指令语义）
+
+### Phase C scope（cc 原生工具大头 — spike PASS 后正式纳入）
+spike（2026-06-16，C0a Read / C0b Grep ✅ 实证）证明 cc PostToolUse hook 能 anchor 化内置 Read/Grep——agent token 大头、rtk 放弃的那块。Phase C 把 anchor-first 从 MCP 工具扩到 cc 原生工具：
+- **Read**：全文/大输出 → anchorized preview（路径 + 总行数 + 预览 + slice drill 指针）；bounded `Read(offset,limit)` pass-through 返回真实 slice（不丢原文）
+- **Grep/Glob**：分组 anchor（命中文件 + 计数 + drill 指针），不 inline 全部命中行
+- **实现位置**：cc 项目级 PostToolUse hook，保 `tool_response` shape、只替 content 字段（Read 在 `.file.content`，Grep 在顶层 `.content`——per-tool 分支）
+- **仅 cc runtime**；codex/agy/opencode 见 AC-C3；interactive carrier parity 见 AC-C0c
 
 ### Non-goals（V1 不做，防跑偏 — 砚砚收窄）
 - ❌ runtime transform 层（codex/agy tool_result）—— 二期，跨 runtime 兼容性项目
