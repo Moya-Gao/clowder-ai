@@ -1,0 +1,25 @@
+{
+  "verdictId": "2026-06-17-eval-a2a-c1-sample-window-build",
+  "evalSnapshotId": "eval-F167-2026-06-17",
+  "featureId": "F167",
+  "generatedAt": "2026-06-17T03:03:14.249Z",
+  "window": {
+    "startMs": 1781581255556,
+    "endMs": 1781665344218,
+    "durationHours": 23.36
+  },
+  "components": [
+    {
+      "id": "C1",
+      "name": "hold_ball (MCP tool)",
+      "confidence": "medium",
+      "activationCounts": {
+        "hold_ball_calls": 3
+      },
+      "frictionCounts": {
+        "c1.zombie_hold_count": 4,
+        "c1.hold_cancel_count": 4
+      }
+    }
+  ]
+}
