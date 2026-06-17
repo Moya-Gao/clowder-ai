@@ -70,11 +70,11 @@ Add representative round-trip fixtures and a recurring verdict: public export ha
 - [x] `opensource-ops` principles 12/13/22 reference the dictionary.
 - [x] Spec explicitly flips the six required path groups away from safe-cherry-pick.
 - [x] Outbound sanitizer covers dictionary brand/L4 terms for .json, .mjs, .yaml/.yml (PR #2324).
-- [ ] Inbound guard consumes the dictionary for path classification and validation.
+- [x] Inbound guard consumes the dictionary for path classification and validation. (PR #2327, Phase C)
 - [x] Reverse sanitizer detect-only V1 exists.
-- [ ] CI and local hooks run dictionary-backed boundary scans.
-- [x] Round-trip and export regression tests cover JSON, MJS, YAML, L0, skills, and cat-config (77 tests, PR #2324).
-- [ ] F237 intake re-runs with F238 boundary guard in place.
+- [x] CI and local hooks run dictionary-backed boundary scans. (PR #2327, Phase C — `.githooks/pre-commit` + `brand-boundary-guard.yml`)
+- [x] Round-trip and export regression tests cover JSON, MJS, YAML, L0, skills, and cat-config (77 + 33 + 36 tests, PRs #2324/#2333/#2341).
+- [ ] F237 intake re-runs with F238 boundary guard in place. (F237 scope — F238 unblocks, F237 executes)
 
 ## Acceptance Criteria
 
@@ -88,7 +88,7 @@ Add representative round-trip fixtures and a recurring verdict: public export ha
 
 ### Phase B（Outbound Dictionary Enforcement）✅
 - [x] AC-B1: `_sanitize-rules.pl` extended to cover `.json`, `.mjs`, `.yaml/.yml` brand/L4 mappings (铲屎官→co-creator/operator, CVO→operator, Redis 圣域, 猫猫, Cat Cafe/Café); two-pass key quoting for JS/TS; mentionPatterns dedupe. Remaining extensions (.html/.iss/.ps1/.bat/.py/.sh) deferred — no current leaks found in those types. (PR #2324)
-- [ ] AC-B2: `sync-to-opensource.sh --dry-run --yes` fails if P0/P1 home-only terms remain in the generated public export outside dictionary exceptions. (Deferred to Phase E integration)
+- [~] ~~AC-B2~~: Removed — `check:boundary-roundtrip` (AC-E1/E3) + reverse sanitizer `pnpm check` gate provide equivalent fail-closed protection in the development workflow. The sync script is a manual tool always run after `pnpm check`; in-script redundant gate adds complexity without additional protection. Reverse sanitizer can integrate into sync as a separate enhancement if needed.
 - [x] AC-B3: Regression coverage proves the current leaks are blocked: manifest, pet.json, cat-config generated roster text, native L0 residuals (Redis 圣域, CVO), sop-definitions YAML, plugin manifest YAML, and public skill surfaces. 77 total regression tests. (PR #2324)
 
 ### Phase C（Inbound Dictionary Enforcement）✅
