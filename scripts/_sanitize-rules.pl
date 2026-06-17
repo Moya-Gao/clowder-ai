@@ -184,12 +184,19 @@ if ($ARGV =~ m{\.(tsx?|js)$}) {
   s#\.\./BACKLOG\.md#../ROADMAP.md#g;
 }
 
-# ── Brand name: UI-facing "Cat Cafe" → "Clowder AI" (source + test + data files) ──
-# Applies to .ts/.tsx/.js/.mjs/.json/.yaml/.yml files — user-visible strings.
+# ── Brand name: UI-facing "Cat Cafe" → "Clowder AI" (source + test + data + shell files) ──
+# Applies to .ts/.tsx/.js/.mjs/.json/.yaml/.yml/.sh files — user-visible strings.
 # F238: Extended from .ts/.tsx/.js to cover manifest.json, compile-system-prompt-l0.mjs,
 # sop-definitions/*.yaml, plugin manifests, and generated configs.
+# F228 Round 2 outbound sync blocker: extended to .sh — exported shell scripts
+# (e.g., scripts/alpha-worktree.sh help banner) had their "Cat Cafe ... Manager"
+# string surviving export while .js test expectations were already sanitized to
+# "Clowder AI ... Manager", producing test gate failure. Sanitizer only ever sees
+# files that survive sync exclusion filtering ($FILTERED_DIR), so internal-only
+# .sh files (sync-to-opensource.sh, intake-from-opensource.sh, sync-to-tutorials.sh)
+# are not touched because they are excluded from export before perl runs.
 # Does NOT touch: @cat-cafe/* imports, cat-cafe-skills/, cat-cafe: keys, cat_cafe_* tools.
-if ($ARGV =~ m{\.(tsx?|js|mjs|json|ya?ml)$}) {
+if ($ARGV =~ m{\.(tsx?|js|mjs|json|ya?ml|sh)$}) {
   # Page metadata and header titles
   s/title: 'Cat Cafe'/title: 'Clowder AI'/g;
   s/'Cat Cafe'/'Clowder AI'/g;

@@ -583,6 +583,28 @@ describe('sanitize-rules regression (home repo only)', { skip: !isHomeRepo }, ()
     });
   });
 
+  // F228 Round 2 outbound sync: .sh extension must sanitize brand string in
+  // exported help banners (regression: alpha-worktree.sh help printed "Cat Cafe
+  // Alpha Worktree Manager" while .js test expectation already transformed to
+  // "Clowder AI ..." — file-type asymmetry produced test gate failure).
+  // Internal-only .sh (sync-to-opensource.sh, intake-from-opensource.sh) are
+  // never seen by the sanitizer because sync exclusion runs before perl.
+  describe('F228 Round 2: .sh brand transforms', () => {
+    it('transforms "Cat Cafe" banner in exported .sh files (alpha-worktree.sh style)', () => {
+      const input = `echo "  Cat Cafe Alpha Worktree Manager"\n`;
+      const result = applySanitizer(input, 'scripts/alpha-worktree.sh');
+      assert.ok(result.includes('Clowder AI'), `expected "Clowder AI" in .sh banner, got: ${result}`);
+      assert.ok(!result.includes('Cat Cafe'), `"Cat Cafe" must not survive in .sh banner, got: ${result}`);
+    });
+
+    it('transforms "Cat Café" with accent in .sh files', () => {
+      const input = `echo "Welcome to Cat Café Hub"\n`;
+      const result = applySanitizer(input, 'scripts/start-dev.sh');
+      assert.ok(result.includes('Clowder AI'), `expected "Clowder AI" in .sh, got: ${result}`);
+      assert.ok(!result.includes('Cat Café'), `"Cat Café" must not survive in .sh, got: ${result}`);
+    });
+  });
+
   describe('F238: L0 system-prompt L4 residual terms', () => {
     // term: l4.redis_sanctum — "圣域" in L0 decision tree context (O4)
     it('transforms "Redis 圣域" in L0 decision tree (non-Iron-Law context)', () => {
