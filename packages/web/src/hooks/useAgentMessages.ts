@@ -40,6 +40,7 @@ import {
   clearPendingTimeoutDiag as clearPendingTimeoutDiagLedger,
   clearStreamData as clearStreamDataLedger,
   decideTerminalEventTarget as decideTerminalEventTargetLedger,
+  getActiveBoundTurnInvocationId as getActiveBoundTurnInvocationIdLedger,
   getActiveBubbleCount as getActiveBubbleCountLedger,
   getActiveBubble as getActiveBubbleLedger,
   getAllActiveBubblesForThread as getAllActiveBubblesForThreadLedger,
@@ -1634,8 +1635,19 @@ function ensureBackgroundAssistantMessage(
   options: HandleBackgroundMessageOptions,
 ): string {
   const invocationId = msg.invocationId ?? getThreadInvocationId(msg, options);
+  // F194 dual-path thread-switch fix (saga round 17): when a codex reply's events
+  // straddle a mid-reply currentThreadId switch, the trailing tool/work-log events
+  // (which carry NO msg.turnInvocationId) arrive on the background path. Resolving
+  // the turn from catInvocations alone can pick up a DIFFERENT (shadow) turn left by
+  // a newer invocation context → a second, empty work-log bubble (split). Recover
+  // the turn the ACTIVE path already bound for THIS reply's thread (msg.threadId —
+  // NOT the now-current thread) from the runtime ledger first, so both paths resolve
+  // the same turn → one bubble. Genuinely different invocation_created turns each
+  // own a distinct bound ledger bubble → still resolve distinct turns (Z3-safe).
   const turnInvocationId =
-    msg.turnInvocationId ?? options.store.getThreadState(msg.threadId).catInvocations[msg.catId]?.turnInvocationId;
+    msg.turnInvocationId ??
+    getActiveBoundTurnInvocationIdLedger(getThreadRuntimeLedger(), msg.threadId, msg.catId) ??
+    options.store.getThreadState(msg.threadId).catInvocations[msg.catId]?.turnInvocationId;
   const forceFreshParentSeed =
     (msg.type === 'tool_use' || msg.type === 'tool_result') && turnInvocationId === undefined;
   const canReuseExisting =
