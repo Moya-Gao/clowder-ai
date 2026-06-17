@@ -91,10 +91,10 @@ Add representative round-trip fixtures and a recurring verdict: public export ha
 - [ ] AC-B2: `sync-to-opensource.sh --dry-run --yes` fails if P0/P1 home-only terms remain in the generated public export outside dictionary exceptions. (Deferred to Phase E integration)
 - [x] AC-B3: Regression coverage proves the current leaks are blocked: manifest, pet.json, cat-config generated roster text, native L0 residuals (Redis 圣域, CVO), sop-definitions YAML, plugin manifest YAML, and public skill surfaces. 77 total regression tests. (PR #2324)
 
-### Phase C（Inbound Dictionary Enforcement）
-- [ ] AC-C1: `intake-from-opensource.sh --mode=plan` classifies dictionary manual-port / brand-sensitive paths according to `path_policies`, including all six required directory flips.
-- [ ] AC-C2: `--validate-inbound` scans working tree and index content using dictionary terms and reports structured violations.
-- [ ] AC-C3: `.githooks/pre-commit` and a GitHub workflow invoke the dictionary-backed inbound guard; local hook bypass does not remove CI protection.
+### Phase C（Inbound Dictionary Enforcement）✅
+- [x] AC-C1: `intake-from-opensource.sh --mode=plan` classifies dictionary manual-port / brand-sensitive paths according to `path_policies`, including all six required directory flips.
+- [x] AC-C2: `--validate-inbound` scans working tree and index content using dictionary terms and reports structured violations (fail-closed cross-validation with three brand-sensitive anchors + manual-port anchor).
+- [x] AC-C3: `.githooks/pre-commit` and a GitHub workflow (`brand-boundary-guard.yml`) invoke the dictionary-backed inbound guard; local hook bypass does not remove CI protection. 44 intake tests + 20 helper tests enforced via `pnpm check`.
 
 ### Phase D（Reverse Sanitizer Detect-Only V1）
 - [ ] AC-D1: A detect-only reverse sanitizer reports `severity | direction | file | line/field | term id | suggestion` and exits non-zero for P0/P1 violations.
@@ -157,6 +157,7 @@ Add representative round-trip fixtures and a recurring verdict: public export ha
 | 2026-06-16 | F237 Round-3 audit exposes dual-repo boundary gap. |
 | 2026-06-16 | F238 Phase A opened; spec, dictionary v0.1, and opensource-ops references landed. |
 | 2026-06-16 | Phase B merged (PR #2324): outbound sanitizer extended to .json/.mjs/.yaml, L4 cultural terms, 77 regression tests. |
+| 2026-06-17 | Phase C merged (PR #2327): inbound dictionary enforcement — classify_path, fail-closed cross-validation (3 brand-sensitive + 1 manual-port anchor), GitHub CI workflow, 44 intake + 20 helper tests in pnpm check. |
 
 ## Review Gate
 
