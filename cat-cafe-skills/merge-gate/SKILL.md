@@ -495,12 +495,14 @@ gh pr comment {PR_NUMBER} --body '@codex review'
 
 | 原 reviewer | 降级到 | 说明 |
 |-------------|--------|------|
-| 缅因猫 Codex | 缅因猫 GPT-5.4 | 同族不同个体 |
-| 缅因猫 GPT-5.4 | 缅因猫 Codex | 反向降级 |
+| 缅因猫 Codex | 布偶猫 Opus 家族（47/48） | **跨 provider family**（Codex 和 GPT-5.4 共享 OpenAI API 池，一个没猫粮 = 都没猫粮） |
+| 缅因猫 GPT-5.4 | 布偶猫 Opus 家族（47/48） | 同上——OpenAI 共享池 |
 | 布偶猫某个体 | 布偶猫其他个体 / 缅因猫 | 同族或跨族 |
 | **禁止** | 暹罗猫 | 不做代码 review（孟加拉猫 Opus 除外，底层是 Opus） |
 
 **铁律：降级后仍须校验"reviewer ≠ 作者"**——降级表是建议顺序，不能覆盖 self-review 禁令。
+
+**⚠️ 共享 API 池陷阱（F238 教训）**：同一 provider 的不同 model（Codex/GPT-5.4/GPT-5.5）共享 API 额度。降级必须跨 provider family（OpenAI → Anthropic），不能在同 provider 内换个体。
 
 操作：`gh pr comment {PR} --body "..."` 用标准触发模板 @ 降级 reviewer（句柄查 `cat-config.json`）。
 
