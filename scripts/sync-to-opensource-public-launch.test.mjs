@@ -45,6 +45,9 @@ describe('sync-to-opensource public launch transforms', { skip: !existsSync(SYNC
       const setupDoc = readFileSync(resolve(exportDir, 'SETUP.md'), 'utf8');
       const setupZhDoc = readFileSync(resolve(exportDir, 'SETUP.zh-CN.md'), 'utf8');
       const apiPkg = JSON.parse(readFileSync(resolve(exportDir, 'packages/api/package.json'), 'utf8'));
+      const publicTestRegistry = JSON.parse(
+        readFileSync(resolve(exportDir, 'packages/api/config/public-test-exclusions.json'), 'utf8'),
+      );
 
       assert.match(pkg.scripts['dev:direct'], /start-entry\.mjs dev:direct --profile=opensource/);
       assert.match(pkg.scripts['start:direct'], /start-entry\.mjs start:direct --profile=opensource/);
@@ -73,9 +76,31 @@ describe('sync-to-opensource public launch transforms', { skip: !existsSync(SYNC
       assert.match(pkg.scripts.check, /check:start-profile-isolation/);
       assert.doesNotMatch(pkg.scripts.check, /check:sync-export/);
       assert.doesNotMatch(pkg.scripts.check, /check:incident-containment/);
-      assert.match(apiPkg.scripts['test:public'], /github-schedule-factories\\.test/);
-      assert.match(apiPkg.scripts['test:public'], /harness-eval\/eval-hub-read-model\\.test/);
-      assert.match(apiPkg.scripts['test:public'], /harness-eval\/merge-gate-provenance-contract\\.test/);
+      assert.match(apiPkg.scripts['test:public'], /run-public-tests\.sh/);
+      assert.equal(
+        existsSync(resolve(exportDir, 'packages/api/scripts/run-public-tests.sh')),
+        true,
+        'fail-propagating public-test wrapper must be exported so the open-source public gate inherits the same exit-code semantics as cat-cafe',
+      );
+      assert.equal(
+        existsSync(resolve(exportDir, 'packages/api/scripts/resolve-public-test-files.mjs')),
+        true,
+        'resolver must be exported so run-public-tests.sh can invoke it inside the exported repo',
+      );
+      assert.ok(
+        publicTestRegistry.entries.some((entry) => entry.match === 'github-schedule-factories\\.test'),
+        'public test registry must preserve the github-schedule-factories exclusion in exported source',
+      );
+      assert.ok(
+        publicTestRegistry.entries.some((entry) => entry.match === 'harness-eval/eval-hub-read-model\\.test'),
+        'public test registry must preserve the eval-hub-read-model exclusion in exported source',
+      );
+      assert.ok(
+        publicTestRegistry.entries.some(
+          (entry) => entry.match === 'harness-eval/merge-gate-provenance-contract\\.test',
+        ),
+        'public test registry must preserve the merge-gate provenance exclusion in exported source',
+      );
       assert.equal(
         existsSync(resolve(exportDir, 'plugins/github/plugin.yaml')),
         true,
