@@ -8,7 +8,7 @@ created: 2026-06-16
 
 # F238: Bidirectional Boundary Symmetry
 
-> **Status**: in-progress | **Owner**: 缅因猫/砚砚 (@codex) + cat-cafe maintainers | **Priority**: P0 | **Source**: F237 intake blocker
+> **Status**: completed | **Owner**: 缅因猫/砚砚 (@codex) + cat-cafe maintainers | **Priority**: P0 | **Source**: F237 intake blocker
 
 ## Why
 
@@ -101,10 +101,10 @@ Add representative round-trip fixtures and a recurring verdict: public export ha
 - [x] AC-D2: JSON/YAML inputs report field paths where practical; text inputs report file/line.
 - [x] AC-D3: The tool supports outbound-export validation and inbound cat-cafe validation without auto-rewriting.
 
-### Phase E（Round-Trip and Eval Loop）
-- [ ] AC-E1: Round-trip fixtures cover representative files across L0, manifest, cat-config, desktop, sop-definitions, guides, and cat-cafe-skills. (Prompt templates deferred — `assets/prompt-templates/` does not exist yet; coverage extends automatically when F237 creates the directory.)
-- [ ] AC-E2: Sync/intake logs emit scan counters by term class, severity, and consumed exceptions.
-- [ ] AC-E3: A recurring verdict or equivalent eval records whether dictionary-backed boundary scans remain green over time.
+### Phase E（Round-Trip and Eval Loop）✅
+- [x] AC-E1: Round-trip fixtures cover representative files across L0, manifest, cat-config, desktop, sop-definitions, guides, and cat-cafe-skills. (Prompt templates deferred — `assets/prompt-templates/` does not exist yet; coverage extends automatically when F237 creates the directory.)
+- [x] AC-E2: Sync/intake logs emit scan counters by term class, severity, and consumed exceptions.
+- [x] AC-E3: A recurring verdict or equivalent eval records whether dictionary-backed boundary scans remain green over time.
 
 ## Dependencies
 
@@ -159,6 +159,7 @@ Add representative round-trip fixtures and a recurring verdict: public export ha
 | 2026-06-16 | Phase B merged (PR #2324): outbound sanitizer extended to .json/.mjs/.yaml, L4 cultural terms, 77 regression tests. |
 | 2026-06-17 | Phase C merged (PR #2327): inbound dictionary enforcement — classify_path, fail-closed cross-validation (3 brand-sensitive + 1 manual-port anchor), GitHub CI workflow, 44 intake + 20 helper tests in pnpm check. |
 | 2026-06-17 | Phase D merged (PR #2333): reverse sanitizer detect-only V1 — NDJSON output, word-boundary regex, three-layer dedup, per-variant suggestion mapping, 30 tests, wired into pnpm check. |
+| 2026-06-17 | Phase E merged (PR #2341): round-trip boundary fixtures (33 tests, 7 categories), --summary-json structured counters, per-termId reciprocity validation. F238 complete — all 5 phases delivered. |
 
 ## Review Gate
 
