@@ -72,7 +72,12 @@ spike（2026-06-16，C0a Read / C0b Grep ✅ 实证）证明 cc PostToolUse hook
 - [ ] AC-C0c (spike) pending: Glob shape / 多 Read `tool_use_id` 独立 / session 持久化 / **interactive carrier parity**（本 spike 是 sdk-cli ≠ carrier；Phase C 若含 interactive carrier 须单独 AC 在 carrier path 复测）
 - [ ] AC-C1: Read 返回默认 anchorized（文件路径 + 总行数 + 预览 + `read_file_slice` drill 指针），全文按需 drill
 - [ ] AC-C2: Grep/Glob 返回分组 anchor（命中文件 + 计数 + drill），不 inline 全部命中行
-- [ ] AC-C3: PostToolUse 仅 cc；codex（transform 可改）/ agy / opencode 等价机制单独评估，不假设都有
+- [ ] AC-C3: PostToolUse 仅 cc；**codex/agy 两条候选路**（spike-gated，铲屎官 2026-06-17）：
+    - **浅路（学 rtk）**：注入 shell 命令重写 hook（codex/agy 有 PreToolUse/shell hook，rtk 已证）——广但只压 shell 命令，碰不到内置工具 output
+    - **深路（output anchor）**：需 codex/agy 有 cc PostToolUse 等价机制、能改**它们模型侧**的 tool_result
+    - ⚠️ **核心未知（深路必验）**：我们的 transform 层改的是 **cat-cafe 侧存储/展示**（≠ codex/agy 模型 context，省不到它们 token，且那侧 F148 已覆盖）——深路要省 codex/agy 模型 token，**必须它们自己有 output hook**，不是我们 transform 能代劳。（修正：前文"transform 可改"指 cat-cafe 侧，非模型侧）
+    - opencode：transformer 不发 tool_result，锁定
+- [ ] AC-C0d (spike) pending: 验 codex/agy CLI 是否有等价 cc PostToolUse 的 output 改写机制（能改它们模型侧 tool_result）；无则深路不通、只剩浅路
 - [ ] AC-C4: 双边 eval 对 cc 工具同样适用（Read drill 净收益 = 省 − drill 成本）
 
 ## Eval / Tracking Contract（F192 / ADR-031）
