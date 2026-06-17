@@ -1454,6 +1454,10 @@ const internalScripts = [
   // F238 Phase D: reverse-sanitizer detect-only CLI — internal boundary tooling
   // (PR #2333). Added here after R4 race-condition residue caught by sync gate.
   "check:reverse-sanitizer",
+  // F238 Phase E: boundary round-trip fixture test — validates reverse-sanitizer
+  // against brand-dictionary.yaml (internal-only asset). Not exported to public.
+  // Added after F228 R8 sync failure: script surface test detected dangling ref.
+  "check:boundary-roundtrip",
   "clean:root-debris",
 ];
 for (const s of internalScripts) {
