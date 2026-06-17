@@ -57,6 +57,9 @@ managed_files:
   # F180 user-level hook templates for open-source users
   - .claude/hooks/user-level/README.md
   - .claude/hooks/user-level/claude-settings.template.json
+  # Public brand / intake test closure
+  - assets/brand-dictionary.yaml
+  - .githooks/pre-commit
   # Public test fixture required by packages/api test:public
   # (eval-domains/*.yaml + community-fixtures/ now covered by the managed_root above)
   - docs/harness-feedback/verdicts/fixtures/2026-05-21-eval-a2a-contract-demo.md
@@ -113,7 +116,12 @@ managed_scripts:
   - scripts/check-env-example.test.mjs
   - scripts/compile-system-prompt-l0.mjs
   - scripts/check-skills-mount.sh
+  - scripts/clean-stale-skill-links.sh
   - scripts/check-skills-manifest.mjs
+  - scripts/brand-dictionary-helper.mjs
+  - scripts/brand-dictionary-helper.test.mjs
+  - scripts/intake-from-opensource.sh
+  - scripts/intake-from-opensource.test.mjs
   - scripts/check-followup-tails.mjs
   # F223 public skill-surface guard (root package.json exposes check:skills:surfaces)
   - scripts/check-skill-first-party-surfaces.test.mjs

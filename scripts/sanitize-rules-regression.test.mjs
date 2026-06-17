@@ -605,6 +605,36 @@ describe('sanitize-rules regression (home repo only)', { skip: !isHomeRepo }, ()
     });
   });
 
+  describe('F228 systemic brand file-type matrix', () => {
+    const cases = [
+      { relPath: 'example.ts', shouldTransform: true },
+      { relPath: 'example.tsx', shouldTransform: true },
+      { relPath: 'example.js', shouldTransform: true },
+      { relPath: 'example.mjs', shouldTransform: true },
+      { relPath: 'example.json', shouldTransform: true },
+      { relPath: 'example.yaml', shouldTransform: true },
+      { relPath: 'example.sh', shouldTransform: true },
+      { relPath: 'example.ps1', shouldTransform: true },
+      { relPath: 'example.py', shouldTransform: true },
+      { relPath: 'example.md', shouldTransform: false },
+      { relPath: 'example.txt', shouldTransform: false },
+      { relPath: 'example.pl', shouldTransform: false },
+    ];
+
+    for (const { relPath, shouldTransform } of cases) {
+      it(`${shouldTransform ? 'transforms' : 'preserves'} Cat Cafe in ${relPath}`, () => {
+        const input = `print("Cat Cafe brand string")\n`;
+        const result = applySanitizer(input, relPath);
+        if (shouldTransform) {
+          assert.ok(result.includes('Clowder AI'), `expected transform for ${relPath}, got: ${result}`);
+          assert.ok(!result.includes('Cat Cafe'), `"Cat Cafe" must not survive in ${relPath}, got: ${result}`);
+        } else {
+          assert.ok(result.includes('Cat Cafe'), `expected preserve for ${relPath}, got: ${result}`);
+        }
+      });
+    }
+  });
+
   describe('F238: L0 system-prompt L4 residual terms', () => {
     // term: l4.redis_sanctum — "圣域" in L0 decision tree context (O4)
     it('transforms "Redis 圣域" in L0 decision tree (non-Iron-Law context)', () => {

@@ -160,6 +160,79 @@ function readJsonFile(relPath) {
   return JSON.parse(readFileSync(resolve(ROOT, relPath), 'utf-8'));
 }
 
+function extractScriptRefs(command) {
+  const refs = new Set();
+  const matches = String(command).matchAll(
+    /(?:^|\s)(?:bash|node)\s+((?:\.\/)?scripts\/[^\s'"]+)|(?:^|\s)((?:\.\/)?scripts\/[^\s'"]+)/g,
+  );
+  for (const match of matches) {
+    const ref = match[1] ?? match[2];
+    if (ref) refs.add(ref.replace(/^\.\//, ''));
+  }
+  return [...refs];
+}
+
+function isManagedPath(relPath, managedRoots, managedFiles, managedScripts) {
+  if (managedFiles.has(relPath) || managedScripts.has(relPath)) return true;
+  for (const root of managedRoots) {
+    if (relPath === root || relPath.startsWith(`${root}/`)) return true;
+  }
+  return false;
+}
+
+function buildExportedRootScripts(sourceScripts) {
+  const scripts = { ...sourceScripts };
+  scripts['start:direct'] = 'node ./scripts/start-entry.mjs start:direct --profile=opensource';
+  scripts['dev:direct'] = 'node ./scripts/start-entry.mjs dev:direct --profile=opensource';
+  scripts['check:start-profile-isolation'] = 'node --test scripts/start-dev-profile-isolation.test.mjs';
+  scripts['check:pre-merge-gate'] =
+    'node --test scripts/pre-merge-check.test.mjs scripts/pre-merge-gate-guard.test.mjs scripts/test-bash-runtime.test.mjs';
+  if (scripts.check === 'node scripts/run-checks.mjs') {
+    scripts.check = [
+      'pnpm biome check . --diagnostic-level=error',
+      'pnpm check:features',
+      'pnpm check:sop-definitions',
+      'pnpm check:skills:manifest',
+      'pnpm check:skills:surfaces',
+      'pnpm check:env-ports',
+      'pnpm check:env-registry',
+      'pnpm check:env-example',
+      'pnpm check:start-profile-isolation',
+      'pnpm check:pre-merge-gate',
+      'pnpm check:guides',
+      'pnpm check:followup-tails',
+      'pnpm check:scripts-ascii-only',
+    ].join(' && ');
+  }
+  if (!scripts.check.includes('pnpm check:start-profile-isolation')) {
+    scripts.check += ' && pnpm check:start-profile-isolation';
+  }
+  delete scripts['check:architecture-ownership'];
+  delete scripts['test:architecture-ownership'];
+
+  const internalScripts = [
+    'antigravity:smoke',
+    'check:hmac-salt',
+    'check:antigravity-smoke',
+    'check:biome-version',
+    'check:incident-containment',
+    'check:sync-export',
+    'check:web-global-css-imports',
+    'check:settings-primitives',
+    'check:root-debris',
+    'check:source-hygiene',
+    'check:f223-action-tracking',
+    'clean:root-debris',
+  ];
+  for (const scriptName of internalScripts) {
+    delete scripts[scriptName];
+  }
+  for (const key of Object.keys(scripts)) {
+    if (key.startsWith('desktop:')) delete scripts[key];
+  }
+  return scripts;
+}
+
 function loadWorkspacePackageRootsByName() {
   const packagesDir = resolve(ROOT, 'packages');
   const rootsByName = new Map();
@@ -895,6 +968,70 @@ excluded:
         content.includes('"check:biome-version"'),
         'public package.json should drop check:biome-version because its script target is not exported',
       );
+    });
+
+    it('sync-manifest exports every scripts/* target referenced by exported package.json surfaces', () => {
+      const managedRoots = new Set(readYamlTopLevelList('sync-manifest.yaml', 'managed_roots'));
+      const managedFiles = new Set(readYamlTopLevelList('sync-manifest.yaml', 'managed_files'));
+      const managedScripts = new Set(readYamlTopLevelList('sync-manifest.yaml', 'managed_scripts'));
+      const packageJsonSurfaces = ['package.json'];
+
+      for (const root of managedRoots) {
+        const packageJsonPath = `${root}/package.json`;
+        if (existsSync(resolve(ROOT, packageJsonPath))) {
+          packageJsonSurfaces.push(packageJsonPath);
+        }
+      }
+
+      const missing = [];
+      for (const packageJsonPath of packageJsonSurfaces) {
+        const pkg = readJsonFile(packageJsonPath);
+        const scripts =
+          packageJsonPath === 'package.json' ? buildExportedRootScripts(pkg.scripts ?? {}) : (pkg.scripts ?? {});
+        const packageRoot = packageJsonPath === 'package.json' ? '' : packageJsonPath.slice(0, -'/package.json'.length);
+
+        for (const [scriptName, command] of Object.entries(scripts)) {
+          for (const ref of extractScriptRefs(command)) {
+            const exportPath = packageRoot.length > 0 ? `${packageRoot}/${ref}` : ref;
+            if (!isManagedPath(exportPath, managedRoots, managedFiles, managedScripts)) {
+              missing.push(`${packageJsonPath}:${scriptName} -> ${exportPath}`);
+            }
+          }
+        }
+      }
+
+      assert.deepEqual(
+        missing,
+        [],
+        `sync-manifest should export every scripts/* target referenced by exported package.json surfaces:\n${missing.join('\n')}`,
+      );
+    });
+
+    it('sync-manifest exports public root script guard closure for stale-skill cleanup and brand checks', () => {
+      const managedFiles = new Set(readYamlTopLevelList('sync-manifest.yaml', 'managed_files'));
+      const managedScripts = new Set(readYamlTopLevelList('sync-manifest.yaml', 'managed_scripts'));
+      const requiredScripts = [
+        'scripts/clean-stale-skill-links.sh',
+        'scripts/brand-dictionary-helper.mjs',
+        'scripts/brand-dictionary-helper.test.mjs',
+        'scripts/intake-from-opensource.sh',
+        'scripts/intake-from-opensource.test.mjs',
+      ];
+      const requiredFiles = ['assets/brand-dictionary.yaml', '.githooks/pre-commit'];
+
+      for (const scriptPath of requiredScripts) {
+        assert.ok(
+          managedScripts.has(scriptPath),
+          `sync-manifest should export ${scriptPath} because public root package / test surfaces depend on it`,
+        );
+      }
+
+      for (const filePath of requiredFiles) {
+        assert.ok(
+          managedFiles.has(filePath),
+          `sync-manifest should export ${filePath} because public brand-guard tests depend on it`,
+        );
+      }
     });
 
     it('sync-manifest exports F180 user-level hook truth source', () => {
