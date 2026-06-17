@@ -42,6 +42,7 @@ const PARALLEL_CHECKS = [
   'check:dir-size',
   'check:brand-dictionary',
   'check:brand-guard',
+  'check:reverse-sanitizer',
   // F228 outbound sync gate: spawn sync-to-opensource.sh --dry-run + JSON.parse exported package.json.
   // Previously not wired into pnpm check → sanitizer JSON breakage on main was invisible (LL: green main can hide regression).
   'check:sync-export',
