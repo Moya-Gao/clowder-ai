@@ -345,3 +345,117 @@ describe('runtime-sanctuary-guard: bypass closure — quotes, --, multi-arg (clo
     });
   }
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 主仓 + relay-station 根删除保护 — trash 事故 2026-06-16（宪宪/opus-47 的 `trash "$TMP"`
+// 把整个主仓 cat-cafe move 到 .Trash）。现有 guard 只护 cat-cafe-runtime（生产 worktree），
+// 主仓 cat-cafe 本身 + relay-station 顶层零保护。补字面 path 删除拦截（rm/trash/mv）。
+// 这只防"字面写出全路径"的删除；$VAR 展开类根因 hook 看不到展开值 → 见下一个 describe 的 ask nudge。
+// ═══════════════════════════════════════════════════════════════════════════
+describe('runtime-sanctuary-guard: main repo + relay-station root deletion (trash incident 2026-06-16)', () => {
+  const MAIN = '/Users/lysander/projects/relay-station/cat-cafe';
+  const RELAY = '/Users/lysander/projects/relay-station';
+
+  const denyCases = [
+    ['trash the main repo root (the incident)', `trash ${MAIN}`],
+    ['rm -rf the main repo root', `rm -rf ${MAIN}`],
+    ['trash main repo root (trailing slash)', `trash ${MAIN}/`],
+    ['trash main repo root (single-quoted)', `trash '${MAIN}'`],
+    ['mv the main repo root away', `mv ${MAIN} /tmp/elsewhere`],
+    ['rm the main repo .git (repo destruction)', `rm -rf ${MAIN}/.git`],
+    ['trash the relay-station top dir', `trash ${RELAY}`],
+    ['rm -rf relay-station top dir', `rm -rf ${RELAY}`],
+    ['trash relay-station top (trailing slash)', `trash ${RELAY}/`],
+    // failure-mode sweep (46/Opus-4.6 review 2026-06-17): bypass 变体 — flags/多路径/分隔符
+    ['multi-path rm, main repo as non-first arg (P1-1)', `rm -rf /tmp/junk ${MAIN}`],
+    ['split short flags rm -r -f (P1-2)', `rm -r -f ${MAIN}`],
+    ['long-form flags rm --recursive --force (P1-2)', `rm --recursive --force ${MAIN}`],
+    ['multi-path, relay-station as non-first arg', `rm -rf /tmp/a ${RELAY}`],
+    ['trash with -v flag before main repo', `trash -v ${MAIN}`],
+    ['mv with -f flag before main repo', `mv -f ${MAIN} /tmp/x`],
+    // 47 review round 2 (2026-06-17, CVO option A best-effort): $HOME/~ 展开（命中事故根因 $VAR）+ glob 株连
+    ['rm $HOME-prefixed main repo (P1-1, 命中事故根因)', 'rm -rf $HOME/projects/relay-station/cat-cafe'],
+    ['rm ~-prefixed main repo (P1-2 shorthand)', 'rm -rf ~/projects/relay-station/cat-cafe'],
+    ['trash $HOME-prefixed relay-station top', 'trash $HOME/projects/relay-station'],
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: bash ${HOME} 展开语法（非 JS 模板占位符）
+    ['rm braced-HOME main repo', 'rm -rf ${HOME}/projects/relay-station/cat-cafe'],
+    ['glob cat-c* (P1-5 最灾难 — 株连 runtime 圣域 + alpha)', 'rm -rf /Users/lysander/projects/relay-station/cat-c*'],
+    ['glob cat-?afe single-char (P2)', 'rm -rf /Users/lysander/projects/relay-station/cat-?afe'],
+    ['glob relay-station/* (删所有兄弟 worktree)', 'rm -rf /Users/lysander/projects/relay-station/*'],
+    ['glob with $HOME prefix', 'rm -rf $HOME/projects/relay-station/cat-c*'],
+  ];
+  for (const [name, command] of denyCases) {
+    it(`denies: ${name}`, () => {
+      assert.equal(decide(command), 'deny', `expected deny for: ${command}`);
+    });
+  }
+
+  const allowCases = [
+    // 子目录删除是高频合法操作——误报会把 guard 训练成狼来了
+    ['rm node_modules inside main repo', `rm -rf ${MAIN}/node_modules`],
+    ['rm dist in a deep subdir', `rm -rf ${MAIN}/packages/api/dist`],
+    ['trash a scratch file in main repo', `trash ${MAIN}/tmp-scratch.txt`],
+    // 兄弟 worktree / 同前缀更长名放行（同 cat-cafe-runtime vs -cwd-debug 边界精度）
+    ['rm a sibling feature worktree (longer name)', `rm -rf ${MAIN}-some-feature`],
+    ['git worktree remove a sibling worktree', `git worktree remove ${MAIN}-f239-phase-a`],
+    ['rm a relay-station-suffixed sibling dir', `rm -rf ${RELAY}-backup-2026`],
+    // 误报防线（sweep 关键）：[^&;|]* 不跨命令分隔符 —— rm tmp 后 cd 主仓必须放行（cd 不是删除）
+    ['rm tmp then cd main repo (cd is not delete)', `rm -rf /tmp/x && cd ${MAIN}`],
+    ['rm tmp then cd main repo subdir', `cd /tmp && rm -rf junk; cd ${MAIN}/packages`],
+    // 多路径但目标全是子目录/tmp — 合法清理
+    ['multi-path delete of only subdir + tmp', `rm -rf ${MAIN}/node_modules /tmp/y`],
+    ['echo main repo path (no delete verb)', `echo ${MAIN}`],
+    // A best-effort 边界（round 2）：$HOME/~ 子目录 + 深层 glob 是合法删除，必须放行
+    ['$HOME main repo node_modules subdir', 'rm -rf $HOME/projects/relay-station/cat-cafe/node_modules'],
+    ['~ main repo dist subdir', 'rm -rf ~/projects/relay-station/cat-cafe/dist'],
+    ['deep glob inside main repo packages', 'rm -rf /Users/lysander/projects/relay-station/cat-cafe/packages/*'],
+  ];
+  for (const [name, command] of allowCases) {
+    it(`allows: ${name}`, () => {
+      assert.equal(decide(command), 'allow', `expected allow for: ${command}`);
+    });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// $VAR 危险删除在长 chain 里 → ask nudge（trash 事故根因：$TMP 在 12+ 步 chain 里意外展开）。
+// hook 拿到的是未展开命令文本，看不到 $VAR 真值 → 无法字面拦截，只能启发式 nudge。
+// 触发：危险删除接裸变量 + 长 chain（≥3 命令）+ 无 /tmp|/var/folders 白名单守护 → ask（不阻断）。
+// 把 feedback 脚本纪律「危险操作别塞长 chain、先 echo/白名单」hook 化。单条 trash "$VAR" 放行。
+// ═══════════════════════════════════════════════════════════════════════════
+describe('runtime-sanctuary-guard: $VAR dangerous-delete in long chain → ask nudge', () => {
+  const askCases = [
+    ['trash $VAR in a 4-step chain (the incident shape)', 'cd /tmp/work && mktemp -d && echo done && trash "$TMP"'],
+    ['rm -rf $VAR in a 3-step chain', 'cd build && pnpm compile && rm -rf $OUT_DIR'],
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: bash ${VAR} 语法（非 JS 模板占位符），测试故意覆盖大括号变量形态
+    ['trash braced-var form in a long chain', 'echo a && echo b && trash "${SCRATCH}"'],
+    // failure-mode sweep (46 review 2026-06-17): -- 断链 / 长形式 flags / || 分隔符
+    ['rm -rf -- $VAR in chain (-- end-of-options, P1-3)', 'cd a && echo b && rm -rf -- $TMP'],
+    ['rm --recursive $VAR long-form flag in chain', 'cd a && echo b && rm --recursive $OUT'],
+    ['trash $VAR in || chain (|| also counts as separator)', 'echo a || echo b || trash $X'],
+  ];
+  for (const [name, command] of askCases) {
+    it(`asks (nudge): ${name}`, () => {
+      assert.equal(decide(command), 'ask', `expected ask for: ${command}`);
+    });
+  }
+
+  const allowCases = [
+    ['single trash "$WORKTREE" (no chain — cleanup norm)', 'trash "$WORKTREE"'],
+    ['single rm -rf "$TMPDIR" (no chain)', 'rm -rf "$TMPDIR"'],
+    ['2-command chain with $VAR delete (below long-chain threshold)', 'pnpm build && rm -rf $BUILD_DIR'],
+    ['literal /tmp path delete in long chain (not a variable)', 'cd x && echo y && trash /tmp/foo-scratch'],
+    ['$VAR delete with case /tmp whitelist guard', 'echo a && echo b && case "$X" in /tmp/*) trash "$X";; esac'],
+    [
+      '$VAR delete guarded by [[ == /var/folders ]] check',
+      'echo a && echo b && [[ "$X" == /var/folders/* ]] && trash "$X"',
+    ],
+    // 非 recursive rm $VAR 放行 — 无 -r/-R 时 rm 删目录会报错、删空变量也报错，风险远低于 trash/rm -rf；保留 recursive 精确避免无谓误报
+    ['non-recursive rm $VAR in chain (no -r/-R, lower risk)', 'cd a && echo b && rm $LOGFILE'],
+  ];
+  for (const [name, command] of allowCases) {
+    it(`allows: ${name}`, () => {
+      assert.equal(decide(command), 'allow', `expected allow for: ${command}`);
+    });
+  }
+});

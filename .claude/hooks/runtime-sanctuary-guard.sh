@@ -34,7 +34,24 @@ emit_deny() {
   }'
 }
 
+# ask（不阻断，停一下让操作者确认）—— 用于无法字面拦截的启发式高危信号（模式 11）。
+emit_ask() {
+  local reason="$1"
+  jq -n --arg r "$reason" '{
+    hookSpecificOutput: {
+      hookEventName: "PreToolUse",
+      permissionDecision: "ask",
+      permissionDecisionReason: $r
+    }
+  }'
+}
+
 RUNTIME_WORKTREE_PATH="/Users/lysander/projects/relay-station/cat-cafe-runtime"
+# 47 review round 2 (CVO option A best-effort): 路径前缀展开变体 —— 字面 /Users/lysander、$HOME、
+# ${HOME}、~ 都解析到同一主仓父路径。hook 看命令文本无法展开 $VAR，但能字面匹配这几个高频写法
+# （变量拼接 `D=$HOME/..;rm $D`、$(...)、base64 等仍漏 = best-effort，主防线靠 trash 可恢复 + 软层）。
+HOME_PREFIX='(/Users/lysander|\$HOME|\$\{HOME\}|~)'
+RELAY_SUFFIX="/projects/relay-station"
 
 # ═══════════════════════════════════════════════════════════════
 # 模式 0：Edit/Write 直接修改 runtime worktree 内的文件
@@ -187,6 +204,53 @@ if echo "$COMMAND" | grep -qiE 'redis-cli\b[^|;]*shutdown'; then
   if echo "$COMMAND" | grep -qiE 'redis-cli\b[^|;]*-p\s*(6398|6399|6401)\b' \
      || ! echo "$COMMAND" | grep -qiE 'redis-cli\b[^|;]*-p\s*[0-9]+'; then
     emit_deny "⛔ P0 圣域保护：redis-cli shutdown 指向圣域端口 6398/6399/6401 或未指定端口（默认 6379 有歧义）= 可能强杀圣域（无 graceful BGSAVE）。清非圣域 orphan 请显式指定端口：redis-cli -p <非圣域端口> shutdown。重启圣域请通知铲屎官。"
+    exit 0
+  fi
+fi
+
+# ═══════════════════════════════════════════════════════════════
+# 模式 10：删除/移动主仓 cat-cafe 根 / relay-station 顶层 / relay-station 直接子级 glob（trash 事故 2026-06-16）
+# 背景：宪宪(47) 的 `trash "$TMP"` 把整个主仓 move 到 .Trash。现有模式只护 cat-cafe-runtime，主仓本身零保护。
+# 精确：只拦根目录本身（后接路径边界 / 行尾 / 可选斜杠行尾 / /.git），子目录删除（node_modules/dist/子 worktree）放行。
+# bypass 加固 round 1（46 review）：`(rm|trash|mv)\s+[^&;|]*` 吃任意 flags（短/拆分/长/--）+ 前置多路径，
+#       但 [^&;|]* 不跨命令分隔符（`rm /tmp && cd 主仓` 不误杀，区别于模式 3 的 .*）。-i 大小写不敏感。
+# bypass 加固 round 2（47 review, CVO option A best-effort）：HOME_PREFIX 覆盖 /Users/lysander|$HOME|${HOME}|~
+#       （P1-1/2 命中事故根因 $VAR 展开）；新增 glob 子句拦 relay-station/ 直接子级的 *? glob（P1-5 最灾难：
+#       `cat-c*` 株连 runtime 圣域 + alpha），深层子目录 glob（cat-cafe/packages/*）仍放行。
+# best-effort 残余（CVO 拍板接受）：find -delete / xargs rm / cd+相对路径 / 变量拼接 / perl·python·node
+#       / base64 等无限变体 hook 不拦 —— 删除命令空间图灵完备不可穷举，主防线是 trash 可恢复 + 软层纪律。
+# ═══════════════════════════════════════════════════════════════
+if echo "$COMMAND" | grep -qiE "(rm|trash|mv)\s+[^&;|]*['\"]?${HOME_PREFIX}${RELAY_SUFFIX}/cat-cafe([[:space:]\"';&|()<>]|/?\$|/\.git)"; then
+  emit_deny "⛔ P0 圣域保护：禁止删除/移动主仓根目录 cat-cafe！这是所有猫的开发主仓，trash/rm 整盘 = 全组工作现场丢失（2026-06-16 trash 事故）。删子目录（node_modules/dist）请写完整子路径。"
+  exit 0
+fi
+if echo "$COMMAND" | grep -qiE "(rm|trash|mv)\s+[^&;|]*['\"]?${HOME_PREFIX}${RELAY_SUFFIX}([[:space:]\"';&|()<>]|/?\$)"; then
+  emit_deny "⛔ P0 圣域保护：禁止删除/移动 relay-station 顶层目录！它包含主仓 + 所有 worktree + runtime，删除 = 灾难性数据丢失。"
+  exit 0
+fi
+if echo "$COMMAND" | grep -qiE "(rm|trash|mv)\s+[^&;|]*['\"]?${HOME_PREFIX}${RELAY_SUFFIX}/[^/&;|[:space:]]*[*?][^/&;|[:space:]]*"; then
+  emit_deny "⛔ P0 圣域保护：禁止用 glob（*?）删除 relay-station 直接子级！cat-c* 类 glob 会株连 cat-cafe 主仓 + cat-cafe-runtime 圣域 + alpha 等所有兄弟 worktree。删具体目录请写完整名，删子目录请用深层路径（cat-cafe/packages/*）。"
+  exit 0
+fi
+
+# ═══════════════════════════════════════════════════════════════
+# 模式 11：长 chain 里用裸变量做危险删除（trash $VAR / rm -r $VAR）→ ask nudge
+# 背景：trash 事故根因是 $TMP 在 12+ 步长 chain 里意外展开（$TMP 被清空 / cwd 漂移）。hook 拿到
+#       未展开命令文本，看不到 $VAR 真值 → 无法字面拦截，只能启发式 nudge。
+# 触发：危险删除接裸变量 + 长 chain（≥3 命令 = ≥2 个 && / || / ;）+ 无 /tmp|/var/folders 白名单守护。
+#       把 feedback 脚本纪律「危险操作别塞长 chain、先 echo/白名单」hook 化。
+# 危险删除定义：trash 接变量（trash 总是递归移动目录）；或 rm + recursive flag（-r/-R/--recursive）接变量。
+#       非 recursive 的 rm $VAR 放行（删目录会报错、删空变量也报错，风险远低于 trash/rm -rf）。
+# bypass 加固（46 review 2026-06-17）：`[^&;|]*` 吃 flags 和 -- (end-of-options)，覆盖
+#       `rm -rf -- $X` / `rm --recursive $X`；sep 计数含 || ；trash/rm 大小写不敏感（-i）。
+# 决策：ask（不 deny）—— 裸变量危险删除有大量合法场景（worktree cleanup），只停一下确认不阻断。
+#       单条 trash "$VAR"（不在 chain）放行，避免高频误报。
+# ═══════════════════════════════════════════════════════════════
+if echo "$COMMAND" | grep -qiE '(trash\s+[^&;|]*|rm\s+[^&;|]*(-[a-zA-Z]*[rR]|--recursive)[^&;|]*)['\''"]?\$\{?[A-Za-z_]'; then
+  sep_count=$(echo "$COMMAND" | grep -oE '&&|\|\||;' | wc -l | tr -d ' ' || true)
+  if [ "${sep_count:-0}" -ge 2 ] \
+     && ! echo "$COMMAND" | grep -qiE 'case\s|==\s*['\''"]?(/tmp/|/var/folders/)'; then
+    emit_ask "⚠️ 确认：你在一条多步 chain 里用变量做危险删除（trash/rm -rf \$VAR）。这是 2026-06-16 trash 主仓事故的形态（\$TMP 意外展开）。请确认：① echo \$VAR 看过展开后的真实路径？② 危险删除最好单独一条命令、或加 /tmp 白名单（case \$X in /tmp/*)。确认无误可继续。"
     exit 0
   fi
 fi

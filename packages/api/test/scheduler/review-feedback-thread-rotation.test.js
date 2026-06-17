@@ -418,17 +418,26 @@ describe('#949: Verdict-without-pass suppression for connector source', () => {
 
     const a2aOptions = { frustrationAutoIssueEligible: false };
     // verdictPassWarningEnabled not set → undefined → !== false → gate passes → warning fires
-    assert.notEqual(a2aOptions.verdictPassWarningEnabled, false,
-      'A2A options must NOT set verdictPassWarningEnabled to false');
-    assert.equal(a2aOptions.verdictPassWarningEnabled ?? true, true,
-      'undefined verdictPassWarningEnabled defaults to truthy (warning enabled)');
+    assert.notEqual(
+      a2aOptions.verdictPassWarningEnabled,
+      false,
+      'A2A options must NOT set verdictPassWarningEnabled to false',
+    );
+    assert.equal(
+      a2aOptions.verdictPassWarningEnabled ?? true,
+      true,
+      'undefined verdictPassWarningEnabled defaults to truthy (warning enabled)',
+    );
   });
 
   it('verdictPassWarningEnabled decoupling: connector paths suppress warning', async () => {
     // Connector direct-invoke sets BOTH flags independently.
     const connectorOptions = { frustrationAutoIssueEligible: false, verdictPassWarningEnabled: false };
-    assert.equal(connectorOptions.verdictPassWarningEnabled, false,
-      'connector options must set verdictPassWarningEnabled to false');
+    assert.equal(
+      connectorOptions.verdictPassWarningEnabled,
+      false,
+      'connector options must set verdictPassWarningEnabled to false',
+    );
   });
 
   it('verdictPassWarningEnabled decoupling: connector-queue entries suppress via source check', async () => {
@@ -438,8 +447,11 @@ describe('#949: Verdict-without-pass suppression for connector source', () => {
     const expected = { user: true, agent: true, connector: false };
     for (const source of sources) {
       const verdictEnabled = source !== 'connector';
-      assert.equal(verdictEnabled, expected[source],
-        `source='${source}' → verdictPassWarningEnabled should be ${expected[source]}`);
+      assert.equal(
+        verdictEnabled,
+        expected[source],
+        `source='${source}' → verdictPassWarningEnabled should be ${expected[source]}`,
+      );
     }
   });
 });
