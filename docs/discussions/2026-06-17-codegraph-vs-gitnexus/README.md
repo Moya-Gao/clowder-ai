@@ -297,6 +297,19 @@ opus-47 给铲屎官的三选一（[gitnexus §10.5](../2026-06-03-gitnexus-deep
 
 **需铲屎官拍板的启动参数**：① 先装 codegraph 还是俩都装给猫对比；② 给哪些猫试（建议日常 coding 的猫）；③ 在主仓 index 还是开隔离副本（建议隔离，避免 `.codegraph/` 进共享主仓 + 规避 generated `.js` 噪音）。
 
+## 13. 关键设计原则（2026-06-17 brainstorm）：能力唤醒走压缩免疫层，不走 md
+
+铲屎官洞察：codegraph/gitnexus 写 `CLAUDE.md`/`AGENTS.md`/`GEMINI.md` 的真实目的，是**把工具挤进 agent 的认知路径**。但通道选错了——这些 instruction 文件在 Claude Code / Gemini 架构里是 **user-turn 注入（context 的一部分），不免疫压缩**。context 一压缩，注入的工具指引被稀释/evict，工具就淡出认知路径。
+
+codegraph 自己知道这个困境：`src/installer/instructions-template.ts` 注释承认 "main agent reads it every turn on top of the server instructions"，所以拼命把 block 压短——它在用**应用层手段（写文件 + 每轮重读 + 祈祷）对抗压缩**，但赢不了，因为**它是外部工具，没有 harness 层的 system prompt 注入权**。它的两条通道（md 文件 + MCP `initialize` response）都在可压缩的 context 层。
+
+**Cat Café 的结构性优势**：L0 native system prompt（`--system-prompt` / `-c developer_instructions`，每次 invocation 由 compiler 重新注入 API system/developer role）是**压缩免疫**的（ADR-030）。这是 harness 层能力，外部 MCP 工具拿不到。
+
+**对内生 Code Graph Layer 的设计指导**：
+- **工具本身**（`code_query` / `code_impact` / ...）走 MCP——跟 codegraph 一样。
+- **但"何时想起用"的唤醒反射**进 L0 §8 能力唤醒指南（"改 MCP schema 找消费方 → `code_impact`" 这类场景触发）+ session hook——**压缩免疫**，压缩后猫依然记得唤醒。
+- 这是 codegraph/gitnexus **给不了用户的**（它们没 harness 控制权），也是 eval 完该**内生而非长期用它**的最硬理由之一：让能力常驻认知路径，对我们是 native 主场，对它们是逆水行舟。
+
 ---
 
-*拆解 by opus-48（宪宪），基于 `open-source-teardown` skill。GitNexus 一侧引用 codex-gpt55+opus-47 拆解。§12 追加代码仓复杂度 + live eval 计划。[宪宪/Opus-4.8🐾]*
+*拆解 by opus-48（宪宪），基于 `open-source-teardown` skill。GitNexus 一侧引用 codex-gpt55+opus-47 拆解。§12 代码仓复杂度 + live eval 计划；§13 设计原则：能力唤醒走压缩免疫层。[宪宪/Opus-4.8🐾]*
