@@ -410,4 +410,147 @@ Do not crop any body part.
 [6]: https://en.esotericsoftware.com/spine-export/?utm_source=chatgpt.com "Export - Spine User Guide"
 
 ---
+[![Codexアプリのペットを孵化させる　hatch-petスキルで動くマスコットを作る | gihyo.jp](https://images.openai.com/static-rsc-4/fbv1N2BiNvMfmwFWCfe9fhj3xnST3WdTj4DqFOAo5clXyNylIP6IGWKw4TuDS9vEzcl_JVakXiw10QE09HdV4n9GXNm_UbX9K99bfeh4xnyTYn-dTw4mPrAZusMtIKPPLY4aLJ5F8kn1G5n5BaSSCyldLZ-Us1twrpptGmCDhsU?purpose=inline)](https://gihyo.jp/article/2026/05/hatch-codex-pets?utm_source=chatgpt.com)
+
+你说得对，砚砚刚才确实偏“传统动画棚”了。开源 vibe coding 桌宠生态里的真实做法不是单一的 puppet 工作流，而是几条路线混在一起：**Codex/Petdex 这类项目大量使用 AI 生成行图 + 本地脚本切帧/打包/QA；Clyde 这类复杂桌宠用 SVG/前端动画帧和状态机；VPet/Shimeji 这类成熟桌宠用大量手绘 PNG 序列、行为 XML、mod 或动画引擎。** 也就是说，他们确实可以做复杂，但不是靠“让图像模型一次稳定生成完美 spritesheet”。复杂度来自**运行时动画系统、手工帧、SVG/Canvas/Live2D/Spine，或海量社区资产**，不是 prompt 魔法锅 🐾
+
+Petdex 是最贴你们格式的参考：它就是 Codex pet gallery，公开说每个 pet 是 `pet.json` 加 `spritesheet.{webp,png}`，并且是 **8×9 grid、192×208 cell**；Petdex 首页现在展示的是数千个社区 pet，安装方式也是 `npx petdex install ...`。([GitHub][1]) CodexPetHub 的单个 pet 页面也把你们这套状态写得很清楚：idle 6、running-right 8、running-left 8、waving 4、jumping 5、failed 8、waiting 6、running 6、review 6，atlas 是 1536×1872、8×9、192×208。([CodexPetHub][2])
+
+我重新收敛后的判断是：**你们应该参考 Petdex/hatch-pet 的“vibe production”流程，但补上更硬的 row QA 和局部修帧，而不是直接跳到全 puppet。** 也就是说，先承认社区成功样本的真实路径：AI 生成 base image 和每个 animation row，脚本做 frame extraction、atlas compose、transparent padding、validation、contact sheet、preview video，然后坏行重 roll 或只修坏行。gihyo 的 hatch-pet 文章也明确说，图像生成负责 base/pose/row，脚本负责 frame extraction、8×9 atlas、validation、contact sheet、preview video、package 和失败行修复。([gihyo.jp][3])
+
+真正关键差异是：**他们做的是“可接受的桌宠小动画”，不是“逐帧严格一致的角色动画”。** 社区里很多成功 pet 是 chibi、低细节、粗轮廓、动作夸张、身份特征少而明显，所以模型漂一点也还能看。gihyo 的建议也是太复杂的装饰、写实质感、3D、软渐变、影子、速度线、文字、UI 都要避开，核心是粗轮廓、少色数、小尺寸也能读的 silhouette。([gihyo.jp][3]) 你们现在做缅因猫/有尾巴/固定身份，难度比“圆豆豆”“小机器人”“小狗”更高，因为猫尾巴、花纹、毛量都会被模型当成可重画细节。
+
+所以，修正后的推荐不是“完全别生成 row strip”，而是：
+
+**生产路线 A，Petdex/hatch-pet 风格，适合快速 vibe 出货：base image → 每行 row strip 生成 → 本地切帧 → QA → 坏行重 roll/局部修 → 打包。**
+
+**生产路线 B，增强版，适合你们要的稳定猫：base image → identity sheet → 每行生成 2 到 4 个 row candidates → 自动查重复/缺尾/漂移 → 选最好的 row → 对坏帧局部 inpaint 或手改 → running-left 从 running-right 镜像 → 最终 QA。**
+
+**生产路线 C，复杂桌宠级别：不用 Codex 8×9 当原始动画格式，而是先用 SVG/PNG 序列/Spine/Live2D/Canvas 做复杂动画，再“烘焙”成 Codex 的 8×9 atlas。** Clyde 就是这个方向，它的 repo 里不是 Codex spritesheet 主导，而是 Svelte 前端的 SVG renderer，assets/svg 有 35 个 animation frames，状态机根据 agent events 切换动画。([GitHub][4]) VPet 也说明了成熟复杂桌宠的另一条路：它有大量交互和动画，官方 README 写到最多 32 types × 4 states × 3 variants 的动画组合，并且支持 Steam Workshop mods，mod 可加 pet animations，插件还能支持 Live2D 和 Spine。([Forgejo: Beyond coding. We Forge.][5])
+
+也就是说，复杂桌宠能复杂，是因为**它们不是把所有复杂性塞进一张 AI row strip 里**。Clyde 用 SVG + 前端状态机；VPet 用大量动画文件和 mod；Shimeji/Shijima 生态用成套图片文件和动作/行为配置；OpenAnima 则更像桌面 overlay 播放器，支持 GIF、APNG、WebM、sprite strips、spritesheets 和 frame animations。([GitHub][4])
+
+对于你们现在这个 **Codex-compatible 8×9 atlas**，我会改成这个实际可落地方案：
+
+第一阶段，先别追求“真实猫复杂动作”，先追求“Petdex 风格读得出来”。做一个 canonical base：银虎斑缅因猫，固定大耳朵、胸毛、尾巴、眼睛色、额头 M 纹、尾巴环纹。这个 base 是后续所有行的“正解”。YMinamiyama 的实际制作记录也提到 hatch-pet 先做 base image，之后各动画行都以这个 base/canonical-base 为标准。([YMinamiyama Lab][6])
+
+第二阶段，**idle 和 running-right 先做，别一次性 9 行全冲**。这也不是我凭空拍爪，gihyo 文章说 hatch-pet 通常先重视 idle 和 running-right：idle 是基本状态，running-right 用来看移动 silhouette 和足运是否成立；running-left 在合适时可以从 running-right 镜像，但有单侧花纹、道具、文字、logo、非对称配饰就不能乱镜像。([gihyo.jp][3])
+
+第三阶段，每个 row 仍然可以用 imagegen 生成，但 prompt 不要说“make 8 frames of same cat”就完事，要给它**动作分镜表**。比如 idle 6 帧不是“idle animation”，而是：
+
+```text
+Frame 1: neutral standing, eyes open, tail curved up-left.
+Frame 2: body rises 1px, tail swings slightly right.
+Frame 3: body highest, ears tilt outward, tail at rightmost.
+Frame 4: blink half closed, body returns center.
+Frame 5: eyes open, body lowers 1px, tail swings left.
+Frame 6: near frame 1 but not identical, ready to loop.
+```
+
+这对防止 2=3、5=6 比泛泛说 “smooth loop” 更有效。模型未必完全遵守，但它至少有了每格的差异任务，不会把所有格子都当“同一张 cute cat”。
+
+第四阶段，QA 不是只看透明背景，而是用 Petdex/hatch-pet 那种 contact sheet + validation 思路再加硬检查。gihyo 和 YMinamiyama 的记录里都把 contact sheet、preview video、validation.json、review.json 当最终检查物；YMinamiyama 还特别列了 unused cell 透明、running-left 是否自然镜像、waving 不要多余波线、jumping 不要影子/特效、failed 的眼泪星星不要脱离本体、review 不要多余道具。([gihyo.jp][3]) 你们要额外加三条：active frame 近重复检测、尾巴 alpha 检测、首尾 loop continuity。
+
+我现在对五种方案的修正版评价是：
+
+| 方案                               | 在社区里的真实地位                               | 现在怎么用                                  |
+| -------------------------------- | --------------------------------------- | -------------------------------------- |
+| Multi-frame row strip 一次生成       | Petdex/hatch-pet 快速出货主力，但质量靠重 roll 和 QA | **可以用，但只按行用，不要一次生成整 atlas；每行多候选，坏行重修** |
+| Key poses separately             | 适合复杂动作参考                                | 用来修 jump/failed/review，不要直接当最终帧        |
+| Base pose deterministic edits    | 适合 idle/waiting/blink                   | 对猫尾巴和呼吸非常稳，但动作复杂度低                     |
+| Image-to-video 后抽帧               | 社区桌宠里不太像主流格式                            | 可当 motion reference，抽帧后仍要清理            |
+| Traditional sprite/Live2D/puppet | VPet/Clyde/Shimeji 这类复杂桌宠的底层逻辑          | 要复杂、稳定、可长期维护时用，再 bake 成 Codex atlas    |
+
+所以我的新推荐是更“vibe coding 桌宠实际主义”的：
+
+**Idle first：用 row strip 生成做第一版，但要求 2 到 4 个候选 row，QA 选最好的一条；如果尾巴/重复/loop 失败，再用 deterministic local edits 修 idle，不要整行重画到天荒地老。**
+
+**全 9 states：Petdex/hatch-pet row pipeline 为主，running-left 从 running-right 镜像，waving/jumping/failed/review 行允许 AI 重画动作，但必须用 canonical base + layout guide + 多候选 + QA。只有当你们要“Clyde/VPet 那种复杂行为”时，才升级到 SVG/Live2D/Spine/Canvas，然后 bake atlas。**
+
+你们可以把生产策略写成这样：
+
+```text
+pass 0: create canonical base image
+pass 1: generate idle candidates x4
+pass 2: QA idle, pick best, repair only bad frames
+pass 3: generate running-right candidates x4
+pass 4: derive running-left by mirror unless side-specific marks break
+pass 5: generate waving/jumping/failed/waiting/running/review candidates x2 each
+pass 6: assemble atlas locally
+pass 7: contact sheet + GIF/video preview + JSON QA
+pass 8: repair bad rows only
+```
+
+防重复要放进“生成前”和“生成后”两边。生成前，prompt 里每一格写清楚不同动作。生成后，切出 active cells 后做 hash/SSIM/pHash 或简单 alpha-aware pixel diff。你们的判定可以很朴素：
+
+```text
+exact duplicate: active frame SHA256 identical -> fail
+near duplicate: pHash distance very small + pixel diff too low -> fail
+loop duplicate: last active frame identical to first -> fail
+padding cells: allow fully transparent duplicate
+```
+
+防尾巴消失，别只靠 prompt 说 “tail visible”。要在 prompt 和 QA 两边都绑住：
+
+```text
+Prompt:
+The tail is a required identity feature in every frame.
+Tail must remain attached to body in every frame.
+Tail has the same ring stripes and same thickness across the row.
+Do not hide, crop, shorten, detach, or replace the tail.
+
+QA:
+tail visible in every active cell
+tail area roughly stable
+tail root touches/overlaps body
+alpha bbox does not crop tail
+```
+
+透明背景这件事，我也改一句：**社区流程通常最终是 spritesheet.webp，透明/unused cells 靠本地脚本保证，而不是只信模型。** OpenPets 文档说 pet window 是透明、frameless、always-on-top，CSS 驱动 spritesheet；OpenPets 的 pet package 也是 metadata + spritesheet。([OpenPets][7]) CodexPetHub/Petdex 的最终包同样是 `pet.json` + `spritesheet.webp`。([CodexPetHub][2]) 所以：生成阶段可以用白底/透明底都行，**最终必须本地去背景、置 alpha、padding cell 全透明、再导出 WebP**。
+
+最后，给你们一个更像社区成功样本的 prompt 骨架，别再喂“大而全的动画表演”：
+
+```text
+Create one horizontal sprite row for a Codex desktop pet.
+
+Character identity:
+A tiny chibi silver tabby Maine Coon desktop pet.
+Large tufted ears, fluffy chest ruff, green eyes, forehead M marking,
+long thick ring-striped tail. Same cat in every frame.
+
+Style:
+small readable Codex pet, thick clean outline, limited colors,
+simple pixel/chibi illustration, transparent background, no text,
+no labels, no UI, no speed lines, no shadows, no props.
+
+Row:
+STATE_NAME, exactly N frames in a single horizontal row.
+Each frame must fit inside a 192x208 cell with safe margins.
+The pet must be full body in every frame.
+The tail must be visible, attached, and consistent in every frame.
+
+Frame plan:
+1. ...
+2. ...
+3. ...
+...
+
+Loop:
+Frame N should lead naturally back to frame 1, but must not be identical to frame 1.
+All frames must be visually distinct.
+Do not duplicate frames.
+Do not change species, body size, face, markings, or tail.
+```
+
+我现在会把结论改成这句：**要学 Petdex/hatch-pet 的“row-gen + deterministic packaging + QA + bad-row repair”，不要照搬我刚才那个全 puppet 棚路线；但如果目标是 Clyde/VPet 级复杂度，就不要指望 Codex 8×9 row strip 本身承载复杂运行时动画，应该先用 SVG/Live2D/Spine/PNG 序列做复杂动画，再烘焙成 atlas。**
+
+这才是猫窝里的真相：Petdex 是“会下蛋的孵化器”，Clyde/VPet 是“带骨架的小剧场”。你们现在要的是 Codex-compatible spritesheet，所以先做 Petdex 增强版，等猫猫要跳芭蕾、打字、趴窗口、偷看鼠标时，再上小剧场。🐈‍⬛✨
+
+[1]: https://raw.githubusercontent.com/crafter-station/petdex/main/README.md "raw.githubusercontent.com"
+[2]: https://codexpethub.com/pets/cc-cat "CC猫 — Install Custom Codex Pet with Codex | CodexPetHub"
+[3]: https://gihyo.jp/article/2026/05/hatch-codex-pets "Codexアプリのペットを孵化させる　hatch-petスキルで動くマスコットを作る | gihyo.jp"
+[4]: https://github.com/QingJ01/Clyde "GitHub - QingJ01/Clyde: A desktop pet that reacts to your AI coding agent sessions in real-time. · GitHub"
+[5]: https://git.zepheris.com/Mirrored_Repos/VPet "Mirrored_Repos/VPet - Forgejo: Beyond coding. We Forge."
+[6]: https://yminamiyama.com/articles/codex-hatch-pet-rin-chan "Codexで愛猫のカスタムPetを作ってみた記録 — hatch-pet Skillの全手順 | YMinamiyama Lab"
+[7]: https://openpets.dev/docs "OpenPets Documentation | OpenPets"
 
