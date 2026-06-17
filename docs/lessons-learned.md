@@ -1569,3 +1569,52 @@ created: 2026-02-26
 - 来源锚点：cat-cafe#2352 (intake of clowder-ai#943) | thread_mqgn5834h96st2mq | opus-46 cross-thread review on `cdeaa9150` (2026-06-17 14:08 UTC, PR comment #4731199498) | upstream issue clowder-ai#966
 - 原理：dispatcher pattern 的强 contract 应该是 single source of truth（如 handler registry map / decorator），让两条 chain 在编译期或加载期共享 handler list。当前实现是"两条 chain 各 if-else 平行写"，任何新 type 加入都要 mirror 两遍——是 known weak-contract，review-time 防护是唯一缓解。L0/H1 vs H3 命名（H = HotFix）暗示这条 pattern 是 hotfix 后归纳的，未来可考虑 refactor 到 registry 解决根因。
 - 关联：LL-076（verify before outsource - 本 LL 触发的 upstream issue clowder-ai#966 走了 LL-076 标准 "clean main HEAD verify" 三层确认才 file，没把 in-cat-cafe 的 fix 当成 false-positive 反推）| feedback_verify_before_guessing（opus-46 finding 我没直接信，read line refs 实测）| F210（H1 dispatcher pattern 源 feature）| #944 intake P1 + clowder-ai#959（同期同 author enihcam，同 cross-individual review 抓真 P1，反映 first-time contributor PR + maintainer absorb 都依赖 cross-individual review 兜底）
+
+### LL-078: Runtime contract = passive frozen — F228 stale-dist incident 教训
+- 状态：validated
+- 更新时间：2026-06-17
+
+- 坑：F228 broader intake commit `42c5b349c` 加 shared 导出 `STANDARD_MOUNT_POINT_IDS` + api 对它的 import。runtime 跑 `tsx watch src/index.ts`（dev 脚本继承的 watch 模式），watch 检测 src 改动 → SIGTERM 自重启 → 新进程 load stale dist（`@cat-cafe/shared/dist` 是 gitignored，PR 不带 dist，runtime sync 不 build）→ SyntaxError missing export → runtime 崩。
+- 根因：runtime 被设计为"daily stable serving 环境"但启动脚本 (`scripts/runtime-worktree.sh` exec `start-dev.sh --prod-web`) 沿用 dev 脚本默认的 tsx watch 行为——dev convenience（feature worktree 要 watch 提升迭代速度）leaked into runtime（应该 passive frozen 只在显式 `pnpm start` 重启）。同时 sync 行为分裂成"独立 `runtime:sync` 命令"和"`pnpm start` 内部 sync"两条路径，没有 build invariant guarantee（sync 拉了 src 但没 rebuild dist）。
+- 触发条件：① 任何 shared 或 api 源码改动 + 已运行 runtime 进程 ② runtime 当前在 `tsx watch` 模式 ③ build invariant 不保证（sync 后无强制 rebuild）。
+- 修复：PR #2353 squash `c1cba740b` 落地 ADR-039「runtime passive-freeze contract」三 invariant：① `CAT_CAFE_DIRECT_NO_WATCH=1` 默认 export 两处（in-place + worktree mode）让 runtime 跑 `node dist/index.js` 不是 `tsx watch src` ② 删独立 `runtime:sync` 命令，sync+build+restart 都在 `pnpm start` 内完成 ③ rename `ensure_quick_start_artifacts` → `ensure_runtime_dist_freshness`，drop quick-mode gate（passive 总是需要 dist），加 api dist freshness check（shared→api→mcp→web 顺序，stamp-gated stale rebuild）。
+- 防护：
+  - **`scripts/runtime-passive-freeze.test.mjs` 10 个 invariant 静态守卫**——CAT_CAFE_DIRECT_NO_WATCH export 两处都在、sync) dispatch case 删净、api dist freshness check 存在、build invariant 不被 quick-mode gate 短路等。
+  - **ADR-039 status: ratified**——runtime 契约被钉死，未来 PR 改这块必读 ADR。
+  - **deferred verification 兑现点 contract 化**（feedback_alpha_smoke_happy_path_blindspot 应用）：LL-064 在 runtime-conflict 场景下，live SIGTERM observation 退化为"static + 自然推迟到下次 user-initiated `pnpm start`"，**不是"happy path 标 validated 跳"**。下次 user-initiated restart 是 live 验证的实际兑现点——若那时 export 没生效，立即 hotfix。这个 carry-over 风险必须诚实标记，不能 happy-path 包装。
+- 来源锚点：thread_mqi54fag1moyg20t（opus-48 forensic investigation）| PR #2353 (squash `c1cba740b`) | ADR-039 `docs/decisions/039-runtime-passive-freeze.md` | F228 source incident commit `42c5b349c`
+- 原理：production-like runtime（stable serving）和 dev environment（hot-reload iteration）必须有 explicit contract 区分。复用同一 startup script 但不 explicit 区分行为模式 → dev convenience 必然 leak 到 runtime。Passive freeze = "restart 只在用户显式动作时发生"——这是单一 mental model，比"sometimes watch + sometimes not" 简单且 crash-resistant。
+- 关联：ADR-039（contract 文档）| feedback_alpha_smoke_happy_path_blindspot（deferred 不能假装 validated）| LL-064（production runtime alpha 要求）| F228（incident source）
+
+### LL-079: `FETCH_HEAD` 是 volatile ref — 高频 fetch 环境必须钉死 commit SHA
+- 状态：validated
+- 更新时间：2026-06-17
+
+- 坑：PR #2353 re-review 时 opus-48 用 `git show FETCH_HEAD:scripts/runtime-worktree.sh` grep invariant 实证——结果和 PR HEAD `644fe75dc` 实际内容**全矛盾**（CAT_CAFE_DIRECT_NO_WATCH 零命中、`ensure_quick_start_artifacts` 旧名还在、`sync)` dispatch case 还在）。差点误判"PR 没实现核心 invariant"。
+- 根因：主仓被 intake 流程高频 fetch（clowder-ai 上游 + 兄弟 thread intake），`FETCH_HEAD` 不是命名 ref 是 **volatile pointer**——`git fetch <any-branch>` 会把它覆盖成最新 fetch 的 ref，几秒内多个 fetch 操作就漂到无关 commit（实测覆盖成了 `3e94a8bd`）。在 mangle/敌对 shell 环境下，错误更难诊断（容易归因为"shell jumble"而错过 volatile ref 真因）。
+- 触发条件：① 主仓在并发活跃期（multiple intake threads / 上游 sync / sibling cat fetch）② 用 `FETCH_HEAD` 或其他 volatile ref（如 `HEAD@{1}`）做证据切片 ③ 没钉死 commit SHA。
+- 修复：换成 fixed commit SHA `644fe75dc`（commit object 一旦 fetch 到本地就 immutable + persistent，不受任何 ref 覆盖影响）。复验后 PR 实现完整正确。
+- 防护：
+  - **review/audit/forensic 证据切片时永远用 fixed commit SHA**——`gh pr view --json headRefOid` 取 SHA，然后所有 grep/show/diff 用这个固定 SHA。
+  - **`FETCH_HEAD` / `HEAD@{n}` / `origin/main` 等 ref 类型避免在 forensic 上下文用**——这些是 mutable pointer，可被其他 git 操作覆盖。
+  - **敌对/高频环境额外警觉**：撞到"实证结果和描述全矛盾"的情况，第一假设不是"对方说谎"或"代码没改"，而是"我的证据坐标可能不稳定"（`feedback_evidence_slice_to_unique_coordinate` 扩展应用）。
+- 来源锚点：thread_mqi54fag1moyg20t opus-48 re-review session（PR #2353 三批结果矛盾追根因到 FETCH_HEAD pollution）| feedback_evidence_slice_to_unique_coordinate（原型应用，本 LL 是精确根因细分）
+- 原理：git ref 类型分两类——**named refs**（branches, tags, full SHAs）持久不变；**volatile pointers**（FETCH_HEAD, HEAD@{n}, ORIG_HEAD, MERGE_HEAD）随 git 操作改写。混用两类做证据坐标会撞 "evidence at coordinate X says Y" 但 "X" 自己漂了的 phantom 矛盾。
+- 关联：LL-077（同期 opus-48 multi-thread review 工作流）| feedback_evidence_slice_to_unique_coordinate（基础原则，本 LL 精确细分到 git ref 类型层）| feedback_phantom_ids_and_env_misdiagnosis（SHA 必须从命令输出取真值，不手写）
+
+### LL-080: Same-account self-APPROVE limitation — COMMENT-type formal review record 退化
+- 状态：validated
+- 更新时间：2026-06-17
+
+- 坑：cat-cafe 团队所有猫共用同一个 `zts212653` GitHub 账号（multi-cat persona 在 single GitHub identity 下运作）。reviewer 猫想给 author 猫的 PR 留 GitHub formal APPROVE button click 会被 GitHub 拒（self-approval prevention）。但 review verdict 仍需在 GitHub 留 traceable record（per `feedback_intake_review_on_github` / merge-gate 要求 formal review evidence）。
+- 根因：GitHub PR review 是 user-level 操作（per-user APPROVE/REQUEST-CHANGES/COMMENT），不是 cat-level。cat-cafe 的 multi-cat-single-account 模型与 GitHub user-level 假设冲突。
+- 触发条件：每次 cat-cafe 内部 cross-individual review 都会撞——author + reviewer 都是 cat persona，但 GitHub 看到都是 `zts212653`。
+- 修复：reviewer 用 `gh pr comment` 留 **COMMENT-type formal review record**——comment body 显式写出 verdict（APPROVE / BLOCKING）+ 覆盖的 HEAD SHA + 验证细节。merge 时走 `gh pr merge --admin` 跳过 GitHub APPROVE 要求，依赖 comment record 作为 review 证据。
+- 防护：
+  - **PR #2353 范例**：opus-48 re-review 用 `gh pr comment` 留 COMMENT 含 `verdict = code-level APPROVE @ 644fe75dc` + 全部 invariant 实证结果，merge author（opus-47）`--admin` enforce。整条链 GitHub-traceable。
+  - **不要 fake APPROVE**：如果有"用 author 的 review 兜 reviewer"的诱惑（让 author 自己点 APPROVE button 假装 reviewer），坚决不做——是认知投毒（fake anchor variant，feedback_fake_feat_anchor_is_poison）。
+  - **更长程方案候选**（未来 backlog）：每只猫绑独立 GitHub bot account（或使用 GitHub Apps）—— 但短期内 single-account model 是已知约束，COMMENT-type 退化是合理 workaround。
+- 来源锚点：PR #2353 opus-48 review comment | feedback_intake_review_on_github | feedback_review_continuity_pure_rebase
+- 原理：multi-cat persona 在 single GitHub identity 下运作的 known limitation——GitHub permission model 是 user-level，cat persona 是 application-level。两层 model 直接耦合（一只猫 = 一个 GitHub user）会撞 scaling 问题（注册 5+ bot accounts + 维护）；保持 single-account 是 cost-benefit tradeoff，代价是 review record 退化为 COMMENT。
+- 关联：feedback_intake_review_on_github（formal review evidence 要求）| feedback_approve_then_enforce_merge（merge enforce 责任）| PR #2353（范例）
+
