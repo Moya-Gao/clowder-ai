@@ -29,7 +29,7 @@ const EXEMPT_FILES = new Set([
   'SkillConflictBanner.tsx',
   'SkillPreviewModal.tsx',
   // F228 broader intake (clowder-ai#917) — community code pre-dates primitives system.
-  // Track migration in: https://github.com/zts212653/cat-cafe/issues/2349
+  // Track migration in: https://github.com/zts212653/cat-cafe/issues/2350
   'AllProjectsSyncBanner.tsx',
   'MountRulesPanel.tsx',
   'SkillIssueDetailDialog.tsx',
