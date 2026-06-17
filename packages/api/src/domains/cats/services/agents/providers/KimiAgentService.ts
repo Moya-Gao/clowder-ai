@@ -72,6 +72,22 @@ export class KimiAgentService implements AgentService {
     const effectivePrompt = buildKimiPrompt(prompt, options?.systemPrompt, imagePaths);
     const workingDirectory = options?.workingDirectory ?? process.cwd();
     const apiKeyEnv = buildApiKeyEnv(effectiveModel, options?.callbackEnv);
+    const kimiCommand = resolveCliCommand('kimi-cli') ?? resolveCliCommand('kimi');
+    if (!kimiCommand) {
+      yield {
+        type: 'error' as const,
+        catId: this.catId,
+        error: formatCliNotFoundError('kimi'),
+        metadata,
+        timestamp: Date.now(),
+      };
+      yield { type: 'done' as const, catId: this.catId, metadata, timestamp: Date.now() };
+      return;
+    }
+    // Lazy create tempMcpConfig only AFTER we know kimi binary exists. If we created it
+    // before the not-found early-return (kimi/kimi-cli both absent + mcpServerPath set),
+    // the temp dir would leak — finally cleanup (line ~440) is gated by the try block below
+    // and the early-return jumps over it. Source clowder-ai#944 has the same regression.
     const tempMcpConfig = this.mcpServerPath
       ? writeMcpConfigFile(workingDirectory, this.mcpServerPath, options?.callbackEnv)
       : null;
@@ -83,7 +99,12 @@ export class KimiAgentService implements AgentService {
       modelConfig.capabilities.includes('image_in') ||
       apiKeyEnv?.KIMI_MODEL_CAPABILITIES?.includes('image_in') === true;
 
-    const args = ['--print', '--output-format', 'stream-json'];
+    const isLegacy = resolveCliCommand('kimi-cli') !== null;
+    const cliSupportsThinking = isLegacy && (supportsThinking || modelConfig.defaultThinking);
+
+    const args: string[] = isLegacy
+      ? ['--print', '--output-format', 'stream-json']
+      : ['--output-format', 'stream-json'];
     if (options?.sessionId) {
       args.push('--session', options.sessionId);
       metadata.sessionId = options.sessionId;
@@ -95,22 +116,28 @@ export class KimiAgentService implements AgentService {
         timestamp: Date.now(),
       };
     }
-    args.push('--work-dir', workingDirectory);
-    if (supportsThinking || modelConfig.defaultThinking) {
-      args.push('--thinking');
-    }
-    if (tempMcpConfig) {
-      args.push('--mcp-config-file', tempMcpConfig);
-    } else {
-      args.push(...buildProjectMcpArgs(workingDirectory));
-    }
-    for (const dir of imageAccessDirs) {
-      args.push('--add-dir', dir);
+    if (isLegacy) {
+      args.push('--work-dir', workingDirectory);
+      if (cliSupportsThinking) {
+        args.push('--thinking');
+      }
+      if (tempMcpConfig) {
+        args.push('--mcp-config-file', tempMcpConfig);
+      } else {
+        args.push(...buildProjectMcpArgs(workingDirectory));
+      }
+      for (const dir of imageAccessDirs) {
+        args.push('--add-dir', dir);
+      }
     }
     if (!apiKeyEnv && effectiveModel) {
       args.push('--model', effectiveModel);
     }
-    args.push('--prompt', effectivePrompt);
+    if (isLegacy) {
+      args.push('--prompt', effectivePrompt);
+    } else {
+      args.push('-p', effectivePrompt);
+    }
 
     // User-defined CLI args from the member editor (#567).
     const userParts: string[] = [];
@@ -133,22 +160,10 @@ export class KimiAgentService implements AgentService {
     }
 
     try {
-      const kimiCommand = resolveCliCommand('kimi');
-      if (!kimiCommand) {
-        yield {
-          type: 'error' as const,
-          catId: this.catId,
-          error: formatCliNotFoundError('kimi'),
-          metadata,
-          timestamp: Date.now(),
-        };
-        yield { type: 'done' as const, catId: this.catId, metadata, timestamp: Date.now() };
-        return;
-      }
-
       let emittedSessionInit = Boolean(options?.sessionId);
       let sawThinking = false;
       let emittedImageCapability = false;
+      let hadCliError = false;
       const cliOpts = {
         command: kimiCommand,
         args,
@@ -177,6 +192,7 @@ export class KimiAgentService implements AgentService {
           });
         }
         if (isCliTimeout(event)) {
+          hadCliError = true;
           const {
             silenceDurationMs,
             processAlive,
@@ -228,6 +244,7 @@ export class KimiAgentService implements AgentService {
           continue;
         }
         if (isCliError(event)) {
+          hadCliError = true;
           // F212 Phase A: forward cliDiagnostics on metadata for frontend folded panel (Phase B).
           yield {
             type: 'error',
@@ -263,7 +280,24 @@ export class KimiAgentService implements AgentService {
         }
 
         const msg = event as KimiPrintMessage;
-        if (msg?.role !== 'assistant') continue;
+
+        if (isLegacy ? msg?.role !== 'assistant' : !(msg?.role === 'assistant' || msg?.role === 'meta')) continue;
+
+        if (msg?.role === 'meta') {
+          const metaMsg = msg as { role: string; type?: string; session_id?: string; content?: string };
+          if (metaMsg.type === 'session.resume_hint' && metaMsg.session_id && !emittedSessionInit) {
+            metadata.sessionId = metaMsg.session_id;
+            emittedSessionInit = true;
+            yield {
+              type: 'session_init',
+              catId: this.catId,
+              sessionId: metaMsg.session_id,
+              metadata: { ...metadata, sessionId: metaMsg.session_id },
+              timestamp: Date.now(),
+            };
+          }
+          continue;
+        }
 
         const usage = parseUsage(msg.usage) ?? parseUsage(msg.stats);
         if (usage) metadata.usage = { ...(metadata.usage ?? {}), ...usage };
@@ -283,16 +317,18 @@ export class KimiAgentService implements AgentService {
           }
         }
 
-        const thinking = extractThinkingContent(msg);
-        if (thinking) {
-          sawThinking = true;
-          yield {
-            type: 'system_info',
-            catId: this.catId,
-            content: JSON.stringify({ type: 'thinking', catId: this.catId, text: thinking }),
-            metadata,
-            timestamp: Date.now(),
-          };
+        if (isLegacy) {
+          const thinking = extractThinkingContent(msg);
+          if (thinking) {
+            sawThinking = true;
+            yield {
+              type: 'system_info',
+              catId: this.catId,
+              content: JSON.stringify({ type: 'thinking', catId: this.catId, text: thinking }),
+              metadata,
+              timestamp: Date.now(),
+            };
+          }
         }
 
         if (imagePaths.length > 0 && !emittedImageCapability) {
@@ -376,7 +412,7 @@ export class KimiAgentService implements AgentService {
         }
       }
 
-      if (!sawThinking) {
+      if (isLegacy && !sawThinking && !hadCliError) {
         yield {
           type: 'system_info',
           catId: this.catId,

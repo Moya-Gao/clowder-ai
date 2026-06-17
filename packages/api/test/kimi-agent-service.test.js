@@ -6,13 +6,15 @@ import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
 import { mock, test } from 'node:test';
 
-// Ensure `kimi` is resolvable on CI even when the real CLI is not installed.
-// resolveCliCommand uses `which kimi` — placing a stub on PATH satisfies it.
+// Ensure `kimi` (new kimi-code) and `kimi-cli` (legacy) are resolvable on CI even
+// when the real CLI is not installed. resolveCliCommand prefers `kimi-cli` first.
 const stubBinDir = mkdtempSync(join(tmpdir(), 'kimi-stub-bin-'));
 writeFileSync(join(stubBinDir, 'kimi'), '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+writeFileSync(join(stubBinDir, 'kimi-cli'), '#!/bin/sh\nexit 1\n', { mode: 0o755 });
 process.env.PATH = `${stubBinDir}:${process.env.PATH}`;
 
 const { KimiAgentService } = await import('../dist/domains/cats/services/agents/providers/KimiAgentService.js');
+const { invalidateCliCommand } = await import('../dist/utils/cli-resolve.js');
 
 async function collect(iterable) {
   const items = [];
@@ -619,5 +621,144 @@ test('enriches done metadata with local Kimi context snapshot for session-chain 
     assert.equal(done.metadata.usage.lastTurnInputTokens, 6335);
   } finally {
     rmSync(shareDir, { recursive: true, force: true });
+  }
+});
+
+test('non-legacy kimi fallback: only kimi exists, no kimi-cli, meta events for session resume', async () => {
+  // Isolate PATH: a bin dir with only `kimi` (no `kimi-cli`).  Keep a skeleton system
+  // PATH so `which` itself is findable; the stub `kimi-cli` from the top-level setup
+  // is NOT present.  A temp HOME ensures the fallback directory search in
+  // resolveCliCommand (e.g. ~/.local/bin) cannot accidentally discover kimi-cli.
+  const nonLegacyBinDir = mkdtempSync(join(tmpdir(), 'kimi-nonlegacy-bin-'));
+  writeFileSync(join(nonLegacyBinDir, 'kimi'), '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+
+  const savedPath = process.env.PATH;
+  const savedHome = process.env.HOME;
+  process.env.PATH = `${nonLegacyBinDir}:/usr/bin:/bin`;
+  const tempHome = mkdtempSync(join(tmpdir(), 'kimi-nonlegacy-home-'));
+  process.env.HOME = tempHome;
+
+  invalidateCliCommand('kimi-cli');
+  invalidateCliCommand('kimi');
+
+  try {
+    const proc = createMockProcess();
+    const spawnFn = createMockSpawnFn(proc);
+    const service = new KimiAgentService({ spawnFn, model: 'kimi-code/kimi-for-coding' });
+
+    const promise = collect(service.invoke('Hello'));
+
+    // Emit meta session.resume_hint + assistant text (new kimi-code shape)
+    emitKimiEvents(proc, [
+      { role: 'meta', type: 'session.resume_hint', session_id: 'nonlegacy-session-42' },
+      { role: 'assistant', content: 'ok from new kimi' },
+    ]);
+
+    const msgs = await promise;
+
+    // session_init from meta event
+    const sessionInit = msgs.find((m) => m.type === 'session_init');
+    assert.equal(sessionInit?.sessionId, 'nonlegacy-session-42');
+
+    // text content
+    const textMsg = msgs.find((m) => m.type === 'text');
+    assert.equal(textMsg?.content, 'ok from new kimi');
+
+    // done
+    const done = msgs.find((m) => m.type === 'done');
+    assert.ok(done);
+
+    // command is `kimi` (ends with /kimi, not /kimi-cli)
+    const command = spawnFn.mock.calls[0].arguments[0];
+    assert.ok(command.includes('/kimi') && !command.includes('/kimi-cli'));
+
+    // args: has --output-format stream-json and -p, no legacy-only flags
+    const args = spawnFn.mock.calls[0].arguments[1];
+    assert.ok(args.includes('--output-format'));
+    assert.ok(args.includes('stream-json'));
+    assert.ok(args.includes('-p'));
+    assert.ok(!args.includes('--print'));
+    assert.ok(!args.includes('--prompt'));
+    assert.ok(!args.includes('--work-dir'));
+    assert.ok(!args.includes('--thinking'));
+    assert.ok(!args.includes('--add-dir'));
+    assert.ok(!args.includes('--mcp-config-file'));
+
+    // non-legacy mode does NOT emit thinking-unavailable capability
+    const thinkUnavail = msgs.find(
+      (m) => m.type === 'system_info' && /provider_capability/.test(m.content) && /unavailable/.test(m.content),
+    );
+    assert.strictEqual(thinkUnavail, undefined);
+  } finally {
+    process.env.PATH = savedPath;
+    process.env.HOME = savedHome;
+    rmSync(nonLegacyBinDir, { recursive: true, force: true });
+    rmSync(tempHome, { recursive: true, force: true });
+    invalidateCliCommand('kimi-cli');
+    invalidateCliCommand('kimi');
+  }
+});
+
+test('both kimi-cli and kimi absent: error emitted without leaking tempMcpConfig dir (regression guard for #944 intake P1 found by opus-48)', async () => {
+  // Isolate PATH: no kimi or kimi-cli anywhere; temp HOME prevents fallback search.
+  const emptyBinDir = mkdtempSync(join(tmpdir(), 'kimi-empty-bin-'));
+  const tempHome = mkdtempSync(join(tmpdir(), 'kimi-empty-home-'));
+  const tempShareDir = mkdtempSync(join(tmpdir(), 'kimi-share-empty-'));
+
+  const savedPath = process.env.PATH;
+  const savedHome = process.env.HOME;
+  process.env.PATH = `${emptyBinDir}:/usr/bin:/bin`;
+  process.env.HOME = tempHome;
+
+  invalidateCliCommand('kimi-cli');
+  invalidateCliCommand('kimi');
+
+  try {
+    const proc = createMockProcess();
+    const spawnFn = createMockSpawnFn(proc);
+    // mcpServerPath non-empty + callbackEnv non-empty are the two preconditions for
+    // writeMcpConfigFile() to actually create a tmp-mcp-* dir (per kimi-config.ts:252).
+    // If the not-found early-return happened AFTER tempMcpConfig creation (the bug),
+    // the dir would be left behind because finally cleanup is gated by the try block.
+    const service = new KimiAgentService({
+      spawnFn,
+      mcpServerPath: '/dummy/cat-cafe-mcp-server.js',
+    });
+
+    // KIMI_SHARE_DIR routes writeMcpConfigFile()'s tmp-mcp-* prefix into our temp area,
+    // so we can assert no dir is created there.
+    const msgs = await collect(
+      service.invoke('Hello', {
+        callbackEnv: { KIMI_SHARE_DIR: tempShareDir },
+      }),
+    );
+
+    // Should emit error + done (not-found path)
+    const err = msgs.find((m) => m.type === 'error');
+    assert.ok(err, 'expected error event when both kimi-cli and kimi are absent');
+    const done = msgs.find((m) => m.type === 'done');
+    assert.ok(done, 'expected done event after error');
+
+    // spawn should NOT have been called (kimi binary absent)
+    assert.equal(spawnFn.mock.calls.length, 0, 'spawn should not be called when binary absent');
+
+    // CRITICAL: no tmp-mcp-* dir leaked in shareDir (the regression we are guarding).
+    // Before the fix (intake commit e939be0), tempMcpConfig was created BEFORE the
+    // not-found check, so the dir survived because the try/finally was never entered.
+    const { readdirSync } = await import('node:fs');
+    const entries = readdirSync(tempShareDir).filter((name) => name.startsWith('tmp-mcp-'));
+    assert.equal(
+      entries.length,
+      0,
+      `tempMcpConfig leak: expected 0 tmp-mcp-* dirs in shareDir, found ${entries.length} (${entries.join(', ')})`,
+    );
+  } finally {
+    process.env.PATH = savedPath;
+    process.env.HOME = savedHome;
+    rmSync(emptyBinDir, { recursive: true, force: true });
+    rmSync(tempHome, { recursive: true, force: true });
+    rmSync(tempShareDir, { recursive: true, force: true });
+    invalidateCliCommand('kimi-cli');
+    invalidateCliCommand('kimi');
   }
 });
