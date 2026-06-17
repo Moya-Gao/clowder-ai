@@ -8,7 +8,7 @@ created: 2026-06-15
 
 # F235: Feedback-to-Community Publisher — 一键发布反馈到社区
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Architecture Ownership
 
@@ -95,13 +95,13 @@ CommunityIssueStore / F168 projection  ← 幂等回写，防重复 triage
 
 <!-- 立项愿景硬度自检（F216→F219）：每条 AC 必须 ① trace 回 Why 的某诉求 ② 非作者可复核（命令/数字/截图）。 -->
 
-### Phase A（F222 Issue 发布）
-- [ ] AC-A1: FrustrationIssueCard confirmed 后显示"发布到社区"按钮（截图可验证）
-- [ ] AC-A2: 点击后生成预览卡片，用户可编辑标题和描述（截图可验证）
-- [ ] AC-A3: 预览内容经过脱敏——不含 threadId / sessionId / Redis key / 内部 catId（单测 + 截图）
-- [ ] AC-A4: submit 后通过 GitHub API 在目标仓库创建 issue（`gh issue list` 可验证）
-- [ ] AC-A5: 创建成功后卡片更新为"已发布"状态并附 issue URL 链接（截图可验证）
-- [ ] AC-A6: GitHub API 失败时友好提示，不丢失 draft 数据（手动测试）
+### Phase A（F222 Issue 发布）✅
+- [x] AC-A1: FrustrationIssueCard confirmed 后显示"发布到社区"按钮（截图可验证）
+- [x] AC-A2: 点击后生成预览卡片，用户可编辑标题和描述（截图可验证）
+- [x] AC-A3: 预览内容经过脱敏——不含 threadId / sessionId / Redis key / 内部 catId（单测 + 截图）
+- [x] AC-A4: submit 后通过 GitHub API 在目标仓库创建 issue（`gh issue list` 可验证）
+- [x] AC-A5: 创建成功后卡片更新为"已发布"状态并附 issue URL 链接（截图可验证）
+- [x] AC-A6: GitHub API 失败时友好提示，不丢失 draft 数据（手动测试）
 
 ### Phase B（通用发布卡片）
 - [ ] AC-B1: 猫猫可主动生成 `community_issue_draft` rich block 卡片（运行时验证）
@@ -144,6 +144,7 @@ CommunityIssueStore / F168 projection  ← 幂等回写，防重复 triage
 | 日期 | 事件 |
 |------|------|
 | 2026-06-15 | 立项（CVO 指示） |
+| 2026-06-17 | Phase A merged (PR #2317) — 37 commits squashed, 112 tests (101 API + 11 web), 6 rounds cloud review |
 
 ## Review Gate
 
