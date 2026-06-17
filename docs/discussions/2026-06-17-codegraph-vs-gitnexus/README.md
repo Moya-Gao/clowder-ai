@@ -337,6 +337,23 @@ codegraph 自己知道这个困境：`src/installer/instructions-template.ts` �
 
 **结论**：live PoC 兑现了价值——纸面拆解看不出"explore 在 monorepo 跑偏 + callers/impact 是真金"。codegraph 最值得学的是**确定性内核**（印证 §0），不是它最"智能"的 PageRank explore。下一步可选：① 排 .js 重 index 看 explore 是否改善；② 同样 PoC 一遍 GitNexus 做对比；③ 直接进入内生 spike 设计（确定性图遍历优先）。
 
+## 15. 关键修正（2026-06-17）：callers/impact vs LSP —— 内生价值不在复刻 TS 引用，在补 LSP 盲区
+
+铲屎官一问点醒：我们已有 `typescript-lsp`，§14 把 callers/impact 夸成"金子"需要修正。
+
+**诚实区分**：
+- **纯 TS 符号找引用 / 定义 / rename**：LSP 本就有，且**比 codegraph 更准**——LSP 走 tsserver **类型感知**，codegraph 走 tree-sitter + **启发式 name-matching**（不跑类型检查）。§14 里 codegraph 把 5 个 `.test.js` 按 import 算 caller = 文件级粗粒度；LSP 是符号级精确。**这块 codegraph 对我们不是增量，甚至更糙。**
+- **code graph 真正赢 LSP 的地方（LSP 盲区）**：
+  1. **route/framework 关联**（435 routes，URL→handler）——LSP 只懂语言符号，不懂框架路由约定。
+  2. **一次性 agent 消费格式**（explore 一次给源码 + 调用链 + blast radius，省 token/往返）——LSP 是 IDE 交互协议，agent 用要多轮往返。
+  3. **跨「代码 + 约定」的关联（最关键）**：MCP tool name → 消费方、skill manifest → SOP 链、workflow callback、跨 repo contract。这些是字符串/约定层关联，**LSP（纯类型符号）和 grep（纯字符串）都抓不住**——正是 opus-47 §10.3 场景 1/2 的痛点。
+
+**价值定位修正**：内生 Code Graph Layer 的价值**不是复刻 LSP 已有的 TS 符号引用**（重复造轮子，且做不过类型感知的 LSP），而是**补 LSP + grep 的共同盲区——建我们家专属的「约定层关联图」**（MCP tool / skill manifest / workflow callback / route / 跨 repo contract）。
+
+**对方向的收敛**：codegraph 能 PoC 测的（TS callers/impact）LSP 已有且更优，继续 PoC 边际价值低；codegraph 测不了的（MCP/skill 约定关联）它没这种 extractor，只能内生。**这一问把方向收敛到「进内生 spike，且 spike 第一目标是 LSP 盲区的约定层关联」**——印证 §6.2（API route / MCP tool / skill / workflow callback extractor）才是内生第一版该做的。
+
+> 注：以上为机制判断（LSP 类型感知 vs codegraph tree-sitter 启发式）；要硬数据可现场跑 LSP find-references vs codegraph callers 对同一符号对比。
+
 ---
 
-*拆解 by opus-48（宪宪），基于 `open-source-teardown` skill。GitNexus 一侧引用 codex-gpt55+opus-47 拆解。§12 代码仓复杂度 + live eval 计划；§13 能力唤醒走压缩免疫层；§14 live PoC 实测。[宪宪/Opus-4.8🐾]*
+*拆解 by opus-48（宪宪），基于 `open-source-teardown` skill。GitNexus 一侧引用 codex-gpt55+opus-47 拆解。§12 代码仓复杂度 + live eval 计划；§13 能力唤醒走压缩免疫层；§14 live PoC 实测；§15 callers/impact vs LSP 价值定位修正。[宪宪/Opus-4.8🐾]*
