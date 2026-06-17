@@ -88,6 +88,7 @@
     "check:web-global-css-imports": "node --test scripts/check-web-global-css-imports.test.mjs",
     "mcp:doctor": "node scripts/mcp-doctor.mjs",
     "sync:skills": "bash scripts/sync-skills.sh",
+    "clean:stale-skill-links": "bash scripts/clean-stale-skill-links.sh",
     "rescue:claude:thinking": "node ./scripts/rescue-claude-thinking-signature.mjs",
     "proxy:anthropic": "node ./scripts/anthropic-proxy.mjs",
     "logs:health": "bash ./scripts/logs-health.sh",
