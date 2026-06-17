@@ -57,6 +57,8 @@ export interface ReviewAutomationState {
   readonly lastCommentCursor?: number;
   readonly lastDecisionCursor?: number;
   readonly lastNotifiedAt?: number;
+  /** #949: Number of MR reviews completed on the current thread. Used for thread rotation. */
+  readonly completedReviewCount?: number;
 }
 
 /**
@@ -158,6 +160,8 @@ export type UpdateTaskInput = {
   status?: TaskStatus;
   why?: string;
   automationState?: AutomationState;
+  /** #949: Thread rotation — allow reassigning a task to a new thread. */
+  threadId?: string;
   /** F193-E1 P1-4: allow patching dispatchGate on existing tasks */
   dispatchGate?: DispatchGateState;
 };

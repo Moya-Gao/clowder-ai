@@ -40,6 +40,7 @@ import type { ReviewFeedbackPrMetadata } from '../../infrastructure/email/Review
 import { createReviewFeedbackTaskSpec } from '../../infrastructure/email/ReviewFeedbackTaskSpec.js';
 import type { TaskSpec_P1 } from '../../infrastructure/scheduler/types.js';
 import type { ITaskStore } from '../cats/services/stores/ports/TaskStore.js';
+import type { IThreadStore } from '../cats/services/stores/ports/ThreadStore.js';
 import type { ICommunityEventLog } from '../community/CommunityEventLog.js';
 import type { ScheduleFactory, ScheduleFactoryDeps, ScheduleFactoryRegistry } from './ScheduleFactoryRegistry.js';
 
@@ -61,6 +62,8 @@ export interface GitHubScheduleDeps extends ScheduleFactoryDeps {
   conflictRouter: ConflictRouter;
   reviewFeedbackRouter: ReviewFeedbackRouter;
   invokeTrigger: ConnectorInvokeTrigger;
+  /** #949: Thread store for MR review thread rotation (create fresh threads when context overflows) */
+  threadStore?: Pick<IThreadStore, 'create' | 'get'>;
   checkMergeable: (repo: string, pr: number) => Promise<{ mergeState: string; headSha: string }>;
   autoExecutor: ConflictAutoExecutor;
   fetchPrMetadata: (repo: string, pr: number) => Promise<ReviewFeedbackPrMetadata | null>;
@@ -165,6 +168,8 @@ const reviewFeedbackFactory: ScheduleFactory = {
       // F168 Phase A P1-1: thread community event services to spec
       eventLog: d.eventLog,
       projector: d.projector,
+      // #949: thread rotation deps
+      threadStore: d.threadStore,
     }) as TaskSpec_P1;
   },
 };

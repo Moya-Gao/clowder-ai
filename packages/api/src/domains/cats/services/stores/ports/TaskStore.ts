@@ -252,6 +252,8 @@ export class TaskStore implements ITaskStore {
       ...(input.status !== undefined ? { status: input.status } : {}),
       ...(input.why !== undefined ? { why: input.why } : {}),
       ...(input.automationState !== undefined ? { automationState: input.automationState } : {}),
+      // #949: thread rotation — allow reassigning to a new thread
+      ...(input.threadId !== undefined ? { threadId: input.threadId } : {}),
       // F193-E1 P1-4: allow patching dispatchGate
       ...(input.dispatchGate !== undefined ? { dispatchGate: input.dispatchGate } : {}),
       updatedAt: Date.now(),

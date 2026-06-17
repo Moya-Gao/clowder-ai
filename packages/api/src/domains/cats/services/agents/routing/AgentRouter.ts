@@ -1478,6 +1478,9 @@ export class AgentRouter {
        *  true/undefined = user-origin (eligible, default for backward compat).
        *  false = agent/connector-origin (A2A handoff) — suppress detection. */
       frustrationAutoIssueEligible?: boolean;
+      /** #949 P2: Whether verdict-without-pass warning fires at route end.
+       *  true/undefined = warn (default). false = suppress for connector-sourced flows only. */
+      verdictPassWarningEnabled?: boolean;
     },
   ): AsyncIterable<AgentMessage> {
     const cleanMessage = stripIntentTags(message);
@@ -1592,6 +1595,10 @@ export class AgentRouter {
       // F222 P1: thread provenance flag so route-serial/route-parallel can gate detection
       ...(options?.frustrationAutoIssueEligible !== undefined
         ? { frustrationAutoIssueEligible: options.frustrationAutoIssueEligible }
+        : {}),
+      // #949 P2: connector-sourced verdict-pass warning suppression
+      ...(options?.verdictPassWarningEnabled !== undefined
+        ? { verdictPassWarningEnabled: options.verdictPassWarningEnabled }
         : {}),
     };
 

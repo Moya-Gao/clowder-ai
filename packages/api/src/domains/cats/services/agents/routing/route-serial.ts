@@ -1999,6 +1999,11 @@ export async function* routeSerial(
         let pendingC2SampleTrigger: string | null = null;
         if (
           !phaseHHit &&
+          // #949 P2: Use dedicated verdictPassWarningEnabled flag (not frustrationAutoIssueEligible)
+          // to suppress verdict-without-pass warning ONLY for connector-sourced flows
+          // (MR reviews, CI notifications). A2A/multi-mention callbacks set
+          // frustrationAutoIssueEligible=false but still need verdict-pass handoff guards.
+          options.verdictPassWarningEnabled !== false &&
           shouldWarnVerdictWithoutPass({
             text: storedContent,
             lineStartMentions: routingExitLineStartMentions,

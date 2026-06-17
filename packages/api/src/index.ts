@@ -3747,6 +3747,8 @@ async function main(): Promise<void> {
         conflictRouter,
         reviewFeedbackRouter,
         invokeTrigger,
+        // #949: thread rotation — inject threadStore so MR review threads can rotate
+        threadStore,
         checkMergeable,
         autoExecutor,
         fetchPrMetadata,

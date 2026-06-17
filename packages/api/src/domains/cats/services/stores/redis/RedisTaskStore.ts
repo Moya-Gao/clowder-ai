@@ -276,12 +276,23 @@ export class RedisTaskStore implements ITaskStore {
       ...(input.status !== undefined ? { status: input.status } : {}),
       ...(input.why !== undefined ? { why: input.why } : {}),
       ...(input.automationState !== undefined ? { automationState: input.automationState } : {}),
+      // #949: thread rotation — allow reassigning to a new thread
+      ...(input.threadId !== undefined ? { threadId: input.threadId } : {}),
       // F193-E1 P1-4: allow patching dispatchGate
       ...(input.dispatchGate !== undefined ? { dispatchGate: input.dispatchGate } : {}),
       updatedAt: Date.now(),
     };
 
     await this.redis.hset(TaskKeys.detail(taskId), this.serializeTask(updated));
+
+    // #949: If threadId changed, update the thread index (remove from old, add to new)
+    if (input.threadId !== undefined && input.threadId !== existing.threadId) {
+      const pipeline = this.redis.multi();
+      pipeline.zrem(TaskKeys.thread(existing.threadId), taskId);
+      pipeline.zadd(TaskKeys.thread(input.threadId), updated.updatedAt, taskId);
+      await pipeline.exec();
+    }
+
     // Update TTL based on new status
     await this.applyTtl(updated);
     return updated;

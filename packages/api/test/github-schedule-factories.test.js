@@ -1343,3 +1343,111 @@ describe('buildGitHubMigrationEntries (P2-B)', () => {
     );
   });
 });
+
+// --- #949 Wiring regression: threadStore must reach ReviewFeedbackTaskSpec ---
+
+describe('#949 wiring regression: threadStore reaches review-feedback factory', () => {
+  test('reviewFeedbackFactory passes threadStore to createReviewFeedbackTaskSpec', async () => {
+    const { githubScheduleFactories } = await import('../dist/domains/plugin/github-schedule-factories.js');
+    const reviewFeedbackFactory = githubScheduleFactories.find((f) => f.factoryId === 'github.review-feedback');
+    assert.ok(reviewFeedbackFactory, 'review-feedback factory must exist in exported array');
+    const threadCreateCalls = [];
+    const mockThreadStore = {
+      create: (userId, title, projectPath) => {
+        threadCreateCalls.push({ userId, title, projectPath });
+        return {
+          id: 'thread_rotated_1',
+          title,
+          createdBy: userId,
+          createdAt: Date.now(),
+          participants: [],
+          projectPath: projectPath ?? 'default',
+          lastActiveAt: Date.now(),
+        };
+      },
+      get: (threadId) => {
+        if (threadId === 'th-old') {
+          return { id: 'th-old', projectPath: '/projects/cat-cafe', title: 'Original' };
+        }
+        return null;
+      },
+    };
+    const deps = makeGitHubDeps({ threadStore: mockThreadStore });
+    const spec = reviewFeedbackFactory.createTaskSpec('schedule:github:review-feedback', deps);
+
+    // The spec should be created with threadStore wired in.
+    // Verify by creating a task at the rotation threshold and checking rotation fires.
+    const task = {
+      id: 'task-1',
+      kind: 'pr_tracking',
+      threadId: 'th-old',
+      subjectKey: 'pr:owner/repo#42',
+      title: 'PR owner/repo#42',
+      ownerCatId: 'opus',
+      status: 'todo',
+      why: '',
+      createdBy: 'opus',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      userId: 'u-1',
+      automationState: {
+        review: { lastCommentCursor: 0, lastDecisionCursor: 0, completedReviewCount: 3 },
+      },
+    };
+
+    // Replace taskStore in deps to serve our test task
+    const patchCalls = [];
+    const updateCalls = [];
+    deps.taskStore = {
+      listByKind: async () => [task],
+      update: async (taskId, input) => {
+        updateCalls.push({ taskId, input });
+        return { ...task, ...input };
+      },
+      patchAutomationState: async (taskId, patch) => {
+        patchCalls.push({ taskId, patch });
+        return task;
+      },
+    };
+    deps.fetchComments = async () => [
+      { id: 99, author: 'alice', body: 'fix it', createdAt: '2026-01-01', commentType: 'conversation' },
+    ];
+    deps.reviewFeedbackRouter = {
+      route: async (_signal, tracking) => ({
+        kind: 'notified',
+        threadId: tracking.threadId,
+        catId: tracking.catId,
+        messageId: 'msg-1',
+        content: 'feedback',
+      }),
+    };
+
+    // Re-create spec with updated deps
+    const spec2 = reviewFeedbackFactory.createTaskSpec('schedule:github:review-feedback', deps);
+    const gateResult = await spec2.admission.gate({ taskId: spec2.id, lastRunAt: null, tickCount: 1 });
+    assert.equal(gateResult.run, true, 'gate should fire');
+    await spec2.run.execute(gateResult.workItems[0].signal, 'pr:owner/repo#42', {});
+
+    // KEY ASSERTION: threadStore.create should have been called (rotation happened)
+    assert.equal(threadCreateCalls.length, 1, 'threadStore.create must be called — wiring is live');
+    // Task should be updated with new threadId
+    assert.ok(
+      updateCalls.some((c) => c.input.threadId === 'thread_rotated_1'),
+      'task threadId should be updated',
+    );
+    // completedReviewCount should reset to 1
+    assert.ok(
+      patchCalls.some((c) => c.patch.review?.completedReviewCount === 1),
+      'completedReviewCount should reset to 1 after rotation',
+    );
+  });
+
+  test('makeGitHubDeps without threadStore still creates spec (graceful degradation)', async () => {
+    const { githubScheduleFactories } = await import('../dist/domains/plugin/github-schedule-factories.js');
+    const reviewFeedbackFactory = githubScheduleFactories.find((f) => f.factoryId === 'github.review-feedback');
+    const deps = makeGitHubDeps(); // no threadStore
+    const spec = reviewFeedbackFactory.createTaskSpec('schedule:github:review-feedback', deps);
+    assert.ok(spec, 'spec should be created even without threadStore');
+    assert.strictEqual(spec.id, 'schedule:github:review-feedback');
+  });
+});

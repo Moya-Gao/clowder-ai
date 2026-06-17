@@ -11,6 +11,7 @@
 import type { CatId, CommunityEvent, TaskItem } from '@cat-cafe/shared';
 import { parsePrSubjectKey } from '@cat-cafe/shared';
 import type { ITaskStore } from '../../domains/cats/services/stores/ports/TaskStore.js';
+import type { IThreadStore } from '../../domains/cats/services/stores/ports/ThreadStore.js';
 import type { ICommunityEventLog } from '../../domains/community/CommunityEventLog.js';
 import { decideDelivery } from '../../domains/community/community-delivery-policy.js';
 import type { ExecuteContext, TaskSpec_P1 } from '../scheduler/types.js';
@@ -60,6 +61,18 @@ export interface ReviewFeedbackTaskSpecOptions {
   // F168 Phase A: community event log + projector (best-effort, optional)
   readonly eventLog?: ICommunityEventLog;
   readonly projector?: { apply(event: CommunityEvent): Promise<void> };
+  /**
+   * #949: Thread rotation — pre-dispatch health gate.
+   * When provided, enables automatic thread rotation for MR review threads
+   * that have processed too many reviews (context overflow prevention).
+   */
+  readonly threadStore?: Pick<IThreadStore, 'create' | 'get'>;
+  /**
+   * #949: Maximum number of completed reviews per thread before rotating.
+   * Default: 3 (safe for Sonnet's smaller context window; Opus handles ~5
+   * but 3 is the conservative floor).
+   */
+  readonly maxReviewsPerThread?: number;
 }
 
 function resolveCursor(memoryCursor: number | undefined, persistedCursor: number | undefined): number {
@@ -400,6 +413,38 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
       timeoutMs: 30_000,
       async execute(signal: ReviewFeedbackSignal, subjectKey: string, _ctx: ExecuteContext) {
         const { task } = signal;
+        const maxReviews = opts.maxReviewsPerThread ?? 3;
+        const completedCount = task.automationState?.review?.completedReviewCount ?? 0;
+        const originalThreadId = task.threadId;
+
+        // #949: Pre-dispatch thread rotation — when the current thread has processed
+        // too many reviews, create a fresh thread to avoid context overflow.
+        // Sonnet overflows at ~3 MRs, Opus at ~5; default threshold is 3 (conservative).
+        let effectiveThreadId = originalThreadId;
+        if (opts.threadStore && completedCount >= maxReviews) {
+          try {
+            // Preserve projectPath from the original thread so that cats invoked
+            // in the rotated thread resolve the correct working directory (#949 cloud P1).
+            const originalThread = await opts.threadStore.get(originalThreadId);
+            const newThread = await opts.threadStore.create(
+              task.userId ?? '',
+              `MR review (auto-rotated from ${task.threadId})`,
+              originalThread?.projectPath,
+            );
+            effectiveThreadId = newThread.id;
+            await opts.taskStore.update(task.id, { threadId: newThread.id });
+            opts.log.info(
+              `[review-feedback] Thread rotated: ${task.threadId} → ${newThread.id} (${completedCount} reviews completed)`,
+            );
+          } catch (e) {
+            // Rotation failed — fall back to original thread (best-effort)
+            opts.log.warn(
+              `[review-feedback] Thread rotation failed for ${subjectKey}, continuing with original thread`,
+              e,
+            );
+          }
+        }
+
         const routeResult = await opts.reviewFeedbackRouter.route(
           {
             repoFullName: signal.repoFullName,
@@ -408,7 +453,7 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
             newDecisions: signal.newDecisions,
           },
           {
-            threadId: task.threadId,
+            threadId: effectiveThreadId,
             catId: task.ownerCatId ?? '',
             userId: task.userId ?? '',
             trackingInstructions: task.automationState?.trackingInstructions,
@@ -418,6 +463,17 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
         if (routeResult.kind !== 'notified') return;
 
         await signal.commitCursor();
+
+        // #949: Increment completedReviewCount after successful delivery.
+        // If thread was rotated, reset to 1 (this delivery is the first on the new thread).
+        const newCount = effectiveThreadId !== originalThreadId ? 1 : completedCount + 1;
+        try {
+          await opts.taskStore.patchAutomationState(task.id, {
+            review: { completedReviewCount: newCount },
+          });
+        } catch (e) {
+          opts.log.warn(`[review-feedback] completedReviewCount update failed for ${subjectKey}`, e);
+        }
 
         if (opts.invokeTrigger) {
           try {
