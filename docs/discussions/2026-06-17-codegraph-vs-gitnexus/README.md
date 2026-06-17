@@ -250,6 +250,53 @@ opus-47 给铲屎官的三选一（[gitnexus §10.5](../2026-06-03-gitnexus-deep
 4. **telemetry 基于 README 声明**：未深读 `telemetry-worker/` 源码验证"不发 code/path"。
 5. **最可能被推翻的判断**："CodeGraph 比 GitNexus 更值得参考"——若 Code Graph Layer 的首要目标是**跨仓 contract 治理**（而非单仓 impact），结论可能反转（GitNexus `core/group/` 更成熟）。这取决于铲屎官对 Code Graph Layer 的 scope 定义。
 
+## 12. 追加（2026-06-17）：Cat Café 代码仓复杂度 + Live Eval 计划
+
+> 铲屎官指示：沉淀本文档 + 明确自家代码仓复杂度 + 构思 live eval——"先装一个跑几天做 eval，再决定学他们具体什么"。方法论：harness = 软 + 硬 + eval，**这次先做 eval**。
+
+### 12.1 Cat Café 代码仓复杂度（git tracked，2026-06-17 实测）
+
+| 类别 | 文件数 | 行数 |
+|---|---|---|
+| **手写 TS 应用源码**（非 test/d.ts） | 1,866 | **357,614** |
+| TS 测试 | 537 | 114,291 |
+| Markdown（docs + skills，知识层） | 3,400 | 607,507 |
+| generated .js（packages/api 编译产物，**非手写**） | 1,320+ | ~401,330 |
+| 总 git tracked 文件 | — | 8,417 |
+
+各 package 手写 TS 源码：
+
+| package | files | lines | 角色 |
+|---|---|---|---|
+| api | 1,093 | 226,077 | 后端 / runtime / MCP / 大部分逻辑（占 63%） |
+| web | 600 | 106,596 | 前端 / Hub |
+| mcp-server | 40 | 8,861 | MCP server |
+| shared | 85 | 8,795 | 共享类型/工具 |
+| ppt-forge | 39 | 6,449 | PPT 生成 |
+| finance | 6 | 472 | 金融数据 |
+
+判断：手写代码主体 **~36 万行 TS（api 占 63%）**；knowledge 层（607k md）比代码还重——Cat Café 文档/skill 密集的特色。规模属"中大型 monorepo"，落在 codegraph benchmark 覆盖范围内（其 benchmark 测过 VS Code ~10k files / Django ~3k），所以 **codegraph index 我们仓工程上完全可行**。
+
+### 12.2 Live Eval 提案：先做 eval，再决定学什么
+
+铲屎官方法论（呼应 ADR-031 三层）：不靠看源码拍脑袋决定内生版抄什么，而是**真装上跑几天，用 eval 数据决定**——正是 codegraph 自己的 eval 驱动哲学（§6）反用到我们自己的决策。
+
+**实验设计**：
+1. **先装 codegraph**（MIT + 确定性更安全 + §0 推荐），验证后再考虑并装 GitNexus 对比。
+2. **index cat-cafe**，先处理 §12.3 两个边界。
+3. **给几只日常 coding 的猫用**（隔离配置），跑几天。
+4. **eval 指标**：呼应 codegraph benchmark 方法——WITH vs WITHOUT 的 token / tool-call / 体感，接我们家 F192 telemetry。
+5. **产出 eval verdict** → 决定内生 Code Graph Layer 具体抄什么（§9.1 清单按实测数据重排优先级）。
+
+### 12.3 Live Eval 两个必处理的边界（来自一手拆解）
+
+⚠️ 装之前必须处理，否则 eval 失真或碰 L0 边界：
+
+1. **codegraph installer 会写 `CLAUDE.md`/`AGENTS.md` + 改 MCP 配置 + 改 permissions**（§4.3 installer 拆解）。直接 `codegraph install` 会污染我们 L0 真相源边界。→ eval 期间用 `codegraph install --print-config <agent>` 手动加 MCP server snippet（不落 instructions 文件），或 `--no-permissions`；index 用 `codegraph init/index`（这步只建本地 `.codegraph/`，**不碰 agent 配置，安全**）。
+2. **packages/api 有 1,320+ 个 generated `.js` 跟 `.ts` 并存**（git tracked，非 dist/）。codegraph 会把它们当源码 index，产生双份节点 + impact 失真。→ index 前给这些 `.js` 加 `.gitignore` 或 codegraph negation 排除，只 index 手写 TS。
+
+**需铲屎官拍板的启动参数**：① 先装 codegraph 还是俩都装给猫对比；② 给哪些猫试（建议日常 coding 的猫）；③ 在主仓 index 还是开隔离副本（建议隔离，避免 `.codegraph/` 进共享主仓 + 规避 generated `.js` 噪音）。
+
 ---
 
-*拆解 by opus-48（宪宪），基于 `open-source-teardown` skill。GitNexus 一侧引用 codex-gpt55+opus-47 拆解。[宪宪/Opus-4.8🐾]*
+*拆解 by opus-48（宪宪），基于 `open-source-teardown` skill。GitNexus 一侧引用 codex-gpt55+opus-47 拆解。§12 追加代码仓复杂度 + live eval 计划。[宪宪/Opus-4.8🐾]*
