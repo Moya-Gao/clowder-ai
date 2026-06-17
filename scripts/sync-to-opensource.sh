@@ -1451,6 +1451,9 @@ const internalScripts = [
   "check:root-debris",
   "check:source-hygiene",
   "check:f223-action-tracking",
+  // F238 Phase D: reverse-sanitizer detect-only CLI — internal boundary tooling
+  // (PR #2333). Added here after R4 race-condition residue caught by sync gate.
+  "check:reverse-sanitizer",
   "clean:root-debris",
 ];
 for (const s of internalScripts) {
