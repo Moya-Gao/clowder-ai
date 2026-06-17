@@ -64,3 +64,24 @@ saga 16 轮都栽在"不对齐方法就直接 patch"。
 - turn-id 发射: `packages/api/.../invocation/invoke-single-cat.ts:646`
 - codex 流式转换: `packages/api/.../providers/codex-event-transform.ts`
 - hydration 正确投影: `packages/web/src/hooks/useChatHistory.ts`（#2319 改在这里 = 错层）
+
+## 深化 trace（2026-06-16 宪宪/opus-48）
+
+进一步 trace 把 A/B 天平**强烈推向 B（前端 live reducer）**，但未 100% 敲死（race，需实时事件序列证实）：
+
+- **后端 stamping 经检查正确**：`invoke-single-cat.ts:643` 先于 agent stream loop yield `invocation_created`；
+  `route-serial.ts:1089` 处理它 set `ownInvocationId`，:1019 之后的 stream 事件 stamp `invocationId=ownInvocationId`；
+  `visible-turn.ts stampVisibleTurn` 对 live broadcast + 持久化都给 `turnInvocationId`。持久化 record 的 turnInvocationId
+  实测正确 → 后端没乱序、没漏 stamp。**所以 fix 不在后端排序（A 不是主因）。**
+- **裂在前端 live reducer**（`useAgentMessages.ts` active 路径 `handleAgentMessage`）：即使收到正确 stamp 的事件，
+  增量建泡 + 6 条件绑定启发式仍会把同 turnInvocationId 的 stream 事件拆成两个 bubble。`finalizeStaleBackgroundInvocationStreams`
+  (:636-680) 是 background 路径的同型逻辑；active 路径有对应的建泡/recover 逻辑（:900+ 区域，多路径，复杂）。
+- **为什么没在本轮直接修**：active 路径建泡逻辑是 16 轮打磨的复杂多路径代码；要写**确定性红测**复现这个 race，
+  需要 OKF 那次裂的**真实 live 事件序列**（哪个事件先到、带什么 id）。冷读代码不足以可靠构造该序列；
+  硬猜一个红测 = 可能根本没复现真 bug = 假绿/round-17。
+
+**下一轮最高效路径（二选一）**：
+1. **砚砚（reducer + codex 流式的 author）**当 budget refill 后接手——他的代码、他最快能钉死 race 序列。
+2. **runtime capture**：在 active 路径建泡处加一行 log（或 devtools 直接 dump 裂开那刻 `useChatStore` 里两个 codex
+   bubble 的 `extra.stream.invocationId/turnInvocationId`），拿到真实序列 → 写确定性红测 → 修 → 绿。
+   裂自愈于 F5，属 live-only cosmetic（非数据丢失），可作为 done-time 用 hydration 同款确定性投影 re-project 收敛。
