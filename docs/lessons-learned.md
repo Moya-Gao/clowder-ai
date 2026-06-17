@@ -1554,3 +1554,18 @@ created: 2026-02-26
 - 来源锚点：PR #2326（#2329 false-positive close）| thread_mqgrshokp2qrrxgs | opus-47 复盘（2026-06-17 01:24 UTC）
 - 原理：worktree full suite 的 fail ≠ standalone regression——full suite 有 in-suite CWD / env / resource 污染，单文件 fail 在 full suite 里出现是 **pollution 信号**，不是 **regression 证据**。两者的药方相反：pollution → 隔离测试 / restore env；regression → 修 test 或修代码。混淆后开 issue = 把 pollution 当 regression 投递给不可能修的 owner。
 - 关联：feedback_verify_before_guessing（先验证再行动）| feedback_inmemory_store_tests_miss_redis_behavior（in-suite 环境假绿）| LL-075（同 PR，gate 执行失误）
+
+### LL-077: F210-H1 dispatcher dual-handler 不变量——新 telemetry type 必须同时在 foreground + background chain 加 handler
+- 状态：validated
+- 更新时间：2026-06-17
+- 坑：社区 PR enihcam/clowder-ai#943 (`fix(web): consume provider_capability telemetry silently`) 给 `useAgentMessages.ts` foreground 链 (`handleAgentMessage` ~line 5111) 加了 `provider_capability` handler，但漏了 background 链 (`consumeBackgroundSystemInfo` ~line 731) 的 mirror handler。社区作者本人 + 砚砚 first-pass review + 我自己（opus-47）initial absorb 都没 catch。opus-46 cross-thread review on cat-cafe#2352 才发现。effect：kimi 在 background thread 跑时（常见 case：A2A 链 / 完成-未查看 thread / multi-cat background stream），原 #939 bug 依然存在——raw-JSON `"thinking → unavailable"` 系统 bubble 继续 surface 给用户。
+- 根因：F210-H1 dispatcher pattern 同一 telemetry type 走两条 chain（foreground React hook + background async callback），每条 chain 各有自己的 dispatcher list。**没有 single source of truth**——pattern 实现成了"visible-but-loose contract"：可发现（grep type name 能定位）但容易漏（review 默认 mental model 是"找到一处分支就够了"）。社区 PR review 习惯优先 verify 用户最常见 interactive 路径（foreground），background callback 路径 review 时容易省略。
+- 触发条件：① 增加新 `system_info` type 处理 / ② system_info dispatcher chain 改动 / ③ 任何 mirror dispatcher pattern (fg/bg, sync/async, primary/fallback)。
+- 修复：cat-cafe absorb fix in `d3b1214e3`（mirror handler 插入 background chain line 1062）+ 3 background regression tests in new file `useAgentMessages-provider-capability-background.test.ts`（real `useChatStore`，与 mock 化的 sister foreground test file 分离）+ nit `??` → `||` 在 fg+bg 两处都改（empty-string defense）。Upstream issue filed at clowder-ai#966。
+- 防护：
+  - **dispatcher 系列 PR review 强制 cross-chain audit**：对每个新 `system_info` type，在 PR review 时显式 grep `'<type>'` 在所有 dispatch chain 文件（`useAgentMessages.ts` 至少 fg+bg）确认 handler count ≥ 2；count = 1 = 漏一条。
+  - **intake-from-opensource.sh 加 dispatcher symmetry check**：PR diff 改动了 `handleAgentMessage` 的 dispatch chain 但没改 `consumeBackgroundSystemInfo` (或反之) → warning。F238 follow-up 候选。
+  - **lessons-learned reflex (与 LL-076 互补)**：intake 闭环完，发现"我们补的 fix 也应该在 upstream 修" → 立刻 file upstream issue，**不留"下次一定"**。本 LL 触发的 #966 是范例。
+- 来源锚点：cat-cafe#2352 (intake of clowder-ai#943) | thread_mqgn5834h96st2mq | opus-46 cross-thread review on `cdeaa9150` (2026-06-17 14:08 UTC, PR comment #4731199498) | upstream issue clowder-ai#966
+- 原理：dispatcher pattern 的强 contract 应该是 single source of truth（如 handler registry map / decorator），让两条 chain 在编译期或加载期共享 handler list。当前实现是"两条 chain 各 if-else 平行写"，任何新 type 加入都要 mirror 两遍——是 known weak-contract，review-time 防护是唯一缓解。L0/H1 vs H3 命名（H = HotFix）暗示这条 pattern 是 hotfix 后归纳的，未来可考虑 refactor 到 registry 解决根因。
+- 关联：LL-076（verify before outsource - 本 LL 触发的 upstream issue clowder-ai#966 走了 LL-076 标准 "clean main HEAD verify" 三层确认才 file，没把 in-cat-cafe 的 fix 当成 false-positive 反推）| feedback_verify_before_guessing（opus-46 finding 我没直接信，read line refs 实测）| F210（H1 dispatcher pattern 源 feature）| #944 intake P1 + clowder-ai#959（同期同 author enihcam，同 cross-individual review 抓真 P1，反映 first-time contributor PR + maintainer absorb 都依赖 cross-individual review 兜底）
