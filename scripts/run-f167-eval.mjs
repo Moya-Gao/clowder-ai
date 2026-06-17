@@ -71,9 +71,14 @@ async function main(config) {
   console.log('');
 
   console.log('1/4 Fetching telemetry data...');
-  const [traces, traceStats, metricsText, metricsHistory] = await Promise.all([
-    fetchTraces(config, { limit: 500 }),
-    fetchTracesStats(config),
+  // F192 verdict 2026-06-17-eval-a2a-c1-sample-window-build: per-fire sample
+  // evidence needs the full window, not the first 500. Fetch stats first so
+  // limit derives from `traceStats.maxSpans` (no second magic number) and
+  // opt in to the route's `expandLimit=true` cap raise. Default UI traffic
+  // is unchanged.
+  const traceStats = await fetchTracesStats(config);
+  const [traces, metricsText, metricsHistory] = await Promise.all([
+    fetchTraces(config, { limit: traceStats.maxSpans, expandLimit: true }),
     fetchMetrics(config),
     fetchMetricsHistory(config),
   ]);

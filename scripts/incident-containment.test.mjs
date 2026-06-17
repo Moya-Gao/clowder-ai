@@ -10,7 +10,17 @@ function read(relativePath) {
 }
 
 describe('incident containment: sync export gate split', () => {
-  it('keeps the heavy open-source export dry-run out of default pnpm check', () => {
+  it('wires the open-source export dry-run into default pnpm check (post PR #2331)', () => {
+    // Historical context: previously `check:sync-export` was kept OUT of the
+    // parallel check runner to keep `pnpm check` lean. That policy was
+    // reversed by PR #2331 (dae2ec488) — silent sanitizer JSON breakage on
+    // main was invisible without it ("LL: green main can hide regression").
+    // The named-source test now ratifies the post-#2331 design instead of
+    // contradicting it. The earlier title ("...out of default pnpm check")
+    // and the matching assertion went out of sync with #2331's intent;
+    // F192 expand-limit PR catches it because pnpm gate runs incident-
+    // containment in the same batch as the count-drift assertion in
+    // run-checks.test.mjs.
     const pkg = JSON.parse(read('package.json'));
     const profileIsolationTest = read('scripts/start-dev-profile-isolation.test.mjs');
     const syncExportTest = read('scripts/sync-to-opensource-public-launch.test.mjs');
@@ -21,9 +31,9 @@ describe('incident containment: sync export gate split', () => {
       'node --test scripts/start-dev-profile-isolation.test.mjs',
     );
     assert.equal(pkg.scripts['check:sync-export'], 'node --test scripts/sync-to-opensource-public-launch.test.mjs');
-    // check runner includes profile-isolation but NOT sync-export
+    // check runner now includes both profile-isolation AND sync-export
     assert.match(checkRunner, /check:start-profile-isolation/);
-    assert.doesNotMatch(checkRunner, /check:sync-export/);
+    assert.match(checkRunner, /check:sync-export/);
     assert.doesNotMatch(profileIsolationTest, /sync-to-opensource\.sh/);
     assert.match(syncExportTest, /sync-to-opensource\.sh/);
     assert.match(syncExportTest, /--dry-run/);

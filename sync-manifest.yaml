@@ -122,6 +122,12 @@ managed_scripts:
   - scripts/brand-dictionary-helper.test.mjs
   - scripts/intake-from-opensource.sh
   - scripts/intake-from-opensource.test.mjs
+  # F238 Phase D detect-only reverse sanitizer (paired with sync-to-opensource.sh
+  # for outbound + intake-from-opensource.sh for inbound). PR #2333 added the
+  # script + check:reverse-sanitizer gate but missed the sync-manifest entry,
+  # tripping check-env-port-drift's exported-script closure test.
+  - scripts/reverse-sanitizer.mjs
+  - scripts/reverse-sanitizer.test.mjs
   - scripts/check-followup-tails.mjs
   # F223 public skill-surface guard (root package.json exposes check:skills:surfaces)
   - scripts/check-skill-first-party-surfaces.test.mjs
