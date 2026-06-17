@@ -71,7 +71,7 @@ Add representative round-trip fixtures and a recurring verdict: public export ha
 - [x] Spec explicitly flips the six required path groups away from safe-cherry-pick.
 - [x] Outbound sanitizer covers dictionary brand/L4 terms for .json, .mjs, .yaml/.yml (PR #2324).
 - [ ] Inbound guard consumes the dictionary for path classification and validation.
-- [ ] Reverse sanitizer detect-only V1 exists.
+- [x] Reverse sanitizer detect-only V1 exists.
 - [ ] CI and local hooks run dictionary-backed boundary scans.
 - [x] Round-trip and export regression tests cover JSON, MJS, YAML, L0, skills, and cat-config (77 tests, PR #2324).
 - [ ] F237 intake re-runs with F238 boundary guard in place.
@@ -96,10 +96,10 @@ Add representative round-trip fixtures and a recurring verdict: public export ha
 - [x] AC-C2: `--validate-inbound` scans working tree and index content using dictionary terms and reports structured violations (fail-closed cross-validation with three brand-sensitive anchors + manual-port anchor).
 - [x] AC-C3: `.githooks/pre-commit` and a GitHub workflow (`brand-boundary-guard.yml`) invoke the dictionary-backed inbound guard; local hook bypass does not remove CI protection. 44 intake tests + 20 helper tests enforced via `pnpm check`.
 
-### Phase D（Reverse Sanitizer Detect-Only V1）
-- [ ] AC-D1: A detect-only reverse sanitizer reports `severity | direction | file | line/field | term id | suggestion` and exits non-zero for P0/P1 violations.
-- [ ] AC-D2: JSON/YAML inputs report field paths where practical; text inputs report file/line.
-- [ ] AC-D3: The tool supports outbound-export validation and inbound cat-cafe validation without auto-rewriting.
+### Phase D（Reverse Sanitizer Detect-Only V1）✅
+- [x] AC-D1: A detect-only reverse sanitizer reports `severity | direction | file | line/field | term id | suggestion` and exits non-zero for P0/P1 violations.
+- [x] AC-D2: JSON/YAML inputs report field paths where practical; text inputs report file/line.
+- [x] AC-D3: The tool supports outbound-export validation and inbound cat-cafe validation without auto-rewriting.
 
 ### Phase E（Round-Trip and Eval Loop）
 - [ ] AC-E1: Round-trip fixtures cover representative files across L0, prompt templates, manifest, cat-config, desktop, sop-definitions, guides, and cat-cafe-skills.
@@ -158,6 +158,7 @@ Add representative round-trip fixtures and a recurring verdict: public export ha
 | 2026-06-16 | F238 Phase A opened; spec, dictionary v0.1, and opensource-ops references landed. |
 | 2026-06-16 | Phase B merged (PR #2324): outbound sanitizer extended to .json/.mjs/.yaml, L4 cultural terms, 77 regression tests. |
 | 2026-06-17 | Phase C merged (PR #2327): inbound dictionary enforcement — classify_path, fail-closed cross-validation (3 brand-sensitive + 1 manual-port anchor), GitHub CI workflow, 44 intake + 20 helper tests in pnpm check. |
+| 2026-06-17 | Phase D merged (PR #2333): reverse sanitizer detect-only V1 — NDJSON output, word-boundary regex, three-layer dedup, per-variant suggestion mapping, 30 tests, wired into pnpm check. |
 
 ## Review Gate
 
@@ -174,3 +175,5 @@ Add representative round-trip fixtures and a recurring verdict: public export ha
 | **Skill** | `cat-cafe-skills/opensource-ops/SKILL.md` | Inbound/outbound operating procedure. |
 | **Script** | `scripts/sync-to-opensource.sh` | Outbound export pipeline. |
 | **Script** | `scripts/intake-from-opensource.sh` | Inbound classifier and brand guard. |
+| **Script** | `scripts/reverse-sanitizer.mjs` | Detect-only reverse sanitizer (Phase D). |
+| **Plan** | `docs/plans/2026-06-17-f238-phase-d-reverse-sanitizer.md` | Phase D implementation plan. |
