@@ -1520,3 +1520,37 @@ created: 2026-02-26
 - 详细全文（新模式：主文件留索引、详文另存）：[lessons-learned/LL-074-multi-agent-recovery-ownership-handoff.md](lessons-learned/LL-074-multi-agent-recovery-ownership-handoff.md)
 - 来源锚点：thread_mq0980eu7l3zonck#0001781348069695（平行 48 session 蒸馏，2026-06-13）
 - 关联：feedback_judgment_altitude | feedback_evidence_slice_to_unique_coordinate | LL-071（cucu-pr-flow）| LL-073（同期 saga）
+
+---
+
+### LL-075: -p mode + worktree 上下文的 gate 执行三大失误点
+- 状态：validated
+- 更新时间：2026-06-17
+- 坑：PR #2326（test:public exclusion governance Phase A）落地时，三个独立执行失误叠加：① gpt52 从**主仓**而非 worktree 跑 `node --test capabilities-route.test.js` 单文件（不是 `pnpm test:public`），测的是 stale code、跑的是根本不在他改动范围的 file；② opus-47 接手后在 `-p` headless mode 下两次用 `run_in_background: true` 跑 30+ min gate，bg bash 完成通知丢失，PID 挂死 90 min 零输出；③ 长命令尝试前台跑时触发 Bash timeout max 600000 cap 自动后台化，无法判断进度。
+- 根因：三条各有根因：① 执行猫脱离 worktree 上下文切到主仓跑命令（CWD 静默重置，feedback_never_clean_without_checking）；② L0 staging 明文写了"-p 下 background bash 不可靠 → 前台跑"，执行时忘了或认为"这次应该没事"；③ 30+ min 命令超过 Bash timeout 上限会自动 bg 化，无法靠 blocking 跑获取结果。
+- 触发条件：任何在 `-p`/headless mode 下跑 `pnpm test:public` / `pnpm gate` 类长任务；worktree 开发时换 window/tab 丢 CWD 上下文后继续执行命令。
+- 修复：① kill hung process（PID 79245/79205/79198），在 worktree 目录前台跑单元测试；② nohup detach + 查文件 vs 短轮询；③ `until pgrep -f <pattern>; do sleep 5; done` 前台 monitor。
+- 防护：
+  - `-p` mode 每次跑长任务前：明确确认用 `pwd` 当前在 worktree 目录，不信 CWD 历史
+  - background bash 在 `-p`/cron 下 = 死命令。前台跑，超时了用 `nohup` + 文件 monitor，不用 `run_in_background: true`
+  - 长 gate（>5 min）的进度确认：`until pgrep -f "with-test-home" > /dev/null; do sleep 10; done && tail -f /tmp/gate.log`
+  - gate 跑完之前**不升级/不开 issue**——执行位置和结果不确认，什么都是猜
+- 来源锚点：PR #2326 session（thread_mqgrshokp2qrrxgs，2026-06-16/17）
+- 关联：feedback_never_clean_without_checking（CWD 静默重置）| feedback_p_mode_capability_self_blindness（-p 能力边界）| L0 staging "bg bash 在 `-p`/cron 下不可靠" | LL-074 §⑥（判断高度）
+
+---
+
+### LL-076: 开 follow-up issue 前必须在 clean main HEAD 单独验证（outsource-before-verify = 下次一定）
+- 状态：validated
+- 更新时间：2026-06-17
+- 坑：opus-47 在 worktree 环境里撞到 gate 红（`windows-portable-redis-url.test.js` + `sync-skills-cli.test.js`），判断为"upstream flakes"，开了 #2329 和 #2330 分别交给对应 PR owner 修，以此支持"Phase A 代码自身全绿、gate 红 100% upstream"的结论并 merge。但没在 clean main HEAD 单独验证这两个 test：事后 sonnet 实测 main HEAD 两个 test **单独跑均 pass**（windows 22/22、sync-skills 8/8），说明问题只出现在 worktree full suite 的 in-suite env pollution 场景，不是 standalone regression。结果 #2329 是 false-positive（PR #2325 早已修了该 test）。
+- 根因：撞到 in-suite fail → 直接归类为"他人的 upstream bug" → 开 issue outsource，没有完成"standalone 验证 → clean main 验证 → 确认是否真 regression"三层确认就下结论。把 worktree full suite 的一次 fail 当成 regression 证据，而非 test pollution 信号。
+- 触发条件：任何在 worktree full suite 里撞到非本 PR 文件的 fail；准备升级/outsource 一个 bug 之前。
+- 修复：事后 close #2329（false-positive），#2330 需继续确认（standalone pass 但 in-suite 可能仍有 pollution）。
+- 防护：
+  - **三层验证规则**（outsource 前必须过）：① worktree 单独跑确认是否必现 → ② clean main HEAD 单独跑确认是否 standalone fail → ③ 再决定：是 in-suite env pollution（本 PR 修或记录 flaky）/ inherited main regression（开 issue）/ 本 PR 引入（立刻修）
+  - 跳过任何一层就开 issue = magic word「下次一定」变体（"流程合规交接"包装成把未验证的 false-positive 推给别人）
+  - gate 红后**不先 merge、不先开 issue**：先定位，定位完再路由
+- 来源锚点：PR #2326（#2329 false-positive close）| thread_mqgrshokp2qrrxgs | opus-47 复盘（2026-06-17 01:24 UTC）
+- 原理：worktree full suite 的 fail ≠ standalone regression——full suite 有 in-suite CWD / env / resource 污染，单文件 fail 在 full suite 里出现是 **pollution 信号**，不是 **regression 证据**。两者的药方相反：pollution → 隔离测试 / restore env；regression → 修 test 或修代码。混淆后开 issue = 把 pollution 当 regression 投递给不可能修的 owner。
+- 关联：feedback_verify_before_guessing（先验证再行动）| feedback_inmemory_store_tests_miss_redis_behavior（in-suite 环境假绿）| LL-075（同 PR，gate 执行失误）
