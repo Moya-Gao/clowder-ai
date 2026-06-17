@@ -1,6 +1,6 @@
 {
   "$schema": "Intake ledger — tracks which clowder-ai commits have been reviewed for absorption into cat-cafe",
-  "last_reviewed_target_head": "9ac16836b6368948b170c72e736197579d2c8003",
+  "last_reviewed_target_head": "347330fb1780f5b1d3105cab1aa6e23f5765fd27",
   "entries": [
     {
       "pr_number": 90,
