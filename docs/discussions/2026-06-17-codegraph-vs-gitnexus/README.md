@@ -1,4 +1,5 @@
 ---
+feature_ids: [F242]
 doc_kind: research-note
 topics: [codegraph, gitnexus, open-source-teardown, code-graph, mcp, code-intelligence, cat-cafe-internal-capability, comparison]
 created: 2026-06-17
