@@ -40,6 +40,8 @@ const PARALLEL_CHECKS = [
   'check:scripts-ascii-only',
   'check:root-debris',
   'check:dir-size',
+  'check:brand-dictionary',
+  'check:brand-guard',
 ];
 
 const CONCURRENCY = parseConcurrency(process.env.CAT_CAFE_CHECK_CONCURRENCY);

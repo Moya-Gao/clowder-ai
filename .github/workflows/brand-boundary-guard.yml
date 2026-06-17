@@ -1,0 +1,79 @@
+name: Brand Boundary Guard
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  brand-boundary-guard:
+    name: Brand Boundary Guard (F238)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check PR diff for brand-boundary violations
+        run: |
+          # F238 Phase C — CI guard for brand-boundary violations in PR diffs.
+          # Uses brand-dictionary.yaml via brand-dictionary-helper.mjs.
+          #
+          # Checks:
+          # 1. Files classified as manual-port/brand-sensitive should NOT appear
+          #    in PRs unless the PR title contains [intake] or [brand-update].
+          # 2. Warn on home-only terms appearing in PR diff additions.
+
+          CHANGED_FILES=$(git diff --name-only origin/main...HEAD)
+          VIOLATIONS=0
+          WARNINGS=0
+
+          echo "── Brand Boundary Guard (F238) ──"
+          echo ""
+
+          # Check path classifications
+          while IFS= read -r file; do
+            [ -z "$file" ] && continue
+            RESULT=$(node scripts/brand-dictionary-helper.mjs --classify-path "$file" 2>/dev/null || echo '{"classification":"manual-port","risk":"P1","reason":"helper unavailable — fail-closed"}')
+            CLASS=$(echo "$RESULT" | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')); console.log(d.classification)")
+            RISK=$(echo "$RESULT" | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')); console.log(d.risk || '')")
+
+            if [ "$CLASS" = "manual-port" ] || [ "$CLASS" = "brand-sensitive" ]; then
+              # Allow if PR title signals intentional brand/intake work
+              PR_TITLE="${{ github.event.pull_request.title }}"
+              if echo "$PR_TITLE" | grep -qiE '\[(intake|brand-update|boundary)\]'; then
+                echo "ℹ️  $file ($CLASS, $RISK) — allowed by PR title tag"
+              else
+                if [ "$RISK" = "P0" ] || [ "$RISK" = "P1" ]; then
+                  echo "::error file=$file::$file is classified as $CLASS ($RISK) — requires [intake] or [brand-update] tag in PR title"
+                  VIOLATIONS=$((VIOLATIONS + 1))
+                else
+                  echo "::warning file=$file::$file is classified as $CLASS ($RISK) — consider adding [intake] or [brand-update] tag"
+                  WARNINGS=$((WARNINGS + 1))
+                fi
+              fi
+            fi
+          done <<< "$CHANGED_FILES"
+
+          echo ""
+          echo "── Summary ──"
+          echo "  Files checked: $(echo "$CHANGED_FILES" | wc -l | tr -d ' ')"
+          echo "  Violations: $VIOLATIONS"
+          echo "  Warnings: $WARNINGS"
+
+          if [ "$VIOLATIONS" -gt 0 ]; then
+            echo ""
+            echo "::error::Brand boundary violations found. Add [intake] or [brand-update] to PR title if intentional."
+            exit 1
+          fi
+
+          echo ""
+          echo "✅ Brand boundary guard passed."

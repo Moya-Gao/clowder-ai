@@ -265,6 +265,56 @@ path_policies:
     risk: P2
     reason: "Plugin setup copy is public user-facing configuration guidance."
 
+  # ── Legacy patterns migrated from hardcoded intake case statement (F238 Phase C review) ──
+
+  - pattern: "README.md"
+    outbound: sanitize
+    inbound: manual-port
+    risk: P1
+    reason: "Root README is generated from README.opensource; community edits must port to source."
+
+  - pattern: "README.*.md"
+    outbound: sanitize
+    inbound: manual-port
+    risk: P1
+    reason: "Localized READMEs are generated from README.opensource sources."
+
+  - pattern: "docs/**"
+    outbound: sanitize
+    inbound: manual-port
+    risk: P2
+    reason: "Docs receive global sanitizer transforms (cat names, ports, internal paths)."
+
+  - pattern: "scripts/*.sh"
+    outbound: sanitize
+    inbound: manual-port
+    risk: P2
+    reason: "Shell scripts receive global sanitizer transforms."
+
+  - pattern: "packages/api/src/config/**"
+    outbound: sanitize
+    inbound: manual-port
+    risk: P2
+    reason: "Config files carry port remapping, env registry, frontend origin, and governance transforms."
+
+  - pattern: "packages/api/src/domains/leaderboard/leaderboard-service.ts"
+    outbound: sanitize
+    inbound: manual-port
+    risk: P2
+    reason: "Leaderboard service has code-level outbound transforms."
+
+  - pattern: "packages/web/src/lib/mention-highlight.ts"
+    outbound: sanitize
+    inbound: manual-port
+    risk: P2
+    reason: "Mention highlight has code-level outbound transforms."
+
+  - pattern: "packages/web/public/icons/**"
+    outbound: sanitize
+    inbound: brand-sensitive
+    risk: P1
+    reason: "Icon files are brand identity assets."
+
 exceptions:
   - id: code.mcp_namespace
     class: code_identifier

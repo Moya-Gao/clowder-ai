@@ -95,21 +95,79 @@ if ! (
   exit 1
 fi
 
-# main 分支不拦截共享状态 / brand（Root Hygiene 已在上面对所有分支生效）
-if [ "$BRANCH" = "main" ]; then
-  exit 0
+# ── Brand Guard: detect brand-protected staged files ──
+# F238 Phase C: dictionary-driven detection for brand-sensitive AND manual-port paths.
+# Runs on ALL branches including main — brand contamination must be caught everywhere.
+# The dictionary is the single source of truth — both classifications need guarding.
+# Legacy patterns not yet in the dictionary are kept as fallback.
+BRAND_PROTECTED_REGEX='^packages/web/src/app/layout\.tsx$|^packages/web/src/components/(SplitPaneView|ChatContainerHeader)\.tsx$|^packages/web/src/utils/api-client\.ts$|^packages/web/public/icons/'
+if [ -f "$REPO_ROOT/scripts/brand-dictionary-helper.mjs" ]; then
+  # Fail-closed: smoke-test ALL subcommand categories we depend on. If any
+  # returns non-zero, empty, or garbage output, block the commit.
+  # Category 1: --classify-path (classification pipeline)
+  _SMOKE=$(node "$REPO_ROOT/scripts/brand-dictionary-helper.mjs" --classify-path "assets/system-prompts/x" 2>/dev/null) || _SMOKE=""
+  _SMOKE_CLS=$(echo "$_SMOKE" | node -e "try{const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8'));console.log(d.classification)}catch{console.log('BROKEN')}" 2>/dev/null) || _SMOKE_CLS="BROKEN"
+  if [ "$_SMOKE_CLS" != "manual-port" ]; then
+    echo "" >&2
+    echo "🚫 BRAND GUARD: dictionary helper broken — fail-closed." >&2
+    echo "   --classify-path smoke-test returned '$_SMOKE_CLS' (expected manual-port)." >&2
+    exit 1
+  fi
+  # Category 2: --brand-sensitive-patterns / --manual-port-patterns (glob lists)
+  # Cross-validation: convert each pattern to regex (same glob-to-regex below) and
+  # verify at least one matches a known anchor path. This catches empty, garbage,
+  # path-like garbage — any output that doesn't actually match real dictionary paths.
+  # Anchor paths are hardcoded from the dictionary (defense-in-depth; helper unit tests
+  # verify the dictionary-to-output pipeline).
+  DICT_BS=$(node "$REPO_ROOT/scripts/brand-dictionary-helper.mjs" --brand-sensitive-patterns 2>/dev/null) || DICT_BS=""
+  DICT_MP=$(node "$REPO_ROOT/scripts/brand-dictionary-helper.mjs" --manual-port-patterns 2>/dev/null) || DICT_MP=""
+  # glob-to-regex helper (reused below for BRAND_PROTECTED_REGEX)
+  _glob_to_re() { echo "$1" | sed 's/\./\\./g; s/\*\*/__GLOBSTAR__/g; s/\*/[^\/]*/g; s/__GLOBSTAR__/.*/g'; }
+  # Cross-validate brand-sensitive patterns against THREE known anchors from different
+  # glob families. A correct-subset that includes some but drops others fails.
+  _BS_ANCHORS=("packages/web/public/manifest.json" "packages/web/public/icons/logo.png" "packages/web/public/concierge/skins/ragdoll-v1/pet.json")
+  for _anchor in "${_BS_ANCHORS[@]}"; do
+    _BS_HIT=""
+    while IFS= read -r pat; do
+      [ -z "$pat" ] && continue
+      if echo "$_anchor" | grep -qE "^$(_glob_to_re "$pat")$"; then
+        _BS_HIT="yes"; break
+      fi
+    done <<< "$DICT_BS"
+    if [ -z "$_BS_HIT" ]; then
+      echo "" >&2
+      echo "🚫 BRAND GUARD: dictionary helper broken — fail-closed." >&2
+      echo "   --brand-sensitive-patterns doesn't match anchor: $_anchor" >&2
+      exit 1
+    fi
+  done
+  # Cross-validate manual-port patterns against known anchor
+  _MP_MATCH=""
+  while IFS= read -r pat; do
+    [ -z "$pat" ] && continue
+    if echo "assets/system-prompts/test.md" | grep -qE "^$(_glob_to_re "$pat")$"; then
+      _MP_MATCH="yes"; break
+    fi
+  done <<< "$DICT_MP"
+  if [ -z "$_MP_MATCH" ]; then
+    echo "" >&2
+    echo "🚫 BRAND GUARD: dictionary helper broken — fail-closed." >&2
+    echo "   --manual-port-patterns doesn't match known anchor (assets/system-prompts/test.md)." >&2
+    exit 1
+  fi
+  DICT_PATTERNS=$(printf '%s\n%s' "$DICT_BS" "$DICT_MP" | sort -u)
+  while IFS= read -r pat; do
+    [ -z "$pat" ] && continue
+    re=$(_glob_to_re "$pat")
+    BRAND_PROTECTED_REGEX="${BRAND_PROTECTED_REGEX}|^${re}$"
+  done <<< "$DICT_PATTERNS"
 fi
+BRAND_PROTECTED_STAGED=$(git diff --cached --name-only | grep -E "$BRAND_PROTECTED_REGEX" || true)
 
-# 获取暂存区中的共享状态文件
-SHARED_STATE_FILES=$(git diff --cached --name-only | grep -E '^(docs/BACKLOG\.md|cat-config\.json)$')
-
-# ── Brand Guard: detect brand-sensitive staged files ──
-BRAND_SENSITIVE_STAGED=$(git diff --cached --name-only | grep -E '^packages/web/src/app/layout\.tsx$|^packages/web/public/manifest\.json$|^packages/web/src/components/(SplitPaneView|ChatContainerHeader)\.tsx$|^packages/web/src/utils/api-client\.ts$|^packages/web/public/icons/' || true)
-
-if [ -n "$BRAND_SENSITIVE_STAGED" ]; then
+if [ -n "$BRAND_PROTECTED_STAGED" ]; then
   echo "" >&2
-  echo "🛡 BRAND GUARD: brand-sensitive files staged, running validation..." >&2
-  echo "$BRAND_SENSITIVE_STAGED" | sed 's/^/  - /' >&2
+  echo "🛡 BRAND GUARD: brand-protected files staged, running validation..." >&2
+  echo "$BRAND_PROTECTED_STAGED" | sed 's/^/  - /' >&2
   echo "" >&2
   if [ -f "scripts/intake-from-opensource.sh" ]; then
     if ! bash scripts/intake-from-opensource.sh --validate-inbound --from-index >&2; then
@@ -122,6 +180,15 @@ if [ -n "$BRAND_SENSITIVE_STAGED" ]; then
     echo "⚠ Brand validation script not found, skipping guard." >&2
   fi
 fi
+
+# main 分支：Brand Guard 已在上面对所有分支生效；仅跳过 Shared State Guard
+# （共享状态文件 SHOULD be committed on main）
+if [ "$BRANCH" = "main" ]; then
+  exit 0
+fi
+
+# 获取暂存区中的共享状态文件
+SHARED_STATE_FILES=$(git diff --cached --name-only | grep -E '^(docs/BACKLOG\.md|cat-config\.json)$')
 
 if [ -n "$SHARED_STATE_FILES" ]; then
   echo "" >&2

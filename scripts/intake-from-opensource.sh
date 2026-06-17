@@ -97,43 +97,36 @@ is_public_only() {
   esac
 }
 
-# Files with code-level transforms (port remapping, config changes, sanitization)
-# P2 fix: conservative default — docs/** and scripts/** are all manual-port because
-# outbound sanitizer applies global transforms (cat names, ports, internal paths) to
-# ALL docs and shell scripts, not just the specific files listed here.
+# ── Dictionary-driven path classification (F238 Phase C) ──
+# Single source of truth: assets/brand-dictionary.yaml
+# Helper: scripts/brand-dictionary-helper.mjs provides CLI + module interface.
+#
+# Classify a path via the dictionary helper.  Returns the inbound classification
+# from path_policies (manual-port / brand-sensitive / public-only / safe-cherry-pick).
+classify_path() {
+  local path="$1"
+  local result
+  # Fail-closed: if the helper is unavailable, default to manual-port (not safe-cherry-pick).
+  # This ensures P0/P1 paths are never silently downgraded when the helper or js-yaml is missing.
+  result=$(node "$SOURCE_DIR/scripts/brand-dictionary-helper.mjs" --classify-path "$path" 2>/dev/null || echo '{"classification":"manual-port","risk":"P1","reason":"helper unavailable — fail-closed"}')
+  echo "$result" | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')); console.log(d.classification)"
+}
+
 is_manual_port() {
   local path="$1"
-  case "$path" in
-    # Specific known-transformed source files
-    packages/api/src/domains/leaderboard/leaderboard-service.ts) return 0 ;;
-    packages/web/src/lib/mention-highlight.ts) return 0 ;;
-    packages/api/src/config/ConfigRegistry.ts) return 0 ;;
-    packages/api/src/config/env-registry.ts) return 0 ;;
-    packages/api/src/config/frontend-origin.ts) return 0 ;;
-    packages/api/src/config/governance/governance-pack.ts) return 0 ;;
-    # Root public README files are generated from README.opensource* sources.
-    # Community edits must be ported back to those sources, not cherry-picked.
-    README.md|README.zh-CN.md|README.ja-JP.md) return 0 ;;
-    # ALL docs — sanitizer does cat-name / port / internal-path transforms on every .md
-    docs/*) return 0 ;;
-    # ALL scripts — sanitizer does global replacements on all .sh files
-    scripts/*) return 0 ;;
-    # Skills directory — heavily transformed
-    cat-cafe-skills/*) return 0 ;;
-    *) return 1 ;;
-  esac
+  local cls
+  cls=$(classify_path "$path")
+  [ "$cls" = "manual-port" ]
 }
 
 # Everything else = safe to cherry-pick (only cosmetic sanitization applied)
 # packages/api/**, packages/web/**, packages/shared/**, packages/mcp-server/**
 
 # ── Brand-sensitive files (Inbound Guard) ──
-# These files contain brand identity that the outbound sanitizer transforms
-# (Cat Cafe → Clowder AI). Intake must NOT blindly cherry-pick these files.
-# See SKILL.md principle 12-13 for the full Brand Identity Protection List.
-BRAND_SENSITIVE_PATTERNS=(
+# Dictionary-driven + legacy fallback for paths not yet in dictionary.
+# Legacy patterns will be migrated to brand-dictionary.yaml in a follow-up.
+BRAND_SENSITIVE_LEGACY=(
   "packages/web/src/app/layout.tsx"
-  "packages/web/public/manifest.json"
   "packages/web/src/components/SplitPaneView.tsx"
   "packages/web/src/components/ChatContainerHeader.tsx"
   "packages/web/src/utils/api-client.ts"
@@ -141,10 +134,15 @@ BRAND_SENSITIVE_PATTERNS=(
 
 is_brand_sensitive() {
   local path="$1"
-  for pattern in "${BRAND_SENSITIVE_PATTERNS[@]}"; do
+  # Dictionary first
+  local cls
+  cls=$(classify_path "$path")
+  if [ "$cls" = "brand-sensitive" ]; then return 0; fi
+  # Legacy fallback
+  for pattern in "${BRAND_SENSITIVE_LEGACY[@]}"; do
     if [ "$path" = "$pattern" ]; then return 0; fi
   done
-  # Also catch icon files
+  # Icon files
   case "$path" in
     packages/web/public/icons/*) return 0 ;;
   esac
@@ -233,6 +231,7 @@ _brand_file_contains() {
 
 run_brand_validation() {
   _BRAND_VIOLATION_COUNT=0
+  # ── Phase 1: Legacy BRAND_EXPECTATIONS (specific must_contain/must_not_contain rules) ──
   for expectation in "${BRAND_EXPECTATIONS[@]}"; do
     IFS='|' read -r file check_type pattern desc <<< "$expectation"
     case "$check_type" in
@@ -256,6 +255,135 @@ run_brand_validation() {
         ;;
     esac
   done
+
+  # ── Phase 2: Dictionary-driven public-term contamination scan (F238 Phase C) ──
+  # For every brand-protected file (brand-sensitive OR manual-port from dictionary),
+  # check that it does not contain public-side P1 brand terms. Both classifications
+  # need guarding — manual-port paths are often the highest-risk (P0 system prompts).
+  # Fail-closed: smoke-test ALL subcommand categories before trusting output.
+  # If helper doesn't exist, skip Phase 2 (legacy Phase 1 still runs).
+  local public_terms_json=""
+  if [ -f "$SOURCE_DIR/scripts/brand-dictionary-helper.mjs" ]; then
+    # Category 1: --classify-path (classification pipeline)
+    local _smoke _smoke_cls
+    _smoke=$(node "$SOURCE_DIR/scripts/brand-dictionary-helper.mjs" --classify-path "assets/system-prompts/x" 2>/dev/null) || _smoke=""
+    _smoke_cls=$(echo "$_smoke" | node -e "try{const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8'));console.log(d.classification)}catch{console.log('BROKEN')}" 2>/dev/null) || _smoke_cls="BROKEN"
+    if [ "$_smoke_cls" != "manual-port" ]; then
+      echo -e "${RED}  ✗ Dictionary helper broken (classify) — Phase 2 fail-closed${NC}"
+      _BRAND_VIOLATION_COUNT=$((_BRAND_VIOLATION_COUNT + 1))
+      return
+    fi
+    # Category 2: --public-terms (JSON term data)
+    public_terms_json=$(node "$SOURCE_DIR/scripts/brand-dictionary-helper.mjs" --public-terms 2>/dev/null) || public_terms_json=""
+    local _pt_count
+    _pt_count=$(echo "$public_terms_json" | node -e "try{const t=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8'));console.log(t.length)}catch{console.log(0)}" 2>/dev/null) || _pt_count=0
+    if [ "$_pt_count" -lt 1 ] 2>/dev/null; then
+      echo -e "${RED}  ✗ Dictionary helper broken (--public-terms returned empty/garbage) — Phase 2 fail-closed${NC}"
+      _BRAND_VIOLATION_COUNT=$((_BRAND_VIOLATION_COUNT + 1))
+      return
+    fi
+    # Category 3: --manual-port-patterns (glob lists — validated below after fetch)
+  fi
+  if [ -n "$public_terms_json" ]; then
+    # Extract P1 public brand patterns (one per line)
+    local public_p1_patterns
+    public_p1_patterns=$(echo "$public_terms_json" | node -e "
+      const terms = JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8'));
+      for (const t of terms) {
+        if (t.severity === 'P1' && t.termClass === 'brand') {
+          for (const p of t.publicPatterns) console.log(p);
+        }
+      }
+    " 2>/dev/null) || public_p1_patterns=""
+
+    if [ -n "$public_p1_patterns" ]; then
+      # Get list of brand-protected globs from dictionary (both classifications)
+      local bs_raw mp_raw
+      bs_raw=$(node "$SOURCE_DIR/scripts/brand-dictionary-helper.mjs" --brand-sensitive-patterns 2>/dev/null) || bs_raw=""
+      mp_raw=$(node "$SOURCE_DIR/scripts/brand-dictionary-helper.mjs" --manual-port-patterns 2>/dev/null) || mp_raw=""
+      # Category 3 cross-validation: verify pattern output matches THREE known anchors
+      # from different glob families. A correct-subset that hits some but drops others fails.
+      _glob_to_re() { echo "$1" | sed 's/\./\\./g; s/\*\*/__GLOBSTAR__/g; s/\*/[^\/]*/g; s/__GLOBSTAR__/.*/g'; }
+      local _bs_anchors=("packages/web/public/manifest.json" "packages/web/public/icons/logo.png" "packages/web/public/concierge/skins/ragdoll-v1/pet.json")
+      for _anchor in "${_bs_anchors[@]}"; do
+        local _bs_hit=""
+        while IFS= read -r pat; do
+          [ -z "$pat" ] && continue
+          if echo "$_anchor" | grep -qE "^$(_glob_to_re "$pat")$"; then
+            _bs_hit="yes"; break
+          fi
+        done <<< "$bs_raw"
+        if [ -z "$_bs_hit" ]; then
+          echo -e "${RED}  ✗ Dictionary helper broken (--brand-sensitive-patterns misses anchor: $_anchor) — fail-closed${NC}"
+          _BRAND_VIOLATION_COUNT=$((_BRAND_VIOLATION_COUNT + 1))
+          return
+        fi
+      done
+      while IFS= read -r pat; do
+        [ -z "$pat" ] && continue
+        if echo "assets/system-prompts/test.md" | grep -qE "^$(_glob_to_re "$pat")$"; then
+          _mp_match="yes"; break
+        fi
+      done <<< "$mp_raw"
+      if [ -z "$_mp_match" ]; then
+        echo -e "${RED}  ✗ Dictionary helper broken (--manual-port-patterns doesn't match known anchor) — fail-closed${NC}"
+        _BRAND_VIOLATION_COUNT=$((_BRAND_VIOLATION_COUNT + 1))
+        return
+      fi
+      local bs_patterns
+      bs_patterns=$(printf '%s\n%s' "$bs_raw" "$mp_raw" | sort -u)
+
+      if [ -n "$bs_patterns" ]; then
+        # Build a list of existing files matching brand-sensitive patterns
+        local bs_files=""
+        while IFS= read -r glob_pat; do
+          [ -z "$glob_pat" ] && continue
+          if [ "$FROM_INDEX" = true ]; then
+            # Match staged files against glob using the dictionary helper's classify
+            local staged_files
+            staged_files=$(git diff --cached --name-only 2>/dev/null || true)
+            while IFS= read -r sf; do
+              [ -z "$sf" ] && continue
+              local sf_cls
+              sf_cls=$(node "$SOURCE_DIR/scripts/brand-dictionary-helper.mjs" --classify-path "$sf" 2>/dev/null | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')); console.log(d.classification)" 2>/dev/null || true)
+              if [ "$sf_cls" = "brand-sensitive" ] || [ "$sf_cls" = "manual-port" ]; then
+                bs_files="${bs_files}${sf}\n"
+              fi
+            done <<< "$staged_files"
+          else
+            # Working tree: find files matching patterns
+            local found
+            found=$(find . -path "./$glob_pat" -type f 2>/dev/null | sed 's|^\./||' || true)
+            bs_files="${bs_files}${found}\n"
+          fi
+        done <<< "$bs_patterns"
+
+        # Deduplicate and check each file
+        local checked_files=""
+        while IFS= read -r bsf; do
+          [ -z "$bsf" ] && continue
+          # Skip files already checked by BRAND_EXPECTATIONS (avoid double-counting)
+          if echo "${BRAND_EXPECTATIONS[*]}" | grep -q "^${bsf}|"; then continue; fi
+          # Skip brand-validation toolchain files — they reference brand terms as
+          # detection constants, not as content that needs sanitization.
+          case "$bsf" in
+            scripts/intake-from-opensource.sh|scripts/brand-dictionary-helper.mjs|scripts/brand-dictionary-helper.test.mjs) continue ;;
+          esac
+          # Skip already-checked files (dedup)
+          if echo "$checked_files" | grep -qF "$bsf"; then continue; fi
+          checked_files="${checked_files}${bsf}\n"
+
+          while IFS= read -r pub_term; do
+            [ -z "$pub_term" ] && continue
+            if _brand_file_exists "$bsf" && _brand_file_contains "$bsf" "$pub_term"; then
+              echo -e "${RED}  ✗ $bsf: contains public brand term '$pub_term' (dictionary-driven)${NC}"
+              _BRAND_VIOLATION_COUNT=$((_BRAND_VIOLATION_COUNT + 1))
+            fi
+          done <<< "$public_p1_patterns"
+        done <<< "$(echo -e "$bs_files")"
+      fi
+    fi
+  fi
 }
 
 review_proof_contains_head() {

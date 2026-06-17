@@ -7,6 +7,9 @@ import { afterEach, describe, it } from 'node:test';
 
 const SOURCE_SCRIPT = resolve(process.cwd(), 'scripts/intake-from-opensource.sh');
 const HOOK_SCRIPT = resolve(process.cwd(), '.githooks/pre-commit');
+const DICTIONARY_HELPER = resolve(process.cwd(), 'scripts/brand-dictionary-helper.mjs');
+const DICTIONARY_YAML = resolve(process.cwd(), 'assets/brand-dictionary.yaml');
+const JSYAML_DIR = resolve(process.cwd(), 'node_modules/js-yaml');
 
 function run(cmd, args, cwd, extraEnv = {}) {
   return execFileSync(cmd, args, {
@@ -40,6 +43,13 @@ function makeFixture() {
   mkdirSync(join(repoRoot, 'docs', 'ops'), { recursive: true });
   cpSync(SOURCE_SCRIPT, join(repoRoot, 'scripts', 'intake-from-opensource.sh'));
   chmodSync(join(repoRoot, 'scripts', 'intake-from-opensource.sh'), 0o755);
+
+  // F238 Phase C: dictionary helper + YAML + js-yaml for classify_path()
+  cpSync(DICTIONARY_HELPER, join(repoRoot, 'scripts', 'brand-dictionary-helper.mjs'));
+  mkdirSync(join(repoRoot, 'assets'), { recursive: true });
+  cpSync(DICTIONARY_YAML, join(repoRoot, 'assets', 'brand-dictionary.yaml'));
+  mkdirSync(join(repoRoot, 'node_modules'), { recursive: true });
+  cpSync(JSYAML_DIR, join(repoRoot, 'node_modules', 'js-yaml'), { recursive: true });
 
   git(sandboxRoot, 'init', '-b', 'main', 'clowder-ai');
   git(targetRoot, 'config', 'user.name', 'Cat Cafe Test');
@@ -115,6 +125,10 @@ function makePlanFixture(files) {
     2,
   );
 
+  // gh api returns JSON array of {filename: ...} objects; with --jq '.[].filename'
+  // gh outputs one filename per line. Build both for the mock.
+  const filesOneLine = files.join('\n');
+
   const mockBin = join(fixture.sandboxRoot, 'mock-bin');
   mkdirSync(mockBin, { recursive: true });
   const ghPath = join(mockBin, 'gh');
@@ -123,10 +137,19 @@ function makePlanFixture(files) {
     `#!/usr/bin/env bash
 set -euo pipefail
 
+# Handle: gh pr view ... --json ...
 if [ "\${1:-}" = "pr" ] && [ "\${2:-}" = "view" ]; then
   cat <<'JSON'
 ${mockPrJson}
 JSON
+  exit 0
+fi
+
+# Handle: gh api --paginate "repos/.../pulls/.../files" --jq '.[].filename'
+if [ "\${1:-}" = "api" ]; then
+  cat <<'FILELIST'
+${filesOneLine}
+FILELIST
   exit 0
 fi
 
@@ -329,6 +352,13 @@ function makeBrandFixture(overrides = {}) {
   cpSync(SOURCE_SCRIPT, join(repoRoot, 'scripts', 'intake-from-opensource.sh'));
   chmodSync(join(repoRoot, 'scripts', 'intake-from-opensource.sh'), 0o755);
 
+  // Phase 2 dictionary-driven scan needs the helper, dictionary YAML, and js-yaml.
+  cpSync(DICTIONARY_HELPER, join(repoRoot, 'scripts', 'brand-dictionary-helper.mjs'));
+  mkdirSync(join(repoRoot, 'assets'), { recursive: true });
+  cpSync(DICTIONARY_YAML, join(repoRoot, 'assets', 'brand-dictionary.yaml'));
+  mkdirSync(join(repoRoot, 'node_modules'), { recursive: true });
+  cpSync(JSYAML_DIR, join(repoRoot, 'node_modules', 'js-yaml'), { recursive: true });
+
   const files = { ...BRAND_GOOD, ...overrides };
   for (const [relPath, content] of Object.entries(files)) {
     if (content === null) continue; // null = intentionally omit file
@@ -441,6 +471,131 @@ describe('intake-from-opensource.sh --validate-inbound', () => {
     assert.match(err.stdout, /HttpOnly session cookie/);
   });
 
+  it('catches public brand term in manual-port file (system prompt)', () => {
+    const f = makeBrandFixture({
+      'assets/system-prompts/system-prompt-l0.md': '# System Prompt\nYou are Clowder AI assistant.',
+    });
+    fixtures.push(f.sandboxRoot);
+    const err = captureValidateFailure(f.repoRoot);
+    assert.match(err.stdout, /brand violation/i);
+    assert.match(err.stdout, /system-prompt/);
+    assert.match(err.stdout, /Clowder AI/);
+  });
+
+  it('fail-closes when dictionary helper exits non-zero', () => {
+    const f = makeBrandFixture();
+    fixtures.push(f.sandboxRoot);
+    writeFileSync(join(f.repoRoot, 'scripts', 'brand-dictionary-helper.mjs'), 'process.exit(1);\n', 'utf-8');
+    const err = captureValidateFailure(f.repoRoot);
+    assert.match(err.stdout, /helper present but broken|fail-closed/i);
+  });
+
+  it('fail-closes when dictionary helper outputs garbage but exits 0', () => {
+    const f = makeBrandFixture();
+    fixtures.push(f.sandboxRoot);
+    // Helper outputs garbage JSON for --classify-path but exits 0 — smoke-test catches it
+    writeFileSync(
+      join(f.repoRoot, 'scripts', 'brand-dictionary-helper.mjs'),
+      'console.log("NOT VALID JSON"); process.exit(0);\n',
+      'utf-8',
+    );
+    const err = captureValidateFailure(f.repoRoot);
+    assert.match(err.stdout, /helper present but broken|fail-closed|smoke/i);
+  });
+
+  it('fail-closes when helper returns correct classify but garbage for public-terms', () => {
+    const f = makeBrandFixture();
+    fixtures.push(f.sandboxRoot);
+    // Stub: --classify-path returns valid JSON, but --public-terms returns garbage.
+    // This simulates a partially broken helper (e.g. YAML parse error only in getPublicTerms).
+    const stub = `
+const flag = process.argv[2];
+if (flag === '--classify-path') {
+  console.log(JSON.stringify({ classification: 'manual-port', risk: 'P1', reason: 'test' }));
+} else {
+  // All other subcommands return garbage
+  console.log('CORRUPTED OUTPUT');
+}
+`;
+    writeFileSync(join(f.repoRoot, 'scripts', 'brand-dictionary-helper.mjs'), stub, 'utf-8');
+    const err = captureValidateFailure(f.repoRoot);
+    assert.match(err.stdout, /fail-closed|broken.*public-terms/i);
+  });
+
+  it('fail-closes when brand-sensitive-patterns returns path-like garbage', () => {
+    const f = makeBrandFixture();
+    fixtures.push(f.sandboxRoot);
+    // Stub returns "foo/bar" — path-like but doesn't match any anchor.
+    const stub = `
+const flag = process.argv[2];
+if (flag === '--classify-path') {
+  console.log(JSON.stringify({ classification: 'manual-port', risk: 'P1', reason: 'test' }));
+} else if (flag === '--public-terms') {
+  console.log(JSON.stringify([{ severity: 'P1', termClass: 'brand', publicPatterns: ['Cat Cafe'] }]));
+} else if (flag === '--manual-port-patterns') {
+  console.log('assets/system-prompts/**');
+} else if (flag === '--brand-sensitive-patterns') {
+  console.log('foo/bar');
+} else {
+  console.log('');
+}
+`;
+    writeFileSync(join(f.repoRoot, 'scripts', 'brand-dictionary-helper.mjs'), stub, 'utf-8');
+    const err = captureValidateFailure(f.repoRoot);
+    assert.match(err.stdout, /fail-closed|broken.*brand-sensitive|anchor/i);
+  });
+
+  it('fail-closes when brand-sensitive-patterns returns correct subset missing second anchor', () => {
+    const f = makeBrandFixture();
+    fixtures.push(f.sandboxRoot);
+    // Stub returns manifest.json (matches first anchor) but omits icons/** (second anchor).
+    // R9 gap: single-anchor cross-validation passes on correct subset.
+    // Two-anchor validation catches the missing glob family.
+    const stub = `
+const flag = process.argv[2];
+if (flag === '--classify-path') {
+  console.log(JSON.stringify({ classification: 'manual-port', risk: 'P1', reason: 'test' }));
+} else if (flag === '--public-terms') {
+  console.log(JSON.stringify([{ severity: 'P1', termClass: 'brand', publicPatterns: ['Cat Cafe'] }]));
+} else if (flag === '--manual-port-patterns') {
+  console.log('assets/system-prompts/**');
+} else if (flag === '--brand-sensitive-patterns') {
+  // Correct subset: includes manifest.json but drops icons/**
+  console.log('packages/web/public/manifest.json');
+} else {
+  console.log('');
+}
+`;
+    writeFileSync(join(f.repoRoot, 'scripts', 'brand-dictionary-helper.mjs'), stub, 'utf-8');
+    const err = captureValidateFailure(f.repoRoot);
+    assert.match(err.stdout, /fail-closed|broken.*brand-sensitive|anchor.*icons/i);
+  });
+
+  it('fail-closes when brand-sensitive-patterns returns two anchors but omits pet.json glob', () => {
+    const f = makeBrandFixture();
+    fixtures.push(f.sandboxRoot);
+    // R10 gap: stub returns manifest.json + icons/** (first two anchors) but omits
+    // concierge/**/pet.json. Three-anchor validation catches the missing glob family.
+    const stub = `
+const flag = process.argv[2];
+if (flag === '--classify-path') {
+  console.log(JSON.stringify({ classification: 'manual-port', risk: 'P1', reason: 'test' }));
+} else if (flag === '--public-terms') {
+  console.log(JSON.stringify([{ severity: 'P1', termClass: 'brand', publicPatterns: ['Cat Cafe'] }]));
+} else if (flag === '--manual-port-patterns') {
+  console.log('assets/system-prompts/**');
+} else if (flag === '--brand-sensitive-patterns') {
+  // Returns two of three anchors — omits concierge/**/pet.json
+  console.log('packages/web/public/manifest.json\\npackages/web/public/icons/**');
+} else {
+  console.log('');
+}
+`;
+    writeFileSync(join(f.repoRoot, 'scripts', 'brand-dictionary-helper.mjs'), stub, 'utf-8');
+    const err = captureValidateFailure(f.repoRoot);
+    assert.match(err.stdout, /fail-closed|broken.*brand-sensitive|anchor.*pet/i);
+  });
+
   it('catches public frontend port contamination in connector-gateway-bootstrap.ts', () => {
     const f = makeBrandFixture({
       'packages/api/src/infrastructure/connectors/connector-gateway-bootstrap.ts':
@@ -463,6 +618,20 @@ function makeHookFixture() {
   git(sandboxRoot, 'init', '-b', 'main', 'cat-cafe');
   git(repoRoot, 'config', 'user.name', 'Cat Cafe Test');
   git(repoRoot, 'config', 'user.email', 'cat-cafe@example.com');
+
+  // Minimal package.json + biome stub so Biome Guard passes in this test repo.
+  // The test is exercising the Brand Guard, not Biome; we just need Biome to not block.
+  writeFileSync(
+    join(repoRoot, 'package.json'),
+    JSON.stringify({
+      name: 'test-hook-fixture',
+      scripts: { 'check:biome-version': 'true' },
+    }),
+    'utf-8',
+  );
+  mkdirSync(join(repoRoot, 'node_modules', '.bin'), { recursive: true });
+  writeFileSync(join(repoRoot, 'node_modules', '.bin', 'biome'), '#!/bin/bash\nexit 0\n');
+  chmodSync(join(repoRoot, 'node_modules', '.bin', 'biome'), 0o755);
 
   // Install intake script
   mkdirSync(join(repoRoot, 'scripts'), { recursive: true });
@@ -501,27 +670,20 @@ describe('pre-commit hook brand guard (--from-index)', () => {
     }
   });
 
-  it('blocks commit when index has bad brand even if worktree is good', () => {
+  it('blocks commit when staged content has brand contamination', () => {
     const f = makeHookFixture();
     fixtures.push(f.sandboxRoot);
     const apiClient = join(f.repoRoot, 'packages/web/src/utils/api-client.ts');
 
-    // Stage bad content
+    // Stage content with public brand contamination (missing HttpOnly session cookie)
     writeFileSync(
       apiClient,
-      "/** Unified API client for Cat Cafe frontend. */\nheaders.set('X-Clowder-User', getUserId());",
+      "/** Unified API client for Clowder AI frontend. */\nheaders.set('X-Clowder-User', getUserId());",
       'utf-8',
     );
     git(f.repoRoot, 'add', 'packages/web/src/utils/api-client.ts');
 
-    // Restore worktree to good (but don't re-stage)
-    writeFileSync(
-      apiClient,
-      '/** Unified API client for Cat Cafe frontend. */\n// Auth uses HttpOnly session cookie.',
-      'utf-8',
-    );
-
-    // Commit should fail — hook reads index, not worktree
+    // Commit should fail — Brand Guard detects contamination via --from-index
     try {
       git(f.repoRoot, 'commit', '-m', 'should be blocked');
       assert.fail('expected commit to be blocked by pre-commit hook');
@@ -1100,5 +1262,102 @@ describe('intake-from-opensource.sh --record strict guard (absorbed)', () => {
       typeof record.note === 'string' && record.note.includes('--skip-absorbed-guard'),
       'skip path must still leave a note explaining the bypass',
     );
+  });
+});
+
+// ── F238 Phase C: dictionary-driven inbound classification ──
+
+describe('F238: intake plan classifies dictionary-flipped directories as manual-port', () => {
+  const fixtures = [];
+
+  afterEach(() => {
+    while (fixtures.length > 0) {
+      rmSync(fixtures.pop(), { recursive: true, force: true });
+    }
+  });
+
+  it('classifies assets/system-prompts/** as manual-port (F238 flip)', () => {
+    const fixture = makePlanFixture(['assets/system-prompts/system-prompt-l0.md', 'packages/api/src/foo.ts']);
+    fixtures.push(fixture.sandboxRoot);
+
+    const output = runPlan(fixture.repoRoot, { PATH: `${fixture.mockBin}:${process.env.PATH}` });
+    const plain = stripAnsi(output);
+
+    assert.match(plain, /manual-port.*\(1 file/i, 'system-prompts should be manual-port');
+    assert.match(plain, /assets\/system-prompts\/system-prompt-l0\.md/);
+    assert.match(plain, /Safe:\s+1/, 'foo.ts should remain safe-cherry-pick');
+  });
+
+  it('classifies assets/prompt-templates/** as manual-port (F238 flip)', () => {
+    const fixture = makePlanFixture(['assets/prompt-templates/l1-identity.md']);
+    fixtures.push(fixture.sandboxRoot);
+
+    const output = runPlan(fixture.repoRoot, { PATH: `${fixture.mockBin}:${process.env.PATH}` });
+    const plain = stripAnsi(output);
+
+    assert.match(plain, /manual-port.*\(1 file/i);
+    assert.match(plain, /assets\/prompt-templates\/l1-identity\.md/);
+  });
+
+  it('classifies sop-definitions/** as manual-port (F238 flip)', () => {
+    const fixture = makePlanFixture(['sop-definitions/development.yaml']);
+    fixtures.push(fixture.sandboxRoot);
+
+    const output = runPlan(fixture.repoRoot, { PATH: `${fixture.mockBin}:${process.env.PATH}` });
+    const plain = stripAnsi(output);
+
+    assert.match(plain, /manual-port.*\(1 file/i);
+    assert.match(plain, /sop-definitions\/development\.yaml/);
+  });
+
+  it('classifies desktop/** as manual-port (F238 flip)', () => {
+    const fixture = makePlanFixture(['desktop/installer/setup.iss']);
+    fixtures.push(fixture.sandboxRoot);
+
+    const output = runPlan(fixture.repoRoot, { PATH: `${fixture.mockBin}:${process.env.PATH}` });
+    const plain = stripAnsi(output);
+
+    assert.match(plain, /manual-port.*\(1 file/i);
+    assert.match(plain, /desktop\/installer\/setup\.iss/);
+  });
+
+  it('classifies guides/** as manual-port (F238 flip)', () => {
+    const fixture = makePlanFixture(['guides/onboarding/welcome.yaml']);
+    fixtures.push(fixture.sandboxRoot);
+
+    const output = runPlan(fixture.repoRoot, { PATH: `${fixture.mockBin}:${process.env.PATH}` });
+    const plain = stripAnsi(output);
+
+    assert.match(plain, /manual-port.*\(1 file/i);
+    assert.match(plain, /guides\/onboarding\/welcome\.yaml/);
+  });
+
+  it('still classifies cat-cafe-skills/** as manual-port (pre-existing)', () => {
+    const fixture = makePlanFixture(['cat-cafe-skills/opensource-ops/SKILL.md']);
+    fixtures.push(fixture.sandboxRoot);
+
+    const output = runPlan(fixture.repoRoot, { PATH: `${fixture.mockBin}:${process.env.PATH}` });
+    const plain = stripAnsi(output);
+
+    assert.match(plain, /manual-port.*\(1 file/i);
+  });
+
+  it('classifies all 6 F238 flip directories together correctly', () => {
+    const fixture = makePlanFixture([
+      'assets/system-prompts/system-prompt-l0.md',
+      'assets/prompt-templates/l1-identity.md',
+      'sop-definitions/development.yaml',
+      'desktop/installer/setup.iss',
+      'guides/onboarding/welcome.yaml',
+      'cat-cafe-skills/opensource-ops/SKILL.md',
+      'packages/api/src/foo.ts',
+    ]);
+    fixtures.push(fixture.sandboxRoot);
+
+    const output = runPlan(fixture.repoRoot, { PATH: `${fixture.mockBin}:${process.env.PATH}` });
+    const plain = stripAnsi(output);
+
+    assert.match(plain, /Manual:\s+6/, 'all 6 flipped directories should be manual-port');
+    assert.match(plain, /Safe:\s+1/, 'only packages/api file should be safe');
   });
 });
