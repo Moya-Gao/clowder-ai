@@ -1792,6 +1792,16 @@
       "intake_intent_issue": 2346,
       "absorb_pr": 2347,
       "review_proof": "https://github.com/zts212653/cat-cafe/pull/2347#issuecomment-4729249518"
+    },
+    {
+      "pr_number": 944,
+      "target_merge_commit": "f44e7436",
+      "decision": "absorbed",
+      "timestamp": "2026-06-17T12:15:52.000Z",
+      "note": "normal absorbed-lane intake of clowder-ai#944 (Kimi CLI binary fallback). Cross-individual review caught real P1 regression (tempMcpConfig temp dir leak on both-not-found path) which CI 16/16 PASS did not cover — fix B (lazy create) applied + new regression test (17/17 PASS); upstream issue at clowder-ai for source-side fix pending — opus-48 claimed #948 but verified #948 is unrelated desktop CatRegistry issue; fresh issue to be filed as follow-up. --skip-absorbed-guard + CAT_CAFE_INTAKE_BYPASS_BRAND_PREEXISTING=1 needed due to F238 Phase C tooling friction (same as PR #917 entry above): brand validator scans whole repo not intake-diff (34 pre-existing legitimate cat-cafe→clowder-ai context mentions, my 3-file intake-diff is brand-clean per commit body grep); Intent Issue #2343 uses **absorb (safe-cherry-pick)** markdown bold wrapping which breaks run_absorbed_record_guard regex expecting bare absorb token. Follow-up #2348 already tracks both. Cross-individual review trail (self-review API blocks formal state on shared zts212653 maintainer account): 砚砚/gpt-5.5 first-pass on 31846ce (CHANGES_REQUESTED for non-legacy regression test in clowder-ai), 宪宪/opus-4.7 second-pass on bc8a3e8 (APPROVED in clowder-ai), 宪宪/Opus-4.8 cross-thread review on e939be0b5 (REQUEST_CHANGES via comment for tempMcpConfig leak), 宪宪/opus-4.7 fix on 7e5f726b5, 宪宪/Opus-4.8 confirm comment #4729567813 (APPROVED via comment trail).",
+      "intake_intent_issue": 2343,
+      "absorb_pr": 2345,
+      "review_proof": "https://github.com/zts212653/cat-cafe/pull/2345#issuecomment-4729567813"
     }
   ]
 }
