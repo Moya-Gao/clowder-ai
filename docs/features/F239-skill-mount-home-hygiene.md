@@ -8,7 +8,7 @@ created: 2026-06-16
 
 # F239: Skill Mount HOME Hygiene — `sync:skills` 默认改 project-level + 老 symlinks 清理（ADR-025 Phase 5 收尾）
 
-> **Status**: in-progress (Phase A merged 2026-06-16) | **Owner**: 布偶猫/宪宪 (Opus 4.7) | **Priority**: P2
+> **Status**: complete (Phase A + B both merged 2026-06-16) | **Owner**: 布偶猫/宪宪 (Opus 4.7) | **Priority**: P2
 
 ## Why
 
@@ -78,23 +78,23 @@ DRY_RUN=false
 - [x] AC-A3: 新增 targeted test `packages/api/test/governance/sync-skills-cli.test.js`（或扩 setup-skills-sync.test.js）验证：(a) 默认参数下脚本输出不包含 HOME paths (b) `--user` flag 时输出包含 HOME paths — 复核命令：`node --test packages/api/test/governance/sync-skills-cli.test.js`
 - [x] AC-A4: `CONTRIBUTING.md` 已存在的 `pnpm sync:skills` step 更新为 `pnpm sync:skills --user`（contributor 想全局 = opt-in）— 复核：`git diff CONTRIBUTING.md`
 
-### Phase B（老 symlinks cleanup）
+### Phase B（老 symlinks cleanup）— ✅ 2026-06-16 (PR #2328 squash `3570d311b`)
 
-- [ ] AC-B1: 新增 `scripts/clean-stale-skill-links.sh` + `package.json` 注册 `clean:stale-skill-links` script — 复核：`pnpm clean:stale-skill-links --help` 输出 usage
-- [ ] AC-B2: 默认 `--dry-run` 模式：扫描 4 个 provider HOME skills 目录，列出"target 是 cat-cafe-skills/"的候选清理项，不删除任何文件 — 复核：在 staging 环境 `pnpm clean:stale-skill-links` 后 `ls -la ~/.claude/skills/` 未变
-- [ ] AC-B3: `--apply` 模式：删除候选 stale symlinks；非 symlink / target 是用户自有路径的 entry 必须保留不动 — 复核：staging tmp dir 模拟 mix of stale + user-owned symlinks，运行 `--apply` 后只 stale 被删
-- [ ] AC-B4: targeted test 验证扫描 + 删除逻辑用 tmp 目录隔离（不动真实 ~/.claude/）— 复核：`node --test packages/api/test/governance/clean-stale-skill-links.test.js`
-- [ ] AC-B5: `setup.sh` 末尾追加检测：扫描 HOME-level skill 目录是否有 cat-cafe-skills/ 指向的 stale link，count > 0 时打印 hint，**不自动跑** cleanup — 复核：staging 模拟 stale state，跑 setup.sh，验证 hint 出现且 symlinks 未被自动删
+- [x] AC-B1: 新增 `scripts/clean-stale-skill-links.sh` + `package.json` 注册 `clean:stale-skill-links` script — 复核：`pnpm clean:stale-skill-links --help` 输出 usage
+- [x] AC-B2: 默认 `--dry-run` 模式：扫描 4 个 provider HOME skills 目录，列出"target 是 cat-cafe-skills/"的候选清理项，不删除任何文件 — 复核：在 staging 环境 `pnpm clean:stale-skill-links` 后 `ls -la ~/.claude/skills/` 未变
+- [x] AC-B3: `--apply` 模式：删除候选 stale symlinks；非 symlink / target 是用户自有路径的 entry 必须保留不动 — 复核：staging tmp dir 模拟 mix of stale + user-owned symlinks，运行 `--apply` 后只 stale 被删
+- [x] AC-B4: targeted test 验证扫描 + 删除逻辑用 tmp 目录隔离（不动真实 ~/.claude/）— 复核：`node --test packages/api/test/governance/clean-stale-skill-links.test.js`
+- [x] AC-B5: `setup.sh` 末尾追加检测：扫描 HOME-level skill 目录是否有 cat-cafe-skills/ 指向的 stale link，count > 0 时打印 hint，**不自动跑** cleanup — 复核：staging 模拟 stale state，跑 setup.sh，验证 hint 出现且 symlinks 未被自动删
 
 ## 需求点 Checklist
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | "那我觉得这两个都得做？"（CVO 2026-06-16 16:17 UTC，ack 两个都做） | AC-A1, AC-A2, AC-B1, AC-B2, AC-B3 | command verify + targeted tests | [ ] |
-| R2 | ADR-025 第 3 条：personal/external skills only on user-level | AC-A1, AC-A2 | `~/.claude/skills/` snapshot before/after | [ ] |
-| R3 | ADR-025 第 8 条：旧用户级 symlinks → 清理提示（不自动删除） | AC-B2, AC-B3, AC-B5 | dry-run default + setup.sh hint | [ ] |
-| R4 | dev workflow 不 broken（contributor 仍可 opt-in 全局） | AC-A2, AC-A4 | `pnpm sync:skills --user` + CONTRIBUTING update | [ ] |
-| R5 | 不误删 user-owned skills | AC-B3 | tmp dir mock + targeted test | [ ] |
+| R1 | "那我觉得这两个都得做？"（CVO 2026-06-16 16:17 UTC，ack 两个都做） | AC-A1, AC-A2, AC-B1, AC-B2, AC-B3 | command verify + targeted tests | [x] |
+| R2 | ADR-025 第 3 条：personal/external skills only on user-level | AC-A1, AC-A2 | `~/.claude/skills/` snapshot before/after | [x] |
+| R3 | ADR-025 第 8 条：旧用户级 symlinks → 清理提示（不自动删除） | AC-B2, AC-B3, AC-B5 | dry-run default + setup.sh hint | [x] |
+| R4 | dev workflow 不 broken（contributor 仍可 opt-in 全局） | AC-A2, AC-A4 | `pnpm sync:skills --user` + CONTRIBUTING update | [x] |
+| R5 | 不误删 user-owned skills | AC-B3 | tmp dir mock + targeted test | [x] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -137,6 +137,7 @@ DRY_RUN=false
 |------|------|
 | 2026-06-16 | 立项（CVO ack via 16:17 UTC "都得做"），Phase 5 part 1 已完成 via cat-cafe#2323 |
 | 2026-06-16 | Phase A merged (PR #2325, squash `6228ee96e`) — 5 rounds cloud review + 砚砚 LL-072 final review approved。新增 worktree-source / dir-mount classification / write-boundary guards 边角 case 收口 |
+| 2026-06-16 | Phase B merged (PR #2328, squash `3570d311b`) — 砚砚 round 1 P1 (set -e + relative dangling) + cloud round 1-2 P2 (setup.sh main-repo source / cleanup multi-source) 全 close。F239 完成，ADR-025 第 3 + 第 8 条 fully shipped |
 
 ## Review Gate
 
