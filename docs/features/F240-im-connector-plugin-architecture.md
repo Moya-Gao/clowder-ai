@@ -84,3 +84,7 @@ created: 2026-06-17
 
 - 2026-06-17 CVO signoff F240 锚点（纠正 F230/F231 撞号），confirm「ok」。
 - 2026-06-17 CVO 将 RCE 边界决策委托 maintainer 猫提给对方铲屎官权衡（"他们的铲屎官更懂这些"）。
+- 2026-06-17 作者 rebase 后 re-review（PR head 缩到 109 文件 / +12596，CI 全绿）。**4 个主要点全部响应**：✅ F240 re-anchor（title/body/doc）✅ strip OpenCode .ts ✅ split weixin #925 ✅ reject redacted action credentials。
+  - **🔴 残留 P1（实锤 "revert #915" 怀疑）**：strip 不彻底 —— `cat-template.json:735` 仍把 OpenCode `features.sessionChain` 关成 false + 本 PR **删除了 clowder#915 守护测试**（`it('opencode breed has sessionChain enabled ...')`，diff ~L7804）。后果：新 OpenCode 猫 context-fill handoff 不触发。要求恢复 sessionChain + 保留测试。
+  - **🟡 2 个 auth 条件仍未做**：install 端点只有 `requireSessionIdentity`，无 owner-gate（对比 `capabilities.ts` requireConfiguredOwner）、无 CSRF/origin 校验。已作为外部安装器 merge 前置提给作者。
+  - re-review 已发 PR comment（issuecomment-4732076189）；verdict = 结构性 blocker 已清、剩 🔴P1 必修 + 🟡 两条件，修完再过一遍。
