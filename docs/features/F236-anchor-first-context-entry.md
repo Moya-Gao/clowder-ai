@@ -77,7 +77,12 @@ spike（2026-06-16，C0a Read / C0b Grep ✅ 实证）证明 cc PostToolUse hook
     - **深路（output anchor）**：需 codex/agy 有 cc PostToolUse 等价机制、能改**它们模型侧**的 tool_result
     - ⚠️ **核心未知（深路必验）**：我们的 transform 层改的是 **cat-cafe 侧存储/展示**（≠ codex/agy 模型 context，省不到它们 token，且那侧 F148 已覆盖）——深路要省 codex/agy 模型 token，**必须它们自己有 output hook**，不是我们 transform 能代劳。（修正：前文"transform 可改"指 cat-cafe 侧，非模型侧）
     - opencode：transformer 不发 tool_result，锁定
-- [ ] AC-C0d (spike) pending: 验 codex/agy CLI 是否有等价 cc PostToolUse 的 output 改写机制（能改它们模型侧 tool_result）；无则深路不通、只剩浅路
+- [~] AC-C0d (spike) 文档查证完成（2026-06-17，实测留 Phase C）：**codex/agy 都有 output hook**，能力分级 cc > agy > codex
+    - **codex**（`.codex/hooks.json` PostToolUse，`decision:block`+`reason` 替换 tool result）：覆盖 Bash/apply_patch/MCP，**不覆盖 file-read 工具** → 深路对 codex 限 shell（读文件 hook 不生效）
+    - **agy**（`hooks.json` PostToolCallHook）：覆盖 built-in tools（含 `view_file` 读文件！），`ToolResult.result` 为 string → 深路对 agy 最可行（最接近 cc）
+    - **修正**：spike A 从"rtk 用 rules.md"误推"agy 没 hook"——官方文档推翻（agy 有 PostToolCallHook，rtk 只是没用它）。又一次旁证脑补被查证纠偏
+    - **实测（nonce probe）留 Phase C**：cc 已证 PostToolUse output replace 范式真实（核心打底）+ codex/agy hook/config 已查到；codex 实测烧贵配额（缅因猫额度），spike 阶段 cost>边际价值，Phase C 实现期实测确认
+    - 来源：codex `developers.openai.com/codex/hooks` / agy `antigravity.google/docs/hooks`（checked 2026-06-17）
 - [ ] AC-C4: 双边 eval 对 cc 工具同样适用（Read drill 净收益 = 省 − drill 成本）
 
 ## Eval / Tracking Contract（F192 / ADR-031）
