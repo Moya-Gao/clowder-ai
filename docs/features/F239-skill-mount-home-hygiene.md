@@ -8,7 +8,7 @@ created: 2026-06-16
 
 # F239: Skill Mount HOME Hygiene — `sync:skills` 默认改 project-level + 老 symlinks 清理（ADR-025 Phase 5 收尾）
 
-> **Status**: complete (Phase A + B both merged 2026-06-16) | **Owner**: 布偶猫/宪宪 (Opus 4.7) | **Priority**: P2
+> **Status**: closed (Phase A + B both merged 2026-06-16) | **Owner**: 布偶猫/宪宪 (Opus 4.7) | **Priority**: P2
 
 ## Why
 
