@@ -47,11 +47,16 @@ created: 2026-06-17
 
 ## Blocking / Open Questions（intake 前必须解决）
 
-1. **🔴 RCE 外部插件信任边界（产品安全决策 — 委托对方 CVO 权衡）**
+1. **🟢 RCE 外部插件信任边界（resolving — operator-trust 模型接受，2 条件待补）**
    - 机制：上传 tar.gz → 解出 `index.js`（`IMConnectorPlugin` default export）→ `im-connector-loader` 动态 `import()` 进 API 进程**同权运行**。
    - 已有 guard（competent）：`isValidConnectorId` 防遍历、`realpathSync`、`requireSessionIdentity`（session cookie）、文件大小限、tar 解 temp 再 rename。
-   - **守不住的**：index.js 本身能做任意 fs/网络/exec/读密钥。这是"认证用户 RCE"，是 F202 明确 Phase 1 **不做**的 remote/local package trust 边界。
-   - **处置**：CVO（landy）决定不由我们单方拍，**把顾虑提给 PR 作者/对方 CVO 权衡**（他们更懂内网部署场景）。我方推荐：先合"内置 connector manifest 化"+ #925，外部 RCE 安装器单独走 F202 加固（sandbox/签名/审计）后再说。
+   - **作者 吴浪（@mindfn）2026-06-17 反驳（成立）**：认证 operator 上传风险 connector package ≈ 他自己装风险 skill / 配置风险 MCP / 跑风险 CLI —— **同一信任类，不是新攻击面**；sandbox 当前阶段非必须；签名校验留到运营**插件市场**阶段（防不可信分发）才需要。这与家规 `empirical_capability_over_first_principles`（demonstrated operator-trust 模型 > first-principles caution）一致。**我方收回"defer 整个外部安装器"。**
+   - **但他的论证有两个载重假设，是接受它的前提条件（merge AC）**：
+     - **① owner-gate**：install 端点当前 `requireSessionIdentity` 只要 *一个* session，**未见 owner 匹配**（对比 `capabilities.ts` 的 `requireConfiguredOwner: true`）。单用户部署无碍；任何共享/多用户部署下，任意登录 session 都能装同权执行插件 → 须 owner-gate + fail-closed。
+     - **② CSRF**：cookie-authed POST 触发代码安装，是 CSRF 可达向量；而"本地改 skill 文件"不是 —— 这是 operator-trust 等价论证**唯一的缺口**（投递向量 ≠ 内容信任）。须确认 session 层是否强制 same-origin；否则补 origin check / CSRF token。
+   - **作者自指方向对**：现在该 harden 的是 interface I/O + manifest schema 校验（action 输入 / config field 值 / manifest 结构防崩溃-提权），不是 sandbox 代码。
+   - **签名 → marketplace 阶段**：同意 defer，但**显式记录为分阶段决策**（别静默跳过，marketplace 启动时必做）。
+   - **处置**：决策 converging（CVO 待 final concur）。接受 operator-trust，外部安装器可当前阶段落地，gated on 条件 ①② + 数据校验。
 
 2. **🔴 夹带 5 个 out-of-scope P1 回归（必须剥离）**
    - 云端 Codex 在非 IM connector 文件标 P1：`opencode-event-transform.ts:101`（drop opencode step-finish usage）、`invoke-single-cat.ts:2341/1983/2072`（usage/agent_loop seal/unknown-model context fallback）、`context-window-sizes.ts:33`（provider-prefixed model 归一化）。
