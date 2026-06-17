@@ -65,23 +65,22 @@ pnpm runtime:init
 - 基线：`origin/main`
 - 自动执行 `pnpm install`
 
-### 2) 同步运行态到远端 main
-
-```bash
-pnpm runtime:sync
-```
-
-默认使用 `merge --ff-only`，拒绝非快进合并。  
-若 API 端口正在占用，会拒绝同步（防止运行中硬切版本）。
-
-### 3) 从运行态 worktree 启动开发服务
+### 2) 从运行态 worktree 启动开发服务
 
 ```bash
 pnpm runtime:start
 ```
 
-默认先执行一次同步再启动。  
-若检测到 API 已在运行，会跳过本次预同步并直接重启服务（避免运行中硬切版本）。
+**Runtime 契约：passive 冻结 · 单一入口 · explicit restart only**（ADR-039）
+
+`pnpm start`（或 `pnpm runtime:start`）是 runtime 唯一入口，内部完整跑：
+1. `git pull` 同步 origin/main
+2. Rebuild stale dist（shared / mcp / web）
+3. spawn API + Web 进程（**non-watch 模式**——runtime 不主动响应 src 变化）
+
+Runtime 不再监听 main src jitter 自动重启。restart 只在用户显式 `pnpm start` 时发生。  
+若检测到 API 已在运行，会跳过预同步避免运行中硬切版本（先 `pnpm stop` 再 `pnpm start`）。
+
 传递 `start-dev` 参数：
 
 ```bash
@@ -96,7 +95,7 @@ pnpm start
 pnpm start -- --quick
 ```
 
-### 4) 查看运行态状态
+### 3) 查看运行态状态
 
 ```bash
 pnpm runtime:status

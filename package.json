@@ -22,7 +22,6 @@
     "f210:agy-profile-smoke": "pnpm --filter @cat-cafe/api run smoke:f210-agy-profiles",
     "alpha:test": "bash ./scripts/alpha-worktree.test.sh",
     "runtime:init": "./scripts/runtime-worktree.sh init",
-    "runtime:sync": "./scripts/runtime-worktree.sh sync",
     "runtime:start": "./scripts/runtime-worktree.sh start",
     "runtime:status": "./scripts/runtime-worktree.sh status",
     "redis:user:start": "./scripts/user-redis.sh start",
