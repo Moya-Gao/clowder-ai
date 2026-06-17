@@ -121,7 +121,7 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 
 ### Phase C（养熟循环）
 - [x] AC-C1: 关系信号→capsule/primer 更新提议路径落地（三段管道 KD-8，KD-12 分层写入制），至少 1 次真实更新走完全程（跑在白名单采集 + runtime-neutral trigger 真骨架上，非 L0 反射脚手架）（✅ PR #2296 merged 2026-06-15：profile-update proposal store/routes/tool/card + approve/reject write path + provenance audit + settled-card recovery；`pnpm gate` passed at `be6185ad`）
-- [ ] AC-C2: 正向轨迹沉淀有真实样本（≥1 条"做对的时刻"进 primer/capsule，对照"只记检讨书"基线）
+- [x] AC-C2: 正向轨迹沉淀有真实样本（≥1 条"做对的时刻"进 primer/capsule，对照"只记检讨书"基线）（✅ 2026-06-17 proposal_mqg11vxc8ypclgv4：3 条正向轨迹 opus-primer.md + CVO approve + provenance 归档；但 CVO 指出 C1 merged 2 天零有机使用 → C3 必须做不可后置）
 - [ ] AC-C3: 采集白名单（KD-9）写成机器可检查的数据契约（lint/test 守护禁 classifier 采集源）+ 蒸馏 trigger runtime-neutral（KD-10，不依赖 provider Stop hook，codex/gpt52 path 有 fallback 覆盖）
 
 ## Dependencies
@@ -199,7 +199,7 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 | B1-B2 | ✅ 全部完成 | 2026-06-11 三棒 + CVO 签字 |
 | C1 | ✅ merged | PR #2296 (`be6185ad`) |
 | B3 | ✅ 完成 | `compile-system-prompt-l0.test.mjs` 4 项 compile-level regression |
-| **C2** | ❌ 待做 | — |
+| C2 | ✅ 完成 | `proposal_mqg11vxc8ypclgv4` CVO approved，但 2 天零有机使用 → C3 必须 |
 | **C3** | ❌ 待做 | — |
 
 ### Wave 2（当前，不需额外 spec）
@@ -234,9 +234,10 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 - propose→approve 周期、写入质量、画像漂移检测
 - 依赖 C3 自动采集产生足够数据
 
-### CVO 待决
+### CVO 裁定（2026-06-17）
 
-- **F231 terminal state**：C1（manual propose 入口）+ C2（跑通一次循环）是否构成可接受的 Phase C 终态？或必须完成 C3（自动采集管道）？48 判断：C1 manual-only 可作 bounded pilot 终态（KD-11），C3 可开新 Phase 或并入后续 feat
+- **C3 必须做，不可后置**。证据：C1 merged 2 天（2026-06-15→17），除 C2 手动测试外零有机使用。wakeup entry 写了但没有猫自然触发。CVO 原话："既然这么几天 c2 做完没人用只能说明你这个功能不在大猫猫们的认知路径上"。harness = 软 + 硬 + eval，缺 eval + 缺自动 trigger = dead code on shelf。
+- **eval 也必须做**——不测量激活率，下一个功能还是同样命运。eval 指标：propose 调用频次 / approve-reject ratio / primer 被 L0 引用次数
 
 ## Links
 
