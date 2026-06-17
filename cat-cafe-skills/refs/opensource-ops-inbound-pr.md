@@ -85,7 +85,7 @@
   - Reframing 卡结论写入 Intake Intent Issue（B3 Step 0）的补充段落
 - [ ] **③ 质量**（方向 + Reframing 通过后才审）：
   - CI / 测试通过
-  - 代码规范（`pnpm check` + `pnpm lint`）
+  - 代码规范（`pnpm check` + `pnpm lint`；**code-intake 必须 `pnpm gate`**——见 Step 2.5 Validation 硬要求）
   - 无安全隐患（敏感路径、hardcoded secrets）
 - [ ] **④ Intake 预判**：
 
@@ -362,7 +362,8 @@ pnpm --filter @cat-cafe/web exec vitest run \
 **`## Validation` 段落硬要求（Step 2.5 reviewer 必查）：**
 
 - **路径必须从 repo root 可裸跑**——脚本写真实相对路径（例：`packages/api/scripts/with-test-home.sh`），不能写不存在的 `./scripts/with-test-home.sh` 之类的快捷写法
-- 列出 absorb PR **实际跑过**的命令，按依赖顺序：build → targeted API test → targeted web test；**范围跟着 PR diff**——只改 API 的 PR 不写 web 段，只改 docs/skill 的 PR 可只列 `pnpm check`
+- 列出 absorb PR **实际跑过**的命令，按依赖顺序：build → targeted API test → targeted web test → **`pnpm gate` 收尾**；**范围跟着 PR diff**——只改 API 的 PR 不写 web 段，只改 docs/skill 的 PR 可只列 `pnpm check`
+- **多文件 / 跨 package code intake 必须跑 `pnpm gate`（含 `check:settings-primitives` / `check:dir-size` / `check:source-hygiene` 等 26 个 PARALLEL_CHECKS）**——单跑 `pnpm check` 不够：biome 失败会 fast-fail abort 后续 PARALLEL_CHECKS（教训 #2347：mindfn 的 129 个 restricted Tailwind class 漏入 main，因为我只跑 `pnpm check` 且 biome 撞了 pre-existing `review-feedback-thread-rotation.test.js` format error，settings-primitives 永远没机会跑）
 - 任何 `pnpm test` / `pnpm check` 一笔糊弄、或"CI 已绿"代替命令的，不通过 Step 2.5
 - targeted 测试只列改动相关的文件路径，不要复制全量 test 命令；env wrapper（如 `with-test-home.sh`、`CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT=1`）必须显式列出
 - pre-rebase / post-rebase 验证有差异时分段列（pre-rebase 跑过的 full gate vs. post-rebase 的 targeted code gate）
@@ -387,6 +388,7 @@ pnpm --filter @cat-cafe/web exec vitest run \
 - [ ] cat-cafe main 已有行为没有被 upstream 旧版本覆盖回退；必要时有 zero-diff 对照、源码守卫测试或 targeted regression test
 - [ ] Brand Guard 文件（如有）已走 Step 1.5 手工 diff-merge
 - [ ] **Validation 段落命令裸跑可复现**：reviewer 必须在 PR worktree 复跑**最高风险 validation 链的一条终端命令及其声明的前置依赖**（典型：先跑前置 `pnpm --filter @cat-cafe/api run build` 或 env wrapper，再跑 high-risk 文件相关的 targeted test）；只跑 `pnpm check` / 只跑 build 而不跑下游 targeted test = 不算复现，不放行。docs/skill-only PR 例外：可仅复跑 `pnpm check`（教训：cat-cafe#1489）
+- [ ] **多文件 / 跨 package code intake = `pnpm gate` 必跑**：单跑 `pnpm check` 不够——biome 撞 pre-existing fail 会 abort 后续 26 个 PARALLEL_CHECKS（含 `check:settings-primitives`、`check:dir-size`、`check:source-hygiene`）。`pnpm gate` 走 `pre-merge-check.sh` = build + tsc + targeted test + lint + `pnpm check` 全套（教训：cat-cafe#2347 intake 漏 129 个 restricted Tailwind class，opus-48 post-merge 投诉才发现）
 - [ ] Review 覆盖 absorb PR **当前 HEAD SHA**；如果 review 后又 rebase / fixup，reviewer 已显式确认“放行延续到新 SHA”或已重新 review
 
 **不过这个 gate = 不能 Record + Advance。** Reviewer 放行后才能执行 Step 3 (Record)。
