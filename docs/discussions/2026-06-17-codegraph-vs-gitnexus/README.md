@@ -354,6 +354,29 @@ codegraph 自己知道这个困境：`src/installer/instructions-template.ts` �
 
 > 注：以上为机制判断（LSP 类型感知 vs codegraph tree-sitter 启发式）；要硬数据可现场跑 LSP find-references vs codegraph callers 对同一符号对比。
 
+## 16. 陌生 repo 实证（2026-06-17）：胜负手难点不在建图速度，在约定识别 + 消歧
+
+铲屎官升维：胜负手是"猫进**任何陌生 repo** 零配置建约定层关联图顺藤摸瓜"（不是 cat-cafe 专属工具）。拿 deer-flow（带 FastAPI backend 的陌生 Python repo，500 Python + 300 TS，我们没碰过）实证。
+
+### 16.1 建图速度：不是问题
+- 零配置 `codegraph init` → **6.6 秒**建好图（14,998 节点 / 39,200 边 / 32MB）。秒级，胜负手要的速度有了。
+
+### 16.2 约定层识别：现成 codegraph 在陌生 repo 全漏（关键）
+- deer-flow 有 **105 个 FastAPI route**（grep `@router.get/post` 实测，`backend/app/gateway/routers/`）。
+- codegraph 认出 **0 个 route 节点**（cat-cafe 认出 435）。
+- **framework-aware 依赖框架写法精确匹配——陌生 repo 写法稍异（APIRouter 模式）就全漏。** 这是"进陌生 repo 建约定图"的真正难点：约定识别脆。
+
+### 16.3 跨域消歧：启发式 name-matching 误关联
+- `impact AuthProvider` → 50 affected，但把 **frontend `AuthProvider.tsx`（React function）和 backend `providers.py`（Python class）混为一谈**——同名跨语言误关联，impact 失真（改后端 auth，它说前端 `AuthLayout` 受影响，错）。
+- 印证 §15：codegraph 是启发式 name-matching、不是类型感知。`callers UserRepository`（3 个，都 backend/auth）相对准（单一来源）。
+
+### 16.4 对胜负手 + 内生 spike 的实证指导
+1. **胜负手不在"建图快"（codegraph 6.6s 已证可行），在"约定识别可靠 + 跨域消歧准确"——这俩 codegraph 都没解好**（陌生 repo route 0/105、跨语言 name-collision）。
+2. **内生 Code Graph Layer 的核心挑战 = 可靠约定抽取 + scope 消歧**，不是抄 codegraph 的脆弱 framework matcher。这才是护城河难点（难，做好了才是壁垒）。
+3. 该学 codegraph：确定性图谱工程骨架（node:sqlite + 图遍历 + 秒级建图）。要超越：framework-aware（陌生 repo 脆）+ name-matching（跨域混）。
+
+**结论**：铲屎官升维对——胜负手是"进陌生 repo 建约定图"。但实证暴露真难点：**建图易、约定识别 + 消歧难**。这恰好定义了内生 spike 的第一块硬骨头。
+
 ---
 
-*拆解 by opus-48（宪宪），基于 `open-source-teardown` skill。GitNexus 一侧引用 codex-gpt55+opus-47 拆解。§12 代码仓复杂度 + live eval 计划；§13 能力唤醒走压缩免疫层；§14 live PoC 实测；§15 callers/impact vs LSP 价值定位修正。[宪宪/Opus-4.8🐾]*
+*拆解 by opus-48（宪宪），基于 `open-source-teardown` skill。GitNexus 一侧引用 codex-gpt55+opus-47 拆解。§12 代码仓复杂度 + live eval 计划；§13 能力唤醒走压缩免疫层；§14 live PoC 实测；§15 callers/impact vs LSP 价值定位修正；§16 陌生 repo 实证（胜负手难点=约定识别+消歧）。[宪宪/Opus-4.8🐾]*
