@@ -310,6 +310,33 @@ codegraph 自己知道这个困境：`src/installer/instructions-template.ts` �
 - **但"何时想起用"的唤醒反射**进 L0 §8 能力唤醒指南（"改 MCP schema 找消费方 → `code_impact`" 这类场景触发）+ session hook——**压缩免疫**，压缩后猫依然记得唤醒。
 - 这是 codegraph/gitnexus **给不了用户的**（它们没 harness 控制权），也是 eval 完该**内生而非长期用它**的最硬理由之一：让能力常驻认知路径，对我们是 native 主场，对它们是逆水行舟。
 
+## 14. Live PoC 实测结果（2026-06-17，worktree 隔离）
+
+铲屎官点头后，在隔离 worktree（`cat-cafe-codegraph-poc`，2,405 TS 文件）实跑 codegraph v1.0.1（独立目录装 CLI，不碰全局 / cat-cafe / md），index 我们自己的代码实测。
+
+### 14.1 索引规模
+- 4,026 文件 / **44,954 节点 / 177,425 边** / DB **207MB**（node:sqlite WAL，确认 §1 判断）
+- 分钟级完成；识别 **435 个 route 节点**（framework-aware routes 在我们代码上真生效）
+
+### 14.2 噪音边界实锤（§12.3 预警兑现）
+- **1,378 个 generated `.js` 被当源码 index = 11,825 节点 = 总量的 26%**。内生版必须排除，否则四分之一索引是编译产物噪音。
+
+### 14.3 能力实测：确定性工具是金子，explore 在大 monorepo 要调
+
+| 工具 | 实测 | 判断 |
+|---|---|---|
+| **callers**（图遍历）| `parseA2AMentions` → 9 callers 全对：真实调用方 `collectCallbackContentRoutingExit`/`runRoutingGuardRemedial` + 5 个 `.test.js` | ✅ 精确，零跨域跑偏 |
+| **impact**（图遍历）| `MultiMentionOrchestrator` → 45 affected：类方法 + `callback-multi-mention-routes` 消费方 | ✅ 精确，blast radius 合理 |
+| **explore**（PageRank）| 找对核心符号（`parseA2AMentions`/`dispatchToTarget` + blast radius + ⚠️测试覆盖标注），**但 PageRank 相关性跨域跑偏**：问后端 a2a 路由，开头塞了一堆无关前端 UI 渲染链（`ActivityBar→ThemeMenu`）；召回过广 204 符号/102 文件 | ⚠️ 核心真实，但精度被 monorepo + .js 噪音拖累 |
+
+### 14.4 对内生 Code Graph Layer 的实证指导
+1. **优先内生确定性图遍历（callers/impact）**——直接覆盖 opus-47 §10.3 "改 X 找消费方 / 受影响测试"场景，精度高、无跑偏。这是最该学、最稳的内核。
+2. **explore 的 personalized PageRank 谨慎**——它是 codegraph 的创新，但在前后端混合大 monorepo 上跨域扩散。内生版若做，必须先解决 scope 限定（按 package / 前后端分 index）+ 排 .js 噪音。
+3. **必须排除 generated `.js`**（26% 噪音）；测试 `.test.js` 被算 caller 是 feature（pre-merge 找受影响测试，留着）。
+4. node:sqlite + 207MB 对我们规模可接受。
+
+**结论**：live PoC 兑现了价值——纸面拆解看不出"explore 在 monorepo 跑偏 + callers/impact 是真金"。codegraph 最值得学的是**确定性内核**（印证 §0），不是它最"智能"的 PageRank explore。下一步可选：① 排 .js 重 index 看 explore 是否改善；② 同样 PoC 一遍 GitNexus 做对比；③ 直接进入内生 spike 设计（确定性图遍历优先）。
+
 ---
 
-*拆解 by opus-48（宪宪），基于 `open-source-teardown` skill。GitNexus 一侧引用 codex-gpt55+opus-47 拆解。§12 代码仓复杂度 + live eval 计划；§13 设计原则：能力唤醒走压缩免疫层。[宪宪/Opus-4.8🐾]*
+*拆解 by opus-48（宪宪），基于 `open-source-teardown` skill。GitNexus 一侧引用 codex-gpt55+opus-47 拆解。§12 代码仓复杂度 + live eval 计划；§13 能力唤醒走压缩免疫层；§14 live PoC 实测。[宪宪/Opus-4.8🐾]*
