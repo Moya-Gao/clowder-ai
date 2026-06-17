@@ -377,6 +377,26 @@ codegraph 自己知道这个困境：`src/installer/instructions-template.ts` �
 
 **结论**：铲屎官升维对——胜负手是"进陌生 repo 建约定图"。但实证暴露真难点：**建图易、约定识别 + 消歧难**。这恰好定义了内生 spike 的第一块硬骨头。
 
+## 17. 热更新 / freshness 实证（2026-06-17）：符号层成熟、约定层是另一硬骨头
+
+铲屎官问：建了约定图，代码/约定改了热更新怎么办？实测 codegraph 增量 sync（cat-cafe worktree 改 1 个文件）：
+
+### 17.1 符号层（代码改了）：codegraph 解得成熟，直接抄
+- 改文件后 `status` **立刻显示 "Pending Changes"**（content-hash 检测脏，不用等）。
+- `codegraph sync` **0.62 秒**（"Synced 1 changed file — 10 nodes in 388ms"），只重 parse 改动文件，新符号立刻可查（对比全量 init 分钟级）。serve --mcp 模式还有 OS file-watcher 自动 debounce sync（§4.2）。
+
+### 17.2 约定层（约定改了）：难，跟「约定识别」是一对
+- codegraph sync 是**文件级 content-hash**，对符号变化好。但约定关联**跨文件 + 推导**（A 定义 tool + B 注册 dispatch + C 消费）——改 B，"A 被谁消费"要跨文件重算，文件级增量不够。
+- 跟 §16 的"约定识别难"是一对：**识别难 + 热更新也难**，内生 spike 约定层要同时解。
+
+### 17.3 freshness 语义必须内生
+- codegraph 精髓不只"能增量"，是**每个查询带新鲜度**（Pending Changes / staleness banner）。没 freshness 的图 = 高置信错误（猫拿过期答案盲改炸连锁）。内生版必须有。
+
+### 17.4 更深一层（§13 关联）：认知路径的热更新
+- 约定图若要影响猫的认知路径（§13 放 L0/hook），还有第二层 staleness——**L0 压缩免疫但相对静态**，约定实时变怎么让 L0/hook 跟上？**图新鲜 ≠ 猫的认知新鲜。**
+
+**结论**：热更新三层难度——符号层（codegraph 已解，抄）< 约定层关联（识别+热更新双难）< 认知路径同步（§13 新维度）。spike 约定层设计要素完整化为：**识别 + 热更新 + freshness + 认知路径同步**。
+
 ---
 
-*拆解 by opus-48（宪宪），基于 `open-source-teardown` skill。GitNexus 一侧引用 codex-gpt55+opus-47 拆解。§12 代码仓复杂度 + live eval 计划；§13 能力唤醒走压缩免疫层；§14 live PoC 实测；§15 callers/impact vs LSP 价值定位修正；§16 陌生 repo 实证（胜负手难点=约定识别+消歧）。[宪宪/Opus-4.8🐾]*
+*拆解 by opus-48（宪宪），基于 `open-source-teardown` skill。GitNexus 一侧引用 codex-gpt55+opus-47 拆解。§12 代码仓复杂度 + live eval 计划；§13 能力唤醒走压缩免疫层；§14 live PoC 实测；§15 callers/impact vs LSP 价值定位修正；§16 陌生 repo 实证（胜负手难点=约定识别+消歧）；§17 热更新/freshness 实证（三层难度）。[宪宪/Opus-4.8🐾]*
