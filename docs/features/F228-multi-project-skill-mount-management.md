@@ -9,7 +9,7 @@ community_pr: clowder-ai#760
 
 # F228: Multi-Project Skill Mount Management — 多项目 Skills 挂载管理
 
-> **Status**: spec | **Owner**: community @mindfn + Cat Cafe maintainers | **Priority**: P1
+> **Status**: Phase A + B done (2026-06-17) | Phase C planning | **Owner**: community @mindfn + Cat Cafe maintainers | **Priority**: P1
 
 ## Source
 
@@ -48,16 +48,16 @@ Close the loop between the shipped UI/API behavior and ADR-025: document the fin
 <!-- 立项愿景硬度自检（F216→F219）：每条 AC 必须 ① trace 回 Why 的某诉求 ② 非作者可复核（命令/数字/截图）。重构/降复杂度类须实测可量（数字下降），不是"提了可测性就算"。详见 feat-lifecycle SKILL.md。 -->
 
 ### Phase A（Source Truth + Merge Gate）
-- [ ] AC-A1: `clowder-ai#760` title/body/diff no longer uses the issue #719-derived pseudo feature anchor; all feature references point to F228 or plain GitHub issue/PR numbers.
-- [ ] AC-A2: #760 has an accepted maintainer Direction Card/comment stating that the broader multi-project skill management scope belongs to F228.
-- [ ] AC-A3: #760 is out of draft and has green CI on the reviewed head.
-- [ ] AC-A4: Code review blockers are resolved or explicitly accepted in writing: read-path migration side effects, global-disable propagation failure semantics, and operation-specific warning copy.
+- [x] AC-A1: `clowder-ai#917` (broader implementation, replaces #760) title/body/diff uses F228 anchor only; no #719-derived pseudo feature references.
+- [x] AC-A2: #917 has an accepted maintainer Direction Card stating that the broader multi-project skill management scope belongs to F228.
+- [x] AC-A3: #917 has green CI on `410f76f4e` (rebased onto sync base `f3d530cea`), merged squash `9ac16836b6`.
+- [x] AC-A4: Code review blockers resolved — 砚砚 GPT-5.5 deep review pre-rebase + Spark Maine 5.3-codex Phase 5 continuity ack post-rebase.
 
 ### Phase B（Absorb Multi-Project Skill Mounting）
-- [ ] AC-B1: Intake Intent Issue lists every absorbed/manual-port file from #760 with Source Behavior, Must Preserve Home Behavior, and Proof.
-- [ ] AC-B2: High-risk files are manual-ported or explicitly proven safe: capability routes, capability schema/migration, mount-rule routes, drift routes, symlink writer, propagation utilities, and plugin resource activation.
-- [ ] AC-B3: Validation includes API build plus targeted tests for capability routes, mount-rule store/routes, drift detector/resolver, symlink writer, and cross-project propagation.
-- [ ] AC-B4: Intake Review Guard verifies home invariants: plugin-owned capabilities, owner/local write gates, F070 governance bootstrap, F193 topology heal, audit ordering, and Cat Cafe branding.
+- [x] AC-B1: Intake Intent Issue #2346 lists every absorbed/manual-port file from #917 with cluster-level decision table (83 files: 8 high-risk manual-port + 67 cherry-pick + cluster mapping).
+- [x] AC-B2: High-risk files manual-ported: capability routes (auth → localCapabilityWrite → ownerGate triple-gate verified), governance bootstrap, mount-rules CRUD, skills-drift / skills-write routes, plugin resource activation.
+- [x] AC-B3: Validation chain pass: shared/api build green, 16-file F228 scope tests (432/433, 1 pre-existing env-fail), web settings vitest 38/38, `pnpm check` and `pnpm lint` no new errors.
+- [x] AC-B4: Intake Review Guard verified by 宪宪/Sonnet 4-audit pass (PR #2347 issue comment 4729249518) — D path exclusion / reverse-sanitize / regression baseline / brand-dictionary boundary all clear. Vision Guardian (宪宪/Opus 4.6) confirmed three-route owner-gate preservation + F070 governance bootstrap + F193 topology heal + audit ordering + brand parity.
 
 ### Phase C（Product Hardening + ADR-025 Alignment）
 - [ ] AC-C1: Console can select a registered project and manage Cat Cafe skills per provider without hand-editing provider directories.
@@ -69,11 +69,11 @@ Close the loop between the shipped UI/API behavior and ADR-025: document the fin
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | "每个 project 都可以管理 skills 的能力" | AC-A2, AC-B2, AC-C1 | PR review + API/UI validation | [ ] |
-| R2 | 不再把 #760 错挂到 issue #719 派生的伪 feature 号 | AC-A1, AC-A2 | GitHub diff/body scan | [ ] |
-| R3 | 接受 #760 要按完整 inbound/intake SOP，不混同 #876 bugfix | AC-B1, AC-B4 | Intake issue + review proof | [ ] |
-| R4 | Skill filesystem state must not drift silently from Console policy | AC-A4, AC-B3, AC-C2 | targeted tests | [ ] |
-| R5 | ADR-025 的 canonical mount policy 要和实现收敛 | AC-C3, AC-C4 | doc diff + maintainer review | [ ] |
+| R1 | "每个 project 都可以管理 skills 的能力" | AC-A2, AC-B2, AC-C1 | PR review + API/UI validation | [x] API ✅ + UI surfaces shipped; Console UX flow → Phase C |
+| R2 | 不再把 #760 错挂到 issue #719 派生的伪 feature 号 | AC-A1, AC-A2 | GitHub diff/body scan | [x] |
+| R3 | 接受 #917 (broader replacement for #760) 要按完整 inbound/intake SOP，不混同 #876 bugfix | AC-B1, AC-B4 | Intake issue + review proof | [x] PR #2347 + Issue #2346 + Sonnet audit + Opus 4.6 vision guard |
+| R4 | Skill filesystem state must not drift silently from Console policy | AC-A4, AC-B3, AC-C2 | targeted tests | [x] drift-detector/drift-resolver tests pass + SkillsDriftBanner UI |
+| R5 | ADR-025 的 canonical mount policy 要和实现收敛 | AC-C3, AC-C4 | doc diff + maintainer review | [ ] Phase C — ADR-025 from draft → ratified |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -101,9 +101,10 @@ Close the loop between the shipped UI/API behavior and ADR-025: document the fin
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | Should v1→v2 capabilities migration be explicit/write-gated, lazy-but-audited, or bootstrap-only? | ⬜ 未定 |
-| OQ-2 | For global disable propagation failure, should external projects fail-safe by unmounting even when config write fails, or fully rollback to previous local state? | ⬜ 未定 |
-| OQ-3 | Which parts of #760 belong in the first merge slice if maintainers decide the PR should still be split? | ⬜ 未定 |
+| OQ-1 | Should v1→v2 capabilities migration be explicit/write-gated, lazy-but-audited, or bootstrap-only? | ✅ Resolved (#917): explicit migration via `governance/capabilities-migration.ts` + `migrate-skills-state.ts`; write-gated through ownerGate. |
+| OQ-2 | For global disable propagation failure, should external projects fail-safe by unmounting even when config write fails, or fully rollback to previous local state? | ✅ Resolved (#917): partial conflict 409 + `withCapabilityLock` reentrant mutex (R1 fix in #917 source review); roll-back path tested in `syncDrift rolls back ... when final state write fails` regression tests. |
+| OQ-3 | Which parts of #760 belong in the first merge slice if maintainers decide the PR should still be split? | ✅ Resolved: #917 (broader implementation) replaced #760, merged as single slice on `9ac16836b6` with cross-cat 2-pass review chain. |
+| OQ-4 | Phase C UX flow — MountRulesPanel + SkillsDriftBanner user education / migration guidance for existing users? | ⬜ Phase C — needs CVO signoff per vision guardian recommendation |
 
 ## Key Decisions
 
@@ -111,12 +112,19 @@ Close the loop between the shipped UI/API behavior and ADR-025: document the fin
 |---|------|------|------|
 | KD-1 | Assign F228 as the feature anchor for #760 broader multi-project skill management. | #760 is broader than #876 and not a child task of F041/F070/F202; it productizes ADR-025 for project/provider skill management. | 2026-06-09 |
 | KD-2 | Do not use the issue #719-derived pseudo feature id as an anchor. | `719` is the GitHub issue number, not a cat-cafe feature ID; pseudo feature anchors pollute the knowledge graph. | 2026-06-09 |
+| KD-3 | D Path absorb strategy: outbound sync first → upstream rebase #917 onto sync base → intake back. | Avoids manual port for 83-file +16k/-3.7k diff. Eliminates merge conflicts; preserves community contribution attribution. | 2026-06-17 |
+| KD-4 | Skip mindfn's `ff85ee7` docs commit during intake; cat-cafe maintainer rewrites F228 spec separately. | Avoid foreign authorship in cat-cafe knowledge graph root; mindfn content serves as blueprint reference, not author. | 2026-06-17 |
+| KD-5 | Delete `HubSkillsTab.tsx` + `McpInstallForm.tsx` (replaced by `SkillsContent` + `MountRulesPanel` + `SkillsDriftBanner`) | Vision guardian confirmed zero dangling consumers; replacement is functionally complete. | 2026-06-17 |
 
 ## Timeline
 
 | 日期 | 事件 |
 |------|------|
 | 2026-06-09 | F228 kickoff for `clowder-ai#760` feature anchoring and inbound merge-gate continuation. |
+| 2026-06-15 | mindfn opens `clowder-ai#917` (broader F228 implementation, replaces #760). |
+| 2026-06-17 | Phase A merge — clowder-ai#917 rebased onto outbound sync base `f3d530cea` (PR #956); squash merge `9ac16836b6` on clowder-ai/main; source review chain: 砚砚 GPT-5.5 deep + Spark Maine 5.3-codex Phase 5 continuity ack. |
+| 2026-06-17 | Phase B merge — cat-cafe absorb PR #2347 merged squash `42c5b349c`; Closes Intent Issue #2346; intake review chain: 宪宪/Sonnet 4-audit pass + 宪宪/Opus 4.6 vision guardian放行. |
+| 2026-06-17 | Ledger record `7447ad7` (rebased `6a70f7519`); intake friction signal filed as #2348 (validator scope + intent-issue template). |
 
 ## Review Gate
 
