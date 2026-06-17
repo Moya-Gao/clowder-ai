@@ -23,6 +23,7 @@
       "!assets/screenshots",
       "!assets/stickers",
       "!diagrams",
+      "!docs/designs",
       "!docs/features/assets",
       "!docs/harness-feedback/bundles",
       "!docs/videos"

@@ -386,6 +386,22 @@ export const ENV_VARS: EnvDefinition[] = [
     hubVisible: false,
   },
   {
+    name: 'COMMUNITY_PUBLISH_DEFAULT_REPO',
+    defaultValue: 'clowder-ai/cat-cafe',
+    description: 'F235 社区发布默认 GitHub 仓库（owner/repo 格式）',
+    category: 'server',
+    sensitive: false,
+    hubVisible: false,
+  },
+  {
+    name: 'COMMUNITY_PUBLISH_REPO_ALLOWLIST',
+    defaultValue: 'clowder-ai/cat-cafe',
+    description: 'F235 社区发布允许的 GitHub 仓库列表（逗号分隔 owner/repo）',
+    category: 'server',
+    sensitive: false,
+    hubVisible: false,
+  },
+  {
     name: 'COMMUNITY_NARRATOR_THREAD_ID',
     defaultValue: '(未设置 → 不启用)',
     description: 'F168 社区 narrator 工作线程 ID（设置后 dispatch 自动 spawn narrator 讲人话）',

@@ -97,6 +97,7 @@ import { TranscriptWriter } from './domains/cats/services/session/TranscriptWrit
 import { createAuthorizationAuditStore } from './domains/cats/services/stores/factories/AuthorizationAuditStoreFactory.js';
 import { createAuthorizationRuleStore } from './domains/cats/services/stores/factories/AuthorizationRuleStoreFactory.js';
 import { createBacklogStore } from './domains/cats/services/stores/factories/BacklogStoreFactory.js';
+import { createCommunityIssueDraftStore } from './domains/cats/services/stores/factories/CommunityIssueDraftStoreFactory.js';
 import { createCommunityIssueStore } from './domains/cats/services/stores/factories/CommunityIssueStoreFactory.js';
 import { createFrustrationIssueStore } from './domains/cats/services/stores/factories/FrustrationIssueStoreFactory.js';
 import { createLabelStore } from './domains/cats/services/stores/factories/LabelStoreFactory.js';
@@ -174,6 +175,7 @@ import {
   catsRoutes,
   claudeRescueRoutes,
   commandsRoutes,
+  communityIssueDraftRoutes,
   communityIssueRoutes,
   conciergeRoutes,
   configRoutes,
@@ -532,6 +534,10 @@ async function main(): Promise<void> {
   const profileUpdateLock = new SessionMutex();
   const profileDir = resolveWritableProfileDir(process.cwd(), resolveL0CompilerScriptPath());
   const frustrationIssueStore = createFrustrationIssueStore(redis);
+
+  // F235: Community issue draft store + publisher for "Publish to Community" flow
+  const communityIssueDraftStore = createCommunityIssueDraftStore(redis);
+
   // F222: Create early so it's available for both AgentRouter (cancel burst detection) and AuthorizationManager
   const authPendingStore = createPendingRequestStore(redis);
   // F155 B-4/B-6: Guide state is runtime-only (in-memory, resets on restart)
@@ -2504,6 +2510,21 @@ async function main(): Promise<void> {
   });
   // F222: Frustration auto-issue routes
   await app.register(frustrationIssueRoutes, { frustrationIssueStore });
+
+  // F235: Community issue draft routes (publish to community flow)
+  {
+    const { GitHubIssuePublisher } = await import('./domains/community/GitHubIssuePublisher.js');
+    const defaultRepo = process.env.COMMUNITY_PUBLISH_DEFAULT_REPO ?? 'clowder-ai/cat-cafe';
+    const repoAllowlist = (process.env.COMMUNITY_PUBLISH_REPO_ALLOWLIST ?? defaultRepo).split(',').map((s) => s.trim());
+    // Lazy token factory: resolves at publish time so late-binding plugin config is picked up (P1-1 cloud R6).
+    const publisher = new GitHubIssuePublisher({ token: getGitHubToken, repoAllowlist });
+    await app.register(communityIssueDraftRoutes, {
+      communityIssueDraftStore,
+      frustrationIssueStore,
+      publisher,
+      config: { defaultRepo, repoAllowlist },
+    });
+  }
 
   // F142: shared connector binding store — reused by threadCatsRoutes AND connector gateway
   const { RedisConnectorThreadBindingStore } = await import(

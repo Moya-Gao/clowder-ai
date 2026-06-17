@@ -62,6 +62,13 @@
       "reason": "F192 socio-technical harness eval 当前 29 .ts（Phase F capability-wakeup 一批 eval-capability-wakeup-* 加入超 error=25）；SECOND-ROUND unblock（首轮续期到 2026-06-15），后续按 capability-wakeup / a2a / domain / hub 子域拆分。详见 F192 feat doc Known Debt + GitHub issue。",
       "expiresAt": "2026-06-30",
       "ticket": "F192"
+    },
+    {
+      "path": "packages/api/src/domains/cats/services/stores/redis",
+      "owner": "opus",
+      "reason": "F235 RedisCommunityIssueDraftStore 加入后 redis/ 达 25 files；与 ports/(26) 同源——每个 store port 一个 Redis impl。需在 F23 follow-up 中按 proposal/community/session 子域拆分。",
+      "expiresAt": "2026-06-30",
+      "ticket": "F23-followup"
     }
   ]
 }

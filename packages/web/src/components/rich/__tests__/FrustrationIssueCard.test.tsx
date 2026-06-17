@@ -279,9 +279,12 @@ describe('FrustrationIssueCard', () => {
       confirmButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
 
-    // After confirm, card should collapse — body should not be visible
+    // After confirm, card stays expanded (F235: "Publish to Community" button must be visible)
     await vi.waitFor(() => expect(container.textContent).toContain('已记录'));
-    expect(container.textContent).not.toContain('模型工具调用解析失败');
+    // Body remains visible — card is NOT collapsed after confirm (unlike skip/false_positive)
+    expect(container.textContent).toContain('模型工具调用解析失败');
+    // F235: Community publish flow should render
+    expect(container.textContent).toContain('Publish to Community');
   });
 
   it('expands collapsed card on click', async () => {

@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { RichCardBlock } from '@/stores/chat-types';
 import { apiFetch } from '@/utils/api-client';
 import { CafeIcon } from './CafeIcons';
+import { CommunityPublishFlow } from './CommunityPublishFlow';
 
 interface FrustrationIssueCardProps {
   block: RichCardBlock;
@@ -25,12 +26,15 @@ type IssueStatus =
   | 'skipped'
   | 'reporting_false_positive'
   | 'false_positive'
+  | 'creating_draft'
+  | 'draft_created'
   | 'error';
 
 interface FrustrationIssueStatusResponse {
   issue?: {
     status?: 'draft' | 'confirmed' | 'skipped' | 'false_positive';
     userDescription?: string;
+    communityIssueDraftId?: string;
   };
 }
 
@@ -83,6 +87,8 @@ export function FrustrationIssueCard({ block }: FrustrationIssueCardProps) {
   const [userDescription, setUserDescription] = useState('');
   const [collapsed, setCollapsed] = useState(false);
   const actionEpochRef = useRef(0);
+  // F235: draft ID restored from server (Iron Law #5 persistence recovery)
+  const [hydratedDraftId, setHydratedDraftId] = useState<string | null>(null);
 
   const isResolved = isResolvedIssueStatus(status);
 
@@ -107,6 +113,29 @@ export function FrustrationIssueCard({ block }: FrustrationIssueCardProps) {
         }
         if (typeof data.issue?.userDescription === 'string') {
           setUserDescription(data.issue.userDescription);
+        }
+        // F235: Restore community draft preview after refresh (Iron Law #5 recovery)
+        // Restore if draft is active (editable) or published (show GitHub link).
+        // Only skip cancelled/missing drafts — those allow creating a replacement.
+        // F235: Restore community draft preview after refresh (Iron Law #5 recovery).
+        // Verify draft is active (editable) or published (show GitHub link).
+        // Cancelled/missing drafts are skipped — user can create a replacement.
+        if (data.issue?.communityIssueDraftId && !hydratedDraftId) {
+          try {
+            const draftRes = await apiFetch(`/api/community-issue-drafts/${data.issue.communityIssueDraftId}`);
+            if (draftRes.ok) {
+              const draftData = (await draftRes.json()) as { draft?: { status?: string } };
+              const draftStatus = draftData.draft?.status;
+              if (draftStatus === 'draft' || draftStatus === 'published') {
+                setHydratedDraftId(data.issue.communityIssueDraftId);
+                if (nextStatus === 'confirmed') {
+                  setStatus('draft_created');
+                }
+              }
+            }
+          } catch {
+            // Draft verification failed — don't restore stale preview
+          }
         }
       } catch {
         // Status hydration is best-effort; keep the original draft UI if unavailable.
@@ -138,7 +167,8 @@ export function FrustrationIssueCard({ block }: FrustrationIssueCardProps) {
         throw new Error(data.error ?? `HTTP ${res.status}`);
       }
       setStatus('confirmed');
-      setCollapsed(true);
+      // Don't collapse — keep expanded so "Publish to Community" button is visible.
+      // Skip/false-positive still auto-collapse since they have no next action.
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed');
       setStatus((currentStatus) => (isResolvedIssueStatus(currentStatus) ? currentStatus : 'draft'));
@@ -244,8 +274,18 @@ export function FrustrationIssueCard({ block }: FrustrationIssueCardProps) {
         </div>
       )}
 
-      {/* Actions — only when draft */}
-      {!isResolved && (
+      {/* F235: Community publish flow (extracted to stay under 350-line limit) */}
+      {(status === 'confirmed' || status === 'creating_draft' || status === 'draft_created') && issueId && (
+        <CommunityPublishFlow
+          issueId={issueId}
+          status={status}
+          restoredDraftId={hydratedDraftId}
+          onStatusChange={setStatus}
+        />
+      )}
+
+      {/* Actions — only when draft (hidden during community publish flow) */}
+      {!isResolved && status !== 'creating_draft' && status !== 'draft_created' && (
         <div className="mt-3 space-y-2">
           {/* Description input */}
           <input

@@ -6,6 +6,7 @@ import { AudioBlock } from './AudioBlock';
 import { CallbackAuthFailureBlock } from './CallbackAuthFailureBlock';
 import { CardBlock, type CardConfirmationEntry } from './CardBlock';
 import { ChecklistBlock } from './ChecklistBlock';
+import { CommunityIssuePreviewCard, isCommunityIssuePreviewBlock } from './CommunityIssuePreviewCard';
 import { DiffBlock } from './DiffBlock';
 import { FileBlock } from './FileBlock';
 import { FrustrationIssueCard, isFrustrationIssueCardBlock } from './FrustrationIssueCard';
@@ -42,6 +43,10 @@ function RichBlockRenderer({
       // F222: frustration auto-issue cards with trusted provenance get dedicated renderer
       if (isFrustrationIssueCardBlock(block, messageSource)) {
         return <FrustrationIssueCard block={block} messageId={messageId} />;
+      }
+      // F235: community issue preview cards (edit + publish flow)
+      if (isCommunityIssuePreviewBlock(block, messageSource)) {
+        return <CommunityIssuePreviewCard block={block} messageId={messageId} />;
       }
       // F174 D2b-1: cards tagged with meta.kind = 'callback_auth_failure' get the
       // dedicated in-context observability renderer ("明厨亮灶" — entity carries its

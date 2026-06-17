@@ -251,6 +251,15 @@ export {
   DEFAULT_INTAKE_CHECKLIST,
   validateIntakeChecklist,
 } from './community-issue.js';
+// Community Issue Draft types (F235)
+export type {
+  CommunityIssueDraft,
+  CommunityIssueDraftId,
+  CommunityIssueDraftSourceType,
+  CommunityIssueDraftStatus,
+  CreateCommunityIssueDraftInput,
+} from './community-issue-draft.js';
+export { createCommunityIssueDraft, generateCommunityIssueDraftId } from './community-issue-draft.js';
 // F168 Phase C: Community Role Registry (engine routes by role, never cat name)
 export {
   COMMUNITY_ROLES,

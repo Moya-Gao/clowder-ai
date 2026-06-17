@@ -1752,7 +1752,7 @@ while IFS= read -r line; do
   file="${line%%:*}"
   # Test files and secret-detection modules may use fake keys / regex patterns — skip
   if echo "$line" | grep -qE 'sk-ant-|sk-proj-|sk-live-|gsk_|AIzaSy'; then
-    echo "$file" | grep -qE '/test/|/__tests__/|\.test\.|/SecretScanner\.ts$' && continue
+    echo "$file" | grep -qE '/test/|/__tests__/|\.test\.|/SecretScanner\.ts$|/CommunityIssueSanitizer\.ts$' && continue
   fi
   echo -e "  ${RED}✗ Blocked content: ${line:0:120}${NC}"
   SCAN_FAILED=true
