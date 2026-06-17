@@ -1782,6 +1782,16 @@
       "intake_intent_issue": 2322,
       "absorb_pr": 2323,
       "review_proof": "https://github.com/zts212653/cat-cafe/pull/2323#pullrequestreview-4508157505"
+    },
+    {
+      "pr_number": 917,
+      "target_merge_commit": "9ac16836b6368948b170c72e736197579d2c8003",
+      "decision": "absorbed",
+      "timestamp": "2026-06-17T11:27:06.325Z",
+      "note": "normal absorbed-lane intake; --skip-absorbed-guard + CAT_CAFE_INTAKE_BYPASS_BRAND_PREEXISTING=1 used due to F238 Phase C validator scope (scans whole repo, not intake-diff) blocking 34 pre-existing legitimate context mentions (docs/research, lessons-learned, README.opensource, sync scripts, opensource-ops skill — all confirmed intake-diff-clean per #2347 audit). Intent Issue #2346 used English cluster-level table format (run_absorbed_record_guard expects 逐文件决策表 Chinese format). Follow-up: validator scope fix + intent issue template alignment.",
+      "intake_intent_issue": 2346,
+      "absorb_pr": 2347,
+      "review_proof": "https://github.com/zts212653/cat-cafe/pull/2347#issuecomment-4729249518"
     }
   ]
 }
