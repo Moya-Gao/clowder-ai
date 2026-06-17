@@ -1562,15 +1562,18 @@ if [ -f "$FILTERED_DIR/packages/api/src/config/frontend-origin.ts" ]; then
     -e "s/fallback to localhost:3001/fallback to localhost:3003/g" \
     "$FILTERED_DIR/packages/api/src/config/frontend-origin.ts"
 fi
-# 3k-3b0: port-validator.ts — hardcoded DEFAULT_EXCLUDED_PORTS array 3001/3002→3003/3004
-if [ -f "$FILTERED_DIR/packages/api/src/domains/preview/port-validator.ts" ]; then
-  sedi \
-    -e 's/^  3001,$/  3003,/' \
-    -e 's/^  3002, \/\/ Hub frontend + API$/  3004, \/\/ Hub frontend + API/' \
-    "$FILTERED_DIR/packages/api/src/domains/preview/port-validator.ts"
-  echo "  ✓ port-validator.ts (excluded ports 3003/3004)"
-  TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
-fi
+# 3k-3b0: port-validator.ts — REMOVED (F228 outbound R6).
+# This block was historically needed when source DEFAULT_EXCLUDED_PORTS contained
+# only internal ports [3001, 3002, ...] and the export had to remap them to
+# [3003, 3004, ...]. Source has since evolved to include BOTH internal and
+# public ports — packages/api/src/domains/preview/port-validator.ts:4-19 now
+# lists [3001, 3002, 3003, 3004, ...] together as defense-in-depth excluded
+# ports. The destructive sed `3001→3003` was rewriting the source's first line
+# (3001) into a duplicate of the existing 3003 line, effectively REMOVING 3001
+# from the exported array, breaking port-validator.test.js:90-94 which
+# (correctly) expects all four ports present in both source and export.
+# The transform is now obsolete; source content is correct as-is for export.
+# Historical context: commit 2158f9fa9 fix(sync): port mapping for port-validator (#984).
 
 # 3k-3b0a: SessionBootstrap.ts — template literal ?? '3002' not caught by sanitize-rules
 if [ -f "$FILTERED_DIR/packages/api/src/domains/cats/services/session/SessionBootstrap.ts" ]; then
