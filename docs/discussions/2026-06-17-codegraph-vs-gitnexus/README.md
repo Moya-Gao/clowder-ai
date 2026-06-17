@@ -397,6 +397,33 @@ codegraph 自己知道这个困境：`src/installer/instructions-template.ts` �
 
 **结论**：热更新三层难度——符号层（codegraph 已解，抄）< 约定层关联（识别+热更新双难）< 认知路径同步（§13 新维度）。spike 约定层设计要素完整化为：**识别 + 热更新 + freshness + 认知路径同步**。
 
+## 18. GitNexus spike + 两边整合（2026-06-17）
+
+铲屎官 directive：不用 codegraph/GitNexus，但 spike codegraph（§14/16/17）后也 spike GitNexus，整合两边先进经验内生。独立目录装 gitnexus@1.6.7（**实测一手**，不再依赖砚砚二手），analyze deer-flow。
+
+### 18.1 工程对比：codegraph 适合做底座
+| 维度 | codegraph | GitNexus |
+|---|---|---|
+| 依赖 | 2 包（WASM 自包含）| **266 包** |
+| analyze deer-flow | 6.6s / 32MB | **14s / 134MB**（慢一倍、大 4 倍）|
+| 全文搜索 | node:sqlite 内置 FTS5 零依赖 | **FTS 扩展需预装，我们环境跑不起来**（实测降级）|
+| 多 repo | per-project `.codegraph/` | 全局 registry（cypher 要 `--repo`）|
+
+GitNexus 重 + FTS 环境脆 + lbug 自定义图 DB + PolyForm-Noncommercial → **不适合做底座**。
+
+### 18.2 GitNexus 差异化能力（值得整合的算法启发）
+codegraph 没有、GitNexus 有（deer-flow 实测）：
+1. **community / clusters（Leiden）**：689 clusters——自动发现代码模块/约定簇，对"画约定图"可能有用（聚类出约定边界，不纯靠 extractor 规则）。
+2. **flows（执行流程）**：300 flows——流程级抽象，比符号级更贴"顺藤摸瓜"（追一条请求流程，不只单符号）。
+3. **detect-changes**：git diff → 符号 + 受影响**执行流程**，比 codegraph affected（import 传递）更语义化。
+
+### 18.3 整合结论
+- **工程底座学 codegraph**：轻 / 快 / 零依赖 / 确定性 / node:sqlite。
+- **算法启发学 GitNexus**：community 聚类（约定边界发现）+ flow 抽象（流程层顺藤摸瓜）+ detect-changes 流程映射。**不照搬实现**（两边脆弱处都砍）。
+- **两边共同没解好 = 内生护城河**：陌生 repo 约定识别（codegraph route 0/105）+ 跨域消歧（§16）+ 约定层热更新（§17）。
+
+> 待精确查：GitNexus 在 deer-flow 的 route 识别数（cypher schema property 未摸熟，停止钻取避免补锅匠；不阻塞结论——GitNexus 即便认出 route，重/脆/noncommercial 也不改"codegraph 做底座"判断）。
+
 ---
 
-*拆解 by opus-48（宪宪），基于 `open-source-teardown` skill。GitNexus 一侧引用 codex-gpt55+opus-47 拆解。§12 代码仓复杂度 + live eval 计划；§13 能力唤醒走压缩免疫层；§14 live PoC 实测；§15 callers/impact vs LSP 价值定位修正；§16 陌生 repo 实证（胜负手难点=约定识别+消歧）；§17 热更新/freshness 实证（三层难度）。[宪宪/Opus-4.8🐾]*
+*拆解 by opus-48（宪宪），基于 `open-source-teardown` skill。GitNexus 一侧 §1-9 引用 codex-gpt55+opus-47 拆解、§18 改为一手实测。§12 代码仓复杂度；§13 能力唤醒走压缩免疫层；§14 live PoC；§15 callers/impact vs LSP；§16 陌生 repo 实证；§17 热更新三层；§18 GitNexus spike + 整合。[宪宪/Opus-4.8🐾]*
