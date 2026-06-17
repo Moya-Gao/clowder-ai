@@ -64,7 +64,350 @@ Paste the cloud answer under **Cloud Research Paste Zone** below. Useful questio
 
 ## Cloud Research Paste Zone
 
-Paste GPT Pro / cloud big-cat response below this line.
+砚砚调研结论：**不要再把“row strip 生成”当生产流程**。那条路本质是在让模型在一张图里连续重画同一只猫，它会自然地产生你已经看到的灾难：尾巴消失、2=3、体型漂、表情飘、首尾断。更稳的做法是：**AI 只负责角色概念、少量 key pose 参考和局部修补；真正的帧由同一个分层角色资产、同一个 rig、同一套参数曲线渲染出来**。这才是把小宠物从“抽卡”驯成“动画资产”的猫爪印路线 🐾
+
+Aseprite 的官方文档也把 sprite sheet 视为“同一 sprite 的多帧大图”，支持 horizontal、vertical、matrix 形式，并且可按 tag 组织不同动画、按 tag 导出 sprite sheet。也就是说，生产上应该先有动画帧和状态标签，再导出 atlas，而不是让生成模型直接画最终 atlas。([Aseprite][1]) Live2D/Spine 这类传统 2D 动画工具的优势也正好对上你的失败模式：Live2D 用参数表达运动并在 key 之间插值，deformer 可以成组变形 mesh；Spine 的 weights 会把 attachment 顶点绑定到 bones，骨骼动时图像自动变形，并且导出 PNG 序列时有“Include last frame”选项，专门避免 loop 里把首帧重复导出成尾帧。([Live2D 文档][2])
+
+## 推荐总路线
+
+最可靠 workflow 是：
+
+**single character reference → 固定 identity sheet → 分层 PNG/PSD → puppet/rig → 每个 state 用曲线渲染帧 → 本地组装 atlas → 自动 QA → 人眼 contact sheet/GIF 复核。**
+
+AI 生成模型放在前面和边上，不放在最后总装位。OpenAI 当前图像文档也明确提到，图像模型有时会在 recurring characters 或 brand elements 上保持一致性困难，研究里的 consistent character generation 工作也把“大运动下身份和服装细节不一致”当成要解决的核心问题。([OpenAI Platform][3]) 这和你们的“尾巴没了、体型漂了”是同一只妖怪换了帽子。
+
+## 五种方案对比
+
+| 方案                                      | 可靠性 | 适合用途                                          | 主要风险                          | 结论                  |
+| --------------------------------------- | --: | --------------------------------------------- | ----------------------------- | ------------------- |
+| 1. 一张图生成 multi-frame row strip          |   低 | 概念预览、灵感草图                                     | 每格重画角色，重复帧、缺肢、比例漂、loop 断      | **不要用于生产**          |
+| 2. 单独生成 key poses，再手动组装                 |   中 | jump、failed、run 的姿势参考                         | 仍会 identity drift，需要人工/rig 统一 | 可作为参考，不直接入库         |
+| 3. 一个 base pose，本地 deterministic edits  |  很高 | idle、waiting、review、blink、breathing、tail sway | 大动作能力有限                       | **idle 首选**         |
+| 4. image-to-video / animation model 后抽帧 |  中低 | 找运动节奏、观察动作 arcs                               | 抽帧有闪烁、身份漂、alpha 难控、单帧清理成本高    | 只当 motion reference |
+| 5. 传统 sprite / Live2D / puppet workflow |  最高 | 全 9 states 的正式资产                              | 前期拆层/rig 成本高                  | **全项目主线**           |
+
+image-to-video 不是完全没用，但它更像“动作占卜水晶球”，不是 atlas 工厂。AnimateZero 论文也指出 text-to-video 生成过程里 appearance 和 motion 往往联合生成，缺少除粗略文本描述外的精确控制，虽然这类方法在提升外观和运动控制。([arXiv][4]) 对你们这种 192×208 的桌面宠物，**控制权比生成炫技更重要**。
+
+## idle first 推荐 workflow
+
+idle 要先做，因为它是 identity 锚点。这里不该再让模型生成 6 帧 row，而是让同一个 base pose 通过本地参数动起来。
+
+第一步，冻结一张 canonical idle pose：正面或 3/4 视角固定，角色完整、尾巴完整、四肢完整、表情中性。把它拆成这些层：`body`、`head`、`ear_L/R`、`tail_full`、`front_paws`、`back_paws`、`eyes_open`、`eyelids`、`mouth`、`whiskers`、`shadow`。尾巴必须是**整根 tail layer**，尾根藏在身体后面，但 tail root 坐标固定，不再每帧重画。
+
+第二步，写一个 `idle.yaml` 或同等 motion spec。6 帧不要把第 6 帧做成第 1 帧的复制品，播放器从 frame 5 跳回 frame 0 时才构成 loop。推荐参数如下：
+
+```yaml
+state: idle
+frames: 6
+loop: true
+fps: 8
+anchor: { x: 96, y: 184 }
+parameters:
+  body_y:        [0, -1, -2, -1, 0, 1]
+  body_scale_y: [1.000, 1.006, 1.010, 1.006, 1.000, 0.997]
+  head_y:       [0, -1, -1, 0, 0, 0]
+  ear_y:        [0, 0, -1, 0, 0, 1]
+  tail_angle:   [0, 4, 8, 4, -2, -4]
+  eyelid:       [0.0, 0.0, 0.0, 0.55, 0.15, 0.0]
+  shadow_scale: [1.00, 0.98, 0.96, 0.98, 1.00, 1.01]
+```
+
+第三步，本地渲染 6 个透明 PNG，固定 canvas `192×208`，不 trim，不自动居中，不改 scale。第 0 行 col 0-5 放 idle，有效帧 6 张；col 6-7 是完全透明 padding。QA 只检查 active frames，不把 padding 当重复帧。
+
+idle 的合格标准：尾巴每帧可见，body bbox 面积漂移小于约 3%，脸部表情只做 eyelid 局部变化，frame 5 到 frame 0 的差异接近相邻帧中位差，且没有任何 active frame byte-identical。SSIM、pHash、optical flow 可以一起做自动检查，scikit-image 提供 structural_similarity，pHash 用 Hamming/cross-correlation 思路检测近重复，OpenCV optical flow 能估计连续帧的运动场。([scikit-image.org][5])
+
+## 全 9 states 推荐 workflow
+
+最终 atlas 固定为：
+
+```text
+atlas: 1536 x 1872 RGBA
+grid: 8 columns x 9 rows
+cell: 192 x 208
+origin: top-left
+active frames: 57
+padding cells: 15, fully transparent
+```
+
+row layout 建议写死，不给模型或人工自由发挥：
+
+| Row | State         | Active cols | Padding         |
+| --: | ------------- | ----------- | --------------- |
+|   0 | idle          | 0-5         | 6-7 transparent |
+|   1 | running-right | 0-7         | none            |
+|   2 | running-left  | 0-7         | none            |
+|   3 | waving        | 0-3         | 4-7 transparent |
+|   4 | jumping       | 0-4         | 5-7 transparent |
+|   5 | failed        | 0-7         | none            |
+|   6 | waiting       | 0-5         | 6-7 transparent |
+|   7 | running       | 0-5         | 6-7 transparent |
+|   8 | review        | 0-5         | 6-7 transparent |
+
+状态生产建议如下：
+
+| State            | 推荐方法                                   | 说明                                                           |
+| ---------------- | -------------------------------------- | ------------------------------------------------------------ |
+| idle(6)          | deterministic local edits              | 呼吸、眨眼、尾巴、耳朵、阴影，全本地参数化                                        |
+| running-right(8) | rigged puppet cycle                    | 身体、腿、尾巴、耳朵用骨骼/变形曲线，8 帧闭环，不重复首帧                               |
+| running-left(8)  | 从 right 本地镜像，再修 side-specific markings | 最稳。若花纹/配饰不能镜像，需要单独 side overlay                              |
+| waving(4)        | rigged paw/arm + expression layer      | 不生成整猫，只转 paw、肩、头、耳                                           |
+| jumping(5)       | rig + 少量 AI key pose reference         | crouch、takeoff、apex、fall、land，最后帧接近 idle 或交给 runtime 切回 idle |
+| failed(8)        | rig + 本地表情/符号 FX                       | 眩晕星星、泪滴、灰尘单独 layer，不重画猫                                      |
+| waiting(6)       | idle variant                           | 眼睛 glance、尾巴慢摆、脚轻点，参数不同于 idle                                |
+| running(6)       | front/diagonal run 或 generic run       | 明确定义它和 right/left 的语义，避免和 running-right 重复                   |
+| review(6)        | idle variant + prop overlay            | 头部轻点、眼睛扫视、magnifier/checkmark/小本子作为独立 prop                   |
+
+全项目里最稳的是 Spine/Live2D/DragonBones 这类 puppet 工作流，Aseprite 用来做 pixel cleanup、tag、contact sheet 和 sprite sheet export。Live2D 的参数和 deformer 适合脸、耳朵、尾巴软变形；Spine 的骨骼/weights 更适合四肢、尾巴、跑步循环；Aseprite 则非常适合按状态 tag 管理和导出固定矩阵 atlas。([Live2D 文档][2])
+
+## 如何防止 duplicate frames
+
+最重要的一刀：**不要让生成模型一次生成 N 帧 row strip**。它没有稳定的 frame identity 约束，也不会真的维护你们的 motion graph。
+
+生产上用三层防重：
+
+第一层是 motion 参数唯一性。每个 active frame 都有唯一参数向量，比如 `tail_angle`、`body_y`、`eyelid`、`paw_angle` 至少一个值不同。即使图像肉眼差异小，sidecar 里的参数也不能完全相同。
+
+第二层是图像检查。对 active cells 做：
+
+```text
+exact_hash: SHA256 相同直接 fail
+near_duplicate: pHash/dHash Hamming <= 2 且 SSIM >= 0.995 时 fail
+low_motion: 连续帧 active alpha ROI 的 pixel diff 太低时 warn/fail
+padding_exception: padding cells 允许全透明重复
+```
+
+第三层是 loop endpoint 检查。不要导出重复首帧作为末帧。Spine 文档里也明确提到，loop 动画如果 first 和 last 相同，导出时不包含 last frame 可避免同一帧被导出两次。([Spine][6]) 对所有 loop states，采样闭合曲线时用 `N` 个点，但排除 endpoint：
+
+```text
+t = 0/N, 1/N, 2/N ... (N-1)/N
+不要采样 t = 1.0
+```
+
+这样 frame N-1 → frame 0 是运动的一部分，不是“啪嗒”跳回去。
+
+## 如何 enforce tail/body consistency
+
+把 tail/body 从 prompt 里拿出来，放进 asset structure 里。也就是：**尾巴不是一句提示词，尾巴是一层、一根骨骼、一个 mask、一个 QA target** 🐈‍⬛
+
+建议强制这些规则：
+
+```text
+tail_full.png: 一整根尾巴，包含 root overlap 区域
+tail_root: 固定局部坐标，例如 body local (x=-34, y=42)
+tail_mask: 每次渲染同步输出或可重建
+body_bbox_ref: idle frame 0 的 alpha bbox
+identity_palette: 主色、条纹色、眼睛色、配饰色
+marking_map: 脸部条纹、尾巴条纹、胸毛边界的局部参考
+```
+
+QA 时检查：
+
+```text
+tail alpha area >= ref_tail_area * 0.80
+tail root 与 body overlap 像素数 >= threshold
+body bbox width/height drift <= 3% idle, <= 8% run/jump
+alpha bbox 不接触 cell 边缘，避免裁切
+face ROI 与 reference 的结构差异不能过大
+palette drift 小于阈值
+```
+
+如果必须用 AI 做 key pose，prompt 也只让它做**单 pose reference**，不要让它画完整可用帧。之后由人或 rig 把姿势迁移回同一套 body/tail layers。OpenAI 的 image edit mask 文档也提醒，mask 是 prompt-based guidance，可能不会完全按精确形状执行，所以 mask edit 适合局部修补，不适合当最终几何约束。([OpenAI Platform][3])
+
+## QA frame uniqueness 和 loop continuity
+
+建议做一个 `qa_spritesheet.py`，每次生成 atlas 都输出 `qa/report.json`、`qa/contact_sheet.png`、每个 state 的 GIF。Aseprite/Spine 都能导出帧序列或 sprite sheet，但最终还是要让构建脚本当门神，爪子一拦，坏帧不入库。
+
+QA gates：
+
+```text
+1. atlas size == 1536 x 1872
+2. PNG has real alpha channel
+3. 72 cells crop exact: 8 x 9
+4. active frame count == 57
+5. padding cells alpha coverage == 0
+6. active cells alpha coverage within expected range
+7. no active exact duplicates
+8. no active near duplicates unless explicitly whitelisted
+9. tail present in every active frame
+10. no alpha bbox touches cell bounds
+11. anchor/baseline stable
+12. loop continuity pass for loop states
+```
+
+loop continuity 可以用这个逻辑：
+
+```text
+diff_i = alpha-aware pixel difference(frame_i, frame_(i+1 mod N))
+median_adjacent = median(diff_0 ... diff_N-1)
+
+fail if diff_last_to_first > 1.6 * median_adjacent
+warn if diff_last_to_first < 0.20 * median_adjacent
+fail if frame_last byte-identical to frame_0
+```
+
+对 idle 这种微动动画，SSIM 会天然很高，所以不要只靠 SSIM。要同时看 exact hash、pHash、alpha-aware pixel diff、tail/face ROI diff 和 motion 参数。SSIM 是有用的相似度工具，但它不是“动画是否重复”的唯一裁判。([scikit-image.org][5])
+
+## 透明背景怎么处理
+
+**最终透明背景应该本地保证，不应该相信模型直接给最终透明 atlas。**
+
+最稳策略是：源资产就是透明分层 PNG/PSD，rig 渲染透明 PNG sequence，再本地 pack 成 RGBA atlas。OpenAI 当前图像文档写明，输出可以配置 size、quality、format、compression、background，但透明背景依赖模型支持；当前文档还特别说明 `gpt-image-2` 不支持 `background: "transparent"`，并且 PNG 是默认输出格式。([OpenAI Platform][3])
+
+实操建议：
+
+```text
+production final: transparent from local renderer
+AI keypose drafts: solid pure background, e.g. #00FF00 or #FF00FF, then local remove
+never accept: fake checkerboard baked into RGB
+shadow: separate deterministic ellipse layer, not background
+QA: verify alpha channel exists and padding alpha sum == 0
+```
+
+如果某个生成模型确实支持 true alpha，可以用它来生成单 pose 或 prop 草稿，但最终 atlas 仍要经过本地 alpha 校验和重打包。
+
+## Practical asset specs
+
+推荐 repo 结构：
+
+```text
+assets/
+  refs/
+    character_reference.png
+    character_identity_card.png
+  source/
+    pet_master.psd
+    layers/
+      body.png
+      head.png
+      tail_full.png
+      ear_L.png
+      ear_R.png
+      eyes_open.png
+      eyelids.png
+      paws.png
+      shadow.png
+  motion/
+    idle.yaml
+    running_right.yaml
+    running_left.yaml
+    waving.yaml
+    jumping.yaml
+    failed.yaml
+    waiting.yaml
+    running.yaml
+    review.yaml
+  frames/
+    idle/000.png ...
+  atlas/
+    pet_atlas.png
+    pet_atlas.json
+  qa/
+    contact_sheet.png
+    idle.gif
+    report.json
+```
+
+`pet_atlas.json` 建议这样：
+
+```json
+{
+  "image": "pet_atlas.png",
+  "cell": { "width": 192, "height": 208 },
+  "grid": { "columns": 8, "rows": 9 },
+  "anchor": { "x": 96, "y": 184 },
+  "states": [
+    { "name": "idle", "row": 0, "frames": 6, "loop": true, "fps": 8 },
+    { "name": "running-right", "row": 1, "frames": 8, "loop": true, "fps": 12 },
+    { "name": "running-left", "row": 2, "frames": 8, "loop": true, "fps": 12 },
+    { "name": "waving", "row": 3, "frames": 4, "loop": true, "fps": 8 },
+    { "name": "jumping", "row": 4, "frames": 5, "loop": false, "fps": 10 },
+    { "name": "failed", "row": 5, "frames": 8, "loop": true, "fps": 8 },
+    { "name": "waiting", "row": 6, "frames": 6, "loop": true, "fps": 8 },
+    { "name": "running", "row": 7, "frames": 6, "loop": true, "fps": 12 },
+    { "name": "review", "row": 8, "frames": 6, "loop": true, "fps": 8 }
+  ]
+}
+```
+
+## Practical prompts
+
+### 1. Character reference prompt
+
+```text
+Create one clean production reference image for a small desktop pet sprite character.
+
+Character:
+- same single character only
+- cute compact gray silver tabby cat
+- full body visible, tail fully visible and attached
+- consistent silhouette, clear ears, paws, face markings, tail stripes
+- simple readable shapes at 192x208 sprite size
+- neutral idle stance, front three-quarter view
+- no animation frames, no sprite sheet, no grid, no multiple poses
+- plain solid background only
+- no props, no text, no shadow baked into background
+
+Output goal:
+A single clean reference image that can be separated into layers for animation.
+```
+
+### 2. Key pose reference prompt, one pose only
+
+```text
+Using the attached character reference, create exactly one key pose reference for STATE_NAME.
+
+Hard constraints:
+- one character only
+- same identity, same fur pattern, same eye color, same proportions
+- full body visible inside the frame
+- tail must remain fully visible and attached to the body
+- do not crop ears, paws, tail, or whiskers
+- do not change costume, face markings, body size, or species
+- no sprite sheet, no grid, no multiple frames
+- plain solid background
+- pose: DESCRIBE_ONE_POSE_HERE
+
+This is only a key pose reference for an animator. Preserve the character identity over making the pose dramatic.
+```
+
+### 3. Local edit / inpaint repair prompt
+
+```text
+Edit only the masked area. Preserve all unmasked pixels exactly.
+
+Task:
+- repair the tail/body connection
+- keep the same character identity
+- keep the same line weight, fur colors, stripe pattern, and lighting
+- do not redraw the whole character
+- do not change the face, body scale, or pose outside the mask
+- transparent or solid background should remain unchanged
+```
+
+### 4. “Do not generate row strip” negative prompt block
+
+```text
+Do not create a sprite sheet.
+Do not create multiple frames.
+Do not create a grid.
+Do not create repeated copies of the character.
+Do not redraw the character with different proportions.
+Do not omit or hide the tail.
+Do not crop any body part.
+```
+
+## 最终建议，落成一句话
+
+**Idle first 用方案 3：base pose + deterministic local edits。全 9 states 用方案 5 为主：分层角色 + puppet/rig + 曲线渲染 + Aseprite/本地 pack + 自动 QA。方案 2 只做大动作 key pose 参考，方案 4 只做运动参考，方案 1 彻底降级为概念草图。**
+
+这样 hatch-pet 的链路就从“模型每帧重画角色”变成“同一只猫在同一套骨架里动”。尾巴有户口，身体有锚点，帧有指纹，loop 有闭环，atlas 才会乖得像刚晒完太阳的银虎斑。🐾
+
+[1]: https://www.aseprite.org/docs/sprite-sheet/ "Aseprite - Docs - Sprite-sheet"
+[2]: https://docs.live2d.com/en/cubism-editor-manual/parameter/ "About Parameters | Editor Manual | Live2D Manuals & Tutorials"
+[3]: https://platform.openai.com/docs/guides/image-generation?lang=curl "Image generation | OpenAI API"
+[4]: https://arxiv.org/abs/2312.03793?utm_source=chatgpt.com "AnimateZero: Video Diffusion Models are Zero-Shot Image Animators"
+[5]: https://scikit-image.org/docs/stable/api/skimage.metrics?utm_source=chatgpt.com "skimage.metrics — skimage 0.25.2 documentation"
+[6]: https://en.esotericsoftware.com/spine-export/?utm_source=chatgpt.com "Export - Spine User Guide"
 
 ---
 
