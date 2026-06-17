@@ -145,21 +145,48 @@ describe('sanitize-rules regression (home repo only)', { skip: !isHomeRepo }, ()
   });
 
   describe('public package scripts', () => {
-    it('removes desktop scripts from package.json when desktop/ is not synced', () => {
+    // Logic moved to JSON-aware Node transform in sync-to-opensource.sh step 3k-3a1
+    // (pkg.scripts Object.keys filter on `desktop:*`). Perl is now intentionally
+    // a no-op for package.json — line-based rewrite was fragile and broke when
+    // check:brand-dictionary / check:brand-guard were inserted between
+    // check:start-profile-isolation and desktop:* scripts (produced invalid JSON).
+    // Integration coverage: sync-to-opensource-public-launch.test.mjs (wired into
+    // pnpm check via run-checks.mjs PARALLEL_CHECKS as check:sync-export).
+    it('does not modify package.json content (logic moved to Node transform)', () => {
       const input = [
         '    "check:start-profile-isolation": "node --test scripts/start-dev-profile-isolation.test.mjs",',
         '    "desktop:prepare": "npm --prefix ./desktop install --include=dev",',
         '    "desktop:dev": "pnpm desktop:prepare && npm --prefix ./desktop run start"',
       ].join('\n');
       const result = applySanitizer(input, 'package.json');
-      assert.ok(!result.includes('"desktop:'), `expected desktop scripts removed, got: ${result}`);
-      assert.ok(
-        result.includes('"check:start-profile-isolation": "node --test scripts/start-dev-profile-isolation.test.mjs"'),
-        `expected preceding script to remain, got: ${result}`,
+      assert.equal(
+        result,
+        input,
+        `perl should be no-op on package.json (Node transform owns desktop removal), got: ${result}`,
       );
-      assert.ok(
-        !result.includes('start-profile-isolation.test.mjs",'),
-        `expected trailing comma removed, got: ${result}`,
+    });
+
+    // Regression case for the bug fixed in this commit: non-desktop script
+    // (check:brand-dictionary) sitting between check:start-profile-isolation
+    // and desktop:* scripts. Previous perl logic stripped the trailing comma
+    // from check:start-profile-isolation but only removed lines starting with
+    // "desktop:", producing invalid JSON like:
+    //   "check:start-profile-isolation": "..."
+    //   "check:brand-dictionary": "...",
+    // Now that perl is a no-op for package.json, the original content survives
+    // and the Node transform handles desktop removal independently of position.
+    it('does not corrupt JSON when non-desktop scripts sit between check:start-profile-isolation and desktop scripts', () => {
+      const input = [
+        '    "check:start-profile-isolation": "node --test scripts/start-dev-profile-isolation.test.mjs",',
+        '    "check:brand-dictionary": "node --test scripts/brand-dictionary-helper.test.mjs",',
+        '    "check:brand-guard": "node --test scripts/brand-guard-helper.test.mjs",',
+        '    "desktop:prepare": "npm --prefix ./desktop install --include=dev"',
+      ].join('\n');
+      const result = applySanitizer(input, 'package.json');
+      assert.equal(
+        result,
+        input,
+        `perl should not strip the comma after check:start-profile-isolation when followed by non-desktop scripts (would produce invalid JSON), got: ${result}`,
       );
     });
   });

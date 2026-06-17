@@ -269,11 +269,13 @@ if ($ARGV =~ m{packages/api/test/review-start-script\.test\.js$}) {
   s#\{ web: '3001', api: '3002' \}#{ web: '3003', api: '3004' }#g;
 }
 
-# ── Public package scripts: remove internal-only desktop commands ──
-if ($ARGV =~ m{(^|/)package\.json$}) {
-  s/,\s*$/\n/ if /^\s+"check:start-profile-isolation":/;
-  $_ = "" if /^\s+"desktop:/;
-}
+# ── Public package scripts ──
+# desktop:* scripts removal has moved to the JSON-aware Node transform in
+# sync-to-opensource.sh step 3k-3a1 (Object.keys filter on pkg.scripts).
+# Line-based perl was fragile: it assumed desktop: immediately followed
+# check:start-profile-isolation and broke when check:brand-dictionary /
+# check:brand-guard were inserted between (produced invalid JSON).
+# Perl is now intentionally a no-op for package.json.
 
 # ── security-headers (source + test): Host header port references ──
 if ($ARGV =~ m{security-headers[^/]*\.(ts|js)$}) {

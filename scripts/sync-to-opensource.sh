@@ -1431,6 +1431,13 @@ if (!pkg.scripts.check.includes("pnpm check:start-profile-isolation")) {
 }
 delete pkg.scripts["check:architecture-ownership"];
 delete pkg.scripts["test:architecture-ownership"];
+// F228 outbound: remove all desktop:* scripts (internal-only, not synced to opensource).
+// JSON-aware via Object.keys — position-independent (previously perl line-based in
+// _sanitize-rules.pl assumed desktop: immediately followed check:start-profile-isolation,
+// broke when check:brand-dictionary / check:brand-guard were inserted between).
+for (const key of Object.keys(pkg.scripts)) {
+  if (key.startsWith("desktop:")) delete pkg.scripts[key];
+}
 // Internal-only scripts referencing non-exported files
 const internalScripts = [
   "antigravity:smoke",
