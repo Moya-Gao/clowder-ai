@@ -67,6 +67,23 @@ DRY_RUN=false
 - **交互**：默认 `--dry-run` 列出候选；`--apply` 才删除（不自动删，per ADR-025 第 8 条）
 - **可选 setup.sh 集成**：setup.sh 末尾检测 HOME-level stale symlinks 数量，>0 时打印 "Found N stale HOME-level skill symlinks. Run `pnpm clean:stale-skill-links` to review and clean." 提示（不自动跑）
 
+## User Visibility Disclosure (Step 0.3.5, F190 教训)
+
+把"技术决策"翻译成"用户可见性"语言。审视每个用户可见 surface 是否有缺失/退化，CVO 是否签字接受。
+
+| Surface | 用户能做什么（达成态 = ADR-025 设计意图） | 用户实际能做什么（F239 close 时） | 缺失/退化 | 处置 |
+|---------|--------------------------------------|----------------------------|----------|------|
+| **contributor: `pnpm sync:skills`（默认无 flag）** | 默认只 mount 项目级，不污染家目录 | 默认只 mount 项目级 4 providers (`.{claude,codex,gemini,kimi}/skills/`) + 所有 worktree，不写 HOME | 无 | ✅ shipped |
+| **contributor: `pnpm sync:skills --user`** | opt-in 写 HOME-level（与改前默认等价） | opt-in 写 HOME-level，dev 仍可全局共享 | 无 | ✅ shipped |
+| **contributor: `CONTRIBUTING.md` Getting Started** | 文档明确告知 `--user` 是 opt-in 路径 | CONTRIBUTING.md line 35-45 已 clarify `pnpm sync:skills --user` 是 contributor 想全局共享时的显式动作 | 无 | ✅ shipped |
+| **contributor: `pnpm clean:stale-skill-links`（默认无 flag）** | 默认 dry-run 列出候选不删 | 默认 dry-run，多 source 候选匹配 (main + worktree-local) | 无 | ✅ shipped |
+| **contributor: `pnpm clean:stale-skill-links --apply`** | 删 managed stale 只删，user-owned + 非 symlink 严格保留 | `--apply` 显式删；188 stale 测试中 user-owned 30 + 非 symlink 22 全部保留 | 无 | ✅ shipped |
+| **end-user: `bash scripts/setup.sh`** | 装机时不静默污染家目录，老 symlinks 检测但不自动删 | setup.sh 不写 HOME-level（Phase 5 part 1 + 本 feat 合力），末尾检测 stale links 仅打 hint 不自动跑 | 无 | ✅ shipped |
+| **end-user: 既有用户家目录 stale symlinks** | 主动提供清理路径（不强制自动）| `pnpm clean:stale-skill-links` 自助清理；setup.sh hint 引导；不主动跑、不静默删 | 无 | ✅ shipped per ADR-025 第 8 条"清理提示（不自动删除）" |
+| **end-user: 装机后 fresh 状态** | Skills 通过 runtime governance 在项目级 mount，不污染全局 | 完全实现（ADR-025 第 1+3+8 条 fully shipped） | 无 | ✅ shipped |
+
+**无 deferred surface，无 CVO sign-off 接受降级项目**——所有用户可见 surface 全部达成。
+
 ## Acceptance Criteria
 
 <!-- 立项愿景硬度自检（F216→F219）：每条 AC 必须 ① trace 回 Why 的某诉求 ② 非作者可复核（命令/数字/截图）。重构/降复杂度类须实测可量（数字下降），不是"提了可测性就算"。详见 feat-lifecycle SKILL.md。 -->
