@@ -13,8 +13,8 @@
 // foreground React-hook path, which is why we need a separate file here).
 
 import { beforeEach, describe, expect, it } from 'vitest';
-import { useChatStore } from '@/stores/chatStore';
 import { type BackgroundAgentMessage, handleBackgroundAgentMessage } from '@/hooks/useAgentMessages';
+import { useChatStore } from '@/stores/chatStore';
 
 let bgTestSeq = 0;
 const bgStreamRefs = new Map<string, { id: string; threadId: string; catId: string }>();

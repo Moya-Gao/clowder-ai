@@ -272,4 +272,3 @@ describe('#939 part A: provider_capability frontend consumption', () => {
     );
   });
 });
-
