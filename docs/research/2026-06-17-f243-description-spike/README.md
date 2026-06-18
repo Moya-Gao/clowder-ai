@@ -35,8 +35,8 @@ Phase A 验证 description generation 形态（小模型 / 大猫手写 / 模板
 | 2 | F038 | F038-skills-discovery.md | **ADR-like / doc_kind=note** | doc_kind=note 不是 spec；status=parked；测试小模型能否区分文档类型 |
 | 3 | F062 | F062-ragdoll-provider-profile-hub.md | **reopened-like / superseded** | status: done → superseded by F136；多 status 状态测试 |
 | 4 | F168 | F168-community-ops-board.md | **scope 漂移 / 长程多 phase** | community-ops-board 跨多 Phase + multi-tenancy 路径漂移；测试长 spec |
-| 5 | F229 | F229-cat-ball-concierge.md | **F号 collision** | 同 F号下还有 F229-petskin-contract；spec 必须能消歧两个不同 feat 同 F 号 |
-| 6 | F236 | F236-anchor-first-context-entry.md | **spec-very-large + scope 漂移**| 320+ 行；Phase C "cc 大头" 中途从 Non-goal 升格；测试长 spec + scope 演化 |
+| 5 | F229 | F229-cat-ball-concierge.md | **broad user-facing scope**（砚砚 R1 sharpen 改标 — 原"F号 collision"维度单文件 prompt 测不到，collision 消歧属 Phase B generator schema scope）| in-progress + always-on frontend concierge entry，broad scope 测试 description 抓核心 user-facing 价值 |
+| 6 | F101 | F101-mode-v2-game-engine.md | **spec-very-large 613 行 + reopened in-progress 多 phase**（砚砚 R1 sharpen 替换 F236——避免砚砚 co-owner 污染 blind eval） | 613 行 / reopened 2026-03-14 / Phase I in-progress；测试长 spec + 游戏域 + 多 phase 演化 |
 
 ### 4 篇 easy mode（F186-类，主题清晰 + 隐喻强 + 术语集中）
 
@@ -45,12 +45,19 @@ Phase A 验证 description generation 形态（小模型 / 大猫手写 / 模板
 | 7 | F009 | F009-tool-use-tool-result.md | done / 主题集中 | tool use / tool result 是单一概念，难度低 |
 | 8 | F022 | F022-rich-blocks.md | done / 主题清晰 | rich blocks 是 well-defined 概念，UX-oriented 隐喻强 |
 | 9 | F102 | F102-memory-adapter-refactor.md | done / 主题集中（F186 演化上游）| memory adapter refactor，主题清晰；和 F186 同族不同 phase |
-| 10 | F242 | F242-code-graph-layer-spike.md | spec / 主题清晰（最新 spike） | code graph + spike，主题清晰；测试 spike 类 doc 的 description |
+| 10 | F140 | F140-github-pr-automation.md | done / 主题清晰（砚砚 R1 sharpen 替换 F242——避免砚砚 co-brainstorm 污染；F235 砚砚自己推荐但我 verify 出 F235 是砚砚 deep co-design `宪宪×砚砚收敛` 也污染，所以选 F140 干净 pool）| 砚砚 / @codex / gpt-5 全文 grep 0 命中 ✓；done / 主题清晰单领域 github-pr |
 
 ### 故意不选
 
 - **F186**：mini-spike R1/R2/R3 已经用过；为避免 spike 数据回路污染（烁烁可能 memo F186 的 R3 答案），改用 F102 测试同族 doc
 - **F040 backlog-reorganization**：和本任务太相关，可能引入 reflective bias
+- **F236 / F242 / F235**（砚砚 R1 sharpen 排除）：F236 是砚砚 co-owner（spec L11）+ F242 砚砚是 co-brainstorm（BACKLOG `opus-48 + 砚砚 co-brainstorm`）+ F235 砚砚 deep co-design（多处 "宪宪×砚砚收敛" / KD-1 砚砚分析）。砚砚 R1 提议 F101 替代 F236 + F235 替代 F242，但我 verify 出 F235 自身污染，最终选 F140 干净替代
+
+### Sample selection verify trace（防 self-audit miss）
+
+- 替代池筛选: `grep -l "砚砚\|@codex\|gpt-5\.5\|gpt-5\.4\|@gpt52" docs/features/*.md` → F2xx 段几乎全部命中（砚砚常驻 reviewer 必然现象，只有 F240 干净但非 spec 类型）
+- Fall back F0xx/F1xx pool：F140 (github-pr-automation) / F009 / F022 / F102 等 done features 0 命中（早期"三猫"owner 时代砚砚还未成常驻 reviewer）
+- F101 mild bias 可接受：F101 砚砚是 reviewer / 部分定位（KD-31/32 "砚砚审查发现 P1 风险"），非 owner / co-designer，比 F236 干净很多
 
 ## Generation Prompt v3（9 条 hard rules，mini-spike R1/R2/R3 已 formally validated）
 
@@ -121,7 +128,7 @@ Phase A 验证 description generation 形态（小模型 / 大猫手写 / 模板
 
 ## 进度跟踪
 
-- [ ] **Step 1 — Sample selection confirm**：@codex sharpen sample 列表（avoid sample bias）
+- [x] **Step 1 — Sample selection confirm**：@codex R1 sharpen → 退回（F236/F242 污染 + F229 collision 测不到）→ 修正 F236→F101 / F242→F140（**不是砚砚自己推荐的 F235，因为 F235 同样砚砚 deep co-design**——砚砚 self-audit 漏点）+ F229 改标 broad scope。等 @codex R2 sharpen 确认
 - [ ] **Step 2 — Generation**：@gemini35 跑 10 篇 description generation（本 thread 或 spike thread，generation 不是盲评可同步 visible）
 - [ ] **Step 3 — Blind eval**：propose_thread 开盲评 thread（三猫独立 invocation 评分，避免互看）
 - [ ] **Step 4 — Aggregate + verdict**：汇总跨猫数据 + 形态判定 + 写 spike report
