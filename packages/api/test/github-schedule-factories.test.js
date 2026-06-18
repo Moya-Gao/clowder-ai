@@ -1503,10 +1503,17 @@ describe('F140 review-feedback factory preserves the registered thread', () => {
     const updateCalls = [];
     const routeCalls = [];
     deps.taskStore = {
+      get: async (taskId) => (taskId === task.id ? { ...task } : null),
       listByKind: async () => [task],
       update: async (taskId, input) => {
         updateCalls.push({ taskId, input });
         return { ...task, ...input };
+      },
+      updateIfThreadId: async (taskId, expectedThreadId, input) => {
+        if (taskId !== task.id || task.threadId !== expectedThreadId) return null;
+        updateCalls.push({ taskId, input, expectedThreadId });
+        Object.assign(task, input);
+        return { ...task };
       },
       patchAutomationState: async () => task,
     };
@@ -1514,8 +1521,8 @@ describe('F140 review-feedback factory preserves the registered thread', () => {
       { id: 100, author: 'alice', body: 'fix it', createdAt: '2026-01-01', commentType: 'conversation' },
     ];
     deps.reviewFeedbackRouter = {
-      route: async (_signal, tracking) => {
-        routeCalls.push(tracking);
+      route: async (signal, tracking) => {
+        routeCalls.push({ signal, tracking });
         return {
           kind: 'notified',
           threadId: tracking.threadId,
@@ -1531,7 +1538,16 @@ describe('F140 review-feedback factory preserves the registered thread', () => {
     assert.equal(gateResult.run, true, 'gate should fire');
     await spec.run.execute(gateResult.workItems[0].signal, 'pr:owner/repo#45', {});
 
-    assert.equal(routeCalls[0].threadId, 'th-registered', 'factory path must deliver legacy tasks to source thread');
+    assert.equal(
+      routeCalls[0].tracking.threadId,
+      'th-registered',
+      'factory path must deliver legacy tasks to source thread',
+    );
+    assert.deepEqual(routeCalls[0].signal.routingAudit, {
+      kind: 'legacy-auto-rotated-repaired',
+      previousThreadId: 'thread_rotated_1',
+      repairedThreadId: 'th-registered',
+    });
     assert.deepEqual(
       updateCalls.filter((c) => Object.hasOwn(c.input, 'threadId')).map((c) => c.input.threadId),
       ['th-registered'],

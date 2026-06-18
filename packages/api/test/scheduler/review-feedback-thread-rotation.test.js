@@ -32,15 +32,28 @@ function mockTask(pr, overrides = {}) {
   };
 }
 
-function mockTaskStore(tasks) {
+function mockTaskStore(tasks, options = {}) {
   const patchCalls = [];
   const updateCalls = [];
   return {
+    get: async (taskId) => {
+      const task = tasks.find((t) => t.id === taskId);
+      return task ? { ...task } : null;
+    },
     listByKind: async () => tasks,
     update: async (taskId, input) => {
       updateCalls.push({ taskId, input });
       const task = tasks.find((t) => t.id === taskId);
       if (!task) return null;
+      Object.assign(task, input, { updatedAt: Date.now() });
+      return { ...task };
+    },
+    updateIfThreadId: async (taskId, expectedThreadId, input) => {
+      options.beforeConditionalUpdate?.();
+      updateCalls.push({ taskId, expectedThreadId, input, conditional: true });
+      const task = tasks.find((t) => t.id === taskId);
+      if (!task) return null;
+      if (task.threadId !== expectedThreadId) return null;
       Object.assign(task, input, { updatedAt: Date.now() });
       return { ...task };
     },
@@ -218,6 +231,11 @@ describe('#949 / F140: review feedback returns to the registered thread', () => 
     await spec.run.execute(gateResult.workItems[0].signal, 'pr:owner/repo#44', {});
 
     assert.equal(calls.length, 1);
+    assert.deepEqual(calls[0].signal.routingAudit, {
+      kind: 'legacy-auto-rotated-repaired',
+      previousThreadId: 'thread_rotated_1',
+      repairedThreadId: 'th-original',
+    });
     assert.equal(calls[0].tracking.threadId, 'th-original', 'polluted legacy task must deliver to source thread');
     assert.deepEqual(
       store._updateCalls.filter((call) => Object.hasOwn(call.input, 'threadId')).map((call) => call.input.threadId),
@@ -225,6 +243,330 @@ describe('#949 / F140: review feedback returns to the registered thread', () => 
       'legacy repair should persist task.threadId back to the source thread',
     );
     assert.equal(threadStore._createCalls.length, 0, 'legacy repair must not create another thread');
+  });
+
+  it('delivers routing audit when legacy repair feedback is otherwise filtered', async () => {
+    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
+    const task = mockTask(
+      { repoFullName: 'owner/repo', prNumber: 48, catId: 'opus', threadId: 'thread_rotated_1', userId: 'u-1' },
+      {
+        automationState: {
+          review: { lastCommentCursor: 0, lastDecisionCursor: 0, completedReviewCount: 1 },
+        },
+      },
+    );
+    const store = mockTaskStore([task]);
+    const threadStore = mockThreadStore({
+      thread_rotated_1: {
+        id: 'thread_rotated_1',
+        title: 'MR review (auto-rotated from th-original)',
+        createdBy: 'u-1',
+        createdAt: task.createdAt + 1000,
+        participants: ['opus'],
+        projectPath: '/projects/cat-cafe',
+      },
+      'th-original': {
+        id: 'th-original',
+        title: 'Original source thread',
+        createdBy: 'u-1',
+        createdAt: task.createdAt - 1000,
+        participants: ['opus'],
+        projectPath: '/projects/cat-cafe',
+      },
+    });
+    const { router, calls } = stubRouter();
+    const spec = createReviewFeedbackTaskSpec({
+      taskStore: store,
+      fetchComments: async () => [
+        {
+          id: 34,
+          author: 'alice',
+          authorAssociation: 'OWNER',
+          body: 'owner-only review feedback',
+          createdAt: '2026-01-01',
+          commentType: 'conversation',
+        },
+      ],
+      fetchReviews: async () => [],
+      reviewFeedbackRouter: router,
+      threadStore,
+      log: noopLog,
+    });
+
+    const gateResult = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
+    assert.equal(gateResult.run, true);
+    await spec.run.execute(gateResult.workItems[0].signal, 'pr:owner/repo#48', {});
+
+    assert.equal(calls.length, 1);
+    assert.deepEqual(calls[0].signal.routingAudit, {
+      kind: 'legacy-auto-rotated-repaired',
+      previousThreadId: 'thread_rotated_1',
+      repairedThreadId: 'th-original',
+    });
+    assert.deepEqual(calls[0].signal.newComments, [], 'filtered feedback should not be reintroduced');
+    assert.equal(calls[0].tracking.threadId, 'th-original');
+    const cursorPatch = store._patchCalls.find((call) => call.patch.review?.lastCommentCursor !== undefined);
+    assert.ok(cursorPatch, 'audit delivery should still commit the filtered feedback cursor');
+    assert.equal(cursorPatch.patch.review.lastCommentCursor, 34);
+  });
+
+  it('does not persist legacy repair before feedback fetch succeeds', async () => {
+    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
+    const task = mockTask(
+      { repoFullName: 'owner/repo', prNumber: 49, catId: 'opus', threadId: 'thread_rotated_1', userId: 'u-1' },
+      {
+        automationState: {
+          review: { lastCommentCursor: 0, lastDecisionCursor: 0, completedReviewCount: 1 },
+        },
+      },
+    );
+    const store = mockTaskStore([task]);
+    const threadStore = mockThreadStore({
+      thread_rotated_1: {
+        id: 'thread_rotated_1',
+        title: 'MR review (auto-rotated from th-original)',
+        createdBy: 'u-1',
+        createdAt: task.createdAt + 1000,
+        participants: ['opus'],
+        projectPath: '/projects/cat-cafe',
+      },
+      'th-original': {
+        id: 'th-original',
+        title: 'Original source thread',
+        createdBy: 'u-1',
+        createdAt: task.createdAt - 1000,
+        participants: ['opus'],
+        projectPath: '/projects/cat-cafe',
+      },
+    });
+    const { router, calls } = stubRouter();
+    let shouldFailFetch = true;
+    const spec = createReviewFeedbackTaskSpec({
+      taskStore: store,
+      fetchComments: async () => {
+        if (shouldFailFetch) throw new Error('temporary GitHub failure');
+        return [{ id: 35, author: 'alice', body: 'P2: check', createdAt: '2026-01-01', commentType: 'conversation' }];
+      },
+      fetchReviews: async () => [],
+      reviewFeedbackRouter: router,
+      threadStore,
+      log: noopLog,
+    });
+
+    const failedGate = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
+    assert.equal(failedGate.run, false);
+    assert.equal(task.threadId, 'thread_rotated_1', 'failed fetch must leave legacy evidence intact for retry');
+    assert.equal(
+      store._updateCalls.some((call) => Object.hasOwn(call.input, 'threadId')),
+      false,
+      'failed fetch must not persist repair before audit delivery',
+    );
+
+    shouldFailFetch = false;
+    const retryGate = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 2 });
+    assert.equal(retryGate.run, true);
+    await spec.run.execute(retryGate.workItems[0].signal, 'pr:owner/repo#49', {});
+
+    assert.equal(calls.length, 1);
+    assert.deepEqual(calls[0].signal.routingAudit, {
+      kind: 'legacy-auto-rotated-repaired',
+      previousThreadId: 'thread_rotated_1',
+      repairedThreadId: 'th-original',
+    });
+    assert.deepEqual(
+      store._updateCalls.filter((call) => Object.hasOwn(call.input, 'threadId')).map((call) => call.input.threadId),
+      ['th-original'],
+      'repair is persisted only after audit delivery succeeds',
+    );
+  });
+
+  it('does not persist legacy repair when routing delivery fails', async () => {
+    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
+    const task = mockTask(
+      { repoFullName: 'owner/repo', prNumber: 50, catId: 'opus', threadId: 'thread_rotated_1', userId: 'u-1' },
+      {
+        automationState: {
+          review: { lastCommentCursor: 0, lastDecisionCursor: 0, completedReviewCount: 1 },
+        },
+      },
+    );
+    const store = mockTaskStore([task]);
+    const threadStore = mockThreadStore({
+      thread_rotated_1: {
+        id: 'thread_rotated_1',
+        title: 'MR review (auto-rotated from th-original)',
+        createdBy: 'u-1',
+        createdAt: task.createdAt + 1000,
+        participants: ['opus'],
+        projectPath: '/projects/cat-cafe',
+      },
+      'th-original': {
+        id: 'th-original',
+        title: 'Original source thread',
+        createdBy: 'u-1',
+        createdAt: task.createdAt - 1000,
+        participants: ['opus'],
+        projectPath: '/projects/cat-cafe',
+      },
+    });
+    const spec = createReviewFeedbackTaskSpec({
+      taskStore: store,
+      fetchComments: async () => [
+        { id: 36, author: 'alice', body: 'P2: check', createdAt: '2026-01-01', commentType: 'conversation' },
+      ],
+      fetchReviews: async () => [],
+      reviewFeedbackRouter: {
+        route: async () => {
+          throw new Error('delivery failed');
+        },
+      },
+      threadStore,
+      log: noopLog,
+    });
+
+    const gateResult = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
+    assert.equal(gateResult.run, true);
+    await assert.rejects(
+      () => spec.run.execute(gateResult.workItems[0].signal, 'pr:owner/repo#50', {}),
+      /delivery failed/,
+    );
+
+    assert.equal(task.threadId, 'thread_rotated_1', 'failed delivery must leave legacy evidence intact for retry');
+    assert.equal(
+      store._updateCalls.some((call) => Object.hasOwn(call.input, 'threadId')),
+      false,
+      'failed delivery must not persist repair before audit is visible',
+    );
+  });
+
+  it('does not overwrite a newer PR tracking re-registration when committing legacy repair', async () => {
+    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
+    const task = mockTask(
+      { repoFullName: 'owner/repo', prNumber: 51, catId: 'opus', threadId: 'thread_rotated_1', userId: 'u-1' },
+      {
+        automationState: {
+          review: { lastCommentCursor: 0, lastDecisionCursor: 0, completedReviewCount: 1 },
+        },
+      },
+    );
+    const store = mockTaskStore([task]);
+    const threadStore = mockThreadStore({
+      thread_rotated_1: {
+        id: 'thread_rotated_1',
+        title: 'MR review (auto-rotated from th-original)',
+        createdBy: 'u-1',
+        createdAt: task.createdAt + 1000,
+        participants: ['opus'],
+        projectPath: '/projects/cat-cafe',
+      },
+      'th-original': {
+        id: 'th-original',
+        title: 'Original source thread',
+        createdBy: 'u-1',
+        createdAt: task.createdAt - 1000,
+        participants: ['opus'],
+        projectPath: '/projects/cat-cafe',
+      },
+    });
+    const { router, calls } = stubRouter();
+    const spec = createReviewFeedbackTaskSpec({
+      taskStore: store,
+      fetchComments: async () => [
+        { id: 37, author: 'alice', body: 'P2: check', createdAt: '2026-01-01', commentType: 'conversation' },
+      ],
+      fetchReviews: async () => [],
+      reviewFeedbackRouter: router,
+      threadStore,
+      log: noopLog,
+    });
+
+    const gateResult = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
+    assert.equal(gateResult.run, true);
+    task.threadId = 'th-new-registration';
+    await spec.run.execute(gateResult.workItems[0].signal, 'pr:owner/repo#51', {});
+
+    assert.equal(task.threadId, 'th-new-registration', 'newer registration thread must not be overwritten');
+    assert.equal(calls.length, 0, 'stale repair must not deliver feedback to the gate-time source thread');
+    assert.equal(
+      store._updateCalls.some((call) => Object.hasOwn(call.input, 'threadId')),
+      false,
+      'stale legacy repair must not persist after task.threadId changes',
+    );
+    assert.equal(
+      store._patchCalls.length,
+      0,
+      'stale repair must not advance cursors so the newly registered thread can receive feedback on retry',
+    );
+  });
+
+  it('does not overwrite re-registration between freshness validation and conditional repair write', async () => {
+    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
+    const task = mockTask(
+      { repoFullName: 'owner/repo', prNumber: 52, catId: 'opus', threadId: 'thread_rotated_1', userId: 'u-1' },
+      {
+        automationState: {
+          review: { lastCommentCursor: 0, lastDecisionCursor: 0, completedReviewCount: 1 },
+        },
+      },
+    );
+    let movedBeforeConditionalWrite = false;
+    const store = mockTaskStore([task], {
+      beforeConditionalUpdate: () => {
+        if (!movedBeforeConditionalWrite) {
+          movedBeforeConditionalWrite = true;
+          task.threadId = 'th-new-registration';
+        }
+      },
+    });
+    const threadStore = mockThreadStore({
+      thread_rotated_1: {
+        id: 'thread_rotated_1',
+        title: 'MR review (auto-rotated from th-original)',
+        createdBy: 'u-1',
+        createdAt: task.createdAt + 1000,
+        participants: ['opus'],
+        projectPath: '/projects/cat-cafe',
+      },
+      'th-original': {
+        id: 'th-original',
+        title: 'Original source thread',
+        createdBy: 'u-1',
+        createdAt: task.createdAt - 1000,
+        participants: ['opus'],
+        projectPath: '/projects/cat-cafe',
+      },
+    });
+    const { router, calls } = stubRouter();
+    const spec = createReviewFeedbackTaskSpec({
+      taskStore: store,
+      fetchComments: async () => [
+        { id: 38, author: 'alice', body: 'P2: check', createdAt: '2026-01-01', commentType: 'conversation' },
+      ],
+      fetchReviews: async () => [],
+      reviewFeedbackRouter: router,
+      threadStore,
+      log: noopLog,
+    });
+
+    const gateResult = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
+    assert.equal(gateResult.run, true);
+    await spec.run.execute(gateResult.workItems[0].signal, 'pr:owner/repo#52', {});
+
+    assert.equal(calls.length, 1, 're-registration after pre-route validation may have already delivered once');
+    assert.equal(task.threadId, 'th-new-registration', 'conditional repair must not overwrite the newer thread');
+    assert.equal(
+      store._updateCalls.some(
+        (call) =>
+          call.conditional && call.expectedThreadId === 'thread_rotated_1' && call.input.threadId === 'th-original',
+      ),
+      true,
+      'repair must use the conditional task-store write path',
+    );
+    assert.equal(
+      store._patchCalls.length,
+      0,
+      'failed conditional repair must not advance cursors so the new registration can receive feedback on retry',
+    );
   });
 
   it('follows chained legacy rotated threads back to the original source thread before routing', async () => {
@@ -281,6 +623,11 @@ describe('#949 / F140: review feedback returns to the registered thread', () => 
     await spec.run.execute(gateResult.workItems[0].signal, 'pr:owner/repo#46', {});
 
     assert.equal(calls.length, 1);
+    assert.deepEqual(calls[0].signal.routingAudit, {
+      kind: 'legacy-auto-rotated-repaired',
+      previousThreadId: 'thread_rotated_2',
+      repairedThreadId: 'th-original',
+    });
     assert.equal(calls[0].tracking.threadId, 'th-original', 'chained legacy repair must deliver to original source');
     assert.deepEqual(
       store._updateCalls.filter((call) => Object.hasOwn(call.input, 'threadId')).map((call) => call.input.threadId),
@@ -336,6 +683,11 @@ describe('#949 / F140: review feedback returns to the registered thread', () => 
     await spec.run.execute(gateResult.workItems[0].signal, 'pr:owner/repo#47', {});
 
     assert.equal(calls.length, 1);
+    assert.deepEqual(calls[0].signal.routingAudit, {
+      kind: 'legacy-auto-rotated-repaired',
+      previousThreadId: 'thread_rotated_default',
+      repairedThreadId: 'default',
+    });
     assert.equal(calls[0].tracking.threadId, 'default', 'default-thread legacy repair must deliver to default');
     assert.deepEqual(
       store._updateCalls.filter((call) => Object.hasOwn(call.input, 'threadId')).map((call) => call.input.threadId),
@@ -390,6 +742,7 @@ describe('#949 / F140: review feedback returns to the registered thread', () => 
     await spec.run.execute(gateResult.workItems[0].signal, 'pr:owner/repo#45', {});
 
     assert.equal(calls.length, 1);
+    assert.equal(calls[0].signal.routingAudit, undefined, 'untrusted legacy-looking thread must not emit audit repair');
     assert.equal(calls[0].tracking.threadId, 'thread_spoofed', 'spoofed title must not reroute delivery');
     assert.equal(
       store._updateCalls.some((call) => Object.hasOwn(call.input, 'threadId')),

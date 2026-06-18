@@ -47,6 +47,20 @@ class BallCustodyTaskStore implements ITaskStore {
     return isPromiseLike(beforeResult) ? beforeResult.then(updateAfterBefore) : updateAfterBefore(beforeResult);
   }
 
+  updateIfThreadId(taskId: string, expectedThreadId: string, input: UpdateTaskInput): MaybePromise<TaskItem | null> {
+    const beforeResult = this.inner.get(taskId);
+    const updateAfterBefore = (before: TaskItem | null): MaybePromise<TaskItem | null> => {
+      const updatedResult = this.inner.updateIfThreadId(taskId, expectedThreadId, input);
+      const finish = (updated: TaskItem | null): TaskItem | null => {
+        if (before && updated) this.recordStatusTransition(before, updated);
+        return updated;
+      };
+      return isPromiseLike(updatedResult) ? updatedResult.then(finish) : finish(updatedResult);
+    };
+
+    return isPromiseLike(beforeResult) ? beforeResult.then(updateAfterBefore) : updateAfterBefore(beforeResult);
+  }
+
   listByThread(threadId: string): MaybePromise<TaskItem[]> {
     return this.inner.listByThread(threadId);
   }

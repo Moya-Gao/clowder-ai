@@ -78,6 +78,12 @@ export interface ITaskStore {
   create(input: CreateTaskInput): TaskItem | Promise<TaskItem>;
   get(taskId: string): TaskItem | null | Promise<TaskItem | null>;
   update(taskId: string, input: UpdateTaskInput): TaskItem | null | Promise<TaskItem | null>;
+  /** Conditionally update only when the task still belongs to the expected thread. */
+  updateIfThreadId(
+    taskId: string,
+    expectedThreadId: string,
+    input: UpdateTaskInput,
+  ): TaskItem | null | Promise<TaskItem | null>;
   listByThread(threadId: string): TaskItem[] | Promise<TaskItem[]>;
   delete(taskId: string): boolean | Promise<boolean>;
   /** Delete all tasks in a thread (cascade delete support) */
@@ -267,6 +273,13 @@ export class TaskStore implements ITaskStore {
 
     this.tasks.set(taskId, updated);
     return updated;
+  }
+
+  updateIfThreadId(taskId: string, expectedThreadId: string, input: UpdateTaskInput): TaskItem | null {
+    const existing = this.tasks.get(taskId);
+    if (!existing) return null;
+    if (existing.threadId !== expectedThreadId) return null;
+    return this.update(taskId, input);
   }
 
   listByThread(threadId: string): TaskItem[] {

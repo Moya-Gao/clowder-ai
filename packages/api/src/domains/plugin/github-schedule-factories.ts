@@ -61,15 +61,12 @@ export interface GitHubScheduleDeps extends ScheduleFactoryDeps {
   fetchPrStatus?: (repoFullName: string, prNumber: number) => Promise<CiPollResult | null>;
   conflictRouter: ConflictRouter;
   reviewFeedbackRouter: ReviewFeedbackRouter;
-  /** F140/#949 correction + F167 R2: read-only legacy repair for already-rotated PR
-   *  tracking tasks, plus `create` for MR review thread rotation and `updateThreadKind`
-   *  so RepoScanTaskSpec can self-heal gate-keeping marker on reconciliation delivery. */
+  /** F140/#949 correction + F167 R2: `get` lets ReviewFeedbackTaskSpec repair already-rotated
+   *  PR tracking tasks; `create`/`updateThreadKind` are for RepoScanTaskSpec reconciliation. */
   threadStore?: Pick<IThreadStore, 'create' | 'get' | 'updateThreadKind'>;
   invokeTrigger: ConnectorInvokeTrigger;
-  // Note: F140 source-thread backlink uses the existing `deliveryDeps`
-  // (ConnectorDeliveryDeps with messageStore + socketManager) already declared
-  // above for repo-scan delivery. No separate field — rotation backlink reuses
-  // the same delivery dependency to guarantee append + broadcast.
+  // Repo-scan connector delivery deps. Review-feedback delivery stays encapsulated
+  // in ReviewFeedbackRouter; no rotation/backlink delivery path exists post-#2394.
   checkMergeable: (repo: string, pr: number) => Promise<{ mergeState: string; headSha: string }>;
   autoExecutor: ConflictAutoExecutor;
   fetchPrMetadata: (repo: string, pr: number) => Promise<ReviewFeedbackPrMetadata | null>;

@@ -20,14 +20,22 @@ import type { ICommunityEventLog } from '../../domains/community/CommunityEventL
 import { decideDelivery } from '../../domains/community/community-delivery-policy.js';
 import type { ExecuteContext, TaskSpec_P1 } from '../scheduler/types.js';
 import type { ConnectorInvokeTrigger, ConnectorTriggerPolicy } from './ConnectorInvokeTrigger.js';
-import type { PrFeedbackComment, PrReviewDecision, ReviewFeedbackRouter } from './ReviewFeedbackRouter.js';
+import type {
+  PrFeedbackComment,
+  PrReviewDecision,
+  ReviewFeedbackRouter,
+  ReviewFeedbackRoutingAudit,
+} from './ReviewFeedbackRouter.js';
 
 export interface ReviewFeedbackSignal {
   repairedTask: TaskItem;
   repoFullName: string;
   prNumber: number;
+  routingAudit?: ReviewFeedbackRoutingAudit;
   newComments: PrFeedbackComment[];
   newDecisions: PrReviewDecision[];
+  validateRoutingRepairFresh?: () => Promise<boolean>;
+  commitRoutingRepair?: () => Promise<boolean>;
   commitCursor: () => Promise<void>;
 }
 
@@ -105,19 +113,26 @@ function isTrustedLegacyRotatedThread(task: TaskItem, currentThread: Thread, sou
   return true;
 }
 
+interface LegacyRotatedTaskRepairResult {
+  readonly task: TaskItem;
+  readonly routingAudit?: ReviewFeedbackRoutingAudit;
+  readonly validateRoutingRepairFresh?: () => Promise<boolean>;
+  readonly commitRoutingRepair?: () => Promise<boolean>;
+}
+
 export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions): TaskSpec_P1<ReviewFeedbackSignal> {
   // In-memory cursors: highest seen comment ID and review ID per PR
   const commentCursors = new Map<string, number>();
   const reviewCursors = new Map<string, number>();
 
-  async function repairLegacyRotatedTask(task: TaskItem): Promise<TaskItem> {
-    if (!opts.threadStore) return task;
+  async function repairLegacyRotatedTask(task: TaskItem): Promise<LegacyRotatedTaskRepairResult> {
+    if (!opts.threadStore) return { task };
 
     try {
       let currentThread = await opts.threadStore.get(task.threadId);
-      if (!currentThread) return task;
+      if (!currentThread) return { task };
       let sourceThreadId = parseLegacyRotatedSourceThreadId(currentThread?.title);
-      if (!sourceThreadId || sourceThreadId === task.threadId) return task;
+      if (!sourceThreadId || sourceThreadId === task.threadId) return { task };
 
       const visitedThreadIds = new Set<string>([task.threadId]);
       let repairTargetThreadId = sourceThreadId;
@@ -128,7 +143,7 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
           opts.log.warn(
             `[review-feedback] legacy rotated thread repair skipped for ${task.subjectKey ?? task.id}: rotation backlink cycle at ${sourceThreadId}`,
           );
-          return task;
+          return { task };
         }
 
         const sourceThread = await opts.threadStore.get(sourceThreadId);
@@ -136,13 +151,13 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
           opts.log.warn(
             `[review-feedback] legacy rotated thread repair skipped for ${task.subjectKey ?? task.id}: source thread ${sourceThreadId} not found`,
           );
-          return task;
+          return { task };
         }
         if (!isTrustedLegacyRotatedThread(task, currentThread, sourceThread)) {
           opts.log.warn(
             `[review-feedback] legacy rotated thread repair skipped for ${task.subjectKey ?? task.id}: thread ownership metadata did not match trusted #949 shape`,
           );
-          return task;
+          return { task };
         }
 
         repairTargetThreadId = sourceThreadId;
@@ -162,24 +177,55 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
         opts.log.warn(
           `[review-feedback] legacy rotated thread repair skipped for ${task.subjectKey ?? task.id}: rotation backlink chain exceeded ${MAX_LEGACY_ROTATION_REPAIR_HOPS} hops`,
         );
-        return task;
+        return { task };
       }
 
-      const repaired = await opts.taskStore.update(task.id, { threadId: repairTargetThreadId });
-      if (!repaired) {
-        opts.log.warn(
-          `[review-feedback] legacy rotated thread repair failed for ${task.subjectKey ?? task.id}: task not found`,
+      const previousThreadId = task.threadId;
+      const validateRoutingRepairFresh = async () => {
+        const currentTask = await opts.taskStore.get(task.id);
+        if (!currentTask) {
+          throw new Error(`task not found: ${task.id}`);
+        }
+        if (currentTask.threadId !== previousThreadId) {
+          opts.log.warn(
+            `[review-feedback] skipped stale legacy rotated thread repair for ${task.id}: task moved from ${previousThreadId} to ${currentTask.threadId}`,
+          );
+          return false;
+        }
+        return true;
+      };
+      const commitRoutingRepair = async () => {
+        if (!(await validateRoutingRepairFresh())) return false;
+        const repaired = await opts.taskStore.updateIfThreadId(task.id, previousThreadId, {
+          threadId: repairTargetThreadId,
+        });
+        if (!repaired) {
+          opts.log.warn(
+            `[review-feedback] skipped stale legacy rotated thread repair for ${task.id}: task moved before conditional update`,
+          );
+          return false;
+        }
+        opts.log.info(
+          `[review-feedback] repaired legacy rotated thread for ${task.id}: ${task.threadId} → ${repairTargetThreadId}`,
         );
-        return task;
-      }
-
-      opts.log.info(
-        `[review-feedback] repaired legacy rotated thread for ${task.subjectKey ?? task.id}: ${task.threadId} → ${repairTargetThreadId}`,
-      );
-      return repaired;
+        return true;
+      };
+      return {
+        task: {
+          ...task,
+          threadId: repairTargetThreadId,
+        },
+        routingAudit: {
+          kind: 'legacy-auto-rotated-repaired',
+          previousThreadId,
+          repairedThreadId: repairTargetThreadId,
+        },
+        validateRoutingRepairFresh,
+        commitRoutingRepair,
+      };
     } catch (e) {
       opts.log.warn(`[review-feedback] legacy rotated thread repair failed for ${task.subjectKey ?? task.id}`, e);
-      return task;
+      return { task };
     }
   }
 
@@ -245,7 +291,8 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
             if (!parsed) continue;
             const { repoFullName, prNumber } = parsed;
             const prKey = `${repoFullName}#${prNumber}`;
-            const trackingTask = await repairLegacyRotatedTask(task);
+            const repairResult = await repairLegacyRotatedTask(task);
+            const trackingTask = repairResult.task;
 
             const prMetadata = opts.fetchPrMetadata ? await opts.fetchPrMetadata(repoFullName, prNumber) : null;
             if (prMetadata?.prState === 'merged' || prMetadata?.prState === 'closed') {
@@ -476,25 +523,28 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
 
             const allSkipped = newComments.length === 0 && newDecisions.length === 0;
             const hadNewItems = allNewComments.length > 0 || allNewReviews.length > 0;
-            if (hadNewItems && allSkipped) {
-              await advanceCursor(
-                trackingTask.id,
-                prKey,
-                { comment: maxCommentId, decision: maxReviewId },
-                'persistFirst',
-              );
+            if (allSkipped && !repairResult.routingAudit) {
+              if (hadNewItems) {
+                await advanceCursor(
+                  trackingTask.id,
+                  prKey,
+                  { comment: maxCommentId, decision: maxReviewId },
+                  'persistFirst',
+                );
+              }
               continue;
             }
-
-            if (newComments.length === 0 && newDecisions.length === 0) continue;
 
             workItems.push({
               signal: {
                 repairedTask: trackingTask,
                 repoFullName,
                 prNumber,
+                routingAudit: repairResult.routingAudit,
                 newComments,
                 newDecisions,
+                validateRoutingRepairFresh: repairResult.validateRoutingRepairFresh,
+                commitRoutingRepair: repairResult.commitRoutingRepair,
                 commitCursor: () =>
                   advanceCursor(
                     trackingTask.id,
@@ -524,10 +574,15 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
       async execute(signal: ReviewFeedbackSignal, subjectKey: string, _ctx: ExecuteContext) {
         const { repairedTask } = signal;
 
+        if (signal.validateRoutingRepairFresh && !(await signal.validateRoutingRepairFresh())) {
+          return;
+        }
+
         const routeResult = await opts.reviewFeedbackRouter.route(
           {
             repoFullName: signal.repoFullName,
             prNumber: signal.prNumber,
+            routingAudit: signal.routingAudit,
             newComments: signal.newComments,
             newDecisions: signal.newDecisions,
           },
@@ -541,6 +596,8 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
 
         if (routeResult.kind !== 'notified') return;
 
+        const repairCommitted = await signal.commitRoutingRepair?.();
+        if (repairCommitted === false) return;
         await signal.commitCursor();
 
         if (opts.invokeTrigger) {
