@@ -260,6 +260,60 @@ Phase D 的 `D0-D6` 是交付切面，不是 PR 切分键。默认不允许按�
 
 **Hard split trigger:** if the persistent narrator dedup store requires a new shared infrastructure abstraction or cross-cell migration, split only D0.2-D0.6 as a prerequisite PR and keep D1+D2 together. Otherwise D0.2-D2 ships as one backend closure-core PR.
 
+### 2.3 D-PR2 Implementation-Ready Packet
+
+**Entry state:** start from `origin/main` after D-PR1 (PR #2375). D-PR2 owns D3 + D4 only: Reconciler, reconciliation finding store/read model, and SLA/dead-letter findings.
+
+**D-PR2 scope:**
+- D3 GitHub⇄Case Reconciler:
+  - add a pure `CommunityReconciler` core that reads existing `CommunityObjectProjection` snapshots and injected GitHub subject snapshots, then emits deterministic actions.
+  - add a Redis-backed `CommunityReconciliationFindingStore` with no TTL. Findings are operational read-model state, not canonical case state.
+  - add a `CommunityReconcilerTaskSpec` registered via GitHub schedule factories, redis-gated like repo-scan / repo-comment-poll.
+  - append objective missing GitHub facts (`issue.closed`, `issue.reopened`, `pr.merged`, `pr.closed`) to Event Log with stable `sourceEventId`, then call `projector.apply` only for newly appended events.
+  - never call GitHub mutation APIs and never write `CommunityObjectStore` directly.
+- D4 SLA / dead-letter:
+  - add `community-sla-policy.ts` with tenant-policy defaults and dependency-injected overrides.
+  - produce SLA findings for `case-fixed-unreported`, `stale-awaiting-external`, and `stale-needs-info`.
+  - expose findings through a backend read model (top-level community board field or focused read route); frontend rendering waits for D-PR3.
+
+**GitHub fetch shape decision:** D-PR2 may start with a <=45 minute SPIKE inside the same branch, but not a separate PR. Default implementation should use injected fetch functions and production `gh api` wrappers for known subjects from `objectStore.listSubjectKeys()`; do not introduce a new GitHub client dependency. Full repo discovery/backfill is out of scope because repo-scan/repo-comment-poll already own intake discovery.
+
+**SLA default policy:** use conservative code defaults plus config/dependency override:
+- `fixedUnreportedAfterMs`: 7 days.
+- `awaitingExternalStaleAfterMs`: 14 days.
+- `needsInfoStaleAfterMs`: 14 days.
+- Defaults must be repo-agnostic and cat-agnostic. Tests must prove overrides work. Exact thresholds remain tunable after alpha observation without changing Reconciler semantics.
+
+**D-PR2 acceptance matrix:**
+
+| AC | Required proof |
+|---|---|
+| D3.1 first-run baseline | first run over existing projections marks baseline and creates no events/findings/wakes |
+| D3.2 stable sourceEventId | same missing GitHub fact on repeated runs appends at most one CommunityEvent and does not duplicate projector side effects |
+| D3.3 no direct ObjectStore write | tests inject a throwing objectStore `save`/write path or static guard proves Reconciler only uses Event Log + projector for state changes |
+| D3.4 fetch failure safety | GitHub fetch failure records a run warning and does not clear or resolve existing findings |
+| D3.5 objective closure fact | GitHub closed/merged while case open appends the matching event and opens/updates `github-closed-case-open` if projection remains inconsistent |
+| D3.6 internal/external drift | case closed while GitHub is open opens/updates `case-closed-github-open` without appending a fake GitHub event |
+| D3.7 reopen drift | GitHub reopened after internal closed appends `issue.reopened` when applicable and opens/updates `github-reopened-case-closed` |
+| D4.1 finding lifecycle | same finding id is stable; open/acknowledged resolves when absent; resolved remains queryable; waived does not reopen unless evidence fingerprint changes |
+| D4.2 waiver audit | waived finding requires reason + actor + evidence; malformed waiver is rejected |
+| D4.3 fixed unreported SLA | `fixed` older than `fixedUnreportedAfterMs` with no report/waiver creates `case-fixed-unreported` |
+| D4.4 stale awaiting external | `awaiting_external` older than policy and no newer external activity creates `stale-awaiting-external` |
+| D4.5 stale needs info | `needs_info` older than policy creates `stale-needs-info` |
+| D4.6 policy override | custom tenant policy changes thresholds without repo/cat hardcoding |
+| Wiring | GitHub schedule factory registers the reconciler spec and fails loudly when redis-gated deps are missing |
+| Read model | community board or focused read route returns open/acknowledged/waived/resolved findings needed by D-PR3 UX |
+
+**D-PR2 gate checklist:**
+- RED/GREEN focused tests for `CommunityReconciler`, `CommunityReconciliationFindingStore`, `community-sla-policy`, and schedule factory wiring.
+- Redis store tests must run on 6398 / isolated Redis only; never touch 6399.
+- Deterministic dry-run fixture: simulate a first run with many legacy projections and assert baseline/no storm. No live GitHub call is required for merge gate.
+- `pnpm build`.
+- `pnpm --filter @cat-cafe/api test -- community-reconciler community-reconciliation-finding community-sla github-schedule-factories` or exact focused equivalents.
+- `pnpm gate` before PR.
+
+**Out of scope for D-PR2:** Closure UX controls, design mock, frontend components, GitHub comment/close side effects, full Phase E decision queue.
+
 ---
 
 ## 3. Implementation Tasks
