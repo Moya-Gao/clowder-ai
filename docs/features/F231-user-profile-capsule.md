@@ -148,7 +148,7 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 | OQ-2 | 社区版 per-user 隔离形态（多用户 capsule 寻址）与 F229 复合猫的关系 | ⬜ 后置，不阻塞 |
 | OQ-3 | 其他猫（宪宪/烁烁/47/48…）的 instance personality 与 primer 是否本 feat 内铺开，还是砚砚样本验证后另起 Phase | ⬜ CVO 倾向待确认 |
 | OQ-4 | Phase C user-signal lane 形态：信号捕捉反射（skill 路径）+ 抽象提议（cron vs MCP 工具 `propose_profile_update`）+ 与 F102 memory 边界——记忆系统/MCP 增量范围 | ✅ closed 2026-06-13 → KD-8~KD-11（终态三段管道 + 采集白名单 + runtime-neutral trigger + bounded pilot）；Design Gate 出口物 `docs/discussions/2026-06-13-f231-phase-c-design-gate.md`（opus-48 架构 + codex rigor audit 三条 + opus47 research 地基） |
-| OQ-5 | 注入层（提炼→注入第三级）：画像变厚后 token 管理——动态注入（按上下文 recall 相关片段）vs pull（顺藤摸瓜指针）vs 静态（现 capsule 300 字全注入）；CVO 50k→5k→500 三级漏斗的第三级机制 + L0 budget 边界 | ⬜ Phase C Design Gate 续收敛（注入悖论已拆解：入库判断 vs 注入判断分离——注入是"哪段相关"的检索、非"什么进画像"的 intent 判断，不破 KD-8；2026-06-13 CVO 共创） |
+| OQ-5 | 注入层（提炼→注入第三级）：画像变厚后 token 管理——动态注入（按上下文 recall 相关片段）vs pull（顺藤摸瓜指针）vs 静态（现 capsule 300 字全注入）；CVO 50k→5k→500 三级漏斗的第三级机制 + L0 budget 边界 | ✅ closed 2026-06-18 → KD-17（静态 capsule 常驻身份锚 + profile index + 动态 recall；CVO signoff: "我是 我觉得ok的"） |
 
 ## Key Decisions
 
@@ -170,6 +170,7 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 | KD-14 | 画像使用形态 = 潜意识涌出（内化成猫的直觉、自然流露），非"查表报依据"；归因只在关键/无把握时轻确认，多数潜意识使用 | CVO："pull 本质是潜意识涌出来之后我说诶这不太对"+"不能让猫猫班味"；KD-4（写事实不写指令）延伸到使用形态——条目化使用必背书 | 2026-06-13 |
 | KD-15 | 写入目标层分流：低代价偏好/印象猫自治写入**只进 per-cat 层**（primer / user-signal lane），**不直接进 shared capsule**；晋升 shared capsule（全猫共享真相源）需高门槛（CVO 签字 or 多猫印证 + 用中校准稳定后晋升） | capsule 扩散面最大（KD-2 全猫共享 / KD-5 数据最小化），单猫自治直写 shared capsule 风险高；per-cat 层是猫视角/暂存自治合理（呼应失真悖论：capsule 客观 vs primer 猫视角）；codex rigor P1 要求写死写入目标层、不让实现猫猜 | 2026-06-13 |
 | KD-16 | `ProfileDistillationTrigger.onSessionSealed` Phase C 实现边界 = observability-only（trigger counter +1 + return 0），signal harvest 由猫主动调 `cat_cafe_propose_profile_update` MCP tool 完成；spec C3 "采集白名单 + 蒸馏管道"读起来像完整 auto-harvest 实际是"白名单 + 观察 trigger + 手动入口"两步实现 | KD-11 bounded pilot 设计内合理简化（"不开通用 dream lane"），不是 dead code；记录边界避免后续 reader 误判 auto-harvest 已就绪；opus-47 trace runtime data flow 时发现，砚砚独立 trace 同结论建议写入 spec | 2026-06-18 |
+| KD-17 | OQ-5 closed：画像注入第三级 = **静态 capsule + profile index + 动态 recall**。L0 常驻只保留 ≤300 字 capsule（身份锚）+ primer 指针；画像正文、per-cat primer、user-signal lane 进入可索引 profile corpus；每轮按当前任务/上下文动态召回相关片段注入。入库判断仍走 KD-8/KD-12/KD-15，注入判断只做相关性检索，不重新判断"什么算画像"；敏感/高代价事实可入索引但默认不自动召回，除非 CVO 显式签字或当前任务强相关。 | CVO 2026-06-18："很多的可以变成索引类似的？甚至可能需要动态 recall" + "我是 我觉得ok的"。这保留"醒来第一眼看到主人"的 capsule 体验，同时避免画像变厚后挤爆 L0；把 50k→5k→500 的第三级从静态堆 prompt 改成可验证 retrieval。实现细节（index schema / scorer / 注入位置 / eval 指标 / F102/F200 接法）猫猫自决。 | 2026-06-18 |
 
 ## Timeline
 
@@ -188,6 +189,7 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 | 2026-06-16 | Wave 1 收尾（A4 dry-run / A5 docs / discoverability wakeup），三猫规划收敛（opus-48 架构 + opus-46 drive），剩余工作三波计划落 spec |
 | 2026-06-18 | Phase C AC-C3 merged (PR #2354)：COLLECTION_SIGNAL_KINDS frozen enum type guard (KD-9) + 4 OTel eval counters + ProfileDistillationTrigger + SessionSealer.postSealHook guard + sealWriteSucceeded safety; gpt52 R2 local review + cloud review 4×P2 all pushback/P3-downgraded (out-of-scope / no-repro / comment-only / internal-API) |
 | 2026-06-18 | Phase C closure：opus-47 愿景守护通过 — trace runtime data flow 实证（4 OTel counter wire + ProfileDistillationTrigger 接 SessionSealer.registerPostSealHook + `propose_profile_update` 进 L0 §8 + capsule v2.1 / codex-primer signed），KD-16 实现边界明示；两条 follow-up：①认知路径观察期 baseline reset 锚 commit `7842754e5`（L0 §8 入口落地）起 7 天硬窗口监控 `profile_update.proposed > 0` ②OQ-5 注入悖论续收敛不阻塞 closure 但 sunset signal 前必须 close；fable-5 模型暂不可用，spec 收尾 opus-47 自决落（可逆 docs 改动 + 砚砚独立 trace 同结论 + 砚砚要求"observability-only 写进 spec"） |
+| 2026-06-18 | OQ-5 closed by CVO signoff：静态 capsule + profile index + 动态 recall（KD-17）。CVO 接受"画像正文索引化 / 按上下文动态召回 / 敏感项默认不自动召回"方向；技术实现留给猫猫自决，不再要求 CVO 在 scorer/schema/API 细节上拍板 |
 
 ## Remaining Work Plan（2026-06-16 三猫收敛）
 
