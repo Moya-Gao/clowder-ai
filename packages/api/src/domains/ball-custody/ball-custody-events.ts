@@ -271,3 +271,70 @@ export function buildInvocationDiedEvent(input: InvocationDiedEventInput): BallC
     at: input.at,
   };
 }
+
+// ─── Phase C 安乐死事件 builders（C1a 第一棒，KD-C1/C2 + 砚砚 R0 修正：sourceEventId 含 kind）──
+
+/**
+ * Phase C 安乐死事件 input。三 kind 共用 input shape——
+ * - `subjectKey` 必填（CVO/owner 显式发杀，已知目标 ball；KD-1 不引球 ID 新原语，subjectKey
+ *   与 Phase B 同源派生格式 `ball:thread:{threadId}` | `ball:task:{taskId}`）
+ * - `why` 必填理由（plain text，简报/轨迹用，KD-1 言语行为本位）
+ * - `by` 必填发起者（`catId` 或 `'cvo'`，观察 spend-pattern + 滥用诊断）
+ * - `at` Unix ms
+ * 三 kind 独立 builder（KD-C2，非单 builder + severity 字段）→ 调用方意图自带 + projector
+ * pattern match 直接 + 简报 per-kind collapsing 策略可调。
+ */
+export interface EuthanasiaEventInput {
+  subjectKey: string;
+  why: string;
+  by: string;
+  at: number;
+}
+
+/** Phase C ball.frozen：冷冻——暂停推进可解冻（短期降优先级，可后续手动 reopen 或转 degraded/abandoned）。 */
+export function buildBallFrozenEvent(input: EuthanasiaEventInput): BallCustodyEvent {
+  return {
+    sourceEventId: `euthanasia:${input.subjectKey}:frozen:${input.at}`,
+    subjectKey: input.subjectKey,
+    kind: 'ball.frozen',
+    classification: 'state-changing',
+    payload: {
+      kind: 'frozen',
+      why: input.why,
+      by: input.by,
+    },
+    at: input.at,
+  };
+}
+
+/** Phase C ball.degraded：降级——明确降优先级（球保留可见但弱化，简报视觉降权而非消项）。 */
+export function buildBallDegradedEvent(input: EuthanasiaEventInput): BallCustodyEvent {
+  return {
+    sourceEventId: `euthanasia:${input.subjectKey}:degraded:${input.at}`,
+    subjectKey: input.subjectKey,
+    kind: 'ball.degraded',
+    classification: 'state-changing',
+    payload: {
+      kind: 'degraded',
+      why: input.why,
+      by: input.by,
+    },
+    at: input.at,
+  };
+}
+
+/** Phase C ball.abandoned：放弃——终态"不做了"（简报僵尸球区消项，事件流诚实保留 trajectory）。 */
+export function buildBallAbandonedEvent(input: EuthanasiaEventInput): BallCustodyEvent {
+  return {
+    sourceEventId: `euthanasia:${input.subjectKey}:abandoned:${input.at}`,
+    subjectKey: input.subjectKey,
+    kind: 'ball.abandoned',
+    classification: 'state-changing',
+    payload: {
+      kind: 'abandoned',
+      why: input.why,
+      by: input.by,
+    },
+    at: input.at,
+  };
+}

@@ -42,6 +42,10 @@ export const ALL_BALL_EVENT_KINDS: BallCustodyEvent['kind'][] = [
   'task.idle_long',
   'task.done',
   'ball.wake_sent',
+  // ─── Phase C 安乐死 (KD-C1/C2) ───
+  'ball.frozen',
+  'ball.degraded',
+  'ball.abandoned',
 ];
 
 export type BallTransitionReject = 'invalid_transition' | 'bad_payload';
@@ -112,6 +116,14 @@ const STATIC_TABLE: Partial<Record<BallCustodyEvent['kind'], StaticRule>> = {
   'task.idle_long': { from: set('active', 'blocked', 'parked', 'void'), to: 'zombie' },
   'task.done': { from: '*', to: 'resolved' }, // 唯一正常终结；resolved 幂等不复活
   'ball.wake_sent': { from: set('blocked'), to: 'blocked' }, // informational；非 blocked → reject（ignore）
+  // ─── Phase C 安乐死（KD-C1/C2 + 砚砚 R0：7 非-resolved → resolved；resolved → 自然 reject 无规则）───
+  // KD-C2 三独立 kind 共享转移行为（语义独立 / payload.kind 区分 / simple table 一致性）
+  'ball.frozen': { from: set('new', 'active', 'blocked', 'parked', 'dead', 'void', 'zombie'), to: 'resolved' },
+  'ball.degraded': { from: set('new', 'active', 'blocked', 'parked', 'dead', 'void', 'zombie'), to: 'resolved' },
+  'ball.abandoned': {
+    from: set('new', 'active', 'blocked', 'parked', 'dead', 'void', 'zombie'),
+    to: 'resolved',
+  },
 };
 
 const DYNAMIC_TABLE: Partial<Record<BallCustodyEvent['kind'], DynamicRule>> = {

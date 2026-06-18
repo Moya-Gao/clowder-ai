@@ -94,10 +94,11 @@ export type {
   ThreadPhase,
   UpdateBacklogDispatchProgressInput,
 } from './backlog.js';
-// F233 Phase B: Ball Custody event-stream types (event-sourcing; impl stays in api)
+// F233 Phase B + Phase C: Ball Custody event-stream types (event-sourcing; impl stays in api)
 export type {
   BallCustodyEvent,
   BallCustodyProjection,
+  BallEuthanasiaKind, // Phase C C1a (KD-C1/C2): cloud R1 P2 修正 — C1b/C1c consumers 经 @cat-cafe/shared barrel 拿 type
   BallEventClassification,
   BallEventKind,
   BallIntent,

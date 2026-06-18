@@ -215,7 +215,7 @@ describe('ball-custody transition — 虚空 + 唤醒', () => {
 describe('INV-10 完整性穷举：全 state × event 无未定义', () => {
   it('每个 (state, event) transition 返回 well-formed result，不 throw', () => {
     assert.strictEqual(ALL_BALL_STATES.length, 8); // new + 7
-    assert.strictEqual(ALL_BALL_EVENT_KINDS.length, 13);
+    assert.strictEqual(ALL_BALL_EVENT_KINDS.length, 16); // Phase B 13 + Phase C 3 安乐死 kinds
     for (const state of ALL_BALL_STATES) {
       for (const kind of ALL_BALL_EVENT_KINDS) {
         const r = transition(
@@ -231,5 +231,58 @@ describe('INV-10 完整性穷举：全 state × event 无未定义', () => {
         }
       }
     }
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Phase C 安乐死 transitions (KD-C1/C2 + 砚砚 R0：7 非-resolved → resolved)
+  // ─────────────────────────────────────────────────────────────────────────
+  describe('Phase C 安乐死 transitions (ball.frozen/degraded/abandoned)', () => {
+    const NON_RESOLVED_STATES = ['new', 'active', 'blocked', 'parked', 'dead', 'void', 'zombie'];
+    const EUTHANASIA_KINDS = ['ball.frozen', 'ball.degraded', 'ball.abandoned'];
+    const KIND_TO_PAYLOAD_KIND = {
+      'ball.frozen': 'frozen',
+      'ball.degraded': 'degraded',
+      'ball.abandoned': 'abandoned',
+    };
+
+    for (const kind of EUTHANASIA_KINDS) {
+      it(`${kind}: 7 个非 resolved state → resolved（KD-C2 三独立 kind 共享转移行为）`, () => {
+        for (const from of NON_RESOLVED_STATES) {
+          const result = transition(
+            from,
+            ev(kind, { payload: { kind: KIND_TO_PAYLOAD_KIND[kind], why: 'test', by: 'cvo' } }),
+            snap(),
+          );
+          assert.deepStrictEqual(result, { ok: true, next: 'resolved' }, `${kind} from ${from} → resolved`);
+        }
+      });
+
+      it(`${kind}: resolved → reject 'invalid_transition'（已死不复活；事件流诚实保留 trajectory）`, () => {
+        const result = transition(
+          'resolved',
+          ev(kind, { payload: { kind: KIND_TO_PAYLOAD_KIND[kind], why: 'test', by: 'cvo' } }),
+          snap(),
+        );
+        assert.deepStrictEqual(result, { ok: false, reason: 'invalid_transition' });
+      });
+    }
+
+    it('INV-10 grid 含 Phase C：21 ok（3 kind × 7 非 resolved → resolved）+ 3 reject（3 kind × resolved → reject）', () => {
+      let okCount = 0;
+      let rejectCount = 0;
+      for (const kind of EUTHANASIA_KINDS) {
+        for (const from of [...NON_RESOLVED_STATES, 'resolved']) {
+          const result = transition(
+            from,
+            ev(kind, { payload: { kind: KIND_TO_PAYLOAD_KIND[kind], why: 't', by: 'cvo' } }),
+            snap(),
+          );
+          if (result.ok) okCount += 1;
+          else rejectCount += 1;
+        }
+      }
+      assert.strictEqual(okCount, 21, '3 kind × 7 非 resolved = 21 ok');
+      assert.strictEqual(rejectCount, 3, '3 kind × resolved = 3 reject');
+    });
   });
 });
