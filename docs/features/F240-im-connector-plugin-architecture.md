@@ -96,3 +96,8 @@ created: 2026-06-17
   - **零 P1 剩余**，只剩一组 cloud Codex P2（unauth list / ActionRenderer / gateway 注册），非 merge blocker。
   - **上游 maintainer review 立场：blocking 项全部解除**（PR issuecomment-4738920086）。stale provenance `CHANGES_REQUESTED`（F230 撞号）可 dismiss。
   - **待 CVO**：merge 进 clowder-ai = feature 级决策；merge 后 F240 intake（manual-port + Intake Intent Issue）是独立下游步骤。
+- 2026-06-18 **第四轮 = P2 cluster 代码级核实（clone PR head 7b1f225 逐条读代码,非转述 Codex comment）**：
+  - 7 个 live P2(WeCom stop handle/streaming hook、activation 失败返回、/test 读 config store、QR timeout rollback 持久化、Node20 ESM plugin、operations 渲染位置)**逐条核实代码已全修**;Codex comment threads 只是没标 resolved。另抽查 2 个旧轮 finding(default-cat 动态解析、activation 后全量清缓存)也已修。
+  - **教训**:reviewer 不能只看别的 reviewer 的 comment 状态,要自己核代码 —— "comment 没 resolved" ≠ "没修"(铲屎官当轮纠正)。
+  - **零开放 P2、零 P1、CI 全绿**。提交 formal APPROVE(上游 maintainer review)→ `reviewDecision: APPROVED`、`MERGEABLE`。
+  - **Status → merge-ready**:merge 触发权归 CVO(feature 级);merge 后 F240 intake 独立步骤。
