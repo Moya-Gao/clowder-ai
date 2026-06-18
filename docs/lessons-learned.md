@@ -1635,3 +1635,15 @@ created: 2026-02-26
 - 防护：merge-gate 收尾加 dirty-diff ledger：`git worktree list` 后对本 feature 相关 worktree 跑 `git -C <path> status --short --branch`；merge 后仍 dirty 的 worktree必须有对应 PR/task/comment id。多 worktree session 下所有取证命令优先用绝对路径或显式 `git -C`，不要让 shell CWD 历史承担证据坐标。**H4 dogfood failure（同日）**：本 lesson 写完后，作者又把同一 alias fix commit 到旧 `cat-cafe-f233-pr3-cloudfix` / `fix/f233-pr3-cloud-review` 坐标，再从另一条 branch 开 PR #2374；这说明软层不足，hard 层需要 merge-gate dirty-diff ledger 检查，eval 层需要把此类复发纳入 F192/verdict 观察。
 - 来源锚点：F233 PR3 (#2364) merge 后愿景守护；follow-up PR #2374（`fix(F233): normalize cross-post callback aliases`）
 - 关联：LL-081（PR-head 坐标纪律）| LL-079（volatile ref 坐标漂移）| LL-075 / LL-049 同型（CWD 静默漂移）| feedback_evidence_slice_to_unique_coordinate
+
+### LL-083: 云端多轮 review——"封闭集补齐"（放行）vs"开放纠缠繁殖"（拉闸停回不变量层）的判据
+- 状态：validated
+- 更新时间：2026-06-18
+- 背景：F233 PR3 callback-routing saga 续 LL-072/081——#2364 七轮后又出 dc3、#2378 两轮，表面都是"又一个 cloud P2"、每个都是真 bug，本质却分两类、处置相反。reviewer 的真难题不是"finding 真不真"（都真），而是"这一轮该 APPROVE 还是该拉闸"——LL-072 只给了"≥5 轮拉闸"的轮数阈值，没给单轮判据。
+- 判据（多轮 PR reviewer 介入时判 APPROVE-vs-拉闸）：
+  - **封闭集补齐 → 放行**：finding 维度来自封闭集且本 fix 补齐最后一类 → 不变量数学闭合，无更多同类缺口可被未来 review 发现。例：dc3 的 `isCallbackContentRoutingToolName` = {post, cross-post} 封闭集，dc3 前 post 有别名归一、cross-post 没有，补齐第二类即闭合 → APPROVE 成立（cloud 确实没再从别名维度找）。
+  - **开放纠缠繁殖 → 拉闸**：finding 是同一纠缠状态的又一个边。识别信号三选一命中即拉闸：① 多个 finding 落在同一组 state/flag；② 本 fix 在修上一个 fix 引入的回归；③ 单个 state 承载多语义。例：finding 5/6/7/dc3 都在 callback-routing 的 CVO/guard/mention 状态，单 flag `confirmedCallbackRoutingHasCoCreatorLineStartMention` 承载 routing-guard-satisfaction + local-CVO-emission 双语义，修一个破坏另一个（finding 7 修 CVO 静默破坏 guard，#2378 才暴露）→ 第 5 个边、终止条件不存在 → 拉闸停回不变量层，不再逐边批补丁。
+- termination 构造（拉闸后收口标准，比 LL-072"停回 plan 层"更具体可验）：纠缠 state 重构成 **single-source 分类函数**（一次分类、所有语义维度纯函数派生）+ **穷举参数化测试覆盖可达 cross product**（每 cell `deepEqual` 完整 state）。穷举 deepEqual = 机械 termination：任何 cell 行为变动 → 该 cell 立即红，cloud 再找不到未覆盖组合；此后"新 finding"只能表达为新 test cell，不是 re-review 轮。例：F233 PR3 `classifyCallbackContentRoutingState`（6 field 从 scope 纯派生）+ 8-cell（{post/local, cross/target}×{有/无 toolUseId}×{@cat,@landy}）参数化测试，省略不可达 cell（scope 由 tool 类型唯一决定，post 永远 local、cross 永远 target，测 {post,target} = 测死代码）。
+- 衍生症状：**单 flag 多语义 = reviewer 盲区放大器**——一个 state 承载多语义时 reviewer 注意力被单语义吸走会漏看其他维度（本 saga reviewer 在 finding 7 只核 CVO 维度、漏看 guard 维度，APPROVE 后才由 #2378 暴露）。"一个 flag/字段被多处不同语义读取"本身即状态契约缺失信号，是拉闸的前哨。
+- 来源锚点：F233 PR3 #2364 dc3（封闭集 APPROVE）/ #2378（开放纠缠 BLOCKING → state contract → APPROVE @ `30859b67e`）opus-48 reviewer
+- 关联：LL-072（封板协议——本 LL 精确化其"何时封板 vs 何时拉闸"的单轮判据 + termination 构造）| feedback_plan_stateful_lifecycle_state_machine（同类≥3轮停回 plan 层——本 LL 给"同类"的可操作识别：封闭集 vs 开放纠缠）| LL-081（同 saga，reviewer 证据坐标层）
