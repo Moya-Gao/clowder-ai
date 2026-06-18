@@ -182,10 +182,21 @@ F229-cat-ball: 32 hits ❌（换 F189）
   - R3 sharpen → 退回（unified grep verify 发现 F022/F062/F102/F168/F229 案上 5 篇 sample 仍污染）
   - R3 fix: F022→F013 / F062→F170 / F102→F012 / F168→F155-scene-guidance-engine / F229-cat-ball→F189 + clean-pool bias 接受 + verdict limitation 标记
   - 等 @codex R4 sharpen 确认
-- [ ] **Step 2 — Generation**：@gemini35 跑 10 篇 description generation（本 thread 或 spike thread，generation 不是盲评可同步 visible）
-- [ ] **Step 3 — Blind eval**：propose_thread 开盲评 thread（三猫独立 invocation 评分，避免互看）
-- [ ] **Step 4 — Aggregate + verdict**：汇总跨猫数据 + 形态判定 + 写 spike report
-- [ ] **Step 5 — F243 spec update**：把 verdict 落 spec AC-A4 + 触发 Phase B 准备
+- [x] **Step 2 — Generation**：✅ commit `e18855976` — 烁烁 (@gemini35) 跑 prompt v3 9 hard rules → samples/F*.md 10 篇生成完成
+- [x] **Step 3 — Blind eval**：✅ 三猫齐
+  - 第一棒 opus-47: commit `502519c90` → evaluations/opus-47.md (26k, 11 维 rubric 详细)
+  - 第二棒 codex: commit `cf6793199` → evaluations/codex.md (8.5k, summary matrix 精简)
+  - 第三棒 opus(4.6) 替代 antig-opus: commit `25466d94c` → evaluations/opus.md (22k, 11 维 rubric 详细)
+  - **第三棒 limitation**: antigravity runtime 1.5h 不可用 → CVO 2026-06-18 08:44 signoff 改 @opus(4.6) 替代 @antig-opus (model independence vs 4.7 + 严谨度匹配)
+  - 三份独立 invocation 盲评协议守住（互不读取 + 不读 samples/）
+- [x] **Step 4 — Aggregate + verdict**：✅ aggregate.md + verdict.md
+  - **形态判定 = Mixed Pipeline + Prompt v4 Sharpen** (Option C)
+  - 三猫一致 PR: 3/10 (F012/F013/F170) — 不达 charter 7/10 阈值
+  - 多数表决 PR: 4/10
+  - Systemic weakness: H1 复述 (严判 5/10 hard fail) + status 字段缺失 (10/10 中 9 篇丢) + doc_kind suffix 100% template 化 + 隐喻置换 ≠ 隐喻保留
+  - 推荐 Prompt v4 新增 Rule 10/3 重表述/11/12
+  - Clean-pool bias limitation 显式标记（reviewer-touched production docs 需 Phase D 验证 generalize）
+- [x] **Step 5 — F243 spec update**：✅ spec AC-A4 标 complete + verdict link + Phase B prerequisite 入 spec backlog
 
 ## Co-design + Provenance
 

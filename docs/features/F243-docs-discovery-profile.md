@@ -93,8 +93,8 @@ created: 2026-06-17
 - [ ] AC-A1: 10 篇 stratified sample 选定（6 硬骨头 + 4 easy mode）并三猫盲评完成，盲评报告含每篇评分明细 + 跨猫一致性
 - [ ] AC-A2: profile draft v1：frontmatter 字段映射 OKF + description 字段四约束（位置/长度/范围/视角）+ 触发节流规则
 - [ ] AC-A3: eval rubric 定稿：baseline 命令清单 + friction metric 公式 + sunset signal 两类阈值
-- [ ] AC-A4: description generation 形态判定（小模型/大猫/模板任一）有数据支撑（盲评分数 + 字数合规率 + nuance loss case 列表）
-- [ ] AC-A5: spike report 进 `docs/research/2026-06-XX-f243-description-spike/README.md`（cross-link 到 F243 Links）
+- [x] AC-A4: ✅ description generation 形态判定 = **Mixed Pipeline + Prompt v4 Sharpen** (Option C) — 数据支撑：三猫盲评 aggregate 三猫一致 PR 3/10 + 多数 PR 4/10 + systemic weakness 三 (H1 复述 + status 字段 + doc_kind suffix template)。Verdict: `docs/research/2026-06-17-f243-description-spike/verdict.md`
+- [x] AC-A5: ✅ spike report 落 `docs/research/2026-06-17-f243-description-spike/`（charter README.md + samples/F*.md × 10 + evaluations/opus-47.md + codex.md + opus.md + aggregate.md + verdict.md）
 
 ### Phase B（Profile Contract + Template/Lint/Generator Skeleton）
 - [ ] AC-B1: profile contract 定稿（frontmatter schema 文档化），CI lint 接入并对全仓库新增/修改 docs 通过率 = 100%
@@ -229,7 +229,11 @@ created: 2026-06-17
 | 2026-06-17 | 砚砚 R2 review verdict = **退回**：R1 P1-2 修复**不彻底**——只改了 reviewer 指出的 4 处（AC/R7/Deps/Risk），漏 3 处同源残留（Phase B What / Review Gate / Links），spec 内部自相矛盾。砚砚 `rg F186` 全文扫抓到。R2 学到方法论："fix scope creep 必须自己 grep 全文找同源表述，不只是改 reviewer 点出的 line"。3 处全改 self-contained 契约 / future consumer candidates 表述 |
 | 2026-06-17 | 砚砚 R3 review verdict = **放行** ✓（无 findings；reviewer 预表态下一步走 Design Gate）|
 | 2026-06-17 | Design Gate 自检完成：架构归属 = new cell required（候选 `docs-governance`，建议 Phase B PR 内一并创建）+ 元审美 = 坐标变换 ✓（index = derived view 不增真相源 / pipeline 形态 Phase A 判定不预设 / lint+sync = 运行时脚手架不是认知脚手架）+ Observability = 弱触发（PR 流程内可见）+ Eval Contract + Harness 三层已落 spec。Discussion 落盘 `docs/discussions/2026-06-17-f243-design/README.md`，含给 CVO 的 Decision Packet 等拍板 |
-| 2026-06-17 | CVO 拍板选 A 启动 Phase A spike（铲屎官原话："我同意你的a 可以开搞"）。Spike charter 落 `docs/research/2026-06-17-f243-description-spike/README.md`：10 篇 stratified sample（6 硬骨头 F008/F038/F062/F168/F229-cat-ball/F236 + 4 easy mode F009/F022/F102/F242）+ generation prompt v3 9 条（mini-spike R3 formal pass）+ 评分 rubric + 盲评协议（烁烁生成 / 三猫独立 invocation 评分避免互看）。Step 1 @codex sharpen sample selection 防 cherry-pick |
+| 2026-06-17 | CVO 拍板选 A 启动 Phase A spike（铲屎官原话："我同意你的a 可以开搞"）。Spike charter 落 `docs/research/2026-06-17-f243-description-spike/README.md`：10 篇 stratified sample + generation prompt v3 9 条（mini-spike R3 formal pass）+ 评分 rubric + 盲评协议（烁烁生成 / 三猫独立 invocation 评分避免互看）。Step 1 @codex sharpen sample selection 防 cherry-pick |
+| 2026-06-17 | Sample sharpen R1/R2/R3 砚砚连续退回（污染 / case-insensitive grep / 5 篇真换），R4 放行选 Meta A（严格 0-hit + clean-pool bias limitation）。Final sample 10 篇全 case-insensitive 0 hits：6 硬骨头 F008/F038/F161/F170/F155-scene-guidance-engine/F189 + 4 easy mode F009/F119/F013/F012 |
+| 2026-06-17 | Phase A spike thread `proposal_mqiw178vdft42esv` confirmed → Step 2 烁烁 generation 完成（commit `e18855976`）|
+| 2026-06-18 | Step 3 盲评：opus-47 第一棒（502519c90）+ codex 第二棒（cf6793199）+ opus 4.6 第三棒替代 antig-opus（25466d94c，antigravity runtime 1.5h 不可用 → CVO 08:44 signoff）|
+| 2026-06-18 | Step 4 aggregate + verdict 完成：形态判定 = **Mixed Pipeline + Prompt v4 Sharpen** (Option C)。三猫一致 PR 3/10 + 多数表决 PR 4/10。Systemic weakness: H1 复述 + status 字段缺失 + doc_kind suffix 100% template。Prompt v4 推荐新增 Rule 10/3/11/12。Phase B prerequisite: prompt v4 fixate + mini-spike v4 + PR template + CI lint |
 
 ## Review Gate
 
