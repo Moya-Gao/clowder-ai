@@ -8,7 +8,7 @@ created: 2026-04-18
 
 # F168: Community Operations Board — 社区事务编排引擎
 
-> **Status**: Phase A ✅ | **Phase B ✅ closed (2026-06-12)** | **Phase C ✅ closed (2026-06-16)**（C0 前置 ✅ / C1 Role Registry ✅ / C2 narrator spawn ✅ / C3.1 resolve routing ✅ / C3.2 DirectionCard + eval.1 ✅）| **Phase D 🚧**（D0.1 narrator eligibility gate ✅）| **First completed**: 2026-04-20 | **Owner**: 宪宪 (opus-4.8，2026-06-12 接手自 fable-5) | **Priority**: P1
+> **Status**: Phase A ✅ | **Phase B ✅ closed (2026-06-12)** | **Phase C ✅ closed (2026-06-16)**（C0 前置 ✅ / C1 Role Registry ✅ / C2 narrator spawn ✅ / C3.1 resolve routing ✅ / C3.2 DirectionCard + eval.1 ✅）| **Phase D 🚧**（D0.1 narrator eligibility gate ✅ / D-PR1 backend closure core ✅）| **First completed**: 2026-04-20 | **Owner**: 宪宪 (opus-4.8，2026-06-12 接手自 fable-5) | **Priority**: P1
 
 ## Reopen（2026-06-10，CVO signoff）
 
@@ -460,6 +460,7 @@ TTL=0（铁律 #5），用户数据默认持久化
 | 2026-06-16 | **Phase C ✅ CLOSED** — opus-47 愿景守護 PASS（初报 P0 eval.1 test failure 经 opus-4.6 复查为 stale dist false alarm：clean rebuild 76/76 全绿；squash merge 与 HEAD 间零 API/shared diff）。**Phase D prerequisites**：P1 C0.4 narrator 排除存量（dispatch 无 bootstrap source 过滤，453 条存量在 auto-Reconciler 上线时可能触发卡风暴）；P2 follow-ups（INV-3 dedup / env warn / catId drift / 类型桥 zod / GuardianMatcher OQ-C1a）合并进 Phase D plan |
 | 2026-06-17 | **Phase D/E 主导权切换 + Phase D plan committed** — CVO 指示由砚砚（@codex）主导 Phase D/E（未来守门猫大概率是平行世界砚砚）；@codex 负责 spec/AC/failure-mode/gate，implementation/review 保持跨个体。Phase D plan：`docs/plans/2026-06-17-f168-phase-d-closure-reconciler.md`（Closure UX + Reconciler；D0 prerequisites / D1 report+waive / D2 checklist / D3 GitHub⇄Case diff / D4 SLA dead-letter / D5 UX / D6 docs+skill sync） |
 | 2026-06-17 | **Phase D D0.1 merged** (PR #2369) — narrator eligibility gate pure function `shouldSpawnNarratorForCase`（INV-D0.1 auto blocks bootstrap / INV-D0.2 manual always allowed / INV-D0.3 wake-worthy activity unfreezes）。7 test cases。cloud R1 P1（lastExternalActivityAt 含 silent events → 改为 lastWakeActivityAt 显式 caller 责任）+ cloud R2 P2（manual path dead I/O removal）。砚砚 local R2 APPROVE + cloud R3 clean |
+| 2026-06-18 | **Phase D D-PR1 merged** (PR #2375, `46330507`) — backend closure core（D0.2-D0.6 prerequisites + D1 report/waive endpoints + D2 closure checklist selector）。NarratorDriver persistent dedup（INV-3 upgrade）+ boot config warning + routeRecommendation parser seam（D0.5 shared）+ closure state guards（CLOSURE_VALID_STATES allowlist + effectiveState unified derivation）。gpt52 local R3 APPROVE + cloud R1-R3 封板（LL-072：R3 67% FP，5 fixed / 3 pushback confirmed by gpt52 终局）。27 test cases（19 closure + 8 narrator driver）。D-PR2（D3+D4 reconciler+SLA）待续 |
 
 ## Review Gate
 
