@@ -33,7 +33,7 @@ export interface ConciergeConfig {
 /** ConciergeConfig 默认值（dutyCatProfileId 由 API 层根据 roster 解析） */
 export const CONCIERGE_CONFIG_DEFAULTS: Omit<ConciergeConfig, 'dutyCatProfileId'> = {
   enabled: true,
-  skin: 'ragdoll-v1',
+  skin: 'yanyan-codex',
   displayName: '猫猫球',
   personaTone: '温暖、简短、不啰嗦',
   proactivePolicy: 'quiet-badge',

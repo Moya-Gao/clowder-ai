@@ -34,12 +34,7 @@ interface ConciergeSettingsState {
   ballPosition: { x: number; y: number } | null;
 }
 
-/** Skin ID → display label (locked chip in settings) */
-const SKIN_DISPLAY_NAMES: Record<string, string> = {
-  'yarn-ball': '🧶 毛线球',
-  'ragdoll-v1': '🐱 布偶猫 v1',
-  'yanyan-codex': '🐱 砚砚 v1',
-};
+/** Skin options — display names now live inline in RadioOption labels (E2 unlock). */
 
 // ---------------------------------------------------------------------------
 // Component
@@ -181,29 +176,37 @@ export function ConciergeSettingsContent() {
         </div>
       </SettingsSection>
 
-      {/* Section 2: 皮肤 (KD-14, Phase A locked) */}
-      <SettingsSection title="皮肤" description="前台猫的外观。更多皮肤将在后续版本解锁。">
-        <SettingsField label="当前皮肤" hint="Phase E 解锁后可切换四种皮肤。" inline>
-          <span
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.375rem',
-              padding: '0.25rem 0.75rem',
-              borderRadius: '9999px',
-              fontSize: 'var(--console-font-sm, 0.875rem)',
-              color: 'var(--cafe-text-secondary)',
-              backgroundColor: 'var(--console-card-bg)',
-              border: '1px solid var(--cafe-border)',
-              opacity: 0.7,
-            }}
-          >
-            {SKIN_DISPLAY_NAMES[state?.skin ?? 'ragdoll-v1'] ?? state?.skin}
-            <svg aria-hidden="true" viewBox="0 0 16 16" fill="currentColor" style={{ width: 12, height: 12 }}>
-              <path d="M4 6V4a4 4 0 118 0v2h1a1 1 0 011 1v7a1 1 0 01-1 1H3a1 1 0 01-1-1V7a1 1 0 011-1h1zm2-2a2 2 0 114 0v2H6V4z" />
-            </svg>
-          </span>
-        </SettingsField>
+      {/* Section 2: 皮肤 (E2: unlocked — was KD-14 locked in Phase A) */}
+      <SettingsSection title="皮肤" description="切换前台猫的外观。">
+        <div className="space-y-3">
+          <RadioOption
+            name="skin"
+            value="yanyan-codex"
+            checked={state.skin === 'yanyan-codex'}
+            disabled={saving}
+            label="🐱 砚砚 v1"
+            hint="9 态动画精灵图，砚砚专属皮肤。（默认）"
+            onChange={() => updateConfig({ skin: 'yanyan-codex' })}
+          />
+          <RadioOption
+            name="skin"
+            value="ragdoll-v1"
+            checked={state.skin === 'ragdoll-v1'}
+            disabled={saving}
+            label="🐱 布偶猫 v1"
+            hint="经典布偶猫皮肤。"
+            onChange={() => updateConfig({ skin: 'ragdoll-v1' })}
+          />
+          <RadioOption
+            name="skin"
+            value="yarn-ball"
+            checked={state.skin === 'yarn-ball'}
+            disabled={saving}
+            label="🧶 毛线球"
+            hint="最简外观，纯 CSS 毛线球动画。"
+            onChange={() => updateConfig({ skin: 'yarn-ball' })}
+          />
+        </div>
       </SettingsSection>
 
       {/* Section 3: 身份与人设 (KD-6) */}
