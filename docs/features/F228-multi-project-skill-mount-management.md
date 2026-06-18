@@ -64,7 +64,7 @@ Close the loop between the shipped UI/API behavior and ADR-025: document the fin
 - [ ] AC-C2: Drift visibility distinguishes managed symlink drift vs source/new-skill changes. Filesystem-level conflicts (managed skill name vs pre-existing dir/file/link in mount point) still block instead of overwriting. **`cascadeDisabledSkills` project-local disable preservation during global toggle scope is removed per KD-6** (over-design vs simplicity trade-off; low-frequency intersection).
 - [ ] AC-C3: ADR-025 is updated from draft status or given a successor note that reflects the final F228 data model and migration semantics.
 - [ ] AC-C4: Public-facing docs or release notes explain the migration/sync behavior for existing users.
-- [ ] AC-C5: Remove `cascadeDisabledSkills` state tracking from cat-cafe main code (9 files in `packages/api/` + `packages/shared/`) per KD-6. Align home runtime with `clowder-ai@698fb675c` unconditional cascade. Driven by separate worktree (TDD + cross-family review). Verification: home runtime behavior matches clowder-ai main on scenarios 6/7/9/11 (global skill toggle + mount-rule reconciliation cascades) — both treat global state as authoritative; no project-local disable preservation.
+- [x] AC-C5: Remove `cascadeDisabledSkills` state tracking from cat-cafe main code (9 files in `packages/api/` + `packages/shared/`) per KD-6. Align home runtime with `clowder-ai@698fb675c` unconditional cascade. **Completed via intake PR #2391 (squash `7aac0abbacab5`, merged 2026-06-18T12:36 UTC). Reviewer**: @gpt52 砚砚 (cross-family) — initial P1 blocking on plain-reconciliation re-enable behavior, withdrew after KD-6 design context provided; APPROVED at HEAD `38741a99`. Hygiene follow-ups tracked as cat-cafe#2393 (affirmative Path A test + skill-sync-engine.ts:178 comment tighten).
 
 ## 需求点 Checklist
 
@@ -128,6 +128,7 @@ Close the loop between the shipped UI/API behavior and ADR-025: document the fin
 | 2026-06-17 | Phase B merge — cat-cafe absorb PR #2347 merged squash `42c5b349c`; Closes Intent Issue #2346; intake review chain: 宪宪/Sonnet 4-audit pass + 宪宪/Opus 4.6 vision guardian放行. |
 | 2026-06-17 | Ledger record `7447ad7` (rebased `6a70f7519`); intake friction signal filed as #2348 (validator scope + intent-issue template). |
 | 2026-06-18 | Design fork resolution — CVO/mindfn IM sync chose **Path A** (drop `cascadeDisabledSkills`, accept simplification); KD-6 committed `e4dfa7a60`. clowder-ai#962 merged squash `698fb675c` (cascade removal + batch toggle UI + Windows EPERM fix; closes clowder-ai#974 + clowder-ai#977). Home code alignment queued as AC-C5. |
+| 2026-06-18 | AC-C5 complete — cat-cafe absorb PR #2391 merged squash `7aac0abbacab5` (24 absorbed + 1 skip per KD-4); Intent Issue #2388 auto-closed; ledger advanced to `698fb675c`. Review chain: 宪宪/Opus 4.7 (intake driver) + 砚砚/GPT-5.4 (cross-family reviewer, KD-6 design context acknowledged). Hygiene follow-ups: cat-cafe#2393. |
 
 ## Review Gate
 
