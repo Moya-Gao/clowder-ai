@@ -15,6 +15,8 @@ related_features: []
 topics: []
 doc_kind: spec
 created: {YYYY-MM-DD}
+# Optional F244 exemption for pure internal/no-user-visible changes only:
+# tips_exempt: {reason}
 ---
 
 # F{NNN}: {Feature Name}
@@ -43,6 +45,14 @@ created: {YYYY-MM-DD}
 
 ### Phase B（{Phase 名称}）
 - [ ] AC-B1: {验收条件}
+
+## Tips Contribution（F244）
+
+- [ ] Added/updated 1-2 tips in `packages/web/src/lib/capability-tips.seed.json`
+- [ ] Existing tip sourceRef still covers this user-visible change
+- [ ] If exempt, uncomment/add `tips_exempt: {reason}` in YAML frontmatter
+
+Reviewer usefulness check: tip teaches a concrete action, timing, or traceable house rule; title-only tips must be rejected.
 
 ## Dependencies
 

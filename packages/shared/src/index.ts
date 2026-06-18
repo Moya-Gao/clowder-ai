@@ -9,6 +9,8 @@
 
 // Export avatar size limits (shared between API route bodyLimit and frontend size gate)
 export * from './avatar-limits.js';
+// Export capability tips contract (F244 waiting-state Knowledge Feed projection)
+export * from './capability-tips.js';
 // Export shared CLI effort helpers
 export * from './cli-effort.js';
 // Export command parser + core commands (F142 Phase B)

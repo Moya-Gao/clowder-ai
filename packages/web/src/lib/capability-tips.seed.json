@@ -1,0 +1,287 @@
+[
+  {
+    "id": "magic-word-scaffold",
+    "kind": "magic_word",
+    "sourceRef": { "path": "cat-cafe-skills/refs/shared-rules.md", "anchor": "「脚手架」" },
+    "structureSource": { "path": "cat-cafe-skills/refs/shared-rules.md", "anchor": "Magic Words" },
+    "bodySource": { "path": "cat-cafe-skills/refs/shared-rules.md", "anchor": "「脚手架」" },
+    "contexts": ["thinking", "feature_dev", "review"],
+    "audience": ["cvo", "developer"],
+    "body": "“脚手架”用于发现临时方案时拉回终态设计。",
+    "action": { "type": "open_concierge_draft", "label": "了解更多" },
+    "owner": "codex"
+  },
+  {
+    "id": "capability-rich-messaging",
+    "kind": "capability",
+    "sourceRef": { "path": "cat-cafe-skills/refs/capability-wakeup-index.md", "anchor": "rich-messaging" },
+    "structureSource": {
+      "path": "packages/api/src/infrastructure/harness-eval/capability-wakeup/capability-wakeup-rules.ts",
+      "anchor": "rich-messaging"
+    },
+    "bodySource": { "path": "cat-cafe-skills/refs/capability-wakeup-index.md", "anchor": "rich-messaging" },
+    "contexts": ["thinking", "long_running"],
+    "audience": ["all"],
+    "body": "长日志、步骤或对比表适合做 rich block，不必挤在一段聊天里。",
+    "action": { "type": "open_concierge_draft", "label": "了解更多" },
+    "owner": "codex"
+  },
+  {
+    "id": "capability-browser-preview",
+    "kind": "capability",
+    "sourceRef": { "path": "cat-cafe-skills/browser-preview/SKILL.md", "anchor": "browser-preview" },
+    "structureSource": {
+      "path": "packages/api/src/infrastructure/harness-eval/capability-wakeup/capability-wakeup-rules.ts",
+      "anchor": "browser-preview"
+    },
+    "bodySource": { "path": "cat-cafe-skills/refs/capability-wakeup-index.md", "anchor": "`browser-preview`" },
+    "contexts": ["thinking", "long_running", "feature_dev"],
+    "audience": ["all"],
+    "body": "改完前端想看效果时，猫可以把本地页面打开到 Hub Browser 预览。",
+    "action": { "type": "open_concierge_draft", "label": "了解更多" },
+    "owner": "codex"
+  },
+  {
+    "id": "capability-image-generation",
+    "kind": "capability",
+    "sourceRef": { "path": "cat-cafe-skills/refs/capability-wakeup-index.md", "anchor": "image-generation" },
+    "structureSource": {
+      "path": "packages/api/src/infrastructure/harness-eval/capability-wakeup/capability-wakeup-rules.ts",
+      "anchor": "image-generation"
+    },
+    "bodySource": { "path": "cat-cafe-skills/refs/capability-wakeup-index.md", "anchor": "`image-generation`" },
+    "contexts": ["thinking", "feature_dev"],
+    "audience": ["all"],
+    "body": "需要架构图、视觉 mock 或素材时，可以让猫走 image-generation。",
+    "action": { "type": "open_concierge_draft", "label": "了解更多" },
+    "owner": "codex"
+  },
+  {
+    "id": "capability-workspace-navigator",
+    "kind": "capability",
+    "sourceRef": { "path": "cat-cafe-skills/workspace-navigator/SKILL.md", "anchor": "workspace-navigator" },
+    "structureSource": {
+      "path": "packages/api/src/infrastructure/harness-eval/capability-wakeup/capability-wakeup-rules.ts",
+      "anchor": "workspace-navigator"
+    },
+    "bodySource": { "path": "cat-cafe-skills/refs/capability-wakeup-index.md", "anchor": "`workspace-navigator`" },
+    "contexts": ["thinking", "feature_dev", "review"],
+    "audience": ["all"],
+    "body": "想让你直接看到文件时，猫可以把路径打开到 Workspace panel。",
+    "action": { "type": "open_concierge_draft", "label": "了解更多" },
+    "owner": "codex"
+  },
+  {
+    "id": "capability-pencil-design",
+    "kind": "capability",
+    "sourceRef": { "path": "cat-cafe-skills/refs/capability-wakeup-index.md", "anchor": "pencil-design" },
+    "structureSource": {
+      "path": "packages/api/src/infrastructure/harness-eval/capability-wakeup/capability-wakeup-rules.ts",
+      "anchor": "pencil-design"
+    },
+    "bodySource": { "path": "cat-cafe-skills/refs/capability-wakeup-index.md", "anchor": "`pencil-design`" },
+    "contexts": ["feature_dev"],
+    "audience": ["developer", "cvo"],
+    "body": "UI 视觉要先看设计时，可以让猫用 Pencil 做 .pen 设计稿。",
+    "action": { "type": "open_concierge_draft", "label": "了解更多" },
+    "owner": "codex"
+  },
+  {
+    "id": "capability-guide-interaction",
+    "kind": "capability",
+    "sourceRef": { "path": "cat-cafe-skills/refs/capability-wakeup-index.md", "anchor": "guide-interaction" },
+    "structureSource": {
+      "path": "packages/api/src/infrastructure/harness-eval/capability-wakeup/capability-wakeup-rules.ts",
+      "anchor": "guide-interaction"
+    },
+    "bodySource": { "path": "cat-cafe-skills/refs/capability-wakeup-index.md", "anchor": "`guide-interaction`" },
+    "contexts": ["thinking", "concierge_open"],
+    "audience": ["all"],
+    "body": "问“怎么用/怎么配置”时，猫可以把说明变成一步步引导。",
+    "action": { "type": "open_concierge_draft", "label": "了解更多" },
+    "owner": "codex"
+  },
+  {
+    "id": "capability-expert-panel",
+    "kind": "capability",
+    "sourceRef": { "path": "cat-cafe-skills/refs/capability-wakeup-index.md", "anchor": "expert-panel" },
+    "structureSource": {
+      "path": "packages/api/src/infrastructure/harness-eval/capability-wakeup/capability-wakeup-rules.ts",
+      "anchor": "expert-panel"
+    },
+    "bodySource": { "path": "cat-cafe-skills/refs/capability-wakeup-index.md", "anchor": "`expert-panel`" },
+    "contexts": ["review", "feature_dev"],
+    "audience": ["cvo", "developer"],
+    "body": "架构题或卡住的 bug 可以拉 expert-panel，让多只猫独立判断后收敛。",
+    "action": { "type": "open_concierge_draft", "label": "了解更多" },
+    "owner": "codex"
+  },
+  {
+    "id": "capability-propose-thread",
+    "kind": "capability",
+    "sourceRef": { "path": "cat-cafe-skills/refs/capability-wakeup-index.md", "anchor": "cat_cafe_propose_thread" },
+    "structureSource": {
+      "path": "packages/api/src/infrastructure/harness-eval/capability-wakeup/capability-wakeup-rules.ts",
+      "anchor": "propose-thread"
+    },
+    "bodySource": { "path": "cat-cafe-skills/refs/capability-wakeup-index.md", "anchor": "提议创建新 thread" },
+    "contexts": ["thinking", "long_running"],
+    "audience": ["all"],
+    "body": "任务明显长出当前 thread 时，猫可以填好新 thread 卡片让你确认。",
+    "action": { "type": "open_concierge_draft", "label": "了解更多" },
+    "owner": "codex"
+  },
+  {
+    "id": "capability-external-runtime-sessions",
+    "kind": "capability",
+    "sourceRef": { "path": "cat-cafe-skills/refs/capability-wakeup-index.md", "anchor": "外部 runtime session" },
+    "structureSource": {
+      "path": "packages/api/src/infrastructure/harness-eval/capability-wakeup/capability-wakeup-rules.ts",
+      "anchor": "external-runtime-sessions"
+    },
+    "bodySource": { "path": "cat-cafe-skills/refs/capability-wakeup-index.md", "anchor": "外部 runtime session" },
+    "contexts": ["thinking", "review"],
+    "audience": ["developer", "maintainer"],
+    "body": "外部 runtime 会话像丢了时，猫可以查 session 记录而不是让你截图。",
+    "action": { "type": "open_concierge_draft", "label": "了解更多" },
+    "owner": "codex"
+  },
+  {
+    "id": "capability-cli-diagnostics",
+    "kind": "capability",
+    "sourceRef": { "path": "cat-cafe-skills/refs/capability-wakeup-index.md", "anchor": "F212 CLI 错误诊断" },
+    "structureSource": {
+      "path": "packages/api/src/infrastructure/harness-eval/capability-wakeup/capability-wakeup-rules.ts",
+      "anchor": "cli-diagnostics"
+    },
+    "bodySource": { "path": "cat-cafe-skills/refs/capability-wakeup-index.md", "anchor": "CLI 错误诊断" },
+    "contexts": ["thinking", "review"],
+    "audience": ["developer", "maintainer"],
+    "body": "CLI 只显示退出时，猫应读 cliDiagnostics/debugRef，而不是凭一行错误猜。",
+    "action": { "type": "open_concierge_draft", "label": "了解更多" },
+    "owner": "codex"
+  },
+  {
+    "id": "capability-eval-verdict",
+    "kind": "capability",
+    "sourceRef": {
+      "path": "cat-cafe-skills/refs/capability-wakeup-index.md",
+      "anchor": "F192 Eval Hub / Verdict Handoff"
+    },
+    "structureSource": {
+      "path": "packages/api/src/infrastructure/harness-eval/capability-wakeup/capability-wakeup-rules.ts",
+      "anchor": "eval-verdict"
+    },
+    "bodySource": { "path": "cat-cafe-skills/refs/capability-wakeup-index.md", "anchor": "Eval Hub" },
+    "contexts": ["review", "merge_gate"],
+    "audience": ["developer", "maintainer"],
+    "body": "改 harness 后要有 verdict/eval 闭环，不能只说“修了”。",
+    "action": { "type": "open_concierge_draft", "label": "了解更多" },
+    "owner": "codex"
+  },
+  {
+    "id": "workflow-memory-recall",
+    "kind": "workflow",
+    "sourceRef": { "path": "cat-cafe-skills/refs/memory-routing-partial.md", "anchor": "search_evidence" },
+    "structureSource": {
+      "path": "packages/api/src/infrastructure/harness-eval/capability-wakeup/capability-wakeup-rules.ts",
+      "anchor": "memory-drilldown"
+    },
+    "bodySource": { "path": "cat-cafe-skills/refs/memory-routing-partial.md", "anchor": "graph_resolve" },
+    "contexts": ["thinking", "review"],
+    "audience": ["all"],
+    "body": "找旧决策时先选 memory 入口：模糊搜、精确 anchor、或扫最近。",
+    "action": { "type": "open_concierge_draft", "label": "了解更多" },
+    "owner": "codex"
+  },
+  {
+    "id": "capability-update-workflow",
+    "kind": "capability",
+    "sourceRef": { "path": "cat-cafe-skills/refs/capability-wakeup-index.md", "anchor": "cat_cafe_update_workflow" },
+    "structureSource": {
+      "path": "packages/api/src/infrastructure/harness-eval/capability-wakeup/capability-wakeup-rules.ts",
+      "anchor": "update-workflow"
+    },
+    "bodySource": { "path": "cat-cafe-skills/refs/capability-wakeup-index.md", "anchor": "推 SOP 告示牌" },
+    "contexts": ["feature_dev", "review", "merge_gate"],
+    "audience": ["developer", "maintainer"],
+    "body": "阶段推进要同步 Hub 告示牌，别只在聊天里说“我进下一步”。",
+    "action": { "type": "open_concierge_draft", "label": "了解更多" },
+    "owner": "codex"
+  },
+  {
+    "id": "capability-context-self-management",
+    "kind": "capability",
+    "sourceRef": { "path": "cat-cafe-skills/refs/capability-wakeup-index.md", "anchor": "context-self-management" },
+    "structureSource": {
+      "path": "cat-cafe-skills/refs/capability-wakeup-index.md",
+      "anchor": "context-self-management"
+    },
+    "bodySource": { "path": "cat-cafe-skills/refs/capability-wakeup-index.md", "anchor": "context 自管理" },
+    "contexts": ["long_running", "review"],
+    "audience": ["developer", "maintainer"],
+    "body": "收到 context warn 时，猫要判断 handoff、继续还是冲刺，不靠焦虑硬猜。",
+    "action": { "type": "open_concierge_draft", "label": "了解更多" },
+    "owner": "codex"
+  },
+  {
+    "id": "workflow-alpha-validation",
+    "kind": "workflow",
+    "sourceRef": { "path": "docs/SOP.md", "anchor": "pnpm alpha:start" },
+    "structureSource": { "path": "docs/SOP.md", "anchor": "Alpha 验收通道" },
+    "bodySource": { "path": "docs/SOP.md", "anchor": "3011/3012/4111/6398" },
+    "contexts": ["review", "merge_gate"],
+    "audience": ["developer", "maintainer"],
+    "body": "已合入 main 的改动用 alpha 验收，不拿 runtime 端口冒充证据。",
+    "action": { "type": "open_concierge_draft", "label": "了解更多" },
+    "owner": "codex"
+  },
+  {
+    "id": "workflow-merge-gate",
+    "kind": "workflow",
+    "sourceRef": { "path": "docs/SOP.md", "anchor": "merge-gate" },
+    "structureSource": { "path": "docs/SOP.md", "anchor": "门禁 → PR → 云端 review" },
+    "bodySource": { "path": "cat-cafe-skills/merge-gate/SKILL.md", "anchor": "merge-gate" },
+    "contexts": ["merge_gate", "review"],
+    "audience": ["developer", "maintainer"],
+    "body": "准备合入时走 merge-gate：本地门禁、PR、云端 review、squash merge。",
+    "action": { "type": "open_concierge_draft", "label": "了解更多" },
+    "owner": "codex"
+  },
+  {
+    "id": "workflow-feature-tips-contribution",
+    "kind": "workflow",
+    "sourceRef": { "path": "cat-cafe-skills/feat-lifecycle/SKILL.md", "anchor": "F244 Tips Contribution" },
+    "structureSource": { "path": "cat-cafe-skills/feat-lifecycle/SKILL.md", "anchor": "不是数量门" },
+    "bodySource": { "path": "cat-cafe-skills/feat-lifecycle/SKILL.md", "anchor": "sourceRef" },
+    "contexts": ["feature_dev"],
+    "audience": ["developer", "maintainer"],
+    "body": "立新功能时，在 spec 写 Tips Contribution；纯内部重构才用 frontmatter 豁免。",
+    "action": { "type": "open_concierge_draft", "label": "了解更多" },
+    "owner": "codex"
+  },
+  {
+    "id": "workflow-quality-gate-tips-check",
+    "kind": "workflow",
+    "sourceRef": { "path": "cat-cafe-skills/quality-gate/SKILL.md", "anchor": "F244 Tips Contribution" },
+    "structureSource": { "path": "cat-cafe-skills/quality-gate/SKILL.md", "anchor": "pnpm check:capability-tips" },
+    "bodySource": { "path": "cat-cafe-skills/quality-gate/SKILL.md", "anchor": "CI 只证明结构" },
+    "contexts": ["feature_dev", "review", "merge_gate"],
+    "audience": ["developer", "maintainer"],
+    "body": "提 review 前跑 pnpm check:capability-tips；废话 tip 仍由 reviewer 退回。",
+    "action": { "type": "open_concierge_draft", "label": "了解更多" },
+    "owner": "codex"
+  },
+  {
+    "id": "feature-f244-capability-tips",
+    "kind": "feature",
+    "sourceRef": { "path": "docs/features/F244-capability-tips-system.md", "anchor": "Capability Tips System" },
+    "structureSource": { "path": "docs/features/F244-capability-tips-system.md", "anchor": "CapabilityTip" },
+    "bodySource": { "path": "docs/features/F244-capability-tips-system.md", "anchor": "open_concierge_draft" },
+    "contexts": ["thinking", "feature_dev"],
+    "audience": ["all"],
+    "body": "等待态 tips 是 Knowledge Feed 投影；点“了解更多”会打开前台猫草稿。",
+    "action": { "type": "open_concierge_draft", "label": "了解更多" },
+    "owner": "codex"
+  }
+]
