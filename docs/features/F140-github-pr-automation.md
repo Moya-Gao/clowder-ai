@@ -11,6 +11,7 @@ created: 2026-03-26
 > **Status**: done | **Owner**: 布偶猫 | **Priority**: P1 | **Phase A-D Completed**: 2026-03-27 | **Reopened**: 2026-04-24（Phase E — 通知合流：severity 抽取 + 下线 email 路径） | **Completed**: 2026-04-25
 > **Post-completion hardening**: 2026-05-07 — Review Feedback backlog guard（merged/closed 自收敛 + stale commit 过滤 + 同 PR/target-cat queue coalesce）
 > **Post-completion correction**: 2026-06-18 — PR #2394 (squash 1d42b8f36) fixed PR review feedback routing to preserve the PR-tracking registration thread. #949 auto-rotation / PR #2372 backlink was the wrong layer: context overflow belongs to invocation hydration, not thread ownership. Review feedback no longer creates `MR review (auto-rotated...)` threads, and legacy already-rotated tracking tasks are repaired back to their source thread before delivery. If such a repair happens, the original thread receives an explicit routing-anomaly audit warning; this is fault exposure, not a redirect design.
+> **Post-completion correction audit**: 2026-06-18 — PR #2404 (squash bcabe177) keeps legacy routing repair visible even when feedback is filtered, persists the repair only after audit delivery succeeds, and makes the repair thread update conditional to avoid overwriting a fresh re-registration.
 > **Post-completion**: 2026-06-03 — PR-tracking wake intent（PR #2070）：`register_pr_tracking` 加 `intent: review|merge`，CI-pass 仅 intent=merge 唤醒；删 approval 推断 + dead poller
 
 ## 三层架构定位
@@ -314,6 +315,7 @@ created: 2026-03-26
 | 2026-04-25 | **Feature re-closed** — CVO 指派砚砚 GPT-5.5 完成 feat-lifecycle close。三 PR (#1380/#1386/#1398) merged，AC-E1~E10 全 ✅，反思胶囊已落盘，愿景对照 5/5 匹配。F140 从 BACKLOG 移除，进入 completed index |
 | 2026-05-07 | **Post-completion hardening merged (PR #1580, squash 77d2ba535)** — review-feedback backlog guard 补齐 merged/closed 自收敛、stale commit 过滤、PR/target-cat coalesce、urgent 升级和 in-flight follow-up 重新排队。Sonnet + GPT-5.4 + 云端 Codex 多轮 review；P1/P2 全部 Red→Green 修复；`pnpm gate` passed at `adcc731a`。 |
 | 2026-06-18 | **Post-completion correction merged (PR #2394, squash 1d42b8f36)** — 铲屎官指出 #949 auto-rotation 把 PR review feedback 投到陌生 `MR review (auto-rotated...)` thread，违反「哪个 thread 注册 PR tracking，就投回哪个 thread」的 mental model。修正删除 ReviewFeedbackTaskSpec 的 thread rotation / backlink path；对已污染的 legacy task 通过 rotated thread 标题 `MR review (auto-rotated from <threadId>)` 回溯并修回原 thread；长 thread 风险归 hydration 层另行处理。验证：GPT-5.4 review 放行，云端 Codex `f9f4cfddf` no major issues，`pnpm gate` passed at `dae997f5`。后续补强：legacy repair 发生时在原 thread 显式追加「PR review feedback 路由异常已修复」审计告警，避免故障被静默吞掉。 |
+| 2026-06-18 | **Post-completion correction audit merged (PR #2404, squash bcabe177)** — routing repair audit 不再被 filtered feedback 吞掉；repair 写入延后到 audit delivery 成功后；legacy repair 的 thread update 改成条件写，避免 validate 后 / update 前的新注册被 stale repair 覆盖。验证：`pnpm gate` passed at `869d8720`，GitHub CI pass，云端 Codex `869d8720` no major issues。 |
 
 ## Completion Sign-off (2026-04-25)
 
