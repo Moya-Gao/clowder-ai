@@ -58,7 +58,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   },
   {
     id: 'concierge',
-    label: '前台猫',
+    label: '猫猫球',
     icon: 'cat',
     color: 'var(--cafe-accent)',
     description: '猫猫球的形象、人设、值班猫和主动性策略。',

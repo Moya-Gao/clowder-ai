@@ -65,7 +65,7 @@ export function ConciergeSettingsContent() {
           useConciergeStore.setState(data.config);
         }
       } catch {
-        if (!cancelled) setError('加载前台猫配置失败');
+        if (!cancelled) setError('加载猫猫球配置失败');
       }
     })();
     return () => {
@@ -164,9 +164,9 @@ export function ConciergeSettingsContent() {
       )}
 
       {/* Section 1: 基本开关 */}
-      <SettingsSection title="基本设置" description="控制前台猫的显示与可用性。">
+      <SettingsSection title="基本设置" description="控制猫猫球的显示与可用性。">
         <div className="space-y-4">
-          <SettingsField label="启用前台猫" hint="关闭后悬浮球不再显示。" inline>
+          <SettingsField label="启用猫猫球" hint="关闭后悬浮球不再显示。" inline>
             <ToggleSwitch checked={state.enabled} disabled={saving} onChange={(v) => updateConfig({ enabled: v })} />
           </SettingsField>
 
@@ -177,7 +177,7 @@ export function ConciergeSettingsContent() {
       </SettingsSection>
 
       {/* Section 2: 皮肤 (E2: unlocked — was KD-14 locked in Phase A) */}
-      <SettingsSection title="皮肤" description="切换前台猫的外观。">
+      <SettingsSection title="皮肤" description="切换猫猫球的外观。">
         <div className="space-y-3">
           <RadioOption
             name="skin"
@@ -210,9 +210,9 @@ export function ConciergeSettingsContent() {
       </SettingsSection>
 
       {/* Section 3: 身份与人设 (KD-6) */}
-      <SettingsSection title="身份与人设" description="自定义前台猫的名字和性格基调。">
+      <SettingsSection title="身份与人设" description="自定义猫猫球的名字和性格基调。">
         <div className="space-y-4">
-          <SettingsField label="显示名称" hint="前台猫的名字，最多 50 字。">
+          <SettingsField label="显示名称" hint="猫猫球的名字，最多 50 字。">
             <TextInput
               value={state.displayName}
               maxLength={50}
@@ -266,7 +266,7 @@ export function ConciergeSettingsContent() {
       </SettingsSection>
 
       {/* Section 5: 主动性 (OQ-4) */}
-      <SettingsSection title="主动性策略" description="控制前台猫何时主动出现。">
+      <SettingsSection title="主动性策略" description="控制猫猫球何时主动出现。">
         <div className="space-y-3">
           <RadioOption
             name="proactivePolicy"

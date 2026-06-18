@@ -868,7 +868,7 @@ describe('A3a: three-layer surfaceState interaction', () => {
 // ---------------------------------------------------------------------------
 
 describe('Block 7: P0 Liveness', () => {
-  it('shows "值班猫正在处理" when queue reports active invocation', async () => {
+  it('shows "猫猫球处理中" when queue reports active invocation', async () => {
     useConciergeStore.setState({
       configLoaded: true,
       surfaceState: 'bubble',
@@ -911,7 +911,7 @@ describe('Block 7: P0 Liveness', () => {
 
     const statusEl = container.querySelector('[role="status"]');
     expect(statusEl).not.toBeNull();
-    expect(statusEl?.textContent).toContain('值班猫正在处理');
+    expect(statusEl?.textContent).toContain('猫猫球处理中');
   });
 
   it('shows "发送中" during pending state', async () => {

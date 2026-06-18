@@ -21,7 +21,7 @@
  * Liveness (P0 fix):
  *   - Polls /api/threads/:threadId/queue for authoritative activeInvocations
  *   - Replaces 60s local safety valve with server-truth-driven status
- *   - Shows real "值班猫处理中" / "似乎卡住了" / "未收到回复" status
+ *   - Shows real "猫猫球处理中" / "似乎卡住了" / "未收到回复" status
  *
  * z-30: same layer as ball (below FloatingPresentationSurface z-[35])
  */
@@ -31,6 +31,7 @@ import { useCatData } from '@/hooks/useCatData';
 import { useIMEGuard } from '@/hooks/useIMEGuard';
 import { useConciergeStore } from '@/stores/conciergeStore';
 import { apiFetch } from '@/utils/api-client';
+import { CafeIcon } from '../rich/CafeIcons';
 import { RichBlocks } from '../rich/RichBlocks';
 import { ConciergeMessageContent } from './ConciergeMessageContent';
 import { useConciergeConfirmations } from './useConciergeConfirmations';
@@ -317,7 +318,7 @@ export function ConciergePanel() {
               'focus:outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--cafe-accent)]',
             ].join(' ')}
           >
-            {muted ? '🔔' : '🔕'}
+            <CafeIcon name={muted ? 'bell' : 'bell-off'} className="w-4 h-4" />
           </button>
           <button
             type="button"
@@ -331,7 +332,7 @@ export function ConciergePanel() {
               'focus:outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--cafe-accent)]',
             ].join(' ')}
           >
-            ✕
+            <CafeIcon name="cross" className="w-4 h-4" />
           </button>
         </div>
 
@@ -352,7 +353,7 @@ export function ConciergePanel() {
             </p>
           ) : messages.length === 0 ? (
             <p style={{ color: 'var(--cafe-text-secondary)' }} className="text-sm text-center mt-4">
-              你好！我是值班前台猫，有什么可以帮你？
+              你好！我是猫猫球，有什么可以帮你？
             </p>
           ) : (
             <div className="flex flex-col gap-2">
@@ -432,7 +433,7 @@ export function ConciergePanel() {
           {invocationStatus === 'in_progress' && (
             <div style={{ color: 'var(--cafe-text-secondary)' }} className="text-xs text-center mt-2" role="status">
               {queueStatus.isRunning ? (
-                <span className="animate-pulse">值班猫正在处理…</span>
+                <span className="animate-pulse">猫猫球处理中…</span>
               ) : (
                 <span className="animate-pulse">确认回复中…</span>
               )}
@@ -461,7 +462,7 @@ export function ConciergePanel() {
             onKeyDown={handleKeyDown}
             onCompositionStart={ime.onCompositionStart}
             onCompositionEnd={ime.onCompositionEnd}
-            placeholder="发消息给前台猫…"
+            placeholder="发消息给猫猫球…"
             aria-label="消息输入框"
             style={{
               backgroundColor: 'var(--cafe-surface-elevated)',

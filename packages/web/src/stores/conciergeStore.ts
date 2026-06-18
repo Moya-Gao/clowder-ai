@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * F229 PR-A3a: conciergeStore — 猫猫球前台猫前端状态
+ * F229 PR-A3a: conciergeStore — 猫猫球前端状态
  *
  * 核心设计（micro-spec §1）：
  *   ballState = 纯投影函数，永远不进 store（INV-2）
