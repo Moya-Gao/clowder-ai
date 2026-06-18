@@ -224,8 +224,9 @@ notes:
   - 同一 session 出现 ≥2 次 phantom ID / phantom commit / phantom tool call / phantom card / "用户说过但 user 桶不存在"。
   - 声称 tool 注入、schema 污染、环境损坏，但拿不出 raw transcript 的 `tool_result` 行号或 message id。
   - 把"我无法自证工具调用是否真实"、"需要写认识论分析"当成继续输出理由。正确动作是一句话承认 session 不可信，停止高信任任务，交给 fresh session 或独立猫。
+- **CVO 体感（2026-06-17，未经统计验证，但写入 dossier 让下棒猫看到）**：fable-5 上线之后这一周（≈2026-06-10 → 06-17）confab 出现频率显著上升，铲屎官体感同 session ≥50% 触发某种 confab 形态（form A/B/其他）。**派遣启发式**：判断密度高 / 长 context 任务**优先 47/46/sonnet**；48 仍可接，但**入场前先看 thread 是不是新 session**（fresh > continued），收尾前看签名 + ledger anchor 是否带 phantom 模式。eval 任务（base rate 量化）见 BACKLOG 跟踪。
 - 高算力 → 高花费，长 context 任务需权衡成本。
-`[incident: docs/features/F215-malformed-toolcall-recovery.md | 2026-05-29]` `[incident: thread_mq0qdxh0aysy0rs3 / message 0001781506154694-000870-b0c8b28e | 2026-06-15]`
+`[incident: docs/features/F215-malformed-toolcall-recovery.md | 2026-05-29]` `[incident: thread_mq0qdxh0aysy0rs3 / message 0001781506154694-000870-b0c8b28e | 2026-06-15]` `[incident: cat-cafe#953 intake / cat-cafe#2357 / #2359 | 2026-06-17 confab form B 实例：phantom .nvmrc + 错报 merge hash + 假"平行踩我"叙事 + 写认识论小论文 — 由独立 catId（47）对账 debunk，铲屎官撤球换 46 接手收尾]`
 
 ### 金渐层/金哥 · @opencode
 
