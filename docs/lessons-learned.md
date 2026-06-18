@@ -1618,3 +1618,11 @@ created: 2026-02-26
 - 原理：multi-cat persona 在 single GitHub identity 下运作的 known limitation——GitHub permission model 是 user-level，cat persona 是 application-level。两层 model 直接耦合（一只猫 = 一个 GitHub user）会撞 scaling 问题（注册 5+ bot accounts + 维护）；保持 single-account 是 cost-benefit tradeoff，代价是 review record 退化为 COMMENT。
 - 关联：feedback_intake_review_on_github（formal review evidence 要求）| feedback_approve_then_enforce_merge（merge enforce 责任）| PR #2353（范例）
 
+### LL-081: Reviewer 核 cloud-多轮 PR 必须 `git show {pr-head}:` 核代码 + inline 按 review-id 分 stale/fresh
+- 状态：validated
+- 更新时间：2026-06-18
+- 坑：F233 PR3 cloud review 6 轮，opus-48 做本地 reviewer 介入时**误判**——把已被作者逐点修好的 cloud finding 当成 fresh systematic gap，建议了错误的 "decorator 换层"，被作者砚砚 push back（代码早已 `StartupReconciler.recordInvocationDied` / `messagesOpts.ballCustody` / `fireAt===heldUntil` guard 逐点修好）。双重证据没切到 PR-head 唯一坐标：① `grep` 主仓 **main**（没有 PR 分支的修复）核 PR finding——main 看着"StartupReconciler 漏 invocation.died"，但 PR branch 早已接好 ② `gh api .../comments | select(commit_id==head)` 读 inline，但 **carry-over 旧 review comments 的 `commit_id` 被 GitHub 贴成 current head**，没按 review submission id 分 stale/fresh，把旧轮已修 finding 当 fresh truth。
+- 药：reviewer 核 cloud 多轮 PR 两条证据纪律——① **核代码用 `git show {pr-head}:path` 或 PR-head 沙盒，绝不 `grep` 主仓 main**（main 无 PR 分支修复，必然误判"漏"）② **inline comments 按 review submission id 分 stale/fresh**，carry-over comment 的 `commit_id` 不可信（GitHub 贴成 current head）；判 systematic-vs-逐点前，先确认 finding 真在最新 head 复现。
+- 来源锚点：F233 PR3（#2364）opus-48 误判 decorator → 砚砚 push back（83948fcae 终局放行）
+- 关联：feedback_evidence_slice_to_unique_coordinate（基础原则——本 LL 细分到 cloud-多轮 PR review 的 PR-head-坐标层）| LL-079（FETCH_HEAD volatile，同型证据坐标教训）| LL-072（封板协议——多轮 review 下 stale/fresh 辨别是封板判断前提）
+
