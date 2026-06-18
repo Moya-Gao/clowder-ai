@@ -185,6 +185,7 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 | 2026-06-13 | Phase C 设计深化（CVO 共创）：消化层从全签字改为「按代价分层签字 + 用中校准」（KD-12，解"人类懒得审批"+"自评失真"）；纠正信号采集走当事猫自我认知、禁模式匹配（KD-13）；画像潜意识化反班味（KD-14）；注入悖论拆解（入库 vs 注入两种判断分离）→ 注入层新维度立 OQ-5 |
 | 2026-06-15 | Phase C AC-C1 merged (PR #2296)：profile-update proposal loop landed end-to-end（propose tool/callback/card/decision routes/approval write path/provenance audit/terminal card recovery），cloud review clean on `be6185ad` + `pnpm gate` passed |
 | 2026-06-16 | Wave 1 收尾（A4 dry-run / A5 docs / discoverability wakeup），三猫规划收敛（opus-48 架构 + opus-46 drive），剩余工作三波计划落 spec |
+| 2026-06-18 | Phase C AC-C3 merged (PR #2354)：COLLECTION_SIGNAL_KINDS frozen enum type guard (KD-9) + 4 OTel eval counters + ProfileDistillationTrigger + SessionSealer.postSealHook guard + sealWriteSucceeded safety; gpt52 R2 local review + cloud review 4×P2 all pushback/P3-downgraded (out-of-scope / no-repro / comment-only / internal-API) |
 
 ## Remaining Work Plan（2026-06-16 三猫收敛）
 
@@ -200,7 +201,7 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 | C1 | ✅ merged | PR #2296 (`be6185ad`) |
 | B3 | ✅ 完成 | `compile-system-prompt-l0.test.mjs` 4 项 compile-level regression |
 | C2 | ✅ 完成 | `proposal_mqg11vxc8ypclgv4` CVO approved，但 2 天零有机使用 → C3 必须 |
-| **C3** | ✅ 完成 | `b6de921f0` — KD-9 whitelist enum + KD-10 eval counters + distillation trigger |
+| **C3** | ✅ merged | PR #2354 (`37f7dedc`) — KD-9 whitelist enum + KD-10 eval counters + distillation trigger |
 
 ### Wave 2（当前，不需额外 spec）
 
