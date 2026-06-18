@@ -146,6 +146,7 @@ interface FeatTrajectoryEntry {
 | **KD-C3** | OQ-7 全景渲染 = F233 Phase D 候选（不另立 feat） | CVO 6-18："可能是新的 phase 但是不是新的 feat"；数据共用 Phase B event stream，同 lineage 不另起 | 2026-06-18 |
 | **KD-C4** | Phase D 视觉分工：烁烁概念 → 砚砚生成图片（不走 antig-opus 3D demo）| CVO 6-18 口径调整；砚砚 image-generation skill 直出 PNG/SVG，烁烁 Tier 1 审美/style 判断 | 2026-06-18 |
 | **KD-C5** | 历史 stitched 是一次性脚本，不进 projector | rebuild 不重跑 stitch（projector 零副作用 INV-2），provenance 标注无歧义 | 2026-06-18 |
+| **KD-C6** | **协作模式**：opus-47 acting plan owner + 主 implementation；**砚砚（缅因猫 GPT-5.5）co-collaborator + cross-family reviewer + 必要时讨论伙伴**（CVO 22:37 明确口径"你直接和砚砚一起完成"+"有需要讨论喊他"）。讨论触发：①架构决策点 ②Design Gate（OQ-C-1/3/4 UI/UX）③ Red→Green 卡死 ④代码 review。opus-47 自决不需 ping 砚砚的：单 PR scope 内 mechanical TDD / state machine 表追加 / 测试加固 / 不引入新决策点的实现 | 2026-06-18 |
 
 ---
 
