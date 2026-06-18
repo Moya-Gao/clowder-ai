@@ -241,7 +241,7 @@ describe('cat-catalog-store', () => {
     else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = savedGlobalRoot;
   });
 
-  it('bootstraps an empty catalog by default (first-run quest)', () => {
+  it('bootstraps with one seed breed from template (#948)', () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'cat-catalog-store-f127-default-'));
     const templatePath = join(projectRoot, 'cat-template.json');
     const template = makeF127BootstrapTemplate();
@@ -250,10 +250,22 @@ describe('cat-catalog-store', () => {
     const catalogPath = bootstrapCatCatalog(projectRoot, templatePath);
     const runtimeCatalog = JSON.parse(readFileSync(catalogPath, 'utf-8'));
 
-    assert.deepEqual(runtimeCatalog.breeds, []);
-    assert.deepEqual(runtimeCatalog.roster, {
-      owner: { family: 'owner', roles: ['owner'], lead: false, available: true, evaluation: '铲屎官 / 大当家' },
+    // #948: New catalogs seed the first breed from template so the app starts
+    // with at least one usable member (empty registry crashes before wizard).
+    assert.equal(runtimeCatalog.breeds.length, 1, 'should seed exactly one breed');
+    assert.equal(runtimeCatalog.breeds[0].id, 'ragdoll', 'seed breed should be the first template breed');
+    assert.deepEqual(runtimeCatalog.roster?.owner, {
+      family: 'owner',
+      roles: ['owner'],
+      lead: false,
+      available: true,
+      evaluation: '铲屎官 / 大当家',
     });
+    assert.deepEqual(
+      Object.keys(runtimeCatalog.roster ?? {}).sort(),
+      ['opus', 'owner', 'sonnet'],
+      'seeded catalog roster should only expose registered runtime cats plus owner',
+    );
     // Non-breed config (reviewPolicy, coCreator) is preserved from template.
     assert.deepEqual(runtimeCatalog.reviewPolicy, template.reviewPolicy);
     assert.deepEqual(runtimeCatalog.coCreator, template.coCreator);
@@ -622,7 +634,6 @@ describe('cat-catalog-store', () => {
     // Trigger eager migration (F136 Phase 4d backfills accountRef on first read)
     readRuntimeCatCatalog(projectRoot);
     const catalogPath = resolveCatCatalogPath(projectRoot);
-    const beforeRaw = readFileSync(catalogPath, 'utf-8');
 
     // Empty defaultModel is now allowed (OAuth/subscription CLIs use built-in defaults;
     // api_key accounts are validated at the route level in validateAccountBindingOrThrow).

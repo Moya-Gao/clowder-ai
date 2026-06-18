@@ -969,6 +969,7 @@ export async function* routeSerial(
       const pendingCallbackRoutingExits: CallbackContentRoutingExit[] = [];
       const confirmedCallbackRoutingMentions = new Set<CatId>();
       let confirmedCallbackRoutingHasCoCreatorLineStartMention = false;
+      let confirmedLocalCallbackRoutingHasCoCreatorLineStartMention = false;
       const emittedBallHandedCvoMessageIds = new Set<string>();
       const structuredTargetCats = new Set<string>();
       // F060: Collect rich blocks emitted inline via system_info (not MCP buffer)
@@ -1071,9 +1072,10 @@ export async function* routeSerial(
 
         const [exit] = pendingCallbackRoutingExits.splice(exitIndex, 1);
         if (!confirmed || !exit) return undefined;
-        if (isPostMessageToolName(exit.toolName)) {
-          for (const mention of exit.lineStartMentions) confirmedCallbackRoutingMentions.add(mention);
-          if (exit.hasCoCreatorLineStartMention) confirmedCallbackRoutingHasCoCreatorLineStartMention = true;
+        for (const mention of exit.lineStartMentions) confirmedCallbackRoutingMentions.add(mention);
+        if (exit.hasCoCreatorLineStartMention) {
+          confirmedCallbackRoutingHasCoCreatorLineStartMention = true;
+          if (isPostMessageToolName(exit.toolName)) confirmedLocalCallbackRoutingHasCoCreatorLineStartMention = true;
         }
         return exit;
       };
@@ -1082,6 +1084,10 @@ export async function* routeSerial(
       ];
       const hasRoutingExitCoCreatorLineStartMention = (content: string): boolean =>
         Boolean((content ? detectUserMention(content) : false) || confirmedCallbackRoutingHasCoCreatorLineStartMention);
+      const hasLocalRoutingExitCoCreatorLineStartMention = (content: string): boolean =>
+        Boolean(
+          (content ? detectUserMention(content) : false) || confirmedLocalCallbackRoutingHasCoCreatorLineStartMention,
+        );
       const emitBallHandedCvoOnce = (
         messageId: string | undefined,
         eventThreadId: string | undefined = threadId,
@@ -1634,6 +1640,7 @@ export async function* routeSerial(
         pendingCallbackRoutingExits.splice(0, pendingCallbackRoutingExits.length);
         confirmedCallbackRoutingMentions.clear();
         confirmedCallbackRoutingHasCoCreatorLineStartMention = false;
+        confirmedLocalCallbackRoutingHasCoCreatorLineStartMention = false;
         callbackPostConfirmed = false;
         callbackPostMessageId = undefined;
         awaitingCallbackResult = false;
@@ -1931,6 +1938,7 @@ export async function* routeSerial(
 
         let routingExitLineStartMentions = getRoutingExitLineStartMentions(a2aMentions);
         let routingExitHasCoCreatorLineStartMention = hasRoutingExitCoCreatorLineStartMention(storedContent);
+        let localRoutingExitHasCoCreatorLineStartMention = hasLocalRoutingExitCoCreatorLineStartMention(storedContent);
 
         if (
           shouldRemediateRouting({
@@ -1950,6 +1958,7 @@ export async function* routeSerial(
           a2aMentions = result.a2aMentions;
           routingExitLineStartMentions = getRoutingExitLineStartMentions(a2aMentions);
           routingExitHasCoCreatorLineStartMention = result.hasCoCreatorLineStartMention;
+          localRoutingExitHasCoCreatorLineStartMention = hasLocalRoutingExitCoCreatorLineStartMention(storedContent);
 
           if (
             !hasValidRoutingExit({
@@ -2542,7 +2551,7 @@ export async function* routeSerial(
               log.warn({ catId: catId as string, err: activityErr }, 'updateParticipantActivity failed');
             }
           }
-          if (!callbackAlreadyStored && routingExitHasCoCreatorLineStartMention && storedMsgId) {
+          if (!callbackAlreadyStored && localRoutingExitHasCoCreatorLineStartMention && storedMsgId) {
             emitBallHandedCvoOnce(storedMsgId);
           }
           // F192 Phase D — deferred per-fire sample emission (local R1 P1-1 fix +

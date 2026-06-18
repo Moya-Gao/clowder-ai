@@ -1,7 +1,12 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, relative, resolve, sep } from 'node:path';
 import type { CatCafeConfig, ClientId, RosterEntry } from '@cat-cafe/shared';
-import { builtinAccountIdForClient, resolveBuiltinClientForProvider } from './account-resolver.js';
+import { resolveBuiltinClientForProvider } from './account-resolver.js';
+import {
+  pickSeedBreed,
+  pruneRosterToRuntimeBreeds,
+  type RuntimeBreedWithCatIds,
+} from './cat-catalog-bootstrap-roster.js';
 
 const CONFIG_SUBDIR = '.cat-cafe';
 const CAT_CATALOG_FILENAME = 'cat-catalog.json';
@@ -271,6 +276,12 @@ function readBootstrapSourceConfig(templatePath: string): { catalog: CatCafeConf
   };
 }
 
+// NOTE: Repairing existing empty catalogs (e.g. Windows reinstall where user-data
+// dir survives) is intentionally NOT done here — we cannot distinguish "broken
+// install with empty breeds" from "user intentionally deleted all members".
+// Existing-install repair needs a separate mechanism (e.g. _bootstrapVersion marker).
+// See #948 for follow-up.
+
 export function bootstrapCatCatalog(projectRoot: string, templatePath: string): string {
   const catalogPath = resolveCatCatalogPath(projectRoot);
   if (existsSync(catalogPath)) {
@@ -285,9 +296,32 @@ export function bootstrapCatCatalog(projectRoot: string, templatePath: string): 
   const { catalog: template } = readBootstrapSourceConfig(templatePath);
   const { catalog: migratedCatalog } = migrateCatalogVariants(template);
 
-  // Always start empty — first-run wizard guides users to add their first cat.
-  // Template breeds are used as a menu when adding members, not seeded on startup.
-  const runtimeCatalog = createEmptyRuntimeCatalog(migratedCatalog);
+  // #948: Seed the first breed from the template so the app starts with at least
+  // one usable member. Without this, the registry is empty and the frontend
+  // crashes before the first-run wizard is reachable.
+  // In dev environments (template has no breeds), start empty — developers use
+  // the wizard or manual config to add members.
+  const seedBreed = pickSeedBreed(migratedCatalog);
+
+  let runtimeCatalog: CatCafeConfig;
+  if (seedBreed) {
+    const seedBreeds = [seedBreed as CatCafeConfig['breeds'][number]];
+    runtimeCatalog = {
+      ...migratedCatalog,
+      breeds: seedBreeds,
+    };
+    if ('roster' in runtimeCatalog) {
+      (runtimeCatalog as { roster: Record<string, RosterEntry> }).roster = pruneRosterToRuntimeBreeds(
+        runtimeCatalog.roster as Record<string, RosterEntry>,
+        seedBreeds as RuntimeBreedWithCatIds[],
+        OWNER_ROSTER_KEY,
+        buildOwnerRosterEntry(),
+      );
+    }
+  } else {
+    // Template has no breeds — start empty (first-run wizard guides member addition).
+    runtimeCatalog = createEmptyRuntimeCatalog(migratedCatalog);
+  }
 
   mkdirSync(dirname(catalogPath), { recursive: true });
   writeFileAtomic(catalogPath, `${JSON.stringify(runtimeCatalog, null, 2)}\n`);

@@ -206,6 +206,9 @@ function MemberMeta({ cat, configCat }: { cat: CatData; configCat?: CatConfig })
   return (
     <>
       <span>
+        <SettingsText tone="muted" className="mr-1.5 font-mono text-micro">
+          {cat.id}
+        </SettingsText>
         {getMetaSummary(cat, configCat)}
         {cat.adapterMode && (
           <SettingsBadge

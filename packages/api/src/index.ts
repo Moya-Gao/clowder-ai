@@ -150,6 +150,7 @@ import {
   fetchPrCiStatus,
   ReviewFeedbackRouter,
 } from './infrastructure/email/index.js';
+import { fetchLatestIssueCommentCursor, maxGithubId } from './infrastructure/github/comment-cursors.js';
 import { buildGhCliEnv, resolveGhCliToken } from './infrastructure/github/gh-cli-env.js';
 import { runSchedulerReplyUserIdBackfill } from './infrastructure/scheduler/scheduler-reply-userid-backfill.js';
 import { securityHeadersPlugin } from './infrastructure/security-headers.js';
@@ -2048,15 +2049,6 @@ async function main(): Promise<void> {
   };
   const { createRepoActivityTemplate } = await import('./infrastructure/scheduler/templates/repo-activity.js');
   templateRegistry.register(createRepoActivityTemplate({ getGitHubToken }));
-  const maxGithubId = (items: { id?: unknown }[]): number => {
-    let cursor = 0;
-    for (const item of items) {
-      if (typeof item.id === 'number' && Number.isFinite(item.id) && item.id > cursor) {
-        cursor = item.id;
-      }
-    }
-    return cursor;
-  };
   const fetchPrTrackingBoundary = async (repoFullName: string, prNumber: number) => {
     const { fetchPaginated } = await import('./infrastructure/github/fetch-paginated.js');
     const [reviewComments, issueComments, reviews, ciStatus] = await Promise.all([
@@ -2094,13 +2086,8 @@ async function main(): Promise<void> {
         : {}),
     };
   };
-  const fetchIssueCommentCursor = async (repoFullName: string, issueNumber: number): Promise<number> => {
-    const { fetchPaginated } = await import('./infrastructure/github/fetch-paginated.js');
-    const comments = await fetchPaginated(`/repos/${repoFullName}/issues/${issueNumber}/comments`, {
-      ghToken: getGitHubToken(),
-    });
-    return maxGithubId(comments as { id?: unknown }[]);
-  };
+  const fetchIssueCommentCursor = async (repoFullName: string, issueNumber: number): Promise<number> =>
+    fetchLatestIssueCommentCursor(repoFullName, issueNumber, { ghToken: getGitHubToken() });
 
   // F202: Plugin framework — discovery + config + resource activation
   {
