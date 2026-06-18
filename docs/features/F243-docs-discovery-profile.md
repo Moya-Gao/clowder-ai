@@ -70,7 +70,7 @@ created: 2026-06-17
 - `cat-cafe-skills/refs/feature-doc-template.md` 加 description 字段（含示例 + 约束 + 反面例子）
 - **profile lint**：新建/修改 feature doc 缺 description / description 超长 / description 是 placeholder → CI fail
 - **index.md generator skeleton**：从 `docs/features/*.md` frontmatter 抽 `description + status + topics → docs/features/index.md`
-- **数据契约（给 F186 LibraryResolver）**：generator 输出 schema 形式化，F186 通过 schema 消费不通过 markdown parse
+- **Generated-index schema**：self-contained 契约 + parser fixture 验证，schema 演化用版本号（供未来 consumer candidates 使用——F186 等是否扩 LibraryResolver 消费由对应 owner 决定，不作为 F243 close blocker）
 
 ### Phase C: `docs/features/` Rollout + Generated index.md + Sync Gate
 
@@ -224,11 +224,12 @@ created: 2026-06-17
 | 2026-06-17 | CVO 签字（铲屎官原话："a 吧先 feat 立项 然后！ 然后砚砚喵回来了！你可以喊他讨论了"）|
 | 2026-06-17 | 立项 F243（commit cca384dc6）|
 | 2026-06-17 | 砚砚 R1 review verdict = **退回**：P1-1 Owner/reviewer 同体红线（砚砚同时是 Owner 又是 Reviewer）+ P1-2 F186 consumer scope creep（把 F186 LibraryResolver 消费写成 F243 必交 AC，跨 feature 改造会阻塞 close）+ Current State 命令实证错（hash grep 命中 code block）。3 条全接受修复：Owner 只留宪宪 + AC-B4/R7/Deps/Risk 全 self-contained schema + Current State 改 parser-based 验证 |
+| 2026-06-17 | 砚砚 R2 review verdict = **退回**：R1 P1-2 修复**不彻底**——只改了 reviewer 指出的 4 处（AC/R7/Deps/Risk），漏 3 处同源残留（Phase B What / Review Gate / Links），spec 内部自相矛盾。砚砚 `rg F186` 全文扫抓到。R2 学到方法论："fix scope creep 必须自己 grep 全文找同源表述，不只是改 reviewer 点出的 line"。3 处全改 self-contained 契约 / future consumer candidates 表述 |
 
 ## Review Gate
 
 - **Phase A**: 跨族 review（架构级，影响 docs 入口契约）—— @codex (GPT-5.5) 主 reviewer + 孟加拉猫 opus 愿景守护
-- **Phase B**: 跨族 review @codex review profile contract + lint rules + generator schema（数据契约对接 F186）
+- **Phase B**: 跨族 review @codex review profile contract + lint rules + generator schema（self-contained 契约，供未来 consumer candidates）
 - **Phase C**: 跨族 review @codex review generator + sync gate + rollout 批次审计
 - **Phase D**: 愿景守护猫（非作者非 reviewer 的第三只猫）做愿景对照 + 扩展 go/no-go
 
@@ -239,7 +240,7 @@ created: 2026-06-17
 | **Discussion** | `docs/discussions/2026-05-03-pageindex-deep-dive/` | PageIndex 开源拆解（F186 历史灵感，OKF 与 PageIndex 同族）|
 | **Brainstorm** | (本 thread) | OKF 一手核实 + description 漂移讨论 + mini-spike 3 轮 + 砚砚 co-design 1 轮 |
 | **Feature** | `docs/features/F236-anchor-first-context-entry.md` | 姊妹哲学：anchor + drill 调用侧 vs 文档侧 |
-| **Feature** | `docs/features/F186-library-memory-architecture.md` | 下游 consumer：LibraryResolver 消费 generated index |
+| **Feature** | `docs/features/F186-library-memory-architecture.md` | Related candidate：F243 generated index 的潜在 consumer（实际是否扩 LibraryResolver 消费由 F186 owner 决定，不作为 F243 close blocker）|
 | **Feature** | `docs/features/F038-skills-discovery.md` | 历史参考：skills 按需发现（不重叠）|
 | **External** | https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md | OKF v0.1 一手规格（2026-06-12）|
 | **External** | https://cloud.google.com/blog/products/data-analytics/how-the-open-knowledge-format-can-improve-data-sharing | OKF 发布 blog（2026-06-12）|
