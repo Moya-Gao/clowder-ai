@@ -8,7 +8,7 @@
 #
 # 直接调用脚本:
 #   ./scripts/start-dev.sh            — 开发模式 (next dev + Redis 持久化)
-#   ./scripts/start-dev.sh --prod-web — 前端 production build + next start
+#   ./scripts/start-dev.sh --prod-web — API 非 watch + 前端 production build + next start
 #   ./scripts/start-dev.sh --quick    — 仅跳过重复构建；不改变 dev/prod 模式
 #   ./scripts/start-dev.sh --memory   — 使用内存存储 (重启丢数据)
 #   ./scripts/start-dev.sh --no-redis — 同 --memory
@@ -793,12 +793,22 @@ api_node_env() {
     fi
 }
 
+api_uses_no_watch() {
+    if [ "${CAT_CAFE_DIRECT_NO_WATCH:-0}" = "1" ]; then
+        return 0
+    fi
+    if [ "$PROD_WEB" = true ]; then
+        return 0
+    fi
+    return 1
+}
+
 api_launch_command() {
     local env_prefix="NODE_ENV=$(api_node_env) "
     if [ "$DEBUG_MODE" = true ]; then
         env_prefix="${env_prefix}LOG_LEVEL=debug "
     fi
-    if [ "${CAT_CAFE_DIRECT_NO_WATCH:-0}" = "1" ]; then
+    if api_uses_no_watch; then
         printf '%s' "cd packages/api && exec env ${env_prefix}pnpm run start"
     else
         printf '%s' "cd packages/api && exec env ${env_prefix}pnpm run dev"
@@ -1342,8 +1352,8 @@ main() {
     # transferred to CAT_CAFE_SERVICE_*_ENABLED upstream of this point.
 
     API_LAUNCH_CMD="$(api_launch_command)"
-    if [ "${CAT_CAFE_DIRECT_NO_WATCH:-0}" = "1" ]; then
-        echo -e "${YELLOW}  ⚠ API 使用非 watch 模式 (CAT_CAFE_DIRECT_NO_WATCH=1)${NC}"
+    if api_uses_no_watch; then
+        echo -e "${YELLOW}  ⚠ API 使用非 watch 模式 (runtime production)${NC}"
     fi
 
     # API Server

@@ -542,7 +542,7 @@ export function AccountSection({
                   required
                   placeholder={defaultAcpStartupArgsForClient(form.clientId) || '--acp'}
                 />
-                <p className="-mt-1 text-[11px] leading-4 text-cafe-muted">
+                <p className="-mt-1 text-micro leading-4 text-cafe-muted">
                   空格分隔，如 <code className="text-cafe-secondary">acp --pure</code> 或{' '}
                   <code className="text-cafe-secondary">--acp --mode agent</code>。带空格的值用引号包裹。
                 </p>
