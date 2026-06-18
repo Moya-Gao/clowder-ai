@@ -65,6 +65,8 @@ The layout guide is for spacing only. The output must not contain visible guide 
 
 Prompt-only image generation is invalid for Yanyan pet production. Every identity-sensitive generation attempt must be grounded by the canonical base image being attached or otherwise visible to the image tool. If the available generation path cannot actually consume the local reference image, do not treat that output as a production candidate; use it only as a rejected prompt experiment.
 
+For Codex built-in `image_gen` attempts, reload the canonical base and the state layout guide with `view_image` immediately before every roll. Do not assume images viewed in an earlier turn or earlier roll are still attached to the next generation call. If the tool path has no explicit reference-image field and the output identity drifts, record the attempt as a reference-grounding failure rather than a visual candidate.
+
 For cloud generation, prefer these working-strip sizes before deterministic processing:
 
 | Frames | Suggested working strip | Approx slot |
