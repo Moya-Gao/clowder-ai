@@ -70,7 +70,7 @@ For Codex built-in `image_gen` attempts, reload the canonical base and the state
 ## Codex Built-In Candidate Log
 
 - R4: rejected before peer QA. The generated strip looked closer to Yanyan than prior prompt-only attempts, but equal-slot cutting showed frame 2-6 silhouettes touching slot boundaries, so it risked neighbor-tail contamination.
-- R5-alpha: pending peer identity QA. Generated after reloading the canonical base and idle layout guide immediately before the roll; chroma-key removed with `remove_chroma_key.py --soft-matte --despill --edge-contract 1`; `extract_strip_frames.py --method auto` extracted idle via `components`; idle row has 6 frames, `edge_pixels=0`, and `chroma_adjacent_pixels=0`.
+- R5-alpha: peer identity QA passed by Sonnet on 2026-06-17. Generated after reloading the canonical base and idle layout guide immediately before the roll; chroma-key removed with `remove_chroma_key.py --soft-matte --despill --edge-contract 1`; `extract_strip_frames.py --method auto` extracted idle via `components`; idle row has 6 frames, `edge_pixels=0`, and `chroma_adjacent_pixels=0`.
 
 For cloud generation, prefer these working-strip sizes before deterministic processing:
 
