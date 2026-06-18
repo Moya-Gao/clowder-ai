@@ -88,3 +88,11 @@ created: 2026-06-17
   - **🔴 残留 P1（实锤 "revert #915" 怀疑）**：strip 不彻底 —— `cat-template.json:735` 仍把 OpenCode `features.sessionChain` 关成 false + 本 PR **删除了 clowder#915 守护测试**（`it('opencode breed has sessionChain enabled ...')`，diff ~L7804）。后果：新 OpenCode 猫 context-fill handoff 不触发。要求恢复 sessionChain + 保留测试。
   - **🟡 2 个 auth 条件仍未做**：install 端点只有 `requireSessionIdentity`，无 owner-gate（对比 `capabilities.ts` requireConfiguredOwner）、无 CSRF/origin 校验。已作为外部安装器 merge 前置提给作者。
   - re-review 已发 PR comment（issuecomment-4732076189）；verdict = 结构性 blocker 已清、剩 🔴P1 必修 + 🟡 两条件，修完再过一遍。
+- 2026-06-17/18 作者第二轮修复 → **第三轮 re-review：三个 blocking 全部解除（均带测试，CI 绿）**：
+  - ✅ 🔴 P1：`cat-template.json` 不再关 sessionChain + clowder#915 守护测试恢复（`test('opencode breed has sessionChain enabled')`）→ #915 回归清除。
+  - ✅ 🟡 CSRF：`trustedPluginWriteOrigins()` 强制 same-origin（排除 `PRIVATE_NETWORK_ORIGIN`）+ 403 + 测试。
+  - ✅ 🟡 owner-gate：`requireConfiguredOwner: true` + fail-closed `DEFAULT_OWNER_USER_ID` + 测试。
+  - 额外：symlink manifest 拒绝 / `realpathSync` 路径边界 / unloaded plugin fail-closed。
+  - **零 P1 剩余**，只剩一组 cloud Codex P2（unauth list / ActionRenderer / gateway 注册），非 merge blocker。
+  - **上游 maintainer review 立场：blocking 项全部解除**（PR issuecomment-4738920086）。stale provenance `CHANGES_REQUESTED`（F230 撞号）可 dismiss。
+  - **待 CVO**：merge 进 clowder-ai = feature 级决策；merge 后 F240 intake（manual-port + Intake Intent Issue）是独立下游步骤。
