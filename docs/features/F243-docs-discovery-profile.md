@@ -8,7 +8,9 @@ created: 2026-06-17
 
 # F243: Docs Discovery Profile — OKF-inspired metadata + generated index
 
-> **Status**: spec | **Owner**: 布偶猫 (宪宪 Opus-4.7) + 砚砚 (gpt-5.5) | **Priority**: P1
+> **Status**: spec | **Owner**: 布偶猫 (宪宪 Opus-4.7) | **Priority**: P1
+
+> **Co-design**: 砚砚 (gpt-5.5) co-designed scope 4+1（命名 / 4-Phase 骨架 / F236 Related 不造 taxonomy / Eval primary=冷启动 / `> Summary:` 镜像 guardrail）+ R1 review sharpen（Owner/reviewer 红线 / F186 scope creep / parser 验证）。砚砚是 reviewer 不是 Owner（避免同体 review 红线），具体 contribution 标注在 KD-1/3/4/5/6/7/8/9/10 + Timeline 2026-06-17 entries。
 
 ## Why
 
@@ -33,7 +35,7 @@ created: 2026-06-17
 | feature docs 数量 | 200+ | `ls docs/features/*.md \| wc -l`（200+）|
 | 入口形态 | 平铺文件 + BACKLOG.md（任务跟踪）| 无 `docs/features/index.md`，无统一 profile |
 | frontmatter 萌芽 | F186/F086 已有 `doc_kind/feature_ids/topics/related_features/created` | grep frontmatter 显示**字段一致约 90%**，但**无 `description` 字段** |
-| description 字段 | ❌ 全仓库无 | `grep "^description:" docs/features/*.md \| wc -l` = 0 |
+| description 字段 | ❌ 全仓库无（frontmatter 字段层）| 按 YAML frontmatter parser 验证 `description` 字段 = 0；注：纯 `grep "^description:"` 会命中正文 code block 内的 `description:` 文本（如本 spec AC 描述、template 示例），需排除非 frontmatter 命中 |
 | 冷启动 friction | 凭记忆引路错认（孟加拉猫 Opus F186-stewardship 事件，本 thread 2026-06-16）| 单 thread 内**两只猫** 凭记忆引路失败 |
 | 找最大 F 号 | 必须 grep BACKLOG.md tail | F242 立项时（5 小时前）就用此路径 |
 | OKF 兼容性 | ❌ 不兼容 | 外部 agent / 多租户开源（F168）无法 0 接入消费 |
@@ -98,7 +100,7 @@ created: 2026-06-17
 - [ ] AC-B1: profile contract 定稿（frontmatter schema 文档化），CI lint 接入并对全仓库新增/修改 docs 通过率 = 100%
 - [ ] AC-B2: `cat-cafe-skills/refs/feature-doc-template.md` 更新含 description 字段（含示例 + 约束 + 反面例子）
 - [ ] AC-B3: profile lint 实现：缺 description / 超长 / placeholder 三类违规 → CI fail（fixture 三类各 1 + reverse fixture 验证不误报）
-- [ ] AC-B4: `index.md` generator 骨架实现：从 docs/features/*.md 生成 `docs/features/index.md`，含 status 分组 + description + topics 索引；输出 schema 文档化（给 F186 消费契约）
+- [ ] AC-B4: `index.md` generator 骨架实现：从 docs/features/*.md 生成 `docs/features/index.md`，含 status 分组 + description + topics 索引；**输出 schema 文档化为 self-contained 契约 + parser fixture 验证**（供未来 consumer 使用，不绑定特定下游 feature——F186 等实际是否消费由对应 owner 决定）
 
 ### Phase C（docs/features/ Rollout + Generated index.md + Sync Gate）
 - [ ] AC-C1: docs/features/ 全量回填 description（按 Phase A 判定形态执行），git log 显示每条 commit by 谁、被谁 confirmed
@@ -120,7 +122,7 @@ created: 2026-06-17
 | R4 | "可发现性"读者视角不是作者视角（砚砚 push back R2）| AC-A2, KD-6 | test: 三猫盲读 description-in-index 判断准确率 | [ ] |
 | R5 | OKF 是 lingua franca 不是 OS（三猫共识）| KD-2 | test: 内核 search_evidence/graph_resolve 不动；export profile 兼容 OKF | [ ] |
 | R6 | "变瞎子"防御：description 抹掉 nuance 导致猫漏判（铲屎官迁移自 F236 教训）| AC-D2, KD-9 | test: sunset signal ② 独立监测误点率/漏判率 | [ ] |
-| R7 | F186 数据契约不破裂（F186 LibraryResolver 消费 generated index）| AC-B4 | test: F186 通过 schema 消费 generated index | [ ] |
+| R7 | generated index schema 稳定可供未来 consumer 集成（不绑定特定下游 feature）| AC-B4 | test: schema 文档化 + parser fixture 验证；F186 等实际消费由对应 owner 决定，不作为 F243 close blocker | [ ] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -172,7 +174,7 @@ created: 2026-06-17
 - **Blocked by**: 无
 - **Related**:
   - **F236**（Anchor-First Context — 返回侧 token 减负）：**姊妹哲学**——F236 是 return-side anchor-first, F243 是 source-side discovery/profile. Both share anchor-and-drill philosophy. 元数据上 Related（不造 sister taxonomy，砚砚 sharpen）
-  - **F186**（Library Memory Architecture — 多域联邦检索）：**下游消费者**——F186 LibraryResolver 会消费 F243 generated index + description 作为 collection 元数据。F243 Phase B AC-B4 定义数据契约 schema
+  - **F186**（Library Memory Architecture — 多域联邦检索）：**相关（已 done）**——是 F243 generated index 的**潜在 consumer 候选**。F243 仅承诺 self-contained schema（AC-B4），F186 实际是否扩 LibraryResolver 消费由 F186 owner + Phase D 扩展评审决定，**不作为 F243 close blocker**（砚砚 R1 review P1-2 sharpen 2026-06-17）
   - **F038**（Skills Discovery — 历史参考）：早期 skills 按需发现探索（doc_kind=note，parked），作为 lineage reference 不重叠
 
 ## Risk
@@ -182,7 +184,7 @@ created: 2026-06-17
 | description 漂移（文档迭代但 description 化石化）| 触发节流（H1/scope/status 改才重新生成）+ PR-time 强制 confirm + 每月 eval 扫漂移 top 10 |
 | 小猫代偿决策（小模型悄悄塑造认知锚定）| Phase A spike 判定形态前不固化 pipeline；若选小模型则强 prompt 规则（v3 9 条）+ PR-time 大猫 confirm（**抽查不可代 gate**）+ decision provenance 审计 trail（`Description by: [@gemini35-draft → @author-confirmed]`）|
 | index.md 漂移成第二个 BACKLOG（手写化石）| Phase B 起 index.md **必须是 checked-in generated artifact + CI sync gate**（永不手写）|
-| F186 数据契约破裂（generated index 字段消费方依赖）| Phase B AC-B4 定义 generator 输出 schema；F186 LibraryResolver 通过 schema 消费而非 markdown parse |
+| generated index schema 不稳定 → 未来 consumer 集成困难 | Phase B AC-B4 定义 self-contained schema + parser fixture；schema 演化用版本号；**不绑定 F186 等特定下游 feature**（避免 F243 close 被跨 feature 改造 block） |
 | Phase A cherry-pick 风险（spike sample 偏 easy）| 6 篇硬骨头 + 4 篇 easy mode stratified sampling 强约束；@codex review sample 选择 |
 | **变瞎子**（description 抹掉 nuance 导致猫漏判/误判）| eval sunset signal ② 独立监测误点率 / 漏判率 vs baseline；**不只测 token 同步率** |
 
@@ -220,7 +222,8 @@ created: 2026-06-17
 | 2026-06-16 | mini-spike R1 / R2 / R3：烁烁 description generation × F186 sample，3 轮迭代 prompt v3 = 9 条规则（formal pass + 1 处 nuance loss flag："促成升级" vs "归一扩展"）|
 | 2026-06-17 | 砚砚 push back 4+1：F 号命名 / Phase 骨架 4-Phase / F236 关系 (Related 不造 taxonomy) / Eval contract (primary = 冷启动) / `> Summary:` 镜像 guardrail |
 | 2026-06-17 | CVO 签字（铲屎官原话："a 吧先 feat 立项 然后！ 然后砚砚喵回来了！你可以喊他讨论了"）|
-| 2026-06-17 | 立项 F243（本文档）|
+| 2026-06-17 | 立项 F243（commit cca384dc6）|
+| 2026-06-17 | 砚砚 R1 review verdict = **退回**：P1-1 Owner/reviewer 同体红线（砚砚同时是 Owner 又是 Reviewer）+ P1-2 F186 consumer scope creep（把 F186 LibraryResolver 消费写成 F243 必交 AC，跨 feature 改造会阻塞 close）+ Current State 命令实证错（hash grep 命中 code block）。3 条全接受修复：Owner 只留宪宪 + AC-B4/R7/Deps/Risk 全 self-contained schema + Current State 改 parser-based 验证 |
 
 ## Review Gate
 
