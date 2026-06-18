@@ -1,4 +1,4 @@
-import { extractC1ZombieHoldSamples } from './c1-zombie-hold-sample-evidence.js';
+import { extractC1HoldZombieSamples } from './c1-hold-sample-evidence.js';
 import { extractC2VerdictWithoutPassSamples, type PerFireSample } from './c2-sample-evidence.js';
 import { extractC2VoidHoldSamples } from './c2-void-hold-sample-evidence.js';
 import type {
@@ -25,15 +25,7 @@ export interface ComponentHealth {
   componentName: string;
   activationCounts: Record<string, number | null>;
   frictionCounts: Record<string, number | null>;
-  /**
-   * F192 Phase D — per-fire sample evidence keyed by friction metric name.
-   * Sampled metrics (see `attribution.SAMPLED_METRICS` for the canonical set):
-   *   - `c2.verdict_without_pass_count`     (PR #2144)
-   *   - `c2.void_hold_hint_emitted`         (PR #2222)
-   *   - `c1.zombie_hold_count`              (PR #2250)
-   * Other components / metrics populate empty objects until their respective
-   * fire events are emitted.
-   */
+  /** F192 Phase D — per-fire sample evidence keyed by friction metric name; see `attribution.SAMPLED_METRICS`. */
   frictionSamples: Record<string, PerFireSample[]>;
   falsePositiveCandidates: string[];
   bypassCandidates: string[];
@@ -159,30 +151,32 @@ function buildL1(metrics: Record<string, number>): ComponentHealth {
 
 function buildC1(spans: EvalTraceSpan[], metrics: Record<string, number>): ComponentHealth {
   const holdBallCalls = countHoldBallFromTraces(spans);
-  const zombieHold = sumMetricByPrefix(metrics, 'cat_cafe_a2a_c1_zombie_hold_count');
+  // F192 verdict 2026-06-18 (砚砚 R1 P1 #1): replacement is throughput
+  // (activation), zombie is friction. Putting replacement in frictionCounts
+  // would re-create the 06-18 false-positive shape under the renamed metric.
+  const holdZombie = sumMetricByPrefix(metrics, 'cat_cafe_a2a_c1_hold_zombie_count');
+  const holdReplacement = sumMetricByPrefix(metrics, 'cat_cafe_a2a_c1_hold_replacement_count');
   const holdCancel = sumMetricByPrefix(metrics, 'cat_cafe_a2a_c1_hold_cancel_count');
-  const hasCounters = zombieHold != null || holdCancel != null;
+  const hasCounters = holdZombie != null || holdReplacement != null || holdCancel != null;
   const hasData = holdBallCalls > 0 || hasCounters;
 
+  const activationCounts: Record<string, number | null> = { hold_ball_calls: holdBallCalls };
+  if (holdReplacement != null) activationCounts['c1.hold_replacement_count'] = holdReplacement;
   const frictionCounts: Record<string, number | null> = {};
   if (hasCounters) {
-    frictionCounts['c1.zombie_hold_count'] = zombieHold ?? 0;
+    frictionCounts['c1.hold_zombie_count'] = holdZombie ?? 0;
     frictionCounts['c1.hold_cancel_count'] = holdCancel ?? 0;
   }
-
-  // F192 Phase D — eval:a2a 2026-06-12 build verdict: per-fire sample evidence
-  // for `c1.zombie_hold_count` fires so attribution can classify replacements
-  // by wake-delay bucket (parallel to C2 verdict-without-pass / void-hold samples).
-  const zombieHoldSamples = extractC1ZombieHoldSamples(spans);
-  const frictionSamples: Record<string, PerFireSample[]> = {};
-  if (zombieHoldSamples.length > 0) {
-    frictionSamples['c1.zombie_hold_count'] = zombieHoldSamples;
-  }
+  // Only zombie samples surface under frictionSamples (sampled metric +
+  // drilldown). Replacement samples available via spans for ad-hoc debug.
+  const zombieSamples = extractC1HoldZombieSamples(spans);
+  const frictionSamples: Record<string, PerFireSample[]> =
+    zombieSamples.length > 0 ? { 'c1.hold_zombie_count': zombieSamples } : {};
 
   return {
     componentId: 'C1',
     componentName: 'hold_ball (MCP tool)',
-    activationCounts: { hold_ball_calls: holdBallCalls },
+    activationCounts,
     frictionCounts,
     frictionSamples,
     falsePositiveCandidates: [],
@@ -192,9 +186,9 @@ function buildC1(spans: EvalTraceSpan[], metrics: Record<string, number>): Compo
       ? []
       : [
           {
-            metric: 'zombie_hold_count',
+            metric: 'hold_zombie_count',
             reason: 'no_counter',
-            impact: 'Cannot detect zombie holds (hold without follow-up action)',
+            impact: 'Cannot detect true zombie holds (overdue/imminent wake suppressed)',
           },
           {
             metric: 'hold_cancel_count',

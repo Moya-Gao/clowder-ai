@@ -131,9 +131,35 @@ export const l1StreakBreakCount = lazy(() =>
   }),
 );
 
-export const c1ZombieHoldCount = lazy(() =>
-  meter().createCounter('cat_cafe.a2a.c1.zombie_hold_count', {
-    description: 'Hold registered but previous hold for same (thread, cat) was unreleased',
+/**
+ * F192 eval:a2a verdict `2026-06-18-eval-a2a-c1-zombie-hold-semantics-fix`
+ * (砚砚): split the original `c1.zombie_hold_count` into two metrics by
+ * wake-delay-bucket semantics. Routed at fire time in
+ * `callback-hold-ball-c1-emit.ts` based on the `bucketWakeDelay()` result:
+ *
+ *   - `prior_overdue` + `prior_imminent` → `c1.hold_zombie_count`
+ *     (scheduler stuck or wake interrupted <60s — actionable signal,
+ *     consumed under `frictionCounts` in f167-eval's `buildC1`)
+ *   - `prior_short` + `prior_long` → `c1.hold_replacement_count`
+ *     (benign single-slot replacement churn per F167 Phase G KD-23 —
+ *     R1 P1 #1: consumed under `activationCounts` so the generic friction
+ *     grader never sees it; pre-split shape would re-create the 06-18
+ *     false positive under the renamed metric)
+ *
+ * No legacy alias; clean rename. Producer (callback-hold-ball-c1-emit),
+ * sample extractor (c1-hold-sample-evidence), and eval consumer
+ * (f167-eval / attribution) updated together — bundle PR avoids the
+ * historical risk of partial migrations.
+ */
+export const c1HoldZombieCount = lazy(() =>
+  meter().createCounter('cat_cafe.a2a.c1.hold_zombie_count', {
+    description: 'Prior hold cancelled with wake-delay bucket overdue/imminent (true zombie suppression)',
+  }),
+);
+
+export const c1HoldReplacementCount = lazy(() =>
+  meter().createCounter('cat_cafe.a2a.c1.hold_replacement_count', {
+    description: 'Prior hold cancelled with wake-delay bucket short/long (benign single-slot replacement churn)',
   }),
 );
 
@@ -344,7 +370,8 @@ export function unregisterLivenessProbe(invocationId: string): void {
 export function warmupCounters(): void {
   l1StreakWarnCount.add(0);
   l1StreakBreakCount.add(0);
-  c1ZombieHoldCount.add(0);
+  c1HoldZombieCount.add(0);
+  c1HoldReplacementCount.add(0);
   c1HoldCancelCount.add(0);
   c2VerdictHintEmitted.add(0);
   c2VoidHoldHintEmitted.add(0);

@@ -29,11 +29,11 @@ components:
       prompts: [hold_ball tool description, 持球唤醒 reminder message]
     eval:
       counters:
-        activation: [hold_ball_calls (from traces)]
-        friction: [c1.zombie_hold_count, c1.hold_cancel_count]
+        activation: [hold_ball_calls (from traces), c1.hold_replacement_count]
+        friction: [c1.hold_zombie_count, c1.hold_cancel_count]
       confidence: medium
       gaps: []
-      notes: "D0 closed both C1 gaps. hold_ball_calls comes from trace tool_use events; zombie/cancel from OTel counters"
+      notes: "F192 verdict 2026-06-18 split: `c1.hold_replacement_count` (prior_short|prior_long, benign single-slot churn per F167 Phase G KD-23) sits in activation so it never grades as a high actionable finding (砚砚 R1 P1 #1); `c1.hold_zombie_count` (prior_overdue|prior_imminent, scheduler stuck or wake interrupted) stays in friction. hold_ball_calls comes from trace tool_use events; counter values from OTel split metrics."
 
   - id: C2
     name: exit-check (forced-pass guard)

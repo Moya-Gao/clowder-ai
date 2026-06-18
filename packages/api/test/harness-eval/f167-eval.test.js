@@ -199,7 +199,8 @@ describe('F167 Runtime Eval Snapshot', () => {
       metrics: {
         cat_cafe_a2a_l1_streak_warn_count: 0,
         cat_cafe_a2a_l1_streak_break_count: 0,
-        cat_cafe_a2a_c1_zombie_hold_count: 0,
+        cat_cafe_a2a_c1_hold_zombie_count: 0,
+        cat_cafe_a2a_c1_hold_replacement_count: 0,
         cat_cafe_a2a_c1_hold_cancel_count: 0,
         cat_cafe_a2a_c2_verdict_hint_emitted: 0,
         cat_cafe_a2a_c2_void_hold_hint_emitted: 0,
@@ -250,11 +251,12 @@ describe('F167 Runtime Eval Snapshot', () => {
     assert.equal(l1.telemetryGaps.length, 0);
   });
 
-  it('extracts C1 zombie/cancel counters and upgrades confidence (AC-D0)', () => {
+  it('routes C1 zombie/replacement/cancel counters to activation vs friction (verdict 2026-06-18 + R1 P1 #1)', () => {
     const snapshot = generateF167Snapshot({
       ...emptyInput,
       metrics: {
-        cat_cafe_a2a_c1_zombie_hold_count: 2,
+        cat_cafe_a2a_c1_hold_zombie_count: 1,
+        cat_cafe_a2a_c1_hold_replacement_count: 5,
         cat_cafe_a2a_c1_hold_cancel_count: 3,
       },
       traceStats: {
@@ -266,8 +268,13 @@ describe('F167 Runtime Eval Snapshot', () => {
       },
     });
     const c1 = snapshot.components.find((c) => c.componentId === 'C1');
-    assert.equal(c1.frictionCounts['c1.zombie_hold_count'], 2);
+    // Friction: only actionable buckets (zombie + cancel)
+    assert.equal(c1.frictionCounts['c1.hold_zombie_count'], 1);
     assert.equal(c1.frictionCounts['c1.hold_cancel_count'], 3);
+    assert.equal(c1.frictionCounts['c1.hold_replacement_count'], undefined, 'replacement must NOT route to friction');
+    // Activation: replacement throughput (砚砚 R1 P1 #1 — generic friction grading
+    // would re-create the 06-18 false positive under the renamed metric)
+    assert.equal(c1.activationCounts['c1.hold_replacement_count'], 5);
     assert.notEqual(c1.confidence, 'no-data');
     assert.equal(c1.telemetryGaps.length, 0);
   });
@@ -594,7 +601,7 @@ describe('F167 Runtime Eval Snapshot', () => {
   });
 });
 
-describe('F192 D — C1 zombie-hold per-fire sample evidence (eval:a2a 2026-06-12 build verdict)', () => {
+describe('F192 D — C1 hold per-fire sample evidence (verdict 2026-06-18 zombie/replacement split)', () => {
   const emptyInput = {
     metrics: {},
     traces: { spans: [], count: 0 },
@@ -602,11 +609,11 @@ describe('F192 D — C1 zombie-hold per-fire sample evidence (eval:a2a 2026-06-1
     traceStats: { spanCount: 0, maxSpans: 10000, maxAgeMs: 86400000, oldestStoredAt: null, newestStoredAt: null },
   };
 
-  it('C1 frictionSamples surfaces zombie-hold per-fire samples under c1.zombie_hold_count', () => {
+  it('C1 frictionSamples surfaces hold_zombie only (replacement is activation, never enters frictionSamples per R1 P1 #1)', () => {
     const baseSpan = {
       traceId: 'trace-c1',
       spanId: 's-x',
-      name: 'cat_cafe.a2a.c1.zombie_hold_sample',
+      name: 'cat_cafe.a2a.c1.hold_zombie_sample',
       startTimeMs: 0,
       endTimeMs: 0,
       durationMs: 0,
@@ -618,9 +625,10 @@ describe('F192 D — C1 zombie-hold per-fire sample evidence (eval:a2a 2026-06-1
       {
         ...baseSpan,
         spanId: 's-zh-a',
+        name: 'cat_cafe.a2a.c1.hold_zombie_sample',
         events: [
           {
-            name: 'c1.zombie_hold_fired',
+            name: 'c1.hold_zombie_fired',
             timeMs: 1000,
             attributes: {
               messageId: 'hash-prior-a',
@@ -638,9 +646,10 @@ describe('F192 D — C1 zombie-hold per-fire sample evidence (eval:a2a 2026-06-1
       {
         ...baseSpan,
         spanId: 's-zh-b',
+        name: 'cat_cafe.a2a.c1.hold_replacement_sample',
         events: [
           {
-            name: 'c1.zombie_hold_fired',
+            name: 'c1.hold_replacement_fired',
             timeMs: 2000,
             attributes: {
               messageId: 'hash-prior-b',
@@ -660,7 +669,10 @@ describe('F192 D — C1 zombie-hold per-fire sample evidence (eval:a2a 2026-06-1
     const snapshot = generateF167Snapshot({
       ...emptyInput,
       traces: { spans, count: 2 },
-      metrics: { cat_cafe_a2a_c1_zombie_hold_count: 2 },
+      metrics: {
+        cat_cafe_a2a_c1_hold_zombie_count: 1,
+        cat_cafe_a2a_c1_hold_replacement_count: 1,
+      },
       traceStats: {
         spanCount: 2,
         maxSpans: 10000,
@@ -671,26 +683,71 @@ describe('F192 D — C1 zombie-hold per-fire sample evidence (eval:a2a 2026-06-1
     });
 
     const c1 = snapshot.components.find((c) => c.componentId === 'C1');
-    const samples = c1.frictionSamples['c1.zombie_hold_count'];
-    assert.ok(Array.isArray(samples) && samples.length === 2, 'C1 frictionSamples must surface both fires');
-    // firedAt desc: 2000 > 1000
-    assert.equal(samples[0].spanId, 's-zh-b');
-    assert.equal(samples[0].trigger, 'prior_long');
-    assert.equal(samples[1].trigger, 'prior_imminent');
-    // R1 P1-1 (砚砚): priorTaskIdHash + newTaskIdHash must survive the buildC1 path
-    // — generic extractor was previously dropping them, so attribution YAML lost
-    // the verdict-requested extras. Asserting both samples here locks the regression.
-    assert.ok(samples[0].extras, 'extras must be present on C1 samples that emitted both hashes');
-    assert.equal(samples[0].extras.priorTaskIdHash, 'hash-prior-b');
-    assert.equal(samples[0].extras.newTaskIdHash, 'hash-new-b');
-    assert.equal(samples[1].extras.priorTaskIdHash, 'hash-prior-a');
-    assert.equal(samples[1].extras.newTaskIdHash, 'hash-new-a');
+    const zombieSamples = c1.frictionSamples['c1.hold_zombie_count'];
+    assert.ok(Array.isArray(zombieSamples) && zombieSamples.length === 1, 'zombie samples present');
+    assert.equal(zombieSamples[0].trigger, 'prior_imminent');
+    assert.ok(zombieSamples[0].extras, 'extras must be present on zombie samples');
+    assert.equal(zombieSamples[0].extras.priorTaskIdHash, 'hash-prior-a');
+    assert.equal(zombieSamples[0].extras.newTaskIdHash, 'hash-new-a');
+    // 砚砚 R1 P1 #1: replacement is activation, not friction — no frictionSamples entry.
+    assert.equal(
+      c1.frictionSamples['c1.hold_replacement_count'],
+      undefined,
+      'replacement samples must NOT surface under frictionSamples (would re-create 06-18 false positive)',
+    );
   });
 
-  it('C1 frictionSamples empty when no zombie-hold events in spans (data-driven, no fabrication)', () => {
+  it('砚砚 R1 P1 #1 regression: replacement-only 4/6 must NOT become a high actionable finding', async () => {
+    // 06-18 verdict shape: hold_zombie=0, hold_replacement=4, hold_ball_calls=6 (66.7%).
+    // Pre-split: `c1.zombie_hold_count` would grade severity=high / human-required.
+    // Post-split fix: replacement routes to activation, never reaches the friction
+    // grading pipeline, so attribution emits zero replacement-driven findings.
+    const { generateAttributionReport } = await import('../../dist/infrastructure/harness-eval/attribution.js');
     const snapshot = generateF167Snapshot({
       ...emptyInput,
-      metrics: { cat_cafe_a2a_c1_zombie_hold_count: 3 },
+      traces: {
+        spans: Array(6)
+          .fill({})
+          .map((_, i) => ({
+            traceId: `t-${i}`,
+            spanId: `s-${i}`,
+            name: 'cat_cafe.tool.invoke',
+            startTimeMs: 0,
+            endTimeMs: 0,
+            durationMs: 0,
+            status: { code: 0 },
+            attributes: { 'tool.name': 'cat_cafe_hold_ball' },
+            events: [],
+          })),
+        count: 6,
+      },
+      metrics: {
+        cat_cafe_a2a_c1_hold_zombie_count: 0,
+        cat_cafe_a2a_c1_hold_replacement_count: 4,
+      },
+      traceStats: { spanCount: 6, maxSpans: 10000, maxAgeMs: 86400000, oldestStoredAt: 0, newestStoredAt: 0 },
+    });
+    const c1 = snapshot.components.find((c) => c.componentId === 'C1');
+    assert.equal(c1.activationCounts['hold_ball_calls'], 6);
+    assert.equal(c1.activationCounts['c1.hold_replacement_count'], 4);
+    assert.equal(c1.frictionCounts['c1.hold_replacement_count'], undefined);
+
+    const report = generateAttributionReport({ featureId: 'F167', snapshot });
+    const replacementFindings = report.findings.filter((f) => f.frictionSignal.type === 'c1.hold_replacement_count');
+    assert.equal(
+      replacementFindings.length,
+      0,
+      `replacement-only 4/6 must yield ZERO findings on c1.hold_replacement_count; got: ${JSON.stringify(replacementFindings, null, 2)}`,
+    );
+  });
+
+  it('C1 frictionSamples empty when no C1 events in spans (data-driven, no fabrication)', () => {
+    const snapshot = generateF167Snapshot({
+      ...emptyInput,
+      metrics: {
+        cat_cafe_a2a_c1_hold_zombie_count: 3,
+        cat_cafe_a2a_c1_hold_replacement_count: 5,
+      },
     });
     const c1 = snapshot.components.find((c) => c.componentId === 'C1');
     assert.deepEqual(c1.frictionSamples, {});
