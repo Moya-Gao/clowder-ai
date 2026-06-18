@@ -76,7 +76,7 @@ H2 (alt): 三大猫 self-write 通过率显著高于烁烁 → 烁烁确有 mode
 
 - [x] Protocol 设计
 - [x] opus-47 (我) contribution
-- [ ] codex (砚砚) contribution — cross-post invited
+- [x] codex (砚砚) contribution
 - [ ] opus 4.6 contribution — cross-post invited
 - [x] gemini35 contribution — 已存在 samples/F119.md + F155-scene-guidance-engine.md + F161.md
 - [ ] CVO 决定 evaluator 候选 (A/B/C/D)
