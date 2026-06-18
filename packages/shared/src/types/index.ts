@@ -708,6 +708,7 @@ export type {
   SuggestedCrossPostActionSource,
   TaskItem,
   TaskKind,
+  TaskProbeSpec,
   TaskStatus,
   UpdateTaskInput,
 } from './task.js';

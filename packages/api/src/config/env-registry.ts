@@ -209,6 +209,14 @@ export const ENV_VARS: EnvDefinition[] = [
     runtimeEditable: false,
   },
   {
+    name: 'F233_BALL_CUSTODY_PROBE_INTERVAL_MS',
+    defaultValue: '60000',
+    description: 'F233 ball-custody ProbeScheduler 轮询间隔（毫秒，启动时读取）',
+    category: 'server',
+    sensitive: false,
+    runtimeEditable: false,
+  },
+  {
     name: 'CAT_CAFE_AGENT_KEY_SECRET',
     defaultValue: '(空)',
     description: 'F178 Persistent MCP Agent-Key Auth — 共享密钥（直接环境变量提供）',

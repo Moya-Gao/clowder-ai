@@ -130,6 +130,8 @@ export class TaskStore implements ITaskStore {
       updatedAt: now,
       automationState: input.automationState,
       userId: input.userId,
+      probe: input.probe,
+      resolveMode: input.resolveMode,
       // F193 Phase E (dispatch gate)
       ...(input.relatedFeatureId ? { relatedFeatureId: input.relatedFeatureId } : {}),
       ...(input.detectedFeatureIds?.length ? { detectedFeatureIds: input.detectedFeatureIds } : {}),
@@ -170,6 +172,8 @@ export class TaskStore implements ITaskStore {
           status: isTrackingKind(existing.kind) && existing.status === 'done' ? 'todo' : existing.status,
           why: input.why,
           userId: input.userId ?? existing.userId,
+          probe: input.probe !== undefined ? input.probe : existing.probe,
+          resolveMode: input.resolveMode !== undefined ? input.resolveMode : existing.resolveMode,
           automationState: input.automationState
             ? this.mergeAutomationState(existing.automationState, input.automationState)
             : existing.automationState,
@@ -252,6 +256,8 @@ export class TaskStore implements ITaskStore {
       ...(input.status !== undefined ? { status: input.status } : {}),
       ...(input.why !== undefined ? { why: input.why } : {}),
       ...(input.automationState !== undefined ? { automationState: input.automationState } : {}),
+      ...(input.probe !== undefined ? { probe: input.probe } : {}),
+      ...(input.resolveMode !== undefined ? { resolveMode: input.resolveMode } : {}),
       // #949: thread rotation — allow reassigning to a new thread
       ...(input.threadId !== undefined ? { threadId: input.threadId } : {}),
       // F193-E1 P1-4: allow patching dispatchGate

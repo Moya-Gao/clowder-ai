@@ -85,6 +85,7 @@ class BallCustodyTaskStore implements ITaskStore {
             threadId: updated.threadId,
             ownerCatId: updated.ownerCatId,
             blockedSinceAt: updated.updatedAt,
+            resolveMode: updated.resolveMode,
           })
         : updated.status === 'done'
           ? buildTaskDoneEvent({ taskId: updated.id, at: updated.updatedAt })

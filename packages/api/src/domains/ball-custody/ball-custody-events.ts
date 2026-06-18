@@ -169,6 +169,30 @@ export function buildTaskIdleLongEvent(input: TaskEventInput): BallCustodyEvent 
   };
 }
 
+export interface WakeSentEventInput {
+  taskId: string;
+  threadId: string;
+  ownerCatId?: string | null;
+  blockedSinceAt: number;
+  at: number;
+}
+
+export function buildWakeSentEvent(input: WakeSentEventInput): BallCustodyEvent {
+  return {
+    sourceEventId: `wake:${input.taskId}:${input.blockedSinceAt}:${input.at}`,
+    subjectKey: `ball:task:${input.taskId}`,
+    kind: 'ball.wake_sent',
+    classification: 'informational',
+    payload: {
+      taskId: input.taskId,
+      threadId: input.threadId,
+      ...(input.ownerCatId ? { ownerCatId: input.ownerCatId } : {}),
+      blockedSinceAt: input.blockedSinceAt,
+    },
+    at: input.at,
+  };
+}
+
 export function buildTaskDoneEvent(input: TaskEventInput): BallCustodyEvent {
   return {
     sourceEventId: `task:${input.taskId}:done`,

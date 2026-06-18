@@ -559,6 +559,9 @@ async function main(): Promise<void> {
   let communityProjector: import('./domains/community/community-projector.js').CommunityProjector | undefined;
   // F233 Phase B (B2): ball-custody ingest（fire-and-forget 旁路写球权事件，注入 AgentRouter）
   let ballCustodyIngest: import('./domains/ball-custody/BallCustodyIngest.js').BallCustodyIngest | undefined;
+  let ballCustodyProjectionStore:
+    | import('./domains/ball-custody/BallCustodyProjectionStore.js').IBallCustodyProjectionStore
+    | undefined;
   if (redis) {
     const [elMod, osMod, pjMod] = await Promise.all([
       import('./domains/community/CommunityEventLog.js'),
@@ -578,7 +581,7 @@ async function main(): Promise<void> {
       import('./domains/ball-custody/BallCustodyIngest.js'),
     ]);
     const ballCustodyEventLog = new bcMod.RedisBallCustodyEventLog(redis);
-    const ballCustodyProjectionStore = new bcStoreMod.RedisBallCustodyProjectionStore(redis);
+    ballCustodyProjectionStore = new bcStoreMod.RedisBallCustodyProjectionStore(redis);
     const ballCustodyProjector = new bcProjMod.BallCustodyProjector(ballCustodyEventLog, ballCustodyProjectionStore);
     ballCustodyIngest = new bcIngestMod.BallCustodyIngest(ballCustodyEventLog, ballCustodyProjector);
     app.log.info('[api] F233 Phase B: ball-custody ingest initialized');
@@ -989,6 +992,7 @@ async function main(): Promise<void> {
     threadStore,
     messageStore,
     userId: getDutyBriefingOwnerUserId(),
+    ...(ballCustodyProjectionStore ? { ballCustodyProjectionStore } : {}),
   };
   const { dutyBriefingRoutes } = await import('./routes/duty-briefing.js');
   await app.register(dutyBriefingRoutes, {
@@ -3874,6 +3878,43 @@ async function main(): Promise<void> {
   };
   taskRunnerV2.register(createEvalDomainDailySpec(evalScheduleOpts));
   taskRunnerV2.register(createEvalDomainWeeklySpec(evalScheduleOpts));
+
+  // F233 PR4: realtime blocked-task probe. Side effects live here, not in projector/rebuild.
+  if (ballCustodyIngest && ballCustodyProjectionStore) {
+    const [
+      { BallCustodyProbeScheduler },
+      { DefaultBallCustodyProbeEvaluator },
+      { SchedulerBallCustodyWakeSender },
+      { createBallCustodyProbeTaskSpec },
+    ] = await Promise.all([
+      import('./domains/ball-custody/BallCustodyProbeScheduler.js'),
+      import('./domains/ball-custody/BallCustodyProbeEvaluator.js'),
+      import('./domains/ball-custody/BallCustodyWakeSender.js'),
+      import('./domains/ball-custody/BallCustodyProbeTaskSpec.js'),
+    ]);
+    const probeIntervalMs = Number.parseInt(process.env.F233_BALL_CUSTODY_PROBE_INTERVAL_MS ?? '', 10);
+    const probeScheduler = new BallCustodyProbeScheduler({
+      projectionStore: ballCustodyProjectionStore,
+      taskStore,
+      ballCustody: ballCustodyIngest,
+      probeEvaluator: new DefaultBallCustodyProbeEvaluator({ redis }),
+      wakeSender: new SchedulerBallCustodyWakeSender({
+        deliver: schedulerDeliver,
+        invokeTrigger,
+        defaultUserId: getOwnerUserId(),
+        logger: { warn: app.log.warn.bind(app.log) },
+      }),
+      logger: { warn: app.log.warn.bind(app.log), info: app.log.info.bind(app.log) },
+    });
+    taskRunnerV2.register(
+      createBallCustodyProbeTaskSpec({
+        scheduler: probeScheduler,
+        ...(Number.isFinite(probeIntervalMs) && probeIntervalMs > 0 ? { intervalMs: probeIntervalMs } : {}),
+        log: { warn: app.log.warn.bind(app.log), info: app.log.info.bind(app.log) },
+      }),
+    );
+    app.log.info('[api] F233 PR4: ball-custody probe scheduler registered');
+  }
 
   // F233 Phase A: builtin daily 值班简报 cron（07:00 PT；INV-4 幂等 — 同 id 重复注册静默）
   try {

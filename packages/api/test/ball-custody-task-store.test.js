@@ -50,6 +50,39 @@ describe('F233 PR3: BallCustodyTaskStore', () => {
     assert.equal(events[2].at, done.updatedAt);
   });
 
+  test('task.blocked carries resolveMode from task metadata', async () => {
+    const { TaskStore } = await import('../dist/domains/cats/services/stores/ports/TaskStore.js');
+    const { withBallCustodyTaskEvents } = await import('../dist/domains/ball-custody/BallCustodyTaskStore.js');
+    const events = [];
+    const store = withBallCustodyTaskEvents(new TaskStore(), {
+      async record(event) {
+        events.push(event);
+      },
+    });
+
+    const task = await store.create({
+      threadId: 'thr-probe',
+      title: 'Wait for endpoint',
+      why: 'wake me when endpoint is ready',
+      ownerCatId: 'codex',
+      createdBy: 'codex',
+      resolveMode: 'bounces_back',
+      probe: { kind: 'http_get', url: 'http://127.0.0.1:3102/health', expectStatus: 200 },
+    });
+
+    const blocked = await store.update(task.id, { status: 'blocked' });
+
+    assert.equal(events.length, 1);
+    assert.equal(events[0].kind, 'task.blocked');
+    assert.equal(blocked.resolveMode, 'bounces_back');
+    assert.deepEqual(events[0].payload, {
+      taskId: task.id,
+      threadId: 'thr-probe',
+      ownerCatId: 'codex',
+      resolveMode: 'bounces_back',
+    });
+  });
+
   test('records task.done, not task.unblocked, when blocked task completes', async () => {
     const { TaskStore } = await import('../dist/domains/cats/services/stores/ports/TaskStore.js');
     const { withBallCustodyTaskEvents } = await import('../dist/domains/ball-custody/BallCustodyTaskStore.js');
