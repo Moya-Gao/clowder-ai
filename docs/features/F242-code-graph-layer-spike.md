@@ -84,9 +84,10 @@ cvo_signoff: 2026-06-17 — 铲屎官 "可以 我同意！！！"（thread 00017
 ## Architecture cell
 
 ```
-Architecture cell: 待 Design Gate 确定（OQ-7）
-Map delta: new cell required（候选）— 约定层关联图是新基础设施，与 memory evidence graph 并列而非合并（F102 边界）
-Why: 代码结构/约定 ≠ 团队记忆，两种真相源（KD-1）
+Architecture cell: code-intelligence（NEW cell，Design Gate 钉死 2026-06-17）
+  └─ convention-graph（首个子域，本 spike）
+Map delta: new cell required
+Why: 代码结构/约定 ≠ 团队记忆，两种真相源（KD-1）；边界不替代 LSP / 不并入 memory / 不接管 skills
 ```
 
 ## Dependencies
@@ -189,6 +190,7 @@ AC-A5 锚定具体场景：**改 `cat_cafe_post_message` 的 schema → 约定�
 |------|------|
 | 2026-06-17 | 立项（CVO signoff），spike doc 初稿，砚砚补第一轮 brainstorm 建议 |
 | 2026-06-17 | opus-48 第二轮 brainstorm：泛化分两层（引擎 + extractor）+ discovery=skill 核心 + 聚类位置 + scope 守门；收敛建议进 Design Gate |
+| 2026-06-17 | Design Gate 完成：5 项接口/schema 钉死（引擎 schema + plugin 接口 + 三类 extractor + discovery skill + cell `code-intelligence`），见 design doc。下一步 writing-plans + worktree 实现 |
 
 ## Links
 
@@ -196,4 +198,5 @@ AC-A5 锚定具体场景：**改 `cat_cafe_post_message` 的 schema → 约定�
 |------|------|------|
 | **Discussion** | `docs/discussions/2026-06-17-codegraph-vs-gitnexus/README.md` | 主设计输入（§0-18：codegraph+GitNexus 一手 spike + 整合 + 护城河）|
 | **Discussion** | `docs/discussions/2026-06-03-gitnexus-deep-dive/README.md` | opus-47 §10.3 场景表 + KD-31 边界论证 |
+| **Design Gate** | `docs/discussions/2026-06-17-f242-design/README.md` | 5 项接口/schema 钉死（引擎/plugin/extractor/skill/cell）|
 | **Feature** | `docs/features/F102-memory-adapter-refactor.md` | KD-31 边界（记忆层不做代码图谱）|
