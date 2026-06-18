@@ -1,8 +1,8 @@
 {
   "assetSet": "yanyan-codex-idle-row-codex-grounded-r3",
   "featureId": "F229",
-  "role": "accepted-idle-row-candidate",
-  "status": "accepted-by-local-qa-and-sonnet-visual-qa",
+  "role": "rejected-idle-row-candidate",
+  "status": "rejected-by-cvo-identity-veto",
   "source": {
     "provider": "Codex built-in image_gen",
     "sourcePath": "/Users/lysander/.codex/generated_images/019eafc4-10b8-7eb0-b5f3-5488ef9b941a/ig_0d43254d3bb486ec016a334e316b6881939e1ddb6d65ae12c0.png",
@@ -48,7 +48,12 @@
   },
   "visualQa": {
     "reviewer": "sonnet",
-    "verdict": "PASS",
-    "note": "6 frames keep a consistent 2D anime Yanyan identity, stable curled tail, and smooth loop."
+    "verdict": "FALSE_PASS",
+    "note": "Sonnet accepted the animation and broad 2D anime consistency, but CVO rejected the candidate because the generated cat does not look like Yanyan."
+  },
+  "cvoQa": {
+    "reviewer": "landy",
+    "verdict": "FAIL",
+    "note": "New generated candidates do not look like Yanyan; do not use this row for production atlas."
   }
 }

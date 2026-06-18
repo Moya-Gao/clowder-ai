@@ -259,6 +259,8 @@ Ready or reviewing completed output. No magnifier, paper, code, or UI props.
 Reject the row if:
 
 - any frame looks like a different cat
+- the row is broadly a nice silver tabby / anime cat but does not match the CVO-approved Yanyan identity base
+- CVO rejects the candidate as "not Yanyan"; this veto overrides mechanical QA and peer visual QA
 - markings or palette drift
 - face, ears, tuft, body, or tail shape changes materially
 - frame slots are visible or copied from a guide

@@ -11,7 +11,7 @@
 | `raw/yanyan-codex-key-pose-draft-v1.png` | 缅因猫（砚砚/Codex 皮肤） | key-pose draft（不可直接当 atlas） | CVO 经云端 Codex 生成，2026-06-16 |
 | `raw/yanyan-codex-idle-row-spacing-candidate-v1.png` | 缅因猫（砚砚/Codex 皮肤） | spacing candidate（不可直接当 atlas；RGB 棋盘格背景） | CVO 经云端 Codex 生成，2026-06-16 |
 | `raw/yanyan-codex-idle-row-codex-grounded-candidate-v1.png` | 缅因猫（砚砚/Codex 皮肤） | grounded idle candidate（不可直接当 atlas；尾巴姿态跳变） | Codex built-in imagegen + canonical base + layout guide，2026-06-17 |
-| `raw/yanyan-codex-idle-row-codex-grounded-r3-alpha.png` | 缅因猫（砚砚/Codex 皮肤） | **accepted idle row candidate**（6 帧，已抠绿，Sonnet PASS） | Codex built-in imagegen + local QA + Sonnet visual QA，2026-06-17 |
+| `raw/yanyan-codex-idle-row-codex-grounded-r3-alpha.png` | 缅因猫（砚砚/Codex 皮肤） | rejected idle candidate（CVO identity veto：不像砚砚） | Codex built-in imagegen + local QA + Sonnet visual QA false pass，2026-06-17 |
 | `raw/yanyan-codex-desktop-pet-expression-sheet-v1.png` | 缅因猫（砚砚/Codex 皮肤） | raw（无透明底，需加工） | CVO 经云端 Codex 生成，2026-06-12，commit fbb0e8add |
 | `raw/yanyan-codex-desktop-pet-working-sheet-v1.png` | 缅因猫（工作姿态） | raw（同上） | 同上 |
 | （待生成）布偶猫 sheet | **v1 默认皮肤**（KD-14） | 未生成 | 用下方 prompt 模板 |
