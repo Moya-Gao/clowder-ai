@@ -63,6 +63,8 @@ Always attach both:
 
 The layout guide is for spacing only. The output must not contain visible guide lines, boxes, crosshairs, labels, or guide background.
 
+Prompt-only image generation is invalid for Yanyan pet production. Every identity-sensitive generation attempt must be grounded by the canonical base image being attached or otherwise visible to the image tool. If the available generation path cannot actually consume the local reference image, do not treat that output as a production candidate; use it only as a rejected prompt experiment.
+
 For cloud generation, prefer these working-strip sizes before deterministic processing:
 
 | Frames | Suggested working strip | Approx slot |
