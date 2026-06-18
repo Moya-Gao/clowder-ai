@@ -1,0 +1,54 @@
+{
+  "assetSet": "yanyan-codex-idle-row-codex-grounded-r3",
+  "featureId": "F229",
+  "role": "accepted-idle-row-candidate",
+  "status": "accepted-by-local-qa-and-sonnet-visual-qa",
+  "source": {
+    "provider": "Codex built-in image_gen",
+    "sourcePath": "/Users/lysander/.codex/generated_images/019eafc4-10b8-7eb0-b5f3-5488ef9b941a/ig_0d43254d3bb486ec016a334e316b6881939e1ddb6d65ae12c0.png",
+    "generatedAt": "2026-06-17",
+    "inputs": [
+      "raw/yanyan-codex-character-base-v1.png",
+      "layout-guides/idle.png"
+    ]
+  },
+  "artifacts": {
+    "sourceGreen": {
+      "path": "yanyan-codex-idle-row-codex-grounded-r3-source-green.png",
+      "sha256": "9528fc99d441d8f9fcd6e24d4575542a943c651d84b3bd7aa6a3535646982624"
+    },
+    "alphaRow": {
+      "path": "yanyan-codex-idle-row-codex-grounded-r3-alpha.png",
+      "sha256": "9aaac97eb70e0a2db67a1f72dc295e9e2199d48121d04499760aab61e48dc4ce"
+    },
+    "contactSheet": {
+      "path": "yanyan-codex-idle-row-codex-grounded-r3-contact-sheet.png",
+      "sha256": "be923f20932a10650f33113fac8be65306fa7c5e19789e9ea47458a191764175"
+    },
+    "previewGif": {
+      "path": "yanyan-codex-idle-row-codex-grounded-r3-preview.gif",
+      "sha256": "735f148bed1727906d9fc61ea8b41eb6537d2f2b7c1542c8de800362f2faeb59"
+    }
+  },
+  "postProcessing": {
+    "runDir": "/tmp/cat-cafe-evidence/f229-yanyan-codex-imagegen-idle-r3-20260617",
+    "chromaKey": "#06f803",
+    "chromaKeyRemoval": "imagegen remove_chroma_key.py --auto-key border --soft-matte --transparent-threshold 12 --opaque-threshold 220 --despill",
+    "extraction": "hatch-pet extract_strip_frames.py --states idle --method auto",
+    "idleFrameCount": 6,
+    "idleExtractionMethod": "components"
+  },
+  "mechanicalQa": {
+    "frameCountOk": true,
+    "frameHashesUnique": true,
+    "chromaKeyRemovalOk": true,
+    "edgeClipping": false,
+    "adjacentDiffMedian": 20.71,
+    "lastToFirstDiff": 8.93
+  },
+  "visualQa": {
+    "reviewer": "sonnet",
+    "verdict": "PASS",
+    "note": "6 frames keep a consistent 2D anime Yanyan identity, stable curled tail, and smooth loop."
+  }
+}
