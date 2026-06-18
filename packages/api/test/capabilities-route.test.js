@@ -22,7 +22,7 @@ import {
 import { writeMountRules } from '../dist/config/mount/mount-rules-store.js';
 
 const AUTH_HEADERS = { 'x-cat-cafe-user': 'test-user' };
-const OWNER_SESSION_HEADERS = { 'x-test-session-user': 'lysander' };
+const OWNER_SESSION_HEADERS = { 'x-test-session-user': 'you' };
 const NON_OWNER_SESSION_HEADERS = { 'x-test-session-user': 'codex' };
 const REDACTED_SECRET = '••••••';
 
@@ -664,7 +664,7 @@ describe('GET /api/capabilities (Fastify)', () => {
 
     const projectDir = await makeTmpDir('board-mcp-owner');
     const prevOwner = process.env.DEFAULT_OWNER_USER_ID;
-    process.env.DEFAULT_OWNER_USER_ID = 'lysander';
+    process.env.DEFAULT_OWNER_USER_ID = 'you';
     await writeCapabilitiesConfig(projectDir, {
       version: 1,
       capabilities: [
@@ -2321,7 +2321,7 @@ describe('PATCH /api/capabilities write auth (Fastify)', () => {
     // F228: scope='project' targets the specified projectPath.
     // scope='global' routes through main config — use project for single-project tests.
     const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
-    process.env.DEFAULT_OWNER_USER_ID = 'lysander';
+    process.env.DEFAULT_OWNER_USER_ID = 'you';
     const skillId = 'debugging';
     const sourceSkillsDir = join(findRepoRoot(), 'cat-cafe-skills');
     const projectDir = await seedManagedSkillProject(skillId, true);
@@ -2350,7 +2350,7 @@ describe('PATCH /api/capabilities write auth (Fastify)', () => {
 
   it('converts legacy directory-level mounts before disabling managed skills', async () => {
     const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
-    process.env.DEFAULT_OWNER_USER_ID = 'lysander';
+    process.env.DEFAULT_OWNER_USER_ID = 'you';
     const disabledSkill = 'debugging';
     const keptSkill = 'tdd';
     const sourceSkillsDir = join(findRepoRoot(), 'cat-cafe-skills');
@@ -2393,7 +2393,7 @@ describe('PATCH /api/capabilities write auth (Fastify)', () => {
 
   it('creates managed cat-cafe skill symlinks on project enable', async () => {
     const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
-    process.env.DEFAULT_OWNER_USER_ID = 'lysander';
+    process.env.DEFAULT_OWNER_USER_ID = 'you';
     const skillId = 'debugging';
     const sourceSkillsDir = join(findRepoRoot(), 'cat-cafe-skills');
     const projectDir = await seedManagedSkillProject(skillId, false);
@@ -2423,7 +2423,7 @@ describe('PATCH /api/capabilities write auth (Fastify)', () => {
 
   it('converts legacy directory-level mounts before enabling managed skills', async () => {
     const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
-    process.env.DEFAULT_OWNER_USER_ID = 'lysander';
+    process.env.DEFAULT_OWNER_USER_ID = 'you';
     const enabledSkill = 'debugging';
     const stillDisabledSkill = 'tdd';
     const sourceSkillsDir = join(findRepoRoot(), 'cat-cafe-skills');
@@ -2472,7 +2472,7 @@ describe('PATCH /api/capabilities write auth (Fastify)', () => {
     // Legacy directory-level mounts are converted, conflicts at individual
     // providers are skipped, non-conflicting providers are mounted.
     const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
-    process.env.DEFAULT_OWNER_USER_ID = 'lysander';
+    process.env.DEFAULT_OWNER_USER_ID = 'you';
     const skillId = 'debugging';
     const sourceSkillsDir = join(findRepoRoot(), 'cat-cafe-skills');
     const projectDir = await makeTmpDir('patch-enable-rollback-legacy-root');
@@ -2526,7 +2526,7 @@ describe('PATCH /api/capabilities write auth (Fastify)', () => {
     // F228 redesign: user-owned path at one provider is a conflict (skipped),
     // other providers are mounted normally. Returns 200 with propagationConflicts.
     const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
-    process.env.DEFAULT_OWNER_USER_ID = 'lysander';
+    process.env.DEFAULT_OWNER_USER_ID = 'you';
     const skillId = 'debugging';
     const projectDir = await seedManagedSkillProject(skillId, false);
     const localSkillDir = join(projectDir, '.codex', 'skills', skillId);
@@ -2572,7 +2572,7 @@ describe('PATCH /api/capabilities write auth (Fastify)', () => {
 
   it('does not mutate symlinks when toggling external skills', async () => {
     const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
-    process.env.DEFAULT_OWNER_USER_ID = 'lysander';
+    process.env.DEFAULT_OWNER_USER_ID = 'you';
     const skillId = 'debugging';
     const projectDir = await makeTmpDir('patch-external-skill');
     const externalSource = join(projectDir, 'external-skill-source', skillId);
@@ -2605,7 +2605,7 @@ describe('PATCH /api/capabilities write auth (Fastify)', () => {
 
   it('rejects per-cat skill overrides (F228: skills are filesystem-level)', async () => {
     const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
-    process.env.DEFAULT_OWNER_USER_ID = 'lysander';
+    process.env.DEFAULT_OWNER_USER_ID = 'you';
     const skillId = 'debugging';
     const sourceSkillsDir = join(findRepoRoot(), 'cat-cafe-skills');
     const projectDir = await seedManagedSkillProject(skillId, true);
@@ -2633,14 +2633,125 @@ describe('PATCH /api/capabilities write auth (Fastify)', () => {
     }
   });
 
+  it('project-scope enable of one skill does not re-enable disabled siblings', async () => {
+    // F228: project-scope toggle only changes the toggled skill's mountPaths.
+    // Other disabled skills (mountPaths:[]) must remain disabled — syncProject
+    // reads configDisabledSet from config when disabledSkills is not provided.
+    const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
+    process.env.DEFAULT_OWNER_USER_ID = 'you';
+    const toggledSkill = 'debugging';
+    const siblingSkill = 'tdd';
+    const projectDir = await makeTmpDir('project-enable-sibling');
+    const app = await buildSessionApp();
+
+    try {
+      // Set up: both skills disabled (mountPaths:[])
+      await writeCapabilitiesConfig(projectDir, {
+        version: 2,
+        capabilities: [
+          { id: toggledSkill, type: 'skill', enabled: false, globalEnabled: false, source: 'cat-cafe', mountPaths: [] },
+          { id: siblingSkill, type: 'skill', enabled: false, globalEnabled: false, source: 'cat-cafe', mountPaths: [] },
+        ],
+      });
+
+      // Enable ONLY toggledSkill at project scope
+      const res = await patchSkillCapability(app, projectDir, toggledSkill, true, 'project');
+      assert.equal(res.statusCode, 200, res.payload);
+
+      // toggledSkill should be enabled (has mount paths)
+      const config = await readCapabilitiesConfig(projectDir);
+      const toggled = config?.capabilities.find((c) => c.id === toggledSkill);
+      assert.ok(toggled?.mountPaths?.length > 0, 'toggled skill must have mount paths');
+
+      // siblingSkill must remain disabled — must NOT have symlinks
+      const sibling = config?.capabilities.find((c) => c.id === siblingSkill);
+      assert.deepEqual(sibling?.mountPaths, [], 'disabled sibling must keep empty mountPaths');
+      for (const mp of ['.claude', '.codex', '.gemini', '.kimi']) {
+        const linkPath = join(projectDir, mp, 'skills', siblingSkill);
+        assert.equal(existsSync(linkPath), false, `${mp} symlink for disabled sibling must not exist`);
+      }
+    } finally {
+      await app.close();
+      await rm(projectDir, { recursive: true, force: true });
+      if (previousOwner === undefined) delete process.env.DEFAULT_OWNER_USER_ID;
+      else process.env.DEFAULT_OWNER_USER_ID = previousOwner;
+    }
+  });
+
+  it('batch toggle: capabilityIds disables multiple skills in one request', async () => {
+    // F228: PATCH with capabilityIds[] toggles multiple skills, writes config once, syncs once.
+    const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
+    process.env.DEFAULT_OWNER_USER_ID = 'you';
+    const skills = ['debugging', 'tdd'];
+    const projectDir = await makeTmpDir('batch-toggle');
+    const app = await buildSessionApp();
+
+    try {
+      // Set up: both skills enabled with all standard mount points
+      const allMountIds = ['claude', 'codex', 'gemini', 'kimi'];
+      await writeCapabilitiesConfig(projectDir, {
+        version: 2,
+        capabilities: skills.map((id) => ({
+          id,
+          type: 'skill',
+          enabled: true,
+          globalEnabled: true,
+          source: 'cat-cafe',
+          mountPaths: allMountIds,
+        })),
+      });
+
+      // Batch disable both
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/api/capabilities',
+        headers: localOwnerHeaders(),
+        payload: {
+          projectPath: projectDir,
+          capabilityIds: skills,
+          capabilityId: skills[0],
+          capabilityType: 'skill',
+          scope: 'project',
+          enabled: false,
+        },
+      });
+      assert.equal(res.statusCode, 200, res.payload);
+      const result = JSON.parse(res.payload);
+      assert.equal(result.ok, true);
+      // Batch returns capabilities[] array
+      assert.ok(Array.isArray(result.capabilities), 'batch response must have capabilities array');
+      assert.equal(result.capabilities.length, 2, 'must return results for both skills');
+
+      // Both skills must be disabled in config
+      const config = await readCapabilitiesConfig(projectDir);
+      for (const id of skills) {
+        const cap = config?.capabilities.find((c) => c.id === id);
+        assert.deepEqual(cap?.mountPaths, [], `${id} must have empty mountPaths after batch disable`);
+      }
+
+      // No symlinks for either skill
+      for (const id of skills) {
+        for (const mp of ['.claude', '.codex', '.gemini', '.kimi']) {
+          const linkPath = join(projectDir, mp, 'skills', id);
+          assert.equal(existsSync(linkPath), false, `${mp}/${id} symlink must not exist`);
+        }
+      }
+    } finally {
+      await app.close();
+      await rm(projectDir, { recursive: true, force: true });
+      if (previousOwner === undefined) delete process.env.DEFAULT_OWNER_USER_ID;
+      else process.env.DEFAULT_OWNER_USER_ID = previousOwner;
+    }
+  });
+
   it('rejects trusted header identity without a real session', async () => {
     const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
-    process.env.DEFAULT_OWNER_USER_ID = 'lysander';
+    process.env.DEFAULT_OWNER_USER_ID = 'you';
     const projectDir = await seedProject();
     const app = await buildSessionApp();
 
     try {
-      const res = await patchCapability(app, projectDir, { 'x-cat-cafe-user': 'lysander' });
+      const res = await patchCapability(app, projectDir, { 'x-cat-cafe-user': 'you' });
       assert.equal(res.statusCode, 401);
       assert.match(JSON.parse(res.payload).error, /session/i);
 
@@ -2727,7 +2838,7 @@ describe('PATCH /api/capabilities write auth (Fastify)', () => {
       assert.equal(forwardedLocalHost.statusCode, 403);
       assert.match(JSON.parse(forwardedLocalHost.payload).error, /direct localhost/i);
 
-      process.env.DEFAULT_OWNER_USER_ID = 'lysander';
+      process.env.DEFAULT_OWNER_USER_ID = 'you';
       const nonOwner = await patchCapability(app, projectDir, {
         ...NON_OWNER_SESSION_HEADERS,
         host: 'localhost:3004',
@@ -2759,7 +2870,7 @@ describe('PATCH /api/capabilities write auth (Fastify)', () => {
 
   it('redacts secret-bearing capability data in toggle responses and audit logs', async () => {
     const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
-    process.env.DEFAULT_OWNER_USER_ID = 'lysander';
+    process.env.DEFAULT_OWNER_USER_ID = 'you';
     const projectDir = await seedProject();
     const app = await buildSessionApp();
 
@@ -2799,7 +2910,7 @@ describe('PATCH /api/capabilities write auth (Fastify)', () => {
     // a managed mount). syncProject skips it and reports the conflict. Config IS
     // persisted because config update runs before filesystem sync.
     const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
-    process.env.DEFAULT_OWNER_USER_ID = 'lysander';
+    process.env.DEFAULT_OWNER_USER_ID = 'you';
     const projectDir = await makeTmpDir('patch-skill-writeback-fails');
     const wrongSource = join(projectDir, 'wrong-skills-source');
     await mkdir(join(projectDir, '.claude'), { recursive: true });
@@ -2859,7 +2970,7 @@ describe('PATCH /api/capabilities write auth (Fastify)', () => {
     // F228 redesign: user-owned path at one provider is reported as a conflict.
     // Other providers mount normally. The user-owned directory is preserved.
     const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
-    process.env.DEFAULT_OWNER_USER_ID = 'lysander';
+    process.env.DEFAULT_OWNER_USER_ID = 'you';
     const projectDir = await makeTmpDir('patch-preserve-user-skill-on-enable');
     const mainProjectRoot = findRepoRoot();
     const mainConfig = await readCapabilitiesConfig(mainProjectRoot);
@@ -2926,7 +3037,7 @@ describe('PATCH /api/capabilities write auth (Fastify)', () => {
 
   it('ignores same-id disabled plugin capabilities in external project enable guard', async () => {
     const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
-    process.env.DEFAULT_OWNER_USER_ID = 'lysander';
+    process.env.DEFAULT_OWNER_USER_ID = 'you';
     const mainRoot = await makeTmpDir('patch-skill-main-plugin-global-guard');
     const projectDir = await makeTmpDir('patch-skill-plugin-global-guard');
     await writeFile(join(mainRoot, 'pnpm-workspace.yaml'), 'packages: []\n');
@@ -2989,7 +3100,7 @@ describe('PATCH /api/capabilities write auth (Fastify)', () => {
     // global skill mountPaths — the global toggle is a convenience cascade, not
     // a hard constraint.
     const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
-    process.env.DEFAULT_OWNER_USER_ID = 'lysander';
+    process.env.DEFAULT_OWNER_USER_ID = 'you';
     const mainRoot = await makeTmpDir('patch-skill-main-provider-policy-guard');
     const projectDir = await makeTmpDir('patch-skill-provider-policy-guard');
     await writeFile(join(mainRoot, 'pnpm-workspace.yaml'), 'packages: []\n');
@@ -3053,7 +3164,7 @@ describe('PATCH /api/capabilities write auth (Fastify)', () => {
     // enables. A whole-skill enable at project level mounts to all enabled providers
     // in the project's own mount rules, not just those in the global mountPaths.
     const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
-    process.env.DEFAULT_OWNER_USER_ID = 'lysander';
+    process.env.DEFAULT_OWNER_USER_ID = 'you';
     const mainRoot = await makeTmpDir('patch-skill-main-enable-provider-policy');
     const projectDir = await makeTmpDir('patch-skill-enable-provider-policy');
     await writeFile(join(mainRoot, 'pnpm-workspace.yaml'), 'packages: []\n');
@@ -3116,7 +3227,7 @@ describe('PATCH /api/capabilities write auth (Fastify)', () => {
 
   it('prefers same-id first-party Cat Cafe skill when toggling managed skills', async () => {
     const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
-    process.env.DEFAULT_OWNER_USER_ID = 'lysander';
+    process.env.DEFAULT_OWNER_USER_ID = 'you';
     const mainRoot = await makeTmpDir('patch-skill-first-party-toggle-lookup');
     await writeFile(join(mainRoot, 'pnpm-workspace.yaml'), 'packages: []\n');
     await writeCapabilitiesConfig(mainRoot, {
@@ -3182,7 +3293,7 @@ describe('PATCH /api/capabilities write auth (Fastify)', () => {
 
   it('uses source discriminator when toggling a same-id external skill', async () => {
     const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
-    process.env.DEFAULT_OWNER_USER_ID = 'lysander';
+    process.env.DEFAULT_OWNER_USER_ID = 'you';
     const mainRoot = await makeTmpDir('patch-skill-external-toggle-lookup');
     await writeFile(join(mainRoot, 'pnpm-workspace.yaml'), 'packages: []\n');
     await writeCapabilitiesConfig(mainRoot, {
@@ -3248,7 +3359,7 @@ describe('PATCH /api/capabilities write auth (Fastify)', () => {
 
   it('converts legacy directory-level mounts before disabling a managed skill', async () => {
     const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
-    process.env.DEFAULT_OWNER_USER_ID = 'lysander';
+    process.env.DEFAULT_OWNER_USER_ID = 'you';
     const projectDir = await makeTmpDir('patch-convert-legacy-root-on-disable');
     const sourceSkillsDir = join(findRepoRoot(), 'cat-cafe-skills');
     const sourceSkillNames = [];
@@ -3332,7 +3443,7 @@ describe('PATCH /api/capabilities write auth (Fastify)', () => {
 
   it('preserves per-skill mountPaths when converting legacy roots during managed skill disable', async () => {
     const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
-    process.env.DEFAULT_OWNER_USER_ID = 'lysander';
+    process.env.DEFAULT_OWNER_USER_ID = 'you';
     const projectDir = await makeTmpDir('patch-convert-legacy-root-preserve-mountpaths');
     const sourceSkillsDir = join(findRepoRoot(), 'cat-cafe-skills');
     const sourceSkillNames = [];
@@ -3416,7 +3527,7 @@ describe('PATCH /api/capabilities write auth (Fastify)', () => {
 
   it('removes custom skill mounts when disabling a managed skill', async () => {
     const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
-    process.env.DEFAULT_OWNER_USER_ID = 'lysander';
+    process.env.DEFAULT_OWNER_USER_ID = 'you';
     const projectDir = await makeTmpDir('patch-remove-custom-mount-on-disable');
     const sourceSkillsDir = join(findRepoRoot(), 'cat-cafe-skills');
     const customSkillsDir = join('custom-client', 'skills');
@@ -3483,7 +3594,7 @@ describe('PATCH /api/capabilities write auth (Fastify)', () => {
 
   it('seeds missing mountPaths from enabled providers before a per-provider disable', async () => {
     const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
-    process.env.DEFAULT_OWNER_USER_ID = 'lysander';
+    process.env.DEFAULT_OWNER_USER_ID = 'you';
     const projectDir = await makeTmpDir('patch-seed-missing-mountpaths-provider-disable');
     const sourceSkillsDir = join(findRepoRoot(), 'cat-cafe-skills');
     const skillId = 'debugging';
@@ -3541,7 +3652,7 @@ describe('PATCH /api/capabilities write auth (Fastify)', () => {
 
   it('routes global skill toggles through the main config when an external project is selected', async () => {
     const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
-    process.env.DEFAULT_OWNER_USER_ID = 'lysander';
+    process.env.DEFAULT_OWNER_USER_ID = 'you';
     const projectDir = await makeTmpDir('patch-global-selected-external');
     const externalOnlySkill = `external-only-global-${Date.now()}`;
 
@@ -3601,7 +3712,7 @@ describe('PATCH /api/capabilities write auth (Fastify)', () => {
     const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
     const previousHome = process.env.HOME;
     const previousCwd = process.cwd();
-    process.env.DEFAULT_OWNER_USER_ID = 'lysander';
+    process.env.DEFAULT_OWNER_USER_ID = 'you';
 
     const mainDir = await makeTmpDir('patch-main-project-disable-propagates');
     const externalDir = await makeTmpDir('patch-main-project-disable-external');
@@ -3698,7 +3809,7 @@ describe('PATCH /api/capabilities write auth (Fastify)', () => {
     const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
     const previousHome = process.env.HOME;
     const previousCwd = process.cwd();
-    process.env.DEFAULT_OWNER_USER_ID = 'lysander';
+    process.env.DEFAULT_OWNER_USER_ID = 'you';
 
     const mainDir = await makeTmpDir('patch-global-disable-propagates-missing-config');
     const externalDir = await makeTmpDir('patch-global-disable-missing-config-external');
@@ -3787,7 +3898,7 @@ describe('PATCH /api/capabilities write auth (Fastify)', () => {
     // existing codex mounts. Returns 200 with propagationConflicts instead of 500.
     const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
     const previousHome = process.env.HOME;
-    process.env.DEFAULT_OWNER_USER_ID = 'lysander';
+    process.env.DEFAULT_OWNER_USER_ID = 'you';
 
     const mainDir = await makeTmpDir('patch-global-enable-rollback-main');
     const externalDir = await makeTmpDir('patch-global-enable-rollback-external');
@@ -3879,7 +3990,7 @@ describe('PATCH /api/capabilities write auth (Fastify)', () => {
 
   it('rejects unsafe cat-cafe skill ids before filesystem writeback', async () => {
     const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
-    process.env.DEFAULT_OWNER_USER_ID = 'lysander';
+    process.env.DEFAULT_OWNER_USER_ID = 'you';
     const projectDir = await makeTmpDir('patch-unsafe-skill-id');
     await writeCapabilitiesConfig(projectDir, {
       version: 1,
@@ -3924,7 +4035,7 @@ describe('PATCH /api/capabilities write auth (Fastify)', () => {
 
   it('does not rollback when initial skill mount writeback fails', async () => {
     const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
-    process.env.DEFAULT_OWNER_USER_ID = 'lysander';
+    process.env.DEFAULT_OWNER_USER_ID = 'you';
     const projectDir = await makeTmpDir('patch-skill-initial-writeback-fails');
     const externalSkillsDir = join(projectDir, 'external-skills');
     const externalSkillLink = join(externalSkillsDir, 'debugging');
@@ -3969,7 +4080,7 @@ describe('PATCH /api/capabilities write auth (Fastify)', () => {
 
   it('rolls back cat-cafe skill mount when config persistence fails', async () => {
     const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
-    process.env.DEFAULT_OWNER_USER_ID = 'lysander';
+    process.env.DEFAULT_OWNER_USER_ID = 'you';
     const projectDir = await makeTmpDir('patch-skill-config-write-fails');
     const capabilitiesPath = join(projectDir, '.cat-cafe/capabilities.json');
     await writeCapabilitiesConfig(projectDir, {
@@ -4018,7 +4129,7 @@ describe('PATCH /api/capabilities write auth (Fastify)', () => {
 
   it('restores preexisting local skill path when skill enable rollback runs', async () => {
     const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
-    process.env.DEFAULT_OWNER_USER_ID = 'lysander';
+    process.env.DEFAULT_OWNER_USER_ID = 'you';
     const projectDir = await makeTmpDir('patch-skill-restore-local-on-rollback');
     const capabilitiesPath = join(projectDir, '.cat-cafe/capabilities.json');
     const localSkillDir = join(projectDir, '.claude/skills/debugging');
@@ -4067,7 +4178,7 @@ describe('PATCH /api/capabilities write auth (Fastify)', () => {
   it('rolls back capabilities and provider configs when CLI config generation fails', async () => {
     const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
     const previousHome = process.env.HOME;
-    process.env.DEFAULT_OWNER_USER_ID = 'lysander';
+    process.env.DEFAULT_OWNER_USER_ID = 'you';
     const projectDir = await makeTmpDir('patch-cli-generation-fails');
     const homeDir = await makeTmpDir('patch-cli-generation-fails-home');
     const claudeConfigPath = join(projectDir, '.mcp.json');
