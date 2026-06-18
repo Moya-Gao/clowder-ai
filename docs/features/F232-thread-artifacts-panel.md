@@ -8,7 +8,7 @@ created: 2026-06-11
 
 # F232: Thread Artifacts Panel — Thread 产物视图
 
-> **Status**: in-progress（Phase A 全部 merged；**Phase B foundation merged PR #2285 + grouping merged PR #2288 + cat filter merged PR #2290**（AC-B1 ✅）；视觉待 alpha）| **Owner**: 宪宪 Opus-4.8 | **Priority**: P1
+> **Status**: in-progress（Phase A 全部 merged；**Phase B foundation merged PR #2285 + grouping merged PR #2288 + cat filter merged PR #2290**（AC-B1 ✅）；source-code artifact classification hardening merged PR #2362；视觉待 alpha）| **Owner**: 宪宪 Opus-4.8 | **Priority**: P1
 
 ## Why
 
@@ -66,7 +66,7 @@ created: 2026-06-11
 <!-- 立项愿景硬度自检（F216→F219）：每条 AC ① trace 回 Why 的某诉求 ② 非作者可复核（命令/数字/截图）。 -->
 
 ### Phase A（Thread 内产物视图）✅ merged PR #2247（视觉待 alpha 验收）
-- [x] AC-A1: `GET /api/threads/:threadId/artifacts` 返回该 thread 全部产物（rich blocks + 生成文件 + PR），按时间倒序，每项含 `type / name / catId / createdAt / sourceMessageId`。有 test 覆盖。（trace: "搜半天找不到" → 一次聚合拿全）
+- [x] AC-A1: `GET /api/threads/:threadId/artifacts` 返回该 thread 全部产物（rich blocks + 生成文件 + PR），按时间倒序，每项含 `type / name / catId / createdAt / sourceMessageId`。有 test 覆盖。（trace: "搜半天找不到" → 一次聚合拿全）**PR #2362 hardening**：file ledger 里的 source-like refs（含 tracked scripts / Swift / HTML 等）统一走 shared `SOURCE_CODE_EXTENSIONS`，后端 `code` 分类与前端 text preview allowlist 保持同步。
 - [x] AC-A2: 产物可按类型筛选（图 / 文件 / 代码·PR / 语音 / 全部），各类计数与列表一致。（trace: "忘记名字" → 按类型缩小范围）
 - [x] AC-A3: thread 内产物名搜索（子串匹配，不用记全名），命中实时过滤。（trace: 铲屎官原话"忘记名字是啥了"）
 - [x] AC-A4: 每个产物可「跳回原消息」（`sourceMessageId` 锚点跳转），定位到生成它的对话位置。jump-with-load（planTeleport）覆盖窗口外老产物（cloud R4 修复）。（trace: "想看这个 thread 的某个产物"→ 找到还能回现场）
@@ -136,6 +136,7 @@ created: 2026-06-11
 | 2026-06-14 | **Phase B foundation merged (PR #2285)** — scope toggle `[当前对话] [全局]` + UI归一（20+ hex → cafe-* tokens）+ `GET /api/artifacts` 全局聚合 API + `useGlobalArtifacts` hook + cross-thread teleport + P1 worktreeId guard fix。local gpt52 review 2 轮（P1-1 跨 thread worktreeId bug 修 + P1-2 rescope accepted）+ 云端 R1（P2 cross-thread preview deferred — acknowledged, safe fallback > wrong content）。AC-B2 ✅，AC-B1 partial（toggle+list done，grouping/filter 待 follow-up） |
 | 2026-06-14 | **Phase B grouping merged (PR #2288)** — 三种分组模式（时间/对话/猫）可切换 chips + 可折叠 section（chevron + label + count）+ ArtifactRow 组件提取降低 cognitive complexity。local gpt52 review P1（group.label 碰撞 → stable `id` field 修复，4 红→绿测试）+ 云端 R1 pass（"no major issues"）。AC-B1 grouping ✅，猫 filter 待 follow-up |
 | 2026-06-14 | **Phase B cat filter + server-side query merged (PR #2290)** — `extractCatChips()` / `filterByCat()` 纯函数模块 + cat chip UI + `GET /api/artifacts?type=X&cat=X&q=keyword` server-side filtering。local gpt52 review P1（null catId→'—' sentinel 归一化不一致修）+ 云端 R1 P2（duplicate `?q=` param → 500 crash，Array.isArray guard fix）+ R2 pass（"Chef's kiss"）。AC-B1 ✅ |
+| 2026-06-17 | **Source-code artifact classification hardening merged (PR #2362)** — file ledger source refs now classify through shared `SOURCE_CODE_EXTENSIONS`, covering tracked script extensions, Swift/source-code drift, and HTML source files; frontend preview consumes the same shared allowlist so newly promoted code artifacts remain panel-previewable. Local Opus continuity + `pnpm gate` + cloud R5 pass (`4f523a25`) |
 
 ## Design Gate
 
