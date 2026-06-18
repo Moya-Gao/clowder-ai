@@ -163,8 +163,15 @@ F242 不应该实现“另一个 codegraph”。它应该实现 **Convention Gra
 ### dogfood 场景锚定（让 AC-A5 可执行）
 AC-A5 锚定具体场景：**改 `cat_cafe_post_message` 的 schema → 约定图列出全部消费方（含 callback registration / dynamic dispatch），对比 grep 漏的那些**。这正是 opus-47 §10.3 场景 1 + 我 spike 时测的 impact 形态。
 
-### 收敛建议（两轮 brainstorm 后）
-方向 + OQ + 质量门 + 泛化分层都齐了。下一步进 **Design Gate**：先定 ① 引擎 artifact schema（含 provenance/freshness）+ ② cat-cafe 三类 extractor 接口 + ③ discovery protocol skill 骨架，再拆 writing-plans 实现任务。Architecture cell `code-intelligence`（OQ-7）待 Design Gate 钉死。
+### 收敛（砚砚 + opus-48 两轮 brainstorm 闭环，2026-06-17）
+砚砚确认引擎/extractor 分层补上了第一轮最大隐性漏洞，**无异议，brainstorm 闭环**。下一步进 **Design Gate**，要钉死：
+1. **引擎 artifact schema**（含 provenance/freshness，domain-agnostic）。
+2. **domain plugin 接口**（砚砚收敛钉子）——至少含 `domainId / node kinds / edge kinds / extractor inputs / invalidation scope / negative fixtures`，确保 Phase B 写 FastAPI/Django/gRPC extractor 时**不反向污染引擎**。
+3. **cat-cafe 三类 extractor**（MCP tool / skill manifest / workflow callback）作为首批 domain plugin（dogfood domain，非方法论本体）。
+4. **discovery protocol skill 骨架**（进 repo → 发现 convention domain → 定义 extractor → 接引擎 → 输出带 provenance/freshness 的图）——这才是"画约定图"方法论本体。
+5. Architecture cell `code-intelligence`（OQ-7）钉死，`convention-graph` 为首个子域。
+
+钉完进 writing-plans 拆实现任务。
 
 ## Key Decisions
 
