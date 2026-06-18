@@ -234,5 +234,5 @@ Task 2「全 13 event 源接线」拆分（**2026-06-15 opus-46 愿景守护 PAS
 > 原 opus-48 拆分（PR2 hold+task / PR3 invocation）已被本共识替代——接线模式高度一致（fire-and-forget `ingest.record(buildXxxEvent)`）合并 review 更清晰，符合"别拆太碎"。
 
 **发现的 pre-existing 问题（非本 PR 引入，已建 task 跟踪）**：
-1. **B1 ball-custody redis 测试并发 race**：`event-log-redis`（清 `events:*`）+ `projector-redis`（清 `ballcustody:*` 通配）node --test 文件级并发时互清对方 key → 6 fail（串行全绿）。B1 既有，PR1 的 ingest-redis 已用唯一 keyPrefix 隔离不加剧；B1 两文件根因修（唯一 keyPrefix / 唯一 subjectKey per it）作独立测试基础设施 task。
+1. **B1 ball-custody redis 测试并发 race（done #2390, merge `447cc20b5`）**：`event-log-redis`（清 `events:*`）+ `projector-redis`（清 `ballcustody:*` 通配）node --test 文件级并发时互清对方 key → 6 fail（串行全绿）。B1 既有，PR1 的 ingest-redis 已用唯一 keyPrefix 隔离不加剧；B1 两文件根因修（唯一 keyPrefix / 唯一 subjectKey per it）已作为独立测试基础设施 task 合入。
 2. **`agent-router.test.js` F203 Phase C**（system prompt A2A section 重复抑制）pre-existing fail——stash baseline 确认 main 版同样失败，与 B2 无关。
