@@ -20,9 +20,9 @@ created: 2026-04-18
 - Phase A 实施计划：`docs/plans/f168-phase-a-event-engine.md`
 - 实现依赖挂靠：F141（issue 生命周期事件）/ F140（PR 信号层复用）
 
-**分工（CVO 拍板 2026-06-10，2026-06-14 更新）**：opus 家族写 Phase spec/plan + 实现 + 合入后愿景守护；缅因猫家族 review。（原分工 fable plan + sonnet 实现，实测效果不理想；fable-5 下线后 CVO 确认由 opus 们全程接手。）
+**分工（CVO 拍板 2026-06-10，2026-06-14 / 2026-06-17 更新）**：Phase D/E 由砚砚（@codex）主导 spec/AC/failure-mode/gate；实现与 review 保持跨个体铁律（砚砚实现则 opus/gpt52/47 review，opus 实现则砚砚强 review）。Phase C 由 opus 家族接手并 closed。原分工 fable plan + sonnet 实现，实测效果不理想；fable-5 下线后 CVO 确认由 opus 们全程接手 Phase C。
 
-**Phase 总览**：A 事件引擎（Event Log + 投影 + 状态机）✅ → B Issue Signals 全量事件 ✅ → **C Narrator + Role Registry + 路由 ✅ closed (2026-06-16)** → D Closure UX + Reconciler → E 看板决策队列。原 v1 文档（下方）保留为历史语境。
+**Phase 总览**：A 事件引擎（Event Log + 投影 + 状态机）✅ → B Issue Signals 全量事件 ✅ → **C Narrator + Role Registry + 路由 ✅ closed (2026-06-16)** → **D Closure UX + Reconciler（plan: `docs/plans/2026-06-17-f168-phase-d-closure-reconciler.md`）** → E 看板决策队列。原 v1 文档（下方）保留为历史语境。
 
 **Phase A 完成（2026-06-10）**：PR #2203，commit `10c3c9bfdb`，squash-merged。Event Log + 纯函数状态机 + CommunityProjector + bootstrap CLI + 3 入口接线 + PR lifecycle + 看板 API（向后兼容）。6 轮 cloud review 全修。Phase B 由 @fable5 规划。
 
@@ -458,6 +458,7 @@ TTL=0（铁律 #5），用户数据默认持久化
 | 2026-06-15 | **Phase C C3.1 merged** (PR #2292) — resolve endpoint consumes routeRecommendation discriminated union（existing-thread / new-thread / decline）for routing; INV-7 consolidated thread validation（nonexistent + soft-deleted + threadStore unavailable fail-closed 500）; INV-12 backward compat（all new fields optional）。5 轮 cloud review 封板（LL-072 cap）+ gpt52 终局 PASS；73 test PASS。C3.2 frontend role dropdown + eval.1 待续 |
 | 2026-06-16 | **Phase C C3.2 merged** (PR #2309, `9a2104b62e`) — DirectionCard component（300 lines + icons 58 lines）渲染 narrator triage 分析（verdict badge / 5Q grid / narrative / evidence refs / route recommendation / disabled role dropdown）+ CommunityPanel 集成（expand/collapse + resolve callback）+ eval.1 backend RouteDecisionEvalEvent（`case.route_decision_eval`，narrator rec vs owner decision `agreed` 投影，best-effort）。cloud R1-R3 封板（LL-072 §4：role binding P1 连续 3 轮 stale replay）+ gpt52 终局 PASS on `8f57f4430`；76 test PASS |
 | 2026-06-16 | **Phase C ✅ CLOSED** — opus-47 愿景守護 PASS（初报 P0 eval.1 test failure 经 opus-4.6 复查为 stale dist false alarm：clean rebuild 76/76 全绿；squash merge 与 HEAD 间零 API/shared diff）。**Phase D prerequisites**：P1 C0.4 narrator 排除存量（dispatch 无 bootstrap source 过滤，453 条存量在 auto-Reconciler 上线时可能触发卡风暴）；P2 follow-ups（INV-3 dedup / env warn / catId drift / 类型桥 zod / GuardianMatcher OQ-C1a）合并进 Phase D plan |
+| 2026-06-17 | **Phase D/E 主导权切换 + Phase D plan committed** — CVO 指示由砚砚（@codex）主导 Phase D/E（未来守门猫大概率是平行世界砚砚）；@codex 负责 spec/AC/failure-mode/gate，implementation/review 保持跨个体。Phase D plan：`docs/plans/2026-06-17-f168-phase-d-closure-reconciler.md`（Closure UX + Reconciler；D0 prerequisites / D1 report+waive / D2 checklist / D3 GitHub⇄Case diff / D4 SLA dead-letter / D5 UX / D6 docs+skill sync） |
 
 ## Review Gate
 

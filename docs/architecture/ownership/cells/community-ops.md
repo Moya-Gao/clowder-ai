@@ -15,6 +15,10 @@ code_anchors:
   - packages/api/src/domains/community/community-auto-tracking.ts
   - packages/shared/src/types/community-role.ts
   - packages/api/src/domains/community/RoleResolver.ts
+  - packages/api/src/domains/community/community-closure-checklist.ts
+  - packages/api/src/domains/community/CommunityReconciler.ts
+  - packages/api/src/domains/community/CommunityReconciliationFindingStore.ts
+  - packages/api/src/infrastructure/connectors/github-repo-event/CommunityReconcilerTaskSpec.ts
 doc_anchors:
   - docs/features/F168-community-ops-board.md
   - docs/discussions/2026-06-09-f168-community-ops-final-design.md
@@ -23,6 +27,7 @@ cited_by:
   - {feature: F168, date: 2026-06-10, delta: new cell}
   - {feature: F168-Phase-B, date: 2026-06-10, delta: "dual-cursor delivery + case.awaiting_external + delivery-policy + auto-tracking"}
   - {feature: F168-Phase-C, date: 2026-06-13, delta: "RoleResolver binding layer — engine routes by CommunityRole via injected resolver (fail-closed), INV-6 engine-zero-catname grep guard"}
+  - {feature: F168-Phase-D, date: 2026-06-17, delta: "Closure UX + Reconciler plan — closureChecklist selector, GitHub⇄Case diff task, reconciliation finding store, SLA/dead-letter queue"}
 ---
 
 # Community Ops Engine
@@ -38,6 +43,7 @@ F168 owns the community operations event-sourcing infrastructure: append-only Ev
 - Building narrator / triage roles that read case projections.
 - Extending the community board aggregation endpoint.
 - Adding reconciler logic (GitHub truth ⇄ Case projection diff).
+- Adding closure UX / closureChecklist / SLA dead-letter behavior.
 
 ## Extend By
 
