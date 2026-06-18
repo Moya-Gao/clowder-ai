@@ -1812,6 +1812,16 @@
       "intake_intent_issue": 2351,
       "absorb_pr": 2352,
       "review_proof": "https://github.com/zts212653/cat-cafe/pull/2352#issuecomment-4731199498"
+    },
+    {
+      "pr_number": 899,
+      "target_merge_commit": "87fecc97d9550ff48d753020aa658c6dc8875f78",
+      "decision": "absorbed",
+      "timestamp": "2026-06-18T00:02:58.000Z",
+      "note": "normal absorbed-lane intake of clowder-ai#899 (F161 ACP generalization — generic transport + env-map + thinking buffer + dual transport UI). Port via 3-way merge with clowder base (87fecc97^) isolating sanitize: OLD(44) 保 home invariant + 纯功能 delta (cat-config-loader mention patterns / index.ts F228 skill mount / cat-catalog owner 铲屎官 all preserved), NEW(16) reverse-sanitize Clowder AI→Cat Café, rename GeminiAcpAdapter→AcpAgentService. Cross-individual review: 宪宪/opus-4.8 author + 宪宪/opus-4.7 formal APPROVE on 7366fb691 (hard-attacked 3 self-flagged risks all pass + 3 extra arch checks + self-retracted 1 false P1 after checking home baseline). Also fixed clowder #899 own defect: hub-cat-editor.test emptyAcpFields missing acpTransport (clowder vitest missed, home tsc full caught). Validation: API 458/458 + web 66/66 + tsc 0 + biome clean (60 ported files) + settings-primitives PASS. Manual ledger edit per F238 Phase C tooling friction pattern (same as #943/#944): brand validator scans whole repo not intake-diff — 34 pre-existing legitimate cat-cafe→clowder-ai context mentions in README.opensource.*/sync-to-opensource.sh/open-source-status.md etc (these are open-source product docs that SHOULD contain Clowder AI), 0 in my 60-file intake-diff (verified brand-clean). pre-existing fail runtime-worktree-script.test.js out of scope (origin/main same 7 fails). F238 follow-up: brand validator should scope to intake-diff or exempt open-source product docs (README.opensource.*/sync-to-opensource.sh) — recurring friction across #943/#944/#899.",
+      "intake_intent_issue": 2355,
+      "absorb_pr": 2358,
+      "review_proof": "https://github.com/zts212653/cat-cafe/pull/2358#pullrequestreview-4518081057"
     }
   ]
 }
