@@ -117,7 +117,7 @@ Phase A 必须把 "结构投影" 和 "内容来源" 分开：
 
 ### Phase C: Feature Tips Contribution Gate
 
-把 tips 变成 feature lifecycle 的一部分，但做质量门，不做机械数量门：
+把 tips 变成 feature lifecycle 的一部分，但做贡献门，不做机械数量门：
 
 - 新增或修改 user-visible feature / capability / guide / harness 行为时，必须贡献 1-2 条 tips，或写明确 `tips_exempt` 理由。
 - 纯内部重构、typo、无用户可感知变化可豁免。
@@ -220,7 +220,7 @@ tips system 是 harness 改动，必须有闭环：
 |------|------|
 | 退化成随机可爱文案库 | schema 强制 `sourceRef`；猫格文案只是 presentation variant，不是知识本体 |
 | 假进度 / 假精确状态 | 真实状态与 tips 分层；无 runtime signal 禁止写状态性动词；AC-B2 测试锁住 |
-| 每 feature 强制 1-2 条导致废话 | 做质量门：sourceRef/context/action/owner 必填；纯内部重构可豁免 |
+| 每 feature 强制 1-2 条导致废话 | 做结构门 + reviewer usefulness checklist：sourceRef/context/action/owner 必填；纯内部重构可豁免 |
 | tips 过多造成噪音 | 展示阈值、慢轮播、dismiss/stale metric；Phase D sunset |
 | 能力清单漂移 | 结构从 F223/F155/F114 等 sourceRef 投影；body 是 seed 内容，靠 owner/reviewer/stale review/eval 维护，不谎称 CI 能验证语义一致 |
 | 覆盖故障逃生口 | suspected_stall/alive_but_silent 下故障与强制重置优先，tips 降级或隐藏 |
@@ -241,7 +241,7 @@ tips system 是 harness 改动，必须有闭环：
 | KD-1 | 新开 F244，不挂 F223/F155 | F223 owns capability execution registry；F155 owns step-by-step guides；F244 owns waiting-state projection and contribution lifecycle | 2026-06-18 |
 | KD-2 | Tips 是投影，不是第四套能力清单 | 防止 source drift，符合 P4 单一真相源 | 2026-06-18 |
 | KD-3 | 真实状态、tips、猫格表达三层分离 | 诚实红线；避免假进度与故障粉饰 | 2026-06-18 |
-| KD-4 | Feature tips gate 是质量门，不是数量门 | 强制数量会催生废话 tips；必须有 sourceRef/context/action/owner 或豁免 | 2026-06-18 |
+| KD-4 | Feature tips gate 是结构门 + reviewer usefulness checklist，不是数量门 | 强制数量会催生废话 tips；机器只守 sourceRef/context/action/owner 或豁免，语义价值由 reviewer/eval 守 | 2026-06-18 |
 | KD-5 | 第一个用户是铲屎官，优先 dogfood | CVO 明确 signoff；先在真实等待态验证是否有用 | 2026-06-18 |
 | KD-6 | 不维护平行能力大全 | F244 只消费 F223/L0/F114/F155/F192 等 sourceRef；tips 是投影，不是新真相源 | 2026-06-18 |
 | KD-7 | 区分 structure source 与 body source | F223 机器 registry 只有 id/capability/predicate，不含 tip body；Phase A 必须诚实承认 body seed 是人工内容，语义一致靠 review/eval/stale loop 维护 | 2026-06-18 |
@@ -252,6 +252,8 @@ tips system 是 harness 改动，必须有闭环：
 |------|------|
 | 2026-06-18 | 铲屎官 + 宪宪 + 砚砚讨论收敛：从"猫言语"重定为 Capability Tips System / 等待态 Knowledge Feed 投影 |
 | 2026-06-18 | 铲屎官确认直接立项 |
+| 2026-06-18 | Opus 4.8 spec review REQUEST-CHANGES → 砚砚修复 structure/body source、action-required、Design Gate slot 边界 → Opus 4.8 APPROVE |
+| 2026-06-18 | Design Gate wireframe prepared: `docs/discussions/2026-06-18-f244-design-gate/README.md` |
 
 ## Review Gate
 
@@ -270,3 +272,4 @@ tips system 是 harness 改动，必须有闭环：
 | **Feature** | `docs/features/F227-event-memory.md` | Magic words 事件索引与 source use case |
 | **Ref** | `cat-cafe-skills/refs/capability-wakeup-index.md` | L0 §8 能力速查 |
 | **Ref** | `cat-cafe-skills/refs/shared-rules.md` | W7 + Magic Words 真相源 |
+| **Discussion** | `docs/discussions/2026-06-18-f244-design-gate/README.md` | Design Gate wireframe and CVO decision packet |
