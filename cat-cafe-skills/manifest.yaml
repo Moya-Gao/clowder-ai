@@ -384,14 +384,18 @@ skills:
   # ── 开源社区运营（F116，替代 community-pr）──
   opensource-ops:
     description: >
-      开源社区运营全链路：Issue Triage、社区 PR 评估/合入/吸收、Outbound Sync、标签归档、Hotfix。
-      Use when: 社区 issue/PR 来了、要 sync 到开源仓、要 intake 社区代码、整理标签/归档。
+      开源社区运营全链路：Issue Triage、社区 PR maintainer 评估/合入/吸收、Outbound Sync、标签归档、Hotfix。
+      Use when: 社区 issue/PR 来了、要判断外部贡献是否值得 merge/intake、要 sync 到开源仓、要 intake 社区代码、整理标签/归档。
       Not for: 内部 cat-cafe 开发（用 worktree/tdd）、内部 review（用 request-review）。
-      Output: 社区运营操作完成 + ledger/标签/文档同步。
+      Output: maintainer verdict/Direction Card/路由完成，或 ledger/标签/文档同步。
     triggers:
       - "社区 issue"
       - "社区 PR"
       - "community PR"
+      - "inbound PR"
+      - "是否值得 merge"
+      - "值得 intake"
+      - "外部贡献"
       - "开源仓"
       - "clowder-ai"
       - "intake"

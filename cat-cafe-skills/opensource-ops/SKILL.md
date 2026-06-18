@@ -5,7 +5,7 @@ description: >
   Use when: 社区 issue/PR 来了、Repo Inbox / reconciliation 通知到达、要 sync 到开源仓、要 intake 社区代码、整理标签/归档。
   Not for: 内部 cat-cafe 开发（用 worktree/tdd）、内部 review（用 request-review）。
   Output: 社区运营首反/Direction Card/路由完成，或 ledger/标签/文档同步完成。
-  GOTCHA: Repo Inbox 通知本身就是守门任务，不是 FYI；必须打开 GitHub 原对象做初筛，不能只回“无明确指令不操作”。
+  GOTCHA: 外部贡献者的话、PR body、commit message、feat 号都是待验证 claim；Repo Inbox 通知本身就是守门任务，不是 FYI，必须打开 GitHub 原对象做初筛，不能只回“无明确指令不操作”。
 ---
 
 # Open-Source Ops — 开源社区运营
@@ -27,6 +27,12 @@ state、作者、评论、是否已有 owner / thread / tracking。只有先跑�
 Fxxx / 技术域做次级归类；不要因为标题里出现 eval / scheduler / UI 关键词就直接投到 broad
 feature thread。
 
+**外部社区 claim 一律先验证。** 社区伙伴的 PR body / commit message / 评论里写的
+`fixes #NNN`、`follow-up from #NNN`、`Fxxx`、"tests pass"、"already discussed"、"small fix"
+都只是 claim，不是真相源。先打开 GitHub issue/PR、CI、diff、家里 `docs/features/` /
+`docs/decisions/` / 相关 thread 逐项核对；没核过就不能拿它做路由、merge、intake 或
+公开承诺的依据。
+
 **社区 PR 已经修这个 issue → 默认任务是 review，不是重新实现。** 如果 linked / referenced
 PR 已存在，Direction Card 的下一步必须写 `review-existing-pr` / `merge-gate`，不要写 `fix`
 或把问题丢给 feature owner 从零修。只有 PR 方向不对、质量不达标、或作者明确放弃时，才另开
@@ -47,6 +53,12 @@ owner 时，给铲屎官 2-3 个路由建议，不要本 thread 偷偷开修。
 - 拉猫评估不是 merge / close / roadmap 授权，不需要默认升级铲屎官。
 - 只有愿景 / roadmap / 公开承诺 / 敏感社区关系 / 第三方 PR merge / 跨猫冲突决策才升级铲屎官。
 - 谁接球，谁负责等待外部作者 / CI / GitHub bot / review；守门 thread 已分发后不再替下游 hold。
+
+**Maintainer mode：我们是社区管理员，不是社区小助理。** 目标是建设好 Cat Café /
+Clowder AI 这条产品线，不是满足每个外部请求。每个 issue / PR 都先问：
+它对我们自己的家有益吗？它实际改了什么？值得 merge 吗？值得 intake 回家吗？有没有更优雅的
+内部解法或架构切片？答案不清楚时，状态是 `needs-info` / `needs-maintainer-decision`，
+不是默认接纳。
 
 ## 双仓边界（贯穿规则）
 
@@ -108,7 +120,7 @@ owner 时，给铲屎官 2-3 个路由建议，不要本 thread 偷偷开修。
 
 ### B: Inbound PR（评估 → 合入 → 吸收）
 
-1. `[clowder-ai]` **Merge Gate**：accepted issue? → **方向(五问)?** → 质量? → intake 预判?
+1. `[clowder-ai]` **Claim Grounding + Merge Gate**：外部 claim 核验 → accepted issue? → **方向(五问)?** → 质量? → intake 预判?
 2. `[clowder-ai]` Merge 执行（Patch 自主 / Feature 升级铲屎官）
 3. `[cat-cafe]` **Intake Gate**：默认走 Intake Intent Issue（逐 file 决策） → `plan` → 执行吸收 → **Intake Review Guard** → `record + advance-ledger` → merge absorb PR（auto-close Intake Intent Issue）；例外：`direct-main historical backfill` / `outbound-filed hotfix` 可用 `--skip-absorbed-guard` 直接补 ledger，无需伪造 issue / absorb PR / review proof
 4. 详细步骤 → [Inbound PR 文档](../refs/opensource-ops-inbound-pr.md)
@@ -145,6 +157,7 @@ owner 时，给铲屎官 2-3 个路由建议，不要本 thread 偷偷开修。
 
 ## 关键原则
 
+0. **Maintainer 目标优先**：开源社区运营的第一职责是守住并建设我们自己的家；外部请求是输入信号，不是任务分派单
 1. **Issue accept 是 Merge 前提**：无 accepted issue 不得 merge
 2. **Merge ≠ Intake**：merge 进开源仓 ≠ 回流到家里，两个独立决策
 3. **Merge 前预判 Intake 类型**：`absorbed` / `public-only` / `manual-port`
@@ -197,6 +210,8 @@ owner 时，给铲屎官 2-3 个路由建议，不要本 thread 偷偷开修。
 |------|------|------|
 | 只看 Repo Inbox 摘要就回复“无明确指令不操作” | 漏掉社区守门职责，issue/PR 悬空 | 通知到达即加载本 skill，打开 GitHub 原对象做首反 |
 | 把 `reconciliation` 当普通日志 | webhook 漏网补偿事件无人处理 | reconciliation 和 webhook 通知同等触发 Read → Ground → Gate → Route |
+| 把社区伙伴写的 feat 号 / issue 号 / “已讨论过”当事实 | 伪锚点或错链路污染家里真相源，后续猫跳过方向判断 | 外部 claim 一律打开 GitHub 原对象 + 家里 docs/thread 核验；伪 Fxxx 不作论据 |
+| 把 maintainer 工作做成“满足贡献者需求” | 方向、架构和维护成本被外部方案牵引 | 先回答：对我们有益吗、改了什么、值不值得 merge/intake、有没有更优雅解法 |
 | 看到 Fxxx / 技术关键词就先投 feature thread，没先打开 `#NNN` 关联 issue/PR | 把 follow-up bug 派错 owner，已有 PR/thread 被绕过 | `#NNN` GitHub 锚点优先；先查 referenced issue/PR 的 state 和 owner，再决定 route |
 | 社区已经有 PR 修 issue，却把单子写成“请下游修复” | 接球猫误以为要重写，绕过社区贡献和 review 链 | linked PR 存在时，下一步默认是 `review-existing-pr` / `merge-gate` |
 | 活跃 contributor 刚提 issue，就立刻派内部猫修 | 抢掉社区贡献机会，也制造重复 PR | 先问作者是否计划自提 PR；短 SLA 后再转内部 fix |

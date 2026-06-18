@@ -16,6 +16,27 @@
 **按顺序逐条检查，任一不过 = 不 merge。**
 **顺序原则（家规 P3）**：先过方向再审质量——方向错的 PR 不值得花时间看代码。
 
+### Step 0: External Claim Grounding（外部 claim 核验）
+
+社区 PR 作者、PR body、commit message、评论里的说法都只是 claim，不是真相源。进入
+`accepted issue` / 方向五问前，先把 claim 落到可验证对象：
+
+| Claim 类型 | 必查真相源 | 失败处理 |
+|-----------|------------|----------|
+| `fixes #NNN` / `follow-up from #NNN` / 裸 `#NNN` | 打开 `clowder-ai#NNN` / `cat-cafe#NNN`，确认仓库、state、标签、评论、owner、是否已有 PR/thread | 错链路或信息不足 → `needs-info` / 请作者改正文案，不继续 merge |
+| `Fxxx` / `feature:Fxxx` / “pre-Fxxx” | `docs/features/Fxxx-*.md` + `docs/decisions/`；再跑 ①-b Feat Anchor Guard | 找不到 doc = 伪锚点；不作方向论据，要求改为 issue ref 或删除 |
+| “tests pass” / “small fix” / “no behavior change” | GitHub checks、PR diff、关键路径测试、受影响文件风险等级 | 不以作者判断替代 maintainer 质量审查 |
+| “already discussed/accepted” | 相关 issue/PR/thread/decision 的原文 | 找不到 maintainer 证据 = 未 accepted |
+
+最小证据包必须回答这 5 个 inbound 问题，缺项则停在 `needs-info` /
+`needs-maintainer-decision`：
+
+1. **它对我们自己的家有益吗？** 对照 `docs/VISION.md`、已有 feature / ADR，而不是只看贡献者需求。
+2. **它实际改了什么？** 用 `gh pr view --json files,commits,title,body` + `gh pr diff` 总结 source intent。
+3. **值得 merge 到 `clowder-ai` 吗？** 判断 issue accept、发布线稳定性、用户影响、维护成本。
+4. **值得 intake 回 `cat-cafe` 吗？** 预判 `absorbed` / `public-only` / `manual-port`，列出 home invariants。
+5. **我们有更优雅的解法或架构切片吗？** 如果有，优先按 maintainer 路线推进；社区 PR 可 merge 后覆盖、push fixup、或礼貌关闭并 acknowledgment。
+
 ### Checklist
 
 - [ ] **① Accepted Issue**：PR 对应的 issue 存在且已被 accept
@@ -472,7 +493,8 @@ bash scripts/intake-from-opensource.sh --advance-ledger
 
 ```
 Issue accept → Merge Gate (B1):
-  ① Accepted Issue → ② 方向（主人翁五问）
+  ⓪ External Claim Grounding
+  → ① Accepted Issue → ② 方向（主人翁五问）
   → ②-b Maintainer Reframing（user-facing 必填）+ UI/UX Design Gate
   → ③ 质量 → ④ Intake 预判
 → Merge (B2)
