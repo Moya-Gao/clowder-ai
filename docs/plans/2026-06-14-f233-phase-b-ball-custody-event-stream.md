@@ -222,8 +222,8 @@ ProbeScheduler 判 satisfied&bounces_back
 Task 2「全 13 event 源接线」拆分（**2026-06-15 opus-46 愿景守护 PASS + 砚砚(gpt-5.5) 共识修正**：铲屎官"别拆太碎" → 剩余合并 2 PR，Phase B 共 4 PR 收工）：
 
 - **PR1（done #2308）— 路由层 handed + void_pass**：`ball-custody-events.ts`（build*Event 纯函数）+ `BallCustodyIngest`（append + appended-guard apply + **per-subjectKey chain** 串行化，云端 P1-2 修）；route-serial **主循环接球时刻** emit handed（覆盖 original user→cat + A2A cat→cat，云端 P1-1 修）+ void-hold sample 点 void_pass；RouteStrategyDeps.ballCustody 注入 + index.ts wiring。
-- **PR3（this branch）— 事件源补齐 + CVO explicit handoff + 死球心跳**：
-  - **新增 wired 9 kinds（累计 11/13）**：hold×2（`ball.held`/`ball.hold_expired`，callback-hold-ball + reminder fire）+ task×3（`task.blocked`/`task.unblocked`/`task.done`，`taskStore.update` decorator）+ invocation×3（`invocation.started`/`heartbeat`/`died`，route-serial draft/keepalive heartbeat **30s 节流** + `reconcileZombies`）+ `ball.handed_cvo`（显式 line-start `@landy` → default `handoff`）。PR1 已有 `ball.handed`/`ball.void_pass`。
+- **PR3（done #2364）— 事件源补齐 + CVO explicit handoff + 死球心跳**：
+  - **新增 wired 9 kinds（累计 11/13）**：hold×2（`ball.held`/`ball.hold_expired`，callback-hold-ball + reminder fire + missed once-window retirement）+ task×3（`task.blocked`/`task.unblocked`/`task.done`，`taskStore.update` decorator）+ invocation×3（`invocation.started`/`heartbeat`/`died`，route-serial draft/keepalive heartbeat **30s 节流** + zombie/startup reconciliation）+ `ball.handed_cvo`（显式 line-start `@landy` → default `handoff`）。PR1 已有 `ball.handed`/`ball.void_pass`。
   - **不伪造来源**：`task.idle_long` 当前没有可信 `taskStore.update` 来源，归 PR4 的 ProbeScheduler/aging 判定；`ball.wake_sent` 是 WakeSender 结果事件，也归 PR4。
   - **handed_cvo 边界**：只用显式 line-start co-creator mention / 结构化路由信号，默认 intent=`handoff`；**不做 NL intent 分类**（KD-8）。`fyi` / `done_notify` 仍需后续显式 intent 入口，CVO 收件箱不在本 PR 宣称转正。
   - **AC-B1 数据层就绪**：`invocation.died.payload.lastScanAt = zombie.recordUpdatedAt`（复用 F194/F212 liveness sweep）；端到端简报点名仍归 PR4 切源验证。
