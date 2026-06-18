@@ -61,7 +61,7 @@ Close the loop between the shipped UI/API behavior and ADR-025: document the fin
 
 ### Phase C（Product Hardening + ADR-025 Alignment）
 - [ ] AC-C1: Console can select a registered project and manage Cat Cafe skills per provider without hand-editing provider directories.
-- [ ] AC-C2: Drift visibility distinguishes managed symlink drift, user-owned conflicts, and source/new-skill changes without deleting user-owned skills silently.
+- [ ] AC-C2: Drift visibility distinguishes managed symlink drift vs source/new-skill changes. Filesystem-level conflicts (managed skill name vs pre-existing dir/file/link in mount point) still block instead of overwriting. **`cascadeDisabledSkills` project-local disable preservation during global toggle scope is removed per KD-6** (over-design vs simplicity trade-off; low-frequency intersection).
 - [ ] AC-C3: ADR-025 is updated from draft status or given a successor note that reflects the final F228 data model and migration semantics.
 - [ ] AC-C4: Public-facing docs or release notes explain the migration/sync behavior for existing users.
 
@@ -94,7 +94,7 @@ Close the loop between the shipped UI/API behavior and ADR-025: document the fin
 |------|------|
 | Feature scope re-expands into a parallel lifecycle system | Keep F228 scoped to multi-project/per-provider skill mount management; evolution/self-modification ideas stay out of this feature. |
 | Schema migration changes truth source through surprising read paths | Require explicit migration semantics and targeted tests before merge/intake. |
-| Filesystem writes corrupt user-owned skills or third-party skill installs | Preserve ADR-025 managed-vs-user-owned distinction; block conflicts instead of overwriting; test rollback/failure paths. |
+| Filesystem writes corrupt user-owned skills or third-party skill installs | Preserve ADR-025 managed-vs-user-owned distinction at filesystem layer; block filesystem conflicts (pre-existing dir/file/link in mount point) instead of overwriting; test rollback/failure paths. In-config project-local disable preservation across global cascade removed per KD-6 (low-frequency intersection — simplicity over edge-case preservation). |
 | Large inbound PR loses home invariants during intake | Use Intake Intent Issue, manual-port high-risk files, and cross-family Intake Review Guard. |
 
 ## Open Questions
@@ -115,6 +115,7 @@ Close the loop between the shipped UI/API behavior and ADR-025: document the fin
 | KD-3 | D Path absorb strategy: outbound sync first → upstream rebase #917 onto sync base → intake back. | Avoids manual port for 83-file +16k/-3.7k diff. Eliminates merge conflicts; preserves community contribution attribution. | 2026-06-17 |
 | KD-4 | Skip mindfn's `ff85ee7` docs commit during intake; cat-cafe maintainer rewrites F228 spec separately. | Avoid foreign authorship in cat-cafe knowledge graph root; mindfn content serves as blueprint reference, not author. | 2026-06-17 |
 | KD-5 | Delete `HubSkillsTab.tsx` + `McpInstallForm.tsx` (replaced by `SkillsContent` + `MountRulesPanel` + `SkillsDriftBanner`) | Vision guardian confirmed zero dangling consumers; replacement is functionally complete. | 2026-06-17 |
+| KD-6 | Accept CVO over-design verdict: remove `cascadeDisabledSkills` mechanism. Global toggle / mount-rule reconciliation cascade is unconditional; project-local disable (`mountPaths: []`) is **not** preserved across global ops. | CVO IM sync 2026-06-17 with `mindfn`: the "preserve project-local disable during global cascade" intersection is low-frequency operation; protecting it adds reasoning cost for users ("I toggled global X, why is project Y skill Z still disabled?") and implementation complexity. Original `cascadeDisabledSkills` was added during #917 inbound review for a user-intent-preservation concern that, on reflection, optimizes for an edge case at the expense of mental-model clarity. Aligns home behavior with `clowder-ai/docs/F228` scenarios 6/7 unconditional cascade spec written by community contributor `mindfn`. Filesystem-level conflicts (managed skill vs pre-existing user-owned dir/file) remain protected per ADR-025 — KD-6 only removes the in-config project-local disable preservation. Follow-up: align home main code with this decision (delete `cascadeDisabledSkills` from 9 files), tracked separately. | 2026-06-18 |
 
 ## Timeline
 
