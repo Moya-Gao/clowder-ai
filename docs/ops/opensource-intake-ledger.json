@@ -1828,9 +1828,10 @@
       "target_merge_commit": "97478a4beeb04a7ac47033bdb53af58757dbfe62",
       "decision": "absorbed",
       "timestamp": "2026-06-18T07:45:42.232Z",
+      "note": "Multi-round cloud-fix push chain 01fe154→8f2aa68→77a4aea→d2fb672→9cab629→2e548b00. Cloud Codex environment not configured on zts212653/cat-cafe (3× consecutive `create an environment for this repo` notices) → cross-provider local fallback review per merge-gate. Manual gate override: pnpm gate blocked by macOS fseventsd RSS preflight, CVO-approved manual equivalent evidence (pnpm test 4284/4284, check 27/27, targeted route-serial/F190).",
       "intake_intent_issue": 2371,
       "absorb_pr": 2379,
-      "review_proof": "https://github.com/zts212653/cat-cafe/pull/2379#issuecomment-4739323520"
+      "review_proof": "https://github.com/zts212653/cat-cafe/pull/2379#issuecomment-4740306290"
     },
     {
       "pr_number": 953,
