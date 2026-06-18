@@ -109,6 +109,7 @@ created: 2026-06-11
 | OQ-1 | 面板形态：抽屉 vs tab | ✅ 抽屉形态（CVO 2026-06-11 贴"随聊随看"）。**2026-06-12**：抽屉内部 tab 切 mode 收敛 header 按钮。**2026-06-13 AC-A8 修订**：铲屎官 dogfood 觉得产物做独立 tab 像"狗皮膏药"→ CVO 拍板 (b) 产物升为 workspaceMode 顶层入口（与开发/记忆/调度/任务/社区平级），PanelTabs 只剩 3 tab（状态/工作区/转录） |
 | OQ-2 | Phase A 是否需 Redis 反向索引加速，还是遍历消息够用 | ⬜ 实现时按 thread 规模实测评估 |
 | OQ-3 | 产物收录范围是否含 `html_widget` / `interactive` block | ⬜ Phase A 先收 file/media_gallery/diff/audio + PR + 文件，其余末期评估 |
+| OQ-4 | 当前对话产物查不全——active-session 文件在 session seal 前不进 ledger/threadMemory，且 relay vs main thread ownership 让"当前对话"看似空 | ⬜ 待 CVO——铲屎官 2026-06-17 体感"当前对话文件/md 找不到"的根因之一；PR #2362 诊断（`thread_mqcbdk4olvi4cval` 仅 3 PR vs main F232 thread `thread_mq9za0fv55o9s28g` 17 产物）但只修了"修改过代码分类"，未碰 data freshness；是否排期待 CVO 决定 |
 
 ## Key Decisions
 
