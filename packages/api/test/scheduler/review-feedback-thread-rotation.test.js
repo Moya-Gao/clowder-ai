@@ -365,6 +365,207 @@ describe('#949: MR review thread rotation', () => {
   });
 });
 
+// ── F140 post-completion hardening (2026-06-17): source-thread backlink ──
+// Trust gap: when rotation happens, the ORIGINAL source thread receives no
+// system notice. Users waiting on the source thread silently lose visibility
+// of where review feedback now lands. Sidebar visibility of auto-rotated
+// thread is a separate F057/#949 follow-up; F140 owns the source-thread
+// backlink as the trust-gap floor (always at least one breadcrumb on the
+// source thread linking to the rotated thread).
+
+function mockBacklinkDelivery() {
+  const appendCalls = [];
+  const broadcastCalls = [];
+  let counter = 0;
+  return {
+    deps: {
+      messageStore: {
+        append: async (input) => {
+          counter++;
+          const msg = { id: `msg-${counter}`, timestamp: Date.now(), ...input };
+          appendCalls.push(input);
+          return msg;
+        },
+      },
+      socketManager: {
+        broadcastToRoom: (room, event, data) => {
+          broadcastCalls.push({ room, event, data });
+        },
+      },
+    },
+    _appendCalls: appendCalls,
+    _broadcastCalls: broadcastCalls,
+  };
+}
+
+describe('F140 post-completion hardening: source-thread backlink on rotation', () => {
+  it('appends AND broadcasts backlink to original thread when rotation succeeds (P2 cloud codex fix on PR #2372)', async () => {
+    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
+    const task = mockTask(
+      { repoFullName: 'owner/repo', prNumber: 42, catId: 'opus', threadId: 'th-original', userId: 'u-1' },
+      { automationState: { review: { lastCommentCursor: 0, lastDecisionCursor: 0, completedReviewCount: 3 } } },
+    );
+    const store = mockTaskStore([task]);
+    const threadStore = mockThreadStore();
+    const backlink = mockBacklinkDelivery();
+    const { router } = stubRouter();
+    const spec = createReviewFeedbackTaskSpec({
+      taskStore: store,
+      fetchComments: async () => [
+        { id: 10, author: 'bob', body: 'needs fix', createdAt: '2026-01-01', commentType: 'conversation' },
+      ],
+      fetchReviews: async () => [],
+      reviewFeedbackRouter: router,
+      threadStore,
+      backlinkDelivery: backlink.deps,
+      maxReviewsPerThread: 3,
+      log: noopLog,
+    });
+
+    const gateResult = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
+    await spec.run.execute(gateResult.workItems[0].signal, 'pr:owner/repo#42', {});
+
+    assert.equal(threadStore._createCalls.length, 1, 'rotation should have happened');
+    const newThreadId = threadStore._createCalls[0].thread.id;
+
+    // 1. PERSISTED (messageStore.append) → on ORIGINAL thread
+    assert.equal(backlink._appendCalls.length, 1, 'should append exactly one backlink message');
+    const appended = backlink._appendCalls[0];
+    assert.equal(appended.threadId, 'th-original', 'backlink must go to original thread');
+    assert.ok(appended.content.includes('#42'), 'PR number');
+    assert.ok(appended.content.includes(newThreadId), 'rotated thread id');
+    assert.ok(appended.content.includes('auto-rotated') || appended.content.includes('转投'), 'rotation cue');
+
+    // 2. BROADCAST LIVE (socketManager.broadcastToRoom) — this is the P2 fix.
+    // Without broadcast, the breadcrumb is invisible in live UI until manual refresh.
+    assert.equal(backlink._broadcastCalls.length, 1, 'should broadcast exactly one connector_message');
+    const broadcast = backlink._broadcastCalls[0];
+    assert.equal(broadcast.room, 'thread:th-original', 'broadcast room must target ORIGINAL thread');
+    assert.equal(broadcast.event, 'connector_message', 'event type for web client live update');
+    assert.equal(broadcast.data.threadId, 'th-original', 'broadcast payload threadId');
+    assert.ok(broadcast.data.message.content.includes(newThreadId), 'broadcast content includes rotated id');
+    assert.equal(broadcast.data.message.type, 'connector', 'message type');
+    assert.equal(broadcast.data.message.source.connector, 'github-review-feedback', 'connector source');
+
+    // P1.1 fix (codex PR #2372 review): tag as system_notice so SystemNoticeBar renders.
+    assert.equal(
+      broadcast.data.message.source.meta?.presentation,
+      'system_notice',
+      'source.meta.presentation must be system_notice for SystemNoticeBar rendering',
+    );
+    assert.equal(
+      appended.source?.meta?.presentation,
+      'system_notice',
+      'persisted message source.meta.presentation must match (hydration parity)',
+    );
+
+    // P2 fix (codex PR #2372 review): clickable Markdown link, not raw id.
+    assert.ok(
+      appended.content.includes(`[`) && appended.content.includes(`](/thread/${newThreadId})`),
+      `content must contain a Markdown link [/thread/${newThreadId}], got: ${appended.content}`,
+    );
+  });
+
+  it('does NOT post backlink when rotation does NOT happen (below threshold)', async () => {
+    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
+    const task = mockTask(
+      { repoFullName: 'owner/repo', prNumber: 42, catId: 'opus', threadId: 'th-below', userId: 'u-1' },
+      { automationState: { review: { lastCommentCursor: 0, lastDecisionCursor: 0, completedReviewCount: 1 } } },
+    );
+    const store = mockTaskStore([task]);
+    const threadStore = mockThreadStore();
+    const backlink = mockBacklinkDelivery();
+    const { router } = stubRouter();
+    const spec = createReviewFeedbackTaskSpec({
+      taskStore: store,
+      fetchComments: async () => [
+        { id: 10, author: 'bob', body: 'tiny fix', createdAt: '2026-01-01', commentType: 'conversation' },
+      ],
+      fetchReviews: async () => [],
+      reviewFeedbackRouter: router,
+      threadStore,
+      backlinkDelivery: backlink.deps,
+      maxReviewsPerThread: 3,
+      log: noopLog,
+    });
+
+    const gateResult = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
+    await spec.run.execute(gateResult.workItems[0].signal, 'pr:owner/repo#42', {});
+
+    assert.equal(threadStore._createCalls.length, 0, 'no rotation');
+    assert.equal(backlink._appendCalls.length, 0, 'no append when no rotation');
+    assert.equal(backlink._broadcastCalls.length, 0, 'no broadcast when no rotation');
+  });
+
+  it('rotation still works when backlinkDelivery is NOT provided (backward compat)', async () => {
+    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
+    const task = mockTask(
+      { repoFullName: 'owner/repo', prNumber: 42, catId: 'opus', threadId: 'th-noms', userId: 'u-1' },
+      { automationState: { review: { lastCommentCursor: 0, lastDecisionCursor: 0, completedReviewCount: 3 } } },
+    );
+    const store = mockTaskStore([task]);
+    const threadStore = mockThreadStore();
+    const { router } = stubRouter();
+    const spec = createReviewFeedbackTaskSpec({
+      taskStore: store,
+      fetchComments: async () => [
+        { id: 10, author: 'bob', body: 'review', createdAt: '2026-01-01', commentType: 'conversation' },
+      ],
+      fetchReviews: async () => [],
+      reviewFeedbackRouter: router,
+      threadStore,
+      // backlinkDelivery intentionally omitted
+      maxReviewsPerThread: 3,
+      log: noopLog,
+    });
+
+    const gateResult = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
+    await spec.run.execute(gateResult.workItems[0].signal, 'pr:owner/repo#42', {});
+
+    assert.equal(threadStore._createCalls.length, 1, 'rotation still works without backlinkDelivery');
+  });
+
+  it('rotation continues even if backlink delivery throws (best-effort)', async () => {
+    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
+    const task = mockTask(
+      { repoFullName: 'owner/repo', prNumber: 42, catId: 'opus', threadId: 'th-failms', userId: 'u-1' },
+      { automationState: { review: { lastCommentCursor: 0, lastDecisionCursor: 0, completedReviewCount: 3 } } },
+    );
+    const store = mockTaskStore([task]);
+    const threadStore = mockThreadStore();
+    const failingDelivery = {
+      messageStore: {
+        append: async () => {
+          throw new Error('intentional append failure');
+        },
+      },
+      socketManager: {
+        broadcastToRoom: () => {},
+      },
+    };
+    const { router, calls } = stubRouter();
+    const spec = createReviewFeedbackTaskSpec({
+      taskStore: store,
+      fetchComments: async () => [
+        { id: 10, author: 'bob', body: 'review', createdAt: '2026-01-01', commentType: 'conversation' },
+      ],
+      fetchReviews: async () => [],
+      reviewFeedbackRouter: router,
+      threadStore,
+      backlinkDelivery: failingDelivery,
+      maxReviewsPerThread: 3,
+      log: noopLog,
+    });
+
+    const gateResult = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
+    await spec.run.execute(gateResult.workItems[0].signal, 'pr:owner/repo#42', {});
+
+    assert.equal(threadStore._createCalls.length, 1, 'rotation should still happen');
+    assert.equal(calls.length, 1, 'delivery to new thread should still happen');
+    assert.equal(calls[0].tracking.threadId, threadStore._createCalls[0].thread.id, 'delivery to NEW thread');
+  });
+});
+
 describe('#949: Verdict-without-pass suppression for connector source', () => {
   it('connector-sourced invocation (verdictPassWarningEnabled=false) skips verdict warning', async () => {
     // This test documents the expected behavior:

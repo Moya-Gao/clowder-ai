@@ -12,6 +12,8 @@ import type { CatId, CommunityEvent, TaskItem } from '@cat-cafe/shared';
 import { parsePrSubjectKey } from '@cat-cafe/shared';
 import type { ITaskStore } from '../../domains/cats/services/stores/ports/TaskStore.js';
 import type { IThreadStore } from '../../domains/cats/services/stores/ports/ThreadStore.js';
+import type { ConnectorDeliveryDeps } from './deliver-connector-message.js';
+import { deliverConnectorMessage } from './deliver-connector-message.js';
 import type { ICommunityEventLog } from '../../domains/community/CommunityEventLog.js';
 import { decideDelivery } from '../../domains/community/community-delivery-policy.js';
 import type { ExecuteContext, TaskSpec_P1 } from '../scheduler/types.js';
@@ -73,6 +75,18 @@ export interface ReviewFeedbackTaskSpecOptions {
    * but 3 is the conservative floor).
    */
   readonly maxReviewsPerThread?: number;
+  /**
+   * F140 post-completion hardening (2026-06-17): source-thread backlink delivery deps.
+   * When provided, rotation success posts a connector-style message on the ORIGINAL
+   * source thread linking to the rotated MR review thread. Uses deliverConnectorMessage
+   * so the backlink is both PERSISTED (messageStore.append) and BROADCAST live to the
+   * web client (socketManager.broadcastToRoom) — without broadcast, the breadcrumb is
+   * invisible until manual refresh, leaving the trust gap unclosed (P2 from cloud
+   * codex review on PR #2372).
+   *
+   * Best-effort: failure does not block delivery to the rotated thread.
+   */
+  readonly backlinkDelivery?: ConnectorDeliveryDeps;
 }
 
 function resolveCursor(memoryCursor: number | undefined, persistedCursor: number | undefined): number {
@@ -436,6 +450,44 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
             opts.log.info(
               `[review-feedback] Thread rotated: ${task.threadId} → ${newThread.id} (${completedCount} reviews completed)`,
             );
+
+            // F140 post-completion hardening (2026-06-17): trust-gap floor.
+            // Auto-rotated threads may not yet be discoverable in ThreadSidebar
+            // (separate F057/#949 follow-up). Post a connector-style breadcrumb
+            // on the ORIGINAL thread using deliverConnectorMessage so it is BOTH
+            // persisted (append) AND broadcast live (socket) — cloud codex P2
+            // on PR #2372 caught that append-only was invisible until refresh.
+            // Best-effort: failure must not block delivery to the rotated thread.
+            if (opts.backlinkDelivery) {
+              try {
+                const newThreadLabel = newThread.title ?? 'MR Review';
+                await deliverConnectorMessage(opts.backlinkDelivery, {
+                  threadId: originalThreadId,
+                  userId: task.userId ?? '',
+                  catId: task.ownerCatId ?? '',
+                  content:
+                    `📌 PR #${signal.prNumber} (${signal.repoFullName}) review feedback ` +
+                    `已转投到 auto-rotated thread。\n\n` +
+                    `→ 新 thread: [${newThreadLabel}](/thread/${newThread.id}) (\`${newThread.id}\`)\n` +
+                    `后续 review 通知将在新 thread 投递。`,
+                  source: {
+                    connector: 'github-review-feedback',
+                    label: 'Review Feedback (rotated)',
+                    icon: 'github',
+                    url: `https://github.com/${signal.repoFullName}/pull/${signal.prNumber}`,
+                    // P1.1 fix per codex review on PR #2372: tag presentation as
+                    // system_notice so ChatMessage renders this via SystemNoticeBar
+                    // rather than as a regular user/connector message.
+                    meta: { presentation: 'system_notice' },
+                  },
+                });
+              } catch (backlinkErr) {
+                opts.log.warn(
+                  `[review-feedback] Source-thread backlink delivery failed for ${subjectKey}, rotation/delivery continues`,
+                  backlinkErr,
+                );
+              }
+            }
           } catch (e) {
             // Rotation failed — fall back to original thread (best-effort)
             opts.log.warn(

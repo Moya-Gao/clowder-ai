@@ -3753,6 +3753,9 @@ async function main(): Promise<void> {
         invokeTrigger,
         // #949: thread rotation — inject threadStore so MR review threads can rotate
         threadStore,
+        // F140 post-completion hardening (2026-06-17): source-thread backlink reuses
+        // deliveryDeps (existing repo-scan delivery deps) so the breadcrumb is BOTH
+        // persisted and broadcast live to the web client (cloud codex P2 on PR #2372).
         checkMergeable,
         autoExecutor,
         fetchPrMetadata,

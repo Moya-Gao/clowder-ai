@@ -64,6 +64,10 @@ export interface GitHubScheduleDeps extends ScheduleFactoryDeps {
   invokeTrigger: ConnectorInvokeTrigger;
   /** #949: Thread store for MR review thread rotation (create fresh threads when context overflows) */
   threadStore?: Pick<IThreadStore, 'create' | 'get'>;
+  // Note: F140 source-thread backlink uses the existing `deliveryDeps`
+  // (ConnectorDeliveryDeps with messageStore + socketManager) already declared
+  // above for repo-scan delivery. No separate field — rotation backlink reuses
+  // the same delivery dependency to guarantee append + broadcast.
   checkMergeable: (repo: string, pr: number) => Promise<{ mergeState: string; headSha: string }>;
   autoExecutor: ConflictAutoExecutor;
   fetchPrMetadata: (repo: string, pr: number) => Promise<ReviewFeedbackPrMetadata | null>;
@@ -170,6 +174,9 @@ const reviewFeedbackFactory: ScheduleFactory = {
       projector: d.projector,
       // #949: thread rotation deps
       threadStore: d.threadStore,
+      // F140 post-completion hardening (2026-06-17): source-thread backlink delivery
+      // (reuses existing deliveryDeps so the breadcrumb is BOTH persisted and broadcast).
+      backlinkDelivery: d.deliveryDeps,
     }) as TaskSpec_P1;
   },
 };
