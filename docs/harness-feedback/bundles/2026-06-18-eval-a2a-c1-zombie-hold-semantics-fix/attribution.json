@@ -1,0 +1,56 @@
+{
+  "verdictId": "2026-06-18-eval-a2a-c1-zombie-hold-semantics-fix",
+  "featureId": "F167",
+  "evalSnapshotId": "eval-F167-2026-06-18",
+  "generatedAt": "2026-06-18T03:08:07.793Z",
+  "findings": [
+    {
+      "id": "AR-2026-06-18-001",
+      "relatedFeature": "F167",
+      "frictionSignal": {
+        "type": "c1.zombie_hold_count",
+        "severity": "high",
+        "confidence": 0.7
+      },
+      "attribution": {
+        "primaryLayer": "harness_misfit",
+        "pipelineOrHuman": "human-required",
+        "evidence": [
+          {
+            "type": "counter",
+            "anchor": "C1/c1.zombie_hold_count",
+            "excerpt": "c1.zombie_hold_count=4 (baseline hold_ball_calls=6, ratio=66.7%)"
+          },
+          {
+            "type": "per-fire-sample",
+            "anchor": "C1/c1.zombie_hold_count/80a244a377696d7e",
+            "excerpt": "firedAt=2026-06-18T02:26:36.276Z trigger=prior_long agentId=codex threadSystemKind=product"
+          },
+          {
+            "type": "per-fire-sample",
+            "anchor": "C1/c1.zombie_hold_count/6ce1327206e21300",
+            "excerpt": "firedAt=2026-06-18T02:08:30.738Z trigger=prior_short agentId=opus threadSystemKind=product"
+          },
+          {
+            "type": "per-fire-sample",
+            "anchor": "C1/c1.zombie_hold_count/5009f9a62c694c64",
+            "excerpt": "firedAt=2026-06-18T01:44:12.496Z trigger=prior_long agentId=codex threadSystemKind=product"
+          },
+          {
+            "type": "per-fire-sample",
+            "anchor": "C1/c1.zombie_hold_count/05e66fe0bda272fa",
+            "excerpt": "firedAt=2026-06-18T01:43:33.314Z trigger=prior_long agentId=codex threadSystemKind=product"
+          }
+        ]
+      },
+      "proposedAction": [
+        {
+          "action": "harness-tune",
+          "target": "C1/c1.zombie_hold_count",
+          "rationale": "c1.zombie_hold_count ratio 66.7% exceeds threshold"
+        }
+      ],
+      "status": "open"
+    }
+  ]
+}

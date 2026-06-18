@@ -1,0 +1,19 @@
+{
+  "verdictId": "2026-06-18-eval-a2a-c1-zombie-hold-semantics-fix",
+  "rawInputs": [
+    {
+      "path": "docs/harness-feedback/snapshots/2026-06-18-F167-eval.yaml",
+      "sha256": "fdc7d4f5f2eebab9936d80bb5baad88aa0a1a08672f57fd47a3c1307fc472955"
+    },
+    {
+      "path": "docs/harness-feedback/attributions/2026-06-18-F167-attribution.yaml",
+      "sha256": "56aa3dba43ab91b5c077e65751c11c4a9b9980cc78d21df604e3fc47a11e556d"
+    }
+  ],
+  "generatedAt": "2026-06-18T03:08:07.793Z",
+  "generator": {
+    "name": "eval-a2a-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f192-e-pilot-v1"
+}

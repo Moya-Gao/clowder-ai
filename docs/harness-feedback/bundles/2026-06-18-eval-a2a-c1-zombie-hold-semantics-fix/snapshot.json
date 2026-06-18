@@ -1,0 +1,25 @@
+{
+  "verdictId": "2026-06-18-eval-a2a-c1-zombie-hold-semantics-fix",
+  "evalSnapshotId": "eval-F167-2026-06-18",
+  "featureId": "F167",
+  "generatedAt": "2026-06-18T03:08:07.789Z",
+  "window": {
+    "startMs": 1781680872431,
+    "endMs": 1781752080726,
+    "durationHours": 19.78
+  },
+  "components": [
+    {
+      "id": "C1",
+      "name": "hold_ball (MCP tool)",
+      "confidence": "medium",
+      "activationCounts": {
+        "hold_ball_calls": 6
+      },
+      "frictionCounts": {
+        "c1.zombie_hold_count": 4,
+        "c1.hold_cancel_count": 2
+      }
+    }
+  ]
+}
