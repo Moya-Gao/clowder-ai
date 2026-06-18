@@ -524,12 +524,14 @@ skills:
     category: "引导与协作"
     description: >
       跨 thread 协同：发现平行 session → 通知（3+2 件套）→ 争用协调 → 确认。
-      Use when: 平行 session 之间需要协同、通知改动影响、共享文件争用。
+      Use when: 平行 session 之间需要协同、收到跨线程消息、通知改动影响、共享文件争用。
       Not for: 跨猫工作交接（用 cross-cat-handoff）。
+      GOTCHA: 收到跨线程 ACTION 不等于接活；先做 thread/feat ownership gate，不属于当前 thread 就 cross-post 退回。
       Output: cross-post 通知 + 争用协调完成。
     triggers:
       - "通知另一个 session"
       - "跨 thread"
+      - "跨线程消息"
       - "平行世界"
       - "parallel session sync"
       - "另一只布偶猫"
