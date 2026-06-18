@@ -1,7 +1,7 @@
 # Codex live bubble split — root cause (race in live reducer)
 
 > 2026-06-16 | 诊断: 宪宪/Opus-48 | F194 post-close regression（codex 气泡裂 saga 第 17 轮的**根因记录**）
-> 状态: **root cause confirmed (真实样本坐实, 见 §真实样本坐实-session5), fix not yet implemented**
+> 状态: **R17 fix shipped (#2349), R18 recurrence confirmed (见 §R18-复发-background-invocation_created-漏桥接)**
 > ⚠️ 下方 §根因 / §修复方向 的"parent-id 建泡 + 6 条件启发式竞态"是 **2026-06-16 的早期假设**，
 > 已被 2026-06-17 (session #5) 铲屎官 devtools 真实样本**修正**：真根因是 **dual-path（active + background
 > 双路径）各建一泡 + background 关联了一个非持久化的不同 turnInvocationId**。以 §真实样本坐实 为准。
@@ -221,3 +221,67 @@ codex 的 tool/work-log stream 事件**不带 `msg.turnInvocationId`**（只有 
 - **红测**：`installActiveHarness` 模拟「回复事件流中途 `currentThreadId` 从 Y 切走 → 后续事件走 background path，且 tool 事件无 msg.turnInvocationId」→ 断言收敛为 **1** 个 codex stream bubble。这是现有 292 测试**未覆盖的"中途切 thread 双路径"维度**。
 
 > ⚠️ Read 可靠性：本 session 深 context 下 Read 多次出现 display 重复/损坏（如同作用域 `const` 重复=编译不过的假象）。上面行号经函数名锚定核验过核心逻辑，但**实现者动手前仍应在干净 context 下重读确认确切行**，尤其 `resolveEffectiveTurnInvocationIdForCat` 全文 + :1635 上下文。
+
+## R18 复发：background `invocation_created` 漏桥接（2026-06-17，砚砚/GPT-5.5）
+
+### 复发现象
+
+- 线程：`thread_mqcbdk4olvi4cval`（F232 Phase B）。
+- 铲屎官截图：一个 codex 回复 live 渲染成「正文泡 + 下方 CLI Output-only 泡」。
+- runtime 已含 #2349（不是环境没同步）。截图 footer 对应第一段 codex invocation 的 usage；随后 live reducer 又出现同 parent 的工具泡。
+
+### 与 #2349 的边界差异
+
+#2349 修的是：active 路径已经把 parent-only seed 绑定到 turn 之后，**后续 background tool event** 可按 `msg.threadId`
+从 active ledger 恢复 turn，避免落到 drifted `catInvocations` shadow turn。
+
+R18 新漏点是：用户在 `invocation_created` 到达前切走，导致 **`invocation_created` 自己也走 background path**。这时
+`bgStreamRefs` 还没有当前 seed，`finalizeStaleBackgroundInvocationStreams` 只信 `bgStreamRefs`，不读 active ledger；active
+路径先建的 `msg-{parent}-codex` seed 没被 parent→turn upgrade。后续 `done`/late no-turn tool 再遇到
+`catInvocations` drift，就能生成截图里的 CLI-only shadow bubble。
+
+### 精确 fix
+
+在 `finalizeStaleBackgroundInvocationStreams` 的 upgrade gate 中桥接 active ledger：
+
+- 只接受同 `threadId + catId`、同 `message.id`、同 parent `invocationId`、`seedSource === 'fresh-parent-seed'` 的 ledger entry。
+- 通过既有 `isCurrentFreshParentSeed(...)` 时间/seq 窗口校验，保留 #2349 的 Z3 红线。
+- upgrade 成功后仅当目标 bubble 仍在 streaming 时写回 `bgStreamRefs` 和 active ledger 为 `seedSource: 'bound'`；finalized collision target 必须清掉这些 live refs。
+
+### R18 collision 状态机不变量（cloud review R1-R4 后补）
+
+当 delayed background `invocation_created` 把 active parent-only seed 升级到 `msg-{turn}-codex` 时，目标 turn bubble
+可能已经被 earlier turn-stamped background chunk 创建，甚至已经被 `done` finalize。这个 collision 不是普通
+`replaceThreadMessageId`，必须显式维护三条状态边：
+
+| 状态边 | 不变量 |
+|---|---|
+| parent seed → existing turn bubble | seed 的 content / toolEvents / rich/content blocks 必须并入 existing turn bubble，不能被 ID collision drop 掉 |
+| plain text seed → existing turn text | plain text 没有 chunk id，不能用 substring/`includes` 当重复判断；两个非空 live buffer 必须拼接，避免短 chunk（`OK` / `the` / 单字）被误删 |
+| parent seed → replace-mode target | 若 target 由 `textMode: replace` chunk 写成，它已经 supersede 旧 partial；collision merge 必须保留 target text，不能再 prepend seed |
+| streaming seed → finalized target | target 已 `isStreaming === false` 时，merge 后仍为 finalized，不得被 seed 重新打开 |
+| finalized target → later turn events | finalized collision merge 不得重新写入 `bgStreamRefs`；后续带显式不同 `turnInvocationId` 的 background tool 必须新建自己的 turn bubble，不能被 stale ref 吸进旧泡 |
+| bound live target → finalized target | `bound` active ledger 只能指向仍在 streaming 的 live bubble；无论是 normal `done` finalize 还是 collision merge 到 finalized target，都必须清掉 active bound ledger |
+| finalized target → later no-turn events | finalized target 不得保留 active bound ledger；后续无 `turnInvocationId` 的 background tool 必须重新从当前 thread state 恢复 turn，不能被旧 active ledger 吸进 finalized target |
+
+active ledger 和 `bgStreamRefs` 只追踪当前仍在 streaming 的 live target。finalized collision target 已经退出 live lifecycle；
+如果仍保留 active bound ledger，`ensureBackgroundAssistantMessage` 会优先读旧 turn，使后续同 parent、无 `turnInvocationId`
+的 work-log/tool 事件落回 finalized 旧泡。
+
+### 守门测试
+
+`packages/web/src/hooks/__tests__/useAgentMessages-codex-dual-path-thread-switch.test.ts` 新增：
+
+- `[background invocation_created] upgrades the active parent-only seed before late background tools arrive`
+- 复现序列：active text/tool 建 parent-only seed → 切到别的 thread → background `invocation_created` →
+  drift `catInvocations` → streaming 期间 late no-turn background tool → `done`。
+- 断言：id 从 `msg-{parent}-codex` 升级到 `msg-{turn}-codex`，streaming 期间不得出现 `msg-{shadow}-codex`；
+  `done` 后 active bound ledger 必须清空。
+- collision follow-ups:
+  - `[background invocation_created] preserves the active parent seed when the turn bubble already exists`
+  - `[background invocation_created] preserves substring seed chunks during collision merge`
+  - `[background invocation_created] preserves replace-mode target text during collision merge`
+  - `[ledger lifecycle] background done clears bound ledger entry before next-turn no-turn tools`
+  - `[background invocation_created] keeps an existing finalized turn bubble finalized`
+  - `[background invocation_created] does not leave a finalized collision ref for later turns`
+  - `[background invocation_created] clears finalized collision active ledger before no-turn later tools`

@@ -66,6 +66,28 @@ function textY(content: string, ts: number, turn?: string) {
   };
 }
 
+function invocationCreatedY(turn: string, ts: number) {
+  return {
+    type: 'system_info' as const,
+    catId: 'codex' as const,
+    threadId: THREAD_Y,
+    content: JSON.stringify({ type: 'invocation_created', invocationId: turn, catId: 'codex' }),
+    invocationId: PARENT,
+    timestamp: ts,
+  };
+}
+
+function doneY(ts: number, turn: string) {
+  return {
+    type: 'done' as const,
+    catId: 'codex' as const,
+    threadId: THREAD_Y,
+    invocationId: PARENT,
+    turnInvocationId: turn,
+    timestamp: ts,
+  };
+}
+
 /** Contaminate thread Y's per-thread catInvocations with a turn id (mimics a new codex invocation context). */
 function setThreadYTurn(turn: string) {
   const state = useChatStore.getState();
@@ -83,7 +105,7 @@ function setThreadYTurn(turn: string) {
 describe('Codex dual-path thread switch — one reply must stay ONE bubble', () => {
   const harness = installActiveHarness();
 
-  it('[mid-reply thread switch] active bubble + post-finalize background tool events converge to ONE bubble', () => {
+  it('[mid-reply thread switch] active bubble + streaming background tool events converge to ONE bubble', () => {
     // Live turn context for thread Y: catInvocations binds codex to PARENT/TURN.
     useChatStore.setState({
       catInvocations: { codex: { invocationId: PARENT, turnInvocationId: TURN } },
@@ -106,20 +128,11 @@ describe('Codex dual-path thread switch — one reply must stay ONE bubble', () 
     useChatStore.getState().setCurrentThread(THREAD_X);
     expect(useChatStore.getState().currentThreadId).toBe(THREAD_X);
 
-    // ── Phase 3: the rest of the reply streams + finalizes via the BACKGROUND path ──
-    // A trailing stream chunk binds the background ref to the existing bubble, then
-    // `done` finalizes it (streaming=false). Crucially, the active runtime ledger for
-    // Y still holds the bound bubble — the active deleteActive only ever clears the
-    // CURRENT thread's (now X) ledger.
+    // ── Phase 3: the rest of the reply streams via the BACKGROUND path ──
+    // A trailing stream chunk binds the background ref to the existing bubble.
+    // The active runtime ledger for Y stays bound only while the bubble is still
+    // streaming; `done` must clear it so later turns cannot inherit stale state.
     harness.send(textY(' 继续补充结论。', 1230, TURN));
-    harness.send({
-      type: 'done' as const,
-      catId: 'codex' as const,
-      threadId: THREAD_Y,
-      invocationId: PARENT,
-      turnInvocationId: TURN,
-      timestamp: 1250,
-    });
     expect(getActiveBubble(getThreadRuntimeLedger(), THREAD_Y, 'codex')).toMatchObject({
       messageId: `msg-${TURN}-codex`,
     });
@@ -141,8 +154,230 @@ describe('Codex dual-path thread switch — one reply must stay ONE bubble', () 
     const bubblesY = threadCodexStreamBubbles(THREAD_Y);
     expect(bubblesY.map((m) => m.id)).not.toContain(`msg-${SHADOW}-codex`);
     expect(bubblesY).toHaveLength(1);
-    expect(bubblesY[0]!.content).toContain('我来查 OKF');
-    expect(bubblesY[0]!.toolEvents?.length ?? 0).toBeGreaterThan(0);
+    expect(bubblesY[0]?.content).toContain('我来查 OKF');
+    expect(bubblesY[0]?.toolEvents?.length).toBeGreaterThan(0);
+
+    harness.send(doneY(1450, TURN));
+    expect(getActiveBubble(getThreadRuntimeLedger(), THREAD_Y, 'codex')).toBeUndefined();
+  });
+
+  it('[background invocation_created] upgrades the active parent-only seed before late background tools arrive', () => {
+    harness.render();
+
+    // R18 recurrence: text/tool events create a parent-only seed while the operator
+    // is viewing thread Y. Then the operator switches away BEFORE invocation_created
+    // arrives, so invocation_created is handled by the BACKGROUND path. The old
+    // #2349 guard only let later background tool events read the active ledger; it
+    // did not let background invocation_created upgrade that active parent-only seed.
+    harness.send(textY('第一段长回复正文，已经是用户可见内容。', 1100));
+    harness.send(toolY(1110, 'rg -n "F194" packages/web'));
+
+    let bubblesY = threadCodexStreamBubbles(THREAD_Y);
+    expect(bubblesY).toHaveLength(1);
+    expect(bubblesY[0]?.id).toBe(`msg-${PARENT}-codex`);
+    expect(bubblesY[0]?.extra?.stream?.turnInvocationId).toBeUndefined();
+
+    useChatStore.getState().setCurrentThread(THREAD_X);
+    const TURN_BG = '8ac44fbc-background-turn';
+    harness.send(invocationCreatedY(TURN_BG, 1120));
+
+    bubblesY = threadCodexStreamBubbles(THREAD_Y);
+    expect(bubblesY).toHaveLength(1);
+    expect(bubblesY[0]?.content).toContain('第一段长回复正文');
+    expect(bubblesY[0]?.id).toBe(`msg-${TURN_BG}-codex`);
+    expect(bubblesY[0]?.extra?.stream?.turnInvocationId).toBe(TURN_BG);
+
+    // A no-turn tool event that arrives while the bubble is still streaming should
+    // still converge onto TURN_BG. If background invocation_created failed to
+    // bridge the active ledger, catInvocations can drift to a shadow turn and this
+    // creates the empty CLI-only split bubble seen in the screenshot.
+    setThreadYTurn(SHADOW);
+    harness.send(toolY(1140, 'sed -n "1,120p" packages/web/src/hooks/useAgentMessages.ts'));
+
+    bubblesY = threadCodexStreamBubbles(THREAD_Y);
+    expect(bubblesY.map((m) => m.id)).not.toContain(`msg-${SHADOW}-codex`);
+    expect(bubblesY).toHaveLength(1);
+    expect(bubblesY[0]?.toolEvents?.length ?? 0).toBeGreaterThan(1);
+
+    harness.send(doneY(1150, TURN_BG));
+    expect(getActiveBubble(getThreadRuntimeLedger(), THREAD_Y, 'codex')).toBeUndefined();
+  });
+
+  it('[ledger lifecycle] background done clears bound ledger entry before next-turn no-turn tools', () => {
+    harness.render();
+
+    harness.send(textY('streaming parent seed that will be upgraded. ', 1100));
+    harness.send(toolY(1110, 'rg -n "F194" packages/web'));
+
+    useChatStore.getState().setCurrentThread(THREAD_X);
+    const TURN_BG = '8ac44fbc-background-turn';
+    const TURN_NEXT = 'c8d2a1f9-next-turn';
+
+    harness.send(invocationCreatedY(TURN_BG, 1120));
+
+    let bubblesY = threadCodexStreamBubbles(THREAD_Y);
+    expect(bubblesY).toHaveLength(1);
+    expect(bubblesY[0]?.id).toBe(`msg-${TURN_BG}-codex`);
+    expect(getActiveBubble(getThreadRuntimeLedger(), THREAD_Y, 'codex')).toMatchObject({
+      messageId: `msg-${TURN_BG}-codex`,
+    });
+
+    harness.send(doneY(1130, TURN_BG));
+    expect(getActiveBubble(getThreadRuntimeLedger(), THREAD_Y, 'codex')).toBeUndefined();
+
+    setThreadYTurn(TURN_NEXT);
+    harness.send(toolY(1140, 'rg -n "next turn without explicit turn" packages/web'));
+
+    bubblesY = threadCodexStreamBubbles(THREAD_Y);
+    expect(bubblesY.map((message) => message.id).sort()).toEqual(
+      [`msg-${TURN_BG}-codex`, `msg-${TURN_NEXT}-codex`].sort(),
+    );
+    expect(bubblesY.find((message) => message.id === `msg-${TURN_BG}-codex`)?.isStreaming).toBe(false);
+    expect(bubblesY.find((message) => message.id === `msg-${TURN_NEXT}-codex`)?.toolEvents).toHaveLength(1);
+  });
+
+  it('[background invocation_created] preserves the active parent seed when the turn bubble already exists', () => {
+    harness.render();
+
+    harness.send(textY('parent seed content that must survive. ', 1100));
+    harness.send(toolY(1110, 'rg -n "F194" packages/web'));
+
+    useChatStore.getState().setCurrentThread(THREAD_X);
+    const TURN_BG = '8ac44fbc-background-turn';
+
+    // A turn-stamped background chunk can create msg-<turn>-codex before the
+    // delayed invocation_created event upgrades the active parent-only seed.
+    harness.send(textY('turn bubble content that arrived first.', 1115, TURN_BG));
+
+    let bubblesY = threadCodexStreamBubbles(THREAD_Y);
+    expect(bubblesY.map((m) => m.id).sort()).toEqual([`msg-${PARENT}-codex`, `msg-${TURN_BG}-codex`].sort());
+
+    harness.send(invocationCreatedY(TURN_BG, 1120));
+
+    bubblesY = threadCodexStreamBubbles(THREAD_Y);
+    expect(bubblesY).toHaveLength(1);
+    expect(bubblesY[0]?.id).toBe(`msg-${TURN_BG}-codex`);
+    expect(bubblesY[0]?.content).toContain('parent seed content that must survive');
+    expect(bubblesY[0]?.content).toContain('turn bubble content that arrived first');
+    expect(bubblesY[0]?.toolEvents?.length ?? 0).toBeGreaterThan(0);
+  });
+
+  it('[background invocation_created] preserves substring seed chunks during collision merge', () => {
+    harness.render();
+
+    harness.send(textY('OK', 1100));
+
+    useChatStore.getState().setCurrentThread(THREAD_X);
+    const TURN_BG = '8ac44fbc-background-turn';
+
+    harness.send(textY('F says OK later.', 1115, TURN_BG));
+    harness.send(invocationCreatedY(TURN_BG, 1120));
+
+    const bubblesY = threadCodexStreamBubbles(THREAD_Y);
+    expect(bubblesY).toHaveLength(1);
+    expect(bubblesY[0]?.id).toBe(`msg-${TURN_BG}-codex`);
+    expect(bubblesY[0]?.content).toBe('OKF says OK later.');
+  });
+
+  it('[background invocation_created] preserves replace-mode target text during collision merge', () => {
+    harness.render();
+
+    harness.send(textY('draft stale text', 1100));
+
+    useChatStore.getState().setCurrentThread(THREAD_X);
+    const TURN_BG = '8ac44fbc-background-turn';
+
+    harness.send({
+      ...textY('final answer', 1115, TURN_BG),
+      textMode: 'replace' as const,
+    });
+    harness.send(invocationCreatedY(TURN_BG, 1120));
+
+    const bubblesY = threadCodexStreamBubbles(THREAD_Y);
+    expect(bubblesY).toHaveLength(1);
+    expect(bubblesY[0]?.id).toBe(`msg-${TURN_BG}-codex`);
+    expect(bubblesY[0]?.content).toBe('final answer');
+  });
+
+  it('[background invocation_created] keeps an existing finalized turn bubble finalized', () => {
+    harness.render();
+
+    harness.send(textY('parent seed content that must merge without reopening streaming. ', 1100));
+    harness.send(toolY(1110, 'rg -n "F194" packages/web'));
+
+    useChatStore.getState().setCurrentThread(THREAD_X);
+    const TURN_BG = '8ac44fbc-background-turn';
+
+    harness.send(textY('turn bubble content that finalized first.', 1115, TURN_BG));
+    harness.send(doneY(1118, TURN_BG));
+
+    let bubblesY = threadCodexStreamBubbles(THREAD_Y);
+    const finalizedTurnBubble = bubblesY.find((message) => message.id === `msg-${TURN_BG}-codex`);
+    expect(finalizedTurnBubble?.isStreaming).toBe(false);
+
+    harness.send(invocationCreatedY(TURN_BG, 1120));
+
+    bubblesY = threadCodexStreamBubbles(THREAD_Y);
+    expect(bubblesY).toHaveLength(1);
+    expect(bubblesY[0]?.id).toBe(`msg-${TURN_BG}-codex`);
+    expect(bubblesY[0]?.content).toContain('parent seed content that must merge');
+    expect(bubblesY[0]?.content).toContain('turn bubble content that finalized first');
+    expect(bubblesY[0]?.isStreaming).toBe(false);
+  });
+
+  it('[background invocation_created] does not leave a finalized collision ref for later turns', () => {
+    harness.render();
+
+    harness.send(textY('parent seed content that merges into a finalized turn. ', 1100));
+    harness.send(toolY(1110, 'rg -n "F194" packages/web'));
+
+    useChatStore.getState().setCurrentThread(THREAD_X);
+    const TURN_BG = '8ac44fbc-background-turn';
+    const TURN_NEXT = 'c8d2a1f9-next-turn';
+
+    harness.send(textY('turn bubble content that finalized first.', 1115, TURN_BG));
+    harness.send(doneY(1118, TURN_BG));
+    harness.send(invocationCreatedY(TURN_BG, 1120));
+
+    let bubblesY = threadCodexStreamBubbles(THREAD_Y);
+    expect(bubblesY).toHaveLength(1);
+    expect(bubblesY[0]?.id).toBe(`msg-${TURN_BG}-codex`);
+    expect(bubblesY[0]?.isStreaming).toBe(false);
+
+    harness.send(toolY(1130, 'rg -n "next turn" packages/web', TURN_NEXT));
+
+    bubblesY = threadCodexStreamBubbles(THREAD_Y);
+    expect(bubblesY.map((message) => message.id).sort()).toEqual(
+      [`msg-${TURN_BG}-codex`, `msg-${TURN_NEXT}-codex`].sort(),
+    );
+  });
+
+  it('[background invocation_created] clears finalized collision active ledger before no-turn later tools', () => {
+    harness.render();
+
+    harness.send(textY('parent seed content that merges into a finalized turn. ', 1100));
+    harness.send(toolY(1110, 'rg -n "F194" packages/web'));
+
+    useChatStore.getState().setCurrentThread(THREAD_X);
+    const TURN_BG = '8ac44fbc-background-turn';
+    const TURN_NEXT = 'c8d2a1f9-next-turn';
+
+    harness.send(textY('turn bubble content that finalized first.', 1115, TURN_BG));
+    harness.send(doneY(1118, TURN_BG));
+    harness.send(invocationCreatedY(TURN_BG, 1120));
+
+    expect(getActiveBubble(getThreadRuntimeLedger(), THREAD_Y, 'codex')).toBeUndefined();
+
+    setThreadYTurn(TURN_NEXT);
+    harness.send(toolY(1130, 'rg -n "next turn without explicit turn" packages/web'));
+
+    const bubblesY = threadCodexStreamBubbles(THREAD_Y);
+    expect(bubblesY.map((message) => message.id).sort()).toEqual(
+      [`msg-${TURN_BG}-codex`, `msg-${TURN_NEXT}-codex`].sort(),
+    );
+    expect(bubblesY.find((message) => message.id === `msg-${TURN_BG}-codex`)?.isStreaming).toBe(false);
+    const nextTurnBubble = bubblesY.find((message) => message.id === `msg-${TURN_NEXT}-codex`);
+    expect(nextTurnBubble?.toolEvents).toHaveLength(1);
   });
 
   it('[Z3 redline] genuinely different turns (each with its own invocation_created) stay SEPARATE', () => {
