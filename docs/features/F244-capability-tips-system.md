@@ -47,19 +47,19 @@ Why: Tips render inside first-party Hub waiting/status surfaces and need adoptio
 | Hard | 新增 feature manifest / guide / skill 时，CI 检查有没有对应 tips 或明确豁免 |
 | Eval | 记录 tips 曝光、点击、被用户追问的频率，反推哪些能力还没被讲清楚 |
 
-单一真相源约束：F244 只做投影和治理，不复制能力定义。Magic words 的含义仍来自 L0/shared-rules/F114；能力 surface 仍来自 F223/capability-wakeup-index；guide steps 仍来自 F155 guide registry；每条 tip 必须有 `sourceRef`，实现不能维护一份平行的"能力大全"。
+单一真相源约束：F244 只做投影和治理，不复制能力定义。Magic words 的含义仍来自 L0/shared-rules/F114；能力 surface 仍来自 F223/capability-wakeup rules / capability-wakeup-index；guide steps 仍来自 F155 guide registry。第一版只能机器验证结构与 source anchor，不能机器验证 `body` 语义完全等同 source；`body` 的语义防漂移靠 `owner` review、stale review、dogfood/eval 闭环兜住。实现不能维护一份平行的"能力大全"。
 
 ## 需求点 Checklist
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
 | R1 | "不止是猫言语"：猫格只是表达层，核心是展示家里怎么运转 | AC-A1 / AC-B1 | schema + UI 截图 | [ ] |
-| R2 | "有什么 magic words 什么时候可以用" | AC-A2 / AC-B3 | seed tips + sourceRef 校验 | [ ] |
+| R2 | "有什么 magic words 什么时候可以用" | AC-A2 / AC-B3 | seed tips + source anchor 校验 | [ ] |
 | R3 | "家里有什么功能，如何用" | AC-A3 / AC-B3 | seed tips + action link 演示 | [ ] |
 | R4 | "开发新 feature 的时候必须补 1-2 条 tips" | AC-C1 / AC-C2 | CI red/green fixture | [ ] |
 | R5 | "第一个用户就是我"：优先 dogfood 给铲屎官等待态使用 | AC-B4 / AC-D3 | alpha 录屏 + dogfood report | [ ] |
 | R6 | tips 不得冒充真实进度或覆盖故障/强制重置入口 | AC-B2 | component tests + 截图 | [ ] |
-| R7 | tips 必须从现有真相源投影，不新造第四套能力清单 | AC-A1 / AC-A4 | sourceRef 校验 + grep | [ ] |
+| R7 | tips 必须从现有真相源投影，不新造第四套能力清单 | AC-A1 / AC-A4 | `structureSource`/`bodySource` audit + anchor CI | [ ] |
 
 ### 覆盖检查
 
@@ -73,22 +73,31 @@ Why: Tips render inside first-party Hub waiting/status surfaces and need adoptio
 
 建立 tips 的数据契约和种子投影。F244 不拥有能力清单本体，只拥有"把已有真相源投影成等待态 tip"的格式和选择逻辑。
 
+Phase A 必须把 "结构投影" 和 "内容来源" 分开：
+
+| 层 | 第一版来源 | 可机器验证什么 | 不声称能机器验证什么 |
+|----|------------|----------------|----------------------|
+| Structure | F223/F192 的 `capability-wakeup-rules.ts`、F155 guide registry、feature metadata | `id` / `kind` / `contexts` / `actionRequired` / `sourceRef` 存在且 anchor 可定位 | tip body 是否完整复述了 source 语义 |
+| Body | hand-authored seed manifest + `sourceRef` 锚点 | body 不为空、无假进度词、source anchor 没失效 | body 是否"足够有用"或与 source 完全同步 |
+| Usefulness | reviewer + dogfood + eval | action outcome、dismiss/follow-up signals | 静态 CI 直接判断"好不好" |
+
 `CapabilityTip` 最小字段：
 
 | 字段 | 说明 |
 |------|------|
 | `id` | 稳定 ID，例如 `magic-word-scaffold` / `capability-browser-preview` |
 | `kind` | `capability` / `magic_word` / `workflow` / `feature` / `status_help` |
-| `sourceRef` | 真相源锚点：feature doc、shared-rules、skill、guide registry、ADR |
+| `sourceRef` | 真相源锚点：feature doc、shared-rules、skill、guide registry、ADR；CI 至少验证 anchor 可定位 |
 | `contexts` | 可展示上下文：`thinking` / `waiting_external` / `review` / `feature_dev` / `merge_gate` / `long_running` |
 | `audience` | `cvo` / `developer` / `maintainer` / `all` |
 | `body` | 短文本，不能包含假进度承诺 |
-| `action` | 可选，打开 guide/source/capability surface 的 typed action |
+| `action` | 打开 guide/source/capability surface 的 typed action；`capability` / `workflow` / `feature` 类必填，`magic_word` / `status_help` 可豁免 |
 | `owner` | 维护 owner，用于 stale/sunset |
 
 首批来源：
 
-- F223 + `capability-wakeup-index.md`：Tier 1/Tier 2 能力和 typed surface。
+- F223/F192 `capability-wakeup-rules.ts`：能力 ID 和触发上下文的机器可读结构来源。
+- `capability-wakeup-index.md`：人工撰写 seed body 时的内容参考，不作为程序化投影源。
 - F114/L0/shared-rules：magic words 的含义与立即动作。
 - F155 guides：可交互引导的入口，不把 guide steps 复制成孤岛。
 - F192/F203/ADR-031：harness 三层、eval、运行模式、SOP 边界。
@@ -100,6 +109,7 @@ Why: Tips render inside first-party Hub waiting/status surfaces and need adoptio
 
 - 真实状态仍由 liveness/runtime signal 驱动，继续放在主行。
 - Tip 是次级行/可折叠区域，必须视觉上低于状态、取消、强制重置入口。
+- 当前 `ThinkingIndicator` / `ThreadExecutionBar` 没有现成 tip slot；Design Gate wireframe 必须明确 tip 插入点、折叠/隐藏规则，以及升级态下与故障入口的层级关系。
 - `suspected_stall` / `alive_but_silent` 时，故障与取消入口优先；tips 不得遮挡或弱化 `卡住了？强制重置`。
 - 首次展示延迟触发，轮播节奏慢，避免每几秒闪动制造噪音。
 - 上下文选择优先级：当前执行阶段 > thread workflow > feature dev/review mode > 通用 capability/magic word。
@@ -111,7 +121,8 @@ Why: Tips render inside first-party Hub waiting/status surfaces and need adoptio
 
 - 新增或修改 user-visible feature / capability / guide / harness 行为时，必须贡献 1-2 条 tips，或写明确 `tips_exempt` 理由。
 - 纯内部重构、typo、无用户可感知变化可豁免。
-- CI 检查 tip 至少包含 `sourceRef`、`contexts`、`audience`、`owner`，并禁止无源泛泛文案。
+- CI 是结构完整性门，不是内容质量评审：它检查 `sourceRef`、`contexts`、`audience`、`owner`、action-required kind、无假进度词和 anchor 可定位。
+- 内容有用性必须由 PR reviewer 判断：tip 是否教会用户一个可执行动作、一个明确时机，或一个可追溯的家规含义；字段齐全但只是复述标题的 tip 必须退回。
 - PR/feature 模板增加 `Tips Contribution` 小节，和 requirements checklist 一起在 kickoff/quality-gate 阶段复核。
 - 新 tip 不得新造能力定义；必须引用 F223/F155/F114/F192/feature doc 等真相源。
 
@@ -142,7 +153,7 @@ tips system 是 harness 改动，必须有闭环：
 
 - 等待态 `thinking` 展示 capability tip，但主状态仍只显示真实 `思考中/回复中`。
 - `suspected_stall` 状态下故障文案、取消和强制重置入口可见且优先，tips 不遮挡。
-- Magic word tip 从 shared-rules/L0 sourceRef 生成，不硬编码第二套词表。
+- Magic word tip 带 shared-rules/L0 sourceRef，CI 验证 anchor 可定位；body 语义由 owner/reviewer/stale review 维护，不声称静态 CI 可证明语义一致。
 - 新 feature PR fixture 缺 tips 且无 `tips_exempt` 时 hard check red；补 sourceRef + context 后 green。
 
 ### 4. Sunset Signal
@@ -156,7 +167,7 @@ tips system 是 harness 改动，必须有闭环：
 | 层 | F244 落点 |
 |----|-----------|
 | Soft | 等待态 UI + feature/PR template 要求新增 1-2 条 tips 或豁免，让用户和猫自然想起能力/tips |
-| Hard | feature manifest / guide / skill 新增时检查 tips 或 `tips_exempt`；tip schema/sourceRef/context CI；真实状态与 tips 分层的 component tests |
+| Hard | feature manifest / guide / skill 新增时检查 tips 或 `tips_exempt`；tip schema/sourceRef/context/action-required/anchor CI；真实状态与 tips 分层的 component tests |
 | Eval | 记录 tip 曝光、点击、被用户追问的频率；F192 usage/friction metrics + dogfood report + stale/sunset review |
 
 ## Acceptance Criteria
@@ -166,9 +177,9 @@ tips system 是 harness 改动，必须有闭环：
 ### Phase A（Tip Contract + Source Projection）
 
 - [ ] AC-A1: 定义 `CapabilityTip` schema，包含 `id/kind/sourceRef/contexts/audience/body/action/owner`，并有 parser/schema 测试。
-- [ ] AC-A2: magic word tips 从 shared-rules/L0/F114 sourceRef 投影，不维护第二套硬编码定义；测试能发现 sourceRef 缺失。
-- [ ] AC-A3: capability tips 至少覆盖 L0 §8 Tier 1 能力和 3 个高频 workflow tips（memory recall、alpha 验收、merge-gate），每条都有 action 或 sourceRef。
-- [ ] AC-A4: 产出 seed tips inventory，明确哪些来自 F223、F155、F114、F192、F203；grep 无独立"能力清单本体"重复段落。
+- [ ] AC-A2: magic word tips 带 shared-rules/L0/F114 sourceRef；CI 能发现 sourceRef 缺失或 anchor 不可定位，但不声称能静态证明 body 语义一致。
+- [ ] AC-A3: capability tips 至少覆盖 L0 §8 Tier 1 能力和 3 个高频 workflow tips（memory recall、alpha 验收、merge-gate）；`capability` / `workflow` / `feature` 类 tip 必须有 typed action 或 source-open action。
+- [ ] AC-A4: 产出 seed tips inventory，逐条标注 `structureSource` 与 `bodySource`：能力 ID/contexts 来自 F223/F192 机器可读规则，body 来自 hand-authored seed + sourceRef；不得把 seed manifest 描述成完整能力真相源。
 
 ### Phase B（Waiting-State Projection UI）
 
@@ -181,7 +192,7 @@ tips system 是 harness 改动，必须有闭环：
 
 - [ ] AC-C1: Feature kickoff/PR 模板新增 `Tips Contribution` 小节：新增 user-visible feature/capability/guide/harness 行为需 1-2 条 tips 或 `tips_exempt`。
 - [ ] AC-C2: CI hard check 有 red/green fixture：缺 tips 且无豁免失败；补合法 tip 或合法豁免通过。
-- [ ] AC-C3: hard check 不奖励废话数量：tip 必须有 `sourceRef` + `contexts` + `audience` + `owner`，且 body 不得包含无信号支撑的进度承诺（例如"快好了"）。
+- [ ] AC-C3: hard check 明确只保证结构完整性：tip 必须有 `sourceRef` + `contexts` + `audience` + `owner`，action-required kind 必须有 action，body 不得包含无信号支撑的进度承诺（例如"快好了"）；内容是否有操作价值由 reviewer checklist 退回废话 tip。
 - [ ] AC-C4: `feat-lifecycle` / `quality-gate` 文档同步，feature owner 能在收尾前复核 tips 是否仍匹配交付物。
 
 ### Phase D（Eval + Staleness Loop）
@@ -211,14 +222,14 @@ tips system 是 harness 改动，必须有闭环：
 | 假进度 / 假精确状态 | 真实状态与 tips 分层；无 runtime signal 禁止写状态性动词；AC-B2 测试锁住 |
 | 每 feature 强制 1-2 条导致废话 | 做质量门：sourceRef/context/action/owner 必填；纯内部重构可豁免 |
 | tips 过多造成噪音 | 展示阈值、慢轮播、dismiss/stale metric；Phase D sunset |
-| 能力清单漂移 | 只投影 F223/L0/skill/guide/source docs，不维护独立清单 |
+| 能力清单漂移 | 结构从 F223/F155/F114 等 sourceRef 投影；body 是 seed 内容，靠 owner/reviewer/stale review/eval 维护，不谎称 CI 能验证语义一致 |
 | 覆盖故障逃生口 | suspected_stall/alive_but_silent 下故障与强制重置优先，tips 降级或隐藏 |
 
 ## Open Questions
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | tips manifest 真相源放 Markdown inventory、YAML，还是从 F223/F155/source docs 生成？ | ⬜ Design Gate 定；倾向 seed manifest + sourceRef 校验 |
+| OQ-1 | tips manifest 第一版是否 hand-authored？ | ✅ 已定：第一版 hand-authored seed manifest；必须区分 `structureSource` 与 `bodySource`，CI 只验结构/anchor/action-required，不验 body 语义一致 |
 | OQ-2 | 第一版 UI 只进 chat waiting bar，还是同步进猫猫球/桌宠状态？ | ⬜ 倾向先 chat waiting bar dogfood，猫猫球复用留 Phase B+ |
 | OQ-3 | F192 侧复用 `eval:capability-wakeup` 还是新增 `eval:capability-tips` domain？ | ⬜ Phase D 定；先用 one-shot dogfood report |
 | OQ-4 | Tip action 打开 source 的主表面用 Workspace navigate、Guide card，还是右侧 help drawer？ | ⬜ Design Gate 画 wireframe 后定 |
@@ -233,6 +244,7 @@ tips system 是 harness 改动，必须有闭环：
 | KD-4 | Feature tips gate 是质量门，不是数量门 | 强制数量会催生废话 tips；必须有 sourceRef/context/action/owner 或豁免 | 2026-06-18 |
 | KD-5 | 第一个用户是铲屎官，优先 dogfood | CVO 明确 signoff；先在真实等待态验证是否有用 | 2026-06-18 |
 | KD-6 | 不维护平行能力大全 | F244 只消费 F223/L0/F114/F155/F192 等 sourceRef；tips 是投影，不是新真相源 | 2026-06-18 |
+| KD-7 | 区分 structure source 与 body source | F223 机器 registry 只有 id/capability/predicate，不含 tip body；Phase A 必须诚实承认 body seed 是人工内容，语义一致靠 review/eval/stale loop 维护 | 2026-06-18 |
 
 ## Timeline
 
