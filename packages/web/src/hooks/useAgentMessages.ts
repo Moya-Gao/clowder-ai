@@ -691,11 +691,7 @@ function finalizeStaleBackgroundInvocationStreams(
             incomingInvocationId,
             incomingTurnInvocationId,
           );
-          options.store.patchThreadMessage(
-            threadId,
-            turnDerivedId,
-            collisionPatch,
-          );
+          options.store.patchThreadMessage(threadId, turnDerivedId, collisionPatch);
           options.store.removeThreadMessage(threadId, message.id);
           shouldTrackBackgroundRef = collisionPatch.isStreaming !== false;
         } else {

@@ -30,7 +30,7 @@ interface ConciergeSettingsState {
   dutyCatProfileId: string;
   proactivePolicy: 'ambient' | 'quiet-badge';
   muted: boolean;
-  skin: 'yarn-ball' | 'ragdoll-v1';
+  skin: 'yarn-ball' | 'ragdoll-v1' | 'yanyan-codex';
   ballPosition: { x: number; y: number } | null;
 }
 
@@ -38,6 +38,7 @@ interface ConciergeSettingsState {
 const SKIN_DISPLAY_NAMES: Record<string, string> = {
   'yarn-ball': '🧶 毛线球',
   'ragdoll-v1': '🐱 布偶猫 v1',
+  'yanyan-codex': '🐱 砚砚 v1',
 };
 
 // ---------------------------------------------------------------------------

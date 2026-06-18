@@ -12,12 +12,12 @@ import type { CatId, CommunityEvent, TaskItem } from '@cat-cafe/shared';
 import { parsePrSubjectKey } from '@cat-cafe/shared';
 import type { ITaskStore } from '../../domains/cats/services/stores/ports/TaskStore.js';
 import type { IThreadStore } from '../../domains/cats/services/stores/ports/ThreadStore.js';
-import type { ConnectorDeliveryDeps } from './deliver-connector-message.js';
-import { deliverConnectorMessage } from './deliver-connector-message.js';
 import type { ICommunityEventLog } from '../../domains/community/CommunityEventLog.js';
 import { decideDelivery } from '../../domains/community/community-delivery-policy.js';
 import type { ExecuteContext, TaskSpec_P1 } from '../scheduler/types.js';
 import type { ConnectorInvokeTrigger, ConnectorTriggerPolicy } from './ConnectorInvokeTrigger.js';
+import type { ConnectorDeliveryDeps } from './deliver-connector-message.js';
+import { deliverConnectorMessage } from './deliver-connector-message.js';
 import type { PrFeedbackComment, PrReviewDecision, ReviewFeedbackRouter } from './ReviewFeedbackRouter.js';
 
 export interface ReviewFeedbackSignal {

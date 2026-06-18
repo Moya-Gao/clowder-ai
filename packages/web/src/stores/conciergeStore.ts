@@ -84,7 +84,7 @@ interface ConciergeStoreState extends ConciergeInputs {
   personaTone: string;
   dutyCatProfileId: string;
   proactivePolicy: 'ambient' | 'quiet-badge';
-  skin: 'yarn-ball' | 'ragdoll-v1';
+  skin: 'yarn-ball' | 'ragdoll-v1' | 'yanyan-codex';
 
   // Thread
   threadId: string | null;
