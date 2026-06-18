@@ -272,12 +272,52 @@ function isCallbackContentRoutingToolName(toolName: string | undefined): boolean
   return isPostMessageToolName(toolName) || isCrossPostMessageToolName(toolName);
 }
 
-type CallbackContentRoutingExit = {
+export type CallbackContentRoutingState = {
+  scope: 'local' | 'target';
+  guardLineStartMentions: CatId[];
+  localLineStartMentions: CatId[];
+  hasGuardCoCreatorLineStartMention: boolean;
+  hasLocalCoCreatorLineStartMention: boolean;
+  hasTargetCoCreatorLineStartMention: boolean;
+};
+
+type CallbackContentRoutingExit = CallbackContentRoutingState & {
   toolName: string;
   toolUseId?: string;
-  lineStartMentions: CatId[];
-  hasCoCreatorLineStartMention: boolean;
 };
+
+export function classifyCallbackContentRoutingState(
+  toolName: string | undefined,
+  content: string | undefined,
+  currentCatId: CatId,
+): CallbackContentRoutingState | null {
+  if (!isCallbackContentRoutingToolName(toolName)) return null;
+  const scope = isCrossPostMessageToolName(toolName) ? 'target' : 'local';
+  if (!content) {
+    return {
+      scope,
+      guardLineStartMentions: [],
+      localLineStartMentions: [],
+      hasGuardCoCreatorLineStartMention: false,
+      hasLocalCoCreatorLineStartMention: false,
+      hasTargetCoCreatorLineStartMention: false,
+    };
+  }
+
+  // Cross-post content belongs to the target thread. It can satisfy the current turn's guard,
+  // but it must not become current-thread A2A routing state.
+  const parserCurrentCatId = scope === 'target' ? undefined : currentCatId;
+  const guardLineStartMentions = parseA2AMentions(content, parserCurrentCatId);
+  const hasCoCreatorLineStartMention = detectUserMention(content);
+  return {
+    scope,
+    guardLineStartMentions,
+    localLineStartMentions: scope === 'local' ? guardLineStartMentions : [],
+    hasGuardCoCreatorLineStartMention: hasCoCreatorLineStartMention,
+    hasLocalCoCreatorLineStartMention: scope === 'local' && hasCoCreatorLineStartMention,
+    hasTargetCoCreatorLineStartMention: scope === 'target' && hasCoCreatorLineStartMention,
+  };
+}
 
 function collectCallbackContentRoutingExit(
   toolName: string,
@@ -285,22 +325,10 @@ function collectCallbackContentRoutingExit(
   currentCatId: CatId,
   toolUseId?: string,
 ): CallbackContentRoutingExit | null {
-  if (!isCallbackContentRoutingToolName(toolName)) return null;
   const content = readToolInputContent(toolInput);
-  if (!content) {
-    return {
-      toolName,
-      ...(toolUseId ? { toolUseId } : {}),
-      lineStartMentions: [],
-      hasCoCreatorLineStartMention: false,
-    };
-  }
-
-  // Cross-post targets another thread; mentioning this cat there is not a self-loop in this worklist.
-  const parserCurrentCatId = isCrossPostMessageToolName(toolName) ? undefined : currentCatId;
-  const lineStartMentions = parseA2AMentions(content, parserCurrentCatId);
-  const hasCoCreatorLineStartMention = detectUserMention(content);
-  return { toolName, ...(toolUseId ? { toolUseId } : {}), lineStartMentions, hasCoCreatorLineStartMention };
+  const state = classifyCallbackContentRoutingState(toolName, content, currentCatId);
+  if (!state) return null;
+  return { toolName, ...(toolUseId ? { toolUseId } : {}), ...state };
 }
 
 type CallbackPostResult = {
@@ -967,8 +995,9 @@ export async function* routeSerial(
       let awaitingCallbackResult = false;
       const pendingToolResults: PendingToolResult[] = [];
       const pendingCallbackRoutingExits: CallbackContentRoutingExit[] = [];
-      const confirmedCallbackRoutingMentions = new Set<CatId>();
-      let confirmedCallbackRoutingHasCoCreatorLineStartMention = false;
+      const confirmedCallbackRoutingGuardMentions = new Set<CatId>();
+      const confirmedLocalCallbackRoutingMentions = new Set<CatId>();
+      let confirmedCallbackRoutingGuardHasCoCreatorLineStartMention = false;
       let confirmedLocalCallbackRoutingHasCoCreatorLineStartMention = false;
       const emittedBallHandedCvoMessageIds = new Set<string>();
       const structuredTargetCats = new Set<string>();
@@ -1072,22 +1101,26 @@ export async function* routeSerial(
 
         const [exit] = pendingCallbackRoutingExits.splice(exitIndex, 1);
         if (!confirmed || !exit) return undefined;
-        for (const mention of exit.lineStartMentions) confirmedCallbackRoutingMentions.add(mention);
-        if (exit.hasCoCreatorLineStartMention) {
-          confirmedCallbackRoutingHasCoCreatorLineStartMention = true;
-          if (isPostMessageToolName(exit.toolName)) confirmedLocalCallbackRoutingHasCoCreatorLineStartMention = true;
-        }
+        for (const mention of exit.guardLineStartMentions) confirmedCallbackRoutingGuardMentions.add(mention);
+        for (const mention of exit.localLineStartMentions) confirmedLocalCallbackRoutingMentions.add(mention);
+        if (exit.hasGuardCoCreatorLineStartMention) confirmedCallbackRoutingGuardHasCoCreatorLineStartMention = true;
+        if (exit.hasLocalCoCreatorLineStartMention) confirmedLocalCallbackRoutingHasCoCreatorLineStartMention = true;
         return exit;
       };
       const getRoutingExitLineStartMentions = (textMentions: readonly CatId[] = []): CatId[] => [
-        ...new Set<CatId>([...textMentions, ...confirmedCallbackRoutingMentions]),
+        ...new Set<CatId>([...textMentions, ...confirmedCallbackRoutingGuardMentions]),
+      ];
+      const getLocalRoutingLineStartMentions = (textMentions: readonly CatId[] = []): CatId[] => [
+        ...new Set<CatId>([...textMentions, ...confirmedLocalCallbackRoutingMentions]),
       ];
       const hasRoutingExitCoCreatorLineStartMention = (content: string): boolean =>
-        Boolean((content ? detectUserMention(content) : false) || confirmedCallbackRoutingHasCoCreatorLineStartMention);
-      const hasLocalRoutingExitCoCreatorLineStartMention = (content: string): boolean =>
         Boolean(
-          (content ? detectUserMention(content) : false) || confirmedLocalCallbackRoutingHasCoCreatorLineStartMention,
+          (content ? detectUserMention(content) : false) || confirmedCallbackRoutingGuardHasCoCreatorLineStartMention,
         );
+      const hasLocalCoCreatorLineStartMention = (content: string): boolean => {
+        if (content && detectUserMention(content)) return true;
+        return confirmedLocalCallbackRoutingHasCoCreatorLineStartMention;
+      };
       const emitBallHandedCvoOnce = (
         messageId: string | undefined,
         eventThreadId: string | undefined = threadId,
@@ -1099,16 +1132,18 @@ export async function* routeSerial(
         emitBallHandedCvo(deps.ballCustody, eventThreadId, catId as string, messageId);
       };
       const emitConfirmedCallbackBallHandedCvo = (
-        completedToolName: string | undefined,
         confirmed: boolean,
         settledExit: CallbackContentRoutingExit | undefined,
         messageId: string | undefined,
         resultThreadId: string | undefined,
       ): void => {
-        if (!confirmed || !isCallbackContentRoutingToolName(completedToolName)) return;
-        if (!settledExit?.hasCoCreatorLineStartMention) return;
-        const eventThreadId = isPostMessageToolName(completedToolName) ? (resultThreadId ?? threadId) : resultThreadId;
-        emitBallHandedCvoOnce(messageId, eventThreadId);
+        if (!confirmed || !settledExit) return;
+        if (settledExit.hasLocalCoCreatorLineStartMention) {
+          emitBallHandedCvoOnce(messageId, resultThreadId ?? threadId);
+        }
+        if (settledExit.hasTargetCoCreatorLineStartMention) {
+          emitBallHandedCvoOnce(messageId, resultThreadId);
+        }
       };
       const flushDeferredVoice = async (): Promise<void> => {
         if (!deferredVoiceInvocationId || deferredVoiceTextChunks.length === 0) {
@@ -1338,7 +1373,6 @@ export async function* routeSerial(
             if (completedToolName) {
               const settledExit = settleCallbackRoutingExit(completedToolName, callbackResult.confirmed);
               emitConfirmedCallbackBallHandedCvo(
-                completedToolName.toolName,
                 callbackResult.confirmed,
                 settledExit,
                 callbackResult.messageId,
@@ -1614,6 +1648,7 @@ export async function* routeSerial(
         allRichBlocks: RichBlock[];
         a2aMentions: CatId[];
         hasCoCreatorLineStartMention: boolean;
+        hasLocalCoCreatorLineStartMention: boolean;
         streamEvents: AgentMessage[];
       }> => {
         routingGuardAttempted = true;
@@ -1638,8 +1673,9 @@ export async function* routeSerial(
         streamRichBlocks.splice(0, streamRichBlocks.length);
         pendingToolResults.splice(0, pendingToolResults.length);
         pendingCallbackRoutingExits.splice(0, pendingCallbackRoutingExits.length);
-        confirmedCallbackRoutingMentions.clear();
-        confirmedCallbackRoutingHasCoCreatorLineStartMention = false;
+        confirmedCallbackRoutingGuardMentions.clear();
+        confirmedLocalCallbackRoutingMentions.clear();
+        confirmedCallbackRoutingGuardHasCoCreatorLineStartMention = false;
         confirmedLocalCallbackRoutingHasCoCreatorLineStartMention = false;
         callbackPostConfirmed = false;
         callbackPostMessageId = undefined;
@@ -1778,7 +1814,6 @@ export async function* routeSerial(
               if (completedToolName) {
                 const settledExit = settleCallbackRoutingExit(completedToolName, callbackResult.confirmed);
                 emitConfirmedCallbackBallHandedCvo(
-                  completedToolName.toolName,
                   callbackResult.confirmed,
                   settledExit,
                   callbackResult.messageId,
@@ -1849,6 +1884,7 @@ export async function* routeSerial(
           lineStartDetected.add(remedialA2aMentions.length, { 'agent.id': catId as string });
         }
         const remedialHasCoCreatorLineStartMention = hasRoutingExitCoCreatorLineStartMention(remedialRoutingContent);
+        const remedialHasLocalCoCreatorLineStartMention = hasLocalCoCreatorLineStartMention(remedialRoutingContent);
         const visibleRemedialStreamEvents = remedialIsRouteOnly
           ? remedialStreamEvents.filter((event) => event.type !== 'text')
           : remedialStreamEvents;
@@ -1861,6 +1897,7 @@ export async function* routeSerial(
           allRichBlocks: remedialAllRichBlocks,
           a2aMentions: remedialA2aMentions,
           hasCoCreatorLineStartMention: remedialHasCoCreatorLineStartMention,
+          hasLocalCoCreatorLineStartMention: remedialHasLocalCoCreatorLineStartMention,
           // Exit-only remedials validate the original text instead of replacing it; surface it after validation.
           streamEvents: preservesOriginalVisibleContent
             ? [...visibleRemedialStreamEvents, ...originalVisibleStreamEventsForRemedialTurn]
@@ -1938,7 +1975,7 @@ export async function* routeSerial(
 
         let routingExitLineStartMentions = getRoutingExitLineStartMentions(a2aMentions);
         let routingExitHasCoCreatorLineStartMention = hasRoutingExitCoCreatorLineStartMention(storedContent);
-        let localRoutingExitHasCoCreatorLineStartMention = hasLocalRoutingExitCoCreatorLineStartMention(storedContent);
+        let localCvoHasCoCreatorLineStartMention = hasLocalCoCreatorLineStartMention(storedContent);
 
         if (
           shouldRemediateRouting({
@@ -1958,7 +1995,7 @@ export async function* routeSerial(
           a2aMentions = result.a2aMentions;
           routingExitLineStartMentions = getRoutingExitLineStartMentions(a2aMentions);
           routingExitHasCoCreatorLineStartMention = result.hasCoCreatorLineStartMention;
-          localRoutingExitHasCoCreatorLineStartMention = hasLocalRoutingExitCoCreatorLineStartMention(storedContent);
+          localCvoHasCoCreatorLineStartMention = result.hasLocalCoCreatorLineStartMention;
 
           if (
             !hasValidRoutingExit({
@@ -1971,6 +2008,7 @@ export async function* routeSerial(
             await appendRoutingGuardFailureNotice();
           }
         }
+        a2aMentions = getLocalRoutingLineStartMentions(a2aMentions);
 
         // In play mode, CLI stream output (thinking) is hidden from other cats.
         // Only share previousResponses in debug mode, after guard remediation
@@ -2344,11 +2382,11 @@ export async function* routeSerial(
 
         const storedTimestamp = invocationStartedAt;
 
-        // F061: Detect @co-creator mentions for browser/unread notification.
-        // Route-only remedials may keep first-pass visible text while routing via `@landy`;
-        // carry that validated routing mention even when it is intentionally hidden from storedContent.
+        // F061: Detect local @co-creator mentions for browser/unread notification.
+        // Cross-post callbacks can satisfy the guard and emit target-thread CVO, but must not
+        // create a source-thread unread/user notification.
         mentionsUser = Boolean(
-          (storedContent ? detectUserMention(storedContent) : false) || routingExitHasCoCreatorLineStartMention,
+          (storedContent ? detectUserMention(storedContent) : false) || localCvoHasCoCreatorLineStartMention,
         );
 
         // #573: skip stream store only when callback confirmed persistence (not just invocation)
@@ -2551,7 +2589,7 @@ export async function* routeSerial(
               log.warn({ catId: catId as string, err: activityErr }, 'updateParticipantActivity failed');
             }
           }
-          if (!callbackAlreadyStored && localRoutingExitHasCoCreatorLineStartMention && storedMsgId) {
+          if (!callbackAlreadyStored && localCvoHasCoCreatorLineStartMention && storedMsgId) {
             emitBallHandedCvoOnce(storedMsgId);
           }
           // F192 Phase D — deferred per-fire sample emission (local R1 P1-1 fix +
@@ -3210,6 +3248,7 @@ export async function* routeSerial(
         for (const event of initialTextStreamEvents) yield event;
         initialTextStreamEvents.splice(0, initialTextStreamEvents.length);
       }
+      a2aMentions = getLocalRoutingLineStartMentions(a2aMentions);
 
       // F27: Emit a2a_handoff for ALL new A2A targets (both response-text and callback-pushed).
       // Keep this outside the text branch: callback/tool-only turns can push worklist entries
