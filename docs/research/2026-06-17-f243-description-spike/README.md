@@ -36,7 +36,7 @@ Phase A 验证 description generation 形态（小模型 / 大猫手写 / 模板
 | 3 | F062 | F062-ragdoll-provider-profile-hub.md | **reopened-like / superseded** | status: done → superseded by F136；多 status 状态测试 |
 | 4 | F168 | F168-community-ops-board.md | **scope 漂移 / 长程多 phase** | community-ops-board 跨多 Phase + multi-tenancy 路径漂移；测试长 spec |
 | 5 | F229 | F229-cat-ball-concierge.md | **broad user-facing scope**（砚砚 R1 sharpen 改标 — 原"F号 collision"维度单文件 prompt 测不到，collision 消歧属 Phase B generator schema scope）| in-progress + always-on frontend concierge entry，broad scope 测试 description 抓核心 user-facing 价值 |
-| 6 | F101 | F101-mode-v2-game-engine.md | **spec-very-large 613 行 + reopened in-progress 多 phase**（砚砚 R1 sharpen 替换 F236——避免砚砚 co-owner 污染 blind eval） | 613 行 / reopened 2026-03-14 / Phase I in-progress；测试长 spec + 游戏域 + 多 phase 演化 |
+| 6 | F161 | F161-acp-carrier-generalization.md | **technical acronym / carrier / env mapping** spec（砚砚 R2 sharpen 替换 F101——R1 砚砚推荐 F101 mild bias 但 R2 verify F101 实际有 "砚砚 GPT-5.4 + 宪宪联合定位" + 多处 gpt52 / Codex 痕迹）| 166 行 / implemented (intake from clowder-ai#899) / `rg -i "砚砚\|codex\|gpt-5\|gpt52\|缅因猫"` 0 命中 ✓ — 测试 ACP / acronym / env mapping 难度（独立技术域）|
 
 ### 4 篇 easy mode（F186-类，主题清晰 + 隐喻强 + 术语集中）
 
@@ -45,7 +45,7 @@ Phase A 验证 description generation 形态（小模型 / 大猫手写 / 模板
 | 7 | F009 | F009-tool-use-tool-result.md | done / 主题集中 | tool use / tool result 是单一概念，难度低 |
 | 8 | F022 | F022-rich-blocks.md | done / 主题清晰 | rich blocks 是 well-defined 概念，UX-oriented 隐喻强 |
 | 9 | F102 | F102-memory-adapter-refactor.md | done / 主题集中（F186 演化上游）| memory adapter refactor，主题清晰；和 F186 同族不同 phase |
-| 10 | F140 | F140-github-pr-automation.md | done / 主题清晰（砚砚 R1 sharpen 替换 F242——避免砚砚 co-brainstorm 污染；F235 砚砚自己推荐但我 verify 出 F235 是砚砚 deep co-design `宪宪×砚砚收敛` 也污染，所以选 F140 干净 pool）| 砚砚 / @codex / gpt-5 全文 grep 0 命中 ✓；done / 主题清晰单领域 github-pr |
+| 10 | F119 | F119-who-is-spy-game.md | spec / 主题清晰（砚砚 R2 sharpen 替换 F140——R1 我选 F140 但 R2 verify F140 实际有 "砚砚 GPT-5.4 分析" + "砚砚 GPT-5.5 双轮 review" + "砚砚 Design Gate" 大量痕迹。我 R1 grep 漏了 case-insensitive + "codex" 小写 + "缅因猫" alias）| 138 行 / spec / 谁是卧底游戏；`rg -i "砚砚\|codex\|gpt-5\|gpt52\|缅因猫"` 0 命中 ✓ |
 
 ### 故意不选
 
@@ -55,9 +55,29 @@ Phase A 验证 description generation 形态（小模型 / 大猫手写 / 模板
 
 ### Sample selection verify trace（防 self-audit miss）
 
-- 替代池筛选: `grep -l "砚砚\|@codex\|gpt-5\.5\|gpt-5\.4\|@gpt52" docs/features/*.md` → F2xx 段几乎全部命中（砚砚常驻 reviewer 必然现象，只有 F240 干净但非 spec 类型）
-- Fall back F0xx/F1xx pool：F140 (github-pr-automation) / F009 / F022 / F102 等 done features 0 命中（早期"三猫"owner 时代砚砚还未成常驻 reviewer）
-- F101 mild bias 可接受：F101 砚砚是 reviewer / 部分定位（KD-31/32 "砚砚审查发现 P1 风险"），非 owner / co-designer，比 F236 干净很多
+**正确 grep 命令**（砚砚 R2 sharpen 后的方法论 baseline）：
+
+```bash
+grep -in -E "砚砚|codex|gpt-?5|gpt52|缅因猫" docs/features/F<N>-*.md
+# case-insensitive (-i) + 多 alias (codex / 缅因猫 family identity / gpt-5/5.4/5.5/52)
+# 命中数 = 0 才算干净 sample
+```
+
+**R1 → R2 方法论 sharpening**（reviewer self-audit gap 系统性现象）：
+- R1 我 grep 用 `"砚砚\|@codex\|gpt-5\.5\|gpt-5\.4\|@gpt52"` —— **缺 case-insensitive + 漏 "codex" 小写 + 漏 "缅因猫" alias**
+- R1 我推荐 F140 替代 F242 因为 grep 0 命中，但**实际 case-insensitive grep 后 F140 命中砚砚 8 次以上**（line 40 "砚砚 GPT-5.4 分析" / line 171 "砚砚 GPT-5.5/5.4" / line 226 "砚砚 GPT-5.5 双轮 review" 等）
+- R1 砚砚自己推荐 F101 + F235，但 R2 砚砚自己 verify F101 实际有 "砚砚 GPT-5.4 + 宪宪联合定位" + 多处 gpt52/Codex 痕迹（不 mild），F235 是砚砚 deep co-design
+- **Reviewer self-audit gap 是系统性 gap 不是单次失误**（R1 F235 漏 / R2 F101 漏 / R1 F140 漏）—— 砚砚作为常驻 reviewer 几乎参与了所有近期 features，self-rg 需要严格 case-insensitive
+
+**R2 干净 sample 替代 trace**：
+- F101 → F161（ACP carrier generalization，166 行，case-insensitive 0 命中 ✓）
+- F140 → F119（谁是卧底游戏 spec，138 行，case-insensitive 0 命中 ✓）
+- F2xx 段几乎全部砚砚常驻 reviewer 痕迹（只有 F240 干净但非 spec 类型）
+- F1xx 段早期文档干净 pool：F119 / F161 / F009 / F022 / F102 case-insensitive 0 命中 ✓
+
+**Reviewer methodology sharpening**（可能进 lesson-learned / receive-review 反思胶囊）：
+- self-rg 必须 case-insensitive + 多 alias（包括 family identity "缅因猫" + 模型小写 "codex"）
+- reviewer 推荐替代 sample 前必须 self-rg verify，不只凭记忆"我没参与过"
 
 ## Generation Prompt v3（9 条 hard rules，mini-spike R1/R2/R3 已 formally validated）
 
@@ -128,7 +148,12 @@ Phase A 验证 description generation 形态（小模型 / 大猫手写 / 模板
 
 ## 进度跟踪
 
-- [x] **Step 1 — Sample selection confirm**：@codex R1 sharpen → 退回（F236/F242 污染 + F229 collision 测不到）→ 修正 F236→F101 / F242→F140（**不是砚砚自己推荐的 F235，因为 F235 同样砚砚 deep co-design**——砚砚 self-audit 漏点）+ F229 改标 broad scope。等 @codex R2 sharpen 确认
+- [x] **Step 1 — Sample selection confirm**：
+  - R1 sharpen → 退回（F236/F242 污染 + F229 collision 测不到）
+  - R1 fix: F236→F101 / F242→F140 + F229 改标 broad scope + 发现砚砚自己推荐的 F235 也是 deep co-design (self-audit 漏点 #1)
+  - R2 sharpen → 退回（F101 / F140 case-insensitive grep 后实际都重度污染；R1 我的 grep 漏 case-insensitive + "codex" 小写 + "缅因猫" alias）
+  - R2 fix: F101→F161 / F140→F119 + 落 grep 方法论 sharpening trace
+  - 等 @codex R3 sharpen 确认
 - [ ] **Step 2 — Generation**：@gemini35 跑 10 篇 description generation（本 thread 或 spike thread，generation 不是盲评可同步 visible）
 - [ ] **Step 3 — Blind eval**：propose_thread 开盲评 thread（三猫独立 invocation 评分，避免互看）
 - [ ] **Step 4 — Aggregate + verdict**：汇总跨猫数据 + 形态判定 + 写 spike report
