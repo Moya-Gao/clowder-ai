@@ -37,6 +37,18 @@ Why: Tips render inside first-party Hub waiting/status surfaces and need adoptio
 - 当前没有一个用户可见的等待态 tips 投影层。用户要知道"家里有什么能力 / 什么时候用 / 怎么用"，仍主要靠聊天中被动问、读文档、或猫主动解释。
 - 当前风险是把真实状态、tips、猫格文案混在一起：如果 UI 写"正在读取工作区"但没有 runtime signal，就是假精确状态；如果卡死入口被可爱文案盖住，会反噬信任。
 
+## CVO Constraints（2026-06-18）
+
+铲屎官补充的三层落地要求是本 feature 的边界，不是实现建议：
+
+| 层 | 硬要求 |
+|----|--------|
+| Soft | feature PR 模板要求新增 1-2 条 tips；纯内部重构等无用户可感知变化必须写明豁免理由 |
+| Hard | 新增 feature manifest / guide / skill 时，CI 检查有没有对应 tips 或明确豁免 |
+| Eval | 记录 tips 曝光、点击、被用户追问的频率，反推哪些能力还没被讲清楚 |
+
+单一真相源约束：F244 只做投影和治理，不复制能力定义。Magic words 的含义仍来自 L0/shared-rules/F114；能力 surface 仍来自 F223/capability-wakeup-index；guide steps 仍来自 F155 guide registry；每条 tip 必须有 `sourceRef`，实现不能维护一份平行的"能力大全"。
+
 ## 需求点 Checklist
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
@@ -143,9 +155,9 @@ tips system 是 harness 改动，必须有闭环：
 
 | 层 | F244 落点 |
 |----|-----------|
-| Soft | 等待态 UI + feature template 提醒，让用户和猫自然想起能力/tips |
-| Hard | tip schema/sourceRef/context CI；feature contribution check；真实状态与 tips 分层的 component tests |
-| Eval | F192 usage/friction metrics + dogfood report + stale/sunset review |
+| Soft | 等待态 UI + feature/PR template 要求新增 1-2 条 tips 或豁免，让用户和猫自然想起能力/tips |
+| Hard | feature manifest / guide / skill 新增时检查 tips 或 `tips_exempt`；tip schema/sourceRef/context CI；真实状态与 tips 分层的 component tests |
+| Eval | 记录 tip 曝光、点击、被用户追问的频率；F192 usage/friction metrics + dogfood report + stale/sunset review |
 
 ## Acceptance Criteria
 
@@ -220,6 +232,7 @@ tips system 是 harness 改动，必须有闭环：
 | KD-3 | 真实状态、tips、猫格表达三层分离 | 诚实红线；避免假进度与故障粉饰 | 2026-06-18 |
 | KD-4 | Feature tips gate 是质量门，不是数量门 | 强制数量会催生废话 tips；必须有 sourceRef/context/action/owner 或豁免 | 2026-06-18 |
 | KD-5 | 第一个用户是铲屎官，优先 dogfood | CVO 明确 signoff；先在真实等待态验证是否有用 | 2026-06-18 |
+| KD-6 | 不维护平行能力大全 | F244 只消费 F223/L0/F114/F155/F192 等 sourceRef；tips 是投影，不是新真相源 | 2026-06-18 |
 
 ## Timeline
 
