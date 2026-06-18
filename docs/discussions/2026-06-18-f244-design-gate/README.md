@@ -23,6 +23,8 @@ Original CVO requirements:
 
 > "别做成多个真相源头"
 
+> "F229 猫猫球是前台大猫猫，如果也需要 tips，得和这套归一"
+
 ## Architecture Ownership
 
 Architecture cell: hub-action-surface + harness-eval
@@ -63,7 +65,7 @@ Use **Option A** for Phase B MVP:
 3. Fallback placement: `ThinkingIndicator` normal state only, if `ThreadExecutionBar` is absent.
 4. Hide tips during `alive_but_silent` and `suspected_stall`; let cancel/force-reset own those states.
 5. Start with source/guide/capability actions, not a new help drawer.
-6. Scope Phase B to chat/thread waiting surfaces only; cat ball/desktop pet reuse waits for later.
+6. Scope Phase B to chat/thread waiting surfaces only; F229 cat ball/desktop pet reuse is a later consumer of the same tip contract, not a separate tips source.
 
 Why this shape:
 
@@ -71,6 +73,27 @@ Why this shape:
 - It avoids duplicate tips when both components render.
 - It preserves the existing force-reset escape hatch.
 - It does not create a new help center or parallel capability catalog.
+
+## F229 Cat Ball Integration
+
+F229 should integrate with F244, but not in the Phase B MVP implementation.
+
+Boundary:
+
+- F244 owns the canonical `CapabilityTip` contract, tip selector, `sourceRef`/anchor validation, usage metrics, and stale/eval semantics.
+- F229 owns cat ball / desktop pet presentation: when an idle or expanded front-desk cat surfaces a tip, how it animates, and how it avoids interruption.
+- F229 must render F244-selected `tipId/sourceRef/action`; it must not keep an F229-local tips body catalog.
+- Pet animation can hint that a tip exists, but cannot be the only signal. This matches F229 PetSkinContract: pet skin is projection, not source of truth.
+
+Recommended later contexts:
+
+| Context | Use |
+|---------|-----|
+| `concierge_idle` | Quiet front-desk discovery when the cat ball is visible but not opened |
+| `concierge_open` | User opened the cat ball and may ask "有什么 / 怎么用" |
+| `pet_waiting_for_user` | Concierge is waiting for confirmation or input and can explain the next available action |
+
+This gives the cat ball tips without making a second Knowledge Feed. Waiting-state tips and front-desk tips share the same source and telemetry; only the surface and timing differ.
 
 ## Wireframes
 
@@ -158,11 +181,12 @@ Recommended answers are pre-filled. CVO can approve as-is or override specific r
 | Warning/stall behavior | Hide tips | Failure and escape controls must stay visually dominant. |
 | First display / rotation | 6s first display, >=12s rotation | Slow enough to avoid flicker; early enough to use waiting attention. |
 | Action model | source/guide/capability actions only | Avoids a new help center and preserves single source. |
-| Phase B surface scope | chat/thread waiting surfaces only | Dogfood first; cat ball/desktop pet reuse later. |
+| Phase B surface scope | chat/thread waiting surfaces only; F229 recorded as future consumer of the same contract | Dogfood first; avoids scope expansion while preventing a second tips source. |
 
 ## Non-Goals
 
 - No new canonical capability catalog.
+- No F229-local tips catalog.
 - No random cat saying library as the main artifact.
 - No fake progress or fake precise status.
 - No right-side help drawer in Phase B.

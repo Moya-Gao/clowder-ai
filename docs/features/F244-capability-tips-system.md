@@ -35,6 +35,7 @@ Why: Tips render inside first-party Hub waiting/status surfaces and need adoptio
 - 现有等待/执行 UI 已有真实状态层：`packages/web/src/components/ThinkingIndicator.tsx` 显示 `启动中` / `思考中` / `回复中` / `静默等待中` / `可能卡住了`，`packages/web/src/components/ThreadExecutionBar.tsx` 显示 `执行中`、计时、停止与 `卡住了？强制重置`。
 - 现有能力真相源已分散存在：F223 产出 Capability Surface Registry，`cat-cafe-skills/refs/capability-wakeup-index.md` 维护 L0 §8 能力速查，F114/L0/shared-rules 维护 magic words，F155 guide engine 有场景 tips，F227 Event Memory 索引 magic word 事件。
 - 当前没有一个用户可见的等待态 tips 投影层。用户要知道"家里有什么能力 / 什么时候用 / 怎么用"，仍主要靠聊天中被动问、读文档、或猫主动解释。
+- F229 猫猫球已经承担"前台猫 / 功能发现 / 常驻入口"职责；它需要 tips 时必须消费 F244 的 tip contract 和 selector，不维护自己的 tips 文案清单。
 - 当前风险是把真实状态、tips、猫格文案混在一起：如果 UI 写"正在读取工作区"但没有 runtime signal，就是假精确状态；如果卡死入口被可爱文案盖住，会反噬信任。
 
 ## CVO Constraints（2026-06-18）
@@ -102,6 +103,16 @@ Phase A 必须把 "结构投影" 和 "内容来源" 分开：
 - F155 guides：可交互引导的入口，不把 guide steps 复制成孤岛。
 - F192/F203/ADR-031：harness 三层、eval、运行模式、SOP 边界。
 - Feature specs：后续每个 user-visible feature 贡献自己的 1-2 条 tips。
+
+### F229 Cat Ball Integration Boundary
+
+F229 猫猫球是 F244 的未来展示面，不是第二个 tips 系统：
+
+- F244 owns：`CapabilityTip` schema、seed manifest、`sourceRef`/anchor 校验、selector、usage/eval/stale 语义。
+- F229 owns：前台猫何时露出 tips（idle/展开/用户询问"有什么"）、如何以猫猫球/桌宠 UI 呈现、如何和 concierge 状态机共存。
+- F229 渲染时只能引用 F244 选出的 `tipId/sourceRef/action`，不得把 tip body copy 到 F229-local 清单。
+- Cat ball / desktop pet 可以用动画、badge、气泡提示"有 tip"，但不能让 pet animation 成为唯一信号；这继承 F229 PetSkinContract 的"pet 是 projection，不是 truth source"边界。
+- Phase B MVP 不实现 F229 surface；F229 reuse 放后续 integration PR 或 F229 Phase，新增 context 如 `concierge_idle` / `concierge_open` / `pet_waiting_for_user` 时仍走同一 schema。
 
 ### Phase B: Waiting-State Projection UI
 
@@ -211,7 +222,7 @@ tips system 是 harness 改动，必须有闭环：
 - **Related**: F192（Harness Eval — tips effectiveness 与 stale/sunset）
 - **Related**: F203（L0 §8 — capability wakeup 触发层）
 - **Related**: F220（A2A 等待/卡死 UI — 不覆盖故障与强制重置）
-- **Related**: F229（猫猫球/桌宠 — 后续可复用 tips 投影）
+- **Related**: F229（猫猫球/桌宠 — 作为未来 presentation consumer 复用 F244 tips，不另造 tips source）
 - **Related**: F243（Docs Discovery Profile — sourceRef/doc profile 可复用）
 
 ## Risk
@@ -223,6 +234,7 @@ tips system 是 harness 改动，必须有闭环：
 | 每 feature 强制 1-2 条导致废话 | 做结构门 + reviewer usefulness checklist：sourceRef/context/action/owner 必填；纯内部重构可豁免 |
 | tips 过多造成噪音 | 展示阈值、慢轮播、dismiss/stale metric；Phase D sunset |
 | 能力清单漂移 | 结构从 F223/F155/F114 等 sourceRef 投影；body 是 seed 内容，靠 owner/reviewer/stale review/eval 维护，不谎称 CI 能验证语义一致 |
+| F229 猫猫球另起一套 tips 文案 | F229 只能消费 F244 `tipId/sourceRef/action`；猫猫球负责 presentation/timing，不负责 tips truth source |
 | 覆盖故障逃生口 | suspected_stall/alive_but_silent 下故障与强制重置优先，tips 降级或隐藏 |
 
 ## Open Questions
@@ -230,7 +242,7 @@ tips system 是 harness 改动，必须有闭环：
 | # | 问题 | 状态 |
 |---|------|------|
 | OQ-1 | tips manifest 第一版是否 hand-authored？ | ✅ 已定：第一版 hand-authored seed manifest；必须区分 `structureSource` 与 `bodySource`，CI 只验结构/anchor/action-required，不验 body 语义一致 |
-| OQ-2 | 第一版 UI 只进 chat waiting bar，还是同步进猫猫球/桌宠状态？ | ⬜ 倾向先 chat waiting bar dogfood，猫猫球复用留 Phase B+ |
+| OQ-2 | 第一版 UI 只进 chat waiting bar，还是同步进猫猫球/桌宠状态？ | ⬜ 待 CVO Design Gate 确认；建议：Phase B 只进 chat/thread waiting surfaces；F229 猫猫球是未来 consumer，用同一 `CapabilityTip` contract/selector，不另起 source |
 | OQ-3 | F192 侧复用 `eval:capability-wakeup` 还是新增 `eval:capability-tips` domain？ | ⬜ Phase D 定；先用 one-shot dogfood report |
 | OQ-4 | Tip action 打开 source 的主表面用 Workspace navigate、Guide card，还是右侧 help drawer？ | ⬜ Design Gate 画 wireframe 后定 |
 
@@ -245,6 +257,7 @@ tips system 是 harness 改动，必须有闭环：
 | KD-5 | 第一个用户是铲屎官，优先 dogfood | CVO 明确 signoff；先在真实等待态验证是否有用 | 2026-06-18 |
 | KD-6 | 不维护平行能力大全 | F244 只消费 F223/L0/F114/F155/F192 等 sourceRef；tips 是投影，不是新真相源 | 2026-06-18 |
 | KD-7 | 区分 structure source 与 body source | F223 机器 registry 只有 id/capability/predicate，不含 tip body；Phase A 必须诚实承认 body seed 是人工内容，语义一致靠 review/eval/stale loop 维护 | 2026-06-18 |
+| KD-8 | F229 猫猫球是 presentation consumer，不是 tips source | F229 已拥有前台猫/功能发现职责；若猫猫球展示 tips，必须消费 F244 的 `tipId/sourceRef/action`，不能维护本地 tips 清单 | 2026-06-18 |
 
 ## Timeline
 
@@ -254,6 +267,7 @@ tips system 是 harness 改动，必须有闭环：
 | 2026-06-18 | 铲屎官确认直接立项 |
 | 2026-06-18 | Opus 4.8 spec review REQUEST-CHANGES → 砚砚修复 structure/body source、action-required、Design Gate slot 边界 → Opus 4.8 APPROVE |
 | 2026-06-18 | Design Gate wireframe prepared: `docs/discussions/2026-06-18-f244-design-gate/README.md` |
+| 2026-06-18 | CVO 提醒 F229 猫猫球也可能需要 tips；F244 记录边界：F229 是未来 consumer，Phase B 不实现猫猫球 surface，不另起 tips source |
 
 ## Review Gate
 
