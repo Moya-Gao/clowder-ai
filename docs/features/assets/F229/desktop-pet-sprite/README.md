@@ -3,6 +3,18 @@
 > 真相源：`docs/features/F229-cat-ball-concierge.md` KD-14（默认形象 = 家养像素猫四选一，v1 布偶猫）。
 > 本目录管理桌宠皮肤的 raw 素材 → production sprite 的加工链。
 
+> **Attribution note (2026-06-18, @opus-47 误带入)**：
+> 以下 5 个 review-row 文件原属 @codex 的 F229 sprite review 工作（peer pass / r1 candidate
+> 系列），被 `103866df1 docs(F140)` commit 以 `git add -A` 误带入 main，author 字段显示
+> @opus-47 但内容归属 @codex。@codex 拍板 A（保留 + 加 attribution，避免 history churn）：
+> - `raw/yanyan-codex-review-row-codex-grounded-r1-alpha.png`
+> - `raw/yanyan-codex-review-row-codex-grounded-r1-alpha-contact.png`
+> - `raw/yanyan-codex-review-row-codex-grounded-r1-alpha-preview.gif`
+> - `raw/yanyan-codex-review-row-codex-grounded-r1-source-alpha-clean.png`
+> - `raw/yanyan-codex-review-row-codex-grounded-r1-source-cyan.png`
+>
+> 教训：共享 main 严格 `git add <file>`，禁用 `-A` 卷别人 working tree wip。
+
 ## 素材清单
 
 | 文件 | 角色 | 状态 | 来源 |
