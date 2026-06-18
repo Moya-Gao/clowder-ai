@@ -50,6 +50,15 @@ Why: Tips render inside first-party Hub waiting/status surfaces and need adoptio
 
 单一真相源约束：F244 只做投影和治理，不复制能力定义。Magic words 的含义仍来自 L0/shared-rules/F114；能力 surface 仍来自 F223/capability-wakeup rules / capability-wakeup-index；guide steps 仍来自 F155 guide registry。第一版只能机器验证结构与 source anchor，不能机器验证 `body` 语义完全等同 source；`body` 的语义防漂移靠 `owner` review、stale review、dogfood/eval 闭环兜住。实现不能维护一份平行的"能力大全"。
 
+## Implementation Posture / No Scaffold
+
+CVO 2026-06-18 纠偏：F244 不按"先做临时版、以后再补终态"推进。第一刀必须是终态架构的一次竖切：
+
+- 可以限制 seed tip 数量、telemetry 报告深度、F229 proactive/idle 展示范围。
+- 不可以临时造 help drawer、临时 action、临时 tips source、临时 schema，之后再迁移。
+- 第一版就使用最终 `CapabilityTip` contract、`open_concierge_draft` action、sourceRef/anchor 校验、review usefulness checklist 和 usage event 形状。
+- 后续迭代只能扩展 tip inventory、contexts、eval 消费深度和 F229 展示场景，不重写第一刀的 contract。
+
 ## 需求点 Checklist
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
@@ -92,7 +101,7 @@ Phase A 必须把 "结构投影" 和 "内容来源" 分开：
 | `contexts` | 可展示上下文：`thinking` / `waiting_external` / `review` / `feature_dev` / `merge_gate` / `long_running` |
 | `audience` | `cvo` / `developer` / `maintainer` / `all` |
 | `body` | 短文本，不能包含假进度承诺 |
-| `action` | typed action；MVP 主动作是 `open_concierge_draft`，把"了解更多"提示写入 F229 猫猫球输入框但不自动发送；`capability` / `workflow` / `feature` 类必填，`magic_word` / `status_help` 可豁免 |
+| `action` | typed action；第一版主动作是 `open_concierge_draft`，把"了解更多"提示写入 F229 猫猫球输入框但不自动发送；`capability` / `workflow` / `feature` 类必填，`magic_word` / `status_help` 可豁免 |
 | `owner` | 维护 owner，用于 stale/sunset |
 
 首批来源：
@@ -110,10 +119,10 @@ F229 猫猫球是 F244 的未来展示面，不是第二个 tips 系统：
 
 - F244 owns：`CapabilityTip` schema、seed manifest、`sourceRef`/anchor 校验、selector、usage/eval/stale 语义。
 - F229 owns：前台猫何时露出 tips（idle/展开/用户询问"有什么"）、如何以猫猫球/桌宠 UI 呈现、如何和 concierge 状态机共存。
-- F244 Phase B 可以把 F229 作为"了解更多"动作面：click tip → 调用现有 concierge draft contract（`setSurfaceState('bubble', prompt)` / `pendingPrompt`）→ 前台猫展开并预填输入框，**不自动发送**。
+- F244 Phase B 第一版可以把 F229 作为"了解更多"动作面：click tip → 调用现有 concierge draft contract（`setSurfaceState('bubble', prompt)` / `pendingPrompt`）→ 前台猫展开并预填输入框，**不自动发送**。
 - F229 独立渲染 tips 时只能引用 F244 选出的 `tipId/sourceRef/action`，不得把 tip body copy 到 F229-local 清单。
 - Cat ball / desktop pet 可以用动画、badge、气泡提示"有 tip"，但不能让 pet animation 成为唯一信号；这继承 F229 PetSkinContract 的"pet 是 projection，不是 truth source"边界。
-- Phase B MVP 不让 F229 主动/空闲态独立展示 tips；那一类 F229 reuse 放后续 integration PR 或 F229 Phase，新增 context 如 `concierge_idle` / `concierge_open` / `pet_waiting_for_user` 时仍走同一 schema。
+- Phase B 第一版不让 F229 主动/空闲态独立展示 tips；那一类 F229 reuse 放后续 integration PR 或 F229 Phase，新增 context 如 `concierge_idle` / `concierge_open` / `pet_waiting_for_user` 时仍走同一 schema。
 
 ### Phase B: Waiting-State Projection UI
 
@@ -243,9 +252,9 @@ tips system 是 harness 改动，必须有闭环：
 | # | 问题 | 状态 |
 |---|------|------|
 | OQ-1 | tips manifest 第一版是否 hand-authored？ | ✅ 已定：第一版 hand-authored seed manifest；必须区分 `structureSource` 与 `bodySource`，CI 只验结构/anchor/action-required，不验 body 语义一致 |
-| OQ-2 | 第一版 UI 只进 chat waiting bar，还是同步进猫猫球/桌宠状态？ | ⬜ 待 CVO Design Gate 确认；建议：Phase B 的 tip 展示只进 chat/thread waiting surfaces，但 primary action 可拉起 F229 输入框 draft；F229 主动/空闲态 tips 作为未来 consumer，不另起 source |
+| OQ-2 | 第一版 UI 只进 chat waiting bar，还是同步进猫猫球/桌宠状态？ | ⬜ 待 CVO Design Gate 确认；建议：第一版 tip 展示只进 chat/thread waiting surfaces，但 primary action 可拉起 F229 输入框 draft；F229 主动/空闲态 tips 作为未来 consumer，不另起 source |
 | OQ-3 | F192 侧复用 `eval:capability-wakeup` 还是新增 `eval:capability-tips` domain？ | ⬜ Phase D 定；先用 one-shot dogfood report |
-| OQ-4 | Tip action 打开 source 的主表面用 Workspace navigate、Guide card，还是右侧 help drawer？ | ⬜ Design Gate 画 wireframe 后定 |
+| OQ-4 | Tip action 打开 source 的主表面用 Workspace navigate、Guide card，还是右侧 help drawer？ | ✅ 已定：主表面用 F229 `open_concierge_draft`；不做右侧 help drawer；source/guide/capability 只作为 secondary action |
 
 ## Key Decisions
 
@@ -260,6 +269,7 @@ tips system 是 harness 改动，必须有闭环：
 | KD-7 | 区分 structure source 与 body source | F223 机器 registry 只有 id/capability/predicate，不含 tip body；Phase A 必须诚实承认 body seed 是人工内容，语义一致靠 review/eval/stale loop 维护 | 2026-06-18 |
 | KD-8 | F229 猫猫球是 presentation consumer，不是 tips source | F229 已拥有前台猫/功能发现职责；若猫猫球展示 tips，必须消费 F244 的 `tipId/sourceRef/action`，不能维护本地 tips 清单 | 2026-06-18 |
 | KD-9 | "了解更多"用 F229 draft，不做 help drawer 脚手架 | F229 已有 `setSurfaceState('bubble', prompt)` / `pendingPrompt` 终态 contract；F244 click 只预填输入框不自动发送，保留用户控制权 | 2026-06-18 |
+| KD-10 | 第一版是终态竖切，不叫临时版 | CVO 指出临时版 framing 会诱导绕路；scope 只能减内容数量/展示范围，不能减 contract 终态性 | 2026-06-18 |
 
 ## Timeline
 
@@ -270,7 +280,8 @@ tips system 是 harness 改动，必须有闭环：
 | 2026-06-18 | Opus 4.8 spec review REQUEST-CHANGES → 砚砚修复 structure/body source、action-required、Design Gate slot 边界 → Opus 4.8 APPROVE |
 | 2026-06-18 | Design Gate wireframe prepared: `docs/discussions/2026-06-18-f244-design-gate/README.md` |
 | 2026-06-18 | CVO 提醒 F229 猫猫球也可能需要 tips；F244 记录边界：F229 是未来 consumer，Phase B 不实现猫猫球 surface，不另起 tips source |
-| 2026-06-18 | CVO 收敛 MVP action：tip hover "了解更多"，click 拉起 F229 猫猫球并预填输入框，不自动发送；F244 记录为 `open_concierge_draft` 主动作 |
+| 2026-06-18 | CVO 收敛 first-release action：tip hover "了解更多"，click 拉起 F229 猫猫球并预填输入框，不自动发送；F244 记录为 `open_concierge_draft` 主动作 |
+| 2026-06-18 | CVO 纠偏"不要规划临时版 / 不要脚手架"；F244 改为 final-shaped first release：第一刀使用终态 contract/action/source/eval 形状，只限制 inventory 和展示场景 |
 
 ## Review Gate
 

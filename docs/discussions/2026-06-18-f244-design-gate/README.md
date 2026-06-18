@@ -60,7 +60,7 @@ in_context_observability:
 
 ## Recommendation
 
-Use **Option A** for Phase B MVP:
+Use **Option A** for the first release as a final-shaped vertical slice:
 
 1. Render a single shared `CapabilityTipStrip`.
 2. Primary placement: `ThreadExecutionBar`, directly below active cat chips.
@@ -77,15 +77,27 @@ Why this shape:
 - It preserves the existing force-reset escape hatch.
 - It uses the existing F229 concierge input as the learn-more surface instead of creating a help drawer or parallel capability catalog.
 
+## Implementation Posture
+
+This is not a throwaway first cut. The first release must use the final architecture shape:
+
+- final `CapabilityTip` schema
+- final `open_concierge_draft` action contract
+- final single-source rule (`sourceRef` + anchor validation; no parallel catalog)
+- final liveness boundary (tips hidden in warning/stall states)
+- final user-control boundary (concierge draft opens, but never auto-sends)
+
+Scope can be reduced only by limiting seed inventory, telemetry depth, and proactive F229 display contexts. It must not be reduced by adding a temporary help drawer, temporary action, temporary source list, or temporary UI slot that would need migration.
+
 ## F229 Cat Ball Integration
 
-F229 should integrate with F244 in the Phase B MVP as an action surface, but not as an independent proactive tip renderer.
+F229 should integrate with F244 in the first release as an action surface, but not as an independent proactive tip renderer.
 
 Boundary:
 
 - F244 owns the canonical `CapabilityTip` contract, tip selector, `sourceRef`/anchor validation, usage metrics, and stale/eval semantics.
 - F229 owns cat ball / desktop pet presentation: when an idle or expanded front-desk cat surfaces a tip, how it animates, and how it avoids interruption.
-- Phase B MVP uses the existing F229 draft contract: `setSurfaceState('bubble', prompt)` stores `pendingPrompt`, `ConciergePanel` consumes it into the textarea, and nothing is sent until the user presses send.
+- First release uses the existing F229 draft contract: `setSurfaceState('bubble', prompt)` stores `pendingPrompt`, `ConciergePanel` consumes it into the textarea, and nothing is sent until the user presses send.
 - F229 must render F244-selected `tipId/sourceRef/action`; it must not keep an F229-local tips body catalog.
 - Pet animation can hint that a tip exists, but cannot be the only signal. This matches F229 PetSkinContract: pet skin is projection, not source of truth.
 
@@ -97,7 +109,7 @@ Recommended later contexts:
 | `concierge_open` | User opened the cat ball and may ask "有什么 / 怎么用" |
 | `pet_waiting_for_user` | Concierge is waiting for confirmation or input and can explain the next available action |
 
-This gives the cat ball tips without making a second Knowledge Feed. Waiting-state tips and front-desk tips share the same source and telemetry; only the surface and timing differ. In Phase B, the cat ball is only the learn-more draft surface; proactive/idle tips wait for a later F229 integration.
+This gives the cat ball tips without making a second Knowledge Feed. Waiting-state tips and front-desk tips share the same source and telemetry; only the surface and timing differ. In the first release, the cat ball is only the learn-more draft surface; proactive/idle tips wait for a later F229 integration.
 
 ## Wireframes
 
@@ -188,7 +200,7 @@ Recommended answers are pre-filled. CVO can approve as-is or override specific r
 | Warning/stall behavior | Hide tips | Failure and escape controls must stay visually dominant. |
 | First display / rotation | 6s first display, >=12s rotation | Slow enough to avoid flicker; early enough to use waiting attention. |
 | Action model | primary `open_concierge_draft`; optional source/guide/capability secondary actions | Reuses F229 as the learn-more surface without auto-send or a new help drawer. |
-| Phase B surface scope | chat/thread waiting surfaces for tip display; F229 only as draft action surface | Dogfood first; avoids proactive cat-ball scope while preventing a second tips source. |
+| First release surface scope | chat/thread waiting surfaces for tip display; F229 only as draft action surface | Final-shaped first release; avoids proactive cat-ball scope while preventing a second tips source. |
 
 ## Non-Goals
 
