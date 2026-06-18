@@ -944,6 +944,93 @@ describe('Skills Route', () => {
     }
   });
 
+  it('POST /api/skills/sync clears project-local mountPaths:[] disable when global skill is enabled (F228 KD-6 Path A affirmative)', async () => {
+    // Affirmative regression test for KD-6 unconditional cascade.
+    //
+    // Scenario: external project has skill X locally disabled (mountPaths:[]),
+    // global state has skill X enabled. Per KD-6 (CVO/mindfn IM sync 2026-06-17 +
+    // F228 spec scenarios 6/7), ANY caller passing authoritative disabledSkills
+    // must clear the local mountPaths:[] — including plain reconciliation paths
+    // (POST /api/skills/sync, /api/skills/sync-skill, mount-rule edits), not just
+    // explicit global toggle.
+    //
+    // This locks the behavior as test-enforced contract so future reviewers don't
+    // re-raise the same P1 frame about "plain reconciliation re-enabling local disable"
+    // (cloud codex 8 rounds on clowder-ai#962; @gpt52 砚砚 on cat-cafe#2391, both
+    // withdrew after KD-6 design context).
+    const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
+    process.env.DEFAULT_OWNER_USER_ID = 'lysander';
+    const mainRoot = join('/tmp', `skills-route-kd6-affirmative-main-${Date.now()}`);
+    const projectDir = join('/tmp', `skills-route-kd6-affirmative-${Date.now()}`);
+    await mkdir(mainRoot, { recursive: true });
+    await mkdir(projectDir, { recursive: true });
+    // global state: tdd enabled with default mount paths
+    await writeCapabilitiesConfig(mainRoot, {
+      version: 2,
+      capabilities: [
+        {
+          id: 'tdd',
+          type: 'skill',
+          enabled: true,
+          source: 'cat-cafe',
+          mountPaths: ['claude', 'codex', 'gemini', 'kimi'],
+        },
+      ],
+    });
+    // external project state: tdd locally disabled via mountPaths:[]
+    await writeCapabilitiesConfig(projectDir, {
+      version: 2,
+      capabilities: [
+        {
+          id: 'tdd',
+          type: 'skill',
+          enabled: true,
+          source: 'cat-cafe',
+          mountPaths: [],
+        },
+      ],
+    });
+
+    const app = await buildSessionSkillsApp({ mainProjectRoot: mainRoot });
+    try {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/skills/sync',
+        headers: OWNER_SESSION_HEADERS,
+        payload: { projectPath: projectDir },
+      });
+
+      assert.equal(res.statusCode, 200, res.payload);
+
+      // KD-6 Path A: plain sync clears local mountPaths:[] disable, mounts skill
+      const projectConfig = await readCapabilitiesConfig(projectDir);
+      const tdd = projectConfig?.capabilities.find(
+        (cap) => cap.type === 'skill' && cap.source === 'cat-cafe' && cap.id === 'tdd',
+      );
+      assert.ok(tdd, 'tdd capability must be present in project config after sync');
+      assert.ok(
+        Array.isArray(tdd.mountPaths) && tdd.mountPaths.length > 0,
+        `KD-6: local mountPaths:[] must be cleared on plain sync; got ${JSON.stringify(tdd.mountPaths)}`,
+      );
+
+      // Filesystem symlinks must exist for all default mount points
+      for (const provider of ['claude', 'codex', 'gemini', 'kimi']) {
+        const link = join(projectDir, `.${provider}/skills/tdd`);
+        assert.equal(
+          (await lstat(link)).isSymbolicLink(),
+          true,
+          `KD-6: ${provider} symlink must exist after unconditional cascade clears local disable`,
+        );
+      }
+    } finally {
+      await app.close();
+      await rm(mainRoot, { recursive: true, force: true });
+      await rm(projectDir, { recursive: true, force: true });
+      if (previousOwner === undefined) delete process.env.DEFAULT_OWNER_USER_ID;
+      else process.env.DEFAULT_OWNER_USER_ID = previousOwner;
+    }
+  });
+
   it('POST /api/skills/sync-skill rejects unknown skills before mounting', async () => {
     const previousOwner = process.env.DEFAULT_OWNER_USER_ID;
     process.env.DEFAULT_OWNER_USER_ID = 'lysander';
