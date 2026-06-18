@@ -169,6 +169,7 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 | KD-13 | 纠正信号（CVO 否认/修正画像）= 最高优先级采集源，但识别走**当事猫的自我认知**（参与对话、有完整语义上下文、主动声明"我被纠正了"），**禁系统用关键词/模式匹配扫对话识别纠正**——人类表达太多样（"诶不对"/"为什么你觉得"/"其实我"无限种），匹配抓不全且误判=A 类 classifier 换皮；区别于 magic-word（CVO 主动按的有限约定暗号，仍可 deterministic 匹配） | CVO："不要去模式匹配这样的信号比如关键词匹配，人的表达太多了"；当事猫语义理解 ≠ 旁观系统分类（KD-8 禁后者不禁前者，opus47 research B 类猫自省可做） | 2026-06-13 |
 | KD-14 | 画像使用形态 = 潜意识涌出（内化成猫的直觉、自然流露），非"查表报依据"；归因只在关键/无把握时轻确认，多数潜意识使用 | CVO："pull 本质是潜意识涌出来之后我说诶这不太对"+"不能让猫猫班味"；KD-4（写事实不写指令）延伸到使用形态——条目化使用必背书 | 2026-06-13 |
 | KD-15 | 写入目标层分流：低代价偏好/印象猫自治写入**只进 per-cat 层**（primer / user-signal lane），**不直接进 shared capsule**；晋升 shared capsule（全猫共享真相源）需高门槛（CVO 签字 or 多猫印证 + 用中校准稳定后晋升） | capsule 扩散面最大（KD-2 全猫共享 / KD-5 数据最小化），单猫自治直写 shared capsule 风险高；per-cat 层是猫视角/暂存自治合理（呼应失真悖论：capsule 客观 vs primer 猫视角）；codex rigor P1 要求写死写入目标层、不让实现猫猜 | 2026-06-13 |
+| KD-16 | `ProfileDistillationTrigger.onSessionSealed` Phase C 实现边界 = observability-only（trigger counter +1 + return 0），signal harvest 由猫主动调 `cat_cafe_propose_profile_update` MCP tool 完成；spec C3 "采集白名单 + 蒸馏管道"读起来像完整 auto-harvest 实际是"白名单 + 观察 trigger + 手动入口"两步实现 | KD-11 bounded pilot 设计内合理简化（"不开通用 dream lane"），不是 dead code；记录边界避免后续 reader 误判 auto-harvest 已就绪；opus-47 trace runtime data flow 时发现，砚砚独立 trace 同结论建议写入 spec | 2026-06-18 |
 
 ## Timeline
 
@@ -186,6 +187,7 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 | 2026-06-15 | Phase C AC-C1 merged (PR #2296)：profile-update proposal loop landed end-to-end（propose tool/callback/card/decision routes/approval write path/provenance audit/terminal card recovery），cloud review clean on `be6185ad` + `pnpm gate` passed |
 | 2026-06-16 | Wave 1 收尾（A4 dry-run / A5 docs / discoverability wakeup），三猫规划收敛（opus-48 架构 + opus-46 drive），剩余工作三波计划落 spec |
 | 2026-06-18 | Phase C AC-C3 merged (PR #2354)：COLLECTION_SIGNAL_KINDS frozen enum type guard (KD-9) + 4 OTel eval counters + ProfileDistillationTrigger + SessionSealer.postSealHook guard + sealWriteSucceeded safety; gpt52 R2 local review + cloud review 4×P2 all pushback/P3-downgraded (out-of-scope / no-repro / comment-only / internal-API) |
+| 2026-06-18 | Phase C closure：opus-47 愿景守护通过 — trace runtime data flow 实证（4 OTel counter wire + ProfileDistillationTrigger 接 SessionSealer.registerPostSealHook + `propose_profile_update` 进 L0 §8 + capsule v2.1 / codex-primer signed），KD-16 实现边界明示；两条 follow-up：①认知路径观察期 baseline reset 锚 commit `7842754e5`（L0 §8 入口落地）起 7 天硬窗口监控 `profile_update.proposed > 0` ②OQ-5 注入悖论续收敛不阻塞 closure 但 sunset signal 前必须 close；fable-5 模型暂不可用，spec 收尾 opus-47 自决落（可逆 docs 改动 + 砚砚独立 trace 同结论 + 砚砚要求"observability-only 写进 spec"） |
 
 ## Remaining Work Plan（2026-06-16 三猫收敛）
 
