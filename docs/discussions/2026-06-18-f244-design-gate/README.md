@@ -25,6 +25,8 @@ Original CVO requirements:
 
 > "F229 猫猫球是前台大猫猫，如果也需要 tips，得和这套归一"
 
+> "Tips 加个 hover 提示了解更多，然后点击拉起前台猫，前台猫自动输入 tips，直接到输入框，不要发出去"
+
 ## Architecture Ownership
 
 Architecture cell: hub-action-surface + harness-eval
@@ -35,7 +37,7 @@ Why: Tips render inside first-party Hub waiting/status surfaces and need adoptio
 
 ```yaml
 in_context_observability:
-  primary_surface: "ThreadExecutionBar tip strip; ThinkingIndicator fallback only when execution bar is absent"
+  primary_surface: "ThreadExecutionBar tip strip; ThinkingIndicator fallback only when execution bar is absent; learn-more action opens F229 concierge draft without auto-send"
   why_not_dashboard_only: "Waiting is the moment where the user needs both status and lightweight capability discovery; a dashboard would be after-the-fact and would not teach during the natural attention window."
   deep_dive_surface: "Tip action opens source/guide/capability surface; Phase D sends aggregate usefulness signals to F192/Eval Hub for after-the-fact review."
   noise_dedup_policy: "First tip after 6s; rotate no faster than every 12s; show at most one tip; hide tips in suspected_stall/alive_but_silent critical states; dismiss/stale signals feed Phase D."
@@ -64,24 +66,26 @@ Use **Option A** for Phase B MVP:
 2. Primary placement: `ThreadExecutionBar`, directly below active cat chips.
 3. Fallback placement: `ThinkingIndicator` normal state only, if `ThreadExecutionBar` is absent.
 4. Hide tips during `alive_but_silent` and `suspected_stall`; let cancel/force-reset own those states.
-5. Start with source/guide/capability actions, not a new help drawer.
-6. Scope Phase B to chat/thread waiting surfaces only; F229 cat ball/desktop pet reuse is a later consumer of the same tip contract, not a separate tips source.
+5. Primary action: hover shows "了解更多"; click opens F229 cat ball / concierge bubble and pre-fills the input draft. Do not auto-send.
+6. Keep source/guide/capability actions as optional secondary actions, not a new help drawer.
+7. Scope Phase B display to chat/thread waiting surfaces only; F229 cat ball/desktop pet proactive display is a later consumer of the same tip contract, not a separate tips source.
 
 Why this shape:
 
 - It keeps tips where waiting happens.
 - It avoids duplicate tips when both components render.
 - It preserves the existing force-reset escape hatch.
-- It does not create a new help center or parallel capability catalog.
+- It uses the existing F229 concierge input as the learn-more surface instead of creating a help drawer or parallel capability catalog.
 
 ## F229 Cat Ball Integration
 
-F229 should integrate with F244, but not in the Phase B MVP implementation.
+F229 should integrate with F244 in the Phase B MVP as an action surface, but not as an independent proactive tip renderer.
 
 Boundary:
 
 - F244 owns the canonical `CapabilityTip` contract, tip selector, `sourceRef`/anchor validation, usage metrics, and stale/eval semantics.
 - F229 owns cat ball / desktop pet presentation: when an idle or expanded front-desk cat surfaces a tip, how it animates, and how it avoids interruption.
+- Phase B MVP uses the existing F229 draft contract: `setSurfaceState('bubble', prompt)` stores `pendingPrompt`, `ConciergePanel` consumes it into the textarea, and nothing is sent until the user presses send.
 - F229 must render F244-selected `tipId/sourceRef/action`; it must not keep an F229-local tips body catalog.
 - Pet animation can hint that a tip exists, but cannot be the only signal. This matches F229 PetSkinContract: pet skin is projection, not source of truth.
 
@@ -93,7 +97,7 @@ Recommended later contexts:
 | `concierge_open` | User opened the cat ball and may ask "有什么 / 怎么用" |
 | `pet_waiting_for_user` | Concierge is waiting for confirmation or input and can explain the next available action |
 
-This gives the cat ball tips without making a second Knowledge Feed. Waiting-state tips and front-desk tips share the same source and telemetry; only the surface and timing differ.
+This gives the cat ball tips without making a second Knowledge Feed. Waiting-state tips and front-desk tips share the same source and telemetry; only the surface and timing differ. In Phase B, the cat ball is only the learn-more draft surface; proactive/idle tips wait for a later F229 integration.
 
 ## Wireframes
 
@@ -102,7 +106,7 @@ This gives the cat ball tips without making a second Knowledge Feed. Waiting-sta
 ```text
 ┌─────────────────────────────────────────────────────────────┐
 │ 执行中  [缅因猫/砚砚 0:23 ×]                                │
-│ Tip  家里能力：改完前端想看效果时，猫可以用 browser-preview。 [打开来源] │
+│ Tip  家里能力：改完前端想看效果时，猫可以用 browser-preview。 [了解更多] │
 │ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─                         │
 │ ⚠ 卡住了？强制重置                                           │
 └─────────────────────────────────────────────────────────────┘
@@ -111,6 +115,8 @@ This gives the cat ball tips without making a second Knowledge Feed. Waiting-sta
 Notes:
 
 - Tip row is secondary, muted, and visually below active execution.
+- Hovering "了解更多" explains that it opens 猫猫球 with a draft, without sending.
+- Clicking "了解更多" opens F229 concierge and pre-fills: `帮我解释这个 tip：...` plus the tip's sourceRef/action context.
 - `卡住了？强制重置` remains present and below the tip in normal state.
 - Text must stay one line on desktop; on narrow width action becomes an icon/source affordance or the body truncates.
 
@@ -119,7 +125,7 @@ Notes:
 ```text
 ┌─────────────────────────────────────────────────────────────┐
 │ 🐾 砚砚 思考中 ...                                           │
-│ Tip  Magic word："脚手架"用于发现临时方案时拉回终态设计。 [家规] │
+│ Tip  Magic word："脚手架"用于发现临时方案时拉回终态设计。 [了解更多] │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -156,14 +162,15 @@ Notes:
 | Critical states | Hide tips in `alive_but_silent` / `suspected_stall` |
 | Context priority | current workflow > current feature mode > capability/magic-word general tips |
 | Tip body source | hand-authored seed with `bodySource` + `sourceRef`; not treated as canonical capability definition |
-| Required actions | `capability` / `workflow` / `feature` tips need action; `magic_word` / `status_help` may be sourceRef-only |
+| Required actions | `capability` / `workflow` / `feature` tips need `open_concierge_draft`; `magic_word` / `status_help` may be sourceRef-only but should still use draft when useful |
 
 ## Tip Actions
 
-Phase B starts with three action types:
+Phase B starts with one primary action and optional secondary actions:
 
 | Action | Use |
 |--------|-----|
+| `open_concierge_draft` | Open F229 cat ball / concierge bubble and pre-fill the input with a learn-more prompt. Never auto-send. |
 | `open_source` | Open sourceRef doc or rule anchor, usually via workspace/source navigation |
 | `open_guide` | Start or show an existing F155 guide when there is a real guide |
 | `open_capability_surface` | Open an existing first-party surface such as browser preview/workspace/rich block docs when available |
@@ -180,8 +187,8 @@ Recommended answers are pre-filled. CVO can approve as-is or override specific r
 | Fallback placement | `ThinkingIndicator` normal state only if execution bar absent | Prevent duplicate tips while keeping single-cat/simple mode covered. |
 | Warning/stall behavior | Hide tips | Failure and escape controls must stay visually dominant. |
 | First display / rotation | 6s first display, >=12s rotation | Slow enough to avoid flicker; early enough to use waiting attention. |
-| Action model | source/guide/capability actions only | Avoids a new help center and preserves single source. |
-| Phase B surface scope | chat/thread waiting surfaces only; F229 recorded as future consumer of the same contract | Dogfood first; avoids scope expansion while preventing a second tips source. |
+| Action model | primary `open_concierge_draft`; optional source/guide/capability secondary actions | Reuses F229 as the learn-more surface without auto-send or a new help drawer. |
+| Phase B surface scope | chat/thread waiting surfaces for tip display; F229 only as draft action surface | Dogfood first; avoids proactive cat-ball scope while preventing a second tips source. |
 
 ## Non-Goals
 
@@ -190,6 +197,7 @@ Recommended answers are pre-filled. CVO can approve as-is or override specific r
 - No random cat saying library as the main artifact.
 - No fake progress or fake precise status.
 - No right-side help drawer in Phase B.
+- No auto-send from tips into the concierge thread.
 - No tip display during critical liveness states.
 
 ## Review Notes
