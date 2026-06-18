@@ -1,13 +1,12 @@
 // @ts-check
 /**
- * #949: MR review thread rotation — pre-dispatch health gate.
+ * #949 / F140: review feedback must return to the PR tracking registration thread.
  *
- * Root cause: ReviewFeedbackTaskSpec reuses the same threadId (fixed at
- * register-pr-tracking time) for ALL MR reviews. After 3-5 MRs the thread's
- * context overflows → permanent Execution error.
- *
- * Fix: track completedReviewCount in automationState.review and rotate to a
- * fresh thread when the count reaches maxReviewsPerThread (default 3).
+ * Regression context: PR #2335 introduced MR-review thread rotation after a
+ * completedReviewCount threshold, then PR #2372 added a source-thread backlink.
+ * That broke the user mental model: a PR belongs to the thread that registered
+ * PR tracking, and review feedback must be delivered there instead of silently
+ * moving the task to an auto-created thread.
  */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
@@ -42,7 +41,6 @@ function mockTaskStore(tasks) {
       updateCalls.push({ taskId, input });
       const task = tasks.find((t) => t.id === taskId);
       if (!task) return null;
-      // Apply update to the mock task for subsequent reads
       Object.assign(task, input, { updatedAt: Date.now() });
       return { ...task };
     },
@@ -50,7 +48,6 @@ function mockTaskStore(tasks) {
       patchCalls.push({ taskId, patch });
       const task = tasks.find((t) => t.id === taskId);
       if (!task) return null;
-      // Merge automationState for subsequent reads
       task.automationState = {
         ...task.automationState,
         ...patch,
@@ -64,13 +61,11 @@ function mockTaskStore(tasks) {
 }
 
 function mockThreadStore(existingThreads = {}) {
-  let threadCounter = 0;
   const createCalls = [];
   return {
     create: (userId, title, projectPath) => {
-      threadCounter++;
       const thread = {
-        id: `thread_rotated_${threadCounter}`,
+        id: `thread_rotated_${createCalls.length + 1}`,
         title: title ?? 'MR Review',
         createdBy: userId,
         createdAt: Date.now(),
@@ -84,294 +79,6 @@ function mockThreadStore(existingThreads = {}) {
     _createCalls: createCalls,
   };
 }
-
-function stubRouter(kind = 'notified') {
-  const calls = [];
-  return {
-    router: {
-      async route(signal, tracking) {
-        calls.push({ signal, tracking });
-        if (kind === 'notified') {
-          return {
-            kind: 'notified',
-            threadId: tracking.threadId,
-            catId: tracking.catId,
-            messageId: 'msg-1',
-            content: 'feedback msg',
-          };
-        }
-        return { kind: 'skipped', reason: 'stub skip' };
-      },
-    },
-    calls,
-  };
-}
-
-describe('#949: MR review thread rotation', () => {
-  it('increments completedReviewCount after successful delivery', async () => {
-    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
-    const task = mockTask({ repoFullName: 'owner/repo', prNumber: 42, catId: 'opus', threadId: 'th-1', userId: 'u-1' });
-    const store = mockTaskStore([task]);
-    const { router } = stubRouter();
-    const spec = createReviewFeedbackTaskSpec({
-      taskStore: store,
-      fetchComments: async () => [
-        { id: 1, author: 'alice', body: 'fix it', createdAt: '2026-01-01', commentType: 'conversation' },
-      ],
-      fetchReviews: async () => [],
-      reviewFeedbackRouter: router,
-      log: noopLog,
-    });
-
-    const gateResult = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
-    assert.equal(gateResult.run, true);
-    await spec.run.execute(gateResult.workItems[0].signal, 'pr:owner/repo#42', {});
-
-    // After delivery, completedReviewCount should be incremented
-    const reviewPatch = store._patchCalls.find((c) => c.patch.review?.completedReviewCount !== undefined);
-    assert.ok(reviewPatch, 'should patch completedReviewCount');
-    assert.equal(reviewPatch.patch.review.completedReviewCount, 1);
-  });
-
-  it('rotates to a fresh thread when completedReviewCount reaches maxReviewsPerThread', async () => {
-    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
-    const task = mockTask(
-      { repoFullName: 'owner/repo', prNumber: 42, catId: 'opus', threadId: 'th-saturated', userId: 'u-1' },
-      {
-        automationState: {
-          review: { lastCommentCursor: 0, lastDecisionCursor: 0, completedReviewCount: 3 },
-        },
-      },
-    );
-    const store = mockTaskStore([task]);
-    const threadStore = mockThreadStore();
-    const { router, calls } = stubRouter();
-    const spec = createReviewFeedbackTaskSpec({
-      taskStore: store,
-      fetchComments: async () => [
-        { id: 10, author: 'bob', body: 'needs fix', createdAt: '2026-01-02', commentType: 'conversation' },
-      ],
-      fetchReviews: async () => [],
-      reviewFeedbackRouter: router,
-      threadStore,
-      maxReviewsPerThread: 3,
-      log: noopLog,
-    });
-
-    const gateResult = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
-    assert.equal(gateResult.run, true);
-    await spec.run.execute(gateResult.workItems[0].signal, 'pr:owner/repo#42', {});
-
-    // Thread rotation should have happened
-    assert.equal(threadStore._createCalls.length, 1, 'should create a new thread');
-
-    // The task should be updated with the new threadId
-    const threadUpdate = store._updateCalls.find((c) => c.input.threadId);
-    assert.ok(threadUpdate, 'should update task with new threadId');
-    assert.notEqual(threadUpdate.input.threadId, 'th-saturated', 'new threadId should differ from old');
-
-    // Router should route to the NEW thread, not the old one
-    assert.equal(calls.length, 1);
-    assert.equal(calls[0].tracking.threadId, threadStore._createCalls[0].thread.id);
-
-    // completedReviewCount should be reset to 1 (this delivery counts)
-    const reviewPatch = store._patchCalls.find((c) => c.patch.review?.completedReviewCount !== undefined);
-    assert.ok(reviewPatch, 'should patch completedReviewCount');
-    assert.equal(reviewPatch.patch.review.completedReviewCount, 1, 'should reset to 1 after rotation');
-  });
-
-  it('does NOT rotate when completedReviewCount is below threshold', async () => {
-    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
-    const task = mockTask(
-      { repoFullName: 'owner/repo', prNumber: 42, catId: 'opus', threadId: 'th-ok', userId: 'u-1' },
-      {
-        automationState: {
-          review: { lastCommentCursor: 0, lastDecisionCursor: 0, completedReviewCount: 1 },
-        },
-      },
-    );
-    const store = mockTaskStore([task]);
-    const threadStore = mockThreadStore();
-    const { router, calls } = stubRouter();
-    const spec = createReviewFeedbackTaskSpec({
-      taskStore: store,
-      fetchComments: async () => [
-        { id: 5, author: 'carol', body: 'LGTM', createdAt: '2026-01-01', commentType: 'conversation' },
-      ],
-      fetchReviews: async () => [],
-      reviewFeedbackRouter: router,
-      threadStore,
-      maxReviewsPerThread: 3,
-      log: noopLog,
-    });
-
-    const gateResult = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
-    assert.equal(gateResult.run, true);
-    await spec.run.execute(gateResult.workItems[0].signal, 'pr:owner/repo#42', {});
-
-    // No thread rotation
-    assert.equal(threadStore._createCalls.length, 0, 'should NOT create a new thread');
-    // Routing should use the original thread
-    assert.equal(calls[0].tracking.threadId, 'th-ok');
-    // completedReviewCount should increment to 2
-    const reviewPatch = store._patchCalls.find((c) => c.patch.review?.completedReviewCount !== undefined);
-    assert.ok(reviewPatch);
-    assert.equal(reviewPatch.patch.review.completedReviewCount, 2);
-  });
-
-  it('defaults maxReviewsPerThread to 3 when not specified', async () => {
-    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
-    const task = mockTask(
-      { repoFullName: 'owner/repo', prNumber: 42, catId: 'opus', threadId: 'th-default', userId: 'u-1' },
-      {
-        automationState: {
-          review: { lastCommentCursor: 0, lastDecisionCursor: 0, completedReviewCount: 3 },
-        },
-      },
-    );
-    const store = mockTaskStore([task]);
-    const threadStore = mockThreadStore();
-    const { router } = stubRouter();
-    const spec = createReviewFeedbackTaskSpec({
-      taskStore: store,
-      fetchComments: async () => [
-        { id: 20, author: 'dave', body: 'review', createdAt: '2026-01-01', commentType: 'conversation' },
-      ],
-      fetchReviews: async () => [],
-      reviewFeedbackRouter: router,
-      threadStore,
-      // maxReviewsPerThread not specified — should default to 3
-      log: noopLog,
-    });
-
-    const gateResult = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
-    assert.equal(gateResult.run, true);
-    await spec.run.execute(gateResult.workItems[0].signal, 'pr:owner/repo#42', {});
-
-    // Should rotate at count=3 (default threshold)
-    assert.equal(threadStore._createCalls.length, 1, 'should rotate at default threshold of 3');
-  });
-
-  it('does not rotate when threadStore is not provided (graceful degradation)', async () => {
-    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
-    const task = mockTask(
-      { repoFullName: 'owner/repo', prNumber: 42, catId: 'opus', threadId: 'th-no-store', userId: 'u-1' },
-      {
-        automationState: {
-          review: { lastCommentCursor: 0, lastDecisionCursor: 0, completedReviewCount: 10 },
-        },
-      },
-    );
-    const store = mockTaskStore([task]);
-    const { router, calls } = stubRouter();
-    const spec = createReviewFeedbackTaskSpec({
-      taskStore: store,
-      fetchComments: async () => [
-        { id: 30, author: 'eve', body: 'pls fix', createdAt: '2026-01-01', commentType: 'conversation' },
-      ],
-      fetchReviews: async () => [],
-      reviewFeedbackRouter: router,
-      // No threadStore — rotation should be skipped gracefully
-      log: noopLog,
-    });
-
-    const gateResult = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
-    assert.equal(gateResult.run, true);
-    await spec.run.execute(gateResult.workItems[0].signal, 'pr:owner/repo#42', {});
-
-    // Should NOT crash, just route to original thread
-    assert.equal(calls[0].tracking.threadId, 'th-no-store');
-  });
-
-  it('new thread title includes PR context for traceability', async () => {
-    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
-    const task = mockTask(
-      { repoFullName: 'org/repo', prNumber: 99, catId: 'sonnet', threadId: 'th-old', userId: 'u-1' },
-      {
-        automationState: {
-          review: { lastCommentCursor: 0, lastDecisionCursor: 0, completedReviewCount: 3 },
-        },
-      },
-    );
-    const store = mockTaskStore([task]);
-    const threadStore = mockThreadStore();
-    const { router } = stubRouter();
-    const spec = createReviewFeedbackTaskSpec({
-      taskStore: store,
-      fetchComments: async () => [
-        { id: 40, author: 'frank', body: 'fix', createdAt: '2026-01-01', commentType: 'conversation' },
-      ],
-      fetchReviews: async () => [],
-      reviewFeedbackRouter: router,
-      threadStore,
-      maxReviewsPerThread: 3,
-      log: noopLog,
-    });
-
-    const gateResult = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
-    await spec.run.execute(gateResult.workItems[0].signal, 'pr:org/repo#99', {});
-
-    assert.equal(threadStore._createCalls.length, 1);
-    const createCall = threadStore._createCalls[0];
-    // Title should reference MR review for traceability
-    assert.ok(
-      createCall.title && createCall.title.includes('review'),
-      `thread title should mention review, got: ${createCall.title}`,
-    );
-  });
-
-  it('preserves projectPath from original thread when rotating (cloud P1)', async () => {
-    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
-    const originalProjectPath = '/Users/lysander/projects/relay-station/cat-cafe';
-    const task = mockTask(
-      { repoFullName: 'owner/repo', prNumber: 42, catId: 'opus', threadId: 'th-with-project', userId: 'u-1' },
-      {
-        automationState: {
-          review: { lastCommentCursor: 0, lastDecisionCursor: 0, completedReviewCount: 3 },
-        },
-      },
-    );
-    const store = mockTaskStore([task]);
-    const threadStore = mockThreadStore({
-      'th-with-project': {
-        id: 'th-with-project',
-        projectPath: originalProjectPath,
-        title: 'MR review thread',
-      },
-    });
-    const { router } = stubRouter();
-    const spec = createReviewFeedbackTaskSpec({
-      taskStore: store,
-      fetchComments: async () => [
-        { id: 50, author: 'grace', body: 'review comment', createdAt: '2026-01-01', commentType: 'conversation' },
-      ],
-      fetchReviews: async () => [],
-      reviewFeedbackRouter: router,
-      threadStore,
-      maxReviewsPerThread: 3,
-      log: noopLog,
-    });
-
-    const gateResult = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
-    await spec.run.execute(gateResult.workItems[0].signal, 'pr:owner/repo#42', {});
-
-    assert.equal(threadStore._createCalls.length, 1, 'should rotate');
-    const createCall = threadStore._createCalls[0];
-    assert.equal(
-      createCall.projectPath,
-      originalProjectPath,
-      'rotated thread must inherit projectPath from original thread',
-    );
-  });
-});
-
-// ── F140 post-completion hardening (2026-06-17): source-thread backlink ──
-// Trust gap: when rotation happens, the ORIGINAL source thread receives no
-// system notice. Users waiting on the source thread silently lose visibility
-// of where review feedback now lands. Sidebar visibility of auto-rotated
-// thread is a separate F057/#949 follow-up; F140 owns the source-thread
-// backlink as the trust-gap floor (always at least one breadcrumb on the
-// source thread linking to the rotated thread).
 
 function mockBacklinkDelivery() {
   const appendCalls = [];
@@ -398,17 +105,43 @@ function mockBacklinkDelivery() {
   };
 }
 
-describe('F140 post-completion hardening: source-thread backlink on rotation', () => {
-  it('appends AND broadcasts backlink to original thread when rotation succeeds (P2 cloud codex fix on PR #2372)', async () => {
+function stubRouter(kind = 'notified') {
+  const calls = [];
+  return {
+    router: {
+      async route(signal, tracking) {
+        calls.push({ signal, tracking });
+        if (kind === 'notified') {
+          return {
+            kind: 'notified',
+            threadId: tracking.threadId,
+            catId: tracking.catId,
+            messageId: 'msg-1',
+            content: 'feedback msg',
+          };
+        }
+        return { kind: 'skipped', reason: 'stub skip' };
+      },
+    },
+    calls,
+  };
+}
+
+describe('#949 / F140: review feedback returns to the registered thread', () => {
+  it('does not rotate or rewrite task.threadId even when legacy completedReviewCount is high', async () => {
     const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
     const task = mockTask(
       { repoFullName: 'owner/repo', prNumber: 42, catId: 'opus', threadId: 'th-original', userId: 'u-1' },
-      { automationState: { review: { lastCommentCursor: 0, lastDecisionCursor: 0, completedReviewCount: 3 } } },
+      {
+        automationState: {
+          review: { lastCommentCursor: 0, lastDecisionCursor: 0, completedReviewCount: 99 },
+        },
+      },
     );
     const store = mockTaskStore([task]);
     const threadStore = mockThreadStore();
     const backlink = mockBacklinkDelivery();
-    const { router } = stubRouter();
+    const { router, calls } = stubRouter();
     const spec = createReviewFeedbackTaskSpec({
       taskStore: store,
       fetchComments: async () => [
@@ -416,6 +149,7 @@ describe('F140 post-completion hardening: source-thread backlink on rotation', (
       ],
       fetchReviews: async () => [],
       reviewFeedbackRouter: router,
+      // Legacy deps may still be threaded by old factory code; they must not move ownership.
       threadStore,
       backlinkDelivery: backlink.deps,
       maxReviewsPerThread: 3,
@@ -423,146 +157,282 @@ describe('F140 post-completion hardening: source-thread backlink on rotation', (
     });
 
     const gateResult = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
+    assert.equal(gateResult.run, true);
     await spec.run.execute(gateResult.workItems[0].signal, 'pr:owner/repo#42', {});
 
-    assert.equal(threadStore._createCalls.length, 1, 'rotation should have happened');
-    const newThreadId = threadStore._createCalls[0].thread.id;
-
-    // 1. PERSISTED (messageStore.append) → on ORIGINAL thread
-    assert.equal(backlink._appendCalls.length, 1, 'should append exactly one backlink message');
-    const appended = backlink._appendCalls[0];
-    assert.equal(appended.threadId, 'th-original', 'backlink must go to original thread');
-    assert.ok(appended.content.includes('#42'), 'PR number');
-    assert.ok(appended.content.includes(newThreadId), 'rotated thread id');
-    assert.ok(appended.content.includes('auto-rotated') || appended.content.includes('转投'), 'rotation cue');
-
-    // 2. BROADCAST LIVE (socketManager.broadcastToRoom) — this is the P2 fix.
-    // Without broadcast, the breadcrumb is invisible in live UI until manual refresh.
-    assert.equal(backlink._broadcastCalls.length, 1, 'should broadcast exactly one connector_message');
-    const broadcast = backlink._broadcastCalls[0];
-    assert.equal(broadcast.room, 'thread:th-original', 'broadcast room must target ORIGINAL thread');
-    assert.equal(broadcast.event, 'connector_message', 'event type for web client live update');
-    assert.equal(broadcast.data.threadId, 'th-original', 'broadcast payload threadId');
-    assert.ok(broadcast.data.message.content.includes(newThreadId), 'broadcast content includes rotated id');
-    assert.equal(broadcast.data.message.type, 'connector', 'message type');
-    assert.equal(broadcast.data.message.source.connector, 'github-review-feedback', 'connector source');
-
-    // P1.1 fix (codex PR #2372 review): tag as system_notice so SystemNoticeBar renders.
+    assert.equal(threadStore._createCalls.length, 0, 'review feedback must not auto-create rotated threads');
     assert.equal(
-      broadcast.data.message.source.meta?.presentation,
-      'system_notice',
-      'source.meta.presentation must be system_notice for SystemNoticeBar rendering',
+      store._updateCalls.some((call) => Object.hasOwn(call.input, 'threadId')),
+      false,
+      'review feedback must not rewrite the PR tracking task threadId',
     );
-    assert.equal(
-      appended.source?.meta?.presentation,
-      'system_notice',
-      'persisted message source.meta.presentation must match (hydration parity)',
-    );
-
-    // P2 fix (codex PR #2372 review): clickable Markdown link, not raw id.
-    assert.ok(
-      appended.content.includes(`[`) && appended.content.includes(`](/thread/${newThreadId})`),
-      `content must contain a Markdown link [/thread/${newThreadId}], got: ${appended.content}`,
-    );
+    assert.equal(backlink._appendCalls.length, 0, 'no rotation means no source-thread backlink');
+    assert.equal(backlink._broadcastCalls.length, 0, 'no rotation means no breadcrumb broadcast');
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].tracking.threadId, 'th-original', 'delivery stays on the registering thread');
   });
 
-  it('does NOT post backlink when rotation does NOT happen (below threshold)', async () => {
+  it('repairs already-rotated legacy tasks back to the source thread before routing', async () => {
     const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
     const task = mockTask(
-      { repoFullName: 'owner/repo', prNumber: 42, catId: 'opus', threadId: 'th-below', userId: 'u-1' },
-      { automationState: { review: { lastCommentCursor: 0, lastDecisionCursor: 0, completedReviewCount: 1 } } },
-    );
-    const store = mockTaskStore([task]);
-    const threadStore = mockThreadStore();
-    const backlink = mockBacklinkDelivery();
-    const { router } = stubRouter();
-    const spec = createReviewFeedbackTaskSpec({
-      taskStore: store,
-      fetchComments: async () => [
-        { id: 10, author: 'bob', body: 'tiny fix', createdAt: '2026-01-01', commentType: 'conversation' },
-      ],
-      fetchReviews: async () => [],
-      reviewFeedbackRouter: router,
-      threadStore,
-      backlinkDelivery: backlink.deps,
-      maxReviewsPerThread: 3,
-      log: noopLog,
-    });
-
-    const gateResult = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
-    await spec.run.execute(gateResult.workItems[0].signal, 'pr:owner/repo#42', {});
-
-    assert.equal(threadStore._createCalls.length, 0, 'no rotation');
-    assert.equal(backlink._appendCalls.length, 0, 'no append when no rotation');
-    assert.equal(backlink._broadcastCalls.length, 0, 'no broadcast when no rotation');
-  });
-
-  it('rotation still works when backlinkDelivery is NOT provided (backward compat)', async () => {
-    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
-    const task = mockTask(
-      { repoFullName: 'owner/repo', prNumber: 42, catId: 'opus', threadId: 'th-noms', userId: 'u-1' },
-      { automationState: { review: { lastCommentCursor: 0, lastDecisionCursor: 0, completedReviewCount: 3 } } },
-    );
-    const store = mockTaskStore([task]);
-    const threadStore = mockThreadStore();
-    const { router } = stubRouter();
-    const spec = createReviewFeedbackTaskSpec({
-      taskStore: store,
-      fetchComments: async () => [
-        { id: 10, author: 'bob', body: 'review', createdAt: '2026-01-01', commentType: 'conversation' },
-      ],
-      fetchReviews: async () => [],
-      reviewFeedbackRouter: router,
-      threadStore,
-      // backlinkDelivery intentionally omitted
-      maxReviewsPerThread: 3,
-      log: noopLog,
-    });
-
-    const gateResult = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
-    await spec.run.execute(gateResult.workItems[0].signal, 'pr:owner/repo#42', {});
-
-    assert.equal(threadStore._createCalls.length, 1, 'rotation still works without backlinkDelivery');
-  });
-
-  it('rotation continues even if backlink delivery throws (best-effort)', async () => {
-    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
-    const task = mockTask(
-      { repoFullName: 'owner/repo', prNumber: 42, catId: 'opus', threadId: 'th-failms', userId: 'u-1' },
-      { automationState: { review: { lastCommentCursor: 0, lastDecisionCursor: 0, completedReviewCount: 3 } } },
-    );
-    const store = mockTaskStore([task]);
-    const threadStore = mockThreadStore();
-    const failingDelivery = {
-      messageStore: {
-        append: async () => {
-          throw new Error('intentional append failure');
+      { repoFullName: 'owner/repo', prNumber: 44, catId: 'opus', threadId: 'thread_rotated_1', userId: 'u-1' },
+      {
+        automationState: {
+          review: { lastCommentCursor: 0, lastDecisionCursor: 0, completedReviewCount: 1 },
         },
       },
-      socketManager: {
-        broadcastToRoom: () => {},
+    );
+    const store = mockTaskStore([task]);
+    const threadStore = mockThreadStore({
+      thread_rotated_1: {
+        id: 'thread_rotated_1',
+        title: 'MR review (auto-rotated from th-original)',
+        createdBy: 'u-1',
+        createdAt: task.createdAt + 1000,
+        participants: ['opus'],
+        projectPath: '/projects/cat-cafe',
       },
-    };
+      'th-original': {
+        id: 'th-original',
+        title: 'Original source thread',
+        createdBy: 'u-1',
+        createdAt: task.createdAt - 1000,
+        participants: ['opus'],
+        projectPath: '/projects/cat-cafe',
+      },
+    });
     const { router, calls } = stubRouter();
     const spec = createReviewFeedbackTaskSpec({
       taskStore: store,
       fetchComments: async () => [
-        { id: 10, author: 'bob', body: 'review', createdAt: '2026-01-01', commentType: 'conversation' },
+        { id: 30, author: 'alice', body: 'P1: fix', createdAt: '2026-01-01', commentType: 'conversation' },
       ],
       fetchReviews: async () => [],
       reviewFeedbackRouter: router,
       threadStore,
-      backlinkDelivery: failingDelivery,
-      maxReviewsPerThread: 3,
       log: noopLog,
     });
 
     const gateResult = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
-    await spec.run.execute(gateResult.workItems[0].signal, 'pr:owner/repo#42', {});
+    assert.equal(gateResult.run, true);
+    await spec.run.execute(gateResult.workItems[0].signal, 'pr:owner/repo#44', {});
 
-    assert.equal(threadStore._createCalls.length, 1, 'rotation should still happen');
-    assert.equal(calls.length, 1, 'delivery to new thread should still happen');
-    assert.equal(calls[0].tracking.threadId, threadStore._createCalls[0].thread.id, 'delivery to NEW thread');
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].tracking.threadId, 'th-original', 'polluted legacy task must deliver to source thread');
+    assert.deepEqual(
+      store._updateCalls.filter((call) => Object.hasOwn(call.input, 'threadId')).map((call) => call.input.threadId),
+      ['th-original'],
+      'legacy repair should persist task.threadId back to the source thread',
+    );
+    assert.equal(threadStore._createCalls.length, 0, 'legacy repair must not create another thread');
+  });
+
+  it('follows chained legacy rotated threads back to the original source thread before routing', async () => {
+    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
+    const task = mockTask(
+      { repoFullName: 'owner/repo', prNumber: 46, catId: 'opus', threadId: 'thread_rotated_2', userId: 'u-1' },
+      {
+        automationState: {
+          review: { lastCommentCursor: 0, lastDecisionCursor: 0, completedReviewCount: 2 },
+        },
+      },
+    );
+    const store = mockTaskStore([task]);
+    const threadStore = mockThreadStore({
+      thread_rotated_2: {
+        id: 'thread_rotated_2',
+        title: 'MR review (auto-rotated from thread_rotated_1)',
+        createdBy: 'u-1',
+        createdAt: task.createdAt + 2000,
+        participants: ['opus'],
+        projectPath: '/projects/cat-cafe',
+      },
+      thread_rotated_1: {
+        id: 'thread_rotated_1',
+        title: 'MR review (auto-rotated from th-original)',
+        createdBy: 'u-1',
+        createdAt: task.createdAt + 1000,
+        participants: ['opus'],
+        projectPath: '/projects/cat-cafe',
+      },
+      'th-original': {
+        id: 'th-original',
+        title: 'Original source thread',
+        createdBy: 'u-1',
+        createdAt: task.createdAt - 1000,
+        participants: ['opus'],
+        projectPath: '/projects/cat-cafe',
+      },
+    });
+    const { router, calls } = stubRouter();
+    const spec = createReviewFeedbackTaskSpec({
+      taskStore: store,
+      fetchComments: async () => [
+        { id: 32, author: 'alice', body: 'P1: fix', createdAt: '2026-01-01', commentType: 'conversation' },
+      ],
+      fetchReviews: async () => [],
+      reviewFeedbackRouter: router,
+      threadStore,
+      log: noopLog,
+    });
+
+    const gateResult = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
+    assert.equal(gateResult.run, true);
+    await spec.run.execute(gateResult.workItems[0].signal, 'pr:owner/repo#46', {});
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].tracking.threadId, 'th-original', 'chained legacy repair must deliver to original source');
+    assert.deepEqual(
+      store._updateCalls.filter((call) => Object.hasOwn(call.input, 'threadId')).map((call) => call.input.threadId),
+      ['th-original'],
+      'chained legacy repair should persist task.threadId directly to the original source thread',
+    );
+    assert.equal(threadStore._createCalls.length, 0, 'chained legacy repair must not create another thread');
+  });
+
+  it('repairs legacy rotated tasks back to the built-in default source thread', async () => {
+    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
+    const task = mockTask(
+      { repoFullName: 'owner/repo', prNumber: 47, catId: 'opus', threadId: 'thread_rotated_default', userId: 'u-1' },
+      {
+        automationState: {
+          review: { lastCommentCursor: 0, lastDecisionCursor: 0, completedReviewCount: 2 },
+        },
+      },
+    );
+    const store = mockTaskStore([task]);
+    const threadStore = mockThreadStore({
+      thread_rotated_default: {
+        id: 'thread_rotated_default',
+        title: 'MR review (auto-rotated from default)',
+        createdBy: 'u-1',
+        createdAt: task.createdAt + 1000,
+        participants: ['opus'],
+        projectPath: 'default',
+      },
+      default: {
+        id: 'default',
+        title: null,
+        createdBy: 'system',
+        createdAt: task.createdAt - 1000,
+        participants: [],
+        projectPath: 'default',
+      },
+    });
+    const { router, calls } = stubRouter();
+    const spec = createReviewFeedbackTaskSpec({
+      taskStore: store,
+      fetchComments: async () => [
+        { id: 33, author: 'alice', body: 'P2: check', createdAt: '2026-01-01', commentType: 'conversation' },
+      ],
+      fetchReviews: async () => [],
+      reviewFeedbackRouter: router,
+      threadStore,
+      log: noopLog,
+    });
+
+    const gateResult = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
+    assert.equal(gateResult.run, true);
+    await spec.run.execute(gateResult.workItems[0].signal, 'pr:owner/repo#47', {});
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].tracking.threadId, 'default', 'default-thread legacy repair must deliver to default');
+    assert.deepEqual(
+      store._updateCalls.filter((call) => Object.hasOwn(call.input, 'threadId')).map((call) => call.input.threadId),
+      ['default'],
+      'default-thread legacy repair should persist task.threadId back to default',
+    );
+  });
+
+  it('does not repair a spoofed legacy-looking thread owned by another user', async () => {
+    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
+    const task = mockTask(
+      { repoFullName: 'owner/repo', prNumber: 45, catId: 'opus', threadId: 'thread_spoofed', userId: 'u-1' },
+      {
+        automationState: {
+          review: { lastCommentCursor: 0, lastDecisionCursor: 0, completedReviewCount: 1 },
+        },
+      },
+    );
+    const store = mockTaskStore([task]);
+    const threadStore = mockThreadStore({
+      thread_spoofed: {
+        id: 'thread_spoofed',
+        title: 'MR review (auto-rotated from th-unrelated)',
+        createdBy: 'u-attacker',
+        createdAt: task.createdAt + 1000,
+        participants: [],
+        projectPath: '/projects/cat-cafe',
+      },
+      'th-unrelated': {
+        id: 'th-unrelated',
+        title: 'Unrelated source-looking thread',
+        createdBy: 'u-attacker',
+        createdAt: task.createdAt - 1000,
+        participants: [],
+        projectPath: '/projects/cat-cafe',
+      },
+    });
+    const { router, calls } = stubRouter();
+    const spec = createReviewFeedbackTaskSpec({
+      taskStore: store,
+      fetchComments: async () => [
+        { id: 31, author: 'alice', body: 'P2: check', createdAt: '2026-01-01', commentType: 'conversation' },
+      ],
+      fetchReviews: async () => [],
+      reviewFeedbackRouter: router,
+      threadStore,
+      log: noopLog,
+    });
+
+    const gateResult = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
+    assert.equal(gateResult.run, true);
+    await spec.run.execute(gateResult.workItems[0].signal, 'pr:owner/repo#45', {});
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].tracking.threadId, 'thread_spoofed', 'spoofed title must not reroute delivery');
+    assert.equal(
+      store._updateCalls.some((call) => Object.hasOwn(call.input, 'threadId')),
+      false,
+      'spoofed legacy-looking thread must not persist a repair',
+    );
+  });
+
+  it('continues to commit cursors while preserving the registered thread', async () => {
+    const { createReviewFeedbackTaskSpec } = await import('../../dist/infrastructure/email/ReviewFeedbackTaskSpec.js');
+    const task = mockTask(
+      { repoFullName: 'owner/repo', prNumber: 43, catId: 'codex', threadId: 'th-source', userId: 'u-1' },
+      {
+        automationState: {
+          review: { lastCommentCursor: 0, lastDecisionCursor: 0, completedReviewCount: 3 },
+        },
+      },
+    );
+    const store = mockTaskStore([task]);
+    const { router, calls } = stubRouter();
+    const spec = createReviewFeedbackTaskSpec({
+      taskStore: store,
+      fetchComments: async () => [
+        { id: 20, author: 'alice', body: 'P1: fix', createdAt: '2026-01-01', commentType: 'conversation' },
+      ],
+      fetchReviews: async () => [
+        { id: 7, author: 'reviewer', state: 'COMMENTED', body: '', submittedAt: '2026-01-01' },
+      ],
+      reviewFeedbackRouter: router,
+      threadStore: mockThreadStore(),
+      maxReviewsPerThread: 1,
+      log: noopLog,
+    });
+
+    const gateResult = await spec.admission.gate({ taskId: spec.id, lastRunAt: null, tickCount: 1 });
+    assert.equal(gateResult.run, true);
+    await spec.run.execute(gateResult.workItems[0].signal, 'pr:owner/repo#43', {});
+
+    assert.equal(calls[0].tracking.threadId, 'th-source');
+    const cursorPatch = store._patchCalls.find((call) => call.patch.review?.lastCommentCursor !== undefined);
+    assert.ok(cursorPatch, 'cursor patch should still be persisted after delivery');
+    assert.equal(cursorPatch.patch.review.lastCommentCursor, 20);
+    assert.equal(cursorPatch.patch.review.lastDecisionCursor, 7);
   });
 });
 

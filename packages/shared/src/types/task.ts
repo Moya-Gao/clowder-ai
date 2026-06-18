@@ -58,8 +58,6 @@ export interface ReviewAutomationState {
   readonly lastCommentCursor?: number;
   readonly lastDecisionCursor?: number;
   readonly lastNotifiedAt?: number;
-  /** #949: Number of MR reviews completed on the current thread. Used for thread rotation. */
-  readonly completedReviewCount?: number;
 }
 
 /**
@@ -181,7 +179,7 @@ export type UpdateTaskInput = {
   automationState?: AutomationState;
   probe?: TaskProbeSpec | null;
   resolveMode?: BallResolveMode | null;
-  /** #949: Thread rotation — allow reassigning a task to a new thread. */
+  /** Generic task move support. Callers that change threadId own the UX contract. */
   threadId?: string;
   /** F193-E1 P1-4: allow patching dispatchGate on existing tasks */
   dispatchGate?: DispatchGateState;

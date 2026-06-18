@@ -286,7 +286,7 @@ export class RedisTaskStore implements ITaskStore {
       ...(input.automationState !== undefined ? { automationState: input.automationState } : {}),
       ...(input.probe !== undefined ? { probe: input.probe } : {}),
       ...(input.resolveMode !== undefined ? { resolveMode: input.resolveMode } : {}),
-      // #949: thread rotation — allow reassigning to a new thread
+      // Generic task move support: callers that change threadId own the UX contract.
       ...(input.threadId !== undefined ? { threadId: input.threadId } : {}),
       // F193-E1 P1-4: allow patching dispatchGate
       ...(input.dispatchGate !== undefined ? { dispatchGate: input.dispatchGate } : {}),
@@ -295,7 +295,7 @@ export class RedisTaskStore implements ITaskStore {
 
     await this.redis.hset(TaskKeys.detail(taskId), this.serializeTask(updated));
 
-    // #949: If threadId changed, update the thread index (remove from old, add to new)
+    // If threadId changed, update the thread index (remove from old, add to new).
     if (input.threadId !== undefined && input.threadId !== existing.threadId) {
       const pipeline = this.redis.multi();
       pipeline.zrem(TaskKeys.thread(existing.threadId), taskId);

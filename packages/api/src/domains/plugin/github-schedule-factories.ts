@@ -61,13 +61,9 @@ export interface GitHubScheduleDeps extends ScheduleFactoryDeps {
   fetchPrStatus?: (repoFullName: string, prNumber: number) => Promise<CiPollResult | null>;
   conflictRouter: ConflictRouter;
   reviewFeedbackRouter: ReviewFeedbackRouter;
+  /** F140/#949 correction: read-only legacy repair for already-rotated PR tracking tasks. */
+  threadStore?: Pick<IThreadStore, 'get'>;
   invokeTrigger: ConnectorInvokeTrigger;
-  /** #949: Thread store for MR review thread rotation (create fresh threads when context overflows) */
-  threadStore?: Pick<IThreadStore, 'create' | 'get'>;
-  // Note: F140 source-thread backlink uses the existing `deliveryDeps`
-  // (ConnectorDeliveryDeps with messageStore + socketManager) already declared
-  // above for repo-scan delivery. No separate field — rotation backlink reuses
-  // the same delivery dependency to guarantee append + broadcast.
   checkMergeable: (repo: string, pr: number) => Promise<{ mergeState: string; headSha: string }>;
   autoExecutor: ConflictAutoExecutor;
   fetchPrMetadata: (repo: string, pr: number) => Promise<ReviewFeedbackPrMetadata | null>;
@@ -164,6 +160,7 @@ const reviewFeedbackFactory: ScheduleFactory = {
       fetchComments: d.fetchComments,
       fetchReviews: d.fetchReviews,
       reviewFeedbackRouter: d.reviewFeedbackRouter,
+      threadStore: d.threadStore,
       invokeTrigger: d.invokeTrigger,
       log: d.log,
       isEchoComment: d.isEchoComment,
@@ -172,11 +169,6 @@ const reviewFeedbackFactory: ScheduleFactory = {
       // F168 Phase A P1-1: thread community event services to spec
       eventLog: d.eventLog,
       projector: d.projector,
-      // #949: thread rotation deps
-      threadStore: d.threadStore,
-      // F140 post-completion hardening (2026-06-17): source-thread backlink delivery
-      // (reuses existing deliveryDeps so the breadcrumb is BOTH persisted and broadcast).
-      backlinkDelivery: d.deliveryDeps,
     }) as TaskSpec_P1;
   },
 };

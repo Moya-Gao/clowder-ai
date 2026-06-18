@@ -11,17 +11,19 @@
 import type { CatId, CommunityEvent, TaskItem } from '@cat-cafe/shared';
 import { parsePrSubjectKey } from '@cat-cafe/shared';
 import type { ITaskStore } from '../../domains/cats/services/stores/ports/TaskStore.js';
-import type { IThreadStore } from '../../domains/cats/services/stores/ports/ThreadStore.js';
+import {
+  DEFAULT_THREAD_ID,
+  type IThreadStore,
+  type Thread,
+} from '../../domains/cats/services/stores/ports/ThreadStore.js';
 import type { ICommunityEventLog } from '../../domains/community/CommunityEventLog.js';
 import { decideDelivery } from '../../domains/community/community-delivery-policy.js';
 import type { ExecuteContext, TaskSpec_P1 } from '../scheduler/types.js';
 import type { ConnectorInvokeTrigger, ConnectorTriggerPolicy } from './ConnectorInvokeTrigger.js';
-import type { ConnectorDeliveryDeps } from './deliver-connector-message.js';
-import { deliverConnectorMessage } from './deliver-connector-message.js';
 import type { PrFeedbackComment, PrReviewDecision, ReviewFeedbackRouter } from './ReviewFeedbackRouter.js';
 
 export interface ReviewFeedbackSignal {
-  task: TaskItem;
+  repairedTask: TaskItem;
   repoFullName: string;
   prNumber: number;
   newComments: PrFeedbackComment[];
@@ -43,6 +45,12 @@ export interface ReviewFeedbackTaskSpecOptions {
   /** @param sinceId — when provided, only fetch items with id > sinceId (enables per-page early termination). */
   readonly fetchReviews: (repoFullName: string, prNumber: number, sinceId?: number) => Promise<PrReviewDecision[]>;
   readonly reviewFeedbackRouter: ReviewFeedbackRouter;
+  /**
+   * Legacy #949 repair only: read thread metadata to detect already-created
+   * "MR review (auto-rotated from <threadId>)" threads and move PR tracking
+   * ownership back to the original registration thread.
+   */
+  readonly threadStore?: Pick<IThreadStore, 'get'>;
   readonly invokeTrigger?: ConnectorInvokeTrigger;
   readonly log: {
     info: (...args: unknown[]) => void;
@@ -63,40 +71,117 @@ export interface ReviewFeedbackTaskSpecOptions {
   // F168 Phase A: community event log + projector (best-effort, optional)
   readonly eventLog?: ICommunityEventLog;
   readonly projector?: { apply(event: CommunityEvent): Promise<void> };
-  /**
-   * #949: Thread rotation — pre-dispatch health gate.
-   * When provided, enables automatic thread rotation for MR review threads
-   * that have processed too many reviews (context overflow prevention).
-   */
-  readonly threadStore?: Pick<IThreadStore, 'create' | 'get'>;
-  /**
-   * #949: Maximum number of completed reviews per thread before rotating.
-   * Default: 3 (safe for Sonnet's smaller context window; Opus handles ~5
-   * but 3 is the conservative floor).
-   */
-  readonly maxReviewsPerThread?: number;
-  /**
-   * F140 post-completion hardening (2026-06-17): source-thread backlink delivery deps.
-   * When provided, rotation success posts a connector-style message on the ORIGINAL
-   * source thread linking to the rotated MR review thread. Uses deliverConnectorMessage
-   * so the backlink is both PERSISTED (messageStore.append) and BROADCAST live to the
-   * web client (socketManager.broadcastToRoom) — without broadcast, the breadcrumb is
-   * invisible until manual refresh, leaving the trust gap unclosed (P2 from cloud
-   * codex review on PR #2372).
-   *
-   * Best-effort: failure does not block delivery to the rotated thread.
-   */
-  readonly backlinkDelivery?: ConnectorDeliveryDeps;
 }
 
 function resolveCursor(memoryCursor: number | undefined, persistedCursor: number | undefined): number {
   return Math.max(memoryCursor ?? 0, persistedCursor ?? 0);
 }
 
+const LEGACY_ROTATED_REVIEW_THREAD_RE = /^MR review \(auto-rotated from ([^)]+)\)$/;
+const MAX_LEGACY_ROTATION_REPAIR_HOPS = 10;
+
+function parseLegacyRotatedSourceThreadId(title: string | null | undefined): string | null {
+  const match = title?.match(LEGACY_ROTATED_REVIEW_THREAD_RE);
+  const threadId = match?.[1]?.trim();
+  return threadId ? threadId : null;
+}
+
+function hasTrustedLegacyParticipants(task: TaskItem, thread: Thread): boolean {
+  if (thread.participants.length === 0) return true;
+  return thread.participants.every((participant) => participant === task.ownerCatId);
+}
+
+function isTrustedLegacyRotatedThread(task: TaskItem, currentThread: Thread, sourceThread: Thread): boolean {
+  const userId = task.userId?.trim();
+  if (!userId) return false;
+  const sourceIsBuiltInDefault = sourceThread.id === DEFAULT_THREAD_ID && sourceThread.createdBy === 'system';
+  if (currentThread.createdBy !== userId) return false;
+  if (sourceThread.createdBy !== userId && !sourceIsBuiltInDefault) return false;
+  if (currentThread.projectPath && sourceThread.projectPath && currentThread.projectPath !== sourceThread.projectPath) {
+    return false;
+  }
+  if (!hasTrustedLegacyParticipants(task, currentThread)) return false;
+  if (currentThread.createdAt < task.createdAt) return false;
+  return true;
+}
+
 export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions): TaskSpec_P1<ReviewFeedbackSignal> {
   // In-memory cursors: highest seen comment ID and review ID per PR
   const commentCursors = new Map<string, number>();
   const reviewCursors = new Map<string, number>();
+
+  async function repairLegacyRotatedTask(task: TaskItem): Promise<TaskItem> {
+    if (!opts.threadStore) return task;
+
+    try {
+      let currentThread = await opts.threadStore.get(task.threadId);
+      if (!currentThread) return task;
+      let sourceThreadId = parseLegacyRotatedSourceThreadId(currentThread?.title);
+      if (!sourceThreadId || sourceThreadId === task.threadId) return task;
+
+      const visitedThreadIds = new Set<string>([task.threadId]);
+      let repairTargetThreadId = sourceThreadId;
+      let reachedOriginalThread = false;
+
+      for (let hop = 0; hop < MAX_LEGACY_ROTATION_REPAIR_HOPS; hop += 1) {
+        if (visitedThreadIds.has(sourceThreadId)) {
+          opts.log.warn(
+            `[review-feedback] legacy rotated thread repair skipped for ${task.subjectKey ?? task.id}: rotation backlink cycle at ${sourceThreadId}`,
+          );
+          return task;
+        }
+
+        const sourceThread = await opts.threadStore.get(sourceThreadId);
+        if (!sourceThread) {
+          opts.log.warn(
+            `[review-feedback] legacy rotated thread repair skipped for ${task.subjectKey ?? task.id}: source thread ${sourceThreadId} not found`,
+          );
+          return task;
+        }
+        if (!isTrustedLegacyRotatedThread(task, currentThread, sourceThread)) {
+          opts.log.warn(
+            `[review-feedback] legacy rotated thread repair skipped for ${task.subjectKey ?? task.id}: thread ownership metadata did not match trusted #949 shape`,
+          );
+          return task;
+        }
+
+        repairTargetThreadId = sourceThreadId;
+        visitedThreadIds.add(sourceThreadId);
+
+        const nextSourceThreadId = parseLegacyRotatedSourceThreadId(sourceThread.title);
+        if (!nextSourceThreadId || nextSourceThreadId === sourceThread.id) {
+          reachedOriginalThread = true;
+          break;
+        }
+
+        currentThread = sourceThread;
+        sourceThreadId = nextSourceThreadId;
+      }
+
+      if (!reachedOriginalThread) {
+        opts.log.warn(
+          `[review-feedback] legacy rotated thread repair skipped for ${task.subjectKey ?? task.id}: rotation backlink chain exceeded ${MAX_LEGACY_ROTATION_REPAIR_HOPS} hops`,
+        );
+        return task;
+      }
+
+      const repaired = await opts.taskStore.update(task.id, { threadId: repairTargetThreadId });
+      if (!repaired) {
+        opts.log.warn(
+          `[review-feedback] legacy rotated thread repair failed for ${task.subjectKey ?? task.id}: task not found`,
+        );
+        return task;
+      }
+
+      opts.log.info(
+        `[review-feedback] repaired legacy rotated thread for ${task.subjectKey ?? task.id}: ${task.threadId} → ${repairTargetThreadId}`,
+      );
+      return repaired;
+    } catch (e) {
+      opts.log.warn(`[review-feedback] legacy rotated thread repair failed for ${task.subjectKey ?? task.id}`, e);
+      return task;
+    }
+  }
 
   /**
    * Advance cursor: persist to store + update in-memory map.
@@ -160,15 +245,16 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
             if (!parsed) continue;
             const { repoFullName, prNumber } = parsed;
             const prKey = `${repoFullName}#${prNumber}`;
+            const trackingTask = await repairLegacyRotatedTask(task);
 
             const prMetadata = opts.fetchPrMetadata ? await opts.fetchPrMetadata(repoFullName, prNumber) : null;
             if (prMetadata?.prState === 'merged' || prMetadata?.prState === 'closed') {
-              await opts.taskStore.update(task.id, { status: 'done' });
+              await opts.taskStore.update(trackingTask.id, { status: 'done' });
               opts.log.info(`[review-feedback] PR ${prKey} ${prMetadata.prState} — task marked done`);
 
               // F168 Phase A: emit pr.merged / pr.closed event (best-effort)
-              if (opts.eventLog && task.subjectKey) {
-                const subjectKey = task.subjectKey; // already in format pr:owner/repo#N
+              if (opts.eventLog && trackingTask.subjectKey) {
+                const subjectKey = trackingTask.subjectKey; // already in format pr:owner/repo#N
                 const eventKind: CommunityEvent['kind'] = prMetadata.prState === 'merged' ? 'pr.merged' : 'pr.closed';
                 try {
                   const communityEvent: CommunityEvent = {
@@ -196,11 +282,11 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
             // while a long-lived poller still has an older in-memory value.
             const commentCursor = resolveCursor(
               commentCursors.get(prKey),
-              task.automationState?.review?.lastCommentCursor,
+              trackingTask.automationState?.review?.lastCommentCursor,
             );
             const reviewCursor = resolveCursor(
               reviewCursors.get(prKey),
-              task.automationState?.review?.lastDecisionCursor,
+              trackingTask.automationState?.review?.lastDecisionCursor,
             );
 
             // #798: Pass cursor to fetch for per-page client-side filtering (eliminates maxBuffer crash)
@@ -238,8 +324,8 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
             // Default: all fresh items are eligible for delivery (no eventLog configured).
             let safeDeliveryComments: typeof freshNewComments = freshNewComments;
             let safeDeliveryReviews: typeof freshNewReviews = freshNewReviews;
-            if (opts.eventLog && task.subjectKey) {
-              const subjectKey = task.subjectKey;
+            if (opts.eventLog && trackingTask.subjectKey) {
+              const subjectKey = trackingTask.subjectKey;
               const processedComments: typeof freshNewComments = [];
               const processedReviews: typeof freshNewReviews = [];
               // Cloud R18 P1: track the id of the first fresh item that fails (break boundary).
@@ -376,13 +462,13 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
             // failure are excluded, ensuring they are retried on the next poll.
             // Without eventLog, fall back to the original all-new-items max (no change).
             const maxCommentId =
-              opts.eventLog && task.subjectKey
+              opts.eventLog && trackingTask.subjectKey
                 ? maxSafeCommentCursor
                 : allNewComments.length > 0
                   ? Math.max(...allNewComments.map((c) => c.id))
                   : commentCursor;
             const maxReviewId =
-              opts.eventLog && task.subjectKey
+              opts.eventLog && trackingTask.subjectKey
                 ? maxSafeReviewCursor
                 : allNewReviews.length > 0
                   ? Math.max(...allNewReviews.map((r) => r.id))
@@ -391,7 +477,12 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
             const allSkipped = newComments.length === 0 && newDecisions.length === 0;
             const hadNewItems = allNewComments.length > 0 || allNewReviews.length > 0;
             if (hadNewItems && allSkipped) {
-              await advanceCursor(task.id, prKey, { comment: maxCommentId, decision: maxReviewId }, 'persistFirst');
+              await advanceCursor(
+                trackingTask.id,
+                prKey,
+                { comment: maxCommentId, decision: maxReviewId },
+                'persistFirst',
+              );
               continue;
             }
 
@@ -399,16 +490,21 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
 
             workItems.push({
               signal: {
-                task,
+                repairedTask: trackingTask,
                 repoFullName,
                 prNumber,
                 newComments,
                 newDecisions,
                 commitCursor: () =>
-                  advanceCursor(task.id, prKey, { comment: maxCommentId, decision: maxReviewId }, 'memoryFirst'),
+                  advanceCursor(
+                    trackingTask.id,
+                    prKey,
+                    { comment: maxCommentId, decision: maxReviewId },
+                    'memoryFirst',
+                  ),
               },
               // #320 KD-15: unified subject_key format
-              subjectKey: task.subjectKey!,
+              subjectKey: trackingTask.subjectKey!,
             });
           } catch {
             // fail-open: skip PRs where fetch fails
@@ -426,76 +522,7 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
       overlap: 'skip',
       timeoutMs: 30_000,
       async execute(signal: ReviewFeedbackSignal, subjectKey: string, _ctx: ExecuteContext) {
-        const { task } = signal;
-        const maxReviews = opts.maxReviewsPerThread ?? 3;
-        const completedCount = task.automationState?.review?.completedReviewCount ?? 0;
-        const originalThreadId = task.threadId;
-
-        // #949: Pre-dispatch thread rotation — when the current thread has processed
-        // too many reviews, create a fresh thread to avoid context overflow.
-        // Sonnet overflows at ~3 MRs, Opus at ~5; default threshold is 3 (conservative).
-        let effectiveThreadId = originalThreadId;
-        if (opts.threadStore && completedCount >= maxReviews) {
-          try {
-            // Preserve projectPath from the original thread so that cats invoked
-            // in the rotated thread resolve the correct working directory (#949 cloud P1).
-            const originalThread = await opts.threadStore.get(originalThreadId);
-            const newThread = await opts.threadStore.create(
-              task.userId ?? '',
-              `MR review (auto-rotated from ${task.threadId})`,
-              originalThread?.projectPath,
-            );
-            effectiveThreadId = newThread.id;
-            await opts.taskStore.update(task.id, { threadId: newThread.id });
-            opts.log.info(
-              `[review-feedback] Thread rotated: ${task.threadId} → ${newThread.id} (${completedCount} reviews completed)`,
-            );
-
-            // F140 post-completion hardening (2026-06-17): trust-gap floor.
-            // Auto-rotated threads may not yet be discoverable in ThreadSidebar
-            // (separate F057/#949 follow-up). Post a connector-style breadcrumb
-            // on the ORIGINAL thread using deliverConnectorMessage so it is BOTH
-            // persisted (append) AND broadcast live (socket) — cloud codex P2
-            // on PR #2372 caught that append-only was invisible until refresh.
-            // Best-effort: failure must not block delivery to the rotated thread.
-            if (opts.backlinkDelivery) {
-              try {
-                const newThreadLabel = newThread.title ?? 'MR Review';
-                await deliverConnectorMessage(opts.backlinkDelivery, {
-                  threadId: originalThreadId,
-                  userId: task.userId ?? '',
-                  catId: task.ownerCatId ?? '',
-                  content:
-                    `📌 PR #${signal.prNumber} (${signal.repoFullName}) review feedback ` +
-                    `已转投到 auto-rotated thread。\n\n` +
-                    `→ 新 thread: [${newThreadLabel}](/thread/${newThread.id}) (\`${newThread.id}\`)\n` +
-                    `后续 review 通知将在新 thread 投递。`,
-                  source: {
-                    connector: 'github-review-feedback',
-                    label: 'Review Feedback (rotated)',
-                    icon: 'github',
-                    url: `https://github.com/${signal.repoFullName}/pull/${signal.prNumber}`,
-                    // P1.1 fix per codex review on PR #2372: tag presentation as
-                    // system_notice so ChatMessage renders this via SystemNoticeBar
-                    // rather than as a regular user/connector message.
-                    meta: { presentation: 'system_notice' },
-                  },
-                });
-              } catch (backlinkErr) {
-                opts.log.warn(
-                  `[review-feedback] Source-thread backlink delivery failed for ${subjectKey}, rotation/delivery continues`,
-                  backlinkErr,
-                );
-              }
-            }
-          } catch (e) {
-            // Rotation failed — fall back to original thread (best-effort)
-            opts.log.warn(
-              `[review-feedback] Thread rotation failed for ${subjectKey}, continuing with original thread`,
-              e,
-            );
-          }
-        }
+        const { repairedTask } = signal;
 
         const routeResult = await opts.reviewFeedbackRouter.route(
           {
@@ -505,10 +532,10 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
             newDecisions: signal.newDecisions,
           },
           {
-            threadId: effectiveThreadId,
-            catId: task.ownerCatId ?? '',
-            userId: task.userId ?? '',
-            trackingInstructions: task.automationState?.trackingInstructions,
+            threadId: repairedTask.threadId,
+            catId: repairedTask.ownerCatId ?? '',
+            userId: repairedTask.userId ?? '',
+            trackingInstructions: repairedTask.automationState?.trackingInstructions,
           },
         );
 
@@ -516,23 +543,12 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
 
         await signal.commitCursor();
 
-        // #949: Increment completedReviewCount after successful delivery.
-        // If thread was rotated, reset to 1 (this delivery is the first on the new thread).
-        const newCount = effectiveThreadId !== originalThreadId ? 1 : completedCount + 1;
-        try {
-          await opts.taskStore.patchAutomationState(task.id, {
-            review: { completedReviewCount: newCount },
-          });
-        } catch (e) {
-          opts.log.warn(`[review-feedback] completedReviewCount update failed for ${subjectKey}`, e);
-        }
-
         if (opts.invokeTrigger) {
           try {
             const hasChangesRequested = signal.newDecisions.some((d) => d.state === 'CHANGES_REQUESTED');
             const hasApproved = !hasChangesRequested && signal.newDecisions.some((d) => d.state === 'APPROVED');
             const suggestedSkill = hasChangesRequested ? 'receive-review' : hasApproved ? 'merge-gate' : undefined;
-            const coalesceTargetCatId = routeResult.catId || task.ownerCatId || 'unassigned';
+            const coalesceTargetCatId = routeResult.catId || repairedTask.ownerCatId || 'unassigned';
 
             const policy: ConnectorTriggerPolicy = {
               priority: hasChangesRequested ? 'urgent' : 'normal',
@@ -545,7 +561,7 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
               .trigger(
                 routeResult.threadId,
                 routeResult.catId as CatId,
-                task.userId ?? '',
+                repairedTask.userId ?? '',
                 routeResult.content,
                 routeResult.messageId,
                 undefined,

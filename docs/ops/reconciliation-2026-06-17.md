@@ -24,7 +24,7 @@ sync_merge_commit: f3d530cea3efc8e193892769c2368ff812bd0258
 - **fix(sync) R1-R6 + R7-R8 (F228 outbound sync drift bow wave cleared)** — 8 distinct drift classes patched across the outbound sync toolchain (sanitizer line-based JSON, file-type scope, script surface closure, race-residue, doc template, obsolete transform, flaky test PID collision, internalScripts coverage)
 - **fix(F239)** — `Status: complete` → `closed` alignment with `isDoneStatus()` classifier
 - **fix(test)** — Windows port probe tests use high PID values (90xxx) to prevent flaky failures in test-isolation mode
-- **fix(#949)** — MR review thread rotation to prevent context overflow
+- **fix(#949)** — MR review thread rotation to prevent context overflow (superseded 2026-06-18 by F140 correction: review feedback must stay on the PR-tracking registration thread; overflow belongs to hydration)
 - **fix(merge-gate)** — degradation table corrected: cross-provider, not same-provider
 
 ### Process
