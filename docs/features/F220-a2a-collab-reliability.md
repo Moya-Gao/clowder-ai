@@ -54,6 +54,24 @@ Why（一句话）: A2A 触发与卡死恢复都落在既有 invocation/queue/tr
 定位"补一刀仍停排队不进 running"的真 hang（队列没消费 / session hang / 锁）。可能与 #2053 收敛的"slot/tracker/entry 生命周期解耦"相关。砚砚 roadmap：是否统一 cancel/preempt 状态机、slot 升级带 invocation-identity ownership。
 > **Scope 闸门（KD-3）🔴**：Phase 2 **先出根因报告（5 件套）+ 复现，不直接动手大改**。若根因需架构级重构（统一 cancel/preempt 状态机 + slot ownership 模型）→ 出报告 + Decision Packet 交 **CVO 拍板是否拆独立 feat**，不在 F220 内硬扛。防 Phase 2 无底洞拖垮 Phase 1+3 的已交付价值。
 
+#### Phase 2 根因报告：#972 split-brain（2026-06-17 宪宪 opus-48，接 砚砚 routing）
+
+**输入**：社区 [`clowder-ai#972`](https://github.com/zts212653/clowder-ai/issues/972)（吴浪 @mindfn 报，砚砚 maintainer triage+accept+route 到 F220 Phase 2）。runtime 证据见 issue（thread `thread_mpbb4dyt52vmaqh1`；parent inv `b23ee98a`/opus；serial child `b24dbf21`/codex；stale queue 条目 `b949b024`/processing；被卡住的 user `@codex` 条目 `e4af49ae`/queued）。**= AC-2.1 的 concrete 输入**。
+
+**根因（单一根 = 多 liveness SoT 无收敛点）**：同一 thread 的"谁在跑"被 4 套独立状态各自表述、互不收敛——
+1. canonical liveness（`InvocationRecord`+tracker+draft → `getThreadLiveInvocations` → `/queue.activeInvocations`）
+2. `InvocationQueue` 条目（processing/queued → QueueProcessor）
+3. `agentPaneRegistry` bg carrier（→ `/active-pane`，`terminal.ts:319` **只查这个**）
+4. serial-continuation session（continuityCapsule，**F224 轴**，创建 child invocation）
+
+bug 链：opus parent 结束本轮 → tracker 没了/无 fresh draft → 过 grace → 判 zombie → `reconcileZombies` 标 failed。**但 `reconcileZombies` 只动 `InvocationRecord`+`TaskProgress`（已读码确认 `reconcileZombies.ts`），不碰 queue 条目/slot** → 旧 `processing` 条目残留 → 卡住后到的 user `@codex`。同时 serial codex child 真活着（进程+session）却：非 bgCarrier → `/active-pane=false`；canonical liveness 返回 `[]` → 用户看不到 codex 在跑。**这正是本 thread 开篇铲屎官两张截图（"砚砚像卡住了、消息没同步"）的后端根因。**
+
+**关键架构发现**🔴：#972 是 **F220↔F224 轴接缝**的 bug——continuation child 在 F224 轴创建，liveness/queue 却在 F220 轴跟踪，两轴在此 seam 不收敛。这是对本 feat 序言"两轴只共享 `QueueProcessor` 文件、不共享根因"假设的**反例证据**：轴在 #972 这个 failure mode 下确实**交互**。
+
+**决策（答 砚砚 [ACTION] implement-vs-CVO + AC-2.1/2.2 + 架构 OQ；遵 KD-3 闸门）**：不是非黑即白的"直接实现 / CVO packet"，按 seam 切两层——
+- **Phase 2a（局部修，自决实现，不上 CVO）**：① `/active-pane` 改查 canonical liveness/session（不只 bgCarrier）；② `reconcileZombies` 收敛匹配 queue 条目（fail/requeue stale `processing` + emit `queue_updated`，需注入 queue store dep）；③ QueueProcessor in-memory slot ↔ 持久 queue 状态一致；④ 回归测：valid opus `@codex` → serial child active → parent zombie sweep → 无 stale `processing` blocker → 后到 user `@codex` 能跑 or 明确 blocked。均在 F220 已祝福方向内（可观测·可靠·可恢复）、可逆、TDD + 跨族 review → 自决。
+- **Phase 2b（架构级 seam → 根因报告 + CVO Decision Packet）**：serial-continuation-child ↔ parent/queue **liveness 桥接**（F224 轴 child 为何让 F220 轴 liveness/queue 失明）——牵动是否需"统一 liveness SoT" + F220/F224 轴边界是否要重画。这正是下方 OQ 的架构级问题，**CVO 拍板**：收敛模型是否独立成 feat、还是留 F220。**遵 KD-3：2b 不在出报告+repro 前动手大改。**
+
 ### Phase 3 — 可恢复：force-reset 逃生口 UI（Layer 3）
 把已有的 `force-reset` 端点接到一个**情境化、带确认弹窗**的 UI 入口。**设计稿见下方 §设计稿（铲屎官 2026-06-02 已审过概念 + 确认要弹窗确认）**。
 
@@ -67,8 +85,8 @@ Why（一句话）: A2A 触发与卡死恢复都落在既有 invocation/queue/tr
 - [x] AC-1.3: human 路径占位不回归。→ 只改 QueueProcessor 队列路径，未动 direct/route-serial；全 web 测试无回归。
 
 **Phase 2（可靠）**
-- [ ] AC-2.1: "补一刀仍停排队不进 running"的 hang 有根因报告（5 件套）+ 复现。
-- [ ] AC-2.2: 修复 or（若属 #2053 同源的 unsound 边界）明确归类 + 兜底说明。
+- [~] AC-2.1: 根因报告（5 件套）✅ drafted from #972 runtime evidence + 代码确认（`reconcileZombies.ts` / `terminal.ts:319` active-pane / `getThreadLiveInvocations` 模型），见上方「Phase 2 根因报告：#972 split-brain」。**红测 repro 待补**：作为 Phase 2a worktree 首个 TDD red step（valid opus `@codex` → serial child active → parent zombie sweep → stale `processing` blocker 复现）。
+- [ ] AC-2.2: 修复按 seam 切两层——**2a 局部修自决实现**（active-pane SoT / reconcileZombies→queue 收敛 / slot↔queue 一致 / 回归）；**2b 架构 seam**（serial-child↔parent liveness 桥接）需 Decision Packet → CVO 拍板拆 feat。
 
 **Phase 3（可恢复）✅ code+test done @ main 4e80ec889（PR #2065 squash）；runtime 截图验收 → 铲屎官 quickpath**
 - [x] AC-3.1: 卡死/有活跃调用时 thread 出现情境化 force-reset 入口（非常驻）。→ `ThreadExecutionBar` 内 `ForceResetEntry`，有猫在跑才显示，`suspected_stall`/`alive_but_silent` 时上浮升级（`data-escalated`）。测试 4 绿。
@@ -96,6 +114,7 @@ Why（一句话）: A2A 触发与卡死恢复都落在既有 invocation/queue/tr
 - KD-2（2026-06-02 铲屎官）：feat 由**干净 thread 的平行 opus-48 完整 own + 驱动**（带该 thread 的砚砚落地）；本 thread 负责立项 + 沉淀设计 + 跨线程交接。
 - KD-3（2026-06-02 宪宪，接 own 时定）：**Phase 2 设 scope 闸门**——先出根因报告，需架构级重构则 CVO 拍板拆独立 feat，不在 F220 内硬扛（见 Phase 2 段）。接手 5 点调整（Phase 2 闸门 / force-reset 守 LL-048 / force-reset vs orphaned slot 实测 / Phase 1 取证优先级校准 / thread legend）经立项方平行 opus-48 确认（thread `thread_mpwjkntm5kv90c5z`）。
 - KD-4（2026-06-02 砚砚）：Phase 1 不用新前端协议、不滥用 `a2a_handoff`。`a2a_handoff` 会迁移 active slot，适合 serial handoff；callback/queue path 应补 F118 D2 既有 `spawn_started`，表达"启动中"且保留 #768 的 `intent_mode` 延迟语义。
+- KD-5（2026-06-17 宪宪 opus-48，接 砚砚 routing #972）：Phase 2 答案按 **F220↔F224 轴接缝**切两层——**2a 局部修**（active-pane canonical-liveness SoT / reconcileZombies→queue 收敛 / slot↔queue 一致 / 回归）= F220 已祝福方向内、可逆 → **自决实现，不上 CVO**；**2b 架构 seam**（serial-continuation-child ↔ parent/queue liveness 桥接，牵动"统一 liveness SoT"+ 轴边界重画）= 架构级 → 出 Decision Packet 交 **CVO 拍板拆 feat**。遵 KD-3：2b 不在根因报告+repro 前动手大改。**#972 是"两轴不共享根因"假设的反例**（轴在此 failure mode 交互）——若 2b CVO 决定重画边界，序言断言需同步修订。
 
 ## Links
 - 平行调查（Layer 1）：thread `thread_mpxf7fdx5gonafzh`
