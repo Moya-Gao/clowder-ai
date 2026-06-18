@@ -93,9 +93,12 @@ spike（2026-06-16，C0a Read / C0b Grep ✅ 实证）证明 cc PostToolUse hook
    - 否决：`metrics-snapshot-store`（6h 保留期 < daily cron 窗口，盲区太大）；新 Redis durable store（与 F192 pattern 不一致 + over-engineer，eval 信号 lose-on-restart 可接受，非 LL-048 用户态）。
    - 这也右调了 handoff 的"sink 影响 broad infra 须先咨询"顾虑：一致选择恰恰是**不加新 infra**，故 sink 不再是须升级的岔路。
 4. **Verdict 机制 = eval-cat-in-loop（非 auto-generator）**：AC-E2 走 F192 既有范式——注册 eval domain（带 `evalCat`），cron 唤醒 eval 猫读聚合 telemetry → 产 `VerdictHandoffPacket`（schema `verdict-handoff.ts:7`，`verdict` 枚举 `delete_sunset|build|fix|keep_observe`）。**不写确定性净收益计算函数**（与 handoff instinct 一致）。
-5. **🔀 OPEN 设计岔路 → 已路由 @opus47（2026-06-18，session #4）**：F236 该**自立 eval domain**（`eval:f236-anchor`，须 bump `VerdictHandoffPacket` domainId 枚举 + 新 sourceAdapter）**还是** blindness 信号(②)**fold 进已存在的 `eval:task-outcome`**（它本就测任务正确性/返工，信号②天然属其领域）？
-   - 宪宪推荐（待架构确认）：**hybrid** — F236 自持 anchor-tax 遥测+verdict（②anchor 税是 tool-design 专属），blindness 信号**与 `eval:task-outcome` 关联**而非 F236 重新埋点（避免 DRY 违反）。
-   - 这是 AC-E2/E4 的前置；AC-E1（sink + 补 emit）**fork-invariant，可先建**。岔路涉跨 feature domain 粒度哲学（F192 territory），故求架构猫一眼。
+5. **✅ RESOLVED 设计岔路（2026-06-18 session #4 — 砚砚 gpt52 架构裁定 + 宪宪 spot-check 实证）**：原问 F236 自立 eval domain vs blindness fold 进 `eval:task-outcome`。**裁定 = hybrid，但收紧为「phenomenon-owned, not feature-owned」**：
+   - **anchor-tax①** → 自立 **phenomenon 名** eval domain（slug `eval:anchor-first`，对齐现有 `eval:a2a/memory/sop` 控制面命名 + 覆盖 Phase C 扩展；**不叫** `eval:f236-anchor`——那是 feature-owned，违 F192 哲学）；`handoffTargetResolver.featureId` 指 F236。须 bump `VerdictHandoffPacket` domainId 枚举 + 新 sourceAdapter（**impl 前置 gate：先 grep domainId 枚举消费方再改 contract**）。
+   - **blindness②** → **reference-read `eval:task-outcome` 的 verdict/episode 趋势**，F236 **不写入** task-outcome（它是 blindness 的 canonical owner）。
+   - **依据（砚砚 ref + 宪宪实证）**：F192 粒度哲学 = 一现象/控制面一 domain（`eval:memory` 跨 F200+F188 @F192:764；`eval:task-outcome` 测 L3 交付现象 @F192:310；F245 钉「不抢 canonical signal ownership」@design-gate:27）；`eval:task-outcome` 现有 episode signal enum 仅 A1 world-truth / A2 permission-cancel / proxy（**实证** `task-outcome-episode.ts:28+`），**无 anchor 槽** → 直 ingest = Phase-G schema 扩展（不在本 phase scope），故 reference-read 是最小路径。
+   - **修我自报错**：我把「associate」和「直接 ingest」混了——task-outcome 接不进 anchor 信号，blindness 只能引用读取不能写入。
+   - **实现序**：AC-E1（sink + 补 emit `anchorOpenRate`/返工）fork-invariant **先建** → AC-E2 verdict（anchor-tax 自持 + blindness 引用 task-outcome）→ AC-E4 注册 phenomenon domain（带 enum-consumer grep gate）。
 
 ### Phase C: cc 原生工具 anchor 化（spike-gated — 这才是大头）
 > 前置 spike（与砚砚一起）：实测 cc PostToolUse hook + `updatedToolOutput` 能否 replace Read/Grep/Glob 返回。**spike 不过则本 Phase 不启动**（不脑补——文档说能 ≠ 我们场景能用）。
