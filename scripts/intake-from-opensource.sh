@@ -601,7 +601,7 @@ run_absorbed_record_guard() {
   fi
 
   local issue_table_ok
-  issue_table_ok=$(echo "$intent_info" | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')); const body=String(d.body||''); const hasHeader=/##\\s*逐文件决策表/.test(body); const hasRow=/\\|\\s*[^|\\n]+\\s*\\|\\s*[^|\\n]+\\s*\\|\\s*(absorb|skip)\\b/i.test(body); console.log(hasHeader && hasRow ? 'yes' : 'no')")
+  issue_table_ok=$(echo "$intent_info" | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')); const body=String(d.body||''); const normalized=body.replace(/[*_\`~]/g,''); const hasHeader=/##\\s*(?:逐文件决策表|(?:Per-File|Cluster-Level)\\s+Decision\\s+Table)/i.test(normalized); const hasRow=/\\|\\s*[^|\\n]+\\s*\\|\\s*[^|\\n]+\\s*\\|\\s*(absorb|skip)\\b[^|\\n]*/i.test(normalized); console.log(hasHeader && hasRow ? 'yes' : 'no')")
   if [ "$issue_table_ok" != "yes" ]; then
     echo -e "${RED}✗ Intake Intent Issue #$INTENT_ISSUE is missing a valid per-file decision table${NC}"
     return 1
@@ -828,12 +828,24 @@ if [ "$ADVANCE_LEDGER" = true ]; then
   UNREVIEWED_COUNT=0
   if [ -n "$OLD_HEAD" ]; then
     # Build set of recorded merge commits from entries[]
-    RECORDED_SHAS=$(node -e "const l=JSON.parse(require('fs').readFileSync('$INTAKE_LEDGER','utf-8')); l.entries.filter(e=>e.target_merge_commit).forEach(e=>console.log(e.target_merge_commit))" 2>/dev/null || true)
+    RECORDED_SHAS=$(node -e "const l=JSON.parse(require('fs').readFileSync('$INTAKE_LEDGER','utf-8')); l.entries.filter(e=>e.target_merge_commit).forEach(e=>console.log(String(e.target_merge_commit||'').trim().toLowerCase()))" 2>/dev/null || true)
     for c in $(git -C "$TARGET_DIR" rev-list --first-parent "$OLD_HEAD".."$CURRENT_HEAD" 2>/dev/null); do
       MSG=$(git -C "$TARGET_DIR" log --format=%s -1 "$c" 2>/dev/null || true)
       if echo "$MSG" | grep -qE "^sync:.*(cat-cafe|clowder-ai|v[0-9]+\.[0-9]+|outbound)"; then continue; fi
       # Check if this landed mainline commit is covered by an entries[] record
-      if echo "$RECORDED_SHAS" | grep -q "^${c}$"; then continue; fi
+      recorded_match=false
+      while IFS= read -r recorded; do
+        [ -z "$recorded" ] && continue
+        case "$recorded" in
+          [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]*)
+            if [[ "$c" == "$recorded"* ]]; then
+              recorded_match=true
+              break
+            fi
+            ;;
+        esac
+      done <<< "$RECORDED_SHAS"
+      if [ "$recorded_match" = true ]; then continue; fi
       UNREVIEWED_COUNT=$((UNREVIEWED_COUNT + 1))
       SHORT=$(git -C "$TARGET_DIR" log --format="%h %s" -1 "$c" 2>/dev/null)
       UNREVIEWED="${UNREVIEWED}    → ${SHORT}\n"

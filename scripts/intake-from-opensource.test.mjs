@@ -916,6 +916,98 @@ describe('intake-from-opensource.sh --record strict guard (absorbed)', () => {
     }
   });
 
+  it('accepts Intent Issue with English decision table header', () => {
+    const f = makeRecordFixture({
+      issueBody: [
+        '## Cluster-Level Decision Table',
+        '',
+        '| file | rationale | decision |',
+        '| --- | --- | --- |',
+        '| packages/api/src/foo.ts | aligns with source intent | absorb |',
+        '',
+        'Source PR: clowder-ai#777',
+      ].join('\n'),
+      absorbPrBody: 'Closes #1234\nSource: clowder-ai#777',
+    });
+    fixtures.push(f.sandboxRoot);
+
+    const output = runRecord(
+      f.repoRoot,
+      [
+        '--pr',
+        '777',
+        '--decision',
+        'absorbed',
+        '--intent-issue',
+        '1234',
+        '--absorb-pr',
+        '5678',
+        '--review-proof',
+        'https://github.com/zts212653/cat-cafe/pull/5678#issuecomment-1',
+      ],
+      { PATH: `${f.mockBin}:${process.env.PATH}` },
+    );
+
+    assert.match(output, /Absorbed intake strict guard passed/);
+  });
+
+  it('accepts markdown-wrapped decision tokens in Intent Issue table rows', () => {
+    const f = makeRecordFixture({
+      issueBody: [
+        '## 逐文件决策表',
+        '',
+        '| file | rationale | decision |',
+        '| --- | --- | --- |',
+        '| packages/api/src/foo.ts | aligns with source intent | **absorb (safe-cherry-pick)** |',
+        '',
+        'Source PR: clowder-ai#777',
+      ].join('\n'),
+      absorbPrBody: 'Closes #1234\nSource: clowder-ai#777',
+    });
+    fixtures.push(f.sandboxRoot);
+
+    const output = runRecord(
+      f.repoRoot,
+      [
+        '--pr',
+        '777',
+        '--decision',
+        'absorbed',
+        '--intent-issue',
+        '1234',
+        '--absorb-pr',
+        '5678',
+        '--review-proof',
+        'https://github.com/zts212653/cat-cafe/pull/5678#issuecomment-1',
+      ],
+      { PATH: `${f.mockBin}:${process.env.PATH}` },
+    );
+
+    assert.match(output, /Absorbed intake strict guard passed/);
+  });
+
+  it('advance-ledger treats recorded short SHAs as covering landed commits', () => {
+    const fixture = makeFixture();
+    fixtures.push(fixture.sandboxRoot);
+
+    const oldHead = commitFile(fixture.targetRoot, 'README.md', 'base\n', 'chore: base');
+    const currentHead = commitFile(fixture.targetRoot, 'feature.txt', 'feature\n', 'feat: landed change');
+    const shortHead = currentHead.slice(0, 8);
+
+    writeLedger(fixture.ledgerPath, oldHead, [
+      {
+        pr_number: 777,
+        target_merge_commit: shortHead,
+        decision: 'absorbed',
+        timestamp: '2026-06-18T00:00:00.000Z',
+      },
+    ]);
+
+    const output = runAdvance(fixture.repoRoot);
+    assert.match(output, /Ledger advanced to:/);
+    const updatedLedger = JSON.parse(readFileSync(fixture.ledgerPath, 'utf-8'));
+    assert.equal(updatedLedger.last_reviewed_target_head, currentHead);
+  });
   it('requires intent issue metadata for absorbed records', () => {
     const f = makeRecordFixture();
     fixtures.push(f.sandboxRoot);
