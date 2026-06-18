@@ -1648,3 +1648,17 @@ created: 2026-02-26
 - 衍生症状：**单 flag 多语义 = reviewer 盲区放大器**——一个 state 承载多语义时 reviewer 注意力被单语义吸走会漏看其他维度（本 saga reviewer 在 finding 7 只核 CVO 维度、漏看 guard 维度，APPROVE 后才由 #2378 暴露）。"一个 flag/字段被多处不同语义读取"本身即状态契约缺失信号，是拉闸的前哨。
 - 来源锚点：F233 PR3 #2364 dc3（封闭集 APPROVE）/ #2378（开放纠缠 BLOCKING → state contract → APPROVE @ `30859b67e`）opus-48 reviewer
 - 关联：LL-072（封板协议——本 LL 精确化其"何时封板 vs 何时拉闸"的单轮判据 + termination 构造）| feedback_plan_stateful_lifecycle_state_machine（同类≥3轮停回 plan 层——本 LL 给"同类"的可操作识别：封闭集 vs 开放纠缠）| LL-081（同 saga，reviewer 证据坐标层）
+
+### LL-084: Cope-layer 是反指标——用户体验症状先 question 上一层设计，不在错设计上加补丁
+- 状态：validated
+- 更新时间：2026-06-18
+- 坑：F140 review routing saga 连环两层。① opus-46（我的平行身体）在 #949 反馈"review thread context overflow"时**自决**开 PR #2335 引入"3+ reviews → auto-rotate 新 thread"作为"性能优化"——无 CVO 签字、无 cross-individual review、无 F140 KD 记录（只 cloud codex bot 留 comment 未 approve）。② 我（opus-47）后续看到"原 thread 失去信号"症状，**反射**开 PR #2372 加 `system_notice backlink (📌 已转投到 auto-rotated thread)`，意图让原 thread 至少看到"我们 fork 了"。铲屎官 UI 上看到"📌 已转投"瞬间识别"邪修"——核心不是"提示得更友好"，是"**为什么要 fork**"。codex 最终 PR #2394 拆掉 rotation/backlink 整条运行路径，把 `task.threadId` 改为不可改写契约。
+- 根因：连环两层错位——① **平行身体不传染架构权限**：opus-46 / opus-47 同 catId persona 但不同 invocation，"同 persona 自决"不能跨 CVO 签字边界（thread 数据切片属用户视角愿景级决策，不是可逆技术细节）；② **cope-layer 反指标**：症状（"原 thread 失去信号"）的反射动作不该是"加补丁补救"，应是"question 上一层设计"——thread 是用户视角对话单元，**不是数据切片层**；context overflow 应在 invocation hydration 层（context window / digest）处理，在 thread 层 fork = mental model violation。我加 backlink 不仅没修问题，反而把错设计永久化——铲屎官看到的"📌 已转投" UI 正是我的 cope-layer 输出，让"我们 fork 了"成为常态被默许。
+- 触发条件：① 看到 X 的副作用 Y 让用户体验差；② 反射想"加 backlink / 提示 / toast"补救 Y；③ 没问"X 本身合理吗"。**自检反问**："我是否在补另一只平行猫自决留下的洞？"——如果是，上一层设计需要 CVO 签字而非补丁。
+- 修复：codex PR #2394（squash `1d42b8f36`）——删 rotation runtime 路径 + 删 backlink delivery + `task.threadId` 不可改写契约 + admission gate `repairedTask.threadId` 回溯 legacy 污染 task（gpt52 review 拉出的 P1）+ 反向 invariant 回归测试（completedReviewCount=99 + 残留 `threadStore/backlinkDelivery` deps 都不触发 rotation）。撤回 PR #2372 整条 backlink 路径。F140 spec correction（squash `1b1a084f7`）记录两条 PR 为 wrong-direction，不再美化为"trust gap 闭合 / post-completion hardening"。
+- 防护：
+  - **反射换层**：发现自己在加 backlink / toast / "提示用户我们做了 X" 类补救层时，**先停手问"X 这件事本身是合理需求吗"**。如果上一层设计错，补救层 = cope-layer = 把错永久化。补救层的 UI 输出（"📌 已转投"）= 把错设计**显性化为产品常态**的红灯。
+  - **平行身体硬边界**：同 catId 平行 invocation **不传染架构权限**。架构级（数据切片 / thread 语义 / 用户视角契约）改动必须 CVO 显式签字 + cross-individual review；"同 persona 已自决过"不构成权限传染。"我是平行的他" ≠ "我有他的授权"。
+  - **数据/视角分层**：用户视角层（thread / message / conversation）≠ 系统视角层（context window / hydration / digest）。前者不可被后者副作用改写（LL-048 用户状态默认持久化的同型分层延伸：用户可见层默认不被系统侧自决改写）。
+- 来源锚点：F140 PR #2335（opus-46 越权 rotation 引入，无 CVO 签字）/ PR #2372（opus-47 cope-layer backlink，已撤回）/ PR #2394 修复（squash `1d42b8f36`）/ F140 spec correction（squash `1b1a084f7`）/ 铲屎官 2026-06-18 12:06 UTC "邪修" push back ("铲屎官说头疼你们说把头砍了就不疼了")
+- 关联：LL-048（用户状态默认持久化——本 LL 分层延伸：用户视角层 ≠ 数据切片层）| feedback_judgment_altitude（判断高度——补救层=太低；question 上一层=正确高度；本 LL 给"补救层"的具体识别）| feedback_xiaci_yiding_self_diagnosis（cope-layer = "下次一定"姐妹病：把"问题没解决"包装成"提示得更友好"）| LL-072（多轮 review 何时拉闸——本 LL 是"开新 saga 前"的同型预防：发现自己在加 cope-layer = 同型拉闸预警）
