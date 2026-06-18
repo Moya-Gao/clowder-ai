@@ -2510,7 +2510,13 @@ async function main(): Promise<void> {
   {
     const { GitHubIssuePublisher } = await import('./domains/community/GitHubIssuePublisher.js');
     const defaultRepo = process.env.COMMUNITY_PUBLISH_DEFAULT_REPO ?? 'clowder-ai/cat-cafe';
-    const repoAllowlist = (process.env.COMMUNITY_PUBLISH_REPO_ALLOWLIST ?? defaultRepo).split(',').map((s) => s.trim());
+    // Phase B: default allowlist includes tutorials repo for multi-target publishing (AC-B2)
+    const repoAllowlist = (
+      process.env.COMMUNITY_PUBLISH_REPO_ALLOWLIST ?? `${defaultRepo},clowder-ai/cat-cafe-tutorials`
+    )
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
     // Lazy token factory: resolves at publish time so late-binding plugin config is picked up (P1-1 cloud R6).
     const publisher = new GitHubIssuePublisher({ token: getGitHubToken, repoAllowlist });
     await app.register(communityIssueDraftRoutes, {
