@@ -368,7 +368,11 @@ function inferToolResultName(msg: AgentMessage): string | undefined {
 }
 
 function toolNamesMatch(a: string, b: string): boolean {
-  return a === b || (isPostMessageToolName(a) && isPostMessageToolName(b));
+  return (
+    a === b ||
+    (isPostMessageToolName(a) && isPostMessageToolName(b)) ||
+    (isCrossPostMessageToolName(a) && isCrossPostMessageToolName(b))
+  );
 }
 
 type PendingToolResult = {

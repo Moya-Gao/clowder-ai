@@ -340,4 +340,61 @@ describe('F233 PR3: explicit CVO handoff event', () => {
       'cross-post CVO handoff must bind to the callback target message/thread, not the local stream message',
     );
   });
+
+  test('cross-post callback aliases settle without toolUseId before CVO handoff', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+    const recorded = [];
+    const deps = createMockDeps({
+      opus: {
+        async *invoke() {
+          yield {
+            type: 'system_info',
+            catId: 'opus',
+            content: JSON.stringify({ type: 'invocation_created', invocationId: 'inner-opus-cross-alias' }),
+            timestamp: Date.now(),
+          };
+          yield {
+            type: 'tool_use',
+            catId: 'opus',
+            toolName: 'cat_cafe_cross_post_message',
+            toolInput: JSON.stringify({
+              threadId: 'thread-cvo-cross-alias-target',
+              content: '@landy\ncross-thread alias escalation',
+            }),
+            timestamp: Date.now(),
+          };
+          yield {
+            type: 'tool_result',
+            catId: 'opus',
+            toolName: 'mcp:cat-cafe/cross_post_message',
+            content: JSON.stringify({
+              status: 'ok',
+              threadId: 'thread-cvo-cross-alias-target',
+              messageId: 'callback-msg-cross-alias-cvo',
+            }),
+            timestamp: Date.now(),
+          };
+          yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+        },
+      },
+    });
+    deps.ballCustody = {
+      async record(event) {
+        recorded.push(event);
+      },
+    };
+
+    for await (const _ of routeSerial(deps, ['opus'], 'start', 'user-a', 'thread-cvo-cross-alias-local', {
+      currentUserMessageId: 'user-msg-cvo-cross-alias-local',
+    })) {
+      // drain
+    }
+
+    const cvoEvents = recorded.filter((event) => event.kind === 'ball.handed_cvo');
+    assert.deepEqual(
+      cvoEvents.map((event) => [event.sourceEventId, event.subjectKey]),
+      [['route:callback-msg-cross-alias-cvo', 'ball:thread:thread-cvo-cross-alias-target']],
+      'cross-post tool-name aliases must settle the pending callback routing exit',
+    );
+  });
 });
