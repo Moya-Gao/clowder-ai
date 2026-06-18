@@ -1,6 +1,6 @@
 ---
 created: 2026-05-26
-updated: 2026-05-26
+updated: 2026-06-18
 doc_kind: bug-report
 topics: [incident, macos, fseventsd, gate, redis, process-cleanup]
 ---
@@ -76,6 +76,13 @@ PR #1897 已经完成：
 - raw thread markdown dump 改到 `.cat-cafe/thread-exports/repo/`，并由 `.gitignore` 保护。
 - `CatCafeScanner` 排除任意 `exported-threads` segment，避免原始聊天导出进入 docs / memory corpus。
 - Redis 仍是 thread sidebar / thread selection 的 live source；markdown export 只做本地恢复/离线备份。
+
+2026-06-18 gate-guard recovery path follow-up:
+
+- `scripts/pre-merge-gate-guard.mjs` now treats high `fseventsd` RSS as a hard preflight failure with actionable recovery context instead of only saying "reboot or recover before gate".
+- The failure output points cats to `pnpm process:doctor` to list stale/no-listener Cat Cafe dev/watch process groups, then `pnpm process:cleanup` for the reviewed Cat Cafe-owned cleanup path.
+- The output explicitly warns that cleanup can reduce new file-event load but will not necessarily reduce already-inflated `fseventsd` RSS. OS-level recovery or reboot may still be required.
+- Manual gate bypass is a CVO override, not a `pnpm gate` pass. Do not hand-edit or partially split gate results to unblock a merge.
 
 ## 5. 仍需修复
 
