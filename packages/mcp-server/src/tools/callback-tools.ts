@@ -510,6 +510,11 @@ export const listTasksInputSchema = {
     .enum(['work', 'pr_tracking'])
     .optional()
     .describe('Optional task kind filter (work = manual tasks, pr_tracking = PR automation)'),
+  taskId: z
+    .string()
+    .min(1)
+    .optional()
+    .describe('F236 why-drill: pass a taskId to retrieve that task with its full (untruncated) why field'),
 };
 
 /**
@@ -696,6 +701,7 @@ export async function handleGetThreadContext(input: {
 export async function handleGetMessage(input: {
   messageId: string;
   contextCount?: number | undefined;
+  mode?: 'preview' | 'full' | undefined;
   agentKeyCatId?: string | undefined;
 }): Promise<ToolResult> {
   return callbackGet(
@@ -703,6 +709,7 @@ export async function handleGetMessage(input: {
     {
       messageId: input.messageId,
       ...(input.contextCount ? { contextCount: String(input.contextCount) } : {}),
+      ...(input.mode ? { mode: input.mode } : {}),
     },
     { agentKeyCatId: input.agentKeyCatId },
   );
@@ -949,12 +956,14 @@ export async function handleListTasks(input: {
   catId?: string | undefined;
   status?: 'todo' | 'doing' | 'blocked' | 'done' | undefined;
   kind?: 'work' | 'pr_tracking' | undefined;
+  taskId?: string | undefined;
 }): Promise<ToolResult> {
   return callbackGet('/api/callbacks/list-tasks', {
     ...(input.threadId ? { threadId: input.threadId } : {}),
     ...(input.catId ? { catId: input.catId } : {}),
     ...(input.status ? { status: input.status } : {}),
     ...(input.kind ? { kind: input.kind } : {}),
+    ...(input.taskId ? { taskId: input.taskId } : {}),
   });
 }
 
@@ -1856,7 +1865,8 @@ export const callbackTools = [
       'Look up a single message by its messageId. Use when you receive a message with replyTo — ' +
       'call this to read the original quoted message and its surrounding context. ' +
       'Returns the message content, sender, timestamp, and optionally N nearby messages for context. ' +
-      'PARAM GUIDE: messageId = required exact ID. contextCount = number of messages before/after to include (default 0, max 10).',
+      'PARAM GUIDE: messageId = required exact ID. contextCount = number of messages before/after to include (default 0, max 10). ' +
+      'mode = "preview" (default — bounded excerpt that saves context) or "full" (complete original content; use when you need the whole message — anchor drillDown pointers already request mode=full).',
     inputSchema: {
       messageId: z.string().min(1).describe('The exact message ID to look up'),
       contextCount: z
@@ -1866,6 +1876,10 @@ export const callbackTools = [
         .max(10)
         .optional()
         .describe('Number of messages before and after to include for context (0-10, default 0)'),
+      mode: z
+        .enum(['preview', 'full'])
+        .optional()
+        .describe('preview (default, bounded excerpt) or full (complete content). F236 anchor-first drill terminal.'),
       agentKeyCatId: agentKeyCatIdSchema,
     },
     handler: handleGetMessage,

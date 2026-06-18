@@ -27,6 +27,7 @@ import { analyzeA2AMentions } from '../domains/cats/services/agents/routing/a2a-
 import { resolveCatTarget } from '../domains/cats/services/agents/routing/cat-target-resolver.js';
 import { extractRichFromText } from '../domains/cats/services/agents/routing/rich-block-extract.js';
 import { buildVoteNotification } from '../domains/cats/services/agents/routing/vote-intercept.js';
+import { getSenderName } from '../domains/cats/services/context/ContextAssembler.js';
 import type { AgentRouter } from '../domains/cats/services/index.js';
 import type { EventAuditLog } from '../domains/cats/services/orchestration/EventAuditLog.js';
 import type { IRuntimeSessionStore } from '../domains/cats/services/runtime-session/RuntimeSessionStore.js';
@@ -57,6 +58,7 @@ import { scoreKeywordRelevance, tokenizeKeyword } from '../utils/keyword-relevan
 import { getDefaultUploadDir } from '../utils/upload-paths.js';
 import { getFeatureTagId } from './backlog-doc-import.js';
 import { enqueueA2ATargets, triggerA2AInvocation } from './callback-a2a-trigger.js';
+import { anchorPendingMention, anchorThreadMessage, truncateHead } from './callback-anchor-helpers.js';
 import {
   extractCallbackCredentials,
   registerCallbackAuthHook,
@@ -1641,15 +1643,26 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     // F35: Filter out whispers not intended for this cat
     const mentionViewer = { type: 'cat' as const, catId };
     const mentions = rawMentions.filter((m) => canViewMessage(m, mentionViewer));
-    return {
-      mentions: mentions.map((item) => ({
-        id: item.id,
-        from: item.catId ?? item.userId,
-        message: item.content,
-        timestamp: item.timestamp,
-        ...(shouldIncludeAcked ? { acked: Boolean(lastAckId && item.id <= lastAckId) } : {}),
-      })),
+    const payload = {
+      // F236 AC-A3: anchor-first — head+tail excerpt + requiresDrill, full body one hop away.
+      mentions: mentions.map((item) =>
+        anchorPendingMention(item, {
+          from: getSenderName(item.catId),
+          ...(shouldIncludeAcked ? { acked: Boolean(lastAckId && item.id <= lastAckId) } : {}),
+        }),
+      ),
     };
+    // F236 AC-A1 (R1/砚砚 P1): emit returnedChars for eval-layer payload-shrink accounting.
+    app.log.info(
+      {
+        tool: 'pending-mentions',
+        returnedChars: JSON.stringify(payload).length,
+        count: payload.mentions.length,
+        catId: record.catId,
+      },
+      '[F236] anchor returned',
+    );
+    return payload;
   });
 
   // #77: POST /api/callbacks/ack-mentions — explicit ack with 4-way validation
@@ -1969,33 +1982,44 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     // so external runtimes (Antigravity/Bengal) can access image files.
     const uploadDir = getDefaultUploadDir(process.env.UPLOAD_DIR);
 
-    return {
+    const payload = {
       // TD091: echo threadId so cats know which thread they're in
       threadId: effectiveThreadId,
+      // F236 AC-A1/A2: anchor-first — preview + speaker + injected threadId + drillDown,
+      // contentBlocks omitted (image hints kept), full body one hop away via get_message.
       messages: filtered.map((item) => {
         const imagePaths = extractImagePaths(item.contentBlocks, uploadDir);
         const imageUrls = extractImageUrls(item.contentBlocks);
-        return {
-          id: item.id,
-          userId: item.userId,
-          catId: item.catId,
-          content: item.content,
-          ...(item.contentBlocks ? { contentBlocks: item.contentBlocks } : {}),
-          ...(imagePaths.length > 0 ? { imagePaths } : {}),
-          ...(imageUrls.length > 0 ? { imageUrls } : {}),
-          timestamp: item.timestamp,
-          // F148 Phase B (AC-B2): include relevance score when keyword search is active
-          ...(keywordTerms.length > 0 ? { relevanceScore: scoreKeywordRelevance(item.content, keywordTerms) } : {}),
-        };
+        const anchored = anchorThreadMessage(item, {
+          effectiveThreadId,
+          speaker: getSenderName(item.catId),
+          keywordTerms,
+          // F236 R1 云端 P2: agent-key caller needs agentKeyCatId in the drill pointer for one-hop verbatim
+          agentKeyCatId: principal.kind === 'agent_key' ? principal.catId : undefined,
+          imagePaths,
+          imageUrls,
+        });
+        // F148 Phase B (AC-B2): include relevance score (computed on full content) when keyword search is active
+        return keywordTerms.length > 0
+          ? { ...anchored, relevanceScore: scoreKeywordRelevance(item.content, keywordTerms) }
+          : anchored;
       }),
       ...(workflowSop ? { workflowSop } : {}),
     };
+    // F236 AC-A1 (R1/砚砚 P1): emit returnedChars so the eval layer can compute payload shrink (省).
+    app.log.info(
+      { tool: 'thread-context', returnedChars: JSON.stringify(payload).length, count: payload.messages.length },
+      '[F236] anchor returned',
+    );
+    return payload;
   });
 
   // #699: Look up a single message by ID with optional surrounding context
   const getMessageQuerySchema = z.object({
     messageId: z.string().min(1),
     contextCount: z.coerce.number().int().min(0).max(10).optional(),
+    // F236 AC-B1: drill terminal is bounded — default preview, mode=full returns complete content.
+    mode: z.enum(['preview', 'full']).optional(),
   });
 
   app.get('/api/callbacks/get-message', async (request, reply) => {
@@ -2049,15 +2073,37 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     }
 
     const uploadDir = getDefaultUploadDir(process.env.UPLOAD_DIR);
+    // F236 AC-B1: bounded drill terminal. Default preview truncates content (keeps the `content`
+    // field name for consumer continuity + adds contentLength/truncated); mode=full returns the
+    // complete content + contentBlocks. Image hints stay in both modes.
+    const isFullDrill = (parsed.data.mode ?? 'preview') === 'full';
     const projectMsg = (m: typeof message) => {
       const imagePaths = extractImagePaths(m.contentBlocks, uploadDir);
       const imageUrls = extractImageUrls(m.contentBlocks);
+      const { preview, truncated } = isFullDrill ? { preview: m.content, truncated: false } : truncateHead(m.content);
       return {
         id: m.id,
         userId: m.userId,
         catId: m.catId,
-        content: m.content,
-        ...(m.contentBlocks ? { contentBlocks: m.contentBlocks } : {}),
+        content: preview,
+        contentLength: m.content.length,
+        truncated,
+        // F236 R1 / 云端 Codex P2: preview-mode truncation carries a one-hop drill pointer to the
+        // full content (consistent with thread-context/pending anchors — caller never left guessing).
+        ...(truncated
+          ? {
+              drillDown: {
+                tool: 'cat_cafe_get_message',
+                args: {
+                  messageId: m.id,
+                  mode: 'full',
+                  // F236 R1 云端 P2: agent-key caller needs agentKeyCatId in drill pointer for one-hop verbatim
+                  ...(principal.kind === 'agent_key' ? { agentKeyCatId: principal.catId } : {}),
+                },
+              },
+            }
+          : {}),
+        ...(isFullDrill && m.contentBlocks ? { contentBlocks: m.contentBlocks } : {}),
         ...(imagePaths.length > 0 ? { imagePaths } : {}),
         ...(imageUrls.length > 0 ? { imageUrls } : {}),
         ...(m.replyTo ? { replyTo: m.replyTo } : {}),
@@ -2101,6 +2147,20 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
         })
         .sort((a, b) => a.timestamp - b.timestamp || a.id.localeCompare(b.id));
       result.context = contextMsgs.map(projectMsg);
+    }
+
+    // F236 AC-B2 (R1/砚砚 P1): record full-drill cost AFTER the whole payload (message +
+    // context neighbors + contentBlocks) is assembled, so the cost account isn't undercounted.
+    if (isFullDrill) {
+      app.log.info(
+        {
+          messageId: message.id,
+          fullDrillChars: JSON.stringify(result).length,
+          contextCount: result.context?.length ?? 0,
+          catId: principal.catId,
+        },
+        '[F236] get_message full drill',
+      );
     }
 
     return result;

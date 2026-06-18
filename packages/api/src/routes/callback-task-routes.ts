@@ -10,6 +10,7 @@ import { resolveCatTarget } from '../domains/cats/services/agents/routing/cat-ta
 import type { ITaskStore } from '../domains/cats/services/stores/ports/TaskStore.js';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
+import { anchorTaskWhy } from './callback-anchor-helpers.js';
 import { requireCallbackAuth } from './callback-auth-prehandler.js';
 import { deriveCallbackActor, resolveScopedThreadId } from './callback-scope-helpers.js';
 
@@ -95,6 +96,9 @@ const listTasksQuerySchema = z.object({
   catId: z.string().min(1).optional(),
   status: z.enum(['todo', 'doing', 'blocked', 'done']).optional(),
   kind: z.enum(['work', 'pr_tracking']).optional(),
+  // F236 AC-A4: why-drill channel — when taskId is given, that task's full (untruncated) why
+  // is returned (one-hop drill from the anchored list), staying within the user's thread scope.
+  taskId: z.string().min(1).optional(),
 });
 
 export function registerCallbackTaskRoutes(
@@ -206,7 +210,7 @@ export function registerCallbackTaskRoutes(
       return { error: 'Invalid request query', details: parsed.error.issues };
     }
 
-    const { threadId, catId, status, kind } = parsed.data;
+    const { threadId, catId, status, kind, taskId } = parsed.data;
 
     if (catId && !catRegistry.has(catId)) {
       reply.status(400);
@@ -241,8 +245,22 @@ export function registerCallbackTaskRoutes(
     if (catId) tasks = tasks.filter((item) => item.ownerCatId === catId);
     if (status) tasks = tasks.filter((item) => item.status === status);
     if (kind) tasks = tasks.filter((item) => item.kind === kind);
+    if (taskId) tasks = tasks.filter((item) => item.id === taskId);
     tasks.sort((a, b) => b.updatedAt - a.updatedAt || b.createdAt - a.createdAt || b.id.localeCompare(a.id));
 
-    return { tasks };
+    // F236 AC-A4: anchor the why field (head preview + whyLength + whyTruncated + drillDown).
+    // A taskId drill returns that task's why in full.
+    const payload = { tasks: tasks.map((task) => anchorTaskWhy(task, { full: Boolean(taskId) })) };
+    // F236 AC-A1 (R1/砚砚 P1): emit returnedChars for eval-layer payload-shrink accounting.
+    app.log.info(
+      {
+        tool: 'list-tasks',
+        returnedChars: JSON.stringify(payload).length,
+        count: payload.tasks.length,
+        userId: actor.userId,
+      },
+      '[F236] anchor returned',
+    );
+    return payload;
   });
 }
