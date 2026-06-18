@@ -164,9 +164,11 @@ created: 2026-06-17
 
 ## Architecture cell
 
-- **Architecture cell**: docs governance + 元数据生产线（**pending Design Gate Read ownership map 确认**）
-- **Map delta**: TBD —— 候选有二：① update required（docs governance cell 加 metadata sub-cell）② new cell required（"docs metadata pipeline" 作为新 surface）
-- **Why**: profile + description generation + index sync gate 是 docs 元数据生产线新 surface；Design Gate Read `docs/architecture/ownership/README.md` 后定论
+- **Architecture cell**: 候选 `docs-governance`（待 cell 创建）
+- **Map delta**: **new cell required** —— Design Gate 2026-06-17 自检确认（Read `docs/architecture/ownership/README.md` 全量 15 cells，全部是 typescript runtime cells，`packages/*/src/...` anchors。F243 的 carrier 是 docs/ + cat-cafe-skills/refs/ + scripts/ + .github/，**不动 runtime code**，没有匹配 cell）
+- **Why**: F243 是 **docs governance surface**（markdown / YAML frontmatter / lint script / generator script / CI sync gate），属于 monorepo 的元数据生产线，不在现有 typescript runtime cells 范围。
+- **Cell 创建是 ownership map 自身 lifecycle，不是 F243 close blocker**（按 feat-lifecycle SOP "Phase 0 架构发现未完成"判定）。建议候选 cell 名 `docs-governance`，canonical features = F243（本 feat），code anchors = `docs/features/*.md` / `cat-cafe-skills/refs/feature-doc-template.md` / `scripts/docs-discovery/*` / `.github/workflows/docs-sync.yml` 等
+- **Design Gate 完整自检**（架构归属 + 元审美 + observability）见 `docs/discussions/2026-06-17-f243-design/README.md`
 
 ## Dependencies
 
@@ -225,6 +227,8 @@ created: 2026-06-17
 | 2026-06-17 | 立项 F243（commit cca384dc6）|
 | 2026-06-17 | 砚砚 R1 review verdict = **退回**：P1-1 Owner/reviewer 同体红线（砚砚同时是 Owner 又是 Reviewer）+ P1-2 F186 consumer scope creep（把 F186 LibraryResolver 消费写成 F243 必交 AC，跨 feature 改造会阻塞 close）+ Current State 命令实证错（hash grep 命中 code block）。3 条全接受修复：Owner 只留宪宪 + AC-B4/R7/Deps/Risk 全 self-contained schema + Current State 改 parser-based 验证 |
 | 2026-06-17 | 砚砚 R2 review verdict = **退回**：R1 P1-2 修复**不彻底**——只改了 reviewer 指出的 4 处（AC/R7/Deps/Risk），漏 3 处同源残留（Phase B What / Review Gate / Links），spec 内部自相矛盾。砚砚 `rg F186` 全文扫抓到。R2 学到方法论："fix scope creep 必须自己 grep 全文找同源表述，不只是改 reviewer 点出的 line"。3 处全改 self-contained 契约 / future consumer candidates 表述 |
+| 2026-06-17 | 砚砚 R3 review verdict = **放行** ✓（无 findings；reviewer 预表态下一步走 Design Gate）|
+| 2026-06-17 | Design Gate 自检完成：架构归属 = new cell required（候选 `docs-governance`，建议 Phase B PR 内一并创建）+ 元审美 = 坐标变换 ✓（index = derived view 不增真相源 / pipeline 形态 Phase A 判定不预设 / lint+sync = 运行时脚手架不是认知脚手架）+ Observability = 弱触发（PR 流程内可见）+ Eval Contract + Harness 三层已落 spec。Discussion 落盘 `docs/discussions/2026-06-17-f243-design/README.md`，含给 CVO 的 Decision Packet 等拍板 |
 
 ## Review Gate
 
@@ -238,6 +242,7 @@ created: 2026-06-17
 | 类型 | 路径 | 说明 |
 |------|------|------|
 | **Discussion** | `docs/discussions/2026-05-03-pageindex-deep-dive/` | PageIndex 开源拆解（F186 历史灵感，OKF 与 PageIndex 同族）|
+| **Design Gate** | `docs/discussions/2026-06-17-f243-design/README.md` | Design Gate 自检（架构归属 + 元审美 + observability + Decision Packet 给 CVO）|
 | **Brainstorm** | (本 thread) | OKF 一手核实 + description 漂移讨论 + mini-spike 3 轮 + 砚砚 co-design 1 轮 |
 | **Feature** | `docs/features/F236-anchor-first-context-entry.md` | 姊妹哲学：anchor + drill 调用侧 vs 文档侧 |
 | **Feature** | `docs/features/F186-library-memory-architecture.md` | Related candidate：F243 generated index 的潜在 consumer（实际是否扩 LibraryResolver 消费由 F186 owner 决定，不作为 F243 close blocker）|
