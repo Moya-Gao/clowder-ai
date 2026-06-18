@@ -1,6 +1,6 @@
 ---
 feature_ids: [F242]
-related_features: [F102]
+related_features: [F102, F200]
 topics: [code-graph, code-intelligence, convention-graph, spike, skill, agent-onboarding]
 doc_kind: spec
 created: 2026-06-17
@@ -70,6 +70,8 @@ cvo_signoff: 2026-06-17 — 铲屎官 "可以 我同意！！！"（thread 00017
 2. **Friction Metric**：改约定找消费方的 grep 次数；漏改导致的同型回归（F-coalesce 类）；误报导致的无效追踪次数（false-positive cost）。
 3. **Regression Fixture**（≥2）：(a) 改某 MCP tool schema，约定图找出全部消费方 vs grep 列差异；(b) 同名跨域符号不误关联；(c) edge provenance snapshot（每条关键边可追到 source span）。
 4. **Sunset Signal**：约定图查询猫从不用（活跃 0）/ 准确率 ≤ grep / 维护成本 > 收益 → sunset。
+
+> **对齐 F200（铲屎官洞察 2026-06-17）**：约定图某种意义也是「记录代码的记忆系统」（只不过记的是代码约定，不是团队对话）。所以 eval 不止跑 fixture，还要学 **F200 Memory Recall Eval** 的范式——**基于猫真实查询行为的反馈闭环**（猫真改 MCP schema 时有没有唤醒约定图、查得对不对、比 grep 省没省）。守 KD-1 边界：eval 范式对齐 F200，但 artifact 分层（约定图是可重建代码 artifact，memory 是人/猫知识沉淀）。
 
 ## 软 + 硬 + eval 三层（ADR-031）
 
@@ -179,6 +181,7 @@ AC-A5 锚定具体场景：**改 `cat_cafe_post_message` 的 schema → 约定�
 |---|------|------|------|
 | KD-1 | 本 spike 不冲突 F102 KD-31 | KD-31 拒"代码图谱当**记忆方案**"（错层）；本 spike 是"**代码层能力**"（正确层）。引 opus-47 §10.2 论证：今天铲屎官说"对代码做东西"是把它放回正确层。约定图与 memory graph 并列分层，不合并。| 2026-06-17 |
 | KD-2 | 工程底座学 codegraph、算法启发借 GitNexus、不直接依赖任一 | codegraph 轻/快/零依赖/MIT（底座）；GitNexus 重/FTS脆/noncommercial（只借 community+flow 思路）。报告 §18.3。| 2026-06-17 |
+| KD-3 | 约定图是「记录代码的记忆」，eval 对齐 F200 范式 | 铲屎官 2026-06-17 洞察「某种意义也属于记忆系统只不过记录的是代码」：eval 学 F200 基于猫真实行为反馈闭环，不止 fixture；artifact 守 KD-1 分层（约定图 ≠ memory graph）。| 2026-06-17 |
 
 ## Timeline
 
