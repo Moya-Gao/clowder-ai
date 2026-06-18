@@ -35,7 +35,7 @@ const YANYAN_ATLAS_ROWS: Record<CodexPetState, AtlasRowConfig> = {
   idle: {
     row: 0,
     frameCount: 6,
-    frameDurations: [280, 110, 110, 140, 140, 320],
+    frameDurations: [1200, 400, 400, 500, 500, 800],
   },
   'running-right': {
     row: 1,

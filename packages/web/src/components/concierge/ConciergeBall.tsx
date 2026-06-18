@@ -22,7 +22,7 @@
 import type { ConciergeBallState } from '@cat-cafe/shared';
 import { useConciergeStore } from '@/stores/conciergeStore';
 import { type AtlasSpriteResult, resolvePetSprite } from './usePetSkin';
-import { computeScaledBackgroundPosition, useSpriteAnimation } from './useSpriteAnimation';
+import { useSpriteAnimation } from './useSpriteAnimation';
 
 interface ConciergeBallProps {
   ballState: ConciergeBallState;
@@ -58,7 +58,13 @@ const STATE_LABELS: Record<ConciergeBallState, string> = {
 
 /**
  * Renders an animated sprite from an atlas spritesheet.
- * Uses CSS background-image + background-position for frame stepping.
+ * Uses <img> inside a clipping container for reliable alpha transparency.
+ *
+ * Why <img> instead of CSS background-image:
+ *   CSS background-image + imageRendering: pixelated has known alpha compositing
+ *   issues in some browser/OS combos — transparent regions render as black.
+ *   An <img> element with position offset inside overflow:hidden is the most
+ *   reliable cross-browser approach for spritesheet alpha.
  *
  * Display size: aspect-ratio-aware scaling.
  * Atlas cells are 192×208 (not square). To fit inside the 64×64 display area
@@ -78,14 +84,13 @@ function AtlasSprite({ atlas }: { atlas: AtlasSpriteResult }) {
   const displayHeight = 64;
   const displayWidth = Math.round(displayHeight * (atlas.cellWidth / atlas.cellHeight));
 
-  // backgroundSize: scale the full atlas to match display cell size
-  // Atlas is 8 columns × 9 rows, so full width = displayWidth * 8, full height = displayHeight * 9
-  const bgWidth = displayWidth * 8;
-  const bgHeight = displayHeight * 9;
+  // Full spritesheet dimensions at display scale
+  const imgWidth = displayWidth * 8;
+  const imgHeight = displayHeight * 9;
 
-  // Compute display-coordinate position directly from integer display dimensions.
-  // Avoids rounding drift from float scaling (P2 fix: frame 7 was -414px, should be -413px).
-  const scaledPosition = computeScaledBackgroundPosition(frameIndex, atlas.row, displayWidth, displayHeight);
+  // Frame offset in display coordinates (integer math avoids rounding drift)
+  const offsetX = -(frameIndex * displayWidth);
+  const offsetY = -(atlas.row * displayHeight);
 
   return (
     <div
@@ -93,13 +98,26 @@ function AtlasSprite({ atlas }: { atlas: AtlasSpriteResult }) {
       style={{
         width: displayWidth,
         height: displayHeight,
-        backgroundImage: `url(${atlas.src})`,
-        backgroundSize: `${bgWidth}px ${bgHeight}px`,
-        backgroundPosition: scaledPosition,
-        backgroundRepeat: 'no-repeat',
-        imageRendering: 'pixelated',
+        overflow: 'hidden',
+        position: 'relative',
       }}
-    />
+    >
+      {/* biome-ignore lint/performance/noImgElement: sprite atlas, not content — Next Image optimization not applicable */}
+      <img
+        src={atlas.src}
+        alt=""
+        draggable={false}
+        style={{
+          position: 'absolute',
+          left: offsetX,
+          top: offsetY,
+          width: imgWidth,
+          height: imgHeight,
+          maxWidth: 'none', // Override Tailwind preflight `img { max-width: 100% }`
+          imageRendering: 'pixelated',
+        }}
+      />
+    </div>
   );
 }
 
