@@ -77,9 +77,12 @@ spike（2026-06-16，C0a Read / C0b Grep ✅ 实证）证明 cc PostToolUse hook
     - **深路（output anchor）**：需 codex/agy 有 cc PostToolUse 等价机制、能改**它们模型侧**的 tool_result
     - ⚠️ **核心未知（深路必验）**：我们的 transform 层改的是 **cat-cafe 侧存储/展示**（≠ codex/agy 模型 context，省不到它们 token，且那侧 F148 已覆盖）——深路要省 codex/agy 模型 token，**必须它们自己有 output hook**，不是我们 transform 能代劳。（修正：前文"transform 可改"指 cat-cafe 侧，非模型侧）
     - opencode：transformer 不发 tool_result，锁定
-- [~] AC-C0d (spike) 文档+家里实测查证（2026-06-17，**砚砚 P1 改判**）：**只有 cc 深路成立**。能力真相：**cc（实测 PASS）>> codex（限 shell，不覆盖 file-read）> agy（observe-only，深路未成立）**——下方逐条
+- [~] AC-C0d (spike) 文档+家里实测查证（2026-06-17，**砚砚 P1 改判 + 铲屎官纠正 agy 分形态**）：能力真相 **cc（实测 PASS）>> codex（限 shell）> agy-IDE/孟加拉猫（observe-only）；agy-CLI/暹罗猫（待查）**——下方逐条
     - **codex**（`.codex/hooks.json` PostToolUse，`decision:block`+`reason` 替换 tool result）：覆盖 Bash/apply_patch/MCP，**不覆盖 file-read 工具** → 深路对 codex 限 shell（读文件 hook 不生效）
-    - **agy**（`hooks.json` PostToolCallHook）：⚠️ **深路不成立**（砚砚 P1）——① 官方 SDK README 把 PostToolCallHook 归为 **inspect/read-only**（能拿 `ToolResult.result` ≠ 能改）；② 家里 **F061 AC-2cR4 实测**（@antig-opus 2026-04-21/23）：agy `view_file`/`grep_search`/`list_dir` 全 **LS 内部 DONE 自闭环、不走 Cat Café Bridge writeback**，carrier 插不进去。**纠正前文"最接近 cc"**（observe≠transform + 漏 recall F061）。要省 agy 模型 token 须另起实测证 transform path 存在（现不成立）
+    - **agy 分两形态**（铲屎官 2026-06-17 纠正，我之前笼统混了 — F210/F061 实测证）：
+        - **孟加拉猫（Antigravity IDE / Language Server，@antig-opus）= observe-only，深路不成立** ✅：SDK README PostToolCallHook 归 inspect/read-only + 家里 **F061 AC-2cR4 实测**（@antig-opus 2026-04-21/23）`view_file`/`grep_search`/`list_dir` 全 **LS 内部 DONE 自闭环、不走 Cat Café Bridge writeback**，carrier 插不进去。这个站得住
+        - **暹罗猫（Antigravity CLI / `agy --print`，@gemini gemini25）= hook 能力待单独查**：F210 证暹罗猫走 `antigravity-cli` adapter；CLI 形态的 hook（`~/.gemini/config/hooks.json`）能不能改 output 与 IDE **可能不同**——我之前 WebSearch 没区分 CLI/IDE 就笼统说"agy observe-only"，又一次"没区分清楚就下结论"。留 Phase C 实测
+        - **纠正前文"最接近 cc"**：observe≠transform + 漏 recall F061 + 没分 CLI/IDE 形态
     - **修正**：spike A 从"rtk 用 rules.md"误推"agy 没 hook"——官方文档推翻（agy 有 PostToolCallHook，rtk 只是没用它）。又一次旁证脑补被查证纠偏
     - **实测（nonce probe）留 Phase C**：cc 已证 PostToolUse output replace 范式真实（核心打底）+ codex/agy hook/config 已查到；codex 实测烧贵配额（缅因猫额度），spike 阶段 cost>边际价值，Phase C 实现期实测确认
     - 来源：codex `developers.openai.com/codex/hooks` / agy **官方 SDK README（PostToolCallHook read-only）+ 家里 F061 AC-2cR4 实测**（`antigravity.google/docs/hooks` 返空，砚砚改用 SDK README 核验）（checked 2026-06-17）
