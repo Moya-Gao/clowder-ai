@@ -203,6 +203,23 @@ interface CommunityReconciliationFinding {
 | **D5** Closure UX | board cards, report/waive controls, finding queue | D1-D4 API | AC-D5 |
 | **D6** docs/skill sync | community-ops generic closure guidance + feature doc close prep | D0-D5 | AC-D6 |
 
+### 2.1 PR Granularity Guard（防碎 PR）
+
+Phase D 的 `D0-D6` 是交付切面，不是 PR 切分键。默认不允许按编号机械拆成 6 个 PR。
+
+**已完成 / 不再拆：**
+- PR #2369: D0.1 narrator eligibility gate ✅（P1 prerequisite，已 squash merge）
+
+**后续 PR 上限：最多 3 个；目标 2 个。**
+
+| PR | 默认包含 | 为什么能合 | 拆分条件 |
+|---|---|---|---|
+| D-PR1 backend closure core | D0.2-D0.6 + D1 + D2 | 都是 closure invariant/read-model 前置，围绕 Event Log → projector → board API 一条链路 | 只有 D0.2-D0.6 触发独立架构变更、需要先 merge unblock 时才拆 |
+| D-PR2 reconciler + SLA | D3 + D4 | Reconciler finding store、baseline、SLA/dead-letter 是同一个 operational loop | 只有 GitHub fetch SPIKE 证明需要外部依赖/CVO 决策时才先提交 SPIKE note |
+| D-PR3 UX + closure docs | D5 + D6 | UX 消费 D-PR1/D-PR2 API，docs/skill sync 跟最终用户面一起验收 | 设计 gate 未获 CVO approval 时，D6 可随 D-PR2 先同步 |
+
+**禁止：** `D1`、`D2`、`D3`、`D4`、`D5` 各自开独立 PR，除非上表拆分条件命中并在 PR body 写明证据。Cloud review 修复 commits 不算新 PR。
+
 ---
 
 ## 3. Implementation Tasks
@@ -257,7 +274,7 @@ export function shouldSpawnNarratorForCase(input: {
 - GuardianMatcher OQ-C1a: route guardian `getRoster()` through RoleResolver or leave explicit TODO + guard allowlist test.
 
 **Step 1:** Write one focused RED per follow-up; no drive-by refactor.
-**Step 2:** Green each; commit as one `fix(F168-D0): close Phase C prerequisites` if cohesive, otherwise split.
+**Step 2:** Green each; keep inside D-PR1 by default. Only split if a hard boundary from §2.1 is hit, and document the evidence in the PR body.
 
 ### D1 — Closure action API (`reported` / `waived`)
 
