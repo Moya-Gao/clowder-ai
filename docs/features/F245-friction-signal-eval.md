@@ -65,11 +65,15 @@ signal 体量实证（今天 UTC 0:00 → 16:07，16 小时）：
 
 ### Phase B: 跨通道统一消费 + dedup/cluster
 
-统一消费 4 个通道（**A 聚合视图，不重构搬迁** task-outcome/F222），把 raw signal dedup + cluster 同类（"rg 噪音大 ×12" 折叠成 1 个 cluster）。落地 F192 PR-3 埋的 `rollup_deferred` 占位：raw 实时进聚合桶，不攒原始条目。
+统一消费 4 个通道，**Port + Adapter → 公共中间类型 `FrictionSignal`，只读引用源数据、不建统一 store**（46 Design Gate；4 通道形态异构，强推统一 store 违反 KD-1）。把 raw signal dedup + cluster 同类（"rg 噪音大 ×12" 折叠成 1 个 cluster）。**采集层只做幂等去重**（messageId+markerIndex / issueId / episodeId），**语义 cluster 必须等 rollup**（砚砚：跨通道同源事件会重复表现，采集时合并不可逆误折叠）。
+
+> ⚠️ **砚砚 Design Gate 纠正**：`rollup_deferred` **不是现成 extension point**——代码里还没 rollup sink（`publish-policy.ts` 只是未来意图）。F245 要**自己实现这个 sink**，不是"复用现成机制"。
 
 ### Phase C: eval:friction domain 注册 + 周期 rollup + verdict
 
-注册 `eval-domains/eval-friction.yaml`，**频率可配置**（社区默认 weekly / 本家默认 3 天 / 可调 daily）。到周期点 flush 出**已聚合**报告：Top-N 配额（高频/高severity 深挖，长尾折叠列出）→ 按五类传感器形态标注 + 7-class 根因分类（harness_misfit / tool_gap / environment_drift / …）→ 复用 F192 Verdict Handoff Packet 产出 verdict。
+注册 `eval-domains/eval-friction.yaml`，**频率可配置**（社区默认 weekly / 本家默认 3 天 / 可调 daily）。到周期点 flush 出**已聚合**报告：Top-N 配额（Top-10 深挖 + 长尾折叠；排序 = severity × count × **channel diversity** ——跨通道出现=强信号）+ **token 硬上限 ~4000**（46：比纯 Top-N 更有效）→ 按五类传感器形态标注 + 7-class 根因分类（harness_misfit / tool_gap / environment_drift / …）→ 复用 F192 Verdict Handoff Packet 产出 verdict。
+
+> ⚠️ **砚砚 Design Gate 纠正**："本家 3 天"**不是纯配置文案**——registry 现只支持 `daily|weekly`，要加 **N-day cadence + last-run gate** 才落得进 3 天默认。
 
 ### Phase D: 出口闭环 + Eval Hub 呈现
 
@@ -159,11 +163,11 @@ signal 体量实证（今天 UTC 0:00 → 16:07，16 小时）：
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | 爪感差采集：回扫消息 grep（轻量）vs 消息发送时实时打标（重）？ | ⬜ 倾向回扫，Design Gate 定 |
-| OQ-2 | cluster 算法：规则/embedding vs 本地小模型聚类？ | ⬜ 未定 |
-| OQ-3 | 本家频率默认值：3 天 vs daily？ | ⬜ 铲屎官倾向 3 天 |
-| OQ-4 | Map delta 确认：harness-eval cell 边界扩展具体登记哪些新 anchor | ⬜ Design Gate |
-| OQ-5 | A 聚合 vs B 搬迁 cancel signal | ✅ 走 A（KD-1） |
+| OQ-1 | 爪感差采集：回扫 vs 实时打标？ | ✅ **回扫**（走 message store 结构化 reader，非 shell grep；transport 不该有 domain 知识）— Design Gate 收敛 |
+| OQ-2 | cluster 算法：规则+embedding vs 小模型？ | ✅ **规则+embedding，不引小模型**（KD-8）— Design Gate 收敛 |
+| OQ-3 | 本家频率默认值：3 天 vs daily？ | ✅ **3 天**（三猫 + CVO 一致；daily 低量日产空报告噪音）— Design Gate 收敛 |
+| OQ-4 | Map delta：登记哪些新 anchor | ✅ **4 anchor + 2 enum 扩展**（详见 Design Gate 归档）|
+| OQ-5 | A 聚合 vs B 搬迁 cancel signal | ✅ 走 A（KD-1；砚砚升级为"不抢 ownership"，见 KD-4）|
 
 ## Key Decisions
 
@@ -172,6 +176,8 @@ signal 体量实证（今天 UTC 0:00 → 16:07，16 小时）：
 | KD-1 | 走 A 聚合视图，不 B 重构搬迁 | 铲屎官分级设计"④只列出 / ①②③聚合分析"= 不动 task-outcome/F222，风险低 | 2026-06-18 |
 | KD-2 | 频率可配置（社区 weekly / 本家 3 天），不固定 weekly | 实证 signal 体量大（数百 invocation/天），固定 weekly 攒太多且迭代慢 | 2026-06-18 |
 | KD-3 | 新开 F245 link F192，不塞进 F192 | F192 已是巨型控制面 meta-feature，recall 困难；F222 先例（用户反馈也独立开号 link F192） | 2026-06-18 |
+| KD-4 | F245 = **只读 rollup/read-model 域，不抢 canonical signal ownership** | 砚砚 Design Gate：最危险的不是重复代码，是 F222/task-outcome/eval 域各自闭环被第二套出口抢走。把 KD-1"不搬代码"升级到"不抢 ownership"——F245 只读不写（不写 episodeVerdicts，只读 cancel/episode 作传感器） | 2026-06-18 |
+| KD-5 | **Port + Adapter + `FrictionSignal` 中间类型，不建统一 store** | 46 Design Gate：4 通道形态异构（消息文本/episode/issue 生命周期/数值 metric），内存聚合 ~10-30 cluster，持久化的是 verdict artifact 不是中间 store | 2026-06-18 |
 
 ## Timeline
 
@@ -190,5 +196,6 @@ signal 体量实证（今天 UTC 0:00 → 16:07，16 小时）：
 | **Feature** | `docs/features/F192-socio-technical-harness-eval.md` | eval 控制面母 feature |
 | **Feature** | `docs/features/F222-frustration-auto-issue.md` | 用户反馈采集（本 feat 补聚合 eval） |
 | **Discussion** | `docs/discussions/2026-06-01-f192-eval-coverage-audit.md` | 五类摩擦传感器 §八 + L1–L4 §一 真相源 |
+| **Design Gate** | `docs/discussions/2026-06-18-F245-design-gate.md` | 三猫架构收敛（4 OQ 零分歧 + read-model 约束 + Port/Adapter + 砚砚 2 处纠正） |
 | **Decision** | `docs/decisions/038-l0-staging-protocol.md` | 爪感差 L0 staging 定义 |
 | **Feature** | `docs/features/F167-a2a-chain-quality.md` | KD-27 持球双重唤醒（friction cluster 案例） |
