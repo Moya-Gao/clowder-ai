@@ -8,7 +8,7 @@ created: 2026-06-15
 
 # F235: Feedback-to-Community Publisher — 一键发布反馈到社区
 
-> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: done | **Owner**: 布偶猫 | **Priority**: P1 | **Completed**: 2026-06-17
 
 ## Architecture Ownership
 
@@ -103,10 +103,10 @@ CommunityIssueStore / F168 projection  ← 幂等回写，防重复 triage
 - [x] AC-A5: 创建成功后卡片更新为"已发布"状态并附 issue URL 链接（截图可验证）
 - [x] AC-A6: GitHub API 失败时友好提示，不丢失 draft 数据（手动测试）
 
-### Phase B（通用发布卡片）
-- [ ] AC-B1: 猫猫可主动生成 `community_issue_draft` rich block 卡片（运行时验证）
-- [ ] AC-B2: 卡片支持选择目标仓库（至少 cat-cafe + cat-cafe-tutorials）
-- [ ] AC-B3: submit 流程复用 Phase A 的脱敏→发布→回链管线
+### Phase B（通用发布卡片）✅
+- [x] AC-B1: 猫猫可主动生成 `community_issue_draft` rich block 卡片（运行时验证）
+- [x] AC-B2: 卡片支持选择目标仓库（至少 cat-cafe + cat-cafe-tutorials，含 dropdown + 手动输入 fallback）
+- [x] AC-B3: submit 流程复用 Phase A 的脱敏→发布→回链管线
 
 ## Dependencies
 
@@ -145,6 +145,7 @@ CommunityIssueStore / F168 projection  ← 幂等回写，防重复 triage
 |------|------|
 | 2026-06-15 | 立项（CVO 指示） |
 | 2026-06-17 | Phase A merged (PR #2317) — 37 commits squashed, 112 tests (101 API + 11 web), 6 rounds cloud review |
+| 2026-06-17 | Phase B merged (PR #2367, squash `8f651adf9`) — generic community publisher: CommunityIssueDraftCard + draft store + GitHubIssuePublisher (lazy token factory) + publish race lock + scoped sourceId idempotency + concurrent creates fix; 3 cloud rounds, LL-072 封板 (7/7 R3 stale), gpt52 final delta APPROVE |
 
 ## Review Gate
 
