@@ -100,6 +100,8 @@ managed_scripts:
   - scripts/start-dev-profile-isolation.test.mjs
   - scripts/pre-merge-check.sh
   - scripts/pre-merge-check.test.mjs
+  - scripts/check-worktree-dirty-ledger.mjs
+  - scripts/check-worktree-dirty-ledger.test.mjs
   - scripts/pre-merge-gate-guard.mjs
   - scripts/pre-merge-gate-guard.test.mjs
   - scripts/test-bash-runtime.mjs
