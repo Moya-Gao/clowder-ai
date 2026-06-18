@@ -21,6 +21,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { getDefaultCatId } from '../config/cat-config-loader.js';
 import { resolveFrontendBaseUrl } from '../config/frontend-origin.js';
+import type { IBallCustodyIngest } from '../domains/ball-custody/BallCustodyIngest.js';
 import {
   type CollaborationContinuityCapsuleV1,
   extractContinuityCapsuleFromAgentMessage,
@@ -149,6 +150,8 @@ export interface MessagesRoutesOptions {
   gameStore?: IGameStore;
   /** F101: Injectable auto-player for lifecycle-safe teardown in tests/routes */
   autoPlayer?: Pick<GameDriver, 'startLoop' | 'stopLoop' | 'stopAllLoops'>;
+  /** F233 PR3: ball-custody event sink for zombie reconciliation side effects. */
+  ballCustody?: IBallCustodyIngest;
   /** F088 ISSUE-15: Outbound delivery hook for connector platforms (late-bound after gateway bootstrap) */
   outboundHook?: OutboundDeliveryHookLike;
   /** F088 ISSUE-15: Streaming hook for connector platforms (late-bound after gateway bootstrap) */
@@ -1956,6 +1959,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
             void reconcileZombies(liveness.zombies, {
               invocationRecordStore: recordStore,
               taskProgressStore: opts.taskProgressStore,
+              ballCustody: opts.ballCustody,
               log: request.log,
             }).catch((err) => request.log.warn({ err, feature: 'F194' }, 'reconcileZombies failed'));
           }

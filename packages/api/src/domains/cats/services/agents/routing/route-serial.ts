@@ -53,7 +53,13 @@ import {
 import { detectUserMention } from '../../../../../routes/user-mention.js';
 import { estimateTokens } from '../../../../../utils/token-counter.js';
 import type { IBallCustodyIngest } from '../../../../ball-custody/BallCustodyIngest.js';
-import { buildHandedEvent, buildVoidPassEvent } from '../../../../ball-custody/ball-custody-events.js';
+import {
+  buildHandedCvoEvent,
+  buildHandedEvent,
+  buildInvocationHeartbeatEvent,
+  buildInvocationStartedEvent,
+  buildVoidPassEvent,
+} from '../../../../ball-custody/ball-custody-events.js';
 import { conciergeContextForCat, prepareConciergeContext } from '../../../../concierge/ConciergeRoutingInterceptor.js';
 import {
   buildConciergeActions,
@@ -132,6 +138,7 @@ import { evaluateVoidHold } from './void-hold-detect.js';
 import { buildVoteTally, checkVoteCompletion, extractVoteFromText, VOTE_RESULT_SOURCE } from './vote-intercept.js';
 
 const log = createModuleLogger('route-serial');
+const BALL_CUSTODY_INVOCATION_HEARTBEAT_MIN_INTERVAL_MS = 30_000;
 
 /**
  * F233 Phase B (B2): fire-and-forget 旁路写 ball.handed（行首 @ 路由投递 → holder 变更，球继续）。
@@ -165,6 +172,43 @@ function emitBallVoidPass(
   ballCustody
     .record(buildVoidPassEvent({ threadId, messageId, matchedPattern: matchedPattern ?? undefined, at: Date.now() }))
     .catch((err) => log.warn({ threadId, err }, 'ball.void_pass ingest failed'));
+}
+
+function emitBallHandedCvo(
+  ballCustody: IBallCustodyIngest | undefined,
+  threadId: string,
+  fromCatId: string,
+  messageId: string | undefined,
+): void {
+  if (!ballCustody || !messageId) return;
+  ballCustody
+    .record(buildHandedCvoEvent({ fromCatId, threadId, messageId, intent: 'handoff', at: Date.now() }))
+    .catch((err) => log.warn({ threadId, fromCatId, err }, 'ball.handed_cvo ingest failed'));
+}
+
+function emitBallInvocationStarted(
+  ballCustody: IBallCustodyIngest | undefined,
+  threadId: string,
+  invocationId: string | undefined,
+  catId: string,
+): void {
+  if (!ballCustody || !invocationId) return;
+  ballCustody
+    .record(buildInvocationStartedEvent({ invocationId, threadId, catId, at: Date.now() }))
+    .catch((err) => log.warn({ threadId, invocationId, catId, err }, 'invocation.started ingest failed'));
+}
+
+function emitBallInvocationHeartbeat(
+  ballCustody: IBallCustodyIngest | undefined,
+  threadId: string,
+  invocationId: string | undefined,
+  catId: string,
+  draftUpdatedAt: number,
+): void {
+  if (!ballCustody || !invocationId) return;
+  ballCustody
+    .record(buildInvocationHeartbeatEvent({ invocationId, threadId, catId, draftUpdatedAt }))
+    .catch((err) => log.warn({ threadId, invocationId, catId, err }, 'invocation.heartbeat ingest failed'));
 }
 const routeSerialTracer = trace.getTracer('cat-cafe-api', '0.1.0');
 const ROUTE_ONLY_REMEDIAL_TEXT_RE =
@@ -230,6 +274,7 @@ function isCallbackContentRoutingToolName(toolName: string | undefined): boolean
 
 type CallbackContentRoutingExit = {
   toolName: string;
+  toolUseId?: string;
   lineStartMentions: CatId[];
   hasCoCreatorLineStartMention: boolean;
 };
@@ -238,17 +283,24 @@ function collectCallbackContentRoutingExit(
   toolName: string,
   toolInput: unknown,
   currentCatId: CatId,
+  toolUseId?: string,
 ): CallbackContentRoutingExit | null {
   if (!isCallbackContentRoutingToolName(toolName)) return null;
   const content = readToolInputContent(toolInput);
-  if (!content) return null;
+  if (!content) {
+    return {
+      toolName,
+      ...(toolUseId ? { toolUseId } : {}),
+      lineStartMentions: [],
+      hasCoCreatorLineStartMention: false,
+    };
+  }
 
   // Cross-post targets another thread; mentioning this cat there is not a self-loop in this worklist.
   const parserCurrentCatId = isCrossPostMessageToolName(toolName) ? undefined : currentCatId;
   const lineStartMentions = parseA2AMentions(content, parserCurrentCatId);
   const hasCoCreatorLineStartMention = detectUserMention(content);
-  if (lineStartMentions.length === 0 && !hasCoCreatorLineStartMention) return null;
-  return { toolName, lineStartMentions, hasCoCreatorLineStartMention };
+  return { toolName, ...(toolUseId ? { toolUseId } : {}), lineStartMentions, hasCoCreatorLineStartMention };
 }
 
 type CallbackPostResult = {
@@ -319,24 +371,34 @@ function toolNamesMatch(a: string, b: string): boolean {
   return a === b || (isPostMessageToolName(a) && isPostMessageToolName(b));
 }
 
+type PendingToolResult = {
+  toolName: string;
+  toolUseId?: string;
+};
+
 function consumePendingToolResult(
-  pendingToolResults: string[],
+  pendingToolResults: PendingToolResult[],
   msg: AgentMessage,
   hasConfirmingContent: boolean,
   hasCallbackPostEvidence: boolean,
-): string | undefined {
+): PendingToolResult | undefined {
+  if (msg.toolUseId) {
+    const pendingIndex = pendingToolResults.findIndex((entry) => entry.toolUseId === msg.toolUseId);
+    if (pendingIndex === -1) return undefined;
+    return pendingToolResults.splice(pendingIndex, 1)[0];
+  }
+
   const resultToolName = inferToolResultName(msg);
   if (resultToolName) {
-    const pendingIndex = pendingToolResults.findIndex((name) => toolNamesMatch(name, resultToolName));
+    const pendingIndex = pendingToolResults.findIndex((entry) => toolNamesMatch(entry.toolName, resultToolName));
     if (pendingIndex === -1) return undefined;
-    pendingToolResults.splice(pendingIndex, 1);
-    return resultToolName;
+    return pendingToolResults.splice(pendingIndex, 1)[0];
   }
 
   const firstPending = pendingToolResults[0];
   if (!firstPending) return undefined;
 
-  if (!isPostMessageToolName(firstPending)) {
+  if (!isPostMessageToolName(firstPending.toolName)) {
     return pendingToolResults.shift();
   }
 
@@ -899,10 +961,11 @@ export async function* routeSerial(
       let callbackPostConfirmed = false;
       let callbackPostMessageId: string | undefined;
       let awaitingCallbackResult = false;
-      const pendingToolResults: string[] = [];
+      const pendingToolResults: PendingToolResult[] = [];
       const pendingCallbackRoutingExits: CallbackContentRoutingExit[] = [];
       const confirmedCallbackRoutingMentions = new Set<CatId>();
       let confirmedCallbackRoutingHasCoCreatorLineStartMention = false;
+      const emittedBallHandedCvoMessageIds = new Set<string>();
       const structuredTargetCats = new Set<string>();
       // F060: Collect rich blocks emitted inline via system_info (not MCP buffer)
       const streamRichBlocks: import('@cat-cafe/shared').RichBlock[] = [];
@@ -924,7 +987,18 @@ export async function* routeSerial(
       // Issue #83: Independent keepalive timer — touch draft every 60s during long tool calls.
       // Stream events alone can't keep draft alive when tools execute silently for >300s.
       const KEEPALIVE_INTERVAL_MS = 60_000;
+      let lastBallCustodyHeartbeatAt: number | null = null;
       let keepaliveTimer: ReturnType<typeof setInterval> | undefined;
+      const emitThrottledBallInvocationHeartbeat = (draftUpdatedAt: number): void => {
+        if (
+          lastBallCustodyHeartbeatAt !== null &&
+          draftUpdatedAt - lastBallCustodyHeartbeatAt < BALL_CUSTODY_INVOCATION_HEARTBEAT_MIN_INTERVAL_MS
+        ) {
+          return;
+        }
+        lastBallCustodyHeartbeatAt = draftUpdatedAt;
+        emitBallInvocationHeartbeat(deps.ballCustody, threadId, ownInvocationId, catId as string, draftUpdatedAt);
+      };
 
       // Always pass isLastCat:false — we set isFinal AFTER A2A detection
       log.debug(
@@ -980,22 +1054,52 @@ export async function* routeSerial(
         deferredVoiceInvocationId = undefined;
         deferredVoiceTextChunks.splice(0, deferredVoiceTextChunks.length);
       };
-      const settleCallbackRoutingExit = (completedToolName: string, confirmed: boolean) => {
-        const exitIndex = pendingCallbackRoutingExits.findIndex((candidate) =>
-          toolNamesMatch(candidate.toolName, completedToolName),
-        );
-        if (exitIndex === -1) return;
+      const settleCallbackRoutingExit = (
+        completedTool: PendingToolResult,
+        confirmed: boolean,
+      ): CallbackContentRoutingExit | undefined => {
+        const exitIndex = completedTool.toolUseId
+          ? pendingCallbackRoutingExits.findIndex((candidate) => candidate.toolUseId === completedTool.toolUseId)
+          : pendingCallbackRoutingExits.findIndex((candidate) =>
+              toolNamesMatch(candidate.toolName, completedTool.toolName),
+            );
+        if (exitIndex === -1) return undefined;
 
         const [exit] = pendingCallbackRoutingExits.splice(exitIndex, 1);
-        if (!confirmed || !exit) return;
-        for (const mention of exit.lineStartMentions) confirmedCallbackRoutingMentions.add(mention);
-        if (exit.hasCoCreatorLineStartMention) confirmedCallbackRoutingHasCoCreatorLineStartMention = true;
+        if (!confirmed || !exit) return undefined;
+        if (isPostMessageToolName(exit.toolName)) {
+          for (const mention of exit.lineStartMentions) confirmedCallbackRoutingMentions.add(mention);
+          if (exit.hasCoCreatorLineStartMention) confirmedCallbackRoutingHasCoCreatorLineStartMention = true;
+        }
+        return exit;
       };
       const getRoutingExitLineStartMentions = (textMentions: readonly CatId[] = []): CatId[] => [
         ...new Set<CatId>([...textMentions, ...confirmedCallbackRoutingMentions]),
       ];
       const hasRoutingExitCoCreatorLineStartMention = (content: string): boolean =>
         Boolean((content ? detectUserMention(content) : false) || confirmedCallbackRoutingHasCoCreatorLineStartMention);
+      const emitBallHandedCvoOnce = (
+        messageId: string | undefined,
+        eventThreadId: string | undefined = threadId,
+      ): void => {
+        if (!messageId || !eventThreadId) return;
+        const eventKey = `${eventThreadId}:${messageId}`;
+        if (emittedBallHandedCvoMessageIds.has(eventKey)) return;
+        emittedBallHandedCvoMessageIds.add(eventKey);
+        emitBallHandedCvo(deps.ballCustody, eventThreadId, catId as string, messageId);
+      };
+      const emitConfirmedCallbackBallHandedCvo = (
+        completedToolName: string | undefined,
+        confirmed: boolean,
+        settledExit: CallbackContentRoutingExit | undefined,
+        messageId: string | undefined,
+        resultThreadId: string | undefined,
+      ): void => {
+        if (!confirmed || !isCallbackContentRoutingToolName(completedToolName)) return;
+        if (!settledExit?.hasCoCreatorLineStartMention) return;
+        const eventThreadId = isPostMessageToolName(completedToolName) ? (resultThreadId ?? threadId) : resultThreadId;
+        emitBallHandedCvoOnce(messageId, eventThreadId);
+      };
       const flushDeferredVoice = async (): Promise<void> => {
         if (!deferredVoiceInvocationId || deferredVoiceTextChunks.length === 0) {
           resetDeferredVoice();
@@ -1091,6 +1195,7 @@ export async function* routeSerial(
               const parsed = JSON.parse(effectiveMsg.content);
               if (parsed.type === 'invocation_created') {
                 ownInvocationId = parsed.invocationId;
+                emitBallInvocationStarted(deps.ballCustody, threadId, ownInvocationId, catId as string);
                 // F111 Phase B: Start streaming TTS when we have an invocationId.
                 // F177-H guard-enabled turns defer first-pass voice text because it may
                 // be replaced by a remedial turn and must not be spoken early.
@@ -1106,7 +1211,9 @@ export async function* routeSerial(
                 if (deps.draftStore && !keepaliveTimer) {
                   const keepInvId = ownInvocationId!;
                   keepaliveTimer = setInterval(() => {
+                    const now = Date.now();
                     deps.draftStore!.touch(userId, threadId, keepInvId)?.catch?.(noop);
+                    emitThrottledBallInvocationHeartbeat(now);
                   }, KEEPALIVE_INTERVAL_MS);
                 }
               }
@@ -1186,11 +1293,15 @@ export async function* routeSerial(
           // F148 OQ-2: Collect tool names for context eval
           if (effectiveMsg.type === 'tool_use' && effectiveMsg.toolName) {
             collectedToolNames.push(effectiveMsg.toolName);
-            pendingToolResults.push(effectiveMsg.toolName);
+            pendingToolResults.push({
+              toolName: effectiveMsg.toolName,
+              ...(effectiveMsg.toolUseId ? { toolUseId: effectiveMsg.toolUseId } : {}),
+            });
             const callbackExit = collectCallbackContentRoutingExit(
               effectiveMsg.toolName,
               effectiveMsg.toolInput,
               catId,
+              effectiveMsg.toolUseId,
             );
             if (callbackExit) pendingCallbackRoutingExits.push(callbackExit);
             if (isPostMessageToolName(effectiveMsg.toolName)) awaitingCallbackResult = true;
@@ -1207,7 +1318,7 @@ export async function* routeSerial(
             if (
               awaitingCallbackResult &&
               completedToolName &&
-              isPostMessageToolName(completedToolName) &&
+              isPostMessageToolName(completedToolName.toolName) &&
               callbackResult.confirmed
             ) {
               callbackPostConfirmed = true;
@@ -1215,13 +1326,20 @@ export async function* routeSerial(
               if (callbackResult.messageId) callbackPostMessageId = callbackResult.messageId;
             }
             if (completedToolName) {
-              settleCallbackRoutingExit(completedToolName, callbackResult.confirmed);
+              const settledExit = settleCallbackRoutingExit(completedToolName, callbackResult.confirmed);
+              emitConfirmedCallbackBallHandedCvo(
+                completedToolName.toolName,
+                callbackResult.confirmed,
+                settledExit,
+                callbackResult.messageId,
+                callbackResult.threadId,
+              );
             }
             // F188 Phase F AC-F10 (砚砚 六审 P1-B: also scope by catId for serial route consistency).
             // 砚砚 cloud-3 P1: also pass toolUseId for exact match when available;
             // otherwise FIFO toolName+catId match handles same-name parallel calls.
             if (deps.toolEventLog && completedToolName) {
-              const normalizedName = normalizeMcpToolName(completedToolName);
+              const normalizedName = normalizeMcpToolName(completedToolName.toolName);
               const resultSummary = deriveResultSummary(normalizedName, effectiveMsg.content);
               if (Object.keys(resultSummary).length > 0) {
                 const resultMsg = effectiveMsg as { catId?: string; toolUseId?: string };
@@ -1323,6 +1441,7 @@ export async function* routeSerial(
                   updatedAt: now,
                 })
                 ?.catch?.(noop);
+              emitThrottledBallInvocationHeartbeat(now);
               lastFlushTime = now;
               lastFlushLen = textContent.length;
               lastFlushToolLen = collectedToolEvents.length;
@@ -1348,10 +1467,12 @@ export async function* routeSerial(
                     updatedAt: now,
                   })
                   ?.catch?.(noop);
+                emitThrottledBallInvocationHeartbeat(now);
                 lastFlushLen = textContent.length;
                 lastFlushToolLen = collectedToolEvents.length;
               } else {
                 deps.draftStore.touch(userId, threadId, ownInvocationId)?.catch?.(noop);
+                emitThrottledBallInvocationHeartbeat(now);
               }
               lastFlushTime = now;
             }
@@ -1559,6 +1680,7 @@ export async function* routeSerial(
                 const parsed = JSON.parse(effectiveMsg.content);
                 if (parsed.type === 'invocation_created') {
                   ownInvocationId = parsed.invocationId;
+                  emitBallInvocationStarted(deps.ballCustody, threadId, ownInvocationId, catId as string);
                   if (voiceMode) {
                     deferredVoiceInvocationId = ownInvocationId;
                   }
@@ -1611,11 +1733,15 @@ export async function* routeSerial(
             }
             if (effectiveMsg.type === 'tool_use' && effectiveMsg.toolName) {
               collectedToolNames.push(effectiveMsg.toolName);
-              pendingToolResults.push(effectiveMsg.toolName);
+              pendingToolResults.push({
+                toolName: effectiveMsg.toolName,
+                ...(effectiveMsg.toolUseId ? { toolUseId: effectiveMsg.toolUseId } : {}),
+              });
               const callbackExit = collectCallbackContentRoutingExit(
                 effectiveMsg.toolName,
                 effectiveMsg.toolInput,
                 catId,
+                effectiveMsg.toolUseId,
               );
               if (callbackExit) pendingCallbackRoutingExits.push(callbackExit);
               if (isPostMessageToolName(effectiveMsg.toolName)) awaitingCallbackResult = true;
@@ -1631,7 +1757,7 @@ export async function* routeSerial(
               if (
                 awaitingCallbackResult &&
                 completedToolName &&
-                isPostMessageToolName(completedToolName) &&
+                isPostMessageToolName(completedToolName.toolName) &&
                 callbackResult.confirmed
               ) {
                 callbackPostConfirmed = true;
@@ -1639,7 +1765,14 @@ export async function* routeSerial(
                 if (callbackResult.messageId) callbackPostMessageId = callbackResult.messageId;
               }
               if (completedToolName) {
-                settleCallbackRoutingExit(completedToolName, callbackResult.confirmed);
+                const settledExit = settleCallbackRoutingExit(completedToolName, callbackResult.confirmed);
+                emitConfirmedCallbackBallHandedCvo(
+                  completedToolName.toolName,
+                  callbackResult.confirmed,
+                  settledExit,
+                  callbackResult.messageId,
+                  callbackResult.threadId,
+                );
               }
             }
 
@@ -2404,6 +2537,9 @@ export async function* routeSerial(
             } catch (activityErr) {
               log.warn({ catId: catId as string, err: activityErr }, 'updateParticipantActivity failed');
             }
+          }
+          if (!callbackAlreadyStored && routingExitHasCoCreatorLineStartMention && storedMsgId) {
+            emitBallHandedCvoOnce(storedMsgId);
           }
           // F192 Phase D — deferred per-fire sample emission (local R1 P1-1 fix +
           // cloud R1 P1 fix: use dedicated sample span instead of getActiveSpan).

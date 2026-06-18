@@ -222,13 +222,13 @@ ProbeScheduler 判 satisfied&bounces_back
 Task 2「全 13 event 源接线」拆分（**2026-06-15 opus-46 愿景守护 PASS + 砚砚(gpt-5.5) 共识修正**：铲屎官"别拆太碎" → 剩余合并 2 PR，Phase B 共 4 PR 收工）：
 
 - **PR1（done #2308）— 路由层 handed + void_pass**：`ball-custody-events.ts`（build*Event 纯函数）+ `BallCustodyIngest`（append + appended-guard apply + **per-subjectKey chain** 串行化，云端 P1-2 修）；route-serial **主循环接球时刻** emit handed（覆盖 original user→cat + A2A cat→cat，云端 P1-1 修）+ void-hold sample 点 void_pass；RouteStrategyDeps.ballCustody 注入 + index.ts wiring。
-- **PR3 — 事件源补齐 + CVO intent + 死球心跳**（opus-48 执行，**next**）：
-  - **12/13 event kinds wired**：hold×2（held/hold_expired，callback-hold-ball-routes）+ task×4（blocked/unblocked/idle_long/done，taskStore.update 旁路）+ invocation×3（started/heartbeat/died，messages.ts/draftStore/reconcileZombies）+ handed_cvo
-  - **handed_cvo 先写设计段**：只用显式/结构化 intent 来源（MCP 显式 vs 路由结构推断），**不做 NL intent 分类**（KD-8）；无可靠 intent 来源不假装转正 CVO 收件箱
-  - **AC-B1 数据层就绪**：invocation.died.lastScanAt（复用 F194/F212）
-  - `ball.wake_sent` **不在此 PR**——它是 ProbeScheduler/WakeSender 结果事件（砚砚纠正），归 PR4
+- **PR3（this branch）— 事件源补齐 + CVO explicit handoff + 死球心跳**：
+  - **新增 wired 9 kinds（累计 11/13）**：hold×2（`ball.held`/`ball.hold_expired`，callback-hold-ball + reminder fire）+ task×3（`task.blocked`/`task.unblocked`/`task.done`，`taskStore.update` decorator）+ invocation×3（`invocation.started`/`heartbeat`/`died`，route-serial draft/keepalive heartbeat **30s 节流** + `reconcileZombies`）+ `ball.handed_cvo`（显式 line-start `@landy` → default `handoff`）。PR1 已有 `ball.handed`/`ball.void_pass`。
+  - **不伪造来源**：`task.idle_long` 当前没有可信 `taskStore.update` 来源，归 PR4 的 ProbeScheduler/aging 判定；`ball.wake_sent` 是 WakeSender 结果事件，也归 PR4。
+  - **handed_cvo 边界**：只用显式 line-start co-creator mention / 结构化路由信号，默认 intent=`handoff`；**不做 NL intent 分类**（KD-8）。`fyi` / `done_notify` 仍需后续显式 intent 入口，CVO 收件箱不在本 PR 宣称转正。
+  - **AC-B1 数据层就绪**：`invocation.died.payload.lastScanAt = zombie.recordUpdatedAt`（复用 F194/F212 liveness sweep）；端到端简报点名仍归 PR4 切源验证。
   - reviewer 三看：接线点对不对 / sourceEventId 幂等不吞事件 / fire-and-forget 不污染主流程
-- **PR4 — 端到端闭环**：ProbeScheduler + WakeSender + `ball.wake_sent`（第 13 event 落地）+ task probe/resolveMode + 简报切源（5源→projection）+ 回归套 → AC-B1/B2/B3 端到端闭环。不拆理由：拆开会出"数据有了但用户看不到"半成品 PR。
+- **PR4 — 端到端闭环**：ProbeScheduler + WakeSender + 剩余来源（`task.idle_long` aging 判定 + `ball.wake_sent` 唤醒结果事件）+ task probe/resolveMode + 简报切源（5源→projection）+ 回归套 → AC-B1/B2/B3 端到端闭环。不拆理由：拆开会出"数据有了但用户看不到"半成品 PR。
 
 > 原 opus-48 拆分（PR2 hold+task / PR3 invocation）已被本共识替代——接线模式高度一致（fire-and-forget `ingest.record(buildXxxEvent)`）合并 review 更清晰，符合"别拆太碎"。
 

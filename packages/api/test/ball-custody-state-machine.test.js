@@ -73,12 +73,76 @@ describe('ball-custody transition — hold 守卫', () => {
       },
     );
   });
-  it('ball.hold_expired 需 heldUntil≠null → dead；heldUntil=null → reject', () => {
+  it('ball.hold_expired 需 fireAt 匹配当前 heldUntil → dead；stale fireAt/null → reject', () => {
+    assert.deepStrictEqual(
+      transition(
+        'active',
+        ev('ball.hold_expired', { payload: { catId: 'opus', fireAt: 99_999 } }),
+        snap({ heldUntil: 99_999 }),
+      ),
+      {
+        ok: true,
+        next: 'dead',
+      },
+    );
+    assert.strictEqual(
+      transition(
+        'active',
+        ev('ball.hold_expired', { payload: { catId: 'opus', fireAt: 88_888 } }),
+        snap({ heldUntil: 99_999 }),
+      ).ok,
+      false,
+    );
+    assert.strictEqual(
+      transition(
+        'active',
+        ev('ball.hold_expired', { payload: { catId: 'opus', fireAt: 99_999 } }),
+        snap({ heldUntil: null }),
+      ).ok,
+      false,
+    );
+  });
+
+  it('ball.hold_expired 缺/坏 fireAt → bad_payload', () => {
     assert.deepStrictEqual(transition('active', ev('ball.hold_expired'), snap({ heldUntil: 99_999 })), {
-      ok: true,
-      next: 'dead',
+      ok: false,
+      reason: 'bad_payload',
     });
-    assert.strictEqual(transition('active', ev('ball.hold_expired'), snap({ heldUntil: null })).ok, false);
+    assert.deepStrictEqual(
+      transition('active', ev('ball.hold_expired', { payload: { fireAt: '99' } }), snap({ heldUntil: 99_999 })),
+      {
+        ok: false,
+        reason: 'bad_payload',
+      },
+    );
+  });
+
+  it('ball.hold_expired 非 active 即使 fireAt 匹配也 reject', () => {
+    assert.deepStrictEqual(
+      transition(
+        'blocked',
+        ev('ball.hold_expired', { payload: { catId: 'opus', fireAt: 99_999 } }),
+        snap({ heldUntil: 99_999 }),
+      ),
+      {
+        ok: false,
+        reason: 'invalid_transition',
+      },
+    );
+  });
+
+  it('ball.hold_expired 匹配 fireAt 的 active hold → dead', () => {
+    assert.deepStrictEqual(
+      transition(
+        'active',
+        ev('ball.hold_expired', { payload: { catId: 'opus', fireAt: 99_999 } }),
+        snap({ heldUntil: 99_999 }),
+      ),
+      {
+        ok: true,
+        next: 'dead',
+      },
+    );
   });
 });
 

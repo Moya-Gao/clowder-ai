@@ -14,6 +14,8 @@
 import { trace } from '@opentelemetry/api';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import type { IBallCustodyIngest } from '../domains/ball-custody/BallCustodyIngest.js';
+import { buildHeldEvent } from '../domains/ball-custody/ball-custody-events.js';
 import type { InvocationRegistry } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';
 import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
 import { C1_ZOMBIE_HOLD_EVENT_NAME } from '../infrastructure/harness-eval/c1-zombie-hold-sample-evidence.js';
@@ -98,6 +100,7 @@ export interface HoldBallRouteDeps {
     userId: string;
     catId: string;
   }) => void | Promise<void>;
+  ballCustody?: IBallCustodyIngest;
 }
 
 export function registerCallbackHoldBallRoutes(app: FastifyInstance, deps: HoldBallRouteDeps): void {
@@ -222,6 +225,10 @@ export function registerCallbackHoldBallRoutes(app: FastifyInstance, deps: HoldB
       reply.status(500);
       return { error: 'Failed to register hold wake with scheduler' };
     }
+
+    deps.ballCustody
+      ?.record(buildHeldEvent({ threadId, catId: catIdStr, fireAt, at: Date.now() }))
+      .catch((err) => log.warn({ threadId, catId: catIdStr, taskId, err }, 'F233 PR3: failed to record ball.held'));
 
     // New hold fully committed. Cancel prior pending holds (best-effort — a
     // failure here leaves an extra stale wake, not zero wakes, which is the

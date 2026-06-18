@@ -547,7 +547,7 @@ async function main(): Promise<void> {
   const guideSessionStore = new InMemoryGuideSessionStore();
   const { InMemoryGuideDismissTracker } = await import('./domains/guides/GuideDismissTracker.js');
   const dismissTracker = new InMemoryGuideDismissTracker();
-  const taskStore = createTaskStore(redis);
+  let taskStore = createTaskStore(redis);
   const labelStore = createLabelStore(redis);
   const communityIssueStore = createCommunityIssueStore(redis);
 
@@ -581,6 +581,11 @@ async function main(): Promise<void> {
     const ballCustodyProjector = new bcProjMod.BallCustodyProjector(ballCustodyEventLog, ballCustodyProjectionStore);
     ballCustodyIngest = new bcIngestMod.BallCustodyIngest(ballCustodyEventLog, ballCustodyProjector);
     app.log.info('[api] F233 Phase B: ball-custody ingest initialized');
+  }
+
+  if (ballCustodyIngest) {
+    const { withBallCustodyTaskEvents } = await import('./domains/ball-custody/BallCustodyTaskStore.js');
+    taskStore = withBallCustodyTaskEvents(taskStore, ballCustodyIngest, { warn: app.log.warn.bind(app.log) });
   }
 
   if (redis) {
@@ -946,6 +951,7 @@ async function main(): Promise<void> {
     deliver: schedulerDeliver,
     notifyLifecycle: schedulerLifecycleToast,
     fetchContent: schedulerFetchContent,
+    ...(ballCustodyIngest ? { ballCustody: ballCustodyIngest } : {}),
   });
 
   // ── F139 Phase 3A: Dynamic task store + template registry ──
@@ -1606,6 +1612,7 @@ async function main(): Promise<void> {
     queueProcessor,
     sessionContinuationCoordinator,
     taskProgressStore, // F194 AC-B7: cleared on zombie reconcile
+    ...(ballCustodyIngest ? { ballCustody: ballCustodyIngest } : {}),
     ...(f101GameStore ? { gameStore: f101GameStore } : {}),
     ...(f101SharedDriver ? { autoPlayer: f101SharedDriver } : {}),
     holdBallCancelDeps: { dynamicTaskStore, taskRunner: taskRunnerV2 },
@@ -1678,6 +1685,7 @@ async function main(): Promise<void> {
     messageStore, // F117: for marking queued messages as canceled on withdraw/clear
     invocationRecordStore, // F194 Phase B: canonical liveness read source
     draftStore, // F194 Phase B: canonical liveness read source
+    ...(ballCustodyIngest ? { ballCustody: ballCustodyIngest } : {}),
     taskProgressStore, // F194 AC-B7: cleared on zombie reconcile
     invocationRegistry: registry, // F194 Phase Z (KD-22): namespace bridge for parent↔child invocation
   });
@@ -2335,6 +2343,7 @@ async function main(): Promise<void> {
       messageStore,
       socketManager,
       threadStore,
+      ...(ballCustodyIngest ? { ballCustody: ballCustodyIngest } : {}),
       onHoldBallCancelFeedback: (input) => {
         void import('./domains/cats/services/frustration/FrustrationDetector.js')
           .then(({ evaluate }) =>
@@ -3202,6 +3211,7 @@ async function main(): Promise<void> {
       processStartAt: PROCESS_START_AT,
       messageStore,
       socketManager: socketManager ?? undefined,
+      ...(ballCustodyIngest ? { ballCustody: ballCustodyIngest } : {}),
     });
     try {
       await reconciler.reconcileOrphans();

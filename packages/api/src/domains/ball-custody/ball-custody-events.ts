@@ -14,7 +14,7 @@
  * 区分（同一 messageId 理论互斥——evaluateVoidHold 在有 lineStartMention 时不触发——但显式后缀更防御）。
  */
 
-import type { BallCustodyEvent } from '@cat-cafe/shared';
+import type { BallCustodyEvent, BallIntent, BallResolveMode } from '@cat-cafe/shared';
 
 export interface HandedEventInput {
   /** 前手 catId（用户首传 / 无前手时省略） */
@@ -62,6 +62,187 @@ export function buildVoidPassEvent(input: VoidPassEventInput): BallCustodyEvent 
     classification: 'state-changing',
     payload: {
       ...(input.matchedPattern ? { matchedPattern: input.matchedPattern } : {}),
+    },
+    at: input.at,
+  };
+}
+
+export interface HandedCvoEventInput {
+  fromCatId?: string;
+  threadId: string;
+  messageId: string;
+  intent: BallIntent;
+  at: number;
+}
+
+export function buildHandedCvoEvent(input: HandedCvoEventInput): BallCustodyEvent {
+  return {
+    sourceEventId: `route:${input.messageId}`,
+    subjectKey: `ball:thread:${input.threadId}`,
+    kind: 'ball.handed_cvo',
+    classification: 'state-changing',
+    payload: {
+      ...(input.fromCatId ? { fromCatId: input.fromCatId } : {}),
+      intent: input.intent,
+    },
+    at: input.at,
+  };
+}
+
+export interface HeldEventInput {
+  threadId: string;
+  catId: string;
+  fireAt: number;
+  at: number;
+}
+
+export function buildHeldEvent(input: HeldEventInput): BallCustodyEvent {
+  return {
+    sourceEventId: `hold:${input.threadId}:${input.catId}:${input.fireAt}`,
+    subjectKey: `ball:thread:${input.threadId}`,
+    kind: 'ball.held',
+    classification: 'state-changing',
+    payload: { catId: input.catId, fireAt: input.fireAt },
+    at: input.at,
+  };
+}
+
+export function buildHoldExpiredEvent(input: HeldEventInput): BallCustodyEvent {
+  return {
+    sourceEventId: `holdexp:${input.threadId}:${input.catId}:${input.fireAt}`,
+    subjectKey: `ball:thread:${input.threadId}`,
+    kind: 'ball.hold_expired',
+    classification: 'state-changing',
+    payload: { catId: input.catId, fireAt: input.fireAt },
+    at: input.at,
+  };
+}
+
+export interface TaskBlockedEventInput {
+  taskId: string;
+  threadId: string;
+  ownerCatId?: string | null;
+  blockedSinceAt: number;
+  resolveMode?: BallResolveMode | null;
+}
+
+export function buildTaskBlockedEvent(input: TaskBlockedEventInput): BallCustodyEvent {
+  return {
+    sourceEventId: `task:${input.taskId}:blocked:${input.blockedSinceAt}`,
+    subjectKey: `ball:task:${input.taskId}`,
+    kind: 'task.blocked',
+    classification: 'state-changing',
+    payload: {
+      taskId: input.taskId,
+      threadId: input.threadId,
+      ...(input.ownerCatId ? { ownerCatId: input.ownerCatId } : {}),
+      ...(input.resolveMode ? { resolveMode: input.resolveMode } : {}),
+    },
+    at: input.blockedSinceAt,
+  };
+}
+
+export interface TaskEventInput {
+  taskId: string;
+  at: number;
+}
+
+export function buildTaskUnblockedEvent(input: TaskEventInput): BallCustodyEvent {
+  return {
+    sourceEventId: `task:${input.taskId}:unblocked:${input.at}`,
+    subjectKey: `ball:task:${input.taskId}`,
+    kind: 'task.unblocked',
+    classification: 'state-changing',
+    payload: { taskId: input.taskId },
+    at: input.at,
+  };
+}
+
+export function buildTaskIdleLongEvent(input: TaskEventInput): BallCustodyEvent {
+  return {
+    sourceEventId: `task:${input.taskId}:idle:${input.at}`,
+    subjectKey: `ball:task:${input.taskId}`,
+    kind: 'task.idle_long',
+    classification: 'state-changing',
+    payload: { taskId: input.taskId },
+    at: input.at,
+  };
+}
+
+export function buildTaskDoneEvent(input: TaskEventInput): BallCustodyEvent {
+  return {
+    sourceEventId: `task:${input.taskId}:done`,
+    subjectKey: `ball:task:${input.taskId}`,
+    kind: 'task.done',
+    classification: 'state-changing',
+    payload: { taskId: input.taskId },
+    at: input.at,
+  };
+}
+
+export interface InvocationStartedEventInput {
+  invocationId: string;
+  threadId: string;
+  catId?: string;
+  at: number;
+}
+
+export function buildInvocationStartedEvent(input: InvocationStartedEventInput): BallCustodyEvent {
+  return {
+    sourceEventId: `inv:${input.invocationId}:started`,
+    subjectKey: `ball:thread:${input.threadId}`,
+    kind: 'invocation.started',
+    classification: 'state-changing',
+    payload: {
+      invocationId: input.invocationId,
+      ...(input.catId ? { catId: input.catId } : {}),
+    },
+    at: input.at,
+  };
+}
+
+export interface InvocationHeartbeatEventInput {
+  invocationId: string;
+  threadId: string;
+  catId?: string;
+  draftUpdatedAt: number;
+}
+
+export function buildInvocationHeartbeatEvent(input: InvocationHeartbeatEventInput): BallCustodyEvent {
+  return {
+    sourceEventId: `inv:${input.invocationId}:hb:${input.draftUpdatedAt}`,
+    subjectKey: `ball:thread:${input.threadId}`,
+    kind: 'invocation.heartbeat',
+    classification: 'state-changing',
+    payload: {
+      invocationId: input.invocationId,
+      ...(input.catId ? { catId: input.catId } : {}),
+      draftUpdatedAt: input.draftUpdatedAt,
+    },
+    at: input.draftUpdatedAt,
+  };
+}
+
+export interface InvocationDiedEventInput {
+  invocationId: string;
+  threadId: string;
+  catId?: string;
+  reason: string;
+  lastScanAt: number;
+  at: number;
+}
+
+export function buildInvocationDiedEvent(input: InvocationDiedEventInput): BallCustodyEvent {
+  return {
+    sourceEventId: `inv:${input.invocationId}:died`,
+    subjectKey: `ball:thread:${input.threadId}`,
+    kind: 'invocation.died',
+    classification: 'state-changing',
+    payload: {
+      invocationId: input.invocationId,
+      ...(input.catId ? { catId: input.catId } : {}),
+      reason: input.reason,
+      lastScanAt: input.lastScanAt,
     },
     at: input.at,
   };

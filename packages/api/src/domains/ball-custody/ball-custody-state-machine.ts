@@ -8,7 +8,7 @@
  * INV-10（完整性）：全 8 state × 13 event 的每格行为确定（转移 or 显式 reject），穷举测试钉死。
  * 复杂守卫拆成独立 resolver：
  *   - ball.handed_cvo：payload.intent 三态（handoff→parked / done_notify→resolved / fyi→不变）
- *   - ball.hold_expired：需 snapshot.heldUntil≠null
+ *   - ball.hold_expired：需 payload.fireAt 匹配 snapshot.heldUntil，防旧 reminder 误杀新 hold
  *   - invocation.heartbeat from dead：迟到心跳 grace（died.at < hb.at ≤ died.at+GRACE，died.at=lastStateChangeAt）
  */
 
@@ -69,9 +69,15 @@ function resolveHandedCvo(event: BallCustodyEvent, current: BallState): BallTran
   return ok(current); // fyi 知会，不产搁置球（INV-7）→ state 不变
 }
 
-/** ball.hold_expired：仅 active 且持球（heldUntil≠null）→ dead。 */
-function resolveHoldExpired(snapshot: BallTransitionSnapshot, current: BallState): BallTransitionResult {
-  return current === 'active' && snapshot.heldUntil != null ? ok('dead') : reject('invalid_transition');
+/** ball.hold_expired：仅 active 且 fireAt 匹配当前 heldUntil → dead。 */
+function resolveHoldExpired(
+  event: BallCustodyEvent,
+  snapshot: BallTransitionSnapshot,
+  current: BallState,
+): BallTransitionResult {
+  const fireAt = event.payload.fireAt;
+  if (typeof fireAt !== 'number') return reject('bad_payload');
+  return current === 'active' && snapshot.heldUntil === fireAt ? ok('dead') : reject('invalid_transition');
 }
 
 /** invocation.heartbeat：active 续；dead 须迟到心跳在 grace 窗口内（>0 且 ≤GRACE）才复活。 */
@@ -110,7 +116,7 @@ const STATIC_TABLE: Partial<Record<BallCustodyEvent['kind'], StaticRule>> = {
 
 const DYNAMIC_TABLE: Partial<Record<BallCustodyEvent['kind'], DynamicRule>> = {
   'ball.handed_cvo': { resolve: (e, _s, c) => resolveHandedCvo(e, c) },
-  'ball.hold_expired': { resolve: (_e, s, c) => resolveHoldExpired(s, c) },
+  'ball.hold_expired': { resolve: resolveHoldExpired },
   'invocation.heartbeat': { resolve: resolveHeartbeat },
 };
 
