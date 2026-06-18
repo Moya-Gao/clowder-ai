@@ -8,7 +8,7 @@ created: 2026-06-15
 
 # F236: Anchor-First Context 入口 — 返回侧 token 减负
 
-> **Status**: in-progress (Phase A+B done, Phase C spike-gated) | **Owner**: 布偶猫 (宪宪 opus-48) | **Priority**: P1 | **Created**: 2026-06-15 | **Companion ADR**: ADR-203
+> **Status**: in-progress (Phase A+B done · Phase A/B-Eval next · Phase C spike-gated) | **Owner**: 布偶猫 (宪宪 opus-48) | **Priority**: P1 | **Created**: 2026-06-15 | **Companion ADR**: ADR-203
 >
 > **Timeline**: 2026-06-18 — Phase A + B merged (PR #2381, squash `9af8b2093`)：anchor-first 协作读工具（thread-context/pending-mentions/list-tasks 默认 preview + drillDown）+ get-message bounded drill（mode=preview|full + fullDrillChars telemetry）。本地 gpt52/codex 跨族 review + 云端 Codex 2 轮（封板）。
 
@@ -67,6 +67,17 @@ spike（2026-06-16，C0a Read / C0b Grep ✅ 实证）证明 cc PostToolUse hook
 - [x] AC-B1: `get_message` 支持 `mode=preview|full`，默认 preview（截断 + drillDown 指针，agent-key caller 注入 agentKeyCatId 一跳）
 - [x] AC-B2: full drill 显式触发，记录 `fullDrillChars` telemetry（含 context neighbors + contentBlocks 全量）
 
+### Phase A/B-Eval: anchor-first sunset 监控闭环 🔜 NEXT（还 ADR-031 eval 层债，先于 Phase C）
+
+> **eval 叫啥 / 为什么是 phase 不是独立 feat**：这是 F236 的 **Phase A/B-Eval**——Phase A/B 的**配套监控闭环**（紧耦合 F236 telemetry + sunset 回退决策），不是独立能力（不像 F245 那样单独立项）。实现**接 F192 harness eval system**（telemetry pipeline + verdict engine）；**本节是 eval 设计真相源，F192 md 只放一行 link 过来**（不让 F192 md 膨胀）。
+>
+> **为什么先于 Phase C（排期）**：Phase A/B 已 merged 上线，但**只 emit telemetry、没闭环**——"何时 sunset 回退 / anchor 是否真净益"现在只能靠铲屎官提醒或挂 cron 盲看两天 = **假闭环**（ADR-031 eval 层欠债）。先还这个债，再扩大头 Phase C。**Phase C 不硬依赖本 phase**（它另有 AC-C5 blindness gate 自带 eval），但本 phase 的 verdict 为 Phase C 扩展提供数据依据。
+
+- [ ] AC-E1（telemetry 落库聚合）: Phase A/B emit 的 `returnedChars`/`anchorOpenRate`/`fullDrillChars` + 任务返工轮次落 F192 telemetry pipeline，按 tool + 时间窗**自动聚合**（不靠手动 grep log / 定时盲看）
+- [ ] AC-E2（verdict 自动判定）: F192 verdict engine 跑**双边净收益**（省 − drill 成本）+ **sunset 双信号**（① anchor tax: `anchorOpenRate` 持续 >80% → 净亏；② 变瞎子: 任务正确性/返工率下降 → preview 偷判断）→ 产结构化 verdict（砚砚 KD：不许单边报省）
+- [ ] AC-E3（sunset 触发 + Phase C 数据依据）: verdict **净亏 → 自动 alert** 标记该工具 anchor 该回退 inline（不靠铲屎官提醒）；verdict **净益 + 无变瞎子 → 作为 Phase C 扩展的数据依据**（非硬 gate）
+- [ ] AC-E4（接入 F192 不膨胀）: 实现挂 F192 harness eval system；F192 md 仅加一行 link 指向本节，F236 此节为 eval 设计真相源
+
 ### Phase C: cc 原生工具 anchor 化（spike-gated — 这才是大头）
 > 前置 spike（与砚砚一起）：实测 cc PostToolUse hook + `updatedToolOutput` 能否 replace Read/Grep/Glob 返回。**spike 不过则本 Phase 不启动**（不脑补——文档说能 ≠ 我们场景能用）。
 - [x] **AC-C0a (spike) ✅ PASS**: `claude -p/sdk-cli` 下 shape-matched PostToolUse `Read.updatedToolOutput` replace（保 `.file.content` 结构）+ bounded drill pass-through（`Read(offset,limit)` 返回真实 slice）实证 — spike 报告 `docs/research/2026-06-16-f236-posttooluse-anchor-spike.md`，双猫复核
@@ -92,6 +103,8 @@ spike（2026-06-16，C0a Read / C0b Grep ✅ 实证）证明 cc PostToolUse hook
 - [ ] **AC-C5（变瞎子 gate，砚砚 P1 — 实现前置硬约束）**: 原生 Read/Grep 默认 anchor **只在 blindness eval 通过后开启**——① debug/review/未知任务**默认保守给全文**；② 小文件/短 grep **full pass-through**（不 anchor）；③ 大文件 anchor **必须显式标省略 + 一跳 full drill**；④ Sunset② 判断质量 eval 未过 → 不开默认 anchor。**这是 gate 不是描述：AC-C1/C2 的默认 anchor 受本条约束。**
 
 ## Eval / Tracking Contract（F192 / ADR-031）
+
+> **本节 = eval spec（要测什么）；实现闭环见上「Phase A/B-Eval」节**（telemetry 聚合 → verdict → sunset 触发，接 F192）。现状：Phase A/B 已 emit telemetry，verdict/触发闭环待 Phase A/B-Eval 还债——别把"emit 了 telemetry"当成"有 eval 闭环"。
 
 1. **Primary Users + Activation**：所有 runtime 的猫调协作读工具时；activation = 工具返回走 anchorized 路径的比例。
 2. **Friction Metric（双边公式 — 砚砚 KD，不许单边报喜）**：
@@ -134,7 +147,7 @@ spike（2026-06-16，C0a Read / C0b Grep ✅ 实证）证明 cc PostToolUse hook
 
 ## Dependencies
 - **Evolved from**: F148（消息侧分层，本 feat 是返回侧姊妹篇）
-- **Related**: F209（evidence recall）/ F192（harness eval）
+- **Related**: F209（evidence recall）/ F192（harness eval — Phase A/B-Eval 闭环接 F192 telemetry pipeline + verdict engine；**F236 此 doc 为 eval 设计真相源，F192 md 只放一行 link 回本节**，不让 F192 膨胀）
 - **Companion**: ADR-203（anchor-first context 入口原则）
 
 ## Links
