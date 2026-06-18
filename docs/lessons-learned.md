@@ -1626,3 +1626,12 @@ created: 2026-02-26
 - 来源锚点：F233 PR3（#2364）opus-48 误判 decorator → 砚砚 push back（83948fcae 终局放行）
 - 关联：feedback_evidence_slice_to_unique_coordinate（基础原则——本 LL 细分到 cloud-多轮 PR review 的 PR-head-坐标层）| LL-079（FETCH_HEAD volatile，同型证据坐标教训）| LL-072（封板协议——多轮 review 下 stale/fresh 辨别是封板判断前提）
 
+### LL-082: 多 worktree + cloud review 长链，dirty diff 不能跨节点漂移
+- 状态：validated
+- 更新时间：2026-06-18
+- 坑：F233 PR3 merge 后，`cat-cafe-f233-pr3-cloudfix` 残留一份未提交 diff，作者当下体感是"不记得谁产的"。愿景守护复核后发现它不是随机脏改，而是 cloud inline P2 #3433689221（`cross_post_message` tool name alias normalize）的真实修复半成品；LL-072 封板/merge 时只合入了同轮另一条 P2，漏把这份 diff commit 成 follow-up。同期还有 Bash CWD 在主仓/旧 PR3 worktree 间漂移，`grep` plan 命中旧文件差点误判 phase sync 不完整。
+- 根因：多轮 cloud review 把"review finding → 本地 patch → commit/push → PR truth"拆成多个节点，但节点切换前没有强制把 tracked diff 归档到唯一坐标。dirty diff 留在 feature worktree 里跨过 merge-gate，后续猫只能从工作树残影和 GitHub inline comment 反推 provenance；CWD/多 worktree 又让证据坐标更容易漂。
+- 药：每次离开 review round / 切 worktree / 进入 merge 前，先跑 `pwd && git status --short --branch`。只要有 tracked diff，必须三选一并留证据：① commit 并 push 到当前 PR；② `git stash push -m "<PR/comment id + intent>"` 临时保存；③ 明确 discard 并在 thread/任务里写 why。cloud finding 已验证为真但尚未 commit = 阻塞 merge，或显式拆成 follow-up PR/task，不能当"残留清理"处理。
+- 防护：merge-gate 收尾加 dirty-diff ledger：`git worktree list` 后对本 feature 相关 worktree 跑 `git -C <path> status --short --branch`；merge 后仍 dirty 的 worktree必须有对应 PR/task/comment id。多 worktree session 下所有取证命令优先用绝对路径或显式 `git -C`，不要让 shell CWD 历史承担证据坐标。
+- 来源锚点：F233 PR3 (#2364) merge 后愿景守护；follow-up PR #2374（`fix(F233): normalize cross-post callback aliases`）
+- 关联：LL-081（PR-head 坐标纪律）| LL-079（volatile ref 坐标漂移）| LL-075 / LL-049 同型（CWD 静默漂移）| feedback_evidence_slice_to_unique_coordinate
