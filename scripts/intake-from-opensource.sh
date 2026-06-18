@@ -229,11 +229,59 @@ _brand_file_contains() {
   fi
 }
 
+_brand_scope_contains() {
+  local scope_files="$1"
+  local file="$2"
+  if [ -z "$scope_files" ]; then return 0; fi
+  printf '%s\n' "$scope_files" | grep -Fxq "$file"
+}
+
+_brand_scope_count() {
+  local scope_files="$1"
+  if [ -z "$scope_files" ]; then
+    echo 0
+    return
+  fi
+  printf '%s\n' "$scope_files" | sed '/^[[:space:]]*$/d' | sort -u | wc -l | tr -d ' '
+}
+
+resolve_absorb_pr_brand_scope() {
+  if [ -z "$ABSORB_PR" ]; then return 1; fi
+  gh pr diff "$ABSORB_PR" --repo "$SOURCE_REPO" --name-only 2>/dev/null \
+    | sed 's/\r$//; /^[[:space:]]*$/d' \
+    | sort -u
+}
+
+resolve_local_brand_scope() {
+  if ! git -C "$SOURCE_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    return 1
+  fi
+
+  if [ "$FROM_INDEX" = true ]; then
+    git -C "$SOURCE_DIR" diff --cached --name-only -- 2>/dev/null \
+      | sed 's/\r$//; /^[[:space:]]*$/d' \
+      | sort -u
+    return 0
+  fi
+
+  {
+    git -C "$SOURCE_DIR" diff --name-only HEAD -- 2>/dev/null || true
+    git -C "$SOURCE_DIR" ls-files --others --exclude-standard 2>/dev/null || true
+  } | sed 's/\r$//; /^[[:space:]]*$/d' | sort -u
+}
+
 run_brand_validation() {
+  local scope_files="${1:-}"
+  local scope_label="${2:-absorb PR}"
+  if [ -n "$scope_files" ]; then
+    scope_files=$(printf '%s\n' "$scope_files" | sed '/^[[:space:]]*$/d' | sort -u)
+    echo "  Brand Guard scope: $(_brand_scope_count "$scope_files") $scope_label file(s)"
+  fi
   _BRAND_VIOLATION_COUNT=0
   # ── Phase 1: Legacy BRAND_EXPECTATIONS (specific must_contain/must_not_contain rules) ──
   for expectation in "${BRAND_EXPECTATIONS[@]}"; do
     IFS='|' read -r file check_type pattern desc <<< "$expectation"
+    if ! _brand_scope_contains "$scope_files" "$file"; then continue; fi
     case "$check_type" in
       must_not_contain)
         if _brand_file_exists "$file" && _brand_file_contains "$file" "$pattern"; then
@@ -336,27 +384,36 @@ run_brand_validation() {
       if [ -n "$bs_patterns" ]; then
         # Build a list of existing files matching brand-sensitive patterns
         local bs_files=""
-        while IFS= read -r glob_pat; do
-          [ -z "$glob_pat" ] && continue
-          if [ "$FROM_INDEX" = true ]; then
-            # Match staged files against glob using the dictionary helper's classify
-            local staged_files
-            staged_files=$(git diff --cached --name-only 2>/dev/null || true)
-            while IFS= read -r sf; do
-              [ -z "$sf" ] && continue
-              local sf_cls
-              sf_cls=$(node "$SOURCE_DIR/scripts/brand-dictionary-helper.mjs" --classify-path "$sf" 2>/dev/null | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')); console.log(d.classification)" 2>/dev/null || true)
-              if [ "$sf_cls" = "brand-sensitive" ] || [ "$sf_cls" = "manual-port" ]; then
-                bs_files="${bs_files}${sf}\n"
-              fi
-            done <<< "$staged_files"
-          else
+        if [ -n "$scope_files" ]; then
+          while IFS= read -r sf; do
+            [ -z "$sf" ] && continue
+            local sf_cls
+            sf_cls=$(node "$SOURCE_DIR/scripts/brand-dictionary-helper.mjs" --classify-path "$sf" 2>/dev/null | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')); console.log(d.classification)" 2>/dev/null || true)
+            if [ "$sf_cls" = "brand-sensitive" ] || [ "$sf_cls" = "manual-port" ]; then
+              bs_files="${bs_files}${sf}\n"
+            fi
+          done <<< "$scope_files"
+        elif [ "$FROM_INDEX" = true ]; then
+          # Match staged files against glob using the dictionary helper's classify
+          local staged_files
+          staged_files=$(git diff --cached --name-only 2>/dev/null || true)
+          while IFS= read -r sf; do
+            [ -z "$sf" ] && continue
+            local sf_cls
+            sf_cls=$(node "$SOURCE_DIR/scripts/brand-dictionary-helper.mjs" --classify-path "$sf" 2>/dev/null | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')); console.log(d.classification)" 2>/dev/null || true)
+            if [ "$sf_cls" = "brand-sensitive" ] || [ "$sf_cls" = "manual-port" ]; then
+              bs_files="${bs_files}${sf}\n"
+            fi
+          done <<< "$staged_files"
+        else
+          while IFS= read -r glob_pat; do
+            [ -z "$glob_pat" ] && continue
             # Working tree: find files matching patterns
             local found
             found=$(find . -path "./$glob_pat" -type f 2>/dev/null | sed 's|^\./||' || true)
             bs_files="${bs_files}${found}\n"
-          fi
-        done <<< "$bs_patterns"
+          done <<< "$bs_patterns"
+        fi
 
         # Deduplicate and check each file
         local checked_files=""
@@ -610,7 +667,21 @@ run_absorbed_record_guard() {
 if [ "$VALIDATE_INBOUND" = true ]; then
   echo -e "${GREEN}=== 🛡 Inbound Brand Guard ===${NC}"
   echo ""
-  run_brand_validation
+  VALIDATION_SCOPE_FILES=""
+  VALIDATION_SCOPE_LABEL="local changed"
+  if [ "$FROM_INDEX" = true ]; then
+    VALIDATION_SCOPE_LABEL="staged"
+  fi
+  if VALIDATION_SCOPE_FILES=$(resolve_local_brand_scope); then
+    if [ -z "$VALIDATION_SCOPE_FILES" ]; then
+      echo "  Brand Guard scope: 0 $VALIDATION_SCOPE_LABEL file(s)"
+      echo -e "${GREEN}✓ No brand violations detected. Safe to commit.${NC}"
+      exit 0
+    fi
+    run_brand_validation "$VALIDATION_SCOPE_FILES" "$VALIDATION_SCOPE_LABEL"
+  else
+    run_brand_validation
+  fi
   if [ "$_BRAND_VIOLATION_COUNT" -gt 0 ]; then
     echo ""
     echo -e "${RED}✗ Found $_BRAND_VIOLATION_COUNT brand violation(s)!${NC}"
@@ -636,7 +707,17 @@ if [ "$RECORD_DECISION" = true ]; then
   # P2 fix: mandatory Brand Guard before recording absorbed intake
   if [ "$DECISION" = "absorbed" ]; then
     echo -e "${BLUE}── Mandatory Brand Guard (pre-record) ──${NC}"
-    run_brand_validation
+    BRAND_SCOPE_FILES=""
+    if [ -n "$ABSORB_PR" ]; then
+      BRAND_SCOPE_FILES=$(resolve_absorb_pr_brand_scope || true)
+      if [ -z "$BRAND_SCOPE_FILES" ]; then
+        echo -e "${RED}✗ Could not resolve absorb PR #$ABSORB_PR file list for scoped Brand Guard${NC}"
+        echo "  Refusing to fall back to whole-repo scan during absorbed record; whole-repo scan has known pre-existing false positives."
+        echo "  Check: gh pr diff $ABSORB_PR --repo $SOURCE_REPO --name-only"
+        exit 1
+      fi
+    fi
+    run_brand_validation "$BRAND_SCOPE_FILES" "absorb PR"
     if [ "$_BRAND_VIOLATION_COUNT" -gt 0 ]; then
       echo ""
       echo -e "${RED}✗ $_BRAND_VIOLATION_COUNT brand violation(s) detected. Fix before recording absorbed intake.${NC}"
