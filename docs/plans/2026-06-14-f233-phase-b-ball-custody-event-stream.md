@@ -228,7 +228,7 @@ Task 2「全 13 event 源接线」拆分（**2026-06-15 opus-46 愿景守护 PAS
   - **handed_cvo 边界**：只用显式 line-start co-creator mention / 结构化路由信号，默认 intent=`handoff`；**不做 NL intent 分类**（KD-8）。`fyi` / `done_notify` 仍需后续显式 intent 入口，CVO 收件箱不在本 PR 宣称转正。
   - **AC-B1 数据层就绪**：`invocation.died.payload.lastScanAt = zombie.recordUpdatedAt`（复用 F194/F212 liveness sweep）；端到端简报点名仍归 PR4 切源验证。
   - reviewer 三看：接线点对不对 / sourceEventId 幂等不吞事件 / fire-and-forget 不污染主流程
-- **PR4 — 端到端闭环**：ProbeScheduler + WakeSender + 剩余来源（`task.idle_long` aging 判定 + `ball.wake_sent` 唤醒结果事件）+ task probe/resolveMode + 简报切源（5源→projection）+ 回归套 → AC-B1/B2/B3 端到端闭环。不拆理由：拆开会出"数据有了但用户看不到"半成品 PR。
+- **PR4（done #2380）— 端到端闭环**：ProbeScheduler + WakeSender + 剩余来源（`task.idle_long` aging 判定 + `ball.wake_sent` 唤醒结果事件）+ task probe/resolveMode + 简报切源（5源→projection）+ 回归套 → AC-B1/B2/B3 端到端闭环。不拆理由：拆开会出"数据有了但用户看不到"半成品 PR。PR4 于 2026-06-18 squash merge（merge commit `4f846faa1`），cloud-quota fallback final review 由 opus-48 放行。
 
 > 原 opus-48 拆分（PR2 hold+task / PR3 invocation）已被本共识替代——接线模式高度一致（fire-and-forget `ingest.record(buildXxxEvent)`）合并 review 更清晰，符合"别拆太碎"。
 

@@ -109,9 +109,9 @@ Map delta: new cell required — Phase B 新增 append-only event log + projecto
 - [x] AC-A5: 简报生成全程只读，零写副作用（代码 review 复核数据访问面）→ trace KD-4
 
 ### Phase B（结构化回执）
-- [ ] AC-B1: 复现"invocation 中途死亡"（测试环境模拟），死球在下一次简报被点名，含最后扫描点
-- [ ] AC-B2: blocked task 带 probe + resolve 字段，探针判定条件满足后：completes 型自动完结、bounces-back 型 owner 收到真实唤醒投递（fixture：Repo Inbox task 同型场景红→绿）
-- [ ] AC-B3: 球权状态转移表 + 不变量有测试覆盖（含 crash / 并发 / 重复探针对抗场景）
+- [x] AC-B1: 复现"invocation 中途死亡"（测试环境模拟），死球在下一次简报被点名，含最后扫描点
+- [x] AC-B2: blocked task 带 probe + resolve 字段，探针判定条件满足后：completes 型自动完结、bounces-back 型 owner 收到真实唤醒投递（fixture：Repo Inbox task 同型场景红→绿）
+- [x] AC-B3: 球权状态转移表 + 不变量有测试覆盖（含 crash / 并发 / 重复探针对抗场景）
 
 ### Phase C（安乐死 + 轨迹）
 - [ ] AC-C1: 球可显式冷冻/降级/放弃且留 why，操作记入事件流；简报僵尸球区随之消项
@@ -188,6 +188,7 @@ Map delta: new cell required — Phase B 新增 append-only event log + projecto
 | 2026-06-15 | Phase B **B2 PR1（路由事件接线）** 经本地 reviewer（缅因猫 gpt52）final continuity 放行 + 封板（cloud R1 给 2 真 P1 → 修复 + 端到端/并发测试 → R2 carry-over 假阳性 pushback → LL-072 封板交本地终局确权）后，PR [#2308](https://github.com/zts212653/cat-cafe/pull/2308) squash merge 到 `main`（merge commit `7970826e8`）。交付：`ball.handed`（worklist 主循环**接球时刻** emit，统一覆盖 original user→cat + A2A cat→cat）+ `ball.void_pass`（虚空传球旁路）接进事件流；`BallCustodyIngest`（append + appended-guard apply + **per-subjectKey chain 串行化**防并发 lost update）+ `ball-custody-events` 纯函数；`RouteStrategyDeps.ballCustody` 注入 + index.ts wiring（照 community 先例）。B2 后续按 CVO「别拆太碎」收敛为 PR3/PR4 两段：PR3 补事件源 + 死球心跳，PR4 做 ProbeScheduler/WakeSender + 简报切源。AC-B 端到端需 PR4 简报切源。§F sourceEventId 细化 `:toCatId`/`:void`。发现并建 task：B1 ball-custody redis 测试并发 race（独立测试基础设施修） |
 | 2026-06-18 | Phase B **B2 PR3（事件源补齐 + CVO explicit handoff + 死球心跳）** 经本地 reviewer（opus-48）scoped final 放行 + LL-072 封板后，PR [#2364](https://github.com/zts212653/cat-cafe/pull/2364) squash merge 到 `main`（merge commit `1793454e3`）。交付：`ball.held`/`hold_expired`、`task.blocked`/`unblocked`/`done`、`invocation.started`/`heartbeat`/`died`、`ball.handed_cvo` 生产来源；`hold_expired` 覆盖正常 reminder fire + missed once-window retirement。`task.idle_long` 与 `ball.wake_sent` 不伪造，随 PR4 ProbeScheduler/WakeSender 落地。AC-B1 数据层已有 `lastScanAt`，端到端简报点名仍归 PR4。 |
 | 2026-06-18 | Phase B **B2 PR3 follow-up** 修复 cross-post callback tool-name alias 归一化遗漏：PR [#2374](https://github.com/zts212653/cat-cafe/pull/2374) squash merge 到 `main`（merge commit `f544bb587`）。`toolNamesMatch` 现在同时归一化 post-message 与 cross-post accepted spellings，避免无 `toolUseId` provider 下 `cat_cafe_cross_post_message` / `mcp:cat-cafe/cross_post_message` 不 settle、进而丢失 callback-target `ball.handed_cvo` 事件。 |
+| 2026-06-18 | Phase B **PR4（ProbeScheduler + WakeSender + 简报切源端到端闭环）** 经本地 reviewer（opus-48）初审 + cloud 三轮 P1/P2 修复 + cloud-quota fallback final review 放行后，PR [#2380](https://github.com/zts212653/cat-cafe/pull/2380) squash merge 到 `main`（merge commit `4f846faa1`）。交付：task `probe`/`resolveMode`、`task.idle_long`、`ball.wake_sent`、ProbeEvaluator/ProbeScheduler/WakeSender、projection-backed duty briefing cutover；补齐 AC-B1/B2/B3 端到端与 Redis-backed 回归。 |
 
 ## Review Gate
 
