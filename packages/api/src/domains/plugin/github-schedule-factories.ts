@@ -61,9 +61,15 @@ export interface GitHubScheduleDeps extends ScheduleFactoryDeps {
   fetchPrStatus?: (repoFullName: string, prNumber: number) => Promise<CiPollResult | null>;
   conflictRouter: ConflictRouter;
   reviewFeedbackRouter: ReviewFeedbackRouter;
-  /** F140/#949 correction: read-only legacy repair for already-rotated PR tracking tasks. */
-  threadStore?: Pick<IThreadStore, 'get'>;
+  /** F140/#949 correction + F167 R2: read-only legacy repair for already-rotated PR
+   *  tracking tasks, plus `create` for MR review thread rotation and `updateThreadKind`
+   *  so RepoScanTaskSpec can self-heal gate-keeping marker on reconciliation delivery. */
+  threadStore?: Pick<IThreadStore, 'create' | 'get' | 'updateThreadKind'>;
   invokeTrigger: ConnectorInvokeTrigger;
+  // Note: F140 source-thread backlink uses the existing `deliveryDeps`
+  // (ConnectorDeliveryDeps with messageStore + socketManager) already declared
+  // above for repo-scan delivery. No separate field — rotation backlink reuses
+  // the same delivery dependency to guarantee append + broadcast.
   checkMergeable: (repo: string, pr: number) => Promise<{ mergeState: string; headSha: string }>;
   autoExecutor: ConflictAutoExecutor;
   fetchPrMetadata: (repo: string, pr: number) => Promise<ReviewFeedbackPrMetadata | null>;
@@ -200,6 +206,8 @@ const repoScanFactory: ScheduleFactory = {
       defaultUserId: d.defaultUserId,
       reconciliationDedup: d.reconciliationDedup,
       bindingStore: d.bindingStore,
+      // F167 R2 P1#2: wire threadStore so reconciliation can self-heal gate-keeping marker
+      threadStore: d.threadStore,
       deliverFn: d.deliverFn,
       deliveryDeps: d.deliveryDeps,
       invokeTrigger: d.invokeTrigger,

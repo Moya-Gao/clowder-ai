@@ -163,6 +163,27 @@ export const c1HoldReplacementCount = lazy(() =>
   }),
 );
 
+/**
+ * F167 gate-keeping thread guard outcomes.
+ *
+ * Attributes:
+ *   tool ∈ { register_pr_tracking, register_issue_tracking, hold_ball }
+ *   outcome ∈ { blocked, override_used, guard_skipped }
+ *
+ * `blocked` = guard refused (守门 thread, no override) — desired enforcement; healthy ↑.
+ * `override_used` = caller asserted downstream-owner role — review for misuse if rate > 30%.
+ * `guard_skipped` = threadStore抖动 fail-open — should stay near zero in steady state.
+ *
+ * See gate-keeping-guard.ts + F167 Phase 6 in
+ * docs/plans/2026-06-17-f167-gate-keeping-thread-guard.md.
+ */
+export const gateKeepingHarnessAttemptCount = lazy(() =>
+  meter().createCounter('cat_cafe.harness.gate_keeping_attempt_count', {
+    description:
+      'F167 trigger-time gate-keeping thread guard outcomes (blocked / override_used / guard_skipped) per tool',
+  }),
+);
+
 export const c1HoldCancelCount = lazy(() =>
   meter().createCounter('cat_cafe.a2a.c1.hold_cancel_count', {
     description: 'Pending hold cancelled by user message',

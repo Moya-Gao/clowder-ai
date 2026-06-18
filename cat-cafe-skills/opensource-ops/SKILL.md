@@ -10,6 +10,23 @@ description: >
 
 # Open-Source Ops — 开源社区运营
 
+> **🛑 守门 thread trigger-time reflex（F167，硬层 + 软层 defense-in-depth）**
+>
+> 守门 thread 首反完成后，下一步**必须三选一**：
+> ① `cat_cafe_cross_post_message` 到已有负责 thread
+> ② `cat_cafe_propose_thread` 开新 thread 派下游
+> ③ 留 `needs-info` 等 daily sweep
+>
+> **同时禁三件套**：① `cat_cafe_register_pr_tracking` ② `cat_cafe_register_issue_tracking` ③ `cat_cafe_hold_ball`。
+>
+> 硬层 guard（F167 trigger-time，`Thread.threadKind === 'gate-keeping'`）**hard-block**，返回
+> `gate_keeping_thread_default_blocked` (400)。**无 override 通道**——猫必须先把球分发出去
+> （cross_post / propose / needs-info），到下游 thread（threadKind 不是 'gate-keeping'）再调
+> 这三个工具，下游 thread 自然不触发 guard。R1 review 删了早期错误设计的 override 字面量。
+>
+> **事故来源**：同 session 同天 2 只猫在守门 thread 连续违规挂 PR tracking + hold_ball
+> → 双 owner、球权死锁。诊断细节见 `docs/plans/2026-06-17-f167-gate-keeping-thread-guard.md`。
+
 ## Repo Inbox 守门红线
 
 **Repo Inbox / reconciliation 通知 = 行动触发。** 即使通知里没有“自动处理”字段，也要按
@@ -218,7 +235,7 @@ Clowder AI 这条产品线，不是满足每个外部请求。每个 issue / PR 
 | 守门 thread 一看到有效 bug 就开 worktree 修 | Inbox 变成工程 thread，铲屎官失去路由控制，容易和 feature owner 撞车 | 先首反 + Direction Card；实现分发到独立 bugfix thread / owner；无 owner 时给铲屎官路由建议 |
 | 不判断 issue/PR 和现有 feature / PR / thread 的关系 | 重复派工、错过已有 owner | 搜 GitHub + 家里 feature/decision；需要时 `list_threads` 找平行 thread |
 | 接纳后只说 WELCOME，不给 route / owner / report-back | 球权落地但无人负责 | Direction Card 必填 route、owner、next action、report-back |
-| 已 cross-post / propose-thread 后还在守门 thread hold 外部条件 | 双 owner、重复轮询、球权死锁 | 下游 thread 接球后由下游负责 hold / event-driven；守门 thread只记录路由 |
+| 已 cross-post / propose-thread 后还在守门 thread hold 外部条件 / 挂 tracking | 双 owner、重复轮询、球权死锁；F167 同 session 同天 2 猫违规事故沉淀 | 下游 thread 接球后由下游负责 hold / event-driven；守门 thread 只记录路由；**硬层 guard 强制走传球流程**——register_pr_tracking / register_issue_tracking / hold_ball 在 `threadKind='gate-keeping'` 时 **hard-block (400)**，**无 override**。守门 thread 的 marker 在 webhook + 重协调 (reconciliation) 两条 deliver 路径都被 stamp/self-heal。 |
 | 把“拉猫评估”等同于升级铲屎官 | CVO 被重新变成人肉路由器 | 猫猫可自主 consult；只有 roadmap/承诺/敏感社区关系/merge 等硬决策才 @landy |
 | PR 方向没过就做深度代码 review | 浪费 reviewer 时间，还可能被实现细节带偏 | Inbound PR 先查 accepted issue + 主人翁五问，再看质量 |
 | 在 skill / hook / 脚本里手写新的品牌文件清单 | F238 词典和执行层继续漂移，下一次 sync/intake 仍会漏 | 先改 `assets/brand-dictionary.yaml`，再让脚本、hook、CI、skill 引用词典 |

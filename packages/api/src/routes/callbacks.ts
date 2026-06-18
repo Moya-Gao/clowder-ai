@@ -92,6 +92,7 @@ import { registerCallbackThreadCatsRoutes } from './callback-thread-cats-routes.
 import { registerCallbackWeComActionRoutes } from './callback-wecom-action-routes.js';
 import { registerCallbackWorkflowSopRoutes } from './callback-workflow-sop-routes.js';
 import { type FeatIndexEntry, readFeatIndexEntries } from './feat-index-doc-import.js';
+import { checkGateKeepingGuard } from './gate-keeping-guard.js';
 import { detectUserMention } from './user-mention.js';
 import { clearVoteTimer, closeVoteInternal, voteTimers } from './votes.js';
 
@@ -2324,6 +2325,20 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     // Use authoritative catId from invocation record, not caller payload.
     const catId = record.catId;
 
+    // F167: gate-keeping thread guard (hard-block 守门 thread 调用，避免 SKILL 文字层
+    // 100%/trigger-time 0 enforcement 的事故复发。无 override 通道——必须传球到下游 thread)
+    const guardResult = await checkGateKeepingGuard({
+      threadStore: opts.threadStore,
+      threadId: record.threadId,
+      tool: 'register_pr_tracking',
+      log,
+      context: { catId, repoFullName, prNumber },
+    });
+    if (guardResult.outcome === 'blocked' && guardResult.blockedResponse) {
+      reply.status(400);
+      return guardResult.blockedResponse;
+    }
+
     // Phase D: validate repo exists and is accessible (AC-D1)
     if (validateRepo) {
       let repoOk: boolean;
@@ -2437,6 +2452,19 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
 
     const { repoFullName, issueNumber, instructions } = parsed.data;
     const catId = record.catId;
+
+    // F167: gate-keeping thread guard (hard-block, no override)
+    const guardResult = await checkGateKeepingGuard({
+      threadStore: opts.threadStore,
+      threadId: record.threadId,
+      tool: 'register_issue_tracking',
+      log,
+      context: { catId, repoFullName, issueNumber },
+    });
+    if (guardResult.outcome === 'blocked' && guardResult.blockedResponse) {
+      reply.status(400);
+      return guardResult.blockedResponse;
+    }
 
     // F202 Phase 2D P2-fix: validate repo exists and is accessible (mirrors PR tracking at L1975)
     if (validateRepo) {

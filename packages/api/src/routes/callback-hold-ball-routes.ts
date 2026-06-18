@@ -26,6 +26,7 @@ import { requireCallbackAuth } from './callback-auth-prehandler.js';
 import { emitC1HoldCancellation } from './callback-hold-ball-c1-emit.js';
 import { registerHoldBallCancelRoutes } from './callback-hold-ball-cancel-routes.js';
 import { deriveCallbackActor } from './callback-scope-helpers.js';
+import { checkGateKeepingGuard } from './gate-keeping-guard.js';
 import { HOLD_BALL_SOURCE } from './hold-ball-source.js';
 
 const log = createModuleLogger('routes/callback-hold-ball');
@@ -82,12 +83,19 @@ export interface HoldBallRouteDeps {
   messageStore: IMessageStore;
   socketManager: SocketManager;
   threadStore: {
-    get(
-      threadId: string,
-    ):
-      | { createdBy: string; systemKind?: 'connector_hub' | 'eval_domain' }
+    get(threadId: string):
+      | {
+          createdBy: string;
+          systemKind?: 'connector_hub' | 'eval_domain';
+          /** F167: gate-keeping thread marker used by checkGateKeepingGuard. */
+          threadKind?: 'concierge' | 'gate-keeping';
+        }
       | null
-      | Promise<{ createdBy: string; systemKind?: 'connector_hub' | 'eval_domain' } | null>;
+      | Promise<{
+          createdBy: string;
+          systemKind?: 'connector_hub' | 'eval_domain';
+          threadKind?: 'concierge' | 'gate-keeping';
+        } | null>;
   };
   onHoldBallCancelFeedback?: (input: {
     taskId: string;
@@ -115,6 +123,19 @@ export function registerCallbackHoldBallRoutes(app: FastifyInstance, deps: HoldB
     const { reason, nextStep, wakeAfterMs } = parsed.data;
     const { threadId, catId, userId } = actor;
     const catIdStr = catId as string;
+
+    // F167: gate-keeping thread guard (hard-block 守门 thread 替下游 hold；无 override)
+    const guardResult = await checkGateKeepingGuard({
+      threadStore: deps.threadStore as Parameters<typeof checkGateKeepingGuard>[0]['threadStore'],
+      threadId,
+      tool: 'hold_ball',
+      log,
+      context: { catId: catIdStr, reason },
+    });
+    if (guardResult.outcome === 'blocked' && guardResult.blockedResponse) {
+      reply.status(400);
+      return guardResult.blockedResponse;
+    }
 
     const currentCount = getHoldCount(threadId, catIdStr);
     if (currentCount >= MAX_HOLDS_PER_WINDOW) {
