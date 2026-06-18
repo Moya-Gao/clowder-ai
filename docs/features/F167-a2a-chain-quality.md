@@ -615,6 +615,9 @@ cat_cafe_hold_ball({
 | 2026-04-24 | Phase E merged (PR #1360, `f8efcf46d`) — AC-E1~E8 全绿。8 commit（4 feat + 1 test + 3 chore）-735 净行数（删 role-gate.ts + 3 测试文件 + 2 调用点）+ cat-config schema 扩展 + 双端 prompt 注入；gpt52 review 首轮放行 `c967b59d0`（两个非阻塞：scrub 死注释 + 删 unused import 已顺手修），云端 Codex 零 P1/P2 "Hooray"；rebase 遇 F061 pre-existing 修复冲突 → skip 冗余 commit 后 clean merge；204/204 ping-pong + system-prompt-builder + cat-config-loader 绿。Status: monitoring |
 | 2026-05-31 | Phase M merged (PR #1981, `89fc0e723`) — fire-time idle gate（scheduler-generic `FirePolicy` pre-fire defer + `maxDefers` 兜底 + `updateTrigger` 持久化）+ M-2 去冻结 wakeMessage + M-3 hold_ball desc（harness-invisible only）+ boot-wire `setBusyChecker`。砚砚本地 review（R1 放行 → 复审挖 P1：`dyn-*` reminder 伪造激活 firePolicy + public params churn 注入 → R2 放行）+ 云端 Codex clean "Chef's kiss"。AC-M1/M2/M3/M5 ✅；AC-M4（OQ-M1 background 退出时序）pending alpha。进入 2 周观察 → F167 close |
 | 2026-06-16 | AC-C7 slot-scope tuning merged (PR #2314, `8fb28ae5`) — eval:a2a verdict `2026-06-16-eval-a2a-c2-verdict-context-false-positive-fix` 闭环。6/89 = 6.7% C2 FP（status updates "PR #X 已放行" / "P1: foo 已修" / "approved by Y" 命中 keyword 但末尾是状态总结）。修：`hasReviewVerdict` + `detectMatchedVerdictKeyword` 改 scope 到 Phase H `finalRoutingSlot`（KD-24 机械，零意图分类器）。砚砚 GPT-5.5 本地 review 7 轮（R1 P1 文件超 350 → 拆 sibling test / R2 P1 Biome / R3 LGTM / R4 P2 noNonNullAssertion / R5 LGTM / R6 P1 over-broad signature regex / R7 LGTM + 非阻塞 comment refresh），云端 Codex 6 轮（R1 P1 strip trailing signature / R2 P2 slashless `[Spark🐾]` / R3 P2 bracketed verdict `[LGTM]` / R4 clean on `571ba66` / R5 clean on `9d24c4bd` / R6 clean on `571ba66`+9d24 同 head 等价）。KD: 信号匹配只看 final slot（叙述 body verdict 不触发）+ 信号-stripping regex 必须 source-of-truth（slash OR 🐾，避免 `[Phase B]` / `[LGTM]` 等 body bracket 被误判为 signature）|
+| 2026-06-17 | Phase N 立项：守门 thread guard（trigger-time hard-block + reconciliation self-heal）。根因：守门 thread 文字约束已写，但 register tracking / hold_ball 入口没有机制层 enforcement，导致双 owner / 球权死锁。 |
+| 2026-06-18 | CVO signoff B：gate-keeping thread guard 并入真 F167 A2A Chain Quality，作为 scope 扩展 / 新 phase，不新开 F 号、不重写 PR title / commits。 |
+| 2026-06-18 | Phase N merged (PR #2384, `e88f499e7`) — `threadKind='gate-keeping'` hard-block `register_pr_tracking` / `register_issue_tracking` / `hold_ball`，GitHub repo scan / webhook self-heal inbox marker，`opensource-ops` SKILL reflex，telemetry counter + six regression suites。Merge evidence: cloud R5 clean on `76d1aacc9`；rebase continuity to `2bc231ea` only merged type interface conflict; F238 pass; `pnpm gate` pass (build / tsc / test / lint / check). |
 
 ### Phase I（A2A 声明-动作一致性 — 2026-04-25 reopened）
 
@@ -731,7 +734,40 @@ cat_cafe_hold_ball({
 
 **Eval / Tracking Contract**：复用 F167 顶部 contract（C1 hold_ball activation signal）。新增 friction：hold wake 在 thread busy 时投递过期 message 的次数（应降为 0）。Regression fixture：AC-M5。Sunset：若 hold_ball 整体退役（被纯 harness re-invoke 取代）则本 Phase 随之 sunset。
 
-**关闭门禁**：Phase I + J 全部合入后观察 1 周无新 case → Phase K Design Gate → K 合入 → Phase L 合入 → **Phase M Design Gate + 合入** → 2 周观察 → F167 正式 close。
+**关闭门禁**：Phase I + J 全部合入后观察 1 周无新 case → Phase K Design Gate → K 合入 → Phase L 合入 → **Phase M Design Gate + 合入** → Phase N scope 扩展合入 → 继续观察 → F167 正式 close。
+
+### Phase N（守门 Thread Guard — F167 scope 扩展，2026-06-18）
+
+**CVO signoff**：2026-06-18 铲屎官明确选择 B：把这次 "gate-keeping thread guard" 并入真 F167（A2A Chain Quality）作为 scope 扩展 / 新 phase；不新开 F 号，不重写 PR title / commit history。
+
+**Why**：`opensource-ops` SKILL 文字层已经要求守门 thread 不修 bug、不替下游 hold，但 trigger-time 没有硬约束。同一天同类实战里出现两只猫在守门 thread 违规挂 PR tracking / `hold_ball`，导致双 owner 与球权死锁。它和 F167 原始问题同源：A2A 路由质量不能只靠 prompt 约定，关键出口必须有机制层 guard。
+
+**What**：在 `threadKind='gate-keeping'` 的 thread 上，trigger-time hard-block 三类动作：
+- `register_pr_tracking`
+- `register_issue_tracking`
+- `hold_ball`
+
+同时补齐 reconciliation self-heal：老 thread / inbox binding 可在 GitHub repo scan 与 webhook deliver 路径自愈为 `gate-keeping` marker，避免只拦新 thread、不拦历史 thread。
+
+**三层 harness**：
+- 软层：`cat-cafe-skills/opensource-ops/SKILL.md` 加守门 thread reflex，明确守门 thread 只做 intake / route / evidence，不承接修复或持球。
+- 硬层：`packages/api/src/routes/gate-keeping-guard.ts` + callback routes 在 tool 入口 fail-closed；GitHub repo event reconciliation 自愈 marker。
+- eval / telemetry：`gate_keeping_guard_blocked_total` 计数 + regression tests 锁住 PR tracking / issue tracking / hold_ball 三条入口与 self-heal 路径。
+
+**AC（Phase N code merged — PR #2384 `e88f499e7` 2026-06-18）**：
+- [x] AC-N1：`ThreadKind` 支持 `gate-keeping`，并在 shared type / store / Redis store 路径可持久化。
+- [x] AC-N2：守门 thread 调用 `register_pr_tracking` / `register_issue_tracking` / `hold_ball` 时 trigger-time hard-block，返回明确错误，不创建 tracker / hold task。
+- [x] AC-N3：GitHub repo scan / webhook deliver 路径能 self-heal inbox thread marker，旧绑定不会绕过守门 thread guard。
+- [x] AC-N4：`opensource-ops` SKILL 增加守门 thread reflex；review / quality-gate 文档归档在 `docs/plans/`、`docs/mailbox/`、`docs/reflections/`。
+- [x] AC-N5：回归测试覆盖三条 hard-block 入口 + repo scan admission/deliver self-heal；merge 前 `pnpm gate` 在 rebased HEAD `2bc231ea` 全绿（build / tsc / test / lint / check）。
+
+**Review / merge evidence**：
+- Local peer review：gpt52 放行覆盖 pre-rebase final branch；CVO B signoff 后继续 merge-gate。
+- Cloud review：Codex connector R5 对 `76d1aacc9` 明确 "no major issues"。
+- Rebase continuity：`76d1aacc9` → `2bc231ea` 仅有 `github-schedule-factories.ts` interface conflict resolution，把 main 的 F140 `threadStore.get` 与本 PR 的 `create/updateThreadKind` 合并成同一 `Pick`；无运行时行为新增。
+- CI / gates：F238 Brand Boundary Guard pass；本地 `pnpm gate` pass（273s）。
+
+**Eval / Tracking Contract**：新增 friction metric `gate_keeping_guard_blocked_total`。Regression fixture：`gate-keeping-guard-register-pr-tracking.test.js`、`gate-keeping-guard-register-issue-tracking.test.js`、`gate-keeping-guard-hold-ball.test.js`、`github-repo-webhook-gate-keeping-marker.test.js`、`repo-scan-admission-gate-self-heal.test.js`、`repo-scan-gate-keeping-self-heal.test.js`。Sunset：若守门 thread 不再作为 opensource/community intake 的路由形态存在，Phase N guard 随该 thread kind sunset；否则保留为基础设施。
 
 ## Behavioral Evidence（Phase B 观察记录）
 
@@ -851,6 +887,9 @@ cat_cafe_hold_ball({
 | **Research** | `docs/research/2026-04-17-f167-benchmark-agent-gap-consult.md` | GPT Pro 深度推理 + 综合（参考但不照搬） |
 | **Philosophy** | `docs/canon/meta-aesthetics.md` | 数学之美 × 第一性原理（spec 设计哲学基础；Phase A 时从 Round 4 升格为 canon） |
 | **Feature** | `docs/features/F055-a2a-mcp-structured-routing.md` | Protocol 层：`targetCats` typed handoff |
+| **Plan** | `docs/plans/2026-06-17-f167-gate-keeping-thread-guard.md` | Phase N 子真相源：守门 thread guard 设计 / 不变量 / 验证 |
+| **Review** | `docs/mailbox/2026-06-17-f167-gate-keeping-thread-guard-review-request.md` | Phase N cross-family review request 归档 |
+| **Quality Gate** | `docs/reflections/2026-06-17-f167-quality-gate-report.md` | Phase N quality-gate / verification 归档 |
 
 ## 需求点 Checklist
 
@@ -875,3 +914,4 @@ cat_cafe_hold_ball({
 | 铲屎官 2026-04-25 | 持球没 cancel 按钮 / 用户消息不取消 hold wake | AC-J1~J6 | ✅ Phase J |
 | 铲屎官 + 砚砚 2026-04-25 | 47 风格适配需 Design Gate（audit/surface 分层 + repair 落地） | AC-K1~K6 | ⬜ Phase K |
 | 铲屎官 2026-05-07 | hold_ball 轮询 × PR tracking 事件驱动重复唤醒（双通道叠加） | AC-L1~L4 | ✅ Phase L |
+| 铲屎官 2026-06-18 | 守门 thread 不能挂 PR/issue tracking 或 hold_ball，必须机制层拦截 | AC-N1~N5 | ✅ Phase N / PR #2384 |
