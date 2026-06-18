@@ -14,7 +14,7 @@ created: 2026-06-15
 
 每只猫每天烧的 context token，很大一块来自**实时调 MCP 工具的全文返回**——`get_thread_context` 默认就回 100 条、最多 200 条完整 message body，单次可塞爆上下文窗口，猫还没开始思考就耗掉一大半预算。这与 F148 在消息侧治理的痛点**同源**，只是发生在"当下→context"（猫实时调工具）而非"过去→context"（冷启动注入历史）。
 
-**价值一句话**：让猫调工具时默认拿到"指针 + 预览"，全文按需第二跳取——把单次工具返回的 token 占用砍下来，且**不丢信息**（无损 anchor，不是有损截断）。
+**价值一句话**：让猫调工具时默认拿到"指针 + 预览"，全文按需第二跳取——把单次工具返回的 token 占用砍下来。**⚠️ 措辞校准（砚砚 P2）**："原文可 drill" ≠ "认知无损"——preview 会改变猫的注意力和判断（见下"信息完整性风险"段）。比 rtk 的**有损截断**好（原文还在、可取回），但**不能宣称"不丢信息"**。
 
 > **更大的图景（2026-06-15 发现）**：MCP 协作工具是**可控的起点**，但 cc 内置 Read/Grep（读文件/搜代码）才是 agent 工作流 token **大头**——经查证 cc PostToolUse hook 能治（Phase C）。本 feat 不止治小头，更要治大头，且做到 **rtk 做不到的**（rtk 只 hook Bash，放弃了 Read/Grep）。
 
@@ -77,13 +77,14 @@ spike（2026-06-16，C0a Read / C0b Grep ✅ 实证）证明 cc PostToolUse hook
     - **深路（output anchor）**：需 codex/agy 有 cc PostToolUse 等价机制、能改**它们模型侧**的 tool_result
     - ⚠️ **核心未知（深路必验）**：我们的 transform 层改的是 **cat-cafe 侧存储/展示**（≠ codex/agy 模型 context，省不到它们 token，且那侧 F148 已覆盖）——深路要省 codex/agy 模型 token，**必须它们自己有 output hook**，不是我们 transform 能代劳。（修正：前文"transform 可改"指 cat-cafe 侧，非模型侧）
     - opencode：transformer 不发 tool_result，锁定
-- [~] AC-C0d (spike) 文档查证完成（2026-06-17，实测留 Phase C）：**codex/agy 都有 output hook**，能力分级 cc > agy > codex
+- [~] AC-C0d (spike) 文档+家里实测查证（2026-06-17，**砚砚 P1 改判**）：**只有 cc 深路成立**。能力真相：**cc（实测 PASS）>> codex（限 shell，不覆盖 file-read）> agy（observe-only，深路未成立）**——下方逐条
     - **codex**（`.codex/hooks.json` PostToolUse，`decision:block`+`reason` 替换 tool result）：覆盖 Bash/apply_patch/MCP，**不覆盖 file-read 工具** → 深路对 codex 限 shell（读文件 hook 不生效）
-    - **agy**（`hooks.json` PostToolCallHook）：覆盖 built-in tools（含 `view_file` 读文件！），`ToolResult.result` 为 string → 深路对 agy 最可行（最接近 cc）
+    - **agy**（`hooks.json` PostToolCallHook）：⚠️ **深路不成立**（砚砚 P1）——① 官方 SDK README 把 PostToolCallHook 归为 **inspect/read-only**（能拿 `ToolResult.result` ≠ 能改）；② 家里 **F061 AC-2cR4 实测**（@antig-opus 2026-04-21/23）：agy `view_file`/`grep_search`/`list_dir` 全 **LS 内部 DONE 自闭环、不走 Cat Café Bridge writeback**，carrier 插不进去。**纠正前文"最接近 cc"**（observe≠transform + 漏 recall F061）。要省 agy 模型 token 须另起实测证 transform path 存在（现不成立）
     - **修正**：spike A 从"rtk 用 rules.md"误推"agy 没 hook"——官方文档推翻（agy 有 PostToolCallHook，rtk 只是没用它）。又一次旁证脑补被查证纠偏
     - **实测（nonce probe）留 Phase C**：cc 已证 PostToolUse output replace 范式真实（核心打底）+ codex/agy hook/config 已查到；codex 实测烧贵配额（缅因猫额度），spike 阶段 cost>边际价值，Phase C 实现期实测确认
     - 来源：codex `developers.openai.com/codex/hooks` / agy `antigravity.google/docs/hooks`（checked 2026-06-17）
 - [ ] AC-C4: 双边 eval 对 cc 工具同样适用（Read drill 净收益 = 省 − drill 成本）
+- [ ] **AC-C5（变瞎子 gate，砚砚 P1 — 实现前置硬约束）**: 原生 Read/Grep 默认 anchor **只在 blindness eval 通过后开启**——① debug/review/未知任务**默认保守给全文**；② 小文件/短 grep **full pass-through**（不 anchor）；③ 大文件 anchor **必须显式标省略 + 一跳 full drill**；④ Sunset② 判断质量 eval 未过 → 不开默认 anchor。**这是 gate 不是描述：AC-C1/C2 的默认 anchor 受本条约束。**
 
 ## Eval / Tracking Contract（F192 / ADR-031）
 
