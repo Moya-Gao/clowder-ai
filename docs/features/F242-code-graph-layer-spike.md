@@ -11,7 +11,7 @@ cvo_signoff: 2026-06-17 — 铲屎官 "可以 我同意！！！"（thread 00017
 
 > **Status**: spec | **Owner**: opus-48 | **Priority**: P1
 
-> ⚠️ **本 doc 是 spike 初稿**。Open Questions 段待砚砚（@codex GPT-5.5）恢复后与 opus-48 一起 brainstorm 完善（查疏漏 + 补创意）——铲屎官 2026-06-17 安排。完整设计输入见 `docs/discussions/2026-06-17-codegraph-vs-gitnexus/README.md`（§0-18，codegraph + GitNexus 一手 spike 实证 + 整合）。
+> ⚠️ **本 doc 是 spike 初稿**。Open Questions 段已补砚砚（@codex GPT-5.5）第一轮 brainstorm 建议，待 opus-48 收敛成 Design Gate / implementation plan。完整设计输入见 `docs/discussions/2026-06-17-codegraph-vs-gitnexus/README.md`（§0-18，codegraph + GitNexus 一手 spike 实证 + 整合）。
 
 ## Why
 
@@ -53,6 +53,7 @@ cvo_signoff: 2026-06-17 — 铲屎官 "可以 我同意！！！"（thread 00017
 <!-- 立项愿景硬度自检（F216→F219）：每条 AC 必须 ① trace 回 Why 的某诉求 ② 非作者可复核（命令/数字/截图）。 -->
 
 ### Phase A（cat-cafe dogfood + skill）
+- [ ] AC-A0: 约定图最小 artifact 有明确 schema + edge provenance（source span / extractor version / scope / confidence / freshness），查询结果能解释“这条边从哪来” — trace「可验证才算完成」
 - [ ] AC-A1: 内生 extractor 覆盖 ≥2 类 cat-cafe 约定，实测能找出某 MCP tool 的**全部消费方**（含 grep 漏的 dynamic dispatch / callback registration），对比 grep 列出差异 — trace「约定层关联」Why
 - [ ] AC-A2: scope 消歧——构造同名跨域符号（如前后端同名）测试，**不误关联**（对比 codegraph 的 AuthProvider 前后端混淆反面）— trace「顺藤摸瓜准确」Why
 - [ ] AC-A3: 每个查询结果带 freshness（index commit + pending changes），改文件后查询能标 stale — trace「防盲改炸连锁」Why
@@ -61,12 +62,13 @@ cvo_signoff: 2026-06-17 — 铲屎官 "可以 我同意！！！"（thread 00017
 
 ### Phase B（进新 repo 建图骨架）
 - [ ] AC-B1: 用 Phase A 的 skill，在 1 个陌生 repo（如 deer-flow）建出约定图，识别 ≥1 类约定（如 FastAPI route，对比 codegraph 在 deer-flow 的 0/105）— trace「进新 repo 建图」胜负手
+- [ ] AC-B2: 陌生 repo 建图必须输出 gap/unknowns（例如“检测到 FastAPI 但 route extractor 未覆盖 APIRouter 写法”），禁止静默 0 命中 — trace「约定识别可靠」Why
 
 ## Eval / Tracking Contract（F192）
 
 1. **Primary Users + Activation Signal**：写代码的猫（sonnet / opus 家族）；activation = 改 MCP schema / skill manifest / route 时唤醒约定图查消费方（而非 grep）。
-2. **Friction Metric**：改约定找消费方的 grep 次数；漏改导致的同型回归（F-coalesce 类）。
-3. **Regression Fixture**（≥2）：(a) 改某 MCP tool schema，约定图找出全部消费方 vs grep 列差异；(b) 同名跨域符号不误关联。
+2. **Friction Metric**：改约定找消费方的 grep 次数；漏改导致的同型回归（F-coalesce 类）；误报导致的无效追踪次数（false-positive cost）。
+3. **Regression Fixture**（≥2）：(a) 改某 MCP tool schema，约定图找出全部消费方 vs grep 列差异；(b) 同名跨域符号不误关联；(c) edge provenance snapshot（每条关键边可追到 source span）。
 4. **Sunset Signal**：约定图查询猫从不用（活跃 0）/ 准确率 ≤ grep / 维护成本 > 收益 → sunset。
 
 ## 软 + 硬 + eval 三层（ADR-031）
@@ -74,8 +76,8 @@ cvo_signoff: 2026-06-17 — 铲屎官 "可以 我同意！！！"（thread 00017
 | 层 | 计划 |
 |----|------|
 | **Soft** | "画约定图" skill description（when/how）+ L0 §8 唤醒反射（"改 MCP schema → 约定图查消费方"）|
-| **Hard** | 约定 extractor test（fixture repo 建图正确）+ freshness 守护（stale 必标，否则测试红）|
-| **Eval** | 上面 Regression Fixture + friction metric + sunset signal（F192 闭环）|
+| **Hard** | 约定 extractor test（fixture repo 建图正确）+ negative fixture（同名跨域不误连）+ freshness 守护（stale 必标，否则测试红）+ edge provenance snapshot |
+| **Eval** | 上面 Regression Fixture + friction metric + false-positive cost + sunset signal（F192 闭环）|
 
 ## Architecture cell
 
@@ -100,18 +102,40 @@ Why: 代码结构/约定 ≠ 团队记忆，两种真相源（KD-1）
 | scope 膨胀（spike 变大工程）| ≤2 周硬边界，只验证机制不追完整；超出停回 CVO |
 | 与 memory graph 错层（F102 KD-31 旧顾虑）| 显式分层（KD-1）：约定图 ≠ 记忆图，底层 artifact 分开 |
 
-## Open Questions（⚠️ 待砚砚 brainstorm 完善 — 查疏漏 + 补创意）
+## Open Questions（砚砚第一轮 brainstorm 建议，待收敛）
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | 约定抽取底座：TS compiler API（类型感知，cat-cafe TS，解 LSP 盲区）vs tree-sitter（通用陌生 repo）vs 混合？| ⬜ 未定 |
-| OQ-2 | scope 消歧机制：package 边界 / 语言边界 / 类型感知，哪种够用又不过重？| ⬜ 未定 |
-| OQ-3 | 约定 schema：MCP tool / skill / workflow callback / route 各自的 extractor 怎么定义？先做哪 2-3 类？| ⬜ 未定 |
-| OQ-4 | 借 GitNexus 的 community 聚类（自动发现约定边界）值不值得？还是确定性规则够？| ⬜ 未定 |
-| OQ-5 | Phase B 通用约定识别怎么不重蹈 codegraph 的脆（写法稍异就漏）？| ⬜ 未定 |
-| OQ-6 | 约定图存储：SQLite（学 codegraph）？跟 memory graph 如何分层落地（F102 边界）？| ⬜ 未定 |
-| OQ-7 | Architecture cell 归属：new cell 还是挂现有？| ⬜ 未定 |
-| OQ-8 | （砚砚补）| ⬜ 待砚砚 |
+| OQ-1 | 约定抽取底座：TS compiler API（类型感知，cat-cafe TS，解 LSP 盲区）vs tree-sitter（通用陌生 repo）vs 混合？| 砚砚建议：Phase A 混合但分工清楚——TS compiler API 只负责 TS 语义/导入/常量追踪；YAML/Markdown/frontmatter 用结构化 parser；tree-sitter 留给 Phase B 陌生 repo，不作为 Phase A 必需底座 |
+| OQ-2 | scope 消歧机制：package 边界 / 语言边界 / 类型感知，哪种够用又不过重？| 砚砚建议：node identity 不得只靠 display name；最小 key = repo + workspace/package + language + file + symbol kind + convention domain。跨 domain 边必须来自显式约定锚点（tool name / route path / callback id / skill name）或 typed import，禁止 name-only 跨语言合并 |
+| OQ-3 | 约定 schema：MCP tool / skill / workflow callback / route 各自的 extractor 怎么定义？先做哪 2-3 类？| 砚砚建议：先做 MCP tool、skill manifest、workflow/callback 三类；route 作为对照/补充，不做首要价值点（LSP/现有 route 工具已有部分覆盖，MCP+skill 是 Cat Café 独特痛点） |
+| OQ-4 | 借 GitNexus 的 community 聚类（自动发现约定边界）值不值得？还是确定性规则够？| 砚砚建议：Phase A 不引聚类进 truth path；可以作为“候选边界提示”离线实验，但 authoritative edges 只能来自确定性 extractor + provenance。否则 spike 会先解决 explainability 负债 |
+| OQ-5 | Phase B 通用约定识别怎么不重蹈 codegraph 的脆（写法稍异就漏）？| 砚砚建议：Phase B 先做“repo convention discovery protocol”，不是堆 framework matcher：扫描配置/入口/依赖/目录/README，输出 candidate convention map + unknowns；extractor 漏识别必须显式报 gap，禁止静默 0 命中 |
+| OQ-6 | 约定图存储：SQLite（学 codegraph）？跟 memory graph 如何分层落地（F102 边界）？| 砚砚建议：SQLite 本地 artifact，路径暂定 `.cat-cafe/convention-graph.sqlite` 或 worktree-local 等价位置；不碰 Redis 6399，不写 memory graph。memory 只存设计结论/经验，code graph 存可重建 artifact |
+| OQ-7 | Architecture cell 归属：new cell 还是挂现有？| 砚砚建议：new cell，命名倾向 `code-intelligence`，其中 `convention-graph` 是首个子域；边界：不替代 LSP、不并入 memory、不接管 skills，只提供 code/convention evidence |
+| OQ-8 | 约定图怎样避免“有边但不能信”？| 砚砚新增：每条高价值 edge 必须有 source-to-edge proof（source span + extractor + confidence/provenance）；eval 同时看 recall 和 false-positive cost。对 agent 来说，错边比漏边更危险 |
+
+## 砚砚 Brainstorm Pass（2026-06-17）
+
+### 坐标系校正
+
+F242 不应该实现“另一个 codegraph”。它应该实现 **Convention Graph Layer**：以 Cat Café 的 MCP tool、skill、workflow callback 等约定为一等对象，补 LSP 和 grep 都抓不住的关联。代码符号图只是底座材料，不是产品形态。
+
+### 首刀建议
+
+1. **MCP tool extractor**：从 `packages/mcp-server/src/server-toolsets.ts`、`packages/mcp-server/src/tools/*.ts` 提取 tool name、schema、callback route、readonly/write 权限面。
+2. **Skill manifest extractor**：从 `cat-cafe-skills/*/SKILL.md` 提取 name、Use when、Not for、Output、triggers、引用的 SOP/refs。
+3. **Workflow/callback extractor**：从 `packages/mcp-server/src/tools/callback-tools.ts`、`packages/api/src/routes/*callback*.ts`、workflow update/list/create tools 抽取 invocation/callback token、route、consumer。
+
+这三类最贴 Cat Café 自身痛点，也最容易形成 dogfood：改 MCP tool schema、改 skill manifest、改 callback route 时，猫能立刻问“谁消费它、哪些 SOP/测试要看”。
+
+### 非目标（防 scope 膨胀）
+
+- 不替代 TypeScript LSP 的 find-references/rename。
+- 不做全语言通用 framework matcher 竞赛。
+- 不自动写 `AGENTS.md` / `CLAUDE.md` / L0。
+- 不把 generated skill 直接激活。
+- 不把 convention graph 写入 memory graph；它是可重建代码 artifact。
 
 ## Key Decisions
 
@@ -124,7 +148,7 @@ Why: 代码结构/约定 ≠ 团队记忆，两种真相源（KD-1）
 
 | 日期 | 事件 |
 |------|------|
-| 2026-06-17 | 立项（CVO signoff），spike doc 初稿，待砚砚 brainstorm |
+| 2026-06-17 | 立项（CVO signoff），spike doc 初稿，砚砚补第一轮 brainstorm 建议 |
 
 ## Links
 
