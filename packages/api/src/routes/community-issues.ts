@@ -9,6 +9,8 @@
  * POST   /api/community-issues/:id/dispatch  → 手动触发 triage
  * POST   /api/community-issues/:id/triage-complete → 猫上报 triage 结果
  * POST   /api/community-issues/:id/resolve   → 铲屎官拍板 accept/decline
+ * POST   /api/community-issues/:id/report   → D1: 标记已回复（case.reported）
+ * POST   /api/community-issues/:id/waive-closure → D1: 免除公开回复要求
  * GET    /api/community-board?repo=xxx       → 聚合看板（issues + PR projection）
  */
 
@@ -33,6 +35,8 @@ import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadS
 import type { ICommunityEventLog } from '../domains/community/CommunityEventLog.js';
 import type { ICommunityObjectStore } from '../domains/community/CommunityObjectStore.js';
 import { registerRoutingTracking } from '../domains/community/community-auto-tracking.js';
+import { computeClosureChecklist } from '../domains/community/community-closure-checklist.js';
+import { parseRouteRecommendation } from '../domains/community/community-route-recommendation.js';
 import { derivePrGroup } from '../domains/community/derivePrGroup.js';
 import { type GhIssueFull, mapGitHubIssue } from '../domains/community/GitHubIssueFetcher.js';
 import { type GhPrFull, type GhPrReview, mapGitHubPr } from '../domains/community/GitHubPrFetcher.js';
@@ -555,41 +559,51 @@ export const communityIssueRoutes: FastifyPluginAsync<CommunityIssuesRoutesOptio
           (e) => e.authoredByRole === 'narrator' && e.routeRecommendation != null,
         );
         if (narratorEntry) {
-          const narratorRec = narratorEntry.routeRecommendation as { kind: string; threadId?: string };
-          // Compute agreed: narrator recommendation matches owner decision
-          let agreed: boolean;
-          if (result.data.decision === 'declined') {
-            agreed = narratorRec.kind === 'decline';
+          const parsed = parseRouteRecommendation(narratorEntry.routeRecommendation);
+          if (!parsed.ok) {
+            request.log.warn(
+              { subjectKey: `issue:${issue.repo}#${issue.issueNumber}`, reason: parsed.reason },
+              '[F168] resolve: narrator routeRecommendation failed parse — skipping eval event',
+            );
           } else {
-            // accepted: compare route kind + threadId if applicable
-            const ownerRR = result.data.routeRecommendation;
-            if (!ownerRR) {
-              // Owner accepted without specifying route → doesn't match narrator recommendation
-              agreed = false;
+            const narratorRec = parsed.value;
+            // Compute agreed: narrator recommendation matches owner decision
+            let agreed: boolean;
+            if (result.data.decision === 'declined') {
+              agreed = narratorRec.kind === 'decline';
             } else {
-              agreed =
-                ownerRR.kind === narratorRec.kind &&
-                (ownerRR.kind !== 'existing-thread' ||
-                  (ownerRR as { threadId: string }).threadId === narratorRec.threadId);
+              // accepted: compare route kind + threadId if applicable
+              const ownerRR = result.data.routeRecommendation;
+              if (!ownerRR) {
+                // Owner accepted without specifying route → doesn't match narrator recommendation
+                agreed = false;
+              } else {
+                agreed =
+                  ownerRR.kind === narratorRec.kind &&
+                  (ownerRR.kind !== 'existing-thread' ||
+                    (ownerRR.kind === 'existing-thread' &&
+                      narratorRec.kind === 'existing-thread' &&
+                      ownerRR.threadId === narratorRec.threadId));
+              }
             }
-          }
-          const subjectKey = `issue:${issue.repo}#${issue.issueNumber}`;
-          const evalEvent: CommunityEvent = {
-            sourceEventId: `route-eval:${id}:${Date.now()}`,
-            subjectKey,
-            kind: 'case.route_decision_eval',
-            classification: 'informational',
-            payload: {
-              narratorRecommendation: narratorRec,
-              ownerDecision: {
-                threadId: resolvedThreadId ?? null,
-                verdict: result.data.decision,
+            const subjectKey = `issue:${issue.repo}#${issue.issueNumber}`;
+            const evalEvent: CommunityEvent = {
+              sourceEventId: `route-eval:${id}:${Date.now()}`,
+              subjectKey,
+              kind: 'case.route_decision_eval',
+              classification: 'informational',
+              payload: {
+                narratorRecommendation: narratorRec,
+                ownerDecision: {
+                  threadId: resolvedThreadId ?? null,
+                  verdict: result.data.decision,
+                },
+                agreed,
               },
-              agreed,
-            },
-            at: Date.now(),
-          };
-          await opts.eventLog.append(evalEvent);
+              at: Date.now(),
+            };
+            await opts.eventLog.append(evalEvent);
+          }
         }
       } catch {
         // Best-effort — eval recording failure never blocks resolve
@@ -769,6 +783,148 @@ export const communityIssueRoutes: FastifyPluginAsync<CommunityIssuesRoutesOptio
       checklistComplete: validation.valid,
       missingItems: validation.missing,
     };
+  });
+
+  // ── F168 Phase D D1: closure action API ────────────────────────────────────
+
+  // POST /api/community-issues/:id/report
+  // Appends case.reported event. Unlike dispatch (best-effort), closure
+  // endpoints MUST fail visibly if event log or projector is absent.
+  const reportSchema = z.object({
+    publicCommentUrl: z.string().min(1),
+    actor: z.string().min(1),
+  });
+
+  // States where report/waive are not applicable (terminal states)
+  const CLOSURE_TERMINAL_STATES = new Set(['closed', 'declined']);
+  // States where closure actions (report/waive) are semantically valid.
+  // Only cases that have been fixed (or already reported) should accept closure actions.
+  const CLOSURE_VALID_STATES = new Set(['fixed', 'reported']);
+
+  app.post('/api/community-issues/:id/report', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const item = await communityIssueStore.get(id);
+    if (!item) {
+      reply.status(404);
+      return { error: 'Community issue not found' };
+    }
+
+    if (!opts.eventLog || !opts.projector) {
+      reply.status(501);
+      return { error: 'Community event log or projector not configured — closure endpoints require both' };
+    }
+
+    // State guard: derive effective state from projection (preferred) or legacy item.state (fallback).
+    // Handles: objectStore present+projection found, objectStore present+no projection, objectStore absent.
+    const subjectKey = `issue:${item.repo}#${item.issueNumber}`;
+    const projState = opts.objectStore ? (await opts.objectStore.get(subjectKey))?.state : undefined;
+    const effectiveState = projState ?? item.state;
+
+    if (effectiveState) {
+      if (CLOSURE_TERMINAL_STATES.has(effectiveState)) {
+        reply.status(409);
+        return { error: `Cannot report on a ${effectiveState} case — terminal state` };
+      }
+      if (!CLOSURE_VALID_STATES.has(effectiveState)) {
+        reply.status(409);
+        return { error: `Cannot report on a ${effectiveState} case — closure actions require fixed or reported state` };
+      }
+    }
+
+    const parsed = reportSchema.safeParse(request.body);
+    if (!parsed.success) {
+      reply.status(400);
+      return { error: 'Invalid payload', details: parsed.error.issues };
+    }
+    const at = Date.now();
+    const communityEvent: CommunityEvent = {
+      sourceEventId: `report:${id}:${at}`,
+      subjectKey,
+      kind: 'case.reported',
+      classification: 'state-changing',
+      payload: {
+        publicCommentUrl: parsed.data.publicCommentUrl,
+        actor: parsed.data.actor,
+        reportedAt: at,
+      },
+      at,
+    };
+
+    const { appended } = await opts.eventLog.append(communityEvent);
+    if (appended) {
+      await opts.projector.apply(communityEvent);
+    }
+
+    return { subjectKey, appended, eventId: communityEvent.sourceEventId };
+  });
+
+  // POST /api/community-issues/:id/waive-closure
+  // Appends case.waived event with required reason/actor/evidence.
+  // Waiver does NOT change case state — it satisfies the closure invariant
+  // so that fixed→closed can proceed without a public comment.
+  const waiveClosureSchema = z.object({
+    reason: z.string().min(1),
+    actor: z.string().min(1),
+    evidence: z.string().min(1),
+  });
+
+  app.post('/api/community-issues/:id/waive-closure', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const item = await communityIssueStore.get(id);
+    if (!item) {
+      reply.status(404);
+      return { error: 'Community issue not found' };
+    }
+
+    if (!opts.eventLog || !opts.projector) {
+      reply.status(501);
+      return { error: 'Community event log or projector not configured — closure endpoints require both' };
+    }
+
+    // State guard: derive effective state from projection (preferred) or legacy item.state (fallback).
+    const subjectKey = `issue:${item.repo}#${item.issueNumber}`;
+    const projState = opts.objectStore ? (await opts.objectStore.get(subjectKey))?.state : undefined;
+    const effectiveState = projState ?? item.state;
+
+    if (effectiveState) {
+      if (CLOSURE_TERMINAL_STATES.has(effectiveState)) {
+        reply.status(409);
+        return { error: `Cannot waive closure on a ${effectiveState} case — terminal state` };
+      }
+      if (!CLOSURE_VALID_STATES.has(effectiveState)) {
+        reply.status(409);
+        return {
+          error: `Cannot waive closure on a ${effectiveState} case — closure actions require fixed or reported state`,
+        };
+      }
+    }
+
+    const parsed = waiveClosureSchema.safeParse(request.body);
+    if (!parsed.success) {
+      reply.status(400);
+      return { error: 'Invalid payload — reason, actor, and evidence are all required', details: parsed.error.issues };
+    }
+    const at = Date.now();
+    const communityEvent: CommunityEvent = {
+      sourceEventId: `waive:${id}:${at}`,
+      subjectKey,
+      kind: 'case.waived',
+      classification: 'state-changing',
+      payload: {
+        reason: parsed.data.reason,
+        actor: parsed.data.actor,
+        evidence: parsed.data.evidence,
+        waivedAt: at,
+      },
+      at,
+    };
+
+    const { appended } = await opts.eventLog.append(communityEvent);
+    if (appended) {
+      await opts.projector.apply(communityEvent);
+    }
+
+    return { subjectKey, appended, eventId: communityEvent.sourceEventId };
   });
 
   // ── F168 Phase B Task 6: awaiting_external endpoint ──────────────────────────
@@ -974,6 +1130,7 @@ export const communityIssueRoutes: FastifyPluginAsync<CommunityIssuesRoutesOptio
               projectionState: proj.state,
               nextOwner: proj.nextOwner,
               closureWaiver: proj.closureWaiver,
+              closureChecklist: computeClosureChecklist(proj),
             };
           } catch {
             return issue;
@@ -1022,6 +1179,7 @@ export const communityIssueRoutes: FastifyPluginAsync<CommunityIssuesRoutesOptio
               projectionState: proj.state,
               nextOwner: proj.nextOwner,
               closureWaiver: proj.closureWaiver,
+              closureChecklist: computeClosureChecklist(proj),
             });
           } catch {
             /* best-effort */
@@ -1044,6 +1202,7 @@ export const communityIssueRoutes: FastifyPluginAsync<CommunityIssuesRoutesOptio
               projectionState: proj.state,
               nextOwner: proj.nextOwner,
               closureWaiver: proj.closureWaiver,
+              closureChecklist: computeClosureChecklist(proj),
             };
           } catch {
             return item;
@@ -1089,6 +1248,7 @@ export const communityIssueRoutes: FastifyPluginAsync<CommunityIssuesRoutesOptio
               projectionState: proj.state,
               nextOwner: proj.nextOwner,
               closureWaiver: proj.closureWaiver,
+              closureChecklist: computeClosureChecklist(proj),
             });
           } catch {
             /* best-effort */

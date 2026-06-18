@@ -2636,12 +2636,27 @@ async function main(): Promise<void> {
   const communityPrStore = new InMemoryCommunityPrStore();
 
   // F168 Phase C C2.2: community narrator wiring (conditional — disabled without thread ID)
+  // D0.3: boot warning when narrator role configured but thread ID absent
   const communityNarratorThreadId = process.env.COMMUNITY_NARRATOR_THREAD_ID;
+  {
+    const { NarratorDriver: ND } = await import('./domains/community/NarratorDriver.js');
+    const { DEFAULT_COMMUNITY_ROLE_BINDINGS: bindings } = await import('./domains/community/RoleResolver.js');
+    ND.checkNarratorBootConfig({
+      narratorRoleConfigured: !!bindings.narrator,
+      narratorThreadId: communityNarratorThreadId,
+      log: app.log,
+    });
+  }
   let communityNarratorDriver: import('./domains/community/NarratorDriver.js').NarratorDriver | undefined;
   if (communityNarratorThreadId) {
     const { NarratorDriver } = await import('./domains/community/NarratorDriver.js');
     const { createRoleResolver, DEFAULT_COMMUNITY_ROLE_BINDINGS } = await import('./domains/community/RoleResolver.js');
     const { createWakeCatFn } = await import('./domains/cats/services/game/wakeCatImpl.js');
+    // D0.2: persistent narrator dedup store (Redis-backed)
+    const { RedisNarratorDedupStore, InMemoryNarratorDedupStore } = await import(
+      './domains/community/RedisNarratorDedupStore.js'
+    );
+    const narratorDedupStore = redis ? new RedisNarratorDedupStore(redis) : new InMemoryNarratorDedupStore();
     const communityWakeCat = createWakeCatFn({
       threadStore,
       invocationQueue,
@@ -2654,6 +2669,7 @@ async function main(): Promise<void> {
       narratorThreadId: communityNarratorThreadId,
       wakeCat: communityWakeCat,
       log: app.log,
+      dedupStore: narratorDedupStore,
     });
     app.log.info({ narratorThreadId: communityNarratorThreadId }, '[F168] Community NarratorDriver wired');
   }

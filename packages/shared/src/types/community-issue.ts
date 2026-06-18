@@ -57,6 +57,49 @@ export type RouteRecommendation =
   | { readonly kind: 'new-thread' }
   | { readonly kind: 'decline' };
 
+// ---------------------------------------------------------------------------
+// D0.5: Shared routeRecommendation parser (canonical validator for API + web)
+// ---------------------------------------------------------------------------
+
+export type ParseRouteRecommendationResult = { ok: true; value: RouteRecommendation } | { ok: false; reason: string };
+
+const VALID_RR_KINDS = new Set(['existing-thread', 'new-thread', 'decline']);
+
+/**
+ * Parse and validate an unknown value as a RouteRecommendation.
+ *
+ * Strips unknown properties — only the canonical shape passes through.
+ * Returns `{ ok: false }` for any malformed input (never throws).
+ */
+export function parseRouteRecommendation(input: unknown): ParseRouteRecommendationResult {
+  if (input === null || input === undefined || typeof input !== 'object') {
+    return { ok: false, reason: 'input must be a non-null object' };
+  }
+
+  const obj = input as Record<string, unknown>;
+  const kind = obj.kind;
+
+  if (typeof kind !== 'string' || !VALID_RR_KINDS.has(kind)) {
+    return { ok: false, reason: `invalid kind: ${JSON.stringify(kind)}` };
+  }
+
+  switch (kind) {
+    case 'existing-thread': {
+      const threadId = obj.threadId;
+      if (typeof threadId !== 'string' || threadId.length === 0) {
+        return { ok: false, reason: 'existing-thread requires a non-empty threadId' };
+      }
+      return { ok: true, value: { kind: 'existing-thread', threadId } };
+    }
+    case 'new-thread':
+      return { ok: true, value: { kind: 'new-thread' } };
+    case 'decline':
+      return { ok: true, value: { kind: 'decline' } };
+    default:
+      return { ok: false, reason: `unrecognized kind: ${kind}` };
+  }
+}
+
 export interface TriageEntry {
   readonly catId: string;
   readonly verdict: Verdict;

@@ -236,6 +236,7 @@ export type {
   IntakeChecklistItem,
   IssueState,
   IssueType,
+  ParseRouteRecommendationResult,
   PrBoardGroup,
   QuestionGrade,
   QuestionId,
@@ -249,6 +250,7 @@ export type {
 // Community Issue types (F168 社区事务编排引擎)
 export {
   DEFAULT_INTAKE_CHECKLIST,
+  parseRouteRecommendation,
   validateIntakeChecklist,
 } from './community-issue.js';
 // Community Issue Draft types (F235)
