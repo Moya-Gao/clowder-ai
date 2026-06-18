@@ -155,6 +155,7 @@
 | F180 | F180: Agent CLI Hook Health and Sync — user-level hook 检测 + 一键同步（4 Phase / 20 AC / PRs #1476~#1487 + #1540 / 社区 clowder-ai#614 closed / 跨族 review + 云端 4 轮 P1 fix） | done | [F180-agent-cli-hook-health.md](./F180-agent-cli-hook-health.md) |
 | F222 | F222: Frustration Auto-Issue — 把负体验变成结构化反馈（5 种摩擦触发: CLI error + cancel_burst + 文本情绪 + A2A timeout + retry burst；auto-issue 卡片 + confirm/skip + Redis 持久化；3 Phase / 10 AC / 90 tests / PRs #2075 #2082 #2086 #2088） | done | [F222-frustration-auto-issue.md](./F222-frustration-auto-issue.md) |
 | F239 | F239: Skill Mount HOME Hygiene — `sync:skills` 默认改 project-level + `--user` opt-in + 老 HOME-level symlinks 清理脚本（ADR-025 Phase 5 收尾，承接 cat-cafe#2323 Phase 5 part 1；Phase A PR #2325 squash `6228ee96e` + Phase B PR #2328 squash `3570d311b`；5 rounds cloud + 砚砚 LL-072 final approve；CAFE-INCIDENT-20260616-trash 沉淀至 user memory，路径在 `~/.claude/projects/-Users-lysander-projects-relay-station-cat-cafe/memory/feedback_trash_var_expansion_p0.md`，user-private 不进 git） | done | [F239-skill-mount-home-hygiene.md](./F239-skill-mount-home-hygiene.md) |
+| F235 | F235: Feedback-to-Community Publisher — 一键发布反馈到社区（Phase A: F222 confirmed → 脱敏 → GitHub issue；Phase B: 猫猫生成 community_issue_draft 卡片 → 用户编辑 repo/title → GitHub issue；2 Phase / 9 AC / 69 tests；PR #2317 + #2367；3 轮 cloud + LL-072 封板；opus-47 愿景守护 trace main 真实 wire-up 放行） | done | [F235-feedback-to-community-publisher.md](./F235-feedback-to-community-publisher.md) |
 
 ## 已搁置/已归档 Feature
 | ID | 名称 | Status | 聚合文件 |
