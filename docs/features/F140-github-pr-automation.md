@@ -10,7 +10,7 @@ created: 2026-03-26
 
 > **Status**: done | **Owner**: 布偶猫 | **Priority**: P1 | **Phase A-D Completed**: 2026-03-27 | **Reopened**: 2026-04-24（Phase E — 通知合流：severity 抽取 + 下线 email 路径） | **Completed**: 2026-04-25
 > **Post-completion hardening**: 2026-05-07 — Review Feedback backlog guard（merged/closed 自收敛 + stale commit 过滤 + 同 PR/target-cat queue coalesce）
-> **Post-completion correction**: 2026-06-18 — PR review feedback must preserve the PR-tracking registration thread. #949 auto-rotation / PR #2372 backlink was the wrong layer: context overflow belongs to invocation hydration, not thread ownership. Review feedback no longer creates `MR review (auto-rotated...)` threads, and legacy already-rotated tracking tasks are repaired back to their source thread before delivery.
+> **Post-completion correction**: 2026-06-18 — PR #2394 (squash 1d42b8f36) fixed PR review feedback routing to preserve the PR-tracking registration thread. #949 auto-rotation / PR #2372 backlink was the wrong layer: context overflow belongs to invocation hydration, not thread ownership. Review feedback no longer creates `MR review (auto-rotated...)` threads, and legacy already-rotated tracking tasks are repaired back to their source thread before delivery.
 > **Post-completion**: 2026-06-03 — PR-tracking wake intent（PR #2070）：`register_pr_tracking` 加 `intent: review|merge`，CI-pass 仅 intent=merge 唤醒；删 approval 推断 + dead poller
 
 ## 三层架构定位
@@ -313,7 +313,7 @@ created: 2026-03-26
 | 2026-04-25 | **Phase E.3 cleanup merged (PR #1398, squash 397df85c)** — 11 dead files trashed (6 src + 5 tests) + index.ts re-exports 简化 + 6 处注释残留清理。砚砚 GPT-5.5 双轮 review (P2 fix → no-findings) + 云端 codex "Swish! no major issues"。pnpm gate PASSED。**Phase E 完整闭环（AC-E1~E10 全部 ✅）**，等待愿景守护猫做 feat-lifecycle close |
 | 2026-04-25 | **Feature re-closed** — CVO 指派砚砚 GPT-5.5 完成 feat-lifecycle close。三 PR (#1380/#1386/#1398) merged，AC-E1~E10 全 ✅，反思胶囊已落盘，愿景对照 5/5 匹配。F140 从 BACKLOG 移除，进入 completed index |
 | 2026-05-07 | **Post-completion hardening merged (PR #1580, squash 77d2ba535)** — review-feedback backlog guard 补齐 merged/closed 自收敛、stale commit 过滤、PR/target-cat coalesce、urgent 升级和 in-flight follow-up 重新排队。Sonnet + GPT-5.4 + 云端 Codex 多轮 review；P1/P2 全部 Red→Green 修复；`pnpm gate` passed at `adcc731a`。 |
-| 2026-06-18 | **Post-completion correction in progress** — 铲屎官指出 #949 auto-rotation 把 PR review feedback 投到陌生 `MR review (auto-rotated...)` thread，违反「哪个 thread 注册 PR tracking，就投回哪个 thread」的 mental model。修正方向：删除 ReviewFeedbackTaskSpec 的 thread rotation / backlink path；对已污染的 legacy task 通过 rotated thread 标题 `MR review (auto-rotated from <threadId>)` 回溯并修回原 thread；保留长 thread 风险给 hydration 层另行处理。 |
+| 2026-06-18 | **Post-completion correction merged (PR #2394, squash 1d42b8f36)** — 铲屎官指出 #949 auto-rotation 把 PR review feedback 投到陌生 `MR review (auto-rotated...)` thread，违反「哪个 thread 注册 PR tracking，就投回哪个 thread」的 mental model。修正删除 ReviewFeedbackTaskSpec 的 thread rotation / backlink path；对已污染的 legacy task 通过 rotated thread 标题 `MR review (auto-rotated from <threadId>)` 回溯并修回原 thread；长 thread 风险归 hydration 层另行处理。验证：GPT-5.4 review 放行，云端 Codex `f9f4cfddf` no major issues，`pnpm gate` passed at `dae997f5`。 |
 
 ## Completion Sign-off (2026-04-25)
 
