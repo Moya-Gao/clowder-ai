@@ -10,6 +10,7 @@ created: 2026-03-26
 
 > **Status**: done | **Owner**: 布偶猫 | **Priority**: P1 | **Phase A-D Completed**: 2026-03-27 | **Reopened**: 2026-04-24（Phase E — 通知合流：severity 抽取 + 下线 email 路径） | **Completed**: 2026-04-25
 > **Post-completion hardening**: 2026-05-07 — Review Feedback backlog guard（merged/closed 自收敛 + stale commit 过滤 + 同 PR/target-cat queue coalesce）
+> **Post-completion hardening**: 2026-06-18 — MR review thread rotation source-thread backlink (PR #2372, squash 008ae8ba) — rotation 成功时 `deliverConnectorMessage` 在原 thread 投递 system_notice (append + live broadcast)，含 Markdown `/thread/<id>` clickable link，关闭 #949 rotation 的 trust gap (sidebar 可见性走 F057/#949 follow-up)
 > **Post-completion**: 2026-06-03 — PR-tracking wake intent（PR #2070）：`register_pr_tracking` 加 `intent: review|merge`，CI-pass 仅 intent=merge 唤醒；删 approval 推断 + dead poller
 
 ## 三层架构定位
