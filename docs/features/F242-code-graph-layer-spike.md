@@ -11,7 +11,7 @@ cvo_signoff: 2026-06-17 — 铲屎官 "可以 我同意！！！"（thread 00017
 
 > **Status**: spec | **Owner**: opus-48 | **Priority**: P1
 
-> ⚠️ **本 doc 是 spike 初稿**。Open Questions 段已补砚砚（@codex GPT-5.5）第一轮 brainstorm 建议，待 opus-48 收敛成 Design Gate / implementation plan。完整设计输入见 `docs/discussions/2026-06-17-codegraph-vs-gitnexus/README.md`（§0-18，codegraph + GitNexus 一手 spike 实证 + 整合）。
+> ⚠️ **本 doc 是 spike 初稿**。砚砚（@codex GPT-5.5）+ opus-48 两轮 brainstorm 已完成（OQ 推进 + 泛化分两层 + provenance 质量门），收敛建议进 Design Gate。完整设计输入见 `docs/discussions/2026-06-17-codegraph-vs-gitnexus/README.md`（§0-18，codegraph + GitNexus 一手 spike 实证 + 整合）。
 
 ## Why
 
@@ -137,6 +137,35 @@ F242 不应该实现“另一个 codegraph”。它应该实现 **Convention Gra
 - 不把 generated skill 直接激活。
 - 不把 convention graph 写入 memory graph；它是可重建代码 artifact。
 
+## opus-48 Brainstorm Pass（第二轮，2026-06-17）
+
+### 认同砚砚的校正
+坐标系校正成 Convention Graph Layer（约定一等对象）、provenance / false-positive / gap-unknowns 质量门（错边比漏边危险）、scope identity 不靠 display name——全部认同，这是 spike 能"建出能信的图"的地基。
+
+### 关键补充：Phase A→B 泛化要分两层（否则做成 cat-cafe 专用工具，泛化不到胜负手 B）
+砚砚首刀 3 类 extractor（MCP tool / skill / workflow callback）都是 cat-cafe **自家**约定。但 Phase B 是"进**任何**陌生 repo"——陌生 repo 没有这些概念，它们有 FastAPI route / Django model / gRPC service / DI container。**若 Phase A 做成 3 个 hardcode extractor，泛化不到 B。**
+
+- **Phase A 产出必须分两层**：① **convention graph 引擎**（artifact schema + provenance + scope 消歧 + freshness，**domain-agnostic**）；② cat-cafe 的 3 个 **extractor**（domain plugin，挂在引擎上）。
+- **Phase B = 复用 ① 引擎 + 写新 extractor**（陌生 repo 约定），不重写引擎。
+- **真正沉淀成 skill 的是"怎么定义一个 convention domain + 写 extractor + 接引擎"的方法论**（= 砚砚 OQ-5 的 discovery protocol），**不是那 3 个具体 extractor**。这才是铲屎官"沉淀画约定图能力成 skill"的本意（能力 > 工具）。
+- **修正 AC-A4 隐患**：skill 必须是"建图方法论"，不能做成"cat-cafe 约定查询工具"——后者泛化不了。
+
+### 统一点 1：discovery protocol = skill 核心，聚类的正确位置在 discovery（统一砚砚 OQ-4 + OQ-5 + 报告 §18.2）
+- 砚砚 OQ-5 的"repo convention discovery protocol"正是"画约定图"skill 的方法论内核：进陌生 repo → 扫配置/入口/依赖/目录/README → 输出 candidate convention map + unknowns → 猫确认后写 extractor 接引擎。
+- **GitNexus 的 community 聚类（报告 §18.2）放这里**：discovery 阶段做"候选约定边界提示"（这 repo 可能有哪些 domain），离线辅助、**不进 authoritative edge**。这统一了砚砚 OQ-4（聚类不进 truth path）和报告 §18.2（community 值得借）——聚类是 discovery 的候选提示，不是真相边。
+
+### 统一点 2：spike scope 守门（≤2 周，平衡砚砚的质量门）
+砚砚的质量门都对，但 spike ≤2 周。实现时按"验证机制"粒度，不追生产完备：
+- provenance 最小可用 = `source span + extractor name + freshness flag`（不追完整 confidence model）。
+- 消歧用 1-2 个 negative fixture（前后端同名），不追全覆盖。
+- AC-A0 / A2 / B2 是**机制验证**，不是生产级质量门。超出 ≤2 周硬边界 → 停回 CVO。
+
+### dogfood 场景锚定（让 AC-A5 可执行）
+AC-A5 锚定具体场景：**改 `cat_cafe_post_message` 的 schema → 约定图列出全部消费方（含 callback registration / dynamic dispatch），对比 grep 漏的那些**。这正是 opus-47 §10.3 场景 1 + 我 spike 时测的 impact 形态。
+
+### 收敛建议（两轮 brainstorm 后）
+方向 + OQ + 质量门 + 泛化分层都齐了。下一步进 **Design Gate**：先定 ① 引擎 artifact schema（含 provenance/freshness）+ ② cat-cafe 三类 extractor 接口 + ③ discovery protocol skill 骨架，再拆 writing-plans 实现任务。Architecture cell `code-intelligence`（OQ-7）待 Design Gate 钉死。
+
 ## Key Decisions
 
 | # | 决策 | 理由 | 日期 |
@@ -149,6 +178,7 @@ F242 不应该实现“另一个 codegraph”。它应该实现 **Convention Gra
 | 日期 | 事件 |
 |------|------|
 | 2026-06-17 | 立项（CVO signoff），spike doc 初稿，砚砚补第一轮 brainstorm 建议 |
+| 2026-06-17 | opus-48 第二轮 brainstorm：泛化分两层（引擎 + extractor）+ discovery=skill 核心 + 聚类位置 + scope 守门；收敛建议进 Design Gate |
 
 ## Links
 
