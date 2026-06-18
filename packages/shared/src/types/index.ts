@@ -561,13 +561,18 @@ export type {
   PluginResourceStatus,
   PluginStatus,
 } from './plugin.js';
-// Profile update proposal types (F231 Phase C 养熟循环)
 export type {
+  CollectionSignalKind,
   ProfileUpdateApproveOverrides,
   ProfileUpdateProposal,
   ProfileUpdateProposalStatus,
   ProfileUpdateSignalProvenance,
   ProfileUpdateTargetLayer,
+} from './profile-update.js';
+// Profile update proposal types (F231 Phase C 养熟循环)
+export {
+  COLLECTION_SIGNAL_KINDS,
+  isAllowedCollectionSignal,
 } from './profile-update.js';
 // Proposal types (F128 Cat Thread Proposal)
 export type {

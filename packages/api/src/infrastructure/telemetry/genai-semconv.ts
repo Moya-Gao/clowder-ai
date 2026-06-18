@@ -42,6 +42,10 @@ export const ROUTING_INTENT = 'cat_cafe.routing.intent';
 export const CALLBACK_TOOL = 'callback.tool';
 export const CALLBACK_REASON = 'callback.reason';
 
+// --- F231 AC-C3: profile update pipeline attributes ---
+export const SIGNAL_KIND = 'signal.kind';
+export const SEAL_REASON = 'seal.reason';
+
 // --- Route aggregate attributes (set at route completion) ---
 export const ROUTE_TOTAL_CATS_INVOKED = 'route.total_cats_invoked';
 export const ROUTE_TOTAL_TOKENS = 'route.total_tokens';

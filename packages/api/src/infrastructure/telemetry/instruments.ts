@@ -261,6 +261,36 @@ export const callbackAuthFailures = lazy(() =>
   }),
 );
 
+// --- F231 AC-C3: Profile update eval counters (KD-10: zero-activation detection) ---
+
+/** Counter: profile update proposed (cat → CVO card). */
+export const profileUpdateProposed = lazy(() =>
+  meter().createCounter('cat_cafe.profile_update.proposed', {
+    description: 'Profile update proposals created (F231 C3 eval)',
+  }),
+);
+
+/** Counter: profile update approved (CVO → primer written). */
+export const profileUpdateApproved = lazy(() =>
+  meter().createCounter('cat_cafe.profile_update.approved', {
+    description: 'Profile update proposals approved and written (F231 C3 eval)',
+  }),
+);
+
+/** Counter: profile update rejected (CVO → no write). */
+export const profileUpdateRejected = lazy(() =>
+  meter().createCounter('cat_cafe.profile_update.rejected', {
+    description: 'Profile update proposals rejected (F231 C3 eval)',
+  }),
+);
+
+/** Counter: distillation trigger fired on session seal (KD-10 eval). */
+export const profileDistillationTriggered = lazy(() =>
+  meter().createCounter('cat_cafe.profile_update.distillation_triggered', {
+    description: 'Profile distillation trigger fired on session-seal event (F231 C3/KD-10 eval)',
+  }),
+);
+
 /** Liveness state type. */
 export type LivenessState = 'dead' | 'idle-silent' | 'busy-silent' | 'active';
 
@@ -321,4 +351,9 @@ export function warmupCounters(): void {
   c2VerdictWithoutPassCount.add(0);
   c2ExitChecked.add(0);
   c2VoidHoldChecked.add(0);
+  // F231 AC-C3: profile update pipeline counters
+  profileUpdateProposed.add(0);
+  profileUpdateApproved.add(0);
+  profileUpdateRejected.add(0);
+  profileDistillationTriggered.add(0);
 }

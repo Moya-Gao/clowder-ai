@@ -677,6 +677,18 @@ async function main(): Promise<void> {
     summaryStore,
   );
 
+  // F231 AC-C3 / KD-10: Wire profile distillation trigger into session seal lifecycle.
+  // The trigger fires on session-seal events (runtime-neutral, not provider Stop hooks).
+  {
+    const { ProfileDistillationTrigger } = await import(
+      './domains/cats/services/profile/profile-distillation-trigger.js'
+    );
+    const distillationTrigger = new ProfileDistillationTrigger();
+    sessionSealer.registerPostSealHook(async (event) => {
+      await distillationTrigger.onSessionSealed(event);
+    });
+  }
+
   // F102: Memory services — SQLite-only
   const { resolve } = await import('node:path');
   const { repoRoot, docsRoot, markersDir } = resolveMemoryRepoPaths(process.cwd());

@@ -122,7 +122,7 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 ### Phase C（养熟循环）
 - [x] AC-C1: 关系信号→capsule/primer 更新提议路径落地（三段管道 KD-8，KD-12 分层写入制），至少 1 次真实更新走完全程（跑在白名单采集 + runtime-neutral trigger 真骨架上，非 L0 反射脚手架）（✅ PR #2296 merged 2026-06-15：profile-update proposal store/routes/tool/card + approve/reject write path + provenance audit + settled-card recovery；`pnpm gate` passed at `be6185ad`）
 - [x] AC-C2: 正向轨迹沉淀有真实样本（≥1 条"做对的时刻"进 primer/capsule，对照"只记检讨书"基线）（✅ 2026-06-17 proposal_mqg11vxc8ypclgv4：3 条正向轨迹 opus-primer.md + CVO approve + provenance 归档；但 CVO 指出 C1 merged 2 天零有机使用 → C3 必须做不可后置）
-- [ ] AC-C3: 采集白名单（KD-9）写成机器可检查的数据契约（lint/test 守护禁 classifier 采集源）+ 蒸馏 trigger runtime-neutral（KD-10，不依赖 provider Stop hook，codex/gpt52 path 有 fallback 覆盖）
+- [x] AC-C3: 采集白名单（KD-9）写成机器可检查的数据契约（lint/test 守护禁 classifier 采集源）+ 蒸馏 trigger runtime-neutral（KD-10，不依赖 provider Stop hook，codex/gpt52 path 有 fallback 覆盖）（✅ 2026-06-17 `b6de921f0`：COLLECTION_SIGNAL_KINDS 6 种白名单 frozen enum + isAllowedCollectionSignal() type guard + 4 OTel eval counters (proposed/approved/rejected/distillation_triggered) + ProfileDistillationTrigger.onSessionSealed() + SessionSealer.registerPostSealHook() 机制；13 tests RED→GREEN）
 
 ## Dependencies
 
@@ -200,7 +200,7 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 | C1 | ✅ merged | PR #2296 (`be6185ad`) |
 | B3 | ✅ 完成 | `compile-system-prompt-l0.test.mjs` 4 项 compile-level regression |
 | C2 | ✅ 完成 | `proposal_mqg11vxc8ypclgv4` CVO approved，但 2 天零有机使用 → C3 必须 |
-| **C3** | ❌ 待做 | — |
+| **C3** | ✅ 完成 | `b6de921f0` — KD-9 whitelist enum + KD-10 eval counters + distillation trigger |
 
 ### Wave 2（当前，不需额外 spec）
 
