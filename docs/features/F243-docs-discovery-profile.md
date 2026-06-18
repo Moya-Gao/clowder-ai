@@ -229,6 +229,7 @@ created: 2026-06-17
 | 2026-06-17 | 砚砚 R2 review verdict = **退回**：R1 P1-2 修复**不彻底**——只改了 reviewer 指出的 4 处（AC/R7/Deps/Risk），漏 3 处同源残留（Phase B What / Review Gate / Links），spec 内部自相矛盾。砚砚 `rg F186` 全文扫抓到。R2 学到方法论："fix scope creep 必须自己 grep 全文找同源表述，不只是改 reviewer 点出的 line"。3 处全改 self-contained 契约 / future consumer candidates 表述 |
 | 2026-06-17 | 砚砚 R3 review verdict = **放行** ✓（无 findings；reviewer 预表态下一步走 Design Gate）|
 | 2026-06-17 | Design Gate 自检完成：架构归属 = new cell required（候选 `docs-governance`，建议 Phase B PR 内一并创建）+ 元审美 = 坐标变换 ✓（index = derived view 不增真相源 / pipeline 形态 Phase A 判定不预设 / lint+sync = 运行时脚手架不是认知脚手架）+ Observability = 弱触发（PR 流程内可见）+ Eval Contract + Harness 三层已落 spec。Discussion 落盘 `docs/discussions/2026-06-17-f243-design/README.md`，含给 CVO 的 Decision Packet 等拍板 |
+| 2026-06-17 | CVO 拍板选 A 启动 Phase A spike（铲屎官原话："我同意你的a 可以开搞"）。Spike charter 落 `docs/research/2026-06-17-f243-description-spike/README.md`：10 篇 stratified sample（6 硬骨头 F008/F038/F062/F168/F229-cat-ball/F236 + 4 easy mode F009/F022/F102/F242）+ generation prompt v3 9 条（mini-spike R3 formal pass）+ 评分 rubric + 盲评协议（烁烁生成 / 三猫独立 invocation 评分避免互看）。Step 1 @codex sharpen sample selection 防 cherry-pick |
 
 ## Review Gate
 
