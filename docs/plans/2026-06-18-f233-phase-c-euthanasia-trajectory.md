@@ -39,19 +39,19 @@ type EuthanasiaKind =
   | 'ball.degraded'     // 降级：明确降优先级，保留可见但弱化
   | 'ball.abandoned';   // 放弃：终态，明确"不做了"
 
-// 状态机转移规格（追加到 §B 转移表）：任何 state 含 resolved → resolved(detail=euthanasia, kind, why, by)
+// 状态机转移规格（追加到 §B 转移表）：任何**非** resolved state（new/active/blocked/parked/dead/void/zombie，共 7 个）→ resolved(detail=euthanasia, kind, why, by)
 // 已 resolved 的球再发安乐死 = reject（projection 真相源已死）
 ```
 
-**幂等键**（与 Phase B §F 同模式）：`sourceEventId = euthanasia:{subjectKey}:{at}`。同一时刻同一球的同种安乐死事件，Lua append 幂等去重；不同时刻则视为单独事件（事件流时间轴诚实）。
+**幂等键**（与 Phase B §F 同模式）：`sourceEventId = euthanasia:{subjectKey}:{kind}:{at}`（**含 kind**，砚砚 cross-family R0 pushback 修正——不含 kind 会让同 ms 三种 kind 互相幂等吞）。同一球同一 kind 同一 ms 的事件，Lua append 幂等去重；跨 ms 或跨 kind 视为独立事件（事件流时间轴诚实 + 同 ms 三 kind 可并存进事件流；projection 因 state-machine 已 resolved → reject，最终只有第一次落 projection，但事件流诚实保留"曾试图"痕迹 §C 轨迹用）。
 
 **state machine transition**（Phase B §B 转移表追加 3 行 + 1 行）：
 
 | event | from states | → to | 备注 |
 |---|---|---|---|
-| `ball.frozen` | active/blocked/parked/dead/void/zombie | resolved | detail=euthanasia kind=frozen + why |
-| `ball.degraded` | active/blocked/parked/dead/void/zombie | resolved | detail=euthanasia kind=degraded + why |
-| `ball.abandoned` | active/blocked/parked/dead/void/zombie | resolved | detail=euthanasia kind=abandoned + why |
+| `ball.frozen` | new/active/blocked/parked/dead/void/zombie | resolved | detail=euthanasia kind=frozen + why；含 `new` per 砚砚 R0 pushback（与 shared type 注释 + handoff 一致） |
+| `ball.degraded` | new/active/blocked/parked/dead/void/zombie | resolved | detail=euthanasia kind=degraded + why |
+| `ball.abandoned` | new/active/blocked/parked/dead/void/zombie | resolved | detail=euthanasia kind=abandoned + why |
 | any euthanasia | resolved → resolved | reject + lastRejectedEvent | 已 resolved 不重写（事件时间轴诚实）|
 
 ---
