@@ -1,0 +1,51 @@
+{
+  "asset": "yanyan-codex-idle-row-codex-grounded-candidate-v1.png",
+  "featureId": "F229",
+  "role": "codex-imagegen-grounded-idle-candidate",
+  "status": "rejected-for-production",
+  "source": {
+    "provider": "Codex built-in image_gen",
+    "sourcePath": "/Users/lysander/.codex/generated_images/019eafc4-10b8-7eb0-b5f3-5488ef9b941a/ig_0d43254d3bb486ec016a334b8b94448193a03fc3f2f25ba3f7.png",
+    "generatedAt": "2026-06-17",
+    "inputs": [
+      "raw/yanyan-codex-character-base-v1.png",
+      "layout-guides/idle.png"
+    ]
+  },
+  "technicalProperties": {
+    "width": 2146,
+    "height": 733,
+    "mode": "RGB",
+    "hasAlpha": false,
+    "sha256": "d58d8832b39d45393d28f1566d33db2174a29262eed923e822b36adba82520ce"
+  },
+  "postProcessingTrial": {
+    "runDir": "/tmp/cat-cafe-evidence/f229-yanyan-codex-imagegen-idle-20260617",
+    "chromaKey": "#08f708",
+    "extraction": "hatch-pet extract_strip_frames.py --states idle --method auto",
+    "idleFrameCount": 6,
+    "idleExtractionMethod": "components",
+    "idleFrameHashesUnique": true,
+    "previewGif": "yanyan-codex-idle-row-codex-grounded-candidate-v1.preview.gif",
+    "previewGifSha256": "7736c1162406218497f8864cc4b9ad29d71222ae5bba6ada1401a728bddb052f"
+  },
+  "qa": {
+    "acceptedAsReference": true,
+    "acceptedForAtlas": false,
+    "positiveFindings": [
+      "The canonical reference was visibly followed better than prompt-only attempts.",
+      "The green chroma-key background was removable with local post-processing.",
+      "hatch-pet extraction produced six unique idle frames with no edge clipping."
+    ],
+    "blockingFindings": [
+      "The generated image ignored the requested 3000x540 working strip geometry.",
+      "Frame 2 changes the full tail pose into an upright alert tail, which is too large for low-distraction idle.",
+      "Frame 6 has a materially different tail placement; the row does not preserve tail-tip-only motion."
+    ],
+    "nextPromptAdjustment": [
+      "For idle, forbid full-tail pose changes even more strongly.",
+      "State that the tail root and full tail silhouette must remain nearly fixed; only the last 15-20% of the tail may move.",
+      "Treat Codex built-in grounded row strips as candidates that still require visual QA, not guaranteed production outputs."
+    ]
+  }
+}
