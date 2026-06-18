@@ -8,7 +8,9 @@ created: 2026-06-15
 
 # F236: Anchor-First Context 入口 — 返回侧 token 减负
 
-> **Status**: spec | **Owner**: 布偶猫 (宪宪 opus-48) | **Priority**: P1 | **Created**: 2026-06-15 | **Companion ADR**: ADR-203
+> **Status**: in-progress (Phase A+B done, Phase C spike-gated) | **Owner**: 布偶猫 (宪宪 opus-48) | **Priority**: P1 | **Created**: 2026-06-15 | **Companion ADR**: ADR-203
+>
+> **Timeline**: 2026-06-18 — Phase A + B merged (PR #2381, squash `9af8b2093`)：anchor-first 协作读工具（thread-context/pending-mentions/list-tasks 默认 preview + drillDown）+ get-message bounded drill（mode=preview|full + fullDrillChars telemetry）。本地 gpt52/codex 跨族 review + 云端 Codex 2 轮（封板）。
 
 ## Why
 
@@ -54,16 +56,16 @@ spike（2026-06-16，C0a Read / C0b Grep ✅ 实证）证明 cc PostToolUse hook
 
 > AC↔Why 同源 + 非作者可复核
 
-### Phase A: 协作读工具 anchor 化
-- [ ] AC-A1: `get_thread_context` 默认返回 preview（非 full body），长 thread 单次返回 token 对比基线降 ≥60%（telemetry 复核）
-- [ ] AC-A2: 每条 preview 含 `id/threadId/timestamp/speaker/preview/contentLength/truncated/drillDown` 字段
-- [ ] AC-A3: `get_pending_mentions` 长 mention 用 head+tail excerpt + `requiresDrill=true`，传球指令关键信息不丢（fixture 验证）
-- [ ] AC-A4: `list_tasks` 的 why 字段 preview 化（默认精简，全文按需）
-- [ ] AC-A5: 截断逻辑在 callback route projection helper（最内层），非 MCP wrapper（代码 review 复核）
+### Phase A: 协作读工具 anchor 化 ✅ DONE (PR #2381, squash 9af8b2093, 2026-06-18)
+- [x] AC-A1: `get_thread_context` 默认返回 preview（非 full body），长 thread 单次返回 token 对比基线降 ≥60%（content-reduction 代理测试 ≥60% + returnedChars telemetry emit 就绪；生产 telemetry 复核归 eval 层 F192）
+- [x] AC-A2: 每条 preview 含 `id/threadId/timestamp/speaker/preview/contentLength/truncated/drillDown` 字段（speaker 走 sender-display 不泄漏 internal id；keyword 命中走 match-snippet 不变瞎子）
+- [x] AC-A3: `get_pending_mentions` 长 mention 用 head+tail excerpt + `requiresDrill=true`，传球指令关键信息不丢（fixture 验证）
+- [x] AC-A4: `list_tasks` 的 why 字段 preview 化（默认精简，taskId drill 取全文）
+- [x] AC-A5: 截断逻辑在 callback route projection helper（最内层），非 MCP wrapper（本地+云端 review 复核确认）
 
-### Phase B: drill 终点 bounded
-- [ ] AC-B1: `get_message` 支持 `mode=preview|full`（或 maxChars），默认非 full
-- [ ] AC-B2: full drill 显式触发，记录 `fullDrillChars` telemetry
+### Phase B: drill 终点 bounded ✅ DONE (PR #2381, squash 9af8b2093, 2026-06-18)
+- [x] AC-B1: `get_message` 支持 `mode=preview|full`，默认 preview（截断 + drillDown 指针，agent-key caller 注入 agentKeyCatId 一跳）
+- [x] AC-B2: full drill 显式触发，记录 `fullDrillChars` telemetry（含 context neighbors + contentBlocks 全量）
 
 ### Phase C: cc 原生工具 anchor 化（spike-gated — 这才是大头）
 > 前置 spike（与砚砚一起）：实测 cc PostToolUse hook + `updatedToolOutput` 能否 replace Read/Grep/Glob 返回。**spike 不过则本 Phase 不启动**（不脑补——文档说能 ≠ 我们场景能用）。
