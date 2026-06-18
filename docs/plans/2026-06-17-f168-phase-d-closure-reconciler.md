@@ -220,6 +220,46 @@ Phase D 的 `D0-D6` 是交付切面，不是 PR 切分键。默认不允许按�
 
 **禁止：** `D1`、`D2`、`D3`、`D4`、`D5` 各自开独立 PR，除非上表拆分条件命中并在 PR body 写明证据。Cloud review 修复 commits 不算新 PR。
 
+### 2.2 D-PR1 Implementation-Ready Packet
+
+**Entry state:** start from `origin/main` after PR #2369. D0.1 is complete; do not reopen the old `cat-cafe-f168-c1` worktree.
+
+**D-PR1 scope:**
+- D0.2-D0.6 prerequisite closure:
+  - replace `NarratorDriver` process-local `Set` dedup with an injected persistent dedup store; default TTL = none unless an explicit reviewed reason says otherwise.
+  - emit boot warning when narrator role is configured but `COMMUNITY_NARRATOR_THREAD_ID` is absent.
+  - add catId drift guard for `DEFAULT_COMMUNITY_ROLE_BINDINGS` vs cat template/catalog truth.
+  - move DirectionCard route schema to a shared/runtime parse seam so API + web do not maintain divergent routeRecommendation shapes.
+  - settle GuardianMatcher OQ-C1a by routing through RoleResolver, or keep a deliberately allowlisted TODO with a guard test.
+- D1 closure API:
+  - add `POST /api/community-issues/:id/report`.
+  - add `POST /api/community-issues/:id/waive-closure`.
+  - both endpoints append a `CommunityEvent` first, then apply projector synchronously.
+  - unlike older best-effort dispatch paths, these endpoints must fail visibly if required Event Log / Projector dependencies are absent or projector apply fails.
+- D2 closure checklist:
+  - add a pure `community-closure-checklist` selector.
+  - enrich board issue/PR items, including projection-only items, with `closureChecklist`.
+  - do not add a second canonical closure store.
+
+**D-PR1 acceptance matrix:**
+
+| AC | Required proof |
+|---|---|
+| D0.2 persistent narrator dedup | two `NarratorDriver` instances sharing the injected store do not double-spawn the same `(subjectKey, sourceEventId)` |
+| D0.3 narrator env warning | boot/index wiring test or focused config test proves missing `COMMUNITY_NARRATOR_THREAD_ID` logs a warning instead of silent no-op |
+| D0.4 catId drift guard | test fails when `DEFAULT_COMMUNITY_ROLE_BINDINGS.narrator.catId` is absent/unavailable in cat template/catalog truth |
+| D0.5 DirectionCard runtime schema | malformed routeRecommendation from API/fixture is rejected or safely ignored by shared parser; web does not trust raw unknown shape |
+| D0.6 GuardianMatcher settlement | guard proves route guardian source is explicit: RoleResolver path or a narrow allowlist with Phase D TODO |
+| D1 report action | fixed case + valid public evidence appends `case.reported`, projector sets `lastPublicCommentAt`, state becomes `reported` |
+| D1 waiver action | valid reason/actor/evidence appends `case.waived`, state remains unchanged, `closureWaiver` is stored |
+| D1 close guard | `issue.closed` from `fixed` still rejects without report/waiver and closes after report or waiver |
+| D2 checklist selector | fixed without report/waiver yields `fixed-not-reported`, reported/waived yields `readyToClose=true` when no other blocker exists |
+| D2 board enrichment | legacy and projection-only board items both include `closureChecklist`; missing fields fail closed as blockers |
+
+**Out of scope for D-PR1:** GitHub fetch/reconciler TaskSpec, finding store, SLA/dead-letter queue, frontend closure UX controls, GitHub comment/close side effects.
+
+**Hard split trigger:** if the persistent narrator dedup store requires a new shared infrastructure abstraction or cross-cell migration, split only D0.2-D0.6 as a prerequisite PR and keep D1+D2 together. Otherwise D0.2-D2 ships as one backend closure-core PR.
+
 ---
 
 ## 3. Implementation Tasks
