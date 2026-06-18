@@ -166,6 +166,27 @@ export function ConciergePanel() {
   // AC-A6: muted toggle — accessible from panel
   const handleMuteToggle = useCallback(() => void setMuted(!muted), [muted, setMuted]);
 
+  // F229 UX: cancel/stop in-progress invocation via scoped per-cat cancel (F122B AC-B9).
+  // Uses /cancel/:catId (scoped to the duty cat) instead of /force-reset (whole-thread nuclear).
+  // dutyCatId comes from useConciergeQueue which polls activeInvocations during in_progress.
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const handleCancel = useCallback(async () => {
+    if (!threadId || !queueStatus.dutyCatId || cancelLoading) return;
+    setCancelLoading(true);
+    try {
+      const res = await apiFetch(`/api/threads/${threadId}/cancel/${queueStatus.dutyCatId}`, {
+        method: 'POST',
+      });
+      if (res.ok) {
+        setInvocationStatus('idle');
+      }
+    } catch {
+      // Silently fail — user can retry or wait for natural timeout
+    } finally {
+      setCancelLoading(false);
+    }
+  }, [threadId, queueStatus.dutyCatId, cancelLoading, setInvocationStatus]);
+
   const handleSend = useCallback(async () => {
     const text = inputValue.trim();
     // cloud R5 fix: block send while initial history is loading so catMsgCountAtSendRef
@@ -376,7 +397,7 @@ export function ConciergePanel() {
                             borderColor: 'var(--cafe-border-subtle)',
                           }
                     }
-                    className="max-w-[85%] px-3 py-1.5 rounded-xl text-sm leading-snug whitespace-pre-wrap break-words"
+                    className="max-w-[85%] px-3 py-1.5 rounded-xl text-sm leading-snug whitespace-pre-wrap break-words overflow-hidden [overflow-wrap:anywhere]"
                   >
                     {/* Bug2 method A: inline marker buttons for duty cat replies.
                          User messages render as plain text (no markers to parse). */}
@@ -431,12 +452,30 @@ export function ConciergePanel() {
             </div>
           )}
           {invocationStatus === 'in_progress' && (
-            <div style={{ color: 'var(--cafe-text-secondary)' }} className="text-xs text-center mt-2" role="status">
-              {queueStatus.isRunning ? (
-                <span className="animate-pulse">猫猫球处理中…</span>
-              ) : (
-                <span className="animate-pulse">确认回复中…</span>
-              )}
+            <div className="flex items-center justify-center gap-2 mt-2" role="status">
+              <span style={{ color: 'var(--cafe-text-secondary)' }} className="text-xs animate-pulse">
+                {queueStatus.isRunning ? '猫猫球处理中…' : '确认回复中…'}
+              </span>
+              <button
+                type="button"
+                aria-label="停止回复"
+                disabled={cancelLoading || !queueStatus.dutyCatId}
+                onClick={() => void handleCancel()}
+                style={{
+                  color: 'var(--cafe-text-muted)',
+                  borderColor: 'var(--cafe-border-subtle)',
+                }}
+                className={[
+                  'px-2 py-0.5 rounded text-xs',
+                  'border',
+                  'transition-opacity duration-150',
+                  'hover:opacity-70',
+                  'disabled:opacity-40 disabled:cursor-not-allowed',
+                  'focus:outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--cafe-accent)]',
+                ].join(' ')}
+              >
+                {cancelLoading ? '停止中…' : '停止'}
+              </button>
             </div>
           )}
           {/* Error display */}
