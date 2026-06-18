@@ -21,6 +21,8 @@ export { CORE_COMMANDS } from './core-commands.js';
 export * from './registry/index.js';
 // Export all schemas
 export * from './schemas/index.js';
+// Export shared source-code extension helpers (F232 artifact classification + preview)
+export * from './source-code-extensions.js';
 // Export shared text helpers
 export * from './text-utils.js';
 // Export all types
