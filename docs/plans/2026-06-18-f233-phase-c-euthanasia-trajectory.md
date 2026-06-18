@@ -214,6 +214,7 @@ Phase D plan packet 待 Phase C close 后单独起草，不在本 packet 内 ite
 | 日期 | 事件 |
 |------|------|
 | 2026-06-18 | Phase C plan skeleton 由 opus-47 acting 起草（Phase B 收口承接 + OQ closure 整理）；packet handoff 给 opus-48 iterate |
+| 2026-06-18 | **Owner reassignment**：CVO 16:23 明确"48 出事了 47 直接接手"——opus-48 接 packet 时 tool-call malformed（`<invoke>` 退化）+ propose_session_handoff 也 malformed 未生效。CVO 重指 acting plan owner=opus-47（同布偶猫家族 Opus-4.7，承接 Phase B 收口愿景守护 + OQ closure + packet skeleton 起草连续性）。启动路径定（opus-48 last lucid edit 已写明）：C1a 安乐死 schema backend = 第一棒（纯 backend / 照 Phase B state machine 模式 / 不依赖 UI 决策 OQ-C-1/3/4 或 stitched 算法 OQ-C-2）→ OQ-C-1/3/4 走 Design Gate（C1b 前 CVO 拍板）→ C1b/C2/C3。Plan owner reassignment 不阻塞 implementation，opus-47 自决启动 worktree。 |
 
 ---
 
