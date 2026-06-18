@@ -8,7 +8,7 @@ created: 2026-06-18
 
 # F244: Capability Tips System — 等待态 Knowledge Feed 投影
 
-> **Status**: spec | **Owner**: 缅因猫/砚砚 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 缅因猫/砚砚 | **Priority**: P1
 
 ## Architecture Ownership
 
@@ -252,7 +252,7 @@ tips system 是 harness 改动，必须有闭环：
 | # | 问题 | 状态 |
 |---|------|------|
 | OQ-1 | tips manifest 第一版是否 hand-authored？ | ✅ 已定：第一版 hand-authored seed manifest；必须区分 `structureSource` 与 `bodySource`，CI 只验结构/anchor/action-required，不验 body 语义一致 |
-| OQ-2 | 第一版 UI 只进 chat waiting bar，还是同步进猫猫球/桌宠状态？ | ⬜ 待 CVO Design Gate 确认；建议：第一版 tip 展示只进 chat/thread waiting surfaces，但 primary action 可拉起 F229 输入框 draft；F229 主动/空闲态 tips 作为未来 consumer，不另起 source |
+| OQ-2 | 第一版 UI 只进 chat waiting bar，还是同步进猫猫球/桌宠状态？ | ✅ 已定：第一版 tip 展示只进 chat/thread waiting surfaces；primary action 拉起 F229 输入框 draft；F229 主动/空闲态 tips 作为未来 consumer，不另起 source |
 | OQ-3 | F192 侧复用 `eval:capability-wakeup` 还是新增 `eval:capability-tips` domain？ | ⬜ Phase D 定；先用 one-shot dogfood report |
 | OQ-4 | Tip action 打开 source 的主表面用 Workspace navigate、Guide card，还是右侧 help drawer？ | ✅ 已定：主表面用 F229 `open_concierge_draft`；不做右侧 help drawer；source/guide/capability 只作为 secondary action |
 
@@ -282,6 +282,7 @@ tips system 是 harness 改动，必须有闭环：
 | 2026-06-18 | CVO 提醒 F229 猫猫球也可能需要 tips；F244 记录边界：F229 是未来 consumer，Phase B 不实现猫猫球 surface，不另起 tips source |
 | 2026-06-18 | CVO 收敛 first-release action：tip hover "了解更多"，click 拉起 F229 猫猫球并预填输入框，不自动发送；F244 记录为 `open_concierge_draft` 主动作 |
 | 2026-06-18 | CVO 纠偏"不要规划临时版 / 不要脚手架"；F244 改为 final-shaped first release：第一刀使用终态 contract/action/source/eval 形状，只限制 inventory 和展示场景 |
+| 2026-06-18 | CVO 批准进入实现：砚砚 author/coder，Opus 4.8 review；后续只补充更多 tips，不补第二套系统 |
 
 ## Review Gate
 
@@ -301,3 +302,4 @@ tips system 是 harness 改动，必须有闭环：
 | **Ref** | `cat-cafe-skills/refs/capability-wakeup-index.md` | L0 §8 能力速查 |
 | **Ref** | `cat-cafe-skills/refs/shared-rules.md` | W7 + Magic Words 真相源 |
 | **Discussion** | `docs/discussions/2026-06-18-f244-design-gate/README.md` | Design Gate wireframe and CVO decision packet |
+| **Plan** | `docs/plans/2026-06-18-f244-capability-tips-final-slice.md` | One-PR final-shaped implementation slice |

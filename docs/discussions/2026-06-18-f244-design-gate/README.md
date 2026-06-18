@@ -7,7 +7,7 @@ created: 2026-06-18
 
 # F244 Design Gate — Waiting-State Capability Tips
 
-> Status: pending CVO confirmation
+> Status: approved for implementation
 
 ## Source
 
