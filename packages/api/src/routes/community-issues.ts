@@ -212,8 +212,10 @@ export const communityIssueRoutes: FastifyPluginAsync<CommunityIssuesRoutesOptio
       }
     }
 
-    // F168 Phase C C2.2: fire-and-forget narrator spawn after case.triaged (SPIKE-1 candidate a)
-    // NarratorDriver handles idempotency (INV-3) and error absorption internally.
+    // F168 Phase D D0.1: narrator eligibility gate + fire-and-forget spawn after case.triaged
+    // Manual dispatch always passes (INV-D0.2) — no event log read needed.
+    // D3 auto-reconciler will add the full gate check: read events → find case.bootstrap →
+    // compute lastWakeActivityAt from delivery-policy → call shouldSpawnNarratorForCase.
     if (opts.narratorDriver) {
       void opts.narratorDriver
         .spawnNarrator({
