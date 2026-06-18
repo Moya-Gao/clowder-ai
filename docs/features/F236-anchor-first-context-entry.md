@@ -78,6 +78,25 @@ spike（2026-06-16，C0a Read / C0b Grep ✅ 实证）证明 cc PostToolUse hook
 - [ ] AC-E3（sunset 触发 + Phase C 数据依据）: verdict **净亏 → 自动 alert** 标记该工具 anchor 该回退 inline（不靠铲屎官提醒）；verdict **净益 + 无变瞎子 → 作为 Phase C 扩展的数据依据**（非硬 gate）
 - [ ] AC-E4（接入 F192 不膨胀）: 实现挂 F192 harness eval system；F192 md 仅加一行 link 指向本节，F236 此节为 eval 设计真相源
 
+#### Design Notes（2026-06-18 宪宪 opus-48 session #4 调查 — 落库防 context 死亡）
+
+> 调查方法：Explore subagent 读 callbacks/telemetry/harness-eval 全链路（current line 已核，F233/F243 未碰 telemetry/eval 文件）。
+
+1. **Emission audit（现状 = 半成品确认）**：F236 anchor telemetry 当前仅 4 处、全是 `app.log.info` 到 stdout、零持久化（24h 丢）：
+   - `pending-mentions` → `callbacks.ts:1657`（`returnedChars`）
+   - `thread-context` → `callbacks.ts:2011`（`returnedChars`）
+   - `list-tasks` → `callback-task-routes.ts:255`（`returnedChars`）
+   - `get-message` full-drill → `callbacks.ts:2156`（`fullDrillChars`，条件 `isFullDrill`）
+2. **⚠️ Scope 修正（调查才发现，改写 AC-E1 范围）**：`anchorOpenRate`（信号①核心：drill/preview 相关率）与**任务返工轮次**（信号②变瞎子）**当前根本没 emit**。故 AC-E1 不只是"持久化已有 emission"，**前置子任务 = 先补 emit 这两个缺失信号**（anchorOpenRate 须关联 preview-event 与后续 drill-event；rework 须关联任务结果）。这才是本 phase 复杂度 3~4.5/5 的真来源。
+3. **Sink DECIDED（§4 自决：可逆 + 无外部用户影响 + 无新外部依赖 + 与现有 pattern 一致）**：**in-memory per-tool 聚合，复用 `callback-auth-telemetry.ts` 范式**（24h per-hour buckets，按 tool/catId 聚合，可选并行 emit OTel counter）。
+   - 依据：F192 现有 3 个 telemetry store **全是 in-memory ring buffer**（`local-trace-store` 24h / `metrics-snapshot-store` 6h / `callback-auth-telemetry` 24h）→ 架构一致选择就是 in-memory，**不引入新 Redis durable store**。
+   - 否决：`metrics-snapshot-store`（6h 保留期 < daily cron 窗口，盲区太大）；新 Redis durable store（与 F192 pattern 不一致 + over-engineer，eval 信号 lose-on-restart 可接受，非 LL-048 用户态）。
+   - 这也右调了 handoff 的"sink 影响 broad infra 须先咨询"顾虑：一致选择恰恰是**不加新 infra**，故 sink 不再是须升级的岔路。
+4. **Verdict 机制 = eval-cat-in-loop（非 auto-generator）**：AC-E2 走 F192 既有范式——注册 eval domain（带 `evalCat`），cron 唤醒 eval 猫读聚合 telemetry → 产 `VerdictHandoffPacket`（schema `verdict-handoff.ts:7`，`verdict` 枚举 `delete_sunset|build|fix|keep_observe`）。**不写确定性净收益计算函数**（与 handoff instinct 一致）。
+5. **🔀 OPEN 设计岔路 → 已路由 @opus47（2026-06-18，session #4）**：F236 该**自立 eval domain**（`eval:f236-anchor`，须 bump `VerdictHandoffPacket` domainId 枚举 + 新 sourceAdapter）**还是** blindness 信号(②)**fold 进已存在的 `eval:task-outcome`**（它本就测任务正确性/返工，信号②天然属其领域）？
+   - 宪宪推荐（待架构确认）：**hybrid** — F236 自持 anchor-tax 遥测+verdict（②anchor 税是 tool-design 专属），blindness 信号**与 `eval:task-outcome` 关联**而非 F236 重新埋点（避免 DRY 违反）。
+   - 这是 AC-E2/E4 的前置；AC-E1（sink + 补 emit）**fork-invariant，可先建**。岔路涉跨 feature domain 粒度哲学（F192 territory），故求架构猫一眼。
+
 ### Phase C: cc 原生工具 anchor 化（spike-gated — 这才是大头）
 > 前置 spike（与砚砚一起）：实测 cc PostToolUse hook + `updatedToolOutput` 能否 replace Read/Grep/Glob 返回。**spike 不过则本 Phase 不启动**（不脑补——文档说能 ≠ 我们场景能用）。
 - [x] **AC-C0a (spike) ✅ PASS**: `claude -p/sdk-cli` 下 shape-matched PostToolUse `Read.updatedToolOutput` replace（保 `.file.content` 结构）+ bounded drill pass-through（`Read(offset,limit)` 返回真实 slice）实证 — spike 报告 `docs/research/2026-06-16-f236-posttooluse-anchor-spike.md`，双猫复核
