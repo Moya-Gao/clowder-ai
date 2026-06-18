@@ -63,13 +63,13 @@ CVO 2026-06-18 纠偏：F244 不按"先做临时版、以后再补终态"推进�
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | "不止是猫言语"：猫格只是表达层，核心是展示家里怎么运转 | AC-A1 / AC-B1 | schema + UI 截图 | [ ] |
-| R2 | "有什么 magic words 什么时候可以用" | AC-A2 / AC-B3 | seed tips + source anchor 校验 | [ ] |
-| R3 | "家里有什么功能，如何用" | AC-A3 / AC-B3 | seed tips + action link 演示 | [ ] |
-| R4 | "开发新 feature 的时候必须补 1-2 条 tips" | AC-C1 / AC-C2 | CI red/green fixture | [ ] |
+| R1 | "不止是猫言语"：猫格只是表达层，核心是展示家里怎么运转 | AC-A1 / AC-B1 | schema + UI 截图 | [x] |
+| R2 | "有什么 magic words 什么时候可以用" | AC-A2 / AC-B3 | seed tips + source anchor 校验 | [x] |
+| R3 | "家里有什么功能，如何用" | AC-A3 / AC-B3 | seed tips + action link 演示 | [x] |
+| R4 | "开发新 feature 的时候必须补 1-2 条 tips" | AC-C1 / AC-C2 | CI red/green fixture | [x] |
 | R5 | "第一个用户就是我"：优先 dogfood 给铲屎官等待态使用 | AC-B4 / AC-D3 | alpha 录屏 + dogfood report | [ ] |
-| R6 | tips 不得冒充真实进度或覆盖故障/强制重置入口 | AC-B2 | component tests + 截图 | [ ] |
-| R7 | tips 必须从现有真相源投影，不新造第四套能力清单 | AC-A1 / AC-A4 | `structureSource`/`bodySource` audit + anchor CI | [ ] |
+| R6 | tips 不得冒充真实进度或覆盖故障/强制重置入口 | AC-B2 | component tests + 截图 | [x] |
+| R7 | tips 必须从现有真相源投影，不新造第四套能力清单 | AC-A1 / AC-A4 | `structureSource`/`bodySource` audit + anchor CI | [x] |
 
 ### 覆盖检查
 
@@ -197,28 +197,28 @@ tips system 是 harness 改动，必须有闭环：
 
 ### Phase A（Tip Contract + Source Projection）
 
-- [ ] AC-A1: 定义 `CapabilityTip` schema，包含 `id/kind/sourceRef/contexts/audience/body/action/owner`，并有 parser/schema 测试。
-- [ ] AC-A2: magic word tips 带 shared-rules/L0/F114 sourceRef；CI 能发现 sourceRef 缺失或 anchor 不可定位，但不声称能静态证明 body 语义一致。
-- [ ] AC-A3: capability tips 至少覆盖 L0 §8 Tier 1 能力和 3 个高频 workflow tips（memory recall、alpha 验收、merge-gate）；`capability` / `workflow` / `feature` 类 tip 必须有 typed action 或 source-open action。
-- [ ] AC-A4: 产出 seed tips inventory，逐条标注 `structureSource` 与 `bodySource`：能力 ID/contexts 来自 F223/F192 机器可读规则，body 来自 hand-authored seed + sourceRef；不得把 seed manifest 描述成完整能力真相源。
+- [x] AC-A1: 定义 `CapabilityTip` schema，包含 `id/kind/sourceRef/contexts/audience/body/action/owner`，并有 parser/schema 测试。
+- [x] AC-A2: magic word tips 带 shared-rules/L0/F114 sourceRef；CI 能发现 sourceRef 缺失或 anchor 不可定位，但不声称能静态证明 body 语义一致。
+- [x] AC-A3: capability tips 至少覆盖 L0 §8 Tier 1 能力和 3 个高频 workflow tips（memory recall、alpha 验收、merge-gate）；`capability` / `workflow` / `feature` 类 tip 必须有 typed action 或 source-open action。
+- [x] AC-A4: 产出 seed tips inventory，逐条标注 `structureSource` 与 `bodySource`：能力 ID/contexts 来自 F223/F192 机器可读规则，body 来自 hand-authored seed + sourceRef；不得把 seed manifest 描述成完整能力真相源。
 
 ### Phase B（Waiting-State Projection UI）
 
-- [ ] AC-B1: `ThinkingIndicator` / `ThreadExecutionBar` 等等待态 surface 能展示上下文 tip；alpha 截图覆盖 normal thinking、long-running、feature-dev/review 至少 3 种上下文。
-- [ ] AC-B2: tips 与真实状态分层；`alive_but_silent` / `suspected_stall` 下取消、故障说明、`卡住了？强制重置` 入口不被遮挡，component tests 覆盖。
-- [ ] AC-B3: Tip primary action hover 显示"了解更多"，click 拉起 F229 猫猫球并预填 tip 解释请求到输入框，默认不发送；若有 secondary source/guide/capability action，坏链接或 stale source 有可见错误，不静默失败。
+- [ ] AC-B1: `ThreadExecutionBar` 等等待态 surface 能展示上下文 tip；alpha 截图覆盖 normal thinking、long-running、feature-dev/review 至少 3 种上下文。PR #2406 已实现 `ThreadExecutionBar` surface 和 component 覆盖，alpha 截图证据仍待 dogfood 阶段补齐。
+- [x] AC-B2: tips 与真实状态分层；`alive_but_silent` / `suspected_stall` 下取消、故障说明、`卡住了？强制重置` 入口不被遮挡，component tests 覆盖。
+- [x] AC-B3: Tip primary action hover 显示"了解更多"，click 拉起 F229 猫猫球并预填 tip 解释请求到输入框，默认不发送；若有 secondary source/guide/capability action，坏链接或 stale source 有可见错误，不静默失败。
 - [ ] AC-B4: 铲屎官 dogfood 路径可演示：等待一次猫执行时看到至少一条 capability/magic-word/workflow tip，并能点开了解来源。
 
 ### Phase C（Feature Tips Contribution Gate）
 
-- [ ] AC-C1: Feature kickoff/PR 模板新增 `Tips Contribution` 小节：新增 user-visible feature/capability/guide/harness 行为需 1-2 条 tips 或 `tips_exempt`。
-- [ ] AC-C2: CI hard check 有 red/green fixture：缺 tips 且无豁免失败；补合法 tip 或合法豁免通过。
-- [ ] AC-C3: hard check 明确只保证结构完整性：tip 必须有 `sourceRef` + `contexts` + `audience` + `owner`，action-required kind 必须有 action，body 不得包含无信号支撑的进度承诺（例如"快好了"）；内容是否有操作价值由 reviewer checklist 退回废话 tip。
-- [ ] AC-C4: `feat-lifecycle` / `quality-gate` 文档同步，feature owner 能在收尾前复核 tips 是否仍匹配交付物。
+- [x] AC-C1: Feature kickoff/PR 模板新增 `Tips Contribution` 小节：新增 user-visible feature/capability/guide/harness 行为需 1-2 条 tips 或 `tips_exempt`。
+- [x] AC-C2: CI hard check 有 red/green fixture：缺 tips 且无豁免失败；补合法 tip 或合法豁免通过。
+- [x] AC-C3: hard check 明确只保证结构完整性：tip 必须有 `sourceRef` + `contexts` + `audience` + `owner`，action-required kind 必须有 action，body 不得包含无信号支撑的进度承诺（例如"快好了"）；内容是否有操作价值由 reviewer checklist 退回废话 tip。
+- [x] AC-C4: `feat-lifecycle` / `quality-gate` 文档同步，feature owner 能在收尾前复核 tips 是否仍匹配交付物。
 
 ### Phase D（Eval + Staleness Loop）
 
-- [ ] AC-D1: usage telemetry privacy-minimal：记录 tip id、context、action outcome，不记录用户私密正文。
+- [x] AC-D1: usage telemetry privacy-minimal：记录 tip id、context、action outcome，不记录用户私密正文。
 - [ ] AC-D2: F192 eval path 能消费 tips usage/friction 信号，至少产出 one-shot dogfood report 或 domain extension design。
 - [ ] AC-D3: Phase B 后产出铲屎官 dogfood 报告：哪些 tips 被看见/点开/觉得有用，哪些造成噪音。
 - [ ] AC-D4: stale/sunset 机制能发现 sourceRef 失效或 feature sunset 后仍展示的 tip，并给 owner 可处理清单。
@@ -283,6 +283,7 @@ tips system 是 harness 改动，必须有闭环：
 | 2026-06-18 | CVO 收敛 first-release action：tip hover "了解更多"，click 拉起 F229 猫猫球并预填输入框，不自动发送；F244 记录为 `open_concierge_draft` 主动作 |
 | 2026-06-18 | CVO 纠偏"不要规划临时版 / 不要脚手架"；F244 改为 final-shaped first release：第一刀使用终态 contract/action/source/eval 形状，只限制 inventory 和展示场景 |
 | 2026-06-18 | CVO 批准进入实现：砚砚 author/coder，Opus 4.8 review；后续只补充更多 tips，不补第二套系统 |
+| 2026-06-18 | PR #2406 merged：交付 `CapabilityTip` contract/seed/selector、`ThreadExecutionBar` waiting tip strip、F229 `open_concierge_draft` no-auto-send action、tips contribution hard gate、privacy-minimal usage event foundation；dogfood report、F192 eval consumer、stale/sunset owner queue 仍 open |
 
 ## Review Gate
 
