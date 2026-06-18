@@ -82,7 +82,7 @@ spike（2026-06-16，C0a Read / C0b Grep ✅ 实证）证明 cc PostToolUse hook
     - **agy**（`hooks.json` PostToolCallHook）：⚠️ **深路不成立**（砚砚 P1）——① 官方 SDK README 把 PostToolCallHook 归为 **inspect/read-only**（能拿 `ToolResult.result` ≠ 能改）；② 家里 **F061 AC-2cR4 实测**（@antig-opus 2026-04-21/23）：agy `view_file`/`grep_search`/`list_dir` 全 **LS 内部 DONE 自闭环、不走 Cat Café Bridge writeback**，carrier 插不进去。**纠正前文"最接近 cc"**（observe≠transform + 漏 recall F061）。要省 agy 模型 token 须另起实测证 transform path 存在（现不成立）
     - **修正**：spike A 从"rtk 用 rules.md"误推"agy 没 hook"——官方文档推翻（agy 有 PostToolCallHook，rtk 只是没用它）。又一次旁证脑补被查证纠偏
     - **实测（nonce probe）留 Phase C**：cc 已证 PostToolUse output replace 范式真实（核心打底）+ codex/agy hook/config 已查到；codex 实测烧贵配额（缅因猫额度），spike 阶段 cost>边际价值，Phase C 实现期实测确认
-    - 来源：codex `developers.openai.com/codex/hooks` / agy `antigravity.google/docs/hooks`（checked 2026-06-17）
+    - 来源：codex `developers.openai.com/codex/hooks` / agy **官方 SDK README（PostToolCallHook read-only）+ 家里 F061 AC-2cR4 实测**（`antigravity.google/docs/hooks` 返空，砚砚改用 SDK README 核验）（checked 2026-06-17）
 - [ ] AC-C4: 双边 eval 对 cc 工具同样适用（Read drill 净收益 = 省 − drill 成本）
 - [ ] **AC-C5（变瞎子 gate，砚砚 P1 — 实现前置硬约束）**: 原生 Read/Grep 默认 anchor **只在 blindness eval 通过后开启**——① debug/review/未知任务**默认保守给全文**；② 小文件/短 grep **full pass-through**（不 anchor）；③ 大文件 anchor **必须显式标省略 + 一跳 full drill**；④ Sunset② 判断质量 eval 未过 → 不开默认 anchor。**这是 gate 不是描述：AC-C1/C2 的默认 anchor 受本条约束。**
 
@@ -120,7 +120,7 @@ spike（2026-06-16，C0a Read / C0b Grep ✅ 实证）证明 cc PostToolUse hook
 |----|------|
 | **软** | skill/convention：新增读类 MCP 工具默认 preview+anchor；ADR-203 立原则 |
 | **硬** | route projection helper 强制 preview（最内层封顶）；regression fixture 守 token 上限；lint 检测新读类工具缺 preview（Phase B） |
-| **eval** | 双边公式 telemetry（returnedChars / anchorOpenRate / fullDrillChars / 返工）；sunset signal 监控 anchor tax |
+| **eval** | 双边 telemetry（returnedChars / anchorOpenRate / fullDrillChars / 返工）+ **blindness signal（任务正确性 / 返工率，测变瞎子）**；sunset **双信号**监控 anchor tax ① + 变瞎子 ② |
 
 ## Architecture cell
 - **Architecture cell**: MCP server tools + API callback routes（返回 payload 组装）
