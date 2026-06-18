@@ -8,7 +8,9 @@ created: 2026-06-12
 
 # F233: Ball Custody Observability — 球权保管链可观测（值班简报 + 轨迹下钻）
 
-> **Status**: in-progress | **Owner**: 宪宪 Opus-4.8（plan + 实现 + Phase 末守护；原 fable-5 角色因 model 暂不可用，CVO 2026-06-15 指示 opus-48 接管 own）· reviewer: 缅因猫 | **Priority**: P1
+> **Status**: in-progress（Phase A ✅ + Phase B ✅ 2026-06-18 收口 · Phase C pending CVO signoff）| **Owner**: 宪宪 Opus-4.8（plan + 实现 + Phase 末守护；原 fable-5 角色因 model 暂不可用，CVO 2026-06-15 指示 opus-48 接管 own）· reviewer: 缅因猫 | **Priority**: P1
+>
+> **Phase B 收口**（2026-06-18）：PR #2364（B1 骨架）+ #2374（cross-post alias）+ #2380（PR4 ProbeScheduler/WakeSender + 简报切源，AC-B1/B2/B3 端到端）+ #2378（callback-routing state contract，consumer×cell matrix 终止 LL-072 saga）全 merge。13/13 event wired + 状态机 INV-10 全覆盖。opus-47 整体收口愿景守护 PASS。剩两个独立 follow-up（非阻塞）：B1 redis 测试并发 race / LL-082 hard-layer dirty-diff ledger。
 Architecture cell: `ball-custody`
 Map delta: new cell required — Phase B 新增 append-only event log + projector + projection store；Phase A rich block surface 仍属既有 hub-action-surface。
 
