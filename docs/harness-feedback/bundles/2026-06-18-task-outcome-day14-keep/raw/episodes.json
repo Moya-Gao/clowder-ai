@@ -1,0 +1,314 @@
+{
+  "verdictId": "2026-06-18-task-outcome-day14-keep",
+  "windowStartMs": 1781665200000,
+  "windowEndMs": 1781751600000,
+  "taskOutcomeDbPath": "/Users/lysander/projects/relay-station/cat-cafe-runtime/task-outcome-episodes.sqlite",
+  "eventMemoryDbPath": "/Users/lysander/projects/relay-station/cat-cafe-runtime/event-memory.sqlite",
+  "episodes": [
+    {
+      "episodeId": "ep-1781667750794-trel23",
+      "trigger": "cat_initiated",
+      "threadId": "thread_mqgrbaol7mbx6ygs",
+      "participants": [],
+      "artifacts": [],
+      "terminalState": "completed",
+      "verdict": null,
+      "createdAt": "2026-06-17T03:42:30.794Z"
+    },
+    {
+      "episodeId": "ep-1781667982187-26pnmf",
+      "trigger": "cat_initiated",
+      "threadId": "thread_mqhe70i9bsy9dvji",
+      "participants": [],
+      "artifacts": [],
+      "terminalState": "completed",
+      "verdict": null,
+      "createdAt": "2026-06-17T03:46:22.187Z"
+    },
+    {
+      "episodeId": "ep-1781671281892-0yguxh",
+      "trigger": "cat_initiated",
+      "threadId": "thread_mo3g2p88okl7u4ai",
+      "participants": [],
+      "artifacts": [],
+      "terminalState": "completed",
+      "verdict": null,
+      "createdAt": "2026-06-17T04:41:21.892Z"
+    },
+    {
+      "episodeId": "ep-1781677463244-00fod9",
+      "trigger": "cat_initiated",
+      "threadId": "thread_mqhi1sqdhm516flk",
+      "participants": [],
+      "artifacts": [],
+      "terminalState": "completed",
+      "verdict": null,
+      "createdAt": "2026-06-17T06:24:23.244Z"
+    },
+    {
+      "episodeId": "ep-1781678430150-s16g6k",
+      "trigger": "cat_initiated",
+      "threadId": "thread_mqgrbaol7mbx6ygs",
+      "participants": [],
+      "artifacts": [],
+      "terminalState": "completed",
+      "verdict": null,
+      "createdAt": "2026-06-17T06:40:30.150Z"
+    },
+    {
+      "episodeId": "ep-1781681962375-uv53b6",
+      "trigger": "cat_initiated",
+      "threadId": "thread_mqgn5834h96st2mq",
+      "participants": [],
+      "artifacts": [],
+      "terminalState": "completed",
+      "verdict": null,
+      "createdAt": "2026-06-17T07:39:22.375Z"
+    },
+    {
+      "episodeId": "ep-1781695646118-n2ix7n",
+      "trigger": "cat_initiated",
+      "threadId": "thread_mqguyzozyzfphdmi",
+      "participants": [],
+      "artifacts": [],
+      "terminalState": "completed",
+      "verdict": null,
+      "createdAt": "2026-06-17T11:27:26.118Z"
+    },
+    {
+      "episodeId": "ep-1781696781266-6foo1o",
+      "trigger": "cat_initiated",
+      "threadId": "thread_mqgn5834h96st2mq",
+      "participants": [],
+      "artifacts": [],
+      "terminalState": "completed",
+      "verdict": null,
+      "createdAt": "2026-06-17T11:46:21.266Z"
+    },
+    {
+      "episodeId": "ep-1781708729385-gscdbq",
+      "trigger": "cat_initiated",
+      "threadId": "thread_mqgn5834h96st2mq",
+      "participants": [
+        "opus-47"
+      ],
+      "artifacts": [],
+      "terminalState": "in_progress",
+      "verdict": null,
+      "createdAt": "2026-06-17T15:05:29.385Z"
+    },
+    {
+      "episodeId": "ep-1781711331304-agial3",
+      "trigger": "cat_initiated",
+      "threadId": "thread_mqi8013gf54ylaw4",
+      "participants": [],
+      "artifacts": [],
+      "terminalState": "completed",
+      "verdict": null,
+      "createdAt": "2026-06-17T15:48:51.304Z"
+    },
+    {
+      "episodeId": "ep-1781713307120-3tjvnz",
+      "trigger": "cat_initiated",
+      "threadId": "thread_mq4xn5cgu3qsw1ge",
+      "participants": [],
+      "artifacts": [],
+      "terminalState": "completed",
+      "verdict": null,
+      "createdAt": "2026-06-17T16:21:47.120Z"
+    },
+    {
+      "episodeId": "ep-1781747561024-j569to",
+      "trigger": "cat_initiated",
+      "threadId": "thread_mqi54fag1moyg20t",
+      "participants": [],
+      "artifacts": [],
+      "terminalState": "completed",
+      "verdict": null,
+      "createdAt": "2026-06-18T01:52:41.024Z"
+    },
+    {
+      "episodeId": "ep-1781749420915-ca3ads",
+      "trigger": "cat_initiated",
+      "threadId": "thread_mq9j773b113zscpx",
+      "participants": [],
+      "artifacts": [],
+      "terminalState": "completed",
+      "verdict": null,
+      "createdAt": "2026-06-18T02:23:40.915Z"
+    }
+  ],
+  "signals": [
+    {
+      "id": 240,
+      "episodeId": "ep-1781667750794-trel23",
+      "category": "a1",
+      "record": {
+        "type": "merge",
+        "ref": "PR#2333",
+        "outcome": "success",
+        "timestamp": "2026-06-17T03:42:30.794Z"
+      },
+      "createdAt": "2026-06-17T03:42:30.794Z"
+    },
+    {
+      "id": 241,
+      "episodeId": "ep-1781667982187-26pnmf",
+      "category": "a1",
+      "record": {
+        "type": "merge",
+        "ref": "PR#2336",
+        "outcome": "success",
+        "timestamp": "2026-06-17T03:46:22.187Z"
+      },
+      "createdAt": "2026-06-17T03:46:22.187Z"
+    },
+    {
+      "id": 242,
+      "episodeId": "ep-1781671281892-0yguxh",
+      "category": "a1",
+      "record": {
+        "type": "merge",
+        "ref": "PR#2337",
+        "outcome": "success",
+        "timestamp": "2026-06-17T04:41:21.896Z"
+      },
+      "createdAt": "2026-06-17T04:41:21.896Z"
+    },
+    {
+      "id": 243,
+      "episodeId": "ep-1781677463244-00fod9",
+      "category": "a1",
+      "record": {
+        "type": "merge",
+        "ref": "PR#2335",
+        "outcome": "success",
+        "timestamp": "2026-06-17T06:24:23.244Z"
+      },
+      "createdAt": "2026-06-17T06:24:23.244Z"
+    },
+    {
+      "id": 244,
+      "episodeId": "ep-1781678430150-s16g6k",
+      "category": "a1",
+      "record": {
+        "type": "merge",
+        "ref": "PR#2341",
+        "outcome": "success",
+        "timestamp": "2026-06-17T06:40:30.151Z"
+      },
+      "createdAt": "2026-06-17T06:40:30.151Z"
+    },
+    {
+      "id": 245,
+      "episodeId": "ep-1781681962375-uv53b6",
+      "category": "a1",
+      "record": {
+        "type": "merge",
+        "ref": "PR#944",
+        "outcome": "success",
+        "timestamp": "2026-06-17T07:39:22.380Z"
+      },
+      "createdAt": "2026-06-17T07:39:22.380Z"
+    },
+    {
+      "id": 247,
+      "episodeId": "ep-1781695646118-n2ix7n",
+      "category": "a1",
+      "record": {
+        "type": "merge",
+        "ref": "PR#2344",
+        "outcome": "success",
+        "timestamp": "2026-06-17T11:27:26.119Z"
+      },
+      "createdAt": "2026-06-17T11:27:26.119Z"
+    },
+    {
+      "id": 248,
+      "episodeId": "ep-1781696781266-6foo1o",
+      "category": "a1",
+      "record": {
+        "type": "merge",
+        "ref": "PR#2345",
+        "outcome": "success",
+        "timestamp": "2026-06-17T11:46:21.267Z"
+      },
+      "createdAt": "2026-06-17T11:46:21.267Z"
+    },
+    {
+      "id": 249,
+      "episodeId": "ep-1781708729385-gscdbq",
+      "category": "a2",
+      "record": {
+        "type": "magic_word_ref",
+        "eventId": "evt_mqi7di5kjo47t8ku",
+        "word": "下次一定",
+        "timestamp": "2026-06-17T15:05:29.386Z",
+        "threadId": "thread_mqgn5834h96st2mq",
+        "catId": "opus-47"
+      },
+      "createdAt": "2026-06-17T15:05:29.386Z"
+    },
+    {
+      "id": 250,
+      "episodeId": "ep-1781711331304-agial3",
+      "category": "a1",
+      "record": {
+        "type": "merge",
+        "ref": "PR#953",
+        "outcome": "success",
+        "timestamp": "2026-06-17T15:48:51.305Z"
+      },
+      "createdAt": "2026-06-17T15:48:51.305Z"
+    },
+    {
+      "id": 251,
+      "episodeId": "ep-1781713307120-3tjvnz",
+      "category": "a1",
+      "record": {
+        "type": "merge",
+        "ref": "PR#2353",
+        "outcome": "success",
+        "timestamp": "2026-06-17T16:21:47.120Z"
+      },
+      "createdAt": "2026-06-17T16:21:47.120Z"
+    },
+    {
+      "id": 252,
+      "episodeId": "ep-1781747561024-j569to",
+      "category": "a1",
+      "record": {
+        "type": "merge",
+        "ref": "PR#2361",
+        "outcome": "success",
+        "timestamp": "2026-06-18T01:52:41.025Z"
+      },
+      "createdAt": "2026-06-18T01:52:41.025Z"
+    },
+    {
+      "id": 253,
+      "episodeId": "ep-1781749420915-ca3ads",
+      "category": "a1",
+      "record": {
+        "type": "merge",
+        "ref": "PR#2354",
+        "outcome": "success",
+        "timestamp": "2026-06-18T02:23:40.916Z"
+      },
+      "createdAt": "2026-06-18T02:23:40.916Z"
+    }
+  ],
+  "eventRows": [
+    {
+      "eventId": "evt_mqi7di5kjo47t8ku",
+      "type": "下次一定",
+      "trigger": "human_brake",
+      "cat": "opus-47",
+      "threadId": "thread_mqgn5834h96st2mq",
+      "messageId": "0001781708729381-000075-bae14e42",
+      "timestamp": 1781708729383,
+      "summary": "#943 啥情况？ 你还有下次一定吗？ 还是都闭环了",
+      "confidence": "high"
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "verdictId": "2026-06-18-task-outcome-day14-keep",
+  "evalSnapshotId": "eval-F192-2026-06-18",
+  "featureId": "F192",
+  "generatedAt": "2026-06-18T03:01:23.459Z",
+  "window": {
+    "startMs": 1781665200000,
+    "endMs": 1781751600000,
+    "durationHours": 24
+  },
+  "components": [
+    {
+      "id": "Phase-G-v0",
+      "name": "task-outcome eval pipeline",
+      "confidence": "medium",
+      "activationCounts": {
+        "episodes_total": 13,
+        "completed_total": 12,
+        "in_progress_total": 1,
+        "abandoned_total": 0,
+        "escalated_cvo_total": 0,
+        "corrected_then_completed_total": 0,
+        "a1_signals_total": 12,
+        "a2_signals_total": 1,
+        "proxy_signals_total": 0
+      },
+      "frictionCounts": {
+        "permission_cancel_total": 0,
+        "proposal_reject_total": 0,
+        "magic_word_ref_total": 1
+      }
+    },
+    {
+      "id": "F227-event-memory",
+      "name": "event memory timeline",
+      "confidence": "medium",
+      "activationCounts": {
+        "events_backfilled_visible": 1,
+        "confidence_high_count": 1,
+        "confidence_mid_count": 0,
+        "confidence_low_count": 0
+      },
+      "frictionCounts": {}
+    }
+  ]
+}
