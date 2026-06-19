@@ -769,6 +769,52 @@ cat_cafe_hold_ball({
 
 **Eval / Tracking Contract**：新增 friction metric `gate_keeping_guard_blocked_total`。Regression fixture：`gate-keeping-guard-register-pr-tracking.test.js`、`gate-keeping-guard-register-issue-tracking.test.js`、`gate-keeping-guard-hold-ball.test.js`、`github-repo-webhook-gate-keeping-marker.test.js`、`repo-scan-admission-gate-self-heal.test.js`、`repo-scan-gate-keeping-self-heal.test.js`。Sunset：若守门 thread 不再作为 opensource/community intake 的路由形态存在，Phase N guard 随该 thread kind sunset；否则保留为基础设施。
 
+> **⚠️ Phase N 状态（2026-06-18 18:00 PDT）**：interim surface-fix；**superseded by Phase O**。铲屎官 push back 指出 Phase N 把 "thread 标签是守门" 当真相源一刀切 hard-block，**没碰真核心**——「接球的猫把传球的当真相源头无条件信任」。Phase N 的 `threadKind` 持久化 + reconciliation self-heal 基础设施可被 Phase O 复用；Phase N hard-block 三工具的策略待 Phase O 设计后看 **revert / patch / 留作特例** 三选一。**守门猫合法 wait 场景**（等 reporter 补复现步骤 / 等 issue commenter 澄清意图）**当前被 Phase N 误伤**——`register_issue_tracking` + `hold_ball(reason='等外部输入')` 被一刀切 block。Phase O 收敛前不立即 revert，但要记录此误伤面。
+
+### Phase O（接球真相核验通用 harness — first-principles 重设计，2026-06-18 propose）
+
+**Why（铲屎官 2026-06-18 北极星）**：「我不希望连级失败！别让我看到 thread b c d 要么去干不属于自己的事情，要么明明自己的事情不知道哪里来的幻觉昏头喵和他们说『你们本来的事情不属于你们』，然后他们还对对对」。Phase N 只解决「守门 thread 内 dual-owner」一个 surface 子集（约 5%），真正的 a2a 路由质量 90% 未覆盖。
+
+**铲屎官 push back 核心原话**：
+
+> 「本质... failure-mode 就是**接球的猫把传球的当真相源头无条件信任**！」
+> 「比如说守门猫看了两个字认为这个是你们 thread，结果其实就那两个字沾边剩下 999999 个字无关！」
+
+**Failure-mode 三类**（铲屎官给的 case，等同表达）：
+1. **虚假归属**：thread A 的猫 a 跟 thread B 的猫 b 说"这是你的活"，b 说"对对对" — 但 a 在瞎说
+2. **跨 thread 错误权威**：thread A 的猫让 thread B 的猫"不要跟 thread B 的 PR B 的猫听话"
+3. **错误派活 + 接球边界失控**：thread A 把不相关的活丢给 thread C，C 根本不负责，**C 也接了**
+
+**第一性原理**（@opus-47 总结，等 Phase O thread 讨论 push back）：所有 failure-mode 收敛到——**接球时，传球内容里的归属/授权 claim 不能直接作为真相源；必须能在第二源核验**。
+
+| 接球动作 | claim | 第二源 resolver |
+|---------|-------|----------------|
+| 接 `cross_post("这是你的活")` | "我是 owner" | feat_index / git log --grep --author / PR author |
+| 接 `@mention("你接吧")` | "应该是我接" | 当前 catId 是不是 owner？|
+| 接 `merge` 听到 "CVO signoff" | "CVO 同意" | thread context 有没有 landy 本人 messageId 字面引用 |
+| 接 issue 派单（守门猫 2 字沾边） | "这是 thread B 的活" | 关键词命中 ≠ 归属；拉 feat owner / PR 状态 |
+| 接 `hold_ball(reason=等X)` | "X 真的会回我" | reason 能反推到 callback（PR tracking / webhook / 用户 ping）？还是凭空等 |
+
+**三层 harness 草案**（待 Phase O thread 收敛）：
+- **软层 skill** `接球-receive-handoff`：每次接球前强制三问（claim 是什么？第二源在哪？查了一致吗？）
+- **硬层 MCP guard**：接球类工具 server 端要求 claim → resolver → 至少一个第二源 ref；缺则 warn（不立刻 block，先 telemetry 跑一周看真分布）
+- **eval**：「查没查 / 命中 / 命中不一致」counter + F192 weekly verdict
+
+**Sonnet Phase N 愿景守护 APPROVE 检讨（self-pwn）**：sonnet 看了"AC ✅ 三层 harness ✅"放行，但没问"守门猫 daily SOP 还跑得起来吗"，也没识别 Phase N 是 surface-fix vs first-principles。Phase O 愿景守护规则补强：**对照「真痛点 → 解决度」做百分比评估**，不只看自洽性。
+
+**讨论 thread**：propose `proposal_mqkar300spszj6tx`（pending CVO ack）— @codex（砚砚）chain starter，@opus48 后接；`reportingMode=final-only`，收敛后 cross_post 回 `thread_mqiwk2ir6u1jyrbk` 给 `opus-47` 实施。
+
+**讨论议题**：
+1. 第一性原理总结对吗？漏了「**传球者可信度等级**」（铲屎官 / 普通猫 / 平行自己）维度吗
+2. 第二源 resolver 列表完整吗？
+3. server 硬卡 vs client prompt reflex？哪种生效更好
+4. Phase N 真能 demote 成"特例"留着？还是必须 revert
+5. 实施顺序 + dogfood 计划
+
+**AC / Spec / Plan / Owner**：待 Phase O design thread 收敛后回填。
+
+**F167 Close 门槛更新**：Phase N 不是 F167 close 的最后一步；Phase O 收敛 + 实施 + 1 周 telemetry 观察后才可 close。Phase N 与 Phase O 关系视收敛结果回填。
+
 ## Behavioral Evidence（Phase B 观察记录）
 
 ### Case E1: 砚砚任务替换 + 宪宪行动偏好（2026-04-18 同日双发）
