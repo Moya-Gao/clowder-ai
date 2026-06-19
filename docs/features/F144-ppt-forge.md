@@ -390,12 +390,12 @@ imagegen 猫: 逐页生成精美 raster PNG
 | OQ-2 | ~~Pencil MCP 能否直接导出 PPTX~~ → **不能**（只支持 PNG/JPEG/PDF），降级为可选审批器 | ✅ 已定 |
 | OQ-3 | ~~风格模板设计规范~~ → **Design Token 三层体系**（品牌基础→幻灯片语义→Slide Master） | ✅ 已定 |
 | OQ-4 | ~~叙事框架引擎~~ → **结构化模板 + prompt 增强**，Phase A 做金字塔+SCQ | ✅ 已定 |
-| OQ-5 | 数据可视化：pptxgenjs 内置图表（Bar/Line/Pie/Combo）够用吗？复杂场景需要额外库？ | ⬜ 未定 |
-| OQ-6 | SlideBuilder 抽象层的 layout 定义：是否复用 Pencil slides guidelines 的 20 种 layout？ | ⬜ 未定 |
-| OQ-7 | Gate patch loop（qa.report.json → blueprint.patch.json → 局部回修） | ⬜ Phase B |
-| OQ-8 | Gate scorecard 评分协议（fidelity/correctness/completeness/visual/layout） | ⬜ Phase B |
-| OQ-9 | research.json / storyline.json 双轨 contract（MD 给人看 + JSON 给 Gate 消费） | ⬜ Phase B |
-| OQ-10 | claim-level evidence binding（claimId/revision/snapshotHash） | ⬜ Phase B |
+| OQ-5 | ~~数据可视化：pptxgenjs 内置图表够用吗？~~ | ✅ Superseded by KD-20（imagegen 原生渲染图表） |
+| OQ-6 | ~~SlideBuilder 抽象层的 layout 定义~~ | ✅ Superseded by KD-20（低保真 MD ASCII art 替代） |
+| OQ-7 | ~~Gate patch loop~~ | ✅ Superseded by KD-20（铲屎官审稿替代代码门禁） |
+| OQ-8 | ~~Gate scorecard 评分协议~~ | ✅ Superseded by KD-20 |
+| OQ-9 | ~~research.json / storyline.json 双轨 contract~~ | ✅ Superseded by KD-20（低保真 MD 是唯一中间产物） |
+| OQ-10 | ~~claim-level evidence binding~~ | ✅ Superseded by KD-20 |
 | OQ-11 | ~~SVG 渲染后端选型~~ → **C3 为主 + C2 为辅**（确定性 SVG 编译器 + 可选 AI-direct SVG）。C1 铲屎官否决（不引入 Python），C4 仅应急兜底 | ✅ 已定 |
 
 ## Key Decisions
