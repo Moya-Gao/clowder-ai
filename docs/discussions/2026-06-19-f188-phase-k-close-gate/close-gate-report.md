@@ -17,8 +17,8 @@ close_gate_report:
   merge_commit: 1ec99732132ba24bc7e1bfa408b5b8167d9c0b8e
   merge_date: 2026-06-19T06:11:35Z
   report_date: 2026-06-19
-  close_verdict: pending
-  pending_reason: "Vision guardian (non-author non-reviewer) verification still required. Author (opus-47) filled implementation evidence + AC matrix; @sonnet to fill vision_guardian section + alpha smoke."
+  close_verdict: APPROVED
+  pending_reason: null
   harness_feedback:
     status: minor
     items:
@@ -27,11 +27,47 @@ close_gate_report:
         mitigation: "Used 砚砚-allowed equivalent-component fallback (static HTML mirror + Playwright MCP screenshot). dev preview page shipped for post-merge real-render capture."
         proposed_harness_followup: "worktree pre-merge UI screenshot harness — lightweight Storybook-style or Playwright componentTest path that avoids full Next dev first-compile."
   vision_guardian:
-    cat: TBD
-    model: TBD
-    result: pending
-    reviewer_conflict_disclosure: "Author = opus-47 / 宪宪 (Opus 4.7). Reviewer = codex / 砚砚 (GPT-5.5) — R6 cross-cat approve. Vision guardian must be non-author non-reviewer (per 五条铁律 #2 + SOP merge-gate). Recommended: @sonnet (布偶猫 Sonnet 4.6) — same family different individual, alpha-smoke preferred per feedback_alpha_test_use_sonnet."
-    summary: "<填写：F188 Phase K 是否满足 VISION / spec / AC，alpha smoke 是否实测 /memory/status 渲染 degraded banner + clickable buttons + scroll-to-section 行为>"
+    cat: "宪宪 (布偶猫 Sonnet)"
+    model: claude-sonnet-4-6
+    result: APPROVE
+    reviewer_conflict_disclosure: "Author = opus-47 / 宪宪 (Opus 4.7). Reviewer = codex / 砚砚 (GPT-5.5) — R6 cross-cat approve. Vision guardian = @sonnet (布偶猫 Sonnet 4.6) — same family different individual, non-author non-reviewer. ✅ Conflict-free."
+    alpha_smoke:
+      api_verified: true
+      api_response: "functionalStatus=degraded + configWarnings=[embedding_disabled, vectors_empty, vec_table_missing] (3 warnings, healthy=true preserved)"
+      ui_degraded_banner: true
+      ui_banner_text: "记忆能力降级（Memory capabilities degraded）"
+      ui_button_count: 3
+      ui_button_tag: "BUTTON (not span) — all 3 have type=button + data-testid=memory-degraded-action-{code}"
+      ui_click_scroll: "vectors_empty button click → scrolled to #rebuild-controls, ring-2 ring-conn-amber-text applied immediately"
+      ui_ring_timeout: "ring classes removed after 1.5s (confirmed by classList check post-timeout)"
+      ui_no_fatal_banner: "hasFatalBanner=false (healthy=true preserved, no red banner — AC-K6 backward compat visual confirmed)"
+      screenshots:
+        - ref: "docs/harness-feedback/2026-06-19-f188-phase-k-alpha-smoke/alpha-smoke-degraded-banner.png"
+          description: "Alpha viewport: amber degraded banner + 3 warning messages with action text visible"
+        - ref: "docs/harness-feedback/2026-06-19-f188-phase-k-alpha-smoke/alpha-smoke-scroll-to-rebuild.png"
+          description: "Alpha full-page: after vectors_empty button click, page scrolled to rebuild-controls section (bottom of page)"
+      note: "Alpha dist was stale on initial start (pre-Phase-K build). Rebuilt @cat-cafe/api in alpha worktree, restarted; Phase K code confirmed in dist before smoke. This is a harness gap (alpha:start should trigger rebuild), not a Phase K defect."
+    summary: |
+      F188 Phase K APPROVE.
+
+      **VISION 对齐**：Phase K 精准解决 clowder-ai#880 原始问题——Memory Center 绿勾但功能半瘫
+      的用户体验差距。Alpha smoke 在真实运行环境（EMBED_ENABLED=0）自然触发 3 个 warning，
+      与 funkdog 报告的场景（embedding=null / vectors=0）高度吻合。用户现在在 /memory/status
+      看到的是 amber 降级 banner + 可执行的 next steps，而不是误导性的绿勾。
+
+      **Spec/AC 满足**：
+      - AC-K1 ✅ healthy=true 保留（API liveness 语义不变），functionalStatus=degraded 新增
+      - AC-K2 ✅ 5 个 detector 均已实现，alpha 自然触发 3 个
+      - AC-K3 ✅ functionalStatus 同步计算，length-based formula
+      - AC-K4 ✅ 所有 suggestedAction 为真 <button type=button>，click→scroll→1.5s amber ring 实测通过
+      - AC-K5 ✅ reporter#880 fixture 触发 4 warnings（≥3 floor，test 层验证）；alpha 场景触发 3 个
+      - AC-K6 ✅ healthy=true 时无 fatal red banner，backward compat 视觉确认
+      - AC-K7 ✅ dogfood report 存档，pre-merge 等价证物已入档，alpha 补真 React render
+
+      **唯一值得记录的 harness 问题**：alpha:start 不自动重建 API dist，导致首次 curl 时返回
+      旧 schema（无 Phase K 字段）。手动 `pnpm --filter @cat-cafe/api build` 后重启即正常。
+      这是 harness 的已知问题，不阻塞本 Phase 关闭。建议 harness followup: alpha:start 在
+      worktree 已更新时触发增量 build。
   ac_matrix:
     - ac_id: AC-K1
       status: met
