@@ -1972,6 +1972,16 @@ export function applyConsumptionRerank(
     return;
   }
 
+  // HW-7: Snapshot pre-rerank BM25 order for shadow comparison.
+  // Previously shadow was stored from `final` (post-rerank), making shadow ≡ live
+  // by construction in 'on' mode — shadowConsumedMRR / liveOnShadowSubsetMRR ≈ 1 always.
+  // Cloud-P2: Must use original `results` array (before partition), not
+  // [protectedResults, rerankPool] which bakes in lexical protection bias.
+  const preRerankOrder: Array<{ anchor: string; shadowRank: number }> = results.map((item, i) => ({
+    anchor: item.anchor,
+    shadowRank: i,
+  }));
+
   const anchorMetrics = loadAnchorMetrics(
     db,
     rerankPool.map((r) => r.anchor),
@@ -2031,14 +2041,18 @@ export function applyConsumptionRerank(
   }
 
   const final = protectedResults.length > 0 ? [...protectedResults, ...reranked] : reranked;
-  const shadowOrder: Array<{ anchor: string; shadowRank: number }> = final.map((item, i) => ({
-    anchor: item.anchor,
-    shadowRank: i,
-  }));
   if (f200Flags.consumptionRerank === 'on') {
     for (let i = 0; i < final.length; i++) results[i] = final[i];
     results.length = final.length;
   }
+  // HW-7 + Cloud-P1-3: Shadow semantics differ by mode.
+  // 'on' mode:     live = reranked,  shadow = original BM25 → compare rerank vs BM25.
+  // 'shadow' mode:  live = BM25,      shadow = would-be reranked → compare BM25 vs rerank.
+  // Using the same order for both would make shadow ≡ live → zero signal.
+  const shadowOrder =
+    f200Flags.consumptionRerank === 'shadow'
+      ? final.map((item, i) => ({ anchor: item.anchor, shadowRank: i }))
+      : preRerankOrder;
   const keyAnchors =
     targetLimit != null && results.length > targetLimit
       ? results.slice(0, targetLimit).map((r) => r.anchor)
