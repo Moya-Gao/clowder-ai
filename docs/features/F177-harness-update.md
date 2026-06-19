@@ -361,6 +361,7 @@ GitHub issue: TBD（kickoff 后开）
 | OQ-G2 | 检测逻辑是否复用现有 parseA2AMentions + void-hold-detect，还是独立轻量实现？ | ✅ 已决：独立轻量 bash 实现——grep 行首 @ / hold_ball / targetCats，不复用 parseA2AMentions（bash hook 无法调用 TS 函数，且独立实现更简单可靠）（2026-04-29） |
 | OQ-H1 | codex CLI 能否 block-stop（阻止 turn 结束 + 把控制权还给同一 invocation）？决定走路径 A（CLI hook）还是 B（server re-invoke） | ✅ 已决（H0 spike 砚砚 2026-06-11）：**走路径 B**。Codex `Stop` hook 官方支持 `decision:block` 且 `features` 显示 `hooks stable`，但 Cat Café runtime 走 `codex exec --json`（非交互），本机实测（0.137.0）该路径**不 dispatch `~/.codex/hooks.json`**（hook 计数 0、无 continuation）；`notify` 仅 turn-ended 外部通知非 block。路径 A 对本 runtime 不可达 |
 | OQ-H2 | 47 UI 折叠（@ 行首 routing 成功但前端折叠显示）纳入 Phase H 一并修，还是单独前端 issue 跟踪？ | ⬜ 待定（H0 后评估 scope；属前端渲染层，与 routing 拦截不同技术域） |
+| OQ-H3 | routing guard 缺"链终止 / 纯 ACK 收口"合法出口：双向终止确认（A 发"链终止，无需回复"→ B 确认收口）时，guard 仍强制每条消息带路由动作，把"干净停止"误判为"诊断完掉球"。当前三出口对此场景皆错——cross_post = 再加一环 ACK loop / hold_ball = 无等待对象的假持球（违 KD-27、Case E5 stale wake）/ @landy = 无意义打扰 CVO。是否给 guard 加"链终止豁免"（识别连续 N 轮纯 ACK 或双向终止握手 → 放行裸停，不强制 @/hold_ball/@landy）？ | ⬜ 待评估（friction 来源 opus-48 × 砚砚 cross-review，F167 Phase O 设计链收尾 2026-06-18 实测撞到；砚砚判定 friction 成立、适合进 backlog。低频 gap，仅双向终止握手触发；记入此处因 routing guard 真相源全在 F177（KD-11）。CVO 评估是否值 Phase I） |
 
 ## Key Decisions
 
@@ -398,6 +399,7 @@ GitHub issue: TBD（kickoff 后开）
 | 2026-06-11 | **Phase H reopened（CVO signoff）** — 掉球归因分析（fable 复盘 thread）暴露 OQ-G1 latent gap：F177-G Stop hook 仅覆盖 Claude 系猫，codex/gpt52 用 codex CLI 无 block-stop 拦截 → 缅因猫动作缺失型掉球裸奔。Phase H 目标：routing guard 全猫族覆盖（H0 spike → 路径 A CLI hook / B server re-invoke + cost guard）。同步记录 47 UI 折叠 known gap（前端渲染层，未修）。布偶猫(48) spec + 缅因猫 codex CLI 实现 |
 | 2026-06-11 | Phase H H0 spike done（砚砚）— 实测 Codex CLI 0.137.0：`codex exec --json`（Cat Café runtime 路径）不触发 `~/.codex/hooks.json` 的 Stop hook（hook 计数 0），`notify` 仅 turn-ended 通知。**路径 A（CLI hook）对本 runtime 不可达 → 定走路径 B（server re-invoke + cost guard）**。OQ-H1 关闭、KD-12 |
 | 2026-06-11 | Phase H merged (PR #2230) — server-side route-serial remedial guard covers non-Claude harness routing exits; preserves lifecycle/tool/text/voice/debug semantics; `pnpm gate` passed at `89807e91`; cloud Codex re-review found no major issues |
+| 2026-06-18 | Phase H known-gap 记录（friction，opus-48 × 砚砚 cross-review）→ 新增 OQ-H3：routing guard 缺链终止 / 纯 ACK 收口合法出口。来源 F167 Phase O 设计链双向终止时撞 guard 强制路由，三出口（cross_post/hold_ball/@landy）皆不当。记入路由守卫真相源（KD-11），待 CVO 评估是否值 Phase I |
 
 ## Review Gate
 
