@@ -68,6 +68,7 @@ describe('buildCommunityDecisionQueue', () => {
     assert.equal(queue[0].kind, 'closure-action');
     assert.equal(queue[0].priority, 'high');
     assert.equal(queue[0].actor, 'case-owner');
+    assert.equal(queue[0].source.assignedCatId, 'opus');
     assert.deepEqual(
       queue[0].recommendedActions.map((a) => a.kind),
       ['mark-reported', 'waive-closure'],
@@ -101,6 +102,7 @@ describe('buildCommunityDecisionQueue', () => {
     assert.equal(queue[0].kind, 'closure-action');
     assert.equal(queue[0].priority, 'high');
     assert.equal(queue[0].actor, 'case-owner');
+    assert.equal(queue[0].source.assignedCatId, 'opus');
     assert.deepEqual(
       queue[0].recommendedActions.map((a) => a.kind),
       ['close-via-github'],

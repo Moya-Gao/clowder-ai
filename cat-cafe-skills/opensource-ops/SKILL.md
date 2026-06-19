@@ -33,6 +33,12 @@ description: >
 [repo-inbox.md](../refs/repo-inbox.md) 做首反：打开 GitHub 原对象 → 判断类型 / 关联 /
 verdict → 路由 → 记录。不能把通知当普通 FYI。
 
+**Decision Queue 是操作者入口，不是新真相源。** F168 Phase E 后，CommunityPanel 顶部会把
+pending direction、closure action、reconciliation finding、SLA dead-letter、external follow-up
+合成一个优先级队列。处理社区事务时优先看 Decision Queue 的 ask/why/evidence/action；但每个
+动作仍要回到原 canonical：Direction 走 case resolve，closure 走 report/waive event，finding
+走 finding lifecycle，GitHub 状态以 Reconciler/原对象为准。不要把队列 item 当成可手改的台账。
+
 **守门 thread 默认不修 bug。** Repo Inbox 首反可以公开回复 reporter、打标签、发 Direction
 Card、propose/cross-post 到工程 thread；不要因为 bug 看起来好修，就在守门 thread 直接开
 worktree / 写修复 / 跑 merge-gate。只有铲屎官当轮明确授权“就在这个 thread 修/合”，或 P0
@@ -71,8 +77,8 @@ owner 时，给铲屎官 2-3 个路由建议，不要本 thread 偷偷开修。
 - 只有愿景 / roadmap / 公开承诺 / 敏感社区关系 / 第三方 PR merge / 跨猫冲突决策才升级铲屎官。
 - 谁接球，谁负责等待外部作者 / CI / GitHub bot / review；守门 thread 已分发后不再替下游 hold。
 
-**Maintainer mode：我们是社区管理员，不是社区小助理。** 目标是建设好 Cat Café /
-Clowder AI 这条产品线，不是满足每个外部请求。每个 issue / PR 都先问：
+**Maintainer mode：我们是社区管理员，不是社区小助理。** 目标是建设好 Cat Café 和开源发布线，
+不是满足每个外部请求。每个 issue / PR 都先问：
 它对我们自己的家有益吗？它实际改了什么？值得 merge 吗？值得 intake 回家吗？有没有更优雅的
 内部解法或架构切片？答案不清楚时，状态是 `needs-info` / `needs-maintainer-decision`，
 不是默认接纳。
@@ -186,7 +192,7 @@ Clowder AI 这条产品线，不是满足每个外部请求。每个 issue / PR 
 9. **稳定承诺只由 release tag 给出**：`clowder-ai main` 是 rolling stable；真正的 stable/support 口径以 `vX.Y.Z` release 为准
 10. **release 出 bug 优先走 patch**：shared bug 先回家修再 sync 出 `vX.Y.(Z+1)`；public-only hotfix 可以先在 `clowder-ai` 修，但 sync-managed 文件必须回补到家里
 11. **full sync 是长跑门禁，不是中途 checkpoint**：一旦 `sync-to-opensource.sh` 进入 temp target public gate（install / `pnpm check` / `pnpm lint` / `build` / `test:public` / startup acceptance），执行中的猫必须持续等待到脚本给出明确成功或失败结果；禁止在 `Step 5` 半路以"到 `test:public` 了""CI 还没开"之类的中间状态退出或汇报完成
-12. **🛡 Intake 必须跑 Dictionary-backed Inbound Guard（Brand Guard）**：outbound sync 有 sanitizer（Cat Cafe → Clowder AI），intake 必须有**反向守卫**——cherry-pick/port 进来的文件不能带着开源仓的品牌覆盖家里的品牌标识。F238 起边界真相源是 `assets/brand-dictionary.yaml`；`intake-from-opensource.sh --pr N --mode=plan` 和 `bash scripts/intake-from-opensource.sh --validate-inbound` 必须按词典的 `path_policies` / `terms` / `exceptions` 分类与扫描。手工 cherry-pick 也必须在 commit 前跑 `--validate-inbound`。
+12. **🛡 Intake 必须跑 Dictionary-backed Inbound Guard（Brand Guard）**：outbound sync 有 sanitizer（Cat Cafe → 开源发布仓），intake 必须有**反向守卫**——cherry-pick/port 进来的文件不能带着开源仓的品牌覆盖家里的品牌标识。F238 起边界真相源是 `assets/brand-dictionary.yaml`；`intake-from-opensource.sh --pr N --mode=plan` 和 `bash scripts/intake-from-opensource.sh --validate-inbound` 必须按词典的 `path_policies` / `terms` / `exceptions` 分类与扫描。手工 cherry-pick 也必须在 commit 前跑 `--validate-inbound`。
 13. **Brand Identity 保护清单不得在 skill 手写维护**：保护对象以 `assets/brand-dictionary.yaml` 为准；skill 只记录操作原则，避免 prose 清单和脚本漂移。遇到新品牌面 / L4 文化术语 / prompt 路径，先更新词典，再更新脚本和测试。当前 F238 明确翻转的 intake 默认项：
 
 | 路径 | intake 策略 | 原因 |

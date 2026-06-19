@@ -295,6 +295,22 @@
     "owner": "codex"
   },
   {
+    "id": "workflow-community-decision-queue",
+    "kind": "workflow",
+    "sourceRef": { "path": "cat-cafe-skills/opensource-ops/SKILL.md", "anchor": "Decision Queue 是操作者入口" },
+    "structureSource": { "path": "cat-cafe-skills/opensource-ops/SKILL.md", "anchor": "Decision Queue 是操作者入口" },
+    "bodySource": { "path": "cat-cafe-skills/opensource-ops/SKILL.md", "anchor": "ask/why/evidence/action" },
+    "contexts": ["thinking", "feature_dev", "review"],
+    "audience": ["developer", "maintainer"],
+    "body": "处理社区事务时先看 Decision Queue 的 ask/why/evidence/action，再回到 canonical action 执行。",
+    "action": {
+      "type": "open_source",
+      "label": "打开 SOP",
+      "sourceRef": { "path": "cat-cafe-skills/opensource-ops/SKILL.md", "anchor": "Decision Queue 是操作者入口" }
+    },
+    "owner": "codex"
+  },
+  {
     "id": "feature-f242-convention-graph",
     "kind": "feature",
     "sourceRef": { "path": "docs/features/F242-code-graph-layer-spike.md", "anchor": "Code Graph Layer Spike" },

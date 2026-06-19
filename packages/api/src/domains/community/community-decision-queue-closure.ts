@@ -17,6 +17,7 @@ export interface ClosureActionSubject {
   readonly legacyIssueId?: string;
   readonly projectionState?: string;
   readonly nextOwner?: string;
+  readonly assignedCatId?: string | null;
   readonly updatedAt: number;
 }
 
@@ -73,6 +74,7 @@ export function buildClosureActionItem(
     source: {
       projectionState,
       nextOwner: subject.nextOwner,
+      assignedCatId: subject.assignedCatId,
       closureBlocker: blocker.kind,
     },
     firstSeenAt: subject.updatedAt,
@@ -121,6 +123,7 @@ function buildReadyToCloseItem(
     source: {
       projectionState,
       nextOwner: subject.nextOwner,
+      assignedCatId: subject.assignedCatId,
     },
     firstSeenAt: subject.updatedAt,
     lastUpdatedAt: subject.updatedAt,

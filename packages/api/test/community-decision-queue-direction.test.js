@@ -24,12 +24,13 @@ function baseIssue(overrides = {}) {
   };
 }
 
-function narratorDirectionCard(narrative) {
+function narratorDirectionCard(narrative, routeRecommendation = { kind: 'new-thread' }) {
   return {
     entries: [
       {
+        catId: 'opus',
         authoredByRole: 'narrator',
-        routeRecommendation: { kind: 'new-thread' },
+        routeRecommendation,
         narrative,
         timestamp: NOW - 90_000,
       },
@@ -99,6 +100,38 @@ describe('buildCommunityDecisionQueue direction decisions', () => {
     assert.equal(queue.length, 1);
     assert.equal(queue[0].kind, 'direction-decision');
     assert.equal(queue[0].source.projectionState, 'triaged');
+  });
+
+  test('direction-decision item carries validated routeRecommendation for the accept action', async () => {
+    const { buildCommunityDecisionQueue } = await import('../dist/domains/community/community-decision-queue.js');
+
+    const queue = buildCommunityDecisionQueue({
+      repo: 'acme/repo',
+      issues: [
+        baseIssue({
+          id: 'issue-existing-thread',
+          issueNumber: 16,
+          assignedCatId: 'codex',
+          state: 'pending-decision',
+          directionCard: narratorDirectionCard('Route to the known owner thread.', {
+            kind: 'existing-thread',
+            threadId: 'thread-owner',
+            ignored: 'stripped',
+          }),
+        }),
+      ],
+      prItems: [],
+      findings: [],
+      now: NOW,
+    });
+
+    assert.equal(queue.length, 1);
+    assert.deepEqual(queue[0].source.routeRecommendation, {
+      kind: 'existing-thread',
+      threadId: 'thread-owner',
+    });
+    assert.equal(queue[0].source.catId, 'opus');
+    assert.equal(queue[0].source.assignedCatId, 'codex');
   });
 
   test('pending-decision issue with non-narrator direction entry still produces direction item', async () => {

@@ -35,7 +35,7 @@ export interface CommunityDecisionEvidenceRef {
   readonly text?: string;
 }
 
-export interface CommunityDecisionQueueItem {
+export interface CommunityDecisionQueueItemModel {
   readonly id: string;
   readonly repo: string;
   readonly subjectKey: string;
@@ -62,65 +62,4 @@ export interface CommunityDecisionQueueItem {
   };
   readonly firstSeenAt: number;
   readonly lastUpdatedAt: number;
-}
-
-export interface ClosureChecklistBlockerLike {
-  readonly kind: 'fixed-not-reported' | 'not-in-closeable-state';
-  readonly detail: string;
-}
-
-export interface ClosureChecklistLike {
-  readonly readyToClose: boolean;
-  readonly blockers: readonly ClosureChecklistBlockerLike[];
-  readonly waiverPresent: boolean;
-}
-
-export interface CommunityBoardIssueLike {
-  readonly id: string;
-  readonly repo: string;
-  readonly issueNumber: number;
-  readonly title: string;
-  readonly state: string;
-  readonly assignedThreadId?: string | null;
-  readonly assignedCatId?: string | null;
-  readonly directionCard?: { readonly entries?: readonly Record<string, unknown>[] } | null;
-  readonly closureChecklist?: ClosureChecklistLike;
-  /** False for projection-only rows whose synthetic id cannot call legacy closure mutation endpoints. */
-  readonly closureActionsAvailable?: boolean;
-  readonly projectionState?: string;
-  readonly nextOwner?: string;
-  readonly updatedAt: number;
-}
-
-export interface CommunityBoardPrLike {
-  readonly taskId: string;
-  readonly prNumber?: number | null;
-  readonly title: string;
-  readonly state?: string;
-  readonly status?: string;
-  readonly group?: string;
-  readonly closureChecklist?: ClosureChecklistLike;
-  readonly projectionState?: string;
-  readonly nextOwner?: string;
-  readonly updatedAt: number;
-}
-
-export interface ReconciliationFindingLike {
-  readonly findingId: string;
-  readonly subjectKey: string;
-  readonly findingKind: string;
-  readonly severity: string;
-  readonly message: string;
-  readonly status: string;
-  readonly evidenceFingerprint: string | null;
-  readonly createdAt: number;
-  readonly updatedAt: number;
-}
-
-export interface BuildCommunityDecisionQueueInput {
-  readonly repo: string;
-  readonly issues: readonly CommunityBoardIssueLike[];
-  readonly prItems: readonly CommunityBoardPrLike[];
-  readonly findings: readonly ReconciliationFindingLike[];
-  readonly now: number;
 }

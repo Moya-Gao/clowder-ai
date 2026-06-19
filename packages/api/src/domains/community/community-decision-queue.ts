@@ -16,6 +16,7 @@ import type {
   CommunityDecisionQueueKind,
   ReconciliationFindingLike,
 } from './community-decision-queue-types.js';
+import { parseRouteRecommendation } from './community-route-recommendation.js';
 
 export type {
   BuildCommunityDecisionQueueInput,
@@ -86,6 +87,7 @@ export function buildCommunityDecisionQueue(input: BuildCommunityDecisionQueueIn
       closureActionsAvailable: issue.closureActionsAvailable,
       legacyIssueId: issue.id,
       nextOwner: issue.nextOwner,
+      assignedCatId: issue.assignedCatId,
       updatedAt: issue.updatedAt,
     });
     if (closureItem) items.push(closureItem);
@@ -127,6 +129,7 @@ function buildDirectionDecisionItem(
   const directionEntry = findDirectionEntry(issue.directionCard);
   if (!directionEntry) return null;
   const updatedAt = numberField(directionEntry.timestamp) ?? issue.updatedAt;
+  const parsedRouteRecommendation = parseRouteRecommendation(directionEntry.routeRecommendation);
   return {
     id: `decision:direction-decision:${subjectKey}:${issue.id}`,
     repo,
@@ -158,7 +161,10 @@ function buildDirectionDecisionItem(
     source: {
       projectionState: issue.projectionState ?? issue.state,
       nextOwner: issue.nextOwner,
+      assignedCatId: textField(issue.assignedCatId),
+      catId: textField(directionEntry.catId),
       directionCardEntryId: textField(directionEntry.id),
+      routeRecommendation: parsedRouteRecommendation.ok ? parsedRouteRecommendation.value : undefined,
     },
     firstSeenAt: updatedAt,
     lastUpdatedAt: updatedAt,

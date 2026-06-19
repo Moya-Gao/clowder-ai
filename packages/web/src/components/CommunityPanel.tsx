@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { CommunityPanelFilters, TIME_RANGES } from '@/components/CommunityPanelFilters';
 import { ClosureChecklistCard } from '@/components/community/ClosureChecklistCard';
+import { DecisionQueuePanel } from '@/components/community/DecisionQueuePanel';
+import type { CommunityDecisionQueueItemModel } from '@/components/community/decision-queue-types';
 import { ReconciliationFindingCard } from '@/components/community/ReconciliationFindingCard';
 import { PR_ICON, TYPE_ICONS } from '@/components/community-panel-icons';
 import { DirectionCard, type DirectionCardProps } from '@/components/DirectionCard';
@@ -67,6 +69,12 @@ interface ReconciliationFinding {
   evidenceFingerprint: string | null;
   createdAt: number;
   updatedAt: number;
+}
+
+interface DecisionQueueResponse {
+  repo: string;
+  items: CommunityDecisionQueueItemModel[];
+  warnings?: string[];
 }
 
 const ISSUE_SECTIONS = [
@@ -294,6 +302,9 @@ export function CommunityPanel({ threadId }: { threadId?: string }) {
   const [expandedIssue, setExpandedIssue] = useState<string | null>(null);
   const [findings, setFindings] = useState<ReconciliationFinding[]>([]);
   const [collapsedFindings, setCollapsedFindings] = useState(false);
+  const [decisionQueue, setDecisionQueue] = useState<CommunityDecisionQueueItemModel[]>([]);
+  const [decisionQueueWarnings, setDecisionQueueWarnings] = useState<string[]>([]);
+  const [decisionQueueLoading, setDecisionQueueLoading] = useState(false);
 
   const fetchFindings = useCallback(async () => {
     try {
@@ -322,6 +333,27 @@ export function CommunityPanel({ threadId }: { threadId?: string }) {
     }
   }, [repo]);
 
+  const fetchDecisionQueue = useCallback(async () => {
+    if (!repo) return;
+    setDecisionQueueLoading(true);
+    try {
+      const res = await fetch(`/api/community-decision-queue?repo=${encodeURIComponent(repo)}`);
+      if (res.ok) {
+        const data = (await res.json()) as DecisionQueueResponse;
+        setDecisionQueue(Array.isArray(data.items) ? data.items : []);
+        setDecisionQueueWarnings(Array.isArray(data.warnings) ? data.warnings : []);
+      }
+    } catch {
+      /* network error — keep stale queue */
+    } finally {
+      setDecisionQueueLoading(false);
+    }
+  }, [repo]);
+
+  const refreshCommunityViews = useCallback(async () => {
+    await Promise.all([fetchBoard(), fetchFindings(), fetchDecisionQueue()]);
+  }, [fetchBoard, fetchFindings, fetchDecisionQueue]);
+
   const handleSync = useCallback(async () => {
     if (!repo) return;
     setLoading(true);
@@ -330,23 +362,21 @@ export function CommunityPanel({ threadId }: { threadId?: string }) {
         fetch(`/api/community-issues/sync?repo=${encodeURIComponent(repo)}`, { method: 'POST' }),
         fetch(`/api/community-issues/sync-prs?repo=${encodeURIComponent(repo)}`, { method: 'POST' }),
       ]);
-      await fetchBoard();
+      await refreshCommunityViews();
     } catch {
       /* network error — keep stale data */
     } finally {
       setLoading(false);
     }
-  }, [repo, fetchBoard]);
+  }, [repo, refreshCommunityViews]);
 
   useEffect(() => {
-    fetchBoard();
-    fetchFindings();
+    refreshCommunityViews();
     const timer = setInterval(() => {
-      fetchBoard();
-      fetchFindings();
+      refreshCommunityViews();
     }, AUTO_REFRESH_MS);
     return () => clearInterval(timer);
-  }, [fetchBoard, fetchFindings]);
+  }, [refreshCommunityViews]);
 
   useEffect(() => {
     fetch('/api/community-repos')
@@ -365,12 +395,12 @@ export function CommunityPanel({ threadId }: { threadId?: string }) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ threadId }),
         });
-        if (res.ok) fetchBoard();
+        if (res.ok) refreshCommunityViews();
       } catch {
         /* ignore */
       }
     },
-    [fetchBoard, threadId],
+    [refreshCommunityViews, threadId],
   );
 
   const navigateToThread = useCallback((threadId: string) => {
@@ -397,13 +427,13 @@ export function CommunityPanel({ threadId }: { threadId?: string }) {
         });
         if (res.ok) {
           setExpandedIssue(null);
-          fetchBoard();
+          refreshCommunityViews();
         }
       } catch {
         /* network error */
       }
     },
-    [fetchBoard],
+    [refreshCommunityViews],
   );
 
   const filteredIssues = (board?.issues ?? []).filter((i) => {
@@ -444,6 +474,7 @@ export function CommunityPanel({ threadId }: { threadId?: string }) {
       <div className="flex items-center gap-3 px-3 py-1.5 text-micro text-cafe-muted border-b border-cafe-subtle/20">
         <span>Issues: {totalIssues}</span>
         <span>PRs: {totalPrs}</span>
+        <span>Queue: {decisionQueue.length}</span>
         {loading && <span className="text-cafe-crosspost">同步中...</span>}
       </div>
 
@@ -458,8 +489,16 @@ export function CommunityPanel({ threadId }: { threadId?: string }) {
           </div>
         ) : (
           <>
+            <DecisionQueuePanel
+              items={decisionQueue}
+              warnings={decisionQueueWarnings}
+              loading={decisionQueueLoading}
+              fallbackActor="system"
+              onActionComplete={refreshCommunityViews}
+            />
+
             {/* Issues */}
-            <div className="border-b border-cafe-subtle/20">
+            <div data-testid="raw-issues-section" className="border-b border-cafe-subtle/20">
               <div className="px-3 py-1.5 text-micro font-bold text-cafe-muted uppercase tracking-wider">Issues</div>
               {ISSUE_SECTIONS.map((sec) => {
                 const items = issuesByState(sec.key);
@@ -483,7 +522,7 @@ export function CommunityPanel({ threadId }: { threadId?: string }) {
                           onDispatch={dispatchIssue}
                           onToggleExpand={toggleExpand}
                           onResolve={resolveIssue}
-                          onRefresh={fetchBoard}
+                          onRefresh={refreshCommunityViews}
                         />
                       ))}
                   </div>
