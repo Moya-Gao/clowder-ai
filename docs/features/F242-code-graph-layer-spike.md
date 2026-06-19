@@ -9,7 +9,7 @@ cvo_signoff: 2026-06-17 — 铲屎官 "可以 我同意！！！"（thread 00017
 
 # F242: Code Graph Layer Spike — 内生「约定层关联图」
 
-> **Status**: done | **Owner**: codex-gpt55（砚砚；implementation takeover 2026-06-17） | **Priority**: P1
+> **Status**: done | **Owner**: codex-gpt55（砚砚；implementation takeover 2026-06-17） | **Priority**: P1 | **Completed**: 2026-06-18
 
 > ⚠️ **本 doc 是 spike 初稿**。砚砚（@codex GPT-5.5）+ opus-48 两轮 brainstorm 已完成（OQ 推进 + 泛化分两层 + provenance 质量门），Design Gate 已完成，Phase A implementation 由砚砚接手推进。完整设计输入见 `docs/discussions/2026-06-17-codegraph-vs-gitnexus/README.md`（§0-18，codegraph + GitNexus 一手 spike 实证 + 整合）。
 
@@ -257,6 +257,33 @@ AC-A5 锚定具体场景：**改 `cat_cafe_post_message` 的 schema → 约定�
 | 2026-06-17 | Phase B skeleton：新增 `fastapi-route` extractor，在陌生 repo deer-flow 识别 82 routes / 15 routers / 0 gaps，freshness fresh |
 | 2026-06-17 | Local review continuity approved at `90e2e0c62`; review P2 follow-ups fixed（edge dedup / consumer invalidation + kind / multiline APIRouter gap），进入 merge gate |
 | 2026-06-18 | PR #2408 merged：F242 convention graph spike landed in main（squash commit `2e9f5842`）；Phase A/B AC 全部完成，进入 spike close / 愿景守护 |
+| 2026-06-18 | Sonnet 愿景守护 PASS（message `0001781845013679-000557-797f4741`）；CloseGateReport / reflection capsule / harness feedback 落盘，F242 spike close accepted |
+
+## User Visibility Disclosure
+
+| Surface | 用户能做什么（达成态） | 用户实际能做什么（close 时） | 缺失/退化 | 处置 |
+|---------|--------------------|--------------------------|----------|------|
+| Cat code agent workflow | 猫能按 repo 约定建图，少靠 grep 猜消费方 | `convention-graph-discovery` skill + `@cat-cafe/convention-graph` package 已在 main；F242 doc status `done`；BACKLOG 活跃行已移除 | 需要猫主动加载 skill，尚非自动唤醒 | spike scope 接受；后续若要自动化另立 feature |
+| Convention graph artifact | schema/provenance/scope/freshness 可解释 | package merged；AC-A0/A1/A2/A3 全勾；cloud P1/P2 已修或 LL-072 pushback seal | 通用 extractor 覆盖有限 | spike 明确不追求通用完美 |
+| New repo skeleton | 至少 1 个陌生 repo 跑通约定图骨架 | deer-flow FastAPI route extractor dogfood：82 routes / 15 routers / 0 gaps | 只验证 FastAPI route domain | Phase B skeleton scope 内 |
+
+## Vision Guardian Verdict
+
+Sonnet（非作者、非本轮 reviewer）独立复核后 APPROVE close：
+
+| 铲屎官原话（逐字引用） | 当前实际状态（代码/PR 证据） | 匹配？ |
+|---|---|---|
+| "进入一个新的 repo 要如何构建出专属的「约定层关联图」，是不是才是我们成功的胜负手？" | `convention-graph-discovery` skill 已在 main，沉淀"定 domain → 写 extractor → 接引擎 → gap/freshness"方法论；Phase B deer-flow dogfood：82 routes / 15 routers / 0 gaps，对比 codegraph 同 repo的 0/105 | ✅ spike scope 内，胜负手骨架验证通过 |
+| "减少你们费力的 grep 之类的" | AC-A1 dogfood：`codeConsumers("cat_cafe_post_message")` 抓出 3 consumes + 1 registers（含 grep 漏的 dynamic dispatch `COLLAB_TOOL_SOURCES` + callback registration）；`as const` 漏识别 bug 在 dogfood 中被真实抓到并修复（`54cfc4582`） | ✅ |
+| "改了这个似乎可以改，结果导致另一个模块炸了" | freshness contract（`engine-freshness-contract.test.ts` A/B/C 三组）：改文件后标 stale、per-domain scope fail-closed、别 domain 不误报；edge provenance 每条边有 source span + extractor + scope；scope 消歧 AC-A2 有 negative fixture | ✅ |
+
+结论：**PASS / close accepted**。完整 guardian message: `0001781845013679-000557-797f4741`。
+
+## CloseGateReport
+
+Full close matrix: `docs/decisions/2026-06-18-f242-close-gate.md`.
+
+Summary: all AC-A0..A5 and AC-B1..B2 are `met`; no unmet / deleted / CVO-signed-off AC. Guardian Sonnet PASS (`0001781845013679-000557-797f4741`). Reflection capsule and harness-feedback are linked below.
 
 ## Links
 
@@ -266,3 +293,6 @@ AC-A5 锚定具体场景：**改 `cat_cafe_post_message` 的 schema → 约定�
 | **Discussion** | `docs/discussions/2026-06-03-gitnexus-deep-dive/README.md` | opus-47 §10.3 场景表 + KD-31 边界论证 |
 | **Design Gate** | `docs/discussions/2026-06-17-f242-design/README.md` | 5 项接口/schema 钉死（引擎/plugin/extractor/skill/cell）|
 | **Feature** | `docs/features/F102-memory-adapter-refactor.md` | KD-31 边界（记忆层不做代码图谱）|
+| **Close Gate** | `docs/decisions/2026-06-18-f242-close-gate.md` | F242 CloseGateReport |
+| **Reflection** | `docs/reflections/2026-06-18-f242-convention-graph-spike-capsule.md` | F242 close 反思胶囊 |
+| **Harness Feedback** | `docs/harness-feedback/2026-06-18-F242-convention-graph-spike.md` | F242 harness fit review |
