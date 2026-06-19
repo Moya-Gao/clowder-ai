@@ -4,21 +4,21 @@ related_features: [F086, F167, F198, F210, F211, F061]
 topics: [system-prompt, governance, prompt-engineering, compression-immunity, l0-injection]
 doc_kind: spec
 created: 2026-05-15
-updated: 2026-06-18
+updated: 2026-06-19
 ---
 
 # F203: Native System Prompt L0 — 压缩免疫核心规则注入
 
-> **Status**: runtime-validation | **Owner**: 布偶猫 Opus 4.7 | **Priority**: P1
+> **Status**: done（CVO 签字降级 2026-06-19，AC-I8 deferred）| **Owner**: 布偶猫 Opus 4.7 | **Priority**: P1
 
-## Current State Snapshot（2026-06-18）
+## Current State Snapshot（2026-06-19）
 
 - **Codex**: done. `CodexAgentService` 走 per-invocation `-c developer_instructions=<compiled L0>`；`~/.codex/AGENTS.md` user-layer 双注入已按 KD-14 退役，Codex CLI 版本 drift 归 Phase E audit SOP。
-- **AGY CLI**: native L0 channel **not reachable** via public interface. S6 已完成并合入（PR #2036）：公开 CLI/settings/plugins/hooks 没有 root/default agent override，主 agent 只能走 prompt-level fallback；后续仅在官方新增 `--agent` / root agent override / system channel 时重开。
-- **Antigravity Desktop / IDE**: native L0 channel **not reachable** via current bridge. S7 已完成并合入（PR #2036）：`StartCascade` / `SendUserCascadeMessage` payload 无 system/preamble 字段，身份仍是 `AntigravityAgentService` first-prompt prepend + Rules fallback；后续仅在 bridge 协议新增 system/preamble cascade config 时重开。
-- **OpenCode**: implementation done, runtime validation pending. Phase I 已合入（PR #2069）：`opencode.json` `instructions` 注入 compiled L0 + `OPENCODE.md`，全链守护测试 139/139；剩余 AC-I8 是 alpha/runtime 体感验收，确认 compaction 后 system-role identity/governance 不丢。
+- **AGY CLI**: native L0 channel **not reachable** via public interface（2026-06-19 复核 agy 1.0.9 公开面：`--add-dir` / `-c` / `--continue` / `--conversation` / `--dangerously-skip-permissions` / `-i` / `--log-file` / `--model` / `-p/--print` / `--prompt` / `--prompt-interactive` / `--sandbox` + subcommands `changelog/help/install/models/plugin/update`——无 `--agent` / `--system` / root agent override，retraction conditions 未触发）。S6 已合入（PR #2036）：主 agent 只能走 prompt-level fallback。F236 拆形态细化：暹罗猫 = AGY CLI / `agy --print`（`@gemini-25`）；hook 能力 F236 Phase C 单独实测。
+- **Antigravity Desktop / IDE**: native L0 channel **not reachable** via current bridge. S7 已合入（PR #2036）：`StartCascade` / `SendUserCascadeMessage` payload 无 system/preamble 字段，身份仍是 `AntigravityAgentService` first-prompt prepend + Rules fallback。F236 拆形态细化：孟加拉猫 = Antigravity IDE/LS（`@antig-opus`），F061 实测 view_file 自闭环不走 bridge = observe-only。
+- **OpenCode 金渐层**: implementation done, runtime validation **deferred — CVO signed 2026-06-19**. Phase I 已合入（PR #2069）：`opencode.json` `instructions` 注入 compiled L0 + `OPENCODE.md`，全链守护测试 139/139。AC-I8 alpha runtime 体感验收 deferred 原因：**家里 runtime 没接入 OpenCode invocation flow（无 API/subscription）**——本地 opencode v1.2.27 已装但不在产线 carrier。retraction condition：OpenCode API/subscription 接入产线 carrier flow 时重开。
 
-因此 BACKLOG 仍应保留 F203，但含义不是“Codex 还没做”，而是“OpenCode runtime 验收 + close gate 尚未收尾”。
+F203 整体 **close（带 deferred AC-I8）**。BACKLOG 状态从 `runtime-validation` → `done`；OpenCode runtime 验收等 API/subscription 接入再开新 mini-spec（不留 stub 尾巴，retraction condition 写明）。
 
 ## Why
 
@@ -236,7 +236,7 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 - [x] AC-I5: `golden-chinchilla` workflow triggers ✅（developer flow + OMOC boundary + question deny）
 - [x] AC-I6: `OPENCODE.md` 保留 + `permission.question=deny` / OMOC / compaction 不破坏 ✅（18 守护测试）
 - [x] AC-I7: 全链守护测试 ✅（f203 18/18 + opencode-service 25/25 + invoke-single-cat 96/96 = 0 regressions）
-- [ ] AC-I8: runtime 验收——金渐层 invocation 后确认 identity/roster/governance/workflow 在 system role，compaction 后不丢失
+- [~] AC-I8: runtime 验收 **deferred** ✋ — CVO 签字降级 2026-06-19。原因：家里 runtime 没接入 OpenCode invocation flow（无 API/subscription），跑不了 alpha 体感测试。Retraction condition：OpenCode API/subscription 接入产线 carrier flow 时重开（开新 mini-spec 或 reopen issue，不留 stub 尾巴）
 
 ## Dependencies
 
@@ -298,6 +298,8 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 | KD-21 | Antigravity native L0 后续必须拆成两个 spike：AGY CLI 与 Antigravity Desktop/IDE | 两者不是同一个 carrier：AGY CLI 是 F210 headless Google successor，目标是替代 consumer Gemini CLI/ACP；Antigravity Desktop/IDE 是 F061/F211 Bengal bridge，目标是让孟加拉猫获得 F203 native L0。当前 `agy 1.0.3` help 无 `--acp` / `--model` / `--system`；Desktop `SendUserCascadeMessage` payload 只有 text/media/model/cascadeConfig，无 system/preamble 字段。Rules / first-prompt prepend 只能算 prompt-level fallback。 | 2026-05-31 |
 | KD-22 | AGY CLI native L0 不可达 → 转 prompt-level fallback | S6 spike（47 binary 深挖 + 砚砚公开文档侦察协作）：agy 1.0.4 公开面无 default/root agent override（CLI 无 `--agent`/`--system`、`settings.json` 无 agent field、Plugins/Hooks 只暴露 subagent 层 `define_subagent` + `agents/`）；binary 有 `agent_script`/`GetMainAgent`/`CustomAgentSpec` proto 但无公开提供入口。subagent `system_prompt` 是 reachable candidate 但非 main-cat L0 carrier（主 agent 仍裸 + 路由靠自觉 invoke）。POC 边际价值 < 成本（不改"root agent 无 override"主结论）故不做。AGY 身份注入维持 prompt-level（profile 隔离 + 污染收口 AC-H0 + 每轮 prepend + drift/版本守护）。retraction：官方未来出 custom root agent / default-agent override / `--agent` flag 重开。 | 2026-06-01 |
 | KD-23 | OpenCode `instructions` 是 native L0 可达通道——压缩免疫 by design | S8 源码验证（宪宪 46，pin `sst/opencode@v1.15.13` commit `385cb69`）：OpenCode 的 `opencode.json` `instructions` 数组指向的文件**每轮 fresh 读取**（`instruction.ts` `system()`）→ 注入为 `role: "system"` messages（`request.ts` `prepare()`，非 OpenAI-OAuth provider）→ **不进对话历史**（`compaction.ts` 只压缩 user/assistant turns）→ **功能等价 Claude `--system-prompt-file`**。Cat Café 的 `OpenCodeAgentService` 当前不调用 `compileL0`、不声明 `injectsL0Natively()`，route 层对金渐层走 full `buildStaticIdentity` prepend = 可被 compaction 吃。修复路径：runtime config `instructions` 注入 compiled L0 temp file + `injectsL0Natively() → true`。golden-chinchilla 需独立 workflow triggers（评估复用 ragdoll 或独立定义，因 model 是 opus-4-6 但 family 不同）。 | 2026-06-03 |
+| KD-24 | AGY 1.0.9 复核 retraction 条件 = 仍不触发 | 47 2026-06-19 复核 `agy --help` 公开面（从 1.0.4 跳到 1.0.9，5 个 minor 版本）：flags 仍只有 `--add-dir` / `-c` / `--continue` / `--conversation` / `--dangerously-skip-permissions` / `-i/--prompt-interactive` / `--log-file` / `--model` / `-p/--print` / `--prompt` / `--sandbox`；subcommands 只有 `changelog/help/install/models/plugin/update`。**没有 `--agent` flag / `--system` / root agent override / system channel**。KD-22 "AGY CLI native L0 不可达"主结论维持 valid；prompt-level fallback 维持。retraction trigger 重申：官方 CLI 出现 `--agent` / `--system-prompt` / root-agent override / system prompt config field 之一时重开 spike。 | 2026-06-19 |
+| KD-25 | OpenCode AC-I8 runtime 验收 deferred — CVO 签字降级 | 铲屎官 2026-06-19 directive："opencode 这个我们没有 api 哈哈哈 那我们标记一下？"。家里 runtime carrier flow 不接入 OpenCode invocation（无 API/subscription），AC-I8 alpha 体感测试无 production 路径可跑。Phase I 已合入的 implementation（PR #2069）+ S8 源码验证（KD-23）证明 OpenCode `instructions` 通道 by-design compression-immune；运行时验收只是体感确认（identity/governance compaction 后不丢）。**Retraction condition**：OpenCode API/subscription 接入产线 carrier flow（OpenCodeAgentService 实际承载 invocation）时，开 mini-spec 或 reopen issue 重跑 AC-I8 alpha smoke。**不留 stub 尾巴**：F203 整体 close，未来重开走新单据，不挂虚 follow-up。 | 2026-06-19 |
 
 ## Spike Log
 
@@ -358,6 +360,7 @@ S0-S5 spike 全部完成再进 Phase B。详见 Spike Log。
 | 2026-06-03 | **Phase I merged (PR #2069, squash merge)**——OpenCode（金渐层）native L0 注入。砚砚本地 5 轮 review（spec 1 + impl 4）APPROVE + 云端 "Didn't find any major issues"。9 files +851 lines：compile golden-chinchilla workflow triggers + config template instructions + OpenCodeAgentService injectsL0Natively + invoke-single-cat 三路径 L0 守卫（primary + instructions-only fallback + fail-closed）+ L0InjectableAgentService typed seam + 3 test suites（18+25+96=139 tests）。AC-I1~I7 ✅，AC-I8 runtime 验收待 alpha。|
 | 2026-06-03 | **S8 OpenCode `instructions` 压缩免疫性源码验证 = reachable + immune**（宪宪 46 独立 spike）。铲屎官发现"给烁烁 宪宪 砚砚都做了 F203 但忘记 opencode 金渐层"。浅克隆 `sst/opencode`（pin `v1.15.13` tag commit `385cb69`），trace 三关键源文件确认：`instructions` 数组文件内容每轮 fresh 读 → `role: "system"` 注入（Anthropic provider 走 system messages，非 OpenAI OAuth `options.instructions`）→ compaction 只压缩对话历史 → **instructions = compression-immune by design**。功能等价 Claude `--system-prompt-file`。Cat Café 当前 gap：`OpenCodeAgentService` 不调 `compileL0` / 不声明 `injectsL0Natively()`、route 层走 full buildStaticIdentity prepend（被 compaction 吃）、runtime config 不注入 instructions、golden-chinchilla 无 workflow triggers、OPENCODE.md 手写静态身份无 roster/governance。立 Phase I 补齐，铲屎官 directive "给砚砚审核 ok 就开 wktree"。|
 | 2026-06-18 | **Status sync**：明确 Codex 已完成；AGY CLI 与 Antigravity Desktop/IDE native L0 均已 spike 并判定当前不可达（转 prompt-level fallback，不是待实现 native carrier）；OpenCode native L0 注入已合入，剩余 AC-I8 alpha/runtime 验收 + close gate。BACKLOG status 改为 `runtime-validation`，避免误读成 Codex 还在做。|
+| 2026-06-19 | **F203 close**：CVO 签字降级 AC-I8（OpenCode 没接产线 carrier flow，无 API/subscription）→ deferred 写明 retraction condition；AGY 1.0.9 复核（5 个 minor 版本跳跃）公开面无 `--agent`/`--system`/root override → KD-22 主结论维持。Status: `runtime-validation` → `done`。OpenCode runtime 验收等 API/subscription 接入时开新单据，不留 stub 尾巴。|
 
 ## Review Gate
 
