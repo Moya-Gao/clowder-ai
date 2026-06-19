@@ -26,7 +26,7 @@ created: 2026-05-27
 3. **流式视频理解 + 世界模型**：不再是"30s 抽一帧"的视频理解，而是 streaming attention + token pruning + 实时处理。2026 年有哪些方案可以做 always-on 视频流理解？世界模型（World Model）在感知层的进展如何？哪些可以部署在消费级硬件（M4 Max 128GB）上？
 
 **非目标（明确排除）**：
-- 不调研云端 API 方案（我们做本地推理，隐私第一）
+- 不调研云端 API 作为产品落地路径（我们做本地推理，隐私第一）；允许作为质量、延迟、成本、架构的 baseline/reference（如 Deepgram/AssemblyAI/Soniox 的实时 diarization 准确率作为本地方案的参照系）
 - 不调研 Android/Windows 平台（我们是 Apple 生态——Mac + iOS + AirPods）
 - 不调研 TTS 合成（已有 F066/F103 覆盖，声线克隆方向单独立项）
 - 不调研 ASR 模型替换（F195 Phase F 已验证 Qwen3-ASR-1.7B 够用，管道是瓶颈不是模型）
@@ -43,11 +43,11 @@ created: 2026-05-27
 
 1. **声纹识别**：2026 年的 speaker verification / identification 在受控条件下（安静环境、enrollment 有几秒纯净语音）可以做到 >95% 准确率，但实时会议场景（多人交叉说话、远场麦克风、混响）会显著退化。我们猜 pyannote-audio v3+ 是开源最佳选择，但不确定它在 Apple Silicon 上的推理延迟能否满足实时要求（<200ms per segment）。
 
-2. **TML interaction model**：我们完全不确定 TML 是什么。可能的候选：
-   - Turing Machine Labs（图灵机实验室）？
-   - 某个 2025-2026 年新出的端到端对话模型/框架？
-   - "Interaction model" 可能指 turn-taking prediction + 端到端语音对话的组合？
-   - 400ms 端到端延迟可能指 streaming ASR（first-token ~150ms）+ streaming LLM（first-token ~100ms）+ streaming TTS（first-token ~150ms）的 pipeline overlap？
+2. **TML interaction model**：初步 web search 表明 TML = Thinking Machines Lab（Mira Murati 创办，2026-05-11 发布）。TML-Interaction-Small 是 276B MoE/12B 激活的原生多模态端到端模型，用 200ms 微回合（micro-turn）实现全双工对话，FD-bench v1 turn-taking 延迟 0.40s。**不是**传统 ASR→LLM→TTS pipeline overlap。请 Deep Research 独立验证以下待确认点：
+   - 0.40s 是 FD-bench v1 的 P50 还是 mean？P95 是多少？
+   - 276B/12B 的硬件需求——是否有小模型版本或开源计划？
+   - 200ms 微回合的内部实现——是 token-level interleave 还是 chunk-level？
+   - FD-bench 是 TML 自建 benchmark——有没有第三方独立复现？
 
 3. **流式视频理解**：2026 年视频理解正在从"抽帧→VLM 逐帧处理"向"streaming tokenizer + sliding window attention + KV-cache reuse"演进。token pruning（剔除低信息量帧 token）和 temporal compression 是关键效率手段。但我们猜在消费级硬件上 always-on 视频理解（>5 FPS 处理速率）可能还做不到——MoE 模型 3B 激活处理单帧已需 ~100-200ms，连续视频流需要大幅裁剪。
 
@@ -55,10 +55,10 @@ created: 2026-05-27
 
 **证据缺口**：
 - pyannote / wespeaker 在 Apple Silicon (MPS/MLX/CoreML) 上的实际推理速度——没找到 benchmark
-- TML 到底是谁/什么——信息完全空白
+- TML 0.40s 的 P50/P95 分布 + 硬件条件 + 是否有小模型/开源计划（初步 web search 只找到 marketing-level 数据）
 - 2026 年有没有专为 Apple Silicon 优化的流式视频理解模型
-- "400ms 端到端"是 pipeline overlap 还是单模型端到端？两者架构完全不同
 - 实际会议场景（远场、混响、多人交叉）下声纹识别的退化幅度——实验室数据 vs 实战差多少
+- 采集硬件（智能眼镜/运动摄像机/蓝牙麦克风）的 A/V 时间戳同步精度、续航、隐私提示 UX
 
 > ⚠️ 这些是我们的初步假设，不是结论。请在调研中验证或推翻它们。
 
@@ -79,6 +79,9 @@ created: 2026-05-27
 - [ ] 开源项目实现（GitHub repo, model card, benchmark result — pyannote, wespeaker, 3D-Speaker, VITA, LLaVA-Video, VideoLLM-Online 等）
 - [ ] 竞品/同行方案文档（Granola, Otter.ai, Fireflies, Recall.ai, Rewind/Limitless, Humane AI Pin, Ray-Ban Meta — 他们的 speaker diarization / real-time 方案）
 - [ ] 产品实测报告（不是 PR 稿，是用户/开发者实测——延迟、准确率、功耗的第一手数据）
+- [ ] 商业实时语音 API baseline（Deepgram Nova-3, AssemblyAI Universal-2, Soniox — 作为本地方案的质量/延迟参照系，不是落地方案）
+- [ ] 采集硬件 teardown（智能眼镜/运动摄像机/蓝牙麦克风的 A/V 同步、续航、隐私提示 UX——Ray-Ban Meta, DJI Action, AirPods Pro 等）
+- [ ] always-on 感知产品失败案例（Humane AI Pin 退货率, Limitless 被收购停售, Tab 反馈——失败原因分析）
 
 ## 5. Local Constraints（我们的约束）
 
@@ -86,7 +89,7 @@ created: 2026-05-27
 
 - **硬件**：MacBook Pro M4 Max 128GB（48 GPU cores, ~400 GB/s 带宽）——所有推理必须在这台机器上本地运行
 - **Apple Silicon 优先**：MLX / CoreML / MPS (Metal Performance Shaders) 是我们的推理栈，PyTorch MPS 是 fallback，ONNX Runtime 也可以
-- **隐私**：音频/视频数据不离开本机（F195 基本原则），cloud API 排除
+- **隐私**：音频/视频数据不离开本机（F195 基本原则）。cloud API 不作为产品落地路径，但可作为质量/延迟 baseline 参考
 - **实时性要求**：speaker identification 需要 <500ms（猫标注转写用），视频理解可以 1-3s 延迟（不需要帧级实时）
 - **并行推理预算**：已有 ASR 1.7B + LLM 后修 4B 在跑，新增模型不能让总显存超 64GB（128GB 的一半留给系统和猫猫 agent LLM）
 - **多引擎协作**：我们是多 AI 引擎（Claude/GPT/Gemini）共同工作，感知层的输出需要能被任何引擎消费（纯文本 / structured JSON）
@@ -176,10 +179,12 @@ created: 2026-05-27
 
 ### 当前 Feature Spec 摘要
 
-**F195 Meeting Copilot**（in-progress, Phase A-F completed）：
+**F195 Meeting Copilot**（in-progress, Phase B-F live infrastructure completed; Phase A 会前/会后仍 pending）：
 - Why: 铲屎官 AUDHD，圆桌会议中不知道何时插话、如何措辞、如何表达。猫是私人智囊（augmentation），不是会议参与者
-- 已完成: 音频采集→ASR 转写→转写持久化→path injection→UI 控制→VAD+热词+LLM 后修
+- 已完成 (B-F): 音频采集→ASR 转写→转写持久化→path injection→UI 控制→VAD+热词+LLM 后修
+- 未完成 (A): 会前预热（应对牌）+ 会后复盘分析
 - Speaker enrollment 现状: 纯规则归因（mic=host, 2人会=other speaker），无 voice embedding
+- Phase G（声纹识别）已排期：WeSpeaker embedding + cosine similarity 归因
 
 **F104 Local Omni Perception**（spec, 未开始）：
 - Why: 猫猫从"只会读写的文字 AI"变成"能听能看能说的全感知伙伴"
