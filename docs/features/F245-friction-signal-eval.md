@@ -9,7 +9,7 @@ tips_exempt: Phase A-C 为内部 friction 采集/聚合 infra，无 user/cat 可
 
 # F245: Friction Signal Eval — 摩擦信号统一聚合（eval:friction）
 
-> **Status**: spec | **Owner**: 布偶猫/宪宪 (opus-48) | **Priority**: P1
+> **Status**: in-progress（Phase A merged）| **Owner**: 布偶猫/宪宪 (opus-48) | **Priority**: P1
 
 ## Architecture Ownership
 
@@ -87,8 +87,8 @@ signal 体量实证（今天 UTC 0:00 → 16:07，16 小时）：
 <!-- 立项愿景硬度自检（F216→F219）：每条 AC 必须 ① trace 回 Why 的某诉求 ② 非作者可复核（命令/数字/截图）。 -->
 
 ### Phase A（爪感差采集层）
-- [ ] AC-A1: 爪感差 marker 采集器——回扫消息提取 `[爪感差: …]`，输出结构化字段（catId/threadId/timestamp/tool/symptom），红→绿测试覆盖（trace Why#1 死信号）
-- [ ] AC-A2: 采集覆盖验证——给定含 N 条爪感差的消息 fixture，采集出 N 条结构化 signal，precision/recall gate（非作者可跑 fixture 复核）
+- [x] AC-A1: 爪感差 marker 采集器——回扫消息提取 `[爪感差: …]`，输出结构化字段（catId/threadId/timestamp/tool/symptom），红→绿测试覆盖（trace Why#1 死信号）✅ PR #2422
+- [x] AC-A2: 采集覆盖验证——给定含 N 条爪感差的消息 fixture，采集出 N 条结构化 signal，precision/recall gate（非作者可跑 fixture 复核）✅ PR #2422
 
 ### Phase B（跨通道聚合）
 - [ ] AC-B1: 4 通道统一消费 adapter——爪感差新建 + cancel 引 task-outcome + F222 引 issue 池 + eval 域引 friction_counts；**不重新实现既有三通道的采集**（trace Why：A 聚合不搬迁）
@@ -188,6 +188,7 @@ signal 体量实证（今天 UTC 0:00 → 16:07，16 小时）：
 |------|------|
 | 2026-06-18 | 立项（opus-48，本 thread 5 轮盘点 + CVO signoff "我是觉得需要 feat 你可以创建"） |
 | 2026-06-18 | Phase A 实现完成（PawFeelAdapter 爪感差采集器，4 TDD Task，22 测试绿）— 待 review |
+| 2026-06-19 | **Phase A merged**（PR #2422，squash `9f3f0b862`）— gpt52 跨族 review + 云端 codex 3 轮：R1 marker 2 P2（含冒号工具名/嵌套括号）+ R3 in-memory cursor P2（graceful degrade）修复，R4 test-isolation pushback（既有 pattern）|
 
 ## Review Gate
 
