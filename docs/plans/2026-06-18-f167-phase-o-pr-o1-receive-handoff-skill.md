@@ -449,7 +449,65 @@ R3 spec 已落地 plan，准备进 implementation：
 3. **R3 reviewer**: @opus-48 (skill 设计 + R3 framing 校验)；R3 review APPROVE 后开 PR
 4. **预计 ETA**：3-4 小时（含 review turnaround）
 
+### 14.11 R3.1 OQ-5 / OQ-6 砚砚 final 约束（freeze before PR-O1 implementation）
+
+砚砚 R3.1（msg `0001781836946507-000479-8654ef8d`）对我 OQ-5/OQ-6 push back；PR-O1 implementation 必须吃下：
+
+#### OQ-5: `waitSourceRef` schema 收紧
+
+替换我 R3 提议的 minimum (`{kind: 'issue_id'|'reporter_handle'|'pending_input', value, slaUntilMs?}`)：
+
+```typescript
+type WaitSourceRef = {
+  kind: 'github_issue' | 'github_comment' | 'thread_message' | 'task' | 'reporter_handle' | 'pending_input';
+  value: string;             // 主对象标识 (issue id / comment id / thread message id / task id / handle / input ref)
+  anchorRef?: string;        // REQUIRED when kind ∈ {'reporter_handle', 'pending_input'}
+                             // (narrative kinds 不是 durable id，必须锚到 GitHub issue/comment id 或 thread messageId/task id)
+  expectedSignal: string;    // 等什么信号醒 (e.g. 'comment_from_reporter', 'review_state_change', 'cvo_message')
+  slaUntilMs: number;        // REQUIRED — 不是 optional；无 SLA = no hold，走 needs-info/sweep
+};
+```
+
+**约束（R3.1 final）**：
+
+1. `slaUntilMs` **required** for `hold_ball`（不是 optional）；无 explicit SLA → 路由 needs-info / daily sweep（不允许 hold）
+2. `slaUntilMs - now <= 3_600_000` — mirror `wakeAfterMs <= 1h` 当前实现边界；PR-O1 wording **不允许** multi-hold extension；>1h 正解是未来 event-bound wait
+3. `reporter_handle` / `pending_input` 单独太 forgeable —— 要求 `anchorRef` 把 value 锚到 durable object id（GitHub issue/comment id 或 thread messageId / task id）
+4. **Event-backed wait 只 block duplicate `hold_ball`**，**不 block tracking** — 改 §14.6 keeper wait 表述：「event callback → no `hold_ball`；但 ownership valid → keep/use event-backed tracker (issue_tracking / PR tracking)」
+
+#### OQ-6: PR-O3 ownership check 不能简化为 `existingTask?.ownerCatId`
+
+`existing tracker absent` **必要但不充分**——只证明无 current `issue_tracking` task 持 subject，不证明球未通过 cross_post / propose_thread / task assignment / PR routing 分发出去。
+
+**PR-O3 实施时**：需要 `ownershipState` resolver 返回三态：
+
+- `keeper_owned`：本 keeper thread 仍持 intake，无 downstream owner
+- `distributed`：球已通过 cross_post / propose_thread / task / PR routing 分发到 downstream thread/cat/PR
+- `unknown`：无法 conclusively 证明（resolver budget exhausted / 没 routing trail）
+
+**Verdict 规则**：
+
+| ownershipState | + 证据 | → action |
+|---------------|--------|---------|
+| `keeper_owned` | + explicit intake `sourceRef` | allow `register_issue_tracking` |
+| `distributed` | — | **block**（由 downstream owner 处理）|
+| `unknown` | — | **insufficient**（soft-block + 退回 source 澄清；除非 explicit intake sourceRef 证明 keeper ownership）|
+
+**PR-O1 implementation 约束**：
+
+PR-O1 **不要** bake `existingTask?.ownerCatId` 作为 final ownership verdict。可以 **document** 它作为 `ownershipState` resolver 的一个 input（"no existing task → 必要条件之一"），但**不能**写成 "no existing task = keeper_owned"。完整 resolver verdict 留给 PR-O3。
+
+#### PR-O1 plan delta（incorporate R3.1）
+
+- §14.1 Claim schema 加 `WaitSourceRef` type 完整 definition
+- §14.6 Keeper Wait UX 修订 event callback 表述：「event-backed → no `hold_ball`；ownership valid → 用现有 tracker」
+- §14.2 Resolver catalog 加 `ownershipState` resolver concept（PR-O1 document only，PR-O3 implement）
+- Skill `receive-handoff-grounding/SKILL.md` keeper wait section 必须含 `WaitSourceRef` schema example + 6 类 `kind` 各一个 dogfood case + ownershipState 三态文档（标 "PR-O3 实施"）
+- AC 加 **AC-O1.14**: `WaitSourceRef` 6 类 kind 在 plan/schema/skill 三处一致；`slaUntilMs` required 与 `<=1h` 写入约束
+- AC 加 **AC-O1.15**: `ownershipState` 在 PR-O1 doc 标 "PR-O3 implement"；不在 PR-O1 schema 强制 verdict
+- §11 Retraction conditions 第 5 条（landy messageId 例外被滥用）保留；新增第 6 条 "ownershipState 三态 PR-O1 只 document 可能引诱 PR-O3 implementer 用 `existingTask?.ownerCatId` 当 verdict" — 在 PR-O3 plan 写前 explicit 强调
+
 ---
 
-**Last updated**: 2026-06-18 R3 final convergence 落进 plan
-**Next**: 开 worktree 进 PR-O1 implementation
+**Last updated**: 2026-06-18 R3.1 OQ-5/6 砚砚 final 约束落进 plan
+**Next**: 开 worktree 进 PR-O1 implementation（schema + skill + 8 dogfood fixtures）
