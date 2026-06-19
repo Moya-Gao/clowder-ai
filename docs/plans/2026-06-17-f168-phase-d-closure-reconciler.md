@@ -511,3 +511,25 @@ export function shouldSpawnNarratorForCase(input: {
 - Implementation can be @opus or @codex, but **same individual must not review own code**.
 - Security-sensitive or GitHub-mutating changes require cross-family review and explicit CVO signoff.
 - Reconciler / SLA / closure guard findings must include Red→Green tests; no “下次一定” backlog for P1/P2.
+
+---
+
+## 7. Phase E Prerequisites（from Phase D close, opus-47 愿景守護 2026-06-19）
+
+Phase D close 时 opus-47 愿景守護提出 2 个 P3 follow-ups，均非 Phase D blocking，记录于此供 Phase E plan 编写时参考。
+
+### P3-1: Plan §0 Terminal Schema vs Implementation Schema Drift
+
+**问题**：本 plan §0 的 `CommunityClosureChecklist` terminal schema（publicReply/linkedWork/ownerDecision/closeReason 四字段 + 6 种 CommunityClosureBlocker）与 D2 实际实现的 `buildClosureChecklist` 输出 shape（`readyToClose: boolean` / `blockers: Array<{kind: 'fixed-not-reported' | 'not-in-closeable-state'}>` / `waiverPresent: boolean`）存在显著漂移。实现是 MVP 正确的简化（Phase D scope），但 plan 未同步更新。
+
+**影响**：Phase E plan 编写者如果以 §0 terminal schema 为起点，会基于错误假设设计。
+
+**建议处置**：Phase E plan kickoff 前，在本 plan §0 追加一段”D2 实际交付 shape”说明实现与 terminal schema 的 delta，或在 Phase E plan 自身的 §0 做 diff baseline。
+
+### P3-2: Test Isolation — Multi-File Aggregate Fail
+
+**问题**：opus-47 愿景守護期间 `pnpm test` 全量跑 161/161 pass，但在文件级隔离验证时发现某些测试文件单独跑可能因 shared state 泄漏而行为不同（具体：community 相关 test 文件间有隐含执行顺序依赖）。
+
+**影响**：不影响 F168 功能正确性（全量 pass 说明生产路径正确），但随着 Phase E 新增测试，隔离问题可能放大。
+
+**建议处置**：这是测试基础设施层面问题，不归 F168 scope。建议作为独立 TD/chore 处理（补 beforeEach/afterEach 隔离 + 确认 Redis test 隔离守护）。Phase E plan 可在 prerequisites 段落标注”确认测试隔离无泄漏”。
