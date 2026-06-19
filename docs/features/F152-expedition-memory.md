@@ -8,7 +8,7 @@ created: 2026-04-08
 
 # F152: Expedition Memory — 外部项目记忆冷启动 + 经验回流
 
-> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1 | **Close Gate**: 代码链已闭环，等待 AC-C5 铲屎官全链路终验
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1 | **Close Gate**: 2026-06-18 rerun complete — 代码链与 close 证物已补齐，仍等待 AC-C5 铲屎官全链路终验
 
 ## Why
 
@@ -214,7 +214,7 @@ interface ScannedEvidence {
 - [x] 每个 AC 都有验证方式
 - [x] 前端需求已准备需求→证据映射表（若适用）
 
-## 当前进度（2026-04-15 愿景守护）
+## 当前进度（2026-06-18 close-gate rerun）
 
 ### 已确认闭环
 
@@ -226,6 +226,7 @@ interface ScannedEvidence {
 
 ### 当前不允许宣布 done 的原因
 
+- **流程缺口已经补齐**：`CloseGateReport`、`User Visibility Disclosure`、反思胶囊现已落盘，见 `docs/discussions/2026-06-18-f152-close-gate/` 与 `docs/reflections/2026-06-18-f152-expedition-memory-capsule.md`。
 - **AC-C5 仍未完成**：我们还没有拿到铲屎官亲手走完一轮“出征 → 冷启动 → 干活 → 经验回流”的终验记录。
 - **因此本 feature 现在的真实状态是**：代码完成度已达到 close 前夜，但产品级 feat close 仍 blocked by AC-C5；在 AC-C5 完成前，F152 继续保留在 BACKLOG，不迁入 `docs/features/README.md` 的 done 表。
 
@@ -296,6 +297,7 @@ interface ScannedEvidence {
 | 2026-04-14 | Hotfix merged (PR #1146)：GET 读路径改为服务端计算 fingerprint，旧 summary 可被正确标记为 `stale` 并触发重建 |
 | 2026-04-14 | Hotfix merged (PR #1152)：恢复被 intake PR #1147 再次误删的 `getKindCoverage` + `isSameRepo`，并补 regression guard test 防止第四次复发 |
 | 2026-05-13 | Fix merged (PR #1653)：bootstrap→collection pipeline bridge — 外部项目文档实际进入 evidence_docs（clowder-ai#693） |
+| 2026-06-18 | Close-gate rerun：补齐 `CloseGateReport` / `User Visibility Disclosure` / 反思胶囊；重新验证当前代码（API build + F152 定向 API 160 tests + Web 31 tests 全绿）。结论不变：**唯一 blocker = AC-C5 铲屎官全链路终验** |
 
 ## Review Gate
 
@@ -315,3 +317,6 @@ interface ScannedEvidence {
 | **Evidence** | `docs/research/2026-04-09-ideahub-test-automation-knowledge-consultation.md` | IdeaHub 咨询：Phase 0 方法论的真实实证 |
 | **Visual ref** | PR #299 (`feat(F070): project setup card`) | ProjectSetupCard 实现——Phase B UX 必须衔接此画风（coral 色系 + 猫猫插图） |
 | **Design** | `designs/F152-expedition-bootstrap.pen` | Phase B 五组件 UX 设计稿（结构+交互参考，配色以代码 cocreator 变量为准） |
+| **Close Gate Evidence** | `docs/discussions/2026-06-18-f152-close-gate/README.md` | 2026-06-18 guardian rerun：愿景三问 + 对照表 + User Visibility Disclosure |
+| **CloseGateReport** | `docs/discussions/2026-06-18-f152-close-gate/close-gate-report.md` | AC matrix + blocked verdict（唯一 blocker = AC-C5） |
+| **Reflection Capsule** | `docs/reflections/2026-06-18-f152-expedition-memory-capsule.md` | Completion paperwork gap + close rerun 沉淀 |
