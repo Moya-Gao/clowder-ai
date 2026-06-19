@@ -1252,6 +1252,42 @@ skills:
     sop_step: null
     feature: "F207"
 
+  # ── F167 Phase O 接球真相核验 ──
+  receive-handoff-grounding:
+    category: "协作 / 防御"
+    description: >
+      接球前真相核验三问：claim → resolver → verdict (sourceTier T0/T1/T2 + actionFamily)，
+      防止把传球者当无审视真相源 (F167 Phase O 第一性原理)。
+      Use when: 即将调 hold_ball / register_pr_tracking / register_issue_tracking /
+      merge / takeover / 改 owner / 任何 irreversible action / 基于 "CVO signoff" 或
+      "你是 owner" 类 claim 行动之前。
+      Not for: 纯阅读 cross_post (无 actionFamily 后续)、本 thread 日常 @mention 无副作用、
+      implementation continuation (自检通过的下一步)。
+      Output: Claim grounding verdict (verified/mismatch/insufficient) + 接球决策
+      (proceed / block / push back to source thread)。
+    triggers:
+      - "hold_ball"
+      - "register_pr_tracking"
+      - "register_issue_tracking"
+      - "merge approval"
+      - "CVO signoff"
+      - "takeover"
+      - "irreversible"
+      - "owner reassignment"
+      - "这是你的"
+      - "应该是你接"
+      - "CVO 同意"
+      - "等 X"
+      - "PR 在"
+    not_for:
+      - "纯阅读 cross_post"
+      - "本 thread 日常 @mention"
+      - "implementation continuation"
+    output: "Claim grounding verdict + 接球决策"
+    next: ["worktree", "tdd", "merge-gate"]
+    sop_step: null
+    feature: "F167"
+
 # ─── 降级为 refs/（不再是独立 skill） ─────────────────
 refs:
   mcp-callbacks:
