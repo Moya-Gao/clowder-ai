@@ -304,7 +304,7 @@ export interface CommunityDecisionQueueItem {
 4. open `github-reopened-case-closed` finding produces `reconciliation-finding` with urgent priority.
 5. open `stale-awaiting-external` finding produces `external-followup` with `normal` priority and `case-owner` actor.
 6. non-closeable checklist blocker on pending-decision does not produce closure queue noise.
-7. same subject with `case-fixed-unreported` finding and `fixed-not-reported` blocker coalesces into one highest-priority queue item.
+7. same subject with `case-fixed-unreported` finding and `fixed-not-reported` blocker preserves both action groups: SLA finding lifecycle + closure report/waive.
 8. closed clean projection produces no item.
 9. deterministic sort: priority → actor → updatedAt desc → id asc.
 
