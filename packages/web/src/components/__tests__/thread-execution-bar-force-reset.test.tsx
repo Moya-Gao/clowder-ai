@@ -114,7 +114,7 @@ describe('ThreadExecutionBar force-reset (F220 Phase 3)', () => {
     expect(entry?.getAttribute('data-escalated')).toBe('false');
   });
 
-  it('shows a capability tip during normal execution after the waiting delay', async () => {
+  it('does not render capability tips in the execution bar', async () => {
     vi.useFakeTimers();
     try {
       setActive('opus', 'streaming');
@@ -127,26 +127,6 @@ describe('ThreadExecutionBar force-reset (F220 Phase 3)', () => {
         vi.advanceTimersByTime(6000);
       });
 
-      expect(container.querySelector('[data-testid="capability-tip-strip"]')).not.toBeNull();
-      expect(container.textContent).toContain('了解更多');
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it('hides capability tips when force-reset escalates for suspected_stall', async () => {
-    vi.useFakeTimers();
-    try {
-      setActive('opus', 'suspected_stall');
-      act(() => {
-        root.render(React.createElement(ThreadExecutionBar, { threadId: 'thread-a' }));
-      });
-
-      await act(async () => {
-        vi.advanceTimersByTime(6000);
-      });
-
-      expect(container.querySelector('[data-testid="force-reset-entry"]')?.getAttribute('data-escalated')).toBe('true');
       expect(container.querySelector('[data-testid="capability-tip-strip"]')).toBeNull();
     } finally {
       vi.useRealTimers();

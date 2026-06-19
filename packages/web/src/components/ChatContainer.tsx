@@ -1,5 +1,6 @@
 'use client';
 
+import type { CapabilityTipContext } from '@cat-cafe/shared';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useAgentHookHealth } from '@/hooks/useAgentHookHealth';
@@ -43,6 +44,7 @@ import { ChatContainerHeader } from './ChatContainerHeader';
 import { ChatInput } from './ChatInput';
 import { ChatMessage } from './ChatMessage';
 import { ConnectionStatusBar } from './ConnectionStatusBar';
+import { getStreamingTipContexts, selectStreamingTipMessageId } from './capability-tip-placement';
 import { FirstRunQuestWizard } from './FirstRunQuestWizard';
 import { BootcampGuideOverlay } from './first-run-quest/BootcampGuideOverlay';
 import { QuestBanner } from './first-run-quest/QuestBanner';
@@ -635,6 +637,14 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   // F212 follow-up — UI-layer dedup for adjacent identical CliDiagnostics panels.
   // Compute once per messages change; map is keyed by messageId.
   const cliDedupMap = useMemo(() => computeCliDiagnosticsDedup(messages), [messages]);
+  const streamingTipMessageId = useMemo(
+    () => selectStreamingTipMessageId(messages, catStatuses),
+    [messages, catStatuses],
+  );
+  const streamingTipContexts = useMemo<readonly CapabilityTipContext[]>(
+    () => getStreamingTipContexts(intentMode),
+    [intentMode],
+  );
   const renderSingleMessage = useCallback(
     (msg: ChatMessageData) => {
       const dedupInfo = cliDedupMap.get(msg.id);
@@ -647,11 +657,21 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
             onEditCoCreator={handleEditCoCreator}
             hideDiagnosticsPanel={dedupInfo?.hideDiagnosticsPanel}
             dedupCount={dedupInfo?.dedupCount}
+            showCapabilityTip={msg.id === streamingTipMessageId}
+            capabilityTipContexts={streamingTipContexts}
           />
         </MessageActions>
       );
     },
-    [threadId, getCatById, handleEditCat, handleEditCoCreator, cliDedupMap],
+    [
+      threadId,
+      getCatById,
+      handleEditCat,
+      handleEditCoCreator,
+      cliDedupMap,
+      streamingTipMessageId,
+      streamingTipContexts,
+    ],
   );
 
   const { cancelInvocation, syncRooms, socketConnected } = useSocket(socketCallbacks, threadId);

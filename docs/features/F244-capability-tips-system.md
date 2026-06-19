@@ -128,12 +128,13 @@ F229 猫猫球是 F244 的未来展示面，不是第二个 tips 系统：
 
 在等待/执行 UI 中增加 tips 投影，但与真实状态分层：
 
-- 真实状态仍由 liveness/runtime signal 驱动，继续放在主行。
-- Tip 是次级行/可折叠区域，必须视觉上低于状态、取消、强制重置入口。
-- 当前 `ThinkingIndicator` / `ThreadExecutionBar` 没有现成 tip slot；Design Gate wireframe 必须明确 tip 插入点、折叠/隐藏规则，以及升级态下与故障入口的层级关系。
+- 真实状态仍由 liveness/runtime signal 驱动，`ThreadExecutionBar` / `ThinkingIndicator` 继续放状态、计时、停止与强制重置入口。
+- Tip 的第一展示面是 assistant streaming bubble：在猫猫头像/名字下面、当前"分析处理中"文本之后展示，成为等待气泡的一部分，而不是漂在执行条里。
+- Thread/message-list 层只选择一个 eligible streaming bubble 承载 tip；多猫并行等待时不得为每条 streaming message 各自挂一个 strip，避免重复曝光和重复 action event。
+- `ThreadExecutionBar` 不承担 tip presentation；它只保留真实状态和逃生口，避免 tips 与取消/强制重置竞争。
 - `suspected_stall` / `alive_but_silent` 时，故障与取消入口优先；tips 不得遮挡或弱化 `卡住了？强制重置`。
-- 首次展示延迟触发，轮播节奏慢，避免每几秒闪动制造噪音。
-- 上下文选择优先级：当前执行阶段 > thread workflow > feature dev/review mode > 通用 capability/magic word。
+- 首次展示延迟触发，单条至少停留 30s，避免每几秒闪动制造噪音。
+- 上下文选择优先级：当前执行阶段 > thread workflow > feature dev/review mode > 通用 capability/magic word；`ideate`/review 等待仍使用 `review` + `long_running` contexts，而不是退化成通用 `thinking` tips。
 - 支持 action：hover 提示"了解更多"；click 拉起 F229 猫猫球并把解释请求预填进输入框，不自动发送。需要直达时可附 source/guide/capability surface secondary action；没有 action 的 tip 不能冒充可执行能力。
 
 ### Phase C: Feature Tips Contribution Gate
@@ -204,7 +205,7 @@ tips system 是 harness 改动，必须有闭环：
 
 ### Phase B（Waiting-State Projection UI）
 
-- [ ] AC-B1: `ThreadExecutionBar` 等等待态 surface 能展示上下文 tip；alpha 截图覆盖 normal thinking、long-running、feature-dev/review 至少 3 种上下文。PR #2406 已实现 `ThreadExecutionBar` surface 和 component 覆盖，alpha 截图证据仍待 dogfood 阶段补齐。
+- [x] AC-B1: `ChatMessage` assistant streaming bubble 能展示上下文 tip；component tests 覆盖 normal streaming bubble 内展示。PR #2406 初版放在 `ThreadExecutionBar`，2026-06-19 dogfood 反馈确认位置错误，后续修正为 `assistant_stream_bubble` surface；parallel/ideate follow-up 锁定同一线程只展示一个 strip，并保留 `review` context。
 - [x] AC-B2: tips 与真实状态分层；`alive_but_silent` / `suspected_stall` 下取消、故障说明、`卡住了？强制重置` 入口不被遮挡，component tests 覆盖。
 - [x] AC-B3: Tip primary action hover 显示"了解更多"，click 拉起 F229 猫猫球并预填 tip 解释请求到输入框，默认不发送；若有 secondary source/guide/capability action，坏链接或 stale source 有可见错误，不静默失败。
 - [ ] AC-B4: 铲屎官 dogfood 路径可演示：等待一次猫执行时看到至少一条 capability/magic-word/workflow tip，并能点开了解来源。
@@ -252,7 +253,7 @@ tips system 是 harness 改动，必须有闭环：
 | # | 问题 | 状态 |
 |---|------|------|
 | OQ-1 | tips manifest 第一版是否 hand-authored？ | ✅ 已定：第一版 hand-authored seed manifest；必须区分 `structureSource` 与 `bodySource`，CI 只验结构/anchor/action-required，不验 body 语义一致 |
-| OQ-2 | 第一版 UI 只进 chat waiting bar，还是同步进猫猫球/桌宠状态？ | ✅ 已定：第一版 tip 展示只进 chat/thread waiting surfaces；primary action 拉起 F229 输入框 draft；F229 主动/空闲态 tips 作为未来 consumer，不另起 source |
+| OQ-2 | 第一版 UI 只进 chat waiting bar，还是同步进猫猫球/桌宠状态？ | ✅ 已定：第一版 tip 展示进 assistant streaming bubble；primary action 拉起 F229 输入框 draft；F229 主动/空闲态 tips 作为未来 consumer，不另起 source |
 | OQ-3 | F192 侧复用 `eval:capability-wakeup` 还是新增 `eval:capability-tips` domain？ | ⬜ Phase D 定；先用 one-shot dogfood report |
 | OQ-4 | Tip action 打开 source 的主表面用 Workspace navigate、Guide card，还是右侧 help drawer？ | ✅ 已定：主表面用 F229 `open_concierge_draft`；不做右侧 help drawer；source/guide/capability 只作为 secondary action |
 
@@ -270,6 +271,7 @@ tips system 是 harness 改动，必须有闭环：
 | KD-8 | F229 猫猫球是 presentation consumer，不是 tips source | F229 已拥有前台猫/功能发现职责；若猫猫球展示 tips，必须消费 F244 的 `tipId/sourceRef/action`，不能维护本地 tips 清单 | 2026-06-18 |
 | KD-9 | "了解更多"用 F229 draft，不做 help drawer 脚手架 | F229 已有 `setSurfaceState('bubble', prompt)` / `pendingPrompt` 终态 contract；F244 click 只预填输入框不自动发送，保留用户控制权 | 2026-06-18 |
 | KD-10 | 第一版是终态竖切，不叫临时版 | CVO 指出临时版 framing 会诱导绕路；scope 只能减内容数量/展示范围，不能减 contract 终态性 | 2026-06-18 |
+| KD-11 | Tips 第一展示面在 assistant streaming bubble，不在 execution bar | Dogfood 截图确认执行条位置离用户注视点太远；等待态学习应贴近猫猫正在说话的气泡，同时 execution bar 保持真实状态和逃生口职责 | 2026-06-19 |
 
 ## Timeline
 
@@ -284,6 +286,7 @@ tips system 是 harness 改动，必须有闭环：
 | 2026-06-18 | CVO 纠偏"不要规划临时版 / 不要脚手架"；F244 改为 final-shaped first release：第一刀使用终态 contract/action/source/eval 形状，只限制 inventory 和展示场景 |
 | 2026-06-18 | CVO 批准进入实现：砚砚 author/coder，Opus 4.8 review；后续只补充更多 tips，不补第二套系统 |
 | 2026-06-18 | PR #2406 merged：交付 `CapabilityTip` contract/seed/selector、`ThreadExecutionBar` waiting tip strip、F229 `open_concierge_draft` no-auto-send action、tips contribution hard gate、privacy-minimal usage event foundation；dogfood report、F192 eval consumer、stale/sunset owner queue 仍 open |
+| 2026-06-19 | CVO dogfood 反馈：tips 已出现但位置错误、轮播太快；F244 follow-up 将 tip surface 从 `thread_execution_bar` 改为 `assistant_stream_bubble`，单条停留下限改为 30s |
 
 ## Review Gate
 
