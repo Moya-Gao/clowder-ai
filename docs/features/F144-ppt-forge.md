@@ -490,3 +490,34 @@ imagegen 猫: 逐页生成精美 raster PNG
 | **低保真写作规范** | `cat-cafe-skills/refs/ppt-lofi-authoring.md` | ASCII art + 视觉指引 + 最小可抄模板 |
 | **华为风格 Preset** | `cat-cafe-skills/refs/ppt-style-huawei.md` | PANTONE 185C + 8 种页面模式 + 装饰元素层 |
 | **成功案例** | `docs/research/2026-05-29-probation-summary/probation-summary-lofi.md` | 试用期工作总结（华为风格 9 页） |
+| **反思胶囊** | `docs/reflections/2026-06-18-F144-ppt-forge-capsule.md` | feat close 经验沉淀（6 固定章节） |
+| **Harness Eval** | `docs/harness-feedback/2026-06-18-F144-ppt-forge.md` | ppt-forge skill fit review |
+
+## Close Gate Report（2026-06-18）
+
+> 守护猫：宪宪/Sonnet-4.6 | 关门时 HEAD：`aa38a35b3`
+
+### User Visibility Disclosure
+
+F144 是纯 skill feature，产物是 PNG 文件，不涉及 Hub UI surface。
+
+| Surface | 用户能做什么（原始 Why） | 关门时实际 | 备注 |
+|---------|------------------------|-----------|------|
+| PPT 生成 | 给主题+风格 → 自动产出专业 PPT | 铲屎官给方向 → 架构猫写低保真 MD → imagegen 猫逐页出 PNG → 交付 | ✅ |
+| 华为风格 | 华为信息密度级别 PPT | `ppt-style-huawei.md` 完整 preset，试用期 9 页 PPT 验收通过 | ✅ |
+| 原始 AC "可编辑 .pptx" | 文字可编辑、可搜索 .pptx | KD-20 铲屎官明确接受"PNG 不可编辑"的 tradeoff | CVO signed-off |
+
+### AC Matrix（汇总）
+
+| Phase | AC 范围 | 状态 | 证据 |
+|-------|---------|------|------|
+| Phase A Level 1 | AC-A1~A7, A9, A11 | `met` | PR #810/811/815，countBoxes()=52，砚砚复审放行 |
+| Phase A Level 2 | AC-A10 | `met` | PR #815，DiagramElement 3层嵌套 |
+| Phase A 门禁 | AC-A8, A12 | `cvo_signed_off` | KD-20（2026-05-29）铲屎官实战拍板，imagegen 替代代码门禁；砚砚+opus-47 两轮 review 放行 |
+| Phase B 基础设施 | AC-B1, B2 | `met` | PR #823，146 tests，砚砚 R1+R5 放行 |
+| Phase B 其余 | AC-B3~B7 | `cvo_signed_off` | KD-16/17/19/20 铲屎官拍板；见 §Phase B Reconciliation |
+| Phase C | AC-C1~C6 | `met` | PR #929（156 tests）+ PR #1166（239 tests）；砚砚多轮放行 |
+| Phase D 主路径 | AC-D1~D5 | `met` | PR #949/955/1172/1189；密度 4.1% vs 对方 43.9% |
+| Phase D 终态 | AC-D6, D7 | `cvo_signed_off` | KD-20 铲屎官实战确认 imagegen 质量，ppt-forge skill 一句话触发 |
+
+**unmet AC：0 条。无 follow-up 尾巴。全部 AC 实做通过或 CVO 明确方向转变（KD-20）后 superseded。**
