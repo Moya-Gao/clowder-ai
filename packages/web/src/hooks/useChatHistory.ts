@@ -227,6 +227,10 @@ function getComparableMessageText(msg: ChatMessageData): string {
     .trim();
 }
 
+function normalizeResidueText(text: string): string {
+  return text.replace(/\s+/g, ' ').trim();
+}
+
 function hasStreamActivity(msg: ChatMessageData): boolean {
   if (getComparableMessageText(msg)) return true;
   if (msg.toolEvents?.length) return true;
@@ -264,13 +268,6 @@ function isClaimedByLiveInvocation(
     return parentInvocationId ? info.invocationId === parentInvocationId : true;
   }
   return info.invocationId === invocationId;
-}
-
-function hasOnlyToolResiduePayload(msg: ChatMessageData): boolean {
-  if (getComparableMessageText(msg)) return false;
-  if (msg.contentBlocks?.length) return false;
-  if (msg.extra?.rich?.blocks.length) return false;
-  return Boolean(msg.toolEvents?.length);
 }
 
 function getStreamParentInvocationId(msg: ChatMessageData): string | undefined {
@@ -341,6 +338,29 @@ function crossesResidueTurnBoundary(
   });
 }
 
+function hasPersistedTextResidueSiblingEvidence(
+  historyMsgs: ChatMessageData[],
+  msg: ChatMessageData,
+  turnBoundaryMessages: ChatMessageData[],
+): boolean {
+  const catId = msg.catId;
+  const parentInvocationId = getStreamParentInvocationId(msg);
+  const residueText = normalizeResidueText(getComparableMessageText(msg));
+  if (!catId || !parentInvocationId || !residueText) return false;
+
+  for (const historyMsg of historyMsgs) {
+    if (historyMsg.catId !== catId) continue;
+    if (historyMsg.id.startsWith('msg-') || historyMsg.id.startsWith('draft-')) continue;
+    if (historyMsg.extra?.isExplicitPost) continue;
+    if (getStreamParentInvocationId(historyMsg) !== parentInvocationId) continue;
+    if (crossesResidueTurnBoundary(turnBoundaryMessages, historyMsg, msg, catId, parentInvocationId)) continue;
+    const persistedText = normalizeResidueText(getComparableMessageText(historyMsg));
+    if (persistedText.includes(residueText)) return true;
+  }
+
+  return false;
+}
+
 function hasPersistedToolResidueSiblingEvidence(
   historyMsgs: ChatMessageData[],
   msg: ChatMessageData,
@@ -362,7 +382,7 @@ function hasPersistedToolResidueSiblingEvidence(
   return hasFullToolResidueEvidence(persistedToolEvents, residueToolEvents);
 }
 
-function isUnclaimedTerminalToolOnlyStreamResidue(
+function isUnclaimedTerminalStreamResidueWithPersistedEvidence(
   historyMsgs: ChatMessageData[],
   msg: ChatMessageData,
   invocationId: string | undefined,
@@ -374,8 +394,14 @@ function isUnclaimedTerminalToolOnlyStreamResidue(
   if (msg.origin !== 'stream') return false;
   if (msg.isStreaming !== false) return false;
   if (!msg.id.startsWith('msg-')) return false;
-  if (!hasOnlyToolResiduePayload(msg)) return false;
-  if (!hasPersistedToolResidueSiblingEvidence(historyMsgs, msg, turnBoundaryMessages)) return false;
+  if (msg.contentBlocks?.length) return false;
+  if (msg.extra?.rich?.blocks.length) return false;
+
+  const hasTextResidue = Boolean(getComparableMessageText(msg));
+  const hasToolResidue = Boolean(msg.toolEvents?.length);
+  if (!hasTextResidue && !hasToolResidue) return false;
+  if (hasTextResidue && !hasPersistedTextResidueSiblingEvidence(historyMsgs, msg, turnBoundaryMessages)) return false;
+  if (hasToolResidue && !hasPersistedToolResidueSiblingEvidence(historyMsgs, msg, turnBoundaryMessages)) return false;
   return !isClaimedByLiveInvocation(invocationId, getStreamParentInvocationId(msg), msg.catId, currentCatInvocations);
 }
 
@@ -596,13 +622,15 @@ export function mergeReplaceHydrationMessages(
       }
     }
 
-    // F194 follow-up: after a final empty CLI/tool stream bubble requests
+    // F194 follow-up: after a final CLI/tool stream bubble requests
     // catch-up, server history may return the authoritative persisted message
     // under a different turn key while the wrong-key local `msg-*` bubble was
-    // never persisted. Once no live invocation claims that local key, keeping it
-    // creates the F5-only split: history bubble + ghost tool-only bubble.
+    // never persisted. Once no live invocation claims that local key, keeping
+    // duplicate persisted content/tool evidence creates the live-only split:
+    // history bubble + ghost work-log bubble. Contentful partial text is still
+    // preserved unless same-parent history already covers it.
     if (
-      isUnclaimedTerminalToolOnlyStreamResidue(
+      isUnclaimedTerminalStreamResidueWithPersistedEvidence(
         historyMsgs,
         msg,
         invocationId,

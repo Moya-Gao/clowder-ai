@@ -1,7 +1,7 @@
 # Codex live bubble split — root cause (race in live reducer)
 
 > 2026-06-16 | 诊断: 宪宪/Opus-48 | F194 post-close regression（codex 气泡裂 saga 第 17 轮的**根因记录**）
-> 状态: **R17 fix shipped (#2349), R18 recurrence confirmed (见 §R18-复发-background-invocation_created-漏桥接)**
+> 状态: **R17 shipped (#2349), R18 shipped (#2363), R19 live catch confirmed (见 §R19-复发-contentful-wrong-key-residue)**
 > ⚠️ 下方 §根因 / §修复方向 的"parent-id 建泡 + 6 条件启发式竞态"是 **2026-06-16 的早期假设**，
 > 已被 2026-06-17 (session #5) 铲屎官 devtools 真实样本**修正**：真根因是 **dual-path（active + background
 > 双路径）各建一泡 + background 关联了一个非持久化的不同 turnInvocationId**。以 §真实样本坐实 为准。
@@ -285,3 +285,45 @@ active ledger 和 `bgStreamRefs` 只追踪当前仍在 streaming 的 live target
   - `[background invocation_created] keeps an existing finalized turn bubble finalized`
   - `[background invocation_created] does not leave a finalized collision ref for later turns`
   - `[background invocation_created] clears finalized collision active ledger before no-turn later tools`
+
+## R19 复发：contentful wrong-key stream residue 被保守保留（2026-06-18，砚砚/GPT-5.5）
+
+### 复发现象
+
+- 线程：`thread_mqkivws1k5e07s6k`（Review `clowder-ai#413` Windows workspace-empty fix）。
+- 铲屎官截图：同一 Codex 长工具流在 live UI 中出现两个 assistant stream 泡；刷新后 `/api/messages`
+  只返回一条权威 stream message。
+- runtime 已含 #2349 + #2363（`cat-cafe-runtime` 含 `96e39f867` / `a8198a221`），不是旧代码或未同步。
+- 持久层真相：`/api/messages?threadId=thread_mqkivws1k5e07s6k` 中对应 invocation
+  `b3f2a25e...` / turn `7386eb91...` 是单条 stream record，content + 14 tool events 已合并。
+
+### 与 R18 的边界差异
+
+R18 修的是 delayed background `invocation_created` 和 active ledger lifecycle。R19 不是 ledger 没清，也不是
+backend 未 stamp turn。当前 API history 已是正确单泡；裂只发生在 live/catch-up 合并窗口。
+
+旧 `mergeReplaceHydrationMessages` 只会 drop **tool-only** wrong-key `msg-*` residue。为了避免误删 partial text，
+它把 contentful wrong-key stream residue 明确列为 non-goal 并保留。现场证明这条保守规则过宽：当 server history
+已经有同 parent 的完整文本 + 工具证据时，继续保留 contentful local residue 就会产生截图里的第二个 CLI/work-log 泡。
+
+### 精确 fix
+
+把 residue drop guard 从 `tool-only` 扩展为 **persisted-evidence covered residue**：
+
+- 仍只处理 terminal `origin='stream'` + `msg-*` local residue，不碰 callback / explicit post。
+- 若 residue 有 text，则同 parent/cat 的 persisted sibling 必须已包含该 text（空白归一后 substring 覆盖）。
+- 若 residue 有 toolEvents，则 persisted sibling 必须以 stable payload 多重集覆盖全部 tool evidence。
+- text 和 tool 都存在时两者都必须覆盖；任一证据缺失仍保留，避免 persistence lag 误删 partial output。
+- residue key 未被当前 live invocation claim 才能 drop；user/A2A/other-cat turn boundary 仍作为隔离边界。
+
+### 守门测试
+
+`packages/web/src/hooks/__tests__/mergeReplaceHydrationMessages-stream-residue-drop.test.ts` 新增：
+
+- `drops contentful terminal residue when persisted same-parent sibling already covers text and tools`
+
+保留既有 preserve 守门：
+
+- `preserves contentful wrong-key stream residue as a non-goal to avoid deleting partial text`
+
+这两条共同定义 R19 新边界：**已被同 parent persisted evidence 覆盖的 contentful ghost 可删；未被覆盖的 partial text 继续保留。**
