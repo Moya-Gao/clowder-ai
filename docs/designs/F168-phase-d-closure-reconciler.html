@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>F168 Phase D — Closure UX + Reconciler Findings</title>
+<style>
+  /* ============================================================
+   * Cat Café Design System — OKLCH Token Subset for Mockup
+   * Source: packages/web/src/app/theme-tokens.css
+   * (Identical to F168-c3.2, ensuring visual continuity)
+   * ============================================================ */
+  :root {
+    /* Surface */
+    --cafe-surface-sunken: oklch(0.92 0.015 80);
+    --cafe-surface: oklch(0.95 0.012 80);
+    --cafe-surface-elevated: oklch(0.99 0.005 80);
+    --cafe-surface-canvas: oklch(0.995 0.003 80);
+    /* Text */
+    --cafe-text: oklch(0.2 0.005 30);
+    --cafe-text-secondary: oklch(0.45 0.005 30);
+    --cafe-text-muted: oklch(0.56 0.005 30);
+    /* Border */
+    --cafe-border: oklch(0.84 0.005 30);
+    --cafe-border-subtle: oklch(0.915 0.005 30);
+    /* Accent */
+    --cafe-accent: oklch(0.55 0.14 50);
+    --cafe-accent-hover: oklch(0.45 0.14 50);
+    /* Semantic */
+    --cafe-crosspost: oklch(0.55 0.12 210);
+    --cafe-interactive: oklch(0.36 0.005 30);
+    --semantic-success: oklch(0.55 0.12 135);
+    --semantic-success-surface: oklch(0.96 0.03 135);
+    --semantic-warning: oklch(0.55 0.12 45);
+    --semantic-warning-surface: oklch(0.96 0.04 45);
+    --semantic-critical: oklch(0.55 0.12 35);
+    --semantic-critical-surface: oklch(0.96 0.03 35);
+    --semantic-info: oklch(0.55 0.12 210);
+    --semantic-info-surface: oklch(0.96 0.03 210);
+    /* Agent Brand */
+    --color-opus-primary: #9B7EBD;
+    --color-codex-primary: #5B8C5A;
+    --color-gemini-primary: #5B9BD5;
+    --color-owner-primary: #E29578;
+    /* Shadow */
+    --shadow-elevation-1: 0 1px 2px oklch(0 0 0 / 0.06);
+    --shadow-elevation-2: 0 4px 10px oklch(0 0 0 / 0.1);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', sans-serif;
+    background: var(--cafe-surface);
+    color: var(--cafe-text);
+    line-height: 1.5;
+  }
+
+  .page-wrapper {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+
+  /* ── Design Spec Header ── */
+  .spec-header {
+    background: var(--cafe-surface-canvas);
+    border: 1px solid var(--cafe-border-subtle);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 32px;
+    box-shadow: var(--shadow-elevation-1);
+  }
+  .spec-header h1 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+  .spec-header p { font-size: 12px; color: var(--cafe-text-muted); margin-bottom: 4px; }
+  .spec-header .tag {
+    display: inline-block; font-size: 10px; font-weight: 600;
+    padding: 2px 8px; border-radius: 99px; margin-right: 6px;
+  }
+  .tag-feature { background: oklch(0.94 0.03 210); color: oklch(0.35 0.12 210); }
+  .tag-phase { background: oklch(0.94 0.04 45); color: oklch(0.35 0.12 45); }
+  .tag-ux { background: oklch(0.94 0.03 135); color: oklch(0.35 0.12 135); }
+  .tag-closure { background: oklch(0.94 0.03 35); color: oklch(0.35 0.12 35); }
+
+  /* ── Section titles ── */
+  .section-title {
+    font-size: 14px; font-weight: 700; color: var(--cafe-text-secondary);
+    text-transform: uppercase; letter-spacing: 0.05em;
+    margin: 32px 0 16px; padding-bottom: 8px;
+    border-bottom: 1px solid var(--cafe-border-subtle);
+  }
+  .section-desc {
+    font-size: 12px; color: var(--cafe-text-muted);
+    margin-bottom: 16px; line-height: 1.6;
+  }
+
+  /* ── Mockup Container ── */
+  .workspace-mock {
+    background: var(--cafe-surface);
+    border: 1px solid var(--cafe-border);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: var(--shadow-elevation-2);
+    margin-bottom: 32px;
+  }
+
+  /* ── Section Header ── */
+  .section-hdr {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 12px; cursor: pointer; transition: background 0.15s;
+  }
+  .section-hdr:hover { background: oklch(0.99 0.005 80 / 0.5); }
+  .section-hdr-label { font-size: 10px; font-weight: 600; }
+  .section-hdr-count {
+    font-size: 9px; color: var(--cafe-text-muted);
+    background: var(--cafe-surface-elevated); border-radius: 99px; padding: 1px 6px;
+  }
+  .section-hdr-arrow { margin-left: auto; font-size: 9px; color: var(--cafe-text-muted); }
+
+  /* ── Issue Row ── */
+  .issue-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 12px; font-size: 11px; cursor: pointer; transition: background 0.15s;
+  }
+  .issue-row:hover { background: oklch(0.99 0.005 80 / 0.3); }
+  .issue-row svg { width: 12px; height: 12px; flex-shrink: 0; }
+  .issue-num { font-size: 9px; color: var(--cafe-text-muted); }
+  .issue-title { flex: 1; color: var(--cafe-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .issue-time { font-size: 9px; color: var(--cafe-text-muted); }
+  .issue-cat { font-size: 9px; color: oklch(0.55 0.14 50 / 0.6); }
+
+  /* ── Annotation ── */
+  .annotation {
+    font-size: 11px; color: oklch(0.45 0.08 280);
+    background: oklch(0.96 0.02 280); border: 1px dashed oklch(0.75 0.08 280);
+    border-radius: 6px; padding: 8px 12px; margin: 8px 0; line-height: 1.5;
+  }
+  .annotation strong { font-weight: 700; }
+
+  .divider { border: none; border-top: 1px solid var(--cafe-border-subtle); margin: 24px 0; }
+
+  /* ============================================================
+   * ★ NEW: ClosureChecklistCard
+   * Renders inline beneath an issue row (same position as DirectionCard)
+   * ============================================================ */
+  .closure-card {
+    margin: 4px 12px 8px 12px;
+    background: var(--cafe-surface-canvas);
+    border: 1px solid var(--cafe-border-subtle);
+    border-left: 3px solid var(--semantic-warning);
+    border-radius: 8px;
+    padding: 12px 14px;
+    box-shadow: var(--shadow-elevation-1);
+    animation: card-in 0.2s ease-out;
+  }
+  .closure-card.ready { border-left-color: var(--semantic-success); }
+  @keyframes card-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .cc-header {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+  }
+  .cc-title { font-size: 11px; font-weight: 600; color: var(--cafe-text); }
+  .cc-status-badge {
+    font-size: 9px; font-weight: 600; padding: 2px 8px; border-radius: 99px;
+    display: flex; align-items: center; gap: 3px;
+  }
+  .cc-status-badge svg { width: 10px; height: 10px; }
+  .cc-badge-blocked { background: var(--semantic-warning-surface); color: var(--semantic-warning); }
+  .cc-badge-ready { background: var(--semantic-success-surface); color: var(--semantic-success); }
+  .cc-badge-waived { background: oklch(0.94 0.03 280); color: oklch(0.4 0.12 280); }
+
+  /* Checklist items */
+  .cc-checklist {
+    display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px;
+  }
+  .cc-item {
+    display: flex; align-items: flex-start; gap: 8px;
+    padding: 6px 10px; border-radius: 6px;
+    background: var(--cafe-surface-elevated);
+    border: 1px solid oklch(0.915 0.005 30 / 0.3);
+    font-size: 11px;
+  }
+  .cc-item svg { width: 14px; height: 14px; flex-shrink: 0; margin-top: 1px; }
+  .cc-item-content { flex: 1; }
+  .cc-item-label { font-weight: 500; color: var(--cafe-text); }
+  .cc-item-evidence {
+    font-size: 9px; color: var(--cafe-text-muted); margin-top: 2px;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .cc-item-evidence a {
+    color: var(--cafe-crosspost); text-decoration: none;
+  }
+  .cc-item-evidence a:hover { text-decoration: underline; }
+  .cc-item-evidence svg { width: 10px; height: 10px; }
+
+  .cc-item-pass svg { color: var(--semantic-success); }
+  .cc-item-fail svg { color: var(--semantic-warning); }
+  .cc-item-waived svg { color: oklch(0.5 0.1 280); }
+
+  /* Action section */
+  .cc-actions {
+    display: flex; gap: 6px; margin-top: 10px;
+    padding-top: 10px; border-top: 1px solid oklch(0.915 0.005 30 / 0.3);
+  }
+  .cc-btn {
+    font-size: 10px; font-weight: 600; padding: 6px 14px;
+    border-radius: 6px; border: 1px solid transparent;
+    cursor: pointer; display: flex; align-items: center; gap: 4px; transition: all 0.15s;
+  }
+  .cc-btn svg { width: 12px; height: 12px; }
+  .cc-btn-close {
+    background: var(--semantic-success); color: white; border-color: var(--semantic-success);
+  }
+  .cc-btn-close:hover { background: oklch(0.48 0.12 135); }
+  .cc-btn-close[disabled] {
+    opacity: 0.35; cursor: not-allowed; pointer-events: none;
+  }
+  .cc-btn-report {
+    background: var(--cafe-surface-canvas); color: var(--cafe-crosspost);
+    border-color: oklch(0.55 0.12 210 / 0.3);
+  }
+  .cc-btn-report:hover { border-color: var(--cafe-crosspost); }
+  .cc-btn-waive {
+    background: var(--cafe-surface-canvas); color: var(--cafe-text-muted);
+    border-color: var(--cafe-border);
+  }
+  .cc-btn-waive:hover { border-color: oklch(0.5 0.1 280); color: oklch(0.5 0.1 280); }
+  .cc-spacer { flex: 1; }
+
+  /* ============================================================
+   * ★ NEW: Waiver Audit Form (inline expand)
+   * ============================================================ */
+  .waiver-form {
+    margin-top: 10px; padding: 12px;
+    background: var(--cafe-surface-sunken); border-radius: 6px;
+    border: 1px solid var(--cafe-border-subtle);
+  }
+  .wf-title {
+    font-size: 10px; font-weight: 600; color: var(--cafe-text-secondary);
+    text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .wf-title svg { width: 12px; height: 12px; }
+  .wf-field { margin-bottom: 8px; }
+  .wf-label {
+    font-size: 9px; font-weight: 600; color: var(--cafe-text-muted);
+    margin-bottom: 3px; display: flex; align-items: center; gap: 4px;
+  }
+  .wf-label .required { color: var(--semantic-critical); }
+  .wf-input, .wf-textarea {
+    width: 100%; font-size: 11px; padding: 6px 8px; border-radius: 4px;
+    border: 1px solid var(--cafe-border); background: var(--cafe-surface-canvas);
+    color: var(--cafe-text); font-family: inherit;
+  }
+  .wf-textarea { resize: vertical; min-height: 48px; }
+  .wf-input:focus, .wf-textarea:focus {
+    outline: 2px solid oklch(0.55 0.14 50 / 0.3); border-color: var(--cafe-accent);
+  }
+  .wf-select {
+    font-size: 11px; padding: 5px 8px; border-radius: 4px;
+    border: 1px solid var(--cafe-border); background: var(--cafe-surface-canvas);
+    color: var(--cafe-text-secondary); cursor: pointer;
+  }
+  .wf-actions { display: flex; gap: 6px; margin-top: 10px; }
+  .wf-btn-submit {
+    font-size: 10px; font-weight: 600; padding: 5px 12px; border-radius: 6px;
+    border: none; cursor: pointer;
+    background: oklch(0.5 0.1 280); color: white;
+  }
+  .wf-btn-submit:hover { background: oklch(0.4 0.1 280); }
+  .wf-btn-cancel {
+    font-size: 10px; padding: 5px 12px; border-radius: 6px;
+    border: 1px solid var(--cafe-border); background: var(--cafe-surface-canvas);
+    color: var(--cafe-text-muted); cursor: pointer;
+  }
+
+  /* ============================================================
+   * ★ NEW: ReconciliationFindingCard
+   * ============================================================ */
+  .finding-card {
+    margin: 4px 12px 8px 12px;
+    background: var(--cafe-surface-canvas);
+    border: 1px solid var(--cafe-border-subtle);
+    border-left: 3px solid var(--semantic-critical);
+    border-radius: 8px;
+    padding: 12px 14px;
+    box-shadow: var(--shadow-elevation-1);
+    animation: card-in 0.2s ease-out;
+  }
+  .finding-card.info { border-left-color: var(--semantic-info); }
+  .finding-card.warning { border-left-color: var(--semantic-warning); }
+
+  .fc-header {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+  }
+  .fc-kind-badge {
+    font-size: 9px; font-weight: 600; padding: 2px 8px; border-radius: 99px;
+    display: flex; align-items: center; gap: 3px;
+  }
+  .fc-kind-badge svg { width: 10px; height: 10px; }
+  .fc-badge-drift { background: var(--semantic-critical-surface); color: var(--semantic-critical); }
+  .fc-badge-sla { background: var(--semantic-warning-surface); color: var(--semantic-warning); }
+  .fc-badge-stale { background: var(--semantic-info-surface); color: var(--semantic-info); }
+  .fc-severity {
+    font-size: 9px; font-weight: 500; color: var(--cafe-text-muted);
+    margin-left: auto;
+  }
+  .fc-status-pill {
+    font-size: 8px; font-weight: 600; padding: 1px 6px;
+    border-radius: 99px; text-transform: uppercase;
+  }
+  .fc-status-open { background: var(--semantic-critical-surface); color: var(--semantic-critical); }
+  .fc-status-ack { background: var(--semantic-warning-surface); color: var(--semantic-warning); }
+  .fc-status-waived { background: oklch(0.94 0.03 280); color: oklch(0.4 0.12 280); }
+  .fc-status-resolved { background: var(--semantic-success-surface); color: var(--semantic-success); }
+
+  .fc-body {
+    font-size: 11px; color: var(--cafe-text-secondary); line-height: 1.6;
+    margin-bottom: 10px;
+  }
+
+  /* Evidence source display (INV-D6.3) */
+  .fc-evidence {
+    display: flex; flex-direction: column; gap: 4px;
+    padding: 8px 10px; background: var(--cafe-surface-elevated);
+    border-radius: 6px; border: 1px solid oklch(0.915 0.005 30 / 0.3);
+    margin-bottom: 10px;
+  }
+  .fc-evidence-title {
+    font-size: 9px; font-weight: 600; color: var(--cafe-text-muted);
+    text-transform: uppercase; letter-spacing: 0.04em;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .fc-evidence-title svg { width: 10px; height: 10px; }
+  .fc-evidence-row {
+    display: flex; align-items: center; gap: 8px; font-size: 10px;
+  }
+  .fc-ev-label { color: var(--cafe-text-muted); font-weight: 500; min-width: 70px; }
+  .fc-ev-value { color: var(--cafe-text-secondary); }
+  .fc-ev-value a { color: var(--cafe-crosspost); text-decoration: none; }
+  .fc-ev-value a:hover { text-decoration: underline; }
+  .fc-ev-value code {
+    font-size: 9px; padding: 1px 4px; border-radius: 3px;
+    background: var(--cafe-surface-sunken); color: var(--cafe-text-secondary);
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+
+  .fc-actions {
+    display: flex; gap: 6px;
+  }
+  .fc-btn {
+    font-size: 10px; font-weight: 600; padding: 5px 12px;
+    border-radius: 6px; border: 1px solid transparent;
+    cursor: pointer; display: flex; align-items: center; gap: 4px; transition: all 0.15s;
+  }
+  .fc-btn svg { width: 11px; height: 11px; }
+  .fc-btn-ack {
+    background: var(--cafe-surface-canvas); color: var(--semantic-warning);
+    border-color: oklch(0.55 0.12 45 / 0.3);
+  }
+  .fc-btn-ack:hover { border-color: var(--semantic-warning); }
+  .fc-btn-resolve {
+    background: var(--semantic-success); color: white; border-color: var(--semantic-success);
+  }
+  .fc-btn-resolve:hover { background: oklch(0.48 0.12 135); }
+  .fc-btn-waive {
+    background: var(--cafe-surface-canvas); color: var(--cafe-text-muted);
+    border-color: var(--cafe-border);
+  }
+  .fc-btn-waive:hover { border-color: oklch(0.5 0.1 280); color: oklch(0.5 0.1 280); }
+
+  /* ============================================================
+   * ★ NEW: Dead-letter / SLA queue section header
+   * ============================================================ */
+  .dl-section-hdr {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px; cursor: pointer; transition: background 0.15s;
+    border-top: 1px solid oklch(0.915 0.005 30 / 0.2);
+  }
+  .dl-section-hdr:hover { background: oklch(0.99 0.005 80 / 0.5); }
+  .dl-icon { width: 14px; height: 14px; color: var(--semantic-critical); }
+  .dl-label { font-size: 10px; font-weight: 600; color: var(--semantic-critical); }
+  .dl-count {
+    font-size: 9px; font-weight: 600; padding: 1px 6px; border-radius: 99px;
+    background: var(--semantic-critical-surface); color: var(--semantic-critical);
+  }
+  .dl-info-count {
+    font-size: 9px; font-weight: 600; padding: 1px 6px; border-radius: 99px;
+    background: var(--semantic-info-surface); color: var(--semantic-info);
+  }
+
+  /* ── Timestamp row ── */
+  .dl-finding-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 12px 5px 36px; font-size: 10px; cursor: pointer;
+    transition: background 0.15s;
+  }
+  .dl-finding-row:hover { background: oklch(0.99 0.005 80 / 0.3); }
+  .dl-finding-row svg { width: 11px; height: 11px; flex-shrink: 0; }
+  .dl-finding-title { flex: 1; color: var(--cafe-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dl-finding-kind {
+    font-size: 8px; font-weight: 600; padding: 1px 6px;
+    border-radius: 99px; white-space: nowrap;
+  }
+  .dl-finding-time { font-size: 9px; color: var(--cafe-text-muted); white-space: nowrap; }
+
+  /* ── Dark Mode Toggle ── */
+  .mode-toggle {
+    position: fixed; top: 12px; right: 12px;
+    padding: 6px 12px; font-size: 11px; font-weight: 600;
+    border-radius: 6px; border: 1px solid var(--cafe-border);
+    background: var(--cafe-surface-canvas); color: var(--cafe-text-secondary);
+    cursor: pointer; z-index: 100;
+  }
+
+  /* ── Dark Mode ── */
+  [data-theme="dark"] {
+    --cafe-surface-sunken: oklch(0.2 0.008 30);
+    --cafe-surface: oklch(0.22 0.006 30);
+    --cafe-surface-elevated: oklch(0.26 0.004 30);
+    --cafe-surface-canvas: oklch(0.28 0.003 30);
+    --cafe-text: oklch(0.95 0.005 30);
+    --cafe-text-secondary: oklch(0.75 0.005 30);
+    --cafe-text-muted: oklch(0.66 0.005 30);
+    --cafe-border: oklch(0.35 0.005 30);
+    --cafe-border-subtle: oklch(0.24 0.005 30);
+    --cafe-accent: oklch(0.68 0.072 35);
+    --cafe-accent-hover: oklch(0.78 0.08 35);
+    --cafe-crosspost: oklch(0.65 0.1 210);
+    --cafe-interactive: oklch(0.84 0.005 30);
+    --semantic-success: oklch(0.65 0.1 135);
+    --semantic-success-surface: oklch(0.25 0.03 135);
+    --semantic-warning: oklch(0.65 0.1 45);
+    --semantic-warning-surface: oklch(0.25 0.04 45);
+    --semantic-critical: oklch(0.65 0.1 35);
+    --semantic-critical-surface: oklch(0.25 0.03 35);
+    --semantic-info: oklch(0.65 0.1 210);
+    --semantic-info-surface: oklch(0.25 0.03 210);
+    --shadow-elevation-1: 0 1px 3px oklch(0 0 0 / 0.3);
+    --shadow-elevation-2: 0 4px 12px oklch(0 0 0 / 0.4);
+  }
+</style>
+</head>
+<body>
+<button class="mode-toggle" onclick="document.documentElement.toggleAttribute('data-theme') || document.documentElement.setAttribute('data-theme', document.documentElement.getAttribute('data-theme') === 'dark' ? '' : 'dark'); this.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀ Light' : '☾ Dark'">☾ Dark</button>
+
+<div class="page-wrapper">
+
+<!-- ── Spec Header ── -->
+<div class="spec-header">
+  <h1>F168 Phase D — Closure UX + Reconciler Findings</h1>
+  <p>Design Gate mockup &middot; 2026-06-19 &middot; 宪宪/claude-opus-4-6</p>
+  <div style="margin-top: 8px;">
+    <span class="tag tag-feature">F168</span>
+    <span class="tag tag-phase">Phase D</span>
+    <span class="tag tag-ux">UX Design</span>
+    <span class="tag tag-closure">Closure</span>
+  </div>
+  <p style="margin-top: 12px; font-size: 11px; color: var(--cafe-text-secondary); line-height: 1.6;">
+    D5 Closure UX: <code>fixed</code> case 的收尾检查列表（缺公开回复 / 缺 waiver / 缺关联 PR 时 close 禁用），
+    waiver 审计表单（必须填 reason + evidence，无一键跳过），Reconciler 漂移 finding 卡片（证据源可见），
+    SLA/dead-letter 队列（超时/死信一览）。所有图标 SVG，零 emoji。
+  </p>
+</div>
+
+<!-- ════════════════════════════════════════════
+     MOCKUP 1: ClosureChecklistCard — fixed case，缺公开回复
+     ════════════════════════════════════════════ -->
+<div class="section-title">Mockup 1 &middot; ClosureChecklistCard (blocked)</div>
+<p class="section-desc">
+  Case 状态为 <code>fixed</code>，但未公开回复社区。close 按钮 <strong>禁用</strong>（INV-D6.1），
+  checklist 展示每一项的证据来源（INV-D6.3），而不是只显示红绿灯。
+</p>
+
+<div class="workspace-mock">
+  <div style="padding: 6px 12px; font-size: 9px; font-weight: 700; color: var(--cafe-text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Issues</div>
+
+  <!-- 已接受 section -->
+  <div class="section-hdr">
+    <span class="section-hdr-label" style="color: var(--semantic-success);">已接受</span>
+    <span class="section-hdr-count">2</span>
+    <span class="section-hdr-arrow">&#x25BE;</span>
+  </div>
+
+  <!-- Issue row — fixed case -->
+  <div class="issue-row" style="background: oklch(0.99 0.005 80 / 0.5); border-left: 2px solid var(--semantic-warning);">
+    <svg viewBox="0 0 24 24" fill="none" stroke="var(--semantic-success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+    <span class="issue-num">#38</span>
+    <span class="issue-title">Bug: Thread panel 闪烁</span>
+    <span class="issue-cat">@opus</span>
+    <span class="issue-time">3天前</span>
+  </div>
+
+  <!-- ★★★ ClosureChecklistCard ★★★ -->
+  <div class="closure-card">
+    <div class="cc-header">
+      <svg viewBox="0 0 24 24" fill="none" stroke="var(--semantic-warning)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+      <span class="cc-title">Closure Checklist</span>
+      <span class="cc-status-badge cc-badge-blocked">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        1 blocker
+      </span>
+    </div>
+
+    <div class="cc-checklist">
+      <!-- Item 1: public reply — MISSING -->
+      <div class="cc-item cc-item-fail">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+        <div class="cc-item-content">
+          <div class="cc-item-label">Public Reply</div>
+          <div class="cc-item-evidence">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+            No public comment found on GitHub issue #38
+          </div>
+        </div>
+      </div>
+
+      <!-- Item 2: linked work — PRESENT -->
+      <div class="cc-item cc-item-pass">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <div class="cc-item-content">
+          <div class="cc-item-label">Linked Work</div>
+          <div class="cc-item-evidence">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 012 2v7M6 9v12"/></svg>
+            <a href="#">PR #2375</a> &mdash; merged 2026-06-17
+          </div>
+        </div>
+      </div>
+
+      <!-- Item 3: owner decision — PRESENT -->
+      <div class="cc-item cc-item-pass">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <div class="cc-item-content">
+          <div class="cc-item-label">Owner Decision</div>
+          <div class="cc-item-evidence">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+            Accepted by <strong>case-owner</strong> via DirectionCard resolve
+          </div>
+        </div>
+      </div>
+
+      <!-- Item 4: close reason — MISSING (but not a blocker since public reply gates it) -->
+      <div class="cc-item cc-item-fail">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+        <div class="cc-item-content">
+          <div class="cc-item-label">Close Reason</div>
+          <div class="cc-item-evidence">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+            Pending &mdash; will auto-populate after public reply
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions: close DISABLED (INV-D6.1) -->
+    <div class="cc-actions">
+      <button class="cc-btn cc-btn-report">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        Mark as Reported
+      </button>
+      <button class="cc-btn cc-btn-waive">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
+        Waive Closure
+      </button>
+      <div class="cc-spacer"></div>
+      <button class="cc-btn cc-btn-close" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        Close Issue
+      </button>
+    </div>
+  </div>
+
+  <!-- Another normal issue row below -->
+  <div class="issue-row">
+    <svg viewBox="0 0 24 24" fill="none" stroke="var(--semantic-success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+    <span class="issue-num">#35</span>
+    <span class="issue-title">API rate-limit 文档</span>
+    <span class="issue-cat">@sonnet</span>
+    <span class="issue-time">5天前</span>
+  </div>
+</div>
+
+<div class="annotation">
+  <strong>设计说明 A &mdash; ClosureChecklistCard 交互</strong><br>
+  1. 点击 fixed/reported 状态的 Issue 行展开 ClosureChecklistCard（如果 DirectionCard 已 resolved，checklist 取代它）<br>
+  2. <strong>INV-D6.1</strong>: Close 按钮在 checklist 未 ready（存在 blocker）且无 waiver 时 disabled（opacity 0.35 + cursor not-allowed）<br>
+  3. <strong>INV-D6.3</strong>: 每个 checklist item 显示证据来源（comment URL / PR link / actor name），不只显示通过/未通过<br>
+  4. 「Mark as Reported」调用 <code>POST /api/community-issues/:id/report</code>（需提供公开回复证据 URL）<br>
+  5. 「Waive Closure」展开下方审计表单（见 Mockup 2），不是一键完成
+</div>
+
+<hr class="divider">
+
+<!-- ════════════════════════════════════════════
+     MOCKUP 2: Waiver Audit Form — INV-D6.2
+     ════════════════════════════════════════════ -->
+<div class="section-title">Mockup 2 &middot; Waiver Audit Form</div>
+<p class="section-desc">
+  「Waive Closure」点击后展开审计表单。必须填写原因、证据类型和说明（INV-D6.2: 无一键 waive）。
+  提交后调用 <code>POST /api/community-issues/:id/waive-closure</code>。
+</p>
+
+<div class="workspace-mock" style="max-width: 480px;">
+  <div style="padding: 6px 12px; font-size: 9px; font-weight: 700; color: var(--cafe-text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Issues</div>
+
+  <div class="issue-row" style="background: oklch(0.99 0.005 80 / 0.5); border-left: 2px solid var(--semantic-warning);">
+    <svg viewBox="0 0 24 24" fill="none" stroke="var(--semantic-success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+    <span class="issue-num">#38</span>
+    <span class="issue-title">Bug: Thread panel 闪烁</span>
+    <span class="issue-time">3天前</span>
+  </div>
+
+  <div class="closure-card">
+    <div class="cc-header">
+      <svg viewBox="0 0 24 24" fill="none" stroke="var(--semantic-warning)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+      <span class="cc-title">Closure Checklist</span>
+      <span class="cc-status-badge cc-badge-blocked">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        1 blocker
+      </span>
+    </div>
+
+    <!-- Simplified checklist (same as mockup 1, abbreviated here) -->
+    <div class="cc-checklist">
+      <div class="cc-item cc-item-fail">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+        <div class="cc-item-content">
+          <div class="cc-item-label">Public Reply</div>
+          <div class="cc-item-evidence">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+            No public comment found
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ★★★ Waiver Audit Form (expanded) ★★★ -->
+    <div class="waiver-form">
+      <div class="wf-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
+        Closure Waiver &mdash; Audit Record
+      </div>
+
+      <div class="wf-field">
+        <div class="wf-label">Waiver Reason <span class="required">*</span></div>
+        <select class="wf-select" style="width: 100%;">
+          <option value="">Select reason...</option>
+          <option value="internal-only">Internal-only fix, no public visibility needed</option>
+          <option value="upstream">Upstream dependency fix, no user-facing action</option>
+          <option value="duplicate">Duplicate of another reported issue</option>
+          <option value="wont-fix">Won't fix &mdash; out of scope / not aligned with vision</option>
+          <option value="other">Other (explain below)</option>
+        </select>
+      </div>
+
+      <div class="wf-field">
+        <div class="wf-label">Evidence / Explanation <span class="required">*</span></div>
+        <textarea class="wf-textarea" placeholder="Why is public reporting not needed? Link related issues/PRs or explain the circumstance..."></textarea>
+      </div>
+
+      <div class="wf-field">
+        <div class="wf-label">Actor</div>
+        <input class="wf-input" value="@opus (case-owner)" readonly style="background: var(--cafe-surface-sunken); color: var(--cafe-text-muted);">
+      </div>
+
+      <div class="wf-actions">
+        <button class="wf-btn-submit">
+          Submit Waiver
+        </button>
+        <button class="wf-btn-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="annotation">
+  <strong>设计说明 B &mdash; Waiver Form 交互</strong><br>
+  1. <strong>INV-D6.2</strong>: 「Waive Closure」按钮始终展开表单，不是一键完成。必须选择 reason + 填写 evidence<br>
+  2. Submit 时验证必填项（reason + evidence），缺失则表单级 validation（border 变红 + 提示文字）<br>
+  3. Actor 自动填充为当前操作者，只读（审计追溯）<br>
+  4. 提交成功后 checklist 中出现 waived 状态（紫色 wrench 图标），Close 按钮变为可点击<br>
+  5. Waiver 记录永久可查（finding store 中 status=waived 的条目）
+</div>
+
+<hr class="divider">
+
+<!-- ════════════════════════════════════════════
+     MOCKUP 3: ClosureChecklistCard — after waiver (ready to close)
+     ════════════════════════════════════════════ -->
+<div class="section-title">Mockup 3 &middot; ClosureChecklistCard (ready after waiver)</div>
+<p class="section-desc">
+  Waiver 提交后，Public Reply blocker 被 waive；<code>readyToClose=true</code>，Close 按钮可点击。
+  Waived item 显示紫色 wrench 图标 + waiver 证据引用（INV-D6.3）。
+</p>
+
+<div class="workspace-mock" style="max-width: 480px;">
+  <div style="padding: 6px 12px; font-size: 9px; font-weight: 700; color: var(--cafe-text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Issues</div>
+
+  <div class="issue-row" style="background: oklch(0.99 0.005 80 / 0.5); border-left: 2px solid var(--semantic-success);">
+    <svg viewBox="0 0 24 24" fill="none" stroke="var(--semantic-success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+    <span class="issue-num">#38</span>
+    <span class="issue-title">Bug: Thread panel 闪烁</span>
+    <span class="issue-time">3天前</span>
+  </div>
+
+  <div class="closure-card ready">
+    <div class="cc-header">
+      <svg viewBox="0 0 24 24" fill="none" stroke="var(--semantic-success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+      <span class="cc-title">Closure Checklist</span>
+      <span class="cc-status-badge cc-badge-ready">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        Ready to close
+      </span>
+    </div>
+
+    <div class="cc-checklist">
+      <!-- Waived item (purple wrench icon) -->
+      <div class="cc-item cc-item-waived">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
+        <div class="cc-item-content">
+          <div class="cc-item-label" style="color: oklch(0.5 0.1 280);">Public Reply (waived)</div>
+          <div class="cc-item-evidence">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
+            Waived by @opus &mdash; "Internal-only fix, no public visibility needed"
+          </div>
+        </div>
+      </div>
+
+      <!-- Linked work — pass -->
+      <div class="cc-item cc-item-pass">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <div class="cc-item-content">
+          <div class="cc-item-label">Linked Work</div>
+          <div class="cc-item-evidence">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 012 2v7M6 9v12"/></svg>
+            <a href="#">PR #2375</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Owner decision — pass -->
+      <div class="cc-item cc-item-pass">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <div class="cc-item-content">
+          <div class="cc-item-label">Owner Decision</div>
+          <div class="cc-item-evidence">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+            Accepted by <strong>case-owner</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="cc-actions">
+      <div class="cc-spacer"></div>
+      <button class="cc-btn cc-btn-close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        Close Issue
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="annotation">
+  <strong>设计说明 C &mdash; Waived 状态视觉</strong><br>
+  1. Waived checklist item 用紫色 wrench 图标（与 waive 按钮颜色一致，audit 视觉连贯）<br>
+  2. Waiver reason 直接内联显示在 evidence 行（"Internal-only fix..."），不需要点击展开<br>
+  3. Card 左 border 从 warning(yellow) 变为 success(green)，signaling "ready to close"<br>
+  4. Close 按钮从 disabled 变为 active（INV-D6.1 satisfied: waiver present）<br>
+  5. Report / Waive 按钮消失（已有 waiver，不重复展示）
+</div>
+
+<hr class="divider">
+
+<!-- ════════════════════════════════════════════
+     MOCKUP 4: ReconciliationFindingCard — GitHub drift
+     ════════════════════════════════════════════ -->
+<div class="section-title">Mockup 4 &middot; ReconciliationFindingCard (drift)</div>
+<p class="section-desc">
+  Reconciler 发现 GitHub 已关闭但内部 Case 仍 open（<code>github-closed-case-open</code>）。
+  finding 卡片展示完整证据来源（INV-D6.3）：GitHub 状态、内部状态、发现时间、sourceEventId。
+</p>
+
+<div class="workspace-mock">
+  <div style="padding: 6px 12px; font-size: 9px; font-weight: 700; color: var(--cafe-text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Issues</div>
+
+  <div class="section-hdr">
+    <span class="section-hdr-label" style="color: var(--cafe-crosspost);">讨论中</span>
+    <span class="section-hdr-count">3</span>
+    <span class="section-hdr-arrow">&#x25BE;</span>
+  </div>
+
+  <!-- Issue with drift finding -->
+  <div class="issue-row" style="background: oklch(0.99 0.005 80 / 0.5); border-left: 2px solid var(--semantic-critical);">
+    <svg viewBox="0 0 24 24" fill="none" stroke="var(--semantic-critical)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    <span class="issue-num">#29</span>
+    <span class="issue-title">Memory search 超时</span>
+    <span class="issue-cat">@codex</span>
+    <span class="issue-time">8天前</span>
+  </div>
+
+  <!-- ★★★ ReconciliationFindingCard ★★★ -->
+  <div class="finding-card">
+    <div class="fc-header">
+      <span class="fc-kind-badge fc-badge-drift">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        github-closed-case-open
+      </span>
+      <span class="fc-status-pill fc-status-open">OPEN</span>
+      <span class="fc-severity">needs-owner</span>
+    </div>
+
+    <div class="fc-body">
+      GitHub issue #29 was closed on 2026-06-11 but the internal case remains in <code>discussing</code> state.
+      The Reconciler detected this drift and appended an <code>issue.closed</code> event to the Event Log.
+      Owner action needed: acknowledge the closure or reopen on GitHub.
+    </div>
+
+    <!-- Evidence source (INV-D6.3) -->
+    <div class="fc-evidence">
+      <div class="fc-evidence-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        Evidence Source
+      </div>
+      <div class="fc-evidence-row">
+        <span class="fc-ev-label">GitHub state</span>
+        <span class="fc-ev-value">closed (by <a href="#">@external-user</a> on 2026-06-11)</span>
+      </div>
+      <div class="fc-evidence-row">
+        <span class="fc-ev-label">Internal state</span>
+        <span class="fc-ev-value"><code>discussing</code> &mdash; last updated 2026-06-08</span>
+      </div>
+      <div class="fc-evidence-row">
+        <span class="fc-ev-label">Finding ID</span>
+        <span class="fc-ev-value"><code>reconciler:issue:zts212653/clowder-ai#29:github-closed-case-open</code></span>
+      </div>
+      <div class="fc-evidence-row">
+        <span class="fc-ev-label">First seen</span>
+        <span class="fc-ev-value">2026-06-12 03:15 UTC (reconciler cycle #4)</span>
+      </div>
+      <div class="fc-evidence-row">
+        <span class="fc-ev-label">Event appended</span>
+        <span class="fc-ev-value"><code>issue.closed</code> &mdash; <code>reconciler:issue:...:issue.closed:1718150400</code></span>
+      </div>
+    </div>
+
+    <div class="fc-actions">
+      <button class="fc-btn fc-btn-ack">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        Acknowledge
+      </button>
+      <button class="fc-btn fc-btn-resolve">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        Resolve
+      </button>
+      <button class="fc-btn fc-btn-waive">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
+        Waive
+      </button>
+    </div>
+  </div>
+
+  <!-- Other normal rows -->
+  <div class="issue-row">
+    <svg viewBox="0 0 24 24" fill="none" stroke="var(--cafe-crosspost)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+    <span class="issue-num">#44</span>
+    <span class="issue-title">MCP tool 文档更新</span>
+    <span class="issue-time">1天前</span>
+  </div>
+  <div class="issue-row">
+    <svg viewBox="0 0 24 24" fill="none" stroke="var(--cafe-crosspost)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+    <span class="issue-num">#41</span>
+    <span class="issue-title">Hub 浏览器布局问题</span>
+    <span class="issue-time">4天前</span>
+  </div>
+</div>
+
+<div class="annotation">
+  <strong>设计说明 D &mdash; ReconciliationFindingCard 交互</strong><br>
+  1. Finding card 出现在有 drift/SLA finding 的 issue row 下方（和 DirectionCard / ClosureChecklistCard 同位置）<br>
+  2. <strong>INV-D6.3</strong>: Evidence Source 区域展示完整信息链&mdash;GitHub 状态、内部状态、finding ID、首次发现时间、appended event ID<br>
+  3. 三个操作按钮对应 finding lifecycle: Acknowledge(标记已知) / Resolve(问题已解决) / Waive(忽略+记录原因)<br>
+  4. Waive 按钮点击后展开 waiver 审计表单（同 Mockup 2 模式），不是一键完成<br>
+  5. Card 左 border 颜色根据 severity: needs-owner=critical(red), needs-human=warning(yellow), informational=info(blue)<br>
+  6. kind badge 颜色: drift=critical, sla=warning, stale=info
+</div>
+
+<hr class="divider">
+
+<!-- ════════════════════════════════════════════
+     MOCKUP 5: Dead-Letter / SLA Queue Section
+     ════════════════════════════════════════════ -->
+<div class="section-title">Mockup 5 &middot; Dead-Letter / SLA Queue</div>
+<p class="section-desc">
+  CommunityPanel 底部新增「收尾 / 死信」section，聚合所有 open 的 Reconciler findings 和 SLA violations。
+  点击 finding 行展开对应的 ReconciliationFindingCard。此 section 独立于 issue/PR 状态分组。
+</p>
+
+<div class="workspace-mock">
+  <div style="padding: 6px 12px; font-size: 9px; font-weight: 700; color: var(--cafe-text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Issues</div>
+
+  <!-- Collapsed normal sections for context -->
+  <div class="section-hdr">
+    <span class="section-hdr-label" style="color: var(--cafe-accent);">未回复</span>
+    <span class="section-hdr-count">1</span>
+    <span class="section-hdr-arrow">&#x25B8;</span>
+  </div>
+  <div class="section-hdr">
+    <span class="section-hdr-label" style="color: var(--semantic-warning);">待决策</span>
+    <span class="section-hdr-count">0</span>
+    <span class="section-hdr-arrow">&#x25B8;</span>
+  </div>
+  <div class="section-hdr">
+    <span class="section-hdr-label" style="color: var(--cafe-crosspost);">讨论中</span>
+    <span class="section-hdr-count">3</span>
+    <span class="section-hdr-arrow">&#x25B8;</span>
+  </div>
+  <div class="section-hdr">
+    <span class="section-hdr-label" style="color: var(--semantic-success);">已接受</span>
+    <span class="section-hdr-count">2</span>
+    <span class="section-hdr-arrow">&#x25B8;</span>
+  </div>
+
+  <!-- ★★★ Dead-Letter / SLA Queue ★★★ -->
+  <div class="dl-section-hdr">
+    <svg class="dl-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    <span class="dl-label">Findings</span>
+    <span class="dl-count">2</span>
+    <span class="dl-info-count" style="margin-left: -2px;">1</span>
+    <span class="section-hdr-arrow">&#x25BE;</span>
+  </div>
+
+  <!-- Finding row 1: drift (needs-owner) -->
+  <div class="dl-finding-row">
+    <svg viewBox="0 0 24 24" fill="none" stroke="var(--semantic-critical)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    <span class="dl-finding-title">#29 Memory search 超时 &mdash; GitHub closed, case open</span>
+    <span class="dl-finding-kind fc-badge-drift" style="font-size: 8px;">drift</span>
+    <span class="dl-finding-time">7天前</span>
+  </div>
+
+  <!-- Finding row 2: SLA (needs-owner) -->
+  <div class="dl-finding-row">
+    <svg viewBox="0 0 24 24" fill="none" stroke="var(--semantic-warning)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+    <span class="dl-finding-title">#38 Thread panel 闪烁 &mdash; fixed 8d ago, unreported</span>
+    <span class="dl-finding-kind fc-badge-sla" style="font-size: 8px;">SLA</span>
+    <span class="dl-finding-time">1天前</span>
+  </div>
+
+  <!-- Finding row 3: stale (informational) -->
+  <div class="dl-finding-row">
+    <svg viewBox="0 0 24 24" fill="none" stroke="var(--semantic-info)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+    <span class="dl-finding-title">#22 i18n 建议 &mdash; awaiting external 16 days, no response</span>
+    <span class="dl-finding-kind fc-badge-stale" style="font-size: 8px;">stale</span>
+    <span class="dl-finding-time">2天前</span>
+  </div>
+
+  <!-- Expanded finding card for the SLA row -->
+  <div class="finding-card warning" style="margin-left: 36px;">
+    <div class="fc-header">
+      <span class="fc-kind-badge fc-badge-sla">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        case-fixed-unreported
+      </span>
+      <span class="fc-status-pill fc-status-open">OPEN</span>
+      <span class="fc-severity">needs-owner</span>
+    </div>
+
+    <div class="fc-body">
+      Issue #38 has been in <code>fixed</code> state for 8 days without a public reply.
+      The community SLA policy (<code>fixedUnreportedAfterMs: 7d</code>) requires cases to be publicly reported within 7 days of being fixed.
+    </div>
+
+    <div class="fc-evidence">
+      <div class="fc-evidence-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        Evidence Source
+      </div>
+      <div class="fc-evidence-row">
+        <span class="fc-ev-label">Case state</span>
+        <span class="fc-ev-value"><code>fixed</code> since 2026-06-11</span>
+      </div>
+      <div class="fc-evidence-row">
+        <span class="fc-ev-label">Last public reply</span>
+        <span class="fc-ev-value">None found</span>
+      </div>
+      <div class="fc-evidence-row">
+        <span class="fc-ev-label">SLA threshold</span>
+        <span class="fc-ev-value">7 days (tenant default)</span>
+      </div>
+      <div class="fc-evidence-row">
+        <span class="fc-ev-label">Overdue by</span>
+        <span class="fc-ev-value">1 day</span>
+      </div>
+    </div>
+
+    <div class="fc-actions">
+      <button class="fc-btn fc-btn-ack">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        Acknowledge
+      </button>
+      <button class="fc-btn fc-btn-resolve">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        Resolve
+      </button>
+      <button class="fc-btn fc-btn-waive">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
+        Waive
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="annotation">
+  <strong>设计说明 E &mdash; Dead-Letter Queue 布局</strong><br>
+  1. 「Findings」section 位于 Issue sections 底部，独立于状态分组<br>
+  2. Section header 显示两个计数 badge: critical/warning(红色) + informational(蓝色)<br>
+  3. Finding 行按 severity 排序: needs-owner &gt; needs-human &gt; informational<br>
+  4. 每行包含: severity icon + issue 简称 + finding 描述 + kind badge + 发现时间<br>
+  5. 点击 finding 行展开 ReconciliationFindingCard（同 Mockup 4）<br>
+  6. Finding kind badge 颜色遵循一致语义: drift=critical, SLA=warning, stale=info
+</div>
+
+<hr class="divider">
+
+<!-- ════════════════════════════════════════════
+     设计约束总结
+     ════════════════════════════════════════════ -->
+<div class="section-title">Design Constraints Checklist</div>
+<div style="font-size: 12px; color: var(--cafe-text-secondary); line-height: 2;">
+  <p><strong>INV-D6.1</strong> Close action disabled until checklist ready or waiver exists</p>
+  <p><strong>INV-D6.2</strong> Waive action always opens audit form; no one-click waive</p>
+  <p><strong>INV-D6.3</strong> UI must show evidence source (comment URL, waiver, finding details) rather than only a green/red badge</p>
+  <p><strong>INV-D6.4</strong> Frontend uses SVG icons only, no emoji</p>
+  <p><strong>KD-5</strong>  Community is a Workspace tab, not a standalone page</p>
+  <p><strong>KD-8</strong>  Give data, not conclusions &mdash; findings show evidence, owner decides action</p>
+  <p><strong>KD-9</strong>  All icons SVG, zero emoji</p>
+  <p><strong>OKLCH</strong> All colors from theme-tokens.css, dark mode auto-switch</p>
+  <p><strong>Responsive</strong> Cards follow Workspace panel width (min 320px ~ max 480px)</p>
+  <p><strong>SO-D6</strong> Checklist card replaces DirectionCard position when case has resolved past intake</p>
+  <p><strong>Finding lifecycle</strong> open &rarr; acknowledged &rarr; resolved | waived &mdash; all transitions visible in UI</p>
+</div>
+
+<hr class="divider">
+
+<!-- ════════════════════════════════════════════
+     Component hierarchy
+     ════════════════════════════════════════════ -->
+<div class="section-title">Component Hierarchy</div>
+<div style="font-size: 11px; color: var(--cafe-text-secondary); line-height: 1.8; font-family: 'SF Mono', 'Fira Code', monospace;">
+<pre style="background: var(--cafe-surface-elevated); padding: 12px 16px; border-radius: 8px; border: 1px solid var(--cafe-border-subtle); overflow-x: auto;">
+CommunityPanel
+  +-- CommunityPanelFilters
+  +-- Stats bar
+  +-- Issue sections (existing)
+  |     +-- SectionHeader
+  |     +-- IssueRow
+  |     |     +-- DirectionCard (existing, pending-decision)
+  |     |     +-- <strong>ClosureChecklistCard (NEW, fixed/reported)</strong>
+  |     |     |     +-- ChecklistItem[] (pass/fail/waived + evidence)
+  |     |     |     +-- <strong>WaiverAuditForm (inline expand)</strong>
+  |     |     |     +-- Actions (Report / Waive / Close[disabled])
+  |     |     +-- <strong>ReconciliationFindingCard (NEW, drift/SLA)</strong>
+  |     |           +-- KindBadge + StatusPill + Severity
+  |     |           +-- EvidenceSource (INV-D6.3)
+  |     |           +-- Actions (Acknowledge / Resolve / Waive)
+  +-- <strong>Findings section (NEW)</strong>
+        +-- FindingsSectionHeader (count badges)
+        +-- FindingRow[]
+        +-- ReconciliationFindingCard (expand)
+</pre>
+</div>
+
+</div><!-- /page-wrapper -->
+
+</body>
+</html>
