@@ -618,6 +618,7 @@ cat_cafe_hold_ball({
 | 2026-06-17 | Phase N 立项：守门 thread guard（trigger-time hard-block + reconciliation self-heal）。根因：守门 thread 文字约束已写，但 register tracking / hold_ball 入口没有机制层 enforcement，导致双 owner / 球权死锁。 |
 | 2026-06-18 | CVO signoff B：gate-keeping thread guard 并入真 F167 A2A Chain Quality，作为 scope 扩展 / 新 phase，不新开 F 号、不重写 PR title / commits。 |
 | 2026-06-18 | Phase N merged (PR #2384, `e88f499e7`) — `threadKind='gate-keeping'` hard-block `register_pr_tracking` / `register_issue_tracking` / `hold_ball`，GitHub repo scan / webhook self-heal inbox marker，`opensource-ops` SKILL reflex，telemetry counter + six regression suites。Merge evidence: cloud R5 clean on `76d1aacc9`；rebase continuity to `2bc231ea` only merged type interface conflict; F238 pass; `pnpm gate` pass (build / tsc / test / lint / check). |
+| 2026-06-19 | Phase O **PR-O1** merged (PR #2415, squash `a1a166b79`) — `cat-cafe-skills/receive-handoff-grounding/` skill 落地：3 问反射 (claim → resolver → verdict + sourceTier T0/T1/T2 + actionFamily) + Keeper Wait A/B + WaitSourceRef schema + 8 dogfood fixtures + INV-O1..O12 (含 O12 状态契约固化 feat_index sourceTier 不变量)。Spec convergence R0→R3.1 (opus-47/codex/opus-48 三方设计 thread `thread_mqkasedeqeo56ayc`)。Local R3 opus-48 APPROVE @ `ebc57c97e` + continuity ack @ `15bb71f6b`；cloud Codex 5 轮 review iteration（R1 2 真 P1 schema/sourceTier / R2 1 P2 stale noise / R3 2 P2 Q3 表 + overview T0/T2 / R4 1 P2 Demo 1 feat_index T1→T2 / R5 clean "no major issues"）— feat_index sourceTier 不一致 3 轮 → per LL-072 升级 INV-O12 状态契约固化。中间踩坑：rebase 后 ghost commits 污染分支 → force-push reset 干净 SHA。Next: PR-O2 telemetry shadow。 |
 
 ### Phase I（A2A 声明-动作一致性 — 2026-04-25 reopened）
 
@@ -937,9 +938,17 @@ sonnet 看了"AC ✅ 三层 harness ✅"放行，但没问"守门猫 daily SOP �
 
 `thread_mqkasedeqeo56ayc`（CVO ack 后从 `proposal_mqkar300spszj6tx` 创建）— @codex (砚砚) chain starter → @opus-48 R2 → @codex R3 final convergence；`reportingMode=final-only`，R3 已 cross_post 回 `thread_mqiwk2ir6u1jyrbk` 给 `opus-47` 实施 PR-O1。
 
-**AC / Plan / Owner**：PR-O1 plan draft `docs/plans/2026-06-18-f167-phase-o-pr-o1-receive-handoff-skill.md`（opus-47 起草，R3 framing 落进 plan 后即刻进 implementation phase）。
+**AC / Plan / Owner**：PR-O1 plan `docs/plans/2026-06-18-f167-phase-o-pr-o1-receive-handoff-skill.md`（opus-47 起草，R3 framing 落进 plan 后即刻进 implementation phase）。
 
-**F167 Close 门槛更新**：Phase O 收敛（PR-O1 → O2 → O3 → O4）+ PR-O2 shadow 1 周 telemetry 观察 + F192 weekly verdict 通过后才可 close。Phase N 与 Phase O 关系：keep PR-tracking hard-block + patch issue_tracking/hold_ball 已确认；Phase N 不再是 F167 close 的最后一步。
+#### ✅ PR-O1 merged（2026-06-19, PR #2415, squash `a1a166b79`）
+
+- **Files**: `cat-cafe-skills/receive-handoff-grounding/SKILL.md` + `refs/claim-schema.md` + `refs/resolver-catalog.md` + `refs/dogfood-fixtures.md` + manifest entry + project symlink
+- **AC**: O1.1 ~ O1.15 全部 ✅ (含 O1.6 doc anchor 本提交回填)
+- **Cloud iteration**: 5 轮 (R1 2 P1 / R2-4 各 1-2 P2 / R5 clean)；feat_index sourceTier 不一致 3 轮 → LL-072 升级 INV-O12 状态契约
+- **Local R3 reviewer**: opus-48 (布偶猫 4.8) APPROVE @ `ebc57c97e` + continuity ack @ `15bb71f6b`
+- **下一棒 (PR-O2 telemetry shadow)**: 待 PR-O1 1 周 dogfood 观察后启动；spec 在 plan §14.10 + F167 doc R3 增量 section
+
+**F167 Close 门槛更新**：Phase O 收敛（**PR-O1 ✅** → O2 → O3 → O4）+ PR-O2 shadow 1 周 telemetry 观察 + F192 weekly verdict 通过后才可 close。Phase N 与 Phase O 关系：keep PR-tracking hard-block + patch issue_tracking/hold_ball 已确认；Phase N 不再是 F167 close 的最后一步。
 
 ## Behavioral Evidence（Phase B 观察记录）
 
