@@ -2873,6 +2873,8 @@ async function main(): Promise<void> {
     indexBuilder: memoryServices.indexBuilder,
     knowledgeResolver: memoryServices.knowledgeResolver,
     rebuildJobTracker,
+    // F188 Phase K: enable docs_root_suspicious detector in /api/evidence/status.
+    ...(memoryServices.catalog ? { catalog: memoryServices.catalog } : {}),
   });
   // F227: Event Memory query route (GET /api/memory/events)
   await app.register(eventsRoutes, {

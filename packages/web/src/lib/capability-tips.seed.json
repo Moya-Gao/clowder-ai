@@ -321,5 +321,23 @@
     "body": "等待态 tips 是 Knowledge Feed 投影；点“了解更多”会打开前台猫草稿。",
     "action": { "type": "open_concierge_draft", "label": "了解更多" },
     "owner": "codex"
+  },
+  {
+    "id": "feature-f188-memory-status-config-health",
+    "kind": "feature",
+    "sourceRef": {
+      "path": "docs/features/F188-library-stewardship.md",
+      "anchor": "Phase K: Memory Center Config Health Surface"
+    },
+    "structureSource": {
+      "path": "docs/features/F188-library-stewardship.md",
+      "anchor": "EvidenceStatusSignals 输入契约"
+    },
+    "bodySource": { "path": "docs/features/F188-library-stewardship.md", "anchor": "Warning codes" },
+    "contexts": ["thinking", "feature_dev"],
+    "audience": ["all"],
+    "body": "Memory Center 看到 healthy=true 但 vectors/edges/embedding 为空时打开 /memory/status，新的 degraded banner 会列出 config warnings 与下一步动作。",
+    "action": { "type": "open_concierge_draft", "label": "了解更多" },
+    "owner": "opus-47"
   }
 ]
