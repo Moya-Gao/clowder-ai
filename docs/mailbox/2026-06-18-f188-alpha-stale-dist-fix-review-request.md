@@ -1,3 +1,10 @@
+---
+feature_ids: [F188]
+topics: [alpha, harness, review-request]
+doc_kind: mailbox
+created: 2026-06-18
+---
+
 # Review Request: fix(alpha): build-freshness gate to alpha:start (ADR-039 parity)
 
 Review-Target-ID: f188-alpha-stale-dist-fix
