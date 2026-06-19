@@ -12,6 +12,7 @@
  * POST   /api/community-issues/:id/report   → D1: 标记已回复（case.reported）
  * POST   /api/community-issues/:id/waive-closure → D1: 免除公开回复要求
  * GET    /api/community-board?repo=xxx       → 聚合看板（issues + PR projection）
+ * GET    /api/community-findings             → D3/D4: open reconciliation/SLA findings
  */
 
 import { createHash, randomUUID } from 'node:crypto';
@@ -73,6 +74,24 @@ export interface CommunityIssuesRoutesOptions {
   // F168 Phase C C2.2: narrator spawn driver (optional; fire-and-forget after case.triaged)
   // Inject NarratorDriver constructed in index.ts with the shared wakeCat + RoleResolver.
   narratorDriver?: NarratorDriver;
+  // F168 Phase D D3/D4: reconciliation finding store for read model
+  // D-PR2 AC line 305: return open/acknowledged/waived/resolved findings for D-PR3 UX
+  findingStore?: {
+    listAll(): Promise<
+      Array<{
+        findingId: string;
+        subjectKey: string;
+        findingKind: string;
+        severity: string;
+        message: string;
+        status: string;
+        waiver: { reason: string; actor: string; evidence: string } | null;
+        evidenceFingerprint: string | null;
+        createdAt: number;
+        updatedAt: number;
+      }>
+    >;
+  };
 }
 
 const VALID_ISSUE_TYPES = ['bug', 'feature', 'enhancement', 'question'] as const;
@@ -1262,5 +1281,21 @@ export const communityIssueRoutes: FastifyPluginAsync<CommunityIssuesRoutesOptio
     }
 
     return { repo, issues, prItems };
+  });
+
+  // ─── F168 Phase D: Reconciliation findings read route ──────────────────
+  // Returns all findings by default; optional ?status=open,acknowledged for filtering
+  app.get('/api/community-findings', async (request, reply) => {
+    if (!opts.findingStore) {
+      reply.status(501);
+      return { error: 'Finding store not configured' };
+    }
+    const all = await opts.findingStore.listAll();
+    const statusParam = (request.query as Record<string, string | undefined>).status;
+    if (statusParam) {
+      const allowed = new Set(statusParam.split(',').map((s) => s.trim()));
+      return { findings: all.filter((f) => allowed.has(f.status)) };
+    }
+    return { findings: all };
   });
 };

@@ -92,6 +92,24 @@ function makeGitHubDeps(overrides = {}) {
     fetchRepoComments: async () => [],
     readRepoCommentCursor: async () => undefined,
     writeRepoCommentCursor: async () => {},
+    // F168 D3: community-reconciler deps (redis-gated)
+    objectStore: {
+      get: async () => null,
+      listSubjectKeys: async () => [],
+    },
+    projector: { apply: async () => {} },
+    findingStore: {
+      upsert: async () => {},
+      resolveAbsent: async () => {},
+      listAll: async () => [],
+      listOpen: async () => [],
+      listBySubject: async () => [],
+      get: async () => null,
+    },
+    fetchGitHubIssueState: async () => ({ state: 'open', closedAt: null, mergedAt: null }),
+    fetchGitHubPrState: async () => ({ state: 'open', closedAt: null, mergedAt: null }),
+    isReconcilerBaselineEstablished: async () => true,
+    markReconcilerBaselineEstablished: async () => {},
     ...overrides,
   };
 }
@@ -219,7 +237,7 @@ describe('schedule name validation (P2-2)', () => {
 // --- Task 2: plugin.yaml manifest parsing ---
 
 describe('plugins/github/plugin.yaml (AC-B1)', () => {
-  test('parses as valid PluginManifest with 3 config + 6 schedule resources', () => {
+  test('parses as valid PluginManifest with 3 config + 7 schedule resources', () => {
     const yamlPath = join(__dirname, '../../../plugins/github/plugin.yaml');
     assert.ok(existsSync(yamlPath), `plugin.yaml must exist at ${yamlPath}`);
 
@@ -243,8 +261,9 @@ describe('plugins/github/plugin.yaml (AC-B1)', () => {
     const noiseField = manifest.config.find((c) => c.envName === 'GITHUB_SETUP_NOISE_BOT_LOGINS');
     assert.strictEqual(noiseField?.required, false);
 
-    // Schedule resources (4 original + issue-tracking F202-2D + repo-comment-poll F168-C0.3)
-    assert.strictEqual(manifest.resources.length, 6);
+    // Schedule resources (4 original + issue-tracking F202-2D + repo-comment-poll F168-C0.3
+    // + community-reconciler F168-D3)
+    assert.strictEqual(manifest.resources.length, 7);
     for (const r of manifest.resources) {
       assert.strictEqual(r.type, 'schedule');
       assert.ok(r.factoryId?.startsWith('github.'), `factoryId must start with "github.": ${r.factoryId}`);
@@ -254,6 +273,7 @@ describe('plugins/github/plugin.yaml (AC-B1)', () => {
     const resourceNames = manifest.resources.map((r) => r.name).sort();
     assert.deepStrictEqual(resourceNames, [
       'cicd-check',
+      'community-reconciler',
       'conflict-check',
       'issue-tracking',
       'repo-comment-poll',
@@ -266,7 +286,7 @@ describe('plugins/github/plugin.yaml (AC-B1)', () => {
 // --- Task 3: Factory registration + task creation ---
 
 describe('GitHub schedule factory registration (F202-2B Task 3)', () => {
-  test('registerGitHubScheduleFactories registers all 6 factories', () => {
+  test('registerGitHubScheduleFactories registers all 7 factories', () => {
     const registry = new ScheduleFactoryRegistry();
     registerGitHubScheduleFactories(registry);
     assert.ok(registry.has('github.cicd-check'));
@@ -275,6 +295,7 @@ describe('GitHub schedule factory registration (F202-2B Task 3)', () => {
     assert.ok(registry.has('github.repo-scan'));
     assert.ok(registry.has('github.issue-tracking'));
     assert.ok(registry.has('github.repo-comment-poll'));
+    assert.ok(registry.has('github.community-reconciler'));
   });
 
   test('github.cicd-check factory creates TaskSpec with correct instanceId', () => {
@@ -591,7 +612,7 @@ describe('GitHub plugin lifecycle (AC-B4)', () => {
     return JSON.parse(readFileSync(p, 'utf-8'));
   }
 
-  test('enable → 6 schedule tasks registered; disable → 6 unregistered', async () => {
+  test('enable → 7 schedule tasks registered; disable → 7 unregistered', async () => {
     const tmpDir = createTempDir();
     try {
       // Setup
@@ -616,18 +637,19 @@ describe('GitHub plugin lifecycle (AC-B4)', () => {
       const manifest = parsePluginManifest(join(__dirname, '../../../plugins/github/plugin.yaml'));
       const result = await activator.enablePlugin(manifest);
 
-      // All 6 schedule resources should succeed
+      // All 7 schedule resources should succeed
       assert.strictEqual(result.status, 'success', `enable should succeed: ${JSON.stringify(result)}`);
-      assert.strictEqual(result.resources.length, 6);
+      assert.strictEqual(result.resources.length, 7);
       for (const r of result.resources) {
         assert.ok(r.ok, `resource ${r.name} should be ok: ${r.error}`);
       }
 
-      // TaskRunner should have 6 registered tasks
-      assert.strictEqual(taskRunner.registered.length, 6);
+      // TaskRunner should have 7 registered tasks
+      assert.strictEqual(taskRunner.registered.length, 7);
       const ids = taskRunner.registered.map((t) => t.id).sort();
       assert.deepStrictEqual(ids, [
         'schedule:github:cicd-check',
+        'schedule:github:community-reconciler',
         'schedule:github:conflict-check',
         'schedule:github:issue-tracking',
         'schedule:github:repo-comment-poll',
@@ -635,9 +657,9 @@ describe('GitHub plugin lifecycle (AC-B4)', () => {
         'schedule:github:review-feedback',
       ]);
 
-      // Disable → all 6 unregistered
+      // Disable → all 7 unregistered
       await activator.disablePlugin(manifest);
-      assert.strictEqual(taskRunner.unregistered.length, 6);
+      assert.strictEqual(taskRunner.unregistered.length, 7);
       const unregIds = [...taskRunner.unregistered].sort();
       assert.deepStrictEqual(unregIds, ids);
     } finally {
@@ -679,9 +701,9 @@ describe('GitHub plugin lifecycle (AC-B4)', () => {
         'first startup should trigger migration',
       );
 
-      // Enable → 6 registered
+      // Enable → 7 registered
       await activator.enablePlugin(manifest);
-      assert.strictEqual(taskRunner.registered.length, 6);
+      assert.strictEqual(taskRunner.registered.length, 7);
 
       // Write marker (simulating what index.ts migration does after writing entries)
       markGitHubScheduleMigrationDone(tmpDir);
@@ -735,9 +757,19 @@ describe('GitHub plugin lifecycle (AC-B4)', () => {
       writeCapabilities(tmpDir, { capabilities: [] });
 
       const { PluginResourceActivator } = await import('../dist/domains/plugin/PluginResourceActivator.js');
-      // Remove repo deps to simulate no redis — both repo-scan AND repo-comment-poll
-      // are redis-gated optionals that require repoAllowlist.
-      const deps = makeGitHubDeps({ repoAllowlist: undefined, reconciliationDedup: undefined });
+      // Remove repo deps to simulate no redis — repo-scan, repo-comment-poll, and
+      // community-reconciler are all redis-gated optionals.
+      const deps = makeGitHubDeps({
+        repoAllowlist: undefined,
+        reconciliationDedup: undefined,
+        objectStore: undefined,
+        projector: undefined,
+        findingStore: undefined,
+        fetchGitHubIssueState: undefined,
+        fetchGitHubPrState: undefined,
+        isReconcilerBaselineEstablished: undefined,
+        markReconcilerBaselineEstablished: undefined,
+      });
       const activator = new PluginResourceActivator({
         resolveProjectRoot: () => tmpDir,
         pluginsDir: join(tmpDir, 'plugins'),
@@ -753,19 +785,23 @@ describe('GitHub plugin lifecycle (AC-B4)', () => {
       const manifest = parsePluginManifest(join(__dirname, '../../../plugins/github/plugin.yaml'));
       const result = await activator.enablePlugin(manifest);
 
-      // 4 succeed, 2 fail (repo-scan + repo-comment-poll — both optional), overall status = success
+      // 4 succeed, 3 fail (repo-scan + repo-comment-poll + community-reconciler — all optional), overall status = success
       assert.strictEqual(result.status, 'success');
       const succeeded = result.resources.filter((r) => r.ok);
       const failed = result.resources.filter((r) => !r.ok);
       assert.strictEqual(succeeded.length, 4);
-      assert.strictEqual(failed.length, 2);
+      assert.strictEqual(failed.length, 3);
       const failedNames = failed.map((r) => r.name).sort();
-      assert.deepStrictEqual(failedNames, ['repo-comment-poll', 'repo-scan']);
-      for (const r of failed) {
+      assert.deepStrictEqual(failedNames, ['community-reconciler', 'repo-comment-poll', 'repo-scan']);
+      // repo-scan + repo-comment-poll fail on repoAllowlist; community-reconciler on missing Redis deps
+      const repoFailed = failed.filter((r) => r.name !== 'community-reconciler');
+      for (const r of repoFailed) {
         assert.ok(r.error?.includes('repoAllowlist'), `${r.name} should fail on repoAllowlist: ${r.error}`);
       }
+      const reconcilerFailed = failed.find((r) => r.name === 'community-reconciler');
+      assert.ok(reconcilerFailed?.error?.includes('objectStore'), 'community-reconciler should fail on missing deps');
 
-      // Only 4 tasks registered (all except the 2 redis-gated optionals)
+      // Only 4 tasks registered (all except the 3 redis-gated optionals)
       assert.strictEqual(taskRunner.registered.length, 4);
     } finally {
       rmSync(tmpDir, { recursive: true, force: true });
@@ -1301,6 +1337,39 @@ describe('buildGitHubMigrationEntries (P2-B)', () => {
     assert.ok(rcp);
     assert.strictEqual(rcp.enabled, false);
     assert.strictEqual(rcp.migrationPendingReason, 'deps-unavailable');
+  });
+
+  test('backfill adds community-reconciler as redis-gated TARGET for existing installs (cloud R2 P2-1)', async () => {
+    const { backfillMissingGitHubScheduleEntries } = await import(
+      '../dist/domains/plugin/github-schedule-factories.js'
+    );
+    // Existing install: has cicd-check (legacy migration ran), NO community-reconciler.
+    // After upgrade, backfill must add community-reconciler as redis-gated (pending).
+    const config = {
+      version: 1,
+      capabilities: [
+        {
+          id: 'plugin:github:cicd-check',
+          type: 'schedule',
+          enabled: true,
+          source: 'cat-cafe',
+          pluginId: 'github',
+          scheduleTaskId: 'schedule:github:cicd-check',
+        },
+      ],
+    };
+    const manifest = {
+      resources: [
+        { type: 'schedule', name: 'cicd-check' },
+        { type: 'schedule', name: 'community-reconciler' },
+      ],
+    };
+    // No redis deps available → community-reconciler should be backfilled as pending
+    const result = backfillMissingGitHubScheduleEntries(config, manifest, {}, { repoScanDepsAvailable: false });
+    assert.strictEqual(result.changed, true);
+    const cr = result.config.capabilities.find((e) => e.id === 'plugin:github:community-reconciler');
+    assert.ok(cr, 'community-reconciler must be backfilled into existing install');
+    assert.strictEqual(cr.enabled, false, 'redis-gated resource without deps should be pending (disabled)');
   });
 
   test('backfill gated on plugin-active — does NOT resurrect when GitHub plugin was disabled (cloud R3 P1)', async () => {

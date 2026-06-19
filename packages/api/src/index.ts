@@ -557,21 +557,27 @@ async function main(): Promise<void> {
   let communityEventLog: import('./domains/community/CommunityEventLog.js').ICommunityEventLog | undefined;
   let communityObjectStore: import('./domains/community/CommunityObjectStore.js').ICommunityObjectStore | undefined;
   let communityProjector: import('./domains/community/community-projector.js').CommunityProjector | undefined;
+  // F168 Phase D D3/D4: reconciliation finding store (Redis-backed, no TTL)
+  let communityFindingStore:
+    | import('./domains/community/CommunityReconciliationFindingStore.js').CommunityReconciliationFindingStore
+    | undefined;
   // F233 Phase B (B2): ball-custody ingest（fire-and-forget 旁路写球权事件，注入 AgentRouter）
   let ballCustodyIngest: import('./domains/ball-custody/BallCustodyIngest.js').BallCustodyIngest | undefined;
   let ballCustodyProjectionStore:
     | import('./domains/ball-custody/BallCustodyProjectionStore.js').IBallCustodyProjectionStore
     | undefined;
   if (redis) {
-    const [elMod, osMod, pjMod] = await Promise.all([
+    const [elMod, osMod, pjMod, fsMod] = await Promise.all([
       import('./domains/community/CommunityEventLog.js'),
       import('./domains/community/CommunityObjectStore.js'),
       import('./domains/community/community-projector.js'),
+      import('./domains/community/CommunityReconciliationFindingStore.js'),
     ]);
     communityEventLog = new elMod.RedisCommunityEventLog(redis);
     communityObjectStore = new osMod.RedisCommunityObjectStore(redis);
     communityProjector = new pjMod.CommunityProjector(communityEventLog, communityObjectStore);
-    app.log.info('[api] F168 Phase A: community event services initialized');
+    communityFindingStore = new fsMod.CommunityReconciliationFindingStore(redis);
+    app.log.info('[api] F168 Phase A+D: community event + finding services initialized');
 
     // F233 Phase B (B2): ball-custody 事件流 stack（旁路写球权事件，照 community ingest 先例）
     const [bcMod, bcStoreMod, bcProjMod, bcIngestMod] = await Promise.all([
@@ -2693,6 +2699,8 @@ async function main(): Promise<void> {
     fetchIssueCommentCursor,
     // F168 Phase C C2.2: narrator driver (fire-and-forget after case.triaged)
     narratorDriver: communityNarratorDriver,
+    // F168 Phase D D3/D4: reconciliation finding store for read model
+    findingStore: communityFindingStore,
   });
   await app.register(backlogRoutes, { backlogStore, threadStore, messageStore });
 
@@ -3786,6 +3794,51 @@ async function main(): Promise<void> {
         // F168 Phase A P1-1: community event services for spec wiring
         eventLog: communityEventLog,
         projector: communityProjector,
+        // F168 Phase D D3/D4: reconciler deps (Redis-gated, same as repo-scan)
+        objectStore: communityObjectStore,
+        findingStore: communityFindingStore,
+        fetchGitHubIssueState: async (repo: string, issueNum: number) => {
+          // D3.4: errors must throw (not return null) so TaskSpec's catch block
+          // skips fetchSuccessSubjects and preserves existing findings.
+          const { execFile: ef } = await import('node:child_process');
+          const { promisify: p } = await import('node:util');
+          const { stdout } = await p(ef)(
+            'gh',
+            ['api', `/repos/${repo}/issues/${issueNum}`, '--jq', '{state, closed_at}'],
+            getGitHubExecOptions(15_000),
+          );
+          const parsed = JSON.parse(stdout.trim());
+          return {
+            state: parsed.state === 'closed' ? ('closed' as const) : ('open' as const),
+            closedAt: parsed.closed_at ?? null,
+            mergedAt: null,
+          };
+        },
+        fetchGitHubPrState: async (repo: string, prNum: number) => {
+          // D3.4: errors must throw (not return null) so TaskSpec's catch block
+          // skips fetchSuccessSubjects and preserves existing findings.
+          const { execFile: ef } = await import('node:child_process');
+          const { promisify: p } = await import('node:util');
+          const { stdout } = await p(ef)(
+            'gh',
+            ['api', `/repos/${repo}/pulls/${prNum}`, '--jq', '{state, closed_at, merged_at}'],
+            getGitHubExecOptions(15_000),
+          );
+          const parsed = JSON.parse(stdout.trim());
+          return {
+            state: parsed.state === 'closed' ? ('closed' as const) : ('open' as const),
+            closedAt: parsed.closed_at ?? null,
+            mergedAt: parsed.merged_at ?? null,
+          };
+        },
+        isReconcilerBaselineEstablished: async () => {
+          if (!redisClient) return false;
+          const val = await redisClient.get('community:reconciler:baseline-established');
+          return val === '1';
+        },
+        markReconcilerBaselineEstablished: async () => {
+          if (redisClient) await redisClient.set('community:reconciler:baseline-established', '1');
+        },
       });
       app.log.info('[api] F202-2B: GitHub schedule resources rehydrated via plugin framework');
     }
