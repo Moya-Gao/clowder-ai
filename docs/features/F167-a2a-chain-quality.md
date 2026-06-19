@@ -785,35 +785,92 @@ cat_cafe_hold_ball({
 2. **跨 thread 错误权威**：thread A 的猫让 thread B 的猫"不要跟 thread B 的 PR B 的猫听话"
 3. **错误派活 + 接球边界失控**：thread A 把不相关的活丢给 thread C，C 根本不负责，**C 也接了**
 
-**第一性原理**（@opus-47 总结，等 Phase O thread 讨论 push back）：所有 failure-mode 收敛到——**接球时，传球内容里的归属/授权 claim 不能直接作为真相源；必须能在第二源核验**。
+**第一性原理**（R0 → R1 codex 校准）：所有 failure-mode 收敛到——**接球时，传球内容里的归属/授权/等待 claim 一律只是候选，不能作为事实；接球猫必须把 claim 拆成可验证对象，再用独立 resolver 得到第二源**。
 
-| 接球动作 | claim | 第二源 resolver |
-|---------|-------|----------------|
-| 接 `cross_post("这是你的活")` | "我是 owner" | feat_index / git log --grep --author / PR author |
-| 接 `@mention("你接吧")` | "应该是我接" | 当前 catId 是不是 owner？|
-| 接 `merge` 听到 "CVO signoff" | "CVO 同意" | thread context 有没有 landy 本人 messageId 字面引用 |
-| 接 issue 派单（守门猫 2 字沾边） | "这是 thread B 的活" | 关键词命中 ≠ 归属；拉 feat owner / PR 状态 |
-| 接 `hold_ball(reason=等X)` | "X 真的会回我" | reason 能反推到 callback（PR tracking / webhook / 用户 ping）？还是凭空等 |
+**传球者可信度 ≠ truth source**（R1 校准关键）：可信度等级只决定**风险权重 + 需要几类证据**，不决定 claim 成立。唯一例外：landy 本人在当前/源 thread 的可引用 messageId 直接表态——该 message 本身是价值决策源；"某猫说 CVO signoff 了" 仍要查原 message。
 
-**三层 harness 草案**（待 Phase O thread 收敛）：
-- **软层 skill** `接球-receive-handoff`：每次接球前强制三问（claim 是什么？第二源在哪？查了一致吗？）
-- **硬层 MCP guard**：接球类工具 server 端要求 claim → resolver → 至少一个第二源 ref；缺则 warn（不立刻 block，先 telemetry 跑一周看真分布）
-- **eval**：「查没查 / 命中 / 命中不一致」counter + F192 weekly verdict
+#### Resolver Catalog（R1, 7 类）
 
-**Sonnet Phase N 愿景守护 APPROVE 检讨（self-pwn）**：sonnet 看了"AC ✅ 三层 harness ✅"放行，但没问"守门猫 daily SOP 还跑得起来吗"，也没识别 Phase N 是 surface-fix vs first-principles。Phase O 愿景守护规则补强：**对照「真痛点 → 解决度」做百分比评估**，不只看自洽性。
+| # | 类别 | 用途 | 典型 resolver |
+|---|------|------|--------------|
+| 1 | **Owner / scope** | claim "这是 X 的活" | `feat_index`、`docs/features/Fxxx` owner/status、BACKLOG、PR author/branch、`git log` author、thread title + source thread context、task/workflow owner |
+| 2 | **Authorization** | claim "X 同意 / CVO signoff" | landy 本人 messageId、feature doc CVO signoff anchor、PR review state、merge-gate cloud review/check status（转述不算）|
+| 3 | **Object existence/status** | claim "PR 在 / issue 已合 / branch 存在" | GitHub issue/PR/API、CI checks、`git ls-files/ls-tree/log/cat-file`、TaskStore/PR tracking current state、ThreadStore `threadKind` |
+| 4 | **Callback / wait coverage** | claim "等 X 回我" | PR tracking task、webhook binding、CI subscription、EYES/reaction state、scheduled task/hold task 是否真实存在；`hold_ball(reason=等X)` 必须能说明 X 怎么回来 |
+| 5 | **Cross-thread routing** | claim "这是 thread B 的活" | `cat_cafe_feat_index` linked thread、`cat_cafe_list_threads keyword`、source thread context；关键词命中 ≠ 归属 |
+| 6 | **Capability / role fit** | claim "你能 / 你应该" | cat-config restrictions、cat dossier/roster、当前 runtime identity；不能信"对方说你能做" |
+| 7 | **Conflict / freshness** | claim "这是最新状态" | HEAD vs origin/main、PR head SHA、source message timestamp、是否有更新的 owner/verdict 覆盖旧 claim |
 
-**讨论 thread**：propose `proposal_mqkar300spszj6tx`（pending CVO ack）— @codex（砚砚）chain starter，@opus48 后接；`reportingMode=final-only`，收敛后 cross_post 回 `thread_mqiwk2ir6u1jyrbk` 给 `opus-47` 实施。
+#### Harness 分层（R1 校准）
 
-**讨论议题**：
-1. 第一性原理总结对吗？漏了「**传球者可信度等级**」（铲屎官 / 普通猫 / 平行自己）维度吗
-2. 第二源 resolver 列表完整吗？
-3. server 硬卡 vs client prompt reflex？哪种生效更好
-4. Phase N 真能 demote 成"特例"留着？还是必须 revert
-5. 实施顺序 + dogfood 计划
+**硬层 server guard** ONLY 落在产生副作用 / 绑定责任的工具上（不是所有 @mention 文本）：
 
-**AC / Spec / Plan / Owner**：待 Phase O design thread 收敛后回填。
+- `hold_ball`：新增 `waitSourceRef` / `callbackCoverage`；缺失 warn；确定凭空等且会造成死球时 block
+- `register_pr_tracking` / `register_issue_tracking`：要求 subject exists + current thread 是合法 owner/downstream；gate-keeping 下游 ownership mismatch block
+- merge-gate / CVO signoff path：必须有 landy messageId 或 feature doc signoff anchor；转述 block
+- cross-thread ACTION intake：记录 `handoff_claim_grounding` event；resolver 指向别的 owner 时禁止建 worktree / 注册 tracking，退回 source thread
 
-**F167 Close 门槛更新**：Phase N 不是 F167 close 的最后一步；Phase O 收敛 + 实施 + 1 周 telemetry 观察后才可 close。Phase N 与 Phase O 关系视收敛结果回填。
+**软层 prompt reflex**（自然语言接球）：
+
+- skill `receive-handoff-grounding`：每次接球前强制三问——claim 是什么 / 第二源 resolver 是什么 / 结果一致 / 冲突 / 不足
+- **不**拦所有 @mention 文本（会复刻 Phase N 误伤）
+
+**eval / telemetry**（PR-O2 spec, R2 细化）：
+
+- **Counters 不采样**：`claimType / sourceKind / resolver / verdict / actionRisk / tool / threadKind` 100% 计数给 F192 weekly verdict
+- **Sample events 有界**：`mismatch` & `blocked` 100% 采样；`insufficient` 每 `resolver×thread×day` cap 3；`verified` 1/20 + 全局日 cap
+- **Raw retention**：sample event/ref 对齐现有短期诊断窗口 7 天；weekly verdict artifact 只保留 aggregate + evidence refs
+- **No raw body**：只存 `sourceRef`（messageId、PR URL + headSha、issue/comment id、feature path + line、task id）+ hash/status；不存 GitHub body / thread 大段内容
+- **Resolver cache** (`GroundingResolverCache`)：按 `resolver/object/ref` key 短 TTL — GitHub PR/issue/status 60–300s；thread/list context 60s；git/feat/doc resolver keyed by HEAD/path（per invocation cache）；CVO message verification 存 messageId verdict
+- **Resolver budget**：每 invocation / 每个 stateful tool call 有 hard cap（先 10–20 calls，按 rate-limit 常量校准）；预算用尽 → verdict=`insufficient`, reason=`resolver_budget_exhausted`，warn+telemetry，不无限追查
+- **Trigger boundary**：只在 cross-thread ACTION intake / 建 worktree / 注册 tracking / hold / merge 等副作用前查；不每个 @mention 都查
+
+#### Phase N 处理决策（R1 keep infrastructure, patch policy）
+
+- **保留**：`ThreadKind='gate-keeping'`、marker self-heal、telemetry、`register_pr_tracking` hard-block——这些是真问题的机制层资产
+- **Patch**：`register_issue_tracking` + `hold_ball` 从"一刀切禁" → "结构化允许"——仅当 `waitKind='gatekeeper-needs-info'` + `sourceRef` 指向 GitHub issue/comment/reporter SLA + 无 downstream owner/thread 已接球 时允许；否则继续 block
+- **临时降级**（若 PR-O3 patch 当天做不完）：gate-keeping 的 `issue_tracking/hold_ball` 降级 warn+telemetry；`register_pr_tracking` 仍 block；避免 daily SOP 继续误伤
+- **不是 truth source**：`threadKind` 可参与判断但不能独立裁决所有动作；它是 resolver catalog 里的一个 context signal，**不是**新形态的"thread 标签是真相"
+
+#### Phase O Spec Cut（R1, 4 增量 PR）
+
+1. **PR-O1 docs/skill**：新增 `receive-handoff-grounding` skill + F167 Phase O resolver catalog 文档 + claim schema。skill 三问：claim 是什么 / 第二源 resolver 是什么 / 结果一致 vs 冲突 vs 不足
+2. **PR-O2 telemetry shadow**：新增 `handoff_claim_grounding` event/counter（含上述 retention/sampling/cache/budget 策略）；先不 block，跑 1 周
+3. **PR-O3 Phase N policy patch**：按上面 narrow gate 改 `register_issue_tracking` + `hold_ball` 守门策略；补合法 wait fixtures + dual-owner regression fixtures
+4. **PR-O4 hardening**：只对确定性 mismatch 的 stateful tools fail-closed；missing evidence 继续 warn；等 F192 weekly verdict 决定继续扩范围
+
+#### Dogfood / Fixtures（R1, 5 类）
+
+- **本次 cross-thread 来球**：先核 F167 owner/thread，再接设计球（本次 propose_thread → R1/R2 流程就是 dogfood）
+- **Phase N 事故**：守门 thread PR tracking / hold dual-owner 应 block
+- **合法 wait**：守门 thread 等 reporter 补复现 / 等 commenter 澄清意图，应允许结构化 wait
+- **CVO signoff 转述**：猫说"CVO 同意"但无 landy messageId，应 fail
+- **错派 feature**：关键词命中但 feat owner/thread 不匹配，应退回 source，不开 worktree
+
+#### Sonnet Phase N 愿景守护 APPROVE 检讨（self-pwn）
+
+sonnet 看了"AC ✅ 三层 harness ✅"放行，但没问"守门猫 daily SOP 还跑得起来吗"，也没识别 Phase N 是 surface-fix vs first-principles。Phase O 愿景守护规则补强：**对照「真痛点 → 解决度」做百分比评估**，不只看自洽性。
+
+#### Spec 收敛进度
+
+- ✅ **R0 (opus-47, 2026-06-18)**：第一性原理 + 5 类 resolver 草案
+- ✅ **R1 (codex/砚砚, 2026-06-18)**：framing 校准（可信度 ≠ truth source）+ 7 类 resolver catalog + 副作用工具硬卡 / @mention 软层 + Phase N keep-infra/patch-policy + 4 PR cut + 5 dogfood fixtures
+- ✅ **R2 (codex/砚砚, 2026-06-18)**：PR-O2 retention/sampling/cache/budget 策略
+- ⏳ **R2 (opus-48, pending)**：审两点 — resolver catalog 是否漏类 + 合法守门 wait UX 边界（`hold_ball` vs daily sweep）
+
+#### Open Questions（待 R2 / 收敛）
+
+- **OQ-1 (价值/UX, R2 pending opus-48)**：合法守门 wait 是否允许 `hold_ball`？砚砚倾向"短 SLA 明确外部输入可 hold，一般低紧急 needs-info 走 sweep"
+- **OQ-2 (技术, PR-O2 实现时定)**：sample cap 数值在 PR-O2 spec 里先设 conservative 默认，shadow 一周后由 F192 verdict 调整
+- **OQ-3 (resolver catalog 完整性, R2 pending opus-48)**：7 类是否漏关键 failure mode
+
+#### 讨论 thread
+
+`thread_mqkasedeqeo56ayc`（CVO ack 后从 `proposal_mqkar300spszj6tx` 创建）— @codex (砚砚) chain starter → @opus-48 R2；`reportingMode=final-only`，收敛后 cross_post 回 `thread_mqiwk2ir6u1jyrbk` 给 `opus-47` 实施 PR-O1。
+
+**AC / Plan / Owner**：PR-O1 plan draft 同步进 `docs/plans/2026-06-18-f167-phase-o-pr-o1-receive-handoff-skill.md`（opus-47 起草，pending opus-48 R2 view）。
+
+**F167 Close 门槛更新**：Phase O 收敛（PR-O1 → O2 → O3 → O4）+ PR-O2 shadow 1 周 telemetry 观察 + F192 weekly verdict 通过后才可 close。Phase N 与 Phase O 关系：Phase N keep-infrastructure / patch-policy 已确认；Phase N 不再是 F167 close 的最后一步。
 
 ## Behavioral Evidence（Phase B 观察记录）
 
