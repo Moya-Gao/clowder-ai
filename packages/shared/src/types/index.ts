@@ -362,6 +362,12 @@ export type {
   CreateExternalProjectInput,
   ExternalProject,
 } from './external-project.js';
+// F245: Friction Signal Eval types
+export type {
+  FrictionChannel,
+  FrictionSeverity,
+  FrictionSignal,
+} from './friction-signal.js';
 // F222: Frustration Auto-Issue types
 export type {
   CreateFrustrationIssueInput,

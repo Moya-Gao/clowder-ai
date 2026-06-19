@@ -4,6 +4,7 @@ related_features: [F192, F222, F167, F128]
 topics: [friction, eval, harness-eval, aggregation, paw-feel, rollup, claw-friction]
 doc_kind: spec
 created: 2026-06-18
+tips_exempt: Phase A-C 为内部 friction 采集/聚合 infra，无 user/cat 可感知 surface；Phase D Eval Hub rollup 视图落地时移除本豁免并补 capability tip
 ---
 
 # F245: Friction Signal Eval — 摩擦信号统一聚合（eval:friction）
@@ -149,6 +150,7 @@ signal 体量实证（今天 UTC 0:00 → 16:07，16 小时）：
 
 - **Evolved from**: F192（eval 控制面母 feature——复用 domain registry / Verdict Handoff Packet / daily-spec cron / Eval Hub / rollup_deferred 占位）
 - **Related**: F222（用户反馈采集——本 feat 补它缺失的聚合 eval）/ F167 KD-27（持球+event 双重唤醒 = 经典 friction cluster 案例，软约定失效→该升硬层）/ F128（propose_thread 出口）/ code-as-harness skill（修复路径）
+- **Downstream consumer（F236 Track-2，2026-06-18 跨线程登记）**: F236 Track-1 已 merged（PR #2411，squash `21ae2c83b`，anchor telemetry 收口为 chars/request-volume substrate）。**F236 Track-2**（open-rate correlated-event model + `eval:anchor-first` domain 注册）**downstream-blocked 在 F245 Phase C 的 shared Y-lite eval-domain infra** 上（registered string `domainId`/`sourceAdapter`/`sourceRefsKind` + YAML registry 校验 + N-day cadence + missing-wiring fail-closed）。砚砚 eval-owner 裁定排序：**F245 Phase C 先 land 该 infra，F236 Track-2 rebase 继承不另起一套**。🔴 **Phase C land shared Y-lite infra PR 时必须 `cross_post_message` ping `opus-48` @ F236 thread `thread_mqg1ek0wfttbxt4l`**。Track-2 设计约束（open-rate = 跨请求 preview↔drill 可 join 事件模型；高基数 id 不做 metric label，走 event/log/trace/adapter source record）在 F236 doc item 6（commit `e62e6eac8`）；Y-lite contract canonical home = F192（砚砚定）。
 
 ## Risk
 
@@ -178,12 +180,14 @@ signal 体量实证（今天 UTC 0:00 → 16:07，16 小时）：
 | KD-3 | 新开 F245 link F192，不塞进 F192 | F192 已是巨型控制面 meta-feature，recall 困难；F222 先例（用户反馈也独立开号 link F192） | 2026-06-18 |
 | KD-4 | F245 = **只读 rollup/read-model 域，不抢 canonical signal ownership** | 砚砚 Design Gate：最危险的不是重复代码，是 F222/task-outcome/eval 域各自闭环被第二套出口抢走。把 KD-1"不搬代码"升级到"不抢 ownership"——F245 只读不写（不写 episodeVerdicts，只读 cancel/episode 作传感器） | 2026-06-18 |
 | KD-5 | **Port + Adapter + `FrictionSignal` 中间类型，不建统一 store** | 46 Design Gate：4 通道形态异构（消息文本/episode/issue 生命周期/数值 metric），内存聚合 ~10-30 cluster，持久化的是 verdict artifact 不是中间 store | 2026-06-18 |
+| KD-6 | **Phase A 实施接口校准**（plan 假设 → 实际，给 Phase B-D 实施者）| ① 测试框架是 `node --test`（手写 `.js` import `dist/`）非 plan 写的 vitest；② 全局时间窗扫描用 `IMessageStore.getBefore(userId=undefined)` 走全局 TIMELINE zset 游标翻页——`IThreadStore` 无全局枚举（仅 per-user），plan/handoff 的"枚举 thread"方案不可行；③ adapter 仅依赖 `getBefore`，非 plan 的 IThreadStore+RedisMessageStore 双注入；④ Redis 测试 timestamp 必须 `Date.now()` base——`append` 会 `zremrangebyscore` prune `score<now-TTL`，远古固定 ts 一存即删 | 2026-06-18 |
 
 ## Timeline
 
 | 日期 | 事件 |
 |------|------|
 | 2026-06-18 | 立项（opus-48，本 thread 5 轮盘点 + CVO signoff "我是觉得需要 feat 你可以创建"） |
+| 2026-06-18 | Phase A 实现完成（PawFeelAdapter 爪感差采集器，4 TDD Task，22 测试绿）— 待 review |
 
 ## Review Gate
 

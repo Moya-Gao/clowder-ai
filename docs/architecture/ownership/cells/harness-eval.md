@@ -13,6 +13,10 @@ code_anchors:
   - packages/api/src/infrastructure/harness-eval/reeval-closure.ts
   - packages/api/src/infrastructure/harness-eval/eval-a2a-adapter.ts
   - packages/api/src/infrastructure/harness-eval/eval-hub-read-model.ts
+  - packages/api/src/infrastructure/harness-eval/friction/friction-signal-source.ts
+  - packages/api/src/infrastructure/harness-eval/friction/paw-feel-marker.ts
+  - packages/api/src/infrastructure/harness-eval/friction/paw-feel-adapter.ts
+  - packages/shared/src/types/friction-signal.ts
   - packages/api/src/routes/eval-hub.ts
   - packages/web/src/components/HubEvalTab.tsx
   - sop-definitions/development.yaml
@@ -24,12 +28,14 @@ code_anchors:
   - packages/shared/src/types/sop-definition.generated.ts
 doc_anchors:
   - docs/features/F192-socio-technical-harness-eval.md
+  - docs/features/F245-friction-signal-eval.md
   - docs/harness-feedback/
   - docs/discussions/2026-05-21-f192-phase-e-eval-hub-kickoff/README.md
   - sop-definitions/README.md
-static_scan_hints: [harness-eval, VerdictHandoffPacket, eval-domain, reeval, harness-fit-digest, Eval Hub, SopDefinition, sop-definitions, predicate]
+static_scan_hints: [harness-eval, VerdictHandoffPacket, eval-domain, reeval, harness-fit-digest, Eval Hub, SopDefinition, sop-definitions, predicate, friction, paw-feel, FrictionSignal]
 cited_by:
   - F192 Phase E-pilot
+  - F245 Phase A (paw-feel friction collector; aggregator/rollup/domain land in Phase B-C)
 ---
 
 # Harness Eval Control Plane
