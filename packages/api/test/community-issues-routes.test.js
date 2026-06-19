@@ -1306,6 +1306,29 @@ describe('Community Issues Routes', () => {
     assert.ok(body.repos.includes('org/delta'), 'should include CommunityPrStore repo');
   });
 
+  test('GET /api/community-repos includes repos from CommunityObjectStore projection keys', async () => {
+    const objectStore = {
+      get: async () => null,
+      save: async () => {},
+      listSubjectKeys: async () => [
+        'issue:org/projection-only#7',
+        'pr:org/pr-projection-only#8',
+        'issue:malformed#not-a-number',
+        'thread:thread_ignored',
+      ],
+      delete: async () => {},
+    };
+    const app = await createApp({ objectStore });
+
+    const res = await app.inject({ method: 'GET', url: '/api/community-repos' });
+
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.ok(body.repos.includes('org/projection-only'), 'should include projection-only issue repo');
+    assert.ok(body.repos.includes('org/pr-projection-only'), 'should include projection-only PR repo');
+    assert.ok(!body.repos.includes('malformed'), 'should ignore invalid projection subject keys');
+  });
+
   // --- Phase F: GitHub PR Sync ---
 
   test('POST /api/community-issues/sync-prs creates PR items', async () => {

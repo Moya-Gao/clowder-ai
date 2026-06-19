@@ -1040,7 +1040,25 @@ export const communityIssueRoutes: FastifyPluginAsync<CommunityIssuesRoutesOptio
       ? [...new Set((await opts.communityPrStore.listAll()).map((p) => p.repo))]
       : [];
 
-    const repos = [...new Set([...issueRepos, ...prRepos, ...communityPrRepos])].sort();
+    const projectionRepos: string[] = [];
+    if (opts.objectStore) {
+      try {
+        const subjectKeys = await opts.objectStore.listSubjectKeys();
+        for (const subjectKey of subjectKeys) {
+          const parsedIssue = parseIssueSubjectKey(subjectKey);
+          if (parsedIssue) {
+            projectionRepos.push(parsedIssue.repoFullName);
+            continue;
+          }
+          const parsedPr = parsePrSubjectKey(subjectKey);
+          if (parsedPr) projectionRepos.push(parsedPr.repoFullName);
+        }
+      } catch {
+        /* best-effort: repo discovery should keep legacy sources available */
+      }
+    }
+
+    const repos = [...new Set([...issueRepos, ...prRepos, ...communityPrRepos, ...projectionRepos])].sort();
     return { repos };
   });
 

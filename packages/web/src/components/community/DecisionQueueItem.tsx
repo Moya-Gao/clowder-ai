@@ -13,6 +13,7 @@ export interface DecisionQueueItemProps {
   actor: string;
   onToggle: () => void;
   onActionComplete: () => void;
+  onOpenThread: (threadId: string) => void;
 }
 
 const PRIORITY_CLASSES: Record<CommunityDecisionPriority, string> = {
@@ -80,7 +81,14 @@ async function postAction(action: CommunityDecisionAction, body?: Record<string,
   if (!res.ok) throw new Error(`Action failed with ${res.status}`);
 }
 
-export function DecisionQueueItem({ item, expanded, actor, onToggle, onActionComplete }: DecisionQueueItemProps) {
+export function DecisionQueueItem({
+  item,
+  expanded,
+  actor,
+  onToggle,
+  onActionComplete,
+  onOpenThread,
+}: DecisionQueueItemProps) {
   const [activeForm, setActiveForm] = useState<CommunityDecisionAction | null>(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -160,6 +168,7 @@ export function DecisionQueueItem({ item, expanded, actor, onToggle, onActionCom
                 action={action}
                 pending={pendingAction === action.kind}
                 onRun={runAction}
+                onOpenThread={onOpenThread}
                 onOpenForm={() => {
                   setError(null);
                   setActiveForm(action);
@@ -194,15 +203,34 @@ function DecisionActionButton({
   action,
   pending,
   onRun,
+  onOpenThread,
   onOpenForm,
 }: {
   item: CommunityDecisionQueueItemModel;
   action: CommunityDecisionAction;
   pending: boolean;
   onRun: (action: CommunityDecisionAction, body?: Record<string, unknown>) => void;
+  onOpenThread: (threadId: string) => void;
   onOpenForm: () => void;
 }) {
   const testId = `decision-action-${action.kind}-${item.id}`;
+  if (action.kind === 'open-thread') {
+    return (
+      <button
+        data-testid={testId}
+        type="button"
+        disabled={!action.threadId}
+        onClick={() => {
+          if (action.threadId) onOpenThread(action.threadId);
+        }}
+        className="inline-flex items-center gap-1 rounded-md border border-cafe-border/50 bg-cafe-surface px-2 py-1 text-micro font-medium text-cafe-secondary hover:bg-cafe-surface-elevated/70 disabled:opacity-40"
+      >
+        <FileTextIcon />
+        {action.label}
+      </button>
+    );
+  }
+
   if (isExternalAction(action)) {
     return (
       <a

@@ -69,6 +69,7 @@ const DIRECTION_SUPPRESSING_PROJECTION_STATES = new Set([
 
 export function buildCommunityDecisionQueue(input: BuildCommunityDecisionQueueInput): CommunityDecisionQueueItem[] {
   const items: CommunityDecisionQueueItem[] = [];
+  const threadIdBySubject = buildThreadIdBySubject(input);
 
   for (const issue of input.issues) {
     const subjectKey = `issue:${issue.repo}#${issue.issueNumber}`;
@@ -116,7 +117,63 @@ export function buildCommunityDecisionQueue(input: BuildCommunityDecisionQueueIn
     items.push(buildFindingItem(input.repo, parsed, finding));
   }
 
-  return coalesceBySubject(items).sort(compareQueueItems);
+  return coalesceBySubject(items)
+    .map((item) => withOwnerThreadAction(item, ownerThreadIdForItem(item, threadIdBySubject)))
+    .sort(compareQueueItems);
+}
+
+function buildThreadIdBySubject(input: BuildCommunityDecisionQueueInput): Map<string, string> {
+  const threadIdBySubject = new Map<string, string>();
+  for (const issue of input.issues) {
+    const threadId = textField(issue.assignedThreadId);
+    if (issue.repo === input.repo && threadId)
+      threadIdBySubject.set(`issue:${issue.repo}#${issue.issueNumber}`, threadId);
+  }
+  for (const pr of input.prItems) {
+    if (!pr.prNumber) continue;
+    const threadId = textField(pr.threadId);
+    if (threadId) threadIdBySubject.set(`pr:${input.repo}#${pr.prNumber}`, threadId);
+  }
+  return threadIdBySubject;
+}
+
+function ownerThreadIdForItem(
+  item: CommunityDecisionQueueItem,
+  threadIdBySubject: ReadonlyMap<string, string>,
+): string | undefined {
+  const routeRecommendation = item.source.routeRecommendation;
+  const recommendedThreadId =
+    routeRecommendation?.kind === 'existing-thread' ? textField(routeRecommendation.threadId) : undefined;
+  if (recommendedThreadId) return recommendedThreadId;
+  const mappedThreadId = textField(threadIdBySubject.get(item.subjectKey));
+  if (mappedThreadId) return mappedThreadId;
+  return undefined;
+}
+
+function withOwnerThreadAction(
+  item: CommunityDecisionQueueItem,
+  threadId: string | undefined,
+): CommunityDecisionQueueItem {
+  const ownerThreadId = textField(threadId);
+  if (!ownerThreadId) return item;
+  const hasThreadAction = item.recommendedActions.some((action) => action.kind === 'open-thread');
+  return {
+    ...item,
+    recommendedActions: hasThreadAction
+      ? item.recommendedActions
+      : [
+          {
+            kind: 'open-thread',
+            label: 'Open thread',
+            threadId: ownerThreadId,
+          },
+          ...item.recommendedActions,
+        ],
+    source: {
+      ...item.source,
+      assignedThreadId: ownerThreadId,
+    },
+  };
 }
 
 function buildDirectionDecisionItem(

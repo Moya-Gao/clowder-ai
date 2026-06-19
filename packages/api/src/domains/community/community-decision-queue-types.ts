@@ -24,6 +24,7 @@ export interface CommunityDecisionAction {
     | 'open-github';
   readonly label: string;
   readonly endpoint?: string;
+  readonly threadId?: string;
   readonly method?: 'GET' | 'POST';
   readonly requiresAuditForm?: boolean;
 }
@@ -53,6 +54,7 @@ export interface CommunityDecisionQueueItem {
   readonly source: {
     readonly projectionState?: string;
     readonly nextOwner?: string;
+    readonly assignedThreadId?: string | null;
     readonly assignedCatId?: string | null;
     readonly catId?: string;
     readonly directionCardEntryId?: string;
@@ -94,6 +96,7 @@ export interface CommunityBoardIssueLike {
 
 export interface CommunityBoardPrLike {
   readonly taskId: string;
+  readonly threadId?: string | null;
   readonly prNumber?: number | null;
   readonly title: string;
   readonly state?: string;

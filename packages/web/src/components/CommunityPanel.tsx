@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { CommunityPanelFilters, TIME_RANGES } from '@/components/CommunityPanelFilters';
 import { ClosureChecklistCard } from '@/components/community/ClosureChecklistCard';
 import { DecisionQueuePanel } from '@/components/community/DecisionQueuePanel';
@@ -286,7 +286,7 @@ function PrRow({
 export function CommunityPanel({ threadId }: { threadId?: string }) {
   const [board, setBoard] = useState<BoardData | null>(null);
   const [loading, setLoading] = useState(false);
-  const [repo, setRepo] = useState('zts212653/clowder-ai');
+  const [repo, setRepo] = useState('');
   const [collapsedIssues, setCollapsedIssues] = useState<Record<string, boolean>>({
     accepted: true,
     declined: true,
@@ -305,6 +305,10 @@ export function CommunityPanel({ threadId }: { threadId?: string }) {
   const [decisionQueue, setDecisionQueue] = useState<CommunityDecisionQueueItemModel[]>([]);
   const [decisionQueueWarnings, setDecisionQueueWarnings] = useState<string[]>([]);
   const [decisionQueueLoading, setDecisionQueueLoading] = useState(false);
+  const latestRepoRef = useRef('');
+  const boardRequestIdRef = useRef(0);
+  const decisionQueueRequestIdRef = useRef(0);
+  latestRepoRef.current = repo.trim();
 
   const fetchFindings = useCallback(async () => {
     try {
@@ -319,34 +323,57 @@ export function CommunityPanel({ threadId }: { threadId?: string }) {
   }, []);
 
   const fetchBoard = useCallback(async () => {
-    if (!repo) return;
+    const activeRepo = repo.trim();
+    const requestId = ++boardRequestIdRef.current;
+    if (!activeRepo) {
+      setBoard(null);
+      setExpandedIssue(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
-      const res = await fetch(`/api/community-board?repo=${encodeURIComponent(repo)}`);
+      const res = await fetch(`/api/community-board?repo=${encodeURIComponent(activeRepo)}`);
       if (res.ok) {
-        setBoard(await res.json());
+        const data = await res.json();
+        if (requestId === boardRequestIdRef.current && latestRepoRef.current === activeRepo) {
+          setBoard(data);
+        }
       }
     } catch {
       /* network error — keep stale data */
     } finally {
-      setLoading(false);
+      if (requestId === boardRequestIdRef.current && latestRepoRef.current === activeRepo) {
+        setLoading(false);
+      }
     }
   }, [repo]);
 
   const fetchDecisionQueue = useCallback(async () => {
-    if (!repo) return;
+    const activeRepo = repo.trim();
+    const requestId = ++decisionQueueRequestIdRef.current;
+    if (!activeRepo) {
+      setDecisionQueue([]);
+      setDecisionQueueWarnings([]);
+      setDecisionQueueLoading(false);
+      return;
+    }
     setDecisionQueueLoading(true);
     try {
-      const res = await fetch(`/api/community-decision-queue?repo=${encodeURIComponent(repo)}`);
+      const res = await fetch(`/api/community-decision-queue?repo=${encodeURIComponent(activeRepo)}`);
       if (res.ok) {
         const data = (await res.json()) as DecisionQueueResponse;
-        setDecisionQueue(Array.isArray(data.items) ? data.items : []);
-        setDecisionQueueWarnings(Array.isArray(data.warnings) ? data.warnings : []);
+        if (requestId === decisionQueueRequestIdRef.current && latestRepoRef.current === activeRepo) {
+          setDecisionQueue(Array.isArray(data.items) ? data.items : []);
+          setDecisionQueueWarnings(Array.isArray(data.warnings) ? data.warnings : []);
+        }
       }
     } catch {
       /* network error — keep stale queue */
     } finally {
-      setDecisionQueueLoading(false);
+      if (requestId === decisionQueueRequestIdRef.current && latestRepoRef.current === activeRepo) {
+        setDecisionQueueLoading(false);
+      }
     }
   }, [repo]);
 
@@ -355,18 +382,23 @@ export function CommunityPanel({ threadId }: { threadId?: string }) {
   }, [fetchBoard, fetchFindings, fetchDecisionQueue]);
 
   const handleSync = useCallback(async () => {
-    if (!repo) return;
+    const activeRepo = repo.trim();
+    if (!activeRepo) return;
     setLoading(true);
     try {
       await Promise.all([
-        fetch(`/api/community-issues/sync?repo=${encodeURIComponent(repo)}`, { method: 'POST' }),
-        fetch(`/api/community-issues/sync-prs?repo=${encodeURIComponent(repo)}`, { method: 'POST' }),
+        fetch(`/api/community-issues/sync?repo=${encodeURIComponent(activeRepo)}`, { method: 'POST' }),
+        fetch(`/api/community-issues/sync-prs?repo=${encodeURIComponent(activeRepo)}`, { method: 'POST' }),
       ]);
-      await refreshCommunityViews();
+      if (latestRepoRef.current === activeRepo) {
+        await refreshCommunityViews();
+      }
     } catch {
       /* network error — keep stale data */
     } finally {
-      setLoading(false);
+      if (latestRepoRef.current === activeRepo) {
+        setLoading(false);
+      }
     }
   }, [repo, refreshCommunityViews]);
 
@@ -382,7 +414,10 @@ export function CommunityPanel({ threadId }: { threadId?: string }) {
     fetch('/api/community-repos')
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        if (data?.repos) setRepos(data.repos);
+        const repoCandidates: unknown[] = Array.isArray(data?.repos) ? data.repos : [];
+        const nextRepos = repoCandidates.filter((candidate): candidate is string => typeof candidate === 'string');
+        setRepos(nextRepos);
+        setRepo((currentRepo) => currentRepo || nextRepos[0] || '');
       })
       .catch(() => {});
   }, []);
@@ -495,6 +530,7 @@ export function CommunityPanel({ threadId }: { threadId?: string }) {
               loading={decisionQueueLoading}
               fallbackActor="system"
               onActionComplete={refreshCommunityViews}
+              onOpenThread={navigateToThread}
             />
 
             {/* Issues */}
@@ -549,7 +585,12 @@ export function CommunityPanel({ threadId }: { threadId?: string }) {
                     />
                     {!isCollapsed &&
                       items.map((item) => (
-                        <PrRow key={item.taskId} item={item} repo={board?.repo ?? repo} onNavigate={navigateToThread} />
+                        <PrRow
+                          key={item.taskId}
+                          item={item}
+                          repo={board?.repo ?? repo.trim()}
+                          onNavigate={navigateToThread}
+                        />
                       ))}
                   </div>
                 );

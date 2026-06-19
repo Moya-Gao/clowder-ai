@@ -18,6 +18,7 @@ vi.mock('@/stores/chatStore', () => ({
 }));
 
 import { CommunityPanel } from '@/components/CommunityPanel';
+import { pushThreadRouteWithHistory } from '@/components/ThreadSidebar/thread-navigation';
 
 const DEFAULT_REPO = 'zts212653/clowder-ai';
 const NOW = 1_786_000_000_000;
@@ -117,6 +118,11 @@ const DIRECTION_ITEM = {
   why: 'Narrator recommends accepting and assigning this to the owner thread.',
   recommendedActions: [
     {
+      kind: 'open-thread',
+      label: 'Open thread',
+      threadId: 'thread-owner',
+    },
+    {
       kind: 'resolve-direction',
       label: 'Resolve direction',
       endpoint: '/api/community-issues/iss-direction/resolve',
@@ -198,15 +204,21 @@ function jsonResponse(body: unknown, ok = true): Response {
   } as Response;
 }
 
-function installFetchMock(queueItems: unknown[]) {
+function installFetchMock(
+  queueItems: unknown[],
+  opts: { repos?: string[]; board?: typeof MOCK_BOARD; queueRepo?: string } = {},
+) {
+  const repos = opts.repos ?? [DEFAULT_REPO];
+  const board = opts.board ?? MOCK_BOARD;
+  const queueRepo = opts.queueRepo ?? board.repo;
   return vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
     const url = String(input);
-    if (url.startsWith('/api/community-board')) return jsonResponse(MOCK_BOARD);
+    if (url.startsWith('/api/community-board')) return jsonResponse(board);
     if (url.startsWith('/api/community-decision-queue')) {
-      return jsonResponse({ repo: DEFAULT_REPO, items: queueItems, warnings: [] });
+      return jsonResponse({ repo: queueRepo, items: queueItems, warnings: [] });
     }
     if (url.startsWith('/api/community-findings?')) return jsonResponse({ findings: [] });
-    if (url.startsWith('/api/community-repos')) return jsonResponse({ repos: [DEFAULT_REPO] });
+    if (url.startsWith('/api/community-repos')) return jsonResponse({ repos });
     if (url === '/api/community-findings/find-urgent/acknowledge' && init?.method === 'POST') {
       return jsonResponse({ finding: { findingId: 'find-urgent', status: 'acknowledged' } });
     }
@@ -295,6 +307,38 @@ describe('CommunityPanel decision queue (E-PR2)', () => {
       decision: 'accepted',
       routeRecommendation: { kind: 'existing-thread', threadId: 'thread-owner' },
     });
+  });
+
+  it('opens the owner thread from a decision queue action', async () => {
+    installFetchMock([ROUTED_DIRECTION_ITEM]);
+
+    await renderPanel(root);
+
+    const button = container.querySelector(
+      `[data-testid="decision-action-open-thread-${ROUTED_DIRECTION_ITEM.id}"]`,
+    ) as HTMLButtonElement | null;
+    if (!button) throw new Error('Expected open-thread button');
+
+    await React.act(async () => {
+      button.click();
+    });
+
+    expect(pushThreadRouteWithHistory).toHaveBeenCalledWith('thread-owner', window);
+  });
+
+  it('selects the first discovered repo instead of booting into a hardcoded Clowder repo', async () => {
+    const fetchSpy = installFetchMock([], {
+      repos: ['acme/community'],
+      board: { ...MOCK_BOARD, repo: 'acme/community', issues: [], prItems: [] },
+      queueRepo: 'acme/community',
+    });
+
+    await renderPanel(root);
+
+    expect(fetchSpy.mock.calls.some((call: unknown[]) => String(call[0]).includes('repo=acme%2Fcommunity'))).toBe(true);
+    expect(fetchSpy.mock.calls.some((call: unknown[]) => String(call[0]).includes('repo=zts212653%2Fclowder-ai'))).toBe(
+      false,
+    );
   });
 
   it('finding action buttons call their mutation endpoint instead of only refreshing', async () => {

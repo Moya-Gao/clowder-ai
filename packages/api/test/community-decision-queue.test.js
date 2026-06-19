@@ -110,6 +110,39 @@ describe('buildCommunityDecisionQueue', () => {
     assert.equal(queue[0].recommendedActions[0].endpoint, 'https://github.com/acme/repo/issues/3');
   });
 
+  test('actionable issue queue items include the owner thread jump', async () => {
+    const { buildCommunityDecisionQueue } = await import('../dist/domains/community/community-decision-queue.js');
+
+    const queue = buildCommunityDecisionQueue({
+      repo: 'acme/repo',
+      issues: [
+        baseIssue({
+          id: 'issue-3',
+          issueNumber: 3,
+          assignedThreadId: 'thread-owner',
+          state: 'fixed',
+          projectionState: 'reported',
+          closureChecklist: {
+            readyToClose: true,
+            waiverPresent: false,
+            blockers: [],
+          },
+        }),
+      ],
+      prItems: [],
+      findings: [],
+      now: NOW,
+    });
+
+    assert.equal(queue.length, 1);
+    assert.equal(queue[0].source.assignedThreadId, 'thread-owner');
+    assert.deepEqual(
+      queue[0].recommendedActions.map((a) => a.kind),
+      ['open-thread', 'close-via-github'],
+    );
+    assert.equal(queue[0].recommendedActions[0].threadId, 'thread-owner');
+  });
+
   test('projection-only ready-to-close issue still produces close-via-github action', async () => {
     const { buildCommunityDecisionQueue } = await import('../dist/domains/community/community-decision-queue.js');
 
@@ -297,5 +330,29 @@ describe('buildCommunityDecisionQueue', () => {
         'decision:direction-decision:issue:acme/repo#9:issue-low',
       ],
     );
+  });
+
+  test('finding queue items inherit the subject owner thread jump', async () => {
+    const { buildCommunityDecisionQueue } = await import('../dist/domains/community/community-decision-queue.js');
+
+    const queue = buildCommunityDecisionQueue({
+      repo: 'acme/repo',
+      issues: [baseIssue({ issueNumber: 10, assignedThreadId: 'thread-finding' })],
+      prItems: [],
+      findings: [
+        baseFinding({
+          findingId: 'reconcile:issue:acme/repo#10:github-reopened-case-closed',
+          subjectKey: 'issue:acme/repo#10',
+        }),
+      ],
+      now: NOW,
+    });
+
+    assert.equal(queue.length, 1);
+    assert.deepEqual(
+      queue[0].recommendedActions.map((a) => a.kind),
+      ['open-thread', 'acknowledge-finding', 'resolve-finding', 'waive-finding'],
+    );
+    assert.equal(queue[0].recommendedActions[0].threadId, 'thread-finding');
   });
 });

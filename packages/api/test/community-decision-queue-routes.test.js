@@ -210,5 +210,11 @@ describe('Community decision queue routes (F168 Phase E E-PR1)', () => {
     const item = body.items.find((queueItem) => queueItem.kind === 'closure-action');
     assert.ok(item);
     assert.equal(item.lastUpdatedAt, projectionUpdatedAt);
+    assert.equal(item.source.assignedThreadId, 'thread-1');
+    assert.deepEqual(
+      item.recommendedActions.map((action) => action.kind),
+      ['open-thread', 'mark-reported', 'waive-closure'],
+    );
+    assert.equal(item.recommendedActions[0].threadId, 'thread-1');
   });
 });

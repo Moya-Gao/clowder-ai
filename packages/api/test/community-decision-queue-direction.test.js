@@ -134,6 +134,98 @@ describe('buildCommunityDecisionQueue direction decisions', () => {
     assert.equal(queue[0].source.assignedCatId, 'codex');
   });
 
+  test('direction-decision item exposes the owner thread jump when routed', async () => {
+    const { buildCommunityDecisionQueue } = await import('../dist/domains/community/community-decision-queue.js');
+
+    const queue = buildCommunityDecisionQueue({
+      repo: 'acme/repo',
+      issues: [
+        baseIssue({
+          id: 'issue-existing-thread',
+          issueNumber: 16,
+          assignedThreadId: 'thread-owner',
+          state: 'pending-decision',
+          directionCard: narratorDirectionCard('Route to the known owner thread.', {
+            kind: 'existing-thread',
+            threadId: 'thread-owner',
+          }),
+        }),
+      ],
+      prItems: [],
+      findings: [],
+      now: NOW,
+    });
+
+    assert.equal(queue.length, 1);
+    assert.equal(queue[0].source.assignedThreadId, 'thread-owner');
+    assert.deepEqual(
+      queue[0].recommendedActions.map((a) => a.kind),
+      ['open-thread', 'resolve-direction'],
+    );
+    assert.equal(queue[0].recommendedActions[0].threadId, 'thread-owner');
+  });
+
+  test('direction-decision item exposes the recommended owner thread before routing', async () => {
+    const { buildCommunityDecisionQueue } = await import('../dist/domains/community/community-decision-queue.js');
+
+    const queue = buildCommunityDecisionQueue({
+      repo: 'acme/repo',
+      issues: [
+        baseIssue({
+          id: 'issue-recommended-existing-thread',
+          issueNumber: 17,
+          state: 'pending-decision',
+          directionCard: narratorDirectionCard('Route to the known owner thread before acceptance.', {
+            kind: 'existing-thread',
+            threadId: 'thread-owner',
+          }),
+        }),
+      ],
+      prItems: [],
+      findings: [],
+      now: NOW,
+    });
+
+    assert.equal(queue.length, 1);
+    assert.equal(queue[0].source.assignedThreadId, 'thread-owner');
+    assert.deepEqual(
+      queue[0].recommendedActions.map((a) => a.kind),
+      ['open-thread', 'resolve-direction'],
+    );
+    assert.equal(queue[0].recommendedActions[0].threadId, 'thread-owner');
+  });
+
+  test('direction-decision item prefers recommended owner thread over stale mapped thread', async () => {
+    const { buildCommunityDecisionQueue } = await import('../dist/domains/community/community-decision-queue.js');
+
+    const queue = buildCommunityDecisionQueue({
+      repo: 'acme/repo',
+      issues: [
+        baseIssue({
+          id: 'issue-stale-triage-thread',
+          issueNumber: 18,
+          assignedThreadId: 'thread-triage',
+          state: 'pending-decision',
+          directionCard: narratorDirectionCard('Route away from the stale triage thread.', {
+            kind: 'existing-thread',
+            threadId: 'thread-owner',
+          }),
+        }),
+      ],
+      prItems: [],
+      findings: [],
+      now: NOW,
+    });
+
+    assert.equal(queue.length, 1);
+    assert.equal(queue[0].source.assignedThreadId, 'thread-owner');
+    assert.deepEqual(
+      queue[0].recommendedActions.map((a) => a.kind),
+      ['open-thread', 'resolve-direction'],
+    );
+    assert.equal(queue[0].recommendedActions[0].threadId, 'thread-owner');
+  });
+
   test('pending-decision issue with non-narrator direction entry still produces direction item', async () => {
     const { buildCommunityDecisionQueue } = await import('../dist/domains/community/community-decision-queue.js');
 

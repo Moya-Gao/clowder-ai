@@ -21,6 +21,7 @@ export async function buildQueueIssues(
         if (!proj) return issue;
         return {
           ...issue,
+          assignedThreadId: issue.assignedThreadId ?? proj.ownerThreadId,
           updatedAt: maxUpdatedAt(issue.updatedAt, proj.updatedAt),
           projectionState: proj.state,
           nextOwner: proj.nextOwner,
@@ -127,6 +128,7 @@ export async function buildQueuePrItems(
       prItems[i] = {
         ...item,
         updatedAt: maxUpdatedAt(item.updatedAt, proj.updatedAt),
+        threadId: item.threadId ?? proj.ownerThreadId,
         projectionState: proj.state,
         nextOwner: proj.nextOwner,
         closureChecklist: computeClosureChecklist(proj),
@@ -160,6 +162,7 @@ async function addProjectionOnlyPrItems(
         const projState = isFixedProj ? 'merged' : isClosedProj ? 'closed' : 'open';
         prItems.push({
           taskId: subjectKey,
+          threadId: proj.ownerThreadId,
           prNumber: proj.number,
           title: '',
           state: projState,

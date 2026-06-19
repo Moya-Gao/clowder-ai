@@ -8,6 +8,7 @@ export interface DecisionQueuePanelProps {
   loading: boolean;
   fallbackActor: string;
   onActionComplete: () => void;
+  onOpenThread: (threadId: string) => void;
 }
 
 const PRIORITY_ORDER = new Map([
@@ -44,6 +45,7 @@ export function DecisionQueuePanel({
   loading,
   fallbackActor,
   onActionComplete,
+  onOpenThread,
 }: DecisionQueuePanelProps) {
   const sortedItems = useMemo(
     () =>
@@ -110,6 +112,7 @@ export function DecisionQueuePanel({
               actor={resolveActionActor(item, fallbackActor)}
               onToggle={() => setExpandedId((prev) => (prev === item.id ? null : item.id))}
               onActionComplete={onActionComplete}
+              onOpenThread={onOpenThread}
             />
           ))}
         </div>
