@@ -9,9 +9,9 @@ cvo_signoff: 2026-06-17 — 铲屎官 "可以 我同意！！！"（thread 00017
 
 # F242: Code Graph Layer Spike — 内生「约定层关联图」
 
-> **Status**: done | **Owner**: codex-gpt55（砚砚；implementation takeover 2026-06-17） | **Priority**: P1 | **Completed**: 2026-06-18
+> **Status**: in-progress | **Owner**: codex-gpt55（砚砚；implementation takeover 2026-06-17） | **Priority**: P1 | **Spike**: Phase A/B done 2026-06-18 | **Close**: retracted 2026-06-18
 
-> ⚠️ **本 doc 是 spike 初稿**。砚砚（@codex GPT-5.5）+ opus-48 两轮 brainstorm 已完成（OQ 推进 + 泛化分两层 + provenance 质量门），Design Gate 已完成，Phase A implementation 由砚砚接手推进。完整设计输入见 `docs/discussions/2026-06-17-codegraph-vs-gitnexus/README.md`（§0-18，codegraph + GitNexus 一手 spike 实证 + 整合）。
+> ⚠️ **CVO correction 2026-06-18**：Phase A/B 证明了 spike 机制，但误判为 feature close。F242 不算完成，直到猫猫认知路径、可用入口、更新/重建索引行为闭环。
 
 ## Why
 
@@ -63,6 +63,13 @@ cvo_signoff: 2026-06-17 — 铲屎官 "可以 我同意！！！"（thread 00017
 ### Phase B（进新 repo 建图骨架）
 - [x] AC-B1: 用 Phase A 的 skill，在 1 个陌生 repo（如 deer-flow）建出约定图，识别 ≥1 类约定（如 FastAPI route，对比 codegraph 在 deer-flow 的 0/105）— trace「进新 repo 建图」胜负手
 - [x] AC-B2: 陌生 repo 建图必须输出 gap/unknowns（例如“检测到 FastAPI 但 route extractor 未覆盖 APIRouter 写法”），禁止静默 0 命中 — trace「约定识别可靠」Why
+
+### Phase C（productization gate — close retraction）
+- [ ] AC-C1: 猫猫认知路径：改 MCP / skill / route 等约定面时，L0 / skill / SOP 至少一处能明确唤醒“先查 convention graph”，并在一次真实 post-merge 代码任务里留下使用证据。
+- [ ] AC-C2: 可用入口：猫能用文档化命令 / tool / skill workflow 在一个 repo 产出 graph/query 结果，不需要临时写 ad-hoc 脚本。
+- [ ] AC-C3: 更新行为：代码变化后要么自动重建/更新，要么提供明确 reindex 命令 + stale/fail-closed 语义；不能让过期图静默冒充 fresh。
+- [ ] AC-C4: Product dogfood：一次非 F242 代码改动在编辑前使用 convention graph 找影响面，并记录它是否减少 grep / 漏消费方风险。
+- [ ] AC-C5: Close gate：feature close 必须复核 C1-C4；Phase A/B dogfood 只能证明 spike，不再等同 feature close。
 
 ## Phase A Implementation Checkpoint（2026-06-17）
 
@@ -125,6 +132,18 @@ Sample:
 ```
 
 这直接补上 codegraph 在同一陌生 repo 上 route=0 的失败点：不是追求通用完美框架识别，而是用 discovery skill 定义一个明确 domain，再由 deterministic extractor 输出可追 source span 的约定图。
+
+## CVO Close Rejection（2026-06-18）
+
+铲屎官纠偏：`"这算个锤子的feat close"` / `"愿景是只做dogfood吗"` / `"有在猫猫的认知路径上吗？现在能用吗？以后猫猫代码更新有做自动更新吗？"`
+
+| 问题 | 当前真实状态 |
+|------|--------------|
+| Spike 机制 | ✅ Phase A/B 已证明：engine + extractor + provenance + freshness + deer-flow skeleton |
+| 猫猫认知路径 | ❌ 只有手动 skill；没有足够硬的默认唤醒/使用路径 |
+| 现在能用吗 | ⚠️ 可手动用 package/skill 方法论；还不是顺手的猫猫工作流入口 |
+| 自动更新 | ❌ 只有 freshness/stale/fail-closed；没有 watcher 或自动 reindex |
+| Feature close | ❌ close 撤回；F242 回到 active，进入 Phase C productization gate |
 
 ## Eval / Tracking Contract（F192）
 
@@ -257,19 +276,20 @@ AC-A5 锚定具体场景：**改 `cat_cafe_post_message` 的 schema → 约定�
 | 2026-06-17 | Phase B skeleton：新增 `fastapi-route` extractor，在陌生 repo deer-flow 识别 82 routes / 15 routers / 0 gaps，freshness fresh |
 | 2026-06-17 | Local review continuity approved at `90e2e0c62`; review P2 follow-ups fixed（edge dedup / consumer invalidation + kind / multiline APIRouter gap），进入 merge gate |
 | 2026-06-18 | PR #2408 merged：F242 convention graph spike landed in main（squash commit `2e9f5842`）；Phase A/B AC 全部完成，进入 spike close / 愿景守护 |
-| 2026-06-18 | Sonnet 愿景守护 PASS（message `0001781845013679-000557-797f4741`）；CloseGateReport / reflection capsule / harness feedback 落盘，F242 spike close accepted |
+| 2026-06-18 | Sonnet 愿景守护 PASS 接受 spike 证据，但 CVO 随后指出这不等于 feature close；CloseGateReport / reflection / harness feedback 全部标记为 close retracted |
+| 2026-06-18 | F242 reopen：Phase A/B 保留为 spike done，新增 Phase C（认知路径 / 可用入口 / 更新行为 / product dogfood / close gate） |
 
 ## User Visibility Disclosure
 
 | Surface | 用户能做什么（达成态） | 用户实际能做什么（close 时） | 缺失/退化 | 处置 |
 |---------|--------------------|--------------------------|----------|------|
-| Cat code agent workflow | 猫能按 repo 约定建图，少靠 grep 猜消费方 | `convention-graph-discovery` skill + `@cat-cafe/convention-graph` package 已在 main；F242 doc status `done`；BACKLOG 活跃行已移除 | 需要猫主动加载 skill，尚非自动唤醒 | spike scope 接受；后续若要自动化另立 feature |
+| Cat code agent workflow | 猫能按 repo 约定建图，少靠 grep 猜消费方 | `convention-graph-discovery` skill + `@cat-cafe/convention-graph` package 已在 main，但需手动想起/手动接入 | 认知路径、可用入口、自动/显式更新行为都未闭环 | **不能 close**；Phase C 补齐 |
 | Convention graph artifact | schema/provenance/scope/freshness 可解释 | package merged；AC-A0/A1/A2/A3 全勾；cloud P1/P2 已修或 LL-072 pushback seal | 通用 extractor 覆盖有限 | spike 明确不追求通用完美 |
 | New repo skeleton | 至少 1 个陌生 repo 跑通约定图骨架 | deer-flow FastAPI route extractor dogfood：82 routes / 15 routers / 0 gaps | 只验证 FastAPI route domain | Phase B skeleton scope 内 |
 
 ## Vision Guardian Verdict
 
-Sonnet（非作者、非本轮 reviewer）独立复核后 APPROVE close：
+> **Retracted for full feature close**：Sonnet（非作者、非本轮 reviewer）独立复核后 APPROVE 的是 spike 证据；CVO 2026-06-18 纠偏后，该 verdict 不再作为 F242 feature close 放行依据。
 
 | 铲屎官原话（逐字引用） | 当前实际状态（代码/PR 证据） | 匹配？ |
 |---|---|---|
@@ -277,13 +297,13 @@ Sonnet（非作者、非本轮 reviewer）独立复核后 APPROVE close：
 | "减少你们费力的 grep 之类的" | AC-A1 dogfood：`codeConsumers("cat_cafe_post_message")` 抓出 3 consumes + 1 registers（含 grep 漏的 dynamic dispatch `COLLAB_TOOL_SOURCES` + callback registration）；`as const` 漏识别 bug 在 dogfood 中被真实抓到并修复（`54cfc4582`） | ✅ |
 | "改了这个似乎可以改，结果导致另一个模块炸了" | freshness contract（`engine-freshness-contract.test.ts` A/B/C 三组）：改文件后标 stale、per-domain scope fail-closed、别 domain 不误报；edge provenance 每条边有 source span + extractor + scope；scope 消歧 AC-A2 有 negative fixture | ✅ |
 
-结论：**PASS / close accepted**。完整 guardian message: `0001781845013679-000557-797f4741`。
+原结论：**PASS / close accepted**。当前状态：**feature close retracted**；完整 guardian message: `0001781845013679-000557-797f4741`。
 
 ## CloseGateReport
 
-Full close matrix: `docs/decisions/2026-06-18-f242-close-gate.md`.
+Retracted close matrix: `docs/decisions/2026-06-18-f242-close-gate.md`.
 
-Summary: all AC-A0..A5 and AC-B1..B2 are `met`; no unmet / deleted / CVO-signed-off AC. Guardian Sonnet PASS (`0001781845013679-000557-797f4741`). Reflection capsule and harness-feedback are linked below.
+Summary: AC-A0..A5 and AC-B1..B2 remain `met` as spike evidence, but F242 feature close is **invalid** because CVO-visible vision requires Phase C productization. Reflection capsule and harness-feedback are linked below as retracted close artifacts.
 
 ## Links
 
@@ -293,6 +313,6 @@ Summary: all AC-A0..A5 and AC-B1..B2 are `met`; no unmet / deleted / CVO-signed-
 | **Discussion** | `docs/discussions/2026-06-03-gitnexus-deep-dive/README.md` | opus-47 §10.3 场景表 + KD-31 边界论证 |
 | **Design Gate** | `docs/discussions/2026-06-17-f242-design/README.md` | 5 项接口/schema 钉死（引擎/plugin/extractor/skill/cell）|
 | **Feature** | `docs/features/F102-memory-adapter-refactor.md` | KD-31 边界（记忆层不做代码图谱）|
-| **Close Gate** | `docs/decisions/2026-06-18-f242-close-gate.md` | F242 CloseGateReport |
-| **Reflection** | `docs/reflections/2026-06-18-f242-convention-graph-spike-capsule.md` | F242 close 反思胶囊 |
-| **Harness Feedback** | `docs/harness-feedback/2026-06-18-F242-convention-graph-spike.md` | F242 harness fit review |
+| **Close Gate** | `docs/decisions/2026-06-18-f242-close-gate.md` | F242 retracted CloseGateReport |
+| **Reflection** | `docs/reflections/2026-06-18-f242-convention-graph-spike-capsule.md` | F242 close 反思胶囊（已补 CVO rejection） |
+| **Harness Feedback** | `docs/harness-feedback/2026-06-18-F242-convention-graph-spike.md` | F242 harness fit review（full-close retracted） |

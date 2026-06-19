@@ -18,12 +18,14 @@ created: 2026-06-18
 - The PR churned through too many replacement branches and cloud rounds before the seal protocol was applied. Most late findings were hygiene or stale replays, not new F242 logic.
 - The first post-merge sync marked the feature done and removed BACKLOG before the completion artifacts were fully written. Sonnet's guardian PASS exposed that close-gate evidence still needed to be persisted.
 - `feat-lifecycle` completion was easy to treat as "status update only"; the required reflection, harness-feedback, and CloseGateReport needed an explicit second pass.
+- The close gate confused "spike evidence is real" with "feature vision is done". CVO caught the missing product surface: no hard cognitive path, no smooth usable entrypoint, and no auto-update/reindex behavior.
 
 ## Trigger Missed
 
 - After LL-072 was triggered, branch cleanup should have included all F242 scratch refs in the same closure checklist, not just the final PR branch.
 - Completion should load `feat-lifecycle` immediately after guardian PASS, not after a final summary.
 - Cloud review loop telemetry should become mechanical evidence for the future LL-076/F245 friction path, rather than relying on cats to remember how many rounds happened.
+- User Visibility Disclosure said the workflow was manual-only, but the close still treated that as acceptable without CVO signoff. That is exactly the F190/F041 class of close miss.
 
 ## Doc Links
 
@@ -37,3 +39,4 @@ created: 2026-06-18
 
 - `cat-cafe-skills/merge-gate/SKILL.md` LL-072 / future LL-076: add mechanical seal telemetry ideas when F245 friction rollup is ready.
 - `cat-cafe-skills/feat-lifecycle/SKILL.md` Completion: make "guardian PASS -> write reflection + harness-feedback + CloseGateReport before final summary" harder to miss.
+- `feat-lifecycle` close gate: if User Visibility Disclosure contains "manual-only / not in cognitive path / no usable entrypoint", close must be blocked unless there is explicit CVO signoff.

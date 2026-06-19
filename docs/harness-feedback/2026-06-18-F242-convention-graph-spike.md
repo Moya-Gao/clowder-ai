@@ -6,8 +6,8 @@ thread_ids:
   - thread_mpy1686qmoewe8ds
 session_ids: []
 cats: [codex, opus-48, opus-47, sonnet]
-primary_failure_class: none
-status: accepted
+primary_failure_class: invalid-feature-close
+status: full-close-retracted
 created: 2026-06-18
 ---
 
@@ -17,15 +17,17 @@ created: 2026-06-18
 
 F242 shipped both a code evidence package and a new discovery skill. It therefore changes the harness path for future code work: when a cat changes a convention-bearing surface, the desired behavior is to build/query a convention graph instead of relying only on grep and memory.
 
+**CVO correction 2026-06-18**: this document's original "accepted" verdict was only valid for spike evidence. It was wrong to treat that as full feature close.
+
 ## Fit Verdict
 
-The shipped shape fits the harness goal. It turns a repeated code-agent failure mode ("string conventions hide consumers from LSP and grep") into a reusable, provenance-bearing workflow.
+The shipped shape fits the spike goal, but the harness close was wrong. A reusable package + skill is not enough unless cats are actually routed into it and can use it without ad-hoc glue.
 
 | Layer | Shipped Evidence | Fit |
 |-------|------------------|-----|
 | Soft | `convention-graph-discovery` skill describes when/how to define a convention domain and emit a graph | Good. The trigger is action-bound: entering a repo or changing MCP/skill/route conventions. |
 | Hard | `packages/convention-graph` tests cover provenance, domain scope, consumer lookup, gap reporting, FastAPI route extraction, and freshness fail-closed behavior | Good. The cloud-review freshness loop converted implicit scope assumptions into red/green contract tests. |
-| Eval | F242 spec defines F192-style friction metrics, regression fixtures, false-positive cost, and sunset signal | Adequate for spike. Runtime adoption metrics are not shipped yet; that belongs to future Code Graph Layer work, not this spike. |
+| Eval | F242 spec defines F192-style friction metrics, regression fixtures, false-positive cost, and sunset signal | Incomplete for full close. Runtime adoption evidence is required before claiming the feature vision is done. |
 
 ## Key Observation
 
@@ -39,6 +41,12 @@ The most important fit decision was separating the domain-agnostic engine from d
 | More framework extractors are missing | Gap reporting is explicit; spike scope does not claim universal coverage | Silent 0-hit graph in a repo with obvious conventions |
 | False-positive edges cause bad edits | Source span + extractor provenance + scoped negative fixtures | Guardian/review finds name-only or cross-domain edges without provenance |
 | Cloud review loop repeats stale findings | LL-072 seal used for #2408; reflection points future LL-076/F245 telemetry | Same PR exceeds 5 bot rounds without seal or local final review |
+
+## Close Failure
+
+[爪感差: feat-lifecycle/close-gate allowed spike evidence + guardian PASS to remove active BACKLOG despite User Visibility Disclosure saying the cognitive path was manual-only; CVO caught invalid close]
+
+Missing productization gates now live in F242 Phase C: cognitive-path wakeup, usable entrypoint, update/reindex behavior, and a real non-F242 code-edit dogfood.
 
 ## Evidence Refs
 
