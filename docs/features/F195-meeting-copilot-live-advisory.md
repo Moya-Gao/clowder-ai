@@ -246,7 +246,7 @@ Alice 质疑方案成本和时间线；铲屎官提议先做最小验证。
 
 > **调研来源**：
 > - [多模态感知调研 — 布偶猫初步综合](../research/2026-05-27-multimodal-perception-research/opus-synthesis.md)
-> - 三路 Deep Research 待回收（prompt 已准备，铲屎官手动发送中）
+> - [ChatGPT Deep Research 报告](../research/2026-05-27-multimodal-perception-research/gpt-response.md)（2026-06-19 回收，质量高，和初步综合方向一致）
 
 **现状诊断**（`audio-service.py:154-164`）：
 
@@ -259,17 +259,23 @@ Alice 质疑方案成本和时间线；铲屎官提议先做最小验证。
 **技术方案**（调研收敛）：
 
 Python 路径（直接嵌入 `audio-service.py`）：
-- **WeSpeaker ECAPA-TDNN** 提取 speaker embedding（EER 1.42% VoxCeleb1, 8.30% CN-Celeb1）
-- **pyannote segmentation 3.0** 做多说话人时间分段
+- **WeSpeaker ECAPA-TDNN / CAM++** 提取 speaker embedding（VoxCeleb recipe EER 0.72–0.73%，WeSpeaker 官方 README）
+- **3D-Speaker**（备选）—— 覆盖 CAM++ / ERes2Net / ECAPA，提供 ONNX Runtime 支持，对 Apple Silicon 迁移更友好
 - Silero VAD（Phase F 已有）做前置语音检测
 - 总模型大小 ~32MB，对比 ASR 1.7B (~2GB) 微不足道
 - 长期可选迁移到 Swift MLX（[speech-swift](https://github.com/soniqo/speech-swift) 已有 Apple Silicon 原生实现）
 
+**关键风险（Deep Research 验证）**：
+- ⚠️ 受控 benchmark EER < 1% ≠ 真实会议效果：pyannote 在 Ego4D 上 DER 46.8%，零样本跨域 DER 可达 53%
+- ⚠️ 短语音（< 2s）embedding 质量显著下降，需设分段长度门槛
+- ⚠️ 设备域失配（enrollment 近讲麦 vs 推理会议麦）是硬边界，必须实测
+- ✅ 但"已知说话人 enrollment + cosine 匹配"（我们的路线）比全自动 diarization 简单得多，可行性高
+
 **AC**：
-- [ ] AC-G1: **Enrollment 阶段** — 会前 `/enroll` 接受参会者 3-5s 纯净语音样本，提取 embedding 存储（扩展现有 `enroll()` 方法从 metadata-only 到 embedding-based）
+- [ ] AC-G1: **Enrollment 阶段** — 会前 `/enroll` 接受参会者语音样本，提取 embedding 存储（扩展现有 `enroll()` 方法从 metadata-only 到 embedding-based）。需测试不同分段长度（1s/2s/3s/5s）对 embedding 质量的影响
 - [ ] AC-G2: **实时归因** — 每个 ASR 段提取 embedding，cosine similarity 对比 enrolled embeddings，最近邻归因（threshold 可配）
 - [ ] AC-G3: **Fallback 降级** — similarity < threshold（默认 0.6）时降级到现有规则归因（保持 Phase C 行为不退化）
-- [ ] AC-G4: **中文会议实测** — 用铲屎官现有会议录音跑 offline 评估，报告中文多人会议的实际 EER / accuracy
+- [ ] AC-G4: **中文会议实测** — 用铲屎官现有会议录音跑 offline 评估，报告指标：speaker attribution accuracy、speaker swap rate、分段长度 ablation（1s/2s/3s/5s）、跨设备 enrollment 测试（近讲麦 vs 会议麦）
 - [ ] AC-G5: **性能预算** — embedding 提取延迟 < 200ms/segment（不拖慢 ASR 管道），显存增量 < 100MB
 
 **不含（明确排除）**：
@@ -590,6 +596,7 @@ F104 全感知升级是 research branch，不是 Meeting Copilot 的门槛。MVP
 | 2026-05-27 | 铲屎官和 TTS/ASR/interaction model 朋友聊天，带回三个调研方向（声纹识别/TML interaction model/流式视频理解） |
 | 2026-05-27 | 多模态感知调研 prompt + 初步综合完成（docs/research/2026-05-27-multimodal-perception-research/） |
 | 2026-06-18 | Phase G spec added — 声纹识别（从规则归因到 voice embedding），铲屎官排期确认 |
+| 2026-06-19 | ChatGPT Deep Research 回收，Phase G spec 更新：EER 修正、3D-Speaker 备选、分段长度/设备失配/swap rate 评估维度补充 |
 
 ## 用户反馈（铲屎官实测 2026-05-14）
 
