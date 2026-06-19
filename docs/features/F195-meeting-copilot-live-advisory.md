@@ -235,6 +235,50 @@ Alice 质疑方案成本和时间线；铲屎官提议先做最小验证。
 - Swift 原生重写 — 长期演进方向，不是短期收益
 - ASR 后端切换 — Qwen3-ASR-1.7B 中文会议表现优秀，不换
 
+### Phase G: 声纹识别（Speaker Verification — 从规则归因到 voice embedding） 📋
+
+**目的**：将现有纯规则的 speaker 归因（mic→host / 2人→other / else→"有人说"）升级为基于 voice embedding 的真正声纹识别，显著提升多人会议中"谁在说话"的准确率。
+
+> **铲屎官原话（2026-05-27）**：
+> "声纹识别要不直接排进 F195 下一个 Phase 我觉得可以排一下"
+>
+> **朋友说**："现在声纹识别技术很成熟了"
+
+> **调研来源**：
+> - [多模态感知调研 — 布偶猫初步综合](../research/2026-05-27-multimodal-perception-research/opus-synthesis.md)
+> - 三路 Deep Research 待回收（prompt 已准备，铲屎官手动发送中）
+
+**现状诊断**（`audio-service.py:154-164`）：
+
+| 场景 | 现有归因 | 置信度 | 问题 |
+|------|---------|--------|------|
+| mic 模式 + 有 host | 归 host name | 0.9 | ⚠️ 只适用于铲屎官一个人对着麦说话 |
+| app 模式 + 2人 | 归 non-host | 0.7 | ⚠️ 只适用于 1v1 |
+| app 模式 + 3人+ | "有人说" | 0.4 | ❌ 完全无法区分谁在说 |
+
+**技术方案**（调研收敛）：
+
+Python 路径（直接嵌入 `audio-service.py`）：
+- **WeSpeaker ECAPA-TDNN** 提取 speaker embedding（EER 1.42% VoxCeleb1, 8.30% CN-Celeb1）
+- **pyannote segmentation 3.0** 做多说话人时间分段
+- Silero VAD（Phase F 已有）做前置语音检测
+- 总模型大小 ~32MB，对比 ASR 1.7B (~2GB) 微不足道
+- 长期可选迁移到 Swift MLX（[speech-swift](https://github.com/soniqo/speech-swift) 已有 Apple Silicon 原生实现）
+
+**AC**：
+- [ ] AC-G1: **Enrollment 阶段** — 会前 `/enroll` 接受参会者 3-5s 纯净语音样本，提取 embedding 存储（扩展现有 `enroll()` 方法从 metadata-only 到 embedding-based）
+- [ ] AC-G2: **实时归因** — 每个 ASR 段提取 embedding，cosine similarity 对比 enrolled embeddings，最近邻归因（threshold 可配）
+- [ ] AC-G3: **Fallback 降级** — similarity < threshold（默认 0.6）时降级到现有规则归因（保持 Phase C 行为不退化）
+- [ ] AC-G4: **中文会议实测** — 用铲屎官现有会议录音跑 offline 评估，报告中文多人会议的实际 EER / accuracy
+- [ ] AC-G5: **性能预算** — embedding 提取延迟 < 200ms/segment（不拖慢 ASR 管道），显存增量 < 100MB
+
+**不含（明确排除）**：
+- 实时 speaker diarization（全自动"这段是谁说的"需要 pyannote 完整 pipeline，放会后批处理 / 后续 Phase）
+- Swift MLX 迁移（先验证 Python 方案够不够用）
+- 跨会议 speaker 库（每次会议独立 enrollment，不做持久化 speaker profile）
+
+**技术难度**：⭐⭐ 低（核心是接线：WeSpeaker embedding 提取 + cosine similarity 对比，不是造新东西）
+
 ### 已有基础设施
 
 | 能力 | 状态 | 来源 |
@@ -257,6 +301,7 @@ Alice 质疑方案成本和时间线；铲屎官提议先做最小验证。
 | **D 持久化** | MD 文件持久化 + path injection（user turn context） + rolling summary | ⭐⭐⭐ 中 |
 | **E 采集控制** | 前端源选择 + Start + Pause/Resume + 后端 pause 端点 + SSE 三态 | ⭐⭐ 低 |
 | **F ASR 管道增强** | 服务端 VAD + 热词上下文接线 + LLM 后修正接入 + 标点恢复 | ⭐⭐ 低（主要是接线） |
+| **G 声纹识别** | WeSpeaker embedding 提取 + cosine similarity 归因 + enrollment 扩展 | ⭐⭐ 低（接线 + 调参） |
 
 ### 已知缺口（Phase B/C 需调研验证）
 
@@ -542,6 +587,9 @@ F104 全感知升级是 research branch，不是 Meeting Copilot 的门槛。MVP
 | 2026-05-14 | Phase E merged (PR #1670) — 音频源选择器 + 用户自主 Start + Pause/Resume + SSE 三态 + drain-path pause guards |
 | 2026-05-19 | Phase F spec added — 铲屎官反馈"语音转写质量太烂了"，两份独立调研收敛：不换模型修管道 |
 | 2026-05-20 | Phase F merged (PR #1796) — Silero VAD 动态切片 + 热词上下文注入 + LLM 后修正接入 + 标点恢复 + 环境变量配置 |
+| 2026-05-27 | 铲屎官和 TTS/ASR/interaction model 朋友聊天，带回三个调研方向（声纹识别/TML interaction model/流式视频理解） |
+| 2026-05-27 | 多模态感知调研 prompt + 初步综合完成（docs/research/2026-05-27-multimodal-perception-research/） |
+| 2026-06-18 | Phase G spec added — 声纹识别（从规则归因到 voice embedding），铲屎官排期确认 |
 
 ## 用户反馈（铲屎官实测 2026-05-14）
 
