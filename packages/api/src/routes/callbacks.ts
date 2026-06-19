@@ -56,6 +56,7 @@ import { createModuleLogger } from '../infrastructure/logger.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 import { scoreKeywordRelevance, tokenizeKeyword } from '../utils/keyword-relevance.js';
 import { getDefaultUploadDir } from '../utils/upload-paths.js';
+import { recordAnchorFullDrill, recordAnchorReturned } from './anchor-telemetry.js';
 import { getFeatureTagId } from './backlog-doc-import.js';
 import { enqueueA2ATargets, triggerA2AInvocation } from './callback-a2a-trigger.js';
 import { anchorPendingMention, anchorThreadMessage, truncateHead } from './callback-anchor-helpers.js';
@@ -1654,15 +1655,18 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       ),
     };
     // F236 AC-A1 (R1/砚砚 P1): emit returnedChars for eval-layer payload-shrink accounting.
+    const pendingMentionsReturnedChars = JSON.stringify(payload).length;
     app.log.info(
       {
         tool: 'pending-mentions',
-        returnedChars: JSON.stringify(payload).length,
+        returnedChars: pendingMentionsReturnedChars,
         count: payload.mentions.length,
         catId: record.catId,
       },
       '[F236] anchor returned',
     );
+    // F236 Track-1: also emit as OTel metrics (queryable canonical source for eval).
+    recordAnchorReturned({ tool: 'pending-mentions', returnedChars: pendingMentionsReturnedChars });
     return payload;
   });
 
@@ -2008,10 +2012,13 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       ...(workflowSop ? { workflowSop } : {}),
     };
     // F236 AC-A1 (R1/砚砚 P1): emit returnedChars so the eval layer can compute payload shrink (省).
+    const threadContextReturnedChars = JSON.stringify(payload).length;
     app.log.info(
-      { tool: 'thread-context', returnedChars: JSON.stringify(payload).length, count: payload.messages.length },
+      { tool: 'thread-context', returnedChars: threadContextReturnedChars, count: payload.messages.length },
       '[F236] anchor returned',
     );
+    // F236 Track-1: also emit as OTel metrics (queryable canonical source for eval).
+    recordAnchorReturned({ tool: 'thread-context', returnedChars: threadContextReturnedChars });
     return payload;
   });
 
@@ -2153,15 +2160,18 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     // F236 AC-B2 (R1/砚砚 P1): record full-drill cost AFTER the whole payload (message +
     // context neighbors + contentBlocks) is assembled, so the cost account isn't undercounted.
     if (isFullDrill) {
+      const fullDrillChars = JSON.stringify(result).length;
       app.log.info(
         {
           messageId: message.id,
-          fullDrillChars: JSON.stringify(result).length,
+          fullDrillChars,
           contextCount: result.context?.length ?? 0,
           catId: principal.catId,
         },
         '[F236] get_message full drill',
       );
+      // F236 Track-1: also emit as OTel metrics (chars + request/response volume substrate).
+      recordAnchorFullDrill({ tool: 'get-message', fullDrillChars });
     }
 
     return result;

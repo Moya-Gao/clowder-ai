@@ -42,6 +42,16 @@ export const ROUTING_INTENT = 'cat_cafe.routing.intent';
 export const CALLBACK_TOOL = 'callback.tool';
 export const CALLBACK_REASON = 'callback.reason';
 
+// --- F236 Track-1: anchor-first telemetry attributes ---
+/**
+ * Which anchor-first read-tool returned the payload:
+ * pending-mentions | thread-context | list-tasks | get-message.
+ * Bounded set (4 values) — safe as a metric label. Dedicated key (not
+ * CALLBACK_TOOL) so the eval-domain query namespace `cat_cafe.anchor.*`
+ * stays self-describing.
+ */
+export const ANCHOR_TOOL = 'anchor.tool';
+
 // --- F231 AC-C3: profile update pipeline attributes ---
 export const SIGNAL_KIND = 'signal.kind';
 export const SEAL_REASON = 'seal.reason';

@@ -10,6 +10,7 @@ import { resolveCatTarget } from '../domains/cats/services/agents/routing/cat-ta
 import type { ITaskStore } from '../domains/cats/services/stores/ports/TaskStore.js';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
+import { recordAnchorFullDrill, recordAnchorReturned } from './anchor-telemetry.js';
 import { anchorTaskWhy } from './callback-anchor-helpers.js';
 import { requireCallbackAuth } from './callback-auth-prehandler.js';
 import { deriveCallbackActor, resolveScopedThreadId } from './callback-scope-helpers.js';
@@ -250,17 +251,35 @@ export function registerCallbackTaskRoutes(
 
     // F236 AC-A4: anchor the why field (head preview + whyLength + whyTruncated + drillDown).
     // A taskId drill returns that task's why in full.
-    const payload = { tasks: tasks.map((task) => anchorTaskWhy(task, { full: Boolean(taskId) })) };
+    const isTaskDrill = Boolean(taskId);
+    const payload = { tasks: tasks.map((task) => anchorTaskWhy(task, { full: isTaskDrill })) };
     // F236 AC-A1 (R1/砚砚 P1): emit returnedChars for eval-layer payload-shrink accounting.
+    const listTasksChars = JSON.stringify(payload).length;
     app.log.info(
       {
         tool: 'list-tasks',
-        returnedChars: JSON.stringify(payload).length,
+        returnedChars: listTasksChars,
         count: payload.tasks.length,
         userId: actor.userId,
       },
       '[F236] anchor returned',
     );
+    // F236 Track-1: also emit as OTel metrics (chars + request/response volume substrate).
+    // A taskId query returns the task's FULL why = a drill-volume response, NOT a
+    // preview-volume response. Record it as drill volume (gpt52 review P1) so the
+    // per-tool request/response volume accounting stays honest — otherwise list-tasks
+    // full drills are indistinguishable from previews and the tool's volume signal is
+    // systematically distorted. (This is volume categorization; open-rate is Track-2.)
+    if (isTaskDrill) {
+      // Only count drill volume when a task was actually served. A taskId that survives
+      // no filter (stale drill pointer / taskId + mismatching filter) serves no `why`,
+      // so counting it would over-count drill volume (cloud Codex review P2).
+      if (payload.tasks.length > 0) {
+        recordAnchorFullDrill({ tool: 'list-tasks', fullDrillChars: listTasksChars });
+      }
+    } else {
+      recordAnchorReturned({ tool: 'list-tasks', returnedChars: listTasksChars });
+    }
     return payload;
   });
 }

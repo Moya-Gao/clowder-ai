@@ -987,6 +987,14 @@ describe('Callback Routes', () => {
       ownerCatId: 'opus',
     });
 
+    // F236 Track-1 (gpt52 review P1 route-level guard): list-tasks telemetry must
+    // categorize preview-return volume vs taskId-drill volume at the ROUTE, not only
+    // in the recorder unit test. (Volume categorization; open-rate is Track-2.)
+    const { getAnchorTelemetrySnapshot, resetAnchorTelemetryForTest } = await import(
+      '../dist/routes/anchor-telemetry.js'
+    );
+    resetAnchorTelemetryForTest();
+
     const res = await app.inject({
       method: 'GET',
       url: '/api/callbacks/list-tasks',
@@ -999,6 +1007,12 @@ describe('Callback Routes', () => {
     assert.equal(anchored.whyLength, 600);
     assert.equal(anchored.title, 'big task'); // non-why fields preserved
     assert.deepEqual(anchored.drillDown, { tool: 'cat_cafe_list_tasks', args: { taskId: task.id } });
+    // telemetry: the no-taskId list is a preview RETURN, not a drill
+    {
+      const snap = getAnchorTelemetrySnapshot();
+      assert.equal(snap.returnedByTool['list-tasks'], 1);
+      assert.equal(snap.drillByTool['list-tasks'] ?? 0, 0, 'preview must not count as a drill');
+    }
 
     // one-hop drill: taskId returns the full untruncated why
     const drillRes = await app.inject({
@@ -1011,6 +1025,43 @@ describe('Callback Routes', () => {
     assert.equal(drillTasks.length, 1);
     assert.equal(drillTasks[0].why, longWhy);
     assert.equal(drillTasks[0].whyTruncated, false);
+    // telemetry P1 guard: the taskId path records a DRILL, NOT a second preview return.
+    {
+      const snap = getAnchorTelemetrySnapshot();
+      assert.equal(snap.drillByTool['list-tasks'], 1, 'taskId drill must record as a drill');
+      assert.equal(snap.returnedByTool['list-tasks'], 1, 'taskId drill must NOT be counted as a preview return');
+    }
+  });
+
+  test('list-tasks taskId matching no task records NO drill volume (cloud P2: empty drill not counted)', async () => {
+    const app = await createApp();
+    const threadA = await threadStore.create('user-1', 'thread-a');
+    const { invocationId, callbackToken } = await registry.create('user-1', 'opus', threadA.id);
+    // a real task exists, but the taskId below won't match it → empty {tasks:[]}, no why served
+    await taskStore.create({
+      threadId: threadA.id,
+      title: 'real task',
+      why: 'present',
+      createdBy: 'user',
+      ownerCatId: 'opus',
+    });
+
+    const { getAnchorTelemetrySnapshot, resetAnchorTelemetryForTest } = await import(
+      '../dist/routes/anchor-telemetry.js'
+    );
+    resetAnchorTelemetryForTest();
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/callbacks/list-tasks?taskId=does-not-exist',
+      headers: { 'x-invocation-id': invocationId, 'x-callback-token': callbackToken },
+    });
+    assert.equal(res.statusCode, 200);
+    assert.equal(JSON.parse(res.body).tasks.length, 0);
+
+    const snap = getAnchorTelemetrySnapshot();
+    assert.equal(snap.drillByTool['list-tasks'] ?? 0, 0, 'empty drill (no task served) must NOT count as a drill');
+    assert.equal(snap.returnedByTool['list-tasks'] ?? 0, 0, 'a taskId query is not a preview return either');
   });
 
   test('GET thread-context rejects messageId from another thread', async () => {

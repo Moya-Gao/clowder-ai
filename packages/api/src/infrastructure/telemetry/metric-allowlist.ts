@@ -12,6 +12,7 @@
 import { createAllowListAttributesProcessor, type ViewOptions } from '@opentelemetry/sdk-metrics';
 import {
   AGENT_ID,
+  ANCHOR_TOOL,
   CALLBACK_REASON,
   CALLBACK_TOOL,
   GENAI_MODEL,
@@ -39,6 +40,8 @@ export const ALLOWED_METRIC_ATTRIBUTES: ReadonlySet<string> = new Set([
   CALLBACK_REASON,
   SIGNAL_KIND,
   SEAL_REASON,
+  // F236 Track-1: anchor-first telemetry per-tool breakdown.
+  ANCHOR_TOOL,
 ]);
 
 const allowedKeys = [...ALLOWED_METRIC_ATTRIBUTES];

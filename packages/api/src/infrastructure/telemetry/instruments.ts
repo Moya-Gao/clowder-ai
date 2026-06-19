@@ -308,6 +308,64 @@ export const callbackAuthFailures = lazy(() =>
   }),
 );
 
+// --- F236 Track-1: anchor-first telemetry (chars + request/response volume substrate) ---
+
+/**
+ * F236 Phase A made the anchor-first callback read-tools (pending-mentions /
+ * thread-context / list-tasks) return head/tail previews + drill pointers
+ * instead of full bodies, to shrink agent token load. The chars/省 signal was
+ * previously only `app.log.info` (ephemeral stdout). Track-1 funnels it through
+ * `anchor-telemetry.ts` so it ALSO lands as OTel metrics — a queryable
+ * chars + request/response VOLUME substrate.
+ *
+ * Scope (砚砚 eval-owner ruling iii): Track-1 ships chars (the 省/savings signal)
+ * and request/response volume ONLY. These are low-cardinality aggregate counters
+ * with NO join keys, so they are NOT an open-rate numerator/denominator and do
+ * NOT support a per-tool drill↔preview open-rate (that needs a cross-endpoint /
+ * per-item correlated event model — Track-2's scope, not computed here).
+ *
+ * Attributes (allowlist-filtered): `anchor.tool` only (bounded 4-value set).
+ */
+
+/**
+ * Counter: an anchor preview payload was returned, per tool.
+ * Request/response VOLUME — explicitly NOT an open-rate numerator/denominator.
+ */
+export const anchorReturnedCount = lazy(() =>
+  meter().createCounter('cat_cafe.anchor.returned.count', {
+    description:
+      'Anchor-first preview payload returned, by tool — request/response volume, NOT an open-rate numerator/denominator (F236 Track-1)',
+  }),
+);
+
+/** Histogram: chars returned in an anchor preview payload, per tool (the 省/savings signal). */
+export const anchorReturnedChars = lazy(() =>
+  meter().createHistogram('cat_cafe.anchor.returned.chars', {
+    description: 'Chars returned in an anchor-first preview payload, by tool — the 省/savings signal (F236 Track-1)',
+    unit: 'characters',
+  }),
+);
+
+/**
+ * Counter: a full drill (mode=full body served) was served, per tool.
+ * Request/response VOLUME — explicitly NOT an open-rate numerator/denominator.
+ */
+export const anchorFullDrillCount = lazy(() =>
+  meter().createCounter('cat_cafe.anchor.full_drill.count', {
+    description:
+      'Anchor full-drill (full body served) by tool — request/response volume, NOT an open-rate numerator/denominator (F236 Track-1)',
+  }),
+);
+
+/** Histogram: chars served in a full drill, per tool (the 省/savings signal). */
+export const anchorFullDrillChars = lazy(() =>
+  meter().createHistogram('cat_cafe.anchor.full_drill.chars', {
+    description:
+      'Chars served in an anchor full-drill (full body served) by tool — the 省/savings signal (F236 Track-1)',
+    unit: 'characters',
+  }),
+);
+
 // --- F231 AC-C3: Profile update eval counters (KD-10: zero-activation detection) ---
 
 /** Counter: profile update proposed (cat → CVO card). */
