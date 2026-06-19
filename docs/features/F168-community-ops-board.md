@@ -9,7 +9,7 @@ tips_exempt: internal operations tool — board/reconciler/closure UX visible on
 
 # F168: Community Operations Board — 社区事务编排引擎
 
-> **Status**: Phase A ✅ | **Phase B ✅ closed (2026-06-12)** | **Phase C ✅ closed (2026-06-16)**（C0 前置 ✅ / C1 Role Registry ✅ / C2 narrator spawn ✅ / C3.1 resolve routing ✅ / C3.2 DirectionCard + eval.1 ✅）| **Phase D 🚧**（D0.1 narrator eligibility gate ✅ / D-PR1 backend closure core ✅ / D-PR2 reconciler + SLA ✅ / D-PR3 closure UX + docs 🚧）| **First completed**: 2026-04-20 | **Owner**: 宪宪 (opus-4.8，2026-06-12 接手自 fable-5) | **Priority**: P1
+> **Status**: Phase A ✅ | **Phase B ✅ closed (2026-06-12)** | **Phase C ✅ closed (2026-06-16)**（C0 前置 ✅ / C1 Role Registry ✅ / C2 narrator spawn ✅ / C3.1 resolve routing ✅ / C3.2 DirectionCard + eval.1 ✅）| **Phase D 🚧**（D0.1 narrator eligibility gate ✅ / D-PR1 backend closure core ✅ / D-PR2 reconciler + SLA ✅ / D-PR3 closure UX + docs ✅）| **First completed**: 2026-04-20 | **Owner**: 宪宪 (opus-4.8，2026-06-12 接手自 fable-5) | **Priority**: P1
 
 ## Reopen（2026-06-10，CVO signoff）
 
@@ -463,6 +463,7 @@ TTL=0（铁律 #5），用户数据默认持久化
 | 2026-06-17 | **Phase D D0.1 merged** (PR #2369) — narrator eligibility gate pure function `shouldSpawnNarratorForCase`（INV-D0.1 auto blocks bootstrap / INV-D0.2 manual always allowed / INV-D0.3 wake-worthy activity unfreezes）。7 test cases。cloud R1 P1（lastExternalActivityAt 含 silent events → 改为 lastWakeActivityAt 显式 caller 责任）+ cloud R2 P2（manual path dead I/O removal）。砚砚 local R2 APPROVE + cloud R3 clean |
 | 2026-06-18 | **Phase D D-PR1 merged** (PR #2375, `46330507`) — backend closure core（D0.2-D0.6 prerequisites + D1 report/waive endpoints + D2 closure checklist selector）。NarratorDriver persistent dedup（INV-3 upgrade）+ boot config warning + routeRecommendation parser seam（D0.5 shared）+ closure state guards（CLOSURE_VALID_STATES allowlist + effectiveState unified derivation）。gpt52 local R3 APPROVE + cloud R1-R3 封板（LL-072：R3 67% FP，5 fixed / 3 pushback confirmed by gpt52 终局）。27 test cases（19 closure + 8 narrator driver）。D-PR2（D3+D4 reconciler+SLA）待续 |
 | 2026-06-19 | **Phase D D-PR2 merged** (PR #2410, `635a8544`) — D3 GitHub⇄Case Reconciler + D4 SLA/dead-letter findings。CommunityReconciler pure engine（baseline/dedup/drift/reopen detection）+ community-sla-policy（7d/14d/14d defaults）+ schedule factory registration + backfill。gpt52 local R3 APPROVE + cloud R1-R5 封板（LL-072：R5 83% stale，12 findings 0 actionable；封板 final review by gpt52 found reopened ID stability P1 → fixed with projection.updatedAt factKey）。43 test cases（reconciler 20 + task-spec 2 + sla-policy 21）。D-PR3（D5 Closure UX + D6 docs/skill sync）待续 |
+| 2026-06-19 | **Phase D D-PR3 merged** (PR #2417) — D5 Closure UX components + D6 docs sync。ClosureChecklistCard（readyToClose/blockers/waiverPresent projection + INV-D6.1 close gate + INV-D6.2 audit form + INV-D6.3 evidence source）+ ReconciliationFindingCard（severity colors incl warning + waiver evidence display）+ closure-forms.tsx（WaiverAuditForm + ReportAuditForm with res.ok error handling）+ community-icons.tsx（shared SVG icons INV-D6.4）。gpt52 local R4 APPROVE + cloud R1-R3 封板（LL-072：R3 100% stale replay；3 fixed: severity mapping/waiver evidence/file extraction 411→187 lines；3 pushed back: close button architecture/row navigation/repo scope）。26 test cases。Phase D all PRs complete，awaiting愿景守護 |
 
 ## Review Gate
 
