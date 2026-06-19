@@ -140,7 +140,7 @@
 | F190 | F190: Console Settings/AppShell Skeleton — 社区 Console 重构的可控切片 | done | [F190-console-settings-appshell-skeleton.md](./F190-console-settings-appshell-skeleton.md) |
 | F199 | F199: Console Parity Backfill — F190 Phase D+E settings parity backfill (7 组件 + service lifecycle + skills write hardening) | done | [F199-console-parity-backfill.md](./F199-console-parity-backfill.md) |
 | F201 | F201: Antigravity Reliability Contract — 孟加拉猫可靠可用性闭环 | done | [F201-antigravity-reliability-contract.md](./F201-antigravity-reliability-contract.md) |
-| F188 | F188: Library Stewardship — 图书馆管护与成长（rebuild + health + graph + materialize + lifecycle） | done | [F188-library-stewardship.md](./F188-library-stewardship.md) |
+| F188 | F188: Library Stewardship — 图书馆管护与成长（Phase A–K: rebuild + health + graph + materialize + lifecycle + governance + config health surface — Phase K closed 2026-06-19 via PR #2414, 砚砚 R6 cross-cat approve） | done | [F188-library-stewardship.md](./F188-library-stewardship.md) |
 | F206 | F206: Settings UI Convergence — 组件语言归一（16 Phase A-P, 20+ primitives, 100+ semantic tokens, 全仓视觉归一） | done | [F206-settings-ui-convergence.md](./F206-settings-ui-convergence.md) |
 | F209 | F209: Evidence Recall Optimization — 消息级语义、实体门牌号与活查询藤（Phase A-D shipped + PR #1910 thread-scope degraded blocker fixed + Opus 4.6 vision guardian APPROVE） | done | [F209-evidence-recall-optimization.md](./F209-evidence-recall-optimization.md) |
 | F213 | F213: Stale MCP Config Cleanup at Startup — 过期 MCP 配置启动清理（PR #1894 5 轮 P1 saga evolved + 坐标系 reframe + 跨 5 harness shared cleanup helper + 跨族愿景守护 antig-opus APPROVE） | done | [F213-stale-mcp-config-cleanup.md](./F213-stale-mcp-config-cleanup.md) |

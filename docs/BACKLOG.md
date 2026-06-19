@@ -56,7 +56,6 @@ created: 2026-02-26
 | F177 | Harness Update — Close Gate 结构化判据 + 四心智专属护栏（Phase H: routing guard 全猫族覆盖） | reopened | 布偶猫(48) + 缅因猫 | internal | [F177](features/F177-harness-update.md) |
 | F178 | Persistent MCP Agent-Key Auth — 跨 invocation 写权限（F061 Bug-H follow-up） | spec | 布偶猫 | internal | [F178](features/F178-persistent-mcp-agent-key-auth.md) |
 | F181 | Reserved Feature Slot — 待补充需求锚点 | idea | 待定 | internal | [F181](features/F181-reserved-feature-slot.md) |
-| F188 | Library Stewardship — 图书馆管护与成长（Phase K: Memory Center Config Health Surface） | in-progress | 布偶猫 | internal | [F188](features/F188-library-stewardship.md) |
 | F189 | Operation Context Unification — 操作上下文单点化（HTTP/MCP/CLI/A2A 统一 builder） | spec | 布偶猫 | internal | [F189](features/F189-operation-context-unification.md) |
 | F192 | Socio-Technical Harness Eval — Phase F re-eval closure + Phase G task-outcome closure | in-progress | 布偶猫 | internal | [F192](features/F192-socio-technical-harness-eval.md) |
 | F195 | Meeting Copilot — 实时会议私人智囊团（AUDHD augmentation） | spec | 布偶猫 | internal | [F195](features/F195-meeting-copilot-live-advisory.md) |
