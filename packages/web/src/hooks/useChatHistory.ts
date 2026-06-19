@@ -256,6 +256,11 @@ function canBindInvocationlessLiveToDraft(current: ChatMessageData, draft: ChatM
   return hasContentProximity(current, draft);
 }
 
+function isActiveInvocationClaim(info: CatInvocationInfo): boolean {
+  const snapshotStatus = info.taskProgress?.snapshotStatus;
+  return snapshotStatus !== 'completed' && snapshotStatus !== 'interrupted';
+}
+
 function isClaimedByLiveInvocation(
   invocationId: string,
   parentInvocationId: string | undefined,
@@ -264,6 +269,7 @@ function isClaimedByLiveInvocation(
 ): boolean {
   const info = catId ? currentCatInvocations[catId] : undefined;
   if (!info) return false;
+  if (!isActiveInvocationClaim(info)) return false;
   if (info.invocationId && info.turnInvocationId === invocationId) {
     return parentInvocationId ? info.invocationId === parentInvocationId : true;
   }

@@ -232,4 +232,25 @@ describe('mergeReplaceHydrationMessages — stream residue drop cases', () => {
     expect(result.messages.map((msg) => msg.id)).toEqual(['0001781577227533-000193-f22d6fb6']);
     expect(result.stats.preservedLocalCount).toBe(0);
   });
+
+  it('drops covered terminal residue when the same invocation is only a completed task snapshot', () => {
+    const history: ChatMessage[] = [makeHistoryMessage()];
+    const current: ChatMessage[] = [makeLocalResidue()];
+    const currentCatInvocations: Record<string, CatInvocationInfo> = {
+      codex: {
+        invocationId: PARENT_INVOCATION_ID,
+        turnInvocationId: RESIDUE_TURN_ID,
+        taskProgress: {
+          tasks: [],
+          lastUpdate: 1781875600000,
+          snapshotStatus: 'completed',
+        },
+      },
+    };
+
+    const result = mergeReplaceHydrationMessages(history, current, currentCatInvocations);
+
+    expect(result.messages.map((msg) => msg.id)).toEqual(['0001781577227533-000193-f22d6fb6']);
+    expect(result.stats.preservedLocalCount).toBe(0);
+  });
 });

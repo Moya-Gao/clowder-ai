@@ -1,7 +1,16 @@
+---
+feature_ids: [F194]
+topics: [codex, live-stream, hydration, bubble-split]
+doc_kind: bug-report
+created: 2026-06-16
+status: active
+severity: P1
+---
+
 # Codex live bubble split — root cause (race in live reducer)
 
 > 2026-06-16 | 诊断: 宪宪/Opus-48 | F194 post-close regression（codex 气泡裂 saga 第 17 轮的**根因记录**）
-> 状态: **R17 shipped (#2349), R18 shipped (#2363), R19 live catch confirmed (见 §R19-复发-contentful-wrong-key-residue)**
+> 状态: **R17 shipped (#2349), R18 shipped (#2363), R19 shipped (#2418), R20 root cause + fix captured (见 §R20-复发-completed-task-snapshot-被误当-live-claim)**
 > ⚠️ 下方 §根因 / §修复方向 的"parent-id 建泡 + 6 条件启发式竞态"是 **2026-06-16 的早期假设**，
 > 已被 2026-06-17 (session #5) 铲屎官 devtools 真实样本**修正**：真根因是 **dual-path（active + background
 > 双路径）各建一泡 + background 关联了一个非持久化的不同 turnInvocationId**。以 §真实样本坐实 为准。
@@ -327,3 +336,48 @@ backend 未 stamp turn。当前 API history 已是正确单泡；裂只发生在
 - `preserves contentful wrong-key stream residue as a non-goal to avoid deleting partial text`
 
 这两条共同定义 R19 新边界：**已被同 parent persisted evidence 覆盖的 contentful ghost 可删；未被覆盖的 partial text 继续保留。**
+
+## R20 复发：completed task snapshot 被误当 live claim（2026-06-19，砚砚/GPT-5.5）
+
+### 复发现象
+
+- 线程：`thread_mqcb399ktegukxdy`（F233 / 提包球讨论）。
+- 铲屎官截图：前端同一 Codex 回复仍出现「正文泡 + 独立 CLI Output 泡」；CLI-only 泡显示
+  `CLI Output · done · 2 tools · 0s`。
+- runtime 已重启且含 R19，不是旧 bundle。
+- 持久层真相：铲屎官 v3-lite dump 中 `/api/messages` 对当前 thread 只有一条 Codex stream record：
+  `0001781875470094-000205-a8335457`，`contentLen=594`，`toolEvents=4`，
+  parent `34a012f5-db56-4830-b75d-5c2e62d9b1c6`，turn `4666bc59-5fee-414d-93e1-49f904a53884`。
+  这证明 backend persisted truth 已正确合并，裂泡发生在 frontend live/hydration local residue 合并层。
+
+### 与 R19 的边界差异
+
+R19 已经能在 persisted sibling 覆盖 text + tools 时 drop terminal `msg-*` stream residue，但它还保留一条
+保护条件：如果 `currentCatInvocations[catId]` 仍 claim 这个 parent/turn，就不能删 residue，避免误删正在
+streaming 的 live 泡。
+
+R20 漏点是 `clearCatStatuses` / `clearThreadCatStatuses` 会把 `taskProgress.snapshotStatus: 'running'`
+改成 `'completed'`，但为了保留任务历史快照，会继续保留 `invocationId` / `turnInvocationId`。旧
+`isClaimedByLiveInvocation` 只看 id，不看 snapshot status，于是 **completed task snapshot 被当成 active live
+claim**，R19 的 drop guard 误以为 ghost 还在被 live invocation 使用，最终保留了已被 persisted truth 覆盖的
+CLI-only residue。
+
+### 精确 fix
+
+收紧 `mergeReplaceHydrationMessages` 中 live claim 的语义：
+
+- `taskProgress.snapshotStatus === 'completed' | 'interrupted'` 只代表历史/终态快照，不再保护 local residue。
+- `snapshotStatus === 'running'` 仍然保护 local residue，避免 persistence lag 期间误删真实 streaming 泡。
+- 没有 task snapshot 的旧 live claim 语义保持不变，避免扩大到未知 provider 路径。
+
+### 守门测试
+
+`packages/web/src/hooks/__tests__/mergeReplaceHydrationMessages-stream-residue-drop.test.ts` 新增：
+
+- `drops covered terminal residue when the same invocation is only a completed task snapshot`
+
+`packages/web/src/hooks/__tests__/mergeReplaceHydrationMessages-stream-residue-preserve.test.ts` 新增：
+
+- `preserves empty msg-* stream residue while the claiming invocation snapshot is still running`
+
+R20 边界：**completed/interrupted snapshot 不再挡住 R19 persisted-evidence drop；running snapshot 继续挡住 drop。**
