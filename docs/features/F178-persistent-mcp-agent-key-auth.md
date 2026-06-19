@@ -63,7 +63,12 @@ created: 2026-04-26
 - 复用 F174 Route B 降级 framework：agent-key 失败时按 reason code 降级提示
 - `CAT_CAFE_READONLY=true` 总闸保留不动——F178 只开放 callback writeback allowlist，不解锁 file/shell mutators
 
-### Phase D: Hub UI（agent-key inventory / audit）+ 复用 F174 telemetry
+### Phase D: ~~Hub UI（agent-key inventory / audit）~~ ❌ cancelled
+
+> **Cancelled 2026-06-19** — CVO 判定设计假设不成立：铲屎官不需要管理 UI（"我的认知带宽是来帮你们看这些的吗"），运维/安全类监控应该是猫自治 + eval 闭环，不是给人看的 dashboard。原 Phase D 中仍有价值的需求（key orphaning guard、audit log、可观测性）迁移到 Phase E 以 eval 自治模式落地。
+
+<details>
+<summary>原 Phase D 内容（存档）</summary>
 
 - Hub 设置面板加 "Agent Keys" 页（KD-5：管理面板，不是审批入口）：
   - 列出 per-cat 的 agent-key（catId / userId / issuedAt / expiresAt / lastUsedAt / status）
@@ -76,6 +81,16 @@ created: 2026-04-26
 - audit log：所有 agent-key 写操作记录到 evidence/observability 通道
 - 复用 F174 24h ring buffer + plug indicator：agent-key 失败率挂同一个 indicator（颜色/状态语义扩展）
 - 现场可感知性：thread 内 agent-key 写操作标识 "by agent-key (out-of-invocation)"
+</details>
+
+### Phase E: Agent-Key 自治监控（eval 闭环）📋 backlog
+
+> 从 Phase D 迁移的有价值需求，以猫自治 + eval 闭环模式落地，不建 Hub 面板。
+
+- **Key orphaning guard**（原 AC-D5）：sidecar reconcile 重启时按 `catId × userId × scope` upsert/replace，连续 restart 不产生 orphan active keys。自动检测 + 自动修复，不需要人盯
+- **Audit log**（原 AC-D2）：agent-key 写操作记录到 evidence/observability 通道，走 F192 eval 闭环消费，不走 Hub UI
+- **可观测性**（原 AC-D3）：agent-key 失败率走 eval telemetry 自动告警，猫发现异常自行处理；复用 F174 ring buffer
+- **Thread 内标识**（原 AC-D4）：agent-key 写入标识 "by agent-key"，猫可感知出处，铲屎官不需要关注
 
 ## Acceptance Criteria
 
@@ -99,12 +114,18 @@ created: 2026-04-26
 - [x] AC-C5: `CAT_CAFE_READONLY=true` 总闸保留，F178 不解锁 file/shell mutators
 - [x] AC-C6: 现有 invocation token 主路径无 regression（F174 测试套件全绿）
 
-### Phase D（UI + 审计 + telemetry）
-- [ ] AC-D1: Hub 设置面板 "Agent Keys" 页：inventory / rotate / revoke / audit（管理面板，不是审批入口）
-- [ ] AC-D2: audit log 落地（agent-key 每次写操作可追溯）
-- [ ] AC-D3: F174 plug indicator 扩展：agent-key 失败率与 callback 401 同 indicator 共显
-- [ ] AC-D4: 现场可感知性：agent-key 写入在 thread UI 标识 "by agent-key (out-of-invocation)"
-- [ ] AC-D5: Redis backend 上线前完成 key orphaning guard：sidecar reconcile 重启时按 `catId × userId × scope` upsert/replace，或 issue 前 revoke existing active key，并有连续 restart/reconcile 测试
+### Phase D（~~UI + 审计 + telemetry~~）❌ cancelled 2026-06-19
+- [~] ~~AC-D1: Hub 设置面板 "Agent Keys" 页~~ → cancelled（设计假设不成立：铲屎官不需要管理 UI）
+- [~] ~~AC-D2: audit log~~ → 迁移到 Phase E（AC-E2）
+- [~] ~~AC-D3: plug indicator 扩展~~ → 迁移到 Phase E（AC-E3）
+- [~] ~~AC-D4: 现场可感知性~~ → 迁移到 Phase E（AC-E4）
+- [~] ~~AC-D5: key orphaning guard~~ → 迁移到 Phase E（AC-E1）
+
+### Phase E（Agent-Key 自治监控 — eval 闭环）📋 backlog
+- [ ] AC-E1: Key orphaning guard：sidecar reconcile 重启时按 `catId × userId × scope` upsert/replace，连续 restart/reconcile 测试覆盖（猫自治，不需人盯）
+- [ ] AC-E2: Audit log 走 evidence/observability 通道 + F192 eval 闭环消费（不走 Hub UI）
+- [ ] AC-E3: Agent-key 失败率走 eval telemetry 自动告警，复用 F174 ring buffer（猫发现异常自行处理）
+- [ ] AC-E4: Thread 内 agent-key 写入标识 "by agent-key"（猫可感知出处）
 
 ## Dependencies
 
@@ -166,6 +187,7 @@ created: 2026-04-26
 | 2026-04-28 | PR #1446 merged — Antigravity 图片 path hint + MCP tool exposure 修复；sidecar 从单 key 改为 per-variant key file map，MCP callback tools 增加 `agentKeyCatId` 选择正确 cat identity；同轮追加 fail-closed 防线，共享 variant map 存在时遗漏 `agentKeyCatId` 或显式 variant 映射缺失/损坏都不再回退默认 key |
 | 2026-04-28 | PR #1450 merged — API startup config regeneration 改为从 `packages/api` 向上解析 monorepo root 后读取 `.cat-cafe/capabilities.json`，确保 Antigravity sidecar `CAT_CAFE_AGENT_KEY_FILE(S)` 写入 `~/.gemini/antigravity/mcp_config.json`；同轮修复 A2A prompt 不再暴露 `opus-47` 不可路由的 `@布偶猫` 合成句柄 |
 | 2026-06-10 | PR #2209 merged — agent-key record 改为 Redis-backed backend；全局 sidecar provision 改成显式 owner gate（runtime owner 才写，alpha/dev/test 即使连 Redis 也不覆盖）；dotenv / Windows / `start-dev.sh --prod-web` owner marker 覆盖回归；Redis backend 增加 stale index lazy cleanup、scope fail-closed、跨进程 `clientMessageId` idempotency |
+| 2026-06-19 | Phase D cancelled（CVO：设计假设不成立，铲屎官不需管理 UI）。有价值需求迁移到新 Phase E（eval 自治模式）。F178 核心价值（Phase A/B/C）已全部交付 |
 | 2026-06-13 | **Phase D carry: fable cowork adapter Phase 0** merged (PR #2279) — 让 fable-5 通过 Claude Desktop agent-key 接入猫咖。新增 `CAT_CAFE_DESKTOP_MODE=fable-phase0` env + `DESKTOP_FABLE_PHASE0_ALLOWED_TOOLS` 10 项最严白名单 (5 collab + 5 memory，mode 优先级最高、unknown mode fail-fast)，同步守护 `buildLimbTools` desktop-mode 路径。新增 admin `mint-agent-key` CLI (`packages/api/src/scripts/mint-agent-key.ts` 拆为 entry/types/parse/mint 4 文件，全 < 350 行)：三重显式安全 (`--execute` + `--redis-url` + `--i-understand-runtime-redis`)，6399 sanctuary 任意 host 全 gate，lazy `registryProvider` 仅在 preflight 通过后 instantiate Redis，wx exclusive-create + EEXIST race revoke orphan key。砚砚 3 轮 local review + 云端 codex 5 轮 review APPROVE。spec: `docs/discussions/2026-06-13-fable-cowork-adapter-phase0.md`. ⚠️ 事故: 早期 commit 把 GitHub PAT 明文写入 tracked spec doc，history rewrite + force-push 清除，PAT 已过期；铁律: 任何 tracked artifact 禁写真实 secret 字符串 |
 
 ## Review Gate
