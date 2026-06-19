@@ -8,7 +8,7 @@ created: 2026-06-17
 
 # F240: IM Connector Plugin Architecture — 社区 PR #903 Intake
 
-> **Status**: merged-to-clowder (2026-06-19 squash `40d38c18e628`) → **intake-in-progress** (Intent Issue cat-cafe#2412) | **Owner**: community @mindfn + cat-cafe maintainers (intake) | **Priority**: P1 | **Created**: 2026-06-17
+> **Status**: merged-to-clowder (2026-06-19 squash `40d38c18e628`) → **absorbed-to-cat-cafe** (PR cat-cafe#2420 squash `8f05de13`; follow-up cat-cafe#2423) | **Owner**: community @mindfn + cat-cafe maintainers (intake) | **Priority**: P1 | **Created**: 2026-06-17
 
 ## Provenance
 
@@ -149,3 +149,4 @@ created: 2026-06-17
   - **Overlap reality-check 推翻脚本乐观**:① `im-connectors/` 净新增(安全)② 旧 `adapters/` 仍在 → 是**移位**,须删旧+改引用(非单纯 cherry-pick)③ `ConnectorRouter`/`connector-gateway-bootstrap` cat-cafe 6-12(bd03244a6)独立演化 → **overlap 强制 manual-port** ④ F240 doc 冲突(skip 他的、保本 intake doc)。
   - **Intake Intent Issue: cat-cafe#2412**(含逐文件决策表 + 三真相 + 上述风险)。
   - 下一阶段(多轮):worktree replay(保 home invariant)→ `pnpm gate` → 跨族 reviewer 按 #2412 验收 → record+advance ledger → merge absorb PR + close #2412。
+- 2026-06-19 **cat-cafe absorb PR merged**:PR cat-cafe#2420 `intake(F240): absorb IM connector plugin architecture` squash merged to main as `8f05de13` after Opus 4.6 independent cutoff APPROVE. `pnpm gate` PASS at `f304c52fd`, GitHub Brand Boundary Guard PASS, mergeState CLEAN/MERGEABLE. Cloud rounds 1-5 real P1/P2 findings fixed; round 6 sole live P2(Weixin media fallback `localhost:3004`) accepted as non-blocking follow-up issue cat-cafe#2423.
