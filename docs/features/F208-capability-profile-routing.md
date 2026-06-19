@@ -166,7 +166,8 @@ settings 独立 section（与成员管理平级，不复用 F154 member overview
 | OQ-5 | 画像与 F154 preferredCats 关系 | ✅ resolved → 独立通道，画像不自动改 preferredCats |
 | OQ-6 | settings 页 read-only vs 录入入口 | ✅ resolved → read-only 起步 + CVO 添加观察入口；交互走 Design Gate |
 | OQ-7 | 新猫 cold start——三源全空只有 ① 固有特质，路由可能永不传给新猫（冷启动死循环）。开源给别人时别人的猫全是新猫，问题放大 | ⬜ 待 Phase 设计解决。初步方向：固有特质起步 + 前 N 次任务保底曝光"试用路由"。KD-9 fallback 链部分缓解——没 dossier 的猫仍可从 cat-config `teamStrengths` 获得能力标签 |
-| OQ-8 | L0 roster 语气——dossier 一句话画像带刺（"爱糊弄"），搬进 L0 给别的猫看，要不要 sanitize？ | ⬜ 初步方向：不 sanitize（画像价值 = 真实），取"原生峰值摘要 + 核心坏直觉 + 反信号"的中性浓缩。待 KD-8~12 review 后定 |
+| OQ-8 | L0 roster vs dossier 本体的语气分层 | ⬜ 三猫收敛方向：**分层，不是 sanitize**。dossier 本体/画像页 = 全文层，不 sanitize（"爱糊弄"这种刺就是价值）；L0 roster = 索引层，每轮注入给别的猫看，放**原生峰值 + 召唤反信号**（中性能力指向），坏直觉/熔断信号留给猫传球时 Read 全文。原因：L0 放"爱糊弄"有路由偏见风险——别的猫先入为主不敢传，违背"避免路由偏见"初衷（48 R1）。待实现时定 projection contract 字段（砚砚建议 `oneLiner` / `l0RosterSummary` / `routingSignals` / `provenance`）|
+| OQ-9 | 有 dossier 的猫，settings 里 teamStrengths 编辑框怎么办？ | ⬜ 切源后用户在 settings 改 teamStrengths 不会反映到 L0/前端画像（被 dossier 短路），**静默失效比漂移更坑**。Phase C 必须定：隐藏 / 只读 / 标"已被画像覆盖 → 去画像页改"（48 R1 blocking）|
 
 ## Key Decisions
 
@@ -179,12 +180,13 @@ settings 独立 section（与成员管理平级，不复用 F154 member overview
 | KD-5 | 三源合成分域，不是单一优先级排序 | CVO 体感对愿景/taste 最准，对技术/协作行为 peer/eval 更准（砚砚 R1 P2） | 2026-05-20 |
 | KD-6 | Phase A-E 硬边界 + 依赖链 | 防"全部 Phase 同时推进失控"（46 R1 P2-1） | 2026-05-20 |
 | KD-7 | 做完整终态，不做 MVP 版本 | CVO directive 2026-05-20：spec 含完整 Phase A-E，close = 完整愿景达成，禁止"Phase A 能用就 close"留脚手架尾巴 | 2026-05-20 |
-| KD-8 | 能力画像唯一真相源 = dossier；cat-config `teamStrengths`/`caution` 降级为 legacy-fallback | 三处漂移发现（cat-config / L0 roster / dossier 独立描述同一只猫的能力）。根因：cat-config 是 breed 粒度（6 猫种），dossier 是 cat 粒度（区分 46/47/48）——粒度错配导致语义重叠不可避免。dossier 比 cat-config 更深、更真实、带 provenance，定为唯一能力画像源。CVO signoff 2026-06-19 | 2026-06-19 |
+| KD-8 | 能力画像唯一真相源 = dossier；cat-config `teamStrengths`/`caution` 降级为 legacy-fallback | 漂移发现：**两源一派生**——cat-config 和 dossier 独立描述能力（两源），L0 roster 从 cat-config 编译派生（一条链）。L0 不一致是 config/dossier 不一致的投影，不是第三个独立源。根因：运行配置字段（`teamStrengths`/`caution`）承载了能力判断 prose，语义边界错位；叠加 config=breed 粒度 vs dossier=cat 粒度的结构错配。dossier 更深更真实带 provenance，定为唯一能力画像源。CVO signoff 2026-06-19（48 R1 纠正根因表述）| 2026-06-19 |
 | KD-9 | fallback 链兼容社区——有 dossier 读 dossier，没有读 cat-config | 社区铲屎官没有 dossier，用 `teamStrengths` 写"产品经理"式角色定位——这是他们唯一入口，删了他们没法描述猫。设计：`dossier?.oneLiner ?? config.teamStrengths ?? config.roleDescription`。不替社区判断"怎么定义你的猫"（KD-1 精神延伸）。**注：内置猫 dossier 缺失/parse fail 不静默 fallback——应 fail check 或显式 telemetry，防漂移被掩盖**（砚砚 R1 P2）| 2026-06-19 |
 | KD-10 | dossier 加结构化层（per-cat YAML block / JSON）| Phase B（传球加载）、Phase C（前端展示）、Phase E（开源打包）的共同前置。纯 Markdown 表格 parse 不住，前端和 compile-l0 都需要 machine-readable 数据 | 2026-06-19 |
 | KD-11 | 前端两页分离——成员管理（配置）vs 猫猫画像（展示 + CVO 观察入口）| 画像用途是"看"（传球判据 + CVO 迭代体感），不是"管"。跟配置（model/开关/排序）混在一起 UX 错位。画像页是独立 settings section | 2026-06-19 |
 | KD-12 | **所有 teammate roster / identity prompt projection** 从 dossier 结构化层派生 | 消费方不只有 compile-l0 `buildRosterRow`（line 243），还有 runtime `SystemPromptBuilder`（line 422 同样从 `teamStrengths` 拼 roster）。两条链必须同时切源，否则 L0 和 runtime prompt 说不同的话。fallback 链同 KD-9（砚砚 R1 P1）| 2026-06-19 |
-| KD-13 | F032 边界调整——cat-config 退回纯身份配置，能力描述权归 F208 | CVO signoff 2026-06-19。cat-config 仍管 catId/model/开关/排序/硬限制（如"禁止写代码"）；`teamStrengths`/`caution` 标 legacy-fallback，不再是能力真相源。F032 feat doc 需同步更新 | 2026-06-19 |
+| KD-13 | F032 边界调整——cat-config 退回纯身份配置，能力描述权归 F208 | CVO signoff 2026-06-19。cat-config 仍管 catId/model/开关/排序/硬限制（如"禁止写代码"）；`teamStrengths`/`caution` 标 legacy-fallback，**永久保留当社区兜底，永不删字段**（删了 KD-9 就破）。F032 feat doc 需同步更新 | 2026-06-19 |
+| KD-14 | fallback 走 per-field 渐进，不被 `status:draft` 文件级门控 | 实现者容易顺手写 `if (dossier.status === 'stable') 用dossier else 用config`——这会导致 draft 期间全员 fallback 回 config，切源等于没生效。正确：**忽略文件级 status，按 per-field 有没有值渐进**。某猫某字段有值就用 dossier，没值就 fallback config（48 R1 blocking）| 2026-06-19 |
 
 ## Eval / Tracking Contract
 
