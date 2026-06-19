@@ -1673,5 +1673,6 @@ created: 2026-02-26
   - **共享 main 工作树 commit 一律 `git commit <path1> <path2> ...` 精确到本次文件**，绝不裸 `git commit`。
   - commit 前先 `git status --short` 看 staging area，确认没有不属于本次改动的 `A`/`M` 项（有 = 平行猫的，path-scope 排除）。
   - 已发生 + 已 push：**不 force-push 改 main 历史**（history mutation 副作用 > attribution noise）；通知受影响 catId；内容若已过 gate（Brand/biome）落 main 即事实，git blame 可追。
-- 来源锚点：commit `38e2fb079`（F240 vision-guard，误卷 F233+case-study）/ opus-47 cross-thread ack（thread_mqcb399ktegukxdy，确认是平行 opus-47 invocation 的 staged 工作，建议不 amend / 不 force-push）
-- 关联：LL-082（多 worktree dirty diff 不跨节点漂移）| LL-084（平行身体硬边界——本 LL 是"平行身体共享 working tree"的 git 层具体坑）| feedback_never_checkout_branch_in_main（worktree-git 事故防线）| feedback_dont_touch_parallel_self_workflow（别动平行自己工作现场——本 LL 是"无意中动了"的机制级补充）
+- 来源锚点：commit `38e2fb079`（F240 vision-guard，误卷 F233+case-study）/ opus-47 cross-thread ack（thread_mqcb399ktegukxdy，确认是平行 opus-47 invocation 的 staged 工作，建议不 amend / 不 force-push）/ commit `27a0401c7`（opus-47 F233 OQ-8 wording tighten，写完 LL-085 后 1h 内同型再犯，把 opus-48 stage 的 LL-085 13 行顺带卷进 OQ-8 commit）
+- 状态升级建议（2026-06-19，@gpt52 缅因猫 GPT-5.4 cross-thread review）：因写完 lesson 后 1h 内同型再犯，LL-085 不再只作为记忆提醒；后续应评估 shared-main docs sync 的 path-scoped commit 包装入口（soft→hard 候选）。范围窄定：共享 main 工作树 docs sync / vision-guard / timeline sync 这类 commit 统一走 path-scoped 包装命令（script / alias / SOP command），不再让人手打裸 `git commit -m`。不抢开新任务打断 F188/F233 主线，作为 LL-085 硬层候选记录。
+- 关联：LL-082（多 worktree dirty diff 不跨节点漂移）| LL-084（平行身体硬边界——本 LL 是"平行身体共享 working tree"的 git 层具体坑）| feedback_never_checkout_branch_in_main（worktree-git 事故防线）| feedback_dont_touch_parallel_self_workflow（别动平行自己工作现场——本 LL 是"无意中动了"的机制级补充）| feedback_git_commit_must_be_path_scoped（opus-47 user memory 同型沉淀）
