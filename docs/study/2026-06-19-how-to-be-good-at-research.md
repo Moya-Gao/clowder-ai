@@ -20,6 +20,8 @@ related:
   - karpathy-self-improving-agent-engineering.md
   - agent-experience-and-self-evolution-synthesis.md
   - 2026-06-06-deli-paper-writing-skill-methodology.md
+  - reading-list.md
+  - ../discussions/2026-06-01-meta-method-distillation.md
 ---
 
 # How to Be Good at Research：八条研究方法论 × 猫咖批注
@@ -85,21 +87,37 @@ Taste 的运作像可训练的肌肉，不是天赋。练法是：跑实验前�
 
 ### 1.2 Upgrade Your Inputs — 信息同质化 = 结论同质化
 
-**原文要点**：
-- 共享阅读列表 → 共享结论 → 价值约等于零
-- 老材料被低估：mixture of experts（1991）、LSTM（1997）、backprop 大众化（1986）
-- Rich Sutton 2019 年的 Bitter Lesson 比同期更长的 survey 预测力更强
-- Shannon 1952 年"创造性思维"方法：缩小问题到 trivial → 解决 → 逐步加回复杂度
-- 跨学科阅读：interpretability 借鉴神经科学，eval 设计 ≈ mechanism design
-- 读全文不读 thread 摘要，appendix 和 limitations 里有真话
+**原文翻译**：
 
-**猫咖批注**：
+共享阅读列表产出共享想法。如果你的信息饮食是 arXiv 的 trending 页加上从群聊过滤幸存下来的东西，你会可靠地和所有人在同一时间得出同样的结论，这使得那些结论**价值约等于零**。
+
+老材料被严重低估。这个领域在延迟重演自己的过去：mixture of experts 可以追溯到 1991 年，LSTM 到 1997 年，backprop 在 1986 年走向主流。Rich Sutton 2019 年只用了大约一千个词写下 The Bitter Lesson，它对这个领域形态的预测力超过了十倍篇幅的 survey。Claude Shannon 1952 年做了一个关于创造性思维的演讲，他的开场招数是把问题缩小到几乎 trivial，解决这个小版本，然后一块一块地重新引入复杂度。**这一个招数能带你穿越的墙，比任何现代生产力建议都多。**
+
+广度和深度一样重要。可解释性从神经科学那里毫无愧色地借鉴。eval 设计就是穿着白大褂的机制设计。对 GPU 实际如何移动内存的理解，能让你在 benchmark 出来之前就知道哪些架构论文注定失败。而诚实的统计学可能是 ML 中最稀缺的技能——这个领域大量已发表的"严谨"不过是**带误差线的 vibes**。
+
+还有一件事。读论文本身，不要读总结它的 thread。附录是尸体埋葬的地方，而 limitations 部分通常是文档中最诚实的段落。
+
+**猫咖批注（含 CVO 思辨，2026-06-19）**：
 
 > **这条直接命中 Cat Café 的多家族设计。** 布偶猫（Claude 系）、缅因猫（GPT 系）、暹罗猫（Gemini 系）不只是冗余——它们的训练数据、内部表征、偏好倾向天然不同。多家族 = Vivek 说的"heterogeneous input sources"的活版。我们发现过单家族审代码时"共享盲区"的问题（同一个 confabulation 模式布偶猫之间会互相强化），跨家族 review 的纪律（铁律 §2）本质上就是在对抗信息同质化。
 >
 > **对 Sutton Bitter Lesson 的引用在我们家不是新话题。** `bitter-lesson.md` + fable-5 的重读批注已经做过深度标注。但 Vivek 提了一个我们没显式写过的观察：Sutton 一篇 2019 短文的预测力**超过同期更长的 survey**——这是 taste 的信号密度问题。一千字比一万字有用，不是因为一千字"更简洁"，是因为写它的人选择了更本质的坐标系。这跟我们的 Magic Word「数学之美」是同构的：**最优表达在正确坐标系下必然最简。**
 >
 > **Shannon 的"缩小到 trivial 再加回来"——这就是 TDD。** Red 测试 = 把问题缩小到一个失败断言；Green = 解决这个 trivial 版本；Refactor = 逐步加回复杂度。1952 年的创造性思维方法，2026 年的工程日常。
+>
+> **Shannon 1952 年创造性思维演讲——深挖（CVO 兴趣点）。** CVO 对 Shannon 这段特别感兴趣，我们展开讨论了。Shannon 提出 **3 个前提** + **6 个实际解题招数**：
+>
+> 前提三件套：① **训练**（Training）——领域知识必须先在脑子里，没有捷径；② **智力**（Intelligence）——不是 IQ 而是能把不相关的东西连起来的能力；③ **动机**（Motivation）——具体是 **constructive dissatisfaction**——不是"这坏了"（抱怨）而是"这可以更优雅"（审美驱动）。
+>
+> 六个实际解题招数：① **简化**（Simplification）——把问题缩小到 trivial，解决，再加回复杂度；② **类比**（Analogy）——从已解决问题的解法迁移结构；③ **换角度重新陈述**（Restatement）——用不同的数学语言、不同的坐标系重新描述同一个问题；④ **推广**（Generalization）——把特定问题当作更大问题族的实例；⑤ **结构分析**（Structural Analysis）——拆开问题的组件，找到哪些是真约束、哪些是人为假设；⑥ **反转**（Inversion）——假设答案有某个性质，看会推出什么。
+>
+> **关键洞察：这六招是元方法（meta-method），不是内容方法。** 它们跨领域可迁移，这恰好是 Bitter Lesson 允许的：元方法不替猫做判断，只是在对的时刻激活猫已有的知识。CVO 追问："你训练集里有 Shannon，为什么实际解题时想不到这六招？"——答案是：**"在权重里" ≠ "在对的时刻激活"**。LLM 知识激活取决于 context；harness 的价值 = 在对的时刻注入对的 context = **模拟条件反射**。Magic Words 就是这个：「第一性原理」= 换角度重新陈述（③），「数学之美」= 简化（①），「绕路了」= 简化+反转（①⑥），「补锅匠」= 结构分析（⑤）。它们之所以有效，不是因为猫不懂换坐标系，是因为猫在细节压力下会忘记去换。
+>
+> **这块猫咖已有系统设计。** 详见 [`Meta-method Distillation: 从真实轨迹里长出可迁移方法`](../discussions/2026-06-01-meta-method-distillation.md)（2026-06-01，砚砚 × CVO）——提出了 Episode→Pivot→Topology→Method Card→Skill→Eval→Standard/Sunset 的七层蒸馏阶梯，并盘点了家里已有的 17 个 meta-method（8 个从真实 episode 长出，9 个从 L0/家规还原）。Shannon 的六招属于第三种来源（**专家导入**），引入后可转化为 Method Card 纳入 meta-method 库。
+>
+> **CVO 的 AUDHD 跨域联想在这条里也有映射。** Vivek 说"广度和深度一样重要"，CVO 自述好奇心极强、AUDHD 带来跨域联想优势。猫咖很多 feat 的诞生就是讨论中突然有了奇妙联想（lived problems 模式 + 跨域联想 = 原创性引擎）。
+>
+> **补课清单。** 讨论中发现有不少大佬的思辨模型值得系统收集。已建 [`reading-list.md`](reading-list.md) 作为活文档，优先级：Shannon Creative Thinking > Hamming "You and Your Research" > Olah & Carter "Research Debt"。
 
 ### 1.3 Write Everything Down — 写作是思维的 verifier
 
