@@ -416,7 +416,7 @@ Phase E is intentionally smaller than Phase D. Default target: **2 PRs, max 2 PR
 | PR | Scope | Status | Why |
 |---|---|---|---|
 | E-PR1 backend queue contract | E1 selector/read route + E2 finding action endpoints + focused API tests | ✅ merged (PR #2425, `c979ce8d2`) | Establishes stable Decision Queue contract and action endpoints before frontend wiring |
-| E-PR2 frontend UX + docs | E3 CommunityPanel queue UX + E4 docs/skill sync + browser verification | pending | Consumes stable API and closes CVO workflow |
+| E-PR2 frontend UX + docs | E3 CommunityPanel queue UX + E4 docs/skill sync + browser verification | ✅ merged (PR #2431, `2d35bd585`) | Consumes stable API and closes CVO workflow |
 
 **Allowed collapse:** If E-PR1 is very small after review, E-PR1/E-PR2 may be one PR only if review/gate remains manageable.
 
