@@ -202,13 +202,15 @@ export interface CommunityDecisionQueueItem {
 
 **Lifecycle owner:** existing `CommunityReconciliationFindingStore`; Phase E adds HTTP adapter, not a new store.
 
+**Guard placement:** existing `CommunityReconciliationFindingStore.acknowledge()/resolve()/waive()` methods are persistence helpers and currently perform guard-less status writes. Phase E status precondition checks live in the E2 route adapter. RED tests assert HTTP 409 / 400 behavior from the route, not store-level exceptions or new store method signatures.
+
 **状态×事件转移表:**
 
 | Current | acknowledge | resolve | waive |
 |---|---|---|---|
 | open | → acknowledged | → resolved | → waived with audit |
 | acknowledged | idempotent | → resolved | → waived with audit |
-| resolved | no-op / 409 | idempotent | 409 |
+| resolved | 409 | idempotent | 409 |
 | waived | 409 unless evidence changed upstream | 409 | idempotent if same audit |
 
 **不变量:**
@@ -300,9 +302,11 @@ export interface CommunityDecisionQueueItem {
 2. fixed issue with `fixed-not-reported` blocker produces one `closure-action` item with report/waive actions.
 3. open `case-fixed-unreported` finding produces `sla-dead-letter`.
 4. open `github-reopened-case-closed` finding produces `reconciliation-finding` with urgent priority.
-5. non-closeable checklist blocker on pending-decision does not produce closure queue noise.
-6. closed clean projection produces no item.
-7. deterministic sort: priority → actor → updatedAt desc → id asc.
+5. open `stale-awaiting-external` finding produces `external-followup` with `normal` priority and `case-owner` actor.
+6. non-closeable checklist blocker on pending-decision does not produce closure queue noise.
+7. same subject with `case-fixed-unreported` finding and `fixed-not-reported` blocker coalesces into one highest-priority queue item.
+8. closed clean projection produces no item.
+9. deterministic sort: priority → actor → updatedAt desc → id asc.
 
 **GREEN implementation:**
 
@@ -352,8 +356,10 @@ POST /api/community-findings/:findingId/waive
 3. waive requires reason + actor + evidence.
 4. missing findingStore returns 501.
 5. missing finding returns 404.
+6. acknowledge resolved finding returns 409 without changing store state.
+7. resolve/waive waived finding returns 409 unless upstream evidence changes via Reconciler upsert.
 
-**GREEN implementation:** expose adapter over `CommunityReconciliationFindingStore` methods; keep all status lifecycle in store.
+**GREEN implementation:** expose adapter over `CommunityReconciliationFindingStore` methods. Keep the store methods guard-less; route adapter reads current finding, enforces status preconditions, then calls the existing store write helper.
 
 ### E3 — CommunityPanel queue UX
 
@@ -436,9 +442,12 @@ Phase E is intentionally smaller than Phase D. Default target: **2 PRs, max 2 PR
 
 ## 5. Open Questions
 
+### Resolved technical decisions
+
+- **Decision-E1:** Queue route is top-level: `GET /api/community-decision-queue?repo=owner/repo`. Rationale: same topology as existing `/api/community-board` + `/api/community-findings`, keeps board response backward compatible, and lets frontend fetch board + queue independently.
+
 ### Technical OQ（实现时可自决）
 
-- **OQ-E1:** Queue route should be top-level (`/api/community-decision-queue`) or embedded in `/api/community-board`. Default: top-level route, with optional board summary later; keeps raw board response backward compatible.
 - **OQ-E2:** Queue selector should consume raw ObjectStore projections or current board-shaped items. Default: consume board-shaped items for Phase E MVP, because D2 already enriches legacy/projection-only paths; keep selector types narrow and fixtureable.
 - **OQ-E3:** Finding status lifecycle for resolved/waived actions. Default: expose only existing store lifecycle; do not add defer/snooze in MVP.
 
