@@ -8,7 +8,7 @@ created: 2026-05-06
 
 # F188: Library Stewardship — 图书馆管护与成长
 
-> **Status**: done | **Completed (A-J)**: 2026-05-26 | **Reopened**: 2026-06-09 (Phase K) | **Phase K Closed**: 2026-06-19 (PR #2414, merge `1ec99732`) | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: done | **Completed (A-J)**: 2026-05-26 | **Reopened**: 2026-06-09 (Phase K) | **Phase K Closed**: 2026-06-19 (PR #2414, merge `1ec99732`) | **Infra Fix**: 2026-06-19 (PR #2419 — alpha:start build-freshness gate, ADR-039 parity) | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
