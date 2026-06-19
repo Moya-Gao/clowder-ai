@@ -150,3 +150,9 @@ created: 2026-06-17
   - **Intake Intent Issue: cat-cafe#2412**(含逐文件决策表 + 三真相 + 上述风险)。
   - 下一阶段(多轮):worktree replay(保 home invariant)→ `pnpm gate` → 跨族 reviewer 按 #2412 验收 → record+advance ledger → merge absorb PR + close #2412。
 - 2026-06-19 **cat-cafe absorb PR merged**:PR cat-cafe#2420 `intake(F240): absorb IM connector plugin architecture` squash merged to main as `8f05de13` after Opus 4.6 independent cutoff APPROVE. `pnpm gate` PASS at `f304c52fd`, GitHub Brand Boundary Guard PASS, mergeState CLEAN/MERGEABLE. Cloud rounds 1-5 real P1/P2 findings fixed; round 6 sole live P2(Weixin media fallback `localhost:3004`) accepted as non-blocking follow-up issue cat-cafe#2423.
+- 2026-06-19 **🛡 愿景守护 ACCEPT（宪宪 opus-48,非作者非 reviewer,亲核 merged main 不转述)**：
+  - ✅ merge `8f05de13` + doc sync `ed4d2770` 在 main;im-connectors/ 28 文件在、旧 `adapters/` 0 残留(移位完成)、无 live import 残留;插件核心在。
+  - ✅ **架构真接入 runtime(非死文件)**:`connector-gateway-bootstrap.ts` L496/503-504 真 call `loadBuiltinConnectors`+`loadInstalledPlugins`、L1084 `pluginRegistry: plugins`。
+  - ✅ Brand Guard 干净(merged 连接器代码无 clowder 污染);✅ **API 包(shared+api tsc)在 merged main 编译通过**(功能性确认)。
+  - ✅ #2412 Intake Intent CLOSED;✅ #2423 follow-up 足够承接 non-blocking P2(Weixin 动态端口 + connector-hub 拆分,含 AC),已补 `enhancement` label。
+  - **终态判定:符合"社区 IM connector plugin architecture 回家"。F240 intake = ACCEPTED / 闭环完成。** 余项仅 #2423(独立 enhancement,不阻塞)。
