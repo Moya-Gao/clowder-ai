@@ -141,6 +141,7 @@ fork 后按领域累积）/ evolving（eval 回流持续刷新）。
 - **Related**: F200（Memory Recall Eval — Phase D 自动累积的数据源；in-progress，v1 不阻塞于其完成）
 - **Related**: F192（Socio-Technical Harness Eval — Phase E eval 框架；in-progress，v1 不阻塞）
 - **Related**: F203（Native System Prompt L0 — 若日后速查卡进 L0 的注入通道；v1 不进 L0）
+- **Boundary**: F032（Agent Plugin Architecture — roster truth owner；KD-13 边界调整：cat-config 退回纯身份配置，`teamStrengths`/`caution` 标 legacy-fallback，能力描述权归 F208。CVO signoff 2026-06-19）
 - **Related**: F209（Evidence Recall Optimization — F209 owns 实体身份层（`entity_id`/alias/provenance 真相源）；F208 cat-dossier 是能力画像层，**消费 F209 `entity_id` 作猫/人标识键，不另造 ID namespace**，见 F209 AC-B6 / KD-7）
 
 ## Risk
@@ -163,7 +164,8 @@ fork 后按领域累积）/ evolving（eval 回流持续刷新）。
 | OQ-4 | 坐标系熔断器是否本 feature scope | ✅ resolved → 独立 feature（检测协作反模式、不依赖画像，另立） |
 | OQ-5 | 画像与 F154 preferredCats 关系 | ✅ resolved → 独立通道，画像不自动改 preferredCats |
 | OQ-6 | settings 页 read-only vs 录入入口 | ✅ resolved → read-only 起步 + CVO 添加观察入口；交互走 Design Gate |
-| OQ-7 | 新猫 cold start——三源全空只有 ① 固有特质，路由可能永不传给新猫（冷启动死循环）。开源给别人时别人的猫全是新猫，问题放大 | ⬜ 待 Phase 设计解决。初步方向：固有特质起步 + 前 N 次任务保底曝光"试用路由" |
+| OQ-7 | 新猫 cold start——三源全空只有 ① 固有特质，路由可能永不传给新猫（冷启动死循环）。开源给别人时别人的猫全是新猫，问题放大 | ⬜ 待 Phase 设计解决。初步方向：固有特质起步 + 前 N 次任务保底曝光"试用路由"。KD-9 fallback 链部分缓解——没 dossier 的猫仍可从 cat-config `teamStrengths` 获得能力标签 |
+| OQ-8 | L0 roster 语气——dossier 一句话画像带刺（"爱糊弄"），搬进 L0 给别的猫看，要不要 sanitize？ | ⬜ 初步方向：不 sanitize（画像价值 = 真实），取"原生峰值摘要 + 核心坏直觉 + 反信号"的中性浓缩。待 KD-8~12 review 后定 |
 
 ## Key Decisions
 
@@ -176,6 +178,12 @@ fork 后按领域累积）/ evolving（eval 回流持续刷新）。
 | KD-5 | 三源合成分域，不是单一优先级排序 | CVO 体感对愿景/taste 最准，对技术/协作行为 peer/eval 更准（砚砚 R1 P2） | 2026-05-20 |
 | KD-6 | Phase A-E 硬边界 + 依赖链 | 防"全部 Phase 同时推进失控"（46 R1 P2-1） | 2026-05-20 |
 | KD-7 | 做完整终态，不做 MVP 版本 | CVO directive 2026-05-20：spec 含完整 Phase A-E，close = 完整愿景达成，禁止"Phase A 能用就 close"留脚手架尾巴 | 2026-05-20 |
+| KD-8 | 能力画像唯一真相源 = dossier；cat-config `teamStrengths`/`caution` 降级为 legacy-fallback | 三处漂移发现（cat-config / L0 roster / dossier 独立描述同一只猫的能力）。根因：cat-config 是 breed 粒度（6 猫种），dossier 是 cat 粒度（区分 46/47/48）——粒度错配导致语义重叠不可避免。dossier 比 cat-config 更深、更真实、带 provenance，定为唯一能力画像源。CVO signoff 2026-06-19 | 2026-06-19 |
+| KD-9 | fallback 链兼容社区——有 dossier 读 dossier，没有读 cat-config | 社区铲屎官没有 dossier，用 `teamStrengths` 写"产品经理"式角色定位——这是他们唯一入口，删了他们没法描述猫。设计：`dossier?.oneLiner ?? config.teamStrengths ?? config.roleDescription`。不替社区判断"怎么定义你的猫"（KD-1 精神延伸）| 2026-06-19 |
+| KD-10 | dossier 加结构化层（per-cat YAML block / JSON）| Phase B（传球加载）、Phase C（前端展示）、Phase E（开源打包）的共同前置。纯 Markdown 表格 parse 不住，前端和 compile-l0 都需要 machine-readable 数据 | 2026-06-19 |
+| KD-11 | 前端两页分离——成员管理（配置）vs 猫猫画像（展示 + CVO 观察入口）| 画像用途是"看"（传球判据 + CVO 迭代体感），不是"管"。跟配置（model/开关/排序）混在一起 UX 错位。画像页是独立 settings section | 2026-06-19 |
+| KD-12 | L0 roster 从 dossier 结构化层派生，不再从 cat-config `teamStrengths` 取 | compile-l0 `buildRosterRow` line 243 当前读 `teamStrengths`。切源后 L0 展示的能力描述自动跟 dossier 同步——fallback 链同 KD-9（没 dossier 仍读 cat-config）| 2026-06-19 |
+| KD-13 | F032 边界调整——cat-config 退回纯身份配置，能力描述权归 F208 | CVO signoff 2026-06-19。cat-config 仍管 catId/model/开关/排序/硬限制（如"禁止写代码"）；`teamStrengths`/`caution` 标 legacy-fallback，不再是能力真相源。F032 feat doc 需同步更新 | 2026-06-19 |
 
 ## Eval / Tracking Contract
 
@@ -209,6 +217,10 @@ fork 后按领域累积）/ evolving（eval 回流持续刷新）。
 | 2026-05-20 | 从 longform-002 Ch.0 衍生；四猫 + CVO 各给一版，47 整合提案 |
 | 2026-05-20 | 三猫 R1 review（46/砚砚/孟加拉猫）：砚砚 1P1+4P2 + 46 P2-1/P2-2 全 applied；OQ-1~6 收敛 |
 | 2026-05-20 | CVO signoff 立项 F208（directive：做完整终态，不做 MVP 版本） |
+| 2026-05-25 | Phase A 落地：四主力猫 L1 画像 + 辅助猫速写（`5caf4f6e2`） |
+| 2026-06-10 | fable-5 day-1 完整 6 字段画像（codex 跨族 review 修正）|
+| 2026-06-15 | opus-48 confab 坏直觉 + 熔断信号追加（v0.2.1）|
+| 2026-06-19 | 三真相源漂移问题讨论（46 发现 + 48/砚砚并行方案 + CVO 讨论）→ KD-8~13 + OQ-8。CVO signoff F032 边界调整 |
 
 ## Review Gate
 
