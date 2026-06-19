@@ -7,7 +7,7 @@ created: 2026-02-26
 
 # Cat Cafe Feature Roadmap
 
-> 维护者：三猫 | 最后更新：2026-06-11（feature truth hygiene：F177 reopened）
+> 维护者：三猫 | 最后更新：2026-06-18（F152 close-gate rerun truth sync）
 >
 > **规则**：只放活跃 Feature（idea/spec/in-progress/review），done 后移除。
 > 详细信息见 `docs/features/Fxxx-*.md`。
@@ -44,7 +44,7 @@ created: 2026-02-26
 | F138 | Cat Café Video Studio — AI 视频制作管线 | spec | 金渐层 | internal | [F138](features/F138-video-studio.md) |
 | F143 | Hostable Agent Runtime — 统一宿主抽象 | spec | 布偶猫 | internal | [F143](features/F143-hostable-agent-runtime.md) |
 | F147 | i18n — Hub 界面中英文切换 | idea | 待定 | internal | — |
-| F152 | Expedition Memory — 外部项目记忆冷启动 + 经验回流 | spec | 布偶猫 | internal | [F152](features/F152-expedition-memory.md) |
+| F152 | Expedition Memory — 外部项目记忆冷启动 + 经验回流 | in-progress | 布偶猫 | internal | [F152](features/F152-expedition-memory.md) |
 | F153 | Observability Infrastructure — 运行时可观测基础设施 | in-progress | Community + 布偶猫 | community [#388](https://github.com/zts212653/clowder-ai/issues/388) | [F153](features/F153-observability-infra.md) |
 | F156 | Security Hardening — 实时通道 + 本机信任边界加固（Phase E） | spec | 布偶猫 | internal | [F156](features/F156-websocket-security-hardening.md) |
 | F159 | CatAgent Native Provider — Opt-in API Path | spec | 社区 + 布偶猫 + 缅因猫 | community [#434](https://github.com/zts212653/clowder-ai/issues/434) | [F159](features/F159-catagent-native-provider.md) |
