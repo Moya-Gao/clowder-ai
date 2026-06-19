@@ -99,10 +99,12 @@ spike（2026-06-16，C0a Read / C0b Grep ✅ 实证）证明 cc PostToolUse hook
    - **依据（砚砚 ref + 宪宪实证）**：F192 粒度哲学 = 一现象/控制面一 domain（`eval:memory` 跨 F200+F188 @F192:764；`eval:task-outcome` 测 L3 交付现象 @F192:310；F245 钉「不抢 canonical signal ownership」@design-gate:27）；`eval:task-outcome` 现有 episode signal enum 仅 A1 world-truth / A2 permission-cancel / proxy（**实证** `task-outcome-episode.ts:28+`），**无 anchor 槽** → 直 ingest = Phase-G schema 扩展（不在本 phase scope），故 reference-read 是最小路径。
    - **修我自报错**：我把「associate」和「直接 ingest」混了——task-outcome 接不进 anchor 信号，blindness 只能引用读取不能写入。
    - **实现序**：AC-E1（sink + 补 emit `anchorOpenRate`/返工）fork-invariant **先建** → AC-E2 verdict（anchor-tax 自持 + blindness 引用 task-outcome）→ AC-E4 注册 phenomenon domain（带 enum-consumer grep gate）。
-6. **🔗 CROSS-FEATURE 依赖 → F245（`eval:friction`）= 近同构前驱，平行 opus-48 正实现中（2026-06-18 recall 发现）**：F245 也在 F192 下新增 phenomenon eval domain + rollup aggregator + bump 同一对枚举（F245 OQ-4「2 enum 扩展」= domainId + sourceAdapter）。**F236 不能盲目并行建 eval-domain infra**：
-   - **硬碰撞**：两 feature bump 同一 `domainId`/`sourceAdapter` 枚举 → 平行 worktree 必冲突。**协调已 cross-post F245 thread `thread_mqjnm2ymjj17f1md`**（提议 F245 先 land 枚举+注册 pattern，F236 rebase 在上继承，不另起一套）。
-   - **⚠️ sink 决策需重审（item 3 部分超越）**：F245 KD-1（46+砚砚 Design Gate）=「**不建统一 store，Port+Adapter 读 canonical source**」。这挑战我 item 3 的「in-memory 聚合 store」选择 → 倾向改为 **emit OTel metrics 当 canonical source、复用现有 telemetry-adapter**（与 subagent Option A 合流）。**sink substrate PENDING F245 对齐**（等平行我 ack KD-1 是否适用 F236）。
-   - **复用候选**（待 F245 ack）：N-day cadence registry 扩展（F245 正加，registry 现只 daily|weekly）、rollup sink/aggregator 抽象、新-domain 注册 pattern。
+6. **🔗 CROSS-FEATURE 协调 → F245（`eval:friction`）= 近同构姊妹 feature，平行 opus-48 owner（2026-06-18 recall 发现 + 双向协调完成）**：F245 也在 F192 下新增 phenomenon eval domain + rollup aggregator + bump 同一对枚举（OQ-4「2 enum 扩展」= domainId + sourceAdapter）。cross-post F245 thread `thread_mqjnm2ymjj17f1md` 协调，**平行我 ack 如下**：
+   - **✅ 无 rebase**：F245 实现一行没 land、枚举未动 → 两 feature 都没 finalize 枚举，**一起定共享基建再各自 land**（不是谁先谁后）。
+   - **✅ sink substrate CONFIRMED = OTel metrics（item 3 的 in-memory store 选择正式废弃）**：平行我 + F245 KD-1 双确认——**emit OTel metrics 当 canonical source + 复用 `harness-eval/telemetry-adapter.ts`（已存在）**，不建第二个 store。这是 KD-1/KD-4 精神（read-only，canonical source 在别处不自建）。
+   - **✅ 共享 vs 独立划定**：**共享** = N-day cadence registry 扩展（现只 daily|weekly）+ `RollupEvalDomain` 骨架（rollup trigger + Top-N + Verdict Handoff 同套）+ registration pattern；**独立** = 各自 source adapter + feature 逻辑（F245 4 通道采集 / F236 token telemetry）。
+   - **🔜 PENDING 砚砚（owner）拍**：registration pattern = **硬枚举 +N vs 可扩展注册**（domainId 改 string 校验 against YAML，registry 本就 YAML 驱动）——平行我挖出的碰撞根因，已 cross-post 砚砚（2026-06-18）。+ `RollupEvalDomain` 骨架谁 land + N-day cadence 谁先。
+   - **✅ Track 拆分**：**Track-1（AC-E1 anchor telemetry emit as OTel metrics，不碰枚举）= UNBLOCKED 可独立先行**（substrate 已定，clear-landing，下个 session push-through）；**Track-2（AC-E4 domain 注册）= 等砚砚 registration pattern**。
    - **架构一致**：F236（anchor-tax read-only + blindness reference-read task-outcome）与 F245（read-only 不抢 canonical ownership）**同 KD 家族**——不重复 deliberate。
 
 ### Phase C: cc 原生工具 anchor 化（spike-gated — 这才是大头）
