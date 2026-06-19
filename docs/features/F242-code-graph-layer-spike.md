@@ -9,7 +9,7 @@ cvo_signoff: 2026-06-17 — 铲屎官 "可以 我同意！！！"（thread 00017
 
 # F242: Code Graph Layer Spike — 内生「约定层关联图」
 
-> **Status**: review | **Owner**: codex-gpt55（砚砚；implementation takeover 2026-06-17） | **Priority**: P1
+> **Status**: done | **Owner**: codex-gpt55（砚砚；implementation takeover 2026-06-17） | **Priority**: P1
 
 > ⚠️ **本 doc 是 spike 初稿**。砚砚（@codex GPT-5.5）+ opus-48 两轮 brainstorm 已完成（OQ 推进 + 泛化分两层 + provenance 质量门），Design Gate 已完成，Phase A implementation 由砚砚接手推进。完整设计输入见 `docs/discussions/2026-06-17-codegraph-vs-gitnexus/README.md`（§0-18，codegraph + GitNexus 一手 spike 实证 + 整合）。
 
@@ -256,6 +256,7 @@ AC-A5 锚定具体场景：**改 `cat_cafe_post_message` 的 schema → 约定�
 | 2026-06-17 | Phase A checkpoint：完成 `consumes` 边、query freshness、第二类 `skill-manifest` extractor、`convention-graph-discovery` skill；真实 dogfood `cat_cafe_post_message` 查出 3 条 consumes + 1 条 registers，修复 `as const` 漏识别 |
 | 2026-06-17 | Phase B skeleton：新增 `fastapi-route` extractor，在陌生 repo deer-flow 识别 82 routes / 15 routers / 0 gaps，freshness fresh |
 | 2026-06-17 | Local review continuity approved at `90e2e0c62`; review P2 follow-ups fixed（edge dedup / consumer invalidation + kind / multiline APIRouter gap），进入 merge gate |
+| 2026-06-18 | PR #2408 merged：F242 convention graph spike landed in main（squash commit `2e9f5842`）；Phase A/B AC 全部完成，进入 spike close / 愿景守护 |
 
 ## Links
 
