@@ -128,6 +128,7 @@ Hub: 右面板自动打开并导航到文件
 | 2026-03-23 | Reveal snapback fix — eventId dedup + grace period suppression，PR #672 merged (a2c59f7f)，3 轮 GPT-5.4 review |
 | 2026-03-23 | Workspace snapback v2 fix — worktreeId guard + thread-scoped first-mount guard + async thread safety，PR #678 merged (d4fb3d49)，7 轮 Codex cloud review |
 | 2026-03-23 | AC-6 runtime E2E 通过：铲屎官确认“打开文件后不再回弹文件树”；Feature 完成闭环（feat close） |
+| 2026-06-19 | Post-close follow-up bugfix — canonical/prefixed worktreeId alias handling, project-scoped alias map, refresh normalization, and edit-token reset，PR #2428 merged (bbefa616f) |
 
 ## Links
 
