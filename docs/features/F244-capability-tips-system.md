@@ -287,6 +287,7 @@ tips system 是 harness 改动，必须有闭环：
 | 2026-06-18 | CVO 批准进入实现：砚砚 author/coder，Opus 4.8 review；后续只补充更多 tips，不补第二套系统 |
 | 2026-06-18 | PR #2406 merged：交付 `CapabilityTip` contract/seed/selector、`ThreadExecutionBar` waiting tip strip、F229 `open_concierge_draft` no-auto-send action、tips contribution hard gate、privacy-minimal usage event foundation；dogfood report、F192 eval consumer、stale/sunset owner queue 仍 open |
 | 2026-06-19 | CVO dogfood 反馈：tips 已出现但位置错误、轮播太快；F244 follow-up 将 tip surface 从 `thread_execution_bar` 改为 `assistant_stream_bubble`，单条停留下限改为 30s |
+| 2026-06-19 | PR #2424 merged：将 tips 移入 assistant streaming bubble，单线程只选择一个 eligible streaming bubble 展示，并保留 review/ideate context；AC-B4 / Phase D dogfood-eval 后续仍 open |
 
 ## Review Gate
 
