@@ -19,15 +19,18 @@ code_anchors:
   - packages/api/src/domains/community/CommunityReconciler.ts
   - packages/api/src/domains/community/CommunityReconciliationFindingStore.ts
   - packages/api/src/infrastructure/connectors/github-repo-event/CommunityReconcilerTaskSpec.ts
+  - packages/web/src/components/community/ClosureChecklistCard.tsx
+  - packages/web/src/components/community/ReconciliationFindingCard.tsx
 doc_anchors:
   - docs/features/F168-community-ops-board.md
   - docs/discussions/2026-06-09-f168-community-ops-final-design.md
-static_scan_hints: [CommunityEvent, CommunityObject, CommunityEventLog, community-projector, community-state-machine, closure_invariant, community-bootstrap, community-delivery-policy, community-auto-tracking, awaiting_external, decideDelivery, CommunityRole, RoleResolver, RoleBinding]
+static_scan_hints: [CommunityEvent, CommunityObject, CommunityEventLog, community-projector, community-state-machine, closure_invariant, community-bootstrap, community-delivery-policy, community-auto-tracking, awaiting_external, decideDelivery, CommunityRole, RoleResolver, RoleBinding, ClosureChecklistCard, ReconciliationFindingCard, WaiverAuditForm]
 cited_by:
   - {feature: F168, date: 2026-06-10, delta: new cell}
   - {feature: F168-Phase-B, date: 2026-06-10, delta: "dual-cursor delivery + case.awaiting_external + delivery-policy + auto-tracking"}
   - {feature: F168-Phase-C, date: 2026-06-13, delta: "RoleResolver binding layer — engine routes by CommunityRole via injected resolver (fail-closed), INV-6 engine-zero-catname grep guard"}
   - {feature: F168-Phase-D, date: 2026-06-17, delta: "Closure UX + Reconciler plan — closureChecklist selector, GitHub⇄Case diff task, reconciliation finding store, SLA/dead-letter queue"}
+  - {feature: F168-Phase-D-PR3, date: 2026-06-19, delta: "D5 Closure UX web components — ClosureChecklistCard, ReconciliationFindingCard, WaiverAuditForm, CommunityPanel integration"}
 ---
 
 # Community Ops Engine

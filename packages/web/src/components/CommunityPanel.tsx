@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { CommunityPanelFilters, TIME_RANGES } from '@/components/CommunityPanelFilters';
+import { ClosureChecklistCard } from '@/components/community/ClosureChecklistCard';
+import { ReconciliationFindingCard } from '@/components/community/ReconciliationFindingCard';
 import { PR_ICON, TYPE_ICONS } from '@/components/community-panel-icons';
 import { DirectionCard, type DirectionCardProps } from '@/components/DirectionCard';
 import { pushThreadRouteWithHistory } from '@/components/ThreadSidebar/thread-navigation';
@@ -26,6 +28,12 @@ interface CommunityIssueItem {
   assignedThreadId: string | null;
   assignedCatId: string | null;
   directionCard: { entries: Array<Record<string, unknown>>; consensus?: Record<string, unknown> } | null;
+  closureChecklist?: {
+    readyToClose: boolean;
+    blockers: Array<{ kind: 'fixed-not-reported' | 'not-in-closeable-state'; detail: string }>;
+    waiverPresent: boolean;
+  };
+  closureWaiver?: { reason: string; actor: string; evidence: string } | null;
   updatedAt: number;
 }
 
@@ -46,6 +54,19 @@ interface BoardData {
   repo: string;
   issues: CommunityIssueItem[];
   prItems: PrBoardItem[];
+}
+
+interface ReconciliationFinding {
+  findingId: string;
+  subjectKey: string;
+  findingKind: string;
+  severity: string;
+  message: string;
+  status: 'open' | 'acknowledged' | 'resolved' | 'waived';
+  waiver: { reason: string; actor: string; evidence: string } | null;
+  evidenceFingerprint: string | null;
+  createdAt: number;
+  updatedAt: number;
 }
 
 const ISSUE_SECTIONS = [
@@ -117,6 +138,7 @@ function IssueRow({
   onDispatch,
   onToggleExpand,
   onResolve,
+  onRefresh,
 }: {
   item: CommunityIssueItem;
   expanded: boolean;
@@ -130,14 +152,17 @@ function IssueRow({
       routeRecommendation?: { kind: string; threadId?: string };
     },
   ) => Promise<void>;
+  onRefresh: () => void;
 }) {
   const color = ISSUE_STATE_COLORS[item.state] ?? 'text-cafe-muted';
   const icon = TYPE_ICONS[item.issueType] ?? TYPE_ICONS.question;
   const hasDirectionCard =
     item.state === 'pending-decision' &&
     item.directionCard?.entries?.some((e: Record<string, unknown>) => e.authoredByRole === 'narrator');
+  const hasClosureChecklist = item.closureChecklist != null;
+  const isExpandable = hasDirectionCard || hasClosureChecklist;
   const handleClick = () => {
-    if (hasDirectionCard) {
+    if (isExpandable) {
       onToggleExpand(item.id);
     } else if (item.assignedThreadId) {
       onNavigate(item.assignedThreadId);
@@ -150,7 +175,7 @@ function IssueRow({
         onClick={handleClick}
         className={`flex items-center gap-2 px-3 py-1.5 hover:bg-cafe-surface-elevated/30 text-xs transition-colors ${
           expanded ? 'bg-cafe-surface-elevated/50 border-l-2 border-l-cafe-accent' : ''
-        } ${item.assignedThreadId || hasDirectionCard ? 'cursor-pointer' : 'cursor-default opacity-70'}`}
+        } ${item.assignedThreadId || isExpandable ? 'cursor-pointer' : 'cursor-default opacity-70'}`}
       >
         <span className={color}>{icon}</span>
         <a
@@ -188,6 +213,24 @@ function IssueRow({
           directionCard={item.directionCard as unknown as DirectionCardProps['directionCard']}
           onResolve={onResolve}
         />
+      )}
+      {expanded && !hasDirectionCard && item.closureChecklist && (
+        <div className="px-3 py-2">
+          <ClosureChecklistCard
+            issueId={item.id}
+            checklist={item.closureChecklist}
+            waiver={item.closureWaiver ?? null}
+            actor={item.assignedCatId ?? 'system'}
+            onAction={() => {
+              // report/waive actions handled by sub-forms (ReportAuditForm / WaiverAuditForm).
+              // Close action: no canonical case.closed event endpoint exists yet —
+              // wiring to legacy PATCH would bypass Event Log/projection (R2 review).
+              // Close button shows readiness (INV-D6.1) but actual close comes from
+              // GitHub issue.closed webhook → reconciler → event log.
+              onRefresh();
+            }}
+          />
+        </div>
       )}
     </>
   );
@@ -249,6 +292,20 @@ export function CommunityPanel({ threadId }: { threadId?: string }) {
   const [timeRange, setTimeRange] = useState('all');
   const [repos, setRepos] = useState<string[]>([]);
   const [expandedIssue, setExpandedIssue] = useState<string | null>(null);
+  const [findings, setFindings] = useState<ReconciliationFinding[]>([]);
+  const [collapsedFindings, setCollapsedFindings] = useState(false);
+
+  const fetchFindings = useCallback(async () => {
+    try {
+      const res = await fetch('/api/community-findings?status=open,acknowledged');
+      if (res.ok) {
+        const data = await res.json();
+        setFindings(data.findings ?? []);
+      }
+    } catch {
+      /* network error — keep stale findings */
+    }
+  }, []);
 
   const fetchBoard = useCallback(async () => {
     if (!repo) return;
@@ -283,9 +340,13 @@ export function CommunityPanel({ threadId }: { threadId?: string }) {
 
   useEffect(() => {
     fetchBoard();
-    const timer = setInterval(fetchBoard, AUTO_REFRESH_MS);
+    fetchFindings();
+    const timer = setInterval(() => {
+      fetchBoard();
+      fetchFindings();
+    }, AUTO_REFRESH_MS);
     return () => clearInterval(timer);
-  }, [fetchBoard]);
+  }, [fetchBoard, fetchFindings]);
 
   useEffect(() => {
     fetch('/api/community-repos')
@@ -422,6 +483,7 @@ export function CommunityPanel({ threadId }: { threadId?: string }) {
                           onDispatch={dispatchIssue}
                           onToggleExpand={toggleExpand}
                           onResolve={resolveIssue}
+                          onRefresh={fetchBoard}
                         />
                       ))}
                   </div>
@@ -430,7 +492,7 @@ export function CommunityPanel({ threadId }: { threadId?: string }) {
             </div>
 
             {/* PRs */}
-            <div>
+            <div className="border-b border-cafe-subtle/20">
               <div className="px-3 py-1.5 text-micro font-bold text-cafe-muted uppercase tracking-wider">
                 Pull Requests
               </div>
@@ -454,6 +516,25 @@ export function CommunityPanel({ threadId }: { threadId?: string }) {
                 );
               })}
             </div>
+
+            {/* Reconciliation Findings */}
+            {findings.length > 0 && (
+              <div>
+                <SectionHeader
+                  label="Findings"
+                  count={findings.length}
+                  color="text-conn-amber-text"
+                  collapsed={collapsedFindings}
+                  onToggle={() => setCollapsedFindings((p) => !p)}
+                />
+                {!collapsedFindings &&
+                  findings.map((f) => (
+                    <div key={f.findingId} className="px-3 py-1">
+                      <ReconciliationFindingCard finding={f} />
+                    </div>
+                  ))}
+              </div>
+            )}
           </>
         )}
       </div>

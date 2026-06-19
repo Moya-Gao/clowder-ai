@@ -4,11 +4,12 @@ related_features: [F141, F116, F140, F055, F122]
 topics: [community, orchestration, opensource]
 doc_kind: spec
 created: 2026-04-18
+tips_exempt: internal operations tool — board/reconciler/closure UX visible only to cat operators, not end users
 ---
 
 # F168: Community Operations Board — 社区事务编排引擎
 
-> **Status**: Phase A ✅ | **Phase B ✅ closed (2026-06-12)** | **Phase C ✅ closed (2026-06-16)**（C0 前置 ✅ / C1 Role Registry ✅ / C2 narrator spawn ✅ / C3.1 resolve routing ✅ / C3.2 DirectionCard + eval.1 ✅）| **Phase D 🚧**（D0.1 narrator eligibility gate ✅ / D-PR1 backend closure core ✅ / D-PR2 reconciler + SLA ✅）| **First completed**: 2026-04-20 | **Owner**: 宪宪 (opus-4.8，2026-06-12 接手自 fable-5) | **Priority**: P1
+> **Status**: Phase A ✅ | **Phase B ✅ closed (2026-06-12)** | **Phase C ✅ closed (2026-06-16)**（C0 前置 ✅ / C1 Role Registry ✅ / C2 narrator spawn ✅ / C3.1 resolve routing ✅ / C3.2 DirectionCard + eval.1 ✅）| **Phase D 🚧**（D0.1 narrator eligibility gate ✅ / D-PR1 backend closure core ✅ / D-PR2 reconciler + SLA ✅ / D-PR3 closure UX + docs 🚧）| **First completed**: 2026-04-20 | **Owner**: 宪宪 (opus-4.8，2026-06-12 接手自 fable-5) | **Priority**: P1
 
 ## Reopen（2026-06-10，CVO signoff）
 
