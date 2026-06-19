@@ -422,8 +422,11 @@ describe('CommunityReconciler', () => {
       assert.equal(r1.events[0].kind, 'issue.reopened');
       assert.equal(r2.events[0].kind, 'issue.reopened');
       // Must be identical for EventLog dedup
-      assert.equal(r1.events[0].sourceEventId, r2.events[0].sourceEventId,
-        'same reopen fact must produce identical sourceEventId across retries');
+      assert.equal(
+        r1.events[0].sourceEventId,
+        r2.events[0].sourceEventId,
+        'same reopen fact must produce identical sourceEventId across retries',
+      );
     });
 
     it('different close cycles produce different reopened sourceEventIds', () => {
@@ -450,8 +453,11 @@ describe('CommunityReconciler', () => {
       assert.equal(r1.events[0].kind, 'issue.reopened');
       assert.equal(r2.events[0].kind, 'issue.reopened');
       // Different close cycles → different updatedAt → different sourceEventIds
-      assert.notEqual(r1.events[0].sourceEventId, r2.events[0].sourceEventId,
-        'different close cycles must produce different reopened sourceEventIds');
+      assert.notEqual(
+        r1.events[0].sourceEventId,
+        r2.events[0].sourceEventId,
+        'different close cycles must produce different reopened sourceEventIds',
+      );
     });
   });
 

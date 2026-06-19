@@ -1273,7 +1273,7 @@ ensure_api_native_addons() {
     run_logged_step "better-sqlite3 rebuild" 20 pnpm -C "$PROJECT_DIR/packages/api" rebuild better-sqlite3
 
     if ! (cd "$PROJECT_DIR/packages/api" && node -e "const Database = require('better-sqlite3'); const db = new Database(':memory:'); db.close();" >/dev/null 2>&1); then
-        echo -e "${RED}  ✗ better-sqlite3 重建后仍无法加载。请确认当前 Node 在 >=20 <26 范围内。${NC}" >&2
+        echo -e "${RED}  ✗ better-sqlite3 重建后仍无法加载。请确认当前 Node 在 >=24 <26 范围内。${NC}" >&2
         return 1
     fi
 

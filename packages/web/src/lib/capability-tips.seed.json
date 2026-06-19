@@ -180,6 +180,28 @@
     "owner": "codex"
   },
   {
+    "id": "capability-convention-graph-discovery",
+    "kind": "capability",
+    "sourceRef": {
+      "path": "cat-cafe-skills/convention-graph-discovery/SKILL.md",
+      "anchor": "Convention Graph Discovery"
+    },
+    "structureSource": {
+      "path": "cat-cafe-skills/convention-graph-discovery/SKILL.md",
+      "anchor": "Discovery Protocol"
+    },
+    "bodySource": { "path": "cat-cafe-skills/convention-graph-discovery/SKILL.md", "anchor": "When to Use" },
+    "contexts": ["feature_dev", "review"],
+    "audience": ["developer", "maintainer"],
+    "body": "改注册名、manifest 或 route 前，用约定图发现先找约定层消费方。",
+    "action": {
+      "type": "open_source",
+      "label": "打开 skill",
+      "sourceRef": { "path": "cat-cafe-skills/convention-graph-discovery/SKILL.md", "anchor": "Discovery Protocol" }
+    },
+    "owner": "codex"
+  },
+  {
     "id": "workflow-memory-recall",
     "kind": "workflow",
     "sourceRef": { "path": "cat-cafe-skills/refs/memory-routing-partial.md", "anchor": "search_evidence" },
@@ -270,6 +292,22 @@
     "audience": ["developer", "maintainer"],
     "body": "提 review 前跑 pnpm check:capability-tips；废话 tip 仍由 reviewer 退回。",
     "action": { "type": "open_concierge_draft", "label": "了解更多" },
+    "owner": "codex"
+  },
+  {
+    "id": "feature-f242-convention-graph",
+    "kind": "feature",
+    "sourceRef": { "path": "docs/features/F242-code-graph-layer-spike.md", "anchor": "Code Graph Layer Spike" },
+    "structureSource": { "path": "docs/features/F242-code-graph-layer-spike.md", "anchor": "Phase A" },
+    "bodySource": { "path": "docs/features/F242-code-graph-layer-spike.md", "anchor": "约定层关联" },
+    "contexts": ["feature_dev", "review"],
+    "audience": ["developer", "maintainer"],
+    "body": "改 MCP tool、skill manifest 或 route 时，先用约定图查真实消费方。",
+    "action": {
+      "type": "open_source",
+      "label": "打开 spec",
+      "sourceRef": { "path": "docs/features/F242-code-graph-layer-spike.md", "anchor": "Code Graph Layer Spike" }
+    },
     "owner": "codex"
   },
   {

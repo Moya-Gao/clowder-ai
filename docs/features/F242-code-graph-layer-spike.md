@@ -9,9 +9,9 @@ cvo_signoff: 2026-06-17 — 铲屎官 "可以 我同意！！！"（thread 00017
 
 # F242: Code Graph Layer Spike — 内生「约定层关联图」
 
-> **Status**: spec | **Owner**: opus-48 | **Priority**: P1
+> **Status**: review | **Owner**: codex-gpt55（砚砚；implementation takeover 2026-06-17） | **Priority**: P1
 
-> ⚠️ **本 doc 是 spike 初稿**。砚砚（@codex GPT-5.5）+ opus-48 两轮 brainstorm 已完成（OQ 推进 + 泛化分两层 + provenance 质量门），收敛建议进 Design Gate。完整设计输入见 `docs/discussions/2026-06-17-codegraph-vs-gitnexus/README.md`（§0-18，codegraph + GitNexus 一手 spike 实证 + 整合）。
+> ⚠️ **本 doc 是 spike 初稿**。砚砚（@codex GPT-5.5）+ opus-48 两轮 brainstorm 已完成（OQ 推进 + 泛化分两层 + provenance 质量门），Design Gate 已完成，Phase A implementation 由砚砚接手推进。完整设计输入见 `docs/discussions/2026-06-17-codegraph-vs-gitnexus/README.md`（§0-18，codegraph + GitNexus 一手 spike 实证 + 整合）。
 
 ## Why
 
@@ -53,16 +53,78 @@ cvo_signoff: 2026-06-17 — 铲屎官 "可以 我同意！！！"（thread 00017
 <!-- 立项愿景硬度自检（F216→F219）：每条 AC 必须 ① trace 回 Why 的某诉求 ② 非作者可复核（命令/数字/截图）。 -->
 
 ### Phase A（cat-cafe dogfood + skill）
-- [ ] AC-A0: 约定图最小 artifact 有明确 schema + edge provenance（source span / extractor version / scope / confidence / freshness），查询结果能解释“这条边从哪来” — trace「可验证才算完成」
-- [ ] AC-A1: 内生 extractor 覆盖 ≥2 类 cat-cafe 约定，实测能找出某 MCP tool 的**全部消费方**（含 grep 漏的 dynamic dispatch / callback registration），对比 grep 列出差异 — trace「约定层关联」Why
-- [ ] AC-A2: scope 消歧——构造同名跨域符号（如前后端同名）测试，**不误关联**（对比 codegraph 的 AuthProvider 前后端混淆反面）— trace「顺藤摸瓜准确」Why
-- [ ] AC-A3: 每个查询结果带 freshness（index commit + pending changes），改文件后查询能标 stale — trace「防盲改炸连锁」Why
-- [ ] AC-A4: "画约定图"方法论沉淀成 skill（含 when 触发 / how 步骤），过 `writing-skills` 质量门 — trace「沉淀成 skill」路线
-- [ ] AC-A5: cat-cafe dogfood——至少 1 只写代码的猫用它解 1 个真实"改 X 找消费方"场景，记录体感 — trace「dogfood」路线
+- [x] AC-A0: 约定图最小 artifact 有明确 schema + edge provenance（source span / extractor version / scope / confidence / freshness），查询结果能解释“这条边从哪来” — trace「可验证才算完成」
+- [x] AC-A1: 内生 extractor 覆盖 ≥2 类 cat-cafe 约定，实测能找出某 MCP tool 的**全部消费方**（含 grep 漏的 dynamic dispatch / callback registration），对比 grep 列出差异 — trace「约定层关联」Why
+- [x] AC-A2: scope 消歧——构造同名跨域符号（如前后端同名）测试，**不误关联**（对比 codegraph 的 AuthProvider 前后端混淆反面）— trace「顺藤摸瓜准确」Why
+- [x] AC-A3: 每个查询结果带 freshness（index commit + pending changes），改文件后查询能标 stale — trace「防盲改炸连锁」Why
+- [x] AC-A4: "画约定图"方法论沉淀成 skill（含 when 触发 / how 步骤），过 `writing-skills` 质量门 — trace「沉淀成 skill」路线
+- [x] AC-A5: cat-cafe dogfood——至少 1 只写代码的猫用它解 1 个真实"改 X 找消费方"场景，记录体感 — trace「dogfood」路线
 
 ### Phase B（进新 repo 建图骨架）
-- [ ] AC-B1: 用 Phase A 的 skill，在 1 个陌生 repo（如 deer-flow）建出约定图，识别 ≥1 类约定（如 FastAPI route，对比 codegraph 在 deer-flow 的 0/105）— trace「进新 repo 建图」胜负手
-- [ ] AC-B2: 陌生 repo 建图必须输出 gap/unknowns（例如“检测到 FastAPI 但 route extractor 未覆盖 APIRouter 写法”），禁止静默 0 命中 — trace「约定识别可靠」Why
+- [x] AC-B1: 用 Phase A 的 skill，在 1 个陌生 repo（如 deer-flow）建出约定图，识别 ≥1 类约定（如 FastAPI route，对比 codegraph 在 deer-flow 的 0/105）— trace「进新 repo 建图」胜负手
+- [x] AC-B2: 陌生 repo 建图必须输出 gap/unknowns（例如“检测到 FastAPI 但 route extractor 未覆盖 APIRouter 写法”），禁止静默 0 命中 — trace「约定识别可靠」Why
+
+## Phase A Implementation Checkpoint（2026-06-17）
+
+砚砚接手后完成的 Phase A slice（feature branch `feat/f242-convention-graph`）：
+
+- **Engine**：`@cat-cafe/convention-graph` 用 `node:sqlite` 建最小引擎，支持 nodes/edges/gaps/files/meta、edge provenance、`consumers()`、`codeConsumers()`、index commit + file-hash freshness。
+- **Domain plugins**：已实现 2 类 cat-cafe convention：`mcp-tool`（tool 定义 / toolset group / exact string consumer）与 `skill-manifest`（`SKILL.md` name + triggers）。
+- **Hard tests**：`pnpm --filter @cat-cafe/convention-graph test` → 16 pass；`pnpm --filter @cat-cafe/convention-graph lint` → `tsc --noEmit` pass。
+- **Skill**：新增 `convention-graph-discovery`，沉淀“进 repo → 定 domain → 写 extractor → 接引擎 → 输出 gap/freshness/provenance”的方法论；`pnpm check:skills` pass（仅剩 3 个既有 BOOTSTRAP warning：`context-self-management` / `tech-writing` / `thread-orchestration`）。
+
+Dogfood evidence（真实 cat-cafe 文件，不是 fixture）：
+
+```text
+Query: codeConsumers({ domainId: "mcp-tool", kind: "mcp_tool", name: "cat_cafe_post_message" })
+Indexed files: 9
+Target: packages/mcp-server/src/tools/callback-tools.ts:1813
+Consumers:
+- consumes: packages/api/src/domains/cats/services/agents/routing/WorklistRegistry.ts:78
+- consumes: packages/api/src/domains/cats/services/agents/routing/route-serial.ts:217
+- consumes: packages/api/src/domains/cats/services/agents/routing/route-serial.ts:218
+- registers: packages/mcp-server/src/server-toolsets.ts:179 (COLLAB_TOOL_SOURCES)
+Freshness: indexCommit=799b71cad, stale=false, pendingChanges=[]
+```
+
+Dogfood 抓到的真实 bug：实际 `callbackTools` 是 `[...] as const`，首版 extractor 只认裸 array，导致 target 为空。已加红灯 fixture 并修复 unwrap `as` / `satisfies` / parenthesized expressions（commit `54cfc4582`）。
+
+### Freshness Contract KD（2026-06-18 cloud review）
+
+同一个 freshness 状态对象被 cloud review 连续打中后，contract 收敛为：
+
+- `plugin.invalidationScope(path)` 是 domain membership 的唯一真相源；engine 保持 domain-agnostic，不猜路径属于 MCP / skill / route 哪个 domain。
+- `engine.freshness(currentFiles, domainIds, inScope?)` 的 domain-scoped untracked 判定是：`indexedPaths` 没有该 path，且 `inScope(path)` 为 true 时标 `untracked`。
+- 若 domain-scoped freshness 收到 unknown current path 但没有 `inScope`，必须 fail closed，把 graph 标 stale；禁止把 membership unknown 折叠成 `fresh`。
+- `queries.codeConsumers(..., { currentFiles, inScope })` 的 freshness domain = 查询命中的 target domain + 返回 consumer edge/node domain；跨 domain consumer 的源文件变化必须能把查询标 stale。
+- `inScope` 语义覆盖上述 freshness domain 的 union predicate；生产调用方用相关 plugin `invalidationScope` 组合 predicate，避免别 domain 文件误报。
+
+Hard guard：`packages/convention-graph/test/engine-freshness-contract.test.ts` 覆盖 A/B/C 对照（inScope 报本 domain 新文件、无 inScope fail closed、别 domain 不误报），`packages/convention-graph/test/code-consumers.test.ts` 覆盖 `codeConsumers` 的原始 cloud P1 路径与 cross-domain consumer freshness。
+
+## Phase B Skeleton Checkpoint（2026-06-17）
+
+用 `convention-graph-discovery` 方法论在陌生 repo `deer-flow` 上补了第一类通用 domain：`fastapi-route`。
+
+- **Extractor**：解析 Python `APIRouter(prefix=...)` 与 `@router.get/post/put/delete/patch/...` decorator，产出 `fastapi_router` / `fastapi_route` nodes 和 `declares` edges。
+- **Gap rule**：检测到 `APIRouter` 但没有支持的 route decorator 时输出 gap，不静默 0 命中。
+- **Fixture**：覆盖 prefix 拼接、空 path（`@router.post("")`）、多行 decorator、handler 识别、gap。
+
+Deer-flow dogfood evidence（真实陌生 repo）：
+
+```text
+Repo: /Users/lysander/projects/ref/deer-flow
+Indexed files: 16 (backend/app/gateway/routers/*.py)
+Routers: 15
+Routes: 82
+Gaps: 0
+Freshness: indexCommit=b103d1a7, stale=false, pendingChanges=[]
+Sample:
+- GET /api/agents → backend/app/gateway/routers/agents.py:106 (handler=list_agents)
+- GET /api/threads/{thread_id}/artifacts/{path:path} → backend/app/gateway/routers/artifacts.py:99 (handler=get_artifact)
+- POST /api/assistants/search → backend/app/gateway/routers/assistants_compat.py:88 (handler=search_assistants)
+```
+
+这直接补上 codegraph 在同一陌生 repo 上 route=0 的失败点：不是追求通用完美框架识别，而是用 discovery skill 定义一个明确 domain，再由 deterministic extractor 输出可追 source span 的约定图。
 
 ## Eval / Tracking Contract（F192）
 
@@ -83,12 +145,11 @@ cvo_signoff: 2026-06-17 — 铲屎官 "可以 我同意！！！"（thread 00017
 
 ## Architecture cell
 
-```
-Architecture cell: code-intelligence（NEW cell，Design Gate 钉死 2026-06-17）
-  └─ convention-graph（首个子域，本 spike）
+Architecture cell: code-intelligence
 Map delta: new cell required
 Why: 代码结构/约定 ≠ 团队记忆，两种真相源（KD-1）；边界不替代 LSP / 不并入 memory / 不接管 skills
-```
+
+Subcell: convention-graph（首个子域，本 spike；Design Gate 钉死 2026-06-17）
 
 ## Dependencies
 
@@ -191,6 +252,10 @@ AC-A5 锚定具体场景：**改 `cat_cafe_post_message` 的 schema → 约定�
 | 2026-06-17 | 立项（CVO signoff），spike doc 初稿，砚砚补第一轮 brainstorm 建议 |
 | 2026-06-17 | opus-48 第二轮 brainstorm：泛化分两层（引擎 + extractor）+ discovery=skill 核心 + 聚类位置 + scope 守门；收敛建议进 Design Gate |
 | 2026-06-17 | Design Gate 完成：5 项接口/schema 钉死（引擎 schema + plugin 接口 + 三类 extractor + discovery skill + cell `code-intelligence`），见 design doc。下一步 writing-plans + worktree 实现 |
+| 2026-06-17 | 砚砚接手 implementation：验证 worktree 真实状态（`f79108c32` 本地未推，远端停 `8134d4db2`），完成 `codeConsumers` 查询原语并 push feature branch 到 `3b4bc485` |
+| 2026-06-17 | Phase A checkpoint：完成 `consumes` 边、query freshness、第二类 `skill-manifest` extractor、`convention-graph-discovery` skill；真实 dogfood `cat_cafe_post_message` 查出 3 条 consumes + 1 条 registers，修复 `as const` 漏识别 |
+| 2026-06-17 | Phase B skeleton：新增 `fastapi-route` extractor，在陌生 repo deer-flow 识别 82 routes / 15 routers / 0 gaps，freshness fresh |
+| 2026-06-17 | Local review continuity approved at `90e2e0c62`; review P2 follow-ups fixed（edge dedup / consumer invalidation + kind / multiline APIRouter gap），进入 merge gate |
 
 ## Links
 

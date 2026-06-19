@@ -677,6 +677,32 @@ skills:
     merged_from: null
 
   # ── 知识工程（F152 Phase 0）──
+  convention-graph-discovery:
+    category: "调研与知识"
+    description: >
+      约定图发现方法论：进一个 repo 先识别 repo-specific conventions，再定义 domain/extractor 接
+      Convention Graph 引擎。Use when: 进入陌生 repo、要画约定图、要找“改 X 影响谁”的约定层关联、
+      F242/Convention Graph Layer 工作。Not for: 普通符号跳转/LSP、文档索引检索、记忆图谱、直接使用
+      codegraph/GitNexus。Output: domain 定义 + extractor 计划 + gap/freshness/provenance 报告。
+      GOTCHA: 沉淀的是“怎么画图”的方法，不是把 cat-cafe 的 extractor 硬搬到所有 repo。
+    triggers:
+      - "约定图"
+      - "convention graph"
+      - "进陌生 repo"
+      - "画规矩地图"
+      - "改 X 影响谁"
+      - "顺藤摸瓜"
+      - "F242"
+    not_for:
+      - "普通符号跳转"
+      - "文档索引检索"
+      - "记忆图谱"
+      - "直接使用 codegraph/GitNexus"
+    output: "Domain definition + extractor plan + gap/freshness/provenance report"
+    next: ["tdd", "quality-gate"]
+    sop_step: null
+    merged_from: null
+
   knowledge-engineering:
     category: "调研与知识"
     description: >
