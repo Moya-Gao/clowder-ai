@@ -13,7 +13,7 @@
 
 import crypto from 'node:crypto';
 import type { FastifyBaseLogger } from 'fastify';
-import type { IOutboundAdapter } from '../OutboundDeliveryHook.js';
+import type { IOutboundAdapter } from '../../OutboundDeliveryHook.js';
 
 const ILINK_BASE_URL = 'https://ilinkai.weixin.qq.com';
 const GETUPDATES_TIMEOUT_MS = 35_000;
@@ -47,7 +47,7 @@ const CONTENT_DEDUP_MAX_ENTRIES = 10_000;
  * - `playtime-encode`: send `{ media, encode_type: 6, playtime }` — confirmed broken (encode_type is poison).
  * - `metadata`: send all SILK fields — confirmed broken (voice "completely gone").
  *
- * Runtime-configurable via WEIXIN_VOICE_ITEM_MODE so 铲屎官 can A/B test without code changes.
+ * Runtime-configurable via WEIXIN_VOICE_ITEM_MODE so co-creator can A/B test without code changes.
  * Default audio delivery stays on file_item attachment because native voice_item is unreliable.
  */
 const VOICE_ITEM_MODES = ['minimal', 'playtime', 'playtime-sec', 'playtime-encode', 'metadata'] as const;
@@ -525,6 +525,7 @@ export class WeixinAdapter implements IOutboundAdapter {
           }
 
           this.consecutiveErrors = 0;
+          let hasHandlerError = false;
 
           for (const msg of messages) {
             const tokenHash = msg.contextToken.slice(-8);
@@ -532,7 +533,8 @@ export class WeixinAdapter implements IOutboundAdapter {
             this.persistSessionState();
             this.log.info({ chatId: msg.chatId, tokenHash }, '[WeixinAdapter] Inbound token cached');
 
-            if (this.shouldDropDuplicateContent(msg)) {
+            const contentDedupFingerprint = this.buildContentDedupFingerprint(msg);
+            if (contentDedupFingerprint && this.hasRecentContentDedupFingerprint(contentDedupFingerprint)) {
               this.log.info(
                 { chatId: msg.chatId, messageId: msg.messageId },
                 '[WeixinAdapter] Duplicate content skipped',
@@ -553,12 +555,14 @@ export class WeixinAdapter implements IOutboundAdapter {
 
             try {
               await handler(msg);
+              if (contentDedupFingerprint) this.rememberContentDedupFingerprint(contentDedupFingerprint);
             } catch (err) {
+              hasHandlerError = true;
               this.log.error({ err, chatId: msg.chatId }, '[WeixinAdapter] Handler error');
             }
           }
 
-          if (this.getUpdatesBuf !== newCursor) {
+          if (!hasHandlerError && this.getUpdatesBuf !== newCursor) {
             this.getUpdatesBuf = newCursor;
             this.persistSessionState();
           }
@@ -966,7 +970,7 @@ export class WeixinAdapter implements IOutboundAdapter {
       const apiBase = (
         process.env.CAT_CAFE_API_URL ??
         process.env.NEXT_PUBLIC_API_URL ??
-        'http://localhost:3002'
+        'http://localhost:3004'
       ).replace(/\/$/, '');
       return `${apiBase}${url}`;
     }
@@ -1269,10 +1273,9 @@ export class WeixinAdapter implements IOutboundAdapter {
       });
   }
 
-  private shouldDropDuplicateContent(msg: WeixinInboundMessage): boolean {
-    if (msg.createdAtMs == null) return false;
+  private buildContentDedupFingerprint(msg: WeixinInboundMessage): string | undefined {
+    if (msg.createdAtMs == null) return undefined;
 
-    const now = Date.now();
     const attachments = msg.attachments
       ?.map((a) => {
         const fileName = a.fileName === undefined ? '' : a.fileName;
@@ -1280,18 +1283,24 @@ export class WeixinAdapter implements IOutboundAdapter {
       })
       .join('|');
     const attachmentFingerprint = attachments === undefined ? '' : attachments;
-    const fingerprint = crypto
+    return crypto
       .createHash('sha256')
       .update(`${msg.chatId}\0${msg.contextToken}\0${msg.createdAtMs}\0${msg.text}\0${attachmentFingerprint}`)
       .digest('hex');
-    const expiresAt = this.contentDedupFingerprints.get(fingerprint);
-    if (expiresAt && expiresAt > now) return true;
+  }
 
+  private hasRecentContentDedupFingerprint(fingerprint: string): boolean {
+    const now = Date.now();
+    const expiresAt = this.contentDedupFingerprints.get(fingerprint);
+    return expiresAt !== undefined && expiresAt > now;
+  }
+
+  private rememberContentDedupFingerprint(fingerprint: string): void {
+    const now = Date.now();
     if (this.contentDedupFingerprints.size >= CONTENT_DEDUP_MAX_ENTRIES) {
       this.pruneContentDedupFingerprints(now);
     }
     this.contentDedupFingerprints.set(fingerprint, now + CONTENT_DEDUP_TTL_MS);
-    return false;
   }
 
   private pruneContentDedupFingerprints(now: number): void {

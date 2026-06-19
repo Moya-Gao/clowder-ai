@@ -182,6 +182,7 @@ import {
   configRoutes,
   connectorHubRoutes,
   connectorMediaRoutes,
+  connectorPluginRoutes,
   distillationRoutes,
   eventsRoutes,
   evidenceRoutes,
@@ -1928,8 +1929,9 @@ async function main(): Promise<void> {
     evidenceStore: memoryServices?.evidenceStore,
     messageStore,
   });
-  const connectorHubOpts: Parameters<typeof connectorHubRoutes>[1] = { threadStore };
+  const connectorHubOpts: Parameters<typeof connectorHubRoutes>[1] = { threadStore, redis: redisClient ?? undefined };
   await app.register(connectorHubRoutes, connectorHubOpts);
+  await app.register(connectorPluginRoutes);
   await app.register(brakeRoutes, { activityTracker });
 
   // F101: Game routes (store created earlier for /game command interception)
@@ -4047,6 +4049,14 @@ async function main(): Promise<void> {
   };
 
   /** Re-wire all hook consumers after gateway (re)start */
+  function syncConnectorWebhookHandlers(handle: NonNullable<Awaited<ReturnType<typeof startConnectorGateway>>>): void {
+    // P1-1 fix: clear stale handlers before re-populating (hot-reload may remove connectors)
+    connectorWebhookHandlers.clear();
+    for (const [id, handler] of handle.webhookHandlers) {
+      connectorWebhookHandlers.set(id, handler);
+    }
+  }
+
   function wireGatewayHooks(handle: NonNullable<Awaited<ReturnType<typeof startConnectorGateway>>>): void {
     invokeTrigger.setOutboundHook(handle.outboundHook);
     invokeTrigger.setStreamingHook(handle.streamingHook);
@@ -4055,11 +4065,7 @@ async function main(): Promise<void> {
     (callbackOpts as { outboundHook?: typeof handle.outboundHook }).outboundHook = handle.outboundHook;
     (messagesOpts as { outboundHook?: typeof handle.outboundHook }).outboundHook = handle.outboundHook;
     (messagesOpts as { streamingHook?: typeof handle.streamingHook }).streamingHook = handle.streamingHook;
-    // P1-1 fix: clear stale handlers before re-populating (hot-reload may remove connectors)
-    connectorWebhookHandlers.clear();
-    for (const [id, handler] of handle.webhookHandlers) {
-      connectorWebhookHandlers.set(id, handler);
-    }
+    syncConnectorWebhookHandlers(handle);
     (connectorHubOpts as { weixinAdapter?: unknown }).weixinAdapter = handle.weixinAdapter;
     (connectorHubOpts as { startWeixinPolling?: () => void }).startWeixinPolling = handle.startWeixinPolling;
     // F132 Phase E: WeCom Bot dynamic start/stop
@@ -4070,6 +4076,13 @@ async function main(): Promise<void> {
     // F132 bugfix: live health getter for status endpoint
     (connectorHubOpts as { getWeComBotAdapter?: () => unknown }).getWeComBotAdapter = handle.getWeComBotAdapter;
     (connectorHubOpts as { permissionStore?: unknown }).permissionStore = handle.permissionStore;
+    // F240: generic manifest action endpoint needs the live gateway registries/lifecycle hooks.
+    (connectorHubOpts as { pluginRegistry?: typeof handle.pluginRegistry }).pluginRegistry = handle.pluginRegistry;
+    (connectorHubOpts as { adapterRegistry?: typeof handle.adapterRegistry }).adapterRegistry = handle.adapterRegistry;
+    (connectorHubOpts as { activateConnector?: typeof handle.activateConnector }).activateConnector =
+      handle.activateConnector;
+    (connectorHubOpts as { deactivateConnector?: typeof handle.deactivateConnector }).deactivateConnector =
+      handle.deactivateConnector;
   }
 
   let connectorGatewayHandle: Awaited<ReturnType<typeof startConnectorGateway>> = null;

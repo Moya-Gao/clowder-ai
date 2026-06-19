@@ -1,13 +1,13 @@
 import './helpers/setup-cat-registry.js';
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { FeishuTokenManager } from '../dist/infrastructure/connectors/adapters/FeishuTokenManager.js';
-import { TelegramAdapter } from '../dist/infrastructure/connectors/adapters/TelegramAdapter.js';
 import {
   applyConnectorGatewayAutostartPolicy,
   isPreconfiguredConnectorAutostartEnabled,
   startConnectorGateway,
 } from '../dist/infrastructure/connectors/connector-gateway-bootstrap.js';
+import { FeishuTokenManager } from '../dist/infrastructure/connectors/im-connectors/feishu/FeishuTokenManager.js';
+import { TelegramAdapter } from '../dist/infrastructure/connectors/im-connectors/telegram/TelegramAdapter.js';
 
 function noopLog() {
   const noop = () => {};
