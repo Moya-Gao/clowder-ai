@@ -124,6 +124,7 @@
 | F160 | F160: 毛线球升级 — Thread-Level Persistent Task Board | done | [F160-task-board-upgrade.md](./F160-task-board-upgrade.md) |
 | F164 | F164: Thread Snapshot Persistence — 刷新不失忆 | done | [F164-thread-snapshot-persistence.md](./F164-thread-snapshot-persistence.md) |
 | F166 | F166: Cat Order Customization — 猫猫排序自定义 | done | [F166-cat-order-customization.md](./F166-cat-order-customization.md) |
+| F168 | F168: Community Operations Board — 社区事务编排引擎（A→E reopen complete；Decision Queue + closure/reconciler/narrator routing） | done | [F168-community-ops-board.md](./F168-community-ops-board.md) |
 | F146 | F146: MCP Marketplace Control Plane — 一键接入 + 多生态聚合 | done | [F146-mcp-marketplace-control-plane.md](./F146-mcp-marketplace-control-plane.md) |
 | F171 | F171: First Partner Onboarding — 领养第一只猫 / 配置第一位伙伴 | done | [F171-first-partner-onboarding.md](./F171-first-partner-onboarding.md) |
 | F173 | F173: 前端 Thread-Runtime State 统一 — 消除 dual write-path & liveness fragmentation | done (realized 2026-04-26) | [F173-frontend-message-pipeline-unification.md](./F173-frontend-message-pipeline-unification.md) |
