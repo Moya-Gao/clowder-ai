@@ -8,7 +8,7 @@ created: 2026-06-17
 
 # F240: IM Connector Plugin Architecture — 社区 PR #903 Intake
 
-> **Status**: direction-accepted (CVO 2026-06-17 signoff 锚点纠正 F230/F231→F240) — review-in-progress / awaiting-author-fix | **Owner**: community @mindfn + cat-cafe maintainers (intake review) | **Priority**: P1 | **Created**: 2026-06-17
+> **Status**: merged-to-clowder (2026-06-19 squash `40d38c18e628`) → **intake-in-progress** (Intent Issue cat-cafe#2412) | **Owner**: community @mindfn + cat-cafe maintainers (intake) | **Priority**: P1 | **Created**: 2026-06-17
 
 ## Provenance
 
@@ -101,3 +101,9 @@ created: 2026-06-17
   - **教训**:reviewer 不能只看别的 reviewer 的 comment 状态,要自己核代码 —— "comment 没 resolved" ≠ "没修"(铲屎官当轮纠正)。
   - **零开放 P2、零 P1、CI 全绿**。提交 formal APPROVE(上游 maintainer review)→ `reviewDecision: APPROVED`、`MERGEABLE`。
   - **Status → merge-ready**:merge 触发权归 CVO(feature 级);merge 后 F240 intake 独立步骤。
+- 2026-06-19 **CVO 授权 merge + 走 intake**。Review continuity guard 拦下 head 偷移(7b1f225→37366ef9 = 纯 main-catch-up 带入 #962/F228,PR 净 diff 抵消为零、connector 代码逐字节未变)→ continuity re-approve → **squash --admin merged**(clowder-ai main `40d38c18e628`,title 干净)。
+- 2026-06-19 **B3 Intake 启动**(铲屎官重度警告 intake 易错,严格按 SOP):
+  - Step 1 plan:111 文件(脚本标 101 safe / 5 high-risk / 3 manual / 2 skip)。
+  - **Overlap reality-check 推翻脚本乐观**:① `im-connectors/` 净新增(安全)② 旧 `adapters/` 仍在 → 是**移位**,须删旧+改引用(非单纯 cherry-pick)③ `ConnectorRouter`/`connector-gateway-bootstrap` cat-cafe 6-12(bd03244a6)独立演化 → **overlap 强制 manual-port** ④ F240 doc 冲突(skip 他的、保本 intake doc)。
+  - **Intake Intent Issue: cat-cafe#2412**(含逐文件决策表 + 三真相 + 上述风险)。
+  - 下一阶段(多轮):worktree replay(保 home invariant)→ `pnpm gate` → 跨族 reviewer 按 #2412 验收 → record+advance ledger → merge absorb PR + close #2412。
