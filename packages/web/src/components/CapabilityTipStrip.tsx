@@ -21,7 +21,7 @@ if (!parsedInventory.success) {
 
 const CAPABILITY_TIPS: readonly CapabilityTip[] = parsedInventory.tips ?? [];
 const DEFAULT_FIRST_DELAY_MS = 6000;
-const DEFAULT_ROTATE_MS = 12000;
+const DEFAULT_ROTATE_MS = 30000;
 
 function canRenderInTipStrip(tip: CapabilityTip): boolean {
   return tip.action?.type === 'open_concierge_draft';
@@ -31,7 +31,7 @@ const CAPABILITY_TIP_STRIP_TIPS: readonly CapabilityTip[] = CAPABILITY_TIPS.filt
 
 interface CapabilityTipStripProps {
   surface: CapabilityTipSurface;
-  contexts: CapabilityTipContext[];
+  contexts: readonly CapabilityTipContext[];
   audience?: CapabilityTipAudience;
   enabled?: boolean;
   firstDelayMs?: number;
@@ -58,6 +58,15 @@ export function CapabilityTipStrip({
     if (!enabled || contexts.length === 0) return;
 
     const showTimer = setTimeout(() => setVisible(true), Math.max(0, firstDelayMs));
+
+    return () => {
+      clearTimeout(showTimer);
+    };
+  }, [enabled, contexts, firstDelayMs]);
+
+  useEffect(() => {
+    if (!enabled || !visible || contexts.length === 0) return;
+
     const rotationTimer = setInterval(
       () => {
         setRotationKey((value) => value + 1);
@@ -66,10 +75,9 @@ export function CapabilityTipStrip({
     );
 
     return () => {
-      clearTimeout(showTimer);
       clearInterval(rotationTimer);
     };
-  }, [enabled, contexts, firstDelayMs, rotateMs]);
+  }, [enabled, visible, contexts, rotateMs]);
 
   const tip = useMemo(
     () => selectCapabilityTip(CAPABILITY_TIP_STRIP_TIPS, { contexts, audience, rotationKey }),
@@ -114,10 +122,10 @@ export function CapabilityTipStrip({
     <div
       data-testid="capability-tip-strip"
       data-tip-id={tip.id}
-      className="mx-4 mb-1.5 flex min-h-8 items-center gap-2 rounded-md border border-cafe bg-cafe-surface-elevated px-2.5 py-1.5 text-xs text-cafe-muted"
+      className="mt-3 flex min-h-8 w-full max-w-full items-start gap-2 rounded-md border border-cafe bg-cafe-surface-elevated/70 px-2.5 py-2 text-xs leading-5 text-cafe-muted"
     >
       <span className="shrink-0 font-medium text-cafe-secondary">Tip</span>
-      <span className="min-w-0 flex-1 truncate">{tip.body}</span>
+      <span className="min-w-0 flex-1 break-words">{tip.body}</span>
       <button
         type="button"
         data-testid="capability-tip-learn-more"

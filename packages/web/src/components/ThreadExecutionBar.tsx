@@ -1,6 +1,5 @@
 'use client';
 
-import type { CapabilityTipContext } from '@cat-cafe/shared';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { formatCatName, useCatData } from '@/hooks/useCatData';
 import { useThreadLiveness } from '@/hooks/useThreadScopedSelectors';
@@ -9,7 +8,6 @@ import type { CatInvocationInfo } from '@/stores/chat-types';
 import { useChatStore } from '@/stores/chatStore';
 import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
-import { CapabilityTipStrip } from './CapabilityTipStrip';
 import { ForceResetDialog } from './ForceResetDialog';
 import { deriveActiveCats } from './status-helpers';
 
@@ -86,11 +84,6 @@ export function ThreadExecutionBar({ threadId }: ThreadExecutionBarProps) {
     const s = catStatuses[catId];
     return s === 'suspected_stall' || s === 'alive_but_silent';
   });
-  const tipContexts = useMemo<CapabilityTipContext[]>(
-    () => (intentMode === 'ideate' ? ['review', 'long_running'] : ['long_running', 'thinking']),
-    [intentMode],
-  );
-
   // F220 Phase 3: 确认后调 force-reset 端点（只清运行态，LL-048 不碰持久化）→ toast → 关弹窗。
   const handleForceReset = useCallback(async () => {
     if (!effectiveThreadId) return;
@@ -138,7 +131,6 @@ export function ThreadExecutionBar({ threadId }: ThreadExecutionBarProps) {
           </button>
         )}
       </div>
-      {!stalled && <CapabilityTipStrip surface="thread_execution_bar" contexts={tipContexts} />}
       <ForceResetEntry escalated={stalled} onClick={() => setResetDialogOpen(true)} />
       <ForceResetDialog
         open={resetDialogOpen}

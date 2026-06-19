@@ -101,7 +101,12 @@ describe('F244 CapabilityTipStrip action eligibility', () => {
     await act(async () => {
       root = createRoot(container);
       root.render(
-        <CapabilityTipStrip surface="thread_execution_bar" contexts={['thinking']} firstDelayMs={0} rotateMs={12000} />,
+        <CapabilityTipStrip
+          surface="assistant_stream_bubble"
+          contexts={['thinking']}
+          firstDelayMs={0}
+          rotateMs={12000}
+        />,
       );
       await Promise.resolve();
     });
@@ -131,7 +136,12 @@ describe('F244 CapabilityTipStrip action eligibility', () => {
     await act(async () => {
       root = createRoot(container);
       root.render(
-        <CapabilityTipStrip surface="thread_execution_bar" contexts={['thinking']} firstDelayMs={0} rotateMs={12000} />,
+        <CapabilityTipStrip
+          surface="assistant_stream_bubble"
+          contexts={['thinking']}
+          firstDelayMs={0}
+          rotateMs={12000}
+        />,
       );
       await Promise.resolve();
     });

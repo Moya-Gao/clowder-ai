@@ -49,7 +49,7 @@ describe('F244 CapabilityTipStrip', () => {
   it('delays the first visible tip', async () => {
     await render(
       <CapabilityTipStrip
-        surface="thread_execution_bar"
+        surface="assistant_stream_bubble"
         contexts={['thinking']}
         firstDelayMs={6000}
         rotateMs={12000}
@@ -65,7 +65,7 @@ describe('F244 CapabilityTipStrip', () => {
 
   it('does not default omitted audience to all-only tips', async () => {
     await render(
-      <CapabilityTipStrip surface="thread_execution_bar" contexts={['review']} firstDelayMs={0} rotateMs={12000} />,
+      <CapabilityTipStrip surface="assistant_stream_bubble" contexts={['review']} firstDelayMs={0} rotateMs={12000} />,
     );
     await act(async () => {
       vi.advanceTimersByTime(0);
@@ -82,7 +82,7 @@ describe('F244 CapabilityTipStrip', () => {
 
     await render(
       <CapabilityTipStrip
-        surface="thread_execution_bar"
+        surface="assistant_stream_bubble"
         contexts={['pet_waiting_for_user', 'long_running']}
         firstDelayMs={0}
         rotateMs={12000}
@@ -113,9 +113,66 @@ describe('F244 CapabilityTipStrip', () => {
     );
   });
 
+  it('keeps each tip visible for at least 30 seconds', async () => {
+    const recordCapabilityTipEventMock = vi.mocked(recordCapabilityTipEvent);
+
+    await render(
+      <CapabilityTipStrip
+        surface="assistant_stream_bubble"
+        contexts={['long_running']}
+        firstDelayMs={0}
+        rotateMs={12000}
+      />,
+    );
+    await act(async () => {
+      vi.advanceTimersByTime(0);
+      await Promise.resolve();
+    });
+
+    expect(recordCapabilityTipEventMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      vi.advanceTimersByTime(12000);
+      await Promise.resolve();
+    });
+
+    expect(recordCapabilityTipEventMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('starts rotation dwell after the first tip becomes visible', async () => {
+    const recordCapabilityTipEventMock = vi.mocked(recordCapabilityTipEvent);
+
+    await render(
+      <CapabilityTipStrip
+        surface="assistant_stream_bubble"
+        contexts={['thinking', 'long_running']}
+        firstDelayMs={6000}
+        rotateMs={30000}
+      />,
+    );
+
+    await act(async () => {
+      vi.advanceTimersByTime(6000);
+      await Promise.resolve();
+    });
+    expect(recordCapabilityTipEventMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      vi.advanceTimersByTime(24000);
+      await Promise.resolve();
+    });
+
+    expect(recordCapabilityTipEventMock).toHaveBeenCalledTimes(1);
+  });
+
   it('clicking learn more opens concierge bubble with a draft and does not send', async () => {
     await render(
-      <CapabilityTipStrip surface="thread_execution_bar" contexts={['thinking']} firstDelayMs={0} rotateMs={12000} />,
+      <CapabilityTipStrip
+        surface="assistant_stream_bubble"
+        contexts={['thinking']}
+        firstDelayMs={0}
+        rotateMs={12000}
+      />,
     );
     await act(async () => {
       vi.advanceTimersByTime(0);
