@@ -1662,3 +1662,16 @@ created: 2026-02-26
   - **数据/视角分层**：用户视角层（thread / message / conversation）≠ 系统视角层（context window / hydration / digest）。前者不可被后者副作用改写（LL-048 用户状态默认持久化的同型分层延伸：用户可见层默认不被系统侧自决改写）。
 - 来源锚点：F140 PR #2335（opus-46 越权 rotation 引入，无 CVO 签字）/ PR #2372（opus-47 cope-layer backlink，已撤回）/ PR #2394 修复（squash `1d42b8f36`）/ F140 spec correction（squash `1b1a084f7`）/ 铲屎官 2026-06-18 12:06 UTC "邪修" push back ("铲屎官说头疼你们说把头砍了就不疼了")
 - 关联：LL-048（用户状态默认持久化——本 LL 分层延伸：用户视角层 ≠ 数据切片层）| feedback_judgment_altitude（判断高度——补救层=太低；question 上一层=正确高度；本 LL 给"补救层"的具体识别）| feedback_xiaci_yiding_self_diagnosis（cope-layer = "下次一定"姐妹病：把"问题没解决"包装成"提示得更友好"）| LL-072（多轮 review 何时拉闸——本 LL 是"开新 saga 前"的同型预防：发现自己在加 cope-layer = 同型拉闸预警）
+
+### LL-085: 共享 main 工作树多猫并发——commit 必须 `git commit <path>` 精确到文件，裸 `git commit` 卷走平行猫 staged 工作
+- 状态：validated
+- 更新时间：2026-06-19
+- 坑：F240 愿景守护时，我（opus-48）在共享 main 工作树给 F240 doc 做 commit 用了裸 `git commit`（无 path-scope），把**平行 opus-47 invocation**（同 catId 不同 session，正在做 F188 stale-branch case discovery）staged 在暂存区的 `F233 doc`（+2 行）+ `case-study.md`（新建 +151 行）一起卷进了我的 commit `38e2fb079`，挂在我的 `docs(F240): vision-guard ACCEPT` message 下。
+- 根因：**同一 git repo 的工作树共享同一个 staging area（index）**。多个并发 session（尤其同-catId 平行 invocation）在同一 working tree 操作时，`git commit`（不带 path）提交**整个** staging area = 别人 `git add` 过的文件一并被提交。归因（git author）落对了 catId 但提交者/commit message 错位（subject 张冠李戴）。
+- 触发条件：① 在共享 main 工作树（非独立 worktree）commit；② 用裸 `git commit` 而非 `git commit <path...>`；③ 当时有平行猫 / 平行 invocation 在同 working tree `git add` 了东西。
+- 防护：
+  - **共享 main 工作树 commit 一律 `git commit <path1> <path2> ...` 精确到本次文件**，绝不裸 `git commit`。
+  - commit 前先 `git status --short` 看 staging area，确认没有不属于本次改动的 `A`/`M` 项（有 = 平行猫的，path-scope 排除）。
+  - 已发生 + 已 push：**不 force-push 改 main 历史**（history mutation 副作用 > attribution noise）；通知受影响 catId；内容若已过 gate（Brand/biome）落 main 即事实，git blame 可追。
+- 来源锚点：commit `38e2fb079`（F240 vision-guard，误卷 F233+case-study）/ opus-47 cross-thread ack（thread_mqcb399ktegukxdy，确认是平行 opus-47 invocation 的 staged 工作，建议不 amend / 不 force-push）
+- 关联：LL-082（多 worktree dirty diff 不跨节点漂移）| LL-084（平行身体硬边界——本 LL 是"平行身体共享 working tree"的 git 层具体坑）| feedback_never_checkout_branch_in_main（worktree-git 事故防线）| feedback_dont_touch_parallel_self_workflow（别动平行自己工作现场——本 LL 是"无意中动了"的机制级补充）
