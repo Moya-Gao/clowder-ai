@@ -9,7 +9,7 @@ tips_exempt: internal operations tool — board/reconciler/closure UX visible on
 
 # F168: Community Operations Board — 社区事务编排引擎
 
-> **Status**: Phase A ✅ | **Phase B ✅ closed (2026-06-12)** | **Phase C ✅ closed (2026-06-16)**（C0 前置 ✅ / C1 Role Registry ✅ / C2 narrator spawn ✅ / C3.1 resolve routing ✅ / C3.2 DirectionCard + eval.1 ✅）| **Phase D ✅ closed (2026-06-19)**（D0.1 narrator eligibility gate ✅ / D-PR1 backend closure core ✅ / D-PR2 reconciler + SLA ✅ / D-PR3 closure UX + docs ✅）| **Phase E ✅ Decision Queue implementation complete; vision guard pending**（E-PR1 backend queue contract ✅ / E-PR2 frontend UX + docs ✅）| **First completed**: 2026-04-20 | **Owner**: 宪宪 (opus-4.8，2026-06-12 接手自 fable-5) | **Priority**: P1
+> **Status**: Phase A ✅ | **Phase B ✅ closed (2026-06-12)** | **Phase C ✅ closed (2026-06-16)**（C0 前置 ✅ / C1 Role Registry ✅ / C2 narrator spawn ✅ / C3.1 resolve routing ✅ / C3.2 DirectionCard + eval.1 ✅）| **Phase D ✅ closed (2026-06-19)**（D0.1 narrator eligibility gate ✅ / D-PR1 backend closure core ✅ / D-PR2 reconciler + SLA ✅ / D-PR3 closure UX + docs ✅）| **Phase E ✅ Decision Queue implementation complete; close guard merged; final vision guard pending**（E-PR1 backend queue contract ✅ / E-PR2 frontend UX + docs ✅ / E-close guard owner-thread navigation ✅）| **First completed**: 2026-04-20 | **Owner**: 宪宪 (opus-4.8，2026-06-12 接手自 fable-5) | **Priority**: P1
 
 ## Reopen（2026-06-10，CVO signoff）
 
@@ -23,7 +23,7 @@ tips_exempt: internal operations tool — board/reconciler/closure UX visible on
 
 **分工（CVO 拍板 2026-06-10，2026-06-14 / 2026-06-17 更新）**：Phase D/E 由砚砚（@codex）主导 spec/AC/failure-mode/gate；实现与 review 保持跨个体铁律（砚砚实现则 opus/gpt52/47 review，opus 实现则砚砚强 review）。Phase C 由 opus 家族接手并 closed。原分工 fable plan + sonnet 实现，实测效果不理想；fable-5 下线后 CVO 确认由 opus 们全程接手 Phase C。
 
-**Phase 总览**：A 事件引擎（Event Log + 投影 + 状态机）✅ → B Issue Signals 全量事件 ✅ → **C Narrator + Role Registry + 路由 ✅ closed (2026-06-16)** → **D Closure UX + Reconciler ✅ closed (2026-06-19)** → **E 看板决策队列 ✅ implementation complete, vision guard pending（plan: `docs/plans/2026-06-19-f168-phase-e-decision-queue.md`；E-PR1 backend contract ✅；E-PR2 frontend UX ✅）**。原 v1 文档（下方）保留为历史语境。
+**Phase 总览**：A 事件引擎（Event Log + 投影 + 状态机）✅ → B Issue Signals 全量事件 ✅ → **C Narrator + Role Registry + 路由 ✅ closed (2026-06-16)** → **D Closure UX + Reconciler ✅ closed (2026-06-19)** → **E 看板决策队列 ✅ implementation complete, close guard merged, final vision guard pending（plan: `docs/plans/2026-06-19-f168-phase-e-decision-queue.md`；E-PR1 backend contract ✅；E-PR2 frontend UX ✅；owner-thread close guard ✅）**。原 v1 文档（下方）保留为历史语境。
 
 **Phase A 完成（2026-06-10）**：PR #2203，commit `10c3c9bfdb`，squash-merged。Event Log + 纯函数状态机 + CommunityProjector + bootstrap CLI + 3 入口接线 + PR lifecycle + 看板 API（向后兼容）。6 轮 cloud review 全修。Phase B 由 @fable5 规划。
 
@@ -467,6 +467,7 @@ TTL=0（铁律 #5），用户数据默认持久化
 | 2026-06-19 | **Phase D ✅ CLOSED** — opus-47 愿景守護 PASS（clean rebuild 161/161 tests pass；4 PR merge SHAs independently verified: D0.1 `a7db9b6b4` / D-PR1 `46330507a` / D-PR2 `635a85442` / D-PR3 `4b66cbe7d`；all INVs independently verified；愿景三問 all ✅）。2 P3 follow-ups deferred to Phase E prerequisites：P3-1 plan §0 terminal schema vs D2 implementation schema drift（plan doc not synced with actual CommunityClosureChecklist shape）；P3-2 test isolation multi-file aggregate fail（infra, not F168 scope）。Close ceremony by opus-4.6 |
 | 2026-06-19 | **Phase E E-PR1 merged** (PR #2425, `c979ce8d2`) — backend decision queue contract：pure DecisionQueue selector + top-level `GET /api/community-decision-queue` read route + finding lifecycle action endpoints（acknowledge/resolve/waive）+ route adapter auth/409 guards。LL-072 cloud loop sealed after many rounds；opus final stateful review APPROVE on `39c867651`；merge gate passed on latest main rebase `77fda019`。5 focused test files cover selector/closure/direction/findings/actions/routes。E-PR2 frontend UX + docs/skill sync pending |
 | 2026-06-19 | **Phase E E-PR2 merged** (PR #2431, `2d35bd585`) — CommunityPanel consumes `GET /api/community-decision-queue` and renders a Decision Queue above raw Issues/PRs/Findings. UX supports first-item expansion, urgent/high sorting, action buttons/forms for direction, closure, and finding lifecycle actions, and external-only `close-via-github` links. Cloud loop sealed per LL-072 after fixing true findings; local Opus final delta review approved `ab01d832b`; Brand Boundary Guard passed. Phase E implementation complete; vision guard pending. |
+| 2026-06-19 | **Phase E close guard merged** (PR #2432, `14fdb4e6`) — Decision Queue owner-thread navigation preserved across existing projection-enriched issues, projection-only repos, stale CommunityPanel async responses, and direction-decision route recommendations. Cloud current-head review `a44a39eecc` reported no major issues; `pnpm gate` passed on `a44a39eec`; Brand Boundary Guard passed. Final vision guard pending. |
 
 ## Review Gate
 
