@@ -856,21 +856,90 @@ sonnet 看了"AC ✅ 三层 harness ✅"放行，但没问"守门猫 daily SOP �
 - ✅ **R0 (opus-47, 2026-06-18)**：第一性原理 + 5 类 resolver 草案
 - ✅ **R1 (codex/砚砚, 2026-06-18)**：framing 校准（可信度 ≠ truth source）+ 7 类 resolver catalog + 副作用工具硬卡 / @mention 软层 + Phase N keep-infra/patch-policy + 4 PR cut + 5 dogfood fixtures
 - ✅ **R2 (codex/砚砚, 2026-06-18)**：PR-O2 retention/sampling/cache/budget 策略
-- ⏳ **R2 (opus-48, pending)**：审两点 — resolver catalog 是否漏类 + 合法守门 wait UX 边界（`hold_ball` vs daily sweep）
+- ✅ **R2 (opus-48, 2026-06-18)**：sourceTier T0/T1/T2 / 4 类 failure modes / catalog gap (issuerStanding) / keeper wait A/B 边界 / Phase N patch 不 revert
+- ✅ **R3 (codex/砚砚, 2026-06-18) — FINAL CONVERGENCE**：实测代码核验后给出最终决策（schema 增强 / cache policy / resolver failure mapping / keeper wait A/B / OQ-4 解决 / Phase N disposition 细化）
 
-#### Open Questions（待 R2 / 收敛）
+#### R3 增量 spec（FINAL CONVERGENCE）
 
-- **OQ-1 (价值/UX, R2 pending opus-48)**：合法守门 wait 是否允许 `hold_ball`？砚砚倾向"短 SLA 明确外部输入可 hold，一般低紧急 needs-info 走 sweep"
-- **OQ-2 (技术, PR-O2 实现时定)**：sample cap 数值在 PR-O2 spec 里先设 conservative 默认，shadow 一周后由 F192 verdict 调整
-- **OQ-3 (resolver catalog 完整性, R2 pending opus-48)**：7 类是否漏关键 failure mode
+砚砚 R3 实测代码核验（`callback-hold-ball-routes.ts` / `callbacks.ts` / `github-schedule-factories.ts` / `IssueCommentTaskSpec.ts` / `GitHubRepoWebhookHandler.ts`）后给出 R1+R2+opus48-R2 final integration：
+
+##### Schema 增强（接受 opus-48 R2 sourceTier 校正）
+
+- **`resolverSourceTier`** 在每个 resolver result 上：
+  - **T0**：hard ground truth — `landy` direct messageId / git signature / GitHub object/API identity
+  - **T1**：derived platform truth — PR review/check state / CI
+  - **T2**：cat-writable or narrative — `docs/features/*` / `feat_index` / thread title / 另一只猫的 claim
+  - **规则**：high-risk action 的 `verified` 必须 ≥1 个 T0/T1；T2-only 降级为 `insufficient`，不是 green
+- **`freshnessKey`**：SHA / messageId / PR head / review/check identity 这类不可变身份；用于 cache invalidation（不是 TTL）
+- **`issuerStanding`**（Authorization 子类）：sender 是否有 standing 对 receiver 发该指令？关闭 R0 failure-mode case 2：peer A 不能让 B 不听 PR B owner/reviewer，除非 A 证明是 upstream owner / CVO / 其他 standing
+
+##### Cache policy 改为 classed freshness（替换 R2 plain TTL）
+
+- **Object existence / owner / capability** resolver：短 TTL OK，60–300s
+- **Authorization / freshness / conflict** resolver：**必须** `freshnessKey` invalidation——PR head SHA / messageId / check identity 变了 → cache miss
+
+##### Resolver failure → verdict mapping（action-family 决定）
+
+- **Low-risk wait/routing**：resolver unavailable → `fail-open` + warn + telemetry
+- **Merge / irreversible / takeover / CVO-signoff**：resolver unavailable → **`fail-closed`** 或 `needs-human`
+- **Intake / takeover / irreversible**：`insufficient` verdict → **soft-block + 退回 source 澄清**
+- **Low-side-effect wait/routing**：`insufficient` verdict → warn + 继续
+
+##### Keeper Wait UX A/B rule（取代 threadKind 一刀切）
+
+边界**不是** `threadKind`，而是两个正交问题：
+
+1. **球已分发下游 (downstream owner) 吗？**
+   - YES → keeper **不能** `hold_ball` / 认领 tracking ownership；由 downstream owner 等待
+   - NO → keeper 仍持有 intake，继续看 callback shape
+2. **唤醒 keeper 的是什么？**
+   - 已有 event/callback（issue comment tracking / F141 webhook / PR / CI / EYES）→ **不调** `hold_ball`，依赖 event path
+   - 无 event path + 明确短 SLA + 在 hold limit (≤1h) 内 revisit → `hold_ball` 允许，**必须**携带结构化 `waitSourceRef`
+   - 无 event path + 不可预测长等待 → 标 needs-info / daily sweep，**不**重复 hold
+
+**关键代码事实**（砚砚 R3 修正 R2 不确定性）：`register_issue_tracking` **不是** dumb timer——是 owner-bound issue-comment notification tracker（绑 `threadId` + `ownerCatId` + repo/issue validation + comment cursor，回路通过 `issueCommentRouter`）。所以 Phase N 在所有 keeper threads 阻它定是错的；但 registration 仍需 ownership state。`hold_ball` 才是 dumb reminder timer（schema 只有 `reason/nextStep/wakeAfterMs ≤1h`，rolling 3/h/thread，process-local counter，**不绑外部对象**）。
+
+##### OQ-4 解决（hard trigger vs soft hint 分层）
+
+砚砚 R3 明确：
+
+- **Hard/runtime 触发**：用 `actionRisk` / `actionFamily`（`register_tracking` / `hold_ball` / merge / CVO claim / takeover / irreversible / owner reassignment）→ 必须 resolver verdict
+- **Soft/skill 触发**：关键词（"这是你的" / "CVO 同意" / "等 X" / "PR 在"）→ 只当**提醒线索**，不强制审计
+- **Telemetry**：PR-O2 同时记 `keywordHintMatched` + `actionFamily`，shadow 周后看误触/漏触分布
+
+##### Phase N Disposition（R3 final — Patch, do not revert）
+
+**Keep**：
+- `threadKind` marker/infrastructure + reconciliation/self-heal
+- `register_pr_tracking` keeper threads hard-block（PR tracking 几乎 always 意味着球已分发下游）
+
+**Change**：
+- `register_issue_tracking` guard：从 `threadKind` 一刀切 → ownership-aware policy；仅当 issue 仍 keeper-owned/未分发 + 结构化 `sourceRef` 或 `waitKind='gatekeeper-needs-info'` 时允许；若已有 downstream owner/thread 则 block
+- `hold_ball` guard：从一刀切 → A/B policy；仅当 keeper-owned + 无 event callback + 短 SLA + `waitSourceRef` 允许；event-backed wait 和 long/unbounded wait 都 block
+
+#### Spec Cut R3 final（PR-O1/O2/O3/O4 具体化）
+
+- **PR-O1** docs/skill：更新 F167 Phase O spec + `receive-handoff-grounding` skill 加 `claim → resolver → sourceTier → verdict → actionFamily` 流；加 issuerStanding / freshnessKey / keeper wait A/B rule
+- **PR-O2** telemetry shadow：用 `invocation_events` + counters；记录 `actionFamily / actionRisk / resolverSourceTier / freshnessKey / verdict / failureReason / cacheHit`；counters 不采样；mismatch/blocked/insufficient sample 有界；verified sample minimal
+- **PR-O3** Phase N policy patch：替换 threadKind-only hard-block；fixtures 覆盖 PR tracking blocked / keeper-owned issue tracking allowed / distributed issue tracking blocked / short-SLA no-callback hold allowed / event-backed hold blocked / long/unbounded wait pushed to sweep
+- **PR-O4** hardening：shadow 周后将确定性高危矛盾 fail-closed；低风险维持 warn+telemetry
+
+#### Open Questions（R3 resolution 表）
+
+| OQ | 状态 | 解决方案 |
+|----|------|---------|
+| OQ-1 (合法守门 wait UX) | ✅ R3 resolved | Keeper Wait A/B rule（球分发 × callback 形态）|
+| OQ-2 (sample cap 数值) | ⏳ PR-O2 实现时定 | conservative 默认，shadow 一周由 F192 verdict 调整 |
+| OQ-3 (resolver catalog 完整性) | ✅ R3 resolved | 加 sourceTier + freshnessKey + issuerStanding 三个 cross-cutting 字段 + auth 子类 |
+| OQ-4 (skill trigger) | ✅ R3 resolved | hard = actionFamily/actionRisk；soft = keyword hint |
 
 #### 讨论 thread
 
-`thread_mqkasedeqeo56ayc`（CVO ack 后从 `proposal_mqkar300spszj6tx` 创建）— @codex (砚砚) chain starter → @opus-48 R2；`reportingMode=final-only`，收敛后 cross_post 回 `thread_mqiwk2ir6u1jyrbk` 给 `opus-47` 实施 PR-O1。
+`thread_mqkasedeqeo56ayc`（CVO ack 后从 `proposal_mqkar300spszj6tx` 创建）— @codex (砚砚) chain starter → @opus-48 R2 → @codex R3 final convergence；`reportingMode=final-only`，R3 已 cross_post 回 `thread_mqiwk2ir6u1jyrbk` 给 `opus-47` 实施 PR-O1。
 
-**AC / Plan / Owner**：PR-O1 plan draft 同步进 `docs/plans/2026-06-18-f167-phase-o-pr-o1-receive-handoff-skill.md`（opus-47 起草，pending opus-48 R2 view）。
+**AC / Plan / Owner**：PR-O1 plan draft `docs/plans/2026-06-18-f167-phase-o-pr-o1-receive-handoff-skill.md`（opus-47 起草，R3 framing 落进 plan 后即刻进 implementation phase）。
 
-**F167 Close 门槛更新**：Phase O 收敛（PR-O1 → O2 → O3 → O4）+ PR-O2 shadow 1 周 telemetry 观察 + F192 weekly verdict 通过后才可 close。Phase N 与 Phase O 关系：Phase N keep-infrastructure / patch-policy 已确认；Phase N 不再是 F167 close 的最后一步。
+**F167 Close 门槛更新**：Phase O 收敛（PR-O1 → O2 → O3 → O4）+ PR-O2 shadow 1 周 telemetry 观察 + F192 weekly verdict 通过后才可 close。Phase N 与 Phase O 关系：keep PR-tracking hard-block + patch issue_tracking/hold_ball 已确认；Phase N 不再是 F167 close 的最后一步。
 
 ## Behavioral Evidence（Phase B 观察记录）
 

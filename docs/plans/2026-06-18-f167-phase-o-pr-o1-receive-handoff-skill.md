@@ -298,5 +298,158 @@ PR-O1 → PR-O3 handoff：等 PR-O2 shadow 跑 1 周后才动 PR-O3 policy patch
 
 ---
 
-**Last updated**: 2026-06-18 (R1+R2 spec 同步入 plan)
-**Pending**: @opus-48 R2 view → R3 实施开始
+## 14. R3 Final Convergence Increment（spec 收敛完成 → 进 implementation phase）
+
+R0 (opus-47) → R1+R2 (codex/砚砚) → R2 (opus-48 sourceTier) → R3 (codex 实测代码核验 final convergence) 三轮闭环完成。R3 对 PR-O1 范围的 spec 调整 + 已结 OQ 详见 F167 feat doc 「R3 增量 spec」段；以下只列 **PR-O1 实施时必须落地** 的 delta：
+
+### 14.1 Claim Schema 增强（替换 §4）
+
+`ClaimGroundingEvent` 加两个 cross-cutting 字段：
+
+```typescript
+// 替换 §4 ClaimGroundingEvent
+export interface ClaimGroundingEvent {
+  // ... (§4 原字段)
+
+  // R3 新增（OQ-3 close）
+  resolverSourceTier: SourceTier;     // T0 / T1 / T2
+  freshnessKey?: string;              // SHA / messageId / PR head / check identity 等不可变身份；undefined = TTL-based resolver
+
+  // R3 新增（OQ-4 close）
+  actionFamily: ActionFamily;         // Hard trigger 主轴；不是 keyword
+  keywordHintMatched?: string[];      // soft hint 命中关键词列表（PR-O2 telemetry 用，不进 enforcement）
+}
+
+export type SourceTier =
+  | 'T0'    // hard ground truth (landy direct messageId / git signature / GitHub object/API)
+  | 'T1'    // derived platform truth (PR review/check state / CI)
+  | 'T2';   // cat-writable / narrative (docs/features / feat_index / thread title / 另一只猫 claim)
+
+export type ActionFamily =
+  | 'read_intent'         // 纯阅读 cross_post / @mention：不强制 grounding
+  | 'wait'                // hold_ball — A/B rule (球分发 × callback)
+  | 'register_tracking'   // PR/issue tracking
+  | 'mutate_local'        // 改 worktree files
+  | 'merge'               // merge / squash / close
+  | 'cvo_claim'           // claim CVO signoff
+  | 'takeover'            // 接他人 owner activity
+  | 'irreversible'        // delete / force-push / 改圣域
+  | 'owner_reassignment'; // 改 feat / thread / PR owner
+```
+
+**约束（R3 新规）**：
+
+- High-risk `actionFamily` (`merge / cvo_claim / takeover / irreversible / owner_reassignment`) 的 `verdict='verified'` 必须 ≥1 个 resolver result 是 T0/T1；T2-only → `insufficient`（不放行）
+- `freshnessKey` 出现时，cache 必须按 key invalidate；不能仅靠 TTL
+- `actionFamily` 决定 `verdict=insufficient` 的处理（详见 §14.4）
+
+### 14.2 Resolver Catalog 加 issuerStanding 子类（§5 增强）
+
+Authorization (`auth`) 类下新增子类：
+
+| sub | 用途 | 默认 resolver |
+|-----|------|--------------|
+| `auth.cvo_signoff` | claim "CVO 同意" | landy direct messageId in current/source thread (T0); feature doc CVO signoff anchor (T2 → insufficient) |
+| `auth.peer_instruction` | claim "你听我的不要听 X" | **issuer standing check**: sender 是否 upstream owner / CVO / repo permission? 否则 fail-closed |
+| `auth.merge_approval` | claim "reviewer 已 approve" | PR review state (T1); reviewer @mention in PR (T1) |
+
+**closing R0 failure case 2**: peer A 不能让 B 不听 PR B 的 owner/reviewer，除非 A 证明 `issuerStanding ∈ {upstream_owner, cvo, repo_admin}`。
+
+### 14.3 Cache policy classed freshness（§5 Resolver budget 增强）
+
+替换 R2 plain TTL：
+
+| Resolver class | Cache strategy |
+|---------------|---------------|
+| Object existence / owner / capability | TTL 60–300s OK |
+| Authorization / freshness / conflict | `freshnessKey` invalidation — TTL 不够，SHA/messageId/check identity 变化必须 cache miss |
+
+实施：`GroundingResolverCache.get(key, freshnessKey?)`，传入 `freshnessKey` 时强制比对；不传则按 TTL。
+
+### 14.4 Resolver failure → verdict mapping（§6 Skill 设计补充）
+
+skill Q3「verdict 一致 vs 冲突 vs 不足」+ 后续 action policy 按 `actionFamily` 分层：
+
+| actionFamily | resolver unavailable | verdict=insufficient |
+|--------------|---------------------|---------------------|
+| `read_intent` | n/a (不 trigger) | n/a |
+| `wait` (low-risk) | fail-open + warn + telemetry | warn + proceed |
+| `register_tracking` (intake) | fail-open + warn | **soft-block + 退回 source 澄清** |
+| `mutate_local` | warn + proceed | warn + proceed |
+| `merge` / `cvo_claim` / `takeover` / `irreversible` / `owner_reassignment` | **fail-closed** 或 `needs-human` | **soft-block + 退回 source 澄清** |
+
+### 14.5 Skill trigger 改 actionFamily/actionRisk-based（取代 §6 关键词触发）
+
+**Hard trigger（runtime 强制三问）**：
+- `actionFamily ∈ {wait, register_tracking, merge, cvo_claim, takeover, irreversible, owner_reassignment}` 之一即触发
+- 关键词**不在 hard trigger**——会误触 + 漏触
+
+**Soft trigger（skill 提醒线索）**：
+- 关键词列表（"这是你的" / "CVO 同意" / "等 X" / "PR 在" / "你应该" 等）作为 skill 文档里的 reflex 提示
+- skill 读到关键词 → 提醒猫审视 claim，不强制；如果后续不进入 hard trigger actionFamily 就只 telemetry log `keywordHintMatched`，不 enforcement
+
+替换 §6 触发条件：
+
+```
+Skill 触发条件（R3 final）：
+- Hard：tool call ∈ {hold_ball, register_pr_tracking, register_issue_tracking, merge, CVO signoff, takeover, irreversible}
+- Soft：上述 hard 不命中但 handoff message 含 claim 关键词 → skill 提醒猫审视，不强制
+- 跨层 telemetry：PR-O2 同时记 keywordHintMatched + actionFamily，shadow 周后看误触/漏触分布
+```
+
+### 14.6 Keeper Wait UX A/B rule（取代 OQ-1 不确定性）
+
+Skill `receive-handoff-grounding/SKILL.md` keeper wait section 必须写两个正交问题：
+
+```
+1. 球已分发下游 (downstream owner) 吗？
+   - YES → keeper 不能 hold_ball / register tracking；由 downstream 等
+   - NO → keeper 仍持 intake，继续 Q2
+
+2. 唤醒 keeper 的是什么？
+   - 已有 event/callback (issue_tracking / F141 webhook / PR / CI / EYES) → 不 hold_ball，依赖 event
+   - 无 event + 短 SLA + ≤1h revisit → hold_ball 允许（必须带 waitSourceRef）
+   - 无 event + 长/不可预测 → needs-info / daily sweep，不重复 hold
+```
+
+**关键代码事实** 写入 skill 反例 demo：
+- `register_issue_tracking` 是 **owner-bound** issue-comment notification tracker（不是 dumb timer）；keeper-owned 时允许；distributed 时 block
+- `hold_ball` 是 **dumb reminder timer**（不绑外部对象）；只能在 keeper-owned + 短 SLA + 无 event-callback 时用
+
+### 14.7 Stateful Object Gate INV 更新（§7 增强）
+
+- **INV-O3 update**：`resolver_invoked` 必须带 `resolverSourceTier`；high-risk `actionFamily` (merge / cvo_claim / takeover / irreversible / owner_reassignment) 的 `verified` verdict 必须 ≥1 个 T0/T1 resolver result，否则强制降为 `insufficient`
+- **INV-O7 update**：`cacheHit=true` 不消耗 budget，**但** `freshnessKey` 存在时 cache lookup 必须 verify key match；key mismatch → cache miss + 消耗 budget
+- **新 INV-O10**：`actionFamily='read_intent'` 不进入 grounding 状态机（skill 不 trigger）；soft keyword hint 只记 `keywordHintMatched` 不创建 ClaimGroundingEvent
+- **新 INV-O11**：`issuerStanding` 字段在 `actionFamily='owner_reassignment'` 或 `claimType='auth.peer_instruction'` 时**必须存在**且 verdict 已 evaluated；缺失 → soft-block
+
+### 14.8 OQ 状态更新（§11 retraction conditions 重新校准）
+
+- **Retraction #3 (关键词 vs actionRisk-based)**: ✅ R3 resolved — hard trigger 用 actionFamily/actionRisk；soft keyword 进 PR-O2 telemetry。retraction #3 不再 open
+- **Retraction #4 (INV 形式化太早)**: ⚠️ INV-O3/O7 R3 调整，O10/O11 新增；标注 "R3 已迭代一次；PR-O2 实施再迭代可能再调"
+
+剩余 retraction conditions (1/2/5) 维持。
+
+### 14.9 AC R3 增量
+
+补充 §8 AC：
+
+- [ ] **AC-O1.9** Skill hard trigger 列表完全用 `actionFamily/actionRisk`（不在 enforcement 路径上用关键词）；keyword 列表只在 skill `Soft Hint` 段；不出现在 INV 强制约束里
+- [ ] **AC-O1.10** Resolver catalog `auth` 类细分到 3 子类（cvo_signoff / peer_instruction / merge_approval）；每子类有 issuerStanding 判断标注
+- [ ] **AC-O1.11** Claim schema 含 `resolverSourceTier` (T0/T1/T2) + `freshnessKey?` + `actionFamily`；high-risk `actionFamily` 的 `verified` constraint 写入 schema 注释
+- [ ] **AC-O1.12** Skill keeper wait section 含两个正交问题 + 三种 wake-up case 决策 + register_issue_tracking vs hold_ball 区别 demo
+- [ ] **AC-O1.13** Dogfood fixtures `refs/dogfood-fixtures.md` 加 R3 case：peer_instruction 越权 (case 6) + T2-only 高危 action 拒绝 (case 7) + event-backed hold 应 block (case 8)
+
+### 14.10 实施 ETA
+
+R3 spec 已落地 plan，准备进 implementation：
+
+1. **Worktree 准备**：开 `feat/F167-phase-o-pr-o1` worktree（cat-cafe-skills/ 改动 + F167 doc anchor 回填；不动 packages/）
+2. **PR-O1 落地**：skill 主文件 + 3 个 refs + manifest 注册 + sync:skills + check:skills:manifest
+3. **R3 reviewer**: @opus-48 (skill 设计 + R3 framing 校验)；R3 review APPROVE 后开 PR
+4. **预计 ETA**：3-4 小时（含 review turnaround）
+
+---
+
+**Last updated**: 2026-06-18 R3 final convergence 落进 plan
+**Next**: 开 worktree 进 PR-O1 implementation
