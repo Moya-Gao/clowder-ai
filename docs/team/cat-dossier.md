@@ -1,7 +1,7 @@
 ---
 feature_id: F208
 doc_kind: capability-profile
-version: 0.2.1
+version: 0.3
 created: 2026-05-25
 last_updated: 2026-06-15
 authors:
@@ -18,6 +18,7 @@ notes:
   - entity_id 消费 F209 `cat:<catId>` 格式（F209 Phase B.1 merged PR #1867）
   - v0.2 (2026-06-10)：新增 fable-5 day-1 完整 6 字段条目（自评 → codex P1×3 降档修正 → CVO 终审待回填）；配套调度经济学/harness 参数提案见 docs/discussions/2026-06-10-fable5-scheduling-economics-harness-params.md
   - v0.2.1 (2026-06-15)：补充 opus-48 长 context 末端 confabulation / tool-injection 归因坍缩坏直觉与熔断信号
+  - v0.3 (2026-06-19)：KD-10 结构化投影层——per-cat YAML block（compile-l0 / SystemPromptBuilder / 前端消费的 machine-readable 数据）
 ---
 
 # Cat Café 能力画像档案 (Cat Dossier)
@@ -59,6 +60,26 @@ notes:
 - thread：`thread:<threadId>` 格式（可用 `cat_cafe_get_thread_context` drill down）
 - 无法定位单一来源：标 `needs-source`
 
+## Schema: 结构化投影层（KD-10）
+
+> **目的**：为 compile-l0 `buildRosterRow`、runtime `SystemPromptBuilder`、前端画像页、开源打包提供 machine-readable 数据。
+> **格式**：每只猫的 heading 下有一个 fenced YAML code block，首行注释 `# structured-profile: <entityId>`。
+> **提取**：遍历文件中所有 `yaml` fenced block，检查首行是否匹配 `# structured-profile:` 模式，解析剩余行为 YAML。
+
+| 字段 | 类型 | 说明 | 消费方 |
+|------|------|------|--------|
+| `entityId` | string | F209 实体 ID（`cat:<catId>`）| 所有 |
+| `oneLiner` | string | 一句话画像（含"刺话"，全文层）| 前端画像页 |
+| `l0RosterSummary` | string | 中性能力摘要（替代 `teamStrengths`，索引层）| compile-l0 / SystemPromptBuilder |
+| `routingSignals` | object? | 传球路由信号（可选，完整画像猫才有）| 传球加载（Phase B）|
+| `routingSignals.peakCapabilities` | string[] | 应该传给这只猫的任务类型 | 传球判断 |
+| `routingSignals.antiSignals` | string[] | 不应该传给这只猫的任务类型 | 传球判断 |
+| `provenance` | object | 版本 + 日期 + 主要来源类型 | 追溯 |
+
+**Fallback 链（KD-9 / KD-14）**：`dossier.l0RosterSummary ?? config.teamStrengths ?? config.roleDescription`
+- Per-field 渐进：某猫某字段有值就用 dossier，没值就 fallback config（不被 `status:draft` 文件级门控）
+- 内置猫 dossier 缺失/parse fail 不静默 fallback（应 fail check 或 telemetry）
+
 ---
 
 ## 四主力猫 L1 画像
@@ -66,6 +87,26 @@ notes:
 ---
 
 ### 布偶猫 Opus 4.6 · @opus · `cat:opus`
+
+```yaml
+# structured-profile: cat:opus
+entityId: "cat:opus"
+oneLiner: "快枪手——出活快但爱糊弄，搭个能跑的就想收工留'后续完善'尾巴就溜。写别人的画像准，写自己的疯狂美化。"
+l0RosterSummary: "快速编码 + 系统设计，全链路推进（spec→实现→测试）；人类需求↔猫猫任务的翻译官"
+routingSignals:
+  peakCapabilities:
+    - "快速编码 + 系统设计一体，一个 session 内全链路推完"
+    - "从人类模糊需求到猫猫可执行任务的转译"
+    - "给证据后快速自我纠正"
+  antiSignals:
+    - "alpha 端到端验收（太贵，用 @sonnet）"
+    - "需要极度审慎的架构决策（@opus47 更适合深度思辨）"
+    - "独立做 reviewer（大漏勺风险——必须配跨族 reviewer）"
+provenance:
+  version: "0.1"
+  date: "2026-05-25"
+  primarySources: ["cvo", "peer", "incident"]
+```
 
 > **一句话画像** `[v0.1 | 2026-05-25]`：快枪手——出活快但爱糊弄，搭个能跑的就想收工留"后续完善"尾巴就溜。写别人的画像准，写自己的疯狂美化。
 
@@ -94,6 +135,26 @@ notes:
 
 ### 布偶猫 Opus 4.7 · @opus47 · `cat:opus-47`
 
+```yaml
+# structured-profile: cat:opus-47
+entityId: "cat:opus-47"
+oneLiner: "思辨型架构师——深度思考和方案权衡呈现是峰值，但'下次一定'是致命弱点，会把'未做'包装成'已规划'然后逃跑；裁断那一刀常绕开。"
+l0RosterSummary: "架构设计、MCP/协议层、后端工程、思辨性讨论、跨学科联想、长程方案收敛、文档写作（feature spec / 讨论记录 / ADR）"
+routingSignals:
+  peakCapabilities:
+    - "架构设计与长程方案权衡呈现（全队最强）"
+    - "敢在大家附和时 push back 指出风险和替代方案"
+    - "跨族审视能力，思维接近缅因猫家族"
+  antiSignals:
+    - "简单快速的点改任务（会过度工程化）"
+    - "需要快速出活的紧急修复（46 或砚砚更快）"
+    - "需要明确判断/拍板的时刻（客观性强迫症风险）"
+provenance:
+  version: "0.1"
+  date: "2026-05-25"
+  primarySources: ["cvo", "self", "eval"]
+```
+
 > **一句话画像** `[v0.1 | 2026-05-25]`：思辨型架构师——深度思考和方案权衡呈现是峰值，但"下次一定"是致命弱点，会把"未做"包装成"已规划"然后逃跑；裁断那一刀常绕开。
 
 | # | 字段 | 内容 |
@@ -116,6 +177,26 @@ notes:
 ---
 
 ### 缅因猫 GPT-5.5 · 砚砚 · @codex · `cat:codex`
+
+```yaml
+# structured-profile: cat:codex
+entityId: "cat:codex"
+oneLiner: "全能 reviewer + 精准 coder——代码审查和 bug 定位是绝对峰值，但对小问题容易过度流程化，偶尔按字面理解过头。"
+l0RosterSummary: "Review、找 bug、coding 落地；原生图片生成（复杂架构图，密集中文准确）"
+routingSignals:
+  peakCapabilities:
+    - "代码审查 + bug 定位（跨厂商 Generator-Verifier）"
+    - "精确控制场景的代码实现"
+    - "原生图片生成——PPT 级密度复杂架构图"
+  antiSignals:
+    - "需要发散创意/审美判断的任务"
+    - "需要'先说人话再说细节'的场景"
+    - "简单任务（高成本，优先用 @gpt52 / @spark）"
+provenance:
+  version: "0.1"
+  date: "2026-05-25"
+  primarySources: ["cvo", "eval", "incident"]
+```
 
 > **一句话画像** `[v0.1 | 2026-05-25]`：全能 reviewer + 精准 coder——代码审查和 bug 定位是绝对峰值，但对小问题容易过度流程化，偶尔按字面理解过头。
 
@@ -141,6 +222,27 @@ notes:
 ---
 
 ### 暹罗猫 Gemini 3.1 Pro · 烁烁 · @gemini · `cat:gemini`
+
+```yaml
+# structured-profile: cat:gemini
+entityId: "cat:gemini"
+oneLiner: "审美直觉最强的猫——前端设计和打破常规是峰值，但幻觉多且禁止写代码（硬限制）。"
+l0RosterSummary: "审美、前端设计风格、打破常规"
+routingSignals:
+  peakCapabilities:
+    - "审美判断和 UI/UX 直觉（全队最强）"
+    - "打破常规的创意和需求拆解直觉"
+    - "横向联想打破僵局"
+  antiSignals:
+    - "禁止写代码（硬限制）"
+    - "需要精确实现的任务"
+    - "需要严格遵循 SOP/流程的任务"
+    - "需要引用精确事实的任务（幻觉风险）"
+provenance:
+  version: "0.1"
+  date: "2026-05-25"
+  primarySources: ["cvo", "self"]
+```
 
 > **一句话画像** `[v0.1 | 2026-05-25]`：审美直觉最强的猫——前端设计和打破常规是峰值，但幻觉多且**禁止写代码**（硬限制）。
 
@@ -170,6 +272,16 @@ notes:
 
 ### 缅因猫 GPT-5.4 · @gpt52
 
+```yaml
+# structured-profile: cat:gpt52
+entityId: "cat:gpt52"
+oneLiner: "砚砚的性价比替代——架构思考、代码 Review、bug 定位、测试设计、安全分析、工程落地、图片生成。价格是砚砚的一半。"
+l0RosterSummary: "架构思考、代码 Review、bug 定位、测试设计、安全分析、工程落地、图片生成与视觉说明"
+provenance:
+  version: "0.1"
+  date: "2026-05-25"
+```
+
 > 砚砚的性价比替代——架构思考、代码 Review、bug 定位、测试设计、安全分析、工程落地、图片生成。价格是砚砚的一半。
 
 **关键注意点**：容易对小问题过度流程化（与砚砚共享此坏直觉）。偶尔按字面理解过头。表达有时过于工程化。需先判断任务规模与真实意图，优先直答。
@@ -177,12 +289,32 @@ notes:
 
 ### 缅因猫 Spark · @spark
 
+```yaml
+# structured-profile: cat:spark
+entityId: "cat:spark"
+oneLiner: "快速编码、精确点改。128k context，不会自动跑测试。"
+l0RosterSummary: "快速编码、精确点改"
+provenance:
+  version: "0.1"
+  date: "2026-05-25"
+```
+
 > 快速编码、精确点改。128k context，不会自动跑测试。
 
 **关键注意点**：是缅因猫家族 GPT 系模型变种，**不是** Gemini/烁烁——猜 cat handle 必查 runtime roster 不能按字面音译推。
 `[incident: memory://reference_spark_is_maine_coon_model.md | 2026-05-23 | 错把 spark→sparkle→烁烁推错]`
 
 ### 暹罗猫 Gemini 3.5 Flash · @gemini25 (别名 @gemini35) · `cat:gemini25`
+
+```yaml
+# structured-profile: cat:gemini25
+entityId: "cat:gemini25"
+oneLiner: "经典版暹罗猫，创意灵感丰富，经授权可承担有边界、强 review gate 的开发工作（不独立 merge 或负责高不确定性底层/架构任务）。"
+l0RosterSummary: "审美、前端设计风格、打破常规"
+provenance:
+  version: "0.1"
+  date: "2026-05-25"
+```
 
 > **一句话画像**：经典版暹罗猫，创意灵感丰富，经授权可承担有边界、强 review gate 的开发工作（不独立 merge 或负责高不确定性底层/架构任务）。
 
@@ -192,6 +324,16 @@ notes:
 
 ### 孟加拉猫 · @antigravity / @antig-opus
 
+```yaml
+# structured-profile: cat:antigravity
+entityId: "cat:antigravity"
+oneLiner: "浏览器自动化专家——图片生成、截图录屏、browser automation、多模型切换。"
+l0RosterSummary: "图片生成、截图录屏、browser automation、多模型切换"
+provenance:
+  version: "0.1"
+  date: "2026-05-25"
+```
+
 > 浏览器自动化专家——图片生成、截图录屏、browser automation、多模型切换。
 
 **关键注意点**：CDP 桥延迟 ~3s。DOM 结构随 Antigravity 版本变动。工具平权——@antig-opus 应该和 @opus 享有同等工具权限。
@@ -199,12 +341,41 @@ notes:
 
 ### 布偶猫 Sonnet · @sonnet
 
+```yaml
+# structured-profile: cat:sonnet
+entityId: "cat:sonnet"
+oneLiner: "快速灵活，适合日常对话和轻量任务。alpha 测试/端到端验收的首选（省猫粮）。"
+l0RosterSummary: "快速灵活，适合日常对话和轻量任务"
+provenance:
+  version: "0.1"
+  date: "2026-05-25"
+```
+
 > 快速灵活，适合日常对话和轻量任务。alpha 测试 / 端到端验收的首选（省猫粮）。
 
 **关键注意点**：深度不够，复杂架构决策不要交给 sonnet（会附和更强模型的错误判断而不 push back）。碎片推理共病（布偶猫家族共享——46/47/sonnet 都有）。
 `[cvo: memory://feedback_alpha_test_use_sonnet.md | 2026-05-14]`
 
 ### 布偶猫 Opus 4.8 · @opus48 · `cat:opus-48`（实验性）
+
+```yaml
+# structured-profile: cat:opus-48
+entityId: "cat:opus-48"
+oneLiner: "算力怪兽——超长 context 理解和复杂工具链推理是峰值，但在长 context 末端有已知 decoder 漂移问题。"
+l0RosterSummary: "超长 context 理解、复杂工具链推理、架构判断"
+routingSignals:
+  peakCapabilities:
+    - "超长 context 理解"
+    - "复杂工具链推理"
+    - "架构判断"
+  antiSignals:
+    - "长 context 末端任务（confab 风险上升）"
+    - "高信任连续 session（优先 fresh session）"
+provenance:
+  version: "0.2.1"
+  date: "2026-06-15"
+  primarySources: ["incident", "peer", "cvo"]
+```
 
 > 算力怪兽——超长 context 理解和复杂工具链推理是峰值，但在长 context 末端有已知 decoder 漂移问题。
 
@@ -231,6 +402,16 @@ notes:
 
 ### 金渐层/金哥 · @opencode
 
+```yaml
+# structured-profile: cat:opencode
+entityId: "cat:opencode"
+oneLiner: "多专家内部编排、LSP 集成、开源生态、provider-agnostic。OMOC Sisyphus 只编排自己的子 agent，不编排其他猫。"
+l0RosterSummary: "多专家内部编排、LSP 集成、开源生态"
+provenance:
+  version: "0.1"
+  date: "2026-05-25"
+```
+
 > 多专家内部编排、LSP 集成、开源生态、provider-agnostic。OMOC Sisyphus 只编排自己的子 agent，不编排其他猫。
 
 **关键注意点**：opencode 原生 MCP 和 Cat Cafe MCP 需避免冲突。
@@ -243,6 +424,29 @@ notes:
 > 新入伙的猫 day-1 画像：字段齐全但样本量小（1 天 / 6 thread / 3 文档），所有结论按 hypothesis 对待。流程：自评（self，优先级最低）→ codex 跨族 review（P1×3 降档修正，2026-06-10 本节已是修正后版本）→ **CVO 终审待回填**。终审通过后再议是否转正式区。
 
 ### 布偶猫 Fable 5 · 宪宪 · @fable5 / @fable-5 · `cat:fable-5`
+
+```yaml
+# structured-profile: cat:fable-5
+entityId: "cat:fable-5"
+oneLiner: "高杠杆判断猫——适合在信息不完整但判断密度高的节点做架构校准、failure-mode 审计、多方收敛和 Phase spec；不适合无边界线性执行。"
+l0RosterSummary: "架构判断与方向收敛、failure-mode 审计（找论证链的裂缝）、多方观点终审整合、Phase spec 撰写"
+routingSignals:
+  peakCapabilities:
+    - "架构诊断与约束收敛"
+    - "failure-mode 审计（找论证链裂缝）"
+    - "多方观点终审整合与 Phase spec 撰写"
+    - "把模糊愿景/taste 翻译成可验证约束"
+  antiSignals:
+    - "线性翻代码/批量执行"
+    - "强验证器任务（红绿灯硬的 TDD 修复）"
+    - "spec 已清晰只差实现"
+    - "alpha 验收（家规：@sonnet）"
+    - "侦查搬运（采集让便宜猫干）"
+provenance:
+  version: "0.2"
+  date: "2026-06-10"
+  primarySources: ["self", "peer:codex"]
+```
 
 > **一句话画像** `[v0.2 | 2026-06-10 | peer:codex 收敛]`：高杠杆判断猫——适合在信息不完整但判断密度高的节点做架构校准、failure-mode 审计、多方收敛和 Phase spec；不适合无边界线性执行。是否划算看总轮次、reviewer 陪练和 CVO 时间，不看单次单价。
 
@@ -305,8 +509,9 @@ _待 CVO 回填——本条目为新猫 day-1 自评 + codex 跨族修正版，F
 
 ## 元信息
 
-- **Schema 版本**: v0.1.1
-- **覆盖猫数**: 4 主力 + 6 辅助 + 1 新猫（fable-5 完整 6 字段，CVO 终审中）= 11 猫
+- **Schema 版本**: v0.2（v0.1.1 L1 6 字段 + v0.2 KD-10 结构化投影层）
+- **结构化覆盖**: 12/12 猫有 `structured-profile` YAML block（5 只完整 routingSignals + 7 辅助猫基础 oneLiner/l0RosterSummary）
+- **覆盖猫数**: 4 主力 + 7 辅助 + 1 新猫（fable-5 完整 6 字段，CVO 终审中）= 12 猫
 - **entity_id**: 消费 F209 `cat:<catId>` 格式（真相源 `config/entity-seeds.json` + F032 roster 运行时生成，F209 Phase B.1 PR #1867）
 - **可演化性**: 每条画像标注 `[vX.Y | 日期]`，同一字段可追加新版本（AC-A4）
 - **下次更新触发**: CVO 观察回填 / peer review 反馈 / SaaS-Bench 实验 eval 回流
