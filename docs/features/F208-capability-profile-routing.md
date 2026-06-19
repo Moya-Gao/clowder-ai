@@ -40,9 +40,10 @@ Map delta: update required — 待 Design Gate 确认是否需 new cell
 Why: F208 把 agent identity 从静态 roster 一行话（cat-config.json）扩展为「能力画像
 档案 + 认知路由」子系统。画像档案是 identity-session cell 的能力维度深化；但「认知
 路由」（猫读画像自主判断传球）可能溢出为新的协作子系统。**F209 owns entity registry /
-retrieval anchor truth source；F032 / identity-session owns roster truth**。F208
-cat-dossier 消费 F209 `entity_id` 作猫/人标识键（不另造 namespace），详见 AC-A5
-（dual of F209 AC-B6, transferred 2026-05-23）。
+retrieval anchor truth source**。**F032 边界已由 KD-13 调整（CVO signoff 2026-06-19）：
+cat-config 退回纯身份配置，能力描述权归 F208 dossier；`teamStrengths`/`caution` 标
+legacy-fallback**。F208 cat-dossier 消费 F209 `entity_id` 作猫/人标识键（不另造
+namespace），详见 AC-A5（dual of F209 AC-B6, transferred 2026-05-23）。
 Design Gate 拍定主 cell 与 map delta。
 ```
 
@@ -87,9 +88,9 @@ fork 后按领域累积）/ evolving（eval 回流持续刷新）。
 - session/handoff 文案非阻塞提醒"复杂/不确定传球，先读队友画像"——**不检测"猫
   有没有读"**（检测 = 过度工程，砚砚 R1 P2），简单传球不打扰
 
-### Phase C: 前端 settings 成员画像页
+### Phase C: 前端 settings 猫猫画像独立页
 
-复用 F154 member overview 入口。Console 前端走 console-dev 4 gate。
+settings 独立 section（与成员管理平级，不复用 F154 member overview 入口——KD-11）。Console 前端走 console-dev 4 gate。
 - 展示：每只猫能力画像卡（L1 6 字段可展开）+ 路由规则 + provenance
 - read-only 起步 + CVO"添加观察"轻量入口（观察进 pending/provenance，不直接
   覆盖总结层）；交互走 Design Gate（OQ-6）
@@ -120,8 +121,8 @@ fork 后按领域累积）/ evolving（eval 回流持续刷新）。
 - [ ] AC-B1: 猫传球时可按需加载目标猫 L1 画像（像 skill，不常驻）
 - [ ] AC-B2: session/handoff 文案含非阻塞提醒，不检测"猫有没有读画像"，简单传球不打扰
 
-### Phase C（前端 settings 成员画像页）
-- [ ] AC-C1: settings 成员页展示每只猫能力画像卡（L1 6 字段可展开）+ 路由规则
+### Phase C（前端 settings 猫猫画像独立页）
+- [ ] AC-C1: settings 独立猫猫画像 section 展示每只猫能力画像卡（L1 6 字段可展开）+ 路由规则
 - [ ] AC-C2: 每条画像总结显示 provenance（来源 + 日期）
 - [ ] AC-C3: read-only 展示 + CVO"添加观察"入口（观察进 pending/provenance，不直接覆盖）
 - [ ] AC-C4: 走 console-dev 4 gate（Product / Design-System / Implementation / Verification）
@@ -179,10 +180,10 @@ fork 后按领域累积）/ evolving（eval 回流持续刷新）。
 | KD-6 | Phase A-E 硬边界 + 依赖链 | 防"全部 Phase 同时推进失控"（46 R1 P2-1） | 2026-05-20 |
 | KD-7 | 做完整终态，不做 MVP 版本 | CVO directive 2026-05-20：spec 含完整 Phase A-E，close = 完整愿景达成，禁止"Phase A 能用就 close"留脚手架尾巴 | 2026-05-20 |
 | KD-8 | 能力画像唯一真相源 = dossier；cat-config `teamStrengths`/`caution` 降级为 legacy-fallback | 三处漂移发现（cat-config / L0 roster / dossier 独立描述同一只猫的能力）。根因：cat-config 是 breed 粒度（6 猫种），dossier 是 cat 粒度（区分 46/47/48）——粒度错配导致语义重叠不可避免。dossier 比 cat-config 更深、更真实、带 provenance，定为唯一能力画像源。CVO signoff 2026-06-19 | 2026-06-19 |
-| KD-9 | fallback 链兼容社区——有 dossier 读 dossier，没有读 cat-config | 社区铲屎官没有 dossier，用 `teamStrengths` 写"产品经理"式角色定位——这是他们唯一入口，删了他们没法描述猫。设计：`dossier?.oneLiner ?? config.teamStrengths ?? config.roleDescription`。不替社区判断"怎么定义你的猫"（KD-1 精神延伸）| 2026-06-19 |
+| KD-9 | fallback 链兼容社区——有 dossier 读 dossier，没有读 cat-config | 社区铲屎官没有 dossier，用 `teamStrengths` 写"产品经理"式角色定位——这是他们唯一入口，删了他们没法描述猫。设计：`dossier?.oneLiner ?? config.teamStrengths ?? config.roleDescription`。不替社区判断"怎么定义你的猫"（KD-1 精神延伸）。**注：内置猫 dossier 缺失/parse fail 不静默 fallback——应 fail check 或显式 telemetry，防漂移被掩盖**（砚砚 R1 P2）| 2026-06-19 |
 | KD-10 | dossier 加结构化层（per-cat YAML block / JSON）| Phase B（传球加载）、Phase C（前端展示）、Phase E（开源打包）的共同前置。纯 Markdown 表格 parse 不住，前端和 compile-l0 都需要 machine-readable 数据 | 2026-06-19 |
 | KD-11 | 前端两页分离——成员管理（配置）vs 猫猫画像（展示 + CVO 观察入口）| 画像用途是"看"（传球判据 + CVO 迭代体感），不是"管"。跟配置（model/开关/排序）混在一起 UX 错位。画像页是独立 settings section | 2026-06-19 |
-| KD-12 | L0 roster 从 dossier 结构化层派生，不再从 cat-config `teamStrengths` 取 | compile-l0 `buildRosterRow` line 243 当前读 `teamStrengths`。切源后 L0 展示的能力描述自动跟 dossier 同步——fallback 链同 KD-9（没 dossier 仍读 cat-config）| 2026-06-19 |
+| KD-12 | **所有 teammate roster / identity prompt projection** 从 dossier 结构化层派生 | 消费方不只有 compile-l0 `buildRosterRow`（line 243），还有 runtime `SystemPromptBuilder`（line 422 同样从 `teamStrengths` 拼 roster）。两条链必须同时切源，否则 L0 和 runtime prompt 说不同的话。fallback 链同 KD-9（砚砚 R1 P1）| 2026-06-19 |
 | KD-13 | F032 边界调整——cat-config 退回纯身份配置，能力描述权归 F208 | CVO signoff 2026-06-19。cat-config 仍管 catId/model/开关/排序/硬限制（如"禁止写代码"）；`teamStrengths`/`caution` 标 legacy-fallback，不再是能力真相源。F032 feat doc 需同步更新 | 2026-06-19 |
 
 ## Eval / Tracking Contract
