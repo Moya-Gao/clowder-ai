@@ -1,0 +1,19 @@
+{
+  "verdictId": "2026-06-19-eval-a2a-c1-zombie-split-keep",
+  "rawInputs": [
+    {
+      "path": "docs/harness-feedback/snapshots/2026-06-19-F167-eval.yaml",
+      "sha256": "2b392dd2c58fe4c09df694b7292ca20b7658808019c06958645c8d52f63b9f36"
+    },
+    {
+      "path": "docs/harness-feedback/attributions/2026-06-19-F167-attribution.yaml",
+      "sha256": "0401eac7742f4bcd063009d02aa7dd1ac8ef3aa7e599c9c6346ec6a6aa4caa31"
+    }
+  ],
+  "generatedAt": "2026-06-19T03:00:45.365Z",
+  "generator": {
+    "name": "eval-a2a-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f192-e-pilot-v1"
+}
