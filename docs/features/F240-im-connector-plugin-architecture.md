@@ -36,14 +36,56 @@ created: 2026-06-17
 
 方向**有价值且对齐** F088/F124（connector runtime）+ F202（plugin framework）+ F190（connector 配置写安全）。我们家里目前**没有** IM connector 插件化（`packages/api/src/infrastructure/connectors` 是硬编码 adapter + `connector-gateway-bootstrap`），所以这是 net-new 能力填空，不是重复。
 
-## PR 实际交付物
+## 架构（真实设计 — intake 自 #903 实现 + 作者 @mindfn spec,品牌/归因已校正）
 
-- 统一 `IMConnectorPlugin` 接口（`im-connector-plugin.ts`），7 个内置 connector（feishu/telegram/dingtalk/weixin/wecom-bot/wecom-agent/xiaoyi）迁到 `im-connectors/<id>/` + `connector.yaml`
-- YAML manifest：config fields / setup steps / icon / themeColor / action chains
-- 配置持久化 store（`.cat-cafe/im-connector-config/<id>.json`），三层解析 **stored > env(只读 fallback) > YAML default** + tombstone
-- Hub UI 写端点 `PUT /api/connectors/:id/config` + action 状态机（YAML 声明 chain + `handleAction()` + 通用 endpoint，前端纯渲染器）
-- 外部 tar.gz 插件 install/update/uninstall（`plugins/plugin-installer.ts` + `routes/connector-plugins.ts`）+ icon proxy
-- config-field 类型系统（`shared/src/types/config-field.ts`）F202 plugin 与 IM connector 共用
+> 来源:clowder-ai#903 实现 + 作者 spec（社区 fork）。spec 里的"铲屎官原话"出自**社区 fork 的 CVO（lang）**,非 Cat Café CVO（Landy）——此处只取技术设计,不转述为家里铲屎官原话（防 provenance 投毒）。
+
+**Architecture cell**: `connector` + `plugin`（KD-15:统一 ConfigField 类型跨两 cell）。把 F088 的 hardcoded adapter switch-case 改为 **YAML 驱动注册表**:接口契约 / 配置持久化 / 前端渲染 / 交互动作全由 YAML 清单声明,前端退化为纯状态机渲染器。
+
+**解决 F088 四个痛点**:
+1. **硬编码耦合**:`connector-gateway-bootstrap` switch-case 管 connector,新增必改核心 → YAML 注册表
+2. **无法外部扩展**:内网用户想对接只能 fork 改代码 → tar.gz 插件包安装(安装包用户无 node 环境也能装)
+3. **配置散落 .env**:IM connector 凭证无法 Hub UI 配置/持久化 → config store 三层解析
+4. **前端硬编码**:卡片 / icon / QR 扫码 / 权限 / 心跳 per-connector 硬编码 → YAML 声明 + 共享渲染器
+
+### Phase A（#903 已实现）:YAML 驱动闭环 — 接口 + 配置 + 前端 + Action 状态机
+
+**A-1 后端基础**:每 connector 一份 `connector.yaml`(id/name/config/docsUrl/steps/icon/themeColor);config store `.cat-cafe/im-connector-config/{id}.json`;三层解析 **stored(Hub 写入) > env(.env 兼容 fallback) > YAML default**;Hub `PUT /api/connectors/:id/config`;bootstrap 扫 YAML + 加载 config 驱动 `pluginEnv`;`CONNECTOR_PLATFORMS` 从 YAML 动态派生(消除重复定义)。
+
+**A-2 统一 ConfigField 类型系统**(KD-15/17/18) — **F202 plugin 与 F240 IM connector 共用**同一套类型 + 解析器:
+
+| type | 用途 | env-backed |
+|---|---|---|
+| `input` | 文本/密码(sensitive→password) | ✅ envName |
+| `toggle` | 布尔开关 | ✅ |
+| `select` | 下拉(options) | ✅ |
+| `list` | 列表值(JSON 序列化数组) | ✅ |
+| `operation` | action 驱动的操作字段 | ❌(有 `name`,走独立 operation state) |
+
+- **KD-17 类型分离铁律**:所有 env-backed 路径(config store 读/写/加载、resolve、bootstrap isConfigured)只操作 `ValueConfigField[]`(`filter(isValueField)`);`operation` 永不进 env 持久化/解析链。
+- **KD-18 Value Codec**:store 层是 `Record<string,string|null>`,typed 值经 string codec 序列化(toggle `"true"`/`"false"`、list JSON `'["a","b"]'`、select option value);容错不 throw(非法值 fallback default)。codec 前后端共用。
+- 共享解析器 `config-field-parser.ts`(无 `type` fallback 到 `input`);`plugin-manifest.ts` + `im-connector-manifest.ts` 都 import。
+
+**A-3 YAML Action 状态机 + 通用端点**(KD-13/14):
+- **action 状态(持久化,用户能做什么)≠ 连接状态(运行时 health check)**,两者独立(KD-13)。
+- **operation 是独立字段**(有 `name` 无 `envName`,KD-14);action 成功后经 `target` 回填到指定 input 字段。
+- YAML 声明 **action chain(状态机)**:如 QR `qr-generate → qr-status → disconnect → (回)qr-generate`,每个 action 带 `render`(button/polling)、`resultRender`(img)、`timeout`、`rollback`(超时回滚边)、`next`(转移边)。插件实现 `handleAction()`,通用路由 `{pluginId}/actions` 委托;前端读 YAML 知节点+转移边、读 API 知当前状态,按 render 类型渲染控件。**零硬编码。**
+
+### Phase B（#903 已实现）:外部插件动态安装
+- 自包含 **tar.gz 包**(`connector.yaml` + `index.js`,default export `IMConnectorPlugin`);`plugin-installer.ts` install/update/uninstall;Hub UI 上传;`im-connector-loader` 动态 `import()` 进 API 进程。
+- **安全闸**(intake 已逐条核实,见决策记录 2026-06-18 第四轮):owner-gate(`requireConfiguredOwner` fail-closed)+ CSRF(`isOriginAllowed` same-origin,排除 `PRIVATE_NETWORK_ORIGIN`)+ symlink manifest 拒绝 + `realpathSync` 路径边界 + unloaded plugin fail-closed + 文件大小限。
+- **信任边界结论**:认证 operator 上传插件 ≈ 自己跑 risky skill/MCP/CLI(同一信任类,非新攻击面);签名校验 defer 到"运营插件市场"阶段(防不可信分发)。
+
+### 核心接口（真实代码,intake 落地 `im-connectors/`）
+- `im-connector-plugin.ts` — 统一 `IMConnectorPlugin` 接口(setup/startInbound/handleAction/createMediaDownloader 等)
+- 7 个内置 connector 迁到 `im-connectors/{feishu,telegram,dingtalk,weixin,wecom-bot,wecom-agent,xiaoyi}/`(`*Adapter.ts` + `index.ts` + `connector.yaml`)
+- `im-connector-loader.ts` / `im-connector-config-store.ts` / `connector-action-handler.ts` / `external-connector-registry.ts` / `plugins/{im-connector-manifest,plugin-installer}.ts`
+
+### 与家里 feature 关系
+- **F088/F124**:connector runtime/transport(被本架构复用;adapter 从 `connectors/adapters/` 迁 `im-connectors/`)
+- **F202**:plugin framework(共用 ConfigField 类型 + config store 模式;KD-15 跨 cell)
+- **F190**:connector 配置写安全 boundary(本架构写端点须继承 sessionUserId/owner/redaction/audit)
+- **F142**:connector slash commands(并存)
 
 ## Blocking / Open Questions（intake 前必须解决）
 
