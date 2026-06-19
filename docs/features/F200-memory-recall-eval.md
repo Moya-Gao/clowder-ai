@@ -354,7 +354,7 @@ outputVerified = signal_or(
 #### 优先级与 sequencing
 
 1. ~~**P0 紧急**：HW-6 FTS Progressive Relaxation~~ ✅ merged PR #2426 (`ce3c6fafa`)
-2. **P1 跟进**：HW-7 Telemetry 三态校准 + Eval Correctness（shadow baseline + adapter 归因）
+2. ~~**P1 跟进**：HW-7 Telemetry 三态校准 + Eval Correctness（shadow baseline + adapter 归因）~~ ✅ merged PR #2427
 3. **已完成**：SW-1 + SW-2（1-2 天 markdown，立刻可验证 + 立刻可迭代）
 4. **持续做**：dogfood 自吃猫粮（让 consumption 数据涨 + 让 skill 在真实使用下迭代修订）
 5. **1-2 周后**：基于软实力使用反馈定 HW-1 spec（避免错坐标系硬实力）
@@ -497,6 +497,7 @@ outputVerified = signal_or(
 | 2026-05-26 | AC-D2 signal sources merged（PR #1898，squash `7a4f40871`）— ThreadAwareSignalSources: CVO accept + reviewer approval（clause-anchored whitelist + negation-first + isNonApprovalContext 三重 guard）、CI passed（fingerprint alignment）、PR merged（CiCdRouter prState 持久化）。砚砚 5 轮 local review（3 P1 修复：English clause-anchoring / colon separator → tagged pattern / 没问题 question guard）+ 云端 codex 15 轮（19 inline findings 全 triage：14 fixed + 5 P3 dismiss）。48 tests（27 message + 21 task/integration）。 |
 | 2026-06-19 | **召回崩盘根因诊断**（opus-48 初诊 + opus-46 代码验证 + opus-47 T1 确认 + 砚砚独立复核）：consumedAt3 下跌 = 75% 空结果率，根因 FTS5 AND-all 对长查询失败（14词→0/2词→550/1词→958）+ shadow=live 数学恒等（on 模式存 reranked 为 shadow）+ telemetry result_count=NULL 占 90%。CVO 拍板 → HW-6 P0 FTS relaxation + HW-7 P1 telemetry+eval correctness，不开新 F号，归 F200 v1.2 |
 | 2026-06-19 | **HW-6 FTS Progressive Relaxation merged**（PR #2426, squash `ce3c6fafa`）— 新 `fts-query-builder.ts` 三级渐进放松：AND-all → Strong-AND+weak-OR → OR-all。strong/weak token 分类（entity IDs/CJK/≥4 char = strong）。FTS5 explicit AND before paren OR fix（云端 P2）。集成 `searchWithMeta` + `searchPassages`。12 tests + 全套 memory 1477 pass。gpt52 local review APPROVE + 云端 codex 2 轮（R1 1 P2 修复 + R2 0 P1/P2）|
+| 2026-06-19 | **HW-7 Telemetry 三態校准 + Eval Correctness merged**（PR #2427）— 三件修复：(1) `computeSearchQuality` 三態校准（`resultCount=NULL` 不算 zero-hit）+ `observedSearches` 精确分母；(2) `applyConsumptionRerank` shadow baseline 用 partition 前原始 BM25 顺序（Cloud-P2 修复 lexical protection 偏差）+ shadow mode 存 would-be reranked order（Cloud-P1-3 修复 shadow≡live 零信号）；(3) `eval-memory-adapter` 加 `search_zero_hit_rate` 为 recall 首要信号。gpt52 local review APPROVE + 云端 codex 3 轮（R1 1P1+1P2 修复 + R2 1P1 shadow-mode 修复 + R3 0 P1/P2）。17 tests（4 HW-7 telemetry + 13 consumption-rerank）全绿 |
 | 2026-06-05 | B' shadowConsumedMRR measurement asymmetry fix merged（PR #2108，squash `3e2effdf7`）— eval:memory cron 4-day "6.7× shadow:live divergence" 是 1/c (c≈0.149 consumed-rate, 1/c=6.71) 假警报，不是 ranker 问题：`shadowConsumedMRR` 分母 = shadow-subset rows，`core.consumedMRR` 分母 = 全集 rows，两 metric 永远不可直接比较。修法：加 `liveOnShadowSubsetMRR` mirror metric（same subset filter + live rank，独立 numerator + shared denominator），`shadowConsumedMRR / liveOnShadowSubsetMRR` 现可作 apples-to-apples ratio。新增 3 个 F200-B' tests + 2 个 regression（codex review P1 "shadow miss must NOT mute live mirror" + codex non-blocker "mixed consumed ranks take min over non-negative"），总 40 tests pass。砚砚 3 轮 local review（1 P1 + 1 non-blocker 均已修）+ 云端 codex no major issues。Backward compat：`shadowConsumedMRR` 字段语义不变（adapter/web panel 不破）；`computeCore.consumedMRR` 同有 -1 rank latent pattern out-of-scope。 |
 
 ## Plan Gate Checklist（writing-plans 前必须解决）
