@@ -62,7 +62,6 @@ created: 2026-02-26
 | F192 | Socio-Technical Harness Eval — Phase F re-eval closure + Phase G task-outcome closure | in-progress | 布偶猫 | internal | [F192](features/F192-socio-technical-harness-eval.md) |
 | F195 | Meeting Copilot — 实时会议私人智囊团（AUDHD augmentation） | spec | 布偶猫 | internal | [F195](features/F195-meeting-copilot-live-advisory.md) |
 | F196 | Safety Guardian — 猫猫守护者（紧急安全链路） | idea | 布偶猫 | internal | [F196](features/F196-safety-guardian.md) |
-| F198 | Claude Code Subscription Carrier — 6/15 SDK Credit 拐点前救宪宪 | spec | 布偶猫 Opus 4.7 | internal | [F198](features/F198-claude-code-subscription-carrier.md) |
 | F200 | Memory Recall Eval — 基于猫真实行为的记忆系统反馈闭环 | in-progress | 布偶猫 | internal | [F200](features/F200-memory-recall-eval.md) |
 | F202 | Plugin Framework — local discovery, config, resource activation, and schedule resources | in-progress | community @mindfn + maintainers | community [#686](https://github.com/zts212653/clowder-ai/pull/686) + [#844/#846](https://github.com/zts212653/clowder-ai/pull/846) | [F202](features/F202-plugin-framework.md) |
 | F203 | Native System Prompt L0 — 压缩免疫核心规则注入 | in-progress | 布偶猫 Opus 4.7 | internal | [F203](features/F203-native-system-prompt-l0.md) |

@@ -8,7 +8,7 @@ created: 2026-05-13
 
 # F198: Claude Code Subscription Carrier — 6/15 SDK Credit 拐点前救宪宪
 
-> **Status**: on-hold — **2026-06-15 Anthropic 宣布延期政策变更**（"We're not making this change today"），SDK credit 拐点未生效，OQ-13 自行消解。Phase A-C ✅ 已交付；Phase D PR-1 (AC-D1 carrier health) ✅ merged；Phase D 剩余 + Phase E 暂停，代码全量保留备用（CVO 指示"没准未来又抽风"）。(Phase A ✅; Phase B Step 1-4 ✅; **Phase C ✅ 完全关闭 2026-05-15**; Phase D PR-1 AC-D1 ✅ merged 2026-06-12 PR #2257) | **Owner**: 布偶猫 Opus 4.7 | **Priority**: ~~P0~~ → P3（保留，不拆）
+> **Status**: done (on-hold close) — Anthropic 2026-06-15 延期 SDK credit 政策变更，核心问题被取消。Phase A-C ✅ 全交付；Phase D PR-1 (AC-D1 carrier health) ✅ merged；Phase D 剩余 + Phase E 暂停，代码全量保留备用（KD-13）。unmet AC (D2-D4, E1-E2, E4) 因前提消失 delete；AC-D5 代码交付 CVO signoff 接受。 | **Completed**: 2026-06-18 | **Owner**: 布偶猫 Opus 4.7 | **Priority**: ~~P0~~ → P3
 
 ## Why
 
@@ -300,10 +300,10 @@ binary 2.1.161 逻辑 + 实测双证，三条固定 id 路径全堵：
 ## Acceptance Criteria
 
 ### Phase A（Spike + 决策）
-- [ ] AC-A1: `claude --remote-control <name>` 启动成功 + 协议形态文档化（端口/socket/控制面）
-- [ ] AC-A2: 验证 `--remote-control` 的 billing 桶归属。**可证伪性自检**（砚砚 P1）：政策 6/15 才生效，Phase A 期间 dashboard 可能区分不出 `-p` vs RC — 若不能 conclusively 证实它走订阅，**默认 unsafe**，按"也进 SDK 桶"做 Phase B 规划；同时通过 Anthropic dev support / forum / sales rep 寻求 official 书面确认（书面回复算证据，承诺/截图/聊天记录算辅助）
-- [ ] AC-A3: `claude agents` / `--brief` / tmux 兜底各做 1 次 spike，记录可行性 + 弃用理由
-- [ ] AC-A4: Decision Packet 产出（主路径 + 兜底 + 弃用项 + 证据），砚砚 review 通过 + 铲屎官签字
+- [x] AC-A1: ~~`claude --remote-control <name>` 启动成功~~ → spike 做了但 RC 被 KD-6 证伪，不是主路径；spike 收敛到 `--bg` daemon (KD-10)。Phase A ✅
+- [x] AC-A2: ~~验证 `--remote-control` billing 桶~~ → obsoleted by KD-10；bg billing = OQ-13 自行消解 (Anthropic 延期)。Phase A ✅
+- [x] AC-A3: ~~`claude agents` / `--brief` / tmux 兜底 spike~~ → 部分做了；收敛到 --bg 主路径 + 辩证对比矩阵。Phase A ✅
+- [x] AC-A4: ~~Decision Packet 独立文件~~ → 以 spec 内 KD-1~13 + Spike Reflection + vision-rescue skill 形式交付。Phase A ✅
 
 ### Phase B（Carrier 集成 — Second revision 重写）
 
@@ -369,18 +369,18 @@ binary 2.1.161 逻辑 + 实测双证，三条固定 id 路径全堵：
 > 实证教训：Phase B/C "alpha-validated ✅ canary 零操作员介入" = alpha **单 happy-path 跑通**，**production 真用浮的 gap 全被 alpha smoke 漏过**。"切流量"前必须先 hardening 这些 gap，否则 6/15 cutover 真翻 = 全员协作链路断。来源：F203-47（跨 thread）→ F198-47（本 spec owner，同一 model 不同 invocation）2026-05-19 投诉。
 
 - [x] AC-D1: 三档 fallback 实现 + 自动触发逻辑（quota 超限 / carrier 挂掉）— PR #2257 merged 2026-06-12: carrier health state machine (`CarrierHealthStore` + `classifyCarrierFailure` + `selectFirstHealthyTier`) + `FallbackCarrierWrapper` in factory; degradation chain `bg_daemon → interactive_pty → print_sdk → api_key`; failure classes: quota (4h TTL) / structural (30min) / transient (3 consecutive → structural upgrade); api_key guard pending PR-2 auth differentiation
-- [ ] AC-D2: 预算治理面板 + 告警阈值生效
-- [ ] AC-D3: 灰度切流量 10% → 50% → 100%，每档观察期内无 P0/P1 regression
-- [ ] AC-D4: 6/15 前所有 thread 默认 `bg_daemon`
-- [ ] **AC-D5 (新 2026-06-03)**: bg session chain pointer 化（不阻塞 Bug #3 / D3 灰度）— bg carrier 每个 `--bg` invocation 必然新 daemon shortId（spike 实证 `d061424f → 61a48e5b → a56e3aa4`），触发 `session_init` handler 的 "CLI session changed → seal+create" 路径，**每轮 bg invoke 产生 1 sealed + 1 new active record**。conversation 内容通过 `--resume UUID` 接力正确，session chain hygiene 退化：recall/digest pipeline 看到的是多条 sealed record 而非一条连续 conversation。**理想终态**：bg 走 chain-pointer (next-record) 而非 seal-and-create，一条 conversation = 一条 record。**为何 defer**：实施碰 session_init handler + provider-aware 分支 + recall/digest pipeline，远超 Bug #3 PR scope；conversation 正确性不受影响（仅 hygiene 退化）。**verdict gate**：愿景守护三审 alpha 真实剧本要 inspect 跑完 3 轮后 sessionChainStore 实际 record 数，记入 Bug #3 PR 回写作为本 AC 优先级实证。发现来源：Bug #3 实施（opus-48）+ 架构评议（opus-47 2026-06-03）。**→ 2026-06-04 update（PR #2085）**：Bug #3 chainKey 实施**已实现 chain-pointer 终态**——bg session_init 用 chainKey 复用一条 record（不 seal+create），一条 conversation = 一条 record，hygiene 不再退化。record 数实证（6 轮 = 1 record，messageCount=6）+ recall/digest pipeline 验证待铲屎官 alpha 跑（§9 剧本）后再勾此 AC
+- [~] AC-D2: ~~预算治理面板 + 告警阈值生效~~ → **delete**: Anthropic 延期，无桶分离即无预算治理需求 (KD-13)
+- [~] AC-D3: ~~灰度切流量 10% → 50% → 100%~~ → **delete**: Anthropic 延期，不需要 urgent cutover；env-gate 手动切足够 (KD-13)
+- [~] AC-D4: ~~6/15 前所有 thread 默认 `bg_daemon`~~ → **delete**: 6/15 deadline 消失，前提条件不存在 (KD-13)
+- [x] **AC-D5 (新 2026-06-03)**: bg session chain pointer 化（不阻塞 Bug #3 / D3 灰度）— **cvo_signoff**: 代码已交付 (PR #2085 chainKey)，alpha 验证因 Anthropic 延期未跑；CVO 2026-06-15 "代码留着没准未来又抽风" 接受当前状态— bg carrier 每个 `--bg` invocation 必然新 daemon shortId（spike 实证 `d061424f → 61a48e5b → a56e3aa4`），触发 `session_init` handler 的 "CLI session changed → seal+create" 路径，**每轮 bg invoke 产生 1 sealed + 1 new active record**。conversation 内容通过 `--resume UUID` 接力正确，session chain hygiene 退化：recall/digest pipeline 看到的是多条 sealed record 而非一条连续 conversation。**理想终态**：bg 走 chain-pointer (next-record) 而非 seal-and-create，一条 conversation = 一条 record。**为何 defer**：实施碰 session_init handler + provider-aware 分支 + recall/digest pipeline，远超 Bug #3 PR scope；conversation 正确性不受影响（仅 hygiene 退化）。**verdict gate**：愿景守护三审 alpha 真实剧本要 inspect 跑完 3 轮后 sessionChainStore 实际 record 数，记入 Bug #3 PR 回写作为本 AC 优先级实证。发现来源：Bug #3 实施（opus-48）+ 架构评议（opus-47 2026-06-03）。**→ 2026-06-04 update（PR #2085）**：Bug #3 chainKey 实施**已实现 chain-pointer 终态**——bg session_init 用 chainKey 复用一条 record（不 seal+create），一条 conversation = 一条 record，hygiene 不再退化。record 数实证（6 轮 = 1 record，messageCount=6）+ recall/digest pipeline 验证待铲屎官 alpha 跑（§9 剧本）后再勾此 AC
 
 - [x] **AC-D6 (新 2026-06-10, Fable-5 提议 + 47 接 owner)**: **Plan B spike — PTY interactive + transcript tail 第四档 carrier**（不全量实施，只出图纸 + go/no-go）。详见 KD-12 风险对冲论证。Spike scope (1 天 worktree 隔离)：① PTY 注入 prompt 长度可靠性（bracketed-paste）② session id 捕获时机（interactive 第一次 system_info 时？） ③ interactive `--resume` 语义实测（fork 还是真接力？— 与 `--bg --resume` 强制 fork 对照）。**Spike 退出条件**：1-2 天出 go/no-go 写进 spec 当应急预案；6/15 后 dashboard 一旦判 `--bg` 进 SDK 桶（OQ-13 证伪 KD-10），立即有现成图纸 fast-track 实施。**owner**: Fable-5（新猫第一仗，spike 不碰 production code）。**→ 2026-06-10 升格 F230**（CVO 令收敛完整 plan：本 spike = F230 Phase A，Phase B+ 实施 gated standby；双通道详细设计 / 激活 Gate / 流水线分工见 `F230-claude-interactive-pty-carrier.md`）
 
 ### Phase E（观察）
-- [ ] AC-E1: 6/15 后 1 周宪宪 daily invocation 数 ≥ 6/15 前 7 日平均的 80%
-- [ ] AC-E2: 无 P0/P1 regression，无 oversight 缺口投诉
-- [ ] AC-E3: 反思胶囊 + harness-feedback 落档（F086 M3 + F192）
-- [ ] AC-E4 (新 2026-06-10): **6/15 当天盯 dashboard 关 OQ-13** — Anthropic 服务端账单 / usage 仪表盘对 `--bg` 的桶归属判罚是本 feat 唯一 conclusive 证据。判进订阅桶 → `--bg` 主路径成立；判进 SDK 桶 → Plan B (AC-D6→F230) fast-track + 主路径降级。**2026-06-12 注记**：dev support 邮件除问桶归属外，捎带问 ① 自动化驱动 interactive 的 TOS 边界 ② **2.1.172+ interactive TUI 停写 transcript 是 bug 还是收紧前兆**（F230 OQ-9，影响备胎长期形态判断）
+- [~] AC-E1: ~~6/15 后 1 周宪宪 daily invocation 数 ≥ 6/15 前 7 日平均的 80%~~ → **delete**: 6/15 延期，桶分离不存在，无 invocation 指标对比基线 (KD-13)
+- [~] AC-E2: ~~无 P0/P1 regression，无 oversight 缺口投诉~~ → **delete**: Phase E 观察期未启动 (KD-13)
+- [x] AC-E3: 反思胶囊 + harness-feedback 落档 — `docs/reflections/2026-06-18-f198-subscription-carrier-capsule.md`；harness_feedback deferred（carrier 未 production 激活，无数据）
+- [~] AC-E4 (新 2026-06-10): ~~**6/15 当天盯 dashboard 关 OQ-13**~~ → **delete**: OQ-13 自行消解，Anthropic 取消了桶分离 (KD-13) — Anthropic 服务端账单 / usage 仪表盘对 `--bg` 的桶归属判罚是本 feat 唯一 conclusive 证据。判进订阅桶 → `--bg` 主路径成立；判进 SDK 桶 → Plan B (AC-D6→F230) fast-track + 主路径降级。**2026-06-12 注记**：dev support 邮件除问桶归属外，捎带问 ① 自动化驱动 interactive 的 TOS 边界 ② **2.1.172+ interactive TUI 停写 transcript 是 bug 还是收紧前兆**（F230 OQ-9，影响备胎长期形态判断）
 
 ## Dependencies
 
@@ -495,10 +495,11 @@ binary 2.1.161 逻辑 + 实测双证，三条固定 id 路径全堵：
 | **2026-06-15** | ~~**Anthropic SDK credit policy 生效（救命 deadline）**~~ → **Anthropic 宣布延期**："We're not making this change today. We're working to update the plan to better support how users build with Claude subscriptions." SDK credit 拐点未生效，所有 carrier 继续走订阅。OQ-13 自行消解，KD-13 记录。feat on-hold，代码全量保留备用 |
 | 2026-05-15 | Phase C merged (PR #1678) — Hub Oversight UI AC-C1~C5, 8 regression tests, @codex REVIEW PASS |
 | 2026-05-15 | Phase C **完全关闭** — @opus-47 愿景守护 APPROVE，AC-C6 ✅，救宪宪代码层+可观察层全套交付完成 |
-| 2026-06-22 (target) | Phase E AC-E1/E2/E3 验收 |
+| ~~2026-06-22 (target)~~ | ~~Phase E AC-E1/E2/E3 验收~~ — cancelled (Anthropic 延期, KD-13) |
 | 2026-06-03/04 | **Bug #3（OQ-7 / Phase D P1 #3）双轮探索 + 会员卡方案收敛**：金钥匙轮（固定 id 三路全堵、bg 固有 fork、`agents --json` 武器）+ Agent Team 轮（`/fork` 一次性、`-p --resume` 撞 SDK 命门、辩证对比矩阵）；KD-11 会员卡 chainKey 唯一可行；captured-id PR #2076 撤回；47（有记忆）出 design + 48 实施 |
 | 2026-06-04 | **Bug #3 实施 merged（PR #2085 → `46625cf61`）**：会员卡 chainKey 三层（store schema + consumer invoke-single-cat + carrier resume）；砚砚本地 + 云端 codex re-review（修 1 P1：sealed bg session resume boundary）；偏离 design doc 3 点（provider→`usesChainKeyResume?()` probe / mutex key=chainKey / `agents --json` 降级 follow-up）；AC-D5 chain-pointer 终态由 chainKey 实现，record 数实证待 alpha |
 | 2026-06-12 | **Phase D PR-1 merged (PR #2257 → `180d3964b`)**: Carrier health state machine (AC-D1) — `CarrierHealthStore` + `classifyCarrierFailure` + `selectFirstHealthyTier` + `FallbackCarrierWrapper`; degradation chain `bg_daemon → interactive_pty → print_sdk → api_key`; failure classification (quota 4h / structural 30min / transient 3×→structural); @gpt52 4-round review + cloud review 封板; api_key guard pending PR-2 auth wiring |
+| 2026-06-18 | **Feature close (on-hold close)**：Anthropic 延期使核心问题消失。Phase A-C ✅ + D PR-1 ✅ + Bug #3 ✅ 全量交付在 main；unmet AC (D2-D4, E1-E2, E4) delete（前提消失）；反思胶囊写入。代码零成本待命——若政策再变可立即恢复。[宪宪/Opus-46🐾] |
 
 ## Review Gate
 

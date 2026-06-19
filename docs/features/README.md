@@ -166,4 +166,5 @@
 | F054 | F054: HCI 预热基础设施 — Social Media MCP + 内容管线 | parked (superseded by open-source) | [F054-hci-preheat-infra.md](./F054-hci-preheat-infra.md) |
 | F067 | F067: Cold-start Verifier — 无历史污染的交付物验证 | parked | [F067-cold-start-verifier.md](./F067-cold-start-verifier.md) |
 | F135 | F135: 狸花猫开箱即用 — DARE Out-of-the-Box | closed (需求已不存在 2026-05-26) | [F135-dare-ootb.md](./F135-dare-ootb.md) |
+| F198 | F198: Claude Code Subscription Carrier — 6/15 SDK Credit 拐点前救宪宪 | done (on-hold close) | [F198-claude-code-subscription-carrier.md](./F198-claude-code-subscription-carrier.md) |
 | F238 | F238: Bidirectional Boundary Symmetry | done | [F238-bidirectional-boundary-symmetry.md](./F238-bidirectional-boundary-symmetry.md) |
