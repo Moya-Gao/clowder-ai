@@ -74,7 +74,7 @@ type EuthanasiaKind =
 
 - **事件流轨（≥ Phase B 上线时刻 = 2026-06-15 PR #2301 merge）**：直接读 `BallCustodyEventLog` → trajectory projector 投影成 feat 维度（ball-shaped kinds：`launched` / `phase_transition` / `verdict` / `thread_split` 等）
 - **历史回填轨（< Phase B 上线时刻）**：stitched 拼接 (feat_index + feature doc Timeline + git log + thread keyword + F192 verdict 流)，每条标 provenance + 置信度，**明示考古拼接而非账本**
-- **git ref 轨（OQ-8 收敛锁定 — F188 Phase K 提包球 case 实证驱动）**：server-side cron census 扫 remote `fix/*` / `feat/*` refs + GitHub PR API map → trajectory projector 投影成 **git-shaped kinds**（`branch_pushed` / `pr_opened` / `pr_merged_via_git` / `branch_stale_unmerged`），含 branch existence / PR existence / HEAD commit timestamp / merge-to-main status / author provenance。**不**走 client-side post-push hook（KD-2 单账本 + server-side cron 模式与 Phase B ProbeScheduler 一致）。git-shaped 命名与 ball-custody event 命名**显式解耦**（OQ-8 锁定）：reader-facing 文档可称「提包球」隐喻，schema 层面是 git ref state 投影非球权事件。F188 Phase K case 作 C2a regression fixture：projector 必须能把"已 push、无 PR、最后 commit 时间晚于最后 thread/message 痕迹"的状态 surface 出来（`branch_stale_unmerged` event with 完整 provenance）。
+- **git ref 轨（OQ-8 收敛锁定 — F188 Phase K 提包球 case 实证驱动）**：server-side cron census 扫 remote `fix/*` / `feat/*` refs + GitHub PR API map → trajectory projector 投影成 **git-shaped kinds**（`branch_pushed` / `pr_opened` / `branch_merged_to_main` / `branch_stale_unmerged`），含 branch existence / PR existence / HEAD commit timestamp / merge-to-main status / author provenance + **feat/thread join fields**（砚砚 C2a preflight P2-1 修正：缺 join 字段 fixture 只能证"有 stale branch"不能证"是 F188 的提包球"）。**不**走 client-side post-push hook（KD-2 单账本 + server-side cron 模式与 Phase B ProbeScheduler 一致）。git-shaped 命名与 ball-custody event 命名**显式解耦**（OQ-8 锁定，P3 修正：`pr_merged_via_git` → `branch_merged_to_main`，避免混合 naming——它是 git ref state 不是 PR 事件；`pr_opened` 保留因为来源真是 GitHub PR map）：reader-facing 文档可称「提包球」隐喻，schema 层面是 git ref state 投影非球权事件。F188 Phase K case 作 C2a regression fixture：projector 必须能把"已 push、无 PR、最后 commit 时间晚于最后 thread/message 痕迹"的状态 surface 出来（`branch_stale_unmerged` event with 完整 provenance + feat/thread join 字段 prove "this is F188 的提包球"）。
 
 ### Projector 设计
 
@@ -87,8 +87,8 @@ interface FeatTrajectoryEntry {
     | 'launched' | 'phase_transition' | 'pr_merged' | 'verdict' | 'thread_split' | 'thread_merge' | 'closed' | 'reopened'
     // historical stitched 回填（< Phase B 上线时刻）
     | 'historical_stitched'
-    // git ref snapshot（OQ-8 收敛 + F188 regression fixture，git-shaped 显式解耦）
-    | 'branch_pushed' | 'pr_opened' | 'pr_merged_via_git' | 'branch_stale_unmerged';
+    // git ref snapshot（OQ-8 收敛 + F188 regression fixture，git-shaped 显式解耦 + 砚砚 P3 修正）
+    | 'branch_pushed' | 'pr_opened' | 'branch_merged_to_main' | 'branch_stale_unmerged';
   source: 'event-stream' | 'historical-stitched' | 'git-ref-snapshot';
   provenance?: {
     confidence: 'high' | 'medium' | 'low';
@@ -101,10 +101,33 @@ interface FeatTrajectoryEntry {
 
 `FeatTrajectoryProjector` 从 **ball-custody event stream + git ref snapshot + GitHub PR map + feat 元数据** 三源 join 投影。各源 contract：
 - **event-stream source contract**：`subjectKey` 匹配 feat thread / task，时间窗 ≥ 2026-06-15
-- **git-ref-snapshot source contract**（OQ-8 锁定）：`{ branchName, headCommitSha, headCommitAt, prNumber|null, prState|null, mergedToMain|null, authorIdentity }`，最少字段
+- **git-ref-snapshot source contract**（OQ-8 锁定 + 砚砚 P2-1 修正补 feat/thread join 字段）：
+  - **git 层最少字段**：`{ branchName, headCommitSha, headCommitAt, prNumber|null, prState|null, mergedToMain|null, authorIdentity }`
+  - **feat/thread join 字段**（F188 fixture 必须）：`{ featureCandidates: string[], associatedThreadIds: string[], lastThreadMessageAt: number|null, lastThreadActivityAt: number|null }`
+  - **join 字段 provenance**：`{ confidence: 'high'|'medium'|'low', joinedVia: ('feat_index'|'thread_keyword'|'commit_message_F#'|'branch_name_F#')[] }`——`featureCandidates` 因 branch 命名 `fix/f188-*` / commit message `F188:` / feat_index 关联等启发式可能多候选，confidence 反映 join 强度
 - **historical stitched source contract**：feat_index entry / git log commit + 关联 thread 锚点 + F192 verdict 流
 
 historical stitch 是一次性脚本（不进 projector，避免双写），跑完落 `FeatTrajectoryStore` 同一 key space；git ref snapshot 走 server-side cron tick（与 ProbeScheduler 同 pattern），落同一 store；read 时同读三源。
+
+### Collector/Projector 分层 + 幂等键（砚砚 C2a preflight P2-2 修正，照 Phase B `sourceEventId` Lua append 幂等模式）
+
+**架构分层**（必须，否则 projector 不纯）：
+- **`GitRefSnapshotCollector`**：所有 git/gh IO（`git ls-remote` + GitHub PR REST API + feat_index lookup + thread search join）住在 collector，**不在 projector**。Collector 产 snapshot DTO 喂 projector。
+- **`FeatTrajectoryProjector`**：纯函数 / 零 IO / 零副作用（与 Phase B `BallCustodyProjector` 同 pattern）；只消费 snapshot DTO + 写 FeatTrajectoryStore。Rebuild 安全（replay collector outputs → 同结果）。
+
+**git-shaped entry 幂等键**（必须，否则 cron tick 重复鞭打 store）：
+
+`gitRefEntryId = git-ref:{branchName}:{headCommitSha}:{kind}:{prState ?? 'none'}:{mergedToMain ?? 'unknown'}`
+
+- 同 `gitRefEntryId` 在 store 是 **upsert**（不 append），保持单一条目反映最新 state
+- Cron tick 只在以下条件产生/更新 entry：
+  - branch head 变化（新 commit push）→ 新 `headCommitSha` → 新 entry id
+  - PR state 变化（`open`/`closed`/`merged`）→ 新 entry id
+  - merge-to-main status 变化 → 新 entry id
+  - **stale bucket 首次跨阈值**（24h → 72h → 7d → 30d）→ 新 `branch_stale_unmerged` entry id 含 bucket 标记
+- Cron tick 在 branch 无任何 state 变化时**不产生新 entry**（去重 / 防鞭打）
+
+幂等键设计与 Phase B `BallCustodyEvent.sourceEventId` 同模式（store 层 idempotent insert），rebuild = replay collector outputs 安全。
 
 ### Surface（OQ-C-3 待 Design Gate）
 
