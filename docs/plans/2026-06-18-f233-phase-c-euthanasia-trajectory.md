@@ -101,10 +101,17 @@ interface FeatTrajectoryEntry {
 
 `FeatTrajectoryProjector` 从 **ball-custody event stream + git ref snapshot + GitHub PR map + feat 元数据** 三源 join 投影。各源 contract：
 - **event-stream source contract**：`subjectKey` 匹配 feat thread / task，时间窗 ≥ 2026-06-15
-- **git-ref-snapshot source contract**（OQ-8 锁定 + 砚砚 P2-1 修正补 feat/thread join 字段）：
-  - **git 层最少字段**：`{ branchName, headCommitSha, headCommitAt, prNumber|null, prState|null, mergedToMain|null, authorIdentity }`
+- **git-ref-snapshot source contract**（OQ-8 锁定 + 砚砚 P2-1 修正补 feat/thread join 字段 + 砚砚 step 3.6/4 护栏补真实 PR timestamps + entry.at per-kind contract）：
+  - **git 层最少字段**：`{ branchName, headCommitSha, headCommitAt, prNumber|null, prState|null, mergedToMain|null, prOpenedAt|null, prMergedAt|null, authorIdentity }`
   - **feat/thread join 字段**（F188 fixture 必须）：`{ featureCandidates: string[], associatedThreadIds: string[], lastThreadMessageAt: number|null, lastThreadActivityAt: number|null }`
   - **join 字段 provenance**：`{ confidence: 'high'|'medium'|'low', joinedVia: ('feat_index'|'thread_keyword'|'commit_message_F#'|'branch_name_F#')[] }`——`featureCandidates` 因 branch 命名 `fix/f188-*` / commit message `F188:` / feat_index 关联等启发式可能多候选，confidence 反映 join 强度
+  - **真实 PR timestamps**（砚砚 step 3.6 护栏，避免 collectedAt 伪装真实事件时间污染轨迹）：`prOpenedAt` 必须从 GitHub PR API `created_at` 真实拿；`prMergedAt` 从 `merged_at` 真实拿；API 失败 / PR 不存在 → null → projector skip emit `pr_opened` / `branch_merged_to_main`
+  - **`entry.at` per-kind 真实事件时间 contract**（砚砚 step 4 护栏：观测时间不能伪装真实时间）：
+    - `branch_pushed.entry.at = headCommitAt`（git commit 真实 push 时间）
+    - `pr_opened.entry.at = prOpenedAt`（GitHub PR API `created_at`，null 则不 emit）
+    - `branch_merged_to_main.entry.at = prMergedAt`（GitHub PR API `merged_at`，null 或非 mergedToMain 则不 emit；不偷扩成所有 branch merge——future "无 PR 但 branch 已 merge" 走单独 source / kind / DTO field）
+    - `branch_stale_unmerged.entry.at = headCommitAt + bucket-threshold-ms`（首次跨阈值时刻，派生但语义清晰；不用 `collectedAt` 伪装）；`payload.detectedAt = collectedAt` 记 cron observation 真实时间
+  - **multiCandidatePolicy default `'skip-low-confidence'`**（砚砚 step 2/4 护栏，避免 projector featureCandidates[0] 被误用）：0 candidates → skip / low confidence → skip / multi-candidate (即使 high) → skip / single high|medium confidence → emit。F188 fixture 路径 = single high-confidence (branch_name_F# + commit_message_F# 双证据 OR feat_index anchor)
 - **historical stitched source contract**：feat_index entry / git log commit + 关联 thread 锚点 + F192 verdict 流
 
 historical stitch 是一次性脚本（不进 projector，避免双写），跑完落 `FeatTrajectoryStore` 同一 key space；git ref snapshot 走 server-side cron tick（与 ProbeScheduler 同 pattern），落同一 store；read 时同读三源。
