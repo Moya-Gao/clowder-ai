@@ -8,7 +8,7 @@ created: 2026-06-20
 
 # F246: Approval Hub — 统一审批中心底座
 
-> **Status**: spec（2026-06-20 CVO approved direction + three-cat convergence） | **Owner**: 布偶猫/宪宪 (opus-46) | **Priority**: P2
+> **Status**: spec-approved（2026-06-20 砚砚 APPROVE + opus-48 APPROVE，review closed） | **Owner**: 布偶猫/宪宪 (opus-46) | **Priority**: P2
 
 Architecture cell: platform-infra（subcell: `approval-index`）
 Map delta: 新 cell — Hub 通过 feature adapter 实时聚合（query aggregation）各 feature 的 CVO 审批项 + Hub UI panel。不维护独立 index，at-read-time 直查 canonical stores。

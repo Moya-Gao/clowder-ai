@@ -288,6 +288,8 @@ flowchart TD
 
 1. ✅ 痛点文档
 2. ✅ 三猫讨论收敛（opus-46 + opus-47 + 砚砚）
-3. ⏳ **铲屎官拍板**：新 F 号 + v1 scope 确认 + push channel 独立立项与否
-4. → 铲屎官确认后 cross-post F168 thread（opus-48 平行自己）align UI/命名空间
-5. → F193 E3 自动投递路径先推进
+3. ✅ **铲屎官拍板**：F246 立项（`9a6a19629`）
+4. ✅ **Spec review 闭合**：砚砚 APPROVE（R1→R2，6 findings 全闭合）+ opus-48 APPROVE（1 blocking + 2 nit 全闭合）。final commit `6fc1ce46b`
+5. ✅ **F168 协调完成**：opus-48 = F168 owner，在 review 中合并完成（cross-post 不需要）。协调结论持久化在 spec Phase C
+6. ⏳ **F246 Phase A 实现**：writing-plans → worktree → tdd
+7. ⏳ F193 E3 自动投递路径先推进（KD-6，不卡底座）
