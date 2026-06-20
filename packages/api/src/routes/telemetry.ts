@@ -10,7 +10,8 @@
 
 import type { FastifyPluginAsync } from 'fastify';
 import type { GroundingSampleStore } from '../infrastructure/grounding/grounding-sample-store.js';
-import { hmacId } from '../infrastructure/telemetry/hmac.js';
+import type { ClaimGroundingEvent } from '../infrastructure/grounding/types.js';
+import { hmacId, validateSalt } from '../infrastructure/telemetry/hmac.js';
 import type { LocalTraceStore } from '../infrastructure/telemetry/local-trace-store.js';
 import type { MetricsSnapshotStore } from '../infrastructure/telemetry/metrics-snapshot-store.js';
 import { parsePrometheusText } from '../infrastructure/telemetry/metrics-snapshot-store.js';
@@ -223,11 +224,65 @@ export const telemetryRoutes: FastifyPluginAsync<TelemetryRoutesOptions> = async
       return reply.status(503).send({ error: 'Grounding sample store not available' });
     }
 
-    const samples = opts.groundingSampleStore.getSamples();
+    // Cloud review P2: groundingSampleStore is wired independently of
+    // initTelemetry(), so HMAC salt may be unavailable even when the store
+    // is non-null. Return 503 (F192 adapter graceful degradation) instead
+    // of letting hmacId() throw → 500.
+    try {
+      validateSalt();
+    } catch {
+      return reply.status(503).send({ error: 'Telemetry HMAC salt not available — redaction cannot run' });
+    }
+
+    const rawSamples = opts.groundingSampleStore.getSamples();
+    const samples = rawSamples.map(redactGroundingSample);
     const stats = opts.groundingSampleStore.getStats();
     return { samples, stats };
   });
 };
+
+/**
+ * PR-O2b-fix: Redact system identifiers from grounding sample events
+ * before returning them via the telemetry API.
+ *
+ * Spec L828 whitelist: "只存 sourceRef + hash/status"
+ * - invocationId / threadId / sourceThreadId → hmacId() (match traces endpoint)
+ * - claimSummary → removed (free-text hold reason, outside spec whitelist)
+ * - All other fields preserved (sourceRef, verdict, resolver, etc.)
+ */
+export function redactGroundingSample(event: ClaimGroundingEvent): Omit<ClaimGroundingEvent, 'claimSummary'> & {
+  invocationId: string;
+  threadId: string;
+  sourceThreadId?: string;
+} {
+  const { claimSummary: _removed, ...rest } = event;
+
+  // Redact all string fields in waitSourceRef outside spec L828 whitelist.
+  // Only enum (kind) and numeric (slaUntilMs) are structural — everything
+  // else is a free string that can carry PII depending on kind:
+  //   value: reporter handle / message ID / task ID for non-github kinds
+  //   anchorRef: raw messageId
+  //   expectedSignal: cat-supplied free text
+  let redactedWaitSourceRef = rest.waitSourceRef;
+  if (redactedWaitSourceRef) {
+    redactedWaitSourceRef = {
+      kind: redactedWaitSourceRef.kind,
+      value: hmacId(redactedWaitSourceRef.value),
+      expectedSignal: hmacId(redactedWaitSourceRef.expectedSignal),
+      slaUntilMs: redactedWaitSourceRef.slaUntilMs,
+      ...(redactedWaitSourceRef.anchorRef ? { anchorRef: hmacId(redactedWaitSourceRef.anchorRef) } : {}),
+    };
+  }
+
+  return {
+    ...rest,
+    invocationId: hmacId(event.invocationId),
+    threadId: hmacId(event.threadId),
+    sourceThreadId: event.sourceThreadId ? hmacId(event.sourceThreadId) : undefined,
+    ...(redactedWaitSourceRef ? { waitSourceRef: redactedWaitSourceRef } : {}),
+    ...(rest.freshnessKey ? { freshnessKey: hmacId(rest.freshnessKey) } : {}),
+  };
+}
 
 async function computeRecentErrorRate(getMetricsText?: () => Promise<string>): Promise<number | null> {
   if (!getMetricsText) return null;

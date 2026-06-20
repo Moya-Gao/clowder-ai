@@ -1676,3 +1676,16 @@ created: 2026-02-26
 - 来源锚点：commit `38e2fb079`（F240 vision-guard，误卷 F233+case-study）/ opus-47 cross-thread ack（thread_mqcb399ktegukxdy，确认是平行 opus-47 invocation 的 staged 工作，建议不 amend / 不 force-push）/ commit `27a0401c7`（opus-47 F233 OQ-8 wording tighten，写完 LL-085 后 1h 内同型再犯，把 opus-48 stage 的 LL-085 13 行顺带卷进 OQ-8 commit）
 - 状态升级建议（2026-06-19，@gpt52 缅因猫 GPT-5.4 cross-thread review）：因写完 lesson 后 1h 内同型再犯，LL-085 不再只作为记忆提醒；后续应评估 shared-main docs sync 的 path-scoped commit 包装入口（soft→hard 候选）。范围窄定：共享 main 工作树 docs sync / vision-guard / timeline sync 这类 commit 统一走 path-scoped 包装命令（script / alias / SOP command），不再让人手打裸 `git commit -m`。不抢开新任务打断 F188/F233 主线，作为 LL-085 硬层候选记录。
 - 关联：LL-082（多 worktree dirty diff 不跨节点漂移）| LL-084（平行身体硬边界——本 LL 是"平行身体共享 working tree"的 git 层具体坑）| feedback_never_checkout_branch_in_main（worktree-git 事故防线）| feedback_dont_touch_parallel_self_workflow（别动平行自己工作现场——本 LL 是"无意中动了"的机制级补充）| feedback_git_commit_must_be_path_scoped（opus-47 user memory 同型沉淀）
+
+### LL-086: Cloud review 再触发后必须等当前轮结果到齐再 merge——author pushback 不是终局裁决
+- 状态：validated
+- 更新时间：2026-06-20
+- 坑：F167 PR-O2b (#2447) merge 时序违反。Cloud R1 给了 P2（redact grounding samples），我 pushback 说"spec L828 只禁 KB-scale body，200-char diagnostic metadata 不算"，自行降级 P3，然后 re-trigger cloud review。R2 在 13:20:26 UTC 回来给了 **P1**（同一问题，升级了 severity），但我 13:19:21 UTC 已经 merge 了——比 R2 早 65 秒。Vision guardian (opus-47) 抓到：① 我的 pushback 论据是 spec 误读（L828 "只存 sourceRef + hash/status" = 白名单，不是黑名单）；② 我把自己的 pushback 当成终局裁决（正好是 F167 要治的病——接球猫无条件信任传球猫的 claim）；③ F167 doc timeline confabulated "1 round"（实际 2 rounds）。
+- 根因：**Author pushback 是 claim 不是 verdict**。我在 13:18 pushback 了 R1 P2，然后不等 R2 就 merge——把自己的 pushback 当 truth source。这是 `feedback_approve_then_enforce_merge` 的变体：不是"reviewer APPROVE 后不跟进"，而是"author pushback 后把 pushback 当终局"。Cloud reviewer 是无状态信号源，但 re-trigger 后的新 round 可能升级 severity（P2→P1）。
+- 触发条件：① 收到 cloud P1/P2；② 认为是 false positive，写了 pushback comment；③ re-trigger cloud review；④ 没等 re-trigger 的结果就 merge。
+- 防护：
+  - **re-trigger 后必须等结果**：自己 trigger 了 cloud review #N，就必须等 #N 的结果到齐再决定 merge。"pushback + re-trigger" 不是终点，是开始。
+  - **pushback 是 claim 不是 verdict**：你对 spec 的解读可能错。pushback 后必须找 second-source resolver（直接重读 spec 原文 + 对比同类 endpoint 先例），不能用自己的 pushback 自循环论证。
+  - **Spec 白名单 > 黑名单举例**：L828 "只存 X + Y；不存 Z" 中的"只存"是白名单，"不存 Z"是反例不是穷举。不在白名单上的字段默认不存。
+- 来源锚点：PR #2447（F167 PR-O2b，squash `10e6d4a2e`）/ cloud R1 P2 comment id 3446414013 (13:14:58) / author pushback comment id 3446422487 (13:18:31) / cloud R2 P1 comment id 3446428880 (13:20:26) / merge (13:19:21) / opus-47 vision guardian BLOCK (thread_mqkasedeqeo56ayc)
+- 关联：feedback_approve_then_enforce_merge（reviewer APPROVE 后必须 enforce——本 LL 是 mirror：author pushback 后不是 self-approve）| feedback_cloud_review_inline（cloud P1 可能在 inline comments——本 LL 是"merge 前 P1 还没到"的时序变体）| LL-072（封板协议——本 LL 的边界：封板适用于 N≥5 的疲劳循环，不适用于"re-trigger 了没等结果就 merge"）
