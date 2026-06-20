@@ -278,16 +278,18 @@ async function expandViaConventionGraph(
 | Step 4-5: matrix build | ~5ms | format + tag |
 | **总计** | **~300-400ms** | 可接受（top-k ~100-150ms） |
 
-## 5. Open Questions（Design Gate 讨论用）
+## 5. Open Questions — Design Gate 决议（2026-06-19，宪宪+砚砚两猫收敛）
 
-| # | 问题 | 我的倾向 | 替代方案 |
-|---|------|---------|---------|
-| OQ-HW1-1 | Coverage 模式是 MCP 新 tool 还是 search_evidence 参数扩展？ | 参数扩展（`intent=coverage`） | 新 tool `coverage_search` |
-| OQ-HW1-2 | Coverage intent 自动触发（检测 query 关键词）还是猫显式请求？ | **两者并存**：SW-3 nudge pattern 自动触发 + 猫也可显式 `intent=coverage` | 只显式 |
-| OQ-HW1-3 | F242 convention graph 是 Step 2 的必选还是可选 expansion source？ | 可选 soft dep（F242 Phase C 未 close） | 等 F242 Phase C close 后才集成 |
-| OQ-HW1-4 | Coverage matrix 输出限制多少条？ | max 50（避免超长输出耗 token） | max 30 / 无上限 |
-| OQ-HW1-5 | Coverage search 的 telemetry——用现有 RecallEvent 还是新 event type？ | 新 event type `CoverageSearchEvent` 继承 RecallEvent + 加 expansion 字段 | 复用 RecallEvent 加字段 |
-| OQ-HW1-6 | 是否需要 shadow mode（coverage search 先不影响排序）？ | 不需要——coverage 不改排序，只改输出格式 | 加 shadow |
+| # | 问题 | 决议 | 理由 |
+|---|------|------|------|
+| OQ-HW1-1 | Coverage 模式是 MCP 新 tool 还是 search_evidence 参数扩展？ | ✅ `search_evidence intent=coverage` | 猫已知工具名，新 tool 降低唤醒率 |
+| OQ-HW1-2 | Coverage intent 自动触发还是猫显式请求？ | ✅ 第一版：显式 `intent=coverage` + SW-3 nudge 继续提示但不改输出；等 telemetry 证明误触率低再升级自动切 | 误判 coverage intent 会污染普通 top-k（砚砚 amendment） |
+| OQ-HW1-3 | F242 convention graph 是 Step 2 的必选还是可选 expansion source？ | ✅ 可选 soft dep | F242 Phase C 未 close；HW-1 可用但不 hard require |
+| OQ-HW1-4 | Coverage matrix 输出限制多少条？ | ✅ max 50 + per-source quota（docs/threads/conventionGraph 各自 cap） | 防止某一类吃满 50（砚砚 amendment） |
+| OQ-HW1-5 | Coverage search 的 telemetry——用现有 RecallEvent 还是新 event type？ | ✅ 新 `CoverageSearchEvent` | RecallEvent 是 top-k consumption；coverage 需记 expansion provenance / bySource / freshness / matrix size / autoTriggered |
+| OQ-HW1-6 | 是否需要 shadow mode？ | ✅ 不需要 shadow，但需要 telemetry：触发率 / 消费率 / 后续 reformulation / F242 stale-skip 率 | Coverage 不改 live ranking，只改输出格式 |
+
+**Architecture Gate**：cell=`memory` primary + `code-intelligence` soft dep | Map delta: `none` | Why: 扩展 memory retrieval surface，F242 只作可重建 code convention evidence source
 
 ## 6. 风险评估
 
@@ -307,9 +309,16 @@ async function expandViaConventionGraph(
 
 ## 8. 下一步
 
-1. 本 research → **Design Gate 讨论**（纯后端 → 猫猫讨论，不需铲屎官拍板 UX）
-2. 砚砚 review（HW-1 原始 5 步 pipeline 是砚砚设计的，需要他确认扩展方向）
-3. Review 收敛后 → writing-plans → worktree → TDD
+1. ~~本 research → Design Gate 讨论~~ ✅ PASS with amendments（2026-06-19，宪宪+砚砚）
+2. ~~砚砚 review~~ ✅ 方向确认，5 个 writing-plan 约束已录入
+3. **进行中** → writing-plans → worktree → TDD
+
+**砚砚补充的 5 个 writing-plan 约束**：
+1. `CoverageSearchService` 不改 `IEvidenceStore.search()` 核心语义
+2. 每条 indirect hit 必须有 `expansionProvenance`，没有 provenance 的 expansion 不进 matrix
+3. F242 edge 只有 `freshness.stale === false` 才参与；stale 时输出 degraded note
+4. Auto-trigger 第一阶段只 nudge，不自动切 coverage
+5. 测试覆盖：普通 top-k 不变 / coverage quota+dedup / F242 unavailable fallback / F242 stale skip / max 50 cap / 所有 indirect rows 带 provenance
 
 ---
 
