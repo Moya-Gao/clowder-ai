@@ -1,0 +1,19 @@
+{
+  "verdictId": "2026-06-20-eval-a2a-c2-void-hold-english-fix",
+  "rawInputs": [
+    {
+      "path": "docs/harness-feedback/snapshots/2026-06-20-F167-eval.yaml",
+      "sha256": "8379722457c196180e1946ed85d8f74621cea670bd42089ab4f8db0b1b2db211"
+    },
+    {
+      "path": "docs/harness-feedback/attributions/2026-06-20-F167-attribution.yaml",
+      "sha256": "044db6fd18fe03b962357ec93acbe23aac333c7f4122141ea105b377de040de8"
+    }
+  ],
+  "generatedAt": "2026-06-20T03:00:26.407Z",
+  "generator": {
+    "name": "eval-a2a-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f192-e-pilot-v1"
+}

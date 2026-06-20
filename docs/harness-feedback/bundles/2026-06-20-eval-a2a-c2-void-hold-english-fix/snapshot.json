@@ -1,0 +1,28 @@
+{
+  "verdictId": "2026-06-20-eval-a2a-c2-void-hold-english-fix",
+  "evalSnapshotId": "eval-F167-2026-06-20",
+  "featureId": "F167",
+  "generatedAt": "2026-06-20T03:00:26.403Z",
+  "window": {
+    "startMs": 1781871317385,
+    "endMs": 1781924405081,
+    "durationHours": 14.75
+  },
+  "components": [
+    {
+      "id": "C2",
+      "name": "exit-check (forced-pass guard)",
+      "confidence": "medium",
+      "activationCounts": {
+        "hint_emitted (mixed routing+verdict)": 6,
+        "c2.verdict_hint_emitted": 4,
+        "c2.checked": 119,
+        "c2.void_hold_checked": 122
+      },
+      "frictionCounts": {
+        "c2.verdict_without_pass_count": 4,
+        "c2.void_hold_hint_emitted": 10
+      }
+    }
+  ]
+}

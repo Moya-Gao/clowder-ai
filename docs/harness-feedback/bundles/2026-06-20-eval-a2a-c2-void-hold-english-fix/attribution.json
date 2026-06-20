@@ -1,0 +1,71 @@
+{
+  "verdictId": "2026-06-20-eval-a2a-c2-void-hold-english-fix",
+  "featureId": "F167",
+  "evalSnapshotId": "eval-F167-2026-06-20",
+  "generatedAt": "2026-06-20T03:00:26.407Z",
+  "findings": [
+    {
+      "id": "AR-2026-06-20-001",
+      "relatedFeature": "F167",
+      "frictionSignal": {
+        "type": "c2.void_hold_hint_emitted",
+        "severity": "low",
+        "confidence": 0.7
+      },
+      "attribution": {
+        "primaryLayer": "harness_misfit",
+        "pipelineOrHuman": "pipeline",
+        "evidence": [
+          {
+            "type": "counter",
+            "anchor": "C2/c2.void_hold_hint_emitted",
+            "excerpt": "c2.void_hold_hint_emitted=10 (baseline c2.void_hold_checked=122, ratio=8.2%)"
+          },
+          {
+            "type": "per-fire-sample",
+            "anchor": "C2/c2.void_hold_hint_emitted/6b90e2407a22fddf",
+            "excerpt": "firedAt=2026-06-20T02:18:35.871Z trigger=en_holdball_space agentId=opus threadSystemKind=product"
+          },
+          {
+            "type": "per-fire-sample",
+            "anchor": "C2/c2.void_hold_hint_emitted/15ba159cb99c5e6e",
+            "excerpt": "firedAt=2026-06-20T02:16:22.645Z trigger=en_hold_ball_underscore agentId=opus threadSystemKind=product"
+          },
+          {
+            "type": "per-fire-sample",
+            "anchor": "C2/c2.void_hold_hint_emitted/787f01096170c228",
+            "excerpt": "firedAt=2026-06-20T02:05:59.316Z trigger=en_hold_ball_underscore agentId=opus-48 threadSystemKind=product"
+          },
+          {
+            "type": "per-fire-sample",
+            "anchor": "C2/c2.void_hold_hint_emitted/642e23857c2879f1",
+            "excerpt": "firedAt=2026-06-20T02:04:15.999Z trigger=en_hold_ball_underscore agentId=opus threadSystemKind=product"
+          },
+          {
+            "type": "per-fire-sample",
+            "anchor": "C2/c2.void_hold_hint_emitted/0f042154b451477f",
+            "excerpt": "firedAt=2026-06-20T02:01:11.629Z trigger=en_hold_ball_underscore agentId=opus threadSystemKind=product"
+          },
+          {
+            "type": "per-fire-sample",
+            "anchor": "C2/c2.void_hold_hint_emitted/d541c372f7698c94",
+            "excerpt": "firedAt=2026-06-20T02:00:31.303Z trigger=en_hold_ball_underscore agentId=opus threadSystemKind=product"
+          },
+          {
+            "type": "per-fire-sample",
+            "anchor": "C2/c2.void_hold_hint_emitted/61779720534ad38d",
+            "excerpt": "firedAt=2026-06-20T01:55:58.225Z trigger=en_holdball_space agentId=opus threadSystemKind=product"
+          }
+        ]
+      },
+      "proposedAction": [
+        {
+          "action": "harness-tune",
+          "target": "C2/c2.void_hold_hint_emitted",
+          "rationale": "c2.void_hold_hint_emitted ratio 8.2% exceeds threshold"
+        }
+      ],
+      "status": "open"
+    }
+  ]
+}
