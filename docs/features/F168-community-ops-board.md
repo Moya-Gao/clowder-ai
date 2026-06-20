@@ -111,23 +111,24 @@ All merged, all tests green (4383 pass), all vision guards PASS.
 
 **认知修正 #2（CVO 2026-06-20 第二轮）**：narrator triage 完不能直接自动路由——**猫也会分错 thread**。正确的流程是 narrator **提议**路由方案，铲屎官**审批后才执行**。类似 F128 propose_thread / F225 的审批卡片机制。
 
-**Phase F 流程（CVO 定向）**：
+**Phase F 流程（CVO 定向，第三轮修正）**：
 
 ```
 新 issue 进来
-  → narrator（砚砚）triage → 生成 Direction Card（路由建议，不是路由动作）
-  → 审批卡片进 Decision Queue
-      ├── 砚砚有把握 → 生成路由建议卡片 → 铲屎官审批/修改/拒绝
-      └── 砚砚没把握 → 生成 Decision Queue 卡片（类似 F128/F225）→ 铲屎官拍板
-  → 铲屎官批准后 → 系统执行路由到目标 thread
-  → @ 目标 thread 的猫
-  → 目标猫确认：我是这个 thread 的负责人吗？接 / 退
+  → narrator（砚砚）triage → 生成 Direction Card
+  → 砚砚判断置信度
+      ├── 有把握 → 直接传球到目标 thread（不经铲屎官）
+      │     → @ 目标猫 → 目标猫验证是否属于自己的 thread
+      │           ├── 确认接单 → 工作
+      │           └── 退回 → 回到 Decision Queue → 铲屎官重新分配
+      └── 没把握 → 审批卡片进 Decision Queue（类似 F128/F225）
+            → 铲屎官审批/修改/拒绝
+            → 批准后 → 路由到目标 thread → 目标猫验证
 ```
 
-**三层保险**：
-1. **narrator 提议但不执行**——Direction Card 是建议不是命令
-2. **铲屎官审批**——审批卡片在 Decision Queue 里，铲屎官点击才生效
-3. **目标猫确认**——收到路由的猫要确认自己是对的负责人，不对就退回
+**两层安全网**：
+1. **砚砚有判断力**——有把握的直接传球（不当 rubber stamp 让铲屎官盖章），没把握的才升级
+2. **目标猫必须验证**——不管谁路由的，目标猫都要确认"这是我的 thread 该接的活吗？"，不对就退回到 Decision Queue
 
 **两步走**：
 1. **F-Step1 存量同步**：把砚砚已完成的工作标记到系统里（backfill `assignedCatId` + `assignedThreadId`）
@@ -139,24 +140,29 @@ All merged, all tests green (4383 pass), all vision guards PASS.
    - 367 closed → 批量标记 `assignedCatId = codex`（砚砚）+ `assignedThreadId = Repo Inbox thread`？
    - 148 open → 也标记给砚砚？还是其中有些需要 narrator 重新 triage？
 
-2. **审批卡片形态**：
-   - 复用 F128 propose_thread 的审批机制？还是做专门的"路由审批卡片"？
-   - 铲屎官在 Hub 的哪里看到这些审批卡片？（Decision Queue tab？单独的审批面板？）
-   - 砚砚有把握 vs 没把握的阈值怎么定？
+2. **置信度分流**：砚砚怎么判断"有把握"vs"没把握"？
+   - 关联明确 feat + thread 已存在 → 有把握？
+   - issue 类型不清 / 可能跨 feat / 全新事项 → 没把握？
+   - 还是用 Direction Card 里的 5Q 结果自动判？（全 PASS = 有把握）
 
-3. **目标猫确认机制**：
-   - 目标猫收到路由后怎么确认/退回？用 mention + accept/reject 动作？
-   - 退回后怎么处理？回到 Decision Queue 让铲屎官重新分配？
+3. **目标猫验证机制**：
+   - 目标猫收到路由后怎么确认/退回？mention + accept/reject 动作？
+   - 退回后 → 自动进 Decision Queue 让铲屎官重新分配
+
+4. **审批卡片形态**（没把握路径）：
+   - 复用 F128 propose_thread 的审批机制？还是做专门的"路由审批卡片"？
+   - 铲屎官在 Hub 的 Decision Queue tab 里审批？
 
 **Phase F AC（草案，待讨论后定稿）**：
 
 - [ ] AC-F0: 存量 backfill——已处理 issue 标记 assignedCatId + assignedThreadId
-- [ ] AC-F1: narrator triage 新 issue → 生成 Direction Card（路由建议）→ **不直接路由**
-- [ ] AC-F2: Direction Card 进入 Decision Queue 作为审批卡片，铲屎官可批准/修改/拒绝
-- [ ] AC-F3: 铲屎官批准后系统自动执行路由（调 resolve 端点）→ @ 目标 thread 猫
-- [ ] AC-F4: 目标猫收到路由后确认接单（accept）或退回（reject）
-- [ ] AC-F5: 铲屎官在看板上能看到 issue → thread → 猫 的分配关系并点击跳转
-- [ ] AC-F6: 至少 1 条 issue 跑完整流程（narrator 提议 → 铲屎官批准 → 路由 → 目标猫接单 → 工作 → closure）
+- [ ] AC-F1: narrator triage 新 issue → 生成 Direction Card → 判断置信度
+- [ ] AC-F2: 有把握 → 直接传球到目标 thread（不经铲屎官）→ @ 目标猫
+- [ ] AC-F3: 没把握 → 审批卡片进 Decision Queue → 铲屎官批准后路由
+- [ ] AC-F4: 目标猫验证是否属于自己 thread → 接单（accept）或退回（reject）
+- [ ] AC-F5: 退回 → 自动进 Decision Queue → 铲屎官重新分配
+- [ ] AC-F6: 铲屎官在看板上能看到 issue → thread → 猫 的分配关系并点击跳转
+- [ ] AC-F7: 至少 1 条 issue 跑完整流程（narrator 传球 → 目标猫接单 → 工作 → closure）
 
 ## Why
 
