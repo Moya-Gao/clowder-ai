@@ -343,7 +343,7 @@ outputVerified = signal_or(
 
 | # | 任务 | 描述 | 前置 |
 |---|------|------|------|
-| HW-1 | **coverage/source-map 模式（砚砚 5 步 pipeline）** | (1) 分 scope 配额（每类 source 保底 top-N 避免 docs 挤掉 threads） (2) 可解释 expansion 从 canonical doc 抽 source threads + frontmatter aliases (3) union+dedup (4) 输出 coverage matrix（item/source/谁提到/直接 vs 间接/置信度） (5) 展示 expansion 来源（用户原词 / doc alias / source thread / graph edge）—— 不偷偷扩 | 等 SW-1 跑 1-2 周，从猫的实际使用模式收敛 spec（避免做出"实现正确但语义错"的硬实力，如 DF-1 list_recent timestamp 教训） |
+| HW-1 | **coverage/source-map 模式（砚砚 5 步 pipeline + F242 convention graph 交叉）** | (1) 分 scope 配额（每类 source 保底 top-N 避免 docs 挤掉 threads） (2) 可解释 expansion 从三类数据源：① frontmatter aliases/tags ② canonical doc 内 source-thread 链接 ③ **F242 convention graph edges（code-level 约定关联）** (3) union+dedup (4) 输出 coverage matrix（item/source/谁提到/直接 vs 间接/置信度） (5) 展示 expansion 来源（用户原词 / doc alias / source thread / **convention graph edge**）—— 不偷偷扩。详见下方「HW-1 + F242 设计灵感」 | SW-1 已运行 1 个月+（2026-05-17 交付），前置条件满足。F242 convention graph spike done（2026-06-18），铲屎官 2026-06-19 提议交叉，提供新的 expansion 数据源方向。进入 spec 调研 |
 | HW-2 | **可解释 expansion 数据源结构化** | frontmatter aliases/tags 索引化；canonical doc 内的 source-thread 链接结构化；graph 增 `alias_of` 显式边类型 | HW-1 spec 拍板后做 |
 | HW-3 | **OQ-6/OQ-7 数据驱动决策** | Runtime 重启后实测：`consumed_anchor_not_in_pool_rate=0%`（阈值 15%）/ `maxAnchor≈33%`（阈值 50%）→ 当前结论方向仍是"暂不需要第三路 RRF / 暂不需要 query-conditioned prior"。但 7 天窗口只有 **146 events / 6 consumed（4.11%）**，数据太薄，**"没有证据需要行动" ≠ "有证据证明不需要行动"**——需 1-2 周 ranking on + 真实 dogfood 让数据增长后再 close。**统计窗口必须限定 post-v1.1 + post-SW**（砚砚 P2-2）——v1.1 之前的 events 含 DF-1 timestamp 错乱 + DF-6 静默 0 + 猫还没学 coverage recipe，会系统性压低 consumption rate，拿脏数据做决策 = 错 baseline。**运行时检查**：metrics API 已 live，正确入口是 `GET /api/recall/metrics?days=...&refresh=1`，需要 `X-Cat-Cafe-User` header | dogfood 持续累积；监控 consumption rate 是否随 SW-1/2/3 落地后回升（猫学会搜→Read 链条更完整） |
 | HW-4 | **P1: Consumption attribution fix（消费归因可信度修复）** | 铲屎官 challenge 成立且必须修：大规模并发搜索下，当前 consumed 是同 invocation 后续 tool event 的反推 proxy，不是真实用户点击/确认。初筛已发现 `candidates_json=[]` 高达 59.2%，且 Codex 大量 `sed/rg/nl` shell 读文件不被算作消费。Round 1 抽样已钉死三类根因：① Claude/Opus parallel 路由里 tool_result 没有可靠 merge 回 tool_use，导致 `_f200Candidates` 丢失（不是单纯正则错）；② Codex `command_execution` 读文件未进入 consumption / trajectory filesRead；③ 现有 6 条 positive 全来自 2 个 invocation，都是后续 `graph_resolve(F200)` 反推，属于 bundle-level ambiguous signal，不是 clean per-search truth。修复范围：parallel result pairing / `sourcePath` candidates / shell-read parsing / ambiguity-aware `resultSetId` 或 bundle marker。**在修复前，F200 consumption-based eval 不可信，只能看粗趋势，不能作为排序策略裁判。** | **HW-3 前置**：没有 attribution audit + 归因修复，不用 consumption 数据 close OQ-6/OQ-7 |
@@ -351,13 +351,45 @@ outputVerified = signal_or(
 | HW-6 | **FTS Progressive Relaxation（召回崩盘修复）** | `SqliteEvidenceStore.ts:235-239` 把所有 token 用 `"word"` 包裹再空格连接（FTS5 隐式 AND），猫猫查询越来越长（14+ 词中英文混合是常态），AND-all 几乎必然返回 0。实测：14 词 → 0 结果，2 词 → 550，1 词 → 958。**修法**：AND 空 → minimum-match(≥50% token) → OR + strong-token boost（Feature号/ADR号/PR号保留 exact-match 加权）→ 最后 entity/semantic fallback。保留 `bm25()` 排序优先级。**7 天空结果率 75.3%**（search_evidence scope 全面恶化：docs 70.9%、threads 65.3%、all 97.4%），是 consumedAt3 下跌的第一根因。 | **P0 紧急修**——影响每只猫每天搜索，且是 rerank 信号稀疏的上游原因（75% 空 → 没候选 → 没消费 → 无 consumption 数据 → rerank 无效 → 恶性循环） |
 | HW-7 | **Telemetry 三态校准 + Eval Correctness（shadow baseline + adapter 归因）** | 三件事合一 PR：(1) **Telemetry 三态校准**：`recall_events.result_count` 957/1068 条为 NULL（列是后加的），`candidates_json=[]` 混合了真空结果和 telemetry 管道没写入，必须区分 true-zero / not-written / candidate-parser-miss；(2) **Shadow baseline 恒等 bug**（opus-48 发现 + opus-47 T1 验证）：`applyConsumptionRerank` 在 `on` 模式存 reranked 顺序为 shadow（`SqliteEvidenceStore.ts:2036-2048`），shadow≡live by construction，`shadowConsumedMRR / liveOnShadowSubsetMRR` 永远≈1。修法：rerank 前存原始 BM25 顺序为 shadow；(3) **Adapter 归因层**（opus-48 发现 + opus-47 T1 验证）：`eval-memory-adapter.recallMetricRefs()` 没把 zero-hit-rate 列为 recall 层首要信号，verdict 盯 consumedAt3 报 "fix ranking" 但真正根因是召回空。修法：adapter 加 `search_zero_hit_rate` 优先级 + `result_count=NULL` 不算 zero-hit。 | **P1**——不修则 eval:memory cron 持续产"rerank flat→keep_observe"结构假绿 verdict（opus-47 确认），所有 F200 数据驱动决策被污染 |
 
+#### HW-1 + F242 设计灵感（2026-06-19 宪宪 brainstorm，铲屎官提议交叉）
+
+**触发**：铲屎官 2026-06-19 原话："现在在做的 f242 code graph 类的 feat 能不能给你们灵感"。F242 spike Phase A/B done（2026-06-18），convention graph 引擎（node:sqlite + extractor plugins）已验证可行。
+
+**核心洞察**：F242 和 HW-1 解决的是同一类问题——**让隐式关联变得显式可导航**——分别在代码世界和记忆世界。
+
+| 维度 | F242 Convention Graph | HW-1 Coverage Search |
+|------|----------------------|---------------------|
+| 问题 | "改了这个 MCP tool，谁在消费？" | "关于 Redis 圣域的讨论散在哪？" |
+| 盲区 | LSP + grep 抓不住的约定关联 | top-k 搜索漏掉的长尾分布 |
+| 核心机制 | extractor + scope 消歧 + freshness | expansion + union dedup + coverage matrix |
+
+**具体交叉点（spec 调研时验证）**：
+
+1. **Convention graph 作为 expansion 数据源**：HW-1 第 2 步"可解释 expansion"需要结构化关联数据。F242 的 `consumers()` / `codeConsumers()` API 天然提供"MCP tool → 消费方"、"skill → SOP 链"等约定边。这是 frontmatter aliases / source-thread 链接之外的**第三类 expansion source**，且是代码级的（前两类只覆盖文档级关联）。
+   - 示例："关于 search_evidence 的所有讨论" → 除了文档层搜索，还能从 convention graph 拉出"哪些 skill 文件 import/调用了 search_evidence"，把那些 skill 对应的 spec/discussion 也加入 coverage matrix。
+
+2. **Scope 消歧复用**：F242 解决了 codegraph 的 AuthProvider 前后端同名混淆问题（edge provenance + scope tag）。HW-1 的 coverage matrix 同样需要区分"同名但不同域"的搜索结果——DF-10 cross-domain false positive（graph fuzzy "consumption ranking" → 癌症研究 klra5）本质是 scope 消歧问题。F242 的消歧思路可以复用。
+
+3. **Edge provenance ≈ Expansion 来源展示**：F242 每条边记 `source span / extractor version / scope / confidence / freshness`。HW-1 第 5 步"展示 expansion 来源"是同一设计模式——coverage matrix 的每条候选标注"怎么找到的：用户原词 / doc alias / source thread / **convention graph edge**"。
+
+4. **Freshness 语义共享**：F242 的 freshness（index commit + pending changes + stale 标记）和 F200 的 recency_decay / staleness 概念直接对应。convention graph 的 stale edge 应该在 expansion 时降权或标记。
+
+**砚砚 5 步 pipeline 扩展后**：
+- 原 (2) "可解释 expansion 从 canonical doc 抽 source threads + frontmatter aliases"
+- → 扩为三类数据源：① frontmatter aliases/tags ② canonical doc 内 source-thread 链接 ③ **F242 convention graph edges（code-level 约定关联）**
+- 每类在 coverage matrix 中标明来源类型，用户可区分"文档关联 vs 代码关联"
+
+**风险/约束**：
+- F242 Phase C（productization gate）尚未 close。HW-1 实现时 F242 应为 soft dependency（有则用、无则 fallback 纯文档 expansion）
+- KD-8 约束有效：expansion 数据源必须是结构化确定性关联，不是 LLM 猜测。F242 convention graph 的边是 extractor 代码确定性产出的，符合 KD-8
+
 #### 优先级与 sequencing
 
 1. ~~**P0 紧急**：HW-6 FTS Progressive Relaxation~~ ✅ merged PR #2426 (`ce3c6fafa`)
 2. ~~**P1 跟进**：HW-7 Telemetry 三态校准 + Eval Correctness（shadow baseline + adapter 归因）~~ ✅ merged PR #2427
 3. **已完成**：SW-1 + SW-2（1-2 天 markdown，立刻可验证 + 立刻可迭代）
 4. **持续做**：dogfood 自吃猫粮（让 consumption 数据涨 + 让 skill 在真实使用下迭代修订）
-5. **1-2 周后**：基于软实力使用反馈定 HW-1 spec（避免错坐标系硬实力）
+5. **进行中**：HW-1 spec 调研（SW-1 已运行 1 个月+，前置条件满足；F242 convention graph 提供新 expansion 数据源方向）
 6. **数据够且归因可信时（HW-6/HW-7 修完 + ≥1000 events / consumption rate ≥10%，统计窗口限定 post-v1.1 + post-SW + post-HW-6）**：close OQ-6/OQ-7
 
 > **2026-05-18 Runtime Signal Check（说人话版）**：现在能看见"哪只猫 / 哪个 thread / 哪次 invocation / 用了哪个工具 / 搜了什么 / 返回了哪些候选 / 后面有没有 Read 或消费 / 有没有放弃或换 query / 形成了哪条 trajectory / 读改了哪些文件"。现在还不能可靠判断"排序策略一定更好"或"哪条 trajectory 一定成功"，因为 consumed 只有 6 条，`outputVerified` 强信号自动接入还是 0。GitHub PR merge 在模型里是 `pr_merged` 强信号，endpoint 支持外部注入，但自动桥接仍待接入；CVO accept / reviewer approval / CI check 同理。
@@ -424,6 +456,7 @@ outputVerified = signal_or(
 - **Related**: F188（library stewardship — graph_resolve / list_recent / search_evidence 的 MCP 工具）
 - **Related**: F163（authority boost / stale detection — 本 feature 不改 authority 来源，只叠加 consumption 信号）
 - **Related**: F102（IEvidenceStore 接口 — 新指标可能需要 schema 扩展）
+- **Related**: F242（Code Graph Layer Spike — convention graph 提供 HW-1 coverage search expansion 数据源方向，2026-06-19 铲屎官提议交叉）
 
 ## Risk
 
@@ -497,6 +530,7 @@ outputVerified = signal_or(
 | 2026-05-26 | AC-D2 signal sources merged（PR #1898，squash `7a4f40871`）— ThreadAwareSignalSources: CVO accept + reviewer approval（clause-anchored whitelist + negation-first + isNonApprovalContext 三重 guard）、CI passed（fingerprint alignment）、PR merged（CiCdRouter prState 持久化）。砚砚 5 轮 local review（3 P1 修复：English clause-anchoring / colon separator → tagged pattern / 没问题 question guard）+ 云端 codex 15 轮（19 inline findings 全 triage：14 fixed + 5 P3 dismiss）。48 tests（27 message + 21 task/integration）。 |
 | 2026-06-19 | **召回崩盘根因诊断**（opus-48 初诊 + opus-46 代码验证 + opus-47 T1 确认 + 砚砚独立复核）：consumedAt3 下跌 = 75% 空结果率，根因 FTS5 AND-all 对长查询失败（14词→0/2词→550/1词→958）+ shadow=live 数学恒等（on 模式存 reranked 为 shadow）+ telemetry result_count=NULL 占 90%。CVO 拍板 → HW-6 P0 FTS relaxation + HW-7 P1 telemetry+eval correctness，不开新 F号，归 F200 v1.2 |
 | 2026-06-19 | **HW-6 FTS Progressive Relaxation merged**（PR #2426, squash `ce3c6fafa`）— 新 `fts-query-builder.ts` 三级渐进放松：AND-all → Strong-AND+weak-OR → OR-all。strong/weak token 分类（entity IDs/CJK/≥4 char = strong）。FTS5 explicit AND before paren OR fix（云端 P2）。集成 `searchWithMeta` + `searchPassages`。12 tests + 全套 memory 1477 pass。gpt52 local review APPROVE + 云端 codex 2 轮（R1 1 P2 修复 + R2 0 P1/P2）|
+| 2026-06-19 | **HW-1 + F242 交叉设计灵感落盘**（铲屎官提议 convention graph 作为 coverage search expansion 数据源 + 宪宪 brainstorm 4 交叉点：expansion source / scope 消歧 / edge provenance / freshness 共享）。HW-1 前置条件已满足（SW-1 运行 1 个月+），进入 spec 调研 |
 | 2026-06-19 | **HW-7 Telemetry 三態校准 + Eval Correctness merged**（PR #2427）— 三件修复：(1) `computeSearchQuality` 三態校准（`resultCount=NULL` 不算 zero-hit）+ `observedSearches` 精确分母；(2) `applyConsumptionRerank` shadow baseline 用 partition 前原始 BM25 顺序（Cloud-P2 修复 lexical protection 偏差）+ shadow mode 存 would-be reranked order（Cloud-P1-3 修复 shadow≡live 零信号）；(3) `eval-memory-adapter` 加 `search_zero_hit_rate` 为 recall 首要信号。gpt52 local review APPROVE + 云端 codex 3 轮（R1 1P1+1P2 修复 + R2 1P1 shadow-mode 修复 + R3 0 P1/P2）。17 tests（4 HW-7 telemetry + 13 consumption-rerank）全绿 |
 | 2026-06-05 | B' shadowConsumedMRR measurement asymmetry fix merged（PR #2108，squash `3e2effdf7`）— eval:memory cron 4-day "6.7× shadow:live divergence" 是 1/c (c≈0.149 consumed-rate, 1/c=6.71) 假警报，不是 ranker 问题：`shadowConsumedMRR` 分母 = shadow-subset rows，`core.consumedMRR` 分母 = 全集 rows，两 metric 永远不可直接比较。修法：加 `liveOnShadowSubsetMRR` mirror metric（same subset filter + live rank，独立 numerator + shared denominator），`shadowConsumedMRR / liveOnShadowSubsetMRR` 现可作 apples-to-apples ratio。新增 3 个 F200-B' tests + 2 个 regression（codex review P1 "shadow miss must NOT mute live mirror" + codex non-blocker "mixed consumed ranks take min over non-negative"），总 40 tests pass。砚砚 3 轮 local review（1 P1 + 1 non-blocker 均已修）+ 云端 codex no major issues。Backward compat：`shadowConsumedMRR` 字段语义不变（adapter/web panel 不破）；`computeCore.consumedMRR` 同有 -1 rank latent pattern out-of-scope。 |
 
