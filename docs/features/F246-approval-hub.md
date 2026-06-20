@@ -8,7 +8,7 @@ created: 2026-06-20
 
 # F246: Approval Hub — 统一审批中心底座
 
-> **Status**: spec-approved（2026-06-20 砚砚 APPROVE + opus-48 APPROVE，review closed） | **Owner**: 布偶猫/宪宪 (opus-46) | **Priority**: P2
+> **Status**: in-progress（Phase A merged PR #2449） | **Owner**: 布偶猫/宪宪 (opus-46) | **Priority**: P2
 
 Architecture cell: platform-infra（subcell: `approval-index`）
 Map delta: 新 cell — Hub 通过 feature adapter 实时聚合（query aggregation）各 feature 的 CVO 审批项 + Hub UI panel。不维护独立 index，at-read-time 直查 canonical stores。
@@ -77,7 +77,7 @@ Why: CVO 审批散落在各 thread（F128/F225/F193），铲屎官不在对应 t
 
 ## What
 
-### Phase A: Feature Adapters + Hub Panel (MVP)
+### Phase A: Feature Adapters + Hub Panel (MVP) ✅
 
 > **v1 架构选择（opus-48 R1 blocking 修正）**：v1 只有 3 个 canonical stores，采用 **query aggregation**（Hub 读取时直接查 canonical stores）而非 materialized CQRS index。优势：零一致性问题（always fresh）、无 backfill/phantom/reconciliation 复杂度、少写代码。v2+ store 数增多时可引入 materialized index。
 
@@ -99,16 +99,16 @@ Why: CVO 审批散落在各 thread（F128/F225/F193），铲屎官不在对应 t
 - **就地审批**：`inlineApprovable=true` 且 `inlineMinFields` 校验通过时，Hub 内直接 approve/reject。**F128 特殊**：就地审批必须支持全量 approve-time overrides（`title`/`parentThreadId`/`preferredCats`/`initialMessage`/`projectPath`/`reportingMode`），否则强制跳转（AC-A4）
 - **过期提醒**：`expiresAt` 到期 → Hub 标记 stale + 徽标提醒，不自动 reject
 
-**AC-A1**: F128 adapter 查 ThreadProposal store → pending proposals 在 Hub 可见
-**AC-A2**: F225 adapter 查 HandoffProposal store → pending proposals 在 Hub 可见
-**AC-A3**: Hub panel 展示待审批列表（实时聚合）+ 计数徽标
-**AC-A4**: 就地审批 F128 → adapter 转发 approve 到 F128 store。Hub inline 必须支持 F128 **全量** approve-time overrides（`title`/`parentThreadId`/`preferredCats`/`initialMessage`/`projectPath`/`reportingMode`），与现有卡片契约完全一致。如果 Hub inline 无法提供等价编辑体验（技术限制），则该 proposal **强制跳转**，不允许以 approve-only 降级审批能力（砚砚 R2 P2）
-**AC-A5**: 跳转审批 F225（需上下文）→ 跳到原 thread
-**AC-A6**: 过期项标记 stale，不自动 reject
-**AC-A7**: Hub 读取按 `ownerUserId` 过滤，user A 看不到 user B 的待审批项
-**AC-A8**: Adapter 不暴露为 MCP tool/callback。非 allowlist feature 的聚合请求被拒绝
-**AC-A9**: ~~backfill~~ v1 无需 backfill — query aggregation 直接读 canonical stores，restart 后数据天然存在（前提：canonical stores 自身满足持久化 P0 铁律）
-**AC-A10**: settled items 在 adapter 查询时自动排除（`status=pending` 过滤），不需要额外 reconciliation
+- [x] **AC-A1**: F128 adapter 查 ThreadProposal store → pending proposals 在 Hub 可见
+- [x] **AC-A2**: F225 adapter 查 HandoffProposal store → pending proposals 在 Hub 可见
+- [x] **AC-A3**: Hub panel 展示待审批列表（实时聚合）+ 计数徽标
+- [x] **AC-A4**: 就地审批 F128 → adapter 转发 approve 到 F128 store。Hub inline 必须支持 F128 **全量** approve-time overrides（`title`/`parentThreadId`/`preferredCats`/`initialMessage`/`projectPath`/`reportingMode`），与现有卡片契约完全一致。如果 Hub inline 无法提供等价编辑体验（技术限制），则该 proposal **强制跳转**，不允许以 approve-only 降级审批能力（砚砚 R2 P2）
+- [x] **AC-A5**: 跳转审批 F225（需上下文）→ 跳到原 thread
+- [x] **AC-A6**: 过期项标记 stale，不自动 reject
+- [x] **AC-A7**: Hub 读取按 `ownerUserId` 过滤，user A 看不到 user B 的待审批项
+- [x] **AC-A8**: Adapter 不暴露为 MCP tool/callback。非 allowlist feature 的聚合请求被拒绝
+- [x] **AC-A9**: ~~backfill~~ v1 无需 backfill — query aggregation 直接读 canonical stores，restart 后数据天然存在（前提：canonical stores 自身满足持久化 P0 铁律）
+- [x] **AC-A10**: settled items 在 adapter 查询时自动排除（`status=pending` 过滤），不需要额外 reconciliation
 
 ### Phase B: F193 E3 接入
 
@@ -144,3 +144,10 @@ Why: CVO 审批散落在各 thread（F128/F225/F193），铲屎官不在对应 t
 - F225 session_handoff spec：`docs/features/F225-cat-initiated-session-handoff.md`
 - F193 cross-thread spec：`docs/features/F193-cross-thread-comm-unification.md`
 - F168 community ops：`docs/features/F168-community-ops-board.md`
+
+## Timeline
+
+| Date | Event |
+|------|-------|
+| 2026-06-20 | Spec created, three-cat convergence (opus-46 + 砚砚 + opus-48) |
+| 2026-06-20 | Phase A merged (PR #2449) — F128 + F225 adapters, Hub drawer + bell badge, real-time sync |
