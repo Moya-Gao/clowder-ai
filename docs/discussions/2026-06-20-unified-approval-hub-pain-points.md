@@ -136,7 +136,145 @@ F168 Decision Queue 真实状态机：`open → blocked → done`（不是 pendi
 
 ---
 
-## 5. 原始讨论问题（已收敛，保留 trace）
+## 5. 架构图
+
+### 5.1 整体架构：CQRS Read View + Hub Panel
+
+```mermaid
+graph TB
+    subgraph "Hub UI Layer"
+        Panel["🔔 Approval Hub Panel<br/>跨 thread 统一展示"]
+        Badge["徽标计数<br/>(3 待审批)"]
+        Panel --> Badge
+    end
+
+    subgraph "Approval Index（底座核心）"
+        Index[("ApprovalItem Index<br/>(CQRS Read View)<br/>─────────────<br/>不存储状态机<br/>只索引 + 展示")]
+        API["Approval API<br/>approve / reject / refresh"]
+    end
+
+    Panel -->|"读取待审批列表"| Index
+    Panel -->|"就地审批 / 跳转"| API
+
+    subgraph "v1 接入 Feature（各自保留 Proposal Store + 状态机）"
+        F128["F128<br/>ThreadProposal<br/>pending→approved/rejected"]
+        F225["F225<br/>HandoffProposal<br/>pending→approved/rejected<br/>(+ commit-point)"]
+        F193["F193 E3<br/>DispatchProposal<br/>pending→approved/rejected"]
+    end
+
+    F128 -->|"状态变更事件"| Index
+    F225 -->|"状态变更事件"| Index
+    F193 -->|"状态变更事件"| Index
+
+    API -->|"转发 approve/reject"| F128
+    API -->|"转发 approve/reject"| F225
+    API -->|"转发 approve/reject"| F193
+
+    subgraph "Sibling（不接入 v1）"
+        F168["F168 Decision Queue<br/>open→blocked→done<br/>多 actor (非纯 CVO)"]
+    end
+
+    subgraph "候选（v2+）"
+        F231["F231 Profile Update"]
+        KF["Knowledge Feed"]
+        Limb["Limb Pairing"]
+    end
+
+    style Panel fill:#4CAF50,color:#fff
+    style Index fill:#2196F3,color:#fff
+    style F168 fill:#FF9800,color:#fff
+    style F231 fill:#9E9E9E,color:#fff
+    style KF fill:#9E9E9E,color:#fff
+    style Limb fill:#9E9E9E,color:#fff
+```
+
+### 5.2 数据流：审批从产生到完成
+
+```mermaid
+sequenceDiagram
+    participant Cat as 猫（任意 thread）
+    participant FS as Feature Store<br/>(F128/F225/F193)
+    participant Idx as Approval Index<br/>(底座)
+    participant Hub as Hub Panel
+    participant CVO as 铲屎官
+
+    Cat->>FS: propose_thread / propose_handoff / propose_dispatch
+    FS->>FS: 创建 Proposal (status=pending)
+    FS->>Idx: 事件: ApprovalItem created
+    Note over Idx: 索引更新<br/>featureId + threadId + summary
+
+    Idx->>Hub: 待审批列表更新
+    Hub->>Hub: 徽标 +1
+
+    alt 铲屎官在 Hub 看到
+        CVO->>Hub: 点击审批项
+        alt 就地审批 (inlineApprovable=true)
+            CVO->>Hub: approve / reject
+            Hub->>FS: 转发 approve(proposalId)
+        else 需要上下文
+            Hub->>CVO: 跳转到原 thread
+            CVO->>FS: 在 thread 内 approve
+        end
+        FS->>FS: 更新 status
+        FS->>Idx: 事件: status→approved/rejected
+        Idx->>Hub: 待审批列表更新<br/>徽标 -1
+    else 审批过期 (staleAt)
+        Idx->>Hub: 标记 stale
+        Hub->>CVO: 提醒: "有 N 项待审批已过期"
+        Note over CVO: 可刷新/重新提议<br/>不自动拒绝
+    end
+```
+
+### 5.3 接入标准：什么该进 Approval Hub
+
+```mermaid
+flowchart TD
+    Start["新功能产生了<br/>'需要确认/审批' 的动作"] --> Q1
+
+    Q1{"审批者是谁？"}
+    Q1 -->|"CVO（铲屎官）"| Q2
+    Q1 -->|"猫可自决"| Out1["❌ 不接入<br/>走决策漏斗自决"]
+    Q1 -->|"多种 actor"| Out2["❌ 不接入 v1<br/>Sibling concept<br/>(如 F168 Action Queue)"]
+
+    Q2{"结果是什么形态？"}
+    Q2 -->|"二元: approve / reject<br/>(可选 modify)"| Q3
+    Q2 -->|"多态 action<br/>(acknowledge/resolve/waive...)"| Out2
+
+    Q3{"跨 thread 可见性？"}
+    Q3 -->|"审批可能在<br/>铲屎官不在的 thread"| IN["✅ 接入 Approval Hub"]
+    Q3 -->|"始终在铲屎官<br/>当前 thread"| Out3["⚠️ 可选接入<br/>（仍可受益于<br/>统一计数/过期提醒）"]
+
+    style IN fill:#4CAF50,color:#fff
+    style Out1 fill:#f44336,color:#fff
+    style Out2 fill:#FF9800,color:#fff
+    style Out3 fill:#FFC107,color:#000
+```
+
+### 5.4 接入标准文字版
+
+**三个 AND 条件（全满足才接入 v1）**：
+
+| # | 条件 | 说明 | 反例 |
+|---|------|------|------|
+| 1 | **actor = CVO** | 必须铲屎官本人审批 | 猫间协调（FYI/ACTION）→ 自动投递不需审批 |
+| 2 | **binary outcome** | approve / reject（可选 modify） | F168 的 acknowledge/resolve/waive → 多态 action |
+| 3 | **跨 thread 需求** | 审批请求可能在铲屎官不在的 thread 产生 | 铲屎官主动发起的操作 → 已在当前 thread |
+
+### 5.5 现在与未来的全量 Census
+
+| Feature | 审批项 | actor | outcome | 跨 thread | 接入 |
+|---------|--------|-------|---------|-----------|------|
+| **F128** | propose_thread | CVO | approve/reject | ✅ | **v1 ✅** |
+| **F225** | session_handoff | CVO | approve/reject | ✅ | **v1 ✅** |
+| **F193 E3** | cross_thread_dispatch (任务分配) | CVO | approve/reject | ✅ | **v1 ✅** |
+| F168 | community direction | CVO + case-owner + reconciler | acknowledge/resolve/waive | ✅ | ❌ Sibling |
+| F231 | propose_profile_update | CVO | approve/reject | ✅ | v2 候选 |
+| Knowledge Feed | 知识条目审核 | CVO | approve/reject | ⚠️ | v2 候选 |
+| Limb | pair_approve | CVO | approve/reject | ⚠️ | v2 候选 |
+
+---
+
+## 6. 原始讨论问题（已收敛，保留 trace）
 
 > Q1 底座 vs F168 → D1/D2（新开，不泛化 F168）
 > Q2 就地 vs 跳转 → D4（有条件就地，inlineMinFields 守门）
@@ -146,7 +284,7 @@ F168 Decision Queue 真实状态机：`open → blocked → done`（不是 pendi
 
 ---
 
-## 6. 下一步
+## 7. 下一步
 
 1. ✅ 痛点文档
 2. ✅ 三猫讨论收敛（opus-46 + opus-47 + 砚砚）
