@@ -50,6 +50,16 @@ class TranscriptArtifactStore:
 
         self._write_meta(active=True, latest_range=None)
 
+    @staticmethod
+    def _safe_participants(participants: list[dict]) -> list[dict]:
+        """Strip non-JSON-serializable fields (e.g. np.ndarray embeddings)."""
+        safe = []
+        for p in participants:
+            sp = {k: v for k, v in p.items() if k != "embedding"}
+            sp["has_embedding"] = p.get("embedding") is not None
+            safe.append(sp)
+        return safe
+
     def _write_meta(self, active: bool, latest_range: str | None,
                     recording_path: str | None = None) -> None:
         meta = {
@@ -59,7 +69,7 @@ class TranscriptArtifactStore:
             "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(self._started_at)),
             "transcript_path": str(self._md_path),
             "latest_range": latest_range,
-            "participants": self._participants,
+            "participants": self._safe_participants(self._participants),
         }
         if recording_path:
             meta["recording_path"] = recording_path

@@ -26,8 +26,11 @@ import sys
 import time
 from pathlib import Path
 
+import base64
+
 from aiohttp import web, ClientSession, ClientTimeout, FormData
 from intervention import AdvisoryRateLimiter, SilenceMonitor, InterventionDetector
+from speaker_embedder import SpeakerEmbedder
 from transcript_store import TranscriptArtifactStore
 from transcript_window import TranscriptWindow
 from vad_chunker import VadChunker
@@ -48,6 +51,7 @@ CAPTURE_BIN = os.getenv("CAPTURE_APP_AUDIO_BIN") or str(
 )
 VAD_ENABLED = os.getenv("VAD_ENABLED", "1") != "0"
 LLM_POSTPROCESS_ENABLED = os.getenv("LLM_POSTPROCESS_ENABLED", "0") == "1"
+SPEAKER_SIMILARITY_THRESHOLD = float(os.getenv("SPEAKER_SIMILARITY_THRESHOLD", "0.6"))
 LLM_POSTPROCESS_URL = os.getenv("LLM_POSTPROCESS_URL", "http://localhost:9878")
 ASR_CONTEXT = os.getenv("ASR_CONTEXT", "")
 
@@ -89,6 +93,7 @@ class AudioSession:
         self._detector = InterventionDetector()
         self._silence_monitor = SilenceMonitor()
         self._artifact_store: TranscriptArtifactStore | None = None
+        self._embedder = SpeakerEmbedder()
         self.paused = False
 
     def _reset(self):
@@ -136,10 +141,23 @@ class AudioSession:
                 raise ValueError("Each participant must have an 'id'")
             if not p.get("name"):
                 raise ValueError("Each participant must have a 'name'")
-        self.participants = [
-            {"id": p["id"], "name": p["name"], "role": p.get("role", "participant")}
-            for p in participants
-        ]
+        enrolled = []
+        for p in participants:
+            entry = {
+                "id": p["id"],
+                "name": p["name"],
+                "role": p.get("role", "participant"),
+                "embedding": None,
+            }
+            voice_sample = p.get("voice_sample")
+            if voice_sample:
+                try:
+                    pcm = base64.b64decode(voice_sample)
+                    entry["embedding"] = self._embedder.extract(pcm)
+                except Exception:
+                    pass  # Enrollment succeeds even if embedding extraction fails
+            enrolled.append(entry)
+        self.participants = enrolled
 
     def _build_asr_context(self) -> str:
         parts = []
@@ -151,7 +169,34 @@ class AudioSession:
             parts.append(ASR_CONTEXT)
         return "; ".join(parts)
 
-    def _attribute_speaker(self) -> dict:
+    def _attribute_speaker(self, chunk_embedding=None) -> dict:
+        """Attribute speaker: embedding-based (preferred) → rule-based (fallback).
+
+        Args:
+            chunk_embedding: np.ndarray from current audio chunk, or None to
+                skip embedding path and use rule-based only.
+        """
+        # --- Embedding path (AC-G2) ---
+        if chunk_embedding is not None:
+            enrolled_with_emb = [
+                p for p in self.participants
+                if p.get("embedding") is not None
+            ]
+            if enrolled_with_emb:
+                best_sim = -1.0
+                best_p = None
+                for p in enrolled_with_emb:
+                    sim = self._embedder.similarity(chunk_embedding, p["embedding"])
+                    if sim > best_sim:
+                        best_sim = sim
+                        best_p = p
+                if best_p and best_sim >= SPEAKER_SIMILARITY_THRESHOLD:
+                    return {
+                        "speaker_label": best_p["name"],
+                        "speaker_confidence": round(min(best_sim, 1.0), 3),
+                        "speaker_id": best_p["id"],
+                    }
+        # --- Rule-based fallback (AC-G3, existing Phase C logic) ---
         host = next((p for p in self.participants if p.get("role") == "host"), None)
         non_hosts = [p for p in self.participants if p.get("role") != "host"]
         if self.source == "mic":
@@ -197,6 +242,8 @@ class AudioSession:
         self.thread_id = thread_id
         self.started_at = time.time()
         if thread_id:
+            # Pass raw participants — TranscriptArtifactStore._safe_participants()
+            # strips ndarray embeddings during json.dump (defense-in-depth in store)
             self._artifact_store = TranscriptArtifactStore(
                 transcript_dir=TRANSCRIPT_DIR,
                 thread_id=thread_id,
@@ -304,7 +351,11 @@ class AudioSession:
             ) if self.chunk_count else None,
             "meeting_id": self.meeting_id,
             "thread_id": self.thread_id,
-            "participants": self.participants,
+            "participants": [
+                {k: v for k, v in p.items() if k != "embedding"}
+                | {"has_embedding": p.get("embedding") is not None}
+                for p in self.participants
+            ],
             "advisory_mode": self.advisory_mode,
             "talking_points": self.talking_points,
             "paused": self.paused,
@@ -516,7 +567,14 @@ class AudioSession:
                             text = refined
             except Exception:
                 pass
-        speaker = self._attribute_speaker()
+        # Extract chunk embedding for speaker attribution (Phase G)
+        chunk_embedding = None
+        has_enrolled_embeddings = any(
+            p.get("embedding") is not None for p in self.participants
+        )
+        if has_enrolled_embeddings:
+            chunk_embedding = self._embedder.extract(pcm)
+        speaker = self._attribute_speaker(chunk_embedding=chunk_embedding)
         line = {
             "ts": ts,
             "elapsed_s": round(elapsed, 1),
@@ -724,7 +782,12 @@ async def h_enroll(request):
         session.enroll(participants)
     except (ValueError, TypeError) as e:
         return web.json_response({"error": str(e)}, status=400)
-    return web.json_response({"ok": True, "participants": session.participants})
+    safe_participants = [
+        {"id": p["id"], "name": p["name"], "role": p["role"],
+         "has_embedding": p.get("embedding") is not None}
+        for p in session.participants
+    ]
+    return web.json_response({"ok": True, "participants": safe_participants})
 
 
 async def h_set_advisory_mode(request):

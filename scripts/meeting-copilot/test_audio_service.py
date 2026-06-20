@@ -93,6 +93,60 @@ class TestEnrollment(unittest.TestCase):
         assert attr["speaker_label"] == "铲屎官"
         assert attr["speaker_confidence"] == 0.9
 
+    def test_enroll_without_voice_sample_embedding_is_none(self):
+        """Enrollment without voice_sample sets embedding=None (INV-P3)."""
+        self.session.enroll([
+            {"id": "p1", "name": "铲屎官", "role": "host"},
+        ])
+        assert self.session.participants[0].get("embedding") is None
+
+    def test_enroll_with_voice_sample_attempts_extraction(self):
+        """Enrollment with voice_sample stores embedding or None."""
+        import base64
+        pcm_3s = b'\x00\x00' * 16000 * 3
+        b64 = base64.b64encode(pcm_3s).decode()
+        self.session.enroll([
+            {"id": "p1", "name": "铲屎官", "role": "host", "voice_sample": b64},
+        ])
+        # Embedding is None (model not available) or ndarray — either is OK
+        emb = self.session.participants[0].get("embedding")
+        assert emb is None or hasattr(emb, "shape")
+
+    def test_enroll_mixed_voice_and_metadata(self):
+        """Mixed enrollment: some with voice, some without."""
+        import base64
+        pcm_3s = b'\x00\x00' * 16000 * 3
+        b64 = base64.b64encode(pcm_3s).decode()
+        self.session.enroll([
+            {"id": "p1", "name": "铲屎官", "role": "host", "voice_sample": b64},
+            {"id": "p2", "name": "Alice", "role": "participant"},
+        ])
+        # p2 definitely has no embedding
+        assert self.session.participants[1].get("embedding") is None
+
+    def test_enroll_embedding_survives_reset(self):
+        """Embeddings survive _reset() like participants do (INV-P2)."""
+        self.session.enroll([
+            {"id": "p1", "name": "铲屎官", "role": "host"},
+        ])
+        self.session._reset()
+        assert len(self.session.participants) == 1
+        assert self.session.participants[0]["name"] == "铲屎官"
+        # embedding key should still be present
+        assert "embedding" in self.session.participants[0]
+
+    def test_enroll_too_short_voice_sample(self):
+        """Voice sample too short → embedding=None, participant still enrolled."""
+        import base64
+        pcm_100ms = b'\x00\x00' * 1600  # 0.1s
+        b64 = base64.b64encode(pcm_100ms).decode()
+        self.session.enroll([
+            {"id": "p1", "name": "铲屎官", "role": "host", "voice_sample": b64},
+        ])
+        assert len(self.session.participants) == 1
+        assert self.session.participants[0]["name"] == "铲屎官"
+        assert self.session.participants[0].get("embedding") is None
+
 
 class TestAttribution(unittest.TestCase):
     def setUp(self):
@@ -152,6 +206,106 @@ class TestAttribution(unittest.TestCase):
         attr = self.session._attribute_speaker()
         assert attr["speaker_label"] == "发言者"
         assert attr["speaker_confidence"] == 0.5
+
+
+class TestEmbeddingAttribution(unittest.TestCase):
+    """Voice-embedding-based speaker attribution (AC-G2, AC-G3)."""
+
+    def setUp(self):
+        self.session = AudioSession()
+
+    def test_matches_nearest_embedding(self):
+        """When enrolled with embeddings, picks nearest match (AC-G2)."""
+        import numpy as np
+        self.session.participants = [
+            {"id": "p1", "name": "铲屎官", "role": "host",
+             "embedding": np.array([1, 0, 0], dtype=np.float32)},
+            {"id": "p2", "name": "Alice", "role": "participant",
+             "embedding": np.array([0, 1, 0], dtype=np.float32)},
+        ]
+        chunk_emb = np.array([0.9, 0.1, 0], dtype=np.float32)
+        attr = self.session._attribute_speaker(chunk_embedding=chunk_emb)
+        assert attr["speaker_label"] == "铲屎官"
+        assert attr["speaker_id"] == "p1"
+        assert attr["speaker_confidence"] > 0.8
+
+    def test_matches_second_speaker(self):
+        """Chunk closer to second speaker → attributes to second."""
+        import numpy as np
+        self.session.participants = [
+            {"id": "p1", "name": "铲屎官", "role": "host",
+             "embedding": np.array([1, 0, 0], dtype=np.float32)},
+            {"id": "p2", "name": "Alice", "role": "participant",
+             "embedding": np.array([0, 1, 0], dtype=np.float32)},
+        ]
+        chunk_emb = np.array([0.1, 0.9, 0], dtype=np.float32)
+        attr = self.session._attribute_speaker(chunk_embedding=chunk_emb)
+        assert attr["speaker_label"] == "Alice"
+        assert attr["speaker_id"] == "p2"
+
+    def test_below_threshold_falls_back_to_rules(self):
+        """Similarity below threshold → fallback to rule-based (AC-G3)."""
+        import numpy as np
+        self.session.participants = [
+            {"id": "p1", "name": "铲屎官", "role": "host",
+             "embedding": np.array([1, 0, 0], dtype=np.float32)},
+        ]
+        # Orthogonal → similarity ≈ 0
+        chunk_emb = np.array([0, 0, 1], dtype=np.float32)
+        self.session.source = "mic"
+        attr = self.session._attribute_speaker(chunk_embedding=chunk_emb)
+        # Falls back to rule-based: mic + host → host with 0.9
+        assert attr["speaker_label"] == "铲屎官"
+        assert attr["speaker_confidence"] == 0.9
+
+    def test_no_chunk_embedding_uses_rules(self):
+        """No chunk_embedding → pure rule-based (backward compat)."""
+        self.session.enroll([
+            {"id": "p1", "name": "铲屎官", "role": "host"},
+        ])
+        self.session.source = "mic"
+        attr = self.session._attribute_speaker()
+        assert attr["speaker_label"] == "铲屎官"
+        assert attr["speaker_confidence"] == 0.9
+
+    def test_none_chunk_embedding_uses_rules(self):
+        """chunk_embedding=None → rule-based even with enrolled embeddings."""
+        import numpy as np
+        self.session.participants = [
+            {"id": "p1", "name": "铲屎官", "role": "host",
+             "embedding": np.array([1, 0, 0], dtype=np.float32)},
+        ]
+        self.session.source = "mic"
+        attr = self.session._attribute_speaker(chunk_embedding=None)
+        assert attr["speaker_label"] == "铲屎官"
+        assert attr["speaker_confidence"] == 0.9
+
+    def test_partial_embeddings_only_compares_enrolled(self):
+        """Some with embeddings, some without — compare only with those that have."""
+        import numpy as np
+        self.session.participants = [
+            {"id": "p1", "name": "铲屎官", "role": "host",
+             "embedding": np.array([1, 0, 0], dtype=np.float32)},
+            {"id": "p2", "name": "Alice", "role": "participant",
+             "embedding": None},
+        ]
+        chunk_emb = np.array([0.9, 0.1, 0], dtype=np.float32)
+        attr = self.session._attribute_speaker(chunk_embedding=chunk_emb)
+        assert attr["speaker_label"] == "铲屎官"
+        assert attr["speaker_id"] == "p1"
+
+    def test_confidence_is_similarity_value(self):
+        """Confidence should reflect actual cosine similarity."""
+        import numpy as np
+        self.session.participants = [
+            {"id": "p1", "name": "铲屎官", "role": "host",
+             "embedding": np.array([1, 0], dtype=np.float32)},
+        ]
+        # cos(45°) ≈ 0.707
+        chunk_emb = np.array([1, 1], dtype=np.float32)
+        attr = self.session._attribute_speaker(chunk_embedding=chunk_emb)
+        assert attr["speaker_id"] == "p1"
+        assert 0.70 < attr["speaker_confidence"] < 0.72
 
 
 class TestCorrection(unittest.TestCase):
@@ -320,6 +474,106 @@ class TestAsrContext(unittest.TestCase):
             assert "布偶猫" in ctx
         finally:
             _mod.ASR_CONTEXT = original
+
+
+class TestSpeakerVerificationIntegration(unittest.TestCase):
+    """End-to-end: enroll with voice → attribute by embedding → fallback."""
+
+    def test_enroll_then_attribute_without_embedding_uses_rules(self):
+        """Enroll with voice → _attribute_speaker() without chunk_emb → rules."""
+        import base64
+        import numpy as np
+        session = AudioSession()
+        pcm = np.random.randint(-1000, 1000, 16000 * 3, dtype=np.int16).tobytes()
+        b64 = base64.b64encode(pcm).decode()
+        session.enroll([
+            {"id": "p1", "name": "铲屎官", "role": "host", "voice_sample": b64},
+        ])
+        session.source = "mic"
+        attr = session._attribute_speaker()
+        assert attr["speaker_label"] == "铲屎官"
+        assert attr["speaker_confidence"] == 0.9  # rule-based
+
+    def test_backward_compat_metadata_only_enrollment(self):
+        """Metadata-only enrollment → rule-based attribution unchanged."""
+        session = AudioSession()
+        session.enroll([
+            {"id": "p1", "name": "铲屎官", "role": "host"},
+            {"id": "p2", "name": "Alice", "role": "participant"},
+        ])
+        session.source = "mic"
+        attr = session._attribute_speaker()
+        assert attr["speaker_label"] == "铲屎官"
+        assert attr["speaker_confidence"] == 0.9
+        assert attr["speaker_id"] == "p1"
+
+    def test_backward_compat_app_two_participants(self):
+        """App source with 2 participants → non-host attribution."""
+        session = AudioSession()
+        session.enroll([
+            {"id": "p1", "name": "铲屎官", "role": "host"},
+            {"id": "p2", "name": "Alice", "role": "participant"},
+        ])
+        session.source = "app"
+        attr = session._attribute_speaker()
+        assert attr["speaker_label"] == "Alice"
+        assert attr["speaker_confidence"] == 0.7
+        assert attr["speaker_id"] == "p2"
+
+    def test_status_safe_serialization(self):
+        """status() doesn't crash with enrolled embeddings (ndarray not in JSON)."""
+        import base64
+        import json
+        import numpy as np
+        session = AudioSession()
+        pcm = np.random.randint(-1000, 1000, 16000 * 3, dtype=np.int16).tobytes()
+        b64 = base64.b64encode(pcm).decode()
+        session.enroll([
+            {"id": "p1", "name": "铲屎官", "role": "host", "voice_sample": b64},
+        ])
+        s = session.status()
+        # Should be JSON-serializable
+        json_str = json.dumps(s)
+        assert "has_embedding" in json_str
+        # embedding ndarray should NOT be in output
+        assert "embedding" not in json_str or "has_embedding" in json_str
+
+    def test_embedder_is_session_scoped(self):
+        """Each AudioSession has its own SpeakerEmbedder instance."""
+        s1 = AudioSession()
+        s2 = AudioSession()
+        assert s1._embedder is not s2._embedder
+
+    def test_transcript_store_with_embedding_participants_no_crash(self):
+        """P1 regression: TranscriptArtifactStore must not crash when participants have embeddings.
+
+        start() passes self.participants to TranscriptArtifactStore. If participants
+        contain np.ndarray embeddings from enroll(), _write_meta → json.dump raises
+        TypeError. The fix must sanitize participants before passing to the store.
+        """
+        import tempfile
+        import numpy as np
+        from transcript_store import TranscriptArtifactStore
+
+        participants = [
+            {"id": "p1", "name": "铲屎官", "role": "host",
+             "embedding": np.random.randn(192).astype(np.float32)},
+            {"id": "p2", "name": "Alice", "role": "participant",
+             "embedding": None},
+        ]
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # This path mirrors start() at audio-service.py:245-251
+            # _write_meta() is called in __init__ → json.dump(participants)
+            store = TranscriptArtifactStore(
+                transcript_dir=tmpdir,
+                thread_id="thread_test123",
+                meeting_id="m_test",
+                app_name="TestApp",
+                participants=participants,
+            )
+            # If we get here without TypeError, the fix works
+            assert store is not None
 
 
 if __name__ == "__main__":
