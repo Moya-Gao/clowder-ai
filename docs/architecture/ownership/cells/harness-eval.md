@@ -16,6 +16,12 @@ code_anchors:
   - packages/api/src/infrastructure/harness-eval/friction/friction-signal-source.ts
   - packages/api/src/infrastructure/harness-eval/friction/paw-feel-marker.ts
   - packages/api/src/infrastructure/harness-eval/friction/paw-feel-adapter.ts
+  - packages/api/src/infrastructure/harness-eval/friction/cancel-adapter.ts
+  - packages/api/src/infrastructure/harness-eval/friction/user-feedback-adapter.ts
+  - packages/api/src/infrastructure/harness-eval/friction/eval-domain-adapter.ts
+  - packages/api/src/infrastructure/harness-eval/friction/friction-aggregator.ts
+  - packages/api/src/infrastructure/harness-eval/friction/friction-clusterer.ts
+  - packages/api/src/infrastructure/harness-eval/friction/friction-rollup-input.ts
   - packages/shared/src/types/friction-signal.ts
   - packages/api/src/routes/eval-hub.ts
   - packages/web/src/components/HubEvalTab.tsx
@@ -35,7 +41,7 @@ doc_anchors:
 static_scan_hints: [harness-eval, VerdictHandoffPacket, eval-domain, reeval, harness-fit-digest, Eval Hub, SopDefinition, sop-definitions, predicate, friction, paw-feel, FrictionSignal]
 cited_by:
   - F192 Phase E-pilot
-  - F245 Phase A (paw-feel friction collector; aggregator/rollup/domain land in Phase B-C)
+  - F245 Phase A (paw-feel friction collector) + Phase B (cancel/user-feedback/eval-domain adapters + aggregator + clusterer + rollup input; domain registration + rollup sink land in Phase C)
 ---
 
 # Harness Eval Control Plane
