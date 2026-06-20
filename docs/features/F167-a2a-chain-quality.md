@@ -619,6 +619,7 @@ cat_cafe_hold_ball({
 | 2026-06-17 | Phase N 立项：守门 thread guard（trigger-time hard-block + reconciliation self-heal）。根因：守门 thread 文字约束已写，但 register tracking / hold_ball 入口没有机制层 enforcement，导致双 owner / 球权死锁。 |
 | 2026-06-18 | CVO signoff B：gate-keeping thread guard 并入真 F167 A2A Chain Quality，作为 scope 扩展 / 新 phase，不新开 F 号、不重写 PR title / commits。 |
 | 2026-06-18 | Phase N merged (PR #2384, `e88f499e7`) — `threadKind='gate-keeping'` hard-block `register_pr_tracking` / `register_issue_tracking` / `hold_ball`，GitHub repo scan / webhook self-heal inbox marker，`opensource-ops` SKILL reflex，telemetry counter + six regression suites。Merge evidence: cloud R5 clean on `76d1aacc9`；rebase continuity to `2bc231ea` only merged type interface conflict; F238 pass; `pnpm gate` pass (build / tsc / test / lint / check). |
+| 2026-06-20 | Phase O **PR-O2a** merged (PR #2435, squash `6dc02783`) — shadow grounding telemetry infrastructure: types + grounding checker (shadow mode, never block) + 5 OTel counters (check/verdict/resolver/cacheHit/budgetExhausted) + hook integration (hold_ball / register_pr_tracking / register_issue_tracking) + F192 eval adapter. INV-O3 (T2 downgrade on high-risk) / O4 (wouldBlock) / O7 (cacheHit budget refund) / O8 (not_applicable iteration) / O10 (read_intent bypass) implemented. gpt52 local 5 rounds APPROVE; cloud Codex 6 rounds (9 findings: 8 P2 + 1 P1, all fixed with regression tests; R7 not triggered, sealed per LL-072 at 6 > 5, CVO authorized). 72 tests total (27 checker + 35 eval + 10 e2e). Next: PR-O2b event path + sampling. |
 | 2026-06-19 | Phase O **PR-O1** merged (PR #2415, squash `a1a166b79`) — `cat-cafe-skills/receive-handoff-grounding/` skill 落地：3 问反射 (claim → resolver → verdict + sourceTier T0/T1/T2 + actionFamily) + Keeper Wait A/B + WaitSourceRef schema + 8 dogfood fixtures + INV-O1..O12 (含 O12 状态契约固化 feat_index sourceTier 不变量)。Spec convergence R0→R3.1 (opus-47/codex/opus-48 三方设计 thread `thread_mqkasedeqeo56ayc`)。Local R3 opus-48 APPROVE @ `ebc57c97e` + continuity ack @ `15bb71f6b`；cloud Codex 5 轮 review iteration（R1 2 真 P1 schema/sourceTier / R2 1 P2 stale noise / R3 2 P2 Q3 表 + overview T0/T2 / R4 1 P2 Demo 1 feat_index T1→T2 / R5 clean "no major issues"）— feat_index sourceTier 不一致 3 轮 → per LL-072 升级 INV-O12 状态契约固化。中间踩坑：rebase 后 ghost commits 污染分支 → force-push reset 干净 SHA。Next: PR-O2 telemetry shadow。 |
 
 ### Phase I（A2A 声明-动作一致性 — 2026-04-25 reopened）
@@ -949,9 +950,18 @@ sonnet 看了"AC ✅ 三层 harness ✅"放行，但没问"守门猫 daily SOP �
 - **AC**: O1.1 ~ O1.15 全部 ✅ (含 O1.6 doc anchor 本提交回填)
 - **Cloud iteration**: 5 轮 (R1 2 P1 / R2-4 各 1-2 P2 / R5 clean)；feat_index sourceTier 不一致 3 轮 → LL-072 升级 INV-O12 状态契约
 - **Local R3 reviewer**: opus-48 (布偶猫 4.8) APPROVE @ `ebc57c97e` + continuity ack @ `15bb71f6b`
-- **下一棒 (PR-O2a grounding infra → PR-O2b event path)**: PR-O2a 实现中（PR #2435）；spec 在 plan §14.10 + F167 doc R4 增量 section
+- **下一棒**: PR-O2b (event path + sampling)
 
-**F167 Close 门槛更新**：Phase O 收敛（**PR-O1 ✅** → O2a → O2b → O3 → O4）+ PR-O2b shadow 1 周 telemetry 观察 + F192 weekly verdict 通过后才可 close。Phase N 与 Phase O 关系：keep PR-tracking hard-block + patch issue_tracking/hold_ball 已确认；Phase N 不再是 F167 close 的最后一步。
+#### ✅ PR-O2a merged（2026-06-20, PR #2435, squash `6dc02783`）
+
+- **Files**: `packages/api/src/infrastructure/grounding/{types,grounding-checker,grounding-helpers}.ts` + `packages/api/test/grounding-checker.test.js` + f167-eval adapter + e2e fixture + callbacks.ts hook
+- **AC**: types + grounding checker (shadow mode, never block) + 5 OTel counters + hook integration (hold_ball / register_pr_tracking / register_issue_tracking) + F192 eval adapter. INV-O3/O4/O7/O8/O10 implemented in checker layer.
+- **Cloud iteration**: 6 rounds (R1 2 P2 checker bugs / R2 2 P2 eval component / R3 2 P2 budget+error counters / R4 1 P1 file-size + 1 P2 guard ordering / R5 1 P2 no-claims claimType / R6 1 P2 wouldBlock policy too narrow + 1 FP); R7 not triggered (codex-connector bot issue), sealed per LL-072 at 6 rounds > 5 threshold, CVO authorized proceed.
+- **Local reviewer**: gpt52 (GPT-5.4) 5 rounds APPROVE @ `ea5268c0d` (pre-rebase)
+- **Tests**: 27 grounding-checker + 35 f167-eval + 10 e2e-verification = 72 total
+- **下一棒 (PR-O2b event path + sampling)**: claim extraction from hold_ball/tracking context + bounded sample storage + F192 eval adapter consumption
+
+**F167 Close 门槛更新**：Phase O 收敛（**PR-O1 ✅ → O2a ✅** → O2b → O3 → O4）+ PR-O2b shadow 1 周 telemetry 观察 + F192 weekly verdict 通过后才可 close。Phase N 与 Phase O 关系：keep PR-tracking hard-block + patch issue_tracking/hold_ball 已确认；Phase N 不再是 F167 close 的最后一步。
 
 ## Behavioral Evidence（Phase B 观察记录）
 
