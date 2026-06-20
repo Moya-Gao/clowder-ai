@@ -289,6 +289,7 @@ tips system 是 harness 改动，必须有闭环：
 | 2026-06-19 | CVO dogfood 反馈：tips 已出现但位置错误、轮播太快；F244 follow-up 将 tip surface 从 `thread_execution_bar` 改为 `assistant_stream_bubble`，单条停留下限改为 30s |
 | 2026-06-19 | PR #2424 merged：将 tips 移入 assistant streaming bubble，单线程只选择一个 eligible streaming bubble 展示，并保留 review/ideate context；AC-B4 / Phase D dogfood-eval 后续仍 open |
 | 2026-06-20 | PR #2433 merged：CVO dogfood 发现 tips 位置仍错——应在 PendingMemberBubble（"分析处理中"阶段），不是 streaming ChatMessage；移动 CapabilityTipStrip 到 PendingMemberBubble，清理 ChatMessage 死代码，增加 per-thread dedup（cloud P2 fix）|
+| 2026-06-20 | PR #2444 merged：CVO dogfood Round 3——去除"分析处理中"SaaS 文案（改为极简弹跳点 · · ·），12 条 user-facing tips 从猫内部语言重写为铲屎官友好语气，加 audience="cvo" 过滤 + firstDelayMs=1500 + a11y label |
 
 ## Review Gate
 
