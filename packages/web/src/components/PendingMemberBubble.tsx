@@ -20,12 +20,36 @@ interface PendingMemberBubbleProps {
 }
 
 /**
+ * Minimal dots fallback for dedup bubbles (showCapabilityTip=false) and
+ * stall-suppressed states where the tip strip is hidden (AC-B2).
+ */
+function PendingDots() {
+  return (
+    <div className="flex items-center gap-1 py-2 text-cafe-fg-muted" role="status">
+      <span className="sr-only">处理中</span>
+      <span className="inline-flex gap-0.5" aria-hidden="true">
+        <span className="animate-bounce text-sm" style={{ animationDelay: '0ms' }}>
+          ·
+        </span>
+        <span className="animate-bounce text-sm" style={{ animationDelay: '150ms' }}>
+          ·
+        </span>
+        <span className="animate-bounce text-sm" style={{ animationDelay: '300ms' }}>
+          ·
+        </span>
+      </span>
+    </div>
+  );
+}
+
+/**
  * #936: Show a member-level pending bubble with avatar before any stream
  * content arrives.
  *
- * F244 CVO dogfood: tips ARE the waiting indicator — no "分析处理中" SaaS
- * copy. Minimal bouncing dots bridge the short delay before the first tip
- * appears. Non-tip bubbles (dedup) show only the dots.
+ * F244 CVO dogfood Round 4: the tip strip IS the thinking indicator —
+ * a unified bubble with breathing animation. No separate dots when tips
+ * are active. Dedup bubbles (showCapabilityTip=false) and stall states
+ * fall back to minimal dots.
  */
 export function PendingMemberBubble({
   catId,
@@ -38,6 +62,8 @@ export function PendingMemberBubble({
   const catData = getCatById(catId);
   const catName = catData ? formatCatName(catData) : catId;
 
+  const tipEnabled = showCapabilityTip && !isStreamingTipSuppressedByStatus(catStatus);
+
   return (
     <MessageBubble
       messageId={`pending-${invocationId}`}
@@ -49,28 +75,16 @@ export function PendingMemberBubble({
       }
       wrapperClassName="group cat-persona-derived"
     >
-      <div className="flex items-center gap-1 py-2 text-cafe-fg-muted" role="status">
-        <span className="sr-only">处理中</span>
-        <span className="inline-flex gap-0.5" aria-hidden="true">
-          <span className="animate-bounce text-sm" style={{ animationDelay: '0ms' }}>
-            ·
-          </span>
-          <span className="animate-bounce text-sm" style={{ animationDelay: '150ms' }}>
-            ·
-          </span>
-          <span className="animate-bounce text-sm" style={{ animationDelay: '300ms' }}>
-            ·
-          </span>
-        </span>
-      </div>
-      {showCapabilityTip && (
+      {tipEnabled ? (
         <CapabilityTipStrip
           surface="pending_bubble"
           contexts={tipContexts ?? DEFAULT_STREAMING_TIP_CONTEXTS}
           audience="cvo"
-          enabled={!isStreamingTipSuppressedByStatus(catStatus)}
-          firstDelayMs={1500}
+          enabled
+          firstDelayMs={0}
         />
+      ) : (
+        <PendingDots />
       )}
     </MessageBubble>
   );

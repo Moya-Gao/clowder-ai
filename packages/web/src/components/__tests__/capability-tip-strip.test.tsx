@@ -46,7 +46,7 @@ describe('F244 CapabilityTipStrip', () => {
     vi.clearAllMocks();
   });
 
-  it('delays the first visible tip', async () => {
+  it('shimmer placeholder has accessible status label (not hidden by aria-hidden)', async () => {
     await render(
       <CapabilityTipStrip
         surface="assistant_stream_bubble"
@@ -55,12 +55,37 @@ describe('F244 CapabilityTipStrip', () => {
         rotateMs={12000}
       />,
     );
-    expect(container.querySelector('[data-testid="capability-tip-strip"]')).toBeNull();
+    const strip = container.querySelector('[data-testid="capability-tip-strip"]');
+    expect(strip).not.toBeNull();
+    // The sr-only label must be a direct child of the status container,
+    // NOT inside the aria-hidden skeleton — otherwise screen readers see nothing.
+    const srOnly = strip?.querySelector('.sr-only');
+    expect(srOnly).not.toBeNull();
+    expect(srOnly?.textContent).toBe('猫猫思考中');
+    // Must NOT be inside an aria-hidden ancestor
+    expect(srOnly?.closest('[aria-hidden="true"]')).toBeNull();
+  });
+
+  it('shows container immediately with shimmer, then tip content after delay', async () => {
+    await render(
+      <CapabilityTipStrip
+        surface="assistant_stream_bubble"
+        contexts={['thinking']}
+        firstDelayMs={6000}
+        rotateMs={12000}
+      />,
+    );
+    // Container renders immediately (with shimmer placeholder)
+    expect(container.querySelector('[data-testid="capability-tip-strip"]')).not.toBeNull();
+    // But no tip content yet (no "Tip" label, no "了解更多" button)
+    expect(container.querySelector('[data-testid="capability-tip-learn-more"]')).toBeNull();
 
     await act(async () => {
       vi.advanceTimersByTime(6000);
     });
+    // After delay: tip content appears
     expect(container.querySelector('[data-testid="capability-tip-strip"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="capability-tip-learn-more"]')).not.toBeNull();
   });
 
   it('does not default omitted audience to all-only tips', async () => {

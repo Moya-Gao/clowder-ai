@@ -129,11 +129,11 @@ F229 猫猫球是 F244 的未来展示面，不是第二个 tips 系统：
 在等待/执行 UI 中增加 tips 投影，但与真实状态分层：
 
 - 真实状态仍由 liveness/runtime signal 驱动，`ThreadExecutionBar` / `ThinkingIndicator` 继续放状态、计时、停止与强制重置入口。
-- Tip 的第一展示面是 PendingMemberBubble（猫猫等待气泡）：猫猫头像/名字下面显示极简弹跳点（`· · ·`），tip strip 在短暂延迟后出现在弹跳点下方（两者共存），不再显示"分析处理中"静态文案（CVO dogfood Round 3 去除）。
+- Tip 的第一展示面是 PendingMemberBubble（猫猫等待气泡）：tip strip 本身即为思考态指示器（CVO dogfood Round 4 统一），猫猫头像/名字下直接渲染带呼吸光晕动画的 tip 气泡（`firstDelayMs=0`），不再显示独立弹跳点。Dedup bubble（`showCapabilityTip=false`）和 stall 状态降级为极简弹跳点（`· · ·`）。
 - Thread/message-list 层只选择一个 eligible pending invocation 承载 tip（`pendingTipInvocationId`，取第一个非 stall 的 pending invocation）；多猫并行等待时不得为每条 pending bubble 各自挂一个 strip，避免重复曝光和重复 action event。
 - `ThreadExecutionBar` 不承担 tip presentation；它只保留真实状态和逃生口，避免 tips 与取消/强制重置竞争。
 - `suspected_stall` / `alive_but_silent` 时，故障与取消入口优先；tips 不得遮挡或弱化 `卡住了？强制重置`。
-- 首次展示延迟触发，单条至少停留 30s，避免每几秒闪动制造噪音。
+- PendingMemberBubble 中 tip 立即展示（`firstDelayMs=0`，思考态指示器无延迟）；其他 surface（如 `assistant_stream_bubble`）保留首次延迟。单条至少停留 30s，避免每几秒闪动制造噪音。
 - 上下文选择优先级：当前执行阶段 > thread workflow > feature dev/review mode > 通用 capability/magic word；`ideate`/review 等待仍使用 `review` + `long_running` contexts，而不是退化成通用 `thinking` tips。
 - 支持 action：hover 提示"了解更多"；click 拉起 F229 猫猫球并把解释请求预填进输入框，不自动发送。需要直达时可附 source/guide/capability surface secondary action；没有 action 的 tip 不能冒充可执行能力。
 

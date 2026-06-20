@@ -57,7 +57,7 @@ describe('F244 PendingMemberBubble capability tips', () => {
     delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
   });
 
-  it('renders capability tip strip in the pending bubble after delay', async () => {
+  it('renders capability tip strip immediately as the thinking indicator (no separate dots)', async () => {
     const { PendingMemberBubble } = await import('@/components/PendingMemberBubble');
 
     await act(async () => {
@@ -71,22 +71,15 @@ describe('F244 PendingMemberBubble capability tips', () => {
       await Promise.resolve();
     });
 
-    // Before delay: bouncing dots visible, no tip strip yet
     const bubble = container.querySelector('[data-message-id="pending-inv-001"]');
     expect(bubble).not.toBeNull();
-    expect(bubble?.querySelector('[data-testid="capability-tip-strip"]')).toBeNull();
-
-    // After 1.5s delay (firstDelayMs=1500): tip strip appears
-    await act(async () => {
-      vi.advanceTimersByTime(1500);
-      await Promise.resolve();
-    });
-
+    // Tip strip IS the thinking indicator — renders immediately, no delay
     expect(bubble?.querySelector('[data-testid="capability-tip-strip"]')).not.toBeNull();
-    expect(bubble?.textContent).toContain('了解更多');
+    // No separate bouncing dots when tip is the thinking indicator
+    expect(bubble?.querySelectorAll('.animate-bounce').length).toBe(0);
   });
 
-  it('shows bouncing dots alongside the tip', async () => {
+  it('tip strip has thinking animation class', async () => {
     const { PendingMemberBubble } = await import('@/components/PendingMemberBubble');
 
     await act(async () => {
@@ -100,21 +93,15 @@ describe('F244 PendingMemberBubble capability tips', () => {
       await Promise.resolve();
     });
 
-    await act(async () => {
-      vi.advanceTimersByTime(1500);
-      await Promise.resolve();
-    });
-
-    const bubble = container.querySelector('[data-message-id="pending-inv-002"]');
-    // Both the bouncing dots and the tip coexist
-    expect(bubble?.querySelectorAll('.animate-bounce').length).toBe(3);
-    expect(bubble?.querySelector('[data-testid="capability-tip-strip"]')).not.toBeNull();
+    const strip = container.querySelector('[data-testid="capability-tip-strip"]');
+    expect(strip).not.toBeNull();
+    expect(strip?.classList.contains('tip-thinking')).toBe(true);
   });
 
   it.each([
     'suspected_stall',
     'alive_but_silent',
-  ] as const)('hides tips when cat status is %s (AC-B2 stall red line)', async (status) => {
+  ] as const)('falls back to dots when cat status is %s (AC-B2 stall red line)', async (status) => {
     const { PendingMemberBubble } = await import('@/components/PendingMemberBubble');
 
     await act(async () => {
@@ -129,18 +116,13 @@ describe('F244 PendingMemberBubble capability tips', () => {
       await Promise.resolve();
     });
 
-    // Even after delay, no tip strip when stalled
-    await act(async () => {
-      vi.advanceTimersByTime(1500);
-      await Promise.resolve();
-    });
-
     const bubble = container.querySelector('[data-message-id="pending-inv-stall"]');
-    expect(bubble?.querySelectorAll('.animate-bounce').length).toBe(3);
+    // Stall suppresses tip strip → falls back to dots
     expect(bubble?.querySelector('[data-testid="capability-tip-strip"]')).toBeNull();
+    expect(bubble?.querySelectorAll('.animate-bounce').length).toBe(3);
   });
 
-  it('does not render tip strip when showCapabilityTip is false (dedup)', async () => {
+  it('shows dots when showCapabilityTip is false (dedup fallback)', async () => {
     const { PendingMemberBubble } = await import('@/components/PendingMemberBubble');
 
     await act(async () => {
@@ -154,13 +136,8 @@ describe('F244 PendingMemberBubble capability tips', () => {
       await Promise.resolve();
     });
 
-    // Even after delay, no tip strip when showCapabilityTip is false
-    await act(async () => {
-      vi.advanceTimersByTime(1500);
-      await Promise.resolve();
-    });
-
     const bubble = container.querySelector('[data-message-id="pending-inv-no-tip"]');
+    // Dedup bubbles get dots, not tip strip
     expect(bubble?.querySelectorAll('.animate-bounce').length).toBe(3);
     expect(bubble?.querySelector('[data-testid="capability-tip-strip"]')).toBeNull();
   });
