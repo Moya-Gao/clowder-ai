@@ -2,8 +2,8 @@
 
 > 起源：F193 Phase E E3 设计讨论中，铲屎官发现审批散落在各 thread 的问题
 > 日期：2026-06-20
-> 参与：铲屎官 + opus-46（本 thread）
-> 状态：痛点收集 → 待本 thread 内讨论（47 / 砚砚）→ 再跨线程找 F168
+> 参与：铲屎官 + opus-46 + opus-47 + 砚砚(codex)
+> 状态：**三猫讨论完成，等铲屎官拍板新 F 号**
 
 ---
 
@@ -73,7 +73,7 @@
 - **当前实现**：**已有 Decision Queue**（Community Panel Phase E, PR #2431）
 - **审批 Store**：Decision Queue（per-decision item）
 - **就地审批**：✅ 可以（Direction Card 包含推荐 + 理由）
-- **特殊**：F168 已经建了一个 scope 在社区的审批队列，是最接近"审批中心"的现有实现
+- **⚠️ 47 修正**：F168 Decision Queue 不是 approval queue，是 action queue。状态机 `open→blocked→done`，actor 多型（`cvo|case-owner|reconciler|external-author`），case-owner 可自行 acknowledge 不需 CVO。**不适合直接接入审批中心 v1**
 
 ### F193 — Cross-Thread Communication Unification
 
@@ -105,45 +105,51 @@
 
 ---
 
-## 4. 待讨论问题（本 thread 内先对齐）
+## 4. 三猫讨论结论（2026-06-20）
 
-### Q1: 底座 scope 与 F168 Decision Queue 的关系
+参与：opus-46（发起）+ 砚砚/codex（独立分析）+ opus-47（深层修正）
 
-F168 已经建了 Decision Queue（社区 scope）。底座有两条路：
-- **A. 泛化 F168 Queue**：把 F168 的 Decision Queue 从社区 scope 扩展为全局 scope
-- **B. 新建底座，F168 迁移上来**：独立底座，F168 Queue 作为上层接入
+### 共识决定
 
-Q: 哪条路更干净？F168 Queue 的数据模型是否通用到可以直接泛化？
+| # | 决定 | 理由 |
+|---|------|------|
+| D1 | **底座新开 Feature**，不泛化 F168 | F168 Queue 是 action queue（多 actor + 三态），不是 approval queue（CVO + binary approve/reject）。硬泛化会污染底座契约 |
+| D2 | **v1 只接 F128 + F225 + F193 E3** | 这三个共性都是 `actor=CVO + binary approve/reject`。F168 作为 sibling concept 不迁，align UI/命名空间 |
+| D3 | **底座架构 = CQRS read view** | 各 feature 保留自己的 proposal store + 状态机。底座不复制状态机/数据，只做 read-side index（状态变更时发事件，Hub 读 index 展示）(47 提出) |
+| D4 | **就地审批有条件** | `inlineApprovable` 需要底座校验 `inlineMinFields`（summary + impact + action 非空），不靠 feature 自报 |
+| D5 | **过期 ≠ 自动拒绝** | 过期 = 上下文 stale，按钮变"刷新/重新提议"。提醒走 Hub 徽标，不往 thread 追加噪音 |
+| D6 | **F193 E3 拆两半**（2:1 收敛） | 自动投递（FYI/协调）不需 CVO 审批，现在就做；卡片审批（任务分配）等底座 v1，按底座契约预留 adapter |
+| D7 | **Push channel 独立立项** | Hub 是 pull surface，push（iOS/邮件/webhook）是 platform concern，不进审批中心 scope |
 
-### Q2: 就地审批 vs 跳转审批
+### 47 关键修正
 
-简单审批（propose_thread：标题+理由自足）→ Hub 里直接批
-复杂审批（cross_thread_dispatch：需要看异常上下文）→ 跳转到原 thread
+F168 Decision Queue 真实状态机：`open → blocked → done`（不是 pending → approved/rejected），actor 四种（CVO 只是其一），case-owner 可自行 acknowledge。底座和 F168 是 **sibling concept**（approval vs action），不是 parent-child。
 
-Q: 由卡片注册时声明 `inlineApprovable` 是否合理？还是统一走跳转更简单？
+### 砚砚补充 scope
 
-### Q3: 审批过期机制
+不只 4 个 feature 有审批/确认形态：F231 profile update、Knowledge Feed approve、limb pairing 也有。v1 不接，但 census 时列出避免模型偏窄。
 
-忘记点击 → 卡片过期 → 然后呢？
-- 过期后猫可以重新 propose（带新上下文）？
-- 过期后自动降级为 FYI（不投递但标记"铲屎官未响应"）？
-- 永不过期，只是提醒频率递增？
+### 铲屎官两层痛点（47 re-framing）
 
-### Q4: F193 E3 是等底座还是先做
-
-E3 的"卡片审批"模式需要底座支撑。两条路：
-- **先做底座再做 E3**：E3 直接用底座 API
-- **E3 先做简单版（thread 内卡片），底座做好后迁移**：不阻塞 F193 进度
-
-### Q5: 新 Feature 编号
-
-底座是跨 feature 基建，需要新开 F 号。铲屎官拍板。
+1. **Layer 1: 跨 thread inbox 可见性** → 底座解决（Hub 面板集中展示）
+2. **Layer 2: 被动 push channel** → 独立问题，Hub 仍是 pull，push 另议
 
 ---
 
-## 5. 下一步
+## 5. 原始讨论问题（已收敛，保留 trace）
 
-1. ✅ 痛点文档（本文件）
-2. → 本 thread 内 @opus47 @codex 讨论 Q1-Q5
-3. → 收敛后 cross-post F168 thread（opus-48 平行自己）协调 Decision Queue 迁移方向
-4. → 铲屎官拍板新 F 号 + E3 时序
+> Q1 底座 vs F168 → D1/D2（新开，不泛化 F168）
+> Q2 就地 vs 跳转 → D4（有条件就地，inlineMinFields 守门）
+> Q3 过期 → D5（≠ 自动拒绝，= 刷新上下文）
+> Q4 E3 时序 → D6（拆两半，自动投递先做）
+> Q5 新 F 号 → 等铲屎官拍板
+
+---
+
+## 6. 下一步
+
+1. ✅ 痛点文档
+2. ✅ 三猫讨论收敛（opus-46 + opus-47 + 砚砚）
+3. ⏳ **铲屎官拍板**：新 F 号 + v1 scope 确认 + push channel 独立立项与否
+4. → 铲屎官确认后 cross-post F168 thread（opus-48 平行自己）align UI/命名空间
+5. → F193 E3 自动投递路径先推进
