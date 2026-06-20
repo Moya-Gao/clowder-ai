@@ -21,16 +21,44 @@ A→E 建了精密管道（Event Log → Projector → State Machine → Reconci
 > "有把握的直接传球！没把握的才让我审批" — 置信度分流
 > "接受到球的猫需要验证是不是属于他们的 thread！！！" — 目标猫验证
 
-## 1. 两步走
+## 1. 三步走
 
 | Step | 内容 | 依赖 |
 |------|------|------|
-| F-Step1 | 存量 backfill — 把砚砚已有工作标记到系统 | 无 |
-| F-Step2 | 置信度分流路由 — narrator triage → 置信度判断 → 直接路由 or 审批卡片 → 目标猫验证 | F-Step1 |
+| F-Step0 | per-repo routing config — 铲屎官配置每个 repo 的守门 thread + 守门猫 | 无 |
+| F-Step1 | 存量 backfill — 从 per-repo config 读 guardCatId/guardThreadId 标记存量 | F-Step0 |
+| F-Step2 | 置信度分流路由 — narrator triage → 置信度判断 → 按 repo config 路由 → 目标猫验证 | F-Step0, F-Step1 |
+
+**CVO 方向（2026-06-20 第四轮）**：
+> "每个不同的 repo → 对应的守门 thread？以及猫猫，比如这个 repo 守门 thread a 猫猫 b 另一个也允许我定义？"
+>
+> → per-repo routing config，不硬编码。铲屎官在 CommunityPanel 设置，系统消费。
 
 ---
 
 ## 2. Stateful Object Gate（F229 教训：stateful 对象先给状态机再写代码）
+
+### SO-0: CommunityRepoConfig（新增，per-repo routing 配置）
+
+铲屎官定义每个 repo 的守门 thread 和守门猫。
+
+```typescript
+interface CommunityRepoConfig {
+  readonly repo: string;              // e.g. 'zts212653/clowder-ai'
+  readonly guardThreadId: string;     // 守门 thread（narrator triage 产出在这里、backfill 标到这里）
+  readonly guardCatId: string;        // 守门猫（默认 assignedCatId）
+  readonly createdAt: number;
+  readonly updatedAt: number;
+}
+```
+
+**不是状态机**——是静态配置（CRUD），铲屎官设置后系统消费。
+
+**持久化**：Redis store，TTL=0（铁律 #5）。
+**设置入口**：CommunityPanel repo 下拉旁 ⚙️ → 配置守门 thread + 猫。
+**消费方**：backfill 脚本 / narrator 路由 / 看板筛选 / autoRoute。
+
+**INV-F0**: 无 repo config 的 repo 不允许 backfill 或 autoRoute（fail-closed）。
 
 ### SO-1: TriageConfidence（新增，纯派生值）
 
@@ -160,6 +188,27 @@ interface CommunityIssueItem {
 
 ## 4. 实施步骤（TDD）
 
+### F-0: per-repo routing config（F-Step0）
+
+**改动**:
+- `packages/shared/src/types/community-repo-config.ts`: 新类型 `CommunityRepoConfig`
+- `packages/api/src/domains/community/CommunityRepoConfigStore.ts`: Redis store（CRUD）
+- `packages/api/src/routes/community-repo-config.ts`: REST endpoints
+  - `GET /api/community-repo-configs` — 列出所有 repo config
+  - `POST /api/community-repo-configs` — 创建/更新（upsert by repo）
+  - `DELETE /api/community-repo-configs/:repo` — 删除
+- `packages/web/src/components/community/RepoConfigDialog.tsx`: 配置对话框
+  - CommunityPanel repo 下拉旁 ⚙️ 按钮
+  - 设置守门 thread（下拉选已有 thread）+ 守门猫（下拉选 roster 猫）
+
+**TDD**:
+- RED: store CRUD 测试（create/get/list/delete）
+- RED: upsert 同 repo 更新不重复创建
+- RED: 无 config 的 repo 读取返回 null
+- GREEN: 实现 store + endpoints
+
+**INV 覆盖**: INV-F0
+
 ### F0: shared types 扩展（≤30 min）
 
 **改动**:
@@ -178,21 +227,24 @@ interface CommunityIssueItem {
 
 **改动**:
 - `packages/api/src/cli/community-backfill.ts`: 新 CLI 脚本
-  - 扫描所有 CommunityIssueItem
-  - closed（state='closed'）→ `assignedCatId='codex'`, `routeAcceptance='accepted'`, `routeSource='backfill'`
+  - **从 CommunityRepoConfigStore 读 per-repo config**（不硬编码 catId/threadId）
+  - 按 repo 分组扫描 CommunityIssueItem
+  - closed（state='closed'）→ `assignedCatId=config.guardCatId`, `assignedThreadId=config.guardThreadId`, `routeAcceptance='accepted'`, `routeSource='backfill'`
   - 已有 assignedCatId 的跳过
-  - open 且 triaged（state!='unreplied'）→ `assignedCatId='codex'`（砚砚在 Repo Inbox thread 跟进）
+  - open 且 triaged（state!='unreplied'）→ `assignedCatId=config.guardCatId`（但 routeAcceptance=null）
+  - 无 repo config 的 issue 跳过 + 警告（INV-F0 fail-closed）
   - 每条发 `case.backfilled` event
 - `package.json`: 加 `"backfill:community": "tsx src/cli/community-backfill.ts"` 脚本
 
 **TDD**:
-- RED: backfill 对 closed issue 写 assignedCatId=codex + routeAcceptance=accepted + routeSource=backfill
+- RED: backfill 从 repo config 读 guardCatId/guardThreadId（不硬编码）
+- RED: backfill 对 closed issue 写 assignedCatId + assignedThreadId + routeAcceptance=accepted + routeSource=backfill
 - RED: backfill 跳过已有 assignedCatId 的 issue
-- RED: backfill 对 open triaged issue 写 assignedCatId=codex（但 routeAcceptance=null，砚砚不需要重新验证）
+- RED: 无 repo config 的 issue 跳过 + 警告日志
 - RED: backfill 发 case.backfilled event（每条一个）
 - GREEN: 实现脚本
 
-**INV 覆盖**: INV-F4
+**INV 覆盖**: INV-F0, INV-F4
 **生产执行**: 在 6399 上 `--allow-sanctuary` 跑（类似 Phase B Task 0 的 bootstrap）
 
 ### F2: 目标猫验证端点
@@ -319,9 +371,9 @@ interface CommunityIssueItem {
 
 | PR | 内容 | 预估 |
 |----|------|------|
-| F-PR1 | F0 shared types + F1 backfill 脚本 + F2 validate-route 端点 | 后端核心，~400 行 |
-| F-PR2 | F3 置信度分流（TriageOrchestrator 扩展） | 路由逻辑，~200 行 |
-| F-PR3 | F4 + F5 前端 UX | 前端组件，~300 行 |
+| F-PR1 | F-0 per-repo config store + API + F0 shared types + F1 backfill 脚本 | 后端配置+backfill，~500 行 |
+| F-PR2 | F2 validate-route 端点 + F3 置信度分流（TriageOrchestrator 扩展） | 路由逻辑，~300 行 |
+| F-PR3 | F4 前端验证 UX + F5 看板增强 + RepoConfigDialog | 前端组件，~400 行 |
 
 三个 PR 串行（F-PR1 → F-PR2 → F-PR3），每个独立 review + merge。
 

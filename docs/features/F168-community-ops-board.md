@@ -153,9 +153,10 @@ All merged, all tests green (4383 pass), all vision guards PASS.
    - 复用 F128 propose_thread 的审批机制？还是做专门的"路由审批卡片"？
    - 铲屎官在 Hub 的 Decision Queue tab 里审批？
 
-**Phase F AC（草案，待讨论后定稿）**：
+**Phase F AC（CVO 4 轮讨论后定稿）**：
 
-- [ ] AC-F0: 存量 backfill——已处理 issue 标记 assignedCatId + assignedThreadId
+- [ ] AC-F00: per-repo routing config——铲屎官可配置每个 repo 的守门 thread + 守门猫（CVO 第四轮 2026-06-20）
+- [ ] AC-F0: 存量 backfill——从 per-repo config 读配置，标记已处理 issue 的 assignedCatId + assignedThreadId
 - [ ] AC-F1: narrator triage 新 issue → 生成 Direction Card → 判断置信度
 - [ ] AC-F2: 有把握 → 直接传球到目标 thread（不经铲屎官）→ @ 目标猫
 - [ ] AC-F3: 没把握 → 审批卡片进 Decision Queue → 铲屎官批准后路由
