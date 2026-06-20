@@ -253,7 +253,7 @@ tips system 是 harness 改动，必须有闭环：
 | # | 问题 | 状态 |
 |---|------|------|
 | OQ-1 | tips manifest 第一版是否 hand-authored？ | ✅ 已定：第一版 hand-authored seed manifest；必须区分 `structureSource` 与 `bodySource`，CI 只验结构/anchor/action-required，不验 body 语义一致 |
-| OQ-2 | 第一版 UI 只进 chat waiting bar，还是同步进猫猫球/桌宠状态？ | ✅ 已定：第一版 tip 展示进 assistant streaming bubble；primary action 拉起 F229 输入框 draft；F229 主动/空闲态 tips 作为未来 consumer，不另起 source |
+| OQ-2 | 第一版 UI 只进 chat waiting bar，还是同步进猫猫球/桌宠状态？ | ✅ 已定：第一版 tip 展示进 PendingMemberBubble（"分析处理中"等待阶段，PR #2433 修正）；primary action 拉起 F229 输入框 draft；F229 主动/空闲态 tips 作为未来 consumer，不另起 source |
 | OQ-3 | F192 侧复用 `eval:capability-wakeup` 还是新增 `eval:capability-tips` domain？ | ⬜ Phase D 定；先用 one-shot dogfood report |
 | OQ-4 | Tip action 打开 source 的主表面用 Workspace navigate、Guide card，还是右侧 help drawer？ | ✅ 已定：主表面用 F229 `open_concierge_draft`；不做右侧 help drawer；source/guide/capability 只作为 secondary action |
 
@@ -288,6 +288,7 @@ tips system 是 harness 改动，必须有闭环：
 | 2026-06-18 | PR #2406 merged：交付 `CapabilityTip` contract/seed/selector、`ThreadExecutionBar` waiting tip strip、F229 `open_concierge_draft` no-auto-send action、tips contribution hard gate、privacy-minimal usage event foundation；dogfood report、F192 eval consumer、stale/sunset owner queue 仍 open |
 | 2026-06-19 | CVO dogfood 反馈：tips 已出现但位置错误、轮播太快；F244 follow-up 将 tip surface 从 `thread_execution_bar` 改为 `assistant_stream_bubble`，单条停留下限改为 30s |
 | 2026-06-19 | PR #2424 merged：将 tips 移入 assistant streaming bubble，单线程只选择一个 eligible streaming bubble 展示，并保留 review/ideate context；AC-B4 / Phase D dogfood-eval 后续仍 open |
+| 2026-06-20 | PR #2433 merged：CVO dogfood 发现 tips 位置仍错——应在 PendingMemberBubble（"分析处理中"阶段），不是 streaming ChatMessage；移动 CapabilityTipStrip 到 PendingMemberBubble，清理 ChatMessage 死代码，增加 per-thread dedup（cloud P2 fix）|
 
 ## Review Gate
 
