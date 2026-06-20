@@ -89,7 +89,7 @@ describe('F167 PR-O3: gate-keeping guard policy patch', () => {
     assert.equal(result.outcome, 'blocked');
   });
 
-  // ── hold_ball: short SLA + no callback → allowed ──────────────
+  // ── hold_ball: short SLA + no callback + grounded → allowed ──────────────
   test('short-SLA no-callback hold allowed in gate-keeping thread', async () => {
     const { checkGateKeepingGuard } = await importGuard();
     const result = await checkGateKeepingGuard({
@@ -97,7 +97,8 @@ describe('F167 PR-O3: gate-keeping guard policy patch', () => {
       threadId: 't5',
       tool: 'hold_ball',
       metric: noopMetric,
-      policyContext: { wakeAfterMs: 120_000, hasEventCallback: false },
+      // PR-O4: hasWaitSourceRef required for grounded hold
+      policyContext: { wakeAfterMs: 120_000, hasEventCallback: false, hasWaitSourceRef: true },
     });
     assert.equal(result.outcome, 'allowed_by_policy');
     assert.equal(result.blockedResponse, undefined);
@@ -138,7 +139,8 @@ describe('F167 PR-O3: gate-keeping guard policy patch', () => {
       threadId: 't8',
       tool: 'hold_ball',
       metric: noopMetric,
-      policyContext: { wakeAfterMs: SHORT_SLA_THRESHOLD_MS, hasEventCallback: false },
+      // PR-O4: hasWaitSourceRef required for grounded hold
+      policyContext: { wakeAfterMs: SHORT_SLA_THRESHOLD_MS, hasEventCallback: false, hasWaitSourceRef: true },
     });
     assert.equal(result.outcome, 'allowed_by_policy');
   });
@@ -184,7 +186,8 @@ describe('F167 PR-O3: gate-keeping guard policy patch', () => {
       threadId: 'tm',
       tool: 'hold_ball',
       metric,
-      policyContext: { wakeAfterMs: 60_000, hasEventCallback: false },
+      // PR-O4: hasWaitSourceRef required for grounded hold
+      policyContext: { wakeAfterMs: 60_000, hasEventCallback: false, hasWaitSourceRef: true },
     });
 
     assert.equal(recorded.length, 1);

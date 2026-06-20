@@ -29,6 +29,7 @@ import { requireCallbackAuth } from './callback-auth-prehandler.js';
 import { emitC1HoldCancellation } from './callback-hold-ball-c1-emit.js';
 import { registerHoldBallCancelRoutes } from './callback-hold-ball-cancel-routes.js';
 import { deriveCallbackActor } from './callback-scope-helpers.js';
+import { type CrossStoreTaskStore, detectEventCallback } from './gate-keeping-cross-store.js';
 import { checkGateKeepingGuard } from './gate-keeping-guard.js';
 import { HOLD_BALL_SOURCE } from './hold-ball-source.js';
 
@@ -133,6 +134,12 @@ export interface HoldBallRouteDeps {
     catId: string;
   }) => void | Promise<void>;
   ballCustody?: IBallCustodyIngest;
+  /**
+   * PR-O4: TaskStore for cross-store event callback detection.
+   * When provided, hold_ball in gate-keeping threads checks whether
+   * active PR/issue tracking exists → hasEventCallback policy context.
+   */
+  taskStore?: CrossStoreTaskStore;
 }
 
 export function registerCallbackHoldBallRoutes(app: FastifyInstance, deps: HoldBallRouteDeps): void {
@@ -177,17 +184,22 @@ export function registerCallbackHoldBallRoutes(app: FastifyInstance, deps: HoldB
         log.warn({ err, threadId, catId: catIdStr }, 'F167 grounding shadow telemetry failed (non-blocking)');
       });
 
-    // F167: gate-keeping thread guard (PR-O3: structured allow for short-SLA no-callback holds)
+    // F167: gate-keeping thread guard (PR-O3 → PR-O4: cross-store callback detection)
+    // PR-O4: detect event callback by querying TaskStore for active tracking
+    // in the same thread. Pass waitSourceRef for subject-level matching:
+    // only tracking tasks covering the SAME subject count as "event-backed."
+    // Fail-open: if taskStore not injected or query fails,
+    // hasEventCallback defaults to false (allows hold — conservative).
+    const hasEventCallback = deps.taskStore
+      ? await detectEventCallback(deps.taskStore, threadId, log, parsed.data.waitSourceRef)
+      : false;
     const guardResult = await checkGateKeepingGuard({
       threadStore: deps.threadStore as Parameters<typeof checkGateKeepingGuard>[0]['threadStore'],
       threadId,
       tool: 'hold_ball',
       log,
       context: { catId: catIdStr, reason },
-      // PR-O3 R2: hasEventCallback removed — dead code (always false).
-      // Policy engine skeleton preserved + tested; PR-O4 will wire
-      // cross-store detection and pass actual boolean here.
-      policyContext: { wakeAfterMs },
+      policyContext: { wakeAfterMs, hasEventCallback, hasWaitSourceRef: !!parsed.data.waitSourceRef },
     });
     if (guardResult.outcome === 'blocked' && guardResult.blockedResponse) {
       reply.status(400);

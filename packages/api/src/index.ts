@@ -2353,6 +2353,7 @@ async function main(): Promise<void> {
       messageStore,
       socketManager,
       threadStore,
+      taskStore,
       ...(ballCustodyIngest ? { ballCustody: ballCustodyIngest } : {}),
       onHoldBallCancelFeedback: (input) => {
         void import('./domains/cats/services/frustration/FrustrationDetector.js')

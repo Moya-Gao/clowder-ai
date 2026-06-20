@@ -96,6 +96,7 @@ import { registerCallbackThreadCatsRoutes } from './callback-thread-cats-routes.
 import { registerCallbackWeComActionRoutes } from './callback-wecom-action-routes.js';
 import { registerCallbackWorkflowSopRoutes } from './callback-workflow-sop-routes.js';
 import { type FeatIndexEntry, readFeatIndexEntries } from './feat-index-doc-import.js';
+import { verifyKeeperOwnership } from './gate-keeping-cross-store.js';
 import { checkGateKeepingGuard } from './gate-keeping-guard.js';
 import { detectUserMention } from './user-mention.js';
 import { clearVoteTimer, closeVoteInternal, voteTimers } from './votes.js';
@@ -2406,7 +2407,8 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       }
     }
 
-    const subjectKey = `pr:${repoFullName}#${prNumber}`;
+    // PR-O4 R5: normalize repo to lowercase (GitHub repos are case-insensitive)
+    const subjectKey = `pr:${repoFullName.toLowerCase()}#${prNumber}`;
     try {
       // F140: resolve wake intent. Explicit wins; otherwise preserve an already-set intent (so an
       // incidental re-register doesn't silently downgrade a deliberate 'merge'); default 'review'.
@@ -2519,17 +2521,22 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
         log.warn({ err, catId }, 'F167 grounding shadow telemetry failed (register_issue_tracking, non-blocking)');
       });
 
-    // F167: gate-keeping thread guard.
-    // PR-O3 R2: no policyContext → Phase N blanket block for issue tracking.
-    // issueOwnership removed — grounding checker doesn't verify it, so
-    // caller-declared ownership is a trust hole. PR-O4 hardening will wire
-    // cross-store verification + re-enable the keeper allowance path.
+    // F167: gate-keeping thread guard (PR-O4: cross-store ownership verification).
+    // PR-O3 left issueOwnership as caller-declared (trust hole).
+    // PR-O4 wires cross-store verification: query TaskStore to check if this
+    // issue is already tracked in a different thread (= distributed, not keeper).
+    // PR-O4 R5: normalize repo to lowercase (GitHub repos are case-insensitive)
+    const issueSubjectKey = `issue:${repoFullName.toLowerCase()}#${issueNumber}`;
+    const issueOwnership = taskStore
+      ? await verifyKeeperOwnership(taskStore, record.threadId, issueSubjectKey, log)
+      : undefined; // no taskStore → no verification → Phase N blanket block
     const guardResult = await checkGateKeepingGuard({
       threadStore: opts.threadStore,
       threadId: record.threadId,
       tool: 'register_issue_tracking',
       log,
       context: { catId, repoFullName, issueNumber },
+      policyContext: issueOwnership ? { issueOwnership } : undefined,
     });
     if (guardResult.outcome === 'blocked' && guardResult.blockedResponse) {
       reply.status(400);
@@ -2566,7 +2573,8 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       }
     }
 
-    const subjectKey = `issue:${repoFullName}#${issueNumber}`;
+    // PR-O4 R5: normalize repo to lowercase (GitHub repos are case-insensitive)
+    const subjectKey = `issue:${repoFullName.toLowerCase()}#${issueNumber}`;
     const existingTask = await taskStore.getBySubject(subjectKey);
     const existingIssueCursor = existingTask?.automationState?.issue?.lastCommentCursor;
     const shouldSeedIssueCursor = existingIssueCursor === undefined || existingTask?.status === 'done';

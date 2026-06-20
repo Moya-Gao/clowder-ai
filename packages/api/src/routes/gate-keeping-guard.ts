@@ -80,12 +80,11 @@ export interface GateKeepingPolicyContext {
    *
    * Default (not provided) → treated as distributed → blocked.
    *
-   * TODO(PR-O4): Currently caller-declared — no independent verification.
-   * PR-O4 hardening should cross-query the tracking registry / thread ownership
-   * to verify keeper claim instead of trusting caller declaration.
-   * The grounding checker (shadow telemetry) independently evaluates claims
-   * about the issue itself, but the guard's authorization decision relies
-   * on this caller-supplied field until PR-O4 wires verification.
+   * PR-O4: Now independently verified via cross-store query.
+   * verifyKeeperOwnership() in gate-keeping-cross-store.ts checks TaskStore
+   * for existing tracking of the same issue subject: same-thread → keeper,
+   * different-thread → distributed, no existing → new registration → keeper.
+   * Caller no longer declares ownership — it's derived from store truth.
    */
   issueOwnership?: 'keeper' | 'distributed';
 
@@ -103,6 +102,16 @@ export interface GateKeepingPolicyContext {
    * Event-backed holds are blocked because they're redundant.
    */
   hasEventCallback?: boolean;
+
+  /**
+   * PR-O4: For hold_ball: whether a structured waitSourceRef was provided.
+   * Gate-keeping threads require grounded waits — a short-SLA hold without
+   * waitSourceRef is ungrounded and gets blocked.
+   *
+   * Per spec L926: "仅当 keeper-owned + 无 event callback + 短 SLA + waitSourceRef 允许"
+   * This closes the gap between the SLA-based proxy and the full narrow gate.
+   */
+  hasWaitSourceRef?: boolean;
 }
 
 export interface CheckGateKeepingInput {
@@ -129,6 +138,8 @@ const REMEDIATION_HOLD_EVENT_BACKED =
   'PR tracking 或 issue tracking 已注册在当前 thread，事件回调会自动唤醒。额外 hold_ball 是冗余的——移除 hold，等回调。';
 const REMEDIATION_HOLD_LONG_SLA =
   '守门 thread 仅允许短期操作性 hold（≤10分钟）。长时间等待请用 sweep task 或 cross_post 给下游 thread 分发后再 hold。';
+const REMEDIATION_HOLD_UNGROUNDED =
+  '守门 thread 要求结构化 wait：请在 hold_ball 请求中提供 waitSourceRef（指向 GitHub issue/comment/reporter SLA）。无 waitSourceRef 的 hold 是 ungrounded 的。';
 
 const REASON_PR =
   '守门 thread 默认不挂 PR tracking——把球 cross_post 或 propose_thread 给下游 owner（opensource-ops SKILL 红线）';
@@ -245,16 +256,26 @@ function applyGateKeepingPolicy(
       }
       return blocked(tool, reasonFor(tool), remediationFor(tool), metric);
 
-    // ── Hold ball: allow short-SLA + no callback ──────────────────
+    // ── Hold ball: allow short-SLA + no callback + grounded ────────
     case 'hold_ball': {
       // Event-backed hold → blocked (redundant, callback will wake)
       if (policyContext?.hasEventCallback) {
         return blocked(tool, '事件回调已注册，hold_ball 冗余', REMEDIATION_HOLD_EVENT_BACKED, metric);
       }
-      // Short SLA + no callback → allowed
       const sla = policyContext?.wakeAfterMs;
+      // Short SLA + grounded (has waitSourceRef) + no callback → allowed
+      // Per spec L926: "仅当 keeper-owned + 无 event callback + 短 SLA + waitSourceRef 允许"
       if (sla !== undefined && sla <= SHORT_SLA_THRESHOLD_MS) {
-        return allowedByPolicy(tool, metric);
+        if (policyContext?.hasWaitSourceRef) {
+          return allowedByPolicy(tool, metric);
+        }
+        // Short SLA but ungrounded (no waitSourceRef) → blocked
+        return blocked(
+          tool,
+          '守门 thread hold 需要结构化 wait 依据（waitSourceRef）',
+          REMEDIATION_HOLD_UNGROUNDED,
+          metric,
+        );
       }
       // Long/unbounded or no context → blocked
       const remediation =
