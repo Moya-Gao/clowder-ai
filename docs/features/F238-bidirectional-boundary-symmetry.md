@@ -161,6 +161,7 @@ Add representative round-trip fixtures and a recurring verdict: public export ha
 | 2026-06-17 | Phase C merged (PR #2327): inbound dictionary enforcement — classify_path, fail-closed cross-validation (3 brand-sensitive + 1 manual-port anchor), GitHub CI workflow, 44 intake + 20 helper tests in pnpm check. |
 | 2026-06-17 | Phase D merged (PR #2333): reverse sanitizer detect-only V1 — NDJSON output, word-boundary regex, three-layer dedup, per-variant suggestion mapping, 30 tests, wired into pnpm check. |
 | 2026-06-17 | Phase E merged (PR #2341): round-trip boundary fixtures (33 tests, 7 categories), --summary-json structured counters, per-termId reciprocity validation. F238 complete — all 5 phases delivered. |
+| 2026-06-20 | Post-close guard fix merged (PR #2440): Brand dictionary helper no longer requires `node_modules/js-yaml` in isolated clean worktrees; clean-tree regressions cover scalar and section-header inline comments plus term-variant parsing. |
 
 ## Review Gate
 
@@ -209,4 +210,3 @@ Add representative round-trip fixtures and a recurring verdict: public export ha
 ### Vision Guardian Non-Blocking Concerns Disposition
 
 1. **Biome check fail on main**: 在执行 `pnpm check` 过程中发现 `packages/api/test/scheduler/review-feedback-thread-rotation.test.js` 有 Biome 格式化报错。此报错为 `F235/F192` merge (#2335) 的历史遗留残留，不属于 F238 改动范围。本 Feature 范围内的 5 个 brand/boundary 相关 check (`check:brand-dictionary`, `check:brand-guard`, `check:reverse-sanitizer`, `check:boundary-roundtrip`, `check:sync-export`) 均已全部测试通过。
-
