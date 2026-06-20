@@ -9,7 +9,7 @@ tips_exempt: internal operations tool — board/reconciler/closure UX visible on
 
 # F168: Community Operations Board — 社区事务编排引擎
 
-> **Status**: infra-complete / ops-gap 🚧 — 管道精密但没流水（2026-06-20 CVO review 后重新定位）| **基础设施 A→E 全部 merged ✅** | **Phase F backend SO-0~SO-3 merged ✅** | **运营闭环仍在推进 🚧**（backfill / board UX / 端到端生产流未完成）| **Owner**: 宪宪 (opus-4.8) | **Priority**: P1
+> **Status**: infra-complete / ops-gap 🚧 — 管道精密但没流水（2026-06-20 CVO review 后重新定位）| **基础设施 A→E 全部 merged ✅** | **Phase F backend SO-0~SO-3 merged + opus-47 vision guard PASS ✅** | **运营闭环仍在推进 🚧**（backfill / board UX / 端到端生产流未完成）| **Owner**: 宪宪 (opus-4.8) | **Priority**: P1
 
 ## Reopen（2026-06-10，CVO signoff）
 
@@ -597,6 +597,7 @@ TTL=0（铁律 #5），用户数据默认持久化
 | 2026-06-19 | **Phase E close guard merged** (PR #2432, `14fdb4e6`) — Decision Queue owner-thread navigation preserved across existing projection-enriched issues, projection-only repos, stale CommunityPanel async responses, and direction-decision route recommendations. Cloud current-head review `a44a39eecc` reported no major issues; `pnpm gate` passed on `a44a39eec`; Brand Boundary Guard passed. |
 | 2026-06-19 | **F168 ✅ CLOSED** — Opus 4.7 final vision guard PASS for the complete A→E reopen chain（Phase E = PR #2425/#2431/#2432；API 34/34 + frontend 9/9 = 43/43 focused tests pass；INV-E0~E5 all verified；Decision Queue solves owner action queue, owner-thread navigation, and close-via-github external-only behavior）。CloseGateReport: `docs/discussions/2026-06-19-f168-close-gate/close-gate-report.md`；reflection capsule: `docs/reflections/2026-06-19-f168-community-ops-board-capsule.md`；P3 DecisionQueueItem split recorded under Post-completion hardening. |
 | 2026-06-20 | **Phase F backend merged** (PR #2445, `dccb471d2`) — per-repo config store/routes + triage confidence + validate-route accept/reject + TriageOrchestrator autoRoute; AC-F00/F1/F2/F3/F4/F5 ✅；AC-F0/F6/F7 deferred |
+| 2026-06-20 | **Phase F backend vision guard PASS** — Opus 4.7 independently verified PR #2445 scope after clean rebuild（Phase F backend 42/42 focused tests pass；INV-F5/F6/F7 verified；scope limited to SO-0~SO-3 / AC-F00/F1/F2/F3/F4/F5）。F168 remains infra-complete / ops-gap: AC-F0 backfill, AC-F6 board UX, and AC-F7 end-to-end production flow still pending. |
 
 ## Review Gate
 

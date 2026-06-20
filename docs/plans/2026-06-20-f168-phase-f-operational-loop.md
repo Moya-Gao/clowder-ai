@@ -147,7 +147,7 @@ narrator 完成 triage
 
 **INV-F5**: autoRoute 只在 verdict=WELCOME + confidence=high 时触发，其余路径保持不变。
 **INV-F6**: autoRoute 必须设置 routeAcceptance=pending（目标猫验证是安全网）。
-**INV-F7**: autoRoute 的 routeRecommendation 必须是 existing-thread（high confidence 的必要条件）。
+**INV-F7**: autoRoute 的目标 thread 必须是现有 thread：优先使用 `entry.routeRecommendation.kind === 'existing-thread'` 的 threadId；缺失时 fallback 到 per-repo `guardThreadId`（守门 thread 也必须存在于 thread store）。
 
 ---
 
@@ -351,7 +351,7 @@ interface CommunityIssueItem {
 | 风险 | 缓解 |
 |------|------|
 | backfill 量大（515 条）影响生产 Redis | 分批写入 + rate limit（50 条/批，间隔 1s） |
-| autoRoute 误判高置信度 | INV-F7 限制 existing-thread only + 目标猫验证兜底 |
+| autoRoute 误判高置信度 | INV-F7 限制目标 thread 必须存在（routeRecommendation existing-thread 或 repo guard thread）+ 目标猫验证兜底 |
 | 目标猫忘记验证（routeAcceptance 永远 pending） | F-Step2+ 可加 SLA 提醒（复用 Phase D SLA 机制），但 Phase F 不做 |
 | Decision Queue reassignment 循环（退回→重分→退回） | Phase F 不加硬上限；如果实际发生再迭代 |
 
