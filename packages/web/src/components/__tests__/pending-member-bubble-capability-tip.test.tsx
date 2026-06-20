@@ -71,15 +71,14 @@ describe('F244 PendingMemberBubble capability tips', () => {
       await Promise.resolve();
     });
 
-    // Before delay: "分析处理中" visible, no tip strip yet
+    // Before delay: bouncing dots visible, no tip strip yet
     const bubble = container.querySelector('[data-message-id="pending-inv-001"]');
     expect(bubble).not.toBeNull();
-    expect(bubble?.textContent).toContain('分析处理中');
     expect(bubble?.querySelector('[data-testid="capability-tip-strip"]')).toBeNull();
 
-    // After 6s delay: tip strip appears
+    // After 1.5s delay (firstDelayMs=1500): tip strip appears
     await act(async () => {
-      vi.advanceTimersByTime(6000);
+      vi.advanceTimersByTime(1500);
       await Promise.resolve();
     });
 
@@ -87,7 +86,7 @@ describe('F244 PendingMemberBubble capability tips', () => {
     expect(bubble?.textContent).toContain('了解更多');
   });
 
-  it('still shows the pending animation alongside the tip', async () => {
+  it('shows bouncing dots alongside the tip', async () => {
     const { PendingMemberBubble } = await import('@/components/PendingMemberBubble');
 
     await act(async () => {
@@ -102,13 +101,13 @@ describe('F244 PendingMemberBubble capability tips', () => {
     });
 
     await act(async () => {
-      vi.advanceTimersByTime(6000);
+      vi.advanceTimersByTime(1500);
       await Promise.resolve();
     });
 
     const bubble = container.querySelector('[data-message-id="pending-inv-002"]');
-    // Both the pending text and the tip coexist
-    expect(bubble?.textContent).toContain('分析处理中');
+    // Both the bouncing dots and the tip coexist
+    expect(bubble?.querySelectorAll('.animate-bounce').length).toBe(3);
     expect(bubble?.querySelector('[data-testid="capability-tip-strip"]')).not.toBeNull();
   });
 
@@ -132,12 +131,12 @@ describe('F244 PendingMemberBubble capability tips', () => {
 
     // Even after delay, no tip strip when stalled
     await act(async () => {
-      vi.advanceTimersByTime(6000);
+      vi.advanceTimersByTime(1500);
       await Promise.resolve();
     });
 
     const bubble = container.querySelector('[data-message-id="pending-inv-stall"]');
-    expect(bubble?.textContent).toContain('分析处理中');
+    expect(bubble?.querySelectorAll('.animate-bounce').length).toBe(3);
     expect(bubble?.querySelector('[data-testid="capability-tip-strip"]')).toBeNull();
   });
 
@@ -157,12 +156,12 @@ describe('F244 PendingMemberBubble capability tips', () => {
 
     // Even after delay, no tip strip when showCapabilityTip is false
     await act(async () => {
-      vi.advanceTimersByTime(6000);
+      vi.advanceTimersByTime(1500);
       await Promise.resolve();
     });
 
     const bubble = container.querySelector('[data-message-id="pending-inv-no-tip"]');
-    expect(bubble?.textContent).toContain('分析处理中');
+    expect(bubble?.querySelectorAll('.animate-bounce').length).toBe(3);
     expect(bubble?.querySelector('[data-testid="capability-tip-strip"]')).toBeNull();
   });
 
@@ -182,7 +181,7 @@ describe('F244 PendingMemberBubble capability tips', () => {
     });
 
     await act(async () => {
-      vi.advanceTimersByTime(6000);
+      vi.advanceTimersByTime(1500);
       await Promise.resolve();
     });
 

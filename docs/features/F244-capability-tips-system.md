@@ -129,8 +129,8 @@ F229 猫猫球是 F244 的未来展示面，不是第二个 tips 系统：
 在等待/执行 UI 中增加 tips 投影，但与真实状态分层：
 
 - 真实状态仍由 liveness/runtime signal 驱动，`ThreadExecutionBar` / `ThinkingIndicator` 继续放状态、计时、停止与强制重置入口。
-- Tip 的第一展示面是 assistant streaming bubble：在猫猫头像/名字下面、当前"分析处理中"文本之后展示，成为等待气泡的一部分，而不是漂在执行条里。
-- Thread/message-list 层只选择一个 eligible streaming bubble 承载 tip；多猫并行等待时不得为每条 streaming message 各自挂一个 strip，避免重复曝光和重复 action event。
+- Tip 的第一展示面是 PendingMemberBubble（猫猫等待气泡）：猫猫头像/名字下面显示极简弹跳点（`· · ·`），tip strip 在短暂延迟后出现在弹跳点下方（两者共存），不再显示"分析处理中"静态文案（CVO dogfood Round 3 去除）。
+- Thread/message-list 层只选择一个 eligible pending invocation 承载 tip（`pendingTipInvocationId`，取第一个非 stall 的 pending invocation）；多猫并行等待时不得为每条 pending bubble 各自挂一个 strip，避免重复曝光和重复 action event。
 - `ThreadExecutionBar` 不承担 tip presentation；它只保留真实状态和逃生口，避免 tips 与取消/强制重置竞争。
 - `suspected_stall` / `alive_but_silent` 时，故障与取消入口优先；tips 不得遮挡或弱化 `卡住了？强制重置`。
 - 首次展示延迟触发，单条至少停留 30s，避免每几秒闪动制造噪音。

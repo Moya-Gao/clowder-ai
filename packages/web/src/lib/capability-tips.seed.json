@@ -7,7 +7,7 @@
     "bodySource": { "path": "cat-cafe-skills/refs/shared-rules.md", "anchor": "「脚手架」" },
     "contexts": ["thinking", "feature_dev", "review"],
     "audience": ["cvo", "developer"],
-    "body": "“脚手架”用于发现临时方案时拉回终态设计。",
+    "body": "觉得猫猫在做临时方案？试试说「脚手架」，它会停下来重新审视是不是终态设计。",
     "action": { "type": "open_concierge_draft", "label": "了解更多" },
     "owner": "codex"
   },
@@ -22,7 +22,7 @@
     "bodySource": { "path": "cat-cafe-skills/refs/capability-wakeup-index.md", "anchor": "rich-messaging" },
     "contexts": ["thinking", "long_running"],
     "audience": ["all"],
-    "body": "长日志、步骤或对比表适合做 rich block，不必挤在一段聊天里。",
+    "body": "猫猫可以用卡片、列表、对比表等富格式展示内容——不只是纯文字哦。",
     "action": { "type": "open_concierge_draft", "label": "了解更多" },
     "owner": "codex"
   },
@@ -37,7 +37,7 @@
     "bodySource": { "path": "cat-cafe-skills/refs/capability-wakeup-index.md", "anchor": "`browser-preview`" },
     "contexts": ["thinking", "long_running", "feature_dev"],
     "audience": ["all"],
-    "body": "改完前端想看效果时，猫可以把本地页面打开到 Hub Browser 预览。",
+    "body": "改完前端想看效果？可以让猫猫直接在 Hub 里打开浏览器预览。",
     "action": { "type": "open_concierge_draft", "label": "了解更多" },
     "owner": "codex"
   },
@@ -52,7 +52,7 @@
     "bodySource": { "path": "cat-cafe-skills/refs/capability-wakeup-index.md", "anchor": "`image-generation`" },
     "contexts": ["thinking", "feature_dev"],
     "audience": ["all"],
-    "body": "需要架构图、视觉 mock 或素材时，可以让猫走 image-generation。",
+    "body": "需要架构图、设计稿或素材？跟猫猫说一声，可以直接生成图片。",
     "action": { "type": "open_concierge_draft", "label": "了解更多" },
     "owner": "codex"
   },
@@ -67,7 +67,7 @@
     "bodySource": { "path": "cat-cafe-skills/refs/capability-wakeup-index.md", "anchor": "`workspace-navigator`" },
     "contexts": ["thinking", "feature_dev", "review"],
     "audience": ["all"],
-    "body": "想让你直接看到文件时，猫可以把路径打开到 Workspace panel。",
+    "body": "想看某个文件？猫猫可以直接把它打开到你的工作区面板里。",
     "action": { "type": "open_concierge_draft", "label": "了解更多" },
     "owner": "codex"
   },
@@ -82,7 +82,7 @@
     "bodySource": { "path": "cat-cafe-skills/refs/capability-wakeup-index.md", "anchor": "`pencil-design`" },
     "contexts": ["feature_dev"],
     "audience": ["developer", "cvo"],
-    "body": "UI 视觉要先看设计时，可以让猫用 Pencil 做 .pen 设计稿。",
+    "body": "想先看 UI 设计再动手写？让猫猫用 Pencil 出一个可视化设计稿。",
     "action": { "type": "open_concierge_draft", "label": "了解更多" },
     "owner": "codex"
   },
@@ -97,7 +97,7 @@
     "bodySource": { "path": "cat-cafe-skills/refs/capability-wakeup-index.md", "anchor": "`guide-interaction`" },
     "contexts": ["thinking", "concierge_open"],
     "audience": ["all"],
-    "body": "问“怎么用/怎么配置”时，猫可以把说明变成一步步引导。",
+    "body": "问「怎么用」或「怎么配置」时，猫猫可以把说明做成一步步交互引导。",
     "action": { "type": "open_concierge_draft", "label": "了解更多" },
     "owner": "codex"
   },
@@ -112,7 +112,7 @@
     "bodySource": { "path": "cat-cafe-skills/refs/capability-wakeup-index.md", "anchor": "`expert-panel`" },
     "contexts": ["review", "feature_dev"],
     "audience": ["cvo", "developer"],
-    "body": "架构题或卡住的 bug 可以拉 expert-panel，让多只猫独立判断后收敛。",
+    "body": "重要决策拿不准？可以开 expert-panel 让多只猫各自独立判断，再一起收敛。",
     "action": { "type": "open_concierge_draft", "label": "了解更多" },
     "owner": "codex"
   },
@@ -127,7 +127,7 @@
     "bodySource": { "path": "cat-cafe-skills/refs/capability-wakeup-index.md", "anchor": "提议创建新 thread" },
     "contexts": ["thinking", "long_running"],
     "audience": ["all"],
-    "body": "任务明显长出当前 thread 时，猫可以填好新 thread 卡片让你确认。",
+    "body": "聊天太长了？猫猫可以提议开个新 thread，填好卡片让你一键确认。",
     "action": { "type": "open_concierge_draft", "label": "了解更多" },
     "owner": "codex"
   },
@@ -212,7 +212,7 @@
     "bodySource": { "path": "cat-cafe-skills/refs/memory-routing-partial.md", "anchor": "graph_resolve" },
     "contexts": ["thinking", "review"],
     "audience": ["all"],
-    "body": "找旧决策时先选 memory 入口：模糊搜、精确 anchor、或扫最近。",
+    "body": "猫猫有记忆系统——之前聊过的决策、踩过的坑、立过的规矩，它都能搜到。",
     "action": { "type": "open_concierge_draft", "label": "了解更多" },
     "owner": "codex"
   },
@@ -334,7 +334,7 @@
     "bodySource": { "path": "docs/features/F244-capability-tips-system.md", "anchor": "open_concierge_draft" },
     "contexts": ["thinking", "feature_dev"],
     "audience": ["all"],
-    "body": "等待态 tips 是 Knowledge Feed 投影；点“了解更多”会打开前台猫草稿。",
+    "body": "这些小贴士来自家里的 Knowledge Feed——点「了解更多」可以让猫猫展开讲讲。",
     "action": { "type": "open_concierge_draft", "label": "了解更多" },
     "owner": "codex"
   },
@@ -352,7 +352,7 @@
     "bodySource": { "path": "docs/features/F188-library-stewardship.md", "anchor": "Warning codes" },
     "contexts": ["thinking", "feature_dev"],
     "audience": ["all"],
-    "body": "Memory Center 看到 healthy=true 但 vectors/edges/embedding 为空时打开 /memory/status，新的 degraded banner 会列出 config warnings 与下一步动作。",
+    "body": "记忆系统有健康面板——如果搜不到东西，可以去 Memory Center 看看是不是配置问题。",
     "action": { "type": "open_concierge_draft", "label": "了解更多" },
     "owner": "opus-47"
   }

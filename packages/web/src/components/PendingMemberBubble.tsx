@@ -20,15 +20,12 @@ interface PendingMemberBubbleProps {
 }
 
 /**
- * #936: Show a member-level pending bubble with avatar and animated dots
- * as soon as an invocation starts, before any stream content arrives.
+ * #936: Show a member-level pending bubble with avatar before any stream
+ * content arrives.
  *
- * This replaces the gap where the user sees nothing between sending a message
- * and the first assistant stream chunk. The bubble is keyed by invocationId
- * so it naturally unmounts when replaced by real content.
- *
- * F244: Capability tips show here (the "分析处理中" wait phase), NOT in the
- * streaming ChatMessage — CVO dogfood confirmed this is the correct timing.
+ * F244 CVO dogfood: tips ARE the waiting indicator — no "分析处理中" SaaS
+ * copy. Minimal bouncing dots bridge the short delay before the first tip
+ * appears. Non-tip bubbles (dedup) show only the dots.
  */
 export function PendingMemberBubble({
   catId,
@@ -52,17 +49,17 @@ export function PendingMemberBubble({
       }
       wrapperClassName="group cat-persona-derived"
     >
-      <div className="flex items-center gap-1 py-2 text-cafe-fg-muted">
-        <span className="text-sm">分析处理中</span>
-        <span className="inline-flex gap-0.5">
+      <div className="flex items-center gap-1 py-2 text-cafe-fg-muted" role="status">
+        <span className="sr-only">处理中</span>
+        <span className="inline-flex gap-0.5" aria-hidden="true">
           <span className="animate-bounce text-sm" style={{ animationDelay: '0ms' }}>
-            .
+            ·
           </span>
           <span className="animate-bounce text-sm" style={{ animationDelay: '150ms' }}>
-            .
+            ·
           </span>
           <span className="animate-bounce text-sm" style={{ animationDelay: '300ms' }}>
-            .
+            ·
           </span>
         </span>
       </div>
@@ -70,7 +67,9 @@ export function PendingMemberBubble({
         <CapabilityTipStrip
           surface="pending_bubble"
           contexts={tipContexts ?? DEFAULT_STREAMING_TIP_CONTEXTS}
+          audience="cvo"
           enabled={!isStreamingTipSuppressedByStatus(catStatus)}
+          firstDelayMs={1500}
         />
       )}
     </MessageBubble>
