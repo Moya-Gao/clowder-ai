@@ -1,3 +1,4 @@
+import type { ClaimGroundingEvent } from '../grounding/types.js';
 import { extractC1HoldZombieSamples } from './c1-hold-sample-evidence.js';
 import { extractC2VerdictWithoutPassSamples, type PerFireSample } from './c2-sample-evidence.js';
 import { extractC2VoidHoldSamples } from './c2-void-hold-sample-evidence.js';
@@ -33,6 +34,29 @@ export interface ComponentHealth {
   telemetryGaps: TelemetryGap[];
 }
 
+/** F167 Phase O PR-O2b: grounding sample evidence for F192 verdict consumption. */
+export interface GroundingSampleEvidence {
+  /** Total sampled events in this snapshot. */
+  totalSampled: number;
+  /** Breakdown by verdict. */
+  byVerdict: Record<string, number>;
+  /** Breakdown by tool. */
+  byTool: Record<string, number>;
+  /** Up to 20 most recent mismatch/insufficient events for human review. */
+  recentActionable: Array<{
+    ts: number;
+    tool: string;
+    claimType: string;
+    verdict: string;
+    verdictReason: string;
+    resolver: string;
+    sourceTier: string;
+    catId: string;
+    threadId: string;
+    sourceRef: string;
+  }>;
+}
+
 export interface RuntimeEvalSnapshot {
   featureId: string;
   window: { startMs: number; endMs: number; durationHours: number };
@@ -43,6 +67,8 @@ export interface RuntimeEvalSnapshot {
   components: ComponentHealth[];
   overallConfidence: 'high' | 'medium' | 'low' | 'no-data';
   summary: string;
+  /** F167 Phase O PR-O2b: grounding sample evidence (undefined if no samples). */
+  groundingSampleEvidence?: GroundingSampleEvidence;
 }
 
 export interface F167EvalInput {
@@ -50,6 +76,8 @@ export interface F167EvalInput {
   metrics: Record<string, number>;
   metricsHistory: EvalMetricsHistoryResponse;
   traceStats: EvalTraceStoreStats;
+  /** F167 Phase O PR-O2b: grounding sample events from bounded store. */
+  groundingSamples?: ClaimGroundingEvent[];
 }
 
 // Prometheus key → short name mapping (dots in OTel become underscores in Prom)
@@ -301,10 +329,13 @@ function buildRouteSerial(metrics: Record<string, number>, hasTraceData: boolean
 }
 
 /**
- * F167 Phase O PR-O2: grounding shadow telemetry component.
- * Consumes counters emitted by grounding-checker.ts (shadow mode).
+ * F167 Phase O PR-O2b: grounding shadow telemetry component.
+ * Consumes counters + bounded sample evidence from grounding-checker.ts.
  */
-function buildGroundingPhaseO(metrics: Record<string, number>): ComponentHealth {
+function buildGroundingPhaseO(
+  metrics: Record<string, number>,
+  groundingSamples: ClaimGroundingEvent[] = [],
+): ComponentHealth {
   // normalizePromKey strips _total suffix, so prefix must match the normalized form
   const checkTotal = sumMetricByPrefix(metrics, 'cat_cafe_a2a_grounding_check');
   const verdictTotal = sumMetricByPrefix(metrics, 'cat_cafe_a2a_grounding_verdict');
@@ -322,6 +353,14 @@ function buildGroundingPhaseO(metrics: Record<string, number>): ComponentHealth 
     activationCounts['grounding.resolver_total'] = resolverTotal ?? 0;
     activationCounts['grounding.cache_hit_total'] = cacheHitTotal ?? 0;
     frictionCounts['grounding.budget_exhausted_total'] = budgetExhausted ?? 0;
+  }
+
+  // PR-O2b: surface sample count in activation counters
+  if (groundingSamples.length > 0) {
+    activationCounts['grounding.sample_count'] = groundingSamples.length;
+    activationCounts['grounding.mismatch_sample_count'] = groundingSamples.filter(
+      (e) => e.verdict === 'mismatch',
+    ).length;
   }
 
   const gaps: TelemetryGap[] = [];
@@ -357,6 +396,42 @@ function worstConfidence(components: ComponentHealth[]): ComponentHealth['confid
   return CONFIDENCE_ORDER[worst];
 }
 
+/** PR-O2b: Build grounding sample evidence for the snapshot. */
+function buildGroundingSampleEvidence(samples: ClaimGroundingEvent[]): GroundingSampleEvidence | undefined {
+  if (samples.length === 0) return undefined;
+
+  const byVerdict: Record<string, number> = {};
+  const byTool: Record<string, number> = {};
+  for (const s of samples) {
+    byVerdict[s.verdict] = (byVerdict[s.verdict] ?? 0) + 1;
+    byTool[s.tool] = (byTool[s.tool] ?? 0) + 1;
+  }
+
+  // Surface actionable events (mismatch + insufficient) for human review, capped at 20.
+  const actionable = samples
+    .filter((e) => e.verdict === 'mismatch' || e.verdict === 'insufficient')
+    .slice(-20)
+    .map((e) => ({
+      ts: e.ts,
+      tool: e.tool,
+      claimType: e.claimType,
+      verdict: e.verdict,
+      verdictReason: e.verdictReason ?? '',
+      resolver: e.resolver,
+      sourceTier: e.resolverSourceTier,
+      catId: e.catId,
+      threadId: e.threadId,
+      sourceRef: `${e.sourceRef.kind}:${e.sourceRef.value}`,
+    }));
+
+  return {
+    totalSampled: samples.length,
+    byVerdict,
+    byTool,
+    recentActionable: actionable,
+  };
+}
+
 export function generateF167Snapshot(input: F167EvalInput): RuntimeEvalSnapshot {
   const now = Date.now();
   const hasTraceData = input.traceStats.oldestStoredAt != null && input.traceStats.newestStoredAt != null;
@@ -364,12 +439,14 @@ export function generateF167Snapshot(input: F167EvalInput): RuntimeEvalSnapshot 
   const windowEnd = input.traceStats.newestStoredAt ?? now;
   const durationMs = windowEnd - windowStart;
 
+  const groundingSamples = input.groundingSamples ?? [];
+
   const components = [
     buildL1(input.metrics),
     buildC1(input.traces.spans, input.metrics),
     buildC2(input.traces.spans, input.metrics),
     buildRouteSerial(input.metrics, hasTraceData),
-    buildGroundingPhaseO(input.metrics),
+    buildGroundingPhaseO(input.metrics, groundingSamples),
   ];
 
   const overall = worstConfidence(components);
@@ -393,5 +470,6 @@ export function generateF167Snapshot(input: F167EvalInput): RuntimeEvalSnapshot 
       `F167 A2A harness eval: ${dataComponents}/${components.length} components have telemetry data. ` +
       `${gapCount} telemetry gaps identified. ` +
       `Overall confidence: ${overall}.`,
+    groundingSampleEvidence: buildGroundingSampleEvidence(groundingSamples),
   };
 }

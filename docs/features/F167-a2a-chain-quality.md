@@ -823,7 +823,7 @@ cat_cafe_hold_ball({
 
 - **Counters 不采样**：`claimType / sourceKind / resolver / verdict / actionRisk / tool / threadKind` 100% 计数给 F192 weekly verdict
 - **Sample events 有界**：`mismatch` & `blocked` 100% 采样；`insufficient` 每 `resolver×thread×day` cap 3；`verified` 1/20 + 全局日 cap
-- **Raw retention**：sample event/ref 对齐现有短期诊断窗口 7 天；weekly verdict artifact 只保留 aggregate + evidence refs
+- **Raw retention**：sample event/ref 对齐现有短期诊断窗口 7 天；weekly verdict artifact 只保留 aggregate + evidence refs。**PR-O2b scope-cut**：当前实现为进程内存（restart 清空），7 天 Redis-backed persistence 推迟到 PR-O4 hardening（现有 diagnostics 有 traces Redis hydration + metrics snapshot store 先例，O4 对齐）
 - **No raw body**：只存 `sourceRef`（messageId、PR URL + headSha、issue/comment id、feature path + line、task id）+ hash/status；不存 GitHub body / thread 大段内容
 - **Resolver cache** (`GroundingResolverCache`)：按 `resolver/object/ref` key 短 TTL — GitHub PR/issue/status 60–300s；thread/list context 60s；git/feat/doc resolver keyed by HEAD/path（per invocation cache）；CVO message verification 存 messageId verdict
 - **Resolver budget**：每 invocation / 每个 stateful tool call 有 hard cap（先 10–20 calls，按 rate-limit 常量校准）；预算用尽 → verdict=`insufficient`, reason=`resolver_budget_exhausted`，warn+telemetry，不无限追查

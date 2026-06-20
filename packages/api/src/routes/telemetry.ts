@@ -9,6 +9,7 @@
  */
 
 import type { FastifyPluginAsync } from 'fastify';
+import type { GroundingSampleStore } from '../infrastructure/grounding/grounding-sample-store.js';
 import { hmacId } from '../infrastructure/telemetry/hmac.js';
 import type { LocalTraceStore } from '../infrastructure/telemetry/local-trace-store.js';
 import type { MetricsSnapshotStore } from '../infrastructure/telemetry/metrics-snapshot-store.js';
@@ -29,6 +30,8 @@ export interface TelemetryRoutesOptions {
   metricsSnapshotStore?: MetricsSnapshotStore | null;
   /** Readiness probe — same checks as /ready. */
   checkReadiness?: () => Promise<ReadinessResult>;
+  /** F167 Phase O PR-O2b: bounded grounding sample store. */
+  groundingSampleStore?: GroundingSampleStore | null;
 }
 
 /**
@@ -210,6 +213,19 @@ export const telemetryRoutes: FastifyPluginAsync<TelemetryRoutesOptions> = async
       metricsSnapshotStore: snapshotStats,
       timestamp: Date.now(),
     };
+  });
+
+  // ── F167 Phase O PR-O2b: grounding sample evidence ──────────
+  app.get('/api/telemetry/grounding-samples', async (request, reply) => {
+    if (!requireSession(request, reply)) return;
+
+    if (!opts.groundingSampleStore) {
+      return reply.status(503).send({ error: 'Grounding sample store not available' });
+    }
+
+    const samples = opts.groundingSampleStore.getSamples();
+    const stats = opts.groundingSampleStore.getStats();
+    return { samples, stats };
   });
 };
 

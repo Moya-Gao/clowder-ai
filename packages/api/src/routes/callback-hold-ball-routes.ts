@@ -17,7 +17,9 @@ import type { IBallCustodyIngest } from '../domains/ball-custody/BallCustodyInge
 import { buildHeldEvent } from '../domains/ball-custody/ball-custody-events.js';
 import type { InvocationRegistry } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';
 import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
+import { extractHoldBallClaims } from '../infrastructure/grounding/claim-extractors.js';
 import { checkGrounding } from '../infrastructure/grounding/grounding-checker.js';
+import { groundingSampleStore } from '../infrastructure/grounding/grounding-sample-singleton.js';
 import { createModuleLogger } from '../infrastructure/logger.js';
 import type { DynamicTaskStore } from '../infrastructure/scheduler/DynamicTaskStore.js';
 import type { TaskRunnerV2 } from '../infrastructure/scheduler/TaskRunnerV2.js';
@@ -151,7 +153,7 @@ export function registerCallbackHoldBallRoutes(app: FastifyInstance, deps: HoldB
     const { threadId, catId, userId } = actor;
     const catIdStr = catId as string;
 
-    // F167 Phase O PR-O2: shadow grounding telemetry (emit, never block)
+    // F167 Phase O PR-O2b: shadow grounding telemetry with real claim extraction.
     // Fire-and-forget: don't await, don't let failures affect the hold_ball flow.
     void checkGrounding({
       invocationId: record.invocationId ?? 'unknown',
@@ -160,9 +162,12 @@ export function registerCallbackHoldBallRoutes(app: FastifyInstance, deps: HoldB
       tool: 'hold_ball',
       actionFamily: 'wait',
       actionRisk: 'hold_ball',
-      claims: [], // PR-O2: no resolver wiring yet — emits counters with 'no_claims_provided'
+      claims: extractHoldBallClaims({ reason, waitSourceRef: parsed.data.waitSourceRef }),
     })
       .then((result) => {
+        for (const event of result.events) {
+          groundingSampleStore.record(event, result.wouldBlock);
+        }
         log.debug(
           { threadId, catId: catIdStr, verdict: result.overallVerdict, wouldBlock: result.wouldBlock },
           'F167 Phase O: shadow grounding check completed (hold_ball)',

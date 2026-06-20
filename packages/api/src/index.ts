@@ -1764,11 +1764,13 @@ async function main(): Promise<void> {
   });
   // F153 Phase E: Hub embedded observability routes
   const { telemetryRoutes } = await import('./routes/telemetry.js');
+  const { groundingSampleStore } = await import('./infrastructure/grounding/grounding-sample-singleton.js');
   await app.register(telemetryRoutes, {
     traceStore: telemetryHandle.traceStore,
     getMetricsText: telemetryHandle.getMetricsText ?? undefined,
     metricsSnapshotStore: telemetryHandle.metricsSnapshotStore ?? undefined,
     checkReadiness,
+    groundingSampleStore,
   });
   // F192 Phase E-hub: harness eval verdict lifecycle surface.
   // F192 OQ-21: late-bound holder for ConnectorInvokeTrigger — eval-hub routes

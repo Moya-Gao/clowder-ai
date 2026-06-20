@@ -52,7 +52,9 @@ import {
 import { getVoiceBlockSynthesizer } from '../domains/cats/services/tts/VoiceBlockSynthesizer.js';
 import type { IEvidenceStore, IMarkerQueue, IReflectionService } from '../domains/memory/interfaces.js';
 import { buildThreadDeepLink } from '../infrastructure/connectors/connector-command-helpers.js';
+import { extractIssueTrackingClaims, extractPrTrackingClaims } from '../infrastructure/grounding/claim-extractors.js';
 import { checkGrounding } from '../infrastructure/grounding/grounding-checker.js';
+import { groundingSampleStore } from '../infrastructure/grounding/grounding-sample-singleton.js';
 import { createModuleLogger } from '../infrastructure/logger.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 import { scoreKeywordRelevance, tokenizeKeyword } from '../utils/keyword-relevance.js';
@@ -2336,7 +2338,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     // Use authoritative catId from invocation record, not caller payload.
     const catId = record.catId;
 
-    // F167 Phase O PR-O2: shadow grounding telemetry (emit, never block).
+    // F167 Phase O PR-O2b: shadow grounding telemetry with real claim extraction.
     // Runs BEFORE gate-keeping guard so blocked calls are still observable in shadow mode.
     void checkGrounding({
       invocationId: record.invocationId ?? 'unknown',
@@ -2345,11 +2347,14 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       tool: 'register_pr_tracking',
       actionFamily: 'register_tracking',
       actionRisk: 'register_tracking',
-      claims: [],
+      claims: extractPrTrackingClaims({ repoFullName, prNumber }),
     })
       .then((result) => {
+        for (const event of result.events) {
+          groundingSampleStore.record(event, result.wouldBlock);
+        }
         log.debug(
-          { threadId: record.threadId, catId, verdict: result.overallVerdict },
+          { threadId: record.threadId, catId, verdict: result.overallVerdict, wouldBlock: result.wouldBlock },
           'F167 Phase O: shadow grounding check completed (register_pr_tracking)',
         );
       })
@@ -2485,7 +2490,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     const { repoFullName, issueNumber, instructions } = parsed.data;
     const catId = record.catId;
 
-    // F167 Phase O PR-O2: shadow grounding telemetry (emit, never block).
+    // F167 Phase O PR-O2b: shadow grounding telemetry with real claim extraction.
     // Runs BEFORE gate-keeping guard so blocked calls are still observable in shadow mode.
     void checkGrounding({
       invocationId: record.invocationId ?? 'unknown',
@@ -2494,11 +2499,14 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       tool: 'register_issue_tracking',
       actionFamily: 'register_tracking',
       actionRisk: 'register_tracking',
-      claims: [],
+      claims: extractIssueTrackingClaims({ repoFullName, issueNumber }),
     })
       .then((result) => {
+        for (const event of result.events) {
+          groundingSampleStore.record(event, result.wouldBlock);
+        }
         log.debug(
-          { threadId: record.threadId, catId, verdict: result.overallVerdict },
+          { threadId: record.threadId, catId, verdict: result.overallVerdict, wouldBlock: result.wouldBlock },
           'F167 Phase O: shadow grounding check completed (register_issue_tracking)',
         );
       })

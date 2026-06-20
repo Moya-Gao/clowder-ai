@@ -23,6 +23,7 @@ import {
 } from '../packages/api/dist/infrastructure/harness-eval/attribution.js';
 import { generateF167Snapshot } from '../packages/api/dist/infrastructure/harness-eval/f167-eval.js';
 import {
+  fetchGroundingSamples,
   fetchMetrics,
   fetchMetricsHistory,
   fetchTraces,
@@ -77,10 +78,11 @@ async function main(config) {
   // opt in to the route's `expandLimit=true` cap raise. Default UI traffic
   // is unchanged.
   const traceStats = await fetchTracesStats(config);
-  const [traces, metricsText, metricsHistory] = await Promise.all([
+  const [traces, metricsText, metricsHistory, groundingSamplesRes] = await Promise.all([
     fetchTraces(config, { limit: traceStats.maxSpans, expandLimit: true }),
     fetchMetrics(config),
     fetchMetricsHistory(config),
+    fetchGroundingSamples(config),
   ]);
 
   const metrics = await parseMetricsText(metricsText);
@@ -88,7 +90,8 @@ async function main(config) {
     `     traces: ${traces.count} spans | ` +
       `store: ${traceStats.spanCount}/${traceStats.maxSpans} | ` +
       `metrics keys: ${Object.keys(metrics).length} | ` +
-      `history snapshots: ${metricsHistory.count}`,
+      `history snapshots: ${metricsHistory.count} | ` +
+      `grounding samples: ${groundingSamplesRes.stats.stored} (dropped: ${groundingSamplesRes.stats.dropped})`,
   );
 
   console.log('2/4 Generating F167 eval snapshot...');
@@ -97,6 +100,7 @@ async function main(config) {
     metrics,
     metricsHistory,
     traceStats,
+    groundingSamples: groundingSamplesRes.samples,
   });
   console.log(
     `     components: ${snapshot.components.length} | ` +

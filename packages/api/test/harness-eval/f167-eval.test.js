@@ -832,6 +832,121 @@ describe('F192 D — C1 hold per-fire sample evidence (verdict 2026-06-18 zombie
     assert.equal(report.findings.length, 0, 'healthy cache hits must not trigger findings');
   });
 
+  it('PR-O2b: groundingSampleEvidence surfaces mismatch/insufficient in snapshot', () => {
+    const now = Date.now();
+    const snapshot = generateF167Snapshot({
+      ...emptyInput,
+      metrics: {
+        cat_cafe_a2a_grounding_check_total: 100,
+        cat_cafe_a2a_grounding_verdict_total: 100,
+      },
+      traceStats: {
+        spanCount: 10,
+        maxSpans: 10000,
+        maxAgeMs: 86400000,
+        oldestStoredAt: now - 3600000,
+        newestStoredAt: now,
+      },
+      groundingSamples: [
+        {
+          invocationId: 'inv-1',
+          catId: 'opus',
+          threadId: 'thread-1',
+          claimType: 'object',
+          sourceKind: 'self',
+          sourceRef: { kind: 'pr_url', value: 'org/repo#1' },
+          resolver: 'github_pr',
+          resolverSourceTier: 'T1',
+          cacheHit: false,
+          verdict: 'mismatch',
+          verdictReason: 'pr_not_found',
+          actionFamily: 'register_tracking',
+          actionRisk: 'register_tracking',
+          tool: 'register_pr_tracking',
+          ts: now - 1000,
+          resolverCallsRemaining: 5,
+        },
+        {
+          invocationId: 'inv-2',
+          catId: 'sonnet',
+          threadId: 'thread-2',
+          claimType: 'wait',
+          sourceKind: 'self',
+          sourceRef: { kind: 'messageId', value: '' },
+          resolver: 'none',
+          resolverSourceTier: 'T2',
+          cacheHit: false,
+          verdict: 'insufficient',
+          verdictReason: 'no_applicable_resolver',
+          actionFamily: 'wait',
+          actionRisk: 'hold_ball',
+          tool: 'hold_ball',
+          ts: now - 500,
+          resolverCallsRemaining: 10,
+        },
+        {
+          invocationId: 'inv-3',
+          catId: 'opus',
+          threadId: 'thread-1',
+          claimType: 'object',
+          sourceKind: 'self',
+          sourceRef: { kind: 'issue_id', value: 'org/repo#42' },
+          resolver: 'github_issue',
+          resolverSourceTier: 'T1',
+          cacheHit: false,
+          verdict: 'verified',
+          actionFamily: 'register_tracking',
+          actionRisk: 'register_tracking',
+          tool: 'register_issue_tracking',
+          ts: now - 200,
+          resolverCallsRemaining: 8,
+        },
+      ],
+    });
+
+    // Top-level sample evidence present
+    assert.ok(snapshot.groundingSampleEvidence);
+    assert.equal(snapshot.groundingSampleEvidence.totalSampled, 3);
+    assert.equal(snapshot.groundingSampleEvidence.byVerdict.mismatch, 1);
+    assert.equal(snapshot.groundingSampleEvidence.byVerdict.insufficient, 1);
+    assert.equal(snapshot.groundingSampleEvidence.byVerdict.verified, 1);
+    assert.equal(snapshot.groundingSampleEvidence.byTool.register_pr_tracking, 1);
+    assert.equal(snapshot.groundingSampleEvidence.byTool.hold_ball, 1);
+    assert.equal(snapshot.groundingSampleEvidence.byTool.register_issue_tracking, 1);
+
+    // recentActionable contains only mismatch + insufficient (not verified)
+    assert.equal(snapshot.groundingSampleEvidence.recentActionable.length, 2);
+    assert.ok(
+      snapshot.groundingSampleEvidence.recentActionable.every(
+        (e) => e.verdict === 'mismatch' || e.verdict === 'insufficient',
+      ),
+    );
+
+    // Component-level activation counts include sample count
+    const g = snapshot.components.find((c) => c.componentId === 'grounding-phase-o');
+    assert.equal(g.activationCounts['grounding.sample_count'], 3);
+    assert.equal(g.activationCounts['grounding.mismatch_sample_count'], 1);
+  });
+
+  it('PR-O2b: groundingSampleEvidence undefined when no samples', () => {
+    const snapshot = generateF167Snapshot({
+      ...emptyInput,
+      metrics: {
+        cat_cafe_a2a_grounding_check_total: 10,
+        cat_cafe_a2a_grounding_verdict_total: 10,
+      },
+      traceStats: {
+        spanCount: 1,
+        maxSpans: 10000,
+        maxAgeMs: 86400000,
+        oldestStoredAt: Date.now() - 3600000,
+        newestStoredAt: Date.now(),
+      },
+      groundingSamples: [],
+    });
+    assert.equal(snapshot.groundingSampleEvidence, undefined);
+  });
+
   it('Cloud P2-4: budget_exhausted denominator resolves to grounding.check_total', () => {
     const snapshot = generateF167Snapshot({
       ...emptyInput,

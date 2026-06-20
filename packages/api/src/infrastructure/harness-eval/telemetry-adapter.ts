@@ -158,3 +158,20 @@ export async function fetchMetricsHistory(
   if (!res.ok) throw new Error(`fetchMetricsHistory failed: ${res.status}`);
   return parseMetricsHistoryResponse(await res.json());
 }
+
+// ── F167 Phase O PR-O2b: grounding sample evidence ──────────
+
+export interface GroundingSamplesResponse {
+  samples: import('../grounding/types.js').ClaimGroundingEvent[];
+  stats: { stored: number; dropped: number };
+}
+
+export async function fetchGroundingSamples(config: TelemetryAdapterConfig): Promise<GroundingSamplesResponse> {
+  const res = await fetch(`${config.baseUrl}/api/telemetry/grounding-samples`, {
+    headers: { cookie: config.cookie },
+  });
+  // 503 = store not available (shadow mode not wired) — degrade gracefully.
+  if (res.status === 503) return { samples: [], stats: { stored: 0, dropped: 0 } };
+  if (!res.ok) throw new Error(`fetchGroundingSamples failed: ${res.status}`);
+  return res.json() as Promise<GroundingSamplesResponse>;
+}
