@@ -117,14 +117,19 @@ historical stitch 是一次性脚本（不进 projector，避免双写），跑�
 
 **git-shaped entry 幂等键**（必须，否则 cron tick 重复鞭打 store）：
 
-`gitRefEntryId = git-ref:{branchName}:{headCommitSha}:{kind}:{prState ?? 'none'}:{mergedToMain ?? 'unknown'}`
+`gitRefEntryId = git-ref:{branchName}:{headCommitSha}:{kind}:{staleBucket ?? 'n/a'}:{prState ?? 'none'}:{mergedToMain ?? 'unknown'}`
+
+（砚砚 C2a preflight P2-4 修正：原公式不含 `staleBucket`，与下文"stale bucket 首次跨阈值产生新 entry"自相矛盾——upsert 同 id 只会更新 payload 不产生新轨迹点，"怎么拖到今天"的过程叙事丢失。选项 A 落地：把 `staleBucket` 进公式作显式 segment，每个 bucket crossing 是独立轨迹 entry，符合"轨迹解释过程"的语义）
 
 - 同 `gitRefEntryId` 在 store 是 **upsert**（不 append），保持单一条目反映最新 state
+- `staleBucket` per-kind 语义：
+  - **`branch_pushed` / `pr_opened` / `branch_merged_to_main`**：`staleBucket = 'n/a'`（无 stale 概念，公式 segment 默认占位保证 uniform shape）
+  - **`branch_stale_unmerged`**：`staleBucket ∈ {'24h', '72h', '7d', '30d'}`，由 collector 按 `ageMs = now - headCommitAt` 计算 first-crossed bucket 分配；同 bucket 内多次 tick 共享同一 id（upsert），跨阈值产生**新 segment → 新 entry id → 新轨迹点**
 - Cron tick 只在以下条件产生/更新 entry：
   - branch head 变化（新 commit push）→ 新 `headCommitSha` → 新 entry id
-  - PR state 变化（`open`/`closed`/`merged`）→ 新 entry id
+  - PR state 变化（`open` / `closed` / `merged`）→ 新 entry id
   - merge-to-main status 变化 → 新 entry id
-  - **stale bucket 首次跨阈值**（24h → 72h → 7d → 30d）→ 新 `branch_stale_unmerged` entry id 含 bucket 标记
+  - `branch_stale_unmerged` 跨 `staleBucket` 阈值（首次进入 24h / 72h / 7d / 30d 桶）→ 新 staleBucket segment → 新 entry id（**4 个 bucket → 最多 4 个独立轨迹点**，叙事完整）
 - Cron tick 在 branch 无任何 state 变化时**不产生新 entry**（去重 / 防鞭打）
 
 幂等键设计与 Phase B `BallCustodyEvent.sourceEventId` 同模式（store 层 idempotent insert），rebuild = replay collector outputs 安全。
