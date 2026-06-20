@@ -309,9 +309,9 @@ interface CommunityIssueItem {
 
 | # | 问题 | 建议 | 状态 |
 |---|------|------|------|
-| OQ-F1 | backfill 的 assignedThreadId 写什么？砚砚的 Repo Inbox thread ID？ | 建议写 Repo Inbox threadId（砚砚实际工作 thread） | ⬜ 待铲屎官确认 |
-| OQ-F2 | open 未 triaged 的 issue（state=unreplied/new）backfill 时标给谁？ | 建议不标——这些是真正需要 narrator triage 的 | ⬜ 待铲屎官确认 |
-| OQ-F3 | 目标猫验证的 UX 触发方式？@ mention 还是 CommunityPanel 里看？ | 两者都有：autoRoute 后 @ 目标猫（提醒）+ CommunityPanel 显示验证卡片（操作入口） | ⬜ 待讨论 |
+| OQ-F1 | backfill 的 assignedThreadId 写什么？ | `thread_mp3ab0r9xqxrkrc5`（砚砚的社区守门 thread，铲屎官 2026-06-20 确认"砚砚都在这里工作"） | ✅ CVO 确认 |
+| OQ-F2 | open 未 triaged 的 issue（state=unreplied/new）backfill 时标给谁？ | 不标——这些是 narrator triage 的对象（自决，安全默认） | ✅ 自决 |
+| OQ-F3 | 目标猫验证的 UX 触发方式？ | 双通道：autoRoute 后 @ 目标猫提醒 + CommunityPanel 验证卡片操作入口（自决） | ✅ 自决 |
 
 ---
 
