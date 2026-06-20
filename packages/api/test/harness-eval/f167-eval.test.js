@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { generateAttributionReport } from '../../dist/infrastructure/harness-eval/attribution.js';
 import { generateF167Snapshot } from '../../dist/infrastructure/harness-eval/f167-eval.js';
 
 const emptyInput = {
@@ -16,12 +17,12 @@ const emptyInput = {
 };
 
 describe('F167 Runtime Eval Snapshot', () => {
-  it('produces snapshot with 4 components', () => {
+  it('produces snapshot with 5 components (incl. Phase O grounding)', () => {
     const snapshot = generateF167Snapshot(emptyInput);
     assert.equal(snapshot.featureId, 'F167');
-    assert.equal(snapshot.components.length, 4);
+    assert.equal(snapshot.components.length, 5);
     const ids = snapshot.components.map((c) => c.componentId).sort();
-    assert.deepEqual(ids, ['C1', 'C2', 'L1', 'route-serial']);
+    assert.deepEqual(ids, ['C1', 'C2', 'L1', 'grounding-phase-o', 'route-serial']);
   });
 
   it('includes metadata fields', () => {
@@ -205,6 +206,9 @@ describe('F167 Runtime Eval Snapshot', () => {
         cat_cafe_a2a_c2_verdict_hint_emitted: 0,
         cat_cafe_a2a_c2_void_hold_hint_emitted: 0,
         cat_cafe_a2a_c2_verdict_without_pass_count: 0,
+        // F167 Phase O: grounding shadow counters
+        cat_cafe_a2a_grounding_check_total: 0,
+        cat_cafe_a2a_grounding_verdict_total: 0,
       },
       metricsHistory: { snapshots: [], count: 0 },
       traceStats: { spanCount: 0, maxSpans: 10000, maxAgeMs: 86400000, oldestStoredAt: null, newestStoredAt: null },
@@ -795,5 +799,69 @@ describe('F192 D — C1 hold per-fire sample evidence (verdict 2026-06-18 zombie
     });
     const c1 = snapshot.components.find((c) => c.componentId === 'C1');
     assert.deepEqual(c1.frictionSamples, {}, 'C2 events must not surface under C1.frictionSamples');
+  });
+
+  // ── Cloud R2 P2 regressions ────────────────────────────────────
+
+  it('Cloud P2-3: cache_hit_total is activation, not friction (no false positive)', () => {
+    const snapshot = generateF167Snapshot({
+      ...emptyInput,
+      metrics: {
+        cat_cafe_a2a_grounding_check_total: 50,
+        cat_cafe_a2a_grounding_verdict_total: 50,
+        cat_cafe_a2a_grounding_cache_hit_total: 30,
+      },
+      traceStats: {
+        spanCount: 10,
+        maxSpans: 10000,
+        maxAgeMs: 86400000,
+        oldestStoredAt: Date.now() - 3600000,
+        newestStoredAt: Date.now(),
+      },
+    });
+    const g = snapshot.components.find((c) => c.componentId === 'grounding-phase-o');
+    // cache_hit_total must be in activationCounts, NOT frictionCounts
+    assert.equal(g.activationCounts['grounding.cache_hit_total'], 30);
+    assert.equal(g.frictionCounts['grounding.cache_hit_total'], undefined);
+
+    // Attribution must not produce a finding for cache hits
+    const report = generateAttributionReport({
+      featureId: 'F167',
+      snapshot: { components: [g] },
+    });
+    assert.equal(report.findings.length, 0, 'healthy cache hits must not trigger findings');
+  });
+
+  it('Cloud P2-4: budget_exhausted denominator resolves to grounding.check_total', () => {
+    const snapshot = generateF167Snapshot({
+      ...emptyInput,
+      metrics: {
+        cat_cafe_a2a_grounding_check_total: 50,
+        cat_cafe_a2a_grounding_verdict_total: 50,
+        cat_cafe_a2a_grounding_budget_exhausted_total: 5,
+      },
+      traceStats: {
+        spanCount: 10,
+        maxSpans: 10000,
+        maxAgeMs: 86400000,
+        oldestStoredAt: Date.now() - 3600000,
+        newestStoredAt: Date.now(),
+      },
+    });
+    const g = snapshot.components.find((c) => c.componentId === 'grounding-phase-o');
+    assert.equal(g.frictionCounts['grounding.budget_exhausted_total'], 5);
+
+    // Attribution must produce a finding WITH a real denominator
+    const report = generateAttributionReport({
+      featureId: 'F167',
+      snapshot: { components: [g] },
+    });
+    assert.ok(report.findings.length >= 1, 'budget exhaustion should produce a finding');
+    const finding = report.findings[0];
+    // Must reference the real denominator, not 'grounding.checked' (missing)
+    assert.ok(
+      finding.attribution.evidence.some((e) => e.excerpt.includes('grounding.check_total=50')),
+      'finding should reference grounding.check_total as denominator, not grounding.checked',
+    );
   });
 });

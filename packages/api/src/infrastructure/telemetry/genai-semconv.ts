@@ -56,6 +56,18 @@ export const ANCHOR_TOOL = 'anchor.tool';
 export const SIGNAL_KIND = 'signal.kind';
 export const SEAL_REASON = 'seal.reason';
 
+// --- F167 Phase O PR-O2: claim grounding telemetry attributes ---
+/**
+ * Bounded grounding attributes for shadow-mode telemetry counters.
+ * Cardinality: claim_type(7) × verdict(3) = 21 max per tool.
+ *
+ * All values are from bounded enums in infrastructure/grounding/types.ts.
+ */
+export const GROUNDING_CLAIM_TYPE = 'grounding.claim_type';
+export const GROUNDING_VERDICT = 'grounding.verdict';
+export const GROUNDING_ACTION_FAMILY = 'grounding.action_family';
+export const GROUNDING_SOURCE_TIER = 'grounding.source_tier';
+
 // --- Route aggregate attributes (set at route completion) ---
 export const ROUTE_TOTAL_CATS_INVOKED = 'route.total_cats_invoked';
 export const ROUTE_TOTAL_TOKENS = 'route.total_tokens';

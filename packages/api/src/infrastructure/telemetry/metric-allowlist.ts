@@ -17,6 +17,10 @@ import {
   CALLBACK_TOOL,
   GENAI_MODEL,
   GENAI_SYSTEM,
+  GROUNDING_ACTION_FAMILY,
+  GROUNDING_CLAIM_TYPE,
+  GROUNDING_SOURCE_TIER,
+  GROUNDING_VERDICT,
   OPERATION_NAME,
   SEAL_REASON,
   SIGNAL_KIND,
@@ -42,6 +46,12 @@ export const ALLOWED_METRIC_ATTRIBUTES: ReadonlySet<string> = new Set([
   SEAL_REASON,
   // F236 Track-1: anchor-first telemetry per-tool breakdown.
   ANCHOR_TOOL,
+  // F167 Phase O PR-O2: claim grounding shadow telemetry.
+  // Bounded cardinality: claim_type(7), verdict(3), action_family(9), source_tier(3).
+  GROUNDING_CLAIM_TYPE,
+  GROUNDING_VERDICT,
+  GROUNDING_ACTION_FAMILY,
+  GROUNDING_SOURCE_TIER,
 ]);
 
 const allowedKeys = [...ALLOWED_METRIC_ATTRIBUTES];

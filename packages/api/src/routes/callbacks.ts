@@ -52,6 +52,7 @@ import {
 import { getVoiceBlockSynthesizer } from '../domains/cats/services/tts/VoiceBlockSynthesizer.js';
 import type { IEvidenceStore, IMarkerQueue, IReflectionService } from '../domains/memory/interfaces.js';
 import { buildThreadDeepLink } from '../infrastructure/connectors/connector-command-helpers.js';
+import { checkGrounding } from '../infrastructure/grounding/grounding-checker.js';
 import { createModuleLogger } from '../infrastructure/logger.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 import { scoreKeywordRelevance, tokenizeKeyword } from '../utils/keyword-relevance.js';
@@ -2335,6 +2336,27 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     // Use authoritative catId from invocation record, not caller payload.
     const catId = record.catId;
 
+    // F167 Phase O PR-O2: shadow grounding telemetry (emit, never block).
+    // Runs BEFORE gate-keeping guard so blocked calls are still observable in shadow mode.
+    void checkGrounding({
+      invocationId: record.invocationId ?? 'unknown',
+      catId: catId as string,
+      threadId: record.threadId,
+      tool: 'register_pr_tracking',
+      actionFamily: 'register_tracking',
+      actionRisk: 'register_tracking',
+      claims: [],
+    })
+      .then((result) => {
+        log.debug(
+          { threadId: record.threadId, catId, verdict: result.overallVerdict },
+          'F167 Phase O: shadow grounding check completed (register_pr_tracking)',
+        );
+      })
+      .catch((err: unknown) => {
+        log.warn({ err, catId }, 'F167 grounding shadow telemetry failed (register_pr_tracking, non-blocking)');
+      });
+
     // F167: gate-keeping thread guard (hard-block 守门 thread 调用，避免 SKILL 文字层
     // 100%/trigger-time 0 enforcement 的事故复发。无 override 通道——必须传球到下游 thread)
     const guardResult = await checkGateKeepingGuard({
@@ -2462,6 +2484,27 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
 
     const { repoFullName, issueNumber, instructions } = parsed.data;
     const catId = record.catId;
+
+    // F167 Phase O PR-O2: shadow grounding telemetry (emit, never block).
+    // Runs BEFORE gate-keeping guard so blocked calls are still observable in shadow mode.
+    void checkGrounding({
+      invocationId: record.invocationId ?? 'unknown',
+      catId: catId as string,
+      threadId: record.threadId,
+      tool: 'register_issue_tracking',
+      actionFamily: 'register_tracking',
+      actionRisk: 'register_tracking',
+      claims: [],
+    })
+      .then((result) => {
+        log.debug(
+          { threadId: record.threadId, catId, verdict: result.overallVerdict },
+          'F167 Phase O: shadow grounding check completed (register_issue_tracking)',
+        );
+      })
+      .catch((err: unknown) => {
+        log.warn({ err, catId }, 'F167 grounding shadow telemetry failed (register_issue_tracking, non-blocking)');
+      });
 
     // F167: gate-keeping thread guard (hard-block, no override)
     const guardResult = await checkGateKeepingGuard({

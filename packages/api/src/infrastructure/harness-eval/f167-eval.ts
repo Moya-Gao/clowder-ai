@@ -300,6 +300,52 @@ function buildRouteSerial(metrics: Record<string, number>, hasTraceData: boolean
   };
 }
 
+/**
+ * F167 Phase O PR-O2: grounding shadow telemetry component.
+ * Consumes counters emitted by grounding-checker.ts (shadow mode).
+ */
+function buildGroundingPhaseO(metrics: Record<string, number>): ComponentHealth {
+  // normalizePromKey strips _total suffix, so prefix must match the normalized form
+  const checkTotal = sumMetricByPrefix(metrics, 'cat_cafe_a2a_grounding_check');
+  const verdictTotal = sumMetricByPrefix(metrics, 'cat_cafe_a2a_grounding_verdict');
+  const resolverTotal = sumMetricByPrefix(metrics, 'cat_cafe_a2a_grounding_resolver');
+  const cacheHitTotal = sumMetricByPrefix(metrics, 'cat_cafe_a2a_grounding_cache_hit');
+  const budgetExhausted = sumMetricByPrefix(metrics, 'cat_cafe_a2a_grounding_budget_exhausted');
+
+  const hasCounters = checkTotal != null || verdictTotal != null;
+
+  const activationCounts: Record<string, number | null> = {};
+  const frictionCounts: Record<string, number | null> = {};
+  if (hasCounters) {
+    activationCounts['grounding.check_total'] = checkTotal ?? 0;
+    activationCounts['grounding.verdict_total'] = verdictTotal ?? 0;
+    activationCounts['grounding.resolver_total'] = resolverTotal ?? 0;
+    activationCounts['grounding.cache_hit_total'] = cacheHitTotal ?? 0;
+    frictionCounts['grounding.budget_exhausted_total'] = budgetExhausted ?? 0;
+  }
+
+  const gaps: TelemetryGap[] = [];
+  if (!hasCounters) {
+    gaps.push({
+      metric: 'grounding.check_total',
+      reason: 'no_counter',
+      impact: 'Phase O shadow grounding not emitting — hook may not be wired or no stateful tool calls observed',
+    });
+  }
+
+  return {
+    componentId: 'grounding-phase-o',
+    componentName: 'claim grounding (Phase O shadow)',
+    activationCounts,
+    frictionCounts,
+    frictionSamples: {},
+    falsePositiveCandidates: [],
+    bypassCandidates: [],
+    confidence: hasCounters ? 'medium' : 'no-data',
+    telemetryGaps: gaps,
+  };
+}
+
 const CONFIDENCE_ORDER: ComponentHealth['confidence'][] = ['no-data', 'low', 'medium', 'high'];
 
 function worstConfidence(components: ComponentHealth[]): ComponentHealth['confidence'] {
@@ -323,6 +369,7 @@ export function generateF167Snapshot(input: F167EvalInput): RuntimeEvalSnapshot 
     buildC1(input.traces.spans, input.metrics),
     buildC2(input.traces.spans, input.metrics),
     buildRouteSerial(input.metrics, hasTraceData),
+    buildGroundingPhaseO(input.metrics),
   ];
 
   const overall = worstConfidence(components);
@@ -343,7 +390,7 @@ export function generateF167Snapshot(input: F167EvalInput): RuntimeEvalSnapshot 
     components,
     overallConfidence: overall,
     summary:
-      `F167 A2A harness eval: ${dataComponents}/4 components have telemetry data. ` +
+      `F167 A2A harness eval: ${dataComponents}/${components.length} components have telemetry data. ` +
       `${gapCount} telemetry gaps identified. ` +
       `Overall confidence: ${overall}.`,
   };

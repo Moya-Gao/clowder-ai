@@ -19,7 +19,7 @@ export interface PawFeelMarker {
  * marker 匹配：`[爪感差: …]`（半/全角冒号）。symptom 段支持一层嵌套方括号
  * （如 `[爪感差: rg 输出 [WARN] 多]`，cloud review P2-2 避免截断 recall），非贪婪正确分离多条。
  */
-const MARKER_RE = /\[爪感差[:：]\s*((?:[^\[\]]|\[[^\]]*\])*?)\]/g;
+const MARKER_RE = /\[爪感差[:：]\s*((?:[^[\]]|\[[^\]]*\])*?)\]/g;
 
 /** 「像工具名」判定：ASCII 标识符（字母开头 + 字母数字下划线连字符点冒号），不含中文/空格。 */
 const TOOL_LIKE_RE = /^[A-Za-z][\w.\-:]*$/;

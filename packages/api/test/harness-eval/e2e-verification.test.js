@@ -151,6 +151,8 @@ describe('AC-D3 End-to-End Verification', () => {
           cat_cafe_a2a_c2_verdict_hint_emitted: 2,
           cat_cafe_a2a_c2_void_hold_hint_emitted: 0,
           cat_cafe_a2a_c2_verdict_without_pass_count: 2,
+          cat_cafe_a2a_grounding_check_total: 5,
+          cat_cafe_a2a_grounding_verdict_total: 5,
         },
         metricsHistory: { snapshots: [], count: 0 },
         traceStats: healthyTraceStats,

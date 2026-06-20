@@ -124,6 +124,7 @@ const FRICTION_DENOMINATOR_BY_METRIC: Record<string, string> = {
 const FRICTION_DENOMINATOR_BY_PREFIX: Record<string, string> = {
   c1: 'hold_ball_calls',
   inline_action: 'inline_action.checked',
+  grounding: 'grounding.check_total',
 };
 
 interface FrictionGrade {

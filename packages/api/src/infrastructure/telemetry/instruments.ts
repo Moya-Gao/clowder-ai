@@ -396,6 +396,58 @@ export const profileDistillationTriggered = lazy(() =>
   }),
 );
 
+// --- F167 Phase O PR-O2: Claim Grounding Shadow Telemetry ---
+
+/**
+ * Total grounding checks initiated per tool call.
+ * Attributes: callback.tool (hold_ball / register_pr_tracking / register_issue_tracking)
+ */
+export const groundingCheckTotal = lazy(() =>
+  meter().createCounter('cat_cafe.a2a.grounding.check_total', {
+    description: 'F167 Phase O grounding check invocations per stateful tool call (shadow mode)',
+  }),
+);
+
+/**
+ * Claim-level verdict outcomes.
+ * Attributes: grounding.claim_type × grounding.verdict × callback.tool
+ */
+export const groundingVerdictTotal = lazy(() =>
+  meter().createCounter('cat_cafe.a2a.grounding.verdict_total', {
+    description: 'F167 Phase O claim grounding verdict outcomes (verified/mismatch/insufficient)',
+  }),
+);
+
+/**
+ * Per-resolver invocation count.
+ * Attributes: grounding.source_tier × status (resolver id)
+ */
+export const groundingResolverTotal = lazy(() =>
+  meter().createCounter('cat_cafe.a2a.grounding.resolver_total', {
+    description: 'F167 Phase O resolver invocations (per resolver × source tier)',
+  }),
+);
+
+/**
+ * Resolver cache hits.
+ * Attributes: status (resolver id)
+ */
+export const groundingCacheHitTotal = lazy(() =>
+  meter().createCounter('cat_cafe.a2a.grounding.cache_hit_total', {
+    description: 'F167 Phase O resolver cache hits',
+  }),
+);
+
+/**
+ * Budget exhaustion events per grounding check.
+ * Attributes: callback.tool × grounding.action_family
+ */
+export const groundingBudgetExhaustedTotal = lazy(() =>
+  meter().createCounter('cat_cafe.a2a.grounding.budget_exhausted_total', {
+    description: 'F167 Phase O resolver budget exhausted (verdict forced to insufficient)',
+  }),
+);
+
 /** Liveness state type. */
 export type LivenessState = 'dead' | 'idle-silent' | 'busy-silent' | 'active';
 
@@ -462,4 +514,10 @@ export function warmupCounters(): void {
   profileUpdateApproved.add(0);
   profileUpdateRejected.add(0);
   profileDistillationTriggered.add(0);
+  // F167 Phase O PR-O2: claim grounding shadow telemetry
+  groundingCheckTotal.add(0);
+  groundingVerdictTotal.add(0);
+  groundingResolverTotal.add(0);
+  groundingCacheHitTotal.add(0);
+  groundingBudgetExhaustedTotal.add(0);
 }

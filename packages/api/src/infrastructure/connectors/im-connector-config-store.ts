@@ -175,7 +175,7 @@ export function restoreConnectorConfigValues(
   const changedKeys: string[] = [];
 
   for (const { name, value } of updates) {
-    const hadKey = Object.prototype.hasOwnProperty.call(values, name);
+    const hadKey = Object.hasOwn(values, name);
     const oldRaw = values[name]; // undefined | null | string
     if (value === undefined) {
       if (hadKey) changedKeys.push(name);

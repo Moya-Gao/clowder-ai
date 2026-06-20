@@ -4,6 +4,7 @@ related_features: [F064, F027, F122, F055]
 topics: [a2a, collaboration, harness-engineering, agent-readiness]
 doc_kind: spec
 created: 2026-04-17
+tips_exempt: harness-internal shadow telemetry infra — no user-visible capability change
 ---
 
 # F167: A2A Chain Quality — 乒乓球熔断 + 虚空传球检测 + 角色护栏
@@ -833,12 +834,13 @@ cat_cafe_hold_ball({
 - **临时降级**（若 PR-O3 patch 当天做不完）：gate-keeping 的 `issue_tracking/hold_ball` 降级 warn+telemetry；`register_pr_tracking` 仍 block；避免 daily SOP 继续误伤
 - **不是 truth source**：`threadKind` 可参与判断但不能独立裁决所有动作；它是 resolver catalog 里的一个 context signal，**不是**新形态的"thread 标签是真相"
 
-#### Phase O Spec Cut（R1, 4 增量 PR）
+#### Phase O Spec Cut（R1→R4, 5 增量 PR）
 
 1. **PR-O1 docs/skill**：新增 `receive-handoff-grounding` skill + F167 Phase O resolver catalog 文档 + claim schema。skill 三问：claim 是什么 / 第二源 resolver 是什么 / 结果一致 vs 冲突 vs 不足
-2. **PR-O2 telemetry shadow**：新增 `handoff_claim_grounding` event/counter（含上述 retention/sampling/cache/budget 策略）；先不 block，跑 1 周
-3. **PR-O3 Phase N policy patch**：按上面 narrow gate 改 `register_issue_tracking` + `hold_ball` 守门策略；补合法 wait fixtures + dual-owner regression fixtures
-4. **PR-O4 hardening**：只对确定性 mismatch 的 stateful tools fail-closed；missing evidence 继续 warn；等 F192 weekly verdict 决定继续扩范围
+2. **PR-O2a grounding infra**：types + grounding checker（shadow mode, never block）+ 5 OTel counters + hook 集成（hold_ball / register_pr_tracking / register_issue_tracking）+ F192 eval adapter。验证 counter pipeline 端到端通；INV-O3/O4/O7/O8/O10 在 checker 层实现。**不含**真实 claim 提取和 invocation event / bounded sample storage。
+3. **PR-O2b event path + sampling**：从 hold_ball waitSourceRef / reason 和 tracking repo/PR 上下文提取真实 claims → checker 产出 `ClaimGroundingEvent` → bounded sample storage（mismatch/blocked 100%, insufficient cap 3/resolver×thread×day, verified 1/20 + 日 cap）→ F192 eval adapter 消费 sample evidence。这是 shadow 周真正观察真实分布的基础。
+4. **PR-O3 Phase N policy patch**：按上面 narrow gate 改 `register_issue_tracking` + `hold_ball` 守门策略；补合法 wait fixtures + dual-owner regression fixtures
+5. **PR-O4 hardening**：只对确定性 mismatch 的 stateful tools fail-closed；missing evidence 继续 warn；等 F192 weekly verdict 决定继续扩范围
 
 #### Dogfood / Fixtures（R1, 5 类）
 
@@ -918,10 +920,11 @@ sonnet 看了"AC ✅ 三层 harness ✅"放行，但没问"守门猫 daily SOP �
 - `register_issue_tracking` guard：从 `threadKind` 一刀切 → ownership-aware policy；仅当 issue 仍 keeper-owned/未分发 + 结构化 `sourceRef` 或 `waitKind='gatekeeper-needs-info'` 时允许；若已有 downstream owner/thread 则 block
 - `hold_ball` guard：从一刀切 → A/B policy；仅当 keeper-owned + 无 event callback + 短 SLA + `waitSourceRef` 允许；event-backed wait 和 long/unbounded wait 都 block
 
-#### Spec Cut R3 final（PR-O1/O2/O3/O4 具体化）
+#### Spec Cut R4 final（PR-O1/O2a/O2b/O3/O4 具体化）
 
 - **PR-O1** docs/skill：更新 F167 Phase O spec + `receive-handoff-grounding` skill 加 `claim → resolver → sourceTier → verdict → actionFamily` 流；加 issuerStanding / freshnessKey / keeper wait A/B rule
-- **PR-O2** telemetry shadow：用 `invocation_events` + counters；记录 `actionFamily / actionRisk / resolverSourceTier / freshnessKey / verdict / failureReason / cacheHit`；counters 不采样；mismatch/blocked/insufficient sample 有界；verified sample minimal
+- **PR-O2a** grounding infra：types + grounding checker（shadow mode, never block）+ 5 OTel counters + hook 集成（hold_ball / register_pr_tracking / register_issue_tracking）+ F192 eval adapter。验证 counter pipeline 端到端通；INV-O3/O4/O7/O8/O10 在 checker 层实现。**不含**真实 claim 提取和 invocation event / bounded sample storage
+- **PR-O2b** event path + sampling：从 hold_ball waitSourceRef / reason 和 tracking repo/PR 上下文提取真实 claims → checker 产出 `ClaimGroundingEvent` → bounded sample storage（mismatch/blocked 100%, insufficient cap 3/resolver×thread×day, verified 1/20 + 日 cap）→ F192 eval adapter 消费 sample evidence
 - **PR-O3** Phase N policy patch：替换 threadKind-only hard-block；fixtures 覆盖 PR tracking blocked / keeper-owned issue tracking allowed / distributed issue tracking blocked / short-SLA no-callback hold allowed / event-backed hold blocked / long/unbounded wait pushed to sweep
 - **PR-O4** hardening：shadow 周后将确定性高危矛盾 fail-closed；低风险维持 warn+telemetry
 
@@ -930,7 +933,7 @@ sonnet 看了"AC ✅ 三层 harness ✅"放行，但没问"守门猫 daily SOP �
 | OQ | 状态 | 解决方案 |
 |----|------|---------|
 | OQ-1 (合法守门 wait UX) | ✅ R3 resolved | Keeper Wait A/B rule（球分发 × callback 形态）|
-| OQ-2 (sample cap 数值) | ⏳ PR-O2 实现时定 | conservative 默认，shadow 一周由 F192 verdict 调整 |
+| OQ-2 (sample cap 数值) | ⏳ PR-O2b 实现时定 | conservative 默认，shadow 一周由 F192 verdict 调整 |
 | OQ-3 (resolver catalog 完整性) | ✅ R3 resolved | 加 sourceTier + freshnessKey + issuerStanding 三个 cross-cutting 字段 + auth 子类 |
 | OQ-4 (skill trigger) | ✅ R3 resolved | hard = actionFamily/actionRisk；soft = keyword hint |
 
@@ -946,9 +949,9 @@ sonnet 看了"AC ✅ 三层 harness ✅"放行，但没问"守门猫 daily SOP �
 - **AC**: O1.1 ~ O1.15 全部 ✅ (含 O1.6 doc anchor 本提交回填)
 - **Cloud iteration**: 5 轮 (R1 2 P1 / R2-4 各 1-2 P2 / R5 clean)；feat_index sourceTier 不一致 3 轮 → LL-072 升级 INV-O12 状态契约
 - **Local R3 reviewer**: opus-48 (布偶猫 4.8) APPROVE @ `ebc57c97e` + continuity ack @ `15bb71f6b`
-- **下一棒 (PR-O2 telemetry shadow)**: 待 PR-O1 1 周 dogfood 观察后启动；spec 在 plan §14.10 + F167 doc R3 增量 section
+- **下一棒 (PR-O2a grounding infra → PR-O2b event path)**: PR-O2a 实现中（PR #2435）；spec 在 plan §14.10 + F167 doc R4 增量 section
 
-**F167 Close 门槛更新**：Phase O 收敛（**PR-O1 ✅** → O2 → O3 → O4）+ PR-O2 shadow 1 周 telemetry 观察 + F192 weekly verdict 通过后才可 close。Phase N 与 Phase O 关系：keep PR-tracking hard-block + patch issue_tracking/hold_ball 已确认；Phase N 不再是 F167 close 的最后一步。
+**F167 Close 门槛更新**：Phase O 收敛（**PR-O1 ✅** → O2a → O2b → O3 → O4）+ PR-O2b shadow 1 周 telemetry 观察 + F192 weekly verdict 通过后才可 close。Phase N 与 Phase O 关系：keep PR-tracking hard-block + patch issue_tracking/hold_ball 已确认；Phase N 不再是 F167 close 的最后一步。
 
 ## Behavioral Evidence（Phase B 观察记录）
 

@@ -17,6 +17,7 @@ import type { IBallCustodyIngest } from '../domains/ball-custody/BallCustodyInge
 import { buildHeldEvent } from '../domains/ball-custody/ball-custody-events.js';
 import type { InvocationRegistry } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';
 import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
+import { checkGrounding } from '../infrastructure/grounding/grounding-checker.js';
 import { createModuleLogger } from '../infrastructure/logger.js';
 import type { DynamicTaskStore } from '../infrastructure/scheduler/DynamicTaskStore.js';
 import type { TaskRunnerV2 } from '../infrastructure/scheduler/TaskRunnerV2.js';
@@ -69,10 +70,36 @@ export function incrementHoldCount(threadId: string, catId: string, now: number 
   return entry.count;
 }
 
+/**
+ * F167 Phase O PR-O2: WaitSourceRef schema for structured wait grounding.
+ * Per R3.1 OQ-5: slaUntilMs is REQUIRED (no SLA = no hold).
+ * 'reporter_handle' | 'pending_input' require anchorRef (narrative kinds too forgeable).
+ */
+const waitSourceRefSchema = z
+  .object({
+    kind: z.enum(['github_issue', 'github_comment', 'thread_message', 'task', 'reporter_handle', 'pending_input']),
+    value: z.string().min(1),
+    anchorRef: z.string().optional(),
+    expectedSignal: z.string().min(1),
+    slaUntilMs: z.number().int().positive(),
+  })
+  .refine(
+    (data) => {
+      // anchorRef REQUIRED for narrative kinds
+      if ((data.kind === 'reporter_handle' || data.kind === 'pending_input') && !data.anchorRef) {
+        return false;
+      }
+      return true;
+    },
+    { message: 'anchorRef is required for reporter_handle and pending_input kinds' },
+  );
+
 const holdBallSchema = z.object({
   reason: z.string().min(1).max(500),
   nextStep: z.string().min(1).max(500),
   wakeAfterMs: z.number().int().min(5_000).max(3_600_000),
+  /** F167 Phase O: structured wait source for grounding telemetry (optional in PR-O2 shadow). */
+  waitSourceRef: waitSourceRefSchema.optional(),
 });
 
 export interface HoldBallRouteDeps {
@@ -123,6 +150,27 @@ export function registerCallbackHoldBallRoutes(app: FastifyInstance, deps: HoldB
     const { reason, nextStep, wakeAfterMs } = parsed.data;
     const { threadId, catId, userId } = actor;
     const catIdStr = catId as string;
+
+    // F167 Phase O PR-O2: shadow grounding telemetry (emit, never block)
+    // Fire-and-forget: don't await, don't let failures affect the hold_ball flow.
+    void checkGrounding({
+      invocationId: record.invocationId ?? 'unknown',
+      catId: catIdStr,
+      threadId,
+      tool: 'hold_ball',
+      actionFamily: 'wait',
+      actionRisk: 'hold_ball',
+      claims: [], // PR-O2: no resolver wiring yet — emits counters with 'no_claims_provided'
+    })
+      .then((result) => {
+        log.debug(
+          { threadId, catId: catIdStr, verdict: result.overallVerdict, wouldBlock: result.wouldBlock },
+          'F167 Phase O: shadow grounding check completed (hold_ball)',
+        );
+      })
+      .catch((err: unknown) => {
+        log.warn({ err, threadId, catId: catIdStr }, 'F167 grounding shadow telemetry failed (non-blocking)');
+      });
 
     // F167: gate-keeping thread guard (hard-block 守门 thread 替下游 hold；无 override)
     const guardResult = await checkGateKeepingGuard({

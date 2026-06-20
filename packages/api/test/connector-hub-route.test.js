@@ -375,8 +375,8 @@ describe('POST /api/connectors/:connectorId/actions/:operationName/:actionId', (
       );
 
       assert.equal(res.statusCode, 502);
-      assert.equal(Object.prototype.hasOwnProperty.call(rawConfig, 'WECOM_BOT_ID'), false);
-      assert.equal(Object.prototype.hasOwnProperty.call(rawConfig, 'WECOM_BOT_SECRET'), false);
+      assert.equal(Object.hasOwn(rawConfig, 'WECOM_BOT_ID'), false);
+      assert.equal(Object.hasOwn(rawConfig, 'WECOM_BOT_SECRET'), false);
     } finally {
       await app.close();
       clearConnectorConfigCache();
