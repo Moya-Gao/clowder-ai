@@ -201,6 +201,10 @@ BRAND_EXPECTATIONS=(
   # connector command deep links — home runtime fallback must stay on 3001; public sync transforms it to 3003.
   "packages/api/src/infrastructure/connectors/connector-gateway-bootstrap.ts|must_not_contain|http://localhost:3003|connector command fallback should use Cat Cafe frontend port"
   "packages/api/src/infrastructure/connectors/connector-gateway-bootstrap.ts|must_contain|http://localhost:3001|connector command fallback should use Cat Cafe frontend port"
+  # adapter media URLs — must not hardcode opensource ports (3003/3004); use API_SERVER_PORT env fallback.
+  # Outbound sync transforms 3002→3004; intake must catch un-reversed port references.
+  "packages/api/src/infrastructure/connectors/im-connectors/weixin/WeixinAdapter.ts|must_not_contain|localhost:3004|Weixin media fallback should use runtime API_SERVER_PORT not hardcoded opensource port"
+  "packages/api/src/infrastructure/connectors/im-connectors/weixin/WeixinAdapter.ts|must_not_contain|localhost:3003|Weixin media fallback should not reference opensource frontend port"
   # favicon.svg file
   "packages/web/public/icons/favicon.svg|file_exists||favicon SVG must exist"
 )
