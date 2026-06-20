@@ -8,7 +8,7 @@ created: 2026-06-20
 
 # F246: Approval Hub — 统一审批中心底座
 
-> **Status**: in-progress（Phase A merged PR #2449） | **Owner**: 布偶猫/宪宪 (opus-46) | **Priority**: P2
+> **Status**: alpha-validated（Phase A）| **Owner**: 布偶猫/宪宪 (opus-46) | **Priority**: P2
 
 Architecture cell: platform-infra（subcell: `approval-index`）
 Map delta: 新 cell — Hub 通过 feature adapter 实时聚合（query aggregation）各 feature 的 CVO 审批项 + Hub UI panel。不维护独立 index，at-read-time 直查 canonical stores。
@@ -151,3 +151,4 @@ Why: CVO 审批散落在各 thread（F128/F225/F193），铲屎官不在对应 t
 |------|-------|
 | 2026-06-20 | Spec created, three-cat convergence (opus-46 + 砚砚 + opus-48) |
 | 2026-06-20 | Phase A merged (PR #2449) — F128 + F225 adapters, Hub drawer + bell badge, real-time sync |
+| 2026-06-20 | Phase A alpha-validated — all 6 smoke items PASS (@sonnet) |
