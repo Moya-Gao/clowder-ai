@@ -187,6 +187,7 @@ settings 独立 section（与成员管理平级，不复用 F154 member overview
 | KD-12 | **所有 teammate roster / identity prompt projection** 从 dossier 结构化层派生 | 消费方不只有 compile-l0 `buildRosterRow`（line 243），还有 runtime `SystemPromptBuilder`（line 422 同样从 `teamStrengths` 拼 roster）。两条链必须同时切源，否则 L0 和 runtime prompt 说不同的话。fallback 链同 KD-9（砚砚 R1 P1）| 2026-06-19 |
 | KD-13 | F032 边界调整——cat-config 退回纯身份配置，能力描述权归 F208 | CVO signoff 2026-06-19。cat-config 仍管 catId/model/开关/排序/硬限制（如"禁止写代码"）；`teamStrengths`/`caution` 标 legacy-fallback，**永久保留当社区兜底，永不删字段**（删了 KD-9 就破）。F032 feat doc 需同步更新 | 2026-06-19 |
 | KD-14 | fallback 走 per-field 渐进，不被 `status:draft` 文件级门控 | 实现者容易顺手写 `if (dossier.status === 'stable') 用dossier else 用config`——这会导致 draft 期间全员 fallback 回 config，切源等于没生效。正确：**忽略文件级 status，按 per-field 有没有值渐进**。某猫某字段有值就用 dossier，没值就 fallback config（48 R1 blocking）| 2026-06-19 |
+| KD-15 | **画像描述的是 model 认知能力，catId 是索引便利而非概念单位** | 我们家大多 catId:model = 1:1（唯一例外 opus = @opus + @antig-opus 共享 claude-opus-4-6），但社区场景是 **many catIds → one model**（一个团队 5 只猫都用 claude-sonnet-4，每只不同 persona）。画像描述的是 model 的认知特质（擅长什么/容易踩什么坑/什么场景该召唤），不是 catId 的。三层身份模型：模板层（per-model 认知模式）/ 塑造层（per-runtime 工具环境）/ 身份层（per-cat persona）——F208 画像 = 模板层。CVO directive 2026-06-20 | 2026-06-20 |
 
 ## Eval / Tracking Contract
 
