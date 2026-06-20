@@ -96,7 +96,7 @@ Why: CVO 审批散落在各 thread（F128/F225/F193），铲屎官不在对应 t
 **AC-A1**: F128 propose_thread 事件注入到 index → Hub 可见
 **AC-A2**: F225 session_handoff 事件注入到 index → Hub 可见
 **AC-A3**: Hub panel 展示待审批列表 + 计数徽标
-**AC-A4**: 就地审批 F128 → 批完状态同步回 F128 store。**必须支持 `title`/`parentThreadId` override**（与 F128 现有 approve-time 编辑契约一致），否则默认跳转不降级审批能力
+**AC-A4**: 就地审批 F128 → 批完状态同步回 F128 store。Hub inline 必须支持 F128 **全量** approve-time overrides（`title`/`parentThreadId`/`preferredCats`/`initialMessage`/`projectPath`/`reportingMode`），与现有卡片契约完全一致。如果 Hub inline 无法提供等价编辑体验（技术限制），则该 proposal **强制跳转**，不允许以 approve-only 降级审批能力（砚砚 R2 P2）
 **AC-A5**: 跳转审批 F225（需上下文）→ 跳到原 thread
 **AC-A6**: 过期项标记 stale，不自动 reject
 **AC-A7**: Hub 读取按 `ownerUserId` 过滤，user A 看不到 user B 的待审批项
@@ -121,6 +121,7 @@ Why: CVO 审批散落在各 thread（F128/F225/F193），铲屎官不在对应 t
 **AC-B1**: F193 E3 `assign_work` 类卡片审批走底座 → Hub 可见
 **AC-B2**: F193 E3 `fyi`/`coordinate`/`investigate` 类不产生 ApprovalItem（有 fixture 测试证明）
 **AC-B3**: effect-class 由发送猫在 cross-post 时声明，不由底座推断
+**AC-B4**: **接收侧不变量**（砚砚 R2 P2）：`fyi`/`coordinate`/`investigate` 自动投递**永远不是开工授权**。接收猫只能知会/协调/只读调查；写代码必须有 `assign_work` 的 approved DispatchProposal 或 CVO 直接指令。接收侧 prompt 注入 effect-class 标签 + 行为约束。Fixture：imperative wording（"请修这个 bug"）+ non-assign effect-class（`fyi`）= 不触发 ApprovalItem + 接收侧不授权 coding
 
 ### Phase C: 成熟化
 
