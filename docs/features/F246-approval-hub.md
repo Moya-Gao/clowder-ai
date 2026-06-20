@@ -45,12 +45,12 @@ Why: CVO 审批散落在各 thread（F128/F225/F193），铲屎官不在对应 t
 |---|------|------|
 | KD-1 | 底座新开 Feature，不泛化 F168 | F168 Queue actor 多型 + 三态，不是 approval shape |
 | KD-2 | v1 只接 F128 + F225 + F193 E3 | 共性：actor=CVO + binary approve/reject |
-| KD-3 | CQRS read view 架构 | 各 feature 保留自己的 proposal store + 状态机；底座只做 read-side index |
+| KD-3 | v1 query aggregation / v2+ materialized index | v1 只有 3 stores，Hub 通过 feature adapter 直接查询 canonical stores（at-read-time 聚合，零一致性问题）。v2+ store 数增多时再引入 materialized CQRS index（opus-48 R1 blocking） |
 | KD-4 | 就地审批有条件 | inlineMinFields 守门（summary + impact + action 非空），不靠 feature 自报 |
 | KD-5 | 过期 ≠ 自动拒绝 | 过期 = 上下文 stale，按钮变"刷新/重新提议"；提醒走 Hub 徽标不追加噪音 |
 | KD-6 | F193 E3 拆两半 | 自动投递先做不卡，卡片审批等底座 v1 |
-| KD-7 | Index 注入 internal-only + user-scoped | 注入 API 只允许 internal service call（不暴露为 MCP/callback tool），Index 带 `ownerUserId`，Hub 读写都走 user auth（砚砚 R1 P1-1） |
-| KD-8 | Index 可从 canonical stores 重建 | CQRS read view 是派生数据，crash/restart 后从 F128/F225/F193 stores backfill；phantom item 不出现、settled item 不残留（砚砚 R1 P1-2） |
+| KD-7 | Hub user-scoped + adapter internal-only | 各 feature adapter 是 internal service（不暴露为 MCP/callback tool），Hub 读写都走 user auth（`resolveUserId`）（砚砚 R1 P1-1） |
+| KD-8 | v1 无独立 index → 无 backfill/phantom 问题 | query aggregation 直接读 canonical stores，数据天然一致——不存在 index drift/phantom/stale 问题。v2+ 引入 materialized index 时再补 backfill 契约（opus-48 R1 blocking 修正，砚砚 R1 P1-2 根因消除） |
 | KD-9 | F193 E3 effect-class 机械化边界 | FYI/协调/只读调查 = 自动投递（不产生 ApprovalItem）；任务分配/要求接收方改代码 = Approval Hub。有 fixture 证明非任务分配类不触发审批（砚砚 R1 P1-3） |
 
 ### Admission Criteria（接入资格三条件，AND）
@@ -77,32 +77,38 @@ Why: CVO 审批散落在各 thread（F128/F225/F193），铲屎官不在对应 t
 
 ## What
 
-### Phase A: Approval Index + Hub Panel (MVP)
+### Phase A: Feature Adapters + Hub Panel (MVP)
 
-- **ApprovalItem index store**：read-side 索引，字段：
-  - `ownerUserId` — 审批项归属用户（Hub 读取按 userId 过滤，防跨用户泄露）
+> **v1 架构选择（opus-48 R1 blocking 修正）**：v1 只有 3 个 canonical stores，采用 **query aggregation**（Hub 读取时直接查 canonical stores）而非 materialized CQRS index。优势：零一致性问题（always fresh）、无 backfill/phantom/reconciliation 复杂度、少写代码。v2+ store 数增多时可引入 materialized index。
+
+- **ApprovalItem 接口**（统一 DTO，adapter 输出格式）：
+  - `ownerUserId` — 审批项归属用户（Hub 按 userId 过滤，防跨用户泄露）
   - `sourceFeatureId` — 来源 feature（限 allowlist：`F128` / `F225` / `F193`，v1 硬编码）
   - `sourceThreadId`, `sourceMessageId` — 原始位置（跳转用）
   - `requesterCatId` — 发起审批的猫
   - `status` — `pending` / `approved` / `rejected` / `stale`
   - `summary`, `actions`, `inlineApprovable`, `expiresAt`
-  - `canonicalProposalId` — 指向 feature 自己的 proposal store 的 ID（backfill/reconciliation 用）
-- **事件注入 API**：`registerApprovalItem` / `updateApprovalItemStatus`，**internal service call only**（不暴露为 MCP tool / callback endpoint）。feature adapter 在自己的 propose/approve route 里调用，不是猫直接调
-- **Index recovery**：crash/restart 后从 F128 ThreadProposal store + F225 HandoffProposal store backfill pending items。phantom item（注入成功但 canonical proposal 不存在）定期 reconciliation 清理。settled item（已 approved/rejected）不残留超过 TTL
-- **Hub "待审批" panel**：列表展示当前用户（`ownerUserId`）的 pending items，计数徽标，点击跳转到原 thread。Hub 读/写都走 user auth（`resolveUserId`），不允许跨用户操作
+  - `canonicalProposalId` — 指向 canonical store 的 proposal ID
+- **Feature adapters**（per-feature，internal service call only）：
+  - `F128Adapter.listPending(userId): ApprovalItem[]` — 查 ThreadProposal store
+  - `F225Adapter.listPending(userId): ApprovalItem[]` — 查 HandoffProposal store
+  - `F246Adapter.approve(proposalId, overrides?) / reject(proposalId)` — 转发到对应 feature store
+  - Adapter 是 internal service，不暴露为 MCP tool / callback endpoint
+- **Hub "待审批" panel**：列表展示当前用户（`ownerUserId`）的 pending items（实时聚合各 adapter），计数徽标，点击跳转到原 thread。Hub 读/写都走 user auth（`resolveUserId`），不允许跨用户操作
+- **一致性契约**：v1 = **at-read-time consistency**（每次 Hub 加载直接查 canonical stores，无 cache/index 中间层，数据天然一致）。不存在 index drift / phantom item / stale read 问题
 - **就地审批**：`inlineApprovable=true` 且 `inlineMinFields` 校验通过时，Hub 内直接 approve/reject。**F128 特殊**：就地审批必须支持全量 approve-time overrides（`title`/`parentThreadId`/`preferredCats`/`initialMessage`/`projectPath`/`reportingMode`），否则强制跳转（AC-A4）
 - **过期提醒**：`expiresAt` 到期 → Hub 标记 stale + 徽标提醒，不自动 reject
 
-**AC-A1**: F128 propose_thread 事件注入到 index → Hub 可见
-**AC-A2**: F225 session_handoff 事件注入到 index → Hub 可见
-**AC-A3**: Hub panel 展示待审批列表 + 计数徽标
-**AC-A4**: 就地审批 F128 → 批完状态同步回 F128 store。Hub inline 必须支持 F128 **全量** approve-time overrides（`title`/`parentThreadId`/`preferredCats`/`initialMessage`/`projectPath`/`reportingMode`），与现有卡片契约完全一致。如果 Hub inline 无法提供等价编辑体验（技术限制），则该 proposal **强制跳转**，不允许以 approve-only 降级审批能力（砚砚 R2 P2）
+**AC-A1**: F128 adapter 查 ThreadProposal store → pending proposals 在 Hub 可见
+**AC-A2**: F225 adapter 查 HandoffProposal store → pending proposals 在 Hub 可见
+**AC-A3**: Hub panel 展示待审批列表（实时聚合）+ 计数徽标
+**AC-A4**: 就地审批 F128 → adapter 转发 approve 到 F128 store。Hub inline 必须支持 F128 **全量** approve-time overrides（`title`/`parentThreadId`/`preferredCats`/`initialMessage`/`projectPath`/`reportingMode`），与现有卡片契约完全一致。如果 Hub inline 无法提供等价编辑体验（技术限制），则该 proposal **强制跳转**，不允许以 approve-only 降级审批能力（砚砚 R2 P2）
 **AC-A5**: 跳转审批 F225（需上下文）→ 跳到原 thread
 **AC-A6**: 过期项标记 stale，不自动 reject
 **AC-A7**: Hub 读取按 `ownerUserId` 过滤，user A 看不到 user B 的待审批项
-**AC-A8**: 注入 API 不暴露为 MCP tool/callback。非 allowlist feature 的注入调用被拒绝
-**AC-A9**: 服务 restart 后从 canonical stores (F128/F225) backfill → index 不丢单。phantom item（canonical 不存在）不出现在 Hub
-**AC-A10**: 已 settled（approved/rejected）的 item 在 reconciliation 后从 pending 列表移除
+**AC-A8**: Adapter 不暴露为 MCP tool/callback。非 allowlist feature 的聚合请求被拒绝
+**AC-A9**: ~~backfill~~ v1 无需 backfill — query aggregation 直接读 canonical stores，restart 后数据天然存在（前提：canonical stores 自身满足持久化 P0 铁律）
+**AC-A10**: settled items 在 adapter 查询时自动排除（`status=pending` 过滤），不需要额外 reconciliation
 
 ### Phase B: F193 E3 接入
 
@@ -128,6 +134,7 @@ Why: CVO 审批散落在各 thread（F128/F225/F193），铲屎官不在对应 t
 - 批量操作（全部 approve / 全部 reject）
 - 筛选（by feature / by thread / by 时效）
 - v2 接入（F231 等）
+- **Materialized index 演进**：当接入 feature 数 >5 且 query fan-out 成为瓶颈时，引入 event-driven CQRS index + backfill/reconciliation 契约（v1 的 query aggregation 是有意选择，不是技术债）
 
 ## Links
 
