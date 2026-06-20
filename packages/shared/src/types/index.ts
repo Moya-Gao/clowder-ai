@@ -362,6 +362,23 @@ export type {
   CreateExternalProjectInput,
   ExternalProject,
 } from './external-project.js';
+// F233 Phase C C2a: Feat Trajectory types (OQ-8 三源 source-contract: event-stream / historical-stitched / git-ref-snapshot)
+export type {
+  BallShapedTrajectoryKind,
+  FeatThreadJoinMethod,
+  FeatThreadJoinProvenance,
+  FeatTrajectoryEntry,
+  FeatTrajectoryKind,
+  FeatTrajectoryProjection,
+  FeatTrajectorySource,
+  GitRefEntryIdParts,
+  GitRefSnapshot,
+  GitShapedTrajectoryKind,
+  HistoricalTrajectoryKind,
+  StaleBucket,
+  TrajectoryProvenance,
+} from './feat-trajectory.js';
+export { makeGitRefEntryId } from './feat-trajectory.js';
 // F245: Friction Signal Eval types
 export type {
   FrictionChannel,
