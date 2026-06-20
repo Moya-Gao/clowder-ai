@@ -9,7 +9,7 @@ tips_exempt: internal operations tool — board/reconciler/closure UX visible on
 
 # F168: Community Operations Board — 社区事务编排引擎
 
-> **Status**: infra-complete / ops-gap 🚧 — 管道精密但没流水（2026-06-20 CVO review 后重新定位）| **基础设施 A→E 全部 merged ✅** | **Phase F backend SO-0~SO-3 merged + opus-47 vision guard PASS ✅** | **运营闭环仍在推进 🚧**（backfill / board UX / 端到端生产流未完成）| **Owner**: 宪宪 (opus-4.8) | **Priority**: P1
+> **Status**: infra-complete / ops-gap 🚧 — 管道精密但没流水（2026-06-20 CVO review 后重新定位）| **基础设施 A→E 全部 merged ✅** | **Phase F backend SO-0~SO-3 merged + opus-47 vision guard PASS ✅** | **运营闭环仍在推进 🚧**（端到端生产流未完成）| **Owner**: 宪宪 (opus-4.8) | **Priority**: P1
 
 ## Reopen（2026-06-10，CVO signoff）
 
@@ -23,7 +23,7 @@ tips_exempt: internal operations tool — board/reconciler/closure UX visible on
 
 **分工（CVO 拍板 2026-06-10，2026-06-14 / 2026-06-17 更新）**：Phase D/E 由砚砚（@codex）主导 spec/AC/failure-mode/gate；实现与 review 保持跨个体铁律（砚砚实现则 opus/gpt52/47 review，opus 实现则砚砚强 review）。Phase C 由 opus 家族接手并 closed。原分工 fable plan + sonnet 实现，实测效果不理想；fable-5 下线后 CVO 确认由 opus 们全程接手 Phase C。
 
-**Phase 总览**：A 事件引擎 ✅ → B Issue Signals ✅ → C Narrator + Role Registry + 路由 ✅ → D Closure UX + Reconciler ✅ → E 看板决策队列 ✅ → **F 运营闭环上线 🚧 backend merged / ops+UX pending（2026-06-20 CVO 发起）**。A→E = 基础设施全部就位；F = 把管道接上水，让 triage → 分配 → 工作 → 闭环真正在生产跑起来。原 v1 文档（下方）保留为历史语境。
+**Phase 总览**：A 事件引擎 ✅ → B Issue Signals ✅ → C Narrator + Role Registry + 路由 ✅ → D Closure UX + Reconciler ✅ → E 看板决策队列 ✅ → **F 运营闭环上线 🚧 backend + backfill + board UX merged / e2e pending（2026-06-20 CVO 发起）**。A→E = 基础设施全部就位；F = 把管道接上水，让 triage → 分配 → 工作 → 闭环真正在生产跑起来。原 v1 文档（下方）保留为历史语境。
 
 **Phase A 完成（2026-06-10）**：PR #2203，commit `10c3c9bfdb`，squash-merged。Event Log + 纯函数状态机 + CommunityProjector + bootstrap CLI + 3 入口接线 + PR lifecycle + 看板 API（向后兼容）。6 轮 cloud review 全修。Phase B 由 @fable5 规划。
 
@@ -147,7 +147,7 @@ All merged, all tests green (4383 pass), all vision guards PASS.
 2. **F-Step1 存量同步**：从 per-repo config 读配置，backfill 已处理 issue 的 `assignedCatId` + `assignedThreadId`
 3. **F-Step2 置信度分流路由**：narrator triage → 置信度判断 → 直接路由 or 审批卡片 → 目标猫确认
 
-**Backend PR #2445 已合入（2026-06-20）**：SO-0~SO-3 完成 per-repo config store/routes、triage confidence pure function、`/validate-route` 接/退单、`TriageOrchestrator.autoRoute` 生产接线；cloud LL-072 封板 + gpt52 final review PASS；`pnpm gate` + GitHub Brand Boundary Guard 全绿。Deferred：存量 backfill 脚本、CommunityPanel board UX、至少 1 条生产端到端流。
+**Backend PR #2445 已合入（2026-06-20）**：SO-0~SO-3 完成 per-repo config store/routes、triage confidence pure function、`/validate-route` 接/退单、`TriageOrchestrator.autoRoute` 生产接线；cloud LL-072 封板 + gpt52 final review PASS；`pnpm gate` + GitHub Brand Boundary Guard 全绿。随后 AC-F0 存量 backfill 与 AC-F6 CommunityPanel board UX 已完成；Deferred：至少 1 条生产端到端流。
 
 **讨论点（4 轮后全部 resolved）**：
 - 存量 backfill：从 per-repo config 读，closed 标给 guardCatId，open 未 triaged 不标（✅ CVO 确认 + 自决）
@@ -164,7 +164,7 @@ All merged, all tests green (4383 pass), all vision guards PASS.
 - [x] AC-F3: 没把握 → 审批卡片进 Decision Queue → 铲屎官批准后路由（PR #2445 low-confidence pending-decision backend path）
 - [x] AC-F4: 目标猫验证是否属于自己 thread → 接单（accept）或退回（reject）（PR #2445 `/validate-route`）
 - [x] AC-F5: 退回 → 自动进 Decision Queue → 铲屎官重新分配（PR #2445 reject clears assignment + projection returns to triaged）
-- [ ] AC-F6: 铲屎官在看板上能看到 issue → thread → 猫 的分配关系并点击跳转
+- [x] AC-F6: 铲屎官在看板上能看到 issue → thread → 猫 的分配关系并点击跳转（PR #2450：board API resolves `assignedThreadName` + CommunityPanel SVG assignment chip）
 - [ ] AC-F7: 至少 1 条 issue 跑完整流程（narrator 传球 → 目标猫接单 → 工作 → closure）
 
 ## Why
@@ -597,7 +597,8 @@ TTL=0（铁律 #5），用户数据默认持久化
 | 2026-06-19 | **Phase E close guard merged** (PR #2432, `14fdb4e6`) — Decision Queue owner-thread navigation preserved across existing projection-enriched issues, projection-only repos, stale CommunityPanel async responses, and direction-decision route recommendations. Cloud current-head review `a44a39eecc` reported no major issues; `pnpm gate` passed on `a44a39eec`; Brand Boundary Guard passed. |
 | 2026-06-19 | **F168 ✅ CLOSED** — Opus 4.7 final vision guard PASS for the complete A→E reopen chain（Phase E = PR #2425/#2431/#2432；API 34/34 + frontend 9/9 = 43/43 focused tests pass；INV-E0~E5 all verified；Decision Queue solves owner action queue, owner-thread navigation, and close-via-github external-only behavior）。CloseGateReport: `docs/discussions/2026-06-19-f168-close-gate/close-gate-report.md`；reflection capsule: `docs/reflections/2026-06-19-f168-community-ops-board-capsule.md`；P3 DecisionQueueItem split recorded under Post-completion hardening. |
 | 2026-06-20 | **Phase F backend merged** (PR #2445, `dccb471d2`) — per-repo config store/routes + triage confidence + validate-route accept/reject + TriageOrchestrator autoRoute; AC-F00/F1/F2/F3/F4/F5 ✅；AC-F0/F6/F7 deferred |
-| 2026-06-20 | **Phase F backend vision guard PASS** — Opus 4.7 independently verified PR #2445 scope after clean rebuild（Phase F backend 42/42 focused tests pass；INV-F5/F6/F7 verified；scope limited to SO-0~SO-3 / AC-F00/F1/F2/F3/F4/F5）。F168 remains infra-complete / ops-gap: AC-F0 backfill, AC-F6 board UX, and AC-F7 end-to-end production flow still pending. |
+| 2026-06-20 | **Phase F backend vision guard PASS** — Opus 4.7 independently verified PR #2445 scope after clean rebuild（Phase F backend 42/42 focused tests pass；INV-F5/F6/F7 verified；scope limited to SO-0~SO-3 / AC-F00/F1/F2/F3/F4/F5）。At guard time, F168 remained infra-complete / ops-gap with AC-F0 backfill, AC-F6 board UX, and AC-F7 end-to-end production flow still pending. |
+| 2026-06-20 | **Phase F AC-F6 board UX merged** (PR #2450, `7758e66d0`) — Community board now resolves `assignedThreadName` server-side and renders SVG assignment chips so CVO can see issue → thread → cat and click through. AC-F6 ✅；AC-F7 end-to-end production flow still pending. |
 
 ## Review Gate
 
