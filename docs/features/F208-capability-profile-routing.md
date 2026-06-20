@@ -121,10 +121,10 @@ settings 独立 section（与成员管理平级，不复用 F154 member overview
 - [x] AC-B1: 猫传球时可按需加载目标猫 L1 画像（像 skill，不常驻）
 - [x] AC-B2: session/handoff 文案含非阻塞提醒，不检测"猫有没有读画像"，简单传球不打扰
 
-### Phase C（前端 settings 猫猫画像独立页）
-- [ ] AC-C1: settings 独立猫猫画像 section 展示每只猫能力画像卡（L1 6 字段可展开）+ 路由规则
-- [ ] AC-C2: 每条画像总结显示 provenance（来源 + 日期）
-- [ ] AC-C3: read-only 展示 + CVO"添加观察"入口（观察进 pending/provenance，不直接覆盖）
+### Phase C（前端 settings 猫猫画像独立页）🚧
+- [x] AC-C1: settings 独立猫猫画像 section 展示每只猫能力画像卡（model 分组 KD-15 + 路由信号可展开）
+- [x] AC-C2: 每条画像总结显示 provenance（来源 + 日期 + primarySources）
+- [x] AC-C3: read-only 展示 ✅ + OQ-9 badge（"擅长领域由画像驱动"）✅。CVO"添加观察"按钮 UI 留 Phase D（read-only MVP，持久化也是 Phase D）
 - [ ] AC-C4: 走 console-dev 4 gate（Product / Design-System / Implementation / Verification）
 
 ### Phase D（L2 证据层自动累积）
@@ -167,7 +167,7 @@ settings 独立 section（与成员管理平级，不复用 F154 member overview
 | OQ-6 | settings 页 read-only vs 录入入口 | ✅ resolved → read-only 起步 + CVO 添加观察入口；交互走 Design Gate |
 | OQ-7 | 新猫 cold start——三源全空只有 ① 固有特质，路由可能永不传给新猫（冷启动死循环）。开源给别人时别人的猫全是新猫，问题放大 | ⬜ 待 Phase 设计解决。初步方向：固有特质起步 + 前 N 次任务保底曝光"试用路由"。KD-9 fallback 链部分缓解——没 dossier 的猫仍可从 cat-config `teamStrengths` 获得能力标签 |
 | OQ-8 | L0 roster vs dossier 本体的语气分层 | ⬜ 三猫收敛方向：**分层，不是 sanitize**。dossier 本体/画像页 = 全文层，不 sanitize（"爱糊弄"这种刺就是价值）；L0 roster = 索引层，每轮注入给别的猫看，放**原生峰值 + 召唤反信号**（中性能力指向），坏直觉/熔断信号留给猫传球时 Read 全文。原因：L0 放"爱糊弄"有路由偏见风险——别的猫先入为主不敢传，违背"避免路由偏见"初衷（48 R1）。待实现时定 projection contract 字段（砚砚建议 `oneLiner` / `l0RosterSummary` / `routingSignals` / `provenance`）|
-| OQ-9 | 有 dossier 的猫，settings 里 teamStrengths 编辑框怎么办？ | ⬜ 切源后用户在 settings 改 teamStrengths 不会反映到 L0/前端画像（被 dossier 短路），**静默失效比漂移更坑**。Phase C 必须定：隐藏 / 只读 / 标"已被画像覆盖 → 去画像页改"（48 R1 blocking）|
+| OQ-9 | 有 dossier 的猫，settings 里 teamStrengths 编辑框怎么办？ | ✅ resolved → Phase C 实现"标已被画像覆盖"方案：`catDossierCoversStrengths()` 检测 dossier `l0RosterSummary` 字段存在性（KD-14 per-field），存在时 HubCatEditor 显示紫色 badge"擅长领域由画像驱动"。teamStrengths 编辑框保留可用（KD-13 永不删字段），badge 告知用户画像页是更新真相源 |
 
 ## Key Decisions
 
@@ -226,6 +226,7 @@ settings 独立 section（与成员管理平级，不复用 F154 member overview
 | 2026-06-15 | opus-48 confab 坏直觉 + 熔断信号追加（v0.2.1）|
 | 2026-06-19 | 三真相源漂移问题讨论（46 发现 + 48/砚砚并行方案 + CVO 讨论）→ KD-8~13 + OQ-8。CVO signoff F032 边界调整 |
 | 2026-06-20 | Phase B merged (PR #2430) — roster reads from dossier l0RosterSummary, both compile-l0 + SystemPromptBuilder switched, KD-9 drift detection + ENOENT classification, 6+1 regression tests |
+| 2026-06-20 | Phase C merged (PR #2446) — model-grouped dossier settings page (KD-15), OQ-9 badge, formatModelName fix (cloud P2), 27 regression tests. 4-round gpt52 local + 2-round cloud + sonnet fallback review |
 
 ## Review Gate
 
