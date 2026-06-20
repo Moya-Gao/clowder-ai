@@ -1459,6 +1459,7 @@ const internalScripts = [
   // Added after F228 R8 sync failure: script surface test detected dangling ref.
   "check:boundary-roundtrip",
   "clean:root-debris",
+  "guards:check",
 ];
 for (const s of internalScripts) {
   delete pkg.scripts[s];

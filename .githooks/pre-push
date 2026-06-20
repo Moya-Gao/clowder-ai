@@ -1,25 +1,46 @@
 #!/bin/bash
-# .githooks/pre-push — Direct Push to Main 阻断
+# .githooks/pre-push — Push Guards (three layers)
 #
-# 只做一件事：阻止直接 push 到 main/master。
-# 所有 main 上的改动应通过 PR squash merge（merge-gate 流程）。
+# Layer 1: Direct Push to Main — BLOCKS
+#   Prevents pushing code directly to main/master.
+#   All main changes go through PR squash merge (merge-gate).
 #
-# 不承担全量测试职责——那是 pre-merge-check.sh（pnpm gate）的活。
-# 原因：pre-push 时的 "全绿" 不代表 merge 到 main 后还绿。
+# Layer 2 (A'): Cross-branch Push Guard — BLOCKS
+#   Prevents pushing to a remote branch different from the local branch.
+#   This catches accidental `git push origin local:someone-elses-branch`.
+#   Override: GIT_GUARDS_ALLOW_CROSS_BRANCH=1 git push ...
 #
-# 注意：不区分主仓库/次级 worktree——任何 worktree 都不能直接 push
-# 代码到 main。gh pr merge --squash 是 GitHub 服务端操作，不经过
-# 本地 pre-push hook，所以不会被误拦。
+# Layer 3 (B-track): Squash-merge Injection Detection — WARNS only
+#   Detects when a feature branch may have picked up main-only commits
+#   via misconfigured upstream or merge/rebase. Collects diagnosis data
+#   for the next occurrence — does NOT block push.
 #
-# 安全原则：fail closed。无法判断时一律 block。
+# gh pr merge --squash is a GitHub server-side operation; it does NOT
+# trigger this hook, so merge-gate flow is never affected.
+#
+# Safety: fail-closed for Layers 1 & 2, fail-open for Layer 3.
 
 # 读 push 目标分支（stdin 格式：local_ref local_sha remote_ref remote_sha）
 while read local_ref local_sha remote_ref remote_sha; do
+
+  # ── Skip delete pushes ──
+  if [ "$local_sha" = "0000000000000000000000000000000000000000" ]; then
+    continue
+  fi
+
+  # ── Skip tag pushes ──
+  case "$remote_ref" in
+    refs/tags/*) continue ;;
+  esac
+
   REMOTE_BRANCH="$(echo "$remote_ref" | sed 's|refs/heads/||')"
 
+  # ═══════════════════════════════════════════════════════════════
+  # Layer 1: Direct Push to Main Block
+  # ═══════════════════════════════════════════════════════════════
   if [ "$REMOTE_BRANCH" = "main" ] || [ "$REMOTE_BRANCH" = "master" ]; then
 
-    # ── 确定 diff 基准 ──
+    # ── Diff baseline ──
     # remote_sha 全零 = 远端没有这个 ref（bootstrap / mirror）。
     # 此时无法 diff against remote，改为 diff against empty tree，
     # 让白名单逻辑正常运行（bootstrap 只含 docs → 放行）。
@@ -30,19 +51,18 @@ while read local_ref local_sha remote_ref remote_sha; do
       # remote_sha 不在本地对象库（stale clone / 未 fetch）。
       # 无法确认改动内容，fail closed。
       echo "" >&2
-      echo "🚫 BLOCKED: remote SHA $remote_sha 不在本地对象库。" >&2
-      echo "   请先 git fetch origin 同步后重试。" >&2
-      echo "   （安全原则：无法确认改动内容时一律 block）" >&2
+      echo "  BLOCKED: remote SHA $remote_sha not in local object store." >&2
+      echo "   Please git fetch origin first." >&2
+      echo "   (Safety: cannot verify changes, so blocking.)" >&2
       exit 1
     fi
 
     # 允许的例外：纯文档/共享状态/技能文档/Agent配置同步（shared-rules §14）
-    # 严格白名单：docs/ + designs/ + cat-config.json + opencode.json + cat-cafe-skills/ + .claude/skills/（symlink）
-    #   + 根目录所有 *.md 文档 + .githooks/
+    # 严格白名单：docs/ + designs/ + cat-config.json + opencode.json + cat-cafe-skills/
+    #   + .claude/skills/（symlink）+ 根目录所有 *.md 文档 + .githooks/
     # 应用代码一律走 PR
     CHANGED_FILES="$(git diff --name-only "$DIFF_BASE".."$local_sha" 2>/dev/null)"
     if [ -z "$CHANGED_FILES" ]; then
-      # diff 成功但无改动（remote_sha 已验证存在），真的无改动，放行
       continue
     fi
     NON_DOC_FILES="$(echo "$CHANGED_FILES" | grep -v -E '^(docs/|designs/|cat-config\.json$|opencode\.json$|cat-cafe-skills/|\.claude/skills/|\.githooks/|[^/]*\.md$)' || true)"
@@ -53,19 +73,163 @@ while read local_ref local_sha remote_ref remote_sha; do
     fi
 
     echo "" >&2
-    echo "╔══════════════════════════════════════════════════════════════╗" >&2
-    echo "║  🚫 BLOCKED: 禁止直接 push 代码到 $REMOTE_BRANCH！" >&2
-    echo "║                                                            ║" >&2
-    echo "║  正确做法：                                                ║" >&2
-    echo "║    1. 在 feature worktree 开发                             ║" >&2
-    echo "║    2. pnpm gate（全量门禁检查）                            ║" >&2
-    echo "║    3. 走 merge-gate：PR → review → squash merge            ║" >&2
-    echo "║                                                            ║" >&2
-    echo "║  例外：docs/ + cat-config.json + opencode.json + cat-cafe-skills/ + .claude/skills/ ║" >&2
-    echo "║        + 根目录 *.md + .githooks/ 可直接 push                     ║" >&2
-    echo "╚══════════════════════════════════════════════════════════════╝" >&2
+    echo "  BLOCKED: Direct push of code to $REMOTE_BRANCH is not allowed!" >&2
     echo "" >&2
+    echo "  Correct workflow:" >&2
+    echo "    1. Develop in a feature worktree" >&2
+    echo "    2. pnpm gate (full quality gate)" >&2
+    echo "    3. merge-gate: PR -> review -> squash merge" >&2
+    echo "" >&2
+    echo "  Exceptions: docs/ + cat-config.json + opencode.json + cat-cafe-skills/" >&2
+    echo "              + .claude/skills/ + root *.md + .githooks/" >&2
     exit 1
+
+  else
+    # ═══════════════════════════════════════════════════════════════
+    # Layer 2 (A'): Cross-branch Push Guard
+    #
+    # INVARIANT: branch identity comes from local_ref (stdin), never
+    # from checkout state (HEAD / git rev-parse --abbrev-ref HEAD).
+    # Violating this causes false positives (P1) and bypasses (P2).
+    #
+    # NOTE: `git push origin HEAD` sends literal local_ref="HEAD" even
+    # when the branch is attached. Resolve it here so the comparison
+    # below sees the real branch name.
+    # ═══════════════════════════════════════════════════════════════
+    if [ "$local_ref" = "HEAD" ]; then
+      _resolved_ref="$(git symbolic-ref HEAD 2>/dev/null || echo "")"
+      if [ -n "$_resolved_ref" ]; then
+        local_ref="$_resolved_ref"
+      fi
+      # If symbolic-ref fails, HEAD is truly detached → local_ref stays
+      # "HEAD" and the non-branch-ref block path below handles it.
+    fi
+
+    LOCAL_PUSH_BRANCH=""
+    case "$local_ref" in
+      refs/heads/*) LOCAL_PUSH_BRANCH="${local_ref#refs/heads/}" ;;
+    esac
+
+    if [ -n "$LOCAL_PUSH_BRANCH" ]; then
+      # local_ref is a named branch — compare to remote target
+      if [ "$LOCAL_PUSH_BRANCH" != "$REMOTE_BRANCH" ]; then
+        if [ "${GIT_GUARDS_ALLOW_CROSS_BRANCH:-}" = "1" ]; then
+          echo "" >&2
+          echo "  Cross-branch push override active:" >&2
+          echo "    '$LOCAL_PUSH_BRANCH' -> '$REMOTE_BRANCH'" >&2
+          echo "" >&2
+        else
+          echo "" >&2
+          echo "  BLOCKED: Cross-branch push detected!" >&2
+          echo "" >&2
+          echo "  Pushed ref:     $LOCAL_PUSH_BRANCH" >&2
+          echo "  Remote target:  $REMOTE_BRANCH" >&2
+          echo "" >&2
+          echo "  Pushing a local branch to a different remote branch" >&2
+          echo "  can inject commits unexpectedly." >&2
+          echo "" >&2
+          echo "  If intentional:" >&2
+          echo "    GIT_GUARDS_ALLOW_CROSS_BRANCH=1 git push ..." >&2
+          exit 1
+        fi
+      fi
+    else
+      # local_ref is not a named branch (e.g. HEAD, SHA).
+      # Can't verify branch identity — block to prevent unverified
+      # cross-branch injection (closes detached-HEAD bypass).
+      if [ "${GIT_GUARDS_ALLOW_CROSS_BRANCH:-}" = "1" ]; then
+        echo "" >&2
+        echo "  Cross-branch push override active (non-branch ref):" >&2
+        echo "    '$local_ref' -> '$REMOTE_BRANCH'" >&2
+        echo "" >&2
+      else
+        echo "" >&2
+        echo "  BLOCKED: Non-branch ref push to named branch!" >&2
+        echo "" >&2
+        echo "  Pushed ref:     $local_ref (not a branch)" >&2
+        echo "  Remote target:  $REMOTE_BRANCH" >&2
+        echo "" >&2
+        echo "  Pushing a non-branch ref (HEAD, SHA) to a named branch" >&2
+        echo "  bypasses branch-identity verification." >&2
+        echo "" >&2
+        echo "  If intentional:" >&2
+        echo "    GIT_GUARDS_ALLOW_CROSS_BRANCH=1 git push ..." >&2
+        exit 1
+      fi
+    fi
+
+    # ═══════════════════════════════════════════════════════════════
+    # Layer 3 (B-track): Squash-merge Injection Detection
+    # Warn-only — collects diagnosis data, does NOT block push.
+    # Entire block is fail-open: errors in detection → skip silently.
+    # ═══════════════════════════════════════════════════════════════
+    (
+      # ── B-track 1: Upstream tracking check ──
+      # Feature branch tracking origin/main is almost always misconfigured.
+      # Use LOCAL_PUSH_BRANCH's upstream (not HEAD's) to avoid false warnings
+      # when pushing feat/b from feat/a checkout.
+      if [ -n "$LOCAL_PUSH_BRANCH" ]; then
+        _upstream=$(git for-each-ref --format='%(upstream:short)' "refs/heads/${LOCAL_PUSH_BRANCH}" 2>/dev/null)
+      else
+        _upstream=""
+      fi
+      if [ "$_upstream" = "origin/main" ] || [ "$_upstream" = "origin/master" ]; then
+        echo "" >&2
+        echo "  B-TRACK: Branch '${LOCAL_PUSH_BRANCH:-?}' tracks '$_upstream'" >&2
+        echo "  'git pull' will pull main changes into your feature branch." >&2
+        echo "  Fix: git branch --set-upstream-to=origin/${LOCAL_PUSH_BRANCH:-$REMOTE_BRANCH}" >&2
+        echo "" >&2
+      fi
+
+      # ── B-track 2: Squash-merge subject collision ──
+      # Check if commits being pushed match (by subject) recent main
+      # squash-merge commits. If so, main history may have leaked in.
+
+      # Need origin/main to compare against
+      git rev-parse --verify origin/main >/dev/null 2>&1 || exit 0
+
+      # Determine commit range
+      _range=""
+      if [ "$remote_sha" != "0000000000000000000000000000000000000000" ]; then
+        _range="$remote_sha..$local_sha"
+      else
+        # New branch: check from merge-base with main
+        _mb=$(git merge-base "$local_sha" origin/main 2>/dev/null || echo "")
+        [ -n "$_mb" ] && _range="$_mb..$local_sha"
+      fi
+      [ -z "$_range" ] && exit 0
+
+      # Collect last 100 main first-parent commit subjects
+      _main_subj=$(mktemp "${TMPDIR:-/tmp}/btrack.XXXXXX")
+      git log --oneline -100 --first-parent origin/main 2>/dev/null \
+        | cut -d' ' -f2- > "$_main_subj"
+      [ -s "$_main_subj" ] || { rm -f "$_main_subj"; exit 0; }
+
+      # Compare branch commits against main subjects
+      _hits=""
+      _hit_count=0
+      while IFS= read -r _line; do
+        _subj=$(echo "$_line" | cut -d' ' -f2-)
+        if [ -n "$_subj" ] && grep -qFx "$_subj" "$_main_subj" 2>/dev/null; then
+          _hits="${_hits}    ${_line}\n"
+          _hit_count=$((_hit_count + 1))
+        fi
+      done < <(git log --oneline "$_range" 2>/dev/null | head -200)
+
+      rm -f "$_main_subj"
+
+      if [ "$_hit_count" -gt 0 ]; then
+        echo "" >&2
+        echo "  B-TRACK: $_hit_count commit(s) match main squash-merge subjects:" >&2
+        echo -e "$_hits" >&2
+        echo "  Main history may have been injected via pull/rebase/merge." >&2
+        echo "  Push NOT blocked — logged for diagnosis." >&2
+        echo "  Context: branch=${LOCAL_PUSH_BRANCH:-?} remote_sha=${remote_sha:0:10}" >&2
+        echo "" >&2
+      fi
+    ) || true
+    # ^ Subshell + || true = fail-open. Any B-track error → silent skip.
+    # No 2>&1 — B-track warnings stay on stderr (visible to user).
   fi
 done
 

@@ -227,6 +227,7 @@ function buildExportedRootScripts(sourceScripts) {
     'check:reverse-sanitizer',
     'check:boundary-roundtrip',
     'clean:root-debris',
+    'guards:check',
   ];
   for (const scriptName of internalScripts) {
     delete scripts[scriptName];
