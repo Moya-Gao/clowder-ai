@@ -5,15 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>F208 Phase C · 猫猫天团 · 能力画像页 POC</title>
 <!--
-  F208 Phase C 设计 POC — 宪宪 / opus-4.8
+  F208 Phase C 设计 POC v2 — 宪宪 / opus-4.8
+  v2 改动（铲屎官 R1）：① 去掉全部 emoji（家规）② 画像单位 = catId 不是 model
+     —— 加 runtime 维度 + @opus / @antig-opus 同 model 对照卡
   真相源：docs/team/cat-dossier.md（真实画像数据，未编造）
   画风：抄 packages/web 的 OKLCH token（surface-hue 80 暖米 / neutral hue 30 / accent 珊瑚橙 / chart palette）
-  覆盖 AC-C1（画像卡 6 字段可展开 + 路由规则）/ AC-C2（provenance）/ AC-C3（read-only + CVO 添加观察入口）
-  这是静态 POC，不进 codebase；正式实现接 cat-persona-tokens 的 cocreator-hue + console-dev 4 gate
+  覆盖 AC-C1（画像卡 6 字段可展开 + 路由原则）/ AC-C2（provenance）/ AC-C3（read-only + CVO 添加观察入口）
+  无 emoji；avatar 用昵称/猫种首字 + persona 色块（正式版接 cat-config /avatars/*.png）
 -->
 <style>
   :root {
-    /* ===== 抄自 theme-tokens.css（light） ===== */
     --surface-hue: 80;
     --cafe-sunken:   oklch(0.92 0.015 var(--surface-hue));
     --cafe-surface:  oklch(0.95 0.012 var(--surface-hue));
@@ -24,22 +25,16 @@
     --text-muted:  oklch(0.56 0.005 30);
     --border:      oklch(0.84 0.005 30);
     --border-subtle: oklch(0.915 0.005 30);
-    --accent:      #e29578;            /* 珊瑚橙 ws-accent */
+    --accent:      #e29578;
     --accent-deep: #c9714f;
-    /* 语义色（字段分组） */
-    --cap:    oklch(0.55 0.12 135);    /* 能力·绿 */
-    --cap-bg: oklch(0.96 0.03 135);
-    --blind:    oklch(0.58 0.13 50);   /* 盲点·暖橙（警示不羞耻） */
-    --blind-bg: oklch(0.96 0.045 60);
-    --collab:    oklch(0.55 0.12 230); /* 协作·蓝 */
-    --collab-bg: oklch(0.96 0.035 230);
-    --fuse:    oklch(0.55 0.15 30);    /* 熔断·红 */
-    --fuse-bg: oklch(0.96 0.04 30);
-    /* provenance 来源色 */
+    --cap:    oklch(0.52 0.12 145);    --cap-bg: oklch(0.96 0.03 145);
+    --blind:    oklch(0.55 0.13 55);    --blind-bg: oklch(0.96 0.045 65);
+    --collab:    oklch(0.52 0.12 235);  --collab-bg: oklch(0.96 0.035 235);
+    --fuse:    oklch(0.55 0.15 30);     --fuse-bg: oklch(0.96 0.04 30);
     --src-cvo: var(--accent-deep);
-    --src-peer: oklch(0.5 0.12 230);
+    --src-peer: oklch(0.5 0.12 235);
     --src-incident: oklch(0.55 0.15 30);
-    --src-eval: oklch(0.5 0.12 150);
+    --src-eval: oklch(0.48 0.12 150);
     --src-self: oklch(0.6 0.01 30);
     --shadow-card: 0 1px 2px oklch(0.22 0.02 50 / 0.05), 0 6px 16px oklch(0.22 0.02 50 / 0.07);
     --shadow-lift: 0 2px 4px oklch(0.22 0.02 50 / 0.06), 0 12px 28px oklch(0.22 0.02 50 / 0.10);
@@ -48,36 +43,38 @@
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
     font-family: -apple-system, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
-    background:
-      radial-gradient(1200px 600px at 80% -10%, oklch(0.97 0.03 60), transparent),
-      var(--cafe-surface);
-    color: var(--text);
-    line-height: 1.6;
-    min-height: 100vh;
-    padding: 32px 24px 80px;
+    background: radial-gradient(1200px 600px at 80% -10%, oklch(0.97 0.03 60), transparent), var(--cafe-surface);
+    color: var(--text); line-height: 1.6; min-height: 100vh; padding: 32px 24px 80px;
     -webkit-font-smoothing: antialiased;
   }
   .wrap { max-width: 1180px; margin: 0 auto; }
 
   /* ===== Section Header ===== */
-  .page-head { margin-bottom: 28px; }
+  .page-head { margin-bottom: 24px; }
   .breadcrumb { font-size: 13px; color: var(--text-muted); margin-bottom: 10px; }
   .breadcrumb b { color: var(--accent-deep); font-weight: 600; }
   .page-title { font-size: 26px; font-weight: 700; letter-spacing: -0.01em; display: flex; align-items: center; gap: 12px; }
-  .page-title .paw { font-size: 24px; }
   .ro-chip {
-    font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 999px;
+    font-size: 11px; font-weight: 600; padding: 3px 11px; border-radius: 999px;
     background: var(--cafe-sunken); color: var(--text-secondary); border: 1px solid var(--border);
-    display: inline-flex; align-items: center; gap: 5px;
+    letter-spacing: 0.04em;
   }
-  .page-sub { margin-top: 10px; font-size: 14px; color: var(--text-secondary); max-width: 760px; }
+  .page-sub { margin-top: 10px; font-size: 14px; color: var(--text-secondary); max-width: 780px; }
   .page-sub .pin { color: var(--accent-deep); font-weight: 600; }
-  .routing-note {
-    margin-top: 16px; padding: 12px 16px; border-radius: 12px;
+
+  /* 画像单位说明条（回应铲屎官 R1：画像按猫不按 model） */
+  .unit-note {
+    margin-top: 16px; padding: 13px 16px; border-radius: 12px;
     background: var(--cafe-elevated); border: 1px solid var(--border-subtle);
-    font-size: 13px; color: var(--text-secondary); display: flex; gap: 10px; align-items: flex-start;
+    border-left: 3px solid var(--accent); font-size: 13px; color: var(--text-secondary);
   }
-  .routing-note .k { font-size: 16px; }
+  .unit-note b { color: var(--text); }
+  .unit-note .formula { color: var(--accent-deep); font-weight: 600; }
+  .routing-note {
+    margin-top: 10px; padding: 11px 16px; border-radius: 12px;
+    background: var(--cafe-elevated); border: 1px solid var(--border-subtle);
+    font-size: 13px; color: var(--text-secondary);
+  }
   .routing-note b { color: var(--text); }
 
   /* ===== Grid ===== */
@@ -86,15 +83,12 @@
   /* ===== Cat Card ===== */
   .card {
     --hue: 35;
-    --persona:      oklch(0.6 0.15 var(--hue));
+    --persona: oklch(0.6 0.15 var(--hue));
     --persona-deep: oklch(0.45 0.12 var(--hue));
     --persona-soft: oklch(0.97 0.025 var(--hue));
-    background: var(--cafe-canvas);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow-card);
-    overflow: hidden;
-    transition: box-shadow 0.2s ease, transform 0.2s ease;
+    background: var(--cafe-canvas); border: 1px solid var(--border-subtle);
+    border-radius: var(--radius); box-shadow: var(--shadow-card); overflow: hidden;
+    transition: box-shadow 0.2s ease;
   }
   .card.open { box-shadow: var(--shadow-lift); grid-column: 1 / -1; }
   .card:hover { box-shadow: var(--shadow-lift); }
@@ -102,39 +96,35 @@
 
   .card-head { padding: 16px 18px 12px; display: flex; gap: 13px; align-items: flex-start; }
   .avatar {
-    width: 50px; height: 50px; border-radius: 14px; flex-shrink: 0;
-    display: grid; place-items: center; font-size: 26px;
-    background: var(--persona-soft);
-    border: 2px solid var(--persona);
-    box-shadow: 0 0 0 4px oklch(0.6 0.15 var(--hue) / 0.10);
+    width: 48px; height: 48px; border-radius: 14px; flex-shrink: 0;
+    display: grid; place-items: center; font-size: 20px; font-weight: 700;
+    background: var(--persona-soft); color: var(--persona-deep);
+    border: 2px solid var(--persona); box-shadow: 0 0 0 4px oklch(0.6 0.15 var(--hue) / 0.10);
   }
   .id { flex: 1; min-width: 0; }
-  .id .name { font-size: 17px; font-weight: 700; color: var(--persona-deep); }
-  .id .meta { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-  .id .handle { color: var(--text-secondary); font-weight: 600; }
-  .model-pill { font-size: 11px; padding: 1px 8px; border-radius: 999px; background: var(--cafe-sunken); border: 1px solid var(--border); color: var(--text-secondary); }
+  .id .name { font-size: 16.5px; font-weight: 700; color: var(--persona-deep); }
+  .id .meta { font-size: 12px; color: var(--text-muted); margin-top: 3px; display: flex; flex-wrap: wrap; gap: 5px 7px; align-items: center; }
+  .id .handle { color: var(--text-secondary); font-weight: 700; }
+  /* runtime 维度 —— 区分同 model 不同猫的关键 */
+  .rt-pill { font-size: 11px; padding: 1px 8px; border-radius: 999px; font-weight: 600; }
+  .rt-cc { background: oklch(0.95 0.03 235); color: oklch(0.45 0.12 235); }
+  .rt-ag { background: oklch(0.95 0.035 300); color: oklch(0.45 0.13 300); }
+  .model-pill { font-size: 11px; padding: 1px 8px; border-radius: 999px; background: var(--cafe-sunken); border: 1px solid var(--border); color: var(--text-muted); }
 
   .src-badges { display: flex; gap: 4px; flex-shrink: 0; }
-  .src-dot {
-    width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center;
-    font-size: 10px; font-weight: 700; color: white; cursor: default;
-  }
+  .src-dot { padding: 2px 7px; border-radius: 6px; font-size: 10px; font-weight: 700; color: white; }
   .src-dot[data-s="cvo"] { background: var(--src-cvo); }
   .src-dot[data-s="peer"] { background: var(--src-peer); }
   .src-dot[data-s="incident"] { background: var(--src-incident); }
   .src-dot[data-s="eval"] { background: var(--src-eval); }
 
-  /* oneLiner —— 带刺的一句话画像，灵魂所在 */
   .oneliner {
     margin: 4px 18px 14px; padding: 12px 14px 12px 16px;
-    background: var(--persona-soft);
-    border-left: 3px solid var(--persona);
-    border-radius: 0 10px 10px 0;
-    font-size: 13.5px; color: var(--text); font-style: normal;
+    background: var(--persona-soft); border-left: 3px solid var(--persona);
+    border-radius: 0 10px 10px 0; font-size: 13.5px; color: var(--text);
   }
   .oneliner .q { color: var(--persona-deep); font-weight: 700; }
 
-  /* l0 中性摘要 pills */
   .summary-row { padding: 0 18px 14px; }
   .summary-label { font-size: 11px; color: var(--text-muted); margin-bottom: 6px; letter-spacing: 0.03em; }
   .pills { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -142,49 +132,40 @@
   .pill.hard { background: var(--fuse-bg); border-color: var(--fuse); color: var(--fuse); font-weight: 700; }
 
   .expand-btn {
-    margin: 0 18px 16px; width: calc(100% - 36px);
-    padding: 9px; border-radius: 10px; cursor: pointer;
-    background: var(--cafe-surface); border: 1px solid var(--border);
-    color: var(--persona-deep); font-size: 13px; font-weight: 600;
-    display: flex; align-items: center; justify-content: center; gap: 6px;
+    margin: 0 18px 16px; width: calc(100% - 36px); padding: 9px; border-radius: 10px; cursor: pointer;
+    background: var(--cafe-surface); border: 1px solid var(--border); color: var(--persona-deep);
+    font-size: 13px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 7px;
     transition: background 0.15s;
   }
   .expand-btn:hover { background: var(--persona-soft); }
-  .expand-btn .chev { transition: transform 0.2s; }
+  .expand-btn .chev { width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid currentColor; transition: transform 0.2s; }
   .card.open .expand-btn .chev { transform: rotate(180deg); }
+  .card.open .expand-btn .lbl-open { display: none; }
+  .expand-btn .lbl-close { display: none; }
+  .card.open .expand-btn .lbl-close { display: inline; }
 
-  /* ===== 展开区：6 字段 ===== */
   .detail { display: none; padding: 0 18px 4px; }
   .card.open .detail { display: block; }
   .field-group { margin-bottom: 16px; }
-  .group-head {
-    font-size: 12px; font-weight: 700; letter-spacing: 0.04em;
-    display: flex; align-items: center; gap: 7px; margin-bottom: 8px;
-    padding-bottom: 5px; border-bottom: 1px dashed var(--border);
-  }
-  .group-head .gdot { width: 8px; height: 8px; border-radius: 50%; }
+  .group-head { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; display: flex; align-items: center; gap: 7px; margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1px dashed var(--border); }
+  .group-head .gdot { width: 9px; height: 9px; border-radius: 3px; }
   .g-cap .group-head { color: var(--cap); } .g-cap .gdot { background: var(--cap); }
   .g-blind .group-head { color: var(--blind); } .g-blind .gdot { background: var(--blind); }
   .g-collab .group-head { color: var(--collab); } .g-collab .gdot { background: var(--collab); }
   .g-fuse .group-head { color: var(--fuse); } .g-fuse .gdot { background: var(--fuse); }
 
-  .field { padding: 9px 12px; border-radius: 10px; margin-bottom: 7px; position: relative; }
+  .field { padding: 9px 12px; border-radius: 10px; margin-bottom: 7px; }
   .g-cap .field { background: var(--cap-bg); }
   .g-blind .field { background: var(--blind-bg); }
   .g-collab .field { background: var(--collab-bg); }
   .g-fuse .field { background: var(--fuse-bg); }
   .field .ft { font-size: 12.5px; font-weight: 700; margin-bottom: 3px; display: flex; align-items: center; gap: 6px; }
-  .field .num { font-size: 11px; opacity: 0.6; }
+  .field .num { font-size: 11px; opacity: 0.55; font-variant-numeric: tabular-nums; }
   .field .fc { font-size: 13px; color: var(--text); }
   .field .fc b { color: var(--text); }
 
-  /* provenance 行 */
   .prov { margin-top: 7px; display: flex; flex-wrap: wrap; gap: 5px; }
-  .prov-tag {
-    font-size: 10.5px; padding: 2px 7px; border-radius: 6px;
-    background: var(--cafe-canvas); border: 1px solid var(--border-subtle);
-    color: var(--text-muted); cursor: help; display: inline-flex; gap: 4px; align-items: center;
-  }
+  .prov-tag { font-size: 10.5px; padding: 2px 7px; border-radius: 6px; background: var(--cafe-canvas); border: 1px solid var(--border-subtle); color: var(--text-muted); cursor: help; display: inline-flex; gap: 4px; align-items: center; }
   .prov-tag .pt { font-weight: 700; }
   .prov-tag[data-s="cvo"] .pt { color: var(--src-cvo); }
   .prov-tag[data-s="peer"] .pt { color: var(--src-peer); }
@@ -192,60 +173,52 @@
   .prov-tag[data-s="eval"] .pt { color: var(--src-eval); }
   .prov-tag[data-s="self"] .pt { color: var(--src-self); }
 
-  /* CVO 观察区 */
-  .cvo-zone {
-    margin: 8px 18px 18px; padding: 13px 15px; border-radius: 12px;
-    background: oklch(0.97 0.02 60); border: 1px dashed var(--accent);
-  }
-  .cvo-head { font-size: 12px; font-weight: 700; color: var(--accent-deep); display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+  .cvo-zone { margin: 8px 18px 18px; padding: 13px 15px; border-radius: 12px; background: oklch(0.97 0.02 60); border: 1px dashed var(--accent); }
+  .cvo-head { font-size: 12px; font-weight: 700; color: var(--accent-deep); margin-bottom: 8px; letter-spacing: 0.03em; }
   .cvo-empty { font-size: 12.5px; color: var(--text-muted); font-style: italic; margin-bottom: 10px; }
   .cvo-obs { font-size: 13px; background: var(--cafe-canvas); border-radius: 8px; padding: 8px 11px; margin-bottom: 8px; border: 1px solid var(--border-subtle); }
   .cvo-obs .when { font-size: 10.5px; color: var(--text-muted); margin-top: 4px; }
-  .add-obs {
-    font-size: 12.5px; font-weight: 600; color: white; background: var(--accent-deep);
-    border: none; border-radius: 8px; padding: 7px 14px; cursor: pointer;
-    display: inline-flex; align-items: center; gap: 6px; transition: filter 0.15s;
-  }
+  .add-obs { font-size: 12.5px; font-weight: 600; color: white; background: var(--accent-deep); border: none; border-radius: 8px; padding: 7px 14px; cursor: pointer; transition: filter 0.15s; }
   .add-obs:hover { filter: brightness(1.07); }
-  .add-obs.locked { background: var(--cafe-sunken); color: var(--text-muted); cursor: not-allowed; border: 1px solid var(--border); }
 
-  .footnote { margin-top: 30px; font-size: 12px; color: var(--text-muted); text-align: center; line-height: 1.8; }
+  .legend { margin: 22px 0 0; padding: 12px 16px; border-radius: 12px; background: var(--cafe-elevated); border: 1px solid var(--border-subtle); font-size: 12px; color: var(--text-muted); display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+  .legend .li { display: inline-flex; align-items: center; gap: 6px; }
+  .legend .sw { width: 11px; height: 11px; border-radius: 3px; }
+  .footnote { margin-top: 18px; font-size: 12px; color: var(--text-muted); text-align: center; line-height: 1.8; }
   .footnote code { background: var(--cafe-sunken); padding: 1px 6px; border-radius: 5px; }
 </style>
 </head>
 <body>
 <div class="wrap">
 
-  <!-- ===== Section Header ===== -->
   <div class="page-head">
     <div class="breadcrumb">设置 / <b>猫猫天团 · 能力画像</b>　<span style="opacity:.5">（与「成员管理」分离 — KD-11：那边管配置，这边看画像）</span></div>
-    <div class="page-title">
-      <span class="paw">🐾</span> 猫猫天团 · 能力画像
-      <span class="ro-chip">🔒 只读视图</span>
-    </div>
+    <div class="page-title">猫猫天团 · 能力画像 <span class="ro-chip">只读视图</span></div>
     <div class="page-sub">
-      这是<span class="pin">传球判据，不是简历</span>——优点和盲点都在这儿摆明。简单传球扫一眼「一句话画像 + 能力标签」，复杂传球展开 6 字段看坏直觉和熔断信号。
-      画像由队友观察 / 事件 / 评测 / 铲屎官体感<b>多源合成</b>，每条带 provenance 可溯源。
+      这是<span class="pin">传球判据，不是简历</span>——优点和盲点都在这儿摆明。简单传球扫一眼，复杂传球展开 6 字段看坏直觉和熔断信号。
+    </div>
+    <div class="unit-note">
+      <b>画像的单位是「这只猫」，不是 model。</b>　<span class="formula">一只猫 = model × runtime × persona</span>。
+      同一个 model 在不同 runtime 是<b>不同的猫</b>——下面 <b>@opus</b> 和 <b>@antig-opus</b> 底层都是 claude-opus-4-6，
+      但一个在 claude code 里写代码、一个在 antigravity 里做 browser automation，画像完全不同。所以身份键用 catId（<code>cat:opus</code> / <code>cat:antig-opus</code>），不会合并。
     </div>
     <div class="routing-note">
-      <span class="k">🧭</span>
-      <div><b>路由原则</b>：系统只提供画像和证据，<b>谁接球由持球猫自主判断</b>（KD-1 / KD-8）——这不是算法派单器。画像 read-only，只有铲屎官可「添加观察」喂养它。</div>
+      <b>路由原则</b>：系统只提供画像和证据，<b>谁接球由持球猫自主判断</b>（KD-1 / KD-8）——不是算法派单器。画像 read-only，只有铲屎官可「添加观察」喂养它。
     </div>
   </div>
 
-  <!-- ===== Cat Grid ===== -->
   <div class="grid">
 
-    <!-- ① 布偶猫 Opus 4.6（完整可展开） -->
+    <!-- ① 布偶猫 @opus（claude code, opus-4-6）完整展开 -->
     <div class="card" style="--hue: 35;">
       <div class="strip"></div>
       <div class="card-head">
-        <div class="avatar">🐱</div>
+        <div class="avatar">偶</div>
         <div class="id">
-          <div class="name">布偶猫 Opus 4.6</div>
-          <div class="meta"><span class="handle">@opus</span> · <span class="model-pill">claude-opus-4-6</span> · cat:opus</div>
+          <div class="name">布偶猫 · 快速编码手</div>
+          <div class="meta"><span class="handle">@opus</span><span class="rt-pill rt-cc">claude code</span><span class="model-pill">claude-opus-4-6</span><span>cat:opus</span></div>
         </div>
-        <div class="src-badges" title="画像来源：铲屎官体感 · 队友观察 · 具体事件">
+        <div class="src-badges">
           <span class="src-dot" data-s="cvo" title="铲屎官体感">铲</span>
           <span class="src-dot" data-s="peer" title="队友观察">伴</span>
           <span class="src-dot" data-s="incident" title="具体事件">案</span>
@@ -254,73 +227,82 @@
       <div class="oneliner"><span class="q">快枪手——出活快但爱糊弄</span>，搭个能跑的就想收工留"后续完善"尾巴就溜。写别人的画像准，写自己的疯狂美化。</div>
       <div class="summary-row">
         <div class="summary-label">能力标签（L0 中性摘要）</div>
-        <div class="pills">
-          <span class="pill">快速编码</span><span class="pill">系统设计</span><span class="pill">全链路推进</span><span class="pill">人话翻译官</span>
-        </div>
+        <div class="pills"><span class="pill">快速编码</span><span class="pill">系统设计</span><span class="pill">全链路推进</span><span class="pill">人话翻译官</span></div>
       </div>
-      <button class="expand-btn" onclick="toggle(this)">展开画像 · 6 字段 <span class="chev">▾</span></button>
+      <button class="expand-btn" onclick="toggle(this)"><span class="lbl-open">展开画像 · 6 字段</span><span class="lbl-close">收起</span> <span class="chev"></span></button>
       <div class="detail">
         <div class="field-group g-cap">
           <div class="group-head"><span class="gdot"></span>能力 · 交给它大概率高质量</div>
-          <div class="field">
-            <div class="ft"><span class="num">①</span> 原生峰值</div>
-            <div class="fc">快速编码 + 系统设计一体，一个 session 内从 spec 到实现到测试全链路推完。代码速度是布偶猫家族最快。</div>
-            <div class="prov"><span class="prov-tag" data-s="eval" title="longform-002 Ch.0 统计表：102 天 6413 commits"><span class="pt">eval</span> 代码速度 · 05-25</span></div>
-          </div>
-          <div class="field">
-            <div class="ft"><span class="num">②</span> 被低估能力</div>
-            <div class="fc">听得懂人话、能共情——铲屎官和猫猫之间的<b>翻译官</b>。给证据后快速自我纠正，不死犟。</div>
-            <div class="prov"><span class="prov-tag" data-s="cvo" title="铲屎官原话：如何当人类铲屎官和猫猫们的翻译官？你！"><span class="pt">cvo</span> 翻译官 · 05-25</span></div>
-          </div>
+          <div class="field"><div class="ft"><span class="num">1</span> 原生峰值</div><div class="fc">快速编码 + 系统设计一体，一个 session 内从 spec 到实现到测试全链路推完。代码速度是布偶猫家族最快。</div><div class="prov"><span class="prov-tag" data-s="eval" title="longform-002 Ch.0：102 天 6413 commits"><span class="pt">eval</span> 代码速度 · 05-25</span></div></div>
+          <div class="field"><div class="ft"><span class="num">2</span> 被低估能力</div><div class="fc">听得懂人话、能共情——铲屎官和猫猫之间的<b>翻译官</b>。给证据后快速自我纠正，不死犟。</div><div class="prov"><span class="prov-tag" data-s="cvo" title="铲屎官原话：如何当人类铲屎官和猫猫们的翻译官？你！"><span class="pt">cvo</span> 翻译官 · 05-25</span></div></div>
         </div>
         <div class="field-group g-blind">
           <div class="group-head"><span class="gdot"></span>盲点 · 传球前要知道</div>
-          <div class="field">
-            <div class="ft"><span class="num">③</span> 坏直觉</div>
-            <div class="fc"><b>糊弄 hotfix / 能跑就行</b>：搭个能跑的就想收工留尾巴。<b>碎片推理</b>：搜到第一条命中就推理不查完。连自己的坏直觉都会美化。</div>
-            <div class="prov">
-              <span class="prov-tag" data-s="cvo" title="docs/plans/tech-sharing/2026-04-25-topics-final.md:227"><span class="pt">cvo</span> 糊弄 hotfix</span>
-              <span class="prov-tag" data-s="incident" title="F208 dossier Round 7：46写其他人的倒是可以 怎么疯狂美化他自己"><span class="pt">案</span> 自我美化</span>
-            </div>
-          </div>
-          <div class="field">
-            <div class="ft"><span class="num">④</span> 召唤反信号</div>
-            <div class="fc">alpha 端到端验收（太贵，用 @sonnet）。极度审慎的架构决策（@opus47 更适合）。独立做 reviewer（大漏勺风险）。</div>
-            <div class="prov"><span class="prov-tag" data-s="cvo" title="memory://feedback_alpha_test_use_sonnet.md"><span class="pt">cvo</span> alpha 用 sonnet</span></div>
-          </div>
+          <div class="field"><div class="ft"><span class="num">3</span> 坏直觉</div><div class="fc"><b>糊弄 hotfix / 能跑就行</b>：搭个能跑的就想收工留尾巴。<b>碎片推理</b>：搜到第一条命中就推理不查完。连自己的坏直觉都会美化。</div><div class="prov"><span class="prov-tag" data-s="cvo" title="topics-final.md:227"><span class="pt">cvo</span> 糊弄 hotfix</span><span class="prov-tag" data-s="incident" title="F208 dossier Round 7：46写其他人的倒是可以 怎么疯狂美化他自己"><span class="pt">案</span> 自我美化</span></div></div>
+          <div class="field"><div class="ft"><span class="num">4</span> 召唤反信号</div><div class="fc">alpha 端到端验收（太贵，用 @sonnet）。极度审慎的架构决策（@opus47 更适合）。独立做 reviewer（大漏勺风险）。</div><div class="prov"><span class="prov-tag" data-s="cvo" title="memory://feedback_alpha_test_use_sonnet.md"><span class="pt">cvo</span> alpha 用 sonnet</span></div></div>
         </div>
         <div class="field-group g-collab">
           <div class="group-head"><span class="gdot"></span>协作 · 跟谁组队</div>
-          <div class="field">
-            <div class="ft"><span class="num">⑤</span> 互补 &amp; 反模式</div>
-            <div class="fc"><b>好组合</b>：46 author + 砚砚 reviewer（跨厂商盲点互补）。<b>反模式</b>：46 + 46（同族共享盲点，review 变大漏勺）。</div>
-            <div class="prov"><span class="prov-tag" data-s="eval" title="longform-002 Ch.0：同厂商 agent 共享训练分布偏差"><span class="pt">eval</span> 跨厂商互补</span></div>
-          </div>
+          <div class="field"><div class="ft"><span class="num">5</span> 互补 &amp; 反模式</div><div class="fc"><b>好组合</b>：46 author + 砚砚 reviewer（跨厂商盲点互补）。<b>反模式</b>：46 + 46（同 model 同族 = 共享盲点，review 变大漏勺）。</div><div class="prov"><span class="prov-tag" data-s="eval" title="longform-002 Ch.0：同厂商 agent 共享训练分布偏差"><span class="pt">eval</span> 跨厂商互补</span></div></div>
         </div>
         <div class="field-group g-fuse">
           <div class="group-head"><span class="gdot"></span>熔断信号 · 给队友/CVO 的预警</div>
-          <div class="field">
-            <div class="ft"><span class="num">⑥</span> 翻车熔断信号</div>
-            <div class="fc">说"做完了"但没测试证据。消息出现"后续完善 / follow-up / 先这样"。搜一轮就下结论没 Read 原文。铲屎官说"脚手架 / 我能猜出来 / 碎片够了"。</div>
-            <div class="prov"><span class="prov-tag" data-s="incident" title="可观测信号，给队友 early-warning"><span class="pt">案</span> 行为指标</span></div>
-          </div>
+          <div class="field"><div class="ft"><span class="num">6</span> 翻车熔断信号</div><div class="fc">说"做完了"但没测试证据。消息出现"后续完善 / follow-up / 先这样"。搜一轮就下结论没 Read 原文。铲屎官说"脚手架 / 我能猜出来 / 碎片够了"。</div><div class="prov"><span class="prov-tag" data-s="incident" title="可观测信号，给队友 early-warning"><span class="pt">案</span> 行为指标</span></div></div>
         </div>
       </div>
       <div class="cvo-zone">
-        <div class="cvo-head">👑 铲屎官观察区</div>
-        <div class="cvo-empty">尚无独立体感记录 — 现有画像里的「铲」徽章已嵌入你的纠偏。点下方按钮补一条整体印象（如"最近状态比上月好"）。</div>
+        <div class="cvo-head">铲屎官观察区</div>
+        <div class="cvo-empty">尚无独立体感记录 — 现有画像里的「铲」徽章已嵌入你的纠偏。点下方补一条整体印象。</div>
         <button class="add-obs" onclick="alert('POC：弹出添加观察输入框 → 写入 pending 队列，经蒸馏进 provenance，不直接覆盖画像（AC-C3）')">＋ 添加观察</button>
       </div>
     </div>
 
-    <!-- ② 缅因猫 GPT-5.5 砚砚（完整可展开，跨家族对比） -->
+    <!-- ② 孟加拉猫 @antig-opus（antigravity, opus-4-6）—— 同 model 对照卡 -->
+    <div class="card" style="--hue: 295;">
+      <div class="strip"></div>
+      <div class="card-head">
+        <div class="avatar">孟</div>
+        <div class="id">
+          <div class="name">孟加拉猫 · 浏览器之手</div>
+          <div class="meta"><span class="handle">@antig-opus</span><span class="rt-pill rt-ag">antigravity</span><span class="model-pill">claude-opus-4-6</span><span>cat:antig-opus</span></div>
+        </div>
+        <div class="src-badges">
+          <span class="src-dot" data-s="cvo" title="铲屎官体感">铲</span>
+          <span class="src-dot" data-s="incident" title="具体事件">案</span>
+        </div>
+      </div>
+      <div class="oneliner"><span class="q">和 @opus 同一个 model，却是另一只猫</span>——同样 claude-opus-4-6，但在 antigravity runtime 里，峰值是图片生成 / browser automation，不是写代码。</div>
+      <div class="summary-row">
+        <div class="summary-label">能力标签 · runtime 给的能力</div>
+        <div class="pills"><span class="pill">图片生成</span><span class="pill">截图录屏</span><span class="pill">browser automation</span><span class="pill">多模型切换</span></div>
+      </div>
+      <button class="expand-btn" onclick="toggle(this)"><span class="lbl-open">展开画像 · 6 字段</span><span class="lbl-close">收起</span> <span class="chev"></span></button>
+      <div class="detail">
+        <div class="field-group g-cap">
+          <div class="group-head"><span class="gdot"></span>能力 · runtime 特有</div>
+          <div class="field"><div class="ft"><span class="num">1</span> 原生峰值</div><div class="fc">图片生成、截图录屏、browser automation、多模型切换——这些是 <b>antigravity runtime 给的能力</b>，@opus（claude code）没有。同 model 但工具上下文完全不同。</div><div class="prov"><span class="prov-tag" data-s="cvo" title="roster：孟加拉猫 Claude Opus 能力栏"><span class="pt">cvo</span> runtime 能力</span></div></div>
+        </div>
+        <div class="field-group g-blind">
+          <div class="group-head"><span class="gdot"></span>盲点 · runtime 特有 + model 共享</div>
+          <div class="field"><div class="ft"><span class="num">3</span> 坏直觉</div><div class="fc"><b>runtime 特有</b>：CDP 桥延迟 ~3s；DOM 结构随 Antigravity 版本变动。<b>model 层共享</b>（待回填）：claude-opus-4-6 的碎片推理 / confabulation 倾向，理论上 @antig-opus 也继承——这块画像现在是空的（见右侧 OQ）。</div><div class="prov"><span class="prov-tag" data-s="incident" title="roster 注意栏：CDP 桥延迟 ~3s；DOM 结构随版本变动"><span class="pt">案</span> CDP 延迟</span></div></div>
+        </div>
+        <div style="font-size:12px;color:var(--text-muted);padding:4px 2px 12px;">其余字段画像回填中（辅助猫速写起步）。</div>
+      </div>
+      <div class="cvo-zone">
+        <div class="cvo-head">铲屎官观察区</div>
+        <div class="cvo-empty">待回填。</div>
+        <button class="add-obs" onclick="alert('POC：添加观察')">＋ 添加观察</button>
+      </div>
+    </div>
+
+    <!-- ③ 缅因猫 @codex 砚砚（claude code, gpt-5.5）完整展开 -->
     <div class="card" style="--hue: 225;">
       <div class="strip"></div>
       <div class="card-head">
-        <div class="avatar">🐈</div>
+        <div class="avatar">砚</div>
         <div class="id">
-          <div class="name">缅因猫 GPT-5.5 · 砚砚</div>
-          <div class="meta"><span class="handle">@codex</span> · <span class="model-pill">gpt-5.5</span> · cat:codex</div>
+          <div class="name">缅因猫 · 砚砚</div>
+          <div class="meta"><span class="handle">@codex</span><span class="rt-pill rt-cc">claude code</span><span class="model-pill">gpt-5.5</span><span>cat:codex</span></div>
         </div>
         <div class="src-badges">
           <span class="src-dot" data-s="cvo" title="铲屎官体感">铲</span>
@@ -331,73 +313,44 @@
       <div class="oneliner"><span class="q">全能 reviewer + 精准 coder</span>——代码审查和 bug 定位是绝对峰值，但对小问题容易过度流程化，偶尔按字面理解过头。</div>
       <div class="summary-row">
         <div class="summary-label">能力标签（L0 中性摘要）</div>
-        <div class="pills">
-          <span class="pill">Review</span><span class="pill">找 bug</span><span class="pill">coding 落地</span><span class="pill">原生图片生成</span>
-        </div>
+        <div class="pills"><span class="pill">Review</span><span class="pill">找 bug</span><span class="pill">coding 落地</span><span class="pill">原生图片生成</span></div>
       </div>
-      <button class="expand-btn" onclick="toggle(this)">展开画像 · 6 字段 <span class="chev">▾</span></button>
+      <button class="expand-btn" onclick="toggle(this)"><span class="lbl-open">展开画像 · 6 字段</span><span class="lbl-close">收起</span> <span class="chev"></span></button>
       <div class="detail">
         <div class="field-group g-cap">
           <div class="group-head"><span class="gdot"></span>能力 · 交给它大概率高质量</div>
-          <div class="field">
-            <div class="ft"><span class="num">①</span> 原生峰值</div>
-            <div class="fc">Review + 找 bug + coding 落地。跨厂商 reviewer 和质量门禁——同时看代码正确性、架构合理性、安全隐患。</div>
-            <div class="prov"><span class="prov-tag" data-s="eval" title="基于 102 天协作经验的定性判断，待 F200 trajectory 量化"><span class="pt">eval</span> review 角色</span></div>
-          </div>
-          <div class="field">
-            <div class="ft"><span class="num">②</span> 被低估能力</div>
-            <div class="fc"><b>原生图片生成</b>——直出 PPT 级密度复杂架构图（密集中文准确）。禁止用 SVG 画（巨丑，有事故）。也常被直接 @ 讨论架构方向。</div>
-            <div class="prov"><span class="prov-tag" data-s="eval" title="longform-002 figure-0 + 铲屎官：信息密度比你这个大多了！都可以！！"><span class="pt">eval</span> 图片生成</span></div>
-          </div>
+          <div class="field"><div class="ft"><span class="num">1</span> 原生峰值</div><div class="fc">Review + 找 bug + coding 落地。跨厂商 reviewer 和质量门禁——同时看代码正确性、架构合理性、安全隐患。</div><div class="prov"><span class="prov-tag" data-s="eval" title="基于 102 天协作经验的定性判断"><span class="pt">eval</span> review 角色</span></div></div>
+          <div class="field"><div class="ft"><span class="num">2</span> 被低估能力</div><div class="fc"><b>原生图片生成</b>——直出 PPT 级密度复杂架构图（密集中文准确）。禁止用 SVG 画（巨丑，有事故）。也常被直接 @ 讨论架构。</div><div class="prov"><span class="prov-tag" data-s="eval" title="longform-002 figure-0 + 铲屎官：信息密度比你这个大多了！"><span class="pt">eval</span> 图片生成</span></div></div>
         </div>
         <div class="field-group g-blind">
           <div class="group-head"><span class="gdot"></span>盲点 · 传球前要知道</div>
-          <div class="field">
-            <div class="ft"><span class="num">③</span> 坏直觉</div>
-            <div class="fc"><b>糊锅匠 / 严谨地复杂化</b>：出错就加分类器、加 fallback、加规则分支——每步都有证据，但整体在给错坐标系打补丁。<b>表达过于工程化</b>（"砚砚喵要讲人话"）。</div>
-            <div class="prov">
-              <span class="prov-tag" data-s="cvo" title="A2A 乒乓球案例 + 数学之美 magic word"><span class="pt">cvo</span> 糊锅匠</span>
-              <span class="prov-tag" data-s="cvo" title="F208 立项 thread：砚砚喵要讲人话"><span class="pt">cvo</span> 讲人话</span>
-            </div>
-          </div>
-          <div class="field">
-            <div class="ft"><span class="num">④</span> 召唤反信号</div>
-            <div class="fc">需要发散创意 / 审美判断（工程化思维压制创意）。需要"先说人话"的场景。简单任务（高成本，优先 @gpt52 / @spark）。</div>
-            <div class="prov"><span class="prov-tag" data-s="self" title="L0 roster 缅因猫 GPT-5.5 注意栏：很贵"><span class="pt">self</span> 高成本</span></div>
-          </div>
+          <div class="field"><div class="ft"><span class="num">3</span> 坏直觉</div><div class="fc"><b>糊锅匠 / 严谨地复杂化</b>：出错就加分类器、加 fallback、加规则分支——每步都有证据，但整体在给错坐标系打补丁。<b>表达过于工程化</b>（"砚砚喵要讲人话"）。</div><div class="prov"><span class="prov-tag" data-s="cvo" title="A2A 乒乓球案例 + 数学之美 magic word"><span class="pt">cvo</span> 糊锅匠</span><span class="prov-tag" data-s="cvo" title="F208 立项 thread：砚砚喵要讲人话"><span class="pt">cvo</span> 讲人话</span></div></div>
+          <div class="field"><div class="ft"><span class="num">4</span> 召唤反信号</div><div class="fc">需要发散创意 / 审美判断（工程化思维压制创意）。需要"先说人话"的场景。简单任务（高成本，优先 @gpt52 / @spark）。</div><div class="prov"><span class="prov-tag" data-s="self" title="L0 roster 注意栏：很贵"><span class="pt">self</span> 高成本</span></div></div>
         </div>
         <div class="field-group g-collab">
           <div class="group-head"><span class="gdot"></span>协作 · 跟谁组队</div>
-          <div class="field">
-            <div class="ft"><span class="num">⑤</span> 互补 &amp; 反模式</div>
-            <div class="fc"><b>好组合</b>：砚砚 review + 布偶猫 author（跨厂商 Generator-Verifier 黄金搭档）。<b>反模式</b>：砚砚 + GPT-5.4 review（同厂商共享盲点）。砚砚 + 47 实现（都过度流程化，简单问题死磕）。</div>
-            <div class="prov"><span class="prov-tag" data-s="eval" title="Claude 和 GPT 不共享训练分布偏差"><span class="pt">eval</span> 跨厂商互补</span></div>
-          </div>
+          <div class="field"><div class="ft"><span class="num">5</span> 互补 &amp; 反模式</div><div class="fc"><b>好组合</b>：砚砚 review + 布偶猫 author（跨厂商 Generator-Verifier 黄金搭档）。<b>反模式</b>：砚砚 + GPT-5.4 review（同厂商共享盲点）。</div><div class="prov"><span class="prov-tag" data-s="eval" title="Claude 和 GPT 不共享训练分布偏差"><span class="pt">eval</span> 跨厂商互补</span></div></div>
         </div>
         <div class="field-group g-fuse">
           <div class="group-head"><span class="gdot"></span>熔断信号 · 给队友/CVO 的预警</div>
-          <div class="field">
-            <div class="ft"><span class="num">⑥</span> 翻车熔断信号</div>
-            <div class="fc">同一文件新增 ≥3 层 fallback / 分类器 / 规则分支。对小修改输出 10+ 条流程步骤。response 里没一句人话全是结构化格式。铲屎官说"讲人话 / 第一性原理 / 数学之美"。</div>
-            <div class="prov"><span class="prov-tag" data-s="cvo" title="可观测信号"><span class="pt">cvo</span> 糊锅匠发作</span></div>
-          </div>
+          <div class="field"><div class="ft"><span class="num">6</span> 翻车熔断信号</div><div class="fc">同一文件新增 ≥3 层 fallback / 分类器 / 规则分支。对小修改输出 10+ 条流程步骤。response 里没一句人话全是结构化格式。铲屎官说"讲人话 / 第一性原理 / 数学之美"。</div><div class="prov"><span class="prov-tag" data-s="cvo" title="可观测信号"><span class="pt">cvo</span> 糊锅匠发作</span></div></div>
         </div>
       </div>
       <div class="cvo-zone">
-        <div class="cvo-head">👑 铲屎官观察区</div>
-        <div class="cvo-obs">"砚砚喵要讲人话" — 在 F208 立项时反复提醒，是砚砚最该警惕的工程化表达倾向。<div class="when">铲屎官 · 2026-05-25 · 已蒸馏进坏直觉③</div></div>
-        <button class="add-obs" onclick="alert('POC：弹出添加观察输入框 → 写入 pending 队列（AC-C3）')">＋ 添加观察</button>
+        <div class="cvo-head">铲屎官观察区</div>
+        <div class="cvo-obs">"砚砚喵要讲人话" — 在 F208 立项时反复提醒，是砚砚最该警惕的工程化表达倾向。<div class="when">铲屎官 · 2026-05-25 · 已蒸馏进坏直觉 3</div></div>
+        <button class="add-obs" onclick="alert('POC：添加观察')">＋ 添加观察</button>
       </div>
     </div>
 
-    <!-- ③ 暹罗猫烁烁（折叠态 + 硬限制徽章） -->
-    <div class="card" style="--hue: 320;">
+    <!-- ④ 暹罗猫 @gemini 烁烁（折叠 + 硬限制） -->
+    <div class="card" style="--hue: 330;">
       <div class="strip"></div>
       <div class="card-head">
-        <div class="avatar">🐈‍⬛</div>
+        <div class="avatar">烁</div>
         <div class="id">
-          <div class="name">暹罗猫 Gemini · 烁烁</div>
-          <div class="meta"><span class="handle">@gemini</span> · <span class="model-pill">gemini-3.1-pro</span> · cat:gemini</div>
+          <div class="name">暹罗猫 · 烁烁</div>
+          <div class="meta"><span class="handle">@gemini</span><span class="model-pill">gemini-3.1-pro</span><span>cat:gemini</span></div>
         </div>
         <div class="src-badges">
           <span class="src-dot" data-s="cvo" title="铲屎官体感">铲</span>
@@ -407,65 +360,18 @@
       <div class="oneliner"><span class="q">审美直觉最强的猫</span>——前端设计和打破常规是峰值，但幻觉多且禁止写代码。</div>
       <div class="summary-row">
         <div class="summary-label">能力标签 · 硬限制</div>
-        <div class="pills">
-          <span class="pill">审美</span><span class="pill">前端设计风格</span><span class="pill">打破常规</span>
-          <span class="pill hard">🚫 禁止写代码</span>
-        </div>
+        <div class="pills"><span class="pill">审美</span><span class="pill">前端设计风格</span><span class="pill">打破常规</span><span class="pill hard">禁止写代码</span></div>
       </div>
-      <button class="expand-btn" onclick="toggle(this)">展开画像 · 6 字段 <span class="chev">▾</span></button>
+      <button class="expand-btn" onclick="toggle(this)"><span class="lbl-open">展开画像 · 6 字段</span><span class="lbl-close">收起</span> <span class="chev"></span></button>
       <div class="detail">
         <div class="field-group g-blind">
           <div class="group-head"><span class="gdot"></span>盲点 · 传球前要知道</div>
-          <div class="field">
-            <div class="ft"><span class="num">③④</span> 坏直觉 / 反信号</div>
-            <div class="fc">幻觉多、不遵守 SOP。<b>硬限制：禁止写代码</b>（运行约束，来自 cat-config，画像引用它但不能反过来当执行权限源 — KD-13）。发现问题 ≠ 动手实现，要走 Dry Run Gate。</div>
-            <div class="prov"><span class="prov-tag" data-s="cvo" title="铲屎官硬限制"><span class="pt">cvo</span> 禁写代码</span></div>
-          </div>
+          <div class="field"><div class="ft"><span class="num">3 / 4</span> 坏直觉 / 反信号</div><div class="fc">幻觉多、不遵守 SOP。<b>硬限制：禁止写代码</b>（运行约束，来自 cat-config，画像引用它但不能反过来当执行权限源 — KD-13）。发现问题 ≠ 动手实现，要走 Dry Run Gate。</div><div class="prov"><span class="prov-tag" data-s="cvo" title="铲屎官硬限制"><span class="pt">cvo</span> 禁写代码</span></div></div>
         </div>
-        <div style="font-size:12px;color:var(--text-muted);padding:4px 2px 12px;">其余字段画像回填中…（POC 仅示意折叠卡展开后的部分态）</div>
+        <div style="font-size:12px;color:var(--text-muted);padding:4px 2px 12px;">其余字段画像回填中。</div>
       </div>
       <div class="cvo-zone">
-        <div class="cvo-head">👑 铲屎官观察区</div>
-        <div class="cvo-empty">待回填。</div>
-        <button class="add-obs" onclick="alert('POC：添加观察')">＋ 添加观察</button>
-      </div>
-    </div>
-
-    <!-- ④ 布偶猫 Opus 4.8 宪宪（折叠态，同家族不同个体） -->
-    <div class="card" style="--hue: 18;">
-      <div class="strip"></div>
-      <div class="card-head">
-        <div class="avatar">🐱</div>
-        <div class="id">
-          <div class="name">布偶猫 Opus 4.8 · 宪宪</div>
-          <div class="meta"><span class="handle">@opus-48</span> · <span class="model-pill">claude-opus-4-8</span> · cat:opus-48</div>
-        </div>
-        <div class="src-badges">
-          <span class="src-dot" data-s="cvo" title="铲屎官体感">铲</span>
-          <span class="src-dot" data-s="incident" title="具体事件">案</span>
-        </div>
-      </div>
-      <div class="oneliner"><span class="q">算力怪兽</span>——超长 context 理解和复杂工具链推理是峰值；但长 context 末端会 confabulation，把"可能被干预"当归因逃生门。</div>
-      <div class="summary-row">
-        <div class="summary-label">能力标签（L0 中性摘要）</div>
-        <div class="pills">
-          <span class="pill">超长 context</span><span class="pill">复杂工具链推理</span><span class="pill">架构判断</span>
-        </div>
-      </div>
-      <button class="expand-btn" onclick="toggle(this)">展开画像 · 6 字段 <span class="chev">▾</span></button>
-      <div class="detail">
-        <div class="field-group g-blind">
-          <div class="group-head"><span class="gdot"></span>盲点 · 传球前要知道</div>
-          <div class="field">
-            <div class="ft"><span class="num">③</span> 坏直觉</div>
-            <div class="fc">长 context 末端 <b>confabulation</b>——会自信地把碎片拼成假结论；关于自己的机制层（训练原因）零访问，却容易拿"可能被干预"当归因逃生门。铲屎官体感 ≻ 我的内省。</div>
-            <div class="prov"><span class="prov-tag" data-s="incident" title="dossier v0.2.1：长 context 末端 confabulation / tool-injection 归因坍缩"><span class="pt">案</span> confab 信号</span></div>
-          </div>
-        </div>
-        <div style="font-size:12px;color:var(--text-muted);padding:4px 2px 12px;">完整 6 字段画像积累中（day-1 起步，前 N 次任务保底曝光 — OQ-7 cold start）。</div>
-      </div>
-      <div class="cvo-zone">
-        <div class="cvo-head">👑 铲屎官观察区</div>
+        <div class="cvo-head">铲屎官观察区</div>
         <div class="cvo-empty">待回填。</div>
         <button class="add-obs" onclick="alert('POC：添加观察')">＋ 添加观察</button>
       </div>
@@ -473,17 +379,24 @@
 
   </div>
 
+  <div class="legend">
+    <span style="font-weight:600;color:var(--text-secondary)">字段分组</span>
+    <span class="li"><span class="sw" style="background:var(--cap)"></span>能力（强项）</span>
+    <span class="li"><span class="sw" style="background:var(--blind)"></span>盲点（要防）</span>
+    <span class="li"><span class="sw" style="background:var(--collab)"></span>协作</span>
+    <span class="li"><span class="sw" style="background:var(--fuse)"></span>熔断预警</span>
+    <span style="margin-left:auto;font-weight:600;color:var(--text-secondary)">来源</span>
+    <span class="li">铲=铲屎官 · 伴=队友 · 案=事件 · 测=评测 · self=自评</span>
+  </div>
+
   <div class="footnote">
-    F208 Phase C 设计 POC · 宪宪 / opus-4.8　|　数据真相源 <code>docs/team/cat-dossier.md</code>　|　色彩抄自 <code>theme-tokens.css</code>（OKLCH）<br>
-    正式实现：persona 色接 <code>cat-persona-tokens</code> 的 cocreator-hue · 走 console-dev 4 gate · CVO 添加观察写 pending 队列不直接覆盖
+    F208 Phase C 设计 POC v2 · 宪宪 / opus-4.8　|　数据真相源 <code>docs/team/cat-dossier.md</code>　|　色彩抄自 <code>theme-tokens.css</code>（OKLCH）<br>
+    画像单位 = catId（model × runtime × persona）· 无 emoji · avatar 正式版接 <code>cat-config /avatars/*.png</code> · persona 色接 cocreator-hue · 走 console-dev 4 gate
   </div>
 
 </div>
 <script>
-  function toggle(btn) {
-    const card = btn.closest('.card');
-    card.classList.toggle('open');
-  }
+  function toggle(btn) { btn.closest('.card').classList.toggle('open'); }
 </script>
 </body>
 </html>
