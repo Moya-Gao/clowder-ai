@@ -201,9 +201,7 @@ export const connectorActionRoutes: (opts: ConnectorActionRoutesOptions) => (app
       if (operationTargetEnvNames.length > 0) {
         const previousConfig = readConnectorStoredConfig(projectRoot, connectorId);
         for (const name of operationTargetEnvNames) {
-          const previousValue = Object.prototype.hasOwnProperty.call(previousConfig, name)
-            ? previousConfig[name]
-            : undefined;
+          const previousValue = Object.hasOwn(previousConfig, name) ? previousConfig[name] : undefined;
           previousTargetValues.set(name, previousValue);
         }
       }

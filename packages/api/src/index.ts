@@ -35,7 +35,9 @@ import { resolveFrontendBaseUrl, resolveFrontendCorsOrigins } from './config/fro
 import { initRuntimeOverrides } from './config/session-strategy-overrides.js';
 import { assertStorageReady } from './config/storage-guard.js';
 import { F128ApprovalAdapter } from './domains/approval-hub/adapters/F128ApprovalAdapter.js';
+import { F193ApprovalAdapter } from './domains/approval-hub/adapters/F193ApprovalAdapter.js';
 import { F225ApprovalAdapter } from './domains/approval-hub/adapters/F225ApprovalAdapter.js';
+import { createDispatchProposalStore } from './domains/approval-hub/stores/factories/DispatchProposalStoreFactory.js';
 import type { CollaborationContinuityCapsuleV1 } from './domains/cats/services/agents/invocation/CollaborationContinuityCapsule.js';
 import { createTaskProgressStore } from './domains/cats/services/agents/invocation/createTaskProgressStore.js';
 import { InvocationQueue } from './domains/cats/services/agents/invocation/InvocationQueue.js';
@@ -159,9 +161,11 @@ import { securityHeadersPlugin } from './infrastructure/security-headers.js';
 import { sessionAuthPlugin, sessionRoute } from './infrastructure/session-auth.js';
 import { SocketManager } from './infrastructure/websocket/index.js';
 import { avatarsRoutes } from './routes/avatars.js';
+import { enqueueA2ATargets } from './routes/callback-a2a-trigger.js';
 import { CallbackAuthSystemMessageNotifier } from './routes/callback-auth-system-message.js';
 import { configSecretsRoutes } from './routes/config-secrets.js';
 import { connectorWebhookRoutes } from './routes/connector-webhooks.js';
+import { dispatchProposalRoutes } from './routes/dispatch-proposal-routes.js';
 import { gameRoutes } from './routes/games.js';
 import {
   accountsRoutes,
@@ -537,6 +541,9 @@ async function main(): Promise<void> {
   const threadStore = createThreadStore(redis);
   const proposalStore = createProposalStore(redis);
   const handoffProposalStore = createSessionHandoffProposalStore(redis);
+  // F246 Phase B: dispatch proposal store for assign_work effect-class approvals
+  // Redis-backed when available: persists held messages across API restarts (P1-2 review fix)
+  const dispatchProposalStore = createDispatchProposalStore(redis);
   // F231 Phase C: profile-update proposals + per-target write lock (process-scoped, like
   // SessionMutex/F118) + profile data dir (MUST match l0-compiler's capsule/primer read path).
   const profileUpdateProposalStore = createProfileUpdateProposalStore(redis);
@@ -2345,6 +2352,7 @@ async function main(): Promise<void> {
     limbPairingStore,
     guideSessionStore,
     labelStore,
+    dispatchProposalStore,
     holdBallDeps: {
       registry,
       taskRunner: taskRunnerV2,
@@ -2523,9 +2531,98 @@ async function main(): Promise<void> {
     socketManager,
     onProposalReject: (input) => onProposalReject({ ...input, proposalType: 'session_handoff' }),
   });
-  // F246: Approval Hub — unified CVO approval center (query aggregation over F128 + F225)
+  // F246: Approval Hub — unified CVO approval center (query aggregation over F128 + F225 + F193)
   await app.register(approvalHubRoutes, {
-    adapters: [new F128ApprovalAdapter(proposalStore), new F225ApprovalAdapter(handoffProposalStore)],
+    adapters: [
+      new F128ApprovalAdapter(proposalStore),
+      new F225ApprovalAdapter(handoffProposalStore),
+      new F193ApprovalAdapter(dispatchProposalStore),
+    ],
+  });
+  // F246 Phase B: dispatch proposal approve/reject endpoints
+  await app.register(dispatchProposalRoutes, {
+    store: dispatchProposalStore,
+    deliverMessage: async (proposal) => {
+      const targetCatIds = proposal.targetCats as CatId[];
+      const senderCatId = proposal.senderCatId as CatId;
+      const storedMsg = await messageStore.append({
+        userId: proposal.ownerUserId,
+        catId: senderCatId,
+        content: proposal.content,
+        mentions: targetCatIds,
+        origin: 'callback',
+        timestamp: Date.now(),
+        threadId: proposal.targetThreadId,
+        extra: {
+          isExplicitPost: true as const,
+          crossPost: {
+            sourceThreadId: proposal.sourceThreadId,
+            effectClass: 'assign_work' as const,
+          },
+          ...(targetCatIds.length ? { targetCats: targetCatIds } : {}),
+        },
+        ...(proposal.replyTo ? { replyTo: proposal.replyTo } : {}),
+      });
+
+      // R2 P1-1 fix: Enqueue target cats for A2A dispatch so they actually wake up.
+      // Without this, the message appears in the target thread but nobody acts on it.
+      if (targetCatIds.length > 0 && socketManager) {
+        try {
+          await enqueueA2ATargets(
+            {
+              router: router as unknown as import('./routes/callback-a2a-trigger.js').A2ATriggerDeps['router'],
+              invocationRecordStore: invocationRecordStore!,
+              socketManager,
+              messageStore,
+              ...(invocationTracker ? { invocationTracker } : {}),
+              ...(deliveryCursorStore ? { deliveryCursorStore } : {}),
+              ...(queueProcessor ? { queueProcessor } : {}),
+              ...(invocationQueue ? { invocationQueue } : {}),
+              log: app.log,
+            },
+            {
+              targetCats: targetCatIds,
+              content: proposal.content,
+              userId: proposal.ownerUserId,
+              threadId: proposal.targetThreadId,
+              triggerMessage: storedMsg,
+              callerCatId: senderCatId,
+            },
+          );
+        } catch (err) {
+          app.log.error(
+            { err, proposalId: proposal.proposalId },
+            '[F246] enqueueA2ATargets failed on approve — message delivered but cats may not wake',
+          );
+        }
+      }
+
+      // Broadcast to target thread so connected clients see the message in real time
+      socketManager?.broadcastAgentMessage(
+        {
+          type: 'text',
+          catId: senderCatId,
+          content: proposal.content,
+          origin: 'callback',
+          messageId: storedMsg.id,
+          extra: {
+            isExplicitPost: true as const,
+            crossPost: { sourceThreadId: proposal.sourceThreadId },
+            ...(targetCatIds.length ? { targetCats: targetCatIds } : {}),
+          },
+          timestamp: Date.now(),
+        },
+        proposal.targetThreadId,
+      );
+      return storedMsg.id;
+    },
+    notifyUpdate: (proposal) => {
+      socketManager?.emitToUser?.(proposal.ownerUserId, 'proposal_updated', {
+        proposalId: proposal.proposalId,
+        featureId: 'F193',
+        status: proposal.status,
+      });
+    },
   });
   // F222: Frustration auto-issue routes
   await app.register(frustrationIssueRoutes, { frustrationIssueStore });

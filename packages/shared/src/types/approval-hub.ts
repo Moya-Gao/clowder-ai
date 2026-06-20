@@ -8,7 +8,7 @@
  */
 
 /** Features whose proposals can appear in the Approval Hub. v1 allowlist. */
-export type ApprovalFeatureId = 'F128' | 'F225';
+export type ApprovalFeatureId = 'F128' | 'F225' | 'F193';
 
 /**
  * Hub display status — a projection, not a canonical store status.

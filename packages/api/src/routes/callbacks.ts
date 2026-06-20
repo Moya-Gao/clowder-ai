@@ -538,6 +538,8 @@ export interface CallbackRoutesOptions {
   limbPairingStore?: import('../domains/limb/LimbPairingStore.js').LimbPairingStore;
   /** F187 Phase C: Label store for list-labels callback. */
   labelStore?: import('../domains/cats/services/stores/ports/ThreadStore.js').ILabelStore;
+  /** F246 Phase B: dispatch proposal store for assign_work approval flow. */
+  dispatchProposalStore?: import('../domains/approval-hub/stores/ports/IDispatchProposalStore.js').IDispatchProposalStore;
   /** F088: Outbound delivery hook for connector-bound threads (late-bound after gateway bootstrap). */
   outboundHook?: {
     deliver(
@@ -558,6 +560,8 @@ const postMessageSchema = z.object({
   replyTo: z.string().optional(),
   clientMessageId: z.string().min(1).max(200).optional(),
   targetCats: z.array(z.string().min(1)).optional(),
+  // F246 Phase B: effect-class for cross-thread dispatch (assign_work → Approval Hub)
+  effectClass: z.enum(['fyi', 'coordinate', 'investigate', 'assign_work']).optional(),
 });
 
 const threadContextQuerySchema = z.object({
@@ -1123,7 +1127,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       return { error: 'Invalid request body', details: parsed.error.issues };
     }
 
-    const { content, threadId, replyTo, clientMessageId, targetCats: explicitTargetCats } = parsed.data;
+    const { content, threadId, replyTo, clientMessageId, targetCats: explicitTargetCats, effectClass } = parsed.data;
     const { invocationId } = actor;
     // #573: identity for cross-handler dedup. stream + callback for same logical
     // response must broadcast/persist with the same id; QueueProcessor + route-serial
@@ -1188,6 +1192,116 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
           ],
         };
       }
+    }
+
+    // F246 Phase B: assign_work on same-thread is invalid — assign_work only makes
+    // sense for cross-thread dispatch (per plan Task 3 test matrix).
+    if (!isCrossThread && effectClass === 'assign_work') {
+      reply.status(400);
+      return {
+        kind: 'assign_work_same_thread',
+        message: 'assign_work effectClass is only valid for cross-thread dispatches.',
+      };
+    }
+
+    // F246 Phase B: assign_work effect-class intercept — hold as DispatchProposal
+    // instead of auto-delivering. Only applies to cross-thread posts.
+    if (isCrossThread && effectClass === 'assign_work' && opts.dispatchProposalStore) {
+      // Idempotency: check if this clientMessageId already created a proposal
+      if (clientMessageId) {
+        const existing = await opts.dispatchProposalStore.findByClientMessageId(clientMessageId, actor.threadId);
+        if (existing) {
+          return {
+            status: 'proposal_exists',
+            proposalId: existing.proposalId,
+            clientMessageId,
+          };
+        }
+      }
+
+      const proposalId = `dp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const ownerUserId = record.userId ?? 'default-user';
+
+      // R3 fix: The intercept exits before the normal flow's analyzeA2AMentions (line 1294),
+      // so content @mentions would be lost. Parse them here and merge with explicit targetCats,
+      // mirroring the normal flow's merge at line 1312. Without this, assign_work routed via
+      // line-start @cat (no explicit targetCats) stores [] → nobody wakes on approval.
+      const interceptContentAnalysis = analyzeA2AMentions(content, undefined); // cross-thread: no self-filter
+      const interceptContentTargets = interceptContentAnalysis.mentions;
+      // R3 P1 fix (reviewer-confirmed): Validate targets via resolveCatTarget before
+      // persisting, mirroring the normal flow (line 1312). The approval replay path trusts
+      // proposal.targetCats as pre-resolved CatId[] and feeds them straight into
+      // enqueueA2ATargets without re-running resolveCatTarget. A typo or disabled cat
+      // would get persisted, approved, and silently fail to wake the intended cat.
+      const rawMergedTargets = [
+        ...new Set<string>([...interceptContentTargets, ...(explicitTargetCats ?? [])].map((t) => t.replace(/^@/, ''))),
+      ];
+      const validInterceptTargets: string[] = [];
+      const interceptRoutingWarnings: CatRoutingError[] = [];
+      for (const id of rawMergedTargets) {
+        const resolved = resolveCatTarget(id);
+        if ('ok' in resolved) {
+          validInterceptTargets.push(resolved.ok);
+        } else {
+          interceptRoutingWarnings.push(resolved.error);
+          app.log.warn(
+            { droppedId: id, catId: actor.catId, reason: resolved.error.kind },
+            '[F246/dispatch-proposal] Dropped unavailable catId from assign_work targetCats',
+          );
+        }
+      }
+
+      // Fail-closed: if ALL targets are invalid, return routing failure — don't create
+      // a proposal that can never wake any cat (mirrors normal flow line 1672-1687).
+      if (rawMergedTargets.length > 0 && validInterceptTargets.length === 0) {
+        return {
+          isError: true,
+          routed: [],
+          routing_warnings: interceptRoutingWarnings,
+          message: `assign_work dispatch failed: all target cats are unavailable (${rawMergedTargets.join(', ')})`,
+          threadId: effectiveThreadId,
+          ...(clientMessageId ? { clientMessageId } : {}),
+        };
+      }
+
+      const mergedTargetCats = validInterceptTargets;
+
+      const proposal = await opts.dispatchProposalStore.create({
+        proposalId,
+        sourceThreadId: actor.threadId,
+        targetThreadId: effectiveThreadId,
+        senderCatId: actor.catId as string,
+        ownerUserId,
+        content,
+        targetCats: mergedTargetCats,
+        replyTo,
+        clientMessageId,
+        createdAt: Date.now(),
+      });
+
+      // Emit socket event so Hub badge refreshes in real-time
+      socketManager?.emitToUser?.(ownerUserId, 'proposal_created', {
+        proposalId: proposal.proposalId,
+        featureId: 'F193',
+      });
+
+      app.log.info(
+        {
+          proposalId,
+          sourceThreadId: actor.threadId,
+          targetThreadId: effectiveThreadId,
+          senderCatId: actor.catId,
+          effectClass,
+        },
+        '[F246/dispatch-proposal] assign_work intercepted — held for CVO approval',
+      );
+
+      return {
+        status: 'proposal_created',
+        proposalId,
+        message: 'Work assignment held for CVO approval in the Approval Hub.',
+        ...(clientMessageId ? { clientMessageId } : {}),
+      };
     }
 
     // At-least-once de-duplication: retries with same clientMessageId are treated as duplicate.
@@ -1284,7 +1398,15 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     }
     const mentionsUser = detectUserMention(storedContent);
     const crossPostExtra = isCrossThread
-      ? { crossPost: { sourceThreadId: actor.threadId, sourceInvocationId: invocationId } }
+      ? {
+          crossPost: {
+            sourceThreadId: actor.threadId,
+            sourceInvocationId: invocationId,
+            // F246 Phase B: carry effectClass so receiving-side SystemPromptBuilder can
+            // inject behavior constraints (AC-B4: non-assign never authorizes coding)
+            ...(effectClass ? { effectClass } : {}),
+          },
+        }
       : {};
     const richExtra = richBlocks.length > 0 ? { rich: { v: 1 as const, blocks: richBlocks } } : {};
     const targetCatsExtra = validExplicitTargets.length ? { targetCats: validExplicitTargets } : {};

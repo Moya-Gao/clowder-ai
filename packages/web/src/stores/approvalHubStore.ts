@@ -4,9 +4,11 @@
  * F246: Approval Hub Zustand store.
  *
  * Manages pending approval items across features (F128 thread proposals,
- * F225 session handoff proposals). Fetches from the aggregation endpoint
- * and re-fetches on proposal_updated / proposal_created socket events
- * (dispatched as CustomEvents by useSocket).
+ * F225 session handoff proposals, F193 dispatch proposals). Fetches from
+ * the aggregation endpoint and re-fetches on proposal_updated /
+ * proposal_created socket events (dispatched as CustomEvents by useSocket).
+ *
+ * Phase B: approve/reject actions for inlineApprovable items (F193).
  */
 
 import type { ApprovalItem } from '@cat-cafe/shared';
@@ -19,10 +21,16 @@ interface ApprovalHubState {
   isLoading: boolean;
   isOpen: boolean;
   error: string | null;
+  /** Map of proposalId → 'approving' | 'rejecting' for optimistic UI feedback */
+  deciding: Record<string, 'approving' | 'rejecting'>;
   fetchPending: () => Promise<void>;
   open: () => void;
   close: () => void;
   toggle: () => void;
+  /** F246 Phase B: approve an inlineApprovable dispatch proposal */
+  approveProposal: (proposalId: string) => Promise<void>;
+  /** F246 Phase B: reject an inlineApprovable dispatch proposal */
+  rejectProposal: (proposalId: string) => Promise<void>;
 }
 
 export const useApprovalHubStore = create<ApprovalHubState>((set, get) => ({
@@ -31,6 +39,7 @@ export const useApprovalHubStore = create<ApprovalHubState>((set, get) => ({
   isLoading: false,
   isOpen: false,
   error: null,
+  deciding: {},
 
   fetchPending: async () => {
     set({ isLoading: true, error: null });
@@ -54,5 +63,49 @@ export const useApprovalHubStore = create<ApprovalHubState>((set, get) => ({
     const wasOpen = get().isOpen;
     set({ isOpen: !wasOpen });
     if (!wasOpen) get().fetchPending();
+  },
+
+  approveProposal: async (proposalId: string) => {
+    set((s) => ({ deciding: { ...s.deciding, [proposalId]: 'approving' as const } }));
+    try {
+      const res = await apiFetch(`/api/dispatch-proposals/${proposalId}/approve`, { method: 'POST' });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(data.error ?? `Approve failed: ${res.status}`);
+      }
+      // Optimistic remove from items list
+      set((s) => ({
+        items: s.items.filter((i) => i.proposalId !== proposalId),
+        count: Math.max(0, s.count - 1),
+        deciding: { ...s.deciding, [proposalId]: undefined as never },
+      }));
+    } catch (err) {
+      set((s) => ({
+        error: err instanceof Error ? err.message : 'Approve failed',
+        deciding: { ...s.deciding, [proposalId]: undefined as never },
+      }));
+    }
+  },
+
+  rejectProposal: async (proposalId: string) => {
+    set((s) => ({ deciding: { ...s.deciding, [proposalId]: 'rejecting' as const } }));
+    try {
+      const res = await apiFetch(`/api/dispatch-proposals/${proposalId}/reject`, { method: 'POST' });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(data.error ?? `Reject failed: ${res.status}`);
+      }
+      // Optimistic remove from items list
+      set((s) => ({
+        items: s.items.filter((i) => i.proposalId !== proposalId),
+        count: Math.max(0, s.count - 1),
+        deciding: { ...s.deciding, [proposalId]: undefined as never },
+      }));
+    } catch (err) {
+      set((s) => ({
+        error: err instanceof Error ? err.message : 'Reject failed',
+        deciding: { ...s.deciding, [proposalId]: undefined as never },
+      }));
+    }
   },
 }));

@@ -3,10 +3,11 @@
 /**
  * F246: Individual approval item card for the Approval Hub drawer.
  *
- * Phase A: All cards use "jump to thread" — F128 needs full approve-time overrides
- * (title/parentThreadId/preferredCats/initialMessage/projectPath/reportingMode) which
- * the Hub drawer doesn't provide, so AC-A4 mandates "强制跳转" fallback. F225 also
- * jumps (needs thread context for handoff review).
+ * Phase A: F128/F225 cards use "jump to thread" — F128 needs full approve-time
+ * overrides which the Hub drawer doesn't provide (AC-A4 强制跳转 fallback).
+ *
+ * Phase B: F193 (dispatch proposals) cards have inline approve/reject buttons
+ * since all required info is in the proposal itself (AC-B1 inlineApprovable).
  *
  * Stale items (expiresAt < now) show an orange stale badge (AC-A6).
  */
@@ -55,8 +56,26 @@ export function ApprovalItemCard({ item }: { item: ApprovalItem }) {
     jumpToApproval(item.sourceThreadId, item.sourceMessageId);
   }, [close, item.sourceThreadId, item.sourceMessageId]);
 
-  const featureBadge = item.sourceFeatureId === 'F128' ? 'Thread' : 'Handoff';
-  const featureColor = item.sourceFeatureId === 'F128' ? 'var(--semantic-info)' : 'var(--semantic-secondary, #8b5cf6)';
+  const approveProposal = useApprovalHubStore((s) => s.approveProposal);
+  const rejectProposal = useApprovalHubStore((s) => s.rejectProposal);
+  const decidingState = useApprovalHubStore((s) => s.deciding[item.proposalId]);
+
+  const handleApprove = useCallback(() => {
+    void approveProposal(item.proposalId);
+  }, [approveProposal, item.proposalId]);
+
+  const handleReject = useCallback(() => {
+    void rejectProposal(item.proposalId);
+  }, [rejectProposal, item.proposalId]);
+
+  const featureBadge =
+    item.sourceFeatureId === 'F128' ? 'Thread' : item.sourceFeatureId === 'F193' ? 'Dispatch' : 'Handoff';
+  const featureColor =
+    item.sourceFeatureId === 'F128'
+      ? 'var(--semantic-info)'
+      : item.sourceFeatureId === 'F193'
+        ? 'var(--semantic-success, #22c55e)'
+        : 'var(--semantic-secondary, #8b5cf6)';
 
   return (
     <div
@@ -102,18 +121,57 @@ export function ApprovalItemCard({ item }: { item: ApprovalItem }) {
         </div>
       )}
 
-      {/* Actions — Phase A: all cards jump to thread for full approval context.
-           F128 requires full approve-time overrides (AC-A4 强制跳转 fallback).
-           F225 needs thread context for handoff review. */}
+      {/* F193: dispatch proposal detail */}
+      {item.sourceFeatureId === 'F193' && (
+        <div className="text-micro opacity-80 space-y-0.5">
+          {item.detail.content != null && <p className="line-clamp-3">{String(item.detail.content)}</p>}
+          {item.detail.targetCats != null && (
+            <p>
+              Target:{' '}
+              {Array.isArray(item.detail.targetCats)
+                ? item.detail.targetCats.join(', ')
+                : String(item.detail.targetCats)}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Actions */}
       <div className="flex items-center gap-2 pt-1">
-        <button
-          type="button"
-          onClick={handleJump}
-          className="px-3 py-1 text-micro font-medium rounded-md border border-[var(--cafe-border)] hover:bg-[var(--cafe-muted)]"
-          data-testid="jump-btn"
-        >
-          {item.sourceFeatureId === 'F128' ? '跳转审批' : '跳转到 Thread'}
-        </button>
+        {/* F193 inlineApprovable: approve/reject directly in Hub */}
+        {item.sourceFeatureId === 'F193' && item.inlineApprovable ? (
+          <>
+            <button
+              type="button"
+              onClick={handleApprove}
+              disabled={!!decidingState}
+              className="px-3 py-1 text-micro font-medium rounded-md text-white disabled:opacity-50"
+              style={{ backgroundColor: 'var(--semantic-success, #22c55e)' }}
+              data-testid="approve-btn"
+            >
+              {decidingState === 'approving' ? '...' : '批准'}
+            </button>
+            <button
+              type="button"
+              onClick={handleReject}
+              disabled={!!decidingState}
+              className="px-3 py-1 text-micro font-medium rounded-md border border-[var(--cafe-border)] hover:bg-[var(--semantic-error,#ef4444)] hover:text-white disabled:opacity-50"
+              data-testid="reject-btn"
+            >
+              {decidingState === 'rejecting' ? '...' : '拒绝'}
+            </button>
+          </>
+        ) : (
+          /* F128/F225: jump to thread for full approval context */
+          <button
+            type="button"
+            onClick={handleJump}
+            className="px-3 py-1 text-micro font-medium rounded-md border border-[var(--cafe-border)] hover:bg-[var(--cafe-muted)]"
+            data-testid="jump-btn"
+          >
+            {item.sourceFeatureId === 'F128' ? '跳转审批' : '跳转到 Thread'}
+          </button>
+        )}
       </div>
     </div>
   );

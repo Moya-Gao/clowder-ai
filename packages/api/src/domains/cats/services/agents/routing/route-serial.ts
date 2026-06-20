@@ -653,6 +653,8 @@ export async function* routeSerial(
         ? {
             sourceThreadId: crossThreadReplyHintRaw.sourceThreadId,
             senderCatId: createCatId(crossThreadReplyHintRaw.senderCatId),
+            // F246 Phase B: carry effectClass to SystemPromptBuilder for behavior constraints
+            ...(crossThreadReplyHintRaw.effectClass ? { effectClass: crossThreadReplyHintRaw.effectClass } : {}),
           }
         : undefined;
       let mentionRoutingFeedback = null;

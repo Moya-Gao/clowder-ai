@@ -347,6 +347,8 @@ export type {
   DeliberateSession,
   DeliberateTransition,
 } from './deliberate.js';
+// Dispatch proposal types (F246 Phase B: F193 E3 cross-thread dispatch)
+export type { DispatchProposal, DispatchProposalStatus, EffectClass } from './dispatch-proposal.js';
 // F233 Phase A: 值班简报 DTO (pure-projection aggregator output; impl stays in api)
 export type { BallEntry, BallEntryKind, DutyBriefing, DutyBriefingCounts } from './duty-briefing.js';
 // F227: Event Memory types (cognitive-transition event index)

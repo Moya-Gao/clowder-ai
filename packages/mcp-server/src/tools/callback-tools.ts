@@ -499,6 +499,14 @@ export const crossPostMessageInputSchema = {
     .max(200)
     .optional()
     .describe('Optional idempotency key for at-least-once delivery de-duplication'),
+  effectClass: z
+    .enum(['fyi', 'coordinate', 'investigate', 'assign_work'])
+    .optional()
+    .describe(
+      'F246 Phase B: Effect-class of the cross-thread dispatch. ' +
+        'fyi/coordinate/investigate → auto-deliver (default). ' +
+        'assign_work → held as a DispatchProposal pending CVO approval in the Approval Hub.',
+    ),
   agentKeyCatId: agentKeyCatIdSchema,
 };
 
@@ -554,6 +562,7 @@ async function _executePostMessage(input: {
   clientMessageId?: string | undefined;
   targetCats?: string[] | undefined;
   agentKeyCatId?: string | undefined;
+  effectClass?: 'fyi' | 'coordinate' | 'investigate' | 'assign_work' | undefined;
 }): Promise<ToolResult> {
   // F174 Phase E (AC-E2/E5): explicit kind:'none' policy. There's no useful
   // local fallback for post_message — losing the message is preferable to
@@ -570,6 +579,7 @@ async function _executePostMessage(input: {
           ...(input.replyTo ? { replyTo: input.replyTo } : {}),
           clientMessageId: input.clientMessageId ?? randomUUID(),
           ...(input.targetCats?.length ? { targetCats: input.targetCats } : {}),
+          ...(input.effectClass ? { effectClass: input.effectClass } : {}),
         },
         { enableOutbox: true, agentKeyCatId: input.agentKeyCatId },
       ),
@@ -910,6 +920,7 @@ export async function handleCrossPostMessage(input: {
   replyTo?: string | undefined;
   clientMessageId?: string | undefined;
   agentKeyCatId?: string | undefined;
+  effectClass?: 'fyi' | 'coordinate' | 'investigate' | 'assign_work' | undefined;
 }): Promise<ToolResult> {
   // F193 AC-A4 closing砚砚 review P1: MCP layer fail-closed.
   // The API route layer (callbacks.ts) only triggers AC-A4 reject when
@@ -948,6 +959,7 @@ export async function handleCrossPostMessage(input: {
     ...(input.clientMessageId ? { clientMessageId: input.clientMessageId } : {}),
     ...(input.agentKeyCatId ? { agentKeyCatId: input.agentKeyCatId } : {}),
     ...(input.targetCats?.length ? { targetCats: input.targetCats } : {}),
+    ...(input.effectClass ? { effectClass: input.effectClass } : {}),
   });
 }
 
