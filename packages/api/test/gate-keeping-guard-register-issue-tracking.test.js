@@ -127,4 +127,45 @@ describe('F167 gate-keeping guard: POST /api/callbacks/register-issue-tracking',
     assert.equal(body.error, 'gate_keeping_thread_default_blocked');
     assert.match(body.remediation, /没有 override 通道/);
   });
+
+  // ── PR-O3 R2: issueOwnership removed from route (trust hole, no verification) ────
+  // Policy engine skeleton preserved for PR-O4 (tested in unit tests).
+  // Route no longer passes policyContext → Phase N blanket block for all issue tracking.
+
+  test('PR-O3 R2: issueOwnership=keeper ignored by route → 400 blocked (no verification)', async () => {
+    const app = await createApp();
+    const thread = await threadStore.create('user-o3a', 'repo-inbox');
+    await threadStore.updateThreadKind(thread.id, 'gate-keeping');
+    const { invocationId, callbackToken } = await registry.create('user-o3a', 'opus', thread.id);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/register-issue-tracking',
+      headers: { 'x-invocation-id': invocationId, 'x-callback-token': callbackToken },
+      // Zod strips unknown field; route doesn't pass policyContext → guard blanket-blocks
+      payload: { repoFullName: 'owner/repo', issueNumber: 400, issueOwnership: 'keeper' },
+    });
+
+    assert.equal(response.statusCode, 400, 'keeper claim without verification must be blocked');
+    const body = JSON.parse(response.body);
+    assert.equal(body.error, 'gate_keeping_thread_default_blocked');
+  });
+
+  test('PR-O3 R2: issueOwnership=distributed → 400 blocked (unchanged)', async () => {
+    const app = await createApp();
+    const thread = await threadStore.create('user-o3b', 'repo-inbox');
+    await threadStore.updateThreadKind(thread.id, 'gate-keeping');
+    const { invocationId, callbackToken } = await registry.create('user-o3b', 'opus', thread.id);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/register-issue-tracking',
+      headers: { 'x-invocation-id': invocationId, 'x-callback-token': callbackToken },
+      payload: { repoFullName: 'owner/repo', issueNumber: 500, issueOwnership: 'distributed' },
+    });
+
+    assert.equal(response.statusCode, 400, 'distributed issue tracking must be blocked in gate-keeping thread');
+    const body = JSON.parse(response.body);
+    assert.equal(body.error, 'gate_keeping_thread_default_blocked');
+  });
 });

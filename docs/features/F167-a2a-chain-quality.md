@@ -928,8 +928,8 @@ sonnet 看了"AC ✅ 三层 harness ✅"放行，但没问"守门猫 daily SOP �
 - **PR-O1** docs/skill：更新 F167 Phase O spec + `receive-handoff-grounding` skill 加 `claim → resolver → sourceTier → verdict → actionFamily` 流；加 issuerStanding / freshnessKey / keeper wait A/B rule
 - **PR-O2a** grounding infra：types + grounding checker（shadow mode, never block）+ 5 OTel counters + hook 集成（hold_ball / register_pr_tracking / register_issue_tracking）+ F192 eval adapter。验证 counter pipeline 端到端通；INV-O3/O4/O7/O8/O10 在 checker 层实现。**不含**真实 claim 提取和 invocation event / bounded sample storage
 - **PR-O2b** event path + sampling：从 hold_ball waitSourceRef / reason 和 tracking repo/PR 上下文提取真实 claims → checker 产出 `ClaimGroundingEvent` → bounded sample storage（mismatch/blocked 100%, insufficient cap 3/resolver×thread×day, verified 1/20 + 日 cap）→ F192 eval adapter 消费 sample evidence
-- **PR-O3** Phase N policy patch：替换 threadKind-only hard-block；fixtures 覆盖 PR tracking blocked / keeper-owned issue tracking allowed / distributed issue tracking blocked / short-SLA no-callback hold allowed / event-backed hold blocked / long/unbounded wait pushed to sweep
-- **PR-O4** hardening：shadow 周后将确定性高危矛盾 fail-closed；低风险维持 warn+telemetry
+- **PR-O3** Phase N policy patch：替换 threadKind-only hard-block（hold_ball 仅）；fixtures 覆盖 PR tracking blocked / issue tracking blocked (Phase N, keeper-owned deferred to O4 — R2 review: caller-declared ownership 无独立验证) / short-SLA no-callback hold allowed / long/unbounded wait pushed to sweep。policy engine skeleton（keeper 允许 + event-backed 检测）已实现并 unit-tested，但 route 层不启用（无验证/无 wiring = 信任缺口/死代码）
+- **PR-O4** hardening：shadow 周后将确定性高危矛盾 fail-closed；低风险维持 warn+telemetry；**新增**：wire cross-store ownership 验证 → re-enable keeper-owned issue tracking 允许路径；wire event-backed callback 检测 → enable 冗余 hold 拦截
 
 #### Open Questions（R3 resolution 表）
 

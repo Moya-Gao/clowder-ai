@@ -177,13 +177,17 @@ export function registerCallbackHoldBallRoutes(app: FastifyInstance, deps: HoldB
         log.warn({ err, threadId, catId: catIdStr }, 'F167 grounding shadow telemetry failed (non-blocking)');
       });
 
-    // F167: gate-keeping thread guard (hard-block 守门 thread 替下游 hold；无 override)
+    // F167: gate-keeping thread guard (PR-O3: structured allow for short-SLA no-callback holds)
     const guardResult = await checkGateKeepingGuard({
       threadStore: deps.threadStore as Parameters<typeof checkGateKeepingGuard>[0]['threadStore'],
       threadId,
       tool: 'hold_ball',
       log,
       context: { catId: catIdStr, reason },
+      // PR-O3 R2: hasEventCallback removed — dead code (always false).
+      // Policy engine skeleton preserved + tested; PR-O4 will wire
+      // cross-store detection and pass actual boolean here.
+      policyContext: { wakeAfterMs },
     });
     if (guardResult.outcome === 'blocked' && guardResult.blockedResponse) {
       reply.status(400);

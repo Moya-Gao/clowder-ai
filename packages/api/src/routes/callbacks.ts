@@ -2470,6 +2470,11 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       .regex(/^[^/]+\/[^/]+$/, 'Must be owner/repo format'),
     issueNumber: z.number().int().positive(),
     instructions: z.string().max(2000).optional(),
+    // PR-O3 R2: issueOwnership removed from route schema.
+    // Grounding checker does NOT verify ownership (only checks issue existence),
+    // so caller-declared ownership is an unverified trust hole.
+    // PR-O4 will wire cross-store verification + re-add this field.
+    // Policy engine skeleton preserved for PR-O4 (tested in unit tests).
   });
 
   app.post('/api/callbacks/register-issue-tracking', async (request, reply) => {
@@ -2514,7 +2519,11 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
         log.warn({ err, catId }, 'F167 grounding shadow telemetry failed (register_issue_tracking, non-blocking)');
       });
 
-    // F167: gate-keeping thread guard (hard-block, no override)
+    // F167: gate-keeping thread guard.
+    // PR-O3 R2: no policyContext → Phase N blanket block for issue tracking.
+    // issueOwnership removed — grounding checker doesn't verify it, so
+    // caller-declared ownership is a trust hole. PR-O4 hardening will wire
+    // cross-store verification + re-enable the keeper allowance path.
     const guardResult = await checkGateKeepingGuard({
       threadStore: opts.threadStore,
       threadId: record.threadId,
