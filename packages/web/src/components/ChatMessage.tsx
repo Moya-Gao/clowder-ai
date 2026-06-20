@@ -1,6 +1,5 @@
 'use client';
 
-import type { CapabilityTipContext } from '@cat-cafe/shared';
 import type { CSSProperties } from 'react';
 import { type CatData, formatCatName } from '@/hooks/useCatData';
 import { useCoCreatorConfig } from '@/hooks/useCoCreatorConfig';
@@ -12,14 +11,12 @@ import { getMentionRe, getMentionToCat } from '@/lib/mention-highlight';
 import { parseDirection } from '@/lib/parse-direction';
 import { type ChatMessage as ChatMessageType, resolveBubbleExpanded, useChatStore } from '@/stores/chatStore';
 import { setPendingCrossPostScroll } from '@/utils/crosspost-scroll-target';
-import { CapabilityTipStrip } from './CapabilityTipStrip';
 import { CatAvatar } from './CatAvatar';
 import { CliDiagnosticsPanel, isKnownReason } from './CliDiagnosticsPanel';
 import { CollapsibleMarkdown } from './CollapsibleMarkdown';
 import { ConnectorBubble } from './ConnectorBubble';
 import { ContentBlocks } from './ContentBlocks';
 import { CopyIdButton } from './CopyIdButton';
-import { DEFAULT_STREAMING_TIP_CONTEXTS, isStreamingTipSuppressedByStatus } from './capability-tip-placement';
 import { CliOutputBlock } from './cli-output/CliOutputBlock';
 import { toCliEvents } from './cli-output/toCliEvents';
 import { DirectionPill } from './DirectionPill';
@@ -88,8 +85,6 @@ interface ChatMessageProps {
    *  (head + N hidden subsequent duplicates). Passed through to CliDiagnosticsPanel for
    *  the "×N" badge rendering. */
   dedupCount?: number;
-  showCapabilityTip?: boolean;
-  capabilityTipContexts?: readonly CapabilityTipContext[];
 }
 
 export function ChatMessage({
@@ -99,8 +94,6 @@ export function ChatMessage({
   onEditCoCreator,
   hideDiagnosticsPanel,
   dedupCount,
-  showCapabilityTip = false,
-  capabilityTipContexts = DEFAULT_STREAMING_TIP_CONTEXTS,
 }: ChatMessageProps) {
   const coCreator = useCoCreatorConfig();
   const { state: ttsState, synthesize: ttsSynthesize, activeMessageId } = useTts();
@@ -109,7 +102,6 @@ export function ChatMessage({
   const threads = useChatStore((s) => s.threads);
   const threadMessages = useChatStore((s) => s.messages);
   const globalBubbleDefaults = useChatStore((s) => s.globalBubbleDefaults);
-  const streamingCatStatus = useChatStore((s) => (message.catId ? s.catStatuses?.[message.catId] : undefined));
   const isUser = message.type === 'user' && !message.catId;
   const isSystem = message.type === 'system';
   const isSummary = message.type === 'summary';
@@ -204,10 +196,6 @@ export function ChatMessage({
     : message.variant === 'error'
       ? ('failed' as const)
       : ('done' as const);
-  const isStreamingCatStalled = isStreamingTipSuppressedByStatus(streamingCatStatus);
-  const showStreamingCapabilityTip =
-    showCapabilityTip && message.isStreaming && !!message.catId && !isStreamingCatStalled;
-
   if (isSummary && message.summary) {
     return (
       <div data-message-id={message.id}>
@@ -621,9 +609,6 @@ export function ChatMessage({
       )}
       {message.isStreaming && !isStreamOrigin && (
         <span className="inline-block w-1.5 h-4 bg-current animate-pulse ml-0.5 rounded-full opacity-50" />
-      )}
-      {showStreamingCapabilityTip && (
-        <CapabilityTipStrip surface="assistant_stream_bubble" contexts={capabilityTipContexts} />
       )}
     </MessageBubble>
   );

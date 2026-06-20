@@ -44,7 +44,7 @@ import { ChatContainerHeader } from './ChatContainerHeader';
 import { ChatInput } from './ChatInput';
 import { ChatMessage } from './ChatMessage';
 import { ConnectionStatusBar } from './ConnectionStatusBar';
-import { getStreamingTipContexts, selectStreamingTipMessageId } from './capability-tip-placement';
+import { getStreamingTipContexts, isStreamingTipSuppressedByStatus } from './capability-tip-placement';
 import { FirstRunQuestWizard } from './FirstRunQuestWizard';
 import { BootcampGuideOverlay } from './first-run-quest/BootcampGuideOverlay';
 import { QuestBanner } from './first-run-quest/QuestBanner';
@@ -637,11 +637,10 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   // F212 follow-up — UI-layer dedup for adjacent identical CliDiagnostics panels.
   // Compute once per messages change; map is keyed by messageId.
   const cliDedupMap = useMemo(() => computeCliDiagnosticsDedup(messages), [messages]);
-  const streamingTipMessageId = useMemo(
-    () => selectStreamingTipMessageId(messages, catStatuses),
-    [messages, catStatuses],
-  );
-  const streamingTipContexts = useMemo<readonly CapabilityTipContext[]>(
+  // F244: Tips show in PendingMemberBubble (the "分析处理中" wait phase), not in
+  // streaming ChatMessage — CVO dogfood confirmed pending is the correct timing.
+  // streamingTipMessageId removed; contexts kept for PendingMemberBubble.
+  const pendingTipContexts = useMemo<readonly CapabilityTipContext[]>(
     () => getStreamingTipContexts(intentMode),
     [intentMode],
   );
@@ -657,21 +656,11 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
             onEditCoCreator={handleEditCoCreator}
             hideDiagnosticsPanel={dedupInfo?.hideDiagnosticsPanel}
             dedupCount={dedupInfo?.dedupCount}
-            showCapabilityTip={msg.id === streamingTipMessageId}
-            capabilityTipContexts={streamingTipContexts}
           />
         </MessageActions>
       );
     },
-    [
-      threadId,
-      getCatById,
-      handleEditCat,
-      handleEditCoCreator,
-      cliDedupMap,
-      streamingTipMessageId,
-      streamingTipContexts,
-    ],
+    [threadId, getCatById, handleEditCat, handleEditCoCreator, cliDedupMap],
   );
 
   const { cancelInvocation, syncRooms, socketConnected } = useSocket(socketCallbacks, threadId);
@@ -708,6 +697,17 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
       .filter(([, inv]) => !streamingCatIds.has(inv.catId))
       .map(([invId, inv]) => ({ invocationId: invId, catId: inv.catId }));
   }, [hasActiveInvocation, activeInvocationCount, activeInvocations, messages]);
+
+  // F244 dedup: only one pending bubble per thread shows tips (cloud P2).
+  // Pick the first non-stalled pending invocation.
+  const pendingTipInvocationId = useMemo(() => {
+    for (const inv of pendingInvocations) {
+      if (!isStreamingTipSuppressedByStatus(catStatuses[inv.catId])) {
+        return inv.invocationId;
+      }
+    }
+    return null;
+  }, [pendingInvocations, catStatuses]);
 
   useVoiceAutoPlay();
   useVoiceStream();
@@ -1046,6 +1046,9 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
                     key={`pending-${inv.invocationId}`}
                     catId={inv.catId}
                     invocationId={inv.invocationId}
+                    catStatus={catStatuses[inv.catId]}
+                    tipContexts={pendingTipContexts}
+                    showCapabilityTip={inv.invocationId === pendingTipInvocationId}
                   />
                 ))}
               </>

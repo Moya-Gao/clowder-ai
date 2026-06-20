@@ -13,7 +13,7 @@ export const CAPABILITY_TIP_CONTEXTS = [
   'pet_waiting_for_user',
 ] as const;
 export const CAPABILITY_TIP_AUDIENCES = ['cvo', 'developer', 'maintainer', 'all'] as const;
-export const CAPABILITY_TIP_SURFACES = ['assistant_stream_bubble', 'concierge'] as const;
+export const CAPABILITY_TIP_SURFACES = ['assistant_stream_bubble', 'pending_bubble', 'concierge'] as const;
 
 const ACTION_REQUIRED_KINDS = new Set(['capability', 'workflow', 'feature']);
 const FAKE_PROGRESS_RE = /就快好了|快好了|马上完成|马上好|马上就好|即将完成/u;

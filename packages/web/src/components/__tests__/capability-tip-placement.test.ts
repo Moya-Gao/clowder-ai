@@ -1,47 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { getStreamingTipContexts, selectStreamingTipMessageId } from '../capability-tip-placement';
+import { getStreamingTipContexts, isStreamingTipSuppressedByStatus } from '../capability-tip-placement';
 
-function streamingMessage(id: string, catId: string) {
-  return {
-    id,
-    type: 'assistant',
-    catId,
-    content: '',
-    timestamp: Date.now(),
-    isStreaming: true,
-    origin: 'stream',
-    visibility: 'public',
-    contentBlocks: null,
-    toolEvents: null,
-    metadata: null,
-    summary: null,
-    evidence: null,
-    extra: null,
-    source: null,
-  };
-}
-
-describe('F244 streaming capability tip placement', () => {
-  it('selects one streaming bubble for the thread-level tip surface', () => {
-    expect(
-      selectStreamingTipMessageId(
-        [streamingMessage('msg-opus', 'opus'), streamingMessage('msg-codex', 'codex')] as never,
-        { opus: 'streaming', codex: 'streaming' },
-      ),
-    ).toBe('msg-codex');
-  });
-
-  it('skips stalled streaming bubbles when selecting the single tip surface', () => {
-    expect(
-      selectStreamingTipMessageId(
-        [streamingMessage('msg-opus', 'opus'), streamingMessage('msg-codex', 'codex')] as never,
-        { opus: 'streaming', codex: 'suspected_stall' },
-      ),
-    ).toBe('msg-opus');
-  });
-
-  it('uses review contexts for ideate streaming waits', () => {
+describe('F244 capability tip placement', () => {
+  it('uses review contexts for ideate mode', () => {
     expect(getStreamingTipContexts('ideate')).toEqual(['review', 'long_running']);
     expect(getStreamingTipContexts('execute')).toEqual(['thinking', 'long_running']);
+  });
+
+  it('defaults to thinking contexts for null/undefined intentMode', () => {
+    expect(getStreamingTipContexts(null)).toEqual(['thinking', 'long_running']);
+    expect(getStreamingTipContexts(undefined)).toEqual(['thinking', 'long_running']);
+  });
+
+  it('suppresses tips for suspected_stall and alive_but_silent', () => {
+    expect(isStreamingTipSuppressedByStatus('suspected_stall')).toBe(true);
+    expect(isStreamingTipSuppressedByStatus('alive_but_silent')).toBe(true);
+    expect(isStreamingTipSuppressedByStatus('streaming')).toBe(false);
+    expect(isStreamingTipSuppressedByStatus(undefined)).toBe(false);
   });
 });
