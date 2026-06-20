@@ -11,7 +11,7 @@ created: 2026-06-20
 > **Status**: spec（2026-06-20 CVO approved direction + three-cat convergence） | **Owner**: 布偶猫/宪宪 (opus-46) | **Priority**: P2
 
 Architecture cell: platform-infra（subcell: `approval-index`）
-Map delta: 新 cell — CQRS read-side index 聚合多 feature 的 CVO 审批项 + Hub UI panel。不拥有状态机，只索引和展示。
+Map delta: 新 cell — Hub 通过 feature adapter 实时聚合（query aggregation）各 feature 的 CVO 审批项 + Hub UI panel。不维护独立 index，at-read-time 直查 canonical stores。
 Why: CVO 审批散落在各 thread（F128/F225/F193），铲屎官不在对应 thread 就看不到。需要跨 thread 统一入口。
 
 ## Why
@@ -113,7 +113,7 @@ Why: CVO 审批散落在各 thread（F128/F225/F193），铲屎官不在对应 t
 ### Phase B: F193 E3 接入
 
 - F193 E3 卡片审批路径接入底座
-- DispatchProposal store + 事件注入
+- `F193Adapter.listPending(userId)` 查 DispatchProposal store（与 Phase A 的 F128/F225 adapter 模式一致）
 
 #### F193 E3 Effect-Class Matrix（机械化边界，砚砚 R1 P1-3）
 
@@ -134,6 +134,7 @@ Why: CVO 审批散落在各 thread（F128/F225/F193），铲屎官不在对应 t
 - 批量操作（全部 approve / 全部 reject）
 - 筛选（by feature / by thread / by 时效）
 - v2 接入（F231 等）
+- **F168 精确接入切口**（opus-48 F168 owner 背书）：F168 整体是 mixed actor/action queue 不适合迁，但 `direction-decision` 子类型（`community-decision-queue.ts:198`）满足 actor=cvo + binary approve/reject，v2 可抽取该子类型单独接 Hub，无需整 queue 迁移
 - **Materialized index 演进**：当接入 feature 数 >5 且 query fan-out 成为瓶颈时，引入 event-driven CQRS index + backfill/reconciliation 契约（v1 的 query aggregation 是有意选择，不是技术债）
 
 ## Links
