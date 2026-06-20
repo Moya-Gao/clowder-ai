@@ -1457,7 +1457,52 @@ export const communityIssueRoutes: FastifyPluginAsync<CommunityIssuesRoutesOptio
         /* best-effort: listSubjectKeys failure must not break the board */
       }
 
-      return { repo, issues: enrichedIssues, prItems: enrichedPrItems };
+      const finalIssues = enrichedIssues;
+      const finalPrItems = enrichedPrItems;
+
+      // AC-F6: resolve thread names for board display
+      if (opts.threadStore) {
+        const threadIds = [...new Set(finalIssues.map((i) => i.assignedThreadId).filter(Boolean) as string[])];
+        const threadNameMap = new Map<string, string | null>();
+        await Promise.all(
+          threadIds.map(async (tid) => {
+            try {
+              const thread = await opts.threadStore!.get(tid);
+              threadNameMap.set(tid, thread?.title ?? null);
+            } catch {
+              threadNameMap.set(tid, null);
+            }
+          }),
+        );
+        const issuesWithThreadNames = finalIssues.map((issue) => ({
+          ...issue,
+          assignedThreadName: issue.assignedThreadId ? (threadNameMap.get(issue.assignedThreadId) ?? null) : null,
+        }));
+        return { repo, issues: issuesWithThreadNames, prItems: finalPrItems };
+      }
+
+      return { repo, issues: finalIssues, prItems: finalPrItems };
+    }
+
+    // No objectStore path — still resolve thread names if threadStore available
+    if (opts.threadStore) {
+      const threadIds = [...new Set(issues.map((i) => i.assignedThreadId).filter(Boolean) as string[])];
+      const threadNameMap = new Map<string, string | null>();
+      await Promise.all(
+        threadIds.map(async (tid) => {
+          try {
+            const thread = await opts.threadStore!.get(tid);
+            threadNameMap.set(tid, thread?.title ?? null);
+          } catch {
+            threadNameMap.set(tid, null);
+          }
+        }),
+      );
+      const issuesWithThreadNames = issues.map((issue) => ({
+        ...issue,
+        assignedThreadName: issue.assignedThreadId ? (threadNameMap.get(issue.assignedThreadId) ?? null) : null,
+      }));
+      return { repo, issues: issuesWithThreadNames, prItems };
     }
 
     return { repo, issues, prItems };

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CommunityPanelFilters, TIME_RANGES } from '@/components/CommunityPanelFilters';
 import { ClosureChecklistCard } from '@/components/community/ClosureChecklistCard';
+import { UserAssignIcon } from '@/components/community/community-icons';
 import { DecisionQueuePanel } from '@/components/community/DecisionQueuePanel';
 import type { CommunityDecisionQueueItemModel } from '@/components/community/decision-queue-types';
 import { ReconciliationFindingCard } from '@/components/community/ReconciliationFindingCard';
@@ -29,6 +30,7 @@ interface CommunityIssueItem {
   consensusState?: string;
   assignedThreadId: string | null;
   assignedCatId: string | null;
+  assignedThreadName?: string | null;
   directionCard: { entries: Array<Record<string, unknown>>; consensus?: Record<string, unknown> } | null;
   closureChecklist?: {
     readyToClose: boolean;
@@ -196,7 +198,28 @@ function IssueRow({
           #{item.issueNumber}
         </a>
         <span className="truncate flex-1 text-cafe-secondary">{item.title}</span>
-        {item.assignedCatId && <span className="text-micro text-cafe-accent/60">{item.assignedCatId}</span>}
+        {item.assignedCatId && (
+          <span
+            data-testid={`assignment-chip-${item.id}`}
+            className="inline-flex items-center gap-0.5 text-micro text-cafe-accent/80 bg-cafe-accent/5 px-1.5 py-0.5 rounded-full shrink-0"
+            title={
+              item.assignedThreadName
+                ? `${item.assignedCatId} → ${item.assignedThreadName}`
+                : item.assignedThreadId
+                  ? `${item.assignedCatId} → ${item.assignedThreadId}`
+                  : item.assignedCatId
+            }
+          >
+            <UserAssignIcon />
+            <span>{item.assignedCatId}</span>
+            {item.assignedThreadName && (
+              <>
+                <span className="text-cafe-muted/40">→</span>
+                <span className="text-cafe-muted/70 max-w-[8rem] truncate">{item.assignedThreadName}</span>
+              </>
+            )}
+          </span>
+        )}
         <span className="text-micro text-cafe-muted">{relativeTime(item.updatedAt)}</span>
         {item.state === 'unreplied' && (
           <button
