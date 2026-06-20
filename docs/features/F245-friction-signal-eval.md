@@ -9,7 +9,7 @@ tips_exempt: Phase A-C 为内部 friction 采集/聚合 infra，无 user/cat 可
 
 # F245: Friction Signal Eval — 摩擦信号统一聚合（eval:friction）
 
-> **Status**: in-progress（Phase A merged）| **Owner**: 布偶猫/宪宪 (opus-48) | **Priority**: P1
+> **Status**: in-progress（Phase B merged）| **Owner**: 布偶猫/宪宪 (opus-48) | **Priority**: P1
 
 ## Architecture Ownership
 
@@ -91,8 +91,8 @@ signal 体量实证（今天 UTC 0:00 → 16:07，16 小时）：
 - [x] AC-A2: 采集覆盖验证——给定含 N 条爪感差的消息 fixture，采集出 N 条结构化 signal，precision/recall gate（非作者可跑 fixture 复核）✅ PR #2422
 
 ### Phase B（跨通道聚合）
-- [ ] AC-B1: 4 通道统一消费 adapter——爪感差新建 + cancel 引 task-outcome + F222 引 issue 池 + eval 域引 friction_counts；**不重新实现既有三通道的采集**（trace Why：A 聚合不搬迁）
-- [ ] AC-B2: dedup + cluster——"rg 噪音 ×N" 折叠成 1 cluster，cluster 含 count + 成员 evidence refs；误聚合率有 fixture 验证
+- [x] AC-B1: 4 通道统一消费 adapter——爪感差新建 + cancel 引 task-outcome + F222 引 issue 池 + eval 域引 friction_counts；**不重新实现既有三通道的采集**（trace Why：A 聚合不搬迁）✅ PR #2443
+- [x] AC-B2: dedup + cluster——"rg 噪音 ×N" 折叠成 1 cluster，cluster 含 count + 成员 evidence refs；误聚合率有 fixture 验证（误聚合率=0 corpus gate）✅ PR #2443
 
 ### Phase C（domain + rollup）
 - [ ] AC-C1: `eval-domains/eval-friction.yaml` 注册，frequency 可配置（weekly/N-day/daily），默认社区 weekly / 本家 3 天（trace Why：铲屎官 signal 体量担忧）
@@ -136,9 +136,9 @@ signal 体量实证（今天 UTC 0:00 → 16:07，16 小时）：
 
 ## 需求点 Checklist
 
-- [ ] 爪感差结构化采集（Phase A）
-- [ ] 4 通道统一消费，不搬迁既有采集（Phase B）
-- [ ] dedup + cluster 同类摩擦（Phase B）
+- [x] 爪感差结构化采集（Phase A）
+- [x] 4 通道统一消费，不搬迁既有采集（Phase B）
+- [x] dedup + cluster 同类摩擦（Phase B）
 - [ ] 频率可配置（社区 weekly / 本家 3 天 / daily）（Phase C）
 - [ ] Top-N 配额防 context 打爆（Phase C）
 - [ ] 五类传感器形态 + 7-class 根因分类（Phase C）
@@ -189,6 +189,7 @@ signal 体量实证（今天 UTC 0:00 → 16:07，16 小时）：
 | 2026-06-18 | 立项（opus-48，本 thread 5 轮盘点 + CVO signoff "我是觉得需要 feat 你可以创建"） |
 | 2026-06-18 | Phase A 实现完成（PawFeelAdapter 爪感差采集器，4 TDD Task，22 测试绿）— 待 review |
 | 2026-06-19 | **Phase A merged**（PR #2422，squash `9f3f0b862`）— gpt52 跨族 review + 云端 codex 3 轮：R1 marker 2 P2（含冒号工具名/嵌套括号）+ R3 in-memory cursor P2（graceful degrade）修复，R4 test-isolation pushback（既有 pattern）|
+| 2026-06-19 | **Phase B merged**（PR #2443，squash `0be8b6b5`）— 4 Adapter（Port+Adapter 只读引用既有源，零 write-side）+ FrictionAggregator（id 幂等 dedup + intent filter）+ FrictionClusterer（rule 精确归一 + embedding fail-open 降级）+ buildFrictionRollupInput；9 TDD Task；gpt52 final-SHA review + 云端 codex 3 轮（7 真 finding／0 误报：R1 mailbox frontmatter、R2 epoch 排序 + symptom 归一保留标识数字、R3 droppedChannels 显式降级 + reprobe fail-open）|
 
 ## Review Gate
 

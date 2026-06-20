@@ -109,39 +109,54 @@ All merged, all tests green (4383 pass), all vision guards PASS.
 
 **认知修正（CVO 2026-06-20）**：之前误以为"运营闭环没启动"，实际是**砚砚在老模式（Repo Inbox thread）里每天跟进，但 F168 系统没有反映砚砚的工作**。515 条 issue 中 367 closed（系统通过轮询自动同步了 GitHub 状态），但只有 2 条有 `assignedCatId`——其余 513 条砚砚的工作在系统里是"无人负责"状态。
 
+**认知修正 #2（CVO 2026-06-20 第二轮）**：narrator triage 完不能直接自动路由——**猫也会分错 thread**。正确的流程是 narrator **提议**路由方案，铲屎官**审批后才执行**。类似 F128 propose_thread / F225 的审批卡片机制。
+
+**Phase F 流程（CVO 定向）**：
+
+```
+新 issue 进来
+  → narrator（砚砚）triage → 生成 Direction Card（路由建议，不是路由动作）
+  → 审批卡片进 Decision Queue
+      ├── 砚砚有把握 → 生成路由建议卡片 → 铲屎官审批/修改/拒绝
+      └── 砚砚没把握 → 生成 Decision Queue 卡片（类似 F128/F225）→ 铲屎官拍板
+  → 铲屎官批准后 → 系统执行路由到目标 thread
+  → @ 目标 thread 的猫
+  → 目标猫确认：我是这个 thread 的负责人吗？接 / 退
+```
+
+**三层保险**：
+1. **narrator 提议但不执行**——Direction Card 是建议不是命令
+2. **铲屎官审批**——审批卡片在 Decision Queue 里，铲屎官点击才生效
+3. **目标猫确认**——收到路由的猫要确认自己是对的负责人，不对就退回
+
 **两步走**：
 1. **F-Step1 存量同步**：把砚砚已完成的工作标记到系统里（backfill `assignedCatId` + `assignedThreadId`）
-2. **F-Step2 增量自动化**：新 issue 由 narrator 自动 triage → 生成 Direction Card → 分配到工作 thread
+2. **F-Step2 审批式路由**：narrator triage → 审批卡片 → 铲屎官批准 → 路由 → 目标猫确认
 
 **核心讨论点（待铲屎官定夺）**：
 
 1. **存量 backfill 策略**：
    - 367 closed → 批量标记 `assignedCatId = codex`（砚砚）+ `assignedThreadId = Repo Inbox thread`？
-   - 148 open（60 unreplied + 39 discussing + 26 pending-decision + 23 accepted）→ 也标记给砚砚？还是其中有些是需要 narrator 重新 triage 的？
-   
-2. **增量触发模式**：新 issue 进来后怎么触发 narrator？
-   - 铲屎官原话（2026-04-18）："最开始别自动巡检，手动点击"
-   - 现阶段先手动？还是直接自动（轮询发现新 issue → 自动 spawn narrator）？
+   - 148 open → 也标记给砚砚？还是其中有些需要 narrator 重新 triage？
 
-3. **narrator 绑定**：谁来当 narrator？
-   - Phase C 默认绑定了 `gemini25`（烁烁）—— narrator 是轻量 triage 不写代码，烁烁合适
-   - 还是让砚砚继续做 triage 但通过 F168 系统（不再在 thread 里人肉跟）？
+2. **审批卡片形态**：
+   - 复用 F128 propose_thread 的审批机制？还是做专门的"路由审批卡片"？
+   - 铲屎官在 Hub 的哪里看到这些审批卡片？（Decision Queue tab？单独的审批面板？）
+   - 砚砚有把握 vs 没把握的阈值怎么定？
 
-4. **worker thread 分配**：narrator triage 完后怎么分配工作 thread？
-   - 已有 feat → 路由到该 feat thread
-   - 全新 issue → 走 `cat_cafe_propose_thread`（F128）铲屎官批准后创建
-   - bugfix → 猫自决
-   
-5. **铲屎官体感验收**：打开 Community tab 应该看到什么？
+3. **目标猫确认机制**：
+   - 目标猫收到路由后怎么确认/退回？用 mention + accept/reject 动作？
+   - 退回后怎么处理？回到 Decision Queue 让铲屎官重新分配？
 
 **Phase F AC（草案，待讨论后定稿）**：
 
-- [ ] AC-F0: 存量 backfill——367 closed issue 标记 assignedCatId + assignedThreadId（砚砚 + Repo Inbox thread）
-- [ ] AC-F1: narrator 能对新 issue 自动/手动 triage 并生成 Direction Card
-- [ ] AC-F2: triage 后 issue 被分配到工作 thread（assignedThreadId + assignedCatId 非空）
-- [ ] AC-F3: Decision Queue 有真实决策包（direction-decision / closure-action）
-- [ ] AC-F4: 铲屎官在看板上能看到 issue → thread → 猫 的分配关系并点击跳转
-- [ ] AC-F5: 至少 1 条 issue 完成完整闭环（triage → assign → work → closure checklist pass → GitHub 回复/关闭）
+- [ ] AC-F0: 存量 backfill——已处理 issue 标记 assignedCatId + assignedThreadId
+- [ ] AC-F1: narrator triage 新 issue → 生成 Direction Card（路由建议）→ **不直接路由**
+- [ ] AC-F2: Direction Card 进入 Decision Queue 作为审批卡片，铲屎官可批准/修改/拒绝
+- [ ] AC-F3: 铲屎官批准后系统自动执行路由（调 resolve 端点）→ @ 目标 thread 猫
+- [ ] AC-F4: 目标猫收到路由后确认接单（accept）或退回（reject）
+- [ ] AC-F5: 铲屎官在看板上能看到 issue → thread → 猫 的分配关系并点击跳转
+- [ ] AC-F6: 至少 1 条 issue 跑完整流程（narrator 提议 → 铲屎官批准 → 路由 → 目标猫接单 → 工作 → closure）
 
 ## Why
 
