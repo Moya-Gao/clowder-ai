@@ -8,7 +8,7 @@ created: 2026-05-20
 
 # F208: Capability Profile Routing — 能力画像档案 + 认知路由
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -117,9 +117,9 @@ settings 独立 section（与成员管理平级，不复用 F154 member overview
 - [ ] AC-A4: 画像条目带时间戳，schema 支持演化（同一能力可有多条不同日期的总结）
 - [ ] AC-A5: `cat-dossier` **消费 F209 `entity_id`** 作猫/人标识键，不创建平行 cat ID / person ID namespace。**Dual of F209 AC-B6**（F209 spec 2026-05-23 transferred this AC to F208；详见 F209 KD-7 / KD-12）。F032 / identity-session 仍是 roster truth，F209 `entity_id` 仅作 retrieval anchor 镜像；F208 dossier 是 capability 画像层，引用 entity_id 不反写。
 
-### Phase B（传球加载 + 非阻塞提醒）
-- [ ] AC-B1: 猫传球时可按需加载目标猫 L1 画像（像 skill，不常驻）
-- [ ] AC-B2: session/handoff 文案含非阻塞提醒，不检测"猫有没有读画像"，简单传球不打扰
+### Phase B（传球加载 + 非阻塞提醒） ✅
+- [x] AC-B1: 猫传球时可按需加载目标猫 L1 画像（像 skill，不常驻）
+- [x] AC-B2: session/handoff 文案含非阻塞提醒，不检测"猫有没有读画像"，简单传球不打扰
 
 ### Phase C（前端 settings 猫猫画像独立页）
 - [ ] AC-C1: settings 独立猫猫画像 section 展示每只猫能力画像卡（L1 6 字段可展开）+ 路由规则
@@ -224,6 +224,7 @@ settings 独立 section（与成员管理平级，不复用 F154 member overview
 | 2026-06-10 | fable-5 day-1 完整 6 字段画像（codex 跨族 review 修正）|
 | 2026-06-15 | opus-48 confab 坏直觉 + 熔断信号追加（v0.2.1）|
 | 2026-06-19 | 三真相源漂移问题讨论（46 发现 + 48/砚砚并行方案 + CVO 讨论）→ KD-8~13 + OQ-8。CVO signoff F032 边界调整 |
+| 2026-06-20 | Phase B merged (PR #2430) — roster reads from dossier l0RosterSummary, both compile-l0 + SystemPromptBuilder switched, KD-9 drift detection + ENOENT classification, 6+1 regression tests |
 
 ## Review Gate
 
