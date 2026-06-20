@@ -34,6 +34,7 @@ import type { ITaskStore } from '../domains/cats/services/stores/ports/TaskStore
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import type { ICommunityEventLog } from '../domains/community/CommunityEventLog.js';
 import type { ICommunityObjectStore } from '../domains/community/CommunityObjectStore.js';
+import type { ICommunityRepoConfigStore } from '../domains/community/CommunityRepoConfigStore.js';
 import { registerRoutingTracking } from '../domains/community/community-auto-tracking.js';
 import { computeClosureChecklist } from '../domains/community/community-closure-checklist.js';
 import { parseRouteRecommendation } from '../domains/community/community-route-recommendation.js';
@@ -77,6 +78,8 @@ export interface CommunityIssuesRoutesOptions {
   // F168 Phase D D3/D4: reconciliation finding store for read model
   // D-PR2 AC line 305: return open/acknowledged/waived/resolved findings for D-PR3 UX
   findingStore?: CommunityDecisionQueueFindingStore;
+  // F168 Phase F: per-repo routing config for auto-route (SO-3)
+  repoConfigStore?: Pick<ICommunityRepoConfigStore, 'getByRepo'>;
 }
 
 const VALID_ISSUE_TYPES = ['bug', 'feature', 'enhancement', 'question'] as const;
@@ -412,8 +415,53 @@ export const communityIssueRoutes: FastifyPluginAsync<CommunityIssuesRoutesOptio
     }
 
     const entry = { ...result.data, timestamp: Date.now() } as import('@cat-cafe/shared').TriageEntry;
-    const orchestrator = new TriageOrchestrator({ communityIssueStore, threadStore: opts.threadStore });
-    return orchestrator.recordTriageEntry(id, entry);
+    const orchestrator = new TriageOrchestrator({
+      communityIssueStore,
+      threadStore: opts.threadStore,
+      repoConfigStore: opts.repoConfigStore,
+    });
+    const triageResult = await orchestrator.recordTriageEntry(id, entry);
+
+    // P1-R2-3: Auto-routed issues must emit case.routed event + register tracking,
+    // matching the /resolve path's integration. Without this, auto-routed issues
+    // won't update CommunityObjectStore projection or create issue_tracking tasks.
+    if (triageResult.action === 'auto-routed' && opts.eventLog) {
+      try {
+        const subjectKey = `issue:${issue.repo}#${issue.issueNumber}`;
+        const routedEvent: CommunityEvent = {
+          sourceEventId: `routed:${id}:${triageResult.threadId}`,
+          subjectKey,
+          kind: 'case.routed',
+          classification: 'state-changing',
+          payload: {
+            ownerThreadId: triageResult.threadId,
+            catId: triageResult.targetCatId,
+            ownerRole: triageResult.targetCatId,
+            relatedFeature: issue.relatedFeature ?? null,
+            routedAt: Date.now(),
+          },
+          at: Date.now(),
+        };
+        const { appended } = await opts.eventLog.append(routedEvent);
+        if (appended) {
+          if (opts.projector) {
+            try {
+              await opts.projector.apply(routedEvent);
+            } catch {
+              // best-effort — projector failure does not block tracking
+            }
+          }
+          await registerRoutingTracking(routedEvent, opts.taskStore, {
+            fetchCommentCursor: opts.fetchIssueCommentCursor,
+            userId: resolveUserId(request, { defaultUserId: 'system' }) ?? 'system',
+          });
+        }
+      } catch {
+        // Best-effort — event log failure never blocks triage-complete
+      }
+    }
+
+    return triageResult;
   });
 
   const resolveSchema = z.object({
@@ -477,7 +525,11 @@ export const communityIssueRoutes: FastifyPluginAsync<CommunityIssuesRoutesOptio
       }
     }
 
-    const orchestrator = new TriageOrchestrator({ communityIssueStore, threadStore: opts.threadStore });
+    const orchestrator = new TriageOrchestrator({
+      communityIssueStore,
+      threadStore: opts.threadStore,
+      repoConfigStore: opts.repoConfigStore,
+    });
     if (result.data.decision === 'accepted') {
       await orchestrator.routeAccepted(
         id,
@@ -787,6 +839,131 @@ export const communityIssueRoutes: FastifyPluginAsync<CommunityIssuesRoutesOptio
       checklistComplete: validation.valid,
       missingItems: validation.missing,
     };
+  });
+
+  // ── F168 Phase F: validate-route (SO-2 state machine) ──────────────────────
+  // POST /api/community-issues/:id/validate-route
+  // Target cat accepts or rejects a routed issue.
+  // INV-F2: routeAcceptance only changeable via this endpoint.
+  // INV-F3: rejected → clears assignedCatId + assignedThreadId + state → pending-decision.
+
+  const validateRouteSchema = z.object({
+    decision: z.enum(['accept', 'reject']),
+    reason: z.string().optional(),
+  });
+
+  app.post('/api/community-issues/:id/validate-route', async (request, reply) => {
+    if (!request.callbackAuth) {
+      reply.status(401);
+      return { error: 'Callback authentication required' };
+    }
+
+    const { id } = request.params as { id: string };
+    const issue = await communityIssueStore.get(id);
+    if (!issue) {
+      reply.status(404);
+      return { error: 'Community issue not found' };
+    }
+
+    // INV-F2: routeAcceptance must be pending
+    if (issue.routeAcceptance !== 'pending') {
+      reply.status(409);
+      return {
+        error: 'Route validation requires routeAcceptance=pending',
+        currentRouteAcceptance: issue.routeAcceptance ?? null,
+      };
+    }
+
+    // Identity check: only the assigned cat can validate
+    const callerCatId = request.callbackAuth.catId as string;
+    if (issue.assignedCatId !== callerCatId) {
+      reply.status(403);
+      return {
+        error: 'Only the assigned cat can validate this route',
+        expected: issue.assignedCatId,
+        actual: callerCatId,
+      };
+    }
+
+    const parsed = validateRouteSchema.safeParse(request.body);
+    if (!parsed.success) {
+      reply.status(400);
+      return { error: 'Invalid body', details: parsed.error.issues };
+    }
+
+    if (parsed.data.decision === 'accept') {
+      const updated = await communityIssueStore.update(id, {
+        routeAcceptance: 'accepted',
+        lastActivity: { at: Date.now(), event: `route-validated-by-${callerCatId}` },
+      });
+
+      // Emit case.route-validated event (best-effort)
+      if (opts.eventLog) {
+        try {
+          const event: CommunityEvent = {
+            sourceEventId: `route-validated:${id}:${Date.now()}`,
+            subjectKey: `issue:${issue.repo}#${issue.issueNumber}`,
+            kind: 'case.route_validated',
+            classification: 'state-changing',
+            payload: { catId: callerCatId, decision: 'accept', validatedAt: Date.now() },
+            at: Date.now(),
+          };
+          const { appended } = await opts.eventLog.append(event);
+          if (appended && opts.projector) {
+            await opts.projector.apply(event);
+          }
+        } catch {
+          /* best-effort */
+        }
+      }
+
+      return updated;
+    }
+
+    // INV-F3: reject → clear assignment, state → pending-decision
+    const updated = await communityIssueStore.update(id, {
+      routeAcceptance: 'rejected',
+      assignedCatId: null,
+      assignedThreadId: null,
+      state: 'pending-decision',
+      lastActivity: { at: Date.now(), event: `route-rejected-by-${callerCatId}` },
+    });
+
+    // P1-R3-2: Delete tracking task registered by auto-route. Without this,
+    // the rejected issue keeps polling for GitHub activity on the old thread.
+    if (opts.taskStore) {
+      try {
+        const subjectKey = `issue:${issue.repo}#${issue.issueNumber}`;
+        const trackingTask = await opts.taskStore.getBySubject(subjectKey);
+        if (trackingTask) {
+          await opts.taskStore.delete(trackingTask.id);
+        }
+      } catch {
+        // Best-effort — cleanup failure does not block rejection
+      }
+    }
+
+    // Emit case.route-rejected event (best-effort)
+    if (opts.eventLog) {
+      try {
+        const event: CommunityEvent = {
+          sourceEventId: `route-rejected:${id}:${Date.now()}`,
+          subjectKey: `issue:${issue.repo}#${issue.issueNumber}`,
+          kind: 'case.route_rejected',
+          classification: 'state-changing',
+          payload: { catId: callerCatId, decision: 'reject', reason: parsed.data.reason, rejectedAt: Date.now() },
+          at: Date.now(),
+        };
+        const { appended } = await opts.eventLog.append(event);
+        if (appended && opts.projector) {
+          await opts.projector.apply(event);
+        }
+      } catch {
+        /* best-effort */
+      }
+    }
+
+    return updated;
   });
 
   // ── F168 Phase D D1: closure action API ────────────────────────────────────

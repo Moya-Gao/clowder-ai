@@ -178,6 +178,7 @@ import {
   commandsRoutes,
   communityIssueDraftRoutes,
   communityIssueRoutes,
+  communityRepoConfigRoutes,
   conciergeRoutes,
   configRoutes,
   connectorHubRoutes,
@@ -552,6 +553,9 @@ async function main(): Promise<void> {
   let taskStore = createTaskStore(redis);
   const labelStore = createLabelStore(redis);
   const communityIssueStore = createCommunityIssueStore(redis);
+  // F168 Phase F: per-repo routing config (guard thread + guard cat)
+  const { createCommunityRepoConfigStore } = await import('./domains/community/CommunityRepoConfigStore.js');
+  const communityRepoConfigStore = createCommunityRepoConfigStore(redis);
 
   // F168 Phase A P1-1: create community event services from Redis (best-effort, optional).
   // Passed to communityIssueRoutes, rehydrateGitHubSchedules, and connector gateway.
@@ -2703,7 +2707,11 @@ async function main(): Promise<void> {
     narratorDriver: communityNarratorDriver,
     // F168 Phase D D3/D4: reconciliation finding store for read model
     findingStore: communityFindingStore,
+    // F168 Phase F: per-repo routing config for autoRoute
+    repoConfigStore: communityRepoConfigStore,
   });
+  // F168 Phase F: per-repo routing config CRUD endpoints
+  await app.register(communityRepoConfigRoutes, { repoConfigStore: communityRepoConfigStore });
   await app.register(backlogRoutes, { backlogStore, threadStore, messageStore });
 
   // F076: External projects + Need Audit

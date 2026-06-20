@@ -851,6 +851,61 @@ describe('Community Issues Routes', () => {
     assert.equal(evalEvents.length, 0, 'must NOT record eval when no narrator recommendation');
   });
 
+  // --- Phase F: auto-route event emission (P1-R2-3) ---
+
+  test('POST triage-complete emits case.routed event for auto-routed issues', async () => {
+    const mockEventLog = createMockEventLog();
+    const mockRepoConfigStore = {
+      getByRepo: async (repo) => {
+        if (repo === 'zts212653/clowder-ai') {
+          return {
+            repo: 'zts212653/clowder-ai',
+            guardThreadId: 'thread_guard',
+            guardCatId: 'codex',
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          };
+        }
+        return null;
+      },
+    };
+
+    const app = await createApp({ eventLog: mockEventLog, repoConfigStore: mockRepoConfigStore });
+    const issue = await createAndDispatch(app, {
+      repo: 'zts212653/clowder-ai',
+      issueNumber: 900,
+    });
+
+    // First triage entry → await-second-cat
+    await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/triage-complete`,
+      payload: { catId: 'opus', verdict: 'WELCOME', questions: fivePass },
+    });
+
+    // Second entry: high confidence (all PASS + existing-thread) → auto-routed
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/community-issues/${issue.id}/triage-complete`,
+      payload: {
+        catId: 'codex',
+        verdict: 'WELCOME',
+        questions: fivePass,
+        routeRecommendation: { kind: 'existing-thread', threadId: 'thread_community_ops' },
+      },
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.equal(body.action, 'auto-routed');
+
+    // P1-R2-3: must emit case.routed event for auto-routed issues
+    const routedEvents = mockEventLog.events.filter((e) => e.kind === 'case.routed');
+    assert.equal(routedEvents.length, 1, 'auto-route must emit case.routed event');
+    assert.equal(routedEvents[0].payload.catId, 'codex');
+    assert.equal(routedEvents[0].payload.ownerThreadId, 'thread_community_ops');
+  });
+
   // --- Phase D: Guardian assignment endpoints ---
 
   async function createAcceptedIssue(app, issueNumber = 50) {

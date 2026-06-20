@@ -229,6 +229,7 @@ export type {
 } from './community-event.js';
 export type {
   CommunityIssueItem,
+  CommunityRepoConfig,
   ConsensusResult,
   ConsensusState,
   CreateCommunityIssueInput,
@@ -243,7 +244,10 @@ export type {
   QuestionId,
   QuestionResult,
   ReplyState,
+  RouteAcceptance,
   RouteRecommendation,
+  RouteSource,
+  TriageConfidence,
   TriageEntry,
   UpdateCommunityIssueInput,
   Verdict,
@@ -251,6 +255,7 @@ export type {
 // Community Issue types (F168 社区事务编排引擎)
 export {
   DEFAULT_INTAKE_CHECKLIST,
+  deriveTriageConfidence,
   parseRouteRecommendation,
   validateIntakeChecklist,
 } from './community-issue.js';

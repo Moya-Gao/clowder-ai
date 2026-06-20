@@ -32,6 +32,9 @@ export interface CommunityIssueItem {
   readonly lastActivity: { readonly at: number; readonly event: string };
   readonly createdAt: number;
   readonly updatedAt: number;
+  // Phase F: route validation + source tracking (SO-2)
+  readonly routeAcceptance?: RouteAcceptance | null;
+  readonly routeSource?: RouteSource | null;
 }
 
 export interface CreateCommunityIssueInput {
@@ -190,4 +193,78 @@ export interface UpdateCommunityIssueInput {
   readonly relatedFeature?: string | null;
   readonly guardianAssignment?: GuardianAssignment | null;
   readonly lastActivity?: { readonly at: number; readonly event: string };
+  // Phase F: route validation + source tracking
+  readonly routeAcceptance?: RouteAcceptance | null;
+  readonly routeSource?: RouteSource | null;
+}
+
+// ---------------------------------------------------------------------------
+// Phase F: Route acceptance state + source tracking (SO-2, SO-3)
+// ---------------------------------------------------------------------------
+
+/** Target cat's validation state for a routed issue (SO-2 state machine). */
+export type RouteAcceptance = 'pending' | 'accepted' | 'rejected';
+
+/** How the route was established. */
+export type RouteSource = 'auto' | 'manual' | 'backfill';
+
+/** Triage confidence level — binary split per CVO direction. */
+export type TriageConfidence = 'high' | 'low';
+
+// ---------------------------------------------------------------------------
+// Phase F: Per-repo routing config (SO-0)
+// ---------------------------------------------------------------------------
+
+/** CVO-defined per-repo guard assignment. Static config, not a state machine. */
+export interface CommunityRepoConfig {
+  readonly repo: string;
+  readonly guardThreadId: string;
+  readonly guardCatId: string;
+  readonly createdAt: number;
+  readonly updatedAt: number;
+}
+
+// ---------------------------------------------------------------------------
+// Phase F: deriveTriageConfidence — pure function (INV-F1)
+// ---------------------------------------------------------------------------
+
+/**
+ * Derive triage confidence from a TriageEntry.
+ *
+ * HIGH requires ALL of:
+ *   1. routeRecommendation.kind === 'existing-thread' (knows where to go)
+ *   2. verdict === 'WELCOME' (direction confirmed)
+ *   3. All questions are PASS or WARN (no FAIL/UNKNOWN)
+ *   4. questions array is non-empty
+ *
+ * Everything else → LOW.
+ *
+ * INV-F1: Pure function — no side effects, no store reads.
+ */
+export function deriveTriageConfidence(
+  entry: Pick<TriageEntry, 'verdict' | 'questions' | 'routeRecommendation'>,
+): TriageConfidence {
+  // Must have an existing-thread route recommendation
+  if (!entry.routeRecommendation || entry.routeRecommendation.kind !== 'existing-thread') {
+    return 'low';
+  }
+
+  // Must be WELCOME verdict
+  if (entry.verdict !== 'WELCOME') {
+    return 'low';
+  }
+
+  // Questions must exist and be non-empty
+  const questions = entry.questions;
+  if (!questions || questions.length === 0) {
+    return 'low';
+  }
+
+  // All questions must be PASS or WARN
+  const allAcceptable = questions.every((q) => q.result === 'PASS' || q.result === 'WARN');
+  if (!allAcceptable) {
+    return 'low';
+  }
+
+  return 'high';
 }

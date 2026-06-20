@@ -16,6 +16,7 @@ export { claudeRescueRoutes } from './claude-rescue.js';
 export { commandsRoutes } from './commands.js';
 export { communityIssueDraftRoutes } from './community-issue-draft-routes.js';
 export { communityIssueRoutes } from './community-issues.js';
+export { communityRepoConfigRoutes } from './community-repo-config.js';
 export { conciergeRoutes } from './concierge.js';
 export { configRoutes } from './config.js';
 export { connectorHubRoutes } from './connector-hub.js';
