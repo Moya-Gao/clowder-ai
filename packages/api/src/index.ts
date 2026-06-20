@@ -34,6 +34,8 @@ import { configEventBus } from './config/config-event-bus.js';
 import { resolveFrontendBaseUrl, resolveFrontendCorsOrigins } from './config/frontend-origin.js';
 import { initRuntimeOverrides } from './config/session-strategy-overrides.js';
 import { assertStorageReady } from './config/storage-guard.js';
+import { F128ApprovalAdapter } from './domains/approval-hub/adapters/F128ApprovalAdapter.js';
+import { F225ApprovalAdapter } from './domains/approval-hub/adapters/F225ApprovalAdapter.js';
 import type { CollaborationContinuityCapsuleV1 } from './domains/cats/services/agents/invocation/CollaborationContinuityCapsule.js';
 import { createTaskProgressStore } from './domains/cats/services/agents/invocation/createTaskProgressStore.js';
 import { InvocationQueue } from './domains/cats/services/agents/invocation/InvocationQueue.js';
@@ -164,6 +166,7 @@ import { gameRoutes } from './routes/games.js';
 import {
   accountsRoutes,
   agentHooksRoutes,
+  approvalHubRoutes,
   audioProxyRoutes,
   auditRoutes,
   authorizationRoutes,
@@ -2518,6 +2521,10 @@ async function main(): Promise<void> {
     queueProcessor,
     socketManager,
     onProposalReject: (input) => onProposalReject({ ...input, proposalType: 'session_handoff' }),
+  });
+  // F246: Approval Hub — unified CVO approval center (query aggregation over F128 + F225)
+  await app.register(approvalHubRoutes, {
+    adapters: [new F128ApprovalAdapter(proposalStore), new F225ApprovalAdapter(handoffProposalStore)],
   });
   // F222: Frustration auto-issue routes
   await app.register(frustrationIssueRoutes, { frustrationIssueStore });

@@ -355,5 +355,17 @@
     "body": "记忆系统有健康面板——如果搜不到东西，可以去 Memory Center 看看是不是配置问题。",
     "action": { "type": "open_concierge_draft", "label": "了解更多" },
     "owner": "opus-47"
+  },
+  {
+    "id": "feature-f246-approval-hub",
+    "kind": "feature",
+    "sourceRef": { "path": "docs/features/F246-approval-hub.md", "anchor": "Phase A" },
+    "structureSource": { "path": "docs/features/F246-approval-hub.md", "anchor": "AC-A3" },
+    "bodySource": { "path": "docs/features/F246-approval-hub.md", "anchor": "统一审批中心底座" },
+    "contexts": ["thinking", "feature_dev"],
+    "audience": ["cvo"],
+    "body": "左侧 Activity Bar 的铃铛图标可以打开审批中心——Thread 提案和 Session 交接都汇聚在这里，不用逐个 Thread 翻找。",
+    "action": { "type": "open_concierge_draft", "label": "了解更多" },
+    "owner": "opus"
   }
 ]
