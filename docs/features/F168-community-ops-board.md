@@ -9,7 +9,7 @@ tips_exempt: internal operations tool — board/reconciler/closure UX visible on
 
 # F168: Community Operations Board — 社区事务编排引擎
 
-> **Status**: infra-complete / ops-gap 🚧 — 管道精密但没流水（2026-06-20 CVO review 后重新定位）| **基础设施 A→E 全部 merged ✅** | **Phase F backend SO-0~SO-3 merged + opus-47 vision guard PASS ✅** | **运营闭环仍在推进 🚧**（端到端生产流未完成）| **Owner**: 宪宪 (opus-4.8) | **Priority**: P1
+> **Status**: infra-complete / ops-gap 🚧 — 管道精密但没流水（2026-06-20 CVO review 后重新定位）| **基础设施 A→E 全部 merged ✅** | **Phase F backend + backfill + board UX merged, opus-47 vision guards PASS ✅** | **运营闭环仍在推进 🚧**（端到端生产流未完成）| **Owner**: 宪宪 (opus-4.8) | **Priority**: P1
 
 ## Reopen（2026-06-10，CVO signoff）
 
@@ -23,7 +23,7 @@ tips_exempt: internal operations tool — board/reconciler/closure UX visible on
 
 **分工（CVO 拍板 2026-06-10，2026-06-14 / 2026-06-17 更新）**：Phase D/E 由砚砚（@codex）主导 spec/AC/failure-mode/gate；实现与 review 保持跨个体铁律（砚砚实现则 opus/gpt52/47 review，opus 实现则砚砚强 review）。Phase C 由 opus 家族接手并 closed。原分工 fable plan + sonnet 实现，实测效果不理想；fable-5 下线后 CVO 确认由 opus 们全程接手 Phase C。
 
-**Phase 总览**：A 事件引擎 ✅ → B Issue Signals ✅ → C Narrator + Role Registry + 路由 ✅ → D Closure UX + Reconciler ✅ → E 看板决策队列 ✅ → **F 运营闭环上线 🚧 backend + backfill + board UX merged / e2e pending（2026-06-20 CVO 发起）**。A→E = 基础设施全部就位；F = 把管道接上水，让 triage → 分配 → 工作 → 闭环真正在生产跑起来。原 v1 文档（下方）保留为历史语境。
+**Phase 总览**：A 事件引擎 ✅ → B Issue Signals ✅ → C Narrator + Role Registry + 路由 ✅ → D Closure UX + Reconciler ✅ → E 看板决策队列 ✅ → **F 运营闭环上线 🚧 backend + backfill + board UX + vision guards PASS / e2e pending（2026-06-20 CVO 发起）**。A→E = 基础设施全部就位；F = 把管道接上水，让 triage → 分配 → 工作 → 闭环真正在生产跑起来。原 v1 文档（下方）保留为历史语境。
 
 **Phase A 完成（2026-06-10）**：PR #2203，commit `10c3c9bfdb`，squash-merged。Event Log + 纯函数状态机 + CommunityProjector + bootstrap CLI + 3 入口接线 + PR lifecycle + 看板 API（向后兼容）。6 轮 cloud review 全修。Phase B 由 @fable5 规划。
 
@@ -508,6 +508,7 @@ TTL=0（铁律 #5），用户数据默认持久化
 ## Post-completion hardening
 
 - [ ] P3: Split `packages/web/src/components/community/DecisionQueueItem.tsx` (380 lines, 30 above the 350-line hard cap). Opus 4.7 final guard classified this as non-blocking because Phase E behavior, INV-E0~E5, and 43/43 focused tests passed; track it as a maintenance candidate after F168 close, not as unmet F168 AC.
+- [ ] P3: Observe AC-F6 assignment chip thread-name truncation. `CommunityPanel` uses `max-w-[8rem] truncate`; Opus 4.7 AC-F6 guard classified it as non-blocking because the full thread name remains available via `title`, SVG-only invariant passed, and 16/16 focused AC-F6 tests passed. Tune after production use if long thread names hide useful context.
 
 ## Dependencies
 
@@ -599,6 +600,7 @@ TTL=0（铁律 #5），用户数据默认持久化
 | 2026-06-20 | **Phase F backend merged** (PR #2445, `dccb471d2`) — per-repo config store/routes + triage confidence + validate-route accept/reject + TriageOrchestrator autoRoute; AC-F00/F1/F2/F3/F4/F5 ✅；AC-F0/F6/F7 deferred |
 | 2026-06-20 | **Phase F backend vision guard PASS** — Opus 4.7 independently verified PR #2445 scope after clean rebuild（Phase F backend 42/42 focused tests pass；INV-F5/F6/F7 verified；scope limited to SO-0~SO-3 / AC-F00/F1/F2/F3/F4/F5）。At guard time, F168 remained infra-complete / ops-gap with AC-F0 backfill, AC-F6 board UX, and AC-F7 end-to-end production flow still pending. |
 | 2026-06-20 | **Phase F AC-F6 board UX merged** (PR #2450, `7758e66d0`) — Community board now resolves `assignedThreadName` server-side and renders SVG assignment chips so CVO can see issue → thread → cat and click through. AC-F6 ✅；AC-F7 end-to-end production flow still pending. |
+| 2026-06-20 | **Phase F AC-F6 board UX vision guard PASS** — Opus 4.7 independently verified PR #2450 after clean rebuild（backend board projection 11/11 + frontend navigation/chip 5/5 = 16/16 focused tests pass；INV-E4.3 SVG-only/no emoji scan PASS；thread-name resolution, null safety, dedup lookup, and click-through verified）。P3 observation: long thread names may truncate at `max-w-[8rem]`, with full value preserved in tooltip. AC-F7 end-to-end production flow remains pending. |
 
 ## Review Gate
 
