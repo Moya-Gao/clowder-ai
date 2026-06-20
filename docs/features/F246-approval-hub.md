@@ -90,7 +90,7 @@ Why: CVO 审批散落在各 thread（F128/F225/F193），铲屎官不在对应 t
 - **事件注入 API**：`registerApprovalItem` / `updateApprovalItemStatus`，**internal service call only**（不暴露为 MCP tool / callback endpoint）。feature adapter 在自己的 propose/approve route 里调用，不是猫直接调
 - **Index recovery**：crash/restart 后从 F128 ThreadProposal store + F225 HandoffProposal store backfill pending items。phantom item（注入成功但 canonical proposal 不存在）定期 reconciliation 清理。settled item（已 approved/rejected）不残留超过 TTL
 - **Hub "待审批" panel**：列表展示当前用户（`ownerUserId`）的 pending items，计数徽标，点击跳转到原 thread。Hub 读/写都走 user auth（`resolveUserId`），不允许跨用户操作
-- **就地审批**：`inlineApprovable=true` 且 `inlineMinFields` 校验通过时，Hub 内直接 approve/reject。**F128 特殊**：就地审批必须支持 `title/parentThreadId` override（与现有卡片 approve 契约一致），否则默认跳转（砚砚 R1 P2-2）
+- **就地审批**：`inlineApprovable=true` 且 `inlineMinFields` 校验通过时，Hub 内直接 approve/reject。**F128 特殊**：就地审批必须支持全量 approve-time overrides（`title`/`parentThreadId`/`preferredCats`/`initialMessage`/`projectPath`/`reportingMode`），否则强制跳转（AC-A4）
 - **过期提醒**：`expiresAt` 到期 → Hub 标记 stale + 徽标提醒，不自动 reject
 
 **AC-A1**: F128 propose_thread 事件注入到 index → Hub 可见
