@@ -96,10 +96,16 @@ settings 独立 section（与成员管理平级，不复用 F154 member overview
   覆盖总结层）；交互走 Design Gate（OQ-6）
 - **前端是 must-have**：没有可见层 CVO 无法贡献体感 = 三源断一源
 
-### Phase D: L2 证据层自动累积
+### Phase D: L2 证据层 + CVO 观察入口
 
-接 F200 TaskTrajectory + consumption signal，自动累积**事实层**。**总结层不能
-纯算法生成**（否则滑回算法路由）——总结仍是 peer/CVO 读事实后的判断，带 provenance。
+直接接通已有数据源（memory search / thread events / review 记录），不等 F200
+完全成熟再动（CVO directive 2026-06-20："直接接通"）。两条线并行：
+- **CVO 观察入口**：画像页"添加观察"按钮，CVO 写一句话 + provenance，存到
+  dossier pending 层（不直接覆盖总结层）
+- **L2 事实层展示**：画像卡片下接"最近证据"，从 memory search 拉该猫相关的
+  review/传球/trajectory 事件。F200 TaskTrajectory + consumption signal 是
+  增强数据源，不是前置依赖
+- **总结层仍由 peer/CVO 判断**——不纯算法生成（KD-3）
 
 ### Phase E: eval 回流蒸馏 + 开源 baseline
 
@@ -127,9 +133,10 @@ settings 独立 section（与成员管理平级，不复用 F154 member overview
 - [x] AC-C3: read-only 展示 ✅ + OQ-9 badge（"擅长领域由画像驱动"）✅。CVO"添加观察"按钮 UI 留 Phase D（read-only MVP，持久化也是 Phase D）
 - [ ] AC-C4: 走 console-dev 4 gate（Product / Design-System / Implementation / Verification）
 
-### Phase D（L2 证据层自动累积）
-- [ ] AC-D1: L2 事实层自动从 F200 TaskTrajectory + consumption signal 累积
-- [ ] AC-D2: 总结层保持 peer/CVO 判断生成（带 provenance），不被算法分数替代
+### Phase D（L2 证据层 + CVO 观察入口）
+- [ ] AC-D1: 画像页"添加观察"按钮，CVO 写观察 + provenance，存到 dossier pending 层
+- [ ] AC-D2: 画像卡片接"最近证据"区域，从 memory search 拉该猫相关 review/传球/trajectory 事件
+- [ ] AC-D3: 总结层保持 peer/CVO 判断生成（带 provenance），不被算法分数替代
 
 ### Phase E（eval 回流 + 开源 baseline）
 - [ ] AC-E1: 画像总结层蒸馏由事件触发（feat close / review 完成），非 cron
@@ -227,6 +234,7 @@ settings 独立 section（与成员管理平级，不复用 F154 member overview
 | 2026-06-19 | 三真相源漂移问题讨论（46 发现 + 48/砚砚并行方案 + CVO 讨论）→ KD-8~13 + OQ-8。CVO signoff F032 边界调整 |
 | 2026-06-20 | Phase B merged (PR #2430) — roster reads from dossier l0RosterSummary, both compile-l0 + SystemPromptBuilder switched, KD-9 drift detection + ENOENT classification, 6+1 regression tests |
 | 2026-06-20 | Phase C merged (PR #2446) — model-grouped dossier settings page (KD-15), OQ-9 badge, formatModelName fix (cloud P2), 27 regression tests. 4-round gpt52 local + 2-round cloud + sonnet fallback review |
+| 2026-06-20 | Phase D kickoff — CVO directive "直接接通已有数据"，不等 F200 成熟。调整 Phase D 方向 + AC |
 
 ## Review Gate
 
