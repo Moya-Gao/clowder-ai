@@ -158,7 +158,7 @@ All merged, all tests green (4383 pass), all vision guards PASS.
 **Phase F AC（CVO 4 轮讨论后定稿）**：
 
 - [x] AC-F00: per-repo routing config——铲屎官可配置每个 repo 的守门 thread + 守门猫（CVO 第四轮 2026-06-20；PR #2445 backend store/routes）
-- [ ] AC-F0: 存量 backfill——砚砚是系统 thread 的守门猫，所有存量 issue 补标 `assignedCatId: codex`（CVO 2026-06-20 明确：砚砚就是干了这些的猫，不是没猫接）
+- [x] AC-F0: 存量 backfill ✅（2026-06-20）——515 条 issue 全部补标：514 codex + 1 sonnet，assignedThreadId 指向社区运维 thread。CVO 原话："砚砚就是干了这些的猫，不是没猫接"
 - [x] AC-F1: narrator triage 新 issue → 生成 Direction Card → 判断置信度（PR #2445 `deriveTriageConfidence`）
 - [x] AC-F2: 有把握 → 直接传球到目标 thread（不经铲屎官）→ @ 目标猫（PR #2445 high-confidence auto-route backend）
 - [x] AC-F3: 没把握 → 审批卡片进 Decision Queue → 铲屎官批准后路由（PR #2445 low-confidence pending-decision backend path）
