@@ -111,12 +111,24 @@ All merged, all tests green (4383 pass), all vision guards PASS.
 
 **认知修正 #2（CVO 2026-06-20 第二轮）**：narrator triage 完不能直接自动路由——**猫也会分错 thread**。正确的流程是 narrator **提议**路由方案，铲屎官**审批后才执行**。类似 F128 propose_thread / F225 的审批卡片机制。
 
-**Phase F 流程（CVO 定向，第三轮修正）**：
+**认知修正 #3（CVO 2026-06-20 第三轮）**：
+> "是砚砚有把握的他直接不要我批准直接传球！但是接受到球的猫需要验证是不是属于他们的 thread！！！然后其他的他没把握就让我审批啊"
+
+**认知修正 #4（CVO 2026-06-20 第四轮）**：
+> "我在想这个开源社区管理是不是可以主动让我设置每个不同的 repo → 对应的守门 thread？以及猫猫，比如这个 repo 守门 thread a 猫猫 b 另一个也允许我定义？"
+>
+> → per-repo routing config：每个 repo 绑定守门 thread + 守门猫，铲屎官在 CommunityPanel 配置。backfill / narrator 路由 / autoRoute 全部从配置读，不硬编码。
+
+**CVO 确认（2026-06-20）**：砚砚的守门 thread = `thread_mp3ab0r9xqxrkrc5`（铲屎官："你看看这个 thread 现在守门砚砚都在这里工作呢！！"）
+
+**Phase F 流程（CVO 4 轮定向后定稿）**：
 
 ```
+前置：铲屎官配置 per-repo routing config（repo → 守门 thread + 守门猫）
+
 新 issue 进来
-  → narrator（砚砚）triage → 生成 Direction Card
-  → 砚砚判断置信度
+  → narrator（守门猫）triage → 生成 Direction Card
+  → narrator 判断置信度
       ├── 有把握 → 直接传球到目标 thread（不经铲屎官）
       │     → @ 目标猫 → 目标猫验证是否属于自己的 thread
       │           ├── 确认接单 → 工作
@@ -127,31 +139,19 @@ All merged, all tests green (4383 pass), all vision guards PASS.
 ```
 
 **两层安全网**：
-1. **砚砚有判断力**——有把握的直接传球（不当 rubber stamp 让铲屎官盖章），没把握的才升级
+1. **守门猫有判断力**——有把握的直接传球（不当 rubber stamp 让铲屎官盖章），没把握的才升级
 2. **目标猫必须验证**——不管谁路由的，目标猫都要确认"这是我的 thread 该接的活吗？"，不对就退回到 Decision Queue
 
-**两步走**：
-1. **F-Step1 存量同步**：把砚砚已完成的工作标记到系统里（backfill `assignedCatId` + `assignedThreadId`）
-2. **F-Step2 审批式路由**：narrator triage → 审批卡片 → 铲屎官批准 → 路由 → 目标猫确认
+**三步走**：
+1. **F-Step0 per-repo config**：铲屎官配置每个 repo 的守门 thread + 守门猫
+2. **F-Step1 存量同步**：从 per-repo config 读配置，backfill 已处理 issue 的 `assignedCatId` + `assignedThreadId`
+3. **F-Step2 置信度分流路由**：narrator triage → 置信度判断 → 直接路由 or 审批卡片 → 目标猫确认
 
-**核心讨论点（待铲屎官定夺）**：
-
-1. **存量 backfill 策略**：
-   - 367 closed → 批量标记 `assignedCatId = codex`（砚砚）+ `assignedThreadId = Repo Inbox thread`？
-   - 148 open → 也标记给砚砚？还是其中有些需要 narrator 重新 triage？
-
-2. **置信度分流**：砚砚怎么判断"有把握"vs"没把握"？
-   - 关联明确 feat + thread 已存在 → 有把握？
-   - issue 类型不清 / 可能跨 feat / 全新事项 → 没把握？
-   - 还是用 Direction Card 里的 5Q 结果自动判？（全 PASS = 有把握）
-
-3. **目标猫验证机制**：
-   - 目标猫收到路由后怎么确认/退回？mention + accept/reject 动作？
-   - 退回后 → 自动进 Decision Queue 让铲屎官重新分配
-
-4. **审批卡片形态**（没把握路径）：
-   - 复用 F128 propose_thread 的审批机制？还是做专门的"路由审批卡片"？
-   - 铲屎官在 Hub 的 Decision Queue tab 里审批？
+**讨论点（4 轮后全部 resolved）**：
+- 存量 backfill：从 per-repo config 读，closed 标给 guardCatId，open 未 triaged 不标（✅ CVO 确认 + 自决）
+- 置信度分流：5Q 全 PASS + WELCOME + existing-thread = high，其余 low（✅ 自决）
+- 目标猫验证：@ mention 提醒 + CommunityPanel 验证卡片双通道（✅ 自决）
+- 审批卡片：复用 Decision Queue（direction-decision kind）（✅ 自决）
 
 **Phase F AC（CVO 4 轮讨论后定稿）**：
 
