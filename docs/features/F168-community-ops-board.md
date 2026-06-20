@@ -105,35 +105,38 @@ All merged, all tests green (4383 pass), all vision guards PASS.
 
 ### Phase F: 运营闭环上线 🚧（2026-06-20 开始讨论）
 
-**目标**：把 A→E 建好的管道接上水——让 narrator triage → thread 分配 → worker 生命周期 → closure 闭环在生产中真正跑起来。
+**目标**：把 A→E 建好的管道接上砚砚已有的运营工作流——砚砚一直在 Repo Inbox thread 里每天跟进 issue，但 F168 系统没有记录这些工作。先同步存量，再自动化增量。
+
+**认知修正（CVO 2026-06-20）**：之前误以为"运营闭环没启动"，实际是**砚砚在老模式（Repo Inbox thread）里每天跟进，但 F168 系统没有反映砚砚的工作**。515 条 issue 中 367 closed（系统通过轮询自动同步了 GitHub 状态），但只有 2 条有 `assignedCatId`——其余 513 条砚砚的工作在系统里是"无人负责"状态。
+
+**两步走**：
+1. **F-Step1 存量同步**：把砚砚已完成的工作标记到系统里（backfill `assignedCatId` + `assignedThreadId`）
+2. **F-Step2 增量自动化**：新 issue 由 narrator 自动 triage → 生成 Direction Card → 分配到工作 thread
 
 **核心讨论点（待铲屎官定夺）**：
 
-1. **触发模式**：narrator triage 怎么触发？
-   - 铲屎官原话（2026-04-18）："最开始 A-C 的完整版本，这里的 issue 和 PR 触发别是自动的巡检，而是我手动点击"
-   - 但现在 515 条 issue 积压，手动逐条点击不现实
-   - 选项：① 全自动（轮询发现新 issue → 自动 spawn narrator）② 手动触发（看板上点按钮）③ 混合（新 issue 自动 triage，存量手动批量）
+1. **存量 backfill 策略**：
+   - 367 closed → 批量标记 `assignedCatId = codex`（砚砚）+ `assignedThreadId = Repo Inbox thread`？
+   - 148 open（60 unreplied + 39 discussing + 26 pending-decision + 23 accepted）→ 也标记给砚砚？还是其中有些是需要 narrator 重新 triage 的？
    
-2. **存量处理**：515 条 issue 怎么办？
-   - 318 closed：已经关了，需要 narrator 跑一遍确认闭环吗？还是直接标记 `legacy-closed`？
-   - 115 new + 55 triaged + 17 routed：这些需要 narrator 重新 triage 吗？
-   - 成本考量：每条 issue narrator triage ≈ 1 次猫猫调用
+2. **增量触发模式**：新 issue 进来后怎么触发 narrator？
+   - 铲屎官原话（2026-04-18）："最开始别自动巡检，手动点击"
+   - 现阶段先手动？还是直接自动（轮询发现新 issue → 自动 spawn narrator）？
 
 3. **narrator 绑定**：谁来当 narrator？
-   - Phase C 默认绑定了 `gemini25`（烁烁），但烁烁禁止写代码
-   - narrator 的活是轻量 triage（不写代码），烁烁合适吗？还是换别的猫？
-   - 还是说 narrator 应该是专门开的"社区 triage thread"里的猫？
+   - Phase C 默认绑定了 `gemini25`（烁烁）—— narrator 是轻量 triage 不写代码，烁烁合适
+   - 还是让砚砚继续做 triage 但通过 F168 系统（不再在 thread 里人肉跟）？
 
-4. **worker thread 创建**：triage 完了怎么分配？
-   - 已有 feat 的 issue → 路由到该 feat thread，@ 负责猫
-   - 全新 issue → 走 `cat_cafe_propose_thread`（F128）铲屎官批准后创建？
-   - bugfix 类 → 猫自决处理？
-
-5. **铲屎官体感验收**：怎么算 Phase F 完成？
-   - 提议 AC：铲屎官打开 Workspace Community tab，能看到 ≥10 条 issue 有 assignedThread + 进度；Decision Queue 有真实决策包；点击能跳到对应 thread
+4. **worker thread 分配**：narrator triage 完后怎么分配工作 thread？
+   - 已有 feat → 路由到该 feat thread
+   - 全新 issue → 走 `cat_cafe_propose_thread`（F128）铲屎官批准后创建
+   - bugfix → 猫自决
+   
+5. **铲屎官体感验收**：打开 Community tab 应该看到什么？
 
 **Phase F AC（草案，待讨论后定稿）**：
 
+- [ ] AC-F0: 存量 backfill——367 closed issue 标记 assignedCatId + assignedThreadId（砚砚 + Repo Inbox thread）
 - [ ] AC-F1: narrator 能对新 issue 自动/手动 triage 并生成 Direction Card
 - [ ] AC-F2: triage 后 issue 被分配到工作 thread（assignedThreadId + assignedCatId 非空）
 - [ ] AC-F3: Decision Queue 有真实决策包（direction-decision / closure-action）
