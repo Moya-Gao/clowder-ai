@@ -9,7 +9,6 @@ const SOURCE_SCRIPT = resolve(process.cwd(), 'scripts/intake-from-opensource.sh'
 const HOOK_SCRIPT = resolve(process.cwd(), '.githooks/pre-commit');
 const DICTIONARY_HELPER = resolve(process.cwd(), 'scripts/brand-dictionary-helper.mjs');
 const DICTIONARY_YAML = resolve(process.cwd(), 'assets/brand-dictionary.yaml');
-const JSYAML_DIR = resolve(process.cwd(), 'node_modules/js-yaml');
 
 function run(cmd, args, cwd, extraEnv = {}) {
   return execFileSync(cmd, args, {
@@ -44,12 +43,10 @@ function makeFixture() {
   cpSync(SOURCE_SCRIPT, join(repoRoot, 'scripts', 'intake-from-opensource.sh'));
   chmodSync(join(repoRoot, 'scripts', 'intake-from-opensource.sh'), 0o755);
 
-  // F238 Phase C: dictionary helper + YAML + js-yaml for classify_path()
+  // F238 Phase C: dictionary helper + YAML for classify_path()
   cpSync(DICTIONARY_HELPER, join(repoRoot, 'scripts', 'brand-dictionary-helper.mjs'));
   mkdirSync(join(repoRoot, 'assets'), { recursive: true });
   cpSync(DICTIONARY_YAML, join(repoRoot, 'assets', 'brand-dictionary.yaml'));
-  mkdirSync(join(repoRoot, 'node_modules'), { recursive: true });
-  cpSync(JSYAML_DIR, join(repoRoot, 'node_modules', 'js-yaml'), { recursive: true });
 
   git(sandboxRoot, 'init', '-b', 'main', 'clowder-ai');
   git(targetRoot, 'config', 'user.name', 'Cat Cafe Test');
@@ -352,12 +349,10 @@ function makeBrandFixture(overrides = {}) {
   cpSync(SOURCE_SCRIPT, join(repoRoot, 'scripts', 'intake-from-opensource.sh'));
   chmodSync(join(repoRoot, 'scripts', 'intake-from-opensource.sh'), 0o755);
 
-  // Phase 2 dictionary-driven scan needs the helper, dictionary YAML, and js-yaml.
+  // Phase 2 dictionary-driven scan needs only the self-contained helper and dictionary YAML.
   cpSync(DICTIONARY_HELPER, join(repoRoot, 'scripts', 'brand-dictionary-helper.mjs'));
   mkdirSync(join(repoRoot, 'assets'), { recursive: true });
   cpSync(DICTIONARY_YAML, join(repoRoot, 'assets', 'brand-dictionary.yaml'));
-  mkdirSync(join(repoRoot, 'node_modules'), { recursive: true });
-  cpSync(JSYAML_DIR, join(repoRoot, 'node_modules', 'js-yaml'), { recursive: true });
 
   const files = { ...BRAND_GOOD, ...overrides };
   for (const [relPath, content] of Object.entries(files)) {
