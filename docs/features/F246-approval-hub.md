@@ -8,7 +8,7 @@ created: 2026-06-20
 
 # F246: Approval Hub — 统一审批中心底座
 
-> **Status**: alpha-validated（Phase A）| **Owner**: 布偶猫/宪宪 (opus-46) | **Priority**: P2
+> **Status**: in-progress（Phase B merged）| **Owner**: 布偶猫/宪宪 (opus-46) | **Priority**: P2
 
 Architecture cell: platform-infra（subcell: `approval-index`）
 Map delta: 新 cell — Hub 通过 feature adapter 实时聚合（query aggregation）各 feature 的 CVO 审批项 + Hub UI panel。不维护独立 index，at-read-time 直查 canonical stores。
@@ -110,7 +110,7 @@ Why: CVO 审批散落在各 thread（F128/F225/F193），铲屎官不在对应 t
 - [x] **AC-A9**: ~~backfill~~ v1 无需 backfill — query aggregation 直接读 canonical stores，restart 后数据天然存在（前提：canonical stores 自身满足持久化 P0 铁律）
 - [x] **AC-A10**: settled items 在 adapter 查询时自动排除（`status=pending` 过滤），不需要额外 reconciliation
 
-### Phase B: F193 E3 接入
+### Phase B: F193 E3 接入 ✅
 
 - F193 E3 卡片审批路径接入底座
 - `F193Adapter.listPending(userId)` 查 DispatchProposal store（与 Phase A 的 F128/F225 adapter 模式一致）
@@ -124,10 +124,10 @@ Why: CVO 审批散落在各 thread（F128/F225/F193），铲屎官不在对应 t
 | `investigate` | 只读调查 | "main 上有你 feature 的 stray 文件" | ❌ 自动投递 |
 | `assign_work` | 开 worktree 写代码 | "这个 bug 归你修" | ✅ Approval Hub |
 
-**AC-B1**: F193 E3 `assign_work` 类卡片审批走底座 → Hub 可见
-**AC-B2**: F193 E3 `fyi`/`coordinate`/`investigate` 类不产生 ApprovalItem（有 fixture 测试证明）
-**AC-B3**: effect-class 由发送猫在 cross-post 时声明，不由底座推断
-**AC-B4**: **接收侧不变量**（砚砚 R2 P2）：`fyi`/`coordinate`/`investigate` 自动投递**永远不是开工授权**。接收猫只能知会/协调/只读调查；写代码必须有 `assign_work` 的 approved DispatchProposal 或 CVO 直接指令。接收侧 prompt 注入 effect-class 标签 + 行为约束。Fixture：imperative wording（"请修这个 bug"）+ non-assign effect-class（`fyi`）= 不触发 ApprovalItem + 接收侧不授权 coding
+- [x] **AC-B1**: F193 E3 `assign_work` 类卡片审批走底座 → Hub 可见
+- [x] **AC-B2**: F193 E3 `fyi`/`coordinate`/`investigate` 类不产生 ApprovalItem（有 fixture 测试证明）
+- [x] **AC-B3**: effect-class 由发送猫在 cross-post 时声明，不由底座推断
+- [x] **AC-B4**: **接收侧不变量**（砚砚 R2 P2）：`fyi`/`coordinate`/`investigate` 自动投递**永远不是开工授权**。接收猫只能知会/协调/只读调查；写代码必须有 `assign_work` 的 approved DispatchProposal 或 CVO 直接指令。接收侧 prompt 注入 effect-class 标签 + 行为约束。Fixture：imperative wording（"请修这个 bug"）+ non-assign effect-class（`fyi`）= 不触发 ApprovalItem + 接收侧不授权 coding
 
 ### Phase C: 成熟化
 
@@ -152,3 +152,4 @@ Why: CVO 审批散落在各 thread（F128/F225/F193），铲屎官不在对应 t
 | 2026-06-20 | Spec created, three-cat convergence (opus-46 + 砚砚 + opus-48) |
 | 2026-06-20 | Phase A merged (PR #2449) — F128 + F225 adapters, Hub drawer + bell badge, real-time sync |
 | 2026-06-20 | Phase A alpha-validated — all 6 smoke items PASS (@sonnet) |
+| 2026-06-20 | Phase B merged (PR #2454) — F193 E3 dispatch adapter, effectClass interception, DispatchProposal store, CAS approve/reject, target validation, delivery rollback |
