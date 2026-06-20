@@ -23,7 +23,7 @@ tips_exempt: internal operations tool — board/reconciler/closure UX visible on
 
 **分工（CVO 拍板 2026-06-10，2026-06-14 / 2026-06-17 更新）**：Phase D/E 由砚砚（@codex）主导 spec/AC/failure-mode/gate；实现与 review 保持跨个体铁律（砚砚实现则 opus/gpt52/47 review，opus 实现则砚砚强 review）。Phase C 由 opus 家族接手并 closed。原分工 fable plan + sonnet 实现，实测效果不理想；fable-5 下线后 CVO 确认由 opus 们全程接手 Phase C。
 
-**Phase 总览**：A 事件引擎（Event Log + 投影 + 状态机）✅ → B Issue Signals 全量事件 ✅ → **C Narrator + Role Registry + 路由 ✅ closed (2026-06-16)** → **D Closure UX + Reconciler ✅ closed (2026-06-19)** → **E 看板决策队列 ✅ closed (2026-06-19)**（plan: `docs/plans/2026-06-19-f168-phase-e-decision-queue.md`；E-PR1 backend contract ✅；E-PR2 frontend UX ✅；owner-thread close guard ✅；Opus 4.7 final vision guard PASS ✅）。原 v1 文档（下方）保留为历史语境。
+**Phase 总览**：A 事件引擎 ✅ → B Issue Signals ✅ → C Narrator + Role Registry + 路由 ✅ → D Closure UX + Reconciler ✅ → E 看板决策队列 ✅ → **F 运营闭环上线 🚧 讨论中（2026-06-20 CVO 发起）**。A→E = 基础设施全部就位；F = 把管道接上水，让 triage → 分配 → 工作 → 闭环真正在生产跑起来。原 v1 文档（下方）保留为历史语境。
 
 **Phase A 完成（2026-06-10）**：PR #2203，commit `10c3c9bfdb`，squash-merged。Event Log + 纯函数状态机 + CommunityProjector + bootstrap CLI + 3 入口接线 + PR lifecycle + 看板 API（向后兼容）。6 轮 cloud review 全修。Phase B 由 @fable5 规划。
 
@@ -102,6 +102,43 @@ F168 的终态不是"基础设施通过愿景守护"。终态是：
 
 All merged, all tests green (4383 pass), all vision guards PASS.
 </details>
+
+### Phase F: 运营闭环上线 🚧（2026-06-20 开始讨论）
+
+**目标**：把 A→E 建好的管道接上水——让 narrator triage → thread 分配 → worker 生命周期 → closure 闭环在生产中真正跑起来。
+
+**核心讨论点（待铲屎官定夺）**：
+
+1. **触发模式**：narrator triage 怎么触发？
+   - 铲屎官原话（2026-04-18）："最开始 A-C 的完整版本，这里的 issue 和 PR 触发别是自动的巡检，而是我手动点击"
+   - 但现在 515 条 issue 积压，手动逐条点击不现实
+   - 选项：① 全自动（轮询发现新 issue → 自动 spawn narrator）② 手动触发（看板上点按钮）③ 混合（新 issue 自动 triage，存量手动批量）
+   
+2. **存量处理**：515 条 issue 怎么办？
+   - 318 closed：已经关了，需要 narrator 跑一遍确认闭环吗？还是直接标记 `legacy-closed`？
+   - 115 new + 55 triaged + 17 routed：这些需要 narrator 重新 triage 吗？
+   - 成本考量：每条 issue narrator triage ≈ 1 次猫猫调用
+
+3. **narrator 绑定**：谁来当 narrator？
+   - Phase C 默认绑定了 `gemini25`（烁烁），但烁烁禁止写代码
+   - narrator 的活是轻量 triage（不写代码），烁烁合适吗？还是换别的猫？
+   - 还是说 narrator 应该是专门开的"社区 triage thread"里的猫？
+
+4. **worker thread 创建**：triage 完了怎么分配？
+   - 已有 feat 的 issue → 路由到该 feat thread，@ 负责猫
+   - 全新 issue → 走 `cat_cafe_propose_thread`（F128）铲屎官批准后创建？
+   - bugfix 类 → 猫自决处理？
+
+5. **铲屎官体感验收**：怎么算 Phase F 完成？
+   - 提议 AC：铲屎官打开 Workspace Community tab，能看到 ≥10 条 issue 有 assignedThread + 进度；Decision Queue 有真实决策包；点击能跳到对应 thread
+
+**Phase F AC（草案，待讨论后定稿）**：
+
+- [ ] AC-F1: narrator 能对新 issue 自动/手动 triage 并生成 Direction Card
+- [ ] AC-F2: triage 后 issue 被分配到工作 thread（assignedThreadId + assignedCatId 非空）
+- [ ] AC-F3: Decision Queue 有真实决策包（direction-decision / closure-action）
+- [ ] AC-F4: 铲屎官在看板上能看到 issue → thread → 猫 的分配关系并点击跳转
+- [ ] AC-F5: 至少 1 条 issue 完成完整闭环（triage → assign → work → closure checklist pass → GitHub 回复/关闭）
 
 ## Why
 
