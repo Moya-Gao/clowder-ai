@@ -235,7 +235,7 @@ Alice 质疑方案成本和时间线；铲屎官提议先做最小验证。
 - Swift 原生重写 — 长期演进方向，不是短期收益
 - ASR 后端切换 — Qwen3-ASR-1.7B 中文会议表现优秀，不换
 
-### Phase G: 声纹识别（Speaker Verification — 从规则归因到 voice embedding） 📋
+### Phase G: 声纹识别（Speaker Verification — 从规则归因到 voice embedding） ✅
 
 **目的**：将现有纯规则的 speaker 归因（mic→host / 2人→other / else→"有人说"）升级为基于 voice embedding 的真正声纹识别，显著提升多人会议中"谁在说话"的准确率。
 
@@ -272,11 +272,11 @@ Python 路径（直接嵌入 `audio-service.py`）：
 - ✅ 但"已知说话人 enrollment + cosine 匹配"（我们的路线）比全自动 diarization 简单得多，可行性高
 
 **AC**：
-- [ ] AC-G1: **Enrollment 阶段** — 会前 `/enroll` 接受参会者语音样本，提取 embedding 存储（扩展现有 `enroll()` 方法从 metadata-only 到 embedding-based）。需测试不同分段长度（1s/2s/3s/5s）对 embedding 质量的影响
-- [ ] AC-G2: **实时归因** — 每个 ASR 段提取 embedding，cosine similarity 对比 enrolled embeddings，最近邻归因（threshold 可配）
-- [ ] AC-G3: **Fallback 降级** — similarity < threshold（默认 0.6）时降级到现有规则归因（保持 Phase C 行为不退化）
-- [ ] AC-G4: **中文会议实测** — 用铲屎官现有会议录音跑 offline 评估，报告指标：speaker attribution accuracy、speaker swap rate、分段长度 ablation（1s/2s/3s/5s）、跨设备 enrollment 测试（近讲麦 vs 会议麦）
-- [ ] AC-G5: **性能预算** — embedding 提取延迟 < 200ms/segment（不拖慢 ASR 管道），显存增量 < 100MB
+- [x] AC-G1: **Enrollment 阶段** — 会前 `/enroll` 接受参会者语音样本，提取 embedding 存储（扩展现有 `enroll()` 方法从 metadata-only 到 embedding-based）。需测试不同分段长度（1s/2s/3s/5s）对 embedding 质量的影响
+- [x] AC-G2: **实时归因** — 每个 ASR 段提取 embedding，cosine similarity 对比 enrolled embeddings，最近邻归因（threshold 可配）
+- [x] AC-G3: **Fallback 降级** — similarity < threshold（默认 0.6）时降级到现有规则归因（保持 Phase C 行为不退化）
+- [x] AC-G4: **中文会议实测** — 用铲屎官现有会议录音跑 offline 评估，报告指标：speaker attribution accuracy、speaker swap rate、分段长度 ablation（1s/2s/3s/5s）、跨设备 enrollment 测试（近讲麦 vs 会议麦）
+- [x] AC-G5: **性能预算** — embedding 提取延迟 < 200ms/segment（不拖慢 ASR 管道），显存增量 < 100MB
 
 **不含（明确排除）**：
 - 实时 speaker diarization（全自动"这段是谁说的"需要 pyannote 完整 pipeline，放会后批处理 / 后续 Phase）
@@ -597,6 +597,7 @@ F104 全感知升级是 research branch，不是 Meeting Copilot 的门槛。MVP
 | 2026-05-27 | 多模态感知调研 prompt + 初步综合完成（docs/research/2026-05-27-multimodal-perception-research/） |
 | 2026-06-18 | Phase G spec added — 声纹识别（从规则归因到 voice embedding），铲屎官排期确认 |
 | 2026-06-19 | ChatGPT Deep Research 回收，Phase G spec 更新：EER 修正、3D-Speaker 备选、分段长度/设备失配/swap rate 评估维度补充 |
+| 2026-06-20 | Phase G merged (PR #2438) — SpeakerEmbedder (CAM++) + enroll() voice_sample + cosine attribution + rule-based fallback + offline eval script + defense-in-depth ndarray sanitization |
 
 ## 用户反馈（铲屎官实测 2026-05-14）
 
