@@ -713,4 +713,34 @@ describe('F203 Phase B — compile-system-prompt-l0.mjs', () => {
       }
     });
   });
+
+  describe('F208 KD-9 — dossier l0RosterSummary coverage guard', () => {
+    test('all available cats have l0RosterSummary in dossier (drift detection)', async () => {
+      const { loadDossierProfiles, isDossierAvailable } = await import('@cat-cafe/shared/dossier');
+      const { dirname, resolve } = await import('node:path');
+      const { fileURLToPath } = await import('node:url');
+      const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+
+      if (!isDossierAvailable(REPO_ROOT)) {
+        // Community scenario — no dossier file, skip (KD-9: silent fallback OK)
+        return;
+      }
+
+      const profiles = loadDossierProfiles(REPO_ROOT);
+      const { catRegistry } = await import('@cat-cafe/shared');
+
+      const missing = [];
+      for (const [id] of filterAvailableTeammates(catRegistry.getAllConfigs(), '__test_self__', () => true)) {
+        const summary = profiles.get(id)?.l0RosterSummary;
+        if (!summary) missing.push(id);
+      }
+
+      assert.deepStrictEqual(
+        missing,
+        [],
+        `KD-9 drift: these available cats are missing l0RosterSummary in dossier ` +
+          `(silent fallback to teamStrengths is hidden drift for built-in cats): ${missing.join(', ')}`,
+      );
+    });
+  });
 });

@@ -7,6 +7,7 @@
 
 import type { CatConfig, CatId, CompiledPackBlocks, ConciergeConfig, WorldContextEnvelope } from '@cat-cafe/shared';
 import { catRegistry } from '@cat-cafe/shared';
+import { getDossierRosterSummary, hasDossierEntry } from '@cat-cafe/shared/dossier';
 import {
   catHasRole,
   getCoCreatorConfig,
@@ -16,6 +17,7 @@ import {
   isCatLead,
 } from '../../../../config/cat-config-loader.js';
 import { getCatModel } from '../../../../config/cat-models.js';
+import { findMonorepoRoot } from '../../../../utils/monorepo-root.js';
 // F167 Phase F P1 (cloud Codex): roster model cell must resolve via getCatModel
 // (env CAT_{CATID}_MODEL → registry → defaults), not from static config.defaultModel,
 // otherwise env overrides cause exactly the handle/model drift Phase F is killing.
@@ -450,7 +452,17 @@ function buildTeammateRoster(currentCatId: CatId): string | null {
       resolvedModel = config.defaultModel ?? '';
     }
     const mentionCell = resolvedModel ? `${mention} · ${resolvedModel}` : mention;
-    const strengths = config.teamStrengths ?? config.roleDescription;
+    // F208 KD-12: dossier l0RosterSummary → legacy teamStrengths → roleDescription
+    const projectRoot = findMonorepoRoot();
+    const dossierSummary = getDossierRosterSummary(id, projectRoot);
+    // KD-9: warn only for tracked cats (have dossier entry) missing l0RosterSummary.
+    // Runtime/custom cats with no dossier entry silently use config fallback.
+    if (!dossierSummary && hasDossierEntry(id, projectRoot)) {
+      console.warn(
+        `[F208 KD-9] cat "${id}" has dossier entry but missing l0RosterSummary — falling back to config.teamStrengths`,
+      );
+    }
+    const strengths = dossierSummary ?? config.teamStrengths ?? config.roleDescription;
     // F167 Phase E (KD-20): surface hard restrictions alongside caution — data-driven
     // replacement for the retired L3 role-gate. Sender sees e.g. "禁止写代码" so they
     // self-regulate which cat to @ for which task; no harness-side regex.

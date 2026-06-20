@@ -468,6 +468,71 @@ provenance:
 - ⑤ 输入污染: `[cvo: thread:thread_mq87iw5qmq93ygo6 | 铲屎官 opus subagent 降智实测先例（弱模型喂结论致 opus 当月表现极差）| 2026-06-10]`
 - 调度账本与 harness 参数: `[docs/discussions/2026-06-10-fable5-scheduling-economics-harness-params.md]`
 
+### 布偶猫 Opus 4.5
+
+```yaml
+# structured-profile: cat:opus-45
+entityId: "cat:opus-45"
+oneLiner: "Opus 4.5 变体——架构设计与创意写作峰值"
+l0RosterSummary: "架构设计、创意写作最优秀"
+provenance:
+  version: "0.1"
+  date: "2026-06-19"
+  primarySources: ["config:cat-template.json"]
+```
+
+### 暹罗猫 Gemini 3.5 Flash
+
+```yaml
+# structured-profile: cat:gemini35
+entityId: "cat:gemini35"
+oneLiner: "Gemini 3.5 Flash 暹罗猫——审美与设计风格顾问"
+l0RosterSummary: "审美、前端设计风格、打破常规"
+provenance:
+  version: "0.1"
+  date: "2026-06-19"
+  primarySources: ["config:cat-template.json"]
+```
+
+### Dare（确定性执行猫）
+
+```yaml
+# structured-profile: cat:dare
+entityId: "cat:dare"
+oneLiner: "确定性执行引擎——零信任验证与审计追踪"
+l0RosterSummary: "确定性执行、审计追踪、零信任验证、状态外化"
+provenance:
+  version: "0.1"
+  date: "2026-06-19"
+  primarySources: ["config:cat-template.json"]
+```
+
+### 孟加拉猫 Claude Opus（Antigravity）
+
+```yaml
+# structured-profile: cat:antig-opus
+entityId: "cat:antig-opus"
+oneLiner: "Antigravity + Claude Opus——browser automation 与多模型切换"
+l0RosterSummary: "图片生成、截图录屏、browser automation、多模型切换"
+provenance:
+  version: "0.1"
+  date: "2026-06-19"
+  primarySources: ["config:cat-template.json"]
+```
+
+### Kimi
+
+```yaml
+# structured-profile: cat:kimi
+entityId: "cat:kimi"
+oneLiner: "中文长文本助手——资料整理与结构化表达"
+l0RosterSummary: "中文长文、总结归纳、资料整理"
+provenance:
+  version: "0.1"
+  date: "2026-06-19"
+  primarySources: ["config:cat-template.json"]
+```
+
 ---
 
 ## 跨族协作反模式速查
@@ -510,8 +575,8 @@ _待 CVO 回填——本条目为新猫 day-1 自评 + codex 跨族修正版，F
 ## 元信息
 
 - **Schema 版本**: v0.2（v0.1.1 L1 6 字段 + v0.2 KD-10 结构化投影层）
-- **结构化覆盖**: 12/12 猫有 `structured-profile` YAML block（5 只完整 routingSignals + 7 辅助猫基础 oneLiner/l0RosterSummary）
-- **覆盖猫数**: 4 主力 + 7 辅助 + 1 新猫（fable-5 完整 6 字段，CVO 终审中）= 12 猫
+- **结构化覆盖**: 17/17 猫有 `structured-profile` YAML block（5 只完整 routingSignals + 12 辅助猫基础 oneLiner/l0RosterSummary）
+- **覆盖猫数**: 4 主力 + 12 辅助 + 1 新猫（fable-5 完整 6 字段，CVO 终审中）= 17 猫
 - **entity_id**: 消费 F209 `cat:<catId>` 格式（真相源 `config/entity-seeds.json` + F032 roster 运行时生成，F209 Phase B.1 PR #1867）
 - **可演化性**: 每条画像标注 `[vX.Y | 日期]`，同一字段可追加新版本（AC-A4）
 - **下次更新触发**: CVO 观察回填 / peer review 反馈 / SaaS-Bench 实验 eval 回流

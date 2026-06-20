@@ -23,6 +23,8 @@ export {
   projectToPetState,
 } from './concierge/pet-skin-projection.js';
 export { CORE_COMMANDS } from './core-commands.js';
+// Dossier profile parser: import from '@cat-cafe/shared/dossier' (F208 KD-10)
+// NOT re-exported here — uses Node.js fs, same pattern as Redis utils.
 // Export registry (CatRegistry, catIdSchema, assertKnownCatId)
 export * from './registry/index.js';
 // Export all schemas
