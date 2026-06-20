@@ -70,10 +70,11 @@ type EuthanasiaKind =
 
 ## §C feat 轨迹 read model（AC-C2 核心）
 
-### 数据双轨（feat doc Line 93-95 已钉）
+### 数据三轨（feat doc Line 93-95 + OQ-8 收敛 2026-06-19，F188 提包球 case 实证驱动）
 
-- **事件流轨（≥ Phase B 上线时刻 = 2026-06-15 PR #2301 merge）**：直接读 `BallCustodyEventLog` → trajectory projector 投影成 feat 维度
+- **事件流轨（≥ Phase B 上线时刻 = 2026-06-15 PR #2301 merge）**：直接读 `BallCustodyEventLog` → trajectory projector 投影成 feat 维度（ball-shaped kinds：`launched` / `phase_transition` / `verdict` / `thread_split` 等）
 - **历史回填轨（< Phase B 上线时刻）**：stitched 拼接 (feat_index + feature doc Timeline + git log + thread keyword + F192 verdict 流)，每条标 provenance + 置信度，**明示考古拼接而非账本**
+- **git ref 轨（OQ-8 收敛锁定 — F188 Phase K 提包球 case 实证驱动）**：server-side cron census 扫 remote `fix/*` / `feat/*` refs + GitHub PR API map → trajectory projector 投影成 **git-shaped kinds**（`branch_pushed` / `pr_opened` / `pr_merged_via_git` / `branch_stale_unmerged`），含 branch existence / PR existence / HEAD commit timestamp / merge-to-main status / author provenance。**不**走 client-side post-push hook（KD-2 单账本 + server-side cron 模式与 Phase B ProbeScheduler 一致）。git-shaped 命名与 ball-custody event 命名**显式解耦**（OQ-8 锁定）：reader-facing 文档可称「提包球」隐喻，schema 层面是 git ref state 投影非球权事件。F188 Phase K case 作 C2a regression fixture：projector 必须能把"已 push、无 PR、最后 commit 时间晚于最后 thread/message 痕迹"的状态 surface 出来（`branch_stale_unmerged` event with 完整 provenance）。
 
 ### Projector 设计
 
@@ -81,18 +82,29 @@ type EuthanasiaKind =
 interface FeatTrajectoryEntry {
   featId: string;          // F192 / F229 / ...
   at: number;
-  kind: 'launched' | 'phase_transition' | 'pr_merged' | 'verdict' | 'thread_split' | 'thread_merge' | 'closed' | 'reopened' | 'historical_stitched';
-  source: 'event-stream' | 'historical-stitched';
+  kind:
+    // ball-custody event 投影（ball-shaped）
+    | 'launched' | 'phase_transition' | 'pr_merged' | 'verdict' | 'thread_split' | 'thread_merge' | 'closed' | 'reopened'
+    // historical stitched 回填（< Phase B 上线时刻）
+    | 'historical_stitched'
+    // git ref snapshot（OQ-8 收敛 + F188 regression fixture，git-shaped 显式解耦）
+    | 'branch_pushed' | 'pr_opened' | 'pr_merged_via_git' | 'branch_stale_unmerged';
+  source: 'event-stream' | 'historical-stitched' | 'git-ref-snapshot';
   provenance?: {
     confidence: 'high' | 'medium' | 'low';
-    derivedFrom: string[];  // ['feat_index', 'git log', 'thread:thread_xxx']
+    derivedFrom: string[];  // ['feat_index', 'git log', 'thread:thread_xxx', 'git_ref:fix/f188-phase-k', 'gh_pr:#NNNN']
     note?: string;
   };
   payload: Record<string, unknown>;
 }
 ```
 
-`FeatTrajectoryProjector` 从 ball-custody event stream + feat 元数据 join 投影。historical stitch 是一次性脚本（不进 projector，避免双写），跑完落 `FeatTrajectoryStore` 同一 key space，read 时同读双源。
+`FeatTrajectoryProjector` 从 **ball-custody event stream + git ref snapshot + GitHub PR map + feat 元数据** 三源 join 投影。各源 contract：
+- **event-stream source contract**：`subjectKey` 匹配 feat thread / task，时间窗 ≥ 2026-06-15
+- **git-ref-snapshot source contract**（OQ-8 锁定）：`{ branchName, headCommitSha, headCommitAt, prNumber|null, prState|null, mergedToMain|null, authorIdentity }`，最少字段
+- **historical stitched source contract**：feat_index entry / git log commit + 关联 thread 锚点 + F192 verdict 流
+
+historical stitch 是一次性脚本（不进 projector，避免双写），跑完落 `FeatTrajectoryStore` 同一 key space；git ref snapshot 走 server-side cron tick（与 ProbeScheduler 同 pattern），落同一 store；read 时同读三源。
 
 ### Surface（OQ-C-3 待 Design Gate）
 
@@ -117,7 +129,7 @@ interface FeatTrajectoryEntry {
 | C1a | 安乐死事件 schema + 3 个 builder + state machine 转移表追加（含 INV-10 全 8 state × 3 event = 24 格 + 已 resolved reject 1 行）+ 测试 | AC-C1 | 1 PR |
 | C1b | MCP 工具 `cat_cafe_ball_euthanize` + Hub UI（简报卡 inline action 待 KD-6 实测） | AC-C1 入口 | 1 PR |
 | C1c | 简报 projection 处理 resolved 球（消项 / collapse / 隐藏 — OQ-C-4） | AC-C1 出口 | 0.5 PR |
-| C2a | `FeatTrajectoryProjector` + Store + 读 ball-custody event → feat 维度投影 | AC-C2 数据层 | 1 PR |
+| C2a | `FeatTrajectoryProjector` + Store + 读 **ball-custody event + git ref snapshot + GitHub PR map** → feat 维度投影 + **F188 Phase K case 作 regression fixture**（branch_stale_unmerged with full provenance）；OQ-8 收敛锁定的三源 source-contract 落地 | AC-C2 数据层 | 1 PR |
 | C2b | historical stitched 回填脚本（一次性，feat_index + git log + thread 关联 + F192 verdict 拼接 + provenance 标注） | AC-C2 回填 | 1 PR |
 | C2c | trajectory surface（OQ-C-3 选定后实现：Hub panel / 简报下钻 / rich block） | AC-C2 frontend | 1-2 PR |
 | C3 | 单账本验证测试（双投影同源 + stitched provenance 抽查）+ AC-C3 验收 fixture | AC-C3 | 0.5 PR |
