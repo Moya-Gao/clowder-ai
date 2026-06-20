@@ -62,6 +62,7 @@ export function IdentitySection({
   form,
   hasError,
   avatarUploading,
+  hasDossier,
   onChange,
   onAvatarUpload,
   onRefAudioUpload,
@@ -70,6 +71,8 @@ export function IdentitySection({
   form: HubCatEditorFormState;
   hasError?: boolean;
   avatarUploading: boolean;
+  /** F208 OQ-9: true when this cat has a structured dossier profile. */
+  hasDossier?: boolean;
   onChange: (patch: FormPatch) => void;
   onAvatarUpload: (file: File) => Promise<void>;
   onRefAudioUpload: (file: File) => Promise<void>;
@@ -184,6 +187,14 @@ export function IdentitySection({
         onChange={(hex) => onChange({ colorPrimary: hex, colorSecondary: hex })}
       />
 
+      {hasDossier && (
+        <p className="rounded-lg bg-conn-purple-bg px-3 py-1.5 text-xs text-conn-purple-text">
+          此猫已有结构化能力画像，擅长领域由画像驱动。此字段保留为社区兜底。
+          <a href="/settings?s=profiles" className="ml-1 underline hover:no-underline">
+            前往画像页 →
+          </a>
+        </p>
+      )}
       <TextField
         label="擅长领域"
         ariaLabel="Team Strengths"

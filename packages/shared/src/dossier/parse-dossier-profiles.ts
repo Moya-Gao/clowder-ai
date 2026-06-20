@@ -81,42 +81,60 @@ function parseYamlBlock(content: string): DossierProfile | null {
     if (antiSignals) profile.routingSignals.antiSignals = antiSignals;
   }
 
+  // Parse provenance (Phase C AC-C2: display provenance on frontend)
+  const version = extractStringField(content, 'version');
+  const date = extractStringField(content, 'date');
+  if (version || date) {
+    profile.provenance = {
+      version: version ?? '0.0',
+      date: date ?? 'unknown',
+    };
+    const primarySources = extractListField(content, 'primarySources');
+    if (primarySources) profile.provenance.primarySources = primarySources;
+  }
+
   return profile;
 }
 
-/** Extract a quoted string field: `fieldName: "value"` */
+/** Extract a quoted string field: `fieldName: "value"` (allows optional leading whitespace for nested fields) */
 function extractStringField(content: string, field: string): string | undefined {
-  const pattern = new RegExp(`^${field}:\\s*"(.+)"\\s*$`, 'm');
+  const pattern = new RegExp(`^\\s*${field}:\\s*"(.+)"\\s*$`, 'm');
   const match = content.match(pattern);
   return match?.[1];
 }
 
-/** Extract a list field: indented `- "value"` items under a field name */
+/** Extract a list field: supports both inline `["a", "b"]` and multi-line `- "value"` */
 function extractListField(content: string, field: string): string[] | undefined {
   const lines = content.split('\n');
-  let collecting = false;
-  let fieldIndent = -1;
-  const items: string[] = [];
 
-  for (const line of lines) {
-    const trimmed = line.trimStart();
-    const indent = line.length - trimmed.length;
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trimStart();
+    if (!trimmed.startsWith(`${field}:`)) continue;
 
-    if (trimmed.startsWith(`${field}:`)) {
-      collecting = true;
-      fieldIndent = indent;
-      continue;
+    // Check for inline array: `field: ["a", "b", "c"]`
+    const inlineMatch = trimmed.match(new RegExp(`^${field}:\\s*\\[(.+)\\]`));
+    if (inlineMatch) {
+      return inlineMatch[1]
+        .split(',')
+        .map((s) => s.trim().replace(/^"(.*)"$/, '$1'))
+        .filter(Boolean);
     }
-    if (collecting) {
-      const itemMatch = line.match(/^\s+-\s+"(.+)"$/);
+
+    // Multi-line format: collect indented `- "value"` lines
+    const fieldIndent = lines[i].length - trimmed.length;
+    const items: string[] = [];
+    for (let j = i + 1; j < lines.length; j++) {
+      const itemTrimmed = lines[j].trimStart();
+      const itemIndent = lines[j].length - itemTrimmed.length;
+      const itemMatch = lines[j].match(/^\s+-\s+"(.+)"$/);
       if (itemMatch) {
         items.push(itemMatch[1]);
-      } else if (trimmed && indent <= fieldIndent) {
-        // Hit a sibling or parent field — stop collecting
-        break;
+      } else if (itemTrimmed && itemIndent <= fieldIndent) {
+        break; // Hit a sibling or parent field
       }
     }
+    return items.length > 0 ? items : undefined;
   }
 
-  return items.length > 0 ? items : undefined;
+  return undefined;
 }

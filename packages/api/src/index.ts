@@ -185,6 +185,7 @@ import {
   connectorMediaRoutes,
   connectorPluginRoutes,
   distillationRoutes,
+  dossierRoutes,
   eventsRoutes,
   evidenceRoutes,
   executionDigestRoutes,
@@ -1936,6 +1937,7 @@ async function main(): Promise<void> {
   const connectorHubOpts: Parameters<typeof connectorHubRoutes>[1] = { threadStore, redis: redisClient ?? undefined };
   await app.register(connectorHubRoutes, connectorHubOpts);
   await app.register(connectorPluginRoutes);
+  await app.register(dossierRoutes, { projectRoot: resolveActiveProjectRoot() });
   await app.register(brakeRoutes, { activityTracker });
 
   // F101: Game routes (store created earlier for /game command interception)
