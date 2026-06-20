@@ -49,8 +49,13 @@ Why: CVO 审批散落在各 thread（F128/F225/F193），铲屎官不在对应 t
 | KD-4 | 就地审批有条件 | inlineMinFields 守门（summary + impact + action 非空），不靠 feature 自报 |
 | KD-5 | 过期 ≠ 自动拒绝 | 过期 = 上下文 stale，按钮变"刷新/重新提议"；提醒走 Hub 徽标不追加噪音 |
 | KD-6 | F193 E3 拆两半 | 自动投递先做不卡，卡片审批等底座 v1 |
+| KD-7 | Index 注入 internal-only + user-scoped | 注入 API 只允许 internal service call（不暴露为 MCP/callback tool），Index 带 `ownerUserId`，Hub 读写都走 user auth（砚砚 R1 P1-1） |
+| KD-8 | Index 可从 canonical stores 重建 | CQRS read view 是派生数据，crash/restart 后从 F128/F225/F193 stores backfill；phantom item 不出现、settled item 不残留（砚砚 R1 P1-2） |
+| KD-9 | F193 E3 effect-class 机械化边界 | FYI/协调/只读调查 = 自动投递（不产生 ApprovalItem）；任务分配/要求接收方改代码 = Approval Hub。有 fixture 证明非任务分配类不触发审批（砚砚 R1 P1-3） |
 
-### Admission Criteria（接入三条件，AND）
+### Admission Criteria（接入资格三条件，AND）
+
+> **eligibility ≠ v1 inclusion**：满足三条件 = 有资格接入底座。v1 是 scope 控制（MVP 先做 F128/F225/F193 E3），不是资格排除。F231 等满足条件但 v1 不接，纯粹是排期。（砚砚 R1 P2-1）
 
 | # | 条件 | 说明 | 反例 |
 |---|------|------|------|
@@ -74,26 +79,48 @@ Why: CVO 审批散落在各 thread（F128/F225/F193），铲屎官不在对应 t
 
 ### Phase A: Approval Index + Hub Panel (MVP)
 
-- **ApprovalItem index store**：read-side 索引，字段 `sourceFeatureId, sourceThreadId, sourceMessageId, requesterCatId, status, summary, actions, inlineApprovable, expiresAt`
-- **事件注入 API**：各 feature 状态变更时调用 `registerApprovalItem` / `updateApprovalItemStatus`
-- **Hub "待审批" panel**：列表展示所有 pending items，计数徽标，点击跳转到原 thread
-- **就地审批**：`inlineApprovable=true` 且 `inlineMinFields` 校验通过时，Hub 内直接 approve/reject
+- **ApprovalItem index store**：read-side 索引，字段：
+  - `ownerUserId` — 审批项归属用户（Hub 读取按 userId 过滤，防跨用户泄露）
+  - `sourceFeatureId` — 来源 feature（限 allowlist：`F128` / `F225` / `F193`，v1 硬编码）
+  - `sourceThreadId`, `sourceMessageId` — 原始位置（跳转用）
+  - `requesterCatId` — 发起审批的猫
+  - `status` — `pending` / `approved` / `rejected` / `stale`
+  - `summary`, `actions`, `inlineApprovable`, `expiresAt`
+  - `canonicalProposalId` — 指向 feature 自己的 proposal store 的 ID（backfill/reconciliation 用）
+- **事件注入 API**：`registerApprovalItem` / `updateApprovalItemStatus`，**internal service call only**（不暴露为 MCP tool / callback endpoint）。feature adapter 在自己的 propose/approve route 里调用，不是猫直接调
+- **Index recovery**：crash/restart 后从 F128 ThreadProposal store + F225 HandoffProposal store backfill pending items。phantom item（注入成功但 canonical proposal 不存在）定期 reconciliation 清理。settled item（已 approved/rejected）不残留超过 TTL
+- **Hub "待审批" panel**：列表展示当前用户（`ownerUserId`）的 pending items，计数徽标，点击跳转到原 thread。Hub 读/写都走 user auth（`resolveUserId`），不允许跨用户操作
+- **就地审批**：`inlineApprovable=true` 且 `inlineMinFields` 校验通过时，Hub 内直接 approve/reject。**F128 特殊**：就地审批必须支持 `title/parentThreadId` override（与现有卡片 approve 契约一致），否则默认跳转（砚砚 R1 P2-2）
 - **过期提醒**：`expiresAt` 到期 → Hub 标记 stale + 徽标提醒，不自动 reject
 
 **AC-A1**: F128 propose_thread 事件注入到 index → Hub 可见
 **AC-A2**: F225 session_handoff 事件注入到 index → Hub 可见
 **AC-A3**: Hub panel 展示待审批列表 + 计数徽标
-**AC-A4**: 就地审批 F128（信息自足）→ 批完状态同步回 F128 store
+**AC-A4**: 就地审批 F128 → 批完状态同步回 F128 store。**必须支持 `title`/`parentThreadId` override**（与 F128 现有 approve-time 编辑契约一致），否则默认跳转不降级审批能力
 **AC-A5**: 跳转审批 F225（需上下文）→ 跳到原 thread
 **AC-A6**: 过期项标记 stale，不自动 reject
+**AC-A7**: Hub 读取按 `ownerUserId` 过滤，user A 看不到 user B 的待审批项
+**AC-A8**: 注入 API 不暴露为 MCP tool/callback。非 allowlist feature 的注入调用被拒绝
+**AC-A9**: 服务 restart 后从 canonical stores (F128/F225) backfill → index 不丢单。phantom item（canonical 不存在）不出现在 Hub
+**AC-A10**: 已 settled（approved/rejected）的 item 在 reconciliation 后从 pending 列表移除
 
 ### Phase B: F193 E3 接入
 
 - F193 E3 卡片审批路径接入底座
 - DispatchProposal store + 事件注入
 
-**AC-B1**: F193 E3 卡片审批走底座 → Hub 可见
-**AC-B2**: 自动投递路径不受影响（不走底座）
+#### F193 E3 Effect-Class Matrix（机械化边界，砚砚 R1 P1-3）
+
+| effect-class | 接收方动作 | 示例 | 走底座？ |
+|-------------|-----------|------|---------|
+| `fyi` | 看一眼 + 知道了 | "shared 改了请 rebuild" | ❌ 自动投递 |
+| `coordinate` | 协调自己的节奏 | "你卡我了请 ack" / "请 rebase" | ❌ 自动投递 |
+| `investigate` | 只读调查 | "main 上有你 feature 的 stray 文件" | ❌ 自动投递 |
+| `assign_work` | 开 worktree 写代码 | "这个 bug 归你修" | ✅ Approval Hub |
+
+**AC-B1**: F193 E3 `assign_work` 类卡片审批走底座 → Hub 可见
+**AC-B2**: F193 E3 `fyi`/`coordinate`/`investigate` 类不产生 ApprovalItem（有 fixture 测试证明）
+**AC-B3**: effect-class 由发送猫在 cross-post 时声明，不由底座推断
 
 ### Phase C: 成熟化
 
