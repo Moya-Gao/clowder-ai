@@ -9,7 +9,7 @@ tips_exempt: internal operations tool — board/reconciler/closure UX visible on
 
 # F168: Community Operations Board — 社区事务编排引擎
 
-> **Status**: done ✅ — F168 overall closed (2026-06-19) | **Phase A ✅** | **Phase B ✅ closed (2026-06-12)** | **Phase C ✅ closed (2026-06-16)**（C0 前置 ✅ / C1 Role Registry ✅ / C2 narrator spawn ✅ / C3.1 resolve routing ✅ / C3.2 DirectionCard + eval.1 ✅）| **Phase D ✅ closed (2026-06-19)**（D0.1 narrator eligibility gate ✅ / D-PR1 backend closure core ✅ / D-PR2 reconciler + SLA ✅ / D-PR3 closure UX + docs ✅）| **Phase E ✅ closed (2026-06-19)**（E-PR1 backend queue contract ✅ / E-PR2 frontend UX + docs ✅ / E-close guard owner-thread navigation ✅ / final vision guard PASS ✅）| **Completed**: 2026-06-19 | **First completed**: 2026-04-20 | **Owner**: 宪宪 (opus-4.8，2026-06-12 接手自 fable-5) | **Priority**: P1
+> **Status**: infra-complete / ops-gap 🚧 — 管道精密但没流水（2026-06-20 CVO review 后重新定位）| **基础设施 A→E 全部 merged ✅** | **运营闭环未上线 ❌**（narrator 自动 triage → thread 分配 → worker 生命周期 → closure 全链路未跑通生产）| **Owner**: 宪宪 (opus-4.8) | **Priority**: P1
 
 ## Reopen（2026-06-10，CVO signoff）
 
@@ -43,6 +43,65 @@ tips_exempt: internal operations tool — board/reconciler/closure UX visible on
 - optional-dep 接线缺失已四犯 → **Phase C 落硬层检查**（ADR-031：构造点传参 grep 守护测试）
 - narrator 排除存量（453 条 bootstrap case 不进 triage 队列，防 64+ 卡风暴）→ **Phase C plan 硬约束**
 - `GITHUB_WEBHOOK_SECRET` 已在 chat 暴露 → **待铲屎官**：换新值或清空禁用（webhook 现为 opt-in 未启用，清空 = 攻击面归零）
+
+## Operational Gap Assessment（2026-06-20，CVO review）
+
+> **背景**：A→E 基础设施全部 merged 并通过愿景守护，但铲屎官在 CVO review 中发现：管道精密但没流水。
+> **诊断来源**：砚砚运维回顾 `2026-06-09-community-ops-eventbus-retrospective.md` + 铲屎官 2026-06-10 原始 thread 投诉。
+
+### 砚砚投诉的 7 个痛点 vs 当前状态
+
+铲屎官在 reopen 时明确了 7 个痛点（来自对砚砚运维经验的观察）。这些才是 F168 reopen 的真正北极星：
+
+| # | 痛点 | 砚砚原文/铲屎官描述 | 当前状态 |
+|---|------|---------------------|----------|
+| 1 | **上下文污染** | 源 thread 混杂 N 条不相关 issue/PR，砚砚被迫在脑中维护多对象状态 | ❌ 有管道没流水——Role Registry + narrator 能把事务分发到独立 thread，但生产中 0 条 issue 被分配到工作 thread |
+| 2 | **源 thread 干太多** | 一个 thread 同时当 event inbox / router / evidence checker / CVO translator / PR reviewer / downstream monitor / GitHub scribe / closure guard | ❌ 同上——NarratorDriver + TriageOrchestrator 代码就绪，但 narrator 从未在生产 triage 过一条 issue |
+| 3 | **过度验证（verification addiction）** | 砚砚对每条 issue 做深度代码 review 级别的验证，inbox routing 的成本被拉到 maintainer brain 级别 | ❌ 设计上 narrator = 轻量 triage（不做深度 review），但 narrator 没跑过，砚砚仍在老模式 |
+| 4 | **PR 进行中不该管** | PR 分配到 thread 后应由 worker thread 全权管理生命周期，源 thread 不该反复过问进度 | ❌ worker thread 生命周期管理代码（closure checklist / reconciler）就绪，但没有 worker thread 被创建过 |
+| 5 | **CVO 报告太技术** | 铲屎官收到的不是价值决策包（"这是个真 bug，建议路由到 F070"），而是工程噪声（"我检查了 governance-pack.ts..."） | ❌ Decision Queue 前端已上线，5 种决策类型已建模，但队列数据为空——没有 narrator 生产决策包 |
+| 6 | **追评无事件** | 外部用户在 issue 下追评后，系统没有事件驱动唤醒 owner thread | ✅ `issue.commented` 事件已上线（Phase B），轮询采集 + 事件投影 + wake 路径已验收 |
+| 7 | **闭环遗忘** | 代码修了但忘了回复 GitHub、忘了关 issue、忘了更新 label——下次全量同步时发现积压 | ❌ Closure checklist + reconciler + SLA dead-letter 全部就绪，但没有 worker thread 触发过 closure flow |
+
+**结论**：7 个痛点中，只有 #6（追评事件）真正在生产中运行。其余 6 个痛点的**基础设施全部就位**，但**运营闭环从未启动**。
+
+### 核心缺口：运营闭环
+
+生产数据（2026-06-19）：
+
+- 515 条 community issues（318 closed / 115 new / 55 triaged / 17 routed / 10 null）
+- **0 条 issue 被分配到工作 thread**（`with_thread = 0`）
+- **2 条 issue 有 assignedCatId**（515 条中的 2 条）
+- **Decision Queue 为空**（narrator 从未生产过决策包）
+
+根因：我们建了精密的管道系统（Event Log → Projector → State Machine → Reconciler → SLA → Decision Queue → Closure Guard），但从未把水（实际 issue triage）接进管道。
+
+### 真正想做的（北极星）
+
+F168 的终态不是"基础设施通过愿景守护"。终态是：
+
+1. **narrator 自动运行**：新 issue/PR 进来 → narrator 自动 triage → 生成 Direction Card → 发到 CVO Decision Queue 或猫自决路由
+2. **thread 分配生效**：triage 完成 → issue 被分配到工作 thread → assignedCatId + assignedThreadId 写入 → 看板上能看到"谁在哪个 thread 干这个 issue"
+3. **worker 生命周期跑通**：worker thread 接管后全权管理 → 有进度就更新事件 → 铲屎官点击 issue 能跳到对应 thread 看进度
+4. **closure 闭环生效**：worker 完成后 closure checklist 自动校验 → GitHub 回复/关 issue/更新 label → reconciler 定期扫描兜底
+5. **铲屎官体感变化**：从"人肉 dispatcher"变成"Decision Queue 里看决策包、拍板、看进度"——铲屎官打开 Workspace Community tab 能看到谁在干什么、卡在哪里
+
+**铲屎官原话（reopen thread）**：
+> "管道精密但没流水。你们建了一整套管道系统——Event Log、Projector、State Machine、Reconciler、SLA、Decision Queue、Closure Guard——每一段都精密、测试全绿、愿景守护 PASS。但生产中 515 条 issue，0 条被分配到工作 thread，Decision Queue 是空的。砚砚的 7 个痛点只解决了 1 个。"
+
+### 基础设施清单（已完成，保留参考）
+
+<details>
+<summary>A→E Phase 基础设施完成记录（点击展开）</summary>
+
+- **Phase A ✅** Event Log + 纯函数状态机 + CommunityProjector + bootstrap
+- **Phase B ✅** Issue Signals 全量事件（issue.commented / labeled / pr.review_submitted / awaiting_external）+ 轮询链路 + 453 条 legacy 迁移
+- **Phase C ✅** Narrator spawn + Role Registry + DirectionCard + resolve routing + eval.1
+- **Phase D ✅** Closure checklist + reconciler + SLA dead-letter + closure UX components
+- **Phase E ✅** Decision Queue selector + API + frontend UX + owner-thread navigation
+
+All merged, all tests green (4383 pass), all vision guards PASS.
+</details>
 
 ## Why
 
