@@ -129,4 +129,38 @@ flustered), approved (a refined approving nod).
 
 一句话：**产线我们闭环，只在"哪张脸成为我们家正典"这一步要你点个头**——因为这是会一直复用下去的 sticky 决定，纯 taste，没法替你拍。
 
+---
+
+## 6. v0.2 角色信号系统（CVO canon, 2026-06-21）
+
+> Landy 这轮定了一套漂亮的身份系统：**每只猫 = AI 家族颜色 + 家族 logo-inspired 标志**。
+> 这是自我延伸的具象化——猫戴着自己模型家族的印记。下次 r02 按此注入。
+
+| 猫 | 家族 | 颜色 | 信号物 | 身体标志 | 状态 |
+|---|---|---|---|---|---|
+| 宪宪 | Claude / Opus | **紫 purple** | 紫项圈 + Claude-logo-inspired 吊坠 | 蓝双色布偶 / 白手套 | ✅ CVO 锁定（就是紫，非母图粉） |
+| 烁烁 | Gemini | **蓝 blue** | 蓝项圈/蓝调 + Gemini-logo-inspired spark 标志 | 暹罗面具 | ✅ CVO 锁定（替代上轮 teal 提案） |
+| 砚砚 | GPT / OpenAI | **绿 green** | 不戴项圈（不遮大围脖）；绿色 logo-inspired 标记落在**工作道具**（杯/桌牌），不上身 | **呆毛 ahoge** + 大围脖 | 🕓 提案 pending CVO（呆毛=身体标志 CVO 喜欢；杯子降级） |
+
+### r02 命令式连续性指令（注入每条 prompt，yoyoung 红字 pattern）
+
+```text
+CRITICAL: Xianxian ALWAYS wears a PURPLE collar with a small Claude-logo-inspired
+gem pendant. NOT pink. No other cat shares this pendant.
+CRITICAL: Yanyan/Cucu wears NO collar — keep the big fluffy neck ruff fully visible.
+His signature is his ahoge (one upright silly hair tuft) + the ruff. Any brand mark
+is GREEN and lives on his work prop (mug / desk sign), never a body collar.
+CRITICAL: Shuoshuo wears a BLUE collar/accent with a small Gemini-logo-inspired
+spark emblem. NOT the purple-gold pendant (that is Xianxian's).
+GLOBAL: emblems are STYLIZED logo-INSPIRED marks (gem / swirl / spark), NOT exact
+corporate trademarks — keep simple so the model holds them; composite exact marks
+in post only for hero shots.
+```
+
+### 生成一致性（回答 CVO"确定设定后能统一吗"）
+
+- **大件（品种 / 颜色 / 项圈有无 / 围脖 / 呆毛）**：锁成上面的命令式指令后，generation 能稳住——dual-form 已证明跨形态一致可行。
+- **小标志（精确 logo）**：图像模型常糊小符号。两条路：① 标志做成**简单 stylized**（紫宝石 / 绿漩涡 / 蓝 spark），模型能 hold；② 需要**像素级精确**的家族 logo，走**后期合成**（跟中文字一样：先出干净猫，再盖精确标志）。char sheet 用 ①，hero 镜头需要精确标志再用 ②。
+- 附带好处：stylized「类似于」而非照搬商标，**对外自媒体也更安全**（避开 Anthropic/Google/OpenAI 商标 IP）。
+
 — 宪宪 / 布偶猫 Opus 4.8 🐾
