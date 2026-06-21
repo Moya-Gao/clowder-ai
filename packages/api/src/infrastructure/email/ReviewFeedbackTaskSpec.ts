@@ -18,6 +18,7 @@ import {
 } from '../../domains/cats/services/stores/ports/ThreadStore.js';
 import type { ICommunityEventLog } from '../../domains/community/CommunityEventLog.js';
 import { decideDelivery } from '../../domains/community/community-delivery-policy.js';
+import type { DistillationCheckpoint } from '../distillation/DistillationCheckpoint.js';
 import type { ExecuteContext, TaskSpec_P1 } from '../scheduler/types.js';
 import type { ConnectorInvokeTrigger, ConnectorTriggerPolicy } from './ConnectorInvokeTrigger.js';
 import type {
@@ -42,6 +43,8 @@ export interface ReviewFeedbackSignal {
 export interface ReviewFeedbackPrMetadata {
   readonly headSha: string;
   readonly prState: 'open' | 'merged' | 'closed';
+  /** PR title from GitHub — used by distillation checkpoint to extract featureId/phaseLabel. */
+  readonly prTitle?: string;
 }
 
 export interface ReviewFeedbackTaskSpecOptions {
@@ -79,6 +82,8 @@ export interface ReviewFeedbackTaskSpecOptions {
   // F168 Phase A: community event log + projector (best-effort, optional)
   readonly eventLog?: ICommunityEventLog;
   readonly projector?: { apply(event: CommunityEvent): Promise<void> };
+  // F208 Phase E AC-E2: distillation checkpoint (best-effort, optional)
+  readonly distillationCheckpoint?: DistillationCheckpoint;
 }
 
 function resolveCursor(memoryCursor: number | undefined, persistedCursor: number | undefined): number {
@@ -318,6 +323,30 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
                   }
                 } catch {
                   opts.log.warn(`[review-feedback] community event emit failed for ${prKey}`);
+                }
+              }
+
+              // F208 AC-E2: distillation checkpoint on feat-phase-close (best-effort)
+              if (opts.distillationCheckpoint && prMetadata.prState === 'merged') {
+                try {
+                  // Extract feature ID from PR title (e.g. "feat(F208): Phase E AC-E2 — ...")
+                  // PR title is the canonical source; fall back to trackingInstructions.
+                  const featureSource = prMetadata.prTitle ?? trackingTask.automationState?.trackingInstructions ?? '';
+                  const featureMatch = featureSource.match(/\b[Ff](\d{2,4})\b/);
+                  const featureId = featureMatch ? `F${featureMatch[1]}` : undefined;
+                  if (featureId) {
+                    const phaseMatch = featureSource.match(/[Pp]hase\s+([A-Z])/i);
+                    await opts.distillationCheckpoint.onFeatPhaseClose({
+                      prNumber,
+                      repoFullName,
+                      authorCatId: (trackingTask.ownerCatId ?? 'unknown') as string,
+                      threadId: trackingTask.threadId,
+                      featureId,
+                      phaseLabel: phaseMatch?.[1] ?? 'unknown',
+                    });
+                  }
+                } catch {
+                  opts.log.warn(`[review-feedback] distillation checkpoint failed for ${prKey}`);
                 }
               }
 
@@ -634,6 +663,26 @@ export function createReviewFeedbackTaskSpec(opts: ReviewFeedbackTaskSpecOptions
             opts.log.warn(
               `[review-feedback] trigger failed for ${signal.repoFullName}#${signal.prNumber} (best-effort)`,
             );
+          }
+        }
+
+        // F208 AC-E2: distillation checkpoint on review-complete (best-effort, all approvals)
+        if (opts.distillationCheckpoint) {
+          const approvals = signal.newDecisions.filter((d) => d.state === 'APPROVED');
+          for (const approver of approvals) {
+            try {
+              await opts.distillationCheckpoint.onReviewComplete({
+                prNumber: signal.prNumber,
+                repoFullName: signal.repoFullName,
+                reviewerCatId: (approver.author ?? 'unknown') as string,
+                authorCatId: (repairedTask.ownerCatId ?? 'unknown') as string,
+                threadId: repairedTask.threadId,
+              });
+            } catch {
+              opts.log.warn(
+                `[review-feedback] distillation checkpoint (review) failed for ${signal.repoFullName}#${signal.prNumber} reviewer=${approver.author}`,
+              );
+            }
           }
         }
       },

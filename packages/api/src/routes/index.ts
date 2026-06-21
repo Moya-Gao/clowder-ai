@@ -23,6 +23,7 @@ export { configRoutes } from './config.js';
 export { connectorHubRoutes } from './connector-hub.js';
 export { connectorMediaRoutes } from './connector-media.js';
 export { connectorPluginRoutes } from './connector-plugins.js';
+export { distillationOpportunityRoutes } from './distillation-opportunities.js';
 export { distillationRoutes } from './distillation-routes.js';
 export { dossierRoutes } from './dossier.js';
 export { distillationRoutes as dossierDistillationRoutes } from './dossier-distillations.js';
