@@ -17,7 +17,7 @@ related_docs:
 **Feature:** F138 — `docs/features/F138-video-studio.md`
 **Goal:** Rebuild `cucu-pr-flow` from a 78.4s horizontal animatic into a 9:16 fine-cut production with a manifest-driven short-drama workflow.
 **Acceptance Criteria:**
-- AC-1: A single production manifest describes every shot, asset, audio lane, artifact path, status, and next action.
+- AC-1: A single production manifest describes story contract, episode beats, every shot, locked continuity, asset state, audio lane, artifact path, status, and next action.
 - AC-2: The manifest can be validated by a local script before rendering.
 - AC-3: The animatic builder can consume the manifest or a manifest-derived EDL without changing shot truth in two places.
 - AC-4: The next render target is explicitly 9:16; horizontal 1280x720 remains labeled as a rhythm-validation artifact only.
@@ -34,15 +34,42 @@ related_docs:
 
 ## 0. Finish Line
 
-**B definition:** `docs/videos/cucu-pr-flow/animatic/out/animatic-v2-vertical.mp4` is a 9:16 fine-cut candidate generated from a manifest, not hand-edited state scattered across EDL, asset ledger, and audio plan.
+**B definition:** `docs/videos/cucu-pr-flow/animatic/out/animatic-v2-vertical.mp4` is a 9:16 fine-cut candidate generated from a manifest that preserves story intent and visual continuity, not hand-edited state scattered across EDL, asset ledger, and audio plan.
 
 **What we learned from YoYoung Shorts:**
 
-1. Short drama production needs a stage rail, not a pile of files.
-2. Characters, scenes, props, and audio textures must be reusable assets, not prompt prose.
-3. Each shot should be a production card: description, locked assets, first frame, video, subtitles, audio, status, verdict.
-4. Batch video output should track per-shot state and shared render parameters.
-5. History matters, but for Cat Café history must be Git/file-backed so future cats can re-observe it.
+1. The visible asset library is not the essence. It is the UI manifestation of a deeper contract: **story -> episode -> shot -> locked continuity -> first frame -> video -> history**.
+2. Short drama production needs a stage rail, not a pile of files.
+3. Characters, scenes, props, and audio textures must be reusable continuity contracts, not prompt prose.
+4. Each shot should be a production card: beat intent, camera intent, locked assets, continuity rules, first frame, video, subtitles, audio, status, verdict.
+5. Batch video output should track per-shot state and shared render parameters.
+6. History matters, but for Cat Café history must be Git/file-backed so future cats can re-observe it.
+
+**Deeper essence, beyond material visibility:**
+
+YoYoung's public docs do not prove the private algorithm, but the product surface points to a useful production principle: **progressively freeze uncertainty**.
+
+```text
+idea/script
+  -> story/episode structure
+  -> character/scene/prop continuity contracts
+  -> per-shot intent and acceptance region
+  -> first-frame or still card that freezes composition
+  -> i2v prompt that only supplies motion
+  -> edit/audio layer that controls rhythm, subtitles, and sound
+  -> history/reuse loop
+```
+
+For a longer short drama, the hard part is not "can I see all assets?" The hard part is that every shot must know:
+
+- which story beat it serves;
+- which previous/next shot it must match;
+- which character features cannot drift;
+- which scene geography and prop state must persist;
+- what camera/motion is allowed;
+- what counts as success and what failure mode forces a split/remake.
+
+That is exactly where our existing anime-forge rules and YoYoung's visible workflow converge. Our current EP01 already has the hard-won generation rules; the remake should make those rules explicit and machine-checkable.
 
 **What we are not building:**
 
@@ -83,6 +110,7 @@ interface ProductionManifest {
     fps: 30;
     currentRenderRole: 'rhythm-validation' | 'fine-cut-candidate' | 'final';
   };
+  story: StoryContract;
   stages: Array<{
     id: 'brief' | 'assets' | 'shot-plan' | 'keyframes' | 'video' | 'audio' | 'edit' | 'qa' | 'release';
     status: 'not_started' | 'in_progress' | 'blocked' | 'ready' | 'approved';
@@ -100,6 +128,22 @@ interface ProductionManifest {
   renderOutputs: RenderOutput[];
 }
 
+interface StoryContract {
+  logline: string;
+  episodeArc: Array<{
+    id: string;
+    beat: string;
+    purpose: 'setup' | 'expectation' | 'twist' | 'escalation' | 'proof' | 'payoff' | 'warmth';
+    requiredShots: string[];
+  }>;
+  continuityRules: Array<{
+    id: string;
+    scope: 'character' | 'scene' | 'prop' | 'audio' | 'style' | 'story';
+    rule: string;
+    appliesToShots: string[];
+  }>;
+}
+
 interface AssetRecord {
   id: string;
   kind: 'character' | 'scene' | 'prop' | 'static_frame' | 'video_clip' | 'audio_bed';
@@ -107,6 +151,9 @@ interface AssetRecord {
   path?: string;
   md5?: string;
   durationSec?: number;
+  visualAnchors?: string[];
+  promptContract?: string;
+  continuityRules?: string[];
   notes?: string;
 }
 
@@ -118,8 +165,13 @@ interface ShotCard {
   method: 'video' | 'stills' | 'title' | 'posterTitle' | 'black';
   targetAspect: '9:16' | '16:9' | 'mixed-source';
   status: 'not_started' | 'assets_ready' | 'generated' | 'needs_remake' | 'ready_for_edit' | 'approved';
+  beatIntent: string;
+  cameraIntent: string;
+  acceptanceRegion: string;
   acceptance: string;
   lockedAssets: string[];
+  continuityLocks: string[];
+  dependsOnShots: string[];
   video?: { src: string; trimSec: number; sourceAudioPolicy: 'use' | 'skip' | 'replace' };
   stills?: Array<{ src: string; holdMs: number }>;
   subtitles: Array<{ startMs: number; endMs: number; text: string; os?: boolean }>;
@@ -155,6 +207,8 @@ interface ShotCard {
 | AssetRecord | `candidate` | visual/audio QA accepts | `accepted` | INV-8 |
 | AssetRecord | `candidate` | QA rejects | `rejected` | INV-9 |
 | RenderOutput | `fine-cut-candidate` | QA pass + CVO pass | `final` | INV-10 |
+| StoryContract | any | shot added/removed | validate beat coverage | INV-11 |
+| ContinuityRule | any | shot references asset | validate lock inheritance | INV-12 |
 
 ### Invariants
 
@@ -170,6 +224,9 @@ interface ShotCard {
 | INV-8 | Every accepted asset has `path` and either `md5` or an explicit `external` note. | validator |
 | INV-9 | Rejected assets never appear in `lockedAssets`. | validator |
 | INV-10 | A final render cannot use `format.currentRenderRole: rhythm-validation`. | validator |
+| INV-11 | Every story beat lists at least one shot, and every non-evidence-roll shot belongs to a beat. | validator |
+| INV-12 | Every shot with a character/scene/prop asset also lists at least one continuity lock for that asset or explicitly explains why not. | validator |
+| INV-13 | Every shot has `beatIntent`, `cameraIntent`, and `acceptanceRegion`; empty prose means the model is being asked to invent the scene. | validator |
 
 ### Adversarial Scenarios
 
@@ -180,18 +237,21 @@ interface ShotCard {
 | S00/S01 source audio accidentally re-enabled | validator checks skip/replacement notes |
 | Horizontal render mislabeled as final | validator rejects `currentRenderRole: final` with non-9:16 dimensions |
 | A rejected failure sample is reused as accepted clip | validator rejects rejected asset in `lockedAssets` or shot media |
+| A long-drama shot is added without beat linkage | validator rejects shot without story beat |
+| A character appears after costume/identity drift | validator flags missing continuity lock and requires CVO/reviewer decision |
 
 ## 4. Implementation Tasks
 
-### Task 1: Add Production Manifest Skeleton
+### Task 1: Add Story Contract + Production Manifest Skeleton
 
 **Files:**
 - Create: `docs/videos/cucu-pr-flow/production-manifest.json`
 - Create: `docs/videos/cucu-pr-flow/production-manifest.schema.json`
+- Optionally create later: `docs/videos/cucu-pr-flow/story-bible.md` if CVO wants a human-readable companion.
 
-**Step 1:** Write schema for the terminal shape above.
+**Step 1:** Write schema for the terminal shape above, including story contract, continuity locks, beat intent, camera intent, and acceptance region.
 
-**Step 2:** Create manifest with current known stages, format, assets, and all shot ids from `edl-v1.mjs`.
+**Step 2:** Create manifest with current known stages, format, story beats, continuity rules, assets, and all shot ids from `edl-v1.mjs`.
 
 **Step 3:** Run:
 
@@ -215,7 +275,7 @@ Expected: `json ok`.
 node scripts/validate-cucu-production-manifest.mjs docs/videos/cucu-pr-flow/production-manifest.json
 ```
 
-Expected: fails before manifest is complete, then passes when current manifest satisfies all invariants.
+Expected: fails before manifest is complete, then passes when current manifest satisfies all invariants including story/continuity coverage.
 
 ### Task 3: Generate Manifest-Derived EDL
 
@@ -293,11 +353,11 @@ Expected: AAC stereo audio, same duration as video.
 
 ## 5. Decision Packet
 
-**TL;DR:** We should not restart from zero. We should remake the workflow and final render around a production manifest, then do a vertical fine cut.
+**TL;DR:** We should not restart from zero. We should remake the workflow and final render around a production manifest whose real payload is story continuity, shot intent, and per-shot acceptance, then do a vertical fine cut.
 
 **Recommended decision:** Start with the lightweight `cucu-pr-flow` manifest, not a generic anime-forge schema.
 
-**Why:** This directly fixes the current pain: scattered state, audio surprises, horizontal/vertical ambiguity, and no CVO-readable shot workbench. Once this episode survives one full v2 render, extract the generic anime-forge schema.
+**Why:** This directly fixes the current pain: scattered state, audio surprises, horizontal/vertical ambiguity, and no CVO-readable shot workbench. More importantly, it answers the long-short-drama problem: every generated shot must be constrained by story beat, locked continuity, camera intent, and acceptance region. Once this episode survives one full v2 render, extract the generic anime-forge schema.
 
 **Rollback cost:** One commit. The plan and manifest are additive; existing `edl-v1.mjs`, assets, and animatic output stay untouched.
 
@@ -310,7 +370,7 @@ Expected: AAC stereo audio, same duration as video.
 - `node docs/videos/cucu-pr-flow/animatic/build-animatic.mjs`
 - `ffprobe` verifies width/height/duration/audio streams.
 - Manual contact sheet check at 5-8s intervals.
-- CVO shot-workbench review before any new expensive generation.
+- CVO shot-workbench review before any new expensive generation, specifically checking story continuity and shot intent, not just asset visibility.
 
 ---
 
