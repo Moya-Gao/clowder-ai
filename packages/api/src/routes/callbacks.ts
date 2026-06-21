@@ -231,6 +231,8 @@ function buildPostMessageRoutingMessage(
         .map((a) => a.mention)
         .join('、');
       parts.push(`@${w.catId} 已停用，已跳过${alts ? `（可用替代：${alts}）` : ''}。`);
+    } else if (w.kind === 'target_not_in_thread') {
+      parts.push(`@${w.catId} 不在目标 thread (${w.threadId}) 的参与者列表中，请确认 threadId 是否正确。`);
     } else {
       parts.push(`${w.mention} 不存在，已跳过。`);
     }
@@ -844,6 +846,27 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
         }
       }
       const mergedTargets = new Set<CatId>([...contentTargets, ...validExplicitTargets]);
+
+      // F177-H: Agent-key participant awareness — same check as invocation-auth
+      // path. Agent-key callers always specify threadId explicitly; if targetCats
+      // aren't participants, they may have the wrong threadId.
+      if (threadStore && mergedTargets.size > 0) {
+        const currentParticipants = await threadStore.getParticipants(effectiveThreadId);
+        for (const targetCat of mergedTargets) {
+          if (!currentParticipants.includes(targetCat)) {
+            routing_warnings.push({
+              kind: 'target_not_in_thread',
+              catId: targetCat,
+              threadId: effectiveThreadId,
+            });
+            app.log.info(
+              { targetCat, threadId: effectiveThreadId, currentParticipants, senderCatId },
+              '[F177-H/agent-key] target_not_in_thread: target is not a current participant',
+            );
+          }
+        }
+      }
+
       if (contentTargets.length === 1 && mergedTargets.size > 1) {
         const [primaryTarget] = contentTargets;
         if (primaryTarget) {
@@ -1356,6 +1379,28 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       }
     }
     const mergedTargets = new Set<CatId>([...contentTargets, ...validExplicitTargets]);
+
+    // F177-H: Cross-post participant awareness — warn when target cats are not
+    // current participants in the target thread (common misroute signal).
+    // Soft warning only: cross-posting to introduce a cat to a new thread is
+    // legitimate, but mis-targeting a thread (F195 dogfood ball-drop) surfaces
+    // immediately in the MCP response so the sender can self-correct.
+    if (isCrossThread && threadStore && mergedTargets.size > 0) {
+      const currentParticipants = await threadStore.getParticipants(effectiveThreadId);
+      for (const targetCat of mergedTargets) {
+        if (!currentParticipants.includes(targetCat)) {
+          routing_warnings.push({
+            kind: 'target_not_in_thread',
+            catId: targetCat,
+            threadId: effectiveThreadId,
+          });
+          app.log.info(
+            { targetCat, threadId: effectiveThreadId, currentParticipants, senderCatId },
+            '[F177-H] target_not_in_thread: cross-post target is not a current participant',
+          );
+        }
+      }
+    }
 
     if (contentTargets.length === 1 && mergedTargets.size > 1) {
       const [primaryTarget] = contentTargets;

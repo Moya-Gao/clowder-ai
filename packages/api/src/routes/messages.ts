@@ -250,6 +250,8 @@ function formatRoutingWarnings(warnings: CatRoutingError[]): string {
         .map((a) => a.mention)
         .join('、');
       parts.push(`@${w.catId} 已停用，已跳过${alts ? `（可用替代：${alts}）` : ''}。`);
+    } else if (w.kind === 'target_not_in_thread') {
+      parts.push(`@${w.catId} 不在目标 thread (${w.threadId}) 的参与者列表中，请确认 threadId 是否正确。`);
     } else {
       parts.push(`${w.mention} 不存在，已跳过。`);
     }
