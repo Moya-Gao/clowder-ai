@@ -77,8 +77,17 @@ export function ConciergePanel() {
   const [inputValue, setInputValue] = useState('');
   const [sendError, setSendError] = useState<string | null>(null);
 
-  // BUG-UX-3: Resizable panel width (extracted to usePanelWidth hook — gpt52 R5 P1)
-  const { panelWidth, handleResizePointerDown, handleResizePointerMove, handleResizePointerUp } = usePanelWidth();
+  // BUG-UX-3: Resizable panel dimensions (extracted to usePanelWidth hook — gpt52 R5 P1)
+  const {
+    panelWidth,
+    panelHeight,
+    handleResizePointerDown,
+    handleResizePointerMove,
+    handleResizePointerUp,
+    handleHeightResizePointerDown,
+    handleHeightResizePointerMove,
+    handleHeightResizePointerUp,
+  } = usePanelWidth();
 
   const { messages, isLoading, addOptimistic, removeOptimistic, refresh } = useConciergeMessages(threadId);
 
@@ -272,14 +281,15 @@ export function ConciergePanel() {
         backgroundColor: 'var(--cafe-surface-canvas)',
         borderColor: 'var(--cafe-border-subtle)',
         boxShadow: 'var(--shadow-elevation-2)',
-        // BUG-UX-3: dynamic width from resize handle (replaces fixed w-80)
+        // BUG-UX-3: dynamic dimensions from resize handles
         width: panelWidth,
+        height: panelHeight,
       }}
       className={[
         // Position: above ball, right-aligned (Layer 3 layout §7)
         'fixed bottom-[calc(24px+72px+16px)] right-6',
         'z-30',
-        'max-h-[60vh]',
+        // height now controlled by usePanelWidth hook (replaces max-h-[60vh])
         'flex flex-col',
         // Comic bubble shape: 16px radius + speech bubble tail (CSS pseudo)
         // R7 fix: NO overflow-hidden here so the tail triangles can escape the clip
@@ -298,6 +308,16 @@ export function ConciergePanel() {
         onPointerMove={handleResizePointerMove}
         onPointerUp={handleResizePointerUp}
         className="absolute left-0 top-0 bottom-0 w-1.5 cursor-ew-resize z-10 hover:bg-[var(--cafe-accent)] hover:opacity-30 rounded-l-2xl transition-colors"
+      />
+
+      {/* BUG-UX-3: Top-edge resize handle — drag up to make taller, down to shrink */}
+      <div
+        aria-label="拖拽调整面板高度"
+        role="separator"
+        onPointerDown={handleHeightResizePointerDown}
+        onPointerMove={handleHeightResizePointerMove}
+        onPointerUp={handleHeightResizePointerUp}
+        className="absolute left-0 right-0 top-0 h-1.5 cursor-ns-resize z-10 hover:bg-[var(--cafe-accent)] hover:opacity-30 rounded-t-2xl transition-colors"
       />
 
       {/* Speech bubble tail (CSS triangle pointing toward cat) */}

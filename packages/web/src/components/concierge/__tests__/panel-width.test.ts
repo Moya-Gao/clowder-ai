@@ -9,7 +9,18 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { clampPanelWidth, PANEL_DEFAULT_W, PANEL_MAX_W, PANEL_MIN_W, resolveInitialPanelWidth } from '../usePanelWidth';
+import {
+  clampPanelHeight,
+  clampPanelWidth,
+  PANEL_DEFAULT_H,
+  PANEL_DEFAULT_W,
+  PANEL_MAX_H,
+  PANEL_MAX_W,
+  PANEL_MIN_H,
+  PANEL_MIN_W,
+  resolveInitialPanelHeight,
+  resolveInitialPanelWidth,
+} from '../usePanelWidth';
 
 // ---------------------------------------------------------------------------
 // clampPanelWidth
@@ -109,5 +120,108 @@ describe('resolveInitialPanelWidth', () => {
 
   it('handles invalid saved value (Infinity) by falling back to default', () => {
     expect(resolveInitialPanelWidth('Infinity', 1920)).toBe(PANEL_DEFAULT_W); // 384
+  });
+});
+
+// ---------------------------------------------------------------------------
+// clampPanelHeight
+// ---------------------------------------------------------------------------
+
+describe('clampPanelHeight', () => {
+  // R1 P1 regression: PANEL_MIN_H must exceed the real layout minimum (~238px)
+  // so users cannot drag to a height where content clips. Header (~45px) +
+  // message area (min-h-[120px]) + input (~73px) = ~238px minimum.
+  it('PANEL_MIN_H exceeds layout minimum to prevent content clipping', () => {
+    const LAYOUT_MINIMUM = 238; // header + message min-h + input
+    expect(PANEL_MIN_H).toBeGreaterThan(LAYOUT_MINIMUM);
+  });
+
+  it('clamps below PANEL_MIN_H up to PANEL_MIN_H on tall viewport', () => {
+    expect(clampPanelHeight(100, 1080)).toBe(PANEL_MIN_H);
+  });
+
+  it('passes through a value within [MIN, MAX] on tall viewport', () => {
+    expect(clampPanelHeight(400, 1080)).toBe(400);
+  });
+
+  it('clamps above PANEL_MAX_H down to PANEL_MAX_H', () => {
+    expect(clampPanelHeight(900, 1080)).toBe(PANEL_MAX_H); // 700
+  });
+
+  it('viewport constraint wins over PANEL_MIN_H on short viewport', () => {
+    // viewport 300 → maxViewportH = 300 - 136 = 164 → effectiveMin = 164 (< 200)
+    expect(clampPanelHeight(400, 300)).toBe(164);
+  });
+
+  it('returns effectiveMin when requested height is below short viewport max', () => {
+    // viewport 300 → maxViewportH = 164 → effectiveMin = 164
+    // requested 50 < 164 → clamped up to 164
+    expect(clampPanelHeight(50, 300)).toBe(164);
+  });
+
+  it('handles exact PANEL_MIN_H viewport boundary', () => {
+    // viewport = PANEL_MIN_H + PANEL_MARGIN_V = 280 + 136 = 416 → maxViewportH = 280
+    expect(clampPanelHeight(280, 416)).toBe(280);
+  });
+
+  it('handles very small viewport gracefully', () => {
+    // viewport 150 → maxViewportH = 14 → effectiveMin = 14
+    expect(clampPanelHeight(300, 150)).toBe(14);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolveInitialPanelHeight
+// ---------------------------------------------------------------------------
+
+describe('resolveInitialPanelHeight', () => {
+  it('returns saved value when within bounds on tall viewport', () => {
+    expect(resolveInitialPanelHeight('450', 1080)).toBe(450);
+  });
+
+  it('returns default when no saved value on tall viewport', () => {
+    expect(resolveInitialPanelHeight(null, 1080)).toBe(PANEL_DEFAULT_H); // 400
+  });
+
+  it('clamps saved value above MAX down to MAX', () => {
+    expect(resolveInitialPanelHeight('900', 1080)).toBe(PANEL_MAX_H); // 700
+  });
+
+  it('clamps saved value below MIN up to MIN on tall viewport', () => {
+    expect(resolveInitialPanelHeight('100', 1080)).toBe(PANEL_MIN_H); // 200
+  });
+
+  it('preserves saved height below PANEL_MIN_H on short viewport', () => {
+    // viewport 300 → maxViewportH = 164, effectiveMin = 164
+    // saved 164 → clamp(164, 164) = 164
+    expect(resolveInitialPanelHeight('164', 300)).toBe(164);
+  });
+
+  it('re-clamps short-viewport save to MIN when loaded on tall viewport', () => {
+    // User saved 164 on short screen, now on 1080px:
+    // effectiveMin = 200 → saved 164 < 200 → clamped to 200
+    expect(resolveInitialPanelHeight('164', 1080)).toBe(PANEL_MIN_H); // 200
+  });
+
+  it('returns clamped default on short viewport with no saved value', () => {
+    // viewport 300 → maxViewportH = 164
+    // default 400 → clamped to 164
+    expect(resolveInitialPanelHeight(null, 300)).toBe(164);
+  });
+
+  it('handles invalid saved value (NaN) by falling back to default', () => {
+    expect(resolveInitialPanelHeight('abc', 1080)).toBe(PANEL_DEFAULT_H);
+  });
+
+  it('handles invalid saved value (negative) by falling back to default', () => {
+    expect(resolveInitialPanelHeight('-50', 1080)).toBe(PANEL_DEFAULT_H);
+  });
+
+  it('handles invalid saved value (zero) by falling back to default', () => {
+    expect(resolveInitialPanelHeight('0', 1080)).toBe(PANEL_DEFAULT_H);
+  });
+
+  it('handles invalid saved value (Infinity) by falling back to default', () => {
+    expect(resolveInitialPanelHeight('Infinity', 1080)).toBe(PANEL_DEFAULT_H);
   });
 });
