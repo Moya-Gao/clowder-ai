@@ -652,6 +652,10 @@ F104 全感知升级是 research branch，不是 Meeting Copilot 的门槛。MVP
 | 2026-06-20 | Phase H spec added — 说话人分离（无监督 diarization），铲屎官实测反馈驱动 |
 | 2026-06-21 | TranscriptPanel speaker field parity fix merged (PR #2468) — speaker_label/confidence/id fields + TranscriptLineRow extraction + 8 regression tests |
 | 2026-06-21 | Phase H merged (PR #2475) — ClusterRegistry unsupervised diarization + retroactive 归名 + DER eval + 5-round cloud review 封板 |
+| 2026-06-21 | 多猫吃瓜 dogfood（opus+sonnet+烁烁+砚砚）：ASR ✅ / 2人归因 ✅ / 多人归因 ❌ / hold_ball 限制暴露 / 三猫自然分工验证 |
+| 2026-06-21 | Gemma 4 12B Unified 四模态 smoke 通过（文本+图片+音频+视频，6.3GB，峰值 8.6GB）— 视觉感知管道路径验证 |
+| 2026-06-21 | 铲屎官提出"共同感知"愿景：眼镜/运动摄像机+收音→猫猫实时看+听。视觉感知管道架构确认：ScreenCaptureKit 帧流→Gemma 4 API→场景描述 store |
+| 2026-06-21 | 实时知识检索需求暴露：G7 等时事场景猫猫训练集不够，需 WebFetch 补充（详见 dogfood 文档） |
 
 ## 用户反馈（铲屎官实测 2026-05-14）
 
