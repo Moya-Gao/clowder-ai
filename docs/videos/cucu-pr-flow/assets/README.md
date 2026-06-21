@@ -39,6 +39,28 @@ related_docs:
 |---|---|---:|---|---|
 | `S00-title-card-bg-v1.png` | 片头海报背景：Landy 指向门口新猫，砚砚在桌前盖章，桌面有头像卡/CI 清单/PR 氛围；上方留标题区 | 941×1672 | `1ee52d4cef3a168210f5794bb3f30429` | ✅ 直接可用；EDL 首段 `posterTitle` 已引用 |
 
+## references/character-sheets/ — 三猫设定图候选（Codex imagegen，2026-06-20 入库）
+
+来源：`character-bible-v0.1.md` + `character-sheets-roll-plan-v0.1.md`，两张醋醋喵四格漫画作为母图 reference。三张 r01 都通过砚砚 self-QA，进入 second-cat QA；尚未进入 Landy taste gate，尚未标为 canonical。
+
+| 文件 | 角色 | 尺寸 | md5 | 当前结论 |
+|---|---|---:|---|---|
+| `cucu-yanyan-r01.png` | 砚砚/醋醋喵 | 1536×1024 | `4507a2c0812a0c9418e168e67c72325c` | ✅ self-QA candidate：大只银虎斑缅因、嘴硬、表情一致 |
+| `xianxian-r01.png` | 宪宪/Fable 5 | 1536×1024 | `f335ea89457cc95904f80007aed76e12` | ✅ self-QA candidate：蓝双色布偶、白手套、金吊坠、期待脸 |
+| `shuoshuo-r01.png` | 烁烁 | 1536×1024 | `d9c5b9e767cff64ad80421ee4d49d8c2` | ✅ self-QA candidate：暹罗视觉验收猫、蓝眼、夹板、紫项圈 |
+
+## references/contact-sheets/ — CVO 选择用 contact sheet
+
+| 文件 | 用途 | 尺寸 | md5 | 备注 |
+|---|---|---:|---|---|
+| `three-cat-design-sheets-r01-contact.png` | 三猫 r01 候选并排预览 | 1584×368 | `ac07721d98b7583eb7f8ccf0dfbf6c25` | 给 Landy 挑正典；无标签版，顺序 = 砚砚 / 宪宪 / 烁烁 |
+
+## rolls/ — 生成尝试记录
+
+| 文件 | 内容 |
+|---|---|
+| `roll-log.jsonl` | 三猫设定图 r01 的 prompt_ref、输出路径、猫 QA verdict |
+
 ## generated-clips/ — 可用成片素材（gitignored，账本记录）
 
 > 🎉 **Wave V-spike PASS（2026-06-11）**：S02-S05 四镜头 i2v 一轮全过（prompt book v0.1.3 配方），S03 信息镜头文字未崩 = FM-08 风险解除，全片管线验证通过。**实测发现 ×2**：(1) 烁烁模型遵守 prompt 的 N-second 指令（时长精确 5/4/5/6s，非固定 10s）；(2) Google 系图/视频中文渲染乱码——**所有含中文的静帧必须走云端砚砚（GPT 系）生成**，已写入 prompt book §3。
