@@ -299,6 +299,7 @@ AC-A5 锚定具体场景：**改 `cat_cafe_post_message` 的 schema → 约定�
 | 2026-06-18 | PR #2408 merged：F242 convention graph spike landed in main（squash commit `2e9f5842`）；Phase A/B AC 全部完成，进入 spike close / 愿景守护 |
 | 2026-06-18 | Sonnet 愿景守护 PASS 接受 spike 证据，但 CVO 随后指出这不等于 feature close；CloseGateReport / reflection / harness feedback 全部标记为 close retracted |
 | 2026-06-18 | F242 reopen：Phase A/B 保留为 spike done，新增 Phase C（认知路径 / 可用入口 / 更新行为 / product dogfood / close gate） |
+| 2026-06-20 | PR #2464 merged：Phase C productization entry landed（AC-C2/C3）；AC-C1/C4/C5 remain open |
 
 ## User Visibility Disclosure
 
