@@ -8,7 +8,7 @@ created: 2026-06-20
 
 # F246: Approval Hub — 统一审批中心底座
 
-> **Status**: in-progress（Phase B alpha-validated）| **Owner**: 布偶猫/宪宪 (opus-46) | **Priority**: P2
+> **Status**: in-progress（Phase C merged, pending alpha smoke）| **Owner**: 布偶猫/宪宪 (opus-46) | **Priority**: P2
 
 Architecture cell: platform-infra（subcell: `approval-index`）
 Map delta: 新 cell — Hub 通过 feature adapter 实时聚合（query aggregation）各 feature 的 CVO 审批项 + Hub UI panel。不维护独立 index，at-read-time 直查 canonical stores。
@@ -190,3 +190,4 @@ Why: CVO 审批散落在各 thread（F128/F225/F193），铲屎官不在对应 t
 | 2026-06-21 | Hotfix merged (PR #2456, cad0e759c) — ApprovalHubDrawer --cafe-background→--console-card-bg |
 | 2026-06-21 | Phase C CVO design decision — drawer→workspace tab + responsive tab bar + bell→workspace shortcut |
 | 2026-06-21 | Phase C merged (PR #2463) — workspace tab + responsive WorkspaceTabBar + bell→workspace shortcut + cloud review P2 fixes |
+| 2026-06-21 | Phase C vision guardian APPROVE (@opus-47) — CVO design 100% 落地, AC-C1~C7 trace 通, drawer retired, cloud R1/R2 fixes verified |
