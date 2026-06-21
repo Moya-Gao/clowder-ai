@@ -167,7 +167,7 @@ Why: CVO 审批散落在各 thread（F128/F225/F193），铲屎官不在对应 t
 - [x] **AC-C5**: Tab bar 宽度不足时自动收纳溢出 tab 到 `⋯` dropdown
 - [x] **AC-C6**: Tab bar 极窄时（< `tabCount × 36px`）切换到 icon-only 模式
 - [x] **AC-C7**: Overflow dropdown 中的 tab 功能与展开 tab 一致（点击切换 mode）
-- [ ] **AC-C8**: Residual P2（Phase B review）：intercept mirror "单行首 mention 才路由" pruning
+- [ ] **AC-C8**: ⬜ Residual P2（Phase B review）：intercept mirror "单行首 mention 才路由" pruning — deferred to C3 maturation, not in PR #2463 scope
 
 ## Links
 
