@@ -192,6 +192,7 @@ import {
   connectorHubRoutes,
   connectorMediaRoutes,
   connectorPluginRoutes,
+  debugInvocationExportRoutes,
   distillationOpportunityRoutes,
   distillationRoutes,
   dossierDistillationRoutes,
@@ -2926,6 +2927,7 @@ async function main(): Promise<void> {
     getFingerprint,
   });
   await app.register(exportRoutes, { messageStore, threadStore });
+  await app.register(debugInvocationExportRoutes, { projectRoot: findMonorepoRoot(process.cwd()) });
   await app.register(configRoutes);
   await app.register(configSecretsRoutes);
   await app.register(rulesRoutes);
