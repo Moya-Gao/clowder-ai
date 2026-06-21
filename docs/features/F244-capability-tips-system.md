@@ -272,6 +272,7 @@ tips system 是 harness 改动，必须有闭环：
 | KD-9 | "了解更多"用 F229 draft，不做 help drawer 脚手架 | F229 已有 `setSurfaceState('bubble', prompt)` / `pendingPrompt` 终态 contract；F244 click 只预填输入框不自动发送，保留用户控制权 | 2026-06-18 |
 | KD-10 | 第一版是终态竖切，不叫临时版 | CVO 指出临时版 framing 会诱导绕路；scope 只能减内容数量/展示范围，不能减 contract 终态性 | 2026-06-18 |
 | KD-11 | Tips 第一展示面在 assistant streaming bubble，不在 execution bar | Dogfood 截图确认执行条位置离用户注视点太远；等待态学习应贴近猫猫正在说话的气泡，同时 execution bar 保持真实状态和逃生口职责 | 2026-06-19 |
+| KD-12 | Seed inventory 保持 JSON 数据文件，不额外建 md 同步层 | `capability-tips.seed.json` 是独立数据文件（非组件内硬编码），有 `check-capability-tips.mjs` CI 校验；维护者是猫猫（开发者），不需要非技术编辑界面；额外 md↔JSON 同步层增加漂移风险，ROI 不足。CVO 确认格式由猫猫自决 | 2026-06-21 |
 
 ## Timeline
 
