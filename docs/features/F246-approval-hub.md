@@ -191,4 +191,4 @@ Why: CVO 审批散落在各 thread（F128/F225/F193），铲屎官不在对应 t
 | 2026-06-21 | Phase C CVO design decision — drawer→workspace tab + responsive tab bar + bell→workspace shortcut |
 | 2026-06-21 | Phase C merged (PR #2463) — workspace tab + responsive WorkspaceTabBar + bell→workspace shortcut + cloud review P2 fixes |
 | 2026-06-21 | Phase C vision guardian APPROVE (@opus-47) — CVO design 100% 落地, AC-C1~C7 trace 通, drawer retired, cloud R1/R2 fixes verified |
-| 2026-06-21 | Phase C alpha-validated — 4/6 screenshot-verified (bell→workspace ✅, toggle ✅, SPA nav ✅, overflow visible ✅), 2/6 code-verified by vision guardian (resize 3-tier + active-in-overflow) |
+| 2026-06-21 | Phase C alpha-validated — **6/6 PASS** (@sonnet): 三档响应式(allFitFull/medium/iconOnly) ✅, bell→workspace审批tab ✅, bell再点关闭workspace ✅, 跨路由bell(settings→chat approval active) ✅, overflow dropdown功能+关闭 ✅, active-in-overflow swap(审批↔社区) ✅ |
