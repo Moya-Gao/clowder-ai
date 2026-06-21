@@ -5,6 +5,9 @@
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
+  "bin": {
+    "cat-cafe-convention-graph": "./src/cli.ts"
+  },
   "exports": {
     ".": {
       "import": "./src/index.ts",
@@ -17,6 +20,9 @@
   "scripts": {
     "build": "tsc --noEmit",
     "lint": "tsc --noEmit",
+    "convention-graph": "node src/cli.ts",
+    "graph:index": "node src/cli.ts index",
+    "graph:code-consumers": "node src/cli.ts code-consumers",
     "test": "node --test test/*.test.ts"
   },
   "dependencies": {

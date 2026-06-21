@@ -66,8 +66,8 @@ cvo_signoff: 2026-06-17 — 铲屎官 "可以 我同意！！！"（thread 00017
 
 ### Phase C（productization gate — close retraction）
 - [ ] AC-C1: 猫猫认知路径：改 MCP / skill / route 等约定面时，L0 / skill / SOP 至少一处能明确唤醒“先查 convention graph”，并在一次真实 post-merge 代码任务里留下使用证据。
-- [ ] AC-C2: 可用入口：猫能用文档化命令 / tool / skill workflow 在一个 repo 产出 graph/query 结果，不需要临时写 ad-hoc 脚本。
-- [ ] AC-C3: 更新行为：代码变化后要么自动重建/更新，要么提供明确 reindex 命令 + stale/fail-closed 语义；不能让过期图静默冒充 fresh。
+- [x] AC-C2: 可用入口：猫能用文档化命令 / tool / skill workflow 在一个 repo 产出 graph/query 结果，不需要临时写 ad-hoc 脚本。
+- [x] AC-C3: 更新行为：代码变化后要么自动重建/更新，要么提供明确 reindex 命令 + stale/fail-closed 语义；不能让过期图静默冒充 fresh。
 - [ ] AC-C4: Product dogfood：一次非 F242 代码改动在编辑前使用 convention graph 找影响面，并记录它是否减少 grep / 漏消费方风险。
 - [ ] AC-C5: Close gate：feature close 必须复核 C1-C4；Phase A/B dogfood 只能证明 spike，不再等同 feature close。
 
@@ -132,6 +132,27 @@ Sample:
 ```
 
 这直接补上 codegraph 在同一陌生 repo 上 route=0 的失败点：不是追求通用完美框架识别，而是用 discovery skill 定义一个明确 domain，再由 deterministic extractor 输出可追 source span 的约定图。
+
+## Phase C Productization Checkpoint（2026-06-20）
+
+Phase C 第一刀补的是产品入口，不是临时脚本：
+
+- **CLI / root scripts**：新增 `pnpm convention-graph:index -- --repo .` 与 `pnpm convention-graph:code-consumers -- --repo . --domain mcp-tool --kind mcp_tool --name <tool>`，底层写入 `.cat-cafe/convention-graph.sqlite`。
+- **Reindex 语义**：`index` 按 domain plugin 重新抽取并替换该 domain 的 rows；`code-consumers` 查询当前 repo 文件并返回 `freshness.stale` / `pendingChanges`；stale 时输出 `reindexCommand`。
+- **Cognitive path**：`convention-graph-discovery` skill 增加 Product Entry / Commands；`docs/SOP.md` 与 `sop-definitions/development.yaml` 增加“改 MCP tool / skill manifest / route / callback 前先查 convention graph”的预检提醒。
+- **Dogfood command evidence**：
+
+```text
+pnpm convention-graph:index -- --repo . --domain mcp-tool,skill-manifest --format json
+→ mcp-tool indexedFiles=4080 nodes=864 edges=855 gaps=0
+→ skill-manifest indexedFiles=48 nodes=397 edges=349 gaps=0
+
+pnpm convention-graph:code-consumers -- --repo . --domain mcp-tool --kind mcp_tool --name cat_cafe_post_message --format json
+→ freshness.stale=false
+→ production consumers include WorklistRegistry.ts and route-serial.ts; registers edge from COLLAB_TOOL_SOURCES remains visible with provenance
+```
+
+Still not full close: AC-C1 also requires a real post-merge code-task usage record, and AC-C4 requires a non-F242 product dogfood before editing. Those remain open.
 
 ## CVO Close Rejection（2026-06-18）
 
