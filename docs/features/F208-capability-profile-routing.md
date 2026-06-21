@@ -133,10 +133,10 @@ settings 独立 section（与成员管理平级，不复用 F154 member overview
 - [x] AC-C3: read-only 展示 ✅ + OQ-9 badge（"擅长领域由画像驱动"）✅。CVO"添加观察"按钮 UI 留 Phase D（read-only MVP，持久化也是 Phase D）
 - [ ] AC-C4: 走 console-dev 4 gate（Product / Design-System / Implementation / Verification）
 
-### Phase D（L2 证据层 + CVO 观察入口）
-- [ ] AC-D1: 画像页"添加观察"按钮，CVO 写观察 + provenance，存到 dossier pending 层
-- [ ] AC-D2: 画像卡片接"最近证据"区域，从 memory search 拉该猫相关 review/传球/trajectory 事件
-- [ ] AC-D3: 总结层保持 peer/CVO 判断生成（带 provenance），不被算法分数替代
+### Phase D（L2 证据层 + CVO 观察入口）✅
+- [x] AC-D1: 画像页"添加观察"按钮，CVO 写观察 + provenance，存到 dossier pending 层
+- [x] AC-D2: 画像卡片接"最近证据"区域，从 memory search 拉该猫相关 review/传球/trajectory 事件
+- [x] AC-D3: 总结层保持 peer/CVO 判断生成（带 provenance），不被算法分数替代
 
 ### Phase E（eval 回流 + 开源 baseline）
 - [ ] AC-E1: 画像总结层蒸馏由事件触发（feat close / review 完成），非 cron
@@ -236,6 +236,7 @@ settings 独立 section（与成员管理平级，不复用 F154 member overview
 | 2026-06-20 | Phase B merged (PR #2430) — roster reads from dossier l0RosterSummary, both compile-l0 + SystemPromptBuilder switched, KD-9 drift detection + ENOENT classification, 6+1 regression tests |
 | 2026-06-20 | Phase C merged (PR #2446) — model-grouped dossier settings page (KD-15), OQ-9 badge, formatModelName fix (cloud P2), 27 regression tests. 4-round gpt52 local + 2-round cloud + sonnet fallback review |
 | 2026-06-20 | Phase D kickoff — CVO directive "直接接通已有数据"，不等 F200 成熟。调整 Phase D 方向 + AC |
+| 2026-06-21 | Phase D merged (PR #2457) — CVO observation store (Redis TTL=0, owner-gated POST + resolveStrictUserId), evidence display (memory search by nickname), fail-closed no-Redis registration. 3-round gpt52 local review (2×P0 fixed: strict auth + fail-closed). 38 new tests |
 
 ## Review Gate
 
