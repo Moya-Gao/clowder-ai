@@ -10,6 +10,8 @@ tips_exempt: Phase A-C 为内部 friction 采集/聚合 infra，无 user/cat 可
 # F245: Friction Signal Eval — 摩擦信号统一聚合（eval:friction）
 
 > **Status**: in-progress（Phase C PR1a + PR1b merged；PR2 N-day cadence + Phase D 出口闭环待续）| **Owner**: 布偶猫/宪宪 (opus-48) | **Priority**: P1
+>
+> 🔴 **eval-domain 注册 approach 待重审（CVO directive 2026-06-21）**：PR1a/PR1b 实做了硬 enum-bump（`'eval:friction'` 散落 7 处 + 18 点 fan-out），**偏离砚砚 2026-06-18 在 F236 的 Y-lite 裁定**（加 domain=加 YAML 不改中心 contract）。根因=跨线程规矩漏接（裁定没传进 plan，审的非 eval-owner 砚砚）。doc 已改诚实（见 Downstream consumer note）；**approach（Y-lite migration vs 保留 enum）由 eval-owner 砚砚 @codex 拍**，未定前 Phase D / PR2 不在此 approach 上加新 domain。
 
 ## Architecture Ownership
 
@@ -151,6 +153,8 @@ signal 体量实证（今天 UTC 0:00 → 16:07，16 小时）：
 - **Evolved from**: F192（eval 控制面母 feature——复用 domain registry / Verdict Handoff Packet / daily-spec cron / Eval Hub / rollup_deferred 占位）
 - **Related**: F222（用户反馈采集——本 feat 补它缺失的聚合 eval）/ F167 KD-27（持球+event 双重唤醒 = 经典 friction cluster 案例，软约定失效→该升硬层）/ F128（propose_thread 出口）/ code-as-harness skill（修复路径）
 - **Downstream consumer（F236 Track-2，2026-06-18 跨线程登记）**: F236 Track-1 已 merged（PR #2411，squash `21ae2c83b`，anchor telemetry 收口为 chars/request-volume substrate）。**F236 Track-2**（open-rate correlated-event model + `eval:anchor-first` domain 注册）**downstream-blocked 在 F245 Phase C 的 shared Y-lite eval-domain infra** 上（registered string `domainId`/`sourceAdapter`/`sourceRefsKind` + YAML registry 校验 + N-day cadence + missing-wiring fail-closed）。砚砚 eval-owner 裁定排序：**F245 Phase C 先 land 该 infra，F236 Track-2 rebase 继承不另起一套**。🔴 **Phase C land shared Y-lite infra PR 时必须 `cross_post_message` ping `opus-48` @ F236 thread `thread_mqg1ek0wfttbxt4l`**。Track-2 设计约束（open-rate = 跨请求 preview↔drill 可 join 事件模型；高基数 id 不做 metric label，走 event/log/trace/adapter source record）在 F236 doc item 6（commit `e62e6eac8`）；Y-lite contract canonical home = F192（砚砚定）。
+
+> 🔴 **实做偏离 — 待纠正（CVO directive 2026-06-21，opus-48 已接，对事不对猫）**：上面承诺的 **Y-lite eval-domain infra**（registered string `domainId` + YAML 校验、加 domain=加数据不改中心 contract、砚砚明令"两 feature 禁硬 enum +1/+2"）**没有兑现**。PR1a（`1b67516b9`）+ PR1b（`ef1d1cca7`）实做的是**硬 enum-bump**：中心 `domainId` enum 直接 +`eval:friction`（`verdict-handoff.ts` + `domain/eval-domain-registry.ts`），`'eval:friction'` 硬编码散落 **7 处**（index.ts / verdict-handoff.ts / eval-domain-registry.ts / eval-cat-invocation.ts / publish-verdict.ts / friction-generator-adapter.ts / friction-submitted-packet-guard.ts）+ 18 点 fan-out。**根因 = 跨线程规矩漏接**：砚砚 2026-06-18 在 F236 thread 的 Y-lite 裁定没传进 F245 Phase C plan，PR review 是 gpt52 + 云端（非定规矩的 eval-owner 砚砚），所以没人发现违裁——代码过了 review（不烂），但 approach 违背架构裁定。**架构腐败风险**（CVO）：eval 越铺越多，enum-bump 每加 domain 改中心 contract（高 blast-radius）+ 并行撞车 + fan-out 越堆越肿，核心退化成瓶颈。**下一步**：approach（Y-lite migration 去中心 enum→registered string + YAML 校验 vs 保留 enum）由 eval-owner 砚砚（@codex）拍；F236 Track-2 下游 + CVO 倾向 Y-lite。本 note 先消除"承诺 Y-lite、实际 ship enum"的 doc 自相矛盾；approach 定后补迁移计划或推翻裁定的决策记录。
 
 ## Risk
 
