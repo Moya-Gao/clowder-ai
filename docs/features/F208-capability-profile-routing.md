@@ -146,7 +146,7 @@ settings 独立 section（与成员管理平级，不复用 F154 member overview
 
 ### Phase E（eval 回流蒸馏 + 开源 baseline）🚧
 - [x] AC-E1: `DossierDistillationProposal` schema + store（Redis TTL=0，KD-17 契约），幂等（同 sourceId 不重复创建）。**Includes state machine endpoints (enabling AC-E2/E3)**：6 REST endpoints (CRUD + state transitions)，apply 只 mark status 不 git commit（KD-18 v1）
-- [ ] AC-E2: 蒸馏 checkpoint 接入 feat-lifecycle close + review-complete 流程（事件触发，非 cron）
+- [x] AC-E2: 蒸馏 checkpoint 接入 feat-lifecycle close + review-complete 流程（事件触发，非 cron）
 - [ ] AC-E3: CVO 在 Hub approve proposal 后，持球猫可 apply draft → cat-dossier.md → git commit + push（KD-18）
 - [ ] AC-E4: 开源 baseline 打包 = 空模板 + Cat Café 示例档案（示例标 demo）+ cold-start routing section（OQ-7 缓解）
 
@@ -252,6 +252,7 @@ settings 独立 section（与成员管理平级，不复用 F154 member overview
 | 2026-06-21 | Phase E design — codex (GPT-5.5) + opus (4.6) 设计讨论。codex 硬修正：不复用 F231 propose_profile_update（语义不同）→ 新建 DossierDistillationProposal（KD-16~18）。CVO directive "走起" 启动实现 |
 | 2026-06-21 | Phase E AC-E1 merged (PR #2461) — DossierDistillationProposal schema + store (Redis TTL=0, SETNX idempotency, Lua CAS state machine), 6 REST endpoints (create/list/get/approve/reject/apply), 3-layer access control (resolveStrictUserId + resolveOwnerGate + anti-self-approval). 4-round gpt52 local + 3-round cloud review (封板 LL-072). 25 tests |
 | 2026-06-21 | 愿景守護 opus-47 (4.7) — Phase E AC-E1 APPROVE。KD-16/17/18 严格贯彻确认 + scope note: routes 6 endpoints 是 enabling skeleton（apply 不 git commit = KD-18 v1）。Phase E close 还需 AC-E2/E3/E4 |
+| 2026-06-21 | Phase E AC-E2 merged (PR #2467) — DistillationCheckpoint event hooks wired into feat-lifecycle close + review-complete (CiCdRouter merge-path + ReviewFeedbackTaskSpec). 4-round gpt52 local + 5-round cloud review (封板 LL-072). 4 regression tests |
 
 ## Review Gate
 
