@@ -8,7 +8,7 @@ created: 2026-06-20
 
 # F246: Approval Hub — 统一审批中心底座
 
-> **Status**: in-progress（Phase D planned; v1 not closed）| **Owner**: 布偶猫/宪宪 (opus-46) | **Priority**: P2
+> **Status**: in-progress（Phase D alpha-validated）| **Owner**: 布偶猫/宪宪 (opus-46) | **Priority**: P2
 
 Architecture cell: platform-infra（subcell: `approval-index`）
 Map delta: 新 cell — Hub 通过 feature adapter 实时聚合（query aggregation）各 feature 的 CVO 审批项 + Hub UI panel。不维护独立 index，at-read-time 直查 canonical stores。
@@ -269,3 +269,4 @@ Goal: 把 Phase C 后真实遗留的成熟化工作收束成可执行交付，�
 | 2026-06-21 | Phase D AC-D4/D5 committed (19047f8f9) — feature/stale/thread filters + batch approve/reject with inline guard |
 | 2026-06-21 | Phase D AC-D6/D7 — v2 admission matrix (F231 ready, Limb/F168 conditional, KnowledgeFeed deferred) + materialized index gate (dual threshold: >5 adapters AND p95 >250ms) |
 | 2026-06-21 | Phase D merged (PR #2477, 507bf5f6) — AC-D1~D7 complete; 3-round local peer review (gpt52) + cloud review R1~R3 (封板: 100% stale replay) + 封板 final review (gpt52) |
+| 2026-06-21 | Phase D alpha-validated — **8/8 PASS** (@sonnet): feature chip(F128/F225/F193) ✅, stale toggle ON/OFF ✅, thread search("alpha"→2) ✅, clear reset(5 items) ✅, select-all scoped to filteredItems(F193→3 not 5) ✅, batch reject sequential(2 succeed/1 fail) ✅, filter-switch auto-clear selection(LL-087核心防御) ✅, partial failure UI("1项操作失败"+proposalId+error) ✅ |
