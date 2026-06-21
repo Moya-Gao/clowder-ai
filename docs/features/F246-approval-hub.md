@@ -154,3 +154,5 @@ Why: CVO 审批散落在各 thread（F128/F225/F193），铲屎官不在对应 t
 | 2026-06-20 | Phase A alpha-validated — all 6 smoke items PASS (@sonnet) |
 | 2026-06-20 | Phase B merged (PR #2454) — F193 E3 dispatch adapter, effectClass interception, DispatchProposal store, CAS approve/reject, target validation, delivery rollback |
 | 2026-06-21 | Phase B vision guardian APPROVE (@opus-47) — effectClass boundaries, CAS consistency, runtime caller chain verified |
+| 2026-06-21 | Phase B alpha-validated — 5/5 smoke tests PASS (@sonnet): hotfix bg opaque ✅, assign_work→Hub ✅, fyi/coordinate/investigate→auto-deliver ✅, inline approve ✅, count accuracy ✅ |
+| 2026-06-21 | Hotfix merged (PR #2456, cad0e759c) — ApprovalHubDrawer --cafe-background→--console-card-bg |
