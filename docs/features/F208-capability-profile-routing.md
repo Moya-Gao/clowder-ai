@@ -145,11 +145,11 @@ settings 独立 section（与成员管理平级，不复用 F154 member overview
 - [x] AC-D2: 画像卡片接"最近证据"区域，从 memory search 拉该猫相关 review/传球/trajectory 事件
 - [x] AC-D3: 总结层保持 peer/CVO 判断生成（带 provenance），不被算法分数替代
 
-### Phase E（eval 回流蒸馏 + 开源 baseline）🚧
+### Phase E（eval 回流蒸馏 + 开源 baseline）✅
 - [x] AC-E1: `DossierDistillationProposal` schema + store（Redis TTL=0，KD-17 契约），幂等（同 sourceId 不重复创建）。**Includes state machine endpoints (enabling AC-E2/E3)**：6 REST endpoints (CRUD + state transitions)，apply 只 mark status 不 git commit（KD-18 v1）
 - [x] AC-E2: 蒸馏 checkpoint 接入 feat-lifecycle close + review-complete 流程（事件触发，非 cron）
 - [x] AC-E3: CVO 在 Hub approve proposal 后，持球猫可 apply draft → cat-dossier.md → git commit + push（KD-18）
-- [ ] AC-E4: 开源 baseline 打包 = 空模板 + Cat Café 示例档案（示例标 demo）+ cold-start routing section（OQ-7 缓解）
+- [x] AC-E4: 开源 baseline 打包 = 空模板 + Cat Café 示例档案（示例标 demo）+ cold-start routing section（OQ-7 缓解）
 
 ## Dependencies
 
@@ -257,6 +257,7 @@ settings 独立 section（与成员管理平级，不复用 F154 member overview
 | 2026-06-21 | 愿景守護 opus-47 (4.7) — Phase E AC-E2 APPROVE。checkpoint event 在 close/review 两路径触发确认 + KD-3 "judgment stays with cats" 守住。Pre-warn AC-E3：execute-apply 必须真 git commit dossier（不接受只 mark status）。Doc note（不阻塞）：cloud R5 P1 OWNER reviewer 场景存在 latent issue — 若 OWNER 同时是 proposal creator + reviewer 角色重合，anti-self-approve 可能阻塞正常流程，Phase F 评估是否需要 CVO-bypass path |
 | 2026-06-21 | Phase E AC-E3 merged (PR #2471) — DossierDraftApplier execute-apply endpoint: baseHash stale-write lock → section-anchored replace (fail-closed, bounded to cat section) → writeFile → git commit + push → markApplied. Two-phase git (rollback on commit fail via git reset HEAD, partial success on push fail). 3-round gpt52 local + 2-round cloud review (封板 LL-072, 100% stale replay R2). 19 tests (10 unit + 9 integration) |
 | 2026-06-21 | 愿景守護 opus-47 (4.7) — Phase E AC-E3 APPROVE。KD-18 真兑现 pre-warn 严格满足（execute-apply 真 git commit+push 不只 mark status）。Latent issues doc'd (non-blocking): ① production index.ts 没传 repoRoot 默认 process.cwd()（current startup from repo root 假设成立，future deployment 注意）; ② 同 approved proposal 并发 execute-apply 需 multi-user 前加 serialize; ③ APPLIED status ≠ remote 可见（push failure trade-off: commit is truth, push is delivery）。AC-E4 pre-warn: 开源 baseline 必须有 demo 标记 + 空模板 + cold-start routing section |
+| 2026-06-21 | Phase E AC-E4 merged (PR #2472) — 开源 baseline 三件套：空模板（cat:{id} namespace + structured YAML skeleton）+ Cat Café DEMO 示例（2 agents full profile, prominent demo markers）+ cold-start routing guide（三层 bootstrap: inherent traits → trial routing → fallback chain, OQ-7 缓解）。1-round gpt52 local review（2×P1: namespace mismatch + missing YAML skeleton → fixed `70707ea06`）。Cloud review skipped (docs-only + cross-family reviewer) |
 
 ## Review Gate
 
