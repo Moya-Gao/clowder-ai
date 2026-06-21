@@ -9,7 +9,7 @@ tips_exempt: "Internal infrastructure (cat dossier distillation pipeline) — no
 
 # F208: Capability Profile Routing — 能力画像档案 + 认知路由
 
-> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: done | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -134,11 +134,15 @@ settings 独立 section（与成员管理平级，不复用 F154 member overview
 - [x] AC-B1: 猫传球时可按需加载目标猫 L1 画像（像 skill，不常驻）
 - [x] AC-B2: session/handoff 文案含非阻塞提醒，不检测"猫有没有读画像"，简单传球不打扰
 
-### Phase C（前端 settings 猫猫画像独立页）🚧
+### Phase C（前端 settings 猫猫画像独立页）✅
 - [x] AC-C1: settings 独立猫猫画像 section 展示每只猫能力画像卡（model 分组 KD-15 + 路由信号可展开）
 - [x] AC-C2: 每条画像总结显示 provenance（来源 + 日期 + primarySources）
 - [x] AC-C3: read-only 展示 ✅ + OQ-9 badge（"擅长领域由画像驱动"）✅。CVO"添加观察"按钮 UI 留 Phase D（read-only MVP，持久化也是 Phase D）
-- [ ] AC-C4: 走 console-dev 4 gate（Product / Design-System / Implementation / Verification）
+- [x] AC-C4: 走 console-dev 4 gate（Product / Design-System / Implementation / Verification）
+  - **Product Gate** ✅: Settings > 猫猫画像独立 section（KD-11 分离决策 + CVO signoff 2026-06-19）
+  - **Design-System Gate** ✅: Token-first（CSS vars + 现有 component primitives）；3 hooks 提取（useDossierProfiles / useDossierEvidence / useDossierObservations）
+  - **Implementation Gate** ✅: 580 行 / 11 visual sub-components（结构合理不拆）；4-round gpt52 local + 2-round cloud review + sonnet fallback review
+  - **Verification Gate** ✅: Alpha 3012 API 返回 12 cats / 12 modelGroups / 100% coverage；Playwright 渲染完整页面（所有模型组卡片 + 路由信号 + provenance badge + 添加观察按钮）；505 test files / 4420 tests all pass
 
 ### Phase D（L2 证据层 + CVO 观察入口）✅
 - [x] AC-D1: 画像页"添加观察"按钮，CVO 写观察 + provenance，存到 dossier pending 层
@@ -225,14 +229,14 @@ settings 独立 section（与成员管理平级，不复用 F154 member overview
 | R1 | "我们应该做的是对猫猫的能力建模画像" | AC-A1, AC-A2 | cat-dossier.md 含四猫 6 字段画像 | [ ] |
 | R2 | "不应该通过算法去路由，让你们自己判断、自己传球" | KD-1, AC-B1 | spec 核心原则 + 传球加载是"猫读档案判断"非算法派单 | [ ] |
 | R3 | "简单的路由看一眼总结，复杂的看 eval/peer/铲屎官评价" | AC-A1, AC-D1 | 三层渐进披露 + 三源合成落地 | [ ] |
-| R4 | "在 settings 成员画像里能看到猫猫画像、路由规则……不然很难和你们一起迭代" | AC-C1, AC-C2, AC-C3 | settings 页截图 | [ ] |
+| R4 | "在 settings 成员画像里能看到猫猫画像、路由规则……不然很难和你们一起迭代" | AC-C1, AC-C2, AC-C3 | settings 页截图 | [x] |
 | R5 | "eval → 反馈 → 自主进化 → 定制化" | AC-D1, AC-E1, AC-E2 | 自动累积 + 事件触发蒸馏 + 开源打包 | [ ] |
 | R6 | "开源 baseline → 其他铲屎官按领域累积" | AC-E2 | 空模板 + 示例档案 | [ ] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC / KD
 - [x] 每个 AC 都有验证方式
-- [ ] 前端需求（R4）需准备需求→证据映射表（Phase C 时做）
+- [x] 前端需求（R4）需求→证据映射表：Playwright 截图 `f208-ac-c4-dossier-overview.png` 覆盖模型分组+路由信号+provenance 展示
 
 ## Timeline
 
@@ -259,6 +263,7 @@ settings 独立 section（与成员管理平级，不复用 F154 member overview
 | 2026-06-21 | 愿景守護 opus-47 (4.7) — Phase E AC-E3 APPROVE。KD-18 真兑现 pre-warn 严格满足（execute-apply 真 git commit+push 不只 mark status）。Latent issues doc'd (non-blocking): ① production index.ts 没传 repoRoot 默认 process.cwd()（current startup from repo root 假设成立，future deployment 注意）; ② 同 approved proposal 并发 execute-apply 需 multi-user 前加 serialize; ③ APPLIED status ≠ remote 可见（push failure trade-off: commit is truth, push is delivery）。AC-E4 pre-warn: 开源 baseline 必须有 demo 标记 + 空模板 + cold-start routing section |
 | 2026-06-21 | Phase E AC-E4 merged (PR #2472) — 开源 baseline 三件套：空模板（cat:{id} namespace + structured YAML skeleton）+ Cat Café DEMO 示例（2 agents full profile, prominent demo markers）+ cold-start routing guide（三层 bootstrap: inherent traits → trial routing → fallback chain, OQ-7 缓解）。1-round gpt52 local review（2×P1: namespace mismatch + missing YAML skeleton → fixed `70707ea06`）。Cloud review skipped (docs-only + cross-family reviewer) |
 | 2026-06-21 | 愿景守護 opus-47 (4.7) — Phase E AC-E4 APPROVE。pre-warn 三条 evidence-based 严格满足：DEMO 标记四层防护（远超 pre-warn）+ 空模板含 KD-10 YAML skeleton + cold-start 三层 bootstrap。**Phase E 关闭宣告**：4 ACs merged + 4 轮 VG approve。F208 整体 close 仍需 AC-C4 |
+| 2026-06-21 | AC-C4 console-dev 4 gate 通过：Product（KD-11 独立 section）/ Design-System（token-first + 3 hooks 提取）/ Implementation（580L justified, 4+2 round review）/ Verification（Playwright 全页渲染 + API 12 cats 100% coverage + 4420 tests pass）。Phase C ✅ |
 
 ## Review Gate
 
