@@ -144,8 +144,8 @@ settings 独立 section（与成员管理平级，不复用 F154 member overview
 - [x] AC-D2: 画像卡片接"最近证据"区域，从 memory search 拉该猫相关 review/传球/trajectory 事件
 - [x] AC-D3: 总结层保持 peer/CVO 判断生成（带 provenance），不被算法分数替代
 
-### Phase E（eval 回流蒸馏 + 开源 baseline）
-- [ ] AC-E1: `DossierDistillationProposal` schema + store（Redis TTL=0，KD-17 契约），幂等（同 sourceId 不重复创建）
+### Phase E（eval 回流蒸馏 + 开源 baseline）🚧
+- [x] AC-E1: `DossierDistillationProposal` schema + store（Redis TTL=0，KD-17 契约），幂等（同 sourceId 不重复创建）
 - [ ] AC-E2: 蒸馏 checkpoint 接入 feat-lifecycle close + review-complete 流程（事件触发，非 cron）
 - [ ] AC-E3: CVO 在 Hub approve proposal 后，持球猫可 apply draft → cat-dossier.md → git commit + push（KD-18）
 - [ ] AC-E4: 开源 baseline 打包 = 空模板 + Cat Café 示例档案（示例标 demo）+ cold-start routing section（OQ-7 缓解）
@@ -250,6 +250,7 @@ settings 独立 section（与成员管理平级，不复用 F154 member overview
 | 2026-06-21 | Phase D merged (PR #2457) — CVO observation store (Redis TTL=0, owner-gated POST + resolveStrictUserId), evidence display (memory search by nickname), fail-closed no-Redis registration. 3-round gpt52 local review (2×P0 fixed: strict auth + fail-closed). 38 new tests |
 | 2026-06-21 | 愿景守護 codex (GPT-5.5) — Phase D 方向放行。原話對照 6 項全核實現證據（17k+ API test + 79 web test）。Phase A AC bookkeeping 漂移修復。F208 整體不放行 close（Phase E 未做 + AC-C4 待補）|
 | 2026-06-21 | Phase E design — codex (GPT-5.5) + opus (4.6) 设计讨论。codex 硬修正：不复用 F231 propose_profile_update（语义不同）→ 新建 DossierDistillationProposal（KD-16~18）。CVO directive "走起" 启动实现 |
+| 2026-06-21 | Phase E AC-E1 merged (PR #2461) — DossierDistillationProposal schema + store (Redis TTL=0, SETNX idempotency, Lua CAS state machine), 6 REST endpoints (create/list/get/approve/reject/apply), 3-layer access control (resolveStrictUserId + resolveOwnerGate + anti-self-approval). 4-round gpt52 local + 3-round cloud review (封板 LL-072). 25 tests |
 
 ## Review Gate
 
