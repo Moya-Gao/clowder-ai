@@ -15,8 +15,9 @@ const PUBLISH_VERDICT_FETCH_TIMEOUT_MS = 120_000;
  *
  * F192 Phase H 收尾 PR-2 (砚砚 R1 Q3): sourceRefs is now a discriminated union
  * supporting eval:a2a (snapshot/attribution YAML basenames),
- * eval:capability-wakeup (replayable window selector), and the PR1 schema-only
- * task-outcome selector surface. Tool routes to the same
+ * eval:capability-wakeup (replayable window selector), eval:memory
+ * (recall metrics selector), eval:sop (replayable SOP trace selector),
+ * and eval:task-outcome (snapshot replay window). Tool routes to the same
  * API endpoint; per-domain generator dispatch happens in the route layer.
  */
 
@@ -164,10 +165,64 @@ const memorySourceRefsShape = z
   })
   .describe('eval:memory sourceRefs — replayable recall metrics selector (windowDays + optional filters).');
 
+/**
+ * F192 sop-wiring — replayable SOP trace selector. Eval cat builds the trace
+ * from session observation; generator replays evaluation via predicate evaluator
+ * and writes provenance artifacts. Trace is embedded (no persistent SOP trace
+ * store yet), so the selector carries the full SopTraceInput.
+ *
+ * KEEP IN SYNC: packages/api/src/infrastructure/harness-eval/sop/sop-trace-adapter.ts sopTraceInputSchema.
+ */
+const sopSourceRefsShape = z
+  .object({
+    kind: z.literal('sop-trace-eval'),
+    sopDefinitionId: z
+      .string()
+      .min(1)
+      .describe(
+        'SOP definition to evaluate against (e.g. "development"). Must match a known definition in the catalog.',
+      ),
+    trace: z
+      .object({
+        sessionId: z.string().min(1),
+        sopDefinitionId: z.string().min(1),
+        observedStage: z.string().min(1),
+        commands: z.array(
+          z.object({
+            command: z.string().min(1),
+            cwd: z.string().optional(),
+            exitCode: z.number().int().optional(),
+          }),
+        ),
+        envSnapshot: z.record(z.string().or(z.undefined())),
+        gitState: z.object({
+          branch: z.string().min(1),
+          ahead: z.number().int().min(0),
+          behind: z.number().int().min(0),
+          clean: z.boolean(),
+          worktreeRoot: z.string().optional(),
+        }),
+        handles: z.object({
+          author: z.string().optional(),
+          reviewer: z.string().optional(),
+          guardian: z.string().optional(),
+        }),
+        shaContext: z.record(z.string()),
+      })
+      .describe('Full SopTrace data for deterministic replay. See eval cat invocation instructions for field details.'),
+  })
+  .describe('eval:sop sourceRefs — replayable SOP trace selector (sopDefinitionId + embedded trace).');
+
 const sourceRefsShape = z
-  .union([a2aSourceRefsShape, capabilityWakeupSourceRefsShape, taskOutcomeSourceRefsShape, memorySourceRefsShape])
+  .union([
+    a2aSourceRefsShape,
+    capabilityWakeupSourceRefsShape,
+    taskOutcomeSourceRefsShape,
+    memorySourceRefsShape,
+    sopSourceRefsShape,
+  ])
   .describe(
-    'Discriminated union by `kind` field. a2a kind is default (backward compat); capability-wakeup-trial-window kind wired in PR-2; memory-recall-snapshot kind wired in F192 memory wire-up; task-outcome-snapshot kind is PR1 schema-only until its generator lands.',
+    'Discriminated union by `kind` field. a2a kind is default (backward compat); capability-wakeup-trial-window kind wired in PR-2; memory-recall-snapshot kind wired in F192 memory wire-up; task-outcome-snapshot kind wired in task-outcome PR; sop-trace-eval kind wired in F192 sop-wiring.',
   );
 
 export const publishVerdictInputSchema = {
@@ -213,6 +268,20 @@ type PublishVerdictToolInput = {
         windowDays: number;
         catId?: string;
         toolName?: string;
+      }
+    | {
+        kind: 'sop-trace-eval';
+        sopDefinitionId: string;
+        trace: {
+          sessionId: string;
+          sopDefinitionId: string;
+          observedStage: string;
+          commands: Array<{ command: string; cwd?: string; exitCode?: number }>;
+          envSnapshot: Record<string, string | undefined>;
+          gitState: { branch: string; ahead: number; behind: number; clean: boolean; worktreeRoot?: string };
+          handles: { author?: string; reviewer?: string; guardian?: string };
+          shaContext: Record<string, string>;
+        };
       };
   agentKeyCatId?: string | undefined;
 };
@@ -242,7 +311,7 @@ export const publishVerdictTools = [
       'Use after your analysis converges to a verdict for your assigned eval domain. ' +
       'Pass the complete VerdictHandoffPacket + sourceRefs (shape depends on your domain — see your eval cat invocation instructions for the exact selector shape). ' +
       'The handler validates schema, dispatches to the per-domain generator inside an isolated git worktree, commits + pushes the branch verdict/auto/<domain-slug>/<verdict-id>, and opens an auto-PR. Returns { commitSha, prUrl }. ' +
-      'GOTCHA: wired domains: eval:a2a (snapshot/attribution YAML basenames) + eval:capability-wakeup (replayable trial-window selector) + eval:memory (memory-recall-snapshot selector with windowDays + optional catId/toolName filters) + eval:task-outcome (task-outcome-snapshot replay window). Other domains return 501. ' +
+      'GOTCHA: wired domains: eval:a2a (snapshot/attribution YAML basenames) + eval:capability-wakeup (replayable trial-window selector) + eval:memory (memory-recall-snapshot selector) + eval:sop (sop-trace-eval replayable SOP trace selector) + eval:task-outcome (task-outcome-snapshot replay window). Unregistered domains return 501. ' +
       'GOTCHA: catId must match the registered eval cat for the domain (or its OQ-20 Redis override); 403 not_allowed otherwise. ' +
       'GOTCHA: DO NOT run git push/commit/add yourself; this tool owns the publish lifecycle.',
     inputSchema: publishVerdictInputSchema,
