@@ -8,7 +8,7 @@ created: 2026-06-20
 
 # F246: Approval Hub — 统一审批中心底座
 
-> **Status**: in-progress（Phase C alpha-validated）| **Owner**: 布偶猫/宪宪 (opus-46) | **Priority**: P2
+> **Status**: in-progress（Phase D planned; v1 not closed）| **Owner**: 布偶猫/宪宪 (opus-46) | **Priority**: P2
 
 Architecture cell: platform-infra（subcell: `approval-index`）
 Map delta: 新 cell — Hub 通过 feature adapter 实时聚合（query aggregation）各 feature 的 CVO 审批项 + Hub UI panel。不维护独立 index，at-read-time 直查 canonical stores。
@@ -129,7 +129,7 @@ Why: CVO 审批散落在各 thread（F128/F225/F193），铲屎官不在对应 t
 - [x] **AC-B3**: effect-class 由发送猫在 cross-post 时声明，不由底座推断
 - [x] **AC-B4**: **接收侧不变量**（砚砚 R2 P2）：`fyi`/`coordinate`/`investigate` 自动投递**永远不是开工授权**。接收猫只能知会/协调/只读调查；写代码必须有 `assign_work` 的 approved DispatchProposal 或 CVO 直接指令。接收侧 prompt 注入 effect-class 标签 + 行为约束。Fixture：imperative wording（"请修这个 bug"）+ non-assign effect-class（`fyi`）= 不触发 ApprovalItem + 接收侧不授权 coding
 
-### Phase C: Workspace 集成 + 响应式 Tab Bar + 成熟化 ✅
+### Phase C: Workspace 集成 + 响应式 Tab Bar ✅
 
 > **CVO 设计决策（2026-06-21）**：Approval Hub 从 drawer overlay 迁移到 workspace panel 的顶层 tab。
 > 铲屎官原话："说实话你们的这个东西合适放在workspace这里" / "铃铛必须在，不然我不知道到底有谁要我审批，但是点击的话那就是打开workspace - 审批就行了" / "动态计算啊！！按照用户给workspace 拉的宽度来匹配？"
@@ -150,8 +150,10 @@ Why: CVO 审批散落在各 thread（F128/F225/F193），铲屎官不在对应 t
 - **Overflow dropdown**：收纳的 tab 点击后切换到对应 mode（功能与展开 tab 完全一致）
 - **持久化**：tab 显示模式由宽度实时计算，不需要用户手动 pin/自定义
 
-#### C3: 功能成熟化
+#### C3: 功能成熟化（upgraded to Phase D）
 
+- Phase C 只交付 workspace 集成 + 响应式 tab bar。下面成熟化项不作为“close 后下次一定”，已升级为 Phase D executable plan。
+- Plan: `docs/plans/2026-06-21-f246-phase-d-approval-hub-maturation.md`
 - 批量操作（全部 approve / 全部 reject）
 - 筛选（by feature / by thread / by 时效）
 - v2 接入（F231 等）
@@ -167,7 +169,21 @@ Why: CVO 审批散落在各 thread（F128/F225/F193），铲屎官不在对应 t
 - [x] **AC-C5**: Tab bar 宽度不足时自动收纳溢出 tab 到 `⋯` dropdown
 - [x] **AC-C6**: Tab bar 极窄时（< `tabCount × 36px`）切换到 icon-only 模式
 - [x] **AC-C7**: Overflow dropdown 中的 tab 功能与展开 tab 一致（点击切换 mode）
-- [ ] **AC-C8**: ⬜ Residual P2（Phase B review）：intercept mirror "单行首 mention 才路由" pruning — deferred to C3 maturation, not in PR #2463 scope
+- [ ] **AC-C8**: Residual P2（Phase B review）：intercept mirror "单行首 mention 才路由" pruning — deferred to Phase D AC-D1, not in PR #2463 scope
+
+### Phase D: Approval Hub Maturation（planned）
+
+Plan: `docs/plans/2026-06-21-f246-phase-d-approval-hub-maturation.md`
+
+Goal: 把 Phase C 后真实遗留的成熟化工作收束成可执行交付，而不是 v1 close 后的口头 backlog。
+
+- [ ] **AC-D1**: AC-C8 收口：intercept mirror / line-start mention pruning 完成，正文内 `@cat` 不误触发 F193 approval intercept。
+- [ ] **AC-D2**: WorkspaceTabBar 自动化 web 回归：full / overflow / icon-only 三档、overflow click、active-in-overflow swap 全覆盖。
+- [ ] **AC-D3**: ApprovalPanel + ActivityBar 自动化 web 回归：bell → workspace approval、toggle close、fetchPending、loading/empty/error、inline/jump card rendering 全覆盖。
+- [ ] **AC-D4**: Hub 筛选：by feature / by thread / by stale-expired 的组合筛选，作为 UI projection，不改变 canonical stores。
+- [ ] **AC-D5**: 批量 approve/reject：只对安全 inline items 开放；F128/F225 等需要上下文/override 的项目不可被批量 approve。
+- [ ] **AC-D6**: v2 adapter admission matrix：F231、F168 `direction-decision`、Knowledge Feed、Limb pair approval 逐项定 actor/outcome/store/inline fields/risk/first PR boundary。
+- [ ] **AC-D7**: materialized index gate：明确 adapter count + pending fetch p95 双阈值；未命中前继续 query aggregation。
 
 ## Links
 
@@ -176,6 +192,7 @@ Why: CVO 审批散落在各 thread（F128/F225/F193），铲屎官不在对应 t
 - F225 session_handoff spec：`docs/features/F225-cat-initiated-session-handoff.md`
 - F193 cross-thread spec：`docs/features/F193-cross-thread-comm-unification.md`
 - F168 community ops：`docs/features/F168-community-ops-board.md`
+- Phase D plan：`docs/plans/2026-06-21-f246-phase-d-approval-hub-maturation.md`
 
 ## Timeline
 
@@ -192,3 +209,4 @@ Why: CVO 审批散落在各 thread（F128/F225/F193），铲屎官不在对应 t
 | 2026-06-21 | Phase C merged (PR #2463) — workspace tab + responsive WorkspaceTabBar + bell→workspace shortcut + cloud review P2 fixes |
 | 2026-06-21 | Phase C vision guardian APPROVE (@opus-47) — CVO design 100% 落地, AC-C1~C7 trace 通, drawer retired, cloud R1/R2 fixes verified |
 | 2026-06-21 | Phase C alpha-validated — **6/6 PASS** (@sonnet): 三档响应式(allFitFull/medium/iconOnly) ✅, bell→workspace审批tab ✅, bell再点关闭workspace ✅, 跨路由bell(settings→chat approval active) ✅, overflow dropdown功能+关闭 ✅, active-in-overflow swap(审批↔社区) ✅ |
+| 2026-06-21 | Phase D planned — AC-C8 intercept pruning + web regression tests + filters + safe batch actions + v2 admission matrix + materialized-index gate |

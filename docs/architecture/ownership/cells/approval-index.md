@@ -28,11 +28,13 @@ doc_anchors:
   - docs/plans/2026-06-20-f246-phase-a-approval-hub.md
   - docs/plans/2026-06-20-f246-phase-b-f193-dispatch-adapter.md
   - docs/plans/2026-06-21-f246-phase-c-workspace-integration.md
-static_scan_hints: [approval hub, pending approval, approval adapter, approval item, inline approve, ApprovalPanel, ApprovalItemCard, WorkspaceTabBar, workspace approval, dispatch proposal, DispatchProposalStore, F193ApprovalAdapter]
+  - docs/plans/2026-06-21-f246-phase-d-approval-hub-maturation.md
+static_scan_hints: [approval hub, pending approval, approval adapter, approval item, inline approve, batch approve, approval filters, ApprovalPanel, ApprovalItemCard, WorkspaceTabBar, workspace approval, dispatch proposal, DispatchProposalStore, F193ApprovalAdapter]
 cited_by:
   - {feature: F246, date: 2026-06-20, delta: new cell}
   - {feature: F246, date: 2026-06-20, delta: "Phase B — F193 E3 adapter + DispatchProposalStore"}
   - {feature: F246, date: 2026-06-21, delta: "Phase C — drawer→workspace tab + WorkspaceTabBar"}
+  - {feature: F246, date: 2026-06-21, delta: "Phase D planned — maturation tests, filters, batch actions, adapter admission gates"}
 ---
 
 # Approval Index
@@ -83,6 +85,6 @@ ActivityBar (bell icon + badge count)
 
 - ~~Phase B: add F193 E3 adapter~~ ✅ merged PR #2454
 - ~~Phase C: workspace integration~~ ✅ merged PR #2463
-- C3 maturation: batch approve/reject, filtering (by feature/thread/时效), AC-C8 intercept pruning
+- Phase D planned: AC-C8 intercept pruning, WorkspaceTabBar/ApprovalPanel web regressions, batch approve/reject, filtering (by feature/thread/时效)
 - v2 接入: F231 propose_profile_update, F168 direction-decision subcell, Knowledge Feed, Limb pair_approve
-- v2+ architecture: materialized CQRS index when adapter count > 5 (query fan-out bottleneck threshold)
+- v2+ architecture: materialized CQRS index only after adapter count > 5 and measured pending fetch p95 crosses the Phase D gate
