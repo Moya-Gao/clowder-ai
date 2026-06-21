@@ -109,10 +109,16 @@ settings 独立 section（与成员管理平级，不复用 F154 member overview
 
 ### Phase E: eval 回流蒸馏 + 开源 baseline
 
-- eval → 反馈 → 画像自主进化：trajectory/eval 累积事实层；peer/CVO **事件触发**
-  蒸馏总结层（feat close / review 完成时，不用 cron）
-- 开源 baseline 打包：**空模板 + Cat Café 示例档案**（示例标 demo，不作别人团队
-  默认画像——别人的猫不是我们的猫）
+- **蒸馏通道**：新建 `DossierDistillationProposal` 概念（KD-16），不复用 F231
+  `propose_profile_update`（语义/路径/审批粒度全不同）。proposal 契约见 KD-17
+- **触发点**：feat phase close + review complete（事件触发，不用 cron）。在
+  feat-lifecycle / review-complete 流程中加 distillation checkpoint
+- **审批流**：proposal → Hub pending → CVO approve/reject → 持球猫 apply draft
+  到 `cat-dossier.md` → git commit + push（KD-18，v1 不自动 commit main）
+- **安全锁**：`baseHash` 防 stale write（dossier 是共享文件多猫并行）；`sourceId`
+  幂等（同事件不重复蒸馏）；`evidenceRefs` 空 = 创建失败（fail-closed，FM-2）
+- **开源 baseline 打包**：**空模板 + Cat Café 示例档案**（示例标 demo，不作别人
+  团队默认画像——别人的猫不是我们的猫）+ cold-start routing section（OQ-7 缓解）
 
 ## Acceptance Criteria
 
@@ -138,9 +144,11 @@ settings 独立 section（与成员管理平级，不复用 F154 member overview
 - [x] AC-D2: 画像卡片接"最近证据"区域，从 memory search 拉该猫相关 review/传球/trajectory 事件
 - [x] AC-D3: 总结层保持 peer/CVO 判断生成（带 provenance），不被算法分数替代
 
-### Phase E（eval 回流 + 开源 baseline）
-- [ ] AC-E1: 画像总结层蒸馏由事件触发（feat close / review 完成），非 cron
-- [ ] AC-E2: 开源 baseline 打包 = 空模板 + Cat Café 示例档案（示例标 demo）
+### Phase E（eval 回流蒸馏 + 开源 baseline）
+- [ ] AC-E1: `DossierDistillationProposal` schema + store（Redis TTL=0，KD-17 契约），幂等（同 sourceId 不重复创建）
+- [ ] AC-E2: 蒸馏 checkpoint 接入 feat-lifecycle close + review-complete 流程（事件触发，非 cron）
+- [ ] AC-E3: CVO 在 Hub approve proposal 后，持球猫可 apply draft → cat-dossier.md → git commit + push（KD-18）
+- [ ] AC-E4: 开源 baseline 打包 = 空模板 + Cat Café 示例档案（示例标 demo）+ cold-start routing section（OQ-7 缓解）
 
 ## Dependencies
 
@@ -196,6 +204,9 @@ settings 独立 section（与成员管理平级，不复用 F154 member overview
 | KD-13 | F032 边界调整——cat-config 退回纯身份配置，能力描述权归 F208 | CVO signoff 2026-06-19。cat-config 仍管 catId/model/开关/排序/硬限制（如"禁止写代码"）；`teamStrengths`/`caution` 标 legacy-fallback，**永久保留当社区兜底，永不删字段**（删了 KD-9 就破）。F032 feat doc 需同步更新 | 2026-06-19 |
 | KD-14 | fallback 走 per-field 渐进，不被 `status:draft` 文件级门控 | 实现者容易顺手写 `if (dossier.status === 'stable') 用dossier else 用config`——这会导致 draft 期间全员 fallback 回 config，切源等于没生效。正确：**忽略文件级 status，按 per-field 有没有值渐进**。某猫某字段有值就用 dossier，没值就 fallback config（48 R1 blocking）| 2026-06-19 |
 | KD-15 | **画像描述的是 model 认知能力，catId 是索引便利而非概念单位** | 我们家大多 catId:model = 1:1（唯一例外 opus = @opus + @antig-opus 共享 claude-opus-4-6），但社区场景是 **many catIds → one model**（一个团队 5 只猫都用 claude-sonnet-4，每只不同 persona）。画像描述的是 model 的认知特质（擅长什么/容易踩什么坑/什么场景该召唤），不是 catId 的。三层身份模型：模板层（per-model 认知模式）/ 塑造层（per-runtime 工具环境）/ 身份层（per-cat persona）——F208 画像 = 模板层。CVO directive 2026-06-20 | 2026-06-20 |
+| KD-16 | **蒸馏不复用 F231 `propose_profile_update`——新建 `DossierDistillationProposal`** | F231 `propose_profile_update` 语义 = 关系 primer（写 `private/profile/relationship/{catId}-primer.md`）；F208 蒸馏语义 = 能力画像总结层更新（写 `docs/team/cat-dossier.md`）。目标路径不同、审批粒度不同（F231 是整个 primer，F208 是 per-field per-cat）、消费方不同。复用 = 语义污染。新概念：`DossierDistillationProposal`，走 Hub approval 但独立类型。砚砚（GPT-5.5）R1 硬修正 | 2026-06-21 |
+| KD-17 | **蒸馏 proposal 契约 schema** | `sourceEvent`（触发事件类型）/ `sourceId`（幂等键，防重复蒸馏）/ `targetCatId` / `targetFields`（被更新的画像字段）/ `evidenceRefs`（关联证据锚点，空 = 创建失败 fail-closed）/ `beforeSnapshot` + `afterDraft`（CVO 审批时可看 diff）/ `rationale`（蒸馏理由）/ `status`（pending→approved/rejected→applied）/ `baseHash`（cat-dossier.md 当前 hash，防 stale write 覆盖并行修改）。砚砚设计 + 46 确认 | 2026-06-21 |
+| KD-18 | **v1 蒸馏不自动 commit main——CVO approve 后由持球猫 apply + commit + push** | 自动写 main 的 dossier 文件风险过高（并行猫 + merge conflict + 无 review gate）。v1：proposal 进 Hub pending → CVO approve → 下次持球猫读 approved proposal → apply to dossier → git commit + push。和现有 profile-update 审批流一致（Hub approval），只是写入目标不同 | 2026-06-21 |
 
 ## Eval / Tracking Contract
 
@@ -238,6 +249,7 @@ settings 独立 section（与成员管理平级，不复用 F154 member overview
 | 2026-06-20 | Phase D kickoff — CVO directive "直接接通已有数据"，不等 F200 成熟。调整 Phase D 方向 + AC |
 | 2026-06-21 | Phase D merged (PR #2457) — CVO observation store (Redis TTL=0, owner-gated POST + resolveStrictUserId), evidence display (memory search by nickname), fail-closed no-Redis registration. 3-round gpt52 local review (2×P0 fixed: strict auth + fail-closed). 38 new tests |
 | 2026-06-21 | 愿景守護 codex (GPT-5.5) — Phase D 方向放行。原話對照 6 項全核實現證據（17k+ API test + 79 web test）。Phase A AC bookkeeping 漂移修復。F208 整體不放行 close（Phase E 未做 + AC-C4 待補）|
+| 2026-06-21 | Phase E design — codex (GPT-5.5) + opus (4.6) 设计讨论。codex 硬修正：不复用 F231 propose_profile_update（语义不同）→ 新建 DossierDistillationProposal（KD-16~18）。CVO directive "走起" 启动实现 |
 
 ## Review Gate
 
