@@ -349,6 +349,17 @@ export type {
 } from './deliberate.js';
 // Dispatch proposal types (F246 Phase B: F193 E3 cross-thread dispatch)
 export type { DispatchProposal, DispatchProposalStatus, EffectClass } from './dispatch-proposal.js';
+// Dossier distillation proposal types (F208 Phase E 画像蒸馏)
+export type {
+  DistillationEvidenceRef,
+  DistillationProposalStatus,
+  DistillationSourceEvent,
+  DossierDistillationProposal,
+} from './dossier-distillation.js';
+export {
+  DISTILLATION_SOURCE_EVENTS,
+  isDistillationSourceEvent,
+} from './dossier-distillation.js';
 // F233 Phase A: 值班简报 DTO (pure-projection aggregator output; impl stays in api)
 export type { BallEntry, BallEntryKind, DutyBriefing, DutyBriefingCounts } from './duty-briefing.js';
 // F227: Event Memory types (cognitive-transition event index)

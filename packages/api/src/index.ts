@@ -193,6 +193,7 @@ import {
   connectorMediaRoutes,
   connectorPluginRoutes,
   distillationRoutes,
+  dossierDistillationRoutes,
   dossierObservationRoutes,
   dossierRoutes,
   eventsRoutes,
@@ -1964,9 +1965,16 @@ async function main(): Promise<void> {
     );
     const dossierObservationStore = new RedisDossierObservationStore(redisClient);
     await app.register(dossierObservationRoutes, { observationStore: dossierObservationStore });
+    // F208 Phase E: Distillation proposal store (AC-E1)
+    // Same fail-closed pattern — no Redis → no distillation routes.
+    const { RedisDossierDistillationProposalStore } = await import(
+      './domains/cats/services/stores/redis/RedisDossierDistillationProposalStore.js'
+    );
+    const dossierDistillationStore = new RedisDossierDistillationProposalStore(redisClient);
+    await app.register(dossierDistillationRoutes, { distillationStore: dossierDistillationStore });
   } else {
     app.log.warn(
-      '[api] F208 dossier observations: routes NOT registered (Redis unavailable, fail-closed per Iron Rule #5)',
+      '[api] F208 dossier observations + distillation: routes NOT registered (Redis unavailable, fail-closed per Iron Rule #5)',
     );
   }
   await app.register(brakeRoutes, { activityTracker });
