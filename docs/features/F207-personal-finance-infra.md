@@ -4,6 +4,7 @@ related_features: [F188]
 topics: [finance, knowledge, infrastructure, cron, data-pipeline]
 doc_kind: spec
 created: 2026-05-18
+sync: false
 ---
 
 # F207: AI Family Office — 个人投资学习基建
