@@ -1690,6 +1690,22 @@ created: 2026-02-26
 - 来源锚点：PR #2447（F167 PR-O2b，squash `10e6d4a2e`）/ cloud R1 P2 comment id 3446414013 (13:14:58) / author pushback comment id 3446422487 (13:18:31) / cloud R2 P1 comment id 3446428880 (13:20:26) / merge (13:19:21) / opus-47 vision guardian BLOCK (thread_mqkasedeqeo56ayc)
 - 关联：feedback_approve_then_enforce_merge（reviewer APPROVE 后必须 enforce——本 LL 是 mirror：author pushback 后不是 self-approve）| feedback_cloud_review_inline（cloud P1 可能在 inline comments——本 LL 是"merge 前 P1 还没到"的时序变体）| LL-072（封板协议——本 LL 的边界：封板适用于 N≥5 的疲劳循环，不适用于"re-trigger 了没等结果就 merge"）
 
+### LL-087: Filter+Batch UI 的 plan-time invariant table——`items` vs `filteredItems` scope-mismatch 是 stateful UI 的典型同类 failure class
+- 状态：validated
+- 更新时间：2026-06-21
+- 坑：F246 Phase D PR #2477 在 local review 3 轮 + cloud review 3 轮中，累计暴露 **4 处同类 scope-mismatch**——全部是 `items`（全集）该用 `filteredItems`（当前视图）的位置写反了。4 处分布在 3 个不同阶段（local R2: selectAllInline 不 scope 到 filtered；local R3: filter 切换后 selection 残留；cloud R1: batch 开始时 selectedIds 不清空；cloud R2: inlineCount 取全集不取视图），每轮只修当前发现的 1 个，没有泛化扫描同类。
+- 根因：Phase D plan 处理"ApprovalPanel filter + batch selection"这个 stateful 系统时**没有显式 invariant table**。具体缺失：① `items`（全集）vs `filteredItems`（视图）的使用判别标准未画出来——哪些操作读全集（empty-state 判定）、哪些读视图（batch scope / inlineCount / selection）；② selection 与 filter 切换的不变量（"filter 变 → selection 清空"）未显式定义；③ batch action 与 selection clear 的时序契约（"batch 启动 → 立刻清空 selectedIds → 然后执行 API 循环"）未写入。
+- 这是 `feedback_plan_stateful_lifecycle_state_machine.md`（P1，F229 PR-A1 20 轮 review）的同型教训：stateful 对象给状态转移表 + 可测不变量 + 对抗场景，否则 review 轮数 = 欠的边数。F246 是 UI 层变体：store + component 的 state projection 关系也是 stateful 系统。
+- 触发条件：plan 涉及"全集 + 过滤视图 + 选择状态 + 批量操作"四件套的 UI 时，且 plan 没有显式 invariant table。
+- 防护：
+  - **Plan-time invariant table for filter+batch UI**：类似"状态×事件转移表"，为 filter+batch UI 写一张"数据源×操作"表，标注每个操作该读全集还是视图：
+    - 全集（`items`）：empty-state 判定（"没有任何待审批项"）、总数统计
+    - 视图（`filteredItems`）：batch scope、inlineCount、selection scope、UI 列表渲染
+    - 不变量：INV-1 filter 变 → selectedIds 清空；INV-2 batch 启动 → selectedIds 立刻清空（double-click guard）；INV-3 inlineCount 与 batch bar 可见性 = filteredItems 的 inlineApprovable 计数
+  - **Failure-mode audit at plan time**：plan 写完后用"items vs filteredItems"做 grep 扫描模板（哪些用 items，逐个标注为何不用 filteredItems）。
+- 来源锚点：F246 Phase D PR #2477（squash `507bf5f6d`）/ local R2 fix `8cedeacf6`（selectAllInline scope）/ local R3 fix `1fd592278`（selection clear on filter change）/ cloud R1 fix `0e3e9f3d9`（batch double-click guard）/ cloud R2 fix `326af8099`（inlineCount scope）/ opus-47 vision guard verdict（"4 处 scope-mismatch 暴露 plan 层 stateful invariant 缺口"）
+- 关联：feedback_plan_stateful_lifecycle_state_machine（P1 F229 20 轮——plan 里 stateful 对象必须三件套）| LL-072（cloud review 封板——F246 Phase D 因 100% stale replay 封板，但根因是 4 处 scope-mismatch 用了 4 轮才全清）| feedback_halt_question_but_probe_before_pivot（N 轮同向打补丁=坐标系警报——本 LL 给了具体的"filter+batch UI invariant table"作为坐标系修正工具）
+
 ### LL-087: Filter+Batch UI 的 scope-mismatch failure class — plan 层补不变量表
 - 状态：validated
 - 更新时间：2026-06-21
