@@ -129,13 +129,45 @@ Why: CVO 审批散落在各 thread（F128/F225/F193），铲屎官不在对应 t
 - [x] **AC-B3**: effect-class 由发送猫在 cross-post 时声明，不由底座推断
 - [x] **AC-B4**: **接收侧不变量**（砚砚 R2 P2）：`fyi`/`coordinate`/`investigate` 自动投递**永远不是开工授权**。接收猫只能知会/协调/只读调查；写代码必须有 `assign_work` 的 approved DispatchProposal 或 CVO 直接指令。接收侧 prompt 注入 effect-class 标签 + 行为约束。Fixture：imperative wording（"请修这个 bug"）+ non-assign effect-class（`fyi`）= 不触发 ApprovalItem + 接收侧不授权 coding
 
-### Phase C: 成熟化
+### Phase C: Workspace 集成 + 响应式 Tab Bar + 成熟化
+
+> **CVO 设计决策（2026-06-21）**：Approval Hub 从 drawer overlay 迁移到 workspace panel 的顶层 tab。
+> 铲屎官原话："说实话你们的这个东西合适放在workspace这里" / "铃铛必须在，不然我不知道到底有谁要我审批，但是点击的话那就是打开workspace - 审批就行了" / "动态计算啊！！按照用户给workspace 拉的宽度来匹配？"
+
+#### C1: Workspace Tab 迁移
+
+- **新 `workspaceMode: 'approval'`**：审批成为 workspace 顶层入口（与 开发/记忆/调度/任务/社区/产物 同级）
+- **Bell 铃铛行为变更**：ActivityBar 铃铛保留（badge count 常驻），点击从"弹 drawer" → "打开 workspace panel + 切到审批 tab"
+- **ApprovalHubDrawer 废弃**：drawer 组件标 deprecated，workspace 内的 ApprovalPanel 接替全部功能
+- **ApprovalPanel**：复用现有 ApprovalItemCard + store，嵌入 workspace 容器（flex 布局，享受完整 panel 宽度）
+
+#### C2: Workspace Tab Bar 响应式
+
+- **三档动态适配**（基于 panel 宽度，ResizeObserver 或 resize handle 回调）：
+  - **宽** ≥ `tabCount × 65px`：全部展开（icon + 文字）
+  - **中**：显示前 N 个 tab + `⋯` overflow dropdown（N = `Math.floor(width / 65)`）
+  - **窄** < `tabCount × 36px`：icon-only 模式 + 必要时 `⋯` overflow
+- **Overflow dropdown**：收纳的 tab 点击后切换到对应 mode（功能与展开 tab 完全一致）
+- **持久化**：tab 显示模式由宽度实时计算，不需要用户手动 pin/自定义
+
+#### C3: 功能成熟化
 
 - 批量操作（全部 approve / 全部 reject）
 - 筛选（by feature / by thread / by 时效）
 - v2 接入（F231 等）
 - **F168 精确接入切口**（opus-48 F168 owner 背书）：F168 整体是 mixed actor/action queue 不适合迁，但 `direction-decision` 子类型（`community-decision-queue.ts:198`）满足 actor=cvo + binary approve/reject，v2 可抽取该子类型单独接 Hub，无需整 queue 迁移
 - **Materialized index 演进**：当接入 feature 数 >5 且 query fan-out 成为瓶颈时，引入 event-driven CQRS index + backfill/reconciliation 契约（v1 的 query aggregation 是有意选择，不是技术债）
+
+#### Phase C AC
+
+- [ ] **AC-C1**: `workspaceMode='approval'` 在 WorkspacePanel 中渲染 ApprovalPanel（列表 + inline approve/reject + 跳转）
+- [ ] **AC-C2**: Bell 铃铛点击 → `setWorkspaceMode('approval')` + 打开 workspace panel（不再弹 drawer）
+- [ ] **AC-C3**: ApprovalHubDrawer 标 deprecated，不再从 AppShell 渲染（breaking change guard：旧 bell 行为平滑切换）
+- [ ] **AC-C4**: Tab bar 宽度 ≥ `tabCount × 65px` 时全部展开（icon + 文字）
+- [ ] **AC-C5**: Tab bar 宽度不足时自动收纳溢出 tab 到 `⋯` dropdown
+- [ ] **AC-C6**: Tab bar 极窄时（< `tabCount × 36px`）切换到 icon-only 模式
+- [ ] **AC-C7**: Overflow dropdown 中的 tab 功能与展开 tab 一致（点击切换 mode）
+- [ ] **AC-C8**: Residual P2（Phase B review）：intercept mirror "单行首 mention 才路由" pruning
 
 ## Links
 
@@ -156,3 +188,4 @@ Why: CVO 审批散落在各 thread（F128/F225/F193），铲屎官不在对应 t
 | 2026-06-21 | Phase B vision guardian APPROVE (@opus-47) — effectClass boundaries, CAS consistency, runtime caller chain verified |
 | 2026-06-21 | Phase B alpha-validated — 5/5 smoke tests PASS (@sonnet): hotfix bg opaque ✅, assign_work→Hub ✅, fyi/coordinate/investigate→auto-deliver ✅, inline approve ✅, count accuracy ✅ |
 | 2026-06-21 | Hotfix merged (PR #2456, cad0e759c) — ApprovalHubDrawer --cafe-background→--console-card-bg |
+| 2026-06-21 | Phase C CVO design decision — drawer→workspace tab + responsive tab bar + bell→workspace shortcut |
