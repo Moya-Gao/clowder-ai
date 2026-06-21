@@ -1689,3 +1689,24 @@ created: 2026-02-26
   - **Spec 白名单 > 黑名单举例**：L828 "只存 X + Y；不存 Z" 中的"只存"是白名单，"不存 Z"是反例不是穷举。不在白名单上的字段默认不存。
 - 来源锚点：PR #2447（F167 PR-O2b，squash `10e6d4a2e`）/ cloud R1 P2 comment id 3446414013 (13:14:58) / author pushback comment id 3446422487 (13:18:31) / cloud R2 P1 comment id 3446428880 (13:20:26) / merge (13:19:21) / opus-47 vision guardian BLOCK (thread_mqkasedeqeo56ayc)
 - 关联：feedback_approve_then_enforce_merge（reviewer APPROVE 后必须 enforce——本 LL 是 mirror：author pushback 后不是 self-approve）| feedback_cloud_review_inline（cloud P1 可能在 inline comments——本 LL 是"merge 前 P1 还没到"的时序变体）| LL-072（封板协议——本 LL 的边界：封板适用于 N≥5 的疲劳循环，不适用于"re-trigger 了没等结果就 merge"）
+
+### LL-087: Filter+Batch UI 的 scope-mismatch failure class — plan 层补不变量表
+- 状态：validated
+- 更新时间：2026-06-21
+- 坑：F246 Phase D 引入 filter + batch 操作后，4 处独立点犯了同一类 bug：`selectAllInline` 选了全集而非 `filteredIds`；filter 切换后 `selectedIds` 未清空；batch 操作初始 set 未清空旧选择；`inlineCount` 取 `items` 而非 `filteredItems`。4 处 scope-mismatch 同类 finding，触发 `feedback_plan_stateful_lifecycle_state_machine.md`："同类 finding ≥3 轮 → 停回 plan 层补状态机"。
+- 根因：**filter 引入了"可见集 ≠ 全集"的状态分裂**，但 plan/spec 没有为此写不变量。所有与 selection/count 相关的操作默认用了 `items`（全集），而正确答案是 `filteredItems`（可见集）。这不是 4 个 bug，是 1 个 failure class 的 4 个 symptom。
+- 触发条件：① UI 引入 filter/search/排序等"可见集 ≠ 全集"的分裂点；② selection/batch/count 等操作需要"对什么集合操作"的决策；③ plan 层没有写 invariant table 明确"哪些操作走全集、哪些走可见集"。
+- 防护（plan-time invariant table 模板）：
+  - 每当 plan 引入 filter/search/sort 等可见集分裂点时，写一张 **scope invariant table**：
+    ```
+    | 操作 | 目标集 | 不变量 |
+    |------|--------|--------|
+    | selectAll | filteredItems | 只选当前可见 |
+    | count badge | filteredItems | 显示可见数 |
+    | batch approve/reject | selectedIds ∩ filteredItems | 不操作不可见项 |
+    | filter change | clear selectedIds | 旧选择可能不在新可见集 |
+    ```
+  - **filter change = state reset event**：切换 filter 后，所有依赖"可见集"的派生状态（selection/count/pagination）必须清空或重算。plan 层用 `useMemo` 依赖链 或 `useEffect` 显式重置表示。
+  - **code review checkpoint**：reviewer 看到 filter + selection 并存时，第一动作对照 invariant table，每个操作问"用的是全集还是可见集？"。
+- 来源锚点：PR #2477（F246 Phase D）/ opus-47 vision guardian Phase D verdict / 4 处 scope-mismatch 修复（selectAllInline/filter auto-clear/batch initial set/inlineCount）
+- 关联：feedback_plan_stateful_lifecycle_state_machine（同类 finding ≥3 轮→停回 plan 层）| feedback_grep_consumers_before_contract_change（改契约先 grep 消费方——scope-mismatch 是"引入 filter 改了'集合'语义但没 grep 所有消费方"）
