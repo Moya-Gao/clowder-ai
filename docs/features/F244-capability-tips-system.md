@@ -292,6 +292,7 @@ tips system 是 harness 改动，必须有闭环：
 | 2026-06-20 | PR #2448 merged：tip strip IS the thinking bubble — PendingMemberBubble 中 tip 立即渲染（firstDelayMs=0）带呼吸光晕，不再有独立弹跳点；shimmer placeholder 作为无 tip 内容时的思考态 fallback；AC-B4 dogfood 进行中 |
 | 2026-06-20 | PR #2433 merged：CVO dogfood 发现 tips 位置仍错——应在 PendingMemberBubble（"分析处理中"阶段），不是 streaming ChatMessage；移动 CapabilityTipStrip 到 PendingMemberBubble，清理 ChatMessage 死代码，增加 per-thread dedup（cloud P2 fix）|
 | 2026-06-20 | PR #2444 merged：CVO dogfood Round 3——去除"分析处理中"SaaS 文案（改为极简弹跳点 · · ·），12 条 user-facing tips 从猫内部语言重写为铲屎官友好语气，加 audience="cvo" 过滤 + firstDelayMs=1500 + a11y label |
+| 2026-06-21 | PR #2460 merged：CVO directive tips 扩充为社区 feature discovery——13→46 条 tips，flip 视角从猫内部到用户友好，trigger-action 格式全覆盖，补 5 基础功能 tips + 9 magic word tips + 恢复 workflow-memory-recall（AC-A3）；三猫共识 + 本地砚砚 review + 云端 4 轮 review 全 clear |
 
 ## Review Gate
 
