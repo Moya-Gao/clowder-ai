@@ -656,6 +656,7 @@ F104 全感知升级是 research branch，不是 Meeting Copilot 的门槛。MVP
 | 2026-06-21 | Gemma 4 12B Unified 四模态 smoke 通过（文本+图片+音频+视频，6.3GB，峰值 8.6GB）— 视觉感知管道路径验证 |
 | 2026-06-21 | 铲屎官提出"共同感知"愿景：眼镜/运动摄像机+收音→猫猫实时看+听。视觉感知管道架构确认：ScreenCaptureKit 帧流→Gemma 4 API→场景描述 store |
 | 2026-06-21 | 实时知识检索需求暴露：G7 等时事场景猫猫训练集不够，需 WebFetch 补充（详见 dogfood 文档） |
+| 2026-06-21 | Audio split entry merged (PR #2478) — cat-cafe-audio MCP split entry + 全 6 consumer registry wiring，修复 Codex/GPT 客户端看不到 audio 工具 |
 
 ## 用户反馈（铲屎官实测 2026-05-14）
 
