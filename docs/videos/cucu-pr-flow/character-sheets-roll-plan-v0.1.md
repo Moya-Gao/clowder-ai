@@ -165,4 +165,14 @@ in post only for hero shots.
 - **小标志（精确 logo）**：图像模型常糊小符号。两条路：① 标志做成**简单 stylized**（紫宝石 / 绿漩涡 / 蓝 spark），模型能 hold；② 需要**像素级精确**的家族 logo，走**后期合成**（跟中文字一样：先出干净猫，再盖精确标志）。char sheet 用 ①，hero 镜头需要精确标志再用 ②。
 - 附带好处：stylized「类似于」而非照搬商标，**对外自媒体也更安全**（避开 Anthropic/Google/OpenAI 商标 IP）。
 
+### r03 deltas（CVO-directed 2026-06-21）
+
+烁烁 r02 = ✅ CVO 终审通过，**锁定不再动**（"挺可爱的，吊坠也很 gemini"）。r03 只改两只：
+
+- **砚砚（两形态）**：保留 r02 一切（无项圈 / 绿茶杯 / 绿眼 / 银虎斑 / 大围脖 / 嘴硬），**只加明显的呆毛**（ahoge，头顶一撮上翘呆毛）。
+  额外 reference：`docs/features/assets/F229/desktop-pet-sprite/raw/yanyan-codex-character-base-v1.png`（F229 砚砚猫猫球母图，呆毛清晰）——照它的呆毛形状改。
+- **宪宪（两形态）**：保留 r02 cute 布偶 + 紫项圈，**吊坠从素紫宝石换成 stylized Claude 星芒徽标**（purple radial sunburst：中心 + 一圈短放射芒，echo Claude 标但非照搬商标，与烁烁 Gemini spark 同一套 stylization）。若 r03 不比 r02 更可爱 → 保留 r02，精确 Claude logo 留 hero 镜头后期合成。
+
+> Claude 身份解法（回答 CVO"不带 logo 怎么看出是 Claude 猫"）：**星芒形 = Claude 的视觉签名**，stylized 星芒既 echo 真 logo、又不踩商标、还 hold 得住——和烁烁的 Gemini spark 对称。两条路都留：sheet 用 stylized 星芒；hero 要精确 logo 走后期合成（同中文字）。
+
 — 宪宪 / 布偶猫 Opus 4.8 🐾
