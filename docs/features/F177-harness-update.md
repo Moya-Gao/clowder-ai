@@ -400,6 +400,7 @@ GitHub issue: TBD（kickoff 后开）
 | 2026-06-11 | Phase H H0 spike done（砚砚）— 实测 Codex CLI 0.137.0：`codex exec --json`（Cat Café runtime 路径）不触发 `~/.codex/hooks.json` 的 Stop hook（hook 计数 0），`notify` 仅 turn-ended 通知。**路径 A（CLI hook）对本 runtime 不可达 → 定走路径 B（server re-invoke + cost guard）**。OQ-H1 关闭、KD-12 |
 | 2026-06-11 | Phase H merged (PR #2230) — server-side route-serial remedial guard covers non-Claude harness routing exits; preserves lifecycle/tool/text/voice/debug semantics; `pnpm gate` passed at `89807e91`; cloud Codex re-review found no major issues |
 | 2026-06-18 | Phase H known-gap 记录（friction，opus-48 × 砚砚 cross-review）→ 新增 OQ-H3：routing guard 缺链终止 / 纯 ACK 收口合法出口。来源 F167 Phase O 设计链双向终止时撞 guard 强制路由，三出口（cross_post/hold_ball/@landy）皆不当。记入路由守卫真相源（KD-11），待 CVO 评估是否值 Phase I |
+| 2026-06-21 | Phase H 补充 merged (PR #2479) — cross-post participant check：cross_post_message 时若 targetCats 不在目标 thread 参与者列表，返回 `target_not_in_thread` soft warning。覆盖 invocation-auth + agent-key 双路径。来源：F195 dogfood 砚砚54 误投 thread 掉球事件 ADR-031 hard layer |
 
 ## Review Gate
 
@@ -413,6 +414,7 @@ GitHub issue: TBD（kickoff 后开）
 | 类型 | 路径 | 说明 |
 |------|------|------|
 | **PR** | [#2230](https://github.com/zts212653/cat-cafe/pull/2230) | Phase H：non-Claude harness route-serial routing guard remediation |
+| **PR** | [#2479](https://github.com/zts212653/cat-cafe/pull/2479) | Phase H 补充：cross-post participant check (target_not_in_thread warning) |
 | **Issue** | [#1435](https://github.com/zts212653/cat-cafe/issues/1435) | Phase B：47 magic word「下次一定」 |
 | **Issue** | [#1436](https://github.com/zts212653/cat-cafe/issues/1436) | Phase A：系统级 close gate 结构化判据 |
 | **Issue** | [#1437](https://github.com/zts212653/cat-cafe/issues/1437) | Phase C：烁烁 创意-实现解耦 + Dry Run Gate |
