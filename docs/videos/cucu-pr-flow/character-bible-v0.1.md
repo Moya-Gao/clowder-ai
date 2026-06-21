@@ -2,6 +2,7 @@
 title: 醋醋喵 EP01 Character Bible v0.1
 doc_kind: character-bible
 created: 2026-06-20
+updated: 2026-06-21
 status: active
 related_docs:
   - README.md
@@ -43,6 +44,15 @@ related_docs:
 4. **F229 PetSkin 派生**：从设定图再做猫猫球 atlas/sprite，不直接让猫猫球从通用猫 prompt 重新采样。
 
 顺序理由：漫画母图锁风格，设定图锁角色，镜头图锁构图，i2v 只负责活气。跳过设定图会让每张关键帧都重新发明一只猫。
+
+### 2.1 双形态规则（CVO 修正 2026-06-21）
+
+每只事件猫都可以有两套可复用形态：
+
+- **猫猫形态**：四脚/坐姿/趴姿，是品种、毛色、体型和“像不像家里的猫”的母形态，默认用于日常猫咖镜头。
+- **站着/工作形态**：允许直立拿夹板、指屏幕、做验收或流程动作，但必须仍然是猫的身体和猫爪，不变成人形角色。
+
+规则：如果一个主角猫在系列里采用站着/工作形态，砚砚、宪宪、烁烁三只都必须具备“猫猫形态 + 站着/工作形态”，不能只让单只猫长期维持不同拟人化等级。2026-06-20 的 `shuoshuo-r01.png` 保留为烁烁站着/工作形态；2026-06-21 补齐 `shuoshuo-cat-r01.png`、`cucu-yanyan-upright-r01.png`、`xianxian-upright-r01.png` 后再进入 second-cat QA。
 
 ## 3. 角色要点
 
