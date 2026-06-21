@@ -45,6 +45,8 @@ related_docs:
 
 2026-06-21 CVO 修正：烁烁 r01 单独站着会造成拟人化等级不一致。处理方式不是废掉烁烁，而是把 `shuoshuo-r01.png` 定义为烁烁站着/工作形态，并补齐砚砚、宪宪的站着/工作形态，以及烁烁的四脚猫形态。三只都以“猫猫形态 + 站着/工作形态”成套进入 second-cat QA。
 
+2026-06-21 r02 信号层：按 `character-bible-v0.1.md` §7 和 `character-sheets-roll-plan-v0.1.md` §6 重出全 6 形态，只改签名层。锁定：砚砚 = 无项圈 + 呆毛 + 绿眼 + 绿茶杯；宪宪 = 紫项圈 + Claude 风紫宝石吊坠；烁烁 = 蓝项圈 + Gemini 风 spark 吊坠。r02 已通过砚砚 self-QA，待 second-cat QA。
+
 | 文件 | 角色 | 尺寸 | md5 | 当前结论 |
 |---|---|---:|---|---|
 | `cucu-yanyan-r01.png` | 砚砚/醋醋喵 | 1536×1024 | `4507a2c0812a0c9418e168e67c72325c` | ✅ self-QA candidate：大只银虎斑缅因、嘴硬、表情一致 |
@@ -53,6 +55,12 @@ related_docs:
 | `cucu-yanyan-upright-r01.png` | 砚砚/醋醋喵（站着/工作形态） | 1536×1024 | `b99c6ff1ce62af10ff011e5d39c252a4` | ✅ self-QA candidate：仍是大只银虎斑缅因，补齐站着工作态 |
 | `xianxian-upright-r01.png` | 宪宪/Fable 5（站着/工作形态） | 1536×1024 | `1dad2ed51a836ad12601f69d0ce3e490` | ✅ self-QA candidate：仍是蓝双色布偶，补齐站着工作态 |
 | `shuoshuo-cat-r01.png` | 烁烁（猫猫形态） | 1536×1024 | `2ab6ebf4b738b40ccbe722376abefb3e` | ✅ self-QA candidate：四脚暹罗猫形态，避免和宪宪同款吊坠撞标志 |
+| `cucu-yanyan-r02.png` | 砚砚/醋醋喵（猫猫形态，v0.2 信号层） | 1536×1024 | `37070ad3eb18ea5751c2976c07cc37f8` | ✅ self-QA candidate：无项圈、呆毛、绿眼、绿茶杯，保留银虎斑缅因 |
+| `cucu-yanyan-upright-r02.png` | 砚砚/醋醋喵（站着/工作形态，v0.2 信号层） | 1536×1024 | `fd0e9b8c43763cec9dc3814f7d7cfa9e` | ✅ self-QA candidate：站着形态同样无项圈 + 绿茶杯，保留大围脖 |
+| `xianxian-r02.png` | 宪宪/Fable 5（猫猫形态，v0.2 信号层） | 1536×1024 | `5469f4cdfa35c42534b02df385a5acb7` | ✅ self-QA candidate：紫项圈 + Claude 风紫宝石吊坠，保留胖布偶 DNA |
+| `xianxian-upright-r02.png` | 宪宪/Fable 5（站着/工作形态，v0.2 信号层） | 1536×1024 | `0b72a95fda6a7e3f8e7bfe86258a7277` | ✅ self-QA candidate：站着形态同样紫项圈 + 紫宝石吊坠 |
+| `shuoshuo-cat-r02.png` | 烁烁（猫猫形态，v0.2 信号层） | 1536×1024 | `3d6dccf3eedf0a9830bb287ae51956e7` | ✅ self-QA candidate：蓝项圈 + Gemini 风 spark 吊坠，保留暹罗面具 |
+| `shuoshuo-upright-r02.png` | 烁烁（站着/工作形态，v0.2 信号层） | 1536×1024 | `476112e488fa90ff37f3c289766042c3` | ✅ self-QA candidate：站着形态同样蓝项圈 + spark，修复 r01 紫金吊坠撞款 |
 
 ## references/contact-sheets/ — CVO 选择用 contact sheet
 
@@ -60,12 +68,13 @@ related_docs:
 |---|---|---:|---|---|
 | `three-cat-design-sheets-r01-contact.png` | 三猫 r01 候选并排预览 | 1584×368 | `ac07721d98b7583eb7f8ccf0dfbf6c25` | 给 Landy 挑正典；无标签版，顺序 = 砚砚 / 宪宪 / 烁烁 |
 | `three-cat-dual-form-r01-contact.png` | 三猫双形态 r01 候选预览 | 1608×730 | `c9442c8514084532897cdb564b677258` | 上排 = 猫猫形态， 下排 = 站着/工作形态；顺序 = 砚砚 / 宪宪 / 烁烁 |
+| `three-cat-dual-form-r02-contact.png` | 三猫双形态 r02 候选预览 | 1608×730 | `b3889c2a62ecd3f9bcc5203dc09e8079` | v0.2 信号层候选；上排 = 猫猫形态，下排 = 站着/工作形态；顺序 = 砚砚 / 宪宪 / 烁烁 |
 
 ## rolls/ — 生成尝试记录
 
 | 文件 | 内容 |
 |---|---|
-| `roll-log.jsonl` | 三猫设定图 r01 + 双形态补齐 r01 的 prompt_ref、输出路径、猫 QA verdict |
+| `roll-log.jsonl` | 三猫设定图 r01 + 双形态补齐 r01 + v0.2 信号层 r02 的 prompt_ref、输出路径、猫 QA verdict |
 
 ## generated-clips/ — 可用成片素材（gitignored，账本记录）
 
