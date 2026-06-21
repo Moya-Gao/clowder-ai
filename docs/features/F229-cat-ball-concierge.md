@@ -6,6 +6,7 @@ doc_kind: spec
 created: 2026-06-09
 updated: 2026-06-20
 community_issue: "clowder-ai#841"
+tips_exempt: "UX bug fixes (PR #2474) — no new user-visible capability, only fixes to existing concierge panel behavior"
 ---
 
 # F229: 猫猫球 — 前台猫常驻入口（Cat Ball Concierge）
@@ -231,6 +232,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 | KD-19 | AC-A3 鲁棒性不依赖值班猫 marker 遵从：sonnet×gemini25 对照实测——Claude 族遵从 marker，Gemini 族（默认值班猫）不遵从（知道协议却不执行 + 倾向自跑工具无视注入上下文）。KD-17 "值班猫用 marker→validator 解析" 假设对默认 Gemini 失效，纯 prompt 强化无效。解法两层：① 修 `ConciergeEvidenceStore.search` 透传 `scope:threads/all + mode:hybrid + depth:raw`（底层 evidence store 已支持、concierge 接口收窄没透传）——召回 thread 讨论（治 P1-C 召回偏差：AC-A3 找的是讨论记录非结论文档）+ passage messageId（治 P1-A peek）；② validator 从 HandleMap **全量兜底**呈现"相关记录"可点列表（thread→teleport/peek，复用现有 action 类型），marker 降级 bonus（遵守则正文精准高亮）。docs 类型"打开文档"是不存在的新前后端 action，降 Phase B 增强（不阻塞 AC-A3）。KD-17 marker 解析保留，新增不依赖遵从的兜底层。符合 KD-7 provider-agnostic（AC-A3 不绑高遵从度模型，靠系统兜底不靠贵模型）；否决"换默认值班猫为 Claude 族"（违反 KD-7 + flash 更省） | sonnet alpha 对照实测（2026-06-13）+ 宪宪 spec owner 拍（opus-48）；CVO 否决窗口开放 | 2026-06-13 |
 | KD-20 | go 路径 navigation gating：**marker 优先 + triage-go fallback**。"跟去"导航由 Phase A KD-19 inline marker button（PR #2295）实现——点击直跳，read-only 不经 confirm friction。triage-go 保留为 R-handle miss fallback（用户描述目标但无可匹配 HandleMap 记录时触发 triage confirm card）。原则：**triage-only-for-write**（relay/propose_thread/investigate 产生外部影响必须 gating；navigation read-only 不需要）。KD-9 三动作分叉精神 = 用户选择权，marker 直跳 UX 最直接；triage-go 重复造轮子违反 P1 面向终态。AC-B1 "跟去（teleport 跟进）"措辞兼容两种实现 | opus-47 愿景守护 verdict（Phase B intermediate）+ sonnet alpha 实测：marker path production 已验 + triage-go 路径 duty cat 未触发（自然降级为 marker 直达） | 2026-06-15 |
 | KD-21 | 四猫视觉 canon 从具体故事母图派生，不从泛用猫 prompt 重新发明。F229 的砚砚/yanyan-codex 皮肤上游 canon = 醋醋喵漫画母图；后续补砚砚/宪宪/烁烁/布偶等角色设定图时，先落 `docs/videos/cucu-pr-flow/character-bible-v0.1.md`，再派生 PetSkin atlas/sprite。F229 只消费 sprite/atlas 与 `conciergeState -> petState` 投影，不把角色设计权藏进猫猫球实现。 | 铲屎官 2026-06-20 对醋醋喵重制和 F229 猫猫球视觉源的收敛：原本漫画足以生成三猫设定图，砚砚猫设就是醋醋喵母图。 | 2026-06-20 |
+| KD-22 | ConciergePanel.tsx 文件大小 exception：origin/main 已是 550 lines（远超 350 hard limit），UX bugs PR #2474 提取 `usePanelWidth` hook 后 net +16（566 lines）。CVO 批准 exception 放行，全量拆分（消息渲染/header/input area 分离）记为独立 task 不阻塞本 PR。350-line 限制无自动 gate（`pnpm gate`/`pnpm check` 不含行数检查），为 reviewer 人肉判断 | CVO 2026-06-21 exception signoff；gpt52 R5 review 僵局升级后铲屎官拍板 | 2026-06-21 |
 
 ## Timeline
 

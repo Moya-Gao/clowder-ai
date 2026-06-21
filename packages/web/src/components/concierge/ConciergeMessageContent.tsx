@@ -49,6 +49,29 @@ export interface ConciergeMessageContentProps {
 const MARKER_PATTERN = /\[(跳过去|原地看)\s+(R\d+)\]/g;
 
 // ---------------------------------------------------------------------------
+// BUG-UX-4: Strip internal cat signatures and @-mentions from user-visible text.
+// Duty cat replies may contain trailing `[昵称/模型🐾]` signatures and `@landy`
+// routing mentions that leak internal team structure to end users.
+// ---------------------------------------------------------------------------
+
+/** Matches cat signature patterns: [nickname/model🐾] or [nickname🐾] */
+const CAT_SIGNATURE_RE = /\[[\w一-鿿-]+(?:\/[\w一-鿿.-]+)?🐾\]\s*/g;
+
+/** Matches internal cat/CVO routing mentions (whole word, not inside URLs).
+ *  R2 P2 fix: added documented aliases (gemini25, gemini-35, hyphenated opus variants).
+ *  Uses lookbehind (^|\s) to anchor start; negative lookahead (?![...]) to anchor end.
+ *  Cloud R4 root-cause fix: replaced fragile positive lookahead (enumerating allowed
+ *  trailing chars — kept missing CJK, full-width punct, etc.) with robust negative
+ *  lookahead: "handle ends here if not followed by an ASCII identifier character." */
+const INTERNAL_MENTION_RE =
+  /(?:^|\s)@(?:l\.s\.|landy|lysander|opus(?:-?4[678])?|sonnet|fable5|codex|gpt52|spark|gemini(?:-?(?:25|35))?|antigravity|antig-opus)(?![a-zA-Z0-9_-])/gi;
+
+/** Clean internal markers from user-visible concierge content */
+function stripInternalMarkers(text: string): string {
+  return text.replace(CAT_SIGNATURE_RE, '').replace(INTERNAL_MENTION_RE, '').trim();
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -120,19 +143,22 @@ export function ConciergeMessageContent({ content, actions }: ConciergeMessageCo
     }
   }, []);
 
+  // BUG-UX-4: strip internal team markers before rendering
+  const cleanContent = stripInternalMarkers(content);
+
   // Parse content and build segments
   const segments: ReactNode[] = [];
   let lastIndex = 0;
   let keyCounter = 0;
 
-  for (const match of content.matchAll(MARKER_PATTERN)) {
+  for (const match of cleanContent.matchAll(MARKER_PATTERN)) {
     const verb = match[1];
     const handle = match[2];
     const matchIndex = match.index;
 
     // Text before this marker
     if (matchIndex > lastIndex) {
-      segments.push(content.slice(lastIndex, matchIndex));
+      segments.push(cleanContent.slice(lastIndex, matchIndex));
     }
 
     const lookupKey = `${verb}:${handle}`;
@@ -200,8 +226,8 @@ export function ConciergeMessageContent({ content, actions }: ConciergeMessageCo
   }
 
   // Remaining text after last marker
-  if (lastIndex < content.length) {
-    segments.push(content.slice(lastIndex));
+  if (lastIndex < cleanContent.length) {
+    segments.push(cleanContent.slice(lastIndex));
   }
 
   // Show peek error if any

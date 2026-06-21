@@ -164,8 +164,9 @@ export function ConciergeBall({ ballState }: ConciergeBallProps) {
         aria-expanded={isExpanded}
         aria-haspopup="dialog"
         style={{
-          backgroundColor: 'var(--cafe-surface-elevated)',
-          boxShadow: 'var(--shadow-elevation-1)',
+          // BUG-UX-1 fix: transparent background — no "狗皮膏药" opaque base.
+          // Drop shadow on the button gives depth without a solid fill.
+          filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.18))',
         }}
         className={[
           'pointer-events-auto',
@@ -215,7 +216,8 @@ export function ConciergeBall({ ballState }: ConciergeBallProps) {
             className={[
               'absolute -top-1 -right-1',
               'w-3 h-3 rounded-full',
-              'border-2 border-[color:var(--cafe-surface-elevated)]',
+              // BUG-UX-1: use page background instead of removed surface-elevated
+              'border-2 border-[color:var(--cafe-surface-canvas)]',
             ].join(' ')}
           />
         )}
@@ -226,7 +228,8 @@ export function ConciergeBall({ ballState }: ConciergeBallProps) {
           className={[
             'absolute -bottom-1 -right-1',
             'w-3 h-3 rounded-full',
-            'border-2 border-[color:var(--cafe-surface-elevated)]',
+            // BUG-UX-1: use page background instead of removed surface-elevated
+            'border-2 border-[color:var(--cafe-surface-canvas)]',
           ].join(' ')}
           aria-hidden="true"
         />

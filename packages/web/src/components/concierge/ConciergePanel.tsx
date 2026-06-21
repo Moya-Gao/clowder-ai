@@ -37,6 +37,7 @@ import { ConciergeMessageContent } from './ConciergeMessageContent';
 import { useConciergeConfirmations } from './useConciergeConfirmations';
 import { useConciergeMessages } from './useConciergeMessages';
 import { useConciergeQueue } from './useConciergeQueue';
+import { usePanelWidth } from './usePanelWidth';
 
 export function ConciergePanel() {
   const surfaceState = useConciergeStore((s) => s.surfaceState);
@@ -75,6 +76,9 @@ export function ConciergePanel() {
   const catMsgCountAtSendRef = useRef(0);
   const [inputValue, setInputValue] = useState('');
   const [sendError, setSendError] = useState<string | null>(null);
+
+  // BUG-UX-3: Resizable panel width (extracted to usePanelWidth hook — gpt52 R5 P1)
+  const { panelWidth, handleResizePointerDown, handleResizePointerMove, handleResizePointerUp } = usePanelWidth();
 
   const { messages, isLoading, addOptimistic, removeOptimistic, refresh } = useConciergeMessages(threadId);
 
@@ -268,12 +272,14 @@ export function ConciergePanel() {
         backgroundColor: 'var(--cafe-surface-canvas)',
         borderColor: 'var(--cafe-border-subtle)',
         boxShadow: 'var(--shadow-elevation-2)',
+        // BUG-UX-3: dynamic width from resize handle (replaces fixed w-80)
+        width: panelWidth,
       }}
       className={[
         // Position: above ball, right-aligned (Layer 3 layout §7)
         'fixed bottom-[calc(24px+72px+16px)] right-6',
         'z-30',
-        'w-80 max-h-[60vh]',
+        'max-h-[60vh]',
         'flex flex-col',
         // Comic bubble shape: 16px radius + speech bubble tail (CSS pseudo)
         // R7 fix: NO overflow-hidden here so the tail triangles can escape the clip
@@ -284,6 +290,16 @@ export function ConciergePanel() {
         'animate-[concierge-bubble-pop_200ms_cubic-bezier(0.34,1.56,0.64,1)_both]',
       ].join(' ')}
     >
+      {/* BUG-UX-3: Left-edge resize handle — drag to widen/narrow panel */}
+      <div
+        aria-label="拖拽调整面板宽度"
+        role="separator"
+        onPointerDown={handleResizePointerDown}
+        onPointerMove={handleResizePointerMove}
+        onPointerUp={handleResizePointerUp}
+        className="absolute left-0 top-0 bottom-0 w-1.5 cursor-ew-resize z-10 hover:bg-[var(--cafe-accent)] hover:opacity-30 rounded-l-2xl transition-colors"
+      />
+
       {/* Speech bubble tail (CSS triangle pointing toward cat) */}
       {/* R7 fix: tail sits outside the inner overflow-hidden wrapper so it is never clipped */}
       <div
