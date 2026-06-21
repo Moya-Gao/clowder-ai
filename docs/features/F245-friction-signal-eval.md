@@ -9,7 +9,7 @@ tips_exempt: Phase A-C 为内部 friction 采集/聚合 infra，无 user/cat 可
 
 # F245: Friction Signal Eval — 摩擦信号统一聚合（eval:friction）
 
-> **Status**: in-progress（Phase B merged）| **Owner**: 布偶猫/宪宪 (opus-48) | **Priority**: P1
+> **Status**: in-progress（Phase C PR1a merged；PR1b live-sink + PR2 N-day cadence 待续）| **Owner**: 布偶猫/宪宪 (opus-48) | **Priority**: P1
 
 ## Architecture Ownership
 
@@ -190,6 +190,7 @@ signal 体量实证（今天 UTC 0:00 → 16:07，16 小时）：
 | 2026-06-18 | Phase A 实现完成（PawFeelAdapter 爪感差采集器，4 TDD Task，22 测试绿）— 待 review |
 | 2026-06-19 | **Phase A merged**（PR #2422，squash `9f3f0b862`）— gpt52 跨族 review + 云端 codex 3 轮：R1 marker 2 P2（含冒号工具名/嵌套括号）+ R3 in-memory cursor P2（graceful degrade）修复，R4 test-isolation pushback（既有 pattern）|
 | 2026-06-19 | **Phase B merged**（PR #2443，squash `0be8b6b5`）— 4 Adapter（Port+Adapter 只读引用既有源，零 write-side）+ FrictionAggregator（id 幂等 dedup + intent filter）+ FrictionClusterer（rule 精确归一 + embedding fail-open 降级）+ buildFrictionRollupInput；9 TDD Task；gpt52 final-SHA review + 云端 codex 3 轮（7 真 finding／0 误报：R1 mailbox frontmatter、R2 epoch 排序 + symptom 归一保留标识数字、R3 droppedChannels 显式降级 + reprobe fail-open）|
+| 2026-06-20 | **Phase C PR1a merged**（PR #2458，squash `1b67516b9`）— Phase C 拆 3 PR 之第一刀：eval:friction domain 注册（`enabled:false` 防 silent-fire）+ rollup report producer（Top-N 配额 + 长尾折叠 + 硬 token-cap fold-down + severity×count×channelDiversity 排序 + 5 类 sensorForm 分类）+ EvalDomainId DRY 收敛 enum fan-out。gpt52 跨族 + **封板**（cloud R1/R2/R3 全 valid／0 FP：R1 prompt KD-8 边界、R2 severity 暴露 + handoff→opus-47[opus-48 不在 catalog]、R3 token-cap boundary 自引用）。**PR1b**（live sink：generator+provider+bootstrap+flip enabled）+ **PR2**（N-day cadence → 本家 3 天）待续。AC-C1/C2 部分（注册 + 报告 producer 落地；live rollup + verdict 在 PR1b），AC-C3 在 PR1b。|
 
 ## Review Gate
 
