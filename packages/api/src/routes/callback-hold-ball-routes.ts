@@ -171,9 +171,9 @@ export function registerCallbackHoldBallRoutes(app: FastifyInstance, deps: HoldB
       actionRisk: 'hold_ball',
       claims: extractHoldBallClaims({ reason, waitSourceRef: parsed.data.waitSourceRef }),
     })
-      .then((result) => {
+      .then(async (result) => {
         for (const event of result.events) {
-          groundingSampleStore.record(event, result.wouldBlock);
+          await groundingSampleStore.record(event, result.wouldBlock);
         }
         log.debug(
           { threadId, catId: catIdStr, verdict: result.overallVerdict, wouldBlock: result.wouldBlock },

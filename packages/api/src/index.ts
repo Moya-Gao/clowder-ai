@@ -460,6 +460,13 @@ async function main(): Promise<void> {
   const redis = redisUrl ? createRedisClient({ url: redisUrl }) : undefined;
   redisClient = redis ?? null;
 
+  // F167 Phase O PR-O5: wire Redis-backed grounding sample store (8-day TTL).
+  // Falls back to in-memory if Redis unavailable.
+  if (redis) {
+    const { wireRedisGroundingSampleStore } = await import('./infrastructure/grounding/grounding-sample-singleton.js');
+    wireRedisGroundingSampleStore(redis);
+  }
+
   // F174 Phase B: select InvocationRegistry backend.
   // - 'redis' (default when Redis available): API restart no longer drops tokens
   // - 'memory' (fallback / opt-out): pre-Phase-B in-memory behavior
@@ -1776,13 +1783,13 @@ async function main(): Promise<void> {
   });
   // F153 Phase E: Hub embedded observability routes
   const { telemetryRoutes } = await import('./routes/telemetry.js');
-  const { groundingSampleStore } = await import('./infrastructure/grounding/grounding-sample-singleton.js');
+  const { getGroundingSampleStore } = await import('./infrastructure/grounding/grounding-sample-singleton.js');
   await app.register(telemetryRoutes, {
     traceStore: telemetryHandle.traceStore,
     getMetricsText: telemetryHandle.getMetricsText ?? undefined,
     metricsSnapshotStore: telemetryHandle.metricsSnapshotStore ?? undefined,
     checkReadiness,
-    groundingSampleStore,
+    groundingSampleStore: getGroundingSampleStore(),
   });
   // F192 Phase E-hub: harness eval verdict lifecycle surface.
   // F192 OQ-21: late-bound holder for ConnectorInvokeTrigger — eval-hub routes

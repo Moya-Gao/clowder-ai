@@ -9,7 +9,7 @@
  */
 
 import type { FastifyPluginAsync } from 'fastify';
-import type { GroundingSampleStore } from '../infrastructure/grounding/grounding-sample-store.js';
+import type { IGroundingSampleStore } from '../infrastructure/grounding/grounding-sample-singleton.js';
 import type { ClaimGroundingEvent } from '../infrastructure/grounding/types.js';
 import { hmacId, validateSalt } from '../infrastructure/telemetry/hmac.js';
 import type { LocalTraceStore } from '../infrastructure/telemetry/local-trace-store.js';
@@ -32,7 +32,7 @@ export interface TelemetryRoutesOptions {
   /** Readiness probe — same checks as /ready. */
   checkReadiness?: () => Promise<ReadinessResult>;
   /** F167 Phase O PR-O2b: bounded grounding sample store. */
-  groundingSampleStore?: GroundingSampleStore | null;
+  groundingSampleStore?: IGroundingSampleStore | null;
 }
 
 /**
@@ -234,9 +234,9 @@ export const telemetryRoutes: FastifyPluginAsync<TelemetryRoutesOptions> = async
       return reply.status(503).send({ error: 'Telemetry HMAC salt not available — redaction cannot run' });
     }
 
-    const rawSamples = opts.groundingSampleStore.getSamples();
+    const rawSamples = await Promise.resolve(opts.groundingSampleStore.getSamples());
     const samples = rawSamples.map(redactGroundingSample);
-    const stats = opts.groundingSampleStore.getStats();
+    const stats = await Promise.resolve(opts.groundingSampleStore.getStats());
     return { samples, stats };
   });
 };

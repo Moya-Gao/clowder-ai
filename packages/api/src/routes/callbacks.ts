@@ -2472,9 +2472,9 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       actionRisk: 'register_tracking',
       claims: extractPrTrackingClaims({ repoFullName, prNumber }),
     })
-      .then((result) => {
+      .then(async (result) => {
         for (const event of result.events) {
-          groundingSampleStore.record(event, result.wouldBlock);
+          await groundingSampleStore.record(event, result.wouldBlock);
         }
         log.debug(
           { threadId: record.threadId, catId, verdict: result.overallVerdict, wouldBlock: result.wouldBlock },
@@ -2630,9 +2630,9 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       actionRisk: 'register_tracking',
       claims: extractIssueTrackingClaims({ repoFullName, issueNumber }),
     })
-      .then((result) => {
+      .then(async (result) => {
         for (const event of result.events) {
-          groundingSampleStore.record(event, result.wouldBlock);
+          await groundingSampleStore.record(event, result.wouldBlock);
         }
         log.debug(
           { threadId: record.threadId, catId, verdict: result.overallVerdict, wouldBlock: result.wouldBlock },

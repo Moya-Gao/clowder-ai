@@ -827,7 +827,7 @@ cat_cafe_hold_ball({
 **eval / telemetry**（PR-O2 spec, R2 细化）：
 
 - **Counters 不采样**：`claimType / sourceKind / resolver / verdict / actionRisk / tool / threadKind` 100% 计数给 F192 weekly verdict
-- **Sample events 有界**：`mismatch` & `blocked` 100% 采样；`insufficient` 每 `resolver×thread×day` cap 3；`verified` 1/20 + 全局日 cap
+- **Sample events 有界**：`mismatch` & `blocked` 100% 采样；`insufficient` 每 `resolver×thread×day` best-effort cap 3（非原子 check-then-increment，并发下可能超 1-2）；`verified` 1/20 + 全局日 cap（同 best-effort）
 - **Raw retention**：sample event/ref 对齐现有短期诊断窗口 7 天；weekly verdict artifact 只保留 aggregate + evidence refs。**PR-O2b scope-cut**：当前实现为进程内存（restart 清空），7 天 Redis-backed persistence 推迟到 PR-O4 hardening（现有 diagnostics 有 traces Redis hydration + metrics snapshot store 先例，O4 对齐）
 - **No raw body**：只存 `sourceRef`（messageId、PR URL + headSha、issue/comment id、feature path + line、task id）+ hash/status；不存 GitHub body / thread 大段内容
 - **Resolver cache** (`GroundingResolverCache`)：按 `resolver/object/ref` key 短 TTL — GitHub PR/issue/status 60–300s；thread/list context 60s；git/feat/doc resolver keyed by HEAD/path（per invocation cache）；CVO message verification 存 messageId verdict
@@ -845,7 +845,7 @@ cat_cafe_hold_ball({
 
 1. **PR-O1 docs/skill**：新增 `receive-handoff-grounding` skill + F167 Phase O resolver catalog 文档 + claim schema。skill 三问：claim 是什么 / 第二源 resolver 是什么 / 结果一致 vs 冲突 vs 不足
 2. **PR-O2a grounding infra**：types + grounding checker（shadow mode, never block）+ 5 OTel counters + hook 集成（hold_ball / register_pr_tracking / register_issue_tracking）+ F192 eval adapter。验证 counter pipeline 端到端通；INV-O3/O4/O7/O8/O10 在 checker 层实现。**不含**真实 claim 提取和 invocation event / bounded sample storage。
-3. **PR-O2b event path + sampling**：从 hold_ball waitSourceRef / reason 和 tracking repo/PR 上下文提取真实 claims → checker 产出 `ClaimGroundingEvent` → bounded sample storage（mismatch/blocked 100%, insufficient cap 3/resolver×thread×day, verified 1/20 + 日 cap）→ F192 eval adapter 消费 sample evidence。这是 shadow 周真正观察真实分布的基础。
+3. **PR-O2b event path + sampling**：从 hold_ball waitSourceRef / reason 和 tracking repo/PR 上下文提取真实 claims → checker 产出 `ClaimGroundingEvent` → bounded sample storage（mismatch/blocked 100%, insufficient best-effort cap 3/resolver×thread×day, verified 1/20 + 日 cap; caps 均为 best-effort, 非原子）→ F192 eval adapter 消费 sample evidence。这是 shadow 周真正观察真实分布的基础。
 4. **PR-O3 Phase N policy patch**：按上面 narrow gate 改 `register_issue_tracking` + `hold_ball` 守门策略；补合法 wait fixtures + dual-owner regression fixtures
 5. **PR-O4 hardening**：只对确定性 mismatch 的 stateful tools fail-closed；missing evidence 继续 warn；等 F192 weekly verdict 决定继续扩范围
 
@@ -931,7 +931,7 @@ sonnet 看了"AC ✅ 三层 harness ✅"放行，但没问"守门猫 daily SOP �
 
 - **PR-O1** docs/skill：更新 F167 Phase O spec + `receive-handoff-grounding` skill 加 `claim → resolver → sourceTier → verdict → actionFamily` 流；加 issuerStanding / freshnessKey / keeper wait A/B rule
 - **PR-O2a** grounding infra：types + grounding checker（shadow mode, never block）+ 5 OTel counters + hook 集成（hold_ball / register_pr_tracking / register_issue_tracking）+ F192 eval adapter。验证 counter pipeline 端到端通；INV-O3/O4/O7/O8/O10 在 checker 层实现。**不含**真实 claim 提取和 invocation event / bounded sample storage
-- **PR-O2b** event path + sampling：从 hold_ball waitSourceRef / reason 和 tracking repo/PR 上下文提取真实 claims → checker 产出 `ClaimGroundingEvent` → bounded sample storage（mismatch/blocked 100%, insufficient cap 3/resolver×thread×day, verified 1/20 + 日 cap）→ F192 eval adapter 消费 sample evidence
+- **PR-O2b** event path + sampling：从 hold_ball waitSourceRef / reason 和 tracking repo/PR 上下文提取真实 claims → checker 产出 `ClaimGroundingEvent` → bounded sample storage（mismatch/blocked 100%, insufficient best-effort cap 3/resolver×thread×day, verified 1/20 + 日 cap; caps 均为 best-effort, 非原子）→ F192 eval adapter 消费 sample evidence
 - **PR-O3** Phase N policy patch：替换 threadKind-only hard-block（hold_ball 仅）；fixtures 覆盖 PR tracking blocked / issue tracking blocked (Phase N, keeper-owned deferred to O4 — R2 review: caller-declared ownership 无独立验证) / short-SLA no-callback hold allowed / long/unbounded wait pushed to sweep。policy engine skeleton（keeper 允许 + event-backed 检测）已实现并 unit-tested，但 route 层不启用（无验证/无 wiring = 信任缺口/死代码）
 - **PR-O4** ✅ hardening：cross-store verification wired — `detectEventCallback` subject-aware (same-thread + cross-thread `getBySubject`), `verifyKeeperOwnership` cross-query, `waitSourceRef` enforcement, `extractRepoAndNumber` three-pattern parser. 5 review rounds (R1-R5). Cloud P1s: cross-thread lookup gap + subjectKey case normalization, both fixed in R5. Vision guard BLOCK→APPROVE. 35 tests
 
