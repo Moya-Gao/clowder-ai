@@ -332,7 +332,7 @@ Python 路径（直接嵌入 `audio-service.py`）：
 
 | Bug | 优先级 | 根因 | 状态 |
 |-----|--------|------|------|
-| TranscriptPanel（Hub 右侧）不显示 speaker 名字 | P2 | `TranscriptPanel.tsx` 缺 speaker_label/speaker_confidence/speaker_id 三字段（interface + SSE handler + render），FloatingTranscriptWindow 已正确实现 | 📋 待修 |
+| TranscriptPanel（Hub 右侧）不显示 speaker 名字 | P2 | `TranscriptPanel.tsx` 缺 speaker_label/speaker_confidence/speaker_id 三字段（interface + SSE handler + render），FloatingTranscriptWindow 已正确实现 | ✅ PR #2468 (dfc07171b) |
 
 ### 已有基础设施
 
