@@ -98,7 +98,7 @@ describe('F244 CapabilityTipStrip', () => {
     });
 
     expect(container.querySelector('[data-testid="capability-tip-strip"]')?.getAttribute('data-tip-id')).toBe(
-      'capability-cli-diagnostics',
+      'capability-eval-verdict',
     );
   });
 
