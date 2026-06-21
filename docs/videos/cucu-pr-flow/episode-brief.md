@@ -2,12 +2,14 @@
 title: 醋醋喵短片 EP01 立项书 — 标准 PR 流程
 doc_kind: project-charter
 created: 2026-06-10
+updated: 2026-06-20
 status: active
 cvo_signoff: 2026-06-10（thread 原话："现在我们可以尝试一下这个醋醋喵立项……得学着我们做 coding 的时候写一个清晰的 feat"）
 owner_ip: 醋醋喵 / 猫咖日记系列
 related_docs:
   - README.md
   - shot-plan-v0.1.md
+  - character-bible-v0.1.md
   - review-protocol-v0.1.md
   - ../../stories/avatar-pr-flow-absolutism/README.md
   - ../../research/2026-06-10-cat-cafe-anime-pipeline/README.md
@@ -80,6 +82,7 @@ CVO 原话锚点："我们不是打算走视频流水线直接用 seed 2.0 or �
 ## 8. 与既有产物的关系
 
 - **沿用**：shot-plan 节奏框架与唯一验收点、review-protocol（FM taxonomy/roll 纪律/决策规则）、animatic EDL/字幕框架（D 帧源将替换为生成关键帧）
+- **补齐**：character-bible 把"可复用角色参考图"具体化为漫画母图 → 三猫设定图 → EP01/F229 共用视觉 canon；这是既有 §3 scope 的落地，不新增镜头或路线
 - **重标**：shot-plan v0.2 方法列（本立项后第一个动作）
 - **封存**：deterministic-spike（备胎，启用条件见 §2）
 - **历史**：anime-pipeline research 包与云端招募令保留为调研记录，执行地位由本文档取代

@@ -1,13 +1,15 @@
 ---
 title: 醋醋喵 EP01 Prompt Book — 手动生产流程提示词手册
 doc_kind: prompt-book
-version: 0.1.3
+version: 0.1.4
 created: 2026-06-11
+updated: 2026-06-20
 status: active
 author: 宪宪/Fable-5
 related_docs:
   - episode-brief.md
   - shot-plan-v0.1.md
+  - character-bible-v0.1.md
   - assets/README.md
   - ../../research/2026-06-10-cat-cafe-anime-pipeline/2026-06-10-video-generation-failure-modes-v0.1.md
 ---
@@ -27,6 +29,24 @@ related_docs:
 5. 同一个 prompt **最多 roll 3 次**；3 次同类失败 → 回来找我改 prompt，别无限抽
 
 视频模型固定出 8-10s 没关系——每镜头我们只取 4-7s，剪辑刀裁，**别为时长调 prompt**。
+
+## 0.4 角色母图纪律（v0.1.4，2026-06-20 补）
+
+两组四格漫画是本片和后续 F229 猫猫球皮肤的**角色母图**，不是普通 moodboard。细则见 [character-bible-v0.1.md](./character-bible-v0.1.md)。
+
+如果从今天重新做醋醋喵，先生成可复用角色设定图，再做镜头关键帧：
+
+1. 砚砚/醋醋喵设定图：银虎斑大缅因、流程/CI 道具、嘴硬心虚表情。
+2. 宪宪/Fable 5 设定图：蓝双山猫纹布偶、白手套、紫项圈、金色吊坠。
+3. 烁烁设定图：暹罗视觉验收猫、夹板/预览板、优雅认真。
+
+生成角色设定图的第一句固定：
+
+```text
+Use the attached two Cat Cafe comic images as the exact mother-image reference. Preserve the same chibi cat-cafe art style, character proportions, thick outline weight, warm color palette, and expressive comedy. Do not redesign the characters. Do not make the cats realistic or photorealistic.
+```
+
+设定图产物再喂给单镜头首帧和 F229 PetSkin atlas。不要让每张关键帧、每个猫猫球 sprite 各自从文字重新发明一只猫。
 
 ## 0.5 图片生成铁则：必附参考图（v0.1.1 修订，画风不一致事故后补）🔴
 

@@ -2,10 +2,12 @@
 title: 醋醋喵 EP01 资产账本
 doc_kind: asset-manifest
 created: 2026-06-11
+updated: 2026-06-20
 status: active
 related_docs:
   - ../episode-brief.md
   - ../shot-plan-v0.1.md
+  - ../character-bible-v0.1.md
 ---
 
 # 醋醋喵 EP01 资产账本
@@ -64,14 +66,14 @@ related_docs:
 | `fail-04-animate-i2v.mp4` | `d98225cb95ed69d30b55fac07fc406ff` |
 | `fail-05-animate-i2v.mp4` | `e2f9e3f1e8993e018c811457d6f87dd9` |
 
-## 风格锚（Style Anchor）
+## 风格锚 / 角色母图（Style Anchor / Mother Images）
 
-四格漫画两组已入库（2026-06-11 铲屎官导出）——**唯一真相源在 story，不在本目录复制**：
+四格漫画两组已入库（2026-06-11 铲屎官导出）——**唯一真相源在 story，不在本目录复制**。2026-06-20 补充：它们不仅是画风参考，也是砚砚/醋醋喵、Landy、烁烁、宪宪事件猫设的母图；角色生成纪律见 [character-bible-v0.1.md](../character-bible-v0.1.md)。
 
 - [avatar-pr-flow-absolutism-01.png](../../../stories/avatar-pr-flow-absolutism/assets/avatar-pr-flow-absolutism-01.png)（格①-④：门口等待 → PR 流程 → 名场面 → 二进制辩护）
 - [avatar-pr-flow-absolutism-02.png](../../../stories/avatar-pr-flow-absolutism/assets/avatar-pr-flow-absolutism-02.png)（格⑤-⑧：CI Passed → 召唤烁烁 → 二次笑翻 → PASS+小小拖延）
 
-锚定要素：暖猫咖光、粗描边 chibi、Landy 黄 hoodie **成人比例**、砚砚银虎斑+流程即正义桌牌、烁烁暹罗+夹板、宪宪金吊坠白手套。Wave V 全部 roll 的画风 gate（FM-10）对照这两张判。
+锚定要素：暖猫咖光、粗描边 chibi、Landy 黄 hoodie **成人比例**、砚砚银虎斑+流程即正义桌牌、烁烁暹罗+夹板、宪宪金吊坠白手套。Wave V 全部 roll 的画风 gate（FM-10）对照这两张判；F229 `yanyan-codex` 或后续四猫 PetSkin 视觉刷新也优先从这套母图派生，不从通用猫 prompt 重新采样。
 
 ## references/static-frames/ — 静帧卡（S06/S07a/S08/S10，云端砚砚生成，2026-06-11 入库）
 
