@@ -30,7 +30,7 @@ export interface EvalCatInvocationPacket {
 
 const DOMAIN_INSTRUCTIONS: Record<EvalDomainRegistryEntry['domainId'], string> = {
   'eval:a2a':
-    'Enter the eval:a2a domain thread, load the longitudinal context, compare day-over-day trends, and produce a verdict handoff packet when evidence supports fix/build/keep/delete_sunset. Include legacy scheduled task status in the analysis to prevent duplicate triggers.',
+    'Enter the eval:a2a domain thread, load the longitudinal context, compare day-over-day trends, and produce a verdict handoff packet when evidence supports fix/build/keep/delete_sunset. Include legacy scheduled task status in the analysis to prevent duplicate triggers. GROUNDING SUBDOMAIN (F167 Phase O): examine the grounding-phase-o component — check grounding.check_total (shadow checks run on stateful tools), grounding.verdict_total (verdicts produced), grounding.mismatch_sample_count (claim-source mismatches). If mismatch_sample_count > 0, review groundingSampleEvidence for recurring patterns. Grounding runs in shadow mode (never blocks) — report whether shadow data suggests high-confidence mismatch patterns that warrant escalation to fail-closed, or whether the distribution is healthy (mostly verified/insufficient with few mismatches). no-data confidence on grounding-phase-o means the hook is not wired or no stateful tool calls observed — flag as telemetry gap.',
   'eval:memory':
     'Enter the eval:memory domain thread, load recall quality and library health trends, compare day-over-day recall metrics (MRR, precision@K, abandonment) and library health indicators (orphan edges, stale anchors, verification debt), and produce a verdict handoff packet when evidence supports fix/build/keep/delete_sunset.',
   'eval:sop':

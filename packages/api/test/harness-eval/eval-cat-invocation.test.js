@@ -84,6 +84,25 @@ describe('Eval cat invocation packet', () => {
     assert.match(invocation.instructions, /miss/i);
   });
 
+  it('eval:a2a instructions include grounding subdomain observation tokens (F167 Phase O)', () => {
+    const invocation = buildEvalCatInvocation({
+      domain,
+      trendRefs: [],
+      verdictRefs: [],
+      legacyCleanup: { status: 'not_checked' },
+    });
+
+    // Key grounding tokens that must survive in the instruction string.
+    // A later edit that drops any of these would break the eval→grounding pipeline
+    // without failing any other test (the instruction is a prompt string, not executable code).
+    assert.match(invocation.instructions, /grounding-phase-o/, 'must reference the grounding component ID');
+    assert.match(invocation.instructions, /grounding\.check_total/, 'must reference shadow check counter');
+    assert.match(invocation.instructions, /grounding\.verdict_total/, 'must reference verdict counter');
+    assert.match(invocation.instructions, /grounding\.mismatch_sample_count/, 'must reference mismatch counter');
+    assert.match(invocation.instructions, /groundingSampleEvidence/, 'must reference sample evidence field');
+    assert.match(invocation.instructions, /telemetry gap/, 'must reference no-data telemetry gap guidance');
+  });
+
   it('includes registry fixture refs in the eval-cat context', () => {
     const invocation = buildEvalCatInvocation({
       domain: {
