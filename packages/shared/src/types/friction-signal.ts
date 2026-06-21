@@ -76,6 +76,45 @@ export interface FrictionCluster {
 }
 
 /**
+ * F245 Phase C — 五类摩擦传感器形态（F192 §8.1 真相源）。回答"信号怎么来的"。
+ */
+export type FrictionSensorForm =
+  | 'act' // 中断动作：cancel / deny / skip / reject / discard（无语义打断）
+  | 'reason' // 中断理由：cancel reason / Magic Word / 明确纠偏 / user edit（动作的语义增量）
+  | 'world_truth' // 世界结果真值：test/build pass-fail / merge / rollback（A1 客观成败）
+  | 'aggregate_proxy' // 聚合 proxy：burst / 跨线程重复 / 返工 / 链路耗时（趋势，只导航）
+  | 'absence'; // 缺席摩擦：bypass / 使用量下降 / wakeup miss（该发生没发生）
+
+/**
+ * F245 Phase C — 7-class 根因（= F192 attribution 矩阵，与 api `AttributionClass` 同源）。
+ * root cause 是 eval cat 的 attribution **判断**（落在 verdict 的 rootCauseHypothesis）；
+ * **producer 不做规则分类**（KD-8：不用 regex/小模型替猫判断 intent，只给 sensorForm + 证据数据）。
+ */
+export type FrictionRootCause =
+  | 'vision_gap'
+  | 'translation_gap'
+  | 'harness_misfit'
+  | 'tool_gap'
+  | 'execution_gap'
+  | 'environment_drift'
+  | 'taste_gap';
+
+/**
+ * F245 Phase C P1-4 — 分类后的 cluster：FrictionCluster + sensorForms 标注。
+ * sensorForms 由成员 channel **确定性派生**（数据标注，非判断；跨通道 cluster 多值，去重升序）。
+ * rootCause 故意不在此（KD-8：eval cat 在 verdict 里判，producer 不替猫分类）。
+ */
+export interface ClassifiedFrictionCluster extends FrictionCluster {
+  /** 该 cluster 涉及的传感器形态（channels 确定性映射，eval cat 可细化为 world_truth/absence） */
+  sensorForms: FrictionSensorForm[];
+  /**
+   * cluster 最高成员 severity（由 producer join input.signals 取 max）。用于排序 + **直接暴露给
+   * eval cat**——prompt 让 cat weigh severity，不暴露则 cat 得自己重跑 join（cloud R2 P2）。
+   */
+  severity: FrictionSeverity;
+}
+
+/**
  * F245 Phase B — Friction rollup 的纯函数输入（Phase C rollup 消费）。
  * 给定窗口 → dedup 后全量 signals + cluster 列表 + degraded 标志。可独立测试（fixture → 断言）。
  */
@@ -90,4 +129,39 @@ export interface FrictionRollupInput {
   degraded: boolean;
   /** 抛错被降级跳过的采集通道（degraded 的明细，便于 Phase C 知道缺了哪个通道；无丢则 []） */
   droppedChannels: FrictionChannel[];
+}
+
+/**
+ * F245 Phase C — 长尾折叠摘要（Top-N 配额之外的 cluster 聚合统计，不逐条列）。
+ */
+export interface FrictionTailSummary {
+  /** 折叠掉的 cluster 数（未进 Top-N） */
+  clusterCount: number;
+  /** 折叠掉的成员信号总数 */
+  signalCount: number;
+  /** 长尾按通道的信号计数（"哪个通道长尾最多"一眼可见） */
+  byChannel: Partial<Record<FrictionChannel, number>>;
+}
+
+/**
+ * F245 Phase C — friction rollup 周期报告（Top-N 配额 + 长尾折叠 + token 上限）。
+ * 由 `buildFrictionRollupReport` 从 `FrictionRollupInput` 纯函数派生（零存储，可独立测试）。
+ * P1-4 起 `topClusters` 升级为 `ClassifiedFrictionCluster`（只加 sensorForms；rootCause 是
+ * eval cat 的 verdict 层判断，KD-8，不由 producer 赋值）。
+ */
+export interface FrictionRollupReport {
+  /** 透传采集窗口 */
+  window: { sinceMs: number; untilMs: number };
+  /** 报告生成时刻（ISO8601；调用方传入，纯函数不读时钟，保证可测） */
+  generatedAt: string;
+  /** 深挖区：Top-N cluster（severity × count × channelDiversity 降序，默认 N=10；P1-4 起含 sensorForms） */
+  topClusters: ClassifiedFrictionCluster[];
+  /** 长尾折叠摘要（Top-N 之外的 cluster） */
+  tailSummary: FrictionTailSummary;
+  /** 透传：rollup 不完整（embedding 降级 OR 通道抛错）。degraded 报告不应被当完整发布 */
+  degraded: boolean;
+  /** 透传：被降级丢弃的通道 */
+  droppedChannels: FrictionChannel[];
+  /** token 预算：硬上限 cap + 本报告估算 estimated（estimated 超 cap 时触发更激进折叠） */
+  tokenBudget: { cap: number; estimated: number };
 }

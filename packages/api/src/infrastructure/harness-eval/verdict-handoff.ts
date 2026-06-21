@@ -7,7 +7,14 @@ const isoDateTime = z.string().datetime({ offset: true });
 const verdictHandoffPacketSchema = z
   .object({
     id: z.string().min(1),
-    domainId: z.enum(['eval:a2a', 'eval:memory', 'eval:sop', 'eval:capability-wakeup', 'eval:task-outcome']),
+    domainId: z.enum([
+      'eval:a2a',
+      'eval:memory',
+      'eval:sop',
+      'eval:capability-wakeup',
+      'eval:task-outcome',
+      'eval:friction',
+    ]),
     createdAt: isoDateTime,
     phenomenon: z.string().min(1),
     harnessUnderEval: z.object({

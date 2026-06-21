@@ -22,6 +22,7 @@ code_anchors:
   - packages/api/src/infrastructure/harness-eval/friction/friction-aggregator.ts
   - packages/api/src/infrastructure/harness-eval/friction/friction-clusterer.ts
   - packages/api/src/infrastructure/harness-eval/friction/friction-rollup-input.ts
+  - packages/api/src/infrastructure/harness-eval/friction/friction-rollup-report.ts
   - packages/shared/src/types/friction-signal.ts
   - packages/api/src/routes/eval-hub.ts
   - packages/web/src/components/HubEvalTab.tsx

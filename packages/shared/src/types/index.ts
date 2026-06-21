@@ -390,12 +390,17 @@ export type {
 export { makeGitRefEntryId } from './feat-trajectory.js';
 // F245: Friction Signal Eval types
 export type {
+  ClassifiedFrictionCluster,
   FrictionChannel,
   FrictionCluster,
   FrictionClusterMember,
   FrictionRollupInput,
+  FrictionRollupReport,
+  FrictionRootCause,
+  FrictionSensorForm,
   FrictionSeverity,
   FrictionSignal,
+  FrictionTailSummary,
 } from './friction-signal.js';
 // F222: Frustration Auto-Issue types
 export type {

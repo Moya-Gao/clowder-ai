@@ -156,6 +156,7 @@ import {
 } from './infrastructure/email/index.js';
 import { fetchLatestIssueCommentCursor, maxGithubId } from './infrastructure/github/comment-cursors.js';
 import { buildGhCliEnv, resolveGhCliToken } from './infrastructure/github/gh-cli-env.js';
+import type { EvalDomainId } from './infrastructure/harness-eval/domain/eval-domain-registry.js';
 import { runSchedulerReplyUserIdBackfill } from './infrastructure/scheduler/scheduler-reply-userid-backfill.js';
 import { securityHeadersPlugin } from './infrastructure/security-headers.js';
 import { sessionAuthPlugin, sessionRoute } from './infrastructure/session-auth.js';
@@ -1819,12 +1820,7 @@ async function main(): Promise<void> {
   // if Redis-backed ports are unavailable (no Redis client), skip cw wire entirely
   // (eval-cat-invocation domain instructions filtering will degrade gracefully:
   // cw cats see base instructions without publish section, handler returns 501).
-  const verdictGenerators: Partial<
-    Record<
-      'eval:a2a' | 'eval:capability-wakeup' | 'eval:memory' | 'eval:sop' | 'eval:task-outcome',
-      ReturnType<typeof createA2aGeneratorAdapter>
-    >
-  > = {
+  const verdictGenerators: Partial<Record<EvalDomainId, ReturnType<typeof createA2aGeneratorAdapter>>> = {
     'eval:a2a': createA2aGeneratorAdapter(),
     'eval:sop': createSopGeneratorAdapter(),
     'eval:task-outcome': createTaskOutcomeGeneratorAdapter(),
@@ -4022,9 +4018,7 @@ async function main(): Promise<void> {
   // This gates scheduled daily/weekly invocations' publish instructions on actual runtime support
   // — without this, scheduled eval would tell cat to publish even when no Redis/markers →
   // handler 501 → wasted run. Mirrors the eval-hub.ts route-layer gating.
-  const wiredPublishDomains = new Set<
-    'eval:a2a' | 'eval:memory' | 'eval:sop' | 'eval:capability-wakeup' | 'eval:task-outcome'
-  >(['eval:a2a']);
+  const wiredPublishDomains = new Set<EvalDomainId>(['eval:a2a']);
   wiredPublishDomains.add('eval:task-outcome');
   // eval:sop has no runtime dependencies (unlike cw needing toolEventLog or memory
   // needing markerQueue) — unconditionally wired like eval:a2a and eval:task-outcome.
@@ -4043,9 +4037,7 @@ async function main(): Promise<void> {
   // Unknown domains pass through (true) — only domains with a registered probe can fail
   // closed. Adding a domain to the switch is opt-in defense; omitting one is no-op.
   const publishPrereqCache = new Map<string, boolean>();
-  const publishPrereqProbe = async (
-    domainId: 'eval:a2a' | 'eval:memory' | 'eval:sop' | 'eval:capability-wakeup' | 'eval:task-outcome',
-  ): Promise<boolean> => {
+  const publishPrereqProbe = async (domainId: EvalDomainId): Promise<boolean> => {
     const cached = publishPrereqCache.get(domainId);
     if (cached !== undefined) return cached;
     let ok: boolean;

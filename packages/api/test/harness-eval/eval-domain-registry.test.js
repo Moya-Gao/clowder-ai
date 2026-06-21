@@ -36,6 +36,20 @@ const validEntry = {
 };
 
 describe('Eval Domain Registry v0', () => {
+  it('accepts an eval:friction registry entry (F245 Phase C)', () => {
+    const entry = parseEvalDomainRegistryEntry({
+      ...validEntry,
+      domainId: 'eval:friction',
+      displayName: 'Friction Signal Eval',
+      systemThreadId: 'thread_eval_friction',
+      sourceAdapter: 'f245-friction-rollup',
+      frequency: 'weekly',
+      handoffTargetResolver: { featureId: 'F245', ownerCatId: 'opus48', threadLookup: 'feature-thread' },
+    });
+    assert.equal(entry.domainId, 'eval:friction');
+    assert.equal(entry.sourceAdapter, 'f245-friction-rollup');
+  });
+
   it('validates the eval:a2a registry entry', () => {
     const entry = parseEvalDomainRegistryEntry(validEntry);
 
@@ -57,6 +71,20 @@ describe('Eval Domain Registry v0', () => {
     assert.equal(entry.systemThreadId.length > 0, true);
     assert.equal(entry.threadPolicy.role, 'working-home');
     assert.equal(entry.sla.acknowledgeHours > 0, true);
+  });
+
+  it('loads the docs-backed eval:friction registry fixture (F245 Phase C)', async () => {
+    const raw = await readFile(
+      new URL('../../../../docs/harness-feedback/eval-domains/eval-friction.yaml', import.meta.url),
+      'utf8',
+    );
+    const entry = parseEvalDomainRegistryFile(parse(raw));
+
+    assert.equal(entry.domainId, 'eval:friction');
+    assert.equal(entry.sourceAdapter, 'f245-friction-rollup');
+    assert.equal(entry.frequency, 'weekly');
+    assert.equal(entry.threadPolicy.role, 'working-home');
+    assert.equal(entry.handoffTargetResolver.featureId, 'F245');
   });
 
   it('rejects domain thread as the state source of truth', () => {

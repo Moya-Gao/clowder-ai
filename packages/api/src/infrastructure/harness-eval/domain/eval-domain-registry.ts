@@ -9,7 +9,14 @@ const evalDomainFixtureSchema = z.object({
 });
 
 const evalDomainRegistryEntrySchema = z.object({
-  domainId: z.enum(['eval:a2a', 'eval:memory', 'eval:sop', 'eval:capability-wakeup', 'eval:task-outcome']),
+  domainId: z.enum([
+    'eval:a2a',
+    'eval:memory',
+    'eval:sop',
+    'eval:capability-wakeup',
+    'eval:task-outcome',
+    'eval:friction',
+  ]),
   displayName: z.string().min(1),
   systemThreadId: z.string().min(1, 'systemThreadId is required'),
   evalCat: z.object({
@@ -24,6 +31,7 @@ const evalDomainRegistryEntrySchema = z.object({
     'sop-trace-eval',
     'capability-wakeup-eval',
     'task-outcome-eval',
+    'f245-friction-rollup',
   ]),
   threadPolicy: z.object({
     role: z.literal('working-home'),
@@ -64,6 +72,15 @@ const evalDomainRegistryEntrySchema = z.object({
 });
 
 export type EvalDomainRegistryEntry = z.infer<typeof evalDomainRegistryEntrySchema>;
+
+/**
+ * Single source of truth for the set of registered eval domain ids.
+ * Derived from the registry schema enum — consumers (scheduler opts, manual
+ * trigger casts, wired-publish sets) should reference THIS type instead of
+ * hand-writing the union, so adding a domain (e.g. F245 `eval:friction`) only
+ * edits the enum, not every downstream site.
+ */
+export type EvalDomainId = EvalDomainRegistryEntry['domainId'];
 
 export function parseEvalDomainRegistryEntry(input: unknown): EvalDomainRegistryEntry {
   return evalDomainRegistryEntrySchema.parse(input);
