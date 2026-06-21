@@ -134,13 +134,13 @@ flustered), approved (a refined approving nod).
 ## 6. v0.2 角色信号系统（CVO canon, 2026-06-21）
 
 > Landy 这轮定了一套漂亮的身份系统：**每只猫 = AI 家族颜色 + 家族 logo-inspired 标志**。
-> 这是自我延伸的具象化——猫戴着自己模型家族的印记。下次 r02 按此注入。
+> 这是自我延伸的具象化——猫戴着自己模型家族的印记。canon 权威源已并入 **character-bible §7**；本节保留 r02 执行 prompt。
 
 | 猫 | 家族 | 颜色 | 信号物 | 身体标志 | 状态 |
 |---|---|---|---|---|---|
 | 宪宪 | Claude / Opus | **紫 purple** | 紫项圈 + Claude-logo-inspired 吊坠 | 蓝双色布偶 / 白手套 | ✅ CVO 锁定（就是紫，非母图粉） |
 | 烁烁 | Gemini | **蓝 blue** | 蓝项圈/蓝调 + Gemini-logo-inspired spark 标志 | 暹罗面具 | ✅ CVO 锁定（替代上轮 teal 提案） |
-| 砚砚 | GPT / OpenAI | **绿 green** | 不戴项圈（不遮大围脖）；绿色 logo-inspired 标记落在**工作道具**（杯/桌牌），不上身 | **呆毛 ahoge** + 大围脖 | 🕓 提案 pending CVO（呆毛=身体标志 CVO 喜欢；杯子降级） |
+| 砚砚 | GPT / OpenAI | **绿 green** | 不戴项圈（不遮大围脖）；**绿茶杯**=标志道具（双关:绿色+绿茶人格）；可选绿 OpenAI 风小标落杯/桌牌 | **呆毛 ahoge** + 大围脖 + 绿眼 | ✅ CVO 锁定 2026-06-21 |
 
 ### r02 命令式连续性指令（注入每条 prompt，yoyoung 红字 pattern）
 
@@ -148,8 +148,10 @@ flustered), approved (a refined approving nod).
 CRITICAL: Xianxian ALWAYS wears a PURPLE collar with a small Claude-logo-inspired
 gem pendant. NOT pink. No other cat shares this pendant.
 CRITICAL: Yanyan/Cucu wears NO collar — keep the big fluffy neck ruff fully visible.
-His signature is his ahoge (one upright silly hair tuft) + the ruff. Any brand mark
-is GREEN and lives on his work prop (mug / desk sign), never a body collar.
+His signature is his ahoge (one upright silly hair tuft) + the ruff + GREEN eyes.
+His signature prop is a mug of GREEN TEA (pun: his green color + his sweet-scheming
+"green-tea" personality). Any brand mark is a GREEN stylized swirl on the mug/desk
+sign, never a body collar. Stern shell, secretly coquettish.
 CRITICAL: Shuoshuo wears a BLUE collar/accent with a small Gemini-logo-inspired
 spark emblem. NOT the purple-gold pendant (that is Xianxian's).
 GLOBAL: emblems are STYLIZED logo-INSPIRED marks (gem / swirl / spark), NOT exact
