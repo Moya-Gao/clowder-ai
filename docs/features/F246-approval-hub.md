@@ -268,3 +268,4 @@ Goal: 把 Phase C 后真实遗留的成熟化工作收束成可执行交付，�
 | 2026-06-21 | Phase D AC-D1/D2/D3 merged (47fe67082) — intercept regression tests + WorkspaceTabBar + ApprovalPanel + ActivityBar vitest coverage |
 | 2026-06-21 | Phase D AC-D4/D5 committed (19047f8f9) — feature/stale/thread filters + batch approve/reject with inline guard |
 | 2026-06-21 | Phase D AC-D6/D7 — v2 admission matrix (F231 ready, Limb/F168 conditional, KnowledgeFeed deferred) + materialized index gate (dual threshold: >5 adapters AND p95 >250ms) |
+| 2026-06-21 | Phase D merged (PR #2477, 507bf5f6) — AC-D1~D7 complete; 3-round local peer review (gpt52) + cloud review R1~R3 (封板: 100% stale replay) + 封板 final review (gpt52) |
