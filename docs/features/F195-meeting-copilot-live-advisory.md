@@ -650,6 +650,7 @@ F104 全感知升级是 research branch，不是 Meeting Copilot 的门槛。MVP
 | 2026-06-20 | Phase G merged (PR #2438) — SpeakerEmbedder (CAM++) + enroll() voice_sample + cosine attribution + rule-based fallback + offline eval script + defense-in-depth ndarray sanitization |
 | 2026-06-20 | 铲屎官实测：B 站视频 3+ 人场景验证 → 发现 Phase G 预注册不实用 + TranscriptPanel speaker 字段缺失（P2） |
 | 2026-06-20 | Phase H spec added — 说话人分离（无监督 diarization），铲屎官实测反馈驱动 |
+| 2026-06-21 | TranscriptPanel speaker field parity fix merged (PR #2468) — speaker_label/confidence/id fields + TranscriptLineRow extraction + 8 regression tests |
 
 ## 用户反馈（铲屎官实测 2026-05-14）
 
