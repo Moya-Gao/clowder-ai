@@ -26,6 +26,7 @@ import {
   fetchGroundingSamples,
   fetchMetrics,
   fetchMetricsHistory,
+  fetchProcessInfo,
   fetchTraces,
   fetchTracesStats,
 } from '../packages/api/dist/infrastructure/harness-eval/telemetry-adapter.js';
@@ -78,11 +79,20 @@ async function main(config) {
   // opt in to the route's `expandLimit=true` cap raise. Default UI traffic
   // is unchanged.
   const traceStats = await fetchTracesStats(config);
-  const [traces, metricsText, metricsHistory, groundingSamplesRes] = await Promise.all([
+  // F167 sibling-PR: fetchProcessInfo is best-effort — runs against older
+  // server builds that lack /api/telemetry/process-info should still produce
+  // a snapshot (counterWindow will be absent; eval cats fall back to
+  // window.durationHours and accept the silent-false-positive risk noted
+  // in DOMAIN_INSTRUCTIONS).
+  const [traces, metricsText, metricsHistory, groundingSamplesRes, processInfo] = await Promise.all([
     fetchTraces(config, { limit: traceStats.maxSpans, expandLimit: true }),
     fetchMetrics(config),
     fetchMetricsHistory(config),
     fetchGroundingSamples(config),
+    fetchProcessInfo(config).catch((err) => {
+      console.warn(`     warn: fetchProcessInfo failed (${err.message}) — counterWindow will be absent`);
+      return null;
+    }),
   ]);
 
   const metrics = await parseMetricsText(metricsText);
@@ -91,7 +101,8 @@ async function main(config) {
       `store: ${traceStats.spanCount}/${traceStats.maxSpans} | ` +
       `metrics keys: ${Object.keys(metrics).length} | ` +
       `history snapshots: ${metricsHistory.count} | ` +
-      `grounding samples: ${groundingSamplesRes.stats.stored} (dropped: ${groundingSamplesRes.stats.dropped})`,
+      `grounding samples: ${groundingSamplesRes.stats.stored} (dropped: ${groundingSamplesRes.stats.dropped})` +
+      (processInfo ? ` | uptime: ${processInfo.uptimeSec.toFixed(0)}s` : ' | uptime: unknown'),
   );
 
   console.log('2/4 Generating F167 eval snapshot...');
@@ -101,11 +112,18 @@ async function main(config) {
     metricsHistory,
     traceStats,
     groundingSamples: groundingSamplesRes.samples,
+    // Pass both processStartMs (wall-clock anchor) and processUptimeSec
+    // (monotonic duration source) — generateF167Snapshot prefers uptimeSec
+    // for durationHours per P2 review fix (avoids local-vs-remote clock mix).
+    ...(processInfo ? { processStartMs: processInfo.processStartMs, processUptimeSec: processInfo.uptimeSec } : {}),
   });
   console.log(
     `     components: ${snapshot.components.length} | ` +
       `confidence: ${snapshot.overallConfidence} | ` +
-      `gaps: ${snapshot.components.reduce((s, c) => s + c.telemetryGaps.length, 0)}`,
+      `gaps: ${snapshot.components.reduce((s, c) => s + c.telemetryGaps.length, 0)}` +
+      (snapshot.counterWindow
+        ? ` | counterWindow: ${snapshot.counterWindow.durationHours.toFixed(2)}h`
+        : ' | counterWindow: absent'),
   );
 
   console.log('3/4 Generating attribution report...');

@@ -16,7 +16,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { formatAttributionYaml } from './format-eval-yaml.mjs';
+import { formatAttributionYaml, formatSnapshotYaml } from './format-eval-yaml.mjs';
 
 const dummyFingerprint = (f) => `${f.frictionSignal.type}::${f.attribution.evidence[0]?.anchor ?? 'none'}`;
 
@@ -176,4 +176,93 @@ test('formatAttributionYaml: sample_coverage absent on findings without coverage
   const yaml = formatAttributionYaml(report, '2026-06-08', dummyFingerprint);
   assert.ok(!yaml.includes('sample_coverage:'), 'no sample_coverage block on non-sampled findings');
   assert.ok(!yaml.includes('sample:'), 'no sample block on non-sampled findings');
+});
+
+// ── F167 sibling-PR review fix (P1 gpt52): counter_window persistence ──
+// Without this, generateF167Snapshot's counterWindow lives only in the runner
+// process's memory — formatSnapshotYaml strips it on the way to disk, so
+// downstream eval cats reading the YAML artifact see only `window` (trace
+// window) and divide fresh counters by hydrated 24h windows. The fix is here:
+// formatter must serialize counterWindow when present (omit when undefined for
+// backward compat with older runners that don't supply processStartMs).
+
+function makeBaseSnapshot(extras = {}) {
+  return {
+    featureId: 'F167',
+    generatedAt: '2026-06-21T00:00:00.000Z',
+    generatedBy: 'F192 Phase C eval',
+    dataSource: 'F153 /api/telemetry/*',
+    overallConfidence: 'medium',
+    window: { startMs: 1_000_000_000_000, endMs: 1_000_086_400_000, durationHours: 24 },
+    traceStoreStats: { spanCount: 100, maxSpans: 10000, maxAgeMs: 86_400_000 },
+    summary: 'test snapshot',
+    components: [
+      {
+        componentId: 'L1',
+        componentName: 'L1 test',
+        confidence: 'medium',
+        activationCounts: { 'l1.streak_warn_count': 5 },
+        frictionCounts: {},
+        telemetryGaps: [],
+      },
+    ],
+    ...extras,
+  };
+}
+
+test('formatSnapshotYaml: serializes counter_window when counterWindow is present (P1 fix)', () => {
+  const snapshot = makeBaseSnapshot({
+    counterWindow: { startMs: 1_000_082_800_000, endMs: 1_000_086_400_000, durationHours: 1 },
+  });
+  const yaml = formatSnapshotYaml(snapshot, '2026-06-21');
+
+  // The fix: counter_window block must reach the YAML artifact, otherwise
+  // downstream eval cats reading the artifact silently fall back to window
+  // (trace window) and underreport rates after restart.
+  assert.ok(yaml.includes('counter_window:'), 'counter_window block must be emitted');
+  assert.ok(yaml.includes('  start_ms: 1000082800000'), 'counter_window.start_ms serialized');
+  assert.ok(yaml.includes('  end_ms: 1000086400000'), 'counter_window.end_ms serialized');
+  assert.ok(
+    yaml.includes('  duration_hours: 1.000000'),
+    'counter_window.duration_hours serialized at 6-digit precision',
+  );
+});
+
+test('formatSnapshotYaml: omits counter_window block when absent (backward compat)', () => {
+  const snapshot = makeBaseSnapshot(); // no counterWindow
+  const yaml = formatSnapshotYaml(snapshot, '2026-06-21');
+  assert.ok(yaml.includes('window:'), 'trace window still present');
+  assert.ok(!yaml.includes('counter_window:'), 'counter_window block omitted when undefined');
+});
+
+test('formatSnapshotYaml: window and counter_window are distinct blocks (silent FP fix lock)', () => {
+  // Worst-case shape: trace window 24h (hydrated), counter window 1h (recent
+  // restart). Both must appear with their own numbers — collapsing them would
+  // re-create the silent false positive this PR exists to fix.
+  const snapshot = makeBaseSnapshot({
+    counterWindow: { startMs: 1_000_082_800_000, endMs: 1_000_086_400_000, durationHours: 1 },
+  });
+  const yaml = formatSnapshotYaml(snapshot, '2026-06-21');
+  assert.ok(yaml.includes('duration_hours: 24.00'), 'trace window duration intact (2-digit precision)');
+  assert.ok(yaml.includes('duration_hours: 1.000000'), 'counter window duration intact + distinct (6-digit precision)');
+});
+
+// R2 cloud P2: short-uptime precision lock — without higher precision, a brand-
+// new process would write duration_hours: 0.00 and eval cats would divide by
+// zero per DOMAIN_INSTRUCTIONS counter-rate formula.
+test('formatSnapshotYaml: counter_window preserves precision for short uptime (R2 cloud P2 fix)', () => {
+  // 5 seconds uptime = 5/3600 = ~0.00138888 hours
+  const snapshot = makeBaseSnapshot({
+    counterWindow: { startMs: 1_000_086_395_000, endMs: 1_000_086_400_000, durationHours: 5 / 3600 },
+  });
+  const yaml = formatSnapshotYaml(snapshot, '2026-06-21');
+  assert.ok(
+    !yaml.includes('counter_window:\n  start_ms: 1000086395000\n  end_ms: 1000086400000\n  duration_hours: 0.00\n'),
+    'must not serialize duration_hours to 0.00 for 5s uptime',
+  );
+  // Should retain non-zero precision (5/3600 ≈ 0.001389)
+  assert.ok(
+    yaml.match(/duration_hours: 0\.00138[89]/),
+    'counter window for 5s uptime must keep non-zero precision (0.001389)',
+  );
 });

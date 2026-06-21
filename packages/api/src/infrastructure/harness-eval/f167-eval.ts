@@ -2,6 +2,9 @@ import type { ClaimGroundingEvent } from '../grounding/types.js';
 import { extractC1HoldZombieSamples } from './c1-hold-sample-evidence.js';
 import { extractC2VerdictWithoutPassSamples, type PerFireSample } from './c2-sample-evidence.js';
 import { extractC2VoidHoldSamples } from './c2-void-hold-sample-evidence.js';
+// R3 cloud P1 follow-up: counterWindow construction extracted to keep this
+// pre-existing-over-limit file (475 lines on main) from getting worse.
+import { buildCounterWindow, type CounterWindow, type CounterWindowInput } from './f167-eval-counter-window.js';
 import type {
   EvalMetricsHistoryResponse,
   EvalTraceSpan,
@@ -60,6 +63,8 @@ export interface GroundingSampleEvidence {
 export interface RuntimeEvalSnapshot {
   featureId: string;
   window: { startMs: number; endMs: number; durationHours: number };
+  /** See ./f167-eval-counter-window.ts for shape + rationale (silent FP fix). */
+  counterWindow?: CounterWindow;
   dataSource: string;
   generatedAt: string;
   generatedBy: string;
@@ -71,13 +76,15 @@ export interface RuntimeEvalSnapshot {
   groundingSampleEvidence?: GroundingSampleEvidence;
 }
 
-export interface F167EvalInput {
+export interface F167EvalInput extends CounterWindowInput {
   traces: EvalTracesResponse;
   metrics: Record<string, number>;
   metricsHistory: EvalMetricsHistoryResponse;
   traceStats: EvalTraceStoreStats;
   /** F167 Phase O PR-O2b: grounding sample events from bounded store. */
   groundingSamples?: ClaimGroundingEvent[];
+  // F167 sibling-PR: processStartMs + processUptimeSec inherited from
+  // CounterWindowInput. See ./f167-eval-counter-window.ts for the contract.
 }
 
 // Prometheus key → short name mapping (dots in OTel become underscores in Prom)
@@ -453,6 +460,11 @@ export function generateF167Snapshot(input: F167EvalInput): RuntimeEvalSnapshot 
   const gapCount = components.reduce((sum, c) => sum + c.telemetryGaps.length, 0);
   const dataComponents = components.filter((c) => c.confidence !== 'no-data').length;
 
+  // F167 sibling-PR: counter-domain window = process boot → now.
+  // Construction lives in ./f167-eval-counter-window.ts to keep this
+  // pre-existing-over-limit file from getting worse (R3 cloud P1 follow-up).
+  const counterWindow = buildCounterWindow(input, now);
+
   return {
     featureId: 'F167',
     window: {
@@ -460,6 +472,7 @@ export function generateF167Snapshot(input: F167EvalInput): RuntimeEvalSnapshot 
       endMs: windowEnd,
       durationHours: durationMs / 3_600_000,
     },
+    ...(counterWindow ? { counterWindow } : {}),
     dataSource: 'F153 /api/telemetry/*',
     generatedAt: new Date(now).toISOString(),
     generatedBy: 'F192 Phase C eval',

@@ -34,6 +34,143 @@ describe('F167 Runtime Eval Snapshot', () => {
     assert.equal(typeof snapshot.window.durationHours, 'number');
   });
 
+  // ── F167 sibling-PR (telemetry counter baseline persistence) ──
+  //
+  // Silent false positive scenario: hydrated traceStore covers 24h, but OTel
+  // counters are process-lifetime cumulative since process boot. Eval consumers
+  // that compute rate = counter / window.durationHours get a low denominator
+  // mismatch when process_uptime << trace_window. Fix: snapshot exposes a
+  // separate counterWindow whose startMs reflects process boot, so eval cats
+  // pick the right denominator for counter rate. Trace window stays unchanged
+  // for trace-based density math.
+  describe('counterWindow (process-lifetime baseline awareness)', () => {
+    const ONE_HOUR_MS = 60 * 60 * 1000;
+    const TWENTY_FOUR_HOURS_MS = 24 * ONE_HOUR_MS;
+
+    it('omits counterWindow when processStartMs is not provided (backward compat)', () => {
+      const snapshot = generateF167Snapshot(emptyInput);
+      assert.equal(snapshot.counterWindow, undefined);
+    });
+
+    it('exposes counterWindow when processStartMs is provided', () => {
+      // Anchor to wall clock — generateF167Snapshot calls Date.now() internally,
+      // so processStartMs must be relative to "now", not a fixed epoch constant.
+      const processStartMs = Date.now() - ONE_HOUR_MS;
+      const snapshot = generateF167Snapshot({
+        ...emptyInput,
+        processStartMs,
+      });
+      assert.ok(snapshot.counterWindow, 'counterWindow must be present');
+      assert.equal(snapshot.counterWindow.startMs, processStartMs);
+      assert.ok(typeof snapshot.counterWindow.endMs === 'number');
+      assert.ok(snapshot.counterWindow.endMs >= processStartMs);
+      assert.ok(typeof snapshot.counterWindow.durationHours === 'number');
+      // Sanity: a 1h-old process gives ~1h counterWindow, not 24h
+      assert.ok(
+        snapshot.counterWindow.durationHours >= 0.9 && snapshot.counterWindow.durationHours <= 1.5,
+        `Expected ~1h counterWindow, got ${snapshot.counterWindow.durationHours}h`,
+      );
+    });
+
+    // F167 sibling-PR review fix (P2 gpt52): when server exposes uptimeSec
+    // (monotonic, NTP-safe), eval should use it as the duration source of
+    // truth — not compute `local Date.now() - remote processStartMs`, which
+    // assumes runner and API share a clock.
+
+    it('prefers processUptimeSec over local-clock arithmetic when provided (P2 fix)', () => {
+      // Construct a stale processStartMs that would yield a wildly wrong
+      // duration under local-clock arithmetic (e.g. NTP drift / cross-host
+      // runner). uptimeSec is the authoritative source.
+      const staleProcessStartMs = Date.now() - 99 * 60 * 60 * 1000; // 99h ago (wrong if clocks drifted)
+      const authoritativeUptimeSec = 3600; // server says: actually 1h
+      const snapshot = generateF167Snapshot({
+        ...emptyInput,
+        processStartMs: staleProcessStartMs,
+        processUptimeSec: authoritativeUptimeSec,
+      });
+      assert.ok(snapshot.counterWindow);
+      // durationHours must come from uptimeSec, not from local Date.now() - processStartMs
+      assert.equal(snapshot.counterWindow.durationHours, 1, 'must use uptimeSec/3600, not local-clock subtraction');
+      // endMs - startMs must be exactly uptimeSec * 1000 (server-coherent)
+      assert.equal(
+        snapshot.counterWindow.endMs - snapshot.counterWindow.startMs,
+        authoritativeUptimeSec * 1000,
+        'startMs/endMs must be server-coherent (derived from uptimeSec, not mixed clocks)',
+      );
+    });
+
+    it('rounds counter_window endMs to integer for fractional uptimeSec (R2 cloud P1)', () => {
+      // process.uptime() returns fractional seconds. uptimeSec * 1000 can be
+      // fractional ms, but bundleSnapshotSchema requires startMs/endMs to be
+      // integer (z.number().int()). Without Math.round, a normal restart-
+      // recent eval would serialize, pass formatter, then get rejected by
+      // resolveA2aEvidenceBundle when the bundle is later consumed.
+      const processStartMs = 1_700_000_000_000; // integer
+      const fractionalUptimeSec = 3600.1234567; // fractional → 3600123.4567 fractional ms
+      const snapshot = generateF167Snapshot({
+        ...emptyInput,
+        processStartMs,
+        processUptimeSec: fractionalUptimeSec,
+      });
+      assert.ok(snapshot.counterWindow);
+      assert.ok(
+        Number.isInteger(snapshot.counterWindow.startMs),
+        `startMs must be integer, got ${snapshot.counterWindow.startMs}`,
+      );
+      assert.ok(
+        Number.isInteger(snapshot.counterWindow.endMs),
+        `endMs must be integer (bundleSnapshotSchema requires z.number().int()), got ${snapshot.counterWindow.endMs}`,
+      );
+    });
+
+    it('falls back to processStartMs-only mode when uptimeSec absent (backward compat)', () => {
+      const processStartMs = Date.now() - ONE_HOUR_MS;
+      const snapshot = generateF167Snapshot({
+        ...emptyInput,
+        processStartMs,
+        // No processUptimeSec — legacy path
+      });
+      assert.ok(snapshot.counterWindow);
+      // Old behavior preserved: ~1h durationHours derived from local clock
+      assert.ok(
+        snapshot.counterWindow.durationHours >= 0.9 && snapshot.counterWindow.durationHours <= 1.5,
+        `Legacy mode should still derive ~1h, got ${snapshot.counterWindow.durationHours}h`,
+      );
+    });
+
+    it('counterWindow is independent from trace window (silent false positive fix)', () => {
+      // Worst case: traceStore was hydrated 24h back, but process only booted 1h ago.
+      // Pre-fix: window.durationHours == 24, counter.durationHours implicit 24 → rate underreports.
+      // Post-fix: snapshot exposes both windows, eval picks counterWindow for counter rate.
+      const now = Date.now();
+      const processStartMs = now - ONE_HOUR_MS;
+      const traceOldest = now - TWENTY_FOUR_HOURS_MS;
+      const snapshot = generateF167Snapshot({
+        ...emptyInput,
+        processStartMs,
+        traceStats: {
+          ...emptyInput.traceStats,
+          oldestStoredAt: traceOldest,
+          newestStoredAt: now,
+        },
+      });
+      // Trace window reflects hydrated 24h history (unchanged semantics)
+      assert.ok(
+        snapshot.window.durationHours >= 23 && snapshot.window.durationHours <= 25,
+        `Expected ~24h trace window, got ${snapshot.window.durationHours}h`,
+      );
+      // Counter window reflects process lifetime (~1h)
+      assert.ok(snapshot.counterWindow);
+      assert.ok(
+        snapshot.counterWindow.durationHours >= 0.9 && snapshot.counterWindow.durationHours <= 1.5,
+        `Expected ~1h counterWindow even when trace window is 24h, got ${snapshot.counterWindow.durationHours}h`,
+      );
+      // Critical invariant: counterWindow.startMs must NOT equal trace.startMs
+      // (would mean baseline awareness is missing and rate denominator is wrong)
+      assert.notEqual(snapshot.counterWindow.startMs, snapshot.window.startMs);
+    });
+  });
+
   it('marks telemetry gaps for L1 (no counter)', () => {
     const snapshot = generateF167Snapshot(emptyInput);
     const l1 = snapshot.components.find((c) => c.componentId === 'L1');

@@ -135,6 +135,37 @@ describe('Eval cat invocation packet', () => {
     assert.match(invocation.instructions, /telemetry gap/, 'must reference no-data telemetry gap guidance');
   });
 
+  it('eval:a2a instructions include counter rate denominator tokens (F167 sibling-PR)', () => {
+    const invocation = buildEvalCatInvocation({
+      domain,
+      trendRefs: [],
+      verdictRefs: [],
+      legacyCleanup: { status: 'not_checked' },
+    });
+
+    // Counter baseline awareness tokens — must survive so eval cats pick the
+    // right denominator for counter rate (counterWindow, not window). Without
+    // these in the instruction string, eval cats silently divide fresh counters
+    // by hydrated 24h trace windows and report false-negative "low activity".
+    assert.match(
+      invocation.instructions,
+      /counterWindow/,
+      'must reference bundle JSON counterWindow field (camelCase)',
+    );
+    assert.match(
+      invocation.instructions,
+      /counter_window/,
+      'must also reference raw YAML counter_window field (snake_case) — R5 cloud P2: eval cats reading raw snapshot YAML need the snake_case alias or they miss the denominator',
+    );
+    assert.match(invocation.instructions, /denominator/, 'must explain rate denominator selection');
+    assert.match(invocation.instructions, /reset to 0/i, 'must explain why counters reset on restart');
+    assert.match(
+      invocation.instructions,
+      /downgrade.*confidence|confidence.*downgrade/i,
+      'must guide confidence downgrade on short counter window',
+    );
+  });
+
   it('includes registry fixture refs in the eval-cat context', () => {
     const invocation = buildEvalCatInvocation({
       domain: {

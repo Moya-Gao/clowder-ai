@@ -159,6 +159,35 @@ export async function fetchMetricsHistory(
   return parseMetricsHistoryResponse(await res.json());
 }
 
+// ── F167 sibling-PR: process boot info (counter baseline awareness) ──
+// Eval passes processStartMs into generateF167Snapshot so counter rate uses
+// the right denominator (OTel counters reset on restart, trace store can be
+// hydrated 24h → silent false positive without this).
+
+export interface EvalProcessInfo {
+  processStartMs: number;
+  uptimeSec: number;
+}
+
+export function parseProcessInfoResponse(json: unknown): EvalProcessInfo {
+  const obj = json as Record<string, unknown>;
+  if (!obj || typeof obj !== 'object') {
+    throw new Error('Expected object for process-info response');
+  }
+  if (typeof obj.processStartMs !== 'number' || typeof obj.uptimeSec !== 'number') {
+    throw new Error('process-info response missing processStartMs/uptimeSec numbers');
+  }
+  return { processStartMs: obj.processStartMs, uptimeSec: obj.uptimeSec };
+}
+
+export async function fetchProcessInfo(config: TelemetryAdapterConfig): Promise<EvalProcessInfo> {
+  const res = await fetch(`${config.baseUrl}/api/telemetry/process-info`, {
+    headers: { cookie: config.cookie },
+  });
+  if (!res.ok) throw new Error(`fetchProcessInfo failed: ${res.status}`);
+  return parseProcessInfoResponse(await res.json());
+}
+
 // ── F167 Phase O PR-O2b: grounding sample evidence ──────────
 
 export interface GroundingSamplesResponse {

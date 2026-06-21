@@ -18,6 +18,31 @@ export function formatSnapshotYaml(snapshot, dateStr) {
     `  end_ms: ${snapshot.window.endMs}`,
     `  duration_hours: ${snapshot.window.durationHours.toFixed(2)}`,
     '',
+  ];
+
+  // F167 sibling-PR (P1 gpt52 review fix): persist counter_window so the
+  // YAML artifact carries the counter-domain denominator. Without this block
+  // the bundle reader (eval-a2a-live-verdict / eval-a2a-artifact-resolver)
+  // sees only `window` (trace window) and eval cats silently divide fresh
+  // counters by hydrated 24h trace windows after restart. Omitted when the
+  // in-memory snapshot has no counterWindow (older runner without
+  // /api/telemetry/process-info).
+  if (snapshot.counterWindow) {
+    // R2 cloud P2: toFixed(2) rounds counterWindow durations under ~18s to
+    // "0.00", which the DOMAIN_INSTRUCTIONS counter-rate denominator would
+    // divide by → division-by-zero / false-infinite rate. toFixed(6) keeps
+    // microsecond precision (smallest representable: 3.6 ms) so even a brand-
+    // new process produces a non-zero denominator on the very next eval run.
+    lines.push(
+      'counter_window:',
+      `  start_ms: ${snapshot.counterWindow.startMs}`,
+      `  end_ms: ${snapshot.counterWindow.endMs}`,
+      `  duration_hours: ${snapshot.counterWindow.durationHours.toFixed(6)}`,
+      '',
+    );
+  }
+
+  lines.push(
     'trace_store_stats:',
     `  span_count: ${snapshot.traceStoreStats.spanCount}`,
     `  max_spans: ${snapshot.traceStoreStats.maxSpans}`,
@@ -26,7 +51,7 @@ export function formatSnapshotYaml(snapshot, dateStr) {
     `summary: "${snapshot.summary}"`,
     '',
     'components:',
-  ];
+  );
 
   for (const c of snapshot.components) {
     lines.push(`  - id: ${c.componentId}`);

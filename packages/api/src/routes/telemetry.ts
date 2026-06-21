@@ -216,6 +216,30 @@ export const telemetryRoutes: FastifyPluginAsync<TelemetryRoutesOptions> = async
     };
   });
 
+  /**
+   * GET /api/telemetry/process-info — process boot diagnostics.
+   *
+   * F167 sibling-PR (telemetry counter baseline persistence): exposes
+   * `processStartMs` so eval consumers can compute counter rate against the
+   * real OTel SDK accumulation window. OTel counters are in-memory and reset
+   * to 0 on every process restart, while the trace store can be hydrated from
+   * Redis with 24h of history — without this endpoint eval cats would divide
+   * a fresh counter by a hydrated 24h window and silently underreport rates
+   * (false-negative "low activity" verdicts after restart).
+   *
+   * Uses `process.uptime()` (Node.js monotonic seconds since process boot)
+   * rather than a captured boot timestamp, so it stays correct across
+   * NTP adjustments. Reconstructed boot = `Date.now() - uptime * 1000`.
+   */
+  app.get('/api/telemetry/process-info', async (request, reply) => {
+    if (!requireSession(request, reply)) return;
+    const uptimeSec = process.uptime();
+    return {
+      processStartMs: Date.now() - Math.floor(uptimeSec * 1000),
+      uptimeSec,
+    };
+  });
+
   // ── F167 Phase O PR-O2b: grounding sample evidence ──────────
   app.get('/api/telemetry/grounding-samples', async (request, reply) => {
     if (!requireSession(request, reply)) return;
