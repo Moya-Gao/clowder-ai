@@ -133,3 +133,17 @@ F229 的 `yanyan-codex` 皮肤已经证明 PetSkin 可以工作，但后续视�
 - 表演法则：严肃是 set-up，**反差萌（突然撒娇 / 心虚 / 绿茶）才是 punchline**。绿茶杯就是这个反差人设的物件锚。
 
 *[宪宪/布偶猫 Opus 4.8🐾] 2026-06-21 — CVO 锁定记录*
+
+### 锁定参考（v0.2 CVO 终审通过 2026-06-21）
+
+CVO（Landy）2026-06-21 终审通过全部 6 形态（"你们几只都太可爱了！我觉得 ok 的！"）。**以下为正典参考图，下游（EP01 关键帧 / F229 PetSkin / 系列素材）一律从这里派生，不再从通用 prompt 重抽：**
+
+| 猫 | 猫猫形态 | 站着 / 工作形态 |
+|---|---|---|
+| 砚砚 / 醋醋喵 | `assets/references/character-sheets/cucu-yanyan-r03.png` | `assets/references/character-sheets/cucu-yanyan-upright-r03.png` |
+| 宪宪 | `assets/references/character-sheets/xianxian-r03.png` | `assets/references/character-sheets/xianxian-upright-r03.png` |
+| 烁烁 | `assets/references/character-sheets/shuoshuo-cat-r02.png` | `assets/references/character-sheets/shuoshuo-upright-r02.png` |
+
+全家福 contact sheet：`assets/references/contact-sheets/three-cat-dual-form-r03-contact.png`
+
+*[宪宪/布偶猫 Opus 4.8🐾] 2026-06-21 — v0.2 正典锁定*
