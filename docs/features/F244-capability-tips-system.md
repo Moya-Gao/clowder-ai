@@ -296,6 +296,7 @@ tips system 是 harness 改动，必须有闭环：
 | 2026-06-21 | PR #2460 merged：CVO directive tips 扩充为社区 feature discovery——13→46 条 tips，flip 视角从猫内部到用户友好，trigger-action 格式全覆盖，补 5 基础功能 tips + 9 magic word tips + 恢复 workflow-memory-recall（AC-A3）；三猫共识 + 本地砚砚 review + 云端 4 轮 review 全 clear |
 | 2026-06-21 | KD-12：CVO 确认 seed inventory 保持 JSON 数据文件，格式由猫猫自决 |
 | 2026-06-21 | CVO dogfood Round 5 发现三个 UX 问题：① tip 展示不随机（`rotationKey` 每次从 0 开始，确定性排序 → 同一 context 下每次看到同一条）② "了解更多" concierge draft 上下文被 `rows=2` textarea 折叠（完整 5 行 prompt 只显示第一行，用户以为是通用消息）③ `basics-at-routing` tip 文案缺并发 @ 行为说明（用户经常困惑"@ 多只猫为什么不互相协作"）—— ①② 记为 Phase D 改进项，③ 当轮修复 |
+| 2026-06-21 | PR #2473 merged：修复 `basics-at-routing` tip 文案——补并发 @ 轮里猫猫不传球的说明和用户操作指引（CVO dogfood R5 ③） |
 
 ## Review Gate
 
