@@ -175,6 +175,7 @@ settings 独立 section（与成员管理平级，不复用 F154 member overview
 | OQ-7 | 新猫 cold start——三源全空只有 ① 固有特质，路由可能永不传给新猫（冷启动死循环）。开源给别人时别人的猫全是新猫，问题放大 | ⬜ 待 Phase 设计解决。初步方向：固有特质起步 + 前 N 次任务保底曝光"试用路由"。KD-9 fallback 链部分缓解——没 dossier 的猫仍可从 cat-config `teamStrengths` 获得能力标签 |
 | OQ-8 | L0 roster vs dossier 本体的语气分层 | ⬜ 三猫收敛方向：**分层，不是 sanitize**。dossier 本体/画像页 = 全文层，不 sanitize（"爱糊弄"这种刺就是价值）；L0 roster = 索引层，每轮注入给别的猫看，放**原生峰值 + 召唤反信号**（中性能力指向），坏直觉/熔断信号留给猫传球时 Read 全文。原因：L0 放"爱糊弄"有路由偏见风险——别的猫先入为主不敢传，违背"避免路由偏见"初衷（48 R1）。待实现时定 projection contract 字段（砚砚建议 `oneLiner` / `l0RosterSummary` / `routingSignals` / `provenance`）|
 | OQ-9 | 有 dossier 的猫，settings 里 teamStrengths 编辑框怎么办？ | ✅ resolved → Phase C 实现"标已被画像覆盖"方案：`catDossierCoversStrengths()` 检测 dossier `l0RosterSummary` 字段存在性（KD-14 per-field），存在时 HubCatEditor 显示紫色 badge"擅长领域由画像驱动"。teamStrengths 编辑框保留可用（KD-13 永不删字段），badge 告知用户画像页是更新真相源 |
+| OQ-10 | CVO 观察 → 总结层的 promotion 路径 | ✅ resolved → **Phase D = staging + read 展示**（观察存 Redis pending 层 + 画像页展示证据），promotion 留 Phase E（select obs → 草拟 oneLiner → git commit）。不在 Phase D 实现 promotion UI——减少 scope，早出可用版本。写进 spec 避免 CVO 期望对不齐（opus-47 Phase D review 提出）|
 
 ## Key Decisions
 

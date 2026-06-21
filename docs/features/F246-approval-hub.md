@@ -153,3 +153,4 @@ Why: CVO 审批散落在各 thread（F128/F225/F193），铲屎官不在对应 t
 | 2026-06-20 | Phase A merged (PR #2449) — F128 + F225 adapters, Hub drawer + bell badge, real-time sync |
 | 2026-06-20 | Phase A alpha-validated — all 6 smoke items PASS (@sonnet) |
 | 2026-06-20 | Phase B merged (PR #2454) — F193 E3 dispatch adapter, effectClass interception, DispatchProposal store, CAS approve/reject, target validation, delivery rollback |
+| 2026-06-21 | Phase B vision guardian APPROVE (@opus-47) — effectClass boundaries, CAS consistency, runtime caller chain verified |
