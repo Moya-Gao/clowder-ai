@@ -192,6 +192,7 @@ import {
   connectorMediaRoutes,
   connectorPluginRoutes,
   distillationRoutes,
+  dossierObservationRoutes,
   dossierRoutes,
   eventsRoutes,
   evidenceRoutes,
@@ -1950,6 +1951,21 @@ async function main(): Promise<void> {
   await app.register(connectorHubRoutes, connectorHubOpts);
   await app.register(connectorPluginRoutes);
   await app.register(dossierRoutes, { projectRoot: resolveActiveProjectRoot() });
+
+  // F208 Phase D: CVO observation staging layer (AC-D1)
+  // Iron Rule #5: user-visible observations must persist (TTL=0). Redis required.
+  // Fail-closed: no Redis → no observation routes (no silent data-loss mode).
+  if (redisClient) {
+    const { RedisDossierObservationStore } = await import(
+      './domains/cats/services/stores/redis/RedisDossierObservationStore.js'
+    );
+    const dossierObservationStore = new RedisDossierObservationStore(redisClient);
+    await app.register(dossierObservationRoutes, { observationStore: dossierObservationStore });
+  } else {
+    app.log.warn(
+      '[api] F208 dossier observations: routes NOT registered (Redis unavailable, fail-closed per Iron Rule #5)',
+    );
+  }
   await app.register(brakeRoutes, { activityTracker });
 
   // F101: Game routes (store created earlier for /game command interception)

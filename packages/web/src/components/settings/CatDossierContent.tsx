@@ -1,16 +1,19 @@
 'use client';
 
 /**
- * F208 Phase C: Cat Dossier — Model-grouped capability profiles page.
+ * F208 Phase C+D: Cat Dossier — Model-grouped capability profiles page.
  *
  * KD-15: 画像单位 = model（认知能力），catId 是索引便利。
- * 数据来自 GET /api/dossier，前端按 model 分组展示。
+ * 数据来自 GET /api/dossier + GET /api/dossier/observations（split endpoints）。
  *
- * L1 结构化字段：oneLiner / l0RosterSummary / routingSignals / provenance。
- * CVO "添加观察" 按钮为 Phase C read-only MVP（AC-C3），实际持久化留 Phase D。
+ * Phase C: L1 结构化字段 read-only 展示。
+ * Phase D: CVO 观察入口（AC-D1）+ 最近证据展示（AC-D2）。
+ * OQ-10: Phase D = staging + read；promotion 留 Phase E。
  */
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
+import { type EvidenceSnippet, useDossierEvidence } from '@/hooks/useDossierEvidence';
+import { type DossierObservation, useDossierObservations } from '@/hooks/useDossierObservations';
 import {
   type DossierCatEntry,
   type DossierModelGroup,
@@ -123,9 +126,198 @@ function SignalTags({ signals, tone }: { signals: string[]; tone: 'emerald' | 'a
   );
 }
 
-function CatProfileCard({ cat }: { cat: DossierCatEntry }) {
+// ---------------------------------------------------------------------------
+// Phase D: Observation form (AC-D1)
+// ---------------------------------------------------------------------------
+
+function ObservationForm({
+  catId,
+  onSubmit,
+}: {
+  catId: string;
+  onSubmit: (catId: string, content: string) => Promise<DossierObservation | null>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [content, setContent] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = useCallback(async () => {
+    if (!content.trim() || submitting) return;
+    setSubmitting(true);
+    const result = await onSubmit(catId, content.trim());
+    if (result) {
+      setContent('');
+      setOpen(false);
+    }
+    setSubmitting(false);
+  }, [catId, content, onSubmit, submitting]);
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="text-xs text-cafe-secondary transition-colors hover:text-cafe"
+      >
+        + 添加观察
+      </button>
+    );
+  }
+
+  return (
+    <div className="mt-2 space-y-2">
+      <textarea
+        value={content}
+        onChange={(e) => setContent(e.target.value)}
+        placeholder="记录对这只猫的体感观察..."
+        className="w-full rounded-md border border-[var(--console-border-soft)] bg-[var(--console-bg)] px-3 py-2 text-xs text-[var(--console-text)] placeholder:text-[var(--console-text-muted)] focus:border-[var(--cafe-accent)] focus:outline-none"
+        rows={2}
+      />
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={!content.trim() || submitting}
+          className="rounded px-3 py-1 text-xs font-medium text-white transition-colors bg-[var(--cafe-accent)] hover:opacity-90 disabled:opacity-50"
+        >
+          {submitting ? '提交中...' : '提交'}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setOpen(false);
+            setContent('');
+          }}
+          className="rounded px-3 py-1 text-xs text-[var(--console-text-muted)] transition-colors hover:text-[var(--console-text)]"
+        >
+          取消
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ObservationList({ observations }: { observations: DossierObservation[] }) {
+  if (observations.length === 0) return null;
+  return (
+    <div className="mt-2 space-y-1.5">
+      <SettingsText variant="xs" tone="muted" className="font-medium">
+        CVO 观察
+      </SettingsText>
+      {observations.map((obs) => (
+        <div key={obs.id} className="rounded-md bg-[var(--console-bg)] px-3 py-2">
+          <SettingsText as="p" variant="xs" tone="default">
+            {obs.content}
+          </SettingsText>
+          <SettingsText as="p" variant="xs" tone="muted" className="mt-0.5">
+            {obs.provenance.author} · {obs.provenance.date}
+          </SettingsText>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Phase D: Evidence display (AC-D2)
+// ---------------------------------------------------------------------------
+
+function EvidenceSection({
+  catId,
+  searchKey,
+  evidence,
+  loading,
+  onExpand,
+}: {
+  catId: string;
+  searchKey: string;
+  evidence: EvidenceSnippet[] | undefined;
+  loading: boolean;
+  onExpand: (catId: string, searchKey: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  const handleToggle = () => {
+    if (!expanded && !evidence) {
+      onExpand(catId, searchKey);
+    }
+    setExpanded(!expanded);
+  };
+
+  return (
+    <div className="mt-2">
+      <button
+        type="button"
+        onClick={handleToggle}
+        className="flex items-center gap-1 text-xs text-cafe-secondary transition-colors hover:text-cafe"
+      >
+        <span
+          className="inline-block transition-transform"
+          style={{ transform: expanded ? 'rotate(0deg)' : 'rotate(-90deg)' }}
+        >
+          ▾
+        </span>
+        最近证据
+      </button>
+      {expanded && (
+        <div className="mt-2 space-y-1.5 pl-3">
+          {loading && (
+            <SettingsText as="p" variant="xs" tone="muted">
+              加载中...
+            </SettingsText>
+          )}
+          {evidence && evidence.length === 0 && !loading && (
+            <SettingsText as="p" variant="xs" tone="muted" className="italic">
+              暂无相关证据
+            </SettingsText>
+          )}
+          {evidence?.map((ev, i) => (
+            <div key={`${ev.anchor}-${i}`} className="rounded-md bg-[var(--console-bg)] px-3 py-2">
+              <div className="flex items-center gap-2">
+                <SettingsText variant="xs" tone="default" className="font-medium">
+                  {ev.title}
+                </SettingsText>
+                <SettingsBadge
+                  tone={ev.confidence === 'high' ? 'emerald' : ev.confidence === 'mid' ? 'amber' : 'slate'}
+                  size="xxs"
+                >
+                  {ev.confidence}
+                </SettingsBadge>
+              </div>
+              <SettingsText as="p" variant="xs" tone="muted" className="mt-0.5 line-clamp-2">
+                {ev.snippet}
+              </SettingsText>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Cat profile card (Phase C + D integration)
+// ---------------------------------------------------------------------------
+
+function CatProfileCard({
+  cat,
+  observations,
+  evidence,
+  evidenceLoading,
+  onSubmitObservation,
+  onExpandEvidence,
+}: {
+  cat: DossierCatEntry;
+  observations: DossierObservation[];
+  evidence: EvidenceSnippet[] | undefined;
+  evidenceLoading: boolean;
+  onSubmitObservation: (catId: string, content: string) => Promise<DossierObservation | null>;
+  onExpandEvidence: (catId: string, searchKey: string) => void;
+}) {
   const [expanded, setExpanded] = useState(false);
   const { dossier } = cat;
+  // Evidence search key: nickname (most natural language hits) → displayName fallback
+  const searchKey = cat.nickname || cat.displayName;
 
   return (
     <div className="border-t border-[var(--console-border-soft)] py-3 first:border-t-0">
@@ -157,6 +349,19 @@ function CatProfileCard({ cat }: { cat: DossierCatEntry }) {
           暂无画像数据
         </SettingsText>
       )}
+
+      {/* Phase D: CVO observations (AC-D1) */}
+      <ObservationList observations={observations} />
+      <ObservationForm catId={cat.catId} onSubmit={onSubmitObservation} />
+
+      {/* Phase D: Evidence display (AC-D2) */}
+      <EvidenceSection
+        catId={cat.catId}
+        searchKey={searchKey}
+        evidence={evidence}
+        loading={evidenceLoading}
+        onExpand={onExpandEvidence}
+      />
     </div>
   );
 }
@@ -237,7 +442,21 @@ function DossierDetail({
   );
 }
 
-function ModelGroupSection({ group }: { group: DossierModelGroup }) {
+function ModelGroupSection({
+  group,
+  observations,
+  evidence,
+  evidenceLoading,
+  onSubmitObservation,
+  onExpandEvidence,
+}: {
+  group: DossierModelGroup;
+  observations: Record<string, DossierObservation[]>;
+  evidence: Record<string, EvidenceSnippet[]>;
+  evidenceLoading: Record<string, boolean>;
+  onSubmitObservation: (catId: string, content: string) => Promise<DossierObservation | null>;
+  onExpandEvidence: (catId: string, searchKey: string) => void;
+}) {
   const [collapsed, setCollapsed] = useState(false);
   const catsWithDossier = group.cats.filter((c) => c.dossier !== null).length;
 
@@ -255,7 +474,15 @@ function ModelGroupSection({ group }: { group: DossierModelGroup }) {
         </SettingsText>
       )}
       {group.cats.map((cat) => (
-        <CatProfileCard key={cat.catId} cat={cat} />
+        <CatProfileCard
+          key={cat.catId}
+          cat={cat}
+          observations={observations[cat.catId] ?? []}
+          evidence={evidence[cat.catId]}
+          evidenceLoading={evidenceLoading[cat.catId] ?? false}
+          onSubmitObservation={onSubmitObservation}
+          onExpandEvidence={onExpandEvidence}
+        />
       ))}
     </SettingsCollapsibleCard>
   );
@@ -300,6 +527,8 @@ function CoverageBar({
 
 export function CatDossierContent() {
   const { data, loading, error } = useDossierProfiles();
+  const { observations, submitObservation } = useDossierObservations();
+  const { evidence, loading: evidenceLoading, fetchEvidence } = useDossierEvidence();
 
   return (
     <div className="space-y-5">
@@ -334,7 +563,15 @@ export function CatDossierContent() {
 
           {/* Model groups */}
           {data.modelGroups.map((group) => (
-            <ModelGroupSection key={group.model} group={group} />
+            <ModelGroupSection
+              key={group.model}
+              group={group}
+              observations={observations}
+              evidence={evidence}
+              evidenceLoading={evidenceLoading}
+              onSubmitObservation={submitObservation}
+              onExpandEvidence={fetchEvidence}
+            />
           ))}
         </div>
       )}

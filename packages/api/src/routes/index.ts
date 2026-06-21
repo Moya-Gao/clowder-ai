@@ -25,6 +25,7 @@ export { connectorMediaRoutes } from './connector-media.js';
 export { connectorPluginRoutes } from './connector-plugins.js';
 export { distillationRoutes } from './distillation-routes.js';
 export { dossierRoutes } from './dossier.js';
+export { dossierObservationRoutes } from './dossier-observations.js';
 export { evalHubRoutes } from './eval-hub.js';
 export { eventsRoutes } from './events.js';
 export { evidenceRoutes } from './evidence.js';
