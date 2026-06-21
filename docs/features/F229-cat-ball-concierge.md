@@ -155,6 +155,12 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 - [ ] AC-D2: escalation 传原始对话不传小模型总结（测试断言，KD-8 合规）→ R7
 - [ ] AC-D3: 小模型不可用时自动降级全走值班大猫（测试）→ R7
 
+### CVO UX 遗留 Bug（铲屎官 2026-06-18/06-21 多次反馈，跨 Phase 修）
+- [ ] BUG-UX-1: 砚砚桌宠"狗皮膏药"——球按钮底色 `var(--cafe-surface-elevated)` 实心不透明方块，应为透明底浮在页面上。CVO 2026-06-18 + 2026-06-21 两次报告
+- [ ] BUG-UX-2: 调查报告 anchor 列表可读性崩溃——InvestigationReportCard 内文字一个字一个字竖排，列宽塌缩到单字符宽度。CVO 2026-06-21 截图
+- [ ] BUG-UX-3: 面板不可拉伸——宽度写死 `w-80`(320px)，无 CSS resize handle。CVO 要求可拖拽调整面板大小 + 持久化记住尺寸。CVO 2026-06-18 + 2026-06-21 两次要求
+- [ ] BUG-UX-4: 猫猫球回复中可读性差——猫签名（`[烁烁/gemini-3.5-flash🐾]`）、`@landy`、内部协作格式对用户可见，应在 concierge 上下文中 strip 掉或简化
+
 ### Phase E（桌宠化 + 形象生态）
 - [x] AC-E0-1: PetSkinContract v0 — `conciergeState → petState` pure projection (4 states: idle/running/review/failed), shared types + `projectToPetState()` function, 10 unit tests
 - [x] AC-E0-2: ragdoll-v1 skin — manifest (`pet.json`) + 4 individual sprite PNGs (idle/running/review/failed), three QA gates pass (readability/identity-diff/provenance)
