@@ -1020,9 +1020,9 @@ export interface ChatState {
   setFloatSize: (size: { width: number; height: number }) => void;
   toggleMaximize: () => void;
 
-  // Phase H + F139 + F160 + F168: Workspace mode
-  workspaceMode: 'dev' | 'recall' | 'schedule' | 'tasks' | 'community' | 'artifacts';
-  setWorkspaceMode: (mode: 'dev' | 'recall' | 'schedule' | 'tasks' | 'community' | 'artifacts') => void;
+  // Phase H + F139 + F160 + F168 + F246: Workspace mode
+  workspaceMode: 'dev' | 'recall' | 'schedule' | 'tasks' | 'community' | 'artifacts' | 'approval';
+  setWorkspaceMode: (mode: 'dev' | 'recall' | 'schedule' | 'tasks' | 'community' | 'artifacts' | 'approval') => void;
 
   // ── F195 Phase C: Floating transcript window ──
   floatingTranscriptVisible: boolean;

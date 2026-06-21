@@ -172,12 +172,29 @@ function BellIcon({ className = 'w-5 h-5' }: { className?: string }) {
 
 function ApprovalHubButton() {
   const count = useApprovalHubStore((s) => s.count);
-  const toggle = useApprovalHubStore((s) => s.toggle);
+  const fetchPending = useApprovalHubStore((s) => s.fetchPending);
+  const setWorkspaceMode = useChatStore((s) => s.setWorkspaceMode);
+  const workspaceMode = useChatStore((s) => s.workspaceMode);
+  const rightPanelMode = useChatStore((s) => s.rightPanelMode);
+  const setRightPanelMode = useChatStore((s) => s.setRightPanelMode);
+
+  const handleClick = useCallback(() => {
+    // F246 Phase C: bell click → workspace approval tab (replaces drawer toggle)
+    if (workspaceMode === 'approval' && rightPanelMode === 'workspace') {
+      // Already on approval tab + workspace open → toggle close
+      setRightPanelMode('status');
+    } else {
+      // Open workspace panel and switch to approval tab
+      setWorkspaceMode('approval');
+      // Refresh pending approvals on open (preserves old drawer toggle semantics)
+      fetchPending();
+    }
+  }, [workspaceMode, rightPanelMode, setWorkspaceMode, setRightPanelMode, fetchPending]);
 
   return (
     <button
       type="button"
-      onClick={toggle}
+      onClick={handleClick}
       className="relative flex h-10 w-10 items-center justify-center rounded-lg transition-all hover:bg-[var(--console-rail-item)] hover:shadow-[var(--console-rail-shadow)]"
       title={count > 0 ? `${count} 项待审批` : '审批中心'}
       data-testid="approval-hub-button"

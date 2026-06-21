@@ -5,7 +5,6 @@ import { Suspense, useLayoutEffect } from 'react';
 import { useIsDesktop } from '@/hooks/useIsDesktop';
 import { initSidebarWidth, useSidebarStore } from '@/stores/sidebarStore';
 import { ActivityBar } from './ActivityBar';
-import { ApprovalHubDrawer } from './ApprovalHubDrawer';
 import { ConciergeHost } from './concierge/ConciergeHost';
 import { ThreadSidebar } from './ThreadSidebar';
 import { FloatingPresentationSurfaceHost } from './workspace/FloatingPresentationSurfaceHost';
@@ -72,8 +71,7 @@ function AppShellContent({ children }: AppShellProps) {
       {/* F229: concierge ball + panel — root-level mount for INV-6 route survival.
           z-30 (ball) < z-[35] (presentation surface). */}
       <ConciergeHost />
-      {/* F246: Approval Hub drawer — root-level mount so it survives route changes */}
-      <ApprovalHubDrawer />
+      {/* F246 Phase C: Approval Hub moved to workspace panel tab — drawer removed */}
     </div>
   );
 }
