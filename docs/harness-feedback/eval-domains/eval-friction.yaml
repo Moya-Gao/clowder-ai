@@ -37,5 +37,6 @@ sla:
 # Gated OFF until the friction report producer (P1-3/4) + verdict generator (P1-6)
 # are wired — otherwise the weekly cron would invoke a friction eval cat that
 # can't publish (501 / silent-broken fire, same failure eval:sop hit 2026-06-06).
-# Flipped to true in P1-7 after the end-to-end pipeline is verified green.
-enabled: false
+# Flipped to true in PR1b (P1-7) after the end-to-end live sink is wired + verified
+# green (publish_verdict eval:friction → friction-rollup-snapshot → live verdict).
+enabled: true

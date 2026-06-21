@@ -1823,6 +1823,13 @@ async function main(): Promise<void> {
     './infrastructure/harness-eval/publish-verdict/sop-generator-adapter.js'
   );
 
+  // F192 Phase G: Task Outcome Episode store (SQLite). Constructed BEFORE the
+  // verdictGenerators map because the F245 friction provider's CancelAdapter reads
+  // it (listSignalsInWindow) — construction-ordering, F245 PR1b Decision 4.
+  const { TaskOutcomeEpisodeStore } = await import('./infrastructure/harness-eval/task-outcome/task-outcome-store.js');
+  const taskOutcomeDbPath = process.env.TASK_OUTCOME_DB ?? resolve(repoRoot, 'task-outcome-episodes.sqlite');
+  const taskOutcomeStore = new TaskOutcomeEpisodeStore(taskOutcomeDbPath);
+
   // F192 Phase H 收尾 PR-2 (砚砚 R1 P1 + Q5): capability-wakeup generator wires a real
   // CapabilityWakeupTrialProviderImpl with all 4 required ports (sessionStore /
   // transcriptReader / toolEventLog / skillLoadEventLog). Constructor fail-closed —
@@ -1876,10 +1883,27 @@ async function main(): Promise<void> {
     verdictGenerators['eval:memory'] = createMemoryGeneratorAdapter(memProvider);
   }
 
-  // F192 Phase G: Task Outcome Episode — L3 eval signals.
-  const { TaskOutcomeEpisodeStore } = await import('./infrastructure/harness-eval/task-outcome/task-outcome-store.js');
-  const taskOutcomeDbPath = process.env.TASK_OUTCOME_DB ?? resolve(repoRoot, 'task-outcome-episodes.sqlite');
-  const taskOutcomeStore = new TaskOutcomeEpisodeStore(taskOutcomeDbPath);
+  // F245 Phase C PR1b — friction live sink. Composes the 4 read-only channel
+  // adapters (paw-feel / cancel / user-feedback / eval-domain) over live stores.
+  // Pure ctor (cheap), so unconditional; embeddingService optional (clusterer
+  // fail-opens to rule-only + degraded when absent/not-ready). KD-4: zero writeback.
+  {
+    const { createFrictionGeneratorAdapter } = await import(
+      './infrastructure/harness-eval/publish-verdict/friction-generator-adapter.js'
+    );
+    const { FrictionMetricsProviderImpl } = await import(
+      './infrastructure/harness-eval/friction/friction-metrics-provider-impl.js'
+    );
+    const frictionProvider = new FrictionMetricsProviderImpl({
+      messageStore,
+      taskOutcomeStore,
+      frustrationIssueStore,
+      harnessFeedbackRoot: resolve(repoRoot, 'docs', 'harness-feedback'),
+      ...(memoryServices.embeddingService ? { embeddingService: memoryServices.embeddingService } : {}),
+    });
+    verdictGenerators['eval:friction'] = createFrictionGeneratorAdapter(frictionProvider);
+  }
+
   await app.register(evalHubRoutes, {
     harnessFeedbackRoot: resolve(repoRoot, 'docs', 'harness-feedback'),
     threadStore,
@@ -4061,6 +4085,10 @@ async function main(): Promise<void> {
   // eval:sop has no runtime dependencies (unlike cw needing toolEventLog or memory
   // needing markerQueue) — unconditionally wired like eval:a2a and eval:task-outcome.
   wiredPublishDomains.add('eval:sop');
+  // F245 PR1b: eval:friction provider is unconditionally wired (pure ctor; embedding
+  // optional). Mirror task-outcome — unconditional add (must match the verdictGenerators
+  // map above, else split-brain: scheduled fire would 501).
+  wiredPublishDomains.add('eval:friction');
   if (toolEventLog && skillLoadEventLog) {
     wiredPublishDomains.add('eval:capability-wakeup');
   }

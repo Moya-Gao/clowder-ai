@@ -23,9 +23,11 @@ import {
   assertNoNewlineInBulletFields,
   inferSourceRefsKind,
   isA2aSourceRefs,
+  isFrictionSourceRefs,
   isMemorySourceRefs,
   isSopSourceRefs,
   isTaskOutcomeSourceRefs,
+  validateFrictionRollupSelector,
   validateMemoryRecallSelector,
   validateSopTraceSelector,
   validateSourceRefsFormat,
@@ -202,13 +204,14 @@ export async function handlePublishVerdict(
     'eval:sop': 'sop-trace-eval',
     'eval:task-outcome': 'task-outcome-snapshot',
     'eval:memory': 'memory-recall-snapshot',
+    'eval:friction': 'friction-rollup-snapshot',
   };
   const expectedKind = EXPECTED_REFS_KIND_BY_DOMAIN[packet.domainId];
   if (expectedKind && expectedKind !== refsKind) {
     return {
       status: 400,
       error: 'sourceRefs_kind_mismatch',
-      detail: `Domain '${packet.domainId}' expects sourceRefs.kind='${expectedKind}', got '${refsKind}'. Each domain has a specific evidence shape: eval:a2a → {snapshotName, attributionName}; eval:capability-wakeup → {kind:'capability-wakeup-trial-window', ...}; eval:memory → {kind:'memory-recall-snapshot', ...}; eval:sop → {kind:'sop-trace-eval', sopDefinitionId, trace}; eval:task-outcome → {kind:'task-outcome-snapshot', ...}.`,
+      detail: `Domain '${packet.domainId}' expects sourceRefs.kind='${expectedKind}', got '${refsKind}'. Each domain has a specific evidence shape: eval:a2a → {snapshotName, attributionName}; eval:capability-wakeup → {kind:'capability-wakeup-trial-window', ...}; eval:memory → {kind:'memory-recall-snapshot', ...}; eval:sop → {kind:'sop-trace-eval', sopDefinitionId, trace}; eval:task-outcome → {kind:'task-outcome-snapshot', ...}; eval:friction → {kind:'friction-rollup-snapshot', windowStartMs, windowEndMs, ...}.`,
     };
   }
 
@@ -217,6 +220,11 @@ export async function handlePublishVerdict(
     if (selectorError) return { status: 400, error: 'invalid_source_ref', detail: selectorError };
   } else if (isMemorySourceRefs(input.sourceRefs)) {
     const selectorError = validateMemoryRecallSelector(input.sourceRefs);
+    if (selectorError) return { status: 400, error: 'invalid_source_ref', detail: selectorError };
+  } else if (isFrictionSourceRefs(input.sourceRefs)) {
+    // ⚠️ friction branch MUST precede the a2a branch: isA2aSourceRefs returns true
+    // for undefined/missing-kind refs (backward-compat default).
+    const selectorError = validateFrictionRollupSelector(input.sourceRefs);
     if (selectorError) return { status: 400, error: 'invalid_source_ref', detail: selectorError };
   } else if (isA2aSourceRefs(input.sourceRefs)) {
     const refsCheck = validateSourceRefsFormat(input.sourceRefs);

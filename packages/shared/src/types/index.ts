@@ -407,6 +407,7 @@ export type {
   FrictionClusterMember,
   FrictionRollupInput,
   FrictionRollupReport,
+  FrictionRollupSourceSelector,
   FrictionRootCause,
   FrictionSensorForm,
   FrictionSeverity,

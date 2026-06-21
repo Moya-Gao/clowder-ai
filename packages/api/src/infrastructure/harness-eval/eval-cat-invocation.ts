@@ -223,12 +223,38 @@ The MCP tool creates branch \`verdict/auto/{domainSlug}/{verdictId}\` + commits 
 **DO NOT** run \`git add\`, \`git commit\`, \`git push\`, or write verdict files directly. Use the MCP tool.
 `;
 
+const PUBLISH_VERDICT_INSTRUCTIONS_FRICTION = `${PUBLISH_VERDICT_PACKET_INSTRUCTIONS}
+You must also supply \`sourceRefs\` (NOT part of packet, separate input field) as a replayable friction-rollup selector:
+\`\`\`json
+{
+  "kind": "friction-rollup-snapshot",
+  "windowStartMs": 1759276800000,
+  "windowEndMs": 1759363200000,
+  "topN": 10,
+  "tokenCap": 4000
+}
+\`\`\`
+
+Fields:
+- \`kind\` — REQUIRED literal \`"friction-rollup-snapshot"\`
+- \`windowStartMs\` / \`windowEndMs\` — REQUIRED finite ms epoch; \`windowEndMs\` must be > \`windowStartMs\` (the rollup window over which cross-channel friction signals are aggregated)
+- \`topN\` — OPTIONAL deep-dive quota override (positive integer; default 10 — Top-N clusters keep full member evidence, the long tail is folded into a summary)
+- \`tokenCap\` — OPTIONAL token hard-cap override (positive integer; default 4000)
+
+Tool resolves the selector by composing the 4 read-only friction channels (paw-feel markers / tool-call cancels / user feedback / eval-domain metrics) over the window, aggregating + clustering into a FrictionRollupReport, and bundling replay data under \`docs/harness-feedback/bundles/<verdictId>/raw/\`. Read-only (KD-4): no writeback to any source store. Tool will NOT fabricate evidence — an empty window yields a no-finding record, not invented clusters.
+
+The MCP tool creates branch \`verdict/auto/{domainSlug}/{verdictId}\` + commits + opens PR. Returns commit SHA + PR URL.
+
+**DO NOT** run \`git add\`, \`git commit\`, \`git push\`, or write verdict files directly. Use the MCP tool.
+`;
+
 const PUBLISH_VERDICT_INSTRUCTIONS_BY_DOMAIN: Partial<Record<EvalDomainRegistryEntry['domainId'], string>> = {
   'eval:a2a': PUBLISH_VERDICT_INSTRUCTIONS_A2A,
   'eval:capability-wakeup': PUBLISH_VERDICT_INSTRUCTIONS_CAPABILITY_WAKEUP,
   'eval:memory': PUBLISH_VERDICT_INSTRUCTIONS_MEMORY,
   'eval:sop': PUBLISH_VERDICT_INSTRUCTIONS_SOP,
   'eval:task-outcome': PUBLISH_VERDICT_INSTRUCTIONS_TASK_OUTCOME,
+  'eval:friction': PUBLISH_VERDICT_INSTRUCTIONS_FRICTION,
 };
 
 /**

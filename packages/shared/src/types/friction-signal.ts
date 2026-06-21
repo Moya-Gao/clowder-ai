@@ -165,3 +165,22 @@ export interface FrictionRollupReport {
   /** token 预算：硬上限 cap + 本报告估算 estimated（estimated 超 cap 时触发更激进折叠） */
   tokenBudget: { cap: number; estimated: number };
 }
+
+/**
+ * F245 Phase C PR1b — 可重放的 friction rollup 选择器（publish_verdict eval:friction 入口）。
+ * Provider（`FrictionMetricsProvider`）按窗口解析 → live FrictionRollupInput；generator 据此
+ * 用 `buildFrictionRollupReport` 产出 rollup snapshot + verdict.md + bundle。replayable-selector
+ * 范式，对齐 `MemoryRecallSourceSelector` / `TaskOutcomeSnapshotSourceRefs`（值类型同地，跟随
+ * friction report/input 类型放 shared）。
+ */
+export interface FrictionRollupSourceSelector {
+  kind: 'friction-rollup-snapshot';
+  /** 采集窗口下界（含），epoch ms */
+  windowStartMs: number;
+  /** 采集窗口上界（不含），epoch ms；必须 > windowStartMs */
+  windowEndMs: number;
+  /** 深挖区 Top-N 配额（producer 默认 10）；正整数 */
+  topN?: number;
+  /** rollup 报告硬 token 上限（producer 默认 4000）；正整数 */
+  tokenCap?: number;
+}

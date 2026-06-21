@@ -169,4 +169,57 @@ describe('EvalDomainAdapter (F245 Phase B Task 5)', () => {
     const empty = new EvalDomainAdapter(join(tmpdir(), 'f245-nonexistent-xyz'));
     assert.deepEqual(await empty.pull(WINDOW_START, WINDOW_END), [], '无 bundles 目录 → []');
   });
+
+  it('R1 self-exclusion: excludeFeatureIds drops self-produced bundles (friction 不吃自己产出)', async () => {
+    const sub = mkdtempSync(join(tmpdir(), 'f245-eval-domain-exclude-'));
+    // friction 自己产出的 bundle（featureId='F245'，含 cluster_count/cluster_<id>）
+    const selfDir = join(sub, 'bundles', 'friction-self');
+    mkdirSync(selfDir, { recursive: true });
+    writeFileSync(
+      join(selfDir, 'snapshot.json'),
+      JSON.stringify(
+        realSnapshot({
+          verdictId: 'friction-self',
+          featureId: 'F245',
+          components: [
+            { id: 'friction-rollup', name: 'Friction Rollup', frictionCounts: { cluster_count: 5, cluster_abc: 3 } },
+          ],
+        }),
+      ),
+    );
+    // 别的 domain 产出的 bundle（featureId='F192'）→ 应保留（friction 只吃别的 domain）
+    const otherDir = join(sub, 'bundles', 'other-domain');
+    mkdirSync(otherDir, { recursive: true });
+    writeFileSync(
+      join(otherDir, 'snapshot.json'),
+      JSON.stringify(
+        realSnapshot({
+          verdictId: 'other-domain',
+          featureId: 'F192',
+          components: [{ id: 'CX', name: 'other', frictionCounts: { other_count: 4 } }],
+        }),
+      ),
+    );
+
+    // baseline（无排除）：吃两个 bundle，含 friction 自己 = 自回授（@gpt52 复现的 bug 行为）
+    const noExclude = await new EvalDomainAdapter(sub).pull(WINDOW_START, WINDOW_END);
+    assert.equal(
+      noExclude.length,
+      3,
+      'baseline: F245{cluster_count,cluster_abc}=2 + F192{other_count}=1；无排除时吃自己',
+    );
+
+    // 修复（排除 F245）：friction 不吃自己，只剩别的 domain
+    const excluded = await new EvalDomainAdapter(sub, { excludeFeatureIds: new Set(['F245']) }).pull(
+      WINDOW_START,
+      WINDOW_END,
+    );
+    rmSync(sub, { recursive: true, force: true });
+    assert.equal(excluded.length, 1, 'self-exclusion: friction 自产 bundle 全跳过，只剩 F192');
+    assert.equal(excluded[0].id, 'eval-domain:other-domain#CX#other_count');
+    assert.ok(
+      excluded.every((s) => !s.symptom.startsWith('cluster_')),
+      'friction 自产 frictionCounts（cluster_*）不得回流为 eval-domain signal',
+    );
+  });
 });

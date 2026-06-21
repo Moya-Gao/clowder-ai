@@ -84,6 +84,38 @@ describe('Eval cat invocation packet', () => {
     assert.match(invocation.instructions, /miss/i);
   });
 
+  it('builds friction publish instructions with friction-rollup-snapshot selector (cloud R1 gap)', () => {
+    const invocation = buildEvalCatInvocation({
+      domain: {
+        ...domain,
+        domainId: 'eval:friction',
+        displayName: 'Friction Eval',
+        systemThreadId: 'thread_eval_friction',
+        sourceAdapter: 'f245-friction-rollup',
+        frequency: 'weekly',
+        legacyScheduledTaskIds: [],
+        handoffTargetResolver: { featureId: 'F245', ownerCatId: 'opus-48', threadLookup: 'feature-thread' },
+      },
+      trendRefs: [],
+      verdictRefs: [],
+      legacyCleanup: { status: 'disabled' },
+    });
+
+    assert.equal(invocation.domainId, 'eval:friction');
+    // DOMAIN_INSTRUCTIONS friction analysis section
+    assert.match(invocation.instructions, /friction rollup/i);
+    // PUBLISH_VERDICT_INSTRUCTIONS_FRICTION — the publish selector shape. Cloud R1 gap:
+    // friction was in DOMAIN_INSTRUCTIONS but missing from PUBLISH_VERDICT_INSTRUCTIONS_BY_DOMAIN,
+    // so the enabled friction eval cat got no sourceRefs shape and could not drive the live sink.
+    assert.match(
+      invocation.instructions,
+      /friction-rollup-snapshot/,
+      'friction eval cat must get the friction-rollup-snapshot sourceRefs selector shape',
+    );
+    assert.match(invocation.instructions, /windowStartMs/, 'must describe the rollup window selector fields');
+    assert.match(invocation.instructions, /Publish your verdict/, 'must include the common MANDATORY publish section');
+  });
+
   it('eval:a2a instructions include grounding subdomain observation tokens (F167 Phase O)', () => {
     const invocation = buildEvalCatInvocation({
       domain,

@@ -213,6 +213,38 @@ const sopSourceRefsShape = z
   })
   .describe('eval:sop sourceRefs — replayable SOP trace selector (sopDefinitionId + embedded trace).');
 
+/**
+ * F245 Phase C PR1b — friction-rollup-snapshot sourceRefs. Replayable rollup
+ * selector: a window the provider resolves to a live FrictionRollupInput (4-channel
+ * collect → cluster). Generator writes the Top-N rollup report into bundle/snapshot.json
+ * + bundle/attribution.json + provenance.json + raw report under bundle/raw/.
+ *
+ * KEEP IN SYNC: packages/shared/src/types/friction-signal.ts FrictionRollupSourceSelector
+ * + packages/api/.../publish-verdict/validation.ts validateFrictionRollupSelector.
+ */
+const frictionRollupSourceRefsShape = z
+  .object({
+    kind: z.literal('friction-rollup-snapshot'),
+    windowStartMs: z.number().finite().describe('Inclusive epoch ms window start for friction signal collection.'),
+    windowEndMs: z
+      .number()
+      .finite()
+      .describe('Exclusive epoch ms window end for friction signal collection. Must be > windowStartMs.'),
+    topN: z
+      .number()
+      .int()
+      .min(1)
+      .optional()
+      .describe('Optional deep-dive quota for the rollup report (producer default 10).'),
+    tokenCap: z
+      .number()
+      .int()
+      .min(1)
+      .optional()
+      .describe('Optional hard token ceiling for the serialized rollup report (producer default 4000).'),
+  })
+  .describe('eval:friction sourceRefs — replayable rollup window selector (window + optional topN/tokenCap).');
+
 const sourceRefsShape = z
   .union([
     a2aSourceRefsShape,
@@ -220,9 +252,10 @@ const sourceRefsShape = z
     taskOutcomeSourceRefsShape,
     memorySourceRefsShape,
     sopSourceRefsShape,
+    frictionRollupSourceRefsShape,
   ])
   .describe(
-    'Discriminated union by `kind` field. a2a kind is default (backward compat); capability-wakeup-trial-window kind wired in PR-2; memory-recall-snapshot kind wired in F192 memory wire-up; task-outcome-snapshot kind wired in task-outcome PR; sop-trace-eval kind wired in F192 sop-wiring.',
+    'Discriminated union by `kind` field. a2a kind is default (backward compat); capability-wakeup-trial-window kind wired in PR-2; memory-recall-snapshot kind wired in F192 memory wire-up; task-outcome-snapshot kind wired in task-outcome PR; sop-trace-eval kind wired in F192 sop-wiring; friction-rollup-snapshot kind wired in F245 PR1b.',
   );
 
 export const publishVerdictInputSchema = {
@@ -282,6 +315,13 @@ type PublishVerdictToolInput = {
           handles: { author?: string; reviewer?: string; guardian?: string };
           shaContext: Record<string, string>;
         };
+      }
+    | {
+        kind: 'friction-rollup-snapshot';
+        windowStartMs: number;
+        windowEndMs: number;
+        topN?: number;
+        tokenCap?: number;
       };
   agentKeyCatId?: string | undefined;
 };
@@ -311,7 +351,7 @@ export const publishVerdictTools = [
       'Use after your analysis converges to a verdict for your assigned eval domain. ' +
       'Pass the complete VerdictHandoffPacket + sourceRefs (shape depends on your domain — see your eval cat invocation instructions for the exact selector shape). ' +
       'The handler validates schema, dispatches to the per-domain generator inside an isolated git worktree, commits + pushes the branch verdict/auto/<domain-slug>/<verdict-id>, and opens an auto-PR. Returns { commitSha, prUrl }. ' +
-      'GOTCHA: wired domains: eval:a2a (snapshot/attribution YAML basenames) + eval:capability-wakeup (replayable trial-window selector) + eval:memory (memory-recall-snapshot selector) + eval:sop (sop-trace-eval replayable SOP trace selector) + eval:task-outcome (task-outcome-snapshot replay window). Unregistered domains return 501. ' +
+      'GOTCHA: wired domains: eval:a2a (snapshot/attribution YAML basenames) + eval:capability-wakeup (replayable trial-window selector) + eval:memory (memory-recall-snapshot selector) + eval:sop (sop-trace-eval replayable SOP trace selector) + eval:task-outcome (task-outcome-snapshot replay window) + eval:friction (friction-rollup-snapshot replay window). Unregistered domains return 501. ' +
       'GOTCHA: catId must match the registered eval cat for the domain (or its OQ-20 Redis override); 403 not_allowed otherwise. ' +
       'GOTCHA: DO NOT run git push/commit/add yourself; this tool owns the publish lifecycle.',
     inputSchema: publishVerdictInputSchema,

@@ -12,7 +12,7 @@
  */
 
 import type { FrictionSeverity, FrictionSignal, FrustrationIssue } from '@cat-cafe/shared';
-import type { RedisFrustrationIssueStore } from '../../../domains/cats/services/stores/redis/RedisFrustrationIssueStore.js';
+import type { IFrustrationIssueStore } from '../../../domains/cats/services/stores/ports/FrustrationIssueStore.js';
 import type { IFrictionSignalSource } from './friction-signal-source.js';
 
 /** cancel 通道全量真相源在 task-outcome；F222 cancel_burst 稀疏采样，排除以免双计。 */
@@ -30,7 +30,7 @@ const SEVERITY_BY_SIGNAL_TYPE: Record<string, FrictionSeverity> = {
 export class UserFeedbackAdapter implements IFrictionSignalSource {
   readonly channelId = 'user-feedback' as const;
 
-  constructor(private readonly store: Pick<RedisFrustrationIssueStore, 'listConfirmedInWindow'>) {}
+  constructor(private readonly store: Pick<IFrustrationIssueStore, 'listConfirmedInWindow'>) {}
 
   async pull(sinceMs: number, untilMs: number): Promise<FrictionSignal[]> {
     const issues = await this.store.listConfirmedInWindow(sinceMs, untilMs);

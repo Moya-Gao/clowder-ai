@@ -305,6 +305,62 @@ describe('cat_cafe_publish_verdict MCP schema (砚砚 R1 Q3: discriminated union
     assert.ok(!result.success, 'missing trace should fail');
   });
 
+  // F245 Phase C PR1b — friction-rollup-snapshot kind (this PR)
+  it('accepts friction-rollup-snapshot sourceRefs (eval:friction wire-up)', () => {
+    const result = schema.safeParse({
+      domainId: 'eval:friction',
+      packet: { ...validPacket, domainId: 'eval:friction' },
+      sourceRefs: {
+        kind: 'friction-rollup-snapshot',
+        windowStartMs: 1700000000000,
+        windowEndMs: 1700086400000,
+      },
+    });
+    assert.ok(result.success, `expected accept, got: ${JSON.stringify(result)}`);
+  });
+
+  it('accepts friction-rollup-snapshot with optional topN + tokenCap', () => {
+    const result = schema.safeParse({
+      domainId: 'eval:friction',
+      packet: { ...validPacket, domainId: 'eval:friction' },
+      sourceRefs: {
+        kind: 'friction-rollup-snapshot',
+        windowStartMs: 1700000000000,
+        windowEndMs: 1700086400000,
+        topN: 5,
+        tokenCap: 2000,
+      },
+    });
+    assert.ok(result.success, `expected accept, got: ${JSON.stringify(result)}`);
+  });
+
+  it('rejects friction-rollup-snapshot with non-finite windowStartMs', () => {
+    const result = schema.safeParse({
+      domainId: 'eval:friction',
+      packet: { ...validPacket, domainId: 'eval:friction' },
+      sourceRefs: {
+        kind: 'friction-rollup-snapshot',
+        windowStartMs: 'not-a-number',
+        windowEndMs: 1700086400000,
+      },
+    });
+    assert.ok(!result.success, 'non-finite windowStartMs should fail');
+  });
+
+  it('rejects friction-rollup-snapshot with non-integer topN', () => {
+    const result = schema.safeParse({
+      domainId: 'eval:friction',
+      packet: { ...validPacket, domainId: 'eval:friction' },
+      sourceRefs: {
+        kind: 'friction-rollup-snapshot',
+        windowStartMs: 1700000000000,
+        windowEndMs: 1700086400000,
+        topN: 2.5,
+      },
+    });
+    assert.ok(!result.success, 'non-integer topN should fail Zod int()');
+  });
+
   it('rejects sop-trace-eval with missing gitState.branch', () => {
     const result = schema.safeParse({
       domainId: 'eval:sop',

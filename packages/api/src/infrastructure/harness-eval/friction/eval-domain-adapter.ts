@@ -19,6 +19,7 @@ import type { IFrictionSignalSource } from './friction-signal-source.js';
 
 interface RawSnapshot {
   verdictId: string;
+  featureId?: string;
   generatedAt: string;
   components: unknown[];
 }
@@ -26,7 +27,14 @@ interface RawSnapshot {
 export class EvalDomainAdapter implements IFrictionSignalSource {
   readonly channelId = 'eval-domain' as const;
 
-  constructor(private readonly feedbackRoot: string) {}
+  private readonly excludeFeatureIds: ReadonlySet<string>;
+
+  constructor(
+    private readonly feedbackRoot: string,
+    opts?: { readonly excludeFeatureIds?: ReadonlySet<string> },
+  ) {
+    this.excludeFeatureIds = opts?.excludeFeatureIds ?? new Set<string>();
+  }
 
   async pull(sinceMs: number, untilMs: number): Promise<FrictionSignal[]> {
     const bundlesDir = join(this.feedbackRoot, 'bundles');
@@ -36,6 +44,10 @@ export class EvalDomainAdapter implements IFrictionSignalSource {
       if (!entry.isDirectory()) continue;
       const snapshot = readSnapshot(join(bundlesDir, entry.name, 'snapshot.json'));
       if (!snapshot) continue;
+      // F245 PR1b R1 (self-exclusion @gpt52): skip bundles produced by an excluded feature.
+      // friction 的 eval-domain channel 不吃自己 domain 产出的 bundle，否则 enabled:true 后
+      // friction bundle 的 frictionCounts 会被下一轮当新 signal 吃回，跨 run 自放大。
+      if (snapshot.featureId && this.excludeFeatureIds.has(snapshot.featureId)) continue;
       const genMs = Date.parse(snapshot.generatedAt);
       if (!Number.isFinite(genMs) || genMs < sinceMs || genMs >= untilMs) continue;
       collectSnapshotSignals(snapshot, signals);
@@ -65,7 +77,8 @@ function readSnapshot(path: string): RawSnapshot | null {
   const verdictId = asStr(parsed.verdictId);
   const generatedAt = asStr(parsed.generatedAt);
   if (!verdictId || !generatedAt) return null;
-  return { verdictId, generatedAt, components: Array.isArray(parsed.components) ? parsed.components : [] };
+  const featureId = asStr(parsed.featureId);
+  return { verdictId, featureId, generatedAt, components: Array.isArray(parsed.components) ? parsed.components : [] };
 }
 
 // ---- snapshot → FrictionSignal 映射 ----
