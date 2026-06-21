@@ -116,12 +116,12 @@ settings 独立 section（与成员管理平级，不复用 F154 member overview
 
 ## Acceptance Criteria
 
-### Phase A（能力画像档案本体）
-- [ ] AC-A1: `docs/team/cat-dossier.md` 存在，含 L1 schema（一句话画像 + 6 字段）
-- [ ] AC-A2: 四猫（46/47/砚砚/烁烁）画像全部回填，每条总结带 provenance（来源+证据+日期）
-- [ ] AC-A3: L0 指针进 root md / session hook，猫每次在场能看到"该读画像"提示
-- [ ] AC-A4: 画像条目带时间戳，schema 支持演化（同一能力可有多条不同日期的总结）
-- [ ] AC-A5: `cat-dossier` **消费 F209 `entity_id`** 作猫/人标识键，不创建平行 cat ID / person ID namespace。**Dual of F209 AC-B6**（F209 spec 2026-05-23 transferred this AC to F208；详见 F209 KD-7 / KD-12）。F032 / identity-session 仍是 roster truth，F209 `entity_id` 仅作 retrieval anchor 镜像；F208 dossier 是 capability 画像层，引用 entity_id 不反写。
+### Phase A（能力画像档案本体）✅
+- [x] AC-A1: `docs/team/cat-dossier.md` 存在，含 L1 schema（一句话画像 + 6 字段）
+- [x] AC-A2: 四猫（46/47/砚砚/烁烁）画像全部回填，每条总结带 provenance（来源+证据+日期）
+- [x] AC-A3: L0 指针进 root md / session hook，猫每次在场能看到"该读画像"提示
+- [x] AC-A4: 画像条目带时间戳，schema 支持演化（同一能力可有多条不同日期的总结）
+- [x] AC-A5: `cat-dossier` **消费 F209 `entity_id`** 作猫/人标识键，不创建平行 cat ID / person ID namespace。**Dual of F209 AC-B6**（F209 spec 2026-05-23 transferred this AC to F208；详见 F209 KD-7 / KD-12）。F032 / identity-session 仍是 roster truth，F209 `entity_id` 仅作 retrieval anchor 镜像；F208 dossier 是 capability 画像层，引用 entity_id 不反写。
 
 ### Phase B（传球加载 + 非阻塞提醒） ✅
 - [x] AC-B1: 猫传球时可按需加载目标猫 L1 画像（像 skill，不常驻）
@@ -237,6 +237,7 @@ settings 独立 section（与成员管理平级，不复用 F154 member overview
 | 2026-06-20 | Phase C merged (PR #2446) — model-grouped dossier settings page (KD-15), OQ-9 badge, formatModelName fix (cloud P2), 27 regression tests. 4-round gpt52 local + 2-round cloud + sonnet fallback review |
 | 2026-06-20 | Phase D kickoff — CVO directive "直接接通已有数据"，不等 F200 成熟。调整 Phase D 方向 + AC |
 | 2026-06-21 | Phase D merged (PR #2457) — CVO observation store (Redis TTL=0, owner-gated POST + resolveStrictUserId), evidence display (memory search by nickname), fail-closed no-Redis registration. 3-round gpt52 local review (2×P0 fixed: strict auth + fail-closed). 38 new tests |
+| 2026-06-21 | 愿景守護 codex (GPT-5.5) — Phase D 方向放行。原話對照 6 項全核實現證據（17k+ API test + 79 web test）。Phase A AC bookkeeping 漂移修復。F208 整體不放行 close（Phase E 未做 + AC-C4 待補）|
 
 ## Review Gate
 
