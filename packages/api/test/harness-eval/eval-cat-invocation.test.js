@@ -9,6 +9,7 @@ const domain = {
   evalCat: { catId: 'codex', handle: '@codex', model: 'gpt-5.5' },
   frequency: 'daily',
   sourceAdapter: 'f167-runtime-eval',
+  sourceRefsKind: 'a2a-snapshot-attribution',
   threadPolicy: {
     role: 'working-home',
     stateSot: 'registry',
@@ -61,6 +62,27 @@ describe('Eval cat invocation packet', () => {
     assert.match(invocation.instructions, /legacy scheduled task/);
   });
 
+  it('fails closed when a syntactically valid domain has no explicit instruction wiring', () => {
+    assert.throws(
+      () =>
+        buildEvalCatInvocation({
+          domain: {
+            ...domain,
+            domainId: 'eval:anchor-first',
+            displayName: 'Anchor-first Eval',
+            systemThreadId: 'thread_eval_anchor_first',
+            sourceAdapter: 'anchor-first-eval',
+            sourceRefsKind: 'memory-recall-snapshot',
+            handoffTargetResolver: { featureId: 'F236', ownerCatId: 'codex', threadLookup: 'feature-thread' },
+          },
+          trendRefs: [],
+          verdictRefs: [],
+          legacyCleanup: { status: 'disabled' },
+        }),
+      /instruction|wired|domain/i,
+    );
+  });
+
   it('builds instructions for eval:capability-wakeup domains', () => {
     const invocation = buildEvalCatInvocation({
       domain: {
@@ -69,6 +91,7 @@ describe('Eval cat invocation packet', () => {
         displayName: 'Capability Wakeup Eval',
         systemThreadId: 'thread_eval_capability_wakeup',
         sourceAdapter: 'capability-wakeup-eval',
+        sourceRefsKind: 'capability-wakeup-trial-window',
         frequency: 'weekly',
         legacyScheduledTaskIds: [],
         handoffTargetResolver: { featureId: 'F203', ownerCatId: 'opus47', threadLookup: 'feature-thread' },
@@ -92,6 +115,7 @@ describe('Eval cat invocation packet', () => {
         displayName: 'Friction Eval',
         systemThreadId: 'thread_eval_friction',
         sourceAdapter: 'f245-friction-rollup',
+        sourceRefsKind: 'friction-rollup-snapshot',
         frequency: 'weekly',
         legacyScheduledTaskIds: [],
         handoffTargetResolver: { featureId: 'F245', ownerCatId: 'opus-48', threadLookup: 'feature-thread' },
@@ -174,6 +198,7 @@ describe('Eval cat invocation packet', () => {
         displayName: 'Capability Wakeup Eval',
         systemThreadId: 'thread_eval_capability_wakeup',
         sourceAdapter: 'capability-wakeup-eval',
+        sourceRefsKind: 'capability-wakeup-trial-window',
         frequency: 'weekly',
         legacyScheduledTaskIds: [],
         handoffTargetResolver: { featureId: 'F203', ownerCatId: 'opus47', threadLookup: 'feature-thread' },

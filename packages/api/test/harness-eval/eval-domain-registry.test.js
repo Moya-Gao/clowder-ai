@@ -18,6 +18,7 @@ const validEntry = {
   },
   frequency: 'daily',
   sourceAdapter: 'f167-runtime-eval',
+  sourceRefsKind: 'a2a-snapshot-attribution',
   threadPolicy: {
     role: 'working-home',
     stateSot: 'registry',
@@ -43,11 +44,29 @@ describe('Eval Domain Registry v0', () => {
       displayName: 'Friction Signal Eval',
       systemThreadId: 'thread_eval_friction',
       sourceAdapter: 'f245-friction-rollup',
+      sourceRefsKind: 'friction-rollup-snapshot',
       frequency: 'weekly',
       handoffTargetResolver: { featureId: 'F245', ownerCatId: 'opus48', threadLookup: 'feature-thread' },
     });
     assert.equal(entry.domainId, 'eval:friction');
     assert.equal(entry.sourceAdapter, 'f245-friction-rollup');
+    assert.equal(entry.sourceRefsKind, 'friction-rollup-snapshot');
+  });
+
+  it('accepts a future eval domain without editing a central enum (Y-lite contract)', () => {
+    const entry = parseEvalDomainRegistryEntry({
+      ...validEntry,
+      domainId: 'eval:anchor-first',
+      displayName: 'Anchor-first Eval',
+      systemThreadId: 'thread_eval_anchor_first',
+      sourceAdapter: 'anchor-first-eval',
+      sourceRefsKind: 'memory-recall-snapshot',
+      handoffTargetResolver: { featureId: 'F236', ownerCatId: 'codex', threadLookup: 'feature-thread' },
+    });
+
+    assert.equal(entry.domainId, 'eval:anchor-first');
+    assert.equal(entry.sourceAdapter, 'anchor-first-eval');
+    assert.equal(entry.sourceRefsKind, 'memory-recall-snapshot');
   });
 
   it('validates the eval:a2a registry entry', () => {
@@ -55,6 +74,7 @@ describe('Eval Domain Registry v0', () => {
 
     assert.equal(entry.domainId, 'eval:a2a');
     assert.equal(entry.sourceAdapter, 'f167-runtime-eval');
+    assert.equal(entry.sourceRefsKind, 'a2a-snapshot-attribution');
     assert.equal(entry.threadPolicy.stateSot, 'registry');
     assert.deepEqual(entry.legacyScheduledTaskIds, ['harness-fit-digest']);
   });
@@ -69,6 +89,7 @@ describe('Eval Domain Registry v0', () => {
 
     assert.equal(entry.domainId, 'eval:a2a');
     assert.equal(entry.systemThreadId.length > 0, true);
+    assert.equal(entry.sourceRefsKind, 'a2a-snapshot-attribution');
     assert.equal(entry.threadPolicy.role, 'working-home');
     assert.equal(entry.sla.acknowledgeHours > 0, true);
   });
@@ -82,6 +103,7 @@ describe('Eval Domain Registry v0', () => {
 
     assert.equal(entry.domainId, 'eval:friction');
     assert.equal(entry.sourceAdapter, 'f245-friction-rollup');
+    assert.equal(entry.sourceRefsKind, 'friction-rollup-snapshot');
     assert.equal(entry.frequency, 'weekly');
     assert.equal(entry.threadPolicy.role, 'working-home');
     assert.equal(entry.handoffTargetResolver.featureId, 'F245');
@@ -126,6 +148,7 @@ describe('Eval Domain Registry v0', () => {
       evalCat: { catId: 'opus47', handle: '@opus47', model: 'claude-opus-4-7' },
       frequency: 'daily',
       sourceAdapter: 'f200-f188-memory-eval',
+      sourceRefsKind: 'memory-recall-snapshot',
       threadPolicy: {
         role: 'working-home',
         stateSot: 'registry',
@@ -138,6 +161,7 @@ describe('Eval Domain Registry v0', () => {
     const entry = parseEvalDomainRegistryEntry(memoryEntry);
     assert.equal(entry.domainId, 'eval:memory');
     assert.equal(entry.sourceAdapter, 'f200-f188-memory-eval');
+    assert.equal(entry.sourceRefsKind, 'memory-recall-snapshot');
     assert.equal(entry.handoffTargetResolver.featureId, 'F200');
   });
 
@@ -159,16 +183,40 @@ describe('Eval Domain Registry v0', () => {
 
     assert.equal(entry.domainId, 'eval:memory');
     assert.equal(entry.sourceAdapter, 'f200-f188-memory-eval');
+    assert.equal(entry.sourceRefsKind, 'memory-recall-snapshot');
     assert.equal(entry.handoffTargetResolver.featureId, 'F200');
     assert.equal(entry.sla.acknowledgeHours, 48);
   });
 
-  it('rejects unknown domain ids', () => {
-    assert.throws(() => parseEvalDomainRegistryEntry({ ...validEntry, domainId: 'eval:unknown' }));
+  it('rejects malformed domain ids', () => {
+    assert.throws(() => parseEvalDomainRegistryEntry({ ...validEntry, domainId: 'anchor-first' }), /domainId/);
+    assert.throws(() => parseEvalDomainRegistryEntry({ ...validEntry, domainId: 'eval:AnchorFirst' }), /domainId/);
   });
 
-  it('rejects unknown source adapter', () => {
-    assert.throws(() => parseEvalDomainRegistryEntry({ ...validEntry, sourceAdapter: 'unknown-adapter' }));
+  it('rejects malformed source adapters', () => {
+    assert.throws(() => parseEvalDomainRegistryEntry({ ...validEntry, sourceAdapter: 'bad:adapter' }), /sourceAdapter/);
+    assert.throws(() => parseEvalDomainRegistryEntry({ ...validEntry, sourceAdapter: 'BadAdapter' }), /sourceAdapter/);
+  });
+
+  it('rejects missing sourceRefsKind', () => {
+    const { sourceRefsKind: _sourceRefsKind, ...missingSourceRefsKind } = validEntry;
+    assert.throws(() => parseEvalDomainRegistryEntry(missingSourceRefsKind), /sourceRefsKind/);
+  });
+
+  it('accepts future sourceRefsKind slugs without editing a central enum (Y-lite contract)', () => {
+    const entry = parseEvalDomainRegistryEntry({ ...validEntry, sourceRefsKind: 'anchor-first-snapshot' });
+    assert.equal(entry.sourceRefsKind, 'anchor-first-snapshot');
+  });
+
+  it('rejects malformed sourceRefsKind values', () => {
+    assert.throws(
+      () => parseEvalDomainRegistryEntry({ ...validEntry, sourceRefsKind: 'AnchorFirstSnapshot' }),
+      /sourceRefsKind/,
+    );
+    assert.throws(
+      () => parseEvalDomainRegistryEntry({ ...validEntry, sourceRefsKind: 'anchor:first:snapshot' }),
+      /sourceRefsKind/,
+    );
   });
 
   it('rejects malformed feature id in handoff target', () => {
@@ -190,6 +238,7 @@ describe('Eval Domain Registry v0', () => {
       evalCat: { catId: 'opus47', handle: '@opus47', model: 'claude-opus-4-7' },
       frequency: 'weekly',
       sourceAdapter: 'sop-trace-eval',
+      sourceRefsKind: 'sop-trace-eval',
       threadPolicy: {
         role: 'working-home',
         stateSot: 'registry',
@@ -202,6 +251,7 @@ describe('Eval Domain Registry v0', () => {
     const entry = parseEvalDomainRegistryEntry(sopEntry);
     assert.equal(entry.domainId, 'eval:sop');
     assert.equal(entry.sourceAdapter, 'sop-trace-eval');
+    assert.equal(entry.sourceRefsKind, 'sop-trace-eval');
     assert.equal(entry.frequency, 'weekly');
     assert.deepEqual(entry.legacyScheduledTaskIds, []);
   });
@@ -212,6 +262,7 @@ describe('Eval Domain Registry v0', () => {
       domainId: 'eval:sop',
       frequency: 'weekly',
       sourceAdapter: 'sop-trace-eval',
+      sourceRefsKind: 'sop-trace-eval',
       legacyScheduledTaskIds: [],
     });
     assert.equal(entry.frequency, 'weekly');
@@ -227,6 +278,7 @@ describe('Eval Domain Registry v0', () => {
 
     assert.equal(entry.domainId, 'eval:sop');
     assert.equal(entry.sourceAdapter, 'sop-trace-eval');
+    assert.equal(entry.sourceRefsKind, 'sop-trace-eval');
     assert.equal(entry.frequency, 'weekly');
     assert.equal(entry.sla.reevalWithinHours, 336);
     // Re-enabled: SopTrace producer + file-writer +
@@ -264,6 +316,7 @@ describe('Eval Domain Registry v0', () => {
       evalCat: { catId: 'opus47', handle: '@opus47', model: 'claude-opus-4-7' },
       frequency: 'weekly',
       sourceAdapter: 'capability-wakeup-eval',
+      sourceRefsKind: 'capability-wakeup-trial-window',
       threadPolicy: {
         role: 'working-home',
         stateSot: 'registry',
@@ -276,6 +329,7 @@ describe('Eval Domain Registry v0', () => {
     const entry = parseEvalDomainRegistryEntry(capabilityEntry);
     assert.equal(entry.domainId, 'eval:capability-wakeup');
     assert.equal(entry.sourceAdapter, 'capability-wakeup-eval');
+    assert.equal(entry.sourceRefsKind, 'capability-wakeup-trial-window');
     assert.equal(entry.frequency, 'weekly');
   });
 
@@ -289,6 +343,7 @@ describe('Eval Domain Registry v0', () => {
 
     assert.equal(entry.domainId, 'eval:capability-wakeup');
     assert.equal(entry.sourceAdapter, 'capability-wakeup-eval');
+    assert.equal(entry.sourceRefsKind, 'capability-wakeup-trial-window');
     assert.equal(entry.frequency, 'weekly');
     assert.equal(entry.handoffTargetResolver.featureId, 'F203');
     assert.deepEqual(entry.fixtures, [

@@ -26,6 +26,7 @@ const DOMAIN = {
   evalCat: { catId: 'gpt52', handle: '@gpt52', model: 'gpt-5.4' },
   frequency: 'weekly',
   sourceAdapter: 'f245-friction-rollup',
+  sourceRefsKind: 'friction-rollup-snapshot',
   threadPolicy: { role: 'working-home', stateSot: 'registry', allowedContent: ['longitudinal-analysis'] },
   legacyScheduledTaskIds: [],
   handoffTargetResolver: { featureId: 'F245', ownerCatId: 'opus-47', threadLookup: 'feature-thread' },

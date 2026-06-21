@@ -61,6 +61,12 @@ describe('Verdict Handoff Packet contract', () => {
     assert.equal(assertCanCrossThreadHandoff(packet).ok, true);
   });
 
+  it('accepts a future eval domain packet without editing a central enum (Y-lite contract)', () => {
+    const packet = parseVerdictHandoffPacket({ ...basePacket, domainId: 'eval:anchor-first' });
+    assert.equal(packet.domainId, 'eval:anchor-first');
+    assert.equal(assertCanCrossThreadHandoff(packet).ok, true);
+  });
+
   it('accepts ISO timestamps with timezone offsets', () => {
     const packet = parseVerdictHandoffPacket({
       ...basePacket,

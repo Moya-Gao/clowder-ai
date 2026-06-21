@@ -31,6 +31,7 @@ evalCat:
   model: gpt-5.4
 frequency: weekly
 sourceAdapter: f245-friction-rollup
+sourceRefsKind: friction-rollup-snapshot
 threadPolicy:
   role: working-home
   stateSot: registry

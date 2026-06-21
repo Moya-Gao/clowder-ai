@@ -1,5 +1,15 @@
 import { z } from 'zod';
 
+export const evalDomainIdSchema = z
+  .string()
+  .regex(/^eval:[a-z0-9][a-z0-9-]*$/, 'domainId must match eval:<lowercase-slug>');
+
+const sourceAdapterSchema = z.string().regex(/^[a-z0-9][a-z0-9-]*$/, 'sourceAdapter must be a lowercase slug-like id');
+
+const sourceRefsKindSchema = z
+  .string()
+  .regex(/^[a-z0-9][a-z0-9-]*$/, 'sourceRefsKind must be a lowercase slug-like id');
+
 const evalDomainFixtureSchema = z.object({
   id: z.string().min(1),
   featureId: z.string().regex(/^F\d{3}$/, 'featureId must match F followed by 3 digits'),
@@ -9,14 +19,7 @@ const evalDomainFixtureSchema = z.object({
 });
 
 const evalDomainRegistryEntrySchema = z.object({
-  domainId: z.enum([
-    'eval:a2a',
-    'eval:memory',
-    'eval:sop',
-    'eval:capability-wakeup',
-    'eval:task-outcome',
-    'eval:friction',
-  ]),
+  domainId: evalDomainIdSchema,
   displayName: z.string().min(1),
   systemThreadId: z.string().min(1, 'systemThreadId is required'),
   evalCat: z.object({
@@ -25,14 +28,8 @@ const evalDomainRegistryEntrySchema = z.object({
     model: z.string().min(1),
   }),
   frequency: z.enum(['daily', 'weekly']),
-  sourceAdapter: z.enum([
-    'f167-runtime-eval',
-    'f200-f188-memory-eval',
-    'sop-trace-eval',
-    'capability-wakeup-eval',
-    'task-outcome-eval',
-    'f245-friction-rollup',
-  ]),
+  sourceAdapter: sourceAdapterSchema,
+  sourceRefsKind: sourceRefsKindSchema,
   threadPolicy: z.object({
     role: z.literal('working-home'),
     stateSot: z.literal('registry'),
@@ -75,10 +72,10 @@ export type EvalDomainRegistryEntry = z.infer<typeof evalDomainRegistryEntrySche
 
 /**
  * Single source of truth for the set of registered eval domain ids.
- * Derived from the registry schema enum — consumers (scheduler opts, manual
- * trigger casts, wired-publish sets) should reference THIS type instead of
- * hand-writing the union, so adding a domain (e.g. F245 `eval:friction`) only
- * edits the enum, not every downstream site.
+ * Derived from the registry schema — consumers (scheduler opts, manual trigger
+ * casts, wired-publish sets) should reference THIS type instead of hand-writing
+ * a union. Domain registration stays Y-lite: registry admits syntactically
+ * valid ids, while runtime wiring stays explicit and fail-closed elsewhere.
  */
 export type EvalDomainId = EvalDomainRegistryEntry['domainId'];
 

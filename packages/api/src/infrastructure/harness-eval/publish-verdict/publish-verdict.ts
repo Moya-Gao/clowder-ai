@@ -24,6 +24,7 @@ import {
   inferSourceRefsKind,
   isA2aSourceRefs,
   isFrictionSourceRefs,
+  isKnownSourceRefsKind,
   isMemorySourceRefs,
   isSopSourceRefs,
   isTaskOutcomeSourceRefs,
@@ -198,20 +199,19 @@ export async function handlePublishVerdict(
   // user-correctable; rejecting at 400 here is better UX than letting it
   // dispatch to adapter → throw `*_adapter_wrong_kind` → 500 generator_failed.
   const refsKind = inferSourceRefsKind(input.sourceRefs);
-  const EXPECTED_REFS_KIND_BY_DOMAIN: Partial<Record<string, string>> = {
-    'eval:a2a': 'a2a-snapshot-attribution',
-    'eval:capability-wakeup': 'capability-wakeup-trial-window',
-    'eval:sop': 'sop-trace-eval',
-    'eval:task-outcome': 'task-outcome-snapshot',
-    'eval:memory': 'memory-recall-snapshot',
-    'eval:friction': 'friction-rollup-snapshot',
-  };
-  const expectedKind = EXPECTED_REFS_KIND_BY_DOMAIN[packet.domainId];
+  const expectedKind = domainEntry.sourceRefsKind;
   if (expectedKind && expectedKind !== refsKind) {
     return {
       status: 400,
       error: 'sourceRefs_kind_mismatch',
-      detail: `Domain '${packet.domainId}' expects sourceRefs.kind='${expectedKind}', got '${refsKind}'. Each domain has a specific evidence shape: eval:a2a → {snapshotName, attributionName}; eval:capability-wakeup → {kind:'capability-wakeup-trial-window', ...}; eval:memory → {kind:'memory-recall-snapshot', ...}; eval:sop → {kind:'sop-trace-eval', sopDefinitionId, trace}; eval:task-outcome → {kind:'task-outcome-snapshot', ...}; eval:friction → {kind:'friction-rollup-snapshot', windowStartMs, windowEndMs, ...}.`,
+      detail: `Domain '${packet.domainId}' expects sourceRefs.kind='${expectedKind}', got '${refsKind}'. Registry sourceRefsKind is the contract; explicit validator/generator wiring must still exist for the domain to publish.`,
+    };
+  }
+  if (!isKnownSourceRefsKind(refsKind)) {
+    return {
+      status: 501,
+      error: 'unsupported_source_refs_kind',
+      detail: `Domain '${packet.domainId}' declares sourceRefs.kind='${refsKind}', but publish-verdict has no validator wiring for that selector kind yet. Add explicit validator/generator wiring before using this kind.`,
     };
   }
 

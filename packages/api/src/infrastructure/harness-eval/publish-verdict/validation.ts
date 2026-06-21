@@ -54,6 +54,19 @@ export function isFrictionSourceRefs(refs: VerdictSourceRefs | undefined): refs 
   return refs.kind === 'friction-rollup-snapshot';
 }
 
+export const KNOWN_SOURCE_REFS_KINDS = [
+  'a2a-snapshot-attribution',
+  'capability-wakeup-trial-window',
+  'memory-recall-snapshot',
+  'sop-trace-eval',
+  'task-outcome-snapshot',
+  'friction-rollup-snapshot',
+] as const;
+
+export function isKnownSourceRefsKind(kind: string): kind is (typeof KNOWN_SOURCE_REFS_KINDS)[number] {
+  return KNOWN_SOURCE_REFS_KINDS.includes(kind as (typeof KNOWN_SOURCE_REFS_KINDS)[number]);
+}
+
 /**
  * F192 sop-wiring — structural validator for SOP trace selector.
  * Returns user-facing error detail; handler maps to 400 invalid_source_ref.
@@ -81,19 +94,12 @@ export function validateSopTraceSelector(selector: SopTraceSourceSelector): stri
 }
 
 /**
- * F192 publish_verdict eval:memory wire-up — infer concrete sourceRefs.kind for
- * cross-check vs EXPECTED_REFS_KIND_BY_DOMAIN. Extracted to keep handler's
- * cognitive complexity from creeping further past biome's 15 threshold.
+ * Infer the concrete sourceRefs.kind string used by publish-verdict.
+ * Known kinds stay as explicit literals; unknown string kinds pass through
+ * unchanged so the handler can fail closed with an honest unsupported-kind
+ * error instead of misclassifying them as an existing domain's selector.
  */
-export function inferSourceRefsKind(
-  refs: VerdictSourceRefs | undefined,
-):
-  | 'a2a-snapshot-attribution'
-  | 'capability-wakeup-trial-window'
-  | 'memory-recall-snapshot'
-  | 'sop-trace-eval'
-  | 'task-outcome-snapshot'
-  | 'friction-rollup-snapshot' {
+export function inferSourceRefsKind(refs: VerdictSourceRefs | undefined): string {
   if (isSopSourceRefs(refs)) return 'sop-trace-eval';
   if (isMemorySourceRefs(refs)) return 'memory-recall-snapshot';
   if (isTaskOutcomeSourceRefs(refs)) return 'task-outcome-snapshot';
@@ -102,7 +108,10 @@ export function inferSourceRefsKind(
   // friction selectors otherwise.
   if (isFrictionSourceRefs(refs)) return 'friction-rollup-snapshot';
   if (isA2aSourceRefs(refs)) return 'a2a-snapshot-attribution';
-  return 'capability-wakeup-trial-window';
+  if (refs && typeof refs === 'object' && 'kind' in refs && typeof refs.kind === 'string') {
+    return refs.kind;
+  }
+  return 'a2a-snapshot-attribution';
 }
 
 /**

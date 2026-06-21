@@ -13,6 +13,7 @@ evalCat:
 # 本家 3-day override comes in PR2 once N-day cadence infra lands.
 frequency: weekly
 sourceAdapter: f245-friction-rollup
+sourceRefsKind: friction-rollup-snapshot
 threadPolicy:
   role: working-home
   stateSot: registry
