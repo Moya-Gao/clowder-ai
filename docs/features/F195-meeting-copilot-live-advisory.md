@@ -285,6 +285,55 @@ Python 路径（直接嵌入 `audio-service.py`）：
 
 **技术难度**：⭐⭐ 低（核心是接线：WeSpeaker embedding 提取 + cosine similarity 对比，不是造新东西）
 
+### Phase H: 说话人分离（Speaker Diarization — 从预注册到无监督聚类）📋
+
+**目的**：解决 Phase G 的核心场景限制 — 预注册声纹在视频/直播/多人会议中不现实。升级为无监督 speaker diarization，自动按声音特征聚类出 Speaker 1/2/3，用户事后可手动映射真实姓名。
+
+> **铲屎官原话（2026-06-20 实测后）**：
+> "谁特喵看视频和参加会议能提前注册啊！！"
+
+**现状诊断**：
+
+| 场景 | Phase G 行为 | 问题 |
+|------|-------------|------|
+| mic 模式 + host | 归 host name（0.9 置信度）| ✅ 可用 |
+| app 模式 + 2 人 | 归 non-host（0.7 置信度）| ✅ 可用 |
+| app 模式 + 3 人+ 无 enrollment | fallback 为 "有人说" | ❌ 等于不可用 |
+| 视频/直播 | 无法提前注册声纹 | ❌ 完全不可用 |
+
+**技术方案（待调研收敛）**：
+
+| 方案 | 特点 | 风险 |
+|------|------|------|
+| pyannote-audio 3.x | 成熟 pipeline，有 online/streaming mode | Ego4D DER 46.8%，实时更差 |
+| NeMo (NVIDIA) | 端到端 diarization，clustering + neural | 依赖 GPU，macOS 兼容性待验 |
+| SpeechBrain | 轻量，社区活跃 | 实时支持较弱 |
+
+**设计方向**：
+1. **实时聚类**：流式音频中自动检测说话人变化，标记 Speaker 1 / Speaker 2 / Speaker 3
+2. **事后映射**：用户告诉系统 "Speaker 1 = 大冰"，补全归名
+3. **与 Phase G 共存**：有 enrolled embeddings 的说话人直接匹配（verification），其余走聚类（diarization）
+4. **批处理增强**：会后用完整录音做高质量 re-diarization，修正实时阶段的错误
+
+**AC**（待铲屎官确认后细化）：
+- [ ] AC-H1: **无监督聚类** — 无需预注册，自动按声音特征分离说话人（≥2 人）
+- [ ] AC-H2: **事后归名** — 用户可通过 UI 将 Speaker N 映射为真实姓名
+- [ ] AC-H3: **Phase G 兼容** — 已 enrolled 的说话人优先走 verification 路径，未知说话人走 diarization
+- [ ] AC-H4: **实测评估** — 用视频/直播/会议实录测试，报告 DER（Diarization Error Rate）
+
+**不含（明确排除）**：
+- 跨会议 speaker 持久化（每次独立，不建全局 speaker 库）
+- 实时字幕级低延迟（<500ms）— 允许几秒延迟换取更高聚类准确率
+- Swift 原生迁移（先验 Python 方案）
+
+**技术难度**：⭐⭐⭐ 中（pyannote pipeline 集成 + 实时 vs 批处理双路 + Phase G verification 共存）
+
+### 已知 Bug（实测发现）
+
+| Bug | 优先级 | 根因 | 状态 |
+|-----|--------|------|------|
+| TranscriptPanel（Hub 右侧）不显示 speaker 名字 | P2 | `TranscriptPanel.tsx` 缺 speaker_label/speaker_confidence/speaker_id 三字段（interface + SSE handler + render），FloatingTranscriptWindow 已正确实现 | 📋 待修 |
+
 ### 已有基础设施
 
 | 能力 | 状态 | 来源 |
@@ -308,6 +357,7 @@ Python 路径（直接嵌入 `audio-service.py`）：
 | **E 采集控制** | 前端源选择 + Start + Pause/Resume + 后端 pause 端点 + SSE 三态 | ⭐⭐ 低 |
 | **F ASR 管道增强** | 服务端 VAD + 热词上下文接线 + LLM 后修正接入 + 标点恢复 | ⭐⭐ 低（主要是接线） |
 | **G 声纹识别** | WeSpeaker embedding 提取 + cosine similarity 归因 + enrollment 扩展 | ⭐⭐ 低（接线 + 调参） |
+| **H 说话人分离** | pyannote/NeMo diarization + 实时聚类 + Phase G verification 共存 | ⭐⭐⭐ 中 |
 
 ### 已知缺口（Phase B/C 需调研验证）
 
@@ -598,6 +648,8 @@ F104 全感知升级是 research branch，不是 Meeting Copilot 的门槛。MVP
 | 2026-06-18 | Phase G spec added — 声纹识别（从规则归因到 voice embedding），铲屎官排期确认 |
 | 2026-06-19 | ChatGPT Deep Research 回收，Phase G spec 更新：EER 修正、3D-Speaker 备选、分段长度/设备失配/swap rate 评估维度补充 |
 | 2026-06-20 | Phase G merged (PR #2438) — SpeakerEmbedder (CAM++) + enroll() voice_sample + cosine attribution + rule-based fallback + offline eval script + defense-in-depth ndarray sanitization |
+| 2026-06-20 | 铲屎官实测：B 站视频 3+ 人场景验证 → 发现 Phase G 预注册不实用 + TranscriptPanel speaker 字段缺失（P2） |
+| 2026-06-20 | Phase H spec added — 说话人分离（无监督 diarization），铲屎官实测反馈驱动 |
 
 ## 用户反馈（铲屎官实测 2026-05-14）
 
