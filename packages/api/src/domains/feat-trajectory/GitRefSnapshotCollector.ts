@@ -75,6 +75,15 @@ export interface ThreadMatch {
  * gh REST client / Redis feat_index / thread store）。
  */
 export interface GitRunner {
+  /**
+   * Optional: pre-fetch + prune remote refs before lsRemote/getCommitMeta. Production
+   * impls run `git fetch origin --prune` so newly pushed remote branches have their
+   * objects available for getCommitMeta. Tests omit; safe to skip (existing behavior).
+   * 砚砚 final review P1: without prefetch, ls-remote 拿到的远端 SHA 在 local 还没
+   * fetch → getCommitMeta 失败 → 整 collectAll 归零, 提包球 (git-only stale branch)
+   * 暴露路径无法工作.
+   */
+  prefetch?(): Promise<void>;
   /** Scan refs matching pattern (default fix/* + feat/*). */
   lsRemote(branchPatterns: string[]): Promise<GitBranchRef[]>;
   /** Get commit metadata for a SHA. */
@@ -240,6 +249,12 @@ export interface GitRefSnapshotCollectorOpts {
   ghClient: GhClient;
   featIndexLookup: FeatIndexLookup;
   threadSearch: ThreadSearch;
+  /** Optional logger for per-branch failure isolation diagnostics (砚砚 final review P1). */
+  logger?: {
+    warn?: (obj: unknown, msg?: string) => void;
+    info?: (obj: unknown, msg?: string) => void;
+    error?: (obj: unknown, msg?: string) => void;
+  };
 }
 
 export class GitRefSnapshotCollector implements IGitRefSnapshotCollector {
@@ -257,11 +272,34 @@ export class GitRefSnapshotCollector implements IGitRefSnapshotCollector {
    * (不退化成 N+1 remote scan，也不读到中间不一致 ref state)。
    */
   async collectAll(now: number): Promise<GitRefSnapshot[]> {
+    // 砚砚 final review P1 fix part 1: prefetch remote refs so getCommitMeta has
+    // local objects available. Without this, newly pushed remote branches fail
+    // metadata lookup → entire tick zeroes out → 提包球 path broken.
+    if (this.opts.gitRunner.prefetch) {
+      try {
+        await this.opts.gitRunner.prefetch();
+      } catch (e) {
+        this.opts.logger?.warn?.(
+          { err: e instanceof Error ? e.message : String(e) },
+          '[feat-trajectory-collector] prefetch failed; continuing with stale local refs',
+        );
+      }
+    }
+
     const branches = await this.opts.gitRunner.lsRemote(this.branchPatterns);
     const snapshots: GitRefSnapshot[] = [];
+    // 砚砚 final review P1 fix part 2: per-branch failure isolation — one bad
+    // ref does not brick the whole tick (proper degradation path).
     for (const branchRef of branches) {
-      const snap = await this.collectBranchRef(branchRef, now);
-      if (snap !== null) snapshots.push(snap);
+      try {
+        const snap = await this.collectBranchRef(branchRef, now);
+        if (snap !== null) snapshots.push(snap);
+      } catch (e) {
+        this.opts.logger?.warn?.(
+          { branchName: branchRef.branchName, err: e instanceof Error ? e.message : String(e) },
+          '[feat-trajectory-collector] branch metadata failed; skip this branch (per-branch isolation)',
+        );
+      }
     }
     return snapshots;
   }

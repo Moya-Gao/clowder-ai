@@ -1021,8 +1021,11 @@ export interface ChatState {
   toggleMaximize: () => void;
 
   // Phase H + F139 + F160 + F168 + F246: Workspace mode
-  workspaceMode: 'dev' | 'recall' | 'schedule' | 'tasks' | 'community' | 'artifacts' | 'approval';
-  setWorkspaceMode: (mode: 'dev' | 'recall' | 'schedule' | 'tasks' | 'community' | 'artifacts' | 'approval') => void;
+  // F233 Phase C C3: 'trajectory' — feat 球权轨迹时间轴
+  workspaceMode: 'dev' | 'recall' | 'schedule' | 'tasks' | 'community' | 'artifacts' | 'approval' | 'trajectory';
+  setWorkspaceMode: (
+    mode: 'dev' | 'recall' | 'schedule' | 'tasks' | 'community' | 'artifacts' | 'approval' | 'trajectory',
+  ) => void;
 
   // ── F195 Phase C: Floating transcript window ──
   floatingTranscriptVisible: boolean;

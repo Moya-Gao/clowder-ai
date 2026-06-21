@@ -599,7 +599,7 @@ export class RedisThreadStore implements IThreadStore {
 
   async updatePreferredWorkspaceMode(
     threadId: string,
-    mode: 'dev' | 'recall' | 'schedule' | 'tasks' | 'community' | 'artifacts' | null,
+    mode: 'dev' | 'recall' | 'schedule' | 'tasks' | 'community' | 'artifacts' | 'approval' | 'trajectory' | null,
   ): Promise<void> {
     const key = ThreadKeys.detail(threadId);
     if (mode === null) {
@@ -1208,7 +1208,16 @@ export class RedisThreadStore implements IThreadStore {
         /* ignore malformed JSON */
       }
     }
-    const validModes = new Set(['dev', 'recall', 'schedule', 'tasks', 'community', 'artifacts']);
+    const validModes = new Set([
+      'dev',
+      'recall',
+      'schedule',
+      'tasks',
+      'community',
+      'artifacts',
+      'approval',
+      'trajectory',
+    ]);
     if (data.preferredWorkspaceMode && validModes.has(data.preferredWorkspaceMode)) {
       result.preferredWorkspaceMode = data.preferredWorkspaceMode as Thread['preferredWorkspaceMode'];
     }

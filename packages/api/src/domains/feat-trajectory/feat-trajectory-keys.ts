@@ -95,4 +95,8 @@ export const FeatTrajectoryKeys = {
   feats(): string {
     return 'feat-trajectory:feats';
   },
+  /** Last collector tick observation time (Unix ms): feat-trajectory:last-collector-tick-at */
+  lastCollectorTickAt(): string {
+    return 'feat-trajectory:last-collector-tick-at';
+  },
 };

@@ -204,6 +204,7 @@ import {
   exportRoutes,
   externalProjectRoutes,
   externalRuntimeSessionsRoutes,
+  featTrajectoryRoutes,
   featureDocDetailRoutes,
   firstRunQuestRoutes,
   frustrationIssueRoutes,
@@ -2889,6 +2890,25 @@ async function main(): Promise<void> {
   await app.register(communityRepoConfigRoutes, { repoConfigStore: communityRepoConfigStore });
   await app.register(backlogRoutes, { backlogStore, threadStore, messageStore });
 
+  // F233 Phase C C2b: feat trajectory query routes (Hub UI + 轨迹下钻)
+  // Store: Redis-backed in production; InMemory fallback if Redis unavailable (preserves
+  // route shape for opus-48 UI smoke tests but data wipes on restart — production needs Redis)
+  const { InMemoryFeatTrajectoryStore, RedisFeatTrajectoryStore } = await import(
+    './domains/feat-trajectory/FeatTrajectoryStore.js'
+  );
+  const featTrajectoryStore = redisClient
+    ? new RedisFeatTrajectoryStore(redisClient)
+    : new InMemoryFeatTrajectoryStore();
+  // Cloud round 3 P2 fix: pass callback auth registry so MCP / callback paths
+  // get request.callbackPrincipal populated (Fastify encapsulation: sibling
+  // plugin hooks don't reach us; events.ts / eval-hub / schedule all follow
+  // this same pattern).
+  await app.register(featTrajectoryRoutes, {
+    featTrajectoryStore,
+    callbackRegistry: registry,
+    agentKeyRegistry,
+  });
+
   // F076: External projects + Need Audit
   const { ExternalProjectStore } = await import('./domains/projects/external-project-store.js');
   const { IntentCardStore } = await import('./domains/projects/intent-card-store.js');
@@ -4176,6 +4196,111 @@ async function main(): Promise<void> {
       }),
     );
     app.log.info('[api] F233 PR4: ball-custody probe scheduler registered');
+  }
+
+  // F233 Phase C C2b: Feat Trajectory Collector cron — 周期 collector tick →
+  // projector → store. Hub 时间轴 UI (C3) 真实数据源。env override:
+  // F233_FEAT_TRAJECTORY_COLLECTOR_INTERVAL_MS (默认 15min)
+  if (redisClient) {
+    const [
+      { FeatTrajectoryCollectorScheduler },
+      { createFeatTrajectoryCollectorTaskSpec },
+      { FeatTrajectoryProjector: FeatTrajectoryProjectorCls },
+      { GitRefSnapshotCollector: GitRefSnapshotCollectorCls },
+      { RealGitRunner },
+      { RealGhClient },
+      { RealFeatIndexLookup },
+      { RealThreadSearch },
+    ] = await Promise.all([
+      import('./domains/feat-trajectory/FeatTrajectoryCollectorScheduler.js'),
+      import('./domains/feat-trajectory/FeatTrajectoryCollectorTaskSpec.js'),
+      import('./domains/feat-trajectory/FeatTrajectoryProjector.js'),
+      import('./domains/feat-trajectory/GitRefSnapshotCollector.js'),
+      import('./domains/feat-trajectory/RealGitRunner.js'),
+      import('./domains/feat-trajectory/RealGhClient.js'),
+      import('./domains/feat-trajectory/RealFeatIndexLookup.js'),
+      import('./domains/feat-trajectory/RealThreadSearch.js'),
+    ]);
+
+    const trajIntervalMs = Number.parseInt(process.env.F233_FEAT_TRAJECTORY_COLLECTOR_INTERVAL_MS ?? '', 10);
+    const repoRoot = process.env.CAT_CAFE_REPO_ROOT || process.cwd();
+    const repoFullName = process.env.CAT_CAFE_REPO_FULL_NAME || 'zts212653/cat-cafe';
+
+    const trajProjector = new FeatTrajectoryProjectorCls(featTrajectoryStore);
+    const gitRunner = new RealGitRunner(repoRoot);
+    // Cloud round 2 P1 fix: pass logger so gh subprocess failures (missing
+    // binary / auth expired / rate limited) log a warn instead of silently
+    // dropping branch snapshots. Default base = main/master (set via undefined
+    // → constructor default).
+    const ghClient = new RealGhClient(repoFullName, undefined, undefined, {
+      warn: app.log.warn.bind(app.log),
+    });
+    const featIndexLookup = new RealFeatIndexLookup(`${repoRoot}/docs/features`);
+    // Thread search wraps IThreadStore.list() — owner threads only (cron context).
+    // Thread.lastActiveAt 用作 lastMessageAt/lastActivityAt 近似 (Thread 没单独
+    // lastMessageAt 字段; lastActiveAt 是 thread 最后活跃时间, 对 F188 invariant
+    // `lastThreadMessageAt < headCommitAt` 已经足够区分).
+    const trajThreadSearch = new RealThreadSearch({
+      async listAll() {
+        try {
+          const ownerUserId = getOwnerUserId();
+          // Cloud round 5 P2 fix: Thread.labels stores label IDs (per
+          // ILabelStore.updateLabels signature: labelIds: string[]), NOT
+          // human-readable names. RealThreadSearch matches against text
+          // patterns like `feat:F###` — which live on ThreadLabel.name, not
+          // ThreadLabel.id (typically UUID/sequential). Resolve IDs → names
+          // before passing through, so a thread tagged with the human label
+          // "feat:F188" actually matches the F188 trajectory.
+          const [threads, allLabels] = await Promise.all([threadStore.list(ownerUserId), labelStore.list(ownerUserId)]);
+          const idToName = new Map(allLabels.map((l) => [l.id, l.name]));
+          return threads.map((t) => ({
+            threadId: t.id,
+            title: t.title ?? '',
+            // Cloud round 1 P2 fix: forward labels for `feat:F###` / `F###` matching.
+            // Cloud round 5 P2 fix: resolve label IDs to names (see comment above)
+            // so RealThreadSearch text patterns can actually match.
+            labels: (t.labels ?? []).map((id) => idToName.get(id) ?? id),
+            lastMessageAt: t.lastActiveAt ?? null,
+            lastActivityAt: t.lastActiveAt ?? null,
+          }));
+        } catch {
+          return [];
+        }
+      },
+    });
+    const trajCollector = new GitRefSnapshotCollectorCls({
+      branchPatterns: ['fix/*', 'feat/*'],
+      multiCandidatePolicy: 'skip-low-confidence',
+      gitRunner,
+      ghClient,
+      featIndexLookup,
+      threadSearch: trajThreadSearch,
+      // 砚砚 final review non-blocking residual: wire app logger for per-branch
+      // failure diagnostics (e.g. branch-skip warnings, prefetch failure context).
+      logger: {
+        warn: app.log.warn.bind(app.log),
+        info: app.log.info.bind(app.log),
+        error: app.log.error.bind(app.log),
+      },
+    });
+    const trajScheduler = new FeatTrajectoryCollectorScheduler({
+      collector: trajCollector,
+      projector: trajProjector,
+      store: featTrajectoryStore,
+      logger: {
+        info: app.log.info.bind(app.log),
+        warn: app.log.warn.bind(app.log),
+        error: app.log.error.bind(app.log),
+      },
+    });
+    taskRunnerV2.register(
+      createFeatTrajectoryCollectorTaskSpec({
+        scheduler: trajScheduler,
+        ...(Number.isFinite(trajIntervalMs) && trajIntervalMs > 0 ? { intervalMs: trajIntervalMs } : {}),
+        log: { info: app.log.info.bind(app.log), warn: app.log.warn.bind(app.log) },
+      }),
+    );
+    app.log.info('[api] F233 C2b: feat-trajectory collector scheduler registered');
   }
 
   // F233 Phase A: builtin daily 值班简报 cron（07:00 PT；INV-4 幂等 — 同 id 重复注册静默）

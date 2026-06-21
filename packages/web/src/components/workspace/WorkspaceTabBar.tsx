@@ -15,7 +15,7 @@ import type { ReactNode } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useChatStore } from '@/stores/chatStore';
 
-type WorkspaceMode = 'dev' | 'recall' | 'schedule' | 'tasks' | 'community' | 'artifacts' | 'approval';
+type WorkspaceMode = 'dev' | 'recall' | 'schedule' | 'tasks' | 'community' | 'artifacts' | 'approval' | 'trajectory';
 
 interface TabDef {
   mode: WorkspaceMode;
@@ -132,6 +132,25 @@ const TABS: TabDef[] = [
         <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
         <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
         <path d="m9 14 2 2 4-4" />
+      </svg>
+    ),
+  },
+  {
+    mode: 'trajectory',
+    label: '轨迹',
+    icon: (
+      <svg
+        className="w-3 h-3"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <circle cx="6" cy="5" r="2" />
+        <circle cx="6" cy="19" r="2" />
+        <path d="M6 7v10M6 5h10a4 4 0 0 1 0 8H9" />
       </svg>
     ),
   },

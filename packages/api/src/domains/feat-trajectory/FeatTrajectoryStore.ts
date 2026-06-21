@@ -27,6 +27,20 @@ export interface IFeatTrajectoryStore {
   listFeatIds(): Promise<string[]>;
   /** 删 per-feat projection（rebuild 前 wipe）。 */
   delete(featId: string): Promise<void>;
+  /**
+   * 读 collector 最后一次 tick 的 observation time (Unix ms)。
+   *
+   * Cloud round 2 P2 fix: `projection.updatedAt` 反映 max event time
+   * (headCommitAt / PR / stale threshold), 不是 collector 观察时间. 重复 cron
+   * tick 同 stale bucket 会更新 payload.detectedAt 但 projection.updatedAt
+   * 不变 → UI 显示的 "last collected" 会显得 stale 即便 collector 正常跑.
+   * 单独存 tick observation time 给 UI 健康观察用.
+   *
+   * 不存在返回 null（首次 backfill / Redis flush 后）。
+   */
+  getLastCollectorTickAt(): Promise<number | null>;
+  /** Write collector tick observation time. Called by scheduler / backfill 每次完成. */
+  setLastCollectorTickAt(now: number): Promise<void>;
 }
 
 // ============================================================================
@@ -35,6 +49,7 @@ export interface IFeatTrajectoryStore {
 
 export class InMemoryFeatTrajectoryStore implements IFeatTrajectoryStore {
   private readonly map = new Map<string, FeatTrajectoryProjection>();
+  private lastCollectorTickAt: number | null = null;
 
   async get(featId: string): Promise<FeatTrajectoryProjection | null> {
     return this.map.get(featId) ?? null;
@@ -50,6 +65,14 @@ export class InMemoryFeatTrajectoryStore implements IFeatTrajectoryStore {
 
   async delete(featId: string): Promise<void> {
     this.map.delete(featId);
+  }
+
+  async getLastCollectorTickAt(): Promise<number | null> {
+    return this.lastCollectorTickAt;
+  }
+
+  async setLastCollectorTickAt(now: number): Promise<void> {
+    this.lastCollectorTickAt = now;
   }
 }
 
@@ -78,5 +101,16 @@ export class RedisFeatTrajectoryStore implements IFeatTrajectoryStore {
   async delete(featId: string): Promise<void> {
     await this.redis.del(FeatTrajectoryKeys.projection(featId));
     await this.redis.srem(FeatTrajectoryKeys.feats(), featId);
+  }
+
+  async getLastCollectorTickAt(): Promise<number | null> {
+    const raw = await this.redis.get(FeatTrajectoryKeys.lastCollectorTickAt());
+    if (!raw) return null;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  async setLastCollectorTickAt(now: number): Promise<void> {
+    await this.redis.set(FeatTrajectoryKeys.lastCollectorTickAt(), String(now));
   }
 }

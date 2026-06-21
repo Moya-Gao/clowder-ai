@@ -25,6 +25,7 @@ import { LinkedRootRemoveButton, LinkedRootsManager } from './workspace/LinkedRo
 import { ResizeHandle } from './workspace/ResizeHandle';
 import { SchedulePanel } from './workspace/SchedulePanel';
 import { TerminalTab } from './workspace/TerminalTab';
+import { TrajectoryPanel } from './workspace/trajectory/TrajectoryPanel';
 import { WorkspaceFileViewer } from './workspace/WorkspaceFileViewer';
 import { WorkspaceFocusShell } from './workspace/WorkspaceFocusShell';
 import { WorkspacePreviewOnly } from './workspace/WorkspacePreviewOnly';
@@ -294,7 +295,16 @@ export function WorkspacePanel() {
       ?.then((res) => res.json())
       .then((thread: { preferredWorkspaceMode?: string }) => {
         if (cancelled) return;
-        const valid = new Set(['dev', 'recall', 'schedule', 'tasks', 'community', 'artifacts', 'approval']);
+        const valid = new Set([
+          'dev',
+          'recall',
+          'schedule',
+          'tasks',
+          'community',
+          'artifacts',
+          'approval',
+          'trajectory',
+        ]);
         if (thread.preferredWorkspaceMode && valid.has(thread.preferredWorkspaceMode)) {
           setWorkspaceMode(thread.preferredWorkspaceMode as typeof workspaceMode);
         } else if (['community', 'artifacts'].includes(useChatStore.getState().workspaceMode)) {
@@ -793,6 +803,8 @@ export function WorkspacePanel() {
             )
           ) : workspaceMode === 'approval' ? (
             <ApprovalPanel />
+          ) : workspaceMode === 'trajectory' ? (
+            <TrajectoryPanel />
           ) : (
             <>
               {/* Files / Changes toggle */}

@@ -38,6 +38,7 @@ export { externalProjectRoutes } from './external-projects.js';
 export { externalRuntimeSessionsRoutes } from './external-runtime-sessions.js';
 export { f163AdminRoutes } from './f163-admin.js';
 export { f163AuditRoutes } from './f163-audit-routes.js';
+export { featTrajectoryRoutes } from './feat-trajectory.js';
 export { featureDocDetailRoutes } from './feature-doc-detail.js';
 export { firstRunQuestRoutes } from './first-run-quest.js';
 export { frustrationIssueRoutes } from './frustration-issue-routes.js';
