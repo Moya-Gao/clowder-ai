@@ -192,6 +192,7 @@ import {
   connectorHubRoutes,
   connectorMediaRoutes,
   connectorPluginRoutes,
+  distillationOpportunityRoutes,
   distillationRoutes,
   dossierDistillationRoutes,
   dossierObservationRoutes,
@@ -1977,6 +1978,19 @@ async function main(): Promise<void> {
       '[api] F208 dossier observations + distillation: routes NOT registered (Redis unavailable, fail-closed per Iron Rule #5)',
     );
   }
+
+  // F208 Phase E AC-E2: Distillation checkpoint — in-memory opportunity store (transient workflow signals, not user data).
+  // Always available regardless of Redis — opportunities are ephemeral prompts, not persistent user state.
+  const { InMemoryOpportunityStore, DistillationCheckpoint } = await import(
+    './infrastructure/distillation/DistillationCheckpoint.js'
+  );
+  const distillationOpportunityStore = new InMemoryOpportunityStore();
+  const distillationCheckpoint = new DistillationCheckpoint({
+    opportunityStore: distillationOpportunityStore,
+    log: app.log,
+  });
+  await app.register(distillationOpportunityRoutes, { opportunityStore: distillationOpportunityStore });
+
   await app.register(brakeRoutes, { activityTracker });
 
   // F101: Game routes (store created earlier for /game command interception)
@@ -3651,6 +3665,8 @@ async function main(): Promise<void> {
           // Best-effort: don't break CI/CD routing
         }
       },
+      // F208 AC-E2: distillation checkpoint — canonical first-detection point for merge
+      distillationCheckpoint,
     });
 
     const conflictRouter = new ConflictRouter({
@@ -3698,13 +3714,18 @@ async function main(): Promise<void> {
       try {
         const { stdout } = await execFileAsync(
           'gh',
-          ['pr', 'view', String(pr), '-R', repo, '--json', 'headRefOid,state,mergedAt'],
+          ['pr', 'view', String(pr), '-R', repo, '--json', 'headRefOid,state,mergedAt,title'],
           getGitHubExecOptions(15_000),
         );
-        const data = JSON.parse(stdout) as { headRefOid?: string; state?: string; mergedAt?: string | null };
+        const data = JSON.parse(stdout) as {
+          headRefOid?: string;
+          state?: string;
+          mergedAt?: string | null;
+          title?: string;
+        };
         const prState =
           data.mergedAt || data.state === 'MERGED' ? 'merged' : data.state === 'CLOSED' ? 'closed' : 'open';
-        return { headSha: data.headRefOid ?? '', prState };
+        return { headSha: data.headRefOid ?? '', prState, prTitle: data.title };
       } catch (error) {
         app.log.warn(
           { repo, pr, err: error },
@@ -3942,6 +3963,8 @@ async function main(): Promise<void> {
         // F168 Phase A P1-1: community event services for spec wiring
         eventLog: communityEventLog,
         projector: communityProjector,
+        // F208 Phase E AC-E2: distillation checkpoint for review-complete + feat-phase-close hooks
+        distillationCheckpoint,
         // F168 Phase D D3/D4: reconciler deps (Redis-gated, same as repo-scan)
         objectStore: communityObjectStore,
         findingStore: communityFindingStore,

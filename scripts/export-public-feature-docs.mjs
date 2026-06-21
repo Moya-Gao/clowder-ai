@@ -57,6 +57,26 @@ const SANITIZE_REPLACEMENTS = [
   [/6399 圣域/g, 'production Redis (sacred)'],
 ];
 
+// ── Privacy gate helpers ──────────────────────────────────────────────────────
+
+/**
+ * Parse a frontmatter value as a YAML-ish boolean.
+ * Handles inline comments (`false # reason`), case variants (`False`, `FALSE`),
+ * and YAML boolean aliases (`no`, `off`).
+ * Returns true if the value resolves to a falsy YAML boolean (= sync disabled).
+ */
+function isSyncDisabled(rawValue) {
+  if (!rawValue) return false;
+  // Strip inline YAML comments (# ...) then trim + lowercase
+  let stripped = rawValue.replace(/#.*$/, '').trim().toLowerCase();
+  // Strip matched pairs of single or double quotes (e.g. "false" → false)
+  if ((stripped.startsWith('"') && stripped.endsWith('"')) || (stripped.startsWith("'") && stripped.endsWith("'"))) {
+    stripped = stripped.slice(1, -1);
+  }
+  // YAML 1.1 false values: false, no, off (case-insensitive)
+  return ['false', 'no', 'off'].includes(stripped);
+}
+
 // ── Frontmatter / Section parsing ─────────────────────────────────────────────
 
 function extractFrontmatter(content) {
@@ -370,6 +390,18 @@ function run() {
       const { map: frontmatter } = extractFrontmatter(content);
       const featureId = parseFeatureIds(frontmatter.feature_ids)[0] ?? normalizeFeatureId(fileName) ?? 'UNKNOWN';
 
+      // Skip docs with sync: false (contains PII / personal data — never export)
+      if (isSyncDisabled(frontmatter.sync)) {
+        results.skipped.push({
+          file: fileName,
+          featureId,
+          tier: 'private',
+          score: 0,
+          missing: ['sync: false — contains personal data, excluded from public export'],
+        });
+        continue;
+      }
+
       if (!meetsMinTier(conformance.tier, options.minTier)) {
         results.skipped.push({
           file: fileName,
@@ -421,8 +453,10 @@ function run() {
   if (results.skipped.length > 0) {
     console.log(`\n⚠ Skipped — below min tier (${results.skipped.length}):`);
     for (const r of results.skipped) {
+      // Redact filename for private docs — stdout may be captured in CI/sync logs
+      const displayFile = r.tier === 'private' ? '[redacted]' : r.file;
       console.log(
-        `  [${r.tier.toUpperCase().padEnd(6)}] ${r.featureId} ${r.file} (${r.score}%) missing: ${r.missing.join(', ')}`,
+        `  [${r.tier.toUpperCase().padEnd(6)}] ${r.featureId} ${displayFile} (${r.score}%) missing: ${r.missing.join(', ')}`,
       );
     }
   }
@@ -446,7 +480,7 @@ function run() {
           exported: results.exported.length,
           skipped: results.skipped.length,
           errors: results.errors.length,
-          skippedFiles: results.skipped.map((r) => r.file),
+          skippedFiles: results.skipped.filter((r) => r.tier !== 'private').map((r) => r.file),
         },
         null,
         2,

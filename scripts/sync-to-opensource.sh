@@ -1458,6 +1458,10 @@ const internalScripts = [
   // against brand-dictionary.yaml (internal-only asset). Not exported to public.
   // Added after F228 R8 sync failure: script surface test detected dangling ref.
   "check:boundary-roundtrip",
+  // Privacy gate test — references F207 internal incident context and private
+  // feature doc paths. Test stays home-only; the gate function itself lives in
+  // export-public-feature-docs.mjs which is already handled by docs_generated.
+  "check:export-privacy-gate",
   "clean:root-debris",
   "guards:check",
 ];

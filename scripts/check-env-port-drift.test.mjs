@@ -226,6 +226,8 @@ function buildExportedRootScripts(sourceScripts) {
     // (PR #2333). Must mirror sync-to-opensource.sh internalScripts list.
     'check:reverse-sanitizer',
     'check:boundary-roundtrip',
+    // Privacy gate test — references F207 internal incident context; home-only.
+    'check:export-privacy-gate',
     'clean:root-debris',
     'guards:check',
   ];

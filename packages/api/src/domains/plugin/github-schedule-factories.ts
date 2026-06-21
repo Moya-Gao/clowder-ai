@@ -126,6 +126,11 @@ export interface GitHubScheduleDeps extends ScheduleFactoryDeps {
   reconcilerSlaPolicy?: SlaPolicy;
   isReconcilerBaselineEstablished?: () => Promise<boolean>;
   markReconcilerBaselineEstablished?: () => Promise<void>;
+  /**
+   * F208 Phase E AC-E2: distillation checkpoint for review-complete + feat-phase-close hooks.
+   * Optional — only available when wired in index.ts (always, since InMemoryOpportunityStore).
+   */
+  distillationCheckpoint?: import('../../infrastructure/distillation/DistillationCheckpoint.js').DistillationCheckpoint;
 }
 
 /** Cast ScheduleFactoryDeps to GitHubScheduleDeps with runtime validation */
@@ -189,6 +194,8 @@ const reviewFeedbackFactory: ScheduleFactory = {
       // F168 Phase A P1-1: thread community event services to spec
       eventLog: d.eventLog,
       projector: d.projector,
+      // F208 Phase E AC-E2: distillation checkpoint
+      distillationCheckpoint: d.distillationCheckpoint,
     }) as TaskSpec_P1;
   },
 };
