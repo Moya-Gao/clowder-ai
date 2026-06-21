@@ -205,7 +205,7 @@ tips system 是 harness 改动，必须有闭环：
 
 ### Phase B（Waiting-State Projection UI）
 
-- [x] AC-B1: `ChatMessage` assistant streaming bubble 能展示上下文 tip；component tests 覆盖 normal streaming bubble 内展示。PR #2406 初版放在 `ThreadExecutionBar`，2026-06-19 dogfood 反馈确认位置错误，后续修正为 `assistant_stream_bubble` surface；parallel/ideate follow-up 锁定同一线程只展示一个 strip，并保留 `review` context。
+- [x] AC-B1: 等待态 surface 能展示上下文 tip；component tests 覆盖。Surface 经多轮 dogfood 迭代定位：PR #2406 `ThreadExecutionBar`（位置错）→ PR #2424 `assistant_stream_bubble` → PR #2433/#2448 最终落在 `PendingMemberBubble`（"分析处理中"等待气泡，tip strip 即思考态指示器）；parallel/ideate 锁定同一线程只展示一个 strip，并保留 `review` context。
 - [x] AC-B2: tips 与真实状态分层；`alive_but_silent` / `suspected_stall` 下取消、故障说明、`卡住了？强制重置` 入口不被遮挡，component tests 覆盖。
 - [x] AC-B3: Tip primary action hover 显示"了解更多"，click 拉起 F229 猫猫球并预填 tip 解释请求到输入框，默认不发送；若有 secondary source/guide/capability action，坏链接或 stale source 有可见错误，不静默失败。
 - [ ] AC-B4: 铲屎官 dogfood 路径可演示：等待一次猫执行时看到至少一条 capability/magic-word/workflow tip，并能点开了解来源。
@@ -297,6 +297,7 @@ tips system 是 harness 改动，必须有闭环：
 | 2026-06-21 | KD-12：CVO 确认 seed inventory 保持 JSON 数据文件，格式由猫猫自决 |
 | 2026-06-21 | CVO dogfood Round 5 发现三个 UX 问题：① tip 展示不随机（`rotationKey` 每次从 0 开始，确定性排序 → 同一 context 下每次看到同一条）② "了解更多" concierge draft 上下文被 `rows=2` textarea 折叠（完整 5 行 prompt 只显示第一行，用户以为是通用消息）③ `basics-at-routing` tip 文案缺并发 @ 行为说明（用户经常困惑"@ 多只猫为什么不互相协作"）—— ①② 记为 Phase D 改进项，③ 当轮修复 |
 | 2026-06-21 | PR #2473 merged：修复 `basics-at-routing` tip 文案——补并发 @ 轮里猫猫不传球的说明和用户操作指引（CVO dogfood R5 ③） |
+| 2026-06-21 | CVO directive：扩充协作引导 tips——新增 6 条 `collab-*` workflow tips（按 SOP 开发 / 愿景驱动立项 / 给目标自主传球 / 跨猫 review 自动守门 / 卡住自己找伙伴 / 可逆小事自决），audience=cvo，教社区铲屎官如何指挥猫团队自主协作（家里铲屎官熟门道，社区用户不知如何驱动）；同步修 AC-B1 surface 文字漂移（assistant_stream_bubble → PendingMemberBubble）|
 
 ## Review Gate
 

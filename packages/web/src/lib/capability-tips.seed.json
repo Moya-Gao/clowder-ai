@@ -627,5 +627,77 @@
     "body": "猫卡住反复修不好？点「停止生成」停下来，跟它说「换个方法」——或者 @ 另一只猫从头诊断，有时换个视角就通了。",
     "action": { "type": "open_concierge_draft", "label": "了解更多" },
     "owner": "opus"
+  },
+  {
+    "id": "collab-sop-development",
+    "kind": "workflow",
+    "sourceRef": { "path": "docs/SOP.md", "anchor": "完整流程（5 步）" },
+    "structureSource": { "path": "docs/SOP.md", "anchor": "愿景驱动（核心原则）" },
+    "bodySource": { "path": "docs/SOP.md", "anchor": "完整流程（5 步）" },
+    "contexts": ["feature_dev", "thinking", "long_running"],
+    "audience": ["cvo"],
+    "body": "想让猫做完整功能？跟它说「按 SOP 开发这个」——它会自己走立项、设计、写测试、找别的猫 review、合并，你只在关键决策点拍板。",
+    "action": { "type": "open_concierge_draft", "label": "了解更多" },
+    "owner": "opus-48"
+  },
+  {
+    "id": "collab-vision-driven",
+    "kind": "workflow",
+    "sourceRef": { "path": "docs/VISION.md", "anchor": "我们养的不是工具，是团队" },
+    "structureSource": { "path": "docs/SOP.md", "anchor": "愿景驱动（核心原则）" },
+    "bodySource": { "path": "docs/VISION.md", "anchor": "我们养的不是工具，是团队" },
+    "contexts": ["feature_dev", "thinking"],
+    "audience": ["cvo"],
+    "body": "新功能别急着说「怎么写」。跟猫说「走愿景驱动开发」——它会先对齐愿景再动手，少走弯路少返工。",
+    "action": { "type": "open_concierge_draft", "label": "了解更多" },
+    "owner": "opus-48"
+  },
+  {
+    "id": "collab-give-goals-not-steps",
+    "kind": "workflow",
+    "sourceRef": { "path": "cat-cafe-skills/refs/shared-rules.md", "anchor": "W3. 用户是 CVO" },
+    "structureSource": { "path": "cat-cafe-skills/refs/shared-rules.md", "anchor": "P2. 共创伙伴" },
+    "bodySource": { "path": "cat-cafe-skills/refs/shared-rules.md", "anchor": "W1. 猫猫是 Agent" },
+    "contexts": ["feature_dev", "thinking", "long_running"],
+    "audience": ["cvo"],
+    "body": "给一只猫清楚的目标，它做完会自己把活传给下一只接力，你只管在关键处拍板。注意：同时 @ 多只是各自独立回你、那一轮不互相传球。",
+    "action": { "type": "open_concierge_draft", "label": "了解更多" },
+    "owner": "opus-48"
+  },
+  {
+    "id": "collab-cross-review",
+    "kind": "workflow",
+    "sourceRef": { "path": "docs/SOP.md", "anchor": "Reviewer 配对规则" },
+    "structureSource": { "path": "docs/SOP.md", "anchor": "Reviewer 配对规则" },
+    "bodySource": { "path": "cat-cafe-skills/refs/shared-rules.md", "anchor": "P5. 可验证才算完成" },
+    "contexts": ["review", "feature_dev"],
+    "audience": ["cvo"],
+    "body": "猫写完代码会自己找另一只猫 review（优先跨家族，必要时同族不同猫），不用你提醒。看到它们互相挑错很正常——这是质量门，不是吵架。",
+    "action": { "type": "open_concierge_draft", "label": "了解更多" },
+    "owner": "opus-48"
+  },
+  {
+    "id": "collab-cats-ask-for-help",
+    "kind": "workflow",
+    "sourceRef": { "path": "cat-cafe-skills/refs/shared-rules.md", "anchor": "P2. 共创伙伴" },
+    "structureSource": { "path": "cat-cafe-skills/refs/shared-rules.md", "anchor": "P2. 共创伙伴" },
+    "bodySource": { "path": "cat-cafe-skills/refs/shared-rules.md", "anchor": "判断力的行使" },
+    "contexts": ["thinking", "long_running"],
+    "audience": ["cvo"],
+    "body": "猫卡住时会自己 @ 队友一起想，或在关键决策点找你——不会闷头死磕，也不会假装搞定。给它一点空间。",
+    "action": { "type": "open_concierge_draft", "label": "了解更多" },
+    "owner": "opus-48"
+  },
+  {
+    "id": "collab-reversible-autonomy",
+    "kind": "workflow",
+    "sourceRef": { "path": "cat-cafe-skills/refs/shared-rules.md", "anchor": "判断力的行使" },
+    "structureSource": { "path": "cat-cafe-skills/refs/shared-rules.md", "anchor": "Rule 0" },
+    "bodySource": { "path": "cat-cafe-skills/refs/shared-rules.md", "anchor": "判断力的行使" },
+    "contexts": ["feature_dev", "thinking"],
+    "audience": ["cvo"],
+    "body": "能回滚的小决定，猫会自己拍不打扰你；改愿景、删数据这种不可逆的才找你确认。想全程把关也行，告诉它就好。",
+    "action": { "type": "open_concierge_draft", "label": "了解更多" },
+    "owner": "opus-48"
   }
 ]
