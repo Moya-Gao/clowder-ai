@@ -34,7 +34,7 @@ export function ApprovalHubDrawer() {
 
       {/* Drawer panel */}
       <div
-        className="fixed top-0 right-0 z-50 h-full w-[380px] max-w-[90vw] bg-[var(--cafe-background)] border-l border-[var(--cafe-border)] shadow-xl flex flex-col"
+        className="fixed top-0 right-0 z-50 h-full w-[380px] max-w-[90vw] bg-[var(--console-card-bg)] border-l border-[var(--cafe-border)] shadow-xl flex flex-col"
         data-testid="approval-hub-drawer"
       >
         {/* Header */}
