@@ -30,6 +30,7 @@ import base64
 
 from aiohttp import web, ClientSession, ClientTimeout, FormData
 from intervention import AdvisoryRateLimiter, SilenceMonitor, InterventionDetector
+from speaker_cluster_registry import ClusterRegistry
 from speaker_embedder import SpeakerEmbedder
 from transcript_store import TranscriptArtifactStore
 from transcript_window import TranscriptWindow
@@ -52,6 +53,7 @@ CAPTURE_BIN = os.getenv("CAPTURE_APP_AUDIO_BIN") or str(
 VAD_ENABLED = os.getenv("VAD_ENABLED", "1") != "0"
 LLM_POSTPROCESS_ENABLED = os.getenv("LLM_POSTPROCESS_ENABLED", "0") == "1"
 SPEAKER_SIMILARITY_THRESHOLD = float(os.getenv("SPEAKER_SIMILARITY_THRESHOLD", "0.6"))
+DIARIZATION_ENABLED = os.getenv("DIARIZATION_ENABLED", "1") != "0"
 LLM_POSTPROCESS_URL = os.getenv("LLM_POSTPROCESS_URL", "http://localhost:9878")
 ASR_CONTEXT = os.getenv("ASR_CONTEXT", "")
 
@@ -94,6 +96,8 @@ class AudioSession:
         self._silence_monitor = SilenceMonitor()
         self._artifact_store: TranscriptArtifactStore | None = None
         self._embedder = SpeakerEmbedder()
+        self.diarization_enabled: bool = DIARIZATION_ENABLED
+        self._cluster_registry = ClusterRegistry()
         self.paused = False
 
     def _reset(self):
@@ -110,6 +114,7 @@ class AudioSession:
         self._window = TranscriptWindow(window_sec=300, summary_interval_sec=300)
         self._silence_monitor = SilenceMonitor()
         self._artifact_store = None
+        self._cluster_registry.reset()
         self._process = None
         self._task = None
 
@@ -169,14 +174,24 @@ class AudioSession:
             parts.append(ASR_CONTEXT)
         return "; ".join(parts)
 
-    def _attribute_speaker(self, chunk_embedding=None) -> dict:
-        """Attribute speaker: embedding-based (preferred) → rule-based (fallback).
+    def _attribute_speaker(self, chunk_embedding=None, segment_duration=0.0) -> dict:
+        """Attribute speaker: enrolled → cluster → rule fallback.
+
+        Priority chain (AC-H3):
+        1. Enrolled cosine match (Phase G) — if enrolled embeddings exist
+        2. Rule-based attribution (Phase C) — if it can name the speaker
+        3. Cluster centroid match (Phase H) — fallback for "有人说" scenarios
+
+        The key insight: rule-based attribution (mic→host, app+2→non-host) is
+        MORE informative than clustering when it works.  Clustering is the
+        "better fallback" for when rule-based gives up (3+ people, no
+        enrollment, "有人说" scenario).
 
         Args:
-            chunk_embedding: np.ndarray from current audio chunk, or None to
-                skip embedding path and use rule-based only.
+            chunk_embedding: np.ndarray from current audio chunk, or None.
+            segment_duration: duration of the audio segment in seconds.
         """
-        # --- Embedding path (AC-G2) ---
+        # --- 1. Enrolled verification path (AC-G2) ---
         if chunk_embedding is not None:
             enrolled_with_emb = [
                 p for p in self.participants
@@ -196,7 +211,40 @@ class AudioSession:
                         "speaker_confidence": round(min(best_sim, 1.0), 3),
                         "speaker_id": best_p["id"],
                     }
-        # --- Rule-based fallback (AC-G3, existing Phase C logic) ---
+
+        # --- 2. Rule-based attribution (AC-G3, Phase C) ---
+        # Try rule-based first; only fall through to clustering when rules
+        # would give a degraded/unknown result ("有人说" / "发言者").
+        rule_result = self._rule_based_attribution()
+        if rule_result["speaker_id"] is not None:
+            return rule_result
+
+        # --- 3. Cluster diarization path (AC-H1) ---
+        # Only reached when rule-based can't name the speaker (3+ people
+        # without enrollment, unknown mic user, etc.)
+        if chunk_embedding is not None and self.diarization_enabled:
+            cluster_result = self._cluster_registry.assign(
+                chunk_embedding, segment_duration
+            )
+            if cluster_result["cluster_id"] is not None:
+                display = self._cluster_registry.get_display_name(
+                    cluster_result["cluster_id"]
+                )
+                return {
+                    "speaker_label": display,
+                    "speaker_confidence": cluster_result["confidence"],
+                    "speaker_id": cluster_result["cluster_id"],
+                }
+
+        # --- 4. Degraded fallback (rule_result was "有人说"/"发言者") ---
+        return rule_result
+
+    def _rule_based_attribution(self) -> dict:
+        """Phase C rule-based speaker attribution.
+
+        Returns a result with speaker_id=None for degraded cases
+        ("有人说" / "发言者"), so the caller knows to try clustering.
+        """
         host = next((p for p in self.participants if p.get("role") == "host"), None)
         non_hosts = [p for p in self.participants if p.get("role") != "host"]
         if self.source == "mic":
@@ -218,6 +266,39 @@ class AudioSession:
                 line["speaker_id"] = speaker_id
                 return True
         return False
+
+    def map_speaker_name(self, cluster_id: str, name: str) -> dict:
+        """Map a cluster ID to a real name, retroactively updating transcript.
+
+        AC-H2: updates ALL existing transcript lines for that cluster,
+        not just future ones.
+        """
+        if not isinstance(cluster_id, str) or not isinstance(name, str):
+            return {"ok": False, "mapped_name": name, "updated_lines": 0}
+        # Capture previous display name from registry BEFORE map_speaker
+        # overwrites it — needed when window lines have expired and the
+        # registry is the only source of the current MD label (cloud R3 P2).
+        prev_display = self._cluster_registry.get_display_name(cluster_id)
+        if not self._cluster_registry.map_speaker(cluster_id, name):
+            return {"ok": False, "mapped_name": name, "updated_lines": 0}
+        # Prefer window line label (most accurate for in-flight renames),
+        # fall back to registry's previous display name (handles expired
+        # window lines — R4 P1-2 + cloud R3 P2 combined fix).
+        current_label = prev_display
+        for line in self._window.get_all_lines():
+            if line.get("speaker_id") == cluster_id:
+                current_label = line.get("speaker_label", prev_display)
+                break
+        # Retroactive update: change speaker_label in all window lines
+        updated = 0
+        for line in self._window.get_all_lines():
+            if line.get("speaker_id") == cluster_id:
+                line["speaker_label"] = name
+                updated += 1
+        # Also update persisted transcript MD (AC-H2: ALL transcript lines)
+        if self._artifact_store:
+            self._artifact_store.rewrite_speaker(current_label, name)
+        return {"ok": True, "mapped_name": name, "updated_lines": updated}
 
     async def start(self, source: str, app_name=None, device=None,
                     chunk_sec: float = DEFAULT_CHUNK_SEC,
@@ -360,6 +441,8 @@ class AudioSession:
             "talking_points": self.talking_points,
             "paused": self.paused,
             "advisory_rate_limiter": self._rate_limiter.status(),
+            "diarization_enabled": self.diarization_enabled,
+            "clusters": self._cluster_registry.get_clusters(),
         }
 
     def get_transcript(self, from_ts=None, to_ts=None, latest=None,
@@ -567,14 +650,18 @@ class AudioSession:
                             text = refined
             except Exception:
                 pass
-        # Extract chunk embedding for speaker attribution (Phase G)
+        # Extract chunk embedding for speaker attribution (Phase G + H)
         chunk_embedding = None
         has_enrolled_embeddings = any(
             p.get("embedding") is not None for p in self.participants
         )
-        if has_enrolled_embeddings:
+        if self.diarization_enabled or has_enrolled_embeddings:
             chunk_embedding = self._embedder.extract(pcm)
-        speaker = self._attribute_speaker(chunk_embedding=chunk_embedding)
+        segment_duration = len(pcm) / 2 / SAMPLE_RATE  # 16-bit PCM → samples → seconds
+        speaker = self._attribute_speaker(
+            chunk_embedding=chunk_embedding,
+            segment_duration=segment_duration,
+        )
         line = {
             "ts": ts,
             "elapsed_s": round(elapsed, 1),
@@ -846,6 +933,30 @@ async def h_correct(request):
     return web.json_response({"ok": True})
 
 
+async def h_map_speaker(request):
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+    cluster_id = data.get("cluster_id")
+    name = data.get("name")
+    if (not isinstance(cluster_id, str) or not isinstance(name, str)
+            or not cluster_id or not name):
+        return web.json_response(
+            {"error": "cluster_id and name must be non-empty strings"}, status=400
+        )
+    result = session.map_speaker_name(cluster_id, name)
+    # SSE broadcast so live UI can update already-displayed lines
+    if result.get("ok"):
+        await session._broadcast({
+            "type": "speaker_renamed",
+            "cluster_id": cluster_id,
+            "new_name": name,
+            "updated_lines": result["updated_lines"],
+        })
+    return web.json_response(result)
+
+
 async def on_cleanup(app_):
     await session.cleanup()
 
@@ -858,6 +969,7 @@ def main():
     app.router.add_post("/resume", h_resume)
     app.router.add_post("/enroll", h_enroll)
     app.router.add_post("/transcript/correct", h_correct)
+    app.router.add_post("/map-speaker", h_map_speaker)
     app.router.add_post("/advisory-mode", h_set_advisory_mode)
     app.router.add_post("/talking-points", h_set_talking_points)
     app.router.add_post("/advisory-dnd", h_advisory_dnd)

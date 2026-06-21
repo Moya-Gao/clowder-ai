@@ -127,6 +127,32 @@ class TranscriptArtifactStore:
             latest_range=f"{self._format_elapsed(range_start)}–{self._format_elapsed(elapsed)}",
         )
 
+    def rewrite_speaker(self, old_label: str, new_label: str) -> int:
+        """Replace a speaker label in already-written transcript MD.
+
+        Handles markdown headers like: ### 00:01:23 — Speaker 1 [0.85]
+        Returns count of headers replaced.
+        """
+        import re
+
+        if not self._md_path or not self._md_path.exists():
+            return 0
+        content = self._md_path.read_text()
+        pattern = rf"(### \d{{2}}:\d{{2}}:\d{{2}} — ){re.escape(old_label)}(?= \[|\n|$)"
+        # Use lambda replacement to insert new_label literally — a plain
+        # replacement string interprets backslashes as backreferences,
+        # corrupting names like "ACME\Bob" (cloud R4 P2).
+        new_content, count = re.subn(
+            pattern,
+            lambda m: m.group(1) + new_label,
+            content,
+        )
+        if count > 0:
+            self._md_path.write_text(new_content)
+            if self._last_speaker == old_label:
+                self._last_speaker = new_label
+        return count
+
     def finalize(self, now: float | None = None) -> dict:
         t = now or time.time()
         self.maybe_flush_summary(now=t)

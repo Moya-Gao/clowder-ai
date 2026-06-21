@@ -7,6 +7,8 @@ import sys
 import types
 import unittest
 
+import numpy as np
+
 _dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _dir)
 
@@ -366,6 +368,29 @@ class TestInputValidation(unittest.TestCase):
         with self.assertRaises((TypeError, ValueError)):
             self.session.correct_line("abc", "Alice", "p2")
 
+    def test_map_speaker_rejects_non_string_name(self):
+        """Non-string name must not corrupt session state (cloud R2 P2-1).
+
+        Scenario: cluster_id is valid (exists in registry) but name is a list.
+        Without type guard, this mutates display_name to a list and then
+        rewrite_speaker crashes on re.escape(["Alice"]).
+        """
+        # Create a real cluster via assign()
+        from speaker_cluster_registry import ClusterRegistry
+        self.session._cluster_registry = ClusterRegistry(threshold=0.5)
+        emb = np.array([1.0, 0.0, 0.0], dtype=np.float32)
+        result = self.session._cluster_registry.assign(emb, 1.0)
+        cid = result["cluster_id"]
+
+        # Now try mapping with non-string name
+        result = self.session.map_speaker_name(cid, ["Alice"])
+        self.assertFalse(result["ok"])
+
+    def test_map_speaker_rejects_non_string_cluster_id(self):
+        """Non-string cluster_id must not corrupt session state."""
+        result = self.session.map_speaker_name(123, "Alice")
+        self.assertFalse(result["ok"])
+
 
 class TestAdvisoryMode(unittest.TestCase):
     def setUp(self):
@@ -574,6 +599,502 @@ class TestSpeakerVerificationIntegration(unittest.TestCase):
             )
             # If we get here without TypeError, the fix works
             assert store is not None
+
+
+# ============================================================
+# Phase H: Speaker Diarization (unsupervised clustering)
+# ============================================================
+
+class TestDiarizationConfig(unittest.TestCase):
+    """Task 2: diarization_enabled config + ClusterRegistry field."""
+
+    def test_diarization_enabled_default_true(self):
+        s = AudioSession()
+        self.assertTrue(hasattr(s, "diarization_enabled"))
+        self.assertTrue(s.diarization_enabled)
+
+    def test_cluster_registry_exists(self):
+        s = AudioSession()
+        self.assertTrue(hasattr(s, "_cluster_registry"))
+        self.assertEqual(s._cluster_registry.cluster_count, 0)
+
+
+class TestResetClearsClusterRegistry(unittest.TestCase):
+    """Task 3: _reset() clears cluster registry."""
+
+    def test_reset_clears_clusters(self):
+        s = AudioSession()
+        emb = np.random.RandomState(1).randn(192).astype(np.float32)
+        emb /= np.linalg.norm(emb)
+        s._cluster_registry.assign(emb, 1.0)
+        self.assertGreater(s._cluster_registry.cluster_count, 0)
+        s._reset()
+        self.assertEqual(s._cluster_registry.cluster_count, 0)
+
+
+class TestEmbeddingGatePhaseH(unittest.TestCase):
+    """Task 4: embedding extraction gate widens for diarization."""
+
+    def test_gate_logic_diarization_enabled_no_enrolled(self):
+        s = AudioSession()
+        s.participants = []
+        s.diarization_enabled = True
+        has_enrolled = any(
+            p.get("embedding") is not None for p in s.participants
+        )
+        should_extract = s.diarization_enabled or has_enrolled
+        self.assertTrue(should_extract)
+        self.assertFalse(has_enrolled)
+
+    def test_gate_logic_diarization_disabled_no_enrolled(self):
+        s = AudioSession()
+        s.participants = []
+        s.diarization_enabled = False
+        has_enrolled = any(
+            p.get("embedding") is not None for p in s.participants
+        )
+        should_extract = s.diarization_enabled or has_enrolled
+        self.assertFalse(should_extract)
+
+
+class TestClusterAttributionPath(unittest.TestCase):
+    """Task 5: _attribute_speaker cluster path integration."""
+
+    def test_cluster_path_creates_speaker_when_no_enrollment(self):
+        s = AudioSession()
+        s.participants = []
+        s.diarization_enabled = True
+        emb = np.random.RandomState(1).randn(192).astype(np.float32)
+        emb /= np.linalg.norm(emb)
+        result = s._attribute_speaker(chunk_embedding=emb, segment_duration=1.0)
+        self.assertEqual(result["speaker_label"], "Speaker 1")
+        self.assertEqual(result["speaker_id"], "Speaker 1")
+
+    def test_enrolled_takes_priority_over_clustering(self):
+        s = AudioSession()
+        emb = np.random.RandomState(1).randn(192).astype(np.float32)
+        emb /= np.linalg.norm(emb)
+        s.participants = [
+            {"id": "p1", "name": "Alice", "role": "host", "embedding": emb},
+        ]
+        s.diarization_enabled = True
+        result = s._attribute_speaker(chunk_embedding=emb, segment_duration=1.0)
+        self.assertEqual(result["speaker_label"], "Alice")
+        self.assertEqual(result["speaker_id"], "p1")
+
+    def test_none_embedding_falls_to_rule_based(self):
+        s = AudioSession()
+        s.participants = [{"id": "h", "name": "Host", "role": "host"}]
+        s.source = "mic"
+        s.diarization_enabled = True
+        result = s._attribute_speaker(chunk_embedding=None, segment_duration=0.0)
+        self.assertEqual(result["speaker_label"], "Host")
+
+    def test_display_name_used_after_map(self):
+        s = AudioSession()
+        s.diarization_enabled = True
+        s.participants = []
+        emb = np.random.RandomState(1).randn(192).astype(np.float32)
+        emb /= np.linalg.norm(emb)
+        r1 = s._attribute_speaker(chunk_embedding=emb, segment_duration=1.0)
+        self.assertEqual(r1["speaker_label"], "Speaker 1")
+        s._cluster_registry.map_speaker("Speaker 1", "Alice")
+        similar = emb + np.random.RandomState(2).randn(192).astype(np.float32) * 0.01
+        similar = similar / np.linalg.norm(similar)
+        r2 = s._attribute_speaker(chunk_embedding=similar, segment_duration=1.0)
+        self.assertEqual(r2["speaker_label"], "Alice")
+
+    def test_diarization_disabled_skips_clustering(self):
+        s = AudioSession()
+        s.diarization_enabled = False
+        s.participants = []
+        s.source = "app"
+        emb = np.random.RandomState(1).randn(192).astype(np.float32)
+        emb /= np.linalg.norm(emb)
+        result = s._attribute_speaker(chunk_embedding=emb, segment_duration=1.0)
+        # Should fall through to rule-based (no enrolled, no clustering)
+        self.assertEqual(result["speaker_label"], "有人说")
+        self.assertEqual(s._cluster_registry.cluster_count, 0)
+
+    def test_rule_based_wins_over_clustering_mic_host(self):
+        """P1-1 regression: mic+host with embedding must still return host name,
+        not Speaker 1. Rule-based takes priority over clustering when it can
+        name the speaker."""
+        s = AudioSession()
+        s.enroll([
+            {"id": "h", "name": "铲屎官", "role": "host"},
+            {"id": "p2", "name": "Alice", "role": "participant"},
+        ])
+        s.source = "mic"
+        s.diarization_enabled = True
+        emb = np.random.RandomState(1).randn(192).astype(np.float32)
+        emb /= np.linalg.norm(emb)
+        result = s._attribute_speaker(chunk_embedding=emb, segment_duration=1.0)
+        self.assertEqual(result["speaker_label"], "铲屎官")
+        self.assertEqual(result["speaker_id"], "h")
+        # Clustering should NOT have been touched
+        self.assertEqual(s._cluster_registry.cluster_count, 0)
+
+    def test_rule_based_wins_over_clustering_app_two(self):
+        """P1-1 regression: app+2 with embedding must still return non-host name,
+        not Speaker 1."""
+        s = AudioSession()
+        s.enroll([
+            {"id": "h", "name": "铲屎官", "role": "host"},
+            {"id": "p2", "name": "Alice", "role": "participant"},
+        ])
+        s.source = "app"
+        s.diarization_enabled = True
+        emb = np.random.RandomState(1).randn(192).astype(np.float32)
+        emb /= np.linalg.norm(emb)
+        result = s._attribute_speaker(chunk_embedding=emb, segment_duration=1.0)
+        self.assertEqual(result["speaker_label"], "Alice")
+        self.assertEqual(result["speaker_id"], "p2")
+        self.assertEqual(s._cluster_registry.cluster_count, 0)
+
+    def test_clustering_activates_when_rule_degrades(self):
+        """Clustering fires only when rule-based would give '有人说'."""
+        s = AudioSession()
+        s.enroll([
+            {"id": "h", "name": "铲屎官", "role": "host"},
+            {"id": "p2", "name": "Alice", "role": "participant"},
+            {"id": "p3", "name": "Bob", "role": "participant"},
+        ])
+        s.source = "app"
+        s.diarization_enabled = True
+        emb = np.random.RandomState(1).randn(192).astype(np.float32)
+        emb /= np.linalg.norm(emb)
+        # 3 participants + app → rule-based gives "有人说" → cluster activates
+        result = s._attribute_speaker(chunk_embedding=emb, segment_duration=1.0)
+        self.assertEqual(result["speaker_label"], "Speaker 1")
+        self.assertGreater(s._cluster_registry.cluster_count, 0)
+
+    def test_two_speakers_get_different_clusters(self):
+        s = AudioSession()
+        s.diarization_enabled = True
+        s.participants = []
+        emb1 = np.random.RandomState(1).randn(192).astype(np.float32)
+        emb1 /= np.linalg.norm(emb1)
+        emb2 = np.random.RandomState(100).randn(192).astype(np.float32)
+        emb2 /= np.linalg.norm(emb2)
+        r1 = s._attribute_speaker(chunk_embedding=emb1, segment_duration=1.0)
+        r2 = s._attribute_speaker(chunk_embedding=emb2, segment_duration=1.0)
+        self.assertEqual(r1["speaker_label"], "Speaker 1")
+        self.assertEqual(r2["speaker_label"], "Speaker 2")
+        self.assertEqual(s._cluster_registry.cluster_count, 2)
+
+
+class TestMapSpeakerRetroactive(unittest.TestCase):
+    """Task 6: map_speaker_name with retroactive transcript update."""
+
+    def test_retroactive_updates_window_lines(self):
+        s = AudioSession()
+        s.diarization_enabled = True
+        emb = np.random.RandomState(1).randn(192).astype(np.float32)
+        emb /= np.linalg.norm(emb)
+        s._attribute_speaker(chunk_embedding=emb, segment_duration=1.0)
+        s._window.add_line({
+            "ts": "00:00:01", "elapsed_s": 1.0, "chunk_num": 1,
+            "text": "hello", "speaker_label": "Speaker 1",
+            "speaker_confidence": 1.0, "speaker_id": "Speaker 1",
+        })
+        s._window.add_line({
+            "ts": "00:00:05", "elapsed_s": 5.0, "chunk_num": 2,
+            "text": "world", "speaker_label": "Speaker 1",
+            "speaker_confidence": 1.0, "speaker_id": "Speaker 1",
+        })
+        result = s.map_speaker_name("Speaker 1", "Alice")
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["updated_lines"], 2)
+        for line in s._window.get_all_lines():
+            if line.get("speaker_id") == "Speaker 1":
+                self.assertEqual(line["speaker_label"], "Alice")
+
+    def test_nonexistent_cluster_returns_false(self):
+        s = AudioSession()
+        result = s.map_speaker_name("Speaker 99", "Ghost")
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["updated_lines"], 0)
+
+    def test_only_updates_matching_cluster(self):
+        s = AudioSession()
+        s.diarization_enabled = True
+        emb1 = np.random.RandomState(1).randn(192).astype(np.float32)
+        emb1 /= np.linalg.norm(emb1)
+        emb2 = np.random.RandomState(100).randn(192).astype(np.float32)
+        emb2 /= np.linalg.norm(emb2)
+        s._attribute_speaker(chunk_embedding=emb1, segment_duration=1.0)
+        s._attribute_speaker(chunk_embedding=emb2, segment_duration=1.0)
+        s._window.add_line({
+            "ts": "00:00:01", "elapsed_s": 1.0, "chunk_num": 1,
+            "text": "hello", "speaker_label": "Speaker 1",
+            "speaker_confidence": 1.0, "speaker_id": "Speaker 1",
+        })
+        s._window.add_line({
+            "ts": "00:00:05", "elapsed_s": 5.0, "chunk_num": 2,
+            "text": "goodbye", "speaker_label": "Speaker 2",
+            "speaker_confidence": 1.0, "speaker_id": "Speaker 2",
+        })
+        result = s.map_speaker_name("Speaker 1", "Alice")
+        self.assertEqual(result["updated_lines"], 1)
+        lines = s._window.get_all_lines()
+        self.assertEqual(lines[0]["speaker_label"], "Alice")
+        self.assertEqual(lines[1]["speaker_label"], "Speaker 2")  # untouched
+
+
+    def test_retroactive_updates_persisted_transcript(self):
+        """R3 regression: map_speaker_name must also rewrite the MD artifact."""
+        import tempfile
+        from transcript_store import TranscriptArtifactStore
+
+        s = AudioSession()
+        s.diarization_enabled = True
+        emb = np.random.RandomState(1).randn(192).astype(np.float32)
+        emb /= np.linalg.norm(emb)
+        s._attribute_speaker(chunk_embedding=emb, segment_duration=1.0)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = TranscriptArtifactStore(
+                transcript_dir=tmpdir,
+                thread_id="t_test",
+                meeting_id="m_test",
+                app_name="Test",
+                participants=[],
+            )
+            s._artifact_store = store
+            # Write a line with cluster label
+            store.append_line({
+                "speaker_label": "Speaker 1",
+                "speaker_confidence": 0.9,
+                "elapsed_s": 5.0,
+                "text": "hello world",
+            })
+            # Also add to window for the in-memory path
+            s._window.add_line({
+                "ts": "00:00:05", "elapsed_s": 5.0, "chunk_num": 1,
+                "text": "hello world", "speaker_label": "Speaker 1",
+                "speaker_confidence": 0.9, "speaker_id": "Speaker 1",
+            })
+            result = s.map_speaker_name("Speaker 1", "Alice")
+            self.assertTrue(result["ok"])
+            # Verify MD file now has "Alice" instead of "Speaker 1"
+            md_content = store._md_path.read_text()
+            self.assertIn("Alice", md_content)
+            self.assertNotIn("Speaker 1", md_content)
+
+    def test_rewrite_does_not_collide_prefix(self):
+        """R4 regression: renaming 'Speaker 1' must not corrupt 'Speaker 10'."""
+        import tempfile
+        from transcript_store import TranscriptArtifactStore
+
+        s = AudioSession()
+        s.diarization_enabled = True
+        emb1 = np.random.RandomState(1).randn(192).astype(np.float32)
+        emb1 /= np.linalg.norm(emb1)
+        emb2 = np.random.RandomState(100).randn(192).astype(np.float32)
+        emb2 /= np.linalg.norm(emb2)
+        s._attribute_speaker(chunk_embedding=emb1, segment_duration=1.0)
+        s._attribute_speaker(chunk_embedding=emb2, segment_duration=1.0)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = TranscriptArtifactStore(
+                transcript_dir=tmpdir, thread_id="t_test",
+                meeting_id="m_prefix", app_name="Test", participants=[],
+            )
+            s._artifact_store = store
+            store.append_line({
+                "speaker_label": "Speaker 1", "speaker_confidence": 0.9,
+                "elapsed_s": 5.0, "text": "first speaker",
+            })
+            store.append_line({
+                "speaker_label": "Speaker 10", "speaker_confidence": 0.8,
+                "elapsed_s": 10.0, "text": "tenth speaker",
+            })
+            s._window.add_line({
+                "ts": "00:00:05", "elapsed_s": 5.0, "chunk_num": 1,
+                "text": "first speaker", "speaker_label": "Speaker 1",
+                "speaker_confidence": 0.9, "speaker_id": "Speaker 1",
+            })
+            s._window.add_line({
+                "ts": "00:00:10", "elapsed_s": 10.0, "chunk_num": 2,
+                "text": "tenth speaker", "speaker_label": "Speaker 10",
+                "speaker_confidence": 0.8, "speaker_id": "Speaker 10",
+            })
+            result = s.map_speaker_name("Speaker 1", "Alice")
+            self.assertTrue(result["ok"])
+            md = store._md_path.read_text()
+            self.assertIn("Alice", md)
+            self.assertIn("Speaker 10", md)  # Must NOT be corrupted
+            self.assertNotIn("Alice0", md)  # No prefix collision artifact
+
+    def test_repeated_rename_updates_persisted_transcript(self):
+        """R4 regression: second rename of same cluster must update MD."""
+        import tempfile
+        from transcript_store import TranscriptArtifactStore
+
+        s = AudioSession()
+        s.diarization_enabled = True
+        emb = np.random.RandomState(1).randn(192).astype(np.float32)
+        emb /= np.linalg.norm(emb)
+        s._attribute_speaker(chunk_embedding=emb, segment_duration=1.0)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = TranscriptArtifactStore(
+                transcript_dir=tmpdir, thread_id="t_test",
+                meeting_id="m_rename2", app_name="Test", participants=[],
+            )
+            s._artifact_store = store
+            store.append_line({
+                "speaker_label": "Speaker 1", "speaker_confidence": 0.9,
+                "elapsed_s": 5.0, "text": "hello",
+            })
+            s._window.add_line({
+                "ts": "00:00:05", "elapsed_s": 5.0, "chunk_num": 1,
+                "text": "hello", "speaker_label": "Speaker 1",
+                "speaker_confidence": 0.9, "speaker_id": "Speaker 1",
+            })
+            # First rename: Speaker 1 → Alice
+            r1 = s.map_speaker_name("Speaker 1", "Alice")
+            self.assertTrue(r1["ok"])
+            # Second rename: same cluster → Bob
+            r2 = s.map_speaker_name("Speaker 1", "Bob")
+            self.assertTrue(r2["ok"])
+            md = store._md_path.read_text()
+            self.assertIn("Bob", md)
+            self.assertNotIn("Alice", md)  # Must be overwritten
+            self.assertNotIn("Speaker 1", md)  # Must not remain
+
+
+    def test_repeated_rename_after_window_expiry(self):
+        """Cloud R3 regression: second rename must work even when window lines
+        have expired (no lines in TranscriptWindow for this cluster).
+
+        Scenario:
+        1. Cluster "Speaker 1" created, window line added, MD written
+        2. First rename: "Speaker 1" → "Alice" (window line present → works)
+        3. Window lines expire (cleared)
+        4. Second rename: "Speaker 1" → "Bob"
+
+        Bug: with expired window, current_label falls back to cluster_id
+        ("Speaker 1"), but MD already has "Alice" → rewrite_speaker misses.
+        Fix: capture display_name from cluster registry BEFORE map_speaker.
+        """
+        import tempfile
+        from transcript_store import TranscriptArtifactStore
+
+        s = AudioSession()
+        s.diarization_enabled = True
+        emb = np.random.RandomState(42).randn(192).astype(np.float32)
+        emb /= np.linalg.norm(emb)
+        s._attribute_speaker(chunk_embedding=emb, segment_duration=1.0)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = TranscriptArtifactStore(
+                transcript_dir=tmpdir, thread_id="t_test",
+                meeting_id="m_expiry", app_name="Test", participants=[],
+            )
+            s._artifact_store = store
+            store.append_line({
+                "speaker_label": "Speaker 1", "speaker_confidence": 0.9,
+                "elapsed_s": 5.0, "text": "hello from speaker one",
+            })
+            s._window.add_line({
+                "ts": "00:00:05", "elapsed_s": 5.0, "chunk_num": 1,
+                "text": "hello from speaker one", "speaker_label": "Speaker 1",
+                "speaker_confidence": 0.9, "speaker_id": "Speaker 1",
+            })
+
+            # First rename: Speaker 1 → Alice (window line present)
+            r1 = s.map_speaker_name("Speaker 1", "Alice")
+            self.assertTrue(r1["ok"])
+            md_after_first = store._md_path.read_text()
+            self.assertIn("Alice", md_after_first)
+
+            # Simulate window expiry: clear all lines
+            s._window._all_lines.clear()
+            self.assertEqual(len(s._window.get_all_lines()), 0)
+
+            # Second rename: Speaker 1 → Bob (no window lines!)
+            r2 = s.map_speaker_name("Speaker 1", "Bob")
+            self.assertTrue(r2["ok"])
+            md_after_second = store._md_path.read_text()
+            self.assertIn("Bob", md_after_second, (
+                "MD should contain 'Bob' after second rename, but got:\n"
+                + md_after_second
+            ))
+            self.assertNotIn("Alice", md_after_second, (
+                "MD should NOT contain 'Alice' after second rename, but got:\n"
+                + md_after_second
+            ))
+
+
+class TestMapSpeakerBroadcast(unittest.TestCase):
+    """R2 regression: h_map_speaker must broadcast speaker_renamed SSE event."""
+
+    def test_broadcast_event_shape(self):
+        """map_speaker_name returns fields needed for speaker_renamed broadcast."""
+        s = AudioSession()
+        s.diarization_enabled = True
+        emb = np.random.RandomState(1).randn(192).astype(np.float32)
+        emb /= np.linalg.norm(emb)
+        s._attribute_speaker(chunk_embedding=emb, segment_duration=1.0)
+        s._window.add_line({
+            "ts": "00:00:01", "elapsed_s": 1.0, "chunk_num": 1,
+            "text": "hello", "speaker_label": "Speaker 1",
+            "speaker_confidence": 1.0, "speaker_id": "Speaker 1",
+        })
+        result = s.map_speaker_name("Speaker 1", "Alice")
+        # Handler builds broadcast from these fields:
+        self.assertTrue(result["ok"])
+        self.assertIn("mapped_name", result)
+        self.assertIn("updated_lines", result)
+        self.assertEqual(result["mapped_name"], "Alice")
+        self.assertGreater(result["updated_lines"], 0)
+
+    def test_broadcast_sends_to_listeners(self):
+        """_broadcast pushes events to SSE listeners."""
+        import asyncio
+
+        s = AudioSession()
+        q = s.add_listener()
+
+        async def do_broadcast():
+            await s._broadcast({
+                "type": "speaker_renamed",
+                "cluster_id": "Speaker 1",
+                "new_name": "Alice",
+                "updated_lines": 2,
+            })
+
+        asyncio.run(do_broadcast())
+        self.assertFalse(q.empty())
+        import json
+        event = json.loads(q.get_nowait())
+        self.assertEqual(event["type"], "speaker_renamed")
+        self.assertEqual(event["new_name"], "Alice")
+        s.remove_listener(q)
+
+
+class TestStatusIncludesClusters(unittest.TestCase):
+    """Task 7: /status includes cluster info."""
+
+    def test_status_has_diarization_fields(self):
+        s = AudioSession()
+        status = s.status()
+        self.assertIn("diarization_enabled", status)
+        self.assertIn("clusters", status)
+        self.assertTrue(status["diarization_enabled"])
+        self.assertEqual(status["clusters"], [])
+
+    def test_status_shows_clusters_after_assign(self):
+        s = AudioSession()
+        s.diarization_enabled = True
+        emb = np.random.RandomState(1).randn(192).astype(np.float32)
+        emb /= np.linalg.norm(emb)
+        s._cluster_registry.assign(emb, 1.0)
+        status = s.status()
+        self.assertEqual(len(status["clusters"]), 1)
+        self.assertEqual(status["clusters"][0]["id"], "Speaker 1")
 
 
 if __name__ == "__main__":

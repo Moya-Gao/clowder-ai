@@ -154,6 +154,275 @@ def evaluate(
     }
 
 
+# ============================================================
+# Phase H: Diarization metrics (AC-H4)
+# ============================================================
+
+def _build_label_mapping(
+    ref: list[tuple[str, float, float]],
+    hyp: list[tuple[str, float, float]],
+    step: float,
+) -> dict[str, str]:
+    """Build optimal hyp→ref label mapping via brute-force permutation.
+
+    For unsupervised diarization, hypothesis labels (Speaker 1, Speaker 2)
+    are arbitrary. We find the mapping that minimizes DER by trying all
+    possible one-to-one assignments of hyp labels to ref labels.
+
+    Uses brute-force permutation: O(N!) but N=max_clusters≤8, so 8!=40320
+    iterations max — trivial for evaluation.
+    """
+    from collections import Counter
+    from itertools import combinations, permutations
+
+    # Collect co-occurrence counts for scoring mappings
+    cooccur: dict[tuple[str, str], int] = Counter()
+    max_time = max((e for _, _, e in ref), default=0.0)
+    if hyp:
+        max_time = max(max_time, max(e for _, _, e in hyp))
+
+    t = 0.0
+    while t < max_time:
+        ref_spk = {s for s, start, end in ref if start <= t < end}
+        hyp_spk = {s for s, start, end in hyp if start <= t < end}
+        for h in hyp_spk:
+            for r in ref_spk:
+                cooccur[(h, r)] += 1
+        t += step
+
+    hyp_labels = sorted({s for s, _, _ in hyp})
+    ref_labels = sorted({s for s, _, _ in ref})
+
+    if not hyp_labels or not ref_labels:
+        return {}
+
+    # Enumerate all possible one-to-one mappings: choose k hyp labels,
+    # then try all permutations of k ref labels to assign to them.
+    # This handles |hyp| > |ref| correctly (must pick WHICH hyp to map).
+    k = min(len(hyp_labels), len(ref_labels))
+    best_mapping: dict[str, str] = {}
+    best_score = -1
+
+    for hyp_subset in combinations(hyp_labels, k):
+        for ref_perm in permutations(ref_labels, k):
+            mapping = dict(zip(hyp_subset, ref_perm))
+            score = sum(cooccur.get((h, r), 0) for h, r in mapping.items())
+            if score > best_score:
+                best_score = score
+                best_mapping = mapping
+
+    return best_mapping
+
+
+def compute_der(
+    ref: list[tuple[str, float, float]],
+    hyp: list[tuple[str, float, float]],
+    step: float = 0.1,
+) -> float:
+    """Compute Diarization Error Rate (DER) via frame-level comparison.
+
+    Handles unsupervised diarization where hypothesis labels differ from
+    reference labels by building an optimal label mapping first.
+
+    Args:
+        ref: Reference labels as [(speaker, start_s, end_s), ...]
+        hyp: Hypothesis labels as [(speaker, start_s, end_s), ...]
+        step: Time resolution in seconds (default 0.1s = 100ms frames)
+
+    Returns:
+        DER as float in [0, 1+] (can exceed 1 with false alarms).
+        DER = (miss + false_alarm + confusion) / total_reference_duration
+    """
+    if not ref:
+        return 0.0
+
+    # Build optimal label mapping (hyp label → ref label)
+    label_map = _build_label_mapping(ref, hyp, step)
+
+    max_time = max(e for _, _, e in ref)
+    if hyp:
+        max_time = max(max_time, max(e for _, _, e in hyp))
+
+    ref_frames = 0  # frames where ref has speech
+    miss = 0
+    false_alarm = 0
+    confusion = 0
+
+    t = 0.0
+    while t < max_time:
+        ref_speakers = {s for s, start, end in ref if start <= t < end}
+        hyp_speakers = {s for s, start, end in hyp if start <= t < end}
+        # Map hyp labels to ref labels for comparison
+        mapped_hyp = {label_map.get(s, s) for s in hyp_speakers}
+
+        has_ref = len(ref_speakers) > 0
+        has_hyp = len(hyp_speakers) > 0
+
+        if has_ref:
+            ref_frames += 1
+
+        if has_ref and not has_hyp:
+            miss += 1
+        elif has_hyp and not has_ref:
+            false_alarm += 1
+        elif has_ref and has_hyp:
+            # Both have speech — count confusion (mapped labels don't match)
+            matched = ref_speakers & mapped_hyp
+            unmatched_ref = ref_speakers - matched
+            unmatched_hyp = mapped_hyp - matched
+            confusion += max(len(unmatched_ref), len(unmatched_hyp))
+
+        t += step
+
+    # DER denominator is ref speech duration (in frames)
+    total_errors = miss + false_alarm + confusion
+    return total_errors / max(ref_frames, 1)
+
+
+def compute_swap_rate(labels: list[str], true_labels: list[str]) -> float:
+    """Compute speaker swap rate: fraction of transitions that are incorrect.
+
+    A "swap" is when the predicted speaker changes but shouldn't have
+    (or vice versa).
+
+    Args:
+        labels: Predicted speaker labels per segment
+        true_labels: Ground truth labels per segment
+
+    Returns:
+        Swap error rate in [0, 1]
+    """
+    if len(labels) < 2 or len(true_labels) < 2:
+        return 0.0
+
+    n = min(len(labels), len(true_labels))
+    swap_errors = 0
+    swap_total = 0
+
+    for i in range(1, n):
+        true_changed = true_labels[i] != true_labels[i - 1]
+        pred_changed = labels[i] != labels[i - 1]
+        swap_total += 1
+        if true_changed != pred_changed:
+            swap_errors += 1
+
+    return swap_errors / max(swap_total, 1)
+
+
+def compute_fragmentation_rate(labels: list[str]) -> float:
+    """Compute fragmentation rate: number of speaker changes per segment.
+
+    Lower = better. High fragmentation means the system rapidly switches
+    between speakers even within a single utterance.
+
+    Returns:
+        Changes per segment (0 = no changes, 1 = every segment changes)
+    """
+    if len(labels) < 2:
+        return 0.0
+
+    changes = sum(1 for i in range(1, len(labels)) if labels[i] != labels[i - 1])
+    return changes / (len(labels) - 1)
+
+
+def compute_unknown_rate(labels: list[str | None]) -> float:
+    """Compute unknown rate: fraction of segments with no speaker assignment.
+
+    Args:
+        labels: Speaker labels, None means unassigned
+
+    Returns:
+        Unknown rate in [0, 1]
+    """
+    if not labels:
+        return 0.0
+    unknown = sum(1 for l in labels if l is None)
+    return unknown / len(labels)
+
+
+def evaluate_diarization(
+    embedder: SpeakerEmbedder,
+    test_pcm: bytes,
+    ground_truth: list[dict],
+    segment_sec: float,
+    threshold: float = 0.65,
+    max_clusters: int = 8,
+) -> dict:
+    """Evaluate unsupervised diarization using ClusterRegistry.
+
+    No enrollment — purely clustering-based evaluation.
+    """
+    from speaker_cluster_registry import ClusterRegistry
+
+    registry = ClusterRegistry(threshold=threshold, max_clusters=max_clusters)
+    segments = segment_pcm(test_pcm, segment_sec)
+
+    predicted_labels: list[str | None] = []
+    true_labels: list[str] = []
+    # Parallel truth list: same length as predicted_labels, preserving
+    # per-segment alignment (None for segments without ground truth).
+    # Needed because true_labels only has entries for segments WITH ground
+    # truth, losing positional correspondence when predictions have Nones.
+    true_for_pred: list[str | None] = []
+    hyp_segments: list[tuple[str, float, float]] = []
+
+    for i, seg in enumerate(segments):
+        start_s = i * segment_sec
+        end_s = start_s + segment_sec
+
+        gt_speaker = find_ground_truth_speaker(ground_truth, start_s, end_s)
+        if gt_speaker is None:
+            predicted_labels.append(None)
+            true_for_pred.append(None)
+            continue
+
+        true_labels.append(gt_speaker)
+        true_for_pred.append(gt_speaker)
+        emb = embedder.extract(seg)
+        if emb is None:
+            predicted_labels.append(None)
+            continue
+
+        duration = len(seg) / 2 / 16000
+        result = registry.assign(emb, duration)
+        label = result["cluster_id"]
+        predicted_labels.append(label)
+
+        if label:
+            hyp_segments.append((label, start_s, end_s))
+
+    # Build ref segments from ground truth
+    ref_segments = [(e["speaker"], e["start_s"], e["end_s"]) for e in ground_truth]
+
+    # Aligned filtering for swap_rate: keep only segments where BOTH
+    # prediction and ground truth exist, preserving index correspondence.
+    aligned_pairs = [
+        (p, t) for p, t in zip(predicted_labels, true_for_pred)
+        if p is not None and t is not None
+    ]
+    if aligned_pairs:
+        aligned_pred, aligned_true = zip(*aligned_pairs)
+        swap = compute_swap_rate(list(aligned_pred), list(aligned_true))
+    else:
+        swap = 0.0
+
+    # Compute remaining metrics
+    der = compute_der(ref_segments, hyp_segments)
+    frag = compute_fragmentation_rate([l or "?" for l in predicted_labels])
+    unknown = compute_unknown_rate(predicted_labels)
+
+    return {
+        "segment_sec": segment_sec,
+        "total_segments": len(segments),
+        "num_clusters": registry.cluster_count,
+        "clusters": registry.get_clusters(),
+        "der": round(der, 4),
+        "swap_rate": round(swap, 4),
+        "fragmentation_rate": round(frag, 4),
+        "unknown_rate": round(unknown, 4),
+    }
+
+
 def enroll_speakers(embedder: SpeakerEmbedder, enrollment_dir: Path) -> dict[str, np.ndarray]:
     """Extract enrollment embeddings from speaker WAV files."""
     embeddings = {}

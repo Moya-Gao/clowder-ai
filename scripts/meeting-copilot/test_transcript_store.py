@@ -254,5 +254,29 @@ class TestTranscriptArtifactStore(unittest.TestCase):
                 f"No .tmp residue should remain after writes, found: {tmp_files}")
 
 
+    def test_rewrite_speaker_backslash_in_name(self):
+        """Cloud R4 regression: backslashes in speaker name must be treated
+        literally by rewrite_speaker, not interpreted as regex backreferences.
+
+        re.subn replacement string interprets \\B as backreference → re.error
+        or corrupted output. Fix: use lambda replacement for literal insertion.
+        """
+        with tempfile.TemporaryDirectory() as d:
+            store = TranscriptArtifactStore(d, "t_bs", "m_bs", "App", [])
+            store.append_line({
+                "speaker_label": "Speaker 1", "speaker_confidence": 0.9,
+                "elapsed_s": 1.0, "text": "domain user speaking",
+            })
+            # Name with backslash (Windows domain-style)
+            count = store.rewrite_speaker("Speaker 1", "ACME\\Bob")
+            self.assertEqual(count, 1, "Should have replaced 1 header")
+            md = store._md_path.read_text()
+            self.assertIn("ACME\\Bob", md, (
+                f"MD should contain literal 'ACME\\Bob', got:\n{md}"
+            ))
+            # Ensure no regex corruption (\\a → bell char, \\B → error)
+            self.assertNotIn("\a", md, "Bell character found — backslash was interpreted")
+
+
 if __name__ == "__main__":
     unittest.main()
