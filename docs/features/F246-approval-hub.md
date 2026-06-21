@@ -129,7 +129,7 @@ Why: CVO 审批散落在各 thread（F128/F225/F193），铲屎官不在对应 t
 - [x] **AC-B3**: effect-class 由发送猫在 cross-post 时声明，不由底座推断
 - [x] **AC-B4**: **接收侧不变量**（砚砚 R2 P2）：`fyi`/`coordinate`/`investigate` 自动投递**永远不是开工授权**。接收猫只能知会/协调/只读调查；写代码必须有 `assign_work` 的 approved DispatchProposal 或 CVO 直接指令。接收侧 prompt 注入 effect-class 标签 + 行为约束。Fixture：imperative wording（"请修这个 bug"）+ non-assign effect-class（`fyi`）= 不触发 ApprovalItem + 接收侧不授权 coding
 
-### Phase C: Workspace 集成 + 响应式 Tab Bar + 成熟化
+### Phase C: Workspace 集成 + 响应式 Tab Bar + 成熟化 ✅
 
 > **CVO 设计决策（2026-06-21）**：Approval Hub 从 drawer overlay 迁移到 workspace panel 的顶层 tab。
 > 铲屎官原话："说实话你们的这个东西合适放在workspace这里" / "铃铛必须在，不然我不知道到底有谁要我审批，但是点击的话那就是打开workspace - 审批就行了" / "动态计算啊！！按照用户给workspace 拉的宽度来匹配？"
@@ -160,13 +160,13 @@ Why: CVO 审批散落在各 thread（F128/F225/F193），铲屎官不在对应 t
 
 #### Phase C AC
 
-- [ ] **AC-C1**: `workspaceMode='approval'` 在 WorkspacePanel 中渲染 ApprovalPanel（列表 + inline approve/reject + 跳转）
-- [ ] **AC-C2**: Bell 铃铛点击 → `setWorkspaceMode('approval')` + 打开 workspace panel（不再弹 drawer）
-- [ ] **AC-C3**: ApprovalHubDrawer 标 deprecated，不再从 AppShell 渲染（breaking change guard：旧 bell 行为平滑切换）
-- [ ] **AC-C4**: Tab bar 宽度 ≥ `tabCount × 65px` 时全部展开（icon + 文字）
-- [ ] **AC-C5**: Tab bar 宽度不足时自动收纳溢出 tab 到 `⋯` dropdown
-- [ ] **AC-C6**: Tab bar 极窄时（< `tabCount × 36px`）切换到 icon-only 模式
-- [ ] **AC-C7**: Overflow dropdown 中的 tab 功能与展开 tab 一致（点击切换 mode）
+- [x] **AC-C1**: `workspaceMode='approval'` 在 WorkspacePanel 中渲染 ApprovalPanel（列表 + inline approve/reject + 跳转）
+- [x] **AC-C2**: Bell 铃铛点击 → `setWorkspaceMode('approval')` + 打开 workspace panel（不再弹 drawer）
+- [x] **AC-C3**: ApprovalHubDrawer 标 deprecated，不再从 AppShell 渲染（breaking change guard：旧 bell 行为平滑切换）
+- [x] **AC-C4**: Tab bar 宽度 ≥ `tabCount × 65px` 时全部展开（icon + 文字）
+- [x] **AC-C5**: Tab bar 宽度不足时自动收纳溢出 tab 到 `⋯` dropdown
+- [x] **AC-C6**: Tab bar 极窄时（< `tabCount × 36px`）切换到 icon-only 模式
+- [x] **AC-C7**: Overflow dropdown 中的 tab 功能与展开 tab 一致（点击切换 mode）
 - [ ] **AC-C8**: Residual P2（Phase B review）：intercept mirror "单行首 mention 才路由" pruning
 
 ## Links
@@ -189,3 +189,4 @@ Why: CVO 审批散落在各 thread（F128/F225/F193），铲屎官不在对应 t
 | 2026-06-21 | Phase B alpha-validated — 5/5 smoke tests PASS (@sonnet): hotfix bg opaque ✅, assign_work→Hub ✅, fyi/coordinate/investigate→auto-deliver ✅, inline approve ✅, count accuracy ✅ |
 | 2026-06-21 | Hotfix merged (PR #2456, cad0e759c) — ApprovalHubDrawer --cafe-background→--console-card-bg |
 | 2026-06-21 | Phase C CVO design decision — drawer→workspace tab + responsive tab bar + bell→workspace shortcut |
+| 2026-06-21 | Phase C merged (PR #2463) — workspace tab + responsive WorkspaceTabBar + bell→workspace shortcut + cloud review P2 fixes |
