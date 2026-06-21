@@ -582,7 +582,7 @@
     "bodySource": { "path": "docs/features/F108-side-dispatch-concurrent-invocation.md", "anchor": "Side-Dispatch" },
     "contexts": ["thinking", "concierge_open"],
     "audience": ["all"],
-    "body": "不 @ 任何猫猫？上次跟你聊的那只猫会继续接话。想找特定猫猫就 @ 它的名字，想多只猫同时答就 @ 多只——它们会各自独立回复。",
+    "body": "不 @ 任何猫猫？上次跟你聊的那只猫会继续接话。想找特定猫猫就 @ 它的名字。同时 @ 多只时它们各自独立回复你，那一轮里不会互相传球——想让它们接力协作，等回复后再点名下一只。",
     "action": { "type": "open_concierge_draft", "label": "了解更多" },
     "owner": "opus"
   },
