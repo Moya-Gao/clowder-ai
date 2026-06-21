@@ -977,7 +977,20 @@ sonnet 看了"AC ✅ 三层 harness ✅"放行，但没问"守门猫 daily SOP �
 - **Scope-cut**: Redis-backed sample persistence (7-day retention) deferred to PR-O4 hardening
 - **下一棒**: PR-O3 (Phase N policy patch — narrow gate for issue_tracking + hold_ball)
 
-**F167 Close 门槛更新**：Phase O 收敛（**PR-O1 ✅ → O2a ✅ → O2b ✅ → O2b-fix ✅ → O3 ✅ → O4 ✅**）+ shadow 1 周 telemetry 观察 + F192 weekly verdict 通过后才可 close。Phase N 与 Phase O 关系：keep PR-tracking hard-block + patch issue_tracking/hold_ball 已确认；Phase N 不再是 F167 close 的最后一步。
+**F167 Close 门槛（具体 acceptance criteria，不接受 placeholder / follow-up / tracked）**：
+
+Phase O 代码完成清单：**PR-O1 ✅ → O2a ✅ → O2b ✅ → O2b-fix ✅ → O3 ✅ → O4 ✅ → eval-wiring #2455 ✅**（7 PRs 全合入 main，最终 merge `a5311d2e5` 2026-06-21）
+
+Close 必须满足全部 4 条（vision guardian opus-47 APPROVE 时明确要求，2026-06-21）：
+
+1. **[ ] Runtime sync 实测证据**：`cat-cafe-runtime` pull 到含 Phase O 全部 7 PRs 的 main HEAD，且至少一次 `grounding.check_total > 0` 实测 counter 截图/日志（证明 shadow hook 真触发，不只是代码合入）
+2. **[ ] F192 weekly verdict 真跑过**：至少一次 F192 eval:a2a verdict artifact 含 `grounding-phase-o` component **实数据**（不只是字段挂在 snapshot 上，要有真实 counter 值）
+3. **[ ] Redis-backed sample persistence 决策**（doc L997 ❌）— close 前二选一，不接受「以后做」：
+   - A. 实做 PR-O5+（Redis 7-day retention 对齐 diagnostics traces 先例）
+   - B. CVO 签字降级（具体降级方案：observation 期监测 runtime restart 频率；restart → 重启 observation timer，不视为 close blocker）
+4. **[ ] 独立 grounding verdict 判定标准**（doc L998 ❌）— observation 期累积数据后形成结构化标准落进 DOMAIN_INSTRUCTIONS（如 mismatch rate > X% → escalate / < Y% → keep_observe 的具体阈值），close 前须有数据支撑的具体数字
+
+Phase N 与 Phase O 关系：keep PR-tracking hard-block + patch issue_tracking/hold_ball 已确认；Phase N 不再是 F167 close 的最后一步。
 
 ### Phase O Eval 接入清单（eval:a2a 子域）
 
