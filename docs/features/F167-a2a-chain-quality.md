@@ -978,6 +978,30 @@ sonnet 看了"AC ✅ 三层 harness ✅"放行，但没问"守门猫 daily SOP �
 
 **F167 Close 门槛更新**：Phase O 收敛（**PR-O1 ✅ → O2a ✅ → O2b ✅ → O2b-fix ✅ → O3 ✅ → O4 ✅**）+ shadow 1 周 telemetry 观察 + F192 weekly verdict 通过后才可 close。Phase N 与 Phase O 关系：keep PR-tracking hard-block + patch issue_tracking/hold_ball 已确认；Phase N 不再是 F167 close 的最后一步。
 
+### Phase O Eval 接入清单（eval:a2a 子域）
+
+Grounding 不开独立 eval domain，作为 `eval:a2a` 的子域接入。数据管道：
+
+| 层 | 文件 | 接了什么 |
+|---|---|---|
+| **数据采集** | `packages/api/src/infrastructure/grounding/grounding-checker.ts` | shadow mode checker → 5 OTel counters (`cat_cafe_a2a_grounding_{check,verdict,resolver,cache_hit,budget_exhausted}`) |
+| **Claim 提取** | `packages/api/src/routes/callbacks.ts` (L2411/L2528/L2575) | hold_ball waitSourceRef / tracking context → `ClaimGroundingEvent` |
+| **Sample 存储** | `packages/api/src/infrastructure/grounding/grounding-sample-store.ts` | bounded in-memory store（mismatch 100%, insufficient 3/resolver×thread×day, verified 1/20） |
+| **Eval snapshot** | `packages/api/src/infrastructure/harness-eval/f167-eval.ts` L335-386 | `buildGroundingPhaseO()` → `ComponentHealth{componentId:'grounding-phase-o'}` + 7 counters |
+| **Snapshot 挂载** | `f167-eval.ts` L70-71 | `RuntimeEvalSnapshot.groundingSampleEvidence` |
+| **Eval 指令** | `eval-cat-invocation.ts` L32-33 | `eval:a2a` DOMAIN_INSTRUCTIONS 包含 grounding 观察点（2026-06-20 补接） |
+| **Eval thread** | `thread_eval_a2a` | 共用 A2A Harness Eval thread |
+
+**未接**（scope-cut / 已知缺口）：
+- ❌ Redis-backed sample persistence（进程内存，restart 清空）— 从 PR-O2b 推迟到 O4，O4 没做
+- ❌ 独立 grounding verdict 判定标准（当前由 eval 猫自行判断 mismatch 分布是否健康）
+
+**Eval 猫观察要点**：
+1. `grounding.check_total` = 0 → hook 没 wired 或无 stateful tool 调用（telemetry gap）
+2. `grounding.mismatch_sample_count` > 0 → 看 `groundingSampleEvidence` 里是否有高置信度 pattern 可以从 shadow 升级到 fail-closed
+3. verdict 分布健康 = mostly verified/insufficient + few mismatches → keep_observe
+4. 持续 mismatch 高占比 → fix（实装 fail-closed 或调整 resolver）
+
 ## Behavioral Evidence（Phase B 观察记录）
 
 ### Case E1: 砚砚任务替换 + 宪宪行动偏好（2026-04-18 同日双发）
