@@ -169,21 +169,76 @@ Why: CVO 审批散落在各 thread（F128/F225/F193），铲屎官不在对应 t
 - [x] **AC-C5**: Tab bar 宽度不足时自动收纳溢出 tab 到 `⋯` dropdown
 - [x] **AC-C6**: Tab bar 极窄时（< `tabCount × 36px`）切换到 icon-only 模式
 - [x] **AC-C7**: Overflow dropdown 中的 tab 功能与展开 tab 一致（点击切换 mode）
-- [ ] **AC-C8**: Residual P2（Phase B review）：intercept mirror "单行首 mention 才路由" pruning — deferred to Phase D AC-D1, not in PR #2463 scope
+- [x] **AC-C8**: Residual P2（Phase B review）：intercept mirror "单行首 mention 才路由" pruning — resolved by Phase D AC-D1 (regression tests in `47fe67082`)
 
-### Phase D: Approval Hub Maturation（planned）
+### Phase D: Approval Hub Maturation ✅
 
 Plan: `docs/plans/2026-06-21-f246-phase-d-approval-hub-maturation.md`
 
 Goal: 把 Phase C 后真实遗留的成熟化工作收束成可执行交付，而不是 v1 close 后的口头 backlog。
 
-- [ ] **AC-D1**: AC-C8 收口：intercept mirror / line-start mention pruning 完成，正文内 `@cat` 不误触发 F193 approval intercept。
-- [ ] **AC-D2**: WorkspaceTabBar 自动化 web 回归：full / overflow / icon-only 三档、overflow click、active-in-overflow swap 全覆盖。
-- [ ] **AC-D3**: ApprovalPanel + ActivityBar 自动化 web 回归：bell → workspace approval、toggle close、fetchPending、loading/empty/error、inline/jump card rendering 全覆盖。
-- [ ] **AC-D4**: Hub 筛选：by feature / by thread / by stale-expired 的组合筛选，作为 UI projection，不改变 canonical stores。
-- [ ] **AC-D5**: 批量 approve/reject：只对安全 inline items 开放；F128/F225 等需要上下文/override 的项目不可被批量 approve。
-- [ ] **AC-D6**: v2 adapter admission matrix：F231、F168 `direction-decision`、Knowledge Feed、Limb pair approval 逐项定 actor/outcome/store/inline fields/risk/first PR boundary。
-- [ ] **AC-D7**: materialized index gate：明确 adapter count + pending fetch p95 双阈值；未命中前继续 query aggregation。
+- [x] **AC-D1**: AC-C8 收口：intercept mirror / line-start mention pruning 完成，正文内 `@cat` 不误触发 F193 approval intercept。
+- [x] **AC-D2**: WorkspaceTabBar 自动化 web 回归：full / overflow / icon-only 三档、overflow click、active-in-overflow swap 全覆盖。
+- [x] **AC-D3**: ApprovalPanel + ActivityBar 自动化 web 回归：bell → workspace approval、toggle close、fetchPending、loading/empty/error、inline/jump card rendering 全覆盖。
+- [x] **AC-D4**: Hub 筛选：by feature / by thread / by stale-expired 的组合筛选，作为 UI projection，不改变 canonical stores。
+- [x] **AC-D5**: 批量 approve/reject：只对安全 inline items 开放；F128/F225 等需要上下文/override 的项目不可被批量 approve。
+- [x] **AC-D6**: v2 adapter admission matrix：F231、F168 `direction-decision`、Knowledge Feed、Limb pair approval 逐项定 actor/outcome/store/inline fields/risk/first PR boundary。
+- [x] **AC-D7**: materialized index gate：明确 adapter count + pending fetch p95 双阈值；未命中前继续 query aggregation。
+
+### Phase D AC-D6: v2 Adapter Admission Matrix
+
+> Evaluated 2026-06-21. Each candidate assessed against [Admission Criteria](#admission-criteria全量审批点) (actor=CVO + binary outcome + cross-thread need) plus Hub-specific inline safety, persistence, and audit trail requirements.
+
+| | F231 Profile Update | F168 Direction-Decision | Knowledge Feed | Limb Pair Approval |
+|---|---|---|---|---|
+| **Feature** | `propose_profile_update` | `direction-decision` subcell | Marker `needs_review` | `limb_pair_approve` |
+| **Actor** | CVO (user-scoped, `resolveStrictUserId`) ✅ | CVO (hardcoded `actor:'cvo'`) ✅ | Implicit (no `resolveUserId`) ❌ | CVO (callback-auth, not user-scoped) ⚠️ |
+| **Outcome** | Binary approve/reject ✅ | Multi-field `resolve-direction` (nextOwner, assignedCatId) ❌ | Multi-state machine (6 states + undo) ❌ | Binary approve/reject ✅ |
+| **Cross-thread** | Yes (cat proposes in thread, CVO approves in Hub) ✅ | Yes (issue routing from board) ✅ | Unclear (marker source varies) ⚠️ | Yes (remote node pairs from outside) ✅ |
+| **Canonical store** | `RedisProfileUpdateProposalStore` (Redis, TTL=0) | Read-only projection from GitHub issues | `IMarkerQueue` (abstracted, opaque) | `LimbPairingStore` (in-memory Map) |
+| **Inline fields** | `rationale`, `targetPath`, `beforeContent`/`afterContent` diff — but no approve-time override UI | `title`, `ask`, `why` — insufficient for binary decision | `markerId` only — no rich display | `displayName`, `platform`, `nodeId` — sufficient |
+| **Hub inline safe?** | ❌ Jump-only (same as F225: needs full context to review primer diff) | ❌ Jump-only (multi-field resolution requires board context) | ❌ N/A (admission criteria not met) | ✅ Safe (zero-decision approval, atomic) |
+| **Persistence** | ✅ Redis (P0 compliant) | ✅ GitHub-backed (external) | ⚠️ Abstracted (implementation unclear) | ❌ In-memory only (P0 violation: restart = data loss) |
+| **Audit trail** | ✅ `createdBy`, `approvedBy`, `approvedAt`, `rejectionReason` | ❌ No identity/timestamp fields | ❌ No `approvedBy`/`approvedAt` | ❌ No audit fields |
+| **Risk** | Medium: 2-phase commit (file write + provenance), optimistic lock (409 on stale base) | Low: read-only projection, no write-through | High: collection-coupled security checks, undo capability, actor ambiguity | High: ephemeral store, auth mismatch, API key exposure |
+| **First PR boundary** | Adapter + jump-only card (same pattern as F225). No inline — primer diff review requires thread context | Refactor `resolve-direction` to binary accept + separate override endpoint. Extract from F168 queue builder | Blocked: add `createdBy`/`approvedBy` + explicit CVO gate + decouple collection security from approval | Blocked: migrate to Redis + add user-scoped auth adapter + add audit fields |
+| **Verdict** | **v2 ready** — lowest friction, existing store pattern matches F225 adapter exactly | **v2 conditional** — needs outcome refactored to binary before adapter can be built | **Deferred** — admission criteria not met (actor + outcome both fail) | **v2 conditional** — needs persistence + auth prerequisites before adapter |
+
+**Priority order for v2 implementation:**
+
+1. **F231** (ready now): Store pattern identical to F225 adapter; jump-only card; ~1 session to build adapter + tests
+2. **Limb pair** (after prerequisites): Binary outcome is correct; needs Redis migration + user-scoped auth first
+3. **F168 direction-decision** (after refactor): Candidate only if `resolve-direction` is refactored to binary accept/reject + separate config endpoint
+4. **Knowledge Feed** (not planned): Revisit when markers have explicit CVO approval gate + audit trail
+
+### Phase D AC-D7: Materialized Index Gate
+
+**Current state (2026-06-21):** 3 registered adapters (F128, F225, F193). Query aggregation via `GET /api/approval-hub/pending` fan-out to all adapters at read time.
+
+**Dual threshold — both must be true to trigger materialized CQRS index:**
+
+| Threshold | Current | Trigger | Rationale |
+|-----------|---------|---------|-----------|
+| Adapter count | 3 | > 5 | Fan-out cost scales linearly with adapter count. At 3, overhead is negligible. At 5+, serial adapter queries compound latency |
+| Pending fetch p95 | < 50ms (estimated, 3 adapters × Redis reads) | > 250ms | User-perceptible delay threshold. Below 250ms, Hub feels instant. Above, perceived as "loading" |
+
+**Why query aggregation continues (v1 intentional choice, not technical debt):**
+
+1. **Zero consistency complexity**: At-read-time queries always return fresh canonical data. No index drift, no phantom items, no stale reads, no backfill, no reconciliation job
+2. **Zero write-path overhead**: Feature adapters don't need to emit events or maintain projections. Adding a new adapter = one `listPending()` implementation, no event contract
+3. **Trivial correctness**: Each adapter reads its own canonical store with its own filtering logic. No cross-adapter data mixing. Settled items excluded at source
+4. **3 adapters is well below threshold**: Even with F231 as v2 first candidate, count reaches 4 — still below the 5-adapter trigger
+
+**If threshold triggers, the materialized index plan must include:**
+
+- Event-driven write path (adapter emits `ApprovalItemCreated`/`ApprovalItemSettled` events)
+- Restart/backfill contract (index rebuilt from canonical stores on startup)
+- Reconciliation job (periodic cross-check index vs canonical stores, resolve drift)
+- Phantom/stale item tests (index says pending, canonical says settled — and vice versa)
+- Rollback path to query aggregation (feature flag to bypass index and fan-out directly)
+- Separate plan document: `docs/plans/YYYY-MM-DD-f246-materialized-index.md`
+
+**Measurement protocol**: When adapter count reaches 5, measure pending fetch p95 in alpha environment with representative inbox (≥10 pending items across ≥3 adapters). If p95 < 250ms, document measurement and continue aggregation. If p95 ≥ 250ms, open the materialized index plan.
 
 ## Links
 
@@ -210,3 +265,6 @@ Goal: 把 Phase C 后真实遗留的成熟化工作收束成可执行交付，�
 | 2026-06-21 | Phase C vision guardian APPROVE (@opus-47) — CVO design 100% 落地, AC-C1~C7 trace 通, drawer retired, cloud R1/R2 fixes verified |
 | 2026-06-21 | Phase C alpha-validated — **6/6 PASS** (@sonnet): 三档响应式(allFitFull/medium/iconOnly) ✅, bell→workspace审批tab ✅, bell再点关闭workspace ✅, 跨路由bell(settings→chat approval active) ✅, overflow dropdown功能+关闭 ✅, active-in-overflow swap(审批↔社区) ✅ |
 | 2026-06-21 | Phase D planned — AC-C8 intercept pruning + web regression tests + filters + safe batch actions + v2 admission matrix + materialized-index gate |
+| 2026-06-21 | Phase D AC-D1/D2/D3 merged (47fe67082) — intercept regression tests + WorkspaceTabBar + ApprovalPanel + ActivityBar vitest coverage |
+| 2026-06-21 | Phase D AC-D4/D5 committed (19047f8f9) — feature/stale/thread filters + batch approve/reject with inline guard |
+| 2026-06-21 | Phase D AC-D6/D7 — v2 admission matrix (F231 ready, Limb/F168 conditional, KnowledgeFeed deferred) + materialized index gate (dual threshold: >5 adapters AND p95 >250ms) |

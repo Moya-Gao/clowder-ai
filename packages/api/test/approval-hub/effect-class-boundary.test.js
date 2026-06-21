@@ -339,4 +339,103 @@ describe('Effect-Class Boundary Tests', () => {
       assert.ok(!prompt.includes('effect='), 'Should not mention any effect class');
     });
   });
+
+  // --- AC-D1: Intercept mirror pruning — regression tests ---
+
+  describe('AC-D1: Intercept mention-parsing pruning (inline @cat NOT routed)', () => {
+    let analyzeA2AMentions;
+
+    beforeEach(async () => {
+      ({ analyzeA2AMentions } = await import('../../dist/domains/cats/services/agents/routing/a2a-mentions.js'));
+    });
+
+    it('inline @cat in body text → NOT captured as target', () => {
+      // "请问 @sonnet 觉得怎么样？" — @sonnet is mid-line, NOT line-start
+      const content = '请问 @sonnet 觉得怎么样？';
+      const result = analyzeA2AMentions(content);
+      assert.equal(result.mentions.length, 0, 'inline @mention must NOT be parsed as routing target');
+    });
+
+    it('inline @cat after punctuation → NOT captured', () => {
+      const content = '这个问题比较复杂，@opus 你看看';
+      const result = analyzeA2AMentions(content);
+      assert.equal(result.mentions.length, 0, 'post-comma @mention must NOT be parsed');
+    });
+
+    it('@cat inside code block → NOT captured', () => {
+      const content = '```\n@sonnet review\n```\n正文内容';
+      const result = analyzeA2AMentions(content);
+      assert.equal(result.mentions.length, 0, '@mention inside code block must NOT be parsed');
+    });
+
+    it('@cat inside inline code → NOT captured', () => {
+      const content = '使用 `@sonnet` 来触发';
+      const result = analyzeA2AMentions(content);
+      assert.equal(result.mentions.length, 0, '@mention inside inline code must NOT be parsed');
+    });
+
+    it('line-start @cat → IS captured (positive regression)', () => {
+      const content = '@sonnet\n请 review 一下这个 PR';
+      const result = analyzeA2AMentions(content);
+      assert.ok(result.mentions.length > 0, 'line-start @mention MUST be parsed');
+      assert.ok(result.mentions.includes('sonnet'), 'sonnet must be in mentions');
+    });
+
+    it('line-start @cat with markdown list prefix → IS captured', () => {
+      const content = '- @sonnet 请看看\n> @opus 也帮忙';
+      const result = analyzeA2AMentions(content);
+      // Markdown list-prefixed line-start mentions are legal per §4 routing rules
+      assert.ok(result.mentions.includes('sonnet'), '`- @sonnet` (list prefix) must be captured');
+    });
+
+    it('mixed: line-start + inline → only line-start captured', () => {
+      const content = '@opus\n这个问题 @sonnet 怎么看';
+      const result = analyzeA2AMentions(content);
+      assert.ok(result.mentions.includes('opus'), 'line-start @opus must be captured');
+      assert.ok(!result.mentions.includes('sonnet'), 'inline @sonnet must NOT be captured');
+    });
+
+    it('intercept merge: content inline-only + empty explicitTargetCats → zero targets', () => {
+      // Simulates the intercept path at callbacks.ts:1229-1237:
+      // Content has @cat but only inline — analyzeA2AMentions returns empty.
+      // explicitTargetCats is also empty. Result: no targets to route to.
+      const content = '请 @sonnet 帮忙看看这个 bug';
+      const interceptAnalysis = analyzeA2AMentions(content);
+      const explicitTargetCats = [];
+      const mergedTargetCats = [...new Set([...interceptAnalysis.mentions, ...explicitTargetCats])];
+      assert.equal(
+        mergedTargetCats.length,
+        0,
+        'inline-only @mention + no explicit targets = zero merged targets (fail-closed)',
+      );
+    });
+
+    it('intercept merge: no content mentions + explicit targetCats → explicit preserved', () => {
+      // Content has no @mentions at all, but explicit targetCats are provided
+      const content = '请帮忙看看这个 bug';
+      const interceptAnalysis = analyzeA2AMentions(content);
+      const explicitTargetCats = ['sonnet'];
+      const mergedTargetCats = [...new Set([...interceptAnalysis.mentions, ...explicitTargetCats])];
+      assert.deepEqual(mergedTargetCats, ['sonnet'], 'explicit targetCats must survive when content has no @mentions');
+    });
+
+    it('intercept merge: line-start mention + different explicit → both merged', () => {
+      const content = '@opus\n请帮忙看看';
+      const interceptAnalysis = analyzeA2AMentions(content);
+      const explicitTargetCats = ['sonnet'];
+      const mergedTargetCats = [...new Set([...interceptAnalysis.mentions, ...explicitTargetCats])];
+      assert.ok(mergedTargetCats.includes('opus'), 'content @opus must be in merged');
+      assert.ok(mergedTargetCats.includes('sonnet'), 'explicit sonnet must be in merged');
+      assert.equal(mergedTargetCats.length, 2, 'both should be present, no duplicates');
+    });
+
+    it('intercept merge: line-start mention + same explicit → deduplicated', () => {
+      const content = '@sonnet\n请帮忙看看';
+      const interceptAnalysis = analyzeA2AMentions(content);
+      const explicitTargetCats = ['sonnet'];
+      const mergedTargetCats = [...new Set([...interceptAnalysis.mentions, ...explicitTargetCats])];
+      assert.equal(mergedTargetCats.length, 1, 'duplicate must be removed');
+      assert.ok(mergedTargetCats.includes('sonnet'));
+    });
+  });
 });

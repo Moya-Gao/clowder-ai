@@ -37,13 +37,13 @@ F246 不是“先 close 再下次一定”。Phase D 完成后，Approval Hub �
 
 ## Acceptance Criteria
 
-- [ ] **AC-D1:** AC-C8 收口：intercept mirror / line-start mention pruning 完成。`assign_work` 的审批拦截只认合法行首 mention / 显式 target，不让正文里的 `@cat` 误触发；F193 effect-class 边界不回退。
-- [ ] **AC-D2:** WorkspaceTabBar 自动化 web 回归：full / overflow / icon-only 三档、overflow click、active-in-overflow swap 全部有 vitest 覆盖。
-- [ ] **AC-D3:** ApprovalPanel + ActivityBar 自动化 web 回归：bell → workspace approval、bell toggle close、fetchPending 刷新、loading/empty/error、inline/jump card rendering 有测试。
-- [ ] **AC-D4:** Hub 筛选：支持 by feature、by thread、by stale/expired 的组合筛选；筛选是 UI projection，不改变 canonical stores。
-- [ ] **AC-D5:** 批量操作：只对 `inlineApprovable=true` 且安全的项目开放 batch approve/reject；F128/F225 等需要上下文/override 的项目默认不可批量 approve，并给出明确 UI 状态。
-- [ ] **AC-D6:** v2 adapter admission matrix：F231 profile update、F168 `direction-decision`、Knowledge Feed、Limb pair approval 逐项给出 actor / outcome / source store / inline fields / risk / first PR boundary。
-- [ ] **AC-D7:** Materialized index gate：明确引入 CQRS index 的双阈值（adapter count 与实测 pending fetch latency），并记录为什么当前仍保持 query aggregation。
+- [x] **AC-D1:** AC-C8 收口：intercept mirror / line-start mention pruning 完成。`assign_work` 的审批拦截只认合法行首 mention / 显式 target，不让正文里的 `@cat` 误触发；F193 effect-class 边界不回退。
+- [x] **AC-D2:** WorkspaceTabBar 自动化 web 回归：full / overflow / icon-only 三档、overflow click、active-in-overflow swap 全部有 vitest 覆盖。
+- [x] **AC-D3:** ApprovalPanel + ActivityBar 自动化 web 回归：bell → workspace approval、bell toggle close、fetchPending 刷新、loading/empty/error、inline/jump card rendering 有测试。
+- [x] **AC-D4:** Hub 筛选：支持 by feature、by thread、by stale/expired 的组合筛选；筛选是 UI projection，不改变 canonical stores。
+- [x] **AC-D5:** 批量操作：只对 `inlineApprovable=true` 且安全的项目开放 batch approve/reject；F128/F225 等需要上下文/override 的项目默认不可批量 approve，并给出明确 UI 状态。
+- [x] **AC-D6:** v2 adapter admission matrix：F231 profile update、F168 `direction-decision`、Knowledge Feed、Limb pair approval 逐项给出 actor / outcome / source store / inline fields / risk / first PR boundary。
+- [x] **AC-D7:** Materialized index gate：明确引入 CQRS index 的双阈值（adapter count 与实测 pending fetch latency），并记录为什么当前仍保持 query aggregation。
 
 ## Architecture
 
