@@ -6,30 +6,42 @@
  * GET  /api/dossier/distillations/:id       — get specific proposal
  * POST /api/dossier/distillations/:id/approve — CVO approves (AC-E3)
  * POST /api/dossier/distillations/:id/reject  — CVO rejects
- * POST /api/dossier/distillations/:id/apply   — cat applies approved draft (KD-18)
+ * POST /api/dossier/distillations/:id/apply   — cat applies approved draft (KD-18, manual SHA)
+ * POST /api/dossier/distillations/:id/execute-apply — cat applies: validate+write+commit+push (AC-E3)
  *
  * KD-16: Independent from F231 profile-update routes (different semantics).
  * KD-17: evidenceRefs must be non-empty (fail-closed), sourceId for idempotency.
  * KD-18: v1 no auto-commit — CVO approve, then cat apply + git commit later.
+ *        AC-E3 adds execute-apply: cat explicitly triggers, service writes+commits.
  *
  * State machine:
  *   pending → approved → applied
  *   pending → rejected
  */
 
+import { execFile } from 'node:child_process';
+import { readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { promisify } from 'node:util';
 import type { CatId, DistillationEvidenceRef, DistillationSourceEvent } from '@cat-cafe/shared';
 import { isDistillationSourceEvent } from '@cat-cafe/shared';
 import type { FastifyInstance, FastifyPluginAsync } from 'fastify';
+import { DOSSIER_RELATIVE_PATH, prepareDraft } from '../domains/cats/services/distillation/DossierDraftApplier.js';
 import type { IDossierDistillationProposalStore } from '../domains/cats/services/stores/ports/DossierDistillationProposalStore.js';
 import { resolveOwnerGate } from '../utils/owner-gate.js';
 import { resolveStrictUserId } from '../utils/request-identity.js';
 
+const execFileAsync = promisify(execFile);
+
 export interface DistillationRoutesOptions {
   distillationStore: IDossierDistillationProposalStore;
+  /** Repo root path (for file read/write + git operations). Defaults to process.cwd(). */
+  repoRoot?: string;
 }
 
 export const distillationRoutes: FastifyPluginAsync<DistillationRoutesOptions> = async (app: FastifyInstance, opts) => {
   const store = opts.distillationStore;
+  const repoRoot = opts.repoRoot ?? process.cwd();
 
   // ─── POST /api/dossier/distillations ── create proposal ───────────
   app.post('/api/dossier/distillations', async (request, reply) => {
@@ -269,5 +281,126 @@ export const distillationRoutes: FastifyPluginAsync<DistillationRoutesOptions> =
       return { error: 'Proposal is not in approved status (must be approved before apply)' };
     }
     return { proposal };
+  });
+
+  // ─── POST /api/dossier/distillations/:id/execute-apply ── AC-E3 full pipeline ──
+  // Cat explicitly triggers: validate baseHash → write file → git commit+push → mark applied.
+  // KD-18: "CVO approve 后由持球猫 apply" — this is the cat's explicit action.
+  app.post('/api/dossier/distillations/:proposalId/execute-apply', async (request, reply) => {
+    const { proposalId } = request.params as { proposalId: string };
+
+    // Auth: caller must be authenticated
+    const appliedBy = resolveStrictUserId(request);
+    if (!appliedBy) {
+      reply.status(401);
+      return { error: 'Authentication required to execute-apply proposals' };
+    }
+
+    // Fetch proposal
+    const existing = await store.get(proposalId);
+    if (!existing) {
+      reply.status(404);
+      return { error: 'Proposal not found' };
+    }
+
+    // Ownership gate: only the target cat can apply to their own profile
+    if (existing.targetCatId !== appliedBy) {
+      reply.status(403);
+      return { error: 'Only the target cat can apply distillation to their profile' };
+    }
+
+    // Status gate (redundant with prepareDraft, but fail fast with clear HTTP error)
+    if (existing.status !== 'approved') {
+      reply.status(409);
+      return { error: `Proposal is not in approved status (current: '${existing.status}')` };
+    }
+
+    // Read current dossier file
+    const dossierPath = join(repoRoot, DOSSIER_RELATIVE_PATH);
+    let currentContent: string;
+    try {
+      currentContent = await readFile(dossierPath, 'utf8');
+    } catch (err: unknown) {
+      reply.status(500);
+      return { error: `Failed to read dossier file: ${(err as Error).message}` };
+    }
+
+    // Validate + compute modified content
+    const outcome = prepareDraft(existing, currentContent);
+    if (!outcome.ok) {
+      const status = outcome.error.code === 'BASE_HASH_MISMATCH' ? 409 : 422;
+      reply.status(status);
+      return { error: outcome.error.message, code: outcome.error.code };
+    }
+
+    // Write modified file (keep original for rollback on git failure)
+    try {
+      await writeFile(dossierPath, outcome.result.modifiedContent, 'utf8');
+    } catch (err: unknown) {
+      reply.status(500);
+      return { error: `Failed to write dossier file: ${(err as Error).message}` };
+    }
+
+    // Git commit + push (two-phase: rollback on commit failure, partial success on push failure)
+    let commitSha: string;
+    const gitOpts = { cwd: repoRoot };
+
+    // Phase 1: git add + commit — if this fails, rollback file so retry won't hit BASE_HASH_MISMATCH
+    try {
+      await execFileAsync('git', ['add', DOSSIER_RELATIVE_PATH], gitOpts);
+      await execFileAsync('git', ['commit', '-m', outcome.result.commitMessage], gitOpts);
+      const { stdout } = await execFileAsync('git', ['rev-parse', 'HEAD'], gitOpts);
+      commitSha = stdout.trim();
+    } catch (err: unknown) {
+      // Rollback: restore original file content + unstage from index.
+      // IMPORTANT: use `git reset HEAD --` (not `git checkout --`) because if `git add`
+      // succeeded before `git commit` failed, the index holds the modified content and
+      // `git checkout --` would overwrite our restored file from the dirty index.
+      try {
+        await writeFile(dossierPath, currentContent, 'utf8');
+        await execFileAsync('git', ['reset', 'HEAD', '--', DOSSIER_RELATIVE_PATH], gitOpts).catch(() => {});
+      } catch {
+        /* best-effort rollback */
+      }
+      reply.status(500);
+      return {
+        error: `Git commit failed, file rolled back: ${(err as Error).message}`,
+        code: 'GIT_FAILURE',
+        fileWritten: false,
+        targetPath: outcome.result.targetPath,
+      };
+    }
+
+    // Phase 2: push — commit already landed, so mark applied even if push fails
+    try {
+      await execFileAsync('git', ['push', 'origin', 'HEAD'], gitOpts);
+    } catch (err: unknown) {
+      // Commit landed but push failed — mark applied with commitSha (caller can retry push)
+      const applied = await store.markApplied(proposalId, appliedBy, commitSha);
+      reply.status(500);
+      return {
+        error: `Commit succeeded but push failed: ${(err as Error).message}`,
+        code: 'PUSH_FAILURE',
+        fileWritten: true,
+        committed: true,
+        commitSha,
+        proposal: applied ?? { ...existing, status: 'applied', appliedBy, appliedCommitSha: commitSha },
+        targetPath: outcome.result.targetPath,
+      };
+    }
+
+    // Mark as applied in store
+    const applied = await store.markApplied(proposalId, appliedBy, commitSha);
+    if (!applied) {
+      // Edge case: status changed between our check and markApplied (race).
+      // File is committed — report success with a warning.
+      return {
+        proposal: { ...existing, status: 'applied', appliedBy, appliedCommitSha: commitSha },
+        warning: 'Store transition raced — commit was pushed but store status may be stale',
+        commitSha,
+      };
+    }
+
+    return { proposal: applied, commitSha };
   });
 };

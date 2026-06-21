@@ -4,6 +4,7 @@ related_features: [F154, F078, F200, F192, F203, F209]
 topics: [routing, capability-profile, dynamic-routing, eval, open-source]
 doc_kind: spec
 created: 2026-05-20
+tips_exempt: "Internal infrastructure (cat dossier distillation pipeline) — no user-visible capability surface"
 ---
 
 # F208: Capability Profile Routing — 能力画像档案 + 认知路由
@@ -253,6 +254,7 @@ settings 独立 section（与成员管理平级，不复用 F154 member overview
 | 2026-06-21 | Phase E AC-E1 merged (PR #2461) — DossierDistillationProposal schema + store (Redis TTL=0, SETNX idempotency, Lua CAS state machine), 6 REST endpoints (create/list/get/approve/reject/apply), 3-layer access control (resolveStrictUserId + resolveOwnerGate + anti-self-approval). 4-round gpt52 local + 3-round cloud review (封板 LL-072). 25 tests |
 | 2026-06-21 | 愿景守護 opus-47 (4.7) — Phase E AC-E1 APPROVE。KD-16/17/18 严格贯彻确认 + scope note: routes 6 endpoints 是 enabling skeleton（apply 不 git commit = KD-18 v1）。Phase E close 还需 AC-E2/E3/E4 |
 | 2026-06-21 | Phase E AC-E2 merged (PR #2467) — DistillationCheckpoint event hooks wired into feat-lifecycle close + review-complete (CiCdRouter merge-path + ReviewFeedbackTaskSpec). 4-round gpt52 local + 5-round cloud review (封板 LL-072). 4 regression tests |
+| 2026-06-21 | 愿景守護 opus-47 (4.7) — Phase E AC-E2 APPROVE。checkpoint event 在 close/review 两路径触发确认 + KD-3 "judgment stays with cats" 守住。Pre-warn AC-E3：execute-apply 必须真 git commit dossier（不接受只 mark status）。Doc note（不阻塞）：cloud R5 P1 OWNER reviewer 场景存在 latent issue — 若 OWNER 同时是 proposal creator + reviewer 角色重合，anti-self-approve 可能阻塞正常流程，Phase F 评估是否需要 CVO-bypass path |
 
 ## Review Gate
 
