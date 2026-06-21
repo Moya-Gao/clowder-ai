@@ -285,7 +285,7 @@ Python 路径（直接嵌入 `audio-service.py`）：
 
 **技术难度**：⭐⭐ 低（核心是接线：WeSpeaker embedding 提取 + cosine similarity 对比，不是造新东西）
 
-### Phase H: 说话人分离（Speaker Diarization — 从预注册到无监督聚类）📋
+### Phase H: 说话人分离（Speaker Diarization — 从预注册到无监督聚类）✅
 
 **目的**：解决 Phase G 的核心场景限制 — 预注册声纹在视频/直播/多人会议中不现实。升级为无监督 speaker diarization，自动按声音特征聚类出 Speaker 1/2/3，用户事后可手动映射真实姓名。
 
@@ -316,10 +316,10 @@ Python 路径（直接嵌入 `audio-service.py`）：
 4. **批处理增强**：会后用完整录音做高质量 re-diarization，修正实时阶段的错误
 
 **AC**（待铲屎官确认后细化）：
-- [ ] AC-H1: **无监督聚类** — 无需预注册，自动按声音特征分离说话人（≥2 人）
-- [ ] AC-H2: **事后归名** — 用户可通过 UI 将 Speaker N 映射为真实姓名
-- [ ] AC-H3: **Phase G 兼容** — 已 enrolled 的说话人优先走 verification 路径，未知说话人走 diarization
-- [ ] AC-H4: **实测评估** — 用视频/直播/会议实录测试，报告 DER（Diarization Error Rate）
+- [x] AC-H1: **无监督聚类** — 无需预注册，自动按声音特征分离说话人（≥2 人）
+- [x] AC-H2: **事后归名** — 用户可通过 UI 将 Speaker N 映射为真实姓名
+- [x] AC-H3: **Phase G 兼容** — 已 enrolled 的说话人优先走 verification 路径，未知说话人走 diarization
+- [x] AC-H4: **实测评估** — 用视频/直播/会议实录测试，报告 DER（Diarization Error Rate）
 
 **不含（明确排除）**：
 - 跨会议 speaker 持久化（每次独立，不建全局 speaker 库）
@@ -651,6 +651,7 @@ F104 全感知升级是 research branch，不是 Meeting Copilot 的门槛。MVP
 | 2026-06-20 | 铲屎官实测：B 站视频 3+ 人场景验证 → 发现 Phase G 预注册不实用 + TranscriptPanel speaker 字段缺失（P2） |
 | 2026-06-20 | Phase H spec added — 说话人分离（无监督 diarization），铲屎官实测反馈驱动 |
 | 2026-06-21 | TranscriptPanel speaker field parity fix merged (PR #2468) — speaker_label/confidence/id fields + TranscriptLineRow extraction + 8 regression tests |
+| 2026-06-21 | Phase H merged (PR #2475) — ClusterRegistry unsupervised diarization + retroactive 归名 + DER eval + 5-round cloud review 封板 |
 
 ## 用户反馈（铲屎官实测 2026-05-14）
 
