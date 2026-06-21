@@ -9,7 +9,7 @@ tips_exempt: Phase A-C 为内部 friction 采集/聚合 infra，无 user/cat 可
 
 # F245: Friction Signal Eval — 摩擦信号统一聚合（eval:friction）
 
-> **Status**: in-progress（Phase C PR1a merged；PR1b live-sink + PR2 N-day cadence 待续）| **Owner**: 布偶猫/宪宪 (opus-48) | **Priority**: P1
+> **Status**: in-progress（Phase C PR1a + PR1b merged；PR2 N-day cadence + Phase D 出口闭环待续）| **Owner**: 布偶猫/宪宪 (opus-48) | **Priority**: P1
 
 ## Architecture Ownership
 
@@ -95,9 +95,9 @@ signal 体量实证（今天 UTC 0:00 → 16:07，16 小时）：
 - [x] AC-B2: dedup + cluster——"rg 噪音 ×N" 折叠成 1 cluster，cluster 含 count + 成员 evidence refs；误聚合率有 fixture 验证（误聚合率=0 corpus gate）✅ PR #2443
 
 ### Phase C（domain + rollup）
-- [ ] AC-C1: `eval-domains/eval-friction.yaml` 注册，frequency 可配置（weekly/N-day/daily），默认社区 weekly / 本家 3 天（trace Why：铲屎官 signal 体量担忧）
-- [ ] AC-C2: 周期 rollup 报告——Top-N 配额（深挖 Top-N + 长尾折叠），按五类传感器形态 + 7-class 根因分类（命令产出可复核）
-- [ ] AC-C3: verdict 产出复用 F192 Verdict Handoff Packet schema（缺字段不得 handoff）
+- [ ] AC-C1（部分）: `eval-domains/eval-friction.yaml` 注册 + `enabled:true` flip（PR1b #2469），frequency 可配置（weekly/N-day/daily），默认社区 weekly / 本家 3 天（trace Why：铲屎官 signal 体量担忧）— yaml+enabled+weekly 已落；**N-day cadence + last-run gate（本家 3 天默认）= PR2 待续**
+- [x] AC-C2: 周期 rollup 报告——Top-N 配额（深挖 Top-N + 长尾折叠），按五类传感器形态 + 7-class 根因分类（命令产出可复核）✅ PR1b #2469（live rollup 接入 4-channel provider + generator）
+- [x] AC-C3: verdict 产出复用 F192 Verdict Handoff Packet schema（缺字段不得 handoff）✅ PR1b #2469
 
 ### Phase D（出口闭环）
 - [ ] AC-D1: ①②③ 可行动项 → F128 propose_thread 创建修复 thread（复用 F222/F128 pattern，截图/thread 链接可复核）
@@ -191,6 +191,7 @@ signal 体量实证（今天 UTC 0:00 → 16:07，16 小时）：
 | 2026-06-19 | **Phase A merged**（PR #2422，squash `9f3f0b862`）— gpt52 跨族 review + 云端 codex 3 轮：R1 marker 2 P2（含冒号工具名/嵌套括号）+ R3 in-memory cursor P2（graceful degrade）修复，R4 test-isolation pushback（既有 pattern）|
 | 2026-06-19 | **Phase B merged**（PR #2443，squash `0be8b6b5`）— 4 Adapter（Port+Adapter 只读引用既有源，零 write-side）+ FrictionAggregator（id 幂等 dedup + intent filter）+ FrictionClusterer（rule 精确归一 + embedding fail-open 降级）+ buildFrictionRollupInput；9 TDD Task；gpt52 final-SHA review + 云端 codex 3 轮（7 真 finding／0 误报：R1 mailbox frontmatter、R2 epoch 排序 + symptom 归一保留标识数字、R3 droppedChannels 显式降级 + reprobe fail-open）|
 | 2026-06-20 | **Phase C PR1a merged**（PR #2458，squash `1b67516b9`）— Phase C 拆 3 PR 之第一刀：eval:friction domain 注册（`enabled:false` 防 silent-fire）+ rollup report producer（Top-N 配额 + 长尾折叠 + 硬 token-cap fold-down + severity×count×channelDiversity 排序 + 5 类 sensorForm 分类）+ EvalDomainId DRY 收敛 enum fan-out。gpt52 跨族 + **封板**（cloud R1/R2/R3 全 valid／0 FP：R1 prompt KD-8 边界、R2 severity 暴露 + handoff→opus-47[opus-48 不在 catalog]、R3 token-cap boundary 自引用）。**PR1b**（live sink：generator+provider+bootstrap+flip enabled）+ **PR2**（N-day cadence → 本家 3 天）待续。AC-C1/C2 部分（注册 + 报告 producer 落地；live rollup + verdict 在 PR1b），AC-C3 在 PR1b。|
+| 2026-06-21 | **Phase C PR1b merged**（PR #2469，squash `ef1d1cca7`）— live sink：FrictionRollupSourceSelector（shared）+ validation/dispatch + friction-generator-adapter + eval-friction-live-verdict + renderer + submitted-packet-guard + FrictionMetricsProviderImpl（4-channel paw-feel/cancel/user-feedback/eval-domain 组合）+ mcp-server schema + index wiring + **enabled:true flip**。gpt52 跨族 APPROVE（R1 self-feedback loop 自回授 EvalDomainAdapter excludeFeatureIds 修复）→ final review + **封板**（cloud R1/R2/R3 全真 finding／第 3 轮 75% stale 重放触发 LL-072：R1 publish-instructions fan-out、R2 summary newline injection global guard + docs frontmatter、R3 empty-topClusters tail-aggregate）。AC-C2/C3 ✅；AC-C1 部分（N-day cadence=PR2 待续）。|
 
 ## Review Gate
 
