@@ -4,11 +4,12 @@ related_features: [F203, F042, F154, F168, F202]
 topics: [prompt-injection, transparency, intake, community, l0-template]
 doc_kind: spec
 created: 2026-06-15
+updated: 2026-06-22
 ---
 
 # F237: Prompt Injection Visibility — 社区 PR #859 Intake
 
-> **Status**: direction-accepted (2026-06-16 maintainer self-decided) — awaiting-author-fix (P0 loopback gate + P1 atomicity + P1 verify-coverage 8%) — gated-on F238 boundary symmetry | **Owner**: cat-cafe maintainers (intake review) | **Source**: community @mindfn + 团队 | **Priority**: P1 | **Created**: 2026-06-15 | **Updated**: 2026-06-16
+> **Status**: absorbed-to-cat-cafe (PR #2505 squash `b859eb38`, 2026-06-22) | **Owner**: cat-cafe maintainers (intake review) | **Source**: community @mindfn + 团队 | **Priority**: P1 | **Created**: 2026-06-15 | **Updated**: 2026-06-22
 
 ## Provenance
 
@@ -16,7 +17,7 @@ created: 2026-06-15
 - **Maintainer discussion issue**: [clowder-ai#839](https://github.com/zts212653/clowder-ai/issues/839) — `Make agent context injections visible, auditable, and lifecycle-managed`（状态：`triaged + needs-maintainer-decision`）
 - **作者**: `@mindfn` 团队（社区，与 F202/F204/F205 同贡献者；他们 fork 内部也有 opus/codex 命名重合的猫，**非 cat-cafe 家里的猫**）
 - **作者团队历史**: 6 轮本地 codex review + 4 轮云端 codex review，34 finding（1 fixed / 2 pushback / 31 declared Phase 2 scope）
-- **PR scope**: 102 文件 / +5644 / -979 / `MERGEABLE` / `reviewDecision=CHANGES_REQUESTED`
+- **PR scope**: 102 文件 / +5644 / -979; merged in clowder-ai as `4241932fca211a5b4594a7ca40719fb1860044bf`
 
 ## 编号纠错背景（认知投毒预防）
 
@@ -137,14 +138,19 @@ Round-3 push back: [#859 issuecomment-4719426674](https://github.com/zts212653/c
 1. **作者 fix Round-3 P0/P1**（loopback gate + atomicity + verify coverage）
 2. **F238 双仓边界对称性强化** Phase A 落地（brand-dictionary v0.1 + skill 12/13/22 更新 + outbound 漏 manifest.json 修）
 
-F237 intake **gated on both 前置条件完成**。
+F237 intake was gated on both 前置条件完成.
 
-## Next Steps
+## Closure (2026-06-22)
 
-1. ⏳ **作者 fix Round-3 P0/P1**（PR tracking 已取消，等社区微信通知作者侧"修完了"信号）
-2. ⏳ **F238 Phase A 落地**（cross-posted 委托 `thread_mqgrbaol7mbx6ygs` 给 @fable5 写 spec + @codex 砚砚 落 brand-dictionary v0.1）
-3. 两前置完成后：进入 opensource-ops B 流程（Inbound PR Merge Gate → Intake Intent Issue → manual-port + brand guard）— 此时 brand guard 已被 F238 升级为 dictionary-driven
-4. 终局 merge 后 Phase 2 后续 PR（作者归类的 31 个云端 finding 范围）另行评估
+- clowder-ai#859 merged as `4241932fca211a5b4594a7ca40719fb1860044bf`.
+- Cat Cafe absorbed the accepted scope via PR #2505, squash commit `b859eb388a282bf62308e389e2e695ee9f7181e1`.
+- Intake Intent Issue #2503 auto-closed through the PR body `Closes #2503`.
+- `scripts/intake-from-opensource.sh --record --pr 859 --decision absorbed --intent-issue 2503 --absorb-pr 2505 --review-proof https://github.com/zts212653/cat-cafe/pull/2505#issuecomment-4769939911` passed Brand Guard + strict guard and advanced the ledger to `4241932fca211a5b4594a7ca40719fb1860044bf`.
+- Final gate on PR #2505 passed on `f85f1bc2`; F238 Brand Boundary Guard passed on the same final SHA.
+
+## Remaining Follow-up
+
+- Phase 2 follow-up PRs for deferred cloud-review findings stay out of F237 close scope and should be evaluated as new community PRs.
 
 ## 关联
 
@@ -155,3 +161,5 @@ F237 intake **gated on both 前置条件完成**。
 ---
 
 **[宪宪/Opus 4.7🐾]** — intake 守门猫 (2026-06-15)
+
+**[砚砚/GPT-5.5🐾]** — intake merge + ledger close (2026-06-22)

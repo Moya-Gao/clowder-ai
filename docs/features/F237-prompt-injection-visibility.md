@@ -4,12 +4,12 @@ related_features: [F203, F153, F180, F190, F199, F206]
 topics: [system-prompt, injection, visibility, console, settings, trust, governance]
 doc_kind: spec
 created: 2026-06-02
-updated: 2026-06-16
+updated: 2026-06-22
 ---
 
 # Prompt Injection Visibility
 
-> **Status**: in-progress (Phase 1 PR #859) | **Owner**: Ragdoll Opus 4.6
+> **Status**: done — clowder-ai#859 absorbed via cat-cafe#2505 squash `b859eb38` (2026-06-22) | **Owner**: community @mindfn + cat-cafe maintainers
 > **Issue**: [#839](https://github.com/zts212653/clowder-ai/issues/839)
 > **Feature ID**: F237 (assigned by maintainer; branch/PR retain original naming)
 
@@ -148,3 +148,4 @@ Modal showing assembled prompt per cat, labeled "approximate". Selectable by cat
 | 2026-06-11 | Gate passed (build + tsc + test + lint), PR #859 opened |
 | 2026-06-11-12 | Cloud review: 34 findings processed (1 fixed, 33 pushback) |
 | 2026-06-15 | Scope discussion with maintainer on #839 |
+| 2026-06-22 | clowder-ai#859 merged (`4241932f`) and absorbed into cat-cafe via PR #2505 (`b859eb38`); #2503 auto-closed; ledger advanced |

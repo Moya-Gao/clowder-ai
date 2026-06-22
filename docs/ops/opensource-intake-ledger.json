@@ -1,6 +1,6 @@
 {
   "$schema": "Intake ledger — tracks which clowder-ai commits have been reviewed for absorption into cat-cafe",
-  "last_reviewed_target_head": "57bcef53e7b3391df07180e4ef52740c077e4d35",
+  "last_reviewed_target_head": "4241932fca211a5b4594a7ca40719fb1860044bf",
   "entries": [
     {
       "pr_number": 90,
@@ -1907,6 +1907,15 @@
       "decision": "absorbed",
       "timestamp": "2026-06-22T12:00:18.149Z",
       "note": "outbound-filed hotfix (reversed direction): clowder-ai#999 (CVO author zts212653, merged 2026-06-22T10:39:40Z) outbound-files P1 exit code regression + P2 lockfile-class regex gap fixes that cat-cafe already applied in 911b586e2 (cat-cafe#2495 absorbing clowder-ai#978) — codex R2 review of #2495 found these P1/P2 issues, cat-cafe fixed them inline in the absorb PR, then CVO outbound-filed the same fixes to clowder-ai as #999. Verified Source Intent ⊆ Result: `git show 911b586e2 -- scripts/runtime-worktree.sh | grep '+install_status\\|+PIPESTATUS\\|+BREAKING_CHANGE'` confirms install_status capture, PIPESTATUS[0], and the 4 new regex patterns (BREAKING_CHANGE / Cannot install with .frozen-lockfile / Cannot proceed .*without the lockfile / lockfile.*incompatible) are all present in cat-cafe main. No intake intent issue / absorb PR / review proof because source patch already in cat-cafe main. cat-cafe#2501 created earlier in this session was based on initial misclassification (assumed inbound intake before checking 911b586e2 content); closed as superseded by this entry."
+    },
+    {
+      "pr_number": 859,
+      "target_merge_commit": "4241932fca211a5b4594a7ca40719fb1860044bf",
+      "decision": "absorbed",
+      "timestamp": "2026-06-22T15:29:13.904Z",
+      "intake_intent_issue": 2503,
+      "absorb_pr": 2505,
+      "review_proof": "https://github.com/zts212653/cat-cafe/pull/2505#issuecomment-4769939911"
     }
   ]
 }
