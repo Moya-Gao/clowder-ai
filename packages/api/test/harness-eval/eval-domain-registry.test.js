@@ -104,7 +104,7 @@ describe('Eval Domain Registry v0', () => {
     assert.equal(entry.domainId, 'eval:friction');
     assert.equal(entry.sourceAdapter, 'f245-friction-rollup');
     assert.equal(entry.sourceRefsKind, 'friction-rollup-snapshot');
-    assert.equal(entry.frequency, 'weekly');
+    assert.equal(entry.frequency, 'every-3d'); // F245 PR2: 本家 3-day cadence
     assert.equal(entry.threadPolicy.role, 'working-home');
     assert.equal(entry.handoffTargetResolver.featureId, 'F245');
   });
@@ -226,6 +226,29 @@ describe('Eval Domain Registry v0', () => {
         handoffTargetResolver: { ...validEntry.handoffTargetResolver, featureId: 'not-a-feature' },
       }),
     );
+  });
+
+  // Cloud R2 P2: zero-day N-day cadence must be rejected (every-0d → threshold always negative)
+  it('rejects zero-day N-day cadence (every-0d)', () => {
+    assert.throws(
+      () => parseEvalDomainRegistryEntry({ ...validEntry, frequency: 'every-0d' }),
+      /every-\{N\}d with N >= 1/,
+      'every-0d must be rejected — parseNDayFrequency returns 0 which makes the gate threshold negative',
+    );
+  });
+
+  it('rejects multi-zero N-day cadence (every-000d)', () => {
+    assert.throws(
+      () => parseEvalDomainRegistryEntry({ ...validEntry, frequency: 'every-000d' }),
+      /every-\{N\}d with N >= 1/,
+    );
+  });
+
+  it('accepts valid positive N-day cadences', () => {
+    for (const freq of ['every-1d', 'every-3d', 'every-7d', 'every-14d', 'every-30d']) {
+      const entry = parseEvalDomainRegistryEntry({ ...validEntry, frequency: freq });
+      assert.equal(entry.frequency, freq, `${freq} must be accepted`);
+    }
   });
 
   // --- eval:sop domain extension (F192 E-sop) ---

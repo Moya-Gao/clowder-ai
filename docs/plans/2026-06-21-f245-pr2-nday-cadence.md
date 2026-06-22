@@ -1,3 +1,10 @@
+---
+feature_ids: [F245]
+topics: [nday, cadence, eval, friction, redis]
+doc_kind: plan
+created: 2026-06-21
+---
+
 # F245 PR2: N-day Cadence + Last-run Gate Implementation Plan
 
 **Feature:** F245 — `docs/features/F245-friction-signal-eval.md`
@@ -23,7 +30,7 @@
 - **Terminal schema:**
   - `EvalDomainRegistryEntry.frequency` 接受 `'daily' | 'weekly' | 'every-${N}d'` (runtime string)
   - Redis key: `eval-nday-last-dispatch:{domainId}` → epoch ms string（keyPrefix 自动加）
-  - `createEvalDomainNDaySpec` 导出，与 Daily/Weekly 同级在 `eval-domain-daily.ts`
+  - `createEvalDomainNDaySpec` 导出自 `eval-domain-nday.ts`（cloud R4 P1 file-size split；原计划放 daily.ts，实际独立成新文件，index.ts 直接 import 避免循环依赖）
 
 ## Architecture: N-day last-run gate
 

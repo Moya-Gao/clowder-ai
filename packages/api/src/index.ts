@@ -4106,6 +4106,8 @@ async function main(): Promise<void> {
   const { createEvalDomainDailySpec, createEvalDomainWeeklySpec } = await import(
     './infrastructure/harness-eval/domain/eval-domain-daily.js'
   );
+  // N-day factory is in its own module (split from eval-domain-daily for file-size limit)
+  const { createEvalDomainNDaySpec } = await import('./infrastructure/harness-eval/domain/eval-domain-nday.js');
   const { getOwnerUserId } = await import('./config/cat-config-loader.js');
   // cloud R6 P2 (PR-2) + memory wire-up: mirror the same wired set the
   // eval-hub.ts route computes (Object.keys(verdictGenerators)). Bootstrap-time
@@ -4178,6 +4180,8 @@ async function main(): Promise<void> {
   };
   taskRunnerV2.register(createEvalDomainDailySpec(evalScheduleOpts));
   taskRunnerV2.register(createEvalDomainWeeklySpec(evalScheduleOpts));
+  // F245 PR2: N-day cadence — eval:friction runs every-3d (not weekly)
+  taskRunnerV2.register(createEvalDomainNDaySpec(evalScheduleOpts));
 
   // F233 PR4: realtime blocked-task probe. Side effects live here, not in projector/rebuild.
   if (ballCustodyIngest && ballCustodyProjectionStore) {
