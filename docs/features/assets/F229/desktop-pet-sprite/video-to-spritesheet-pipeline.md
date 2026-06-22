@@ -332,13 +332,23 @@ The cat is mid-stride trotting to the right (side view).
 **④ waving — 招手**
 ```text
 [共享前缀]
-The cat is sitting, facing 3/4 right, raising the right front paw in a wave.
-- Right paw raised to eye level, paw pad partially visible
-- Left front paw on ground for balance
-- Tail curled to the left side
-- Expression: cheerful, eyes bright, mouth slightly open in a smile
-- Pose reference: bottom-left expression from xianxian-r03.png (the waving pose)
+IMPORTANT — ANATOMY: This cat has EXACTLY 4 paws total (2 front, 2 back). No extra limbs.
+
+The cat is sitting, facing 3/4 right, raising ONE front paw in a friendly wave.
+- FRONT RIGHT PAW: raised to eye level, waving. This is the ONLY raised paw.
+- FRONT LEFT PAW: planted flat on the ground, clearly visible, supporting the body.
+- BACK PAWS: both tucked under the body / hidden behind the front body — NOT individually visible.
+  (Chibi cats sitting in 3/4 view naturally hide back paws behind the round body shape.)
+- Tail curled to the left side, resting on the ground.
+- Expression: cheerful, eyes bright, mouth slightly open in a smile.
+- The body is a simple round chibi shape — do NOT draw extra legs or paws sticking out.
+
+NEGATIVE: Do NOT draw more than 4 paws. Do NOT show 5 or 6 paws. No extra limbs, no duplicate legs, no phantom paw shapes in the background.
 ```
+
+> ⚠️ **五爪 bug（2026-06-22）**：砚砚前两次 waving 生成均出现 5 只爪子。
+> 根因：原提示词未显式限制爪数，3/4 视角让 imagegen 幻觉出多余的爪。
+> 修复策略：① 显式声明 "EXACTLY 4 paws" ② 把后腿藏在身体后面（减少需要画的爪子数）③ 添加 NEGATIVE 约束
 
 **⑤ jumping — 跳跃**
 ```text
@@ -483,11 +493,13 @@ Subtle, focused micro-movements — very still otherwise.
 
 ---
 
-### 执行清单（按批次）
+### 执行清单（按批次 2-2-3）
 
-**Batch 1: 砚砚生成 7 张 Frame A**
-- [ ] running-right Frame A
-- [ ] waving Frame A
+> 铲屎官要求分批审核。每批 CVO 审核通过后才继续下一批。
+
+**Batch 1（running-right + waving）**
+- [x] running-right Frame A — ✅ CVO 审核通过
+- [ ] waving Frame A — 🔴 五爪 bug，两次重试均失败，提示词已修正（v2）
 - [ ] jumping Frame A
 - [ ] failed Frame A
 - [ ] waiting Frame A
