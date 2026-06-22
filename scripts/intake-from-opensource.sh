@@ -722,25 +722,47 @@ if [ "$RECORD_DECISION" = true ]; then
   fi
   # P2 fix: mandatory Brand Guard before recording absorbed intake
   if [ "$DECISION" = "absorbed" ]; then
-    echo -e "${BLUE}── Mandatory Brand Guard (pre-record) ──${NC}"
-    BRAND_SCOPE_FILES=""
-    if [ -n "$ABSORB_PR" ]; then
-      BRAND_SCOPE_FILES=$(resolve_absorb_pr_brand_scope || true)
-      if [ -z "$BRAND_SCOPE_FILES" ]; then
-        echo -e "${RED}✗ Could not resolve absorb PR #$ABSORB_PR file list for scoped Brand Guard${NC}"
-        echo "  Refusing to fall back to whole-repo scan during absorbed record; whole-repo scan has known pre-existing false positives."
-        echo "  Check: gh pr diff $ABSORB_PR --repo $SOURCE_REPO --name-only"
+    if [ "$SKIP_ABSORBED_GUARD" = true ] && [ -z "$ABSORB_PR" ]; then
+      # outbound-filed hotfix or historical backfill: NO absorb PR to scope against.
+      # Source code is already in cat-cafe main (verified during original intake or
+      # filed-then-merged hotfix). The record commit only touches
+      # docs/ops/opensource-intake-ledger.json. Previous logic fell through with
+      # empty scope and silently degraded to whole-repo scan, hitting pre-existing
+      # legitimate brand mentions in public docs / README.opensource.* files
+      # (recurring friction across PR #943 / #944 / #899 / #996 intake records).
+      # Skip mandatory Brand Guard on this lane — strict guard already skipped by
+      # the same flag for symmetry. Callers concerned about source-code drift can
+      # still run `--validate-inbound` explicitly.
+      #
+      # IMPORTANT: --skip-absorbed-guard WITH --absorb-pr still runs the scoped
+      # Brand Guard below — that mixed-mode caller has a concrete PR to scope
+      # against and the bypass would otherwise widen to a real source-code PR
+      # (gpt52 review on cat-cafe#2497 caught this widening regression).
+      echo -e "${YELLOW}⚠ --skip-absorbed-guard with no --absorb-pr: skipping mandatory Brand Guard${NC}"
+      echo "  Reason: outbound-filed hotfix / historical backfill has no absorb PR to scope Brand Guard against."
+      echo "  Source code is already in cat-cafe main; this record commit only touches docs/ops/opensource-intake-ledger.json."
+      echo "  For explicit brand check, run: bash scripts/intake-from-opensource.sh --validate-inbound"
+    else
+      echo -e "${BLUE}── Mandatory Brand Guard (pre-record) ──${NC}"
+      BRAND_SCOPE_FILES=""
+      if [ -n "$ABSORB_PR" ]; then
+        BRAND_SCOPE_FILES=$(resolve_absorb_pr_brand_scope || true)
+        if [ -z "$BRAND_SCOPE_FILES" ]; then
+          echo -e "${RED}✗ Could not resolve absorb PR #$ABSORB_PR file list for scoped Brand Guard${NC}"
+          echo "  Refusing to fall back to whole-repo scan during absorbed record; whole-repo scan has known pre-existing false positives."
+          echo "  Check: gh pr diff $ABSORB_PR --repo $SOURCE_REPO --name-only"
+          exit 1
+        fi
+      fi
+      run_brand_validation "$BRAND_SCOPE_FILES" "absorb PR"
+      if [ "$_BRAND_VIOLATION_COUNT" -gt 0 ]; then
+        echo ""
+        echo -e "${RED}✗ $_BRAND_VIOLATION_COUNT brand violation(s) detected. Fix before recording absorbed intake.${NC}"
+        echo "  Run: bash scripts/intake-from-opensource.sh --validate-inbound  (for details)"
         exit 1
       fi
+      echo -e "${GREEN}✓ Brand Guard passed.${NC}"
     fi
-    run_brand_validation "$BRAND_SCOPE_FILES" "absorb PR"
-    if [ "$_BRAND_VIOLATION_COUNT" -gt 0 ]; then
-      echo ""
-      echo -e "${RED}✗ $_BRAND_VIOLATION_COUNT brand violation(s) detected. Fix before recording absorbed intake.${NC}"
-      echo "  Run: bash scripts/intake-from-opensource.sh --validate-inbound  (for details)"
-      exit 1
-    fi
-    echo -e "${GREEN}✓ Brand Guard passed.${NC}"
     echo ""
     echo -e "${BLUE}── Mandatory Intake Strict Guard (pre-record) ──${NC}"
     run_absorbed_record_guard || exit 1
