@@ -7,6 +7,7 @@ export const CAPABILITY_TIP_CONTEXTS = [
   'review',
   'feature_dev',
   'merge_gate',
+  'eval',
   'long_running',
   'concierge_idle',
   'concierge_open',

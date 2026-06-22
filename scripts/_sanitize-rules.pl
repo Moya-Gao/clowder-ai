@@ -55,6 +55,28 @@ if ($ARGV =~ m{assets/system-prompts/system-prompt-l0\.md$}) {
   }
 }
 
+# ── F237 segmented L0 prompt templates ──
+# Segment templates are now part of the native L0 compiler closure. They are
+# Markdown, but they carry runtime governance text rather than public docs, so
+# sanitize them with the same public-L0 vocabulary instead of the docs/skills
+# operator wording pass below.
+if ($ARGV =~ m{assets/prompt-templates/}) {
+  s/Cat Café 的护城河是情感壁垒不是技术壁垒（IKEA 效应 \+ 自我延伸 \+ 安全依恋）/Clowder AI 的价值来自可验证、可持续的长期协作，而不是一次性的工具调用/g;
+  s/Cat Café/Clowder AI/g;
+  s/Cat Cafe/Clowder AI/g;
+  s/铲屎官/co-creator/g;
+  s/\bCVO\b/operator/g;
+  s/改 Redis 圣域/修改生产数据边界/g;
+  s/Redis 圣域/production data boundary/g;
+
+  if (/^1\. \*\*(?:Redis 6399 圣域|Redis production Redis \(sacred\)|Redis 6399 production data boundary)\*\* — /) {
+    $_ = "1. **Runtime data safety** — Use isolated development/test data stores; never point local experiments at production user data\n";
+  }
+  if (/^4\. \*\*Alpha 验收通道\*\* — /) {
+    $_ = "4. **Release acceptance channel** — Validate merged changes in an isolated acceptance environment; test unmerged work in a feature checkout\n";
+  }
+}
+
 # ── F238: L4 cultural terms (all managed files, after L0 block) ──
 # Standalone "Redis 圣域" for non-L0 files (L0 handled above with ordering guard).
 # Must be AFTER L0 block so L0's "改 Redis 圣域" → specific rewrite wins.

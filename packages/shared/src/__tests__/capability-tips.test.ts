@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildConciergeDraftPrompt,
+  CAPABILITY_TIP_CONTEXTS,
   type CapabilityTip,
   CapabilityTipUsageEventSchema,
   type CapabilityTipValidationResult,
@@ -133,6 +134,31 @@ describe('F244 CapabilityTip contract', () => {
       promptText: 'private user text must not be stored',
     });
     expect(withPrivateText.success).toBe(false);
+  });
+
+  it('accepts eval context tips and usage events', () => {
+    expect(CAPABILITY_TIP_CONTEXTS).toContain('eval');
+
+    const evalTip: CapabilityTip = {
+      ...baseTip,
+      id: 'feature-f245-friction-eval-rollup',
+      kind: 'feature',
+      contexts: ['thinking', 'eval'],
+      audience: ['cvo'],
+      body: 'Eval Hub 会聚合摩擦信号，便于快速判断哪些需要跟进。',
+    };
+    expect(validateCapabilityTip(evalTip).success).toBe(true);
+
+    expect(
+      CapabilityTipUsageEventSchema.safeParse({
+        event: 'capability_tip_exposed',
+        tipId: evalTip.id,
+        context: 'eval',
+        surface: 'assistant_stream_bubble',
+        outcome: 'shown',
+        timestamp: 1,
+      }).success,
+    ).toBe(true);
   });
 });
 
