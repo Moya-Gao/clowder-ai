@@ -250,12 +250,44 @@ convert cell_01.png -resize 59x64 preview_01.png
 - 16:9 横屏给尾巴/肢体运动留足空间
 - ⚠️ **风格漂移**：多次生成时风格不一致——第一次二次元感觉对，后续变成"塑料建模 3D 感"。根因：视频提示词缺风格锚定。解决：提示词首行加 `2D hand-drawn anime illustration style, flat cel-shaded coloring, clean visible outlines` + negative prompt 排除 3D/CGI/photorealistic
 
-### Spike R2: 16:9 + 风格锚定（进行中）
+### Spike R2: 16:9 + 风格锚定（2026-06-22）✅ 成功
 
-- 比例换 16:9（解决尾巴出框）
-- 提示词加 2D 风格强锚定 + negative prompt（解决 3D 漂移）
-- 如果工具支持 style reference，把母图同时作为风格参考传入
-- 评估缩放到 59×64 后与现有 atlas 的可感知差异
+**执行人**：砚砚生成 Frame A → 铲屎官生成视频（16:9, 1280×720, 3s, 24fps）→ 宪宪截帧评估
+
+**视频参数**：
+- 比例：16:9（解决了 R1 尾巴出框）
+- 时长：3 秒
+- 分辨率：1280×720
+- 2D 风格锚定提示词：生效，全帧保持手绘二次元风格，零 3D 漂移
+
+**截帧处理**：
+- ffmpeg 4fps → 12 帧原始 PNG
+- ImageMagick center-crop 665×720 → 背景透明化（fuzz 15%）→ 缩放 192×208（atlas cell）
+- 再缩放 59×64（实际桌宠显示尺寸）
+
+**核心结论：在 59×64 桌宠尺寸下，视频截帧可感知优于现有静态生成 atlas**
+
+| 维度 | 视频截帧（新） | 静态逐帧生成（现有） |
+|------|-------------|-------------------|
+| 帧间一致性 | ✅ 比例/姿态/风格全帧一致 | ❌ 头身比例跳变、风格微漂 |
+| 动画自然度 | ✅ 有真实眨眼、微妙尾巴摆、呼吸感 | ⚠️ 帧间生硬，缺自然过渡 |
+| 59×64 可读性 | ✅ 轮廓清晰、蓝眼/紫项圈可识别 | ⚠️ 更暗/更糊，细节丢失多 |
+| 循环流畅度 | ✅ 视频天然时序连贯 | ❌ 逐帧独立生成无时序关系 |
+
+**产出文件**（`/tmp/cat-cafe-evidence/xianxian-video-spike-r2/`）：
+- `xianxian-idle-spike-r2.mp4`：原始视频
+- `frames-raw/`：12 帧原始 PNG（1280×720）
+- `frames-cell/`：12 帧 atlas cell（192×208，透明背景）
+- `frames-preview/`：12 帧桌宠预览（59×64）
+- `row-strip-cell.png`：12 帧行条（cell 尺寸）
+- `row-strip-preview.png`：12 帧行条（预览尺寸）
+- `comparison-contact.png`：新旧对比图
+
+**下一步建议**：
+1. 铲屎官确认"这个方向走" → 对砚砚（缅因猫）做同样流程替换现有 atlas
+2. idle 验证通过 → 扩展到 running-right、waving 等其他状态
+3. 从 12 帧中选 6-8 帧做循环（去掉重复帧）：建议 frame 1/3/4/6/8/10（覆盖完整眨眼周期）
+4. 生产化：写脚本自动化 Step 4（截帧→抠图→缩放→拼接→pet.json）
 
 ## 关联决策
 
