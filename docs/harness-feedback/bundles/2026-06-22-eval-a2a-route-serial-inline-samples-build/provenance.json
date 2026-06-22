@@ -1,0 +1,19 @@
+{
+  "verdictId": "2026-06-22-eval-a2a-route-serial-inline-samples-build",
+  "rawInputs": [
+    {
+      "path": "docs/harness-feedback/snapshots/2026-06-22-F167-eval.yaml",
+      "sha256": "37675c5b63cd419aacfc59d93dfe5796a0aab1b7631060a730b974db7cf3ba79"
+    },
+    {
+      "path": "docs/harness-feedback/attributions/2026-06-22-F167-attribution.yaml",
+      "sha256": "bc78607d9cd3b6b5807c0bb6f879906866a44638f3d6eab9b372bc13cd3e156d"
+    }
+  ],
+  "generatedAt": "2026-06-22T03:01:24.681Z",
+  "generator": {
+    "name": "eval-a2a-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f192-e-pilot-v1"
+}
