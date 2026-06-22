@@ -663,6 +663,36 @@ export interface IncrementalContextOptions {
   threadTitle?: string;
 }
 
+async function resolveRecentFilesTouched(
+  deps: RouteStrategyDeps,
+  userId: string,
+  catId: CatId,
+  threadId: string,
+  options?: IncrementalContextOptions,
+): Promise<Array<{ path: string; ops: string[] }>> {
+  if (options?.recentFilesTouched) return options.recentFilesTouched;
+
+  const sessionChainStore = deps.invocationDeps.sessionChainStore;
+  const transcriptWriter = deps.invocationDeps.transcriptWriter;
+  if (!sessionChainStore || !transcriptWriter) return [];
+
+  try {
+    const activeSession = await Promise.resolve(sessionChainStore.getActive(catId, threadId));
+    if (activeSession?.userId === userId) {
+      return transcriptWriter.getFilesTouched(activeSession.id);
+    }
+
+    const threadSessions = await Promise.resolve(sessionChainStore.getChainByThread(threadId));
+    const callerSession = [...threadSessions]
+      .reverse()
+      .find((session) => session.status === 'active' && session.catId === catId && session.userId === userId);
+    if (!callerSession) return [];
+    return transcriptWriter.getFilesTouched(callerSession.id);
+  } catch {
+    return [];
+  }
+}
+
 export async function assembleIncrementalContext(
   deps: RouteStrategyDeps,
   userId: string,
@@ -725,8 +755,10 @@ export async function assembleIncrementalContext(
     }
   }
 
+  const recentFilesTouched = await resolveRecentFilesTouched(deps, userId, catId, threadId, options);
+
   const recentArtifacts = extractRecentArtifacts({
-    filesTouched: options?.recentFilesTouched ?? [],
+    filesTouched: recentFilesTouched,
     prTasks: allThreadTasks,
     catId,
   });

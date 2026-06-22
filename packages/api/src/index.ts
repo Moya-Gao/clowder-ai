@@ -2536,6 +2536,8 @@ async function main(): Promise<void> {
     messageStore,
     taskStore,
     memoryStore,
+    sessionChainStore,
+    transcriptWriter,
     deliveryCursorStore,
     invocationTracker,
     draftStore,

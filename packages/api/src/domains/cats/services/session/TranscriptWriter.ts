@@ -147,6 +147,20 @@ export class TranscriptWriter {
     return this.buffers.get(sessionId)?.length ?? 0;
   }
 
+  /** Get the current session's touched files from the in-memory transcript buffer. */
+  getFilesTouched(sessionId: string): ExtractiveDigestV1['filesTouched'] {
+    const buf = this.buffers.get(sessionId) ?? [];
+    const filePaths = new Map<string, Set<string>>();
+
+    for (const entry of buf) {
+      const evt = entry.event;
+      const evtName = (evt.toolName ?? evt.name) as string | undefined;
+      recordFilesTouched(filePaths, evt, evtName);
+    }
+
+    return materializeFilesTouched(filePaths);
+  }
+
   /**
    * Flush buffered events to disk + generate index + extractive digest.
    * Clears the buffer after successful write.
@@ -241,18 +255,7 @@ export class TranscriptWriter {
       // Tool use events
       if (evtType === 'tool_use' && typeof evtName === 'string') {
         toolNames.add(evtName);
-
-        // Extract file paths from tool input (AgentMessage: toolInput, raw: input)
-        const input = (evt.toolInput ?? evt.input) as Record<string, unknown> | undefined;
-        if (input) {
-          const filePath = (input.file_path ?? input.path) as string | undefined;
-          if (filePath && typeof filePath === 'string') {
-            const ops = filePaths.get(filePath) ?? new Set();
-            const opName = this.toolNameToOp(evtName);
-            if (opName) ops.add(opName);
-            filePaths.set(filePath, ops);
-          }
-        }
+        recordFilesTouched(filePaths, evt, evtName);
       }
 
       // Error events — AgentMessage uses type='error'+error field;
@@ -334,10 +337,7 @@ export class TranscriptWriter {
           toolNames: [...toolNames],
         },
       ],
-      filesTouched: [...filePaths.entries()].map(([path, ops]) => ({
-        path,
-        ops: [...ops],
-      })),
+      filesTouched: materializeFilesTouched(filePaths),
       errors: digestErrors,
       ...(noiseSummaries.length > 0 ? { diagnostics: { noise: noiseSummaries } } : {}),
       recentMessages: recentMessages.slice(-5),
@@ -356,29 +356,70 @@ export class TranscriptWriter {
 
     await writeFile(join(sessionDir, 'digest.handoff.md'), `${frontmatter}\n\n${body}\n`, 'utf-8');
   }
-
-  /** Map tool name to file operation type. */
-  private toolNameToOp(name: string): string | null {
-    switch (name.toLowerCase()) {
-      case 'write':
-        return 'create';
-      case 'edit':
-        return 'edit';
-      case 'delete':
-        return 'delete';
-      case 'read':
-      case 'grep':
-      case 'glob':
-        return 'read';
-      default:
-        return null;
-    }
-  }
-
   /** Compute session directory path. */
   private sessionDir(session: TranscriptSessionInfo): string {
     return join(this.dataDir, 'threads', session.threadId, session.catId, 'sessions', session.sessionId);
   }
+}
+
+function recordFilesTouched(
+  filePaths: Map<string, Set<string>>,
+  evt: Record<string, unknown>,
+  evtName: string | undefined,
+): void {
+  if (evt.type !== 'tool_use' || typeof evtName !== 'string') return;
+
+  const input = (evt.toolInput ?? evt.input) as Record<string, unknown> | undefined;
+  if (!input) return;
+  const opName = toolNameToOp(evtName);
+  const filePathsTouched = extractToolPaths(input, evtName);
+  for (const filePath of filePathsTouched) {
+    const ops = filePaths.get(filePath) ?? new Set<string>();
+    if (opName) ops.add(opName);
+    filePaths.set(filePath, ops);
+  }
+}
+
+function materializeFilesTouched(filePaths: Map<string, Set<string>>): ExtractiveDigestV1['filesTouched'] {
+  return [...filePaths.entries()].map(([path, ops]) => ({
+    path,
+    ops: [...ops],
+  }));
+}
+
+function toolNameToOp(name: string): string | null {
+  switch (name.toLowerCase()) {
+    case 'write':
+      return 'create';
+    case 'edit':
+    case 'file_change':
+      return 'edit';
+    case 'delete':
+      return 'delete';
+    case 'read':
+    case 'grep':
+    case 'glob':
+      return 'read';
+    default:
+      return null;
+  }
+}
+
+function extractToolPaths(input: Record<string, unknown>, toolName: string): string[] {
+  const directPath = (input.file_path ?? input.path) as string | undefined;
+  if (directPath && typeof directPath === 'string') return [directPath];
+
+  if (toolName.toLowerCase() !== 'file_change' || !Array.isArray(input.changes)) return [];
+
+  return input.changes
+    .map((change) => {
+      if (typeof change === 'string') return change;
+      if (change && typeof change === 'object' && typeof (change as { path?: unknown }).path === 'string') {
+        return (change as { path: string }).path;
+      }
+      return null;
+    })
+    .filter((path): path is string => typeof path === 'string' && path.length > 0);
 }
 
 function extractVisibleAssistantText(evt: Record<string, unknown>, opts?: { trim?: boolean }): string | null {
