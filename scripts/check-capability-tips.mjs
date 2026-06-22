@@ -107,7 +107,12 @@ function validateSourceRef(repoRoot, tipId, fieldName, sourceRef, errors, warnin
 
   const content = readFileSync(targetPath, 'utf8');
   if (!content.includes(sourceRef.anchor)) {
-    errors.push(`${tipId}: ${fieldName} anchor not found in ${sourceRef.path}: ${sourceRef.anchor}`);
+    // Anchor mismatch is soft when a warnings collector exists: the public
+    // export sanitizer may transform content (Chinese → English branding),
+    // making source-repo anchors invalid in the export copy.
+    (warnings ?? errors).push(
+      `${tipId}: ${fieldName} anchor not found in ${sourceRef.path}: ${sourceRef.anchor}`,
+    );
   }
 }
 

@@ -152,7 +152,7 @@ describe('F244 capability tips hard check', () => {
     }
   });
 
-  it('fails when a sourceRef anchor cannot be located', () => {
+  it('warns (not errors) when a sourceRef anchor cannot be located', () => {
     const root = makeRepo();
     try {
       writeInventory(root, [
@@ -167,8 +167,11 @@ describe('F244 capability tips hard check', () => {
       const result = checkCapabilityTipsForRepo(root, {
         changedFiles: ['docs/features/F250-test.md'],
       });
-      assert.equal(result.ok, false);
-      assert.match(result.errors.join('\n'), /anchor not found/);
+      // Anchor-not-found is now a warning (export sanitizer can transform
+      // content making source-repo anchors invalid in the export copy).
+      assert.equal(result.ok, true, 'anchor-not-found should not block the gate');
+      assert.ok(result.warnings?.length > 0, 'should produce a warning');
+      assert.match(result.warnings.join('\n'), /anchor not found/);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
