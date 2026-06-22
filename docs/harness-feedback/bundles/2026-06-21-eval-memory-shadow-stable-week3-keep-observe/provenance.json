@@ -1,0 +1,19 @@
+{
+  "verdictId": "2026-06-21-eval-memory-shadow-stable-week3-keep-observe",
+  "rawInputs": [
+    {
+      "path": "generated/memory/2026-06-21-eval-memory-shadow-stable-week3-keep-observe/recall-metrics.json",
+      "sha256": "6278206390abdd8f6beb74f1f16604d104708b4c80df8ec6462167f6844a563a"
+    },
+    {
+      "path": "generated/memory/2026-06-21-eval-memory-shadow-stable-week3-keep-observe/library-health.json",
+      "sha256": "961952a7653a434af81e198be208d601dbd7731682ba3c319c5e3b386803aad2"
+    }
+  ],
+  "generatedAt": "2026-06-21T03:05:00.000Z",
+  "generator": {
+    "name": "eval-memory-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f192-memory-recall-v1"
+}

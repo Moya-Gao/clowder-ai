@@ -1,0 +1,37 @@
+{
+  "verdictId": "2026-06-21-eval-memory-shadow-stable-week3-keep-observe",
+  "featureId": "F200",
+  "windowDays": 30,
+  "filters": {},
+  "generatedAt": "2026-06-21T03:05:00.000Z",
+  "metrics": {
+    "period": {
+      "fromMs": 1779505273744,
+      "toMs": 1782097273744,
+      "days": 30
+    },
+    "filters": {},
+    "totalEvents": 974,
+    "core": {
+      "consumedAt3": 0.11498973305954825,
+      "consumedMRR": 0.09106042827808741,
+      "reformulationRate": 0.34188911704312114,
+      "searchAbandonRate": 0.5893223819301848
+    },
+    "extended": {
+      "readthroughAt3": 0.10960960960960964,
+      "firstConsumedRankMedian": 1,
+      "reformulationsBeforeConsumption": 0.17204301075268819,
+      "reformulateAfterExposure": 0.11909650924024641,
+      "grepFallbackRate": 0,
+      "tokenCostPerHit": 0,
+      "consumedAnchorNotInPoolRate": 0,
+      "shadowConsumedMRR": 0.6847673160173162,
+      "liveOnShadowSubsetMRR": 0.688555194805195
+    },
+    "graph": {
+      "nonFirstSelectionRate": 0.45454545454545453,
+      "traversalCompletion": 0
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "verdictId": "2026-06-21-eval-memory-shadow-stable-week3-keep-observe",
+  "featureId": "F200",
+  "evalSnapshotId": "eval-F200-memory-2026-06-21",
+  "generatedAt": "2026-06-21T03:05:00.000Z",
+  "findings": [],
+  "noFindingRecord": {
+    "reason": "Mandatory weekly re-eval per PR #2187 acceptanceReevalPlan, 96h overdue due to 7 consecutive cron sessions (#18-24) interrupted before publish. Shadow apples-to-apples ratio = shadowConsumedMRR / liveOnShadowSubsetMRR = 1.0000 exactly sustained 16+ consecutive days post-B'-fix (PR #2108 merge 3e2effdf7) across sample evolution. F188 library coverage gap emerged day-12 spike (zeroHit 11, lowHit 24), self-recovered day-14, sustained recovery day-15+. Both signals match closureCondition.",
+    "evidence": "consumed_mrr, consumed_at_3, search_abandon_rate, shadow_consumed_mrr, live_on_shadow_subset_mrr, non_first_selection_rate, traversal_completion, orphan_edge_count, search_zero_hit_count, search_low_hit_count"
+  }
+}
