@@ -138,6 +138,7 @@ created: 2026-06-11
 | 2026-06-14 | **Phase B grouping merged (PR #2288)** — 三种分组模式（时间/对话/猫）可切换 chips + 可折叠 section（chevron + label + count）+ ArtifactRow 组件提取降低 cognitive complexity。local gpt52 review P1（group.label 碰撞 → stable `id` field 修复，4 红→绿测试）+ 云端 R1 pass（"no major issues"）。AC-B1 grouping ✅，猫 filter 待 follow-up |
 | 2026-06-14 | **Phase B cat filter + server-side query merged (PR #2290)** — `extractCatChips()` / `filterByCat()` 纯函数模块 + cat chip UI + `GET /api/artifacts?type=X&cat=X&q=keyword` server-side filtering。local gpt52 review P1（null catId→'—' sentinel 归一化不一致修）+ 云端 R1 P2（duplicate `?q=` param → 500 crash，Array.isArray guard fix）+ R2 pass（"Chef's kiss"）。AC-B1 ✅ |
 | 2026-06-17 | **Source-code artifact classification hardening merged (PR #2362)** — file ledger source refs now classify through shared `SOURCE_CODE_EXTENSIONS`, covering tracked script extensions, Swift/source-code drift, and HTML source files; frontend preview consumes the same shared allowlist so newly promoted code artifacts remain panel-previewable. Local Opus continuity + `pnpm gate` + cloud R5 pass (`4f523a25`) |
+| 2026-06-22 | **TranscriptWriter JSONL disk fallback merged (PR #2498)** — `getFilesTouched()` recovers from `events.live.jsonl` after runtime restart (empty buffer bug); `flush()` merges pre-restart events with buffer via content-based dedup instead of replacing by row count (cloud R1 P1) + unconditional merge guard (cloud R2 P1). 11 tests (6 new). Takeover from gpt52 PR #2491. Local gpt52 review + cloud 3 rounds → 0 P1/P2 |
 
 ## Design Gate
 
