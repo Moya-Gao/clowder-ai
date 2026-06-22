@@ -157,6 +157,31 @@ tips system 是 harness 改动，必须有闭环：
 - 支持 stale/sunset：sourceRef 失效、feature done/sunset、连续低价值或被用户 dismiss 的 tip 进入 review。
 - dogfood 报告：第一个用户为铲屎官，Phase B 后用 alpha 录屏 + 使用反馈判断是否继续上 C/D hard layer。
 
+#### Phase D implementation split（2026-06-22 收敛）
+
+CVO directive: #997、tips 长度、dogfood 报告、eval/stale 全部做；PR 不拆太碎。Phase D 拆成两个内聚 PR：
+
+**PR-D1 — tips 体验 + 本地数据基础**
+
+- 曝光均匀性（clowder-ai#997）：选择器优先展示当前 scope 下未曝光 tips；当前 eligible 集合全部曝光过后，只清空该 scope 的已曝光集合并开启新一轮，不清空其他 context/surface 的历史。
+- 已曝光状态用普通 `Set`/`Map` 持久化到 `localStorage`，按 `surface + audience + normalized contexts` 分 scope；state 记录当前 inventory fingerprint，但 fingerprint 变化时做 tipId diff 迁移，不把整轮已读状态清空。
+- 新 tip 优先：已有本地状态时，新出现在 inventory 的 tip 记录 `firstSeenAt` 并在短窗口内 boost；删除的 tipId 从 Set/Map 移除；保留的 tipId 继续保留曝光状态。首次安装/首次打开时不把全量 inventory 都当"新 tip"无限抢占。
+- 同优先级内用 deterministic seeded shuffle 打散排序；seed 由日期 bucket（`YYYY-MM-DD`）+ scope + inventory fingerprint 组成，不使用用户正文、外部身份、session id 或随机数。刷新/同日保持稳定，跨日自然换序。
+- 记录 privacy-minimal selection state 与既有 `capability_tip_exposed` / `capability_tip_action` 事件兼容；D1 不做跨设备同步，不引入后端 per-user storage。
+- 多 tab localStorage 并发写不加锁：exposure 写入低频，偶发 race 最坏只是某条 tip 多曝光一次，不值得为 D1 引入锁或 broadcast 协议。
+- tips 长度治理同 PR 处理：优先把 >50 字的长 tip 压到约 45 字以内；无法压缩而仍需保留两层信息的 tip 拆成多条 sourceRef-backed tips。
+
+**PR-D2 — eval + 治理闭环**
+
+- F192 注册/接入 `capability-tips` eval 域，消费 D1 产生的 privacy-minimal usage/friction 信号。
+- 产出 dogfood report：覆盖 R1-R5 dogfood 发现、#997 曝光均匀性修复前后、action click / dismiss / follow-up signals。
+- 落 stale/sunset owner queue：sourceRef 失效、feature sunset、连续低价值或高 dismiss tip 进入 owner 可处理清单。
+- OQ-3 在 D2 定稿：复用 `eval:capability-wakeup` 还是新增 `eval:capability-tips` domain，以 F192 integration cost 和 report 可读性为准。
+
+**Rejected option: Bloom filter**
+
+Bloom filter 不用于 D1。原因：当前 inventory 量级是几十到几百条，普通 Set 内存成本只有 KB 级；Bloom filter 有假阳性，会把未看过的 tip 误判成已看过，造成长期漏展示；且 Bloom 不适合"eligible 集合看完一轮后按 scope 清空/重置"和单条 tip stale/sunset 删除。#997 的问题是小集合公平轮转，不是百万级去重省内存。
+
 ## Eval / Tracking Contract
 
 ### 1. Primary Users + Activation Signal
@@ -220,8 +245,10 @@ tips system 是 harness 改动，必须有闭环：
 ### Phase D（Eval + Staleness Loop）
 
 - [x] AC-D1: usage telemetry privacy-minimal：记录 tip id、context、action outcome，不记录用户私密正文。
+- [ ] AC-D1.1: #997 曝光均匀性修复：localStorage Set/Map 记录当前 scope 已曝光 tip；未曝光优先、eligible 全看完后按 scope 重置、inventory diff 迁移、新 tip boost、date-seeded shuffle、localStorage-denied fallback 均有测试覆盖。
+- [ ] AC-D1.2: tips 长度治理完成：超长 tips 压缩或拆条，保留 trigger-action 与 sourceRef，不用省略关键行为边界换短。
 - [ ] AC-D2: F192 eval path 能消费 tips usage/friction 信号，至少产出 one-shot dogfood report 或 domain extension design。
-- [ ] AC-D3: Phase B 后产出铲屎官 dogfood 报告：哪些 tips 被看见/点开/觉得有用，哪些造成噪音。
+- [ ] AC-D3: Phase B/D1 后产出铲屎官 dogfood 报告：哪些 tips 被看见/点开/觉得有用，哪些造成噪音。
 - [ ] AC-D4: stale/sunset 机制能发现 sourceRef 失效或 feature sunset 后仍展示的 tip，并给 owner 可处理清单。
 
 ## Dependencies
@@ -273,6 +300,7 @@ tips system 是 harness 改动，必须有闭环：
 | KD-10 | 第一版是终态竖切，不叫临时版 | CVO 指出临时版 framing 会诱导绕路；scope 只能减内容数量/展示范围，不能减 contract 终态性 | 2026-06-18 |
 | KD-11 | Tips 第一展示面在 assistant streaming bubble，不在 execution bar | Dogfood 截图确认执行条位置离用户注视点太远；等待态学习应贴近猫猫正在说话的气泡，同时 execution bar 保持真实状态和逃生口职责 | 2026-06-19 |
 | KD-12 | Seed inventory 保持 JSON 数据文件，不额外建 md 同步层 | `capability-tips.seed.json` 是独立数据文件（非组件内硬编码），有 `check-capability-tips.mjs` CI 校验；维护者是猫猫（开发者），不需要非技术编辑界面；额外 md↔JSON 同步层增加漂移风险，ROI 不足。CVO 确认格式由猫猫自决 | 2026-06-21 |
+| KD-13 | #997 曝光均匀性用 Set/Map 轮转，不用 Bloom filter | tips inventory 是小集合，Set/Map 简单、可删除、可按 scope 清轮且无假阳性；Bloom filter 为百万级省内存去重设计，假阳性会漏 tip，不适合本场景 | 2026-06-22 |
 
 ## Timeline
 
@@ -299,6 +327,7 @@ tips system 是 harness 改动，必须有闭环：
 | 2026-06-21 | PR #2473 merged：修复 `basics-at-routing` tip 文案——补并发 @ 轮里猫猫不传球的说明和用户操作指引（CVO dogfood R5 ③） |
 | 2026-06-21 | PR #2480 merged：扩充协作引导 tips（CVO directive）——新增 6 条 `collab-*` workflow tips（按 SOP 开发 / 愿景驱动立项 / 给目标自主传球 / 跨猫 review 自动守门 / 卡住自己找伙伴 / 可逆小事自决），audience=cvo 教社区铲屎官如何指挥猫团队；gpt52 R1 2×P2（cross-review 过度承诺 / give-goals 缺串行 caveat）→ fixed → R2 No findings；同步修 AC-B1 surface 漂移（→ PendingMemberBubble）|
 | 2026-06-22 | CVO 排期 Phase D 全做（不降级、PR 不碎），分 2 PR：**PR-D1**（体验+数据）= telemetry 持久化 + 曝光均匀（clowder-ai#997：去重轮转 / 新 tip 优先 / seed，= R5① issue 化）+ tips 长度优化（16/52 条 >50 字，心理学瞄读标准定上限 ~45 字、超长拆条，含 basics-at-routing 89 字拆 2 条）；**PR-D2**（eval+治理）= F192 tips eval 域接入（AC-D2）+ dogfood report（AC-D3）+ stale/sunset（AC-D4）。eval verdict 待 usage 数据自然产出，不卡 close；OQ-3 在 PR-D2 定 |
+| 2026-06-22 | CVO 转述吴浪建议 Bloom filter / 已曝光集合；砚砚 + 宪宪收敛：采用普通 Set/Map 已曝光集合 + scope 轮转 + new-tip boost + deterministic seeded shuffle；明确否决 Bloom filter（小集合无内存压力，假阳性会漏 tip，重置/删除不适合）。PR-D1 local-first，不做跨设备同步；PR-D2 再接 F192/back-end rollup |
 
 ## Review Gate
 
