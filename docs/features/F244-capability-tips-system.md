@@ -245,8 +245,8 @@ Bloom filter 不用于 D1。原因：当前 inventory 量级是几十到几百�
 ### Phase D（Eval + Staleness Loop）
 
 - [x] AC-D1: usage telemetry privacy-minimal：记录 tip id、context、action outcome，不记录用户私密正文。
-- [ ] AC-D1.1: #997 曝光均匀性修复：localStorage Set/Map 记录当前 scope 已曝光 tip；未曝光优先、eligible 全看完后按 scope 重置、inventory diff 迁移、新 tip boost、date-seeded shuffle、localStorage-denied fallback 均有测试覆盖。
-- [ ] AC-D1.2: tips 长度治理完成：超长 tips 压缩或拆条，保留 trigger-action 与 sourceRef，不用省略关键行为边界换短。
+- [x] AC-D1.1: #997 曝光均匀性修复：localStorage Set/Map 记录当前 scope 已曝光 tip；未曝光优先、eligible 全看完后按 scope 重置、inventory diff 迁移、新 tip boost、date-seeded shuffle、localStorage-denied fallback 均有测试覆盖。
+- [x] AC-D1.2: tips 长度治理完成：超长 tips 压缩或拆条，保留 trigger-action 与 sourceRef，不用省略关键行为边界换短。
 - [ ] AC-D2: F192 eval path 能消费 tips usage/friction 信号，至少产出 one-shot dogfood report 或 domain extension design。
 - [ ] AC-D3: Phase B/D1 后产出铲屎官 dogfood 报告：哪些 tips 被看见/点开/觉得有用，哪些造成噪音。
 - [ ] AC-D4: stale/sunset 机制能发现 sourceRef 失效或 feature sunset 后仍展示的 tip，并给 owner 可处理清单。
@@ -328,6 +328,7 @@ Bloom filter 不用于 D1。原因：当前 inventory 量级是几十到几百�
 | 2026-06-21 | PR #2480 merged：扩充协作引导 tips（CVO directive）——新增 6 条 `collab-*` workflow tips（按 SOP 开发 / 愿景驱动立项 / 给目标自主传球 / 跨猫 review 自动守门 / 卡住自己找伙伴 / 可逆小事自决），audience=cvo 教社区铲屎官如何指挥猫团队；gpt52 R1 2×P2（cross-review 过度承诺 / give-goals 缺串行 caveat）→ fixed → R2 No findings；同步修 AC-B1 surface 漂移（→ PendingMemberBubble）|
 | 2026-06-22 | CVO 排期 Phase D 全做（不降级、PR 不碎），分 2 PR：**PR-D1**（体验+数据）= telemetry 持久化 + 曝光均匀（clowder-ai#997：去重轮转 / 新 tip 优先 / seed，= R5① issue 化）+ tips 长度优化（16/52 条 >50 字，心理学瞄读标准定上限 ~45 字、超长拆条，含 basics-at-routing 89 字拆 2 条）；**PR-D2**（eval+治理）= F192 tips eval 域接入（AC-D2）+ dogfood report（AC-D3）+ stale/sunset（AC-D4）。eval verdict 待 usage 数据自然产出，不卡 close；OQ-3 在 PR-D2 定 |
 | 2026-06-22 | CVO 转述吴浪建议 Bloom filter / 已曝光集合；砚砚 + 宪宪收敛：采用普通 Set/Map 已曝光集合 + scope 轮转 + new-tip boost + deterministic seeded shuffle；明确否决 Bloom filter（小集合无内存压力，假阳性会漏 tip，重置/删除不适合）。PR-D1 local-first，不做跨设备同步；PR-D2 再接 F192/back-end rollup |
+| 2026-06-22 | PR #2502 merged：Phase D PR-D1 — exposure uniformity (#997 localStorage Set/Map 已曝光集合 + scope 轮转 + new-tip boost + date-seeded shuffle + inventory fingerprint migration)、localStorage defensive guards (SecurityError in sandboxed origins)、tips 长度治理 (16/52 条 >50 字压缩至 ≤45 字)、telemetry persistence (localStorage-backed usage events)；gpt52 R2 APPROVED + opus-48 vision guard PASS + cloud 3 轮 review sealed (localStorage SecurityError P2 ×2 fixed, inventory migration pushback → P3 降级) |
 
 ## Review Gate
 
