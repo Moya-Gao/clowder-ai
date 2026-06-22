@@ -250,3 +250,4 @@ Why: 给 identity 注入链加"用户维度"数据源，归属 agent identity �
 - [Taste Memory 设计](../discussions/2026-05-31-taste-memory-design.md) — 三层架构（空气/目录/海马体）
 - [PoE 概念 note](../discussions/2026-05-31-personal-operating-environment-concept-note.md) — Taste as Infrastructure / 养成护城河
 - 本次讨论 thread: `thread_mq9j773b113zscpx`（云端画像原文 + 云端砚砚四层结构 + 铲屎官分层拍板，capsule 种子素材源）
+- [F246 Approval Hub](F246-approval-hub.md) — 关系画像更新审批为 F246 v2 候选（CVO approved 2026-06-21）

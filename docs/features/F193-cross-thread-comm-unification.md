@@ -346,3 +346,4 @@ close_gate_report:
 | **Skill** | `cat-cafe-skills/cross-thread-sync/SKILL.md` | Phase D close gate 同步清理（删 Announce + 替换已删除的 `cat_cafe_search_messages` 引用为 `search_evidence` / `get_thread_context`） |
 | **Evidence** | `/uploads/1778169018738-4cf75cfd.png` | 接收侧 reply hint 缺失的 motivation evidence（46 收到 47 跨线程传话后回复停在本 thread） |
 | **Discussion** | thread `0001778150215161` (audit thread) | 三猫审计原始讨论（46 + 47 + 砚砚 push back/收口全过程） |
+| **审批统一** | [F246 Approval Hub](F246-approval-hub.md) | DispatchProposal 审批流已统一到 F246 Approval Hub（v1 adapter） |

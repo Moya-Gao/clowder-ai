@@ -362,3 +362,9 @@ F128 遵循 ADR-035 Proposal-First Agent Actions：
 #### Scope Boundary
 
 - 本 Phase 只允许**创建前**修改 reportingMode。已创建子 thread 若要换模式，仍需新建/重提 thread；不做运行中动态切换，也不 retroactively 改旧 thread header。
+
+## Links
+
+| 类型 | 路径 | 说明 |
+|------|------|------|
+| **审批统一** | [F246 Approval Hub](F246-approval-hub.md) | ThreadProposal 审批流已统一到 F246 Approval Hub（v1 adapter） |

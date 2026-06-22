@@ -204,12 +204,12 @@ Goal: 把 Phase C 后真实遗留的成熟化工作收束成可执行交付，�
 | **First PR boundary** | Adapter + jump-only card (same pattern as F225). No inline — primer diff review requires thread context | Refactor `resolve-direction` to binary accept + separate override endpoint. Extract from F168 queue builder | Blocked: add `createdBy`/`approvedBy` + explicit CVO gate + decouple collection security from approval | Blocked: migrate to Redis + add user-scoped auth adapter + add audit fields |
 | **Verdict** | **v2 ready** — lowest friction, existing store pattern matches F225 adapter exactly | **v2 conditional** — needs outcome refactored to binary before adapter can be built | **Deferred** — admission criteria not met (actor + outcome both fail) | **v2 conditional** — needs persistence + auth prerequisites before adapter |
 
-**Priority order for v2 implementation:**
+**CVO verdict (2026-06-21):**
 
-1. **F231** (ready now): Store pattern identical to F225 adapter; jump-only card; ~1 session to build adapter + tests
-2. **Limb pair** (after prerequisites): Binary outcome is correct; needs Redis migration + user-scoped auth first
-3. **F168 direction-decision** (after refactor): Candidate only if `resolve-direction` is refactored to binary accept/reject + separate config endpoint
-4. **Knowledge Feed** (not planned): Revisit when markers have explicit CVO approval gate + audit trail
+1. **F231** ✅ **v2 next** — ready now, store pattern identical to F225 adapter; jump-only card; ~1 session to build adapter + tests. Needs coordination with F231 owner to confirm store API ready.
+2. **Limb pair** ❌ **Dropped** — CVO verdict: "基本没用". Limb pairing is too niche for Hub integration.
+3. **F168 direction-decision** ❌ **Parked** — CVO verdict: "暂时不改了". F168 has its own dedicated flow, no need to force into Hub.
+4. **Knowledge Feed** ❌ **Parked** — CVO verdict: same as F168, has its own dedicated flow. Admission criteria also unmet.
 
 ### Phase D AC-D7: Materialized Index Gate
 

@@ -250,3 +250,4 @@ Why: session 边界目前只能由 `shouldTakeAction`（context_health / 阈值�
 | **地基** | `docs/features/F128`（propose 机制） | proposal CAS + 确认卡复用源 |
 | **地基** | `docs/features/F211-cross-runtime-session-transparency.md` | SessionChainStore / seal reason |
 | **架构 cell** | `docs/architecture/ownership/cells/identity-session.md` | identity-runtime-session subcell 归属 |
+| **审批统一** | [F246 Approval Hub](F246-approval-hub.md) | SessionHandoffProposal 审批流已统一到 F246 Approval Hub（v1 adapter） |
