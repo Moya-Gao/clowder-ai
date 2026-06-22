@@ -8,7 +8,7 @@ created: 2026-06-18
 
 # F244: Capability Tips System — 等待态 Knowledge Feed 投影
 
-> **Status**: in-progress | **Owner**: 缅因猫/砚砚 | **Priority**: P1
+> **Status**: done | **Owner**: 缅因猫/砚砚 | **Priority**: P1 | **Completed**: 2026-06-22
 
 ## Architecture Ownership
 
@@ -233,7 +233,7 @@ Bloom filter 不用于 D1。原因：当前 inventory 量级是几十到几百�
 - [x] AC-B1: 等待态 surface 能展示上下文 tip；component tests 覆盖。Surface 经多轮 dogfood 迭代定位：PR #2406 `ThreadExecutionBar`（位置错）→ PR #2424 `assistant_stream_bubble` → PR #2433/#2448 最终落在 `PendingMemberBubble`（"分析处理中"等待气泡，tip strip 即思考态指示器）；parallel/ideate 锁定同一线程只展示一个 strip，并保留 `review` context。
 - [x] AC-B2: tips 与真实状态分层；`alive_but_silent` / `suspected_stall` 下取消、故障说明、`卡住了？强制重置` 入口不被遮挡，component tests 覆盖。
 - [x] AC-B3: Tip primary action hover 显示"了解更多"，click 拉起 F229 猫猫球并预填 tip 解释请求到输入框，默认不发送；若有 secondary source/guide/capability action，坏链接或 stale source 有可见错误，不静默失败。
-- [ ] AC-B4: 铲屎官 dogfood 路径可演示：等待一次猫执行时看到至少一条 capability/magic-word/workflow tip，并能点开了解来源。
+- [x] AC-B4: 铲屎官 dogfood 路径可演示：等待一次猫执行时看到至少一条 capability/magic-word/workflow tip，并能点开了解来源。（5 轮 dogfood 证据见 `docs/features/F244-capability-tips-dogfood-report.md`；Round 5 CVO 点击"了解更多"确认 action path 可达；Vision Guard 核实后补勾 2026-06-22）
 
 ### Phase C（Feature Tips Contribution Gate）
 
@@ -330,6 +330,7 @@ Bloom filter 不用于 D1。原因：当前 inventory 量级是几十到几百�
 | 2026-06-22 | CVO 转述吴浪建议 Bloom filter / 已曝光集合；砚砚 + 宪宪收敛：采用普通 Set/Map 已曝光集合 + scope 轮转 + new-tip boost + deterministic seeded shuffle；明确否决 Bloom filter（小集合无内存压力，假阳性会漏 tip，重置/删除不适合）。PR-D1 local-first，不做跨设备同步；PR-D2 再接 F192/back-end rollup |
 | 2026-06-22 | PR #2502 merged：Phase D PR-D1 — exposure uniformity (#997 localStorage Set/Map 已曝光集合 + scope 轮转 + new-tip boost + date-seeded shuffle + inventory fingerprint migration)、localStorage defensive guards (SecurityError in sandboxed origins)、tips 长度治理 (16/52 条 >50 字压缩至 ≤45 字)、telemetry persistence (localStorage-backed usage events)；gpt52 R2 APPROVED + opus-48 vision guard PASS + cloud 3 轮 review sealed (localStorage SecurityError P2 ×2 fixed, inventory migration pushback → P3 降级) |
 | 2026-06-22 | PR #2509 merged：Phase D PR-D2 — `eval:capability-tips` domain registered (enabled:false, pending usage data)、CVO dogfood report (5 rounds)、stale/sunset detection (`check-capability-tips-stale.mjs` + 14 tests, detects path_missing/anchor_missing/feature_sunset)；gpt52 R1 P1 (`done` not detected as terminal) + P2 (mailbox frontmatter) → fixed → R2 0 findings；cloud COMMENTED 1 P1 pushed back to P3 (script is standalone diagnostic, finding F079 is correct behavior)；also fixed: F245 invalid `eval` context → `feature_dev`, F237 intake doc `absorbed` → `done` for feature-truth check |
+| 2026-06-22 | Vision Guard — 宪宪/sonnet 验证 Phase D 全部 AC（AC-D1/D1.1/D1.2/D2/D3/D4）逐条核实，AC-B4 补勾（dogfood report 已覆盖证据），Status → done |
 
 ## Review Gate
 
