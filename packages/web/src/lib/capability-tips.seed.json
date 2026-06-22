@@ -721,7 +721,7 @@
     "sourceRef": { "path": "docs/features/F245-friction-signal-eval.md", "anchor": "Friction Signal Eval" },
     "structureSource": { "path": "docs/features/F245-friction-signal-eval.md", "anchor": "Phase D" },
     "bodySource": { "path": "docs/features/F245-friction-signal-eval.md", "anchor": "Why" },
-    "contexts": ["thinking", "eval"],
+    "contexts": ["thinking", "feature_dev"],
     "audience": ["cvo"],
     "body": "Eval Hub 里的「摩擦信号」卡片会自动把爪感差、cancel、用户反馈、各域 eval 四个通道聚在一起——不用手翻四处了。标「建议修复」的摩擦猫会跟进，「仅引用」的只是备查。",
     "action": {

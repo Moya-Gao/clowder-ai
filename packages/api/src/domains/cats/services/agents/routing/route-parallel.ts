@@ -274,6 +274,7 @@ export async function* routeParallel(
         mode: 'parallel',
         teammates,
         mcpAvailable,
+        nativeL0Injected: hasNativeL0,
         ...(promptTags && promptTags.length > 0 ? { promptTags } : {}),
         ...(activeParticipants.length > 0 ? { activeParticipants } : {}),
         ...(routingPolicy ? { routingPolicy } : {}),

@@ -51,6 +51,8 @@ export interface InvocationContext {
   teammates: readonly CatId[];
   /** Whether MCP tools are available for this cat */
   mcpAvailable: boolean;
+  /** Whether this invocation already receives the compiled L0 through a native system/developer channel. */
+  nativeL0Injected?: boolean;
   /** Prompt-level tags like 'critique' (from IntentParser) */
   promptTags?: readonly string[];
   /** Whether A2A collaboration prompt should be injected (only in serial/execute mode) */
@@ -765,9 +767,12 @@ export function buildInvocationContext(context: InvocationContext): string {
     lines.push('当前模式：独立回答。', '');
   }
 
-  // A2A: Exit check reminder — prevents "chain termination blind spot" where cats finish output
-  // without considering whether a teammate needs to act next.
-  if (context.mode !== 'parallel' && context.a2aEnabled) {
+  // A2A: per-turn fallback anchors for providers without native L0. Native L0
+  // already carries the same ball-ownership rules and baton decision tree via
+  // the compression-immune system/developer channel.
+  const shouldInjectA2ALongAnchors = context.mode !== 'parallel' && context.a2aEnabled && !context.nativeL0Injected;
+
+  if (shouldInjectA2ALongAnchors) {
     lines.push(
       `A2A 球权检查：@ = 球权转移（行首 @句柄，句中无效）。收到 @ 但对方说"我在动" → 矛盾，push back + 立刻接/退/升（诊断≠解决，说完不@=球还在地上）。收了球却说"你等着/你别动" → 球权死锁，禁止——做不了就退回或升级。球权只有第一人称：只能声明自己持球，不能声明别人持球——没有 @ 或 hold_ball 动作，球权就没转移。`,
       '',
@@ -947,8 +952,8 @@ export function buildInvocationContext(context: InvocationContext): string {
 
   // F167 Phase D: Trailing anchor — decision tree, not flat three-choice.
   // @landy is a hard-condition exit, not the safe default (KD-19).
-  // Placed at the very end for maximum recency bias (critical for non-Claude models).
-  if (context.mode !== 'parallel' && context.a2aEnabled) {
+  // Placed at the very end for maximum recency bias when native L0 is unavailable.
+  if (shouldInjectA2ALongAnchors) {
     const cc = getCoCreatorConfig().mentionPatterns[0] ?? '@铲屎官';
     lines.push(
       '',

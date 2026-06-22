@@ -773,6 +773,7 @@ export async function* routeSerial(
         chainTotal: worklist.length,
         teammates,
         mcpAvailable,
+        nativeL0Injected: hasNativeL0,
         ...(promptTags && promptTags.length > 0 ? { promptTags } : {}),
         a2aEnabled,
         ...(directMessageFrom ? { directMessageFrom } : {}),

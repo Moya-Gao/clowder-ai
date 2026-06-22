@@ -1640,8 +1640,16 @@ describe('AgentRouter', () => {
       'static provider/identity line MUST be in user-message prompt for non-native-L0 provider',
     );
     assert.ok(
-      opusReceivedPrompt.includes('## 协作'),
+      opusReceivedPrompt.includes('## 协作\n'),
       'static A2A collaboration section MUST be present for non-native-L0 provider',
+    );
+    assert.ok(
+      opusReceivedPrompt.includes('A2A 球权检查'),
+      'dynamic A2A long anchors MUST remain for non-native-L0 providers',
+    );
+    assert.ok(
+      opusReceivedPrompt.includes('下一棒传球决策树'),
+      'baton decision tree MUST remain for non-native-L0 providers',
     );
     assert.ok(opusReceivedPrompt.includes('Identity: 布偶猫'), 'dynamic invocation identity pin');
     assert.ok(opusReceivedPrompt.includes('hello'), 'original message');
@@ -1684,8 +1692,16 @@ describe('AgentRouter', () => {
       'static provider/identity line must NOT duplicate in user message when provider injects natively',
     );
     assert.ok(
-      !opusReceivedPrompt.includes('## 协作'),
+      !opusReceivedPrompt.includes('## 协作\n'),
       'static A2A section must NOT duplicate when provider injects natively',
+    );
+    assert.ok(
+      !opusReceivedPrompt.includes('A2A 球权检查'),
+      'dynamic A2A long anchors must NOT duplicate when provider injects natively',
+    );
+    assert.ok(
+      !opusReceivedPrompt.includes('下一棒传球决策树'),
+      'baton decision tree must NOT duplicate when provider injects natively',
     );
     // Dynamic pin + message still flow.
     assert.ok(opusReceivedPrompt.includes('Identity: 布偶猫'));
