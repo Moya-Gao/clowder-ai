@@ -326,7 +326,7 @@ cat_cafe_register_pr_tracking/cat_cafe_register_issue_tracking/cat_cafe_unregist
 - cat_cafe_generate_document: 文档生成→IM投递
 - cat_cafe_get_rich_block_rules: rich block 规则
 - cat_cafe_multi_mention: 并行拉猫讨论（先搜后问）
-- cat_cafe_propose_thread: 提议新建 thread（不直接创建）。返回 proposalId，审批通过后才建；审批前不要 cross_post。可选 projectPath 定子 thread 项目归属（跨 repo 必传；无效 400）。可选 reportingMode：final-only（默认）| none | state-transitions | blocking-ack。triage→none，汇总→final-only。
+- cat_cafe_propose_thread: 提议新建 thread（不直接创建）。返回 proposalId，审批通过后才建；审批前不要 cross_post。可选 projectPath 定子 thread 项目归属（跨 repo 必传；无效 400）。可选 reportingMode：final-only（默认，自治+闭环后回报一次）| none | state-transitions | blocking-ack。triage→none，要结果→final-only。
 
 ${RICH_BLOCK_SHORT}
 需要富呈现时优先 rich block；首次使用前先 call get_rich_block_rules。

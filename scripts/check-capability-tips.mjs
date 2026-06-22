@@ -110,9 +110,7 @@ function validateSourceRef(repoRoot, tipId, fieldName, sourceRef, errors, warnin
     // Anchor mismatch is soft when a warnings collector exists: the public
     // export sanitizer may transform content (Chinese → English branding),
     // making source-repo anchors invalid in the export copy.
-    (warnings ?? errors).push(
-      `${tipId}: ${fieldName} anchor not found in ${sourceRef.path}: ${sourceRef.anchor}`,
-    );
+    (warnings ?? errors).push(`${tipId}: ${fieldName} anchor not found in ${sourceRef.path}: ${sourceRef.anchor}`);
   }
 }
 
