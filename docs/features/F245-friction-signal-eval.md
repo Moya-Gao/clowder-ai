@@ -9,7 +9,7 @@ tips_exempt: Phase A-C 为内部 friction 采集/聚合 infra，无 user/cat 可
 
 # F245: Friction Signal Eval — 摩擦信号统一聚合（eval:friction）
 
-> **Status**: in-progress（Phase C PR1a + PR1b merged；shared Y-lite migration 已合入；PR2 N-day cadence + Phase D 出口闭环可恢复推进）| **Owner**: 缅因猫/砚砚 (gpt52) | **Priority**: P1
+> **Status**: in-progress（Phase C PR1a + PR1b merged；shared Y-lite migration 已合入；**PR2 N-day cadence review in progress（PR #2483）**；Phase D 出口闭环待 PR2 合入后推进）| **Owner**: 缅因猫/砚砚 (gpt52) | **Priority**: P1
 >
 > 🔴 **eval-domain 注册 approach 重置（CVO directive 2026-06-21）**：PR1a/PR1b 实做了硬 enum-bump（`'eval:friction'` 散落 7 处 + 18 点 fan-out），**偏离砚砚 2026-06-18 在 F236 的 Y-lite 裁定**（加 domain=加 YAML 不改中心 contract）。根因=跨线程规矩漏接（裁定没传进 plan，审的非 eval-owner 砚砚）。**approach 现已拍定：Y-lite 裁定继续作数**；`eval:friction` 作为已 ship 功能保留，但后续 eval-domain 扩展不再继续走硬 enum-bump。**自 2026-06-21 ownership reset 起，当前 owner = 缅因猫/砚砚 (gpt52)**；本轮主责 = F245 文档澄清 + shared Y-lite migration plan/PR。**F236 thread 已完成 ack，shared Y-lite migration 已于 2026-06-21 合入（PR #2476，squash `0822a68b4`）**；后续可恢复 PR2 / Phase D。
 
@@ -97,7 +97,7 @@ signal 体量实证（今天 UTC 0:00 → 16:07，16 小时）：
 - [x] AC-B2: dedup + cluster——"rg 噪音 ×N" 折叠成 1 cluster，cluster 含 count + 成员 evidence refs；误聚合率有 fixture 验证（误聚合率=0 corpus gate）✅ PR #2443
 
 ### Phase C（domain + rollup）
-- [ ] AC-C1（部分）: `eval-domains/eval-friction.yaml` 注册 + `enabled:true` flip（PR1b #2469），frequency 可配置（weekly/N-day/daily），默认社区 weekly / 本家 3 天（trace Why：铲屎官 signal 体量担忧）— yaml+enabled+weekly 已落；**N-day cadence + last-run gate（本家 3 天默认）= PR2 待续**
+- [ ] AC-C1（部分）: `eval-domains/eval-friction.yaml` 注册 + `enabled:true` flip（PR1b #2469），frequency 可配置（weekly/N-day/daily），默认社区 weekly / 本家 3 天（trace Why：铲屎官 signal 体量担忧）— yaml+enabled+weekly 已落；**N-day cadence + last-run gate（本家 3 天默认）= PR2 #2483 review in progress**
 - [x] AC-C2: 周期 rollup 报告——Top-N 配额（深挖 Top-N + 长尾折叠），按五类传感器形态 + 7-class 根因分类（命令产出可复核）✅ PR1b #2469（live rollup 接入 4-channel provider + generator）
 - [x] AC-C3: verdict 产出复用 F192 Verdict Handoff Packet schema（缺字段不得 handoff）✅ PR1b #2469
 
@@ -200,6 +200,7 @@ signal 体量实证（今天 UTC 0:00 → 16:07，16 小时）：
 | 2026-06-21 | **Phase C PR1b merged**（PR #2469，squash `ef1d1cca7`）— live sink：FrictionRollupSourceSelector（shared）+ validation/dispatch + friction-generator-adapter + eval-friction-live-verdict + renderer + submitted-packet-guard + FrictionMetricsProviderImpl（4-channel paw-feel/cancel/user-feedback/eval-domain 组合）+ mcp-server schema + index wiring + **enabled:true flip**。gpt52 跨族 APPROVE（R1 self-feedback loop 自回授 EvalDomainAdapter excludeFeatureIds 修复）→ final review + **封板**（cloud R1/R2/R3 全真 finding／第 3 轮 75% stale 重放触发 LL-072：R1 publish-instructions fan-out、R2 summary newline injection global guard + docs frontmatter、R3 empty-topClusters tail-aggregate）。AC-C2/C3 ✅；AC-C1 部分（N-day cadence=PR2 待续）。|
 | 2026-06-21 | **ownership reset + migration gate**（CVO directive + 砚砚 eval-owner 裁定）— Y-lite 裁定继续作数；`eval:friction` enum-bump 仅作已 ship 的临时历史状态，不再作为后续架构方向。**current owner 切换为 gpt52；其主责 = F245 文档澄清 + shared Y-lite migration plan/PR**；先让 F236 thread review/ack 这份更新后的 F245 feat doc，再开 migration 代码。**PR2 / Phase D 暂停**，待 shared Y-lite migration 落地后继续。|
 | 2026-06-21 | **shared Y-lite migration merged**（PR #2476，squash `0822a68b4`）— eval-domain 注册 contract 从中心 enum-bump 迁到 Y-lite：`domainId/sourceAdapter` 改受约束字符串、registry 新增 `sourceRefsKind`、publish-verdict 对未知 selector kind 明确 `unsupported_source_refs_kind` fail-closed、现有 eval-domain YAML/fixtures/tests 全量同步。F245 / F236 后续加 domain 不再改中心 enum，PR2 / Phase D 可在此基础上恢复推进。|
+| 2026-06-21 | **PR2 N-day cadence open for review**（PR #2483，branch `feat/f245-pr2-nday-cadence`）— `createEvalDomainNDaySpec`（daily cron + per-domain Redis last-run gate，fail-open）+ `eval-friction.yaml` frequency `weekly→every-3d`（AC-C1 完成）+ registry schema 扩展支持 `every-Nd` + index.ts wiring + 11 TDD tests（shape/gate/execute Redis write）。17469 tests 全绿，@gpt52 cross-family review pending。|
 
 ## Review Gate
 
