@@ -67,6 +67,8 @@ managed_files:
   - docs/harness-feedback/bundles/2026-05-23-eval-a2a-live-verdict/attribution.json
   - docs/harness-feedback/bundles/2026-05-23-eval-a2a-live-verdict/provenance.json
   - docs/harness-feedback/bundles/2026-05-23-eval-a2a-live-verdict/snapshot.json
+  # Feature doc template (required by check:capability-tips — ENOENT blocks pnpm check in export)
+  - docs/features/TEMPLATE.md
   # F210 public parser fixtures required by packages/api test:public
   - docs/features/assets/F210/agy-conversation-resume.txt
   - docs/features/assets/F210/agy-print-auth-required.txt
