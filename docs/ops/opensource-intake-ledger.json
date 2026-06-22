@@ -1875,6 +1875,13 @@
       "intake_intent_issue": 2492,
       "absorb_pr": 2493,
       "review_proof": "https://github.com/zts212653/cat-cafe/pull/2493#pullrequestreview-4541791415"
+    },
+    {
+      "pr_number": 996,
+      "target_merge_commit": "0a44e464d078b5a3dc89f1d1e2dd0c6447c62227",
+      "decision": "absorbed",
+      "timestamp": "2026-06-22T08:22:53.408Z",
+      "note": "outbound-filed hotfix: back-sync verified OpenRouter MiniMax-M3 lowercase slug alias after cat-cafe#2493 cloud P2 fix. Source behavior already exists in cat-cafe main (cat-cafe#2493 merge 97a4b776); clowder-ai#996 only restores public repo parity. No intake intent/absorb PR because this is an outbound-filed hotfix. Manual ledger record used because scripts/intake-from-opensource.sh --record --decision absorbed --skip-absorbed-guard currently still runs whole-repo Brand Guard before the skip guard and hits known pre-existing F238 public-brand false positives; #996 diff is limited to context-window-sizes source/test files."
     }
   ]
 }
