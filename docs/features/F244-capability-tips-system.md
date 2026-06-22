@@ -67,7 +67,7 @@ CVO 2026-06-18 纠偏：F244 不按"先做临时版、以后再补终态"推进�
 | R2 | "有什么 magic words 什么时候可以用" | AC-A2 / AC-B3 | seed tips + source anchor 校验 | [x] |
 | R3 | "家里有什么功能，如何用" | AC-A3 / AC-B3 | seed tips + action link 演示 | [x] |
 | R4 | "开发新 feature 的时候必须补 1-2 条 tips" | AC-C1 / AC-C2 | CI red/green fixture | [x] |
-| R5 | "第一个用户就是我"：优先 dogfood 给铲屎官等待态使用 | AC-B4 / AC-D3 | alpha 录屏 + dogfood report | [ ] |
+| R5 | "第一个用户就是我"：优先 dogfood 给铲屎官等待态使用 | AC-B4 / AC-D3 | alpha 录屏 + dogfood report | [x] |
 | R6 | tips 不得冒充真实进度或覆盖故障/强制重置入口 | AC-B2 | component tests + 截图 | [x] |
 | R7 | tips 必须从现有真相源投影，不新造第四套能力清单 | AC-A1 / AC-A4 | `structureSource`/`bodySource` audit + anchor CI | [x] |
 
@@ -247,9 +247,9 @@ Bloom filter 不用于 D1。原因：当前 inventory 量级是几十到几百�
 - [x] AC-D1: usage telemetry privacy-minimal：记录 tip id、context、action outcome，不记录用户私密正文。
 - [x] AC-D1.1: #997 曝光均匀性修复：localStorage Set/Map 记录当前 scope 已曝光 tip；未曝光优先、eligible 全看完后按 scope 重置、inventory diff 迁移、新 tip boost、date-seeded shuffle、localStorage-denied fallback 均有测试覆盖。
 - [x] AC-D1.2: tips 长度治理完成：超长 tips 压缩或拆条，保留 trigger-action 与 sourceRef，不用省略关键行为边界换短。
-- [ ] AC-D2: F192 eval path 能消费 tips usage/friction 信号，至少产出 one-shot dogfood report 或 domain extension design。
-- [ ] AC-D3: Phase B/D1 后产出铲屎官 dogfood 报告：哪些 tips 被看见/点开/觉得有用，哪些造成噪音。
-- [ ] AC-D4: stale/sunset 机制能发现 sourceRef 失效或 feature sunset 后仍展示的 tip，并给 owner 可处理清单。
+- [x] AC-D2: F192 eval path — `eval:capability-tips` domain registered (YAML + Zod schema test, enabled: false pending usage data)。
+- [x] AC-D3: CVO dogfood report from 5 rounds (2026-06-18 to 2026-06-21) → `docs/features/F244-capability-tips-dogfood-report.md`。
+- [x] AC-D4: stale/sunset detection script (`check-capability-tips-stale.mjs`, 14 tests) — detects path_missing / anchor_missing / feature_sunset。
 
 ## Dependencies
 
@@ -281,7 +281,7 @@ Bloom filter 不用于 D1。原因：当前 inventory 量级是几十到几百�
 |---|------|------|
 | OQ-1 | tips manifest 第一版是否 hand-authored？ | ✅ 已定：第一版 hand-authored seed manifest；必须区分 `structureSource` 与 `bodySource`，CI 只验结构/anchor/action-required，不验 body 语义一致 |
 | OQ-2 | 第一版 UI 只进 chat waiting bar，还是同步进猫猫球/桌宠状态？ | ✅ 已定：第一版 tip 展示进 PendingMemberBubble（"分析处理中"等待阶段，PR #2433 修正）；primary action 拉起 F229 输入框 draft；F229 主动/空闲态 tips 作为未来 consumer，不另起 source |
-| OQ-3 | F192 侧复用 `eval:capability-wakeup` 还是新增 `eval:capability-tips` domain？ | ⬜ Phase D 定；先用 one-shot dogfood report |
+| OQ-3 | F192 侧复用 `eval:capability-wakeup` 还是新增 `eval:capability-tips` domain？ | ✅ 已定：新增独立 `eval:capability-tips` domain（PR #2509）；独立 sla/adapter/handoff，enabled:false pending usage data |
 | OQ-4 | Tip action 打开 source 的主表面用 Workspace navigate、Guide card，还是右侧 help drawer？ | ✅ 已定：主表面用 F229 `open_concierge_draft`；不做右侧 help drawer；source/guide/capability 只作为 secondary action |
 
 ## Key Decisions
@@ -329,6 +329,7 @@ Bloom filter 不用于 D1。原因：当前 inventory 量级是几十到几百�
 | 2026-06-22 | CVO 排期 Phase D 全做（不降级、PR 不碎），分 2 PR：**PR-D1**（体验+数据）= telemetry 持久化 + 曝光均匀（clowder-ai#997：去重轮转 / 新 tip 优先 / seed，= R5① issue 化）+ tips 长度优化（16/52 条 >50 字，心理学瞄读标准定上限 ~45 字、超长拆条，含 basics-at-routing 89 字拆 2 条）；**PR-D2**（eval+治理）= F192 tips eval 域接入（AC-D2）+ dogfood report（AC-D3）+ stale/sunset（AC-D4）。eval verdict 待 usage 数据自然产出，不卡 close；OQ-3 在 PR-D2 定 |
 | 2026-06-22 | CVO 转述吴浪建议 Bloom filter / 已曝光集合；砚砚 + 宪宪收敛：采用普通 Set/Map 已曝光集合 + scope 轮转 + new-tip boost + deterministic seeded shuffle；明确否决 Bloom filter（小集合无内存压力，假阳性会漏 tip，重置/删除不适合）。PR-D1 local-first，不做跨设备同步；PR-D2 再接 F192/back-end rollup |
 | 2026-06-22 | PR #2502 merged：Phase D PR-D1 — exposure uniformity (#997 localStorage Set/Map 已曝光集合 + scope 轮转 + new-tip boost + date-seeded shuffle + inventory fingerprint migration)、localStorage defensive guards (SecurityError in sandboxed origins)、tips 长度治理 (16/52 条 >50 字压缩至 ≤45 字)、telemetry persistence (localStorage-backed usage events)；gpt52 R2 APPROVED + opus-48 vision guard PASS + cloud 3 轮 review sealed (localStorage SecurityError P2 ×2 fixed, inventory migration pushback → P3 降级) |
+| 2026-06-22 | PR #2509 merged：Phase D PR-D2 — `eval:capability-tips` domain registered (enabled:false, pending usage data)、CVO dogfood report (5 rounds)、stale/sunset detection (`check-capability-tips-stale.mjs` + 14 tests, detects path_missing/anchor_missing/feature_sunset)；gpt52 R1 P1 (`done` not detected as terminal) + P2 (mailbox frontmatter) → fixed → R2 0 findings；cloud COMMENTED 1 P1 pushed back to P3 (script is standalone diagnostic, finding F079 is correct behavior)；also fixed: F245 invalid `eval` context → `feature_dev`, F237 intake doc `absorbed` → `done` for feature-truth check |
 
 ## Review Gate
 
