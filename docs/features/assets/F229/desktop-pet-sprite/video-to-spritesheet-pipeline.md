@@ -50,8 +50,13 @@
 - 纯白背景 `#FFFFFF`，无阴影、无地面线
 - 角色居中，占画布约 60%
 - 画布 1024×1024 正方形
-- 风格：soft anime/chibi，与设定图一致
+- **风格锚定（关键！）**：必须保持 2D 手绘插画风格，与母图设定一致。具体要求：
+  - 2D flat illustration / hand-drawn anime style / cel-shaded
+  - 线条清晰可见（clean outlines, visible ink lines）
+  - 色块平涂（flat color fills, no gradients on fur）
+  - **禁止**：3D rendering, CGI, photorealistic, plastic/clay look, Pixar style, subsurface scattering
 - **Frame A 和 Frame B 的角色位置、大小、角度必须完全一致**，只有指定部位有微小变化
+- **输入图就是风格参考**：如果工具支持 "style reference" / "reference image" 功能，把母图同时作为风格参考传入
 
 ### idle 态（呼吸 + 尾巴轻摆）
 
@@ -132,40 +137,57 @@ Only differences:
 ### 通用视频提示词模板
 
 ```text
-A cute chibi-style [cat description] [action description].
+2D hand-drawn anime illustration style, flat cel-shaded coloring, clean visible outlines.
+A cute chibi [cat description] [action description].
 [specific motion details].
+Maintain consistent 2D illustration style throughout, no 3D rendering.
 No other movement. No camera motion. Pure white background.
 Smooth, gentle loop. 2 seconds.
 ```
+
+**Negative prompt（如果工具支持）**：
+```text
+3D, CGI, photorealistic, plastic, clay, Pixar, rubber, glossy, subsurface scattering,
+realistic fur texture, depth of field, lens blur, film grain, cinematic lighting
+```
+
+> ⚠️ **R1 教训（2026-06-22）**：不加 2D 风格锚定时，视频工具容易往"塑料建模 3D 感"漂移。
+> 第一次（9:16 竖屏）风格对了，后续抽卡变 3D。解决：强锚 2D + 反向排除 3D。
 
 ### 按状态
 
 **idle**
 ```text
-A cute chibi-style gray tabby cat sitting still, breathing gently.
+2D hand-drawn anime illustration style, flat cel-shaded coloring, clean visible outlines.
+A cute chibi gray tabby cat sitting still, breathing gently.
 The chest rises and falls with a slow, natural breathing rhythm.
 The fluffy tail sways very slowly left and right.
 The cat occasionally blinks.
+Maintain flat 2D illustration look with visible ink outlines, NOT 3D or photorealistic.
 No other movement. No camera motion. Pure white background.
 Smooth, gentle loop. 2 seconds.
 ```
 
 **running-right**
 ```text
-A cute chibi-style gray tabby cat trotting in place, facing right.
+2D hand-drawn anime illustration style, flat cel-shaded coloring, clean visible outlines.
+A cute chibi gray tabby cat trotting in place, facing right.
 Small gentle running motion, legs alternating front and back.
 The tail bounces slightly with each step.
 No forward displacement, stay centered.
+Maintain flat 2D illustration look, NOT 3D or photorealistic.
 No camera motion. Pure white background.
 Smooth, gentle loop. 2 seconds.
 ```
 
 **waving**
 ```text
-A cute chibi-style gray tabby cat sitting and waving one front paw.
+2D hand-drawn anime illustration style, flat cel-shaded coloring, clean visible outlines.
+A cute chibi gray tabby cat sitting and waving one front paw.
 The right paw waves gently side to side at eye level.
 The expression is happy with a slight smile.
 The body stays still, only the paw moves.
+Maintain flat 2D illustration look, NOT 3D or photorealistic.
 No camera motion. Pure white background.
 Smooth, gentle loop. 2 seconds.
 ```
@@ -226,10 +248,14 @@ convert cell_01.png -resize 59x64 preview_01.png
 - 单图 i2v + 精确运动提示词 > 首尾帧（当首尾帧无法像素级锁定时）
 - 运动强度必须设低，否则角色会变形
 - 16:9 横屏给尾巴/肢体运动留足空间
+- ⚠️ **风格漂移**：多次生成时风格不一致——第一次二次元感觉对，后续变成"塑料建模 3D 感"。根因：视频提示词缺风格锚定。解决：提示词首行加 `2D hand-drawn anime illustration style, flat cel-shaded coloring, clean visible outlines` + negative prompt 排除 3D/CGI/photorealistic
 
-### Spike R2: （待执行）
+### Spike R2: 16:9 + 风格锚定（进行中）
 
-换 16:9 比例重试。评估缩放到 59×64 后与现有 atlas 的可感知差异。
+- 比例换 16:9（解决尾巴出框）
+- 提示词加 2D 风格强锚定 + negative prompt（解决 3D 漂移）
+- 如果工具支持 style reference，把母图同时作为风格参考传入
+- 评估缩放到 59×64 后与现有 atlas 的可感知差异
 
 ## 关联决策
 
