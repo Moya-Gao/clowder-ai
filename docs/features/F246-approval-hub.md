@@ -240,15 +240,16 @@ Goal: 把 Phase C 后真实遗留的成熟化工作收束成可执行交付，�
 
 **Measurement protocol**: When adapter count reaches 5, measure pending fetch p95 in alpha environment with representative inbox (≥10 pending items across ≥3 adapters). If p95 < 250ms, document measurement and continue aggregation. If p95 ≥ 250ms, open the materialized index plan.
 
-### Phase E: v2 Adapters 🚧
+### Phase E: v2 Adapters ✅
 
 - F231 ProfileUpdateProposal adapter: jump-only card, 7-day stale, `inlineApprovable=false`
 - Plan: `docs/plans/2026-06-22-f246-v2-f231-adapter.md`
 - AC-D7 index gate status: 4 adapters, below 5-adapter threshold — continue query aggregation
+- Cloud review: R1 P2 (socket event emission) + R2 P1 (test file split) → R3 clean 👍
 
-- [ ] **AC-E1**: F231 adapter maps pending `ProfileUpdateProposal` → `ApprovalItem` (jump-only)
-- [ ] **AC-E2**: Hub panel displays F231 items alongside v1 items
-- [ ] **AC-E3**: Tests cover: mapping, stale threshold, empty user, requesterCatId, detail fields, cardMessageId
+- [x] **AC-E1**: F231 adapter maps pending `ProfileUpdateProposal` → `ApprovalItem` (jump-only)
+- [x] **AC-E2**: Hub panel displays F231 items alongside v1 items (filter chip + badge + color)
+- [x] **AC-E3**: Tests cover: mapping, stale threshold, empty user, requesterCatId, detail fields, cardMessageId + socket event + filter/badge regression
 
 ## Links
 
@@ -281,3 +282,4 @@ Goal: 把 Phase C 后真实遗留的成熟化工作收束成可执行交付，�
 | 2026-06-21 | Phase D merged (PR #2477, 507bf5f6) — AC-D1~D7 complete; 3-round local peer review (gpt52) + cloud review R1~R3 (封板: 100% stale replay) + 封板 final review (gpt52) |
 | 2026-06-21 | Phase D alpha-validated — **8/8 PASS** (@sonnet): feature chip(F128/F225/F193) ✅, stale toggle ON/OFF ✅, thread search("alpha"→2) ✅, clear reset(5 items) ✅, select-all scoped to filteredItems(F193→3 not 5) ✅, batch reject sequential(2 succeed/1 fail) ✅, filter-switch auto-clear selection(LL-087核心防御) ✅, partial failure UI("1项操作失败"+proposalId+error) ✅ |
 | 2026-06-21 | **v1 closed** — Phase A(F128+F225 adapters) + B(F193 dispatch) + C(workspace tab+responsive) + D(filter+batch+regression+v2 matrix) 全部 merged + vision guardian APPROVE + alpha-validated。v2 首位候选 F231（store pattern 与 F225 identical）|
+| 2026-06-22 | Phase E merged (PR #2487, 6efe260d03) — F231 v2 adapter + frontend filter/badge/color + socket event emission + test split (cloud R1 P2 + R2 P1 fixed, R3 clean) |
