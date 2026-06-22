@@ -295,9 +295,9 @@ convert cell_01.png -resize 59x64 preview_01.png
 | # | 状态 | Atlas Row | 需要帧数 | 视频需要？ | 状态 |
 |---|------|-----------|---------|-----------|------|
 | 1 | idle | 0 | 6 | ✅ R2 已完成 | ✅ done |
-| 2 | running-right | 1 | 8 | 需要 | 🔴 待做 |
+| 2 | running-right | 1 | 8 | 需要 | ✅ Frame A 通过 |
 | 3 | running-left | 2 | 8 | ❌ 翻转 running-right | 🔴 待做 |
-| 4 | waving | 3 | 4 | 需要 | 🔴 待做 |
+| 4 | waving | 3 | 4 | 需要 | ✅ Frame A 通过 |
 | 5 | jumping | 4 | 5 | 需要 | 🔴 待做 |
 | 6 | failed | 5 | 8 | 需要 | 🔴 待做 |
 | 7 | waiting | 6 | 6 | 需要 | 🔴 待做 |
@@ -330,25 +330,23 @@ The cat is mid-stride trotting to the right (side view).
 ```
 
 **④ waving — 招手**
+
+> ✅ **最终版由铲屎官直接生成通过**——详见下方五爪 bug 教训。
+
 ```text
 [共享前缀]
-IMPORTANT — ANATOMY: This cat has EXACTLY 4 paws total (2 front, 2 back). No extra limbs.
-
-The cat is sitting, facing 3/4 right, raising ONE front paw in a friendly wave.
-- FRONT RIGHT PAW: raised to eye level, waving. This is the ONLY raised paw.
-- FRONT LEFT PAW: planted flat on the ground, clearly visible, supporting the body.
-- BACK PAWS: both tucked under the body / hidden behind the front body — NOT individually visible.
-  (Chibi cats sitting in 3/4 view naturally hide back paws behind the round body shape.)
-- Tail curled to the left side, resting on the ground.
-- Expression: cheerful, eyes bright, mouth slightly open in a smile.
-- The body is a simple round chibi shape — do NOT draw extra legs or paws sticking out.
-
-NEGATIVE: Do NOT draw more than 4 paws. Do NOT show 5 or 6 paws. No extra limbs, no duplicate legs, no phantom paw shapes in the background.
+猫猫举起爪子挥手打招呼。
+不要生成五只猫爪。
 ```
 
-> ⚠️ **五爪 bug（2026-06-22）**：砚砚前两次 waving 生成均出现 5 只爪子。
-> 根因：原提示词未显式限制爪数，3/4 视角让 imagegen 幻觉出多余的爪。
-> 修复策略：① 显式声明 "EXACTLY 4 paws" ② 把后腿藏在身体后面（减少需要画的爪子数）③ 添加 NEGATIVE 约束
+> ⚠️ **五爪 bug + 过度约束教训（2026-06-22）**：
+> - **R1-R2（砚砚）**：原提示词没限制爪数 → 5 爪。
+> - **R3（宪宪修正）**：加了一整页解剖学约束（"EXACTLY 4 paws" + 每只爪位置 + 后腿藏身体后面 + NEGATIVE）→ 姿态变形更严重，铲屎官评价"反而更糟糕"。
+> - **R4（砚砚简化）**：去掉位置约束只留负面词 → 生成时对了但修图时描述出三只前爪 → 又五爪。
+> - **R5（铲屎官亲手）**：【你可以生成这只猫猫挥手举起爪子的照片吗？注意哦 不要生成五只猫爪了】→ **完美通过**。
+>
+> **根因不是"约束不够"而是"约束太多"**。过度描述每只爪子的位置，模型反而逐条画出每个被提到的爪 → 数量失控。
+> 简单的意图描述 + 一句负面约束 > 一页解剖学论文。
 
 **⑤ jumping — 跳跃**
 ```text
@@ -497,9 +495,9 @@ Subtle, focused micro-movements — very still otherwise.
 
 > 铲屎官要求分批审核。每批 CVO 审核通过后才继续下一批。
 
-**Batch 1（running-right + waving）**
-- [x] running-right Frame A — ✅ CVO 审核通过
-- [ ] waving Frame A — 🔴 五爪 bug，两次重试均失败，提示词已修正（v2）
+**Batch 1（running-right + waving）** ✅ 全部通过
+- [x] running-right Frame A — ✅ CVO 审核通过（砚砚生成）
+- [x] waving Frame A — ✅ CVO 亲自生成通过（五爪 bug 经 R1→R5 解决，见教训）
 - [ ] jumping Frame A
 - [ ] failed Frame A
 - [ ] waiting Frame A
