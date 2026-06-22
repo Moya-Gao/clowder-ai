@@ -16,7 +16,7 @@ tips_exempt: Phase A-C 为内部 friction 采集/聚合 infra，无 user/cat 可
 ## Architecture Ownership
 
 Architecture cell: `harness-eval`
-Map delta: **update required**
+Map delta: ✅ updated（harness-eval.md cell 已登记 9 个 friction code anchor + feature doc link；愿景守护 2026-06-22 确认）
 Why: 在 F192 harness-eval 控制面下新增 `eval:friction` domain + **爪感差 marker 采集子域**（全新，无既有 extension point）+ 跨通道 friction rollup aggregator；harness-eval cell 的 canonical files 需登记这些新组件。
 
 ## Why
@@ -142,8 +142,8 @@ signal 体量实证（今天 UTC 0:00 → 16:07，16 小时）：
 - [x] 4 通道统一消费，不搬迁既有采集（Phase B）
 - [x] dedup + cluster 同类摩擦（Phase B）
 - [x] 频率可配置（社区 weekly / 本家 3 天 / daily）（Phase C）
-- [ ] Top-N 配额防 context 打爆（Phase C）
-- [ ] 五类传感器形态 + 7-class 根因分类（Phase C）
+- [x] Top-N 配额防 context 打爆（Phase C）✅ Top-10 + 4000 token 硬上限 fold-down（friction-rollup-report.ts）
+- [x] 五类传感器形态 + 7-class 根因分类（Phase C）✅ FrictionSensorForm 5 值 + CHANNEL_SENSOR_FORM 映射；FrictionRootCause 7-class 由 eval cat verdict 层判断（KD-8）
 - [ ] ①②③ → F128 + code-as-harness 修复出口（Phase D）
 - [ ] ④ 只列出 + 链接，不重复处理（Phase D）
 - [ ] Eval Hub friction rollup 视图（Phase D）
