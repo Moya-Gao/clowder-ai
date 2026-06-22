@@ -8,7 +8,7 @@ created: 2026-06-20
 
 # F246: Approval Hub — 统一审批中心底座
 
-> **Status**: v1 closed + v2-in-progress（F231 adapter merged, pending alpha smoke）| **Owner**: 布偶猫/宪宪 (opus-46) | **Priority**: P2
+> **Status**: v1 closed + v2-in-progress（F231 alpha-validated）| **Owner**: 布偶猫/宪宪 (opus-46) | **Priority**: P2
 
 Architecture cell: platform-infra（subcell: `approval-index`）
 Map delta: 新 cell — Hub 通过 feature adapter 实时聚合（query aggregation）各 feature 的 CVO 审批项 + Hub UI panel。不维护独立 index，at-read-time 直查 canonical stores。
@@ -284,3 +284,4 @@ Goal: 把 Phase C 后真实遗留的成熟化工作收束成可执行交付，�
 | 2026-06-21 | **v1 closed** — Phase A(F128+F225 adapters) + B(F193 dispatch) + C(workspace tab+responsive) + D(filter+batch+regression+v2 matrix) 全部 merged + vision guardian APPROVE + alpha-validated。v2 首位候选 F231（store pattern 与 F225 identical）|
 | 2026-06-22 | Phase E merged (PR #2487, 6efe260d03) — F231 v2 adapter + frontend filter/badge/color + socket event emission + test split (cloud R1 P2 + R2 P1 fixed, R3 clean) |
 | 2026-06-22 | Phase E vision guardian APPROVE (@opus-47) — F231 adapter trace (backend register+store+callbacks, frontend chip+badge+socket), v1 闭环 confirmed |
+| 2026-06-22 | Phase E alpha-validated — **4/4 PASS** (@sonnet): F231 pending proposal→Hub可见(橙色"Profile"badge) ✅, "画像"filter chip过滤 ✅, jump-only(无inline approve/reject，仅jump-btn) ✅, socket刷新pipeline(fetchPending 0→1验证，code-review确认proposal_created emission at line 192) ✅ |
