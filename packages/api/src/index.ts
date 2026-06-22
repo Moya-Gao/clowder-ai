@@ -37,6 +37,7 @@ import { assertStorageReady } from './config/storage-guard.js';
 import { F128ApprovalAdapter } from './domains/approval-hub/adapters/F128ApprovalAdapter.js';
 import { F193ApprovalAdapter } from './domains/approval-hub/adapters/F193ApprovalAdapter.js';
 import { F225ApprovalAdapter } from './domains/approval-hub/adapters/F225ApprovalAdapter.js';
+import { F231ApprovalAdapter } from './domains/approval-hub/adapters/F231ApprovalAdapter.js';
 import { createDispatchProposalStore } from './domains/approval-hub/stores/factories/DispatchProposalStoreFactory.js';
 import type { CollaborationContinuityCapsuleV1 } from './domains/cats/services/agents/invocation/CollaborationContinuityCapsule.js';
 import { createTaskProgressStore } from './domains/cats/services/agents/invocation/createTaskProgressStore.js';
@@ -2598,12 +2599,13 @@ async function main(): Promise<void> {
     socketManager,
     onProposalReject: (input) => onProposalReject({ ...input, proposalType: 'session_handoff' }),
   });
-  // F246: Approval Hub — unified CVO approval center (query aggregation over F128 + F225 + F193)
+  // F246: Approval Hub — unified CVO approval center (query aggregation over F128 + F225 + F193 + F231)
   await app.register(approvalHubRoutes, {
     adapters: [
       new F128ApprovalAdapter(proposalStore),
       new F225ApprovalAdapter(handoffProposalStore),
       new F193ApprovalAdapter(dispatchProposalStore),
+      new F231ApprovalAdapter(profileUpdateProposalStore),
     ],
   });
   // F246 Phase B: dispatch proposal approve/reject endpoints
