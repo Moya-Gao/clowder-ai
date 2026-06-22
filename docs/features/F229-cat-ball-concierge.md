@@ -162,7 +162,8 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 - [x] BUG-UX-3: 面板不可拉伸——宽度写死 `w-80`(320px)，无 CSS resize handle。CVO 要求可拖拽调整面板大小 + 持久化记住尺寸。CVO 2026-06-18 + 2026-06-21 两次要求——**width resize PR #2474 merged 2026-06-21 + height resize PR #2481 merged 2026-06-21**
 - [ ] BUG-UX-4: 猫猫球回复中可读性差——猫签名（`[烁烁/gemini-3.5-flash🐾]`）、`@landy`、内部协作格式对用户可见，应在 concierge 上下文中 strip 掉或简化
 - [ ] BUG-UX-5: 砚砚拖动困难——CVO 报告"好难拖动"，拖拽交互手感差（可能是拖拽区域 vs 点击区域冲突、touchAction 设置、或 drag threshold 过大）。CVO 2026-06-21
-- [ ] BUG-UX-6: 砚砚动态效果不可见——9 态动画（跑/跳/招手/等待/review/失败等）CVO 从未看到过，只看到 idle。可能是 `conciergeState → petState` 投影链路断了，或者状态转换条件在 production 下未触发。CVO 2026-06-21
+- [ ] BUG-UX-6: 砚砚动态效果不可见——9 态动画（跑/跳/招手/等待/review/失败等）CVO 从未看到过，只看到 idle。**诊断（2026-06-21 宪宪）**：链路没断，是两个设计问题叠加：① V1 projection 只映射 6/9 态（`running-left`/`waving`/`jumping` 死路无 ConciergeBallState 映射）；② 可达态用户体感不可见（`thinking→running` 持续几秒且注意力在面板；`found→review` 面板打开时 unseenResultCount 立即清零；`listening→waiting` 用户在打字不看球）。需产品层决策——见讨论 doc `docs/discussions/2026-06-21-f229-bug-ux6-animation-visibility.md`
+- [ ] BUG-UX-7: 猫猫球不渲染 Markdown——值班猫回复中 `###`、`**粗体**`、代码块等 Markdown 语法显示为原始文本。根因：`ConciergeMessageContent` 只处理 marker 按钮 + 内部标记 strip，文本段直接 push 原始字符串，无 Markdown 解析。CVO 2026-06-21 截图确认
 
 ### Phase E（桌宠化 + 形象生态）
 - [x] AC-E0-1: PetSkinContract v0 — `conciergeState → petState` pure projection (4 states: idle/running/review/failed), shared types + `projectToPetState()` function, 10 unit tests
