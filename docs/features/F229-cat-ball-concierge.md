@@ -162,7 +162,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 - [x] BUG-UX-3: 面板不可拉伸——宽度写死 `w-80`(320px)，无 CSS resize handle。CVO 要求可拖拽调整面板大小 + 持久化记住尺寸。CVO 2026-06-18 + 2026-06-21 两次要求——**width resize PR #2474 merged 2026-06-21 + height resize PR #2481 merged 2026-06-21**
 - [ ] BUG-UX-4: 猫猫球回复中可读性差——猫签名（`[烁烁/gemini-3.5-flash🐾]`）、`@landy`、内部协作格式对用户可见，应在 concierge 上下文中 strip 掉或简化
 - [ ] BUG-UX-5: 砚砚拖动困难——CVO 报告"好难拖动"，拖拽交互手感差（可能是拖拽区域 vs 点击区域冲突、touchAction 设置、或 drag threshold 过大）。CVO 2026-06-21
-- [ ] BUG-UX-6: 砚砚动态效果不可见——9 态动画（跑/跳/招手/等待/review/失败等）CVO 从未看到过，只看到 idle。**诊断（2026-06-21 宪宪）**：链路没断，是两个设计问题叠加：① V1 projection 只映射 6/9 态（`running-left`/`waving`/`jumping` 死路无 ConciergeBallState 映射）；② 可达态用户体感不可见（`thinking→running` 持续几秒且注意力在面板；`found→review` 面板打开时 unseenResultCount 立即清零；`listening→waiting` 用户在打字不看球）。需产品层决策——见讨论 doc `docs/discussions/2026-06-21-f229-bug-ux6-animation-visibility.md`
+- [ ] BUG-UX-6: 砚砚动态效果不可见——9 态动画（跑/跳/招手/等待/review/失败等）CVO 从未看到过，只看到 idle。**诊断（2026-06-21 宪宪）**：链路没断，是两个设计问题叠加：① V1 projection 只映射 6/9 态（`running-left`/`waving`/`jumping` 死路无 ConciergeBallState 映射）；② 可达态用户体感不可见（`thinking→running` 持续几秒且注意力在面板；`found→review` 面板打开时 unseenResultCount 立即清零；`listening→waiting` 用户在打字不看球）。需产品层决策——见讨论 doc `docs/discussions/2026-06-21-f229-bug-ux6-animation-visibility.md`。**素材升级 spike（2026-06-22）**：铲屎官脑洞"母图→AI 视频→截帧→atlas"，两猫（宪宪+砚砚）共识可行+值得 spike，pipeline + 提示词见 `video-to-spritesheet-pipeline.md`；R1 布偶猫 idle 首轮测试"效果非常棒"，发现 9:16 竖屏尾巴出框→换 16:9
 - [x] BUG-UX-7: 猫猫球不渲染 Markdown——值班猫回复中 Markdown 语法显示为原始文本。**已修复**：PR #2488 merged 2026-06-22，统一使用 `MarkdownContent` 组件 + `buildMdComponents(tp?)` 工厂模式，textProcessor 覆盖所有文本容器（p/strong/em/del/h1-h6/li/a/th/td），code/pre 排除。gpt52 local review 2 轮 + cloud review 0 P1/P2
 - [x] BUG-UX-8: 原地看（peek）内容无收起机制。**已修复**：同 PR #2488——re-click toggle + ✕ dismiss button
 - [ ] BUG-UX-9: 跳转动作错误显示为"原地看"——某些 `concierge_teleport` 类型的 action 在 UI 上显示为"原地看"而非"跳过去"。CVO 2026-06-21 截图：三个按钮全部显示"原地看"，但其中至少一个对应的是跳转（teleport）操作。可能根因：API 侧 `verb` 字段赋值逻辑（`concierge-reply-validator.ts`）或 HandleMap 查询返回的 action type 不匹配实际 intent
@@ -315,3 +315,4 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 | **Feature** | `docs/features/F155-scene-guidance-engine.md` | guide engine 积木（Phase A 求助场景后端） |
 | **Feature** | `docs/features/F092-voice-companion-experience.md` | VoiceSession 模型（Phase C 复用） |
 | **Discussion** | 本 thread 2026-06-09（烁烁两轮扩展 + 宪宪需求梳理 + 铲屎官 signoff） | 立项讨论原文 |
+| **Spike** | `docs/features/assets/F229/desktop-pet-sprite/video-to-spritesheet-pipeline.md` | 视频截帧 → atlas 素材 pipeline：提示词、工具设置、截帧命令、spike 日志（BUG-UX-6 素材升级线） |
