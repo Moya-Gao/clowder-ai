@@ -433,7 +433,7 @@ export function ConciergePanel() {
                             borderColor: 'var(--cafe-border-subtle)',
                           }
                     }
-                    className="max-w-[85%] px-3 py-1.5 rounded-xl text-sm leading-snug whitespace-pre-wrap break-words overflow-hidden [overflow-wrap:anywhere]"
+                    className={`max-w-[85%] px-3 py-1.5 rounded-xl text-sm leading-snug break-words overflow-hidden [overflow-wrap:anywhere] ${msg.isUser ? 'whitespace-pre-wrap' : ''}`}
                   >
                     {/* Bug2 method A: inline marker buttons for duty cat replies.
                          User messages render as plain text (no markers to parse). */}

@@ -12,7 +12,8 @@
  * AC-6: KD-19 fallback actions (no handle/verb) → card buttons below still work
  */
 
-import { type ReactNode, useCallback, useState } from 'react';
+import { Children, type ReactNode, useCallback, useState } from 'react';
+import { MarkdownContent } from '@/components/MarkdownContent';
 import { pushThreadRouteWithHistory } from '@/components/ThreadSidebar/thread-navigation';
 import { useChatStore } from '@/stores/chatStore';
 import { useConciergeStore } from '@/stores/conciergeStore';
@@ -112,132 +113,164 @@ export function ConciergeMessageContent({ content, actions }: ConciergeMessageCo
     }
   }, []);
 
-  const handlePeek = useCallback(async (action: InlineAction, handle: string) => {
-    const { threadId, messageId: msgId } = action.payload;
-    if (!threadId || !msgId) return;
+  const handlePeek = useCallback(
+    async (action: InlineAction, handle: string) => {
+      // BUG-UX-8: toggle — if already showing, collapse on re-click
+      if (peekContent[handle]) {
+        setPeekContent((prev) => {
+          const next = { ...prev };
+          delete next[handle];
+          return next;
+        });
+        return;
+      }
 
-    setPeekLoading(handle);
-    setPeekError(null);
+      const { threadId, messageId: msgId } = action.payload;
+      if (!threadId || !msgId) return;
 
-    try {
-      const res = await apiFetch(`/api/concierge/peek?threadId=${threadId}&messageId=${msgId}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setPeekLoading(handle);
+      setPeekError(null);
 
-      const data = (await res.json()) as {
-        window: Array<{ id: string; content: string; catId: string | null; userId: string; isTarget: boolean }>;
-      };
+      try {
+        const res = await apiFetch(`/api/concierge/peek?threadId=${threadId}&messageId=${msgId}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-      const rendered = data.window
-        .map((m) => {
-          const prefix = m.isTarget ? '→ ' : '  ';
-          const sender = m.catId ? `🐱 ${m.catId}` : `👤 ${m.userId}`;
-          return `${prefix}${sender}: ${m.content?.slice(0, 200) ?? ''}`;
-        })
-        .join('\n');
+        const data = (await res.json()) as {
+          window: Array<{ id: string; content: string; catId: string | null; userId: string; isTarget: boolean }>;
+        };
 
-      setPeekContent((prev) => ({ ...prev, [handle]: rendered }));
-    } catch (err) {
-      setPeekError(err instanceof Error ? err.message : '查看失败');
-    } finally {
-      setPeekLoading(null);
-    }
-  }, []);
+        const rendered = data.window
+          .map((m) => {
+            const prefix = m.isTarget ? '→ ' : '  ';
+            const sender = m.catId ? `🐱 ${m.catId}` : `👤 ${m.userId}`;
+            return `${prefix}${sender}: ${m.content?.slice(0, 200) ?? ''}`;
+          })
+          .join('\n');
+
+        setPeekContent((prev) => ({ ...prev, [handle]: rendered }));
+      } catch (err) {
+        setPeekError(err instanceof Error ? err.message : '查看失败');
+      } finally {
+        setPeekLoading(null);
+      }
+    },
+    [peekContent],
+  );
 
   // BUG-UX-4: strip internal team markers before rendering
   const cleanContent = stripInternalMarkers(content);
 
-  // Parse content and build segments
-  const segments: ReactNode[] = [];
-  let lastIndex = 0;
-  let keyCounter = 0;
+  // ---------------------------------------------------------------------------
+  // BUG-UX-7 P1+P2 fix: Process markers inline within MarkdownContent's text
+  // pipeline via textProcessor. This fixes two review findings:
+  //   P1: markers inside code blocks are never processed (code/pre use separate
+  //       component overrides that don't call textProcessor)
+  //   P2: single MarkdownContent instance → single <div.markdown-content> → single
+  //       <p> for inline text, no block-level breakage between segments
+  // ---------------------------------------------------------------------------
+  const processMarkers = (children: ReactNode): ReactNode => {
+    return Children.map(children, (child) => {
+      if (typeof child !== 'string') return child;
 
-  for (const match of cleanContent.matchAll(MARKER_PATTERN)) {
-    const verb = match[1];
-    const handle = match[2];
-    const matchIndex = match.index;
+      const parts: ReactNode[] = [];
+      let lastIdx = 0;
+      const re = new RegExp(MARKER_PATTERN.source, 'g');
+      let match: RegExpExecArray | null;
 
-    // Text before this marker
-    if (matchIndex > lastIndex) {
-      segments.push(cleanContent.slice(lastIndex, matchIndex));
-    }
+      while ((match = re.exec(child)) !== null) {
+        if (match.index > lastIdx) {
+          parts.push(child.slice(lastIdx, match.index));
+        }
 
-    const lookupKey = `${verb}:${handle}`;
-    const action = actionMap.get(lookupKey);
+        const verb = match[1];
+        const handle = match[2];
+        const action = actionMap.get(`${verb}:${handle}`);
 
-    if (action) {
-      // Matching action found — render inline button
-      const isTeleport = action.action === 'concierge_teleport';
-      const isPeek = action.action === 'concierge_peek';
-      const buttonKey = `marker-${keyCounter++}`;
+        if (action) {
+          const isTeleport = action.action === 'concierge_teleport';
+          const isPeek = action.action === 'concierge_peek';
 
-      segments.push(
-        <button
-          key={buttonKey}
-          type="button"
-          onClick={() => {
-            if (isTeleport) handleTeleport(action);
-            if (isPeek) handlePeek(action, handle);
-          }}
-          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-medium cursor-pointer transition-colors"
-          style={{
-            backgroundColor: isTeleport ? 'var(--cafe-primary-soft, #e0e7ff)' : 'var(--cafe-accent-soft, #fef3c7)',
-            color: isTeleport ? 'var(--cafe-primary, #4f46e5)' : 'var(--cafe-accent, #d97706)',
-            border: 'none',
-          }}
-          title={action.label}
-          disabled={peekLoading === handle}
-        >
-          {isPeek ? '👁 ' : '→ '}
-          {verb} {handle}
-        </button>,
-      );
+          parts.push(
+            <button
+              key={`m-${handle}-${match.index}`}
+              type="button"
+              onClick={() => {
+                if (isTeleport) handleTeleport(action);
+                if (isPeek) handlePeek(action, handle);
+              }}
+              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-medium cursor-pointer transition-colors"
+              style={{
+                backgroundColor: isTeleport ? 'var(--cafe-primary-soft, #e0e7ff)' : 'var(--cafe-accent-soft, #fef3c7)',
+                color: isTeleport ? 'var(--cafe-primary, #4f46e5)' : 'var(--cafe-accent, #d97706)',
+                border: 'none',
+              }}
+              title={action.label}
+              disabled={peekLoading === handle}
+            >
+              {isPeek ? '👁 ' : '→ '}
+              {verb} {handle}
+            </button>,
+          );
+        } else {
+          // No matching action — degrade to plain text label (AC-4, AC-5)
+          parts.push(
+            <span
+              key={`d-${handle}-${match.index}`}
+              className="text-xs"
+              style={{ color: 'var(--cafe-text-muted)', opacity: 0.7 }}
+            >
+              {verb} {handle}
+            </span>,
+          );
+        }
 
-      // Show inline peek content if loaded
-      if (isPeek && peekContent[handle]) {
-        segments.push(
-          <div
-            key={`peek-${handle}`}
-            className="mt-1 mb-1 p-2 rounded text-xs"
-            style={{
-              backgroundColor: 'var(--cafe-surface-sunken, #f5f5f4)',
-              whiteSpace: 'pre-wrap',
-              borderLeft: '2px solid var(--cafe-accent, #d97706)',
-            }}
-          >
-            {peekContent[handle]}
-          </div>,
-        );
+        lastIdx = match.index + match[0].length;
       }
-    } else {
-      // No matching action — degrade to plain text label (AC-4, AC-5)
-      // Show verb + handle as subtle text, no brackets, no button
-      segments.push(
-        <span
-          key={`degraded-${keyCounter++}`}
-          className="text-xs"
-          style={{ color: 'var(--cafe-text-muted)', opacity: 0.7 }}
+
+      if (lastIdx === 0) return child; // No markers in this text node
+      if (lastIdx < child.length) parts.push(child.slice(lastIdx));
+      // Return array (not Fragment) — Children.map flattens arrays, allowing
+      // subsequent withMentionsAndLinks to process each string/element individually.
+      return parts;
+    });
+  };
+
+  return (
+    <>
+      <MarkdownContent content={cleanContent} disableCommandPrefix textProcessor={processMarkers} />
+      {/* BUG-UX-8: Peek content as collapsible blocks below, with dismiss button */}
+      {Object.entries(peekContent).map(([handle, text]) => (
+        <div
+          key={`peek-${handle}`}
+          className="mt-1 mb-1 p-2 rounded text-xs relative"
+          style={{
+            backgroundColor: 'var(--cafe-surface-sunken, #f5f5f4)',
+            whiteSpace: 'pre-wrap',
+            borderLeft: '2px solid var(--cafe-accent, #d97706)',
+          }}
         >
-          {verb} {handle}
-        </span>,
-      );
-    }
-
-    lastIndex = matchIndex + match[0].length;
-  }
-
-  // Remaining text after last marker
-  if (lastIndex < cleanContent.length) {
-    segments.push(cleanContent.slice(lastIndex));
-  }
-
-  // Show peek error if any
-  if (peekError) {
-    segments.push(
-      <div key="peek-error" className="text-xs mt-1" style={{ color: 'var(--cafe-error, #ef4444)' }}>
-        {peekError}
-      </div>,
-    );
-  }
-
-  return <>{segments}</>;
+          <button
+            type="button"
+            onClick={() =>
+              setPeekContent((prev) => {
+                const next = { ...prev };
+                delete next[handle];
+                return next;
+              })
+            }
+            className="absolute top-1 right-1 text-xs cursor-pointer opacity-50 hover:opacity-100 px-1"
+            title="收起"
+          >
+            ✕
+          </button>
+          {text}
+        </div>
+      ))}
+      {peekError && (
+        <div className="text-xs mt-1" style={{ color: 'var(--cafe-error, #ef4444)' }}>
+          {peekError}
+        </div>
+      )}
+    </>
+  );
 }
