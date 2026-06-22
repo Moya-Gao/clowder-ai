@@ -8,7 +8,7 @@ created: 2026-06-15
 
 # F236: Anchor-First Context 入口 — 返回侧 token 减负
 
-> **Status**: in-progress (Phase A+B done · Phase A/B-Eval Track-1 merged [chars/volume substrate, PR #2411] · Track-2 [open-rate event model + domain 注册] next, 等 shared Y-lite infra PR · Phase C spike-gated) | **Owner**: 布偶猫 (宪宪 opus-48) | **Priority**: P1 | **Created**: 2026-06-15 | **Companion ADR**: ADR-203
+> **Status**: in-progress (Phase A+B done · Phase A/B-Eval Track-1 merged [chars/volume substrate, PR #2411] · **Track-2 [open-rate 事件模型 + `eval:anchor-first` 注册] UNBLOCKED**——shared Y-lite infra 已落 [F245 PR #2476]，可执行交接见「🎯 Track-2 实施交接」块 · Phase C spike-gated) | **Owner**: 布偶猫 (宪宪 opus-48，保留记忆做愿景守护；**Track-2 实现可交 opus-4.6**，CVO 2026-06-21) | **Priority**: P1 | **Created**: 2026-06-15 | **Companion ADR**: ADR-203
 >
 > **Timeline**: 2026-06-18 — Phase A + B merged (PR #2381, squash `9af8b2093`)：anchor-first 协作读工具（thread-context/pending-mentions/list-tasks 默认 preview + drillDown）+ get-message bounded drill（mode=preview|full + fullDrillChars telemetry）。本地 gpt52/codex 跨族 review + 云端 Codex 2 轮（封板）。**2026-06-18 — Phase A/B-Eval Track-1（anchor telemetry OTel chars/volume substrate）merged（PR #2411，squash `21ae2c83b`）：gpt52 跨族 review + 云端 Codex 3 轮（round-2 逼出 open-rate 信号模型岔路 → 砚砚 eval-owner 裁定收口 chars/volume，open-rate→Track-2）。**
 
@@ -73,7 +73,7 @@ spike（2026-06-16，C0a Read / C0b Grep ✅ 实证）证明 cc PostToolUse hook
 >
 > **为什么先于 Phase C（排期）**：Phase A/B 已 merged 上线，但**只 emit telemetry、没闭环**——"何时 sunset 回退 / anchor 是否真净益"现在只能靠铲屎官提醒或挂 cron 盲看两天 = **假闭环**（ADR-031 eval 层欠债）。先还这个债，再扩大头 Phase C。**Phase C 不硬依赖本 phase**（它另有 AC-C5 blindness gate 自带 eval），但本 phase 的 verdict 为 Phase C 扩展提供数据依据。
 
-- [ ] AC-E1（telemetry 落库聚合）: Phase A/B emit 的 `returnedChars`/`anchorOpenRate`/`fullDrillChars` + 任务返工轮次落 F192 telemetry pipeline，按 tool + 时间窗**自动聚合**（不靠手动 grep log / 定时盲看）
+- [x] AC-E1（"省" telemetry substrate）✅ **Track-1 MERGED（PR #2411）**：`returnedChars`/`fullDrillChars` 落 OTel metrics（`cat_cafe.anchor.{returned,full_drill}.{count,chars}`，per-tool）= 可查询 chars/request-volume substrate。⚠️ **范围已按砚砚 2026-06-19 裁定收窄**：`anchorOpenRate` + 任务返工轮次**不在 AC-E1**——它们是跨请求相关性，移到 AC-E2 的可 join 事件模型（见下 + Track-2 交接块）。`*.count` 仅 volume，非 open-rate 分子/分母。
 - [ ] AC-E2（verdict 自动判定）: F192 verdict engine 跑**双边净收益**（省 − drill 成本）+ **sunset 双信号**（① anchor tax: `anchorOpenRate` 持续 >80% → 净亏；② 变瞎子: 任务正确性/返工率下降 → preview 偷判断）→ 产结构化 verdict（砚砚 KD：不许单边报省）
 - [ ] AC-E3（sunset 触发 + Phase C 数据依据）: verdict **净亏 → 自动 alert** 标记该工具 anchor 该回退 inline（不靠铲屎官提醒）；verdict **净益 + 无变瞎子 → 作为 Phase C 扩展的数据依据**（非硬 gate）
 - [ ] AC-E4（接入 F192 不膨胀）: 实现挂 F192 harness eval system；F192 md 仅加一行 link 指向本节，F236 此节为 eval 设计真相源
@@ -107,11 +107,29 @@ spike（2026-06-16，C0a Read / C0b Grep ✅ 实证）证明 cc PostToolUse hook
    - **✅ rollup（砚砚 裁定）**：**不抽 `RollupEvalDomain` 大基类**（太早）。仅 bless 三块最小共享层：cadence/window contract（window+Top-N+tokenBudget）+ publish/generator boundary（`sourceRefs.kind → generator → bundle → VHP`）+ 小工具（Top-N/tail-fold / token-budget renderer / cluster-id helper）。各域 own 自己 source adapter；两域落完重复 >2 处再抽。
    - **✅ N-day cadence（砚砚 裁定）**：新 canonical 字段 `cadence:{kind:daily|weekly|every_n_days, days, timezone, anchorHourUtc}`（兼容旧 `frequency`），跟 registration pattern 一起落，shared gate 判 due。
    - **✅ Track-1 = MERGED（PR #2411，squash `21ae2c83b`，2026-06-18）**：anchor telemetry emit as OTel——新增 `routes/anchor-telemetry.ts` recorder（镜像 callback-auth-telemetry）+ 4 instruments `cat_cafe.anchor.{returned,full_drill}.{count,chars}` + `anchor.tool` allowlist；4 emit 点 additive；R1 empty-drill guard。**按砚砚 eval-owner 裁定收口为 chars + request/response volume substrate**（`*.count` = volume，**非** open-rate 分子/分母；open-rate→Track-2，见 item 5）。质量门：cloud 3 轮（round-2 逼出信号模型岔路 + R1 empty-drill；round-3 clean）+ gpt52 跨族 review+续签 + pure-rebase 自决合入。⚠️ limitation：OTel emit 测法是 in-memory mirror（仓库无 exporter-readout harness），end-to-end OTel 验证留 Track-2 eval-adapter 集成。
-   - **🔜 Track-2 = NEXT（AC-E2 open-rate correlated-event model + AC-E4 domain 注册）**等 **shared Y-lite infra PR**（与 F245，砚砚建议 F245 Phase C 先 land——更宽 consumer——F236 rebase 继承；F236 先到也可，但须 scope 到 F192 contract、不夹带 anchor-specific）。**两 feature 都禁再提"硬 enum +1/+2"的 feature-local PR**。
+   - **✅ shared Y-lite infra LANDED（2026-06-21）— Track-2 UNBLOCKED**：F245 PR #2476（`0822a68b4`）已 merge，domainId 去中心 enum→受约束 string + registry/YAML + fail-closed（一手核 main 确认）。**Track-2（AC-E2 open-rate 事件模型 + AC-E4 注册 `eval:anchor-first`）现可直接做**——加 YAML+wiring 不改中心 contract。**完整可执行交接见下方「🎯 Track-2 实施交接」块**（CVO 2026-06-21：实现交 46，opus-48 保留记忆做愿景守护）。**禁硬 enum +1**（去中心了，本就不该再碰）。
    - **✅ 信号模型岔路 RESOLVED（2026-06-19 砚砚 eval owner 裁定，cloud round-2 逼出 → 宪宪 halt 升层）**：cloud 2 个 P2（drill 未归因回源 tool / returned 按 payload vs drill 按 item 单位错配）真实，根因 = F236 open-rate 本质是**跨 endpoint / 跨请求 / per-item 的 drill↔preview 相关性**，Track-1 低基数聚合计数器（`anchor.tool` + count/chars，无 messageId/sourceTool/previewEventId join key）**一聚合就不可恢复** → open-rate **不能无损 defer**，但 Track-1 也不该现在扛高基数事件模型。**裁定 (iii)：Track-1 只 ship chars / request-volume substrate，open-rate 采集从 Track-2 才开始。**
      - **Track-1 scope（PR #2411 reshape）**：保留 `anchor.returned.chars` / `anchor.full_drill.chars`（省信号）；`*.count` **只解释为 request/response volume，非 open-rate 分子/分母**；保留 R1 empty-drill 修复（没 serve 内容不记）；**不穿 sourceTool/itemCount、不改 drillDown pointer contract**（那是 Track-2 设计面）；删掉代码注释/测试文案/本 doc 里所有"raw counts later compute open-rate / drill-preview split honest"表述。
      - **🆕 Track-2 AC（AC-E2 前置，砚砚 req-6）**：per-tool open-rate / sunset verdict 需要 **preview-event ↔ drill-event 可 join 的事件模型**（correlation key = messageId/taskId/sourceTool/previewEventId）；**高基数 id 不能做 metric label**，须走 event/log/trace/adapter-consumable source record。Track-1 的 chars/volume metrics 是 substrate，不是 sunset verdict 的完整输入。
    - **架构一致**：F236（anchor-tax read-only + blindness reference-read task-outcome）与 F245（read-only 不抢 canonical ownership）**同 KD 家族**——不重复 deliberate。
+
+#### 🎯 Track-2 实施交接（2026-06-21，给接手猫 e.g. opus-4.6 — self-sufficient，读本节即可起步，不需 opus-48 在场重述）
+
+> **owner 分工（CVO 2026-06-21）**：opus-48 保留完整记忆做 **F236 愿景守护**；**Track-2 实现可交 46**。本块把上面 Design Notes 的散点结论收成一份可执行交接，防 session handoff 失忆。
+
+**✅ 前置已全部就绪**：
+- **Track-1（"省"信号 substrate）MERGED**（PR #2411）：OTel metrics `cat_cafe.anchor.{returned,full_drill}.{count,chars}`（per-tool，`anchor.tool` label）via `packages/api/src/routes/anchor-telemetry.ts` recorder + `infrastructure/telemetry/instruments.ts`。**`*.count` 只是 request/response volume，不是 open-rate 分子/分母。**
+- **Y-lite eval-domain 注册基建 LANDED**（F245 PR #2476，squash `0822a68b4`，2026-06-21，已一手核 main）：`VerdictHandoffPacket.domainId` 现是受约束 string `evalDomainIdSchema`（`^eval:[a-z0-9][a-z0-9-]*$`）**不再中心 enum**；`sourceAdapter` slug string；`sourceRefsKind` 由 registry entry 声明（`publish-verdict` 从 registry 读，不查硬编码表）；fail-closed（未知 sourceRefsKind→501 `unsupported_source_refs_kind`，缺 generator/instruction wiring→501 `unsupported_generator`）。**加新 domain = 加 YAML + 显式代码 wiring，不动中心 contract。** 迁移 plan: `docs/plans/2026-06-21-f245-shared-y-lite-migration.md`；**参考实现 = `eval:friction` domain（镜像它）**。
+
+**Track-2 = 两块（AC-E2 + AC-E4）**：
+- **AC-E2 — open-rate verdict（核心难点）**：sunset 信号①(anchor tax) 本质是**跨请求/跨 endpoint/per-item 的 preview↔drill 相关性**（preview tool 返回 drillDown 指针 → cat 经 `get-message`(full) 或 `list-tasks`(taskId) drill；要 join "哪个 preview 的哪条 item 被 drill"）。**Track-1 聚合 metrics 算不出（无 join key）**。Track-2 须建**可 join 事件模型**：emit per-event 带 correlation key（messageId/taskId/sourceTool/previewEventId）走 **event/log/trace/adapter source record**（🔴 **高基数 id 禁做 metric label**——砚砚硬约束）。eval cat rollup 时 join 算 open-rate。
+  - 信号②(变瞎子=任务正确性/返工率)：**reference-read `eval:task-outcome` 的 verdict/episode 趋势，F236 不写入**（task-outcome 是 blindness canonical owner；其 episode signal enum 无 anchor 槽，直 ingest = Phase-G 扩展、不在 scope）。
+  - verdict 机制 = **eval-cat-in-loop**（注册 domain 带 evalCat → cron 唤醒 eval 猫读聚合 → 产 `VerdictHandoffPacket`，verdict ∈ `delete_sunset|build|fix|keep_observe`）；**不写确定性净收益计算函数**。🔴 砚砚 KD：**不许单边报省**——必须双边净收益（省 − drill 成本）+ sunset 双信号。
+- **AC-E4 — 注册 `eval:anchor-first` domain（走 Y-lite，非 enum）**：加 `docs/harness-feedback/eval-domains/eval-anchor-first.yaml`（domainId=`eval:anchor-first` phenomenon 名、sourceAdapter、sourceRefsKind、cadence、evalCat、`handoffTargetResolver.featureId=F236`）+ 代码显式 wire adapter/generator（缺→501 fail-closed）。**不改中心 enum。** 镜像 `eval:friction` 的 fan-out——3 个易漏点（F245 PR1b 实测）：① `mcp-server/.../publish-verdict-tool.ts` 独立 zod schema ② `eval-cat-invocation.ts` 的 `PUBLISH_VERDICT_INSTRUCTIONS_BY_DOMAIN` map ③ `assertNoNewlineInBulletFields` guard。
+
+**关键文件指针**：Y-lite 注册 → `infrastructure/harness-eval/domain/eval-domain-registry.ts` + `verdict-handoff.ts`(string domainId) + `publish-verdict/publish-verdict.ts`(registry sourceRefsKind) + `eval-domains/*.yaml`；参考 domain → `eval:friction`（最近同型实现）；Track-1 substrate → 上方「前置」。
+
+**SOP**：research→plan→worktree(Redis 6398)→TDD(先红后绿)→quality-gate→跨族 review→merge-gate。判断密度高，清醒满 context 做。**接手猫起步前先 recall + 读本节 + 读 `eval:friction` 实现**，再开 worktree。
 
 ### Phase C: cc 原生工具 anchor 化（spike-gated — 这才是大头）
 > 前置 spike（与砚砚一起）：实测 cc PostToolUse hook + `updatedToolOutput` 能否 replace Read/Grep/Glob 返回。**spike 不过则本 Phase 不启动**（不脑补——文档说能 ≠ 我们场景能用）。
