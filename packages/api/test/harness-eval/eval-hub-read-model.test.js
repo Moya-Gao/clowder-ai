@@ -233,10 +233,10 @@ Evidence:
     assert.ok(summary.domains, 'domains field must exist');
     assert.equal(
       summary.domains.length,
-      7,
-      'should have 7 registered domains (eval:a2a + eval:memory + eval:sop + eval:capability-wakeup + eval:task-outcome + eval:friction[F245] + eval:anchor-first[F236])',
+      8,
+      'should have 8 registered domains (eval:a2a + eval:memory + eval:sop + eval:capability-wakeup + eval:task-outcome + eval:friction[F245] + eval:anchor-first[F236] + eval:capability-tips[F244])',
     );
-    assert.equal(summary.counts.registeredDomains, 7);
+    assert.equal(summary.counts.registeredDomains, 8);
     // F245 Phase C: eval:friction registered + enabled:true since PR1b wired the live sink.
     const frictionDomain = summary.domains.find((d) => d.domainId === 'eval:friction');
     assert.ok(frictionDomain, 'eval:friction must appear in Hub domains');

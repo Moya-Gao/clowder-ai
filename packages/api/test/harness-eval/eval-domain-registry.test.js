@@ -379,4 +379,28 @@ describe('Eval Domain Registry v0', () => {
       },
     ]);
   });
+
+  // --- eval:capability-tips domain (F244 Phase D AC-D2) ---
+
+  it('loads the docs-backed eval:capability-tips registry fixture', async () => {
+    const raw = await readFile(
+      new URL('../../../../docs/harness-feedback/eval-domains/eval-capability-tips.yaml', import.meta.url),
+      'utf8',
+    );
+    const parsed = parse(raw);
+    const entry = parseEvalDomainRegistryFile(parsed);
+
+    assert.equal(entry.domainId, 'eval:capability-tips');
+    assert.equal(entry.displayName, 'Capability Tips Effectiveness');
+    assert.equal(entry.sourceAdapter, 'capability-tips-usage');
+    assert.equal(entry.sourceRefsKind, 'capability-tips-usage-window');
+    assert.equal(entry.frequency, 'weekly');
+    assert.equal(entry.handoffTargetResolver.featureId, 'F244');
+    assert.equal(entry.handoffTargetResolver.ownerCatId, 'opus');
+    assert.equal(entry.sla.acknowledgeHours, 72);
+    assert.equal(entry.sla.reevalWithinHours, 336);
+    // Disabled until web→API telemetry pipeline is built
+    assert.equal(entry.enabled, false, 'eval:capability-tips must be disabled until trace producer is wired');
+    assert.deepEqual(entry.fixtures, []);
+  });
 });

@@ -117,6 +117,8 @@ managed_scripts:
   - scripts/check-feature-truth.mjs
   - scripts/check-capability-tips.mjs
   - scripts/check-capability-tips.test.mjs
+  - scripts/check-capability-tips-stale.mjs
+  - scripts/check-capability-tips-stale.test.mjs
   - scripts/check-env-port-drift.test.mjs
   - scripts/update-public-governance-hash.mjs
   - scripts/check-env-registry.test.mjs

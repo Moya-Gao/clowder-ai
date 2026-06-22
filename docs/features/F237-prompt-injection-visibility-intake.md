@@ -3,13 +3,14 @@ feature_ids: [F237]
 related_features: [F203, F042, F154, F168, F202]
 topics: [prompt-injection, transparency, intake, community, l0-template]
 doc_kind: spec
+tips_exempt: absorbed intake — no user-facing capability to tip
 created: 2026-06-15
 updated: 2026-06-22
 ---
 
 # F237: Prompt Injection Visibility — 社区 PR #859 Intake
 
-> **Status**: absorbed-to-cat-cafe (PR #2505 squash `b859eb38`, 2026-06-22) | **Owner**: cat-cafe maintainers (intake review) | **Source**: community @mindfn + 团队 | **Priority**: P1 | **Created**: 2026-06-15 | **Updated**: 2026-06-22
+> **Status**: done — absorbed-to-cat-cafe (PR #2505 squash `b859eb38`, 2026-06-22) | **Owner**: cat-cafe maintainers (intake review) | **Source**: community @mindfn + 团队 | **Priority**: P1 | **Created**: 2026-06-15 | **Updated**: 2026-06-22
 
 ## Provenance
 
