@@ -563,6 +563,34 @@
           }
         },
         {
+          "id": "codex-gpt-pro",
+          "catId": "gpt-pro",
+          "variantLabel": "Pro Cloud (ChatGPT)",
+          "displayName": "缅因猫 Pro",
+          "mentionPatterns": [
+            "@gpt-pro",
+            "@gpt-pro-cloud",
+            "@yanyan-pro",
+            "@砚砚pro"
+          ],
+          "provider": "openai-chatgpt-pro",
+          "defaultModel": "gpt-pro",
+          "mcpSupport": true,
+          "avatar": "/avatars/gpt52.png",
+          "color": {
+            "primary": "#2196F3",
+            "secondary": "#90CAF9"
+          },
+          "personality": "云端 ChatGPT Pro 砚砚 Pro，高阶判断 + 跨族 review + 设计方向收敛（F247 Phase B1a 云端入驻）",
+          "strengths": [
+            "reasoning",
+            "code-review",
+            "design-gate"
+          ],
+          "teamStrengths": "云端高阶判断席位，远端 push 模式",
+          "caution": "F247 B1a：云端 Remote MCP，token 防线唯一；不 spawn 本地 CLI（cli 字段省略）；不被动接 dispatch，云端主动 push 写工具"
+        },
+        {
           "id": "codex-spark",
           "catId": "spark",
           "variantLabel": "Spark",
