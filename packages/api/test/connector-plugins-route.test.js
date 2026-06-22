@@ -266,6 +266,7 @@ describe('POST /api/connectors/plugins/install auth boundary', () => {
     const app = await buildPluginRouteApp();
 
     try {
+      // Non-loopback origin is caught by the loopback guard (layer 1) before origin check.
       const res = await app.inject({
         method: 'POST',
         url: '/api/connectors/plugins/install',
@@ -277,18 +278,20 @@ describe('POST /api/connectors/plugins/install auth boundary', () => {
       });
 
       assert.equal(res.statusCode, 403);
-      assert.match(res.body, /same-origin|origin/i);
+      assert.match(res.body, /localhost/i);
     } finally {
       await app.close();
     }
   });
 
-  it('allows configured owner from trusted frontend origin through to upload validation', async () => {
+  it('blocks remote clients from plugin install even with configured owner', async () => {
     setOwnerUserId('owner-user');
     setFrontendUrl('https://hub.example.test');
     const app = await buildPluginRouteApp();
 
     try {
+      // Remote IP is caught by the loopback guard (layer 1) — connector plugin writes
+      // are direct-local Hub surface only (#794 three-layer pattern).
       const res = await app.inject({
         method: 'POST',
         url: '/api/connectors/plugins/install',
@@ -302,8 +305,69 @@ describe('POST /api/connectors/plugins/install auth boundary', () => {
         remoteAddress: '203.0.113.10',
       });
 
-      assert.equal(res.statusCode, 400);
-      assert.match(res.body, /No file uploaded/);
+      assert.equal(res.statusCode, 403);
+      assert.match(res.body, /localhost/i);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('rejects plugin install when proxy forwarding headers are present', async () => {
+    clearOwnerUserId();
+    setFrontendUrl('http://localhost:3003');
+    const app = await buildPluginRouteApp();
+
+    try {
+      // Loopback peer IP + loopback origin, but X-Forwarded-For header present →
+      // loopback guard rejects (proxy-forwarded requests are untrusted for writes).
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/connectors/plugins/install',
+        headers: {
+          'x-test-session-user': 'single-user',
+          origin: 'http://localhost:3003',
+          host: 'localhost:3003',
+          'x-forwarded-for': '10.0.0.5',
+        },
+      });
+
+      assert.equal(res.statusCode, 403);
+      assert.match(res.body, /localhost/i);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('rejects plugin list when proxy forwarding headers are present', async () => {
+    clearOwnerUserId();
+    setFrontendUrl('http://localhost:3003');
+    const root = useTempConfigRoot();
+    const pluginDir = join(root, '.cat-cafe', 'plugins', 'listed-plugin');
+    mkdirSync(pluginDir, { recursive: true });
+    writeFileSync(
+      join(pluginDir, 'connector.yaml'),
+      'id: listed-plugin\nname: Listed Plugin\nconfig: []\nsteps:\n  - text: Step\n',
+    );
+    writeFileSync(join(pluginDir, 'index.js'), 'export default {};\n');
+
+    const app = await buildPluginRouteApp();
+
+    try {
+      // Same as above — proxy forwarding headers trigger loopback guard rejection.
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/connectors/plugins',
+        headers: {
+          'x-test-session-user': 'single-user',
+          origin: 'http://localhost:3003',
+          host: 'localhost:3003',
+          'x-forwarded-for': '10.0.0.5',
+        },
+      });
+
+      assert.equal(res.statusCode, 403);
+      assert.match(res.body, /localhost/i);
+      assert.doesNotMatch(res.body, /listed-plugin/);
     } finally {
       await app.close();
     }
@@ -334,12 +398,13 @@ describe('DELETE /api/connectors/plugins/:id auth boundary', () => {
     }
   });
 
-  it('allows configured owner from trusted frontend origin through to uninstall lookup', async () => {
+  it('blocks remote clients from plugin uninstall even with configured owner', async () => {
     setOwnerUserId('owner-user');
     setFrontendUrl('https://hub.example.test');
     const app = await buildPluginRouteApp();
 
     try {
+      // Remote IP blocked by loopback guard (layer 1).
       const res = await app.inject({
         method: 'DELETE',
         url: '/api/connectors/plugins/missing-plugin',
@@ -351,8 +416,8 @@ describe('DELETE /api/connectors/plugins/:id auth boundary', () => {
         remoteAddress: '203.0.113.10',
       });
 
-      assert.equal(res.statusCode, 404);
-      assert.match(res.body, /not installed/);
+      assert.equal(res.statusCode, 403);
+      assert.match(res.body, /localhost/i);
     } finally {
       await app.close();
     }
@@ -375,7 +440,12 @@ describe('GET /api/connectors/plugins', () => {
     await app.ready();
 
     try {
-      const res = await app.inject({ method: 'GET', url: '/api/connectors/plugins' });
+      // Provide loopback origin so layer 1 (loopback guard) passes, then layer 2 (session) rejects.
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/connectors/plugins',
+        headers: { origin: 'http://localhost:3003', host: 'localhost:3003' },
+      });
 
       assert.equal(res.statusCode, 401);
       assert.match(res.body, /session/i);
@@ -399,11 +469,15 @@ describe('GET /api/connectors/plugins', () => {
     const app = await buildPluginRouteApp();
 
     try {
-      // Auth passes through (allowMissingOwner: true), returns plugin list
+      // All three layers pass: loopback (localhost origin) + session + owner (allowMissingOwner)
       const res = await app.inject({
         method: 'GET',
         url: '/api/connectors/plugins',
-        headers: { 'x-test-session-user': 'single-user' },
+        headers: {
+          'x-test-session-user': 'single-user',
+          origin: 'http://localhost:3003',
+          host: 'localhost:3003',
+        },
       });
 
       assert.equal(res.statusCode, 200);
@@ -429,10 +503,15 @@ describe('GET /api/connectors/plugins', () => {
     const app = await buildPluginRouteApp();
 
     try {
+      // Loopback passes (localhost origin), session passes, owner gate rejects.
       const res = await app.inject({
         method: 'GET',
         url: '/api/connectors/plugins',
-        headers: { 'x-test-session-user': 'other-user' },
+        headers: {
+          'x-test-session-user': 'other-user',
+          origin: 'http://localhost:3003',
+          host: 'localhost:3003',
+        },
       });
 
       assert.equal(res.statusCode, 403);
@@ -457,6 +536,7 @@ describe('GET /api/connectors/plugins', () => {
     const app = await buildPluginRouteApp();
 
     try {
+      // Non-loopback origin is caught by loopback guard (layer 1) before origin check.
       const res = await app.inject({
         method: 'GET',
         url: '/api/connectors/plugins',
@@ -468,7 +548,7 @@ describe('GET /api/connectors/plugins', () => {
       });
 
       assert.equal(res.statusCode, 403);
-      assert.match(res.body, /same-origin|origin/i);
+      assert.match(res.body, /localhost/i);
       assert.doesNotMatch(res.body, /listed-plugin/);
     } finally {
       await app.close();
@@ -477,7 +557,7 @@ describe('GET /api/connectors/plugins', () => {
 
   it('does not expose installed plugin filesystem paths', async () => {
     setOwnerUserId('owner-user');
-    setFrontendUrl('https://hub.example.test');
+    setFrontendUrl('http://localhost:3003');
     const root = useTempConfigRoot();
     const pluginDir = join(root, '.cat-cafe', 'plugins', 'listed-plugin');
     mkdirSync(pluginDir, { recursive: true });
@@ -496,15 +576,15 @@ describe('GET /api/connectors/plugins', () => {
     await app.ready();
 
     try {
+      // Use localhost (loopback) origin so all three auth layers pass.
       const res = await app.inject({
         method: 'GET',
         url: '/api/connectors/plugins',
         headers: {
           'x-test-session-user': 'owner-user',
-          origin: 'https://hub.example.test',
-          host: 'api.example.test',
+          origin: 'http://localhost:3003',
+          host: 'localhost:3003',
         },
-        remoteAddress: '203.0.113.10',
       });
 
       assert.equal(res.statusCode, 200);
