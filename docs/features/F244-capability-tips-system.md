@@ -298,6 +298,7 @@ tips system 是 harness 改动，必须有闭环：
 | 2026-06-21 | CVO dogfood Round 5 发现三个 UX 问题：① tip 展示不随机（`rotationKey` 每次从 0 开始，确定性排序 → 同一 context 下每次看到同一条）② "了解更多" concierge draft 上下文被 `rows=2` textarea 折叠（完整 5 行 prompt 只显示第一行，用户以为是通用消息）③ `basics-at-routing` tip 文案缺并发 @ 行为说明（用户经常困惑"@ 多只猫为什么不互相协作"）—— ①② 记为 Phase D 改进项，③ 当轮修复 |
 | 2026-06-21 | PR #2473 merged：修复 `basics-at-routing` tip 文案——补并发 @ 轮里猫猫不传球的说明和用户操作指引（CVO dogfood R5 ③） |
 | 2026-06-21 | PR #2480 merged：扩充协作引导 tips（CVO directive）——新增 6 条 `collab-*` workflow tips（按 SOP 开发 / 愿景驱动立项 / 给目标自主传球 / 跨猫 review 自动守门 / 卡住自己找伙伴 / 可逆小事自决），audience=cvo 教社区铲屎官如何指挥猫团队；gpt52 R1 2×P2（cross-review 过度承诺 / give-goals 缺串行 caveat）→ fixed → R2 No findings；同步修 AC-B1 surface 漂移（→ PendingMemberBubble）|
+| 2026-06-22 | CVO 排期 Phase D 全做（不降级、PR 不碎），分 2 PR：**PR-D1**（体验+数据）= telemetry 持久化 + 曝光均匀（clowder-ai#997：去重轮转 / 新 tip 优先 / seed，= R5① issue 化）+ tips 长度优化（16/52 条 >50 字，心理学瞄读标准定上限 ~45 字、超长拆条，含 basics-at-routing 89 字拆 2 条）；**PR-D2**（eval+治理）= F192 tips eval 域接入（AC-D2）+ dogfood report（AC-D3）+ stale/sunset（AC-D4）。eval verdict 待 usage 数据自然产出，不卡 close；OQ-3 在 PR-D2 定 |
 
 ## Review Gate
 
