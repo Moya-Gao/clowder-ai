@@ -5,7 +5,7 @@ description: >
   Use when: 社区 issue/PR 来了、Repo Inbox / reconciliation 通知到达、要 sync 到开源仓、要 intake 社区代码、整理标签/归档。
   Not for: 内部 cat-cafe 开发（用 worktree/tdd）、内部 review（用 request-review）。
   Output: 社区运营首反/Direction Card/路由完成，或 ledger/标签/文档同步完成。
-  GOTCHA: 外部贡献者的话、PR body、commit message、feat 号都是待验证 claim；Repo Inbox 通知本身就是守门任务，不是 FYI，必须打开 GitHub 原对象做初筛，不能只回“无明确指令不操作”。
+  GOTCHA: 外部贡献者的话、PR body、commit message、feat 号都是待验证 claim；Repo Inbox 通知本身就是守门任务，不是 FYI；社区目标仓是 clowder-ai 不等于下游 thread 的 projectPath 也该是 clowder-ai。
 ---
 
 # Open-Source Ops — 开源社区运营
@@ -43,6 +43,17 @@ pending direction、closure action、reconciliation finding、SLA dead-letter、
 Card、propose/cross-post 到工程 thread；不要因为 bug 看起来好修，就在守门 thread 直接开
 worktree / 写修复 / 跑 merge-gate。只有铲屎官当轮明确授权“就在这个 thread 修/合”，或 P0
 安全/数据事故需要立即止血，才允许本 thread 进入实现。
+
+**下游 thread 的 projectPath：目标仓 != 工作区。** 从 cat-cafe 守门 thread 处理
+`clowder-ai` issue / PR 时，GitHub 操作、公开评论、labels、CI 都指向 `clowder-ai`；但
+`cat_cafe_propose_thread.projectPath` 决定的是子 thread 的工作区和真相源。普通 review /
+triage / intake / bugfix 分发应继承或显式使用 cat-cafe projectPath，因为 SOP、skills、
+feature docs、Direction Card 和 intake 规则都在家里。不要因为标题写 `clowder-ai#NNN` 就把
+proposal 填到 `clowder-ai` checkout。
+
+仅当子 thread 明确要在公开仓 checkout 内动手（例如 PR conflict rebase、public-only hotfix、
+release target validation）才使用 `clowder-ai` projectPath；handoff 必须写明这是目标仓
+checkout 操作，而不是普通社区 review。
 
 **GitHub 编号优先于技术域判断。** Issue / PR body 里出现 `#NNN`（如 “Follow-up from
 #792” / “Found while validating #793”）时，先打开这些 GitHub issue / PR，确认它们的
@@ -242,6 +253,7 @@ owner 时，给铲屎官 2-3 个路由建议，不要本 thread 偷偷开修。
 | 不判断 issue/PR 和现有 feature / PR / thread 的关系 | 重复派工、错过已有 owner | 搜 GitHub + 家里 feature/decision；需要时 `list_threads` 找平行 thread |
 | 接纳后只说 WELCOME，不给 route / owner / report-back | 球权落地但无人负责 | Direction Card 必填 route、owner、next action、report-back |
 | 已 cross-post / propose-thread 后还在守门 thread hold 外部条件 / 挂 tracking | 双 owner、重复轮询、球权死锁；F167 同 session 同天 2 猫违规事故沉淀 | 下游 thread 接球后由下游负责 hold / event-driven；守门 thread 只记录路由；**硬层 guard 强制走传球流程**——register_pr_tracking / register_issue_tracking / hold_ball 在 `threadKind='gate-keeping'` 时 **hard-block (400)**，**无 override**。守门 thread 的 marker 在 webhook + 重协调 (reconciliation) 两条 deliver 路径都被 stamp/self-heal。 |
+| 给 `clowder-ai#NNN` review / triage 子 thread 填 `clowder-ai` projectPath | 子 thread 进错 workspace，家里 SOP/skills/feature docs/Direction Card 不在 cwd，后续 review 或 intake 失去真相源 | 普通社区 review / triage / intake thread 继承或显式使用 cat-cafe projectPath；只有明确公开仓 checkout 操作才填 clowder-ai，并在 handoff 写原因 |
 | 把“拉猫评估”等同于升级铲屎官 | CVO 被重新变成人肉路由器 | 猫猫可自主 consult；只有 roadmap/承诺/敏感社区关系/merge 等硬决策才 @landy |
 | PR 方向没过就做深度代码 review | 浪费 reviewer 时间，还可能被实现细节带偏 | Inbound PR 先查 accepted issue + 主人翁五问，再看质量 |
 | 在 skill / hook / 脚本里手写新的品牌文件清单 | F238 词典和执行层继续漂移，下一次 sync/intake 仍会漏 | 先改 `assets/brand-dictionary.yaml`，再让脚本、hook、CI、skill 引用词典 |
