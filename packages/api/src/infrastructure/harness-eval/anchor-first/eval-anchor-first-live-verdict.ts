@@ -13,6 +13,15 @@ const SANITIZE_RULES_VERSION = 'f236-anchor-telemetry-v1';
 const ROLLUP_COMPONENT_ID = 'anchor-telemetry-rollup';
 const ROLLUP_COMPONENT_NAME = 'anchor-first preview/drill open-rate rollup';
 
+/**
+ * F236 AC-E3 — sunset signal thresholds.
+ *
+ * Sunset Signal ① (anchor tax): openRateByItem > this AND netBenefit < 0.
+ * These are presentation thresholds for flagging in the attribution bundle —
+ * the eval cat (gpt52) owns the actual verdict, not a deterministic function.
+ */
+const SUNSET_OPEN_RATE_THRESHOLD = 0.8;
+
 export interface GenerateAnchorFirstLiveVerdictInput {
   verdictId: string;
   harnessFeedbackRoot: string;
@@ -183,20 +192,60 @@ function buildAttribution(
   rollup: AnchorTelemetryRollup,
 ) {
   const findings: Array<Record<string, unknown>> = [];
+  let toolsWithAnchorTax = 0;
+  let toolsNetNegative = 0;
+  let toolsHighOpenRate = 0;
+
+  let lowSampleToolCount = 0;
 
   for (const [tool, stats] of Object.entries(rollup.perTool)) {
     if (stats.previewResponses === 0) continue;
+
+    // AC-E3: low sample gate — few preview events → skip findings entirely.
+    // Why skip (not just suppress flags): publish-policy treats findings[] as
+    // actionable signal (regular_pr), so low-sample tools in findings[] would
+    // incorrectly trigger owner-action PRs. Data visibility is preserved via
+    // verdict markdown's LOW_SAMPLE label + Open-Rate Detail section.
+    if (stats.previewedItems < 10) {
+      lowSampleToolCount++;
+      continue;
+    }
+
+    // AC-E3: sunset signal flags (data presentation, not verdict automation)
+    const highOpenRate = stats.openRateByItem > SUNSET_OPEN_RATE_THRESHOLD;
+    const netNegative = stats.netBenefit < 0;
+    const anchorTax = highOpenRate && netNegative;
+
+    if (anchorTax) toolsWithAnchorTax++;
+    if (netNegative) toolsNetNegative++;
+    if (highOpenRate) toolsHighOpenRate++;
+
+    // AC-E3: severity/action mapping per spec
+    //   both signals (anchorTax) → high / sunset
+    //   single signal (highOpenRate-only OR netNegative-only) → medium / fix
+    //   neither signal → low-medium based on openRate / keep-observe or investigate
+    const hasSingleSignal = !anchorTax && (highOpenRate || netNegative);
+    const severity = anchorTax ? 'high' : hasSingleSignal ? 'medium' : stats.openRateByItem > 0.5 ? 'medium' : 'low';
+    const action = anchorTax
+      ? 'sunset'
+      : hasSingleSignal
+        ? 'fix'
+        : stats.openRateByItem > 0.5
+          ? 'investigate'
+          : 'keep-observe';
+
     findings.push({
       id: `AF-${generatedAt.slice(0, 10)}-${tool}`,
       relatedFeature: featureId,
+      sunsetSignals: { anchorTax, highOpenRate, netNegative },
       frictionSignal: {
         type: `anchor.open_rate.${tool}`,
-        severity: stats.openRateByItem > 0.5 ? 'medium' : 'low',
-        confidence: stats.previewedItems >= 10 ? 0.8 : 0.5,
+        severity,
+        confidence: 0.8, // only tools with previewedItems >= 10 reach here
         detectedAt: generatedAt,
       },
       attribution: {
-        primaryLayer: 'needs_investigation',
+        primaryLayer: anchorTax ? 'anchor_tax_sunset' : 'needs_investigation',
         evidence: [
           {
             type: 'counter',
@@ -207,12 +256,36 @@ function buildAttribution(
       },
       proposedAction: [
         {
-          action: stats.openRateByItem > 0.5 ? 'investigate' : 'keep-observe',
+          action,
           target: `${ROLLUP_COMPONENT_ID}/${tool}`,
           rationale: `Open rate ${(stats.openRateByItem * 100).toFixed(1)}%: ${stats.drilledUniqueItems}/${stats.previewedItems} items drilled, net benefit ${stats.netBenefit} chars`,
         },
       ],
     });
+  }
+
+  // AC-E3: sunset assessment summary — quick scan for eval cat
+  const sunsetAssessment = {
+    toolCount: findings.length,
+    toolsWithAnchorTax,
+    toolsNetNegative,
+    toolsHighOpenRate,
+    lowSampleToolCount,
+  };
+
+  if (findings.length === 0 && lowSampleToolCount > 0) {
+    return {
+      verdictId,
+      featureId,
+      evalSnapshotId,
+      generatedAt,
+      findings: [],
+      sunsetAssessment,
+      noFindingRecord: {
+        reason: 'low_sample',
+        evidence: `${lowSampleToolCount} tool(s) had fewer than 10 previewed items — insufficient data for sunset signal assessment. Raw stats are in verdict markdown Open-Rate Detail.`,
+      },
+    };
   }
 
   if (findings.length === 0) {
@@ -222,6 +295,7 @@ function buildAttribution(
       evalSnapshotId,
       generatedAt,
       findings: [],
+      sunsetAssessment,
       noFindingRecord: {
         reason: 'no_preview_events',
         evidence: 'No anchor-first preview events in the rollup window.',
@@ -235,6 +309,7 @@ function buildAttribution(
     evalSnapshotId,
     generatedAt,
     findings,
+    sunsetAssessment,
   };
 }
 
@@ -264,6 +339,25 @@ function renderVerdictMarkdown(
     `- Re-eval: ${packet.acceptanceReevalPlan.closureCondition} at ${packet.acceptanceReevalPlan.nextEvalAt}`,
     '',
   ];
+
+  // AC-E3: Sunset Signal Assessment (eval cat quick-scan section)
+  lines.push('Sunset Signal Assessment:');
+  for (const [tool, stats] of Object.entries(rollup.perTool) as Array<[string, AnchorToolRollup]>) {
+    const lowSample = stats.previewedItems < 10;
+    const highOpenRate = !lowSample && stats.openRateByItem > SUNSET_OPEN_RATE_THRESHOLD;
+    const netNegative = !lowSample && stats.netBenefit < 0;
+    const anchorTax = highOpenRate && netNegative;
+    const signals: string[] = [];
+    if (lowSample) signals.push('LOW_SAMPLE');
+    if (anchorTax) signals.push('ANCHOR_TAX');
+    if (highOpenRate && !anchorTax) signals.push('HIGH_OPEN_RATE');
+    if (netNegative && !anchorTax) signals.push('NET_NEGATIVE');
+    const label = signals.length > 0 ? signals.join('+') : 'HEALTHY';
+    lines.push(
+      `- ${tool}: ${label} (openRate=${(stats.openRateByItem * 100).toFixed(1)}%, netBenefit=${stats.netBenefit})`,
+    );
+  }
+  lines.push('');
 
   // Open-rate detail (domain-specific, not parsed by extractBullet)
   lines.push('Open-Rate Detail:');
