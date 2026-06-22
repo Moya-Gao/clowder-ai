@@ -15,7 +15,7 @@ updated: 2026-06-22
 ## Provenance
 
 - **Community PR**: [clowder-ai#859](https://github.com/zts212653/clowder-ai/pull/859) — `feat(F226): Prompt Injection Visibility — Phase 1 (Checkpoints A–D)`
-- **Maintainer discussion issue**: [clowder-ai#839](https://github.com/zts212653/clowder-ai/issues/839) — `Make agent context injections visible, auditable, and lifecycle-managed`（状态：`triaged + needs-maintainer-decision`）
+- **Maintainer discussion issue**: [clowder-ai#839](https://github.com/zts212653/clowder-ai/issues/839) — `Make agent context injections visible, auditable, and lifecycle-managed`（状态：`open + triaged + accepted`；具体行为 follow-up 另拆到 [clowder-ai#983](https://github.com/zts212653/clowder-ai/issues/983)）
 - **作者**: `@mindfn` 团队（社区，与 F202/F204/F205 同贡献者；他们 fork 内部也有 opus/codex 命名重合的猫，**非 cat-cafe 家里的猫**）
 - **作者团队历史**: 6 轮本地 codex review + 4 轮云端 codex review，34 finding（1 fixed / 2 pushback / 31 declared Phase 2 scope）
 - **PR scope**: 102 文件 / +5644 / -979; merged in clowder-ai as `4241932fca211a5b4594a7ca40719fb1860044bf`
@@ -148,6 +148,7 @@ F237 intake was gated on both 前置条件完成.
 - Intake Intent Issue #2503 auto-closed through the PR body `Closes #2503`.
 - `scripts/intake-from-opensource.sh --record --pr 859 --decision absorbed --intent-issue 2503 --absorb-pr 2505 --review-proof https://github.com/zts212653/cat-cafe/pull/2505#issuecomment-4769939911` passed Brand Guard + strict guard and advanced the ledger to `4241932fca211a5b4594a7ca40719fb1860044bf`.
 - Final gate on PR #2505 passed on `f85f1bc2`; F238 Brand Boundary Guard passed on the same final SHA.
+- Upstream discussion issue #839 remains open as the umbrella for deferred follow-up scope; the concrete hook-priority fix is tracked separately in #983 and is not a blocker for F237 intake close.
 
 ## Remaining Follow-up
 
