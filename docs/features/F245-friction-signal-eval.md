@@ -202,6 +202,7 @@ signal 体量实证（今天 UTC 0:00 → 16:07，16 小时）：
 | 2026-06-21 | **shared Y-lite migration merged**（PR #2476，squash `0822a68b4`）— eval-domain 注册 contract 从中心 enum-bump 迁到 Y-lite：`domainId/sourceAdapter` 改受约束字符串、registry 新增 `sourceRefsKind`、publish-verdict 对未知 selector kind 明确 `unsupported_source_refs_kind` fail-closed、现有 eval-domain YAML/fixtures/tests 全量同步。F245 / F236 后续加 domain 不再改中心 enum，PR2 / Phase D 可在此基础上恢复推进。|
 | 2026-06-21 | **PR2 N-day cadence open for review**（PR #2483，branch `feat/f245-pr2-nday-cadence`）— `createEvalDomainNDaySpec`（daily cron + per-domain Redis last-run gate，fail-open）+ `eval-friction.yaml` frequency `weekly→every-3d`（AC-C1 完成）+ registry schema 扩展支持 `every-Nd` + index.ts wiring + 11 TDD tests（shape/gate/execute Redis write）。17469 tests 全绿，@gpt52 cross-family review pending。|
 | 2026-06-22 | **Phase C PR2 merged**（PR #2483，squash `806527665`）— N-day cadence + per-domain Redis last-run gate：daily cron 0 3 * * *，CRON_JITTER_MS 2min，fail-open，`outcome !== 'full'` Redis gate。5 轮 cloud review（R1 jitter/legacy-gate；R2 zero-day/NaN/frontmatter；R3 queue-full；R4 file-size split nday.ts 258L + execute.test.js 131L + fixtures 160L；R5 stale 封板 pushback）→ gpt52 local final-SHA review APPROVE → squash merge。AC-C1 ✅ 全项完成，Phase D 可推进。|
+| 2026-06-22 | **Phase D microspec drafted**（`docs/plans/2026-06-22-f245-phase-d-microspec.md`）— D1/D2 绑定同一个 actionability contract：①②③ 可提议修复但不自动开 thread，④ eval-domain 永远 reference-only；Eval Hub 复用同一 contract，不另造第二套 friction 语义。|
 
 ## Review Gate
 
@@ -215,5 +216,6 @@ signal 体量实证（今天 UTC 0:00 → 16:07，16 小时）：
 | **Feature** | `docs/features/F222-frustration-auto-issue.md` | 用户反馈采集（本 feat 补聚合 eval） |
 | **Discussion** | `docs/discussions/2026-06-01-f192-eval-coverage-audit.md` | 五类摩擦传感器 §八 + L1–L4 §一 真相源 |
 | **Design Gate** | `docs/discussions/2026-06-18-F245-design-gate.md` | 三猫架构收敛（4 OQ 零分歧 + read-model 约束 + Port/Adapter + 砚砚 2 处纠正） |
+| **Plan** | `docs/plans/2026-06-22-f245-phase-d-microspec.md` | Phase D 出口闭环 + Eval Hub 呈现的边界 microspec（D1/D2 绑定 contract） |
 | **Decision** | `docs/decisions/038-l0-staging-protocol.md` | 爪感差 L0 staging 定义 |
 | **Feature** | `docs/features/F167-a2a-chain-quality.md` | KD-27 持球双重唤醒（friction cluster 案例） |
