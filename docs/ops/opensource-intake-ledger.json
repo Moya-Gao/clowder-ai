@@ -1,6 +1,6 @@
 {
   "$schema": "Intake ledger — tracks which clowder-ai commits have been reviewed for absorption into cat-cafe",
-  "last_reviewed_target_head": "7baff109c478bd071d0b9caf1cd832be284049e2",
+  "last_reviewed_target_head": "57bcef53e7b3391df07180e4ef52740c077e4d35",
   "entries": [
     {
       "pr_number": 90,
@@ -1891,6 +1891,22 @@
       "intake_intent_issue": 2494,
       "absorb_pr": 2495,
       "review_proof": "https://github.com/zts212653/cat-cafe/pull/2495#issuecomment-4766972510"
+    },
+    {
+      "pr_number": 958,
+      "target_merge_commit": "57bcef53e7b3391df07180e4ef52740c077e4d35",
+      "decision": "absorbed",
+      "timestamp": "2026-06-22T11:55:13.790Z",
+      "intake_intent_issue": 2499,
+      "absorb_pr": 2500,
+      "review_proof": "https://github.com/zts212653/cat-cafe/pull/2500#issuecomment-4767966837"
+    },
+    {
+      "pr_number": 999,
+      "target_merge_commit": "7ddef685ae13ffabf2eccac8aceb30f3b92117a0",
+      "decision": "absorbed",
+      "timestamp": "2026-06-22T12:00:18.149Z",
+      "note": "outbound-filed hotfix (reversed direction): clowder-ai#999 (CVO author zts212653, merged 2026-06-22T10:39:40Z) outbound-files P1 exit code regression + P2 lockfile-class regex gap fixes that cat-cafe already applied in 911b586e2 (cat-cafe#2495 absorbing clowder-ai#978) — codex R2 review of #2495 found these P1/P2 issues, cat-cafe fixed them inline in the absorb PR, then CVO outbound-filed the same fixes to clowder-ai as #999. Verified Source Intent ⊆ Result: `git show 911b586e2 -- scripts/runtime-worktree.sh | grep '+install_status\\|+PIPESTATUS\\|+BREAKING_CHANGE'` confirms install_status capture, PIPESTATUS[0], and the 4 new regex patterns (BREAKING_CHANGE / Cannot install with .frozen-lockfile / Cannot proceed .*without the lockfile / lockfile.*incompatible) are all present in cat-cafe main. No intake intent issue / absorb PR / review proof because source patch already in cat-cafe main. cat-cafe#2501 created earlier in this session was based on initial misclassification (assumed inbound intake before checking 911b586e2 content); closed as superseded by this entry."
     }
   ]
 }
