@@ -679,7 +679,7 @@ async function resolveRecentFilesTouched(
   try {
     const activeSession = await Promise.resolve(sessionChainStore.getActive(catId, threadId));
     if (activeSession?.userId === userId) {
-      return transcriptWriter.getFilesTouched(activeSession.id);
+      return transcriptWriter.getFilesTouched(activeSession.id, { threadId, catId });
     }
 
     const threadSessions = await Promise.resolve(sessionChainStore.getChainByThread(threadId));
@@ -687,7 +687,7 @@ async function resolveRecentFilesTouched(
       .reverse()
       .find((session) => session.status === 'active' && session.catId === catId && session.userId === userId);
     if (!callerSession) return [];
-    return transcriptWriter.getFilesTouched(callerSession.id);
+    return transcriptWriter.getFilesTouched(callerSession.id, { threadId, catId: callerSession.catId });
   } catch {
     return [];
   }

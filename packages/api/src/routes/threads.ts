@@ -96,19 +96,24 @@ async function collectLiveFileLedger(
 
   try {
     const sessions = await Promise.resolve(sessionChainStore.getChainByThread(threadId));
-    return sessions
-      .filter((session) => session.status === 'active' && session.userId === userId)
-      .flatMap((session) =>
-        transcriptWriter
-          .getFilesTouched(session.id)
+    const activeSessions = sessions.filter((session) => session.status === 'active' && session.userId === userId);
+    const fileArrays = await Promise.all(
+      activeSessions.map(async (session) => {
+        const files = await transcriptWriter.getFilesTouched(session.id, {
+          threadId,
+          catId: session.catId,
+        });
+        return files
           .filter((file) => file.ops.some((op) => WRITE_OPS.has(op)))
           .map((file) => ({
             ref: file.path,
             label: file.path.split('/').pop() ?? file.path,
             updatedAt: session.updatedAt,
             updatedBy: session.catId,
-          })),
-      );
+          }));
+      }),
+    );
+    return fileArrays.flat();
   } catch {
     return [];
   }
