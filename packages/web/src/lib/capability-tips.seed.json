@@ -714,5 +714,21 @@
     "body": "可回滚的小决定猫自己拍；不可逆才找你确认。想全程把关就告诉它。",
     "action": { "type": "open_concierge_draft", "label": "了解更多" },
     "owner": "opus-48"
+  },
+  {
+    "id": "feature-f245-friction-eval-rollup",
+    "kind": "feature",
+    "sourceRef": { "path": "docs/features/F245-friction-signal-eval.md", "anchor": "Friction Signal Eval" },
+    "structureSource": { "path": "docs/features/F245-friction-signal-eval.md", "anchor": "Phase D" },
+    "bodySource": { "path": "docs/features/F245-friction-signal-eval.md", "anchor": "Why" },
+    "contexts": ["thinking", "eval"],
+    "audience": ["cvo"],
+    "body": "Eval Hub 里的「摩擦信号」卡片会自动把爪感差、cancel、用户反馈、各域 eval 四个通道聚在一起——不用手翻四处了。标「建议修复」的摩擦猫会跟进，「仅引用」的只是备查。",
+    "action": {
+      "type": "open_source",
+      "label": "打开 spec",
+      "sourceRef": { "path": "docs/features/F245-friction-signal-eval.md", "anchor": "Friction Signal Eval" }
+    },
+    "owner": "gpt52"
   }
 ]

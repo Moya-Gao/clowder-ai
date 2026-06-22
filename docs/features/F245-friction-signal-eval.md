@@ -4,12 +4,11 @@ related_features: [F192, F222, F167, F128]
 topics: [friction, eval, harness-eval, aggregation, paw-feel, rollup, claw-friction]
 doc_kind: spec
 created: 2026-06-18
-tips_exempt: Phase A-C 为内部 friction 采集/聚合 infra，无 user/cat 可感知 surface；Phase D Eval Hub rollup 视图落地时移除本豁免并补 capability tip
 ---
 
 # F245: Friction Signal Eval — 摩擦信号统一聚合（eval:friction）
 
-> **Status**: in-progress（Phase C PR1a + PR1b + PR2 merged；shared Y-lite migration 已合入；**AC-C1 ✅ 完成**；**Phase D 出口闭环可推进**）| **Owner**: 缅因猫/砚砚 (gpt52) | **Priority**: P1
+> **Status**: in-progress（Phase A/B/C/D merged；**Phase D PR #2504 squash `440d8942d`**；tips_exempt 移除）| **Owner**: 缅因猫/砚砚 (gpt52) | **Priority**: P1
 >
 > 🔴 **eval-domain 注册 approach 重置（CVO directive 2026-06-21）**：PR1a/PR1b 实做了硬 enum-bump（`'eval:friction'` 散落 7 处 + 18 点 fan-out），**偏离砚砚 2026-06-18 在 F236 的 Y-lite 裁定**（加 domain=加 YAML 不改中心 contract）。根因=跨线程规矩漏接（裁定没传进 plan，审的非 eval-owner 砚砚）。**approach 现已拍定：Y-lite 裁定继续作数**；`eval:friction` 作为已 ship 功能保留，但后续 eval-domain 扩展不再继续走硬 enum-bump。**自 2026-06-21 ownership reset 起，当前 owner = 缅因猫/砚砚 (gpt52)**；本轮主责 = F245 文档澄清 + shared Y-lite migration plan/PR。**F236 thread 已完成 ack，shared Y-lite migration 已于 2026-06-21 合入（PR #2476，squash `0822a68b4`）**；后续可恢复 PR2 / Phase D。
 
@@ -102,9 +101,9 @@ signal 体量实证（今天 UTC 0:00 → 16:07，16 小时）：
 - [x] AC-C3: verdict 产出复用 F192 Verdict Handoff Packet schema（缺字段不得 handoff）✅ PR1b #2469
 
 ### Phase D（出口闭环）
-- [ ] AC-D1: ①②③ 可行动项 → F128 propose_thread 创建修复 thread（复用 F222/F128 pattern，截图/thread 链接可复核）
-- [ ] AC-D2: ④ eval 域摩擦只列出 + 链接各域 verdict，不重复处理（trace Why：铲屎官"④各自会修，只需列出"）
-- [ ] AC-D3: Eval Hub friction rollup 视图（在 context 可感知性自检过；截图复核）
+- [x] AC-D1: ①②③ 可行动项 actionability 分类 + followupDraft payload（eval cat 手动触发 propose_thread，不自动——INV-D5）✅ PR #2504
+- [x] AC-D2: ④ eval 域摩擦只列出 + 链接各域 verdict，不重复处理（referenceOnly clusters；trace Why：铲屎官"④各自会修，只需列出"）✅ PR #2504
+- [x] AC-D3: Eval Hub friction rollup 视图（"建议修复"/"仅引用"/honest empty state；截图复核）✅ PR #2504
 
 ## Eval / Tracking Contract
 
@@ -144,9 +143,9 @@ signal 体量实证（今天 UTC 0:00 → 16:07，16 小时）：
 - [x] 频率可配置（社区 weekly / 本家 3 天 / daily）（Phase C）
 - [x] Top-N 配额防 context 打爆（Phase C）✅ Top-10 + 4000 token 硬上限 fold-down（friction-rollup-report.ts）
 - [x] 五类传感器形态 + 7-class 根因分类（Phase C）✅ FrictionSensorForm 5 值 + CHANNEL_SENSOR_FORM 映射；FrictionRootCause 7-class 由 eval cat verdict 层判断（KD-8）
-- [ ] ①②③ → F128 + code-as-harness 修复出口（Phase D）
-- [ ] ④ 只列出 + 链接，不重复处理（Phase D）
-- [ ] Eval Hub friction rollup 视图（Phase D）
+- [x] ①②③ actionability 分类 + followupDraft payload → eval cat 手动触发 F128 propose_thread（INV-D5）（Phase D）✅ PR #2504
+- [x] ④ 只列出 + 链接（referenceOnly clusters），不重复处理（Phase D）✅ PR #2504
+- [x] Eval Hub friction rollup 视图（"建议修复"/"仅引用"/honest empty state）（Phase D）✅ PR #2504
 
 ## Dependencies
 
@@ -219,3 +218,7 @@ signal 体量实证（今天 UTC 0:00 → 16:07，16 小时）：
 | **Plan** | `docs/plans/2026-06-22-f245-phase-d-microspec.md` | Phase D 出口闭环 + Eval Hub 呈现的边界 microspec（D1/D2 绑定 contract） |
 | **Decision** | `docs/decisions/038-l0-staging-protocol.md` | 爪感差 L0 staging 定义 |
 | **Feature** | `docs/features/F167-a2a-chain-quality.md` | KD-27 持球双重唤醒（friction cluster 案例） |
+
+## Tips Contribution（F244）
+
+- [x] Added tip `feature-f245-friction-eval-rollup` in `packages/web/src/lib/capability-tips.seed.json`（Phase D merge 后补）
