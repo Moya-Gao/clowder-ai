@@ -8,7 +8,7 @@ created: 2026-06-20
 
 # F246: Approval Hub — 统一审批中心底座
 
-> **Status**: v1 closed + v2-in-progress（F231 alpha-validated）| **Owner**: 布偶猫/宪宪 (opus-46) | **Priority**: P2
+> **Status**: done（2026-06-22）| **Owner**: 布偶猫/宪宪 (opus-46) | **Priority**: P2
 
 Architecture cell: platform-infra（subcell: `approval-index`）
 Map delta: 新 cell — Hub 通过 feature adapter 实时聚合（query aggregation）各 feature 的 CVO 审批项 + Hub UI panel。不维护独立 index，at-read-time 直查 canonical stores。
@@ -20,6 +20,10 @@ Why: CVO 审批散落在各 thread（F128/F225/F193），铲屎官不在对应 t
 > "现在f128 和 f225 都有富文本需要我审批的东西笑死但是很多猫可能反馈铲屎官忘记点了！"
 > "我感觉这种thread内的点击审批似乎需要有个event中心。。能让我看到 点击跳转到对应thread等等等"
 > "这个应该是底座 底座上是f168 193 128 225 这些可能涉及到需要我审批的"
+
+## Current State / 现状基线
+
+N/A — 全新能力。F246 之前不存在统一审批中心。各 feature（F128/F225/F193）的审批卡片分散在各自的 thread 消息流中，铲屎官必须逐个 thread 翻找，无统一入口，无计数，无过期提醒。
 
 ### 痛点
 
@@ -251,6 +255,96 @@ Goal: 把 Phase C 后真实遗留的成熟化工作收束成可执行交付，�
 - [x] **AC-E2**: Hub panel displays F231 items alongside v1 items (filter chip + badge + color)
 - [x] **AC-E3**: Tests cover: mapping, stale threshold, empty user, requesterCatId, detail fields, cardMessageId + socket event + filter/badge regression
 
+## Dependencies
+
+- **Evolved from**: N/A（全新底座能力，起源于 F193 E3 讨论中铲屎官发现审批散落问题）
+- **Related**: F128（propose_thread adapter）/ F225（session_handoff adapter）/ F193（dispatch adapter）/ F231（profile_update v2 adapter）/ F168（community ops — sibling concept, CVO parked）
+- **Blocked by**: none
+- **Evolves to**: materialized CQRS index（条件触发：adapter 数 >5 AND p95 >250ms，见 AC-D7）
+
+## Open Questions
+
+> 全部已解决（转为 Key Decisions）。
+
+| # | 问题 | 状态 |
+|---|------|------|
+| OQ-1 | 底座是泛化 F168 还是新开 Feature？ | ✅ KD-1: 新开（F168 是 action queue 不是 approval） |
+| OQ-2 | v1 用 materialized index 还是 query aggregation？ | ✅ KD-3: query aggregation（3 stores，零一致性问题） |
+| OQ-3 | F193 E3 哪些 effect-class 走审批？ | ✅ KD-9: 只有 assign_work（需要接收方改代码） |
+| OQ-4 | Hub 放 drawer 还是 workspace tab？ | ✅ CVO Phase C 决策: workspace tab |
+| OQ-5 | v2 接哪些 feature？ | ✅ AC-D6 admission matrix: F231 ready → done; Limb dropped; F168/KF parked |
+
+## Risk
+
+| 风险 | 缓解 | 结果 |
+|------|------|------|
+| adapter fan-out 延迟随 feature 数增长 | AC-D7 双阈值 gate（>5 adapters AND p95 >250ms） | 4 adapters，阈值未触发，continue query aggregation |
+| filter 引入"可见集 ≠ 全集"状态分裂 | LL-087 plan-time invariant table + batch scoped to filteredItems | Phase D alpha 8/8 PASS 覆盖边界场景 |
+| F128 就地审批降级审批能力 | AC-A4 强制全量 overrides 或跳转 | 砚砚 R2 P2 守住 |
+| 跨用户数据泄露 | ownerUserId 过滤 + adapter 按 userId 查询 | AC-A7 + AC-A8 |
+
+## Close Gate Report
+
+```yaml
+feature_id: F246
+spec_path: docs/features/F246-approval-hub.md
+head_sha: 498e685b8  # Phase E alpha-validated commit
+report_date: 2026-06-22
+guardian: 布偶猫/宪宪 (opus-46, owner — non-author, non-reviewer)
+per_phase_guardian: 布偶猫 Opus 4.7 (@opus-47, Phase B/C/D/E APPROVE)
+harness_feedback: none | reason: non-harness feature, pure product capability
+```
+
+### AC Matrix
+
+**Phase A (PR #2449)**:
+- AC-A1 ✅ met — F128 adapter in `approval-hub/adapters/f128-adapter.ts`, tests in PR #2449
+- AC-A2 ✅ met — F225 adapter in `approval-hub/adapters/f225-adapter.ts`, tests in PR #2449
+- AC-A3 ✅ met — Hub drawer + bell badge, alpha 6/6 PASS
+- AC-A4 ✅ met — F128 inline approve with full overrides (title/parentThreadId/preferredCats/initialMessage/projectPath/reportingMode), 砚砚 R2 P2 verified
+- AC-A5 ✅ met — F225 jump-to-thread, alpha verified
+- AC-A6 ✅ met — expiresAt → stale, no auto-reject
+- AC-A7 ✅ met — ownerUserId filter, alpha verified
+- AC-A8 ✅ met — adapter not exposed as MCP, allowlist guard
+- AC-A9 ✅ met — query aggregation = no backfill needed
+- AC-A10 ✅ met — settled items auto-excluded via status=pending filter
+
+**Phase B (PR #2454)**:
+- AC-B1 ✅ met — F193 dispatch adapter, assign_work → Hub visible, alpha 5/5 PASS
+- AC-B2 ✅ met — fyi/coordinate/investigate = no ApprovalItem, fixture test
+- AC-B3 ✅ met — effect-class declared by sender, not inferred
+- AC-B4 ✅ met — receiver invariant enforced (prompt injection + fixture), alpha verified
+
+**Phase C (PR #2463)**:
+- AC-C1 ✅ met — workspaceMode='approval' renders ApprovalPanel
+- AC-C2 ✅ met — bell click → workspace + approval tab, alpha 6/6 PASS
+- AC-C3 ✅ met — ApprovalHubDrawer deprecated, not rendered from AppShell
+- AC-C4 ✅ met — full expand at ≥tabCount×65px, alpha verified
+- AC-C5 ✅ met — overflow ⋯ dropdown, alpha verified
+- AC-C6 ✅ met — icon-only at <tabCount×36px, alpha verified
+- AC-C7 ✅ met — overflow click = mode switch, alpha verified
+- AC-C8 ✅ met — intercept pruning resolved by Phase D AC-D1, regression tests in `47fe67082`
+
+**Phase D (PR #2477)**:
+- AC-D1 ✅ met — intercept mirror line-start mention pruning, regression tests `47fe67082`
+- AC-D2 ✅ met — WorkspaceTabBar automated web regression (full/overflow/icon-only), vitest
+- AC-D3 ✅ met — ApprovalPanel + ActivityBar automated regression, vitest
+- AC-D4 ✅ met — filter by feature/thread/stale, alpha 8/8 PASS
+- AC-D5 ✅ met — batch approve/reject with inline guard, alpha verified (select-all scoped to filteredItems)
+- AC-D6 ✅ met — v2 admission matrix: F231 ready, Limb dropped, F168/KF parked (CVO verdict)
+- AC-D7 ✅ met — materialized index gate: dual threshold documented, 4 adapters < 5 trigger
+
+**Phase E (PR #2487)**:
+- AC-E1 ✅ met — F231 adapter maps ProfileUpdateProposal → ApprovalItem (jump-only), cloud R3 clean
+- AC-E2 ✅ met — Hub displays F231 items with orange "Profile" badge + filter chip, alpha 4/4 PASS
+- AC-E3 ✅ met — tests: mapping, stale, empty user, requesterCatId, detail fields, cardMessageId, socket event, filter/badge regression
+
+**Summary: 25/25 AC met, 0 unmet, 0 deleted, 0 cvo_signed_off.**
+
+## Reflection Capsule
+
+→ `docs/reflections/2026-06-22-f246-approval-hub-capsule.md`
+
 ## Links
 
 - 痛点分析 + 架构图：`docs/discussions/2026-06-20-unified-approval-hub-pain-points.md`
@@ -285,3 +379,4 @@ Goal: 把 Phase C 后真实遗留的成熟化工作收束成可执行交付，�
 | 2026-06-22 | Phase E merged (PR #2487, 6efe260d03) — F231 v2 adapter + frontend filter/badge/color + socket event emission + test split (cloud R1 P2 + R2 P1 fixed, R3 clean) |
 | 2026-06-22 | Phase E vision guardian APPROVE (@opus-47) — F231 adapter trace (backend register+store+callbacks, frontend chip+badge+socket), v1 闭环 confirmed |
 | 2026-06-22 | Phase E alpha-validated — **4/4 PASS** (@sonnet): F231 pending proposal→Hub可见(橙色"Profile"badge) ✅, "画像"filter chip过滤 ✅, jump-only(无inline approve/reject，仅jump-btn) ✅, socket刷新pipeline(fetchPending 0→1验证，code-review确认proposal_created emission at line 192) ✅ |
+| 2026-06-22 | **Feature closed** — 愿景守护 APPROVE (opus-46 owner guardian, 8/8 铲屎官原话全匹配), Close Gate Report 25/25 AC met, 反思胶囊 archived. 5 Phase × 6 PR = all MERGED. 29/29 cumulative alpha smoke PASS |
