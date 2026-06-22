@@ -283,11 +283,234 @@ convert cell_01.png -resize 59x64 preview_01.png
 - `row-strip-preview.png`：12 帧行条（预览尺寸）
 - `comparison-contact.png`：新旧对比图
 
-**下一步建议**：
-1. 铲屎官确认"这个方向走" → 对砚砚（缅因猫）做同样流程替换现有 atlas
-2. idle 验证通过 → 扩展到 running-right、waving 等其他状态
-3. 从 12 帧中选 6-8 帧做循环（去掉重复帧）：建议 frame 1/3/4/6/8/10（覆盖完整眨眼周期）
-4. 生产化：写脚本自动化 Step 4（截帧→抠图→缩放→拼接→pet.json）
+## 宪宪（布偶猫）9 态生产任务总表
+
+> **目标**：用 video pipeline 把 ragdoll-v1 从 4 张静态图升级到 9 态动画 atlas（与 yanyan-codex 同规格）。
+> **分工**：砚砚生成 Frame A → 铲屎官生成视频 → 宪宪截帧+合成 atlas。
+> **母图参考**：`character-sheets/xianxian-r03.png`（四足设定，所有状态通用）。
+> **running-left 不需要单独拍视频**——水平翻转 running-right 的帧即可。
+
+### 总览
+
+| # | 状态 | Atlas Row | 需要帧数 | 视频需要？ | 状态 |
+|---|------|-----------|---------|-----------|------|
+| 1 | idle | 0 | 6 | ✅ R2 已完成 | ✅ done |
+| 2 | running-right | 1 | 8 | 需要 | 🔴 待做 |
+| 3 | running-left | 2 | 8 | ❌ 翻转 running-right | 🔴 待做 |
+| 4 | waving | 3 | 4 | 需要 | 🔴 待做 |
+| 5 | jumping | 4 | 5 | 需要 | 🔴 待做 |
+| 6 | failed | 5 | 8 | 需要 | 🔴 待做 |
+| 7 | waiting | 6 | 6 | 需要 | 🔴 待做 |
+| 8 | running | 7 | 6 | 需要 | 🔴 待做 |
+| 9 | review | 8 | 6 | 需要 | 🔴 待做 |
+
+**需要拍 7 个视频**（idle 已完成，running-left 翻转），砚砚为每个视频生成 1 张 Frame A。
+
+---
+
+### 各态 Frame A 提示词（给砚砚生成首帧）
+
+> 所有提示词共享的前缀（不再重复写）：
+> ```
+> Reference image: xianxian-r03.png (gray tabby Ragdoll cat with blue eyes, purple collar, purple flower pendant)
+> Style: 2D hand-drawn anime/chibi, flat cel-shaded, clean visible outlines — match the reference exactly.
+> Canvas: 1024x1024, character centered ~60%, pure white background #FFFFFF, no shadows.
+> ```
+
+**② running-right — 右向小跑**
+```text
+[共享前缀]
+The cat is mid-stride trotting to the right (side view).
+- Right front leg raised forward, left front leg planted behind
+- Back legs in opposing stride phase
+- Tail streaming behind, slightly raised
+- Body leaning slightly forward with forward momentum
+- Expression: alert, focused, mouth closed
+- All four paws visible
+```
+
+**④ waving — 招手**
+```text
+[共享前缀]
+The cat is sitting, facing 3/4 right, raising the right front paw in a wave.
+- Right paw raised to eye level, paw pad partially visible
+- Left front paw on ground for balance
+- Tail curled to the left side
+- Expression: cheerful, eyes bright, mouth slightly open in a smile
+- Pose reference: bottom-left expression from xianxian-r03.png (the waving pose)
+```
+
+**⑤ jumping — 跳跃**
+```text
+[共享前缀]
+The cat is in a pre-jump crouch, about to spring up.
+- Body low, haunches compressed, ready to leap
+- Front paws lifted slightly off ground
+- Tail low and tense
+- Expression: excited, eyes wide, ears perked forward
+- Facing slightly right (3/4 view)
+```
+
+**⑥ failed — 沮丧/失败**
+```text
+[共享前缀]
+The cat is sitting with a dejected, sad expression.
+- Head slightly lowered, looking down
+- Ears slightly flattened (not fully flat, still cute)
+- Tail wrapped around body, tip drooping
+- A small sweat drop near the head (anime convention for embarrassment/failure)
+- Expression: apologetic, slightly worried eyes
+- Facing forward, 3/4 view
+```
+
+**⑦ waiting — 耐心等待**
+```text
+[共享前缀]
+The cat is sitting upright, looking slightly to the side as if waiting.
+- Sitting tall and alert, front paws neatly together
+- Head tilted very slightly to the right (curious/patient)
+- Tail resting on the ground, tip slightly curved
+- Expression: calm, patient, eyes looking to the side
+- A subtle "..." or thought bubble above head (optional, anime convention)
+```
+
+**⑧ running — 正面小跑**
+```text
+[共享前缀]
+The cat is trotting forward (3/4 front view, slightly facing right).
+- Mid-stride, one front paw raised
+- Body bouncing slightly with the trot motion
+- Tail up and perky behind
+- Expression: happy, energetic, mouth slightly open
+- Less extreme stride than running-right (more of a jaunty walk)
+```
+
+**⑨ review — 专注审视**
+```text
+[共享前缀]
+The cat is sitting attentively, studying something with concentration.
+- Head slightly tilted, eyes focused and slightly narrowed (thinking)
+- One front paw raised to chin level (thinking gesture)
+- Tail still, wrapped around one side
+- Expression: thoughtful, concentrated, serious but cute
+- Facing 3/4 right
+- Pose reference: bottom-right expression from xianxian-r03.png (the sparkly/concentrated look)
+```
+
+---
+
+### 各态视频生成提示词（给铲屎官生成视频）
+
+> 所有提示词共享的前缀/后缀：
+> ```
+> 前缀: 2D hand-drawn anime illustration style, flat cel-shaded coloring, clean visible outlines.
+> 后缀: Maintain flat 2D illustration look with visible ink outlines, NOT 3D or photorealistic.
+>       No camera motion. Pure white background. Smooth, gentle loop. 2 seconds.
+> Negative: 3D, CGI, photorealistic, plastic, clay, Pixar, rubber, glossy, subsurface scattering,
+>           realistic fur texture, depth of field, lens blur, film grain, cinematic lighting
+> ```
+
+**② running-right**
+```text
+[前缀]
+A cute chibi gray tabby cat trotting in place, facing right.
+Small gentle running motion with legs alternating in a natural trot cycle.
+The tail bounces lightly with each step.
+No forward displacement — the cat stays centered in frame.
+[后缀]
+```
+
+**④ waving**
+```text
+[前缀]
+A cute chibi gray tabby cat sitting and waving one front paw.
+The right paw waves gently back and forth at eye level in a friendly greeting.
+The body stays still, only the paw and ears move slightly.
+The expression is cheerful with a slight smile.
+[后缀]
+```
+
+**⑤ jumping**
+```text
+[前缀]
+A cute chibi gray tabby cat performing a small happy jump.
+The cat crouches slightly, then springs up into the air, lands softly.
+Ears bounce with the motion. The tail follows the arc.
+Small, contained jump — not a big leap, more of a playful hop.
+[后缀]
+```
+
+**⑥ failed**
+```text
+[前缀]
+A cute chibi gray tabby cat looking sad and dejected.
+The cat lowers its head slightly, ears droop a little.
+A small anime-style sweat drop appears near the head.
+The tail droops and curls around the body.
+Subtle, gentle sadness — still cute, not dramatic.
+[后缀]
+```
+
+**⑦ waiting**
+```text
+[前缀]
+A cute chibi gray tabby cat sitting patiently, waiting.
+The cat sits upright, occasionally tilting its head slightly side to side.
+Eyes blink slowly. Tail tip twitches gently.
+Calm, patient posture — like waiting for something interesting.
+[后缀]
+```
+
+**⑧ running**
+```text
+[前缀]
+A cute chibi gray tabby cat doing a jaunty forward trot in place.
+Slight 3/4 angle facing right. Bouncy, happy walking motion.
+Front paws alternating, body bobbing gently up and down.
+Tail perky and swaying with the rhythm.
+[后缀]
+```
+
+**⑨ review**
+```text
+[前缀]
+A cute chibi gray tabby cat sitting and thinking intently.
+The cat tilts its head slightly, eyes narrow in concentration.
+One paw occasionally rises toward its chin in a thinking gesture.
+Subtle, focused micro-movements — very still otherwise.
+[后缀]
+```
+
+---
+
+### 执行清单（按批次）
+
+**Batch 1: 砚砚生成 7 张 Frame A**
+- [ ] running-right Frame A
+- [ ] waving Frame A
+- [ ] jumping Frame A
+- [ ] failed Frame A
+- [ ] waiting Frame A
+- [ ] running Frame A
+- [ ] review Frame A
+
+**Batch 2: 铲屎官生成 7 个视频**
+- [ ] running-right 视频（16:9, 2s, 低运动）
+- [ ] waving 视频
+- [ ] jumping 视频
+- [ ] failed 视频
+- [ ] waiting 视频
+- [ ] running 视频
+- [ ] review 视频
+
+**Batch 3: 宪宪截帧 + 合成 atlas**
+- [ ] 各视频截帧（ffmpeg 4fps）
+- [ ] 裁剪+抠图+缩放到 192×208
+- [ ] idle: 从 R2 的 12 帧选 6 帧
+- [ ] running-left: 水平翻转 running-right 的 8 帧
+- [ ] 9 行拼接成 spritesheet（1536×1872）
+- [ ] 输出 WebP + 更新 pet.json
+- [ ] 在桌宠里实测对比
 
 ## 关联决策
 
