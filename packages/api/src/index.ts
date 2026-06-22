@@ -1907,6 +1907,19 @@ async function main(): Promise<void> {
     verdictGenerators['eval:friction'] = createFrictionGeneratorAdapter(frictionProvider);
   }
 
+  // F236 Track-2 — anchor-first eval domain. Pure ctor (no store deps), unconditional.
+  // Provider wraps in-memory getAnchorTelemetryRollup(); generator writes rollup bundle.
+  {
+    const { createAnchorTelemetryGeneratorAdapter } = await import(
+      './infrastructure/harness-eval/publish-verdict/anchor-telemetry-generator-adapter.js'
+    );
+    const { AnchorTelemetryProviderImpl } = await import(
+      './infrastructure/harness-eval/anchor-first/anchor-telemetry-provider-impl.js'
+    );
+    const anchorProvider = new AnchorTelemetryProviderImpl();
+    verdictGenerators['eval:anchor-first'] = createAnchorTelemetryGeneratorAdapter(anchorProvider);
+  }
+
   await app.register(evalHubRoutes, {
     harnessFeedbackRoot: resolve(repoRoot, 'docs', 'harness-feedback'),
     threadStore,
@@ -4113,6 +4126,9 @@ async function main(): Promise<void> {
   // optional). Mirror task-outcome — unconditional add (must match the verdictGenerators
   // map above, else split-brain: scheduled fire would 501).
   wiredPublishDomains.add('eval:friction');
+  // F236 Track-2: eval:anchor-first provider is unconditionally wired (pure ctor,
+  // no store deps — wraps in-memory getAnchorTelemetryRollup). Same rationale as friction.
+  wiredPublishDomains.add('eval:anchor-first');
   if (toolEventLog && skillLoadEventLog) {
     wiredPublishDomains.add('eval:capability-wakeup');
   }

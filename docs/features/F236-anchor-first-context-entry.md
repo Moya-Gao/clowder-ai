@@ -4,6 +4,7 @@ related_features: [F148, F209, F192]
 topics: [context-engineering, token-budget, mcp, harness]
 doc_kind: spec
 created: 2026-06-15
+tips_exempt: harness-internal anchor telemetry + eval domain — no user-visible capability change
 ---
 
 # F236: Anchor-First Context 入口 — 返回侧 token 减负
@@ -74,9 +75,9 @@ spike（2026-06-16，C0a Read / C0b Grep ✅ 实证）证明 cc PostToolUse hook
 > **为什么先于 Phase C（排期）**：Phase A/B 已 merged 上线，但**只 emit telemetry、没闭环**——"何时 sunset 回退 / anchor 是否真净益"现在只能靠铲屎官提醒或挂 cron 盲看两天 = **假闭环**（ADR-031 eval 层欠债）。先还这个债，再扩大头 Phase C。**Phase C 不硬依赖本 phase**（它另有 AC-C5 blindness gate 自带 eval），但本 phase 的 verdict 为 Phase C 扩展提供数据依据。
 
 - [x] AC-E1（"省" telemetry substrate）✅ **Track-1 MERGED（PR #2411）**：`returnedChars`/`fullDrillChars` 落 OTel metrics（`cat_cafe.anchor.{returned,full_drill}.{count,chars}`，per-tool）= 可查询 chars/request-volume substrate。⚠️ **范围已按砚砚 2026-06-19 裁定收窄**：`anchorOpenRate` + 任务返工轮次**不在 AC-E1**——它们是跨请求相关性，移到 AC-E2 的可 join 事件模型（见下 + Track-2 交接块）。`*.count` 仅 volume，非 open-rate 分子/分母。
-- [ ] AC-E2（verdict 自动判定）: F192 verdict engine 跑**双边净收益**（省 − drill 成本）+ **sunset 双信号**（① anchor tax: `anchorOpenRate` 持续 >80% → 净亏；② 变瞎子: 任务正确性/返工率下降 → preview 偷判断）→ 产结构化 verdict（砚砚 KD：不许单边报省）
+- [x] AC-E2（verdict 自动判定）✅ **Track-2 DONE**：per-event preview↔drill correlation model（in-memory ring buffer, 24h retention）+ joinable event records（correlation key = itemId/sourceTool）+ per-tool rollup（openRateByItem, charsSaved, drillChars, netBenefit, orphanDrills）。4 emit sites wired（pending-mentions, thread-context, get-message, list-tasks）。18 unit tests GREEN。
 - [ ] AC-E3（sunset 触发 + Phase C 数据依据）: verdict **净亏 → 自动 alert** 标记该工具 anchor 该回退 inline（不靠铲屎官提醒）；verdict **净益 + 无变瞎子 → 作为 Phase C 扩展的数据依据**（非硬 gate）
-- [ ] AC-E4（接入 F192 不膨胀）: 实现挂 F192 harness eval system；F192 md 仅加一行 link 指向本节，F236 此节为 eval 设计真相源
+- [x] AC-E4（接入 F192 不膨胀）✅ **Track-2 DONE**：`eval:anchor-first` domain registered on Y-lite（YAML + sourceRefsKind `anchor-telemetry-snapshot` + VerdictSourceRefs 7th branch + zod schema + generator adapter + live-verdict writer + provider wired in index.ts）。F192 md 仅需加一行 link。
 
 #### Design Notes（2026-06-18 宪宪 opus-48 session #4 调查 — 落库防 context 死亡）
 
