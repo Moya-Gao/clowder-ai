@@ -22,8 +22,8 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: 'Cat Café',
-  description: '你的 AI 团队协作空间',
+  title: 'Clowder AI',
+  description: 'Your AI team collaboration space',
   manifest: '/manifest.json',
   icons: {
     icon: [
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'Cat Café',
+    title: 'Clowder AI',
   },
 };
 
