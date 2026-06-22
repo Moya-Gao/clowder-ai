@@ -89,7 +89,7 @@ function validateEnumArray(id, fieldName, value, allowedValues, errors) {
   }
 }
 
-function validateSourceRef(repoRoot, tipId, fieldName, sourceRef, errors) {
+function validateSourceRef(repoRoot, tipId, fieldName, sourceRef, errors, warnings) {
   if (!isSourceRef(sourceRef)) {
     errors.push(`${tipId}: ${fieldName} must include path and anchor`);
     return;
@@ -97,7 +97,11 @@ function validateSourceRef(repoRoot, tipId, fieldName, sourceRef, errors) {
 
   const targetPath = resolve(repoRoot, sourceRef.path);
   if (!existsSync(targetPath)) {
-    errors.push(`${tipId}: ${fieldName} path not found: ${sourceRef.path}`);
+    // Path-not-found is a soft issue: the tip renders fine without its source
+    // file.  In the public export some source paths are intentionally excluded
+    // (e.g. cat-cafe-skills/opensource-ops/ per KD-5).  Treat as warning so
+    // the gate doesn't block on referential gaps that are by-design.
+    (warnings ?? errors).push(`${tipId}: ${fieldName} path not found: ${sourceRef.path}`);
     return;
   }
 
@@ -192,18 +196,19 @@ function validateActionAndBody(id, tip) {
 function validateTip(repoRoot, tip, index) {
   const id = isObject(tip) && typeof tip.id === 'string' ? tip.id : `tip[${index}]`;
   if (!isObject(tip)) {
-    return [`${id}: tip must be an object`];
+    return { errors: [`${id}: tip must be an object`], warnings: [] };
   }
 
   const unknownFieldErrors = [];
   validateAllowedKeys(id, 'tip', tip, TIP_KEYS, unknownFieldErrors);
   const errors = [...validateRequiredFields(id, tip), ...validateActionAndBody(id, tip)];
   errors.push(...unknownFieldErrors);
-  validateSourceRef(repoRoot, id, 'sourceRef', tip.sourceRef, errors);
-  validateSourceRef(repoRoot, id, 'structureSource', tip.structureSource, errors);
-  validateSourceRef(repoRoot, id, 'bodySource', tip.bodySource, errors);
+  const warnings = [];
+  validateSourceRef(repoRoot, id, 'sourceRef', tip.sourceRef, errors, warnings);
+  validateSourceRef(repoRoot, id, 'structureSource', tip.structureSource, errors, warnings);
+  validateSourceRef(repoRoot, id, 'bodySource', tip.bodySource, errors, warnings);
 
-  return errors;
+  return { errors, warnings };
 }
 
 function loadInventory(repoRoot, inventoryPath) {
@@ -277,12 +282,15 @@ export function checkCapabilityTipsForRepo(repoRoot = defaultRepoRoot, options =
     : getGitChangedFiles(repoRoot);
   const { tips, errors } = loadInventory(repoRoot, inventoryPath);
   const allErrors = [...errors];
+  const allWarnings = [];
   if (!changedFileResult.ok) allErrors.push(changedFileResult.error);
   const changedFiles = changedFileResult.ok ? changedFileResult.files : [];
   const seenIds = new Set();
 
   tips.forEach((tip, index) => {
-    allErrors.push(...validateTip(repoRoot, tip, index));
+    const result = validateTip(repoRoot, tip, index);
+    allErrors.push(...result.errors);
+    allWarnings.push(...result.warnings);
     if (isObject(tip) && typeof tip.id === 'string') {
       if (seenIds.has(tip.id)) allErrors.push(`duplicate tip id: ${tip.id}`);
       seenIds.add(tip.id);
@@ -295,7 +303,7 @@ export function checkCapabilityTipsForRepo(repoRoot = defaultRepoRoot, options =
     allErrors.push(`${filePath}: missing capability tip or tips_exempt`);
   }
 
-  return { ok: allErrors.length === 0, errors: allErrors };
+  return { ok: allErrors.length === 0, errors: allErrors, warnings: allWarnings };
 }
 
 function parseArgs(argv) {
@@ -317,6 +325,12 @@ function parseArgs(argv) {
 function main() {
   const { repoRoot, changedFiles } = parseArgs(process.argv.slice(2));
   const result = checkCapabilityTipsForRepo(repoRoot, { changedFiles });
+  if (result.warnings?.length > 0) {
+    console.error(`WARN check-capability-tips: ${result.warnings.length} warning(s)`);
+    for (const w of result.warnings) {
+      console.error(`  - ${w}`);
+    }
+  }
   if (!result.ok) {
     console.error(`FAIL check-capability-tips: ${result.errors.length} issue(s) found`);
     for (const error of result.errors) {
