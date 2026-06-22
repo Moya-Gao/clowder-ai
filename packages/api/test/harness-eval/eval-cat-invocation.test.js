@@ -136,6 +136,9 @@ describe('Eval cat invocation packet', () => {
     );
     assert.match(invocation.instructions, /windowStartMs/, 'must describe the rollup window selector fields');
     assert.match(invocation.instructions, /Publish your verdict/, 'must include the common MANDATORY publish section');
+    assert.match(invocation.instructions, /actionableCandidates/i);
+    assert.match(invocation.instructions, /referenceOnly/i);
+    assert.match(invocation.instructions, /followupDraft|propose_thread/i);
   });
 
   it('eval:a2a instructions include grounding subdomain observation tokens (F167 Phase O)', () => {
