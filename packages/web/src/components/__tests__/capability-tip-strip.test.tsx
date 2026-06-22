@@ -97,8 +97,10 @@ describe('F244 CapabilityTipStrip', () => {
       await Promise.resolve();
     });
 
+    // Phase D seeded shuffle (with scopeKey) changes order from legacy deterministic sort;
+    // magic-word-first-principles (audience:cvo) proves no all-only audience filter
     expect(container.querySelector('[data-testid="capability-tip-strip"]')?.getAttribute('data-tip-id')).toBe(
-      'capability-eval-verdict',
+      'magic-word-first-principles',
     );
   });
 

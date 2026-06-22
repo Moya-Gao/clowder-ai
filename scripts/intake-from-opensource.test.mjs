@@ -1338,7 +1338,11 @@ describe('intake-from-opensource.sh --record strict guard (absorbed)', () => {
     // Mandatory Brand Guard must be skipped, not retried with empty scope (which silently
     // degrades to whole-repo scan and hits pre-existing brand mentions in public docs).
     assert.match(output, /skipping mandatory Brand Guard/);
-    assert.doesNotMatch(output, /Mandatory Brand Guard \(pre-record\)/, '--skip-absorbed-guard must not run mandatory Brand Guard');
+    assert.doesNotMatch(
+      output,
+      /Mandatory Brand Guard \(pre-record\)/,
+      '--skip-absorbed-guard must not run mandatory Brand Guard',
+    );
 
     const ledger = JSON.parse(readFileSync(f.ledgerPath, 'utf-8'));
     const record = ledger.entries.find((entry) => entry.pr_number === 495);
@@ -1364,15 +1368,15 @@ describe('intake-from-opensource.sh --record strict guard (absorbed)', () => {
     // The outbound-filed hotfix / historical backfill lane (--skip-absorbed-guard, no
     // --absorb-pr) must skip the mandatory Brand Guard entirely instead of falling
     // through with empty scope. This is the regression we hit on cat-cafe#996 record.
-    writeFileSync(
-      join(f.repoRoot, 'packages/web/src/components/SplitPaneView.tsx'),
-      '<h1>Clowder AI</h1>',
-      'utf-8',
-    );
+    writeFileSync(join(f.repoRoot, 'packages/web/src/components/SplitPaneView.tsx'), '<h1>Clowder AI</h1>', 'utf-8');
     const env = { PATH: `${f.mockBin}:${process.env.PATH}` };
     const output = runRecord(f.repoRoot, ['--pr', '495', '--decision', 'absorbed', '--skip-absorbed-guard'], env);
     assert.match(output, /Recorded PR #495 → absorbed/);
-    assert.doesNotMatch(output, /brand violation/i, 'whole-repo brand mismatch outside scope must not block --skip-absorbed-guard record');
+    assert.doesNotMatch(
+      output,
+      /brand violation/i,
+      'whole-repo brand mismatch outside scope must not block --skip-absorbed-guard record',
+    );
   });
 
   it('still enforces scoped Brand Guard when --skip-absorbed-guard is used WITH --absorb-pr (gpt52 review #2497 P1 regression guard)', () => {
@@ -1387,11 +1391,7 @@ describe('intake-from-opensource.sh --record strict guard (absorbed)', () => {
     });
     fixtures.push(f.sandboxRoot);
     // Plant a brand violation inside the absorb-PR scope file.
-    writeFileSync(
-      join(f.repoRoot, 'packages/web/src/components/SplitPaneView.tsx'),
-      '<h1>Clowder AI</h1>',
-      'utf-8',
-    );
+    writeFileSync(join(f.repoRoot, 'packages/web/src/components/SplitPaneView.tsx'), '<h1>Clowder AI</h1>', 'utf-8');
     const env = { PATH: `${f.mockBin}:${process.env.PATH}` };
     const err = captureRecordFailure(
       f.repoRoot,
@@ -1410,8 +1410,16 @@ describe('intake-from-opensource.sh --record strict guard (absorbed)', () => {
       ],
       env,
     );
-    assert.match(err.stdout, /Mandatory Brand Guard \(pre-record\)/, 'scoped Brand Guard must still run when --absorb-pr is supplied even with --skip-absorbed-guard');
-    assert.match(err.stdout, /brand violation/i, 'scoped Brand Guard must block on real brand violation inside absorb-PR scope');
+    assert.match(
+      err.stdout,
+      /Mandatory Brand Guard \(pre-record\)/,
+      'scoped Brand Guard must still run when --absorb-pr is supplied even with --skip-absorbed-guard',
+    );
+    assert.match(
+      err.stdout,
+      /brand violation/i,
+      'scoped Brand Guard must block on real brand violation inside absorb-PR scope',
+    );
     assert.match(err.stdout, /SplitPaneView\.tsx/, 'violation must be the absorb-PR-scoped file, not a whole-repo hit');
   });
 
