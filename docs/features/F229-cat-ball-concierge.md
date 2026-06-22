@@ -163,7 +163,9 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 - [ ] BUG-UX-4: 猫猫球回复中可读性差——猫签名（`[烁烁/gemini-3.5-flash🐾]`）、`@landy`、内部协作格式对用户可见，应在 concierge 上下文中 strip 掉或简化
 - [ ] BUG-UX-5: 砚砚拖动困难——CVO 报告"好难拖动"，拖拽交互手感差（可能是拖拽区域 vs 点击区域冲突、touchAction 设置、或 drag threshold 过大）。CVO 2026-06-21
 - [ ] BUG-UX-6: 砚砚动态效果不可见——9 态动画（跑/跳/招手/等待/review/失败等）CVO 从未看到过，只看到 idle。**诊断（2026-06-21 宪宪）**：链路没断，是两个设计问题叠加：① V1 projection 只映射 6/9 态（`running-left`/`waving`/`jumping` 死路无 ConciergeBallState 映射）；② 可达态用户体感不可见（`thinking→running` 持续几秒且注意力在面板；`found→review` 面板打开时 unseenResultCount 立即清零；`listening→waiting` 用户在打字不看球）。需产品层决策——见讨论 doc `docs/discussions/2026-06-21-f229-bug-ux6-animation-visibility.md`
-- [ ] BUG-UX-7: 猫猫球不渲染 Markdown——值班猫回复中 `###`、`**粗体**`、代码块等 Markdown 语法显示为原始文本。根因：`ConciergeMessageContent` 只处理 marker 按钮 + 内部标记 strip，文本段直接 push 原始字符串，无 Markdown 解析。CVO 2026-06-21 截图确认
+- [ ] BUG-UX-7: 猫猫球不渲染 Markdown——值班猫回复中 `###`、`**粗体**`、代码块等 Markdown 语法显示为原始文本。根因：`ConciergeMessageContent` 只处理 marker 按钮 + 内部标记 strip，文本段直接 push 原始字符串，无 Markdown 解析。CVO 2026-06-21 截图确认。**修复中**：PR `feat/f229-concierge-md-render` 统一使用 `MarkdownContent` 组件渲染（与 thread 聊天一致），@gpt52 review 中
+- [ ] BUG-UX-8: 原地看（peek）内容无收起机制——点击「原地看 Rn」后 inline 展开内容，但无折叠/关闭按钮，用户无法收回已展开的 peek 内容。根因：`ConciergeMessageContent.tsx` 的 peek 渲染（lines 198-211）只有展开逻辑（`setPeekContent`），没有 toggle/dismiss 状态。CVO 2026-06-21 截图确认
+- [ ] BUG-UX-9: 跳转动作错误显示为"原地看"——某些 `concierge_teleport` 类型的 action 在 UI 上显示为"原地看"而非"跳过去"。CVO 2026-06-21 截图：三个按钮全部显示"原地看"，但其中至少一个对应的是跳转（teleport）操作。可能根因：API 侧 `verb` 字段赋值逻辑（`concierge-reply-validator.ts`）或 HandleMap 查询返回的 action type 不匹配实际 intent
 
 ### Phase E（桌宠化 + 形象生态）
 - [x] AC-E0-1: PetSkinContract v0 — `conciergeState → petState` pure projection (4 states: idle/running/review/failed), shared types + `projectToPetState()` function, 10 unit tests
