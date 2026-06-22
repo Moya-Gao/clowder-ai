@@ -1,6 +1,6 @@
 {
   "$schema": "Intake ledger — tracks which clowder-ai commits have been reviewed for absorption into cat-cafe",
-  "last_reviewed_target_head": "698fb675c7523eb19cacd562cf825d8f5ca62371",
+  "last_reviewed_target_head": "05bd8e5ada67072e26c8c1155ac4dfb32cf3863c",
   "entries": [
     {
       "pr_number": 90,
@@ -1850,6 +1850,22 @@
       "intake_intent_issue": 2388,
       "absorb_pr": 2391,
       "review_proof": "https://github.com/zts212653/cat-cafe/pull/2391#issuecomment-4741929491"
+    },
+    {
+      "pr_number": 903,
+      "target_merge_commit": "40d38c18e6287ab2fe0f7ea426a5f9a2d1a2080f",
+      "decision": "absorbed",
+      "timestamp": "2026-06-22T00:30:00.000Z",
+      "note": "Community PR (mindfn). F240 IM connector plugins. 95/100 files already exist in cat-cafe source. 3 new QR panel UI components (FeishuQrPanel, WeComBotSetupPanel, WeixinQrPanel) exist only in clowder-ai — will be overwritten by full sync (rsync --delete). Recoverable from git history. Recorded during outbound sync community diff guard V1 manual check.",
+      "intake_intent_issue": null,
+      "review_proof": "skip-absorbed-guard: bulk of code already in cat-cafe; 3 community-only UI files acknowledged as sync casualty"
+    },
+    {
+      "pr_number": 988,
+      "target_merge_commit": "05bd8e5ada67072e26c8c1155ac4dfb32cf3863c",
+      "decision": "public-only",
+      "timestamp": "2026-06-22T00:30:00.000Z",
+      "note": "Maintainer (zts212653) PII removal: docs/features/F207-personal-finance-infra.md. File already excluded from sync (sync: false in feature spec). No sync impact."
     }
   ]
 }
