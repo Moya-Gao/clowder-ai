@@ -1,6 +1,6 @@
 {
   "$schema": "Intake ledger — tracks which clowder-ai commits have been reviewed for absorption into cat-cafe",
-  "last_reviewed_target_head": "05bd8e5ada67072e26c8c1155ac4dfb32cf3863c",
+  "last_reviewed_target_head": "68342e023d2da1f8d98c1d93f2bbb4fc26afb579",
   "entries": [
     {
       "pr_number": 90,
@@ -1862,7 +1862,7 @@
     },
     {
       "pr_number": 988,
-      "target_merge_commit": "05bd8e5ada67072e26c8c1155ac4dfb32cf3863c",
+      "target_merge_commit": "68342e023d2da1f8d98c1d93f2bbb4fc26afb579",
       "decision": "public-only",
       "timestamp": "2026-06-22T00:30:00.000Z",
       "note": "Maintainer (zts212653) PII removal: docs/features/F207-personal-finance-infra.md. File already excluded from sync (sync: false in feature spec). No sync impact."
