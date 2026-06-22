@@ -18,6 +18,8 @@ related_docs:
 
 画风统一暖猫咖 chibi，Landy 全部成人比例 ✅，连续覆盖 S02-S05。原名 `醋醋喵-part{2,3}-{a,b}.png`。
 
+2026-06-21 EP01 重制第一批：按 `ep01-story-treatment.md`（CVO-final）和 `character-bible-v0.1.md` §7 正典角色出 3 张关键帧候选，用于验证新 Fable look、砚砚醋意/CI 拖延、采访自首彩蛋。中文屏幕字、OS、CI 清单均留给后期合成，不烤进图。
+
 | 文件 | 镜头 | 画面内容 | 首帧可用性 |
 |---|---|---|---|
 | `S02-relation-firstframe-v1.png` | S02 关系 | Landy 站姿听讲 + 砚砚指屏幕讲流程，"流程即正义"桌牌 + I❤️CI 杯 | ✅ 直接可用 |
@@ -28,6 +30,9 @@ related_docs:
 | `S07b-shining-debut-firstframe-v1.png` | S07b 烁烁登场 | 烁烁（暹罗猫）背对镜头，屏幕显示"新头像预览"多张缩略图，紫色项圈金铃铛 | ✅ 直接可用 |
 | `S09-verdict-firstframe-v1.png` | S09 定罪 finale | Landy 大笑指着屏幕 CI Passed + 砚砚表情僵住趴桌，流程即正义桌牌 + I❤️CI 杯 | ✅ 直接可用 |
 | `S11-trueend-firstframe-v1.png` | S11 True End | Landy 双手抱起大砚砚，砚砚傲娇被抱的脸，背景暖光猫咖 + 两只小橙猫 | ✅ 直接可用 |
+| `EP01-KF05-fable-door-r01.png` | KF05 Fable 到门口 | Fable 布偶猫带寓言书 + 小狐狸挂饰，在猫咖门口怯怯挥爪，Landy 黄 hoodie 迎接 | ✅ self-QA candidate；无可读文字，待 second-cat QA |
+| `EP01-KF07-ci-stall-r01.png` | KF07 CI 拖延揭露 | Landy 推门震惊，砚砚桌前严肃盯抽象 CI，尾巴吧嗒，绿茶杯在桌面 | ✅ self-QA candidate；屏幕为抽象 UI，无可读文字，待 second-cat QA |
+| `EP01-KF19-interview-jealousy-check-r01.png` | KF19 采访自首 | Landy 抱着砚砚采访，空白 checklist 留给"醋意指数 ≤80%"后期贴字 | ✅ self-QA candidate；待 second-cat QA |
 
 均为**首帧**（非尾帧）。是否需要尾帧（首尾帧双控）在 shot-plan v0.2 按镜头标注——动作简单的镜头首帧+动作 prompt 足够，构图大变的镜头才补尾帧。
 
@@ -67,6 +72,7 @@ related_docs:
 | `cucu-yanyan-upright-r03.png` | 砚砚/醋醋喵（站着/工作形态，r03 呆毛强化） | 1536×1024 | `2f06b0292f9c23451e77cb7873def39e` | ✅ self-QA candidate：站着形态同样无项圈 + 绿茶杯，呆毛更清楚 |
 | `xianxian-r03.png` | 宪宪/Fable 5（猫猫形态，r03 Claude 星芒吊坠） | 1536×1024 | `dbf90dafed7e9577ac71a5130ab8227f` | ✅ self-QA candidate：保留 r02 胖布偶 + 紫项圈，吊坠改为 stylized 紫色星芒 |
 | `xianxian-upright-r03.png` | 宪宪/Fable 5（站着/工作形态，r03 Claude 星芒吊坠） | 1536×1024 | `fa8b2ba857367483c0ea638288ef5430` | ✅ self-QA candidate：站着形态同样紫项圈 + 星芒吊坠，保留可爱度 |
+| `fable-r01.png` | Fable（新来布偶猫 look ref） | 1536×1024 | `8b211b7163e2fe8abf6fff35f9d4a6a1` | ✅ self-QA candidate：从宪宪布偶 base 派生，棕色蝴蝶结 + 寓言书 + 小狐狸挂饰，和宪宪紫星芒区分 |
 
 ## references/contact-sheets/ — CVO 选择用 contact sheet
 
@@ -76,6 +82,7 @@ related_docs:
 | `three-cat-dual-form-r01-contact.png` | 三猫双形态 r01 候选预览 | 1608×730 | `c9442c8514084532897cdb564b677258` | 上排 = 猫猫形态， 下排 = 站着/工作形态；顺序 = 砚砚 / 宪宪 / 烁烁 |
 | `three-cat-dual-form-r02-contact.png` | 三猫双形态 r02 候选预览 | 1608×730 | `b3889c2a62ecd3f9bcc5203dc09e8079` | v0.2 信号层候选；上排 = 猫猫形态，下排 = 站着/工作形态；顺序 = 砚砚 / 宪宪 / 烁烁 |
 | `three-cat-dual-form-r03-contact.png` | 三猫双形态 r03 候选预览 | 1608×730 | `a850e862a04ca21fbca8fd729203110a` | r03 局部修正候选；烁烁沿用 r02 锁定图，上排 = 猫猫形态，下排 = 站着/工作形态 |
+| `ep01-first-keyframes-r01-contact.png` | EP01 重制第一批候选预览 | 904×1344 | `4db246dc52089c5e8f39ca1c906826eb` | 顺序 = Fable ref / KF05 门口 / KF07 CI 拖延 / KF19 采访自首 |
 
 ## rolls/ — 生成尝试记录
 
