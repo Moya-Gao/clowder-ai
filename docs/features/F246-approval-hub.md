@@ -8,7 +8,7 @@ created: 2026-06-20
 
 # F246: Approval Hub — 统一审批中心底座
 
-> **Status**: v1-closed（Phase A~D complete）| **Owner**: 布偶猫/宪宪 (opus-46) | **Priority**: P2
+> **Status**: in-progress（Phase E: v2 adapters）| **Owner**: 布偶猫/宪宪 (opus-46) | **Priority**: P2
 
 Architecture cell: platform-infra（subcell: `approval-index`）
 Map delta: 新 cell — Hub 通过 feature adapter 实时聚合（query aggregation）各 feature 的 CVO 审批项 + Hub UI panel。不维护独立 index，at-read-time 直查 canonical stores。
@@ -71,9 +71,9 @@ Why: CVO 审批散落在各 thread（F128/F225/F193），铲屎官不在对应 t
 | F225 | session_handoff | **v1** |
 | F193 E3 | cross_thread_dispatch (任务分配) | **v1** |
 | F168 | community direction | Sibling（不迁 v1） |
-| F231 | propose_profile_update | v2 候选 |
-| Knowledge Feed | 知识条目审核 | v2 候选 |
-| Limb | pair_approve | v2 候选 |
+| F231 | propose_profile_update | **v2** |
+| Knowledge Feed | 知识条目审核 | ❌ Parked（CVO） |
+| Limb | pair_approve | ❌ Dropped（CVO） |
 
 ## What
 
@@ -213,7 +213,7 @@ Goal: 把 Phase C 后真实遗留的成熟化工作收束成可执行交付，�
 
 ### Phase D AC-D7: Materialized Index Gate
 
-**Current state (2026-06-21):** 3 registered adapters (F128, F225, F193). Query aggregation via `GET /api/approval-hub/pending` fan-out to all adapters at read time.
+**Current state (2026-06-22):** 4 registered adapters (F128, F225, F193, F231). Query aggregation via `GET /api/approval-hub/pending` fan-out to all adapters at read time.
 
 **Dual threshold — both must be true to trigger materialized CQRS index:**
 
@@ -239,6 +239,16 @@ Goal: 把 Phase C 后真实遗留的成熟化工作收束成可执行交付，�
 - Separate plan document: `docs/plans/YYYY-MM-DD-f246-materialized-index.md`
 
 **Measurement protocol**: When adapter count reaches 5, measure pending fetch p95 in alpha environment with representative inbox (≥10 pending items across ≥3 adapters). If p95 < 250ms, document measurement and continue aggregation. If p95 ≥ 250ms, open the materialized index plan.
+
+### Phase E: v2 Adapters 🚧
+
+- F231 ProfileUpdateProposal adapter: jump-only card, 7-day stale, `inlineApprovable=false`
+- Plan: `docs/plans/2026-06-22-f246-v2-f231-adapter.md`
+- AC-D7 index gate status: 4 adapters, below 5-adapter threshold — continue query aggregation
+
+- [ ] **AC-E1**: F231 adapter maps pending `ProfileUpdateProposal` → `ApprovalItem` (jump-only)
+- [ ] **AC-E2**: Hub panel displays F231 items alongside v1 items
+- [ ] **AC-E3**: Tests cover: mapping, stale threshold, empty user, requesterCatId, detail fields, cardMessageId
 
 ## Links
 
