@@ -1,3 +1,10 @@
+---
+feature_ids: [F236]
+topics: [open-rate, eval, anchor-first, event-model]
+doc_kind: plan
+created: 2026-06-21
+---
+
 # F236 Track-2: Open-Rate Event Model + eval:anchor-first Domain
 
 **Feature:** F236 — `docs/features/F236-anchor-first-context-entry.md`

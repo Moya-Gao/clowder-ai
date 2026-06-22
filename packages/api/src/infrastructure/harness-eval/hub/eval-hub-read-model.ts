@@ -438,7 +438,10 @@ export function computeNextCronFire(frequency: string, now: Date): Date {
       next.setUTCDate(next.getUTCDate() + daysUntilSunday);
     }
   } else {
-    // Daily 03:00 UTC
+    // Daily 03:00 UTC — includes N-day (every-Nd) domains: the cron fires daily
+    // but the last-run gate in createEvalDomainNDaySpec decides whether to eval.
+    // nextCronFireAt for N-day domains = "next daily probe", NOT "next actual eval".
+    // The Hub UI renders this as "下次探测 (every-Nd)" (see deriveDomainScheduleLine).
     next.setUTCHours(FIRE_HOUR_UTC);
     if (now.getTime() >= next.getTime()) {
       next.setUTCDate(next.getUTCDate() + 1);

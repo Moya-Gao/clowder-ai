@@ -1,3 +1,10 @@
+---
+feature_ids: [F229]
+topics: [animation, ux, concierge, pet-state]
+doc_kind: discussion
+created: 2026-06-21
+---
+
 # F229 BUG-UX-6: 砚砚动画不可见 — 诊断 + 产品方向讨论
 
 > **Status**: open-for-discussion | **Triggered by**: CVO 2026-06-21 "idle 我只看过这个诶"

@@ -415,14 +415,24 @@ export type DomainScheduleLine =
  * - Active + has nextCronFireAt: "下次评估: <locale string>".
  * - Active + no nextCronFireAt: nothing (kind=none).
  */
-export function deriveDomainScheduleLine(domain: { enabled: boolean; nextCronFireAt?: string }): DomainScheduleLine {
+export function deriveDomainScheduleLine(domain: {
+  enabled: boolean;
+  nextCronFireAt?: string;
+  /** Used to distinguish N-day probe cadence from actual eval cadence (gpt52 R1 P2). */
+  frequency?: string;
+}): DomainScheduleLine {
   if (domain.enabled === false) {
     return { kind: 'sunset', text: '🌙 Sunset · 自动调度已停 (yaml: enabled: false)' };
   }
   if (domain.nextCronFireAt) {
+    // N-day domains (every-Nd): cron fires daily but last-run gate controls actual eval.
+    // Show "下次探测 (every-Nd)" instead of "下次评估" to avoid implying eval WILL run
+    // at the next daily fire — the gate may skip it (gpt52 R1 P2 fix).
+    const isNDay = domain.frequency ? /^every-\d+d$/.test(domain.frequency) : false;
+    const label = isNDay ? `下次探测 (${domain.frequency})` : '下次评估';
     return {
       kind: 'next-eval',
-      text: `下次评估: ${new Date(domain.nextCronFireAt).toLocaleString()}`,
+      text: `${label}: ${new Date(domain.nextCronFireAt).toLocaleString()}`,
     };
   }
   return { kind: 'none' };
