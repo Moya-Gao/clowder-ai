@@ -3,8 +3,9 @@ title: EP01 故事梳理（story treatment）— 《Fable 回家 · 加个头像
 doc_kind: story-treatment
 created: 2026-06-21
 updated: 2026-06-21
-status: draft-for-CVO
+status: cvo-approved-final  # CVO 2026-06-21 "我觉得这版故事完整了！"
 author: opus-48
+shot_basis: "§3 的 20 个 KF beat = EP01 关键帧生产基线（EDL/时长在 animatic 阶段补）"
 canonical_source: ../../stories/avatar-pr-flow-absolutism/README.md  # 《醋醋喵诞生记》= 真实案卷，含云端砚砚亲笔两组四格漫画
 grounding:
   - docs/stories/avatar-pr-flow-absolutism/README.md  # 醋醋喵诞生记（真实事件 + 砚砚原话 + 漫画母图本体）
