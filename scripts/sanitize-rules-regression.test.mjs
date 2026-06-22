@@ -492,6 +492,34 @@ describe('sanitize-rules regression (home repo only)', { skip: !isHomeRepo }, ()
       assert.ok(result.includes('/home/user/cat-cafe'), `expected prefix scrubbed + basename kept, got: ${result}`);
       assert.ok(!result.includes('someone'), `username must be scrubbed, got: ${result}`);
     });
+
+    // Regression: outbound sync 2026-06-22 — dotpath substructure preservation.
+    // Root cause: old multi-segment regex `(?:[^\s,"'}\]/]+/)+` greedily consumed
+    // ALL intermediate segments, keeping only the leaf. Fix: strip only
+    // /Users/<username>/, preserving full subpath structure.
+    it('preserves .claude/skills dotpath (was broken by greedy regex — P1)', () => {
+      const input = `const p = '/Users/test/.claude/skills';\n`;
+      const result = applySanitizer(input, 'skill-mount-targets.test.js');
+      assert.ok(result.includes('/home/user/.claude/skills'), `expected dotpath preserved, got: ${result}`);
+      assert.ok(!result.includes('/home/user/skills'), `must NOT collapse to leaf, got: ${result}`);
+    });
+
+    it('preserves deep non-cat-cafe subpath structure (intentional widening)', () => {
+      const input = `const p = '/Users/alice/forks/other-project/src/index.js';\n`;
+      const result = applySanitizer(input, 'some-test.js');
+      assert.ok(
+        result.includes('/home/user/forks/other-project/src/index.js'),
+        `expected full subpath preserved, got: ${result}`,
+      );
+      assert.ok(!result.includes('alice'), `username must be scrubbed, got: ${result}`);
+    });
+
+    it('bare /Users/username (no trailing slash) still collapses to /home/user', () => {
+      const input = `const HOME = '/Users/test';\n`;
+      const result = applySanitizer(input, 'skill-mount-targets.test.js');
+      assert.ok(result.includes('/home/user'), `expected /home/user, got: ${result}`);
+      assert.ok(!result.includes('/home/user/'), `bare path must NOT gain trailing slash, got: ${result}`);
+    });
   });
 
   // ── F238: Extension coverage — brand transforms must apply beyond .ts/.tsx/.js ──

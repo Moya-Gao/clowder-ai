@@ -131,8 +131,9 @@ if ($ARGV =~ m{directory-picker-modal\.test\.(ts|js)$}) {
 #      rule below would collapse those to just the leaf (/home/user/index.js) — regression.
 # Must run BEFORE the multi-segment rule so the cat-cafe path is captured first.
 s#/Users/[^\s,"'}\]/]+/(?:[^\s,"'}\]/]+/)*cat-cafe\b#/home/user/cat-cafe#g;
-# First: multi-segment paths → keep last segment
-s#/Users/(?:[^\s,"'}\]/]+/)+([^\s,"'}\]/]+)#/home/user/$1#g;
+# First: multi-segment paths → strip username, keep full subpath structure
+# (old rule kept only last segment, breaking .claude/skills and similar dotpaths)
+s#/Users/[^\s,"'}\]/]+/#/home/user/#g;
 # Fallback: bare /Users/username (only 2 segments) → /home/user
 s#/Users/[^\s,"'}\]/]+#/home/user#g;
 

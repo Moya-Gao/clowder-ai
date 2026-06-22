@@ -102,7 +102,7 @@ is_public_only() {
 # Helper: scripts/brand-dictionary-helper.mjs provides CLI + module interface.
 #
 # Classify a path via the dictionary helper.  Returns the inbound classification
-# from path_policies (manual-port / brand-sensitive / public-only / safe-cherry-pick).
+# from path_policies (manual-port / brand-sensitive / public-only / pass-through / safe-cherry-pick).
 classify_path() {
   local path="$1"
   local result
@@ -117,6 +117,18 @@ is_manual_port() {
   local cls
   cls=$(classify_path "$path")
   [ "$cls" = "manual-port" ]
+}
+
+# pass-through: file is exempt from both brand guard and intake classification.
+# Typical use: internal tracking files (e.g. intake ledger) that naturally contain
+# cross-repo brand references but are not sync-managed roots — never reach the
+# public repo, so intake classification is moot. Must be handled explicitly to
+# avoid falling through to safe-cherry-pick (PR #2482 review finding).
+is_pass_through() {
+  local path="$1"
+  local cls
+  cls=$(classify_path "$path")
+  [ "$cls" = "pass-through" ]
 }
 
 # Everything else = safe to cherry-pick (only cosmetic sanitization applied)
@@ -1091,12 +1103,17 @@ BRAND_FILES=""
 BRAND_COUNT=0
 HIGH_RISK_FILES=""
 HIGH_RISK_COUNT=0
+PASSTHROUGH_FILES=""
+PASSTHROUGH_COUNT=0
 
 while IFS= read -r file; do
   [ -z "$file" ] && continue
   if is_public_only "$file"; then
     PUBLIC_FILES="${PUBLIC_FILES}  ${file}\n"
     PUBLIC_COUNT=$((PUBLIC_COUNT + 1))
+  elif is_pass_through "$file"; then
+    PASSTHROUGH_FILES="${PASSTHROUGH_FILES}  ${file}\n"
+    PASSTHROUGH_COUNT=$((PASSTHROUGH_COUNT + 1))
   elif is_brand_sensitive "$file"; then
     BRAND_FILES="${BRAND_FILES}  ${file}\n"
     BRAND_COUNT=$((BRAND_COUNT + 1))
@@ -1147,9 +1164,14 @@ if [ "$PUBLIC_COUNT" -gt 0 ]; then
   echo -e "$PUBLIC_FILES"
 fi
 
+if [ "$PASSTHROUGH_COUNT" -gt 0 ]; then
+  echo -e "${BLUE}○ pass-through ($PASSTHROUGH_COUNT files)${NC} — exempt from intake (not a managed sync root)"
+  echo -e "$PASSTHROUGH_FILES"
+fi
+
 echo ""
 echo -e "${BLUE}── Summary ──${NC}"
-echo "  Total files: $((SAFE_COUNT + BRAND_COUNT + HIGH_RISK_COUNT + MANUAL_COUNT + PUBLIC_COUNT))"
+echo "  Total files: $((SAFE_COUNT + BRAND_COUNT + HIGH_RISK_COUNT + MANUAL_COUNT + PUBLIC_COUNT + PASSTHROUGH_COUNT))"
 echo -e "  ${GREEN}Safe:${NC}   $SAFE_COUNT  (auto-absorbable)"
 if [ "$BRAND_COUNT" -gt 0 ]; then
   echo -e "  ${RED}Brand:${NC} $BRAND_COUNT  (🛡 manual diff-merge only!)"
@@ -1159,6 +1181,9 @@ if [ "$HIGH_RISK_COUNT" -gt 0 ]; then
 fi
 echo -e "  ${YELLOW}Manual:${NC} $MANUAL_COUNT  (needs human review)"
 echo -e "  ${BLUE}Skip:${NC}   $PUBLIC_COUNT  (public-only)"
+if [ "$PASSTHROUGH_COUNT" -gt 0 ]; then
+  echo -e "  ${BLUE}Pass:${NC}   $PASSTHROUGH_COUNT  (exempt)"
+fi
 
 if [ "$MODE" = "plan" ]; then
   echo ""
