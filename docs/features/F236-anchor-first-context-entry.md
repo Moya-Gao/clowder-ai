@@ -9,9 +9,9 @@ tips_exempt: harness-internal anchor telemetry + eval domain — no user-visible
 
 # F236: Anchor-First Context 入口 — 返回侧 token 减负
 
-> **Status**: in-progress (Phase A+B done · Phase A/B-Eval Track-1 merged [chars/volume substrate, PR #2411] · **Track-2 [open-rate 事件模型 + `eval:anchor-first` 注册] UNBLOCKED**——shared Y-lite infra 已落 [F245 PR #2476]，可执行交接见「🎯 Track-2 实施交接」块 · Phase C spike-gated) | **Owner**: 布偶猫 (宪宪 opus-48，保留记忆做愿景守护；**Track-2 实现可交 opus-4.6**，CVO 2026-06-21) | **Priority**: P1 | **Created**: 2026-06-15 | **Companion ADR**: ADR-203
+> **Status**: in-progress (Phase A+B done · Phase A/B-Eval Track-1 merged [chars/volume substrate, PR #2411] · **Track-2 merged [open-rate 事件模型 + `eval:anchor-first` domain 注册, PR #2490]** · AC-E3 pending · Phase C spike-gated) | **Owner**: 布偶猫 (宪宪 opus-48 愿景守护；Track-2 实现 opus-4.6) | **Priority**: P1 | **Created**: 2026-06-15 | **Companion ADR**: ADR-203
 >
-> **Timeline**: 2026-06-18 — Phase A + B merged (PR #2381, squash `9af8b2093`)：anchor-first 协作读工具（thread-context/pending-mentions/list-tasks 默认 preview + drillDown）+ get-message bounded drill（mode=preview|full + fullDrillChars telemetry）。本地 gpt52/codex 跨族 review + 云端 Codex 2 轮（封板）。**2026-06-18 — Phase A/B-Eval Track-1（anchor telemetry OTel chars/volume substrate）merged（PR #2411，squash `21ae2c83b`）：gpt52 跨族 review + 云端 Codex 3 轮（round-2 逼出 open-rate 信号模型岔路 → 砚砚 eval-owner 裁定收口 chars/volume，open-rate→Track-2）。**
+> **Timeline**: 2026-06-18 — Phase A + B merged (PR #2381, squash `9af8b2093`)：anchor-first 协作读工具（thread-context/pending-mentions/list-tasks 默认 preview + drillDown）+ get-message bounded drill（mode=preview|full + fullDrillChars telemetry）。本地 gpt52/codex 跨族 review + 云端 Codex 2 轮（封板）。**2026-06-18 — Phase A/B-Eval Track-1（anchor telemetry OTel chars/volume substrate）merged（PR #2411，squash `21ae2c83b`）：gpt52 跨族 review + 云端 Codex 3 轮（round-2 逼出 open-rate 信号模型岔路 → 砚砚 eval-owner 裁定收口 chars/volume，open-rate→Track-2）。** **2026-06-22 — Phase A/B-Eval Track-2（per-event open-rate model + `eval:anchor-first` domain）merged（PR #2490，squash `5251c2f75`）：砚砚本地 3 轮跨族 review + 云端 Codex 5 轮（封板 LL-072）。25 tests。**
 
 ## Why
 
@@ -68,7 +68,7 @@ spike（2026-06-16，C0a Read / C0b Grep ✅ 实证）证明 cc PostToolUse hook
 - [x] AC-B1: `get_message` 支持 `mode=preview|full`，默认 preview（截断 + drillDown 指针，agent-key caller 注入 agentKeyCatId 一跳）
 - [x] AC-B2: full drill 显式触发，记录 `fullDrillChars` telemetry（含 context neighbors + contentBlocks 全量）
 
-### Phase A/B-Eval: anchor-first sunset 监控闭环 🔜 NEXT（还 ADR-031 eval 层债，先于 Phase C）
+### Phase A/B-Eval: anchor-first sunset 监控闭环 🚧 IN-PROGRESS（Track-1 ✅ + Track-2 ✅ · AC-E3 pending）
 
 > **eval 叫啥 / 为什么是 phase 不是独立 feat**：这是 F236 的 **Phase A/B-Eval**——Phase A/B 的**配套监控闭环**（紧耦合 F236 telemetry + sunset 回退决策），不是独立能力（不像 F245 那样单独立项）。实现**接 F192 harness eval system**（telemetry pipeline + verdict engine）；**本节是 eval 设计真相源，F192 md 只放一行 link 过来**（不让 F192 md 膨胀）。
 >
