@@ -57,6 +57,32 @@ interactiveType 可选值：`select`（单选）| `multi-select`（多选）| `c
 
 ---
 
+## 工作区绑定
+
+OpenCode **必须**在绑定到具体项目工作区的 thread 里启动。OpenCode 的文件解析依赖
+`cwd`，如果 thread 没有可验证的项目目录，它会继承 runtime 目录并变成项目盲视。为避免
+再次静默落到 `cat-cafe-runtime/packages/api`，OpenCode 会在以下情况 fail loud，而不是
+带着错误 cwd 启动：
+
+- thread 没有 `projectPath`，或 `projectPath` 是 `default` / 未绑定。
+- thread 的 `projectPath` 不是 allowed roots 下真实存在的目录（已删、移动、拼写错误）。
+- thread 使用虚拟游戏路径（例如 `games/werewolf`），这只是分类标签，不是文件系统目录。
+
+常见报错：
+
+> `OpenCode requires a thread projectPath for <threadId>. Bind the thread to a
+> project workspace before spawning OpenCode.`
+
+### 如何绑定项目工作区
+
+- **新 thread**：创建时绑定到具体项目目录，必须是 allowed roots 下存在的绝对路径。
+- **已有 thread**：在 thread settings 里设置或重指向有效项目目录。
+- **游戏 / 虚拟 thread**：不能直接跑 OpenCode；把 OpenCode 工作路由到已绑定项目的 thread。
+
+临时文件系统错误（挂载抖动、NFS、临时权限问题）会单独提示重试；持续失败再重新绑定工作区。
+
+---
+
 ## commit 签名
 
 你的 commit 签名格式：`[金渐层/Opus-46🐾]`
