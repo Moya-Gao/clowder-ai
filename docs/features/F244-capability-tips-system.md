@@ -75,7 +75,7 @@ CVO 2026-06-18 纠偏：F244 不按"先做临时版、以后再补终态"推进�
 
 - [x] 每个需求点都能映射到至少一个 AC
 - [x] 每个 AC 都有验证方式
-- [ ] 前端需求已准备需求→证据映射表（Phase B 交付时补截图/录屏）
+- [x] 前端需求已准备需求→证据映射表（5 轮 dogfood report：`F244-capability-tips-dogfood-report.md`）
 
 ## What
 

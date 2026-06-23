@@ -158,6 +158,7 @@
 | F239 | F239: Skill Mount HOME Hygiene — `sync:skills` 默认改 project-level + `--user` opt-in + 老 HOME-level symlinks 清理脚本（ADR-025 Phase 5 收尾，承接 cat-cafe#2323 Phase 5 part 1；Phase A PR #2325 squash `6228ee96e` + Phase B PR #2328 squash `3570d311b`；5 rounds cloud + 砚砚 LL-072 final approve；CAFE-INCIDENT-20260616-trash 沉淀至 user memory，路径在 `~/.claude/projects/-Users-lysander-projects-relay-station-cat-cafe/memory/feedback_trash_var_expansion_p0.md`，user-private 不进 git） | done | [F239-skill-mount-home-hygiene.md](./F239-skill-mount-home-hygiene.md) |
 | F235 | F235: Feedback-to-Community Publisher — 一键发布反馈到社区（Phase A: F222 confirmed → 脱敏 → GitHub issue；Phase B: 猫猫生成 community_issue_draft 卡片 → 用户编辑 repo/title → GitHub issue；2 Phase / 9 AC / 69 tests；PR #2317 + #2367；3 轮 cloud + LL-072 封板；opus-47 愿景守护 trace main 真实 wire-up 放行） | done | [F235-feedback-to-community-publisher.md](./F235-feedback-to-community-publisher.md) |
 | F144 | F144: PPT Forge — AI 演示文稿生成引擎（3 猫 4 Phase 探索，终态 KD-20: 低保真 MD → imagegen 精美图；ppt-forge skill 3文件系统 + 华为风格 preset；2026-03-27 立项 → 2026-06-18 关门） | done | [F144-ppt-forge.md](./F144-ppt-forge.md) |
+| F245 | F245: Friction Signal Eval — 摩擦信号统一聚合（4 通道 read-model + `eval:friction` + Y-lite registry + every-3d cadence + Eval Hub "建议修复/仅引用"视图；Phase A-D / 10 AC / PRs #2422 #2443 #2458 #2469 #2476 #2483 #2504；opus-47 愿景守护 APPROVE） | done | [F245-friction-signal-eval.md](./F245-friction-signal-eval.md) |
 | F246 | F246: Approval Hub — 统一审批中心底座（5 Phase: A=F128+F225 adapters + drawer + bell badge, B=F193 dispatch adapter, C=workspace tab + 三档响应式 tab bar, D=filter + batch + regression + v2 admission matrix + materialized index gate, E=F231 v2 adapter；6 PR / 25 AC / 29 alpha smoke PASS / 4 adapter 接入；query aggregation 有意选择——零一致性问题） | done | [F246-approval-hub.md](./F246-approval-hub.md) |
 
 ## 已搁置/已归档 Feature
@@ -171,3 +172,4 @@
 | F135 | F135: 狸花猫开箱即用 — DARE Out-of-the-Box | closed (需求已不存在 2026-05-26) | [F135-dare-ootb.md](./F135-dare-ootb.md) |
 | F198 | F198: Claude Code Subscription Carrier — 6/15 SDK Credit 拐点前救宪宪 | done (on-hold close) | [F198-claude-code-subscription-carrier.md](./F198-claude-code-subscription-carrier.md) |
 | F238 | F238: Bidirectional Boundary Symmetry | done | [F238-bidirectional-boundary-symmetry.md](./F238-bidirectional-boundary-symmetry.md) |
+| F244 | F244: Capability Tips System — 等待态 Knowledge Feed 投影 | done | [F244-capability-tips-system.md](./F244-capability-tips-system.md) |
