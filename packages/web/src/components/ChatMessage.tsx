@@ -188,6 +188,8 @@ export function ChatMessage({
   // working log while the callback terminal text renders as the body.
   const mergedCliStdout = message.extra?.stream?.cliStdout;
   const mergedSpeechContent = message.extra?.stream?.speechContent;
+  const bodyTextContent = mergedSpeechContent ?? (!isStreamOrigin ? message.content : '');
+  const hasBodyTextContent = bodyTextContent.trim().length > 0;
   const cliStdoutContent = mergedCliStdout ?? (isStreamOrigin ? message.content : undefined);
   const cliEvents = toCliEvents(message.toolEvents, cliStdoutContent);
   const hasCliBlock = cliEvents.length > 0;
@@ -565,10 +567,10 @@ export function ChatMessage({
       }
       footer={!message.isStreaming && message.metadata ? <MetadataBadge metadata={message.metadata} /> : undefined}
     >
-      {hasCliBlock && isStreamOrigin ? null : !isStreamOrigin && hasBlocks ? (
+      {hasCliBlock && isStreamOrigin && !hasBodyTextContent ? null : !isStreamOrigin && hasBlocks ? (
         <ContentBlocks blocks={message.contentBlocks!} />
-      ) : !isStreamOrigin && hasTextContent ? (
-        <CollapsibleMarkdown content={mergedSpeechContent ?? message.content} className={catStyle?.font} />
+      ) : hasBodyTextContent ? (
+        <CollapsibleMarkdown content={bodyTextContent} className={catStyle?.font} />
       ) : message.isStreaming ? (
         <span className="text-xs text-cafe-secondary">Thinking...</span>
       ) : null}

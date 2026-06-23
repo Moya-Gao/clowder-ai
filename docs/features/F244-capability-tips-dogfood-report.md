@@ -1,4 +1,6 @@
 ---
+feature_ids: [F244]
+doc_kind: verification
 tips_exempt: Internal eval/dogfood report about tips system itself — no user-visible feature to teach
 ---
 

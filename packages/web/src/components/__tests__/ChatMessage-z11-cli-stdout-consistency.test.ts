@@ -126,4 +126,32 @@ describe('F194 Phase Z11 — ChatMessage CLI Output stdout consistency (AC-Z29)'
     expect(text).toContain('CLI Output');
     expect(text).toContain('PURE_STREAM_STDOUT');
   });
+
+  it('terminal stream speechContent renders as body while CLI Output keeps only tools', () => {
+    const msg = {
+      id: 'msg-saga21-terminal-stream',
+      type: 'assistant' as const,
+      catId: 'spark',
+      content: 'SAGA21_BODY_SHOULD_RENDER',
+      origin: 'stream' as const,
+      toolEvents: [{ id: 't1', type: 'tool_use' as const, label: 'rg -n', timestamp: 1000 }],
+      timestamp: Date.now(),
+      isStreaming: false,
+      extra: {
+        stream: {
+          invocationId: 'parent-saga21',
+          turnInvocationId: 'turn-saga21',
+          cliStdout: '',
+          speechContent: 'SAGA21_BODY_SHOULD_RENDER',
+        },
+      },
+    };
+    act(() => {
+      root.render(React.createElement(ChatMessage, { message: msg, getCatById }));
+    });
+    const text = container.textContent ?? '';
+    expect(text).toContain('CLI Output');
+    expect(text).toContain('SAGA21_BODY_SHOULD_RENDER');
+    expect((text.match(/SAGA21_BODY_SHOULD_RENDER/g) ?? []).length).toBe(1);
+  });
 });

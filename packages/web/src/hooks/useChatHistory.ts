@@ -9,7 +9,7 @@ import type { QueueEntry, TaskProgressItem } from '@/stores/chat-types';
 import { type CatInvocationInfo, type ChatMessage as ChatMessageData, useChatStore } from '@/stores/chatStore';
 import type { TaskItem } from '@/stores/taskStore';
 import { useTaskStore } from '@/stores/taskStore';
-import { crossesUserTurnBoundary } from '@/stores/turn-boundary';
+import { crossesResidueTurnBoundary, crossesUserTurnBoundary } from '@/stores/turn-boundary';
 import { apiFetch } from '@/utils/api-client';
 import { resolveCrossPostScrollTarget } from '@/utils/crosspost-scroll-target';
 import {
@@ -280,12 +280,6 @@ function getStreamParentInvocationId(msg: ChatMessageData): string | undefined {
   return msg.extra?.stream?.invocationId;
 }
 
-function getResidueBoundaryParentInvocationId(msg: ChatMessageData): string | undefined {
-  const streamParentInvocationId = getStreamParentInvocationId(msg);
-  if (streamParentInvocationId) return streamParentInvocationId;
-  return msg.extra?.a2aRouting?.invocationId;
-}
-
 function getToolResidueEvidenceKey(event: MessageToolEvent): string {
   // Live and persisted tool events independently generate id/timestamp, so use
   // only the stable payload fields shared across catch-up reconciliation.
@@ -309,39 +303,6 @@ function hasFullToolResidueEvidence(
     persistedCounts.set(key, count - 1);
   }
   return true;
-}
-
-function isA2ARoutingBoundary(message: ChatMessageData): boolean {
-  return (
-    message.type === 'system' && (message.extra?.systemKind === 'a2a_routing' || Boolean(message.extra?.a2aRouting))
-  );
-}
-
-function isOtherCatAssistantBoundary(message: ChatMessageData, residueCatId: string): boolean {
-  return message.type === 'assistant' && Boolean(message.catId) && message.catId !== residueCatId;
-}
-
-function crossesResidueTurnBoundary(
-  messages: ChatMessageData[],
-  left: ChatMessageData,
-  right: ChatMessageData,
-  residueCatId: string,
-  parentInvocationId: string,
-): boolean {
-  if (crossesUserTurnBoundary(messages, left, right)) return true;
-
-  const leftTs = getMessageOrderTimestamp(left);
-  const rightTs = getMessageOrderTimestamp(right);
-  if (leftTs === rightTs) return false;
-
-  const earlier = Math.min(leftTs, rightTs);
-  const later = Math.max(leftTs, rightTs);
-  return messages.some((message) => {
-    if (!isA2ARoutingBoundary(message) && !isOtherCatAssistantBoundary(message, residueCatId)) return false;
-    if (getResidueBoundaryParentInvocationId(message) !== parentInvocationId) return false;
-    const ts = getMessageOrderTimestamp(message);
-    return ts > earlier && ts <= later;
-  });
 }
 
 function hasPersistedTextResidueSiblingEvidence(

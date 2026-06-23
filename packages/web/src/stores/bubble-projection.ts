@@ -68,6 +68,20 @@ interface GroupKey {
 type TurnSegmentByRecord = WeakMap<ChatMessage, number>;
 type StreamSegmentsByBaseKey = Map<string, Map<string, number>>;
 
+type StreamExtra = NonNullable<NonNullable<ChatMessage['extra']>['stream']>;
+
+function stripProjectedStreamSpeechFields(stream: StreamExtra | undefined): StreamExtra | undefined {
+  if (!stream) return undefined;
+  const rest = { ...stream };
+  delete rest.cliStdout;
+  delete rest.speechContent;
+  return Object.keys(rest).length > 0 ? rest : undefined;
+}
+
+function isLocalStreamCarrierId(id: string | undefined): boolean {
+  return !!id && (id.startsWith('msg-') || id.startsWith('draft-'));
+}
+
 function getBaseInvocationKey(msg: ChatMessage): string | null {
   if (msg.type !== 'assistant') return null;
   if (!msg.catId) return null;
@@ -205,12 +219,37 @@ function projectGroup(records: ChatMessage[]): ChatMessage {
   // evidence, contentBlocks, etc.) from canonical record. Base = callback record if
   // present else first record by ts asc; then override projection-specific fields.
   const base = callbackRecord ?? first;
+  const streamContent = streamContentParts.join('\n\n');
+  const callbackContent = callbackContentParts.join('\n\n');
+  const isMergeCase = streamContentParts.length > 0 && callbackContentParts.length > 0;
+  const terminalStreamSpeechRecord = sorted.find(
+    (r) =>
+      r.origin !== 'callback' &&
+      r.extra?.stream?.cliStdout === '' &&
+      typeof r.extra.stream.speechContent === 'string' &&
+      r.extra.stream.speechContent.length > 0,
+  );
+  const terminalStreamSpeechContent = terminalStreamSpeechRecord?.extra?.stream?.speechContent;
+  const hasTerminalStreamSpeechSentinel =
+    sorted.length === 1 && terminalStreamSpeechRecord === first && terminalStreamSpeechContent !== undefined;
+  const isTerminalStreamSpeechCase =
+    sorted.length === 1 &&
+    !!first.extra?.stream?.turnInvocationId &&
+    (!isLocalStreamCarrierId(first.id) || hasTerminalStreamSpeechSentinel) &&
+    !callbackRecord &&
+    !isStreaming &&
+    streamContentParts.length > 0;
+  const isTerminalStreamSpeechDrainCase = isMergeCase && terminalStreamSpeechContent !== undefined;
+  const projectedContent = isTerminalStreamSpeechDrainCase
+    ? callbackContent || terminalStreamSpeechContent || streamContent
+    : contentParts.join('\n\n');
+
   const projected: ChatMessage = {
     ...base,
     id: canonicalId,
     type: 'assistant',
     catId: first.catId,
-    content: contentParts.join('\n\n'),
+    content: projectedContent,
     timestamp: first.timestamp ?? 0,
     isStreaming,
     origin,
@@ -224,22 +263,38 @@ function projectGroup(records: ChatMessage[]): ChatMessage {
   else delete projected.contentBlocks;
   if (mentionsUser) projected.mentionsUser = true;
 
-  // F194 Phase Z11 follow-up: merge case = exact-key terminal callback record
-  // plus stream content. Expose the origin-split portions so ChatMessage keeps
-  // CLI Output behavior consistent (stream working log → CLI Output stdout;
-  // callback terminal text → main body). Ordinary post_msg speech is projected
-  // as a separate callback bubble by bubbleGroupKey above.
-  const isMergeCase = streamContentParts.length > 0 && callbackContentParts.length > 0;
-  const cliStdout = isMergeCase ? streamContentParts.join('\n\n') : undefined;
-  const speechContent = isMergeCase ? callbackContentParts.join('\n\n') : undefined;
+  // Z11/Saga21: expose stream stdout vs final speech so ChatMessage can render
+  // CLI Output and body separately without duplicating terminal stream answers.
+  const cliStdout = isTerminalStreamSpeechDrainCase
+    ? ''
+    : isMergeCase
+      ? streamContent
+      : isTerminalStreamSpeechCase
+        ? ''
+        : undefined;
+  const speechContent = isTerminalStreamSpeechDrainCase
+    ? projectedContent
+    : isMergeCase
+      ? callbackContent
+      : isTerminalStreamSpeechCase
+        ? streamContent
+        : undefined;
+  const hasProjectedContentSplit = isMergeCase || isTerminalStreamSpeechCase || isTerminalStreamSpeechDrainCase;
 
   // Preserve stream identity on the projected bubble — downstream code uses
   // `getBubbleInvocationId` to dedupe further (e.g. live cleanup, suppression).
-  const firstStream = sorted.find((r) => r.extra?.stream)?.extra?.stream;
+  const firstStream = stripProjectedStreamSpeechFields(sorted.find((r) => r.extra?.stream)?.extra?.stream);
   const baseExtra = base.extra ?? {};
-  if (firstStream || richBlocks.length > 0 || isMergeCase || Object.keys(baseExtra).length > 0) {
-    const extra: NonNullable<ChatMessage['extra']> = { ...baseExtra };
-    if (firstStream || isMergeCase) {
+  const baseExtraWithoutStream = { ...baseExtra };
+  delete baseExtraWithoutStream.stream;
+  if (
+    firstStream ||
+    richBlocks.length > 0 ||
+    hasProjectedContentSplit ||
+    Object.keys(baseExtraWithoutStream).length > 0
+  ) {
+    const extra: NonNullable<ChatMessage['extra']> = { ...baseExtraWithoutStream };
+    if (firstStream || hasProjectedContentSplit) {
       extra.stream = {
         ...firstStream,
         ...(cliStdout !== undefined ? { cliStdout } : {}),

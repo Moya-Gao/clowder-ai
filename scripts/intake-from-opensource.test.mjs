@@ -643,7 +643,7 @@ if (flag === '--classify-path') {
       // failed. Phase 1 BRAND_EXPECTATIONS for this file checks localhost:3003/3004
       // contamination, not brand terms, so it passes Phase 1.
       'packages/api/src/infrastructure/connectors/im-connectors/weixin/WeixinAdapter.ts':
-        "// Cat Cafe internal adapter for weixin\nexport class WeixinAdapter {}\n",
+        '// Cat Cafe internal adapter for weixin\nexport class WeixinAdapter {}\n',
     });
     fixtures.push(f.sandboxRoot);
 
