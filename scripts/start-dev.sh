@@ -387,7 +387,7 @@ derive_embed_enabled() {
     # start-dev no longer derives EMBED_ENABLED=1 from EMBED_MODE.
     local explicit="${EMBED_ENABLED-}"
     if [ -n "$explicit" ]; then
-        _SRC_EMBED_ENABLED="env/.env override"
+        _SRC_EMBED_ENABLED=".env override"
         return
     fi
     EMBED_ENABLED=0
