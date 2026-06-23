@@ -220,14 +220,18 @@ function buildAttribution(
     if (netNegative) toolsNetNegative++;
     if (highOpenRate) toolsHighOpenRate++;
 
-    // AC-E3: severity/action mapping per spec
-    //   both signals (anchorTax) → high / sunset
-    //   single signal (highOpenRate-only OR netNegative-only) → medium / fix
+    // AC-E3: severity/action mapping per spec (VG fix — opus-48 latent issue)
+    //   anchorTax (Signal ① cost: highOpenRate AND netNegative) → high / fix
+    //     Why not 'sunset': generator can't confirm Signal ② (blindness from
+    //     task-outcome). Only eval cat can escalate to delete_sunset after
+    //     cross-referencing task-outcome. Proposing 'sunset' here would
+    //     contradict the verdict mapping in eval-cat-invocation.ts.
+    //   single sub-signal (highOpenRate-only OR netNegative-only) → medium / fix
     //   neither signal → low-medium based on openRate / keep-observe or investigate
     const hasSingleSignal = !anchorTax && (highOpenRate || netNegative);
     const severity = anchorTax ? 'high' : hasSingleSignal ? 'medium' : stats.openRateByItem > 0.5 ? 'medium' : 'low';
     const action = anchorTax
-      ? 'sunset'
+      ? 'fix'
       : hasSingleSignal
         ? 'fix'
         : stats.openRateByItem > 0.5
@@ -245,7 +249,7 @@ function buildAttribution(
         detectedAt: generatedAt,
       },
       attribution: {
-        primaryLayer: anchorTax ? 'anchor_tax_sunset' : 'needs_investigation',
+        primaryLayer: anchorTax ? 'anchor_tax' : 'needs_investigation',
         evidence: [
           {
             type: 'counter',

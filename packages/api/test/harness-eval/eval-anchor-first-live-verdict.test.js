@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, it } from 'node:test';
  * Asserts:
  *   - attribution findings include sunsetSignals per tool
  *   - severity escalates to 'high' when anchorTax fires
- *   - proposedAction = 'sunset' for anchorTax tools
+ *   - proposedAction = 'fix' for anchorTax tools (Signal ① only, blindness unconfirmed)
  *   - sunsetAssessment summary in attribution root
  *   - verdict.md renders sunset signal details
  *
@@ -241,7 +241,7 @@ describe('F236 AC-E3 — anchor-first live verdict sunset signals', () => {
     assert.equal(ltFinding.frictionSignal.severity, 'medium');
   });
 
-  it('sets proposedAction to sunset for anchorTax tools', async () => {
+  it('sets proposedAction to fix for anchorTax tools (Signal ① only, blindness unconfirmed)', async () => {
     const { generateAnchorFirstLiveVerdict } = await import(IMPORT_LIVE_VERDICT);
 
     const rollup = {
@@ -268,7 +268,9 @@ describe('F236 AC-E3 — anchor-first live verdict sunset signals', () => {
     const tcFinding = attribution.findings.find((f) => f.id.includes('thread-context'));
     const pmFinding = attribution.findings.find((f) => f.id.includes('pending-mentions'));
 
-    assert.equal(tcFinding.proposedAction[0].action, 'sunset');
+    // VG fix: anchorTax = Signal ① only → 'fix' (not 'sunset')
+    // Generator can't confirm Signal ② (blindness); eval cat escalates to delete_sunset
+    assert.equal(tcFinding.proposedAction[0].action, 'fix');
     assert.equal(pmFinding.proposedAction[0].action, 'keep-observe');
   });
 
