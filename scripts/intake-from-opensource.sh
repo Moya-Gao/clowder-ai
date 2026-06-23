@@ -436,7 +436,10 @@ run_brand_validation() {
         while IFS= read -r bsf; do
           [ -z "$bsf" ] && continue
           # Skip files already checked by BRAND_EXPECTATIONS (avoid double-counting)
-          if echo "${BRAND_EXPECTATIONS[*]}" | grep -q "^${bsf}|"; then continue; fi
+          # Fix: use printf + [@] so each entry gets its own line; the old echo + [*]
+          # joined everything on one line, so ^${bsf}| anchor only matched the first entry,
+          # letting later BRAND_EXPECTATIONS files leak into Phase 2 dictionary scan.
+          if printf '%s\n' "${BRAND_EXPECTATIONS[@]}" | grep -q "^${bsf}|"; then continue; fi
           # Skip brand-validation toolchain files — they reference brand terms as
           # detection constants, not as content that needs sanitization.
           case "$bsf" in

@@ -602,6 +602,53 @@ if (flag === '--classify-path') {
     assert.match(err.stdout, /connector-gateway-bootstrap/);
   });
 
+  it('Phase 2 skip honors all BRAND_EXPECTATIONS entries via printf + [@] anchor', () => {
+    // Regression for echo→printf fix in intake-from-opensource.sh:
+    // Old `echo "${BRAND_EXPECTATIONS[*]}" | grep -q "^${bsf}|"` joined array entries
+    // onto one line, so the ^anchor only matched the FIRST entry. Files later in the
+    // BRAND_EXPECTATIONS array (e.g. weixin/WeixinAdapter.ts at the back) leaked into
+    // Phase 2 dictionary scan and got double-counted, or produced false brand-violation
+    // reports if their content happened to match a public-term sentinel.
+    // New `printf '%s\n' "${BRAND_EXPECTATIONS[@]}"` puts each entry on its own line,
+    // so the ^anchor matches any entry — including back-of-array files.
+    const f = makeBrandFixture({
+      // weixin/WeixinAdapter.ts is a BACK-of-array BRAND_EXPECTATIONS entry. Plant
+      // "Cat Cafe" (the public-term sentinel from the stub below) into the file —
+      // Phase 2 dictionary scan would report a violation if the BRAND_EXPECTATIONS skip
+      // failed. Phase 1 BRAND_EXPECTATIONS for this file checks localhost:3003/3004
+      // contamination, not brand terms, so it passes Phase 1.
+      'packages/api/src/infrastructure/connectors/im-connectors/weixin/WeixinAdapter.ts':
+        "// Cat Cafe internal adapter for weixin\nexport class WeixinAdapter {}\n",
+    });
+    fixtures.push(f.sandboxRoot);
+
+    // Stub: brand-sensitive-patterns lists the three real anchors PLUS the back-of-array
+    // WeixinAdapter.ts path. Phase 2 should SKIP WeixinAdapter.ts because it IS in
+    // BRAND_EXPECTATIONS (covered by the localhost-port rules) — the printf + [@] fix
+    // makes the ^${bsf}| anchor match the back-of-array entry, so Phase 2 skip works.
+    const stub = `
+const flag = process.argv[2];
+if (flag === '--classify-path') {
+  console.log(JSON.stringify({ classification: 'manual-port', risk: 'P1', reason: 'test' }));
+} else if (flag === '--public-terms') {
+  console.log(JSON.stringify([{ severity: 'P1', termClass: 'brand', publicPatterns: ['Cat Cafe'] }]));
+} else if (flag === '--manual-port-patterns') {
+  console.log('assets/system-prompts/**');
+} else if (flag === '--brand-sensitive-patterns') {
+  console.log('packages/web/public/manifest.json\\npackages/web/public/icons/**\\npackages/web/public/concierge/**/pet.json\\npackages/api/src/infrastructure/connectors/im-connectors/weixin/WeixinAdapter.ts');
+} else {
+  console.log('');
+}
+`;
+    writeFileSync(join(f.repoRoot, 'scripts', 'brand-dictionary-helper.mjs'), stub, 'utf-8');
+
+    // With printf + [@] fix: Phase 2 SKIPS WeixinAdapter.ts (covered by BRAND_EXPECTATIONS),
+    // so the "Cat Cafe" sentinel inside the file does NOT produce a Phase 2 brand violation.
+    const output = runValidate(f.repoRoot);
+    assert.doesNotMatch(output, /WeixinAdapter\.ts.*Cat Cafe.*dictionary-driven/);
+    assert.match(output, /No brand violations detected/);
+  });
+
   it('scopes standalone validation to local changed files in a git worktree', () => {
     const f = makeBrandFixture({
       'README.opensource.md': '# Clowder AI\n\nPre-existing open-source product doc.\n',
