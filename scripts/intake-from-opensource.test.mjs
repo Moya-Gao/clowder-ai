@@ -198,6 +198,31 @@ describe('intake-from-opensource.sh --mode=plan high-risk guard', () => {
     assert.match(plainOutput, /High-risk:\s+3/);
     assert.match(plainOutput, /Safe:\s+1/);
   });
+
+  it('hard-fails on empty PR files API result instead of silent exit 0 (cat-cafe#2518)', () => {
+    // cat-cafe#2518 regression: when `gh api repos/<repo>/pulls/<n>/files`
+    // transiently returns empty (API flake, auth glitch, indexing lag),
+    // the script previously printed "No files found" + exit 0, producing
+    // a fake plan. Downstream `--record` would then register an "absorbed"
+    // intake with zero file decisions — the real PR contents never get
+    // absorbed. Hard-fail with explicit retry guidance instead.
+    const fixture = makePlanFixture([]); // empty files = simulate transient API flake
+    fixtures.push(fixture.sandboxRoot);
+
+    let stdout = '';
+    let exitCode = 0;
+    try {
+      runPlan(fixture.repoRoot, { PATH: `${fixture.mockBin}:${process.env.PATH}` });
+      assert.fail('expected --mode=plan to hard-fail on empty files API result');
+    } catch (error) {
+      stdout = String(error.stdout || '');
+      exitCode = error.status ?? -1;
+    }
+    assert.notStrictEqual(exitCode, 0, 'plan must exit non-zero on empty files');
+    assert.match(stdout, /Could not resolve PR/);
+    assert.match(stdout, /Refusing to produce an empty plan/);
+    assert.match(stdout, /gh pr diff/); // direct-check guidance
+  });
 });
 
 describe('intake-from-opensource.sh --advance-ledger', () => {
@@ -991,6 +1016,131 @@ describe('intake-from-opensource.sh --record strict guard (absorbed)', () => {
     );
 
     assert.match(output, /Absorbed intake strict guard passed/);
+  });
+
+  it('accepts Plan v2 natural-vocabulary intake body (cat-cafe#2519)', () => {
+    // cat-cafe#2519 regression: Strict Guard previously required canonical
+    // `## Per-File Decision Table` + literal `absorb`/`skip` keywords.
+    // Plan v2 from cat-cafe#2515 used natural intake-skill vocabulary
+    // (`safe-cherry-pick` / `manual-port` / `HIGH-RISK port`) under a
+    // `## Plan v2 — revised classification` header — it should now pass
+    // without re-writing the body to canonical form.
+    const f = makeRecordFixture({
+      issueBody: [
+        '## Plan v2 — revised classification',
+        '',
+        '| File | Lane | Status |',
+        '| --- | --- | --- |',
+        '| packages/api/src/foo.ts | safe-cherry-pick | absorb |',
+        '| packages/api/src/bar.ts | manual-port (preserve home comments) | absorb |',
+        '| packages/api/test/baz.test.js | high-risk port (auth boundary) | absorb |',
+        '',
+        'Source PR: [#777](https://github.com/zts212653/clowder-ai/pull/777)',
+      ].join('\n'),
+      absorbPrBody: 'Closes #1234\nSource: clowder-ai#777',
+    });
+    fixtures.push(f.sandboxRoot);
+
+    const output = runRecord(
+      f.repoRoot,
+      [
+        '--pr',
+        '777',
+        '--decision',
+        'absorbed',
+        '--intent-issue',
+        '1234',
+        '--absorb-pr',
+        '5678',
+        '--review-proof',
+        'https://github.com/zts212653/cat-cafe/pull/5678#issuecomment-1',
+      ],
+      { PATH: `${f.mockBin}:${process.env.PATH}` },
+    );
+
+    assert.match(output, /Absorbed intake strict guard passed/);
+  });
+
+  it('accepts owner-qualified markdown-link source PR reference (cat-cafe#2519)', () => {
+    // Regression: confirms that a Markdown-link source ref with the
+    // owner-qualified URL `https://github.com/zts212653/clowder-ai/pull/N`
+    // is accepted via substring inclusion. (This was already true before
+    // cat-cafe#2520; included here as a positive anchor so future loosening
+    // attempts that drop the `zts212653/` prefix break this test.)
+    const f = makeRecordFixture({
+      issueBody: [
+        '## 逐文件决策表',
+        '',
+        '| file | lane | decision |',
+        '| --- | --- | --- |',
+        '| packages/api/src/foo.ts | safe-cherry-pick | absorb |',
+        '',
+        '**Source PR**: [#777](https://github.com/zts212653/clowder-ai/pull/777) — fix something',
+      ].join('\n'),
+      absorbPrBody: 'Closes #1234\nSource: clowder-ai#777',
+    });
+    fixtures.push(f.sandboxRoot);
+
+    const output = runRecord(
+      f.repoRoot,
+      [
+        '--pr',
+        '777',
+        '--decision',
+        'absorbed',
+        '--intent-issue',
+        '1234',
+        '--absorb-pr',
+        '5678',
+        '--review-proof',
+        'https://github.com/zts212653/cat-cafe/pull/5678#issuecomment-1',
+      ],
+      { PATH: `${f.mockBin}:${process.env.PATH}` },
+    );
+
+    assert.match(output, /Absorbed intake strict guard passed/);
+  });
+
+  it('rejects wrong-owner clowder-ai/pull/N URL without zts212653 prefix (cat-cafe#2520 P1 provenance guard)', () => {
+    // cat-cafe#2520 review by @codex (砚砚): the first version of #2519
+    // loosen relaxed the source ref check to ANY substring matching
+    // `clowder-ai/pull/N`, which would have accepted attacker fixtures
+    // like `https://github.com/evil/clowder-ai/pull/N` or
+    // `https://example.com/clowder-ai/pull/N`. This negative test pins
+    // the provenance guard so future loosening attempts cannot bypass
+    // owner verification.
+    const f = makeRecordFixture({
+      issueBody: [
+        '## 逐文件决策表',
+        '',
+        '| file | lane | decision |',
+        '| --- | --- | --- |',
+        '| packages/api/src/foo.ts | safe-cherry-pick | absorb |',
+        '',
+        '**Source PR**: [#777](https://github.com/evil/clowder-ai/pull/777) — fake same-name fork',
+      ].join('\n'),
+      absorbPrBody: 'Closes #1234\nSource: clowder-ai#777',
+    });
+    fixtures.push(f.sandboxRoot);
+
+    const env = { PATH: `${f.mockBin}:${process.env.PATH}` };
+    const err = captureRecordFailure(
+      f.repoRoot,
+      [
+        '--pr',
+        '777',
+        '--decision',
+        'absorbed',
+        '--intent-issue',
+        '1234',
+        '--absorb-pr',
+        '5678',
+        '--review-proof',
+        'https://github.com/zts212653/cat-cafe/pull/5678#issuecomment-1',
+      ],
+      env,
+    );
+    assert.match(err.stdout, /must reference source PR clowder-ai#777/);
   });
 
   it('accepts markdown-wrapped decision tokens in Intent Issue table rows', () => {

@@ -619,17 +619,35 @@ run_absorbed_record_guard() {
     return 1
   fi
 
+  # cat-cafe#2519: Strict Guard schema is loosened to accept the natural
+  # intake vocabulary used by SKILL.md (safe-cherry-pick / manual-port /
+  # HIGH-RISK / public-only) and Markdown-link source PR references — not
+  # just the canonical `## Per-File Decision Table` + literal `absorb`/`skip`
+  # keywords. The intent (file table present + source PR linked) is what we
+  # actually verify; the prior regex forced a parallel "canonical" body shape
+  # that no skill ref documented, causing repeated false-block retries.
   local issue_table_ok
-  issue_table_ok=$(echo "$intent_info" | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')); const body=String(d.body||''); const normalized=body.replace(/[*_\`~]/g,''); const hasHeader=/##\\s*(?:逐文件决策表|(?:Per-File|Cluster-Level)\\s+Decision\\s+Table)/i.test(normalized); const hasRow=/\\|\\s*[^|\\n]+\\s*\\|\\s*[^|\\n]+\\s*\\|\\s*(absorb|skip)\\b[^|\\n]*/i.test(normalized); console.log(hasHeader && hasRow ? 'yes' : 'no')")
+  issue_table_ok=$(echo "$intent_info" | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')); const body=String(d.body||''); const normalized=body.replace(/[*_\`~]/g,''); const hasHeader=/##+\\s*[^\\n]*?(?:逐文件决策表|Per[- ]?file\\s+decision|Cluster[- ]?level\\s+decision\\s+table|Decision\\s+Table|决策|Classification|Plan\\s+v\\d|Lane)/i.test(normalized); const hasRow=/\\|\\s*[^|\\n]+\\s*\\|\\s*[^|\\n]+\\s*\\|[^|\\n]*(absorb(?:ed)?|safe[- ]?cherry[- ]?pick|manual[- ]?port|high[- ]?risk|skip|public[- ]?only)\\b/i.test(normalized); console.log(hasHeader && hasRow ? 'yes' : 'no')")
   if [ "$issue_table_ok" != "yes" ]; then
     echo -e "${RED}✗ Intake Intent Issue #$INTENT_ISSUE is missing a valid per-file decision table${NC}"
+    echo "  Expected: a markdown table with a heading containing 'Decision' / '决策' / 'Plan vN' / 'Classification' / 'Lane',"
+    echo "  and rows containing one of: absorbed, safe-cherry-pick, manual-port, high-risk, skip, public-only."
     return 1
   fi
 
+  # cat-cafe#2519: source ref guard KEPT strict on owner-qualified form
+  # (zts212653/clowder-ai/pull/N) to preserve provenance — markdown links
+  # like [#N](https://github.com/zts212653/clowder-ai/pull/N) already match
+  # via substring inclusion, so no loosening was needed. The earlier #2519
+  # friction was caused by the Plan v2 body omitting the source PR line
+  # entirely, not by the regex shape. (砚砚 review of cat-cafe#2520 caught
+  # an over-loosening that would have accepted `evil/clowder-ai/pull/N`.)
   local issue_source_ref_ok
   issue_source_ref_ok=$(echo "$intent_info" | SOURCE_PR="$PR_NUMBER" node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf-8')); const body=String(d.body||''); const n=process.env.SOURCE_PR; const ok=body.includes('clowder-ai#'+n) || body.includes('zts212653/clowder-ai/pull/'+n); console.log(ok ? 'yes' : 'no')")
   if [ "$issue_source_ref_ok" != "yes" ]; then
     echo -e "${RED}✗ Intake Intent Issue #$INTENT_ISSUE must reference source PR clowder-ai#$PR_NUMBER${NC}"
+    echo "  Expected one of: literal 'clowder-ai#$PR_NUMBER' substring,"
+    echo "  OR a Markdown/URL containing 'zts212653/clowder-ai/pull/$PR_NUMBER'."
     return 1
   fi
 
@@ -1112,9 +1130,18 @@ fi
 FILES=$(gh api --paginate "repos/$TARGET_REPO/pulls/$PR_NUMBER/files" --jq '.[].filename' 2>/dev/null || true)
 
 if [ -z "$FILES" ]; then
-  echo -e "${YELLOW}⚠ No files found in PR (may not be merged yet)${NC}"
-  echo "  Intake works best with merged PRs."
-  exit 0
+  # cat-cafe#2518: PR_STATE was verified MERGED above (line 1101). An empty
+  # FILES list here means the GitHub files API returned no rows — almost
+  # certainly a transient flake, NOT a legitimate empty PR. Silently exiting
+  # 0 with "No files found" would produce a fake plan, leading downstream
+  # `--record` to register an "absorbed" intake with zero file decisions —
+  # the real PR contents never get absorbed. Hard-fail instead.
+  echo -e "${RED}✗ Could not resolve PR #${PR_NUMBER} file list (files API returned empty).${NC}"
+  echo "  PR is MERGED but \`gh api repos/${TARGET_REPO}/pulls/${PR_NUMBER}/files\` returned no rows."
+  echo "  Likely cause: transient GitHub API flake. Retry the plan command."
+  echo "  Direct check: gh pr diff ${PR_NUMBER} --repo ${TARGET_REPO} --name-only"
+  echo "  Refusing to produce an empty plan — would create a fake intake (no files to absorb)."
+  exit 1
 fi
 
 # Classify files
