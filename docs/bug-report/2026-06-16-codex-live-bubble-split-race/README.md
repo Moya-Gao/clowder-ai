@@ -389,7 +389,7 @@ R20 边界：**completed/interrupted snapshot 不再挡住 R19 persisted-evidenc
 - 铲屎官在 alpha / runtime 继续看到「正文泡 + 独立 CLI Output 泡」；但 F5 后会合并，说明至少一部分是
   live-only residue。
 - 另一个 alpha 样本在 F5 后只剩 CLI Output，正文仍不显示。证据截图：
-  `evidence/f194-alpha-spark-v2-after-f5.png`。
+  `/assets/screenshots/f194-alpha-spark-v2-after-f5.png`。
 - 47 复核后把两类样本拆开：A 是 live parent-only CLI carrier 未在 done 后清掉；B 是 hydrate projection
   对单条 terminal stream-origin content+tools record 仍把 content 当 CLI stdout，导致 ChatMessage suppress body。
 
