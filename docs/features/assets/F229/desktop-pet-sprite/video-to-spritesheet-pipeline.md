@@ -295,11 +295,11 @@ convert cell_01.png -resize 59x64 preview_01.png
 | # | 状态 | Atlas Row | 需要帧数 | 视频需要？ | 状态 |
 |---|------|-----------|---------|-----------|------|
 | 1 | idle | 0 | 6 | ✅ R2 已完成 | ✅ done |
-| 2 | running-right | 1 | 8 | 需要 | ✅ Frame A 通过 |
+| 2 | running-right | 1 | 8 | 需要 | ✅ atlas row 完成 |
 | 3 | running-left | 2 | 8 | ❌ 翻转 running-right | 🔴 待做 |
-| 4 | waving | 3 | 4 | 需要 | ✅ Frame A 通过 |
-| 5 | jumping | 4 | 5 | 需要 | 🔴 待做 |
-| 6 | failed | 5 | 8 | 需要 | 🔴 待做 |
+| 4 | waving | 3 | 4 | 需要 | ✅ atlas row 完成 |
+| 5 | jumping | 4 | 5 | 需要 | ✅ atlas row 完成 |
+| 6 | failed | 5 | 8 | 需要 | ✅ atlas row 完成 |
 | 7 | waiting | 6 | 6 | 需要 | 🔴 待做 |
 | 8 | running | 7 | 6 | 需要 | 🔴 待做 |
 | 9 | review | 8 | 6 | 需要 | 🔴 待做 |
@@ -495,11 +495,15 @@ Subtle, focused micro-movements — very still otherwise.
 
 > 铲屎官要求分批审核。每批 CVO 审核通过后才继续下一批。
 
-**Batch 1（running-right + waving）** ✅ 全部通过
-- [x] running-right Frame A — ✅ CVO 审核通过（砚砚生成）
-- [x] waving Frame A — ✅ CVO 亲自生成通过（五爪 bug 经 R1→R5 解决，见教训）
-- [ ] jumping Frame A
-- [ ] failed Frame A
+**Batch 1（running-right + waving）** ✅ 全部完成（Frame A + 视频 + atlas row）
+- [x] running-right — ✅ 砚砚生成 Frame A → CVO 拍视频 → 宪宪截帧 8 帧 atlas row
+- [x] waving — ✅ CVO 亲自生成 Frame A（五爪教训见上）→ CVO 拍视频（选候选 1，花坠）→ 宪宪截帧 4 帧 atlas row
+
+**Batch 2（jumping + failed）** ✅ 全部完成（Frame A + 视频 + atlas row）
+- [x] jumping — ✅ 砚砚生成 Frame A → CVO 拍视频（2 候选，选 1 号垂直跳）→ 宪宪截帧 5 帧 atlas row
+- [x] failed — ✅ 砚砚生成 Frame A（r02）→ CVO 拍视频 → 宪宪截帧 8 帧 atlas row
+
+**Batch 3（waiting + running + review）** 🔴 待做
 - [ ] waiting Frame A
 - [ ] running Frame A
 - [ ] review Frame A
