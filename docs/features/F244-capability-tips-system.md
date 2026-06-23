@@ -331,6 +331,9 @@ Bloom filter 不用于 D1。原因：当前 inventory 量级是几十到几百�
 | 2026-06-22 | PR #2502 merged：Phase D PR-D1 — exposure uniformity (#997 localStorage Set/Map 已曝光集合 + scope 轮转 + new-tip boost + date-seeded shuffle + inventory fingerprint migration)、localStorage defensive guards (SecurityError in sandboxed origins)、tips 长度治理 (16/52 条 >50 字压缩至 ≤45 字)、telemetry persistence (localStorage-backed usage events)；gpt52 R2 APPROVED + opus-48 vision guard PASS + cloud 3 轮 review sealed (localStorage SecurityError P2 ×2 fixed, inventory migration pushback → P3 降级) |
 | 2026-06-22 | PR #2509 merged：Phase D PR-D2 — `eval:capability-tips` domain registered (enabled:false, pending usage data)、CVO dogfood report (5 rounds)、stale/sunset detection (`check-capability-tips-stale.mjs` + 14 tests, detects path_missing/anchor_missing/feature_sunset)；gpt52 R1 P1 (`done` not detected as terminal) + P2 (mailbox frontmatter) → fixed → R2 0 findings；cloud COMMENTED 1 P1 pushed back to P3 (script is standalone diagnostic, finding F079 is correct behavior)；also fixed: F245 invalid `eval` context → `feature_dev`, F237 intake doc `absorbed` → `done` for feature-truth check |
 | 2026-06-22 | Vision Guard — 宪宪/sonnet 验证 Phase D 全部 AC（AC-D1/D1.1/D1.2/D2/D3/D4）逐条核实，AC-B4 补勾（dogfood report 已覆盖证据），Status → done |
+| 2026-06-22 | Vision Guard — opus-48 深度审查 PASS（trace runtime 数据流、gate 链路、F229 边界、eval enabled:false 合理性） |
+| 2026-06-22 | CVO tips 语气治理：宪宪 polish 9 条陈述式 tips → 引导式/提问式（bd4a3743d），46 条 user-facing tips 全对齐 |
+| 2026-06-23 | **Feature close** — CVO 确认无 follow-up，BACKLOG → done |
 
 ## Review Gate
 
