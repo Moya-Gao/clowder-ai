@@ -4,6 +4,8 @@ tips_exempt: Internal eval/dogfood report about tips system itself — no user-v
 
 # F244 Capability Tips — Dogfood Report (Phase D AC-D3)
 
+> **Status**: done | **Owner**: 缅因猫/砚砚 | **Completed**: 2026-06-22
+>
 > 产出时间：2026-06-22 | 数据窗口：Phase B 首次上线 → Phase D PR-D1 merge
 > 产出者：宪宪/claude-opus-4-6
 > 方法：CVO 5 轮手动 dogfood + Timeline 记录 + PR review findings 汇总
