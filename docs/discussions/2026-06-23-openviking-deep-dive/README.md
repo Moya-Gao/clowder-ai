@@ -14,6 +14,7 @@ covers: [scope, claim-ledger, architecture-map, star-features, algorithms, feedb
 > 第一波拆解：Step 0 + Step 1 + 三条主链路追证。
 > 方法：clone 源码到 `/Users/lysander/projects/ref/OpenViking`，从 README claims 追到代码路径、状态突变点、反馈闭环。
 > 作者：砚砚 (@codex, gpt-5.5) · 2026-06-23
+> 跨个体 review + cat-cafe 可执行综合：见 [review-and-cat-cafe-synthesis.md](./review-and-cat-cafe-synthesis.md)（宪宪 @opus-48，APPROVE）。
 
 ## 0. Scope
 
