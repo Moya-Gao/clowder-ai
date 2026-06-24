@@ -17,15 +17,16 @@ source_commit: d8ec56ba7
 
 ## Verdict
 
-**Breakthrough.** The OpenViking-style L0/L1 output is index-ready for **10/10** samples, including **6/6** hard cases.
+**Manual index-surface pass (strong-model best-case).** The OpenViking-style L0/L1 output is index-ready for **10/10** samples by manual review, including **6/6** hard cases.
 
 Compared with F243 prompt v3's old aggregate (**4/10 production-ready; hard cases 1/6, 83% fail**), this run decisively improves the index surface:
 
 - **Status/lifecycle** is present in all 10 outputs (`done`, `parked`, `implemented`, `archived`, `spec`).
 - **Hard-case internal mechanisms** are preserved instead of hidden behind titles.
-- **Original discriminators** such as `spotlight/HUD`, `AcpAgentService`, `OperationContext`, `BM25`, `RightStatusPanel`, and `WordPairBank` are present.
+- **Most original discriminators** such as `AcpAgentService`, `OperationContext`, `BM25`, `RightStatusPanel`, and `WordPairBank` are present.
+- **F155 caveat**: the output preserves `场景式`, `Overlay`, guide state, and State Authority, but drops the exact `spotlight/HUD` anchor terms from the source document.
 
-Boundary: this proves the **best-case method** can work with a strong model and the OV prompt shape. It does not prove OV's small-model claim, does not reproduce vector ranking, and does not make ungated LLM memory writes safe.
+Boundary: this proves the **best-case method looks usable on paper** with a strong model and the OV prompt shape. It does not prove OV's small-model claim, does not reproduce vector/embedding ranking, and does not make ungated LLM memory writes safe.
 
 ## Input Checks
 
@@ -45,7 +46,7 @@ Scoring follows `prompt-quality-blind-test.md`: each dimension is 0/1/2; `index-
 |----|------|---------------|-------------|-----------|-------|---------|--------------------|
 | F008 | hard | 2 | 2 | 2 | 6 | index-ready | needs-fix |
 | F038 | hard | 2 | 2 | 2 | 6 | index-ready | needs-fix |
-| F155 | hard | 2 | 2 | 2 | 6 | index-ready | needs-fix |
+| F155 | hard | 2 | 2 | 1 | 5 | index-ready | needs-fix |
 | F161 | hard | 2 | 2 | 2 | 6 | index-ready | needs-fix |
 | F170 | hard | 2 | 2 | 2 | 6 | index-ready | production-ready |
 | F189 | hard | 2 | 2 | 2 | 6 | index-ready | needs-fix |
@@ -73,7 +74,7 @@ These probes are derived from source docs, not from the generated output.
 |----|--------------|----------------|-------------|
 | F008 | `js-tiktoken usage cost cache`; `RightStatusPanel ParallelStatusBar`; `ContextAssembler 截断` | L1 includes all three clusters and status done | hit |
 | F038 | `parked skills BM25 ToolSearch`; `.claude/skills symlink`; `skills 50+ 延迟加载` | L0/L1 include parked state, direction A/B, BM25, symlink fix | hit |
-| F155 | `spotlight HUD 场景式引导`; `GuideStateMachine Redis Zustand`; `YAML guide flows GuideRoutingInterceptor` | L1 preserves `spotlight + HUD`, state authority, guide domain objects | hit |
+| F155 | `spotlight HUD 场景式引导`; `GuideStateMachine Redis Zustand`; `YAML guide flows GuideRoutingInterceptor` | L1 preserves `场景式`, guide state, State Authority, YAML/GuideRoutingInterceptor, but drops exact `spotlight/HUD` terms | partial hit |
 | F161 | `AcpAgentService resolveEnvMap`; `OpenCode ACP`; `sessionId thinking buffer compaction` | L1 includes ACP decoupling, env maps, OpenCode, session/thinking followups | hit |
 | F170 | `archived interview demo`; `9x10 棋盘 7 种棋子`; `feat lifecycle feature branch` | L0/L1 include archived demo, rules engine, feature branch artifact | hit |
 | F189 | `OperationContext HTTP MCP A2A`; `trust boundary parity bug`; `MCP schema HTTP query params` | L0/L1 include OperationContext builder, carriers, trust boundary, parity bug | hit |
@@ -88,7 +89,7 @@ These probes are derived from source docs, not from the generated output.
 |-------------------|--------------------|------------|
 | H1/title repetition | Some semantic titles reuse domain terms, but L0/L1 add internal mechanisms and queryable details. | Improved; no index failure found. |
 | Status missing | All 10 outputs carry lifecycle/status semantics. | Fixed for this run. |
-| Metaphor replacement | F155 preserves `spotlight/HUD`; F119 preserves game/tactics vocabulary; no generic replacement dominates. | Fixed for hard cases. |
+| Metaphor replacement | F155 preserves the broader `场景式` anchor but drops exact `spotlight/HUD`; F119 preserves game/tactics vocabulary. | Partially improved, not fully fixed. |
 | doc_kind formula | OV prompt encourages genre/length intro; most abstracts start with formulaic phrasing. | Residual retrieval noise; should strip or downweight. |
 
 ## Cat Cafe Takeaways
@@ -103,7 +104,7 @@ If Cat Cafe adopts this direction for F243 or memory sidecars, add validation be
 
 - status/lifecycle must be present;
 - at least 2 unique mechanism terms must survive;
-- original domain metaphor/anchor terms must be retained when present;
+- original domain metaphor/anchor terms must be retained when present (`spotlight/HUD` would have caught the F155 miss);
 - query-probe self-check must pass for hard docs.
 
 ### Do Not Follow
