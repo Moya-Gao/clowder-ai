@@ -20,12 +20,13 @@ advisor: "@opus-48"
 
 ## 0. First Principle
 
-L0/L1 是索引，不是摘要作品。评测只问三件事：
+L0/L1 是索引，不是摘要作品。评测只问五件事：
 
 1. **核心覆盖**：L0/L1 是否抓住文档真正的检索锚点，而不是只复述标题。
 2. **区分度**：10 篇放在同一索引池里，能不能分清彼此，不被通用套话抹平。
 3. **可检索命中**：用熟悉文档的真实查询意图搜索时，是否会命中正确文档而不是漏召回/误召回。
 4. **人类查询面**：人类不会用内部架构词描述需求。L0 至少要回答"这到底是什么产品/能力"，并能匹配自然语言 query，例如"那个一步步教用户点按钮的功能"。
+5. **需求故事保真**：如果人类记住的是"为什么要做 / 先后关系 / 谁要接入谁"，L0 不能只抽象成重构结果。例如 F161 应保留"Gemini 已对接 ACP，后来 OpenCode 也要接 ACP"这个演进故事。
 
 F243 旧三病（H1 复述、status 丢失、隐喻置换）在本实验里只作为**索引失败模式**解释：
 复述标题会漏内部实质；丢 status 会少过滤维度；把 `spotlight/HUD/场景式` 换成通用"看板"会让真实概念 query 命不中。
@@ -137,6 +138,7 @@ Source: `docs/features/F008-token-budget-observability.md`
 
 `index-ready = 四项都 >=1 且总分 >=7`。低于阈值记为 `needs-fix`。
 `human-facing L0` 单独判：人类查询面若只靠 L1 才过，则 L0 不得作为用户可见摘要或 `docs/features/index.md` 的 description。
+`demand/story gate` 单独判：如果原文的主要检索锚点是需求演进、接入对象或先后关系，L0 丢掉这个故事则不得判为 human-facing pass，即使机制词还在。
 
 ### 4.2 Query Probe 规则
 
@@ -146,8 +148,9 @@ Source: `docs/features/F008-token-budget-observability.md`
 - **mechanism probe**：核心实现/约束，例如 `模板环境变量映射 ACP carrier`。
 - **status probe**：done/spec/parked/archived/lifecycle 语义，例如 `archived interview demo 网页象棋`。
 - **human probe**：不懂内部名词的人会怎么问，例如 `哪个功能能一步步教用户操作并高亮按钮`。
+- **story/demand probe**：人类记住的需求背景或先后关系，例如 `Gemini 先接 ACP 后来 OpenCode 也要接 ACP`。
 
-每篇至少 2 个 probe；硬骨头每篇 3 个 probe，且必须包含 1 个 human probe。
+每篇至少 2 个 probe；硬骨头每篇 3 个 probe，且必须包含 1 个 human probe。若原文有明显需求演进或接入故事，必须额外包含 1 个 story/demand probe。
 
 ### 4.3 Aggregate 判定
 
@@ -183,7 +186,7 @@ Source: `docs/features/F008-token-budget-observability.md`
 ## 6. Non-goals
 
 - 不评 OpenViking benchmark 数字。
-- 不评文采/可读性本身。
+- 不评文采；但评人话 query 能否命中，因为这是索引精度的一部分。
 - 不证明 OpenViking 小模型声明；本轮给 OV 方法一个强模型 best-case。若 best-case 成立，再补小模型组。
 - 不把 OpenViking 源码引入 Cat Cafe；AGPL 边界不变。
 
