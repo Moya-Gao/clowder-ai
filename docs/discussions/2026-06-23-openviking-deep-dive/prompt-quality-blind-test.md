@@ -25,6 +25,7 @@ L0/L1 是索引，不是摘要作品。评测只问三件事：
 1. **核心覆盖**：L0/L1 是否抓住文档真正的检索锚点，而不是只复述标题。
 2. **区分度**：10 篇放在同一索引池里，能不能分清彼此，不被通用套话抹平。
 3. **可检索命中**：用熟悉文档的真实查询意图搜索时，是否会命中正确文档而不是漏召回/误召回。
+4. **人类查询面**：人类不会用内部架构词描述需求。L0 至少要回答"这到底是什么产品/能力"，并能匹配自然语言 query，例如"那个一步步教用户点按钮的功能"。
 
 F243 旧三病（H1 复述、status 丢失、隐喻置换）在本实验里只作为**索引失败模式**解释：
 复述标题会漏内部实质；丢 status 会少过滤维度；把 `spotlight/HUD/场景式` 换成通用"看板"会让真实概念 query 命不中。
@@ -132,8 +133,10 @@ Source: `docs/features/F008-token-budget-observability.md`
 | 核心覆盖 | L0/L1 含 user problem + lifecycle/status + 关键机制/概念 | 抓到主题但少一个关键检索维度 | 标题化/泛化，内部实质搜不到 |
 | 区分度 | 与其余 9 篇有清晰唯一 terms/metaphor/status | 有少量通用套话但仍可区分 | 多篇撞脸，如都只是"规范/看板/系统" |
 | 可检索命中 | 针对 2-3 个真实 query probe 会命中本文且不误导到相邻文档 | 部分 query 可命中，部分漏 | 关键 query 命不中或会错指 |
+| 人类查询面 | L0 用人话说明产品/能力，能匹配非专家 query | L1 里有可匹配人话，但 L0 本身偏术语/架构 | L0/L1 都主要是内部术语，人类 query 难命中 |
 
-`index-ready = 三项都 >=1 且总分 >=5`。低于阈值记为 `needs-fix`。
+`index-ready = 四项都 >=1 且总分 >=7`。低于阈值记为 `needs-fix`。
+`human-facing L0` 单独判：人类查询面若只靠 L1 才过，则 L0 不得作为用户可见摘要或 `docs/features/index.md` 的 description。
 
 ### 4.2 Query Probe 规则
 
@@ -142,12 +145,13 @@ Source: `docs/features/F008-token-budget-observability.md`
 - **concept probe**：文档最独特的概念词，例如 `spotlight HUD 场景式引导`。
 - **mechanism probe**：核心实现/约束，例如 `模板环境变量映射 ACP carrier`。
 - **status probe**：done/spec/parked/archived/lifecycle 语义，例如 `archived interview demo 网页象棋`。
+- **human probe**：不懂内部名词的人会怎么问，例如 `哪个功能能一步步教用户操作并高亮按钮`。
 
-每篇至少 2 个 probe；硬骨头每篇 3 个 probe。
+每篇至少 2 个 probe；硬骨头每篇 3 个 probe，且必须包含 1 个 human probe。
 
 ### 4.3 Aggregate 判定
 
-- **Breakthrough**：总样本 `index-ready >= 8/10` 且硬骨头 `index-ready >= 4/6`。
+- **Strong pass**：总样本 `index-ready >= 8/10` 且硬骨头 `index-ready >= 4/6`。
 - **Partial**：总样本 `index-ready >= 6/10` 但硬骨头 `<4/6`，说明 easy 可用、困难文档仍需 gate。
 - **Fail**：总样本 `<6/10` 或硬骨头 `<=2/6`。
 
