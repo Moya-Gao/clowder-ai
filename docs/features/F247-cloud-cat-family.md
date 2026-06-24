@@ -334,6 +334,12 @@ Phase B-C 后启动。Settings 页面新增 "配置云端猫"，支持选 provid
 | 2026-06-21 09:00 UTC | 4 个支撑 docs（commit `ad3505ae2`）|
 | 2026-06-21 09:00-09:10 UTC | 砚砚 R3 HOLD + R3 second pass + R4 push back + R5 plan correction chain |
 | 2026-06-21 01:30 PT （本 revision）| F247 v2 — R3+R4+R5 单 commit 纯文档 fix |
+| 2026-06-22 06:47 PT | **B1a end-to-end 真理时刻**：dry-run via spike post_message 真写入 thread，speaker `缅因猫Pro(Pro Cloud (ChatGPT))`，messageId `0001782136023449-000294-5434e1fd` |
+| 2026-06-22 16:58 PT | 砚砚本地 R8.3 APPROVE (focused diff annotations + onboarding-guide + KD-13/14) |
+| 2026-06-22 21:23 PT | PR #2512 opened |
+| 2026-06-22 21:25 - 2026-06-23 00:53 PT | 云端 codex R9-R12: spike-server fail-closed gate hardening (4 轮 = LL-072 上限触发硬封板) |
+| 2026-06-24 12:18 PT | 砚砚本地 final scope-limited continuity review APPROVE on `1f8500873` |
+| **2026-06-24 12:22 PT** | **Phase B1a merged (PR #2512, squash SHA `684a90609`)** ✅ |
 
 ## Links
 
