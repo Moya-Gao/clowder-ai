@@ -1,0 +1,36 @@
+{
+  "verdictId": "2026-06-24-eval-a2a-route-serial-samples-still-missing-build",
+  "featureId": "F167",
+  "evalSnapshotId": "eval-F167-2026-06-22",
+  "generatedAt": "2026-06-22T03:01:24.681Z",
+  "findings": [
+    {
+      "id": "AR-2026-06-22-001",
+      "relatedFeature": "F167",
+      "frictionSignal": {
+        "type": "inline_action.feedback_written",
+        "severity": "low",
+        "confidence": 0.7
+      },
+      "attribution": {
+        "primaryLayer": "harness_misfit",
+        "pipelineOrHuman": "pipeline",
+        "evidence": [
+          {
+            "type": "counter",
+            "anchor": "route-serial/inline_action.feedback_written",
+            "excerpt": "inline_action.feedback_written=5 (baseline inline_action.checked=82, ratio=6.1%)"
+          }
+        ]
+      },
+      "proposedAction": [
+        {
+          "action": "harness-tune",
+          "target": "route-serial/inline_action.feedback_written",
+          "rationale": "inline_action.feedback_written ratio 6.1% exceeds threshold"
+        }
+      ],
+      "status": "open"
+    }
+  ]
+}
