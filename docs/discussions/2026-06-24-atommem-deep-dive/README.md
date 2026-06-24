@@ -2,7 +2,7 @@
 doc_kind: research-note
 topics: [atommem, open-source-teardown, memory-system]
 created: 2026-06-24
-status: draft
+status: reviewed-v2
 source_repo: https://github.com/MINE-USTC/AtomMem
 source_local_path: /Users/lysander/projects/ref/AtomMem
 source_commit: 776f880941a02b10c495c126fe775d5e88ede5d4
@@ -33,9 +33,9 @@ covers: [architecture, star-features, algorithms, comparison]
 | Tri-partite memory: facts, events, temporal user profiles | README lists Atomic Facts, Event Memories, Temporal User Profiles | `src/file_storage.py:24-27`, `src/file_storage.py:72-197`, `src/event_manager.py:30-114`, `atommem_core/incremental_temporal_profile.py:118-174` | Supported | All three views are JSON files under one namespace. Event/profile construction depends heavily on LLM judgment. |
 | Associative graph retrieval with RWR/PPR | README claims localized graph over entities/events/neighboring dialogue turns and PPR/RWR retrieval | `atommem_core/multichannel_graph.py:83-162`, `atommem_core/multichannel_graph.py:167-245`, `atommem_core/multichannel_graph.py:426-486`, `atommem_core/graph_rerank.py:76-191`, `scripts/run_atommem_pipeline.py:281-396` | Supported | It is a runtime-local graph built from JSON facts/events, then used to rerank a seed set. It is not a persistent graph DB. |
 | Stable memory evolution | README claims stable user-state evolution | `src/fact_storage.py:62-127`, `atommem_core/temporal_profile_version_chain.py:151-207`, `atommem_core/temporal_profile_version_chain.py:350-560`, `atommem_core/incremental_temporal_profile.py:55-117` | Partially supported | There is dedupe/conflict handling and profile version chains, but no rollback, confidence, reviewer gate, or eval feedback into memory writes. |
-| Scalable and economically viable | README frames AtomMem as scalable/economically viable | `scripts/run_atommem_pipeline.py:529-544`, `scripts/evaluate_locomo.py:216-240`, `src/file_storage.py:51-68` | Weak / unproven | Code loads JSON collections into memory and calls LLMs for extraction, metadata, conflicts, events, profiles, intent, and answers. Token stats exist, but scale claims are not established by infra. |
-| Plug-and-play pipeline | README says developers can effortlessly equip conversational agents with long-term memory | `scripts/run_atommem_pipeline.py:547-658`, `scripts/run_demo_server.py:83-104`, `.env.example`, `config.py` | Partially supported | CLI and local demo are usable. It is not packaged as a library, has global `config` mutation, and assumes OpenAI-compatible endpoints. |
-| LoCoMo benchmark reproducibility | README says `scripts/evaluate_locomo.py` reproduces reported metrics using provided data | `data/split_samples/`, `data/locomo_preextracted_facts/`, `scripts/evaluate_locomo.py:1-6`, `scripts/evaluate_locomo.py:141-146`, `scripts/evaluate_locomo.py:262-307` | Partially supported | Data and runner exist. The repo has no CI fixture and no checked-in expected metric snapshot to compare against. |
+| Scalable and economically viable | README frames AtomMem as scalable/economically viable | `scripts/run_atommem_pipeline.py:529-544`, `scripts/evaluate_locomo.py:216-240`, `src/file_storage.py:24-27`, `src/file_storage.py:76-85`, `src/utils.py:44-48` | Weak / unproven | Code loads JSON collections into memory and calls LLMs for extraction, metadata, conflicts, events, profiles, intent, and answers. Storage is a single-process `conversation_id` namespace, not multi-tenant isolation; JSON read-modify-write is not concurrent-write safe. Token stats exist, but scale claims are not established by infra. |
+| Plug-and-play pipeline | README says developers can effortlessly equip conversational agents with long-term memory | `scripts/run_atommem_pipeline.py:547-658`, `scripts/run_demo_server.py:83-104`, `scripts/run_demo_server.py:272-276`, `.env.example`, `config.py` | Partially supported | CLI and local demo are usable. It is not packaged as a library, assumes OpenAI-compatible endpoints, and the demo writes user-provided model settings into module-global `config`, which can cross-contaminate sessions in one process. |
+| LoCoMo benchmark reproducibility | README says `scripts/evaluate_locomo.py` reproduces reported metrics using provided data | `data/split_samples/`, `data/locomo_preextracted_facts/`, `scripts/evaluate_locomo.py:1-6`, `scripts/evaluate_locomo.py:141-146`, `scripts/evaluate_locomo.py:262-307`, `scripts/run_atommem_pipeline.py:486`, `prompts/answer_generation_prompt_cat2.txt`, `prompts/answer_generation_prompt_cat3.txt` | Supported, but benchmark-coupled | Data and runner exist, but public QA code passes LoCoMo `category` into prompt selection. Category 2 uses a temporal-reasoning prompt and category 3 uses a commonsense-reasoning prompt, so benchmark metrics rely on benchmark labels that ordinary deployments will not have. The repo also has no CI fixture or checked-in expected metric snapshot. |
 
 ## 2. Architecture Map
 
@@ -92,6 +92,12 @@ online demo
   - `scripts/run_demo_server.py` 650 lines.
   - `atommem_core/temporal_profile_version_chain.py` 666 lines.
   - `atommem_core/multichannel_graph.py` 636 lines.
+
+### Community / Reproducibility Audit
+
+- Community signal is too early to treat as validation. On 2026-06-24, `gh issue list --state all` and `gh pr list --state all` both returned `[]`; `gh repo view` returned 14 stars and 1 fork. For a memory system, 0 issues / 0 PRs means "not externally shaken down yet", not "low defect rate".
+- Benchmark reproducibility needs a separate source-audit before quoting numbers. `.env.example:17` and `scripts/evaluate_locomo.py:51` default the judge model to `deepseek-v4-pro`; this may work only if the caller's DashScope/OpenAI-compatible endpoint exposes that model string. The repo does not include a checked-in expected metric table, so running the script is reproducibility tooling, not proof that public users can reproduce a specific score.
+- Runtime shape is single-process research code. `src/file_storage.py:24-27` writes `facts/events/profiles/entity_graph` files by `conversation_id` under global `config.FACTS_DIR`; `src/utils.py:44-48` overwrites JSON directly. There is no `user_id` / `tenant_id` / `org_id` dimension and no cross-process write lock.
 
 ## 3. Star Feature Deep Dives
 
@@ -166,6 +172,8 @@ online demo
 
 ## 4. Algorithm Peel Table
 
+The shape is LLM-orchestration first, graph algorithm second. `prompts/` contains 11 prompt files, covering fact metadata, event attribution, event generation, profile extraction, temporal profile update, query intent, category-specific answer prompts, demo answer generation, and judge scoring. The main non-LLM algorithmic node is the graph PPR/RWR reranker; most memory-writing decisions before retrieval are LLM extraction/judgment plus heuristic prefilters.
+
 | Mechanism | Input | Output | Type | Code path | Mutates future behavior? |
 |---|---|---|---|---|---|
 | Atomic fact extraction | Dialogue turn + previous turn | List of fact strings | LLM extraction | `scripts/run_atommem_pipeline.py:105-207`, `scripts/run_demo_server.py:118-209` | Yes, if stored |
@@ -191,7 +199,27 @@ online demo
 | Quality/eval improves memory construction | Benchmark results / judge labels | None in runtime | None | No automatic correction | Missing loop |
 | User correction loop | User says memory is wrong | No explicit correction API | None, except manual JSON/code paths | No governed correction path | Missing loop |
 
-## 6. Cat Cafe Comparison
+## 6. Agent-User Fit Verdict
+
+True user for this class of tool is the agent/runtime using memory to continue work, not only the human looking at the demo panel. From that angle, AtomMem is a human-facing demo plus benchmark runner, not an agent-facing memory tool.
+
+| Layer | Question | AtomMem status | Verdict |
+|---|---|---|---|
+| L1: Can continue | Can an agent follow up from a result? | `fact_id` and `dia_id` exist, so there is a weak anchor back to JSON/dialogue data. | ⚠️ Partial |
+| L2: Can distinguish | Does the tool distinguish observation vs generated memory? | Facts, events, and profiles are presented as memory records even when produced or merged by LLM prompts. No authority/confidence/source-tier label is attached. | ❌ Fail |
+| L3: Can close the loop | Can an agent verify, correct, write back, and re-observe? | No correction API, no targeted fact/profile revoke path, no reviewer/approval gate, and no verification loop after benchmark judgments. | ❌ Fail |
+
+Engineering checklist:
+
+- Natural path: partial. CLI and demo exist, but there is no MCP/tool interface designed for agent use.
+- Reality interface: partial. `dia_id` is a useful weak anchor, but retrieval output does not expose original utterance text or authority class.
+- Failure next step: fail. Zero-hit, bad extraction, wrong profile merge, and wrong event attribution do not carry structured recovery guidance.
+- Provenance: partial. Evidence IDs exist, but generated summaries/profiles blur source observation and LLM interpretation.
+- Deletable/shrinkable: partial. JSON can be edited or removed, but there is no governed cascade/correction workflow.
+
+Bottom line: useful research prototype ideas; unsafe as a drop-in agent memory provider without provenance labels and correction loops.
+
+## 7. Cat Cafe Comparison
 
 | Dimension | AtomMem | Cat Cafe | Learn / Gap / Do Not Follow | Agent User Fit | Reason |
 |---|---|---|---|---|---|
@@ -201,8 +229,10 @@ online demo
 | Persistent truth writes | LLM decisions write facts/events/profiles directly | Cat Cafe uses truth-source docs, review gates, authority labels | Do Not Follow | ⚠️ L1 / ❌ L2 / ⚠️ L3 | LLM judge writes are convenient but too easy to promote generated interpretation into "memory truth". |
 | Scale story | JSON store, in-process graph, token accounting | SQLite/Redis/tool telemetry/eval loops in repo-specific systems | Do Not Follow | ⚠️ L1 / ❌ L2 / ❌ L3 | AtomMem's "scalable" claim is not backed by infra or CI. Treat as research prototype. |
 | Demo UX | Live memory panel: facts/events/profiles update after answer | Cat Cafe Hub wants agent-facing tool closure, not just human panels | Learn carefully | ✅ L1 / ⚠️ L2 / ⚠️ L3 | The panel is useful for observability, but observation/generation labels are not explicit enough for agent trust. |
+| Multi-tenant / concurrency isolation | Single `conversation_id` path namespace; JSON read-modify-write; module-global config mutation in demo | Thread/cat identity boundaries, Redis namespace discipline, commit-as-truth docs | Do Not Follow | ⚠️ L1 / ❌ L2 / ❌ L3 | The public code has research-demo isolation, not production/user-state isolation. |
+| Benchmark coupling | Category-specific answer prompts for LoCoMo temporal and commonsense questions | Eval Hub should measure product behavior, not leak benchmark labels into primary runtime | Do Not Follow | ⚠️ L1 / ❌ L2 / ❌ L3 | Benchmark engineering is not general agent memory capability. |
 
-## 7. Lessons / Next Steps
+## 8. Lessons / Next Steps
 
 Candidate lessons:
 
@@ -210,12 +240,15 @@ Candidate lessons:
 - Turn-neighborhood edges are cheap and domain-relevant for conversation memory; Cat Cafe memory search could borrow this as a retrieval feature if it preserves source authority labels.
 - Temporal profile version chains are more honest than overwriting "current profile" summaries. The state model is worth adapting only with explicit provenance and correction controls.
 - Early `--dry-run` before heavy imports in `scripts/run_atommem_pipeline.py:49-91` is a good CLI ergonomics pattern.
+- Reproducibility claims for research memory systems need source-audit by default: model name, endpoint availability, dataset availability, benchmark labels, and checked-in expected metrics all matter.
 
 Do not follow:
 
 - Do not write persistent truth rows from LLM judges without authority/confidence/provenance and review/correction paths.
 - Do not call a JSON-file, load-all in-process prototype "scalable" without benchmarked limits.
 - Do not treat LoCoMo LLM judge metrics as proof of open-ended personalized-agent memory quality.
+- Do not write user/session model settings into module-global runtime state, as the demo does with `config.API_KEY`, `config.API_BASE`, and `config.LLM_MODEL`.
+- Do not hardwire benchmark category labels into the primary answer path and then generalize the result as product capability.
 - Do not ship memory tools without formal tests. This repo has script-level validation but no regression suite.
 
 Follow-up questions:
@@ -223,4 +256,3 @@ Follow-up questions:
 - Run `scripts/evaluate_locomo.py` with fixed keys and compare `--disable-graph` against graph-enabled retrieval to quantify the graph contribution.
 - Inspect any paper/preprint if/when the authors publish one; the current repo does not include a paper link or checked-in metric table.
 - If Cat Cafe wants to borrow temporal profiles, write a source-audited design gate first: what user-visible data can be persisted, what stays candidate-only, and who approves corrections.
-
