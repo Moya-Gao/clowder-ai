@@ -1,6 +1,6 @@
 # Video-to-Spritesheet Pipeline（视频截帧 → Atlas 素材）
 
-> **状态**: spike-in-progress
+> **状态**: ✅ all 9 states complete — atlas assembled (1536×1872 PNG + WebP)
 > **创建**: 2026-06-22 宪宪 + 砚砚 + 铲屎官脑洞
 > **真相源**: 本文件（提示词、pipeline 步骤、学习记录）
 > **关联**: F229 BUG-UX-6 动画可见性、KD-18 PetSkinContract、KD-21 四猫视觉 canon
@@ -296,13 +296,13 @@ convert cell_01.png -resize 59x64 preview_01.png
 |---|------|-----------|---------|-----------|------|
 | 1 | idle | 0 | 6 | ✅ R2 已完成 | ✅ done |
 | 2 | running-right | 1 | 8 | 需要 | ✅ atlas row 完成 |
-| 3 | running-left | 2 | 8 | ❌ 翻转 running-right | 🔴 待做 |
+| 3 | running-left | 2 | 8 | ❌ 翻转 running-right | ✅ flipped from running-right |
 | 4 | waving | 3 | 4 | 需要 | ✅ atlas row 完成 |
 | 5 | jumping | 4 | 5 | 需要 | ✅ atlas row 完成 |
 | 6 | failed | 5 | 8 | 需要 | ✅ atlas row 完成 |
-| 7 | waiting | 6 | 6 | 需要 | 🔴 待做 |
-| 8 | running | 7 | 6 | 需要 | 🔴 待做 |
-| 9 | review | 8 | 6 | 需要 | 🔴 待做 |
+| 7 | waiting | 6 | 6 | 需要 | ✅ atlas row 完成（选候选 1） |
+| 8 | running | 7 | 6 | 需要 | ✅ atlas row 完成 |
+| 9 | review | 8 | 6 | 需要 | ✅ atlas row 完成 |
 
 **需要拍 7 个视频**（idle 已完成，running-left 翻转），砚砚为每个视频生成 1 张 Frame A。
 
@@ -503,28 +503,29 @@ Subtle, focused micro-movements — very still otherwise.
 - [x] jumping — ✅ 砚砚生成 Frame A → CVO 拍视频（2 候选，选 1 号垂直跳）→ 宪宪截帧 5 帧 atlas row
 - [x] failed — ✅ 砚砚生成 Frame A（r02）→ CVO 拍视频 → 宪宪截帧 8 帧 atlas row
 
-**Batch 3（waiting + running + review）** 🔴 待做
-- [ ] waiting Frame A
-- [ ] running Frame A
-- [ ] review Frame A
+**Batch 3（waiting + running + review）** ✅ 全部完成（Frame A + 视频 + atlas row）
+- [x] waiting — ✅ CVO 生成 Frame A（替换原版）→ CVO 拍视频（2 候选，选 1 号更好构图）→ 宪宪截帧 6 帧 atlas row
+- [x] running — ✅ 砚砚生成 Frame A → CVO 拍视频 → 宪宪截帧 6 帧 atlas row
+- [x] review — ✅ 砚砚生成 Frame A → CVO 拍视频 → 宪宪截帧 6 帧 atlas row
 
-**Batch 2: 铲屎官生成 7 个视频**
-- [ ] running-right 视频（16:9, 2s, 低运动）
-- [ ] waving 视频
-- [ ] jumping 视频
-- [ ] failed 视频
-- [ ] waiting 视频
-- [ ] running 视频
-- [ ] review 视频
+**所有视频** ✅ 铲屎官生成 7 个视频完成
+- [x] running-right 视频（16:9, 3s）
+- [x] waving 视频（选候选 1，花坠）
+- [x] jumping 视频（选 1 号垂直跳）
+- [x] failed 视频
+- [x] waiting 视频（2 候选，选 1 号更好构图）
+- [x] running 视频
+- [x] review 视频
 
-**Batch 3: 宪宪截帧 + 合成 atlas**
-- [ ] 各视频截帧（ffmpeg 4fps）
-- [ ] 裁剪+抠图+缩放到 192×208
-- [ ] idle: 从 R2 的 12 帧选 6 帧
-- [ ] running-left: 水平翻转 running-right 的 8 帧
-- [ ] 9 行拼接成 spritesheet（1536×1872）
-- [ ] 输出 WebP + 更新 pet.json
-- [ ] 在桌宠里实测对比
+**Final Assembly** ✅ 全部完成（2026-06-24）
+- [x] 各视频截帧（ffmpeg 4fps → 12 帧/视频）
+- [x] 裁剪+抠图+缩放到 192×208（sitting=665×720 crop, moving=800×720 crop）
+- [x] idle: 从 R2 的 12 帧选 6 帧（01,03,05,07,09,11）
+- [x] running-left: 水平翻转 running-right 的 8 帧（magick -flop）
+- [x] 9 行拼接成 spritesheet（1536×1872）→ `xianxian-9state-atlas.png`（3.0MB）
+- [x] 输出 WebP → `xianxian-9state-atlas.webp`（733KB）
+- [ ] 更新 pet.json（Phase E1 worktree 任务）
+- [ ] 在桌宠里实测对比（Phase E1 worktree 任务）
 
 ## 关联决策
 
