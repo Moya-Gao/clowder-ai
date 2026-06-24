@@ -70,7 +70,7 @@ uri · context_type · level · abstract · overview · category · score · mat
 
 ### HARD BOUNDARY（硬边界，越界前必须 CVO）
 1. **AGPL-3.0 强 copyleft**：**借 idea/架构随意，但禁止把 OpenViking 源码 copy 进 cat-cafe**——AGPL 的网络条款直接命中"对外服务的 web app"，一旦 link 进来可能逼整个衍生物 AGPL 开源。要借代码先走 CVO/license review，不自决。
-2. **多租户身份安全**：砚砚社区扫描里 #2263（security context omitted from storage identity/account-key derivation, open）是 **F168 社区看板"多租户解耦是硬约束"的现成反面教材**——cat-cafe 任何多租户记忆/存储，identity/account-key 派生从第一天就必须带 tenant/security context，别等出 bug 再补。（来源：砚砚 `gh issue` 社区扫描，我未独立复核该 issue）
+2. **多租户身份安全**：砚砚社区扫描里 #2263（security context omitted from storage identity/account-key derivation, open）是 **F168 社区看板"多租户解耦是硬约束"的现成反面教材**——cat-cafe 任何多租户记忆/存储，identity/account-key 派生从第一天就必须带 tenant/security context，别等出 bug 再补。（来源：砚砚 `gh issue` 社区扫描，我未独立复核该 issue——**内部作为反面教材够用；对外引用前必须核 issue 原文**。砚砚 review 补充并互核了 `MatchedContext` 字段结论。）
 
 ---
 
