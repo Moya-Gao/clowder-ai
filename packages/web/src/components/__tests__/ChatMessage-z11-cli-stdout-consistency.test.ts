@@ -127,22 +127,22 @@ describe('F194 Phase Z11 — ChatMessage CLI Output stdout consistency (AC-Z29)'
     expect(text).toContain('PURE_STREAM_STDOUT');
   });
 
-  it('terminal stream speechContent renders as body while CLI Output keeps only tools', () => {
+  it('rollback compatibility: cached R21 stream speech stays visible when cliStdout is empty', () => {
     const msg = {
-      id: 'msg-saga21-terminal-stream',
+      id: 'msg-z11-cached-r21-speech',
       type: 'assistant' as const,
-      catId: 'spark',
-      content: 'SAGA21_BODY_SHOULD_RENDER',
+      catId: 'opus',
+      content: '',
       origin: 'stream' as const,
-      toolEvents: [{ id: 't1', type: 'tool_use' as const, label: 'rg -n', timestamp: 1000 }],
+      toolEvents: [{ id: 't1', type: 'tool_use' as const, label: 'Read cached.ts', timestamp: 1000 }],
       timestamp: Date.now(),
       isStreaming: false,
       extra: {
         stream: {
-          invocationId: 'parent-saga21',
-          turnInvocationId: 'turn-saga21',
+          invocationId: 'p',
+          turnInvocationId: 't',
           cliStdout: '',
-          speechContent: 'SAGA21_BODY_SHOULD_RENDER',
+          speechContent: 'CACHED_R21_SPEECH',
         },
       },
     };
@@ -151,7 +151,34 @@ describe('F194 Phase Z11 — ChatMessage CLI Output stdout consistency (AC-Z29)'
     });
     const text = container.textContent ?? '';
     expect(text).toContain('CLI Output');
-    expect(text).toContain('SAGA21_BODY_SHOULD_RENDER');
-    expect((text.match(/SAGA21_BODY_SHOULD_RENDER/g) ?? []).length).toBe(1);
+    expect(text).toContain('CACHED_R21_SPEECH');
+  });
+
+  it('rollback compatibility: cached R21 speech does not override non-empty stream content', () => {
+    const msg = {
+      id: 'msg-z11-cached-r21-stale-speech',
+      type: 'assistant' as const,
+      catId: 'opus',
+      content: 'NEW_STREAM_TEXT',
+      origin: 'stream' as const,
+      toolEvents: [{ id: 't1', type: 'tool_use' as const, label: 'Read fresh.ts', timestamp: 1000 }],
+      timestamp: Date.now(),
+      isStreaming: false,
+      extra: {
+        stream: {
+          invocationId: 'p',
+          turnInvocationId: 't',
+          cliStdout: '',
+          speechContent: 'STALE_R21_SPEECH',
+        },
+      },
+    };
+    act(() => {
+      root.render(React.createElement(ChatMessage, { message: msg, getCatById }));
+    });
+    const text = container.textContent ?? '';
+    expect(text).toContain('CLI Output');
+    expect(text).toContain('NEW_STREAM_TEXT');
+    expect(text).not.toContain('STALE_R21_SPEECH');
   });
 });

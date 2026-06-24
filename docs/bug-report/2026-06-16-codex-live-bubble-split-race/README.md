@@ -382,43 +382,14 @@ CLI-only residue。
 
 R20 边界：**completed/interrupted snapshot 不再挡住 R19 persisted-evidence drop；running snapshot 继续挡住 drop。**
 
-## R21 复发：live carrier 与 terminal stream speech 双边界（2026-06-23，砚砚/GPT-5.5 + Opus47 review）
+## R21 回滚：terminal stream speech 投影改坏展示模型（2026-06-23，砚砚/GPT-5.5）
 
-### 复发现象
+R21 曾尝试同时处理 live parent-only CLI carrier 与 terminal stream speech projection，但 runtime dogfood 证明：
 
-- 铲屎官在 alpha / runtime 继续看到「正文泡 + 独立 CLI Output 泡」；但 F5 后会合并，说明至少一部分是
-  live-only residue。
-- 另一个 alpha 样本在 F5 后只剩 CLI Output，正文仍不显示。证据截图：
-  `/assets/screenshots/f194-alpha-spark-v2-after-f5.png`。
-- 47 复核后把两类样本拆开：A 是 live parent-only CLI carrier 未在 done 后清掉；B 是 hydrate projection
-  对单条 terminal stream-origin content+tools record 仍把 content 当 CLI stdout，导致 ChatMessage suppress body。
+- 目标问题仍未解决：live 首屏仍可能裂成两个 bubble，F5/hydration 后才收敛。
+- 展示模型被改坏：原期望顺序是 **Thinking -> tool call -> 消息**；R21 把 terminal stream content 提升成正文，
+  实际变成 **消息 -> Thinking -> tool call**，并破坏消息折叠语义。
+- R21 的单元测试只覆盖了过窄 fixture，没有覆盖真实 live 首屏顺序和交互折叠体验。
 
-### 精确 fix
-
-R21 分两刀，不再把 A/B 混成一个根因：
-
-- **A / live cleanup**：`applyBubbleEventWithRecovery` 投影出口清理本地 `msg-*` / `draft-*` parent-only terminal
-  stream carrier。只有当同 cat + 同 parent 已存在 terminal turn-bound stream sibling，且 sibling 覆盖 carrier 的
-  text/tool stable evidence 时才 drop；正在 streaming、未覆盖、contentful old residue 继续保留。
-- **B / terminal stream speech projection**：`projectCanonicalBubbles` 对 **turn-bound** terminal single
-  stream-origin record 设置 `extra.stream.speechContent = content`，并用 `cliStdout = ''` 防止正文重复塞进
-  CLI stdout。parent-only stream record 仍按 legacy/live work-log 处理，避免把旧 alpha 多 record work log
-  或二次投影后的中间态误判成最终正文。`ChatMessage` 在 stream-origin + CLI block 时，若存在
-  `speechContent`，仍渲染正文。
-
-### 守门测试
-
-- `useAgentMessages-codex-tool-text-active-residue.test.ts`
-  - `[final persisted turn + parent-only carrier] drops covered local CLI residue without losing tools`
-- `bubble-projection-z11-cli-stdout.test.ts`
-  - `terminal single stream record with tools exposes speechContent so hydrate does not swallow body into CLI stdout`
-  - `parent-only terminal stream record stays CLI work log until it is turn-bound`
-  - `multiple terminal stream work-log records do not masquerade as final speech`
-  - `re-projecting a previously split terminal stream strips stale speech metadata when more records arrive`
-- `bubble-projection-alpha-replay.test.ts`
-  - `hydrate path projection ≡ direct projection (live wrapper) for alpha 3-record fixture`
-- `ChatMessage-z11-cli-stdout-consistency.test.ts`
-  - `terminal stream speechContent renders as body while CLI Output keeps only tools`
-
-R21 边界：**live covered carrier 可删；streaming / 未覆盖 residue 不删。turn-bound terminal single stream record
-的 content 是用户可见正文，不再默认等同 CLI stdout；parent-only / multi-record stream work log 仍是 CLI stdout。**
+因此 `40ea51c5d` 已回滚。R21 的失败样本截图保留在 `/assets/screenshots/f194-alpha-spark-v2-after-f5.png`，
+作为后续重做方案的反例证据。

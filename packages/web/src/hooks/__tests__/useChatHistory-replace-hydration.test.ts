@@ -857,7 +857,7 @@ describe('useChatHistory replace hydration', () => {
         thinkingChunks: ['draft thinking'],
         toolEvents: [{ id: 'te-draft-1', type: 'tool_use' as const, label: 'Read file', timestamp: now - 10 }],
         origin: 'stream' as const,
-        extra: { stream: { invocationId: 'inv-2', turnInvocationId: 'turn-inv-2' } },
+        extra: { stream: { invocationId: 'inv-2' } },
         timestamp: now - 20,
         isStreaming: true,
       },
@@ -873,7 +873,7 @@ describe('useChatHistory replace hydration', () => {
             messages: seededMessages,
             hasActiveInvocation: true,
             catStatuses: { codex: 'streaming' },
-            catInvocations: { codex: { invocationId: 'inv-2', turnInvocationId: 'turn-inv-2', startedAt: now - 200 } },
+            catInvocations: { codex: { invocationId: 'inv-2', startedAt: now - 200 } },
           },
         },
       }));
@@ -894,7 +894,7 @@ describe('useChatHistory replace hydration', () => {
           thinking: 'draft thinking\n\n---\n\nfinal reasoning',
           origin: 'stream',
           timestamp: now,
-          extra: { stream: { invocationId: 'inv-2', turnInvocationId: 'turn-inv-2' } },
+          extra: { stream: { invocationId: 'inv-2' } },
           toolEvents: [
             { id: 'te-draft-1', type: 'tool_use', label: 'Read file', timestamp: now - 10 },
             { id: 'te-draft-2', type: 'tool_use', label: 'Write file', timestamp: now },
@@ -911,14 +911,7 @@ describe('useChatHistory replace hydration', () => {
         content: 'full completed response',
         thinking: 'draft thinking\n\n---\n\nfinal reasoning',
         origin: 'stream',
-        extra: {
-          stream: expect.objectContaining({
-            invocationId: 'inv-2',
-            turnInvocationId: 'turn-inv-2',
-            speechContent: 'full completed response',
-            cliStdout: '',
-          }),
-        },
+        extra: { stream: { invocationId: 'inv-2' } },
         toolEvents: [
           expect.objectContaining({ id: 'te-draft-1', type: 'tool_use', label: 'Read file' }),
           expect.objectContaining({ id: 'te-draft-2', type: 'tool_use', label: 'Write file' }),

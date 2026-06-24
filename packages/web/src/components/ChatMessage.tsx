@@ -188,9 +188,19 @@ export function ChatMessage({
   // working log while the callback terminal text renders as the body.
   const mergedCliStdout = message.extra?.stream?.cliStdout;
   const mergedSpeechContent = message.extra?.stream?.speechContent;
-  const bodyTextContent = mergedSpeechContent ?? (!isStreamOrigin ? message.content : '');
-  const hasBodyTextContent = bodyTextContent.trim().length > 0;
-  const cliStdoutContent = mergedCliStdout ?? (isStreamOrigin ? message.content : undefined);
+  const cachedR21SpeechStdout =
+    isStreamOrigin &&
+    !message.isStreaming &&
+    mergedCliStdout === '' &&
+    message.content.trim().length === 0 &&
+    typeof mergedSpeechContent === 'string' &&
+    mergedSpeechContent.trim().length > 0
+      ? mergedSpeechContent
+      : undefined;
+  const projectedCliStdout =
+    isStreamOrigin && mergedCliStdout === '' && message.content.trim().length > 0 ? message.content : mergedCliStdout;
+  const cliStdoutContent =
+    cachedR21SpeechStdout ?? projectedCliStdout ?? (isStreamOrigin ? message.content : undefined);
   const cliEvents = toCliEvents(message.toolEvents, cliStdoutContent);
   const hasCliBlock = cliEvents.length > 0;
   const cliStatus = message.isStreaming
@@ -567,10 +577,10 @@ export function ChatMessage({
       }
       footer={!message.isStreaming && message.metadata ? <MetadataBadge metadata={message.metadata} /> : undefined}
     >
-      {hasCliBlock && isStreamOrigin && !hasBodyTextContent ? null : !isStreamOrigin && hasBlocks ? (
+      {hasCliBlock && isStreamOrigin ? null : !isStreamOrigin && hasBlocks ? (
         <ContentBlocks blocks={message.contentBlocks!} />
-      ) : hasBodyTextContent ? (
-        <CollapsibleMarkdown content={bodyTextContent} className={catStyle?.font} />
+      ) : !isStreamOrigin && hasTextContent ? (
+        <CollapsibleMarkdown content={mergedSpeechContent ?? message.content} className={catStyle?.font} />
       ) : message.isStreaming ? (
         <span className="text-xs text-cafe-secondary">Thinking...</span>
       ) : null}

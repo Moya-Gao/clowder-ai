@@ -68,20 +68,6 @@ interface GroupKey {
 type TurnSegmentByRecord = WeakMap<ChatMessage, number>;
 type StreamSegmentsByBaseKey = Map<string, Map<string, number>>;
 
-type StreamExtra = NonNullable<NonNullable<ChatMessage['extra']>['stream']>;
-
-function stripProjectedStreamSpeechFields(stream: StreamExtra | undefined): StreamExtra | undefined {
-  if (!stream) return undefined;
-  const rest = { ...stream };
-  delete rest.cliStdout;
-  delete rest.speechContent;
-  return Object.keys(rest).length > 0 ? rest : undefined;
-}
-
-function isLocalStreamCarrierId(id: string | undefined): boolean {
-  return !!id && (id.startsWith('msg-') || id.startsWith('draft-'));
-}
-
 function getBaseInvocationKey(msg: ChatMessage): string | null {
   if (msg.type !== 'assistant') return null;
   if (!msg.catId) return null;
@@ -148,6 +134,15 @@ function buildStreamSegmentsByBaseKey(
     else streamSegmentsByBaseKey.set(baseKey, new Map([[r.id, turnSegment]]));
   }
   return streamSegmentsByBaseKey;
+}
+
+function stripStreamSplitFields(
+  stream: NonNullable<NonNullable<ChatMessage['extra']>['stream']>,
+): NonNullable<NonNullable<ChatMessage['extra']>['stream']> {
+  const copy = { ...stream };
+  delete copy.cliStdout;
+  delete copy.speechContent;
+  return copy;
 }
 
 function projectGroup(records: ChatMessage[]): ChatMessage {
@@ -219,30 +214,22 @@ function projectGroup(records: ChatMessage[]): ChatMessage {
   // evidence, contentBlocks, etc.) from canonical record. Base = callback record if
   // present else first record by ts asc; then override projection-specific fields.
   const base = callbackRecord ?? first;
-  const streamContent = streamContentParts.join('\n\n');
-  const callbackContent = callbackContentParts.join('\n\n');
+
+  // F194 R21 rollback compatibility: cached R21 records may contain split fields
+  // (`cliStdout` / `speechContent`) that projection no longer owns. If there is no
+  // real content in this group, keep stale speech visible by folding it back into
+  // stream content. Otherwise never let stale split fields override newer content.
+  const firstStream = sorted.find((r) => r.extra?.stream)?.extra?.stream;
   const isMergeCase = streamContentParts.length > 0 && callbackContentParts.length > 0;
-  const terminalStreamSpeechRecord = sorted.find(
-    (r) =>
-      r.origin !== 'callback' &&
-      r.extra?.stream?.cliStdout === '' &&
-      typeof r.extra.stream.speechContent === 'string' &&
-      r.extra.stream.speechContent.length > 0,
-  );
-  const terminalStreamSpeechContent = terminalStreamSpeechRecord?.extra?.stream?.speechContent;
-  const hasTerminalStreamSpeechSentinel =
-    sorted.length === 1 && terminalStreamSpeechRecord === first && terminalStreamSpeechContent !== undefined;
-  const isTerminalStreamSpeechCase =
-    sorted.length === 1 &&
-    !!first.extra?.stream?.turnInvocationId &&
-    (!isLocalStreamCarrierId(first.id) || hasTerminalStreamSpeechSentinel) &&
-    !callbackRecord &&
-    !isStreaming &&
-    streamContentParts.length > 0;
-  const isTerminalStreamSpeechDrainCase = isMergeCase && terminalStreamSpeechContent !== undefined;
-  const projectedContent = isTerminalStreamSpeechDrainCase
-    ? callbackContent || terminalStreamSpeechContent || streamContent
-    : contentParts.join('\n\n');
+  const staleR21SpeechContent =
+    !isMergeCase &&
+    streamContentParts.length === 0 &&
+    firstStream?.cliStdout === '' &&
+    typeof firstStream.speechContent === 'string' &&
+    firstStream.speechContent.trim().length > 0
+      ? firstStream.speechContent
+      : undefined;
+  const projectedContent = contentParts.length > 0 ? contentParts.join('\n\n') : (staleR21SpeechContent ?? '');
 
   const projected: ChatMessage = {
     ...base,
@@ -263,40 +250,22 @@ function projectGroup(records: ChatMessage[]): ChatMessage {
   else delete projected.contentBlocks;
   if (mentionsUser) projected.mentionsUser = true;
 
-  // Z11/Saga21: expose stream stdout vs final speech so ChatMessage can render
-  // CLI Output and body separately without duplicating terminal stream answers.
-  const cliStdout = isTerminalStreamSpeechDrainCase
-    ? ''
-    : isMergeCase
-      ? streamContent
-      : isTerminalStreamSpeechCase
-        ? ''
-        : undefined;
-  const speechContent = isTerminalStreamSpeechDrainCase
-    ? projectedContent
-    : isMergeCase
-      ? callbackContent
-      : isTerminalStreamSpeechCase
-        ? streamContent
-        : undefined;
-  const hasProjectedContentSplit = isMergeCase || isTerminalStreamSpeechCase || isTerminalStreamSpeechDrainCase;
+  // F194 Phase Z11 follow-up: merge case = exact-key terminal callback record
+  // plus stream content. Expose the origin-split portions so ChatMessage keeps
+  // CLI Output behavior consistent (stream working log → CLI Output stdout;
+  // callback terminal text → main body). Ordinary post_msg speech is projected
+  // as a separate callback bubble by bubbleGroupKey above.
+  const cliStdout = isMergeCase ? streamContentParts.join('\n\n') : undefined;
+  const speechContent = isMergeCase ? callbackContentParts.join('\n\n') : undefined;
 
   // Preserve stream identity on the projected bubble — downstream code uses
   // `getBubbleInvocationId` to dedupe further (e.g. live cleanup, suppression).
-  const firstStream = stripProjectedStreamSpeechFields(sorted.find((r) => r.extra?.stream)?.extra?.stream);
   const baseExtra = base.extra ?? {};
-  const baseExtraWithoutStream = { ...baseExtra };
-  delete baseExtraWithoutStream.stream;
-  if (
-    firstStream ||
-    richBlocks.length > 0 ||
-    hasProjectedContentSplit ||
-    Object.keys(baseExtraWithoutStream).length > 0
-  ) {
-    const extra: NonNullable<ChatMessage['extra']> = { ...baseExtraWithoutStream };
-    if (firstStream || hasProjectedContentSplit) {
+  if (firstStream || richBlocks.length > 0 || isMergeCase || Object.keys(baseExtra).length > 0) {
+    const extra: NonNullable<ChatMessage['extra']> = { ...baseExtra };
+    if (firstStream || isMergeCase) {
       extra.stream = {
-        ...firstStream,
+        ...(firstStream ? stripStreamSplitFields(firstStream) : {}),
         ...(cliStdout !== undefined ? { cliStdout } : {}),
         ...(speechContent !== undefined ? { speechContent } : {}),
       };

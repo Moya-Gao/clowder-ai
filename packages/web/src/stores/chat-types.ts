@@ -271,10 +271,8 @@ export interface ChatMessage {
      *    - `cliStdout`: the stream-origin content portion → ChatMessage feeds this to the CLI Output
      *    - `speechContent`: the callback-origin content portion → ChatMessage renders this as the
      *      main bubble body (the post_msg speech), instead of the full concat
-     *  F194 Saga21 extends this to terminal single-stream records: when a persisted stream-origin
-     *  record is already final, `speechContent` may equal the stream content and `cliStdout` may be
-     *  the empty string to keep the answer visible while preventing duplicate CLI stdout. Streaming
-     *  pure-stream work logs and pure-callback groups leave them undefined. */
+     *  Both are set ONLY when a group contains BOTH stream and callback records (the merge case);
+     *  pure-stream / pure-callback groups leave them undefined so existing rendering is unchanged. */
     stream?: {
       invocationId?: string;
       turnInvocationId?: string;

@@ -8,12 +8,7 @@ import { recordDebugEvent } from '@/debug/invocationEventDebug';
 import { adaptIncomingToBubbleEvent } from '@/hooks/bubble-event-adapter';
 import { deriveBubbleKindFromMessage } from '@/stores/bubble-invariants';
 import { projectCanonicalBubbles } from '@/stores/bubble-projection';
-import {
-  applyBubbleEvent,
-  type BubbleEvent,
-  type BubbleReducerInput,
-  type BubbleReducerOutput,
-} from '@/stores/bubble-reducer';
+import { applyBubbleEvent, type BubbleReducerInput, type BubbleReducerOutput } from '@/stores/bubble-reducer';
 import type {
   CatInvocationInfo,
   CatStatusType,
@@ -28,7 +23,6 @@ import type {
 } from '@/stores/chat-types';
 import { useChatStore } from '@/stores/chatStore';
 import { useToastStore } from '@/stores/toastStore';
-import { crossesResidueTurnBoundary } from '@/stores/turn-boundary';
 import { compactToolResultDetail } from '@/utils/toolPreview';
 import {
   clearReplacedInvocationsForThread,
@@ -86,107 +80,6 @@ function nextActiveA2AHandoffSeq(): number {
 }
 const DEBUG_SKIP_FILE_CHANGE_UI = process.env.NEXT_PUBLIC_DEBUG_SKIP_FILE_CHANGE_UI === '1';
 
-function getStableToolEvidenceKey(event: ToolEvent): string {
-  return [event.type, event.label, event.detail ?? ''].join('\u0000');
-}
-
-function hasFullToolCoverage(candidateEvents: ToolEvent[] | undefined, residueEvents: ToolEvent[]): boolean {
-  if (residueEvents.length === 0) return true;
-  if (!candidateEvents?.length) return false;
-  const candidateCounts = new Map<string, number>();
-  for (const event of candidateEvents) {
-    const key = getStableToolEvidenceKey(event);
-    candidateCounts.set(key, (candidateCounts.get(key) ?? 0) + 1);
-  }
-  for (const event of residueEvents) {
-    const key = getStableToolEvidenceKey(event);
-    const count = candidateCounts.get(key) ?? 0;
-    if (count <= 0) return false;
-    candidateCounts.set(key, count - 1);
-  }
-  return true;
-}
-
-function isLocalStreamCarrierId(id: string): boolean {
-  return id.startsWith('msg-') || id.startsWith('draft-');
-}
-
-function isCoveredParentOnlyStreamCarrier(candidate: ChatMessage, messages: ChatMessage[]): boolean {
-  if (candidate.type !== 'assistant') return false;
-  if (candidate.origin !== 'stream') return false;
-  if (candidate.isStreaming !== false) return false;
-  if (!isLocalStreamCarrierId(candidate.id)) return false;
-  const parentInvocationId = candidate.extra?.stream?.invocationId;
-  if (!candidate.catId || !parentInvocationId) return false;
-  const residueCatId = candidate.catId;
-  if (candidate.extra?.stream?.turnInvocationId) return false;
-  if (candidate.contentBlocks?.length) return false;
-  if (candidate.extra?.rich?.blocks.length) return false;
-
-  const residueText = candidate.content.trim();
-  const residueTools = candidate.toolEvents ?? [];
-  if (!residueText && residueTools.length === 0) return false;
-
-  return messages.some((message) => {
-    if (message === candidate) return false;
-    if (message.type !== 'assistant') return false;
-    if (message.catId !== candidate.catId) return false;
-    if (message.origin !== 'stream') return false;
-    if (message.isStreaming) return false;
-    const stream = message.extra?.stream;
-    if (stream?.invocationId !== parentInvocationId) return false;
-    if (crossesResidueTurnBoundary(messages, candidate, message, residueCatId, parentInvocationId)) return false;
-    if (!stream.turnInvocationId) return false;
-    if (residueText && !message.content.includes(residueText)) return false;
-    return hasFullToolCoverage(message.toolEvents, residueTools);
-  });
-}
-
-function dropCoveredParentOnlyStreamCarriers(messages: ChatMessage[]): ChatMessage[] {
-  const next = messages.filter((message) => !isCoveredParentOnlyStreamCarrier(message, messages));
-  return next.length === messages.length ? messages : next;
-}
-
-function markFinalStreamChunkTerminalForProjection(messages: ChatMessage[], event: BubbleEvent): ChatMessage[] {
-  if (event.type !== 'stream_chunk') return messages;
-  if (event.originPhase !== 'stream') return messages;
-  if (event.payload?.isFinal !== true) return messages;
-  if (!event.canonicalInvocationId) return messages;
-
-  const finalContent = typeof event.payload?.content === 'string' ? event.payload.content : '';
-  let changed = false;
-  const next = messages.map((message) => {
-    if (message.type !== 'assistant') return message;
-    if (message.catId !== event.actorId) return message;
-    if (message.origin !== 'stream') return message;
-    if (message.isStreaming === false) return message;
-    if (deriveBubbleKindFromMessage(message) !== event.bubbleKind) return message;
-    if (getBubbleInvocationId(message) !== event.canonicalInvocationId) return message;
-    changed = true;
-    const stream = message.extra?.stream;
-    const shouldMarkTerminalSpeech =
-      finalContent.length > 0 && !!stream?.turnInvocationId && message.content === finalContent;
-    return {
-      ...message,
-      isStreaming: false,
-      ...(shouldMarkTerminalSpeech
-        ? {
-            extra: {
-              ...message.extra,
-              stream: {
-                ...stream,
-                cliStdout: '',
-                speechContent: finalContent,
-              },
-            },
-          }
-        : {}),
-    };
-  });
-
-  return changed ? next : messages;
-}
-
 export function applyBubbleEventWithRecovery(input: BubbleReducerInput): BubbleReducerOutput {
   const result = applyBubbleEvent(input);
   if (result.recoveryAction === 'catch-up') {
@@ -230,24 +123,15 @@ export function applyBubbleEventWithRecovery(input: BubbleReducerInput): BubbleR
       };
       projectionInput = [...result.nextMessages, syntheticStream];
     }
-    const projected = projectCanonicalBubbles({
-      records: markFinalStreamChunkTerminalForProjection(projectionInput, input.event),
-    });
-    return { ...result, nextMessages: dropCoveredParentOnlyStreamCarriers(projected.messages) };
+    const projected = projectCanonicalBubbles({ records: projectionInput });
+    return { ...result, nextMessages: projected.messages };
   }
 
   // Non-destructive events: reducer's nextMessages is safe to project directly.
-  const projectionInput = markFinalStreamChunkTerminalForProjection(result.nextMessages, input.event);
-  if (result.nextMessages === input.currentMessages && projectionInput === result.nextMessages) {
-    const cleaned = dropCoveredParentOnlyStreamCarriers(result.nextMessages);
-    return cleaned === result.nextMessages ? result : { ...result, nextMessages: cleaned };
-  }
-  const projected = projectCanonicalBubbles({ records: projectionInput });
-  if (projected.messages === result.nextMessages) {
-    const cleaned = dropCoveredParentOnlyStreamCarriers(projected.messages);
-    return cleaned === projected.messages ? result : { ...result, nextMessages: cleaned };
-  }
-  return { ...result, nextMessages: dropCoveredParentOnlyStreamCarriers(projected.messages) };
+  if (result.nextMessages === input.currentMessages) return result;
+  const projected = projectCanonicalBubbles({ records: result.nextMessages });
+  if (projected.messages === result.nextMessages) return result;
+  return { ...result, nextMessages: projected.messages };
 }
 
 function shouldCatchUpEmptyFinalStreamBubble(message: ChatMessage | undefined): boolean {
