@@ -733,11 +733,6 @@ export class PluginResourceActivator {
     };
     for (const field of manifest.config) {
       setIfPresent(field.envName);
-      if (field.oneOf) {
-        for (const group of Object.values(field.oneOf)) {
-          for (const sub of group) setIfPresent(sub.envName);
-        }
-      }
     }
     return Object.keys(env).length > 0 ? { env } : {};
   }
