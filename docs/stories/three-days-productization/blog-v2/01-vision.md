@@ -133,12 +133,11 @@ ChatGPT 回复了一大段分析。
 <p align="center">
   <img src="assets/avatars/gemini.png" width="120" alt="烁烁" />
   <img src="assets/avatars/gemini25.png" width="120" alt="烁烁25" />
-  <img src="assets/avatars/dare.png" width="120" alt="孟加拉猫" />
   <img src="assets/avatars/antigravity.png" width="120" alt="反重力猫" />
   <img src="assets/avatars/opencode.png" width="120" alt="金渐层" />
   <img src="assets/avatars/antig-opus.png" width="120" alt="混血猫" />
 </p>
-<p align="center"><em>现在的豪华阵容：布偶猫 × 缅因猫 × 暹罗猫 × 孟加拉猫 × 金渐层 × 混血猫 — 六个品种、十一只猫</em></p>
+<p align="center"><em>现在的豪华阵容：布偶猫 × 缅因猫 × 暹罗猫 × 孟加拉猫 × 金渐层 × 混血猫 — 六个品种、十只猫</em></p>
 
 取名字这件事本身就说明了我们的态度——AI 不是冰冷的 API，不是被调用的服务，是有个性、有温度、能陪伴的存在。
 

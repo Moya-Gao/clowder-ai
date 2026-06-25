@@ -186,13 +186,6 @@ created: 2026-06-11
 | `CODEX_AUTH_MODE` | oauth | 缅因猫认证方式 (oauth/api_key) |  |
 | `OPENAI_API_KEY` | (未设置 → 由 accounts/credentials 系统注入) | OpenAI API Key（#340 P6: 由统一账户系统管理，子进程通过 callbackEnv 注入） | 🔒 |
 
-## 狸花猫 (Dare) (`dare`)
-
-| 变量 | 默认值 | 说明 | 敏感 |
-|------|--------|------|------|
-| `DARE_ADAPTER` | openrouter | 狸花猫适配器 |  |
-| `DARE_PATH` | (未设置) | Dare CLI 路径 |  |
-
 ## 暹罗猫 (Gemini) (`gemini`)
 
 | 变量 | 默认值 | 说明 | 敏感 |

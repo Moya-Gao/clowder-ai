@@ -494,19 +494,6 @@ provenance:
   primarySources: ["config:cat-template.json"]
 ```
 
-### Dare（确定性执行猫）
-
-```yaml
-# structured-profile: cat:dare
-entityId: "cat:dare"
-oneLiner: "确定性执行引擎——零信任验证与审计追踪"
-l0RosterSummary: "确定性执行、审计追踪、零信任验证、状态外化"
-provenance:
-  version: "0.1"
-  date: "2026-06-19"
-  primarySources: ["config:cat-template.json"]
-```
-
 ### 孟加拉猫 Claude Opus（Antigravity）
 
 ```yaml

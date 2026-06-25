@@ -106,7 +106,6 @@ Each AI agent has a 4-color identity family. These express personality without c
 | **Opus** | Architect | `#9b7ebd` Lavender | `#d4c1ec` Lilac | `#6d5a8c` Deep Purple | `#f3eaf8` Pale Violet |
 | **Codex** | Engineer | `#5b8c5a` Forest | `#8fb98e` Sage | `#3a5f39` Deep Moss | `#eaf6ea` Pale Green |
 | **Gemini** | Creative | `#5b9bd5` Sky | `#9cc0e7` Baby Blue | `#3a6fa5` Ocean | `#eaf4fb` Pale Blue |
-| **Dare** | Executor | `#d4a76a` Gold | `#e8c99b` Light Gold | `#8b6f47` Deep Brown | `#fbf5ec` Pale Gold |
 | **Cocreator** | Owner | `#e29578` Terra Cotta | `#ffddd2` Pale Peach | `#815b5b` Coffee Bean | `#fff5f2` Pale Warm |
 
 Dark mode override: Agent BG colors become `rgba(primary, 0.15)` for contrast on dark surfaces.
@@ -122,7 +121,7 @@ Cat Cafe avoids high-contrast or cross-hue gradients. Visual richness comes prim
 ### Font Family
 - **Body / UI**: `Inter`, fallback: `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`
 - **Headlines** (planned, not yet loaded): `Outfit`, fallback: `Inter`
-- **Code / Monospace**: Tailwind's `font-mono` utility — resolves to system monospace stack. No custom mono font is explicitly loaded; agent bubbles marked `font-mono` (Codex, Dare) use system `monospace`
+- **Code / Monospace**: Tailwind's `font-mono` utility — resolves to system monospace stack. No custom mono font is explicitly loaded; agent bubbles marked `font-mono` (Codex) use system `monospace`
 - **CJK** (planned, not yet loaded): `Noto Sans SC` for Chinese character support — currently falls back to system CJK fonts
 
 ### Hierarchy
@@ -141,7 +140,7 @@ Cat Cafe avoids high-contrast or cross-hue gradients. Visual richness comes prim
 - **Inter everywhere, weight for hierarchy**: No font switching between sections — hierarchy is expressed through size and weight alone
 - **Generous line-height for body**: 1.5–1.6 for readability in a chat-heavy interface
 - **CJK awareness**: Chinese content (mixed zh/en is common) currently uses system CJK fonts; Noto Sans SC is planned
-- **Codex and Dare get monospace**: Engineer and executor cat bubbles use `font-mono` — a personality signature in typography
+- **Codex gets monospace**: Engineer cat bubbles use `font-mono` — a personality signature in typography
 - **No letterspacing tricks**: Inter's default spacing works at all sizes; small text uses font-weight 500 instead of letterspacing for clarity
 
 ---
@@ -167,10 +166,7 @@ The signature component — each cat's bubble has a breed-specific chamfered cor
 | `ragdoll` | Opus, Sonnet | `rounded-2xl` | `rounded-bl-sm` (4px) | — | Thoughtful pause — grounded |
 | `maine-coon` | Codex, GPT | `rounded-2xl` | `rounded-br-sm` (4px) | `font-mono` | Precise execution — sharp end |
 | `siamese` | Gemini | `rounded-2xl` | `rounded-tr-sm` (4px) | — | Creative spark — top flourish |
-| `dragon-li` | Dare | `rounded-lg` | `rounded-tl-sm` (4px) | `font-mono` | Compact executor — structured, tight |
 | (default) | Cocreator, others | `rounded-2xl` | none | — | Clean, neutral bubble |
-
-> **Note**: `dragon-li` uses `rounded-lg` (8px) as its base radius instead of `rounded-2xl` (24px), giving Dare's bubbles a noticeably tighter, more structured feel. This is intentional — the executor cat's messages should feel compact and action-oriented.
 
 **Sender Name:**
 - Font-weight: bold
@@ -414,7 +410,6 @@ const BREED_STYLES = {
   ragdoll:     { radius: 'rounded-2xl rounded-bl-sm', font: '' },
   'maine-coon': { radius: 'rounded-2xl rounded-br-sm', font: 'font-mono' },
   siamese:     { radius: 'rounded-2xl rounded-tr-sm', font: '' },
-  'dragon-li': { radius: 'rounded-lg rounded-tl-sm',  font: 'font-mono' },
 };
 const DEFAULT_STYLE = { radius: 'rounded-2xl', font: '' };
 
@@ -423,7 +418,6 @@ const AGENT_COLORS = {
   opus:      { bg: 'bg-opus-bg',      border: 'border-opus-light',      name: 'text-opus-dark' },
   codex:     { bg: 'bg-codex-bg',     border: 'border-codex-light',     name: 'text-codex-dark' },
   gemini:    { bg: 'bg-gemini-bg',    border: 'border-gemini-light',    name: 'text-gemini-dark' },
-  dare:      { bg: 'bg-dare-bg',      border: 'border-dare-light',      name: 'text-dare-dark' },
   cocreator: { bg: 'bg-cocreator-bg', border: 'border-cocreator-light', name: 'text-cocreator-dark' },
 };
 

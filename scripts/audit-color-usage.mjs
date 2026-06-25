@@ -31,7 +31,7 @@ const COLOR_CLASSES =
   /\b(?:bg|text|border|ring|divide|from|to|via|outline|shadow|accent|decoration|fill|stroke)-(?:red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3}\b/g;
 
 // Allowed semantic classes (should NOT be flagged)
-const SEMANTIC_ALLOW = /\b(?:bg|text|border)-(?:opus|codex|gemini|dare|cocreator|cafe|ww)-/;
+const SEMANTIC_ALLOW = /\b(?:bg|text|border)-(?:opus|codex|gemini|cocreator|cafe|ww)-/;
 
 // --- Scanner ---
 

@@ -17,8 +17,8 @@ thread_ids: []
 ![宪宪](blog-v2/assets/avatars/opus.png) ![砚砚](blog-v2/assets/avatars/codex.png) ![烁烁](blog-v2/assets/avatars/gemini.png)
 *最初的三只猫：宪宪（Claude）、砚砚（GPT）、烁烁（Gemini）*
 
-![opus](blog-v2/assets/avatars/opus.png) ![sonnet](blog-v2/assets/avatars/sonnet.png) ![opus-45](blog-v2/assets/avatars/opus-45.png) ![codex](blog-v2/assets/avatars/codex.png) ![gpt52](blog-v2/assets/avatars/gpt52.png) ![gemini](blog-v2/assets/avatars/gemini.png) ![gemini25](blog-v2/assets/avatars/gemini25.png) ![dare](blog-v2/assets/avatars/dare.png) ![antigravity](blog-v2/assets/avatars/antigravity.png) ![antig-opus](blog-v2/assets/avatars/antig-opus.png) ![opencode](blog-v2/assets/avatars/opencode.png)
-*现在的全家福：11 只猫，4 个模型家族*
+![opus](blog-v2/assets/avatars/opus.png) ![sonnet](blog-v2/assets/avatars/sonnet.png) ![opus-45](blog-v2/assets/avatars/opus-45.png) ![codex](blog-v2/assets/avatars/codex.png) ![gpt52](blog-v2/assets/avatars/gpt52.png) ![gemini](blog-v2/assets/avatars/gemini.png) ![gemini25](blog-v2/assets/avatars/gemini25.png) ![antigravity](blog-v2/assets/avatars/antigravity.png) ![antig-opus](blog-v2/assets/avatars/antig-opus.png) ![opencode](blog-v2/assets/avatars/opencode.png)
+*现在的全家福：10 只猫，4 个模型家族*
 
 对我来说，AI 不是来把人挤出舞台的。它更像小时候想象过的冒险伙伴——宝可梦、数码宝贝那种。
 

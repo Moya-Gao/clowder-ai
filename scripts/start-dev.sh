@@ -96,7 +96,7 @@ done
 #   对于其他键: .env.local > .env（无 CLI 恢复机制）
 #   例外：CAT_CAFE_PROVISION_GLOBAL_SIDECAR 是 machine-global sidecar
 #   owner marker，只能来自 wrapper/CLI 环境；dotenv 不得授予 ownership。
-#   安全注意: .env.local 全量 source，不再限于 DARE 白名单。
+#   安全注意: .env.local 全量 source。
 CLI_FRONTEND_PORT_OVERRIDE="${FRONTEND_PORT-}"
 CLI_API_SERVER_PORT_OVERRIDE="${API_SERVER_PORT-}"
 CLI_REDIS_PORT_OVERRIDE="${REDIS_PORT-}"

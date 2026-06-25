@@ -22,7 +22,6 @@ export type EnvCategory =
   | 'proxy'
   | 'connector'
   | 'codex'
-  | 'dare'
   | 'gemini'
   | 'kimi'
   | 'tts'
@@ -68,7 +67,6 @@ export const ENV_CATEGORIES: Record<EnvCategory, string> = {
   proxy: 'Anthropic 代理网关',
   connector: '平台接入 (Telegram/飞书)',
   codex: '缅因猫 (Codex)',
-  dare: '狸花猫 (Dare)',
   gemini: '暹罗猫 (Gemini)',
   kimi: 'Kimi',
   tts: '语音合成 (TTS)',
@@ -1099,10 +1097,6 @@ export const ENV_VARS: EnvDefinition[] = [
     category: 'codex',
     sensitive: true,
   },
-
-  // --- dare ---
-  { name: 'DARE_ADAPTER', defaultValue: 'openrouter', description: '狸花猫适配器', category: 'dare', sensitive: false },
-  { name: 'DARE_PATH', defaultValue: '(未设置)', description: 'Dare CLI 路径', category: 'dare', sensitive: false },
 
   // --- gemini ---
   {

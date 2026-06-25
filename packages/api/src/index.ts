@@ -75,7 +75,6 @@ import {
   createDraftStore,
   createInvocationRecordStore,
   createSessionChainStore,
-  DareAgentService,
   DeliveryCursorStore,
   GeminiAgentService,
   getEventAuditLog,
@@ -1269,9 +1268,6 @@ async function main(): Promise<void> {
             break;
           case 'kimi':
             service = new KimiAgentService({ catId });
-            break;
-          case 'dare':
-            service = new DareAgentService({ catId });
             break;
           case 'antigravity':
             service = new AntigravityAgentService({

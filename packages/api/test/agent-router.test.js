@@ -1603,7 +1603,7 @@ describe('AgentRouter', () => {
     // 云端 Codex P1-cloud-1: only providers that explicitly expose
     // injectsL0Natively() inject L0 natively (--system-prompt-file / -c
     // developer_instructions). Providers without that marker (GeminiAgentService,
-    // Antigravity, CatAgentService, A2A, OpenCode, Dare, Kimi…) still rely on the
+    // Antigravity, CatAgentService, A2A, OpenCode, Kimi…) still rely on the
     // user-message `params.systemPrompt` prepend for identity/家规. The route
     // layer must consult `service.injectsL0Natively?.()` and keep FULL static
     // identity for non-native services — pack-only-everywhere would orphan

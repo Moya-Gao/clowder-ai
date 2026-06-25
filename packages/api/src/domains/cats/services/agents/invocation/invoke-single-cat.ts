@@ -1333,7 +1333,6 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       openai: 'openai',
       google: 'google',
       kimi: 'kimi',
-      dare: 'openai',
       opencode: 'anthropic',
       openrouter: 'openai',
     };
@@ -1381,11 +1380,6 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         const protocolKey = effectiveProtocol === 'openai-responses' ? 'openai' : effectiveProtocol;
         const envFromMap = resolveEnvMap(protocolKey, undefined, credentialAccount, userEnvTemplates);
         Object.assign(callbackEnv, envFromMap);
-      }
-      // Dare has its own env vars regardless of effectiveProtocol (dare's protocol = 'openai')
-      if (provider === 'dare') {
-        const dareEnv = resolveEnvMap('dare', undefined, credentialAccount);
-        Object.assign(callbackEnv, dareEnv);
       }
     }
 
@@ -1446,7 +1440,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       // Fallback for unresolved accounts on anthropic/opencode providers
       callbackEnv.CAT_CAFE_ANTHROPIC_PROFILE_MODE = 'subscription';
     }
-    // Note: google and dare protocol branches no longer need explicit credential injection
+    // Note: google protocol branch no longer needs explicit credential injection
     // — fully handled by resolveEnvMap above.
 
     // F171: User-defined env vars from account config.
