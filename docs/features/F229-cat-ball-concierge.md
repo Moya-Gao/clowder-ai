@@ -157,11 +157,11 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 - [ ] AC-D3: 小模型不可用时自动降级全走值班大猫（测试）→ R7
 
 ### CVO UX 遗留 Bug（铲屎官 2026-06-18/06-21 多次反馈，跨 Phase 修）
-- [ ] BUG-UX-1: 砚砚桌宠"狗皮膏药"——球按钮底色 `var(--cafe-surface-elevated)` 实心不透明方块，应为透明底浮在页面上。CVO 2026-06-18 + 2026-06-21 两次报告
-- [ ] BUG-UX-2: 调查报告 anchor 列表可读性崩溃——InvestigationReportCard 内文字一个字一个字竖排，列宽塌缩到单字符宽度。CVO 2026-06-21 截图
+- [x] BUG-UX-1: 砚砚桌宠"狗皮膏药"——球按钮底色 `var(--cafe-surface-elevated)` 实心不透明方块，应为透明底浮在页面上。CVO 2026-06-18 + 2026-06-21 两次报告。**已修复**：PR #2474 merged 2026-06-21，移除实心 `backgroundColor` + `boxShadow`，改为透明 `drop-shadow` filter
+- [x] BUG-UX-2: 调查报告 anchor 列表可读性崩溃——InvestigationReportCard 内文字一个字一个字竖排，列宽塌缩到单字符宽度。CVO 2026-06-21 截图。**已修复**：PR #2474 merged 2026-06-21，flex 容器加 `min-w-0` + title span 加 `truncate`
 - [x] BUG-UX-3: 面板不可拉伸——宽度写死 `w-80`(320px)，无 CSS resize handle。CVO 要求可拖拽调整面板大小 + 持久化记住尺寸。CVO 2026-06-18 + 2026-06-21 两次要求——**width resize PR #2474 merged 2026-06-21 + height resize PR #2481 merged 2026-06-21**
-- [ ] BUG-UX-4: 猫猫球回复中可读性差——猫签名（`[烁烁/gemini-3.5-flash🐾]`）、`@landy`、内部协作格式对用户可见，应在 concierge 上下文中 strip 掉或简化
-- [ ] BUG-UX-5: 砚砚拖动困难——CVO 报告"好难拖动"，拖拽交互手感差（可能是拖拽区域 vs 点击区域冲突、touchAction 设置、或 drag threshold 过大）。CVO 2026-06-21
+- [x] BUG-UX-4: 猫猫球回复中可读性差——猫签名（`[烁烁/gemini-3.5-flash🐾]`）、`@landy`、内部协作格式对用户可见，应在 concierge 上下文中 strip 掉或简化。**已修复**：PR #2474 merged 2026-06-21，ConciergeMessageContent 渲染层 strip `[name/model🐾]` 签名 + 内部路由 mention
+- [x] BUG-UX-5: 砚砚拖动困难——CVO 报告"好难拖动"，拖拽交互手感差（可能是拖拽区域 vs 点击区域冲突、touchAction 设置、或 drag threshold 过大）。CVO 2026-06-21。**已修复**：PR #2474 merged 2026-06-21，drag threshold 5→8px + 移除阻塞拖拽的 `pointerEvents:'none'`
 - [ ] BUG-UX-6: 砚砚动态效果不可见——9 态动画（跑/跳/招手/等待/review/失败等）CVO 从未看到过，只看到 idle。**诊断（2026-06-21 宪宪）**：链路没断，是两个设计问题叠加：① V1 projection 只映射 6/9 态（`running-left`/`waving`/`jumping` 死路无 ConciergeBallState 映射）；② 可达态用户体感不可见（`thinking→running` 持续几秒且注意力在面板；`found→review` 面板打开时 unseenResultCount 立即清零；`listening→waiting` 用户在打字不看球）。需产品层决策——见讨论 doc `docs/discussions/2026-06-21-f229-bug-ux6-animation-visibility.md`。**素材升级 spike（2026-06-22）**：铲屎官脑洞"母图→AI 视频→截帧→atlas"，两猫（宪宪+砚砚）共识可行+值得 spike，pipeline + 提示词见 `video-to-spritesheet-pipeline.md`；R1 布偶猫 idle 首轮测试"效果非常棒"，发现 9:16 竖屏尾巴出框→换 16:9。**xianxian-codex atlas merged（2026-06-24）**：PR #2527 — 宪宪专属 9 态视频提取 atlas 皮肤上线，pipeline 首个完整产出（素材升级线 milestone）；projection/animation 问题（①②）仍 open
 - [x] BUG-UX-7: 猫猫球不渲染 Markdown——值班猫回复中 Markdown 语法显示为原始文本。**已修复**：PR #2488 merged 2026-06-22，统一使用 `MarkdownContent` 组件 + `buildMdComponents(tp?)` 工厂模式，textProcessor 覆盖所有文本容器（p/strong/em/del/h1-h6/li/a/th/td），code/pre 排除。gpt52 local review 2 轮 + cloud review 0 P1/P2
 - [x] BUG-UX-8: 原地看（peek）内容无收起机制。**已修复**：同 PR #2488——re-click toggle + ✕ dismiss button
