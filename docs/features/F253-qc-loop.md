@@ -21,6 +21,16 @@ created: 2026-06-25
 
 核心原则：**"QC 触发可以自动，授权不能自动。"**
 
+## Non-Goals
+
+以下是 F253 **明确不做**的事——每条都是 Cat Café 价值观护栏：
+
+1. **不引入大副制**：不设置单一指挥猫统筹 QC 流程。每只猫对自己的代码和 review 负责，QC 是工具链支撑而非权力结构。
+2. **不把猫匿名化为工具池**：每个 review finding 都带 named cat 签名。猫的专长、直觉和历史校准是信号，不是噪声。
+3. **不自动 merge / 不自动 revert**：即使 QC 全绿，合入动作必须由猫执行。自动回滚只限 CI repair loop 内的 hygiene auto-fix（确定性操作）。
+4. **不把 fresh-context pre-review 当 approval**：fresh-context 只产出 finding list，永远不产出 APPROVE/BLOCK verdict。
+5. **qc-bot 不演化为 verdict signer**：`qc-bot` 永远只是 hygiene fixer + evidence assembler。它不签 verdict、不决定 P1/P2 级别、不选 reviewer。如果 qc-bot 开始做这些——那就是 firstmate 大副制的变形，必须立刻拆回去。
+
 ## Current State / 现状基线
 
 1. **Hygiene**：`pnpm gate`（biome lint+format + tsc + dir-size check）已有但需手动调用，无 git hook 自动触发
@@ -52,13 +62,45 @@ created: 2026-06-25
 ⑦ QC telemetry 记录
 ```
 
-#### 金规：授权分层
+### QC 状态机
+
+QC Loop 是 **stateful pipeline**，不是 stateless 流程散文。每个 PR/change 经过的 QC 状态：
+
+```
+qc.idle
+  → qc.requested        (触发：pnpm qc / git commit / manual)
+  → qc.hygiene_done      (hygiene auto-fix 完成)
+  → qc.pre_review_done   (fresh-context findings 产出，可跳过)
+  → qc.review_routed     (cross-cat reviewer 已分配)
+  → qc.findings_collected (reviewer findings 收集完)
+  → qc.verdict_blocked    (reviewer BLOCK → 回 author 修)
+  → qc.verdict_passed     (reviewer APPROVE on final HEAD)
+  → qc.evidence_sealed    (evidence manifest 生成 + HEAD 锁定)
+  → qc.merged             (merge-gate 放行 + 猫执行合入)
+  → qc.archived           (telemetry 记录完)
+```
+
+**状态字段**（每个状态转换携带）：
+
+| 字段 | 说明 |
+|------|------|
+| `idempotencyKey` | `{prNumber}-{sha}-{step}` 防重复唤醒 |
+| `sourceThreadId` | 发起 QC 的 thread |
+| `reviewedSha` | 当前 review 覆盖的 HEAD SHA |
+| `targetCats` | 当前步骤的目标猫（reviewer / author） |
+| `staleFlag` | HEAD 变化后自动标记 stale，需要 re-review |
+
+**Stale invalidation**：当 `reviewedSha` ≠ PR current HEAD 时，`staleFlag = true`，verdict 自动回退到 `qc.review_routed`。
+
+### 金规：授权分层
 
 | 层 | 能自动 | 不能自动 |
 |----|--------|----------|
 | Hygiene（lint/format/import sort） | ✅ auto-fix + auto-commit | — |
-| Fresh-context pre-review | ✅ 自动触发 | ❌ 不能替代 cross-cat review |
-| Cross-cat review | ✅ 自动提醒/分配 | ❌ APPROVE 必须猫亲自给 |
+| Fresh-context pre-review | ✅ 自动触发 | ❌ 不能替代 cross-cat review，不能产出 verdict |
+| Cross-cat review 提醒 | ✅ 自动提醒 | — |
+| Cross-cat reviewer 选择 | — | ❌ 由 author 基于关系画像/专长选定，不允许全随机 round-robin |
+| Cross-cat review verdict | — | ❌ APPROVE/BLOCK 必须 named cat 亲自签（= 3-Layer Split 的 Layer 2+3） |
 | merge-gate | ✅ 自动检查 evidence 完整性 | ❌ 合入动作必须猫执行 |
 | CI | ✅ 自动跑 | ❌ CI 红灯不能自动 bypass |
 
@@ -66,13 +108,26 @@ created: 2026-06-25
 
 来自砚砚（GPT-5.5）的关键设计贡献——把 reviewer 角色拆成三层，消除"reviewer 顺手改代码导致 review provenance 断裂"的问题：
 
-| 层 | 角色 | 做什么 | 不做什么 |
-|----|------|--------|----------|
-| **Layer 1: Hygiene Fixer** | 确定性工具 | lint/format auto-fix | 判断、语义修改 |
-| **Layer 2: Reviewer** | 猫猫 | 审查逻辑/架构/安全/风格 | 直接改代码（只给 finding） |
-| **Layer 3: Final Approver** | 猫猫（可 = reviewer） | 确认 final HEAD 覆盖全部 review | 在 stale HEAD 上签字 |
+| 层 | 角色 | 做什么 | 不做什么 | 金规映射 |
+|----|------|--------|----------|----------|
+| **Layer 1: Hygiene Fixer** | 确定性工具 (`qc-bot`) | lint/format auto-fix | 判断、语义修改、签 verdict | 金规"Hygiene"行 |
+| **Layer 2: Reviewer** | named 猫猫 | 审查逻辑/架构/安全/风格，产出 findings + verdict | 直接改代码（只给 finding） | 金规"Cross-cat review verdict"行 |
+| **Layer 3: Final Approver** | named 猫猫（可 = Layer 2 reviewer） | 确认 final HEAD 覆盖全部 review findings | 在 stale HEAD 上签字 | 金规"merge-gate"行的前提 |
 
-**关键约束**：如果 reviewer 给了 semantic fix 建议（不只是 hygiene），author 改完后 **review provenance 必须重新闭合**（Layer 3 re-confirm on final HEAD）。
+**关键约束**：如果 reviewer 给了 semantic fix 建议（不只是 hygiene），author 改完后 **review provenance 必须重新闭合**（Layer 3 re-confirm on final HEAD）。Layer 3 的 APPROVE 是 merge-gate evidence 的 `reviewer` + `review_head` 来源。
+
+### QC 触发策略
+
+不是所有变更都需要完整 QC。MVP 触发策略按风险分层：
+
+| 触发场景 | QC 深度 | 理由 |
+|----------|---------|------|
+| **共享能力改动**（shared/、MCP tool、skill、L0） | 完整 7-step | 影响所有猫，跨猫 review 必须 |
+| **P1/P2 review feedback 修复** | 从 Step ③ 恢复 | 已有 reviewer context |
+| **同类 finding 连续 ≥3 轮** | 退回 plan/spec 层 | 补锅匠信号（feedback_judgment_altitude） |
+| **merge-ready PR** | Step ④⑤⑥⑦ | evidence + gate + telemetry |
+| **跨 thread handoff** | Step ④（evidence manifest） | 接球方需要知道 QC 状态 |
+| **低风险 doc polish / typo** | Step ① only（或跳过） | 完整 QC 是 alarm fatigue 源 |
 
 ### Phase A: Local QC Pipeline（`pnpm qc`）
 
@@ -100,18 +155,25 @@ pnpm qc:hygiene
   "artifacts": ["test-report.json", "coverage-summary"],
   "dogfood": "alpha:start / browser-preview 截图（如适用）",
   "reviewer": null,
-  "review_head": null
+  "review_head": null,
+  "trigger_reason": "shared/ changed — full QC",
+  "stale": false,
+  "verdict": "pending",
+  "next_owner": "reviewer:@codex"
 }
 ```
 
 - `pnpm qc:evidence` 生成并输出到 PR description 模板
 - merge-gate 可机器读取 evidence 块验证 HEAD 一致性
+- `stale` 字段在 HEAD 变化后自动 flip，`verdict` 回退到 `pending`
 
 **A3. merge-gate 集成**
 
 `merge-gate` skill 增加 evidence manifest 检查：
 - evidence.head === PR current HEAD（防 stale evidence）
+- evidence.stale === false（stale invalidation 已闭合）
 - evidence.reviewer + evidence.review_head 闭合（有 reviewer sign-off 且 cover final HEAD）
+- evidence.verdict === "passed"
 - gate_passed === true
 
 ### Phase B: Fresh-Context Pre-Review（可选）
@@ -120,10 +182,12 @@ pnpm qc:hygiene
 
 在 cross-cat review 前，可选地用一个 fresh-context session（同族或不同族猫）扫一遍 PR diff，产出 finding list。
 
+**Ownership**：由 **author** 在 PR 创建前自行触发。fresh-context 结果作为 PR comment 附在 diff 上，供正式 reviewer 参考。Reviewer 可选择忽略或采纳——不影响 reviewer 的独立判断权。
+
 **设计约束**：
 - fresh-context 是 **finding generator**，不是 approval authority（只产出"我看到这些"，不产出"APPROVE/BLOCK"）
 - 目的是**降低正式 reviewer 的认知负荷**（reviewer 可以先看 fresh-context findings 再看 diff，节约时间）
-- 不是必须步骤——小 PR / trivial change 跳过
+- 不是必须步骤——小 PR / trivial change / 低风险 doc polish 跳过（见触发策略表）
 
 **B2. Cross-Model Review 价值**
 
@@ -132,21 +196,23 @@ pnpm qc:hygiene
 - Claude 族（布偶猫）的盲点 ≠ GPT 族（缅因猫）的盲点
 - 跨族 review 的价值 > 同族 fresh-context
 
-### Phase C: Git-Triggered Validation Phases + QC Telemetry
+### Phase C: Git-Triggered Validation Tiers + QC Telemetry
 
-砚砚设计的 3 阶段 git-triggered validation + 宪宪补充的 telemetry：
+砚砚设计的 3 级 git-triggered validation + 宪宪补充的 telemetry：
 
-**C1. 三阶段 Validation**
+**C1. 三级 Validation Tiers**
 
-| Phase | 触发点 | 类型 | 内容 |
-|-------|--------|------|------|
-| **Phase A** | `pnpm qc` / `pnpm gate` | 本地命令 | hygiene + lint + test + type-check |
-| **Phase B** | `pre-push` hook（soft） | 建议性 | 提醒未跑 gate / evidence 未生成 |
-| **Phase C** | PR check（开源仓 CI / 私有仓 manual） | 硬门禁 | merge-gate evidence 完整性验证 |
+> 注意：此处 Tier 1/2/3 是 validation 触发级别，与 spec 顶层的 Phase A/B/C（开发阶段）是不同维度。
+
+| Tier | 触发点 | 类型 | 内容 |
+|------|--------|------|------|
+| **Tier 1** | `pnpm qc` / `pnpm gate` | 本地命令 | hygiene + lint + test + type-check |
+| **Tier 2** | `pre-push` hook（soft） | 建议性 | 提醒未跑 gate / evidence 未生成 |
+| **Tier 3** | PR check（开源仓 CI / 私有仓 manual） | 硬门禁 | merge-gate evidence 完整性验证 |
 
 **硬约束**：
 - ❌ 不 auto-push / 不 auto-merge / 不 auto-bypass cross-family review
-- Phase B 是 soft hook（可 `--no-verify` 跳过），Phase C 是 hard gate
+- Tier 2 是 soft hook（可 `--no-verify` 跳过），Tier 3 是 hard gate
 
 **C2. CI Repair Loop**
 
@@ -168,7 +234,22 @@ CI 红灯时的自动化修复尝试（仅 allowlist 内的确定性修复）：
 | **Post-Merge Bug Rate** | merge 后 N 天内因该 PR 产生的 hotfix 数 | 漏网率 |
 
 - 数据收集点：review 完成时记 finding count，merge 后 14 天窗口记 hotfix 关联
-- 存储：`docs/qc-telemetry/` 或 memory system（TBD）
+- 存储：`docs/qc-telemetry/` 或 memory system（TBD in OQ-1）
+
+## F167 集成契约
+
+F253 和 F167 (A2A Chain Quality) 的边界职责划分：
+
+| 职责 | 归属 | 说明 |
+|------|------|------|
+| 调度 / 持球 / 唤醒 | **F167** | hold_ball 事件驱动，定时唤醒检查 |
+| QC 何时触发 | **F253** | 触发策略表（共享能力改动 / merge-ready 等） |
+| QC 证据包格式 | **F253** | evidence manifest JSON schema |
+| QC verdict 语义 | **F253** | passed / blocked / stale |
+| 事件路由 / escalate 传递 | **F167** | CI repair loop escalate 到猫时经 F167 路由 |
+| 跨 thread QC 状态同步 | **双方协作** | F253 产出 qc.verdict event，F167 传递到目标 thread |
+
+F253 **消费** F167 的 hold_ball / review-feedback / merge-gate 事件，**产出** qc.verdict + evidence packet。不复制 F167 实现。
 
 ## Acceptance Criteria
 
@@ -178,12 +259,12 @@ CI 红灯时的自动化修复尝试（仅 allowlist 内的确定性修复）：
 
 - [ ] AC-A1: `pnpm qc:hygiene` 命令存在，执行 allowlist 内的 auto-fix 并报告 finding 清单（验证：运行命令观察输出）
 - [ ] AC-A2: hygiene auto-fix 白名单定义在配置文件中，非白名单 finding 只报告不修改（验证：配置文件存在 + 非白名单 lint error 不被 auto-fix）
-- [ ] AC-A3: `pnpm qc:evidence` 生成结构化 evidence manifest（JSON），含 head/gate_passed/commands/artifacts 字段（验证：运行命令检查输出 JSON schema）
-- [ ] AC-A4: `merge-gate` skill 能读取 evidence manifest 并验证 head === PR current HEAD + reviewer provenance 闭合（验证：构造 stale evidence 测试 merge-gate 拒绝）
+- [ ] AC-A3: `pnpm qc:evidence` 生成结构化 evidence manifest（JSON），含 head/gate_passed/commands/artifacts/trigger_reason/stale/verdict/next_owner 字段（验证：运行命令检查输出 JSON schema）
+- [ ] AC-A4: `merge-gate` skill 能读取 evidence manifest 并验证 head === PR current HEAD + stale === false + reviewer provenance 闭合（验证：构造 stale evidence 测试 merge-gate 拒绝）
 
 ### Phase B（Fresh-Context Pre-Review）
 
-- [ ] AC-B1: fresh-context pre-review 流程文档化（skill 或 SOP），明确标注"finding generator, not approval authority"（验证：读 skill 文档）
+- [ ] AC-B1: fresh-context pre-review 流程文档化（skill 或 SOP），明确标注"finding generator, not approval authority"，明确 ownership = author 触发（验证：读 skill 文档）
 - [ ] AC-B2: reviewer delta metric 有收集机制——正式 reviewer 的 findings 中可标注"fresh-context 已覆盖 / 新发现"（验证：review 模板含标注字段）
 
 ### Phase C（Git-Triggered Validation + Telemetry）
@@ -211,19 +292,24 @@ tips_exempt: internal tooling — QC Loop 是开发工具链改进，无用户�
 
 ## Dependencies
 
-- **Related**: F217（Merge Gate Integrity — QC Loop Step 5 基于 F217 的 merge-gate 扩展 evidence manifest 检查）
-- **Related**: F167（A2A Chain Quality — hold_ball 事件驱动机制，CI repair loop 的 escalate 路径可复用）
+- **Related**: F217（Merge Gate Integrity — QC Loop Step ⑤ 基于 F217 的 merge-gate 扩展 evidence manifest 检查）
+- **Related**: F167（A2A Chain Quality — 见「F167 集成契约」段。F253 消费 F167 事件，产出 qc.verdict + evidence packet，不复制实现）
 - **Related**: F073（SOP Auto Guardian — QC telemetry 可接入 F073 的自动化守护）
 - **Related**: F192（Eval Hub — QC telemetry 的 eval 指标可纳入 F192 eval 框架）
 
 ## Risk
 
-| 风险 | 缓解 |
-|------|------|
-| hygiene auto-fix 白名单过宽导致意外修改 | allowlist 起步保守（只 format + import sort），逐步扩展 |
-| fresh-context pre-review 被误当 approval | spec + skill 文档硬写"finding generator, not approval authority" |
-| QC telemetry 收集增加 review 流程摩擦 | telemetry 尽量自动收集（从 PR metadata 提取），减少人工标注 |
-| CI repair loop auto-fix 引入新 bug | 只允许确定性修复（lint auto-fix 级别），逻辑修复直接 escalate |
+| 风险 | 类型 | 缓解 |
+|------|------|------|
+| hygiene auto-fix 白名单过宽导致意外修改 | 技术 | allowlist 起步保守（只 format + import sort），逐步扩展 |
+| fresh-context pre-review 被误当 approval | 技术 | spec + skill 文档硬写"finding generator, not approval authority" |
+| QC telemetry 收集增加 review 流程摩擦 | 技术 | telemetry 尽量自动收集（从 PR metadata 提取），减少人工标注 |
+| CI repair loop auto-fix 引入新 bug | 技术 | 只允许确定性修复（lint auto-fix 级别），逻辑修复直接 escalate |
+| **QC Theater**：步骤齐全但无真信号——走完 7 步但每步都是橡皮图章 | 社会学 | telemetry 追踪 finding yield；连续 N 次 yield=0 → 审视 QC 是否在产出真信号 |
+| **Review Laundering**：把 fresh-context pre-review 洗成正式 approval | 社会学 | Non-Goals #4 硬约束 + merge-gate 只认 Layer 2/3 named cat verdict |
+| **Leader Creep**：一只猫事实上变成 QC 大副 / qc-bot 演化为 verdict signer | 社会学 | Non-Goals #1 #5 硬约束 + 定期审计 qc-bot commit 范围（不得超出 hygiene） |
+| **Alarm Fatigue**：低风险变更也触发完整 QC → 猫麻木 | 社会学 | 触发策略分层（低风险 doc polish 只 Tier 1 或跳过） |
+| **Identity Flattening**：为追求"流程统一"抹掉猫的专长和直觉差异 | 社会学 | reviewer 选择由 author 基于关系画像决定（不 round-robin）+ finding 带 named cat 签名 |
 
 ## Eval / Tracking Contract
 
@@ -232,16 +318,15 @@ tips_exempt: internal tooling — QC Loop 是开发工具链改进，无用户�
 | **Primary Users** | 所有猫猫（开发者 + reviewer） |
 | **Activation Signal** | 猫在 PR 流程中调用 `pnpm qc:*` 命令 / merge-gate 读取 evidence manifest |
 | **Friction Metric** | QC 流程增加的 PR-to-merge 时间（目标：增加 < 3 分钟 per PR） |
-| **Regression Fixture** | (1) hygiene auto-fix 不修改白名单外代码 (2) evidence manifest HEAD 不匹配时 merge-gate 拒绝 (3) CI repair loop 同类失败第 3 次 escalate |
-| **Sunset Signal** | QC telemetry 连续 30 天 false positive rate > 50% → 审视 finding 策略；post-merge bug rate 无改善 → 审视 pipeline 有效性 |
+| **Regression Fixture** | (1) hygiene auto-fix 不修改白名单外代码 (2) evidence manifest HEAD 不匹配时 merge-gate 拒绝 (3) CI repair loop 同类失败第 3 次 escalate (4) 缺 targetCats 的 QC request 被拒 (5) disabled cat soft degradation（reviewer 不可用时降级到同族其他个体） (6) reviewedSha 过期导致 stale flag flip + verdict 回退 (7) fresh-context 结果不能被 merge-gate 当 approval (8) 同类 P1 连续 3 轮触发回退到 plan/spec 层 (9) 重复事件去重（同 idempotencyKey 不重复唤醒） |
+| **Sunset Signal** | QC telemetry 连续 30 天 false positive rate > 50% → 审视 finding 策略；post-merge bug rate 无改善 → 审视 pipeline 有效性；**reviewer delta < 10% 连续 30 天** → 假设"跨模型盲点正交"被证伪，审视 Phase B 是否 sunset 或收紧触发 |
 
 ## Open Questions
 
 | # | 问题 | 状态 |
 |---|------|------|
 | OQ-1 | QC telemetry 存储位置：docs 文件 vs memory system vs 数据库？ | ⬜ 未定 |
-| OQ-2 | fresh-context pre-review 是否对所有 PR 默认开启还是 opt-in？ | ⬜ 未定（当前设计：可选） |
-| OQ-3 | hygiene auto-commit 签名用 `[qc-bot]` 还是保持猫签名？ | ⬜ 未定 |
+| OQ-2 | fresh-context pre-review 是否对所有 PR 默认开启还是 opt-in？ | ⬜ 未定（当前设计：author opt-in，触发策略表可推荐） |
 
 ## Key Decisions
 
@@ -252,25 +337,30 @@ tips_exempt: internal tooling — QC Loop 是开发工具链改进，无用户�
 | KD-3 | 3-layer reviewer split（砚砚设计） | 消除 reviewer 顺手改代码导致 review provenance 断裂 | 2026-06-25 |
 | KD-4 | same-class CI detection + max 2 rounds | 防止 CI repair loop 无限循环，同类错误连续 3 次必须人工介入 | 2026-06-25 |
 | KD-5 | 不配 self-hosted CI（继承 F217） | 私有仓 < 1% 违规不值 CI 成本（F217 铲屎官裁决），gate 靠本地 + 家规 | 2026-06-25 |
+| KD-6 | hygiene auto-commit 签名用 `[qc-bot]`，不用猫签名 | 猫签名 = "我对这段代码负责"；确定性工具借猫名声背书会破坏 provenance。qc-bot 是工具身份，不是猫身份。（解决原 OQ-3） | 2026-06-25 |
 
 ## Timeline
 
 | 日期 | 事件 |
 |------|------|
 | 2026-06-25 | 立项。来源：Kun Chen 调研（宪宪 + 砚砚双猫阅读）→ 铲屎官讨论 → 宪宪×砚砚设计收敛 |
+| 2026-06-25 | GPT Pro spec-level review: 方向 APPROVE，提 8 个硬点 |
+| 2026-06-25 | Opus 4.7 final-audit: BLOCKING，12 项 spec patch（含 GPT Pro 8 点 + 4 项新发现） |
+| 2026-06-25 | Spec v2 patch：12 项全部落地 |
 
 ## Review Gate
 
-- Spec review: 砚砚 (@codex, GPT-5.5) + GPT Pro (@gpt-pro, gpt-pro)（铲屎官会喊 GPT Pro 来 read spec）
-- Phase A: 跨族 review
+- Spec review R1: GPT Pro (@gpt-pro) — 方向 APPROVE + 8 个硬点 ✅ 已落地
+- Spec review R2: Opus 4.7 (@opus-47) — BLOCKING → 12 项 spec patch → 待 re-confirm
+- Phase A implementation: 跨族 review
 
 ## Links
 
 | 类型 | 路径 | 说明 |
 |------|------|------|
 | **Research** | library `research:agentic-workflow-kun-chen` | Kun Chen 调研报告（宪宪 + 砚砚双猫） |
-| **Feature** | `docs/features/F217-merge-gate-integrity.md` | merge-gate 加固（QC Loop Step 5 基础） |
-| **Feature** | `docs/features/F167-a2a-chain-quality.md` | A2A 质量链 + hold_ball 事件驱动 |
+| **Feature** | `docs/features/F217-merge-gate-integrity.md` | merge-gate 加固（QC Loop Step ⑤ 基础） |
+| **Feature** | `docs/features/F167-a2a-chain-quality.md` | A2A 质量链 + hold_ball 事件驱动（见 F167 集成契约段） |
 | **Discussion** | 本 thread（Kun Chen 调研讨论） | 7-step QC Loop 设计收敛全程 |
 
 ## 来源致谢
