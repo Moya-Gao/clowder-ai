@@ -1,6 +1,6 @@
 {
   "$schema": "Intake ledger — tracks which clowder-ai commits have been reviewed for absorption into cat-cafe",
-  "last_reviewed_target_head": "8be7cc66cb9e31d4202869bf151d2185f08d609c",
+  "last_reviewed_target_head": "bae13c5477cb49ff0be829f6691ad8ac4cf02673",
   "entries": [
     {
       "pr_number": 90,
@@ -1950,6 +1950,15 @@
       "decision": "absorbed",
       "timestamp": "2026-06-24T12:52:38.723Z",
       "note": "absorbed record created with --skip-absorbed-guard (outbound-filed hotfix or historical backfill)"
+    },
+    {
+      "pr_number": 1014,
+      "target_merge_commit": "bae13c5477cb49ff0be829f6691ad8ac4cf02673",
+      "decision": "absorbed",
+      "timestamp": "2026-06-25T01:50:36.162Z",
+      "intake_intent_issue": 2528,
+      "absorb_pr": 2529,
+      "review_proof": "https://github.com/zts212653/cat-cafe/pull/2529#issuecomment-4795119636"
     }
   ]
 }
