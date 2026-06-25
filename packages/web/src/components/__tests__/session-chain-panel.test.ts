@@ -57,6 +57,12 @@ vi.mock('../status-helpers', () => ({
   truncateId: (id: string, len: number) => (id.length > len ? `${id.slice(0, len)}…` : id),
 }));
 
+// Stub next/link — render as <a> so we can assert href
+vi.mock('next/link', () => ({
+  default: (props: { href: string; className?: string; children: React.ReactNode }) =>
+    React.createElement('a', { href: props.href, className: props.className }, props.children),
+}));
+
 const origCreateElement = document.createElement.bind(document);
 let container: HTMLDivElement;
 let root: Root;
@@ -1268,6 +1274,40 @@ describe('F24: SessionChainPanel', () => {
 
       // Collapsed again
       expect(container.querySelector('[data-testid="session-card-sealed"]')).toBeNull();
+    });
+  });
+
+  describe('F252: Story Player entry point', () => {
+    it('renders replay link for sealed sessions pointing to /story/session:<id>', async () => {
+      mockSessionsResponse([
+        {
+          id: 'ses_sealed_replay',
+          catId: 'opus',
+          seq: 0,
+          status: 'sealed',
+          messageCount: 10,
+          createdAt: Date.now() - 60000,
+          sealedAt: Date.now() - 30000,
+        },
+      ]);
+      renderPanel('thread-1');
+      await flushFetch();
+      expandSealed();
+
+      const replayLink = container.querySelector('a[href="/story/session:ses_sealed_replay"]');
+      expect(replayLink).not.toBeNull();
+      expect(replayLink?.textContent).toContain('回放');
+    });
+
+    it('does NOT render replay link for active sessions', async () => {
+      mockSessionsResponse([
+        { id: 'ses_active_no_replay', catId: 'opus', seq: 0, status: 'active', messageCount: 5, createdAt: Date.now() },
+      ]);
+      renderPanel('thread-1');
+      await flushFetch();
+
+      const replayLink = container.querySelector('a[href*="/story/session:"]');
+      expect(replayLink).toBeNull();
     });
   });
 });

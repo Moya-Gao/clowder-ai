@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 // biome-ignore lint/correctness/noUnusedImports: React needed for JSX in vitest environment
 import React, { useEffect, useState } from 'react';
 import { formatCatName, useCatData } from '@/hooks/useCatData';
@@ -473,6 +474,14 @@ export function SessionChainPanel({ threadId, catInvocations, onViewSession }: S
                           >
                             查看
                           </button>
+                        )}
+                        {session.status === 'sealed' && (
+                          <Link
+                            href={`/story/session:${session.id}`}
+                            className="text-micro px-2 py-0.5 rounded border border-[var(--console-border-soft)] text-cafe-secondary hover:bg-cafe-surface-elevated inline-flex items-center gap-0.5"
+                          >
+                            🎬 回放
+                          </Link>
                         )}
                         <button
                           type="button"

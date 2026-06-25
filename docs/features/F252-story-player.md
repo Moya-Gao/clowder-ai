@@ -4,6 +4,7 @@ related_features: [F233, F226, F128, F225, F102]
 topics: [replay, demo, story, timeline, presentation, multi-thread]
 doc_kind: spec
 created: 2026-06-25
+tips_exempt: "Tip planned for Phase D sharing feature — Phase A is infrastructure, entry point is a button on existing UI"
 ---
 
 # F252: Story Player
@@ -227,7 +228,7 @@ created: 2026-06-25
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | Story Player 页面应该在 Hub 主导航加入口，还是作为 Feature doc / Thread 详情的附属入口？ | ⬜ 未定 |
+| OQ-1 | Story Player 页面应该在 Hub 主导航加入口，还是作为 Feature doc / Thread 详情的附属入口？ | ✅ Phase A 以附属入口落地：SessionChainPanel sealed session "🎬 回放"按钮。Hub 一级导航留 Phase C |
 | OQ-2 | 脱敏过滤的具体规则集（regex patterns / 允许/拒绝列表）如何维护和演进？ | ⬜ 未定（方向已定：默认关闭 + 生成脱敏 export 包 + 覆盖所有 content 字段） |
 | OQ-3 | 是否需要离线模式（把 story 数据打包成静态 JSON 供离线播放）？ | ⬜ 未定 |
 
