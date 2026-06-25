@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Cat Café MCP wrapper cleanup — daily launchd agent (TEMPLATE).
+
+  F247 KD-19 / B1c-0 hygiene gate. Install only if the operator (CVO) explicitly
+  opts in. This file is checked in as a template; nothing is installed by the PR
+  merge itself. See scripts/launchd/INSTALL.md for the runbook.
+
+  What it does: every day at 04:00 PT, runs `pnpm process:cleanup` from the
+  Cat Café repo. That command goes through scripts/cleanup-stale-dev-processes.mjs,
+  which is the same code path covered by scripts/cleanup-stale-dev-processes.test.mjs —
+  no custom kill logic lives in launchd. The script's whitelist + 8h age threshold
+  + sanctuary guards are the only matchers used.
+
+  Replace {{REPO_PATH}} with the absolute path to your cat-cafe checkout before
+  loading. Example: /Users/lysander/projects/relay-station/cat-cafe
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>cat-cafe.mcp-cleanup</string>
+
+    <!--
+      Run via shell so we can `cd` into the repo and let pnpm resolve the
+      monorepo workspace. Direct `node` invocation would miss pnpm's PATH /
+      lifecycle hooks. ProgramArguments is set to a single bash invocation that
+      tees output to a log for post-mortem.
+    -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>-lc</string>
+        <string>cd {{REPO_PATH}} &amp;&amp; /opt/homebrew/bin/pnpm process:cleanup 2&gt;&amp;1 | tee -a /tmp/cat-cafe-mcp-cleanup.log</string>
+    </array>
+
+    <!-- Daily at 04:00 (when the CVO is asleep, near-zero collision with active sessions). -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>4</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <!-- Best-effort logging. If StandardOutPath is unwritable, launchd still runs. -->
+    <key>StandardOutPath</key>
+    <string>/tmp/cat-cafe-mcp-cleanup.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/cat-cafe-mcp-cleanup.log</string>
+
+    <!-- Do NOT keep alive — this is a one-shot cron-style job, not a daemon. -->
+    <key>RunAtLoad</key>
+    <false/>
+
+    <!-- launchd nice-2 priority: we are housekeeping, never preempt foreground work. -->
+    <key>Nice</key>
+    <integer>2</integer>
+
+    <!-- Suppress the throttle-restart loop in case ProgramArguments fails. -->
+    <key>ThrottleInterval</key>
+    <integer>3600</integer>
+</dict>
+</plist>

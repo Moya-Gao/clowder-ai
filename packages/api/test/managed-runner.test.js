@@ -191,9 +191,7 @@ test('R4-P2-9: fast-exit command output is fully captured', async () => {
   const runner = new ManagedRunner();
   // Subprocess writes 100 lines and exits immediately. Verifies that output
   // piped through stdio is captured in the rolling tail regardless of timing.
-  const result = await runner.launch(
-    'for i in $(seq 1 100); do echo "drain-test-$i"; done && exit 0',
-  );
+  const result = await runner.launch('for i in $(seq 1 100); do echo "drain-test-$i"; done && exit 0');
 
   assert.strictEqual(result.exitCode, 0);
   assert.ok(result.tailOutput.includes('drain-test-100'), 'should capture final line');

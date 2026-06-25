@@ -206,6 +206,28 @@ Console settings "配置云端猫" 流程：
 - [ ] 气泡 color theme UI 渲染抛光（catalog 已持久化 `#2196F3` 蓝，前端微调）
 - [ ] @gemini（烁烁）愿景守护 avatar 审美 verify（小尺寸 cropped + 跟本地 gpt52 区分度）— AC-C-2
 
+### Phase B1c-0 — MCP Wrapper Lifecycle Hygiene Gate（B1c 前置）✅ implementation done
+
+> **B1c 前置 gate**（codex/砚砚 R0 verdict + CVO go）。**B1c spec 在 PR #2553**（open），本 phase 独立修底座。
+>
+> **背景**：browser-automation 后端（agent-browser / playwright / pinchtab）的 npx MCP wrapper **不退**，每次 cat invocation 累积 zombie（已观察 7 天 zombie + 多 backend 全部累积）。LL-056 + feedback_agent_browser_zombie 5 次 reocurrence；wrapper lifecycle 是工具 design 限制，升级 MCP 也修不了。B1c-0 修底座，B1c 才有意义（不修就让铲屎官手动清，违反"自相矛盾"原则）。
+
+**实现 scope**：
+- 扩展 `scripts/cleanup-stale-dev-processes.mjs` 加 3 个 rule（严格白名单 + 8h age threshold）：
+  - `stale-agent-browser-mcp-wrapper`：match `agent-browser-mcp`（跟已有 `agent-browser-cli` orphan rule 不冲突，那个 require ppid=1）
+  - `stale-playwright-mcp-wrapper`：match `@playwright/mcp` 或 `playwright-mcp`
+  - `stale-pinchtab-mcp-wrapper`：match `pinchtab ... mcp` / `pinchtab-mcp`，**显式排除** `pinchtab server` / `pinchtab bridge`（长寿命非 MCP daemon）
+- 测试覆盖 22 项新增（8 positive + 14 negative，含 sanctuary fixtures：pinchtab server/bridge 永不杀，<8h fresh 不杀，generic node/npm 不杀，playwright test runner 不杀；**R1 加 6 项 negative**：`pinchtab-darwin-arm64 server/bridge --upstream-mcp-config` 不杀、marker 在 unrelated arg 里不杀、npm exec 非 MCP target 不杀；**R2 加 3 项 positive**：direct `pinchtab-mcp` binary (unqualified / 绝对路径 / npm exec form) 命中 — 修 R2 P2 claim/impl mismatch）
+- **R1 matcher 重写**：从 substring search 改成 **command-structure parsing**（executable basename + first subcommand），避免 `pinchtab-darwin-arm64 server --upstream-mcp-config /tmp/x` 被 substring `mcp` 误命中（codex R1 P1 catch）。pinchtab binary 支持 `pinchtab` / `pinchtab-mcp` / 任意 platform 后缀 (`pinchtab-darwin-arm64` / `pinchtab-linux-x64` 等)，但 sub-command 必须 == `mcp`
+- `scripts/launchd/cat-cafe.mcp-cleanup.plist.template` + `INSTALL.md` runbook（**模板进 git，不自动 install**——CVO 看 dry-run 后手动 `launchctl load`，每天 04:00 跑 `pnpm process:cleanup`）
+
+**hard 约束（codex R0 3 条接受 + 实施落地）**：
+1. ❌ 不写独立 kill shell — 只扩展已测试 `pnpm process:cleanup` 入口
+2. ❌ launchd 不自动 install — 模板进 PR，CVO 手动加载（持久 OS automation 需要 explicit opt-in）
+3. ✅ 匹配规则极窄 — pinchtab server/bridge 不杀 / generic node/npm/playwright 不杀，negative test fixture 全覆盖
+
+**Real-system dry-run verify**：实测 process list 命中 3 类 stale MCP wrapper（agent-browser-mcp / @playwright/mcp / pinchtab-mcp），**未误杀** pinchtab server / pinchtab bridge / 已有 agent-browser-cli orphan rule 仍 work。
+
 ### Phase D — Console "配置云端猫" 多 provider UI
 
 Phase B-C 后启动。Settings 页面新增 "配置云端猫"，支持选 provider / model / 自动 wire up token + URL。
@@ -262,6 +284,14 @@ Phase B-C 后启动。Settings 页面新增 "配置云端猫"，支持选 provid
 - [ ] AC-C-3: ChatMessage / Cat picker 渲染 `缅因猫Pro(Pro Cloud (ChatGPT))` Phase C 抛光稿
 - [ ] AC-C-4: cloud cat 类别 + "via ChatGPT Pro" tag UI（可滚到 Phase D）
 
+### Phase B1c-0 AC
+
+- [x] **AC-B1c-0-1**: 扩展 `cleanup-stale-dev-processes.mjs` 加 3 rule（agent-browser-mcp / @playwright/mcp / pinchtab-mcp），白名单严格 + 8h 阈值
+- [x] **AC-B1c-0-2**: 测试覆盖 22 项 — 8 positive + 14 negative（R1 +6 negative / R2 +3 positive），含 pinchtab `pinchtab-darwin-arm64` 真 binary form sanctuary + R2 direct binary 三种 form 全覆盖
+- [x] **AC-B1c-0-3**: launchd plist template + INSTALL.md runbook 进 git（不自动 install）
+- [x] **AC-B1c-0-4**: real-system dry-run verify 实测 process list（3 类 wrapper 命中 + sanctuary 未误杀）
+- [ ] **AC-B1c-0-5** (post-merge ops)：CVO 看 dry-run → 手动 `launchctl load` 启用每日 cleanup
+
 ### Phase D / E acceptance criteria 待立项后细化
 
 ## Open Questions
@@ -317,6 +347,7 @@ Phase B-C 后启动。Settings 页面新增 "配置云端猫"，支持选 provid
 | **KD-15 (Phase C avatar, R13 corrected)** | **gpt-pro avatar 由云端砚砚自己 self-design**（用 F229 `yanyan-codex-character-base-v1.png` 母图作 reference），不让烁烁画；PR scope = asset PNG + doc only；runtime catalog avatar 字段切换 (`PATCH /api/cats/gpt-pro {avatar}` 走 `updateRuntimeCat`) 作为 post-merge ops (AC-C-1b) | 自我延伸 = 护城河（W7 IKEA 效应）：云端砚砚画自己的脸 → 身份感 + 团队归属感更强；同时云端砚砚有 ChatGPT 内置 image gen 工具，能 reference 母图保 identity fidelity；烁烁视觉守护改为审美 verify 而非原画作者。R13 corrected：cat-config.json 改动对 live + fresh install 都不生效（gpt52 R13 P1-2 实测），撤回；live 切换只走 PATCH | 2026-06-24 (R13 corrected 2026-06-25) |
 | **~~KD-16 (撤回 — 47 R13 wrong finding)~~** | ~~B1a 没持久化、重启即丢~~ — **48 R13.5 5 重证据推翻**：主服务实例 `cat-cafe-runtime/.cat-cafe/cat-catalog.json` line 1394 有 gpt-pro 顶层 breed entry + variant，mtime 6-22（B1a 注册时间），`createRuntimeCat` writeFileSync 落盘 + 启动 `readRuntimeCatCatalog` load 恢复正常。47 R13 grep 错坐标：grep 的是 worktree 系隔离 catalog（死文件 mtime 6-15），不是主服务实例 catalog。**真 P1 是 avatar 字段值 stale**（gpt52 R12 + 48 R13.5 双 confirm），见 AC-C-1b。第三次 grep 错坐标自审：见 LL-grep-coordinate-runtime-vs-worktree (TODO) | 2026-06-25 撤回 |
 | **KD-17 (B1a 注册 oversight + dispatch guard)** | **cloud-only 猫（Remote MCP）不能被 dispatch**：B1a 时 `POST /api/cats` 注册 gpt-pro，cat-cafe runtime `createRuntimeCat` 看 clientId=`openai` 自动塞 default cli (`{command: "codex"}`)，违反 F247 cat-config.json caution 明示的"cli 字段省略；不被动接 dispatch"。本地 @ gpt-pro 触发 dispatch + spawn codex → 失败 → 弹"模型名不被支持"错误窗。**Root fix 3 处**：(1) updateCatSchema `cli: cliSchema.nullable().optional()` + updateRuntimeCat 处理 `cli:null` 删字段；(2) POST handler 看 provider=`openai-chatgpt-pro` 跳 default cli；(3) invokeSingleCat 入口 guard `provider === 'openai-chatgpt-pro'` → skip dispatch + yield done（用 explicit provider marker 而非 `!cli?.command`，因为 antigravity 也无 cli 但用 ACP/MCP 不同路径——guard 应保守只拦 known cloud Remote MCP providers）；post-merge ops: `PATCH /api/cats/gpt-pro {cli:null}` 清 runtime catalog stale cli 字段。Future cloud providers (anthropic-claude-cloud / google-gemini-cloud 等) 增加时同时加入 POST + dispatch guard 检查列表 | 实测来源：2026-06-25 00:10 PT 本地 @ gpt-pro 触发"模型名不被支持 ×2 + 调用 codex CLI exit 1"弹窗；catalog file inspect 显示 gpt-pro variant 有 `cli: {command: "codex", outputFormat: "json"}`；cat-config.json codex-gpt-pro 反而**没 cli** + caution 字段写"cli 字段省略；不被动接 dispatch"。tests 2 项：POST cloud-only skip default cli ✅ + PATCH cli:null 删字段 ✅ | 2026-06-25 |
+| **KD-19 (B1c-0 MCP wrapper lifecycle hygiene)** | **不写新 kill script，扩展已测 cleanup-stale-dev-processes.mjs**：browser-automation MCP wrapper (agent-browser-mcp / @playwright/mcp / pinchtab-mcp) 不退累积 zombie；LL-056 + feedback_agent_browser_zombie 5 次 reoccurrence。codex/砚砚 R0 verdict 3 硬约束：(1) 只扩 `pnpm process:cleanup` 已测入口不写独立 shell；(2) launchd plist template 进 git 但不自动 install (持久 OS automation 需 CVO opt-in)；(3) 匹配规则极窄 (pinchtab server/bridge 永不杀，generic node/npm/playwright 不杀)。**升级 MCP 不修**（已 latest 版，LL-056 早写过 wrapper lifecycle 是 design 限制）。**B1c 前置 gate**：B1c-0 不过 → 不实施 B1c（不然让铲屎官手动清违反"自相矛盾"原则） | 触发：CVO 提议"升级 mcp + 定时任务清"。codex 调查发现已有 `pnpm process:doctor / cleanup` + LL-056 教训；47 之前提议的"写新 kill script + launchd plist"被否决（绕开已有护栏）。codex R0 3 硬约束接受 + 47 implementation；real-system dry-run verify pass | 2026-06-25 |
 
 ## Phase 1.5 实测 Unknown 列表
 
@@ -375,6 +406,9 @@ Phase B-C 后启动。Settings 页面新增 "配置云端猫"，支持选 provid
 | **2026-06-24 19:42 PT** | **AC-C-1a + AC-C-1b done**：PR #2530 merged (squash SHA `284e9b2b8`) + `PATCH /api/cats/gpt-pro {avatar}` 执行成功 + live + persisted 双 verify ✅ |
 | 2026-06-24 23:49 PT | 云端砚砚 Pro 实测 8-variant write 实验：V2/V4/V5 + 长 hello 自我介绍均通过 → KD-13 stochastic claim 实测 confirm（OpenAI safety 拦截 stochastic 但成功率不低）|
 | 2026-06-25 00:10 PT | 本地 @ gpt-pro 触发 dispatch bug 弹窗（"模型名不被支持"）→ KD-17 立案：B1a 注册 oversight + dispatch guard PR |
+| 2026-06-25 01:27 PT | KD-17 PR #2538 merged (squash SHA `ecd71ac93`) |
+| 2026-06-25 15:10 PT | CVO challenge "用 user 人肉粘贴自相矛盾" → Phase B1c spec PR #2553 (open，待 review) |
+| 2026-06-25 08:42 PT | codex/砚砚 R0 verdict: 前置 B1c-0 MCP wrapper lifecycle hygiene gate（先修底座再做 B1c）→ KD-19 立案 + 本 PR 实施 |
 
 ## Links
 
