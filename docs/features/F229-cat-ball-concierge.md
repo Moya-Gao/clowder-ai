@@ -165,7 +165,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 - [ ] BUG-UX-6: 砚砚动态效果不可见——9 态动画（跑/跳/招手/等待/review/失败等）CVO 从未看到过，只看到 idle。**诊断（2026-06-21 宪宪）**：链路没断，是两个设计问题叠加：① V1 projection 只映射 6/9 态（`running-left`/`waving`/`jumping` 死路无 ConciergeBallState 映射）；② 可达态用户体感不可见（`thinking→running` 持续几秒且注意力在面板；`found→review` 面板打开时 unseenResultCount 立即清零；`listening→waiting` 用户在打字不看球）。需产品层决策——见讨论 doc `docs/discussions/2026-06-21-f229-bug-ux6-animation-visibility.md`。**素材升级 spike（2026-06-22）**：铲屎官脑洞"母图→AI 视频→截帧→atlas"，两猫（宪宪+砚砚）共识可行+值得 spike，pipeline + 提示词见 `video-to-spritesheet-pipeline.md`；R1 布偶猫 idle 首轮测试"效果非常棒"，发现 9:16 竖屏尾巴出框→换 16:9。**xianxian-codex atlas merged（2026-06-24）**：PR #2527 — 宪宪专属 9 态视频提取 atlas 皮肤上线，pipeline 首个完整产出（素材升级线 milestone）；projection/animation 问题（①②）仍 open
 - [x] BUG-UX-7: 猫猫球不渲染 Markdown——值班猫回复中 Markdown 语法显示为原始文本。**已修复**：PR #2488 merged 2026-06-22，统一使用 `MarkdownContent` 组件 + `buildMdComponents(tp?)` 工厂模式，textProcessor 覆盖所有文本容器（p/strong/em/del/h1-h6/li/a/th/td），code/pre 排除。gpt52 local review 2 轮 + cloud review 0 P1/P2
 - [x] BUG-UX-8: 原地看（peek）内容无收起机制。**已修复**：同 PR #2488——re-click toggle + ✕ dismiss button
-- [ ] BUG-UX-9: 跳转动作错误显示为"原地看"——某些 `concierge_teleport` 类型的 action 在 UI 上显示为"原地看"而非"跳过去"。CVO 2026-06-21 截图：三个按钮全部显示"原地看"，但其中至少一个对应的是跳转（teleport）操作。可能根因：API 侧 `verb` 字段赋值逻辑（`concierge-reply-validator.ts`）或 HandleMap 查询返回的 action type 不匹配实际 intent
+- [x] BUG-UX-9: 跳转动作错误显示为"原地看" ✅ PR #2531 修复。根因：小模型（gemini-3.5-flash）默认写 `[原地看 Rn]`，旧 `shouldSkipAction` 静默丢弃不兼容组合。修复：`resolveAction` 自动纠正 verb↔anchor 不匹配（peek→teleport / teleport→peek），前端按钮文字改用 `action.action` 显示正确动词
 
 ### Phase E（桌宠化 + 形象生态）
 - [x] AC-E0-1: PetSkinContract v0 — `conciergeState → petState` pure projection (4 states: idle/running/review/failed), shared types + `projectToPetState()` function, 10 unit tests
@@ -289,6 +289,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 | 2026-06-10 | **Phase A PR-A1 merged** (PR #2202，squash commit e6f8b4c38)：ConciergeConfigStore + ConciergeThreadService + `/api/concierge/*` 路由 + SystemPromptBuilder 注入 + prompt injection 防护 (R15 P1) + concierge thread lifecycle (R18/R19 P2) |
 | 2026-06-10 | **Phase A PR-A2 merged** (PR #2211，squash commit 3df6f643f)：ConciergeHost（常驻根容器）+ ConciergeBall（8 态投影）+ ConciergePanel（对话窗）+ ConciergeRailToggle（ActivityBar 唤回入口）+ ConciergeStore（INV-2 纯投影架构）+ muted toggle UI (AC-A6 前端); R1-R7 cloud review cycle — 7 轮修复全清零 P1/P2 |
 | 2026-06-11 | **Phase A PR-A3a merged** (PR #2228，squash commit 70a689fd)：ConciergeToolbar（Layer 2 能力按钮：找找看/新功能/传话 + Escape 折叠）+ ConciergePanel 气泡化（Layer 3 漫画气泡 + 对话集成：发送/乐观插入/错误恢复/滚动锚点）+ useConciergeMessages（GET /api/messages 消息流 + refresh-after-send）+ R7 speech bubble tail overflow-hidden 修复（尾角不被 clip）+ R8 streaming draft filter（isDraft=true 不计入 reply detection）+ keyboard double-send guard（Enter 键 invocationStatus 守门）；R1-R8 cloud review cycle — 8 轮修复全清零 P1/P2 |
+| 2026-06-24 | **BUG-UX-9 fix merged** (PR #2531, squash commit e94d03b2)：`shouldSkipAction` → `resolveAction` 自动纠正 verb↔anchor 不匹配；前端 display 改用 `action.action`；搜索 prompt 加 verb 用法说明 |
 
 ## Review Gate / 分工（CVO 拍板 2026-06-09 msg 0001781074572950）
 
