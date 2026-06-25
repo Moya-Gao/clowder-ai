@@ -96,7 +96,7 @@ done
 #   对于其他键: .env.local > .env（无 CLI 恢复机制）
 #   例外：CAT_CAFE_PROVISION_GLOBAL_SIDECAR 是 machine-global sidecar
 #   owner marker，只能来自 wrapper/CLI 环境；dotenv 不得授予 ownership。
-#   安全注意: .env.local 全量 source，不再限于 DARE 白名单。
+#   安全注意: .env.local 全量 source。
 CLI_FRONTEND_PORT_OVERRIDE="${FRONTEND_PORT-}"
 CLI_API_SERVER_PORT_OVERRIDE="${API_SERVER_PORT-}"
 CLI_REDIS_PORT_OVERRIDE="${REDIS_PORT-}"
@@ -387,7 +387,7 @@ derive_embed_enabled() {
     # start-dev no longer derives EMBED_ENABLED=1 from EMBED_MODE.
     local explicit="${EMBED_ENABLED-}"
     if [ -n "$explicit" ]; then
-        _SRC_EMBED_ENABLED="env/.env override"
+        _SRC_EMBED_ENABLED=".env override"
         return
     fi
     EMBED_ENABLED=0
@@ -1298,7 +1298,9 @@ main() {
     if [ ! -x "$PROJECT_DIR/node_modules/.bin/tsc" ]; then
         echo ""
         echo -e "${YELLOW}检测到依赖不完整，自动安装...${NC}"
-        run_logged_step "pnpm install" 5 pnpm install --frozen-lockfile
+        run_logged_step "pnpm install" 5 \
+            env -u NODE_ENV -u npm_config_production -u NPM_CONFIG_PRODUCTION \
+            pnpm install --frozen-lockfile
         echo -e "${GREEN}  ✓ 依赖安装完成${NC}"
     fi
     ensure_api_native_addons
