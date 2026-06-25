@@ -43,6 +43,7 @@ V1.5 path ownership（sync-managed / target-owned / mixed） → V2 hunk-level c
 - [ ] AC-A3: Gate emits machine-readable JSON + human-readable Markdown reports with per-path classification.
 - [ ] AC-A4: Override requires explicit reason, written to provenance; > 3 overrides per sync triggers CVO approval alarm.
 - [ ] AC-A5: 至少一个高置信历史事故（候选：clowder-ai#720 sync 覆盖 F190 17 项视觉）reconstructed 成 dry-run fixture，V1 gate 必须 BLOCK 才算通过（anti-placebo）。
+- [ ] AC-A6: V1 部署 1 个月后跑 retroactive dry-run eval；C1a/C1b 历史事故必须 BLOCK，漏挡则重开 gate design。
 
 ### Phase B（Community Contract Registry v0）
 
@@ -85,6 +86,7 @@ V1.5 path ownership（sync-managed / target-owned / mixed） → V2 hunk-level c
 | KD-3 | Override count > 3 触发 CVO approval alarm | 防 override 变绕过逃生门（同样命运 SOP V1 手动 Guard） | 2026-06-25（宪宪边界补充） |
 | KD-4 | gateCoverage 多选标签，C1 拆 C1a/C1b | 一个事故可同时 covered_by_v1 + needs_contract_registry；maintainer self-quickfix 严重程度不同于社区被改坏等家修 | 2026-06-25（宪宪边界补充） |
 | KD-5 | AC-A5 Historical Regression Replay 必须通过才算 V1 验收 | 不能在 dry-run 标出真实事故 = 安慰剂 gate | 2026-06-25（云端砚砚 Pro review） |
+| KD-6 | AC-A6 one-month anti-placebo eval | V1 不能只在 forward fixtures 里绿；retroactive C1a/C1b 漏挡必须回头改 gate | 2026-06-25（云端砚砚 Pro review） |
 
 ## Timeline
 

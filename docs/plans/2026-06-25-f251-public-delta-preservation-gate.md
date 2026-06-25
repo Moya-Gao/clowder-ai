@@ -19,6 +19,7 @@ owner: codex
 - AC-4: Override requires an explicit reason, is written to provenance/report output, and triggers a CVO approval alarm when one sync overrides more than 3 blocked items.
 - AC-5: Known home-side behavior regressions are tracked separately through a Community Contract Registry v0; the public delta gate does not claim to solve unregistered behavior.
 - AC-6: At least one historical mindfn/Wu Lang incident from the A ledger is reconstructed as a dry-run fixture; V1 must block it or the gate is not accepted.
+- AC-7: One month after V1 deploy, retroactive dry-run eval must show C1a/C1b historical incidents block; any miss reopens gate design.
 **Architecture cell:** Draft open-source sync pipeline extension; final feature cell pending CVO signoff.
 **Map delta:** none
 **Map delta why:** This tightens the existing outbound sync pipeline and does not add a new product/runtime ownership cell.
@@ -140,6 +141,9 @@ interface PublicDeltaGateReport {
   summary: {
     passCount: number;
     blockCount: number;
+    revertCandidateCount: number;
+    conflictCandidateCount: number;
+    deleteCandidateCount: number;
     overrideCount: number;
     cvoApprovalRequired: boolean;
   };
@@ -148,6 +152,7 @@ interface PublicDeltaGateReport {
 
 interface PublicDeltaGateItem {
   path: string;
+  publicBehaviorId?: string;
   mode: PublicDeltaGateMode;
   risk: 'pass' | 'block' | 'override';
   reason: string;
@@ -232,6 +237,11 @@ Keep the validator read-only. It should validate A's output without trying to in
 
 Pick one high-confidence issue from A's first batch, initially expected to be #723 or #991 if path evidence is sufficient. Reconstruct the relevant `base/current/exported` tree state in a fixture and require the V1 gate to block.
 
+Initial replay candidate:
+- clowder-ai sync PR #720 base + #720 head + the matching cat-cafe export candidate from that sync window.
+- Expected report: 17 F190 visual paths classified as REVERT candidates, not generic conflicts.
+- A may replace or supplement this with #991 / #966 / #959 / #1025 once body + linked PR/commit evidence is complete.
+
 ### Task 1: Pure classifier and fixtures
 
 **Files:**
@@ -306,6 +316,7 @@ The CLI must run `git fetch origin main --tags` unless `--no-fetch` is supplied 
 
 Assert JSON schema fields and Markdown sections:
 - Summary table
+- Revert / Conflict / Delete candidate counts
 - Blocked items
 - Overrides
 - Suggested actions
