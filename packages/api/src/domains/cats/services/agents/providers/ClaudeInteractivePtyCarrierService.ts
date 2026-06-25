@@ -29,6 +29,7 @@ import { type CatId, createCatId } from '@cat-cafe/shared';
 import { getCatModel } from '../../../../../config/cat-models.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import type { AgentMessage, AgentService, AgentServiceOptions, TokenUsage } from '../../types.js';
+import { cleanupEvalJsonl, ingestEvalEntries, resolveEvalJsonlPath } from './AnchorEvalBridgeConsumer.js';
 import {
   ANTHROPIC_PROFILE_MODE_KEY,
   buildClaudeEnvOverrides,
@@ -211,6 +212,8 @@ export class ClaudeInteractivePtyCarrierService implements AgentService {
     // ─── Hook sidecar setup (F230 B-hook: output face switch) ──────────────────
     let sidecarPath: string;
     let hookInfra: HookInfrastructureResult | undefined;
+    // F236 Phase E: eval bridge path (scoped here for cleanup in finally)
+    const evalJsonlPath = resolveEvalJsonlPath(options?.callbackEnv?.CAT_CAFE_INVOCATION_ID);
     if (this.hookSidecarPathOverride) {
       sidecarPath = this.hookSidecarPathOverride;
     } else {
@@ -326,6 +329,12 @@ export class ClaudeInteractivePtyCarrierService implements AgentService {
       let hookSessionId: string | undefined;
       let hookEntrypoint: string | undefined;
 
+      // ─── F236 Phase E: Eval bridge — tail anchor eval jsonl → recordAnchorPreviewEvent ──
+      // The PostToolUse hook (f236-anchor-posttool.mjs) writes cc-native tool anchor eval
+      // events to a separate jsonl file. We tail it here and feed events into the Track-2
+      // event log so the rollup sees both MCP-side and cc-native-side anchor events.
+      const evalTailer = evalJsonlPath ? new TranscriptTailer(evalJsonlPath) : null;
+
       while (!terminal) {
         if (abortRequested) {
           // Yield deferred session_init before error+done (consumers expect it)
@@ -375,7 +384,12 @@ export class ClaudeInteractivePtyCarrierService implements AgentService {
               break;
             }
           }
-        } else {
+        }
+
+        // F236 Phase E: ingest anchor eval events (non-fatal, independent of hook sidecar)
+        if (evalTailer) await ingestEvalEntries(evalTailer);
+
+        if (entries.length === 0) {
           if (Date.now() - lastActivityMs > terminalTimeoutMs) {
             log.warn({ catId, sessionId, terminalTimeoutMs }, 'hook sidecar silence timeout, treating as done');
             terminal = true;
@@ -384,6 +398,9 @@ export class ClaudeInteractivePtyCarrierService implements AgentService {
           }
         }
       }
+
+      // F236 Phase E: final drain — catch eval events from the last hook call
+      if (evalTailer) await ingestEvalEntries(evalTailer, { includeTrailingPartial: true });
 
       // Fallback: yield session_init if loop ended without finding hookSessionId
       if (!sessionInitYielded) {
@@ -417,6 +434,8 @@ export class ClaudeInteractivePtyCarrierService implements AgentService {
           /* best-effort sidecar cleanup */
         }
       }
+      // F236 Phase E: clean up eval jsonl file (best-effort, non-fatal)
+      cleanupEvalJsonl(evalJsonlPath);
     }
   }
 }
