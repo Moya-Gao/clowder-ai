@@ -219,7 +219,7 @@ created: 2026-06-25
 |------|------|
 | Sealed transcript 无 token 流，模拟打字可能看起来不自然 | Phase A cinematic 模式 + 可配置速度 + faithful 备选；调参让视觉效果自然 |
 | 大 session（>1000 events）一次加载可能慢 | 已有分页 API（cursor + limit），Replay Engine 分批预加载 |
-| F233 投影可能缺少某些因果边（历史 feature 只有 stitched 数据） | F233 三源 contract 已覆盖历史（stitched）+ 实时（event-stream）+ git（snapshot）；stitched 带 provenance.confidence 标注可信度 |
+| F233 投影可能缺少某些因果边（历史 feature 只有 stitched 数据） | F233 三源 contract 预留 historical-stitched + 实时（event-stream）+ git（snapshot）；老 feature 完整历史叙事依赖 F233 `applyStitchedEntry` 实现（当前 throw RED）或降级展示；stitched 带 provenance.confidence 标注可信度 |
 | 脱敏过滤可能遗漏 assistant text 中的敏感信息 | 脱敏层覆盖所有 content 字段（不只 tool 边界）+ 审核记录入 ledger + 默认关闭公开分享 |
 | F233 emitter 补齐可能延迟，阻塞 Phase C | 路径 A（KD-6）：每个 emitter 是 `mapBallCustodyEventToTrajectory` 加一条 rule，工作量可控；可提前与 F233 owner 协调排期。Phase A/B 不受阻塞 |
 
@@ -238,7 +238,7 @@ created: 2026-06-25
 | KD-1 | cinematic 模拟打字作为默认渲染方式，保留 faithful 整段显现模式 | 铲屎官要"一秒几千字"的视觉冲击力；UI 标注模式名避免误导（砚砚+47 review） | 2026-06-25 |
 | KD-2 | 后端需求按 Phase 分层：Phase A 纯前端 / Phase C 复用 F233 API + 薄 BFF / Phase D 新建 story persistence + 脱敏 export API | 初版写"纯前端不需要后端"只对 Phase A 成立；Phase C/D 有持久化、脱敏、公开分享需求（砚砚+47 P1） | 2026-06-25 |
 | KD-3 | 多 thread 用绝对时间 `t` 对齐做泳道布局 | 所有事件的 `t` 是服务器 epoch ms，天然可对齐；F233 entries 的 `at` 也是 Unix ms | 2026-06-25 |
-| KD-4 | 因果边来自 F233 投影的显式 kinds（`thread_split`/`thread_merge`/`pr_merged` 等），不做事件层启发式推断 | F233 已投影因果边并带 provenance/confidence；从 events 反推 proposalId→threadId 链路是重复造轮子且容易遗漏（47 review 核心发现） | 2026-06-25 |
+| KD-4 | 因果边来自 F233 投影的显式 kinds（`thread_split`/`thread_merge`/`pr_merged` 等），不做事件层启发式推断 | 因果边目标 kinds 在 F233 投影 schema 里（带 provenance/confidence），当前 runtime 须先满足 AC-C0 emitter 前置依赖；F252 不做 events 层启发式推断。从 events 反推 proposalId→threadId 链路是重复造轮子且容易遗漏（47 review 核心发现） | 2026-06-25 |
 | KD-5 | Phase C 是 Feature Story Renderer，不是 Feature Story Builder。数据层复用 F233 `FeatTrajectoryProjection`，本 feature 只建渲染层。**但 F233 projector 当前只产 `closed` + git-shaped kinds**，Phase C 依赖补齐 emitters（见 KD-6） | 一套真相源——观众看到的故事和 CVO 看到的轨迹是同一份账本；F233 invariant（rebuild=replay 逐字段相同）保证因果边可信度（47 review + 砚砚 R2 纠正：schema declaration ≠ runtime behavior） | 2026-06-25 |
 | KD-6 | F233 emitter 补齐路径选 **A**（F252 主动驱动 F233 补 emitters），不选 B（拆 C1/C2） | Phase C 灵魂是跨 thread 因果叙事。拆 C1 = git 时间线 = 不值得单独做一个 Phase。驱动 F233 补 4 个 emitters 是前置工作但工作量可控（每个是 `mapBallCustodyEventToTrajectory` 加一条 rule）（47 R2 提出，我同意） | 2026-06-25 |
 
@@ -249,10 +249,11 @@ created: 2026-06-25
 | 2026-06-25 | 立项。铲屎官提出回放 demo 需求，讨论收敛到 Story Player 终态设计，CVO 授权立项 |
 | 2026-06-25 | Design review R1：砚砚 3×P1 + 1×P2，47 blocking Phase C（F233 复用）。全部接受，返工 spec |
 | 2026-06-25 | Design review R2：砚砚 2×P1 blocking（"已投影"事实错误 + subjectKey 语义错误），47 背书 + 补 F233 emitter 前置依赖。返工 R3：区分 schema declaration vs runtime behavior，明确前置依赖路径选 A |
+| 2026-06-25 | Design review R3：砚砚 + 47 Approved（conditional 3 字面修订）。修订完成，设计放行。进入 Phase A 实现 |
 
 ## Review Gate
 
-- Design spec R2: @codex + @opus47 确认返工后放行
+- Design spec R3: @codex + @opus47 确认返工后放行
 - Phase A: 实现后 @codex review code
 - Phase B-D: 每 Phase 完成后 @codex review
 
