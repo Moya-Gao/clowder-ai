@@ -1843,12 +1843,32 @@ export async function handleGuideControl(input: { action: string }): Promise<Too
 export async function handleHoldBall(input: {
   reason: string;
   nextStep: string;
-  wakeAfterMs: number;
+  wakeAfterMs?: number;
+  wakeWhen?: { command: string; cwd?: string; timeoutMs?: number };
 }): Promise<ToolResult> {
+  // P2-1 fix: validate mutual exclusion locally before HTTP roundtrip.
+  // JSON Schema can't express cross-field refine, so we enforce here.
+  const hasWakeAfter = input.wakeAfterMs != null;
+  const hasWakeWhen = input.wakeWhen != null;
+  if (hasWakeAfter && hasWakeWhen) {
+    return {
+      content: [
+        { type: 'text', text: 'Error: wakeAfterMs and wakeWhen are mutually exclusive — provide exactly one.' },
+      ],
+      isError: true,
+    };
+  }
+  if (!hasWakeAfter && !hasWakeWhen) {
+    return {
+      content: [{ type: 'text', text: 'Error: exactly one of wakeAfterMs or wakeWhen must be provided.' }],
+      isError: true,
+    };
+  }
   return callbackPost('/api/callbacks/hold-ball', {
     reason: input.reason,
     nextStep: input.nextStep,
-    wakeAfterMs: input.wakeAfterMs,
+    ...(hasWakeAfter ? { wakeAfterMs: input.wakeAfterMs } : {}),
+    ...(hasWakeWhen ? { wakeWhen: input.wakeWhen } : {}),
   });
 }
 
@@ -2253,7 +2273,8 @@ export const callbackTools = [
       'GOTCHA: the counter is process-local best-effort (in-memory on the API node); API restart or multi-instance deploys may reset it, so do not treat the 429 as a hard security boundary — treat it as a self-discipline guardrail. ' +
       'GOTCHA: hold is an EXCEPTION state, not a default exit. Most turns should end with @ someone, not hold. ' +
       'GOTCHA (F167 Phase M): only hold for harness-INVISIBLE waits — external conditions nothing will call you back about (cloud review verdict, remote CI, external webhook). Background work the harness already tracks (a background Bash command, a spawned task) AUTO-RE-INVOKES you on completion; holding for that just stacks a redundant wake on top. Ask "will something call me back already?" — if yes, do NOT hold. ' +
-      'GOTCHA: SINGLE-SLOT per (thread, cat) — calling hold_ball again while a previous hold is pending REPLACES the prior wake (prior taskId cancelled). This is intentional (KD-23): hold = "持一个球" exception, not a queue. If you need to track multiple waiting conditions, merge them into one nextStep (e.g. "等 CI + @landy 确认" 合并成一句). Rolling-window counter still ticks per call.',
+      'GOTCHA: SINGLE-SLOT per (thread, cat) — calling hold_ball again while a previous hold is pending REPLACES the prior wake (prior taskId cancelled). This is intentional (KD-23): hold = "持一个球" exception, not a queue. If you need to track multiple waiting conditions, merge them into one nextStep (e.g. "等 CI + @landy 确认" 合并成一句). Rolling-window counter still ticks per call. ' +
+      'NEW (F167 Phase P): wakeWhen — instead of a timed delay, specify a shell command to run. The server spawns it, captures output, and wakes you when it completes (or times out). Use for: pnpm gate, pnpm test, build commands — anything you would run_in_background and poll. wakeWhen and wakeAfterMs are MUTUALLY EXCLUSIVE — provide exactly one.',
     inputSchema: {
       reason: z.string().min(1).max(500).describe('Why you need to hold the ball (e.g. "tests still running")'),
       nextStep: z
@@ -2261,7 +2282,30 @@ export const callbackTools = [
         .min(1)
         .max(500)
         .describe('What you will do when re-invoked (e.g. "check test results, then @ author")'),
-      wakeAfterMs: z.number().int().min(5000).max(3600000).describe('Delay in ms before system re-invokes you (5s–1h)'),
+      wakeAfterMs: z
+        .number()
+        .int()
+        .min(5000)
+        .max(3600000)
+        .optional()
+        .describe('Delay in ms before system re-invokes you (5s–1h). Mutually exclusive with wakeWhen.'),
+      wakeWhen: z
+        .object({
+          command: z.string().min(1).describe('Shell command to run (e.g. "pnpm gate", "pnpm test")'),
+          cwd: z.string().optional().describe('Working directory for the command (defaults to project root)'),
+          timeoutMs: z
+            .number()
+            .int()
+            .min(1000)
+            .max(3600000)
+            .optional()
+            .describe('Timeout in ms (default 10min, max 1h). Process killed on timeout.'),
+        })
+        .optional()
+        .describe(
+          'Run a shell command and wake when it completes. Mutually exclusive with wakeAfterMs. ' +
+            'The server spawns the command, captures stdout+stderr, and re-invokes you with the result (exit code, output tail, duration).',
+        ),
     },
     handler: handleHoldBall,
   },

@@ -143,7 +143,8 @@ triggers:
 | 情形 | 处理 |
 |------|------|
 | 已有 event/callback（issue comment tracking / F141 webhook / PR / CI / EYES）| **不调 `hold_ball`**；依赖 event path。但若 ownership valid → **keep/use event-backed tracker**（issue_tracking / PR tracking）|
-| 无 event + 明确短 SLA（≤1h）+ hold limit 内 revisit | `hold_ball` 允许，**必须**带 `waitSourceRef` |
+| 无 event + 明确短 SLA（≤1h）+ hold limit 内 revisit | `hold_ball({ wakeAfterMs })` 允许，**必须**带 `waitSourceRef` |
+| 本地命令要跑完等结果（gate/test/build）| `hold_ball({ wakeWhen: { command } })` — 服务端托管命令，完成后带结果唤醒 |
 | 无 event + 不可预测长等待 | 标 needs-info / daily sweep；**不**重复 hold |
 
 ### WaitSourceRef schema（`hold_ball` 必填）
@@ -169,9 +170,9 @@ type WaitSourceRef = {
 - `register_issue_tracking` **是** owner-bound issue-comment notification tracker
   （绑 `threadId` + `ownerCatId` + repo/issue validation + comment cursor，event 回路通过
   `issueCommentRouter`）；keeper-owned 时允许，distributed 时 block
-- `hold_ball` **是** dumb reminder timer
-  （schema `{reason, nextStep, wakeAfterMs}` + rolling 3/h/(thread,cat) + process-local counter；
-  **不绑外部对象**）
+- `hold_ball` **是** reminder timer（`wakeAfterMs`）或 managed command runner（`wakeWhen`）
+  （schema `{reason, nextStep, wakeAfterMs | wakeWhen}` + rolling 3/h/(thread,cat) + process-local counter；
+  `wakeWhen` 模式下服务端托管命令并在完成后带结构化结果唤醒；**不绑外部对象**）
 
 ### ownershipState (PR-O3 implement)
 

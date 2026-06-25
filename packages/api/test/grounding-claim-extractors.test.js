@@ -158,6 +158,25 @@ describe('extractHoldBallClaims', () => {
     assert.equal(claims[0].sourceRef.value, 'msg_design_789');
   });
 
+  test('with waitSourceRef kind=managed_command: maps to webhook_id sourceRef', () => {
+    const claims = extractHoldBallClaims({
+      reason: 'Waiting for pnpm gate to complete',
+      waitSourceRef: {
+        kind: 'managed_command',
+        value: 'pnpm gate',
+        expectedSignal: 'command exits',
+        slaUntilMs: 600_000,
+      },
+    });
+    assert.equal(claims.length, 1);
+    const [claim] = claims;
+    assert.equal(claim.claimType, 'wait');
+    assert.equal(claim.sourceRef.kind, 'webhook_id');
+    assert.equal(claim.sourceRef.value, 'pnpm gate');
+    assert.ok(claim.waitSourceRef);
+    assert.equal(claim.waitSourceRef.kind, 'managed_command');
+  });
+
   test('without waitSourceRef: extracts wait claim with unstructured sentinel sourceRef', () => {
     const claims = extractHoldBallClaims({
       reason: 'Waiting for cloud codex review result',

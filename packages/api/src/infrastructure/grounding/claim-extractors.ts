@@ -24,6 +24,10 @@ const WAIT_SOURCE_TO_SOURCE_REF: Record<WaitSourceRef['kind'], SourceRef['kind']
   // Narrative kinds use anchorRef as the sourceRef value.
   reporter_handle: 'messageId',
   pending_input: 'messageId',
+  // F167 Phase P: managed command runner — maps to webhook_id (the command string
+  // is an external trigger reference, not a task_id; the hold-ball taskId is generated
+  // after the grounding call so can't be threaded through).
+  managed_command: 'webhook_id',
 };
 
 /** Narrative wait kinds that use anchorRef instead of value for sourceRef. */

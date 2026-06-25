@@ -101,6 +101,7 @@ interface StreamingHookLike {
 import { normalizeErrorMessage } from '../utils/normalize-error.js';
 import { emitQueueUpdated, enrichQueueEntries } from '../utils/queue-enrichment.js';
 import { resolveUserId } from '../utils/request-identity.js';
+import { cancelWakeWhenRunner } from './callback-hold-ball-routes.js';
 import { buildGameSeats, parseGameCommand, sanitizeCatIds } from './game-command-interceptor.js';
 import type { HoldBallCancelDeps } from './hold-ball-cancel.js';
 import { cancelPendingHoldsForThread } from './hold-ball-cancel.js';
@@ -264,6 +265,15 @@ function tryAutoCancelPendingHolds(threadId: string, deps: HoldBallCancelDeps | 
   try {
     const cancelled = cancelPendingHoldsForThread(threadId, deps);
     if (cancelled.length > 0) {
+      // P1-3 fix (cloud R2): also cancel running wakeWhen commands for each cancelled hold.
+      // Without this, the runner continues executing after the fallback task is removed,
+      // and posts a stale wake when it completes.
+      for (const task of cancelled) {
+        const catId = task.createdBy?.replace('hold-ball:', '') ?? '';
+        if (catId) {
+          cancelWakeWhenRunner(threadId, catId);
+        }
+      }
       log.info(
         { threadId, cancelledCount: cancelled.length, taskIds: cancelled.map((t) => t.id) },
         'F167 Phase J: auto-cancelled pending hold-ball tasks on user message',

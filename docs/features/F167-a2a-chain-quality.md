@@ -1058,11 +1058,11 @@ cat_cafe_hold_ball({
 
 **AC**：
 - [x] AC-P0: -p/headless 下 gate 类命令（`pnpm gate|check|test|build|lint|alpha:start|alpha:test`）禁 `run_in_background`，命中时 deny + 提示走前台（PreToolUse guard 或 executor guard） — PR #2544 merged 2026-06-25
-- [ ] AC-P1: `hold_ball` 接受 `wakeWhen` 参数（与 `wakeAfterMs` 互斥）
-- [ ] AC-P2: managed runner 托管长命令：launch + 记录 pid/log/exit code
-- [ ] AC-P3: 长命令终态 → 服务端唤醒持球猫，注入结果（exit code + 尾部输出）
-- [ ] AC-P4: 超时兜底（timeoutMs 到期 → 唤醒 + 告知超时）
-- [ ] AC-P5: 单槽语义不变（KD-23）——wakeWhen hold 也是同 (threadId, catId) 单槽覆盖
+- [x] AC-P1: `hold_ball` 接受 `wakeWhen` 参数（与 `wakeAfterMs` 互斥） — MCP tool schema + API route schema + mutual exclusion validation
+- [x] AC-P2: managed runner 托管长命令：launch + 记录 pid/log/exit code — `ManagedRunner` class (13 unit tests T1-T4)
+- [x] AC-P3: 长命令终态 → 服务端唤醒持球猫，注入结果（exit code + 尾部输出） — `launchWakeWhenRunner` + `ball.wake_condition_met` event + invokeTrigger
+- [x] AC-P4: 超时兜底（timeoutMs 到期 → 唤醒 + 告知超时） — ManagedRunner SIGTERM→5s→SIGKILL + fallback reminder task
+- [x] AC-P5: 单槽语义不变（KD-23）——wakeWhen hold 也是同 (threadId, catId) 单槽覆盖 — shares existing pendingHolds cancel logic
 
 ## Behavioral Evidence（Phase B 观察记录）
 
@@ -1210,4 +1210,4 @@ cat_cafe_hold_ball({
 | 铲屎官 + 砚砚 2026-04-25 | 47 风格适配需 Design Gate（audit/surface 分层 + repair 落地） | AC-K1~K6 | ⬜ Phase K |
 | 铲屎官 2026-05-07 | hold_ball 轮询 × PR tracking 事件驱动重复唤醒（双通道叠加） | AC-L1~L4 | ✅ Phase L |
 | 铲屎官 2026-06-18 | 守门 thread 不能挂 PR/issue tracking 或 hold_ball，必须机制层拦截 | AC-N1~N5 | ✅ Phase N / PR #2384 |
-| 铲屎官 2026-06-25 | -p 下猫 run_in_background 跑 gate 后没下文 + hold_ball 缺条件唤醒 | AC-P0~P5 | 🚧 Phase P (P-0 merged PR #2544, P1-P5 毛线球) |
+| 铲屎官 2026-06-25 | -p 下猫 run_in_background 跑 gate 后没下文 + hold_ball 缺条件唤醒 | AC-P0~P5 | 🚧 Phase P (P-0 merged PR #2544, P1-P5 impl complete, pending review) |

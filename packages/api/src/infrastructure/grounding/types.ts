@@ -51,7 +51,14 @@ export interface SourceRef {
 // ── WaitSourceRef (R3.1 OQ-5) ─────────────────────────────────
 
 export interface WaitSourceRef {
-  kind: 'github_issue' | 'github_comment' | 'thread_message' | 'task' | 'reporter_handle' | 'pending_input';
+  kind:
+    | 'github_issue'
+    | 'github_comment'
+    | 'thread_message'
+    | 'task'
+    | 'reporter_handle'
+    | 'pending_input'
+    | 'managed_command';
   value: string;
   /** REQUIRED when kind ∈ {'reporter_handle', 'pending_input'} */
   anchorRef?: string;

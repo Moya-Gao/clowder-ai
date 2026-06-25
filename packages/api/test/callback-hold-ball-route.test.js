@@ -146,4 +146,43 @@ describe('F167 C1: /api/callbacks/hold-ball auth + body validation', () => {
     });
     assert.equal(response.statusCode, 400);
   });
+
+  // ─── T7: wakeAfterMs + wakeWhen mutual exclusion ─────────────────────────
+  test('T7: 400 when both wakeAfterMs and wakeWhen provided (mutual exclusion)', async () => {
+    const deps = makeStubDeps();
+    const app = await createApp(deps);
+    const thread = await threadStore.create('user-hb-mutex', 'hb-mutex');
+    const { invocationId, callbackToken } = await registry.create('user-hb-mutex', 'codex', thread.id);
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/hold-ball',
+      headers: { 'x-invocation-id': invocationId, 'x-callback-token': callbackToken },
+      payload: {
+        reason: 'wait for gate',
+        nextStep: 'check result',
+        wakeAfterMs: 60_000,
+        wakeWhen: { command: 'pnpm gate' },
+      },
+    });
+    assert.equal(response.statusCode, 400);
+    const body = JSON.parse(response.body);
+    assert.ok(
+      body.details?.some((d) => d.message?.includes('Exactly one')),
+      'should mention mutual exclusion',
+    );
+  });
+
+  test('T7b: 400 when neither wakeAfterMs nor wakeWhen provided', async () => {
+    const deps = makeStubDeps();
+    const app = await createApp(deps);
+    const thread = await threadStore.create('user-hb-neither', 'hb-neither');
+    const { invocationId, callbackToken } = await registry.create('user-hb-neither', 'codex', thread.id);
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/hold-ball',
+      headers: { 'x-invocation-id': invocationId, 'x-callback-token': callbackToken },
+      payload: { reason: 'wait', nextStep: 'go' },
+    });
+    assert.equal(response.statusCode, 400);
+  });
 });

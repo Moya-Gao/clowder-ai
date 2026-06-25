@@ -3591,6 +3591,13 @@ async function main(): Promise<void> {
     log: app.log,
   });
 
+  // F167 Phase P: late-bind invokeTrigger into holdBallDeps for wakeWhen command completion.
+  // holdBallDeps is defined before invokeTrigger exists, but the route handler reads
+  // deps.invokeTrigger at request time (closure over object reference), so late binding is safe.
+  if (callbackOpts.holdBallDeps) {
+    (callbackOpts.holdBallDeps as unknown as Record<string, unknown>).invokeTrigger = invokeTrigger;
+  }
+
   // F140: Feedback filter (Rule A self-authored only post-E.2 cutover)
   const { createGitHubFeedbackFilter } = await import('./infrastructure/email/github-feedback-filter.js');
   const { createSetupNoiseFilter } = await import('./infrastructure/email/setup-noise-filter.js');
