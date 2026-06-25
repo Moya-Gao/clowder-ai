@@ -1,0 +1,35 @@
+{
+  "verdictId": "2026-06-25-eval-friction-72h-mixed-toolgap-keep-observe",
+  "evalSnapshotId": "eval-F245-2026-06-25",
+  "featureId": "F245",
+  "generatedAt": "2026-06-25T15:56:08.450Z",
+  "window": {
+    "startMs": 1782097200000,
+    "endMs": 1782356400000,
+    "durationHours": 72
+  },
+  "components": [
+    {
+      "id": "friction-rollup",
+      "name": "friction rollup (Top-N + sensorForm)",
+      "confidence": "medium",
+      "activationCounts": {},
+      "frictionCounts": {
+        "cluster_count": 84,
+        "top_cluster_count": 10,
+        "tail_cluster_count": 74,
+        "tail_signal_count": 84,
+        "cluster_570c7a8dba39": 4,
+        "cluster_3f01fc96c1be": 3,
+        "cluster_9682952d39a8": 3,
+        "cluster_063cd772a8a9": 2,
+        "cluster_1b6eba358914": 2,
+        "cluster_2f974cfb880b": 2,
+        "cluster_5a8ee3cb7f65": 2,
+        "cluster_85bda8a02e73": 2,
+        "cluster_880e31dec2fe": 2,
+        "cluster_953b37d796de": 2
+      }
+    }
+  ]
+}

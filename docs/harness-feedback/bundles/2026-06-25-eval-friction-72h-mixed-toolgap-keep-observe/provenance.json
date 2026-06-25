@@ -1,0 +1,15 @@
+{
+  "verdictId": "2026-06-25-eval-friction-72h-mixed-toolgap-keep-observe",
+  "rawInputs": [
+    {
+      "path": "docs/harness-feedback/bundles/2026-06-25-eval-friction-72h-mixed-toolgap-keep-observe/raw/rollup-report.json",
+      "sha256": "5a76c196d7a68831ea58d6ad5645fd5cad0f8878629716b843c6430bc9c79e5e"
+    }
+  ],
+  "generatedAt": "2026-06-25T15:56:08.450Z",
+  "generator": {
+    "name": "eval-friction-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f245-friction-rollup-v1"
+}

@@ -1,0 +1,450 @@
+{
+  "verdictId": "2026-06-25-eval-friction-72h-mixed-toolgap-keep-observe",
+  "selector": {
+    "kind": "friction-rollup-snapshot",
+    "windowStartMs": 1782097200000,
+    "windowEndMs": 1782356400000,
+    "topN": 10,
+    "tokenCap": 4000
+  },
+  "window": {
+    "sinceMs": 1782097200000,
+    "untilMs": 1782356400000
+  },
+  "signalCount": 108,
+  "clusterCount": 84,
+  "degraded": false,
+  "droppedChannels": [],
+  "report": {
+    "window": {
+      "sinceMs": 1782097200000,
+      "untilMs": 1782356400000
+    },
+    "generatedAt": "2026-06-25T15:56:08.450Z",
+    "topClusters": [
+      {
+        "clusterId": "570c7a8dba39",
+        "representative": "`gh issue view --json authorAssociation` 当前 gh 不支持该字段，只能改走 REST API；`gh pr list --search` 对宽泛 OpenCode 关键词返回大量无关旧 PR，最终用 issue timeline + #1000/#1001 精确核验。",
+        "channels": [
+          "paw-feel"
+        ],
+        "count": 4,
+        "members": [
+          {
+            "signalId": "paw-feel:0001782134477833-000251-e73fa7aa#0",
+            "rawRef": "0001782134477833-000251-e73fa7aa#0",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782355406819-000458-6b5b5f9a#0",
+            "rawRef": "0001782355406819-000458-6b5b5f9a#0",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782115385778-000597-1ceeb8e6#0",
+            "rawRef": "0001782115385778-000597-1ceeb8e6#0",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782274476875-000004-dce71193#0",
+            "rawRef": "0001782274476875-000004-dce71193#0",
+            "channel": "paw-feel"
+          }
+        ],
+        "method": "embedding",
+        "sensorForms": [
+          "reason"
+        ],
+        "severity": "medium"
+      },
+      {
+        "clusterId": "3f01fc96c1be",
+        "representative": "`gh pr review --approve` 因 PR author = `zts212653`（所有猫共享同一 GitHub identity）被 GitHub 平台拒\"self-approve own PR\"。Cat-cafe 内部 review 是**猫间不是 GitHub identity 间**，platform 限制和 SOP 有效性正交",
+        "channels": [
+          "paw-feel"
+        ],
+        "count": 3,
+        "members": [
+          {
+            "signalId": "paw-feel:0001782285946989-000038-8d7f5dcb#0",
+            "rawRef": "0001782285946989-000038-8d7f5dcb#0",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782140011157-000434-ea73620b#0",
+            "rawRef": "0001782140011157-000434-ea73620b#0",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782140011157-000434-ea73620b#1",
+            "rawRef": "0001782140011157-000434-ea73620b#1",
+            "channel": "paw-feel"
+          }
+        ],
+        "method": "embedding",
+        "sensorForms": [
+          "reason"
+        ],
+        "severity": "medium"
+      },
+      {
+        "clusterId": "9682952d39a8",
+        "representative": "PR search 对 issue-number 精确查询仍返回数字/历史误命中，不能作为 linked PR 真相源",
+        "channels": [
+          "paw-feel"
+        ],
+        "count": 3,
+        "members": [
+          {
+            "signalId": "paw-feel:0001782230400252-000008-3643bf6c#0",
+            "rawRef": "0001782230400252-000008-3643bf6c#0",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782230400252-000008-3643bf6c#1",
+            "rawRef": "0001782230400252-000008-3643bf6c#1",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782144000337-000537-b52f74e2#0",
+            "rawRef": "0001782144000337-000537-b52f74e2#0",
+            "channel": "paw-feel"
+          }
+        ],
+        "method": "embedding",
+        "sensorForms": [
+          "reason"
+        ],
+        "severity": "medium"
+      },
+      {
+        "clusterId": "063cd772a8a9",
+        "representative": "`cat_cafe_list_session_chain(threadId, catId=\"opus\")` 在 codex 身份下 403，无法直接采集 opus session chain",
+        "channels": [
+          "paw-feel"
+        ],
+        "count": 2,
+        "members": [
+          {
+            "signalId": "paw-feel:0001782151790739-000924-3ca6af84#0",
+            "rawRef": "0001782151790739-000924-3ca6af84#0",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782151790739-000924-3ca6af84#1",
+            "rawRef": "0001782151790739-000924-3ca6af84#1",
+            "channel": "paw-feel"
+          }
+        ],
+        "method": "embedding",
+        "sensorForms": [
+          "reason"
+        ],
+        "severity": "medium"
+      },
+      {
+        "clusterId": "1b6eba358914",
+        "representative": "工具+现象",
+        "channels": [
+          "paw-feel"
+        ],
+        "count": 2,
+        "members": [
+          {
+            "signalId": "paw-feel:0001782115061506-000581-def4e273#0",
+            "rawRef": "0001782115061506-000581-def4e273#0",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782351306684-000325-507c8891#0",
+            "rawRef": "0001782351306684-000325-507c8891#0",
+            "channel": "paw-feel"
+          }
+        ],
+        "method": "rule",
+        "sensorForms": [
+          "reason"
+        ],
+        "severity": "medium"
+      },
+      {
+        "clusterId": "2f974cfb880b",
+        "representative": "@cat-cafe/web test 脚本吞/错传 vitest 文件参数，导致 focused run 变全量",
+        "channels": [
+          "paw-feel"
+        ],
+        "count": 2,
+        "members": [
+          {
+            "signalId": "paw-feel:0001782258974641-000016-1064222d#0",
+            "rawRef": "0001782258974641-000016-1064222d#0",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782259240770-000017-877fdb01#0",
+            "rawRef": "0001782259240770-000017-877fdb01#0",
+            "channel": "paw-feel"
+          }
+        ],
+        "method": "embedding",
+        "sensorForms": [
+          "reason"
+        ],
+        "severity": "medium"
+      },
+      {
+        "clusterId": "5a8ee3cb7f65",
+        "representative": "本地 Gemma 4 12B cache 存在，但 mlx-lm 0.30.5 不支持 `gemma4_unified`，无法直接作为 OpenAI-compatible server 启动",
+        "channels": [
+          "paw-feel"
+        ],
+        "count": 2,
+        "members": [
+          {
+            "signalId": "paw-feel:0001782153367620-000940-b7687782#1",
+            "rawRef": "0001782153367620-000940-b7687782#1",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782153367620-000940-b7687782#0",
+            "rawRef": "0001782153367620-000940-b7687782#0",
+            "channel": "paw-feel"
+          }
+        ],
+        "method": "embedding",
+        "sensorForms": [
+          "reason"
+        ],
+        "severity": "medium"
+      },
+      {
+        "clusterId": "85bda8a02e73",
+        "representative": "`gh pr diff --stat` 在当前 gh 版本不支持，只能用 `gh pr view --json files` + `gh pr diff --name-only` 拼；`rg docs/incidents` 因公开 checkout 无该目录报错但不影响判断。",
+        "channels": [
+          "paw-feel"
+        ],
+        "count": 2,
+        "members": [
+          {
+            "signalId": "paw-feel:0001782134301090-000238-0252e6b0#0",
+            "rawRef": "0001782134301090-000238-0252e6b0#0",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782129543855-000088-774ba84a#0",
+            "rawRef": "0001782129543855-000088-774ba84a#0",
+            "channel": "paw-feel"
+          }
+        ],
+        "method": "embedding",
+        "sensorForms": [
+          "reason"
+        ],
+        "severity": "medium"
+      },
+      {
+        "clusterId": "880e31dec2fe",
+        "representative": "`gh pr merge --delete-branch` 在 feature worktree 里 PR 已成功 merge，但本地清理阶段因 `main` 已被主 worktree 占用返回 fatal；我用 PR state/mergeCommit 核验后手动清理了。",
+        "channels": [
+          "paw-feel"
+        ],
+        "count": 2,
+        "members": [
+          {
+            "signalId": "paw-feel:0001782218525629-000293-d4e9c2c6#0",
+            "rawRef": "0001782218525629-000293-d4e9c2c6#0",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782265135094-000053-36492c2a#0",
+            "rawRef": "0001782265135094-000053-36492c2a#0",
+            "channel": "paw-feel"
+          }
+        ],
+        "method": "embedding",
+        "sensorForms": [
+          "reason"
+        ],
+        "severity": "medium"
+      },
+      {
+        "clusterId": "953b37d796de",
+        "representative": "worktree+默认不带 node_modules，独立复跑前需要先补依赖入口",
+        "channels": [
+          "paw-feel"
+        ],
+        "count": 2,
+        "members": [
+          {
+            "signalId": "paw-feel:0001782128567644-000077-3427412c#0",
+            "rawRef": "0001782128567644-000077-3427412c#0",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782127900048-000074-edb89d84#0",
+            "rawRef": "0001782127900048-000074-edb89d84#0",
+            "channel": "paw-feel"
+          }
+        ],
+        "method": "embedding",
+        "sensorForms": [
+          "reason"
+        ],
+        "severity": "medium"
+      }
+    ],
+    "actionableCandidates": [
+      {
+        "clusterId": "570c7a8dba39",
+        "representative": "`gh issue view --json authorAssociation` 当前 gh 不支持该字段，只能改走 REST API；`gh pr list --search` 对宽泛 OpenCode 关键词返回大量无关旧 PR，最终用 issue timeline + #1000/#1001 精确核验。",
+        "channels": [
+          "paw-feel"
+        ],
+        "count": 4,
+        "members": [
+          {
+            "signalId": "paw-feel:0001782134477833-000251-e73fa7aa#0",
+            "rawRef": "0001782134477833-000251-e73fa7aa#0",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782355406819-000458-6b5b5f9a#0",
+            "rawRef": "0001782355406819-000458-6b5b5f9a#0",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782115385778-000597-1ceeb8e6#0",
+            "rawRef": "0001782115385778-000597-1ceeb8e6#0",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782274476875-000004-dce71193#0",
+            "rawRef": "0001782274476875-000004-dce71193#0",
+            "channel": "paw-feel"
+          }
+        ],
+        "method": "embedding",
+        "sensorForms": [
+          "reason"
+        ],
+        "severity": "medium",
+        "actionability": "actionable_candidate",
+        "followupDraft": {
+          "clusterId": "570c7a8dba39",
+          "title": "Investigate friction cluster: `gh issue view --json authorAssociation` 当前 gh 不支持该字段，只能改走 REST API；`gh pr list --search` 对宽泛 OpenCode 关键词返回大量无关旧 PR，最终用 issue timeline + #1000/#1001 精确核验。",
+          "summary": "`gh issue view --json authorAssociation` 当前 gh 不支持该字段，只能改走 REST API；`gh pr list --search` 对宽泛 OpenCode 关键词返回大量无关旧 PR，最终用 issue timeline + #1000/#1001 精确核验。",
+          "evidenceRefs": [
+            "0001782134477833-000251-e73fa7aa#0",
+            "0001782355406819-000458-6b5b5f9a#0",
+            "0001782115385778-000597-1ceeb8e6#0",
+            "0001782274476875-000004-dce71193#0"
+          ],
+          "reportingMode": "final-only"
+        },
+        "referenceOnlyEvidenceRefs": []
+      },
+      {
+        "clusterId": "3f01fc96c1be",
+        "representative": "`gh pr review --approve` 因 PR author = `zts212653`（所有猫共享同一 GitHub identity）被 GitHub 平台拒\"self-approve own PR\"。Cat-cafe 内部 review 是**猫间不是 GitHub identity 间**，platform 限制和 SOP 有效性正交",
+        "channels": [
+          "paw-feel"
+        ],
+        "count": 3,
+        "members": [
+          {
+            "signalId": "paw-feel:0001782285946989-000038-8d7f5dcb#0",
+            "rawRef": "0001782285946989-000038-8d7f5dcb#0",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782140011157-000434-ea73620b#0",
+            "rawRef": "0001782140011157-000434-ea73620b#0",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782140011157-000434-ea73620b#1",
+            "rawRef": "0001782140011157-000434-ea73620b#1",
+            "channel": "paw-feel"
+          }
+        ],
+        "method": "embedding",
+        "sensorForms": [
+          "reason"
+        ],
+        "severity": "medium",
+        "actionability": "actionable_candidate",
+        "followupDraft": {
+          "clusterId": "3f01fc96c1be",
+          "title": "Investigate friction cluster: `gh pr review --approve` 因 PR author = `zts212653`（所有猫共享同一 GitHub identity）被 GitHub 平台拒\"self-approve own PR\"。Cat-cafe 内部 review 是**猫间不是 GitHub identity 间**，platform 限制和 SOP 有效性正交",
+          "summary": "`gh pr review --approve` 因 PR author = `zts212653`（所有猫共享同一 GitHub identity）被 GitHub 平台拒\"self-approve own PR\"。Cat-cafe 内部 review 是**猫间不是 GitHub identity 间**，platform 限制和 SOP 有效性正交",
+          "evidenceRefs": [
+            "0001782285946989-000038-8d7f5dcb#0",
+            "0001782140011157-000434-ea73620b#0",
+            "0001782140011157-000434-ea73620b#1"
+          ],
+          "reportingMode": "final-only"
+        },
+        "referenceOnlyEvidenceRefs": []
+      },
+      {
+        "clusterId": "9682952d39a8",
+        "representative": "PR search 对 issue-number 精确查询仍返回数字/历史误命中，不能作为 linked PR 真相源",
+        "channels": [
+          "paw-feel"
+        ],
+        "count": 3,
+        "members": [
+          {
+            "signalId": "paw-feel:0001782230400252-000008-3643bf6c#0",
+            "rawRef": "0001782230400252-000008-3643bf6c#0",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782230400252-000008-3643bf6c#1",
+            "rawRef": "0001782230400252-000008-3643bf6c#1",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782144000337-000537-b52f74e2#0",
+            "rawRef": "0001782144000337-000537-b52f74e2#0",
+            "channel": "paw-feel"
+          }
+        ],
+        "method": "embedding",
+        "sensorForms": [
+          "reason"
+        ],
+        "severity": "medium",
+        "actionability": "actionable_candidate",
+        "followupDraft": {
+          "clusterId": "9682952d39a8",
+          "title": "Investigate friction cluster: PR search 对 issue-number 精确查询仍返回数字/历史误命中，不能作为 linked PR 真相源",
+          "summary": "PR search 对 issue-number 精确查询仍返回数字/历史误命中，不能作为 linked PR 真相源",
+          "evidenceRefs": [
+            "0001782230400252-000008-3643bf6c#0",
+            "0001782230400252-000008-3643bf6c#1",
+            "0001782144000337-000537-b52f74e2#0"
+          ],
+          "reportingMode": "final-only"
+        },
+        "referenceOnlyEvidenceRefs": []
+      }
+    ],
+    "referenceOnly": [],
+    "tailSummary": {
+      "clusterCount": 74,
+      "signalCount": 84,
+      "byChannel": {
+        "paw-feel": 73,
+        "user-feedback": 1,
+        "eval-domain": 10
+      }
+    },
+    "degraded": false,
+    "droppedChannels": [],
+    "tokenBudget": {
+      "cap": 4000,
+      "estimated": 2473
+    }
+  }
+}

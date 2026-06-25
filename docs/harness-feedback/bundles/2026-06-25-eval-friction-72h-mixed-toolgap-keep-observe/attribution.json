@@ -1,0 +1,36 @@
+{
+  "verdictId": "2026-06-25-eval-friction-72h-mixed-toolgap-keep-observe",
+  "featureId": "F245",
+  "evalSnapshotId": "eval-F245-2026-06-25",
+  "generatedAt": "2026-06-25T15:56:08.450Z",
+  "findings": [
+    {
+      "id": "FR-2026-06-25-570c7a8dba39",
+      "relatedFeature": "F245",
+      "frictionSignal": {
+        "type": "friction.cluster_570c7a8dba39",
+        "severity": "medium",
+        "confidence": 0.7,
+        "detectedAt": "2026-06-25T15:56:08.450Z"
+      },
+      "attribution": {
+        "primaryLayer": "needs_investigation",
+        "evidence": [
+          {
+            "type": "counter",
+            "anchor": "friction-rollup/cluster_570c7a8dba39",
+            "excerpt": "cluster '`gh issue view --json authorAssociation` 当前 gh 不支持该字段，只能改走 REST API；`gh pr list --search` 对宽泛 OpenCode 关键词返回大量无关旧 PR，...' count=4 severity=medium sensorForms=[reason]"
+          }
+        ]
+      },
+      "proposedAction": [
+        {
+          "action": "triage-top-friction-cluster",
+          "target": "F245/friction-rollup",
+          "rationale": "Highest-ranked friction cluster in the window — eval cat assigns the 7-class root cause in the verdict before handoff."
+        }
+      ],
+      "status": "open"
+    }
+  ]
+}
