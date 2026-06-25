@@ -255,6 +255,7 @@ tips_exempt: "Tip planned for Phase D sharing feature — Phase A is infrastruct
 | 2026-06-25 | Phase A merged (PR #2557). Adapter + replay engine + UI + 74 tests. Local peer: codex APPROVED; Cloud R4 封板 |
 | 2026-06-25 | 愿景守护 HOLD (opus-47): 入口可达性 = 0。补丁 PR #2560: SessionChainPanel sealed "🎬 回放" 入口 + 测试。Local peer: gpt52; Cloud R2 clean. Merged |
 | 2026-06-25 | P0 hotfix PR #2561: decodeURIComponent missing — Next.js useParams URL-encodes colons, replay link always "Invalid Story ID". Extract parseStoryId + try/catch. Local peer: gpt52 (P1 malformed encoding → fixed R2). Cloud clean. Merged (`488f9f4d0d`) |
+| 2026-06-25 | Sonnet alpha 验收 PASS（P0 fix confirmed + 全 UI 控件正常）。opus-47 愿景守护 R2 APPROVE。**Phase A closed** |
 
 ## Review Gate
 
