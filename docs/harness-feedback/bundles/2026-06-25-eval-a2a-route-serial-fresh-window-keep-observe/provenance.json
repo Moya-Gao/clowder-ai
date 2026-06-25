@@ -1,0 +1,19 @@
+{
+  "verdictId": "2026-06-25-eval-a2a-route-serial-fresh-window-keep-observe",
+  "rawInputs": [
+    {
+      "path": "docs/harness-feedback/snapshots/2026-06-25-F167-eval.yaml",
+      "sha256": "5e9823ec19f032f352385d398f08a1d75c765f1009a0b3b695d415799146e091"
+    },
+    {
+      "path": "docs/harness-feedback/attributions/2026-06-25-F167-attribution.yaml",
+      "sha256": "a33da640ffb5c821c3f2eab520d775f974bac9d98869b617c9bdb4c8735e8f57"
+    }
+  ],
+  "generatedAt": "2026-06-25T03:02:14.884Z",
+  "generator": {
+    "name": "eval-a2a-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f192-e-pilot-v1"
+}
