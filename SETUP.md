@@ -4,7 +4,7 @@ This guide covers the minimum configuration required to run Clowder AI locally, 
 
 ## 1. Prerequisites
 
-- Node.js 20+
+- Node.js 24+
 - pnpm 9+
 - Git
 - At least one supported agent CLI installed:
