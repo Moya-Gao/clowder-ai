@@ -250,12 +250,17 @@ created: 2026-06-25
 | 2026-06-25 | Design review R1：砚砚 3×P1 + 1×P2，47 blocking Phase C（F233 复用）。全部接受，返工 spec |
 | 2026-06-25 | Design review R2：砚砚 2×P1 blocking（"已投影"事实错误 + subjectKey 语义错误），47 背书 + 补 F233 emitter 前置依赖。返工 R3：区分 schema declaration vs runtime behavior，明确前置依赖路径选 A |
 | 2026-06-25 | Design review R3：砚砚 + 47 Approved（conditional 3 字面修订）。修订完成，设计放行。进入 Phase A 实现 |
+| 2026-06-25 | CVO 授权自主推进：review 必审架构归一 + @codex review code + 每 Phase @opus47 愿景守护 |
 
 ## Review Gate
 
-- Design spec R3: @codex + @opus47 确认返工后放行
-- Phase A: 实现后 @codex review code
-- Phase B-D: 每 Phase 完成后 @codex review
+- Design spec R3: @codex + @opus47 确认返工后放行 ✅
+- **每 Phase review 必审**（CVO 铁令）：
+  1. 架构归一——是否复用了已有组件/API/数据层？有无重复造轮子？**no N 套真相源**
+  2. 功能正确性 + 代码质量
+- Phase A-D: 实现后 @codex review code
+- **每 Phase 完成后 @opus47 愿景守护**（非作者非 reviewer）
+- CVO 授权自主推进，Phase 间不回报铲屎官（2026-06-25 铲屎官原话："不要喊我了！和砚砚完成协同？完成一个 phase 之后喊47愿景守护然后自己推进"）
 
 ## Links
 
