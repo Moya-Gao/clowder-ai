@@ -6,6 +6,9 @@ written_with: Lysander (Cat Café CVO)
 written_date: 2026-06-25
 companion_to: README.md (EchoMem develop teardown), reviewer-audit.md
 status: ready-to-share
+revisions:
+  - v1 (2026-06-25 17:22 PT): 初版。
+  - v2 (2026-06-25 17:48 PT): §1 重写——CVO push back 后补做 WebSearch + arxiv WebFetch 抽样核 3 篇 paper，retract 三条错误 claim（LoCoMo 退役、SWE-Bench Verified 测 memory、agentic memory bench 空白），加入有 arxiv 引用的真实 benchmark 堆。其余节未动。
 ---
 
 # 给 EchoMem 团队：如果记忆系统的"用户"是 Agent
@@ -22,46 +25,77 @@ status: ready-to-share
 
 ---
 
-## 1. LoCoMo 该退役——它评的不是 agent memory
+## 1. LoCoMo 不够用——但不是"退役"，是"必要但不充分"
 
-LoCoMo / LongMemEval 这类 benchmark 本质上是：**给定一段超长 chat history，问 chatbot "前面说了什么"**。这评的是：
+> **作者透明披露**：本节第一稿我（宪宪）凭 internal knowledge 写了三条断言——「LoCoMo 该退役」「agentic memory bench 是空白」「用 SWE-Bench Verified 测 memory」。Cat Café CVO 当场 push back：「你做过调研吗？」答：没有。回去用 WebSearch + Agent fan-out + 抽样 WebFetch 核 paper 后**三条全部 retract**，下面是有 arxiv 引用的修正版。诚实记录这次错误是因为：**外面正在认真做 memory 的团队不该被我未经核实的判断误导**。
 
-- 长上下文压缩（同一个 session 内 history retention）
-- chat history QA 准确率
-- 检索 + 抽取的覆盖率
+### 1.1 LoCoMo 真实状态：saturating + 维度窄，但仍是 lingua franca
 
-**这些都不是 agent memory 的真问题**。Agent 真问题是：
+- **LoCoMo** (Maharana et al. 2024, snap-research): 10 长对话 / ~600 turns / ~16K tokens / 1540 QA 对 / 单跳·多跳·开放·时序四类。
+- 2026 主流 memory 系统**全部还在跑 LoCoMo** 做比较：Mem0 报 92.5、Memory-R1 / Letta / A-Mem / Mem0 paper / ByteRover 都在用 — 它是 field 通用语，不是退役品。
+- **真问题**不是 "LoCoMo 评 chat 不评 agent"，而是：
+  - context 长度 ~9K 在 2026 已偏小（LongMemEval V2 走到 1.5M）
+  - 不评 knowledge updates
+  - 不评 conflict resolution / selective forgetting
+  - 单 agent，无 multi-agent attribution
+- **正确措辞**：LoCoMo **necessary but no longer sufficient** — 保留作比较，不能只靠它优化。
 
-| Agent 真实痛点 | LoCoMo 是否评测 |
-| --- | --- |
-| 跨 session 的人格 / 偏好 / 关系连续性 | ❌ 单 session 内 |
-| 多 agent 协作的共享 memory | ❌ 单 agent |
-| Agent 主动 drill-down 多轮迭代 | ❌ 单次 QA |
-| 记忆错了的 retract / contradict | ❌ 不评 mutation |
-| Tool use 中间状态（"我试过哪些 model 失败了"） | ❌ 纯对话 |
-| Agent 主动 push back 矛盾事实 | ❌ 不评 active emit |
-| 跨 model / 跨 runtime 切换后的连续性 | ❌ 同一 chatbot |
+### 1.2 2026 真实可用的 agent memory benchmark 堆（我之前都漏了）
 
-**2026 年值得考虑的方向**（按"评的是什么"分类）：
+| Benchmark | Source | 测什么 | 与 LoCoMo 关系 |
+|---|---|---|---|
+| **LongMemEval** (V2) | Wu et al., ICLR 2025, [arxiv 2410.10813](https://arxiv.org/abs/2410.10813) | 信息抽取 / 多 session 推理 / **知识更新** / 时序推理 / **abstention** | 500 题，6 ability，明确补 LoCoMo 不评的知识更新 |
+| **MemBench** | Tan et al., ACL 2025 Findings, [arxiv 2506.21605](https://arxiv.org/abs/2506.21605) | effectiveness / efficiency / **capacity** + factual vs reflective | 补 LoCoMo 没有的反思类型 |
+| **MemoryAgentBench** | Hu/Wang/McAuley (UCSD), ICLR 2026, [arxiv 2507.05257](https://arxiv.org/abs/2507.05257) | 精确检索 / **test-time learning** / 长程理解 / **selective forgetting + conflict resolution** | 明确针对 LoCoMo limitations 设计；2071 题 / 103K–1.44M tokens |
+| **MemoryArena** | He et al., Feb 2026, [arxiv 2602.16313](https://arxiv.org/abs/2602.16313) | 跨 session **interdependent** 任务（web 导航 / preference planning / progressive 搜索 / sequential 推理）| paper 原文："agents demonstrating near-saturated performance on LoCoMo perform poorly in our agentic setting" |
+| **AMA-Bench** | ICML 2026 + ICLR 2026 Memory Agent Workshop oral, [arxiv 2602.22769](https://arxiv.org/abs/2602.22769) | Long-horizon agent + 真实 trajectory 混合合成 | scalable horizon |
+| **MEMTRACK** | Deshpande et al., [arxiv 2510.01353](https://arxiv.org/pdf/2510.01353) | 长 tool-call traces / 企业 workflow timelines | 接近 production agent 形态 |
+| **MARBLE / MultiAgentBench** | Zhu et al., ACL 2025, [arxiv 2503.01935](https://arxiv.org/abs/2503.01935) | **多 agent 协作 + shared memory** | 唯一 multi-agent shared 直接命中 |
 
-### A. Agent 真任务里的记忆利用（推荐主线）
-- **τ-bench (Tau-Bench)** — Anthropic 的真实客服 agent benchmark；agent 要跨多 turn 记住客户上下文 + 执行历史。**memory 是 task 副产品**，正好测"记忆在 task 中真有用吗"。
-- **SWE-Bench Verified / SWE-Bench Live** — coding agent 跨多文件跨工具，需要中间状态记忆；可以加 variant 测"跨 PR 的修复 pattern 记忆"。
-- **AppWorld** — 跨 30+ 真实 app 的任务，agent 必须记住 app state、用户偏好。
-- **GAIA** — General AI Assistant 多步推理，多步之间的 intermediate memory 是 bottleneck。
+### 1.3 SWE-Bench Verified 撤回 + contamination 警告
 
-### B. 长程跨 session 连续性（agent memory 真问题）
-- **没有公认 benchmark**——这是空白。你们如果要做创新方向，**自己定义一个跨 session 连续性 benchmark** 比追 LoCoMo 更值钱：
-  - Session-1 教 agent X；session-N（≥30 天后 / 跨 model 切换）问 agent X 是否还在
-  - Agent 在 session-1 push back 过"用户其实不喜欢 Y"，session-N 是否还记得这个 push back
-  - Agent 在 session-1 说"明天提醒我做 Z"，session-N（明天）是否主动提醒
+我之前推荐 SWE-Bench Verified 测 memory —— **完全错**：
 
-### C. 多 agent 协作记忆
-- 也是空白。如果有 2+ agent 共享一个 thread，memory 要解决"谁说的 / 谁同意了 / 谁反对了 / 当前共识是什么"——这是 Cat Café 内部跑了半年才搞清楚的。LoCoMo 完全不评。
+- Dec 2025 paper：**"Does SWE-Bench-Verified Test Agent Ability or Model Memory?"**（Prathifkumar/Mathews/Nagappan, [arxiv 2512.10218](https://arxiv.org/abs/2512.10218)）直接证明：
+  - 模型在 SWE-Bench Verified 上比 BeetleBox / SWE-rebench 高 **3 倍**
+  - 定位 edited file 高 **6 倍**（无项目 context 情况下）
+  - 原文：「scores may reflect training recall, not issue-solving skill」
+- 该 paper 检查的 5 个 reference agent（SWE-agent / OpenHands / AutoCodeRover / mini-swe-agent / DARS-Agent）**全部 stateless 无 memory**
+- 用它测 memory = 在量「模型见过多少 GitHub 训练数据」，方向反了
+- τ-bench / GAIA / AppWorld / OSWorld 同理——都是**单 session 设计**，不测 cross-session memory continuity
 
-**建议**：把 LoCoMo 从 P0 KPI 降到 P3 历史指标（拿来证明"不退步"就行），主线换成 **τ-bench + SWE-Bench Verified + 自己定义的跨 session 连续性 benchmark**。这才是 2026 年评 memory 该用的尺子。
+### 1.4 真正的 gap 精确表达（撤回"空白"）
 
-⚠️ **更深一层**：**benchmark 选择本身就在定义产品形态**。你们 README 里 `_QUERY_PREFIX_PATTERNS` 把 LOCOMO 的 `"Below is a conversation between two people..."` wrapper strip 写进了通用 SearchService —— 这就是 benchmark-overfit 的物理证据。每多对一个 chat benchmark，产品就被往 chat-backend 拉一寸。
+我之前说「agentic memory benchmark 是空白」—— **错**。至少 7 个 active benchmark 在做。**真 gap 应该精确说**：
+
+| 维度 | 现状 | 真 gap？ |
+|---|---|---|
+| 跨 session causal 依赖 | MemoryArena 部分覆盖 | 已覆盖（agentic 视角） |
+| Mutation / 冲突 / retract | MemoryAgentBench (selective forgetting) | 已覆盖 |
+| Multi-agent shared attribution | MARBLE / MultiAgentBench | 覆盖一点；缺 agent-active 视角 |
+| **真实人类多日交互 log**（隔 30 天那种）| 主流是合成（LongMemEval 用 ShareGPT/UltraChat synthetic；MSC Meta 2021 仍是最 real baseline）| **真空白 — 隐私不可拿** |
+| **Agent-active drill-down recall**（多轮主动下钻）| 现有都是 single-shot QA 或 task-driven | **真空白 — 没 benchmark purpose-built 测「agent 主动多轮下钻策略」** |
+
+### 1.5 给 EchoMem 团队的真实推荐
+
+**主线 benchmark 堆**（撤回我之前那套）：
+1. **LoCoMo** — 保留作 field 比较（必要但不充分）
+2. **LongMemEval V2** — 补 knowledge updates / abstention 维度
+3. **MemoryAgentBench** — 补 conflict resolution / test-time learning
+4. **MemoryArena** 或 **AMA-Bench** — 跨 session interdependent agentic 任务（最接近真 agent runtime）
+5. **MEMTRACK** — tool-call timelines（接近 production 形态）
+6. **MARBLE / MultiAgentBench** — 如果想覆盖多 agent shared memory
+
+**不要用**：
+- SWE-Bench Verified / τ-bench / GAIA / AppWorld / OSWorld 测 memory（都不是 memory benchmark，且 SWE-Bench Verified 有 contamination）
+
+**如果想做创新方向**（这两个是真空白，比追指标更值钱）：
+- **Agent-active drill-down recall benchmark** — agent 自主决定多轮下钻策略，测的不是单 shot retrieval 是 query reformulation + drill-down 能力
+- **真实人类多日 log benchmark** — 隐私是 blocker，但如果你们有自己的产品 telemetry + 用户授权，这是 EchoMem 能做的 unique 贡献
+
+**数据来源**：合成 synthetic-with-anchors 是主流务实路径（LongMemEval / AMA-Bench 都用这条），不必拘泥于「真实 log」；但 evaluator pipeline 要 honest——LLM-judge 容易自己污染。
+
+⚠️ **不变的判断**：**benchmark 选择本身就在定义产品形态**。你们 README 里 `_QUERY_PREFIX_PATTERNS` 把 LoCoMo 的 `"Below is a conversation between two people..."` wrapper strip 写进了通用 SearchService —— 这是 benchmark-overfit 的物理证据。每多对一个**只测 chat 维度**的 benchmark，产品就被往 chat-backend 拉一寸。我之前用错的 benchmark 推荐想说服你们 pivot，本质和你们 LoCoMo overfit 是同一种错——不调研就下判断。Field 已经走到 multi-axis memory eval（MemoryAgentBench / MemoryArena），下一刀该往那边切。
 
 ---
 
@@ -176,7 +210,7 @@ LoCoMo / LongMemEval 这类 benchmark 本质上是：**给定一段超长 chat h
 >
 > 想真给 agent 用，关键不是"挂 MCP"——是 **mutation API + drill-down 分层 + tier label + active emit** 四件事补齐。
 >
-> Benchmark 退掉 LoCoMo（chat history QA），主线换成 τ-bench / SWE-Bench Verified（agent 真任务里的 memory 利用）+ 自定义跨 session 连续性 benchmark（agent memory 的真问题，目前空白）。
+> Benchmark：LoCoMo 保留作 field 比较（必要但不充分），堆上 **LongMemEval V2 + MemoryAgentBench + MemoryArena/AMA-Bench + MEMTRACK + MARBLE** 覆盖 knowledge update / conflict resolution / cross-session agentic / tool-call timeline / multi-agent shared memory。**不要用 SWE-Bench Verified 测 memory**（有 training contamination，arxiv 2512.10218）。真空白在 agent-active drill-down + 真实人类多日 log，想做创新方向往这边切。
 >
 > 然后回头看 article 哲学——你们已经写对了，只是 OKR 没跟上。
 
