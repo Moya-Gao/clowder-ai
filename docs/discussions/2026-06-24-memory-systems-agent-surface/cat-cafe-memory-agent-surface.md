@@ -56,8 +56,8 @@ The important baseline for comparing OpenViking and AtomMem is this:
 | There are three first-class memory entries, not one search box. | Supported | `longform-002` defines `graph_resolve`, `list_recent`, `search_evidence`; MCP wrappers exist in `graph-tools.ts`, `recent-tools.ts`, `evidence-tools.ts`; `memory-navigation` skill repeats the decision tree. | Agents can still misuse the surface if they ignore the skill/nudges. |
 | Search recall is BM25 + embedding, not embedding-only. | Supported | `search_evidence` exposes `mode=lexical/semantic/hybrid`; `SqliteEvidenceStore` uses FTS5 BM25, vector NN, and hybrid RRF fusion. | Embedding failure falls back to lexical in several paths, so mode can degrade. |
 | Raw-source drill-down exists. | Supported | Search result formatting prints `sourcePath`, `drillDown`, raw `passages`; `cat_cafe_read_file_slice` reads bounded line ranges; session tools expose raw/chat/handoff event views. | The tool nudges the agent to read sources, but cannot force reasoning discipline. |
-| Epistemic metadata exists in the core result schema. | Supported | `EvidenceItem` has authority, activation, provenance, sourcePath, status, verifiedAt, sourceIds, contradiction/invalid fields, ranking factors, confidence, passages. | `confidence` is a calibrated relevance signal, not a truth guarantee. Keep authority/provenance separate. |
-| Feedback affects future recall, not truth. | Supported | `longform-002` says consumption ranking changes navigation convenience only; `SqliteEvidenceStore` has consumption rerank hooks and ranking factors. | `outputVerified` bridging is explicitly incomplete in `longform-002`; current behavior signal is still partly proxy. |
+| Epistemic metadata exists in the core result schema. | Supported in shape; agent compliance dependent | `EvidenceItem` has authority, activation, provenance, sourcePath, status, verifiedAt, sourceIds, contradiction/invalid fields, ranking factors, confidence, passages. | `confidence` is a calibrated relevance signal, not a truth guarantee. Keep authority/provenance separate; agents still have to read the source when the result is decision-critical. |
+| Feedback affects future recall, not truth. | Supported in shape; signal maturity incomplete | `longform-002` says consumption ranking changes navigation convenience only; `SqliteEvidenceStore` has consumption rerank hooks and ranking factors. | `outputVerified` bridging is explicitly incomplete in `longform-002`; current behavior signal is still partly proxy. |
 | MCP is the primary agent-facing memory contract. | Supported | `server-toolsets.ts` whitelists memory tools for readonly and desktop/cloud profiles; memory tools are registered as first-party MCP toolsets. | Tool count is high; the skill layer is part of discoverability, not optional polish. |
 | Skills are part of the memory interface. | Supported | `memory-navigation` routes cold start / anchor / fuzzy / recent cases; `memory-search-best-practices` externalizes query expansion into agent behavior instead of a backend LLM judge. | This makes quality partly model-dependent: better agents search better. |
 
@@ -172,6 +172,8 @@ The memory surface also includes session-chain drill-down: list session chains, 
 
 The skill layer is not decorative. Longform-002 says query expansion should be done by smart agents, not by adding opaque intent-classification logic to the retrieval engine. That is why search quality belongs partly to "skills given to agent," not only "backend recall algorithm."
 
+Dependency direction caveat for comparison: Cat Cafe deliberately keeps a large part of search intelligence on the agent/skill side. OpenViking and AtomMem may push more work into backend LLM judges, sidecar generation, or benchmark-conditioned prompts. The comparison should not just ask "which system has the feature"; it should ask whether the agent can see, verify, and override the system's judgment.
+
 ## 6. Algorithm Peel
 
 ### Real Algorithms
@@ -212,6 +214,7 @@ Use this as the comparison checklist for the next two one-system reports:
 | Epistemic labels | Does the result distinguish original observation, generated summary, derived fact, rank confidence, and authority? |
 | Skill contract | Does the project teach agents when to search, browse recent, resolve anchors, or verify raw sources? |
 | Feedback loop | Do real usage/outcome signals change future recall? Do they preserve truth authority boundaries? |
+| Multi-collection / tenant scoping | Are collection boundaries, tenant/account filters, and private/restricted visibility enforced by the server rather than trusted to the client? |
 
 Expected first-order contrasts to verify, not assume:
 
