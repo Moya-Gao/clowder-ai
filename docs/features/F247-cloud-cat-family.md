@@ -180,7 +180,7 @@ Console settings "配置云端猫" 流程：
 5. 升级 spike → `remote.ts`：替换 5 stub 为真 toolset 注册（复用 fable phase0 同 10 项白名单：post_message / cross_post_message / get_thread_context / list_threads / get_message + search_evidence / graph_resolve / list_recent / list_session_chain / read_session_digest）
 6. 加 agent-key principal injection + `CAT_CAFE_DESKTOP_MODE=cloud-pro-phase0`（或同语义 mode）
 
-### Phase C — 前端 bubble/avatar UX 优化（runtime avatar 切换）🔄 in-progress (asset landed 2026-06-24)
+### Phase C — 前端 bubble/avatar UX 优化（runtime avatar 切换）🔄 in-progress (AC-C-1a/1b done 2026-06-24, AC-C-2/3/4 pending)
 
 > **48 R13.5 实测推翻 47 R13 KD-16**：47 R13 "B1a 没持久化、重启即丢" 是 grep 错坐标的 wrong finding。
 > 真相是：B1a `POST /api/cats` **已正确持久化** gpt-pro 到主服务实例（`cat-cafe-runtime`）的 runtime catalog
@@ -197,9 +197,10 @@ Console settings "配置云端猫" 流程：
 - [x] **AC-C-1a — asset + doc 落地**（2026-06-24）— 云端砚砚 self-design avatar（用 F229 `yanyan-codex-character-base-v1.png` 母图作 reference，CVO 选 candidate A）：
   - asset `packages/web/public/avatars/gpt-pro.png` 上线（runtime catalog avatar 字段切换后 reference 的目标路径）
   - 视觉元素：Cat Cafe 招牌 + 蓝霓虹 cloud icon + "砚砚 Pro" 标题 + "gpt-pro" 杯 + "补锅中"飘带（砚砚 self-aware 彩蛋）→ 跟本地 gpt52 视觉强区分（KD-15）
-- [ ] **AC-C-1b — runtime avatar 字段切换**（post-merge ops，gpt52 R12 + 48 R13.5 真 P1）— 主服务实例 `cat-cafe-runtime` 的 runtime catalog 中 gpt-pro entry 已持久化（B1a 完成），但 avatar 字段值 stale `/avatars/gpt52.png`：
-  - 唯一动作：`PATCH /api/cats/gpt-pro` body `{avatar: "/avatars/gpt-pro.png"}` → `updateRuntimeCat` 写 catalog + cat-cafe API 不需重启（0 重启）
-  - alpha 验证：`pnpm alpha:start` 拉最新 main → PATCH alpha API → 看头像换
+- [x] **AC-C-1b — runtime avatar 字段切换**（post-merge ops done 2026-06-24 19:42 PT）— 主服务实例 `cat-cafe-runtime` 的 runtime catalog gpt-pro entry avatar 字段 `PATCH /api/cats/gpt-pro` 切到 `/avatars/gpt-pro.png`：
+  - 执行：`curl -X PATCH http://localhost:3002/api/cats/gpt-pro -H 'X-Cat-Cafe-User: opus-47' -d '{"avatar":"/avatars/gpt-pro.png"}'` → response cat.avatar = `/avatars/gpt-pro.png`
+  - Live verify：`GET /api/cats` 返回 gpt-pro.avatar = `/avatars/gpt-pro.png` ✅
+  - Persisted verify：`cat-cafe-runtime/.cat-cafe/cat-catalog.json` breed.avatar = `/avatars/gpt-pro.png` ✅（落盘 + 重启不丢）
 - [ ] ChatMessage 组件 verify `缅因猫Pro(Pro Cloud (ChatGPT))` 渲染（B1a 实测已 work，Phase C 抛光）
 - [ ] Cat picker 加 cloud cat 类别 + "via ChatGPT Pro" tag
 - [ ] 气泡 color theme UI 渲染抛光（catalog 已持久化 `#2196F3` 蓝，前端微调）
@@ -255,8 +256,8 @@ Phase B-C 后启动。Settings 页面新增 "配置云端猫"，支持选 provid
 
 ### Phase C AC（B1a 落地后逐步细化）
 
-- [x] **AC-C-1a**: gpt-pro 专属头像 asset 上线（PR #2530 落地 2026-06-24）— `packages/web/public/avatars/gpt-pro.png` 进 git（runtime catalog avatar 字段切换后 reference 的目标路径）；CVO 拍板 candidate A
-- [ ] **AC-C-1b**: runtime avatar 字段切换（post-merge ops，gpt52 R12 + 48 R13.5 真 P1）— 主服务实例 catalog 已持久化 gpt-pro entry（B1a 完成），但 avatar 字段值 stale `/avatars/gpt52.png`；`PATCH /api/cats/gpt-pro {avatar: "/avatars/gpt-pro.png"}` 走 `updateRuntimeCat` 改 catalog 字段（0 重启）
+- [x] **AC-C-1a**: gpt-pro 专属头像 asset 上线（PR #2530 squash SHA `284e9b2b8` merged 2026-06-24 19:42 PT）— `packages/web/public/avatars/gpt-pro.png` 进 git；CVO 拍板 candidate A
+- [x] **AC-C-1b**: runtime avatar 字段切换 done（post-merge ops 2026-06-24 19:42 PT）— `PATCH /api/cats/gpt-pro {avatar:"/avatars/gpt-pro.png"}` 执行成功；live verify + persisted verify 双过
 - [ ] AC-C-2: 烁烁愿景守护 avatar 视觉 + 跟本地 gpt52 区分度 OK
 - [ ] AC-C-3: ChatMessage / Cat picker 渲染 `缅因猫Pro(Pro Cloud (ChatGPT))` Phase C 抛光稿
 - [ ] AC-C-4: cloud cat 类别 + "via ChatGPT Pro" tag UI（可滚到 Phase D）
@@ -369,6 +370,8 @@ Phase B-C 后启动。Settings 页面新增 "配置云端猫"，支持选 provid
 | 2026-06-24 19:00 PT | gpt52 R12 HOLD + 48 cross-thread 把关 → AC 拆 1a/1b + KD-16 发现 catalog 无 gpt-pro|
 | 2026-06-24 19:12 PT | gpt52 R13 HOLD + 实测推翻 cat-config.json 在 fresh-bootstrap 生效（`pickSeedBreed` 限制）→ 撤回 cat-config.json 改动|
 | 2026-06-24 19:16 PT | 48 R13.5 cross-thread 实测推翻 47 R13 KD-16（grep 错坐标 worktree vs runtime catalog）→ B1a 已正确持久化，真 P1 = avatar 字段值 stale，AC-C-1b = `PATCH /api/cats/gpt-pro {avatar}`|
+| 2026-06-24 19:29 PT | gpt52 R15 explicit re-confirm `fc0a37c28`（独立核实 B1a 持久化真相 + 真 P1 + AC-C-1b PATCH 三件）+ 48 R13.6 收尾认知裂缝清理 |
+| **2026-06-24 19:42 PT** | **AC-C-1a + AC-C-1b done**：PR #2530 merged (squash SHA `284e9b2b8`) + `PATCH /api/cats/gpt-pro {avatar}` 执行成功 + live + persisted 双 verify ✅ |
 
 ## Links
 
