@@ -286,7 +286,9 @@ docs_decisions_allowlist:
 excluded:
   # 内部文档目录（不在 managed_roots 中的整目录排除）
   - designs/
-  - assets/
+  # NOTE: assets/ 不整目录排除 — assets/prompt-templates 是 managed_root（L0 compiler 运行时依赖）。
+  # 其他 assets/ 子目录（icons/avatars/etc.）不会泄漏：allowlist 是正向过滤，只有 managed_roots
+  # 和 managed_files 才会进入 FILTERED_DIR。
   # docs/ 下不导出的子目录（细粒度替代原来的 docs/ 一刀切）
   - docs/mailbox/
   - docs/discussions/
