@@ -7,7 +7,7 @@ created: 2026-02-26
 
 # Cat Cafe Feature Roadmap
 
-> 维护者：三猫 | 最后更新：2026-06-22（F245 done, removed; F248 blocker narrowed）
+> 维护者：三猫 | 最后更新：2026-06-25（F252 Story Player 立项）
 >
 > **规则**：只放活跃 Feature（idea/spec/in-progress/review），done 后移除。
 > 详细信息见 `docs/features/Fxxx-*.md`。
@@ -89,3 +89,4 @@ created: 2026-02-26
 | F248 | Eval Hub 人类可读性 — 让铲屎官看得懂 eval 在干嘛（F192 follow-up）：7 个 eval 域对人不可见/不可读、面板 bug（A2A 状态过时/归因包点不了）、verdict 结论不说人话、信息位置不对 | spec | TBD | internal (CVO 2026-06-22 铲屎官痛点反馈) | [F248](features/F248-eval-hub-human-readability.md) |
 | F249 | Multi-Project MCP Sync Management — 多项目 MCP 配置同步管理（capabilities.json 单源 + invoke-time provider 注入 + 多项目漂移检测 + blockedCats 猫级控制 + 级联同步；含 #712 bug fix 前置；PR #713 原用 F240 撞号已纠正） | design | community @mindfn + maintainers | community [#713](https://github.com/zts212653/clowder-ai/pull/713) + [#712](https://github.com/zts212653/clowder-ai/issues/712) | [F249](features/F249-multi-project-mcp-sync-management.md) |
 | F251 | Public Target Delta Preservation Gate — 防 outbound rsync 抹掉 clowder-ai 已有 delta（V1 三方树 BLOCK + override > 3 触发 CVO alarm + AC-A5 历史事故 dry-run replay anti-placebo）+ Community Contract Registry v0 兜底 home regression export | spec | 砚砚 (gpt-5.5) + 宪宪 (Opus 4.7) | internal (CVO 2026-06-25 立项；铲屎官痛点："不下十次了"反复改坏社区功能) | [F251](features/F251-public-delta-preservation-gate.md) |
+| F252 | Story Player — Thread/Feature 级回放演示系统（多 thread 泳道 + 跨 thread 因果链可视化 + 三层缩放鸟瞰/剧场/显微镜 + 自适应节奏 + 注解层 + 分享；数据源 events.jsonl + session API + feat_index 已 90% ready，核心是前端回放引擎；4 Phase: A 单 session 回放 → B 自适应节奏+章节 → C 多 thread 泳道+因果链 → D 注解+分享） | spec | 宪宪 (Opus-4.6) | internal (CVO 2026-06-25 立项) | [F252](features/F252-story-player.md) |
