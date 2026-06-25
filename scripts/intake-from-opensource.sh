@@ -890,7 +890,11 @@ if [ "$ADVANCE_LEDGER" = true ]; then
     RECORDED_SHAS=$(node -e "const l=JSON.parse(require('fs').readFileSync('$INTAKE_LEDGER','utf-8')); l.entries.filter(e=>e.target_merge_commit).forEach(e=>console.log(String(e.target_merge_commit||'').trim().toLowerCase()))" 2>/dev/null || true)
     for c in $(git -C "$TARGET_DIR" rev-list --first-parent "$OLD_HEAD".."$CURRENT_HEAD" 2>/dev/null); do
       MSG=$(git -C "$TARGET_DIR" log --format=%s -1 "$c" 2>/dev/null || true)
-      if echo "$MSG" | grep -qE "^sync:.*(cat-cafe|clowder-ai|v[0-9]+\.[0-9]+|outbound)"; then continue; fi
+      # Skip sync commits: matches both squash-merge format ("sync: ..." as commit subject)
+      # AND GitHub UI's default merge commit format ("Merge pull request #N from <user>/sync/<topic>").
+      # Without the second alternative, sync PRs merged via the UI's "Create a merge commit" path
+      # were misclassified as non-sync and blocked advance-ledger (clowder-ai#1020 regression).
+      if echo "$MSG" | grep -qE "^sync:.*(cat-cafe|clowder-ai|v[0-9]+\.[0-9]+|outbound)|^Merge pull request #[0-9]+ from [^ ]+/sync/"; then continue; fi
       # Check if this landed mainline commit is covered by an entries[] record
       recorded_match=false
       while IFS= read -r recorded; do

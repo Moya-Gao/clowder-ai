@@ -279,6 +279,39 @@ describe('intake-from-opensource.sh --advance-ledger', () => {
     assert.notEqual(updatedLedger.last_reviewed_target_head, currentHead);
   });
 
+  it('treats a "Merge pull request from sync/" commit as a sync commit (auto-skip)', () => {
+    // Regression: GitHub default merge commit format "Merge pull request #N from <user>/sync/<topic>"
+    // does not start with "sync:" prefix, so the old regex `^sync:` only matched squash-merged
+    // sync PRs (where commit subject = PR title with sync: prefix). Real-world sync PRs merged
+    // via the GitHub UI's default "Create a merge commit" path were misclassified as non-sync
+    // and blocked advance-ledger. Example: clowder-ai#1020 merge commit `29f9a7cad` with subject
+    // "Merge pull request #1020 from zts212653/sync/cat-cafe-3ca74e03-v2".
+    const fixture = makeFixture();
+    fixtures.push(fixture.sandboxRoot);
+
+    const oldHead = commitFile(fixture.targetRoot, 'README.md', 'base\n', 'chore: base');
+
+    // Create a sync branch and merge it with GitHub's default merge commit format
+    git(fixture.targetRoot, 'checkout', '-b', 'sync/cat-cafe-3ca74e03-v2');
+    commitFile(fixture.targetRoot, 'synced.txt', 'synced\n', 'sync: cat-cafe 3ca74e03 → clowder-ai (manifest v3)');
+    git(fixture.targetRoot, 'checkout', 'main');
+    git(
+      fixture.targetRoot,
+      'merge',
+      '--no-ff',
+      'sync/cat-cafe-3ca74e03-v2',
+      '-m',
+      'Merge pull request #1020 from zts212653/sync/cat-cafe-3ca74e03-v2',
+    );
+
+    writeLedger(fixture.ledgerPath, oldHead, []);
+
+    const output = runAdvance(fixture.repoRoot);
+    assert.match(output, /Ledger advanced to:/);
+    const updatedLedger = JSON.parse(readFileSync(fixture.ledgerPath, 'utf-8'));
+    assert.equal(updatedLedger.last_reviewed_target_head, git(fixture.targetRoot, 'rev-parse', 'HEAD'));
+  });
+
   it('advances to target origin/main even when local target checkout is stale', () => {
     const fixture = makeRemoteFixture();
     fixtures.push(fixture.sandboxRoot);
