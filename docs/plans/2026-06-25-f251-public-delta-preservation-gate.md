@@ -256,9 +256,11 @@ Cover:
 - `theirs != base && ours == base` blocks as `target-only-would-revert-block`
 - `theirs != base && ours != base && ours != theirs` blocks as `both-changed-conflict-block`
 - target-added missing from ours blocks as `target-added-would-delete-block`
+- omitted or `undefined` blob metadata fails closed; explicit `null` is required to represent proven path absence
 - binary/delete/rename blocks
-- `.sync-provenance.json` passes as generated/provenance
-- target-owned path passes only when loaded from the same target-owned source used by sync
+- override reasons must be non-empty after trimming
+- `.sync-provenance.json` passes as generated/provenance only when blob metadata is explicitly present
+- target-owned path passes only when blob metadata is explicitly present and loaded from the same target-owned source used by sync
 
 Run:
 
