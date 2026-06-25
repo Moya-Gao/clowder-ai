@@ -1,0 +1,160 @@
+{
+  "verdictId": "2026-06-24-task-outcome-day19-keep",
+  "windowStartMs": 1782183600000,
+  "windowEndMs": 1782270000000,
+  "taskOutcomeDbPath": "/Users/lysander/projects/relay-station/cat-cafe-runtime/task-outcome-episodes.sqlite",
+  "eventMemoryDbPath": "/Users/lysander/projects/relay-station/cat-cafe-runtime/event-memory.sqlite",
+  "episodes": [
+    {
+      "episodeId": "ep-1782197881988-wvof1f",
+      "trigger": "cat_initiated",
+      "threadId": "thread_mqg1ek0wfttbxt4l",
+      "participants": [],
+      "artifacts": [],
+      "terminalState": "completed",
+      "verdict": null,
+      "createdAt": "2026-06-23T06:58:01.988Z"
+    },
+    {
+      "episodeId": "ep-1782202789478-fv5lgl",
+      "trigger": "cat_initiated",
+      "threadId": "thread_mqguyzozyzfphdmi",
+      "participants": [],
+      "artifacts": [],
+      "terminalState": "completed",
+      "verdict": null,
+      "createdAt": "2026-06-23T08:19:49.478Z"
+    },
+    {
+      "episodeId": "ep-1782204475407-9lrqkz",
+      "trigger": "cat_initiated",
+      "threadId": "thread_mqqcf8ydy8l8get1",
+      "participants": [],
+      "artifacts": [],
+      "terminalState": "completed",
+      "verdict": null,
+      "createdAt": "2026-06-23T08:47:55.407Z"
+    },
+    {
+      "episodeId": "ep-1782216692197-qaik2v",
+      "trigger": "cat_initiated",
+      "threadId": "thread_mqoxh7jlcotpjmzh",
+      "participants": [
+        "opus-47"
+      ],
+      "artifacts": [],
+      "terminalState": "in_progress",
+      "verdict": null,
+      "createdAt": "2026-06-23T12:11:32.197Z"
+    },
+    {
+      "episodeId": "ep-1782218645389-melowc",
+      "trigger": "cat_initiated",
+      "threadId": "thread_mqevrpipz1prrvh3",
+      "participants": [],
+      "artifacts": [],
+      "terminalState": "completed",
+      "verdict": null,
+      "createdAt": "2026-06-23T12:44:05.389Z"
+    },
+    {
+      "episodeId": "ep-1782267821781-ho21uh",
+      "trigger": "cat_initiated",
+      "threadId": "thread_mqevrpipz1prrvh3",
+      "participants": [],
+      "artifacts": [],
+      "terminalState": "completed",
+      "verdict": null,
+      "createdAt": "2026-06-24T02:23:41.781Z"
+    }
+  ],
+  "signals": [
+    {
+      "id": 417,
+      "episodeId": "ep-1782197881988-wvof1f",
+      "category": "a1",
+      "record": {
+        "type": "merge",
+        "ref": "PR#2508",
+        "outcome": "success",
+        "timestamp": "2026-06-23T06:58:01.992Z"
+      },
+      "createdAt": "2026-06-23T06:58:01.992Z"
+    },
+    {
+      "id": 419,
+      "episodeId": "ep-1782202789478-fv5lgl",
+      "category": "a1",
+      "record": {
+        "type": "merge",
+        "ref": "PR#2513",
+        "outcome": "success",
+        "timestamp": "2026-06-23T08:19:49.478Z"
+      },
+      "createdAt": "2026-06-23T08:19:49.478Z"
+    },
+    {
+      "id": 420,
+      "episodeId": "ep-1782204475407-9lrqkz",
+      "category": "a1",
+      "record": {
+        "type": "merge",
+        "ref": "PR#2516",
+        "outcome": "success",
+        "timestamp": "2026-06-23T08:47:55.407Z"
+      },
+      "createdAt": "2026-06-23T08:47:55.407Z"
+    },
+    {
+      "id": 421,
+      "episodeId": "ep-1782216692197-qaik2v",
+      "category": "a2",
+      "record": {
+        "type": "magic_word_ref",
+        "eventId": "evt_mqqlswrn55ww0xo0",
+        "word": "下次一定",
+        "timestamp": "2026-06-23T12:11:32.198Z",
+        "threadId": "thread_mqoxh7jlcotpjmzh",
+        "catId": "opus-47"
+      },
+      "createdAt": "2026-06-23T12:11:32.198Z"
+    },
+    {
+      "id": 422,
+      "episodeId": "ep-1782218645389-melowc",
+      "category": "a1",
+      "record": {
+        "type": "merge",
+        "ref": "PR#2514",
+        "outcome": "success",
+        "timestamp": "2026-06-23T12:44:05.391Z"
+      },
+      "createdAt": "2026-06-23T12:44:05.391Z"
+    },
+    {
+      "id": 423,
+      "episodeId": "ep-1782267821781-ho21uh",
+      "category": "a1",
+      "record": {
+        "type": "merge",
+        "ref": "PR#2523",
+        "outcome": "success",
+        "timestamp": "2026-06-24T02:23:41.783Z"
+      },
+      "createdAt": "2026-06-24T02:23:41.783Z"
+    }
+  ],
+  "eventRows": [
+    {
+      "eventId": "evt_mqqlswrn55ww0xo0",
+      "type": "下次一定",
+      "trigger": "human_brake",
+      "cat": "opus-47",
+      "threadId": "thread_mqoxh7jlcotpjmzh",
+      "messageId": "0001782216692192-000266-25cfea0a",
+      "timestamp": 1782216692195,
+      "summary": "follow-up: cat-cafe#2518 + #2519 (next sweep)\n等会 你怎么还下班了哈哈哈哈？ 你怎么又下次一定了？留了什么尾巴啊？",
+      "confidence": "high"
+    }
+  ]
+}
