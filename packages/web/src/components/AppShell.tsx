@@ -10,7 +10,7 @@ import { ThreadSidebar } from './ThreadSidebar';
 import { FloatingPresentationSurfaceHost } from './workspace/FloatingPresentationSurfaceHost';
 import { ResizeHandle } from './workspace/ResizeHandle';
 
-const CHROMELESS_ROUTES = ['/story-export', '/pixel-brawl', '/showcase'];
+const CHROMELESS_ROUTES = ['/story', '/story-export', '/pixel-brawl', '/showcase'];
 
 const SIDEBAR_HIDDEN_ROUTES = ['/settings', '/marketplace', '/signals', '/memory', '/mission'];
 
