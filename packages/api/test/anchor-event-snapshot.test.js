@@ -221,3 +221,78 @@ describe('AnchorEventLog — adoption eval fields (F236 Track-1 gpt52 R1 P1/P2)'
     assert.strictEqual(ev.catId, undefined);
   });
 });
+
+describe('AnchorEventLog — cc native tools (F236 Phase C)', () => {
+  beforeEach(() => resetAnchorEventLogForTest());
+
+  it('records cc-read preview events with adoption fields', () => {
+    recordAnchorPreviewEvent({
+      tool: 'cc-read',
+      itemIds: ['file:/src/foo.ts'],
+      returnedChars: 80,
+      originalChars: 5000,
+      modeResolved: 'anchor',
+      modeSource: 'explicit',
+      catId: 'opus',
+    });
+    const snap = getAnchorEventSnapshot();
+    assert.strictEqual(snap.previewEvents.length, 1);
+    const ev = snap.previewEvents[0];
+    assert.strictEqual(ev.tool, 'cc-read');
+    assert.strictEqual(ev.modeResolved, 'anchor');
+    assert.strictEqual(ev.modeSource, 'explicit');
+    assert.strictEqual(ev.returnedChars, 80);
+    assert.strictEqual(ev.originalChars, 5000);
+  });
+
+  it('records cc-grep preview events', () => {
+    recordAnchorPreviewEvent({
+      tool: 'cc-grep',
+      itemIds: ['grep:TODO'],
+      returnedChars: 150,
+      originalChars: 3000,
+      modeResolved: 'anchor',
+      modeSource: 'explicit',
+    });
+    const snap = getAnchorEventSnapshot();
+    assert.strictEqual(snap.previewEvents.length, 1);
+    assert.strictEqual(snap.previewEvents[0].tool, 'cc-grep');
+  });
+
+  it('records cc-glob preview events', () => {
+    recordAnchorPreviewEvent({
+      tool: 'cc-glob',
+      itemIds: ['glob:src/**/*.ts'],
+      returnedChars: 100,
+      originalChars: 2000,
+    });
+    const snap = getAnchorEventSnapshot();
+    assert.strictEqual(snap.previewEvents.length, 1);
+    assert.strictEqual(snap.previewEvents[0].tool, 'cc-glob');
+  });
+
+  it('cc tools participate in rollup alongside MCP tools', () => {
+    // MCP tool event
+    recordAnchorPreviewEvent({
+      tool: 'thread-context',
+      itemIds: ['msg-1'],
+      returnedChars: 100,
+      originalChars: 1000,
+    });
+    // cc tool event
+    recordAnchorPreviewEvent({
+      tool: 'cc-read',
+      itemIds: ['file:/a.ts'],
+      returnedChars: 50,
+      originalChars: 5000,
+      modeResolved: 'anchor',
+      modeSource: 'explicit',
+    });
+    const snap = getAnchorEventSnapshot();
+    assert.strictEqual(snap.previewEvents.length, 2);
+    // Both tool types coexist
+    const tools = snap.previewEvents.map((e) => e.tool);
+    assert.ok(tools.includes('thread-context'));
+    assert.ok(tools.includes('cc-read'));
+  });
+});

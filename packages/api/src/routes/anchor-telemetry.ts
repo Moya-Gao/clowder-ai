@@ -37,8 +37,17 @@ import {
   anchorReturnedCount,
 } from '../infrastructure/telemetry/instruments.js';
 
-/** A preview-returning anchor tool. Bounded set keeps the metric label safe. */
-export type AnchorPreviewTool = 'pending-mentions' | 'thread-context' | 'list-tasks';
+/**
+ * A preview-returning anchor tool. Bounded set keeps the metric label safe.
+ * F236 Phase C: 'cc-read' | 'cc-grep' | 'cc-glob' for cc native tool anchor化.
+ */
+export type AnchorPreviewTool =
+  | 'pending-mentions'
+  | 'thread-context'
+  | 'list-tasks'
+  | 'cc-read'
+  | 'cc-grep'
+  | 'cc-glob';
 
 export interface AnchorReturnedRecord {
   /** Which preview read-tool returned the payload. */

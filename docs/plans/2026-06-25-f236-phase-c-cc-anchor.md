@@ -142,16 +142,17 @@ Cat uses cc Read/Grep ──▶ cc executes tool ──▶ PostToolUse hook fire
 - Glob + anchor mode → anchored with file list
 - Invariant: no original file content in anchor output
 
-### Step 4: AC-C4 — Eval Integration
+### Step 4: AC-C4 — Eval Integration (partial — consumer deferred)
 
-**anchor-event-log.ts**:
-- Extend `AnchorPreviewTool` type to include `'cc-read' | 'cc-grep' | 'cc-glob'`
-- Emit events from hook sidecar consumption path (TranscriptTailer already reads sidecar JSONL)
-- Add fields: `modeResolved`, `modeSource` (explicit from cat_cafe_set_read_mode), `catId`
+**Done in Phase C**:
+- ✅ Extend `AnchorPreviewTool` type to include `'cc-read' | 'cc-grep' | 'cc-glob'`
+- ✅ Hook emits Track-2 compatible eval events to `/tmp/cat-cafe-anchor-eval-{invocationId}.jsonl` with fields: `tool`, `itemIds` (file-level), `originalChars`, `returnedChars`, `modeResolved`, `modeSource`, `catId`
+- ✅ Tests: cc-read/cc-grep/cc-glob event fields validated + rollup filter includes cc tools
 
-**Tests**:
-- cc-read anchor event → logged with correct tool type
-- Rollup filter includes cc tools
+**Deferred to Phase E** (≥3 round review escalation — plan assumption was wrong):
+- ❌ ~~Emit events from hook sidecar consumption path (TranscriptTailer already reads sidecar JSONL)~~
+- **Correction**: F236 anchor hook and carrier hook-capture (`pty/hook-setup.ts`) are **independent hooks** writing to **separate sidecar files**. TranscriptTailer reads carrier's sidecar, not the anchor eval file. Bridging requires either: (a) shared sidecar path via env var + HookSidechannelConsumer extension, or (b) dedicated API endpoint for eval flush. Both need Phase E eval domain infrastructure.
+- Phase C guarantees: data shape matches `AnchorPreviewEventInput` contract exactly — Phase E consumer only needs to read jsonl + call `recordAnchorPreviewEvent()`, no hook changes needed.
 
 ### Step 5: settings.json Update
 

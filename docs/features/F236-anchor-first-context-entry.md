@@ -158,7 +158,7 @@ spike（2026-06-16，C0a Read / C0b Grep ✅ 实证）证明 cc PostToolUse hook
     - **修正**：spike A 从"rtk 用 rules.md"误推"agy 没 hook"——官方文档推翻（agy 有 PostToolCallHook，rtk 只是没用它）。又一次旁证脑补被查证纠偏
     - **实测（nonce probe）留 Phase C**：cc 已证 PostToolUse output replace 范式真实（核心打底）+ codex/agy hook/config 已查到；codex 实测烧贵配额（缅因猫额度），spike 阶段 cost>边际价值，Phase C 实现期实测确认
     - 来源：codex `developers.openai.com/codex/hooks` / agy **官方 SDK README（PostToolCallHook read-only）+ 家里 F061 AC-2cR4 实测**（`antigravity.google/docs/hooks` 返空，砚砚改用 SDK README 核验）（checked 2026-06-17）
-- [ ] AC-C4: 双边 eval 对 cc 工具同样适用（Read drill 净收益 = 省 − drill 成本）
+- [~] AC-C4: 双边 eval 对 cc 工具同样适用（Read drill 净收益 = 省 − drill 成本）——**partial（type extension + data shape ready, consumer deferred to Phase E）**：`AnchorPreviewTool` type 已扩展 cc-read/cc-grep/cc-glob；hook eval file 已发射 Track-2 compatible fields（itemIds/modeResolved/modeSource/catId）；但 hook 子进程与 API server 跨进程，plan 假设的"hook sidecar consumption path"不成立（F236 anchor hook 与 carrier hook-capture 是独立 hook、写独立文件），consumer bridge 需 Phase E eval domain 基础设施
 - [ ] **AC-C5（控制机制 = cat-controlled mode — 2026-06-24 pivot，详见下方 pivot 块）**: 不再"系统猜何时 anchor"，而是**猫显式选 mode（anchor / full）**、系统零任务分类。anchor mode 内护栏：locator-not-synopsis（硬不变量）+ 全文一跳逃生（证完才默认开）。默认 fail-open。eval = 反馈/调默认、**非 gate**。**AC-C1/C2 的"默认 anchorized"改为"猫选 anchor mode 时 anchorized"。**
 
 #### 🔄 设计 pivot（2026-06-24）：cat-controlled mode（砚砚 failure-mode 审计 + 铲屎官 cold-start 纠偏）

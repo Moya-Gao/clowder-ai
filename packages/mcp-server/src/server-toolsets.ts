@@ -384,6 +384,7 @@ export const EXPLICIT_TOOL_ANNOTATIONS: Record<string, Annotation> = {
   cat_cafe_update_workflow: A_WRITE_SAFE,
   cat_cafe_start_guide: A_WRITE_SAFE,
   cat_cafe_guide_control: A_WRITE_SAFE,
+  cat_cafe_set_read_mode: A_WRITE_SAFE, // F236 Phase C: writes ephemeral mode file to /tmp
   cat_cafe_start_vote: A_WRITE_SAFE,
   cat_cafe_submit_game_action: A_WRITE_SAFE,
   cat_cafe_teleport: A_WRITE_SAFE,

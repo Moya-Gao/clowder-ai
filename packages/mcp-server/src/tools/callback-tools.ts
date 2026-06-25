@@ -1872,6 +1872,57 @@ export async function handleHoldBall(input: {
   });
 }
 
+// ─── F236 Phase C: cat-controlled anchor mode ─────────────────────────────
+
+import { unlinkSync, writeFileSync } from 'node:fs';
+
+/**
+ * Resolve the mode file path for the current session.
+ * Uses invocation ID (Cat Café managed) or returns null.
+ */
+function resolveAnchorModeFilePath(): string | null {
+  const invocationId = process.env.CAT_CAFE_INVOCATION_ID;
+  if (invocationId) {
+    return `/tmp/cat-cafe-anchor-mode-${invocationId}`;
+  }
+  return null;
+}
+
+const setReadModeInputSchema = {
+  mode: z
+    .enum(['anchor', 'full'])
+    .describe(
+      'Session-level mode for cc native Read/Grep/Glob output. ' +
+        '"anchor" = PostToolUse hook replaces output with locator (path + line count + drill pointer). ' +
+        '"full" = pass-through (original output unchanged). Default is full (fail-open).',
+    ),
+};
+
+export async function handleSetReadMode(input: { mode: 'anchor' | 'full' }): Promise<ToolResult> {
+  const modePath = resolveAnchorModeFilePath();
+  if (!modePath) {
+    return errorResult(
+      'Cannot set read mode: CAT_CAFE_INVOCATION_ID not set. ' + 'This tool requires a Cat Café managed session.',
+    );
+  }
+
+  try {
+    if (input.mode === 'anchor') {
+      writeFileSync(modePath, 'anchor', 'utf-8');
+    } else {
+      // 'full' = remove mode file (fail-open semantics)
+      try {
+        unlinkSync(modePath);
+      } catch {
+        // File already absent = already in full mode, no-op
+      }
+    }
+    return successResult(JSON.stringify({ ok: true, mode: input.mode, path: modePath }));
+  } catch (err) {
+    return errorResult(`Failed to set read mode: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
 export const callbackTools = [
   {
     name: 'cat_cafe_post_message',
@@ -2308,5 +2359,21 @@ export const callbackTools = [
         ),
     },
     handler: handleHoldBall,
+  },
+  {
+    name: 'cat_cafe_set_read_mode',
+    description:
+      'Set session-level mode for cc native Read/Grep/Glob output (F236 Phase C). ' +
+      '"anchor" mode: PostToolUse hook replaces tool output with a locator ' +
+      '(file path + total lines + drill pointer) — saves context tokens. ' +
+      '"full" mode: pass-through, original output unchanged (default). ' +
+      'Bounded Read (offset/limit present) ALWAYS passes through regardless of mode — ' +
+      'this is your escape hatch to drill into specific file sections after anchor. ' +
+      'Workflow: set_read_mode("anchor") → Read/Grep gives locator → ' +
+      'Read(file_path=..., offset=X, limit=Y) for the real slice. ' +
+      'GOTCHA: Mode persists for the entire session until changed. ' +
+      'GOTCHA: Requires Cat Café managed session (CAT_CAFE_INVOCATION_ID).',
+    inputSchema: setReadModeInputSchema,
+    handler: handleSetReadMode,
   },
 ] as const;

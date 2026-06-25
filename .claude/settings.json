@@ -95,6 +95,16 @@
         "hooks": [
           {
             "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/f236-anchor-posttool.mjs",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Grep|Glob",
+        "hooks": [
+          {
+            "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/posttool-evidence-marker.sh",
             "timeout": 3
           }
