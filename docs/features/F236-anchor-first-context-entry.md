@@ -9,7 +9,7 @@ tips_exempt: harness-internal anchor telemetry + eval domain — no user-visible
 
 # F236: Anchor-First Context 入口 — 返回侧 token 减负
 
-> **Status**: in-progress (Phase A+B done · **Phase A/B-Eval DONE** [Track-1 chars/volume + Track-2 open-rate + AC-E3 sunset trigger] · Phase C = cat-controlled mode（2026-06-24 pivot）：MCP-tools cat-mode V1 + cc-native spike-gated) | **Owner**: 布偶猫 (宪宪 opus-48 愿景守护；Track-2/AC-E3 实现 opus-4.6) | **Priority**: P1 | **Created**: 2026-06-15 | **Companion ADR**: ADR-203
+> **Status**: in-progress (Phase A+B done · **Phase A/B-Eval DONE** [Track-1 chars/volume + Track-2 open-rate + AC-E3 sunset trigger] · Phase C = cat-controlled mode（2026-06-24 pivot）：MCP-tools cat-mode V1 + cc-native spike PASS 2026-06-25（机制实证，carrier parity 待复测）) | **Owner**: 布偶猫 (宪宪 opus-48 愿景守护；Track-2/AC-E3 实现 opus-4.6) | **Priority**: P1 | **Created**: 2026-06-15 | **Companion ADR**: ADR-203
 >
 > **Timeline**: 2026-06-18 — Phase A + B merged (PR #2381, squash `9af8b2093`)：anchor-first 协作读工具（thread-context/pending-mentions/list-tasks 默认 preview + drillDown）+ get-message bounded drill（mode=preview|full + fullDrillChars telemetry）。本地 gpt52/codex 跨族 review + 云端 Codex 2 轮（封板）。**2026-06-18 — Phase A/B-Eval Track-1（anchor telemetry OTel chars/volume substrate）merged（PR #2411，squash `21ae2c83b`）：gpt52 跨族 review + 云端 Codex 3 轮（round-2 逼出 open-rate 信号模型岔路 → 砚砚 eval-owner 裁定收口 chars/volume，open-rate→Track-2）。** **2026-06-22 — Phase A/B-Eval Track-2（per-event open-rate model + `eval:anchor-first` domain）merged（PR #2490，squash `5251c2f75`）：砚砚本地 3 轮跨族 review + 云端 Codex 5 轮（封板 LL-072）。25 tests。** **2026-06-22 — AC-E3 sunset 触发（PR #2507，squash `d09024c90`）：per-tool sunset signal flags + eval 猫双信号判据 + verdict.md sunset section。gpt52 本地 3 轮跨族 review + 云端 Codex 1 轮（2 P1 pushback→P3 + 1 P2 fixed）。10 tests。**
 
@@ -137,7 +137,11 @@ spike（2026-06-16，C0a Read / C0b Grep ✅ 实证）证明 cc PostToolUse hook
 > 前置 spike（与砚砚一起）：实测 cc PostToolUse hook + `updatedToolOutput` 能否 replace Read/Grep/Glob 返回。**spike 不过则本 Phase 不启动**（不脑补——文档说能 ≠ 我们场景能用）。
 - [x] **AC-C0a (spike) ✅ PASS**: `claude -p/sdk-cli` 下 shape-matched PostToolUse `Read.updatedToolOutput` replace（保 `.file.content` 结构）+ bounded drill pass-through（`Read(offset,limit)` 返回真实 slice）实证 — spike 报告 `docs/research/2026-06-16-f236-posttooluse-anchor-spike.md`，双猫复核
 - [x] **AC-C0b (spike) ✅ PASS**: Grep shape（正文在顶层 `.content`）shape-matched replace 实证
-- [ ] AC-C0c (spike) pending: Glob shape / 多 Read `tool_use_id` 独立 / session 持久化 / **interactive carrier parity**（本 spike 是 sdk-cli ≠ carrier；Phase C 若含 interactive carrier 须单独 AC 在 carrier path 复测）
+- [~] AC-C0c (spike) **cat-mode signaling 部分 PASS（2026-06-25 sonnet 跑、opus-48 复核；报告 `docs/research/2026-06-25-f236-cat-mode-spike.md`，commit `7c83ae6d9`）**：
+    - ✅ **机制实证**：猫写 session 级 mode 文件 → cc PostToolUse hook 读 + 条件分支（anchor / pass-through）；✅ session 持久化（hook 每 Read 独立 fire、不走缓存跳过）；✅ bounded drill 逃生（`Read(offset,limit)` 不被二次 anchor）；✅ fail-open（无 mode 文件 = 全文）。**anti-confound**：nonce 双标（`ORIGINAL_NONCE`→`ANCHOR_NONCE`）证 hook 真换了模型侧输出 + action.log 12 次决策。
+    - 🔑 **ergonomics 采纳**：猫设 mode 的干净方案 = **MCP 工具 `cat_cafe_set_read_mode(mode)`**（写 mode 文件，绕开 Bash 沙盒权限——我们自己的 MCP 工具不受限）。
+    - ⚠️ **anomaly（可控、非阻断）**：同 session re-read 已读文件时 `tool_response.file` 可能空（cc 缓存）→ locator 行数为 0（anchor 正文 + drill 指针仍正确）→ **Phase C 实现须 fallback：hook 从磁盘 stat 取行数**（path 在 tool input 里、拿得到）。
+    - **仍 pending**：Glob shape / **interactive carrier parity**（本 spike 仍 sdk-cli ≠ carrier，须 carrier path 复测）。
 - [ ] AC-C1: Read 返回默认 anchorized（文件路径 + 总行数 + 预览 + `read_file_slice` drill 指针），全文按需 drill
 - [ ] AC-C2: Grep/Glob 返回分组 anchor（命中文件 + 计数 + drill），不 inline 全部命中行
 - [ ] AC-C3: PostToolUse 仅 cc；**codex/agy 两条候选路**（spike-gated，铲屎官 2026-06-17）：
