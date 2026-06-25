@@ -38,21 +38,22 @@ created: 2026-06-25
 
 ### Feature 级轨迹数据（Phase C 数据源）— F233 已有资产
 
-**F233 Phase C C2a/C2b 已 merged（2026-06-21）**，落地了完整的 feature trajectory 投影层：
+**F233 Phase C C2a/C2b 已 merged（2026-06-21）**，落地了 feature trajectory 投影框架。**注意区分 schema 声明 vs projector 实现状态**（R2 review 教训：schema declaration ≠ runtime behavior）：
 
-| 现成资产 | 位置 | F252 消费方式 |
-|----------|------|---------------|
-| `FeatTrajectoryProjection` schema（13 kinds） | `shared/types/feat-trajectory.ts:261` | 泳道 + 章节 + 里程碑的数据源 |
-| `FeatTrajectoryEntry`（entryId / subjectKey / at / kind / source / provenance） | 同上:225 | 因果边 + 时间轴节拍 |
-| `FeatTrajectoryProjector` + `RedisFeatTrajectoryStore` | `api/domains/feat-trajectory/` | 服务端投影，F252 只读消费 |
-| `GET /api/feat-trajectory/:featId` | `api/index.ts:2911-2922` | Phase C 查询入口 |
-| 三源 contract（event-stream / historical-stitched / git-ref-snapshot） | 同上:26-29 | 覆盖实时 + 历史 + git 三维数据 |
-| provenance + confidence invariant | 同上:73-78 | 箭头实线/虚线（high/medium/low） |
-| `thread_split` / `thread_merge` kinds | 同上:40-41 | **跨 thread 因果边已投影**——`propose_thread → approval → child thread` 的链路在 F233 已画好，F252 不需要从 events 反推 proposalId→threadId |
-| `pr_merged` / `branch_pushed` / `pr_opened` kinds | 同上:36,53 | git 事件标记 |
-| `phase_transition` / `verdict` / `closed` kinds | 同上:37-43 | 里程碑标记 |
+| 资产 | 位置 | 当前实现状态 | F252 消费方式 |
+|------|------|-------------|---------------|
+| `FeatTrajectoryProjection` schema（13 kinds） | `shared/types/feat-trajectory.ts:261` | ✅ schema ready | 泳道 + 章节 + 里程碑的数据源 |
+| `FeatTrajectoryEntry`（entryId / subjectKey / at / kind / source / provenance） | 同上:225 | ✅ schema ready | 因果边 + 时间轴节拍 |
+| `FeatTrajectoryProjector` + `RedisFeatTrajectoryStore` | `api/domains/feat-trajectory/` | ✅ 框架 ready | 服务端投影，F252 只读消费 |
+| `GET /api/feat-trajectory/:featId` | `api/index.ts:2911-2922` | ✅ 路由 ready | Phase C 查询入口 |
+| 三源 contract（event-stream / historical-stitched / git-ref-snapshot） | 同上:26-29 | ⚠️ 见下方 | 覆盖实时 + 历史 + git 三维数据 |
+| provenance + confidence invariant | 同上:73-78 | ✅ schema ready | 箭头实线/虚线（high/medium/low） |
+| `closed` kind（ball-shaped） | `FeatTrajectoryProjector.ts:58-64` | ✅ **已实现**：`ball.handed_cvo intent=done_notify → closed` | feature 关闭标记 |
+| git-shaped kinds（`branch_pushed` / `pr_opened` / `branch_merged_to_main` / `branch_stale_unmerged`） | `GitRefSnapshotCollector` | ✅ **已实现**（server-side cron census） | git 事件标记 |
+| `thread_split` / `thread_merge` / `pr_merged` / `phase_transition` / `verdict` / `reopened` | schema:36-43 | ❌ **schema 已声明但 projector 未实现**——`mapBallCustodyEventToTrajectory` 对这些 kinds return null → skip（`FeatTrajectoryProjector.ts:53`） | **F252 Phase C 的跨 thread 因果边依赖这些 kinds。须先补 F233 emitters（见 Dependencies）** |
+| `applyStitchedEntry`（历史回填） | `FeatTrajectoryProjector.ts:278` | ❌ **throw 'step 5+ RED'** | 老 feature 的历史叙事暂无 |
 
-**关键洞察**：F252 Phase C 是 **Feature Story Renderer**（消费 F233 投影做可视化），不是 Feature Story Builder（从零建数据层）。一套真相源——观众看到的故事和 CVO 在值班简报里看到的轨迹是同一份账本。
+**关键洞察**：F252 Phase C 是 **Feature Story Renderer**（消费 F233 投影做可视化），不是 Feature Story Builder（从零建数据层）。一套真相源——观众看到的故事和 CVO 在值班简报里看到的轨迹是同一份账本。**但 F233 projector 当前只产 `closed` + git-shaped entries。Phase C 的杀手叙事（跨 thread 传球 + 因果链）依赖 F233 补齐 `thread_split`/`thread_merge`/`pr_merged`/`phase_transition` 四个 ball-shaped emitters**。
 
 ### 缺失
 
@@ -96,8 +97,9 @@ created: 2026-06-25
   - 结果用折叠面板展示（可展开看完整输出）
   - 原始等待时间用 **log 压缩**（不是固定时长）：10s→3s, 60s→6s, 600s→12s。保留"等 npm install 期间多猫并行干别的"的叙事感（opus-47 review）
 
-- **基础 UI（新页面 `/story/:storyId`）**：
-  - 统一路由模型：session replay = 只含 1 个 session 的 story（opus-47 P2）
+- **基础 UI + 路由**：
+  - 统一路由模型 `/story/:storyId`（opus-47 P2）
+  - **storyId 语义**：`session:<sessionId>` = ephemeral 单 session 回放（前端直接用 sessionId 查 events API，无需后端持久化）；持久化 story 用 UUID storyId（Phase D 创建）。Phase A 只用 ephemeral 模式，故**纯前端成立**
   - 聊天区：复用现有 bubble 组件渲染消息
   - 底部控制条：播放/暂停 + 倍速选择 + 进度条（可拖动 seek）+ 时间显示（原始时长 / 回放时长）
   - 全屏沉浸式布局，干净背景
@@ -128,7 +130,7 @@ created: 2026-06-25
   - **薄 BFF 层**（新建）：`GET /api/story/:storyId/rendering` — 把 F233 投影 entries 映射成 Story rendering DTO（泳道布局坐标 + 因果边几何），前端直接消费
 
 - **泳道视图（Swimlane View）**：
-  - 从 F233 entries 的 `subjectKey` 提取关联 thread 列表
+  - Thread 列表从 `payload.snapshot.associatedThreadIds`（git-ref entries）+ story metadata + thread/session store 提取。**不从 `subjectKey` 反推**——`subjectKey` 语义是 `feat:{featId}` 或 `git-ref:{branchName}`，不含 thread 信息（`feat-trajectory.ts:234`）
   - 每个 thread 一条泳道，显示 thread 名称 + 参与猫猫头像
   - Session 活动期显示为色块（颜色按猫猫区分）
   - 时间轴水平滚动，垂直堆叠泳道
@@ -193,7 +195,8 @@ created: 2026-06-25
 - [ ] AC-B2: 多 session story 的章节标记来自 F233 `FeatTrajectoryProjection.entries`（`phase_transition`/`pr_merged`/`verdict` 等 kinds），点击跳转（trace Why「到某个节点暂停讲解」；复核：选一个有 phase_transition 的 Feature 验证章节标记出现且可跳转）
 
 ### Phase C（Feature Story Renderer 多泳道 + 因果链）
-- [ ] AC-C1: 输入 Feature ID → 消费 `GET /api/feat-trajectory/:featId` 自动构建多 thread 泳道图，每个 thread 一条泳道（trace Why「涉及多个thread」；复核：选一个 ≥2 thread 的 Feature 验证泳道与 F233 投影一致）
+- [ ] AC-C0: **前置条件**：F233 emitters 补齐 `thread_split`/`thread_merge`/`pr_merged`/`phase_transition` 四个 ball-shaped kinds 已 merged 且在生产环境产出 entries（trace Why「Phase C 灵魂依赖跨 thread 因果边」；复核：`GET /api/feat-trajectory/:featId` 返回含 `thread_split` kind 的 entries）
+- [ ] AC-C1: 输入 Feature ID → 消费 `GET /api/feat-trajectory/:featId` 自动构建多 thread 泳道图，thread 列表从 `payload.snapshot.associatedThreadIds` + story metadata + thread/session store 提取（不从 subjectKey 反推），每个 thread 一条泳道（trace Why「涉及多个thread」；复核：选一个 ≥2 thread 的 Feature 验证泳道与 F233 投影一致）
 - [ ] AC-C2: 因果边来自 F233 投影的 `thread_split`/`thread_merge`/`pr_merged` kinds（不是事件层启发式），以动画箭头显示，箭头样式反映 provenance.confidence（high=实线, medium=虚线, low=点线）（trace Why「事件驱动」；复核：选一个有 thread_split 的 Feature 验证箭头+样式）
 - [ ] AC-C3: 三层缩放可用——鸟瞰（F233 投影）点色块 → 剧场（events.jsonl 回放）→ 暂停点消息 → 显微镜展开完整内容（trace Why「既能看全景又能看细节」；复核：从鸟瞰一路 drill-down 到消息详情）
 
@@ -204,6 +207,7 @@ created: 2026-06-25
 ## Dependencies
 
 - **Evolved from**: F233（FeatTrajectoryProjection — Phase C 的数据骨架层。F233 投影 feature 轨迹，F252 渲染为可视化 story）
+- **Blocked by**: F233 emitter 补齐（**Phase C 前置依赖**）— F233 `mapBallCustodyEventToTrajectory` 当前只实现 `closed` 一条 rule。F252 Phase C 的跨 thread 因果叙事依赖至少 4 个 ball-shaped kinds 被实现：`thread_split`（propose_thread→child thread）、`thread_merge`（cross_post 回合并）、`pr_merged`（PR 合入）、`phase_transition`（Phase 推进）。**路径选择 A（KD-6）**：F252 主动驱动 F233 补 emitters，这些 PR 算 F233 范畴。F252 Phase C kickoff 前确认这 4 个 emitters 已 merged
 - **Related**: F226（Presentation Surface / Demo Mode — 互补关系：F226 的浮窗可以在 Story Player 回放时常驻讲稿）
 - **Related**: F128（propose_thread — `thread_split` kind 的上游事件源）
 - **Related**: F225（Context Self-Management — 展示事件驱动协作的素材来源）
@@ -217,6 +221,7 @@ created: 2026-06-25
 | 大 session（>1000 events）一次加载可能慢 | 已有分页 API（cursor + limit），Replay Engine 分批预加载 |
 | F233 投影可能缺少某些因果边（历史 feature 只有 stitched 数据） | F233 三源 contract 已覆盖历史（stitched）+ 实时（event-stream）+ git（snapshot）；stitched 带 provenance.confidence 标注可信度 |
 | 脱敏过滤可能遗漏 assistant text 中的敏感信息 | 脱敏层覆盖所有 content 字段（不只 tool 边界）+ 审核记录入 ledger + 默认关闭公开分享 |
+| F233 emitter 补齐可能延迟，阻塞 Phase C | 路径 A（KD-6）：每个 emitter 是 `mapBallCustodyEventToTrajectory` 加一条 rule，工作量可控；可提前与 F233 owner 协调排期。Phase A/B 不受阻塞 |
 
 ## Open Questions
 
@@ -234,7 +239,8 @@ created: 2026-06-25
 | KD-2 | 后端需求按 Phase 分层：Phase A 纯前端 / Phase C 复用 F233 API + 薄 BFF / Phase D 新建 story persistence + 脱敏 export API | 初版写"纯前端不需要后端"只对 Phase A 成立；Phase C/D 有持久化、脱敏、公开分享需求（砚砚+47 P1） | 2026-06-25 |
 | KD-3 | 多 thread 用绝对时间 `t` 对齐做泳道布局 | 所有事件的 `t` 是服务器 epoch ms，天然可对齐；F233 entries 的 `at` 也是 Unix ms | 2026-06-25 |
 | KD-4 | 因果边来自 F233 投影的显式 kinds（`thread_split`/`thread_merge`/`pr_merged` 等），不做事件层启发式推断 | F233 已投影因果边并带 provenance/confidence；从 events 反推 proposalId→threadId 链路是重复造轮子且容易遗漏（47 review 核心发现） | 2026-06-25 |
-| KD-5 | Phase C 是 Feature Story Renderer，不是 Feature Story Builder。数据层复用 F233 `FeatTrajectoryProjection`，本 feature 只建渲染层 | 一套真相源——观众看到的故事和 CVO 看到的轨迹是同一份账本；F233 invariant（rebuild=replay 逐字段相同）保证因果边可信度；自动继承三源 contract 覆盖历史+实时+git（47 review） | 2026-06-25 |
+| KD-5 | Phase C 是 Feature Story Renderer，不是 Feature Story Builder。数据层复用 F233 `FeatTrajectoryProjection`，本 feature 只建渲染层。**但 F233 projector 当前只产 `closed` + git-shaped kinds**，Phase C 依赖补齐 emitters（见 KD-6） | 一套真相源——观众看到的故事和 CVO 看到的轨迹是同一份账本；F233 invariant（rebuild=replay 逐字段相同）保证因果边可信度（47 review + 砚砚 R2 纠正：schema declaration ≠ runtime behavior） | 2026-06-25 |
+| KD-6 | F233 emitter 补齐路径选 **A**（F252 主动驱动 F233 补 emitters），不选 B（拆 C1/C2） | Phase C 灵魂是跨 thread 因果叙事。拆 C1 = git 时间线 = 不值得单独做一个 Phase。驱动 F233 补 4 个 emitters 是前置工作但工作量可控（每个是 `mapBallCustodyEventToTrajectory` 加一条 rule）（47 R2 提出，我同意） | 2026-06-25 |
 
 ## Timeline
 
@@ -242,6 +248,7 @@ created: 2026-06-25
 |------|------|
 | 2026-06-25 | 立项。铲屎官提出回放 demo 需求，讨论收敛到 Story Player 终态设计，CVO 授权立项 |
 | 2026-06-25 | Design review R1：砚砚 3×P1 + 1×P2，47 blocking Phase C（F233 复用）。全部接受，返工 spec |
+| 2026-06-25 | Design review R2：砚砚 2×P1 blocking（"已投影"事实错误 + subjectKey 语义错误），47 背书 + 补 F233 emitter 前置依赖。返工 R3：区分 schema declaration vs runtime behavior，明确前置依赖路径选 A |
 
 ## Review Gate
 
