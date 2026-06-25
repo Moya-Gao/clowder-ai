@@ -244,6 +244,8 @@ Initial replay candidate:
 
 ### Task 1: Pure classifier and fixtures
 
+> **Status**: ✅ merged via PR #2554 (`606cd63d`) on 2026-06-25. Follow-up tasks still need to wire the classifier into baseline resolution, report output, and `sync-to-opensource.sh`.
+
 **Files:**
 - Create: `scripts/check-sync-public-delta-gate.mjs`
 - Create: `scripts/check-sync-public-delta-gate.test.mjs`

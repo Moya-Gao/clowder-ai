@@ -4,11 +4,12 @@ related_features: [F059, F116, F168, F238]
 topics: [open-source, outbound-sync, provenance, community, harness]
 doc_kind: spec
 created: 2026-06-25
+tips_exempt: 内部 sync 管道硬门禁，对用户透明无可见动作面
 ---
 
 # F251: Public Target Delta Preservation Gate
 
-> **Status**: spec | **Owner**: 缅因猫(砚砚) + 布偶猫(宪宪) | **Priority**: P1
+> **Status**: in-progress | **Owner**: 缅因猫(砚砚) + 布偶猫(宪宪) | **Priority**: P1
 
 ## Why
 
@@ -93,6 +94,7 @@ V1.5 path ownership（sync-managed / target-owned / mixed） → V2 hunk-level c
 | 日期 | 事件 |
 |------|------|
 | 2026-06-25 | 立项；CVO 拍 F251 anchor；plan 初稿、云端 Pro review、A 量化首批启动 |
+| 2026-06-25 | Task 1 pure classifier merged via PR #2554 (squash `606cd63d`); classifier + fixtures landed, Phase A sync wiring still pending |
 
 ## Review Gate
 
