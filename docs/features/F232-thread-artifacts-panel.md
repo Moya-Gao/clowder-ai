@@ -4,6 +4,7 @@ related_features: [F148, F063, F095, F131]
 topics: [artifacts, thread, workspace, ui]
 doc_kind: spec
 created: 2026-06-11
+tips_exempt: artifacts panel is workspace-level UI with no new user-facing capability tip needed — panel discovery via workspace mode toggle is self-evident
 ---
 
 # F232: Thread Artifacts Panel — Thread 产物视图
@@ -108,8 +109,8 @@ created: 2026-06-11
 |---|------|------|
 | OQ-1 | 面板形态：抽屉 vs tab | ✅ 抽屉形态（CVO 2026-06-11 贴"随聊随看"）。**2026-06-12**：抽屉内部 tab 切 mode 收敛 header 按钮。**2026-06-13 AC-A8 修订**：铲屎官 dogfood 觉得产物做独立 tab 像"狗皮膏药"→ CVO 拍板 (b) 产物升为 workspaceMode 顶层入口（与开发/记忆/调度/任务/社区平级），PanelTabs 只剩 3 tab（状态/工作区/转录） |
 | OQ-2 | Phase A 是否需 Redis 反向索引加速，还是遍历消息够用 | ⬜ 实现时按 thread 规模实测评估 |
-| OQ-3 | 产物收录范围是否含 `html_widget` / `interactive` block | ⬜ Phase A 先收 file/media_gallery/diff/audio + PR + 文件，其余末期评估 |
-| OQ-4 | 当前对话产物查不全——active-session 文件在 session seal 前不进 ledger/threadMemory，且 relay vs main thread ownership 让"当前对话"看似空 | ⬜ 待 CVO——铲屎官 2026-06-17 体感"当前对话文件/md 找不到"的根因之一；PR #2362 诊断（`thread_mqcbdk4olvi4cval` 仅 3 PR vs main F232 thread `thread_mq9za0fv55o9s28g` 17 产物）但只修了"修改过代码分类"，未碰 data freshness；是否排期待 CVO 决定 |
+| OQ-3 | 产物收录范围是否含 `html_widget` / `interactive` block | ✅ CVO 2026-06-24 确认收录。html_widget→`widget` 类型（title fallback），interactive→`widget`（title/description fallback）。点击跳回原消息查看内容。PR feat/f232-polish |
+| OQ-4 | 当前对话产物查不全——active-session 文件在 session seal 前不进 ledger/threadMemory，且 relay vs main thread ownership 让"当前对话"看似空 | ✅ 核心问题已修（PR #2491/#2498 live artifacts before seal）。relay thread 归属 CVO 2026-06-24 确认现行为正确——产物按 thread 维度，在哪做的归哪 |
 
 ## Key Decisions
 
@@ -121,6 +122,7 @@ created: 2026-06-11
 | KD-4 | **产物系统核心 = "点击看内容"（复用 workspace `FileContentRenderer`），产物列表只是入口** | 铲屎官 dogfood 实证"我点击看不了他的内容"——列清单 ≠ 看产物；mockup 每项本就有类型化 action（打开/下载/查看 diff/播放）；"和 workspace 整合"的本质是**复用查看器**而非 UI 摆位。Phase A 首版简化成"列表+外部 url"丢了核心 → Phase A.1 必补 | 2026-06-12 |
 | KD-5 | 视频产物支持开独立 **Phase A.2**，不塞 A.1 收尾 PR | 视频是跨 shared `ThreadArtifactType` 类型层的新增（image/audio 已支持，video 缺）；A.1（PR #2259）已过两轮 review 接近收尾，塞入会让其重新变大、需重新完整 review。CVO 拍板 | 2026-06-12 |
 | KD-6 | 产物从 PanelTabs 独立 tab 升为 workspaceMode 顶层入口（AC-A8 修订） | 铲屎官 dogfood 觉得产物做独立 panel tab 像"狗皮膏药"——位置不自然。CVO 拍板 (b)：产物与开发/记忆/调度/任务/社区平级做 workspaceMode，PanelTabs 只剩 3 tab。实现上 rightPanelMode 移除 'artifacts'、workspaceMode 新增 'artifacts'、ArtifactsPanel 挂到 WorkspacePanel 条件渲染 | 2026-06-13 |
+| KD-7 | html_widget / interactive 块收录为 `type='widget'` 产物，classify 走 fallback（跳回原消息看内容） | widget 内容（HTML/交互组件）存在 RichBlock 里而非 ThreadArtifactDTO。扩展 DTO 放 HTML 成本高且跨安全边界；listing 让用户能找到 widget，点击跳回原消息查看是最简路径。CVO 2026-06-24 确认收录 | 2026-06-24 |
 
 ## Timeline
 
@@ -139,6 +141,7 @@ created: 2026-06-11
 | 2026-06-14 | **Phase B cat filter + server-side query merged (PR #2290)** — `extractCatChips()` / `filterByCat()` 纯函数模块 + cat chip UI + `GET /api/artifacts?type=X&cat=X&q=keyword` server-side filtering。local gpt52 review P1（null catId→'—' sentinel 归一化不一致修）+ 云端 R1 P2（duplicate `?q=` param → 500 crash，Array.isArray guard fix）+ R2 pass（"Chef's kiss"）。AC-B1 ✅ |
 | 2026-06-17 | **Source-code artifact classification hardening merged (PR #2362)** — file ledger source refs now classify through shared `SOURCE_CODE_EXTENSIONS`, covering tracked script extensions, Swift/source-code drift, and HTML source files; frontend preview consumes the same shared allowlist so newly promoted code artifacts remain panel-previewable. Local Opus continuity + `pnpm gate` + cloud R5 pass (`4f523a25`) |
 | 2026-06-22 | **TranscriptWriter JSONL disk fallback merged (PR #2498)** — `getFilesTouched()` recovers from `events.live.jsonl` after runtime restart (empty buffer bug); `flush()` merges pre-restart events with buffer via content-based dedup instead of replacing by row count (cloud R1 P1) + unconditional merge guard (cloud R2 P1). 11 tests (6 new). Takeover from gpt52 PR #2491. Local gpt52 review + cloud 3 rounds → 0 P1/P2 |
+| 2026-06-24 | **Polish PR (feat/f232-polish)** — OQ-3 CVO 确认 html_widget/interactive 收录为 widget 产物 + OQ-4 CVO 确认 thread 维度归属正确 + 按钮文案类型化（`artifactActionLabel`：audio/video→播放，其余→打开）+ widget 图标/色卡/筛选 chip。9 新测试（4 aggregator + 5 frontend）全绿 |
 
 ## Design Gate
 
