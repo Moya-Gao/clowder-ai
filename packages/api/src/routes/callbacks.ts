@@ -575,6 +575,8 @@ const threadContextQuerySchema = z.object({
   after: z.coerce.number().int().min(0).max(50).optional(),
   catId: z.string().min(1).optional(),
   keyword: z.string().min(1).optional(),
+  // F236 Track-1: cat-controlled response mode — anchor (default, token-lean) vs full (complete bodies)
+  responseMode: z.enum(['anchor', 'full']).optional(),
 });
 
 const listThreadsQuerySchema = z.object({
@@ -596,6 +598,8 @@ const featIndexQuerySchema = z.object({
 const pendingMentionsQuerySchema = z.object({
   // Accept both scalar and repeated query params (Fastify may surface string[]).
   includeAcked: z.union([z.string(), z.array(z.string())]).optional(),
+  // F236 Track-1: cat-controlled response mode — anchor (default, head+tail excerpt) vs full (complete bodies)
+  responseMode: z.enum(['anchor', 'full']).optional(),
 });
 
 const ackMentionsSchema = z.object({
@@ -1790,10 +1794,12 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       return { error: 'Invalid query parameters' };
     }
 
-    const { includeAcked } = parsed.data;
+    const { includeAcked, responseMode: mentionResponseMode } = parsed.data;
 
     const includeAckedValues = Array.isArray(includeAcked) ? includeAcked : includeAcked ? [includeAcked] : [];
     const shouldIncludeAcked = includeAckedValues.some((v) => v === '1' || v.toLowerCase() === 'true');
+    // F236 Track-1: cat-controlled response mode for pending mentions
+    const isMentionFullMode = mentionResponseMode === 'full';
 
     // DIAG: ghost-thread bug — log which thread this invocation thinks it owns
     app.log.debug(
@@ -1818,13 +1824,25 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     const mentionViewer = { type: 'cat' as const, catId };
     const mentions = rawMentions.filter((m) => canViewMessage(m, mentionViewer));
     const payload = {
-      // F236 AC-A3: anchor-first — head+tail excerpt + requiresDrill, full body one hop away.
-      mentions: mentions.map((item) =>
-        anchorPendingMention(item, {
+      mentions: mentions.map((item) => {
+        if (isMentionFullMode) {
+          // F236 Track-1 full mode: return complete mention content, no truncation
+          return {
+            id: item.id,
+            from: getSenderName(item.catId),
+            message: item.content,
+            timestamp: item.timestamp,
+            contentLength: item.content.length,
+            requiresDrill: false,
+            ...(shouldIncludeAcked ? { acked: Boolean(lastAckId && item.id <= lastAckId) } : {}),
+          };
+        }
+        // F236 AC-A3: anchor-first — head+tail excerpt + requiresDrill, full body one hop away.
+        return anchorPendingMention(item, {
           from: getSenderName(item.catId),
           ...(shouldIncludeAcked ? { acked: Boolean(lastAckId && item.id <= lastAckId) } : {}),
-        }),
-      ),
+        });
+      }),
     };
     // F236 AC-A1 (R1/砚砚 P1): emit returnedChars for eval-layer payload-shrink accounting.
     const pendingMentionsReturnedChars = JSON.stringify(payload).length;
@@ -1834,18 +1852,28 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
         returnedChars: pendingMentionsReturnedChars,
         count: payload.mentions.length,
         catId: record.catId,
+        responseMode: mentionResponseMode ?? 'anchor',
       },
       '[F236] anchor returned',
     );
-    // F236 Track-1: also emit as OTel metrics (queryable canonical source for eval).
-    recordAnchorReturned({ tool: 'pending-mentions', returnedChars: pendingMentionsReturnedChars });
+    // F236 Track-1: OTel aggregate savings metrics — ONLY for anchor mode.
+    // Full-mode returns complete bodies, recording it would pollute anchor savings (gpt52 R1 P1 fix).
+    if (!isMentionFullMode) {
+      recordAnchorReturned({ tool: 'pending-mentions', returnedChars: pendingMentionsReturnedChars });
+    }
     // F236 Track-2: per-event preview record with correlation keys for drill↔preview open-rate.
     // Both sides use content-only measurement (cloud R4 P1: JSON metadata skew fix).
+    // Adoption eval fields (gpt52 R1 P2): modeResolved/modeSource/catId for bucketing.
+    const mentionModeResolved = isMentionFullMode ? 'full' : 'anchor';
+    const mentionModeSource = mentionResponseMode ? 'explicit' : 'default';
     recordAnchorPreviewEvent({
       tool: 'pending-mentions',
       itemIds: mentions.map((m) => m.id),
       returnedChars: payload.mentions.reduce((sum, m) => sum + m.message.length, 0),
       originalChars: mentions.reduce((sum, m) => sum + m.content.length, 0),
+      modeResolved: mentionModeResolved,
+      modeSource: mentionModeSource,
+      catId: record.catId,
     });
     return payload;
   });
@@ -1938,6 +1966,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       after: afterWindow,
       catId: filterCatId,
       keyword,
+      responseMode,
     } = parsed.data;
 
     if (filterCatId && filterCatId !== 'user' && !catRegistry.has(filterCatId)) {
@@ -2167,14 +2196,39 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     // so external runtimes (Antigravity/Bengal) can access image files.
     const uploadDir = getDefaultUploadDir(process.env.UPLOAD_DIR);
 
+    // F236 Track-1: cat-controlled response mode. anchor (default) = token-lean previews + drillDown;
+    // full = bypass anchor, return complete message bodies (for when the cat knows it needs all content).
+    const isFullMode = responseMode === 'full';
+
     const payload = {
       // TD091: echo threadId so cats know which thread they're in
       threadId: effectiveThreadId,
-      // F236 AC-A1/A2: anchor-first — preview + speaker + injected threadId + drillDown,
-      // contentBlocks omitted (image hints kept), full body one hop away via get_message.
       messages: filtered.map((item) => {
         const imagePaths = extractImagePaths(item.contentBlocks, uploadDir);
         const imageUrls = extractImageUrls(item.contentBlocks);
+
+        if (isFullMode) {
+          // F236 Track-1 full mode: return complete content, no truncation, no drillDown.
+          // Uses `content` field (not `preview`) to signal full body is present.
+          const base: Record<string, unknown> = {
+            id: item.id,
+            threadId: effectiveThreadId,
+            timestamp: item.timestamp,
+            speaker: getSenderName(item.catId),
+            content: item.content,
+            contentLength: item.content.length,
+            truncated: false,
+            ...(imagePaths.length > 0 ? { imagePaths } : {}),
+            ...(imageUrls.length > 0 ? { imageUrls } : {}),
+          };
+          if (keywordTerms.length > 0) {
+            base.relevanceScore = scoreKeywordRelevance(item.content, keywordTerms);
+          }
+          return base;
+        }
+
+        // F236 AC-A1/A2: anchor-first — preview + speaker + injected threadId + drillDown,
+        // contentBlocks omitted (image hints kept), full body one hop away via get_message.
         const anchored = anchorThreadMessage(item, {
           effectiveThreadId,
           speaker: getSenderName(item.catId),
@@ -2194,18 +2248,38 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     // F236 AC-A1 (R1/砚砚 P1): emit returnedChars so the eval layer can compute payload shrink (省).
     const threadContextReturnedChars = JSON.stringify(payload).length;
     app.log.info(
-      { tool: 'thread-context', returnedChars: threadContextReturnedChars, count: payload.messages.length },
+      {
+        tool: 'thread-context',
+        returnedChars: threadContextReturnedChars,
+        count: payload.messages.length,
+        responseMode: responseMode ?? 'anchor',
+      },
       '[F236] anchor returned',
     );
-    // F236 Track-1: also emit as OTel metrics (queryable canonical source for eval).
-    recordAnchorReturned({ tool: 'thread-context', returnedChars: threadContextReturnedChars });
+    // F236 Track-1: OTel aggregate savings metrics — ONLY for anchor mode.
+    // Full-mode returns complete bodies (returnedChars ≈ originalChars), recording it
+    // would pollute the anchor savings signal (gpt52 R1 P1 fix).
+    if (!isFullMode) {
+      recordAnchorReturned({ tool: 'thread-context', returnedChars: threadContextReturnedChars });
+    }
     // F236 Track-2: per-event preview record with correlation keys for drill↔preview open-rate.
     // Both sides use content-only measurement (cloud R4 P1: JSON metadata skew fix).
+    // In full mode, returnedChars = originalChars (no truncation).
+    // Adoption eval fields (gpt52 R1 P2): modeResolved/modeSource/catId for bucketing.
+    const contentField = isFullMode ? 'content' : 'preview';
+    const modeResolved = isFullMode ? 'full' : 'anchor';
+    const modeSource = responseMode ? 'explicit' : 'default';
     recordAnchorPreviewEvent({
       tool: 'thread-context',
       itemIds: filtered.map((m) => m.id),
-      returnedChars: payload.messages.reduce((sum, m) => sum + m.preview.length, 0),
+      returnedChars: payload.messages.reduce(
+        (sum, m) => sum + ((m as Record<string, unknown>)[contentField] as string).length,
+        0,
+      ),
       originalChars: filtered.reduce((sum, m) => sum + m.content.length, 0),
+      modeResolved,
+      modeSource,
+      catId: principal.catId,
     });
     return payload;
   });

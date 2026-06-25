@@ -169,3 +169,55 @@ describe('AnchorEventLog — eviction (INV-2: 24h TTL)', () => {
     assert.strictEqual(snap.previewEvents.length, 2);
   });
 });
+
+describe('AnchorEventLog — adoption eval fields (F236 Track-1 gpt52 R1 P1/P2)', () => {
+  beforeEach(() => resetAnchorEventLogForTest());
+
+  it('stores modeResolved + modeSource + catId on preview events', () => {
+    recordAnchorPreviewEvent({
+      tool: 'thread-context',
+      itemIds: ['msg-1'],
+      returnedChars: 100,
+      originalChars: 100,
+      modeResolved: 'full',
+      modeSource: 'explicit',
+      catId: 'opus',
+    });
+    const snap = getAnchorEventSnapshot();
+    const ev = snap.previewEvents[0];
+    assert.strictEqual(ev.modeResolved, 'full');
+    assert.strictEqual(ev.modeSource, 'explicit');
+    assert.strictEqual(ev.catId, 'opus');
+  });
+
+  it('stores anchor/default mode fields for default anchor calls', () => {
+    recordAnchorPreviewEvent({
+      tool: 'pending-mentions',
+      itemIds: ['msg-2'],
+      returnedChars: 50,
+      originalChars: 500,
+      modeResolved: 'anchor',
+      modeSource: 'default',
+      catId: 'sonnet',
+    });
+    const snap = getAnchorEventSnapshot();
+    const ev = snap.previewEvents[0];
+    assert.strictEqual(ev.modeResolved, 'anchor');
+    assert.strictEqual(ev.modeSource, 'default');
+    assert.strictEqual(ev.catId, 'sonnet');
+  });
+
+  it('omits adoption fields when not provided (backward compat)', () => {
+    recordAnchorPreviewEvent({
+      tool: 'thread-context',
+      itemIds: ['msg-3'],
+      returnedChars: 200,
+      originalChars: 2000,
+    });
+    const snap = getAnchorEventSnapshot();
+    const ev = snap.previewEvents[0];
+    assert.strictEqual(ev.modeResolved, undefined);
+    assert.strictEqual(ev.modeSource, undefined);
+    assert.strictEqual(ev.catId, undefined);
+  });
+});

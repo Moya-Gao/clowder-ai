@@ -30,6 +30,18 @@ export interface AnchorPreviewEventInput {
   returnedChars: number;
   /** Total chars of the original (full) payload before anchor truncation. */
   originalChars: number;
+  /**
+   * F236 Track-1 adoption eval: resolved response mode after default fallback.
+   * 'anchor' = token-lean preview (default), 'full' = complete bodies.
+   */
+  modeResolved?: 'anchor' | 'full';
+  /**
+   * F236 Track-1 adoption eval: how the mode was determined.
+   * 'explicit' = cat passed responseMode param, 'default' = fell through to anchor.
+   */
+  modeSource?: 'explicit' | 'default';
+  /** F236 Track-1 adoption eval: which cat made this call. */
+  catId?: string;
   /** Test-only: override timestamp for deterministic eviction tests. */
   _testTimestamp?: number;
 }
@@ -42,6 +54,12 @@ export interface AnchorPreviewEvent {
   itemCount: number;
   returnedChars: number;
   originalChars: number;
+  /** F236 Track-1 adoption eval: resolved response mode. */
+  modeResolved?: 'anchor' | 'full';
+  /** F236 Track-1 adoption eval: how the mode was determined. */
+  modeSource?: 'explicit' | 'default';
+  /** F236 Track-1 adoption eval: which cat made this call. */
+  catId?: string;
 }
 
 export interface AnchorDrillEventInput {
@@ -98,6 +116,10 @@ export function recordAnchorPreviewEvent(input: AnchorPreviewEventInput): void {
     itemCount: input.itemIds.length,
     returnedChars: input.returnedChars,
     originalChars: input.originalChars,
+    // F236 Track-1 adoption eval fields (gpt52 R1 P1/P2 fix)
+    ...(input.modeResolved ? { modeResolved: input.modeResolved } : {}),
+    ...(input.modeSource ? { modeSource: input.modeSource } : {}),
+    ...(input.catId ? { catId: input.catId } : {}),
   };
   previewEvents.push(event);
 }
@@ -176,8 +198,12 @@ export interface AnchorRollupWindow {
  *  4. Compute per-tool stats including double-sided net benefit.
  */
 export function getAnchorTelemetryRollup(window: AnchorRollupWindow): AnchorTelemetryRollup {
+  // F236 Track-1 (gpt52 R2 P1): exclude full-mode events from savings/open-rate rollup.
+  // Full-mode returns complete bodies (returnedChars ≈ originalChars, charsSaved ≈ 0),
+  // counting them would dilute anchor savings metrics and sunset judgments.
+  // Full-mode events remain in the event log for adoption-eval queries.
   const windowPreviews = previewEvents.filter(
-    (e) => e.timestamp >= window.windowStartMs && e.timestamp < window.windowEndMs,
+    (e) => e.timestamp >= window.windowStartMs && e.timestamp < window.windowEndMs && e.modeResolved !== 'full',
   );
   const windowDrills = drillEvents.filter(
     (e) => e.timestamp >= window.windowStartMs && e.timestamp < window.windowEndMs,

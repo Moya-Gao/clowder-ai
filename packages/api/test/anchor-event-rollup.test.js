@@ -251,4 +251,41 @@ describe('AnchorEventLog — rollup (core)', () => {
     assert.ok(rollup.track1Snapshot.returnedByTool !== undefined);
     assert.ok(rollup.track1Snapshot.drillByTool !== undefined);
   });
+
+  it('excludes modeResolved=full events from rollup savings (gpt52 R2 P1)', () => {
+    const now = Date.now();
+    // An anchor preview (should be counted)
+    recordAnchorPreviewEvent({
+      tool: 'thread-context',
+      itemIds: ['msg-1'],
+      returnedChars: 100,
+      originalChars: 1000,
+      modeResolved: 'anchor',
+      modeSource: 'default',
+      _testTimestamp: now,
+    });
+    // A full-mode call (should NOT be counted in savings rollup)
+    recordAnchorPreviewEvent({
+      tool: 'thread-context',
+      itemIds: ['msg-2'],
+      returnedChars: 500,
+      originalChars: 500,
+      modeResolved: 'full',
+      modeSource: 'explicit',
+      _testTimestamp: now + 1,
+    });
+
+    const rollup = getAnchorTelemetryRollup({
+      windowStartMs: now - 1000,
+      windowEndMs: now + 10000,
+    });
+
+    const tc = rollup.perTool['thread-context'];
+    assert.ok(tc, 'thread-context must have rollup entry (from anchor event)');
+    assert.strictEqual(tc.previewResponses, 1, 'only anchor events count as preview responses');
+    assert.strictEqual(tc.previewedItems, 1, 'only anchor event items counted');
+    assert.strictEqual(tc.returnedChars, 100, 'full-mode returnedChars must not be included');
+    assert.strictEqual(tc.originalChars, 1000, 'full-mode originalChars must not be included');
+    assert.strictEqual(tc.charsSaved, 900, 'savings must reflect only anchor events');
+  });
 });

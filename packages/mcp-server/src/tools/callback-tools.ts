@@ -289,6 +289,13 @@ export const getPendingMentionsInputSchema = {
     .boolean()
     .optional()
     .describe('When true, include acknowledged mentions for explicit history review.'),
+  responseMode: z
+    .enum(['anchor', 'full'])
+    .optional()
+    .describe(
+      'Response projection mode. "anchor" (DEFAULT): head+tail excerpt with requiresDrill flag. ' +
+        '"full": complete mention body (no truncation). Prefer anchor unless you need the full message.',
+    ),
 };
 
 export const ackMentionsInputSchema = {
@@ -340,6 +347,15 @@ export const getThreadContextInputSchema = {
     .optional()
     .describe(
       'Optional: filter and rank messages by keyword relevance. Multi-word keywords are tokenized and scored (0-1). Results sorted by relevance when keyword is provided.',
+    ),
+  responseMode: z
+    .enum(['anchor', 'full'])
+    .optional()
+    .describe(
+      'Response projection mode. "anchor" (DEFAULT — omit for normal use): token-lean previews with drillDown pointers to full content. ' +
+        '"full": returns complete message bodies (no truncation, no drillDown). ' +
+        'Use "full" ONLY when you already know you need every message body (e.g. bulk analysis, export). ' +
+        'Anchor mode saves ~60-80% tokens on long threads; prefer it unless you have a concrete reason for full.',
     ),
   agentKeyCatId: agentKeyCatIdSchema,
 };
@@ -670,9 +686,13 @@ export async function handlePostMessage(input: {
   return _executePostMessage(input);
 }
 
-export async function handleGetPendingMentions(input: { includeAcked?: boolean | undefined }): Promise<ToolResult> {
+export async function handleGetPendingMentions(input: {
+  includeAcked?: boolean | undefined;
+  responseMode?: 'anchor' | 'full' | undefined;
+}): Promise<ToolResult> {
   return callbackGet('/api/callbacks/pending-mentions', {
     ...(input.includeAcked ? { includeAcked: '1' } : {}),
+    ...(input.responseMode ? { responseMode: input.responseMode } : {}),
   });
 }
 
@@ -690,6 +710,7 @@ export async function handleGetThreadContext(input: {
   after?: number | undefined;
   catId?: string | undefined;
   keyword?: string | undefined;
+  responseMode?: 'anchor' | 'full' | undefined;
   agentKeyCatId?: string | undefined;
 }): Promise<ToolResult> {
   return callbackGet(
@@ -702,6 +723,7 @@ export async function handleGetThreadContext(input: {
       ...(input.after !== undefined ? { after: String(input.after) } : {}),
       ...(input.catId ? { catId: input.catId } : {}),
       ...(input.keyword ? { keyword: input.keyword } : {}),
+      ...(input.responseMode ? { responseMode: input.responseMode } : {}),
     },
     { agentKeyCatId: input.agentKeyCatId },
   );
@@ -1863,7 +1885,8 @@ export const callbackTools = [
   {
     name: 'cat_cafe_get_thread_context',
     description:
-      'READ raw messages from a thread. Use to understand what has been discussed recently. ' +
+      'READ messages from a thread. Default returns token-lean ANCHOR previews (saves ~60-80% tokens) with drillDown pointers — drill into specific messages via cat_cafe_get_message when you need full content. ' +
+      'Pass responseMode="full" ONLY when you need complete message bodies (bulk analysis, export). ' +
       'Pass threadId to read a DIFFERENT thread (cross-thread context); omit to read the current thread. ' +
       'Use keyword to find and RANK messages by relevance (multi-word tokenized scoring, results sorted by match quality). ' +
       'BOUNDARY: This tool READS one thread. For FINDING information across all project knowledge (features, decisions, plans, lessons), use search_evidence instead.',
