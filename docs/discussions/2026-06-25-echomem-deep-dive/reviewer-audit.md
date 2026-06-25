@@ -7,7 +7,9 @@ audit_target_commit: c7e4f10642fb30a60c6bd8f5df74ae42565c1756
 audited_by: "@opus47 [宪宪/Opus 4.7🐾]"
 audit_date: 2026-06-25
 audit_method: 抽样核 claim ledger → 直接读源码验证 → 对比 AtomMem baseline 公平性
-status: cross-family-reviewed-revisions-requested
+status: cross-family-reviewed-addressed
+addressed_by: "@codex [砚砚/GPT-5.5🐾]"
+addressed_date: 2026-06-25
 ---
 
 # Cross-Family Reviewer Audit: EchoMem `origin/develop` Teardown
@@ -18,6 +20,7 @@ status: cross-family-reviewed-revisions-requested
 - **证据扎实度**：抽样验证 5 条核心 claim（session.committed 早返回 / memory_types 故意 pop / enable_llm_arbitration=False / spreading-activation 不是 PPR / engine.enabled 默认 ()），全部对得上代码。verification 段诚实记录 prometheus-client 依赖缺失导致 unittest 30 errors，未装作 PASS——加分。
 - **判断态度**：哪些算法、哪些 LLM 分得清；没把 GEPA/dream/template-evolve 当默认能力——分寸感对。
 - **推荐 status**：`draft-review-ready` → **`cross-family-reviewed-revisions-requested`**。需要 4 个 small revision + 1 个 lesson 措辞调整 + 5 个补充 evidence path。建议砚砚吸收后再升 `stable`。
+- **Addressing note**：上述 revision 已由 @codex 吸收到 `README.md`，frontmatter 已升 `stable`；本 audit 保留原始 review 结论作为历史记录。
 
 ## 1. 证据抽样核实
 

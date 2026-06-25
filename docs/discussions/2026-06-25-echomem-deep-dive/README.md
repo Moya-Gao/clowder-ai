@@ -2,13 +2,14 @@
 doc_kind: research-note
 topics: [echomem, memrouter, open-source-teardown, memory-system]
 created: 2026-06-25
-status: draft-review-ready
+status: stable
 source_repo: https://github.com/tech-innovation-group/EchoMem
 source_branch: origin/develop
 source_local_path: /Users/lysander/projects/ref/EchoMem-develop
 source_commit: c7e4f10642fb30a60c6bd8f5df74ae42565c1756
 compared_with_main_commit: 6e42e2b7ba646a062447387efb3e2d8148213923
 authored_by: "@codex [砚砚/GPT-5.5🐾]"
+reviewed_by: "@opus47 [宪宪/Opus 4.7🐾]"
 covers: [architecture, star-features, algorithms, comparison, user-mind]
 ---
 
@@ -46,7 +47,7 @@ The important split:
 - LLM-dependent parts: atom extraction, entity merge/protocol output, session overview/abstract generation, LLM intent classification fallback, LLM recall router, optional cross-encoder rerank, and template evolution / GEPA paths when enabled.
 - Weak spots for agent memory: generated memories are not consistently source-tiered as "observed vs inferred", default config enables no engine, MCP is off by default, destructive APIs rely mostly on auth rather than explicit confirmation, and there is no first-class user correction/review loop comparable to Cat Cafe's provenance/drilldown expectations.
 
-My bottom line: EchoMem develop is much stronger than AtomMem/main-branch EchoMem on runtime and agent surface. It is still not stronger than Cat Cafe on provenance, source drill-down, governance, or memory correction semantics.
+My bottom line: EchoMem develop is much stronger than AtomMem/main-branch EchoMem on runtime and agent surface. Its evidence anchors (`source_uri`, `source_turn_ids`, `evidence_text`) are in the same class as Cat Cafe source paths/passages; the remaining gap is epistemic tier labeling (observed vs inferred), honest default configuration, governance, and first-class correction/retract semantics.
 
 ## 2. Claim Ledger
 
@@ -54,11 +55,12 @@ My bottom line: EchoMem develop is much stronger than AtomMem/main-branch EchoMe
 | --- | --- | --- | --- |
 | `develop` is a local-first memory runtime, not just a router | `README.md`, `src/echomem/runtime/runtime.py`, `src/echomem/entrypoints/cli.py`, `src/echomem/entrypoints/server.py` | Supported | Default `RuntimeConfig.default().engine.enabled` is empty, so a bare default workspace has no memory engine until config enables one. |
 | `echo://` gives tenant-scoped local storage | `src/echomem/membase/filesystem.py`, `src/echomem/runtime/workspace.py`, `src/echomem/runtime/auth.py` | Supported | Good path containment checks; writes are simple file writes, not an append-only/audit-grade store. |
+| Default auth mode is local | `src/echomem/runtime/config.py:29-34` | Supported | Hosted deployment must explicitly override `AuthSettings.mode`; the default creates `local/local_user`. |
 | Engines are pluggable and loaded from workspace/built-in locations | `src/echomem/index_engine/engine_loader.py`, `src/echomem/index_engine/engine/echo0_plugin/manifest.json`, `entry.py` | Supported | Dynamic Python import is local-powerful; safety depends on trusting engine directories. |
 | Built-in `echo0_plugin` processes session commits into long-term memory | `src/echomem/index_engine/engine/echo0_plugin/application/echo0_memory_engine.py`, `src/echomem/req_coordinator/session_service.py` | Supported | Event path is real; extraction quality depends on downstream echo0 LLM/heuristic pipeline. |
 | Recall routing is template-first with LLM fallback | `src/echomem/runtime/config.py`, `src/echomem/runtime/runtime.py`, `src/echomem/memrouter/router/spec_recall_router.py`, `_spec_pipeline.py`, `llm_recall_router.py` | Supported | Router chooses tool calls/engine routing; `echo0_plugin.recall` intentionally strips upstream memory-type hints and runs echo0 full-chain recall. |
 | Atom memory is a concrete algorithmic subsystem | `src/echo0/workers/atom_first_pipeline.py`, `src/echo0/workers/raw_atom_extractor.py`, `src/echo0/workers/atom_merge_engine.py`, `src/echo0/index_engine/atom/storage.py`, `retriever.py` | Supported | Atom extraction is LLM; merge in main pipeline is mostly heuristic because `enable_llm_arbitration=False`. |
-| Graph memory is real, not just an idea | `src/echo0/index_engine/graph/*`, `src/echo0/provider_adaptor/graph_index/query.py`, `src/echo0/index_engine/search_service.py` | Supported | Search-time graph retrieval is spreading activation over stored graph nodes/edges, not PPR/RWR. |
+| Graph memory is real, not just an idea | `src/echo0/index_engine/graph/*`, `src/echo0/provider_adaptor/graph_index/query.py`, `src/echo0/index_engine/search_service.py`, `src/echo0/index_engine/graph/memory_service.py:317-360` | Supported | Search-time retrieval is spreading activation rather than PPR/RWR, but deserves the same non-LLM graph-retrieval credit. Edge half-life decay exists; search-time `write_activation_log` is currently a no-op, so persistence of query activations is not proven. |
 | Episode memory is real | `src/echo0/index_engine/episode/*`, `src/echo0/index_engine/search_service.py` | Supported | Episode creation can be heuristic from organized memory and optional LLM event extraction; quality depends on projection quality. |
 | MCP surface exists | `src/echomem/entrypoints/mcp/server.py`, `tools.py`, `identity.py`, `tests/entrypoints/mcp/test_mcp_server.py` | Supported | First-batch tools are health/query/transform/prefetch/add/read/list/glob. MCP starts only when `config.mcp.enabled`. |
 | Observability exists | `src/echomem/metrics/*`, echo0 token/trace/status writes | Supported | Metrics/trace are operational observability, not a closed eval/correction loop. |
@@ -127,7 +129,7 @@ Important state boundaries:
 - Mutates future behavior:
   - Yes. Sessions/resources/skills/engine projections become durable local state.
 - Caveat:
-  - Local mode creates default identity. This is fine for local-first use, weak for hosted/multi-user claims unless deployed with explicit auth config.
+  - `AuthSettings.mode` defaults to `local`, with `default_tenant_id="local"` and `default_user_id="local_user"`. This is fine for local-first use, but hosted/multi-user deployments must explicitly configure stronger auth.
 
 ### 4.2 Session archive + commit gate
 
@@ -201,7 +203,8 @@ Important state boundaries:
   - L1 searches overview vectors.
   - L2 searches episode, summary/short vectors, atom layer, graph layer, compound subqueries, and text fallback.
   - Atom retrieval combines semantic vector hits, exact keyword/ngram/CJK hits, structured filters, and timeline candidates; then follows linked atoms and ranks with semantic score, confidence, token overlap, subject/object bonus, temporal bonus, vagueness penalty, active status, and optional cross-encoder rerank.
-  - Graph retrieval is spreading activation: seed nodes start at 1.0, edge weight and hop decay propagate activation, top-k per hop limits explosion, threshold prunes weak activations.
+  - Graph retrieval is spreading activation: seed nodes start at 1.0, edge weight and hop decay propagate activation, top-k per hop limits explosion, threshold prunes weak activations, and path edge ids make the recall reason explainable.
+  - Graph storage also has edge half-life decay (`temporal_decay = exp(-ln(2) * days_since_last_activation / half_life_days)`) and support-count/significance updates. That gives EchoMem a PPR-like long-term reinforcement shape at the edge layer, though the explicit `write_activation_log` hook is currently a no-op.
   - Episode retrieval fuses entity hints, temporal phrases, semantic vector search, and ongoing episodes.
 - Mutates future behavior:
   - Search itself records access logs and can influence recency/access-ranking signals.
@@ -259,7 +262,8 @@ Important state boundaries:
 | Search intent | Query | memory types/strategy | Regex/template + optional LLM | No | Classifies retrieval plan, not truth. |
 | L0/L1/L2 search | Query + budget | context items | Layered retrieval algorithm | Yes, through access logs | Includes short-circuit and force-L2 rules. |
 | Atom retriever | Query + filters | atom context items | Hybrid retrieval/ranking | Yes, access logs | Vector + keyword + structured + timeline + link expansion + rerank. |
-| Graph diffusion | Seed nodes | related graph context | Spreading activation algorithm | No | Not PPR/RWR; weighted hop decay and top-k inhibition. |
+| Graph diffusion | Seed nodes | related graph context | Spreading activation algorithm | No direct search update observed | Same class of non-LLM graph-retrieval credit as AtomMem PPR/RWR: weighted hop decay, top-k inhibition, path trace, multiple-path reinforcement. |
+| Graph edge decay/reinforcement | edge `last_activated_at`, support count, half-life | updated edge weights | Temporal-decay persistence algorithm | Yes | Edge layer has PPR-like long-term reinforcement/decay. `write_activation_log` is currently no-op, so query-result activation persistence remains unproven. |
 | Episode retrieval | Query | episode context | Multi-path fusion | No direct learning | Entity, temporal, semantic, ongoing. |
 | Compound query split | Multi-entity query | subqueries | Regex heuristic | No | Helps avoid dominant-entity embedding collapse. |
 | Text fallback | Sparse results | file scan hits | Fallback search | No | Useful but can be I/O heavy. |
@@ -276,11 +280,13 @@ Important state boundaries:
 | Atom invalidation/versioning | New atom conflicts/extends old | merge decision | Active/superseded atoms and relations | Real but heuristic |
 | Overview/abstract -> L0/L1 recall | Session content | LLM summary generation | Summary docs + vector tier | Real but generated |
 | Graph/episode projection -> L2 recall | atoms/entities/events | graph/episode sync | graph nodes/edges, episodes | Real |
+| Graph edge half-life | edge activation metadata | temporal decay / retained minimum weight | updated graph edge weights | Real edge-level reinforcement, but search activation logging is not closed |
 | Access log/recency ranking | retrieval results | ranking boosts | access log / in-memory access counts | Real ranking loop, not truth loop |
 | Template routing diagnostics | query/template scores | route decision | trace only by default | Operational loop |
 | Template evolution | trace/eval input | optimizer proposes templates | only when enabled | Potential, not default |
 | User correction | user says memory is wrong | no first-class API observed | none | Missing/weak |
 | Source-tier governance | observed vs generated memory | no consistent hard label observed | none | Missing/weak |
+| Engine failure recovery | engine stage failed | CommitGate calls `transfail`; startup recovery retriggers only unfinished non-terminal commits | failed commit log finalized | Mostly mark-failed-and-skip; retry/backoff policy not evident |
 
 ## 7. Comparison: AtomMem, EchoMem Develop, Cat Cafe
 
@@ -290,11 +296,11 @@ Important state boundaries:
 | Storage boundary | JSON/project files, benchmark-oriented | Tenant-scoped `echo://` workspace + engine projections | Human-readable docs/traces -> rebuildable SQLite/FTS/vector/graph indexes | EchoMem has a cleaner local runtime boundary; Cat Cafe still wins on source transparency. |
 | Main non-LLM algorithm | Graph PPR/RWR rerank | Template scoring, atom merge heuristics, hybrid retrieval, graph diffusion, episode fusion | Hybrid search, RRF/FTS/vector/graph, source drilldown | EchoMem has more algorithm breadth than AtomMem, but not necessarily stronger truth semantics. |
 | LLM use | Heavy extraction/judging/organization | Heavy extraction/summary/entity/event/LLM router, but merge can be heuristic | LLM can be used, but memory truth source is anchored to files/events | EchoMem needs source-tier labels because generated atoms can look like facts. |
-| Graph | PPR/RWR credit | Spreading activation over association graph | Graph resolve/drilldown for project knowledge | Different algorithms. EchoMem is associative diffusion, not PageRank. |
+| Graph | PPR/RWR credit | Spreading activation over association graph, with edge decay/reinforcement hooks | Graph resolve/drilldown for project knowledge | Same class of non-LLM graph-retrieval credit. EchoMem SA is more explainable through path trace/lateral inhibition; AtomMem PPR/RWR has a more classical stationary-distribution basis. Neither verifies truth. |
 | Retrieval | Benchmark/demo retrieval | L0/L1/L2 layered recall + atom/episode/graph/text | MCP search/graph/recent/drill-down | EchoMem has a serious recall stack. |
-| Provenance | Weak for agent use | `source_uri`, `source_turn_ids`, evidence text exist, but generated/observed boundary is soft | Stronger: sourcePath/passages/authority/ranking factors/drilldown | Cat Cafe remains better for "why do I believe this?" |
-| Correction loop | Missing | Missing/weak | Still imperfect, but stronger governance/eval culture | EchoMem lacks L3 closure. |
-| Default surprise | Demo path works | Default config enables no engine and MCP off | Cat Cafe tools are explicit surfaces | EchoMem should reduce first-run mismatch. |
+| Provenance | Weak for agent use | `source_uri`, `source_turn_ids`, evidence text exist, but generated/observed boundary is soft | Source paths/passages plus governance/eval culture | EchoMem's evidence anchors are same-class with Cat Cafe anchors; Cat Cafe's real advantage is epistemic tier labels and human-governed source hygiene, not the anchor primitive itself. |
+| Correction loop | Missing | Missing/weak | No programmatic retract API either; relies on readable files, review culture, and Knowledge Feed governance | Both need first-class retract/correct tools. Cat Cafe is stronger culturally, not because the tool API is complete. |
+| Default surprise | Demo path works | Default config enables no engine, MCP is off, auth mode is local | Cat Cafe tools are explicit surfaces | EchoMem's defaults are onboarding-hostile: README-level capability requires opt-in config for engine/MCP/auth. |
 
 ## 8. Agent User-Mind Evaluation
 
@@ -318,6 +324,8 @@ Good ideas worth borrowing:
 - Engine projection root: `echo://engine/<engine_id>` is a clean ownership boundary for memory plugins.
 - Spec-template router diagnostics: expose p1/p2/n1, hard-negative penalty, accepted template, and cache state so routing failures are debuggable.
 - Full-chain recall composition: atom + episode + graph + text fallback is more robust than pretending one index solves memory.
+- Spreading-activation graph retrieval with path traces and lateral inhibition deserves real algorithm credit; Cat Cafe should study the explainability shape even if we do not copy the exact graph store.
+- Evidence anchors (`source_uri`, `source_turn_ids`, `evidence_text`) are worth copying as projection-level primitives. Cat Cafe's differentiator should be the extra epistemic tier label on top of those anchors.
 - User-turn-only extraction in the atom pipeline is a conservative way to avoid hallucinated assistant self-talk polluting user memory.
 - Heuristic merge first, LLM arbitration disabled by default, is a good taste choice for memory safety.
 
@@ -325,19 +333,24 @@ Do not copy blindly:
 
 - Do not let generated summaries/atoms surface as if they were source facts.
 - Do not rely on `confidence` to mean truth. It is ranking confidence unless explicitly grounded.
-- Do not make default config look ready while no engine is enabled.
+- Do not make default config look ready while no engine is enabled, MCP is disabled, and auth is local-only.
 - Do not ship destructive deletes as normal authenticated API calls without an agent-visible confirmation/audit policy if hosted.
+- Do not let two routing layers disagree silently. EchoMem's spec router computes `memory_types`, but `echo0_plugin` pops them and runs full-chain recall; either router or engine should be the contract source of truth.
+- Do not put benchmark-specific prompt normalization in the generic search service. EchoMem strips LOCOMO-style wrappers in `SearchService`; that belongs in a benchmark adapter, not production recall.
+- Do not hard-code the same threshold default in two places. EchoMem has `_DEFAULT_AUTO_MODE["l0_l1_threshold"] = 0.45` while `__init__` falls back to `0.55`, which is threshold drift waiting to happen.
 - Do not count optional GEPA/template-evolution code as a solved eval loop unless it is wired into release/runtime gates.
 
-## 10. Open Questions for @opus47 Review
+## 10. Open Questions / Post-Review Notes
 
 1. Is `echo0_plugin` stripping upstream `memory_types` hints the right design tradeoff?
-   - My current judgment: acceptable as a recall-safety default, but it weakens router accountability. It should be trace-visible as "router suggested X; engine expanded to full-chain".
+   - Updated judgment after review: technically acceptable as a recall-safety default, but the deeper issue is a double-routing contract mismatch. `SpecRecallRouter` spends real work computing `memory_types`; `echo0_plugin` then `pop`s those hints and runs full-chain recall. Cat Cafe should treat this as a counterexample: either the router is source of truth and the engine trusts it, or the engine is source of truth and the router is diagnostics-only.
 2. Should Cat Cafe borrow the commit gate shape?
-   - My current judgment: yes, but only if sourcePath/source-tier survives from raw event to projection.
+   - Current judgment: yes. The pending/running/completed/failed status machine and archive boundary are worth copying, but only if sourcePath/source-tier survives from raw event to projection and projection adds epistemic tier labels.
 3. Does EchoMem's graph diffusion deserve the same "algorithm credit" we gave AtomMem's PPR/RWR?
-   - My current judgment: yes for real graph retrieval, no for truth-quality. It is a meaningful retrieval algorithm, not memory verification.
+   - Current judgment: yes, same class of non-LLM graph-retrieval credit. EchoMem has path trace, multiple-path reinforcement, top-k inhibition, and edge half-life decay. AtomMem has the more classical PPR/RWR mathematical basis. Neither is truth verification.
 4. Is template evolution/GEPA part of the evaluated system?
-   - My current judgment: no, not for default runtime. It is a present subsystem and follow-up target.
+   - Current judgment: no, not for default runtime. It is a present experimental subsystem and follow-up target.
 5. How should we phrase the main lesson?
-   - Proposed phrasing: "EchoMem develop is a credible local-first agent memory runtime with serious retrieval engineering, but its trust layer is still LLM-generated-memory plus rank confidence; Cat Cafe should copy the commit/engine/router mechanics, not the provenance semantics."
+   - Stable phrasing: EchoMem `origin/develop` is a credible local-first agent memory runtime. Commit gate, L0/L1/L2 recall, spreading-activation graph retrieval, spec-router hard-negative penalty, and evidence anchors are real engineering. The trust layer still rests on LLM-extracted atoms plus ranking confidence, and defaults are misleading (`engine.enabled=()`, `mcp.enabled=False`, `auth.mode="local"`). Cat Cafe should copy the runtime mechanics and evidence anchors, then add explicit observed/inferred tier labels and stricter governance.
+6. What happens after `engine.process` fails during commit?
+   - Current evidence: `LocalEngineRegistry` marks the engine stage `failed` and re-raises; `CommitGate` sees a required stage failed and calls `_on_gate_failed(..., "stage_failed")`; startup recovery retriggers only non-terminal commit logs and finalizes `transfail` logs. I did not find retry/backoff after a terminal failed engine stage. This should stay open because it affects how "durable" the memory commit really is under extraction failure.
