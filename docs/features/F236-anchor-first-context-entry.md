@@ -9,7 +9,7 @@ tips_exempt: harness-internal anchor telemetry + eval domain — no user-visible
 
 # F236: Anchor-First Context 入口 — 返回侧 token 减负
 
-> **Status**: in-progress (Phase A+B done · **Phase A/B-Eval DONE** [Track-1 chars/volume + Track-2 open-rate + AC-E3 sunset trigger] · Phase C spike-gated) | **Owner**: 布偶猫 (宪宪 opus-48 愿景守护；Track-2/AC-E3 实现 opus-4.6) | **Priority**: P1 | **Created**: 2026-06-15 | **Companion ADR**: ADR-203
+> **Status**: in-progress (Phase A+B done · **Phase A/B-Eval DONE** [Track-1 chars/volume + Track-2 open-rate + AC-E3 sunset trigger] · Phase C = cat-controlled mode（2026-06-24 pivot）：MCP-tools cat-mode V1 + cc-native spike-gated) | **Owner**: 布偶猫 (宪宪 opus-48 愿景守护；Track-2/AC-E3 实现 opus-4.6) | **Priority**: P1 | **Created**: 2026-06-15 | **Companion ADR**: ADR-203
 >
 > **Timeline**: 2026-06-18 — Phase A + B merged (PR #2381, squash `9af8b2093`)：anchor-first 协作读工具（thread-context/pending-mentions/list-tasks 默认 preview + drillDown）+ get-message bounded drill（mode=preview|full + fullDrillChars telemetry）。本地 gpt52/codex 跨族 review + 云端 Codex 2 轮（封板）。**2026-06-18 — Phase A/B-Eval Track-1（anchor telemetry OTel chars/volume substrate）merged（PR #2411，squash `21ae2c83b`）：gpt52 跨族 review + 云端 Codex 3 轮（round-2 逼出 open-rate 信号模型岔路 → 砚砚 eval-owner 裁定收口 chars/volume，open-rate→Track-2）。** **2026-06-22 — Phase A/B-Eval Track-2（per-event open-rate model + `eval:anchor-first` domain）merged（PR #2490，squash `5251c2f75`）：砚砚本地 3 轮跨族 review + 云端 Codex 5 轮（封板 LL-072）。25 tests。** **2026-06-22 — AC-E3 sunset 触发（PR #2507，squash `d09024c90`）：per-tool sunset signal flags + eval 猫双信号判据 + verdict.md sunset section。gpt52 本地 3 轮跨族 review + 云端 Codex 1 轮（2 P1 pushback→P3 + 1 P2 fixed）。10 tests。**
 
@@ -155,7 +155,26 @@ spike（2026-06-16，C0a Read / C0b Grep ✅ 实证）证明 cc PostToolUse hook
     - **实测（nonce probe）留 Phase C**：cc 已证 PostToolUse output replace 范式真实（核心打底）+ codex/agy hook/config 已查到；codex 实测烧贵配额（缅因猫额度），spike 阶段 cost>边际价值，Phase C 实现期实测确认
     - 来源：codex `developers.openai.com/codex/hooks` / agy **官方 SDK README（PostToolCallHook read-only）+ 家里 F061 AC-2cR4 实测**（`antigravity.google/docs/hooks` 返空，砚砚改用 SDK README 核验）（checked 2026-06-17）
 - [ ] AC-C4: 双边 eval 对 cc 工具同样适用（Read drill 净收益 = 省 − drill 成本）
-- [ ] **AC-C5（变瞎子 gate，砚砚 P1 — 实现前置硬约束）**: 原生 Read/Grep 默认 anchor **只在 blindness eval 通过后开启**——① debug/review/未知任务**默认保守给全文**；② 小文件/短 grep **full pass-through**（不 anchor）；③ 大文件 anchor **必须显式标省略 + 一跳 full drill**；④ Sunset② 判断质量 eval 未过 → 不开默认 anchor。**这是 gate 不是描述：AC-C1/C2 的默认 anchor 受本条约束。**
+- [ ] **AC-C5（控制机制 = cat-controlled mode — 2026-06-24 pivot，详见下方 pivot 块）**: 不再"系统猜何时 anchor"，而是**猫显式选 mode（anchor / full）**、系统零任务分类。anchor mode 内护栏：locator-not-synopsis（硬不变量）+ 全文一跳逃生（证完才默认开）。默认 fail-open。eval = 反馈/调默认、**非 gate**。**AC-C1/C2 的"默认 anchorized"改为"猫选 anchor mode 时 anchorized"。**
+
+#### 🔄 设计 pivot（2026-06-24）：cat-controlled mode（砚砚 failure-mode 审计 + 铲屎官 cold-start 纠偏）
+
+经三轮收敛，AC-C5 从"系统猜何时 anchor"翻转为"猫显式选 mode"。**完整推演链（防失忆 — session handoff 也不丢）**：
+1. **v1（弃）任务分类**：debug/review → 默认全文。→ 铲屎官否：判断任务类型 = task 意图分类器 = 补锅 if-else + 违 **KD-8「不用分类器替猫判断 intent」**。
+2. **v2（弃为主控、降 fallback）大小阈值**：按输出大小 + 猫是否 bound 决定 anchor。→ **砚砚 failure-mode 审计 3 P1**：① preview 必须 **locator 不是 synopsis**（synopsis = 隐藏分类器、偷走重要性判断）；② 全文逃生通路（大文件全文一跳 / Grep 扩上下文 / interactive parity）**证完才许默认开**（否则 drill 拿不回 / anchor-on-anchor 死循环）；③ **eval 是刹车校准不是气囊**——变瞎子是事后信号，前置边界必须 fail-open。
+3. **v3（采纳）cat-controlled mode**：→ **铲屎官 cold-start 纠偏**：fail-open canary **没人用 → 没数据 → 永远放不开 → 死在摇篮**。正解 = 把"猫是任务 oracle"贯彻到底——**让猫显式选 mode、系统不猜**；猫嫌噪音自己开 anchor（adoption + 数据双解），review 时自留全量（**判断权归猫，KD-3**）。
+
+**采纳设计**：
+- **主控 = 猫显式选 anchor / full mode，系统零任务分类 / 零意图猜测。**
+- **我们自己的工具（MCP 协作工具：thread-context / pending-mentions / list-tasks / get-message）**：mode 作参数，**完整铺开（V1，现在做，不 timid）**。
+- **cc 原生 Read/Grep**：签名改不了 + PostToolUse 调用后才触发 → 猫设 **session 级 mode**、hook 读状态决定 anchor/放行。**spike-gated**（铲屎官 2026-06-24 批：先证"猫能 signal mode 给 hook"）。
+- **anchor mode 内护栏（砚砚 audit，still holds）**：preview = 机械 **locator 不是 synopsis**（路径+总行数+省略行数+命中行号/文件数+可复制 drill 指针；升为**可测硬不变量** = ADR-031 硬层）；**全文一跳逃生**；Grep drill = 扩文件上下文、不回更大 blob。
+- **默认（猫没选时）= fail-open 给全文**；多信号阈值（字节/行数 + grep fan-out + 压缩比，非单 magic number）仅作"猫没选时的智能默认"、**非 gate**。
+- **eval（Phase A/B-Eval）角色**：观察 mode 使用 + 给猫反馈 + 调默认，**非 enforce 闸门**（刹车≠气囊）。
+
+**Open（待 spike / 设计）**：① cc 原生"猫 signal mode → hook 读"可行性（**spike 进行中**）；② 默认 mode 值 + mode 表达 ergonomics（session / per-turn / per-call）；③ anchor mode 内是否需 size 下限护栏（防猫 anchor 小文件还变瞎）。
+
+**Supersedes**：AC-C5 v1"debug/review 默认全文"（task 分类）+ 下方「防瞎子设计」的"任务感知"条 — 均弃；fail-open / locator / 逃生 / 多信号阈值并入本设计。
 
 ## Eval / Tracking Contract（F192 / ADR-031）
 
