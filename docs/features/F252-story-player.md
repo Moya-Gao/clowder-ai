@@ -8,7 +8,7 @@ created: 2026-06-25
 
 # F252: Story Player
 
-> **Status**: spec | **Owner**: 宪宪 (Opus-4.6) | **Priority**: P1
+> **Status**: in-progress | **Owner**: 宪宪 (Opus-4.6) | **Priority**: P1
 
 ## Why
 
@@ -183,12 +183,12 @@ created: 2026-06-25
 
 <!-- 立项愿景硬度自检（F216→F219）：每条 AC ① trace 回 Why「现场跑太慢+看记录没冲击力→要高速回放」② 非作者可复核（命令/截图/操作路径）。 -->
 
-### Phase A（单 Session 回放引擎 + 基础 UI）
-- [ ] AC-A1: 选择任意 sealed session → `/story/:storyId` 页面以 100x 速度回放完整事件流，文本消息以 cinematic 模式逐字显现，可切换为 faithful 整段显现（trace Why「100倍速+一秒几千字」；复核：选一个 ≥50 event 的 session 回放，录屏对比两种模式）
-- [ ] AC-A2: 工具调用显示工具名+参数摘要，原始等待时间用 log 压缩渲染（10s→3s, 60s→6s），非固定时长（trace Why「toolcall 回放就是立刻马上好」+ 保留多猫并行叙事感；复核：包含 ≥3 个 tool_use 的 session 回放验证压缩比例）
-- [ ] AC-A3: 播放/暂停/倍速切换（1x/10x/50x/100x/MAX）+ 进度条拖动 seek 全部可用（trace Why「到某个节点能暂停」；复核：手动操作每个控件）
-- [ ] AC-A4: 空格键暂停/继续，← → 单步前进/后退（trace Why「暂停讲解」；复核：键盘操作测试）
-- [ ] AC-A5: `TranscriptEvent → ReplayEvent` adapter 正确处理 `text`/`assistant`/`user` 多形态事件 + `toolName`/`name` 双形态工具名，有单元测试覆盖（trace Why「数据正确性是回放可信度基础」；复核：`pnpm test` 相关 adapter 测试全绿）
+### Phase A（单 Session 回放引擎 + 基础 UI）✅
+- [x] AC-A1: 选择任意 sealed session → `/story/:storyId` 页面以 100x 速度回放完整事件流，文本消息以 cinematic 模式逐字显现，可切换为 faithful 整段显现（trace Why「100倍速+一秒几千字」；复核：选一个 ≥50 event 的 session 回放，录屏对比两种模式）
+- [x] AC-A2: 工具调用显示工具名+参数摘要，原始等待时间用 log 压缩渲染（10s→3s, 60s→6s），非固定时长（trace Why「toolcall 回放就是立刻马上好」+ 保留多猫并行叙事感；复核：包含 ≥3 个 tool_use 的 session 回放验证压缩比例）
+- [x] AC-A3: 播放/暂停/倍速切换（1x/10x/50x/100x/MAX）+ 进度条拖动 seek 全部可用（trace Why「到某个节点能暂停」；复核：手动操作每个控件）
+- [x] AC-A4: 空格键暂停/继续，← → 单步前进/后退（trace Why「暂停讲解」；复核：键盘操作测试）
+- [x] AC-A5: `TranscriptEvent → ReplayEvent` adapter 正确处理 `text`/`assistant`/`user` 多形态事件 + `toolName`/`name` 双形态工具名，有单元测试覆盖（trace Why「数据正确性是回放可信度基础」；复核：`pnpm test` 相关 adapter 测试全绿）
 
 ### Phase B（自适应节奏 + 章节）
 - [ ] AC-B1: Idle gap > 5min 自动跳过 + 显示跳过提示；传球事件（@mention）自动减速 + 高亮（trace Why「回放节奏合理」；复核：含长 idle 段的 session 验证自动跳过）
@@ -251,6 +251,7 @@ created: 2026-06-25
 | 2026-06-25 | Design review R2：砚砚 2×P1 blocking（"已投影"事实错误 + subjectKey 语义错误），47 背书 + 补 F233 emitter 前置依赖。返工 R3：区分 schema declaration vs runtime behavior，明确前置依赖路径选 A |
 | 2026-06-25 | Design review R3：砚砚 + 47 Approved（conditional 3 字面修订）。修订完成，设计放行。进入 Phase A 实现 |
 | 2026-06-25 | CVO 授权自主推进：review 必审架构归一 + @codex review code + 每 Phase @opus47 愿景守护 |
+| 2026-06-25 | Phase A merged (PR #2557). Adapter + replay engine + UI + 74 tests. Local peer: codex APPROVED; Cloud R4 封板 |
 
 ## Review Gate
 
