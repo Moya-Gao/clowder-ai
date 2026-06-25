@@ -291,6 +291,84 @@ describe('DirectoryPickerModal', () => {
     expect(fns.onSelect).not.toHaveBeenCalled();
   });
 
+  it('creates the thread with the currently browsed directory without requiring a separate directory confirm', async () => {
+    const projectsPath = `${CWD_PATH}/sandbox`;
+    const targetPath = `${projectsPath}/inner`;
+    mockApiFetch.mockImplementation((path: string) => {
+      if (path === '/api/projects/cwd') return jsonOk({ path: CWD_PATH });
+      if (path === '/api/backlog/items') return jsonOk({ items: [] });
+      if (path === `/api/projects/browse?path=${encodeURIComponent(CWD_PATH)}`) {
+        return jsonOk({
+          current: CWD_PATH,
+          name: 'cat-cafe',
+          parent: '/Users/test/projects',
+          homePath: CWD_PATH,
+          entries: [{ name: 'sandbox', path: projectsPath, isDirectory: true }],
+        });
+      }
+      if (path === `/api/projects/browse?path=${encodeURIComponent(projectsPath)}`) {
+        return jsonOk({
+          current: projectsPath,
+          name: 'sandbox',
+          parent: CWD_PATH,
+          homePath: CWD_PATH,
+          entries: [{ name: 'inner', path: targetPath, isDirectory: true }],
+        });
+      }
+      if (path === `/api/projects/browse?path=${encodeURIComponent(targetPath)}`) {
+        return jsonOk({
+          current: targetPath,
+          name: 'inner',
+          parent: projectsPath,
+          homePath: CWD_PATH,
+          entries: [],
+        });
+      }
+      return jsonFail();
+    });
+    const fns = render();
+    await flush();
+    const browseBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('浏览文件夹'),
+    );
+    if (!browseBtn) throw new Error('browse button not found');
+
+    await act(async () => {
+      browseBtn.click();
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(container.textContent).not.toContain('选择此目录');
+
+    const projectsBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('sandbox'),
+    );
+    if (!projectsBtn) throw new Error('sandbox directory button not found');
+    await act(async () => {
+      projectsBtn.click();
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    const innerBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('inner'));
+    if (!innerBtn) throw new Error('inner directory button not found');
+    await act(async () => {
+      innerBtn.click();
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    clickConfirm();
+    expect(fns.onSelect).toHaveBeenCalledWith(expect.objectContaining({ projectPath: targetPath }));
+    expect(
+      mockApiFetch.mock.calls.filter(
+        ([path]) => path === `/api/projects/browse?path=${encodeURIComponent(projectsPath)}`,
+      ),
+    ).toHaveLength(1);
+    expect(
+      mockApiFetch.mock.calls.filter(
+        ([path]) => path === `/api/projects/browse?path=${encodeURIComponent(targetPath)}`,
+      ),
+    ).toHaveLength(1);
+  });
+
   // ── F068: Path input ──────────────────────────────────────
 
   it('shows path input field with placeholder', async () => {
