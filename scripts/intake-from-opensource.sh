@@ -261,9 +261,18 @@ _brand_scope_count() {
   printf '%s\n' "$scope_files" | sed '/^[[:space:]]*$/d' | sort -u | wc -l | tr -d ' '
 }
 
+# gh retry + stderr-capture helpers. See scripts/lib/intake-gh-retry.sh for
+# rationale (subshell-safe via tempfile after gpt52's cat-cafe#2549 V1 finding).
+# shellcheck source=lib/intake-gh-retry.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/intake-gh-retry.sh"
+
 resolve_absorb_pr_brand_scope() {
   if [ -z "$ABSORB_PR" ]; then return 1; fi
-  gh pr diff "$ABSORB_PR" --repo "$SOURCE_REPO" --name-only 2>/dev/null \
+  local out
+  if ! out=$(_gh_with_retry pr diff "$ABSORB_PR" --repo "$SOURCE_REPO" --name-only); then
+    return 1
+  fi
+  printf '%s\n' "$out" \
     | sed 's/\r$//; /^[[:space:]]*$/d' \
     | sort -u
 }
@@ -769,9 +778,15 @@ if [ "$RECORD_DECISION" = true ]; then
       if [ -n "$ABSORB_PR" ]; then
         BRAND_SCOPE_FILES=$(resolve_absorb_pr_brand_scope || true)
         if [ -z "$BRAND_SCOPE_FILES" ]; then
-          echo -e "${RED}✗ Could not resolve absorb PR #$ABSORB_PR file list for scoped Brand Guard${NC}"
+          echo -e "${RED}✗ Could not resolve absorb PR #$ABSORB_PR file list for scoped Brand Guard (after 3 retries with backoff)${NC}"
           echo "  Refusing to fall back to whole-repo scan during absorbed record; whole-repo scan has known pre-existing false positives."
           echo "  Check: gh pr diff $ABSORB_PR --repo $SOURCE_REPO --name-only"
+          _captured_stderr=$(_gh_last_stderr || true)
+          if [ -n "$_captured_stderr" ]; then
+            echo ""
+            echo "  Last gh stderr captured (for diagnosis):"
+            printf '%s\n' "$_captured_stderr" | sed 's/^/    /'
+          fi
           exit 1
         fi
       fi

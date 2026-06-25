@@ -6,6 +6,7 @@ import { join, resolve } from 'node:path';
 import { afterEach, describe, it } from 'node:test';
 
 const SOURCE_SCRIPT = resolve(process.cwd(), 'scripts/intake-from-opensource.sh');
+const GH_RETRY_LIB = resolve(process.cwd(), 'scripts/lib/intake-gh-retry.sh');
 const HOOK_SCRIPT = resolve(process.cwd(), '.githooks/pre-commit');
 const DICTIONARY_HELPER = resolve(process.cwd(), 'scripts/brand-dictionary-helper.mjs');
 const DICTIONARY_YAML = resolve(process.cwd(), 'assets/brand-dictionary.yaml');
@@ -41,6 +42,8 @@ function makeFixture() {
   mkdirSync(join(repoRoot, 'scripts'), { recursive: true });
   mkdirSync(join(repoRoot, 'docs', 'ops'), { recursive: true });
   cpSync(SOURCE_SCRIPT, join(repoRoot, 'scripts', 'intake-from-opensource.sh'));
+  mkdirSync(join(repoRoot, 'scripts', 'lib'), { recursive: true });
+  cpSync(GH_RETRY_LIB, join(repoRoot, 'scripts', 'lib', 'intake-gh-retry.sh'));
   chmodSync(join(repoRoot, 'scripts', 'intake-from-opensource.sh'), 0o755);
 
   // F238 Phase C: dictionary helper + YAML for classify_path()
@@ -69,6 +72,8 @@ function makeRemoteFixture() {
   mkdirSync(join(repoRoot, 'scripts'), { recursive: true });
   mkdirSync(join(repoRoot, 'docs', 'ops'), { recursive: true });
   cpSync(SOURCE_SCRIPT, join(repoRoot, 'scripts', 'intake-from-opensource.sh'));
+  mkdirSync(join(repoRoot, 'scripts', 'lib'), { recursive: true });
+  cpSync(GH_RETRY_LIB, join(repoRoot, 'scripts', 'lib', 'intake-gh-retry.sh'));
   chmodSync(join(repoRoot, 'scripts', 'intake-from-opensource.sh'), 0o755);
 
   git(sandboxRoot, 'init', '--bare', 'clowder-ai-remote.git');
@@ -405,6 +410,8 @@ function makeBrandFixture(overrides = {}) {
 
   mkdirSync(join(repoRoot, 'scripts'), { recursive: true });
   cpSync(SOURCE_SCRIPT, join(repoRoot, 'scripts', 'intake-from-opensource.sh'));
+  mkdirSync(join(repoRoot, 'scripts', 'lib'), { recursive: true });
+  cpSync(GH_RETRY_LIB, join(repoRoot, 'scripts', 'lib', 'intake-gh-retry.sh'));
   chmodSync(join(repoRoot, 'scripts', 'intake-from-opensource.sh'), 0o755);
 
   // Phase 2 dictionary-driven scan needs only the self-contained helper and dictionary YAML.
@@ -756,6 +763,8 @@ function makeHookFixture() {
   // Install intake script
   mkdirSync(join(repoRoot, 'scripts'), { recursive: true });
   cpSync(SOURCE_SCRIPT, join(repoRoot, 'scripts', 'intake-from-opensource.sh'));
+  mkdirSync(join(repoRoot, 'scripts', 'lib'), { recursive: true });
+  cpSync(GH_RETRY_LIB, join(repoRoot, 'scripts', 'lib', 'intake-gh-retry.sh'));
   chmodSync(join(repoRoot, 'scripts', 'intake-from-opensource.sh'), 0o755);
 
   // Install pre-commit hook

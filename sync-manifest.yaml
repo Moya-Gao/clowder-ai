@@ -131,6 +131,12 @@ managed_scripts:
   - scripts/brand-dictionary-helper.test.mjs
   - scripts/intake-from-opensource.sh
   - scripts/intake-from-opensource.test.mjs
+  # intake-from-opensource.sh sources this lib at top (subshell-safe stderr
+  # capture for retry helper). Without exporting it, the clowder-ai mirror's
+  # intake script breaks at `source`. cat-cafe#2549 cloud V2 P1 (gpt52 V1 +
+  # cloud V2 surfaced the cross-repo gap that PR #2333 also tripped).
+  - scripts/lib/intake-gh-retry.sh
+  - scripts/lib/intake-gh-retry.test.mjs
   # F238 Phase D detect-only reverse sanitizer (paired with sync-to-opensource.sh
   # for outbound + intake-from-opensource.sh for inbound). PR #2333 added the
   # script + check:reverse-sanitizer gate but missed the sync-manifest entry,
