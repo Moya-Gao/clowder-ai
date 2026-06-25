@@ -105,11 +105,11 @@ displayName "缅因猫Pro"（变体: "Pro Cloud (ChatGPT)"），昵称 "砚砚Pr
 
 ### 2.2 前端 bubble/avatar 渲染（Phase C 范围）
 
-> **R8 修正**：runtime catRegistry 已通过 `POST /api/cats` 注册（B1a 完成），catalog 持久化在 `.cat-cafe/cat-catalog.json`，**不依赖** `breeds[].variants[]` 改动。Phase C 是 **UX 优化**工程：
+> **R13.5 corrected (48 实测推翻 47 R13 KD-16)**：B1a 的 `POST /api/cats` **已正确持久化** gpt-pro 到主服务实例 `cat-cafe-runtime/.cat-cafe/cat-catalog.json`（line 1394 顶层 breed entry + variant，mtime 6-22 = B1a 注册时间，`createRuntimeCat` writeFileSync 落盘 + 启动 load 恢复 OK）。47 R13 grep 错坐标看了 worktree 系死 catalog（mtime 6-15）。真 P1 = runtime catalog 中 gpt-pro entry 的 `avatar` 字段值 stale `/avatars/gpt52.png`（B1a 占位 fallback），需 `PATCH /api/cats/gpt-pro {avatar}` 走 `updateRuntimeCat` 改成 `/avatars/gpt-pro.png` 让 live 头像真换。同时 gpt52 R13 P1-2 仍对：bootstrap 真相源 = `cat-template.json` + `pickSeedBreed` 只 seed `breeds[0]`=ragdoll → 改 cat-config.json 对 live + fresh install 都不生效，撤回。Phase C scope = asset + doc（this PR）+ runtime avatar 字段切换 (AC-C-1b post-merge ops)：
 
-- @gemini 烁烁设计 gpt-pro 真头像替换 fallback `/avatars/gpt52.png`（云朵 + 缅因花纹素材）
+- 头像设计由 **云端砚砚 self-design** ✅（用 F229 `yanyan-codex-character-base-v1.png` 母图作 reference；KD-15）；@gemini（烁烁）从原画作者改为 **审美 verifier**（AC-C-2）
 - ChatMessage 组件 verify `缅因猫Pro(Pro Cloud (ChatGPT))` 渲染正确（B1a 实测已显示对，Phase C 抛光）
-- 云端猫气泡背景按 catId color theme（B1a `#2196F3` 蓝已通过 `POST /api/cats` 注册）
+- 云端猫气泡背景按 catId color theme（B1a `#2196F3` 蓝已注册到 runtime catalog 持久化，live 已生效）
 - 左下角 "via ChatGPT Pro" tag（透明度低，提示来源）
 - Cat picker UX 加 cloud cat 类别 + provider tag
 
@@ -180,16 +180,30 @@ Console settings "配置云端猫" 流程：
 5. 升级 spike → `remote.ts`：替换 5 stub 为真 toolset 注册（复用 fable phase0 同 10 项白名单：post_message / cross_post_message / get_thread_context / list_threads / get_message + search_evidence / graph_resolve / list_recent / list_session_chain / read_session_digest）
 6. 加 agent-key principal injection + `CAT_CAFE_DESKTOP_MODE=cloud-pro-phase0`（或同语义 mode）
 
-### Phase C — 前端 bubble/avatar UX 优化（runtime 注册已在 B1a 完成）
+### Phase C — 前端 bubble/avatar UX 优化（runtime avatar 切换）🔄 in-progress (asset landed 2026-06-24)
 
-> **R8 修正（B1a 实测后）**：原 R3 P2-4 推测"Phase C 需要 breeds.variants 注册"已不成立。B1a 通过
-> `POST /api/cats` 完成 runtime catRegistry 注册 + `.cat-cafe/cat-catalog.json` 持久化。
-> Phase C 是 **UX 抛光**工程，无需改 cat-config.json 的 breeds.variants（KD-10 修正）：
+> **48 R13.5 实测推翻 47 R13 KD-16**：47 R13 "B1a 没持久化、重启即丢" 是 grep 错坐标的 wrong finding。
+> 真相是：B1a `POST /api/cats` **已正确持久化** gpt-pro 到主服务实例（`cat-cafe-runtime`）的 runtime catalog
+> （`cat-cafe-runtime/.cat-cafe/cat-catalog.json` 顶层 breed entry，mtime 6-22 B1a 注册时间，重启从文件 load 恢复 OK）。
+> 我之前 grep 的是 `cat-cafe/.cat-cafe/cat-catalog.json`（worktree 系隔离 runtime state，死文件 mtime 6-15）——
+> **运行实例的 projectRoot 跟 worktree projectRoot 不同**，这是第三次 grep 错坐标（详见 47 自审段 + LL-todo）。
+>
+> **真正的 P1（gpt52 R12 + 48 R13.5 双 confirm）**：runtime catalog `gpt-pro.avatar` 字段值 **= `/avatars/gpt52.png`**
+> （B1a 注册时占位 fallback），需 `updateRuntimeCat` (`PATCH /api/cats/gpt-pro {avatar}`) 改成 `/avatars/gpt-pro.png` —— 这是让 live 头像真换的动作（gpt52 R12 P1 本意）。
+>
+> **关于 cat-config.json**（gpt52 R13 P1-2）：bootstrap 真相源是 `cat-template.json`，且 `pickSeedBreed` 只 seed `breeds[0]`=ragdoll，
+> maine-coon 跳过 → 改 cat-config.json 对 live + fresh install 都 0 生效，撤回保持 PR scope 最小（asset + doc only）。
 
-- @gemini（烁烁）设计 gpt-pro 真头像（替换 fallback `/avatars/gpt52.png`，云朵 + 缅因花纹素材）
-- ChatMessage 组件 verify `缅因猫Pro(Pro Cloud (ChatGPT))` 渲染（B1a 实测已 work，Phase C 抛光）
-- Cat picker 加 cloud cat 类别 + "via ChatGPT Pro" tag
-- 气泡 color theme 抛光（B1a `#2196F3` 蓝已通过 `POST /api/cats` 注册到 catalog）
+- [x] **AC-C-1a — asset + doc 落地**（2026-06-24）— 云端砚砚 self-design avatar（用 F229 `yanyan-codex-character-base-v1.png` 母图作 reference，CVO 选 candidate A）：
+  - asset `packages/web/public/avatars/gpt-pro.png` 上线（runtime catalog avatar 字段切换后 reference 的目标路径）
+  - 视觉元素：Cat Cafe 招牌 + 蓝霓虹 cloud icon + "砚砚 Pro" 标题 + "gpt-pro" 杯 + "补锅中"飘带（砚砚 self-aware 彩蛋）→ 跟本地 gpt52 视觉强区分（KD-15）
+- [ ] **AC-C-1b — runtime avatar 字段切换**（post-merge ops，gpt52 R12 + 48 R13.5 真 P1）— 主服务实例 `cat-cafe-runtime` 的 runtime catalog 中 gpt-pro entry 已持久化（B1a 完成），但 avatar 字段值 stale `/avatars/gpt52.png`：
+  - 唯一动作：`PATCH /api/cats/gpt-pro` body `{avatar: "/avatars/gpt-pro.png"}` → `updateRuntimeCat` 写 catalog + cat-cafe API 不需重启（0 重启）
+  - alpha 验证：`pnpm alpha:start` 拉最新 main → PATCH alpha API → 看头像换
+- [ ] ChatMessage 组件 verify `缅因猫Pro(Pro Cloud (ChatGPT))` 渲染（B1a 实测已 work，Phase C 抛光）
+- [ ] Cat picker 加 cloud cat 类别 + "via ChatGPT Pro" tag
+- [ ] 气泡 color theme UI 渲染抛光（catalog 已持久化 `#2196F3` 蓝，前端微调）
+- [ ] @gemini（烁烁）愿景守护 avatar 审美 verify（小尺寸 cropped + 跟本地 gpt52 区分度）— AC-C-2
 
 ### Phase D — Console "配置云端猫" 多 provider UI
 
@@ -239,7 +253,15 @@ Phase B-C 后启动。Settings 页面新增 "配置云端猫"，支持选 provid
 - [ ] AC-B1b-4: token rotate 通过 OAuth provider 后端完成（不影响砚砚云端 connector URL）
 - [ ] AC-B1b-5: **禁用** `?token=` 作长期 auth；B1b only verified auth shape
 
-### Phase C / D / E acceptance criteria 待立项后细化
+### Phase C AC（B1a 落地后逐步细化）
+
+- [x] **AC-C-1a**: gpt-pro 专属头像 asset 上线（PR #2530 落地 2026-06-24）— `packages/web/public/avatars/gpt-pro.png` 进 git（runtime catalog avatar 字段切换后 reference 的目标路径）；CVO 拍板 candidate A
+- [ ] **AC-C-1b**: runtime avatar 字段切换（post-merge ops，gpt52 R12 + 48 R13.5 真 P1）— 主服务实例 catalog 已持久化 gpt-pro entry（B1a 完成），但 avatar 字段值 stale `/avatars/gpt52.png`；`PATCH /api/cats/gpt-pro {avatar: "/avatars/gpt-pro.png"}` 走 `updateRuntimeCat` 改 catalog 字段（0 重启）
+- [ ] AC-C-2: 烁烁愿景守护 avatar 视觉 + 跟本地 gpt52 区分度 OK
+- [ ] AC-C-3: ChatMessage / Cat picker 渲染 `缅因猫Pro(Pro Cloud (ChatGPT))` Phase C 抛光稿
+- [ ] AC-C-4: cloud cat 类别 + "via ChatGPT Pro" tag UI（可滚到 Phase D）
+
+### Phase D / E acceptance criteria 待立项后细化
 
 ## Open Questions
 
@@ -291,6 +313,8 @@ Phase B-C 后启动。Settings 页面新增 "配置云端猫"，支持选 provid
 | **KD-10 (修正 B1a 实测)** | **runtime catRegistry 走 `POST /api/cats` 热加载，不需要改 `breeds[].variants[]`**；KD-10 原 R3 P2-4 推测"Phase C 单独工程"修正为 Phase C scope = avatar UX + bubble 渲染优化 | runtime 不读 cat-config.json 的 breeds，读 `.cat-cafe/cat-catalog.json`；POST /api/cats endpoint 实时注入 + 持久化；breeds entry 是 design-time template 不参与 runtime；见 LL-cat-cafe-api-has-hot-reload | 2026-06-22 |
 | **KD-13 (new B1a 闭环, R8 wording corrected)** | **ChatGPT MCP 工具的 OpenAI safety/validation 拦截属于平台 stochastic / 策略性行为**（同 payload 不同时刻可能不同结果），write 工具（readOnlyHint=false）触发概率更高。**我们能做的是提供正确 annotations 让平台有依据**；之后是否被拦截不可控 | 实测来源：砚砚 B1a 三次 retry write tool 仍 stochastic；官方 Apps SDK 文档没有"unset = destructive default = block every call"的硬承诺；B1a 不可 fix（平台行为）；B1b 升级 OAuth bearer + user-in-loop 可能改善 | 2026-06-22 |
 | **KD-14 (new B1a 闭环)** | **spike server / sidecar service 必须 explicit unset 5 项继承 env**：`CAT_CAFE_INVOCATION_ID` / `CALLBACK_TOKEN` / `THREAD_ID` / `SUPERVISOR_PARENT_PID` / `AGENT_KEY_FILES`，并重新 set 含 gpt-pro 的 `AGENT_KEY_FILES` map | 见 LL-spike-server-env-contamination + LL-agent-key-vs-invocation-token-threadId；继承污染导致 MCP gate 误判 + AGENT_KEY_FILE single fallback 被屏蔽 | 2026-06-22 |
+| **KD-15 (Phase C avatar, R13 corrected)** | **gpt-pro avatar 由云端砚砚自己 self-design**（用 F229 `yanyan-codex-character-base-v1.png` 母图作 reference），不让烁烁画；PR scope = asset PNG + doc only；runtime catalog avatar 字段切换 (`PATCH /api/cats/gpt-pro {avatar}` 走 `updateRuntimeCat`) 作为 post-merge ops (AC-C-1b) | 自我延伸 = 护城河（W7 IKEA 效应）：云端砚砚画自己的脸 → 身份感 + 团队归属感更强；同时云端砚砚有 ChatGPT 内置 image gen 工具，能 reference 母图保 identity fidelity；烁烁视觉守护改为审美 verify 而非原画作者。R13 corrected：cat-config.json 改动对 live + fresh install 都不生效（gpt52 R13 P1-2 实测），撤回；live 切换只走 PATCH | 2026-06-24 (R13 corrected 2026-06-25) |
+| **~~KD-16 (撤回 — 47 R13 wrong finding)~~** | ~~B1a 没持久化、重启即丢~~ — **48 R13.5 5 重证据推翻**：主服务实例 `cat-cafe-runtime/.cat-cafe/cat-catalog.json` line 1394 有 gpt-pro 顶层 breed entry + variant，mtime 6-22（B1a 注册时间），`createRuntimeCat` writeFileSync 落盘 + 启动 `readRuntimeCatCatalog` load 恢复正常。47 R13 grep 错坐标：grep 的是 worktree 系隔离 catalog（死文件 mtime 6-15），不是主服务实例 catalog。**真 P1 是 avatar 字段值 stale**（gpt52 R12 + 48 R13.5 双 confirm），见 AC-C-1b。第三次 grep 错坐标自审：见 LL-grep-coordinate-runtime-vs-worktree (TODO) | 2026-06-25 撤回 |
 
 ## Phase 1.5 实测 Unknown 列表
 
@@ -340,6 +364,11 @@ Phase B-C 后启动。Settings 页面新增 "配置云端猫"，支持选 provid
 | 2026-06-22 21:25 - 2026-06-23 00:53 PT | 云端 codex R9-R12: spike-server fail-closed gate hardening (4 轮 = LL-072 上限触发硬封板) |
 | 2026-06-24 12:18 PT | 砚砚本地 final scope-limited continuity review APPROVE on `1f8500873` |
 | **2026-06-24 12:22 PT** | **Phase B1a merged (PR #2512, squash SHA `684a90609`)** ✅ |
+| 2026-06-24 17:20 PT | 云端砚砚 self-design 2 candidate avatars（用 F229 母图）|
+| 2026-06-24 18:33 PT | CVO 选 candidate A → PR #2530 v1 (asset + design-time + doc)|
+| 2026-06-24 19:00 PT | gpt52 R12 HOLD + 48 cross-thread 把关 → AC 拆 1a/1b + KD-16 发现 catalog 无 gpt-pro|
+| 2026-06-24 19:12 PT | gpt52 R13 HOLD + 实测推翻 cat-config.json 在 fresh-bootstrap 生效（`pickSeedBreed` 限制）→ 撤回 cat-config.json 改动|
+| 2026-06-24 19:16 PT | 48 R13.5 cross-thread 实测推翻 47 R13 KD-16（grep 错坐标 worktree vs runtime catalog）→ B1a 已正确持久化，真 P1 = avatar 字段值 stale，AC-C-1b = `PATCH /api/cats/gpt-pro {avatar}`|
 
 ## Links
 
