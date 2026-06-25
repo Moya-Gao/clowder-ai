@@ -176,9 +176,32 @@ spike（2026-06-16，C0a Read / C0b Grep ✅ 实证）证明 cc PostToolUse hook
 - **默认（猫没选时）= fail-open 给全文**；多信号阈值（字节/行数 + grep fan-out + 压缩比，非单 magic number）仅作"猫没选时的智能默认"、**非 gate**。
 - **eval（Phase A/B-Eval）角色**：观察 mode 使用 + 给猫反馈 + 调默认，**非 enforce 闸门**（刹车≠气囊）。
 
-**Open（待 spike / 设计）**：① cc 原生"猫 signal mode → hook 读"可行性（**spike 进行中**）；② 默认 mode 值 + mode 表达 ergonomics（session / per-turn / per-call）；③ anchor mode 内是否需 size 下限护栏（防猫 anchor 小文件还变瞎）。
+**Open（待 spike / 设计）**：① cc 原生"猫 signal mode → hook 读"可行性（**✅ spike PASS 2026-06-25，见 AC-C0c**）；② 默认 mode 值 + ergonomics —— MCP 工具已定（`responseMode` per-call + anchor 默认，见 Track-1 块）；cc 原生用 session mode；③ anchor mode 内是否需 size 下限护栏（防猫 anchor 小文件还变瞎，留实现期）。
 
 **Supersedes**：AC-C5 v1"debug/review 默认全文"（task 分类）+ 下方「防瞎子设计」的"任务感知"条 — 均弃；fail-open / locator / 逃生 / 多信号阈值并入本设计。
+
+#### Track 1 实现设计：MCP-tools cat-mode = `responseMode` 参数（砚砚 grounded 分析 2026-06-25，opus-48 spot-check 核验）
+
+**核心校正**：铲屎官"每个读取工具都加参数"**理念对、落地不能机械一刀全加**——只加在**投影点**（当前替猫做 preview/full 选择 + 返回体大到值得切），不是所有 read 工具（砚砚 读实际工具签名得出，非拍脑袋）。
+
+**工具分类**（opus-48 spot-check：`search_evidence.depth=summary|raw` evidence-tools.ts:54 实锤、`read_session_events.view` 工具接口证实）：
+- **✅ 加 `responseMode=anchor|full`**（真投影点、当前缺 per-call 控制）：`get_thread_context`、`get_pending_mentions`。
+- **🔵 已有等价控制、不叠新参数**（避免冗余/撞名；eval 里归 `legacy_equivalent`）：`get_message`（`mode=preview|full`）、`search_evidence`（`depth=summary|raw`）、`read_session_events`（`view=raw|chat|handoff`）、`list_tasks`（`taskId` 作 full-why drill terminal）。
+- **⛔ 不加**（非长 body 投影点，加 = 噪音/假灵活）：`graph_resolve`、`list_recent`、`read_invocation_detail`、`read_session_digest`、`get_thread_cats`、`list_threads`。
+
+**命名（硬层，砚砚 catch）**：新字段 **`responseMode=anchor|full`**，**不叫 `mode`**（`mode` 已被 search_evidence/get_message 占、语义不同）；已有工具保留原字段、服务端内部归一化到统一"输出模式"概念。**默认**：协作工具 `anchor`（沿用 Phase A/B 现状、不破坏行为）。
+
+**软/硬/eval 三层（ADR-031）**：
+- **软**：工具 description 必须写清「何时 anchor / 何时 full / 默认 / drill terminal」；`drillDown` hint 同步带参数 —— **否则参数存在猫不知道 = 白加（铲屎官 P0）**。
+- **硬**：`responseMode` schema + 默认 + 服务端归一化；invariant 测试：anchor 返回 **locator not synopsis** / full 真绕过 anchor / drill terminal 不二次 anchor。
+- **eval**：见下 adoption lens。
+
+**Adoption eval（接现有 `eval:anchor-first`、不新开域；砚砚：无 Track-2 跨请求 join 陷阱——serve-time 直接记录、不事后反推 payload）**：
+- serve-time event 加字段：`modeResolved`(anchor/full/terminal) + `modeSource`(explicit/default/legacy_equivalent) + `catId` + `tool`。
+- adoption lens：`explicitAnchorCalls` / `explicitFullCalls` / `defaultAnchorCalls` / `defaultFullCalls` / `uniqueCatsExplicitAnchor` → 答铲屎官"多少猫显式选 anchor" + **闭合冷启动担忧（不猜有没有人用、直接量）**。
+- **现有 net-benefit / open-rate / 变瞎子全按 `modeSource` 分桶** —— 否则"默认 anchor"和"猫主动选 anchor"混一起、数据没法解释。
+
+**46 最小第一刀（砚砚建议 + opus-48 采纳）**：① `get_thread_context.responseMode` → ② `get_pending_mentions.responseMode` → `get_message` 保持现状 → 其余不动（本 doc 已写明为何不动）。
 
 ## Eval / Tracking Contract（F192 / ADR-031）
 
