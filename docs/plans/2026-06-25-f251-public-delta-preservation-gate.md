@@ -221,6 +221,8 @@ Adversarial scenarios:
 
 ### Task 0: Normalize A incident ledger
 
+> Guardrail: Task 0 produces the historical replay input for AC-A5. Do not confuse Task 1 synthetic classifier fixtures with the real #720/#726 dry-run replay fixture.
+
 **Files:**
 - Create: `docs/ops/community-sync-incident-ledger.json`
 - Test: `scripts/check-community-sync-incident-ledger.test.mjs`
@@ -285,6 +287,8 @@ node --test scripts/check-sync-public-delta-gate.test.mjs
 Expected: PASS.
 
 ### Task 2: Baseline resolver
+
+> Guardrail: Task 2 is the semantic hinge for the whole gate. A correct classifier with the wrong `base` commit still produces placebo safety. Baseline selection must preserve KD-2/INV-1 and reject missing or ambiguous baseline evidence.
 
 **Files:**
 - Modify: `scripts/check-sync-public-delta-gate.mjs`

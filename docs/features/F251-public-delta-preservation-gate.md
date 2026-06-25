@@ -21,6 +21,10 @@ clowder-ai 不是 cat-cafe 的 git fork，也不是简单镜像；它是有 1.8k
 
 ## What
 
+### Scope Boundary
+
+Phase A 只挡 **C1/C2 类 public target delta preservation**：clowder-ai 在上次 sync 后已经有目标侧 delta，而本次 export 会把它删掉、回退或冲突。它不挡 **C3 家里演进回归**：cat-cafe 自己把共享行为改坏后同步出去、且 clowder-ai 目标侧没有独立 delta 的情况。C3 需要 Phase B Community Contract Registry、dogfood、社区反馈和 hotfix 兜底。Task 1 的 synthetic fixtures 只证明 classifier 边界；在 AC-A5 历史事故 replay fixture BLOCK 住真实 #720/#726 类事故前，V1 不能宣称 anti-placebo 成立。
+
 ### Phase A: Public Target Delta Preservation Gate (V1)
 
 在 public byte-space 做三方树对比：`base` = 上次成功 sync 落到 clowder-ai 的 commit（来自 `sync/*` tag 或 first-parent 解析），`theirs` = clowder-ai 当前 HEAD，`ours` = cat-cafe 本次 export 后的 public tree。逐 path 判定，target-only delta 在 ours 里消失/回退 = BLOCK；双边冲突 = BLOCK；binary/delete/rename = BLOCK；override 需写 reason 入 provenance，单次 sync override > 3 触发 CVO approval alarm。
@@ -67,6 +71,8 @@ V1.5 path ownership（sync-managed / target-owned / mixed） → V2 hunk-level c
 |------|------|
 | Override 变成绕过 gate 的逃生门 | override count > 3 触发 CVO approval alarm（INV-3）+ override 全部写入 provenance 可审计 |
 | Baseline 解析失败导致 fail-open | INV: missing baseline → fail-closed（不允许 fall back 到无 base 模式） |
+| Task 1 unit fixtures 被误读成历史 replay fixture | Scope Boundary 明确区分 synthetic classifier fixtures 与 AC-A5 历史事故 replay；AC-A5 未通过前不宣称真实事故可挡 |
+| Task 2 baseline resolver 选错 base，导致 classifier 正确但 gate 语义错 | KD-2/INV-1 钉死 baseline 来源；Task 2 必须验证 `sync/*` tag / landed sync commit 优先，不用 `target_head_sha` |
 | 历史回归 fixture 不能 catch 真实事故 = 安慰剂 gate | AC-A5 强制至少一个历史 dry-run replay 通过；云端砚砚 Pro failure-mode audit 双保险 |
 | Contract Registry 被当银弹用 | spec 明示边界（治"有意识守护行为"，不治盲区行为） |
 
