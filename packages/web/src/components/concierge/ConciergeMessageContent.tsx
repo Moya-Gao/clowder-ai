@@ -6,18 +6,16 @@
  * clickable inline buttons. Non-marker text rendered as-is.
  *
  * AC-2: teleport → pushThreadRouteWithHistory (path, not query — Bug1 fix)
- * AC-3: peek with messageId → inline peek button → API call
- * AC-4: peek without messageId → validator skips → no matching action → plain text
+ * BUG-UX-12: ALL concierge actions are teleport (thread jump). No peek buttons.
  * AC-5: no raw [verb Rn] bracket text ever visible
  * AC-6: KD-19 fallback actions (no handle/verb) → card buttons below still work
  */
 
-import { Children, type ReactNode, useCallback, useState } from 'react';
+import { Children, type ReactNode, useCallback } from 'react';
 import { MarkdownContent } from '@/components/MarkdownContent';
 import { pushThreadRouteWithHistory } from '@/components/ThreadSidebar/thread-navigation';
 import { useChatStore } from '@/stores/chatStore';
 import { useConciergeStore } from '@/stores/conciergeStore';
-import { apiFetch } from '@/utils/api-client';
 import { scrollToMessage } from '@/utils/scrollToMessage';
 import { kickTeleportResolve, planTeleport } from '@/utils/teleport';
 
@@ -77,10 +75,6 @@ function stripInternalMarkers(text: string): string {
 // ---------------------------------------------------------------------------
 
 export function ConciergeMessageContent({ content, actions }: ConciergeMessageContentProps) {
-  const [peekLoading, setPeekLoading] = useState<string | null>(null);
-  const [peekContent, setPeekContent] = useState<Record<string, string>>({});
-  const [peekError, setPeekError] = useState<string | null>(null);
-
   // Build lookup: "verb:handle" → action
   const actionMap = new Map<string, InlineAction>();
   for (const a of actions) {
@@ -89,6 +83,8 @@ export function ConciergeMessageContent({ content, actions }: ConciergeMessageCo
     }
   }
 
+  // BUG-UX-12: all concierge actions are semantically thread navigation (jump).
+  // Single handler for all actions — teleport to thread, scroll to message if present.
   const handleTeleport = useCallback((action: InlineAction) => {
     const { threadId, messageId: msgId } = action.payload;
     if (!threadId) return;
@@ -99,69 +95,15 @@ export function ConciergeMessageContent({ content, actions }: ConciergeMessageCo
     if (msgId) {
       const plan = planTeleport({ threadId, messageId: msgId, currentThreadId });
       if (plan.scrollNow) {
-        // Same thread: scroll to target message + kick resolver for out-of-window targets.
-        // Matches CardBlock.tsx same-thread path (gpt52 review P1 fix).
         scrollToMessage(plan.scrollNow);
         kickTeleportResolve();
       } else if (plan.navigateTo) {
-        // Cross thread: pathname route (/thread/X) + pushState (Bug1 fix parity).
         pushThreadRouteWithHistory(plan.navigateTo, window);
       }
     } else {
-      // No messageId — navigate to thread via pathname route
       pushThreadRouteWithHistory(threadId, window);
     }
   }, []);
-
-  const handlePeek = useCallback(
-    async (action: InlineAction, handle: string) => {
-      // BUG-UX-8: toggle — if already showing, collapse on re-click
-      if (peekContent[handle]) {
-        setPeekContent((prev) => {
-          const next = { ...prev };
-          delete next[handle];
-          return next;
-        });
-        return;
-      }
-
-      const { threadId, messageId: msgId } = action.payload;
-      if (!threadId) return;
-      // BUG-UX-10: no messageId → fall back to teleport (old messages before
-      // BUG-UX-9 auto-correct may still have peek+thread combos stored)
-      if (!msgId) {
-        handleTeleport(action);
-        return;
-      }
-
-      setPeekLoading(handle);
-      setPeekError(null);
-
-      try {
-        const res = await apiFetch(`/api/concierge/peek?threadId=${threadId}&messageId=${msgId}`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-        const data = (await res.json()) as {
-          window: Array<{ id: string; content: string; catId: string | null; userId: string; isTarget: boolean }>;
-        };
-
-        const rendered = data.window
-          .map((m) => {
-            const prefix = m.isTarget ? '→ ' : '  ';
-            const sender = m.catId ? `🐱 ${m.catId}` : `👤 ${m.userId}`;
-            return `${prefix}${sender}: ${m.content?.slice(0, 200) ?? ''}`;
-          })
-          .join('\n');
-
-        setPeekContent((prev) => ({ ...prev, [handle]: rendered }));
-      } catch (err) {
-        setPeekError(err instanceof Error ? err.message : '查看失败');
-      } finally {
-        setPeekLoading(null);
-      }
-    },
-    [peekContent],
-  );
 
   // BUG-UX-4: strip internal team markers before rendering
   const cleanContent = stripInternalMarkers(content);
@@ -193,33 +135,24 @@ export function ConciergeMessageContent({ content, actions }: ConciergeMessageCo
         const action = actionMap.get(`${verb}:${handle}`);
 
         if (action) {
-          const isTeleport = action.action === 'concierge_teleport';
-          const isPeek = action.action === 'concierge_peek';
-          // BUG-UX-10 P2: peek without messageId will fall back to teleport
-          // at click time — display with teleport styling to match behavior
-          const showAsTeleport = isTeleport || (isPeek && !action.payload.messageId);
-
+          // BUG-UX-12: all concierge actions are semantically navigation (thread jumps).
+          // Always display and behave as teleport — covers both new actions (API now
+          // always returns teleport for threads) and old stored messages with stale peek.
           parts.push(
             <button
               key={`m-${handle}-${match.index}`}
               type="button"
-              onClick={() => {
-                if (isTeleport) handleTeleport(action);
-                if (isPeek) handlePeek(action, handle);
-              }}
+              onClick={() => handleTeleport(action)}
               className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-medium cursor-pointer transition-colors"
               style={{
-                backgroundColor: showAsTeleport
-                  ? 'var(--cafe-primary-soft, #e0e7ff)'
-                  : 'var(--cafe-accent-soft, #fef3c7)',
-                color: showAsTeleport ? 'var(--cafe-primary, #4f46e5)' : 'var(--cafe-accent, #d97706)',
+                backgroundColor: 'var(--cafe-primary-soft, #e0e7ff)',
+                color: 'var(--cafe-primary, #4f46e5)',
                 border: 'none',
               }}
               title={action.label}
-              disabled={peekLoading === handle}
             >
-              {showAsTeleport ? '→ ' : '👁 '}
-              {showAsTeleport ? '跳过去' : '原地看'} {handle}
+              {'→ '}
+              跳过去 {handle}
             </button>,
           );
         } else {
@@ -246,42 +179,5 @@ export function ConciergeMessageContent({ content, actions }: ConciergeMessageCo
     });
   };
 
-  return (
-    <>
-      <MarkdownContent content={cleanContent} disableCommandPrefix textProcessor={processMarkers} />
-      {/* BUG-UX-8: Peek content as collapsible blocks below, with dismiss button */}
-      {Object.entries(peekContent).map(([handle, text]) => (
-        <div
-          key={`peek-${handle}`}
-          className="mt-1 mb-1 p-2 rounded text-xs relative"
-          style={{
-            backgroundColor: 'var(--cafe-surface-sunken, #f5f5f4)',
-            borderLeft: '2px solid var(--cafe-accent, #d97706)',
-          }}
-        >
-          <button
-            type="button"
-            onClick={() =>
-              setPeekContent((prev) => {
-                const next = { ...prev };
-                delete next[handle];
-                return next;
-              })
-            }
-            className="absolute top-1 right-1 text-xs cursor-pointer opacity-50 hover:opacity-100 px-1"
-            title="收起"
-          >
-            ✕
-          </button>
-          {/* BUG-UX-11: render peek content as markdown, not plain text */}
-          <MarkdownContent content={text} disableCommandPrefix />
-        </div>
-      ))}
-      {peekError && (
-        <div className="text-xs mt-1" style={{ color: 'var(--cafe-error, #ef4444)' }}>
-          {peekError}
-        </div>
-      )}
-    </>
-  );
+  return <MarkdownContent content={cleanContent} disableCommandPrefix textProcessor={processMarkers} />;
 }

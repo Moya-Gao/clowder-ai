@@ -451,7 +451,10 @@ export function CardBlock({
         return;
       }
       if (action === 'concierge_peek') {
-        await handleConciergePeek(payload);
+        // BUG-UX-12: normalize old stored peek actions to teleport.
+        // Pre-UX-12 messages may have concierge_peek in rich blocks; redirect to
+        // teleport so card buttons behave consistently with inline markers.
+        handleConciergeTeleport(payload);
         return;
       }
       // F229 Phase B: propose_thread action
@@ -553,7 +556,9 @@ export function CardBlock({
                   : a.action === 'concierge_triage_cancel'
                     ? '已取消'
                     : '已复制'
-                : a.label;
+                : a.action === 'concierge_peek'
+                  ? a.label.replace('原地看', '跳过去')
+                  : a.label;
 
             return (
               <button

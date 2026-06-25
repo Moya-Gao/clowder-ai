@@ -34,8 +34,6 @@ vi.mock('@/stores/chatStore', () => ({
   }),
 }));
 
-vi.mock('@/utils/api-client', () => ({ apiFetch: vi.fn() }));
-
 const mockScrollToMessage = vi.fn();
 vi.mock('@/utils/scrollToMessage', () => ({ scrollToMessage: (...args: unknown[]) => mockScrollToMessage(...args) }));
 
@@ -143,8 +141,9 @@ describe('ConciergeMessageContent (Bug2 inline marker buttons)', () => {
     expect(pushStateSpy).not.toHaveBeenCalled();
   });
 
-  // AC-3: peek marker with messageId → inline button
-  it('renders [原地看 R2] as inline button when action has messageId', () => {
+  // BUG-UX-12: old stored peek actions display as teleport
+  it('renders old [原地看 R2] action as teleport button (BUG-UX-12)', () => {
+    // Old messages may have concierge_peek stored — frontend always shows teleport
     const actions = [
       {
         action: 'concierge_peek' as const,
@@ -161,7 +160,8 @@ describe('ConciergeMessageContent (Bug2 inline marker buttons)', () => {
 
     const buttons = container.querySelectorAll('button');
     expect(buttons.length).toBe(1);
-    expect(buttons[0].textContent).toContain('原地看');
+    // BUG-UX-12: always shows teleport text, never peek
+    expect(buttons[0].textContent).toContain('跳过去');
     expect(buttons[0].textContent).toContain('R2');
   });
 
@@ -507,18 +507,9 @@ describe('ConciergeMessageContent (Bug2 inline marker buttons)', () => {
     });
   });
 
-  // BUG-UX-11: peek content renders as markdown, not plain text
-  describe('BUG-UX-11: peek content renders as rich text', () => {
-    it('renders peek content through MarkdownContent', async () => {
-      const { apiFetch } = await import('@/utils/api-client');
-      const mockApiFetch = vi.mocked(apiFetch);
-      mockApiFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          window: [{ id: 'msg_1', content: '**bold** and `code`', catId: 'opus', userId: 'u1', isTarget: true }],
-        }),
-      } as unknown as Response);
-
+  // BUG-UX-12: old stored peek actions with messageId still navigate correctly
+  describe('BUG-UX-12: old peek actions navigate as teleport', () => {
+    it('old peek action with messageId navigates to thread (teleport behavior)', () => {
       const actions = [
         {
           action: 'concierge_peek' as const,
@@ -534,14 +525,12 @@ describe('ConciergeMessageContent (Bug2 inline marker buttons)', () => {
       });
 
       const button = container.querySelector('button')!;
-      await act(async () => {
+      act(() => {
         button.click();
       });
 
-      // Peek content should be rendered through MarkdownContent (has .markdown-content class)
-      const peekBlocks = container.querySelectorAll('.markdown-content');
-      // At least 2: one for main content, one for peek content
-      expect(peekBlocks.length).toBeGreaterThanOrEqual(2);
+      // BUG-UX-12: clicking navigates (teleport), does NOT call peek API
+      expect(pushStateSpy).toHaveBeenCalledWith(expect.anything(), '', expect.stringContaining('/thread/thread_abc'));
     });
   });
 

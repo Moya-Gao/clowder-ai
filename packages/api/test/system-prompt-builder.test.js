@@ -2169,7 +2169,9 @@ describe('SystemPromptBuilder', () => {
   });
 
   // KD-17: marker-based instructions replace old Rule #3 (actions array output)
-  test('F229 KD-17: concierge prompt has marker instructions [跳过去 R] [原地看 R], not actions array', async () => {
+  // BUG-UX-12: prompt teaches only [跳过去 R] (teleport). [原地看 R] removed — all
+  // concierge actions are semantically thread jumps, no inline peek.
+  test('F229 KD-17: concierge prompt has [跳过去 R] marker, no [原地看 R] (BUG-UX-12)', async () => {
     const { buildInvocationContext } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
     const result = buildInvocationContext({
       catId: 'sonnet',
@@ -2189,9 +2191,10 @@ describe('SystemPromptBuilder', () => {
       },
     });
 
-    // New marker instructions must be present
+    // [跳过去 R] marker instruction must be present (only navigation verb)
     assert.ok(result.includes('[跳过去 R'), 'should contain [跳过去 R] marker instruction');
-    assert.ok(result.includes('[原地看 R'), 'should contain [原地看 R] marker instruction');
+    // BUG-UX-12: [原地看 R] removed from prompt — no longer a taught verb
+    assert.ok(!result.includes('[原地看 R'), 'should NOT contain [原地看 R] — peek removed (BUG-UX-12)');
 
     // Old Rule #3 (actions array literal) must be gone
     assert.ok(!result.includes('{ actions: [{ action:'), 'old Rule #3 actions array literal must be removed');
