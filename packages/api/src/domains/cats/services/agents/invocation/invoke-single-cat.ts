@@ -609,6 +609,25 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
   const { registry, sessionManager, threadStore, apiUrl } = deps;
   const { catId, service, prompt, userId, threadId, isLastCat, signal: callerSignal } = params;
 
+  // F247 KD-17: cloud-only cats (Remote MCP) skip local CLI dispatch.
+  // The mention is already persisted in the thread; the cloud cat reads it via
+  // its own MCP read tools on next invocation. Detect via explicit `provider`
+  // marker (matches POST handler symmetry); antigravity / ACP cats are NOT
+  // caught — they have their own dispatch path even without cli.command.
+  const cloudOnlyConfig = catRegistry.tryGet(catId as string)?.config;
+  if (cloudOnlyConfig && cloudOnlyConfig.provider === 'openai-chatgpt-pro') {
+    log.info(
+      { catId, threadId, userId, provider: cloudOnlyConfig.provider, clientId: cloudOnlyConfig.clientId },
+      'F247 KD-17: cloud-only cat (Remote MCP) — skipping local dispatch; mention persisted in thread',
+    );
+    yield {
+      type: 'done' as const,
+      catId,
+      timestamp: Date.now(),
+    };
+    return;
+  }
+
   // F198 Bug #3: a bg carrier has no stable per-conversation sessionId — the
   // daemon forks a fresh UUID every `--bg --resume` round. Derive a stable
   // chainKey anchor so sessionId resolution / resume mutex / session_init

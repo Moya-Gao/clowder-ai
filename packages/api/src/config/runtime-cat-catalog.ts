@@ -39,7 +39,9 @@ export interface RuntimeCatInput {
   clientId: ClientId;
   defaultModel: string;
   mcpSupport: boolean;
-  cli: CliConfig;
+  /** F247 KD-17: cloud-only cats (Remote MCP) omit cli to skip local dispatch.
+   * When cli is absent, mention routing queues the mention without spawning a CLI. */
+  cli?: CliConfig;
   commandArgs?: string[];
   cliConfigArgs?: string[];
   contextBudget?: ContextBudget;
@@ -68,7 +70,8 @@ export interface RuntimeCatUpdate {
   clientId?: ClientId;
   defaultModel?: string;
   mcpSupport?: boolean;
-  cli?: CliConfig;
+  /** F247 KD-17: cli null to remove (cloud-only mode), CliConfig to update, undefined to skip. */
+  cli?: CliConfig | null;
   commandArgs?: string[];
   cliConfigArgs?: string[];
   contextBudget?: ContextBudget | null;
@@ -223,7 +226,8 @@ function createBreedFromInput(input: RuntimeCatInput): CatBreed {
           : {}),
         defaultModel: input.defaultModel,
         mcpSupport: input.mcpSupport,
-        cli: input.cli,
+        // F247 KD-17: omit cli for cloud-only cats (Remote MCP, no local dispatch).
+        ...(input.cli ? { cli: input.cli } : {}),
         ...(input.accountRef != null && input.accountRef.trim().length > 0
           ? { accountRef: input.accountRef.trim() }
           : {}),
@@ -402,7 +406,14 @@ export function updateRuntimeCat(projectRoot: string, catId: string, patch: Runt
   if (patch.clientId !== undefined) variant.clientId = patch.clientId;
   if (patch.defaultModel !== undefined) variant.defaultModel = patch.defaultModel;
   if (patch.mcpSupport !== undefined) variant.mcpSupport = patch.mcpSupport;
-  if (patch.cli !== undefined) variant.cli = patch.cli;
+  // F247 KD-17: patch.cli === null means remove (cloud-only mode); object means update.
+  if (patch.cli !== undefined) {
+    if (patch.cli === null) {
+      delete variant.cli;
+    } else {
+      variant.cli = patch.cli;
+    }
+  }
   if (patch.contextBudget !== undefined) {
     if (patch.contextBudget) {
       variant.contextBudget = patch.contextBudget;
