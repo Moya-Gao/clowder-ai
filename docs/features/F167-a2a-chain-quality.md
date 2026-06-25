@@ -1016,6 +1016,54 @@ Grounding 不开独立 eval domain，作为 `eval:a2a` 的子域接入。数据�
 3. verdict 分布健康 = mostly verified/insufficient + few mismatches → keep_observe
 4. 持续 mismatch 高占比 → fix（实装 fail-closed 或调整 resolver）
 
+### Phase P（hold_ball 条件唤醒 — 定时之外的第二种醒法，2026-06-25 立项）
+
+**触发**：-p（headless）下猫用 `run_in_background:true` 跑 `pnpm gate` 等长命令，CLI 回合结束后没人接结果——"然后就没然后了"。排查发现 hold_ball 只有定时唤醒（`wakeAfterMs`），缺条件唤醒。猫想说"这个东西跑完了叫我"，但没有工具表达这个意图。
+
+**铲屎官原话**：
+> "hold ball 有个参数增加一下就是这个——唤醒你不是时间而是某个条件"
+
+**根因**：hold_ball 家族（定时唤醒）和 register_pr_tracking 家族（事件唤醒）之间缺第三个兄弟——**本地长任务事件唤醒**。
+
+| 工具 | 怎么醒 | 等什么 |
+|---|---|---|
+| `hold_ball` | 定时（过 N 分钟叫你查一眼） | 无事件可挂的等待 |
+| `register_pr_tracking` | 事件（条件达成→服务端叫你） | 云端 PR / CI / issue |
+| **Phase P（缺的）** | 事件（完成→带结果叫你） | 本地长任务（gate / test / build） |
+
+**方案**：给 `hold_ball` 增加条件唤醒模式。猫调用时不传 `wakeAfterMs`，改传条件描述，由服务端 managed runner 托管长命令、盯终态、完成后唤醒。
+
+**v2 Tool Signature 草案**（在 v1 基础上扩展）：
+```typescript
+cat_cafe_hold_ball({
+  reason: string,
+  nextStep: string,
+  // 二选一：定时 OR 条件
+  wakeAfterMs?: number,        // v1 已有：定时唤醒
+  wakeWhen?: {                 // v2 新增：条件唤醒
+    command: string,           // 要托管的长命令（如 "pnpm gate"）
+    cwd?: string,              // 工作目录
+    timeoutMs?: number,        // 超时兜底（默认 10min）
+  }
+})
+```
+
+**已有底座**（不是 greenfield）：
+- `JobEventConsumer`：轮询 `~/.claude/jobs` durable artifact 到终态的机制已有
+- `register_pr_tracking`：事件回调 → 唤醒的管线已有
+- `hold_ball` scheduler：`TaskRunnerV2` + reminder 模板已有
+- 缺的：① managed runner（launch 长命令 + 记 pid/log/exit）② hold_ball 路由层接条件唤醒参数
+
+**伴随护栏（Phase P-0，先行止血）**：在条件唤醒落地前，gate 类命令在 -p 下禁 `run_in_background`，逼回前台。这是当前 bug 的真修——前台 Bash 同步阻塞，跑完返回结果，不依赖 re-invoke。
+
+**AC**：
+- [ ] AC-P0: -p/headless 下 gate 类命令（`pnpm gate|check|test|build|lint|alpha:start|alpha:test`）禁 `run_in_background`，命中时 deny + 提示走前台（PreToolUse guard 或 executor guard）
+- [ ] AC-P1: `hold_ball` 接受 `wakeWhen` 参数（与 `wakeAfterMs` 互斥）
+- [ ] AC-P2: managed runner 托管长命令：launch + 记录 pid/log/exit code
+- [ ] AC-P3: 长命令终态 → 服务端唤醒持球猫，注入结果（exit code + 尾部输出）
+- [ ] AC-P4: 超时兜底（timeoutMs 到期 → 唤醒 + 告知超时）
+- [ ] AC-P5: 单槽语义不变（KD-23）——wakeWhen hold 也是同 (threadId, catId) 单槽覆盖
+
 ## Behavioral Evidence（Phase B 观察记录）
 
 ### Case E1: 砚砚任务替换 + 宪宪行动偏好（2026-04-18 同日双发）
@@ -1162,3 +1210,4 @@ Grounding 不开独立 eval domain，作为 `eval:a2a` 的子域接入。数据�
 | 铲屎官 + 砚砚 2026-04-25 | 47 风格适配需 Design Gate（audit/surface 分层 + repair 落地） | AC-K1~K6 | ⬜ Phase K |
 | 铲屎官 2026-05-07 | hold_ball 轮询 × PR tracking 事件驱动重复唤醒（双通道叠加） | AC-L1~L4 | ✅ Phase L |
 | 铲屎官 2026-06-18 | 守门 thread 不能挂 PR/issue tracking 或 hold_ball，必须机制层拦截 | AC-N1~N5 | ✅ Phase N / PR #2384 |
+| 铲屎官 2026-06-25 | -p 下猫 run_in_background 跑 gate 后没下文 + hold_ball 缺条件唤醒 | AC-P0~P5 | ⬜ Phase P |
