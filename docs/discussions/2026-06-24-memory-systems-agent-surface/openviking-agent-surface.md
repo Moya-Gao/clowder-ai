@@ -311,9 +311,9 @@ OpenViking gives agents usable next actions:
 - `list`, `grep`, `glob`, and code tools provide fallback routes when semantic search is insufficient.
 - OpenClaw plugin skill adds a tool-selection guide for recall/store/search/read/trace.
 
-### L2: Can Distinguish Evidence Quality - Fail / Partial
+### L2: Can Distinguish Evidence Quality - Fail
 
-The agent can distinguish coarse context type (`memory`, `resource`, `skill`) and L0/L1/L2 level in HTTP JSON, but not in common MCP formatted output. More importantly, neither layer distinguishes:
+The agent can distinguish coarse context type (`memory`, `resource`, `skill`) and L0/L1/L2 level in HTTP JSON, but those are storage/type and summary-depth labels, not epistemic labels. Neither layer distinguishes:
 
 - User-authored raw observation.
 - LLM-generated abstract/overview.
@@ -322,11 +322,11 @@ The agent can distinguish coarse context type (`memory`, `resource`, `skill`) an
 - Retrieval score vs truth confidence.
 - Authority/trust tier.
 
-The system gives a path to inspect raw content, but the result object itself does not warn the agent that the summary is generated.
+The system gives a path to inspect raw content, but the result object itself does not warn the agent that the summary is generated. Under the User-Mind L2 rubric, that is a fail, not a partial pass.
 
-### L3: Can Close The Loop - Partial Pass
+### L3: Can Close The Loop - Fail
 
-OpenViking has useful closure:
+OpenViking has useful operational tools:
 
 - `read` verifies raw content.
 - `grep` can search exact text with line numbers.
@@ -335,7 +335,7 @@ OpenViking has useful closure:
 - `forget` can delete wrong/obsolete content.
 - `list_watches` / `cancel_watch` close the resource refresh loop.
 
-But correctness repair is still mostly external discipline. If an LLM-generated memory is wrong, the tool surface lets an agent delete/import/store, but it does not expose a structured correction API with authority/confidence transitions. `forget` is irreversible and relies on the agent honoring the docstring's "confirm first" instruction.
+But mutation is not the same as epistemic loop closure. If an LLM-generated memory is wrong, the tool surface lets an agent delete/import/store, but it does not expose a structured correction API with authority/confidence transitions or a verify -> mark observed -> re-rank path. `forget` is irreversible and relies on the agent honoring the docstring's "confirm first" instruction.
 
 ### Layer C: Engineering Mind Fit
 
@@ -387,9 +387,9 @@ Overall: OpenViking is an excellent exploration and context-recovery substrate, 
 
    If a backend LLM rewrites a query, the MCP response should surface that plan or at least mark it as generated. HTTP JSON has query_plan; MCP text drops it.
 
-4. Do not rely on docstring-only confirmation for irreversible deletes.
+4. P0反模式: Do not rely on docstring-only confirmation for irreversible deletes.
 
-   `forget` says to confirm, but the tool cannot enforce that. Cat Cafe should keep irreversible boundaries outside autonomous default action.
+   `forget` says to confirm, but the tool cannot enforce that. A default-permitted destructive action guarded only by prompt text is a P0 safety pattern for Cat Cafe. Irreversible state changes need a hard confirmation boundary, not just a tool docstring.
 
 5. Do not assume semantic search covers exact recall.
 
