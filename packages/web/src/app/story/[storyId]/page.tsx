@@ -16,18 +16,7 @@ import { useEffect, useRef } from 'react';
 import { ReplayControls } from '@/components/story-player/ReplayControls';
 import { ReplayEventBubble } from '@/components/story-player/ReplayEventBubble';
 import { useReplayEngine } from '@/lib/story-player/useReplayEngine';
-
-// ---------------------------------------------------------------------------
-// storyId parsing
-// ---------------------------------------------------------------------------
-
-function parseStoryId(storyId: string): { type: 'session'; sessionId: string } | null {
-  if (storyId.startsWith('session:')) {
-    return { type: 'session', sessionId: storyId.slice('session:'.length) };
-  }
-  // Phase D: UUID-based persistent stories
-  return null;
-}
+import { parseStoryId } from './parseStoryId';
 
 // ---------------------------------------------------------------------------
 // Page component

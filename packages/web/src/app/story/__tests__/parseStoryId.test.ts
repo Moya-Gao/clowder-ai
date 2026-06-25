@@ -1,0 +1,54 @@
+/**
+ * F252: parseStoryId — handles URL-encoded storyId from Next.js useParams().
+ *
+ * Bug: Next.js useParams() URL-encodes colons in dynamic route segments.
+ * /story/session:abc → params.storyId = "session%3Aabc", not "session:abc".
+ * Without decoding, parseStoryId always returns null → "Invalid Story ID".
+ */
+import { describe, expect, it } from 'vitest';
+import { parseStoryId } from '../[storyId]/parseStoryId';
+
+describe('F252: parseStoryId', () => {
+  it('parses raw session:id format', () => {
+    const result = parseStoryId('session:abc-123');
+    expect(result).toEqual({ type: 'session', sessionId: 'abc-123' });
+  });
+
+  it('parses URL-encoded session%3Aid format (Next.js useParams behavior)', () => {
+    // This is the P0 bug: useParams() returns "session%3Aabc" not "session:abc"
+    const result = parseStoryId('session%3Aabc-123');
+    expect(result).toEqual({ type: 'session', sessionId: 'abc-123' });
+  });
+
+  it('parses double-encoded session%253Aid format defensively', () => {
+    const result = parseStoryId('session%253Aabc-123');
+    // Double-encoded stays as %3A after one decode — should still work
+    // Actually: decodeURIComponent('session%253Aabc-123') = 'session%3Aabc-123'
+    // which doesn't start with 'session:' — returns null. This is expected:
+    // double encoding is a caller bug, not our responsibility.
+    expect(result).toBeNull();
+  });
+
+  it('returns null for empty string', () => {
+    expect(parseStoryId('')).toBeNull();
+  });
+
+  it('returns null for unrecognized format', () => {
+    expect(parseStoryId('story:abc')).toBeNull();
+    expect(parseStoryId('random-string')).toBeNull();
+  });
+
+  it('returns null for malformed percent-encoding (no URIError throw)', () => {
+    // P1 from gpt52 review: decodeURIComponent('%ZZ') throws URIError
+    // User-addressable route must not crash on bad URLs
+    expect(parseStoryId('session%ZZabc')).toBeNull();
+    expect(parseStoryId('%E0%A4%A')).toBeNull();
+    expect(parseStoryId('%%%')).toBeNull();
+  });
+
+  it('handles UUID sessionId format', () => {
+    const uuid = '029ba7ce-94bf-4db0-b615-c14d17444aff';
+    expect(parseStoryId(`session:${uuid}`)).toEqual({ type: 'session', sessionId: uuid });
+    expect(parseStoryId(`session%3A${uuid}`)).toEqual({ type: 'session', sessionId: uuid });
+  });
+});
