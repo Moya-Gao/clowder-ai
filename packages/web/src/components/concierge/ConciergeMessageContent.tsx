@@ -126,7 +126,13 @@ export function ConciergeMessageContent({ content, actions }: ConciergeMessageCo
       }
 
       const { threadId, messageId: msgId } = action.payload;
-      if (!threadId || !msgId) return;
+      if (!threadId) return;
+      // BUG-UX-10: no messageId → fall back to teleport (old messages before
+      // BUG-UX-9 auto-correct may still have peek+thread combos stored)
+      if (!msgId) {
+        handleTeleport(action);
+        return;
+      }
 
       setPeekLoading(handle);
       setPeekError(null);
@@ -189,6 +195,9 @@ export function ConciergeMessageContent({ content, actions }: ConciergeMessageCo
         if (action) {
           const isTeleport = action.action === 'concierge_teleport';
           const isPeek = action.action === 'concierge_peek';
+          // BUG-UX-10 P2: peek without messageId will fall back to teleport
+          // at click time — display with teleport styling to match behavior
+          const showAsTeleport = isTeleport || (isPeek && !action.payload.messageId);
 
           parts.push(
             <button
@@ -200,15 +209,17 @@ export function ConciergeMessageContent({ content, actions }: ConciergeMessageCo
               }}
               className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-medium cursor-pointer transition-colors"
               style={{
-                backgroundColor: isTeleport ? 'var(--cafe-primary-soft, #e0e7ff)' : 'var(--cafe-accent-soft, #fef3c7)',
-                color: isTeleport ? 'var(--cafe-primary, #4f46e5)' : 'var(--cafe-accent, #d97706)',
+                backgroundColor: showAsTeleport
+                  ? 'var(--cafe-primary-soft, #e0e7ff)'
+                  : 'var(--cafe-accent-soft, #fef3c7)',
+                color: showAsTeleport ? 'var(--cafe-primary, #4f46e5)' : 'var(--cafe-accent, #d97706)',
                 border: 'none',
               }}
               title={action.label}
               disabled={peekLoading === handle}
             >
-              {isPeek ? '👁 ' : '→ '}
-              {action.action === 'concierge_teleport' ? '跳过去' : '原地看'} {handle}
+              {showAsTeleport ? '→ ' : '👁 '}
+              {showAsTeleport ? '跳过去' : '原地看'} {handle}
             </button>,
           );
         } else {
@@ -245,7 +256,6 @@ export function ConciergeMessageContent({ content, actions }: ConciergeMessageCo
           className="mt-1 mb-1 p-2 rounded text-xs relative"
           style={{
             backgroundColor: 'var(--cafe-surface-sunken, #f5f5f4)',
-            whiteSpace: 'pre-wrap',
             borderLeft: '2px solid var(--cafe-accent, #d97706)',
           }}
         >
@@ -263,7 +273,8 @@ export function ConciergeMessageContent({ content, actions }: ConciergeMessageCo
           >
             ✕
           </button>
-          {text}
+          {/* BUG-UX-11: render peek content as markdown, not plain text */}
+          <MarkdownContent content={text} disableCommandPrefix />
         </div>
       ))}
       {peekError && (

@@ -456,6 +456,95 @@ describe('ConciergeMessageContent (Bug2 inline marker buttons)', () => {
     });
   });
 
+  // BUG-UX-10: peek button with no messageId falls back to teleport
+  describe('BUG-UX-10: peek without messageId falls back to teleport', () => {
+    it('navigates to thread when peek button clicked without messageId', () => {
+      // Old message before BUG-UX-9 fix: action=concierge_peek, no messageId
+      const actions = [
+        {
+          action: 'concierge_peek' as const,
+          label: '原地看：Thread Topic',
+          handle: 'R1',
+          verb: '原地看',
+          payload: { threadId: 'thread_stale' },
+        },
+      ];
+
+      act(() => {
+        root.render(createElement(ConciergeMessageContent, { content: '[原地看 R1]', actions }));
+      });
+
+      const button = container.querySelector('button')!;
+      act(() => {
+        button.click();
+      });
+
+      // Should fall back to teleport (navigate to thread), not silently do nothing
+      expect(pushStateSpy).toHaveBeenCalledWith(expect.anything(), '', expect.stringContaining('/thread/thread_stale'));
+    });
+
+    it('displays teleport styling and text for peek without messageId (P2)', () => {
+      const actions = [
+        {
+          action: 'concierge_peek' as const,
+          label: '原地看：Thread Topic',
+          handle: 'R1',
+          verb: '原地看',
+          payload: { threadId: 'thread_stale' },
+        },
+      ];
+
+      act(() => {
+        root.render(createElement(ConciergeMessageContent, { content: '[原地看 R1]', actions }));
+      });
+
+      const button = container.querySelector('button')!;
+      // Button text should show teleport verb and icon, not peek
+      expect(button.textContent).toContain('跳过去');
+      expect(button.textContent).toContain('→');
+      expect(button.textContent).not.toContain('原地看');
+      expect(button.textContent).not.toContain('👁');
+    });
+  });
+
+  // BUG-UX-11: peek content renders as markdown, not plain text
+  describe('BUG-UX-11: peek content renders as rich text', () => {
+    it('renders peek content through MarkdownContent', async () => {
+      const { apiFetch } = await import('@/utils/api-client');
+      const mockApiFetch = vi.mocked(apiFetch);
+      mockApiFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          window: [{ id: 'msg_1', content: '**bold** and `code`', catId: 'opus', userId: 'u1', isTarget: true }],
+        }),
+      } as unknown as Response);
+
+      const actions = [
+        {
+          action: 'concierge_peek' as const,
+          label: '原地看：Message',
+          handle: 'R1',
+          verb: '原地看',
+          payload: { threadId: 'thread_abc', messageId: 'msg_1' },
+        },
+      ];
+
+      act(() => {
+        root.render(createElement(ConciergeMessageContent, { content: '[原地看 R1]', actions }));
+      });
+
+      const button = container.querySelector('button')!;
+      await act(async () => {
+        button.click();
+      });
+
+      // Peek content should be rendered through MarkdownContent (has .markdown-content class)
+      const peekBlocks = container.querySelectorAll('.markdown-content');
+      // At least 2: one for main content, one for peek content
+      expect(peekBlocks.length).toBeGreaterThanOrEqual(2);
+    });
+  });
+
   // AC-6: card actions fallback (no handle/verb) → no inline buttons, text unchanged
   it('does not crash on actions without handle/verb (KD-19 fallback)', () => {
     const actions = [
