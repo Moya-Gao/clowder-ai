@@ -245,6 +245,7 @@ export function IndexStatus() {
   const [error, setError] = useState<string | null>(null);
   const [envVars, setEnvVars] = useState<EnvVar[]>([]);
   const [updatingKey, setUpdatingKey] = useState<string | null>(null);
+  const [warmupTriggering, setWarmupTriggering] = useState(false);
 
   const evidenceVars = useMemo(() => filterEvidenceVars(envVars), [envVars]);
   const configVars = useMemo(() => getConfigVars(envVars), [envVars]);
@@ -308,6 +309,25 @@ export function IndexStatus() {
     setTimeout(() => el.classList.remove('ring-2', 'ring-conn-amber-text'), 1500);
   }, []);
 
+  const [warmupError, setWarmupError] = useState<string | null>(null);
+
+  const triggerWarmup = useCallback(async () => {
+    setWarmupTriggering(true);
+    setWarmupError(null);
+    try {
+      const res = await apiFetch('/api/evidence/warmup', { method: 'POST' });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+        setWarmupError((body as { error?: string }).error ?? `HTTP ${res.status}`);
+      }
+      await fetchAll();
+    } catch {
+      setWarmupError('网络错误');
+    } finally {
+      setWarmupTriggering(false);
+    }
+  }, [fetchAll]);
+
   // F209: while passage vectors are warming up in the background, poll so the
   // progress count climbs live. Stops automatically once fully embedded.
   const warmingUp = status ? isEmbeddingWarmingUp(status) : false;
@@ -369,9 +389,27 @@ export function IndexStatus() {
               }}
             />
           </div>
-          <p className="mt-1.5 text-micro text-cafe-secondary">
-            关键词检索已就绪；语义召回在后台补全，完成前部分历史暂未覆盖。
-          </p>
+          <div className="mt-1.5 flex items-center justify-between">
+            <p className="text-micro text-cafe-secondary">
+              关键词检索已就绪；语义召回在后台补全，完成前部分历史暂未覆盖。
+            </p>
+            <span className="ml-auto flex items-center gap-1.5">
+              {warmupError && (
+                <span data-testid="warmup-error" className="text-micro text-red-500">
+                  {warmupError}
+                </span>
+              )}
+              <button
+                type="button"
+                data-testid="warmup-resume-button"
+                disabled={warmupTriggering}
+                onClick={triggerWarmup}
+                className={`shrink-0 rounded-md bg-conn-amber-text px-2.5 py-1 text-micro font-medium text-white transition-opacity hover:opacity-90 ${warmupTriggering ? 'opacity-50' : ''}`}
+              >
+                {warmupTriggering ? '触发中…' : '继续暖机'}
+              </button>
+            </span>
+          </div>
         </div>
       )}
 

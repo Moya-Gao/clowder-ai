@@ -27,6 +27,7 @@ import type {
 } from '../domains/memory/interfaces.js';
 import type { LibraryCatalog } from '../domains/memory/LibraryCatalog.js';
 import type { RebuildJobTracker } from '../domains/memory/RebuildJobTracker.js';
+import { isDirectLoopbackRequest } from '../utils/loopback-request.js';
 import { buildThreadCrossPostSuggestion, extractThreadIdFromEvidenceResult } from './cross-thread-affordance.js';
 import {
   type BoostSource,
@@ -550,6 +551,21 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
       reply.status(500);
       return { error: 'reindex failed', message: String(err) };
     }
+  });
+
+  // Passage embedding warmup trigger — re-starts background embedding for passages
+  // that don't have vectors yet. Safe to call repeatedly (skips already-embedded).
+  app.post('/api/evidence/warmup', async (request, reply) => {
+    if (!isDirectLoopbackRequest(request)) {
+      reply.status(403);
+      return { error: 'Forbidden: localhost only' };
+    }
+    if (!opts.indexBuilder) {
+      reply.status(503);
+      return { error: 'warmup not available' };
+    }
+    opts.indexBuilder.startPassageEmbeddingWarmup();
+    return { ok: true };
   });
 
   // F188 Phase A: Full rebuild endpoint (AC-A1)
