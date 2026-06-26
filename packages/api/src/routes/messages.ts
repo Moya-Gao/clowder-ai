@@ -1860,6 +1860,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
               icon: m.source.icon,
               ...(m.source.url ? { url: m.source.url } : {}),
               ...(m.source.meta ? { meta: m.source.meta } : {}),
+              ...(m.source.sender ? { sender: m.source.sender } : {}),
             },
           }
         : {}),

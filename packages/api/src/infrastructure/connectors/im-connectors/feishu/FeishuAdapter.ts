@@ -572,20 +572,30 @@ export class FeishuAdapter implements IStreamableOutboundAdapter {
     if (cached && cached.expiresAt > Date.now()) return cached.name;
 
     const token = await this.tokenManager?.getTenantAccessToken();
-    if (!token) return undefined;
+    if (!token) {
+      this.log.warn({ openId }, '[FeishuAdapter] resolveSenderName: no tenant access token');
+      return undefined;
+    }
     try {
       const res = await (this.uploadFetchFn ?? globalThis.fetch)(
         `https://open.feishu.cn/open-apis/contact/v3/users/${openId}?user_id_type=open_id`,
         { headers: { Authorization: `Bearer ${token}` } },
       );
-      if (!res.ok) return undefined;
+      if (!res.ok) {
+        this.log.warn(
+          { openId, status: res.status },
+          '[FeishuAdapter] resolveSenderName failed — check contact:user.base:readonly scope',
+        );
+        return undefined;
+      }
       const data = (await res.json()) as { data?: { user?: { name?: string } } };
       const name = data?.data?.user?.name;
       if (name) {
         this.senderNameCache.set(openId, { name, expiresAt: Date.now() + FeishuAdapter.CACHE_TTL_MS });
       }
       return name;
-    } catch {
+    } catch (err) {
+      this.log.warn({ openId, err }, '[FeishuAdapter] resolveSenderName threw');
       return undefined;
     }
   }
