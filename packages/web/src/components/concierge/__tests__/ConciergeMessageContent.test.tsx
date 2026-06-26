@@ -558,4 +558,44 @@ describe('ConciergeMessageContent (Bug2 inline marker buttons)', () => {
     expect(container.textContent).toBe('纯文本，没有标记');
     expect(container.querySelector('button')).toBeNull();
   });
+
+  // BUG-UX-13: triage-plan markers must be stripped from user-visible content
+  describe('BUG-UX-13: triage-plan marker stripping (defense-in-depth)', () => {
+    it('strips <!-- triage-plan --> block from rendered content', () => {
+      const content = [
+        '为您准备了以下跳转分诊计划，请您确认：',
+        '',
+        '<!-- triage-plan -->',
+        '**意图**: go',
+        '**目标**: R2',
+        '**原文**: 帮我跳转到猫猫球的thread',
+        '**操作**: 传送您前往 F229 猫猫球功能的讨论 thread。',
+        '<!-- /triage-plan -->',
+      ].join('\n');
+
+      act(() => {
+        root.render(createElement(ConciergeMessageContent, { content, actions: [] }));
+      });
+
+      // Triage markers and field content must not be visible
+      expect(container.textContent).not.toContain('triage-plan');
+      expect(container.textContent).not.toContain('意图');
+      expect(container.textContent).not.toContain('操作');
+      // Preamble text should still render
+      expect(container.textContent).toContain('为您准备了以下跳转分诊计划');
+    });
+
+    it('handles content with no triage markers unchanged', () => {
+      act(() => {
+        root.render(
+          createElement(ConciergeMessageContent, {
+            content: '普通回复，没有 triage 标记',
+            actions: [],
+          }),
+        );
+      });
+
+      expect(container.textContent).toBe('普通回复，没有 triage 标记');
+    });
+  });
 });

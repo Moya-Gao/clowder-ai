@@ -13,7 +13,7 @@
  *   Layer 3: ConciergePanel / bubble (surfaceState=bubble)
  *
  * Layout: ball + toolbar share a fixed wrapper (data-testid=concierge-ball-wrapper)
- * so toolbar's `absolute bottom-[calc(100%+8px)] right-0` resolves to that wrapper.
+ * so toolbar's `absolute top-[calc(100%+8px)]` resolves to that wrapper (BUG-UX-13: below, horizontal).
  * Panel has its own independent fixed position (viewport-relative).
  *
  * P1-A cloud fix: toolbar was a Fragment sibling of ConciergeBall's wrapper → no
@@ -38,6 +38,10 @@ import { ConciergeToolbar } from './ConciergeToolbar';
 const BALL_SIZE = 72;
 /** Default margin from viewport edge — matches original Tailwind `bottom-6 right-6` (1.5rem = 24px) */
 const EDGE_MARGIN = 24;
+/** Extra vertical space needed below the ball for the toolbar (BUG-UX-13 R2).
+ *  Toolbar: top-[calc(100%+8px)] → 8px gap; buttons are h-9 (36px) → total 44px.
+ *  Used in default position AND clamp to ensure toolbar is never clipped. */
+const TOOLBAR_BELOW_HEIGHT = 44;
 /** Minimum drag distance (px) to distinguish drag from click (INV-P1)
  *  BUG-UX-5: root fix is removing pointerEvents:'none' (below); threshold stays at 5. */
 const DRAG_THRESHOLD = 5;
@@ -82,7 +86,7 @@ export function ConciergeHost() {
     if (typeof window === 'undefined') return { x: 0, y: 0 };
     return {
       x: window.innerWidth - BALL_SIZE - EDGE_MARGIN,
-      y: window.innerHeight - BALL_SIZE - EDGE_MARGIN,
+      y: window.innerHeight - BALL_SIZE - TOOLBAR_BELOW_HEIGHT - EDGE_MARGIN,
     };
   }, []);
 
@@ -93,7 +97,8 @@ export function ConciergeHost() {
     if (typeof window === 'undefined') return raw;
     return {
       x: Math.max(0, Math.min(raw.x, window.innerWidth - BALL_SIZE)),
-      y: Math.max(0, Math.min(raw.y, window.innerHeight - BALL_SIZE)),
+      // BUG-UX-13 R2: clamp Y accounts for toolbar below the ball, not just ball size
+      y: Math.max(0, Math.min(raw.y, window.innerHeight - BALL_SIZE - TOOLBAR_BELOW_HEIGHT)),
     };
   }, [ballPosition, defaultPosition]);
 
@@ -104,7 +109,8 @@ export function ConciergeHost() {
       if (!pos) return; // default position auto-adapts
       const clamped = {
         x: Math.max(0, Math.min(pos.x, window.innerWidth - BALL_SIZE)),
-        y: Math.max(0, Math.min(pos.y, window.innerHeight - BALL_SIZE)),
+        // BUG-UX-13 R2: resize clamp also accounts for toolbar below
+        y: Math.max(0, Math.min(pos.y, window.innerHeight - BALL_SIZE - TOOLBAR_BELOW_HEIGHT)),
       };
       if (clamped.x !== pos.x || clamped.y !== pos.y) {
         void setBallPosition(clamped);

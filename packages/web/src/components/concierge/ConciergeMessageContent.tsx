@@ -65,9 +65,18 @@ const CAT_SIGNATURE_RE = /\[[\w一-鿿-]+(?:\/[\w一-鿿.-]+)?🐾\]\s*/g;
 const INTERNAL_MENTION_RE =
   /(?:^|\s)@(?:l\.s\.|landy|lysander|opus(?:-?4[678])?|sonnet|fable5|codex|gpt52|spark|gemini(?:-?(?:25|35))?|antigravity|antig-opus)(?![a-zA-Z0-9_-])/gi;
 
+/** Matches <!-- triage-plan --> ... <!-- /triage-plan --> blocks (BUG-UX-13 defense-in-depth).
+ *  API strips these before storage, but if strip fails the frontend must not leak raw markup. */
+const TRIAGE_PLAN_MARKER_RE = /<!--\s*triage-plan\s*-->[\s\S]*?<!--\s*\/triage-plan\s*-->/g;
+
 /** Clean internal markers from user-visible concierge content */
 function stripInternalMarkers(text: string): string {
-  return text.replace(CAT_SIGNATURE_RE, '').replace(INTERNAL_MENTION_RE, '').trim();
+  return text
+    .replace(TRIAGE_PLAN_MARKER_RE, '')
+    .replace(CAT_SIGNATURE_RE, '')
+    .replace(INTERNAL_MENTION_RE, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 // ---------------------------------------------------------------------------
