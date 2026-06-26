@@ -377,6 +377,7 @@ require_release_source_commit_on_main() {
 DRY_RUN=false
 VALIDATE=false
 SKIP_VALIDATE=false
+SKIP_DELTA_GATE=false
 FAST_VALIDATE=false
 AUTO_YES=false
 FORCE_OVERWRITE=false
@@ -390,6 +391,7 @@ for arg in "$@"; do
     --dry-run) DRY_RUN=true ;;
     --validate) VALIDATE=true ;;
     --skip-validate) SKIP_VALIDATE=true ;;
+    --skip-delta-gate) SKIP_DELTA_GATE=true ;;
     --fast-validate) FAST_VALIDATE=true ;;
     --yes|-y) AUTO_YES=true ;;
     --force-overwrite) FORCE_OVERWRITE=true ;;
@@ -1951,6 +1953,23 @@ if [ "$VALIDATE" = true ]; then
   else
     echo -e "  ${YELLOW}⚠ pnpm not found, skipping validate${NC}"
   fi
+
+  # F251 Task 4: VALIDATE mode also invokes the delta gate in --dry-run mode
+  # so the operator can verify gate behavior without committing to a real sync.
+  if [ "$SKIP_DELTA_GATE" != true ] && target_git_repo_exists "$TARGET_DIR"; then
+    echo "  Public delta preservation gate (F251, validate mode)..."
+    DELTA_GATE_OUTPUT_DIR="$SOURCE_DIR/docs/ops"
+    mkdir -p "$DELTA_GATE_OUTPUT_DIR"
+    node "$SOURCE_DIR/scripts/check-sync-public-delta-gate-cli.mjs" \
+      --target-dir "$TARGET_DIR" \
+      --filtered-dir "$VALIDATION_TARGET_DIR" \
+      --source-dir "$SOURCE_SYNC_DIR" \
+      --sync-module "$SYNC_MODULE" \
+      --head-ref HEAD \
+      --output-dir "$DELTA_GATE_OUTPUT_DIR" \
+      --dry-run
+  fi
+
   cleanup_validation_target
   echo ""
   echo -e "${GREEN}[VALIDATE] Export at:${NC}"
@@ -1960,6 +1979,39 @@ if [ "$VALIDATE" = true ]; then
 fi
 
 if [ "$DRY_RUN" = true ]; then
+  # F251 Task 4: dry-run MUST also invoke the delta gate so AC-A5 historical
+  # replay can use this exact code path. The gate runs in --dry-run mode (always
+  # exit 0) but still emits the JSON+Markdown report so the operator/CI can
+  # inspect what WOULD be blocked if this were a real sync.
+  #
+  # Caveat: in dry-run we use FILTERED_DIR (raw export tree) as `ours`, not
+  # VALIDATION_TARGET_DIR (post-restore expected post-sync state). Target-owned
+  # paths preserved by Step 5c's restore logic may show as missing here. For
+  # AC-A5 replay this is acceptable because the operator inspects the report
+  # rather than relying on exit status.
+  if [ "$SKIP_DELTA_GATE" != true ] && target_git_repo_exists "$TARGET_DIR"; then
+    echo ""
+    echo "  Public delta preservation gate (F251, dry-run mode)..."
+    DELTA_GATE_OUTPUT_DIR="$SOURCE_DIR/docs/ops"
+    mkdir -p "$DELTA_GATE_OUTPUT_DIR"
+    # AC-A5 historical replay parity: dry-run must forward the same target-owned roots
+    # the production gate uses, otherwise paths preserved by Step 5c (e.g.
+    # docs/community/, .github/community/) get reported as delete/target-added BLOCKs
+    # in the dry-run report even though they're intentionally absent from the export.
+    DELTA_GATE_TARGET_OWNED_ARGS=()
+    for owned in "${TARGET_OWNED[@]}"; do
+      DELTA_GATE_TARGET_OWNED_ARGS+=(--target-owned-root "$owned")
+    done
+    node "$SOURCE_DIR/scripts/check-sync-public-delta-gate-cli.mjs" \
+      --target-dir "$TARGET_DIR" \
+      --filtered-dir "$FILTERED_DIR" \
+      --source-dir "$SOURCE_SYNC_DIR" \
+      --sync-module "$SYNC_MODULE" \
+      --head-ref HEAD \
+      --output-dir "$DELTA_GATE_OUTPUT_DIR" \
+      "${DELTA_GATE_TARGET_OWNED_ARGS[@]}" \
+      --dry-run
+  fi
   echo ""
   echo -e "${GREEN}[DRY RUN] Export complete at:${NC}"
   echo "  $FILTERED_DIR"
@@ -2074,6 +2126,43 @@ else
   fi
   cleanup_validation_target
   echo "  ✓ Source-owned public gate passed"
+fi
+
+# F251 Public Delta Preservation Gate (Task 4) — INDEPENDENT of --skip-validate
+# Runs the public byte-space three-way comparison (base / theirs / ours).
+#   ours = $FILTERED_DIR (pristine raw export, NOT VALIDATION_TARGET_DIR which is polluted
+#          by pnpm install / build / restore mutations from run_target_public_gate)
+#   theirs = $TARGET_DIR worktree HEAD (--head-ref HEAD), NOT origin/main — the worktree
+#           checkout is what rsync will overwrite at Step 5c
+#   baseline = resolved by CLI from sync tag / landed sync provenance
+# Target-owned paths are excluded via --target-owned-root because Step 5c's backup/restore
+# preserves them regardless of export contents.
+# Only --skip-delta-gate (NOT --skip-validate) opts out of this protection.
+if [ "$SYNC_MODULE" != "all" ]; then
+  echo -e "  ${YELLOW}ℹ Skipping public delta preservation gate for module sync${NC}"
+elif [ "$SKIP_DELTA_GATE" = true ]; then
+  echo -e "  ${YELLOW}ℹ Skipping public delta preservation gate (--skip-delta-gate)${NC}"
+else
+  echo "Public delta preservation gate (F251)..."
+  DELTA_GATE_OUTPUT_DIR="$SOURCE_DIR/docs/ops"
+  mkdir -p "$DELTA_GATE_OUTPUT_DIR"
+  DELTA_GATE_TARGET_OWNED_ARGS=()
+  for owned in "${TARGET_OWNED[@]}"; do
+    DELTA_GATE_TARGET_OWNED_ARGS+=(--target-owned-root "$owned")
+  done
+  if ! node "$SOURCE_DIR/scripts/check-sync-public-delta-gate-cli.mjs" \
+    --target-dir "$TARGET_DIR" \
+    --filtered-dir "$FILTERED_DIR" \
+    --source-dir "$SOURCE_SYNC_DIR" \
+    --sync-module "$SYNC_MODULE" \
+    --head-ref HEAD \
+    --output-dir "$DELTA_GATE_OUTPUT_DIR" \
+    "${DELTA_GATE_TARGET_OWNED_ARGS[@]}"; then
+    echo -e "  ${RED}✗ Public delta preservation gate BLOCKED — real target was not touched${NC}"
+    echo -e "  ${RED}   See report in $DELTA_GATE_OUTPUT_DIR${NC}"
+    exit 1
+  fi
+  echo "  ✓ Public delta preservation gate passed"
 fi
 
 if [ -n "$RELEASE_TAG" ]; then
