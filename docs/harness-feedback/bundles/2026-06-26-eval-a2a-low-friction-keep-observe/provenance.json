@@ -1,0 +1,19 @@
+{
+  "verdictId": "2026-06-26-eval-a2a-low-friction-keep-observe",
+  "rawInputs": [
+    {
+      "path": "docs/harness-feedback/snapshots/2026-06-26-F167-eval.yaml",
+      "sha256": "606303e2577953fc9cda47e8249e4fd24ff62525ab8a007a02f45ff3ff698374"
+    },
+    {
+      "path": "docs/harness-feedback/attributions/2026-06-26-F167-attribution.yaml",
+      "sha256": "08583f4e8028215f1482c1ae4d05eb8f199689a412d950e014dd985a331e246b"
+    }
+  ],
+  "generatedAt": "2026-06-26T03:01:28.149Z",
+  "generator": {
+    "name": "eval-a2a-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f192-e-pilot-v1"
+}
