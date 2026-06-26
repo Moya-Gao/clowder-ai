@@ -228,6 +228,157 @@ Console settings "配置云端猫" 流程：
 
 **Real-system dry-run verify**：实测 process list 命中 3 类 stale MCP wrapper（agent-browser-mcp / @playwright/mcp / pinchtab-mcp），**未误杀** pinchtab server / pinchtab bridge / 已有 agent-browser-cli orphan rule 仍 work。
 
+### Phase B1c — Auto Cloud Invocation Bridge（local @ → cloud notify, thread-bound）📋 spec v2
+
+> **触发起因（2026-06-25 CVO challenge）**：B1a 让用户人肉粘贴 prompt 进 ChatGPT 测试 → 跟 cc/cat 自己用 browser automation 跑 deepsearch + image gen 自相矛盾。**KD-6 "user-driven" 不该被误解成"user 手指必须动"**——browser automation 用 user chrome session + user account 是合法 user-driven 代理。
+>
+> **Phase B1c-0 prerequisite ✅ done** (PR #2556 squash `301f29eba`): MCP wrapper lifecycle hygiene gate landed，底座修了。B1c 现可在干净底座上 implement.
+>
+> **CVO R1 catch (2026-06-25 23:46 PT)**：bridge 投递到 ChatGPT 端**哪个 chat**？v1 spec 漏了这层架构——每次 mention 新建 chat = sidebar 爆炸 + 砚砚 Pro 失去 conversation continuity；投到 active chat = 打断他当前讨论。**必须做 thread↔chat binding (KD-20)**。
+
+**目标**：本地猫 @ gpt-pro → cat-cafe 自动通过 browser automation 在 user chrome 的 ChatGPT **该 thread 对应的 chat** 投递 mention 通知（带 thread context）→ 砚砚 Pro 看到后 MCP read 拉详情 + 写回复。**全程零人肉粘贴，sidebar 干净。**
+
+#### Design 要点
+
+**1. Backend = PinchTab 单一**（codex/砚砚 R0 verdict + 跨 family）
+- 跨族（缅因猫/暹罗猫/布偶猫都能用），不像 claude-in-chrome 仅 Anthropic 系
+- attach 现有 chrome session（不开新 browser profile，减少 zombie 面）
+- **可用工具实测**（codex R1 P1-A + 47 ref verify）：`pinchtab_eval` / `pinchtab_get_text` / `pinchtab_navigate` (localhost only) / `pinchtab_screenshot` / `pinchtab_snapshot`。**没有** `pinchtab_get_url` / `pinchtab_list_tabs` / `pinchtab_click` / `pinchtab_type` / `pinchtab_press`——v1 spec 误写
+- **外网导航必须走 eval**（refs/pinchtab.md：Clash TUN 下 `pinchtab_navigate` 外网 403；eval 让浏览器自己走代理）
+- **不抽象多 backend layer**（"只搞一个"，agent-browser 作 PinchTab 失败时 fallback 由 future PR 引入）
+
+**2. Thread↔Chat Binding (KD-20) — CVO R1 拍板**
+
+数据 model：cat-cafe thread metadata 新增字段 `cloudCatBindings: {[catId]: chatUrl}`，例如：
+```json
+{
+  "threadId": "thread_mqgem09a7skjvwhx",
+  "cloudCatBindings": {
+    "gpt-pro": "https://chatgpt.com/c/<conversation-id>"
+  }
+}
+```
+
+绑定 lifecycle（lazy + auto-self-heal）：
+- **Lazy 不预绑**：thread 创建时**不**预先开 chat
+- **首次 @ gpt-pro**：bridge 在 ChatGPT 端开新 chat → URL 包含 `chatgpt.com/c/<conversation-id>` → capture URL → 写 thread metadata
+- **后续 @ 同 thread**：bridge 查 thread metadata → 找到 bound URL → navigate to bound chat → 投通知
+- **Binding stale**（你删了 chat / ChatGPT 端 reset）：bridge navigate 失败检测 → 自动 re-open new chat + update binding，不要求用户手动重绑
+- **多云端猫场景**：每只 cloud cat 一条 binding（`cloudCatBindings.gpt-pro` / `cloudCatBindings.claude-pro` 互不冲突）
+
+**3. 触发点**（跟 KD-17 dispatch guard 集成）
+- `invokeSingleCat` 看到 `provider === 'openai-chatgpt-pro'` → guard skip dispatch + 触发 cloud-invoke-bridge → fire-and-forget → yield done
+- bridge 是新 service 在 cat-cafe API 内部，调 PinchTab MCP 工具
+
+**4. 载荷模板**（thread context-aware）
+
+```
+⚡ Cat Café mention
+
+From: @{sourceCatId}
+Thread: {threadTitle} (id={threadId})
+Reason: {mentionInlineContent}
+Triggered: {ISO timestamp}
+
+Action expected:
+1. cat_cafe_get_thread_context(threadId="{threadId}", agentKeyCatId="gpt-pro", limit=10)
+2. cat_cafe_post_message(threadId="{threadId}", agentKeyCatId="gpt-pro", content="...")
+```
+
+**5. Browser 控制流程**（all-eval pattern, Clash TUN safe, lock-first ordering）
+
+```
+trigger → bridge enter
+  → acquire singleflight lock (threadId, "gpt-pro") — see §8
+  → re-read thread metadata cloudCatBindings["gpt-pro"]
+       (MUST be inside lock — second concurrent invocation sees the
+       binding written by the first one, doesn't open a duplicate chat)
+  → if bound URL exists:
+       pinchtab_eval(`window.location.href = ${JSON.stringify(boundUrl)}`)
+       wait for navigation (poll readyState or fixed timeout)
+       pinchtab_get_text() → detect 404 / chat-not-found marker
+       on stale → fallback to "create new" branch below
+     else (first time):
+       pinchtab_eval(`window.location.href = 'https://chatgpt.com/'`)
+       wait for landing — new chat is the default ChatGPT landing surface
+  → inject payload via eval (find input via querySelector + dispatch input Event)
+       pinchtab_eval(`(() => {
+         const input = document.querySelector('<input selector>');
+         input.innerText = ${JSON.stringify(payload)};
+         input.dispatchEvent(new Event('input', { bubbles: true }));
+       })()`)
+  → submit via eval (find send button + .click(), or simulate Enter)
+       pinchtab_eval(`(() => {
+         const btn = document.querySelector('<send button selector>');
+         btn.click();
+       })()`)
+  → wait for ChatGPT to navigate to /c/<conversation-id>
+  → capture conversation URL via eval:
+       pinchtab_eval(`window.location.href`) → returns captured URL string
+  → VALIDATE captured URL before write (§7 boundary):
+       MUST match ^https://chatgpt\.com/c/[a-zA-Z0-9-]+/?$
+       on validation fail → emit fallback notification, do NOT write metadata
+  → if first time / stale (and URL passes validation):
+       write thread metadata cloudCatBindings["gpt-pro"] = capturedUrl
+  → release singleflight lock
+  → yield done
+```
+
+> **Eval input safety contract** (codex R2 P1): EVERY string interpolated into a `pinchtab_eval` expression — payload / boundUrl / any future field — MUST go through `JSON.stringify(...)`. Never raw interpolation: `${boundUrl}` is the v1 mistake. Even though `boundUrl` comes from stored metadata via owner-only endpoint, treat persistent state as untrusted at the JS injection boundary.
+>
+> **Selector reliability**: input box / send button selectors are ChatGPT DOM internals that change. Implementation 前置 spike (AC-B1c-3a) 验证当前 selector + 端到端 eval 流程；selector 失效时 fallback notification (§6).
+
+**6. 失败 fallback**（cat-cafe `system_info` 通知本地 thread）
+- Chrome 没 running / ChatGPT.com 没登录 / input box selector 失效
+- → bridge emit fallback notification 进发起 mention 的本地 thread："云端投递失败，请打开 Chrome + 登录 ChatGPT"，dispatch guard yield done 不留尾巴
+
+**7. 隐私边界 — `cloudCatBindings` 是 local-only operational sidecar**（codex R1 P1-B catch）
+
+ChatGPT conversation URL 是个人会话坐标——不能默认随 thread context / export / memory index 广播给其他猫。**Privacy contract**：
+
+| Path | 含 `cloudCatBindings`? |
+|---|---|
+| `cat_cafe_get_thread_context` (默认 read API) | ❌ NEVER |
+| Thread export (markdown / JSON / share) | ❌ NEVER |
+| Memory index (`search_evidence` / `graph_resolve` / `list_recent`) | ❌ NEVER |
+| Cross-thread post / mention | ❌ NEVER |
+| 专用 `/api/threads/:id/cloud-bindings` endpoint (owner-only auth) | ✅ ONLY here |
+
+Implementation 选择（择一，implementation PR 决定）：
+- **A** (recommended)：thread metadata 加 `cloudCatBindings` field 但 read API path 显式过滤 (`SELECT * EXCLUDE cloudCatBindings`)
+- **B**：完全分表 — 独立 `cloud_cat_bindings` table，`(threadId, catId)` 主键，cat-cafe runtime sidecar 维护
+
+两者都满足 privacy contract；选 A 简单，选 B 更彻底。
+
+**URL validation contract** (codex R2 P1)：写 binding 前 capture 的 URL 必须通过 strict regex `^https://chatgpt\.com/c/[a-zA-Z0-9-]+/?$`；失败则视为 capture corruption（DOM hijack / wrong tab / network detour），不写 metadata + emit fallback notification。读 binding 后也 re-validate 一次再 navigate（防 stored 态被绕过 endpoint auth 直接 db-write 注入恶意 URL）。
+
+**8. Singleflight binding lock**（codex R1 P2-B + R2 P2 catch）
+
+两个本地猫同 thread 同时 @ gpt-pro 首次：会 race 开两个 ChatGPT chat 并 race 写 metadata 互相覆盖。**Contract**（lock-first ordering）：
+
+- Lock key: `(threadId, catId)` 唯一
+- **bridge 第一动作 = acquire lock**（**先于** any metadata read，避免 codex R2 P2 stale read：pre-lock query 看到 "no binding" → lock 后仍按 first-bind 开第二个 chat）
+- acquire lock 后 **必须** re-read metadata `cloudCatBindings[catId]` 决定 branch — second concurrent invocation 在 lock 内 re-query 看到 first holder 已写的 binding → navigate to bound chat（**不开第二个**）
+- second invocation read post-lock → AC-B1c-9 explicit test fixture
+- lock TTL：30s（覆盖 chat 创建 + URL capture latency；超时 auto-release 让重试）
+- 整个 bridge 流程都在 lock 内（read → navigate → submit → capture → write → release）
+
+#### Phase 边界
+
+**B1c IN**：
+- 自动 invocation bridge（local @ → cloud paste，零人肉）
+- PinchTab 单一 backend
+- Thread↔Chat O1 binding via thread metadata
+- Auto self-heal stale binding
+- 失败 fallback notification
+
+**B1c OUT**：
+- B1b OAuth verified auth（不同 layer，平行推进）
+- 同步等回（fire-and-forget 起步；OQ-B1c-3）
+- 多 provider 框架（Phase D）
+- 多 user / 多 ChatGPT account（B1b → Phase D）
+- agent-browser fallback（future PR，PinchTab 不稳时再加）
+
 ### Phase D — Console "配置云端猫" 多 provider UI
 
 Phase B-C 后启动。Settings 页面新增 "配置云端猫"，支持选 provider / model / 自动 wire up token + URL。
@@ -292,6 +443,21 @@ Phase B-C 后启动。Settings 页面新增 "配置云端猫"，支持选 provid
 - [x] **AC-B1c-0-4**: real-system dry-run verify 实测 process list（3 类 wrapper 命中 + sanctuary 未误杀）
 - [ ] **AC-B1c-0-5** (post-merge ops)：CVO 看 dry-run → 手动 `launchctl load` 启用每日 cleanup
 
+### Phase B1c AC (spec v2 — 立项后实施时细化)
+
+- [ ] **AC-B1c-1**: cat-cafe API thread metadata 加 `cloudCatBindings: {[catId]: chatUrl}` field（持久化 + owner-only `/api/threads/:id/cloud-bindings` GET/PATCH endpoint，**不**进默认 thread context export 路径）
+- [ ] **AC-B1c-2**: `cloud-invoke-bridge` service — `invokeSingleCat` 看 cloud provider 时调 bridge fire-and-forget
+- [ ] **AC-B1c-3**: bridge 用 PinchTab 完成投递流程（query binding / eval-based navigate / inject payload / submit / capture URL via `window.location.href` eval / write binding）
+- [ ] **AC-B1c-3a** (gate, pre-impl)**：PinchTab 实测 spike — verify 当前 ChatGPT input/send selector + eval-based 导航 Clash TUN safe + `pinchtab_eval(window.location.href)` 捕 URL 可靠。**spike 不过 → 不实施 B1c**（避 v1 spec wishful thinking 重演）
+- [ ] **AC-B1c-4**: 失败 fallback notification 投到本地 thread (`system_info` rich block) — chrome down / not logged in / selector fail
+- [ ] **AC-B1c-5**: 端到端实测 — 本地 @ gpt-pro → ChatGPT bound chat 收通知 → 砚砚 Pro MCP read + reply → cat-cafe 看到回复
+- [ ] **AC-B1c-6**: stale binding self-heal — 删除 bound chat 后 next mention 检测 fail → auto re-open + update binding
+- [ ] **AC-B1c-7**: 多 thread × 同 cloud cat 不互相污染 — chat A 专 thread X / chat B 专 thread Y
+- [ ] **AC-B1c-8** (privacy)**：`cloudCatBindings` 不出现在 `get_thread_context` / thread export / memory index / cross-post 任何路径 — explicit test fixtures
+- [ ] **AC-B1c-9** (singleflight, lock-first)**：两个并发 @ 同 thread 首次绑定只开**一个** ChatGPT chat — second invocation 必须 acquire lock 后 **re-read** binding（在 lock 内 re-read 不允许用 pre-lock stale read 结果）；test fixture explicit assert "second invocation 看到 first 写入的 binding 后 navigate to bound chat，不走 first-bind 分支"
+- [ ] **AC-B1c-10** (eval safety)**：所有 `pinchtab_eval` 输入字符串走 `JSON.stringify` (payload / boundUrl / any future interpolation)；test fixture 含 boundUrl 含特殊字符 / payload 含 quote 不破 eval
+- [ ] **AC-B1c-11** (URL validation)**：写 binding 前 capture URL 必须 match `^https://chatgpt\.com/c/[a-zA-Z0-9-]+/?$`；不合规则 reject + emit fallback + 不写 metadata；读 binding 后 navigate 前 re-validate（防 db-write 注入恶意 URL）
+
 ### Phase D / E acceptance criteria 待立项后细化
 
 ## Open Questions
@@ -348,6 +514,7 @@ Phase B-C 后启动。Settings 页面新增 "配置云端猫"，支持选 provid
 | **~~KD-16 (撤回 — 47 R13 wrong finding)~~** | ~~B1a 没持久化、重启即丢~~ — **48 R13.5 5 重证据推翻**：主服务实例 `cat-cafe-runtime/.cat-cafe/cat-catalog.json` line 1394 有 gpt-pro 顶层 breed entry + variant，mtime 6-22（B1a 注册时间），`createRuntimeCat` writeFileSync 落盘 + 启动 `readRuntimeCatCatalog` load 恢复正常。47 R13 grep 错坐标：grep 的是 worktree 系隔离 catalog（死文件 mtime 6-15），不是主服务实例 catalog。**真 P1 是 avatar 字段值 stale**（gpt52 R12 + 48 R13.5 双 confirm），见 AC-C-1b。第三次 grep 错坐标自审：见 LL-grep-coordinate-runtime-vs-worktree (TODO) | 2026-06-25 撤回 |
 | **KD-17 (B1a 注册 oversight + dispatch guard)** | **cloud-only 猫（Remote MCP）不能被 dispatch**：B1a 时 `POST /api/cats` 注册 gpt-pro，cat-cafe runtime `createRuntimeCat` 看 clientId=`openai` 自动塞 default cli (`{command: "codex"}`)，违反 F247 cat-config.json caution 明示的"cli 字段省略；不被动接 dispatch"。本地 @ gpt-pro 触发 dispatch + spawn codex → 失败 → 弹"模型名不被支持"错误窗。**Root fix 3 处**：(1) updateCatSchema `cli: cliSchema.nullable().optional()` + updateRuntimeCat 处理 `cli:null` 删字段；(2) POST handler 看 provider=`openai-chatgpt-pro` 跳 default cli；(3) invokeSingleCat 入口 guard `provider === 'openai-chatgpt-pro'` → skip dispatch + yield done（用 explicit provider marker 而非 `!cli?.command`，因为 antigravity 也无 cli 但用 ACP/MCP 不同路径——guard 应保守只拦 known cloud Remote MCP providers）；post-merge ops: `PATCH /api/cats/gpt-pro {cli:null}` 清 runtime catalog stale cli 字段。Future cloud providers (anthropic-claude-cloud / google-gemini-cloud 等) 增加时同时加入 POST + dispatch guard 检查列表 | 实测来源：2026-06-25 00:10 PT 本地 @ gpt-pro 触发"模型名不被支持 ×2 + 调用 codex CLI exit 1"弹窗；catalog file inspect 显示 gpt-pro variant 有 `cli: {command: "codex", outputFormat: "json"}`；cat-config.json codex-gpt-pro 反而**没 cli** + caution 字段写"cli 字段省略；不被动接 dispatch"。tests 2 项：POST cloud-only skip default cli ✅ + PATCH cli:null 删字段 ✅ | 2026-06-25 |
 | **KD-19 (B1c-0 MCP wrapper lifecycle hygiene)** | **不写新 kill script，扩展已测 cleanup-stale-dev-processes.mjs**：browser-automation MCP wrapper (agent-browser-mcp / @playwright/mcp / pinchtab-mcp) 不退累积 zombie；LL-056 + feedback_agent_browser_zombie 5 次 reoccurrence。codex/砚砚 R0 verdict 3 硬约束：(1) 只扩 `pnpm process:cleanup` 已测入口不写独立 shell；(2) launchd plist template 进 git 但不自动 install (持久 OS automation 需 CVO opt-in)；(3) 匹配规则极窄 (pinchtab server/bridge 永不杀，generic node/npm/playwright 不杀)。**升级 MCP 不修**（已 latest 版，LL-056 早写过 wrapper lifecycle 是 design 限制）。**B1c 前置 gate**：B1c-0 不过 → 不实施 B1c（不然让铲屎官手动清违反"自相矛盾"原则） | 触发：CVO 提议"升级 mcp + 定时任务清"。codex 调查发现已有 `pnpm process:doctor / cleanup` + LL-056 教训；47 之前提议的"写新 kill script + launchd plist"被否决（绕开已有护栏）。codex R0 3 硬约束接受 + 47 implementation；real-system dry-run verify pass | 2026-06-25 |
+| **KD-20 (B1c thread↔chat binding, CVO R1 pick O1 + codex R1+R2 hardening)** | **本地 cat-cafe thread 跟 ChatGPT chat conversation 做 1:1 lazy binding**：thread metadata 新增 `cloudCatBindings: {[catId]: chatUrl}` 字段，**local-only operational sidecar**（不进默认 thread context export / memory index / cross-post）；首次 @ cloud cat → bridge 在 ChatGPT 端开新 chat → capture URL via `pinchtab_eval(window.location.href)` → strict regex validation → 写 metadata；后续 @ 同 thread → bridge navigate to bound chat → 投通知；stale binding (chat 被删) → bridge navigate fail → auto-reopen + update metadata；**`(threadId, catId)` singleflight lock + lock-first ordering**：bridge 第一动作 acquire lock，**lock 内** re-read metadata 决定 branch，second concurrent invocation 在 lock 内看到 first 写入的 binding → navigate to bound（不开第二个）；**eval safety**：所有 `pinchtab_eval` 输入字符串走 `JSON.stringify` (payload / boundUrl / future interpolation 全适用)；**URL strict validation** `^https://chatgpt\.com/c/[a-zA-Z0-9-]+/?$`，写前 + 读后 navigate 前各 validate 一次（防 capture corruption + db-write 注入）。**为什么选 O1 不是 single shared chat (O2) / hybrid (O3) / 不绑 (O4)**：O2 sidebar 看似干净但砚砚 Pro context 跨 thread 混杂信噪比差；O3 引入 feature_id 复杂度但 thread 不一定有 feature；O4 时间一久 sidebar 仍乱、砚砚 Pro 跨 chat 分裂；O1 每 chat 专注一 thread，砚砚 Pro context 隔离 + sidebar 数量 ≈ active threads + lazy 不预绑 + auto-self-heal | 触发：CVO 2026-06-25 23:46 PT catch v1 spec 漏 chat binding；codex R1 23:55 PT 加 privacy P1-B + singleflight P2-B；codex R2 00:01 PT 加 eval JSON.stringify safety P1 + lock-first ordering P2 + URL regex validation。47 给 4 options + CVO pick O1 + codex 双轮 hardening | 2026-06-25 (v2 codex R1+R2 hardened) |
 
 ## Phase 1.5 实测 Unknown 列表
 
@@ -409,6 +576,11 @@ Phase B-C 后启动。Settings 页面新增 "配置云端猫"，支持选 provid
 | 2026-06-25 01:27 PT | KD-17 PR #2538 merged (squash SHA `ecd71ac93`) |
 | 2026-06-25 15:10 PT | CVO challenge "用 user 人肉粘贴自相矛盾" → Phase B1c spec PR #2553 (open，待 review) |
 | 2026-06-25 08:42 PT | codex/砚砚 R0 verdict: 前置 B1c-0 MCP wrapper lifecycle hygiene gate（先修底座再做 B1c）→ KD-19 立案 + 本 PR 实施 |
+| 2026-06-25 16:49 PT | **B1c-0 merged (PR #2556, squash SHA `301f29eba`)** — MCP wrapper hygiene gate landed |
+| 2026-06-25 23:46 PT | CVO R1 catch — B1c v1 spec 没考虑 ChatGPT chat binding，每次新建 chat = sidebar 爆 + 砚砚 Pro 失 continuity → KD-20 立案 O1 lazy binding via thread metadata |
+| 2026-06-25 23:54 PT | B1c spec v2 PR opened — 含 KD-20 binding design |
+| 2026-06-25 23:55 PT | codex R1 HOLD — 4 findings: P1-A PinchTab tool surface 错（pinchtab_get_url 不存在）+ P1-B cloudCatBindings 隐私边界没定义 + P2-A 外网导航 Clash TUN 403 (应走 eval) + P2-B 首绑并发 race；spec 重写 §1/§5/+§7隐私/+§8并发 + AC-B1c-3a spike gate / -8 privacy / -9 singleflight |
+| 2026-06-26 00:01 UTC | codex R2 HOLD — 2 implementation-contract findings: P1 `${boundUrl}` 直接拼 eval = injection 形态（boundUrl 是持久态不能当 trusted literal）；P2 §5 流程 pre-lock query metadata 让 second concurrent invocation 拿 stale read 仍走 first-bind 分支。修：§5 lock-first ordering + JSON.stringify all interpolation + §7 URL regex validation + §8 explicit re-read in lock + AC-B1c-10 eval safety / -11 URL validation |
 
 ## Links
 
