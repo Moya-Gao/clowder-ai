@@ -51,10 +51,11 @@ tips_exempt: "Tip planned for Phase D sharing feature — Phase A is infrastruct
 | provenance + confidence invariant | 同上:73-78 | ✅ schema ready | 箭头实线/虚线（high/medium/low） |
 | `closed` kind（ball-shaped） | `FeatTrajectoryProjector.ts:58-64` | ✅ **已实现**：`ball.handed_cvo intent=done_notify → closed` | feature 关闭标记 |
 | git-shaped kinds（`branch_pushed` / `pr_opened` / `branch_merged_to_main` / `branch_stale_unmerged`） | `GitRefSnapshotCollector` | ✅ **已实现**（server-side cron census） | git 事件标记 |
-| `thread_split` / `thread_merge` / `pr_merged` / `phase_transition` / `verdict` / `reopened` | schema:36-43 | ❌ **schema 已声明但 projector 未实现**——`mapBallCustodyEventToTrajectory` 对这些 kinds return null → skip（`FeatTrajectoryProjector.ts:53`） | **F252 Phase C 的跨 thread 因果边依赖这些 kinds。须先补 F233 emitters（见 Dependencies）** |
+| `thread_split` / `thread_merge` | `ThreadSplitCollector` + `CrossPostCollector` | ✅ **已实现**（PR #2575, 2026-06-26）——独立 collector 从 proposal store / message store 采集，scheduler 编排 | F252 Phase C 跨 thread 因果边的核心数据源 |
+| `pr_merged` / `phase_transition` / `verdict` / `reopened` | schema:36-43 | ❌ **schema 已声明但 projector 未实现** | Phase C 可用 `branch_merged_to_main`（git-shaped）部分替代 `pr_merged`；`phase_transition`/`verdict`/`reopened` 是增量富化，非 swimlane 核心 |
 | `applyStitchedEntry`（历史回填） | `FeatTrajectoryProjector.ts:278` | ❌ **throw 'step 5+ RED'** | 老 feature 的历史叙事暂无 |
 
-**关键洞察**：F252 Phase C 是 **Feature Story Renderer**（消费 F233 投影做可视化），不是 Feature Story Builder（从零建数据层）。一套真相源——观众看到的故事和 CVO 在值班简报里看到的轨迹是同一份账本。**但 F233 projector 当前只产 `closed` + git-shaped entries。Phase C 的杀手叙事（跨 thread 传球 + 因果链）依赖 F233 补齐 `thread_split`/`thread_merge`/`pr_merged`/`phase_transition` 四个 ball-shaped emitters**。
+**关键洞察**：F252 Phase C 是 **Feature Story Renderer**（消费 F233 投影做可视化），不是 Feature Story Builder（从零建数据层）。一套真相源——观众看到的故事和 CVO 在值班简报里看到的轨迹是同一份账本。**F233 projector 现产 `closed` + git-shaped + `thread_split` + `thread_merge` entries（PR #2575, 2026-06-26）。Phase C 核心泳道 + 因果链所需的两个跨 thread emitters 已就位**。`pr_merged`/`phase_transition` 等增量 emitters 可在 Phase C 实现中按需补齐。
 
 ### 缺失
 
@@ -209,7 +210,7 @@ tips_exempt: "Tip planned for Phase D sharing feature — Phase A is infrastruct
 ## Dependencies
 
 - **Evolved from**: F233（FeatTrajectoryProjection — Phase C 的数据骨架层。F233 投影 feature 轨迹，F252 渲染为可视化 story）
-- **Blocked by**: F233 emitter 补齐（**Phase C 前置依赖**）— F233 `mapBallCustodyEventToTrajectory` 当前只实现 `closed` 一条 rule。F252 Phase C 的跨 thread 因果叙事依赖至少 4 个 ball-shaped kinds 被实现：`thread_split`（propose_thread→child thread）、`thread_merge`（cross_post 回合并）、`pr_merged`（PR 合入）、`phase_transition`（Phase 推进）。**路径选择 A（KD-6）**：F252 主动驱动 F233 补 emitters，这些 PR 算 F233 范畴。F252 Phase C kickoff 前确认这 4 个 emitters 已 merged
+- **Blocked by**: ~~F233 emitter 补齐~~ **已部分解除**（PR #2575, 2026-06-26）— `thread_split`（propose_thread→child thread）+ `thread_merge`（cross_post 回合并）两个核心跨 thread emitters 已 merged。`pr_merged`/`phase_transition` 待补齐（可在 Phase C 实现中按需追加，现有 `branch_merged_to_main` git-shaped kind 可部分替代 `pr_merged`）
 - **Related**: F226（Presentation Surface / Demo Mode — 互补关系：F226 的浮窗可以在 Story Player 回放时常驻讲稿）
 - **Related**: F128（propose_thread — `thread_split` kind 的上游事件源）
 - **Related**: F225（Context Self-Management — 展示事件驱动协作的素材来源）
