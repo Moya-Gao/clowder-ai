@@ -1998,7 +1998,10 @@
       "target_merge_commit": "0aa5961766adeede7285dcacb88774da39ceedfe",
       "decision": "absorbed",
       "timestamp": "2026-06-26T04:33:36.404Z",
-      "note": "absorbed record created with --skip-absorbed-guard (outbound-filed hotfix or historical backfill)"
+      "intake_intent_issue": 2576,
+      "absorb_pr": 2582,
+      "review_proof": "https://github.com/zts212653/cat-cafe/pull/2582#pullrequestreview-4577076067",
+      "note": "Backfill upgraded to full absorbed lane: cat-cafe#2582 (merged e48f3cf8a, 2026-06-26T06:21:44Z) cleanly absorbed clowder-ai#1024 (cherry-pick cd5615070 → squash) via Intent Issue #2576 + cross-family review (@gpt52 R2 LGTM at PR #2582#pullrequestreview-4577076067 + R2.1 continuity at #pullrequestreview-4577109961) + cloud codex 👍 (no findings) on c14ecffb. Earlier --skip-absorbed-guard backfill at commit 05a38fe00 was based on incorrect claim that source was already on main (verified false: BootcampListModal:227 still had w-4.5 bug)."
     }
   ]
 }
