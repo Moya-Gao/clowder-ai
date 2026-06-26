@@ -355,6 +355,10 @@ The sync script may also pass temp output paths to avoid polluting `docs/ops` du
 
 ### Task 4: Wire into `sync-to-opensource.sh`
 
+> **Status (Task 4a)**: ✅ merged via PR #2591 (squash `c8b99a708`) on 2026-06-26. Production sync now invokes the delta gate from `sync-to-opensource.sh` (3 call sites: production / dry-run / validate) guarded by independent `--skip-delta-gate` flag. AC-A1 / A2 / A3 LIVE. Review chain: 砚砚 R0/R2/R7 + opus48 final-SHA audit + cloud R0–R7 (R3 9 P1/P2 plan-layer re-design, R4–R5 file size + sourceHead + binary detection + trailing-slash, R6 test fixture split, R7 砚砚 `.sync-provenance.json` generated-or-provenance allowlist).
+> **Task 4b (deferred)**: AC-A5 historical replay against real `clowder-ai#720 head=c3376252 merge=89cc0f22` — synthetic `target-revert` scenario proves shape but not the actual historical sync byte-equivalence.
+> **Task 4c (deferred)**: AC-A4 override-with-reason flag — current path is `--skip-delta-gate` + CVO PR-body sign-off.
+
 **Files:**
 - Modify: `scripts/sync-to-opensource.sh`
 - Test: `scripts/check-env-port-drift.test.mjs`

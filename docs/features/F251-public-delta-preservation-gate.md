@@ -45,12 +45,12 @@ V1.5 path ownership（sync-managed / target-owned / mixed） → V2 hunk-level c
 
 ### Phase A（Public Delta Gate V1）
 
-- [ ] AC-A1: Full sync fails before touching the real `clowder-ai` target when any sync-managed path has an unpreserved target delta.
-- [ ] AC-A2: Gate runs in public byte-space after export/sanitization, before `sync_filtered_into_target`.
-- [ ] AC-A3: Gate emits machine-readable JSON + human-readable Markdown reports with per-path classification.
-- [ ] AC-A4: Override requires explicit reason, written to provenance; > 3 overrides per sync triggers CVO approval alarm.
-- [ ] AC-A5: 至少一个高置信历史事故（候选：clowder-ai#720 sync 覆盖 F190 17 项视觉）reconstructed 成 dry-run fixture，V1 gate 必须 BLOCK 才算通过（anti-placebo）。
-- [ ] AC-A6: V1 部署 1 个月后跑 retroactive dry-run eval；C1a/C1b 历史事故必须 BLOCK，漏挡则重开 gate design。
+- [x] AC-A1: Full sync fails before touching the real `clowder-ai` target when any sync-managed path has an unpreserved target delta. — wired in Task 4a (PR #2591 squash `c8b99a708`); production gate runs after Step 5b validation, before Step 5c `sync_filtered_into_target`, fail-closes with `exit 1`.
+- [x] AC-A2: Gate runs in public byte-space after export/sanitization, before `sync_filtered_into_target`. — Task 4a uses pristine `$FILTERED_DIR` (post-export, pre-rsync) so target byte-space matches what would land on clowder-ai.
+- [x] AC-A3: Gate emits machine-readable JSON + human-readable Markdown reports with per-path classification. — Task 3 report writer + Task 4a writes both artifacts to `$SOURCE_DIR/docs/ops/` (dry-run uses `mktemp -d` to avoid pollution).
+- [ ] AC-A4: Override requires explicit reason, written to provenance; > 3 overrides per sync triggers CVO approval alarm. — DEFERRED to Task 4c. Current path: `--skip-delta-gate` flag + CVO sign-off documented in sync PR body.
+- [ ] AC-A5: 至少一个高置信历史事故（候选：clowder-ai#720 sync 覆盖 F190 17 项视觉）reconstructed 成 dry-run fixture，V1 gate 必须 BLOCK 才算通过（anti-placebo）。 — DEFERRED to Task 4b (real `#720 head=c3376252 merge=89cc0f22` replay; reconstructing 6-week-old state has its own scope). Task 4a uses synthetic `target-revert` scenario to prove the BLOCK shape.
+- [ ] AC-A6: V1 部署 1 个月后跑 retroactive dry-run eval；C1a/C1b 历史事故必须 BLOCK，漏挡则重开 gate design。 — pending V1 deployment + 30 days; gated by AC-A5 first.
 
 ### Phase B（Community Contract Registry v0）
 
@@ -108,6 +108,7 @@ V1.5 path ownership（sync-managed / target-owned / mixed） → V2 hunk-level c
 | 2026-06-25 | Task 2 baseline resolver merged via PR #2566 (squash `3eb52c60`); baseline selection now resolves explicit / reachable mirrored `sync/*` refs / landed sync provenance, Phase A sync wiring still pending |
 | 2026-06-25 | Task 3 report writer merged via PR #2584 (squash `8b94fa31`); JSON/Markdown report builder + append-only artifact safeguards landed, but AC-A3 still waits for Task 4 sync wiring to emit reports in real runs |
 | 2026-06-25 | C4 sibling sub-task merged via PR #2571 (squash `5ebc9f09d`); reverse-check guard `scripts/check-sync-docs-runtime-assets.mjs` + `docs_runtime_assets_allowlist` manifest key + sync-to-opensource.sh dir-prefix copy. Fixes clowder-ai#1025 root cause (sync `--exclude='docs/'` dropped `docs/services-offline-install.html`). Review chain: local 砚砚 R0/R1/R5 + cloud R0/R2/R3 (sealed by LL-072 at R5 — single-round 50% stale replay). |
+| 2026-06-26 | **Task 4a sync wire merged via PR #2591 (squash `c8b99a708`); AC-A1/A2/A3 NOW LIVE in production sync.** Production gate runs from `sync-to-opensource.sh` after Step 5b validation, before Step 5c real rsync, fail-closes with `exit 1`. `--skip-delta-gate` flag is the only opt-out (independent of `--skip-validate`). Review chain: 砚砚 R0/R2/R7 local cross-review + opus48 final-SHA ship-readiness audit + cloud R0–R7 (R3 9 P1/P2 plan-layer re-design, R4–R5 file-size + sourceHead + trailing-slash + binary detection, R6 test fixture split, R7 砚砚 P1 `.sync-provenance.json` generated-or-provenance allowlist). **AC-A4/A5/A6 remain DEFERRED** (4c override-with-reason, 4b historical replay, 1-month retroactive eval). |
 
 ## Review Gate
 
