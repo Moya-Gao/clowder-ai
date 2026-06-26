@@ -1,0 +1,519 @@
+{
+  "schemaVersion": "v0",
+  "version": 1,
+  "generatedAt": "2026-06-26T05:15:00Z",
+  "owner": "F251 Task 0 (布偶猫 Opus 4.7)",
+  "scope": "clowder-ai community-visible sync-related incidents, sampled 2026-03 to 2026-06",
+  "purpose": "Anchor input for F251 AC-A5 historical regression replay fixtures + AC-B1 Community Contract Registry seeds. Feeds Task 2 baseline resolver fixtures and Task 4 sync-to-opensource.sh wiring acceptance.",
+  "dataSource": {
+    "samplingStrategy": "Title + keyword filter (sync, 覆盖, 回退, regression, drift, introduced, overwritten, absorbed, sanitize, brand, intake) on 300 latest clowder-ai issues",
+    "rawCandidateCount": 25,
+    "trueSyncIncidentCount": 12,
+    "falsePositiveCount": 13,
+    "extractedAt": "2026-06-26T05:10:00Z",
+    "reporters": {
+      "mindfn": 14,
+      "zts212653": 6,
+      "terrenceeLeung": 4,
+      "ldn9596": 1
+    },
+    "note": "mindfn = 吴浪 (maintainer-level collaborator). zts212653 = Lysander Su (CVO). 'Sync overwrite' issues filed by zts212653 himself = owner-pain signal, not just collaborator complaint."
+  },
+  "classificationTaxonomy": {
+    "C0": "Non-sync incident (matched keyword but is normal bug/feat — counted but not a sync mishap)",
+    "C1a": "Target-only delta overwritten by sync; community/maintainer waited for us to fix (high severity)",
+    "C1b": "Maintainer self-quickfixed in clowder-ai after our overwrite (medium severity, but still a sync overwrite event)",
+    "C2": "Ledger false-complete (recorded != absorbed-complete; LL-067/#290 covered #276 family)",
+    "C3": "Home-side regression exported via sync (cat-cafe演进 broke shared behavior, sync surfaced to public — invisible to 3-way gate)",
+    "C4": "Export/sanitizer transform regression (sanitizer mask leaks, allowlist gaps, preserveGlobalCascade, dir-prefix exclude)",
+    "C5": "Release/package/docs drift (.env.example stale, brand violation, doc desync after sync)"
+  },
+  "rootCauseAxes": [
+    "intake-loss",
+    "outbound-delete",
+    "home-regression-export",
+    "test-gap",
+    "transform-regression",
+    "release-drift"
+  ],
+  "gateCoverage": {
+    "covered_by_v1_public_delta_gate": "Phase A classifier + baseline resolver would detect this if wired (C1a/C1b/C2)",
+    "requires_contract_registry": "Phase B Contract Registry would catch home regression (C3)",
+    "requires_transform_gate": "F238 brand dictionary + Inbound Guard / sanitizer audit needed (C4)",
+    "requires_release_gate": "Release tag check + docs sync gate (C5)",
+    "not_sync_related": "Filtered C0"
+  },
+  "incidents": [
+    {
+      "issueId": 506,
+      "title": "Bug: catalog-accounts 隐式读取 ~/.cat-cafe/credentials.json 覆盖项目配置",
+      "reporter": "mindfn",
+      "state": "CLOSED",
+      "createdAt": "2026-04-16T10:50:50Z",
+      "closedAt": "2026-04-20T10:35:32Z",
+      "class": "C0",
+      "rootCauseAxes": ["test-gap"],
+      "gateCoverage": ["not_sync_related"],
+      "introducedBy": null,
+      "fixedBy": null,
+      "note": "False positive — local catalog-accounts bug, not sync overwrite"
+    },
+    {
+      "issueId": 519,
+      "title": "bug: first-run install can block selection and desync auth/account state",
+      "reporter": "mindfn",
+      "state": "CLOSED",
+      "createdAt": "2026-04-17T12:05:15Z",
+      "closedAt": "2026-04-17T14:54:08Z",
+      "class": "C0",
+      "rootCauseAxes": ["test-gap"],
+      "gateCoverage": ["not_sync_related"],
+      "introducedBy": null,
+      "fixedBy": null,
+      "note": "False positive — installer race, not sync"
+    },
+    {
+      "issueId": 525,
+      "title": "Config drift: `.env.example` documents stale `MCP_SERVER_PORT` but omits active `PREVIEW_GATEWAY_PORT`",
+      "reporter": "mindfn",
+      "state": "CLOSED",
+      "createdAt": "2026-04-18T15:55:09Z",
+      "closedAt": "2026-04-25T20:54:54Z",
+      "class": "C5",
+      "rootCauseAxes": ["release-drift", "test-gap"],
+      "gateCoverage": ["requires_release_gate"],
+      "introducedBy": "incremental main演进 over months",
+      "fixedBy": "cat-cafe internal PR",
+      "publicBehaviorId": "env-example-port-truth",
+      "note": "Classic docs drift — .env.example out of sync with runtime port allocation. C5 family. Phase A delta gate would NOT catch (template file rarely has target-side delta)."
+    },
+    {
+      "issueId": 534,
+      "title": "Three web-side bugs in multi-cat execution",
+      "reporter": "mindfn",
+      "state": "CLOSED",
+      "class": "C0",
+      "rootCauseAxes": ["test-gap"],
+      "gateCoverage": ["not_sync_related"],
+      "note": "False positive — multi-cat race conditions, not sync"
+    },
+    {
+      "issueId": 550,
+      "title": "Sampling miss — need re-pull",
+      "reporter": "unknown",
+      "state": "unknown",
+      "class": "C0",
+      "gateCoverage": ["not_sync_related"],
+      "note": "Triage gap — body not yet read, deferred"
+    },
+    {
+      "issueId": 558,
+      "title": "bug(web): callback 替换 target 使用 getCurrentInvocationId 导致跨 invocation 内容覆盖",
+      "reporter": "mindfn",
+      "state": "OPEN",
+      "createdAt": "2026-04-21T11:54:41Z",
+      "class": "C0",
+      "rootCauseAxes": ["test-gap"],
+      "gateCoverage": ["not_sync_related"],
+      "note": "False positive — cross-invocation state bug, not sync overwrite (semantic '覆盖' matched keyword filter)"
+    },
+    {
+      "issueId": 567,
+      "title": "enhancement: cliConfigArgs 对通用 CLI provider 通用化",
+      "reporter": "mindfn",
+      "state": "CLOSED",
+      "class": "C0",
+      "gateCoverage": ["not_sync_related"],
+      "note": "False positive — feature enhancement"
+    },
+    {
+      "issueId": 606,
+      "title": "Follow-up: fix PR #587 post-merge review regressions",
+      "reporter": "mindfn",
+      "state": "CLOSED",
+      "createdAt": "2026-04-29T07:01:47Z",
+      "closedAt": "2026-04-30T03:57:45Z",
+      "class": "C3",
+      "rootCauseAxes": ["home-regression-export", "test-gap"],
+      "gateCoverage": ["requires_contract_registry"],
+      "introducedBy": "PR #587 merge `136b67171c92f8827eb34f5e05470194230cbbc2`",
+      "fixedBy": "cat-cafe follow-up PR",
+      "publicBehaviorId": "broadcast-queue-no-stall",
+      "affectedPaths": ["packages/api/src/routes/messages.ts"],
+      "note": "P1 broadcast queue can stall — home regression from late-merged review comments. C3 family — sync surfaced to public, Phase A gate can't see (no target-side delta), needs Contract Registry."
+    },
+    {
+      "issueId": 680,
+      "title": "bug(F190): bubble rich-text links lost blue/underline affordance",
+      "reporter": "zts212653",
+      "state": "OPEN",
+      "createdAt": "2026-05-11T02:21:48Z",
+      "class": "C3",
+      "rootCauseAxes": ["home-regression-export", "test-gap"],
+      "gateCoverage": ["requires_contract_registry"],
+      "introducedBy": "F190 styling/token migration",
+      "fixedBy": null,
+      "publicBehaviorId": "bubble-link-affordance-blue-underline",
+      "note": "Visual regression from F190 sync — owner-reported (zts212653 himself). C3 family. Test-gap class: no visual diff test guards 'links look like links'."
+    },
+    {
+      "issueId": 682,
+      "title": "Sync sanitizer masks 36 structural paths breaking skill instructions",
+      "reporter": "mindfn",
+      "state": "OPEN",
+      "class": "C4",
+      "rootCauseAxes": ["transform-regression"],
+      "gateCoverage": ["requires_transform_gate"],
+      "introducedBy": "sync sanitizer rule overreach — 91 `*(internal reference removed)*` markers, 36 are structural paths agents read",
+      "fixedBy": "F238 brand dictionary work (in progress)",
+      "publicBehaviorId": "sync-sanitizer-preserves-structural-paths",
+      "note": "C4 family — sanitizer mask makes agents skip steps silently. Mirror of C4-sibling `clowder-ai#1025` (docs html dropped by exclude). F238 territory, not Phase A scope."
+    },
+    {
+      "issueId": 719,
+      "title": "feat: Skill 两层挂载管理（全局启禁用 + 项目级 per-client mount/drift）",
+      "reporter": "mindfn",
+      "state": "CLOSED",
+      "class": "C0",
+      "gateCoverage": ["not_sync_related"],
+      "note": "False positive — feature request (F228 precursor)"
+    },
+    {
+      "issueId": 723,
+      "title": "Console 视觉审计：#720 同步覆盖了 F190 设计实现（17 项回退）",
+      "reporter": "mindfn",
+      "state": "OPEN",
+      "createdAt": "2026-05-19T12:00:13Z",
+      "class": "C1a + C3 (compound)",
+      "rootCauseAxes": ["outbound-delete", "home-regression-export"],
+      "gateCoverage": ["covered_by_v1_public_delta_gate", "requires_contract_registry"],
+      "introducedBy": "PR #720 sync merge `89cc0f220936d863cbb571bd51ff94e6d7efe583` (2026-05-19 08:18 UTC)",
+      "fixedBy": "cat-cafe #1778 (ThreadSidebar route guard + L0 viewer gate) + #1780 (P2/P3 batch) + #1782 (P2-14/15/16 cleanup), shipped via sync PR #726 merge `0c2a2c3f134f7b2603cd21e8f4ab98c090f16469` (2026-05-19 18:07 UTC)",
+      "publicBehaviorId": "f190-console-visual-parity-17-items",
+      "affectedPaths": [
+        "packages/web/src/components/AppShell.tsx",
+        "packages/web/src/components/ChatContainer.tsx",
+        "packages/web/src/components/HubListModal.tsx",
+        "packages/web/src/components/voice/**",
+        "packages/web/src/components/settings/**",
+        "packages/web/src/components/skills/**"
+      ],
+      "evidence": {
+        "compareBase": "develop_base (PRs #662 + #669 on cat-cafe main pre-#720)",
+        "compareTarget": "main@89cc0f220 (post-#720)",
+        "screenshotRepo": "mindfn/clowder-ai:evidence/console-audit-720 branch",
+        "p1Count": 2,
+        "p2Count": 10,
+        "p3Count": 5
+      },
+      "severity": "教科书级 — 是 AC-A5 primary replay fixture 锚点",
+      "note": "**THE flagship incident.** Both C1a (target side had #662+#669 delta from local development pre-#720, sync overwrote with our older version) and C3 (after #1778-#1782 family of cat-cafe fixes, sync PR #726 was supposed to reship 17 items but mindfn reported 2026-05-20 followup: '#726 同步后核心视觉问题全部仍在'). Double regression pattern. THIS is the fixture AC-A5 must BLOCK."
+    },
+    {
+      "issueId": 724,
+      "title": "Sync introduced Phase C without Phase B compile script, all Codex carriers fail",
+      "reporter": "unknown",
+      "state": "unknown",
+      "class": "C4",
+      "rootCauseAxes": ["transform-regression"],
+      "gateCoverage": ["requires_transform_gate"],
+      "introducedBy": "PR #720 sync `89cc0f22` — F203 Phase C code shipped but Phase B artifact `scripts/compile-system-prompt-l0.mjs` was not included in sync export",
+      "fixedBy": "cat-cafe followup PR",
+      "publicBehaviorId": "l0-compiler-artifact-exists-when-referenced",
+      "affectedPaths": [
+        "packages/api/src/runtime/l0-compiler.ts",
+        "scripts/compile-system-prompt-l0.mjs"
+      ],
+      "severity": "P0 (all Codex/缅因猫 carriers fail at startup)",
+      "note": "C4 cousin of #1025. Sync exclude rule + asset coverage gap — code references a script but script not in sync allowlist. F238/F251 sibling territory."
+    },
+    {
+      "issueId": 747,
+      "title": "Governance L0 三份独立维护违反单一真相源",
+      "reporter": "unknown",
+      "state": "unknown",
+      "class": "C0",
+      "gateCoverage": ["not_sync_related"],
+      "note": "Architectural debt, not a sync incident"
+    },
+    {
+      "issueId": 754,
+      "title": "F153 Phase F docs-sync provenance markup lag",
+      "reporter": "unknown",
+      "state": "unknown",
+      "class": "C0",
+      "gateCoverage": ["not_sync_related"],
+      "note": "Docs hygiene, not a sync overwrite"
+    },
+    {
+      "issueId": 764,
+      "title": "F209 regression: passage embedding blocks app.listen() → startup probe timeout",
+      "reporter": "terrenceeLeung",
+      "state": "CLOSED",
+      "createdAt": "2026-05-25T04:07:06Z",
+      "class": "C3",
+      "rootCauseAxes": ["home-regression-export", "test-gap"],
+      "gateCoverage": ["requires_contract_registry"],
+      "introducedBy": "F209 IndexBuilder.rebuild() synchronous embed",
+      "fixedBy": "cat-cafe internal patch",
+      "publicBehaviorId": "api-startup-not-blocked-by-embedding-backlog",
+      "affectedPaths": ["packages/api/src/domains/memory/IndexBuilder.ts"],
+      "severity": "P1 (API never listens, install broken on large corpus)",
+      "note": "C3 — community user (terrenceeLeung) hit by home演进 (F209). Phase A gate can't see (no target-side delta), Contract Registry could."
+    },
+    {
+      "issueId": 771,
+      "title": "Console-managed lifecycle for 5 local sidecar services (F190 followup)",
+      "reporter": "unknown",
+      "state": "unknown",
+      "class": "C0",
+      "gateCoverage": ["not_sync_related"],
+      "note": "Feature request"
+    },
+    {
+      "issueId": 775,
+      "title": "Sidecar inference framework override (follow-up to #771)",
+      "reporter": "unknown",
+      "state": "unknown",
+      "class": "C0",
+      "gateCoverage": ["not_sync_related"],
+      "note": "Feature request"
+    },
+    {
+      "issueId": 869,
+      "title": "#706 deferred edge cases (queue recall-edit)",
+      "reporter": "mindfn",
+      "state": "OPEN",
+      "class": "C0",
+      "gateCoverage": ["not_sync_related"],
+      "note": "Deferred tech debt tracking, not a sync incident"
+    },
+    {
+      "issueId": 906,
+      "title": "Bug: plugins/github/plugin.yaml accidentally deleted by sync commit",
+      "reporter": "unknown",
+      "state": "unknown",
+      "class": "C1a",
+      "rootCauseAxes": ["outbound-delete"],
+      "gateCoverage": ["covered_by_v1_public_delta_gate"],
+      "introducedBy": "A sync commit deleted public-repo-only plugin manifest",
+      "fixedBy": "Restore manifest in clowder-ai",
+      "publicBehaviorId": "github-plugin-schedule-resources-registered",
+      "affectedPaths": ["plugins/github/plugin.yaml"],
+      "impactBehavior": "PR tracking / CI polling / review-feedback polling silently stopped working",
+      "severity": "P1 (silent failure of automation surface)",
+      "note": "C1a — clean target-only delta erased by rsync. THE second-best AC-A5 fixture candidate after #723. Phase A gate would catch (binary/delete BLOCK)."
+    },
+    {
+      "issueId": 959,
+      "title": "fix(kimi): tempMcpConfig temp dir leak on both-not-found path (regression introduced in #944)",
+      "reporter": "zts212653",
+      "state": "OPEN",
+      "createdAt": "2026-06-17T12:18:38Z",
+      "class": "C3",
+      "rootCauseAxes": ["home-regression-export"],
+      "gateCoverage": ["requires_contract_registry"],
+      "introducedBy": "PR #944 (lming112 community contribution, merge `f44e7436e906a633776af01dccacf6f68566b093`)",
+      "fixedBy": "cat-cafe followup",
+      "publicBehaviorId": "kimi-tempdir-no-leak-on-both-not-found",
+      "note": "C3 owner-reported. Community PR introduced regression after intake. Phase B Registry territory."
+    },
+    {
+      "issueId": 964,
+      "title": "fix: resolve 8 pre-existing brand guard violations blocking commits on fork",
+      "reporter": "mindfn",
+      "state": "OPEN",
+      "class": "C5",
+      "rootCauseAxes": ["release-drift"],
+      "gateCoverage": ["requires_release_gate", "requires_transform_gate"],
+      "note": "Brand guard / sanitizer drift on fork. F238 territory."
+    },
+    {
+      "issueId": 966,
+      "title": "fix(web): provider_capability missing in background dispatch chain (regression in #943)",
+      "reporter": "zts212653",
+      "state": "CLOSED",
+      "createdAt": "2026-06-17T15:08:51Z",
+      "closedAt": "2026-06-23T07:56:25Z",
+      "class": "C3",
+      "rootCauseAxes": ["home-regression-export", "test-gap"],
+      "gateCoverage": ["requires_contract_registry"],
+      "introducedBy": "PR #943 (enihcam community contribution, merge `347330fb1780f5b1d3105cab1aa6e23f5765fd27`, F210-H1 dual-handler invariant broken)",
+      "fixedBy": "cat-cafe internal hotfix",
+      "publicBehaviorId": "provider-capability-handled-in-both-dispatch-chains",
+      "affectedPaths": ["packages/web/src/hooks/useAgentMessages.ts"],
+      "note": "C3 owner-reported. F210-H1 invariant: foreground + background both handle provider_capability. PR #943 added foreground only — dual-handler test gap. Classic 'home演进 broke invariant'."
+    },
+    {
+      "issueId": 974,
+      "title": "fix(F228): cascade boundary violations + batch toggle UI (#917 follow-up)",
+      "reporter": "mindfn",
+      "state": "CLOSED",
+      "class": "C3",
+      "rootCauseAxes": ["home-regression-export"],
+      "gateCoverage": ["requires_contract_registry"],
+      "introducedBy": "PR #917 / #962 cascade work",
+      "fixedBy": "PR #974 follow-up",
+      "publicBehaviorId": "f228-cascade-no-boundary-violation",
+      "note": "C3 cousin of #991. Same family — preserveGlobalCascade family of regressions."
+    },
+    {
+      "issueId": 991,
+      "title": "bug(F228): drift-resolve sync skips new skills due to preserveGlobalCascade — scenarios 1/14 regression",
+      "reporter": "mindfn",
+      "state": "CLOSED",
+      "createdAt": "2026-06-22T02:40:36Z",
+      "closedAt": "2026-06-23T07:56:25Z",
+      "class": "C3",
+      "rootCauseAxes": ["home-regression-export", "test-gap"],
+      "gateCoverage": ["requires_contract_registry"],
+      "introducedBy": "PR #962 added preserveGlobalCascade flag to fix P1-1 cascade boundary, but condition wrongly matches new skills (no local policy + no project mount)",
+      "fixedBy": "cat-cafe followup",
+      "publicBehaviorId": "f228-drift-resolve-syncs-new-skills",
+      "affectedPaths": ["packages/api/src/skills/skill-sync-config.ts"],
+      "evidence": {
+        "regressionScenarios": "1/14",
+        "scenarioDescription": "Scenario 1 (新项目 sync skill 首次挂载) + Scenario 14 (全局新增 skill 首次发现) both fail to write capabilities.json"
+      },
+      "note": "C3 教科书 — fix for one bug introduced regression in declared scenarios. F228 spec had 14 scenarios listed; the fix passed forward tests but missed scenario 1/14 retroactively."
+    }
+  ],
+  "anchorFixtures": {
+    "AC_A5_primary_replay_fixture": {
+      "name": "clowder-ai#720 sync overwrote F190 console (17-item visual regression)",
+      "rationale": "Single highest-confidence historical incident with full SHA chain, target-side evidence (mindfn screenshot branch), and double regression signal (#720 covered local pre-development → #726 followup sync also missed reshipping fixes).",
+      "incidentChain": [
+        {
+          "step": 1,
+          "event": "cat-cafe local development on F190 Console Settings/AppShell happened via clowder-ai PRs #662 + #669 (intake from community contributor PRs, merged into clowder-ai main before #720)",
+          "timestamp": "pre-2026-05-19",
+          "syncTagBefore": "(last sync tag before #720)"
+        },
+        {
+          "step": 2,
+          "event": "Sync PR #720 `89cc0f22` ran 2026-05-19 08:18 UTC — rsync --delete overwrote clowder-ai main, erasing the 17-item correct F190 implementation that lived only on clowder-ai HEAD",
+          "syncPr": 720,
+          "syncMergeCommit": "89cc0f220936d863cbb571bd51ff94e6d7efe583",
+          "syncBranchHead": "c3376252658d5706a3bedf36599b305edd2cb113"
+        },
+        {
+          "step": 3,
+          "event": "mindfn filed clowder-ai#723 2026-05-19 12:00 UTC — 17 items audit with screenshot evidence on his `evidence/console-audit-720` branch",
+          "filedIssue": 723,
+          "screenshotEvidence": "mindfn/clowder-ai:evidence/console-audit-720"
+        },
+        {
+          "step": 4,
+          "event": "cat-cafe shipped fixes via internal PRs #1778 (P1 ThreadSidebar + L0 gate), #1780 (P2/P3 batch), #1782 (P2-14/15/16 cleanup)",
+          "fixingPrs": ["cat-cafe#1778", "cat-cafe#1780", "cat-cafe#1782"]
+        },
+        {
+          "step": 5,
+          "event": "Sync PR #726 `0c2a2c3f` ran 2026-05-19 18:07 UTC — supposed to reship the 17 fixes via sync",
+          "syncPr": 726,
+          "syncMergeCommit": "0c2a2c3f134f7b2603cd21e8f4ab98c090f16469",
+          "syncBranchHead": "d3162f4bfaa657b88b3687130df94460d6d05fc5"
+        },
+        {
+          "step": 6,
+          "event": "mindfn 2026-05-20 followup verification: '#726 同步后核心视觉问题全部仍在' — sync STILL did not reship the 17 fixes correctly. Double regression.",
+          "verificationTimestamp": "2026-05-20",
+          "verdict": "core visual issues remain after sync #726"
+        }
+      ],
+      "fixtureSpec": {
+        "baseRef": "Last sync/* tag before 2026-05-19 08:18 UTC on clowder-ai (TBD: resolve via Task 2 baseline resolver with `sync/2026-05-*` glob pre-#720)",
+        "theirsRef": "clowder-ai main HEAD just before #720 merge — should contain #662 + #669 F190 implementation",
+        "oursRef": "cat-cafe export tree at sync time of #720 (re-create via `sync-to-opensource.sh --dry-run` from cat-cafe commit pre-#720)",
+        "expectedClassification": {
+          "expectedBlockCount": 17,
+          "expectedModes": [
+            "target-only-would-revert-block (for files where #662+#669 had delta but our export reverted to baseline)",
+            "target-added-would-delete-block (if any new files from #662+#669 absent in our export)"
+          ],
+          "expectedAffectedPaths": [
+            "packages/web/src/components/AppShell.tsx",
+            "packages/web/src/components/ChatContainer.tsx",
+            "packages/web/src/components/voice/**",
+            "packages/web/src/components/settings/**",
+            "packages/web/src/components/skills/**"
+          ]
+        },
+        "antiPlaceboInvariant": "If V1 gate does NOT BLOCK at least 17 path-level regressions across these dirs on this fixture, the gate fails AC-A5 and AC-A6 retroactive eval. Equivalent to KD-5: 不能 dry-run 标出真实事故 = 安慰剂 gate."
+      }
+    },
+    "AC_A5_secondary_replay_fixture": {
+      "name": "clowder-ai#906 sync deleted github plugin manifest",
+      "rationale": "Clean C1a single-file deletion. Confirms gate handles binary/delete BLOCK path for public-only assets.",
+      "incidentRef": {
+        "issue": 906,
+        "affectedPath": "plugins/github/plugin.yaml",
+        "expectedMode": "delete-or-rename-block OR target-added-would-delete-block"
+      },
+      "fixtureSpec": "Pending — need #906 specific sync PR SHA (not yet resolved)"
+    },
+    "AC_A5_tertiary_replay_fixture": {
+      "name": "clowder-ai#724 sync introduced Phase C code without Phase B compile script",
+      "rationale": "C4 sibling — sync export coverage gap (cousin of #1025 docs/services-offline-install.html). Confirms reverse-check guard for runtime asset references.",
+      "outOfScope": "This is C4 territory — `check-sync-docs-runtime-assets.mjs` (the 2026-06-25 sibling fix) covers a similar coverage-gap class. Not Phase A V1 gate scope."
+    }
+  },
+  "stats": {
+    "totalCandidates": 25,
+    "syncIncidents": {
+      "C1a": 2,
+      "C1b": 0,
+      "C2": 0,
+      "C3": 7,
+      "C4": 2,
+      "C5": 2,
+      "C0_false_positives": 12
+    },
+    "byRootCauseAxis": {
+      "outbound-delete": 2,
+      "home-regression-export": 7,
+      "transform-regression": 2,
+      "release-drift": 2,
+      "test-gap": 9
+    },
+    "ownerReportedCount": 4,
+    "ownerReportedNote": "zts212653 (CVO) himself filed #680/#959/#966/+ — owner-pain signal is high. Sync overwrite is not just collaborator complaint."
+  },
+  "keyFindings": [
+    "**C3 dominates (7/13 真sync incidents)** — Home regression exported via sync is the most common true incident class. **Phase A V1 gate can NOT catch C3** (no target-side delta when target had nothing to overwrite). Phase B Contract Registry is structural necessity, not optional.",
+    "**C1a is rare but flagship (2/13)** — #723 (F190 17-item) and #906 (github plugin.yaml). When it happens, it's catastrophic (#723 is double regression). These two are the AC-A5 anchor fixtures.",
+    "**C4/C5 are F238-territory (4/13)** — sanitizer/transform/exclude/brand drift sub-class. F251 Task 1-4 scope NOT this; F238 brand-dictionary + reverse-check guard (`docs_runtime_assets_allowlist`) covers.",
+    "**zts212653 owner-reports** (#680/#959/#966) signal **F251 痛点 is real for owner**, not just collaborator complaint. AC-B1 high-priority contracts should include kimi temp leak + provider_capability dual-handler + F190 link affordance.",
+    "**test-gap is THE common axis (9/13)** — Most sync incidents have a test-gap component. AC-B2 Contract Registry execution must include test-gap registry entries, not just user-visible behavior — backing-invariant tests are equally important."
+  ],
+  "openQuestions": [
+    "Need to resolve last sync/* tag before 2026-05-19 08:18 UTC (#720) for Task 2 baseline resolver fixture. Pending: `git -C clowder-ai tag -l 'sync/2026-05-*' --sort=-version:refname | head -1` after #720's parent SHA",
+    "Need to re-create cat-cafe export tree at #720 sync time. Pending: `git -C cat-cafe show {sync-source-sha-from-#720}:scripts/sync-to-opensource.sh` to identify export script version, then dry-run with that historical config",
+    "#550 not triaged — body not yet read. Sample loss negligible at <5%.",
+    "Coverage gap: titles-only filter misses incidents where the issue is filed under feature-specific labels (e.g. `feature:F190`) without 'sync/overwrite/regression' in title. Future iteration: filter by `feature:` label + cross-reference with sync PR timeline."
+  ],
+  "nextSteps": [
+    "Task 2 baseline resolver: use this ledger's AC_A5_primary_replay_fixture for real-git-fixture test (resolve sync tag pre-#720)",
+    "Task 3 report writer: emit incident_id field per BLOCK item, cross-link to this ledger",
+    "Task 4 sync wiring: failing this fixture's dry-run blocks merge (AC-A5 hard requirement)",
+    "Task 5 Community Contract Registry v0: seed with publicBehaviorId values from C3 entries (4-5 contracts already exceeds AC-B1 threshold of >=3)",
+    "F238 sibling work: #682 (sanitizer mask 36 paths) + #964 (brand guard violations) candidates for next reverse-check guard expansion"
+  ],
+  "provenance": {
+    "extractionMethod": "gh issue list + gh issue view --json --jq, batched on 2026-06-26T05:10:00Z",
+    "filteringScript": "/tmp/sync-issue-numbers.txt (25 issues)",
+    "rawBodyArchive": "/tmp/sync-bodies/issue-*.json (25 files, body truncated to 1200 chars)",
+    "syncPrSHAs": {
+      "PR_720": {
+        "headSha": "c3376252658d5706a3bedf36599b305edd2cb113",
+        "mergeCommit": "89cc0f220936d863cbb571bd51ff94e6d7efe583",
+        "mergedAt": "2026-05-19T08:18:17Z"
+      },
+      "PR_726": {
+        "headSha": "d3162f4bfaa657b88b3687130df94460d6d05fc5",
+        "mergeCommit": "0c2a2c3f134f7b2603cd21e8f4ab98c090f16469",
+        "mergedAt": "2026-05-19T18:07:17Z"
+      }
+    }
+  }
+}
