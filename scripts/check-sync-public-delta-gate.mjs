@@ -3,12 +3,251 @@
 // V1 starts with a pure classifier so the rsync safety contract is testable
 // before wiring git worktrees and sync-to-opensource.sh.
 
+import { execFileSync } from 'node:child_process';
+
 const PASS = 'pass';
 const BLOCK = 'block';
 const OVERRIDE = 'override';
 const BLOB_KEYS = ['baseBlob', 'theirsBlob', 'oursBlob'];
 const DELETE_CANDIDATE_MODES = new Set(['target-added-would-delete-block', 'delete-or-rename-block']);
 const DELETE_OR_RENAME_CHANGE_KINDS = new Set(['delete', 'rename']);
+const SYNC_TAG_PREFIX = 'sync/';
+const LOCAL_TAG_REF_PREFIX = 'refs/tags/';
+const REMOTE_SYNC_TAG_REF_PREFIX = 'refs/cat-cafe-sync-baselines';
+const DEFAULT_REMOTE = 'origin';
+const DEFAULT_BRANCH = 'main';
+
+function defaultGit(repo, args) {
+  return execFileSync('git', ['-C', repo, ...args], { encoding: 'utf-8' }).trim();
+}
+
+function readStringOption(options, key, defaultValue) {
+  if (typeof options[key] === 'string' && options[key].length > 0) {
+    return options[key];
+  }
+  return defaultValue;
+}
+
+function gitOutput(repo, args, options = {}) {
+  let git = defaultGit;
+  if (typeof options.git === 'function') {
+    git = options.git;
+  }
+  return git(repo, args).trim();
+}
+
+function tryGitOutput(repo, args, options = {}) {
+  try {
+    return gitOutput(repo, args, options);
+  } catch {
+    return undefined;
+  }
+}
+
+function requireCommit(repo, ref, options = {}) {
+  const commit = tryGitOutput(repo, ['rev-parse', '--verify', `${ref}^{commit}`], options);
+  if (!commit) {
+    throw new Error(`Could not resolve public delta baseline: ref '${ref}' is not a commit`);
+  }
+  return commit;
+}
+
+function isAncestor(repo, ancestor, descendant, options = {}) {
+  return tryGitOutput(repo, ['merge-base', '--is-ancestor', ancestor, descendant], options) !== undefined;
+}
+
+function readRemoteSyncTagRefPrefix(options = {}) {
+  const remote = readStringOption(options, 'remote', DEFAULT_REMOTE);
+  return `${REMOTE_SYNC_TAG_REF_PREFIX}/${remote}/`;
+}
+
+function isShallowRepository(repo, options = {}) {
+  return tryGitOutput(repo, ['rev-parse', '--is-shallow-repository'], options) === 'true';
+}
+
+function deepenTargetHistory(repo, options = {}) {
+  if (!isShallowRepository(repo, options)) {
+    return;
+  }
+
+  const remote = readStringOption(options, 'remote', DEFAULT_REMOTE);
+  const branch = readStringOption(options, 'branch', DEFAULT_BRANCH);
+  gitOutput(repo, ['fetch', '--no-tags', '--unshallow', remote, branch], options);
+}
+
+function fetchTargetRefs(repo, options = {}) {
+  const remote = readStringOption(options, 'remote', DEFAULT_REMOTE);
+  const branch = readStringOption(options, 'branch', DEFAULT_BRANCH);
+  gitOutput(repo, ['fetch', '--no-tags', remote, branch], options);
+  deepenTargetHistory(repo, options);
+  gitOutput(
+    repo,
+    [
+      'fetch',
+      '--no-tags',
+      '--prune',
+      remote,
+      `+refs/tags/${SYNC_TAG_PREFIX}*:refs/cat-cafe-sync-baselines/${remote}/${SYNC_TAG_PREFIX}*`,
+    ],
+    options,
+  );
+}
+
+function resolveTargetHeadRef(repo, options = {}) {
+  if (options.headRef) {
+    requireCommit(repo, options.headRef, options);
+    return options.headRef;
+  }
+
+  const remote = readStringOption(options, 'remote', DEFAULT_REMOTE);
+  const branch = readStringOption(options, 'branch', DEFAULT_BRANCH);
+  const remoteMainRef = `refs/remotes/${remote}/${branch}`;
+  if (tryGitOutput(repo, ['show-ref', '--verify', '--quiet', remoteMainRef], options) !== undefined) {
+    return remoteMainRef;
+  }
+  requireCommit(repo, 'HEAD', options);
+  return 'HEAD';
+}
+
+function compareSyncTagCandidates(left, right) {
+  if (!left) {
+    return right;
+  }
+  if (right.epoch > left.epoch) {
+    return right;
+  }
+  if (right.epoch === left.epoch && right.ref > left.ref) {
+    return right;
+  }
+  return left;
+}
+
+function readReachableSyncTagCandidates(repo, headRef, options = {}) {
+  const refPrefix = options.noFetch ? LOCAL_TAG_REF_PREFIX : readRemoteSyncTagRefPrefix(options);
+  const tagList = tryGitOutput(
+    repo,
+    ['for-each-ref', '--format=%(refname)', `${refPrefix}${SYNC_TAG_PREFIX}`],
+    options,
+  );
+  if (!tagList) {
+    return [];
+  }
+
+  const candidates = [];
+  for (const fullRef of tagList.split('\n')) {
+    const tagRef = fullRef.startsWith(refPrefix) ? fullRef.slice(refPrefix.length) : fullRef;
+    if (!tagRef.startsWith(SYNC_TAG_PREFIX)) {
+      continue;
+    }
+    const commit = tryGitOutput(repo, ['rev-parse', '--verify', `${fullRef}^{commit}`], options);
+    if (!commit) {
+      continue;
+    }
+    if (!isAncestor(repo, commit, headRef, options)) {
+      continue;
+    }
+    const epochText = tryGitOutput(repo, ['show', '-s', '--format=%ct', commit], options);
+    if (!epochText) {
+      continue;
+    }
+    const epoch = Number.parseInt(epochText, 10);
+    if (!Number.isFinite(epoch)) {
+      continue;
+    }
+    candidates.push({ ref: tagRef, commit, epoch });
+  }
+  return candidates;
+}
+
+function resolveLatestReachableSyncTag(repo, headRef, options = {}) {
+  let bestCandidate;
+  for (const candidate of readReachableSyncTagCandidates(repo, headRef, options)) {
+    bestCandidate = compareSyncTagCandidates(bestCandidate, candidate);
+  }
+  if (!bestCandidate) {
+    return undefined;
+  }
+  return {
+    baselineSource: 'sync-tag',
+    baselineRef: bestCandidate.ref,
+    baselineCommit: bestCandidate.commit,
+    targetHeadRef: headRef,
+  };
+}
+
+function readJsonFromCommit(repo, commit, path, options = {}) {
+  const raw = gitOutput(repo, ['show', `${commit}:${path}`], options);
+  return JSON.parse(raw);
+}
+
+function resolveLatestLandedSyncProvenance(repo, headRef, options = {}) {
+  const commits = tryGitOutput(
+    repo,
+    ['log', '--first-parent', '--format=%H', headRef, '--', '.sync-provenance.json'],
+    options,
+  );
+  if (!commits) {
+    return undefined;
+  }
+
+  const latestCommit = commits.split('\n')[0];
+  const provenance = readJsonFromCommit(repo, latestCommit, '.sync-provenance.json', options);
+  if (typeof provenance.source_commit_sha !== 'string') {
+    throw new Error(
+      `Could not resolve public delta baseline: latest sync provenance commit ${latestCommit} is missing source_commit_sha`,
+    );
+  }
+  if (provenance.source_commit_sha.length === 0) {
+    throw new Error(
+      `Could not resolve public delta baseline: latest sync provenance commit ${latestCommit} is missing source_commit_sha`,
+    );
+  }
+
+  return {
+    baselineSource: 'landed-sync-commit',
+    baselineCommit: latestCommit,
+    sourceCommitSha: provenance.source_commit_sha,
+    provenanceTargetHeadSha: provenance.target_head_sha,
+    targetHeadRef: headRef,
+  };
+}
+
+export function resolvePublicDeltaGateBaseline(options = {}) {
+  if (!options.targetRepo) {
+    throw new Error('resolvePublicDeltaGateBaseline requires targetRepo');
+  }
+
+  if (!options.noFetch) {
+    fetchTargetRefs(options.targetRepo, options);
+  }
+
+  const targetHeadRef = resolveTargetHeadRef(options.targetRepo, options);
+  if (options.baseline) {
+    const baselineCommit = requireCommit(options.targetRepo, options.baseline, options);
+    if (!isAncestor(options.targetRepo, baselineCommit, targetHeadRef, options)) {
+      throw new Error(
+        `Could not resolve public delta baseline: explicit baseline ${baselineCommit} is not reachable from ${targetHeadRef}`,
+      );
+    }
+    return {
+      baselineSource: 'explicit',
+      baselineCommit,
+      targetHeadRef,
+    };
+  }
+
+  const syncTagBaseline = resolveLatestReachableSyncTag(options.targetRepo, targetHeadRef, options);
+  if (syncTagBaseline) {
+    return syncTagBaseline;
+  }
+
+  const provenanceBaseline = resolveLatestLandedSyncProvenance(options.targetRepo, targetHeadRef, options);
+  if (provenanceBaseline) {
+    return provenanceBaseline;
+  }
+
+  throw new Error('Could not resolve public delta baseline: no reachable sync/* tag or sync provenance commit found');
+}
 
 function sameBlob(left, right) {
   return left === right;

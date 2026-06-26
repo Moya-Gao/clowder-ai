@@ -1,7 +1,19 @@
 import assert from 'node:assert/strict';
+import { join } from 'node:path';
 import { describe, it } from 'node:test';
 
-import { buildPublicDeltaGateSummary, classifyPublicDeltaGateItem } from './check-sync-public-delta-gate.mjs';
+import {
+  buildPublicDeltaGateSummary,
+  classifyPublicDeltaGateItem,
+  resolvePublicDeltaGateBaseline,
+} from './check-sync-public-delta-gate.mjs';
+import {
+  commitFile,
+  commitSyncProvenance,
+  createFixtureTracker,
+  git,
+  makeFixture,
+} from './publish-sync-tag-test-helpers.mjs';
 
 const A = 'blob-a';
 const B = 'blob-b';
@@ -283,5 +295,264 @@ describe('public target delta summary', () => {
     );
 
     assert.equal(buildPublicDeltaGateSummary(items).cvoApprovalRequired, true);
+  });
+});
+
+describe('public target delta baseline resolver', () => {
+  const fixtures = createFixtureTracker();
+
+  it('resolves the latest landed sync tag instead of provenance target_head_sha', () => {
+    const fixture = makeFixture();
+    fixtures.push(fixture.sandboxRoot);
+
+    const targetPreSyncBase = git(fixture.targetRoot, 'rev-parse', 'HEAD');
+    const sourceHead = commitFile(fixture.sourceRoot, 'feature.txt', 'source sync payload\n', 'feat: source sync');
+    const landedSyncCommit = commitSyncProvenance(fixture.targetRoot, sourceHead, 'sync: landed upstream', {
+      extraFields: {
+        target_head_sha: targetPreSyncBase,
+      },
+    });
+    git(fixture.targetRoot, 'tag', 'sync/2026-03-19-063437', landedSyncCommit);
+    commitFile(fixture.targetRoot, 'docs/community-note.md', 'community follow-up\n', 'docs: community follow-up');
+
+    const resolved = resolvePublicDeltaGateBaseline({
+      targetRepo: fixture.targetRoot,
+      headRef: 'HEAD',
+      noFetch: true,
+    });
+
+    assert.equal(resolved.baselineSource, 'sync-tag');
+    assert.equal(resolved.baselineRef, 'sync/2026-03-19-063437');
+    assert.equal(resolved.baselineCommit, landedSyncCommit);
+    assert.notEqual(resolved.baselineCommit, targetPreSyncBase);
+  });
+
+  it('lets an explicit baseline override discovered sync tags when it is reachable', () => {
+    const fixture = makeFixture();
+    fixtures.push(fixture.sandboxRoot);
+
+    const targetPreSyncBase = git(fixture.targetRoot, 'rev-parse', 'HEAD');
+    const sourceHead = commitFile(fixture.sourceRoot, 'feature.txt', 'source sync payload\n', 'feat: source sync');
+    const landedSyncCommit = commitSyncProvenance(fixture.targetRoot, sourceHead, 'sync: landed upstream');
+    git(fixture.targetRoot, 'tag', 'sync/2026-03-19-063437', landedSyncCommit);
+
+    const resolved = resolvePublicDeltaGateBaseline({
+      targetRepo: fixture.targetRoot,
+      headRef: 'HEAD',
+      baseline: targetPreSyncBase,
+      noFetch: true,
+    });
+
+    assert.equal(resolved.baselineSource, 'explicit');
+    assert.equal(resolved.baselineCommit, targetPreSyncBase);
+  });
+
+  it('ignores newer sync tags that are not reachable from the target head', () => {
+    const fixture = makeFixture();
+    fixtures.push(fixture.sandboxRoot);
+
+    const targetBase = git(fixture.targetRoot, 'rev-parse', 'HEAD');
+    const sourceHead = commitFile(fixture.sourceRoot, 'feature.txt', 'source sync payload\n', 'feat: source sync');
+    const firstSyncCommit = commitSyncProvenance(fixture.targetRoot, sourceHead, 'sync: first landed upstream', {
+      commitEnv: {
+        GIT_AUTHOR_DATE: '2026-03-19T06:34:37Z',
+        GIT_COMMITTER_DATE: '2026-03-19T06:34:37Z',
+      },
+    });
+    git(fixture.targetRoot, 'tag', 'sync/2026-03-19-063437', firstSyncCommit);
+    const secondSyncCommit = commitSyncProvenance(fixture.targetRoot, sourceHead, 'sync: second landed upstream', {
+      syncedAt: '2026-03-20T06:34:37Z',
+      commitEnv: {
+        GIT_AUTHOR_DATE: '2026-03-20T06:34:37Z',
+        GIT_COMMITTER_DATE: '2026-03-20T06:34:37Z',
+      },
+    });
+    git(fixture.targetRoot, 'tag', 'sync/2026-03-20-063437', secondSyncCommit);
+
+    git(fixture.targetRoot, 'checkout', '-b', 'unreachable-sync-tag', targetBase);
+    const unreachableSyncCommit = commitSyncProvenance(
+      fixture.targetRoot,
+      sourceHead,
+      'sync: unreachable landed upstream',
+      {
+        commitEnv: {
+          GIT_AUTHOR_DATE: '2026-03-21T06:34:37Z',
+          GIT_COMMITTER_DATE: '2026-03-21T06:34:37Z',
+        },
+      },
+    );
+    git(fixture.targetRoot, 'tag', 'sync/2026-03-21-063437', unreachableSyncCommit);
+    git(fixture.targetRoot, 'checkout', 'main');
+
+    const resolved = resolvePublicDeltaGateBaseline({
+      targetRepo: fixture.targetRoot,
+      headRef: 'HEAD',
+      noFetch: true,
+    });
+
+    assert.equal(resolved.baselineSource, 'sync-tag');
+    assert.equal(resolved.baselineRef, 'sync/2026-03-20-063437');
+    assert.equal(resolved.baselineCommit, secondSyncCommit);
+  });
+
+  it('falls back to the latest first-parent sync provenance commit with source_commit_sha', () => {
+    const fixture = makeFixture();
+    fixtures.push(fixture.sandboxRoot);
+
+    const targetPreSyncBase = git(fixture.targetRoot, 'rev-parse', 'HEAD');
+    const sourceHead = commitFile(fixture.sourceRoot, 'feature.txt', 'source sync payload\n', 'feat: source sync');
+    const landedSyncCommit = commitSyncProvenance(fixture.targetRoot, sourceHead, 'sync: landed upstream', {
+      extraFields: {
+        target_head_sha: targetPreSyncBase,
+      },
+    });
+    commitFile(fixture.targetRoot, 'docs/community-note.md', 'community follow-up\n', 'docs: community follow-up');
+
+    const resolved = resolvePublicDeltaGateBaseline({
+      targetRepo: fixture.targetRoot,
+      headRef: 'HEAD',
+      noFetch: true,
+    });
+
+    assert.equal(resolved.baselineSource, 'landed-sync-commit');
+    assert.equal(resolved.baselineCommit, landedSyncCommit);
+    assert.equal(resolved.sourceCommitSha, sourceHead);
+    assert.equal(resolved.provenanceTargetHeadSha, targetPreSyncBase);
+    assert.notEqual(resolved.baselineCommit, targetPreSyncBase);
+  });
+
+  it('fails closed when the latest sync provenance commit lacks source_commit_sha', () => {
+    const fixture = makeFixture();
+    fixtures.push(fixture.sandboxRoot);
+
+    commitFile(
+      fixture.targetRoot,
+      '.sync-provenance.json',
+      `${JSON.stringify({ target_head_sha: git(fixture.targetRoot, 'rev-parse', 'HEAD') }, null, 2)}\n`,
+      'sync: invalid provenance',
+    );
+
+    assert.throws(
+      () =>
+        resolvePublicDeltaGateBaseline({
+          targetRepo: fixture.targetRoot,
+          headRef: 'HEAD',
+          noFetch: true,
+        }),
+      /missing source_commit_sha/i,
+    );
+  });
+
+  it('fetches origin main and remote sync tags by default before resolving the baseline', () => {
+    const fixture = makeFixture();
+    fixtures.push(fixture.sandboxRoot);
+
+    const staleTargetRoot = join(fixture.sandboxRoot, 'clowder-ai-stale');
+    git(fixture.sandboxRoot, 'clone', '--branch', 'main', fixture.targetOrigin, staleTargetRoot);
+
+    const sourceHead = commitFile(fixture.sourceRoot, 'feature.txt', 'source sync payload\n', 'feat: source sync');
+    const landedSyncCommit = commitSyncProvenance(fixture.targetRoot, sourceHead, 'sync: landed upstream');
+    git(fixture.targetRoot, 'tag', 'sync/2026-03-19-063437', landedSyncCommit);
+    git(fixture.targetRoot, 'push', 'origin', 'main');
+    git(fixture.targetRoot, 'push', 'origin', 'refs/tags/sync/2026-03-19-063437');
+
+    const resolved = resolvePublicDeltaGateBaseline({ targetRepo: staleTargetRoot });
+
+    assert.equal(resolved.targetHeadRef, 'refs/remotes/origin/main');
+    assert.equal(resolved.baselineSource, 'sync-tag');
+    assert.equal(resolved.baselineCommit, landedSyncCommit);
+  });
+
+  it('ignores local-only stale sync tags that are absent from origin', () => {
+    const fixture = makeFixture();
+    fixtures.push(fixture.sandboxRoot);
+
+    const sourceHead = commitFile(fixture.sourceRoot, 'feature.txt', 'source sync payload\n', 'feat: source sync');
+    const landedSyncCommit = commitSyncProvenance(fixture.targetRoot, sourceHead, 'sync: landed upstream', {
+      commitEnv: {
+        GIT_AUTHOR_DATE: '2026-03-19T06:34:37Z',
+        GIT_COMMITTER_DATE: '2026-03-19T06:34:37Z',
+      },
+    });
+    git(fixture.targetRoot, 'tag', 'sync/2026-03-19-063437', landedSyncCommit);
+    const targetHead = commitFile(
+      fixture.targetRoot,
+      'docs/community-note.md',
+      'community follow-up\n',
+      'docs: community',
+    );
+    git(fixture.targetRoot, 'push', 'origin', 'main');
+    git(fixture.targetRoot, 'push', 'origin', 'refs/tags/sync/2026-03-19-063437');
+
+    const staleTargetRoot = join(fixture.sandboxRoot, 'clowder-ai-stale-local-tag');
+    git(fixture.sandboxRoot, 'clone', '--branch', 'main', fixture.targetOrigin, staleTargetRoot);
+    git(staleTargetRoot, 'tag', 'sync/2026-03-20-063437', targetHead);
+
+    const resolved = resolvePublicDeltaGateBaseline({ targetRepo: staleTargetRoot });
+
+    assert.equal(resolved.targetHeadRef, 'refs/remotes/origin/main');
+    assert.equal(resolved.baselineSource, 'sync-tag');
+    assert.equal(resolved.baselineRef, 'sync/2026-03-19-063437');
+    assert.equal(resolved.baselineCommit, landedSyncCommit);
+    assert.notEqual(resolved.baselineCommit, targetHead);
+  });
+
+  it('deepens shallow target clones before resolving the sync tag baseline', () => {
+    const fixture = makeFixture();
+    fixtures.push(fixture.sandboxRoot);
+
+    const sourceHead = commitFile(fixture.sourceRoot, 'feature.txt', 'source sync payload\n', 'feat: source sync');
+    const landedSyncCommit = commitSyncProvenance(fixture.targetRoot, sourceHead, 'sync: landed upstream', {
+      commitEnv: {
+        GIT_AUTHOR_DATE: '2026-03-19T06:34:37Z',
+        GIT_COMMITTER_DATE: '2026-03-19T06:34:37Z',
+      },
+    });
+    git(fixture.targetRoot, 'tag', 'sync/2026-03-19-063437', landedSyncCommit);
+    const targetHead = commitFile(
+      fixture.targetRoot,
+      'docs/community-note.md',
+      'community follow-up\n',
+      'docs: community',
+    );
+    git(fixture.targetRoot, 'push', 'origin', 'main');
+    git(fixture.targetRoot, 'push', 'origin', 'refs/tags/sync/2026-03-19-063437');
+
+    const shallowTargetRoot = join(fixture.sandboxRoot, 'clowder-ai-shallow');
+    git(
+      fixture.sandboxRoot,
+      'clone',
+      '--depth',
+      '1',
+      '--branch',
+      'main',
+      `file://${fixture.targetOrigin}`,
+      shallowTargetRoot,
+    );
+    assert.equal(git(shallowTargetRoot, 'rev-parse', '--is-shallow-repository'), 'true');
+
+    const resolved = resolvePublicDeltaGateBaseline({ targetRepo: shallowTargetRoot });
+
+    assert.equal(git(shallowTargetRoot, 'rev-parse', '--is-shallow-repository'), 'false');
+    assert.equal(resolved.targetHeadRef, 'refs/remotes/origin/main');
+    assert.equal(resolved.baselineSource, 'sync-tag');
+    assert.equal(resolved.baselineRef, 'sync/2026-03-19-063437');
+    assert.equal(resolved.baselineCommit, landedSyncCommit);
+    assert.notEqual(resolved.baselineCommit, targetHead);
+  });
+
+  it('fails closed when no sync tag or sync provenance baseline exists', () => {
+    const fixture = makeFixture();
+    fixtures.push(fixture.sandboxRoot);
+
+    assert.throws(
+      () =>
+        resolvePublicDeltaGateBaseline({
+          targetRepo: fixture.targetRoot,
+          headRef: 'HEAD',
+          noFetch: true,
+        }),
+      /could not resolve public delta baseline/i,
+    );
   });
 });
