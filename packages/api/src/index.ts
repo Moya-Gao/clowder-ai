@@ -2999,6 +2999,11 @@ async function main(): Promise<void> {
             app.log.info(
               `[api] F102: embedding service catch-up rebuild completed - ${result.docsIndexed} indexed, ${result.docsSkipped} skipped (${elapsedMs}ms)`,
             );
+            // Backfill passage vectors that were missed when API started before
+            // the embedding service was ready. Without this, only newly indexed
+            // passages get vectors — the ~N thousands indexed while embed was
+            // down remain lexical-only until the next full restart.
+            memoryServices.indexBuilder?.startPassageEmbeddingWarmup();
           })
           .catch((error) => {
             appendServiceLog(service.id, `[start] evidence rebuild failed: ${String(error)}\n`);

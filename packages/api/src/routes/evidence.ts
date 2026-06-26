@@ -27,7 +27,6 @@ import type {
 } from '../domains/memory/interfaces.js';
 import type { LibraryCatalog } from '../domains/memory/LibraryCatalog.js';
 import type { RebuildJobTracker } from '../domains/memory/RebuildJobTracker.js';
-import { isDirectLoopbackRequest } from '../utils/loopback-request.js';
 import { buildThreadCrossPostSuggestion, extractThreadIdFromEvidenceResult } from './cross-thread-affordance.js';
 import {
   type BoostSource,
@@ -556,7 +555,11 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
   // Passage embedding warmup trigger — re-starts background embedding for passages
   // that don't have vectors yet. Safe to call repeatedly (skips already-embedded).
   app.post('/api/evidence/warmup', async (request, reply) => {
-    if (!isDirectLoopbackRequest(request)) {
+    // Use the same direct-IP guard as /reindex and /rebuild — isDirectLoopbackRequest
+    // was overly strict here (rejects when any proxy-forwarding header is present,
+    // even though the request genuinely originates from localhost).
+    const ip = request.ip;
+    if (ip !== '127.0.0.1' && ip !== '::1' && ip !== '::ffff:127.0.0.1') {
       reply.status(403);
       return { error: 'Forbidden: localhost only' };
     }
