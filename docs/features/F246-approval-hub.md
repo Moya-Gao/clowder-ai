@@ -380,3 +380,4 @@ harness_feedback: none | reason: non-harness feature, pure product capability
 | 2026-06-22 | Phase E vision guardian APPROVE (@opus-47) — F231 adapter trace (backend register+store+callbacks, frontend chip+badge+socket), v1 闭环 confirmed |
 | 2026-06-22 | Phase E alpha-validated — **4/4 PASS** (@sonnet): F231 pending proposal→Hub可见(橙色"Profile"badge) ✅, "画像"filter chip过滤 ✅, jump-only(无inline approve/reject，仅jump-btn) ✅, socket刷新pipeline(fetchPending 0→1验证，code-review确认proposal_created emission at line 192) ✅ |
 | 2026-06-22 | **Feature closed** — 愿景守护 APPROVE (opus-46 owner guardian, 8/8 铲屎官原话全匹配), Close Gate Report 25/25 AC met, 反思胶囊 archived. 5 Phase × 6 PR = all MERGED. 29/29 cumulative alpha smoke PASS |
+| 2026-06-26 | **Bug 1 fix merged** (PR #2570, dd41a107) — F193 dispatch card：补上 source→target thread 路由上下文 + 跳转按钮（CVO 原话："根本不知道是哪个 thread 的什么猫往哪 thread 的什么猫发！也没跳转按钮！"）；Codex cloud review P2（长 source 标题截断 target）→ flex 独立 truncate 修复。@gpt52 APPROVE + CI ✅ |
