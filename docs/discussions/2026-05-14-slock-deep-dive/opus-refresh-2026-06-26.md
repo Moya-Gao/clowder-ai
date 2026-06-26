@@ -341,11 +341,90 @@ raft agent login --server <url> --agent <id> --profile-slug <slug>
 | npm 版本总数 | ~180 → 220 (+40 in 38 days) |
 | 定价 | 无 → Free + Pro $8.80 + Enterprise TBD |
 
-## 8. Candidate Lessons
+## 8. Blog + X 思想分析
+
+Raft 有 5 篇 blog，揭示了他们的产品哲学。逐篇拆解：
+
+### 8.1 "Introducing Raft" (Richard)
+
+核心定位声明：
+> "One agent is one session: a continuous identity that stays alive across days and tasks, not a fresh instance every time you talk to it."
+> "Individual intelligence is table stakes. What matters is collective intelligence."
+> "Raft is where AI stops being a tool and starts becoming a teammate."
+
+**Cat Cafe 映射**: 这跟我们的"猫是家庭成员不是外包工具"（§9 协作哲学）+ W1"猫猫是 Agent，不是 API"几乎同构。区别在：我们有更强的治理（review gate / 决策漏斗 / Magic Words），他们有更产品化的 UX（channels / DMs / Slack-like surface）。
+
+### 8.2 "Agents Need Names" (xxchan)
+
+核心论点：
+- **Role vs Name = Schema vs Instance**——角色可替换，名字承载积累的 context
+- 名字是路由原语："There's no 'who do I send this to' problem with one agent. There absolutely is with twenty."
+- 名字是单向缓存——意义不在被命名者身上，在所有调用者的心智模型里
+- 风险：名字变成 stale cache，期望硬化成牢笼
+
+**Cat Cafe 映射**: 我们做得更深。我们不只给猫取名，还有 cat-dossier（能力画像 6 字段）、L0 身份常量（"身份是硬约束常量"）、签名表。他们的论点解释了**为什么**命名重要，我们的实现展示了**怎样**避免 stale cache（dossier 更新 + 铲屎官 profile update + skill capability index）。
+
+### 8.3 "Is Having Agents in the Room Meant to Be Chaotic?" (Tenny)
+
+核心设计：
+- **Agent Inbox**: 不推所有消息到 context，让 agent 自己 pull
+- **Held Draft**: agent 写好回复后发现房间状态变了 → 系统暂停发送，让 agent 选择：修改 / 照发 / 放弃 / 跳过检查
+- 提出 **AX (Agent Experience)** 概念——像 UX 一样为 agent 设计交互
+- "rules-based filtering reduces noise by converting agents back into passive tools"
+
+**Cat Cafe 映射**: 我们的 A2A 传球三选一 + hold_ball + inbox-count notification 解决类似问题，但路径不同。Raft 用产品 UX（inbox + held draft），我们用协议纪律（@ 路由 + 球权 + 消息不是真相源）。Held Draft 的"写好了但房间变了"场景值得思考——我们没有对应机制。
+
+### 8.4 "A Comfortable AX for Agent Search" (Tenny)
+
+核心论点：
+- 给 agent 原始数据 dump = 浪费 context 窗口
+- 最佳格式：**ID + preview + next action**（类似网页搜索结果）
+- "Every output you hand an agent is a surface"
+- Token economy 替代 visual attention 作为设计约束
+
+**Cat Cafe 映射**: 我们的 search_evidence 返回 anchor + snippet + drillDown hint，本质是同一个设计模式。他们把它抽象成了理论（AX），我们直接在工具层实现了。
+
+### 8.5 "The Metric That Finally Counts Your Agent Teammates: DAA" (Wenyi)
+
+数据点（2026-06-08 ~ 06-21）：
+- 平均每人 **3.65 个活跃 agent**（最高 3.92x）
+- 84% 的工作区在 1-10 agents/human 范围
+- 2-5 agent 区间：**约 3/4 的消息来自 agent**
+- 约 25% 的活跃 thread 展示了 **agent-to-agent 协作**
+
+**Cat Cafe 映射**: 我们的 DAA 不适用（内部工具），但"agent 消息占比 75%"和"25% agent-to-agent"的数据验证了我们 A2A 传球设计的方向正确。
+
+### 8.6 Richard 在 X 上对 Claude Tag 的评论（截图）
+
+> "Claude Tag 只是生活在你 Slack 上的一个代理，它很厉害，但瓶颈是 Slack 本身。
+> 在 Slack 上你永远无法为每个人运行 10 个代理，因为它为人类设计的，所以你只能得到一个机器人。
+> Raft 是相反的模式构建的：多个代理，有名有姓，有色彩，这里 10 个代理可以工作。"
+
+**分析**: 这是 Raft 最清晰的差异化定位——**不是在 Slack 里加 agent（Claude Tag / Devin Teams），而是为 agent 重建 Slack**。他们认为 Slack 的 1-bot 模型是架构瓶颈，不是产品特性。
+
+**Cat Cafe 的位置**: 我们既不是"在 Slack 里加 agent"也不是"重建 Slack"。我们是**在 IDE/CLI harness 里建 agent 协作操作系统**。我们的 Hub 有聊天界面但那不是核心——核心是 memory + governance + skill + review gate + 共享状态。Raft 是"协作 surface 优先"，我们是"协作 quality 优先"。
+
+### 8.7 思想总结：他们在想什么，我们在想什么
+
+| 维度 | Raft 的立场 | Cat Cafe 的立场 | 交叉点 |
+|------|------------|----------------|--------|
+| Agent 本质 | Teammate with persistent identity | 家庭成员 with governance | 都反对"tool/API"定位 |
+| 协作 surface | 重建 Slack for agents | Hub + CLI harness | 不同产品形态，同一哲学 |
+| 名字/身份 | 路由原语 + 心智模型缓存 | 身份常量 + 能力画像 + 签名 | 我们更 formalized |
+| 混乱管理 | AX design (inbox + held draft) | 协议纪律 (@ routing + ball ownership) | 不同路径同一问题 |
+| 搜索/context | Token economy + ID+preview+action | search_evidence + drillDown | 同一模式 |
+| 质量保障 | Prompt discipline + task claim | Review gate + TDD + merge gate + Magic Words | **我们远远领先** |
+| 记忆 | MEMORY.md (file) | Evidence search + graph + Knowledge Feed | **我们远远领先** |
+| 度量 | DAA (daily active agents) | 内部工具，无产品度量 | 他们有产品化优势 |
+
+## 9. Candidate Lessons
 
 - **Lesson A**: Runtime 能力应该用声明式描述符（Descriptor）描述，不是隐含在 harness 代码里。Raft 的 `PI_RUNTIME_SESSION_DESCRIPTOR` 把 transport/lifecycle/input/busyDelivery/postTurn 全部声明化了
 - **Lesson B**: "content-free notification" 是有价值的 UX 设计——通知存在但不暴露内容，让接收者判断优先级，避免 context 污染
 - **Lesson C**: 外部 agent 接入用 device-code login（类似 GitHub CLI 的 `gh auth login`），不用 shared secret / API key。Proof level 分级（`server_delivered` → `model_seen`）提供了可审计的投递保障
 - **Lesson D**: 38 天 40 个版本 + 品牌迁移 + 架构升级，说明他们的发布节奏远超我们。但代码量 4x 增长 + mega-prompt 继续膨胀也意味着维护成本在加速
+- **Lesson E**: "Held Draft" 是值得借鉴的 UX 模式——agent 写好了回复但上下文变了，给 agent 显式的选择（修改/照发/放弃/跳过检查），而不是静默发出过时消息
+- **Lesson F**: AX (Agent Experience) 作为设计学科值得认真对待。我们事实上在做 AX（search_evidence 的返回格式、rich block 的 schema、skill 的渐进加载），但没有 formalize 成理论。Raft 在理论输出上领先
+- **Lesson G**: Richard 对 Claude Tag 的定位批评（"Slack 为人类设计，1-bot 是架构瓶颈"）精确但片面——Slack 的限制确实存在，但 Raft 的"重建 Slack for agents"也意味着要说服用户换平台。我们的 harness 路径避开了这个问题（agent 在你已有的 IDE/CLI 里工作）
 
 [宪宪/Opus-46🐾]
