@@ -4242,6 +4242,8 @@ async function main(): Promise<void> {
       { RealGhClient },
       { RealFeatIndexLookup },
       { RealThreadSearch },
+      { ThreadSplitCollector },
+      { CrossPostCollector },
     ] = await Promise.all([
       import('./domains/feat-trajectory/FeatTrajectoryCollectorScheduler.js'),
       import('./domains/feat-trajectory/FeatTrajectoryCollectorTaskSpec.js'),
@@ -4251,6 +4253,8 @@ async function main(): Promise<void> {
       import('./domains/feat-trajectory/RealGhClient.js'),
       import('./domains/feat-trajectory/RealFeatIndexLookup.js'),
       import('./domains/feat-trajectory/RealThreadSearch.js'),
+      import('./domains/feat-trajectory/ThreadSplitCollector.js'),
+      import('./domains/feat-trajectory/CrossPostCollector.js'),
     ]);
 
     const trajIntervalMs = Number.parseInt(process.env.F233_FEAT_TRAJECTORY_COLLECTOR_INTERVAL_MS ?? '', 10);
@@ -4314,10 +4318,56 @@ async function main(): Promise<void> {
         error: app.log.error.bind(app.log),
       },
     });
+    // F233: Thread feat lookup adapter — maps threadId → featId by checking
+    // thread labels (feat:F### / F###) and title. Used by ThreadSplitCollector
+    // and CrossPostCollector to associate proposals/messages with features.
+    // Label ID → name resolution mirrors trajThreadSearch (cloud round 5 P2 fix).
+    const threadFeatLookup = {
+      async lookupByThreadId(threadId: string) {
+        try {
+          const thread = await threadStore.get(threadId);
+          if (!thread) return null;
+          // Check labels first (most reliable)
+          if (thread.labels?.length) {
+            const ownerUserId = getOwnerUserId();
+            const allLabels = await labelStore.list(ownerUserId);
+            const idToName = new Map(allLabels.map((l: { id: string; name: string }) => [l.id, l.name]));
+            for (const labelId of thread.labels) {
+              const name = idToName.get(labelId) ?? labelId;
+              const m = name.match(/^(?:feat:)?(F\d{2,4})$/i);
+              if (m) return m[1].toUpperCase();
+            }
+          }
+          // Fallback: check title for F### token
+          if (thread.title) {
+            const m = thread.title.match(/\b(F\d{2,4})\b/i);
+            if (m) return m[1].toUpperCase();
+          }
+          return null;
+        } catch {
+          return null; // graceful degradation
+        }
+      },
+    };
+    // F233: ThreadSplitCollector — scans approved proposals with createdThreadId.
+    // Adapter wraps proposalStore.listByUser (single owner, bounded volume).
+    const trajThreadSplitCollector = new ThreadSplitCollector({
+      proposalStore: { listAll: async () => proposalStore.listByUser(getOwnerUserId(), 10000) },
+      featIndex: threadFeatLookup,
+    });
+    // F233: CrossPostCollector — scans messages with extra.crossPost metadata.
+    // RedisMessageStore.listCrossPostMessages() uses SCAN + HGET for efficiency.
+    const trajCrossPostCollector = new CrossPostCollector({
+      messageStore:
+        messageStore as import('./domains/cats/services/stores/redis/RedisMessageStore.js').RedisMessageStore,
+      featIndex: threadFeatLookup,
+    });
     const trajScheduler = new FeatTrajectoryCollectorScheduler({
       collector: trajCollector,
       projector: trajProjector,
       store: featTrajectoryStore,
+      threadSplitCollector: trajThreadSplitCollector,
+      crossPostCollector: trajCrossPostCollector,
       logger: {
         info: app.log.info.bind(app.log),
         warn: app.log.warn.bind(app.log),
