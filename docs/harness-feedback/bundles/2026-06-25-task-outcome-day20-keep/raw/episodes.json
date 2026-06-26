@@ -1,0 +1,160 @@
+{
+  "verdictId": "2026-06-25-task-outcome-day20-keep",
+  "windowStartMs": 1782270000000,
+  "windowEndMs": 1782356400000,
+  "taskOutcomeDbPath": "/Users/lysander/projects/relay-station/cat-cafe-runtime/task-outcome-episodes.sqlite",
+  "eventMemoryDbPath": "/Users/lysander/projects/relay-station/cat-cafe-runtime/event-memory.sqlite",
+  "episodes": [
+    {
+      "episodeId": "ep-1782284385398-zvwlr6",
+      "trigger": "cat_initiated",
+      "threadId": "thread_mqro5czgl72l0kve",
+      "participants": [],
+      "artifacts": [],
+      "terminalState": "completed",
+      "verdict": null,
+      "createdAt": "2026-06-24T06:59:45.398Z"
+    },
+    {
+      "episodeId": "ep-1782291229847-szjwpp",
+      "trigger": "cat_initiated",
+      "threadId": "thread_mqri3okgboq79ibz",
+      "participants": [
+        "opus-48"
+      ],
+      "artifacts": [],
+      "terminalState": "in_progress",
+      "verdict": null,
+      "createdAt": "2026-06-24T08:53:49.847Z"
+    },
+    {
+      "episodeId": "ep-1782305516088-e1tovm",
+      "trigger": "cat_initiated",
+      "threadId": "thread_mqro5czgl72l0kve",
+      "participants": [],
+      "artifacts": [],
+      "terminalState": "completed",
+      "verdict": null,
+      "createdAt": "2026-06-24T12:51:56.088Z"
+    },
+    {
+      "episodeId": "ep-1782308399233-vr8pom",
+      "trigger": "cat_initiated",
+      "threadId": "thread_mq7h69untjt5ld61",
+      "participants": [],
+      "artifacts": [],
+      "terminalState": "completed",
+      "verdict": null,
+      "createdAt": "2026-06-24T13:39:59.233Z"
+    },
+    {
+      "episodeId": "ep-1782355238890-g17nmu",
+      "trigger": "cat_initiated",
+      "threadId": "thread_mq7h69untjt5ld61",
+      "participants": [],
+      "artifacts": [],
+      "terminalState": "completed",
+      "verdict": null,
+      "createdAt": "2026-06-25T02:40:38.890Z"
+    },
+    {
+      "episodeId": "ep-1782355408832-ydsxcl",
+      "trigger": "cat_initiated",
+      "threadId": "thread_mqgem09a7skjvwhx",
+      "participants": [],
+      "artifacts": [],
+      "terminalState": "completed",
+      "verdict": null,
+      "createdAt": "2026-06-25T02:43:28.832Z"
+    }
+  ],
+  "signals": [
+    {
+      "id": 427,
+      "episodeId": "ep-1782284385398-zvwlr6",
+      "category": "a1",
+      "record": {
+        "type": "merge",
+        "ref": "PR#2525",
+        "outcome": "success",
+        "timestamp": "2026-06-24T06:59:45.399Z"
+      },
+      "createdAt": "2026-06-24T06:59:45.399Z"
+    },
+    {
+      "id": 429,
+      "episodeId": "ep-1782291229847-szjwpp",
+      "category": "a2",
+      "record": {
+        "type": "magic_word_ref",
+        "eventId": "evt_mqru6idx1smk1b51",
+        "word": "第一性原理",
+        "timestamp": "2026-06-24T08:53:49.847Z",
+        "threadId": "thread_mqri3okgboq79ibz",
+        "catId": "opus-48"
+      },
+      "createdAt": "2026-06-24T08:53:49.847Z"
+    },
+    {
+      "id": 430,
+      "episodeId": "ep-1782305516088-e1tovm",
+      "category": "a1",
+      "record": {
+        "type": "merge",
+        "ref": "PR#1008",
+        "outcome": "success",
+        "timestamp": "2026-06-24T12:51:56.089Z"
+      },
+      "createdAt": "2026-06-24T12:51:56.089Z"
+    },
+    {
+      "id": 431,
+      "episodeId": "ep-1782308399233-vr8pom",
+      "category": "a1",
+      "record": {
+        "type": "merge",
+        "ref": "PR#2527",
+        "outcome": "success",
+        "timestamp": "2026-06-24T13:39:59.234Z"
+      },
+      "createdAt": "2026-06-24T13:39:59.234Z"
+    },
+    {
+      "id": 433,
+      "episodeId": "ep-1782355238890-g17nmu",
+      "category": "a1",
+      "record": {
+        "type": "merge",
+        "ref": "PR#2531",
+        "outcome": "success",
+        "timestamp": "2026-06-25T02:40:38.891Z"
+      },
+      "createdAt": "2026-06-25T02:40:38.891Z"
+    },
+    {
+      "id": 434,
+      "episodeId": "ep-1782355408832-ydsxcl",
+      "category": "a1",
+      "record": {
+        "type": "merge",
+        "ref": "PR#2530",
+        "outcome": "success",
+        "timestamp": "2026-06-25T02:43:28.834Z"
+      },
+      "createdAt": "2026-06-25T02:43:28.834Z"
+    }
+  ],
+  "eventRows": [
+    {
+      "eventId": "evt_mqru6idx1smk1b51",
+      "type": "第一性原理",
+      "trigger": "human_brake",
+      "cat": "opus-48",
+      "threadId": "thread_mqri3okgboq79ibz",
+      "messageId": "0001782291229844-000091-17baf7b4",
+      "timestamp": 1782291229845,
+      "summary": "不对你理解错意思了，我们的目的是什么？是在对比 f243的提示词和他们的提示词吗？ 不是的。 回顾我们的目标。 \n\n回归第一性原理，记忆系统本质解决的是什么？ 你抽出来了l0 l1 来当索引？是索引吗？那这个的精度？ 我们是在讨论这个。 他随便拿一个简单的文档or聊天说自己抽出来很ok 没用啊。让他对f243测过的md文档是因为这些文档我们熟悉啊！我们能判断抽取质量啊！你随便比如拿一本 xxx生平…",
+      "confidence": "high"
+    }
+  ]
+}
