@@ -25,6 +25,8 @@ clowder-ai 不是 cat-cafe 的 git fork，也不是简单镜像；它是有 1.8k
 
 Phase A 只挡 **C1/C2 类 public target delta preservation**：clowder-ai 在上次 sync 后已经有目标侧 delta，而本次 export 会把它删掉、回退或冲突。它不挡 **C3 家里演进回归**：cat-cafe 自己把共享行为改坏后同步出去、且 clowder-ai 目标侧没有独立 delta 的情况。C3 需要 Phase B Community Contract Registry、dogfood、社区反馈和 hotfix 兜底。Task 1 的 synthetic fixtures 只证明 classifier 边界；在 AC-A5 历史事故 replay fixture BLOCK 住真实 #720/#726 类事故前，V1 不能宣称 anti-placebo 成立。
 
+**C4 sibling — sync exclude rule misses runtime asset**（2026-06-25 宪宪发现并修复）：另一类 outbound sync 漏水不属于 Phase A scope 但症状相邻——`sync-to-opensource.sh` 用 `--exclude='docs/'` 一刀切再用一组 include 通道（decisions allowlist / features 结构化导出 / SOP / BACKLOG 等）放行。如果 `packages/api/src` 在运行时 readFileSync 一个 docs/* 文件，但**没有任何通道覆盖**，target 永远撞 404；三方树（base/theirs/ours）都没有这个文件，Phase A gate 检测不到 delta（无可保护的差异）。事故来源：`clowder-ai#1025` —— `docs/services-offline-install.html` 被 cat-cafe `packages/api/src/routes/services.ts:98` readFile + `InstallPreviewModal.tsx:486` 链接，但 sync 通道一直没覆盖它。修复 = reverse-check guard `scripts/check-sync-docs-runtime-assets.mjs`（扫 runtime references → 对照 sync coverage → 报告孤儿，进 `pnpm check`）+ 新 manifest key `docs_runtime_assets_allowlist` + sync 脚本对应 copy loop（mirror `docs_decisions_allowlist` 模式）。这是 F251 sibling sub-task（同主题 outbound sync harness 治理），不占 Phase 编号、不抢 Phase A/B 注意力。
+
 ### Phase A: Public Target Delta Preservation Gate (V1)
 
 在 public byte-space 做三方树对比：`base` = 上次成功 sync 落到 clowder-ai 的 commit（来自 `sync/*` tag 或 first-parent 解析），`theirs` = clowder-ai 当前 HEAD，`ours` = cat-cafe 本次 export 后的 public tree。逐 path 判定，target-only delta 在 ours 里消失/回退 = BLOCK；双边冲突 = BLOCK；binary/delete/rename = BLOCK；override 需写 reason 入 provenance，单次 sync override > 3 触发 CVO approval alarm。

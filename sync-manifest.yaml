@@ -100,6 +100,8 @@ managed_scripts:
   - scripts/derive-worktree-ports.mjs
   - scripts/derive-worktree-ports.test.mjs
   - scripts/check-worktree-port-offset.mjs
+  - scripts/check-sync-docs-runtime-assets.mjs
+  - scripts/check-sync-docs-runtime-assets.test.mjs
   - scripts/start-dev-profile-isolation.test.mjs
   - scripts/pre-merge-check.sh
   - scripts/pre-merge-check.test.mjs
@@ -288,6 +290,28 @@ docs_decisions_allowlist:
   - docs/decisions/021-f129-pack-system-architecture.md
   - docs/decisions/022-unified-schedule-abstraction.md
   - docs/decisions/037-mcp-tool-cognitive-entry-points.md
+
+# ── docs/ runtime assets allowlist（F251 C4 sibling）──────────
+# 真相源：packages/api/src 在运行时 readFileSync/resolve 这些路径；缺一个就让 clowder-ai
+# 用户撞 404（事故来源：clowder-ai#1025 — sync 默认 `--exclude='docs/'` 把
+# docs/services-offline-install.html 静默吞掉了，route + frontend link 仍引用）。
+# 守护：`scripts/check-sync-docs-runtime-assets.mjs` 反向扫 packages/api/src 引用的
+# docs/*，对照本 allowlist + 其他 sync 通道（features/decisions/SOP/BACKLOG/lessons），
+# 报告孤儿，CI/pre-merge 阻塞。新增 runtime docs asset 必须在同一个 PR 里加入本列表。
+docs_runtime_assets_allowlist:
+  - docs/services-offline-install.html
+  # Directory prefix (trailing slash): sync 脚本 copies entire tree under
+  # docs/perspectives/ to the public target. Required because PerspectivePlanLoader.loadById()
+  # builds `docs/perspectives/${id}.md` at runtime — the loader is exported
+  # public surface even when the directory currently contains no plans.
+  - docs/perspectives/
+  # NOTE on docs/BACKLOG.md: NOT in this allowlist. The sync sanitizer
+  # (_sanitize-rules.pl:204) rewrites every public-side 'docs/BACKLOG.md'
+  # literal to 'docs/ROADMAP.md', and sync generates a filtered ROADMAP.md
+  # (RED-tier rows stripped). Adding raw BACKLOG.md here would leak
+  # RED-tier rows that the ROADMAP transform filters out (cloud R3 P1).
+  # The guard IGNORE entry for docs/BACKLOG.md documents this
+  # transform-mapped semantics. R3→R4→R5 trail (砚砚 R5 narrative fix).
 
 # ── 排除（即使在 managed_roots 内也不导出）─────────────────────
 excluded:

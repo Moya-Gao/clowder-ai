@@ -1077,6 +1077,41 @@ for f in "${DECISIONS_ALLOWLIST[@]}"; do
   fi
 done
 
+# 2e2: docs/ runtime assets allowlist（F251 C4 sibling — clowder-ai#1025 root cause）
+# packages/api/src 在运行时 readFileSync 这些 docs/* 路径；不放进 FILTERED_DIR
+# 就让 clowder-ai 用户撞 404（route + frontend link 仍引用）。
+# Guard: scripts/check-sync-docs-runtime-assets.mjs 反向扫，pre-merge 阻塞。
+#
+# Entry forms:
+#   docs/foo.html       → single file copy
+#   docs/foo/           → trailing slash means directory; entire tree copied
+#                         (used for PerspectivePlanLoader template-string paths
+#                         where individual files are not known at sync time)
+RUNTIME_ASSETS_ALLOWLIST=()
+while IFS= read -r line; do RUNTIME_ASSETS_ALLOWLIST+=("$line"); done < <(yaml_list "docs_runtime_assets_allowlist")
+for f in "${RUNTIME_ASSETS_ALLOWLIST[@]}"; do
+  if [ "${f%/}" != "$f" ]; then
+    # Trailing slash → directory prefix copy.
+    src_dir="$STAGING_DIR/${f%/}"
+    if [ -d "$src_dir" ]; then
+      mkdir -p "$FILTERED_DIR/${f%/}"
+      cp -R "$src_dir/." "$FILTERED_DIR/${f%/}/"
+      dir_count=$(find "$src_dir" -type f 2>/dev/null | wc -l | tr -d ' ')
+      INCLUDED=$((INCLUDED + dir_count))
+      echo "  ✓ $f ($dir_count files, runtime asset allowlist dir)"
+    else
+      # Directory entry but source missing — keep it noisy so maintainer notices
+      # if a runtime reader still expects it.
+      echo -e "  ${YELLOW}⚠ $f directory missing in source, runtime readers will 404${NC}"
+    fi
+  elif [ -f "$STAGING_DIR/$f" ]; then
+    mkdir -p "$FILTERED_DIR/$(dirname "$f")"
+    cp "$STAGING_DIR/$f" "$FILTERED_DIR/$f"
+    INCLUDED=$((INCLUDED + 1))
+    echo "  ✓ $f (runtime asset allowlist)"
+  fi
+done
+
 # 2f: docs/features/ — 结构化公开导出（调用 export-public-feature-docs.mjs）
 echo "  Exporting public feature docs..."
 FEATURES_EXPORT_DIR="$FILTERED_DIR/docs/features"
@@ -1462,6 +1497,11 @@ const internalScripts = [
   // feature doc paths. Test stays home-only; the gate function itself lives in
   // export-public-feature-docs.mjs which is already handled by docs_generated.
   "check:export-privacy-gate",
+  // F251 sibling guard — hard-deps sync-manifest.yaml (NOT exported). It treats
+  // outbound sync coverage of docs/* runtime assets, so it has no place in the
+  // public check chain. 砚砚 R1 P1 (2026-06-25): without strip, public pnpm check
+  // exits 2 on missing manifest. Strip both definition and chain reference.
+  "check:sync-docs-runtime-assets",
   "clean:root-debris",
   "guards:check",
 ];
