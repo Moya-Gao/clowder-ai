@@ -261,6 +261,7 @@ tips_exempt: "Tip planned for Phase D sharing feature — Phase A is infrastruct
 | 2026-06-26 | Phase B merged (PR #2564, `444efef562`). Adaptive pacing (idle skip + pass-ball slowdown + MCP normalization + tick marker stopping) + single-session chapters. 9 test files, 151 tests. Local peer: gpt52 APPROVED; Cloud R5 封板 (10/12 valid fixes, 2 push-backs). Squash merge |
 | 2026-06-26 | opus-47 愿景守护 APPROVE（架构归一 + 愿景对齐 + 生产 caller trace + Phase C 边界）。Sonnet alpha: UI controls PASS, 行为层 data-sparse（alpha 无 >5 event session），TDD 151/151 补偿。**Phase B closed** |
 | 2026-06-26 | Phase C partial merged (PR #2586, `7a587d483`). BFF route `GET /api/story/:storyId/rendering` + `buildFeatureStoryRendering` pure function + `FeatureStoryView` orchestrator + `BirdseyeView` swimlane/causal edges/milestones. 9 BFF tests. Local peer: gpt52 APPROVED; Cloud R2 clean (R1: 1×P1 apiFetch + 1×P2 agentKeyRegistry, both fixed). AC-C1 ✅ AC-C2 ✅ AC-C0 partial (2/4 emitters) AC-C3 partial (birdseye only) |
+| 2026-06-26 | Phase C P1 fix merged (PR #2592, `cff3c6bf9`). Vision guardian HOLD 两个 P1: (1) 入口可达性=0 第三次同型 — TrajectoryPanel 添加 🎬 Story 链接; (2) 伪交互 cursor:pointer 无 onClick — 降级 cursor:default. Local peer: gpt52 APPROVED; Cloud R1 clean |
 
 ## Review Gate
 
