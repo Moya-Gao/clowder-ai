@@ -8,7 +8,7 @@ created: 2026-06-20
 
 # F246: Approval Hub — 统一审批中心底座
 
-> **Status**: done（2026-06-22）| **Owner**: 布偶猫/宪宪 (opus-46) | **Priority**: P2
+> **Status**: done（2026-06-22, Phase A–E; Phase F 2026-06-26; Phase G 2026-06-26）| **Owner**: 布偶猫/宪宪 (opus-46) | **Priority**: P2
 
 Architecture cell: platform-infra（subcell: `approval-index`）
 Map delta: 新 cell — Hub 通过 feature adapter 实时聚合（query aggregation）各 feature 的 CVO 审批项 + Hub UI panel。不维护独立 index，at-read-time 直查 canonical stores。
@@ -297,8 +297,42 @@ Goal: 把 Phase C 后真实遗留的成熟化工作收束成可执行交付，�
 
 > CVO 拍板后写入此处，然后开工。
 
-- **选项 A**：Hub panel 顶部加 `待审批 | 历史` 两个 tab，切换显示
+- **选项 A**：Hub panel 顶部加 `待审批 | 历史` 两个 tab，切换显示（已实现）
 - **选项 B**：同一个 tab 内，pending 列表下方加折叠的「历史记录」section（默认折叠）
+
+#### AC 清单（Phase F）
+
+- [x] **AC-F1**: `SettledApprovalItem` 类型从 `@cat-cafe/shared` 导出，字段：`status: 'approved'|'rejected'`、`decidedAt: number`、`decidedBy: string`，其余字段继承 `ApprovalItem`（去掉旧 `status`）
+- [x] **AC-F2**: `IApprovalAdapter` 新增可选方法 `listSettled?`，签名见上表；未实现的 adapter 在 ApprovalService fan-out 时安全跳过（`?.listSettled?.()`）
+- [x] **AC-F3**: `IDispatchProposalStore` 新增 `listSettledByUser(userId, limit)`，InMemoryDispatchProposalStore 实现（过滤 status ∈ `{approved, rejected}`，按 decidedAt 降序，截 limit）
+- [x] **AC-F4**: `F193ApprovalAdapter.listSettled` 实现并测试（mapping 正确：proposalId / sourceFeatureId / decidedAt / decidedBy / status）
+- [x] **AC-F5**: `GET /api/approval-hub/settled` 端点，返回 `SettledApprovalItem[]`，ownerUserId = 登录用户，limit 默认 50；tests 覆盖空集、单 adapter 有数据、limit 截断
+- [x] **AC-F6**: Hub 面板新增「待审批 | 历史」两个 tab（Option A CVO 拍板），历史 tab 每条 `SettledHistoryCard`：feature badge + status chip（✅/❌）+ summary + decidedAt 相对时间
+- [x] **AC-F7**: 历史区空状态文案：「还没有审批记录」
+- [x] **AC-F8**: 历史区按 `decidedAt` 降序排列（最新在最上）
+
+### Phase G: F128 + F225 Settled Adapters ✅
+
+**Goal**: 让 F128（新建 thread 提案）和 F225（session handoff 提案）的历史审批记录也出现在审批历史 tab。Phase F 时 F193 adapter 已实现 `listSettled`；Phase G 补全其余两个主力 adapter。
+
+#### 技术边界
+
+| 层 | 新增内容 |
+|----|---------|
+| **F128 adapter** | `F128ApprovalAdapter.listSettled()` — 调 `listByUser(userId, Number.MAX_SAFE_INTEGER)`（绕过 store DEFAULT_LIST_LIMIT=100）→ 过滤 approved/rejected → 按 decidedAt DESC 排序 → 截 limit（50） |
+| **F225 adapter** | `F225ApprovalAdapter.listSettled()` — 委托 `RedisSessionHandoffProposalStore.listSettledByUser()` |
+| **F225 Redis store** | `listSettledByUser()` — ZREVRANGE `handoff-proposals:settled:{userId}` + pipeline HGETALL + 状态二次校验 |
+| **F225 Redis settled index** | `handoff-proposals:settled:{userId}` sorted set（score=updatedAt），`finalizeApproval()` + `markRejected()` 通过 `CAS_AND_SETTLE_LUA` 原子写入（同步 CAS 状态变更 + ZREM pending + ZADD settled）|
+| **Backfill script** | `backfill-f225-settled-index.mjs` — 补全 Phase G 前已决议的 F225 提案；DRY RUN 默认，`--apply` 才写；默认 Redis 6398（需显式 `REDIS_URL=redis://localhost:6399` 才能触碰生产）|
+| **Refactor** | Lua 脚本提取到 `redis-handoff-lua-scripts.ts`，主文件从 402 行缩至 343 行（< 350 行 SOP 硬限） |
+
+#### AC 清单（Phase G）
+
+- [x] **AC-G1**: `F128ApprovalAdapter.listSettled(userId, opts?)` 实现：调 `listByUser(userId, Number.MAX_SAFE_INTEGER)` 绕过 DEFAULT_LIST_LIMIT，过滤已决议，按 `decidedAt DESC` 排序，截 `limit`（默认 50）；测试覆盖：approved/rejected mapping、pending 不出现、decidedAt 排序、>100 提案不丢失（DEFAULT_LIST_LIMIT bypass 测试）
+- [x] **AC-G2**: `F225ApprovalAdapter.listSettled()` 实现：委托 `listSettledByUser`，mapping 到 `SettledApprovalItem`
+- [x] **AC-G3**: `RedisSessionHandoffProposalStore.listSettledByUser(userId, limit)` — ZREVRANGE settled sorted set（按 updatedAt score）+ pipeline HGETALL + 状态二次校验；测试（Redis）覆盖：空集、批准/拒绝 mapping、decidedAt 降序、limit 截断
+- [x] **AC-G4**: `handoff-proposals:settled:{userId}` sorted set 原子维护：`CAS_AND_SETTLE_LUA` 在一次 Lua 调用中完成状态 CAS + ZREM pending + ZADD settled，消除 crash window（P1 fix）
+- [x] **AC-G5**: 一次性 backfill 脚本 `backfill-f225-settled-index.mjs`，DRY RUN 默认，`--apply` 写入，默认 Redis 6398（生产需显式 `REDIS_URL=redis://localhost:6399`）
 
 ## Dependencies
 
@@ -384,7 +418,17 @@ harness_feedback: none | reason: non-harness feature, pure product capability
 - AC-E2 ✅ met — Hub displays F231 items with orange "Profile" badge + filter chip, alpha 4/4 PASS
 - AC-E3 ✅ met — tests: mapping, stale, empty user, requesterCatId, detail fields, cardMessageId, socket event, filter/badge regression
 
-**Summary: 25/25 AC met, 0 unmet, 0 deleted, 0 cvo_signed_off.**
+**Phase A–E Summary: 25/25 AC met, 0 unmet, 0 deleted, 0 cvo_signed_off.**
+
+**Phase F (AC-F1~F8):**
+- AC-F1~F8 ✅ met — SettledApprovalItem + GET /api/approval-hub/settled + Redis settled ZSet + Hub 历史 tab + SettledHistoryCard; @gpt52 APPROVE + Codex cloud R1 P2 fixed + CI ✅
+
+**Phase G (AC-G1~G5):**
+- AC-G1 ✅ met — F128 listSettled() with DEFAULT_LIST_LIMIT bypass + tests (10/10)
+- AC-G2 ✅ met — F225 listSettled() via listSettledByUser delegation
+- AC-G3 ✅ met — Redis listSettledByUser ZREVRANGE + pipeline + double-check (8/8 Redis tests)
+- AC-G4 ✅ met — atomic CAS_AND_SETTLE_LUA (status CAS + ZREM + ZADD in one Lua call)
+- AC-G5 ✅ met — backfill script, DRY RUN default, 6398 default (prod explicit override)
 
 ## Reflection Capsule
 
@@ -427,3 +471,4 @@ harness_feedback: none | reason: non-harness feature, pure product capability
 | 2026-06-22 | **Feature closed** — 愿景守护 APPROVE (opus-46 owner guardian, 8/8 铲屎官原话全匹配), Close Gate Report 25/25 AC met, 反思胶囊 archived. 5 Phase × 6 PR = all MERGED. 29/29 cumulative alpha smoke PASS |
 | 2026-06-26 | **Bug 1 fix merged** (PR #2570, dd41a107) — F193 dispatch card：补上 source→target thread 路由上下文 + 跳转按钮（CVO 原话："根本不知道是哪个 thread 的什么猫往哪 thread 的什么猫发！也没跳转按钮！"）；Codex cloud review P2（长 source 标题截断 target）→ flex 独立 truncate 修复。@gpt52 APPROVE + CI ✅ |
 | 2026-06-26 | **Phase F merged** (PR #2577, e5c25b981) — 审批历史：`SettledApprovalItem` DTO + `GET /api/approval-hub/settled` + Redis settled sorted set（Lua CAS 原子写，revertToPending 清理 stale entries）+ Hub 面板「待审批\|历史」两 tab + `SettledHistoryCard`。本轮修复：P2 分数类 limit 向 Redis ZREVRANGE 传浮点索引→Math.floor() 强制整数化。@gpt52 APPROVE (scoped continuity 03edb34ed) + Codex cloud R1 P2 fixed + CI ✅ |
+| 2026-06-26 | **Phase G merged** (PR #2587, 824193d38) — F128 + F225 settled adapters：`F128ApprovalAdapter.listSettled()` + `F225ApprovalAdapter.listSettled()` + `RedisSessionHandoffProposalStore.listSettledByUser()` + `handoff-proposals:settled:{userId}` atomic index（CAS_AND_SETTLE_LUA）+ backfill script（默认 6398）。Codex cloud R1~R4（P1 atomicity + P2 ordering + P1 backfill 6399 + P2 store truncation + P1 file size）全修，R4 clean pass + CI ✅ |
