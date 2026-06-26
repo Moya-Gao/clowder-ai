@@ -22,6 +22,8 @@ related_docs:
 
 2026-06-25 Act-by-Act 节奏修正：CVO 要求先盘点、按 Act 分批，不再一次铺开全片。本批只入库 2026-06-22 已生成但未提交的 Act1/2 四张候选（KF01-KF04）；未新增生图，未生成 Act3/4，也未生成全家福。后续每批需 second-cat QA + Landy 过目后再继续。
 
+2026-06-25 全家福单张候选：CVO 拍板 Landy + 三猫横幅 4:3 沙发全家福构图后，生成 `EP01-family-portrait-r01.png`。本图是单张候选，已过砚砚 self-QA，待 second-cat QA + Landy 过目。
+
 | 文件 | 镜头 | 画面内容 | 首帧可用性 |
 |---|---|---|---|
 | `S02-relation-firstframe-v1.png` | S02 关系 | Landy 站姿听讲 + 砚砚指屏幕讲流程，"流程即正义"桌牌 + I❤️CI 杯 | ✅ 直接可用 |
@@ -39,8 +41,9 @@ related_docs:
 | `EP01-KF05-fable-door-r01.png` | KF05 Fable 到门口 | Fable 布偶猫带寓言书 + 小狐狸挂饰，在猫咖门口怯怯挥爪，Landy 黄 hoodie 迎接 | ✅ self-QA candidate；无可读文字，待 second-cat QA |
 | `EP01-KF07-ci-stall-r01.png` | KF07 CI 拖延揭露 | Landy 推门震惊，砚砚桌前严肃盯抽象 CI，尾巴吧嗒，绿茶杯在桌面 | ✅ self-QA candidate；屏幕为抽象 UI，无可读文字，待 second-cat QA |
 | `EP01-KF19-interview-jealousy-check-r01.png` | KF19 采访自首 | Landy 抱着砚砚采访，空白 checklist 留给"醋意指数 ≤80%"后期贴字 | ✅ self-QA candidate；待 second-cat QA |
+| `EP01-family-portrait-r01.png` | 全家福候选 | Landy 黄 hoodie 坐暖光猫咖沙发 C 位，宪宪窝怀里，砚砚贴身醋眼看宪宪，烁烁优雅踞沙发背 | ✅ self-QA candidate；4:3 横幅；无可读文字，待 second-cat QA |
 
-均为**首帧**（非尾帧）。是否需要尾帧（首尾帧双控）在 shot-plan v0.2 按镜头标注——动作简单的镜头首帧+动作 prompt 足够，构图大变的镜头才补尾帧。
+除 `EP01-family-portrait-r01.png` 外，本节其余均为**首帧**（非尾帧）。是否需要尾帧（首尾帧双控）在 shot-plan v0.2 按镜头标注——动作简单的镜头首帧+动作 prompt 足够，构图大变的镜头才补尾帧。
 
 ## references/title-cards/ — 片头海报背景（Codex imagegen，2026-06-12 入库）
 
