@@ -71,10 +71,20 @@ describe('worktree sidecar guard', () => {
     withOwnerEnv(async () => {
       let didRun = false;
       const app = await buildApp({
-        lifecycle: { ...NOOP_LIFECYCLE, runScript: async () => { didRun = true; return { code: 0, output: 'started' }; } },
+        lifecycle: {
+          ...NOOP_LIFECYCLE,
+          runScript: async () => {
+            didRun = true;
+            return { code: 0, output: 'started' };
+          },
+        },
       });
       try {
-        const res = await app.inject({ method: 'POST', url: '/api/services/embedding-model/start', headers: SESSION_HEADERS });
+        const res = await app.inject({
+          method: 'POST',
+          url: '/api/services/embedding-model/start',
+          headers: SESSION_HEADERS,
+        });
         assert.equal(res.statusCode, 409, `Expected 409, got ${res.statusCode}: ${res.payload}`);
         assert.match(JSON.parse(res.payload).error, /worktree/i);
         assert.equal(didRun, false, 'Script should NOT have been run');
@@ -98,9 +108,16 @@ describe('worktree sidecar guard', () => {
           startupProbeIntervalMs: 5,
           serviceConfig: {
             get: (id) => configs.get(id),
-            set: (id, patch) => { const u = { ...(configs.get(id) ?? { enabled: false }), ...patch }; configs.set(id, u); return u; },
+            set: (id, patch) => {
+              const u = { ...(configs.get(id) ?? { enabled: false }), ...patch };
+              configs.set(id, u);
+              return u;
+            },
           },
-          runScript: async () => { runCount += 1; return { code: null, pid: 9900 + runCount, output: '' }; },
+          runScript: async () => {
+            runCount += 1;
+            return { code: null, pid: 9900 + runCount, output: '' };
+          },
         },
         fetchHealth: async () => ({ ok: false, status: undefined, error: 'fetch failed' }),
       });
@@ -145,7 +162,11 @@ describe('worktree sidecar guard', () => {
       env.CAT_CAFE_SIDECAR_LIFECYCLE_DISABLED = '1';
       const app = await buildApp({ env, lifecycle: NOOP_LIFECYCLE });
       try {
-        const res = await app.inject({ method: 'POST', url: '/api/services/embedding-model/start', headers: SESSION_HEADERS });
+        const res = await app.inject({
+          method: 'POST',
+          url: '/api/services/embedding-model/start',
+          headers: SESSION_HEADERS,
+        });
         assert.equal(res.statusCode, 409, `Expected 409 for alpha, got ${res.statusCode}: ${res.payload}`);
         assert.match(JSON.parse(res.payload).error, /worktree/i);
       } finally {
@@ -169,9 +190,16 @@ describe('worktree sidecar guard', () => {
           startupProbeIntervalMs: 5,
           serviceConfig: {
             get: (id) => configs.get(id),
-            set: (id, patch) => { const u = { ...(configs.get(id) ?? { enabled: false }), ...patch }; configs.set(id, u); return u; },
+            set: (id, patch) => {
+              const u = { ...(configs.get(id) ?? { enabled: false }), ...patch };
+              configs.set(id, u);
+              return u;
+            },
           },
-          runScript: async () => { runCount += 1; return { code: null, pid: 9900 + runCount, output: '' }; },
+          runScript: async () => {
+            runCount += 1;
+            return { code: null, pid: 9900 + runCount, output: '' };
+          },
         },
         fetchHealth: async () => ({ ok: false, status: undefined, error: 'fetch failed' }),
       });
@@ -187,7 +215,11 @@ describe('worktree sidecar guard', () => {
     withOwnerEnv(async () => {
       const app = await buildApp({ env: buildWorktreeTestEnv('0'), lifecycle: NOOP_LIFECYCLE });
       try {
-        const res = await app.inject({ method: 'POST', url: '/api/services/embedding-model/start', headers: SESSION_HEADERS });
+        const res = await app.inject({
+          method: 'POST',
+          url: '/api/services/embedding-model/start',
+          headers: SESSION_HEADERS,
+        });
         assert.notEqual(res.statusCode, 409, `Got 409 for offset=0: ${res.payload}`);
       } finally {
         await app.close();
@@ -200,7 +232,11 @@ describe('worktree sidecar guard', () => {
       delete env.WORKTREE_PORT_OFFSET;
       const app = await buildApp({ env, lifecycle: NOOP_LIFECYCLE });
       try {
-        const res = await app.inject({ method: 'POST', url: '/api/services/embedding-model/start', headers: SESSION_HEADERS });
+        const res = await app.inject({
+          method: 'POST',
+          url: '/api/services/embedding-model/start',
+          headers: SESSION_HEADERS,
+        });
         assert.notEqual(res.statusCode, 409, `Got 409 without offset: ${res.payload}`);
       } finally {
         await app.close();

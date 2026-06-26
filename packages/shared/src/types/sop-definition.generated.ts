@@ -207,6 +207,19 @@ export const DEVELOPMENT_SOP_DEFINITION = {
           owner: { type: 'stage_suggested_skill', skill: 'merge-gate' },
           predicate: { type: 'sha_dedup', scope: 'cloud_review' },
         },
+        {
+          id: 'merge-feature-doc-truth',
+          kind: 'hard_rule',
+          text: 'merge 前核对 feature doc 是否说真话（Status/AC/Phase vs 代码现实），merge 后记录已合入状态',
+          severity: 'blocker',
+          owner: { type: 'stage_suggested_skill', skill: 'merge-gate' },
+          predicate: {
+            type: 'manual_only',
+            reason:
+              'Claimed-done vs code-real reconciliation is semantic; check-feature-truth mechanically guards only obvious status/timeline drift. Detailed pre/post steps live in merge-gate SKILL Step 7.5.',
+            futureCandidate: 'feature_doc_truth_check',
+          },
+        },
       ],
       pitfalls: [
         {

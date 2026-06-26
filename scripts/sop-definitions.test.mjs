@@ -21,6 +21,7 @@ const EXPECTED_PORTED_RULE_TEXTS = [
   '收到 P1 修完后没 re-trigger review',
   '必须用 gh pr merge --squash（禁止本地 squash）',
   '云端 review 同一 SHA 不重复触发',
+  'merge 前核对 feature doc 是否说真话（Status/AC/Phase vs 代码现实），merge 后记录已合入状态',
   '本地 squash + push + gh pr close（PR 显示 closed 不是 merged）',
   '合入后擅自更新 runtime',
   'feat close 前必须跨猫愿景守护',
@@ -52,7 +53,7 @@ describe('SOP definition catalog', () => {
     );
   });
 
-  it('ports all 19 development SOP rules into development.yaml with predicates', () => {
+  it('ports all 20 development SOP rules into development.yaml with predicates', () => {
     const { runtimeDefinitions } = loadSopDefinitionCatalog();
     const development = runtimeDefinitions[0];
 
@@ -65,7 +66,7 @@ describe('SOP definition catalog', () => {
     assert.equal(development.stages.find((stage) => stage.id === 'impl')?.suggestedSkill, 'writing-plans');
 
     const rules = development.stages.flatMap((stage) => [...stage.hardRules, ...stage.pitfalls]);
-    assert.equal(rules.length, 19);
+    assert.equal(rules.length, 20);
     assert.deepEqual(
       rules.map((rule) => rule.text),
       EXPECTED_PORTED_RULE_TEXTS,

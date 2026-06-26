@@ -1221,8 +1221,7 @@ export async function registerServiceLifecycleRoutes(
     async (request, reply) => {
       const operator = requireLifecycleOwner(request, reply);
       if (!operator) return lifecycleOwnerError(reply);
-      if (rejectIfWorktree(reply))
-        return { error: 'Service sidecar management is disabled in worktree environments' };
+      if (rejectIfWorktree(reply)) return { error: 'Service sidecar management is disabled in worktree environments' };
       const service = getServiceManifest(request.params.id);
       if (!service) {
         reply.status(404);
