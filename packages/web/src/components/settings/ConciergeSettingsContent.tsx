@@ -197,24 +197,6 @@ export function ConciergeSettingsContent() {
             hint="9 态动画精灵图，宪宪专属皮肤（视频提取）。"
             onChange={() => updateConfig({ skin: 'xianxian-codex' })}
           />
-          <RadioOption
-            name="skin"
-            value="ragdoll-v1"
-            checked={state.skin === 'ragdoll-v1'}
-            disabled={saving}
-            label="🐱 布偶猫 v1"
-            hint="经典布偶猫皮肤。"
-            onChange={() => updateConfig({ skin: 'ragdoll-v1' })}
-          />
-          <RadioOption
-            name="skin"
-            value="yarn-ball"
-            checked={state.skin === 'yarn-ball'}
-            disabled={saving}
-            label="🧶 毛线球"
-            hint="最简外观，纯 CSS 毛线球动画。"
-            onChange={() => updateConfig({ skin: 'yarn-ball' })}
-          />
         </div>
       </SettingsSection>
 
