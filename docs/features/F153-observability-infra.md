@@ -407,7 +407,7 @@ UI 必须显示 `—` 而非 `0`，否则会让"重启前的数据"看起来像"
 
 ### Phase K: Config Surface — 运维监控功能开关面板
 
-> **Status**: spec | **Owner**: 布偶猫
+> **Status**: ✅ done | **Owner**: 布偶猫
 > **Trigger**: 社区用户打开运维监控面板全部显示 0，因为 telemetry env 配置未暴露——用户不知道要配什么。
 > **铲屎官原话（2026-06-26）**："这个也是悄摸摸的 env 配置没放出来得env配置 和记忆那样 on/off放到面板"
 
@@ -561,12 +561,12 @@ F153 Phase E 做了 Hub 嵌入式可观测面板（`HubObservabilityTab`），�
 - [x] AC-J9: provider 支持矩阵附录 — F153 spec 已加表格列每个 provider 的 (start, end, id, status) 四件套支持情况（见 Phase J 章节 "Provider 支持矩阵" 子节）。**Codex / DARE / CatAgent** 四件套就位（AC-J2 wired in PR #774）；**Claude CLI / Gemini CLI / Antigravity / OpenCode** ⏳ deferred（parser 字段未 verify / wire — 见矩阵脚注）；**Kimi** 明确降级（无 `tool_result` 事件）；**A2A** n/a（非 LLM provider）。
 
 ### Phase K（Config Surface — 运维监控功能开关面板）
-- [ ] AC-K1: `HubObservabilityTab` OverviewPanel 顶部显示 OTel 启用状态（Enabled/Disabled + 原因：缺 HMAC salt / 被显式禁用 / 正常）
-- [ ] AC-K2: OTel 未启用时显示配置引导卡（明确原因 + 操作建议），替代静默显示全 0
-- [ ] AC-K3: "功能开关"区域显示可热更新的 telemetry env（`PROMPT_CAPTURE` 等），toggle 后 `PATCH /api/config/env` 即时生效
-- [ ] AC-K4: "配置参考"区域显示启动时读取的 telemetry env（`OTEL_SDK_DISABLED`、`TELEMETRY_HMAC_SALT` 等），标注"需重启"
-- [ ] AC-K5: `PROMPT_CAPTURE` 在 env-registry.ts 注册 `allowedValues: ['off', 'on']`，前端自动渲染为 toggle
-- [ ] AC-K6: 前端 toggle 复用 `PATCH /api/config/env` 热更新 API，不引入新端点
+- [x] AC-K1: `HubObservabilityTab` OverviewPanel 顶部显示 OTel 启用状态（Enabled/Disabled + 原因：缺 HMAC salt / 被显式禁用 / 正常）
+- [x] AC-K2: OTel 未启用时显示配置引导卡（明确原因 + 操作建议），替代静默显示全 0
+- [x] AC-K3: "功能开关"区域显示可热更新的 telemetry env（`PROMPT_CAPTURE` 等），toggle 后 `PATCH /api/config/env` 即时生效
+- [x] AC-K4: "配置参考"区域显示启动时读取的 telemetry env（`OTEL_SDK_DISABLED`、`TELEMETRY_HMAC_SALT` 等），标注"需重启"
+- [x] AC-K5: `PROMPT_CAPTURE` 在 env-registry.ts 注册 `allowedValues: ['off', 'on']`，前端自动渲染为 toggle
+- [x] AC-K6: 前端 toggle 复用 `PATCH /api/config/env` 热更新 API，不引入新端点
 
 ## Dependencies
 
@@ -647,6 +647,7 @@ F153 Phase E 做了 Hub 嵌入式可观测面板（`HubObservabilityTab`），�
 | 2026-05-22 | Phase I Step Summary: `clowder-ai#732` merge；`cat-cafe#1836` 建立 Intake Intent Issue，按 `safe-cherry-pick + high-risk manual-port` 回家吸收 |
 | 2026-06-02 | Phase J MCP Tool Span 状态同步：J-A (`clowder-ai#763/#774`) + J-B (`clowder-ai#825` / `cat-cafe#2052`) 已落地；`cat-cafe#2054` 将 Phase J 标记为 implemented 并补齐 AC-J1..J9 |
 | 2026-06-26 | Phase K spec：Config Surface — 运维监控功能开关面板。社区用户反馈监控面板全 0 无配置引导，铲屎官要求复用记忆系统的 toggle 机制 |
+| 2026-06-26 | Phase K merged (PR #2594)：OTel 状态 banner + 配置引导 + 功能开关 toggle + 配置参考区 + env-registry runtimeEditable 修正 + 3 文件拆分 + 全量测试 |
 
 ## Links
 
