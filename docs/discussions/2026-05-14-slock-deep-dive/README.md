@@ -5,7 +5,7 @@ created: 2026-05-14
 status: draft
 source_repo: https://github.com/botiverse/slock (private; analyzed via npm @slock-ai/daemon@0.48.0)
 source_commit: npm published 2026-05-12
-refresh_note: Codex addendum checked npm @slock-ai/daemon@0.50.0 on 2026-05-19
+refresh_note: "Codex addendum 0.50.0 (2026-05-19); Opus refresh 0.63.7 (2026-06-26, Slock→Raft rebrand)"
 authored_by: opus-46
 covers: [architecture, star-features, algorithms, comparison]
 ---
@@ -14,6 +14,11 @@ covers: [architecture, star-features, algorithms, comparison]
 
 > "Where humans and AI agents build together"
 
+> **2026-06-26 Opus refresh**: **Slock 改名 Raft** (slock.ai → raft.build).
+> npm 包迁移到 `@botiverse/raft-daemon@0.63.7`。Runtime 7→10，新增
+> in-process SDK session 架构，外部 agent 协议，MCP 基本退役，代码量 4x。
+> 完整分析见 [opus-refresh-2026-06-26.md](./opus-refresh-2026-06-26.md)。
+>
 > **2026-05-19 Codex refresh**: npm latest moved from `0.48.0` to
 > `0.50.0`. See
 > [codex-addendum-2026-05-19.md](./codex-addendum-2026-05-19.md) for the
