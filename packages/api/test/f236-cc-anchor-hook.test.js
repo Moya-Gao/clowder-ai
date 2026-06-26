@@ -8,7 +8,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
@@ -19,13 +19,16 @@ import {
   buildGrepAnchor,
   buildReadAnchor,
   buildReadReplacement,
+  checkFileStale,
   getTotalLines,
   isAnchorModeActive,
   isBoundedRead,
   parseGrepHitsPerFile,
   processHookEvent,
+  recordFileState,
   resolveEvalFilePath,
   resolveModeFilePath,
+  resolveStateFilePath,
   wrapForPostToolUse,
 } from '../../../.claude/hooks/f236-anchor-posttool.mjs';
 
@@ -837,5 +840,294 @@ describe('appendDrillEvalEvent', () => {
   it('does not throw when no invocation ID', () => {
     // Should be a no-op, not throw
     appendDrillEvalEvent({}, { tool: 'Read', fullDrillChars: 100, itemId: 'file:/a.ts' });
+  });
+
+  it('includes stale=true field when passed', () => {
+    appendDrillEvalEvent(drillEnv, {
+      tool: 'Read',
+      fullDrillChars: 1200,
+      itemId: 'file:/src/stale.ts',
+      stale: true,
+    });
+    const event = JSON.parse(readFileSync(drillEvalPath, 'utf-8').trim());
+    assert.strictEqual(event.stale, true);
+  });
+
+  it('omits stale field when not stale', () => {
+    appendDrillEvalEvent(drillEnv, {
+      tool: 'Read',
+      fullDrillChars: 1200,
+      itemId: 'file:/src/fresh.ts',
+    });
+    const event = JSON.parse(readFileSync(drillEvalPath, 'utf-8').trim());
+    assert.strictEqual(event.stale, undefined);
+  });
+});
+
+// ─── resolveStateFilePath ────────────────────────────────────────────────
+
+describe('resolveStateFilePath', () => {
+  it('uses invocation ID when available', () => {
+    const path = resolveStateFilePath({ CAT_CAFE_INVOCATION_ID: 'inv-789' });
+    assert.strictEqual(path, '/tmp/cat-cafe-anchor-filestate-inv-789.json');
+  });
+
+  it('falls back to CLAUDE_PROJECT_DIR', () => {
+    const path = resolveStateFilePath({ CLAUDE_PROJECT_DIR: '/home/user/project' });
+    assert.strictEqual(path, '/home/user/project/.f236-anchor-filestate.json');
+  });
+
+  it('returns null when neither is set', () => {
+    const path = resolveStateFilePath({});
+    assert.strictEqual(path, null);
+  });
+});
+
+// ─── recordFileState + checkFileStale ────────────────────────────────────
+
+describe('stale detection (recordFileState + checkFileStale)', () => {
+  const staleInvId = `stale-test-${process.pid}`;
+  const stateFilePath = `/tmp/cat-cafe-anchor-filestate-${staleInvId}.json`;
+  const staleEnv = { CAT_CAFE_INVOCATION_ID: staleInvId };
+
+  beforeEach(() => mkdirSync(TEST_DIR, { recursive: true }));
+  afterEach(() => {
+    rmSync(TEST_DIR, { recursive: true, force: true });
+    rmSync(stateFilePath, { force: true });
+  });
+
+  it('records file mtime and detects unchanged file as not stale', () => {
+    const fp = makeTestFile('stable.ts', 'const x = 1;\n');
+    recordFileState(staleEnv, [fp]);
+    const result = checkFileStale(staleEnv, fp);
+    assert.ok(result);
+    assert.strictEqual(result.stale, false);
+  });
+
+  it('detects modified file as stale', () => {
+    const fp = makeTestFile('mutable.ts', 'const x = 1;\n');
+    recordFileState(staleEnv, [fp]);
+    // Modify the file — force a different mtime
+    const origMtime = statSync(fp).mtimeMs;
+    // Use utimesSync to force a different mtime (avoids race with fast execution)
+    // utimesSync imported at top of file
+    utimesSync(fp, new Date(), new Date(origMtime + 2000));
+    const result = checkFileStale(staleEnv, fp);
+    assert.ok(result);
+    assert.strictEqual(result.stale, true);
+  });
+
+  it('returns null for files never recorded', () => {
+    const fp = makeTestFile('unknown.ts', 'const x = 1;\n');
+    recordFileState(staleEnv, [fp]);
+    const result = checkFileStale(staleEnv, '/nonexistent/never-anchored.ts');
+    assert.strictEqual(result, null);
+  });
+
+  it('returns null when no state file exists', () => {
+    const result = checkFileStale(staleEnv, '/any/path.ts');
+    assert.strictEqual(result, null);
+  });
+
+  it('records multiple files in one call', () => {
+    const f1 = makeTestFile('a.ts', 'a\n');
+    const f2 = makeTestFile('b.ts', 'b\n');
+    recordFileState(staleEnv, [f1, f2]);
+    assert.strictEqual(checkFileStale(staleEnv, f1).stale, false);
+    assert.strictEqual(checkFileStale(staleEnv, f2).stale, false);
+  });
+
+  it('caps recording at 20 files', () => {
+    const files = Array.from({ length: 25 }, (_, i) => makeTestFile(`cap-${i}.ts`, `${i}\n`));
+    recordFileState(staleEnv, files);
+    const state = JSON.parse(readFileSync(stateFilePath, 'utf-8'));
+    assert.strictEqual(Object.keys(state).length, 20);
+    // File #20 through #24 should NOT be recorded
+    assert.strictEqual(checkFileStale(staleEnv, files[24]), null);
+  });
+
+  it('skips nonexistent files without error', () => {
+    const fp = makeTestFile('real.ts', 'content\n');
+    // Mix real and nonexistent files — should not throw
+    recordFileState(staleEnv, [fp, '/nonexistent/phantom.ts']);
+    assert.strictEqual(checkFileStale(staleEnv, fp).stale, false);
+  });
+
+  it('does nothing when env has no invocation ID', () => {
+    const fp = makeTestFile('noinv.ts', 'content\n');
+    recordFileState({}, [fp]);
+    const result = checkFileStale({}, fp);
+    assert.strictEqual(result, null);
+  });
+});
+
+// ─── processHookEvent stale detection integration ────────────────────────
+
+describe('processHookEvent — stale detection', () => {
+  const staleIntInvId = `stale-int-${process.pid}`;
+  const staleModePath = `/tmp/cat-cafe-anchor-mode-${staleIntInvId}`;
+  const staleStatePath = `/tmp/cat-cafe-anchor-filestate-${staleIntInvId}.json`;
+  const staleEvalPath = `/tmp/cat-cafe-anchor-eval-${staleIntInvId}.jsonl`;
+  const staleIntEnv = { CAT_CAFE_INVOCATION_ID: staleIntInvId };
+
+  beforeEach(() => {
+    mkdirSync(TEST_DIR, { recursive: true });
+    makeModeFile(staleModePath, 'anchor');
+  });
+  afterEach(() => {
+    rmSync(TEST_DIR, { recursive: true, force: true });
+    rmSync(staleModePath, { force: true });
+    rmSync(staleStatePath, { force: true });
+    rmSync(staleEvalPath, { force: true });
+  });
+
+  it('anchor Read records file state, unmodified drill passes through without warning', () => {
+    const fp = makeTestFile('anchor-then-drill.ts', 'line1\nline2\nline3\n');
+    // Step 1: anchor the file
+    processHookEvent(
+      {
+        tool_name: 'Read',
+        tool_input: { file_path: fp },
+        tool_response: { type: 'text', file: { filePath: fp, content: 'line1\nline2\nline3\n', totalLines: 3 } },
+      },
+      staleIntEnv,
+    );
+    // State file should exist
+    assert.ok(existsSync(staleStatePath), 'state file should be created after anchor');
+
+    // Step 2: drill without modification → pass-through (null)
+    const drillResult = processHookEvent(
+      {
+        tool_name: 'Read',
+        tool_input: { file_path: fp, offset: 1, limit: 2 },
+        tool_response: { type: 'text', file: { filePath: fp, content: 'line1\nline2\n', totalLines: 3 } },
+      },
+      staleIntEnv,
+    );
+    assert.strictEqual(drillResult, null, 'unmodified file should pass through');
+  });
+
+  it('modified file drill returns warning header', () => {
+    const fp = makeTestFile('will-change.ts', 'original content\n');
+    // Step 1: anchor
+    processHookEvent(
+      {
+        tool_name: 'Read',
+        tool_input: { file_path: fp },
+        tool_response: { type: 'text', file: { filePath: fp, content: 'original content\n', totalLines: 1 } },
+      },
+      staleIntEnv,
+    );
+
+    // Step 2: modify the file (force different mtime)
+    // utimesSync imported at top of file
+    const origMtime = statSync(fp).mtimeMs;
+    utimesSync(fp, new Date(), new Date(origMtime + 2000));
+
+    // Step 3: drill → should get warning
+    const drillResult = processHookEvent(
+      {
+        tool_name: 'Read',
+        tool_input: { file_path: fp, offset: 1, limit: 1 },
+        tool_response: { type: 'text', file: { filePath: fp, content: 'original content\n', totalLines: 1 } },
+      },
+      staleIntEnv,
+    );
+    assert.ok(drillResult, 'stale drill should produce replacement with warning');
+    const content = drillResult.hookSpecificOutput.updatedToolOutput.file.content;
+    assert.ok(content.includes('[F236-STALE]'), 'should contain stale warning marker');
+    assert.ok(content.includes('original content'), 'should still contain the original drill content');
+  });
+
+  it('stale drill emits stale=true in eval event', () => {
+    const fp = makeTestFile('stale-eval.ts', 'content\n');
+    // Anchor
+    processHookEvent(
+      {
+        tool_name: 'Read',
+        tool_input: { file_path: fp },
+        tool_response: { type: 'text', file: { filePath: fp, content: 'content\n', totalLines: 1 } },
+      },
+      staleIntEnv,
+    );
+    // Clear eval file to isolate drill event
+    rmSync(staleEvalPath, { force: true });
+
+    // Modify file
+    // utimesSync imported at top of file
+    utimesSync(fp, new Date(), new Date(statSync(fp).mtimeMs + 2000));
+
+    // Drill
+    processHookEvent(
+      {
+        tool_name: 'Read',
+        tool_input: { file_path: fp, offset: 1, limit: 1 },
+        tool_response: { type: 'text', file: { filePath: fp, content: 'content\n', totalLines: 1 } },
+      },
+      staleIntEnv,
+    );
+    assert.ok(existsSync(staleEvalPath), 'eval file should exist');
+    const event = JSON.parse(readFileSync(staleEvalPath, 'utf-8').trim());
+    assert.strictEqual(event.kind, 'drill');
+    assert.strictEqual(event.stale, true);
+  });
+
+  it('stale drill fullDrillChars includes the warning header (gpt52 R1 P2)', () => {
+    const fp = makeTestFile('stale-chars.ts', 'hello world\n');
+    // Anchor
+    processHookEvent(
+      {
+        tool_name: 'Read',
+        tool_input: { file_path: fp },
+        tool_response: { type: 'text', file: { filePath: fp, content: 'hello world\n', totalLines: 1 } },
+      },
+      staleIntEnv,
+    );
+    rmSync(staleEvalPath, { force: true });
+
+    // Modify file to trigger stale
+    utimesSync(fp, new Date(), new Date(statSync(fp).mtimeMs + 2000));
+
+    // Drill
+    const originalContent = 'hello world\n';
+    processHookEvent(
+      {
+        tool_name: 'Read',
+        tool_input: { file_path: fp, offset: 1, limit: 1 },
+        tool_response: { type: 'text', file: { filePath: fp, content: originalContent, totalLines: 1 } },
+      },
+      staleIntEnv,
+    );
+    const event = JSON.parse(readFileSync(staleEvalPath, 'utf-8').trim());
+    const warningLine = '⚠️ [F236-STALE] File modified since anchor. Line numbers may have shifted.\n';
+    const expectedChars = warningLine.length + originalContent.length;
+    assert.strictEqual(
+      event.fullDrillChars,
+      expectedChars,
+      `should be ${expectedChars} (warning ${warningLine.length} + content ${originalContent.length}), got ${event.fullDrillChars}`,
+    );
+  });
+
+  it('Grep anchor records file state for subsequent Read drill stale check', () => {
+    const fp = makeTestFile('grep-target.ts', 'TODO fix\n');
+    // Grep anchors the file
+    processHookEvent(
+      {
+        tool_name: 'Grep',
+        tool_input: { pattern: 'TODO' },
+        tool_response: {
+          mode: 'content',
+          numFiles: 1,
+          filenames: [fp],
+          content: `${fp}:1:TODO fix`,
+          numLines: 1,
+        },
+      },
+      staleIntEnv,
+    );
+    // File state should be recorded for the grep'd file
+    const staleResult = checkFileStale(staleIntEnv, fp);
+    assert.ok(staleResult, 'file state should be recorded after Grep anchor');
+    assert.strictEqual(staleResult.stale, false);
   });
 });

@@ -71,6 +71,8 @@ export interface AnchorDrillEventInput {
   itemId: string;
   /** Total chars served in the full drill response. */
   fullDrillChars: number;
+  /** True when the drilled file was modified since it was anchored (stale content). */
+  stale?: boolean;
   /** Test-only: override timestamp for deterministic eviction tests. */
   _testTimestamp?: number;
 }
@@ -81,6 +83,8 @@ export interface AnchorDrillEvent {
   tool: AnchorDrillTool;
   itemId: string;
   fullDrillChars: number;
+  /** True when the drilled file was modified since it was anchored. */
+  stale?: boolean;
 }
 
 // --- Track-2 internal state (ring buffer) ---
@@ -139,6 +143,7 @@ export function recordAnchorDrillEvent(input: AnchorDrillEventInput): void {
     tool: input.tool,
     itemId: input.itemId,
     fullDrillChars: input.fullDrillChars,
+    ...(input.stale ? { stale: true } : {}),
   };
   drillEvents.push(event);
 }

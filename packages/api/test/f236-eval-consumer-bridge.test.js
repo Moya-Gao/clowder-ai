@@ -19,6 +19,7 @@ import {
   evalEntriesToPreviewEvents,
   resolveEvalJsonlPath,
   resolveModeFilePath,
+  resolveStateFilePath,
 } from '../dist/domains/cats/services/agents/providers/AnchorEvalBridgeConsumer.js';
 import { TranscriptTailer } from '../dist/domains/cats/services/agents/providers/TranscriptTailer.js';
 import {
@@ -216,6 +217,20 @@ describe('evalEntriesToDrillEvents', () => {
   it('returns empty array for empty input', () => {
     assert.deepStrictEqual(evalEntriesToDrillEvents([]), []);
   });
+
+  it('passes through stale=true from drill entry', () => {
+    const entries = [{ kind: 'drill', tool: 'cc-read', itemId: 'file:/stale.ts', fullDrillChars: 1500, stale: true }];
+    const result = evalEntriesToDrillEvents(entries);
+    assert.equal(result.length, 1);
+    assert.strictEqual(result[0].stale, true);
+  });
+
+  it('omits stale field when not present in entry', () => {
+    const entries = [{ kind: 'drill', tool: 'cc-read', itemId: 'file:/fresh.ts', fullDrillChars: 1500 }];
+    const result = evalEntriesToDrillEvents(entries);
+    assert.equal(result.length, 1);
+    assert.strictEqual(result[0].stale, undefined);
+  });
 });
 
 // ─── Unit: resolveEvalJsonlPath ───────────────────────────────────
@@ -267,15 +282,47 @@ describe('cleanupSessionFiles', () => {
     }
   });
 
-  it('removes both eval and mode files', () => {
+  it('removes eval, mode, and state files', () => {
+    const evalPath = join(tmpDir, 'eval.jsonl');
+    const modePath = join(tmpDir, 'mode');
+    const statePath = join(tmpDir, 'filestate.json');
+    writeFileSync(evalPath, '{}');
+    writeFileSync(modePath, 'anchor');
+    writeFileSync(statePath, '{}');
+
+    cleanupSessionFiles(evalPath, modePath, statePath);
+
+    // Verify all three are removed
+    assert.throws(() => {
+      require('node:fs').accessSync(evalPath);
+    });
+    assert.throws(() => {
+      require('node:fs').accessSync(modePath);
+    });
+    assert.throws(() => {
+      require('node:fs').accessSync(statePath);
+    });
+  });
+
+  it('handles null paths gracefully (including state file)', () => {
+    // Should not throw
+    cleanupSessionFiles(null, null, null);
+  });
+
+  it('handles non-existent files gracefully', () => {
+    // Should not throw
+    cleanupSessionFiles('/tmp/nonexistent-eval.jsonl', '/tmp/nonexistent-mode', '/tmp/nonexistent-state.json');
+  });
+
+  it('works without state file parameter (backwards compat)', () => {
     const evalPath = join(tmpDir, 'eval.jsonl');
     const modePath = join(tmpDir, 'mode');
     writeFileSync(evalPath, '{}');
     writeFileSync(modePath, 'anchor');
 
+    // Call without state file parameter — should still work
     cleanupSessionFiles(evalPath, modePath);
 
-    // Verify both are removed
     assert.throws(() => {
       require('node:fs').accessSync(evalPath);
     });
@@ -283,15 +330,24 @@ describe('cleanupSessionFiles', () => {
       require('node:fs').accessSync(modePath);
     });
   });
+});
 
-  it('handles null paths gracefully', () => {
-    // Should not throw
-    cleanupSessionFiles(null, null);
+// ─── Unit: resolveStateFilePath ──────────────────────────────────────
+
+describe('resolveStateFilePath', () => {
+  it('returns /tmp path with invocation ID', () => {
+    const path = resolveStateFilePath('inv-stale-123');
+    assert.strictEqual(path, '/tmp/cat-cafe-anchor-filestate-inv-stale-123.json');
   });
 
-  it('handles non-existent files gracefully', () => {
-    // Should not throw
-    cleanupSessionFiles('/tmp/nonexistent-eval.jsonl', '/tmp/nonexistent-mode');
+  it('returns null for undefined invocation ID', () => {
+    const path = resolveStateFilePath(undefined);
+    assert.strictEqual(path, null);
+  });
+
+  it('returns null for empty string invocation ID', () => {
+    const path = resolveStateFilePath('');
+    assert.strictEqual(path, null);
   });
 });
 

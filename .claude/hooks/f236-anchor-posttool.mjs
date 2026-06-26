@@ -17,7 +17,7 @@
  * - ZERO content from the original file
  */
 
-import { appendFileSync, readFileSync, statSync } from 'node:fs';
+import { appendFileSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 
 // ─── Exported for testing ───────────────────────────────────────────────────
 
@@ -233,6 +233,76 @@ export function resolveEvalFilePath(env = process.env) {
   return null;
 }
 
+// ─── Stale detection (per-file mtime tracking) ─────────────────────────────
+
+/**
+ * Resolve file state tracking path (per-invocation).
+ * Tracks mtime of anchored files so drill reads can detect stale content.
+ */
+export function resolveStateFilePath(env = process.env) {
+  const invocationId = env.CAT_CAFE_INVOCATION_ID;
+  if (invocationId) return `/tmp/cat-cafe-anchor-filestate-${invocationId}.json`;
+  const projectDir = env.CLAUDE_PROJECT_DIR;
+  if (projectDir) return `${projectDir}/.f236-anchor-filestate.json`;
+  return null;
+}
+
+/**
+ * Record file mtime at anchor time for later stale detection.
+ * Best-effort — never fails the hook.
+ * @param {object} env Process env
+ * @param {string[]} filePaths File paths to record (capped at 20)
+ */
+export function recordFileState(env, filePaths) {
+  try {
+    const stateFilePath = resolveStateFilePath(env);
+    if (!stateFilePath) return;
+
+    let state = {};
+    try {
+      state = JSON.parse(readFileSync(stateFilePath, 'utf-8'));
+    } catch {
+      // No existing state file — start fresh
+    }
+
+    const toRecord = filePaths.slice(0, 20);
+    for (const fp of toRecord) {
+      try {
+        const s = statSync(fp);
+        state[fp] = { mtimeMs: s.mtimeMs };
+      } catch {
+        // Virtual/nonexistent file — skip
+      }
+    }
+
+    writeFileSync(stateFilePath, JSON.stringify(state));
+  } catch {
+    // Best-effort — never break the hook
+  }
+}
+
+/**
+ * Check if a file has changed since it was anchored.
+ * @returns {{ stale: boolean }} or null if no recorded state.
+ */
+export function checkFileStale(env, filePath) {
+  try {
+    const stateFilePath = resolveStateFilePath(env);
+    if (!stateFilePath) return null;
+
+    const state = JSON.parse(readFileSync(stateFilePath, 'utf-8'));
+    const recorded = state[filePath];
+    if (!recorded || typeof recorded.mtimeMs !== 'number') return null;
+
+    const currentStat = statSync(filePath);
+    return { stale: currentStat.mtimeMs !== recorded.mtimeMs };
+  } catch {
+    return null; // Can't check — fail open
+  }
+}
+
+// ─── Eval event recording ───────────────────────────────────────────────────
+
 /**
  * Append a preview eval event to the invocation-keyed jsonl file.
  * Best-effort — eval recording must never break anchoring.
@@ -269,7 +339,7 @@ export function appendEvalEvent(env, { tool, originalChars, returnedChars, itemI
  * meaning the cat is following up on a locator with a targeted drill.
  * Best-effort — same contract as appendEvalEvent.
  */
-export function appendDrillEvalEvent(env, { tool, fullDrillChars, itemId }) {
+export function appendDrillEvalEvent(env, { tool, fullDrillChars, itemId, stale }) {
   try {
     const evalPath = resolveEvalFilePath(env);
     if (!evalPath) return;
@@ -278,6 +348,7 @@ export function appendDrillEvalEvent(env, { tool, fullDrillChars, itemId }) {
       tool: `cc-${tool.toLowerCase()}`,
       itemId,
       fullDrillChars,
+      ...(stale ? { stale: true } : {}),
       catId: env.CAT_CAFE_CAT_ID || undefined,
       ts: Date.now(),
     });
@@ -315,15 +386,48 @@ export function processHookEvent(event, env = process.env) {
 
   // Bounded drill pass-through (Read with offset/limit).
   // When anchor mode is active, this is a targeted drill following a locator —
-  // emit drill telemetry before passing through.
+  // emit drill telemetry and check for stale content before passing through.
   if (tool_name === 'Read' && isBoundedRead(tool_input)) {
     const modeFilePath = resolveModeFilePath(env);
     if (isAnchorModeActive(modeFilePath)) {
       const filePath = tool_response?.file?.filePath ?? tool_input?.file_path ?? '';
-      const fullDrillChars = (tool_response?.file?.content ?? '').length;
+      const originalContent = tool_response?.file?.content ?? '';
+      const staleCheck = checkFileStale(env, filePath);
+      const isStale = staleCheck?.stale === true;
+
+      // Stale file: prepend warning header so the cat knows line numbers may have shifted.
+      // Content is still passed through — the warning is additive, not blocking.
+      if (isStale) {
+        const warning = '⚠️ [F236-STALE] File modified since anchor. Line numbers may have shifted.';
+        const deliveredContent = `${warning}\n${originalContent}`;
+        const file = tool_response?.file ?? {};
+
+        // Emit drill telemetry with DELIVERED content length (includes warning header).
+        // gpt52 R1 P2: fullDrillChars contract = "total chars served in the full drill response."
+        appendDrillEvalEvent(env, {
+          tool: 'Read',
+          fullDrillChars: deliveredContent.length,
+          itemId: `file:${filePath}`,
+          stale: true,
+        });
+        return wrapForPostToolUse({
+          updatedToolOutput: {
+            type: tool_response?.type ?? 'text',
+            file: {
+              filePath: file.filePath ?? filePath,
+              content: deliveredContent,
+              numLines: file.numLines,
+              startLine: file.startLine,
+              totalLines: file.totalLines,
+            },
+          },
+        });
+      }
+
+      // Non-stale: emit drill telemetry with original content length, pass-through.
       appendDrillEvalEvent(env, {
         tool: 'Read',
-        fullDrillChars,
+        fullDrillChars: originalContent.length,
         itemId: `file:${filePath}`,
       });
     }
@@ -355,6 +459,7 @@ export function processHookEvent(event, env = process.env) {
     const result = buildReadReplacement(tool_response, anchorContent, totalLines);
     const returnedChars = anchorContent.length;
     appendEvalEvent(env, { tool: 'Read', originalChars, returnedChars, itemIds: [`file:${filePath}`] });
+    recordFileState(env, [filePath]);
     return wrapForPostToolUse(result);
   }
 
@@ -366,6 +471,7 @@ export function processHookEvent(event, env = process.env) {
     const returnedChars = anchorContent.length;
     // R3 P1-2 fix: file-level itemIds (not pattern-level) for Track-2 drill attribution
     appendEvalEvent(env, { tool: 'Grep', originalChars, returnedChars, itemIds: filenames.map((f) => `file:${f}`) });
+    recordFileState(env, filenames);
     return wrapForPostToolUse(result);
   }
 
@@ -382,6 +488,7 @@ export function processHookEvent(event, env = process.env) {
     const returnedChars = anchorContent.length;
     // R3 P1-2 fix: file-level itemIds (not pattern-level) for Track-2 drill attribution
     appendEvalEvent(env, { tool: 'Glob', originalChars, returnedChars, itemIds: filenames.map((f) => `file:${f}`) });
+    recordFileState(env, filenames);
     return wrapForPostToolUse(result);
   }
 

@@ -34,6 +34,7 @@ import {
   ingestEvalEntries,
   resolveEvalJsonlPath,
   resolveModeFilePath,
+  resolveStateFilePath,
 } from './AnchorEvalBridgeConsumer.js';
 import {
   ANTHROPIC_PROFILE_MODE_KEY,
@@ -439,9 +440,11 @@ export class ClaudeInteractivePtyCarrierService implements AgentService {
           /* best-effort sidecar cleanup */
         }
       }
-      // F236: clean up eval jsonl + mode file (best-effort, non-fatal)
-      const modeFile = resolveModeFilePath(options?.callbackEnv?.CAT_CAFE_INVOCATION_ID);
-      cleanupSessionFiles(evalJsonlPath, modeFile);
+      // F236: clean up eval jsonl + mode file + file state (best-effort, non-fatal)
+      const invId = options?.callbackEnv?.CAT_CAFE_INVOCATION_ID;
+      const modeFile = resolveModeFilePath(invId);
+      const stateFile = resolveStateFilePath(invId);
+      cleanupSessionFiles(evalJsonlPath, modeFile, stateFile);
     }
   }
 }

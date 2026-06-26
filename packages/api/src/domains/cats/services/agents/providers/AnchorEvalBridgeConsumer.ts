@@ -117,6 +117,7 @@ export function evalEntriesToDrillEvents(entries: unknown[]): AnchorDrillEventIn
       tool: entry.tool as AnchorDrillTool,
       itemId: entry.itemId,
       fullDrillChars: typeof entry.fullDrillChars === 'number' ? entry.fullDrillChars : 0,
+      ...(entry.stale === true ? { stale: true } : {}),
     });
   }
 
@@ -144,6 +145,17 @@ export function resolveEvalJsonlPath(invocationId: string | undefined): string |
 export function resolveModeFilePath(invocationId: string | undefined): string | null {
   if (!invocationId) return null;
   return `/tmp/cat-cafe-anchor-mode-${invocationId}`;
+}
+
+/**
+ * Compute the file state tracking path for a given invocation ID.
+ * Returns null if no invocation ID is provided.
+ *
+ * Must match the path convention in f236-anchor-posttool.mjs:resolveStateFilePath().
+ */
+export function resolveStateFilePath(invocationId: string | undefined): string | null {
+  if (!invocationId) return null;
+  return `/tmp/cat-cafe-anchor-filestate-${invocationId}.json`;
 }
 
 // ─── Lifecycle helpers (carrier file-size extraction, cloud R4 P1) ──────────
@@ -182,22 +194,21 @@ export async function ingestEvalEntries(
 }
 
 /**
- * Best-effort cleanup of F236 session files (eval jsonl + mode file).
+ * Best-effort cleanup of F236 session files (eval jsonl + mode file + state file).
  * No-op for null paths. Swallows errors.
  */
-export function cleanupSessionFiles(evalJsonlPath: string | null, modeFilePath: string | null): void {
-  if (evalJsonlPath) {
-    try {
-      rmSync(evalJsonlPath, { force: true });
-    } catch {
-      /* best-effort eval cleanup */
-    }
-  }
-  if (modeFilePath) {
-    try {
-      rmSync(modeFilePath, { force: true });
-    } catch {
-      /* best-effort mode file cleanup */
+export function cleanupSessionFiles(
+  evalJsonlPath: string | null,
+  modeFilePath: string | null,
+  stateFilePath?: string | null,
+): void {
+  for (const path of [evalJsonlPath, modeFilePath, stateFilePath]) {
+    if (path) {
+      try {
+        rmSync(path, { force: true });
+      } catch {
+        /* best-effort cleanup */
+      }
     }
   }
 }
