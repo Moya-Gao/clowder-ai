@@ -29,7 +29,12 @@ import { type CatId, createCatId } from '@cat-cafe/shared';
 import { getCatModel } from '../../../../../config/cat-models.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import type { AgentMessage, AgentService, AgentServiceOptions, TokenUsage } from '../../types.js';
-import { cleanupEvalJsonl, ingestEvalEntries, resolveEvalJsonlPath } from './AnchorEvalBridgeConsumer.js';
+import {
+  cleanupSessionFiles,
+  ingestEvalEntries,
+  resolveEvalJsonlPath,
+  resolveModeFilePath,
+} from './AnchorEvalBridgeConsumer.js';
 import {
   ANTHROPIC_PROFILE_MODE_KEY,
   buildClaudeEnvOverrides,
@@ -434,8 +439,9 @@ export class ClaudeInteractivePtyCarrierService implements AgentService {
           /* best-effort sidecar cleanup */
         }
       }
-      // F236 Phase E: clean up eval jsonl file (best-effort, non-fatal)
-      cleanupEvalJsonl(evalJsonlPath);
+      // F236: clean up eval jsonl + mode file (best-effort, non-fatal)
+      const modeFile = resolveModeFilePath(options?.callbackEnv?.CAT_CAFE_INVOCATION_ID);
+      cleanupSessionFiles(evalJsonlPath, modeFile);
     }
   }
 }

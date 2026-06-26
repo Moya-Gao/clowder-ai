@@ -2371,7 +2371,8 @@ export const callbackTools = [
       'this is your escape hatch to drill into specific file sections after anchor. ' +
       'Workflow: set_read_mode("anchor") → Read/Grep gives locator → ' +
       'Read(file_path=..., offset=X, limit=Y) for the real slice. ' +
-      'GOTCHA: Mode persists for the entire session until changed. ' +
+      'GOTCHA: Mode is per-invocation (scoped to the current Cat Café session, ' +
+      'cleaned up on session end). Does NOT persist across sessions. ' +
       'GOTCHA: Requires Cat Café managed session (CAT_CAFE_INVOCATION_ID).',
     inputSchema: setReadModeInputSchema,
     handler: handleSetReadMode,

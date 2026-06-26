@@ -37,9 +37,12 @@ export interface AnchorPreviewEventInput {
   modeResolved?: 'anchor' | 'full';
   /**
    * F236 Track-1 adoption eval: how the mode was determined.
-   * 'explicit' = cat passed responseMode param, 'default' = fell through to anchor.
+   * 'explicit' = cat passed responseMode param.
+   * 'default' = fell through to anchor (no explicit param).
+   * 'legacy_equivalent' = cat used a pre-existing equivalent control
+   *   (e.g. get_message mode=preview, search_evidence depth=summary).
    */
-  modeSource?: 'explicit' | 'default';
+  modeSource?: 'explicit' | 'default' | 'legacy_equivalent';
   /** F236 Track-1 adoption eval: which cat made this call. */
   catId?: string;
   /** Test-only: override timestamp for deterministic eviction tests. */
@@ -57,7 +60,7 @@ export interface AnchorPreviewEvent {
   /** F236 Track-1 adoption eval: resolved response mode. */
   modeResolved?: 'anchor' | 'full';
   /** F236 Track-1 adoption eval: how the mode was determined. */
-  modeSource?: 'explicit' | 'default';
+  modeSource?: 'explicit' | 'default' | 'legacy_equivalent';
   /** F236 Track-1 adoption eval: which cat made this call. */
   catId?: string;
 }

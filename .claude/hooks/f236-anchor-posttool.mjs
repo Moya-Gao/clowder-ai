@@ -234,7 +234,7 @@ export function resolveEvalFilePath(env = process.env) {
 }
 
 /**
- * Append an eval event to the invocation-keyed jsonl file.
+ * Append a preview eval event to the invocation-keyed jsonl file.
  * Best-effort — eval recording must never break anchoring.
  *
  * R2 fix: emits Track-2 compatible fields (itemIds, modeResolved, modeSource,
@@ -254,6 +254,30 @@ export function appendEvalEvent(env, { tool, originalChars, returnedChars, itemI
       returnedChars,
       modeResolved: 'anchor',
       modeSource: 'explicit',
+      catId: env.CAT_CAFE_CAT_ID || undefined,
+      ts: Date.now(),
+    });
+    appendFileSync(evalPath, event + '\n');
+  } catch {
+    // Eval recording is best-effort — never fail the hook
+  }
+}
+
+/**
+ * Append a drill eval event to the invocation-keyed jsonl file.
+ * Emitted when anchor mode is active but the Read is bounded (offset/limit),
+ * meaning the cat is following up on a locator with a targeted drill.
+ * Best-effort — same contract as appendEvalEvent.
+ */
+export function appendDrillEvalEvent(env, { tool, fullDrillChars, itemId }) {
+  try {
+    const evalPath = resolveEvalFilePath(env);
+    if (!evalPath) return;
+    const event = JSON.stringify({
+      kind: 'drill',
+      tool: `cc-${tool.toLowerCase()}`,
+      itemId,
+      fullDrillChars,
       catId: env.CAT_CAFE_CAT_ID || undefined,
       ts: Date.now(),
     });
@@ -289,8 +313,20 @@ export function processHookEvent(event, env = process.env) {
     return null;
   }
 
-  // Bounded drill pass-through (Read with offset/limit)
+  // Bounded drill pass-through (Read with offset/limit).
+  // When anchor mode is active, this is a targeted drill following a locator —
+  // emit drill telemetry before passing through.
   if (tool_name === 'Read' && isBoundedRead(tool_input)) {
+    const modeFilePath = resolveModeFilePath(env);
+    if (isAnchorModeActive(modeFilePath)) {
+      const filePath = tool_response?.file?.filePath ?? tool_input?.file_path ?? '';
+      const fullDrillChars = (tool_response?.file?.content ?? '').length;
+      appendDrillEvalEvent(env, {
+        tool: 'Read',
+        fullDrillChars,
+        itemId: `file:${filePath}`,
+      });
+    }
     return null;
   }
 

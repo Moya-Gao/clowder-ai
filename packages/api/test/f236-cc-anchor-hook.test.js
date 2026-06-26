@@ -13,6 +13,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import {
+  appendDrillEvalEvent,
   appendEvalEvent,
   buildGlobReplacement,
   buildGrepAnchor,
@@ -767,5 +768,74 @@ describe('processHookEvent — eval file integration', () => {
       evalEnv,
     );
     assert.ok(!existsSync(evalPath), 'eval file should NOT be created on pass-through');
+  });
+
+  it('bounded Read in anchor mode emits drill event (not preview)', () => {
+    processHookEvent(
+      {
+        tool_name: 'Read',
+        tool_input: { file_path: '/src/foo.ts', offset: 10, limit: 50 },
+        tool_response: {
+          type: 'text',
+          file: { filePath: '/src/foo.ts', content: 'drill content here', totalLines: 100 },
+        },
+      },
+      evalEnv,
+    );
+    assert.ok(existsSync(evalPath), 'eval file should be created for drill');
+    const event = JSON.parse(readFileSync(evalPath, 'utf-8').trim());
+    assert.strictEqual(event.kind, 'drill');
+    assert.strictEqual(event.tool, 'cc-read');
+    assert.strictEqual(event.itemId, 'file:/src/foo.ts');
+    assert.strictEqual(event.fullDrillChars, 'drill content here'.length);
+  });
+
+  it('bounded Read in full mode (no mode file) does NOT emit drill event', () => {
+    rmSync(`/tmp/cat-cafe-anchor-mode-${evalInvocationId}`, { force: true });
+    processHookEvent(
+      {
+        tool_name: 'Read',
+        tool_input: { file_path: '/src/foo.ts', offset: 10, limit: 50 },
+        tool_response: {
+          type: 'text',
+          file: { filePath: '/src/foo.ts', content: 'content', totalLines: 100 },
+        },
+      },
+      evalEnv,
+    );
+    assert.ok(!existsSync(evalPath), 'eval file should NOT be created when not in anchor mode');
+  });
+});
+
+// ─── appendDrillEvalEvent ────────────────────────────────────────────────
+
+describe('appendDrillEvalEvent', () => {
+  const drillInvocationId = `drill-test-${Date.now()}`;
+  const drillEvalPath = `/tmp/cat-cafe-anchor-eval-${drillInvocationId}.jsonl`;
+  const drillEnv = { CAT_CAFE_INVOCATION_ID: drillInvocationId, CAT_CAFE_CAT_ID: 'opus-test' };
+
+  afterEach(() => {
+    rmSync(drillEvalPath, { force: true });
+  });
+
+  it('writes a drill event with kind=drill', () => {
+    appendDrillEvalEvent(drillEnv, {
+      tool: 'Read',
+      fullDrillChars: 2500,
+      itemId: 'file:/src/foo.ts',
+    });
+    assert.ok(existsSync(drillEvalPath));
+    const event = JSON.parse(readFileSync(drillEvalPath, 'utf-8').trim());
+    assert.strictEqual(event.kind, 'drill');
+    assert.strictEqual(event.tool, 'cc-read');
+    assert.strictEqual(event.fullDrillChars, 2500);
+    assert.strictEqual(event.itemId, 'file:/src/foo.ts');
+    assert.strictEqual(event.catId, 'opus-test');
+    assert.ok(typeof event.ts === 'number');
+  });
+
+  it('does not throw when no invocation ID', () => {
+    // Should be a no-op, not throw
+    appendDrillEvalEvent({}, { tool: 'Read', fullDrillChars: 100, itemId: 'file:/a.ts' });
   });
 });

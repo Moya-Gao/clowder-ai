@@ -3,23 +3,30 @@
  *
  * Transform + lifecycle helpers for F236 PostToolUse hook eval jsonl entries.
  *
- * - **Pure transform**: `evalEntriesToPreviewEvents()` — no I/O, no state
- * - **Lifecycle helpers**: `ingestEvalEntries()` / `cleanupEvalJsonl()` — wrap
- *   the TranscriptTailer → transform → recordAnchorPreviewEvent pattern so the
- *   carrier doesn't inline the try/catch/loop boilerplate (cloud R4 P1: file-size)
+ * - **Pure transform**: `evalEntriesToPreviewEvents()` / `evalEntriesToDrillEvents()` — no I/O, no state
+ * - **Lifecycle helpers**: `ingestEvalEntries()` / `cleanupSessionFiles()` — wrap
+ *   the TranscriptTailer → transform → record pattern so the carrier doesn't
+ *   inline try/catch/loop boilerplate (cloud R4 P1: file-size)
  *
  * The hook subprocess (`f236-anchor-posttool.mjs`) writes eval events to
  * `/tmp/cat-cafe-anchor-eval-{invocationId}.jsonl` with Track-2 compatible
- * fields. This consumer transforms them so the carrier can feed them into
- * `recordAnchorPreviewEvent()` from the anchor event log.
+ * fields. Two kinds of entries:
+ * - **preview** (default): anchored output returned to cat → recordAnchorPreviewEvent()
+ * - **drill** (kind='drill'): bounded Read pass-through after a locator → recordAnchorDrillEvent() + recordAnchorFullDrill()
  *
  * Data flow:
- *   hook subprocess → eval jsonl → TranscriptTailer → THIS CONSUMER → recordAnchorPreviewEvent()
+ *   hook subprocess → eval jsonl → TranscriptTailer → THIS CONSUMER → record{Preview,Drill}Event()
  */
 
 import { rmSync } from 'node:fs';
-import { type AnchorPreviewEventInput, recordAnchorPreviewEvent } from '../../../../../routes/anchor-event-log.js';
-import type { AnchorPreviewTool } from '../../../../../routes/anchor-telemetry.js';
+import {
+  type AnchorDrillEventInput,
+  type AnchorPreviewEventInput,
+  recordAnchorDrillEvent,
+  recordAnchorPreviewEvent,
+} from '../../../../../routes/anchor-event-log.js';
+import type { AnchorDrillTool, AnchorPreviewTool } from '../../../../../routes/anchor-telemetry.js';
+import { recordAnchorFullDrill } from '../../../../../routes/anchor-telemetry.js';
 import type { TranscriptTailer } from './TranscriptTailer.js';
 
 /** Bounded set of valid AnchorPreviewTool values — runtime validation for untrusted jsonl input. */
@@ -32,12 +39,16 @@ const VALID_PREVIEW_TOOLS: ReadonlySet<string> = new Set<AnchorPreviewTool>([
   'cc-glob',
 ]);
 
+/** Bounded set of valid cc AnchorDrillTool values — only cc tools emit drill via jsonl. */
+const VALID_CC_DRILL_TOOLS: ReadonlySet<string> = new Set<AnchorDrillTool>(['cc-read', 'cc-grep', 'cc-glob']);
+
 /**
  * Transform F236 hook eval jsonl entries to AnchorPreviewEventInput[].
  *
  * Pure function — no I/O, no state. Safe for incremental tailing.
  * Entries that fail validation are silently skipped (best-effort, same
  * contract as HookSidechannelConsumer).
+ * Entries with `kind: 'drill'` are skipped here — use evalEntriesToDrillEvents().
  *
  * Required fields: `tool` (string, must be a valid AnchorPreviewTool), `itemIds` (array).
  * Optional fields: `originalChars`, `returnedChars`, `modeResolved`, `modeSource`, `catId`.
@@ -51,6 +62,9 @@ export function evalEntriesToPreviewEvents(entries: unknown[]): AnchorPreviewEve
   for (const raw of entries) {
     if (typeof raw !== 'object' || raw === null) continue;
     const entry = raw as Record<string, unknown>;
+
+    // Skip drill entries (handled by evalEntriesToDrillEvents)
+    if (entry.kind === 'drill') continue;
 
     // Required: tool must be a valid AnchorPreviewTool (defense-in-depth for untrusted /tmp input)
     if (typeof entry.tool !== 'string' || !VALID_PREVIEW_TOOLS.has(entry.tool)) continue;
@@ -69,7 +83,7 @@ export function evalEntriesToPreviewEvents(entries: unknown[]): AnchorPreviewEve
     if (entry.modeResolved === 'anchor' || entry.modeResolved === 'full') {
       input.modeResolved = entry.modeResolved;
     }
-    if (entry.modeSource === 'explicit' || entry.modeSource === 'default') {
+    if (entry.modeSource === 'explicit' || entry.modeSource === 'default' || entry.modeSource === 'legacy_equivalent') {
       input.modeSource = entry.modeSource;
     }
     if (typeof entry.catId === 'string') {
@@ -77,6 +91,33 @@ export function evalEntriesToPreviewEvents(entries: unknown[]): AnchorPreviewEve
     }
 
     out.push(input);
+  }
+
+  return out;
+}
+
+/**
+ * Transform F236 hook eval jsonl drill entries to AnchorDrillEventInput[].
+ *
+ * Pure function — no I/O, no state. Only processes entries with `kind: 'drill'`.
+ * Required fields: `kind` ('drill'), `tool` (valid cc drill tool), `itemId` (string), `fullDrillChars` (number).
+ */
+export function evalEntriesToDrillEvents(entries: unknown[]): AnchorDrillEventInput[] {
+  const out: AnchorDrillEventInput[] = [];
+
+  for (const raw of entries) {
+    if (typeof raw !== 'object' || raw === null) continue;
+    const entry = raw as Record<string, unknown>;
+
+    if (entry.kind !== 'drill') continue;
+    if (typeof entry.tool !== 'string' || !VALID_CC_DRILL_TOOLS.has(entry.tool)) continue;
+    if (typeof entry.itemId !== 'string') continue;
+
+    out.push({
+      tool: entry.tool as AnchorDrillTool,
+      itemId: entry.itemId,
+      fullDrillChars: typeof entry.fullDrillChars === 'number' ? entry.fullDrillChars : 0,
+    });
   }
 
   return out;
@@ -93,10 +134,24 @@ export function resolveEvalJsonlPath(invocationId: string | undefined): string |
   return `/tmp/cat-cafe-anchor-eval-${invocationId}.jsonl`;
 }
 
+/**
+ * Compute the mode file path for a given invocation ID.
+ * Returns null if no invocation ID is provided.
+ *
+ * Must match the path convention in f236-anchor-posttool.mjs:resolveModeFilePath()
+ * and callback-tools.ts:resolveAnchorModeFilePath().
+ */
+export function resolveModeFilePath(invocationId: string | undefined): string | null {
+  if (!invocationId) return null;
+  return `/tmp/cat-cafe-anchor-mode-${invocationId}`;
+}
+
 // ─── Lifecycle helpers (carrier file-size extraction, cloud R4 P1) ──────────
 
 /**
- * Read new eval entries from the tailer, transform, and record as preview events.
+ * Read new eval entries from the tailer, transform, and record as events.
+ * Processes both preview entries (→ recordAnchorPreviewEvent) and
+ * drill entries (→ recordAnchorDrillEvent + recordAnchorFullDrill).
  * Non-fatal: swallows errors so the carrier output loop is never interrupted.
  *
  * @param tailer  The TranscriptTailer polling the eval jsonl file
@@ -109,9 +164,16 @@ export async function ingestEvalEntries(
   try {
     const entries = await tailer.readNew(opts);
     if (entries.length > 0) {
-      const inputs = evalEntriesToPreviewEvents(entries);
-      for (const input of inputs) {
+      // Preview events
+      const previewInputs = evalEntriesToPreviewEvents(entries);
+      for (const input of previewInputs) {
         recordAnchorPreviewEvent(input);
+      }
+      // Drill events (cc-native bounded Read pass-through after anchor locator)
+      const drillInputs = evalEntriesToDrillEvents(entries);
+      for (const input of drillInputs) {
+        recordAnchorDrillEvent(input);
+        recordAnchorFullDrill({ tool: input.tool, fullDrillChars: input.fullDrillChars });
       }
     }
   } catch {
@@ -120,14 +182,22 @@ export async function ingestEvalEntries(
 }
 
 /**
- * Best-effort cleanup of the eval jsonl file.
- * No-op if path is null. Swallows errors.
+ * Best-effort cleanup of F236 session files (eval jsonl + mode file).
+ * No-op for null paths. Swallows errors.
  */
-export function cleanupEvalJsonl(path: string | null): void {
-  if (!path) return;
-  try {
-    rmSync(path, { force: true });
-  } catch {
-    /* best-effort eval cleanup */
+export function cleanupSessionFiles(evalJsonlPath: string | null, modeFilePath: string | null): void {
+  if (evalJsonlPath) {
+    try {
+      rmSync(evalJsonlPath, { force: true });
+    } catch {
+      /* best-effort eval cleanup */
+    }
+  }
+  if (modeFilePath) {
+    try {
+      rmSync(modeFilePath, { force: true });
+    } catch {
+      /* best-effort mode file cleanup */
+    }
   }
 }
