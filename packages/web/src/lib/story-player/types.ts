@@ -41,6 +41,10 @@ export interface ReplayEvent {
   catId?: string;
   /** Original eventNo for seek */
   eventNo: number;
+  /** Original idle gap (ms) before this event that was auto-skipped (AC-B1) */
+  idleSkipMs?: number;
+  /** Whether this is a pass-ball event — @mention / cross_post (AC-B1) */
+  isPassBall?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -66,6 +70,8 @@ export interface ReplayEngineState {
   totalDurationMs: number;
   /** Display mode */
   displayMode: 'cinematic' | 'faithful';
+  /** Whether adaptive pacing is active (AC-B1) */
+  adaptivePacing: boolean;
 }
 
 // ---------------------------------------------------------------------------

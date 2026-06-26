@@ -192,8 +192,9 @@ tips_exempt: "Tip planned for Phase D sharing feature — Phase A is infrastruct
 - [x] AC-A5: `TranscriptEvent → ReplayEvent` adapter 正确处理 `text`/`assistant`/`user` 多形态事件 + `toolName`/`name` 双形态工具名，有单元测试覆盖（trace Why「数据正确性是回放可信度基础」；复核：`pnpm test` 相关 adapter 测试全绿）
 
 ### Phase B（自适应节奏 + 章节）
-- [ ] AC-B1: Idle gap > 5min 自动跳过 + 显示跳过提示；传球事件（@mention）自动减速 + 高亮（trace Why「回放节奏合理」；复核：含长 idle 段的 session 验证自动跳过）
-- [ ] AC-B2: 多 session story 的章节标记来自 F233 `FeatTrajectoryProjection.entries`（`phase_transition`/`pr_merged`/`verdict` 等 kinds），点击跳转（trace Why「到某个节点暂停讲解」；复核：选一个有 phase_transition 的 Feature 验证章节标记出现且可跳转）
+- [ ] AC-B1: Idle gap > 5min 自动跳过 + 显示跳过提示；传球事件（@mention）自动减速 + 高亮；用户可切换为固定倍速覆盖（adaptive toggle 控制 idle skip + pass-ball slowdown）（trace Why「回放节奏合理」；复核：含长 idle 段的 session 验证自动跳过，toggle OFF 后验证 idle 不再被跳过）
+- [ ] AC-B2a: 单 session 章节标记从 event 结构提取（invocation 边界、传球事件、idle gap 恢复点），进度条上可点击跳转（trace Why「到某个节点暂停讲解」；复核：选一个 ≥3 invocation 的 session 验证章节标记出现且可跳转）
+- [ ] AC-B2b: **[Phase C 前置]** 多 session story 的章节标记来自 F233 `FeatTrajectoryProjection.entries`（`phase_transition`/`pr_merged`/`verdict` 等 kinds），依赖 AC-C0 emitter 补齐（trace Why「feature 级跨 thread 章节」；复核：选一个有 phase_transition 的 Feature 验证跨 session 章节标记）
 
 ### Phase C（Feature Story Renderer 多泳道 + 因果链）
 - [ ] AC-C0: **前置条件**：F233 emitters 补齐 `thread_split`/`thread_merge`/`pr_merged`/`phase_transition` 四个 ball-shaped kinds 已 merged 且在生产环境产出 entries（trace Why「Phase C 灵魂依赖跨 thread 因果边」；复核：`GET /api/feat-trajectory/:featId` 返回含 `thread_split` kind 的 entries）

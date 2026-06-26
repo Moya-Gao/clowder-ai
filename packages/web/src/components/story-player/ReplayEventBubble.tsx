@@ -68,6 +68,7 @@ function useCinematicText(content: string, isActive: boolean, speedMultiplier: n
 
 function ToolCallCard({ event }: { event: ReplayEvent }) {
   const [expanded, setExpanded] = useState(false);
+  const isPassBall = event.isPassBall === true;
 
   return (
     <div
@@ -79,6 +80,13 @@ function ToolCallCard({ event }: { event: ReplayEvent }) {
         margin: '4px 0',
         fontSize: 'var(--console-font-compact)',
         fontFamily: 'var(--font-mono, monospace)',
+        // AC-B1: Highlight pass-ball tool calls (cross_post, multi_mention)
+        ...(isPassBall
+          ? {
+              borderLeft: '3px solid var(--color-warning, #f59e0b)',
+              boxShadow: '0 0 8px rgba(245, 158, 11, 0.2)',
+            }
+          : {}),
       }}
     >
       <button
@@ -224,6 +232,7 @@ export function ReplayEventBubble({ event, displayMode, isRevealing, speedMultip
 
   // Messages (user / assistant)
   const isUser = event.role === 'user';
+  const isPassBall = event.isPassBall === true;
 
   return (
     <div
@@ -244,6 +253,13 @@ export function ReplayEventBubble({ event, displayMode, isRevealing, speedMultip
           lineHeight: '1.5',
           whiteSpace: 'pre-wrap',
           wordBreak: 'break-word',
+          // AC-B1: Highlight pass-ball events with accent border
+          ...(isPassBall
+            ? {
+                borderLeft: '3px solid var(--color-warning, #f59e0b)',
+                boxShadow: '0 0 8px rgba(245, 158, 11, 0.2)',
+              }
+            : {}),
         }}
       >
         {!isUser && event.catId && (

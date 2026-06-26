@@ -7,6 +7,7 @@
 
 'use client';
 
+import type { Chapter } from '@/lib/story-player/chapters';
 import type { ReplayEngineState, SpeedMultiplier } from '@/lib/story-player/types';
 
 // ---------------------------------------------------------------------------
@@ -15,10 +16,15 @@ import type { ReplayEngineState, SpeedMultiplier } from '@/lib/story-player/type
 
 interface ReplayControlsProps {
   engine: ReplayEngineState;
+  /** Active skip indicator — non-null when current event follows a long idle gap */
+  activeSkip: { originalGapMs: number } | null;
+  /** Chapters for timeline navigation (AC-B2) */
+  chapters: Chapter[];
   onTogglePlayPause: () => void;
   onSeek: (index: number) => void;
   onSetSpeed: (speed: SpeedMultiplier) => void;
   onToggleDisplayMode: () => void;
+  onToggleAdaptivePacing: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -51,12 +57,43 @@ function formatDuration(ms: number): string {
 // Component
 // ---------------------------------------------------------------------------
 
+/** Format skip duration for the "⏩ 跳过 N 分钟" indicator */
+function formatSkipDuration(ms: number): string {
+  const minutes = Math.round(ms / 60_000);
+  if (minutes < 1) return `${Math.round(ms / 1000)} 秒`;
+  if (minutes < 60) return `${minutes} 分钟`;
+  const hours = Math.floor(minutes / 60);
+  const remainMin = minutes % 60;
+  return remainMin > 0 ? `${hours} 小时 ${remainMin} 分钟` : `${hours} 小时`;
+}
+
+/** Icon for chapter kind */
+function chapterIcon(kind: Chapter['kind']): string {
+  switch (kind) {
+    case 'session_start':
+      return '▶';
+    case 'session_end':
+      return '⏹';
+    case 'invocation':
+      return '🔄';
+    case 'pass_ball':
+      return '🏐';
+    case 'post_idle':
+      return '⏩';
+    default:
+      return '📍';
+  }
+}
+
 export function ReplayControls({
   engine,
+  activeSkip,
+  chapters,
   onTogglePlayPause,
   onSeek,
   onSetSpeed,
   onToggleDisplayMode,
+  onToggleAdaptivePacing,
 }: ReplayControlsProps) {
   const progress =
     engine.totalEvents > 1
@@ -134,6 +171,48 @@ export function ReplayControls({
             borderRadius: '3px',
           }}
         />
+        {/* AC-B2: Chapter markers on progress bar */}
+        {chapters
+          .filter((ch) => ch.kind !== 'session_start' && ch.kind !== 'session_end')
+          .map((ch) => {
+            const pct = engine.totalEvents > 1 ? (ch.eventIndex / (engine.totalEvents - 1)) * 100 : 0;
+            return (
+              <button
+                type="button"
+                key={`ch-${ch.eventIndex}`}
+                title={`${chapterIcon(ch.kind)} ${ch.label}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSeek(ch.eventIndex);
+                }}
+                style={{
+                  position: 'absolute',
+                  left: `${pct}%`,
+                  top: '-4px',
+                  width: '8px',
+                  height: '14px',
+                  transform: 'translateX(-50%)',
+                  background:
+                    ch.eventIndex <= engine.currentIndex
+                      ? 'var(--color-accent, #6366f1)'
+                      : 'var(--color-text-secondary, #888)',
+                  border: 'none',
+                  borderRadius: '2px',
+                  cursor: 'pointer',
+                  zIndex: 2,
+                  opacity: 0.8,
+                  fontSize: 'var(--console-font-label)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: 0,
+                  color: 'inherit',
+                }}
+              >
+                <span style={{ pointerEvents: 'none' }}>{chapterIcon(ch.kind)}</span>
+              </button>
+            );
+          })}
         {/* Fill */}
         <div
           style={{
@@ -181,6 +260,28 @@ export function ReplayControls({
         ))}
       </div>
 
+      {/* Adaptive pacing toggle (AC-B1) */}
+      <button
+        type="button"
+        onClick={onToggleAdaptivePacing}
+        title={
+          engine.adaptivePacing
+            ? 'Adaptive pacing ON — auto-skips idle gaps, slows at pass-ball'
+            : 'Adaptive pacing OFF — fixed speed only'
+        }
+        style={{
+          background: engine.adaptivePacing ? 'var(--color-accent, #6366f1)' : 'transparent',
+          border: '1px solid var(--color-border, #555)',
+          borderRadius: '3px',
+          color: engine.adaptivePacing ? '#fff' : 'inherit',
+          cursor: 'pointer',
+          fontSize: 'var(--console-font-label)',
+          padding: '2px 8px',
+        }}
+      >
+        🎯 Adaptive
+      </button>
+
       {/* Display mode toggle */}
       <button
         type="button"
@@ -198,6 +299,39 @@ export function ReplayControls({
       >
         {engine.displayMode === 'cinematic' ? '🎬 Cinematic' : '📋 Faithful'}
       </button>
+
+      {/* Skip indicator (AC-B1) — shown when current event follows a long idle gap */}
+      {activeSkip && (
+        <>
+          <style>{`
+            @keyframes skipFadeInOut {
+              0% { opacity: 0; transform: translate(-50%, -50%) scale(0.95); }
+              15% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+              75% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+              100% { opacity: 0; transform: translate(-50%, -50%) scale(0.95); }
+            }
+          `}</style>
+          <div
+            style={{
+              position: 'fixed',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              background: 'rgba(0, 0, 0, 0.8)',
+              color: '#fff',
+              padding: '12px 24px',
+              borderRadius: '8px',
+              fontSize: 'var(--console-font-base)',
+              fontFamily: 'var(--font-mono, monospace)',
+              pointerEvents: 'none',
+              zIndex: 200,
+              animation: 'skipFadeInOut 2s ease-in-out forwards',
+            }}
+          >
+            ⏩ 跳过 {formatSkipDuration(activeSkip.originalGapMs)}
+          </div>
+        </>
+      )}
     </div>
   );
 }

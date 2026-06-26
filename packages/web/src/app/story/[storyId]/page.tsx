@@ -49,8 +49,19 @@ export default function StoryPlayerPage() {
 // ---------------------------------------------------------------------------
 
 function SessionReplayView({ sessionId }: { sessionId: string }) {
-  const { engine, visibleEvents, isLoading, error, togglePlayPause, doSeek, doSetSpeed, doToggleDisplayMode } =
-    useReplayEngine({ sessionId });
+  const {
+    engine,
+    visibleEvents,
+    isLoading,
+    error,
+    activeSkip,
+    chapters,
+    togglePlayPause,
+    doSeek,
+    doSetSpeed,
+    doToggleDisplayMode,
+    doToggleAdaptivePacing,
+  } = useReplayEngine({ sessionId });
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -119,10 +130,13 @@ function SessionReplayView({ sessionId }: { sessionId: string }) {
       {/* Controls */}
       <ReplayControls
         engine={engine}
+        activeSkip={activeSkip}
+        chapters={chapters}
         onTogglePlayPause={togglePlayPause}
         onSeek={doSeek}
         onSetSpeed={doSetSpeed}
         onToggleDisplayMode={doToggleDisplayMode}
+        onToggleAdaptivePacing={doToggleAdaptivePacing}
       />
     </div>
   );

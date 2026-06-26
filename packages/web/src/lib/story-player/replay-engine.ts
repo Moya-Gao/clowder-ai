@@ -8,33 +8,74 @@
  * State machine: idle → playing ⇄ paused → ended → (play resets to beginning)
  */
 
+import { DEFAULT_SKIP_DISPLAY_MS } from './adaptive-pacing';
 import type { ReplayEngineState, ReplayEvent, SpeedMultiplier } from './types';
+
+// ---------------------------------------------------------------------------
+// Constants (AC-B1)
+// ---------------------------------------------------------------------------
+
+/** Factor by which speed is reduced at pass-ball events when adaptive pacing is on */
+export const PASS_BALL_SLOWDOWN_FACTOR = 5;
+
+// ---------------------------------------------------------------------------
+// Internal types + idle warp table (P1-1: dynamic idle gap handling)
+// ---------------------------------------------------------------------------
+
+type InternalState = ReplayEngineState & { _events: ReplayEvent[]; _idleWarps: number[] };
+
+/** Pre-compute cumulative idle gap reductions. warp[i] = total ms removed up to event i. */
+function computeIdleWarps(events: ReplayEvent[]): number[] {
+  const w = [0];
+  for (let i = 1; i < events.length; i++) {
+    const gap = events[i].timestamp - events[i - 1].timestamp;
+    const cut = events[i].idleSkipMs != null ? Math.max(0, gap - DEFAULT_SKIP_DISPLAY_MS) : 0;
+    w.push(w[i - 1] + cut);
+  }
+  return w;
+}
+
+function getEvents(state: ReplayEngineState): ReplayEvent[] {
+  return (state as InternalState)._events;
+}
+function getWarps(state: ReplayEngineState): number[] {
+  return (state as InternalState)._idleWarps;
+}
+
+/** Effective elapsed time to event `idx`, accounting for adaptive idle compression. */
+function effOffset(state: ReplayEngineState, events: ReplayEvent[], idx: number): number {
+  if (idx <= 0 || events.length === 0) return 0;
+  const i = Math.min(idx, events.length - 1);
+  const raw = events[i].timestamp - events[0].timestamp;
+  return state.adaptivePacing ? raw - (getWarps(state)[i] ?? 0) : raw;
+}
+
+/** Effective total duration for the current adaptive state. */
+function effTotal(state: ReplayEngineState, events: ReplayEvent[]): number {
+  return effOffset(state, events, events.length - 1);
+}
 
 // ---------------------------------------------------------------------------
 // Construction
 // ---------------------------------------------------------------------------
 
 export function createReplayEngine(events: ReplayEvent[]): ReplayEngineState {
-  const first = events[0];
-  const last = events[events.length - 1];
-  const totalDurationMs = first && last ? last.timestamp - first.timestamp : 0;
-
-  return {
+  const warps = computeIdleWarps(events);
+  const base: InternalState = {
     state: 'idle',
     speed: 100,
     currentIndex: 0,
     totalEvents: events.length,
     elapsedMs: 0,
-    totalDurationMs,
+    totalDurationMs: 0,
     displayMode: 'cinematic',
-    // Internal: store events reference for tick calculations
+    adaptivePacing: true,
     _events: events,
-  } as ReplayEngineState & { _events: ReplayEvent[] };
-}
-
-// Internal accessor for events attached to state
-function getEvents(state: ReplayEngineState): ReplayEvent[] {
-  return (state as ReplayEngineState & { _events: ReplayEvent[] })._events;
+    _idleWarps: warps,
+  };
+  // totalDurationMs computed via effTotal (uses adaptivePacing=true + warps)
+  base.totalDurationMs = effTotal(base, events);
+  return base as ReplayEngineState;
 }
 
 // ---------------------------------------------------------------------------
@@ -71,24 +112,34 @@ export function setDisplayMode(state: ReplayEngineState, mode: 'cinematic' | 'fa
 }
 
 // ---------------------------------------------------------------------------
+// Adaptive pacing toggle (AC-B1)
+// ---------------------------------------------------------------------------
+
+export function toggleAdaptivePacing(state: ReplayEngineState): ReplayEngineState {
+  const events = getEvents(state);
+  const next = { ...state, adaptivePacing: !state.adaptivePacing };
+  // Recompute elapsed + total for the new adaptive state (preserves currentIndex)
+  next.elapsedMs = effOffset(next, events, state.currentIndex);
+  next.totalDurationMs = effTotal(next, events);
+  return next;
+}
+
+// ---------------------------------------------------------------------------
 // Tick (time advancement) — called by external timer (RAF / setInterval)
 // ---------------------------------------------------------------------------
 
 /** MAX speed: advance exactly one event per tick (instant forwarding, shows each event briefly). */
 function tickMax(state: ReplayEngineState, events: ReplayEvent[]): ReplayEngineState {
   const nextIndex = state.currentIndex + 1;
-  const baseTimestamp = events[0]?.timestamp ?? 0;
   if (nextIndex >= events.length - 1) {
-    const lastOffset = (events[events.length - 1]?.timestamp ?? 0) - baseTimestamp;
-    return { ...state, currentIndex: events.length - 1, elapsedMs: lastOffset, state: 'ended' };
+    return { ...state, currentIndex: events.length - 1, elapsedMs: effTotal(state, events), state: 'ended' };
   }
-  const nextTimestamp = events[nextIndex]?.timestamp ?? 0;
-  return { ...state, currentIndex: nextIndex, elapsedMs: nextTimestamp - baseTimestamp };
+  return { ...state, currentIndex: nextIndex, elapsedMs: effOffset(state, events, nextIndex) };
 }
 
 /**
  * Advance the engine by `deltaMs` of real-world time.
- * Calculates how many events should be visible at the current speed.
+ * elapsedMs is in "effective timeline" space — idle gaps compressed when adaptive is ON.
  */
 export function tick(state: ReplayEngineState, deltaMs: number): ReplayEngineState {
   if (state.state !== 'playing') return state;
@@ -98,39 +149,40 @@ export function tick(state: ReplayEngineState, deltaMs: number): ReplayEngineSta
 
   if (state.speed === 'max') return tickMax(state, events);
 
-  // elapsedMs is always in "original timeline" space (ms offset from first event).
-  // Real wall-clock delta is scaled by speed to advance the original-time playhead.
-  const newElapsed = state.elapsedMs + deltaMs * state.speed;
+  // AC-B1: At pass-ball events, reduce effective speed to give viewer time to notice
+  const currentEvent = events[state.currentIndex];
+  const isSlowZone = state.adaptivePacing && currentEvent?.isPassBall;
+  const effectiveSpeed = isSlowZone ? Math.max(1, state.speed / PASS_BALL_SLOWDOWN_FACTOR) : state.speed;
 
-  const baseTimestamp = events[0]?.timestamp ?? 0;
+  const newElapsed = state.elapsedMs + deltaMs * effectiveSpeed;
 
-  // Find the last event whose offset from base is <= newElapsed (already in original time)
+  // Find the last event whose effective offset is <= newElapsed.
+  // AC-B1: When adaptive pacing is ON, stop at marker events (pass-ball / idle-gap)
+  // so they become currentEvent — enables slowdown and skip banner display.
+  // Without this, a fast tick (e.g. 100x, 16ms RAF = 1600ms) jumps past compressed
+  // gaps (500ms) and markers are never "current".
   let newIndex = state.currentIndex;
   for (let i = state.currentIndex + 1; i < events.length; i++) {
-    const offset = (events[i]?.timestamp ?? 0) - baseTimestamp;
+    const offset = effOffset(state, events, i);
     if (offset <= newElapsed) {
       newIndex = i;
+      // Stop at adaptive markers — clamp elapsed to marker offset so next tick
+      // starts HERE (with slowdown/banner), rather than already past it
+      if (state.adaptivePacing && (events[i].isPassBall || events[i].idleSkipMs != null)) {
+        return { ...state, currentIndex: newIndex, elapsedMs: offset };
+      }
     } else {
       break;
     }
   }
 
   // Check if we've passed the last event
-  const lastOffset = (events[events.length - 1]?.timestamp ?? 0) - baseTimestamp;
-  if (newElapsed >= lastOffset) {
-    return {
-      ...state,
-      currentIndex: events.length - 1,
-      elapsedMs: lastOffset, // clamp to total duration — don't overshoot
-      state: 'ended',
-    };
+  const total = effTotal(state, events);
+  if (newElapsed >= total) {
+    return { ...state, currentIndex: events.length - 1, elapsedMs: total, state: 'ended' };
   }
 
-  return {
-    ...state,
-    currentIndex: newIndex,
-    elapsedMs: newElapsed,
-  };
+  return { ...state, currentIndex: newIndex, elapsedMs: newElapsed };
 }
 
 // ---------------------------------------------------------------------------
@@ -141,23 +193,16 @@ export function seek(state: ReplayEngineState, targetIndex: number): ReplayEngin
   const events = getEvents(state);
   if (events.length === 0) return state;
 
-  // Clamp to valid range
   const clamped = Math.max(0, Math.min(targetIndex, events.length - 1));
 
-  // Calculate elapsed original time for the target position
-  const baseTimestamp = events[0]?.timestamp ?? 0;
-  const targetTimestamp = events[clamped]?.timestamp ?? 0;
-  const elapsedOriginal = targetTimestamp - baseTimestamp;
-
   // When seeking from 'ended' to a non-final event, transition to 'paused'
-  // so that play() resumes from the seek position instead of resetting to 0
   const newState = state.state === 'ended' && clamped < events.length - 1 ? 'paused' : state.state;
 
   return {
     ...state,
     state: newState,
     currentIndex: clamped,
-    elapsedMs: elapsedOriginal, // elapsed in original time scale (for seek display)
+    elapsedMs: effOffset(state, events, clamped),
   };
 }
 
@@ -170,14 +215,11 @@ export function stepForward(state: ReplayEngineState): ReplayEngineState {
   if (events.length === 0) return state;
 
   const nextIndex = Math.min(state.currentIndex + 1, events.length - 1);
-  const baseTimestamp = events[0]?.timestamp ?? 0;
-  const targetTimestamp = events[nextIndex]?.timestamp ?? 0;
-
   return {
     ...state,
     state: state.state === 'playing' ? 'paused' : state.state,
     currentIndex: nextIndex,
-    elapsedMs: targetTimestamp - baseTimestamp,
+    elapsedMs: effOffset(state, events, nextIndex),
   };
 }
 
@@ -186,14 +228,11 @@ export function stepBackward(state: ReplayEngineState): ReplayEngineState {
   if (events.length === 0) return state;
 
   const prevIndex = Math.max(state.currentIndex - 1, 0);
-  const baseTimestamp = events[0]?.timestamp ?? 0;
-  const targetTimestamp = events[prevIndex]?.timestamp ?? 0;
-
   return {
     ...state,
     state: state.state === 'playing' ? 'paused' : state.state,
     currentIndex: prevIndex,
-    elapsedMs: targetTimestamp - baseTimestamp,
+    elapsedMs: effOffset(state, events, prevIndex),
   };
 }
 

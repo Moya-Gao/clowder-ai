@@ -12,9 +12,11 @@
 
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import { adaptTranscriptEvents } from './adapter';
+import { annotateAdaptivePacing } from './adaptive-pacing';
+import { type Chapter, extractChapters } from './chapters';
 import {
   compressEventTimestamps,
   createReplayEngine,
@@ -26,6 +28,7 @@ import {
   stepBackward,
   stepForward,
   tick,
+  toggleAdaptivePacing,
 } from './replay-engine';
 import type { RawTranscriptEvent, ReplayEngineState, ReplayEvent, SpeedMultiplier } from './types';
 
@@ -49,6 +52,10 @@ export interface UseReplayEngineResult {
   isLoading: boolean;
   /** Error message */
   error: string | null;
+  /** Active skip indicator — non-null when current event follows a long idle gap */
+  activeSkip: { originalGapMs: number } | null;
+  /** Chapters for timeline navigation (AC-B2) */
+  chapters: Chapter[];
   /** Controls */
   togglePlayPause: () => void;
   doSeek: (index: number) => void;
@@ -56,6 +63,7 @@ export interface UseReplayEngineResult {
   doStepForward: () => void;
   doStepBackward: () => void;
   doToggleDisplayMode: () => void;
+  doToggleAdaptivePacing: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -178,8 +186,12 @@ export function useReplayEngine(options: UseReplayEngineOptions): UseReplayEngin
       .then((rawEvents) => {
         if (cancelled) return;
         const adapted = adaptTranscriptEvents(rawEvents);
-        // AC-A2: Apply log compression to inter-event gaps (10s→3s, 60s→6s, 600s→12s)
-        const compressed = compressEventTimestamps(adapted);
+        // AC-B1: Annotate idle gaps + pass-ball events (uses raw timestamps)
+        const annotated = annotateAdaptivePacing(adapted);
+        // AC-A2: Apply log compression to tool wait gaps (10s→3s, 60s→6s, 600s→12s)
+        // Note: idle gap handling is now dynamic in the engine (P1-1 fix) —
+        // toggle ON/OFF actually changes playback behavior instead of being baked in.
+        const compressed = compressEventTimestamps(annotated);
         setEvents(compressed);
         setEngine(createReplayEngine(compressed));
       })
@@ -225,7 +237,21 @@ export function useReplayEngine(options: UseReplayEngineOptions): UseReplayEngin
     setEngine((prev) => setDisplayMode(prev, prev.displayMode === 'cinematic' ? 'faithful' : 'cinematic'));
   }, []);
 
+  const doToggleAdaptivePacing = useCallback(() => {
+    setEngine((prev) => toggleAdaptivePacing(prev));
+  }, []);
+
   const visibleEvents = events.slice(0, engine.currentIndex + 1);
+
+  // AC-B1: Compute skip indicator — only when adaptive pacing is ON (P2 fix: no banner in fixed-speed mode)
+  const currentEvent = events[engine.currentIndex];
+  const activeSkip =
+    engine.adaptivePacing && currentEvent?.idleSkipMs != null ? { originalGapMs: currentEvent.idleSkipMs } : null;
+
+  // AC-B2: Extract chapters for timeline navigation
+  // Memoized on events ref — extractChapters is O(n) and events only changes on initial load,
+  // but tick updates engine state every RAF frame triggering re-renders
+  const chapters = useMemo(() => (events.length > 0 ? extractChapters(events) : []), [events]);
 
   return {
     engine,
@@ -233,11 +259,14 @@ export function useReplayEngine(options: UseReplayEngineOptions): UseReplayEngin
     visibleEvents,
     isLoading,
     error,
+    activeSkip,
+    chapters,
     togglePlayPause,
     doSeek,
     doSetSpeed,
     doStepForward,
     doStepBackward,
     doToggleDisplayMode,
+    doToggleAdaptivePacing,
   };
 }
