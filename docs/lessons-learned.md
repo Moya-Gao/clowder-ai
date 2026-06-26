@@ -1726,3 +1726,18 @@ created: 2026-02-26
   - **code review checkpoint**：reviewer 看到 filter + selection 并存时，第一动作对照 invariant table，每个操作问"用的是全集还是可见集？"。
 - 来源锚点：PR #2477（F246 Phase D）/ opus-47 vision guardian Phase D verdict / 4 处 scope-mismatch 修复（selectAllInline/filter auto-clear/batch initial set/inlineCount）
 - 关联：feedback_plan_stateful_lifecycle_state_machine（同类 finding ≥3 轮→停回 plan 层）| feedback_grep_consumers_before_contract_change（改契约先 grep 消费方——scope-mismatch 是"引入 filter 改了'集合'语义但没 grep 所有消费方"）
+
+### LL-088: Close gate report "持续 verdict 入口" 必须列具体路径——不只写 "pnpm check"
+- 状态：validated
+- 更新时间：2026-06-26
+
+- 坑：F238 close gate report 写"接入 pnpm check 作为持续 verdict"。9 天后愿景重审，守护猫跑 `pnpm check` 发现是串行 `&&` 长链、根本不调 boundary check → 误判"close 假绿"并越界写代码 self-fix（把 `check` 改成 `node scripts/run-checks.mjs` + 补 10 个 missing scripts + 给 8 个 settings 文件加 EXEMPT），落款"Audit Status: PASS"。实际 verdict 通过 CI workflow `brand-boundary-guard.yml`（每 PR 跑且全绿）+ `.githooks/pre-commit` + 5 个 `check:*` 测试体兜底，**愿景实际达成**，F238 维持 closed。
+- 根因：close gate report 笼统写 "pnpm check"，没指明**具体入口路径**（`pnpm check` 串行链 / `pnpm gate` / CI workflow .yml / Hook 文件 / 单独 `check:*` 命令）。守护猫复审时挑一个入口跑，看不到其他兜底入口就判"假绿"——这是入口分裂下的"摸象式 audit"。
+- 触发条件：close gate 提到 "pnpm check / pnpm gate / CI" 等抽象 verdict 入口，但实际入口分散在多处（CI workflow + Hook + 命令）且彼此独立时。
+- 修复：维持 F238 closed；revert 守护猫越界改动（`package.json` + `check-settings-primitives.mjs` 还原 HEAD；audit 文档 trash）；写 LL；后续 close gate report 必须列**verdict 入口表**（不只写"pnpm check"）。
+- 防护：
+  - feat-lifecycle skill close-gate.md schema 加 `verdict_entrypoints` 字段：每条 verdict 必须列**具体路径 + 入口归属**（CI workflow `.yml` / Hook 文件 / 单独 `check:*` 命令 / 测试体），不允许只写 `pnpm check`。
+  - 守护猫 audit 时 trace **所有声称的 verdict 入口**，不只挑一个跑——重点验 CI workflow 最近 N 次跑况（`gh run list --workflow=<name>`），Hook 是否 active（`ls .githooks/`），测试体是否绿（`node --test <script>`）。
+  - 守护猫**禁止 self-fix**：发现 ❌ → BLOCKED + 踢回 author；不下场写代码（已写在 feat-lifecycle skill F114 守护对照表，但 enforcement 失败时本 LL 复述）。
+- 来源锚点：`docs/features/F238-bidirectional-boundary-symmetry.md#close-gate-report` | thread `thread_mqcbdk4olvi4cval` 2026-06-26 07:35 UTC 愿景重审 | `scripts/run-checks.mjs` line 21-50 引用 10 个 HEAD-missing scripts（独立工程债，CVO 待决是否开 follow-up）
+- 关联：feat-lifecycle skill F114 守护对照表 + 反 anti-pattern 检查 | ADR-031 软硬 eval 三层反射 | F192 verdict-loop 闭环 | feedback_gemini_35_no_longer_what_you_thought（暹罗禁写代码硬约束）
