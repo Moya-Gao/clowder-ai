@@ -51,4 +51,31 @@ describe('F252: parseStoryId', () => {
     expect(parseStoryId(`session:${uuid}`)).toEqual({ type: 'session', sessionId: uuid });
     expect(parseStoryId(`session%3A${uuid}`)).toEqual({ type: 'session', sessionId: uuid });
   });
+
+  // Phase C: feat:<featId> format
+  it('parses feat:F252 format', () => {
+    expect(parseStoryId('feat:F252')).toEqual({ type: 'feat', featId: 'F252' });
+  });
+
+  it('parses URL-encoded feat%3AF252 format', () => {
+    expect(parseStoryId('feat%3AF252')).toEqual({ type: 'feat', featId: 'F252' });
+  });
+
+  it('normalizes lowercase feat id to uppercase', () => {
+    expect(parseStoryId('feat:f252')).toEqual({ type: 'feat', featId: 'F252' });
+    expect(parseStoryId('feat%3Af252')).toEqual({ type: 'feat', featId: 'F252' });
+  });
+
+  it('rejects invalid feat id format', () => {
+    expect(parseStoryId('feat:notAFeatId')).toBeNull();
+    expect(parseStoryId('feat:')).toBeNull();
+    expect(parseStoryId('feat:F')).toBeNull(); // too short
+    expect(parseStoryId('feat:F1')).toBeNull(); // needs 2+ digits
+  });
+
+  it('accepts feat ids with 2-4 digit numbers', () => {
+    expect(parseStoryId('feat:F12')).toEqual({ type: 'feat', featId: 'F12' });
+    expect(parseStoryId('feat:F123')).toEqual({ type: 'feat', featId: 'F123' });
+    expect(parseStoryId('feat:F1234')).toEqual({ type: 'feat', featId: 'F1234' });
+  });
 });

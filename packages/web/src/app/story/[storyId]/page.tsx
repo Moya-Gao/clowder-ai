@@ -3,16 +3,17 @@
  *
  * Route: /story/:storyId
  *
- * Phase A (current): single session replay.
- * storyId format: "session:<sessionId>" = ephemeral single-session replay.
+ * Phase A: `session:<sessionId>` → single session replay
+ * Phase C: `feat:<featId>` → feature story (multi-thread swimlane + causal edges)
  *
- * Full-screen immersive layout: chat area + bottom control bar.
+ * Full-screen immersive layout. Story type determines which view to render.
  */
 
 'use client';
 
 import { useParams } from 'next/navigation';
 import { useEffect, useRef } from 'react';
+import { FeatureStoryView } from '@/components/story-player/FeatureStoryView';
 import { ReplayControls } from '@/components/story-player/ReplayControls';
 import { ReplayEventBubble } from '@/components/story-player/ReplayEventBubble';
 import { useReplayEngine } from '@/lib/story-player/useReplayEngine';
@@ -32,13 +33,17 @@ export default function StoryPlayerPage() {
       <div style={styles.errorContainer}>
         <h2>Invalid Story ID</h2>
         <p>
-          Story ID must be in format <code>session:{'<sessionId>'}</code> (Phase A).
+          Story ID must be in format <code>session:{'<sessionId>'}</code> or <code>feat:{'<featId>'}</code>.
         </p>
         <p style={{ opacity: 0.6, fontSize: 'var(--console-font-compact)' }}>
           Received: <code>{storyId}</code>
         </p>
       </div>
     );
+  }
+
+  if (parsed.type === 'feat') {
+    return <FeatureStoryView featId={parsed.featId} />;
   }
 
   return <SessionReplayView sessionId={parsed.sessionId} />;

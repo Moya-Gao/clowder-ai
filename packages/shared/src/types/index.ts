@@ -765,6 +765,14 @@ export {
   type SopDefinition,
   type SopDefinitionId,
 } from './sop-definition.generated.js';
+// F252: Story Rendering types (Phase C BFF → Frontend)
+export type {
+  CausalEdgeDTO,
+  FeatureStoryRenderingDTO,
+  SwimlaneDTO,
+  TimelineMilestoneDTO,
+  TrajectoryMarkerDTO,
+} from './story-rendering.js';
 // STT types (F088 Phase 6 — Speech-to-Text)
 export type { ISttProvider, SttTranscribeRequest, SttTranscribeResult } from './stt.js';
 // Study types (F091 Signal Study Mode)

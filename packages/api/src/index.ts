@@ -2924,6 +2924,15 @@ async function main(): Promise<void> {
     agentKeyRegistry,
   });
 
+  // F252 Phase C: Story rendering BFF (consumes feat trajectory projection → rendering DTO)
+  const { storyRenderingRoutes } = await import('./routes/story-rendering.js');
+  await app.register(storyRenderingRoutes, {
+    featTrajectoryStore,
+    threadStore: threadStore as { get(threadId: string): Promise<{ id: string; title?: string | null } | null> },
+    callbackRegistry: registry,
+    agentKeyRegistry,
+  });
+
   // F076: External projects + Need Audit
   const { ExternalProjectStore } = await import('./domains/projects/external-project-store.js');
   const { IntentCardStore } = await import('./domains/projects/intent-card-store.js');
