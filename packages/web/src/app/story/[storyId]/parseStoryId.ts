@@ -10,14 +10,23 @@
  */
 export type ParsedStoryId = { type: 'session'; sessionId: string } | { type: 'feat'; featId: string };
 
-export function parseStoryId(raw: string): ParsedStoryId | null {
-  let storyId: string;
+/**
+ * Decode a URL-encoded storyId parameter from Next.js useParams().
+ * Shared by main story page (via parseStoryId) and public viewer page.
+ * Handles %3A → : and gracefully falls back on malformed encoding.
+ */
+export function decodeStoryParam(raw: string): string {
   try {
-    storyId = decodeURIComponent(raw);
+    return decodeURIComponent(raw);
   } catch {
-    // Malformed percent-encoding (e.g. "%ZZ") — treat as unrecognized format
-    return null;
+    return raw; // Malformed percent-encoding — return as-is
   }
+}
+
+export function parseStoryId(raw: string): ParsedStoryId | null {
+  const storyId = decodeStoryParam(raw);
+  // Malformed encoding (e.g. "%ZZ") falls through as-is — won't match
+  // any valid prefix below, so returns null. Behavior preserved.
   if (storyId.startsWith('session:')) {
     return { type: 'session', sessionId: storyId.slice('session:'.length) };
   }

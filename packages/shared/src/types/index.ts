@@ -765,6 +765,8 @@ export {
   type SopDefinition,
   type SopDefinitionId,
 } from './sop-definition.generated.js';
+// F252: Story Annotation types (Phase D — annotations at arbitrary timeline points)
+export type { AnnotationSet, StoryAnnotation } from './story-annotation.js';
 // F252: Story Rendering types (Phase C BFF → Frontend)
 export type {
   CausalEdgeDTO,

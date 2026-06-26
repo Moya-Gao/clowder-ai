@@ -602,6 +602,13 @@ export const ENV_VARS: EnvDefinition[] = [
     sensitive: false,
   },
   {
+    name: 'ANNOTATION_DATA_DIR',
+    defaultValue: '{repoRoot}/data/stories',
+    description: 'Story annotation + export 存储目录（F252 Phase D）',
+    category: 'storage',
+    sensitive: false,
+  },
+  {
     name: 'DOCS_ROOT',
     defaultValue: '{repoRoot}/docs',
     description: 'Docs 根目录路径（F102 记忆系统用）',

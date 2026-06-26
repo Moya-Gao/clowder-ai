@@ -2933,6 +2933,90 @@ async function main(): Promise<void> {
     agentKeyRegistry,
   });
 
+  // F252 Phase D: Story annotations CRUD (annotations at arbitrary timeline points)
+  const { AnnotationFileStore } = await import('./domains/story/annotation-store.js');
+  const { storyAnnotationRoutes } = await import('./routes/story-annotations.js');
+  const annotationDataDir = process.env.ANNOTATION_DATA_DIR ?? `${findMonorepoRoot(process.cwd())}/data/stories`;
+  const annotationStore = new AnnotationFileStore(annotationDataDir);
+  await app.register(storyAnnotationRoutes, {
+    annotationStore,
+    callbackRegistry: registry,
+    agentKeyRegistry,
+  });
+
+  // F252 Phase D: Story export (sanitized public sharing)
+  const { StoryExportStore } = await import('./domains/story/export-store.js');
+  const { storyExportRoutes } = await import('./routes/story-export.js');
+  const { buildCatIdentityAliases } = await import('./domains/story/content-sanitizer.js');
+  const exportStore = new StoryExportStore(annotationDataDir); // shares data/stories/ root
+  // Build identity alias map from breeds config for Class D redaction coverage
+  const exportCatConfig = bootstrapDefaultCatCatalog();
+  const catIdentityAliases = buildCatIdentityAliases(
+    exportCatConfig.breeds.map((b) => ({
+      catId: b.catId,
+      name: b.name,
+      displayName: b.displayName,
+      nickname: b.nickname,
+      mentionPatterns: [...b.mentionPatterns],
+      variants: b.variants.map((v) => ({
+        catId: v.catId,
+        displayName: v.displayName,
+        variantLabel: v.variantLabel,
+        mentionPatterns: v.mentionPatterns ? [...v.mentionPatterns] : undefined,
+      })),
+    })),
+    'coCreator' in exportCatConfig && exportCatConfig.coCreator
+      ? {
+          name: exportCatConfig.coCreator.name,
+          aliases: [...exportCatConfig.coCreator.aliases],
+          mentionPatterns: [...exportCatConfig.coCreator.mentionPatterns],
+        }
+      : undefined,
+  );
+  await app.register(storyExportRoutes, {
+    exportStore,
+    annotationStore,
+    catIdentityAliases,
+    fetchTranscriptEvents: async (storyId) => {
+      // Parse session:<sessionId> → look up via sessionChainStore → read JSONL via transcriptReader
+      const sessionMatch = storyId.match(/^session:(.+)$/);
+      if (!sessionMatch) return []; // feat: stories or unknown format — no transcript source yet
+
+      const sessionId = sessionMatch[1];
+      const session = await sessionChainStore.get(sessionId);
+      if (!session) return [];
+
+      // Read all events (limit=10000 to get full session; paginate if needed)
+      const result = await transcriptReader.readEvents(sessionId, session.threadId, session.catId, undefined, 10000);
+
+      // Map TranscriptReader events to export format
+      return result.events.map((te) => {
+        const ev = te.event as Record<string, unknown>;
+        return {
+          id: `${te.sessionId}:${te.eventNo}`,
+          at: te.t,
+          kind: (ev.kind as string) ?? (ev.type as string) ?? 'unknown',
+          content:
+            typeof ev.content === 'string'
+              ? ev.content
+              : typeof ev.text === 'string'
+                ? ev.text
+                : JSON.stringify(ev.content ?? ev),
+          ...(ev.toolName !== undefined && { toolName: ev.toolName as string }),
+          ...(ev.toolArgs !== undefined && {
+            toolArgs: typeof ev.toolArgs === 'string' ? ev.toolArgs : JSON.stringify(ev.toolArgs),
+          }),
+          ...(ev.toolResult !== undefined && {
+            toolResult: typeof ev.toolResult === 'string' ? ev.toolResult : JSON.stringify(ev.toolResult),
+          }),
+          ...(te.catId && { catId: te.catId }),
+        };
+      });
+    },
+    callbackRegistry: registry,
+    agentKeyRegistry,
+  });
+
   // F076: External projects + Need Audit
   const { ExternalProjectStore } = await import('./domains/projects/external-project-store.js');
   const { IntentCardStore } = await import('./domains/projects/intent-card-store.js');
