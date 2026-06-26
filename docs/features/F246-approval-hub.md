@@ -255,7 +255,7 @@ Goal: 把 Phase C 后真实遗留的成熟化工作收束成可执行交付，�
 - [x] **AC-E2**: Hub panel displays F231 items alongside v1 items (filter chip + badge + color)
 - [x] **AC-E3**: Tests cover: mapping, stale threshold, empty user, requesterCatId, detail fields, cardMessageId + socket event + filter/badge regression
 
-### Phase F: Approval History 🚧
+### Phase F: Approval History ✅
 
 > **CVO 原话（2026-06-26）**："为什么我们没有审批的历史记录啊！！记录一下都审批是通过还是没通过啊！"
 
@@ -284,14 +284,14 @@ Goal: 把 Phase C 后真实遗留的成熟化工作收束成可执行交付，�
 
 #### AC 清单
 
-- [ ] **AC-F1**: `SettledApprovalItem` 类型从 `@cat-cafe/shared` 导出，字段：`status: 'approved'|'rejected'`、`decidedAt: number`、`decidedBy: string`，其余字段继承 `ApprovalItem`（去掉旧 `status`）
-- [ ] **AC-F2**: `IApprovalAdapter` 新增可选方法 `listSettled?`，签名见上表；未实现的 adapter 在 ApprovalService fan-out 时安全跳过（`?.listSettled?.()`）
-- [ ] **AC-F3**: `IDispatchProposalStore` 新增 `listSettledByUser(userId, limit)`，InMemoryDispatchProposalStore 实现（过滤 status ∈ `{approved, rejected}`，按 decidedAt 降序，截 limit）
-- [ ] **AC-F4**: `F193ApprovalAdapter.listSettled` 实现并测试（mapping 正确：proposalId / sourceFeatureId / decidedAt / decidedBy / status）
-- [ ] **AC-F5**: `GET /api/approval-hub/settled` 端点，返回 `SettledApprovalItem[]`，ownerUserId = 登录用户，limit 默认 50；tests 覆盖空集、单 adapter 有数据、limit 截断
-- [ ] **AC-F6**: Hub 面板显示历史区（待定：独立"历史" tab 或主 tab 底部折叠区）；每条记录含 feature badge、status chip（✅/❌）、summary、decidedAt 相对时间
-- [ ] **AC-F7**: 历史区空状态文案：「还没有审批记录」
-- [ ] **AC-F8**: 历史区按 `decidedAt` 降序排列（最新在最上）
+- [x] **AC-F1**: `SettledApprovalItem` 类型从 `@cat-cafe/shared` 导出，字段：`status: 'approved'|'rejected'`、`decidedAt: number`、`decidedBy: string`，其余字段继承 `ApprovalItem`（去掉旧 `status`）
+- [x] **AC-F2**: `IApprovalAdapter` 新增可选方法 `listSettled?`，签名见上表；未实现的 adapter 在 ApprovalService fan-out 时安全跳过（`?.listSettled?.()`）
+- [x] **AC-F3**: `IDispatchProposalStore` 新增 `listSettledByUser(userId, limit)`，InMemoryDispatchProposalStore 实现（过滤 status ∈ `{approved, rejected}`，按 decidedAt 降序，截 limit）
+- [x] **AC-F4**: `F193ApprovalAdapter.listSettled` 实现并测试（mapping 正确：proposalId / sourceFeatureId / decidedAt / decidedBy / status）
+- [x] **AC-F5**: `GET /api/approval-hub/settled` 端点，返回 `SettledApprovalItem[]`，ownerUserId = 登录用户，limit 默认 50；tests 覆盖空集、单 adapter 有数据、limit 截断
+- [x] **AC-F6**: Hub 面板新增「待审批 | 历史」两个 tab（Option A CVO 拍板），历史 tab 每条 `SettledHistoryCard`：feature badge + status chip（✅/❌）+ summary + decidedAt 相对时间
+- [x] **AC-F7**: 历史区空状态文案：「还没有审批记录」
+- [x] **AC-F8**: 历史区按 `decidedAt` 降序排列（最新在最上）
 
 #### 前端 UI 决策（待铲屎官确认）
 
@@ -426,3 +426,4 @@ harness_feedback: none | reason: non-harness feature, pure product capability
 | 2026-06-22 | Phase E alpha-validated — **4/4 PASS** (@sonnet): F231 pending proposal→Hub可见(橙色"Profile"badge) ✅, "画像"filter chip过滤 ✅, jump-only(无inline approve/reject，仅jump-btn) ✅, socket刷新pipeline(fetchPending 0→1验证，code-review确认proposal_created emission at line 192) ✅ |
 | 2026-06-22 | **Feature closed** — 愿景守护 APPROVE (opus-46 owner guardian, 8/8 铲屎官原话全匹配), Close Gate Report 25/25 AC met, 反思胶囊 archived. 5 Phase × 6 PR = all MERGED. 29/29 cumulative alpha smoke PASS |
 | 2026-06-26 | **Bug 1 fix merged** (PR #2570, dd41a107) — F193 dispatch card：补上 source→target thread 路由上下文 + 跳转按钮（CVO 原话："根本不知道是哪个 thread 的什么猫往哪 thread 的什么猫发！也没跳转按钮！"）；Codex cloud review P2（长 source 标题截断 target）→ flex 独立 truncate 修复。@gpt52 APPROVE + CI ✅ |
+| 2026-06-26 | **Phase F merged** (PR #2577, e5c25b981) — 审批历史：`SettledApprovalItem` DTO + `GET /api/approval-hub/settled` + Redis settled sorted set（Lua CAS 原子写，revertToPending 清理 stale entries）+ Hub 面板「待审批\|历史」两 tab + `SettledHistoryCard`。本轮修复：P2 分数类 limit 向 Redis ZREVRANGE 传浮点索引→Math.floor() 强制整数化。@gpt52 APPROVE (scoped continuity 03edb34ed) + Codex cloud R1 P2 fixed + CI ✅ |
