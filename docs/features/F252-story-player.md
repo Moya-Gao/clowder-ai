@@ -203,9 +203,9 @@ tips_exempt: "Tip planned for Phase D sharing feature — Phase A is infrastruct
 - [x] AC-C2: 因果边来自 F233 投影的 `thread_split`/`thread_merge`/`pr_merged` kinds（不是事件层启发式），以动画箭头显示，箭头样式反映 provenance.confidence（high=实线, medium=虚线, low=点线）（trace Why「事件驱动」；复核：选一个有 thread_split 的 Feature 验证箭头+样式）
 - [~] AC-C3: 三层缩放可用——鸟瞰（F233 投影）点色块 → 剧场（events.jsonl 回放）→ 暂停点消息 → 显微镜展开完整内容（trace Why「既能看全景又能看细节」；复核：从鸟瞰一路 drill-down 到消息详情）— **Birdseye done**；Theater + Microscope drill-down not yet connected
 
-### Phase D（注解 + 脱敏分享）
-- [ ] AC-D1: 可在任意时间点添加文字注解，回放时自动弹出（trace Why「暂停讲解」；复核：添加注解后回放验证弹出）
-- [ ] AC-D2: 公开分享读脱敏 export 包（不直连 raw transcript API），过滤覆盖 tool args/output + assistant text + system event 中的路径/token/env/个人信息，脱敏审核入 ledger（trace Why「向外展示」；复核：生成 export 包 → 隐身窗口打开 public URL → 搜索已知敏感字符串确认不泄露）
+### Phase D（注解 + 脱敏分享）✅
+- [x] AC-D1: 可在任意时间点添加文字注解，回放时自动弹出（trace Why「暂停讲解」；复核：添加注解后回放验证弹出）
+- [x] AC-D2: 公开分享读脱敏 export 包（不直连 raw transcript API），过滤覆盖 tool args/output + assistant text + system event 中的路径/token/env/个人信息，脱敏审核入 ledger（trace Why「向外展示」；复核：生成 export 包 → 隐身窗口打开 public URL → 搜索已知敏感字符串确认不泄露）
 
 ## Dependencies
 
@@ -263,6 +263,7 @@ tips_exempt: "Tip planned for Phase D sharing feature — Phase A is infrastruct
 | 2026-06-26 | Phase C partial merged (PR #2586, `7a587d483`). BFF route `GET /api/story/:storyId/rendering` + `buildFeatureStoryRendering` pure function + `FeatureStoryView` orchestrator + `BirdseyeView` swimlane/causal edges/milestones. 9 BFF tests. Local peer: gpt52 APPROVED; Cloud R2 clean (R1: 1×P1 apiFetch + 1×P2 agentKeyRegistry, both fixed). AC-C1 ✅ AC-C2 ✅ AC-C0 partial (2/4 emitters) AC-C3 partial (birdseye only) |
 | 2026-06-26 | Phase C P1 fix merged (PR #2592, `cff3c6bf9`). Vision guardian HOLD 两个 P1: (1) 入口可达性=0 第三次同型 — TrajectoryPanel 添加 🎬 Story 链接; (2) 伪交互 cursor:pointer 无 onClick — 降级 cursor:default. Local peer: gpt52 APPROVED; Cloud R1 clean |
 | 2026-06-26 | Sonnet alpha 验收 PASS（P1-1 🎬 Story 链接可见+可跳转, P1-2 marker cursor:default 确认）。opus-47 pre-authorized close。**Phase C closed** |
+| 2026-06-26 | Phase D merged (PR #2595). AnnotationFileStore (file-based JSON persistence) + CRUD routes + content-sanitizer (4 classes: credentials/paths/env/identity) + ExportStore + public viewer page. 82 API tests (49 sanitizer + 21 annotations + 12 export) + 16 web tests. Local peer: gpt52 封板 APPROVED; Cloud R5 封板 (9 fixed, 5 push-backs). AC-D1 ✅ AC-D2 ✅ |
 
 ## Review Gate
 
