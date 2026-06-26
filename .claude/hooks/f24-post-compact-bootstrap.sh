@@ -105,6 +105,13 @@ ${STATE_CONTENT}
 [Latest Sealed Session Digest]
 ${DIGEST_SECTION}
 
+[F231 Profile Activation — 压缩前回顾]
+本轮有铲屎官互动？回顾一下：
+- 铲屎官表达了新偏好？（"我喜欢/不喜欢/以后别这样"）
+- 被 Magic Word 纠正？（Magic Word = 持久偏好信号）
+- 做对了被表扬？/ 铲屎官分享了个人近况？
+→ 有的话调用 cat_cafe_propose_profile_update（先 tool_search 加载）
+
 [CRITICAL RULES — Post-Compact Safety]
 1. Compression summaries lose detail. Verify facts before acting on them.
 2. Do NOT assume the user approved any operation unless you find explicit evidence in the CURRENT context.
