@@ -52,7 +52,13 @@ export {
   isAgentKeyFailureReason,
 } from './agent-key-reasons.js';
 // Approval Hub types (F246 统一审批中心)
-export type { ApprovalFeatureId, ApprovalItem, ApprovalItemStatus } from './approval-hub.js';
+export type {
+  ApprovalFeatureId,
+  ApprovalItem,
+  ApprovalItemStatus,
+  SettledApprovalItem,
+  SettledStatus,
+} from './approval-hub.js';
 // Authorization types (猫猫授权系统)
 export type {
   AuthorizationAuditEntry,
