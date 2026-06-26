@@ -220,10 +220,7 @@
       "introducedBy": "PR #720 sync `89cc0f22` — F203 Phase C code shipped but Phase B artifact `scripts/compile-system-prompt-l0.mjs` was not included in sync export",
       "fixedBy": "cat-cafe followup PR",
       "publicBehaviorId": "l0-compiler-artifact-exists-when-referenced",
-      "affectedPaths": [
-        "packages/api/src/runtime/l0-compiler.ts",
-        "scripts/compile-system-prompt-l0.mjs"
-      ],
+      "affectedPaths": ["packages/api/src/runtime/l0-compiler.ts", "scripts/compile-system-prompt-l0.mjs"],
       "severity": "P0 (all Codex/缅因猫 carriers fail at startup)",
       "note": "C4 cousin of #1025. Sync exclude rule + asset coverage gap — code references a script but script not in sync allowlist. F238/F251 sibling territory."
     },
