@@ -197,11 +197,11 @@ tips_exempt: "Tip planned for Phase D sharing feature — Phase A is infrastruct
 - [x] AC-B2a: 单 session 章节标记从 event 结构提取（invocation 边界、传球事件、idle gap 恢复点），进度条上可点击跳转（trace Why「到某个节点暂停讲解」；复核：选一个 ≥3 invocation 的 session 验证章节标记出现且可跳转）
 - [ ] AC-B2b: **[Phase C 前置]** 多 session story 的章节标记来自 F233 `FeatTrajectoryProjection.entries`（`phase_transition`/`pr_merged`/`verdict` 等 kinds），依赖 AC-C0 emitter 补齐（trace Why「feature 级跨 thread 章节」；复核：选一个有 phase_transition 的 Feature 验证跨 session 章节标记）
 
-### Phase C（Feature Story Renderer 多泳道 + 因果链）
-- [ ] AC-C0: **前置条件**：F233 emitters 补齐 `thread_split`/`thread_merge`/`pr_merged`/`phase_transition` 四个 ball-shaped kinds 已 merged 且在生产环境产出 entries（trace Why「Phase C 灵魂依赖跨 thread 因果边」；复核：`GET /api/feat-trajectory/:featId` 返回含 `thread_split` kind 的 entries）
-- [ ] AC-C1: 输入 Feature ID → 消费 `GET /api/feat-trajectory/:featId` 自动构建多 thread 泳道图，thread 列表从 `payload.snapshot.associatedThreadIds` + story metadata + thread/session store 提取（不从 subjectKey 反推），每个 thread 一条泳道（trace Why「涉及多个thread」；复核：选一个 ≥2 thread 的 Feature 验证泳道与 F233 投影一致）
-- [ ] AC-C2: 因果边来自 F233 投影的 `thread_split`/`thread_merge`/`pr_merged` kinds（不是事件层启发式），以动画箭头显示，箭头样式反映 provenance.confidence（high=实线, medium=虚线, low=点线）（trace Why「事件驱动」；复核：选一个有 thread_split 的 Feature 验证箭头+样式）
-- [ ] AC-C3: 三层缩放可用——鸟瞰（F233 投影）点色块 → 剧场（events.jsonl 回放）→ 暂停点消息 → 显微镜展开完整内容（trace Why「既能看全景又能看细节」；复核：从鸟瞰一路 drill-down 到消息详情）
+### Phase C（Feature Story Renderer 多泳道 + 因果链）🚧
+- [~] AC-C0: **前置条件**：F233 emitters 补齐 `thread_split`/`thread_merge`/`pr_merged`/`phase_transition` 四个 ball-shaped kinds 已 merged 且在生产环境产出 entries（trace Why「Phase C 灵魂依赖跨 thread 因果边」；复核：`GET /api/feat-trajectory/:featId` 返回含 `thread_split` kind 的 entries）— **2/4 done**：`thread_split` + `thread_merge` merged (PR #2575)；`pr_merged`/`phase_transition` schema declared but projector not implemented；`branch_merged_to_main` (git-shaped) partially substitutes `pr_merged`
+- [x] AC-C1: 输入 Feature ID → 消费 `GET /api/feat-trajectory/:featId` 自动构建多 thread 泳道图，thread 列表从 `payload.snapshot.associatedThreadIds` + story metadata + thread/session store 提取（不从 subjectKey 反推），每个 thread 一条泳道（trace Why「涉及多个thread」；复核：选一个 ≥2 thread 的 Feature 验证泳道与 F233 投影一致）
+- [x] AC-C2: 因果边来自 F233 投影的 `thread_split`/`thread_merge`/`pr_merged` kinds（不是事件层启发式），以动画箭头显示，箭头样式反映 provenance.confidence（high=实线, medium=虚线, low=点线）（trace Why「事件驱动」；复核：选一个有 thread_split 的 Feature 验证箭头+样式）
+- [~] AC-C3: 三层缩放可用——鸟瞰（F233 投影）点色块 → 剧场（events.jsonl 回放）→ 暂停点消息 → 显微镜展开完整内容（trace Why「既能看全景又能看细节」；复核：从鸟瞰一路 drill-down 到消息详情）— **Birdseye done**；Theater + Microscope drill-down not yet connected
 
 ### Phase D（注解 + 脱敏分享）
 - [ ] AC-D1: 可在任意时间点添加文字注解，回放时自动弹出（trace Why「暂停讲解」；复核：添加注解后回放验证弹出）
@@ -260,6 +260,7 @@ tips_exempt: "Tip planned for Phase D sharing feature — Phase A is infrastruct
 | 2026-06-25 | Sonnet alpha 验收 PASS（P0 fix confirmed + 全 UI 控件正常）。opus-47 愿景守护 R2 APPROVE。**Phase A closed** |
 | 2026-06-26 | Phase B merged (PR #2564, `444efef562`). Adaptive pacing (idle skip + pass-ball slowdown + MCP normalization + tick marker stopping) + single-session chapters. 9 test files, 151 tests. Local peer: gpt52 APPROVED; Cloud R5 封板 (10/12 valid fixes, 2 push-backs). Squash merge |
 | 2026-06-26 | opus-47 愿景守护 APPROVE（架构归一 + 愿景对齐 + 生产 caller trace + Phase C 边界）。Sonnet alpha: UI controls PASS, 行为层 data-sparse（alpha 无 >5 event session），TDD 151/151 补偿。**Phase B closed** |
+| 2026-06-26 | Phase C partial merged (PR #2586, `7a587d483`). BFF route `GET /api/story/:storyId/rendering` + `buildFeatureStoryRendering` pure function + `FeatureStoryView` orchestrator + `BirdseyeView` swimlane/causal edges/milestones. 9 BFF tests. Local peer: gpt52 APPROVED; Cloud R2 clean (R1: 1×P1 apiFetch + 1×P2 agentKeyRegistry, both fixed). AC-C1 ✅ AC-C2 ✅ AC-C0 partial (2/4 emitters) AC-C3 partial (birdseye only) |
 
 ## Review Gate
 
