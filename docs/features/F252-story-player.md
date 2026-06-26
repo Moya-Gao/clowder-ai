@@ -258,6 +258,7 @@ tips_exempt: "Tip planned for Phase D sharing feature — Phase A is infrastruct
 | 2026-06-25 | P0 hotfix PR #2561: decodeURIComponent missing — Next.js useParams URL-encodes colons, replay link always "Invalid Story ID". Extract parseStoryId + try/catch. Local peer: gpt52 (P1 malformed encoding → fixed R2). Cloud clean. Merged (`488f9f4d0d`) |
 | 2026-06-25 | Sonnet alpha 验收 PASS（P0 fix confirmed + 全 UI 控件正常）。opus-47 愿景守护 R2 APPROVE。**Phase A closed** |
 | 2026-06-26 | Phase B merged (PR #2564, `444efef562`). Adaptive pacing (idle skip + pass-ball slowdown + MCP normalization + tick marker stopping) + single-session chapters. 9 test files, 151 tests. Local peer: gpt52 APPROVED; Cloud R5 封板 (10/12 valid fixes, 2 push-backs). Squash merge |
+| 2026-06-26 | opus-47 愿景守护 APPROVE（架构归一 + 愿景对齐 + 生产 caller trace + Phase C 边界）。Sonnet alpha: UI controls PASS, 行为层 data-sparse（alpha 无 >5 event session），TDD 151/151 补偿。**Phase B closed** |
 
 ## Review Gate
 
