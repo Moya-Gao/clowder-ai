@@ -255,6 +255,51 @@ Goal: 把 Phase C 后真实遗留的成熟化工作收束成可执行交付，�
 - [x] **AC-E2**: Hub panel displays F231 items alongside v1 items (filter chip + badge + color)
 - [x] **AC-E3**: Tests cover: mapping, stale threshold, empty user, requesterCatId, detail fields, cardMessageId + socket event + filter/badge regression
 
+### Phase F: Approval History 🚧
+
+> **CVO 原话（2026-06-26）**："为什么我们没有审批的历史记录啊！！记录一下都审批是通过还是没通过啊！"
+
+**Goal**: 在 Approval Hub 面板中显示已决议的审批历史（已批准/已拒绝），让铲屎官能追溯自己的审批决策。
+
+#### 技术边界
+
+| 层 | 新增内容 |
+|----|---------|
+| **shared types** | `SettledApprovalItem` DTO（继承 ApprovalItem 去掉 status，加 `status: 'approved'\|'rejected'`、`decidedAt: number`、`decidedBy: string`） |
+| **adapter port** | `IApprovalAdapter.listSettled?(userId, opts?: { limit?: number }): Promise<SettledApprovalItem[]>` — 可选方法，未实现的 adapter 默认返回 `[]` |
+| **F193 store port** | `IDispatchProposalStore.listSettledByUser(userId: string, limit: number): Promise<DispatchProposal[]>` + InMemory 实现 |
+| **Redis store** | `RedisDispatchProposalStore.listSettledByUser` — 扫 `status:approved` + `status:rejected` 索引，按 `decidedAt` 降序，截取 limit |
+| **F193 adapter** | `F193ApprovalAdapter.listSettled` — 调 `listSettledByUser`，map → `SettledApprovalItem` |
+| **F128/F225/F231 adapter** | 各自实现 `listSettled`（如底层 store 保留了 decidedAt/decidedBy 则返回数据；否则返回 `[]`，待后续 Phase 扩展） |
+| **API endpoint** | `GET /api/approval-hub/settled?limit=N`（默认 50）— fan-out 到所有 adapter.listSettled，合并按 decidedAt 降序，ownerUserId 过滤 |
+| **Frontend** | Hub 面板新增"历史"tab 或折叠区，每条 `SettledHistoryCard`：feature badge + status chip（✅ 批准 / ❌ 拒绝）+ summary + decidedAt（相对时间） |
+
+#### 状态机不变量
+
+- `SettledApprovalItem.status` ∈ `{'approved', 'rejected'}`——永远不混入 `pending/stale`
+- `decidedAt` 是 epoch ms，必须 > 0；`decidedBy` 是 userId 字符串
+- 历史只读：Hub 不提供对历史条目的 approve/reject 按钮
+- `listSettledByUser` 不保证跨 adapter 的全局顺序——API 层合并排序
+- 上限 limit=50（默认）；铲屎官可通过 URL param 调整，上限 200
+
+#### AC 清单
+
+- [ ] **AC-F1**: `SettledApprovalItem` 类型从 `@cat-cafe/shared` 导出，字段：`status: 'approved'|'rejected'`、`decidedAt: number`、`decidedBy: string`，其余字段继承 `ApprovalItem`（去掉旧 `status`）
+- [ ] **AC-F2**: `IApprovalAdapter` 新增可选方法 `listSettled?`，签名见上表；未实现的 adapter 在 ApprovalService fan-out 时安全跳过（`?.listSettled?.()`）
+- [ ] **AC-F3**: `IDispatchProposalStore` 新增 `listSettledByUser(userId, limit)`，InMemoryDispatchProposalStore 实现（过滤 status ∈ `{approved, rejected}`，按 decidedAt 降序，截 limit）
+- [ ] **AC-F4**: `F193ApprovalAdapter.listSettled` 实现并测试（mapping 正确：proposalId / sourceFeatureId / decidedAt / decidedBy / status）
+- [ ] **AC-F5**: `GET /api/approval-hub/settled` 端点，返回 `SettledApprovalItem[]`，ownerUserId = 登录用户，limit 默认 50；tests 覆盖空集、单 adapter 有数据、limit 截断
+- [ ] **AC-F6**: Hub 面板显示历史区（待定：独立"历史" tab 或主 tab 底部折叠区）；每条记录含 feature badge、status chip（✅/❌）、summary、decidedAt 相对时间
+- [ ] **AC-F7**: 历史区空状态文案：「还没有审批记录」
+- [ ] **AC-F8**: 历史区按 `decidedAt` 降序排列（最新在最上）
+
+#### 前端 UI 决策（待铲屎官确认）
+
+> CVO 拍板后写入此处，然后开工。
+
+- **选项 A**：Hub panel 顶部加 `待审批 | 历史` 两个 tab，切换显示
+- **选项 B**：同一个 tab 内，pending 列表下方加折叠的「历史记录」section（默认折叠）
+
 ## Dependencies
 
 - **Evolved from**: N/A（全新底座能力，起源于 F193 E3 讨论中铲屎官发现审批散落问题）
