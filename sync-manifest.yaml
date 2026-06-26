@@ -115,6 +115,7 @@ managed_scripts:
   - scripts/alpha-worktree.test.sh
   - scripts/logs-health.sh
   - scripts/check-feature-truth.mjs
+  - scripts/biome-review-worktrees-ignore.test.mjs
   - scripts/check-capability-tips.mjs
   - scripts/check-capability-tips.test.mjs
   - scripts/check-capability-tips-stale.mjs
