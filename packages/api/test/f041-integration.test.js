@@ -74,6 +74,7 @@ describe('F041 Config Round-Trip', () => {
           id: 'disabled-tool',
           type: /** @type {'mcp'} */ ('mcp'),
           enabled: false,
+          globalEnabled: false,
           source: /** @type {'external'} */ ('external'),
           mcpServer: { command: 'echo', args: [] },
         },
@@ -268,6 +269,7 @@ describe('F041 Hot-Reload: toggle → CLI config regenerated', () => {
           id: 'filesystem',
           type: /** @type {'mcp'} */ ('mcp'),
           enabled: false,
+          globalEnabled: false,
           source: /** @type {'external'} */ ('external'),
           mcpServer: { command: 'npx', args: ['@mcp/fs'] },
         },
@@ -438,8 +440,8 @@ describe('F041 Discovery Consistency', () => {
 // 4. Per-Cat Override Resolution
 // ════════════════════════════════════════════════════
 
-describe('F041 Per-Cat Override Resolution', () => {
-  it('global enabled + per-cat disabled = disabled for that cat', () => {
+describe('F041 Per-Cat Access Resolution (globalEnabled + blockedCats)', () => {
+  it('globalEnabled true + blockedCats blocks specific cat', () => {
     const config = {
       version: /** @type {1} */ (1),
       capabilities: [
@@ -447,21 +449,22 @@ describe('F041 Per-Cat Override Resolution', () => {
           id: 'tool',
           type: /** @type {'mcp'} */ ('mcp'),
           enabled: true,
+          globalEnabled: true,
           source: /** @type {'external'} */ ('external'),
           mcpServer: { command: 'echo', args: [] },
-          overrides: [{ catId: 'codex', enabled: false }],
+          blockedCats: ['codex'],
         },
       ],
     };
 
     const codex = resolveServersForCat(config, 'codex');
-    assert.equal(codex[0].enabled, false, 'Codex should have override disabled');
+    assert.equal(codex[0].enabled, false, 'Codex should be blocked');
 
     const opus = resolveServersForCat(config, 'opus');
     assert.equal(opus[0].enabled, true, 'Opus should use global enabled');
   });
 
-  it('global disabled + per-cat enabled = enabled for that cat only', () => {
+  it('globalEnabled false disables all cats regardless of blockedCats', () => {
     const config = {
       version: /** @type {1} */ (1),
       capabilities: [
@@ -469,24 +472,25 @@ describe('F041 Per-Cat Override Resolution', () => {
           id: 'tool',
           type: /** @type {'mcp'} */ ('mcp'),
           enabled: false,
+          globalEnabled: false,
           source: /** @type {'external'} */ ('external'),
           mcpServer: { command: 'echo', args: [] },
-          overrides: [{ catId: 'gemini', enabled: true }],
+          blockedCats: [],
         },
       ],
     };
 
     const gemini = resolveServersForCat(config, 'gemini');
-    assert.equal(gemini[0].enabled, true, 'Gemini override should be enabled');
+    assert.equal(gemini[0].enabled, false, 'Gemini should be disabled (global off)');
 
     const opus = resolveServersForCat(config, 'opus');
-    assert.equal(opus[0].enabled, false, 'Opus should use global disabled');
+    assert.equal(opus[0].enabled, false, 'Opus should be disabled (global off)');
 
     const codex = resolveServersForCat(config, 'codex');
-    assert.equal(codex[0].enabled, false, 'Codex should use global disabled');
+    assert.equal(codex[0].enabled, false, 'Codex should be disabled (global off)');
   });
 
-  it('multiple per-cat overrides are independent', () => {
+  it('multiple blockedCats are independent', () => {
     const config = {
       version: /** @type {1} */ (1),
       capabilities: [
@@ -494,12 +498,10 @@ describe('F041 Per-Cat Override Resolution', () => {
           id: 'tool',
           type: /** @type {'mcp'} */ ('mcp'),
           enabled: true,
+          globalEnabled: true,
           source: /** @type {'external'} */ ('external'),
           mcpServer: { command: 'echo', args: [] },
-          overrides: [
-            { catId: 'codex', enabled: false },
-            { catId: 'gemini', enabled: false },
-          ],
+          blockedCats: ['codex', 'gemini'],
         },
       ],
     };
