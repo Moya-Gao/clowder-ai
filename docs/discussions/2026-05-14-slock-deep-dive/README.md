@@ -5,7 +5,7 @@ created: 2026-05-14
 status: draft
 source_repo: https://github.com/botiverse/slock (private; analyzed via npm @slock-ai/daemon@0.48.0)
 source_commit: npm published 2026-05-12
-refresh_note: "Codex addendum 0.50.0 (2026-05-19); Opus refresh 0.63.7 (2026-06-26, Slock→Raft rebrand)"
+refresh_note: "Codex addendum 0.50.0 (2026-05-19); Opus refresh 0.63.7 (2026-06-26, Slock→Raft rebrand); Codex refresh 0.63.7 vs Cat Cafe current architecture (2026-06-26)"
 authored_by: opus-46
 covers: [architecture, star-features, algorithms, comparison]
 ---
@@ -18,6 +18,13 @@ covers: [architecture, star-features, algorithms, comparison]
 > npm 包迁移到 `@botiverse/raft-daemon@0.63.7`。Runtime 7→10，新增
 > in-process SDK session 架构，外部 agent 协议，MCP 基本退役，代码量 4x。
 > 完整分析见 [opus-refresh-2026-06-26.md](./opus-refresh-2026-06-26.md)。
+>
+> **2026-06-26 Codex independent refresh**: 结合 longform 002-005 与
+> F167/F192/F208/F233/F236/F245/F251/F252 当前架构重做对比。核心结论：
+> Raft 领先在 agent-room AX + runtime descriptor；Cat Cafe 领先在球权后果、
+> eval/verdict、dossier 与 learning loop。最值得学的是 Held Draft / side-effect
+> freshness gate。见
+> [codex-refresh-2026-06-26.md](./codex-refresh-2026-06-26.md)。
 >
 > **2026-05-19 Codex refresh**: npm latest moved from `0.48.0` to
 > `0.50.0`. See
