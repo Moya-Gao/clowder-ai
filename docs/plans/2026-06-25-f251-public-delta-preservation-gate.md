@@ -288,6 +288,8 @@ Expected: PASS.
 
 ### Task 2: Baseline resolver
 
+> **Status**: ✅ merged via PR #2566 (`3eb52c60`) on 2026-06-25. The resolver now handles explicit baselines, reachable mirrored `sync/*` refs, landed sync provenance, stale local refs, and shallow target repos. Follow-up tasks still need report output and `sync-to-opensource.sh` wiring before the gate protects real syncs.
+
 > Guardrail: Task 2 is the semantic hinge for the whole gate. A correct classifier with the wrong `base` commit still produces placebo safety. Baseline selection must preserve KD-2/INV-1 and reject missing or ambiguous baseline evidence.
 
 **Files:**

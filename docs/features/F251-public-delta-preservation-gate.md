@@ -101,6 +101,7 @@ V1.5 path ownership（sync-managed / target-owned / mixed） → V2 hunk-level c
 |------|------|
 | 2026-06-25 | 立项；CVO 拍 F251 anchor；plan 初稿、云端 Pro review、A 量化首批启动 |
 | 2026-06-25 | Task 1 pure classifier merged via PR #2554 (squash `606cd63d`); classifier + fixtures landed, Phase A sync wiring still pending |
+| 2026-06-25 | Task 2 baseline resolver merged via PR #2566 (squash `3eb52c60`); baseline selection now resolves explicit / reachable mirrored `sync/*` refs / landed sync provenance, Phase A sync wiring still pending |
 
 ## Review Gate
 
