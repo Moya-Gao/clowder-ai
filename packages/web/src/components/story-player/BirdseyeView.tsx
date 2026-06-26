@@ -113,7 +113,7 @@ export function BirdseyeView({ data }: { data: FeatureStoryRenderingDTO }) {
                       alignItems: 'center',
                       justifyContent: 'center',
                       fontSize: 'var(--console-font-xs)',
-                      cursor: 'pointer',
+                      cursor: 'default',
                       zIndex: 10,
                       background: 'var(--color-surface-elevated, #1a1a2e)',
                       border: '2px solid rgba(168, 85, 247, 0.4)',
