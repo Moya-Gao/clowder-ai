@@ -230,6 +230,8 @@ Adversarial scenarios:
 
 ### Task 0: Normalize A incident ledger
 
+> **Status**: ✅ landed on main via commit `d71669cd9` on 2026-06-25. The ledger now seeds AC-A5 replay candidates; Task 4 still needs to run the real dry-run replay before AC-A5 can be checked.
+
 > Guardrail: Task 0 produces the historical replay input for AC-A5. Do not confuse Task 1 synthetic classifier fixtures with the real #720/#726 dry-run replay fixture.
 
 **Files:**
@@ -326,6 +328,8 @@ Resolution order:
 The CLI must run `git fetch origin main --tags` unless `--no-fetch` is supplied for tests.
 
 ### Task 3: Report writer
+
+> **Status**: ✅ merged via PR #2584 (`8b94fa31`) on 2026-06-25. JSON/Markdown report construction and append-only artifact writes are landed; Task 4 still needs to wire report emission into `sync-to-opensource.sh` before AC-A3 can be checked.
 
 **Files:**
 - Modify: `scripts/check-sync-public-delta-gate.mjs`
