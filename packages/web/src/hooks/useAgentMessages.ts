@@ -587,7 +587,23 @@ function shouldSkipBackgroundParentOnlyResidueRecovery(
   const boundInv = message.extra?.stream?.invocationId;
   const boundTurn = message.extra?.stream?.turnInvocationId;
   if (boundInv !== incomingInvocationId || boundTurn) return false;
-  return !(activeRef?.id === message.id && isCurrentFreshParentSeed(activeRef, msg.timestamp, msg.seq));
+  // Check 1: bgStreamRef tracks this message as the current fresh parent seed.
+  if (activeRef?.id === message.id && isCurrentFreshParentSeed(activeRef, msg.timestamp, msg.seq)) return false;
+  // Check 2 (F194 saga17+): runtime ledger bridge for active→background transition.
+  // When the active path created a parent-only seed and the user switched threads,
+  // bgStreamRefs is cleared (line 4100) but the runtime ledger still knows which
+  // bubble is active. Allow recovery — same bridge pattern as invocation_created
+  // handler (line 655-668). Z3-safe: the ledger holds ONE entry per (thread, cat);
+  // finalized/done bubbles have been cleared, so stale residues cannot be recovered.
+  const ledgerEntry = getActiveBubbleLedger(getThreadRuntimeLedger(), msg.threadId, msg.catId);
+  if (
+    ledgerEntry?.messageId === message.id &&
+    ledgerEntry.seedSource === 'fresh-parent-seed' &&
+    isCurrentFreshParentSeed(ledgerEntry, msg.timestamp, msg.seq)
+  ) {
+    return false;
+  }
+  return true;
 }
 
 function hasBackgroundParentOnlyResidue(
