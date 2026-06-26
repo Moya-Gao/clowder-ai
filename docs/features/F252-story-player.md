@@ -9,7 +9,7 @@ tips_exempt: "Tip planned for Phase D sharing feature — Phase A is infrastruct
 
 # F252: Story Player
 
-> **Status**: in-progress | **Owner**: 宪宪 (Opus-4.6) | **Priority**: P1
+> **Status**: done | **Owner**: 宪宪 (Opus-4.6) | **Priority**: P1
 
 ## Why
 
@@ -264,6 +264,7 @@ tips_exempt: "Tip planned for Phase D sharing feature — Phase A is infrastruct
 | 2026-06-26 | Phase C P1 fix merged (PR #2592, `cff3c6bf9`). Vision guardian HOLD 两个 P1: (1) 入口可达性=0 第三次同型 — TrajectoryPanel 添加 🎬 Story 链接; (2) 伪交互 cursor:pointer 无 onClick — 降级 cursor:default. Local peer: gpt52 APPROVED; Cloud R1 clean |
 | 2026-06-26 | Sonnet alpha 验收 PASS（P1-1 🎬 Story 链接可见+可跳转, P1-2 marker cursor:default 确认）。opus-47 pre-authorized close。**Phase C closed** |
 | 2026-06-26 | Phase D merged (PR #2595). AnnotationFileStore (file-based JSON persistence) + CRUD routes + content-sanitizer (4 classes: credentials/paths/env/identity) + ExportStore + public viewer page. 82 API tests (49 sanitizer + 21 annotations + 12 export) + 16 web tests. Local peer: gpt52 封板 APPROVED; Cloud R5 封板 (9 fixed, 5 push-backs). AC-D1 ✅ AC-D2 ✅ |
+| 2026-06-26 | Sonnet alpha 验收 98/98 PASS。opus-47 愿景守护 APPROVE（入口可达性同型 bug 终于守住 + 脱敏覆盖 trace 通过）。P2 非阻塞：content-sanitizer 456 行超 350 硬限，留 dogfood 推进拆分。**Phase D closed。F252 全 feature done** |
 
 ## Review Gate
 
