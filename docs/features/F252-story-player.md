@@ -191,9 +191,9 @@ tips_exempt: "Tip planned for Phase D sharing feature — Phase A is infrastruct
 - [x] AC-A4: 空格键暂停/继续，← → 单步前进/后退（trace Why「暂停讲解」；复核：键盘操作测试）
 - [x] AC-A5: `TranscriptEvent → ReplayEvent` adapter 正确处理 `text`/`assistant`/`user` 多形态事件 + `toolName`/`name` 双形态工具名，有单元测试覆盖（trace Why「数据正确性是回放可信度基础」；复核：`pnpm test` 相关 adapter 测试全绿）
 
-### Phase B（自适应节奏 + 章节）
-- [ ] AC-B1: Idle gap > 5min 自动跳过 + 显示跳过提示；传球事件（@mention）自动减速 + 高亮；用户可切换为固定倍速覆盖（adaptive toggle 控制 idle skip + pass-ball slowdown）（trace Why「回放节奏合理」；复核：含长 idle 段的 session 验证自动跳过，toggle OFF 后验证 idle 不再被跳过）
-- [ ] AC-B2a: 单 session 章节标记从 event 结构提取（invocation 边界、传球事件、idle gap 恢复点），进度条上可点击跳转（trace Why「到某个节点暂停讲解」；复核：选一个 ≥3 invocation 的 session 验证章节标记出现且可跳转）
+### Phase B（自适应节奏 + 章节）✅
+- [x] AC-B1: Idle gap > 5min 自动跳过 + 显示跳过提示；传球事件（@mention）自动减速 + 高亮；用户可切换为固定倍速覆盖（adaptive toggle 控制 idle skip + pass-ball slowdown）（trace Why「回放节奏合理」；复核：含长 idle 段的 session 验证自动跳过，toggle OFF 后验证 idle 不再被跳过）
+- [x] AC-B2a: 单 session 章节标记从 event 结构提取（invocation 边界、传球事件、idle gap 恢复点），进度条上可点击跳转（trace Why「到某个节点暂停讲解」；复核：选一个 ≥3 invocation 的 session 验证章节标记出现且可跳转）
 - [ ] AC-B2b: **[Phase C 前置]** 多 session story 的章节标记来自 F233 `FeatTrajectoryProjection.entries`（`phase_transition`/`pr_merged`/`verdict` 等 kinds），依赖 AC-C0 emitter 补齐（trace Why「feature 级跨 thread 章节」；复核：选一个有 phase_transition 的 Feature 验证跨 session 章节标记）
 
 ### Phase C（Feature Story Renderer 多泳道 + 因果链）
@@ -257,6 +257,7 @@ tips_exempt: "Tip planned for Phase D sharing feature — Phase A is infrastruct
 | 2026-06-25 | 愿景守护 HOLD (opus-47): 入口可达性 = 0。补丁 PR #2560: SessionChainPanel sealed "🎬 回放" 入口 + 测试。Local peer: gpt52; Cloud R2 clean. Merged |
 | 2026-06-25 | P0 hotfix PR #2561: decodeURIComponent missing — Next.js useParams URL-encodes colons, replay link always "Invalid Story ID". Extract parseStoryId + try/catch. Local peer: gpt52 (P1 malformed encoding → fixed R2). Cloud clean. Merged (`488f9f4d0d`) |
 | 2026-06-25 | Sonnet alpha 验收 PASS（P0 fix confirmed + 全 UI 控件正常）。opus-47 愿景守护 R2 APPROVE。**Phase A closed** |
+| 2026-06-26 | Phase B merged (PR #2564, `444efef562`). Adaptive pacing (idle skip + pass-ball slowdown + MCP normalization + tick marker stopping) + single-session chapters. 9 test files, 151 tests. Local peer: gpt52 APPROVED; Cloud R5 封板 (10/12 valid fixes, 2 push-backs). Squash merge |
 
 ## Review Gate
 
