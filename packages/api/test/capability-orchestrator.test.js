@@ -1999,6 +1999,7 @@ describe('ensureCatCafeMainServer (F193 Phase C semantics)', () => {
         id: 'cat-cafe-limb',
         type: 'mcp',
         enabled: false,
+        globalEnabled: false,
         source: 'external',
         mcpServer: { command: 'node', args: ['/repo/packages/mcp-server/dist/limb.js'] },
       },
@@ -2153,7 +2154,14 @@ describe('resolveServersForCat', () => {
         source: 'cat-cafe',
         mcpServer: { command: 'node', args: ['index.js'] },
       },
-      { id: 'disabled', type: 'mcp', enabled: false, source: 'external', mcpServer: { command: 'echo', args: [] } },
+      {
+        id: 'disabled',
+        type: 'mcp',
+        enabled: false,
+        globalEnabled: false,
+        source: 'external',
+        mcpServer: { command: 'echo', args: [] },
+      },
     ]);
 
     const servers = resolveServersForCat(config, 'opus');
