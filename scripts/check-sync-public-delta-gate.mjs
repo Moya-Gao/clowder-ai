@@ -4,6 +4,8 @@
 // before wiring git worktrees and sync-to-opensource.sh.
 
 import { execFileSync } from 'node:child_process';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 const PASS = 'pass';
 const BLOCK = 'block';
@@ -16,6 +18,11 @@ const LOCAL_TAG_REF_PREFIX = 'refs/tags/';
 const REMOTE_SYNC_TAG_REF_PREFIX = 'refs/cat-cafe-sync-baselines';
 const DEFAULT_REMOTE = 'origin';
 const DEFAULT_BRANCH = 'main';
+const DEFAULT_REPORT_OUTPUT_DIR = 'docs/ops';
+const REPORT_VERSION = 1;
+const REPORT_KIND = 'public-delta-gate';
+const SOURCE_REPO = 'cat-cafe';
+const TARGET_REPO = 'clowder-ai';
 
 function defaultGit(repo, args) {
   return execFileSync('git', ['-C', repo, ...args], { encoding: 'utf-8' }).trim();
@@ -487,4 +494,231 @@ export function buildPublicDeltaGateSummary(items) {
     cvoApprovalRequired: overrideCount > 3,
   };
   return summary;
+}
+
+function isBlankReportCell(value) {
+  if (value === undefined) {
+    return true;
+  }
+  if (value === null) {
+    return true;
+  }
+  if (value === '') {
+    return true;
+  }
+  return false;
+}
+
+function codeCell(value) {
+  if (isBlankReportCell(value)) {
+    return '`-`';
+  }
+  return `\`${String(value).replaceAll('`', '\\`')}\``;
+}
+
+function tableCell(value) {
+  if (isBlankReportCell(value)) {
+    return '-';
+  }
+  return String(value).replaceAll('|', '\\|').replaceAll('\n', ' ');
+}
+
+function renderTable(headers, rows) {
+  const headerLine = `| ${headers.join(' | ')} |`;
+  const separatorLine = `| ${headers.map(() => '---').join(' | ')} |`;
+  const bodyLines = rows.map((row) => `| ${row.map(tableCell).join(' | ')} |`);
+  return [headerLine, separatorLine, ...bodyLines].join('\n');
+}
+
+function sanitizeReportTimestamp(timestamp) {
+  return String(timestamp)
+    .replaceAll(':', '')
+    .replaceAll('.', '')
+    .replace(/[^0-9TZ-]/g, '');
+}
+
+function countBySuggestedAction(items) {
+  const counts = new Map();
+  for (const item of items) {
+    const currentCount = counts.has(item.suggestedAction) ? counts.get(item.suggestedAction) : 0;
+    counts.set(item.suggestedAction, currentCount + 1);
+  }
+  return [...counts.entries()].sort(([left], [right]) => left.localeCompare(right));
+}
+
+function readReportGeneratedAt(input) {
+  if (typeof input.generatedAt === 'string' && input.generatedAt.length > 0) {
+    return input.generatedAt;
+  }
+  return new Date().toISOString();
+}
+
+function readRequiredReportString(value, fieldName) {
+  if (typeof value !== 'string') {
+    throw new Error(`buildPublicDeltaGateReport requires ${fieldName}`);
+  }
+  if (value.length === 0) {
+    throw new Error(`buildPublicDeltaGateReport requires ${fieldName}`);
+  }
+  return value;
+}
+
+function requireReportString(input, key) {
+  return readRequiredReportString(input[key], key);
+}
+
+function requireBaselineReportString(baseline, key) {
+  return readRequiredReportString(baseline[key], `baseline.${key}`);
+}
+
+function normalizeReportBaseline(baseline) {
+  if (baseline === null) {
+    throw new Error('buildPublicDeltaGateReport requires baseline');
+  }
+  if (typeof baseline !== 'object') {
+    throw new Error('buildPublicDeltaGateReport requires baseline');
+  }
+  if (Array.isArray(baseline)) {
+    throw new Error('buildPublicDeltaGateReport requires baseline');
+  }
+  return {
+    ...baseline,
+    baselineSource: requireBaselineReportString(baseline, 'baselineSource'),
+    baselineCommit: requireBaselineReportString(baseline, 'baselineCommit'),
+  };
+}
+
+function readReportOutputPath(options, key, defaultPath) {
+  if (typeof options[key] === 'string' && options[key].length > 0) {
+    return options[key];
+  }
+  return defaultPath;
+}
+
+function assertReportOutputPathAvailable(filePath) {
+  if (existsSync(filePath)) {
+    throw new Error(`writePublicDeltaGateReports refuses to overwrite existing report artifact: ${filePath}`);
+  }
+}
+
+function writeNewReportArtifact(filePath, content) {
+  writeFileSync(filePath, content, { encoding: 'utf-8', flag: 'wx' });
+}
+
+export function buildPublicDeltaGateReport(input = {}) {
+  if (!Array.isArray(input.items)) {
+    throw new Error('buildPublicDeltaGateReport requires items');
+  }
+  const generatedAt = readReportGeneratedAt(input);
+  const baseline = normalizeReportBaseline(input.baseline);
+  return {
+    version: REPORT_VERSION,
+    reportKind: REPORT_KIND,
+    generatedAt,
+    sourceRepo: SOURCE_REPO,
+    targetRepo: TARGET_REPO,
+    syncModule: requireReportString(input, 'syncModule'),
+    baseline,
+    sourceHead: requireReportString(input, 'sourceHead'),
+    targetHead: requireReportString(input, 'targetHead'),
+    exportedHead: requireReportString(input, 'exportedHead'),
+    summary: buildPublicDeltaGateSummary(input.items),
+    items: input.items,
+  };
+}
+
+export function renderPublicDeltaGateMarkdown(report) {
+  const blockedItems = report.items.filter((item) => item.risk === BLOCK);
+  const overrideItems = report.items.filter((item) => item.risk === OVERRIDE);
+  const actionRows = countBySuggestedAction(report.items);
+
+  const lines = [
+    '# Public Delta Gate Report',
+    '',
+    '## Baseline / Source / Target',
+    '',
+    renderTable(
+      ['Field', 'Value'],
+      [
+        ['Generated at', codeCell(report.generatedAt)],
+        ['Source repo', codeCell(report.sourceRepo)],
+        ['Target repo', codeCell(report.targetRepo)],
+        ['Sync module', codeCell(report.syncModule)],
+        ['Baseline source', codeCell(report.baseline.baselineSource)],
+        ['Baseline ref', codeCell(report.baseline.baselineRef)],
+        ['Baseline commit', codeCell(report.baseline.baselineCommit)],
+        ['Target head ref', codeCell(report.baseline.targetHeadRef)],
+        ['Source head', codeCell(report.sourceHead)],
+        ['Target head', codeCell(report.targetHead)],
+        ['Exported head', codeCell(report.exportedHead)],
+      ],
+    ),
+    '',
+    '## Summary',
+    '',
+    renderTable(
+      ['Metric', 'Count'],
+      [
+        ['Pass', report.summary.passCount],
+        ['Block', report.summary.blockCount],
+        ['Override', report.summary.overrideCount],
+        ['Revert candidates', report.summary.revertCandidateCount],
+        ['Conflict candidates', report.summary.conflictCandidateCount],
+        ['Delete candidates', report.summary.deleteCandidateCount],
+        ['CVO approval required', report.summary.cvoApprovalRequired ? 'yes' : 'no'],
+      ],
+    ),
+    '',
+    '## Blocked Items',
+    '',
+    blockedItems.length > 0
+      ? renderTable(
+          ['Path', 'Mode', 'Suggested action', 'Reason'],
+          blockedItems.map((item) => [item.path, item.mode, item.suggestedAction, item.reason]),
+        )
+      : 'No blocked items.',
+    '',
+    '## Overrides',
+    '',
+    overrideItems.length > 0
+      ? renderTable(
+          ['Path', 'Mode', 'Reason'],
+          overrideItems.map((item) => [item.path, item.mode, item.overrideReason]),
+        )
+      : 'No overrides.',
+    '',
+    '## Suggested Actions',
+    '',
+    actionRows.length > 0
+      ? renderTable(
+          ['Suggested action', 'Count'],
+          actionRows.map(([action, count]) => [action, count]),
+        )
+      : 'No suggested actions.',
+    '',
+  ];
+  return `${lines.join('\n')}\n`;
+}
+
+export function writePublicDeltaGateReports(report, options = {}) {
+  const outputDir = readStringOption(options, 'outputDir', DEFAULT_REPORT_OUTPUT_DIR);
+  mkdirSync(outputDir, { recursive: true });
+  const timestamp = sanitizeReportTimestamp(readStringOption(options, 'timestamp', readReportGeneratedAt(report)));
+  const jsonPath = readReportOutputPath(
+    options,
+    'jsonPath',
+    join(outputDir, `sync-public-delta-gate-${timestamp}.json`),
+  );
+  const markdownPath = readReportOutputPath(
+    options,
+    'markdownPath',
+    join(outputDir, `sync-public-delta-gate-${timestamp}.md`),
+  );
+
+  assertReportOutputPathAvailable(jsonPath);
+  assertReportOutputPathAvailable(markdownPath);
+  writeNewReportArtifact(jsonPath, `${JSON.stringify(report, null, 2)}\n`);
+  writeNewReportArtifact(markdownPath, renderPublicDeltaGateMarkdown(report));
+
+  return { jsonPath, markdownPath };
 }

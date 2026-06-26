@@ -1,11 +1,16 @@
 import assert from 'node:assert/strict';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
 
 import {
+  buildPublicDeltaGateReport,
   buildPublicDeltaGateSummary,
   classifyPublicDeltaGateItem,
+  renderPublicDeltaGateMarkdown,
   resolvePublicDeltaGateBaseline,
+  writePublicDeltaGateReports,
 } from './check-sync-public-delta-gate.mjs';
 import {
   commitFile,
@@ -295,6 +300,176 @@ describe('public target delta summary', () => {
     );
 
     assert.equal(buildPublicDeltaGateSummary(items).cvoApprovalRequired, true);
+  });
+});
+
+describe('public target delta report writer', () => {
+  const fixtures = createFixtureTracker();
+
+  function makeReport() {
+    const items = [
+      classify({ path: 'packages/web/src/components/AppShell.tsx', theirsBlob: B, oursBlob: A }),
+      classify({ path: 'packages/api/src/example.ts', theirsBlob: B, oursBlob: C }),
+      classify({ path: 'docs/public-only.md', baseBlob: null, theirsBlob: B, oursBlob: null }),
+      classify({
+        path: 'packages/web/src/components/ChatContainer.tsx',
+        theirsBlob: B,
+        oursBlob: A,
+        overrideReason: 'CVO accepted dropping public-only experiment',
+      }),
+    ];
+
+    return buildPublicDeltaGateReport({
+      generatedAt: '2026-06-26T05:30:00Z',
+      syncModule: 'web',
+      baseline: {
+        baselineSource: 'sync-tag',
+        baselineRef: 'sync/2026-05-19-081800',
+        baselineCommit: 'base-commit-sha',
+        targetHeadRef: 'refs/remotes/origin/main',
+      },
+      sourceHead: 'source-head-sha',
+      targetHead: 'target-head-sha',
+      exportedHead: 'exported-tree-sha',
+      items,
+    });
+  }
+
+  it('builds a machine-readable report with summary counts and baseline/source/target SHAs', () => {
+    const report = makeReport();
+
+    assert.equal(report.version, 1);
+    assert.equal(report.reportKind, 'public-delta-gate');
+    assert.equal(report.generatedAt, '2026-06-26T05:30:00Z');
+    assert.equal(report.sourceRepo, 'cat-cafe');
+    assert.equal(report.targetRepo, 'clowder-ai');
+    assert.equal(report.syncModule, 'web');
+    assert.equal(report.baseline.baselineSource, 'sync-tag');
+    assert.equal(report.baseline.baselineCommit, 'base-commit-sha');
+    assert.equal(report.sourceHead, 'source-head-sha');
+    assert.equal(report.targetHead, 'target-head-sha');
+    assert.equal(report.exportedHead, 'exported-tree-sha');
+    assert.deepEqual(report.summary, {
+      passCount: 0,
+      blockCount: 3,
+      revertCandidateCount: 1,
+      conflictCandidateCount: 1,
+      deleteCandidateCount: 1,
+      overrideCount: 1,
+      cvoApprovalRequired: false,
+    });
+    assert.equal(report.items.length, 4);
+  });
+
+  it('fails closed when required report contract metadata is missing', () => {
+    assert.throws(
+      () =>
+        buildPublicDeltaGateReport({
+          baseline: {
+            baselineSource: 'sync-tag',
+            baselineCommit: 'base-commit-sha',
+          },
+          sourceHead: 'source-head-sha',
+          targetHead: 'target-head-sha',
+          exportedHead: 'exported-tree-sha',
+          items: [],
+        }),
+      /requires syncModule/,
+    );
+  });
+
+  it('fails closed when required baseline provenance fields are missing', () => {
+    const commonInput = {
+      syncModule: 'web',
+      sourceHead: 'source-head-sha',
+      targetHead: 'target-head-sha',
+      exportedHead: 'exported-tree-sha',
+      items: [],
+    };
+
+    assert.throws(
+      () =>
+        buildPublicDeltaGateReport({
+          ...commonInput,
+          baseline: {},
+        }),
+      /requires baseline\.baselineSource/,
+    );
+
+    assert.throws(
+      () =>
+        buildPublicDeltaGateReport({
+          ...commonInput,
+          baseline: {
+            baselineSource: 'sync-tag',
+          },
+        }),
+      /requires baseline\.baselineCommit/,
+    );
+  });
+
+  it('renders a Markdown report with summary, blocked items, overrides, and suggested actions', () => {
+    const markdown = renderPublicDeltaGateMarkdown(makeReport());
+
+    assert.match(markdown, /^# Public Delta Gate Report/m);
+    assert.match(markdown, /\| Source repo \| `cat-cafe` \|/);
+    assert.match(markdown, /\| Target repo \| `clowder-ai` \|/);
+    assert.match(markdown, /\| Sync module \| `web` \|/);
+    assert.match(markdown, /\| Baseline commit \| `base-commit-sha` \|/);
+    assert.match(markdown, /\| Source head \| `source-head-sha` \|/);
+    assert.match(markdown, /\| Target head \| `target-head-sha` \|/);
+    assert.match(markdown, /\| Revert candidates \| 1 \|/);
+    assert.match(markdown, /\| Conflict candidates \| 1 \|/);
+    assert.match(markdown, /\| Delete candidates \| 1 \|/);
+    assert.match(markdown, /## Blocked Items/);
+    assert.match(markdown, /packages\/web\/src\/components\/AppShell\.tsx/);
+    assert.match(markdown, /target-only-would-revert-block/);
+    assert.match(markdown, /## Overrides/);
+    assert.match(markdown, /CVO accepted dropping public-only experiment/);
+    assert.match(markdown, /## Suggested Actions/);
+    assert.match(markdown, /preserve-target/);
+    assert.match(markdown, /manual-review/);
+  });
+
+  it('writes JSON and Markdown reports to deterministic default filenames', () => {
+    const outputDir = mkdtempSync(join(tmpdir(), 'cc-public-delta-report-'));
+    fixtures.push(outputDir);
+
+    const result = writePublicDeltaGateReports(makeReport(), { outputDir });
+
+    assert.equal(result.jsonPath, join(outputDir, 'sync-public-delta-gate-2026-06-26T053000Z.json'));
+    assert.equal(result.markdownPath, join(outputDir, 'sync-public-delta-gate-2026-06-26T053000Z.md'));
+
+    const json = JSON.parse(readFileSync(result.jsonPath, 'utf-8'));
+    assert.equal(json.summary.blockCount, 3);
+    assert.match(readFileSync(result.markdownPath, 'utf-8'), /# Public Delta Gate Report/);
+  });
+
+  it('fails closed instead of overwriting deterministic report artifacts', () => {
+    const outputDir = mkdtempSync(join(tmpdir(), 'cc-public-delta-report-'));
+    fixtures.push(outputDir);
+    const options = { outputDir, timestamp: '2026-06-26T053000Z' };
+
+    const result = writePublicDeltaGateReports(makeReport(), options);
+    const originalJson = readFileSync(result.jsonPath, 'utf-8');
+    const originalMarkdown = readFileSync(result.markdownPath, 'utf-8');
+
+    assert.throws(() => writePublicDeltaGateReports(makeReport(), options), /refuses to overwrite/);
+    assert.equal(readFileSync(result.jsonPath, 'utf-8'), originalJson);
+    assert.equal(readFileSync(result.markdownPath, 'utf-8'), originalMarkdown);
+  });
+
+  it('fails closed instead of overwriting caller-supplied report paths', () => {
+    const outputDir = mkdtempSync(join(tmpdir(), 'cc-public-delta-report-'));
+    fixtures.push(outputDir);
+    const jsonPath = join(outputDir, 'existing.json');
+    const markdownPath = join(outputDir, 'existing.md');
+    writeFileSync(jsonPath, 'existing json\n');
+    writeFileSync(markdownPath, 'existing markdown\n');
+
+    assert.throws(() => writePublicDeltaGateReports(makeReport(), { jsonPath, markdownPath }), /refuses to overwrite/);
+    assert.equal(readFileSync(jsonPath, 'utf-8'), 'existing json\n');
+    assert.equal(readFileSync(markdownPath, 'utf-8'), 'existing markdown\n');
   });
 });
 

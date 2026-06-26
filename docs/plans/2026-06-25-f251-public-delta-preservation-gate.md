@@ -130,14 +130,21 @@ type PublicDeltaGateMode =
 
 interface PublicDeltaGateReport {
   version: 1;
+  reportKind: 'public-delta-gate';
   generatedAt: string;
   sourceRepo: 'cat-cafe';
   targetRepo: 'clowder-ai';
+  syncModule: string;
   sourceHead: string;
   targetHead: string;
-  baselineCommit: string;
-  baselineSource: 'sync-tag' | 'landed-sync-commit' | 'explicit';
-  syncModule: string;
+  exportedHead: string;
+  baseline: {
+    baselineCommit: string;
+    baselineSource: 'sync-tag' | 'landed-sync-commit' | 'explicit';
+    baselineRef?: string;
+    targetHeadRef?: string;
+    provenanceTargetHeadSha?: string;
+  };
   summary: {
     passCount: number;
     blockCount: number;
@@ -164,6 +171,8 @@ interface PublicDeltaGateItem {
   overrideReason?: string;
 }
 ```
+
+Schema note: Task 3 converged this from the earlier flat draft. `version: 1` is the machine contract version; `reportKind` identifies the report family; nested `baseline` preserves Task 2 resolver diagnostics; `exportedHead` records the candidate public byte-space tree that Task 4 will gate.
 
 Community Contract Registry v0:
 

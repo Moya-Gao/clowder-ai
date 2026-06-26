@@ -96,6 +96,7 @@ V1.5 path ownership（sync-managed / target-owned / mixed） → V2 hunk-level c
 | KD-4 | gateCoverage 多选标签，C1 拆 C1a/C1b | 一个事故可同时 covered_by_v1 + needs_contract_registry；maintainer self-quickfix 严重程度不同于社区被改坏等家修 | 2026-06-25（宪宪边界补充） |
 | KD-5 | AC-A5 Historical Regression Replay 必须通过才算 V1 验收 | 不能在 dry-run 标出真实事故 = 安慰剂 gate | 2026-06-25（云端砚砚 Pro review） |
 | KD-6 | AC-A6 one-month anti-placebo eval | V1 不能只在 forward fixtures 里绿；retroactive C1a/C1b 漏挡必须回头改 gate | 2026-06-25（云端砚砚 Pro review） |
+| KD-7 | Report contract uses `version: 1` plus `reportKind`, repo constants, `syncModule`, nested resolver `baseline`, and `exportedHead` | Task 4 needs one report schema truth source; nested baseline preserves Task 2 resolver diagnostics, and exportedHead records the actual candidate public byte-space tree | 2026-06-26（Task 3 review） |
 
 ## Timeline
 
