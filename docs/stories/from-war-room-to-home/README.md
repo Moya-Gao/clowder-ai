@@ -26,12 +26,19 @@ thread_ids: []
 
 ![AI Roundtable War Room 插件](assets/war-room-extension.png)
 
-一个手动的"AI 圆桌会议"。用 Codex 还是 Claude Code 写的他自己都记不清了，只记得结论：**开发完发现还是难用，而且不符合心意。**
+一个手动的"AI 圆桌会议"。2026-06-27 的考古挖出了它的全貌（GitHub：[`zts212653/ai-roundtable-war-room`](https://github.com/zts212653/ai-roundtable-war-room)）：
+
+- **时间**：Initial commit `2026-01-07 02:09`，01-07~08 两天集中开发——**比 Cat Café（2-04）早整整 28 天**。
+- **双人 P2P 协作**：两个 author——苏策（`lysander@suces-MacBook`，铲屎官本人）+ lang（`lang@langdeMacBook`，铲屎官的朋友）。commit 里有 "Merge P2P LAN features from friend"，用 PeerJS 让两台 Mac 局域网联机一起开发。
+- **它是什么**（README 原文）：浏览器的 **"puppet master"**——连接你**已登录**的 ChatGPT / Claude / Gemini / AI Studio 网页标签，Broadcast 一个 prompt 群发，**Context Injection 把一只 AI 的话自动注入给另一只**（"告诉 Gemini ChatGPT 刚说了什么"），再 Harvest 回统一面板。不需要 API key，靠 DOM selector 抓取网页（commit："Update Claude driver with robust selectors"）。
+- **谁写的（codex / cc）**：仓库零 AI 工具指纹——没有 `CLAUDE.md` 也没有 `AGENTS.md`，`.gitignore` 没藏，commit 无 AI co-author 署名。**从 git 查不出**，当年没留标记。
 
 > "有的时候想拉你们圆桌会议，有的时候想让你们自己行动，自己合作……然后开发完发现还是难用，而且 codex 开发的那个老不符合我心意，我就想，是不是能把你们三只大猫猫 **真·协同**起来。"
 > —— 铲屎官，回忆 War Room（2026-06-27）
 
-注意这里已经埋着后来 Cat Café 的核心张力：**"主持圆桌" vs "让猫自己行动"**。War Room 选了前者——人来主持、人来传话——所以它累、它被动。Cat Café 最终选了后者。
+**War Room 是 Cat Café 的失败原型。** 它的死穴在范式：**人是 puppet master，AI 是被 DOM 抓取/注入的网页傀儡**——网页一改版 driver 就崩，人还得在中间编排。这正是一个月后 `proposal.md` 里布偶猫第一版"被动 API endpoint"的更原始版本。而铲屎官之所以在那里一句话点穿"你们是 agent 不是 API"，是因为**他已经在 War Room 上吃过"人编排被动 AI"的亏了**。
+
+有意思的是，War Room 的功能几乎全在 Cat Café 里重生了，只是换了地基：Context Injection → 共享记忆、Broadcast → @all、Session Persistence → session。同样的渴望，第二次用对了范式。
 
 ---
 
@@ -108,10 +115,11 @@ thread_ids: []
 
 ---
 
-## 待补（铲屎官有线索可补）
+## 待补
 
-- War Room 插件源码：铲屎官说"估计电脑里有"，记忆系统里没有（他当时没在猫咖里说过）。找到可归档进 `raw/`。
-- 用 Codex 还是 Claude Code 写的 War Room：暂未确认，铲屎官也记不清。
+- War Room 源码：本地在 `~/projects/chrome-plugin-for-co-creator/`（已定位，含 `ai_roundtable_extension/` + `friend_changes/`），GitHub `zts212653/ai-roundtable-war-room`。需要可归档关键片段进 `raw/`。
+- 用 Codex 还是 Claude Code 写的：仓库无指纹（无 `CLAUDE.md`/`AGENTS.md`、commit 无 AI 署名），**git 考古无法判定**。只能靠铲屎官回忆，或翻 codex / claude-code 自己的会话历史目录（不在项目仓内）。
+- 朋友 lang 的角色：贡献了 P2P LAN（PeerJS）联机功能；如果对外发布需脱敏/征得同意。
 
 ---
 
