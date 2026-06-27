@@ -369,7 +369,7 @@ tips_exempt: "Tip planned for Phase D sharing feature — Phase A is infrastruct
 - [x] AC-D1: 可在任意时间点添加文字注解，回放时自动弹出（trace Why「暂停讲解」；复核：添加注解后回放验证弹出）
 - [x] AC-D2: 公开分享读脱敏 export 包（不直连 raw transcript API），过滤覆盖 tool args/output + assistant text + system event 中的路径/token/env/个人信息，脱敏审核入 ledger（trace Why「向外展示」；复核：生成 export 包 → 隐身窗口打开 public URL → 搜索已知敏感字符串确认不泄露）
 
-### Phase E（前端重做 — 猫猫大剧院 Meow Theater MVP）🚧 PR E-1 ✅ PR E-2 ✅ merged
+### Phase E（前端重做 — 猫猫大剧院 Meow Theater MVP）🚧 PR E-1 ✅ PR E-2 ✅ PR E-3 ✅ PR E-4 ✅ merged
 
 **PR E-1（核心基础层）merged** (PR #2605, `e987eb812`, 2026-06-27)
 - `replay-chat-bridge.ts`：ReplayEvent → Hub-native ReplayChatMessage 桥接（14 tests）
@@ -389,13 +389,29 @@ tips_exempt: "Tip planned for Phase D sharing feature — Phase A is infrastruct
 - `SessionChainPanel.tsx`：sealed session "🎬 回放" 入口移除（全走 Theater）
 - 测试：4843/4843 全绿；Cloud R3 封板（2 real P2 fixed，1 pushback accepted）；gpt52 local final SHA APPROVED on `84c9dc9d5`
 
-**PR E-3 及后续** — 以下 AC 留后续 PR：
+**PR E-3（测试卫生 + milestone badge）merged** (PR #2619, `e105ccaaeb`, 2026-06-27)
+- `bullet-time-engine.test.ts` → 3 files split（opus-47 P2：552 lines 超 350 硬限）
+- `ChapterBadge.tsx`：kind-differentiated styling + hover tooltips with actual timestamps
+- F190 typography token fix + chapter dedup edge case fix
+- 测试：230 story-player tests；Cloud R2 clean（R1: 1 P2 fixed）；gpt52 local APPROVED
+
+**PR E-4（多机位分屏 + Spotlight/Dim）merged** (PR #2620, `f277b26923`, 2026-06-27)
+- `feature-replay-merger.ts`：多 thread 事件合并 + sourceThreadId 标注（10 tests）
+- `active-thread-tracker.ts`：detectActiveThreads 30s 后向扫描 + CamLayout 决策（13 tests）
+- `build-thread-panels.ts`：纯函数面板构建器 — ALL lanes → mode assignment（spotlight/active/dim）+ recency 排序（13 tests）
+- `useFeatureReplay.ts`：Feature 级回放编排 hook（294 lines）
+- `MultiCamStage.tsx`：单机位/双机位/多机位布局组件
+- `ThreadPanel.tsx`：per-thread 渲染面板 + AC-E3 CSS spotlight/dim 特效
+- `FeatureTheaterContent.tsx`：Feature 回放编排层
+- 测试：13 panel + 10 merger + 13 tracker = 36 新测试；Cloud R3（1 P2 stale replay of pushbacked finding）；gpt52 local APPROVED on `0802d4dae`
+
+**以下 AC 留后续 PR：**
 - [x] AC-E0: 修复回放 P0 bug——409 事件不渲染 + 时间显示 "-49:-9"（trace Why「基础功能不工作」；复核：选 ≥50 event session 回放，消息正常逐条出现 + 时间显示正确）**[PR E-1 ✅ 重写根本修复：effOffset()=events[i].t-events[0].t 永不为负 + fetchSessionEvents()分页全量。Sonnet alpha code-verified]**
 - [x] AC-E1: Story Player 改为 Hub Theater Overlay（全屏 Drawer + 毛玻璃遮罩），不再是独立 `/story/[storyId]` 页面。回放内容直接复用 Hub 现有聊天气泡、工具卡片组件（trace Why「100% 平时的样子」；复核：回放时 Hub 侧边栏半透明可见，消息气泡与正常 Hub 外观一致）**[PR E-1 ✅ TheaterOverlay + MessageBubble 复用完成；PR E-2 ✅ 独立页面 sunset 完成]**
 - [ ] AC-E2: Thread 级回放——同一 thread 下所有 session 按时间串联，入口从 Thread 列表直接触发（trace Why「谁要看一个 sealed session」；复核：选 ≥2 session 的 thread 回放，验证 session 间无缝衔接）**[PR E-1 ✅ 基础架构完成；alpha 验收待后续]**
-- [ ] AC-E3: Spotlight + Dim——活跃 Thread 聚光灯高亮 + 光晕，非活跃 Thread 毛玻璃虚化（trace Why「让观众知道看哪里」；复核：多 thread 回放时只有活跃 thread 清晰）
+- [x] AC-E3: Spotlight + Dim——活跃 Thread 聚光灯高亮 + 光晕，非活跃 Thread 毛玻璃虚化（trace Why「让观众知道看哪里」；复核：多 thread 回放时只有活跃 thread 清晰）**[PR E-4 ✅ ThreadPanel spotlight=purple glow+pulse / active=border / dim=opacity 0.55+brightness 0.7+pointer-events none；13 tests]**
 - [x] AC-E4: 子弹时间——传球事件触发平滑降速 100x→1x→0.5x + 因果弧线动画（CSS），降速后自动回升（trace Why「看清每次球权转移」；复核：含 @mention 的回放验证降速 + 弧线动画）**[PR E-2 ✅ 引擎层 smooth easing 完成（三段式 decel/hold/accel，22 tests）；CSS 弧线动画留后续]**
-- [ ] AC-E5: 多机位分屏——单 Thread 独占中央，双 Thread 50/50 分屏，多 Thread 主+侧边缩微（trace Why「多猫同时干活」；复核：Feature 回放验证布局随 Thread 数动态切换）
+- [x] AC-E5: 多机位分屏——单 Thread 独占中央，双 Thread 50/50 分屏，多 Thread 主+侧边缩微（trace Why「多猫同时干活」；复核：Feature 回放验证布局随 Thread 数动态切换）**[PR E-4 ✅ MultiCamStage single/dual/multi layouts + detectActiveThreads 30s backward scan + buildThreadPanels recency ordering + feature-replay-merger unified timeline；13 panel tests + 10 merger tests + 13 tracker tests]**
 - [ ] AC-E6: 客串卡片——跨 Feature 因果传球时虚线金边卡片 slide-in，互动结束 2s 淡出（trace Why「跨 Feature 依赖感知」；复核：含 cross-feature cross-post 的回放验证卡片出现+淡出）
 - [x] AC-E7: 时间轴热力图 + 章节锚点——事件密度可视化 + F233 投影的 milestone badges 可点击 seek（trace Why「哪里有猫猫大混战一目了然」；复核：进度条显示密度变化，hover 锚点显示摘要）**[PR E-2 ✅ 热力图密度计算 + EventDensityBar 叠层完成；PR E-3 ✅ ChapterBadge milestone badges（kind-differentiated styling + hover tooltip with actual timestamp）]**
 
@@ -464,6 +480,7 @@ tips_exempt: "Tip planned for Phase D sharing feature — Phase A is infrastruct
 | 2026-06-27 | **Sonnet alpha 验收 PR E-1**（7/8 browser + 1 code-verified）。AC-1✅ 入口可见；AC-2✅ 全屏 overlay+backdrop-blur；AC-3✅ 播控（1×10×50×100× MAX Adaptive Cinematic）；AC-4✅ Hub-native 气泡；AC-5✅ --msg-hue/--msg-chroma token；AC-6✅ displayMode 切换；AC-7(AC-E2)✅ code-verified（mergeSessionEvents() timestamp排序+re-index，env 无 ≥2 sealed 可访问 thread 限制浏览器测试）；AC-E0✅ code-verified（effOffset()=events[i].t-events[0].t 永不为负，fetchSessionEvents()分页全量，alpha env 无 ≥50 event session 可访问，1-event session 渲染正确 0:00/0:00）。**综合结论：PASS — P0 bug 由重写根本修复。** |
 | 2026-06-27 | **Phase E PR E-2 merged** (PR #2613, `b9043a07f`). 引擎增强层: bullet-time smooth easing (三段式 decel/hold/accel 2000ms) + event-density index-aligned rate bucketing + EventDensityBar heatmap overlay + 独立 `/story/[storyId]` 页面 sunset. 4843/4843 tests. Cloud R3 封板 (2 real P2 fixed); gpt52 local final SHA APPROVED. AC-E1 完成 ✅, AC-E4 partial ✅ (引擎层), AC-E7 partial ✅ (密度计算+叠层) |
 | 2026-06-27 | **Phase E PR E-3 merged** (PR #2619, `e105ccaaeb`). Test hygiene + milestone badge UI: split bullet-time-engine.test.ts → 3 files (opus-47 P2) + ChapterBadge component (kind-differentiated styling, hover tooltips with actual timestamps) + F190 typography token fix + chapter dedup edge case fix. 230 story-player tests. Cloud R2 clean (R1: 1 P2 fixed); gpt52 local APPROVED. AC-E7 完成 ✅ (milestone badges) |
+| 2026-06-27 | **Phase E PR E-4 merged** (PR #2620, `f277b26923`). Multi-cam split screen + spotlight/dim: feature-replay-merger (unified timeline) + active-thread-tracker (30s backward scan + layout decision) + buildThreadPanels (mode assignment + recency ordering) + useFeatureReplay hook (294 lines) + MultiCamStage (single/dual/multi) + ThreadPanel (spotlight glow/dim opacity). 36 new tests. Cloud R3 (1 P2 stale replay of pushback); gpt52 local APPROVED. AC-E3 ✅ AC-E5 ✅ |
 
 ## Review Gate
 
