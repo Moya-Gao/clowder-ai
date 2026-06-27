@@ -384,10 +384,10 @@ The sync script may also pass temp output paths to avoid polluting `docs/ops` du
   - `packages/web/src/components/settings/**`
   - `packages/web/src/components/skills/**`
 
-**3-way byte-state extraction (`89cc0f220` is a merge commit)**:
-- `theirs` = `89cc0f220^1` (clowder-ai main pre-#720) — has the F190 17 items
-- `ours` = `89cc0f220^2` (cat-cafe export tree the sync PR brought) — lacks the 17 items
-- `base` = the previous sync tag on clowder-ai reachable from `89cc0f220^1` via first-parent
+**3-way byte-state extraction (`89cc0f220` is a SQUASH commit — single parent, not a merge)**:
+- `theirs` = `89cc0f220^1` (clowder-ai main right before the bad sync landed) — has community PRs #662 + #669 with the F190 17 items
+- `ours` = `89cc0f220` itself (post-bad-sync state on clowder-ai main) — the bytes the squash merge wrote = what the sync would have produced
+- `base` = the previous landed `sync/*` tag (`sync/2026-05-06-183113`, 13 days before bad sync) — read directly, no first-parent walk needed since `theirs^1 == base` already holds for this incident
 - All three trees materialized into a synthetic git repo (no live network in CI)
 
 **Files:**
@@ -403,11 +403,11 @@ The sync script may also pass temp output paths to avoid polluting `docs/ops` du
 **Step 1: Extract real byte-state from clowder-ai history** (one-shot research, not test)
 
 Run an extraction helper (NOT auto-run by tests; tests use frozen fixture) that:
-1. Clones clowder-ai shallow into `/tmp/clowder-ai-fixture-extract`
-2. Resolves `89cc0f220` parents: `git rev-parse 89cc0f220^1` (theirs) + `git rev-parse 89cc0f220^2` (ours)
-3. Resolves baseline: walks `89cc0f220^1` first-parent history, finds latest `sync/*` tag commit
-4. For each affected path: `git show <commit>:<path>` → writes to fixture tree
-5. Writes `manifest.json` with `{ baselineSha, theirsSha, oursSha, mergeSha, affectedPaths, extractedAt }`
+1. Reads from an existing clowder-ai checkout passed via `--clowder-ai-dir`
+2. Resolves `theirs = 89cc0f220^1` (parent of the squash commit = clowder-ai main pre-sync) and `ours = 89cc0f220` (the squash commit itself = post-sync state)
+3. Resolves baseline by reading the previous landed `sync/*` tag directly (`sync/2026-05-06-183113` for this incident)
+4. For each affected path (3 concrete + 3 globs expanded against `theirs`): `git show <commit>:<path>` → writes to fixture tree
+5. Writes `manifest.json` with `{ baselineSha, theirsSha, oursSha, mergeSha, affectedPaths, extractedAt, replayShapeCounts }`
 
 **Step 2: Write failing replay test** (Red)
 
@@ -417,9 +417,8 @@ Run an extraction helper (NOT auto-run by tests; tests use frozen fixture) that:
 3. Calls CLI with `--target-dir` + `--filtered-dir` + `--source-dir` + `--baseline <baselineSha>` + `--head-ref HEAD` + `--no-fetch`
 4. Asserts:
    - `result.status === 1` (BLOCK)
-   - `report.summary.blockCount >= 2` (the 2 P1 items must BLOCK)
-   - `report.summary.revertCandidateCount > 0`
-   - Each P1 path appears in `report.items` with `mode = 'target-only-would-revert-block'`
+   - `report.summary.blockCount >= 20` (the fixture's 23 paths minus 3 no-delta skips)
+   - Each P1 path (`AppShell.tsx`, `ChatContainer.tsx`, `HubListModal.tsx`) appears in `report.items` with `mode` matching `/block$/` (any blockable mode counts — actual modes are `both-changed-conflict-block` / `target-added-would-delete-block` / `delete-or-rename-block`, NOT `target-only-would-revert-block`, because the F190 items were community-added post-baseline so `base=null` for most paths rather than `ours==base`)
 
 **Step 3: Wire as required test** (Green via Task 4a code; replay test pass)
 

@@ -228,6 +228,9 @@ function buildExportedRootScripts(sourceScripts) {
     'check:boundary-roundtrip',
     // Privacy gate test — references F207 internal incident context; home-only.
     'check:export-privacy-gate',
+    // F251 Task 4b — public delta gate test suite (classifier + cli + wire + replay).
+    // Home-only sync-pipeline harness; mirrors sync-to-opensource.sh internalScripts.
+    'check:sync-public-delta-gate',
     'clean:root-debris',
     'guards:check',
   ];

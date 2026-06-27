@@ -1,0 +1,166 @@
+{
+  "schemaVersion": "v0",
+  "feature": "F251",
+  "task": "4b",
+  "anchorIncident": {
+    "issueId": 723,
+    "title": "Console 视觉审计：#720 同步覆盖了 F190 设计实现（17 项回退）",
+    "reporter": "mindfn",
+    "class": "C1a + C3 (compound)"
+  },
+  "provenance": {
+    "sourceRepo": "clowder-ai",
+    "mergeSha": "89cc0f220936d863cbb571bd51ff94e6d7efe583",
+    "mergeTitle": "sync: full outbound cat-cafe → clowder-ai (2026-05-19) (#720)",
+    "mergeCommittedAt": "2026-05-19T16:18:16+08:00",
+    "baselineSha": "ddaca35469db900d4dbbf106250f0390b0203de5",
+    "baselineTag": "sync/2026-05-06-183113",
+    "theirsSha": "373b4bdd4910d4c8140069b0643de4e4ec64f87d",
+    "oursSha": "89cc0f220936d863cbb571bd51ff94e6d7efe583"
+  },
+  "paths": [
+    {
+      "path": "packages/web/src/components/AppShell.tsx",
+      "baseBlobSha": null,
+      "theirsBlobSha": "25c22a99a41043467badddfcd0d9428d5f65f2c2",
+      "oursBlobSha": "3e03b1a986d5b8c73f2c6553f395a68ea892fcf0"
+    },
+    {
+      "path": "packages/web/src/components/ChatContainer.tsx",
+      "baseBlobSha": "98b4a2691ee99dfeec1c71fd0f747bc84dccab39",
+      "theirsBlobSha": "80eb32a25329f258903242f5fa44a36ee21dbfaa",
+      "oursBlobSha": "178b98341531cbb58dc670bf7af916da3b1d0790"
+    },
+    {
+      "path": "packages/web/src/components/HubListModal.tsx",
+      "baseBlobSha": "173434962d28b69d1573fda03b98f3c6754f8153",
+      "theirsBlobSha": null,
+      "oursBlobSha": "ba87fc1e87067fe9939288555a010dafc9a9f0a8"
+    },
+    {
+      "path": "packages/web/src/components/settings/GithubConfigPanel.tsx",
+      "baseBlobSha": null,
+      "theirsBlobSha": "6ed105de8195d1c0b55f5bd246ca15febe8377cb",
+      "oursBlobSha": "3ae10f30066115a3817574298ccfabd784ba4147"
+    },
+    {
+      "path": "packages/web/src/components/settings/InstallPreviewModal.tsx",
+      "baseBlobSha": null,
+      "theirsBlobSha": "5cbb89425fa0f3c1f1956de4dcfe5f65254d28cb",
+      "oursBlobSha": "a9c4a9448e86388ffedb89da4fa095bccc74c3fd"
+    },
+    {
+      "path": "packages/web/src/components/settings/MarketplaceContent.tsx",
+      "baseBlobSha": null,
+      "theirsBlobSha": "1267e93f3642a186bfb6bab44d8968c72fa55ad3",
+      "oursBlobSha": "1267e93f3642a186bfb6bab44d8968c72fa55ad3"
+    },
+    {
+      "path": "packages/web/src/components/settings/McpManageContent.tsx",
+      "baseBlobSha": null,
+      "theirsBlobSha": "537ae591184e50c260e76fbc0626eebdccd2bcd1",
+      "oursBlobSha": "caa88be40480d9402748c23f771ee11cb9a1070a"
+    },
+    {
+      "path": "packages/web/src/components/settings/OpsContent.tsx",
+      "baseBlobSha": null,
+      "theirsBlobSha": "2589522b1224d749412c3173a22fbca40393c518",
+      "oursBlobSha": "10b16858afa3546904307fce305852eed9aa4fa5"
+    },
+    {
+      "path": "packages/web/src/components/settings/PluginsContent.tsx",
+      "baseBlobSha": null,
+      "theirsBlobSha": "98da61feaa2ce3f1f746d1a817a62c1037ece76c",
+      "oursBlobSha": "28d55eada2508a97e792ba4c38f093b61b25356e"
+    },
+    {
+      "path": "packages/web/src/components/settings/PushServiceConfig.tsx",
+      "baseBlobSha": null,
+      "theirsBlobSha": "e6ad2908e3583cff2090f25f83d9042b620fda13",
+      "oursBlobSha": "22434d97d0ee8aab272e8356307ac3bd4f7a3c9b"
+    },
+    {
+      "path": "packages/web/src/components/settings/RulesPromptsContent.tsx",
+      "baseBlobSha": null,
+      "theirsBlobSha": "d9cd5015718c842ac79fc21ac00f30eee8ae201a",
+      "oursBlobSha": "726a16ffdcfcf00879fe10b1f35c9b4da89a8856"
+    },
+    {
+      "path": "packages/web/src/components/settings/ServiceStatusPanel.tsx",
+      "baseBlobSha": null,
+      "theirsBlobSha": "961cf5169532de2a9d3b76dff728c576063a1b57",
+      "oursBlobSha": "f22d26ebf94cd488cd0632436e75ed7bceb94dfb"
+    },
+    {
+      "path": "packages/web/src/components/settings/SettingsContent.tsx",
+      "baseBlobSha": null,
+      "theirsBlobSha": "e527d0eee969c047d3171fcd59afd0e287608551",
+      "oursBlobSha": "d20f9d95ad0ce6f88026130f84f52238a8d14007"
+    },
+    {
+      "path": "packages/web/src/components/settings/SettingsNav.tsx",
+      "baseBlobSha": null,
+      "theirsBlobSha": "840a07f7bb8cb1588a20191c9379ecfd80f1e7e1",
+      "oursBlobSha": "ed9bfd6018c6549c406e57c98c850c5e75d874e9"
+    },
+    {
+      "path": "packages/web/src/components/settings/SettingsPageHeader.tsx",
+      "baseBlobSha": null,
+      "theirsBlobSha": "5dea16987baf0d8a6c425e290ad4598e85d5c475",
+      "oursBlobSha": "4bc71da73b6323ef1c30e1b45ac3cf6c2722101f"
+    },
+    {
+      "path": "packages/web/src/components/settings/SettingsPlaceholder.tsx",
+      "baseBlobSha": null,
+      "theirsBlobSha": "cb35012b63a1a7d93d15c49b5a62bccfc3f9bbb7",
+      "oursBlobSha": "cb35012b63a1a7d93d15c49b5a62bccfc3f9bbb7"
+    },
+    {
+      "path": "packages/web/src/components/settings/SettingsShell.tsx",
+      "baseBlobSha": null,
+      "theirsBlobSha": "6b9309dc785881077f93a0492f31af5be7d19320",
+      "oursBlobSha": "94ef16af59bcd5c9595297992ae96c86f9e13787"
+    },
+    {
+      "path": "packages/web/src/components/settings/SkillPreviewModal.tsx",
+      "baseBlobSha": null,
+      "theirsBlobSha": "421cb15489a5768f9d3feb06758d2081b4a5fba6",
+      "oursBlobSha": "79a930987d80791d0d42d28dba61fd73c7a3c52d"
+    },
+    {
+      "path": "packages/web/src/components/settings/SkillsContent.tsx",
+      "baseBlobSha": null,
+      "theirsBlobSha": "f2dbc8c860715988ab8f0d611b5f844cb0642d0e",
+      "oursBlobSha": "5e1906ec6d5aef5bb54b8670209ddc52beafe7ec"
+    },
+    {
+      "path": "packages/web/src/components/settings/capability-settings-ui.tsx",
+      "baseBlobSha": null,
+      "theirsBlobSha": "027f9c07aa9a1d8525414748c7327c2be2a35be3",
+      "oursBlobSha": "e3bfa2914e7b698750ce6ffc33ef99ce1d23d38b"
+    },
+    {
+      "path": "packages/web/src/components/settings/ops-nav-config.ts",
+      "baseBlobSha": null,
+      "theirsBlobSha": "0f021f049b4dc4f87f90f177766917b45ea9ccfa",
+      "oursBlobSha": "564c90681f8986991600827de845d4f6cbf596dd"
+    },
+    {
+      "path": "packages/web/src/components/settings/settings-nav-config.ts",
+      "baseBlobSha": null,
+      "theirsBlobSha": "2b0646569b297343234696cee61185e6c4861e57",
+      "oursBlobSha": "2b0646569b297343234696cee61185e6c4861e57"
+    },
+    {
+      "path": "packages/web/src/components/settings/useCapabilityState.ts",
+      "baseBlobSha": null,
+      "theirsBlobSha": "ddfef5053382a73319ed8e41e1d94d84891ed787",
+      "oursBlobSha": "dcf9b02cb960e80c09d8d34243ae0aca39166e0b"
+    }
+  ],
+  "replayShapeCounts": {
+    "revertCandidates": 0,
+    "targetAddedCandidates": 18,
+    "totalPaths": 23
+  }
+}

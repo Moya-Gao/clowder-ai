@@ -1504,6 +1504,12 @@ const internalScripts = [
   // public check chain. 砚砚 R1 P1 (2026-06-25): without strip, public pnpm check
   // exits 2 on missing manifest. Strip both definition and chain reference.
   "check:sync-docs-runtime-assets",
+  // F251 Task 4b — public delta gate test suite (classifier + cli + wire + replay).
+  // References scripts/check-sync-public-delta-gate*.test.mjs which are home-only
+  // sync-pipeline harness; not part of the public opensource surface. 砚砚 R2 P1
+  // (2026-06-26): without strip, public check chain fails because the 4 referenced
+  // .test.mjs files don't exist in clowder-ai. Strip both definition and chain reference.
+  "check:sync-public-delta-gate",
   "clean:root-debris",
   "guards:check",
 ];
