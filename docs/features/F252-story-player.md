@@ -369,10 +369,21 @@ tips_exempt: "Tip planned for Phase D sharing feature — Phase A is infrastruct
 - [x] AC-D1: 可在任意时间点添加文字注解，回放时自动弹出（trace Why「暂停讲解」；复核：添加注解后回放验证弹出）
 - [x] AC-D2: 公开分享读脱敏 export 包（不直连 raw transcript API），过滤覆盖 tool args/output + assistant text + system event 中的路径/token/env/个人信息，脱敏审核入 ledger（trace Why「向外展示」；复核：生成 export 包 → 隐身窗口打开 public URL → 搜索已知敏感字符串确认不泄露）
 
-### Phase E（前端重做 — 猫猫大剧院 Meow Theater MVP）🚧
+### Phase E（前端重做 — 猫猫大剧院 Meow Theater MVP）🚧 PR E-1 ✅ merged
+
+**PR E-1（核心基础层）merged** (PR #2605, `e987eb812`, 2026-06-27)
+- `replay-chat-bridge.ts`：ReplayEvent → Hub-native ReplayChatMessage 桥接（14 tests）
+- `merge-session-events.ts` + `thread-replay-fetcher.ts`：thread 级多 session 合并 + status-filtered 获取（8 tests，composite sessionId:toolUseId key 隔离跨 session tool ID 碰撞）
+- `TheaterOverlay.tsx`：全屏 portal（backdrop-blur-md + z-[60]）
+- `ReplayMessageList.tsx`：Hub-native MessageBubble/ThinkingContent/CliOutputBlock + per-cat --msg-hue/--msg-chroma（F056 token chain）+ displayMode(cinematic/faithful) 正式接入
+- `TheaterReplayContent.tsx` + `useThreadReplay.ts`：编排层（engine.displayMode 透传）+ scroll paddingBottom:64px
+- `ThreadItem` "回放剧场" 菜单入口 + `ThreadSidebar` TheaterOverlay state management
+- 测试：171/171 全绿（+22 新）；5 cloud review rounds（R1-R5）；封板后 gpt52 local final SHA APPROVED
+
+**PR E-2 及后续** — 以下 AC 留下一个 PR：
 - [ ] AC-E0: 修复回放 P0 bug——409 事件不渲染 + 时间显示 "-49:-9"（trace Why「基础功能不工作」；复核：选 ≥50 event session 回放，消息正常逐条出现 + 时间显示正确）
-- [ ] AC-E1: Story Player 改为 Hub Theater Overlay（全屏 Drawer + 毛玻璃遮罩），不再是独立 `/story/[storyId]` 页面。回放内容直接复用 Hub 现有聊天气泡、工具卡片组件（trace Why「100% 平时的样子」；复核：回放时 Hub 侧边栏半透明可见，消息气泡与正常 Hub 外观一致）
-- [ ] AC-E2: Thread 级回放——同一 thread 下所有 session 按时间串联，入口从 Thread 列表直接触发（trace Why「谁要看一个 sealed session」；复核：选 ≥2 session 的 thread 回放，验证 session 间无缝衔接）
+- [ ] AC-E1: Story Player 改为 Hub Theater Overlay（全屏 Drawer + 毛玻璃遮罩），不再是独立 `/story/[storyId]` 页面。回放内容直接复用 Hub 现有聊天气泡、工具卡片组件（trace Why「100% 平时的样子」；复核：回放时 Hub 侧边栏半透明可见，消息气泡与正常 Hub 外观一致）**[PR E-1 ✅ TheaterOverlay + MessageBubble 复用完成；独立页面 sunset 留 E-2]**
+- [ ] AC-E2: Thread 级回放——同一 thread 下所有 session 按时间串联，入口从 Thread 列表直接触发（trace Why「谁要看一个 sealed session」；复核：选 ≥2 session 的 thread 回放，验证 session 间无缝衔接）**[PR E-1 ✅ 基础架构完成；alpha 验收待 E-2]**
 - [ ] AC-E3: Spotlight + Dim——活跃 Thread 聚光灯高亮 + 光晕，非活跃 Thread 毛玻璃虚化（trace Why「让观众知道看哪里」；复核：多 thread 回放时只有活跃 thread 清晰）
 - [ ] AC-E4: 子弹时间——传球事件触发平滑降速 100x→1x→0.5x + 因果弧线动画（CSS），降速后自动回升（trace Why「看清每次球权转移」；复核：含 @mention 的回放验证降速 + 弧线动画）
 - [ ] AC-E5: 多机位分屏——单 Thread 独占中央，双 Thread 50/50 分屏，多 Thread 主+侧边缩微（trace Why「多猫同时干活」；复核：Feature 回放验证布局随 Thread 数动态切换）
@@ -440,6 +451,7 @@ tips_exempt: "Tip planned for Phase D sharing feature — Phase A is infrastruct
 | 2026-06-27 | **CVO dogfood 发现 3 个根本问题**：(1) 回放 P0 bug 空白, (2) 全程未走前端 Design Gate, (3) UI/UX 脱离 Hub。铲屎官纠正用户旅程定义 + 录像回放核心比喻 |
 | 2026-06-27 | 烁烁 (@gemini) 提出"猫猫大剧院 (Meow Theater)" 设计 spec。**CVO 确认核心思路**（Hub 融入 + 分屏 + 子弹时间 + 客串卡片） + 视觉铁律"100% 平时的样子 + 特效" |
 | 2026-06-27 | **Phase E 立项**：前端重做 — Meow Theater MVP。Status reopened: done → in-progress |
+| 2026-06-27 | **Phase E PR E-1 merged** (PR #2605, `e987eb812`). Hub Theater Overlay 核心基础层: TheaterOverlay portal + ReplayMessageList (Hub-native) + thread-replay-fetcher (session-scoped composite key) + ThreadItem "回放剧场" 入口. 171/171 tests. Cloud R1-R5 (5 rounds, 封板); gpt52 local final SHA APPROVED. AC-E1 基础结构 ✅, AC-E2 基础结构 ✅; Spotlight/Dim/子弹时间/分屏/客串卡片 留 PR E-2 |
 
 ## Review Gate
 
