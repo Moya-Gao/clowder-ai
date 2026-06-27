@@ -425,10 +425,7 @@ describe('sanitizeStoryExport', () => {
 
     // Annotation content should have cat handle redacted
     assert.ok(!pack.manifest.annotations[0].content.includes('opus'), 'Annotation leaked cat handle');
-    assert.ok(
-      pack.manifest.annotations[0].content.includes('Participant'),
-      'Annotation should use Participant label',
-    );
+    assert.ok(pack.manifest.annotations[0].content.includes('Participant'), 'Annotation should use Participant label');
   });
 
   test('standalone sanitizeEventContent without map does NOT redact cat names in content', async () => {
@@ -485,10 +482,7 @@ describe('sanitizeStoryExport', () => {
       pack.events[0].content.includes('@Participant 1'),
       `Expected @Participant 1 but got: ${pack.events[0].content}`,
     );
-    assert.ok(
-      !pack.events[0].content.includes('Participant 2'),
-      'opus-47 was corrupted by opus prefix match',
-    );
+    assert.ok(!pack.events[0].content.includes('Participant 2'), 'opus-47 was corrupted by opus prefix match');
 
     // Standalone 'opus-47' in content must become Participant 1
     assert.ok(
@@ -507,9 +501,7 @@ describe('sanitizeStoryExport', () => {
   // mentionPatterns (@ragdoll, @布偶, etc.) — all must be redacted
 
   test('export redacts displayName, nickname, and mention aliases', async () => {
-    const { sanitizeStoryExport, buildCatIdentityAliases } = await import(
-      '../dist/domains/story/content-sanitizer.js'
-    );
+    const { sanitizeStoryExport, buildCatIdentityAliases } = await import('../dist/domains/story/content-sanitizer.js');
 
     // Simulate breeds from cat-config.json
     const breeds = [
@@ -519,9 +511,7 @@ describe('sanitizeStoryExport', () => {
         displayName: '布偶猫',
         nickname: '宪宪',
         mentionPatterns: ['@opus', '@布偶猫', '@布偶', '@ragdoll', '@宪宪'],
-        variants: [
-          { catId: 'opus-47', displayName: '布偶猫 Opus 4.7', mentionPatterns: ['@opus47', '@opus-47'] },
-        ],
+        variants: [{ catId: 'opus-47', displayName: '布偶猫 Opus 4.7', mentionPatterns: ['@opus47', '@opus-47'] }],
       },
       {
         catId: 'codex',
@@ -601,9 +591,7 @@ describe('sanitizeStoryExport', () => {
   });
 
   test('non-participating roster catIds mentioned in content are also redacted', async () => {
-    const { sanitizeStoryExport, buildCatIdentityAliases } = await import(
-      '../dist/domains/story/content-sanitizer.js'
-    );
+    const { sanitizeStoryExport, buildCatIdentityAliases } = await import('../dist/domains/story/content-sanitizer.js');
     const breeds = [
       {
         catId: 'opus',
@@ -645,9 +633,7 @@ describe('sanitizeStoryExport', () => {
   // variantLabel values like "Sonnet", "Opus 4.7", "GPT-5.4" must be redacted
 
   test('export redacts variantLabel identities', async () => {
-    const { sanitizeStoryExport, buildCatIdentityAliases } = await import(
-      '../dist/domains/story/content-sanitizer.js'
-    );
+    const { sanitizeStoryExport, buildCatIdentityAliases } = await import('../dist/domains/story/content-sanitizer.js');
     const breeds = [
       {
         catId: 'opus',
@@ -721,12 +707,8 @@ describe('sanitizeStoryExport', () => {
   // Co-creator name/aliases (Landy, L.S., Lysander) must be redacted
 
   test('coCreator identity is redacted in export', async () => {
-    const { sanitizeStoryExport, buildCatIdentityAliases } = await import(
-      '../dist/domains/story/content-sanitizer.js'
-    );
-    const breeds = [
-      { catId: 'opus', name: '布偶猫', displayName: '布偶猫', mentionPatterns: ['@opus'], variants: [] },
-    ];
+    const { sanitizeStoryExport, buildCatIdentityAliases } = await import('../dist/domains/story/content-sanitizer.js');
+    const breeds = [{ catId: 'opus', name: '布偶猫', displayName: '布偶猫', mentionPatterns: ['@opus'], variants: [] }];
     const coCreator = { name: 'Landy', aliases: ['L.S.', 'Lysander'], mentionPatterns: ['@landy', '@lysander'] };
     const aliases = buildCatIdentityAliases(breeds, coCreator);
 
@@ -754,9 +736,7 @@ describe('sanitizeStoryExport', () => {
   // the breed name must map to the breed catId's Participant label.
 
   test('shared breed displayName belongs to breed catId not first-appearing variant', async () => {
-    const { sanitizeStoryExport, buildCatIdentityAliases } = await import(
-      '../dist/domains/story/content-sanitizer.js'
-    );
+    const { sanitizeStoryExport, buildCatIdentityAliases } = await import('../dist/domains/story/content-sanitizer.js');
     // Real config pattern: sonnet variant has displayName='布偶猫' (same as breed)
     const breeds = [
       {
@@ -765,9 +745,7 @@ describe('sanitizeStoryExport', () => {
         displayName: '布偶猫',
         nickname: '宪宪',
         mentionPatterns: ['@opus'],
-        variants: [
-          { catId: 'sonnet', displayName: '布偶猫', variantLabel: 'Sonnet', mentionPatterns: ['@sonnet'] },
-        ],
+        variants: [{ catId: 'sonnet', displayName: '布偶猫', variantLabel: 'Sonnet', mentionPatterns: ['@sonnet'] }],
       },
     ];
     const aliases = buildCatIdentityAliases(breeds);
@@ -799,20 +777,23 @@ describe('sanitizeStoryExport', () => {
   // Phase 2 should only number identities actually mentioned in text
 
   test('participant numbers are dense — unreferenced roster entries get no label', async () => {
-    const { sanitizeStoryExport, buildCatIdentityAliases } = await import(
-      '../dist/domains/story/content-sanitizer.js'
-    );
+    const { sanitizeStoryExport, buildCatIdentityAliases } = await import('../dist/domains/story/content-sanitizer.js');
     const breeds = [
       { catId: 'opus', name: '布偶猫', displayName: '布偶猫', mentionPatterns: ['@opus'], variants: [] },
       { catId: 'codex', name: '缅因猫', displayName: '缅因猫', mentionPatterns: ['@codex'], variants: [] },
-      { catId: 'gemini', name: '暹罗猫', displayName: '暹罗猫', nickname: '烁烁', mentionPatterns: ['@gemini'], variants: [] },
+      {
+        catId: 'gemini',
+        name: '暹罗猫',
+        displayName: '暹罗猫',
+        nickname: '烁烁',
+        mentionPatterns: ['@gemini'],
+        variants: [],
+      },
     ];
     const aliases = buildCatIdentityAliases(breeds);
 
     // Only opus is event author, only gemini is mentioned in text — codex is never referenced
-    const events = [
-      { id: 'e1', at: 1000, kind: 'text', content: 'asked @gemini for design review', catId: 'opus' },
-    ];
+    const events = [{ id: 'e1', at: 1000, kind: 'text', content: 'asked @gemini for design review', catId: 'opus' }];
     const pack = sanitizeStoryExport('s1', 'Test', events, [], aliases);
 
     // opus = Participant 1 (author), gemini = Participant 2 (mentioned)
@@ -823,22 +804,24 @@ describe('sanitizeStoryExport', () => {
       pack.events[0].content.includes('Participant 2'),
       `gemini should be P2 (dense), got: ${pack.events[0].content}`,
     );
-    assert.ok(
-      !pack.events[0].content.includes('Participant 3'),
-      'No Participant 3 — codex was never referenced',
-    );
+    assert.ok(!pack.events[0].content.includes('Participant 3'), 'No Participant 3 — codex was never referenced');
   });
 
   // ─── R9: identity in title/annotations also triggers Phase 2 ──
   // Phase 2 pre-scan must cover all sanitized text surfaces
 
   test('identity only in title is detected and redacted', async () => {
-    const { sanitizeStoryExport, buildCatIdentityAliases } = await import(
-      '../dist/domains/story/content-sanitizer.js'
-    );
+    const { sanitizeStoryExport, buildCatIdentityAliases } = await import('../dist/domains/story/content-sanitizer.js');
     const breeds = [
       { catId: 'opus', name: '布偶猫', displayName: '布偶猫', mentionPatterns: ['@opus'], variants: [] },
-      { catId: 'gemini', name: '暹罗猫', displayName: '暹罗猫', nickname: '烁烁', mentionPatterns: ['@gemini'], variants: [] },
+      {
+        catId: 'gemini',
+        name: '暹罗猫',
+        displayName: '暹罗猫',
+        nickname: '烁烁',
+        mentionPatterns: ['@gemini'],
+        variants: [],
+      },
     ];
     const coCreator = { name: 'Landy', aliases: ['Lysander'], mentionPatterns: ['@landy'] };
     const aliases = buildCatIdentityAliases(breeds, coCreator);
@@ -852,18 +835,33 @@ describe('sanitizeStoryExport', () => {
   });
 
   test('identity only in annotation is detected and redacted', async () => {
-    const { sanitizeStoryExport, buildCatIdentityAliases } = await import(
-      '../dist/domains/story/content-sanitizer.js'
-    );
+    const { sanitizeStoryExport, buildCatIdentityAliases } = await import('../dist/domains/story/content-sanitizer.js');
     const breeds = [
       { catId: 'opus', name: '布偶猫', displayName: '布偶猫', mentionPatterns: ['@opus'], variants: [] },
-      { catId: 'gemini', name: '暹罗猫', displayName: '暹罗猫', nickname: '烁烁', mentionPatterns: ['@gemini'], variants: [] },
+      {
+        catId: 'gemini',
+        name: '暹罗猫',
+        displayName: '暹罗猫',
+        nickname: '烁烁',
+        mentionPatterns: ['@gemini'],
+        variants: [],
+      },
     ];
     const aliases = buildCatIdentityAliases(breeds);
 
     // Only opus is event author — gemini only appears in an annotation
     const events = [{ id: 'e1', at: 1000, kind: 'text', content: 'hello world', catId: 'opus' }];
-    const annotations = [{ id: 'a1', storyId: 's1', at: 2000, kind: 'narration', content: '@gemini 的审美很好', createdAt: 2000, updatedAt: 2000 }];
+    const annotations = [
+      {
+        id: 'a1',
+        storyId: 's1',
+        at: 2000,
+        kind: 'narration',
+        content: '@gemini 的审美很好',
+        createdAt: 2000,
+        updatedAt: 2000,
+      },
+    ];
     const pack = sanitizeStoryExport('s1', 'Test', events, annotations, aliases);
 
     const annoContent = pack.manifest.annotations[0].content;
@@ -877,9 +875,7 @@ describe('sanitizeStoryExport', () => {
   // "declare" contains "dare" as substring but "dare" is not standalone
 
   test('Phase 2 does not falsely detect catId embedded in longer word', async () => {
-    const { sanitizeStoryExport, buildCatIdentityAliases } = await import(
-      '../dist/domains/story/content-sanitizer.js'
-    );
+    const { sanitizeStoryExport, buildCatIdentityAliases } = await import('../dist/domains/story/content-sanitizer.js');
     const breeds = [
       { catId: 'opus', name: '布偶猫', displayName: '布偶猫', mentionPatterns: ['@opus'], variants: [] },
       { catId: 'dare', name: '狸花猫', displayName: '狸花猫', mentionPatterns: ['@dare'], variants: [] },
@@ -888,9 +884,7 @@ describe('sanitizeStoryExport', () => {
 
     // Only opus is event author. "declare" and "software" contain "dare" as substring
     // but dare is NOT standalone — Phase 2 should NOT allocate a label for dare
-    const events = [
-      { id: 'e1', at: 1000, kind: 'text', content: 'we declare this software ready', catId: 'opus' },
-    ];
+    const events = [{ id: 'e1', at: 1000, kind: 'text', content: 'we declare this software ready', catId: 'opus' }];
     const pack = sanitizeStoryExport('s1', 'Test', events, [], aliases);
 
     // "declare" and "software" must NOT be corrupted
@@ -904,9 +898,7 @@ describe('sanitizeStoryExport', () => {
   });
 
   test('standalone common-word catId in prose is NOT redacted (Phase 2 ambiguous)', async () => {
-    const { sanitizeStoryExport, buildCatIdentityAliases } = await import(
-      '../dist/domains/story/content-sanitizer.js'
-    );
+    const { sanitizeStoryExport, buildCatIdentityAliases } = await import('../dist/domains/story/content-sanitizer.js');
     const breeds = [
       { catId: 'opus', name: '布偶猫', displayName: '布偶猫', mentionPatterns: ['@opus'], variants: [] },
       {
@@ -923,13 +915,14 @@ describe('sanitizeStoryExport', () => {
     // non-author with a pure ASCII catId. Standalone common words in prose
     // should NOT be redacted to avoid corrupting English text.
     // Only @mention form triggers detection and redaction for ambiguous identifiers.
-    const events = [
-      { id: 'e1', at: 1000, kind: 'text', content: 'A spark of inspiration', catId: 'opus' },
-    ];
+    const events = [{ id: 'e1', at: 1000, kind: 'text', content: 'A spark of inspiration', catId: 'opus' }];
     const pack = sanitizeStoryExport('s1', 'Test', events, [], aliases);
 
     // Standalone "spark" in prose must survive — no over-redaction
-    assert.ok(pack.events[0].content.includes('spark'), `Standalone spark was over-redacted: ${pack.events[0].content}`);
+    assert.ok(
+      pack.events[0].content.includes('spark'),
+      `Standalone spark was over-redacted: ${pack.events[0].content}`,
+    );
     // spark should NOT get a Participant label (no @mention signal in text)
     assert.ok(
       !pack.events[0].content.includes('Participant 2'),
@@ -938,9 +931,7 @@ describe('sanitizeStoryExport', () => {
   });
 
   test('@mention of common-word catId IS redacted even when standalone is not', async () => {
-    const { sanitizeStoryExport, buildCatIdentityAliases } = await import(
-      '../dist/domains/story/content-sanitizer.js'
-    );
+    const { sanitizeStoryExport, buildCatIdentityAliases } = await import('../dist/domains/story/content-sanitizer.js');
     const breeds = [
       { catId: 'opus', name: '布偶猫', displayName: '布偶猫', mentionPatterns: ['@opus'], variants: [] },
       {
@@ -962,15 +953,19 @@ describe('sanitizeStoryExport', () => {
 
     // @spark → @Participant 2 (redacted via @mention)
     assert.ok(!pack.events[0].content.includes('@spark'), `@spark leaked: ${pack.events[0].content}`);
-    assert.ok(pack.events[0].content.includes('@Participant'), `@mention should be redacted: ${pack.events[0].content}`);
+    assert.ok(
+      pack.events[0].content.includes('@Participant'),
+      `@mention should be redacted: ${pack.events[0].content}`,
+    );
     // Standalone "spark" in "A spark of inspiration" survives
-    assert.ok(pack.events[0].content.includes('spark of inspiration'), `Prose was corrupted: ${pack.events[0].content}`);
+    assert.ok(
+      pack.events[0].content.includes('spark of inspiration'),
+      `Prose was corrupted: ${pack.events[0].content}`,
+    );
   });
 
   test('Phase 1 author with common-word catId still gets full standalone redaction', async () => {
-    const { sanitizeStoryExport, buildCatIdentityAliases } = await import(
-      '../dist/domains/story/content-sanitizer.js'
-    );
+    const { sanitizeStoryExport, buildCatIdentityAliases } = await import('../dist/domains/story/content-sanitizer.js');
     const breeds = [
       {
         catId: 'spark',
@@ -985,9 +980,7 @@ describe('sanitizeStoryExport', () => {
     // spark IS the event author (Phase 1) — full redaction including standalone.
     // Phase 1 authors always get both @mention and standalone redaction because
     // the reader can cross-reference with the catId field in event metadata.
-    const events = [
-      { id: 'e1', at: 1000, kind: 'text', content: 'spark reviewed the code', catId: 'spark' },
-    ];
+    const events = [{ id: 'e1', at: 1000, kind: 'text', content: 'spark reviewed the code', catId: 'spark' }];
     const pack = sanitizeStoryExport('s1', 'Test', events, [], aliases);
 
     // Phase 1 author → full redaction, standalone "spark" is replaced
@@ -996,9 +989,7 @@ describe('sanitizeStoryExport', () => {
   });
 
   test('unambiguous CJK alias of common-word Phase 2 catId still gets standalone redaction', async () => {
-    const { sanitizeStoryExport, buildCatIdentityAliases } = await import(
-      '../dist/domains/story/content-sanitizer.js'
-    );
+    const { sanitizeStoryExport, buildCatIdentityAliases } = await import('../dist/domains/story/content-sanitizer.js');
     const breeds = [
       { catId: 'opus', name: '布偶猫', displayName: '布偶猫', mentionPatterns: ['@opus'], variants: [] },
       {
@@ -1013,14 +1004,15 @@ describe('sanitizeStoryExport', () => {
 
     // spark is Phase 2 non-author. Its CJK alias "缅因猫 Spark" is unambiguous
     // (contains CJK) — standalone CJK should still be detected and redacted.
-    const events = [
-      { id: 'e1', at: 1000, kind: 'text', content: '缅因猫 Spark 的意见很好', catId: 'opus' },
-    ];
+    const events = [{ id: 'e1', at: 1000, kind: 'text', content: '缅因猫 Spark 的意见很好', catId: 'opus' }];
     const pack = sanitizeStoryExport('s1', 'Test', events, [], aliases);
 
     // CJK alias is unambiguous — standalone detection and redaction both work
     assert.ok(!pack.events[0].content.includes('缅因猫 Spark'), `CJK alias leaked: ${pack.events[0].content}`);
-    assert.ok(pack.events[0].content.includes('Participant'), `Should have Participant label: ${pack.events[0].content}`);
+    assert.ok(
+      pack.events[0].content.includes('Participant'),
+      `Should have Participant label: ${pack.events[0].content}`,
+    );
   });
 
   // ─── R12: Per-identifier ambiguity at alias level ─────────────
@@ -1028,9 +1020,7 @@ describe('sanitizeStoryExport', () => {
   // Covers reviewer R11 examples: "A sonnet about cats", "a golden opportunity".
 
   test('common-word variantLabel "Sonnet" does not corrupt prose (per-identifier ambiguity)', async () => {
-    const { sanitizeStoryExport, buildCatIdentityAliases } = await import(
-      '../dist/domains/story/content-sanitizer.js'
-    );
+    const { sanitizeStoryExport, buildCatIdentityAliases } = await import('../dist/domains/story/content-sanitizer.js');
     const breeds = [
       { catId: 'opus', name: '布偶猫', displayName: '布偶猫', mentionPatterns: ['@opus'], variants: [] },
       {
@@ -1047,9 +1037,7 @@ describe('sanitizeStoryExport', () => {
 
     // "sonnet" is a Phase 2 non-author catId. Both "sonnet" and "Sonnet" are
     // ambiguous (pure alpha, ≤ 7 chars) — they must not corrupt English prose.
-    const events = [
-      { id: 'e1', at: 1000, kind: 'text', content: 'A sonnet about cats', catId: 'opus' },
-    ];
+    const events = [{ id: 'e1', at: 1000, kind: 'text', content: 'A sonnet about cats', catId: 'opus' }];
     const pack = sanitizeStoryExport('s1', 'Test', events, [], aliases);
 
     assert.ok(
@@ -1063,9 +1051,7 @@ describe('sanitizeStoryExport', () => {
   });
 
   test('@sonnet IS redacted even though standalone "sonnet" in prose survives', async () => {
-    const { sanitizeStoryExport, buildCatIdentityAliases } = await import(
-      '../dist/domains/story/content-sanitizer.js'
-    );
+    const { sanitizeStoryExport, buildCatIdentityAliases } = await import('../dist/domains/story/content-sanitizer.js');
     const breeds = [
       { catId: 'opus', name: '布偶猫', displayName: '布偶猫', mentionPatterns: ['@opus'], variants: [] },
       {
@@ -1092,40 +1078,25 @@ describe('sanitizeStoryExport', () => {
       pack.events[0].content.includes('@Participant'),
       `@mention should be redacted: ${pack.events[0].content}`,
     );
-    assert.ok(
-      pack.events[0].content.includes('sonnet about cats'),
-      `Prose was corrupted: ${pack.events[0].content}`,
-    );
+    assert.ok(pack.events[0].content.includes('sonnet about cats'), `Prose was corrupted: ${pack.events[0].content}`);
   });
 
   // ── Cloud R1 P1 fixes ──
 
   test('sk-proj- OpenAI project-scoped keys are redacted (cloud P1-2)', async () => {
-    const { sanitizeStoryExport, buildCatIdentityAliases } = await import(
-      '../dist/domains/story/content-sanitizer.js'
-    );
+    const { sanitizeStoryExport, buildCatIdentityAliases } = await import('../dist/domains/story/content-sanitizer.js');
     const aliases = buildCatIdentityAliases([]);
 
     const projKey = 'sk-proj-abc123def456ghi789jkl012mno345pqr678stu901vwx234';
-    const events = [
-      { id: 'e1', at: 1000, kind: 'text', content: `Key is ${projKey}`, catId: 'opus' },
-    ];
+    const events = [{ id: 'e1', at: 1000, kind: 'text', content: `Key is ${projKey}`, catId: 'opus' }];
     const pack = sanitizeStoryExport('s1', 'Test', events, [], aliases);
 
-    assert.ok(
-      !pack.events[0].content.includes('sk-proj-'),
-      `sk-proj- key leaked in export: ${pack.events[0].content}`,
-    );
-    assert.ok(
-      pack.events[0].content.includes('[REDACTED]'),
-      `Should contain [REDACTED]: ${pack.events[0].content}`,
-    );
+    assert.ok(!pack.events[0].content.includes('sk-proj-'), `sk-proj- key leaked in export: ${pack.events[0].content}`);
+    assert.ok(pack.events[0].content.includes('[REDACTED]'), `Should contain [REDACTED]: ${pack.events[0].content}`);
   });
 
   test('/workspace/ paths are redacted (cloud P1-1)', async () => {
-    const { sanitizeStoryExport, buildCatIdentityAliases } = await import(
-      '../dist/domains/story/content-sanitizer.js'
-    );
+    const { sanitizeStoryExport, buildCatIdentityAliases } = await import('../dist/domains/story/content-sanitizer.js');
     const aliases = buildCatIdentityAliases([]);
 
     const events = [
@@ -1143,39 +1114,32 @@ describe('sanitizeStoryExport', () => {
       !pack.events[0].content.includes('/workspace/cat-cafe'),
       `/workspace/ path leaked: ${pack.events[0].content}`,
     );
-    assert.ok(
-      pack.events[0].content.includes('[PATH]'),
-      `Should contain [PATH]: ${pack.events[0].content}`,
-    );
+    assert.ok(pack.events[0].content.includes('[PATH]'), `Should contain [PATH]: ${pack.events[0].content}`);
   });
 
   // ── Cloud R2 P1/P2 fixes ──
 
   test('ghu_ and ghr_ GitHub tokens are redacted (cloud R2 P1-5)', async () => {
-    const { sanitizeStoryExport, buildCatIdentityAliases } = await import(
-      '../dist/domains/story/content-sanitizer.js'
-    );
+    const { sanitizeStoryExport, buildCatIdentityAliases } = await import('../dist/domains/story/content-sanitizer.js');
     const aliases = buildCatIdentityAliases([]);
 
     const events = [
-      { id: 'e1', at: 1000, kind: 'text', content: 'user token ghu_abc123def456 and refresh ghr_xyz789abcdef', catId: 'opus' },
+      {
+        id: 'e1',
+        at: 1000,
+        kind: 'text',
+        content: 'user token ghu_abc123def456 and refresh ghr_xyz789abcdef',
+        catId: 'opus',
+      },
     ];
     const pack = sanitizeStoryExport('s1', 'Test', events, [], aliases);
 
-    assert.ok(
-      !pack.events[0].content.includes('ghu_'),
-      `ghu_ token leaked: ${pack.events[0].content}`,
-    );
-    assert.ok(
-      !pack.events[0].content.includes('ghr_'),
-      `ghr_ token leaked: ${pack.events[0].content}`,
-    );
+    assert.ok(!pack.events[0].content.includes('ghu_'), `ghu_ token leaked: ${pack.events[0].content}`);
+    assert.ok(!pack.events[0].content.includes('ghr_'), `ghr_ token leaked: ${pack.events[0].content}`);
   });
 
   test('/root/, /etc/, /opt/, /app/ container paths are redacted (cloud R4 P1-2)', async () => {
-    const { sanitizeStoryExport, buildCatIdentityAliases } = await import(
-      '../dist/domains/story/content-sanitizer.js'
-    );
+    const { sanitizeStoryExport, buildCatIdentityAliases } = await import('../dist/domains/story/content-sanitizer.js');
     const aliases = buildCatIdentityAliases([]);
     const events = [
       {
@@ -1188,28 +1152,14 @@ describe('sanitizeStoryExport', () => {
       },
     ];
     const pack = sanitizeStoryExport('s1', 'Test', events, [], aliases);
-    assert.ok(
-      !pack.events[0].content.includes('/root/.config'),
-      `/root/ path leaked: ${pack.events[0].content}`,
-    );
-    assert.ok(
-      !pack.events[0].content.includes('/etc/nginx'),
-      `/etc/ path leaked: ${pack.events[0].content}`,
-    );
-    assert.ok(
-      !pack.events[0].content.includes('/opt/homebrew'),
-      `/opt/ path leaked: ${pack.events[0].content}`,
-    );
-    assert.ok(
-      !pack.events[0].content.includes('/app/packages'),
-      `/app/ path leaked: ${pack.events[0].content}`,
-    );
+    assert.ok(!pack.events[0].content.includes('/root/.config'), `/root/ path leaked: ${pack.events[0].content}`);
+    assert.ok(!pack.events[0].content.includes('/etc/nginx'), `/etc/ path leaked: ${pack.events[0].content}`);
+    assert.ok(!pack.events[0].content.includes('/opt/homebrew'), `/opt/ path leaked: ${pack.events[0].content}`);
+    assert.ok(!pack.events[0].content.includes('/app/packages'), `/app/ path leaked: ${pack.events[0].content}`);
   });
 
   test('non-string event content does not crash sanitizer (cloud R2 P1-3)', async () => {
-    const { sanitizeStoryExport, buildCatIdentityAliases } = await import(
-      '../dist/domains/story/content-sanitizer.js'
-    );
+    const { sanitizeStoryExport, buildCatIdentityAliases } = await import('../dist/domains/story/content-sanitizer.js');
     const aliases = buildCatIdentityAliases([]);
 
     // Claude API content blocks are arrays — must not crash .replace()

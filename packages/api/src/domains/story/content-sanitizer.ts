@@ -270,11 +270,7 @@ function isAmbiguousIdentifier(id: string): boolean {
   return AMBIGUOUS_COMMON_WORDS.has(id.toLowerCase());
 }
 
-function redactCatIdentifiers(
-  text: string,
-  catNameMap: Map<string, string>,
-  mentionOnlyKeys?: Set<string>,
-): string {
+function redactCatIdentifiers(text: string, catNameMap: Map<string, string>, mentionOnlyKeys?: Set<string>): string {
   let result = text;
   // Sort by key length descending — longer keys first to prevent
   // shorter key corrupting longer match (opus-47 before opus)

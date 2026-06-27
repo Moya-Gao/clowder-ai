@@ -274,23 +274,49 @@ describe('F252 adapter — cross-session id-based pairing (cloud R3 P1)', () => 
     // in the flat Map, so session A's tool_use replays with session B's output.
     const events = [
       // Session A: run-command-0
-      makeEvent(0, 1000, {
-        type: 'tool_use', toolName: 'run_command', toolUseId: 'run-command-0',
-        toolInput: { CommandLine: 'echo session-a' },
-      }, { sessionId: 'session-a' }),
-      makeEvent(1, 1500, {
-        type: 'tool_result', toolUseId: 'run-command-0',
-        content: 'session-a-output',
-      }, { sessionId: 'session-a' }),
+      makeEvent(
+        0,
+        1000,
+        {
+          type: 'tool_use',
+          toolName: 'run_command',
+          toolUseId: 'run-command-0',
+          toolInput: { CommandLine: 'echo session-a' },
+        },
+        { sessionId: 'session-a' },
+      ),
+      makeEvent(
+        1,
+        1500,
+        {
+          type: 'tool_result',
+          toolUseId: 'run-command-0',
+          content: 'session-a-output',
+        },
+        { sessionId: 'session-a' },
+      ),
       // Session B: also run-command-0 (colliding ID!)
-      makeEvent(2, 2000, {
-        type: 'tool_use', toolName: 'run_command', toolUseId: 'run-command-0',
-        toolInput: { CommandLine: 'echo session-b' },
-      }, { sessionId: 'session-b' }),
-      makeEvent(3, 2500, {
-        type: 'tool_result', toolUseId: 'run-command-0',
-        content: 'session-b-output',
-      }, { sessionId: 'session-b' }),
+      makeEvent(
+        2,
+        2000,
+        {
+          type: 'tool_use',
+          toolName: 'run_command',
+          toolUseId: 'run-command-0',
+          toolInput: { CommandLine: 'echo session-b' },
+        },
+        { sessionId: 'session-b' },
+      ),
+      makeEvent(
+        3,
+        2500,
+        {
+          type: 'tool_result',
+          toolUseId: 'run-command-0',
+          content: 'session-b-output',
+        },
+        { sessionId: 'session-b' },
+      ),
     ];
     const result = adaptTranscriptEvents(events);
 
@@ -306,11 +332,14 @@ describe('F252 adapter — cross-session id-based pairing (cloud R3 P1)', () => 
   it('still pairs by toolUseId within same session (no regression)', () => {
     const events = [
       makeEvent(0, 1000, {
-        type: 'tool_use', toolName: 'Read', toolUseId: 'toolu_abc',
+        type: 'tool_use',
+        toolName: 'Read',
+        toolUseId: 'toolu_abc',
         input: '{"path":"/a.ts"}',
       }),
       makeEvent(1, 2000, {
-        type: 'tool_result', toolUseId: 'toolu_abc',
+        type: 'tool_result',
+        toolUseId: 'toolu_abc',
         content: 'file content',
       }),
     ];
@@ -323,17 +352,42 @@ describe('F252 adapter — cross-session id-based pairing (cloud R3 P1)', () => 
   it('handles three sessions with identical toolUseIds (run-command-0, run-command-1)', () => {
     const events = [
       // Session A: run-command-0, run-command-1
-      makeEvent(0, 1000, { type: 'tool_use', toolName: 'run_command', toolUseId: 'run-command-0', toolInput: {} }, { sessionId: 'sa' }),
+      makeEvent(
+        0,
+        1000,
+        { type: 'tool_use', toolName: 'run_command', toolUseId: 'run-command-0', toolInput: {} },
+        { sessionId: 'sa' },
+      ),
       makeEvent(1, 1100, { type: 'tool_result', toolUseId: 'run-command-0', content: 'a0' }, { sessionId: 'sa' }),
-      makeEvent(2, 1200, { type: 'tool_use', toolName: 'run_command', toolUseId: 'run-command-1', toolInput: {} }, { sessionId: 'sa' }),
+      makeEvent(
+        2,
+        1200,
+        { type: 'tool_use', toolName: 'run_command', toolUseId: 'run-command-1', toolInput: {} },
+        { sessionId: 'sa' },
+      ),
       makeEvent(3, 1300, { type: 'tool_result', toolUseId: 'run-command-1', content: 'a1' }, { sessionId: 'sa' }),
       // Session B: run-command-0, run-command-1
-      makeEvent(4, 2000, { type: 'tool_use', toolName: 'run_command', toolUseId: 'run-command-0', toolInput: {} }, { sessionId: 'sb' }),
+      makeEvent(
+        4,
+        2000,
+        { type: 'tool_use', toolName: 'run_command', toolUseId: 'run-command-0', toolInput: {} },
+        { sessionId: 'sb' },
+      ),
       makeEvent(5, 2100, { type: 'tool_result', toolUseId: 'run-command-0', content: 'b0' }, { sessionId: 'sb' }),
-      makeEvent(6, 2200, { type: 'tool_use', toolName: 'run_command', toolUseId: 'run-command-1', toolInput: {} }, { sessionId: 'sb' }),
+      makeEvent(
+        6,
+        2200,
+        { type: 'tool_use', toolName: 'run_command', toolUseId: 'run-command-1', toolInput: {} },
+        { sessionId: 'sb' },
+      ),
       makeEvent(7, 2300, { type: 'tool_result', toolUseId: 'run-command-1', content: 'b1' }, { sessionId: 'sb' }),
       // Session C: run-command-0
-      makeEvent(8, 3000, { type: 'tool_use', toolName: 'run_command', toolUseId: 'run-command-0', toolInput: {} }, { sessionId: 'sc' }),
+      makeEvent(
+        8,
+        3000,
+        { type: 'tool_use', toolName: 'run_command', toolUseId: 'run-command-0', toolInput: {} },
+        { sessionId: 'sc' },
+      ),
       makeEvent(9, 3100, { type: 'tool_result', toolUseId: 'run-command-0', content: 'c0' }, { sessionId: 'sc' }),
     ];
     const result = adaptTranscriptEvents(events);

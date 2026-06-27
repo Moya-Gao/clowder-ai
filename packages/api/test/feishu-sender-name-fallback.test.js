@@ -6,9 +6,7 @@
 import assert from 'node:assert/strict';
 import { describe, it, mock } from 'node:test';
 
-const { FeishuAdapter } = await import(
-  '../dist/infrastructure/connectors/im-connectors/feishu/FeishuAdapter.js'
-);
+const { FeishuAdapter } = await import('../dist/infrastructure/connectors/im-connectors/feishu/FeishuAdapter.js');
 
 function makeAdapter() {
   const log = { info: mock.fn(), warn: mock.fn(), error: mock.fn(), debug: mock.fn() };

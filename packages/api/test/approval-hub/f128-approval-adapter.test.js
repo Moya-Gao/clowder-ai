@@ -134,7 +134,7 @@ describe('F128ApprovalAdapter', () => {
       const oldestProposal = createProposal(proposalStore);
 
       // Busy-wait 2ms so subsequent proposals get strictly newer createdAt
-      let until = Date.now() + 2;
+      const until = Date.now() + 2;
       while (Date.now() < until) {} // eslint-disable-line no-empty
 
       // Create 100 more proposals (all newer createdAt — fill positions 0-99 in createdAt-desc)
