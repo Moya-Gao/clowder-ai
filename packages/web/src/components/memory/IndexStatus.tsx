@@ -379,7 +379,9 @@ export function IndexStatus() {
       {warmingUp && (
         <div data-testid="embedding-warmup" className="rounded-lg border border-conn-amber-ring bg-conn-amber-bg p-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-conn-amber-text">语义索引暖机中…</span>
+            <span className={`text-xs font-medium ${status.passageWarmupActive ? 'text-conn-green-text' : 'text-conn-amber-text'}`}>
+              {status.passageWarmupActive ? '语义索引暖机中…' : '语义索引待暖机'}
+            </span>
             <span className="text-xs font-mono text-conn-amber-text">
               {status.passageVectorsCount} / {status.passagesCount}
             </span>
