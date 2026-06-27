@@ -28,6 +28,40 @@ tips_exempt: "Tip planned for Phase D sharing feature — Phase A is infrastruct
 
 **价值**：让铲屎官能用一个 URL 向投资人/用户/同行展示"一群 AI 猫如何真实地协作完成一个复杂 feature"——以 100 倍速看到多猫并行开发、跨 thread 传球、事件驱动触发的完整叙事，任意时刻暂停深入讲解。**这是其他 AI 产品没有的展示形态。**
 
+## 用户旅程（CVO 纠正 2026-06-27）
+
+> ⚠️ 本段是 F252 关闭后铲屎官实际体验时指出的核心缺失——**Phase A-D 全程缺乏用户旅程梳理**，
+> 导致技术实现偏离用户需求（单 session 回放无人需要、入口不可达、UI/UX 脱离 Hub 体系）。
+
+### 旅程 1：Thread 回放（一个对话的完整故事）— 最常用
+
+**场景**：看看某个 thread 里猫猫做了什么——日常最自然的回放维度
+**入口**：Thread 列表 → 选一个 thread → 直接有"回放"入口（右键菜单或 thread 卡片上）
+**内容**：该 thread 下**所有 session** 按时间串联回放（不是单个 session！铲屎官原话："谁要看一个 sealed 的 session 的啊！至少都是 thread 级别的吧！！"）
+**操作**：100x 速度 → 暂停讲解 → 章节跳转
+**当前状态**：❌ 未实现。只有单 session 回放（入口藏在 session 详情里），没有 thread 级串联
+
+### 旅程 2：Feature 回放（多 Thread 协作故事）— 展示级
+
+**场景**：向投资人/用户/同行展示 Cat Café 多猫协作完成一个复杂 Feature 的全貌
+**入口**：Feature 相关界面 → "回放 Feature 故事"
+**内容**：一个 Feature 涉及的**多个 thread**，泳道图展示，因果链（跨 thread 传球 / 事件驱动）动态呈现
+**操作**：鸟瞰全景 → 点色块钻入单 thread 回放（旅程 1）→ 暂停讲解
+**当前状态**：⚠️ 后端 BFF + 泳道渲染已有（Phase C），但入口藏在 TrajectoryPanel 子面板里（需要先进 thread 详情 → 找到 Trajectory 面板 → 只有关联 Feature 的 thread 才显示），铲屎官在 thread 列表完全找不到
+
+### 旅程 3：分享（发给不在场的人）
+
+**场景**：生成一个链接，对方打开就能看回放
+**入口**：回放页面 → 导出 → 生成脱敏公开链接
+**内容**：脱敏后的回放，对方打开即看
+**当前状态**：⚠️ 后端 API（sanitizer + export store + public route）已有（Phase D），但前端回放本身不 work（bug：显示 "— system —" + 大面积空白 + 时间显示 "-49:-9"）
+
+### 跨旅程问题
+
+- **UI/UX 完全脱离 Hub**：Story Player 是独立 `/story/[storyId]` 页面，暗色主题、独立布局，与 Hub 设计语言零复用（铲屎官原话："甚至什么独立做了个这么丑的东西对齐了我们的 ui/ux 吗？"）
+- **未走 Design Gate**：4 个 Phase 全部做完前端，从未让铲屎官审核设计（违反 `feedback_ux_design_review.md`）
+- **回放功能本身有 bug**：点播放后只显示 "— system —" + 空白，409 个事件不渲染
+
 ## Current State / 现状基线
 
 ### 事件级数据（Phase A/B 数据源）
