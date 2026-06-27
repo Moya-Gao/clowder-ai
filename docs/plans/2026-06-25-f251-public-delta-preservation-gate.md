@@ -436,7 +436,7 @@ The classifier + CLI from Task 4a should already BLOCK this case. If it doesn't,
 
 ### Task 4c: AC-A4 Override-with-Reason Flag
 
-> **Status**: in-progress (2026-06-27). Per-path override-with-reason flag wired into CLI + bash; classifier `override-pass` mode reachable via operator flag; KD-3 alarm (overrideCount > 3) enforced unless `--cvo-approved-public-delta-overwrite` signed off. 6 new tests (5 override scenarios + 1 wire) bring suite to 69. Pre-merge.
+> **Status**: ✅ merged via PR #2607 (squash `f5ad3280e`) on 2026-06-27. Per-path override-with-reason flag wired into CLI + bash (both `--override=path:reason` and split `--override path:reason` forms via single `reject_option_looking_override_value()` helper). Classifier `override-pass` mode reachable via operator flag; KD-3 alarm (overrideCount > 3) enforced unless `--cvo-approved-public-delta-overwrite` signed off. AC-A4 LIVE. Review chain caught + sealed a §16e same-class option-looking-value exploit across both forms via helper extraction (opus48 cross-review). Tests 63 → 70. Phase A AC-A1/A2/A3/A4/A5 now LIVE; only AC-A6 (30-day eval, calendar-gated) DEFERRED.
 
 **Why**: Today operators only have `--skip-delta-gate` (full gate off). Per-path override with explicit reason is needed for legitimate cases like "this target delta was already absorbed via #abc but timing didn't sync up cleanly". KD-3 limits this from becoming the new bypass: > 3 overrides per sync triggers CVO approval alarm.
 
