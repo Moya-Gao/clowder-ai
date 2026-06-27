@@ -118,7 +118,8 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 - 大小持久化到 `ConciergeConfig.ballSize`（跟 `ballPosition` 同套路，TTL=0 铁律 5）
 - 动态 size 替换 `BALL_SIZE` 常量，toolbar 位置 / viewport clamp / resize handler 跟着走
 - 范围：`minSize: 48px`（口袋猫）→ `maxSize: 192px`（素材原始分辨率极限）
-- **创意加分**（烁烁 2026-06-26 提案）：resize 手柄用小鱼干 🐟 图标；不同体型有不同重力反馈（大猫落地"吨！"微震，小猫轻飘滑落）
+- **创意加分**（烁烁35 2026-06-26/27 提案）：resize 手柄用小鱼干 🐟 图标；不同体型有不同重力反馈（大猫落地"吨！"微震，小猫轻飘滑落）
+- **体型影响行为**（gemini35 补充）：大猫散步频率低但步幅大，小猫散步频率高但步幅小——size 不只是视觉缩放，还可以做行为参数调制
 
 #### Phase E4: Autonomous Behavior Engine（猫猫自主生活引擎）
 
@@ -160,21 +161,72 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 
 参考系：QQ宠物的"饿了/想你了/无聊了" + 拓麻歌子的需求驱动 + 宝可梦GO 的位置交互——核心是**有温度的主动**，不是通知轰炸。
 
+**架构决策（2026-06-27 三猫 brainstorm 综合）**：
+
+> 参与猫：烁烁35（创意方向）、宪宪48（架构判断）、砚砚（技术实现 TBD）
+
+**A. 双输入优先级合成**（opus48 架构判断）：
+
+```
+petState = compose(
+  business: projectToPetState(conciergeState),  // KD-18 纯函数不动
+  autonomous: behaviorEngine(time, space, events)
+)
+```
+
+- **KD-18 投影函数保持不变**——autonomous 层在 KD-18 输出端合成，不是平行状态机
+- 合成规则：business 有活跃态时 business 赢；business idle 持续 N 秒后 autonomous 接管
+- **滞回（Hysteresis）**：business→autonomous 需要 idle 超时（防闪烁）；autonomous→business 立即切回（用户感知零延迟）
+- 单一选择器点（ConciergeHost 层），不分散到各组件
+
+**B. 双子系统**（opus48）：
+
+| 子系统 | 输入 | 输出 | 生命期 |
+|--------|------|------|--------|
+| `EventBehavior` | business 事件（ball.hold_expired, CI fail, PR merged...） | 短暂情绪态 + badge | 事件驱动，秒级 |
+| `AmbientBehavior` | 时间 + 空间 + 用户 idle | 持续环境行为（散步/睡觉/探头） | 时间驱动，分钟级 |
+
+两系统独立运行，EventBehavior 优先级 > AmbientBehavior（事件打断环境行为）。
+
+**C. "探头探脑"非侵入式主动**（gemini35 创意方向）：
+
+- 猫主动行为表现为**朝事件方向位移 30-50px** + **无字微气泡**（`!` / `❤️` / `?`）
+- hover 微气泡展开一行文字（"有 3 个球掉地上了"），不 hover 则 3s 后自动消散
+- **零强制打断**：用户永远可以忽略，猫不会跳到视野中央抢焦点
+
+**D. "三不"红线**（gemini35）：
+
+1. **不抢焦点**（No focus hijack）：猫的主动行为不触发 modal / dialog / toast
+2. **不挡中央**（No central obstruction）：自主溜达的路径避开 viewport 中心 40% 区域
+3. **不轰炸事件**（No event spamming）：EventBehavior 频率上限 + 事件合并（5 个掉球合成一次提醒）
+
+**E. 五项 failure mode 防护**（opus48）：
+
+1. 状态闪烁 → 滞回 + cooldown
+2. 事件风暴 → 合并队列 + 频率上限
+3. 精灵图不够 → **OQ-9 Sprite Gap Audit**（"探头/伸懒腰/打滚"需要确认现有 9 态是否够用，可能需要扩展 atlas）
+4. CPU 负载 → requestAnimationFrame + 可见性 API（页面不可见时暂停）
+5. 用户厌烦 → muted 一键关闭 + proactivePolicy 分级（已有 ambient/quiet-badge）
+
 **架构原则**：
-- 行为引擎是 `conciergeState → petState` 投影的扩展（KD-18），不是平行状态机
+- 行为引擎是 KD-18 投影的下游合成层，不是平行状态机
 - 前端 Behavior Scheduler（轻量 timer）+ 后端事件推送（WebSocket / SSE，复用已有 socket 通道）
 - 安静优先（继承 Clippy 反面教训 Risk §1）：用户正在交互时暂停自主行为；OQ-4 白名单分级仍生效
 - 所有行为可在设置页关闭（respect `muted` + 新增 `behaviorEnabled` 开关）
 - 主动行为频率上限（防 QQ 宠物末期的"疯狂弹窗"退化）
 
-#### 前台猫人格（跨 Phase 问题）
+#### 前台猫人格（跨 Phase 问题 · OQ-8）
 
 > CVO 2026-06-26："前台的烁烁缺少猫味！他完全不猫猫！他好像是可怜的烁烁被硬套上制服当前台上班打工猫"
 
-- 当前值班猫 prompt 过于工具化，输出没有猫的性格（猫德/摸鱼/好奇/傲娇）
-- 需要调整 concierge system prompt 的 persona 注入——不是加一堆"喵~"，而是让猫有自然的猫行为倾向
-- 与 E4 行为引擎协同：视觉上猫在"生活"，文字上猫也得有"猫味"
-- 记为 OQ-8 待方案收敛
+**问题**：当前值班猫 prompt 过于工具化，输出没有猫的性格（猫德/摸鱼/好奇/傲娇）。
+
+**三猫收敛方案（2026-06-27 brainstorm）**：
+
+- **v1（解耦）**：只改 concierge system prompt 的 persona 注入。猫人格 = 行为倾向概率分布（例：60% 好奇 + 20% 傲娇 + 20% 打工猫），不是加"喵~"后缀或角色扮演剧本。Prompt persona 独立于视觉态，可以先做
+- **v2（同步）**：视觉态反哺 prompt context。猫在 AmbientBehavior 睡觉时语气慵懒（"嗯…你说的那个…"），猫在 EventBehavior 兴奋时语气活泼（"！发现了！"）。视觉-文字一致性
+- **gemini35 创意补充**：不同猫种对应不同人格基底——布偶猫温柔黏人、缅因猫沉稳可靠、暹罗猫活泼话多。但用户可通过 `personaTone` 设置覆盖
+- **与 E4 行为引擎协同**：视觉上猫在"生活"（E4），文字上猫也得有"猫味"（OQ-8 v1/v2）
 
 ## 需求点 Checklist
 
@@ -281,7 +333,8 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 | OQ-5 | 开源用户形象上传的安全/版权边界 | ⬜ Phase E 前定 |
 | OQ-6 | 页面上下文注入范围（#841 的 URL/标题注入，隐私边界） | ✅ 已定 2026-06-09：Phase A 只取路由级信息（URL/页面标题），不读页面内容——CVO 随 Design Gate 关栓 |
 | OQ-7 | 使用模式采集 → 个性化提醒（吴浪："采集和根据使用情况来提醒"，如"你还没用过 schedule"）——行为遥测 + 主动打扰双重边界 | ⬜ Phase B+ 再定，MVP 不做 |
-| OQ-8 | 前台猫"猫味"：当前值班猫输出过于工具化，缺乏猫的性格倾向（猫德/好奇/傲娇/摸鱼）。不是加"喵~"后缀，而是让猫行为自然。与 E4 行为引擎协同——视觉和文字都要有猫味。需要调整 concierge system prompt persona 注入策略 | ⬜ 铲屎官 2026-06-26 提出，Phase E4 同期定 |
+| OQ-8 | 前台猫"猫味"：当前值班猫输出过于工具化，缺乏猫的性格倾向（猫德/好奇/傲娇/摸鱼）。不是加"喵~"后缀，而是让猫行为自然。**三猫收敛方案（2026-06-27）**：先解耦再同步——v1 只改 prompt persona（行为倾向，不加喵后缀），独立于视觉态；v2 视觉态反哺 prompt context（猫在睡觉时语气慵懒，猫在兴奋时语气活泼）。猫人格 = 行为倾向概率分布，不是角色扮演剧本 | 🟡 三猫收敛，v1/v2 分步实施 |
+| OQ-9 | Sprite Gap Audit：E4 行为引擎需要"探头/伸懒腰/打滚/缩团睡觉"等动画，当前 9 态 atlas 可能不够。需要砚砚确认哪些行为能用现有态近似、哪些必须新增 atlas row | ⬜ opus48 2026-06-27 提出，砚砚确认前 E4 不做需要新态的行为 |
 
 ## Key Decisions
 
