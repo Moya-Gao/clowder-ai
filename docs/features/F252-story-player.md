@@ -47,6 +47,53 @@ tips_exempt: "Tip planned for Phase D sharing feature — Phase A is infrastruct
 **操作**：100x 速度 → 暂停讲解 → 章节跳转
 **当前状态**：❌ 未实现。只有单 session 回放（入口藏在 session 详情里），没有 thread 级串联
 
+#### 转场设计：猫猫大剧院 (Meow Theater) 电影级设计 spec
+
+为了解决“死板信息图”、“回放没有冲击力”和“脱离 Hub UX”的问题，我们将 Story Player 重塑为融入 Hub 的 **“猫猫大剧院” (Meow Theater) 交互式影棚**。以下是转场、分屏、音画节奏的具体导演 spec：
+
+##### 1. 界面融入与画布基础：Hub Theater Overlay (剧院半透明画布)
+- **拒绝分裂**：Story Player 不再是独立的 `/story/[storyId]` 黑暗页，而是作为 Hub 的一个全屏 Drawer 或毛玻璃遮罩层 (`Theater Overlay`)。
+- **保留上下文**：回放时，Hub 原始的侧边栏、顶栏通过 `backdrop-filter: blur(12px)` 半透明可见。主工作区演变为大剧院画布，延续 Hub 的卡片边框、品牌色体系与字体规范，确保视觉对齐。
+
+##### 2. 核心转场：子弹时间与粒子飞线 (Bullet Time & Particle Pan)
+- **快进态 (100x Fast Forward)**：
+  - 消息极速狂飙，文字以 cinematic 模式暴风式显现（一秒数千字）。
+  - 配以解压、清脆的“嗒嗒嗒”快节奏机械键盘打字音效（可静音）。
+  - 当前发言的 Thread 处于 **Spotlight 聚光灯高亮态**（带光晕特效），非活跃 Thread 处于毛玻璃 Dimmed (虚化) 状态。
+- **子弹时间 (Bullet Time Slowdown)**：
+  - 一旦触发 `@mention`、`cross_post` 或 `thread_split` 等因果传球事件，回放速度平滑曲线降速（100x -> 1x -> 0.5x）。
+  - **因果粒子飞线 (Causal Particle Beam)**：一束带有发信猫猫头像与流光粒子的电磁飞线，从源 Thread 吐字处射出，在屏幕空间划过一道优雅的抛物线，飞向目标 Thread。
+  - **波纹涟漪 (Ripple Aura)**：粒子飞线击中目标 Thread 的瞬间，目标 Thread 边框亮起并产生一圈淡金色的涟漪动画。
+  - 涟漪消退后，播放速度平滑拉升回 100x，目标 Thread 开启高亮吐字。
+  - 这样能保证 100x 狂奔下，铲屎官依然能看清每次“球权转移”和“跨 thread 协同”的瞬间。
+
+##### 3. 多 Thread 活跃布局：多机位协同分屏 (Multi-Cam Stage)
+- **单机位模式 (Single Stage)**：只有 1 个 Thread 活跃时，独占中央舞台。
+- **协同双机位 (Split-Screen View)**：
+  - 当 Thread 0 @ 唤醒了 Thread 1 协同，Thread 0 卡片自动平滑左移，Thread 1 从右侧以毛玻璃淡入，两者呈 50/50 左右分屏。
+  - 时间轴硬对齐，观众能同时看到左侧猫猫提问/传球，右侧猫猫瞬间接球、启动工具写代码的同步画面。
+- **多机位群像 (Backstage Monitors)**：
+  - 如果有多于 2 个 Thread 并发活动，中央舞台仅展示最近活跃的 2 个 Thread。
+  - 其他 Thread 在侧边/底部缩微为“小监视器”预览，监视器内有极微小的打字流动微动。
+- **猫猫状态 Live Avatar (猫猫大剧院的灵魂微动画)**：
+  - 💻 **Coding中**：猫爪在键盘上飞速扒拉，键盘冒火花。
+  - ⚙️ **Tool Running**：猫猫带上高科技眼镜，双眼发蓝光（算力满载）。
+  - 💤 **Idle等待/CI中**：猫头冒出“Zzz”气泡，或者在无聊地舔毛、玩毛线球。
+  - 🐾 **Handoff传球**：猫猫做出一个把“发光的毛线球（代表球权）”用力拍飞的动作！
+
+##### 4. 跨 Feature 依赖：客串卡片 (Guest Cameo Slide-in)
+- **场景**：做 F252 时，发现了依赖项 F666 的 bug，发送了 cross-post 通知 F666。
+- **设计**：
+  - F666 并非本 Feature 的泳道，但属于该时间线上的因果连通点。
+  - 触发跨 feature 传球时，右侧以 Slide-in (滑入) 飞入一个带有虚线金边的 `[Guest Cameo: F666]` 临时卡片。
+  - 飞线划入该卡片，消息显示。
+  - 当该互动结束且无后续因果回流，客串卡片在 2 秒内优雅淡出，防止主画布拥挤。
+
+##### 5. 进度条与章节锚点：电影胶卷时间轴 (Cinematic Film-strip)
+- 进度条背景融合事件密度的微型热力图 (Event Density Heatmap)，哪里有猫猫大混战（多猫密集交互）一目了然。
+- F233 投影的 `phase_transition`、`pr_merged` 节点，在胶卷上显示为金色的“打卡锚点 (Milestone Badges)”，鼠标悬停有浮窗摘要（如“🎬 Phase A 封板”、“🔧 首次联调”），点击可瞬间 seek 过去。
+- **无聊等待压缩 (Idle Collapse)**：当猫猫在等待 CI/Build 超过 10 秒时，画面呈现老式磁带快进的拉丝条，并伴随老式快进沙沙声，直接拉快进（“⏩ 正在快进 CI 编译... 1m.. 2m.. Done!”），绝不拖泥带水。
+
 ### 旅程 2：Feature 回放（多 Thread 协作的录像回放）— 展示级
 
 **场景**：向投资人/用户/同行展示 Cat Café 多猫协作完成一个复杂 Feature 的全貌
