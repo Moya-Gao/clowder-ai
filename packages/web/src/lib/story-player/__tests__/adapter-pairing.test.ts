@@ -208,6 +208,143 @@ describe('F252 adapter — positional orphan pairing (cloud R2)', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Cross-session orphan pairing isolation (P1 — AC-E2 thread replay)
+// ---------------------------------------------------------------------------
+
+describe('F252 adapter — cross-session orphan pairing (P1 fix)', () => {
+  it('scopes no-id orphan pairing by sessionId — interleaved sessions do not mis-pair', () => {
+    // Scenario: two sessions interleaved by timestamp after mergeSessionEvents
+    // Session A: tool_use(Bash) at t=1000, then tool_result at t=2000
+    // Session B: tool_use(Read) at t=1500 (between A's use and result)
+    //            then tool_result at t=2500
+    // Bug: single pendingEventNo → B's tool_use supersedes A's,
+    //       A's result pairs with B's tool_use (wrong session)
+    const events = [
+      makeEvent(
+        0,
+        1000,
+        { type: 'tool_use', toolName: 'Bash', toolInput: { command: 'echo a' } },
+        { sessionId: 'session-a' },
+      ),
+      makeEvent(
+        1,
+        1500,
+        { type: 'tool_use', toolName: 'Read', toolInput: { path: '/b.ts' } },
+        { sessionId: 'session-b' },
+      ),
+      makeEvent(2, 2000, { type: 'tool_result', content: 'output-from-a' }, { sessionId: 'session-a' }),
+      makeEvent(3, 2500, { type: 'tool_result', content: 'file-content-b' }, { sessionId: 'session-b' }),
+    ];
+    const result = adaptTranscriptEvents(events);
+
+    const toolCalls = result.filter((e) => e.type === 'tool_call');
+    expect(toolCalls).toHaveLength(2);
+
+    // Session A's Bash should get session A's result
+    expect(toolCalls[0]?.toolName).toBe('Bash');
+    expect(toolCalls[0]?.toolResult).toBe('output-from-a');
+
+    // Session B's Read should get session B's result
+    expect(toolCalls[1]?.toolName).toBe('Read');
+    expect(toolCalls[1]?.toolResult).toBe('file-content-b');
+  });
+
+  it('still pairs within same session when events are sequential', () => {
+    // Single-session case should not regress
+    const events = [
+      makeEvent(0, 1000, { type: 'tool_use', toolName: 'Bash', toolInput: { command: 'pwd' } }),
+      makeEvent(1, 2000, { type: 'tool_result', content: '/home' }),
+    ];
+    const result = adaptTranscriptEvents(events);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]?.toolResult).toBe('/home');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Cross-session id-based pairing isolation (P1 — cloud R3)
+// ---------------------------------------------------------------------------
+
+describe('F252 adapter — cross-session id-based pairing (cloud R3 P1)', () => {
+  it('scopes toolUseId pairing by sessionId — AGY run-command-N collisions do not mis-pair', () => {
+    // Scenario: Two AGY sessions both generate toolUseId "run-command-0"
+    // (AGY trajectory extractor produces `run-command-${idx}`, sequential per session).
+    // Without session scoping, the second session's tool_result overwrites the first
+    // in the flat Map, so session A's tool_use replays with session B's output.
+    const events = [
+      // Session A: run-command-0
+      makeEvent(0, 1000, {
+        type: 'tool_use', toolName: 'run_command', toolUseId: 'run-command-0',
+        toolInput: { CommandLine: 'echo session-a' },
+      }, { sessionId: 'session-a' }),
+      makeEvent(1, 1500, {
+        type: 'tool_result', toolUseId: 'run-command-0',
+        content: 'session-a-output',
+      }, { sessionId: 'session-a' }),
+      // Session B: also run-command-0 (colliding ID!)
+      makeEvent(2, 2000, {
+        type: 'tool_use', toolName: 'run_command', toolUseId: 'run-command-0',
+        toolInput: { CommandLine: 'echo session-b' },
+      }, { sessionId: 'session-b' }),
+      makeEvent(3, 2500, {
+        type: 'tool_result', toolUseId: 'run-command-0',
+        content: 'session-b-output',
+      }, { sessionId: 'session-b' }),
+    ];
+    const result = adaptTranscriptEvents(events);
+
+    const toolCalls = result.filter((e) => e.type === 'tool_call');
+    expect(toolCalls).toHaveLength(2);
+
+    // Session A's tool_use should pair with session A's tool_result
+    expect(toolCalls[0]?.toolResult).toBe('session-a-output');
+    // Session B's tool_use should pair with session B's tool_result
+    expect(toolCalls[1]?.toolResult).toBe('session-b-output');
+  });
+
+  it('still pairs by toolUseId within same session (no regression)', () => {
+    const events = [
+      makeEvent(0, 1000, {
+        type: 'tool_use', toolName: 'Read', toolUseId: 'toolu_abc',
+        input: '{"path":"/a.ts"}',
+      }),
+      makeEvent(1, 2000, {
+        type: 'tool_result', toolUseId: 'toolu_abc',
+        content: 'file content',
+      }),
+    ];
+    const result = adaptTranscriptEvents(events);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]?.toolResult).toBe('file content');
+  });
+
+  it('handles three sessions with identical toolUseIds (run-command-0, run-command-1)', () => {
+    const events = [
+      // Session A: run-command-0, run-command-1
+      makeEvent(0, 1000, { type: 'tool_use', toolName: 'run_command', toolUseId: 'run-command-0', toolInput: {} }, { sessionId: 'sa' }),
+      makeEvent(1, 1100, { type: 'tool_result', toolUseId: 'run-command-0', content: 'a0' }, { sessionId: 'sa' }),
+      makeEvent(2, 1200, { type: 'tool_use', toolName: 'run_command', toolUseId: 'run-command-1', toolInput: {} }, { sessionId: 'sa' }),
+      makeEvent(3, 1300, { type: 'tool_result', toolUseId: 'run-command-1', content: 'a1' }, { sessionId: 'sa' }),
+      // Session B: run-command-0, run-command-1
+      makeEvent(4, 2000, { type: 'tool_use', toolName: 'run_command', toolUseId: 'run-command-0', toolInput: {} }, { sessionId: 'sb' }),
+      makeEvent(5, 2100, { type: 'tool_result', toolUseId: 'run-command-0', content: 'b0' }, { sessionId: 'sb' }),
+      makeEvent(6, 2200, { type: 'tool_use', toolName: 'run_command', toolUseId: 'run-command-1', toolInput: {} }, { sessionId: 'sb' }),
+      makeEvent(7, 2300, { type: 'tool_result', toolUseId: 'run-command-1', content: 'b1' }, { sessionId: 'sb' }),
+      // Session C: run-command-0
+      makeEvent(8, 3000, { type: 'tool_use', toolName: 'run_command', toolUseId: 'run-command-0', toolInput: {} }, { sessionId: 'sc' }),
+      makeEvent(9, 3100, { type: 'tool_result', toolUseId: 'run-command-0', content: 'c0' }, { sessionId: 'sc' }),
+    ];
+    const result = adaptTranscriptEvents(events);
+
+    const toolCalls = result.filter((e) => e.type === 'tool_call');
+    expect(toolCalls).toHaveLength(5);
+    expect(toolCalls.map((tc) => tc.toolResult)).toEqual(['a0', 'a1', 'b0', 'b1', 'c0']);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Cloud R1: system_info thinking events (P2-1)
 // ---------------------------------------------------------------------------
 

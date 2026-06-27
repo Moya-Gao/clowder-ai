@@ -151,14 +151,19 @@ function isToolResultError(event: Record<string, unknown>): boolean {
   return false;
 }
 
-/** Pre-index tool_results by toolUseId for O(1) lookup during pairing. */
+/**
+ * Pre-index tool_results by sessionId:toolUseId for O(1) lookup during pairing.
+ * Composite key prevents cross-session collision when providers generate
+ * sequential per-session IDs (e.g. AGY's `run-command-${idx}`).
+ */
 function buildToolResultIndex(raw: RawTranscriptEvent[]): Map<string, ToolResultPayload> {
   const index = new Map<string, ToolResultPayload>();
   for (const evt of raw) {
     if ((evt.event.type as string) !== 'tool_result') continue;
     const toolUseId = evt.event.toolUseId as string | undefined;
     if (toolUseId) {
-      index.set(toolUseId, {
+      const key = `${evt.sessionId}:${toolUseId}`;
+      index.set(key, {
         content: extractContent(evt.event),
         isError: isToolResultError(evt.event),
       });
@@ -179,23 +184,27 @@ function buildToolResultIndex(raw: RawTranscriptEvent[]): Map<string, ToolResult
  */
 function buildPositionalOrphanPairs(raw: RawTranscriptEvent[]): Map<number, ToolResultPayload> {
   const pairs = new Map<number, ToolResultPayload>();
-  let pendingEventNo: number | undefined;
+  // Scope pending tool_use by sessionId to prevent cross-session mis-pairing
+  // when thread replay interleaves events from multiple sessions (P1 fix AC-E2)
+  const pendingBySession = new Map<string, number>();
 
   for (const evt of raw) {
     const evtType = evt.event.type as string;
     const toolUseId = evt.event.toolUseId as string | undefined;
+    const sid = evt.sessionId;
 
     if (evtType === 'tool_use' && !toolUseId) {
-      // New no-id tool_use supersedes any pending one (which gets no result)
-      pendingEventNo = evt.eventNo;
+      // New no-id tool_use supersedes any pending one in the same session
+      pendingBySession.set(sid, evt.eventNo);
     } else if (evtType === 'tool_result' && !toolUseId) {
-      // No-id tool_result pairs with most recent pending no-id tool_use
+      // No-id tool_result pairs with most recent pending no-id tool_use in same session
+      const pendingEventNo = pendingBySession.get(sid);
       if (pendingEventNo != null) {
         pairs.set(pendingEventNo, {
           content: extractContent(evt.event),
           isError: isToolResultError(evt.event),
         });
-        pendingEventNo = undefined;
+        pendingBySession.delete(sid);
       }
     }
   }
@@ -205,12 +214,13 @@ function buildPositionalOrphanPairs(raw: RawTranscriptEvent[]): Map<number, Tool
 
 /**
  * Enrich a tool_call ReplayEvent with paired tool_result data.
- * Priority: toolUseId-based exact match → positional orphan pair.
+ * Priority: sessionId:toolUseId-based exact match → positional orphan pair.
  */
 function enrichToolCall(
   replayEvent: ReplayEvent,
   rawEvent: Record<string, unknown>,
   eventNo: number,
+  sessionId: string,
   toolResults: Map<string, ToolResultPayload>,
   orphanPairs: Map<number, ToolResultPayload>,
 ): void {
@@ -219,8 +229,9 @@ function enrichToolCall(
 
   const toolUseId = rawEvent.toolUseId as string | undefined;
   if (toolUseId) {
-    // Exact match by correlation ID
-    const matched = toolResults.get(toolUseId);
+    // Exact match by composite key (session-scoped to prevent AGY run-command-N collision)
+    const key = `${sessionId}:${toolUseId}`;
+    const matched = toolResults.get(key);
     if (matched) {
       replayEvent.toolResult = matched.content;
       replayEvent.toolIsError = matched.isError;
@@ -275,7 +286,7 @@ export function adaptTranscriptEvents(raw: RawTranscriptEvent[]): ReplayEvent[] 
     };
 
     if (replayType === 'tool_call') {
-      enrichToolCall(replayEvent, evt.event, evt.eventNo, toolResults, orphanPairs);
+      enrichToolCall(replayEvent, evt.event, evt.eventNo, evt.sessionId, toolResults, orphanPairs);
     }
 
     result.push(replayEvent);

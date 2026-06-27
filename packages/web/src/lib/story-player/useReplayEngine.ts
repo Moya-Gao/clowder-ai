@@ -30,6 +30,7 @@ import {
   tick,
   toggleAdaptivePacing,
 } from './replay-engine';
+import { fetchThreadReplayEvents } from './thread-replay-fetcher';
 import type { RawTranscriptEvent, ReplayEngineState, ReplayEvent, SpeedMultiplier } from './types';
 
 // ---------------------------------------------------------------------------
@@ -37,8 +38,11 @@ import type { RawTranscriptEvent, ReplayEngineState, ReplayEvent, SpeedMultiplie
 // ---------------------------------------------------------------------------
 
 export interface UseReplayEngineOptions {
-  /** Session ID to fetch events for */
-  sessionId: string;
+  /** Session ID for single-session replay */
+  sessionId?: string;
+  /** Thread ID for thread-level replay (all sessions concatenated) — AC-E2 */
+  threadId?: string;
+  // INV-4: exactly one of sessionId or threadId must be provided
 }
 
 export interface UseReplayEngineResult {
@@ -168,7 +172,15 @@ function useReplayKeyboard(setEngine: EngineSetter) {
 // ---------------------------------------------------------------------------
 
 export function useReplayEngine(options: UseReplayEngineOptions): UseReplayEngineResult {
-  const { sessionId } = options;
+  const { sessionId, threadId } = options;
+
+  // INV-4: exactly one of sessionId or threadId must be provided
+  if (sessionId && threadId) {
+    throw new Error('useReplayEngine: provide sessionId OR threadId, not both');
+  }
+  if (!sessionId && !threadId) {
+    throw new Error('useReplayEngine: provide sessionId or threadId');
+  }
 
   const [events, setEvents] = useState<ReplayEvent[]>([]);
   const [engine, setEngine] = useState<ReplayEngineState>(() => createReplayEngine([]));
@@ -179,10 +191,17 @@ export function useReplayEngine(options: UseReplayEngineOptions): UseReplayEngin
   engineRef.current = engine;
 
   // ── Fetch events on mount ──
+  // AC-E2: threadId → fetch all sessions, merge by timestamp
+  // sessionId → single session fetch (existing behavior)
+  const fetchKey = sessionId ?? threadId ?? '';
   useEffect(() => {
     let cancelled = false;
 
-    fetchAllSessionEvents(sessionId)
+    const fetchPromise = threadId
+      ? fetchThreadReplayEvents(threadId)
+      : fetchAllSessionEvents(sessionId!);
+
+    fetchPromise
       .then((rawEvents) => {
         if (cancelled) return;
         const adapted = adaptTranscriptEvents(rawEvents);
@@ -206,7 +225,7 @@ export function useReplayEngine(options: UseReplayEngineOptions): UseReplayEngin
     return () => {
       cancelled = true;
     };
-  }, [sessionId]);
+  }, [fetchKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const lastTickRef = useReplayTick(setEngine, engineRef);
   useReplayKeyboard(setEngine);
