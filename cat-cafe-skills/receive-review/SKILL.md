@@ -53,6 +53,30 @@ triggers:
 
 > **愿景级反馈不能用代码 patch 修补设计问题。** 先对照铲屎官原话验证 reviewer 说得对吗；如确实偏离，升级铲屎官确认偏差范围，再重新设计。
 
+### Reviewer Delta Annotation（F253 AC-B2）
+
+当 review request 附有 **Fresh-Context Findings** 节时，reviewer 在自己的 findings 中标注 delta tag，量化 cross-model review 增值：
+
+| Tag | 含义 | 用途 |
+|-----|------|------|
+| `[FC:covered]` | 该 finding 已被 fresh-context 发现 | 量化 fresh-context 覆盖率 |
+| `[FC:new]` | 该 finding 是 fresh-context **未发现**的新发现 | 量化正式 reviewer 增值（reviewer delta metric） |
+| `[FC:N/A]` | 该 finding 不适用 delta 标注（如愿景级/架构级） | 排除非代码 finding |
+
+**Annotation 格式**：在 finding 行末加 tag
+
+```
+P2-1: 边界条件未处理 — src/foo.ts:42 [FC:covered]
+P1-1: Race condition in concurrent writes — src/bar.ts:18 [FC:new]
+P3-1: 建议重新考虑整体架构方向 [FC:N/A]
+```
+
+**注意**：
+- 标注是 lightweight annotation，不增加 review 流程摩擦
+- Review request 无 Fresh-Context Findings 节时（未触发 fresh-context），不标注
+- Delta 数据自然累积在 review 记录中，Phase C `eval:qc` 聚合分析
+- 标注不影响 finding 的 severity 判定或处理流程
+
 ### 禁止的响应（表演性同意）
 
 ```
@@ -191,6 +215,7 @@ VERIFY 完所有 findings 之后、动手修之前，做一次 failure-mode 判�
 
 测试结果：pnpm test → {X} passed, 0 failed
 Commit: {sha} — {message}
+Fresh-Context Delta: {N} FC:covered, {M} FC:new, {K} FC:N/A <!-- 仅 review request 含 FC 节时 -->
 
 请确认修复，确认后执行合入。
 ```

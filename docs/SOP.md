@@ -75,6 +75,7 @@ Phase N merge → 碰头（不是"要不要继续"，是"方向对不对"）→ 
 ⓪ Design Gate    → 设计确认（UX→铲屎官/后端→猫猫/架构→两边）
 ① impl            → writing-plans → worktree → tdd
 ② quality-gate    → 自检 + 愿景对照 + 设计稿对照
+②½ fresh-context  → （可选）author-triggered pre-review scan（finding generator, not approval）
 ③ review 循环     → 本地 peer review（P1/P2 清零 + reviewer 放行）
 ④ merge-gate      → 门禁 → PR → 云端 review → squash merge → 清理
 ⑤ 愿景守护       → 非作者非 reviewer 的猫做愿景三问 → 放行 close / 踢回
@@ -88,6 +89,7 @@ Phase N merge → 碰头（不是"要不要继续"，是"方向对不对"）→ 
 | ⓪ | 设计确认：前端→铲屎官画 wireframe；后端→猫猫讨论；架构→两边 | `feat-lifecycle` Design Gate | Trivial 跳过⓪，按下方例外路径判断 |
 | ① | 写实施计划 → 创建 worktree → TDD 实现 | `writing-plans` → `worktree` → `tdd` | `sop-definitions/development.yaml` 的 `impl.suggested_skill` 是 `writing-plans`；计划写完自动进入 worktree/TDD，禁止直接改 main |
 | ② | 愿景对照 + spec 合规 + 跑测试 + **有 .pen 则设计稿对照** | `quality-gate` | AC ≠ 完成，问"铲屎官体验如何？" |
+| ②½ | *（可选）* Fresh-context pre-review scan | `fresh-context-review` | Author 判断是否需要；非 trivial PR 推荐。**Finding generator, not approval authority** |
 | ③a | 发 review 请求（五件套 + 证据） | `request-review` | 附原始需求摘录 |
 | ③b | 处理 review 反馈（Red→Green） | `receive-review` | 禁止表演性同意 |
 | ④ | 门禁 → PR → 云端 review → merge → 清理 | `merge-gate` | **③ 放行后才进入**，模板见 `refs/pr-template.md` |

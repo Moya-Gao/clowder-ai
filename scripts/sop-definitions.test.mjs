@@ -4,7 +4,7 @@ import { describe, it } from 'node:test';
 import { buildGeneratedSopDefinitionsSource } from './lib/sop-definition-codegen.mjs';
 import { loadSopDefinitionCatalog, validateSopDefinition } from './sop-definitions.mjs';
 
-const EXPECTED_DEVELOPMENT_STAGES = ['kickoff', 'impl', 'quality_gate', 'review', 'merge', 'completion'];
+const EXPECTED_DEVELOPMENT_STAGES = ['kickoff', 'impl', 'quality_gate', 'fresh_context', 'review', 'merge', 'completion'];
 
 const EXPECTED_PORTED_RULE_TEXTS = [
   'Feature spec 必须有 AC + 需求点 checklist',
@@ -16,6 +16,7 @@ const EXPECTED_PORTED_RULE_TEXTS = [
   '改 MCP tool / skill manifest / route / callback 等约定面前，先用 convention graph 查影响面；stale=true 先 reindex',
   '自检报告必须包含愿景覆盖度',
   '声称完成但没跑全量测试',
+  'Fresh-context 是 finding generator，不是 approval authority——不产出 verdict，不记入 Review Provenance Matrix',
   '同一个体不能 review 自己的代码',
   'Review 请求必须附原始需求摘录',
   '收到 P1 修完后没 re-trigger review',
@@ -66,7 +67,7 @@ describe('SOP definition catalog', () => {
     assert.equal(development.stages.find((stage) => stage.id === 'impl')?.suggestedSkill, 'writing-plans');
 
     const rules = development.stages.flatMap((stage) => [...stage.hardRules, ...stage.pitfalls]);
-    assert.equal(rules.length, 20);
+    assert.equal(rules.length, 21);
     assert.deepEqual(
       rules.map((rule) => rule.text),
       EXPECTED_PORTED_RULE_TEXTS,

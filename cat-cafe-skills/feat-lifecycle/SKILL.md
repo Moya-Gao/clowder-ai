@@ -435,6 +435,6 @@ AC-A5 ❌ unmet → delete(why: 经评估不属于 MVP scope)
 ## 下一步
 
 - Kickoff 后 → **Design Gate**（按类型分流确认）→ `writing-plans`
-- 开发完成后 → `quality-gate` → `request-review`
+- 开发完成后 → `quality-gate` → [`fresh-context-review`] → `request-review`
 - Review 通过后 → `merge-gate`（合入）→ 回来用 completion 闭环
 - 讨论收敛后 → `collaborative-thinking` Mode C（沉淀 ADR/规则/教训）

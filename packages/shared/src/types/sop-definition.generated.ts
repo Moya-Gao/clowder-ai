@@ -6,7 +6,15 @@
 export const SOP_DEFINITION_IDS = ['development'] as const;
 export type SopDefinitionId = (typeof SOP_DEFINITION_IDS)[number];
 
-export const DEVELOPMENT_SOP_STAGE_IDS = ['kickoff', 'impl', 'quality_gate', 'review', 'merge', 'completion'] as const;
+export const DEVELOPMENT_SOP_STAGE_IDS = [
+  'kickoff',
+  'impl',
+  'quality_gate',
+  'fresh_context',
+  'review',
+  'merge',
+  'completion',
+] as const;
 export type DevelopmentSopStageId = (typeof DEVELOPMENT_SOP_STAGE_IDS)[number];
 export const DEVELOPMENT_SOP_DEFINITION = {
   id: 'development',
@@ -138,6 +146,25 @@ export const DEVELOPMENT_SOP_DEFINITION = {
           severity: 'blocker',
           owner: { type: 'stage_suggested_skill', skill: 'quality-gate' },
           predicate: { type: 'command_pattern', mustMatch: 'pnpm gate|pnpm test|pnpm --filter .* test|node --test' },
+        },
+      ],
+    },
+    {
+      id: 'fresh_context',
+      label: 'Fresh-Context Pre-Review',
+      suggestedSkill: 'fresh-context-review',
+      hardRules: [],
+      pitfalls: [
+        {
+          id: 'fresh-context-not-approval',
+          kind: 'pitfall',
+          text: 'Fresh-context 是 finding generator，不是 approval authority——不产出 verdict，不记入 Review Provenance Matrix',
+          severity: 'warn',
+          owner: { type: 'stage_suggested_skill', skill: 'fresh-context-review' },
+          predicate: {
+            type: 'manual_only',
+            reason: 'Fresh-context output is free-form finding list, not a structured verdict event.',
+          },
         },
       ],
     },

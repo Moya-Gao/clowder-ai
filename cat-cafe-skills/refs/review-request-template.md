@@ -44,6 +44,21 @@ Why: {一句话}
 {需要 CVO 判断的价值取舍——必须附 Decision Packet（格式见 `refs/decision-matrix.md`）}
 {如果没有价值 OQ，写"无"——回滚成本低的技术选择猫猫自决，不升级}
 
+## Fresh-Context Findings（如有）
+<!-- 仅当 author 触发了 fresh-context pre-review 时填写此节。未触发时删除此节。 -->
+<!-- 详见 cat-cafe-skills/fresh-context-review/SKILL.md -->
+
+Agent: {cat signature}
+SHA scanned: {short sha}
+Total findings: {N} ({P1} P1, {P2} P2, {P3} P3)
+
+| # | Finding | Author 处置 | 状态 |
+|---|---------|------------|------|
+| FC-1 | {摘要} | fixed (commit {sha}) | ✅ |
+| FC-2 | {摘要} | dismissed: {理由} | ❌ |
+
+**Reviewer delta tracking**: 正式 reviewer 请在你的 findings 中标注 `[FC:covered]`（fresh-context 已发现）或 `[FC:new]`（新发现）或 `[FC:N/A]`（不适用）。详见 receive-review skill "Reviewer Delta Annotation"。
+
 ## Next Action
 {希望 reviewer 做什么}
 

@@ -2167,7 +2167,7 @@ export const callbackTools = [
       'Update the SOP workflow stage for a Feature (Mission Hub bulletin board). ' +
       'Use to record current stage, baton holder, resume capsule, and checks. ' +
       'This is information sharing, not flow control — cats decide their own actions. ' +
-      'STAGE VALUES: kickoff → impl → quality_gate → review → merge → completion. ' +
+      'STAGE VALUES: kickoff → impl → quality_gate → [fresh_context] → review → merge → completion. ' +
       'TIP: Always set resumeCapsule when updating stage — it helps the next cat cold-start.',
     inputSchema: updateWorkflowInputSchema,
     handler: handleUpdateWorkflow,
