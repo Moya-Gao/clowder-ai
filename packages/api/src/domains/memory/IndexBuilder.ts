@@ -575,6 +575,10 @@ export class IndexBuilder implements IIndexBuilder {
     return { docsIndexed: indexed, docsSkipped: skipped, durationMs: Date.now() - start };
   }
 
+  isPassageWarmupActive(): boolean {
+    return this.passageEmbeddingWarmupInFlight !== null;
+  }
+
   startPassageEmbeddingWarmup(): void {
     // F209 fix: passage embedding is a recall accelerator (passage_fts stays canonical),
     // so it MUST NOT block rebuild()/listen(). Call this only after the API is listening.

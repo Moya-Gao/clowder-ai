@@ -470,6 +470,7 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
         passages_count: passageCount,
         passage_vectors_count: passageVectorCount,
         passage_vectors_supported: passageVectorsSupported,
+        passage_warmup_active: opts.indexBuilder?.isPassageWarmupActive() ?? false,
         edges_count: edgeCount,
         vectors_count: vectorsCount,
         last_rebuild_at: lastUpdated,

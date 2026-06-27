@@ -67,9 +67,12 @@ describe('POST /api/evidence/warmup', () => {
     assert.equal(res.json().error, 'Forbidden: localhost only');
   });
 
-  it('rejects proxied loopback with 403', async () => {
+  it('allows proxied loopback (same guard as reindex/rebuild)', async () => {
+    let called = false;
     const indexBuilder = {
-      startPassageEmbeddingWarmup: () => {},
+      startPassageEmbeddingWarmup: () => {
+        called = true;
+      },
       rebuild: async () => ({}),
       incrementalUpdate: async () => {},
       checkConsistency: async () => ({ ok: true, docCount: 0, ftsCount: 0, mismatches: [] }),
@@ -82,14 +85,16 @@ describe('POST /api/evidence/warmup', () => {
     });
     await app.ready();
 
+    // Proxy headers don't block warmup — the peer IP is still loopback.
+    // This matches the guard used by /reindex and /rebuild.
     const res = await app.inject({
       method: 'POST',
       url: '/api/evidence/warmup',
       remoteAddress: '127.0.0.1',
       headers: { 'x-forwarded-for': '203.0.113.1' },
     });
-    assert.equal(res.statusCode, 403);
-    assert.equal(res.json().error, 'Forbidden: localhost only');
+    assert.equal(res.statusCode, 200);
+    assert.ok(called, 'startPassageEmbeddingWarmup should still be called');
   });
 
   it('returns 503 when indexBuilder is not configured', async () => {

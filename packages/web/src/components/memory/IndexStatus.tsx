@@ -29,6 +29,7 @@ interface RawStatusResponse {
   passages_count?: number;
   passage_vectors_count?: number;
   passage_vectors_supported?: boolean;
+  passage_warmup_active?: boolean;
   edges_count?: number;
   last_rebuild_at?: string | null;
   embedding_model?: string | null;
@@ -47,6 +48,7 @@ export interface IndexStatusData {
   passagesCount: number;
   passageVectorsCount: number;
   passageVectorsSupported: boolean;
+  passageWarmupActive: boolean;
   edgesCount: number;
   lastRebuildAt: string | null;
   embeddingModel: string | null;
@@ -69,6 +71,7 @@ export function parseIndexStatus(raw: RawStatusResponse): IndexStatusData {
     passagesCount: raw.passages_count ?? 0,
     passageVectorsCount: raw.passage_vectors_count ?? 0,
     passageVectorsSupported: raw.passage_vectors_supported ?? false,
+    passageWarmupActive: raw.passage_warmup_active ?? false,
     edgesCount: raw.edges_count ?? 0,
     lastRebuildAt: raw.last_rebuild_at ?? null,
     embeddingModel: raw.embedding_model ?? null,
@@ -402,11 +405,13 @@ export function IndexStatus() {
               <button
                 type="button"
                 data-testid="warmup-resume-button"
-                disabled={warmupTriggering}
+                disabled={warmupTriggering || status.passageWarmupActive}
                 onClick={triggerWarmup}
-                className={`shrink-0 rounded-md bg-conn-amber-text px-2.5 py-1 text-micro font-medium text-white transition-opacity hover:opacity-90 ${warmupTriggering ? 'opacity-50' : ''}`}
+                className={`shrink-0 rounded-md px-2.5 py-1 text-micro font-medium text-white transition-opacity hover:opacity-90 ${
+                  status.passageWarmupActive ? 'bg-conn-green-text' : 'bg-conn-amber-text'
+                } ${warmupTriggering || status.passageWarmupActive ? 'opacity-70' : ''}`}
               >
-                {warmupTriggering ? '触发中…' : '继续暖机'}
+                {warmupTriggering ? '触发中…' : status.passageWarmupActive ? '暖机中…' : '继续暖机'}
               </button>
             </span>
           </div>
