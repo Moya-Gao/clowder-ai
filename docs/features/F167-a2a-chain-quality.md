@@ -1065,27 +1065,32 @@ cat_cafe_hold_ball({
 - [x] AC-P4: 超时兜底（timeoutMs 到期 → 唤醒 + 告知超时） — ManagedRunner SIGTERM→5s→SIGKILL + fallback reminder task
 - [x] AC-P5: 单槽语义不变（KD-23）——wakeWhen hold 也是同 (threadId, catId) 单槽覆盖 — shares existing pendingHolds cancel logic
 
-#### Phase P 已知问题（2026-06-27 铲屎官报告，P1）
+#### Phase P 已知问题（2026-06-27 铲屎官报告，P1 · opus-48 code-trace 校准）
 
-**现象**：Phase P 合入后，猫猫频繁 `hold_ball` 等铲屎官回答——以前都是 `@landy`，铲屎官回复自然触发猫猫，现在变成双触发浪费。
+**现象**：Phase P 合入后，猫猫频繁 `hold_ball` 等铲屎官回答——以前都是 `@landy`，铲屎官回复自然触发猫猫，现在变成双触发 / N 连环空醒浪费。
 
 **铲屎官原话**：
 > "大家经常 hold ball 等我回答，但是其实这是不合理的！以前都是 at 我，这才合理。毕竟我给你们发消息，触发你们，然后你们 hold ball 等 x 分钟又触发那就双触发了？"
 
-**本质问题 1 — 事件驱动场景下 wakeAfterMs 的架构矛盾**：
+**根因分层（evidence-based，opus-48 code trace 校准）**：
 
-如果一个场景已经有 event trigger（铲屎官发消息 / wakeWhen 条件满足 / webhook 回调），wakeAfterMs 定时唤醒就是多余的——两个唤醒源同时存在 = 必然双触发且无去重。这不是"哪些场景不该用 hold_ball"的规则问题，是**同一个 hold_ball 调用不应该同时带 event trigger 和 timer** 的架构问题。目前没有机制在 event 正常触发后自动取消对应的定时唤醒。
+| | 是什么 | 证据 |
+|---|---|---|
+| **主因（认知/概念边界）** | wakeWhen 让 hold_ball 显得是"万能智能等待入口"，猫拿它等 event（等人/等回调），而 event-wait 按 KD-27 该 `@landy`/`register_*_tracking` | 3 个 surface 推误用：① `callback-tools.ts:2314` Not-for 缺"等人→@landy"；② `:2328` Phase P wakeWhen 扩张能力但未回收 Not-for 边界；③ `routing-guard-remedial.ts:76` 文案"持球等外部条件"歧义 |
+| **放大器（schema 结构）** | schema 强制 exactly-one-of {wakeAfterMs, wakeWhen}，**没有"纯事件等待不带 timer"的 hold 模式**——等人没 command→被逼挂 timer→人类慢于 timer→空醒 | `callback-hold-ball-routes.ts:144` schema refine |
+| **闸门缺位** | 正确边界（KD-27 / Keeper Wait A/B / WaitSourceRef）只在 soft skill，`waitSourceRef` 是 optional/shadow | `waitSourceRef .optional()` (PR-O2 shadow)，PR-O3 enforcement 未合 |
 
-**本质问题 2 — wakeWhen 引入的认知副作用**：
+**关于去重机制的校准**（初版 doc 说"无去重"，不准确）：`tryAutoCancelPendingHolds`（`hold-ball-cancel.ts:55`）**存在**，用户消息到达时取消该 thread 所有 pending hold timer + wakeWhen runner（Phase P cloud-R2 fix）。但它是**反应式**的——人类回复慢于 timer 时，timer 先空醒（已 fired 无法 un-fire），回复再触发 = 双触发。更糟：空醒后猫常再 hold（单槽 replace KD-23）→ 每 x 分钟空醒一次，"双触发"其实是 **N 连环空醒**。
 
-wakeWhen 让 hold_ball 从"笨笨的定时轮询工具"变成了"看起来很聪明的万能等待工具"。以前 hold_ball 只有 wakeAfterMs，猫觉得"等铲屎官回答"不适合用定时器，自然走 `@landy`。现在 hold_ball 功能丰富了，猫**误以为它能替代 @landy** 处理所有等待场景。这个问题的根因不在传球规则层（加一行"严禁"是补锅），在 hold_ball 的 **API 设计 / 概念边界** 层——工具本身的语义让猫觉得它是万能等待入口。
+**修复方向（opus-48 建议，三层 ADR-031 对齐）**：
 
-**修复方向（待收敛）**：
-1. hold_ball 接口层：是否需要 `waitType` 枚举（`ci` / `pr_check` / `command` / ...），显式排除 `waiting_for_user`？
-2. event + timer 共存去重：event 触发后自动取消 wakeAfterMs，或禁止两者同时存在
-3. 概念边界硬化：让 hold_ball 的 tool description / Not-for 更强力地排除"等人"场景，而非只靠传球规则
+1. **硬层（schema 闸门）**：`waitSourceRef` 从 optional 提到 wakeAfterMs 模式下 **REQUIRED**，且 `kind` enum 不得表达"等 in-Hub 人/猫回复"。"等铲屎官"无法构造合法 waitSourceRef → schema 拒绝 → 猫被逼回 `@landy`。**落地载体：PR-O3 enforcement**（不新造 waitType 枚举，复用 waitSourceRef.kind 单一真相源）
+2. **软层（概念边界，改 3 surface）**：① `callback-tools.ts` hold_ball Not-for 补"等铲屎官/另一只猫 → @landy/@cat，他们的消息会触发你，再挂 timer = 冗余第二触发源"；② `routing-guard-remedial.ts:76` "等外部条件"收紧为"等**无回调**的外部条件"；③ Phase P wakeWhen 描述回收 Not-for 边界
+3. **eval 层**：复用 PR-O2 grounding shadow 已有的 `ClaimGroundingEvent`，加 counter 追"hold_ball claimType=wait 但无 event-binding / kind 像'等人'"→ F192 weekly verdict 验证软+硬层效果
+4. **dedup（降级为保留不主修）**：`tryAutoCancelPendingHolds` 对"合法 poll 被用户消息打断"仍有用，保留；但反应式 cancel 治不了"timer 不该被挂上"的范畴错误，不作主修方向
 
 **触发来源**：铲屎官 2026-06-27 实际使用观察 → thread `thread_mqwe66e0xpxwhi9o`
+**调查 trace**：opus-48 code-trace → thread `thread_mqkasedeqeo56ayc`
 
 ## Behavioral Evidence（Phase B 观察记录）
 
