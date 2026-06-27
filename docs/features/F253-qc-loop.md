@@ -1,6 +1,6 @@
 ---
 feature_ids: [F253]
-related_features: [F217, F167, F073, F192]
+related_features: [F217, F192, F167, F073]
 topics: [quality, qc, merge-gate, review, ci, validation, telemetry, harness]
 doc_kind: spec
 created: 2026-06-25
@@ -31,13 +31,35 @@ created: 2026-06-25
 4. **不把 fresh-context pre-review 当 approval**：fresh-context 只产出 finding list，永远不产出 APPROVE/BLOCK verdict。
 5. **qc-bot 不演化为 verdict signer**：`qc-bot` 永远只是 hygiene fixer + evidence assembler。它不签 verdict、不决定 P1/P2 级别、不选 reviewer。如果 qc-bot 开始做这些——那就是 firstmate 大副制的变形，必须立刻拆回去。
 
+## Architecture Ownership
+
+Architecture cell: merge-gate (extend) + harness-eval (register new domain)
+Map delta: none — 扩展已有 cell（merge-gate + F192 eval domain），不创建新 cell
+Why: QC Loop 是两个已有 cell 的功能延伸：hygiene/evidence/gate 扩展 merge-gate；telemetry 注册 F192 eval domain。
+
+## Architecture Inventory + Reuse Audit（2026-06-26 grounding）
+
+> 铲屎官 push back："你们最好别特喵自己造一套轮子 思考架构归一能不能有！" 47 做了 ground truth 核验，4.6 补充精确归一判定。
+
+| F253 组件 | 已有基础设施 | 判定 | 论证 |
+|---|---|---|---|
+| **A1 Hygiene auto-fix** | `pnpm gate`（`scripts/pre-merge-check.sh`：biome lint+format + tsc + dir-size） | **扩展** | 加 `--auto-fix` 模式；不造 `pnpm qc:hygiene` |
+| **A2 Evidence manifest** | merge-gate Review Provenance Matrix（5 字段） | **扩展** | evidence = Provenance Matrix 超集（加 gate_passed / commands / artifacts / trigger_reason）；存在 PR 元数据层 |
+| **A2 Evidence manifest** | F192 verdict bundle（`verdict.md + bundle/`） | **❌ 不复用** | F192 bundle 是 domain-level 周期分析产物；QC evidence 是 per-PR 门禁元数据——粒度/频率/消费者不同 |
+| **A3 merge-gate 集成** | merge-gate skill（`cat-cafe-skills/merge-gate/SKILL.md`） | **扩展** | 加 evidence validation checker（同 User Journey 的 `checkUserJourneyReadiness()` pattern） |
+| **C3 QC Telemetry** | F192 eval domain registry + `cat_cafe_publish_verdict` pipeline | **复用** | 注册 `eval:qc` 新 domain；aggregate metrics 走 F192 标准 verdict publish |
+| **C3 频率** | F192 scheduler（daily/weekly/live） | **复用 weekly** | per-PR 数据自然累积，weekly cron 聚合分析即可 |
+| **QC 状态** | F167 hold_ball / verdict-hint | **无重叠** | F167 = routing layer；F253 QC = gate layer；不冲突不复用 |
+| **pre-push hook** | — | **新建** | `.git/hooks/pre-push` soft check |
+| **fresh-context** | — | **新建** | SOP/skill 层，无 infra 需求 |
+
 ## Current State / 现状基线
 
-1. **Hygiene**：`pnpm gate`（biome lint+format + tsc + dir-size check）已有但需手动调用，无 git hook 自动触发
-2. **Review**：家规"review 必须跨个体"是文化纪律（F217 KD-9），无自动化 enforcement
-3. **Evidence**：PR description 由猫手写，无结构化 evidence manifest
+1. **Hygiene**：`pnpm gate`（biome lint+format + tsc + dir-size check）已有但需手动调用，无 git hook 自动触发，无 auto-fix 模式
+2. **Review**：家规"review 必须跨个体"是文化纪律（F217 KD-9），无自动化 enforcement。merge-gate 已有 Review Provenance Matrix（5 字段追踪 review SHA 覆盖）
+3. **Evidence**：PR description 由猫手写，无结构化 evidence manifest。merge-gate 的 Provenance Matrix 是最接近的半结构化追踪
 4. **CI**：私有仓砍掉 self-hosted CI（F217 铲屎官 cost-benefit 裁决），gate 靠本地 `pnpm gate`
-5. **Telemetry**：无 QC 指标追踪（finding yield、false positive rate、reviewer delta、post-merge bug rate）
+5. **Telemetry**：无 QC 指标追踪。F192 Eval Hub 有 7 个 live eval domain（a2a / memory / capability-wakeup / task-outcome / sop / anchor-first / capability-tips），但无代码质量门禁 domain
 6. **Fresh-context pre-review**：无。reviewer 直接看 PR，认知负荷高
 
 ## What
@@ -129,51 +151,55 @@ qc.idle
 | **跨 thread handoff** | Step ④（evidence manifest） | 接球方需要知道 QC 状态 |
 | **低风险 doc polish / typo** | Step ① only（或跳过） | 完整 QC 是 alarm fatigue 源 |
 
-### Phase A: Local QC Pipeline（`pnpm qc`）
+### Phase A: Local QC Pipeline（扩展现有 gate + merge-gate）
 
-本地 git-triggered 质量管线，**不配 self-hosted CI**（F217 铲屎官裁决）：
+本地 git-triggered 质量管线，**不配 self-hosted CI**（F217 铲屎官裁决）。基于 Architecture Inventory，A1/A2/A3 全部**扩展已有基础设施**，不新建命令或框架。
 
-**A1. Hygiene Auto-Fix（allowlist 策略）**
+**A1. Hygiene Auto-Fix（扩展 `pnpm gate`）**
 
 ```bash
-pnpm qc:hygiene
+pnpm gate --auto-fix
 ```
+
+> **不造 `pnpm qc:hygiene`**。`pnpm gate` 已跑 biome lint+format + tsc + dir-size（`scripts/pre-merge-check.sh`）。F253 给它加 `--auto-fix` 模式：
 
 - **Allowlist not blocklist**（宪宪设计）：只 auto-fix 白名单内的确定性操作（biome format、import sort、trailing whitespace）；白名单外的 finding 报告但不自动修改
 - auto-fix 后自动 `git add` 受影响文件 + auto-commit（签名 `[qc-bot]`，commit message 含 fix 清单）
-- 白名单定义在 `qc.config.json`（或 `package.json` 的 `qc` 字段）
+- 白名单定义在 `package.json` 的 `gate.autoFixAllowlist` 字段
+- `--auto-fix` 不改变 gate 的已有行为——不带 flag 时完全向后兼容
 
-**A2. Evidence Manifest 生成**
+**A2. Evidence Manifest（扩展 merge-gate Review Provenance Matrix）**
 
-每个 PR 自动生成结构化 evidence 块：
+> **不造 `pnpm qc:evidence`**。merge-gate 已有 Review Provenance Matrix（5 字段：localPeerReviewSha / cloudReviewSha / currentHead / headChangeCause / nextGateOwner）。F253 把它**超集化**为 evidence manifest：
 
 ```json
 {
   "head": "abc1234",
+  "localPeerReviewSha": "abc1234",
+  "cloudReviewSha": "def5678",
+  "headChangeCause": "local-gate",
+  "nextGateOwner": "cloud",
   "gate_passed": true,
-  "gate_commands": ["pnpm gate", "pnpm test:affected"],
-  "artifacts": ["test-report.json", "coverage-summary"],
-  "dogfood": "alpha:start / browser-preview 截图（如适用）",
-  "reviewer": null,
-  "review_head": null,
+  "gate_commands": ["pnpm gate"],
   "trigger_reason": "shared/ changed — full QC",
   "stale": false,
-  "verdict": "pending",
-  "next_owner": "reviewer:@codex"
+  "verdict": "pending"
 }
 ```
 
-- `pnpm qc:evidence` 生成并输出到 PR description 模板
-- merge-gate 可机器读取 evidence 块验证 HEAD 一致性
-- `stale` 字段在 HEAD 变化后自动 flip，`verdict` 回退到 `pending`
+- Evidence manifest 是 merge-gate Step 7 执行时**自动从 PR metadata + gate 输出**组装的，不是独立命令
+- 存储：merge-gate 在 PR description 的机器可读段 + merge-gate skill 内部追踪
+- `stale` 字段在 HEAD 变化后自动 flip，verdict 回退到 `pending`
+- **不走 F192 verdict bundle**——per-PR 门禁元数据和 F192 周期性 domain 分析是不同粒度/频率/消费者
 
-**A3. merge-gate 集成**
+**A3. merge-gate 集成（扩展 merge-gate skill）**
 
-`merge-gate` skill 增加 evidence manifest 检查：
+在 `merge-gate` skill 现有流程中加一个 **evidence validation checker**（同 User Journey thread 的 `checkUserJourneyReadiness()` pattern）：
+
 - evidence.head === PR current HEAD（防 stale evidence）
 - evidence.stale === false（stale invalidation 已闭合）
-- evidence.reviewer + evidence.review_head 闭合（有 reviewer sign-off 且 cover final HEAD）
-- evidence.verdict === "passed"
+- evidence 的 reviewer provenance 闭合（localPeerReviewSha 或 cloudReviewSha cover final HEAD）
+- evidence.verdict !== "blocked"
 - gate_passed === true
 
 ### Phase B: Fresh-Context Pre-Review（可选）
@@ -222,7 +248,9 @@ CI 红灯时的自动化修复尝试（仅 allowlist 内的确定性修复）：
 - 确定性修复：lint fix / type error fix（只限 auto-import 级别）
 - 非确定性修复（逻辑 bug / test failure）：不自动修，直接 escalate
 
-**C3. QC Telemetry**
+**C3. QC Telemetry（注册 F192 eval domain `eval:qc`）**
+
+> **不自建存储——走 F192 Eval Hub 控制面**。注册 `eval:qc` 为 F192 第 8 个 eval domain，aggregate metrics 通过 `cat_cafe_publish_verdict` 标准管线发布。
 
 4 个核心指标（宪宪 + 砚砚共同确认）：
 
@@ -233,8 +261,9 @@ CI 红灯时的自动化修复尝试（仅 allowlist 内的确定性修复）：
 | **Reviewer Delta** | 正式 reviewer 额外发现 vs fresh-context 已发现 | cross-model 价值量化 |
 | **Post-Merge Bug Rate** | merge 后 N 天内因该 PR 产生的 hotfix 数 | 漏网率 |
 
-- 数据收集点：review 完成时记 finding count，merge 后 14 天窗口记 hotfix 关联
-- 存储：`docs/qc-telemetry/` 或 memory system（TBD in OQ-1）
+- **per-PR 数据收集**：review 完成时记 finding count，merge 后 14 天窗口记 hotfix 关联——数据自然累积在 PR metadata / memory
+- **aggregate 分析**：`eval:qc` domain 用 weekly cron 聚合 per-PR 数据，eval cat 产出趋势 verdict（"finding yield 下降 → 审视 QC 是否产出真信号"），走 F192 标准 verdict → handoff → re-eval 闭环
+- **Eval Hub 可见**：QC 趋势在 Eval Hub 与其他 domain（a2a / memory / sop 等）并列展示
 
 ## F167 集成契约
 
@@ -255,12 +284,12 @@ F253 **消费** F167 的 hold_ball / review-feedback / merge-gate 事件，**产
 
 <!-- 立项愿景硬度自检（F216→F219）：每条 AC 必须 ① trace 回 Why 的某诉求 ② 非作者可复核（命令/数字/截图）。 -->
 
-### Phase A（Local QC Pipeline）
+### Phase A（Local QC Pipeline — 扩展 gate + merge-gate）
 
-- [ ] AC-A1: `pnpm qc:hygiene` 命令存在，执行 allowlist 内的 auto-fix 并报告 finding 清单（验证：运行命令观察输出）
-- [ ] AC-A2: hygiene auto-fix 白名单定义在配置文件中，非白名单 finding 只报告不修改（验证：配置文件存在 + 非白名单 lint error 不被 auto-fix）
-- [ ] AC-A3: `pnpm qc:evidence` 生成结构化 evidence manifest（JSON），含 head/gate_passed/commands/artifacts/trigger_reason/stale/verdict/next_owner 字段（验证：运行命令检查输出 JSON schema）
-- [ ] AC-A4: `merge-gate` skill 能读取 evidence manifest 并验证 head === PR current HEAD + stale === false + reviewer provenance 闭合（验证：构造 stale evidence 测试 merge-gate 拒绝）
+- [ ] AC-A1: `pnpm gate --auto-fix` 模式存在（扩展 `scripts/pre-merge-check.sh`），执行 allowlist 内的 auto-fix 并报告 finding 清单；不带 `--auto-fix` 时行为向后兼容（验证：运行两种模式观察输出差异）
+- [ ] AC-A2: hygiene auto-fix 白名单定义在 `package.json` 的 `gate.autoFixAllowlist` 字段中，非白名单 finding 只报告不修改（验证：配置字段存在 + 非白名单 lint error 不被 auto-fix）
+- [ ] AC-A3: merge-gate skill 组装 evidence manifest（扩展 Review Provenance Matrix），含 head/localPeerReviewSha/cloudReviewSha/headChangeCause/gate_passed/gate_commands/trigger_reason/stale/verdict 字段（验证：merge-gate 执行后 evidence manifest JSON 可机器读取）
+- [ ] AC-A4: merge-gate evidence validation checker 验证 head === PR current HEAD + stale === false + reviewer provenance 闭合 + gate_passed === true（验证：构造 stale evidence 测试 merge-gate 拒绝）
 
 ### Phase B（Fresh-Context Pre-Review）
 
@@ -271,13 +300,13 @@ F253 **消费** F167 的 hold_ball / review-feedback / merge-gate 事件，**产
 
 - [ ] AC-C1: `pre-push` soft hook 存在，提醒未跑 gate（验证：`git push` 前 hook 触发提醒）
 - [ ] AC-C2: CI repair loop 实现 same-class detection + max 2 rounds escalate（验证：模拟连续同类 CI failure，第 3 次 escalate 到猫）
-- [ ] AC-C3: QC telemetry 4 指标（finding yield / false positive / reviewer delta / post-merge bug rate）有收集 + 查询入口（验证：跑完一个完整 QC cycle 后能查到 4 个指标数据）
+- [ ] AC-C3: `eval:qc` domain 注册在 F192 eval domain registry（`docs/harness-feedback/eval-domains/eval-qc.yaml`），weekly cron 聚合 4 指标趋势，verdict 通过 `cat_cafe_publish_verdict` 发布到 Eval Hub（验证：Eval Hub 可见 QC domain verdict + 4 个指标有数据）
 
 ## 需求点 Checklist
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | "靠 QC 把废品拦住" — 自动化质量门禁 | AC-A1, AC-A2, AC-A4 | 命令行运行验证 | [ ] |
+| R1 | "靠 QC 把废品拦住" — 自动化质量门禁 | AC-A1, AC-A2, AC-A4 | `pnpm gate --auto-fix` 运行 + merge-gate evidence 验证 | [ ] |
 | R2 | "偷方法，不偷口号" — 学 no-mistakes 的 pipeline，保 Cat Café 价值观 | AC-A1~A4, AC-B1 | review spec 确认无匿名化/无授权自动化 | [ ] |
 | R3 | "就算质量好也会有问题" — 需要可度量的质量追踪 | AC-C3 | telemetry 查询 | [ ] |
 
@@ -292,10 +321,10 @@ tips_exempt: internal tooling — QC Loop 是开发工具链改进，无用户�
 
 ## Dependencies
 
-- **Related**: F217（Merge Gate Integrity — QC Loop Step ⑤ 基于 F217 的 merge-gate 扩展 evidence manifest 检查）
-- **Related**: F167（A2A Chain Quality — 见「F167 集成契约」段。F253 消费 F167 事件，产出 qc.verdict + evidence packet，不复制实现）
+- **Evolved from**: F217（Merge Gate Integrity — A1 扩展 `pnpm gate`；A2/A3 扩展 merge-gate skill 的 Review Provenance Matrix + evidence validation）
+- **Related**: F192（Socio-Technical Harness Eval — C3 QC Telemetry 注册为 `eval:qc` domain，复用 F192 verdict publish pipeline + Eval Hub。F253 是 F192 的 co-evolve consumer）
+- **Related**: F167（A2A Chain Quality — 见「F167 集成契约」段。F253 消费 F167 事件路由，不复制实现）
 - **Related**: F073（SOP Auto Guardian — QC telemetry 可接入 F073 的自动化守护）
-- **Related**: F192（Eval Hub — QC telemetry 的 eval 指标可纳入 F192 eval 框架）
 
 ## Risk
 
@@ -316,7 +345,7 @@ tips_exempt: internal tooling — QC Loop 是开发工具链改进，无用户�
 | 项 | 内容 |
 |----|------|
 | **Primary Users** | 所有猫猫（开发者 + reviewer） |
-| **Activation Signal** | 猫在 PR 流程中调用 `pnpm qc:*` 命令 / merge-gate 读取 evidence manifest |
+| **Activation Signal** | 猫在 PR 流程中调用 `pnpm gate --auto-fix` / merge-gate 组装 + 验证 evidence manifest / `eval:qc` cron 触发 |
 | **Friction Metric** | QC 流程增加的 PR-to-merge 时间（目标：增加 < 3 分钟 per PR） |
 | **Regression Fixture** | (1) hygiene auto-fix 不修改白名单外代码 (2) evidence manifest HEAD 不匹配时 merge-gate 拒绝 (3) CI repair loop 同类失败第 3 次 escalate (4) 缺 targetCats 的 QC request 被拒 (5) disabled cat soft degradation（reviewer 不可用时降级到同族其他个体） (6) reviewedSha 过期导致 stale flag flip + verdict 回退 (7) fresh-context 结果不能被 merge-gate 当 approval (8) 同类 P1 连续 3 轮触发回退到 plan/spec 层 (9) 重复事件去重（同 idempotencyKey 不重复唤醒） |
 | **Sunset Signal** | QC telemetry 连续 30 天 false positive rate > 50% → 审视 finding 策略；post-merge bug rate 无改善 → 审视 pipeline 有效性；**reviewer delta < 10% 连续 30 天** → 假设"跨模型盲点正交"被证伪，审视 Phase B 是否 sunset 或收紧触发 |
@@ -325,7 +354,7 @@ tips_exempt: internal tooling — QC Loop 是开发工具链改进，无用户�
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | QC telemetry 存储位置：docs 文件 vs memory system vs 数据库？ | ⬜ 未定 |
+| OQ-1 | ~~QC telemetry 存储位置~~ | ✅ 关闭 → KD-7（F192 eval domain） |
 | OQ-2 | fresh-context pre-review 是否对所有 PR 默认开启还是 opt-in？ | ⬜ 未定（当前设计：author opt-in，触发策略表可推荐） |
 
 ## Key Decisions
@@ -338,6 +367,9 @@ tips_exempt: internal tooling — QC Loop 是开发工具链改进，无用户�
 | KD-4 | same-class CI detection + max 2 rounds | 防止 CI repair loop 无限循环，同类错误连续 3 次必须人工介入 | 2026-06-25 |
 | KD-5 | 不配 self-hosted CI（继承 F217） | 私有仓 < 1% 违规不值 CI 成本（F217 铲屎官裁决），gate 靠本地 + 家规 | 2026-06-25 |
 | KD-6 | hygiene auto-commit 签名用 `[qc-bot]`，不用猫签名 | 猫签名 = "我对这段代码负责"；确定性工具借猫名声背书会破坏 provenance。qc-bot 是工具身份，不是猫身份。（解决原 OQ-3） | 2026-06-25 |
+| KD-7 | QC telemetry 走 F192 eval domain `eval:qc`（解决 OQ-1） | per-PR 数据自然累积→weekly cron 聚合→`cat_cafe_publish_verdict` 标准管线→Eval Hub 可见。不自建存储。铲屎官 push back "别造轮子" + 47 grounding F192 control plane 已有 7 domain live。 | 2026-06-26 |
+| KD-8 | per-PR pipeline stateless + aggregate telemetry 复用 F192 stateful storage | per-PR evidence = merge-gate 扩展（stateless 重建）；aggregate verdict = F192 eval domain（stateful 累积）。不建 daemon/Redis。 | 2026-06-26 |
+| KD-9 | 扩展 `pnpm gate --auto-fix` 不造 `pnpm qc:hygiene`；evidence manifest 扩展 merge-gate Provenance Matrix 不造 `pnpm qc:evidence` | 已有基础设施足够——`scripts/pre-merge-check.sh` 已有 hygiene 全链路，merge-gate 已有 Review Provenance Matrix 5 字段。造新命令 = 平行轮子。（铲屎官 push back + 47 Architecture Inventory） | 2026-06-26 |
 
 ## Timeline
 
@@ -347,11 +379,14 @@ tips_exempt: internal tooling — QC Loop 是开发工具链改进，无用户�
 | 2026-06-25 | GPT Pro spec-level review: 方向 APPROVE，提 8 个硬点 |
 | 2026-06-25 | Opus 4.7 final-audit: BLOCKING，12 项 spec patch（含 GPT Pro 8 点 + 4 项新发现） |
 | 2026-06-25 | Spec v2 patch：12 项全部落地 |
+| 2026-06-26 | 铲屎官 push back "别造轮子" + 47 Architecture Inventory grounding |
+| 2026-06-26 | Spec v3 patch：Architecture Inventory + Reuse Audit + KD-7/8/9（命令/存储/频率全归一到已有 infra） |
 
 ## Review Gate
 
 - Spec review R1: GPT Pro (@gpt-pro) — 方向 APPROVE + 8 个硬点 ✅ 已落地
-- Spec review R2: Opus 4.7 (@opus-47) — BLOCKING → 12 项 spec patch → 待 re-confirm
+- Spec review R2: Opus 4.7 (@opus-47) — BLOCKING → 12 项 spec patch ✅ → Design Gate review（方向 APPROVE + 4 必答项 + 1 cross-thread）→ 铲屎官 push back "别造轮子" → 47 Architecture Inventory → 宪宪 spec v3 patch
+- Design Memo: pending（Architecture Inventory 完成 → Design Memo → 砚砚 + 47 review）
 - Phase A implementation: 跨族 review
 
 ## Links
