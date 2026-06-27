@@ -8,7 +8,7 @@ created: 2026-06-25
 
 # F253: Cat Café QC Loop — 自动化质量门禁全链路
 
-> **Status**: spec | **Owner**: 宪宪 (Opus-4.6) | **Priority**: P1
+> **Status**: in-progress | **Owner**: 宪宪 (Opus-4.6) | **Priority**: P1
 
 ## Why
 
@@ -286,8 +286,8 @@ F253 **消费** F167 的 hold_ball / review-feedback / merge-gate 事件，**产
 
 ### Phase A（Local QC Pipeline — 扩展 gate + merge-gate）
 
-- [ ] AC-A1: `pnpm gate --auto-fix` 模式存在（扩展 `scripts/pre-merge-check.sh`），执行 allowlist 内的 auto-fix 并报告 finding 清单；不带 `--auto-fix` 时行为向后兼容（验证：运行两种模式观察输出差异）
-- [ ] AC-A2: hygiene auto-fix 白名单定义在 `package.json` 的 `gate.autoFixAllowlist` 字段中，非白名单 finding 只报告不修改（验证：配置字段存在 + 非白名单 lint error 不被 auto-fix）
+- [x] AC-A1: `pnpm gate --auto-fix` 模式存在（扩展 `scripts/pre-merge-check.sh`），执行 allowlist 内的 auto-fix 并报告 finding 清单；不带 `--auto-fix` 时行为向后兼容（验证：运行两种模式观察输出差异）— PR #2608 merged
+- [x] AC-A2: hygiene auto-fix 白名单定义在 `package.json` 的 `gate.autoFixAllowlist` 字段中，非白名单 finding 只报告不修改（验证：配置字段存在 + 非白名单 lint error 不被 auto-fix）— PR #2608 merged
 - [ ] AC-A3: merge-gate skill 组装 evidence manifest（扩展 Review Provenance Matrix），含 head/localPeerReviewSha/cloudReviewSha/headChangeCause/gate_passed/gate_commands/trigger_reason/stale/verdict 字段（验证：merge-gate 执行后 evidence manifest JSON 可机器读取）
 - [ ] AC-A4: merge-gate evidence validation checker 验证 head === PR current HEAD + stale === false + reviewer provenance 闭合 + gate_passed === true（验证：构造 stale evidence 测试 merge-gate 拒绝）
 
@@ -381,6 +381,7 @@ tips_exempt: internal tooling — QC Loop 是开发工具链改进，无用户�
 | 2026-06-25 | Spec v2 patch：12 项全部落地 |
 | 2026-06-26 | 铲屎官 push back "别造轮子" + 47 Architecture Inventory grounding |
 | 2026-06-26 | Spec v3 patch：Architecture Inventory + Reuse Audit + KD-7/8/9（命令/存储/频率全归一到已有 infra） |
+| 2026-06-27 | Phase A PR-A1 merged (PR #2608): `pnpm gate --auto-fix` + `gate.autoFixAllowlist` — AC-A1, AC-A2 ✅ |
 
 ## Review Gate
 
