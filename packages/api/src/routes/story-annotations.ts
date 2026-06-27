@@ -62,7 +62,9 @@ export const storyAnnotationRoutes: FastifyPluginAsync<StoryAnnotationRoutesOpti
     const body = request.body as AddAnnotationInput;
 
     if (!body || typeof body.at !== 'number' || !body.kind || !body.content || typeof body.content !== 'string') {
-      return reply.status(400).send({ error: 'invalid_input', message: 'Required: at (number), kind, content (string)' });
+      return reply
+        .status(400)
+        .send({ error: 'invalid_input', message: 'Required: at (number), kind, content (string)' });
     }
 
     if (body.kind !== 'narration' && body.kind !== 'highlight') {

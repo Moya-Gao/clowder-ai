@@ -4,7 +4,15 @@ import { describe, it } from 'node:test';
 import { buildGeneratedSopDefinitionsSource } from './lib/sop-definition-codegen.mjs';
 import { loadSopDefinitionCatalog, validateSopDefinition } from './sop-definitions.mjs';
 
-const EXPECTED_DEVELOPMENT_STAGES = ['kickoff', 'impl', 'quality_gate', 'fresh_context', 'review', 'merge', 'completion'];
+const EXPECTED_DEVELOPMENT_STAGES = [
+  'kickoff',
+  'impl',
+  'quality_gate',
+  'fresh_context',
+  'review',
+  'merge',
+  'completion',
+];
 
 const EXPECTED_PORTED_RULE_TEXTS = [
   'Feature spec 必须有 AC + 需求点 checklist',
