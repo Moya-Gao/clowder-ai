@@ -56,6 +56,8 @@ const USAGE = `usage: check-sync-public-delta-gate-cli.mjs
   [--baseline <ref>]           explicit baseline ref
   [--head-ref <ref>]            compare against this ref instead of origin/main (use 'HEAD' for sync invocations)
   [--target-owned-root <path>] repeatable; path/glob excluded from gate (e.g. preserved by Step 5c backup/restore)
+  [--override <path>:<reason>] repeatable; convert BLOCK at <path> to override-pass with <reason> recorded in provenance
+  [--cvo-approved-public-delta-overwrite] raise > 3 override alarm ceiling (CVO sign-off required in PR body)
   [--no-fetch]                 skip target git fetch
   [--output-dir <path>]        default docs/ops
   [--timestamp <iso>]          deterministic timestamp
@@ -63,7 +65,10 @@ const USAGE = `usage: check-sync-public-delta-gate-cli.mjs
 `;
 
 // Multi-value flags accumulate into arrays; everything else is single-value.
-const REPEATABLE_FLAGS = new Set(['target-owned-root']);
+const REPEATABLE_FLAGS = new Set(['target-owned-root', 'override']);
+
+// Pure boolean flags (no value).
+const BOOLEAN_FLAGS = new Set(['no-fetch', 'dry-run', 'cvo-approved-public-delta-overwrite']);
 
 function fail(exitCode, message) {
   process.stderr.write(`check-sync-public-delta-gate-cli: ${message}\n`);
@@ -77,18 +82,18 @@ function parseArgs(argv) {
   const args = {};
   for (let i = 0; i < argv.length; i += 1) {
     const flag = argv[i];
-    if (flag === '--no-fetch' || flag === '--dry-run') {
-      args[flag.slice(2)] = true;
-      continue;
-    }
     if (!flag.startsWith('--')) {
       fail(2, `unexpected positional argument: ${flag}`);
+    }
+    const key = flag.slice(2);
+    if (BOOLEAN_FLAGS.has(key)) {
+      args[key] = true;
+      continue;
     }
     const value = argv[i + 1];
     if (value === undefined || value.startsWith('--')) {
       fail(2, `flag ${flag} requires a value`);
     }
-    const key = flag.slice(2);
     if (REPEATABLE_FLAGS.has(key)) {
       if (!Array.isArray(args[key])) {
         args[key] = [];
@@ -100,6 +105,24 @@ function parseArgs(argv) {
     i += 1;
   }
   return args;
+}
+
+// `--override <path>:<reason>` → { path, reason }. AC-A4 + KD-3: empty reason → exit 2
+// (auditability). Only the first `:` separates path from reason — colons in reason OK.
+function parseOverridePair(raw) {
+  const idx = raw.indexOf(':');
+  if (idx < 0) {
+    fail(2, `--override expects <path>:<reason>, got: ${raw}`);
+  }
+  const path = raw.slice(0, idx);
+  const reason = raw.slice(idx + 1).trim();
+  if (path.length === 0) {
+    fail(2, `--override path must be non-empty: ${raw}`);
+  }
+  if (reason.length === 0) {
+    fail(2, `--override reason must be non-empty (AC-A4: all overrides need an auditable reason): ${raw}`);
+  }
+  return { path, reason };
 }
 
 function requireString(args, key) {
@@ -164,7 +187,15 @@ function detectChangeKind(baseBlob, theirsBlob) {
   return undefined;
 }
 
-function buildItems(targetRepo, baseCommit, targetHeadRef, filteredDir, sourceRepo, targetOwnedRoots = []) {
+function buildItems(
+  targetRepo,
+  baseCommit,
+  targetHeadRef,
+  filteredDir,
+  sourceRepo,
+  targetOwnedRoots = [],
+  overrideReasons = new Map(),
+) {
   const filteredAbs = resolve(filteredDir);
   const baseSet = listGitPaths(targetRepo, baseCommit);
   const theirsSet = listGitPaths(targetRepo, targetHeadRef);
@@ -198,6 +229,10 @@ function buildItems(targetRepo, baseCommit, targetHeadRef, filteredDir, sourceRe
     // signal the gate would BLOCK every real sync on the provenance file alone.
     const isGeneratedOrProvenance = isGeneratedOrProvenancePath(path);
 
+    // AC-A4 / KD-3: --override <path>:<reason> flips BLOCK → override-pass via classifier's
+    // maybeOverride(); >3 overrides flips cvoApprovalRequired, checked vs --cvo-approved.
+    const overrideReason = overrideReasons.get(path);
+
     items.push(
       classifyPublicDeltaGateItem({
         path,
@@ -207,6 +242,7 @@ function buildItems(targetRepo, baseCommit, targetHeadRef, filteredDir, sourceRe
         isTargetOwned,
         isBinary,
         isGeneratedOrProvenance,
+        overrideReason,
         changeKind: detectChangeKind(baseBlob, theirsBlob),
       }),
     );
@@ -237,6 +273,11 @@ export function runCli(argv = process.argv.slice(2)) {
 
   const targetOwnedRoots = Array.isArray(args['target-owned-root']) ? args['target-owned-root'] : [];
 
+  // AC-A4: repeatable --override <path>:<reason> → path → reason map. Non-empty reason enforced.
+  const overrideArgs = Array.isArray(args.override) ? args.override : [];
+  const overrideReasons = new Map(overrideArgs.map(parseOverridePair).map(({ path, reason }) => [path, reason]));
+  const cvoApproved = args['cvo-approved-public-delta-overwrite'] === true;
+
   let items;
   try {
     items = buildItems(
@@ -246,6 +287,7 @@ export function runCli(argv = process.argv.slice(2)) {
       filteredDir,
       sourceDir,
       targetOwnedRoots,
+      overrideReasons,
     );
   } catch (error) {
     fail(3, `delta enumeration failed: ${error.message}`);
@@ -278,10 +320,13 @@ export function runCli(argv = process.argv.slice(2)) {
     fail(3, `report write failed: ${error.message}`);
   }
 
-  const blocking = report.summary.blockCount > 0 || report.summary.cvoApprovalRequired === true;
+  // AC-A4 / KD-3: cvoApprovalRequired = (overrideCount > 3). --cvo-approved suppresses the
+  // alarm (report still records cvoApprovalRequired=true for audit; blockCount still gates).
+  const blocking = report.summary.blockCount > 0 || (report.summary.cvoApprovalRequired === true && !cvoApproved);
   process.stdout.write(
     `gate report: pass=${report.summary.passCount} block=${report.summary.blockCount} ` +
-      `override=${report.summary.overrideCount} cvoApprovalRequired=${report.summary.cvoApprovalRequired}\n`,
+      `override=${report.summary.overrideCount} cvoApprovalRequired=${report.summary.cvoApprovalRequired} ` +
+      `cvoApproved=${cvoApproved}\n`,
   );
   process.stdout.write(`json: ${written.jsonPath}\n`);
   process.stdout.write(`markdown: ${written.markdownPath}\n`);

@@ -436,7 +436,7 @@ The classifier + CLI from Task 4a should already BLOCK this case. If it doesn't,
 
 ### Task 4c: AC-A4 Override-with-Reason Flag
 
-> **Status**: deferred (2026-06-26). Current path: `--skip-delta-gate` flag + CVO sign-off documented in sync PR body. 4c upgrades to per-path override with audit trail.
+> **Status**: in-progress (2026-06-27). Per-path override-with-reason flag wired into CLI + bash; classifier `override-pass` mode reachable via operator flag; KD-3 alarm (overrideCount > 3) enforced unless `--cvo-approved-public-delta-overwrite` signed off. 6 new tests (5 override scenarios + 1 wire) bring suite to 69. Pre-merge.
 
 **Why**: Today operators only have `--skip-delta-gate` (full gate off). Per-path override with explicit reason is needed for legitimate cases like "this target delta was already absorbed via #abc but timing didn't sync up cleanly". KD-3 limits this from becoming the new bypass: > 3 overrides per sync triggers CVO approval alarm.
 

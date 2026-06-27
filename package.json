@@ -69,7 +69,7 @@
     "check:env-example": "node --test scripts/check-env-example.test.mjs",
     "check:worktree-port-offset": "node --test scripts/derive-worktree-ports.test.mjs && node scripts/check-worktree-port-offset.mjs",
     "check:sync-docs-runtime-assets": "node --test scripts/check-sync-docs-runtime-assets.test.mjs && node scripts/check-sync-docs-runtime-assets.mjs",
-    "check:sync-public-delta-gate": "node --test scripts/check-sync-public-delta-gate.test.mjs scripts/check-sync-public-delta-gate-cli.test.mjs scripts/check-sync-public-delta-gate-wire.test.mjs scripts/check-sync-public-delta-gate-replay.test.mjs",
+    "check:sync-public-delta-gate": "node --test scripts/check-sync-public-delta-gate.test.mjs scripts/check-sync-public-delta-gate-cli.test.mjs scripts/check-sync-public-delta-gate-cli-override.test.mjs scripts/check-sync-public-delta-gate-wire.test.mjs scripts/check-sync-public-delta-gate-wire-override.test.mjs scripts/check-sync-public-delta-gate-replay.test.mjs",
     "gen:env-reference": "node scripts/gen-env-reference.mjs",
     "check:features": "node scripts/check-feature-truth.mjs",
     "check:capability-tips": "node --test scripts/check-capability-tips.test.mjs && node scripts/check-capability-tips.mjs",

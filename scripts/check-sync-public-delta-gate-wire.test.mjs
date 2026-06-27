@@ -249,15 +249,15 @@ test('--skip-delta-gate gates ALL three call sites', () => {
   assert.equal(gateCalls.length, 3, 'expected exactly 3 gate call sites (prod / dry-run / validate)');
 
   for (const callIdx of gateCalls) {
-    // Look backward up to 15 lines for SKIP_DELTA_GATE check
+    // Look backward up to 25 lines for SKIP_DELTA_GATE check (T4c expanded the prelude).
     let found = false;
-    for (let i = callIdx - 1; i >= Math.max(0, callIdx - 15); i -= 1) {
+    for (let i = callIdx - 1; i >= Math.max(0, callIdx - 25); i -= 1) {
       if (LINES[i].includes('SKIP_DELTA_GATE')) {
         found = true;
         break;
       }
     }
-    assert.ok(found, `gate call at line ${callIdx + 1} must be guarded by SKIP_DELTA_GATE check within 15 lines`);
+    assert.ok(found, `gate call at line ${callIdx + 1} must be guarded by SKIP_DELTA_GATE check within 25 lines`);
   }
 });
 
@@ -310,9 +310,9 @@ test('dry-run gate forwards target-owned roots (parity with production)', () => 
   );
   assert.ok(dryRunGate > 0, 'expected gate call in dry-run branch');
 
-  // Look backward up to 15 lines for the DELTA_GATE_TARGET_OWNED_ARGS array build
+  // Look backward up to 25 lines for DELTA_GATE_TARGET_OWNED_ARGS build (T4c expanded the prelude).
   let argsBuilt = false;
-  for (let i = dryRunGate - 1; i >= Math.max(0, dryRunGate - 15); i -= 1) {
+  for (let i = dryRunGate - 1; i >= Math.max(0, dryRunGate - 25); i -= 1) {
     if (LINES[i].includes('DELTA_GATE_TARGET_OWNED_ARGS+=')) {
       argsBuilt = true;
       break;
@@ -320,7 +320,7 @@ test('dry-run gate forwards target-owned roots (parity with production)', () => 
   }
   assert.ok(
     argsBuilt,
-    'dry-run gate must build DELTA_GATE_TARGET_OWNED_ARGS array (loop over TARGET_OWNED) within 15 lines before the gate call',
+    'dry-run gate must build DELTA_GATE_TARGET_OWNED_ARGS array (loop over TARGET_OWNED) within 25 lines before the gate call',
   );
 
   // The gate call itself must reference the args array

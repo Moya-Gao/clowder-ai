@@ -374,10 +374,33 @@ require_release_source_commit_on_main() {
 }
 
 # ── 参数 ──────────────────────────────────────────────────────
+# F251 Task 4c R3 (§16e failure-mode audit, opus48 cross-review):
+# Shared validation for both `--override=val` (equals-form) and `--override val` (split-form).
+# Rejects option-looking values (`--something`) so they cannot silently swallow subsequent
+# flags. Single source of truth for the guard — applied at every override entry point to
+# eliminate the same-type vulnerability that surfaced once per form.
+#
+# Exploit context: module syncs skip the delta gate, so a malformed override is never
+# rejected downstream by the Node CLI. Without this guard, `--module=docs --override=--dry-run
+# --yes` would capture `--dry-run` as override data, leaving DRY_RUN=false and proceeding
+# with a real rsync against clowder-ai. Fail-closed at parse time.
+reject_option_looking_override_value() {
+  case "$1" in
+    --*)
+      echo -e "\033[31m✗ --override expected a <path>:<reason> value but got '$1' (looks like another flag — use --override <path>:<reason> or --override=<path>:<reason>)\033[0m" >&2
+      exit 1
+      ;;
+  esac
+}
+
 DRY_RUN=false
 VALIDATE=false
 SKIP_VALIDATE=false
 SKIP_DELTA_GATE=false
+# F251 Task 4c: --override <path>:<reason> repeatable, forwarded to all 3 gate sites.
+# --cvo-approved-public-delta-overwrite suppresses the > 3 override CVO alarm (KD-3).
+DELTA_GATE_OVERRIDES=()
+DELTA_GATE_CVO_APPROVED=false
 FAST_VALIDATE=false
 AUTO_YES=false
 FORCE_OVERWRITE=false
@@ -386,12 +409,32 @@ CO_AUTHORS=()
 CAT_SIG=""
 RELEASE_TAG=""
 SOURCE_SNAPSHOT_TAG=""
+# F251 Task 4c: support both `--override=path:reason` (matches the script's other valued
+# flags like --module=) and `--override path:reason` (matches the Node CLI's split form,
+# what AC-A4 docs print). PENDING_OVERRIDE_VALUE is true after a bare `--override`; the
+# next iteration consumes the value into DELTA_GATE_OVERRIDES.
+PENDING_OVERRIDE_VALUE=false
 for arg in "$@"; do
+  if [ "$PENDING_OVERRIDE_VALUE" = true ]; then
+    # R1 cloud P1 #3485225646 + R2 cloud P2 #3485236801 §16e audit:
+    # Both split-form (this branch) and equals-form (case below) go through the SAME guard.
+    reject_option_looking_override_value "$arg"
+    DELTA_GATE_OVERRIDES+=("$arg")
+    PENDING_OVERRIDE_VALUE=false
+    continue
+  fi
   case "$arg" in
     --dry-run) DRY_RUN=true ;;
     --validate) VALIDATE=true ;;
     --skip-validate) SKIP_VALIDATE=true ;;
     --skip-delta-gate) SKIP_DELTA_GATE=true ;;
+    --override=*)
+      override_value="${arg#--override=}"
+      reject_option_looking_override_value "$override_value"
+      DELTA_GATE_OVERRIDES+=("$override_value")
+      ;;
+    --override) PENDING_OVERRIDE_VALUE=true ;;
+    --cvo-approved-public-delta-overwrite) DELTA_GATE_CVO_APPROVED=true ;;
     --fast-validate) FAST_VALIDATE=true ;;
     --yes|-y) AUTO_YES=true ;;
     --force-overwrite) FORCE_OVERWRITE=true ;;
@@ -401,6 +444,14 @@ for arg in "$@"; do
     --release-tag=*) RELEASE_TAG="${arg#--release-tag=}" ;;
   esac
 done
+
+# F251 Task 4c: catch `--override` with no following value (operator typo / last-arg drop).
+# Without this, a bare trailing `--override` would silently drop the override → BLOCK
+# would still hold (fail-closed) but operator UX would be confusing.
+if [ "$PENDING_OVERRIDE_VALUE" = true ]; then
+  echo -e "\033[31m✗ --override requires a <path>:<reason> value (use --override <path>:<reason> or --override=<path>:<reason>)\033[0m" >&2
+  exit 1
+fi
 
 # ── 模块定义（P2 modular sync）──────────────────────────────
 # Each module owns mutually exclusive roots → per-module rsync --delete is safe
@@ -1966,6 +2017,15 @@ if [ "$VALIDATE" = true ]; then
     echo "  Public delta preservation gate (F251, validate mode)..."
     DELTA_GATE_OUTPUT_DIR="$SOURCE_DIR/docs/ops"
     mkdir -p "$DELTA_GATE_OUTPUT_DIR"
+    # F251 Task 4c: forward --override and --cvo-approved to validate gate too
+    # so the operator can preview override semantics in the dry-run report.
+    DELTA_GATE_OVERRIDE_ARGS=()
+    for ovr in "${DELTA_GATE_OVERRIDES[@]}"; do
+      DELTA_GATE_OVERRIDE_ARGS+=(--override "$ovr")
+    done
+    if [ "$DELTA_GATE_CVO_APPROVED" = true ]; then
+      DELTA_GATE_OVERRIDE_ARGS+=(--cvo-approved-public-delta-overwrite)
+    fi
     node "$SOURCE_DIR/scripts/check-sync-public-delta-gate-cli.mjs" \
       --target-dir "$TARGET_DIR" \
       --filtered-dir "$VALIDATION_TARGET_DIR" \
@@ -1973,6 +2033,7 @@ if [ "$VALIDATE" = true ]; then
       --sync-module "$SYNC_MODULE" \
       --head-ref HEAD \
       --output-dir "$DELTA_GATE_OUTPUT_DIR" \
+      "${DELTA_GATE_OVERRIDE_ARGS[@]}" \
       --dry-run
   fi
 
@@ -2008,6 +2069,14 @@ if [ "$DRY_RUN" = true ]; then
     for owned in "${TARGET_OWNED[@]}"; do
       DELTA_GATE_TARGET_OWNED_ARGS+=(--target-owned-root "$owned")
     done
+    # F251 Task 4c: forward override + cvo-approved into dry-run too so preview report matches prod.
+    DELTA_GATE_OVERRIDE_ARGS=()
+    for ovr in "${DELTA_GATE_OVERRIDES[@]}"; do
+      DELTA_GATE_OVERRIDE_ARGS+=(--override "$ovr")
+    done
+    if [ "$DELTA_GATE_CVO_APPROVED" = true ]; then
+      DELTA_GATE_OVERRIDE_ARGS+=(--cvo-approved-public-delta-overwrite)
+    fi
     node "$SOURCE_DIR/scripts/check-sync-public-delta-gate-cli.mjs" \
       --target-dir "$TARGET_DIR" \
       --filtered-dir "$FILTERED_DIR" \
@@ -2016,6 +2085,7 @@ if [ "$DRY_RUN" = true ]; then
       --head-ref HEAD \
       --output-dir "$DELTA_GATE_OUTPUT_DIR" \
       "${DELTA_GATE_TARGET_OWNED_ARGS[@]}" \
+      "${DELTA_GATE_OVERRIDE_ARGS[@]}" \
       --dry-run
   fi
   echo ""
@@ -2156,6 +2226,16 @@ else
   for owned in "${TARGET_OWNED[@]}"; do
     DELTA_GATE_TARGET_OWNED_ARGS+=(--target-owned-root "$owned")
   done
+  # F251 Task 4c: forward per-path overrides + CVO approval flag to the production gate.
+  # > 3 overrides without --cvo-approved-* fails closed (KD-3 alarm). All overrides are
+  # recorded in the report's per-item rows + summary.overrideCount.
+  DELTA_GATE_OVERRIDE_ARGS=()
+  for ovr in "${DELTA_GATE_OVERRIDES[@]}"; do
+    DELTA_GATE_OVERRIDE_ARGS+=(--override "$ovr")
+  done
+  if [ "$DELTA_GATE_CVO_APPROVED" = true ]; then
+    DELTA_GATE_OVERRIDE_ARGS+=(--cvo-approved-public-delta-overwrite)
+  fi
   if ! node "$SOURCE_DIR/scripts/check-sync-public-delta-gate-cli.mjs" \
     --target-dir "$TARGET_DIR" \
     --filtered-dir "$FILTERED_DIR" \
@@ -2163,7 +2243,8 @@ else
     --sync-module "$SYNC_MODULE" \
     --head-ref HEAD \
     --output-dir "$DELTA_GATE_OUTPUT_DIR" \
-    "${DELTA_GATE_TARGET_OWNED_ARGS[@]}"; then
+    "${DELTA_GATE_TARGET_OWNED_ARGS[@]}" \
+    "${DELTA_GATE_OVERRIDE_ARGS[@]}"; then
     echo -e "  ${RED}✗ Public delta preservation gate BLOCKED — real target was not touched${NC}"
     echo -e "  ${RED}   See report in $DELTA_GATE_OUTPUT_DIR${NC}"
     exit 1
