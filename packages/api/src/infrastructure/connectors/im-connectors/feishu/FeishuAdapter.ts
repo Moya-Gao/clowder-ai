@@ -600,6 +600,74 @@ export class FeishuAdapter implements IStreamableOutboundAdapter {
     }
   }
 
+  /**
+   * Fallback: resolve sender name from the chat members API.
+   * Works even when Contact API returns 41050 (user not in app's contact scope).
+   * Uses the same senderNameCache as resolveSenderName().
+   */
+  async resolveSenderNameFromChat(openId: string, chatId: string): Promise<string | undefined> {
+    // Check cache first (shared with resolveSenderName)
+    const cached = this.senderNameCache.get(openId);
+    if (cached && cached.expiresAt > Date.now()) return cached.name;
+
+    const token = await this.tokenManager?.getTenantAccessToken();
+    if (!token) return undefined;
+    try {
+      const fetchFn = this.uploadFetchFn ?? globalThis.fetch;
+      let pageToken: string | undefined;
+
+      // Paginate through all members (page_size=50 per request)
+      do {
+        const url = new URL(`https://open.feishu.cn/open-apis/im/v1/chats/${chatId}/members`);
+        url.searchParams.set('member_id_type', 'open_id');
+        url.searchParams.set('page_size', '50');
+        if (pageToken) url.searchParams.set('page_token', pageToken);
+
+        const res = await fetchFn(url.toString(), {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) {
+          this.log.warn(
+            { chatId, status: res.status },
+            '[FeishuAdapter] resolveSenderNameFromChat: chat members API failed',
+          );
+          return undefined;
+        }
+        const data = (await res.json()) as {
+          data?: {
+            items?: Array<{ member_id?: string; name?: string }>;
+            has_more?: boolean;
+            page_token?: string;
+          };
+        };
+        const members = data?.data?.items;
+        if (!members) return undefined;
+
+        // Cache ALL members from this page (amortize the API call)
+        for (const m of members) {
+          if (m.member_id && m.name) {
+            this.senderNameCache.set(m.member_id, {
+              name: m.name,
+              expiresAt: Date.now() + FeishuAdapter.CACHE_TTL_MS,
+            });
+          }
+        }
+
+        // If target found in cache, return immediately — skip remaining pages
+        const found = this.senderNameCache.get(openId);
+        if (found) return found.name;
+
+        pageToken = data?.data?.has_more ? data.data.page_token : undefined;
+      } while (pageToken);
+
+      // Exhausted all pages without finding target
+      return undefined;
+    } catch (err) {
+      this.log.warn({ chatId, openId, err }, '[FeishuAdapter] resolveSenderNameFromChat threw');
+      return undefined;
+    }
+  }
+
   async resolveChatName(chatId: string): Promise<string | undefined> {
     const cached = this.chatNameCache.get(chatId);
     if (cached && cached.expiresAt > Date.now()) return cached.name;

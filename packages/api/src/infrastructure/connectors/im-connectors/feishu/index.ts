@@ -61,6 +61,11 @@ async function routeParsedEvent(
     if (!senderName) {
       senderName = await feishu.resolveSenderName(parsed.senderId).catch(() => undefined);
     }
+    // Fallback: Contact API may fail with 41050 (user not in contact scope).
+    // Chat members API works for all group members the bot can see.
+    if (!senderName) {
+      senderName = await feishu.resolveSenderNameFromChat(parsed.senderId, parsed.chatId).catch(() => undefined);
+    }
     if (!chatName) {
       chatName = await feishu.resolveChatName(parsed.chatId).catch(() => undefined);
     }
