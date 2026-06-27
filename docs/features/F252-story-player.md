@@ -452,6 +452,7 @@ tips_exempt: "Tip planned for Phase D sharing feature — Phase A is infrastruct
 | 2026-06-27 | 烁烁 (@gemini) 提出"猫猫大剧院 (Meow Theater)" 设计 spec。**CVO 确认核心思路**（Hub 融入 + 分屏 + 子弹时间 + 客串卡片） + 视觉铁律"100% 平时的样子 + 特效" |
 | 2026-06-27 | **Phase E 立项**：前端重做 — Meow Theater MVP。Status reopened: done → in-progress |
 | 2026-06-27 | **Phase E PR E-1 merged** (PR #2605, `e987eb812`). Hub Theater Overlay 核心基础层: TheaterOverlay portal + ReplayMessageList (Hub-native) + thread-replay-fetcher (session-scoped composite key) + ThreadItem "回放剧场" 入口. 171/171 tests. Cloud R1-R5 (5 rounds, 封板); gpt52 local final SHA APPROVED. AC-E1 基础结构 ✅, AC-E2 基础结构 ✅; Spotlight/Dim/子弹时间/分屏/客串卡片 留 PR E-2 |
+| 2026-06-27 | **Sonnet alpha 验收 PR E-1**（7/8 browser + 1 code-verified）。AC-1✅ 入口可见；AC-2✅ 全屏 overlay+backdrop-blur；AC-3✅ 播控（1×10×50×100× MAX Adaptive Cinematic）；AC-4✅ Hub-native 气泡；AC-5✅ --msg-hue/--msg-chroma token；AC-6✅ displayMode 切换；AC-7(AC-E2)✅ code-verified（mergeSessionEvents() timestamp排序+re-index，env 无 ≥2 sealed 可访问 thread 限制浏览器测试）；AC-E0✅ code-verified（effOffset()=events[i].t-events[0].t 永不为负，fetchSessionEvents()分页全量，alpha env 无 ≥50 event session 可访问，1-event session 渲染正确 0:00/0:00）。**综合结论：PASS — P0 bug 由重写根本修复。** |
 
 ## Review Gate
 
