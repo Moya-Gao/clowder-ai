@@ -10,6 +10,7 @@
 import type { Chapter } from '@/lib/story-player/chapters';
 import type { DensityBucket } from '@/lib/story-player/event-density';
 import type { ReplayEngineState, SpeedMultiplier } from '@/lib/story-player/types';
+import { ChapterBadge } from './ChapterBadge';
 import { EventDensityBar } from './EventDensityBar';
 
 // ---------------------------------------------------------------------------
@@ -100,6 +101,11 @@ export function ReplayControls({
   onToggleDisplayMode,
   onToggleAdaptivePacing,
 }: ReplayControlsProps) {
+  // Derive baseline timestamp from earliest chapter (not session_start specifically,
+  // because deduplication may remove it when a higher-priority kind shares eventIndex 0,
+  // e.g., pass_ball priority 4 > session_start priority 1).
+  const sessionStartTs = chapters[0]?.timestamp ?? 0;
+
   const progress =
     engine.totalEvents > 1
       ? (engine.currentIndex / (engine.totalEvents - 1)) * 100
@@ -178,46 +184,22 @@ export function ReplayControls({
         />
         {/* AC-E7: Event density heatmap — on top of fill, visible everywhere (P2 review fix) */}
         <EventDensityBar buckets={densityBuckets} progress={progress} />
-        {/* AC-B2: Chapter markers on progress bar */}
+        {/* AC-B2 + AC-E7: Chapter milestone badges on progress bar */}
         {chapters
           .filter((ch) => ch.kind !== 'session_start' && ch.kind !== 'session_end')
           .map((ch) => {
             const pct = engine.totalEvents > 1 ? (ch.eventIndex / (engine.totalEvents - 1)) * 100 : 0;
             return (
-              <button
-                type="button"
+              <ChapterBadge
                 key={`ch-${ch.eventIndex}`}
-                title={`${chapterIcon(ch.kind)} ${ch.label}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSeek(ch.eventIndex);
-                }}
-                style={{
-                  position: 'absolute',
-                  left: `${pct}%`,
-                  top: '-4px',
-                  width: '8px',
-                  height: '14px',
-                  transform: 'translateX(-50%)',
-                  background:
-                    ch.eventIndex <= engine.currentIndex
-                      ? 'var(--color-accent, #6366f1)'
-                      : 'var(--color-text-secondary, #888)',
-                  border: 'none',
-                  borderRadius: '2px',
-                  cursor: 'pointer',
-                  zIndex: 3,
-                  opacity: 0.8,
-                  fontSize: 'var(--console-font-label)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: 0,
-                  color: 'inherit',
-                }}
-              >
-                <span style={{ pointerEvents: 'none' }}>{chapterIcon(ch.kind)}</span>
-              </button>
+                kind={ch.kind}
+                label={`${chapterIcon(ch.kind)} ${ch.label}`}
+                icon={chapterIcon(ch.kind)}
+                position={pct}
+                isPast={ch.eventIndex <= engine.currentIndex}
+                relativeTime={formatDuration(ch.timestamp - sessionStartTs)}
+                onClick={() => onSeek(ch.eventIndex)}
+              />
             );
           })}
         {/* Fill — z:1 so density heatmap (z:2) overlays it */}
