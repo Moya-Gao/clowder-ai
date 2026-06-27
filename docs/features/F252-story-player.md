@@ -381,7 +381,7 @@ tips_exempt: "Tip planned for Phase D sharing feature — Phase A is infrastruct
 - 测试：171/171 全绿（+22 新）；5 cloud review rounds（R1-R5）；封板后 gpt52 local final SHA APPROVED
 
 **PR E-2 及后续** — 以下 AC 留下一个 PR：
-- [ ] AC-E0: 修复回放 P0 bug——409 事件不渲染 + 时间显示 "-49:-9"（trace Why「基础功能不工作」；复核：选 ≥50 event session 回放，消息正常逐条出现 + 时间显示正确）
+- [x] AC-E0: 修复回放 P0 bug——409 事件不渲染 + 时间显示 "-49:-9"（trace Why「基础功能不工作」；复核：选 ≥50 event session 回放，消息正常逐条出现 + 时间显示正确）**[PR E-1 ✅ 重写根本修复：effOffset()=events[i].t-events[0].t 永不为负 + fetchSessionEvents()分页全量。Sonnet alpha code-verified]**
 - [ ] AC-E1: Story Player 改为 Hub Theater Overlay（全屏 Drawer + 毛玻璃遮罩），不再是独立 `/story/[storyId]` 页面。回放内容直接复用 Hub 现有聊天气泡、工具卡片组件（trace Why「100% 平时的样子」；复核：回放时 Hub 侧边栏半透明可见，消息气泡与正常 Hub 外观一致）**[PR E-1 ✅ TheaterOverlay + MessageBubble 复用完成；独立页面 sunset 留 E-2]**
 - [ ] AC-E2: Thread 级回放——同一 thread 下所有 session 按时间串联，入口从 Thread 列表直接触发（trace Why「谁要看一个 sealed session」；复核：选 ≥2 session 的 thread 回放，验证 session 间无缝衔接）**[PR E-1 ✅ 基础架构完成；alpha 验收待 E-2]**
 - [ ] AC-E3: Spotlight + Dim——活跃 Thread 聚光灯高亮 + 光晕，非活跃 Thread 毛玻璃虚化（trace Why「让观众知道看哪里」；复核：多 thread 回放时只有活跃 thread 清晰）
