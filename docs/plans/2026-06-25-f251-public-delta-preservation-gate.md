@@ -368,7 +368,7 @@ The sync script may also pass temp output paths to avoid polluting `docs/ops` du
 
 ### Task 4b: AC-A5 Historical Replay Fixture
 
-> **Status**: in-progress (2026-06-26). **THIS is V1 anti-placebo ship gate** — until Task 4b BLOCKS the real `clowder-ai#720` byte-state, V1 cannot claim it would have stopped the original incident. KD-5 / KD-6 / Risk row "历史回归 fixture 不能 catch 真实事故 = 安慰剂 gate".
+> **Status**: ✅ merged via PR #2601 (squash `d865b4472`) on 2026-06-27. Frozen 3-way byte-state fixture from real `clowder-ai#723` audit (`89cc0f220` squash commit) replay test PASSES via Task 4a CLI offline. 20/23 paths BLOCK + 3 P1 spot-checks. AC-A5 LIVE. Wired into `pnpm check` via `check:sync-public-delta-gate` (KD-10); stripped from public export. Review chain: 砚砚 R0/R2/R3 + opus48 final-SHA audit + cloud R0–R3 (R1 P2 fixture byte SHA validation + R2 P2 clear-before-extract; R3 clean). **F251 V1 anti-placebo gate sealed.**
 
 **Why**: Task 4a uses a synthetic `target-revert` scenario (`packages/api/example.ts` toy). It proves the BLOCK *shape* (3-way blob comparison → fail-closed when `ours == base != theirs`). It does **not** prove the gate would have caught the actual production regression. Operator pain ("不下十次了") demands a real-incident replay.
 
