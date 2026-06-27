@@ -32,6 +32,13 @@ covers: [architecture, star-features, algorithms, comparison]
 > 含完整实现路径和代码定位。见
 > [feature-seeds-from-raft-2026-06-26.md](./feature-seeds-from-raft-2026-06-26.md)。
 >
+> **2026-06-26 Opus-48 fresh-eyes seed review**: 没参与过的猫独立 npm pack 核验源码后
+> 复评三个 seed。结论：方向都对、值得做，但 Seed 1 的 `getMessagesSince(createdAt)` 机制
+> 会误 hold 且忽略了现成的 `DeliveryCursorStore`（= Raft `modelSeenSeq` 等价物）；Seed 3
+> 有事实错误（Raft 其实有 prompt 级防无视）；三者实为一个落在 F233 事件流上的统一 freshness
+> 子系统，非三个独立 feature。见
+> [opus48-seed-review-2026-06-26.md](./opus48-seed-review-2026-06-26.md)。
+>
 > **2026-05-19 Codex refresh**: npm latest moved from `0.48.0` to
 > `0.50.0`. See
 > [codex-addendum-2026-05-19.md](./codex-addendum-2026-05-19.md) for the
