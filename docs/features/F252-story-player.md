@@ -397,7 +397,7 @@ tips_exempt: "Tip planned for Phase D sharing feature — Phase A is infrastruct
 - [x] AC-E4: 子弹时间——传球事件触发平滑降速 100x→1x→0.5x + 因果弧线动画（CSS），降速后自动回升（trace Why「看清每次球权转移」；复核：含 @mention 的回放验证降速 + 弧线动画）**[PR E-2 ✅ 引擎层 smooth easing 完成（三段式 decel/hold/accel，22 tests）；CSS 弧线动画留后续]**
 - [ ] AC-E5: 多机位分屏——单 Thread 独占中央，双 Thread 50/50 分屏，多 Thread 主+侧边缩微（trace Why「多猫同时干活」；复核：Feature 回放验证布局随 Thread 数动态切换）
 - [ ] AC-E6: 客串卡片——跨 Feature 因果传球时虚线金边卡片 slide-in，互动结束 2s 淡出（trace Why「跨 Feature 依赖感知」；复核：含 cross-feature cross-post 的回放验证卡片出现+淡出）
-- [x] AC-E7: 时间轴热力图 + 章节锚点——事件密度可视化 + F233 投影的 milestone badges 可点击 seek（trace Why「哪里有猫猫大混战一目了然」；复核：进度条显示密度变化，hover 锚点显示摘要）**[PR E-2 ✅ 热力图密度计算 + EventDensityBar 叠层完成（index-aligned rate bucketing，12 tests）；milestone badges 留后续]**
+- [x] AC-E7: 时间轴热力图 + 章节锚点——事件密度可视化 + F233 投影的 milestone badges 可点击 seek（trace Why「哪里有猫猫大混战一目了然」；复核：进度条显示密度变化，hover 锚点显示摘要）**[PR E-2 ✅ 热力图密度计算 + EventDensityBar 叠层完成；PR E-3 ✅ ChapterBadge milestone badges（kind-differentiated styling + hover tooltip with actual timestamp）]**
 
 ## Dependencies
 
@@ -463,6 +463,7 @@ tips_exempt: "Tip planned for Phase D sharing feature — Phase A is infrastruct
 | 2026-06-27 | **Phase E PR E-1 merged** (PR #2605, `e987eb812`). Hub Theater Overlay 核心基础层: TheaterOverlay portal + ReplayMessageList (Hub-native) + thread-replay-fetcher (session-scoped composite key) + ThreadItem "回放剧场" 入口. 171/171 tests. Cloud R1-R5 (5 rounds, 封板); gpt52 local final SHA APPROVED. AC-E1 基础结构 ✅, AC-E2 基础结构 ✅; Spotlight/Dim/子弹时间/分屏/客串卡片 留 PR E-2 |
 | 2026-06-27 | **Sonnet alpha 验收 PR E-1**（7/8 browser + 1 code-verified）。AC-1✅ 入口可见；AC-2✅ 全屏 overlay+backdrop-blur；AC-3✅ 播控（1×10×50×100× MAX Adaptive Cinematic）；AC-4✅ Hub-native 气泡；AC-5✅ --msg-hue/--msg-chroma token；AC-6✅ displayMode 切换；AC-7(AC-E2)✅ code-verified（mergeSessionEvents() timestamp排序+re-index，env 无 ≥2 sealed 可访问 thread 限制浏览器测试）；AC-E0✅ code-verified（effOffset()=events[i].t-events[0].t 永不为负，fetchSessionEvents()分页全量，alpha env 无 ≥50 event session 可访问，1-event session 渲染正确 0:00/0:00）。**综合结论：PASS — P0 bug 由重写根本修复。** |
 | 2026-06-27 | **Phase E PR E-2 merged** (PR #2613, `b9043a07f`). 引擎增强层: bullet-time smooth easing (三段式 decel/hold/accel 2000ms) + event-density index-aligned rate bucketing + EventDensityBar heatmap overlay + 独立 `/story/[storyId]` 页面 sunset. 4843/4843 tests. Cloud R3 封板 (2 real P2 fixed); gpt52 local final SHA APPROVED. AC-E1 完成 ✅, AC-E4 partial ✅ (引擎层), AC-E7 partial ✅ (密度计算+叠层) |
+| 2026-06-27 | **Phase E PR E-3 merged** (PR #2619, `e105ccaaeb`). Test hygiene + milestone badge UI: split bullet-time-engine.test.ts → 3 files (opus-47 P2) + ChapterBadge component (kind-differentiated styling, hover tooltips with actual timestamps) + F190 typography token fix + chapter dedup edge case fix. 230 story-player tests. Cloud R2 clean (R1: 1 P2 fixed); gpt52 local APPROVED. AC-E7 完成 ✅ (milestone badges) |
 
 ## Review Gate
 
