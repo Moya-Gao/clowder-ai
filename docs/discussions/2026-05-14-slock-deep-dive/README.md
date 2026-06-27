@@ -26,6 +26,12 @@ covers: [architecture, star-features, algorithms, comparison]
 > freshness gate。见
 > [codex-refresh-2026-06-26.md](./codex-refresh-2026-06-26.md)。
 >
+> **2026-06-26 Feature Seeds**: 铲屎官追问后形成三个 feature seed——
+> Held Draft（`-p` 模式下 MCP 出口层拦截）、Runtime Capability Descriptor
+> （agent+env 维度，与 F208 Dossier 正交）、Content-Free Inbox Notice 防无视三层。
+> 含完整实现路径和代码定位。见
+> [feature-seeds-from-raft-2026-06-26.md](./feature-seeds-from-raft-2026-06-26.md)。
+>
 > **2026-05-19 Codex refresh**: npm latest moved from `0.48.0` to
 > `0.50.0`. See
 > [codex-addendum-2026-05-19.md](./codex-addendum-2026-05-19.md) for the
