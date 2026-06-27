@@ -356,44 +356,122 @@ The sync script may also pass temp output paths to avoid polluting `docs/ops` du
 ### Task 4: Wire into `sync-to-opensource.sh`
 
 > **Status (Task 4a)**: ✅ merged via PR #2591 (squash `c8b99a708`) on 2026-06-26. Production sync now invokes the delta gate from `sync-to-opensource.sh` (3 call sites: production / dry-run / validate) guarded by independent `--skip-delta-gate` flag. AC-A1 / A2 / A3 LIVE. Review chain: 砚砚 R0/R2/R7 + opus48 final-SHA audit + cloud R0–R7 (R3 9 P1/P2 plan-layer re-design, R4–R5 file size + sourceHead + binary detection + trailing-slash, R6 test fixture split, R7 砚砚 `.sync-provenance.json` generated-or-provenance allowlist).
-> **Task 4b (deferred)**: AC-A5 historical replay against real `clowder-ai#720 head=c3376252 merge=89cc0f22` — synthetic `target-revert` scenario proves shape but not the actual historical sync byte-equivalence.
-> **Task 4c (deferred)**: AC-A4 override-with-reason flag — current path is `--skip-delta-gate` + CVO PR-body sign-off.
+
+**Task 4a Files (landed):**
+- Created: `scripts/check-sync-public-delta-gate-cli.mjs` (CLI orchestration)
+- Created: `scripts/check-sync-public-delta-gate-fs.mjs` (FS / path / binary / generated-provenance helpers)
+- Created: `scripts/check-sync-public-delta-gate-cli.test.mjs` + `-cli-fixtures.mjs`
+- Created: `scripts/check-sync-public-delta-gate-wire.test.mjs` (bash source-order regression)
+- Modified: `scripts/sync-to-opensource.sh` (3 gate sites + `--skip-delta-gate` flag)
+
+---
+
+### Task 4b: AC-A5 Historical Replay Fixture
+
+> **Status**: in-progress (2026-06-26). **THIS is V1 anti-placebo ship gate** — until Task 4b BLOCKS the real `clowder-ai#720` byte-state, V1 cannot claim it would have stopped the original incident. KD-5 / KD-6 / Risk row "历史回归 fixture 不能 catch 真实事故 = 安慰剂 gate".
+
+**Why**: Task 4a uses a synthetic `target-revert` scenario (`packages/api/example.ts` toy). It proves the BLOCK *shape* (3-way blob comparison → fail-closed when `ours == base != theirs`). It does **not** prove the gate would have caught the actual production regression. Operator pain ("不下十次了") demands a real-incident replay.
+
+**Anchor incident**: `clowder-ai#723` (see `docs/ops/community-sync-incident-ledger.json` issueId 723):
+- **Sync merge SHA**: `89cc0f220936d863cbb571bd51ff94e6d7efe583` (2026-05-19 08:18 UTC, PR #720)
+- **Class**: C1a + C3 compound (target had #662 + #669 delta, sync overwrote with older version)
+- **Severity**: 教科书级 — `2 P1 + 10 P2 + 5 P3` visual regressions
+- **Affected paths** (6 globs):
+  - `packages/web/src/components/AppShell.tsx`
+  - `packages/web/src/components/ChatContainer.tsx`
+  - `packages/web/src/components/HubListModal.tsx`
+  - `packages/web/src/components/voice/**`
+  - `packages/web/src/components/settings/**`
+  - `packages/web/src/components/skills/**`
+
+**3-way byte-state extraction (`89cc0f220` is a merge commit)**:
+- `theirs` = `89cc0f220^1` (clowder-ai main pre-#720) — has the F190 17 items
+- `ours` = `89cc0f220^2` (cat-cafe export tree the sync PR brought) — lacks the 17 items
+- `base` = the previous sync tag on clowder-ai reachable from `89cc0f220^1` via first-parent
+- All three trees materialized into a synthetic git repo (no live network in CI)
 
 **Files:**
-- Modify: `scripts/sync-to-opensource.sh`
-- Test: `scripts/check-env-port-drift.test.mjs`
+- Create: `scripts/check-sync-public-delta-gate-replay.test.mjs` (replay test runner)
+- Create: `scripts/_fixtures/f251-replay-clowder-ai-720/` (frozen 3-way byte-state)
+  - `manifest.json` — affected-path enumeration + SHA provenance
+  - `base/<path>.txt` per affected path
+  - `theirs/<path>.txt` per affected path
+  - `ours/<path>.txt` per affected path
+- Create: `scripts/_fixtures/f251-replay-clowder-ai-720/README.md` — provenance, how to re-extract, "DO NOT REGENERATE WITHOUT VERIFYING"
+- Optional: `scripts/extract-historical-sync-fixture.mjs` (one-shot extraction helper; not run by tests)
 
-**Step 1: Write failing source-order test**
+**Step 1: Extract real byte-state from clowder-ai history** (one-shot research, not test)
 
-Assert the new gate call appears after filtered export/provenance generation and before real target sync:
-- before `sync_filtered_into_target "$TARGET_DIR"`
-- before any code path that mutates the real target
+Run an extraction helper (NOT auto-run by tests; tests use frozen fixture) that:
+1. Clones clowder-ai shallow into `/tmp/clowder-ai-fixture-extract`
+2. Resolves `89cc0f220` parents: `git rev-parse 89cc0f220^1` (theirs) + `git rev-parse 89cc0f220^2` (ours)
+3. Resolves baseline: walks `89cc0f220^1` first-parent history, finds latest `sync/*` tag commit
+4. For each affected path: `git show <commit>:<path>` → writes to fixture tree
+5. Writes `manifest.json` with `{ baselineSha, theirsSha, oursSha, mergeSha, affectedPaths, extractedAt }`
 
-**Step 2: Add script invocation**
+**Step 2: Write failing replay test** (Red)
 
-Call:
+`check-sync-public-delta-gate-replay.test.mjs`:
+1. Sets up 3 temp git repos: `target` (with `theirs` checked out + baseline tagged), `source` (with `ours` byte-state), `filtered` dir (with `ours` byte-state)
+2. Replays each affected path from `_fixtures/f251-replay-clowder-ai-720/` into the synthetic repos
+3. Calls CLI with `--target-dir` + `--filtered-dir` + `--source-dir` + `--baseline <baselineSha>` + `--head-ref HEAD` + `--no-fetch`
+4. Asserts:
+   - `result.status === 1` (BLOCK)
+   - `report.summary.blockCount >= 2` (the 2 P1 items must BLOCK)
+   - `report.summary.revertCandidateCount > 0`
+   - Each P1 path appears in `report.items` with `mode = 'target-only-would-revert-block'`
 
-```bash
-node scripts/check-sync-public-delta-gate.mjs \
-  --source-dir "$SOURCE_DIR" \
-  --target-dir "$TARGET_DIR" \
-  --filtered-dir "$FILTERED_DIR" \
-  --sync-module "$SYNC_MODULE"
-```
+**Step 3: Wire as required test** (Green via Task 4a code; replay test pass)
 
-For `--dry-run`, run the gate and print report paths.
+The classifier + CLI from Task 4a should already BLOCK this case. If it doesn't, the test red drives the fix. Either way, the replay test joins `pnpm check` so AC-A5 stays validated.
 
-**Step 3: Override flags**
+**Step 4: Update F251 spec + plan**
 
-Add:
-- `--allow-public-delta-overwrite`
-- `--public-delta-override-reason "text"`
-- `--cvo-approved-public-delta-overwrite`
+- Mark AC-A5 `[x]` with merge SHA reference
+- Add Risk row crossout: "历史回归 fixture 不能 catch 真实事故 = 安慰剂 gate" — mitigated
+- Update KD-5 status to ✓
+
+**Acceptance**: AC-A5 `[x]` + replay test in `pnpm check` + frozen fixture committed with provenance.
+
+---
+
+### Task 4c: AC-A4 Override-with-Reason Flag
+
+> **Status**: deferred (2026-06-26). Current path: `--skip-delta-gate` flag + CVO sign-off documented in sync PR body. 4c upgrades to per-path override with audit trail.
+
+**Why**: Today operators only have `--skip-delta-gate` (full gate off). Per-path override with explicit reason is needed for legitimate cases like "this target delta was already absorbed via #abc but timing didn't sync up cleanly". KD-3 limits this from becoming the new bypass: > 3 overrides per sync triggers CVO approval alarm.
+
+**Files:**
+- Modify: `scripts/check-sync-public-delta-gate-cli.mjs` (parse `--override` flag + count enforcement)
+- Modify: `scripts/check-sync-public-delta-gate.mjs` (override-pass mode if not already wired)
+- Modify: `scripts/sync-to-opensource.sh` (parse and forward `--override` / `--cvo-approved` from CLI)
+- Test: `scripts/check-sync-public-delta-gate-cli.test.mjs` (3 new scenarios: override with reason → pass; override without reason → exit 2; > 3 overrides without CVO → exit 1)
+
+**Step 1: CLI flag parsing**
+
+Add to CLI:
+- `--override <path>:<reason>` (repeatable; same shape as `--target-owned-root`)
+- `--cvo-approved-public-delta-overwrite` (boolean; raises override-count ceiling)
 
 Rules:
-- Override without reason exits nonzero.
-- Override count > 3 without CVO approval exits nonzero.
-- All overrides are written to report output.
+- Override without reason (just `--override <path>`) → exit 2 (usage)
+- Override count > 3 without `--cvo-approved-*` → exit 1 (BLOCK + alarm message)
+- All overrides written to report JSON `report.overrides[]` with `{ path, reason, approvedBy }`
+
+**Step 2: Classifier integration**
+
+Per-path: if `path` matches an override entry, pass `isOverride: true, overrideReason: ...` to `classifyPublicDeltaGateItem`. Classifier emits `override-pass` mode with the reason carried into the report.
+
+**Step 3: Bash forwarding**
+
+`sync-to-opensource.sh` exposes a `--override` flag that accumulates into an array, forwards to all 3 gate sites. Wire test must assert override args propagate to production + dry-run + validate.
+
+**Step 4: Update F251 spec + plan**
+
+- Mark AC-A4 `[x]`
+- Update KD-3 status
+
+**Acceptance**: AC-A4 `[x]` + per-path override with reason + > 3 alarm enforced.
 
 ### Task 5: Community Contract Registry v0
 

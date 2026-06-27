@@ -97,6 +97,8 @@ V1.5 path ownership（sync-managed / target-owned / mixed） → V2 hunk-level c
 | KD-5 | AC-A5 Historical Regression Replay 必须通过才算 V1 验收 | 不能在 dry-run 标出真实事故 = 安慰剂 gate | 2026-06-25（云端砚砚 Pro review） |
 | KD-6 | AC-A6 one-month anti-placebo eval | V1 不能只在 forward fixtures 里绿；retroactive C1a/C1b 漏挡必须回头改 gate | 2026-06-25（云端砚砚 Pro review） |
 | KD-7 | Report contract uses `version: 1` plus `reportKind`, repo constants, `syncModule`, nested resolver `baseline`, and `exportedHead` | Task 4 needs one report schema truth source; nested baseline preserves Task 2 resolver diagnostics, and exportedHead records the actual candidate public byte-space tree | 2026-06-26（Task 3 review） |
+| KD-8 | Task 4b uses frozen 3-way byte-state fixture committed to `scripts/_fixtures/`, NOT live clowder-ai fetch | CI must be hermetic + deterministic; live fetch would couple test pass to clowder-ai branch state; frozen fixture documented with provenance + extraction script for re-generation | 2026-06-26（Task 4b spec） |
+| KD-9 | Task 4b targets `clowder-ai#723` evidence (sync merge `89cc0f220`), not `#720` directly | `#720` is the bad sync PR; `#723` is mindfn's audit that *documents* the regression. The byte evidence lives in `#723.evidence.affectedPaths` + extracted from `89cc0f220^1` (theirs) vs `89cc0f220^2` (ours) | 2026-06-26（Task 4b spec） |
 
 ## Timeline
 
@@ -109,6 +111,7 @@ V1.5 path ownership（sync-managed / target-owned / mixed） → V2 hunk-level c
 | 2026-06-25 | Task 3 report writer merged via PR #2584 (squash `8b94fa31`); JSON/Markdown report builder + append-only artifact safeguards landed, but AC-A3 still waits for Task 4 sync wiring to emit reports in real runs |
 | 2026-06-25 | C4 sibling sub-task merged via PR #2571 (squash `5ebc9f09d`); reverse-check guard `scripts/check-sync-docs-runtime-assets.mjs` + `docs_runtime_assets_allowlist` manifest key + sync-to-opensource.sh dir-prefix copy. Fixes clowder-ai#1025 root cause (sync `--exclude='docs/'` dropped `docs/services-offline-install.html`). Review chain: local 砚砚 R0/R1/R5 + cloud R0/R2/R3 (sealed by LL-072 at R5 — single-round 50% stale replay). |
 | 2026-06-26 | **Task 4a sync wire merged via PR #2591 (squash `c8b99a708`); AC-A1/A2/A3 NOW LIVE in production sync.** Production gate runs from `sync-to-opensource.sh` after Step 5b validation, before Step 5c real rsync, fail-closes with `exit 1`. `--skip-delta-gate` flag is the only opt-out (independent of `--skip-validate`). Review chain: 砚砚 R0/R2/R7 local cross-review + opus48 final-SHA ship-readiness audit + cloud R0–R7 (R3 9 P1/P2 plan-layer re-design, R4–R5 file-size + sourceHead + trailing-slash + binary detection, R6 test fixture split, R7 砚砚 P1 `.sync-provenance.json` generated-or-provenance allowlist). **AC-A4/A5/A6 remain DEFERRED** (4c override-with-reason, 4b historical replay, 1-month retroactive eval). |
+| 2026-06-26 | Task 4b kicked off (anti-placebo gate). Spec at `docs/plans/2026-06-25-f251-public-delta-preservation-gate.md` Task 4b section — frozen 3-way byte-state fixture from `clowder-ai#723.evidence` (sync merge `89cc0f220`, 6 path globs, `2 P1 + 10 P2 + 5 P3`). Approach: extract once → commit fixture → replay test asserts BLOCK. AC-A5 stays UNCHECKED until replay test pass on main. |
 
 ## Review Gate
 
