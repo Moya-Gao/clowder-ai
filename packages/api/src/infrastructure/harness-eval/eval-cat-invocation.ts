@@ -68,8 +68,8 @@ When your analysis converges to a verdict, call the \`cat_cafe_publish_verdict\`
 3. **createdAt** — ISO 8601 timestamp
 4. **phenomenon** — what you observed (1-2 sentences)
 5. **harnessUnderEval** — { featureId, componentId, name } of harness being evaluated
-6. **evidencePacket** — { snapshotRefs, attributionRefs, metricRefs, sampleTraceRefs } — concrete refs to committed bundle artifacts, NOT raw narrative
-7. **dailyTrend** — { window, current, baseline, threshold, direction } — quantitative trend data
+6. **evidencePacket** — { snapshotRefs, attributionRefs, metricRefs, sampleTraceRefs } — concrete refs to committed bundle artifacts, NOT raw narrative. \`sampleTraceRefs\` must be NON-EMPTY even on no-finding packets — pass at least one metadata-only ref so the bundle has a stable anchor (the schema validator rejects empty arrays at submit time).
+7. **dailyTrend** — { window, current, baseline, threshold, direction } — quantitative trend data. \`current\` / \`baseline\` / \`threshold\` are each a **record/object whose values are numbers** (Zod \`record(number)\`) — e.g. \`current: { verdictWithoutPass: 9 }\`. Bare number primitives (\`current: 9\`), strings (\`"3/10"\`), null, and nested-object values are rejected by the schema at submit time. \`window\` is a string label (e.g. \`"24h"\`); \`direction\` is the enum \`improved\` / \`regressed\` / \`flat\` / \`unknown\`.
 8. **rootCauseHypothesis** — { summary, confidence (low/medium/high), alternatives[] }
 9. **verdict** — categorical: \`fix\` / \`build\` / \`keep_observe\` / \`delete_sunset\` (NOT a score)
 10. **ownerAsk** — { targetFeatureId, targetOwnerCatId, requestedAction }

@@ -4,7 +4,9 @@
  * F192 Phase C: F167 A2A Harness Runtime Eval Runner
  *
  * Usage:
- *   node scripts/run-f167-eval.mjs --base-url http://localhost:3102 --cookie "session=..."
+ *   node scripts/run-f167-eval.mjs                                          # default: main runtime at :3002
+ *   node scripts/run-f167-eval.mjs --base-url http://localhost:3102          # dogfood worktree port
+ *   node scripts/run-f167-eval.mjs --base-url http://localhost:3002 --cookie "session=..."
  *   EVAL_BASE_URL=... EVAL_SESSION_COOKIE=... node scripts/run-f167-eval.mjs
  *
  * Output:
@@ -45,7 +47,11 @@ const { values } = parseArgs({
   },
 });
 
-const baseUrl = values['base-url'] || process.env.EVAL_BASE_URL || 'http://localhost:3102';
+// Default to main runtime :3002 (matches `pnpm dev` / production hub). The previous default `:3102`
+// was the dogfood worktree port — in current dual-runtime setup, dogfood is intermittently down and
+// most eval runs land against main runtime. Pass `--base-url http://localhost:3102` (or set
+// EVAL_BASE_URL) to target dogfood explicitly. Friction signal: 2026-06-26 eval:a2a thread [爪感差].
+const baseUrl = values['base-url'] || process.env.EVAL_BASE_URL || 'http://localhost:3002';
 const cookie = values.cookie || process.env.EVAL_SESSION_COOKIE || '';
 const dryRun = values['dry-run'] ?? false;
 const storeMode = values.store ?? false;
