@@ -17,62 +17,14 @@
  */
 
 import type { ConciergeConfig } from '@cat-cafe/shared';
-import { CONCIERGE_CONFIG_DEFAULTS } from '@cat-cafe/shared';
+import { BALL_SIZE_DEFAULT, CONCIERGE_CONFIG_DEFAULTS, clampBallSize } from '@cat-cafe/shared';
 import { create } from 'zustand';
 import { apiFetch } from '@/utils/api-client';
 
-// ---------------------------------------------------------------------------
-// 公共类型
-// ---------------------------------------------------------------------------
+// Re-export projection layer for backward compatibility (extracted for file-size hygiene)
+export { type ConciergeInputs, projectBallState, type SurfaceState } from './conciergeProjection';
 
-/** 三层展开状态机（A3a）: collapsed=猫收起 | toolbar=工具栏展开 | bubble=对话气泡 */
-export type SurfaceState = 'collapsed' | 'toolbar' | 'bubble';
-
-/**
- * ConciergeInputs: projectBallState 的唯一输入。
- * 这些字段是 store 的实际状态（INV-2: ballState 自身绝不在此）。
- */
-export interface ConciergeInputs {
-  enabled: boolean;
-  muted: boolean;
-  /** concierge thread 最新 invocation 状态（chat-types:433 语义） */
-  invocationStatus: 'idle' | 'pending' | 'in_progress' | 'error';
-  /** 面板内未决确认卡（PR-A3b 前恒 0） */
-  pendingConfirmationCount: number;
-  /** relay 已投递未回执数（PR-A3b 前恒 0） */
-  pendingRelayCount: number;
-  /** found 未查看数；bubble 打开并滚到底 → 清零 */
-  unseenResultCount: number;
-  /** A3a: 三层展开状态（替代 A2 的 panelOpen: boolean） */
-  surfaceState: SurfaceState;
-  inputFocused: boolean;
-}
-
-// ---------------------------------------------------------------------------
-// projectBallState — 纯函数（INV-4，导出供测试直接 import）
-// ---------------------------------------------------------------------------
-
-/**
- * 球态投影函数。输入 ConciergeInputs，输出球状态或 'hidden'。
- *
- * 优先级全序（高到低）：
- *   hidden(disabled/muted) > error > needs-confirmation > thinking > handoff > listening > found > idle
- *
- * A3a: listening 条件 = surfaceState==='bubble' && inputFocused
- *   （toolbar 展开但未进入气泡时不算 listening，避免误切状态）
- *
- * 无副作用，同 inputs 重复调用输出恒等（INV-4）。
- */
-export function projectBallState(i: ConciergeInputs): import('@cat-cafe/shared').ConciergeBallState | 'hidden' {
-  if (!i.enabled || i.muted) return 'hidden';
-  if (i.invocationStatus === 'error') return 'error';
-  if (i.pendingConfirmationCount > 0) return 'needs-confirmation';
-  if (i.invocationStatus === 'pending' || i.invocationStatus === 'in_progress') return 'thinking';
-  if (i.pendingRelayCount > 0) return 'handoff';
-  if (i.surfaceState === 'bubble' && i.inputFocused) return 'listening';
-  if (i.unseenResultCount > 0) return 'found';
-  return 'idle';
-}
+import type { ConciergeInputs, SurfaceState } from './conciergeProjection';
 
 // ---------------------------------------------------------------------------
 // Store 状态接口
@@ -141,12 +93,16 @@ interface ConciergeStoreState extends ConciergeInputs {
   /** Called on concierge_teleport/concierge_go action — collapses surface (INV-7). */
   onNavigationAction: () => void;
 
-  // Ball position (PR-A3b INV-P1~P4)
+  // Ball position (PR-A3b INV-P1~P4) + size (E3)
   /** Ball position in viewport coordinates. null = default bottom-right. */
   ballPosition: { x: number; y: number } | null;
   isDragging: boolean;
+  /** Ball size in px (E3). Clamped to [BALL_SIZE_MIN, BALL_SIZE_MAX]. */
+  ballSize: number;
   /** Set ball position after drag end. Persists to config (INV-P3: write failure silent). */
   setBallPosition: (pos: { x: number; y: number }) => void;
+  /** Set ball size. Clamps and persists to config (E3). */
+  setBallSize: (size: number) => void;
   /** Set drag state (INV-P1: drag/click disambiguation). */
   setIsDragging: (dragging: boolean) => void;
 }
@@ -168,9 +124,10 @@ export const useConciergeStore = create<ConciergeStoreState>((set, get) => ({
   surfaceState: 'collapsed',
   inputFocused: false,
 
-  // Ball position (PR-A3b)
+  // Ball position (PR-A3b) + size (E3)
   ballPosition: null,
   isDragging: false,
+  ballSize: BALL_SIZE_DEFAULT,
 
   // Config
   displayName: DEFAULTS.displayName,
@@ -214,6 +171,7 @@ export const useConciergeStore = create<ConciergeStoreState>((set, get) => ({
         proactivePolicy: config.proactivePolicy,
         skin: config.skin,
         ballPosition: config.ballPosition ?? null,
+        ballSize: clampBallSize(config.ballSize),
         configLoaded: true,
         configLoading: false,
       });
@@ -344,6 +302,26 @@ export const useConciergeStore = create<ConciergeStoreState>((set, get) => ({
       });
     } catch {
       // INV-P3: write failure silent — position stays in local state until next session
+    }
+  },
+
+  // -------------------------------------------------------------------------
+  // Ball size actions (E3: resizable ball)
+  // -------------------------------------------------------------------------
+
+  setBallSize: async (size: number) => {
+    const clamped = clampBallSize(size);
+    const current = get().ballSize;
+    if (current === clamped) return;
+    set({ ballSize: clamped });
+    try {
+      await apiFetch('/api/concierge/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ballSize: clamped }),
+      });
+    } catch {
+      // E3: write failure silent — size stays in local state until next session
     }
   },
 
