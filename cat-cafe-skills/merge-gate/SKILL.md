@@ -83,6 +83,77 @@ echo "$CURRENT_HEAD"
 - headChangeCause：`{local-gate|cloud-finding|ci-fix|rebase|pr-meta}`
 - nextGateOwner：`{local-peer|cloud|ci|author|guardian}`
 
+### Evidence Manifest（F253 Phase A — Review Provenance Matrix 超集）
+
+merge-gate 执行时，在 Step 7（squash merge）**之前**，猫必须**组装并验证** evidence manifest。evidence manifest 是 Review Provenance Matrix 的超集，从 PR metadata + gate 输出实时组装——**不是独立存储的文件**。
+
+**字段定义**：
+
+| 字段 | 来源 | 说明 |
+|------|------|------|
+| `head` | `git rev-parse HEAD`（当前 worktree） | 当前 HEAD SHA |
+| `localPeerReviewSha` | Review Provenance Matrix 已有 | 本地跨猫 review 覆盖的 SHA |
+| `cloudReviewSha` | Review Provenance Matrix 已有 | 云端 review 覆盖的 SHA |
+| `headChangeCause` | Review Provenance Matrix 已有 | HEAD 变化原因 |
+| `nextGateOwner` | Review Provenance Matrix 已有 | 下一步门禁所有者 |
+| `gate_passed` | 适用 gate 的退出码 | 对应 gate 是否通过——完整 PR 用 `pnpm gate`（Step 0），exempt PR（SKILL.md/docs-only）用 light path（biome + check:features + git diff --check） |
+| `gate_commands` | 实际执行的命令 | 完整 PR: `["pnpm gate"]`；exempt PR: `["pnpm biome check .", "node scripts/check-feature-truth.mjs", "git diff --check"]`（按实际记录，不硬编码） |
+| `trigger_reason` | 猫判断 | PR 涉及共享代码则 "shared/ changed — full QC"，否则按触发策略表 |
+| `stale` | `head` vs **headChangeCause 决定的活跃 review 源** | 按 `headChangeCause`（不是 `nextGateOwner`）判定哪个 review 源必须覆盖 `head`：`cloud-finding` → 只看 `cloudReviewSha`；`local-gate` → 只看 `localPeerReviewSha`；`ci-fix` → 只看 `localPeerReviewSha`（ci-fix 始终路由到 local peer re-review，见 Step 5.7 判定规则——即使上一次 `headChangeCause` 是 `cloud-finding`，CI 修复后的 HEAD 由 local peer 覆盖）；`rebase` → pure rebase + 0 code delta + reviewer pre-approval = continuity 有效，否则继承上次；`pr-meta` → 不改 SHA，不影响 review 覆盖。exempt PR（无 cloud）始终只看 `localPeerReviewSha`。`nextGateOwner` 是路由字段（谁下一步行动），不参与 stale 判定 |
+| `verdict` | 猫判断 | `passed`（review APPROVE on final HEAD）/ `blocked`（未 APPROVE）/ `pending` |
+
+**组装时机**：Step 6.9（Evidence Validation Checker）中组装，紧接在 Step 6.8 之后、Step 7 merge 之前。
+
+**与 Review Provenance Matrix 的关系**：Evidence Manifest ⊇ Review Provenance Matrix。前 5 个字段 = Matrix 原有字段（改名 `currentHead` → `head`），后 5 个是 F253 新增的 gate/evidence 字段。猫不需要维护两份——执行 merge-gate 时按 Evidence Manifest 全量检查即可，Matrix 是其子集。
+
+### Evidence Validation Checker（F253 Phase A — Step 6.9）🔴
+
+**位置**：在 Step 6.8（Hotfix Cross-Cat Review Gate）之后、Step 7.5a（Feature Doc Truth 核对）之前执行。
+
+**5 项硬条件**——任一不满足 → **BLOCKED，不执行 merge**：
+
+| # | 检查项 | 验证方式 | 失败动作 |
+|---|--------|----------|----------|
+| E1 | `head` === PR current HEAD | `git rev-parse HEAD` vs `gh pr view {PR_NUMBER} --json headRefOid --jq '.headRefOid'` | BLOCKED — HEAD 不一致，可能有 unpushed commit |
+| E2 | `stale` === false | 按 `headChangeCause` 判定的活跃 review 源覆盖当前 `head`（见上方 `stale` 字段定义的完整映射表）。`nextGateOwner=author` 时（merge-ready 态），沿用最后一次 `headChangeCause` 确定的活跃源；`nextGateOwner=ci/guardian` 时，review 覆盖规则不变（CI/guardian 是额外 gate，不改变 review 覆盖链） | BLOCKED — 活跃 review 源的 SHA 过期，需要 re-review |
+| E3 | reviewer provenance 闭合 | 至少一个 review 源（local 或 cloud）非空且覆盖 `head`（exempt PR 无 cloud 时只看 local） | BLOCKED — 缺 review provenance |
+| E4 | `verdict` !== "blocked" | review 结果为 APPROVE（非 BLOCK / CHANGES_REQUESTED） | BLOCKED — reviewer 未放行 |
+| E5 | `gate_passed` === true | 适用 gate 通过——完整 PR: `pnpm gate`（Step 0）；exempt PR（SKILL.md/docs-only）: light path（见上方 `gate_commands` 定义） | BLOCKED — gate 未通过或未跑 |
+
+**通过时输出**（cloud-finding 流程示例）：
+```
+✅ Evidence validation passed
+  head: abc1234
+  headChangeCause: cloud-finding → active review source: cloud
+  review coverage: cloud=abc1234 ✓ (local=def5678, not active for this headChangeCause — ok)
+  gate: passed (pnpm gate)
+  stale: false
+  verdict: passed
+```
+
+**通过时输出**（exempt SKILL.md PR 示例）：
+```
+✅ Evidence validation passed
+  head: ghi9012
+  headChangeCause: local-gate → active review source: local (exempt, no cloud)
+  review coverage: local=ghi9012 ✓
+  gate: passed (light path: biome + check:features + git diff --check)
+  stale: false
+  verdict: passed
+```
+
+**失败时输出示例**：
+```
+❌ Evidence validation BLOCKED
+  E2 FAIL: headChangeCause=cloud-finding → active source=cloud
+           cloudReviewSha=def5678 ≠ head=abc1234
+  → 需要重新触发 cloud review 覆盖当前 HEAD
+```
+
+**不是脚本——是猫执行的 checklist**。Phase A 的 evidence validation 是猫在 merge-gate 流程中人工检查 + 报告的步骤。如果需要自动化，可在后续 Phase 写 `scripts/check-qc-evidence.mjs`，但 Phase A 不做。
+
+**与已有 Review Continuity Guard 的关系**：Review Continuity Guard 定义了"HEAD 变了怎么判 nextGateOwner"的规则；Evidence Validation Checker 在 merge 前**执行**这些规则的最终验证。前者是政策，后者是门禁。
+
 ### `pnpm gate` — Latest Main 全量门禁（Step 0，开 PR 前必跑）
 
 ```bash
@@ -260,6 +331,15 @@ if [ "$IS_HOTFIX" = "true" ]; then
   fi
   echo "✅ Hotfix cross-cat review: Author=$PR_AUTHOR, Approved by=$REVIEWERS"
 fi
+
+# 6.9 Evidence Validation Checker（F253 Phase A）🔴
+#   组装 evidence manifest → 验证 5 项硬条件（E1-E5）→ 通过才继续
+#   → 详见上方「Evidence Validation Checker（Step 6.9）」
+#   E1: head === PR current HEAD
+#   E2: stale === false (review SHA covers head)
+#   E3: reviewer provenance 闭合
+#   E4: verdict !== "blocked"
+#   E5: gate_passed === true
 ```
 
 ```bash
@@ -451,6 +531,7 @@ cd "$MAIN_WT" && git pull origin main   # 取回刚 squash 的 commit，doc-sync
 | P1/P2 清零？ | 检查 review 记录 |
 | BACKLOG 更新？ | `grep '\[x\]' docs/BACKLOG.md` |
 | 云端通过？ | `gh pr checks {PR}` |
+| Evidence validation 通过？(Step 6.9) | E1-E5 五项全绿（head 一致 + review 不 stale + provenance 闭合 + verdict passed + gate passed） |
 | Feature doc 说真话？(pre-merge) | doc 标 ✅/打勾 AC 有代码支撑 + `node scripts/check-feature-truth.mjs` 绿 |
 | 已合入状态记录？(post-merge) | feature doc Phase ✅ + AC 打勾 + Timeline 有 merged 记录 + Status 推进 |
 
@@ -470,6 +551,7 @@ cd "$MAIN_WT" && git pull origin main   # 取回刚 squash 的 commit，doc-sync
 | 本地 merge 后 `gh pr close` | `gh pr close` = 放弃，`gh pr merge` = 合入 |
 | 不等云端 review 直接合入 | 必须等 0 P1/P2 |
 | 把截图/录屏/.pen 直接 commit 到仓库根目录 | Step 0.5 Root Artifact Guard 先拦截；先归档再开 PR |
+| 跳过 evidence validation 直接 merge | Step 6.9 五项 E1-E5 全过才能进 Step 7；不组装 evidence = 不知道 review 是否 stale |
 | Merge **前**不核对 feature doc 说真话 | Step 7.5a：标 ✅/打勾 AC 必须有代码支撑，`check-feature-truth` 绿，再 merge |
 | Merge **后**不记录已合入状态 | Step 7.5b：Phase ✅ + AC 打勾 + Timeline 记 merged + Status 推进 |
 | Merge 后不清理 review 沙盒 | Step 8.5 按 review-target-id 回收 `/tmp/cat-cafe-review/` |
