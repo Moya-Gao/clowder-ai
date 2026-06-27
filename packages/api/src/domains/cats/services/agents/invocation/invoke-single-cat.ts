@@ -1271,12 +1271,19 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           const { buildMissionPack, formatMissionPackPrompt } = await import(
             '../../../../../config/governance/mission-pack.js'
           );
-          capturedMissionPack = buildMissionPack({
+          // clowder-ai#1037: buildMissionPack returns null when the thread has
+          // no concrete mission anchor (title/phase/backlogItemId all empty).
+          // Skip M1 injection in that case so the model is not handed an empty
+          // dispatch marker on a chat-only thread.
+          const pack = buildMissionPack({
             title: thread.title ?? undefined,
             phase: thread.phase ?? undefined,
             backlogItemId: thread.backlogItemId ?? undefined,
           });
-          missionPrefix = formatMissionPackPrompt(capturedMissionPack);
+          if (pack) {
+            capturedMissionPack = pack;
+            missionPrefix = formatMissionPackPrompt(pack);
+          }
         }
       } catch {
         // Thread store timeout — proceed without mission context
