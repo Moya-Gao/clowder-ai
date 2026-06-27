@@ -3,6 +3,7 @@
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Suspense, useLayoutEffect } from 'react';
 import { useIsDesktop } from '@/hooks/useIsDesktop';
+import { CallbackAuthSnapshotMount } from '@/stores/callbackAuthStore';
 import { initSidebarWidth, useSidebarStore } from '@/stores/sidebarStore';
 import { ActivityBar } from './ActivityBar';
 import { ConciergeHost } from './concierge/ConciergeHost';
@@ -48,6 +49,13 @@ function AppShellContent({ children }: AppShellProps) {
       <Suspense fallback={<div className="w-12 flex-shrink-0" aria-hidden="true" />}>
         <ActivityBar />
       </Suspense>
+      {/* Callback-auth snapshot provider: mounted at AppShell level (not chat
+          layout) so the zustand store is populated on ALL routes — settings,
+          memory, mission, etc. The observability panel and per-cat status dots
+          read from this store; keeping it chat-only meant the panel showed "..."
+          when navigating to settings without visiting chat first. Returns null;
+          30s poll re-render is confined to this leaf. */}
+      <CallbackAuthSnapshotMount />
       {showSidebar && (
         <div className="flex items-stretch flex-shrink-0">
           <div style={{ width }} className="flex-shrink-0">
