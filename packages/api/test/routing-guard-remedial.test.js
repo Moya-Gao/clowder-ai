@@ -98,4 +98,14 @@ describe('F177 Phase H — buildRemedialPrompt', () => {
     assert.match(p, /@landy/);
     assert.match(p, /不要重做/);
   });
+
+  // F167 Phase P fix: remedial prompt must steer "等人" to @landy/@句柄, NOT hold_ball.
+  test('等铲屎官/等猫回复 明确指向 @landy/@句柄 而非 hold_ball（Phase P 双触发修复）', () => {
+    const p = buildRemedialPrompt();
+    assert.match(p, /等铲屎官/);
+    // 等人 bullet explicitly tells the cat NOT to hold_ball
+    assert.match(p, /等铲屎官[^\n]*不要 hold_ball/);
+    // hold_ball option is scoped to 无回调 external conditions (not 等人)
+    assert.match(p, /无回调/);
+  });
 });

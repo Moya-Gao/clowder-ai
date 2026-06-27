@@ -317,6 +317,24 @@ describe('MCP Server Tool Registration', () => {
     assert.ok(checkTool, 'check_permission_status tool should exist');
   });
 
+  // F167 Phase P fix: hold_ball description must steer "等人" to @landy/@cat, NOT hold_ball,
+  // and scope wakeWhen to local commands (concept-boundary hardening — primary root cause).
+  test('hold_ball description excludes "等人" waits and scopes wakeWhen (F167 Phase P)', async () => {
+    const { createServer } = await import('../dist/index.js');
+    const server = createServer();
+    const holdTool = server._registeredTools.cat_cafe_hold_ball;
+    assert.ok(holdTool, 'hold_ball tool should exist');
+    const desc = holdTool.description;
+    assert.ok(typeof desc === 'string' && desc.length > 0, 'hold_ball must have a description string');
+    // #1-misuse exclusion: waiting on a person's reply is @landy/@cat, never a hold.
+    assert.match(desc, /waiting for 铲屎官\/user OR another cat to reply/);
+    assert.match(desc, /redundant 2nd trigger/);
+    // an inbound 铲屎官/cat message counts as a callback (Phase M clarifier extension)
+    assert.match(desc, /sending a message into this thread IS such a callback/);
+    // wakeWhen scoped to local commands, not a universal "smart wait"
+    assert.match(desc, /LOCAL COMMANDS ONLY/);
+  });
+
   test('post_message schema exposes threadId as optional (F178 agent-key auth)', async () => {
     const { createServer } = await import('../dist/index.js');
     const server = createServer();
