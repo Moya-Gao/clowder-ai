@@ -9,7 +9,7 @@ tips_exempt: "Tip planned for Phase D sharing feature — Phase A is infrastruct
 
 # F252: Story Player
 
-> **Status**: done | **Owner**: 宪宪 (Opus-4.6) | **Priority**: P1
+> **Status**: in-progress | **Owner**: 宪宪 (Opus-4.6) | **Priority**: P1
 
 ## Why
 
@@ -272,7 +272,7 @@ tips_exempt: "Tip planned for Phase D sharing feature — Phase A is infrastruct
 
 ### Phase D: 注解层 + 脱敏分享
 
-演示增强和传播能力。**公开分享需要脱敏 export 包**。
+演示增强和传播能力。**公开分享需要脱敏 export 包**。（后端 API 可用，前端 Phase E 重做）
 
 - **Annotation Layer**：
   - 在任意时间点/事件上添加注解卡片
@@ -300,6 +300,49 @@ tips_exempt: "Tip planned for Phase D sharing feature — Phase A is infrastruct
   - Public URL 只读**脱敏 export 包**，不直连 raw transcript API（现有 transcript API 有身份 + thread/cat 访问控制，`session-transcript.ts:71`）
   - 嵌入式 iframe 支持
 
+### Phase E: 前端重做 — 猫猫大剧院 Meow Theater MVP（CVO 确认 2026-06-27）
+
+> **起因**：CVO 实际体验 Phase A-D 后发现三个根本问题：(1) 回放有 bug 不工作，(2) 全程未走 Design Gate，(3) UI/UX 完全脱离 Hub 设计语言。Phase A-D 后端可用（adapter、engine、sanitizer、export API），**前端需要全部重做**。
+
+> **视觉铁律**："100% 看起来就是你们平时的样子加特效和快进"——直接复用 Hub 现有组件渲染，不做新渲染组件。
+
+> **设计方向**：烁烁 (@gemini) "猫猫大剧院" 设计 spec（CVO 确认核心思路）
+
+- **P0 Bug Fix**：当前 409 事件回放显示空白 "— system —" + 时间 "-49:-9"，先修这个
+
+- **Hub Theater Overlay**：
+  - Story Player 不再是独立 `/story/[storyId]` 黑暗页，改为 Hub 全屏 Drawer / 毛玻璃遮罩层
+  - 回放内容直接复用 Hub 现有聊天气泡、工具卡片组件渲染（视觉铁律）
+  - Hub 侧边栏、顶栏通过 `backdrop-filter: blur(12px)` 半透明可见
+
+- **Thread 级回放（旅程 1 修正）**：
+  - 当前只有单 session 回放，需升级为 thread 级——**同一 thread 下所有 session 按时间串联**
+  - 入口从 Thread 列表直接触发，不是藏在 session 详情里
+
+- **Spotlight + 子弹时间转场**：
+  - 活跃 Thread 聚光灯高亮，非活跃 Dimmed 虚化
+  - 传球事件（@mention / cross_post）触发子弹时间降速 100x → 1x → 0.5x
+  - 因果粒子飞线（CSS 弧线动画 MVP，Canvas/WebGL 留后续）
+
+- **多机位分屏（Multi-Cam Stage）**：
+  - 单 Thread 活跃 → 独占中央
+  - 双 Thread 协同 → 50/50 左右分屏，时间轴硬对齐
+  - 多 Thread → 主活跃 2 个居中，其余缩微为侧边小监视器
+
+- **客串卡片（Guest Cameo）**：
+  - 跨 Feature 的因果传球 → 虚线金边临时卡片 slide-in
+  - 互动结束后 2s 优雅淡出
+
+- **时间轴热力图 + 章节锚点**：
+  - 进度条背景融合事件密度热力图
+  - F233 投影的 phase_transition / pr_merged 显示为金色锚点，hover 浮窗摘要
+
+- **留到后续增强（非 Phase E scope）**：
+  - 猫猫 Live Avatar 微动画（需美术素材）
+  - 音效（默认静音，可选开启）
+  - 粒子飞线 WebGL 版
+  - 老式磁带快进拉丝条视觉
+
 ## Acceptance Criteria
 
 <!-- 立项愿景硬度自检（F216→F219）：每条 AC ① trace 回 Why「现场跑太慢+看记录没冲击力→要高速回放」② 非作者可复核（命令/截图/操作路径）。 -->
@@ -322,9 +365,19 @@ tips_exempt: "Tip planned for Phase D sharing feature — Phase A is infrastruct
 - [x] AC-C2: 因果边来自 F233 投影的 `thread_split`/`thread_merge`/`pr_merged` kinds（不是事件层启发式），以动画箭头显示，箭头样式反映 provenance.confidence（high=实线, medium=虚线, low=点线）（trace Why「事件驱动」；复核：选一个有 thread_split 的 Feature 验证箭头+样式）
 - [~] AC-C3: 三层缩放可用——鸟瞰（F233 投影）点色块 → 剧场（events.jsonl 回放）→ 暂停点消息 → 显微镜展开完整内容（trace Why「既能看全景又能看细节」；复核：从鸟瞰一路 drill-down 到消息详情）— **Birdseye done**；Theater + Microscope drill-down not yet connected
 
-### Phase D（注解 + 脱敏分享）✅
+### Phase D（注解 + 脱敏分享）✅ — 后端 API 可用，前端 Phase E 重做
 - [x] AC-D1: 可在任意时间点添加文字注解，回放时自动弹出（trace Why「暂停讲解」；复核：添加注解后回放验证弹出）
 - [x] AC-D2: 公开分享读脱敏 export 包（不直连 raw transcript API），过滤覆盖 tool args/output + assistant text + system event 中的路径/token/env/个人信息，脱敏审核入 ledger（trace Why「向外展示」；复核：生成 export 包 → 隐身窗口打开 public URL → 搜索已知敏感字符串确认不泄露）
+
+### Phase E（前端重做 — 猫猫大剧院 Meow Theater MVP）🚧
+- [ ] AC-E0: 修复回放 P0 bug——409 事件不渲染 + 时间显示 "-49:-9"（trace Why「基础功能不工作」；复核：选 ≥50 event session 回放，消息正常逐条出现 + 时间显示正确）
+- [ ] AC-E1: Story Player 改为 Hub Theater Overlay（全屏 Drawer + 毛玻璃遮罩），不再是独立 `/story/[storyId]` 页面。回放内容直接复用 Hub 现有聊天气泡、工具卡片组件（trace Why「100% 平时的样子」；复核：回放时 Hub 侧边栏半透明可见，消息气泡与正常 Hub 外观一致）
+- [ ] AC-E2: Thread 级回放——同一 thread 下所有 session 按时间串联，入口从 Thread 列表直接触发（trace Why「谁要看一个 sealed session」；复核：选 ≥2 session 的 thread 回放，验证 session 间无缝衔接）
+- [ ] AC-E3: Spotlight + Dim——活跃 Thread 聚光灯高亮 + 光晕，非活跃 Thread 毛玻璃虚化（trace Why「让观众知道看哪里」；复核：多 thread 回放时只有活跃 thread 清晰）
+- [ ] AC-E4: 子弹时间——传球事件触发平滑降速 100x→1x→0.5x + 因果弧线动画（CSS），降速后自动回升（trace Why「看清每次球权转移」；复核：含 @mention 的回放验证降速 + 弧线动画）
+- [ ] AC-E5: 多机位分屏——单 Thread 独占中央，双 Thread 50/50 分屏，多 Thread 主+侧边缩微（trace Why「多猫同时干活」；复核：Feature 回放验证布局随 Thread 数动态切换）
+- [ ] AC-E6: 客串卡片——跨 Feature 因果传球时虚线金边卡片 slide-in，互动结束 2s 淡出（trace Why「跨 Feature 依赖感知」；复核：含 cross-feature cross-post 的回放验证卡片出现+淡出）
+- [ ] AC-E7: 时间轴热力图 + 章节锚点——事件密度可视化 + F233 投影的 milestone badges 可点击 seek（trace Why「哪里有猫猫大混战一目了然」；复核：进度条显示密度变化，hover 锚点显示摘要）
 
 ## Dependencies
 
@@ -383,7 +436,10 @@ tips_exempt: "Tip planned for Phase D sharing feature — Phase A is infrastruct
 | 2026-06-26 | Phase C P1 fix merged (PR #2592, `cff3c6bf9`). Vision guardian HOLD 两个 P1: (1) 入口可达性=0 第三次同型 — TrajectoryPanel 添加 🎬 Story 链接; (2) 伪交互 cursor:pointer 无 onClick — 降级 cursor:default. Local peer: gpt52 APPROVED; Cloud R1 clean |
 | 2026-06-26 | Sonnet alpha 验收 PASS（P1-1 🎬 Story 链接可见+可跳转, P1-2 marker cursor:default 确认）。opus-47 pre-authorized close。**Phase C closed** |
 | 2026-06-26 | Phase D merged (PR #2595). AnnotationFileStore (file-based JSON persistence) + CRUD routes + content-sanitizer (4 classes: credentials/paths/env/identity) + ExportStore + public viewer page. 82 API tests (49 sanitizer + 21 annotations + 12 export) + 16 web tests. Local peer: gpt52 封板 APPROVED; Cloud R5 封板 (9 fixed, 5 push-backs). AC-D1 ✅ AC-D2 ✅ |
-| 2026-06-26 | Sonnet alpha 验收 98/98 PASS。opus-47 愿景守护 APPROVE（入口可达性同型 bug 终于守住 + 脱敏覆盖 trace 通过）。P2 非阻塞：content-sanitizer 456 行超 350 硬限，留 dogfood 推进拆分。**Phase D closed。F252 全 feature done** |
+| 2026-06-26 | Sonnet alpha 验收 98/98 PASS。opus-47 愿景守护 APPROVE（入口可达性同型 bug 终于守住 + 脱敏覆盖 trace 通过）。P2 非阻塞：content-sanitizer 456 行超 350 硬限，留 dogfood 推进拆分。**Phase D closed** |
+| 2026-06-27 | **CVO dogfood 发现 3 个根本问题**：(1) 回放 P0 bug 空白, (2) 全程未走前端 Design Gate, (3) UI/UX 脱离 Hub。铲屎官纠正用户旅程定义 + 录像回放核心比喻 |
+| 2026-06-27 | 烁烁 (@gemini) 提出"猫猫大剧院 (Meow Theater)" 设计 spec。**CVO 确认核心思路**（Hub 融入 + 分屏 + 子弹时间 + 客串卡片） + 视觉铁律"100% 平时的样子 + 特效" |
+| 2026-06-27 | **Phase E 立项**：前端重做 — Meow Theater MVP。Status reopened: done → in-progress |
 
 ## Review Gate
 
