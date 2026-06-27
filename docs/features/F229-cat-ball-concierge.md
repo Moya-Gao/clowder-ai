@@ -139,11 +139,33 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 - 与 Hub UI 元素交互：路过未读红点好奇扑一下、在输入框上打滚
 - 具体交互设计由烁烁出方案
 
+**事件驱动主动行为**（CVO 2026-06-26："QQ宠物/拓麻歌子/宝可梦GO！猫要更主动！不是默默无闻等我找的猫！结合定时任务或 event 主动找铲屎官撒娇！"）：
+
+家里已有丰富的事件源可以驱动前台猫主动行为：
+
+| 事件源 | 触发行为 | 猫猫表现 |
+|--------|----------|----------|
+| `ball.hold_expired` / `ball.void_pass` 累积 N 个 | "有 N 个球掉地上了！" | 焦急 waving + badge |
+| `ball.frozen` / `ball.abandoned` | "这只猫好像卡住了…" | 担心 waiting 态 |
+| `task.idle_long`（僵尸任务） | "这个任务好久没人动了" | 好奇地看向任务方向 |
+| `invocation.died`（猫崩了） | "有只猫崩了！" | 惊吓 jumping + failed 态 |
+| CI fail（CiCdRouter） | "构建挂了！" | 惊起 jumping |
+| PR merged | 开心蹦跶 | jumping + 得意脸 |
+| 新 community issue | "有人来串门了~" | 好奇 running 到角落 |
+| 铲屎官长时间 idle | 主动撒娇蹭过来 | waving + 冒爱心 |
+| 铲屎官深夜在线 | "铲屎官该睡了喵~" | 打瞌睡暗示 |
+| 定时日报 | 汇总掉球/完成/活跃 | 抱着小本本 waiting |
+| 新 feature merged | "家里又多了一个功能！" | 开心 running |
+| 长时间未读 thread | 往那个方向 waving | 探头提醒 |
+
+参考系：QQ宠物的"饿了/想你了/无聊了" + 拓麻歌子的需求驱动 + 宝可梦GO 的位置交互——核心是**有温度的主动**，不是通知轰炸。
+
 **架构原则**：
 - 行为引擎是 `conciergeState → petState` 投影的扩展（KD-18），不是平行状态机
-- 行为 timer 在前端（轻量 Behavior Scheduler），不增加后端复杂度
-- 安静优先（继承 Clippy 反面教训 Risk §1）：用户正在交互时暂停自主行为
+- 前端 Behavior Scheduler（轻量 timer）+ 后端事件推送（WebSocket / SSE，复用已有 socket 通道）
+- 安静优先（继承 Clippy 反面教训 Risk §1）：用户正在交互时暂停自主行为；OQ-4 白名单分级仍生效
 - 所有行为可在设置页关闭（respect `muted` + 新增 `behaviorEnabled` 开关）
+- 主动行为频率上限（防 QQ 宠物末期的"疯狂弹窗"退化）
 
 #### 前台猫人格（跨 Phase 问题）
 
