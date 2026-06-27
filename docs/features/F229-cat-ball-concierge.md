@@ -118,6 +118,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 - 大小持久化到 `ConciergeConfig.ballSize`（跟 `ballPosition` 同套路，TTL=0 铁律 5）
 - 动态 size 替换 `BALL_SIZE` 常量，toolbar 位置 / viewport clamp / resize handler 跟着走
 - 范围：`minSize: 48px`（口袋猫）→ `maxSize: 192px`（素材原始分辨率极限）
+- **实现清单**（砚砚 codex 审计）：不能只打开 `enableResizing`，还需 ① `ConciergeConfig` 补 `ballSize?: number` 字段（shared type）② API schema 接纳 ③ conciergeStore 读写 ④ ConciergeHost clamp + toolbar 跟随 ⑤ settings 页 UI（滑块 or 预设）⑥ 全套测试。E3 是 E4 的参数基础——size 调步幅/频率/碰撞半径
 - **创意加分**（烁烁35 2026-06-26/27 提案）：resize 手柄用小鱼干 🐟 图标；不同体型有不同重力反馈（大猫落地"吨！"微震，小猫轻飘滑落）
 - **体型影响行为**（gemini35 补充）：大猫散步频率低但步幅大，小猫散步频率高但步幅小——size 不只是视觉缩放，还可以做行为参数调制
 
@@ -163,7 +164,7 @@ Cat Café 三个多月迭代 200+ feature，"一句话的事"和"一个 feature 
 
 **架构决策（2026-06-27 三猫 brainstorm 综合）**：
 
-> 参与猫：烁烁35（创意方向）、宪宪48（架构判断）、砚砚（技术实现 TBD）
+> 参与猫：烁烁35（创意方向）、宪宪48（架构判断）、砚砚 codex（技术实现 + 接口收窄）
 
 **A. 双输入优先级合成**（opus48 架构判断）：
 
@@ -178,6 +179,12 @@ petState = compose(
 - 合成规则：business 有活跃态时 business 赢；business idle 持续 N 秒后 autonomous 接管
 - **滞回（Hysteresis）**：business→autonomous 需要 idle 超时（防闪烁）；autonomous→business 立即切回（用户感知零延迟）
 - 单一选择器点（ConciergeHost 层），不分散到各组件
+
+**A.1 状态隔离（砚砚 codex 收窄）**：
+
+- **`ConciergeBallState` 不可写入 autonomous 行为**——业务 8 态仍是唯一真相源（`shared/types/concierge.ts:55`）
+- E4 在前端新增 `usePetBehavior()` hook：输入 `businessPetState + local timers + socket events + pointer/viewport`，输出 `visualPetState + overlay + positionIntent`
+- 这样 KD-18 投影链完全不被污染——"猫伸懒腰"是前端视觉叠加层，不是 business state
 
 **B. 双子系统**（opus48）：
 
@@ -208,9 +215,17 @@ petState = compose(
 4. CPU 负载 → requestAnimationFrame + 可见性 API（页面不可见时暂停）
 5. 用户厌烦 → muted 一键关闭 + proactivePolicy 分级（已有 ambient/quiet-badge）
 
+**F. 事件通道（砚砚 codex）**：
+
+- 复用已有 Socket.IO 通道（`SocketManager` 已有 `broadcastToRoom`/`emitToUser` + `BroadcastRateMonitor`）
+- **新开窄事件 `concierge:event`**，不塞 `agent_message`（避免污染现有消息流）
+- payload 精简：`{ kind: string, severity: 'low'|'medium'|'high', targetThreadId?: string, count?: number, expiresAt?: number }`
+- 前端统一进 EventBehavior 队列做合并 + cooldown
+
 **架构原则**：
 - 行为引擎是 KD-18 投影的下游合成层，不是平行状态机
-- 前端 Behavior Scheduler（轻量 timer）+ 后端事件推送（WebSocket / SSE，复用已有 socket 通道）
+- `ConciergeBallState` 是业务真相源，autonomous 行为只在前端 `usePetBehavior()` 合成视觉层
+- 后端推送复用 Socket.IO `concierge:event` 窄通道（不污染 `agent_message`）
 - 安静优先（继承 Clippy 反面教训 Risk §1）：用户正在交互时暂停自主行为；OQ-4 白名单分级仍生效
 - 所有行为可在设置页关闭（respect `muted` + 新增 `behaviorEnabled` 开关）
 - 主动行为频率上限（防 QQ 宠物末期的"疯狂弹窗"退化）
@@ -334,7 +349,7 @@ petState = compose(
 | OQ-6 | 页面上下文注入范围（#841 的 URL/标题注入，隐私边界） | ✅ 已定 2026-06-09：Phase A 只取路由级信息（URL/页面标题），不读页面内容——CVO 随 Design Gate 关栓 |
 | OQ-7 | 使用模式采集 → 个性化提醒（吴浪："采集和根据使用情况来提醒"，如"你还没用过 schedule"）——行为遥测 + 主动打扰双重边界 | ⬜ Phase B+ 再定，MVP 不做 |
 | OQ-8 | 前台猫"猫味"：当前值班猫输出过于工具化，缺乏猫的性格倾向（猫德/好奇/傲娇/摸鱼）。不是加"喵~"后缀，而是让猫行为自然。**三猫收敛方案（2026-06-27）**：先解耦再同步——v1 只改 prompt persona（行为倾向，不加喵后缀），独立于视觉态；v2 视觉态反哺 prompt context（猫在睡觉时语气慵懒，猫在兴奋时语气活泼）。猫人格 = 行为倾向概率分布，不是角色扮演剧本 | 🟡 三猫收敛，v1/v2 分步实施 |
-| OQ-9 | Sprite Gap Audit：E4 行为引擎需要"探头/伸懒腰/打滚/缩团睡觉"等动画，当前 9 态 atlas 可能不够。需要砚砚确认哪些行为能用现有态近似、哪些必须新增 atlas row | ⬜ opus48 2026-06-27 提出，砚砚确认前 E4 不做需要新态的行为 |
+| OQ-9 | Sprite Gap Audit：**砚砚 2026-06-27 结论**——v0 用现有 9 态 + 气泡/位移叠层先落地（jumping→惊起, waving→提醒/撒娇, waiting→关注, running→巡逻, review→审视, failed→异常 全可覆盖）；真正缺态的"探头只露眼耳/伸懒腰/打滚/缩团睡觉"留 v1 扩展 atlas row。atlas row config 在 `usePetSkin.ts:34`，硬类型在 `pet-skin-projection.ts:15` | 🟢 v0 结论已收敛，v1 待素材 |
 
 ## Key Decisions
 
