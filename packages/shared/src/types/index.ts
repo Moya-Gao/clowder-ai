@@ -309,7 +309,13 @@ export type {
   TriagePlanStatus,
   TriagePlanTarget,
 } from './concierge.js';
-export { CONCIERGE_CONFIG_DEFAULTS } from './concierge.js';
+export {
+  BALL_SIZE_DEFAULT,
+  BALL_SIZE_MAX,
+  BALL_SIZE_MIN,
+  CONCIERGE_CONFIG_DEFAULTS,
+  clampBallSize,
+} from './concierge.js';
 // Unified Config Field types (F240 KD-15 — shared by Plugin + IM Connector)
 export type {
   ActionDef,

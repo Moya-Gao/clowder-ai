@@ -12,11 +12,12 @@
  * Pattern: optimistic UI + PUT partial update, matching BubbleToggle/VoiceSettingsPanel.
  */
 
+import { BALL_SIZE_DEFAULT, BALL_SIZE_MAX, BALL_SIZE_MIN } from '@cat-cafe/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCatData } from '@/hooks/useCatData';
 import { useConciergeStore } from '@/stores/conciergeStore';
 import { apiFetch } from '@/utils/api-client';
-import { RadioOption, TextInput, ToggleSwitch } from './ConciergeSettingsParts';
+import { RadioOption, RangeSlider, TextInput, ToggleSwitch } from './ConciergeSettingsParts';
 import { SettingsField, SettingsPillButton, SettingsSection, SettingsText } from './primitives';
 
 // ---------------------------------------------------------------------------
@@ -32,6 +33,7 @@ interface ConciergeSettingsState {
   muted: boolean;
   skin: 'yarn-ball' | 'ragdoll-v1' | 'yanyan-codex' | 'xianxian-codex';
   ballPosition: { x: number; y: number } | null;
+  ballSize: number;
 }
 
 /** Skin options — display names now live inline in RadioOption labels (E2 unlock). */
@@ -280,7 +282,31 @@ export function ConciergeSettingsContent() {
         </div>
       </SettingsSection>
 
-      {/* Section 6: 球位置重置 */}
+      {/* Section 6: 球大小 (E3) */}
+      <SettingsSection title="猫猫球大小" description="拖拽悬浮球右下角可直接缩放，也可以在这里精确调整。">
+        <div className="space-y-4">
+          <SettingsField label="大小" hint={`范围 ${BALL_SIZE_MIN}–${BALL_SIZE_MAX}px，默认 ${BALL_SIZE_DEFAULT}px。`}>
+            <RangeSlider
+              value={state.ballSize ?? BALL_SIZE_DEFAULT}
+              min={BALL_SIZE_MIN}
+              max={BALL_SIZE_MAX}
+              step={4}
+              disabled={saving}
+              label={(v) => `${v}px`}
+              onChange={(v) => updateConfig({ ballSize: v })}
+            />
+          </SettingsField>
+          {(state.ballSize ?? BALL_SIZE_DEFAULT) !== BALL_SIZE_DEFAULT && (
+            <SettingsField label="" hint="" inline>
+              <SettingsPillButton onClick={() => updateConfig({ ballSize: BALL_SIZE_DEFAULT })}>
+                重置大小
+              </SettingsPillButton>
+            </SettingsField>
+          )}
+        </div>
+      </SettingsSection>
+
+      {/* Section 7: 球位置重置 */}
       {state.ballPosition && (
         <SettingsSection title="悬浮球位置" description="拖拽悬浮球可自由放置，这里可以重置到默认位置。">
           <SettingsField

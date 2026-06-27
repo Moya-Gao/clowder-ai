@@ -256,7 +256,7 @@ petState = compose(
 | R7 | "小模型发现自己干不了→喊大喵（优先 flash/sonnet/spark）" | AC-D1, AC-D2 | 延迟数字 + 代码断言 | [ ] |
 | R8 | 桌宠/派蒙式常驻陪伴 | Phase E（AC 启动时补） | 录屏 | [ ] |
 | R9 | #841 悬浮入口 + 页面上下文（社区） | AC-A1 | 截图/录屏 | [x] |
-| R10 | "猫猫太小了！能拖大点吗？"（可拖拽缩放） | AC-E3-* | 录屏 + 截图 | [ ] |
+| R10 | "猫猫太小了！能拖大点吗？"（可拖拽缩放） | AC-E3-1 | 录屏 + 截图 | [x] |
 | R11 | "猫应该能自己跑起来！在 Hub 内生活的感觉"（自主行为） | AC-E4-* | 录屏 | [ ] |
 | R12 | "前台的烁烁缺少猫味！完全不猫猫"（人格/猫德） | OQ-8 | 对话截图 | [ ] |
 
@@ -316,6 +316,7 @@ petState = compose(
 - [x] AC-E2-1: Skin picker unlock — Settings page `皮肤` section upgraded from locked chip to 3 `RadioOption`s (`yanyan-codex` / `ragdoll-v1` / `yarn-ball`), reusing existing optimistic `updateConfig()` partial PUT flow
 - [x] AC-E1-5: xianxian-codex 9-state animated atlas — parallel `xianxian-codex` skin using same `YANYAN_ATLAS_ROWS` config + dynamic base path selection in `usePetSkin.ts`, 733KB spritesheet (1536×1872, 8×9 grid, 192×208 cells), `pet.json` manifest (ragdoll, seal bicolor, video-extraction provenance), Settings 4th radio option, API zod validator + shared type + store type aligned (6/6 consumer sites). 37 web tests (8 new). BUG-UX-6 素材升级 pipeline 首个产出
 - [x] AC-E2-2: Default skin change for unconfigured users — `CONCIERGE_CONFIG_DEFAULTS.skin` changed to `yanyan-codex`; existing TTL=0 persisted configs intentionally remain untouched and must switch via the unlocked picker
+- [x] AC-E3-1: Resizable ball via react-rnd `enableResizing={{ bottomRight: true }}` + `lockAspectRatio` — drag bottom-right corner to resize 48–192px (native atlas resolution ceiling). `clampBallSize()` shared utility (handles undefined/null/NaN, rounds, clamps). `ConciergeConfig.ballSize` persisted TTL=0. AtlasSprite dynamic scaling `Math.round(containerSize * 0.88)` height-fit. RangeSlider local state buffering + commit-on-pointerUp (P1 fix: pendingRef single-flight guard). Settings section 6 "猫猫球大小" slider + reset. `conciergeProjection.ts` extraction for store file-size hygiene (377→329 lines). 13 shared + full web test suite green. gpt52 local review 4 rounds (R1: 1P1 RangeSlider + 1P2 mailbox; R2: 0 findings on PR code, 1P1 store line-count → extraction; R3: 1P1 withdrawn dist-freshness; final: 0 findings) + cloud review 3 rounds (封板 LL-072, R3 stale ratio 60%). PR #2614
 
 ## Dependencies
 
@@ -381,6 +382,7 @@ petState = compose(
 
 | 日期 | 事件 |
 |------|------|
+| 2026-06-27 | **Phase E3 resizable ball merged** (PR #2614, squash `d7af52723`)：猫猫球可拖拽缩放 48–192px。react-rnd `enableResizing={{ bottomRight: true }}` + `lockAspectRatio`；`clampBallSize()` shared utility；`ConciergeConfig.ballSize` TTL=0 持久化；AtlasSprite dynamic `containerSize * 0.88` height-fit；RangeSlider local buffering + commit-on-pointerUp（P1 fix）；settings "猫猫球大小" slider + reset；`conciergeProjection.ts` extraction（store 377→329 lines）。gpt52 local 4 rounds + cloud 3 rounds（封板 LL-072）。13 shared tests + 18510 full suite green。AC-E3-1 ✅ R10 ✅ |
 | 2026-06-24 | **xianxian-codex atlas skin merged** (PR #2527, squash `f475a2e8`)：宪宪专属 9 态视频提取 atlas 皮肤——parallel `xianxian-codex` skin sharing `YANYAN_ATLAS_ROWS` config + dynamic base path in `usePetSkin.ts`；733KB spritesheet (1536×1872, 8×9)；`pet.json` manifest (ragdoll, seal bicolor, video-extraction provenance)；skin union spread across 6 consumer sites (shared type + store + settings local type + resolver + API zod + settings radio)。gpt52 local review 2 rounds (R1: 1 real gap — settings UI missing, fixed `47e4758f5`；R2: 0 findings) + cloud review 2 rounds (R1: 1 P1 — API zod validator missing, fixed `e9864540e`；R2: 0 P1/P2)。37 web tests (8 new)。AC-E1-5 ✅。BUG-UX-6 素材升级 pipeline 首个完整产出 |
 | 2026-06-21 | **BUG-UX-3 height resize merged** (PR #2481, squash merge)：ConciergePanel 高度拖拽调整——`clampPanelHeight`/`resolveInitialPanelHeight` 纯函数 + `PANEL_MIN_H=280`/`MAX_H=700`/`DEFAULT_H=400`/`MARGIN_V=136` + top-edge drag handle (`cursor-ns-resize`) + localStorage 持久化 + viewport resize re-clamp。gpt52 local review 1 P1（MIN_H=200 < layout minimum ~238px → raised to 280 + regression test）+ cloud review 0 P1/P2（"Chef's kiss"）。19 新测试（38 total）全绿。配合 PR #2474（width resize）完成 BUG-UX-3 全部修复 |
 | 2026-06-18 | **Phase E2 skin unlock + default change merged** (PR #2377, squash merge)：Settings `皮肤` section unlocked from static chip to 3 interactive options（砚砚 v1 / 布偶猫 v1 / 毛线球），and `CONCIERGE_CONFIG_DEFAULTS.skin` changed from `ragdoll-v1` to `yanyan-codex` for unconfigured/new users. gpt52 local review 2 rounds（R1: existing-user migration limitation + stale hint read；R2: Redis default-contract assertion fixed, stale hint withdrawn, limitation accepted as explicit scope note）；cloud review 1 P1 pushed back（existing persisted users not auto-migrated = by design）+ 1 P2 fixed（Redis default test）。 |

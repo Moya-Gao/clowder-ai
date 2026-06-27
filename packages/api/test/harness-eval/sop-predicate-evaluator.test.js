@@ -557,11 +557,11 @@ describe('evaluateSopDefinition (AC-E22)', () => {
     const skipped = results.filter((r) => r.status === 'skipped');
     const violations = results.filter((r) => r.status === 'violation');
 
-    // 20 total rules in development.yaml (added merge-feature-doc-truth)
-    assert.equal(results.length, 20, `expected 20 rules, got ${results.length}`);
+    // 21 total rules in development.yaml (added fresh-context-not-approval)
+    assert.equal(results.length, 21, `expected 21 rules, got ${results.length}`);
 
-    // 9 manual_only rules -> skipped (merge-feature-doc-truth is manual_only)
-    assert.equal(skipped.length, 9, `expected 9 skipped (manual_only), got ${skipped.length}`);
+    // 10 manual_only rules -> skipped (fresh-context-not-approval is manual_only)
+    assert.equal(skipped.length, 10, `expected 10 skipped (manual_only), got ${skipped.length}`);
 
     // Nominal trace should produce 0 violations
     assert.equal(

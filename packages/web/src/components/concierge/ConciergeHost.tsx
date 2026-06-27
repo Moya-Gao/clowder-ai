@@ -34,8 +34,6 @@ import { ConciergeBall } from './ConciergeBall';
 import { ConciergePanel } from './ConciergePanel';
 import { ConciergeToolbar } from './ConciergeToolbar';
 
-/** Ball button dimensions (V3: 72×72 squircle) */
-const BALL_SIZE = 72;
 /** Default margin from viewport edge — matches original Tailwind `bottom-6 right-6` (1.5rem = 24px) */
 const EDGE_MARGIN = 24;
 /** Extra vertical space needed below the ball for the toolbar (BUG-UX-13 R2).
@@ -72,45 +70,49 @@ export function ConciergeHost() {
   const surfaceState = useConciergeStore((s) => s.surfaceState);
   const inputFocused = useConciergeStore((s) => s.inputFocused);
 
-  // Ball position (PR-A3b INV-P1~P4)
+  // Ball position (PR-A3b INV-P1~P4) + size (E3)
   const ballPosition = useConciergeStore((s) => s.ballPosition);
+  const ballSize = useConciergeStore((s) => s.ballSize);
   const setBallPosition = useConciergeStore((s) => s.setBallPosition);
+  const setBallSize = useConciergeStore((s) => s.setBallSize);
   const setIsDragging = useConciergeStore((s) => s.setIsDragging);
 
   // INV-P1: drag threshold — track start position to compare with stop position
   const dragStartPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
   // Default position: bottom-right with margin (replaces CSS `fixed bottom-6 right-6`)
-  // Memoized once — window dimensions at mount time
+  // E3: depends on ballSize so default position adapts to cat size
   const defaultPosition = useMemo(() => {
     if (typeof window === 'undefined') return { x: 0, y: 0 };
     return {
-      x: window.innerWidth - BALL_SIZE - EDGE_MARGIN,
-      y: window.innerHeight - BALL_SIZE - TOOLBAR_BELOW_HEIGHT - EDGE_MARGIN,
+      x: window.innerWidth - ballSize - EDGE_MARGIN,
+      y: window.innerHeight - ballSize - TOOLBAR_BELOW_HEIGHT - EDGE_MARGIN,
     };
-  }, []);
+  }, [ballSize]);
 
   // INV-P2: clamp position to viewport on render (handles window resize / persisted
   // out-of-bounds values). Pure computation, no side effect.
+  // E3: uses ballSize instead of constant
   const clampedPosition = useMemo(() => {
     const raw = ballPosition ?? defaultPosition;
     if (typeof window === 'undefined') return raw;
     return {
-      x: Math.max(0, Math.min(raw.x, window.innerWidth - BALL_SIZE)),
+      x: Math.max(0, Math.min(raw.x, window.innerWidth - ballSize)),
       // BUG-UX-13 R2: clamp Y accounts for toolbar below the ball, not just ball size
-      y: Math.max(0, Math.min(raw.y, window.innerHeight - BALL_SIZE - TOOLBAR_BELOW_HEIGHT)),
+      y: Math.max(0, Math.min(raw.y, window.innerHeight - ballSize - TOOLBAR_BELOW_HEIGHT)),
     };
-  }, [ballPosition, defaultPosition]);
+  }, [ballPosition, ballSize, defaultPosition]);
 
   // INV-P2: snap back on viewport resize (position may become out-of-bounds)
+  // E3: uses ballSize from store instead of constant
   useEffect(() => {
     const handleResize = () => {
-      const pos = useConciergeStore.getState().ballPosition;
+      const { ballPosition: pos, ballSize: size } = useConciergeStore.getState();
       if (!pos) return; // default position auto-adapts
       const clamped = {
-        x: Math.max(0, Math.min(pos.x, window.innerWidth - BALL_SIZE)),
+        x: Math.max(0, Math.min(pos.x, window.innerWidth - size)),
         // BUG-UX-13 R2: resize clamp also accounts for toolbar below
-        y: Math.max(0, Math.min(pos.y, window.innerHeight - BALL_SIZE - TOOLBAR_BELOW_HEIGHT)),
+        y: Math.max(0, Math.min(pos.y, window.innerHeight - size - TOOLBAR_BELOW_HEIGHT)),
       };
       if (clamped.x !== pos.x || clamped.y !== pos.y) {
         void setBallPosition(clamped);
@@ -190,11 +192,31 @@ export function ConciergeHost() {
       <Rnd
         data-testid="concierge-ball-wrapper"
         position={clampedPosition}
-        size={{ width: BALL_SIZE, height: BALL_SIZE }}
-        enableResizing={false}
+        size={{ width: ballSize, height: ballSize }}
+        minWidth={48}
+        minHeight={48}
+        maxWidth={192}
+        maxHeight={192}
+        lockAspectRatio
+        enableResizing={{
+          bottomRight: true,
+          // Only bottom-right handle — cat stays anchored at top-left during resize
+          top: false,
+          right: false,
+          bottom: false,
+          left: false,
+          topRight: false,
+          bottomLeft: false,
+          topLeft: false,
+        }}
         bounds="window"
         onDragStart={handleDragStart}
         onDragStop={handleDragStop}
+        onResizeStop={(_e, _dir, ref) => {
+          // E3: persist new size after resize ends
+          const newSize = ref.offsetWidth;
+          void setBallSize(newSize);
+        }}
         style={{ position: 'fixed', zIndex: 30 }}
         // BUG-UX-5 fix: removed pointerEvents:'none' — it blocked react-rnd's
         // drag detection from receiving mousedown directly on the wrapper.

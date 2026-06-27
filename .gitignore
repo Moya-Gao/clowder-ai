@@ -148,6 +148,7 @@ desktop-dist/
 bundled/
 docs/bug-report/werewolf-investigation/poster-screenshot.png
 .worktrees/
+.review-worktrees/
 
 # Raw avatar source images (large, pre-sliced originals)
 assets/avatars/raw/

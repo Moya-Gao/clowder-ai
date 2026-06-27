@@ -1,3 +1,10 @@
+---
+feature_ids: [F252]
+phase: E
+doc_kind: plan
+created: 2026-06-27
+---
+
 # F252 Phase E PR E-3: Test File Split + Milestone Badge UI
 
 **Feature:** F252 — `docs/features/F252-story-player.md`
