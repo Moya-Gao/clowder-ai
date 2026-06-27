@@ -1065,6 +1065,28 @@ cat_cafe_hold_ball({
 - [x] AC-P4: 超时兜底（timeoutMs 到期 → 唤醒 + 告知超时） — ManagedRunner SIGTERM→5s→SIGKILL + fallback reminder task
 - [x] AC-P5: 单槽语义不变（KD-23）——wakeWhen hold 也是同 (threadId, catId) 单槽覆盖 — shares existing pendingHolds cancel logic
 
+#### Phase P 已知问题（2026-06-27 铲屎官报告，P1）
+
+**现象**：Phase P 合入后，猫猫频繁 `hold_ball` 等铲屎官回答——以前都是 `@landy`，铲屎官回复自然触发猫猫，现在变成双触发浪费。
+
+**铲屎官原话**：
+> "大家经常 hold ball 等我回答，但是其实这是不合理的！以前都是 at 我，这才合理。毕竟我给你们发消息，触发你们，然后你们 hold ball 等 x 分钟又触发那就双触发了？"
+
+**本质问题 1 — 事件驱动场景下 wakeAfterMs 的架构矛盾**：
+
+如果一个场景已经有 event trigger（铲屎官发消息 / wakeWhen 条件满足 / webhook 回调），wakeAfterMs 定时唤醒就是多余的——两个唤醒源同时存在 = 必然双触发且无去重。这不是"哪些场景不该用 hold_ball"的规则问题，是**同一个 hold_ball 调用不应该同时带 event trigger 和 timer** 的架构问题。目前没有机制在 event 正常触发后自动取消对应的定时唤醒。
+
+**本质问题 2 — wakeWhen 引入的认知副作用**：
+
+wakeWhen 让 hold_ball 从"笨笨的定时轮询工具"变成了"看起来很聪明的万能等待工具"。以前 hold_ball 只有 wakeAfterMs，猫觉得"等铲屎官回答"不适合用定时器，自然走 `@landy`。现在 hold_ball 功能丰富了，猫**误以为它能替代 @landy** 处理所有等待场景。这个问题的根因不在传球规则层（加一行"严禁"是补锅），在 hold_ball 的 **API 设计 / 概念边界** 层——工具本身的语义让猫觉得它是万能等待入口。
+
+**修复方向（待收敛）**：
+1. hold_ball 接口层：是否需要 `waitType` 枚举（`ci` / `pr_check` / `command` / ...），显式排除 `waiting_for_user`？
+2. event + timer 共存去重：event 触发后自动取消 wakeAfterMs，或禁止两者同时存在
+3. 概念边界硬化：让 hold_ball 的 tool description / Not-for 更强力地排除"等人"场景，而非只靠传球规则
+
+**触发来源**：铲屎官 2026-06-27 实际使用观察 → thread `thread_mqwe66e0xpxwhi9o`
+
 ## Behavioral Evidence（Phase B 观察记录）
 
 ### Case E1: 砚砚任务替换 + 宪宪行动偏好（2026-04-18 同日双发）
