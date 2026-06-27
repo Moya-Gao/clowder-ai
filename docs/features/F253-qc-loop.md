@@ -291,10 +291,10 @@ F253 **消费** F167 的 hold_ball / review-feedback / merge-gate 事件，**产
 - [x] AC-A3: merge-gate skill 组装 evidence manifest（扩展 Review Provenance Matrix），含 head/localPeerReviewSha/cloudReviewSha/headChangeCause/gate_passed/gate_commands/trigger_reason/stale/verdict 字段（验证：merge-gate 执行后 evidence manifest JSON 可机器读取）— PR #2610 merged
 - [x] AC-A4: merge-gate evidence validation checker 验证 head === PR current HEAD + stale === false + reviewer provenance 闭合 + gate_passed === true（验证：构造 stale evidence 测试 merge-gate 拒绝）— PR #2610 merged
 
-### Phase B（Fresh-Context Pre-Review）
+### Phase B（Fresh-Context Pre-Review）✅
 
-- [ ] AC-B1: fresh-context pre-review 流程文档化（skill 或 SOP），明确标注"finding generator, not approval authority"，明确 ownership = author 触发（验证：读 skill 文档）
-- [ ] AC-B2: reviewer delta metric 有收集机制——正式 reviewer 的 findings 中可标注"fresh-context 已覆盖 / 新发现"（验证：review 模板含标注字段）
+- [x] AC-B1: fresh-context pre-review 流程文档化（skill 或 SOP），明确标注"finding generator, not approval authority"，明确 ownership = author 触发（验证：读 skill 文档）— PR #2612 merged
+- [x] AC-B2: reviewer delta metric 有收集机制——正式 reviewer 的 findings 中可标注"fresh-context 已覆盖 / 新发现"（验证：review 模板含标注字段）— PR #2612 merged
 
 ### Phase C（Git-Triggered Validation + Telemetry）
 
@@ -383,13 +383,15 @@ tips_exempt: internal tooling — QC Loop 是开发工具链改进，无用户�
 | 2026-06-26 | Spec v3 patch：Architecture Inventory + Reuse Audit + KD-7/8/9（命令/存储/频率全归一到已有 infra） |
 | 2026-06-27 | Phase A PR-A1 merged (PR #2608): `pnpm gate --auto-fix` + `gate.autoFixAllowlist` — AC-A1, AC-A2 ✅ |
 | 2026-06-27 | Phase A PR-A2 merged (PR #2610): evidence manifest + validation checker — AC-A3, AC-A4 ✅. Phase A complete |
+| 2026-06-27 | Phase B merged (PR #2612): fresh-context pre-review skill + reviewer delta metric — AC-B1, AC-B2 ✅. Phase B complete |
 
 ## Review Gate
 
 - Spec review R1: GPT Pro (@gpt-pro) — 方向 APPROVE + 8 个硬点 ✅ 已落地
 - Spec review R2: Opus 4.7 (@opus-47) — BLOCKING → 12 项 spec patch ✅ → Design Gate review（方向 APPROVE + 4 必答项 + 1 cross-thread）→ 铲屎官 push back "别造轮子" → 47 Architecture Inventory → 宪宪 spec v3 patch
 - Design Memo: pending（Architecture Inventory 完成 → Design Memo → 砚砚 + 47 review）
-- Phase A implementation: 跨族 review
+- Phase A implementation: 跨族 review ✅
+- Phase B implementation: 跨族 review (砚砚 R1-R4, 4 轮) ✅ + 云端 review (COMMENTED, 0 P1, 1 P2 pushed back as P3) ✅
 
 ## Links
 
