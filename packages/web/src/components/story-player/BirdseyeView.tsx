@@ -28,7 +28,7 @@ const MIN_TIMELINE_WIDTH = 600;
 // Birdseye View
 // ============================================================================
 
-export function BirdseyeView({ data }: { data: FeatureStoryRenderingDTO }) {
+export function BirdseyeView({ data, onPlayFeature }: { data: FeatureStoryRenderingDTO; onPlayFeature?: () => void }) {
   const { lanes, edges, milestones, timeRange, title } = data;
 
   const duration = timeRange.end - timeRange.start;
@@ -57,6 +57,11 @@ export function BirdseyeView({ data }: { data: FeatureStoryRenderingDTO }) {
         <span style={{ opacity: 0.5, fontSize: 'var(--console-font-xs)' }}>
           {lanes.length} threads · {milestones.length} milestones · {edges.length} causal edges
         </span>
+        {onPlayFeature && (
+          <button type="button" onClick={onPlayFeature} style={styles.playButton} data-testid="play-feature-button">
+            ▶ Play Feature
+          </button>
+        )}
       </div>
 
       {/* Swimlane viewport */}
@@ -322,5 +327,19 @@ const styles: Record<string, React.CSSProperties> = {
     flex: 1,
     overflow: 'auto',
     padding: '24px 0',
+  },
+  playButton: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '6px 14px',
+    borderRadius: '6px',
+    border: '1px solid rgba(168, 85, 247, 0.4)',
+    background: 'rgba(168, 85, 247, 0.15)',
+    color: 'var(--color-text-primary, #e0e0e0)',
+    fontSize: 'var(--console-font-compact, 13px)',
+    fontWeight: 500,
+    cursor: 'pointer',
+    transition: 'all 200ms ease',
   },
 };

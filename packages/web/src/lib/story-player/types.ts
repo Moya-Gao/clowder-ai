@@ -45,6 +45,8 @@ export interface ReplayEvent {
   idleSkipMs?: number;
   /** Whether this is a pass-ball event — @mention / cross_post (AC-B1) */
   isPassBall?: boolean;
+  /** Source thread ID — preserved from raw event for multi-thread partitioning (AC-E5) */
+  sourceThreadId?: string;
 }
 
 // ---------------------------------------------------------------------------

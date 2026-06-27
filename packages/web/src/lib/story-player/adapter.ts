@@ -283,6 +283,7 @@ export function adaptTranscriptEvents(raw: RawTranscriptEvent[]): ReplayEvent[] 
       eventNo: evt.eventNo,
       catId: evt.catId,
       invocationId: evt.invocationId,
+      sourceThreadId: evt.threadId,
     };
 
     if (replayType === 'tool_call') {

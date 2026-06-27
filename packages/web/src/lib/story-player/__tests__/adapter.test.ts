@@ -284,4 +284,26 @@ describe('F252 adapter — structured tool payloads (P1-3 regression)', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// AC-E5: sourceThreadId preservation
+// ---------------------------------------------------------------------------
+
+describe('sourceThreadId preservation (AC-E5)', () => {
+  it('carries raw threadId onto adapted event as sourceThreadId', () => {
+    const events = [makeEvent(0, 1000, { type: 'text', content: 'hello' }, { threadId: 'thread-abc' })];
+    const result = adaptTranscriptEvents(events);
+    expect(result[0].sourceThreadId).toBe('thread-abc');
+  });
+
+  it('preserves different threadIds across events', () => {
+    const events = [
+      makeEvent(0, 1000, { type: 'text', content: 'a' }, { threadId: 'thread-1' }),
+      makeEvent(1, 2000, { type: 'text', content: 'b' }, { threadId: 'thread-2' }),
+    ];
+    const result = adaptTranscriptEvents(events);
+    expect(result[0].sourceThreadId).toBe('thread-1');
+    expect(result[1].sourceThreadId).toBe('thread-2');
+  });
+});
+
 // Pairing, mixed event, and regression tests moved to adapter-pairing.test.ts

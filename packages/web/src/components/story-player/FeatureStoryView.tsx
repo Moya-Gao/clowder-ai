@@ -16,6 +16,8 @@ import type { FeatureStoryRenderingDTO } from '@cat-cafe/shared';
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import { BirdseyeView } from './BirdseyeView';
+import { FeatureTheaterContent } from './FeatureTheaterContent';
+import { TheaterOverlay } from './TheaterOverlay';
 
 // ============================================================================
 // Data fetching hook
@@ -63,6 +65,7 @@ function useFeatureStoryRendering(featId: string) {
 
 export function FeatureStoryView({ featId }: { featId: string }) {
   const { data, isLoading, error } = useFeatureStoryRendering(featId);
+  const [showTheater, setShowTheater] = useState(false);
 
   if (isLoading) {
     return (
@@ -96,7 +99,16 @@ export function FeatureStoryView({ featId }: { featId: string }) {
     );
   }
 
-  return <BirdseyeView data={data} />;
+  return (
+    <>
+      <BirdseyeView data={data} onPlayFeature={() => setShowTheater(true)} />
+      {showTheater && (
+        <TheaterOverlay open onClose={() => setShowTheater(false)} title={data.title}>
+          <FeatureTheaterContent featId={featId} />
+        </TheaterOverlay>
+      )}
+    </>
+  );
 }
 
 // ============================================================================
