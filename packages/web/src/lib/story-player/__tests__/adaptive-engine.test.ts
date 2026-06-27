@@ -86,24 +86,26 @@ describe('F252 engine — pass-ball slowdown in tick', () => {
   it('advances slower at pass-ball events when adaptive pacing is on', () => {
     // Events: 0s, 10s, 20s. Event[1] is pass-ball.
     // At 100x speed, 100ms real delta = 10_000ms playback delta (normal)
-    // At pass-ball with factor 5: effective speed = 20x, so delta = 2_000ms
+    // With bullet time easing: first tick lands on pass-ball marker → enters bullet time.
+    // Second tick applies easing curve: speedFactor < 1.0 → slower advance.
     const events = makeEngineEvents(3, [1]);
     let engine = createReplayEngine(events);
     engine = play(engine);
     engine = setSpeed(engine, 100);
 
     // Tick 1: start at event 0, advance 100ms real time
-    // Normal: elapsed += 100 * 100 = 10_000 → reaches event 1 at t=10_000
+    // Normal: elapsed += 100 * 100 = 10_000 → reaches event 1 (pass-ball marker stop)
     const after1 = tick(engine, 100);
     expect(after1.currentIndex).toBe(1); // reached pass-ball event
+    expect(after1.bulletTime).not.toBeNull(); // bullet time entered
 
-    // Tick 2: now at event 1 (pass-ball), adaptive on → slowdown
-    // With factor 5: effective speed = 20, delta = 100ms * 20 = 2_000ms
-    // Event 2 is at t=20_000, elapsed was 10_000, now 10_000 + 2_000 = 12_000 < 20_000
+    // Tick 2: now in bullet time → easing curve applies speedFactor < 1.0
     const after2 = tick(after1, 100);
-    expect(after2.currentIndex).toBe(1); // still at event 1 (hasn't reached event 2)
-    // Verify elapsed advanced by effective delta, not full delta
-    expect(after2.elapsedMs).toBe(after1.elapsedMs + 100 * (100 / PASS_BALL_SLOWDOWN_FACTOR));
+    expect(after2.currentIndex).toBe(1); // still at event 1 (slowed down)
+    // Verify elapsed advanced less than full speed (100 * 100 = 10000)
+    const advance = after2.elapsedMs - after1.elapsedMs;
+    expect(advance).toBeLessThan(100 * 100); // slower than normal
+    expect(advance).toBeGreaterThan(0); // but still advancing
   });
 
   it('does NOT slow down when adaptive pacing is off', () => {
@@ -137,8 +139,9 @@ describe('F252 engine — pass-ball slowdown in tick', () => {
     expect(after2.currentIndex).toBe(2);
   });
 
-  it('clamps effective speed to minimum 1x at pass-ball events', () => {
-    // At 1x speed with factor 5: effective = max(1, 1/5) = 1
+  it('applies bullet time easing at pass-ball events even at low speed', () => {
+    // At 1x speed with bullet time: easing curve applies speedFactor (0.01 at hold phase)
+    // This is intentionally slower than 1x — the easing creates a dramatic pause.
     const events = makeEngineEvents(3, [1]);
     let engine = createReplayEngine(events);
     engine = play(engine);
@@ -149,11 +152,15 @@ describe('F252 engine — pass-ball slowdown in tick', () => {
     let state = engine;
     for (let i = 0; i < 100; i++) state = tick(state, 100); // 10s real time
     expect(state.currentIndex).toBe(1);
+    expect(state.bulletTime).not.toBeNull(); // bullet time entered
 
-    // Now at pass-ball event. Effective speed = max(1, 1/5) = 1 (not 0.2)
+    // Now at pass-ball with bullet time active. Speed factor < 1.0
     const before = state.elapsedMs;
     const after = tick(state, 100);
-    expect(after.elapsedMs).toBe(before + 100 * 1); // speed stays at 1, not 0.2
+    // At 1x base speed with easing, effective speed < 1.0
+    const advance = after.elapsedMs - before;
+    expect(advance).toBeLessThan(100 * 1); // slower than normal 1x
+    expect(advance).toBeGreaterThan(0); // but still advancing
   });
 
   it('stops at pass-ball marker instead of skipping past it at high speed', () => {

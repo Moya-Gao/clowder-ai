@@ -197,9 +197,7 @@ export function useReplayEngine(options: UseReplayEngineOptions): UseReplayEngin
   useEffect(() => {
     let cancelled = false;
 
-    const fetchPromise = threadId
-      ? fetchThreadReplayEvents(threadId)
-      : fetchAllSessionEvents(sessionId!);
+    const fetchPromise = threadId ? fetchThreadReplayEvents(threadId) : fetchAllSessionEvents(sessionId!);
 
     fetchPromise
       .then((rawEvents) => {

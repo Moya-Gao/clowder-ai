@@ -14,6 +14,8 @@
 
 import { useMemo } from 'react';
 import type { Chapter } from './chapters';
+import type { DensityBucket } from './event-density';
+import { computeEventDensity } from './event-density';
 import type { ReplayChatMessage } from './replay-chat-bridge';
 import { bridgeReplayEvent } from './replay-chat-bridge';
 import { useReplayEngine } from './useReplayEngine';
@@ -40,6 +42,8 @@ export interface UseThreadReplayResult {
   activeSkip: { originalGapMs: number } | null;
   /** Chapters for timeline navigation (Phase B AC-B2) */
   chapters: Chapter[];
+  /** Event density buckets for heatmap overlay (Phase E AC-E7) */
+  densityBuckets: DensityBucket[];
   /** Playback controls */
   togglePlayPause: () => void;
   doSeek: (index: number) => void;
@@ -57,6 +61,7 @@ export interface UseThreadReplayResult {
 export function useThreadReplay({ threadId }: UseThreadReplayOptions): UseThreadReplayResult {
   const {
     engine,
+    events,
     visibleEvents,
     isLoading,
     error,
@@ -74,6 +79,10 @@ export function useThreadReplay({ threadId }: UseThreadReplayOptions): UseThread
   // Bridge visible events to ChatMessage-compatible format
   const messages = useMemo(() => visibleEvents.map(bridgeReplayEvent), [visibleEvents]);
 
+  // AC-E7: Compute event density for heatmap overlay
+  // 50 buckets gives good visual resolution on typical progress bar widths
+  const densityBuckets = useMemo(() => computeEventDensity(events, 50), [events]);
+
   return {
     messages,
     isLoading,
@@ -81,6 +90,7 @@ export function useThreadReplay({ threadId }: UseThreadReplayOptions): UseThread
     engine,
     activeSkip,
     chapters,
+    densityBuckets,
     togglePlayPause,
     doSeek,
     doSetSpeed,

@@ -9,13 +9,17 @@
  */
 
 import { DEFAULT_SKIP_DISPLAY_MS } from './adaptive-pacing';
-import type { ReplayEngineState, ReplayEvent, SpeedMultiplier } from './types';
+import { BULLET_TIME_TOTAL_MS, bulletTimeSpeedFactor } from './bullet-time';
+import type { BulletTimeState, ReplayEngineState, ReplayEvent, SpeedMultiplier } from './types';
 
 // ---------------------------------------------------------------------------
 // Constants (AC-B1)
 // ---------------------------------------------------------------------------
 
-/** Factor by which speed is reduced at pass-ball events when adaptive pacing is on */
+/**
+ * @deprecated Replaced by bullet time smooth easing (AC-E4).
+ * Kept for backward compatibility — no longer used in tick().
+ */
 export const PASS_BALL_SLOWDOWN_FACTOR = 5;
 
 // ---------------------------------------------------------------------------
@@ -70,6 +74,7 @@ export function createReplayEngine(events: ReplayEvent[]): ReplayEngineState {
     totalDurationMs: 0,
     displayMode: 'cinematic',
     adaptivePacing: true,
+    bulletTime: null,
     _events: events,
     _idleWarps: warps,
   };
@@ -83,9 +88,9 @@ export function createReplayEngine(events: ReplayEvent[]): ReplayEngineState {
 // ---------------------------------------------------------------------------
 
 export function play(state: ReplayEngineState): ReplayEngineState {
-  // From ended → reset to beginning
+  // From ended → reset to beginning (INV-5: clear bullet time)
   if (state.state === 'ended') {
-    return { ...state, state: 'playing', currentIndex: 0, elapsedMs: 0 };
+    return { ...state, state: 'playing', currentIndex: 0, elapsedMs: 0, bulletTime: null };
   }
   return { ...state, state: 'playing' };
 }
@@ -117,7 +122,13 @@ export function setDisplayMode(state: ReplayEngineState, mode: 'cinematic' | 'fa
 
 export function toggleAdaptivePacing(state: ReplayEngineState): ReplayEngineState {
   const events = getEvents(state);
+  const turningOff = state.adaptivePacing;
   const next = { ...state, adaptivePacing: !state.adaptivePacing };
+  // Clear bullet time when adaptive pacing is turned OFF — prevents stale
+  // slowdown from resuming at the wrong position when toggled back ON (P2 review fix)
+  if (turningOff) {
+    next.bulletTime = null;
+  }
   // Recompute elapsed + total for the new adaptive state (preserves currentIndex)
   next.elapsedMs = effOffset(next, events, state.currentIndex);
   next.totalDurationMs = effTotal(next, events);
@@ -132,9 +143,18 @@ export function toggleAdaptivePacing(state: ReplayEngineState): ReplayEngineStat
 function tickMax(state: ReplayEngineState, events: ReplayEvent[]): ReplayEngineState {
   const nextIndex = state.currentIndex + 1;
   if (nextIndex >= events.length - 1) {
-    return { ...state, currentIndex: events.length - 1, elapsedMs: effTotal(state, events), state: 'ended' };
+    // INV-5: clear bulletTime on ended (R2 P2 review fix)
+    return {
+      ...state,
+      currentIndex: events.length - 1,
+      elapsedMs: effTotal(state, events),
+      state: 'ended',
+      bulletTime: null,
+    };
   }
-  return { ...state, currentIndex: nextIndex, elapsedMs: effOffset(state, events, nextIndex) };
+  // Clear bullet time — MAX skips through events without slowdown;
+  // preserving stale bulletTime would apply wrong speedFactor on speed switch-back
+  return { ...state, currentIndex: nextIndex, elapsedMs: effOffset(state, events, nextIndex), bulletTime: null };
 }
 
 /**
@@ -145,15 +165,27 @@ export function tick(state: ReplayEngineState, deltaMs: number): ReplayEngineSta
   if (state.state !== 'playing') return state;
 
   const events = getEvents(state);
-  if (events.length === 0) return { ...state, state: 'ended' };
+  // INV-5 defense-in-depth: clear bulletTime on ended even with empty events
+  if (events.length === 0) return { ...state, state: 'ended', bulletTime: null };
 
   if (state.speed === 'max') return tickMax(state, events);
 
-  // AC-B1: At pass-ball events, reduce effective speed to give viewer time to notice
-  const currentEvent = events[state.currentIndex];
-  const isSlowZone = state.adaptivePacing && currentEvent?.isPassBall;
-  const effectiveSpeed = isSlowZone ? Math.max(1, state.speed / PASS_BALL_SLOWDOWN_FACTOR) : state.speed;
+  // AC-E4: Bullet time easing — smooth decel/hold/accel at pass-ball events
+  // If already in bullet time from previous tick, advance progress and apply easing
+  let bulletTimeNext: BulletTimeState | null = state.bulletTime;
+  let speedFactor = 1.0;
 
+  if (bulletTimeNext && state.adaptivePacing) {
+    bulletTimeNext = { ...bulletTimeNext, progressMs: bulletTimeNext.progressMs + deltaMs };
+    speedFactor = bulletTimeSpeedFactor(bulletTimeNext.progressMs);
+    // Exit bullet time after total duration
+    if (bulletTimeNext.progressMs >= BULLET_TIME_TOTAL_MS) {
+      bulletTimeNext = null;
+      speedFactor = 1.0;
+    }
+  }
+
+  const effectiveSpeed = state.speed * speedFactor;
   const newElapsed = state.elapsedMs + deltaMs * effectiveSpeed;
 
   // Find the last event whose effective offset is <= newElapsed.
@@ -169,20 +201,24 @@ export function tick(state: ReplayEngineState, deltaMs: number): ReplayEngineSta
       // Stop at adaptive markers — clamp elapsed to marker offset so next tick
       // starts HERE (with slowdown/banner), rather than already past it
       if (state.adaptivePacing && (events[i].isPassBall || events[i].idleSkipMs != null)) {
-        return { ...state, currentIndex: newIndex, elapsedMs: offset };
+        // Enter bullet time when landing on a pass-ball marker
+        if (events[i].isPassBall && (!bulletTimeNext || bulletTimeNext.triggerIndex !== i)) {
+          bulletTimeNext = { triggerIndex: i, progressMs: 0 };
+        }
+        return { ...state, currentIndex: newIndex, elapsedMs: offset, bulletTime: bulletTimeNext };
       }
     } else {
       break;
     }
   }
 
-  // Check if we've passed the last event
+  // Check if we've passed the last event (INV-5: clear bullet time on ended)
   const total = effTotal(state, events);
   if (newElapsed >= total) {
-    return { ...state, currentIndex: events.length - 1, elapsedMs: total, state: 'ended' };
+    return { ...state, currentIndex: events.length - 1, elapsedMs: total, state: 'ended', bulletTime: null };
   }
 
-  return { ...state, currentIndex: newIndex, elapsedMs: newElapsed };
+  return { ...state, currentIndex: newIndex, elapsedMs: newElapsed, bulletTime: bulletTimeNext };
 }
 
 // ---------------------------------------------------------------------------
@@ -198,11 +234,22 @@ export function seek(state: ReplayEngineState, targetIndex: number): ReplayEngin
   // When seeking from 'ended' to a non-final event, transition to 'paused'
   const newState = state.state === 'ended' && clamped < events.length - 1 ? 'paused' : state.state;
 
+  // Preserve existing bullet time if seeking to same trigger;
+  // initialize new bullet time if seeking to pass-ball while playing with adaptive pacing
+  // (R3 P2 fix: chapter markers call onSeek(ch.eventIndex) — must enter bullet time)
+  let bulletTime: BulletTimeState | null = null;
+  if (state.bulletTime && state.bulletTime.triggerIndex === clamped) {
+    bulletTime = state.bulletTime;
+  } else if (newState === 'playing' && state.adaptivePacing && events[clamped]?.isPassBall) {
+    bulletTime = { triggerIndex: clamped, progressMs: 0 };
+  }
+
   return {
     ...state,
     state: newState,
     currentIndex: clamped,
     elapsedMs: effOffset(state, events, clamped),
+    bulletTime,
   };
 }
 
@@ -215,11 +262,14 @@ export function stepForward(state: ReplayEngineState): ReplayEngineState {
   if (events.length === 0) return state;
 
   const nextIndex = Math.min(state.currentIndex + 1, events.length - 1);
+  // Clear bullet time unless staying at the same trigger event (same pattern as seek)
+  const bulletTime = state.bulletTime && state.bulletTime.triggerIndex === nextIndex ? state.bulletTime : null;
   return {
     ...state,
     state: state.state === 'playing' ? 'paused' : state.state,
     currentIndex: nextIndex,
     elapsedMs: effOffset(state, events, nextIndex),
+    bulletTime,
   };
 }
 
@@ -228,11 +278,14 @@ export function stepBackward(state: ReplayEngineState): ReplayEngineState {
   if (events.length === 0) return state;
 
   const prevIndex = Math.max(state.currentIndex - 1, 0);
+  // Clear bullet time unless staying at the same trigger event (same pattern as seek)
+  const bulletTime = state.bulletTime && state.bulletTime.triggerIndex === prevIndex ? state.bulletTime : null;
   return {
     ...state,
     state: state.state === 'playing' ? 'paused' : state.state,
     currentIndex: prevIndex,
     elapsedMs: effOffset(state, events, prevIndex),
+    bulletTime,
   };
 }
 

@@ -23,6 +23,7 @@ export function TheaterReplayContent({ threadId }: TheaterReplayContentProps) {
     engine,
     activeSkip,
     chapters,
+    densityBuckets,
     togglePlayPause,
     doSeek,
     doSetSpeed,
@@ -80,6 +81,7 @@ export function TheaterReplayContent({ threadId }: TheaterReplayContentProps) {
           engine={engine}
           activeSkip={activeSkip}
           chapters={chapters}
+          densityBuckets={densityBuckets}
           onTogglePlayPause={togglePlayPause}
           onSeek={doSeek}
           onSetSpeed={doSetSpeed}

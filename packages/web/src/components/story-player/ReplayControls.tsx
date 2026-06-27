@@ -8,7 +8,9 @@
 'use client';
 
 import type { Chapter } from '@/lib/story-player/chapters';
+import type { DensityBucket } from '@/lib/story-player/event-density';
 import type { ReplayEngineState, SpeedMultiplier } from '@/lib/story-player/types';
+import { EventDensityBar } from './EventDensityBar';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -20,6 +22,8 @@ interface ReplayControlsProps {
   activeSkip: { originalGapMs: number } | null;
   /** Chapters for timeline navigation (AC-B2) */
   chapters: Chapter[];
+  /** Event density buckets for heatmap overlay (AC-E7) */
+  densityBuckets: DensityBucket[];
   onTogglePlayPause: () => void;
   onSeek: (index: number) => void;
   onSetSpeed: (speed: SpeedMultiplier) => void;
@@ -89,6 +93,7 @@ export function ReplayControls({
   engine,
   activeSkip,
   chapters,
+  densityBuckets,
   onTogglePlayPause,
   onSeek,
   onSetSpeed,
@@ -171,6 +176,8 @@ export function ReplayControls({
             borderRadius: '3px',
           }}
         />
+        {/* AC-E7: Event density heatmap — on top of fill, visible everywhere (P2 review fix) */}
+        <EventDensityBar buckets={densityBuckets} progress={progress} />
         {/* AC-B2: Chapter markers on progress bar */}
         {chapters
           .filter((ch) => ch.kind !== 'session_start' && ch.kind !== 'session_end')
@@ -199,7 +206,7 @@ export function ReplayControls({
                   border: 'none',
                   borderRadius: '2px',
                   cursor: 'pointer',
-                  zIndex: 2,
+                  zIndex: 3,
                   opacity: 0.8,
                   fontSize: 'var(--console-font-label)',
                   display: 'flex',
@@ -213,7 +220,7 @@ export function ReplayControls({
               </button>
             );
           })}
-        {/* Fill */}
+        {/* Fill — z:1 so density heatmap (z:2) overlays it */}
         <div
           style={{
             position: 'absolute',
@@ -224,6 +231,7 @@ export function ReplayControls({
             background: 'var(--color-accent, #6366f1)',
             borderRadius: '3px',
             transition: 'width 0.1s linear',
+            zIndex: 1,
           }}
         />
       </div>

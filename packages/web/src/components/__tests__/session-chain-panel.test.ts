@@ -1278,7 +1278,7 @@ describe('F24: SessionChainPanel', () => {
   });
 
   describe('F252: Story Player entry point', () => {
-    it('renders replay link for sealed sessions pointing to /story/session:<id>', async () => {
+    it('does NOT render standalone replay link for sealed sessions (AC-E1 sunset)', async () => {
       mockSessionsResponse([
         {
           id: 'ses_sealed_replay',
@@ -1294,9 +1294,10 @@ describe('F24: SessionChainPanel', () => {
       await flushFetch();
       expandSealed();
 
+      // AC-E1: standalone session replay route is sunset — canonical entry
+      // is Theater Overlay via ThreadItem, not a per-session link here
       const replayLink = container.querySelector('a[href="/story/session:ses_sealed_replay"]');
-      expect(replayLink).not.toBeNull();
-      expect(replayLink?.textContent).toContain('回放');
+      expect(replayLink).toBeNull();
     });
 
     it('does NOT render replay link for active sessions', async () => {

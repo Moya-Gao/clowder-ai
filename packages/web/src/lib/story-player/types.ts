@@ -48,6 +48,26 @@ export interface ReplayEvent {
 }
 
 // ---------------------------------------------------------------------------
+// Bullet Time state (AC-E4)
+// ---------------------------------------------------------------------------
+
+/**
+ * Tracks active bullet time slowdown at a pass-ball event.
+ *
+ * INV-1: progressMs >= 0
+ * INV-2: triggerIndex references a valid pass-ball event
+ * INV-3: speedFactor always in [MIN_SPEED_FACTOR, 1.0] (enforced by easing fn)
+ * INV-4: null when adaptivePacing=false
+ * INV-5: null when state=idle or state=ended
+ */
+export interface BulletTimeState {
+  /** Index of the pass-ball event that triggered this bullet time */
+  triggerIndex: number;
+  /** Real-time progress through the bullet time curve (ms) */
+  progressMs: number;
+}
+
+// ---------------------------------------------------------------------------
 // Replay Engine state
 // ---------------------------------------------------------------------------
 
@@ -72,6 +92,8 @@ export interface ReplayEngineState {
   displayMode: 'cinematic' | 'faithful';
   /** Whether adaptive pacing is active (AC-B1) */
   adaptivePacing: boolean;
+  /** Active bullet time state, null when not in bullet time (AC-E4) */
+  bulletTime: BulletTimeState | null;
 }
 
 // ---------------------------------------------------------------------------
