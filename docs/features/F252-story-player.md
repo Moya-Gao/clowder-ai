@@ -41,13 +41,13 @@ tips_exempt: "Tip planned for Phase D sharing feature — Phase A is infrastruct
 **操作**：100x 速度 → 暂停讲解 → 章节跳转
 **当前状态**：❌ 未实现。只有单 session 回放（入口藏在 session 详情里），没有 thread 级串联
 
-### 旅程 2：Feature 回放（多 Thread 协作故事）— 展示级
+### 旅程 2：Feature 回放（多 Thread 动态协作故事）— 展示级
 
 **场景**：向投资人/用户/同行展示 Cat Café 多猫协作完成一个复杂 Feature 的全貌
 **入口**：Feature 相关界面 → "回放 Feature 故事"
-**内容**：一个 Feature 涉及的**多个 thread**，泳道图展示，因果链（跨 thread 传球 / 事件驱动）动态呈现
-**操作**：鸟瞰全景 → 点色块钻入单 thread 回放（旅程 1）→ 暂停讲解
-**当前状态**：⚠️ 后端 BFF + 泳道渲染已有（Phase C），但入口藏在 TrajectoryPanel 子面板里（需要先进 thread 详情 → 找到 Trajectory 面板 → 只有关联 Feature 的 thread 才显示），铲屎官在 thread 列表完全找不到
+**内容**：一个 Feature 涉及的**多个 thread 同时动态回放**——多条泳道同时播放，消息在各 thread 里同时蹦出来，传球/事件驱动时因果边箭头**动态飞过去**。像多机位电影，不是静态信息图。（铲屎官原话 2026-06-27："我想要的是动态的啊！！很生动的你们这群猫猫都是如何开始做的"）
+**操作**：多 thread 同步播放 → 看到猫猫在各 thread 同时工作 → 传球时自动减速 + 箭头动画 → 暂停讲解 → 钻入单 thread 看细节（旅程 1）
+**当前状态**：❌ 做的是**静态泳道图**（几个小圆点 + 死箭头 + "Cross-post by opus" 标签），完全不是动态回放。入口还藏在 TrajectoryPanel 子面板里找不到
 
 ### 旅程 3：分享（发给不在场的人）
 
