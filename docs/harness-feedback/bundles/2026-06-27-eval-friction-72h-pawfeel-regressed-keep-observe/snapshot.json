@@ -1,0 +1,35 @@
+{
+  "verdictId": "2026-06-27-eval-friction-72h-pawfeel-regressed-keep-observe",
+  "evalSnapshotId": "eval-F245-2026-06-27",
+  "featureId": "F245",
+  "generatedAt": "2026-06-27T03:06:44.016Z",
+  "window": {
+    "startMs": 1782270000000,
+    "endMs": 1782529200000,
+    "durationHours": 72
+  },
+  "components": [
+    {
+      "id": "friction-rollup",
+      "name": "friction rollup (Top-N + sensorForm)",
+      "confidence": "medium",
+      "activationCounts": {},
+      "frictionCounts": {
+        "cluster_count": 88,
+        "top_cluster_count": 10,
+        "tail_cluster_count": 78,
+        "tail_signal_count": 89,
+        "cluster_5f18269e25a4": 5,
+        "cluster_85556ae26141": 3,
+        "cluster_202976cd91e8": 2,
+        "cluster_2171ca1c793d": 2,
+        "cluster_550da093d20e": 2,
+        "cluster_6694dac4c114": 2,
+        "cluster_6be17b159fd7": 2,
+        "cluster_7f9b86ffca34": 2,
+        "cluster_85e67c592fe6": 2,
+        "cluster_aa12ab44f6ad": 2
+      }
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "verdictId": "2026-06-27-eval-friction-72h-pawfeel-regressed-keep-observe",
+  "featureId": "F245",
+  "evalSnapshotId": "eval-F245-2026-06-27",
+  "generatedAt": "2026-06-27T03:06:44.016Z",
+  "findings": [
+    {
+      "id": "FR-2026-06-27-5f18269e25a4",
+      "relatedFeature": "F245",
+      "frictionSignal": {
+        "type": "friction.cluster_5f18269e25a4",
+        "severity": "medium",
+        "confidence": 0.7,
+        "detectedAt": "2026-06-27T03:06:44.016Z"
+      },
+      "attribution": {
+        "primaryLayer": "needs_investigation",
+        "evidence": [
+          {
+            "type": "counter",
+            "anchor": "friction-rollup/cluster_5f18269e25a4",
+            "excerpt": "cluster 'worktree+继承 NODE_ENV=production' count=5 severity=medium sensorForms=[reason]"
+          }
+        ]
+      },
+      "proposedAction": [
+        {
+          "action": "triage-top-friction-cluster",
+          "target": "F245/friction-rollup",
+          "rationale": "Highest-ranked friction cluster in the window — eval cat assigns the 7-class root cause in the verdict before handoff."
+        }
+      ],
+      "status": "open"
+    }
+  ]
+}

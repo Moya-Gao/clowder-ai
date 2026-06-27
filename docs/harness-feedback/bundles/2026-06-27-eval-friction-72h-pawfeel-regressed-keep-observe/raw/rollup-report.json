@@ -1,0 +1,449 @@
+{
+  "verdictId": "2026-06-27-eval-friction-72h-pawfeel-regressed-keep-observe",
+  "selector": {
+    "kind": "friction-rollup-snapshot",
+    "windowStartMs": 1782270000000,
+    "windowEndMs": 1782529200000,
+    "topN": 10,
+    "tokenCap": 4000
+  },
+  "window": {
+    "sinceMs": 1782270000000,
+    "untilMs": 1782529200000
+  },
+  "signalCount": 113,
+  "clusterCount": 88,
+  "degraded": false,
+  "droppedChannels": [],
+  "report": {
+    "window": {
+      "sinceMs": 1782270000000,
+      "untilMs": 1782529200000
+    },
+    "generatedAt": "2026-06-27T03:06:44.016Z",
+    "topClusters": [
+      {
+        "clusterId": "5f18269e25a4",
+        "representative": "worktree+继承 NODE_ENV=production",
+        "channels": [
+          "paw-feel"
+        ],
+        "count": 5,
+        "members": [
+          {
+            "signalId": "paw-feel:0001782388152322-000087-70b6a4b7#0",
+            "rawRef": "0001782388152322-000087-70b6a4b7#0",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782388212539-000091-9ba0f15d#0",
+            "rawRef": "0001782388212539-000091-9ba0f15d#0",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782388798738-000114-ee8a2e35#0",
+            "rawRef": "0001782388798738-000114-ee8a2e35#0",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782389394268-000131-6bd597b0#0",
+            "rawRef": "0001782389394268-000131-6bd597b0#0",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782389678578-000135-bffc70f8#0",
+            "rawRef": "0001782389678578-000135-bffc70f8#0",
+            "channel": "paw-feel"
+          }
+        ],
+        "method": "rule",
+        "sensorForms": [
+          "reason"
+        ],
+        "severity": "medium"
+      },
+      {
+        "clusterId": "85556ae26141",
+        "representative": "`gh issue view --json authorAssociation` 当前 gh 不支持该字段，只能改走 REST API；`gh pr list --search` 对宽泛 OpenCode 关键词返回大量无关旧 PR，最终用 issue timeline + #1000/#1001 精确核验。",
+        "channels": [
+          "paw-feel"
+        ],
+        "count": 3,
+        "members": [
+          {
+            "signalId": "paw-feel:0001782375087536-000108-3da7d378#0",
+            "rawRef": "0001782375087536-000108-3da7d378#0",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782355406819-000458-6b5b5f9a#0",
+            "rawRef": "0001782355406819-000458-6b5b5f9a#0",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782274476875-000004-dce71193#0",
+            "rawRef": "0001782274476875-000004-dce71193#0",
+            "channel": "paw-feel"
+          }
+        ],
+        "method": "embedding",
+        "sensorForms": [
+          "reason"
+        ],
+        "severity": "medium"
+      },
+      {
+        "clusterId": "202976cd91e8",
+        "representative": "`pnpm check` 会扫描未跟踪 `.review-worktrees/` 里的嵌套 `biome.json` 并在配置阶段失败，导致文档小改无法跑完整 gate。",
+        "channels": [
+          "paw-feel"
+        ],
+        "count": 2,
+        "members": [
+          {
+            "signalId": "paw-feel:0001782408120611-000645-a77d22aa#0",
+            "rawRef": "0001782408120611-000645-a77d22aa#0",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782400402593-000373-f1edc54f#0",
+            "rawRef": "0001782400402593-000373-f1edc54f#0",
+            "channel": "paw-feel"
+          }
+        ],
+        "method": "embedding",
+        "sensorForms": [
+          "reason"
+        ],
+        "severity": "medium"
+      },
+      {
+        "clusterId": "2171ca1c793d",
+        "representative": "skill budget warning 只告诉“描述被截断”，但不直接给每个来源/插件的预算占用，定位需要手工拼 config + skill roots + plugin list。",
+        "channels": [
+          "paw-feel"
+        ],
+        "count": 2,
+        "members": [
+          {
+            "signalId": "paw-feel:0001782462398868-000481-c8f6c6a8#0",
+            "rawRef": "0001782462398868-000481-c8f6c6a8#0",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782438223959-000163-7df601bb#0",
+            "rawRef": "0001782438223959-000163-7df601bb#0",
+            "channel": "paw-feel"
+          }
+        ],
+        "method": "embedding",
+        "sensorForms": [
+          "reason"
+        ],
+        "severity": "medium"
+      },
+      {
+        "clusterId": "550da093d20e",
+        "representative": "web/GitHub 页面匿名抓取 404，但本机 git clone 可读；公开性/社区信号判断容易被工具可见性误导",
+        "channels": [
+          "paw-feel"
+        ],
+        "count": 2,
+        "members": [
+          {
+            "signalId": "paw-feel:0001782372723602-000060-df3ff29a#0",
+            "rawRef": "0001782372723602-000060-df3ff29a#0",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782373117697-000055-815598d6#0",
+            "rawRef": "0001782373117697-000055-815598d6#0",
+            "channel": "paw-feel"
+          }
+        ],
+        "method": "embedding",
+        "sensorForms": [
+          "reason"
+        ],
+        "severity": "medium"
+      },
+      {
+        "clusterId": "6694dac4c114",
+        "representative": "sourceAdapter + 脚本默认 `localhost:3102` 在当前运行模式无服务，但 active API 在 `localhost:3002`；需要显式 `--base-url http://localhost:3002` 才能采 fresh artifact。",
+        "channels": [
+          "paw-feel"
+        ],
+        "count": 2,
+        "members": [
+          {
+            "signalId": "paw-feel:0001782356746013-000498-d1fcf634#0",
+            "rawRef": "0001782356746013-000498-d1fcf634#0",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782443056972-000430-3e1eda19#0",
+            "rawRef": "0001782443056972-000430-3e1eda19#0",
+            "channel": "paw-feel"
+          }
+        ],
+        "method": "embedding",
+        "sensorForms": [
+          "reason"
+        ],
+        "severity": "medium"
+      },
+      {
+        "clusterId": "6be17b159fd7",
+        "representative": "GitHub comment 401 bad credentials",
+        "channels": [
+          "paw-feel"
+        ],
+        "count": 2,
+        "members": [
+          {
+            "signalId": "paw-feel:0001782394587116-000209-359970f0#0",
+            "rawRef": "0001782394587116-000209-359970f0#0",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782394396280-000201-d9344bc6#0",
+            "rawRef": "0001782394396280-000201-d9344bc6#0",
+            "channel": "paw-feel"
+          }
+        ],
+        "method": "embedding",
+        "sensorForms": [
+          "reason"
+        ],
+        "severity": "medium"
+      },
+      {
+        "clusterId": "7f9b86ffca34",
+        "representative": "bracket-path glob/no matches",
+        "channels": [
+          "paw-feel"
+        ],
+        "count": 2,
+        "members": [
+          {
+            "signalId": "paw-feel:0001782414671449-000795-bc9329fa#0",
+            "rawRef": "0001782414671449-000795-bc9329fa#0",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782454188608-000184-c77cab62#0",
+            "rawRef": "0001782454188608-000184-c77cab62#0",
+            "channel": "paw-feel"
+          }
+        ],
+        "method": "rule",
+        "sensorForms": [
+          "reason"
+        ],
+        "severity": "medium"
+      },
+      {
+        "clusterId": "85e67c592fe6",
+        "representative": "review worktree 初始无依赖/产物，需先接主工作树 node_modules 并 build 后才能跑 focused tests",
+        "channels": [
+          "paw-feel"
+        ],
+        "count": 2,
+        "members": [
+          {
+            "signalId": "paw-feel:0001782402023849-000439-d42f3ae0#0",
+            "rawRef": "0001782402023849-000439-d42f3ae0#0",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782402564835-000462-a2177c54#0",
+            "rawRef": "0001782402564835-000462-a2177c54#0",
+            "channel": "paw-feel"
+          }
+        ],
+        "method": "embedding",
+        "sensorForms": [
+          "reason"
+        ],
+        "severity": "medium"
+      },
+      {
+        "clusterId": "aa12ab44f6ad",
+        "representative": "script Brand Guard 第一次 fail 第二次 pass",
+        "channels": [
+          "paw-feel"
+        ],
+        "count": 2,
+        "members": [
+          {
+            "signalId": "paw-feel:0001782389394268-000131-6bd597b0#2",
+            "rawRef": "0001782389394268-000131-6bd597b0#2",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782389678578-000135-bffc70f8#2",
+            "rawRef": "0001782389678578-000135-bffc70f8#2",
+            "channel": "paw-feel"
+          }
+        ],
+        "method": "rule",
+        "sensorForms": [
+          "reason"
+        ],
+        "severity": "medium"
+      }
+    ],
+    "actionableCandidates": [
+      {
+        "clusterId": "5f18269e25a4",
+        "representative": "worktree+继承 NODE_ENV=production",
+        "channels": [
+          "paw-feel"
+        ],
+        "count": 5,
+        "members": [
+          {
+            "signalId": "paw-feel:0001782388152322-000087-70b6a4b7#0",
+            "rawRef": "0001782388152322-000087-70b6a4b7#0",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782388212539-000091-9ba0f15d#0",
+            "rawRef": "0001782388212539-000091-9ba0f15d#0",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782388798738-000114-ee8a2e35#0",
+            "rawRef": "0001782388798738-000114-ee8a2e35#0",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782389394268-000131-6bd597b0#0",
+            "rawRef": "0001782389394268-000131-6bd597b0#0",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782389678578-000135-bffc70f8#0",
+            "rawRef": "0001782389678578-000135-bffc70f8#0",
+            "channel": "paw-feel"
+          }
+        ],
+        "method": "rule",
+        "sensorForms": [
+          "reason"
+        ],
+        "severity": "medium",
+        "actionability": "actionable_candidate",
+        "followupDraft": {
+          "clusterId": "5f18269e25a4",
+          "title": "Investigate friction cluster: worktree+继承 NODE_ENV=production",
+          "summary": "worktree+继承 NODE_ENV=production",
+          "evidenceRefs": [
+            "0001782388152322-000087-70b6a4b7#0",
+            "0001782388212539-000091-9ba0f15d#0",
+            "0001782388798738-000114-ee8a2e35#0",
+            "0001782389394268-000131-6bd597b0#0",
+            "0001782389678578-000135-bffc70f8#0"
+          ],
+          "reportingMode": "final-only"
+        },
+        "referenceOnlyEvidenceRefs": []
+      },
+      {
+        "clusterId": "85556ae26141",
+        "representative": "`gh issue view --json authorAssociation` 当前 gh 不支持该字段，只能改走 REST API；`gh pr list --search` 对宽泛 OpenCode 关键词返回大量无关旧 PR，最终用 issue timeline + #1000/#1001 精确核验。",
+        "channels": [
+          "paw-feel"
+        ],
+        "count": 3,
+        "members": [
+          {
+            "signalId": "paw-feel:0001782375087536-000108-3da7d378#0",
+            "rawRef": "0001782375087536-000108-3da7d378#0",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782355406819-000458-6b5b5f9a#0",
+            "rawRef": "0001782355406819-000458-6b5b5f9a#0",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782274476875-000004-dce71193#0",
+            "rawRef": "0001782274476875-000004-dce71193#0",
+            "channel": "paw-feel"
+          }
+        ],
+        "method": "embedding",
+        "sensorForms": [
+          "reason"
+        ],
+        "severity": "medium",
+        "actionability": "actionable_candidate",
+        "followupDraft": {
+          "clusterId": "85556ae26141",
+          "title": "Investigate friction cluster: `gh issue view --json authorAssociation` 当前 gh 不支持该字段，只能改走 REST API；`gh pr list --search` 对宽泛 OpenCode 关键词返回大量无关旧 PR，最终用 issue timeline + #1000/#1001 精确核验。",
+          "summary": "`gh issue view --json authorAssociation` 当前 gh 不支持该字段，只能改走 REST API；`gh pr list --search` 对宽泛 OpenCode 关键词返回大量无关旧 PR，最终用 issue timeline + #1000/#1001 精确核验。",
+          "evidenceRefs": [
+            "0001782375087536-000108-3da7d378#0",
+            "0001782355406819-000458-6b5b5f9a#0",
+            "0001782274476875-000004-dce71193#0"
+          ],
+          "reportingMode": "final-only"
+        },
+        "referenceOnlyEvidenceRefs": []
+      },
+      {
+        "clusterId": "202976cd91e8",
+        "representative": "`pnpm check` 会扫描未跟踪 `.review-worktrees/` 里的嵌套 `biome.json` 并在配置阶段失败，导致文档小改无法跑完整 gate。",
+        "channels": [
+          "paw-feel"
+        ],
+        "count": 2,
+        "members": [
+          {
+            "signalId": "paw-feel:0001782408120611-000645-a77d22aa#0",
+            "rawRef": "0001782408120611-000645-a77d22aa#0",
+            "channel": "paw-feel"
+          },
+          {
+            "signalId": "paw-feel:0001782400402593-000373-f1edc54f#0",
+            "rawRef": "0001782400402593-000373-f1edc54f#0",
+            "channel": "paw-feel"
+          }
+        ],
+        "method": "embedding",
+        "sensorForms": [
+          "reason"
+        ],
+        "severity": "medium",
+        "actionability": "actionable_candidate",
+        "followupDraft": {
+          "clusterId": "202976cd91e8",
+          "title": "Investigate friction cluster: `pnpm check` 会扫描未跟踪 `.review-worktrees/` 里的嵌套 `biome.json` 并在配置阶段失败，导致文档小改无法跑完整 gate。",
+          "summary": "`pnpm check` 会扫描未跟踪 `.review-worktrees/` 里的嵌套 `biome.json` 并在配置阶段失败，导致文档小改无法跑完整 gate。",
+          "evidenceRefs": [
+            "0001782408120611-000645-a77d22aa#0",
+            "0001782400402593-000373-f1edc54f#0"
+          ],
+          "reportingMode": "final-only"
+        },
+        "referenceOnlyEvidenceRefs": []
+      }
+    ],
+    "referenceOnly": [],
+    "tailSummary": {
+      "clusterCount": 78,
+      "signalCount": 89,
+      "byChannel": {
+        "paw-feel": 76,
+        "eval-domain": 13
+      }
+    },
+    "degraded": false,
+    "droppedChannels": [],
+    "tokenBudget": {
+      "cap": 4000,
+      "estimated": 2315
+    }
+  }
+}

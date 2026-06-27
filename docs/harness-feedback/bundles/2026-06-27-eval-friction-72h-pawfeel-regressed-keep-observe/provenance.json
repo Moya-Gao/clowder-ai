@@ -1,0 +1,15 @@
+{
+  "verdictId": "2026-06-27-eval-friction-72h-pawfeel-regressed-keep-observe",
+  "rawInputs": [
+    {
+      "path": "docs/harness-feedback/bundles/2026-06-27-eval-friction-72h-pawfeel-regressed-keep-observe/raw/rollup-report.json",
+      "sha256": "91ee51ec240cb6c99746b0f1d022ea4e9022abcdfbec880ed72794df5d402b9f"
+    }
+  ],
+  "generatedAt": "2026-06-27T03:06:44.016Z",
+  "generator": {
+    "name": "eval-friction-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f245-friction-rollup-v1"
+}
