@@ -1,0 +1,19 @@
+{
+  "verdictId": "2026-06-28-eval-a2a-default-port-low-friction-keep-observe",
+  "rawInputs": [
+    {
+      "path": "docs/harness-feedback/snapshots/2026-06-28-F167-eval.yaml",
+      "sha256": "56744b6b942334aa77f4f2f6c458c9508f325a944cc442648f11e89610347061"
+    },
+    {
+      "path": "docs/harness-feedback/attributions/2026-06-28-F167-attribution.yaml",
+      "sha256": "63e963908d85d781906eb8bea8ecb4ec08e6fc7bc094e4c5004aa1c15f31c7db"
+    }
+  ],
+  "generatedAt": "2026-06-28T03:01:22.386Z",
+  "generator": {
+    "name": "eval-a2a-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f192-e-pilot-v1"
+}

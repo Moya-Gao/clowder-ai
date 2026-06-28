@@ -1,0 +1,82 @@
+{
+  "verdictId": "2026-06-28-eval-a2a-default-port-low-friction-keep-observe",
+  "evalSnapshotId": "eval-F167-2026-06-28",
+  "featureId": "F167",
+  "generatedAt": "2026-06-28T03:01:22.383Z",
+  "window": {
+    "startMs": 1782565178102,
+    "endMs": 1782615682260,
+    "durationHours": 14.03
+  },
+  "counterWindow": {
+    "startMs": 1782612453351,
+    "endMs": 1782615682377,
+    "durationHours": 0.896952
+  },
+  "components": [
+    {
+      "id": "L1",
+      "name": "WorklistRegistry (ping-pong breaker)",
+      "confidence": "medium",
+      "activationCounts": {
+        "l1.streak_warn_count": 0,
+        "l1.streak_break_count": 0
+      },
+      "frictionCounts": {}
+    },
+    {
+      "id": "C1",
+      "name": "hold_ball (MCP tool)",
+      "confidence": "medium",
+      "activationCounts": {
+        "hold_ball_calls": 4,
+        "c1.hold_replacement_count": 1
+      },
+      "frictionCounts": {
+        "c1.hold_zombie_count": 0,
+        "c1.hold_cancel_count": 0
+      }
+    },
+    {
+      "id": "C2",
+      "name": "exit-check (forced-pass guard)",
+      "confidence": "medium",
+      "activationCounts": {
+        "hint_emitted (mixed routing+verdict)": null,
+        "c2.verdict_hint_emitted": 1,
+        "c2.checked": 25,
+        "c2.void_hold_checked": 25
+      },
+      "frictionCounts": {
+        "c2.verdict_without_pass_count": 1,
+        "c2.void_hold_hint_emitted": 0
+      }
+    },
+    {
+      "id": "route-serial",
+      "name": "route-serial (A2A handoff routing)",
+      "confidence": "high",
+      "activationCounts": {
+        "inline_action.checked": 25,
+        "line_start.detected": 8
+      },
+      "frictionCounts": {}
+    },
+    {
+      "id": "grounding-phase-o",
+      "name": "claim grounding (Phase O shadow)",
+      "confidence": "medium",
+      "activationCounts": {
+        "grounding.check_total": 9,
+        "grounding.verdict_total": 9,
+        "grounding.resolver_total": 0,
+        "grounding.cache_hit_total": 0,
+        "grounding.sample_count": 524,
+        "grounding.mismatch_sample_count": 0
+      },
+      "frictionCounts": {
+        "grounding.budget_exhausted_total": 0
+      }
+    }
+  ]
+}
