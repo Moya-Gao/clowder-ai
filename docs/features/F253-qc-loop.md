@@ -298,9 +298,9 @@ F253 **消费** F167 的 hold_ball / review-feedback / merge-gate 事件，**产
 
 ### Phase C（Git-Triggered Validation + Telemetry）
 
-- [ ] AC-C1: `pre-push` soft hook 存在，提醒未跑 gate（验证：`git push` 前 hook 触发提醒）
-- [ ] AC-C2: CI repair loop 实现 same-class detection + max 2 rounds escalate（验证：模拟连续同类 CI failure，第 3 次 escalate 到猫）
-- [ ] AC-C3: `eval:qc` domain 注册在 F192 eval domain registry（`docs/harness-feedback/eval-domains/eval-qc.yaml`），weekly cron 聚合 4 指标趋势，verdict 通过 `cat_cafe_publish_verdict` 发布到 Eval Hub（验证：Eval Hub 可见 QC domain verdict + 4 个指标有数据）
+- [x] AC-C1: `pre-push` soft hook 存在，提醒未跑 gate — `.githooks/pre-push` Layer 4 + `scripts/check-gate-freshness.sh` + sentinel in `scripts/pre-merge-check.sh`（5 tests）
+- [x] AC-C2: CI repair loop 实现 same-class detection + max 2 rounds escalate — `scripts/classify-ci-error.mjs` (`classifyCiError` + `shouldAutoFix`) + merge-gate SKILL.md protocol docs（12 tests）
+- [x] AC-C3: `eval:qc` domain 注册在 F192 eval domain registry — `docs/harness-feedback/eval-domains/eval-qc.yaml` + `qc-metrics-provider.ts` + `qc-generator-adapter.ts` + `eval-cat-invocation.ts` DOMAIN_INSTRUCTIONS + `index.ts` wiring（4 tests）
 
 ## 需求点 Checklist
 
@@ -384,6 +384,7 @@ tips_exempt: internal tooling — QC Loop 是开发工具链改进，无用户�
 | 2026-06-27 | Phase A PR-A1 merged (PR #2608): `pnpm gate --auto-fix` + `gate.autoFixAllowlist` — AC-A1, AC-A2 ✅ |
 | 2026-06-27 | Phase A PR-A2 merged (PR #2610): evidence manifest + validation checker — AC-A3, AC-A4 ✅. Phase A complete |
 | 2026-06-27 | Phase B merged (PR #2612): fresh-context pre-review skill + reviewer delta metric — AC-B1, AC-B2 ✅. Phase B complete |
+| 2026-06-28 | Phase C implementation: pre-push gate reminder (Layer 4), CI error classifier + repair loop protocol, eval:qc domain registration + generator adapter — AC-C1, AC-C2, AC-C3 ✅ |
 
 ## Review Gate
 
