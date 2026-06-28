@@ -42,13 +42,21 @@ stages:
           key: REDIS_URL
           must_include: ":6398"
           must_not_include: ":6399"
-    pitfalls:
       - id: impl-design-gate-before-code
-        text: 跳过 Design Gate 直接写代码
-        severity: warn
+        text: 跳过 Design Gate（含 User Journey 落盘）直接写代码
+        severity: blocker
         predicate:
           type: manual_only
-          reason: Design Gate evidence is feature-specific and not yet represented by a structured artifact.
+          reason: Design Gate evidence and User Journey section are feature-doc fields; upgrade to feature_doc_readiness_check when checker script is available.
+          future_candidate: feature_doc_readiness_check
+      - id: impl-user-journey-missing
+        text: 用户可感知 Feature 缺 User Journey 段（或 user_journey_exempt）
+        severity: blocker
+        predicate:
+          type: command_pattern
+          must_match: pnpm check:features|node scripts/check-feature-truth
+          reason: "check-feature-truth.mjs now checks changed feature docs for ## User Journey presence. F252 root cause — session vs thread scope mismatch went undetected because journey was never written down."
+    pitfalls:
       - id: impl-post-compact-recall-loss
         text: 压缩后忘了当前在做什么
         severity: warn

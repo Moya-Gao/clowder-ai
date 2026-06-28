@@ -75,7 +75,7 @@ search_evidence("{topic}", scope="all")  # 找历史讨论 + thread
 
    **从标准模板创建**：复制 `cat-cafe-skills/refs/feature-doc-template.md` 中「模板正文」部分，替换占位符（`{NNN}`/`{Feature Name}`/`{YYYY-MM-DD}` 等）。模板包含 Dashboard parser 所需的全部硬性格式。
 
-   轻量 Feature（≤1 Phase）可省略 Timeline/Review Gate/Links/Key Decisions，但 Frontmatter + Status 行 + Why + Current State + What + AC + Dependencies 必须保留（全新能力的 Current State 写 "N/A（无既有基线）"，不是删段）。
+   轻量 Feature（≤1 Phase）可省略 Timeline/Review Gate/Links/Key Decisions，但 Frontmatter + Status 行 + Why + Current State + What + User Journey（或 `user_journey_exempt`）+ AC + Dependencies 必须保留（全新能力的 Current State 写 "N/A（无既有基线）"，不是删段）。
 
    并在 spec 中补一节：`## 需求点 Checklist`（模板见 `cat-cafe-skills/refs/requirements-checklist-template.md`）
 
@@ -144,12 +144,13 @@ Step 2 写完 spec，Why / 现状 / AC 逐条过这道自检：
 
 **讨论结束必须做**：
 1. 落盘到 `docs/discussions/YYYY-MM-DD-{topic}/README.md`（含铲屎官原话、决策过程、优先级排序）
-2. BACKLOG.md 该 Feature 行 ref 讨论文档链接
-3. Commit：`docs: {topic} discussion + backlog update [{猫猫签名}]`
+2. **回填 User Journey 到 spec**（F252 教训 🔴）：Discussion 中铲屎官口述的用户旅程期望，必须回填到 feature doc 的 `## User Journey` 段。讨论落盘 ≠ spec 记录——reviewer 冷启动读 spec，不读 discussion 记录。
+3. BACKLOG.md 该 Feature 行 ref 讨论文档链接
+4. Commit：`docs: {topic} discussion + backlog update [{猫猫签名}]`
 
 ## Design Gate (设计确认) 🔴
 
-**Discussion → writing-plans 之间的必经关卡。UX 没确认，不准开 worktree。**
+**Discussion → writing-plans 之间的必经关卡。UX 没确认，不准开 worktree。User Journey 没落盘，不准过 Design Gate。**
 
 按功能类型分流确认：
 
@@ -168,6 +169,18 @@ Step 2 写完 spec，Why / 现状 / AC 逐条过这道自检：
 4. 把发现记录到 Design Gate 讨论里（避免重复造轮子）
 
 详见 `shared-rules.md` §13 元思考触发器。先搜现状，再开讨论。
+
+**User Journey 前置门禁（F252 教训）🔴**：
+
+涉及用户可感知变化的 Feature，Design Gate 前 spec 的 `## User Journey` 段必须已落盘，否则 **Design Gate 不放行**。
+
+| 检查项 | 必须 | 说明 |
+|--------|------|------|
+| `## User Journey` 段存在 | ✅ | 非 exempt feature 不能缺段 |
+| Primary Journey 有 `Scope unit` | ✅ | 防 F252 的 session/thread/feature 搞混 |
+| Flow 用用户语言 | ✅ | "点击 thread 标题看回放"，不是"调用 StoryPlayer.replay()" |
+| 铲屎官口述期望已回填 | ✅ | Discussion 落盘 ≠ spec 记录（F252 直接原因） |
+| 非用户可感知 | — | 写 `user_journey_exempt: {reason}`，不能靠缺段默认跳过 |
 
 **架构归属一问（F191）🔴**：
 
@@ -264,6 +277,23 @@ harness / skill / MCP / shared-rules 类 feature 的 spec **必须含 `## Eval /
 **Step 0: 愿景对照（必须先做，不可跳过）🔴**
 
 AC 全打勾 ≠ 完成（F041 教训：12 项 AC ✅ 但 UI 不可用）。先读原始 Discussion/Interview，自问三个问题：① 铲屎官最初要解决的核心问题？② 交付物解决了吗？③ 铲屎官用这个功能体验如何？
+
+**User Journey 逐步验收（F252 教训）🔴**：
+
+涉及用户可感知变化的 Feature，愿景守护时必须**按 spec 的 User Journey 逐步走一遍**：
+1. 按 Primary Journey 的 Flow，从 Entry 开始逐步操作
+2. 每步截图对照 spec 描述（截图放 `docs/evidence/`）
+3. Scope unit 是否正确（F252 根因：session vs thread 搞混）
+4. Non-goals 是否被误实现
+5. 任一步走不通 → BLOCKED，踢回修改
+
+User Journey 验收表（守护猫必须输出）：
+
+```markdown
+| Journey | 步骤 | Spec 描述 | 实际行为 | 截图 | 匹配？ |
+|---------|------|-----------|---------|------|--------|
+| Primary | Step 1 | "从 thread 列表点击回放" | [截图] | evidence/... | ✅/❌ |
+```
 
 **愿景守护证物对照表（F114 Gate — 缺表 = BLOCKED）**：
 

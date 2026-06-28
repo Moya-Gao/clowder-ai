@@ -19,7 +19,8 @@ const EXPECTED_PORTED_RULE_TEXTS = [
   '没有铲屎官确认就直接开始实现',
   'worktree 开之前必须 main 双向同步 (ahead=0 behind=0)',
   'Redis 只用 6398，禁碰 6399',
-  '跳过 Design Gate 直接写代码',
+  '跳过 Design Gate（含 User Journey 落盘）直接写代码',
+  '用户可感知 Feature 缺 User Journey 段（或 user_journey_exempt）',
   '压缩后忘了当前在做什么',
   '改 MCP tool / skill manifest / route / callback 等约定面前，先用 convention graph 查影响面；stale=true 先 reindex',
   '自检报告必须包含愿景覆盖度',
@@ -62,7 +63,7 @@ describe('SOP definition catalog', () => {
     );
   });
 
-  it('ports all 20 development SOP rules into development.yaml with predicates', () => {
+  it('ports all 22 development SOP rules into development.yaml with predicates', () => {
     const { runtimeDefinitions } = loadSopDefinitionCatalog();
     const development = runtimeDefinitions[0];
 
@@ -75,7 +76,7 @@ describe('SOP definition catalog', () => {
     assert.equal(development.stages.find((stage) => stage.id === 'impl')?.suggestedSkill, 'writing-plans');
 
     const rules = development.stages.flatMap((stage) => [...stage.hardRules, ...stage.pitfalls]);
-    assert.equal(rules.length, 21);
+    assert.equal(rules.length, 22);
     assert.deepEqual(
       rules.map((rule) => rule.text),
       EXPECTED_PORTED_RULE_TEXTS,
