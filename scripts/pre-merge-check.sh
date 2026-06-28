@@ -417,3 +417,7 @@ echo "── LL-082 dirty-worktree ledger（merge 前确认所有 worktree 的 d
 node "$(dirname "$0")/check-worktree-dirty-ledger.mjs" || true
 echo ""
 echo "可以安全执行 merge-gate 的后续步骤了。"
+
+# F253 Phase C (AC-C1): Write gate-last-run sentinel for pre-push Layer 4
+# This timestamp lets check-gate-freshness.sh know gate passed recently.
+date +%s > "$REPO_ROOT/.gate-last-run"

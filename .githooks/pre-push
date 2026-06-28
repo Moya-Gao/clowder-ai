@@ -1,5 +1,5 @@
 #!/bin/bash
-# .githooks/pre-push — Push Guards (three layers)
+# .githooks/pre-push — Push Guards (four layers)
 #
 # Layer 1: Direct Push to Main — BLOCKS
 #   Prevents pushing code directly to main/master.
@@ -15,10 +15,14 @@
 #   via misconfigured upstream or merge/rebase. Collects diagnosis data
 #   for the next occurrence — does NOT block push.
 #
+# Layer 4: Gate Reminder (F253 Phase C) — WARNS only
+#   Checks if `pnpm gate` was run recently. Soft reminder via
+#   scripts/check-gate-freshness.sh. Never blocks push.
+#
 # gh pr merge --squash is a GitHub server-side operation; it does NOT
 # trigger this hook, so merge-gate flow is never affected.
 #
-# Safety: fail-closed for Layers 1 & 2, fail-open for Layer 3.
+# Safety: fail-closed for Layers 1 & 2, fail-open for Layers 3 & 4.
 
 # 读 push 目标分支（stdin 格式：local_ref local_sha remote_ref remote_sha）
 while read local_ref local_sha remote_ref remote_sha; do
@@ -232,5 +236,13 @@ while read local_ref local_sha remote_ref remote_sha; do
     # No 2>&1 — B-track warnings stay on stderr (visible to user).
   fi
 done
+
+# ═══════════════════════════════════════════════════════════════
+# Layer 4: Gate Reminder (soft — never blocks push)
+# Checks if pnpm gate was run recently. Warn-only, fail-open.
+# F253 Phase C (AC-C1)
+# ═══════════════════════════════════════════════════════════════
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+bash "$REPO_ROOT/scripts/check-gate-freshness.sh" "$REPO_ROOT"
 
 exit 0
