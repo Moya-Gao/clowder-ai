@@ -642,3 +642,21 @@ gh pr comment {PR_NUMBER} --body '@codex review'
 2. 愿景进度（哪些 AC ✅ 了）
 3. 下个 Phase 方向 + 新发现
 4. "方向对吗？" → 铲屎官确认 → 继续下一个 Phase
+
+---
+
+## CI Repair Loop (F253 Phase C)
+
+When CI fails after push:
+
+1. Read CI output → `classifyCiError(output)` (from `scripts/classify-ci-error.mjs`) → get error class + deterministic flag
+2. If non-deterministic → **escalate immediately** (post to thread, @ author)
+3. If deterministic + round < 2 → run `autoFixCommand`, commit, push
+4. If deterministic + round ≥ 2 → **escalate** (same error class won't auto-fix after 2 tries)
+5. Track round count via PR label `ci-repair-round:N`
+
+**Allowlisted auto-fixes**: biome format, biome lint (non-suspicious)
+**Never auto-fix**: test failures, type errors, lint/suspicious, unknown errors
+
+Use `shouldAutoFix(classification, sameClassRound)` to check the protocol.
+State machine: idle → attempt_1 → attempt_2 → escalated (terminal).
