@@ -1847,10 +1847,14 @@ async function main(): Promise<void> {
   // if Redis-backed ports are unavailable (no Redis client), skip cw wire entirely
   // (eval-cat-invocation domain instructions filtering will degrade gracefully:
   // cw cats see base instructions without publish section, handler returns 501).
+  const { createQcGeneratorAdapter } = await import(
+    './infrastructure/harness-eval/publish-verdict/qc-generator-adapter.js'
+  );
   const verdictGenerators: Partial<Record<EvalDomainId, ReturnType<typeof createA2aGeneratorAdapter>>> = {
     'eval:a2a': createA2aGeneratorAdapter(),
     'eval:sop': createSopGeneratorAdapter(),
     'eval:task-outcome': createTaskOutcomeGeneratorAdapter(),
+    'eval:qc': createQcGeneratorAdapter(),
   };
   if (toolEventLog && skillLoadEventLog) {
     const { createCapabilityWakeupGeneratorAdapter } = await import(
@@ -4248,6 +4252,9 @@ async function main(): Promise<void> {
   // F236 Track-2: eval:anchor-first provider is unconditionally wired (pure ctor,
   // no store deps — wraps in-memory getAnchorTelemetryRollup). Same rationale as friction.
   wiredPublishDomains.add('eval:anchor-first');
+  // F253 Phase C: eval:qc provider is unconditionally wired (pure ctor, zero-baseline
+  // metrics, no runtime deps). Phase C bootstrap → keep_observe verdicts.
+  wiredPublishDomains.add('eval:qc');
   if (toolEventLog && skillLoadEventLog) {
     wiredPublishDomains.add('eval:capability-wakeup');
   }
