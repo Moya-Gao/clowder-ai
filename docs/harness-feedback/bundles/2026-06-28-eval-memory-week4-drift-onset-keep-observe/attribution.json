@@ -1,0 +1,11 @@
+{
+  "verdictId": "2026-06-28-eval-memory-week4-drift-onset-keep-observe",
+  "featureId": "F200",
+  "evalSnapshotId": "eval-F200-memory-2026-06-28",
+  "generatedAt": "2026-06-28T03:05:00.000Z",
+  "findings": [],
+  "noFindingRecord": {
+    "reason": "Mandatory weekly re-eval per PR #2484 acceptanceReevalPlan. Apples-to-apples ratio drifted from sustained 1.0000 (day-5-19, 15-day post-B'-fix exact) to sustained 1.03-1.04 band (day-21-25, 5-day moderate drift). shadowConsumedMRR rising faster (+7%) than liveOnShadowSubsetMRR (+4%) over 6-day window. Drift well below 1.5x threshold, no escalation. F188 library health remained completely clean throughout (zeroHit/lowHit/staleAnchors/verifDebt all 0).",
+    "evidence": "consumed_mrr, consumed_at_3, search_abandon_rate, shadow_consumed_mrr, live_on_shadow_subset_mrr, non_first_selection_rate, traversal_completion, first_consumed_rank_median, orphan_edge_count, search_zero_hit_count"
+  }
+}

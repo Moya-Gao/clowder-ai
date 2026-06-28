@@ -1,0 +1,37 @@
+{
+  "verdictId": "2026-06-28-eval-memory-week4-drift-onset-keep-observe",
+  "featureId": "F200",
+  "windowDays": 30,
+  "filters": {},
+  "generatedAt": "2026-06-28T03:05:00.000Z",
+  "metrics": {
+    "period": {
+      "fromMs": 1780023693251,
+      "toMs": 1782615693251,
+      "days": 30
+    },
+    "filters": {},
+    "totalEvents": 882,
+    "core": {
+      "consumedAt3": 0.11224489795918367,
+      "consumedMRR": 0.08577097505668932,
+      "reformulationRate": 0.336734693877551,
+      "searchAbandonRate": 0.5986394557823129
+    },
+    "extended": {
+      "readthroughAt3": 0.14875135722041263,
+      "firstConsumedRankMedian": 2,
+      "reformulationsBeforeConsumption": 0.15853658536585366,
+      "reformulateAfterExposure": 0.08390022675736962,
+      "grepFallbackRate": 0,
+      "tokenCostPerHit": 0,
+      "consumedAnchorNotInPoolRate": 0,
+      "shadowConsumedMRR": 0.7295289855072464,
+      "liveOnShadowSubsetMRR": 0.7041666666666669
+    },
+    "graph": {
+      "nonFirstSelectionRate": 0.3333333333333333,
+      "traversalCompletion": 0
+    }
+  }
+}

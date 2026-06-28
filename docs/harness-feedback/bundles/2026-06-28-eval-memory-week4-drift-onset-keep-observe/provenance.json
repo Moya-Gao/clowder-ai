@@ -1,0 +1,19 @@
+{
+  "verdictId": "2026-06-28-eval-memory-week4-drift-onset-keep-observe",
+  "rawInputs": [
+    {
+      "path": "generated/memory/2026-06-28-eval-memory-week4-drift-onset-keep-observe/recall-metrics.json",
+      "sha256": "d60c2c96b5b29efcf0f8c1a8b8f5b6b38de466ee532462d0f25b413ca67f5e35"
+    },
+    {
+      "path": "generated/memory/2026-06-28-eval-memory-week4-drift-onset-keep-observe/library-health.json",
+      "sha256": "135aa23d0e74b1d9dd520c649b4085cd1b0f90f17a411adbfa580002d03f4c3d"
+    }
+  ],
+  "generatedAt": "2026-06-28T03:05:00.000Z",
+  "generator": {
+    "name": "eval-memory-live-verdict",
+    "version": "1"
+  },
+  "sanitizeRulesVersion": "f192-memory-recall-v1"
+}
