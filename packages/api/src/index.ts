@@ -302,6 +302,16 @@ export function getSocketManager(): SocketManager {
 
 const PROCESS_START_AT = Date.now();
 
+// Guard against a stray SIGUSR1 opening the V8 inspector. Node's default
+// SIGUSR1 handler starts the debugger; on Node 24 + tsx, a subsequent debugger
+// attach/detach crashes the process with ERR_VM_DYNAMIC_IMPORT_CALLBACK_MISSING
+// (taking the API down with ELIFECYCLE exit 1). Installing our own listener
+// overrides that default so the inspector never auto-opens. Logged so a stray
+// signal still leaves a forensic trace if it ever recurs.
+process.on('SIGUSR1', () => {
+  console.warn('[api] Ignoring SIGUSR1 — inspector auto-open suppressed (see index.ts guard)');
+});
+
 function hasRuntimeSessionDrain(service: AgentService): service is AgentService & {
   drainRuntimeSession(runtimeSessionId: string): Promise<RuntimeSessionSealReaperDrainResult>;
 } {

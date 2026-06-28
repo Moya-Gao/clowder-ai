@@ -5,7 +5,7 @@
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "tsx watch --exclude \"dist/**\" --exclude \"../shared/dist/**\" src/index.ts",
+    "dev": "while true; do tsx watch --exclude \"dist/**\" --exclude \"../shared/dist/**\" src/index.ts; ec=$?; if [ $ec -eq 0 ] || [ $ec -eq 130 ]; then break; fi; echo \"[api] dev exited ($ec) — auto-restarting in 1s\"; sleep 1; done",
     "build": "pnpm --dir ../shared build && tsc && node ./scripts/copy-marketplace-catalog-data.mjs",
     "start": "node dist/index.js",
     "test": "pnpm run build && CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT=1 bash ./scripts/with-test-home.sh node --import $(pwd)/test/helpers/setup-cat-registry.js --test --test-timeout=60000 test/*.test.js test/**/*.test.js && pnpm run test:cli",
