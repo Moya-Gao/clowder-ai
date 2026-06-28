@@ -327,7 +327,7 @@ export function appendEvalEvent(env, { tool, originalChars, returnedChars, itemI
       catId: env.CAT_CAFE_CAT_ID || undefined,
       ts: Date.now(),
     });
-    appendFileSync(evalPath, event + '\n');
+    appendFileSync(evalPath, `${event}\n`);
   } catch {
     // Eval recording is best-effort — never fail the hook
   }
@@ -352,7 +352,7 @@ export function appendDrillEvalEvent(env, { tool, fullDrillChars, itemId, stale 
       catId: env.CAT_CAFE_CAT_ID || undefined,
       ts: Date.now(),
     });
-    appendFileSync(evalPath, event + '\n');
+    appendFileSync(evalPath, `${event}\n`);
   } catch {
     // Eval recording is best-effort — never fail the hook
   }

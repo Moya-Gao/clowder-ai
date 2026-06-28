@@ -448,6 +448,31 @@ export const groundingBudgetExhaustedTotal = lazy(() =>
   }),
 );
 
+// --- F167 Phase O PR-O3: Hold-ball misuse detection counters ---
+
+/**
+ * Counts attempts to call hold_ball with wakeAfterMs but no waitSourceRef.
+ * Schema now rejects these (PR-O3), so this counter tracks how often cats
+ * still TRY the misuse pattern — feeds F192 weekly verdict to measure
+ * whether the cognitive fix (soft layer) is landing.
+ */
+export const holdBallUngroundedTimerReject = lazy(() =>
+  meter().createCounter('cat_cafe.a2a.hold_ball.ungrounded_timer_reject', {
+    description: 'F167 PR-O3: hold_ball called with wakeAfterMs but no waitSourceRef (schema rejected)',
+  }),
+);
+
+/**
+ * Counts attempts to use the removed 'pending_input' kind in waitSourceRef.
+ * This backdoor let cats express "wait for human reply" through hold_ball
+ * instead of using @landy.
+ */
+export const holdBallPendingInputReject = lazy(() =>
+  meter().createCounter('cat_cafe.a2a.hold_ball.pending_input_reject', {
+    description: 'F167 PR-O3: hold_ball called with pending_input kind (backdoor removed, schema rejected)',
+  }),
+);
+
 /** Liveness state type. */
 export type LivenessState = 'dead' | 'idle-silent' | 'busy-silent' | 'active';
 
@@ -520,4 +545,7 @@ export function warmupCounters(): void {
   groundingResolverTotal.add(0);
   groundingCacheHitTotal.add(0);
   groundingBudgetExhaustedTotal.add(0);
+  // F167 PR-O3: hold_ball misuse detection
+  holdBallUngroundedTimerReject.add(0);
+  holdBallPendingInputReject.add(0);
 }

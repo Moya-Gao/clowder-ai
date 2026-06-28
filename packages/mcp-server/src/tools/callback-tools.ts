@@ -1845,6 +1845,13 @@ export async function handleHoldBall(input: {
   nextStep: string;
   wakeAfterMs?: number;
   wakeWhen?: { command: string; cwd?: string; timeoutMs?: number };
+  waitSourceRef?: {
+    kind: string;
+    value: string;
+    anchorRef?: string;
+    expectedSignal: string;
+    slaUntilMs: number;
+  };
 }): Promise<ToolResult> {
   // P2-1 fix: validate mutual exclusion locally before HTTP roundtrip.
   // JSON Schema can't express cross-field refine, so we enforce here.
@@ -1864,11 +1871,29 @@ export async function handleHoldBall(input: {
       isError: true,
     };
   }
+  // PR-O3 R1 P1-1: wakeAfterMs requires waitSourceRef to ground the timer.
+  // wakeWhen is self-grounding (the command IS the wait source).
+  if (hasWakeAfter && !input.waitSourceRef) {
+    return {
+      content: [
+        {
+          type: 'text',
+          text:
+            'Error: waitSourceRef is REQUIRED when using wakeAfterMs. ' +
+            'Declare what external condition justifies the timer — e.g. ' +
+            '{ kind: "github_issue", value: "#123", expectedSignal: "CI pass", slaUntilMs: 3600000 }. ' +
+            'If you are waiting for a person to respond, use @landy or @句柄 instead of hold_ball.',
+        },
+      ],
+      isError: true,
+    };
+  }
   return callbackPost('/api/callbacks/hold-ball', {
     reason: input.reason,
     nextStep: input.nextStep,
     ...(hasWakeAfter ? { wakeAfterMs: input.wakeAfterMs } : {}),
     ...(hasWakeWhen ? { wakeWhen: input.wakeWhen } : {}),
+    ...(input.waitSourceRef ? { waitSourceRef: input.waitSourceRef } : {}),
   });
 }
 
@@ -2359,6 +2384,34 @@ export const callbackTools = [
         .describe(
           'Run a shell command and wake when it completes. Mutually exclusive with wakeAfterMs. ' +
             'The server spawns the command, captures stdout+stderr, and re-invokes you with the result (exit code, output tail, duration).',
+        ),
+      waitSourceRef: z
+        .object({
+          kind: z
+            .enum(['github_issue', 'github_comment', 'thread_message', 'task', 'reporter_handle', 'managed_command'])
+            .describe('What type of external condition you are waiting on'),
+          value: z.string().min(1).describe('Primary identifier (e.g. "#123", "thread-abc", "task-xyz")'),
+          anchorRef: z
+            .string()
+            .optional()
+            .describe(
+              'Durable anchor id — REQUIRED for reporter_handle kind (narrative kinds need anchor to a real id)',
+            ),
+          expectedSignal: z
+            .string()
+            .min(1)
+            .describe('What signal will indicate the wait is over (e.g. "CI pass", "comment posted")'),
+          slaUntilMs: z
+            .number()
+            .int()
+            .positive()
+            .describe('SLA deadline in ms from epoch. Must be ≤ now + 3_600_000 (1h). No SLA = no hold.'),
+        })
+        .optional()
+        .describe(
+          'REQUIRED when using wakeAfterMs — structured declaration of what external condition justifies the timer. ' +
+            'NOT needed for wakeWhen (the command itself IS the wait source). ' +
+            'If you are waiting for a person to respond in the Hub, do NOT hold_ball — use @landy or @句柄 instead.',
         ),
     },
     handler: handleHoldBall,

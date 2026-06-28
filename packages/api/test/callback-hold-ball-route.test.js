@@ -36,6 +36,9 @@ describe('F167 C1: /api/callbacks/hold-ball auth + body validation', () => {
         registerDynamic(spec, taskId) {
           registeredDynamic.push({ spec, taskId });
         },
+        unregister() {
+          return true;
+        },
       },
       templateRegistry: {
         get(id) {
@@ -46,6 +49,20 @@ describe('F167 C1: /api/callbacks/hold-ball auth + body validation', () => {
         insert(record) {
           insertedTasks.push(record);
         },
+        getAll() {
+          return insertedTasks;
+        },
+        remove() {
+          return true;
+        },
+      },
+      messageStore: {
+        async append(msg) {
+          return { id: `test-msg-${insertedTasks.length}`, ...msg };
+        },
+      },
+      socketManager: {
+        broadcastToRoom() {},
       },
       _insertedTasks: insertedTasks,
       _registeredDynamic: registeredDynamic,
@@ -184,5 +201,92 @@ describe('F167 C1: /api/callbacks/hold-ball auth + body validation', () => {
       payload: { reason: 'wait', nextStep: 'go' },
     });
     assert.equal(response.statusCode, 400);
+  });
+
+  // ─── PR-O3: waitSourceRef enforcement ─────────────────────────────────────
+  test('PR-O3: 400 when wakeAfterMs provided without waitSourceRef (ungrounded timer wait)', async () => {
+    const deps = makeStubDeps();
+    const app = await createApp(deps);
+    const thread = await threadStore.create('user-hb-o3a', 'hbo3a');
+    const { invocationId, callbackToken } = await registry.create('user-hb-o3a', 'codex', thread.id);
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/hold-ball',
+      headers: { 'x-invocation-id': invocationId, 'x-callback-token': callbackToken },
+      payload: { reason: 'wait for reply', nextStep: 'continue', wakeAfterMs: 60_000 },
+    });
+    assert.equal(response.statusCode, 400);
+    const body = JSON.parse(response.body);
+    assert.ok(
+      body.details?.some((d) => d.message?.includes('waitSourceRef is required')),
+      'error must mention waitSourceRef requirement',
+    );
+  });
+
+  test('PR-O3: 200 when wakeAfterMs provided WITH valid waitSourceRef', async () => {
+    const deps = makeStubDeps();
+    const app = await createApp(deps);
+    const thread = await threadStore.create('user-hb-o3b', 'hbo3b');
+    const { invocationId, callbackToken } = await registry.create('user-hb-o3b', 'codex', thread.id);
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/hold-ball',
+      headers: { 'x-invocation-id': invocationId, 'x-callback-token': callbackToken },
+      payload: {
+        reason: 'wait for CI',
+        nextStep: 'check build',
+        wakeAfterMs: 60_000,
+        waitSourceRef: {
+          kind: 'github_issue',
+          value: 'AgeOfLearning/cat-cafe#999',
+          expectedSignal: 'issue closed',
+          slaUntilMs: 3_600_000,
+        },
+      },
+    });
+    assert.equal(response.statusCode, 200, 'grounded timer wait should succeed');
+  });
+
+  test('PR-O3: 200 when wakeWhen provided WITHOUT waitSourceRef (command is self-grounding)', async () => {
+    const deps = makeStubDeps();
+    const app = await createApp(deps);
+    const thread = await threadStore.create('user-hb-o3c', 'hbo3c');
+    const { invocationId, callbackToken } = await registry.create('user-hb-o3c', 'codex', thread.id);
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/hold-ball',
+      headers: { 'x-invocation-id': invocationId, 'x-callback-token': callbackToken },
+      payload: {
+        reason: 'running gate',
+        nextStep: 'check result',
+        wakeWhen: { command: 'echo ok' },
+      },
+    });
+    assert.equal(response.statusCode, 200, 'wakeWhen without waitSourceRef should succeed (self-grounding)');
+  });
+
+  test('PR-O3: 400 when pending_input kind used (removed backdoor)', async () => {
+    const deps = makeStubDeps();
+    const app = await createApp(deps);
+    const thread = await threadStore.create('user-hb-o3d', 'hbo3d');
+    const { invocationId, callbackToken } = await registry.create('user-hb-o3d', 'codex', thread.id);
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/hold-ball',
+      headers: { 'x-invocation-id': invocationId, 'x-callback-token': callbackToken },
+      payload: {
+        reason: 'wait for user',
+        nextStep: 'continue',
+        wakeAfterMs: 60_000,
+        waitSourceRef: {
+          kind: 'pending_input',
+          value: 'design_choice',
+          anchorRef: 'msg_123',
+          expectedSignal: 'user picks option',
+          slaUntilMs: 900_000,
+        },
+      },
+    });
+    assert.equal(response.statusCode, 400, 'pending_input kind must be rejected');
   });
 });

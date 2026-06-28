@@ -26,6 +26,7 @@ import { KILL_GRACE_MS, ManagedRunner } from '../infrastructure/managed-runner.j
 import type { DynamicTaskStore } from '../infrastructure/scheduler/DynamicTaskStore.js';
 import type { TaskRunnerV2 } from '../infrastructure/scheduler/TaskRunnerV2.js';
 import type { TaskTemplate } from '../infrastructure/scheduler/templates/types.js';
+import { holdBallPendingInputReject, holdBallUngroundedTimerReject } from '../infrastructure/telemetry/instruments.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 import { requireCallbackAuth } from './callback-auth-prehandler.js';
 import { emitC1HoldCancellation } from './callback-hold-ball-c1-emit.js';
@@ -104,21 +105,17 @@ export function getActiveRunnerCount(): number {
 }
 
 /**
- * F167 Phase O PR-O2: WaitSourceRef schema for structured wait grounding.
+ * F167 Phase O PR-O2 → PR-O3: WaitSourceRef schema for structured wait grounding.
  * Per R3.1 OQ-5: slaUntilMs is REQUIRED (no SLA = no hold).
- * 'reporter_handle' | 'pending_input' require anchorRef (narrative kinds too forgeable).
+ * 'reporter_handle' requires anchorRef (narrative kind, too forgeable without anchor).
+ *
+ * PR-O3: 'pending_input' REMOVED — it semantically meant "wait for human/cat to type
+ * in the Hub", which should be @landy (传球选项3) not hold_ball. This was the primary
+ * backdoor enabling the "hold_ball instead of @landy" misuse pattern.
  */
 const waitSourceRefSchema = z
   .object({
-    kind: z.enum([
-      'github_issue',
-      'github_comment',
-      'thread_message',
-      'task',
-      'reporter_handle',
-      'pending_input',
-      'managed_command',
-    ]),
+    kind: z.enum(['github_issue', 'github_comment', 'thread_message', 'task', 'reporter_handle', 'managed_command']),
     value: z.string().min(1),
     anchorRef: z.string().optional(),
     expectedSignal: z.string().min(1),
@@ -126,13 +123,13 @@ const waitSourceRefSchema = z
   })
   .refine(
     (data) => {
-      // anchorRef REQUIRED for narrative kinds
-      if ((data.kind === 'reporter_handle' || data.kind === 'pending_input') && !data.anchorRef) {
+      // anchorRef REQUIRED for narrative kinds (reporter_handle only after pending_input removal)
+      if (data.kind === 'reporter_handle' && !data.anchorRef) {
         return false;
       }
       return true;
     },
-    { message: 'anchorRef is required for reporter_handle and pending_input kinds' },
+    { message: 'anchorRef is required for reporter_handle kind' },
   );
 
 const wakeWhenSchema = z.object({
@@ -148,7 +145,14 @@ const holdBallSchema = z
     wakeAfterMs: z.number().int().min(5_000).max(3_600_000).optional(),
     /** F167 Phase P: run a command and wake when it completes (mutually exclusive with wakeAfterMs). */
     wakeWhen: wakeWhenSchema.optional(),
-    /** F167 Phase O: structured wait source for grounding telemetry (optional in PR-O2 shadow). */
+    /**
+     * F167 Phase O → PR-O3: structured wait source for grounding telemetry.
+     * REQUIRED for wakeAfterMs mode — you must declare what external condition
+     * justifies the timer. wakeWhen mode is self-grounded (the command IS the source).
+     *
+     * If you are waiting for a human (铲屎官 / another cat) to reply in the Hub,
+     * do NOT hold_ball — use @landy or @句柄 instead (传球选项 1 or 3).
+     */
     waitSourceRef: waitSourceRefSchema.optional(),
   })
   .refine(
@@ -158,6 +162,21 @@ const holdBallSchema = z
       return (hasWakeAfter || hasWakeWhen) && !(hasWakeAfter && hasWakeWhen);
     },
     { message: 'Exactly one of wakeAfterMs or wakeWhen must be provided' },
+  )
+  .refine(
+    (data) => {
+      // PR-O3: wakeAfterMs mode REQUIRES waitSourceRef — must declare what you're waiting for.
+      // wakeWhen mode is self-grounded (the command is the external condition).
+      if (data.wakeAfterMs != null && data.waitSourceRef == null) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message:
+        'waitSourceRef is required when using wakeAfterMs — declare what external condition ' +
+        'you are polling. If waiting for a human reply, use @landy instead of hold_ball.',
+    },
   );
 
 export interface HoldBallRouteDeps {
@@ -387,6 +406,17 @@ export function registerCallbackHoldBallRoutes(app: FastifyInstance, deps: HoldB
     const record = requireCallbackAuth(request, reply);
     if (!record) return;
     const actor = deriveCallbackActor(record);
+
+    // PR-O3 eval counters: detect misuse attempts BEFORE schema parse.
+    // These fire on every attempt regardless of other validation failures,
+    // tracking how often cats still TRY the patterns we're blocking.
+    const rawBody = request.body as Record<string, unknown> | null;
+    if (rawBody?.wakeAfterMs != null && rawBody?.waitSourceRef == null) {
+      holdBallUngroundedTimerReject.add(1);
+    }
+    if ((rawBody?.waitSourceRef as Record<string, unknown> | null)?.kind === 'pending_input') {
+      holdBallPendingInputReject.add(1);
+    }
 
     const parsed = holdBallSchema.safeParse(request.body);
     if (!parsed.success) {

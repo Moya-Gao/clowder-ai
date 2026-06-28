@@ -151,9 +151,9 @@ triggers:
 
 ```typescript
 type WaitSourceRef = {
-  kind: 'github_issue' | 'github_comment' | 'thread_message' | 'task' | 'reporter_handle' | 'pending_input';
+  kind: 'github_issue' | 'github_comment' | 'thread_message' | 'task' | 'reporter_handle' | 'managed_command';
   value: string;             // 主对象标识
-  anchorRef?: string;        // REQUIRED when kind ∈ {'reporter_handle', 'pending_input'}
+  anchorRef?: string;        // REQUIRED when kind = 'reporter_handle'
                              // narrative kinds 必须锚到 durable id (GitHub id / messageId / task id)
   expectedSignal: string;    // 等什么信号醒
   slaUntilMs: number;        // REQUIRED, ≤ now + 3_600_000 (mirror wakeAfterMs ≤ 1h)
@@ -163,7 +163,7 @@ type WaitSourceRef = {
 **约束**：
 - `slaUntilMs` REQUIRED；无 SLA → 走 needs-info / sweep（不允许 hold）
 - `slaUntilMs - now ≤ 3_600_000` — mirror `wakeAfterMs ≤ 1h`；**不允许** multi-hold extension；>1h 正解是未来 event-bound wait
-- `reporter_handle` / `pending_input` 必须配 `anchorRef`（narrative kinds 太 forgeable）
+- `reporter_handle` 必须配 `anchorRef`（narrative kind 太 forgeable）
 
 ### 关键代码事实区分
 
