@@ -1,0 +1,18 @@
+{
+  "verdictId": "2026-06-28-eval-anchor-first-empty-window-keep-observe",
+  "featureId": "F236",
+  "evalSnapshotId": "eval-F236-2026-06-28",
+  "generatedAt": "2026-06-28T03:11:26.201Z",
+  "findings": [],
+  "sunsetAssessment": {
+    "toolCount": 0,
+    "toolsWithAnchorTax": 0,
+    "toolsNetNegative": 0,
+    "toolsHighOpenRate": 0,
+    "lowSampleToolCount": 0
+  },
+  "noFindingRecord": {
+    "reason": "no_preview_events",
+    "evidence": "No anchor-first preview events in the rollup window."
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "verdictId": "2026-06-28-eval-anchor-first-empty-window-keep-observe",
+  "evalSnapshotId": "eval-F236-2026-06-28",
+  "featureId": "F236",
+  "generatedAt": "2026-06-28T03:11:26.201Z",
+  "window": {
+    "startMs": 1782529200000,
+    "endMs": 1782615600000,
+    "durationHours": 24
+  },
+  "components": [
+    {
+      "id": "anchor-telemetry-rollup",
+      "name": "anchor-first preview/drill open-rate rollup",
+      "confidence": "low",
+      "activationCounts": {
+        "orphan_drills": 0
+      },
+      "frictionCounts": {}
+    }
+  ]
+}

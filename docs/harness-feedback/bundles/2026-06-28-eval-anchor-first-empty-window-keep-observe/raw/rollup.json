@@ -1,0 +1,18 @@
+{
+  "verdictId": "2026-06-28-eval-anchor-first-empty-window-keep-observe",
+  "selector": {
+    "kind": "anchor-telemetry-snapshot",
+    "windowStartMs": 1782529200000,
+    "windowEndMs": 1782615600000
+  },
+  "rollup": {
+    "perTool": {},
+    "orphanDrills": 0,
+    "track1Snapshot": {
+      "returnedByTool": {},
+      "returnedCharsByTool": {},
+      "drillByTool": {},
+      "drillCharsByTool": {}
+    }
+  }
+}
