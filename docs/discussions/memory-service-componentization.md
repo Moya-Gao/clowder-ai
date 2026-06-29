@@ -223,7 +223,7 @@ interface TextSearchOptions {
   parentId?: string;                    // 限定在某父块下搜索
   depth?: 'block' | 'withChildren';     // block=只返回匹配块;
                                         // withChildren=父块附带 children[] 填充
-  contextWindow?: number;               // depth=block 时返回匹配 passage 周围 N 个兄弟块
+  contextWindow?: number;               // 返回匹配 passage 周围 N 个兄弟块（填充到 children/context 中）
   explain?: boolean;                    // 在结果中标注匹配原因
   extra?: Record<string, unknown>;      // 宿主专属过滤器扩展点
 }
@@ -237,6 +237,8 @@ interface TextSearchResult {
     entityId: string;
     canonicalName: string;
     matchedAlias: string;
+    type: string;                       // 实体类型
+    confidence: number;                 // 匹配置信度 0-1
   }>;
 }
 
@@ -284,6 +286,8 @@ GET  /capabilities                      → StoreCapabilities
 GET  /health                            → StoreHealth
 GET  /stats                             → { blockCount, edgeCount, timelineCount,
                                              indexFreshness, lastRebuildAt }
+POST /integrity                         → { ok: boolean, issues: string[] }
+                                           （已存储数据与索引数据的一致性检查）
 
 # ── TextBlock（文本内容原语） ──
 POST /blocks/search                     → SearchResponse
@@ -461,7 +465,9 @@ class MemoryServiceAdapter implements IEvidenceStore, GraphStore {
             speaker: c.metadata?.speaker as string,
             threadId: c.metadata?.threadId as string,
             messageId: c.metadata?.messageId as string,
-            context: c.metadata?.context as string,
+            // context 是上下文 passage 数组（contextWindow 填充），
+            // 不是 string — 与 SqliteEvidenceStore.toEvidencePassage 一致
+            context: (c.metadata?.context ?? []) as EvidencePassage[],
             createdAt: c.createdAt,
             position: c.position ?? 0,
           }));
@@ -514,6 +520,8 @@ class MemoryServiceAdapter implements IEvidenceStore, GraphStore {
       canonicalName: m.canonicalName,
       matchedAlias: m.matchedAlias,
       type: m.type,
+      confidence: m.confidence,
+      provenance: [{ type: 'entity-resolution' as const, confidence: m.confidence }],
     }));
   }
 
@@ -1054,7 +1062,7 @@ interface TextSearchOptions {
   parentId?: string;               // 限定在某父块下搜索
   depth?: 'block' | 'withChildren';  // block=只返回匹配块（默认）;
                                    // withChildren=搜索返回的父块附带 children[] 填充
-  contextWindow?: number;          // depth=block 时返回匹配 passage 的前后 N 个兄弟块
+  contextWindow?: number;          // 返回匹配 passage 的前后 N 个兄弟块（填充到 children/context 中）
   explain?: boolean;               // 返回结果中标注匹配原因
   extra?: Record<string, unknown>; // 宿主专属过滤器
 }
