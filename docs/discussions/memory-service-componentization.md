@@ -419,26 +419,50 @@ class MemoryServiceAdapter implements IEvidenceStore, GraphStore {
     const searchOpts = this.mapSearchOptions(options);
     searchOpts.explain = true;
     const results = await this.store.blocks.search(query, searchOpts);
+    const items = await this.hydrateResults(results, options?.depth);
+    // entityMatches 挂到每个 EvidenceItem 上，与现有 searchWithMeta 返回形状一致
+    results.forEach((r, i) => {
+      if (r.entityMatches?.length && items[i]) {
+        items[i].entityMatches = r.entityMatches.map(m => ({
+          entityId: m.entityId,
+          canonicalName: m.canonicalName,
+          matchedAlias: m.matchedAlias,
+          type: m.type,
+          provenance: m.confidence != null
+            ? { type: 'entity-resolution', confidence: m.confidence }
+            : undefined,
+        }));
+      }
+    });
     return {
-      items: await this.hydrateResults(results, options?.depth),
+      items,
       meta: { degraded: false },
-      entityMatches: results.flatMap(r => r.entityMatches ?? []),
     };
   }
 
-  /** depth=raw 时：搜索结果按 parentId 聚合，父块附带 passages[] */
+  /**
+   * depth=raw 时：搜索结果按 parentId 聚合，父块附带 passages[]。
+   * 子 TextBlock 到 EvidencePassage 的完整映射：
+   *   id → passageId, parentId → docAnchor, createdAt → createdAt,
+   *   metadata.threadId → threadId, metadata.messageId → messageId,
+   *   metadata.context → context, metadata.speaker → speaker
+   */
   private async hydrateResults(
     results: TextSearchResult[], depth?: string,
   ): Promise<EvidenceItem[]> {
     if (depth === 'raw') {
-      // 使用 depth=withChildren 的结果：父块带 children
       return results.map(r => {
         const item = this.toEvidenceItem(r.block);
         if (r.children?.length) {
           item.passages = r.children.map(c => ({
+            passageId: c.id,
+            docAnchor: c.parentId ?? r.block.id,
             content: c.content,
             speaker: c.metadata?.speaker as string,
-            timestamp: c.createdAt,
+            threadId: c.metadata?.threadId as string,
+            messageId: c.metadata?.messageId as string,
+            context: c.metadata?.context as string,
+            createdAt: c.createdAt,
             position: c.position ?? 0,
           }));
         }
@@ -504,9 +528,13 @@ class MemoryServiceAdapter implements IEvidenceStore, GraphStore {
     })));
   }
 
-  async refreshEntityMentions(): Promise<void> {
+  async refreshEntityMentions(docAnchors?: string[]): Promise<void> {
     if (!this.entityResolver?.refreshMentions) return;
-    await this.entityResolver.refreshMentions(this.namespace);
+    // 支持增量刷新：传入 docAnchors 时只刷新指定文档的提及索引
+    await this.entityResolver.refreshMentions({
+      namespace: this.namespace,
+      blockIds: docAnchors,  // docAnchor 即 TextBlock.id
+    });
   }
 
   // ── GraphStore 实现 ──
@@ -539,6 +567,14 @@ class MemoryServiceAdapter implements IEvidenceStore, GraphStore {
 
   // ── 字段映射 ──
 
+  /**
+   * Clowder SearchOptions → 通用 TextSearchOptions 映射。
+   *
+   * Anchor 标准化约定：
+   *   Clowder 的 threadId 会被 IndexBuilder 标准化为 `thread-${threadId}`
+   *   作为 doc anchor（参考 IndexBuilder.ts 的 passage 写入逻辑）。
+   *   因此 threadId 过滤需要同样的标准化才能匹配。
+   */
   private mapSearchOptions(options?: SearchOptions): TextSearchOptions {
     if (!options) return { namespace: this.namespace };
     return {
@@ -550,7 +586,9 @@ class MemoryServiceAdapter implements IEvidenceStore, GraphStore {
       keywords: options.keywords,
       dateFrom: options.dateFrom,
       dateTo: options.dateTo,
-      parentId: options.threadId,
+      // threadId → thread anchor 标准化：IndexBuilder 写 passage 时
+      // docAnchor = `thread-${threadId}`，搜索时要用相同的 anchor 格式
+      parentId: options.threadId ? `thread-${options.threadId}` : undefined,
       depth: options.depth === 'raw' ? 'withChildren' : 'block',
       contextWindow: options.contextWindow,
       explain: options.explain,
@@ -932,8 +970,9 @@ EchoMem 团队可以逐步实现能力：
 > **为什么没有 EntityNode 原语？**
 > 实体（命名实体 + 别名解析）不是独立的数据存储类型，而是文本搜索的**增强能力**。
 > 在我们的系统里，实体来自配置种子 + 文本自动提取，在搜索时透明增强召回（`searchWithMeta():152`）。
-> 用户从不直接"创建/查询实体"。因此实体解析降级为**基础设施层**的 `EntityResolver`，
-> 和 `EmbeddingProvider` 平级（§10.8）。
+> 搜索热路径上用户不直接操作实体（search() 内部透明调用）。
+> 管理路径（种子注入 / Eval-Harness 对接）通过 EntityResolver 管理接口（seed/list/get/refreshMentions）操作。
+> 因此实体解析降级为**基础设施层**的 `EntityResolver`，和 `EmbeddingProvider` 平级（§10.7）。
 
 ### 10.2 共享元数据维度
 
@@ -1260,7 +1299,10 @@ interface EntityResolver {
   /** 列出已注册实体（供调试 / Eval-Harness get_entities） */
   list?(filter?: { type?: string; namespace?: string }): Promise<EntitySeed[]>;
   /** 刷新实体提及索引（对已有 TextBlock 重新提取实体引用） */
-  refreshMentions?(namespace?: string): Promise<{ updated: number }>;
+  refreshMentions?(opts?: {
+    namespace?: string;
+    blockIds?: string[];            // 增量刷新：只刷新指定 block 的提及
+  }): Promise<{ updated: number }>;
 }
 
 /** 实体种子 — 注册到 EntityResolver 的实体定义 */
@@ -1330,6 +1372,7 @@ class ClowderMemoryAdapter implements MemoryStore {
 
   // IEvidenceStore 的 SearchOptions → TextSearchOptions 映射
   // namespace 从 CollectionManifest 注入（构造时确定），不从 item 取
+  // threadId 标准化为 thread-${threadId}（与 IndexBuilder 写入约定一致）
   private mapSearchOptions(clowderOpts: SearchOptions): TextSearchOptions {
     return {
       mode: clowderOpts.mode,
@@ -1339,7 +1382,9 @@ class ClowderMemoryAdapter implements MemoryStore {
       keywords: clowderOpts.keywords,
       dateFrom: clowderOpts.dateFrom,
       dateTo: clowderOpts.dateTo,
-      parentId: clowderOpts.threadId,
+      parentId: clowderOpts.threadId
+        ? `thread-${clowderOpts.threadId}`
+        : undefined,
       depth: clowderOpts.depth === 'raw' ? 'withChildren' : 'block',
       contextWindow: clowderOpts.contextWindow,
       explain: clowderOpts.explain,
@@ -1447,7 +1492,7 @@ Memory-System-Eval-Harness 的 MemoryPlugin Protocol 定义了 9 个必需方法
 - [x] **Clowder 适配层映射**（§10.8 完整字段映射 + 示意代码）
 - [x] **EchoMem 映射验证**（§10.9 双向对照）
 - [x] **Eval-Harness 覆盖度验证**（§10.10 全 9 方法覆盖）
-- [ ] §3 Service Contract 按原语重写为 v1
+- [x] §3 Service Contract 按三原语模型重写（§10.12 变更记录）
 - [ ] 参考实现：SQLite backend（从 SqliteEvidenceStore 提取）
 - [ ] 最小可用示例（init → put → search → neighbors）
 - [ ] NPM 包结构与发布配置
