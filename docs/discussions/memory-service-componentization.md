@@ -151,6 +151,7 @@ interface TextBlock {
   content: string;                      // 文本内容（BM25 + 向量索引）
   title?: string;                       // 显示标题
   summary?: string;                     // 摘要
+  keywords?: string[];                  // 关键词（BM25 索引维度）
   kind?: string;                        // 类型标签（宿主定义值域）
   status?: string;                      // 生命周期状态（宿主定义值域）
   parentId?: string;                    // 父块 ID（passage-in-document 层级）
@@ -216,10 +217,13 @@ interface TextSearchOptions {
   kind?: string;
   status?: string;
   tags?: string[];                      // 标签过滤（AND 语义）
+  keywords?: string[];                  // 关键词过滤（匹配 TextBlock.keywords）
   dateFrom?: string;                    // ISO8601 包含下界
   dateTo?: string;                      // ISO8601 包含上界
   parentId?: string;                    // 限定在某父块下搜索
-  contextWindow?: number;               // 搜 passage 时返回周围 N 个兄弟块
+  depth?: 'block' | 'withChildren';     // block=只返回匹配块;
+                                        // withChildren=父块附带 children[] 填充
+  contextWindow?: number;               // depth=block 时返回匹配 passage 周围 N 个兄弟块
   explain?: boolean;                    // 在结果中标注匹配原因
   extra?: Record<string, unknown>;      // 宿主专属过滤器扩展点
 }
@@ -228,6 +232,7 @@ interface TextSearchResult {
   block: TextBlock;
   score: number;
   matchReasons?: string[];              // explain=true 时填充
+  children?: TextBlock[];               // depth=withChildren 时填充
   entityMatches?: Array<{               // EntityResolver 匹配到的实体
     entityId: string;
     canonicalName: string;
@@ -399,13 +404,15 @@ class MemoryServiceAdapter implements IEvidenceStore, GraphStore {
   private store: MemoryStore;             // 三原语聚合入口
   private capabilities: StoreCapabilities;
   private readOnly: boolean;              // 来自 CollectionManifest.backend.mode
+  private namespace: string;              // 来自 CollectionManifest.backend.config.namespace
+  private entityResolver?: EntityResolver; // 基础设施层注入
 
   // ── IEvidenceStore：搜索 ──
 
   async search(query: string, options?: SearchOptions): Promise<EvidenceItem[]> {
     const searchOpts = this.mapSearchOptions(options);
     const results = await this.store.blocks.search(query, searchOpts);
-    return results.map(r => this.toEvidenceItem(r.block));
+    return this.hydrateResults(results, options?.depth);
   }
 
   async searchWithMeta(query: string, options?: SearchOptions): Promise<EvidenceSearchExecution> {
@@ -413,9 +420,32 @@ class MemoryServiceAdapter implements IEvidenceStore, GraphStore {
     searchOpts.explain = true;
     const results = await this.store.blocks.search(query, searchOpts);
     return {
-      items: results.map(r => this.toEvidenceItem(r.block)),
+      items: await this.hydrateResults(results, options?.depth),
       meta: { degraded: false },
+      entityMatches: results.flatMap(r => r.entityMatches ?? []),
     };
+  }
+
+  /** depth=raw 时：搜索结果按 parentId 聚合，父块附带 passages[] */
+  private async hydrateResults(
+    results: TextSearchResult[], depth?: string,
+  ): Promise<EvidenceItem[]> {
+    if (depth === 'raw') {
+      // 使用 depth=withChildren 的结果：父块带 children
+      return results.map(r => {
+        const item = this.toEvidenceItem(r.block);
+        if (r.children?.length) {
+          item.passages = r.children.map(c => ({
+            content: c.content,
+            speaker: c.metadata?.speaker as string,
+            timestamp: c.createdAt,
+            position: c.position ?? 0,
+          }));
+        }
+        return item;
+      });
+    }
+    return results.map(r => this.toEvidenceItem(r.block));
   }
 
   async getByAnchor(anchor: string): Promise<EvidenceItem | null> {
@@ -450,13 +480,33 @@ class MemoryServiceAdapter implements IEvidenceStore, GraphStore {
 
   // ── IEvidenceStore：实体方法（委派到 EntityResolver 基础设施） ──
   // EntityResolver 注入到 TextBlockStore 内部，search() 自动使用。
-  // 这些遗留方法保留向后兼容，实际行为由 EntityResolver 驱动。
+  // 管理方法通过 EntityResolver 管理接口实现。
 
   async resolveEntityAliases(query: string): Promise<QueryEntityMatch[]> {
-    if (!this.capabilities.entityResolution) return [];
-    // EntityResolver 在 search() 内部透明调用
-    // 此方法保留供外部直接调用场景（如 MCP 工具 inspect）
-    return [];  // TODO: 暴露 EntityResolver 查询接口
+    if (!this.capabilities.entityResolution || !this.entityResolver) return [];
+    const matches = await this.entityResolver.resolve(query);
+    return matches.map(m => ({
+      entityId: m.entityId,
+      canonicalName: m.canonicalName,
+      matchedAlias: m.matchedAlias,
+      type: m.type,
+    }));
+  }
+
+  async upsertEntities(entities: EntityRecord[]): Promise<void> {
+    if (!this.entityResolver) return;
+    await this.entityResolver.seed(entities.map(e => ({
+      entityId: e.entityId,
+      canonicalName: e.canonicalName,
+      type: e.type,
+      aliases: e.aliases,
+      namespace: this.namespace,
+    })));
+  }
+
+  async refreshEntityMentions(): Promise<void> {
+    if (!this.entityResolver?.refreshMentions) return;
+    await this.entityResolver.refreshMentions(this.namespace);
   }
 
   // ── GraphStore 实现 ──
@@ -490,15 +540,19 @@ class MemoryServiceAdapter implements IEvidenceStore, GraphStore {
   // ── 字段映射 ──
 
   private mapSearchOptions(options?: SearchOptions): TextSearchOptions {
-    if (!options) return {};
+    if (!options) return { namespace: this.namespace };
     return {
       mode: options.mode,
       limit: options.limit,
+      namespace: this.namespace,           // 从 CollectionManifest 注入，不从 item 取
       kind: options.kind,
       status: options.status,
+      keywords: options.keywords,
       dateFrom: options.dateFrom,
       dateTo: options.dateTo,
       parentId: options.threadId,
+      depth: options.depth === 'raw' ? 'withChildren' : 'block',
+      contextWindow: options.contextWindow,
       explain: options.explain,
       extra: {
         scope: options.scope,
@@ -510,15 +564,16 @@ class MemoryServiceAdapter implements IEvidenceStore, GraphStore {
   }
 
   private toTextBlock(item: EvidenceItem): TextBlock {
-    const { anchor, title, summary, kind, status, sourcePath,
+    const { anchor, title, summary, keywords, kind, status, sourcePath,
             sourceHash, updatedAt, worldId, sceneId,
-            authority, activation, collectionId, ...rest } = item;
+            authority, activation, ...rest } = item;
     return {
       id: anchor,
       content: summary ?? '',
       title,
+      keywords,                            // 保留关键词索引
       kind, status,
-      namespace: collectionId ?? 'default',
+      namespace: this.namespace,           // 从 CollectionManifest 注入，不从 item 取
       createdAt: updatedAt,
       updatedAt,
       source: { type: 'compiled', uri: sourcePath },
@@ -882,7 +937,7 @@ EchoMem 团队可以逐步实现能力：
 
 ### 10.2 共享元数据维度
 
-所有四种原语共享以下维度（类似 Redis 每个 key 都有 TTL/TYPE 等元信息）：
+所有三种原语共享以下维度（类似 Redis 每个 key 都有 TTL/TYPE 等元信息）：
 
 ```typescript
 /** 所有原语的共享字段 */
@@ -920,6 +975,7 @@ interface TextBlock extends CommonDimensions {
   content: string;                 // 文本内容
   title?: string;                  // 显示标题
   summary?: string;                // 摘要
+  keywords?: string[];             // 自动提取或手动标注的关键词（BM25 索引维度）
   kind?: string;                   // 类型标签（宿主定义值域）
   status?: string;                 // 生命周期状态（宿主定义值域）
   parentId?: string;               // 父块 ID（passage-in-document 层级）
@@ -953,10 +1009,13 @@ interface TextSearchOptions {
   kind?: string;                   // 限定类型
   status?: string;                 // 限定状态
   tags?: string[];                 // 限定标签（AND 语义）
+  keywords?: string[];             // 关键词过滤（匹配 TextBlock.keywords）
   dateFrom?: string;               // 时间下界 ISO8601
   dateTo?: string;                 // 时间上界 ISO8601
   parentId?: string;               // 限定在某父块下搜索
-  contextWindow?: number;          // 搜 passage 时返回周围 N 个兄弟块
+  depth?: 'block' | 'withChildren';  // block=只返回匹配块（默认）;
+                                   // withChildren=搜索返回的父块附带 children[] 填充
+  contextWindow?: number;          // depth=block 时返回匹配 passage 的前后 N 个兄弟块
   explain?: boolean;               // 返回结果中标注匹配原因
   extra?: Record<string, unknown>; // 宿主专属过滤器
 }
@@ -966,6 +1025,8 @@ interface TextSearchResult {
   block: TextBlock;
   score: number;
   matchReasons?: string[];         // explain=true 时填充
+  children?: TextBlock[];          // depth=withChildren 时填充 — 父块下的子块列表
+  entityMatches?: EntityMatch[];   // EntityResolver 匹配到的实体（capabilities.entityResolution=true 时）
 }
 
 /** 列表过滤器 */
@@ -1176,12 +1237,39 @@ interface EmbeddingProvider {
  * 不是数据原语：实体来自配置种子 + 文本自动提取，
  * 在 search() 内部透明调用，调用者无感知。
  * 类比：拼写纠错 / 同义词扩展 — 是搜索管道的一环，不是存储类型。
+ *
+ * 但需要管理接口：宿主需要注入种子、查询已注册实体、刷新提及索引。
+ * 这些管理操作不在搜索热路径上，而是初始化 / 维护阶段使用。
+ * 对应 Clowder 的 upsertEntities / getEntity / refreshEntityMentions
+ * 和 Eval-Harness 的 add_entity / get_entities。
  */
 interface EntityResolver {
+  // ── 搜索路径（由 TextBlockStore.search() 内部调用） ──
+
   /** 解析查询中的实体别名 → 返回规范名称 + 匹配的别名 */
   resolve(query: string): Promise<EntityMatch[]>;
   /** 从文本中自动提取实体（写入时调用） */
   extract?(text: string): Promise<ExtractedEntity[]>;
+
+  // ── 管理路径（初始化 / 维护阶段使用） ──
+
+  /** 注入实体种子（幂等，entityId 重复则更新） */
+  seed(entities: EntitySeed[]): Promise<void>;
+  /** 精确获取已注册实体 */
+  get?(entityId: string): Promise<EntitySeed | null>;
+  /** 列出已注册实体（供调试 / Eval-Harness get_entities） */
+  list?(filter?: { type?: string; namespace?: string }): Promise<EntitySeed[]>;
+  /** 刷新实体提及索引（对已有 TextBlock 重新提取实体引用） */
+  refreshMentions?(namespace?: string): Promise<{ updated: number }>;
+}
+
+/** 实体种子 — 注册到 EntityResolver 的实体定义 */
+interface EntitySeed {
+  entityId: string;                  // 唯一标识
+  canonicalName: string;             // 规范名称
+  type: string;                      // 实体类型（person / feature / concept / ...）
+  aliases?: string[];                // 别名列表
+  namespace?: string;                // 所属 namespace（可选，跨 namespace 实体不设）
 }
 
 interface EntityMatch {
@@ -1200,7 +1288,9 @@ interface ExtractedEntity {
 }
 ```
 
-基础设施层不属于通用契约的 API surface，而是**实现侧的插槽**。
+基础设施层的**搜索路径**（resolve/extract）不属于通用契约的 API surface，
+而是实现侧的插槽。但**管理路径**（seed/list/get/refreshMentions）
+需要通过宿主适配层暴露，以支持实体种子注入和 Eval-Harness 对接。
 参考 EchoMem 的分层：
 - L0 BackendStorage（原始 CRUD）
 - L2a VectorStoreAdapter（ANN 搜索）
@@ -1220,7 +1310,7 @@ EntityResolver 和 EmbeddingProvider 都是 L2 级注入依赖。
 | EntityMention | **EntityResolver 内部** | 提及索引由 EntityResolver 内部管理 |
 | Edge | **RelationEdge** | `fromAnchor→fromId`; `toAnchor→toId`; `relation→relation`; `fromCollectionId/toCollectionId/edgeSensitivity→metadata` |
 | EventMemory | **Timeline** | `threadId→timelineId`; `type→type`; `summary→content`; `cognitiveTransition/relatedHarness→metadata` |
-| SummarySegment | **Timeline** | `threadId→timelineId`; `type='summary'`; `summary→content`; `level/topicKey/topicLabel→metadata` |
+| SummarySegment | **Timeline**（模型可表达，但 §2 决定留在宿主） | `threadId→timelineId`; `type='summary'`; `summary→content`; `level/topicKey/topicLabel→metadata`。注：§2 决定 Thread 摘要留在宿主（绑定 thread 生命周期）。此映射仅证明三原语模型的表达力足够，不是 Phase 1 的提取范围 |
 | Marker（采集队列） | *(不映射)* | 采集管道是宿主内部概念 |
 | RecallEvent（遥测） | *(不映射)* | 可观测性数据由宿主独立管理 |
 | AnchorRecallMetrics | *(不映射)* | 消费加权排名是宿主层优化 |
@@ -1239,14 +1329,19 @@ class ClowderMemoryAdapter implements MemoryStore {
   private entityResolver: ClowderEntityResolver;  // 包装 EntityRegistry
 
   // IEvidenceStore 的 SearchOptions → TextSearchOptions 映射
+  // namespace 从 CollectionManifest 注入（构造时确定），不从 item 取
   private mapSearchOptions(clowderOpts: SearchOptions): TextSearchOptions {
     return {
       mode: clowderOpts.mode,
+      namespace: this.namespace,
       kind: clowderOpts.kind,
       status: clowderOpts.status,
+      keywords: clowderOpts.keywords,
       dateFrom: clowderOpts.dateFrom,
       dateTo: clowderOpts.dateTo,
       parentId: clowderOpts.threadId,
+      depth: clowderOpts.depth === 'raw' ? 'withChildren' : 'block',
+      contextWindow: clowderOpts.contextWindow,
       explain: clowderOpts.explain,
       extra: {
         scope: clowderOpts.scope,
@@ -1283,9 +1378,9 @@ Memory-System-Eval-Harness 的 MemoryPlugin Protocol 定义了 9 个必需方法
 | `update_memory(id, text)` | `blocks.put({ id, content: text })` | upsert 覆盖 |
 | `delete_memory(id)` | `blocks.delete(id)` | 直接映射 |
 | `get_memory(id)` | `blocks.get(id)` | 直接映射 |
-| `add_entity(name, type)` | EntityResolver 种子注入 | 实体不是原语，由 Eval 桥接层转为 resolver 种子 |
+| `add_entity(name, type)` | `entityResolver.seed([...])` | 通过 EntityResolver 管理接口注入种子 |
 | `add_relation(from, to, rel)` | `edges.link(...)` | 直接映射 |
-| `get_entities()` | EntityResolver 内部查询 | 桥接层暴露 resolver 内部列表 |
+| `get_entities()` | `entityResolver.list()` | 通过 EntityResolver 管理接口列出已注册实体 |
 | `get_relations()` | `edges.edges()` | 直接映射 |
 
 **覆盖度**：
@@ -1327,27 +1422,27 @@ Memory-System-Eval-Harness 的 MemoryPlugin Protocol 定义了 9 个必需方法
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 10.12 §3 Service Contract v0 的迁移方案
+### 10.12 §3 Service Contract v0 — 已完成三原语重写
 
-当前 §3 使用领域模型（ServiceDocument/ServicePassage/ServiceEntity/ServiceEdge），
-需要按新原语重写。迁移对照：
+§3 已使用三原语模型（TextBlock / RelationEdge / Timeline）重写，是本文档的权威契约定义。
 
-| 当前 §3 类型 | 替换为 | 改动幅度 |
-|-------------|--------|---------|
-| ServiceDocument（18 字段） | TextBlock（14 字段） | 去掉领域字段，补 parentId/position/supersededBy |
-| ServicePassage（6 字段） | TextBlock（parentId 模式） | 从独立类型变成 TextBlock 的子块用法 |
-| ServiceEntity（6 字段） | EntityResolver 种子 | 不再是数据原语，降级为基础设施 |
-| ServiceEdge（4 字段） | RelationEdge（6 字段） | 补 weight/namespace |
-| ServiceSearchFilters（12 字段） | TextSearchOptions（13 字段） | scope→extra, threadId→parentId/extra |
+以下为从旧领域模型迁移到三原语模型的变更记录：
+
+| 旧类型 | 替换为 | 改动要点 |
+|--------|--------|---------|
+| ServiceDocument（18 字段） | **TextBlock**（15 字段） | 去掉领域字段，补 parentId/position/supersededBy/keywords |
+| ServicePassage（6 字段） | **TextBlock**（parentId 模式） | 从独立类型变成 TextBlock 的子块用法 |
+| ServiceEntity（6 字段） | **EntityResolver 种子** | 不再是数据原语，降级为基础设施层管理接口 |
+| ServiceEdge（4 字段） | **RelationEdge**（6 字段） | 补 weight/namespace |
+| ServiceSearchFilters（12 字段） | **TextSearchOptions**（15 字段） | scope→extra, threadId→parentId, 新增 depth/keywords |
 | IIndexWriter（4 方法） | TextBlockStore + RelationEdgeStore | 从集中 writer 拆为各原语写方法 |
 | 单一 GraphStore 接口 | RelationEdgeStore | neighbors/traverse 对应 |
 
-**§3 重写时机**：本文档作为讨论稿，§3 保留当前版本供对比参考。
-待内部达成一致后，新写 `service-contract-v1.md` 使用原语模型。
+**§3 是单一真相源**。§10 是设计推导过程文档，两者一致。
 
 ### 10.13 开源发布检查清单
 
-- [x] **数据类型原语设计**（§10.1-§10.5 三种原语 + action 集）
+- [x] **数据类型原语设计**（§10.1-§10.5 三种原语 + action 集 + EntityResolver 管理接口）
 - [x] **共享 metadata 维度**（§10.2 CommonDimensions）
 - [x] **Clowder 适配层映射**（§10.8 完整字段映射 + 示意代码）
 - [x] **EchoMem 映射验证**（§10.9 双向对照）
