@@ -42,6 +42,9 @@ export interface ScheduleTaskRunner {
   unregister(taskId: string): boolean;
 }
 
+/** MCP server descriptor passed to the MCP install service */
+export type McpServerDescriptor = NonNullable<CapabilityEntry['mcpServer']>;
+
 export interface PluginResourceActivatorDeps {
   resolveProjectRoot: () => string;
   resolveMainProjectRoot?: () => string;
@@ -57,6 +60,10 @@ export interface PluginResourceActivatorDeps {
   taskRunner?: ScheduleTaskRunner;
   /** F202 Phase 2: Dependencies injected into schedule factory createTaskSpec */
   scheduleFactoryDeps?: ScheduleFactoryDeps;
+  /** F205: Delegate MCP lifecycle to the MCP capability system instead of direct file manipulation.
+   *  When provided, activateMcp/deactivateMcp delegate to these instead of upsertCapabilityEntry. */
+  installMcp?: (capId: string, mcpServer: McpServerDescriptor, pluginId: string) => Promise<void>;
+  removeMcp?: (capId: string, pluginId: string) => Promise<void>;
 }
 
 export function withPersistedLimbNodeId<T extends ILimbNode>(node: T, persistedNodeId?: string): T {
@@ -409,15 +416,26 @@ export class PluginResourceActivator {
     if (resource.transport !== 'streamableHttp' && !resource.command) {
       return; // skip commandless MCP resources (e.g. protocol-backed)
     }
-    await this.upsertCapabilityEntry(manifest, resource, true);
+    // F205: Delegate to MCP capability system — handles topology heal + CLI config gen
+    if (this.deps.installMcp) {
+      const capId = resourceCapId(manifest.id, resource);
+      const mcpServer = this.buildMcpServer(manifest, resource);
+      await this.deps.installMcp(capId, mcpServer, manifest.id);
+    } else {
+      await this.upsertCapabilityEntry(manifest, resource, true);
+    }
   }
 
   private async deactivateMcp(manifest: PluginManifest, resource: PluginResourceDef): Promise<void> {
-    // First disable: triggers CLI config regeneration which tells writers to delete the entry.
-    // If we only removeCapabilityEntry, the row vanishes before generateCliConfigs runs,
-    // so the CLI writer never sees the disabled server and leaves stale config behind.
-    await this.upsertCapabilityEntry(manifest, resource, false);
-    await this.removeCapabilityEntry(manifest, resource);
+    // F205: Delegate to MCP capability system — handles disable + remove + CLI config cleanup
+    if (this.deps.removeMcp) {
+      const capId = resourceCapId(manifest.id, resource);
+      await this.deps.removeMcp(capId, manifest.id);
+    } else {
+      // Legacy fallback: disable first so CLI writers see the disabled entry, then remove
+      await this.upsertCapabilityEntry(manifest, resource, false);
+      await this.removeCapabilityEntry(manifest, resource);
+    }
   }
 
   private async activateSchedule(manifest: PluginManifest, resource: PluginResourceDef): Promise<void> {
