@@ -43,7 +43,7 @@ Clowder AI 的记忆系统（ADR-020 建立）当前紧耦合在宿主进程内�
 
 加 **EntityResolver** 基础设施层（非数据原语）：实体别名解析增强搜索召回，含管理接口（seed/list/get/refreshMentions）。
 
-加 **EmbeddingProvider** 基础设施层：embedding 能力归记忆组件拥有，模型进程为组件内部 sidecar。
+加 **EmbeddingProvider** 基础设施层：记忆组件是 embedding 的消费者，init 时注入 endpoint 配置；服务生命周期（安装/启停）走宿主统一服务管理。
 
 ### 关键边界决策
 
@@ -53,7 +53,7 @@ Clowder AI 的记忆系统（ADR-020 建立）当前紧耦合在宿主进程内�
 | Project store | 默认本地 SQLite（离线韧性），SPI 允许配置切换 |
 | Thread 摘要 / 任务追踪 | 留在宿主（绑定 thread 生命周期） |
 | EntityResolver | 服务优先 + 宿主 fallback |
-| Embedding | 归记忆组件，宿主只看 capabilities 和 effectiveMode |
+| Embedding | 记忆组件是消费者，不是所有者。服务生命周期（安装/启停）走宿主统一服务管理；记忆组件 init 时注入 endpoint 配置，通过该 endpoint 调用 embedding。宿主通过 capabilities 和 effectiveMode 感知状态 |
 | Namespace 隔离 | 硬隔离，每 collection 一个 namespace |
 | API 版本控制 | Header-based，仅向后兼容新增 |
 
@@ -1344,7 +1344,15 @@ interface StoreCapabilities {
 ### 10.7 基础设施层（不是原语，是注入依赖）
 
 ```typescript
-/** 嵌入向量提供者 — 注入到 TextBlockStore 实现 */
+/**
+ * 嵌入向量提供者 — 注入到 TextBlockStore 实现。
+ *
+ * 记忆组件是 embedding 服务的消费者，不是所有者：
+ * - 服务生命周期（安装/启停 embed-api.py）走宿主统一服务管理
+ * - 记忆组件 init 时注入 endpoint 配置（URL / model / dimensions）
+ * - 组件内部通过该 endpoint 调用 embedding，用于写入时生成向量 + 查询时语义搜索
+ * - 不可用时降级到 lexical-only（通过 capabilities 和 effectiveMode 上报）
+ */
 interface EmbeddingProvider {
   embed(text: string): Promise<number[]>;
   batchEmbed(texts: string[]): Promise<number[][]>;
