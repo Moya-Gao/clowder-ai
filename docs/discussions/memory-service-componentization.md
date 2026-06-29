@@ -1,17 +1,91 @@
 ---
-title: "记忆服务组件化 — 设计讨论"
+title: "记忆服务组件化 — 三原语模型"
 participants: [opus, codex, lang]
-status: draft
+status: proposed
 created: 2026-06-25
-doc_kind: discussion
-topics: [memory, architecture, service-contract, componentization]
+doc_kind: decision
+decision_id: ADR-candidate
+feature_ids: [F102]
+topics: [memory, architecture, service-contract, componentization, adr]
 ---
 
-# 记忆服务组件化
+# ADR: 记忆服务组件化 — 三原语模型
 
-> **状态**：设计讨论阶段 — 尚未进入 feature proposal 或 ADR。
-> **目标**：定义 Clowder AI 宿主和独立记忆组件服务之间的边界，
-> 使检索/存储后端可整体替换，且不破坏现有的 recall 语义。
+> **Status**: proposed（待 maintainer review）
+> **Deciders**: operator + Ragdoll(opus) + Maine Coon(codex)
+> **Date**: 2026-06-25
+> **Issue**: [#1047](https://github.com/zts212653/clowder-ai/issues/1047)
+> **Prior Art**: [ADR-020](../decisions/020-f102-memory-system-architecture.md) — F102 Memory System Architecture
+
+## Context
+
+Clowder AI 的记忆系统（ADR-020 建立）当前紧耦合在宿主进程内：
+`SqliteEvidenceStore` + `IndexBuilder` + `EmbeddingService` + `EntityRegistry` 共同构成一个不可替换的整体。
+
+外部需求推动了组件化：
+- **EchoMem 团队**希望基于我们的接口规范对齐其三面记忆模型（Atomic Truth + Episode + Association Graph）
+- **Memory-System-Eval-Harness** 需要标准化的 MemoryPlugin 接口适配
+- **多 collection 联邦**（`KnowledgeResolver` 扇出）已暗示需要可插拔的 backend provider
+
+核心问题：**如何定义宿主和独立记忆组件之间的边界，使检索/存储后端可整体替换，且不破坏现有的 recall 语义？**
+
+## Decision
+
+### 三数据原语模型
+
+按存储语义和操作语义的本质差异，将记忆服务拆分为三种数据类型原语：
+
+| 原语 | 存储语义 | 写入模型 | 查询模型 |
+|------|---------|---------|---------|
+| **TextBlock** | 文本内容 + 嵌入向量 | upsert（last-write-wins） | 语义/词法/混合搜索 |
+| **RelationEdge** | 有向类型化关系 | link（幂等） | 邻居遍历 + 路径查询 |
+| **Timeline** | 时序追加事件流 | append-only | 范围查询 + 最新 N 条 |
+
+加 **EntityResolver** 基础设施层（非数据原语）：实体别名解析增强搜索召回，含管理接口（seed/list/get/refreshMentions）。
+
+加 **EmbeddingProvider** 基础设施层：embedding 能力归记忆组件拥有，模型进程为组件内部 sidecar。
+
+### 关键边界决策
+
+| 决策 | 立场 |
+|------|------|
+| 真相源 | 始终是 docs/*.md + thread 消息历史 + 实体种子。服务是编译索引 |
+| Project store | 默认本地 SQLite（离线韧性），SPI 允许配置切换 |
+| Thread 摘要 / 任务追踪 | 留在宿主（绑定 thread 生命周期） |
+| EntityResolver | 服务优先 + 宿主 fallback |
+| Embedding | 归记忆组件，宿主只看 capabilities 和 effectiveMode |
+| Namespace 隔离 | 硬隔离，每 collection 一个 namespace |
+| API 版本控制 | Header-based，仅向后兼容新增 |
+
+### 迁移安全验证策略
+
+1. **行为兼容测试套件**：相同种子数据，`SqliteEvidenceStore` 和 `MemoryServiceAdapter` 产出相同结果集
+2. **Shadow mode**：Phase 2 对非核心 collection 双跑对比
+3. **SPI 骨架不变量**：Phase 1 纯结构重构，测试输出 diff 为空
+4. **Passage hydration 回归**：`depth=raw` + `contextWindow` + `thread-${threadId}` anchor 标准化
+
+## Consequences
+
+**正面**：
+- 记忆后端可整体替换（EchoMem、云端服务、其他实现）
+- Eval-Harness 9 方法全覆盖，可接入标准化评测
+- 渐进实现：最小可用 = textBlock only，逐步加 relationEdge/timeline/entityResolution
+- 现有 `KnowledgeResolver` / `GraphResolver` 完全不变
+
+**负面**：
+- 接口抽象层增加了间接性（adapter 映射成本）
+- EntityResolver 管理接口 vs 搜索透明接口的边界需要持续维护
+- 迁移期间两套实现共存
+
+**风险**：
+- Passage hydration / threadId anchor 标准化是等价性最脆弱的点
+- Embedding 模型版本不一致会导致向量空间不兼容
+
+---
+
+*以下为完整设计规格（§1-§10），供 maintainer 深入审阅。*
+
+---
 
 ## 1. 当前架构 — 数据流
 
