@@ -1595,6 +1595,10 @@ async function main(): Promise<void> {
   // Shared instance — lightweight (just holds a Redis ref, no state).
   const freshnessStateStore = redis ? new FreshnessInvocationStateStore(redis) : undefined;
 
+  // F237 Phase 2: InjectionTraceStore — prompt injection trace persistence
+  const { InjectionTraceStore: _ITSEarly } = await import('./domains/prompt-hooks/InjectionTraceStore.js');
+  const injectionTraceStore = redis ? new _ITSEarly(redis) : undefined;
+
   // Shared AgentRouter — used by messagesRoutes and invocationsRoutes
   router = new AgentRouter({
     agentRegistry,
@@ -1635,6 +1639,7 @@ async function main(): Promise<void> {
     cloudInvokeBridge,
     ...(freshnessReinvokeCheck ? { freshnessReinvokeCheck } : {}),
     ...(freshnessStateStore ? { freshnessStateStore } : {}),
+    ...(injectionTraceStore ? { injectionTraceStore } : {}),
   });
 
   // F39: Message queue delivery
