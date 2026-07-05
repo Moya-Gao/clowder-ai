@@ -93,8 +93,11 @@ export function resolveCliCommand(command: string, opts?: { skipPathProbe?: bool
           .split('\n')
           .map((l) => l.trim())
           .filter(Boolean);
-        // On Windows, prefer the .cmd shim (more reliable for shim resolution)
-        const resolved = (IS_WINDOWS && lines.find((l) => /\.cmd$/i.test(l))) || lines[0];
+        // On Windows, prefer native/shim entrypoints over extensionless
+        // binaries. Windows Store Codex exposes both `codex` (ELF) and
+        // `codex.exe` (PE); spawning the ELF path falls through to bash.
+        const resolved =
+          (IS_WINDOWS && (lines.find((l) => /\.cmd$/i.test(l)) || lines.find((l) => /\.exe$/i.test(l)))) || lines[0];
         resolvedCache.set(command, resolved);
         return resolved;
       }
