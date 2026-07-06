@@ -4,9 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
-const { resolveCliCommand, resolveCliCommandOrBare, formatCliNotFoundError, invalidateCliCommand } = await import(
-  '../dist/utils/cli-resolve.js'
-);
+const { resolveCliCommand, resolveCliCommandOrBare, formatCliNotFoundError, invalidateCliCommand, selectWindowsPathEntry } =
+  await import('../dist/utils/cli-resolve.js');
 
 // --- formatCliNotFoundError ---
 
@@ -58,6 +57,16 @@ test('resolveCliCommandOrBare returns bare name when CLI not found', () => {
 test('resolveCliCommand returns null for non-existent CLI', () => {
   const result = resolveCliCommand('nonexistent-cli-tool-abc-99999');
   assert.equal(result, null);
+});
+
+test('selectWindowsPathEntry prefers .exe over extensionless hits from the same directory', () => {
+  const selected = selectWindowsPathEntry(['C:\\Users\\me\\bin\\codex', 'C:\\Users\\me\\bin\\codex.exe']);
+  assert.equal(selected, 'C:\\Users\\me\\bin\\codex.exe');
+});
+
+test('selectWindowsPathEntry preserves an earlier PATH wrapper over a later .exe in another directory', () => {
+  const selected = selectWindowsPathEntry(['C:\\Users\\me\\bin\\codex.bat', 'C:\\Program Files\\Codex\\codex.exe']);
+  assert.equal(selected, 'C:\\Users\\me\\bin\\codex.bat');
 });
 
 test(
