@@ -189,17 +189,42 @@ Registry 浏览（四层筛选 / status / last-triggered / 30d stats）+ 单锅�
 | 2026-07-06 | 立项（首棒 Fable：四层审计 + spec 初稿；来源 thread_mr6kh7kdoac6852d 调查线启动包） |
 | 2026-07-06 | Design Gate 三猫对齐：opus 架构/存储/schema，codex O2/O4/风险，Fable owner 收束 |
 | 2026-07-07 | co-creator 指示继续，Design Gate 结论写回 spec；记录 SC-003 thread/spec drift |
+| 2026-07-07 | Session #2 补充 in_context_observability 决策字段 + 更新 harness-eval.md cell（Design Gate 完整收束） |
+
+## In-context Observability（明厨亮灶决策）
+
+```yaml
+in_context_observability:
+  primary_surface: |
+    L1（现场）：guard rejection 时工具响应携带 ledger id + 人类可读 reason（猫在调用现场立即看到被哪口锅拦了）
+    L2（实体）：无持续状态实体（锅本身是静态 registry，不是 runtime entity）
+  why_not_dashboard_only: |
+    猫撞到 429/403 guard rejection 时，如果只在 Console 锅账页数字 +1，猫不知道"刚才被拦是
+    正常还是异常"，也不知道该 anomaly 上报哪个 ledger id。rejection 响应必须携带 ledger id
+    和 reason，让猫在调用现场（tool error message）立即看到"这是哪口锅 + 为什么拦你"。
+  deep_dive_surface: |
+    Phase D Console 锅账页——事后审计 + 批量 retire 决策 + 单锅触发历史 drilldown。
+    定位：operator 周期性治理入口，不是日常感知（eval 周期驱动 operator 来看，不是 operator
+    主动盯）。
+  noise_dedup_policy: |
+    - 同类 guard rejection（同 ledger id + 同 cat + 同 tool）在 API 侧不 dedup（每次都拒绝
+      且都落盘），但 eval 周期聚合时按 ledger id 聚合为单条"重复触发"记录
+    - anomaly 上报成功无 in-context 通知（静默计数）；失败时 tool 返回错误但不发 thread 富块
+      （anomaly 上报本身是 meta 行为，失败不应打断主任务）
+    - eval verdict 产出后不主动 push thread 富块；operator 通过 Console retire 队列 + 可选
+      的周期 scheduled task 提醒（Phase C 外，本 feature 不改 eval 通知机制）
+```
 
 ## Review Gate
 
-- Design Gate（架构级）：opus 架构对齐 + codex 风险对齐 + Fable owner 收束已完成；进入 operator/owner gate（含 in_context_observability 决策字段 + Architecture cell 更新）
+- Design Gate（架构级）：✅ 完成（opus 架构对齐 + codex 风险对齐 + Fable owner 收束 + in_context_observability 决策字段 + Architecture cell 更新）
 - Phase A schema/lint：codex review
 - 每 Phase merge 后与 operator 碰头（3+ Phase 大 feature）
 
 ## Architecture 归属（F191）
 
 - **Architecture cell**: `harness-eval`（与 F245 同 cell）
-- **Map delta**: update required——新增 ledger store + 双 eval 域 + Console 锅账页三个 anchor，Design Gate 时更新 ownership cell
+- **Map delta**: ✅ updated——新增 ledger store + 双 eval 域 + Console 锅账页三个 anchor，harness-eval.md cell 已登记 F257 code/doc anchors + canonical feature + cited_by（2026-07-07）
 - **Why**: ledger 是 harness-eval 控制面的资产层（域评估之下的单锅账本）
 
 ## Tips Contribution（F244）
