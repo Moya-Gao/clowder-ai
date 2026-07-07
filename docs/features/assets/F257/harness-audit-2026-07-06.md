@@ -28,7 +28,9 @@ created: 2026-07-06
 | cat_disabled 400 | 窗口内 0；历史 fired（05-19 rendered body 带 alternatives[]） | 窗口外证据 1 条；无法区分"威慑住了"vs"场景没出现" |
 | hold_ball waitSourceRef 400（等啥必须声明） | **0 rendered ever**（emit 存在 callback-hold-ball-routes.ts:177） | 无分母：合规率 100% 还是从未走到？不可区分 |
 
-**结构性发现**：guard rejection 的唯一 durable 痕迹是 transcripts 里的自由文本 echo（未索引、仅当拒绝回流进猫 session 才存在）。pino statusCode 日志只在 `/tmp/cat-cafe-api-3002.log`（重启即失，当日起算）；`data/logs/api/*.log` 近空（请求日志不落盘）；`tool-usage-archive.jsonl` 只计次数**无 outcome 维度**；记忆库（global_knowledge.sqlite / evidence.sqlite）对拒绝事件零留存。最接近的结构化雏形：F237 worktree 的 `side-effect-journal-*.jsonl`（per-tool-call status 账本，PR #1075 未合入，当前仅测试数据）。
+**结构性发现**：guard rejection 的唯一 durable 痕迹是 transcripts 里的自由文本 echo（未索引、仅当拒绝回流进猫 session 才存在）。pino statusCode 日志只在 `/tmp/cat-cafe-api-3002.log`（重启即失，当日起算）；`data/logs/api/*.log` 近空（请求日志不落盘）；`tool-usage-archive.jsonl` 只计次数**无 outcome 维度**；记忆库（global_knowledge.sqlite / evidence.sqlite）对拒绝事件零留存。
+
+**追记（2026-07-07 Design Gate 核验）**：首棒把 #1075 / F237 side-effect journal 视作最接近基座是旧 claim。后续核验发现：基线已有 F237 `InjectionTraceStore`（prompt injection summary/detail）和 F254 `FreshnessAttentionEventLog`（Redis LIST + closed union + TTL 7d freshness event log）；#1075 是 F237 Phase 2 hook pipeline migration + trace bridging，不是 guard-rejection event store。因此 F257 Phase B 结论改为：独立新建 `GuardRejectionEventLog` / `HarnessLedgerEventLog`，借 F237/F254 形态，不复用其语义类型，不等待 #1075。
 
 ## O2 提示文本层（15 签名）
 

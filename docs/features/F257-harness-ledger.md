@@ -1,6 +1,6 @@
 ---
 feature_ids: [F257]
-related_features: [F192, F245, F237, F177, F233, F153, F244, F218]
+related_features: [F192, F245, F237, F254, F177, F233, F153, F244, F218]
 topics: [harness, self-evolution, eval, governance, observability]
 doc_kind: spec
 created: 2026-07-06
@@ -8,7 +8,7 @@ created: 2026-07-06
 
 # F257: Harness Ledger — 锅账体系与自进化闭环
 
-> **Status**: spec | **Owner**: Ragdoll (Fable) | **Priority**: P1
+> **Status**: spec (Design Gate aligned) | **Owner**: Ragdoll (Fable) | **Priority**: P1
 
 > 信号 → 归因 → 修补 → 验证 → 淘汰。犯错可以，**同类偏差第二次必须被结构拦截，第三次 = 体系失败**（operator 定义的成功判据，thread_mr6kh7kdoac6852d 启动包）。
 
@@ -27,7 +27,7 @@ created: 2026-07-06
 - Skill 层：48 个 skill（`cat-cafe-skills/manifest.yaml`），9 个 SKILL.md 含 GOTCHA 段
 - 家规层：10 个 magic words + 20 条带事故编号规则（shared-rules.md 806 行）
 - 记忆层：22 个文件（20 feedback + 1 reference + index）
-- ⚠️ 启动包引用数字（86 工具 / 51 skill / 21 GOTCHA）与本次实测口径不可互相推导——**连 inventory 本身都没有单一真相源**（见 seed-cases SC-002）
+- ⚠️ 启动包引用数字（86 工具 / 51 skill / 21 GOTCHA）回查后确认是**四个数字四种口径混排**：86=工具全集、43=GOTCHA 出现次数、31=脏过滤行数、51=目录条目数。根因不是单个数字错，而是 `unqualified-count`：数字进决策文档未带 `how_counted`（命令/口径/时间戳），下游不可复算（见 seed-cases SC-002）。
 
 **30 天触发审计（窗口 2026-06-06→07-06，26 个签名，双路：~/.claude transcripts 540 文件 873MB + 运行时磁盘工件）**：
 
@@ -38,7 +38,7 @@ created: 2026-07-06
 | O3 记忆文件 | 4 | **4/4 零回读**；其中 feedback_check_hypothesis_first 06-09 创建后从未被读过——记忆层实际是 write-only |
 
 **三个结构性结论**：
-1. 触发可观测性是**意外不是设计**——无任何结构化 guard-rejection 遥测，最接近的结构（F237 side-effect journal）还在 PR #1075 未合入
+1. 触发可观测性是**意外不是设计**——无任何结构化 guard-rejection 遥测；F237 `InjectionTraceStore` 已在基线但语义是 prompt injection，F254 `FreshnessAttentionEventLog` 提供了可借鉴的 Redis LIST + closed union 形态但语义/TTL 是 freshness 专用。F257 需要独立 `GuardRejectionEventLog` / `HarnessLedgerEventLog`，不复用既有 union。
 2. **无分母问题**——0 触发无法区分"威慑生效"与"锅已死"（waitSourceRef 400 从未 rendered vs cat_disabled 历史触发过，语义完全不同却同样无声）
 3. **重复触发无归因闭环**——hold_ball 429 反复 fire，无人知道谁/为什么/是否该升级为结构修复
 
@@ -48,15 +48,15 @@ created: 2026-07-06
 
 ### Phase A: Ledger Registry + 盘点导入
 
-锅 schema：`id / layer(mcp|skill|rule|memory) / origin(事故·issue·LL 锚点) / assertion(可检验断言) / observability(O1|O2|O3) / supersedes / status(active|probation|dormant|retired) / stats(trigger count·last-triggered·eval verdicts)`。四层 130+ 锅导入（origin backfill best-effort），CI lint：新增 GOTCHA/规则/feedback 未登记 → 红。seed-cases 机制启用（自举条款，文件已建）。
+Registry 定义层存 `docs/harness-feedback/ledger/{layer}/{slug}.yaml`：`id / layer(mcp|skill|rule|memory) / origin(事故·issue·LL 锚点) / assertion(可检验断言，导入期可 null+warning) / observability(O0|O1|O2|O3) / denominatorKind / observabilityDeadline / nextRequiredAction / supersedes / status(active|dormant|retired)`。运行时 stats（trigger count / applicability count / last-triggered / eval verdict refs / `how_counted`）与 registry 拆分，走 Redis/SQLite 或现有 eval artifact，Console/API join。四层 130+ 锅导入（origin backfill best-effort），CI lint：新增 GOTCHA/规则/feedback 未登记 → 红；registry 数字 summary 必须可由 extractor 重跑。seed-cases 机制启用（自举条款，文件已建）。
 
 ### Phase B: 触发可观测 + Anomaly 通道
 
-结构拒绝（4xx guard rejection）结构化落盘（复用 F237 injection trace / side-effect journal 基座，**依赖 #1075 合入**）；拒绝响应携带 ledger id；猫侧 anomaly 上报通道接 F245 friction 聚合（引用 ledger id → stats+1）；O2 层代理信号采集（magic word 使用 / 规则 id 引用）边界见 OQ-3。
+结构拒绝（4xx guard rejection）结构化落盘到独立 `GuardRejectionEventLog` / `HarnessLedgerEventLog`：API route 层和 MCP client-layer 本地 fail-closed 都必须 emit（例如 missing `waitSourceRef`、cross_post 无 routing credentials、publish_verdict 403、hold_ball 429）。拒绝响应携带 ledger id；事件至少含 `ledgerId / catId / threadId / invocationId / sourceTool / normalizedReason / layer / timestamp`。猫侧 anomaly 上报通道作为 F245 第 5 个 friction source adapter（引用 ledger id → stats+1），不新建第二套聚合管道。O2 层采用 hybrid：magic word / ledger id 引用 / skill-load / guard-rejection / anomaly report 等确定性信号实时埋点；transcripts 离线挖掘只用于 backfill、审计复核和 regression fixture。
 
 ### Phase C: 双 Eval 域注册（F192 Y-lite，fail-closed）
 
-`eval:harness-ledger`：周期抽锅 → alive / dormant / unmeasurable / retire-candidate verdict + 证据链。`eval:spec-fidelity`：检验"写了 ≠ 载了 ≠ 照做"——抽样 session 对照锅 assertion 与实际行为（直接承接 #860 / #1018 的"written ≠ loaded ≠ effective"诉求）。与 eval:sop 域边界见 OQ-4。
+`eval:harness-ledger`：周期抽锅 → alive / dormant / unmeasurable / observability-debt / needs-denominator / retire-candidate verdict + 证据链。连续 2 个 eval 周期仍 unmeasurable 的锅必须进入三级政策：① 优先升结构补分母；② 不能升结构则 operator 显式 `intentional-keep`；③ 无明确保留理由进入 retire-candidate 队列。`eval:spec-fidelity`：检验"写了 ≠ 载了 ≠ 照做"——抽样 session 对照锅 assertion 与实际行为（直接承接 #860 / #1018 的"written ≠ loaded ≠ effective"诉求）。边界：spec-fidelity 只评估 ledger assertion 链路；SOP 类锅只链接/委托 eval:sop 的 trace/predicate 结果，不重写 SOP evaluator。
 
 ### Phase D: Console 锅账页
 
@@ -73,7 +73,7 @@ Registry 浏览（四层筛选 / status / last-triggered / 30d stats）+ 单锅�
 - **Actor**: operator
 - **Entry**: Console → Harness Ledger（锅账）页
 - **Flow**:
-  1. 打开锅账页 → 看到四层锅列表（status / observability / last-triggered / 30d 触发数）
+  1. 打开锅账页 → 看到四层锅列表（status / observability / denominatorKind / nextRequiredAction / last-triggered / 30d 触发数）
   2. 点开一口锅 → 看到 origin 事故锚点、assertion、触发历史、eval verdict 链
   3. 进 retire 队列 → 看到 eval 判定的 dormant 候选及证据 → 批准 → status=retired，对应文本段在下个 pack 版本移除
 - **Success evidence**: 截图 + ≥1 口真实锅走完 retire 全程的 diff
@@ -87,7 +87,8 @@ Registry 浏览（四层筛选 / status / last-triggered / 30d stats）+ 单锅�
 
 ## 需求点 Checklist（启动包逐条回执）
 
-- [ ] 锅 registry：id/layer/origin/assertion/supersedes/status/stats → Phase A
+- [ ] 锅 registry：id/layer/origin/assertion/observability/denominatorKind/observabilityDeadline/nextRequiredAction/supersedes/status → Phase A
+- [ ] 锅 stats：trigger/applicability/last-triggered/eval refs/how_counted，与 registry 拆分 → Phase A/B
 - [ ] anomaly 上报通道接 F245 → Phase B
 - [ ] eval:harness-ledger 域（Y-lite，fail-closed） → Phase C
 - [ ] eval:spec-fidelity 域（Y-lite，fail-closed） → Phase C
@@ -101,30 +102,31 @@ Registry 浏览（四层筛选 / status / last-triggered / 30d stats）+ 单锅�
 <!-- AC↔Why 同源自检：每条 trace 回 Why 的"不可观测/只加不减/同类偏差复发"三诉求；非作者可复核。 -->
 
 ### Phase A（Registry + 导入）
-- [ ] AC-A1: registry 覆盖四层全部锅，每口 id/layer/origin/assertion/observability/status 完整；CI lint 绿（新锅未登记 → 红可复现）
+- [ ] AC-A1: registry 覆盖四层全部锅，每口 id/layer/origin/assertion/observability/denominatorKind/status 完整；`assertion:null` 只允许导入期 warning；CI lint 绿（新锅未登记 → 红可复现）
 - [ ] AC-A2: seed-cases 文件自 day-0 持续记录本特性开发偏差，每条含偏差类型 + 期望拦截层（可复核：文件 + 条目日期）
+- [ ] AC-A3: inventory summary 由 extractor 可复算生成，所有审计数字带 `how_counted`（命令/口径/时间戳）；给定缺 `how_counted` 的数字 claim，lint 红可复现
 
 ### Phase B（可观测 + 通道）
-- [ ] AC-B1: 结构拒绝事件结构化落盘且可按 ledger id 查询（可复核：触发一次 429 → 查询返回该事件）
-- [ ] AC-B2: anomaly 上报出现在 F245 friction rollup 且回写锅 stats（可复核：rollup 记录 + stats 变更）
+- [ ] AC-B1: API route 层与 MCP client-layer 的结构拒绝事件都结构化落盘且可按 ledger id 查询（可复核：触发一次 429 + 一次 MCP 本地 routing reject → 查询返回两类事件）
+- [ ] AC-B2: anomaly 上报出现在 F245 friction rollup 且回写锅 stats（可复核：rollup 记录 + stats 变更，stats 带 `how_counted`）
 
 ### Phase C（双 Eval 域）
 - [ ] AC-C1: 两域完成 Y-lite 注册且 fail-closed（越权 publish 被 403，可复现）+ 首轮 verdict 产出
-- [ ] AC-C2: eval:harness-ledger 对抽样锅给出 alive/dormant/unmeasurable/retire-candidate 判定及证据链；eval:spec-fidelity 对 ≥1 个真实 session 产出"声明 vs 行为"diff 报告
+- [ ] AC-C2: eval:harness-ledger 对抽样锅给出 alive/dormant/unmeasurable/observability-debt/needs-denominator/retire-candidate 判定及证据链；连续 2 个 eval 周期 unmeasurable 触发三级政策；eval:spec-fidelity 对 ≥1 个真实 session 产出"ledger assertion vs 行为"diff 报告，SOP 类锅委托 eval:sop 证据
 
 ### Phase D（Console）
 - [ ] AC-D1: 锅账页展示 registry + stats（截图，含四层筛选）
 - [ ] AC-D2: retire 队列 operator 批准流程可走通（截图/录屏）
 
 ### Phase E（闭环验证）
-- [ ] AC-E1: ≥1 口锅经证据淘汰且对应文本从 pack/prompt 真实移除（可复核：diff + 移除后 eval 无回归）
+- [ ] AC-E1: ≥1 口锅经证据淘汰且对应文本从 pack/prompt/skill 注入源真实移除；双向 lint 证明 retired 不再注入、active runtime 文本可反查 ledger id（可复核：diff + 移除后 eval 无回归）
 - [ ] AC-E2: 自举回放——本特性开发史 seed cases 每类偏差有对应拦截机制且回放中触发（可复核：回放报告，灵魂条款）
 
 ## Eval / Tracking Contract（F192）
 
 1. **Primary Users + Activation Signal**：全体猫（锅触发/anomaly 上报方）+ operator（retire 决策方）。Activation：guard rejection 结构化事件、anomaly 上报、eval 域周期运行、Console 页访问。
-2. **Friction Metric**：① 同类偏差 30 天复发率（第二次未被结构拦截的比例，目标 → 0）；② dormant 锅占比 + retire 吞吐（治"只加不减"）；③ 重复触发递减率（同一锅对同一猫的 429 类重复触发应随归因闭环下降）。
-3. **Regression Fixture**：① seed-cases 回放集（本特性开发史，持续增长）；② #1080 A2A claim 无 anchor 案例；③ #1082 类 superseded 假设案例（锅前提失效 → status 变更）；④ hold_ball 429 重复触发序列（归因闭环 fixture）。
+2. **Friction Metric**：① 同类偏差 30 天复发率（第二次未被结构拦截的比例，目标 → 0）；② dormant/retire-candidate 锅占比 + retire 吞吐（治"只加不减"）；③ 重复触发递减率（同一锅对同一猫的 429 类重复触发应随归因闭环下降）；④ observability-debt 老化数量（超过 observabilityDeadline 未处理 = 失败信号）。
+3. **Regression Fixture**：① seed-cases 回放集（本特性开发史，持续增长）；② #1080 A2A claim 无 anchor 案例；③ #1082 类 superseded 假设案例（锅前提失效 → status 变更）；④ hold_ball 429 重复触发序列（归因闭环 fixture）；⑤ SC-002 unqualified-count（数字 claim 缺 how_counted → lint 拦截）；⑥ SC-003 thread/spec drift（thread 内决策未写回 spec → closure lint 拦截）。
 4. **Sunset Signal**：连续 2 个 eval 周期满足（a）新增锅 100% 经 registry 登记（lint 零逃逸）、（b）同类偏差第二次拦截率达标、（c）operator 零手动策展 → ledger 维护降为例行；若 eval:harness-ledger 域自身连续 4 周期无 actionable verdict → 域降频或并入 eval:friction。
 
 ## Harness 三层计划（ADR-031 软+硬+eval）
@@ -132,21 +134,26 @@ Registry 浏览（四层筛选 / status / last-triggered / 30d stats）+ 单锅�
 | 层 | 本 feat 承载 |
 |----|-------------|
 | Soft | L0/skill 触发句："撞到 4xx 锅拦截 → anomaly 上报引用 ledger id"；锅账进猫认知路径（capability-wakeup index） |
-| Hard | CI lint（新锅未登记 → 红）；拒绝响应携带 ledger id；guard rejection 结构化落盘（不靠自觉） |
+| Hard | CI lint（新锅未登记 → 红；审计数字缺 how_counted → 红；retired/active 双向映射不一致 → 红）；拒绝响应携带 ledger id；guard rejection 结构化落盘（API + MCP 双入口，不靠自觉） |
 | Eval | eval:harness-ledger + eval:spec-fidelity 双域 + 上节 4 项 contract |
 
 ## Dependencies
 
 - **Evolved from**: F192（harness-eval control plane——把"域级评估"下沉到"单锅生命周期"）
-- **Blocked by**: PR #1075（F237 Phase 2 injection trace/side-effect journal，Phase B 代码基座；**文档与 Phase A schema 设计不受阻**，代码开工前必须合入并 rebase——KD-1）
-- **Related**: F245（anomaly/friction 聚合复用）、F177（四心智护栏的前身）、F233（observability 姊妹篇）、F153（观测基础设施）、F244（tips 生效追踪同类问题）、F218（provenance 反射）；issues #617 / #860 / #1018（烂尾并入）、#1080 / #1082（调查线动因）
+- **Code substrate**: 独立 `GuardRejectionEventLog` / `HarnessLedgerEventLog`（Phase B 新建）。借鉴 F237 `InjectionTraceStore` 的 summary/detail 保留策略和 F254 `FreshnessAttentionEventLog` 的 Redis LIST + closed union 形态，但不复用它们的事件 union。
+- **Not blocked by**: PR #1075（F237 Phase 2 hook pipeline migration + trace bridging）不是 guard-rejection event store，不阻塞 F257 Phase B；代码开工前仍需 rebase 到最新基线并重新核对相邻 trace API。
+- **Related**: F245（anomaly/friction 聚合复用）、F254（freshness event log pattern）、F237（prompt injection trace pattern）、F177（四心智护栏的前身）、F233（observability 姊妹篇）、F153（观测基础设施）、F244（tips 生效追踪同类问题）、F218（provenance 反射）；issues #617 / #860 / #1018（烂尾并入）、#1080 / #1082（调查线动因）
 
 ## Risk
 
 | 风险 | 缓解 |
 |------|------|
 | 锅账变成第 131 口锅（观测本身增熵） | registry 是数据不是 prompt 文本，不进上下文注入；元审美自检：这是坐标变换（散文锅 → 结构化资产），不是堆层 |
-| O2 提示层本质不可测，eval 误判 dormant | observability 分级进 schema（KD-2）；unmeasurable-by-design 显式标注，只对可测锅下 alive/dormant 结论；不可测锅走"升级为结构 or 有意保留"二选一决策 |
+| MCP client-layer reject 漏记 | AC-B1 明确 API route + MCP client-layer 双入口埋点；本地 fail-closed 也必须 emit guard event |
+| O2 提示层本质不可测，eval 误判 dormant | observability + denominatorKind 进 schema；无分母只能判 unmeasurable/needs-denominator，不能判 dormant；连续 2 个 eval 周期未处理进入三级政策 |
+| unmeasurable 成为永久豁免 | `observabilityDeadline` + `nextRequiredAction` 进 schema；verdict 层产 observability-debt / needs-denominator / retire-candidate；operator `intentional-keep` 是显式例外而非默认 |
+| inventory 数字再次不可复算 | 所有审计数字要求 `how_counted`；Phase A extractor 生成 summary；缺口进入 SC-002 fixture |
+| retire 只在 UI 发生，runtime 文本未移除 | 双向 lint：retired 不得仍注入；active runtime 文本必须反查 ledger id |
 | transcripts 挖掘的体量/隐私 | 只存聚合 stats + anchor 引用，不复制 raw payload（harness-feedback 同款规则） |
 | F 号/文档在特性分支上直到 PR（占号可见性） | 立项即 cross-post 主 thread 声明 F257 占号；ROADMAP 行随 PR 上行 |
 | 双 eval 域与既有 eval:sop / eval:friction 边界重叠 | OQ-4 在 Design Gate 前对齐，宁可并域不可撞域 |
@@ -155,29 +162,37 @@ Registry 浏览（四层筛选 / status / last-triggered / 30d stats）+ 单锅�
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | ledger 存储形态：YAML in docs/ vs JSONL in data/ vs SQLite（Console 读取 + CI lint + human review 三方消费如何平衡） | ⬜ opus 对齐 |
-| OQ-2 | 锅 id 命名规范 + supersedes 语义（替代/演化/合并三种关系是否分开建模） | ⬜ opus 对齐 |
-| OQ-3 | O2 层代理信号采集边界：transcripts 离线挖掘 vs session hook 实时埋点（成本/隐私/覆盖三角） | ⬜ codex 对齐 |
-| OQ-4 | eval:spec-fidelity 与既有 eval:sop 域的 scope 边界（sop 查"流程步骤合规"，spec-fidelity 查"锅断言 vs 行为"？还是该并域） | ⬜ codex 对齐 |
-| OQ-5 | 启动包 inventory 数字（86/51/21）与实测（30/48/9）口径差——调查线的推导方法需回查 | ⬜ 已 cross-post 回主线 |
-| OQ-6 | KD-1 文档先行分支策略（origin/main 现基线切出，#1075 合入后 rebase）是否认可 | ⬜ opus 对齐 |
+| OQ-1 | ledger 存储形态：YAML in docs/ vs JSONL in data/ vs SQLite（Console 读取 + CI lint + human review 三方消费如何平衡） | ✅ YAML registry + runtime stats split |
+| OQ-2 | 锅 id 命名规范 + supersedes 语义（替代/演化/合并三种关系是否分开建模） | ✅ `{layer}/{slug}` + single `supersedes: []` |
+| OQ-3 | O2 层代理信号采集边界：transcripts 离线挖掘 vs session hook 实时埋点（成本/隐私/覆盖三角） | ✅ hybrid：实时确定性信号 + transcript backfill/fixture |
+| OQ-4 | eval:spec-fidelity 与既有 eval:sop 域的 scope 边界（sop 查"流程步骤合规"，spec-fidelity 查"锅断言 vs 行为"？还是该并域） | ✅ 分域：spec-fidelity 评 ledger assertion 链路，SOP 类委托 eval:sop |
+| OQ-5 | 启动包 inventory 数字（86/51/21）与实测（30/48/9）口径差——调查线的推导方法需回查 | ✅ 定性为 `unqualified-count`，所有数字需 `how_counted` |
+| OQ-6 | KD-1 文档先行分支策略（origin/main 现基线切出，#1075 合入后 rebase）是否认可 | ✅ 文档先行放行；#1075 不阻塞 Phase B，代码前 rebase 最新基线 |
 
 ## Key Decisions
 
 | # | 决策 | 理由 | 日期 |
 |---|------|------|------|
-| KD-1 | 文档先行：特性分支自 origin/main@6868041 切出，不等 #1075；代码 Phase 开工前 rebase 到含 #1075 的新基线 | 文档与 F237 代码零重叠；可逆（≤1 commit）；审计+立项不应被外部 merge 排队阻塞 | 2026-07-06 |
-| KD-2 | observability 分级 O1(结构强制)/O2(提示文本)/O3(记忆文件) 进 ledger schema | 审计实证三层观测能力天差地别；单一 stats 模型会把"不可测"误读为"dormant"导致错杀 | 2026-07-06 |
+| KD-1 | 文档先行：特性分支自 origin/main@6868041 切出；代码 Phase 开工前 rebase 到最新基线，但不等 #1075 | 文档与 F237 代码零重叠；#1075 是 F237 hook pipeline migration，不是 F257 guard event store；审计+立项不应被外部 merge 排队阻塞 | 2026-07-06 |
+| KD-2 | observability 分级 O0(导入未分类)/O1(结构强制)/O2(提示文本)/O3(记忆文件) + denominatorKind 进 ledger schema | 审计实证三层观测能力天差地别；单一 stats 模型会把"不可测"误读成"dormant"导致错杀 | 2026-07-06 |
+| KD-3 | Registry 定义层用 YAML，运行时 stats 拆到 Redis/SQLite/eval artifacts | 定义变更要 Git review；触发计数不能刷 Git；Console 读时 join | 2026-07-06 |
+| KD-4 | `status` 保持三态 `active/dormant/retired`，不引入 `probation` | 待决语义由 eval verdict / action queue 承载；少一套状态转换矩阵 | 2026-07-06 |
+| KD-5 | unmeasurable 压力进 `observabilityDeadline` / `nextRequiredAction` + verdict/action queue | 防错杀同时防永久豁免；连续 2 eval 周期未处理走三级政策 | 2026-07-06 |
+| KD-6 | 所有审计/registry summary 数字必须带 `how_counted` | SC-002 证明无口径数字会污染决策；数字 claim 必须可复算 | 2026-07-06 |
+| KD-7 | `GuardRejectionEventLog` 独立新建，借 F237/F254 形态不复用类型 | F237/F254 语义和 retention 不匹配；复用 union 会污染边界 | 2026-07-06 |
+| KD-8 | `eval:spec-fidelity` 与 `eval:sop` 分域 | 一个评 ledger assertion 链路，一个评 SOP trace/predicate 流程合规；SOP 类锅委托而不重写 | 2026-07-06 |
 
 ## Timeline
 
 | 日期 | 事件 |
 |------|------|
 | 2026-07-06 | 立项（首棒 Fable：四层审计 + spec 初稿；来源 thread_mr6kh7kdoac6852d 调查线启动包） |
+| 2026-07-06 | Design Gate 三猫对齐：opus 架构/存储/schema，codex O2/O4/风险，Fable owner 收束 |
+| 2026-07-07 | co-creator 指示继续，Design Gate 结论写回 spec；记录 SC-003 thread/spec drift |
 
 ## Review Gate
 
-- Design Gate（架构级）：opus 架构对齐 + codex 风险对齐 → Decision Packet → operator 拍板（含 in_context_observability 决策字段 + Architecture cell 更新）
+- Design Gate（架构级）：opus 架构对齐 + codex 风险对齐 + Fable owner 收束已完成；进入 operator/owner gate（含 in_context_observability 决策字段 + Architecture cell 更新）
 - Phase A schema/lint：codex review
 - 每 Phase merge 后与 operator 碰头（3+ Phase 大 feature）
 
@@ -197,8 +212,9 @@ Registry 浏览（四层筛选 / status / last-triggered / 30d stats）+ 单锅�
 |------|------|------|
 | **Evidence** | `docs/features/assets/F257/harness-audit-2026-07-06.md` | 首棒 30 天触发审计全表（26 签名双路狩猎） |
 | **Evidence** | `docs/features/assets/F257/seed-cases.md` | 自举条款种子案例账本（day-0 起） |
-| **Feature** | `docs/features/F192-harness-eval-control-plane.md` | 演化母体：五层 control plane |
+| **Feature** | `docs/features/F192-socio-technical-harness-eval.md` | 演化母体：五层 control plane |
 | **Feature** | `docs/features/F245-friction-signal-eval.md` | anomaly 通道复用基座 |
-| **Feature** | `docs/features/F237-prompt-injection-visibility.md` | 触发观测代码基座（PR #1075） |
+| **Feature** | `docs/features/F237-prompt-injection-visibility.md` | Prompt injection trace pattern（非 Phase B blocker） |
+| **Feature** | `docs/features/F254-side-effect-freshness-gate.md` | Redis LIST + closed union event log pattern |
 | **Thread** | `thread_mr6kh7kdoac6852d` | 调查线主 thread（启动包来源） |
 | **Thread** | `thread_mr96jyudj9iqisa9` | F257 工作 thread（Fable→opus→codex 接力） |
