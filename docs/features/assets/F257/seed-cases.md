@@ -49,4 +49,11 @@ SC-{NNN} | 日期 | 发现方式(自查/跨猫/operator/结构) | 偏差类型 |
 **期望拦截层**：Design Gate closure lint——进入下一 Phase 前，Feature spec 必须反映已收敛的 OQ/KD/Risk；禁止出现已退回字段（如 `probation`）和已证伪 blocker（如 #1075 作为 Phase B 硬依赖）。
 **回放判据**：给定"thread Decision Packet + stale feature spec"，lint 能标出：OQ 状态仍未闭合、旧 blocker 字符串仍存在、Design Gate 决策未落到 Key Decisions；修复后 lint 绿。
 
+### SC-004 | 2026-07-07 | co-creator 连续两次质疑 | value-chain gap：链路环节缺失但按既有 Phase 惯性推进
+
+**事实**：启动包链路是 信号→归因→**修补**→验证→淘汰 五环，但 spec 把修补环压缩进 eval verdict 一个词，Phase A 排成"130 口全量 registry 导入"的账本工程。co-creator 连问两次「你们这些改动对我们之前遇到的问题有什么帮助/改了好像也没有用」才暴露：按原顺序做完 A-E，operator 的真实痛点（opus 高成本犯错、锅补了没用、skill 越多越无效）一个都不会好转。猫的第一反应是解释机制（体检报告类比）而不是核对价值链完整性——第二次质疑后才对照启动包发现环缺失。
+**同类前科**：LL-067（review finding 不是工单，先追问用户价值）；F216/LL-069（scope 跟自我解读走不跟 spec 走）；#1018（规则丰富但不在关键路径上）。
+**期望拦截层**：kickoff/Design Gate 的 Vision Guardian 反射——对照启动包逐环节 trace"该环在哪个 Phase 由什么承载"，缺环 → 红；AC↔Why 同源自检扩展为 AC↔链路环节全覆盖检查；operator 质疑 ≥2 次同一方向 = 强制停下做 gap 对照（而非继续解释）。
+**回放判据**：给定"N 环链路启动包 + Phase 拆分草稿"，检查器能标出无 Phase 承载的环（本案例：修补环）；给定连续两条同方向 operator 质疑消息，猫的下一动作是事实对照而非机制辩护。
+
 <!-- 新案例追加在此行上方 -->
