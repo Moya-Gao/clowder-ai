@@ -69,16 +69,21 @@ created: 2026-07-06
 
 **驱动模型**：事件驱动（拒绝/纠正/anomaly 发生时被动 append）+ 低频 eval（weekly 批处理做归因与判定）+ operator gate（升级与淘汰）。无高频轮询（co-creator 2026-07-07 明确要求，与既有设计一致）。
 
-**skill 多版本**：不做运行时多版本并存——skill 在 git 里天然全版本可回滚，多版本并存反而逼猫做版本选择、加认知负担。审计证明真问题是**加载链路断了**（抽样 0/5 被加载）：先修加载（Phase A-①），内容迭代走自动通道。
+**skill 多版本**（2026-07-08 更新）：**deferred**——skill 是随包分发资产，版本/迭代机制必须考虑安装包用户侧更新链路（co-creator 约束，改动面过大）。形态共识（做的时候按这个）：**overlay**——base 随包不可变、迭代在 overlay 层、挂载走合成版本、skill 自见版本迭代史；与 #1075 PR3 `HookOverrideStore` 同模式，段先走通 skill 直接复用。加载链路问题（抽样 0/5 被加载）保留为 runway 项，不再是 Phase A 内容。
 
-### Phase A: 双实锤修补闭环（问题先行）
+### Phase A: 段 Harness 首试验品（2026-07-08 重定，v0.1 草案承载）
 
-拿审计两个最硬的实锤各走一遍完整五环，账本结构伴生：
+> 完整设计：`assets/F257/segment-harness-v0-draft.md`（draft-v0.1，codex 落地 review 4P1+6P2 已修入）。重定依据：co-creator 2026-07-08 三重定（段/SOP 是当前最大问题；skill 缓做；hold_ball 归业务自诊断）+ 基建盘点（段是四类对象中唯一信号层就绪者，见 capability-gap-analysis §9.3）。
 
-- **A-① skill 零加载**（直接回应"skill 越来越多但没用"）：归因（30 天 0 次 Skill-tool 加载的根因——加载靠自觉？入口不可见？）→ 结构修复（候选：workflow 关键步 hook 强制加载 / capability-wakeup index 注入 / 把最关键断言升为 lint；归因后定，走 approve 通道）→ 验证（加载率从 0 回升 + 抽样 session 行为差异）。
-- **A-② hold_ball 429 反复触发**（30 天 7-8 session，锅在挡没在治）：归因 task（谁 / 什么场景 / 为什么绕不过）→ 判定该升什么结构（更早引导？场景化错误信息？上游等待原语？）→ 验证（同猫同场景重复触发递减）。
+对 prompt 段（现 50 template id，how_counted: `TEMPLATE_FILES` @ 当前分支；#1075 合入后切 46 hook manifest 口径）+ SOP 段建立**只读评估 → evidence-backed candidate → 分通道迭代 → 版本差分验证**闭环：
 
-**伴生结构（最小可用，不是全量工程）**：涉事锅 YAML 登记（schema 同 Design Gate 对齐版：`id / layer / origin / assertion / observability(O0-O3) / denominatorKind / observabilityDeadline / nextRequiredAction / supersedes / status(active|dormant|retired)`，存 `docs/harness-feedback/ledger/{layer}/{slug}.yaml`；runtime stats 与 registry 拆分）+ `GuardRejectionEventLog` 最小实现（先覆盖 hold_ball 429 一类，拒绝响应携带 ledger id）+ 归因 task 通道。CI lint 自 day-0 生效：**新增** GOTCHA/规则/feedback 未登记 → 红；registry 数字 summary 必须可由 extractor 重跑。存量 130 口 backfill 降为**渐进任务**（随修补 / eval 触达逐口补录），不作为任何 Phase 的前置。seed-cases 机制持续（自举条款，文件已建）。
+- **Week 1 线 A**：T1 静态体检（跨层冗余 / 段间矛盾 / 语义撞词）+ T3 缺段初筛 → 第一份 candidate 报告（数字带 how_counted）
+- **Week 1 线 B**：`GuardRejectionEventLog`（`queryWindow` 接口 + ZSET 时间索引，fail-open，raw payload 不落盘）+ 2 类事件 emit（`http_rate_limit` + `route_decision_block`，一 HTTP 面一 generator 面）；correlation 两档——Week 1 `threadId+catId+timestamp window+guardId`（confidence: window），精确 bridge 为后续增强
+- **Week 2+**：`eval:harness-ledger` 域（sourceRefs selector `{scope: 'prompt-segments'}`，不新增域名）weekly 产 verdict → 首批修补走 approve 通道 → 版本差分自动验证
+
+**伴生结构（不变）**：涉事段/锅 YAML 登记（schema 同 Design Gate 对齐版：`id / layer / origin / assertion / observability(O0-O3) / denominatorKind / observabilityDeadline / nextRequiredAction / supersedes / status(active|dormant|retired)`，存 `docs/harness-feedback/ledger/{layer}/{slug}.yaml`；runtime stats 与 registry 拆分）+ 归因 task 通道（阈值默认 3/7d，per-guard 可配）。CI lint 自 day-0 生效：**新增** GOTCHA/规则/feedback 未登记 → 红；registry 数字 summary 必须可由 extractor 重跑。存量 130 口 backfill 降为**渐进任务**，不作为任何 Phase 的前置。seed-cases 机制持续（自举条款，文件已建）。
+
+**后续 runway（从 Phase A 迁出，不删除）**：skill 观测与迭代（deferred，overlay 形态共识见「skill 多版本」节）；hold_ball 429 深归因（业务代码自诊断维度，Phase A 的 `http_rate_limit` 事件为其积累数据）；phase-boundary drift 检查卡（第二批，判据已固化于 seed-cases SC-002/003/004）。
 
 ### Phase B: 触发可观测扩面 + Anomaly 通道
 
@@ -118,7 +123,7 @@ Registry 浏览（四层筛选 / status / last-triggered / 30d stats）+ 单锅�
 ## 需求点 Checklist（启动包逐条回执）
 
 - [ ] 锅 registry：id/layer/origin/assertion/observability/denominatorKind/observabilityDeadline/nextRequiredAction/supersedes/status → Phase A 伴生（最小），存量渐进 backfill
-- [ ] 修补环显式承载：归因 task → O2→O1 结构升级（approve 通道）→ 触发数验证 → 文本锅退役 → Phase A 双实锤走通，Phase C/E 制度化
+- [ ] 修补环显式承载：归因 task → O2→O1 结构升级（approve 通道）→ 版本差分验证 → 文本段/锅退役 → Phase A 段试验品走通（≥1 段五环），Phase C/E 制度化
 - [ ] 锅 stats：trigger/applicability/last-triggered/eval refs/how_counted，与 registry 拆分 → Phase A/B
 - [ ] anomaly 上报通道接 F245 → Phase B
 - [ ] eval:harness-ledger 域（Y-lite，fail-closed） → Phase C
@@ -133,7 +138,7 @@ Registry 浏览（四层筛选 / status / last-triggered / 30d stats）+ 单锅�
 <!-- AC↔Why 同源自检：每条 trace 回 Why 的"不可观测/只加不减/同类偏差复发"三诉求；非作者可复核。 -->
 
 ### Phase A（双实锤闭环 + 伴生结构）
-- [ ] AC-A0（**第一 milestone 灵魂条款**）: 审计两个实锤真实被修——① skill 加载率从 0 实证回升（结构修复后抽样窗口 Skill-tool 加载 >0 且行为可差分）；② hold_ball 429 完成归因并落一项结构改进，同猫同场景重复触发数实证下降。两项均带 `how_counted`。账本覆盖率不是本 milestone 判据
+- [ ] AC-A0（**第一 milestone 灵魂条款**，2026-07-08 v0.1 重定）: ① T1 静态 candidate 报告产出（段口径带 `how_counted`，pre/post-#1075 两口径差异显式声明）；② `GuardRejectionEventLog` 最小可查（`queryWindow` 返回 `http_rate_limit` + `route_decision_block` 两类真实事件，带 `correlationConfidence` 标注）；③ **≥1 个段走完五环**（candidate → operator approve → 修补 → 下一 eval 周期版本差分显示对应违规下降 or 显式证伪）。走不通 = 设计证伪停下重议。账本覆盖率不是本 milestone 判据
 - [ ] AC-A1: 双实锤涉事锅 + 修补过程新增锅完成 YAML 登记（id/layer/origin/assertion/observability/denominatorKind/status 完整）；CI lint 绿（**新增**锅未登记 → 红可复现）；存量 backfill 为渐进任务不阻塞
 - [ ] AC-A2: seed-cases 文件自 day-0 持续记录本特性开发偏差，每条含偏差类型 + 期望拦截层（可复核：文件 + 条目日期）
 - [ ] AC-A3: inventory summary 由 extractor 可复算生成，所有审计数字带 `how_counted`（命令/口径/时间戳）；给定缺 `how_counted` 的数字 claim，lint 红可复现
@@ -217,6 +222,7 @@ Registry 浏览（四层筛选 / status / last-triggered / 30d stats）+ 单锅�
 | KD-8 | `eval:spec-fidelity` 与 `eval:sop` 分域 | 一个评 ledger assertion 链路，一个评 SOP trace/predicate 流程合规；SOP 类锅委托而不重写 | 2026-07-06 |
 | KD-9 | 修补环显式建模：有效修补主形态 = O2→O1 结构升级，文本内容迭代自动、结构升级 approve、上游问题走 issue 草稿蓝色通道 | 审计实证文本层死寂（0 加载/零回读）vs 结构层全部拦截实锤；修补只藏在 verdict 一个词里导致 co-creator 看不到价值链（SC-004） | 2026-07-07 |
 | KD-10 | 开工顺序调转"问题先行，账本伴生"：Phase A = 双实锤（skill 零加载 + hold_ball 429）修补闭环，全量 backfill 降为渐进任务；第一 milestone 验收 = 真问题被修 + 触发数实证下降（AC-A0），账本覆盖率降为次要指标 | 先建两周全量 registry 修不了任何真问题（co-creator 质疑成立）；最小 registry/事件日志从真实修补里长出来，避免账本变成第 131 口锅 | 2026-07-07 |
+| KD-11 | Phase A 对象重定为 prompt 段 + SOP（v0.1 草案承载，KD-10 的"问题先行"原则不变、对象变）：correlation 两档（window→exact）；GuardRejectionEventLog 用 queryWindow+ZSET 时间索引（非 F254 per-invocation LIST）；emit 按六类 union 分型，Week 1 只上 2 类；eval 复用 harness-ledger 域 + scope selector 不新增域名 | co-creator 三重定（skill 缓做-安装包用户约束 / hold_ball 归业务自诊断 / 段与 SOP 是当前最大问题）+ 盘点证实段唯一信号就绪 + codex 落地 review 4P1（turnId 是 pre-invocation random UUID、per-invocation LIST 不可窗口发现、emit 分属两种工程面等代码事实） | 2026-07-08 |
 
 ## Timeline
 
@@ -227,6 +233,7 @@ Registry 浏览（四层筛选 / status / last-triggered / 30d stats）+ 单锅�
 | 2026-07-07 | co-creator 指示继续，Design Gate 结论写回 spec；记录 SC-003 thread/spec drift |
 | 2026-07-07 | Session #2 补充 in_context_observability 决策字段 + 更新 harness-eval.md cell（Design Gate 完整收束） |
 | 2026-07-07 | co-creator 方向质疑（"改了好像也没用"）→ 修补环显式建模（KD-9）+ 开工顺序调转"问题先行，账本伴生"（KD-10）+ AC-A0 换判据；记录 SC-004 |
+| 2026-07-08 | co-creator 七问 → 能力盘点 gap 分析（`86ac0ab41`，记录 SC-005）；三重定 + 共创邀请 → 四猫体感征集（A1 公理三样本，`8b593dfd5`）；v0 草案（`0bf619d3c`）→ codex 落地 review（4P1+6P2，放行方向）→ v0.1 修入 + spec Phase A 对齐（KD-11） |
 
 ## In-context Observability（明厨亮灶决策）
 
