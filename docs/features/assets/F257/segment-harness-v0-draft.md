@@ -8,7 +8,7 @@ created: 2026-07-08
 # 段 Harness v0 设计草案（首个试验品：prompt 段 + SOP）
 
 > 输入：capability-gap-analysis.md（基建盘点+方向重定）、harness-body-inputs.md（三猫体感+A1 公理+join 验证）、seed-cases SC-001~005、co-creator 约束（事件驱动/不轮询/不自动改段/approve 边界）。
-> 状态：**draft-v0.2**——v0.1 = codex 落地 review（4P1+6P2+3 残留）全部修入 + spec 对齐；v0.2 = **迭代面按 co-creator override-first 模型重写**（§4：git PR 直改通道作废，迭代环以 #1075 PR3 override store 为前提，观测评估先行不依赖）。待 co-creator 对齐开工。
+> 状态：**draft-v0.3**——v0.1 = codex 落地 review（4P1+6P2+3 残留）修入 + spec 对齐；v0.2 = 迭代面 override-first 重写（KD-12）；v0.3 = **开发前五问深化**（§9：tracing 双侧最小充分集 / 三档事件触发 / 净价值指标 / 三层判定+停止条件 / 消融优先的三种改法）。架构定调：#1075 = 基础层，F257 = 其上的 auto harness 层。待 co-creator 对齐开工。
 
 ## 0. 一句话定义
 
@@ -151,7 +151,47 @@ phase-boundary drift 检查卡（砚砚最想要，一卡拦 SC-002/003/004）�
 - sunset signal：`eval:harness-ledger` 的 prompt-segments scope 连续 4 周期无 actionable verdict → scope 降频/并入 eval:friction（防第 131 口锅）
 - 所有报告数字带 `how_counted`（SC-002 纪律）
 
-## 9. 与理想态的差距（诚实声明）
+## 9. 开发前五问（2026-07-08 co-creator gate，v0.3）
+
+> "开发之前，你需要先好好想想：怎么 tracing / 怎么触发 / 怎么 eval / eval 什么 / 怎么改（启禁用段还是修改段内容）"。架构关系定调：#1075 是基础层，F257 是其上的 auto harness 层。
+
+### 10.1 怎么 tracing —— 双侧最小充分集
+
+段的价值只能用行为差分证明（公理 A1），所以 tracing 必须**双侧**：
+- **供给侧**（段进了没有）：hookId / 版本（base contentHash + **override 版本**）/ fired|skipped + skip 原因 / token 长度。来源：#1029 现有 + #1075 逐段增强 + override 层版本标注（PR3 就绪后）
+- **效果侧**（行为变了没有）：结构化信号 = GuardRejectionEventLog（线 B）；非结构化信号 = eval/review 标注（T2b）
+- 最小充分集 = `(段, 版本, 注入与否) × (违规类型, 时间)` 可按窗口 correlation join（§2.1）
+
+### 10.2 怎么触发 —— 三档事件驱动（零轮询不变）
+
+| 档 | 触发事件 | 动作 |
+|----|---------|------|
+| **变更驱动**（最密集） | 某段 override 变更（启禁用/调整）→ 该段进入观察期 | 观察期满（累积 N session 或 7d，取先到）自动触发**该段**差分评估 |
+| **阈值驱动**（即时） | 同 guard 拒绝达阈值（per-guard 配置，默认 3/7d） | 即时归因评估**关联段**，不等周期 |
+| **周期兜底**（全量） | weekly eval cron（已有基建） | 全段扫描，抓慢性病（dormant / 冗余 / 缺段） |
+
+核心原则：**评估密度跟着变更走**——改了才密集评估，没改的段只被周期兜底扫到，不平摊评估资源。
+
+### 10.3 eval 什么 —— 段的净价值 = 行为改善 − 注意力成本
+
+每段五个指标：①成本 = 注入频率 × token 长度（全段 day-0 可算）②效果 = 关联违规率（有 guard ground truth 自动 / 无则 T2b 标注）③**差分 = override 变更前后关联违规率变化**（"改了有没有效"的直接答案）④关系 = 跨层冗余/矛盾/撞词（T1）⑤缺口 = 无段承载的重复纠正（T3）。
+
+### 10.4 怎么 eval —— 三层判定 + 停止条件
+
+T1 脚本判定（确定性，CI 可跑）/ T2a 窗口差分（统计——**初期样本量小，报告标注"方向性证据"，不冒充统计显著**）/ T2b predicate 抽样（借 eval:sop 的 predicate 形态给段 assertion 写判定）。汇总进 `eval:harness-ledger` weekly verdict。
+**停止条件**（co-creator 模型）：段指标进入相对稳定波动 → 停止主动改进 → 转低频监控（**tracing 与 eval 永久保留**，不随改进停止而撤）。
+
+### 10.5 怎么改 —— 消融优先，内容其次，条件第三
+
+| 优先级 | 改法 | 适用 | 为什么 |
+|--------|------|------|--------|
+| 1 | **启禁用（消融试验）** | 疑似冗余 / low-evidence 段 | **单变量因果验证最干净**：禁用只改"存在与否"一个变量。违规率升 = 段有用，一键恢复（撤 override）；无变化 = retire 的证据基础（base 删除仍走 operator approve）。禁用是 retire 的前置实验 |
+| 2 | **内容调整** | 确认有用但效果差的段（fired 了违规照发——段在场没起作用） | 变量多（措辞/长度/结构），验证靠 override 版本差分；初期只做**单变量修改**（如高违规段的措辞强化），不重写 |
+| 3 | **fire 条件调整** | 全场景注入但只在部分场景相关的段 | 改 resolver 注入条件不改内容——降低无关场景的注意力稀释（#1075 resolver 纯函数天然支持 override） |
+
+顺序逻辑：**先禁用验证存在价值 → 再内容优化有价值的段 → 后条件收窄注入面**。三种改法全部发生在 override 层（KD-12），全部可即时 rollback。
+
+## 10. 与理想态的差距（诚实声明）
 
 - 五环全自动是 north star；v0 的归因半自动（阈值开 task，归因本身靠猫）、修补全人工（approve 通道）
 - Week 1 correlation 是窗口置信度（`correlationConfidence: 'window'`），精确 join 是后续增强；T2a 差分在窗口置信度上成立
