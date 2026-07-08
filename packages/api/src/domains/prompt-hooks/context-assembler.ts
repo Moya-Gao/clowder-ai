@@ -81,7 +81,19 @@ function resolveDirectMessage(
 ): DirectMessageInfo | null {
   if (!from || from === currentCatId) return null;
   const fromConfig = catRegistry.tryGet(from as string)?.config;
-  if (!fromConfig) return null;
+  if (!fromConfig) {
+    // Legacy fallback: raw catId as label, 'unknown' model.
+    // D2 still fires so the receiving cat knows who sent the message;
+    // D3 (same-breed warning) skipped because we can't determine breed.
+    return {
+      fromCatId: from as string,
+      fromLabel: from as string,
+      fromModel: 'unknown',
+      fromDisplayName: from as string,
+      fromVariantLabel: undefined,
+      isSameBreed: false,
+    };
+  }
   return {
     fromCatId: from as string,
     fromLabel: formatHandleFreeLabel(from as string, fromConfig),
