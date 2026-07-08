@@ -8,7 +8,7 @@ created: 2026-07-08
 # 段 Harness v0 设计草案（首个试验品：prompt 段 + SOP）
 
 > 输入：capability-gap-analysis.md（基建盘点+方向重定）、harness-body-inputs.md（三猫体感+A1 公理+join 验证）、seed-cases SC-001~005、co-creator 约束（事件驱动/不轮询/不自动改段/approve 边界）。
-> 状态：**draft-v0.1**——2026-07-08 codex 落地 review（4 P1 + 6 P2，msg `446ffdda`）全部修入；spec Phase A 已同步对齐（P1-1）。待 co-creator 对齐开工。
+> 状态：**draft-v0.2**——v0.1 = codex 落地 review（4P1+6P2+3 残留）全部修入 + spec 对齐；v0.2 = **迭代面按 co-creator override-first 模型重写**（§4：git PR 直改通道作废，迭代环以 #1075 PR3 override store 为前提，观测评估先行不依赖）。待 co-creator 对齐开工。
 
 ## 0. 一句话定义
 
@@ -79,18 +79,39 @@ Week 1 Line B 只上 2 类（`http_rate_limit` + `route_decision_block`）：一
 
 `alive` / `redundant-candidate(cross-layer | duplicate)` / `conflict` / `false-positive-noise` / `low-evidence` / `missing-segment` / `superseded`（LL-071 型：被结构替代，光荣退役）/ `unmeasurable(+observabilityDeadline)`。通用锅账词表（spec 既有）在泛化阶段合并。
 
-## 4. 迭代面：三通道 + 自动验证
+## 4. 迭代面（v0.2 重写——override-first，co-creator 2026-07-08 12:32 迭代模型）
 
-| 动作 | 通道 | 依据 |
-|------|------|------|
-| 段文本迭代 | 猫内 git PR + 跨猫 review（自动通道） | 段 = yaml+md，doc-only 可逆 |
-| O2→O1 结构升级 | **operator approve**（看 diff） | 修补环主形态；opus 三例：agent 摘要未 Read 拦截 / 429 第 N 次归因 / CI lint 断言 |
-| 段退役 | **operator approve**（superseded/redundant 证据链） | 硬边界 |
-| （中期）overlay 迭代 | #1075 PR3 `HookOverrideStore`：base 不动 + override 层迭代 + 版本自见 | co-creator 的 overlay 形态；skill 未来同模式复用 |
+> **v0.1 的"段文本迭代走 git PR"通道被否，理由成立**：①改了不知道有没有效，未验证的改动不能直接固化为基线；②可能只需 rollback / 启禁用，PR 通道太重且慢；③安装包用户无法改随包分发文件，该通道只对源码开发者存在。**试验在 override 层，基线沉淀要证据。**
 
-**验证零成本**：修补后段的 contentHash/version 变化 → join 数据自然分版本 → 下一个 weekly 周期自动产出前后违规率对比。不需要专门的验证动作。
+**迭代生命周期**（段/skill 类资产统一模型）：
 
-**账本伴生**：每次修补的涉事段登记 ledger YAML（spec 既有 schema），registry 从真实修补里长出来（KD-10 不变）。
+```
+tracing（持续，永不撤）
+  → eval 发现问题（candidate 报告）
+  → override 层改动（禁用 / 内容调整——不动 base 文件）
+  → 效果确认（contentHash/override 版本差分，下一 eval 周期自动产出）
+  → 继续迭代（可随时 rollback = 撤销 override）
+  → eval 进入相对稳定波动 → 停止改进（tracing + eval 保留）
+  → 迭代记录 + 证据链在手
+  → 基线沉淀：源码环境 → 上游 PR 入库；安装包用户 → 主动触发提 issue（附迭代证据）
+```
+
+**三类对象三种通道**（co-creator 分类）：
+
+| 对象 | 通道 | 迭代层前提 |
+|------|------|-----------|
+| 代码功能问题 | 收集 → 归因 → issue（蓝色通道）；源码环境可改，安装包用户提 issue 即止 | 无（现有流程） |
+| 段（prompt hooks） | override 迭代（启禁用/调整）→ eval 稳定 → 带证据入库 | **`HookOverrideStore`（#1075 PR3）** |
+| skill | 同段模型（overlay：base 随包不可变 + overlay 迭代 + 版本自见），deferred | 段走通后复用同基建 |
+
+**operator gate 位置**：O2→O1 结构升级与段退役仍走 approve（硬边界不变）；override 试验本身低风险可逆（随时撤销），其审批粒度（逐个 approve vs 批量授权试验窗口）→ Design Gate 补充对齐。
+
+**依赖关系修正（取代 v0.1 表述）**：
+- **观测 + 评估**（线 A / 线 B / weekly eval / candidate 报告）：不依赖 #1075——tracing 和 eval 是永久基建，先行建设，这部分本来就"要保留"
+- **迭代环（override 试验）：以 #1075 + PR3 `HookOverrideStore` 为前提**——"要基于 1075"的准确含义。PR3 目前尚未存在（F237 Phase 2 的 deferred scope），需与 F237 线对齐：PR3 优先级提升 or F257 承接实现
+- override 层就绪前：评估只产 candidate 报告（只读），**不动任何段**
+
+**账本伴生**：每次 override 试验与基线沉淀登记 ledger YAML（spec 既有 schema），registry 从真实迭代里长出来（KD-10 不变）。
 
 ## 5. 首批评估对象（有 ground truth 的段先评）
 
@@ -106,7 +127,9 @@ phase-boundary drift 检查卡（砚砚最想要，一卡拦 SC-002/003/004）�
 - **线 A（第一个可交付，零新基建）**：T1 静态体检 + T3 缺段初筛 → **第一份 candidate 报告**给 operator。**段口径 source-of-truth（codex P2-4）**：pre-#1075 按 current template registry（**50 个 template id，含 D7/D15 变体**；how_counted: `TEMPLATE_FILES` 常量计数 @ 当前分支）；#1075 合入后切 hook manifest 口径（46 hook.yaml @ PR diff）。两口径差异在报告中显式声明
 - **线 B（基建）**：GuardRejectionEventLog（queryWindow 接口 + ZSET 索引）+ **2 类事件 emit**（`http_rate_limit` + `route_decision_block`，一 HTTP 面一 generator 面）→ codex review。精确 correlation bridge 为独立后续项
 
-**Week 2+**：`eval:harness-ledger` 域注册（selector `{scope: 'prompt-segments'}`，weekly）→ T2a 差分进周期 → 第一批修补走 approve 通道 → 下周期自动出验证差分 → 其余 4 类事件扩面 → drift 检查卡。
+**Week 2+**：`eval:harness-ledger` 域注册（selector `{scope: 'prompt-segments'}`，weekly）→ T2a 差分进周期 → candidate 报告持续产出 → 其余 4 类事件扩面 → drift 检查卡。
+
+**迭代环开动条件（v0.2）**：override 层就绪（#1075 + PR3 `HookOverrideStore`）。就绪前评估只读不动段；PR3 的归属与优先级与 F237 线对齐，作为开工后并行协调事项，不阻塞观测评估建设。
 
 **里程碑判据**（对齐 AC-A0 精神）：≥1 个段完成完整五环（评估 candidate → approve → 修补 → 版本差分显示违规下降 or 证伪）。走不通 = 设计证伪，停下重议，沉没成本 = 一个 event log + 一份静态报告。
 

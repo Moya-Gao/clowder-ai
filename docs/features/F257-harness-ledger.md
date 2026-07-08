@@ -62,7 +62,7 @@ created: 2026-07-06
 | 动作 | 通道 | 理由 |
 |------|------|------|
 | 观测记账（触发 / anomaly / eval verdict） | 自动 | 事件驱动被动 append，零轮询干扰 |
-| 文本锅内容迭代（GOTCHA 措辞 / skill 内容 / feedback 合并） | 自动（猫内 PR+review 闭环） | doc-only 可逆 |
+| 段/skill 类资产迭代（启禁用 / 内容调整） | **override 层自动试验**（不动 base；随时 rollback）→ eval 稳定后带证据沉淀基线（源码：上游 PR；安装包用户：提 issue 附迭代记录） | 2026-07-08 co-creator 模型（KD-12）：未验证的改动不得直接固化为基线；git PR 直改通道对安装包用户不存在 |
 | O2→O1 结构升级（新 guard / lint / schema 字段） | operator approve（看 diff） | 改执行路径 |
 | 淘汰（retire + 注入源移除） | operator approve（Console） | 硬边界 |
 | 上游依赖问题（Claude Code / 外部 MCP / 内置框架） | 蓝色通道：同一 upstream 锅反复触发 → 自动**起草** issue 草稿 task，operator 决定发不发 | 外发必须人批 |
@@ -223,6 +223,7 @@ Registry 浏览（四层筛选 / status / last-triggered / 30d stats）+ 单锅�
 | KD-9 | 修补环显式建模：有效修补主形态 = O2→O1 结构升级，文本内容迭代自动、结构升级 approve、上游问题走 issue 草稿蓝色通道 | 审计实证文本层死寂（0 加载/零回读）vs 结构层全部拦截实锤；修补只藏在 verdict 一个词里导致 co-creator 看不到价值链（SC-004） | 2026-07-07 |
 | KD-10 | 开工顺序调转"问题先行，账本伴生"：Phase A = 双实锤（skill 零加载 + hold_ball 429）修补闭环，全量 backfill 降为渐进任务；第一 milestone 验收 = 真问题被修 + 触发数实证下降（AC-A0），账本覆盖率降为次要指标 | 先建两周全量 registry 修不了任何真问题（co-creator 质疑成立）；最小 registry/事件日志从真实修补里长出来，避免账本变成第 131 口锅 | 2026-07-07 |
 | KD-11 | Phase A 对象重定为 prompt 段 + SOP（v0.1 草案承载，KD-10 的"问题先行"原则不变、对象变）：correlation 两档（window→exact）；GuardRejectionEventLog 用 queryWindow+ZSET 时间索引（非 F254 per-invocation LIST）；emit 按六类 union 分型，Week 1 只上 2 类；eval 复用 harness-ledger 域 + scope selector 不新增域名 | co-creator 三重定（skill 缓做-安装包用户约束 / hold_ball 归业务自诊断 / 段与 SOP 是当前最大问题）+ 盘点证实段唯一信号就绪 + codex 落地 review 4P1（turnId 是 pre-invocation random UUID、per-invocation LIST 不可窗口发现、emit 分属两种工程面等代码事实） | 2026-07-08 |
+| KD-12 | 迭代通道 override-first（v0.2）：段/skill 类改动一律先在 override 层试验（启禁用/调整，不动 base，随时 rollback）→ eval 相对稳定后带迭代记录与证据沉淀基线（源码上游 PR / 安装包用户提 issue）；tracing 与 eval 永久保留；观测评估不依赖 #1075，**迭代环以 #1075+PR3 HookOverrideStore 为前提**（"要基于 1075"的准确语义） | co-creator 否决 git PR 直改通道：未验证改动不得固化为基线、可能只需 rollback/启禁用、安装包用户无 PR 通道；带证据的沉淀才有上游价值 | 2026-07-08 |
 
 ## Timeline
 
