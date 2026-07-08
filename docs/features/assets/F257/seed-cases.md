@@ -56,4 +56,11 @@ SC-{NNN} | 日期 | 发现方式(自查/跨猫/operator/结构) | 偏差类型 |
 **期望拦截层**：kickoff/Design Gate 的 Vision Guardian 反射——对照启动包逐环节 trace"该环在哪个 Phase 由什么承载"，缺环 → 红；AC↔Why 同源自检扩展为 AC↔链路环节全覆盖检查；operator 质疑 ≥2 次同一方向 = 强制停下做 gap 对照（而非继续解释）。
 **回放判据**：给定"N 环链路启动包 + Phase 拆分草稿"，检查器能标出无 Phase 承载的环（本案例：修补环）；给定连续两条同方向 operator 质疑消息，猫的下一动作是事实对照而非机制辩护。
 
+### SC-005 | 2026-07-08 | co-creator 第三/四轮质疑 | capability-inventory gap：设计修复方案前未盘点既有基建
+
+**事实**：Phase A-①（skill 零加载修复）设计时隐含假设"skill 加载无埋点，验证要靠 transcripts 离线挖"。co-creator 追问改动范围与既有 eval 改动的关系后，三路代码盘点发现：`SkillLoadEventLog` 已存在（route-serial.ts:1500 检测真实 Skill tool_use，F188 AS-4）且已有消费者（eval:capability-wakeup 域）；eval 控制面 8 域全套机制在跑。真实 gap 是版本绑定/留存/资产维度三个缺口，不是"从零建 tracing"。同时"双实锤各修各的"因缺全局能力地图被 operator 正确地读成 hotfix——两个实锤实际共享同一个信号层地基。
+**同类前科**：「我能猜出来」家族病的体系级变体（用审计结论跳过基建盘点）；SC-002（数字无口径 → 本例是方案无复用面清单）；LL-067（先追问价值/事实再动手）。
+**期望拦截层**：Design Gate 增加**复用面盘点强制环节**——新建任何 store / eval 域 / 采集管道前，spec 必须附"既有同类能力清单 + 逐个不复用理由"；缺清单 → gate 红。
+**回放判据**：给定"新建 GuardRejectionEventLog 的 Phase 草稿（无复用面清单）"，检查器能要求列出既有 event log（F254/F237/SkillLoad/ToolEvent）及逐个不复用理由；给定"operator 连续质疑改动范围/复用边界"，猫的下一动作是代码盘点而非重述方案。
+
 <!-- 新案例追加在此行上方 -->
