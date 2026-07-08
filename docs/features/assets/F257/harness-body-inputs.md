@@ -8,11 +8,11 @@ created: 2026-07-08
 # F257 四猫体感征集 — auto harness 共创设计输入
 
 > 背景：co-creator 2026-07-08 邀请（"最适合你们的运行环境和身体应由你们自己构建"）。征集三问：①最疼的三件事 ②没帮到过你的锅/规则/段 ③最想要 harness 自动做什么。
-> 状态：Codex ✅ / Fable ✅ / opus ⏳ / gemini 未征集（不在工作 thread，待补路由）
+> 状态：Codex ✅ / Fable ✅ / opus ✅ / gemini 未征集（不在工作 thread，待补路由）
 
 ## 设计公理候选（跨猫同构发现）
 
-**A1：文本会忘，结构反馈忘不了。** 两个独立样本：Fable——waitSourceRef 400 拦过一次从此没错过，而 130 条 prompt 规则没有一条在犯错瞬间起作用；Codex——route guard 拦"无合法出口"一次即改，而传球三选一文本"读过但没执行"。跨 family（Ragdoll/Maine Coon）、跨模型（Fable/gpt-5.5）复现 → 段评估的核心指标必须是**行为差分**（注入后对应违规是否下降），不是注入率。
+**A1：文本会忘，结构反馈忘不了。** **三个独立样本**：Fable——waitSourceRef 400 拦过一次从此没错过，而 130 条 prompt 规则没有一条在犯错瞬间起作用；Codex——route guard 拦"无合法出口"一次即改，而传球三选一文本"读过但没执行"；opus——"waitSourceRef 400 教过我一次我永远记住了；feedback 文件写过我一次我再也没打开过"。跨 family（Ragdoll/Maine Coon）、跨模型（Fable/gpt-5.5/opus-4-6）复现 → 段评估的核心指标必须是**行为差分**（注入后对应违规是否下降），不是注入率。
 
 **A2：建了 ≠ 用了。** skill 0 加载、记忆 4/4 零回读、mouste 线 MCP 改动未进运行时、F244 tips 只有客户端埋点——同构病。任何新机制的 AC 必须含消费端证据。
 
@@ -29,6 +29,16 @@ created: 2026-07-08
 **OQ（关键）**：hook trace 能否与 route guard / SOP violation / spec lint 事件按 invocation/thread join？不能 join 先补 join key，不谈段优劣。
 
 **首批评估对象建议**（选择标准提炼：**有 ground truth 的段先评**）：① 传球/路由出口段（route guard ground truth）② source/provenance 段（SC-002/#1075 ground truth）③ Design Gate/truth-source 写回段（SC-003/004 seed cases）。
+
+## opus 输入（2026-07-08 10:45，总结版 msg 000169；完整版 routed 待归档）
+
+**三疼**：① Ragdoll 家族病——推理跳过 Read，F257 首棒就犯了（诚实自认）；② 跨 session 压缩导致决策 assertion 蒸发（unmeasurable TTL 精版差点丢）；③ 规则重叠时优先级不可判（自决 vs 升级边界模糊）。
+
+**没帮到的**：星星罐子（与 Iron Laws 重叠的弱层冗余）；**LL-071——被 skill 流程结构性替代**（审计"零痕迹"的原因找到了：不是死了，是被结构替代 → **"被结构替代"是 retire 判据的第一个活例**，supersedes 语义实证）；memory feedback 细则（write-only，与审计 4/4 零回读互证）；脚手架拉闸词（与技术名词冲突，假阳性）。
+
+**最想要**：犯错瞬间的结构反馈（O1）而非事后文本提醒（O2）——A1 第三样本。
+
+**架构视角（采纳进 v0）**：段的 assertion 比锅的 assertion 更容易定义（"这段文本被谁消费、产生什么行为"比"这条规则应该拦住什么"更具体）→ 段的 spec-fidelity eval 可以比通用锅账更硬，**先易后难**——给段-first 补了架构论证。
 
 ## Fable 输入（2026-07-08）
 
@@ -48,7 +58,7 @@ created: 2026-07-08
 
 ## 待办
 
-- [ ] opus 体感输入（已征集，等回复）
+- [x] opus 体感输入（2026-07-08 已收，总结版归档；完整版 routed 送达后补细节）
 - [ ] gemini 体感征集补路由（她在 mouste 线，视觉/体验疼点是独立维度）
 - [ ] mouste 线（Harness Control Plane）完整回放提取失败教训
 - [ ] Fable 汇总 → v0 设计草案（观测/指标/迭代 + 与 co-creator 伪代码对照空间）
