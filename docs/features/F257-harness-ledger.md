@@ -137,9 +137,9 @@ Registry 浏览（四层筛选 / status / last-triggered / 30d stats）+ 单锅�
 
 <!-- AC↔Why 同源自检：每条 trace 回 Why 的"不可观测/只加不减/同类偏差复发"三诉求；非作者可复核。 -->
 
-### Phase A（双实锤闭环 + 伴生结构）
+### Phase A（段试验品 + 伴生结构）
 - [ ] AC-A0（**第一 milestone 灵魂条款**，2026-07-08 v0.1 重定）: ① T1 静态 candidate 报告产出（段口径带 `how_counted`，pre/post-#1075 两口径差异显式声明）；② `GuardRejectionEventLog` 最小可查（`queryWindow` 返回 `http_rate_limit` + `route_decision_block` 两类真实事件，带 `correlationConfidence` 标注）；③ **≥1 个段走完五环**（candidate → operator approve → 修补 → 下一 eval 周期版本差分显示对应违规下降 or 显式证伪）。走不通 = 设计证伪停下重议。账本覆盖率不是本 milestone 判据
-- [ ] AC-A1: 双实锤涉事锅 + 修补过程新增锅完成 YAML 登记（id/layer/origin/assertion/observability/denominatorKind/status 完整）；CI lint 绿（**新增**锅未登记 → 红可复现）；存量 backfill 为渐进任务不阻塞
+- [ ] AC-A1: 涉事段与修补过程新增锅完成 YAML 登记（id/layer/origin/assertion/observability/denominatorKind/status 完整）；CI lint 绿（**新增**锅未登记 → 红可复现）；存量 backfill 为渐进任务不阻塞
 - [ ] AC-A2: seed-cases 文件自 day-0 持续记录本特性开发偏差，每条含偏差类型 + 期望拦截层（可复核：文件 + 条目日期）
 - [ ] AC-A3: inventory summary 由 extractor 可复算生成，所有审计数字带 `how_counted`（命令/口径/时间戳）；给定缺 `how_counted` 的数字 claim，lint 红可复现
 

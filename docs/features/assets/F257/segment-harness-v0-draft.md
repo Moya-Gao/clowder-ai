@@ -12,7 +12,7 @@ created: 2026-07-08
 
 ## 0. 一句话定义
 
-对 46 个 prompt hook 段（含 SOP 段）建立**只读评估 → evidence-backed candidate → 分通道迭代 → 版本差分验证**的事件驱动闭环，回答"哪些段多余 / 内容不合理 / 缺什么段"，并让每次修补的效果可测。
+对全量 prompt 段（含 SOP 段；口径双轨见 §6——pre-#1075 = 50 template id，post-#1075 = 46 hook.yaml）建立**只读评估 → evidence-backed candidate → 分通道迭代 → 版本差分验证**的事件驱动闭环，回答"哪些段多余 / 内容不合理 / 缺什么段"，并让每次修补的效果可测。
 
 **v0 不做**：自动改段（防 prompt 自我繁殖）、skill（deferred，overlay 共识已记录）、全量锅账 backfill、新 eval 机制（全复用 F192）。
 
@@ -68,7 +68,7 @@ Week 1 Line B 只上 2 类（`http_rate_limit` + `route_decision_block`）：一
 
 | 层 | 判定 | 需要什么 | 何时可跑 |
 |----|------|---------|---------|
-| **T1 静态** | ①跨层冗余：O2 段断言已被 O1 结构承载（星星罐子型）②段间矛盾：同 context 反向断言（规则不 compose 型）③语义撞词：拉闸词与技术名词冲突（脚手架型） | 只需段内容 + 结构 guard 清单 | **day-0**（46 段一轮体检） |
+| **T1 静态** | ①跨层冗余：O2 段断言已被 O1 结构承载（星星罐子型）②段间矛盾：同 context 反向断言（规则不 compose 型）③语义撞词：拉闸词与技术名词冲突（脚手架型） | 只需段内容 + 结构 guard 清单 | **day-0**（全量段一轮体检，口径见 §6） |
 | **T2a 差分·自动** | guard ground truth：段 fired 且对应违规仍发生 → low-evidence；版本切换前后违规率对比（窗口置信度即可算） | correlation 双侧事件（§2.1） | Line B 落地后 |
 | **T2b 差分·半自动** | provenance / truth-source drift 类：ground truth 由 eval/review 标注（无结构 guard 可依） | 标注流程 | 与 T2a 同期，吞吐更低 |
 | **T3 缺段** | 同类纠正/摩擦反复出现但无段承载 | Week 1 用 friction rollup 现有产物半自动初筛；正式第五 source adapter（含 FrictionChannel union/composition/tests 扩展）**放 Phase B 不压 Week 1** | day-0 可半自动 |
@@ -120,12 +120,12 @@ phase-boundary drift 检查卡（砚砚最想要，一卡拦 SC-002/003/004）�
 | 精确 correlation bridge | trace summary 持久化 invocationId 或 traceTurnId↔invocationId 桥 | 独立后续项，不阻塞 Week 1 |
 | eval 域 selector | eval:harness-ledger 域配置加 `{scope: 'prompt-segments'}`（不新增域名） | 配置 |
 | T1 静态体检 | 脚本 or eval cat 执行（不进运行时） | 只读 |
-| **不碰** | 46 段内容（评估只读）、eval 机制、运行时主链路行为、skill | — |
+| **不碰** | 段内容本身（评估只读）、eval 机制、运行时主链路行为、skill | — |
 
 ## 8. 体系自身防腐
 
 - seed-cases 持续记录本体系开发偏差（自举条款不变）
-- sunset signal：eval:prompt-segments 连续 4 周期无 actionable verdict → 降频/并入 eval:friction（防第 131 口锅）
+- sunset signal：`eval:harness-ledger` 的 prompt-segments scope 连续 4 周期无 actionable verdict → scope 降频/并入 eval:friction（防第 131 口锅）
 - 所有报告数字带 `how_counted`（SC-002 纪律）
 
 ## 9. 与理想态的差距（诚实声明）
