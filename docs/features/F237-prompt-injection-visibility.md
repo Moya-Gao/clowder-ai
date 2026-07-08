@@ -130,7 +130,7 @@ Modal showing assembled prompt per cat, labeled "approximate". Selectable by cat
 
 ### Motivation
 
-Phase 1 delivered visibility — operators can see what's injected. Phase 2 makes **46 content segments** self-contained, dynamically manageable, observable, and versionable via a hook pipeline. The remaining 3 segments (N2 conversation history delta, M1-M2 transport-layer) get observe-only trace adapters. Together, 49 of 52 segments become traceable — the data foundation for automated iteration. (H1-H3 Claude Code hooks are out of Phase 2/3 scope — they use a completely different injection system and will be tracked separately.)
+Phase 1 delivered visibility — operators can see what's injected. Phase 2 makes **46 content segments** self-contained, dynamically manageable, observable, and versionable via a hook pipeline. The remaining 3 segments (N2 conversation history delta, M1-M2 transport-layer) have observe-only trace adapter APIs (code + unit tests delivered); production call-site wiring is deferred due to execution order constraints (N2 assembled after trace collection point; M1-M2 assembled in invocation layer). Together, the design targets 49 of 52 segments traceable — 46 via pipeline, 3 via observe-only adapters once wired. (H1-H3 Claude Code hooks are out of Phase 2/3 scope — they use a completely different injection system and will be tracked separately.)
 
 **Why 46:** All segments that follow the condition → content → inject pattern become full hooks. This includes:
 - **S/D segments** (34): the original `if/push` patterns in `SystemPromptBuilder.ts`
@@ -226,7 +226,7 @@ Without a hook pipeline, there's no structured trace data, no version identity, 
 
 ### Two Tiers: Runtime Content Pipeline + Surface Trace Adapters
 
-Phase 2 covers 49 of 52 segments in two tiers (H1-H3 Claude Code hooks are out of scope — tracked separately):
+Phase 2 targets 49 of 52 segments in two tiers (H1-H3 Claude Code hooks are out of scope — tracked separately). Tier 1 (46 segments) is fully operational via HookPipeline. Tier 2 (3 segments) has adapter API + unit tests; production call-site wiring is deferred (see AC-P2-13):
 
 **Tier 1 — Runtime Content Pipeline (46 segments)**
 
@@ -673,7 +673,7 @@ The 3 segments that genuinely don't fit the runtime content pipeline get lightwe
 - **N2 (conversation history delta)**: Adapter at `route-helpers.ts` records conversation history assembly. Immutable, always-on, no customization value.
 - **M1-M2 (transport-layer)**: M1 adapter records dispatch mission context (missionPrefix, F070). M2 adapter records transcript path hints. Both at `invoke-single-cat.ts` transport assembly point — they remain outside the content pipeline to preserve the produced-vs-delivered boundary.
 
-Trace adapters produce `TraceEventObserved` only — no `PromptPatch`, no enable/disable, no versioning. This ensures the trace record covers 49 of 52 segments (46 Tier 1 + 3 Tier 2) for complete observability. (H1-H3 tracked separately.)
+Trace adapters produce `TraceEventObserved` only — no `PromptPatch`, no enable/disable, no versioning. When fully wired, this will cover 49 of 52 segments (46 Tier 1 + 3 Tier 2). Currently: adapter API + unit tests delivered in `trace-adapters.ts`; production call-site wiring deferred (N2 content assembled after trace collection point in route-serial; M1-M2 assembled in invoke-single-cat.ts after route-level trace). (H1-H3 tracked separately.)
 
 ### Versioning Model
 
@@ -710,7 +710,7 @@ Phase 2 implementation in 5 sub-phases, each independently shippable:
 |-----------|------------|-------|
 | **P2-A: HookManifest + Registry** | Hook YAML schema for all 46 pipelined segments, directory scan, manifest parsing. Registry lists S1-S13, B1, C1, L1-L7, D1-D21, R1-R2, N1 | Schema validation tests, scan tests (following PluginRegistry test pattern) |
 | **P2-B: ContextAssembler + Resolvers** | Extract resolver logic: S/D from `if/push` patterns, L1-L7 from L0 compiler templates, B1/C1/R/N1 wrapping existing execution points. ContextAssembler gathers inputs. Dual-path: old code path + new pipeline produce identical output. L0 compiler content source switched from direct template loading to pipeline-produced output (delivery channel unchanged) | Snapshot tests: old output === new output for all 46 hooks. L0 compiled output equivalence test |
-| **P2-C: Pipeline Execution + Trace Adapters** | Wire HookPipeline into session-init and per-turn stages. Remove old patterns. Add Tier 2 trace adapters for N2 + M1-M2 (3 observe-only) | Integration tests: compiled output identical. Regression: all existing tests pass. Trace adapter coverage tests |
+| **P2-C: Pipeline Execution + Trace Adapters** | Wire HookPipeline into session-init and per-turn stages. Remove old patterns. Add Tier 2 trace adapter API for N2 + M1-M2 (3 observe-only; adapter code + unit tests delivered, production call-site wiring deferred — execution order constraint) | Integration tests: compiled output identical. Regression: all existing tests pass. Trace adapter unit tests |
 | **P2-D: Runtime Override Store** _(deferred to PR 3)_ | Redis-backed override layer (`HookOverrideStore`). Console UI: enable/disable hooks, switch versions, edit templates (safetyTier-gated). Overrides persist across restart (TTL=0). Same write API for operator and future auto-eval | Override resolution tests (override ?? baseline). Safety tier gate tests. Persistence tests |
 | **P2-E: InjectionTrace Persistence** | Dual-layer persistence (summary persistent + detail short TTL). Console trace viewer. Trace records fired/skipped/disabled status per hook | Trace record completeness tests. Console: can view which hooks fired per turn _(override source tracking deferred to PR 3)_ |
 
@@ -719,7 +719,7 @@ Phase 2 implementation in 5 sub-phases, each independently shippable:
 - [ ] AC-P2-1: HookManifest YAML schema defined for S/D segments, validated by `check-hook-manifest.mjs`
 - [ ] AC-P2-2: HookRegistry scans `assets/prompt-hooks/`, parses all 46 hook manifests (S1-S13, B1, C1, L1-L7, D1-D21, R1-R2, N1)
 - [ ] AC-P2-3: ContextAssembler produces typed `AssemblerInput` from route-layer queries for session-init and per-turn stages
-- [ ] AC-P2-4: 46 content hooks have standalone resolvers (S/D from `if/push`, L1-L7 from L0 compiler templates, B1/C1/R/N1 wrapping existing execution points); N2 + M1-M2 have observe-only trace adapters
+- [ ] AC-P2-4: 46 content hooks have standalone resolvers (S/D from `if/push`, L1-L7 from L0 compiler templates, B1/C1/R/N1 wrapping existing execution points); N2 + M1-M2 have observe-only trace adapter API (see AC-P2-13 for wiring status)
 - [ ] AC-P2-5: Dual-path validation: old `if/push` output === new pipeline output for all S/D segments (snapshot tests)
 - [ ] AC-P2-6: `buildStaticIdentity()` and `buildInvocationContext()` delegate to HookPipeline
 - [ ] AC-P2-7: Each S/D hook execution produces TraceEvent (discriminated union: fired/skipped/disabled)
@@ -729,7 +729,7 @@ Phase 2 implementation in 5 sub-phases, each independently shippable:
 - [ ] AC-P2-10: Hook versioning: v1→v2 switch via manifest baseline, TraceEvent records version _(runtime override switching deferred to PR 3)_
 - [ ] AC-P2-11: Hook enable/disable via manifest baseline (`enabled` field), TraceEvent records disabled status _(runtime override gating + constraint violation deferred to PR 3)_
 - [ ] AC-P2-12: Transport assembly (staging/contextHint/missionPrefix/M2) unchanged, not in pipeline
-- [ ] AC-P2-13: Tier 2 trace adapters emit `TraceEventObserved` for N2 + M1-M2 (3 observe-only segments)
+- [ ] AC-P2-13: Tier 2 trace adapter API (`observeN2`/`observeM1`/`observeM2` in `trace-adapters.ts`) emits `TraceEventObserved` for N2 + M1-M2 — adapter code + unit tests delivered; production call-site wiring deferred (N2 assembled after trace collection; M1-M2 in invocation layer after route-level trace)
 - [ ] AC-P2-14: Zero behavior change — compiled prompt output identical pre/post migration (with no overrides active)
 - [ ] AC-P2-14a: L0 compiled output equivalence — `compile-system-prompt-l0.mjs` output identical when consuming pipeline-produced L1-L7 content vs direct template loading
 - [ ] AC-P2-15: _(deferred to PR 3)_ Runtime override store (Redis, TTL=0) with two-layer resolution: override ?? manifest baseline
