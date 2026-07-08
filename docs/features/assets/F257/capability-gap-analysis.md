@@ -108,3 +108,38 @@ created: 2026-07-08
 ## 8. 本轮自举记录
 
 本分析暴露的偏差已记 seed-cases SC-005（设计修复方案前未盘点既有基建，Phase A-① 曾建立在"skill 无埋点"的错误假设上）。
+
+## 9. 2026-07-08 二轮方向重定（co-creator）
+
+> 来源：co-creator 10:37 UTC 消息。三个对象级重定 + 一个共创方法论。§6 的块 1 组成相应调整。
+
+### 9.1 skill：当前阶段放一下（deferred，形态共识已记录）
+
+否决理由：**安装包用户**——skill 是随包分发资产，加版本/迭代机制必须考虑用户侧更新链路，改动面太大。形态共识（做的时候按这个）：**overlay 模式**——base 版本随包不可变；迭代发生在 overlay 层；挂载时挂 overlay 合成版本；skill 自身可见自己的版本迭代史。skill 问题的抽象已经统一（有没有触发 / 触发后遵从否 / 内容合理否），且"改了之后只要触发大概率遵从"——缺的是评估+版本+迭代，但那是 auto harness 的一小部分。原块 1 的 SkillLoadEventLog 扩展随之撤出首批。
+
+### 9.2 hold_ball 类：重新定性为"业务代码自诊断"维度
+
+429/waitSourceRef 校验是**我们硬编码的业务逻辑**，不是"锅文本"。这一类的 harness 能力 = 分析诊断自己业务运行代码的问题（self-diagnosis），与"规则/协作段管理"是两个维度。GuardRejectionEventLog 从首批撤出，归入自诊断线另行排期。
+
+### 9.3 首个试验品：prompt 段管理（#1075 载体）+ SOP
+
+co-creator 判断：段才是当前最大的问题——哪些段多余 / 内容是否合理 / 是否需要补段；SOP 同理。**基建证据支持这个判断**（2026-07-08 盘点 PR #1075）：
+
+| 段的 harness 要素 | #1075 现状 |
+|------------------|-----------|
+| registry | 46 个 `assets/prompt-hooks/*/hook.yaml`（id/version/enabled/order） |
+| 触发观测 | HookPipeline resolve→fire→trace，`TraceEvent[]`→`ObservedSegment[]` 持久化（per session-init / per-turn） |
+| fire/skip 条件 | 46 个 typed resolvers（纯函数，可测） |
+| 迭代通道 | 短期 git PR（段=yaml+md）；中期 `HookOverrideStore` 已排 PR 3——**正是 overlay 模式**，段先走通，skill 未来直接复用该模式 |
+
+即：**段的信号层已被 #1075 建好**（对比 skill 缺版本缺留存、4xx 零落盘），缺的恰是 F257 的评估层 + 迭代层。这是四类对象中唯一"信号就绪"的，首试验品成立。
+
+段级评估草图（待四猫共创细化）：①成本面=注入频率×段长度；②遵从面=段 assertion 与行为的对应证据（借 eval:sop predicate 形态）；③冗余判定=高频 fired 但零遵从证据；④缺段信号=同类纠正反复出现但无段承载（F245 friction 供数）。判定消费复用 F192 域机制。
+
+### 9.4 前车之鉴：thread_mouste3im3xlkkah（Harness Control Plane）
+
+co-creator：那次 MCP 改动的尝试"完全没效果"。结尾状态初判：改动合入 fork 但 upstream PR #914 closed unmerged、eval 线 blocked 等 runtime pickup——**改动未进运行时 + 无消费闭环**（与 skill 0 加载/记忆零回读同构：建了 ≠ 用了）。段试验设计前须完整回放该 thread 提取失败教训，作为设计输入；本次不同点的初步论证：#1075 trace 消费端在自家持久化、评估复用在跑的 eval 域、迭代先走零新基建的 git PR。
+
+### 9.5 方法论：设计主体是猫，不是 operator 灌输
+
+co-creator 明确：他可给伪代码/时机/数据结构参考，但"最合适你们的"应由猫基于几个月真实使用体感构建，且要在不同环境/模型/用户下可演进。下一棒：起草四猫体感征集（各自最疼的三件事 + 最想要的自愈能力），在 F257 工作 thread（thread_mr96jyudj9iqisa9）汇成设计输入，再重排 spec Phase 结构。
