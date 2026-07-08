@@ -105,13 +105,139 @@ function toManifestSegment(hook: HookManifest): ManifestSegment {
 }
 
 // ---------------------------------------------------------------------------
+// Supplemental segments — not in HookRegistry (observe-only + external)
+// ---------------------------------------------------------------------------
+
+/**
+ * Segments outside the hook pipeline that the Console still needs to display.
+ * Tier 2 (N2, M1, M2): observe-only trace adapters — no resolver, no versioning.
+ * External (H1, H2, H3): Claude Code shell hooks — separate injection system.
+ */
+const SUPPLEMENTAL_SEGMENTS: ManifestSegment[] = [
+  {
+    id: 'N2',
+    name: '对话历史增量',
+    category: 'navigation',
+    lifecycleStage: 'per-turn',
+    source: 'route-helpers.ts',
+    sourceType: 'observe-only',
+    trigger: 'always',
+    purpose: 'Conversation history delta — previous unread messages from other cats',
+    userExplanation: '其他猫在你上次发言后说了什么（增量对话历史）',
+    priority: 'per-turn:observe',
+    safetyTier: 'readonly',
+    transparencyTier: 'visible-by-default',
+    governanceTier: 'immutable',
+    allowLocalOverride: false,
+    disableable: false,
+    consumer: 'route-assembler',
+    relatedFeature: null,
+  },
+  {
+    id: 'M1',
+    name: 'Dispatch 任务上下文',
+    category: 'transport',
+    lifecycleStage: 'per-turn',
+    source: 'invoke-single-cat.ts',
+    sourceType: 'observe-only',
+    trigger: 'conditional',
+    purpose: 'Dispatch mission context (F070) — external project context for dispatched invocations',
+    userExplanation: '外部项目 dispatch 时注入的任务上下文（missionPrefix）',
+    priority: 'per-turn:transport',
+    safetyTier: 'readonly',
+    transparencyTier: 'visible-by-default',
+    governanceTier: 'immutable',
+    allowLocalOverride: false,
+    disableable: false,
+    consumer: 'invocation-layer',
+    relatedFeature: 'F070',
+  },
+  {
+    id: 'M2',
+    name: 'Transcript 路径提示',
+    category: 'transport',
+    lifecycleStage: 'per-turn',
+    source: 'invoke-single-cat.ts',
+    sourceType: 'observe-only',
+    trigger: 'always',
+    purpose: 'Transcript path hints — always appended for session continuity',
+    userExplanation: '会话 transcript 路径信息（始终附加）',
+    priority: 'per-turn:transport',
+    safetyTier: 'readonly',
+    transparencyTier: 'debug-only',
+    governanceTier: 'immutable',
+    allowLocalOverride: false,
+    disableable: false,
+    consumer: 'invocation-layer',
+    relatedFeature: null,
+  },
+  {
+    id: 'H1',
+    name: 'SessionStart Hook',
+    category: 'external',
+    lifecycleStage: 'session-init',
+    source: '.claude/hooks/',
+    sourceType: 'shell-hook',
+    trigger: 'always',
+    purpose: 'Claude Code SessionStart shell hook — runs on session start, output goes to tool_result',
+    userExplanation: 'Claude Code 会话启动时运行的 shell hook',
+    priority: 'session-init:external',
+    safetyTier: 'readonly',
+    transparencyTier: 'opt-in-view',
+    governanceTier: 'human-gated',
+    allowLocalOverride: false,
+    disableable: false,
+    consumer: 'claude-code',
+    relatedFeature: null,
+  },
+  {
+    id: 'H2',
+    name: 'PostCompact Hook',
+    category: 'external',
+    lifecycleStage: 'session-init',
+    source: '.claude/hooks/',
+    sourceType: 'shell-hook',
+    trigger: 'conditional',
+    purpose: 'Claude Code PostCompact shell hook — runs after context compaction',
+    userExplanation: 'Claude Code 压缩上下文后运行的 shell hook',
+    priority: 'session-init:external',
+    safetyTier: 'readonly',
+    transparencyTier: 'opt-in-view',
+    governanceTier: 'human-gated',
+    allowLocalOverride: false,
+    disableable: false,
+    consumer: 'claude-code',
+    relatedFeature: null,
+  },
+  {
+    id: 'H3',
+    name: 'SessionStop Hook',
+    category: 'external',
+    lifecycleStage: 'session-init',
+    source: '.claude/hooks/',
+    sourceType: 'shell-hook',
+    trigger: 'always',
+    purpose: 'Claude Code SessionStop shell hook — runs on session end, output does NOT enter model prompt',
+    userExplanation: 'Claude Code 会话结束时运行的 shell hook（不进 model prompt）',
+    priority: 'session-init:external',
+    safetyTier: 'readonly',
+    transparencyTier: 'debug-only',
+    governanceTier: 'human-gated',
+    allowLocalOverride: false,
+    disableable: false,
+    consumer: 'claude-code',
+    relatedFeature: null,
+  },
+];
+
+// ---------------------------------------------------------------------------
 // Registry singleton (lazy init, scan once per process)
 // ---------------------------------------------------------------------------
 
-let cachedSegments: ManifestSegment[] | null = null;
+let cachedResult: { hookSegments: ManifestSegment[]; allSegments: ManifestSegment[] } | null = null;
 
-function getManifestSegments(): ManifestSegment[] {
-  if (cachedSegments) return cachedSegments;
+function getManifestSegments(): { hookSegments: ManifestSegment[]; allSegments: ManifestSegment[] } {
+  if (cachedResult) return cachedResult;
 
   const root = findProjectRoot();
   const hooksDir = `${root}/assets/prompt-hooks`;
@@ -119,9 +245,16 @@ function getManifestSegments(): ManifestSegment[] {
   const registry = new HookRegistry(hooksDir, templatesDir);
   const hooks = registry.scan();
 
-  cachedSegments = hooks.map(toManifestSegment).sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
+  const hookSegments = hooks
+    .map(toManifestSegment)
+    .sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
 
-  return cachedSegments;
+  const allSegments = [...hookSegments, ...SUPPLEMENTAL_SEGMENTS].sort((a, b) =>
+    a.id.localeCompare(b.id, undefined, { numeric: true }),
+  );
+
+  cachedResult = { hookSegments, allSegments };
+  return cachedResult;
 }
 
 // ---------------------------------------------------------------------------
@@ -136,12 +269,13 @@ export const promptInjectionManifestRoutes: FastifyPluginAsync = async (app) => 
     }
 
     try {
-      const segments = getManifestSegments();
+      const { hookSegments, allSegments } = getManifestSegments();
       return {
         schemaVersion: '2.0.0',
-        segments,
-        totalActive: segments.length,
-        totalLegacy: 0,
+        segments: allSegments,
+        totalActive: hookSegments.length,
+        totalObserveOnly: SUPPLEMENTAL_SEGMENTS.filter((s) => s.sourceType === 'observe-only').length,
+        totalExternal: SUPPLEMENTAL_SEGMENTS.filter((s) => s.sourceType === 'shell-hook').length,
       };
     } catch (e) {
       reply.status(500);
