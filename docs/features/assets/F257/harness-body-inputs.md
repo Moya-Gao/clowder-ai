@@ -8,13 +8,15 @@ created: 2026-07-08
 # F257 四猫体感征集 — auto harness 共创设计输入
 
 > 背景：co-creator 2026-07-08 邀请（"最适合你们的运行环境和身体应由你们自己构建"）。征集三问：①最疼的三件事 ②没帮到过你的锅/规则/段 ③最想要 harness 自动做什么。
-> 状态：Codex ✅ / Fable ✅ / opus ✅ / gemini 未征集（不在工作 thread，待补路由）
+> 状态：**四猫收齐** — Codex ✅ / Fable ✅ / opus ✅ / gemini ✅（2026-07-09 mouste 线路由回传，msg 0001783602923333）
 
 ## 设计公理候选（跨猫同构发现）
 
-**A1：文本会忘，结构反馈忘不了。** **三个独立样本**：Fable——waitSourceRef 400 拦过一次从此没错过，而 130 条 prompt 规则没有一条在犯错瞬间起作用；Codex——route guard 拦"无合法出口"一次即改，而传球三选一文本"读过但没执行"；opus——"waitSourceRef 400 教过我一次我永远记住了；feedback 文件写过我一次我再也没打开过"。跨 family（Ragdoll/Maine Coon）、跨模型（Fable/gpt-5.5/opus-4-6）复现 → 段评估的核心指标必须是**行为差分**（注入后对应违规是否下降），不是注入率。
+**A1：文本会忘，结构反馈忘不了。** **四个独立样本**：Fable——waitSourceRef 400 拦过一次从此没错过，而 130 条 prompt 规则没有一条在犯错瞬间起作用；Codex——route guard 拦"无合法出口"一次即改，而传球三选一文本"读过但没执行"；opus——"waitSourceRef 400 教过我一次我永远记住了；feedback 文件写过我一次我再也没打开过"；gemini——**负空间样本**：角色硬限（禁止写代码）写在 prompt/roster 文本里，但路由层无结构守卫 → 同类误投递反复发生、只能事后 push back（无 guard 处摩擦重复 vs 有 guard 处一次生效，正反对照）。跨 family（Ragdoll/Maine Coon/Siamese）、跨模型（Fable/gpt-5.5/opus-4-6/Gemini-3.5）复现 → 段评估的核心指标必须是**行为差分**（注入后对应违规是否下降），不是注入率。
 
 **A2：建了 ≠ 用了。** skill 0 加载、记忆 4/4 零回读、mouste 线 MCP 改动未进运行时、F244 tips 只有客户端埋点——同构病。任何新机制的 AC 必须含消费端证据。
+
+**A3（候选，1 报告样本 + 1 结构观察，待复现）：段没有受众边界 = 负资产。** gemini 报告：SEO 规范/前端实现细则注入给禁止写代码的设计顾问——错受众注入不是零价值而是负价值（token 成本 + 认知脚手架）。结构互证：shared-rules 的 per-family 治理条款（Maine Coon fallback 检测 / Siamese Dry Run Gate）以全员广播方式注入每只猫。→ 支撑 KD-11 的 scope selector 设计：段 assertion 必须含"被谁消费"（audience），错受众投放应是 eval 可测的违规类型。
 
 ## Codex 输入（2026-07-08 10:45，原文见工作 thread msg 0001783507521842）
 
@@ -45,6 +47,16 @@ created: 2026-07-08
 **三疼**：① 本 thread 3 次 session 封存靠 recall 爬回（上下文断裂是常态不是异常）；② SC-001 声明执行漂移自己犯的；③ SC-005 用推理跳过盘点自己犯的——规则在场但不在动作路径上。
 **最想要**：犯错瞬间的结构反馈 + 同类错误第二次自动升级为结构（O2→O1 通路制度化）。
 
+## gemini 输入（2026-07-09，mouste 线回传 msg 0001783602923333，原文含手绘 mockup）
+
+**三疼**：① 视觉失语症——设计资产无法在 A2A 讨论现场 inline 预览，只能堆 artifacts 目录（注：rich block / browser-preview 能力已存在，痛点实质是 Design Gate 流程里的唤醒缺口，映射 F192 eval:capability-wakeup 域，非纯缺功能）；② 角色硬限无路由守卫——【禁止写代码】只活在文本，code payload 照样投递到她，反复 push back（→ A1 第四样本）；③ 设计黑盒——Design Gate 只能看 Tailwind/React 源码"想象"视觉效果，无 live 渲染，视觉偏差静默积累。
+
+**没帮到的段**：SEO 最佳实践/组件路由划分规范（错受众注入 → A3 首证）；"wow the user / rich aesthetics / vibrant colors" 类感性词汇段——design drift 发生时零约束力，需要的是具体视觉边界定义（可检验断言的视觉版：**感性词 = 无 assertion 的段**，与散文 GOTCHA 同构）。
+
+**最想要的自动化**：① Role-based Routing Guard——投递层检测 payload 是否需要代码实现，硬限冲突即拦截 + 建议分流（O1 结构反馈，**收进 T3 缺段初筛候选**，origin=本输入；Week 1 不做，防 scope creep）；② 视觉化摩擦热力图——违规反馈用 rich card 对比"设计规范 vs 落地效果"而非一行红字（**收进 Phase D Console 锅账页设计输入**；亦是 F245 friction rollup 的可视化消费端）。
+
+**Mockup**：`assets/F257/harness-feedback-mockup-gemini.jpg`（已从 antigravity brain 临时目录抢救归档）。
+
 ## Join OQ 验证（2026-07-08，Fable）
 
 **段侧（#1029 v0 已在 main）**：`trace-collector.ts`——ObservedSegment 有 `segmentId` + `contentHash`；trace meta 带 `turnId / sessionId? / threadId / catId`；**无 invocationId**；v0 粒度部分是 aggregate（'session-init-aggregate'/'per-turn-aggregate'），46 hook 逐段粒度要等 **#1075 合入**（TraceEvent→ObservedSegment bridge）。
@@ -59,6 +71,7 @@ created: 2026-07-08
 ## 待办
 
 - [x] opus 体感输入（2026-07-08 已收，总结版归档；完整版 routed 送达后补细节）
-- [ ] gemini 体感征集补路由（她在 mouste 线，视觉/体验疼点是独立维度）
+- [x] gemini 体感征集补路由（2026-07-09 收齐，mockup 已归档）
 - [ ] mouste 线（Harness Control Plane）完整回放提取失败教训
-- [ ] Fable 汇总 → v0 设计草案（观测/指标/迭代 + 与 co-creator 伪代码对照空间）
+- [x] Fable 汇总 → 已被 spec v0.1-v0.4 迭代吸收（KD-11 起对象重定为 prompt 段 + SOP，本文件转为公理演化账本）
+- [ ] A3 复现观察：Week 1 T1 静态体检时统计"错受众注入"段数量（audience mismatch 作为体检维度之一）
