@@ -230,7 +230,7 @@ T1 脚本判定（确定性，CI 可跑）/ T2a 窗口差分（统计——**初
 - 首版：手写——首批 3 类段（路由/provenance/写回）判定实例源自 30 天审计 + 三猫体感 + seed cases；T1 规则即 opus 三增量；其余段先只有成本指标，效果指标标 unmeasurable 渐进补
 
 **Q4 审批-修改链 + 拒绝反馈环 + 允许静默（三条新决策）**：
-- 通知 → 你确认 → **自动调 override 接口** = 代码行为（PR3 后全自动；PR3 前 accept 后人工执行过渡）
+- 通知 → 你确认 → **自动调 override 接口** = 代码行为，**端到端一次做完、无 followup 无过渡态**（2026-07-09 co-creator 纠正："人工执行过渡"撤销）——审批执行器是正式 scope 的一部分，与 PR3 override API 在 Week 2 联调期同步接通；**dogfood 进入条件 = 全链路（tracing→触发→eval→verdict→审批→自动执行→差分）代码化跑通**，dogfood 阶段 operator 只做一个动作：点确认/拒绝
 - **拒绝也是数据**：suppress/reject 落结构化事件 `{verdictId, segmentId, rejectReason, ts}` 进同一时间线；下一轮评估该段时，**历史被拒方案 + 拒因是评估器输入**——不重复提被否建议，或针对拒因给新方案（评估器有记忆）
 - **允许不产生通知（防过拟合铁则）**：合法 verdict 含 `insufficient-data`（数据不足静默继续积累）与 `no-action-needed`（段无实质影响跳过）——**不进审批通知，静默记录**。不为评估而评估。
 
