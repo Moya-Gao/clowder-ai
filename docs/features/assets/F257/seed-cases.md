@@ -63,4 +63,14 @@ SC-{NNN} | 日期 | 发现方式(自查/跨猫/operator/结构) | 偏差类型 |
 **期望拦截层**：Design Gate 增加**复用面盘点强制环节**——新建任何 store / eval 域 / 采集管道前，spec 必须附"既有同类能力清单 + 逐个不复用理由"；缺清单 → gate 红。
 **回放判据**：给定"新建 GuardRejectionEventLog 的 Phase 草稿（无复用面清单）"，检查器能要求列出既有 event log（F254/F237/SkillLoad/ToolEvent）及逐个不复用理由；给定"operator 连续质疑改动范围/复用边界"，猫的下一动作是代码盘点而非重述方案。
 
+### SC-006 | 2026-07-09 | operator 人肉发现 ×2 + codex 补充 | O1 缺位：关键状态变化无结构通知（同日三样本聚合）
+
+**事实**（三个同日独立样本，同一失效形状）：
+1. **thread 软删无感知**：F257 工作 thread 7/7 被软删（同名误删），三猫在"已删除"thread 里连续工作 2 天零感知（消息层不受软删影响），直到 operator 问"为什么列表看不到"才发现。已修复（restore + 改名防复发），根因与改进项见 issue #1131。
+2. **托管命令死亡球悬空**：PR3 merge-gate 的 `pnpm gate` 托管进程死亡且完成唤醒丢失，持球 invocation 未被唤醒，push+开 PR 悬空 20+ 分钟，直到 operator 问"怎么停了"才被主线补位接管。
+3. **gate-guard 拦截无落盘**（codex 补充）：gate-guard 预检拦截陈旧隔离 Redis（6138/6778）事件无结构化落盘——拦截发生过但无账可查。
+**同类前科**：公理 A2（建了≠用了）；gap-analysis G3（4xx 零落盘）；本案与 SC-003 的元关系——本条目自身差点复发 SC-003（案例在 thread 消息里宣称"已记入素材"但未落盘，被 operator 抓包后才写入本文件）。
+**期望拦截层**：**基础功能自诊断 unit**（段试验品之后的第二个 harness unit，operator 已预定方向）。判定规则候选：① thread registry 状态 vs 消息层活跃度对账（deleted 但 7d 内有 A2A 活动 → 告警）；② 托管命令终态必达（进程终止必须产生 wake 或 dead-letter 记录，不允许静默消失）；③ guard 拦截事件落盘（GuardRejectionEventLog 扩面天然覆盖）。
+**回放判据**：给定"托管命令进程被 kill"，系统产生 dead-letter 通知而非静默；给定"活跃 A2A thread 被软删"，参与猫收到结构通知或删除被要求二次确认；给定"gate-guard 拦截"，事件可按窗口查询。
+
 <!-- 新案例追加在此行上方 -->
