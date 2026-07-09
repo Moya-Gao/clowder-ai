@@ -178,7 +178,7 @@ Registry 浏览（四层筛选 / status / last-triggered / 30d stats）+ 单锅�
 
 - **Evolved from**: F192（harness-eval control plane——把"域级评估"下沉到"单锅生命周期"）
 - **Code substrate**: 独立 `GuardRejectionEventLog` / `HarnessLedgerEventLog`（Phase B 新建）。借鉴 F237 `InjectionTraceStore` 的 summary/detail 保留策略和 F254 `FreshnessAttentionEventLog` 的 Redis LIST + closed union 形态，但不复用它们的事件 union。
-- **Not blocked by**: PR #1075（F237 Phase 2 hook pipeline migration + trace bridging）不是 guard-rejection event store，不阻塞 F257 Phase B；代码开工前仍需 rebase 到最新基线并重新核对相邻 trace API。
+- **#1075 已合入**（2026-07-09，main `ebffcd8e5`）：46 hook.yaml 就位（段口径切换）；HookPipeline/Registry 为基础层。合入后重验：逐 hook TraceEvent 仍被 route 层 drain、持久化走 v0 路径——**逐段粒度需「trace 持久化桥」工作项**（归属随 PR3 对齐，KD-13）。观测评估侧（Week 1）不依赖此项；代码开工前 rebase 到 ebffcd8e5+ 基线。
 - **Related**: F245（anomaly/friction 聚合复用）、F254（freshness event log pattern）、F237（prompt injection trace pattern）、F177（四心智护栏的前身）、F233（observability 姊妹篇）、F153（观测基础设施）、F244（tips 生效追踪同类问题）、F218（provenance 反射）；issues #617 / #860 / #1018（烂尾并入）、#1080 / #1082（调查线动因）
 
 ## Risk
@@ -224,6 +224,7 @@ Registry 浏览（四层筛选 / status / last-triggered / 30d stats）+ 单锅�
 | KD-10 | 开工顺序调转"问题先行，账本伴生"：Phase A = 双实锤（skill 零加载 + hold_ball 429）修补闭环，全量 backfill 降为渐进任务；第一 milestone 验收 = 真问题被修 + 触发数实证下降（AC-A0），账本覆盖率降为次要指标 | 先建两周全量 registry 修不了任何真问题（co-creator 质疑成立）；最小 registry/事件日志从真实修补里长出来，避免账本变成第 131 口锅 | 2026-07-07 |
 | KD-11 | Phase A 对象重定为 prompt 段 + SOP（v0.1 草案承载，KD-10 的"问题先行"原则不变、对象变）：correlation 两档（window→exact）；GuardRejectionEventLog 用 queryWindow+ZSET 时间索引（非 F254 per-invocation LIST）；emit 按六类 union 分型，Week 1 只上 2 类；eval 复用 harness-ledger 域 + scope selector 不新增域名 | co-creator 三重定（skill 缓做-安装包用户约束 / hold_ball 归业务自诊断 / 段与 SOP 是当前最大问题）+ 盘点证实段唯一信号就绪 + codex 落地 review 4P1（turnId 是 pre-invocation random UUID、per-invocation LIST 不可窗口发现、emit 分属两种工程面等代码事实） | 2026-07-08 |
 | KD-12 | 迭代通道 override-first（v0.2）：段/skill 类改动一律先在 override 层试验（启禁用/调整，不动 base，随时 rollback）→ eval 相对稳定后带迭代记录与证据沉淀基线（源码上游 PR / 安装包用户提 issue）；tracing 与 eval 永久保留；观测评估不依赖 #1075，**迭代环以 #1075+PR3 HookOverrideStore 为前提**（"要基于 1075"的准确语义） | co-creator 否决 git PR 直改通道：未验证改动不得固化为基线、可能只需 rollback/启禁用、安装包用户无 PR 通道；带证据的沉淀才有上游价值 | 2026-07-08 |
+| KD-13 | PR3（HookOverrideStore）归属：F237 线出实现，F257 驱动优先级 + 消费侧契约（enable/disable/setContentOverride/getActiveVersion/rollback + **listOverrides 全量枚举** + **override 变更事件流**（变更驱动触发的依赖）+ safetyTier 门控，disableable=false 豁免清单进 ledger 登记）；「逐 hook trace 持久化桥」为独立工作项随 PR3 对齐归属（合入后重验：TraceEvent 仍被 drain） | opus 层权分离论证（F257 自建 = scope leak）+ Fable 消费侧需求补充；#1075 已合入使 PR3 可直接基于 main 开发 | 2026-07-09 |
 
 ## Timeline
 
@@ -234,7 +235,8 @@ Registry 浏览（四层筛选 / status / last-triggered / 30d stats）+ 单锅�
 | 2026-07-07 | co-creator 指示继续，Design Gate 结论写回 spec；记录 SC-003 thread/spec drift |
 | 2026-07-07 | Session #2 补充 in_context_observability 决策字段 + 更新 harness-eval.md cell（Design Gate 完整收束） |
 | 2026-07-07 | co-creator 方向质疑（"改了好像也没用"）→ 修补环显式建模（KD-9）+ 开工顺序调转"问题先行，账本伴生"（KD-10）+ AC-A0 换判据；记录 SC-004 |
-| 2026-07-08 | co-creator 七问 → 能力盘点 gap 分析（`86ac0ab41`，记录 SC-005）；三重定 + 共创邀请 → 四猫体感征集（A1 公理三样本，`8b593dfd5`）；v0 草案（`0bf619d3c`）→ codex 落地 review（4P1+6P2，放行方向）→ v0.1 修入 + spec Phase A 对齐（KD-11） |
+| 2026-07-08 | co-creator 七问 → 能力盘点 gap 分析（`86ac0ab41`，记录 SC-005）；三重定 + 共创邀请 → 四猫体感征集（A1 公理三样本，`8b593dfd5`）；v0 草案（`0bf619d3c`）→ codex 落地 review（4P1+6P2，放行方向）→ v0.1 修入 + spec Phase A 对齐（KD-11）；否 git PR 直改 → v0.2 override-first（KD-12）；五问 gate → v0.3 |
+| 2026-07-09 | **#1075 合入 main（`ebffcd8e5`）**：46 hook.yaml 就位、段口径切换；重验证实逐段 TraceEvent 仍被 drain → 「trace 持久化桥」独立工作项；PR3 归属共识落账（KD-13） |
 
 ## In-context Observability（明厨亮灶决策）
 

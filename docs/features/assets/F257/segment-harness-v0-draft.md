@@ -37,7 +37,7 @@ created: 2026-07-08
 - **Week 1 默认（半精确）**：`threadId + catId + timestamp window + guardId`，事件带 `correlationConfidence: 'window'`——T2a 差分在窗口置信度上就能算（版本前后违规率对比不需要逐 turn 精确归属）
 - **后续增强（精确）**：trace summary 持久化 invocationId 或建 `traceTurnId ↔ invocationId` bridge；guard event 统一带可用 invocationId；confidence 升 `'exact'`。作为独立小工作项，不阻塞 Week 1
 
-段侧粒度：现为 aggregate（#1029 v0）；**#1075 仍 open 且其 diff 中 route 仍走 v0 trace 持久化路径——不承诺"合入后自动逐段"，以合入后的实际 AC/code 为准重验 join 通路**（codex P2-6）。
+段侧粒度（**2026-07-09 合入后重验**）：#1075 已合入 main（`ebffcd8e5`），46 hook.yaml 就位，**段口径正式切换为 hook manifest（46）**。但重验证实 codex 预判：合入版 route-serial 仍 `drainCapturedTraces()`（L698/804/893），持久化仍走 v0 `collectTrace`（L879）——**逐 hook TraceEvent 已生成但被丢弃**。粒度从 aggregate 升逐段还差一个「trace 持久化桥」工作项（把 drain 掉的 TraceEvent[] 接入持久化），归属随 PR3 一并与 F237 线对齐（KD-13）。Week 1 设计不受影响（窗口 correlation + aggregate 本就够 T2a）。
 
 ### 2.1b GuardRejectionEventLog（v0.1 重写，codex P1-3）
 
