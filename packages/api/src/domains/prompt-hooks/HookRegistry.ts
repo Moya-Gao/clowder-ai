@@ -8,13 +8,21 @@
 
 import { existsSync, lstatSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import type { HookManifest, HookStage, RegisteredHook } from '@cat-cafe/shared';
+import type {
+  HookManifest,
+  HookOverride,
+  HookOverrideSnapshot,
+  HookStage,
+  RegisteredHook,
+  TraceEventDisabled,
+} from '@cat-cafe/shared';
 import { parseHookManifest } from './hook-manifest-parser.js';
 
 export class HookRegistry {
   private hooks = new Map<string, RegisteredHook>();
   private readonly hooksDir: string;
   private readonly templatesDir: string | null;
+  private overrideSnapshot: HookOverrideSnapshot | null = null;
 
   /**
    * @param hooksDir - Directory containing hook subdirectories (each with hook.yaml)
@@ -129,16 +137,57 @@ export class HookRegistry {
     return [...this.hooks.values()];
   }
 
-  /** Check if hook is enabled (baseline only — override resolution in P2-D). */
+  // ---------------------------------------------------------------------------
+  // Override snapshot (PR3: loaded async, used sync in pipeline hot-path)
+  // ---------------------------------------------------------------------------
+
+  /** Set the override snapshot for sync resolution during pipeline execution. */
+  setOverrideSnapshot(snapshot: HookOverrideSnapshot): void {
+    this.overrideSnapshot = snapshot;
+  }
+
+  /** Clear override snapshot (e.g., between invocations). */
+  clearOverrideSnapshot(): void {
+    this.overrideSnapshot = null;
+  }
+
+  /** Get raw override for a hook (null = no override). */
+  getOverride(hookId: string): HookOverride | null {
+    return this.overrideSnapshot?.get(hookId) ?? null;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Override-aware queries (manifest baseline + override layer)
+  // ---------------------------------------------------------------------------
+
+  /** Check if hook is enabled (override takes precedence over manifest). */
   isEnabled(hookId: string): boolean {
+    const override = this.overrideSnapshot?.get(hookId);
+    if (override?.enabled !== undefined) return override.enabled;
     const hook = this.hooks.get(hookId);
     return hook?.manifest.enabled ?? false;
   }
 
-  /** Get active version (baseline only — override resolution in P2-D). */
+  /** Get active version (override contentVersion if set, else manifest version). */
   getActiveVersion(hookId: string): number {
+    const override = this.overrideSnapshot?.get(hookId);
+    if (override?.contentVersion !== undefined) return override.contentVersion;
     const hook = this.hooks.get(hookId);
     return hook?.manifest.version ?? 0;
+  }
+
+  /** Get content override for a hook (undefined = use manifest template). */
+  getContentOverride(hookId: string): string | undefined {
+    return this.overrideSnapshot?.get(hookId)?.contentOverride;
+  }
+
+  /** Determine who disabled this hook — for TraceEventDisabled.disabledBy. */
+  getDisabledBySource(hookId: string): TraceEventDisabled['disabledBy'] {
+    const override = this.overrideSnapshot?.get(hookId);
+    if (override?.enabled === false) {
+      return override.source === 'auto-eval' ? 'auto-eval' : 'operator';
+    }
+    return 'manifest';
   }
 
   /** Total number of registered hooks. */
