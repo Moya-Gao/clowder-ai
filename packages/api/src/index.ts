@@ -1600,6 +1600,15 @@ async function main(): Promise<void> {
   const { InjectionTraceStore: _ITSEarly } = await import('./domains/prompt-hooks/InjectionTraceStore.js');
   const injectionTraceStore = redis ? new _ITSEarly(redis) : undefined;
 
+  // F237 PR3: HookOverrideStore — per-workspace runtime override layer.
+  // Wire into PipelinePromptBuilder singleton so refreshOverrideSnapshot()
+  // can load overrides before synchronous pipeline execution.
+  if (redis) {
+    const { HookOverrideStore } = await import('./domains/prompt-hooks/HookOverrideStore.js');
+    const { setOverrideStore } = await import('./domains/prompt-hooks/PipelinePromptBuilder.js');
+    setOverrideStore(new HookOverrideStore(redis));
+  }
+
   // Shared AgentRouter — used by messagesRoutes and invocationsRoutes
   router = new AgentRouter({
     agentRegistry,

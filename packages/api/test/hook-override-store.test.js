@@ -63,6 +63,21 @@ class FakeRedis {
     return 1;
   }
 
+  async zremrangebyscore(key, min, max) {
+    const s = this.sorted.get(key);
+    if (!s) return 0;
+    const minN = typeof min === 'number' ? min : 0;
+    const maxN = typeof max === 'number' ? max : Infinity;
+    let removed = 0;
+    for (const [member, score] of [...s.entries()]) {
+      if (score >= minN && score <= maxN) {
+        s.delete(member);
+        removed++;
+      }
+    }
+    return removed;
+  }
+
   async zrangebyscore(key, min, max, ...args) {
     const s = this.sorted.get(key);
     if (!s) return [];
@@ -414,6 +429,141 @@ describe('HookRegistry override integration', () => {
     );
 
     assert.equal(registry.getDisabledBySource('D5'), 'auto-eval');
+
+    rmSync(dir, { recursive: true, force: true });
+  });
+});
+
+describe('End-to-end: HookOverrideStore → HookRegistry → HookPipeline', () => {
+  test('disable override suppresses hook in pipeline output', async () => {
+    const { mkdirSync, writeFileSync, rmSync } = await import('node:fs');
+    const { join } = await import('node:path');
+
+    // Set up two hooks: H1 (will be disabled via override) and H2 (baseline)
+    const dir = join(import.meta.dirname, '__fixtures__', 'e2e-override-test');
+    rmSync(dir, { recursive: true, force: true });
+    for (const id of ['h1', 'h2']) {
+      mkdirSync(join(dir, id), { recursive: true });
+      writeFileSync(
+        join(dir, id, 'hook.yaml'),
+        [
+          `id: ${id.toUpperCase()}`,
+          `name: Test ${id.toUpperCase()}`,
+          'stage: session-init',
+          `order: ${id === 'h1' ? 100 : 200}`,
+          'version: 1',
+          'enabled: true',
+          `template: ${id}.md`,
+          'inputs: []',
+          'disableable: true',
+          'safetyTier: editable',
+          'transparencyTier: visible-by-default',
+          'governanceTier: immutable',
+        ].join('\n'),
+      );
+      writeFileSync(join(dir, id, `${id}.md`), `Content from ${id.toUpperCase()}`);
+    }
+
+    const { HookRegistry } = await import('../dist/domains/prompt-hooks/HookRegistry.js');
+    const { HookPipeline } = await import('../dist/domains/prompt-hooks/HookPipeline.js');
+    const { HookOverrideStore } = await import('../dist/domains/prompt-hooks/HookOverrideStore.js');
+
+    const redis = new FakeRedis();
+    const store = new HookOverrideStore(redis);
+    const registry = new HookRegistry(dir);
+    registry.scan();
+
+    // Baseline: both hooks fire
+    const pipeline1 = new HookPipeline(registry, new Map(), (id) => `Content from ${id}`);
+    const input = { catId: 'opus' };
+    const baseline = pipeline1.executeStage('session-init', input);
+    assert.equal(baseline.patches.length, 2, 'Both hooks fire at baseline');
+    assert.equal(baseline.events.filter((e) => e.status === 'fired').length, 2);
+
+    // Disable H1 via override store → load snapshot → inject into registry
+    const h1Manifest = registry.getHook('H1').manifest;
+    await store.disable('H1', h1Manifest, 'opus', { reason: 'e2e test' });
+    const snapshot = await store.loadSnapshot();
+    registry.setOverrideSnapshot(snapshot);
+
+    // After override: only H2 fires, H1 is disabled
+    const pipeline2 = new HookPipeline(registry, new Map(), (id) => `Content from ${id}`);
+    const overridden = pipeline2.executeStage('session-init', input);
+    assert.equal(overridden.patches.length, 1, 'Only H2 fires after H1 disabled');
+    assert.equal(overridden.patches[0].hookId, 'H2');
+    const disabledEvent = overridden.events.find((e) => e.hookId === 'H1');
+    assert.equal(disabledEvent.status, 'disabled');
+    assert.equal(disabledEvent.disabledBy, 'operator');
+
+    // Rollback H1 → clears override → both fire again
+    await store.rollback('H1', 'opus');
+    const snapshot2 = await store.loadSnapshot();
+    registry.setOverrideSnapshot(snapshot2);
+
+    const pipeline3 = new HookPipeline(registry, new Map(), (id) => `Content from ${id}`);
+    const restored = pipeline3.executeStage('session-init', input);
+    assert.equal(restored.patches.length, 2, 'Both hooks fire after rollback');
+
+    // Verify event stream records the full lifecycle
+    const events = await store.listEvents();
+    assert.equal(events.length, 2); // disable + rollback
+    assert.equal(events[0].action, 'disable');
+    assert.equal(events[0].reason, 'e2e test');
+    assert.equal(events[1].action, 'rollback');
+
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('content override changes pipeline output', async () => {
+    const { mkdirSync, writeFileSync, rmSync } = await import('node:fs');
+    const { join } = await import('node:path');
+
+    const dir = join(import.meta.dirname, '__fixtures__', 'e2e-content-test');
+    rmSync(dir, { recursive: true, force: true });
+    mkdirSync(join(dir, 'h1'), { recursive: true });
+    writeFileSync(
+      join(dir, 'h1', 'hook.yaml'),
+      [
+        'id: H1',
+        'name: Test H1',
+        'stage: session-init',
+        'order: 100',
+        'version: 1',
+        'enabled: true',
+        'template: h1.md',
+        'inputs: []',
+        'disableable: true',
+        'safetyTier: editable',
+        'transparencyTier: visible-by-default',
+        'governanceTier: immutable',
+      ].join('\n'),
+    );
+    writeFileSync(join(dir, 'h1', 'h1.md'), 'Original baseline content');
+
+    const { HookRegistry } = await import('../dist/domains/prompt-hooks/HookRegistry.js');
+    const { HookPipeline } = await import('../dist/domains/prompt-hooks/HookPipeline.js');
+    const { HookOverrideStore } = await import('../dist/domains/prompt-hooks/HookOverrideStore.js');
+
+    const redis = new FakeRedis();
+    const store = new HookOverrideStore(redis);
+    const registry = new HookRegistry(dir);
+    registry.scan();
+
+    // Set content override
+    const manifest = registry.getHook('H1').manifest;
+    await store.setContentOverride('H1', manifest, 'Overridden by operator', 'opus');
+    const snapshot = await store.loadSnapshot();
+    registry.setOverrideSnapshot(snapshot);
+
+    // Pipeline should use overridden content
+    const pipeline = new HookPipeline(registry, new Map(), (id) => `Rendered ${id}`);
+    const result = pipeline.executeStage('session-init', { catId: 'opus' });
+    assert.equal(result.patches.length, 1);
+    assert.equal(result.patches[0].content, 'Overridden by operator');
+
+    // Version in trace should be content version from override
+    const firedEvent = result.events.find((e) => e.status === 'fired');
+    assert.equal(firedEvent.version, 1); // contentVersion = 1
 
     rmSync(dir, { recursive: true, force: true });
   });

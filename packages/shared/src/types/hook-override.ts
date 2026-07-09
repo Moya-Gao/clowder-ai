@@ -48,6 +48,8 @@ export interface OverrideChangeEvent {
   source: HookOverrideSource;
   timestamp: number;
   actorId: string;
+  /** Why this change was made (audit trail). */
+  reason?: string;
 }
 
 // ---------------------------------------------------------------------------

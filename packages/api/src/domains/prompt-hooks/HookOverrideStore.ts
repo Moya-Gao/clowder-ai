@@ -52,6 +52,9 @@ export class OverrideGateError extends Error {
 // ---------------------------------------------------------------------------
 
 export class HookOverrideStore {
+  /** Monotonic counter for event ID uniqueness within a process. */
+  private eventSeq = 0;
+
   constructor(
     private readonly redis: RedisClient,
     private readonly defaultWorkspaceId = 'default',
@@ -80,7 +83,7 @@ export class HookOverrideStore {
     hookId: string,
     manifest: HookManifest,
     actorId: string,
-    opts?: { source?: HookOverrideSource; workspaceId?: string },
+    opts?: { source?: HookOverrideSource; workspaceId?: string; reason?: string },
   ): Promise<void> {
     const ws = opts?.workspaceId ?? this.defaultWorkspaceId;
     const source = opts?.source ?? 'operator';
@@ -94,14 +97,14 @@ export class HookOverrideStore {
       updatedBy: actorId,
     };
     await this.redis.hset(OVERRIDE_HASH(ws), hookId, JSON.stringify(override));
-    await this.recordEvent(ws, hookId, 'enable', source, actorId);
+    await this.recordEvent(ws, hookId, 'enable', source, actorId, opts?.reason);
   }
 
   async disable(
     hookId: string,
     manifest: HookManifest,
     actorId: string,
-    opts?: { source?: HookOverrideSource; workspaceId?: string },
+    opts?: { source?: HookOverrideSource; workspaceId?: string; reason?: string },
   ): Promise<void> {
     this.assertDisableable(manifest);
     const ws = opts?.workspaceId ?? this.defaultWorkspaceId;
@@ -116,7 +119,7 @@ export class HookOverrideStore {
       updatedBy: actorId,
     };
     await this.redis.hset(OVERRIDE_HASH(ws), hookId, JSON.stringify(override));
-    await this.recordEvent(ws, hookId, 'disable', source, actorId);
+    await this.recordEvent(ws, hookId, 'disable', source, actorId, opts?.reason);
   }
 
   async setContentOverride(
@@ -124,7 +127,7 @@ export class HookOverrideStore {
     manifest: HookManifest,
     content: string,
     actorId: string,
-    opts?: { source?: HookOverrideSource; workspaceId?: string },
+    opts?: { source?: HookOverrideSource; workspaceId?: string; reason?: string },
   ): Promise<void> {
     const source = opts?.source ?? 'operator';
     this.assertContentEditable(manifest, source);
@@ -140,13 +143,13 @@ export class HookOverrideStore {
       updatedBy: actorId,
     };
     await this.redis.hset(OVERRIDE_HASH(ws), hookId, JSON.stringify(override));
-    await this.recordEvent(ws, hookId, 'content-set', source, actorId);
+    await this.recordEvent(ws, hookId, 'content-set', source, actorId, opts?.reason);
   }
 
   async clearContentOverride(
     hookId: string,
     actorId: string,
-    opts?: { source?: HookOverrideSource; workspaceId?: string },
+    opts?: { source?: HookOverrideSource; workspaceId?: string; reason?: string },
   ): Promise<void> {
     const ws = opts?.workspaceId ?? this.defaultWorkspaceId;
     const source = opts?.source ?? 'operator';
@@ -160,18 +163,18 @@ export class HookOverrideStore {
       updatedBy: actorId,
     };
     await this.redis.hset(OVERRIDE_HASH(ws), hookId, JSON.stringify(override));
-    await this.recordEvent(ws, hookId, 'content-clear', source, actorId);
+    await this.recordEvent(ws, hookId, 'content-clear', source, actorId, opts?.reason);
   }
 
   async rollback(
     hookId: string,
     actorId: string,
-    opts?: { source?: HookOverrideSource; workspaceId?: string },
+    opts?: { source?: HookOverrideSource; workspaceId?: string; reason?: string },
   ): Promise<void> {
     const ws = opts?.workspaceId ?? this.defaultWorkspaceId;
     const source = opts?.source ?? 'operator';
     await this.redis.hdel(OVERRIDE_HASH(ws), hookId);
-    await this.recordEvent(ws, hookId, 'rollback', source, actorId);
+    await this.recordEvent(ws, hookId, 'rollback', source, actorId, opts?.reason);
   }
 
   // -- Read operations ------------------------------------------------------
@@ -240,9 +243,12 @@ export class HookOverrideStore {
     action: OverrideAction,
     source: HookOverrideSource,
     actorId: string,
+    reason?: string,
   ): Promise<void> {
     const timestamp = Date.now();
-    const eventId = `${timestamp}-${hookId}-${action}`;
+    // Monotonic seq suffix prevents collision on same-ms same-hook writes (P2 fix)
+    const seq = this.eventSeq++;
+    const eventId = `${timestamp}-${hookId}-${action}-${seq}`;
     const event: OverrideChangeEvent = {
       eventId,
       hookId,
@@ -251,8 +257,12 @@ export class HookOverrideStore {
       source,
       timestamp,
       actorId,
+      ...(reason ? { reason } : {}),
     };
     await this.redis.set(EVENT_KEY(workspaceId, eventId), JSON.stringify(event), 'EX', EVENT_TTL_SECONDS);
     await this.redis.zadd(EVENT_ZSET(workspaceId), timestamp, eventId);
+    // Prune ZSET entries older than TTL to prevent stale index accumulation (P2 fix)
+    const pruneThreshold = timestamp - EVENT_TTL_SECONDS * 1000;
+    await this.redis.zremrangebyscore(EVENT_ZSET(workspaceId), 0, pruneThreshold);
   }
 }
