@@ -8,7 +8,7 @@ created: 2026-07-08
 # 段 Harness v0 设计草案（首个试验品：prompt 段 + SOP）
 
 > 输入：capability-gap-analysis.md（基建盘点+方向重定）、harness-body-inputs.md（三猫体感+A1 公理+join 验证）、seed-cases SC-001~005、co-creator 约束（事件驱动/不轮询/不自动改段/approve 边界）。
-> 状态：**draft-v0.3**——v0.1 = codex 落地 review（4P1+6P2+3 残留）修入 + spec 对齐；v0.2 = 迭代面 override-first 重写（KD-12）；v0.3 = **开发前五问深化**（§9：tracing 双侧最小充分集 / 三档事件触发 / 净价值指标 / 三层判定+停止条件 / 消融优先的三种改法）。架构定调：#1075 = 基础层，F257 = 其上的 auto harness 层。待 co-creator 对齐开工。
+> 状态：**draft-v0.4**（v0.4 = tracing 关联模型修正 + stage-adjust 维度 + override store 必做 + dogfood 验收路径）；v0.3——v0.1 = codex 落地 review（4P1+6P2+3 残留）修入 + spec 对齐；v0.2 = 迭代面 override-first 重写（KD-12）；v0.3 = **开发前五问深化**（§9：tracing 双侧最小充分集 / 三档事件触发 / 净价值指标 / 三层判定+停止条件 / 消融优先的三种改法）。架构定调：#1075 = 基础层，F257 = 其上的 auto harness 层。待 co-creator 对齐开工。
 
 ## 0. 一句话定义
 
@@ -131,6 +131,20 @@ phase-boundary drift 检查卡（砚砚最想要，一卡拦 SC-002/003/004）�
 
 **迭代环开动条件（v0.2）**：override 层就绪（#1075 + PR3 `HookOverrideStore`）。就绪前评估只读不动段；PR3 的归属与优先级与 F237 线对齐，作为开工后并行协调事项，不阻塞观测评估建设。
 
+**v0.4 升级（2026-07-09 co-creator 拍板）**：`HookOverrideStore` 从"前提"升为**必做项、优先级提前**——"否则没法做 auto harness"；直改段原文除未验证固化外还有两个问题：与上游数据不一致 + 同步代码冲突。
+
+**验收路径（co-creator 定调，取代泛化时间线）**：
+```
+改动 → 合入本地集成分支 → co-creator 真实开发使用（dogfood）
+→ 自动发现问题 + 优化通知 + 审批 → 审批后迭代
+→ 至少 2~3 轮自动优化迭代 → 实证「自动生效 + 优化有效」
+→ 带自动迭代证据链往上游提 PR（证明可推广）
+→ 而后才扩展其他 harness unit（基础功能 / MCP / skill）
+```
+段是第一个 harness unit；上游 PR 的说服力 = 我们自己家 2-3 轮迭代的证据链。触发入口形态开放（skill 只是候选之一，不锁定）。
+
+**F237 scope 综合（进行中）**：F237 下阶段 = 段的完整评估处理（不止 Console UI）；F257 向其输送审计证据 / A1 公理 / 判定设计 / 收敛模型，分工沟通中（见工作 thread）。
+
 **里程碑判据**（对齐 AC-A0 精神）：≥1 个段完成完整五环（评估 candidate → approve → 修补 → 版本差分显示违规下降 or 证伪）。走不通 = 设计证伪，停下重议，沉没成本 = 一个 event log + 一份静态报告。
 
 ## 7. 改动范围
@@ -155,7 +169,17 @@ phase-boundary drift 检查卡（砚砚最想要，一卡拦 SC-002/003/004）�
 
 > "开发之前，你需要先好好想想：怎么 tracing / 怎么触发 / 怎么 eval / eval 什么 / 怎么改（启禁用段还是修改段内容）"。架构关系定调：#1075 是基础层，F257 是其上的 auto harness 层。
 
-### 10.1 怎么 tracing —— 双侧最小充分集
+### 10.1 怎么 tracing —— 双侧最小充分集（v0.4 修正：关联模型）
+
+> **2026-07-09 co-creator 修正**：console manifest API 只是静态清单/预览面，**不是评估数据源**——"直接根据 console 接口看到的来评估脱离实际"。评估需要**运行时关联数据**：
+> - **turn 维度**：该 turn 注入的段列表 × 实际用户输入 × 实际结果（锚点引用 events.jsonl，不复制原文）
+> - **session 维度**：session 级注入 + turn 索引聚合
+>
+> 这解锁一个此前缺失的评估维度——**注入频率/stage 优化**（正好映射 hook 的 S/D stage 结构）：
+> - 某段每 turn 注入 → 数据显示 session 一次即可 → **降频**（省 token）
+> - 某段 session 注入 → 多轮后注意力衰减（行为违规随 turn 深度上升）→ **升频到 turn**
+>
+> verdict 词表增补：`stage-adjust-candidate(session→turn | turn→session)`。
 
 段的价值只能用行为差分证明（公理 A1），所以 tracing 必须**双侧**：
 - **供给侧**（段进了没有）：hookId / 版本（base contentHash + **override 版本**）/ fired|skipped + skip 原因 / token 长度。来源：#1029 现有 + #1075 逐段增强 + override 层版本标注（PR3 就绪后）
