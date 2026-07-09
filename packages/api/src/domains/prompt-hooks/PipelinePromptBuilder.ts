@@ -98,12 +98,20 @@ export function setOverrideStore(store: HookOverrideStore): void {
  * Must be called (await) before any synchronous pipeline execution — the registry
  * resolves overrides synchronously from the snapshot, so it must be pre-loaded.
  *
+ * Forces lazy pipeline init if needed (cold-start: registry may not exist yet
+ * when this is called before the first buildStaticIdentity).
+ *
  * No-ops gracefully if no store is configured (e.g., Redis unavailable).
  */
 export async function refreshOverrideSnapshot(workspaceId?: string): Promise<void> {
-  if (!cachedOverrideStore || !cachedRegistry) return;
+  if (!cachedOverrideStore) return;
+  // Ensure pipeline singleton is initialized — getPipeline() is idempotent,
+  // but on cold start cachedRegistry is null until first getPipeline() call.
+  // Without this, the first invocation's refreshOverrideSnapshot() no-ops
+  // and the first prompt build misses all overrides.
+  if (!cachedRegistry) getPipeline();
   const snapshot = await cachedOverrideStore.loadSnapshot(workspaceId);
-  cachedRegistry.setOverrideSnapshot(snapshot);
+  cachedRegistry!.setOverrideSnapshot(snapshot);
 }
 
 // ---------------------------------------------------------------------------
