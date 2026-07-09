@@ -215,6 +215,25 @@ T1 脚本判定（确定性，CI 可跑）/ T2a 窗口差分（统计——**初
 
 顺序逻辑：**先禁用验证存在价值 → 再内容优化有价值的段 → 后条件收窄注入面**。三种改法全部发生在 override 层（KD-12），全部可即时 rollback。
 
+### 9.6 执行模型四答（2026-07-09 co-creator 追问）
+
+**Q1 tracing 数据放哪**：三层——热层 Redis（注入 trace：InjectionTraceStore 族，summary 永久 + detail 7d；guard/反馈事件：GuardRejectionEventLog ZSET 时间索引，7d）→ 冷层 git（weekly eval 拉取聚合快照进 `docs/harness-feedback/bundles/`，永久可复算）→ 关联锚点引用 events.jsonl（不复制输入输出原文）。
+
+**Q2 eval 谁做/哪做/纠正怎么进评估**：执行者 = `eval:harness-ledger` 域的 **eval cat**（F192 现成机制：域配 evalCat + system thread，cron/触发唤醒）——**不是开发 thread 里的猫**。链路：thread A 纠正发生 → 被纠正猫上报结构化反馈事件（关联段猜测 + threadId + ts）→ 事件**积累不立即评估**（单次纠正样本不足）→ 阈值命中（同段关联事件攒够）调度该段即时评估 / weekly 兜底全扫。**评估按段不按 thread**：eval cat 拉全局段数据，thread A/B 的事件天然汇入同一段的时间线。
+
+**Q3 指标规则放哪/和段一起管理吗/怎么迭代/首版**：
+- schema（类型）：`packages/shared/src/types/harness-judgment.ts`（纯契约）
+- **段判定实例：`assets/prompt-hooks/<hook>/judgment.yaml`——与段同域共管**（改段时判定就在旁边）
+- 评估引擎：`packages/api/src/infrastructure/harness-eval/harness-ledger/`（与 sop evaluator 同层）
+- 全局参数（ε/K/阈值默认）：eval 域 YAML
+- 迭代：指标版本化，verdict 带指标版本；**operator suppress 率高 = 指标不合适信号** → 修订队列；指标改动走 git PR（可在历史数据上回放对比验证）
+- 首版：手写——首批 3 类段（路由/provenance/写回）判定实例源自 30 天审计 + 三猫体感 + seed cases；T1 规则即 opus 三增量；其余段先只有成本指标，效果指标标 unmeasurable 渐进补
+
+**Q4 审批-修改链 + 拒绝反馈环 + 允许静默（三条新决策）**：
+- 通知 → 你确认 → **自动调 override 接口** = 代码行为（PR3 后全自动；PR3 前 accept 后人工执行过渡）
+- **拒绝也是数据**：suppress/reject 落结构化事件 `{verdictId, segmentId, rejectReason, ts}` 进同一时间线；下一轮评估该段时，**历史被拒方案 + 拒因是评估器输入**——不重复提被否建议，或针对拒因给新方案（评估器有记忆）
+- **允许不产生通知（防过拟合铁则）**：合法 verdict 含 `insufficient-data`（数据不足静默继续积累）与 `no-action-needed`（段无实质影响跳过）——**不进审批通知，静默记录**。不为评估而评估。
+
 ## 10. 与理想态的差距（诚实声明）
 
 - 五环全自动是 north star；v0 的归因半自动（阈值开 task，归因本身靠猫）、修补全人工（approve 通道）
