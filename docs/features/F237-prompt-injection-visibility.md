@@ -732,10 +732,10 @@ Phase 2 implementation in 5 sub-phases, each independently shippable:
 - [ ] AC-P2-13: Tier 2 trace adapter API (`observeN2`/`observeM1`/`observeM2` in `trace-adapters.ts`) emits `TraceEventObserved` for N2 + M1-M2 — adapter code + unit tests delivered; production call-site wiring deferred (N2 assembled after trace collection; M1-M2 in invocation layer after route-level trace)
 - [ ] AC-P2-14: Zero behavior change — compiled prompt output identical pre/post migration (with no overrides active)
 - [ ] AC-P2-14a: L0 compiled output equivalence — `compile-system-prompt-l0.mjs` output identical when consuming pipeline-produced L1-L7 content vs direct template loading
-- [ ] AC-P2-15: _(deferred to PR 3)_ Runtime override store (Redis, TTL=0) with two-layer resolution: override ?? manifest baseline
-- [ ] AC-P2-16: _(deferred to PR 3)_ Template override gated by safetyTier — readonly hooks reject template writes, limited-edit/editable hooks accept
-- [ ] AC-P2-17: _(deferred to PR 3)_ Override audit trail: each override records source (operator/auto-eval), timestamp, reason
-- [ ] AC-P2-18: _(deferred to PR 3)_ Override constraint enforcement — `setOverride` rejects: disable on `disableable: false` hooks, template edit on `safetyTier: readonly` hooks, version switch on `governanceTier: immutable` hooks. Returns `OverrideConstraintError` with violated constraint
+- [x] AC-P2-15: _(delivered in PR 3, mindfn#22)_ Runtime override store (Redis, TTL=0) with two-layer resolution: override ?? manifest baseline
+- [x] AC-P2-16: _(delivered in PR 3, mindfn#22)_ Template override gated by safetyTier — readonly hooks reject template writes, limited-edit/editable hooks accept
+- [x] AC-P2-17: _(delivered in PR 3, mindfn#22)_ Override audit trail: field-level provenance (`enabledSource`/`contentSource`) + OverrideChangeEvent stream records source, timestamp, reason (TTL=0)
+- [x] AC-P2-18: _(partial in PR 3, mindfn#22)_ Override constraint enforcement — delivered: disable rejected on `disableable: false`, template edit rejected per `safetyTier` readonly/limited-edit rules (`OverrideGateError` + manifest-tightening reconciliation). Deferred: version-switch gating on `governanceTier: immutable` — v1 ships no arbitrary version-write path (rollback only); gating defers with the version-write feature itself per F257 KD-15
 
 ## Upstream Strategy (Issue #839)
 
@@ -751,7 +751,7 @@ Maintainer accepted our path analysis. Agreed sequencing:
 |----|---------|-----------|
 | **PR 1: InjectionTrace v0** | Trace schema + lightweight instrumentation on current `if/push` + persistence + Console viewer. Zero behavior change. | None |
 | **PR 2: Pipeline migration** | Hook manifests + resolvers + pipeline switchover. Informed by PR 1 trace data + fork prototype. Equivalence proof: ordering, conditions, native L0, transport boundaries. | PR 1 merged + trace data |
-| **PR 3: Override store** | Runtime override layer, auth model, auto-eval writeback. Separate design review. | PR 2 merged |
+| **PR 3: Override store** | Runtime override layer — fork-internal delivery 2026-07-10 (mindfn#22, 59/59 tests; dogfood 2-3 rounds before upstream PR). Scope per F257 KD-15: auth model deferred (store layer has no HTTP surface; lands with approval-executor/console routes), auto-eval writeback deferred (F257 AC-B2 Phase B), version-switch write path + `governanceTier` gating deferred (multi-version runway). Native S/L override = separate runway (L0 compile chain + cache invalidation). | PR 2 merged |
 
 **Rationale:** Maintainer wants upstream to stay low-risk — first PR should not commit the main repo to the hook abstraction before trace data and a reviewed migration argument exist. Fork development avoids throwaway work internally.
 
