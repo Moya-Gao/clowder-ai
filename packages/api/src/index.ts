@@ -1603,10 +1603,14 @@ async function main(): Promise<void> {
   // F237 PR3: HookOverrideStore — per-workspace runtime override layer.
   // Wire into PipelinePromptBuilder singleton so refreshOverrideSnapshot()
   // can load overrides before synchronous pipeline execution.
+  // ManifestLookup is a lazy closure over getCachedRegistry — the registry
+  // may not exist at bootstrap time (lazy-init on first pipeline call),
+  // but will always be available when write methods are actually invoked.
   if (redis) {
     const { HookOverrideStore } = await import('./domains/prompt-hooks/HookOverrideStore.js');
-    const { setOverrideStore } = await import('./domains/prompt-hooks/PipelinePromptBuilder.js');
-    setOverrideStore(new HookOverrideStore(redis));
+    const { setOverrideStore, getCachedRegistry } = await import('./domains/prompt-hooks/PipelinePromptBuilder.js');
+    const manifestLookup = (hookId: string) => getCachedRegistry()?.getHook(hookId)?.manifest;
+    setOverrideStore(new HookOverrideStore(redis, manifestLookup));
   }
 
   // Shared AgentRouter — used by messagesRoutes and invocationsRoutes

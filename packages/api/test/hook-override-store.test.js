@@ -1,5 +1,8 @@
 /**
  * F237 PR3 — HookOverrideStore + HookRegistry override integration tests
+ *
+ * P1 fix (PR #22): manifest is resolved internally via manifestLookup,
+ * not passed by callers — prevents gate bypass via mismatched hookId/manifest.
  */
 
 import assert from 'node:assert/strict';
@@ -113,6 +116,16 @@ function makeManifest(id, overrides = {}) {
   };
 }
 
+/**
+ * Build a manifestLookup function from a set of manifests.
+ * This mirrors the production pattern where the store resolves manifests
+ * from the registry by hookId — callers never pass manifests directly.
+ */
+function buildLookup(...manifests) {
+  const map = new Map(manifests.map((m) => [m.id, m]));
+  return (hookId) => map.get(hookId);
+}
+
 // ── Tests ──
 
 describe('HookOverrideStore', () => {
@@ -120,16 +133,21 @@ describe('HookOverrideStore', () => {
   let store;
   let redis;
 
+  // Default manifests for most tests
+  const S1 = makeManifest('S1');
+  const S2 = makeManifest('S2', { disableable: true });
+  const D5 = makeManifest('D5', { safetyTier: 'editable' });
+  const D8 = makeManifest('D8', { safetyTier: 'limited-edit' });
+
   beforeEach(async () => {
     redis = new FakeRedis();
     const mod = await import('../dist/domains/prompt-hooks/HookOverrideStore.js');
-    store = new mod.HookOverrideStore(redis);
+    store = new mod.HookOverrideStore(redis, buildLookup(S1, S2, D5, D8));
   });
 
   describe('enable/disable', () => {
     test('enable writes override and records event', async () => {
-      const m = makeManifest('S1');
-      await store.enable('S1', m, 'opus');
+      await store.enable('S1', 'opus');
 
       const override = await store.getOverride('S1');
       assert.equal(override.hookId, 'S1');
@@ -144,8 +162,7 @@ describe('HookOverrideStore', () => {
     });
 
     test('disable writes override for disableable hook', async () => {
-      const m = makeManifest('S2', { disableable: true });
-      await store.disable('S2', m, 'codex');
+      await store.disable('S2', 'codex');
 
       const override = await store.getOverride('S2');
       assert.equal(override.enabled, false);
@@ -153,9 +170,13 @@ describe('HookOverrideStore', () => {
     });
 
     test('disable rejects non-disableable hook', async () => {
-      const m = makeManifest('S1', { disableable: false });
+      // Build store with S1 as non-disableable
+      const mod = await import('../dist/domains/prompt-hooks/HookOverrideStore.js');
+      const s1NotDisableable = makeManifest('S1', { disableable: false });
+      const restrictedStore = new mod.HookOverrideStore(redis, buildLookup(s1NotDisableable));
+
       await assert.rejects(
-        () => store.disable('S1', m, 'opus'),
+        () => restrictedStore.disable('S1', 'opus'),
         (err) => {
           assert.equal(err.name, 'OverrideGateError');
           assert.equal(err.gate, 'disableable');
@@ -167,46 +188,46 @@ describe('HookOverrideStore', () => {
 
   describe('content override', () => {
     test('setContentOverride stores content and increments version', async () => {
-      const m = makeManifest('D5', { safetyTier: 'editable' });
-      await store.setContentOverride('D5', m, 'new content v1', 'opus');
+      await store.setContentOverride('D5', 'new content v1', 'opus');
 
       const o1 = await store.getOverride('D5');
       assert.equal(o1.contentOverride, 'new content v1');
       assert.equal(o1.contentVersion, 1);
 
-      await store.setContentOverride('D5', m, 'new content v2', 'opus');
+      await store.setContentOverride('D5', 'new content v2', 'opus');
       const o2 = await store.getOverride('D5');
       assert.equal(o2.contentOverride, 'new content v2');
       assert.equal(o2.contentVersion, 2);
     });
 
     test('setContentOverride rejects readonly safetyTier', async () => {
-      const m = makeManifest('S1', { safetyTier: 'readonly' });
+      // Build store with S1 as readonly
+      const mod = await import('../dist/domains/prompt-hooks/HookOverrideStore.js');
+      const s1Readonly = makeManifest('S1', { safetyTier: 'readonly' });
+      const restrictedStore = new mod.HookOverrideStore(redis, buildLookup(s1Readonly));
+
       await assert.rejects(
-        () => store.setContentOverride('S1', m, 'hack', 'opus'),
+        () => restrictedStore.setContentOverride('S1', 'hack', 'opus'),
         (err) => err.gate === 'safetyTier' && err.manifestValue === 'readonly',
       );
     });
 
     test('setContentOverride rejects limited-edit with auto-eval source', async () => {
-      const m = makeManifest('D8', { safetyTier: 'limited-edit' });
       await assert.rejects(
-        () => store.setContentOverride('D8', m, 'new', 'system', { source: 'auto-eval' }),
+        () => store.setContentOverride('D8', 'new', 'system', { source: 'auto-eval' }),
         (err) => err.gate === 'safetyTier' && err.manifestValue === 'limited-edit',
       );
     });
 
     test('setContentOverride allows limited-edit with operator source', async () => {
-      const m = makeManifest('D8', { safetyTier: 'limited-edit' });
-      await store.setContentOverride('D8', m, 'fixed text', 'operator', { source: 'operator' });
+      await store.setContentOverride('D8', 'fixed text', 'operator', { source: 'operator' });
       const o = await store.getOverride('D8');
       assert.equal(o.contentOverride, 'fixed text');
     });
 
     test('clearContentOverride removes content but keeps other override state', async () => {
-      const m = makeManifest('D5', { safetyTier: 'editable' });
-      await store.disable('D5', m, 'opus');
-      await store.setContentOverride('D5', m, 'override text', 'opus');
+      await store.disable('D5', 'opus');
+      await store.setContentOverride('D5', 'override text', 'opus');
       await store.clearContentOverride('D5', 'opus');
 
       const o = await store.getOverride('D5');
@@ -218,9 +239,8 @@ describe('HookOverrideStore', () => {
 
   describe('rollback', () => {
     test('rollback removes all override state for a hook', async () => {
-      const m = makeManifest('D5');
-      await store.disable('D5', m, 'opus');
-      await store.setContentOverride('D5', m, 'override', 'opus');
+      await store.disable('D5', 'opus');
+      await store.setContentOverride('D5', 'override', 'opus');
       await store.rollback('D5', 'opus');
 
       const o = await store.getOverride('D5');
@@ -238,10 +258,8 @@ describe('HookOverrideStore', () => {
 
   describe('listOverrides + loadSnapshot', () => {
     test('listOverrides returns all overrides for workspace', async () => {
-      const m1 = makeManifest('S1');
-      const m2 = makeManifest('S2');
-      await store.enable('S1', m1, 'opus');
-      await store.disable('S2', m2, 'codex');
+      await store.enable('S1', 'opus');
+      await store.disable('S2', 'codex');
 
       const list = await store.listOverrides();
       assert.equal(list.length, 2);
@@ -250,8 +268,7 @@ describe('HookOverrideStore', () => {
     });
 
     test('loadSnapshot returns ReadonlyMap keyed by hookId', async () => {
-      const m = makeManifest('D5');
-      await store.disable('D5', m, 'opus');
+      await store.disable('D5', 'opus');
       const snapshot = await store.loadSnapshot();
       assert.equal(snapshot.size, 1);
       assert.equal(snapshot.get('D5').enabled, false);
@@ -260,9 +277,8 @@ describe('HookOverrideStore', () => {
 
   describe('per-workspace isolation', () => {
     test('overrides in different workspaces are independent', async () => {
-      const m = makeManifest('S1');
-      await store.enable('S1', m, 'opus', { workspaceId: 'ws-a' });
-      await store.disable('S1', m, 'opus', { workspaceId: 'ws-b' });
+      await store.enable('S1', 'opus', { workspaceId: 'ws-a' });
+      await store.disable('S1', 'opus', { workspaceId: 'ws-b' });
 
       const oA = await store.getOverride('S1', 'ws-a');
       const oB = await store.getOverride('S1', 'ws-b');
@@ -273,9 +289,8 @@ describe('HookOverrideStore', () => {
 
   describe('event stream', () => {
     test('events are recorded with correct fields', async () => {
-      const m = makeManifest('D5');
-      await store.disable('D5', m, 'opus');
-      await store.enable('D5', m, 'codex');
+      await store.disable('D5', 'opus');
+      await store.enable('D5', 'codex');
 
       const events = await store.listEvents();
       assert.equal(events.length, 2);
@@ -283,6 +298,86 @@ describe('HookOverrideStore', () => {
       assert.equal(events[0].actorId, 'opus');
       assert.equal(events[1].action, 'enable');
       assert.equal(events[1].actorId, 'codex');
+    });
+  });
+
+  describe('safety gate — mismatched hookId bypass prevention (P1 regression)', () => {
+    test('disable rejects unknown hookId (fail-closed)', async () => {
+      await assert.rejects(
+        () => store.disable('UNKNOWN', 'opus'),
+        (err) => {
+          assert.equal(err.name, 'OverrideGateError');
+          assert.equal(err.gate, 'unknown-hook');
+          assert.equal(err.hookId, 'UNKNOWN');
+          return true;
+        },
+      );
+    });
+
+    test('enable rejects unknown hookId (fail-closed)', async () => {
+      await assert.rejects(
+        () => store.enable('UNKNOWN', 'opus'),
+        (err) => {
+          assert.equal(err.name, 'OverrideGateError');
+          assert.equal(err.gate, 'unknown-hook');
+          return true;
+        },
+      );
+    });
+
+    test('setContentOverride rejects unknown hookId (fail-closed)', async () => {
+      await assert.rejects(
+        () => store.setContentOverride('UNKNOWN', 'hacked', 'opus'),
+        (err) => {
+          assert.equal(err.name, 'OverrideGateError');
+          assert.equal(err.gate, 'unknown-hook');
+          return true;
+        },
+      );
+    });
+
+    test('cannot disable non-disableable S1 by passing D5 manifest identity — gate uses internal lookup', async () => {
+      // This is the exact codex P1 repro scenario:
+      // Before the fix, caller could pass D5's manifest (disableable:true) with hookId='S1'
+      // to bypass S1's disableable:false gate. Now the store resolves manifest internally.
+      const mod = await import('../dist/domains/prompt-hooks/HookOverrideStore.js');
+      const s1Protected = makeManifest('S1', { disableable: false, safetyTier: 'readonly' });
+      const d5Editable = makeManifest('D5', { disableable: true, safetyTier: 'editable' });
+      const protectedStore = new mod.HookOverrideStore(redis, buildLookup(s1Protected, d5Editable));
+
+      // Attempt to disable S1 — gate must check S1's own manifest (disableable:false), not any other
+      await assert.rejects(
+        () => protectedStore.disable('S1', 'opus'),
+        (err) => {
+          assert.equal(err.name, 'OverrideGateError');
+          assert.equal(err.hookId, 'S1');
+          assert.equal(err.gate, 'disableable');
+          return true;
+        },
+      );
+
+      // Attempt to content-override S1 — gate must check S1's own manifest (readonly), not any other
+      await assert.rejects(
+        () => protectedStore.setContentOverride('S1', 'injected', 'opus'),
+        (err) => {
+          assert.equal(err.name, 'OverrideGateError');
+          assert.equal(err.hookId, 'S1');
+          assert.equal(err.gate, 'safetyTier');
+          assert.equal(err.manifestValue, 'readonly');
+          return true;
+        },
+      );
+
+      // D5 should still work (its own manifest is permissive)
+      await protectedStore.disable('D5', 'opus');
+      await protectedStore.setContentOverride('D5', 'legitimate override', 'opus');
+      const d5Override = await protectedStore.getOverride('D5');
+      assert.equal(d5Override.enabled, false);
+      assert.equal(d5Override.contentOverride, 'legitimate override');
+
+      // S1 must remain untouched
+      const s1Override = await protectedStore.getOverride('S1');
+      assert.equal(s1Override, null);
     });
   });
 });
@@ -469,9 +564,12 @@ describe('End-to-end: HookOverrideStore → HookRegistry → HookPipeline', () =
     const { HookOverrideStore } = await import('../dist/domains/prompt-hooks/HookOverrideStore.js');
 
     const redis = new FakeRedis();
-    const store = new HookOverrideStore(redis);
     const registry = new HookRegistry(dir);
     registry.scan();
+
+    // Build store with registry-backed manifest lookup
+    const manifestLookup = (hookId) => registry.getHook(hookId)?.manifest;
+    const store = new HookOverrideStore(redis, manifestLookup);
 
     // Baseline: both hooks fire
     const pipeline1 = new HookPipeline(registry, new Map(), (id) => `Content from ${id}`);
@@ -481,8 +579,7 @@ describe('End-to-end: HookOverrideStore → HookRegistry → HookPipeline', () =
     assert.equal(baseline.events.filter((e) => e.status === 'fired').length, 2);
 
     // Disable H1 via override store → load snapshot → inject into registry
-    const h1Manifest = registry.getHook('H1').manifest;
-    await store.disable('H1', h1Manifest, 'opus', { reason: 'e2e test' });
+    await store.disable('H1', 'opus', { reason: 'e2e test' });
     const snapshot = await store.loadSnapshot();
     registry.setOverrideSnapshot(snapshot);
 
@@ -545,13 +642,15 @@ describe('End-to-end: HookOverrideStore → HookRegistry → HookPipeline', () =
     const { HookOverrideStore } = await import('../dist/domains/prompt-hooks/HookOverrideStore.js');
 
     const redis = new FakeRedis();
-    const store = new HookOverrideStore(redis);
     const registry = new HookRegistry(dir);
     registry.scan();
 
+    // Build store with registry-backed manifest lookup
+    const manifestLookup = (hookId) => registry.getHook(hookId)?.manifest;
+    const store = new HookOverrideStore(redis, manifestLookup);
+
     // Set content override
-    const manifest = registry.getHook('H1').manifest;
-    await store.setContentOverride('H1', manifest, 'Overridden by operator', 'opus');
+    await store.setContentOverride('H1', 'Overridden by operator', 'opus');
     const snapshot = await store.loadSnapshot();
     registry.setOverrideSnapshot(snapshot);
 

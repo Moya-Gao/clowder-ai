@@ -3,7 +3,9 @@
  *
  * Redis-backed per-workspace override layer for prompt hook management.
  * Provides enable/disable, content override, rollback, and change event tracking.
- * Enforces safetyTier/disableable gating from hook manifests.
+ * Enforces safetyTier/disableable gating by internally resolving the manifest
+ * from a registry lookup — callers never pass manifests, preventing gate bypass
+ * via mismatched hookId/manifest pairs (codex P1 finding, PR #22).
  *
  * Storage layout:
  *   HASH  hook-override:{workspaceId}        — { hookId → JSON(HookOverride) }
@@ -19,6 +21,13 @@ import type {
   OverrideChangeEvent,
 } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
+
+// ---------------------------------------------------------------------------
+// Manifest lookup (injected at construction — decoupled from HookRegistry)
+// ---------------------------------------------------------------------------
+
+/** Resolves a HookManifest by hookId. Returns undefined for unknown hooks. */
+export type ManifestLookup = (hookId: string) => HookManifest | undefined;
 
 // ---------------------------------------------------------------------------
 // Redis key helpers
@@ -39,7 +48,7 @@ export class OverrideGateError extends Error {
   constructor(
     public readonly hookId: string,
     public readonly action: string,
-    public readonly gate: 'disableable' | 'safetyTier',
+    public readonly gate: 'disableable' | 'safetyTier' | 'unknown-hook',
     public readonly manifestValue: string | boolean,
   ) {
     super(`Override rejected: hook '${hookId}' ${action} blocked by ${gate}=${String(manifestValue)}`);
@@ -57,23 +66,40 @@ export class HookOverrideStore {
 
   constructor(
     private readonly redis: RedisClient,
+    private readonly manifestLookup: ManifestLookup,
     private readonly defaultWorkspaceId = 'default',
   ) {}
 
-  // -- Gate enforcement -----------------------------------------------------
+  // -- Manifest resolution (fail-closed) ------------------------------------
 
-  private assertDisableable(manifest: HookManifest): void {
+  /**
+   * Resolve the canonical manifest for a hookId from the registry.
+   * Fail-closed: unknown hookId → OverrideGateError (cannot override unknown hooks).
+   */
+  private resolveManifest(hookId: string): HookManifest {
+    const manifest = this.manifestLookup(hookId);
+    if (!manifest) {
+      throw new OverrideGateError(hookId, 'resolve', 'unknown-hook', 'not-found');
+    }
+    return manifest;
+  }
+
+  // -- Gate enforcement (uses internal lookup, never caller-provided) --------
+
+  private assertDisableable(hookId: string): void {
+    const manifest = this.resolveManifest(hookId);
     if (!manifest.disableable) {
-      throw new OverrideGateError(manifest.id, 'disable', 'disableable', false);
+      throw new OverrideGateError(hookId, 'disable', 'disableable', false);
     }
   }
 
-  private assertContentEditable(manifest: HookManifest, source: HookOverrideSource): void {
+  private assertContentEditable(hookId: string, source: HookOverrideSource): void {
+    const manifest = this.resolveManifest(hookId);
     if (manifest.safetyTier === 'readonly') {
-      throw new OverrideGateError(manifest.id, 'content-set', 'safetyTier', 'readonly');
+      throw new OverrideGateError(hookId, 'content-set', 'safetyTier', 'readonly');
     }
     if (manifest.safetyTier === 'limited-edit' && source !== 'operator') {
-      throw new OverrideGateError(manifest.id, 'content-set', 'safetyTier', 'limited-edit');
+      throw new OverrideGateError(hookId, 'content-set', 'safetyTier', 'limited-edit');
     }
   }
 
@@ -81,10 +107,10 @@ export class HookOverrideStore {
 
   async enable(
     hookId: string,
-    manifest: HookManifest,
     actorId: string,
     opts?: { source?: HookOverrideSource; workspaceId?: string; reason?: string },
   ): Promise<void> {
+    this.resolveManifest(hookId); // validate hookId is known (fail-closed)
     const ws = opts?.workspaceId ?? this.defaultWorkspaceId;
     const source = opts?.source ?? 'operator';
     const existing = await this.getOverride(hookId, ws);
@@ -102,11 +128,10 @@ export class HookOverrideStore {
 
   async disable(
     hookId: string,
-    manifest: HookManifest,
     actorId: string,
     opts?: { source?: HookOverrideSource; workspaceId?: string; reason?: string },
   ): Promise<void> {
-    this.assertDisableable(manifest);
+    this.assertDisableable(hookId);
     const ws = opts?.workspaceId ?? this.defaultWorkspaceId;
     const source = opts?.source ?? 'operator';
     const existing = await this.getOverride(hookId, ws);
@@ -124,13 +149,12 @@ export class HookOverrideStore {
 
   async setContentOverride(
     hookId: string,
-    manifest: HookManifest,
     content: string,
     actorId: string,
     opts?: { source?: HookOverrideSource; workspaceId?: string; reason?: string },
   ): Promise<void> {
     const source = opts?.source ?? 'operator';
-    this.assertContentEditable(manifest, source);
+    this.assertContentEditable(hookId, source);
     const ws = opts?.workspaceId ?? this.defaultWorkspaceId;
     const existing = await this.getOverride(hookId, ws);
     const override: HookOverride = {
