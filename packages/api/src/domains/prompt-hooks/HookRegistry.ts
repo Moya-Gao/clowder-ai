@@ -176,10 +176,21 @@ export class HookRegistry {
     return hook?.manifest.enabled ?? false;
   }
 
-  /** Get active version (override contentVersion if set, else manifest version). */
+  /**
+   * Get active version — the version that matches what the pipeline actually renders.
+   * Only reports override contentVersion when the content override is actually
+   * honored by getContentOverride(); otherwise falls back to manifest version.
+   *
+   * Sol P2 fix: without this guard, trace reports stale contentVersion (e.g. v99)
+   * while rendering uses baseline (v1) — polluting F257 version diff evidence.
+   */
   getActiveVersion(hookId: string): number {
-    const override = this.overrideSnapshot?.get(hookId);
-    if (override?.contentVersion !== undefined) return override.contentVersion;
+    // Delegate to getContentOverride() for consistency — it already enforces
+    // readonly / limited-edit + contentSource provenance checks.
+    if (this.getContentOverride(hookId) !== undefined) {
+      const override = this.overrideSnapshot?.get(hookId);
+      if (override?.contentVersion !== undefined) return override.contentVersion;
+    }
     const hook = this.hooks.get(hookId);
     return hook?.manifest.version ?? 0;
   }

@@ -1162,4 +1162,170 @@ describe('HookRegistry defense-in-depth — limited-edit + provenance (sol round
 
     rmSync(dir, { recursive: true, force: true });
   });
+
+  // -- getActiveVersion consistency with getContentOverride (sol P2) ----------
+
+  test('getActiveVersion returns manifest version when content rejected (limited-edit + auto-eval)', async () => {
+    const { mkdirSync, writeFileSync, rmSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const { HookRegistry } = await import('../dist/domains/prompt-hooks/HookRegistry.js');
+
+    const dir = join(import.meta.dirname, '__fixtures__', 'sol-p2-version-rejected');
+    rmSync(dir, { recursive: true, force: true });
+    mkdirSync(join(dir, 'd5'), { recursive: true });
+    writeFileSync(
+      join(dir, 'd5', 'hook.yaml'),
+      [
+        'id: D5',
+        'name: Test D5',
+        'stage: per-turn',
+        'order: 500',
+        'version: 1',
+        'enabled: true',
+        'template: d5.md',
+        'inputs: []',
+        'disableable: true',
+        'safetyTier: limited-edit',
+        'transparencyTier: visible-by-default',
+        'governanceTier: human-gated',
+      ].join('\n'),
+    );
+    writeFileSync(join(dir, 'd5', 'd5.md'), '<!-- D5 baseline -->');
+
+    const registry = new HookRegistry(dir);
+    registry.scan();
+
+    // auto-eval set content (contentVersion=99), then operator enabled (corrupting source)
+    const snapshot = new Map();
+    snapshot.set('D5', {
+      hookId: 'D5',
+      enabled: true,
+      enabledSource: 'operator',
+      contentOverride: 'auto-eval injected v99',
+      contentVersion: 99,
+      contentSource: 'auto-eval',
+      source: 'operator',
+      updatedAt: Date.now(),
+      updatedBy: 'eval-bot',
+    });
+    registry.setOverrideSnapshot(snapshot);
+
+    // Content must be rejected (limited-edit + auto-eval source)
+    assert.equal(registry.getContentOverride('D5'), undefined, 'content rejected');
+    // Version must match what is rendered (manifest v1), NOT stale override v99
+    assert.equal(
+      registry.getActiveVersion('D5'),
+      1,
+      'getActiveVersion returns manifest version when content is rejected (sol P2)',
+    );
+
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('getActiveVersion returns override version when content honored (limited-edit + operator)', async () => {
+    const { mkdirSync, writeFileSync, rmSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const { HookRegistry } = await import('../dist/domains/prompt-hooks/HookRegistry.js');
+
+    const dir = join(import.meta.dirname, '__fixtures__', 'sol-p2-version-honored');
+    rmSync(dir, { recursive: true, force: true });
+    mkdirSync(join(dir, 'd5'), { recursive: true });
+    writeFileSync(
+      join(dir, 'd5', 'hook.yaml'),
+      [
+        'id: D5',
+        'name: Test D5',
+        'stage: per-turn',
+        'order: 500',
+        'version: 1',
+        'enabled: true',
+        'template: d5.md',
+        'inputs: []',
+        'disableable: true',
+        'safetyTier: limited-edit',
+        'transparencyTier: visible-by-default',
+        'governanceTier: human-gated',
+      ].join('\n'),
+    );
+    writeFileSync(join(dir, 'd5', 'd5.md'), '<!-- D5 baseline -->');
+
+    const registry = new HookRegistry(dir);
+    registry.scan();
+
+    const snapshot = new Map();
+    snapshot.set('D5', {
+      hookId: 'D5',
+      contentOverride: 'operator-approved content v3',
+      contentVersion: 3,
+      contentSource: 'operator',
+      source: 'operator',
+      updatedAt: Date.now(),
+      updatedBy: 'human',
+    });
+    registry.setOverrideSnapshot(snapshot);
+
+    // Content must be honored (operator source on limited-edit)
+    assert.equal(registry.getContentOverride('D5'), 'operator-approved content v3', 'content honored');
+    // Version must match override
+    assert.equal(
+      registry.getActiveVersion('D5'),
+      3,
+      'getActiveVersion returns override version when content is honored',
+    );
+
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('getActiveVersion returns manifest version on readonly hook with stale override', async () => {
+    const { mkdirSync, writeFileSync, rmSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const { HookRegistry } = await import('../dist/domains/prompt-hooks/HookRegistry.js');
+
+    const dir = join(import.meta.dirname, '__fixtures__', 'sol-p2-version-readonly');
+    rmSync(dir, { recursive: true, force: true });
+    mkdirSync(join(dir, 'd5'), { recursive: true });
+    writeFileSync(
+      join(dir, 'd5', 'hook.yaml'),
+      [
+        'id: D5',
+        'name: Test D5',
+        'stage: per-turn',
+        'order: 500',
+        'version: 2',
+        'enabled: true',
+        'template: d5.md',
+        'inputs: []',
+        'disableable: false',
+        'safetyTier: readonly',
+        'transparencyTier: visible-by-default',
+        'governanceTier: human-gated',
+      ].join('\n'),
+    );
+    writeFileSync(join(dir, 'd5', 'd5.md'), '<!-- D5 readonly -->');
+
+    const registry = new HookRegistry(dir);
+    registry.scan();
+
+    // Stale override from before manifest tightened to readonly
+    const snapshot = new Map();
+    snapshot.set('D5', {
+      hookId: 'D5',
+      contentOverride: 'stale content from editable era',
+      contentVersion: 50,
+      contentSource: 'operator',
+      source: 'operator',
+      updatedAt: Date.now(),
+      updatedBy: 'human',
+    });
+    registry.setOverrideSnapshot(snapshot);
+
+    assert.equal(registry.getContentOverride('D5'), undefined, 'readonly rejects content');
+    assert.equal(
+      registry.getActiveVersion('D5'),
+      2,
+      'getActiveVersion returns manifest version on readonly hook (sol P2)',
+    );
+
+    rmSync(dir, { recursive: true, force: true });
+  });
 });
