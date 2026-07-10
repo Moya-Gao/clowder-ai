@@ -104,6 +104,10 @@ created: 2026-07-09
 | **T1-F2** | **重复注入** | **redundant-candidate(duplicate)** | **T2a 差分：@ 格式 assertion 减至 1 段后违规率** |
 | T1-F3 | 部分冗余 | alive（各有专有内容） | 低优先，可选合并 identity 声明 |
 | T1-F7 | 撞词 | alive（归 shared-rules） | 非 hook 层可控 |
+| **T1-C6** | **缺段（T3）** | **missing-segment** | **fork develop_base PR 在 CI 盲区**：ci.yml push/PR 只认 `branches: [main]`，PR #22（base=develop_base）零机器验证——operator 04:52 一语点破（"没有谁在验证吧"）。修复 = ci.yml 加 develop_base（1 行），提案已交 operator |
+| **T1-C7** | **缺段（T3）** | **missing-segment** | **公开仓 main 全量 test 内容级破损且 CI 不可见**：`audit-cc-system-prompt.test.js` 在 `ebffcd8e5` 存在，但其 import 的 `scripts/audit-claude-code-system-prompt.mjs`（F203 工具，私仓 PR#1715/#1892 历史）未随导出进入公开仓 → 全量 `pnpm test` 必红；CI 只跑 `resolve-public-test-files.mjs` 子集 → 破损永不可见。证明方法：纯 git 内容对照（`git show ebffcd8e5:<path>`），无需环境 A/B。待开公开仓 issue（修法二选一：补导出 script / public 测试集显式排除该 test） |
+
+> **2026-07-10 merge-gate 加收**（PR3 集成期活体）：T1-C6/C7 都是「验证在假装存在」类缺段——与 A2（建了≠用了）同构：CI 建了但对集成分支不跑；全量测试在但没人跑也没人知道它坏了。另收 O1 正样本 ×2：NODE_ENV 预装 guard、Brand Guard——都是犯错瞬间拦截 + 给出精确修法，照做即过。
 
 ## Timeline
 
@@ -111,3 +115,4 @@ created: 2026-07-09
 |---|---|
 | 2026-07-09 | 开工：分支 rebase 至 `ebffcd8e5`（KD-14 P1 前置✓）；L0 inventory 首轮 derive；Day-0 五 candidates 落账 |
 | 2026-07-10 | T1 三维扫描完成（opus）：7 findings + 4 structural observations + 9 candidates 合并；P0 根问题定位——L3↔D21 大面积语义重叠是最高价值 T2a 实验目标 |
+| 2026-07-10 | PR3 merge-gate 加收 T1-C6（develop_base CI 盲区，operator 点破）+ T1-C7（公开仓全量 test 内容级破损 + CI 子集盲区，git 内容级证明）；PR #22 squash `a9e591f8b` 合入 develop_base |
