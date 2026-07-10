@@ -160,11 +160,19 @@ export class HookRegistry {
   // Override-aware queries (manifest baseline + override layer)
   // ---------------------------------------------------------------------------
 
-  /** Check if hook is enabled (override takes precedence over manifest). */
+  /**
+   * Check if hook is enabled (override takes precedence over manifest,
+   * but only if the current manifest permits it — defense-in-depth against
+   * stale overrides surviving manifest security tightening, sol P1-1).
+   */
   isEnabled(hookId: string): boolean {
     const override = this.overrideSnapshot?.get(hookId);
-    if (override?.enabled !== undefined) return override.enabled;
     const hook = this.hooks.get(hookId);
+    if (override?.enabled === false) {
+      // Only honor disable-override if manifest currently allows disabling
+      return hook?.manifest.disableable ? false : (hook?.manifest.enabled ?? false);
+    }
+    if (override?.enabled === true) return true;
     return hook?.manifest.enabled ?? false;
   }
 
@@ -176,15 +184,25 @@ export class HookRegistry {
     return hook?.manifest.version ?? 0;
   }
 
-  /** Get content override for a hook (undefined = use manifest template). */
+  /**
+   * Get content override for a hook (undefined = use manifest template).
+   * Defense-in-depth: if manifest has been tightened to readonly since
+   * the override was written, ignore the stale content override (sol P1-1).
+   */
   getContentOverride(hookId: string): string | undefined {
+    const hook = this.hooks.get(hookId);
+    if (hook?.manifest.safetyTier === 'readonly') return undefined;
     return this.overrideSnapshot?.get(hookId)?.contentOverride;
   }
 
-  /** Determine who disabled this hook — for TraceEventDisabled.disabledBy. */
+  /**
+   * Determine who disabled this hook — for TraceEventDisabled.disabledBy.
+   * If manifest doesn't allow disabling, a stale override is ignored (sol P1-1).
+   */
   getDisabledBySource(hookId: string): TraceEventDisabled['disabledBy'] {
     const override = this.overrideSnapshot?.get(hookId);
-    if (override?.enabled === false) {
+    const hook = this.hooks.get(hookId);
+    if (override?.enabled === false && hook?.manifest.disableable) {
       return override.source === 'auto-eval' ? 'auto-eval' : 'operator';
     }
     return 'manifest';

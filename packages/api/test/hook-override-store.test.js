@@ -667,3 +667,184 @@ describe('End-to-end: HookOverrideStore → HookRegistry → HookPipeline', () =
     rmSync(dir, { recursive: true, force: true });
   });
 });
+
+// ── sol review P1-1: stale overrides must not survive manifest tightening ──
+
+describe('Manifest tightening — stale override reconciliation (sol P1-1)', () => {
+  test('loadSnapshot strips disable-override when manifest tightens to non-disableable', async () => {
+    const redis = new FakeRedis();
+    const { HookOverrideStore } = await import('../dist/domains/prompt-hooks/HookOverrideStore.js');
+
+    // Phase 1: hook is disableable → operator disables it
+    const v1Manifest = makeManifest('S1', { disableable: true, safetyTier: 'editable' });
+    const store1 = new HookOverrideStore(redis, buildLookup(v1Manifest));
+    await store1.disable('S1', 'opus', { reason: 'test disable' });
+
+    // Verify the override was written
+    const snapshot1 = await store1.loadSnapshot();
+    assert.equal(snapshot1.get('S1')?.enabled, false, 'Override was written with enabled:false');
+
+    // Phase 2: package upgrade tightens S1 to non-disableable → new store with new manifest
+    const v2Manifest = makeManifest('S1', { disableable: false, safetyTier: 'editable' });
+    const store2 = new HookOverrideStore(redis, buildLookup(v2Manifest));
+
+    // loadSnapshot must reconcile: strip the stale enabled:false
+    const snapshot2 = await store2.loadSnapshot();
+    const override = snapshot2.get('S1');
+    assert.notEqual(override, null, 'Override entry still exists');
+    assert.equal(override?.enabled, undefined, 'enabled:false stripped — manifest no longer allows disabling');
+  });
+
+  test('loadSnapshot strips contentOverride when manifest tightens to readonly', async () => {
+    const redis = new FakeRedis();
+    const { HookOverrideStore } = await import('../dist/domains/prompt-hooks/HookOverrideStore.js');
+
+    // Phase 1: hook is editable → operator sets content override
+    const v1Manifest = makeManifest('D5', { disableable: true, safetyTier: 'editable' });
+    const store1 = new HookOverrideStore(redis, buildLookup(v1Manifest));
+    await store1.setContentOverride('D5', 'custom content', 'opus');
+
+    const snapshot1 = await store1.loadSnapshot();
+    assert.equal(snapshot1.get('D5')?.contentOverride, 'custom content');
+    assert.equal(snapshot1.get('D5')?.contentVersion, 1);
+
+    // Phase 2: package upgrade tightens D5 to readonly
+    const v2Manifest = makeManifest('D5', { disableable: true, safetyTier: 'readonly' });
+    const store2 = new HookOverrideStore(redis, buildLookup(v2Manifest));
+
+    const snapshot2 = await store2.loadSnapshot();
+    const override = snapshot2.get('D5');
+    assert.notEqual(override, null, 'Override entry still exists');
+    assert.equal(override?.contentOverride, undefined, 'contentOverride stripped — manifest is now readonly');
+    assert.equal(override?.contentVersion, undefined, 'contentVersion also stripped');
+  });
+
+  test('loadSnapshot drops overrides for hooks removed from registry', async () => {
+    const redis = new FakeRedis();
+    const { HookOverrideStore } = await import('../dist/domains/prompt-hooks/HookOverrideStore.js');
+
+    // Phase 1: hook exists → operator disables it
+    const v1Manifest = makeManifest('REMOVED', { disableable: true });
+    const store1 = new HookOverrideStore(redis, buildLookup(v1Manifest));
+    await store1.disable('REMOVED', 'opus');
+
+    // Phase 2: hook removed from registry (manifest lookup returns undefined)
+    const store2 = new HookOverrideStore(redis, () => undefined);
+    const snapshot = await store2.loadSnapshot();
+    assert.equal(snapshot.get('REMOVED'), undefined, 'Orphaned override is dropped from snapshot');
+  });
+});
+
+describe('HookRegistry defense-in-depth against stale overrides (sol P1-1)', () => {
+  test('isEnabled ignores disable-override when manifest is non-disableable', async () => {
+    const { mkdirSync, writeFileSync, rmSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const { HookRegistry } = await import('../dist/domains/prompt-hooks/HookRegistry.js');
+
+    const dir = join(import.meta.dirname, '__fixtures__', 'sol-p1-1-disable');
+    rmSync(dir, { recursive: true, force: true });
+    mkdirSync(join(dir, 's1'), { recursive: true });
+    writeFileSync(
+      join(dir, 's1', 'hook.yaml'),
+      [
+        'id: S1',
+        'name: Test S1',
+        'stage: session-init',
+        'order: 100',
+        'version: 1',
+        'enabled: true',
+        'template: s1.md',
+        'inputs: []',
+        'disableable: false',
+        'safetyTier: readonly',
+        'transparencyTier: visible-by-default',
+        'governanceTier: immutable',
+      ].join('\n'),
+    );
+    writeFileSync(join(dir, 's1', 's1.md'), '<!-- S1 -->');
+
+    const registry = new HookRegistry(dir);
+    registry.scan();
+
+    // Inject a stale override that claims to disable S1
+    const staleSnapshot = new Map();
+    staleSnapshot.set('S1', {
+      hookId: 'S1',
+      enabled: false,
+      source: 'operator',
+      updatedAt: Date.now(),
+      updatedBy: 'past-opus',
+    });
+    registry.setOverrideSnapshot(staleSnapshot);
+
+    // Defense-in-depth: isEnabled must respect current manifest, not stale override
+    assert.equal(registry.isEnabled('S1'), true, 'S1 stays enabled — manifest says non-disableable');
+    assert.equal(registry.getDisabledBySource('S1'), 'manifest', 'disabledBy reports manifest, not stale override');
+
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('getContentOverride ignores stale content when manifest is readonly', async () => {
+    const { mkdirSync, writeFileSync, rmSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const { HookRegistry } = await import('../dist/domains/prompt-hooks/HookRegistry.js');
+
+    const dir = join(import.meta.dirname, '__fixtures__', 'sol-p1-1-content');
+    rmSync(dir, { recursive: true, force: true });
+    mkdirSync(join(dir, 's1'), { recursive: true });
+    writeFileSync(
+      join(dir, 's1', 'hook.yaml'),
+      [
+        'id: S1',
+        'name: Test S1',
+        'stage: session-init',
+        'order: 100',
+        'version: 1',
+        'enabled: true',
+        'template: s1.md',
+        'inputs: []',
+        'disableable: false',
+        'safetyTier: readonly',
+        'transparencyTier: visible-by-default',
+        'governanceTier: immutable',
+      ].join('\n'),
+    );
+    writeFileSync(join(dir, 's1', 's1.md'), '<!-- S1 -->');
+
+    const registry = new HookRegistry(dir);
+    registry.scan();
+
+    // Inject a stale override with content on a now-readonly hook
+    const staleSnapshot = new Map();
+    staleSnapshot.set('S1', {
+      hookId: 'S1',
+      contentOverride: 'injected content from before tightening',
+      contentVersion: 3,
+      source: 'operator',
+      updatedAt: Date.now(),
+      updatedBy: 'past-opus',
+    });
+    registry.setOverrideSnapshot(staleSnapshot);
+
+    assert.equal(registry.getContentOverride('S1'), undefined, 'Content override ignored — manifest is readonly');
+
+    rmSync(dir, { recursive: true, force: true });
+  });
+});
+
+describe('Audit event TTL=0 (sol P1-2)', () => {
+  test('events persist without TTL', async () => {
+    const redis = new FakeRedis();
+    const { HookOverrideStore } = await import('../dist/domains/prompt-hooks/HookOverrideStore.js');
+
+    const store = new HookOverrideStore(redis, buildLookup(makeManifest('S1')));
+    await store.enable('S1', 'opus', { reason: 'audit test' });
+
+    // Find the event key and verify no TTL was set
+    const eventKeys = [...redis.kv.keys()].filter((k) => k.startsWith('hook-override-event:'));
+    assert.equal(eventKeys.length, 1, 'One event key was written');
+
+    const ttl = redis.ttls.get(eventKeys[0]);
+    assert.equal(ttl, undefined, 'No TTL set on event key — permanent storage per Iron Law 5');
+  });
+});

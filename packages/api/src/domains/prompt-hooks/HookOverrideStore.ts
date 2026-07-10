@@ -10,7 +10,7 @@
  * Storage layout:
  *   HASH  hook-override:{workspaceId}        — { hookId → JSON(HookOverride) }
  *   ZSET  hook-override-events:{workspaceId} — { eventId → timestamp }
- *   KEY   hook-override-event:{ws}:{eventId} — JSON(OverrideChangeEvent), TTL 30d
+ *   KEY   hook-override-event:{ws}:{eventId} — JSON(OverrideChangeEvent), TTL=0 (permanent)
  */
 
 import type {
@@ -37,7 +37,14 @@ const OVERRIDE_HASH = (ws: string) => `hook-override:${ws}`;
 const EVENT_ZSET = (ws: string) => `hook-override-events:${ws}`;
 const EVENT_KEY = (ws: string, id: string) => `hook-override-event:${ws}:${id}`;
 
-const EVENT_TTL_SECONDS = 30 * 24 * 60 * 60; // 30 days
+/**
+ * Audit events persist permanently (TTL=0, Iron Law 5: user-visible state
+ * must be durable). Override changes are low-frequency operator actions;
+ * unbounded growth is not a practical concern.
+ *
+ * sol review P1-2: previous 30-day TTL violated TTL=0 iron law and destroyed
+ * the only record containing change reasons while the override itself survived.
+ */
 
 // ---------------------------------------------------------------------------
 // Gate error
@@ -227,10 +234,57 @@ export class HookOverrideStore {
     return results;
   }
 
-  /** Load all overrides as a sync Map for pipeline hot-path resolution. */
+  /**
+   * Load all overrides as a sync Map for pipeline hot-path resolution.
+   *
+   * Reconciles each override against the **current** manifest (sol P1-1 fix):
+   * if a package upgrade tightens a hook from editable→readonly or
+   * disableable→non-disableable, stale overrides that violate the new
+   * constraints are sanitized (offending fields stripped) rather than
+   * served as-is. This prevents historical overrides from bypassing
+   * manifest security tightening.
+   */
   async loadSnapshot(workspaceId?: string): Promise<ReadonlyMap<string, HookOverride>> {
     const overrides = await this.listOverrides(workspaceId);
-    return new Map(overrides.map((o) => [o.hookId, o]));
+    const result = new Map<string, HookOverride>();
+    for (const override of overrides) {
+      const reconciled = this.reconcileOverride(override);
+      if (reconciled) {
+        result.set(reconciled.hookId, reconciled);
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Reconcile a single override against current manifest constraints.
+   * Returns the sanitized override, or null if the hookId is no longer
+   * in the registry (hook removed in a package upgrade → override orphaned).
+   */
+  private reconcileOverride(override: HookOverride): HookOverride | null {
+    const manifest = this.manifestLookup(override.hookId);
+    if (!manifest) {
+      // Hook removed from registry — orphaned override, drop from snapshot
+      return null;
+    }
+
+    let sanitized = override;
+
+    // If hook was tightened to non-disableable but override has enabled:false,
+    // strip the disable — manifest now says this hook cannot be disabled
+    if (sanitized.enabled === false && !manifest.disableable) {
+      const { enabled: _, ...rest } = sanitized;
+      sanitized = rest as HookOverride;
+    }
+
+    // If hook was tightened to readonly but override has contentOverride,
+    // strip the content — manifest now says this hook cannot be edited
+    if (sanitized.contentOverride !== undefined && manifest.safetyTier === 'readonly') {
+      const { contentOverride: _, contentVersion: __, ...rest } = sanitized;
+      sanitized = rest as HookOverride;
+    }
+
+    return sanitized;
   }
 
   // -- Event stream (ZSET time-indexed) -------------------------------------
@@ -283,10 +337,8 @@ export class HookOverrideStore {
       actorId,
       ...(reason ? { reason } : {}),
     };
-    await this.redis.set(EVENT_KEY(workspaceId, eventId), JSON.stringify(event), 'EX', EVENT_TTL_SECONDS);
+    // TTL=0: audit events are permanent (Iron Law 5, sol P1-2 fix)
+    await this.redis.set(EVENT_KEY(workspaceId, eventId), JSON.stringify(event));
     await this.redis.zadd(EVENT_ZSET(workspaceId), timestamp, eventId);
-    // Prune ZSET entries older than TTL to prevent stale index accumulation (P2 fix)
-    const pruneThreshold = timestamp - EVENT_TTL_SECONDS * 1000;
-    await this.redis.zremrangebyscore(EVENT_ZSET(workspaceId), 0, pruneThreshold);
   }
 }
