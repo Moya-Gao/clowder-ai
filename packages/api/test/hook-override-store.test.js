@@ -848,3 +848,318 @@ describe('Audit event TTL=0 (sol P1-2)', () => {
     assert.equal(ttl, undefined, 'No TTL set on event key — permanent storage per Iron Law 5');
   });
 });
+
+// ── Sol round 2: field-level provenance + limited-edit reconciliation ──
+
+describe('Field-level provenance (sol round 2 — shared source corruption)', () => {
+  test('enable() sets enabledSource independently of contentSource', async () => {
+    const redis = new FakeRedis();
+    const { HookOverrideStore } = await import('../dist/domains/prompt-hooks/HookOverrideStore.js');
+
+    const manifest = makeManifest('D5', {
+      disableable: true,
+      safetyTier: 'editable',
+    });
+    const store = new HookOverrideStore(redis, buildLookup(manifest));
+
+    // auto-eval sets content, then operator enables — source should NOT corrupt contentSource
+    await store.setContentOverride('D5', 'eval content', 'eval-bot', { source: 'auto-eval' });
+    await store.enable('D5', 'human', { source: 'operator' });
+
+    const override = await store.getOverride('D5');
+    assert.equal(override?.contentSource, 'auto-eval', 'contentSource preserved from setContentOverride');
+    assert.equal(override?.enabledSource, 'operator', 'enabledSource set by enable()');
+    assert.equal(override?.source, 'operator', 'source reflects last operation (enable)');
+  });
+
+  test('disable() sets enabledSource independently of contentSource', async () => {
+    const redis = new FakeRedis();
+    const { HookOverrideStore } = await import('../dist/domains/prompt-hooks/HookOverrideStore.js');
+
+    const manifest = makeManifest('D5', {
+      disableable: true,
+      safetyTier: 'editable',
+    });
+    const store = new HookOverrideStore(redis, buildLookup(manifest));
+
+    // operator sets content, then auto-eval disables
+    await store.setContentOverride('D5', 'custom content', 'human', { source: 'operator' });
+    await store.disable('D5', 'eval-bot', { source: 'auto-eval' });
+
+    const override = await store.getOverride('D5');
+    assert.equal(override?.contentSource, 'operator', 'contentSource preserved from setContentOverride');
+    assert.equal(override?.enabledSource, 'auto-eval', 'enabledSource set by disable()');
+  });
+
+  test('clearContentOverride strips contentSource', async () => {
+    const redis = new FakeRedis();
+    const { HookOverrideStore } = await import('../dist/domains/prompt-hooks/HookOverrideStore.js');
+
+    const manifest = makeManifest('D5', {
+      disableable: true,
+      safetyTier: 'editable',
+    });
+    const store = new HookOverrideStore(redis, buildLookup(manifest));
+
+    await store.setContentOverride('D5', 'content', 'human', { source: 'operator' });
+    await store.clearContentOverride('D5', 'human');
+
+    const override = await store.getOverride('D5');
+    assert.equal(override?.contentOverride, undefined, 'contentOverride cleared');
+    assert.equal(override?.contentSource, undefined, 'contentSource cleared');
+  });
+});
+
+describe('Manifest tightening — editable → limited-edit reconciliation (sol round 2)', () => {
+  test('loadSnapshot strips auto-eval content when manifest tightens to limited-edit', async () => {
+    const redis = new FakeRedis();
+    const { HookOverrideStore } = await import('../dist/domains/prompt-hooks/HookOverrideStore.js');
+
+    // Phase 1: hook is editable → auto-eval sets content
+    const v1Manifest = makeManifest('D5', {
+      disableable: true,
+      safetyTier: 'editable',
+    });
+    const store1 = new HookOverrideStore(redis, buildLookup(v1Manifest));
+    await store1.setContentOverride('D5', 'auto-eval content', 'eval-bot', { source: 'auto-eval' });
+
+    const snapshot1 = await store1.loadSnapshot();
+    assert.equal(snapshot1.get('D5')?.contentOverride, 'auto-eval content', 'Content set while editable');
+
+    // Phase 2: manifest tightened to limited-edit → auto-eval content must be stripped
+    const v2Manifest = makeManifest('D5', {
+      disableable: true,
+      safetyTier: 'limited-edit',
+    });
+    const store2 = new HookOverrideStore(redis, buildLookup(v2Manifest));
+
+    const snapshot2 = await store2.loadSnapshot();
+    const override = snapshot2.get('D5');
+    assert.notEqual(override, null, 'Override entry still exists');
+    assert.equal(
+      override?.contentOverride,
+      undefined,
+      'auto-eval content stripped — limited-edit only allows operator',
+    );
+  });
+
+  test('loadSnapshot preserves operator content when manifest tightens to limited-edit', async () => {
+    const redis = new FakeRedis();
+    const { HookOverrideStore } = await import('../dist/domains/prompt-hooks/HookOverrideStore.js');
+
+    // Phase 1: hook is editable → operator sets content
+    const v1Manifest = makeManifest('D5', {
+      disableable: true,
+      safetyTier: 'editable',
+    });
+    const store1 = new HookOverrideStore(redis, buildLookup(v1Manifest));
+    await store1.setContentOverride('D5', 'operator content', 'human', { source: 'operator' });
+
+    // Phase 2: manifest tightened to limited-edit → operator content survives
+    const v2Manifest = makeManifest('D5', {
+      disableable: true,
+      safetyTier: 'limited-edit',
+    });
+    const store2 = new HookOverrideStore(redis, buildLookup(v2Manifest));
+
+    const snapshot2 = await store2.loadSnapshot();
+    const override = snapshot2.get('D5');
+    assert.equal(
+      override?.contentOverride,
+      'operator content',
+      'operator content preserved — limited-edit allows operator',
+    );
+  });
+
+  test('loadSnapshot strips content when enable() corrupted source but contentSource is auto-eval', async () => {
+    const redis = new FakeRedis();
+    const { HookOverrideStore } = await import('../dist/domains/prompt-hooks/HookOverrideStore.js');
+
+    // Phase 1: auto-eval sets content, then operator enables (corrupting shared source)
+    const v1Manifest = makeManifest('D5', {
+      disableable: true,
+      safetyTier: 'editable',
+    });
+    const store1 = new HookOverrideStore(redis, buildLookup(v1Manifest));
+    await store1.setContentOverride('D5', 'eval content', 'eval-bot', { source: 'auto-eval' });
+    await store1.enable('D5', 'human', { source: 'operator' });
+
+    // Verify: shared source says 'operator' but contentSource says 'auto-eval'
+    const raw = await store1.getOverride('D5');
+    assert.equal(raw?.source, 'operator', 'Shared source corrupted by enable()');
+    assert.equal(raw?.contentSource, 'auto-eval', 'contentSource preserves true provenance');
+
+    // Phase 2: manifest tightened to limited-edit → must use contentSource, NOT source
+    const v2Manifest = makeManifest('D5', {
+      disableable: true,
+      safetyTier: 'limited-edit',
+    });
+    const store2 = new HookOverrideStore(redis, buildLookup(v2Manifest));
+
+    const snapshot = await store2.loadSnapshot();
+    const override = snapshot.get('D5');
+    assert.equal(
+      override?.contentOverride,
+      undefined,
+      'Content stripped despite source=operator — reconciliation uses contentSource',
+    );
+  });
+});
+
+describe('HookRegistry defense-in-depth — limited-edit + provenance (sol round 2)', () => {
+  test('getContentOverride ignores auto-eval content on limited-edit hook', async () => {
+    const { mkdirSync, writeFileSync, rmSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const { HookRegistry } = await import('../dist/domains/prompt-hooks/HookRegistry.js');
+
+    const dir = join(import.meta.dirname, '__fixtures__', 'sol-r2-limited');
+    rmSync(dir, { recursive: true, force: true });
+    mkdirSync(join(dir, 'd5'), { recursive: true });
+    writeFileSync(
+      join(dir, 'd5', 'hook.yaml'),
+      [
+        'id: D5',
+        'name: Test D5',
+        'stage: per-turn',
+        'order: 500',
+        'version: 1',
+        'enabled: true',
+        'template: d5.md',
+        'inputs: []',
+        'disableable: true',
+        'safetyTier: limited-edit',
+        'transparencyTier: visible-by-default',
+        'governanceTier: human-gated',
+      ].join('\n'),
+    );
+    writeFileSync(join(dir, 'd5', 'd5.md'), '<!-- D5 -->');
+
+    const registry = new HookRegistry(dir);
+    registry.scan();
+
+    // Inject override with auto-eval content on limited-edit hook
+    const snapshot = new Map();
+    snapshot.set('D5', {
+      hookId: 'D5',
+      contentOverride: 'auto-eval injected content',
+      contentVersion: 2,
+      contentSource: 'auto-eval',
+      source: 'operator', // corrupted by subsequent enable()
+      updatedAt: Date.now(),
+      updatedBy: 'eval-bot',
+    });
+    registry.setOverrideSnapshot(snapshot);
+
+    assert.equal(
+      registry.getContentOverride('D5'),
+      undefined,
+      'auto-eval content blocked on limited-edit hook despite source=operator',
+    );
+
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('getContentOverride honors operator content on limited-edit hook', async () => {
+    const { mkdirSync, writeFileSync, rmSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const { HookRegistry } = await import('../dist/domains/prompt-hooks/HookRegistry.js');
+
+    const dir = join(import.meta.dirname, '__fixtures__', 'sol-r2-limited-ok');
+    rmSync(dir, { recursive: true, force: true });
+    mkdirSync(join(dir, 'd5'), { recursive: true });
+    writeFileSync(
+      join(dir, 'd5', 'hook.yaml'),
+      [
+        'id: D5',
+        'name: Test D5',
+        'stage: per-turn',
+        'order: 500',
+        'version: 1',
+        'enabled: true',
+        'template: d5.md',
+        'inputs: []',
+        'disableable: true',
+        'safetyTier: limited-edit',
+        'transparencyTier: visible-by-default',
+        'governanceTier: human-gated',
+      ].join('\n'),
+    );
+    writeFileSync(join(dir, 'd5', 'd5.md'), '<!-- D5 -->');
+
+    const registry = new HookRegistry(dir);
+    registry.scan();
+
+    const snapshot = new Map();
+    snapshot.set('D5', {
+      hookId: 'D5',
+      contentOverride: 'operator-approved content',
+      contentVersion: 1,
+      contentSource: 'operator',
+      source: 'auto-eval', // corrupted by subsequent disable()
+      updatedAt: Date.now(),
+      updatedBy: 'human',
+    });
+    registry.setOverrideSnapshot(snapshot);
+
+    assert.equal(
+      registry.getContentOverride('D5'),
+      'operator-approved content',
+      'operator content honored on limited-edit hook despite source=auto-eval',
+    );
+
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('getDisabledBySource uses enabledSource over shared source', async () => {
+    const { mkdirSync, writeFileSync, rmSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const { HookRegistry } = await import('../dist/domains/prompt-hooks/HookRegistry.js');
+
+    const dir = join(import.meta.dirname, '__fixtures__', 'sol-r2-disabled-by');
+    rmSync(dir, { recursive: true, force: true });
+    mkdirSync(join(dir, 'd5'), { recursive: true });
+    writeFileSync(
+      join(dir, 'd5', 'hook.yaml'),
+      [
+        'id: D5',
+        'name: Test D5',
+        'stage: per-turn',
+        'order: 500',
+        'version: 1',
+        'enabled: true',
+        'template: d5.md',
+        'inputs: []',
+        'disableable: true',
+        'safetyTier: limited-edit',
+        'transparencyTier: visible-by-default',
+        'governanceTier: human-gated',
+      ].join('\n'),
+    );
+    writeFileSync(join(dir, 'd5', 'd5.md'), '<!-- D5 -->');
+
+    const registry = new HookRegistry(dir);
+    registry.scan();
+
+    // auto-eval disabled, then operator set content (corrupting shared source to 'operator')
+    const snapshot = new Map();
+    snapshot.set('D5', {
+      hookId: 'D5',
+      enabled: false,
+      enabledSource: 'auto-eval',
+      contentOverride: 'operator content',
+      contentSource: 'operator',
+      source: 'operator', // corrupted by setContentOverride
+      updatedAt: Date.now(),
+      updatedBy: 'human',
+    });
+    registry.setOverrideSnapshot(snapshot);
+
+    assert.equal(
+      registry.getDisabledBySource('D5'),
+      'auto-eval',
+      'disabledBy uses enabledSource, not corrupted shared source',
+    );
+
+    rmSync(dir, { recursive: true, force: true });
+  });
+});

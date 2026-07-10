@@ -20,11 +20,20 @@ export interface HookOverride {
   hookId: string;
   /** Override enable/disable. undefined = use manifest baseline. */
   enabled?: boolean;
+  /** Who set the enabled field (field-level provenance, sol P1 fix). */
+  enabledSource?: HookOverrideSource;
   /** Override template content. undefined = use manifest template. */
   contentOverride?: string;
   /** Override content version (incremented on each content change). */
   contentVersion?: number;
-  /** Who created this override. */
+  /** Who set contentOverride (field-level provenance, sol P1 fix). */
+  contentSource?: HookOverrideSource;
+  /**
+   * Last operation source. Retained for backward compat but NOT reliable
+   * for per-field provenance — use enabledSource/contentSource instead.
+   * Sol finding: enable() after setContentOverride() overwrites this field,
+   * corrupting provenance for limited-edit reconciliation.
+   */
   source: HookOverrideSource;
   /** Last update timestamp (ms). */
   updatedAt: number;
@@ -39,7 +48,7 @@ export interface HookOverride {
 /** Possible override actions, recorded as change events. */
 export type OverrideAction = 'enable' | 'disable' | 'content-set' | 'content-clear' | 'rollback';
 
-/** Immutable record of an override change. TTL = 30 days. */
+/** Immutable record of an override change. TTL=0 (permanent, Iron Law 5). */
 export interface OverrideChangeEvent {
   eventId: string;
   hookId: string;

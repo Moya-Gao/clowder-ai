@@ -125,6 +125,7 @@ export class HookOverrideStore {
       ...(existing ?? {}),
       hookId,
       enabled: true,
+      enabledSource: source,
       source,
       updatedAt: Date.now(),
       updatedBy: actorId,
@@ -146,6 +147,7 @@ export class HookOverrideStore {
       ...(existing ?? {}),
       hookId,
       enabled: false,
+      enabledSource: source,
       source,
       updatedAt: Date.now(),
       updatedBy: actorId,
@@ -169,6 +171,7 @@ export class HookOverrideStore {
       hookId,
       contentOverride: content,
       contentVersion: (existing?.contentVersion ?? 0) + 1,
+      contentSource: source,
       source,
       updatedAt: Date.now(),
       updatedBy: actorId,
@@ -186,7 +189,7 @@ export class HookOverrideStore {
     const source = opts?.source ?? 'operator';
     const existing = await this.getOverride(hookId, ws);
     if (!existing) return;
-    const { contentOverride: _, contentVersion: __, ...rest } = existing;
+    const { contentOverride: _, contentVersion: __, contentSource: _cs, ...rest } = existing;
     const override: HookOverride = {
       ...rest,
       source,
@@ -277,10 +280,21 @@ export class HookOverrideStore {
       sanitized = rest as HookOverride;
     }
 
-    // If hook was tightened to readonly but override has contentOverride,
-    // strip the content — manifest now says this hook cannot be edited
+    // If hook was tightened to readonly, strip all content overrides
     if (sanitized.contentOverride !== undefined && manifest.safetyTier === 'readonly') {
-      const { contentOverride: _, contentVersion: __, ...rest } = sanitized;
+      const { contentOverride: _, contentVersion: __, contentSource: _cs, ...rest } = sanitized;
+      sanitized = rest as HookOverride;
+    }
+
+    // If hook was tightened to limited-edit, only operator content survives.
+    // Use contentSource (field-level provenance) — NOT source, which can be
+    // corrupted by unrelated enable/disable operations (sol P1 root cause).
+    if (
+      sanitized.contentOverride !== undefined &&
+      manifest.safetyTier === 'limited-edit' &&
+      sanitized.contentSource !== 'operator'
+    ) {
+      const { contentOverride: _, contentVersion: __, contentSource: _cs, ...rest } = sanitized;
       sanitized = rest as HookOverride;
     }
 

@@ -186,24 +186,35 @@ export class HookRegistry {
 
   /**
    * Get content override for a hook (undefined = use manifest template).
-   * Defense-in-depth: if manifest has been tightened to readonly since
-   * the override was written, ignore the stale content override (sol P1-1).
+   * Defense-in-depth against stale overrides surviving manifest tightening:
+   * - readonly: always ignore content override (sol round 1)
+   * - limited-edit: only honor operator-sourced content (sol round 2).
+   *   Uses contentSource (field-level provenance), NOT source which can be
+   *   corrupted by unrelated enable/disable operations.
    */
   getContentOverride(hookId: string): string | undefined {
     const hook = this.hooks.get(hookId);
     if (hook?.manifest.safetyTier === 'readonly') return undefined;
-    return this.overrideSnapshot?.get(hookId)?.contentOverride;
+    const override = this.overrideSnapshot?.get(hookId);
+    if (!override?.contentOverride) return undefined;
+    if (hook?.manifest.safetyTier === 'limited-edit' && override.contentSource !== 'operator') {
+      return undefined;
+    }
+    return override.contentOverride;
   }
 
   /**
    * Determine who disabled this hook — for TraceEventDisabled.disabledBy.
-   * If manifest doesn't allow disabling, a stale override is ignored (sol P1-1).
+   * Uses enabledSource (field-level provenance) when available, falls back
+   * to source for backward compat with pre-provenance overrides.
+   * If manifest doesn't allow disabling, a stale override is ignored.
    */
   getDisabledBySource(hookId: string): TraceEventDisabled['disabledBy'] {
     const override = this.overrideSnapshot?.get(hookId);
     const hook = this.hooks.get(hookId);
     if (override?.enabled === false && hook?.manifest.disableable) {
-      return override.source === 'auto-eval' ? 'auto-eval' : 'operator';
+      const effectiveSource = override.enabledSource ?? override.source;
+      return effectiveSource === 'auto-eval' ? 'auto-eval' : 'operator';
     }
     return 'manifest';
   }
