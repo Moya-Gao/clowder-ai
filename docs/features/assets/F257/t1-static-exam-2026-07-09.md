@@ -54,8 +54,60 @@ created: 2026-07-09
 3. **撞词扫描**：magic word 与技术术语多义（已知案例：「脚手架」拉闸词 vs 技术名词，gemini/opus 双报）
 4. 每 candidate 输出：segmentId(s) + 判定 + 证据行 + 建议动作（merge / retire / rewrite / keep / add-guard）
 
+## T1 扫描结果（2026-07-10，opus 实施）
+
+> 方法：46 hook template 全量内容读取 + 关键短语交叉匹配（`grep -rl` 跨 `assets/prompt-templates/`）+ 语义对照人工判定。how_counted: `grep -rl "phrase" assets/prompt-templates/ | sed ...`
+
+### ① 跨层冗余（同一 assertion 多段注入）
+
+| # | 标题 | 段对 | 重叠描述 | 建议动作 | 待 T2a 验证 |
+|---|------|------|---------|---------|-----------|
+| T1-F1 | **决策树双注入** | L3(session-init,28L) ↔ D21(per-turn,8L) | 同一"传球三选一"决策树——L3 完整版，D21 压缩版。核心 assertion 相同："每条 A2A 串行回合必选其一，缺 = 消息不完整"。D21 是 L3 内容的~71%语义覆盖 | **redundant-candidate(cross-layer)**：保留一个（L3 或 D21），T2a 差分验证 per-turn 重复注入是否带来边际行为改善 | D21 去除前后 routing 违规率对比 |
+| T1-F2 | **@ 路由格式三注入** | D8 + L3 + S4 | 三段三种措辞教同一 assertion："@句柄必须在行首，句中无效"。D8："行首 @句柄，句中无效"；L3："行首独立一行…不路由——球权掉地上"；S4："行中无效…非行首位置的 @ 都不路由，球权掉地上" | **redundant-candidate(duplicate)**：同 assertion 三表述，per codex 体感"同 assertion 多段注入但 guard 仍触发 = 文本边际价值低" | 保留 1 段后 @ 格式违规率 |
+| T1-F3 | **"非孤立"身份双框架** | L1 ↔ L7（均 session-init） | L1："你不是一个孤立的工具"；L7："你是有队友…不是孤立的执行单元"——同一 identity framing 两种表达。但 L1 附加 parallel world 意识，L7 附加代码哲学 | 部分冗余——开头 identity 声明合并，各自专有内容保留 | 低优先 |
+| T1-F4 | **hold_ball 四处教学** | D8 + D21 + L3 + L5 | 4 段含 hold_ball 使用说明。核心重叠：D21 与 L3 的调用语法几乎逐字相同（`cat_cafe_hold_ball({ wakeAfterMs, waitSourceRef: ... })`）。D8 教概念，L5 是 tool index | D21↔L3 是 T1-F1 的子集；D8/L5 各有独立用途 | 归入 T1-F1 |
+| T1-F5 | **@co-creator 升级路径四处教** | D21 + L1 + L3 + L7 | 4 段教何时 @co-creator。L3 最完整（硬条件列表），D21 压缩版，L1/L7 仅提及 | 同 T1-F1——L3↔D21 是主重叠 | 归入 T1-F1 |
+
+**P0 观察**：T1-F1/F2/F4/F5 指向同一个根问题——**L3 和 D21 大面积语义重叠**，其中 L3 是 session-init 完整版，D21 是 per-turn 压缩版。如果 T2a 差分证明 per-turn 重注入无边际行为改善，D21 可退役（最大单点 token 节约）。
+
+### ② 段间矛盾
+
+| # | 标题 | 段对 | 分析 |
+|---|------|------|------|
+| T1-F6 | 无显式静态矛盾 | — | 46 模板内容全量读取，未发现同主题反向指令对。已知张力"simplest first vs quality-driven"在 §2 carry-over 层已处理（删除 Anthropic 默认糊弄指令）。passthrough 模板（S9/S10）注入运行时动态内容——其与静态模板的矛盾**无法在 T1 层检测**，需 T2b 运行时 trace 对照 |
+
+### ③ 语义撞词
+
+| # | 标题 | 内容 | 分析 |
+|---|------|------|------|
+| T1-F7 | magic words 不在 hook 管辖范围 | 10 个 magic word 全部存在于 `shared-rules.md`，经 S9 passthrough（`{{GOVERNANCE_DIGEST}}`）注入。hook.yaml 46 个 manifest 均不含 magic word 文本 | 撞词问题（如「脚手架」拉闸词 vs 技术名词，opus/gemini 双报）存在但归属 shared-rules 治理，不在 hook 层可控范围。hook 层无法静态检测此类冲突 |
+
+### 结构性发现（T1 视角的 schema 缺口）
+
+| # | 标题 | 内容 |
+|---|------|------|
+| T1-S1 | **passthrough 模板阻断静态分析** | S9（`{{GOVERNANCE_DIGEST}}`）、S10（`{{PACK_GUARDRAILS_BLOCK}}`）注入运行时 resolve 的动态内容。shared-rules 的全量文本（Magic Words / 决策漏斗 / hotfix 纪律 / per-family 治理等）经 S9 passthrough 进入 prompt，可能与 L3/D21/D8 等模板存在 **静态不可检测的冗余**。T1 完整覆盖需要 resolver 仿真或运行时 trace 快照对照 |
+| T1-S2 | **`audience` 字段缺失** | 46 hook.yaml 无 `audience` 字段。所有段隐式全员广播。A3 公理（"段没有受众边界 = 负资产"）无法在 hook schema 层检验。gemini 体感实证：SEO/前端实现规范注入给非代码猫 = 负价值 token |
+| T1-S3 | **`assertion` 字段缺失** | 46 hook.yaml 无 `assertion` 字段。无法表达"该段应产生什么可检验行为差分"。A1 公理（"核心指标是行为差分不是注入率"）的 schema 落点缺失——没有 assertion 的段无法进 T2a eval |
+| T1-S4 | **per-breed 工作流分化无跨 breed 一致性检查** | S6 有 4 breed 变体。maine-coon 独有"长任务纪律"+"fallback 层数检测"；siamese 独有"截图产出证据"；golden-chinchilla 独有"OMOC Sisyphus"+"question 工具已 deny"。变体间共性部分（出口一问 / Rule 0 / MG provenance override）手动重复——缺 shared base + override 结构 |
+
+### 更新后 candidate 汇总（Day-0 + T1 扫描）
+
+| # | 类型 | verdict 建议 | 下一步 |
+|---|------|------------|--------|
+| T1-C1 | 缺段 | missing-segment | GuardRejectionEventLog（Phase A Line B） |
+| T1-C2 | 缺段 | missing-segment | F 号分配守卫（F258 已闭环，不再 active） |
+| T1-C3 | 缺段 | missing-segment | 角色硬限路由守卫（T3 候选，Week 1 不做） |
+| T1-C4 | 受众错配 | conflict（audience） | audience 字段 + 受众匹配逻辑（T1-S2） |
+| T1-C5 | 缺段 | missing-segment | 签名校验守卫（T3 候选） |
+| **T1-F1** | **跨层冗余** | **redundant-candidate(cross-layer)** | **T2a 差分：D21 去除后 routing 违规率** |
+| **T1-F2** | **重复注入** | **redundant-candidate(duplicate)** | **T2a 差分：@ 格式 assertion 减至 1 段后违规率** |
+| T1-F3 | 部分冗余 | alive（各有专有内容） | 低优先，可选合并 identity 声明 |
+| T1-F7 | 撞词 | alive（归 shared-rules） | 非 hook 层可控 |
+
 ## Timeline
 
 | 日期 | 事件 |
 |---|---|
 | 2026-07-09 | 开工：分支 rebase 至 `ebffcd8e5`（KD-14 P1 前置✓）；L0 inventory 首轮 derive；Day-0 五 candidates 落账 |
+| 2026-07-10 | T1 三维扫描完成（opus）：7 findings + 4 structural observations + 9 candidates 合并；P0 根问题定位——L3↔D21 大面积语义重叠是最高价值 T2a 实验目标 |
