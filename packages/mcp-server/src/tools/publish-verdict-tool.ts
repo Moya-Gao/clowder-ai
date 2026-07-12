@@ -265,6 +265,26 @@ const anchorTelemetrySourceRefsShape = z
   })
   .describe('eval:anchor-first sourceRefs — replayable anchor telemetry rollup window selector.');
 
+/**
+ * F253 Phase C — qc-metrics-rollup sourceRefs. Replayable window selector:
+ * provider resolves to zero-baseline QcMetricsSnapshot (Phase C bootstrap —
+ * no live data source wired yet). Generator writes snapshot + attribution +
+ * provenance into bundle.
+ *
+ * KEEP IN SYNC: packages/api/.../infrastructure/harness-eval/qc-metrics-provider.ts QcMetricsSelector
+ * + packages/api/.../publish-verdict/validation.ts validateQcMetricsSelector.
+ */
+const qcMetricsSourceRefsShape = z
+  .object({
+    kind: z.literal('qc-metrics-rollup'),
+    windowStartMs: z.number().finite().describe('Inclusive epoch ms window start for QC metrics aggregation.'),
+    windowEndMs: z
+      .number()
+      .finite()
+      .describe('Exclusive epoch ms window end for QC metrics aggregation. Must be > windowStartMs.'),
+  })
+  .describe('eval:qc sourceRefs — replayable QC metrics rollup window selector.');
+
 const sourceRefsShape = z
   .union([
     a2aSourceRefsShape,
@@ -274,6 +294,7 @@ const sourceRefsShape = z
     sopSourceRefsShape,
     frictionRollupSourceRefsShape,
     anchorTelemetrySourceRefsShape,
+    qcMetricsSourceRefsShape,
   ])
   .describe(
     'Discriminated union by `kind` field. a2a kind is default (backward compat); capability-wakeup-trial-window kind wired in PR-2; memory-recall-snapshot kind wired in F192 memory wire-up; task-outcome-snapshot kind wired in task-outcome PR; sop-trace-eval kind wired in F192 sop-wiring; friction-rollup-snapshot kind wired in F245 PR1b; anchor-telemetry-snapshot kind wired in F236 Track-2.',
@@ -346,6 +367,11 @@ type PublishVerdictToolInput = {
       }
     | {
         kind: 'anchor-telemetry-snapshot';
+        windowStartMs: number;
+        windowEndMs: number;
+      }
+    | {
+        kind: 'qc-metrics-rollup';
         windowStartMs: number;
         windowEndMs: number;
       };
