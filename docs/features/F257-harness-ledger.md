@@ -8,7 +8,7 @@ created: 2026-07-06
 
 # F257: Harness Ledger — 锅账体系与自进化闭环
 
-> **Status**: spec (Design Gate aligned; 2026-07-07 问题先行修正) | **Owner**: Ragdoll (Fable) | **Priority**: P1
+> **Status**: in-progress (#33 eval 事件触发 + #34 审批执行器已合入 develop_base 并过 D21 验收；Design Gate aligned; 2026-07-07 问题先行修正) | **Owner**: Ragdoll (Fable) | **Priority**: P1
 
 > 信号 → 归因 → 修补 → 验证 → 淘汰。犯错可以，**同类偏差第二次必须被结构拦截，第三次 = 体系失败**（operator 定义的成功判据，thread_mr6kh7kdoac6852d 启动包）。
 
