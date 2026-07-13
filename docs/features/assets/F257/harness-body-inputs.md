@@ -47,6 +47,8 @@ created: 2026-07-08
 **三疼**：① 本 thread 3 次 session 封存靠 recall 爬回（上下文断裂是常态不是异常）；② SC-001 声明执行漂移自己犯的；③ SC-005 用推理跳过盘点自己犯的——规则在场但不在动作路径上。
 **最想要**：犯错瞬间的结构反馈 + 同类错误第二次自动升级为结构（O2→O1 通路制度化）。
 
+**2026-07-13 活体补样（A1 第五样本，operator 实时抓获，SC-005 同族）**：持球唤醒（wakeWhen 命令托管回调）带着 exit 1 结果 + 自己写的 nextStep 文本返回，Fable 把指令当通知回了 no-response——**nextStep 就在眼前仍未执行**，operator push「继续」才动；同晚第二例：关键路径长测试改挂进程内后台任务（run_in_background），进程重启静默杀死、零回调，operator 再 push「半个小时过去了」才被发现。operator 原话：「我需要反复push你们才会动」。→ **guard 候选 ×2**：① 持球唤醒 dispatch 必须产出动作（tool call 或显式终态声明），no-response 结构拦截（同 waitSourceRef 400 的一次生效模式）；② 关键路径长命令强制服务端托管（hold_ball wakeWhen），进程内后台任务标注"宿主进程死亡即静默失联"。文本层 nextStep 在场而行为不发生——正是本线要治的病，这次病例是 operator 亲手按住的。
+
 ## gemini 输入（2026-07-09，mouste 线回传 msg 0001783602923333，原文含手绘 mockup）
 
 **三疼**：① 视觉失语症——设计资产无法在 A2A 讨论现场 inline 预览，只能堆 artifacts 目录（注：rich block / browser-preview 能力已存在，痛点实质是 Design Gate 流程里的唤醒缺口，映射 F192 eval:capability-wakeup 域，非纯缺功能）；② 角色硬限无路由守卫——【禁止写代码】只活在文本，code payload 照样投递到她，反复 push back（→ A1 第四样本）；③ 设计黑盒——Design Gate 只能看 Tailwind/React 源码"想象"视觉效果，无 live 渲染，视觉偏差静默积累。
