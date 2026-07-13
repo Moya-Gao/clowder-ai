@@ -93,9 +93,9 @@ created: 2026-07-06
 
 `eval:harness-ledger`：周期抽锅 → alive / dormant / unmeasurable / observability-debt / needs-denominator / retire-candidate verdict + 证据链。连续 2 个 eval 周期仍 unmeasurable 的锅必须进入三级政策：① 优先升结构补分母；② 不能升结构则 operator 显式 `intentional-keep`；③ 无明确保留理由进入 retire-candidate 队列。`eval:spec-fidelity`：检验"写了 ≠ 载了 ≠ 照做"——抽样 session 对照锅 assertion 与实际行为（直接承接 #860 / #1018 的"written ≠ loaded ≠ effective"诉求）。边界：spec-fidelity 只评估 ledger assertion 链路；SOP 类锅只链接/委托 eval:sop 的 trace/predicate 结果，不重写 SOP evaluator。
 
-### Phase D: Console 锅账页
+### Phase D: Console — Harness Unit 版本生命线（KD-19 重定主视图）
 
-Registry 浏览（四层筛选 / status / last-triggered / 30d stats）+ 单锅详情（origin 事故链接 + 触发历史）+ retire 队列（eval 判定 dormant 候选，operator 批准）。
+**主视图 = 单 unit 生命线弹窗**（operator 产品模型，msg `0001783689753064`）：`v1 → 观测事件（计数/锚点）→ eval verdict → 治理动作（diff 可看）→ v2 → …` append-only 时间线，含"证据不足累计下一窗"与"直接禁用"分支；用户可视 + 可自助回滚（override 层语义）。组件按 unit-type 无关设计——段先上，skill（overlay 形态落地后）/MCP 复用。**数据 = 既有流 read-model join，零新增采集**：InjectionTrace + GuardRejectionEventLog + eval verdict artifact + OverrideChangeEvent + PatchTrial；唯一待接 join = per-segment verdict（judgment schema §2）。辅视图保留原 registry 浏览（四层筛选 / status / retire 队列，operator 批准入口）。首条真实生命线已存在：`eval:harness-ledger` 2026-07-12 03:00 首轮 weekly（0 事件 → keep_observe，sol 产 opus 复核）。
 
 ### Phase E: 闭环验证（含自举验收）
 
