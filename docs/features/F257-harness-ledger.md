@@ -243,6 +243,7 @@ created: 2026-07-06
 | 2026-07-07 | co-creator 方向质疑（"改了好像也没用"）→ 修补环显式建模（KD-9）+ 开工顺序调转"问题先行，账本伴生"（KD-10）+ AC-A0 换判据；记录 SC-004 |
 | 2026-07-08 | co-creator 七问 → 能力盘点 gap 分析（`86ac0ab41`，记录 SC-005）；三重定 + 共创邀请 → 四猫体感征集（A1 公理三样本，`8b593dfd5`）；v0 草案（`0bf619d3c`）→ codex 落地 review（4P1+6P2，放行方向）→ v0.1 修入 + spec Phase A 对齐（KD-11）；否 git PR 直改 → v0.2 override-first（KD-12）；五问 gate → v0.3 |
 | 2026-07-09 | **#1075 合入 main（`ebffcd8e5`）**：46 hook.yaml 就位、段口径切换；重验证实逐段 TraceEvent 仍被 drain → 「trace 持久化桥」独立工作项；PR3 归属共识落账（KD-13） |
+| 2026-07-13 | **KD-14 审批执行器第一腿合入 develop_base（PR #34 `273126849`）**：operator-gated override routes（GET lifeline 读面 KD-19 + POST enable/disable/rollback，reason 必填进审计）；terra R1 P2×2（非字符串 body→500 / unknown-hook rollback 污染永久审计流）→ fail-closed 修复（store 边界 resolveManifest；audit 同型 clearContentOverride 一并；orphan override 显式 fail-closed 留迁移通道）→ FINAL PASS @ `2c58a37a9`；fork 等价 gate 18726 tests / 18622 pass，69 fail 逐一证明 pre-existing（21 文件零 import + capabilities-route 裸基线同构对照）；下一步 D21 隔离集成验收（opus 接棒） |
 
 ## In-context Observability（明厨亮灶决策）
 
