@@ -96,6 +96,7 @@ created: 2026-07-06
 ### Phase D: Console — Harness Unit 版本生命线（KD-19 重定主视图）
 
 **主视图 = 单 unit 生命线弹窗**（operator 产品模型，msg `0001783689753064`）：`v1 → 观测事件（计数/锚点）→ eval verdict → 治理动作（diff 可看）→ v2 → …` append-only 时间线，含"证据不足累计下一窗"与"直接禁用"分支；用户可视 + 可自助回滚（override 层语义）。组件按 unit-type 无关设计——段先上，skill（overlay 形态落地后）/MCP 复用。**数据 = 既有流 read-model join，零新增采集**：InjectionTrace + GuardRejectionEventLog + eval verdict artifact + OverrideChangeEvent + PatchTrial；唯一待接 join = per-segment verdict（judgment schema §2）。辅视图保留原 registry 浏览（四层筛选 / status / retire 队列，operator 批准入口）。首条真实生命线已存在：`eval:harness-ledger` 2026-07-12 03:00 首轮 weekly（0 事件 → keep_observe，sol 产 opus 复核）。
+**Operator AC 再确认 + 细化（2026-07-14 03:04，msg `0001783998256727`）**：段生命线需含**进行时状态标签**（如 `v1 → tracing 中`），且 tracing 态可展开"本阶段已收集哪些事件"（计数+锚点列表）——即生命线不只展示已完结环，进行中的观测窗口也要可见可下钻。这是 Phase D 的 operator 验收基准线（"至少可以在 console 的段那里预览到某个段的评估状态"）。
 
 ### Phase E: 闭环验证（含自举验收）
 
