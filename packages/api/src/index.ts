@@ -3252,6 +3252,8 @@ async function main(): Promise<void> {
     ...(tmuxGateway ? { tmuxGateway } : {}),
     ...(agentPaneRegistry ? { agentPaneRegistry } : {}),
     portDiscovery,
+    // F220 Phase 2a (#972): pass invocationTracker for active-pane canonical liveness fallback
+    invocationTracker,
   });
   await app.register(previewRoutes, {
     portDiscovery,
