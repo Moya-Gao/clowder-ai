@@ -68,11 +68,49 @@ candidate:
     O2（立即可做）：shared-rules.local 端口与数据隔离段增补运行时根路径
     （/Users/lang/workspace/github-lab/cat-cafe-develop-base）+「查运行时状态
     先 `env | grep`，进程环境变量是运行实例注入的一手真相」。
-    O1（升级路径）：session-init 注入结构化 runtime facts 卡
-    （运行时根路径 / REDIS_URL / 保留端口表），随判定引擎验证后决定是否升级。
+    O1（operator 2026-07-14 02:24 方向确认，msg 0001783995880396）：session-init
+    结构化注入三元组——①我们自己的运行环境（运行时根路径/REDIS_URL/保留端口）
+    ②当前项目环境 ③实际工作信息（get_thread_metadata 拉取）。
   proposedAction:
-    mechanism: rewrite            # 改写现有 .local 规则段承载（O2 先行）
-    rollback: revert 该文档段落（纯文本，零运行时影响）
+    mechanism: rewrite            # O2 先行；O1 随段迭代落 hook（operator 已拍方向）
+    rollback: revert 该文档段落（纯文本，零运行时影响）；O1 段可 override-disable
+  status: proposed                # operator 方向已确认，等正式点头即执行 O2
+  approval:
+    approvedBy: null
+    decidedAt: null
+    note: operator 2026-07-14 02:24 明确「拉起的时候应该要注入环境信息」——方向确认，
+      正式 approval 待一句「LI-002 批了」（approvedBy 猫不可代填）
+```
+
+## LI-003 — operator 优化结论/纠偏无事件通道（operator 本人点名的缺口）
+
+```yaml
+candidate:
+  candidateId: LI-003
+  type: missing-segment
+  targetSegmentIds: []
+  originKind: live-incident
+  evidence:
+    anchors:
+      - msg 0001783995880396-001155  # 02:24「即使没到阈值，也应该作为某个段的事件；
+                                      #   或新增的无段匹配的事件记录下来；之后要进行评估」
+      - msg 0001783992409176-001111  # 01:26 Q2「你们怎么知道我发的纠偏是一个 signal」
+      - Fable Q2 回答（承认纠偏信号零采集通道，同日）
+    summary: >
+      operator 的优化结论/纠偏当前没有任何事件化通道——guard 阈值触发只覆盖
+      O1 结构拦截（http_rate_limit/route_decision_block 两类），operator 语义
+      信号（今日实测 4+ 条纠偏）账本收到 0 条。operator 正式要求：此类结论
+      即使未达阈值也必须入账（有段匹配挂段、无段匹配记 missing-segment 事件），
+      并排入后续评估。本单自身即首个用例：02:24 消息已按此语义入账。
+  proposedSegment: >
+    纠偏事件通道：GuardRejectionEventLog 新增 kind: operator_correction
+    （schema §2.1b Week2+ 六类预留位），采集方式候选——ⓐ operator 消息一键标记
+    ⓑ 猫收到纠偏时结构化 ack 强制入账 ⓒ eval 猫离线扫 thread LLM 判定（非关键词）
+    ——三者不互斥，ⓑ 可最先落（猫侧行为约定 + append API 已存在）。
+    入账事件无阈值直接排入下轮 eval；判定引擎消费其 violationCount。
+  proposedAction:
+    mechanism: add-guard          # 广义：新增事件采集通道 + 猫侧 ack 纪律
+    rollback: 停用该 kind 的采集（append 端 flag），已入账事件保留（append-only）
   status: proposed
   approval:
     approvedBy: null
