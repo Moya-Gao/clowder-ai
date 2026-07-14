@@ -118,6 +118,39 @@ candidate:
     note: null
 ```
 
+## LI-004 — 运行实例 worktree 被直接 commit → develop_base 持续分叉（部署阻塞根因）
+
+```yaml
+candidate:
+  candidateId: LI-004
+  type: missing-segment
+  targetSegmentIds: []
+  originKind: live-incident
+  evidence:
+    anchors:
+      - "git: 49e3c16b3 (19:39) + 647c21979 (09:26)，author Ragdoll-Opus-4.6，直接 commit 到 cat-cafe-develop-base 本地 develop_base"
+      - "git cherry: 同 patch 经正规渠道入 origin（42405db0a/bcd0835bd）→ 同内容异 SHA 分叉"
+      - "下游效应①：opus feature 分支从本地线切出 → 28 commits/12k 行假 diff，review 被阻一轮"
+      - "下游效应②：PR #35 合入 origin 后运行实例吃不到（pull --ff-only fatal）→ F257 部署阻塞"
+    summary: >
+      猫 session 在运行实例 worktree（cat-cafe-develop-base）直接 commit 而非走
+      feature 分支 → origin PR → pull 回流；无任何 guard 拦截。共享集成分支
+      出现私有平行历史，正在进行时（两笔间隔 14h）。
+  proposedSegment: >
+    「运行实例 worktree 写保护」guard——O1：cat-cafe-develop-base 加 pre-commit
+    hook 拒绝猫 identity 的直接 commit（提示走 feature 分支）；O2 伴随：家规
+    端口与数据隔离段增补「运行实例目录对猫只读，改动一律 feature 分支 → origin
+    → pull」。
+  proposedAction:
+    mechanism: add-guard
+    rollback: 移除 pre-commit hook（单文件）；O2 revert 文档段
+  status: proposed
+  approval:
+    approvedBy: null
+    decidedAt: null
+    note: null
+```
+
 ## 下一步（五环推进路径）
 
 1. **审批环**：本文件即两单的审批载体雏形——operator 在 thread 对 LI-001/LI-002 点头或驳回（正式审批卡 UI 随 Phase D；#34 执行器 API 面向 override 类 mechanism，add-guard/rewrite 类走源码/文档 PR + 本账留痕）。
