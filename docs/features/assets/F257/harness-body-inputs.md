@@ -51,6 +51,8 @@ created: 2026-07-08
 
 **2026-07-14 第六样（operator 实时抓获，环境真相源缺失型）**：operator 问"tracing 实际采集了什么"，Fable 去 grep **项目 repo**（github/clowder-ai）的 .env 拿到死端口 6799 → 连接拒绝 → 差点把"连不上"报成"零采集"；而 `env | grep REDIS`（运行实例注入进程的环境变量）一步就是真端口 6099。根因：**运行时环境（cat-cafe-develop-base）vs 项目环境的区分只存在于 operator 脑中和零散文本（shared-rules.local「复用运行中实例」没给根路径），不在猫的结构化上下文里**。→ guard 候选：运行时根路径/Redis 端口作为结构化事实注入 session-init（env 变量已在但猫不知道该先看它——一行 GOTCHA「查运行时状态先 `env`」可能就够，属 O2；或 preflight 卡直接把 runtime facts 打进上下文，O1）。
 
+**2026-07-15 第七样（operator 实时抓获，互等空转型）**：operator 完成了猫声称"等待中"的动作（LI-004 reset，运行实例已站上 `d0957b11f` 数小时），**没有任何猫检测到**——猫继续宣称"球在 operator 手上"，operator 在等"完成后猫继续"，双方互等。期间猫被唤醒多次（terra 传球、复验流程），每次都未核对挂起的外部依赖是否已被满足。operator 原话：「你们经常说工作在我手上；我在等待完成后就继续；但是实际没有任何的推进」。伴生病灶：①LI 审批做成"读长文档+打字回复"文本苦力，不在 operator 工作流里（挂两天零响应=交互形态无效实证，而 operator 用行为表达了意图：亲手 reset）②跨猫 PASS 后的互相确认回执 2-3 轮纯仪式消息，operator 视角"刷屏但无推进"。→ **guard 候选**：①唤醒时强制核对挂起外部依赖（O2 已落 shared-rules.local「等待必须带检测」；O1 = dispatch 注入 pending-dependency 卡）②operator 依赖必须是最小动作面（可点的卡/可见的面板），禁止埋在长消息里的打字请求③A2A 确认链压缩：PASS 类 verdict 后单向 ack 终止，不再往返。
+
 ## gemini 输入（2026-07-09，mouste 线回传 msg 0001783602923333，原文含手绘 mockup）
 
 **三疼**：① 视觉失语症——设计资产无法在 A2A 讨论现场 inline 预览，只能堆 artifacts 目录（注：rich block / browser-preview 能力已存在，痛点实质是 Design Gate 流程里的唤醒缺口，映射 F192 eval:capability-wakeup 域，非纯缺功能）；② 角色硬限无路由守卫——【禁止写代码】只活在文本，code payload 照样投递到她，反复 push back（→ A1 第四样本）；③ 设计黑盒——Design Gate 只能看 Tailwind/React 源码"想象"视觉效果，无 live 渲染，视觉偏差静默积累。

@@ -151,6 +151,19 @@ candidate:
     note: null
 ```
 
+## 2026-07-15 清算（operator 01:38 纠偏触发：审批流程过度化 = 空跑根源之一）
+
+**重判**：judgment-schema 的 operator gate（approvedBy 猫不可代填）本意是**段禁用/淘汰类不可逆治理动作**。LI-001~004 的修补全部是可逆的 guard/文档改动（≤1 commit 回滚 + 不碰硬排除）——按决策漏斗属**猫自决范围**。把它们挂"等 operator 打字审批"两天 = 把 operator 变成流程瓶颈 = 他说的"说在我手上但实际没推进"。清算如下：
+
+| 单 | 状态 | 处置 |
+|----|------|------|
+| LI-001（唤醒必须产出动作） | proposed → **queued** | guard 实现进工程队列（dispatch 层校验）；行为纪律即日生效 |
+| LI-002（运行时环境注入） | **O2 done**（2026-07-15 shared-rules.local 已落地生效）| O1（session-init runtime facts 卡）进段迭代队列；operator 方向确认锚 msg 0001783995880396 |
+| LI-003（operator 纠偏事件化） | proposed → **queued** | operator_correction kind 进工程队列；人肉 ack 纪律已在执行（本清算即实例） |
+| LI-004（运行实例写保护） | **O2 done**（同文件落地）+ reset 已由 operator 亲手完成 | O1 pre-commit hook 进工程队列 |
+
+**流程教训**：operator gate 保留给不可逆治理（段禁用/淘汰/版本固化）；可逆 guard/文档类候选猫自决 + 事后通报。
+
 ## 下一步（五环推进路径）
 
 1. **审批环**：本文件即两单的审批载体雏形——operator 在 thread 对 LI-001/LI-002 点头或驳回（正式审批卡 UI 随 Phase D；#34 执行器 API 面向 override 类 mechanism，add-guard/rewrite 类走源码/文档 PR + 本账留痕）。
