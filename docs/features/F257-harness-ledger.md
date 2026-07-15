@@ -97,6 +97,7 @@ created: 2026-07-06
 
 **主视图 = 单 unit 生命线弹窗**（operator 产品模型，msg `0001783689753064`）：`v1 → 观测事件（计数/锚点）→ eval verdict → 治理动作（diff 可看）→ v2 → …` append-only 时间线，含"证据不足累计下一窗"与"直接禁用"分支；用户可视 + 可自助回滚（override 层语义）。组件按 unit-type 无关设计——段先上，skill（overlay 形态落地后）/MCP 复用。**数据 = 既有流 read-model join，零新增采集**：InjectionTrace + GuardRejectionEventLog + eval verdict artifact + OverrideChangeEvent + PatchTrial；唯一待接 join = per-segment verdict（judgment schema §2）。辅视图保留原 registry 浏览（四层筛选 / status / retire 队列，operator 批准入口）。首条真实生命线已存在：`eval:harness-ledger` 2026-07-12 03:00 首轮 weekly（0 事件 → keep_observe，sol 产 opus 复核）。
 **Operator AC 再确认 + 细化（2026-07-14 03:04，msg `0001783998256727`）**：段生命线需含**进行时状态标签**（如 `v1 → tracing 中`），且 tracing 态可展开"本阶段已收集哪些事件"（计数+锚点列表）——即生命线不只展示已完结环，进行中的观测窗口也要可见可下钻。这是 Phase D 的 operator 验收基准线（"至少可以在 console 的段那里预览到某个段的评估状态"）。
+**Operator AC 补遗（2026-07-15 01:35 纠偏，msg `0001784079340858`——上条 AC 只写了 tracing 态，eval 态漏落）**：**eval 节点 pending 态不得为空灰占位**，必须展示进行中的评估指标活值：injectionCount（当前窗口观测数，trace 账现成）、violationCount（窗口 join 违规数，guard 账现成）、评估触发进度（如 0/3 事件 + 窗口期）、denominatorKind、上次 verdict（无则标"从未评估"+原因"零违规事件，引擎不空转"）。数据零新增采集，纯 read-model 展示。归 Phase D 操作面工作项 ③。
 
 ### Phase E: 闭环验证（含自举验收）
 
