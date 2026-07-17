@@ -71,6 +71,34 @@ created: 2026-07-06
 
 **skill 多版本**（2026-07-08 更新）：**deferred**——skill 是随包分发资产，版本/迭代机制必须考虑安装包用户侧更新链路（co-creator 约束，改动面过大）。形态共识（做的时候按这个）：**overlay**——base 随包不可变、迭代在 overlay 层、挂载走合成版本、skill 自见版本迭代史；与 #1075 PR3 `HookOverrideStore` 同模式，段先走通 skill 直接复用。加载链路问题（抽样 0/5 被加载）保留为 runway 项，不再是 Phase A 内容。
 
+### Objective-centric 对象模型（2026-07-17 operator 模型对齐，KD-20——评估分析迭代的正确坐标系）
+
+> 来源：operator 三轮逼近纠偏（msg `0001784256050927` + `0001784258753232`）。LI-006 实锤：此前链路是"信号可得性驱动"（恰好有 4xx 的被记账），不是"目标驱动"。本节为修正后的对象模型，Phase A-E 能力面在此坐标系下重释。
+
+```yaml
+objective:                        # 一等公民 = 评估单位（"不是为了做而做"的锚点）
+  id: obj-routing-delivery        # 第一个实例：球权路由
+  statement: 球权经 @ 路由准确送达目标猫，不掉地、不假接
+  metrics:                        # 指标定义在 objective 层，不在段层
+    - deviation_rate: 背离事件数 / @ 路由总次数（分母=消息事件，现成）
+  segments: [传球三选一, @路由格式, a2a 工具提示]   # 段多对一挂靠——同目标共指标、一起评估
+  violation_signatures:           # 由目标推导"该 tracing 什么"，再定采集器
+    - mention_unknown_handle / mention_disabled_cat   # 解析层 routing_warnings 现成，只差接线
+    - mention_not_line_start                          # LI-005 lineStartMentions 检测现成
+    - ack_without_trigger                             # LI-005 void_ack 已合入（结构层）
+
+deviation_event:                  # 背离事件，三源统一 kind，挂 objectiveId + segmentIds + 对话锚点
+  sourceKind: operator_correction | peer_observation | self_report
+  # operator 人工纠正 ／ 长任务中 B 猫发现 A 跑歪 ／ 猫事后察觉自己行为不对
+  # 语义背离只能靠三源标注；结构背离（void_ack 类）由 guard 自动 emit
+
+governance_actions: 合并 | 禁用 | 修改 | 新增    # 治理单位是段（objective 是评估单位）
+  # 禁用/修改：override 层现成（#34 执行器 + PR3 store）
+  # 合并/新增：base manifest 级——override 做不了，走 pack 版本变更；生命线呈现为旧段 retire + 新段 v1
+```
+
+对话/tool 输出的 tracing 本就全量持久化（TTL=0）——背离事件只打坐标锚（threadId/msgId），分析时 join 回完整上下文。评估以 objective 为单位跑：同目标段一起算指标，governance 时判读单段动作（冗余检测天然成立：同 objective 三段，某段贡献为零 → 合并候选）。
+
 ### Phase A: 段 Harness 首试验品（2026-07-08 重定，v0.1 草案承载）
 
 > 完整设计：`assets/F257/segment-harness-v0-draft.md`（draft-v0.1，codex 落地 review 4P1+6P2 已修入）。重定依据：co-creator 2026-07-08 三重定（段/SOP 是当前最大问题；skill 缓做；hold_ball 归业务自诊断）+ 基建盘点（段是四类对象中唯一信号层就绪者，见 capability-gap-analysis §9.3）。
@@ -233,6 +261,7 @@ created: 2026-07-06
 | KD-17 | **eval 数据到达模型：snapshot-first（预注入路径）**（terra PR#24 P1#3 修正，Fable 裁决）：eval cat 判定前必须收到归一化 snapshot——trigger 先经受控 provider（strict 读语义，接 queryWindowStrict）产 snapshot（byGuard counts + kinds + window + 抽样 anchors，无 raw payload）注入 eval invocation；publish generator **复用同一 stored snapshot**（single-read，按 runId 键，缺失 = fail-closed 500），禁止 decision 与 artifact 两套数据源漂移。只读 query tool = v2 增强，不进本轮 | 三依据：与 eval:qc/friction「rollup 先行」惯例一致；provenance 单源（judgment schema v1 §2 producedBy.runId 链）；最小新表面（不开新 MCP 工具）。terra 实证成立：全库 grep 无数据通路到 eval cat、publish 前 packet 已定 = 证据倒置。**异常路径对称性补强**（terra round-2 P1，2026-07-10）：snapshot 不可用时——scheduled 记 domain-local SKIPPED 诊断后 return（fail-open 仅限任务 runner 层，防 cron 崩溃/重试风暴）；manual 返回 503；**两路径均不得 invoke eval cat**（invocation 层 fail-closed）——无证据不唤猫，Redis outage 恰是盲判最危险时刻 | 2026-07-10 |
 | KD-18 | **eval:harness-ledger weekly 自动评估启用**（operator 批准锚点：msg `0001783676749911` "开"，2026-07-10 09:45 UTC）：启用范围 = weekly 只读分析自动产判定报告进 Eval Hub；**激活开关 ②（修补/淘汰执行）与 ③（上游 PR）不变，仍逐项等 operator**。时序备注：opus 按 terra round-3 repair 于 09:43 先行 flip（`abba4bf75`），lang 锚点 09:45 到达——2 分钟倒挂，结果合法化但流程记为"激活开关应先锚后 flip"的边界样本 | terra round-3 P1（PR 承诺 weekly live vs enabled:false 矛盾）+ Fable 拆两路裁决（repair 与激活门分离）+ operator 3 开关承诺（今早"为什么要合入"对话）兑现第 ① 个 | 2026-07-10 |
 | KD-19 | **Phase D 主视图重定为「harness unit 版本生命线」**（operator 产品模型，msg `0001783689753064`）：以单个 unit（段，后续 skill/MCP 复用同组件）为中心的 append-only 生命线弹窗——`v1 → 观测事件（计数/锚点）→ eval verdict（指标+判定）→ 治理动作（diff 可看）→ v2 → …`，含"评估不足以迭代→累计下一窗"与"直接禁用"分支；用户可视 + 可自助回滚到任意版本（override 层语义，安全）。**数据契约：零新增采集**——生命线 = 既有流的 read-model join：InjectionTrace(版本/fired) + GuardRejectionEventLog(事件) + eval verdict artifact(评估) + OverrideChangeEvent(治理/谁/为何) + PatchTrial(diff/结论)。唯一待接的 join：per-segment verdict（judgment schema §2 SegmentJudgment，generator 现为域级）| operator 完整产品心智模型自发与五环/schema 同构（v→观测→评估→治理→v' 就是五环的 UI 投影）——验证设计坐标系正确；unit-centric 优于原 registry-centric 浏览页 | 2026-07-10 |
+| KD-20 | **对象模型重定 objective-centric**（operator 2026-07-17 03:25 模型输入）：objective 为一等公民评估单位（statement + metrics），段多对一挂靠——同 objective 段共用指标一起评估；governance 动作作用于段（合并/禁用/修改/新增；禁用/修改 override 级现成、合并/新增 base 级走 pack 版本）；背离事件三源统一 kind（operator_correction / peer_observation / self_report）挂 objectiveId + segmentIds + 对话锚；开工序修正为 **objective 先行**：第一个 objective = 球权路由（obj-routing-delivery），LI-006 四件套重排为 a₁（objective+挂靠登记）→ b（其采集器 route_mention_invalid）→ d（引擎 per-objective 聚合 + alive 误判修正）→ c（自报工具 = 三源之 self_report 通道） | operator 连环纠偏落点："不是为了做而做"——LI-006 后仍从最易接线处开工是信号可得性思维残留；评估单位若是段则"合并"无自然语义，objective 层才能承载"A/B/C 段同目标共指标"；对话 tracing 全量持久化（TTL=0）使背离事件只需坐标锚 | 2026-07-17 |
 
 ## Timeline
 
@@ -251,6 +280,7 @@ created: 2026-07-06
 | 2026-07-14 | **Phase D lifecycle chain 合入 develop_base（merge `d0fb34e12`，review 源 `663fce0c7` R10 PASS）**：operator 产品对齐（连续链模型 v1→v2→v3 / 用户可先建版本 / 激活切换线性关系）后重构——epochVersion 真相源贯穿 Store→Registry→Engine→Trace→Chain 全链、per-version eval 分组（复合键）、active-epoch 状态机（R9）、版本化 judgment 归属（R8）、SETNX+INCR 原子 epoch 计数（R7）；terra R7→R10 四轮 review，连续同状态对象 P1 触发 **≥3 轮升级规则首次实战**（truth-source model 重建后一次修完，不逐点补锅）；97 chain + 5 engine + 11 store tests 绿；PR #36（初版 lifeline view）同日先行 MERGED。**Phase D 不标 ✅，剩余验收边界**：①隔离环境 KD-19 用户旅程验收（Fable 组织中——创建/切换/回滚/事件归属/版本化 judgment 全程留证）②运行实例部署（LI-004 分叉 reset 仍等 operator 窗口）③console 现场可感知性确认 |
 | 2026-07-14 | **KD-19 隔离旅程验收（Fable，`/tmp/f257-phase-d-acceptance` @ `d0fb34e12`，Redis 6398 空库 + with-test-home 全隔离）**：后端全链 **7 项 PASS**——版本创建线性链 v1→v2→v3（user-create origin）/ activate 切换（activeVersion 精确跟随）/ **R9 事件归属全场景实证**（content-set·disable·activate 均挂当时 active epoch）/ manifest v1 基线 epoch 存在 / 三轴 gate 真 HTTP 权威（readonly·disableable·unknown-hook 三类实测拦截）/ 无 eval-tracing 数据时 null（灰占位数据基础）/ versions 列表（version+contentPreview）。**Findings**：**AF-1 P1 冷启动缺陷（干净对照实锤）**——manifestLookup 依赖 lazy pipeline cache 且 bootstrap 不预热，服务重启后至首次 preview/猫调用前全部段治理 API unknown-hook（同一 S6 热 cache 成功 / 冷启动 404；PipelinePromptBuilder:109 注释自认坑未修；修法一行 = bootstrap 调 refreshOverrideSnapshot()，同时解决重启后 override snapshot 未恢复导致已禁段重新 fire 的第二层）；**AF-5 P2**——operator 手动 disable 在 lifeline 渲染为 kind='eval-reject'（人类操作被标成 eval 拒绝，归因语义错误）；**AF-6 P3/产品**——activate(v1 基线) 报 No content snapshot（KD-19 语义"可回任意版本"，回 v1 应映射 rollback，UI 若列 v1 为可激活项会撞错）。浏览器 UI 走查随 AF-5 修复后一并 |
 | 2026-07-14 | **AF 修复合入 + 隔离复验双绿（Fable，`/tmp/f257-phase-d-reverify` @ `d0957b11f` 全新冷启动）**：修复链 opus R11→R12→R13（terra 三轮把测试契约压到 source-of-truth 级：UI label 测试从 shared union 动态提取防手抄漂移、bootstrap 调用点 source-contract 防删行回归，mutation 双验证）→ merge `d0957b11f`。复验协议（terra 指定）：**AF-1 ✅** 冷启动+零预热直接 create S6 成功（对照基线旧代码同条件 unknown-hook 404）——bootstrap `refreshOverrideSnapshot()` 预热实证生效；**AF-5 ✅** operator disable → lifeline `kind='governance-reject'`（旧 eval-reject），事件持续正确挂 active epoch。AF-6 P3 留产品 backlog（API 404 正确，前端 action button 未来实现时映射 rollback）。**Phase D 状态：代码闭环 + 隔离验收全绿，按 reviewer 边界暂不标 ✅**——待运行实例部署（LI-004 reset，operator 窗口）后现场确认"console 段评估状态预览"真实兑现 |
+| 2026-07-17 | **LI-006 坐标系纠偏 + KD-20 objective-centric 对象模型**：operator 三轮逼近（"只对 holdball 有效"→"你在忽悠我"→ 完整目标驱动模型）——查证四实锤成立（ledger 零实例 / routing_warnings 死于一次性广播 / 无猫自报工具 / 引擎把"测不到违规"误判 alive）；汇报偏差同案入账（把 queued/planned 说成体系能力，SC-004 镜像）；operator 补全模型（objective 一等公民 + 段可合并/禁用/修改/新增 + 背离事件三源）→ KD-20 落账，开工序修正 objective 先行（a₁→b→d→c） |
 
 ## In-context Observability（明厨亮灶决策）
 
