@@ -3,7 +3,7 @@ feature_ids: [F257]
 topics: [harness, objective-driven, tracing, condition-registry]
 doc_kind: design
 created: 2026-07-17
-status: draft-v1 — 等 operator 确认后才实施（msg 0001784259832429 指令）
+status: v1.1 confirmed — operator 授权拆分/顺序自决 + 无接口兼容约束（msg 0001784260291956）；切片顺序定稿 2→1→3→4
 ---
 
 # F257 全量重设计：Objective-Driven 段评估体系 v1
@@ -111,23 +111,26 @@ deviation 账本（分子）+ 观察面计数（分母）→ per-objective 指�
 | 资产 | 处置 | 理由 |
 |------|------|------|
 | InjectionTrace 注入账 | **保留** | 分母基础设施，objective 模型直接用 |
-| GuardRejectionEventLog 存储层（ZSET+queryWindow） | **改造并轨** | 账本形态正确，扩为 deviation event store（三源+结构统一 schema） |
-| 阈值升级钩子 | **保留** | 挂账本不挂业务代码，模式正确，改挂 deviation 账本 |
+| GuardRejectionEventLog 存储层（ZSET+queryWindow） | **直接重构**为 `DeviationEventLog`（统一 schema：结构 condition 命中 + 三源标注同一账本，sourceKind 区分）——**无兼容层**（operator 授权：客户端应用不需要接口兼容）；存量 7 天 TTL guard events 不迁移，自然到期 | 账本形态（ZSET+时间窗）正确，schema 换代 |
+| 阈值升级钩子 | **保留** | 挂账本不挂业务代码，模式正确，改挂 DeviationEventLog |
 | hold_ball / A2A 两处硬编码 emit | **承认 hotfix，迁移后删除** | 迁入 P4/P3 通用求值器 |
-| 判定引擎 | **改造** | per-segment 计数 → per-objective 聚合 + 段分类学感知 + "测不到≠alive"修正 |
+| 判定引擎 | **直接重构** per-objective（不留 per-segment 兼容路径）：ObjectiveJudgment + 段明细，段分类学感知，"测不到≠alive"修正 | 同上无兼容约束 |
 | 生命线 console + 审批执行器 + override store | **保留** | governance 执行面与呈现面，数据源换 join |
 | ledger YAML schema（锅面向） | **废弃** | 零实例；被 objective / condition / segment 三实体模型取代 |
 | eval:harness-ledger 域注册 | **保留** | 域不变，评估单位换 objective |
 
-## 6. 实施切片（确认后才动，每片独立可验收）
+## 6. 实施切片（定稿顺序 **2→1→3→4**，每片独立可验收）
 
-1. **切片 1**：condition registry schema + 通用求值器（P1 消息面先行）+ obj-routing-delivery 落账 + 4 个路由签名 conditions → AC：console 上看到第一条 objective 指标真数据
-2. **切片 2**：三源标注工具 `cat_cafe_report_harness_signal`（prompt 触发反射 + 挂 objective/segment）→ AC：operator 纠偏 30 秒内成为结构化 deviation
-3. **切片 3**：引擎 per-objective 化 + 两处硬编码 emit 迁移删除 → AC：hold_ball routes 里无任何 F257 代码
+> 排序判据（自决落账）：**语义信号不可回放——不记即永远丢**（operator 纠偏每天都在发生，此刻只能人肉 markdown）；**结构信号可离线回放补采**（P1-P4 流全量持久化 TTL=0，求值器上线后可回测历史，§4.2 离线模式就是为此设计）。所以先堵正在漏的（三源工具），再建随时能补的（通用求值器）。deviation 统一 schema 由切片 2 先定（两者共享）。
+
+1. **切片 2（第一优先）**：DeviationEventLog 统一 schema + 三源标注工具 `cat_cafe_report_harness_signal`（prompt 触发反射 + 挂 objective/segment + 对话坐标锚）→ AC：operator 纠偏 30 秒内成为结构化 deviation，且 backfill LI-001~006
+2. **切片 1**：condition registry schema + 通用求值器（P1 消息面先行，实时+离线双模式）+ obj-routing-delivery 落账 + 4 个路由签名 conditions → AC：console 见第一条 objective 指标真数据 + 离线回放跑通历史窗口
+3. **切片 3**：判定引擎 per-objective 重构（无兼容路径）+ 两处硬编码 emit 迁移删除 → AC：hold_ball routes 无任何 F257 代码
 4. **切片 4**：46 段分类学 + objective 归组全量落账（渐进）+ 新段未挂 objective 的 CI lint
 
-## 7. Open Questions（等 operator）
+## 7. 已决事项（operator 2026-07-17 03:51 授权自决后落账）
 
-1. "52" 口径：46 hooks + SOP 6 步？还是另有 6 个我没盘到的对象？
-2. 归组表 §2 的 8 objectives 粒度认不认（特别是 OBJ-7/8 信息段两组的拆法）？
-3. 切片顺序 1→2→3→4 还是把 2（三源工具）提到最前（你的纠偏此刻只能人肉入账）？
+1. **口径**：正文按实测 46 hooks（可复算）；SOP 6 步独立对象走 eval:sop 委托（KD-8），"52" 不再作为工作口径
+2. **归组粒度**：8 objectives 定稿。OBJ-7/8 判据补充——OBJ-7 = 运行时现场供给（每 turn 变化：队友/世界/导航/模式，背离修数据源）；OBJ-8 = 静态治理与偏好供给（低频变化：宪法/花名册/铲屎官参考，背离修内容）
+3. **切片顺序**：2→1→3→4（判据见 §6 头注）
+4. **兼容性**：零兼容包袱（operator 授权），存储/引擎/schema 直接换代，历史 guard events 不迁移
