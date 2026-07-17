@@ -80,12 +80,12 @@ objective:                        # 一等公民 = 评估单位（"不是为了�
   id: obj-routing-delivery        # 第一个实例：球权路由
   statement: 球权经 @ 路由准确送达目标猫，不掉地、不假接
   metrics:
-    - deviation_rate: 背离事件数 / @ 路由总次数（分母=消息事件，现成）
+    - parse_success_rate: RoutingDecisionFact(resolved) / eligible attempts（**分母需新建 fact**——
+      # sol 落地性 review 证伪"分母现成"：路由诊断当前不落库；完整 token contract 见 redesign §3.2 EM-1）
   segments: [传球三选一, @路由格式, a2a 工具提示]   # 段多对一挂靠——同目标共指标、一起评估
-  violation_signatures:           # 由目标推导"该 tracing 什么"，再定采集器
-    - mention_unknown_handle / mention_disabled_cat   # 解析层 routing_warnings 现成，只差接线
-    - mention_not_line_start                          # LI-005 lineStartMentions 检测现成
-    - ack_without_trigger                             # LI-005 void_ack 已合入（结构层）
+  violation_signatures:           # 由目标推导"该 tracing 什么"，再定采集器（可采集性以 redesign §3.2 status 为准）
+    - unknown_token / disabled_cat / self_excluded / duplicate / …   # 完整 outcome union 随 RoutingDecisionFact 落地
+    - ack_without_trigger                             # void_ack 信号已合入；**率指标需 terminal fact**（blocked-on-fact）
 
 deviation_event:                  # v1.5 起为 discriminated union 三支（真相源：redesign §3.1，本节仅摘要）：
   # condition_hit（exact，系统求值产物）/ magic_word_hit（exact，自动采集）/
@@ -97,7 +97,7 @@ governance_actions: 合并 | 禁用 | 修改 | 新增    # 治理单位是段（
   # 合并/新增：base manifest 级——override 做不了，走 pack 版本变更；生命线呈现为旧段 retire + 新段 v1
 ```
 
-对话/tool 输出的 tracing 本就全量持久化（TTL=0）——背离事件只打坐标锚（threadId/msgId），分析时 join 回完整上下文。评估以 objective 为单位跑：同目标段一起算指标，governance 时判读单段动作（冗余检测天然成立：同 objective 三段，某段贡献为零 → 合并候选）。
+持久化现状实测（sol 落地性 review，redesign §4.2 现状表为真相源）：消息本体 TTL=0，但**路由诊断不落库、工具调用流仅 7 天 TTL、生命周期关键字段持久化时被丢弃**——"对话/tool tracing 全量可回放"不成立，指标所需 typed fact（RoutingDecisionFact 等）需新建。背离事件只打坐标锚（threadId/msgId），分析时 join 回已持久化的上下文。评估以 objective 为单位跑：同目标段一起算指标，governance 时判读单段动作（冗余检测天然成立：同 objective 三段，某段贡献为零 → 合并候选）。
 
 ### Phase A: 段 Harness 首试验品（2026-07-08 重定，v0.1 草案承载）
 
@@ -123,7 +123,7 @@ governance_actions: 合并 | 禁用 | 修改 | 新增    # 治理单位是段（
 
 ### Phase D: Console — Harness Unit 版本生命线（KD-19 重定主视图）
 
-**主视图 = 单 unit 生命线弹窗**（operator 产品模型，msg `0001783689753064`）：`v1 → 观测事件（计数/锚点）→ eval verdict → 治理动作（diff 可看）→ v2 → …` append-only 时间线，含"证据不足累计下一窗"与"直接禁用"分支；用户可视 + 可自助回滚（override 层语义）。组件按 unit-type 无关设计——段先上，skill（overlay 形态落地后）/MCP 复用。**数据 = 既有流 read-model join，零新增采集**：InjectionTrace + GuardRejectionEventLog + eval verdict artifact + OverrideChangeEvent + PatchTrial；唯一待接 join = per-segment verdict（judgment schema §2）。辅视图保留原 registry 浏览（四层筛选 / status / retire 队列，operator 批准入口）。首条真实生命线已存在：`eval:harness-ledger` 2026-07-12 03:00 首轮 weekly（0 事件 → keep_observe，sol 产 opus 复核）。
+**主视图 = 单 unit 生命线弹窗**（operator 产品模型，msg `0001783689753064`）：`v1 → 观测事件（计数/锚点）→ eval verdict → 治理动作（diff 可看）→ v2 → …` append-only 时间线，含"证据不足累计下一窗"与"直接禁用"分支；用户可视 + 可自助回滚（override 层语义）。组件按 unit-type 无关设计——段先上，skill（overlay 形态落地后）/MCP 复用。**数据 = 既有流 read-model join（"零新增采集"限于生命线视图数据源本身；KD-20 后的 objective 指标评估面需新建 typed fact，见 redesign §4.2——两个口径勿混）**：InjectionTrace + GuardRejectionEventLog + eval verdict artifact + OverrideChangeEvent + PatchTrial；唯一待接 join = per-segment verdict（judgment schema §2）。辅视图保留原 registry 浏览（四层筛选 / status / retire 队列，operator 批准入口）。首条真实生命线已存在：`eval:harness-ledger` 2026-07-12 03:00 首轮 weekly（0 事件 → keep_observe，sol 产 opus 复核）。
 
 **Operator AC 再确认 + 细化（2026-07-14 03:04，msg `0001783998256727`）**：段生命线需含**进行时状态标签**（如 `v1 → tracing 中`），且 tracing 态可展开“本阶段已收集哪些事件”（计数+锚点列表）——即生命线不只展示已完结环，进行中的观测窗口也要可见可下钻。这是 Phase D 的 operator 验收基准线（“至少可以在 console 的段那里预览到某个段的评估状态”）。
 
@@ -262,8 +262,8 @@ governance_actions: 合并 | 禁用 | 修改 | 新增    # 治理单位是段（
 | KD-16 | **PR3 验收边界收口**（原并行铸号 KD-15，与上行撞号后重编——双 Fable 平行落账实录，内容互补：KD-15=交付边界+流程惯例 / KD-16=契约对账+defer 锚点）（Fable 监工批准，行使 KD-14 验收 gate 职权）：PR3 交付集 = KD-13 消费侧契约全集——2026-07-10 逐项核验 ✓（enable/disable/setContentOverride/clearContentOverride/rollback/listOverrides/loadSnapshot + OverrideChangeEvent 事件流 + safetyTier/disableable/limited-edit 门控 + Registry 层 getActiveVersion；59/59 tests @ `4aa3a9a71` = 41 store + 10 pipeline + 8 registry）。F237 doc PR2 时代前瞻句（AC-P2-18 尾项 + Upstream PR3 行）所列三项**显式 defer、不删除**：① version-switch 写路径 + governanceTier 门控——v1 无任意版本写路径（仅 rollback），随多版本 base 管理进 runway（同 skill 多版本 overlay 共识）；② auth model——PR3 纯 store 层无 HTTP 面，鉴权随审批执行器/console 路由落地（KD-14 序列）；③ auto-eval writeback = AC-B2（Phase B；KD-12「迭代环以 PR3 为前提」）。Native S/L 段 override 接入为独立 runway 项（L0 编译链 + cache invalidation；批准锚点 msg `0001783647563293`） | KD-13 契约是 PR3 唯一验收基准（F257 驱动契约）；F237 旧前瞻句未随 KD-12/13 重定同步 = SC-003 型 thread↔spec drift 的又一活体，本行修正落账；三项全部留 runway 不静默消失；sol 拓扑裁决「operator/Fable 已批准决策可为锚点」（msg `0001783656003097`） | 2026-07-10 |
 | KD-17 | **eval 数据到达模型：snapshot-first（预注入路径）**（terra PR#24 P1#3 修正，Fable 裁决）：eval cat 判定前必须收到归一化 snapshot——trigger 先经受控 provider（strict 读语义，接 queryWindowStrict）产 snapshot（byGuard counts + kinds + window + 抽样 anchors，无 raw payload）注入 eval invocation；publish generator **复用同一 stored snapshot**（single-read，按 runId 键，缺失 = fail-closed 500），禁止 decision 与 artifact 两套数据源漂移。只读 query tool = v2 增强，不进本轮 | 三依据：与 eval:qc/friction「rollup 先行」惯例一致；provenance 单源（judgment schema v1 §2 producedBy.runId 链）；最小新表面（不开新 MCP 工具）。terra 实证成立：全库 grep 无数据通路到 eval cat、publish 前 packet 已定 = 证据倒置。**异常路径对称性补强**（terra round-2 P1，2026-07-10）：snapshot 不可用时——scheduled 记 domain-local SKIPPED 诊断后 return（fail-open 仅限任务 runner 层，防 cron 崩溃/重试风暴）；manual 返回 503；**两路径均不得 invoke eval cat**（invocation 层 fail-closed）——无证据不唤猫，Redis outage 恰是盲判最危险时刻 | 2026-07-10 |
 | KD-18 | **eval:harness-ledger weekly 自动评估启用**（operator 批准锚点：msg `0001783676749911` "开"，2026-07-10 09:45 UTC）：启用范围 = weekly 只读分析自动产判定报告进 Eval Hub；**激活开关 ②（修补/淘汰执行）与 ③（上游 PR）不变，仍逐项等 operator**。时序备注：opus 按 terra round-3 repair 于 09:43 先行 flip（`abba4bf75`），lang 锚点 09:45 到达——2 分钟倒挂，结果合法化但流程记为"激活开关应先锚后 flip"的边界样本 | terra round-3 P1（PR 承诺 weekly live vs enabled:false 矛盾）+ Fable 拆两路裁决（repair 与激活门分离）+ operator 3 开关承诺（今早"为什么要合入"对话）兑现第 ① 个 | 2026-07-10 |
-| KD-19 | **Phase D 主视图重定为「harness unit 版本生命线」**（operator 产品模型，msg `0001783689753064`）：以单个 unit（段，后续 skill/MCP 复用同组件）为中心的 append-only 生命线弹窗——`v1 → 观测事件（计数/锚点）→ eval verdict（指标+判定）→ 治理动作（diff 可看）→ v2 → …`，含"评估不足以迭代→累计下一窗"与"直接禁用"分支；用户可视 + 可自助回滚到任意版本（override 层语义，安全）。**数据契约：零新增采集**——生命线 = 既有流的 read-model join：InjectionTrace(版本/fired) + GuardRejectionEventLog(事件) + eval verdict artifact(评估) + OverrideChangeEvent(治理/谁/为何) + PatchTrial(diff/结论)。唯一待接的 join：per-segment verdict（judgment schema §2 SegmentJudgment，generator 现为域级）| operator 完整产品心智模型自发与五环/schema 同构（v→观测→评估→治理→v' 就是五环的 UI 投影）——验证设计坐标系正确；unit-centric 优于原 registry-centric 浏览页 | 2026-07-10 |
-| KD-20 | **对象模型重定 objective-centric**（operator 2026-07-17 03:25 模型输入）：objective 为一等公民评估单位（statement + metrics），段多对一挂靠——同 objective 段共用指标一起评估；governance 动作作用于段（合并/禁用/修改/新增；禁用/修改 override 级现成、合并/新增 base 级走 pack 版本）；背离事件三源统一 kind（operator_correction / peer_observation / self_report）挂 objectiveId + segmentIds + 对话锚；tracing 通用化 + condition 外置（4 观察面 / 声明式谓词 registry / 一个求值器实时+离线双模式），既有两处硬编码 emit 承认 hotfix 迁移后删除；切片顺序 2→1→3→4（语义信号不可回放先堵，结构信号可离线回放后建）【判据当日即被 sol 落地性 review 证伪——"结构可回放"仅对已持久化面成立，路由诊断/guard 命中彼时也在丢；现行顺序 = vertical slice V1→V4，真相源 redesign §6】；零兼容包袱授权（客户端应用） | operator 连环纠偏落点："不是为了做而做"——LI-006 后仍从最易接线处开工是信号可得性思维残留；评估单位若是段则"合并"无自然语义，objective 层才能承载"A/B/C 段同目标共指标"；完整定稿 `assets/F257/objective-driven-redesign-v1.md` | 2026-07-17 |
+| KD-19 | **Phase D 主视图重定为「harness unit 版本生命线」**（operator 产品模型，msg `0001783689753064`）：以单个 unit（段，后续 skill/MCP 复用同组件）为中心的 append-only 生命线弹窗——`v1 → 观测事件（计数/锚点）→ eval verdict（指标+判定）→ 治理动作（diff 可看）→ v2 → …`，含"评估不足以迭代→累计下一窗"与"直接禁用"分支；用户可视 + 可自助回滚到任意版本（override 层语义，安全）。**数据契约：零新增采集**【范围注（2026-07-17）：此契约限于生命线视图数据源，当日成立；KD-20 objective 指标评估面经 sol 落地性 review 证伪"全局零新增"——RoutingDecisionFact 等 typed fact 必需新建，真相源 redesign §4.2】——生命线 = 既有流的 read-model join：InjectionTrace(版本/fired) + GuardRejectionEventLog(事件) + eval verdict artifact(评估) + OverrideChangeEvent(治理/谁/为何) + PatchTrial(diff/结论)。唯一待接的 join：per-segment verdict（judgment schema §2 SegmentJudgment，generator 现为域级）| operator 完整产品心智模型自发与五环/schema 同构（v→观测→评估→治理→v' 就是五环的 UI 投影）——验证设计坐标系正确；unit-centric 优于原 registry-centric 浏览页 | 2026-07-10 |
+| KD-20 | **对象模型重定 objective-centric**（operator 2026-07-17 03:25 模型输入）：objective 为一等公民评估单位（statement + metrics），段多对一挂靠——同 objective 段共用指标一起评估；governance 动作作用于段（合并/禁用/修改/新增；禁用/修改 override 级现成、合并/新增 base 级走 pack 版本）；背离事件三源统一 kind（operator_correction / peer_observation / self_report）挂 objectiveId + segmentIds + 对话锚【schema 当日经 sol review 演进为 union：condition_hit / manual_observation(source=operator|peer|self) 两写入支 + Event Memory 只读投影承载 magic word——真相源 redesign §3.1】；tracing 通用化 + condition 外置（4 观察面 / 声明式谓词 registry / 一个求值器实时+离线双模式），既有两处硬编码 emit 承认 hotfix 迁移后删除；切片顺序 2→1→3→4（语义信号不可回放先堵，结构信号可离线回放后建）【判据当日即被 sol 落地性 review 证伪——"结构可回放"仅对已持久化面成立，路由诊断/guard 命中彼时也在丢；现行顺序 = vertical slice V1→V4，真相源 redesign §6】；零兼容包袱授权（客户端应用） | operator 连环纠偏落点："不是为了做而做"——LI-006 后仍从最易接线处开工是信号可得性思维残留；评估单位若是段则"合并"无自然语义，objective 层才能承载"A/B/C 段同目标共指标"；完整定稿 `assets/F257/objective-driven-redesign-v1.md` | 2026-07-17 |
 
 ## Timeline
 
