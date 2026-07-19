@@ -1,0 +1,27 @@
+{
+  "verdictId": "2026-07-18-qc-c2-keep-observe",
+  "evalSnapshotId": "qc-snapshot-2026-07-18-qc-c2-keep-observe",
+  "featureId": "F253",
+  "generatedAt": "2026-07-19T03:02:53.250Z",
+  "window": {
+    "startMs": 1783728000000,
+    "endMs": 1784332800000,
+    "durationHours": 168
+  },
+  "components": [
+    {
+      "componentId": "qc-pipeline",
+      "componentName": "QC Pipeline",
+      "activationCounts": {
+        "finding_yield": 0,
+        "reviewer_delta": 0,
+        "pr_count": 0
+      },
+      "frictionCounts": {
+        "false_positive_rate": 0,
+        "post_merge_bug_rate": 0
+      },
+      "confidence": "no-data"
+    }
+  ]
+}
