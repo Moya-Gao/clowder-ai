@@ -1,0 +1,15 @@
+{
+  "verdictId": "2026-07-25-qc-c3-keep-observe",
+  "rawInputs": [
+    {
+      "path": "bundles/2026-07-25-qc-c3-keep-observe/snapshot.json",
+      "sha256": "e2d64cfa887ace95ad4aabd6c75d69ed8391d8619c713d78c20bcc8c374c1574"
+    }
+  ],
+  "generatedAt": "2026-07-26T03:00:53.244Z",
+  "generator": {
+    "name": "qc-generator-adapter",
+    "version": "1.0.0"
+  },
+  "sanitizeRulesVersion": "1.0.0"
+}

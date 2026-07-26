@@ -1,0 +1,11 @@
+{
+  "verdictId": "2026-07-25-qc-c3-keep-observe",
+  "featureId": "F253",
+  "evalSnapshotId": "qc-snapshot-2026-07-25-qc-c3-keep-observe",
+  "generatedAt": "2026-07-26T03:00:53.244Z",
+  "findings": [],
+  "noFindingRecord": {
+    "reason": "Zero-baseline bootstrap (Phase C) — no live QC data sources wired",
+    "evidence": "All QC metrics are zero (prCount=0). Eval:qc data pipeline not yet active."
+  }
+}
