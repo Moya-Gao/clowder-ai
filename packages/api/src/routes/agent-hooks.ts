@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import { getAgentHookStatus, syncAgentHooks } from '../agent-hooks/index.js';
 import { findMonorepoRoot } from '../utils/monorepo-root.js';
@@ -93,11 +93,20 @@ async function validateExplicitProjectPath(
     return { ok: false, error: `Invalid project path: not found, denied, or not a directory: ${rawPath}` };
   }
 
-  if (!existsSync(join(validated, '.cat-cafe'))) {
-    return { ok: false, error: `Project not initialized (missing .cat-cafe/): ${validated}` };
+  // Walk up from validated path to find nearest ancestor with .cat-cafe/.
+  // Monorepo setups often have .cat-cafe/ at the repo root, not in
+  // subdirectories like packages/api.
+  let current = validated;
+  while (true) {
+    if (existsSync(join(current, '.cat-cafe'))) {
+      return { ok: true, path: current };
+    }
+    const parent = dirname(current);
+    if (parent === current) break; // reached filesystem root
+    current = parent;
   }
 
-  return { ok: true, path: validated };
+  return { ok: false, error: `Project not initialized (missing .cat-cafe/): ${rawPath}` };
 }
 
 function resolveOptions(

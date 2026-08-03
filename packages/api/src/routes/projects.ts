@@ -6,9 +6,10 @@
  */
 
 import { execFile } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { readdir, realpath, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { basename, posix, resolve, win32 } from 'node:path';
+import { basename, dirname, join, posix, resolve, win32 } from 'node:path';
 import { promisify } from 'node:util';
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { resolvePersistentProjectPath } from '../utils/persistent-project-path.js';
@@ -174,9 +175,20 @@ function requireTrustedProjectIdentity(request: FastifyRequest, reply: FastifyRe
 }
 
 export const projectsRoutes: FastifyPluginAsync = async (app) => {
-  // GET /api/projects/cwd - return server's working directory
+  // GET /api/projects/cwd - return the nearest project root (walking up from
+  // process.cwd() to find .cat-cafe/). Falls back to cwd if no .cat-cafe found.
   app.get('/api/projects/cwd', async () => {
     const cwd = process.cwd();
+    // Walk up from cwd to find the nearest ancestor with .cat-cafe/
+    let current = cwd;
+    while (true) {
+      if (existsSync(join(current, '.cat-cafe'))) {
+        return { path: current, name: basename(current) };
+      }
+      const parent = dirname(current);
+      if (parent === current) break; // reached filesystem root
+      current = parent;
+    }
     return { path: cwd, name: basename(cwd) };
   });
 
