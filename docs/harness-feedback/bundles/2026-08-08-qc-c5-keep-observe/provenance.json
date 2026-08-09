@@ -1,0 +1,15 @@
+{
+  "verdictId": "2026-08-08-qc-c5-keep-observe",
+  "rawInputs": [
+    {
+      "path": "bundles/2026-08-08-qc-c5-keep-observe/snapshot.json",
+      "sha256": "3730d65b64a34c66f1352369ce9db9604ab0b9628afc866ef895b1999f1d4232"
+    }
+  ],
+  "generatedAt": "2026-08-09T03:10:00.272Z",
+  "generator": {
+    "name": "qc-generator-adapter",
+    "version": "1.0.0"
+  },
+  "sanitizeRulesVersion": "1.0.0"
+}

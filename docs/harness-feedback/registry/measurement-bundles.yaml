@@ -1,13 +1,13 @@
 kind: f267-measurement-bundle-census
 schemaVersion: 2
-generatedAt: "2026-08-09T03:00:00.000Z"
+generatedAt: "2026-08-09T03:00:33.125Z"
 sources:
   registryDir: docs/harness-feedback/eval-domains
   instructionMap: packages/api/src/infrastructure/harness-eval/eval-cat-invocation.ts#DOMAIN_INSTRUCTIONS
   publishMap: packages/api/src/infrastructure/harness-eval/eval-cat-invocation.ts#PUBLISH_VERDICT_INSTRUCTIONS_BY_DOMAIN
   verdictDir: docs/harness-feedback/verdicts
-verdictCorpusHash: "0000000000000000000000000000000000000000000000000000000000000000"
-committedVerdictArtifactCount: 0
+verdictCorpusHash: "e4f9bc08e4b9b1d7f0033a62bef78116191ffddd9269934d24081903bb224f26"
+committedVerdictArtifactCount: 4
 entries:
   - domainId: eval:a2a
     classification: active_decision_bearing
@@ -15,12 +15,12 @@ entries:
     decisionConsumer:
       featureId: F167
       ownerCatId: opus-47
-      allowedActions: [keep_observe, fix, build, delete_sunset]
+      allowedActions: [ keep_observe, fix, build, delete_sunset ]
     sourceSelector:
       adapter: f167-runtime-eval
       kind: a2a-snapshot-attribution
-    committedVerdictArtifactCount: 0
-    functionalEquivalents: [eval:a2a]
+    committedVerdictArtifactCount: 2
+    functionalEquivalents: [ eval:a2a ]
     evidence:
       domainInstructions: true
       publishInstructions: true
@@ -39,12 +39,12 @@ entries:
     decisionConsumer:
       featureId: F236
       ownerCatId: opus-47
-      allowedActions: [keep_observe, fix, build, delete_sunset]
+      allowedActions: [ keep_observe, fix, build, delete_sunset ]
     sourceSelector:
       adapter: f236-anchor-telemetry-rollup
       kind: anchor-telemetry-snapshot
     committedVerdictArtifactCount: 0
-    functionalEquivalents: [eval:anchor-first]
+    functionalEquivalents: [ eval:anchor-first ]
     evidence:
       domainInstructions: true
       publishInstructions: true
@@ -68,7 +68,7 @@ entries:
       adapter: capability-tips-usage
       kind: capability-tips-usage-window
     committedVerdictArtifactCount: 0
-    functionalEquivalents: [eval:capability-tips]
+    functionalEquivalents: [ eval:capability-tips ]
     evidence:
       domainInstructions: false
       publishInstructions: false
@@ -87,12 +87,12 @@ entries:
     decisionConsumer:
       featureId: F203
       ownerCatId: opus-47
-      allowedActions: [keep_observe, fix, build, delete_sunset]
+      allowedActions: [ keep_observe, fix, build, delete_sunset ]
     sourceSelector:
       adapter: capability-wakeup-eval
       kind: capability-wakeup-trial-window
     committedVerdictArtifactCount: 0
-    functionalEquivalents: [eval:capability-wakeup]
+    functionalEquivalents: [ eval:capability-wakeup ]
     evidence:
       domainInstructions: true
       publishInstructions: true
@@ -116,7 +116,7 @@ entries:
       adapter: f168-external-case-eval
       kind: a2a-snapshot-attribution
     committedVerdictArtifactCount: 0
-    functionalEquivalents: [eval:external-case-closure]
+    functionalEquivalents: [ eval:external-case-closure ]
     evidence:
       domainInstructions: false
       publishInstructions: false
@@ -135,12 +135,12 @@ entries:
     decisionConsumer:
       featureId: F254
       ownerCatId: codex
-      allowedActions: [keep_observe, fix, build, delete_sunset]
+      allowedActions: [ keep_observe, fix, build, delete_sunset ]
     sourceSelector:
       adapter: f254-freshness-replay
       kind: freshness-closure-replay
     committedVerdictArtifactCount: 0
-    functionalEquivalents: [eval:freshness]
+    functionalEquivalents: [ eval:freshness ]
     evidence:
       domainInstructions: true
       publishInstructions: true
@@ -159,12 +159,12 @@ entries:
     decisionConsumer:
       featureId: F245
       ownerCatId: opus-47
-      allowedActions: [keep_observe, fix, build, delete_sunset]
+      allowedActions: [ keep_observe, fix, build, delete_sunset ]
     sourceSelector:
       adapter: f245-friction-rollup
       kind: friction-rollup-snapshot
-    committedVerdictArtifactCount: 0
-    functionalEquivalents: [eval:friction]
+    committedVerdictArtifactCount: 1
+    functionalEquivalents: [ eval:friction ]
     evidence:
       domainInstructions: true
       publishInstructions: true
@@ -183,12 +183,12 @@ entries:
     decisionConsumer:
       featureId: F200
       ownerCatId: opus-47
-      allowedActions: [keep_observe, fix, build, delete_sunset]
+      allowedActions: [ keep_observe, fix, build, delete_sunset ]
     sourceSelector:
       adapter: f200-f188-memory-eval
       kind: memory-recall-snapshot
     committedVerdictArtifactCount: 0
-    functionalEquivalents: [eval:memory]
+    functionalEquivalents: [ eval:memory ]
     evidence:
       domainInstructions: true
       publishInstructions: true
@@ -207,12 +207,12 @@ entries:
     decisionConsumer:
       featureId: F253
       ownerCatId: opus
-      allowedActions: [keep_observe, fix, build, delete_sunset]
+      allowedActions: [ keep_observe, fix, build, delete_sunset ]
     sourceSelector:
       adapter: qc-metrics-eval
       kind: qc-metrics-rollup
-    committedVerdictArtifactCount: 0
-    functionalEquivalents: [eval:qc]
+    committedVerdictArtifactCount: 1
+    functionalEquivalents: [ eval:qc ]
     evidence:
       domainInstructions: true
       publishInstructions: true
@@ -231,12 +231,12 @@ entries:
     decisionConsumer:
       featureId: F192
       ownerCatId: opus
-      allowedActions: [keep_observe, fix, build, delete_sunset]
+      allowedActions: [ keep_observe, fix, build, delete_sunset ]
     sourceSelector:
       adapter: sop-trace-eval
       kind: sop-trace-eval
     committedVerdictArtifactCount: 0
-    functionalEquivalents: [eval:sop]
+    functionalEquivalents: [ eval:sop ]
     evidence:
       domainInstructions: true
       publishInstructions: true
@@ -255,12 +255,12 @@ entries:
     decisionConsumer:
       featureId: F192
       ownerCatId: opus
-      allowedActions: [keep_observe, fix, build, delete_sunset]
+      allowedActions: [ keep_observe, fix, build, delete_sunset ]
     sourceSelector:
       adapter: task-outcome-eval
       kind: task-outcome-snapshot
     committedVerdictArtifactCount: 0
-    functionalEquivalents: [eval:task-outcome]
+    functionalEquivalents: [ eval:task-outcome ]
     evidence:
       domainInstructions: true
       publishInstructions: true

@@ -1,0 +1,21 @@
+{
+  "verdictId": "2026-08-08-qc-c5-keep-observe",
+  "domainId": "eval:qc",
+  "createdAt": "2026-08-09T03:00:33.125Z",
+  "verdict": "keep_observe",
+  "harnessUnderEval": {
+    "featureId": "F253",
+    "componentId": "qc-loop-metrics",
+    "name": "QC Pipeline Metrics Rollup"
+  },
+  "ownerAsk": {
+    "targetFeatureId": "F253",
+    "targetOwnerCatId": "opus",
+    "requestedAction": "Final keep_observe. Week 6 escalation to build with Phase D wiring."
+  },
+  "acceptanceReevalPlan": {
+    "nextEvalAt": "2026-08-16T03:00:00.000Z",
+    "closureCondition": "Metric non-zero OR Phase D. Week 6: keep_observe → build."
+  },
+  "schemaVersion": 1
+}
