@@ -106,20 +106,20 @@ entries:
       actionGate: keep_observe_only
       hardBlockReason: null
   - domainId: eval:external-case-closure
-    classification: active_decision_bearing
+    classification: registered_nonoperational
     enabled: true
     decisionConsumer:
       featureId: F168
       ownerCatId: opus48
-      allowedActions: [keep_observe, fix, build, delete_sunset]
+      allowedActions: []
     sourceSelector:
       adapter: f168-external-case-eval
       kind: a2a-snapshot-attribution
     committedVerdictArtifactCount: 0
     functionalEquivalents: [eval:external-case-closure]
     evidence:
-      domainInstructions: true
-      publishInstructions: true
+      domainInstructions: false
+      publishInstructions: false
     validityMigration:
       riskRank: null
       batch: null
