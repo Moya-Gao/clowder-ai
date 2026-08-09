@@ -63,7 +63,7 @@ entries:
     decisionConsumer:
       featureId: F244
       ownerCatId: codex-sol
-      allowedActions: [keep_observe, fix, build, delete_sunset]
+      allowedActions: [keep_observe]
     sourceSelector:
       adapter: capability-tips-usage
       kind: capability-tips-usage-window
