@@ -70,8 +70,8 @@ entries:
     committedVerdictArtifactCount: 0
     functionalEquivalents: [eval:capability-tips]
     evidence:
-      domainInstructions: true
-      publishInstructions: true
+      domainInstructions: false
+      publishInstructions: false
     validityMigration:
       riskRank: null
       batch: null
