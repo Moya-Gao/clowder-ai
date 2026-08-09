@@ -25,14 +25,14 @@ entries:
       domainInstructions: true
       publishInstructions: true
     validityMigration:
-      riskRank: null
+      riskRank: 1
       batch: null
       status: unmigrated
       certificateRef: null
       resultRef: null
       replayRef: null
       actionGate: keep_observe_only
-      hardBlockReason: null
+      hardBlockReason: Phase C bootstrap — no F267 certificate yet
   - domainId: eval:anchor-first
     classification: active_decision_bearing
     enabled: true
@@ -49,14 +49,14 @@ entries:
       domainInstructions: true
       publishInstructions: true
     validityMigration:
-      riskRank: null
+      riskRank: 2
       batch: null
       status: unmigrated
       certificateRef: null
       resultRef: null
       replayRef: null
       actionGate: keep_observe_only
-      hardBlockReason: null
+      hardBlockReason: Phase C bootstrap — no F267 certificate yet
   - domainId: eval:capability-tips
     classification: gated
     enabled: false
@@ -75,12 +75,12 @@ entries:
     validityMigration:
       riskRank: null
       batch: null
-      status: unmigrated
+      status: gated
       certificateRef: null
       resultRef: null
       replayRef: null
       actionGate: keep_observe_only
-      hardBlockReason: null
+      hardBlockReason: Disabled — F267 certificate + F268 replay evidence absent
   - domainId: eval:capability-wakeup
     classification: active_decision_bearing
     enabled: true
@@ -97,14 +97,14 @@ entries:
       domainInstructions: true
       publishInstructions: true
     validityMigration:
-      riskRank: null
+      riskRank: 3
       batch: null
       status: unmigrated
       certificateRef: null
       resultRef: null
       replayRef: null
       actionGate: keep_observe_only
-      hardBlockReason: null
+      hardBlockReason: Phase C bootstrap — no F267 certificate yet
   - domainId: eval:external-case-closure
     classification: registered_nonoperational
     enabled: true
@@ -123,12 +123,12 @@ entries:
     validityMigration:
       riskRank: null
       batch: null
-      status: unmigrated
+      status: nonoperational
       certificateRef: null
       resultRef: null
       replayRef: null
       actionGate: keep_observe_only
-      hardBlockReason: null
+      hardBlockReason: No domain instructions or publish instructions wired
   - domainId: eval:freshness
     classification: active_decision_bearing
     enabled: true
@@ -145,14 +145,14 @@ entries:
       domainInstructions: true
       publishInstructions: true
     validityMigration:
-      riskRank: null
+      riskRank: 4
       batch: null
       status: unmigrated
       certificateRef: null
       resultRef: null
       replayRef: null
       actionGate: keep_observe_only
-      hardBlockReason: null
+      hardBlockReason: Phase C bootstrap — no F267 certificate yet
   - domainId: eval:friction
     classification: active_decision_bearing
     enabled: true
@@ -169,14 +169,14 @@ entries:
       domainInstructions: true
       publishInstructions: true
     validityMigration:
-      riskRank: null
+      riskRank: 5
       batch: null
       status: unmigrated
       certificateRef: null
       resultRef: null
       replayRef: null
       actionGate: keep_observe_only
-      hardBlockReason: null
+      hardBlockReason: Phase C bootstrap — no F267 certificate yet
   - domainId: eval:memory
     classification: active_decision_bearing
     enabled: true
@@ -193,14 +193,14 @@ entries:
       domainInstructions: true
       publishInstructions: true
     validityMigration:
-      riskRank: null
-      batch: null
+      riskRank: 6
+      batch: 1
       status: unmigrated
       certificateRef: null
       resultRef: null
       replayRef: null
       actionGate: keep_observe_only
-      hardBlockReason: null
+      hardBlockReason: Phase C bootstrap — no F267 certificate yet
   - domainId: eval:qc
     classification: active_decision_bearing
     enabled: true
@@ -217,14 +217,14 @@ entries:
       domainInstructions: true
       publishInstructions: true
     validityMigration:
-      riskRank: null
+      riskRank: 7
       batch: null
       status: unmigrated
       certificateRef: null
       resultRef: null
       replayRef: null
       actionGate: keep_observe_only
-      hardBlockReason: null
+      hardBlockReason: Phase C bootstrap — no F267 certificate yet
   - domainId: eval:sop
     classification: active_decision_bearing
     enabled: true
@@ -241,14 +241,14 @@ entries:
       domainInstructions: true
       publishInstructions: true
     validityMigration:
-      riskRank: null
+      riskRank: 8
       batch: null
       status: unmigrated
       certificateRef: null
       resultRef: null
       replayRef: null
       actionGate: keep_observe_only
-      hardBlockReason: null
+      hardBlockReason: Phase C bootstrap — no F267 certificate yet
   - domainId: eval:task-outcome
     classification: active_decision_bearing
     enabled: true
@@ -265,11 +265,11 @@ entries:
       domainInstructions: true
       publishInstructions: true
     validityMigration:
-      riskRank: null
+      riskRank: 9
       batch: null
       status: unmigrated
       certificateRef: null
       resultRef: null
       replayRef: null
       actionGate: keep_observe_only
-      hardBlockReason: null
+      hardBlockReason: Phase C bootstrap — no F267 certificate yet
