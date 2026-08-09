@@ -1,0 +1,40 @@
+kind: f267-measurement-bundle-census
+schemaVersion: 2
+generatedAt: "2026-08-09T03:00:00.000Z"
+sources:
+  registryDir: docs/harness-feedback/eval-domains
+  instructionMap: packages/api/src/infrastructure/harness-eval/eval-cat-invocation.ts#DOMAIN_INSTRUCTIONS
+  publishMap: packages/api/src/infrastructure/harness-eval/eval-cat-invocation.ts#PUBLISH_VERDICT_INSTRUCTIONS_BY_DOMAIN
+  verdictDir: docs/harness-feedback/verdicts
+verdictCorpusHash: "0000000000000000000000000000000000000000000000000000000000000000"
+committedVerdictArtifactCount: 0
+entries:
+  - domainId: eval:qc
+    classification: active_decision_bearing
+    enabled: true
+    decisionConsumer:
+      featureId: F253
+      ownerCatId: opus
+      allowedActions:
+        - keep_observe
+        - fix
+        - build
+        - delete_sunset
+    sourceSelector:
+      adapter: qc-metrics-eval
+      kind: qc-metrics-rollup
+    committedVerdictArtifactCount: 0
+    functionalEquivalents:
+      - eval:qc
+    evidence:
+      domainInstructions: true
+      publishInstructions: true
+    validityMigration:
+      riskRank: null
+      batch: null
+      status: unmigrated
+      certificateRef: null
+      resultRef: null
+      replayRef: null
+      actionGate: keep_observe_only
+      hardBlockReason: null
