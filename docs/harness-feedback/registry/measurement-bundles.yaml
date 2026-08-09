@@ -57,7 +57,7 @@ entries:
       replayRef: null
       actionGate: keep_observe_only
       hardBlockReason: null
-  - domainId: eval:capability-tips
+  - ,DOMAIN_PLACEHOLDER
     classification: active_decision_bearing
     enabled: true
     decisionConsumer:
